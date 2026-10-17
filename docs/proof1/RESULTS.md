@@ -9,18 +9,18 @@ Screenshots (headless Chrome, 1280x800 = the Kitchen tablet's CSS size): [kitche
 |---|---|
 | no `hui-*`, `ha-panel-*`, `home-assistant` element | none in the DOM (2,949 elements walked, shadow roots included). Stand-ins are named `ha-card`, `ha-icon`, `ha-state-icon`, `ha-svg-icon`, `mantel-card`, `mantel-grid-card`, `mantel-conditional-card` |
 | no HA frontend JS loaded | every request and every script is from `127.0.0.1:8765` |
-| live updates work | the page applied 6 `hass` updates in 20 s from hub diffs; cards re-render on each |
+| live updates work | the page applied 15 `hass` updates in 20 s from hub diffs; cards re-render on each |
 | commands refused | `hass.callService` rejects `commands_disabled` and shows a toast, nothing sent; a raw `call_service` over the hub socket answers `commands_disabled`; HA writes are never sent (ReadProxy and capture tool allowlists pinned by tests) |
 | console | no errors or warnings |
 
 ## Numbers (Mac, headless Chrome, caches off, 4 cold loads, then 20 s steady)
 | | value |
 |---|---|
-| Page drawn (navigation start to cards attached) | **166 ms** median (runs 163 to 199) |
-| Main-thread script time up to that point | 38 ms (task time 140 ms, layout + style 25 ms) |
+| Page drawn (navigation start to cards attached) | **160 ms** median (runs 157 to 210) |
+| Main-thread script time up to that point | 36 ms (task time 140 ms, layout + style 25 ms) |
 | Page weight | 9.3 MB, mostly fonts, glyph data and card code, uncached |
 | Elements | 2,949 (shadow roots included) |
-| Steady, narrowed to the screen's 226 entities | script **0.014 s per 20 s**, 0.3 hub msgs/s, 43 B/s, 6 `hass` updates per 20 s |
+| Steady, narrowed to the screen's 226 entities | script **0.02 s per 20 s**, 0.75 hub msgs/s, 90 B/s, 15 `hass` updates per 20 s (it varies with what the house does) |
 | Steady, all 4,495 states streaming (`?narrow=0`) | script **0.10 s per 20 s**, 2.6 hub msgs/s, 1.3 kB/s, 51 `hass` updates per 20 s |
 | For comparison, HA's frontend (2026-10-04 profile, a wall tablet) | `core.js` ~1.2 s per 20 s |
 
@@ -33,8 +33,13 @@ How narrowing works: the strategy needs the whole house to decide what to draw, 
 - **Sky background and tab bar are not drawn.** `hk-sky.js` and `hk-tabbar.js` load but find the Lovelace panel by DOM lookups; the page uses HK's flat dark `#05070e`. Not investigated further.
 - The page does not regenerate when settings or registries change (HA's `shouldRegenerate`); it draws once per load.
 - HK feeds are replayed from captured fixtures (settings, music, page headers, snooze). `hk_frontend/events/subscribe` and `frontend/subscribe_user_data` are stood in. Settings changes in HA are not reflected until the fixture is captured again.
-- A chip row start (about 25 px in from the page edge) may differ from HA; the planning session's side-by-side will tell.
 - The ReadProxy forwards live HA reads only for an explicit allowlist (config, themes, forecast, notifications, history, logbook, statistics, energy); it has no per-entity access check yet (RBAC is Phase 3). The Home page needed only `get_config` and `frontend/get_themes`.
 
 ## Where things are
 `web/home.html`, `web/home.js` (the view container), `web/shim/` (hass shim, hub client, HA element stand-ins, card bridge), `web/mdi/` (653 Material Design Icons from `@mdi/js`, Apache-2.0), `hosts/server/mantel_server/readproxy.py`, `hosts/server/tools/capture_fixtures.py`, `tools/headless/` (CDP driver, `home_probe.py`, `home_numbers.py`). Run: `mantel-server session --ha-user-id ID --file ~/.local/share/mantel/measure.cookie` once, then `python tools/headless/home_numbers.py --shot docs/proof1/kitchen-home-1280x800.png`.
+
+## Fidelity fixes after the side-by-side with HA's Kitchen Home (both in `web/shim/cards-bridge.js`)
+Both had the same cause: `hui-card` has a contract that HK's cards rely on and the first stand-in only half kept.
+1. **"input_button.good_morning" instead of "Good Morning".** Not a naming helper: `hk-scenes-card` plans once before it has `hass` (names fall back to the entity id), then plans again with a *new config* and calls `hui-card.load()`. Real `hui-card` rebuilds its card when the config changed; `<mantel-card>` kept the first one. It now rebuilds when the config differs.
+2. **Chip row indented and unevenly gapped.** HK's chips hide themselves (`hidden`, plus `card-visibility-changed`), and `hui-card` hides itself with them; the empty `<mantel-card>` wrappers still took the row's 10 px gaps. `<mantel-card>` now follows its card's visibility (the event, and the `hidden` attribute after every `hass`, as hui-card does). The row now starts at x=24 with even gaps and the same seven chips as HA.
+Added to the `HKClient` surface list: the card factory must honor **re-config → rebuild** and **hidden → collapse**, not just create.

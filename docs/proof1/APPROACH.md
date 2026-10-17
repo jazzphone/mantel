@@ -53,6 +53,8 @@ Everything the Home page read or called, counted in one cold load plus 8 s. `sta
 
 **Globals the page needs from the HA frontend:** `window.loadCardHelpers`, `customIconsets`/`ha-icon` (`_legacy`, `_loadIcon`), `/static/mdi/` chunks, the `hk-cards-ready` event.
 
+**`hui-card` contract HK depends on** (found by the side-by-side): `.hass`, `.config` (a changed config rebuilds the card), `.preview`, `.load()`, collapse when the inner card is `hidden` (event `card-visibility-changed` and the attribute, re-read after every `hass`).
+
 ## What I'd change in HK for Phase 1 (found while building)
 - `hk-settings.js` and `hk-base.js` find the connection by looking for a `<home-assistant>` element: one injected `HKClient` replaces 1,092 lookups on this page alone.
 - `hk-grid-card` / `hk-chip` / `hk-cameras` create `hui-card` and call `loadCardHelpers`: a card factory in HK's own code removes both.

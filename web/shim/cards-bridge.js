@@ -99,18 +99,35 @@ class MantelConditionalCard extends HTMLElement {
 
 // hui-card's contract, enough for HK: set .hass, set .config, call .load()
 class MantelCard extends HTMLElement {
-  constructor() { super(); this.preview = false; this._hass = null; this._config = null; this._el = null; }
-  set hass(h) { this._hass = h; if (this._el) this._el.hass = h; }
+  constructor() {
+    super();
+    this.preview = false; this._hass = null; this._config = null; this._el = null;
+    // hui-card hides itself while its card says it is hidden (HK's chips hide themselves when they have
+    // nothing to show); without that the empty wrapper still takes its flex gap and the row drifts
+    this.addEventListener('card-visibility-changed', (e) => {
+      if (e.target === this._el) this._show(!!e.detail.value);
+    });
+  }
+  _show(on) { this.hidden = !on; this.style.display = on ? 'block' : 'none'; }
+  // (a card may show itself by its `hidden` attribute alone, so it is read after every hass, as hui-card does)
+  set hass(h) { this._hass = h; if (this._el) { this._el.hass = h; this._show(!this._el.hidden); } }
   get hass() { return this._hass; }
   set config(c) { this._config = c; }
   get config() { return this._config; }
+  // hui-card builds its card again when the config it was given has changed (hk-scenes-card re-plans
+  // and hands over a new config); a repeat of the same config leaves the card alone
   load() {
-    if (this._el || !this._config) return;
+    if (!this._config) return;
+    const key = JSON.stringify(this._config);
+    if (this._el && key === this._built) return;
+    if (this._el) this._el.remove();
+    this._built = key;
     this._el = createCardElement(this._config);
     this.appendChild(this._el);
     if (this._hass) this._el.hass = this._hass;
+    this._show(!this._el.hidden);
   }
-  connectedCallback() { this.style.display = this.style.display || 'block'; }
+  connectedCallback() { if (!this.style.display) this.style.display = 'block'; }
 }
 
 export function installCardBridge() {

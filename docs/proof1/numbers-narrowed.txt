@@ -1,28 +1,28 @@
-draw_ms: median 165.5  runs [199, 164, 163, 167]
-script_s_at_draw: median 0.0385  runs [0.037, 0.045, 0.039, 0.038]
-task_s_at_draw: median 0.1405  runs [0.139, 0.147, 0.142, 0.139]
-layout_s_at_draw: median 0.025  runs [0.025, 0.025, 0.026, 0.025]
-weight_kb: median 9314.0  runs [9314, 9314, 9314, 9314]
+draw_ms: median 160  runs [210, 157, 160]
+script_s_at_draw: median 0.036  runs [0.035, 0.037, 0.036]
+task_s_at_draw: median 0.136  runs [0.131, 0.136, 0.136]
+layout_s_at_draw: median 0.024  runs [0.024, 0.025, 0.024]
+weight_kb: median 9318  runs [9318, 9318, 9318]
 {
  "ok": true,
- "draw_ms": 167,
+ "draw_ms": 160,
  "marks": {
-  "module_start": 18,
-  "inputs": 22,
-  "states": 53,
-  "code": 110,
-  "strategy": 132,
-  "rendered": 149
+  "module_start": 20,
+  "inputs": 21,
+  "states": 49,
+  "code": 102,
+  "strategy": 123,
+  "rendered": 140
  },
  "nav": {
-  "dcl": 18,
-  "load": 18
+  "dcl": 21,
+  "load": 21
  },
- "script_s_at_draw": 0.038,
- "task_s_at_draw": 0.139,
- "layout_s_at_draw": 0.025,
- "heap_mb": 14.3,
- "weight_kb": 9314,
+ "script_s_at_draw": 0.036,
+ "task_s_at_draw": 0.136,
+ "layout_s_at_draw": 0.024,
+ "heap_mb": 11.0,
+ "weight_kb": 9318,
  "request_hosts": [
   "127.0.0.1:8765"
  ],
@@ -31,11 +31,11 @@ weight_kb: median 9314.0  runs [9314, 9314, 9314, 9314]
  ],
  "steady": {
   "seconds": 20.0,
-  "script_s_per_20s": 0.014,
-  "task_s_per_20s": 0.07,
-  "hub_msgs_per_s": 0.3,
-  "hub_bytes_per_s": 43,
-  "hass_updates_applied": 6,
+  "script_s_per_20s": 0.023,
+  "task_s_per_20s": 0.078,
+  "hub_msgs_per_s": 0.75,
+  "hub_bytes_per_s": 90,
+  "hass_updates_applied": 15,
   "states_in_page": 226
  },
  "narrowed_to": 226,
