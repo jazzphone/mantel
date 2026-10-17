@@ -1,0 +1,25 @@
+# environments
+.venv/
+venv/
+*.egg-info/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+
+# secrets: never commit
+*.token
+*token*.txt
+secrets/
+.env
+.env.*
+*.pem
+*.key
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+
+# measurement scratch
+*.tmp
