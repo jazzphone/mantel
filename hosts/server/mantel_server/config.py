@@ -15,6 +15,16 @@ class Config:
     port: int = 8765
     default_interval: float = 0.0
     overrides: list[tuple[str, float]] = field(default_factory=list)
+    data_dir: Path = Path("~/.local/share/mantel")
+    session_hours: float = 12.0
+
+    @property
+    def client_id(self) -> str:  # Mantel's own URL; HA requires redirect_uri on the same host
+        return f"http://{self.host}:{self.port}/"
+
+    @property
+    def redirect_uri(self) -> str:
+        return f"http://{self.host}:{self.port}/auth/callback"
 
 
 def parse_args(argv: list[str] | None = None) -> Config:
@@ -26,6 +36,8 @@ def parse_args(argv: list[str] | None = None) -> Config:
                    help="minimum seconds between updates of one entity to one client (0 = none)")
     p.add_argument("--override", action="append", default=[], metavar="GLOB=SECONDS",
                    help="per-entity interval, e.g. 'sensor.*_distance=1' (repeatable)")
+    p.add_argument("--data-dir", default=str(Config.data_dir), help="where mantel.db lives (outside git)")
+    p.add_argument("--session-hours", type=float, default=Config.session_hours)
     a = p.parse_args(argv)
     overrides = []
     for item in a.override:
@@ -34,5 +46,8 @@ def parse_args(argv: list[str] | None = None) -> Config:
             p.error(f"--override needs GLOB=SECONDS, got {item!r}")
         overrides.append((pattern, float(secs)))
     # The listen address is deliberately not configurable: loopback only in this prototype.
-    return Config(ha_url=a.ha_url, token_file=Path(a.token_file), port=a.port,
-                  default_interval=a.default_interval, overrides=overrides)
+    cfg = Config(ha_url=a.ha_url, token_file=Path(a.token_file), port=a.port,
+                  default_interval=a.default_interval, overrides=overrides,
+                 data_dir=Path(a.data_dir), session_hours=a.session_hours)
+    assert cfg.host in LOOPBACK, "Mantel listens on loopback only in this prototype"
+    return cfg

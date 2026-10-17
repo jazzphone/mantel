@@ -4,11 +4,22 @@ from __future__ import annotations
 
 class Registry:
     def __init__(self) -> None:
+        self._areas: list[dict] = []
+        self._devices: list[dict] = []
+        self._entities: list[dict] = []
         self.areas: dict[str, str] = {}  # area_id -> name
         self.entity_area: dict[str, str | None] = {}  # entity_id -> area_id
         self.by_area: dict[str, set[str]] = {}
 
+    def update(self, areas: list[dict] | None = None, devices: list[dict] | None = None,
+               entities: list[dict] | None = None) -> None:
+        """Replace whichever registries were reloaded; keep the others as they were."""
+        self.load(self._areas if areas is None else areas,
+                  self._devices if devices is None else devices,
+                  self._entities if entities is None else entities)
+
     def load(self, areas: list[dict], devices: list[dict], entities: list[dict]) -> None:
+        self._areas, self._devices, self._entities = areas, devices, entities
         self.areas = {a["area_id"]: a.get("name") or a["area_id"] for a in areas}
         device_area = {d["id"]: d.get("area_id") for d in devices}
         entity_area: dict[str, str | None] = {}

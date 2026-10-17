@@ -22,6 +22,19 @@ How to read the numbers
 - **One-time cost:** HA's initial snapshot is 1,400,511 bytes for all 4,495 entities; this client's snapshot is 134,249 bytes (9.6 %) for 499 entities. Attributes dominate both.
 - 52 distinct entities of the 499 changed in 5 minutes.
 
+## Re-measure after the registry fix: 5 minutes, event-driven reload
+
+The hub now reloads a registry only when HA sends `area_registry_updated`, `device_registry_updated` or `entity_registry_updated` (a burst is debounced 2 s into one reload of just the registries that changed). Same screen, same 5 s coalescing probe, 2026-10-17 18:41 to 18:46.
+
+| stream | msgs/s | bytes/s | entity updates/s |
+|---|---:|---:|---:|
+| **From HA (everything, incl. all other frames)** | **11.27** | **1,986** | 11.27 |
+| To client, 499 entities, no coalescing | 0.70 | 123 | 0.87 |
+| To client, 499 entities, coalesced at 5 s | 0.52 | 100 | 0.70 |
+
+- Registry replies in the window: **0 bytes/s** (was 14,883 bytes/s on average). Busiest 10 s window: 3.9 kB/s, against 448 kB/s before. Downstream is 93.8 % (raw) and 95.0 % (coalesced) below upstream, the same as before.
+- The earlier numbers below are kept as they were measured.
+
 ## Other runs
 
 | run | window | screen | HA state stream | client raw | client coalesced |
@@ -36,8 +49,8 @@ How to read the numbers
 
 1. **The filter is the win; coalescing is a small extra on this house.** Selecting what a screen shows removes ~94 to 99 % of the traffic. Coalescing only helps when one entity changes faster than the interval, and the chattiest entities here (Bermuda watch distances, the living-room radar target, power sensors) change about once every 1 to 3 seconds, so a 1 s interval does almost nothing and a 5 s interval trims 12 to 17 %. Coalescing matters for the tablets only if a page shows such an entity; the larger payoff is simply not subscribing to them.
 2. **HA sends one entity per frame.** 12.84 msgs/s carried 12.84 entity updates/s: no batching, so frame overhead is paid per entity change.
-3. **The unfiltered stream is smaller than the plan's framing suggests in bytes, larger in work.** 2.3 kB/s is trivial on the wire. The plan's cost for a Lovelace tab is the ~13 state changes/s each run through `core.js` against 4,495 entities, not bandwidth. A tablet on this hub would handle about 1 update/s.
-4. **Registry polling is expensive: do not do it.** Reloading the area, device and entity registries (4.4 MB per reload) every 5 minutes in this prototype averaged **14.9 kB/s**, six times the entire state stream. It shows up as the 448 kB/s spikes in some 10 s windows. The next version must subscribe to HA's `*_registry_updated` events and reload only on a change (rare).
+3. **The cost is CPU per tab, not bandwidth.** 2 to 2.3 kB/s is trivial on the wire. What a Lovelace tab pays is the ~11 to 13 state changes a second, each run through `core.js` against ~4,500 entities. A tablet on this hub would handle about 1 update/s.
+4. **Registry polling was expensive; it is now event-driven.** Reloading the area, device and entity registries (4.4 MB per reload) every 5 minutes averaged 14.9 kB/s, six times the entire state stream, and caused the 448 kB/s spikes in some 10 s windows. Fixed: see the re-measure above (0 bytes/s of registry replies).
 
 ## Reproduce
 

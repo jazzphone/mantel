@@ -27,8 +27,16 @@ ALLOWED_TYPES = frozenset({
     "config/area_registry/list",
     "config/device_registry/list",
     "config/entity_registry/list",
+    "subscribe_events",  # only for REGISTRY_EVENTS, enforced in check_outgoing
     "ping",
 })
+
+# registry event -> the list call that reloads just that registry
+REGISTRY_EVENTS = {
+    "area_registry_updated": "config/area_registry/list",
+    "device_registry_updated": "config/device_registry/list",
+    "entity_registry_updated": "config/entity_registry/list",
+}
 
 
 class CommandBlocked(Exception):
@@ -52,20 +60,26 @@ def read_token(path: Path) -> str:
 def check_outgoing(message: dict) -> None:
     if message.get("type") not in ALLOWED_TYPES:
         raise CommandBlocked(f"refusing to send {message.get('type')!r} to Home Assistant (read-only)")
+    if message["type"] == "subscribe_events" and message.get("event_type") not in REGISTRY_EVENTS:
+        raise CommandBlocked(f"subscribe_events is limited to {sorted(REGISTRY_EVENTS)}; got {message.get('event_type')!r}")
 
 
 class HaClient:
     def __init__(self, url: str, token: str, store: StateStore, registry: Registry,
                  on_change: Callable[[set[str]], None],
                  on_registry: Callable[[], None] | None = None,
-                 registry_refresh: float = 300.0) -> None:
+                 registry_debounce: float = 2.0) -> None:
         self.ws_url = url.rstrip("/").replace("http", "ws", 1) + "/api/websocket"
         self._token = token  # never logged
         self.store = store
         self.registry = registry
         self.on_change = on_change
         self.on_registry = on_registry
-        self.registry_refresh = registry_refresh
+        self.registry_debounce = registry_debounce
+        self._reg_subs: dict[int, str] = {}  # subscription id -> registry event type
+        self._reg_dirty: set[str] = set()
+        self._reg_wake = asyncio.Event()
+        self.registry_reloads: dict[str, int] = {}
         self.rx = Counter()  # everything HA sends us
         self.tx = Counter()  # everything we send HA
         self.rx_types: dict[str, Counter] = {}
@@ -134,40 +148,55 @@ class HaClient:
             self.connected_since = time.time()
             self._first_event = True
             reader = asyncio.create_task(self._read(ws))
+            watcher = None
             try:
                 await self._load_registries()
+                for event_type in REGISTRY_EVENTS:
+                    self._next_id += 1
+                    self._reg_subs[self._next_id] = event_type
+                    await self._send({"id": self._next_id, "type": "subscribe_events", "event_type": event_type})
                 self._next_id += 1
                 self._sub_id = self._next_id
                 await self._send({"id": self._sub_id, "type": "subscribe_entities"})
-                refresher = asyncio.create_task(self._refresh_registries())
-                try:
-                    await reader
-                finally:
-                    refresher.cancel()
+                watcher = asyncio.create_task(self._watch_registries())
+                await reader
             finally:
                 reader.cancel()
+                if watcher:
+                    watcher.cancel()
+                self._reg_subs.clear()
                 self._ws = None
 
-    async def _load_registries(self) -> None:
-        areas, devices, entities = await asyncio.gather(
-            self._request("config/area_registry/list"),
-            self._request("config/device_registry/list"),
-            self._request("config/entity_registry/list"),
-        )
-        self.registry.load(areas, devices, entities)  # type: ignore[arg-type]
-        log.info("registries: %d areas, %d devices, %d entities", len(areas), len(devices), len(entities))  # type: ignore[arg-type]
+    async def _load_registries(self, only: set[str] | None = None) -> None:
+        """Load the registries named by event type in `only` (all when None)."""
+        kinds = [k for k in REGISTRY_EVENTS if only is None or k in only]
+        results = await asyncio.gather(*(self._request(REGISTRY_EVENTS[k]) for k in kinds))
+        got = dict(zip(kinds, results))
+        self.registry.update(areas=got.get("area_registry_updated"), devices=got.get("device_registry_updated"),
+                             entities=got.get("entity_registry_updated"))
+        for k in kinds:
+            self.registry_reloads[k] = self.registry_reloads.get(k, 0) + 1
+        log.info("registries loaded: %s", ", ".join(f"{k.split('_')[0]}={len(v)}" for k, v in got.items()))  # type: ignore[arg-type]
 
-    async def _refresh_registries(self) -> None:
+    async def _watch_registries(self) -> None:
+        """Turn a burst of registry events into one reload of just the registries that changed."""
         while True:
-            await asyncio.sleep(self.registry_refresh)
+            await self._reg_wake.wait()
+            await asyncio.sleep(self.registry_debounce)
+            self._reg_wake.clear()
+            changed, self._reg_dirty = self._reg_dirty, set()
+            if not changed:
+                continue
             try:
-                await self._load_registries()
+                await self._load_registries(changed)
                 if self.on_registry:
                     self.on_registry()
             except asyncio.CancelledError:
                 raise
             except Exception as exc:
-                log.warning("registry refresh failed: %s", exc)
+                log.warning("registry reload failed: %s", exc)
+                self._reg_dirty |= changed
+                self._reg_wake.set()
 
     async def _read(self, ws: aiohttp.ClientWebSocketResponse) -> None:
         async for msg in ws:
@@ -189,6 +218,9 @@ class HaClient:
                     fut.set_result(data.get("result"))
                 else:
                     fut.set_exception(RuntimeError(f"HA error: {(data.get('error') or {}).get('code')}"))
+        elif kind == "event" and mid in self._reg_subs:
+            self._reg_dirty.add(self._reg_subs[mid])
+            self._reg_wake.set()
         elif kind == "event" and mid == self._sub_id:
             event = data["event"]
             first_event = self._first_event

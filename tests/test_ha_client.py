@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from mantel_server.ha_client import (ALLOWED_TYPES, CommandBlocked, HaClient, TokenMissing,
+from mantel_server.ha_client import (ALLOWED_TYPES, REGISTRY_EVENTS, CommandBlocked, HaClient, TokenMissing,
                                      check_outgoing, read_token)
 from mantel_server.registry import Registry
 from mantel_server.state import StateStore
@@ -19,7 +19,48 @@ def test_nothing_but_read_messages_can_be_sent(bad):
 def test_allowed_set_is_only_reads():
     for t in ALLOWED_TYPES:
         assert "service" not in t and "update" not in t and "delete" not in t and "create" not in t
-        check_outgoing({"type": t})
+        check_outgoing({"type": t, "event_type": "area_registry_updated"})
+
+
+@pytest.mark.parametrize("event_type", sorted(REGISTRY_EVENTS))
+def test_registry_events_may_be_subscribed(event_type):
+    check_outgoing({"id": 1, "type": "subscribe_events", "event_type": event_type})
+
+
+@pytest.mark.parametrize("message", [
+    {"type": "subscribe_events"},                                  # no event_type = every event in the house
+    {"type": "subscribe_events", "event_type": None},
+    {"type": "subscribe_events", "event_type": "state_changed"},
+    {"type": "subscribe_events", "event_type": "call_service"},
+    {"type": "subscribe_events", "event_type": "area_registry_updated_x"},
+])
+def test_any_other_event_subscription_is_blocked(message):
+    with pytest.raises(CommandBlocked):
+        check_outgoing(message)
+
+
+async def test_registry_burst_reloads_only_what_changed_once():
+    reg = Registry()
+    reg.load([{"area_id": "a", "name": "A"}], [], [{"entity_id": "light.x", "area_id": "a"}])
+    c = HaClient("http://x", "t", StateStore(), reg, lambda s: None, registry_debounce=0.05)
+    asked: list[str] = []
+
+    async def fake_request(type_):
+        asked.append(type_)
+        return [{"area_id": "a", "name": "A"}, {"area_id": "b", "name": "B"}]
+
+    c._request = fake_request
+    c._reg_subs = {2: "area_registry_updated", 3: "device_registry_updated"}
+    reloaded = []
+    c.on_registry = lambda: reloaded.append(1)
+    watcher = asyncio.create_task(c._watch_registries())
+    for _ in range(5):                                           # a burst of five area events
+        c.handle({"id": 2, "type": "event", "event": {}})
+    await asyncio.sleep(0.3)
+    watcher.cancel()
+    assert asked == ["config/area_registry/list"]               # one reload, only the area registry
+    assert reloaded == [1] and set(reg.areas) == {"a", "b"}
+    assert reg.entity_area["light.x"] == "a"                     # the other registries kept as they were
 
 
 def test_missing_token_file_is_reported(tmp_path: Path):
