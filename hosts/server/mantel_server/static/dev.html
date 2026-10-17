@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mantel dev: state hub</title>
+<style>
+  :root { color-scheme: light dark; --bg:#f6f5f2; --fg:#1d1d1f; --mut:#777; --card:#fff; --line:#ddd; --acc:#0a7; --flash:#ffe9a8; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#161617; --fg:#eee; --mut:#999; --card:#222224; --line:#38383a; --flash:#5a4a10; } }
+  body { margin:0; font:14px/1.4 -apple-system, system-ui, sans-serif; background:var(--bg); color:var(--fg); }
+  header { padding:12px 16px; border-bottom:1px solid var(--line); display:flex; gap:16px; align-items:baseline; flex-wrap:wrap; }
+  h1 { font-size:16px; margin:0; }
+  .banner { color:var(--mut); }
+  main { display:grid; grid-template-columns:340px 1fr; gap:16px; padding:16px; }
+  @media (max-width:800px) { main { grid-template-columns:1fr; } }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:12px; }
+  label { display:block; font-size:12px; color:var(--mut); margin:8px 0 2px; }
+  select, input { width:100%; box-sizing:border-box; padding:6px; font:inherit; background:var(--bg); color:var(--fg); border:1px solid var(--line); border-radius:6px; }
+  button { padding:6px 10px; font:inherit; border:1px solid var(--line); border-radius:6px; background:var(--card); color:var(--fg); cursor:pointer; }
+  #results { max-height:280px; overflow:auto; margin-top:6px; border:1px solid var(--line); border-radius:6px; }
+  #results div { padding:3px 8px; cursor:pointer; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  #results div:hover { background:var(--bg); }
+  .stats { display:grid; grid-template-columns:auto 1fr 1fr; gap:4px 12px; font-variant-numeric:tabular-nums; }
+  .stats b { font-weight:600; } .stats .h { color:var(--mut); font-size:12px; }
+  table { width:100%; border-collapse:collapse; font-variant-numeric:tabular-nums; }
+  td, th { text-align:left; padding:4px 6px; border-bottom:1px solid var(--line); vertical-align:top; }
+  th { font-size:12px; color:var(--mut); font-weight:500; }
+  td.eid { font-family:ui-monospace, Menlo, monospace; font-size:12px; } td.name { color:var(--mut); }
+  td.val { font-weight:600; } tr.flash td { background:var(--flash); } tr td { transition:background .8s; }
+  #log { max-height:160px; overflow:auto; font:12px ui-monospace, Menlo, monospace; color:var(--mut); }
+  .err { color:#c33; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Mantel state hub</h1>
+  <span class="banner">read-only · commands disabled · <span id="conn">connecting…</span></span>
+</header>
+<main>
+  <div>
+    <div class="card">
+      <label for="area">Area</label>
+      <select id="area"><option value="">(none)</option></select>
+      <label for="q">Add entities (search id or name)</label>
+      <input id="q" placeholder="e.g. light.kitchen" autocomplete="off">
+      <div id="results"></div>
+      <label for="interval">Minimum seconds between updates per entity</label>
+      <input id="interval" type="number" min="0" step="0.5" value="0">
+      <p><button id="clear">Clear</button> <button id="cmd" title="Sends a fake call_service to prove commands are refused">Test command block</button></p>
+    </div>
+    <div class="card" style="margin-top:16px">
+      <div class="stats">
+        <span></span><span class="h">msgs/s</span><span class="h">bytes/s</span>
+        <span>From HA (everything)</span><b id="up-m">–</b><b id="up-b">–</b>
+        <span>To this client</span><b id="dn-m">–</b><b id="dn-b">–</b>
+      </div>
+      <p class="banner">HA entities: <b id="ha-n">–</b> · selected: <b id="sel-n">0</b> · reduction: <b id="red">–</b></p>
+    </div>
+    <div class="card" style="margin-top:16px"><div id="log"></div></div>
+  </div>
+  <div class="card">
+    <table><thead><tr><th>Entity</th><th>Name</th><th>State</th><th>Updated</th></tr></thead><tbody id="rows"></tbody></table>
+  </div>
+</main>
+<script>
+const $ = id => document.getElementById(id);
+const state = {};          // entity_id -> {s,a,lc,lu}
+let entities = [], ids = new Set(), ws;
+
+function log(msg, cls) {
+  const d = document.createElement('div'); if (cls) d.className = cls;
+  d.textContent = new Date().toLocaleTimeString() + ' ' + msg;
+  $('log').prepend(d); while ($('log').children.length > 60) $('log').lastChild.remove();
+}
+const fmt = n => n >= 1e6 ? (n/1e6).toFixed(2)+' M' : n >= 1e3 ? (n/1e3).toFixed(1)+' k' : n.toFixed(1);
+
+function render(id, flash) {
+  let tr = document.getElementById('r-' + id);
+  const st = state[id];
+  if (!tr) {
+    tr = document.createElement('tr'); tr.id = 'r-' + id;
+    tr.innerHTML = '<td class="eid"></td><td class="name"></td><td class="val"></td><td class="lu"></td>';
+    tr.children[0].textContent = id;
+    $('rows').appendChild(tr);
+  }
+  if (!st) { tr.children[2].textContent = '(not found)'; return; }
+  const u = (st.a && st.a.unit_of_measurement) || '';
+  tr.children[1].textContent = (st.a && st.a.friendly_name) || '';
+  tr.children[2].textContent = st.s + (u ? ' ' + u : '');
+  tr.children[3].textContent = new Date(st.lu * 1000).toLocaleTimeString();
+  if (flash) { tr.classList.add('flash'); setTimeout(() => tr.classList.remove('flash'), 600); }
+}
+function drop(id) { delete state[id]; const tr = document.getElementById('r-' + id); if (tr) tr.remove(); }
+
+function applyDiff(m) {
+  for (const [id, st] of Object.entries(m.added || {})) { state[id] = st; render(id, true); }
+  for (const id of m.removed || []) drop(id);
+  for (const [id, ch] of Object.entries(m.changes || {})) {
+    const cur = state[id]; if (!cur) continue;
+    const p = ch['+'] || {}, mi = ch['-'] || {};
+    const a = Object.assign({}, cur.a, p.a || {}); for (const k of mi.a || []) delete a[k];
+    state[id] = { s: 's' in p ? p.s : cur.s, a, lc: p.lc ?? cur.lc, lu: p.lu ?? cur.lu };
+    render(id, true);
+  }
+}
+
+function subscribe() {
+  if (!ws || ws.readyState !== 1) return;
+  for (const id of Object.keys(state)) drop(id);
+  ws.send(JSON.stringify({ type: 'subscribe', entity_ids: [...ids],
+    areas: $('area').value ? [$('area').value] : [], min_interval: parseFloat($('interval').value) || 0 }));
+}
+
+function connect() {
+  ws = new WebSocket(`ws://${location.host}/ws`);
+  ws.onopen = () => { $('conn').textContent = 'connected'; ws.send(JSON.stringify({ type: 'watch_stats' })); subscribe(); };
+  ws.onclose = () => { $('conn').textContent = 'disconnected, retrying…'; setTimeout(connect, 2000); };
+  ws.onmessage = ev => {
+    const m = JSON.parse(ev.data);
+    if (m.type === 'snapshot') {
+      for (const [id, st] of Object.entries(m.entities)) { state[id] = st; render(id, false); }
+      for (const id of m.missing) if (ids.has(id)) render(id, false);  // area members that are disabled/unavailable stay out of the table
+      log(`snapshot: ${Object.keys(m.entities).length} entities` + (m.missing.length ? `, ${m.missing.length} missing` : ''));
+    } else if (m.type === 'diff') applyDiff(m);
+    else if (m.type === 'stats') {
+      $('up-m').textContent = fmt(m.upstream.msgs_s); $('up-b').textContent = fmt(m.upstream.bytes_s);
+      $('dn-m').textContent = fmt(m.client.msgs_s); $('dn-b').textContent = fmt(m.client.bytes_s);
+      $('ha-n').textContent = m.ha_entities; $('sel-n').textContent = m.client.selected;
+      $('red').textContent = m.upstream.bytes_s > 0 ? (100 * (1 - m.client.bytes_s / m.upstream.bytes_s)).toFixed(1) + ' % fewer bytes' : '–';
+    } else if (m.type === 'error') log(`${m.code}: ${m.message || ''}`, 'err');
+  };
+}
+
+async function load() {
+  const [a, e] = await Promise.all([fetch('/api/areas').then(r => r.json()), fetch('/api/entities').then(r => r.json())]);
+  entities = e;
+  for (const x of a) { const o = document.createElement('option'); o.value = x.id; o.textContent = `${x.name} (${x.entities})`; $('area').appendChild(o); }
+}
+function search() {
+  const q = $('q').value.trim().toLowerCase(); const box = $('results'); box.replaceChildren();
+  if (!q) return;
+  for (const e of entities) {
+    if (e.id.includes(q) || e.name.toLowerCase().includes(q)) {
+      const d = document.createElement('div'); d.textContent = `${e.id}  ${e.name}` + (e.area ? `  · ${e.area}` : '');
+      d.onclick = () => { ids.add(e.id); subscribe(); };
+      box.appendChild(d); if (box.children.length >= 100) break;
+    }
+  }
+}
+$('q').oninput = search;
+$('area').onchange = subscribe;
+$('interval').onchange = subscribe;
+$('clear').onclick = () => { ids.clear(); $('area').value = ''; subscribe(); };
+$('cmd').onclick = () => ws.send(JSON.stringify({ id: 1, type: 'call_service', domain: 'light', service: 'turn_on', target: { entity_id: 'light.nonexistent' } }));
+load().then(connect);
+</script>
+</body>
+</html>
