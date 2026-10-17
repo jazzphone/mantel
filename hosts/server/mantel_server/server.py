@@ -23,6 +23,7 @@ from aiohttp import WSMsgType, web
 from . import auth
 from .config import Config
 from .ha_oauth import HaOAuth
+from .readproxy import ReadBlocked, ReadProxy
 from .store import Store
 from .ha_client import HaClient
 from .registry import Registry
@@ -45,7 +46,7 @@ def classify(msg: object) -> str:
     if not isinstance(msg, dict):
         return "invalid"
     kind = msg.get("type")
-    if kind in ("subscribe", "unsubscribe", "ping", "watch_stats"):
+    if kind in ("subscribe", "unsubscribe", "ping", "watch_stats", "read", "read_subscribe", "read_unsubscribe"):
         return kind
     if kind in COMMAND_TYPES or "cmd" in msg or "service" in msg:
         return "command"
@@ -60,6 +61,7 @@ class Hub:
         self.coalescing = Coalescing(cfg.default_interval, list(cfg.overrides))
         self.sessions: set[ClientSession] = set()
         self.ha: HaClient | None = None
+        self.readproxy: ReadProxy | None = None
 
     def on_change(self, changed: set[str]) -> None:
         for s in self.sessions:
@@ -81,6 +83,7 @@ class ClientSession:
         self.tx = Counter()  # snapshot + diff frames only (stats frames are excluded)
         self.subscribed = False
         self.watch = False
+        self.read_subs: dict[int, int] = {}  # page's read id -> ReadProxy subscription id
 
     async def send(self, msg: dict, count: bool = True) -> None:
         data = json.dumps(msg, separators=(",", ":"))
@@ -140,7 +143,7 @@ class ClientSession:
                 self.view.client_min = max(0.0, float(msg.get("min_interval") or 0.0))
             except (TypeError, ValueError):
                 self.view.client_min = 0.0
-            snap = self.view.select(ids, areas, asyncio.get_running_loop().time())
+            snap = self.view.select(ids, areas, asyncio.get_running_loop().time(), all_entities=bool(msg.get("all")))
             self.subscribed = True
             await self.send(snap)
         elif kind == "unsubscribe":
@@ -150,8 +153,46 @@ class ClientSession:
             await self.send({"type": "pong"}, count=False)
         elif kind == "watch_stats":
             self.watch = True
+        elif kind in ("read", "read_subscribe", "read_unsubscribe"):
+            asyncio.get_running_loop().create_task(self.read(kind, msg))
         else:
             await self.send({"type": "error", "code": "unknown_type"}, count=False)
+
+    async def read(self, kind: str, msg: dict) -> None:
+        """Live HA reads for the page, through the ReadProxy and its own allowlist."""
+        rid = msg.get("id")
+        proxy = self.hub.readproxy
+
+        async def fail(code: str, text: str = "") -> None:
+            await self.send({"type": "read_result", "id": rid, "error": {"code": code, "message": text}}, count=False)
+
+        if proxy is None or not isinstance(rid, int):
+            return await fail("unavailable")
+        try:
+            if kind == "read_unsubscribe":
+                mid = self.read_subs.pop(rid, None)
+                if mid is not None:
+                    await proxy.unsubscribe(mid)
+                return
+            inner = msg.get("msg")
+            if not isinstance(inner, dict):
+                return await fail("invalid")
+            if kind == "read":
+                result = await proxy.request(inner)
+                await self.send({"type": "read_result", "id": rid, "result": result})
+            else:
+                loop = asyncio.get_running_loop()
+
+                def on_event(ev: dict) -> None:
+                    loop.create_task(self.send({"type": "read_event", "id": rid, "event": ev}))
+
+                self.read_subs[rid] = await proxy.subscribe(inner, on_event)
+                await self.send({"type": "read_result", "id": rid, "result": None}, count=False)
+        except ReadBlocked as exc:
+            log.warning("blocked a read: %s", exc)
+            await fail("not_allowed", str(exc))
+        except Exception as exc:  # noqa: BLE001 -- a failed read is the page's error, never the socket's
+            await fail("failed", str(exc))
 
     async def run(self) -> None:
         tasks = [asyncio.create_task(self.pump()), asyncio.create_task(self.stats_loop())]
@@ -164,6 +205,9 @@ class ClientSession:
         finally:
             for t in tasks:
                 t.cancel()
+            if self.hub.readproxy:
+                for mid in self.read_subs.values():
+                    await self.hub.readproxy.unsubscribe(mid)
 
 
 @web.middleware
@@ -235,6 +279,82 @@ async def api_stats(request: web.Request) -> web.Response:
     })
 
 
+WEB_TYPES = frozenset({".woff2", ".woff", ".ttf", ".otf", ".css", ".js", ".mjs", ".map", ".html", ".json", ".svg",
+                       ".png", ".jpg", ".jpeg", ".webp", ".gif", ".ico", ".avif", ".webm", ".mp4", ".txt"})
+NO_CACHE = {"Cache-Control": "no-cache"}
+FIXTURE_FILES = {  # message type -> file under cfg.fixtures (written by tools/capture_fixtures.py)
+    "hk_frontend/settings/subscribe": "settings.json",
+    "hk_frontend/page_headers/subscribe": "page_headers.json",
+    "hk_frontend/snooze/subscribe": "snooze.json",
+    "hk_music/subscribe": "music.json",
+}
+
+
+def safe_file(base, rel: str):
+    """base/rel if it is a web file inside base (no .. tricks, no symlink out), else None."""
+    try:
+        path = (base / rel).resolve()
+        path.relative_to(base.resolve())
+    except (ValueError, OSError):
+        return None
+    if path.is_file() and path.suffix.lower() in WEB_TYPES:
+        return path
+    return None
+
+
+async def hk_file(request: web.Request) -> web.StreamResponse:
+    """/hk/<path>: "Your files" first, HK's bundled frontend otherwise (backend/files.py's rule)."""
+    cfg: Config = request.app["cfg"]
+    rel = request.match_info["path"]
+    for base in (cfg.hk_files, cfg.hk_frontend):
+        path = safe_file(base, rel)
+        if path:
+            return web.FileResponse(path, headers=NO_CACHE)
+    raise web.HTTPNotFound()
+
+
+async def web_file(request: web.Request) -> web.StreamResponse:
+    path = safe_file(request.app["cfg"].web, request.match_info["path"])
+    if not path:
+        raise web.HTTPNotFound()
+    return web.FileResponse(path, headers=NO_CACHE)
+
+
+async def mdi_file(request: web.Request) -> web.StreamResponse:
+    path = safe_file(request.app["cfg"].web / "mdi", request.match_info["name"])
+    if not path:
+        raise web.HTTPNotFound()
+    return web.FileResponse(path, headers=NO_CACHE)
+
+
+async def home_redirect(request: web.Request) -> web.StreamResponse:
+    raise web.HTTPFound(f"/{request.app['cfg'].default_screen}/home" + (f"?{request.query_string}" if request.query_string else ""))
+
+
+async def home_page(request: web.Request) -> web.StreamResponse:
+    return web.FileResponse(request.app["cfg"].web / "home.html", headers=NO_CACHE)
+
+
+async def api_registry(request: web.Request) -> web.Response:
+    return web.json_response(request.app["hub"].registry.frontend_shapes())
+
+
+async def api_fixtures(request: web.Request) -> web.Response:
+    base = request.app["cfg"].fixtures
+    out = {}
+    for kind, name in FIXTURE_FILES.items():
+        f = base / name
+        if f.is_file():
+            out[kind] = json.loads(f.read_text())
+    return web.json_response(out)
+
+
+async def api_hk_cards(request: web.Request) -> web.Response:
+    folder = request.app["cfg"].hk_frontend / "cards"
+    names = sorted(p.name for p in folder.glob("*.js") if p.name != "hk-strategy.js") if folder.is_dir() else []
+    return web.json_response(names)
+
+
 def build_app(cfg: Config, token: str, store: Store | None = None, connect_ha: bool = True,
               clock=time.time) -> web.Application:
     app = web.Application(middlewares=[loopback_only, auth.require_session])
@@ -250,17 +370,29 @@ def build_app(cfg: Config, token: str, store: Store | None = None, connect_ha: b
     app.router.add_get("/ws", ws_handler)
     app.router.add_get("/", root)
     app.router.add_get("/dev", dev_page)
+    app.router.add_get("/home", home_redirect)
+    app.router.add_get("/hk/{path:.+}", hk_file)
+    app.router.add_get("/web/{path:.+}", web_file)
+    app.router.add_get("/static/mdi/{name}", mdi_file)
+    app.router.add_get("/api/hass-registry", api_registry)
+    app.router.add_get("/api/fixtures", api_fixtures)
+    app.router.add_get("/api/hk-cards", api_hk_cards)
     app.router.add_get("/api/entities", api_entities)
     app.router.add_get("/api/areas", api_areas)
     app.router.add_get("/api/stats", api_stats)
 
+    app.router.add_get("/{seg}/home", home_page)    # last: the page HK's cards draw into
+
     async def start(app: web.Application) -> None:
         app["http"] = aiohttp.ClientSession()
         if connect_ha:
+            hub.readproxy = ReadProxy(cfg.ha_url, token)
             app["ha_task"] = asyncio.create_task(hub.ha.run())
 
     async def stop(app: web.Application) -> None:
         await app["http"].close()
+        if hub.readproxy:
+            await hub.readproxy.close()
         if connect_ha:
             app["ha_task"].cancel()
             try:

@@ -66,6 +66,7 @@ class ClientView:
         self.registry = registry
         self.coalescing = coalescing
         self.client_min = max(0.0, client_min_interval)
+        self.all = False
         self.entity_ids: set[str] = set()
         self.areas: list[str] = []
         self.selected: set[str] = set()
@@ -75,10 +76,13 @@ class ClientView:
 
     # -- selection ---------------------------------------------------------------------------
     def _resolve(self) -> set[str]:
+        if self.all:
+            return set(self.store.states)
         return set(self.entity_ids) | self.registry.entities_in(self.areas)
 
-    def select(self, entity_ids: list[str], areas: list[str], now: float) -> dict:
+    def select(self, entity_ids: list[str], areas: list[str], now: float, all_entities: bool = False) -> dict:
         """(Re)subscribe and return the snapshot message body."""
+        self.all = all_entities
         self.entity_ids = set(entity_ids)
         self.areas = list(areas)
         self.selected = self._resolve()
@@ -106,6 +110,8 @@ class ClientView:
     # -- changes -----------------------------------------------------------------------------
     def on_change(self, changed: set[str]) -> bool:
         """Note upstream changes; True if any are in this view (so a flush is worth scheduling)."""
+        if self.all:  # new entities join; vanished ones leave when their removal is flushed
+            self.selected |= {e for e in changed if e in self.store.states}
         hit = changed & self.selected
         if hit:
             self.dirty |= hit
@@ -130,6 +136,7 @@ class ClientView:
             if cur is None:
                 del self.sent[eid]
                 self.last_sent.pop(eid, None)
+                self.selected.discard(eid) if self.all else None
                 removed.append(eid)
             elif old is None:
                 self.sent[eid] = cur

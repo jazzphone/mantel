@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 LOOPBACK = {"127.0.0.1", "::1"}
+REPO = Path(__file__).resolve().parents[3]
 
 
 @dataclass
@@ -15,6 +16,11 @@ class Config:
     port: int = 8765
     default_interval: float = 0.0
     overrides: list[tuple[str, float]] = field(default_factory=list)
+    default_screen: str = "dashboard-kitchen"           # /home goes to /<this>/home
+    hk_frontend: Path = REPO / "spikes/hk-snapshot/frontend"   # HK's cards/modules/css (git-ignored snapshot)
+    hk_files: Path = REPO / "spikes/hk-snapshot/hk_local"      # "Your files": SF Pro + glyphs (Apple's; never committed)
+    fixtures: Path = REPO / "spikes/hk-snapshot/fixtures"      # captured HK feeds (personal data; git-ignored)
+    web: Path = REPO / "web"
     data_dir: Path = Path("~/.local/share/mantel")
     session_hours: float = 12.0
 
@@ -37,6 +43,7 @@ def parse_args(argv: list[str] | None = None) -> Config:
     p.add_argument("--override", action="append", default=[], metavar="GLOB=SECONDS",
                    help="per-entity interval, e.g. 'sensor.*_distance=1' (repeatable)")
     p.add_argument("--data-dir", default=str(Config.data_dir), help="where mantel.db lives (outside git)")
+    p.add_argument("--screen", default=Config.default_screen, help="dashboard /home opens (HK board key)")
     p.add_argument("--session-hours", type=float, default=Config.session_hours)
     a = p.parse_args(argv)
     overrides = []
@@ -48,6 +55,6 @@ def parse_args(argv: list[str] | None = None) -> Config:
     # The listen address is deliberately not configurable: loopback only in this prototype.
     cfg = Config(ha_url=a.ha_url, token_file=Path(a.token_file), port=a.port,
                   default_interval=a.default_interval, overrides=overrides,
-                 data_dir=Path(a.data_dir), session_hours=a.session_hours)
+                 data_dir=Path(a.data_dir), session_hours=a.session_hours, default_screen=a.screen)
     assert cfg.host in LOOPBACK, "Mantel listens on loopback only in this prototype"
     return cfg

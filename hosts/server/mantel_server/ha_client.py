@@ -27,6 +27,7 @@ ALLOWED_TYPES = frozenset({
     "config/area_registry/list",
     "config/device_registry/list",
     "config/entity_registry/list",
+    "config/floor_registry/list",
     "subscribe_events",  # only for REGISTRY_EVENTS, enforced in check_outgoing
     "ping",
 })
@@ -36,6 +37,7 @@ REGISTRY_EVENTS = {
     "area_registry_updated": "config/area_registry/list",
     "device_registry_updated": "config/device_registry/list",
     "entity_registry_updated": "config/entity_registry/list",
+    "floor_registry_updated": "config/floor_registry/list",
 }
 
 
@@ -120,7 +122,8 @@ class HaClient:
                     backoff = 1.0
                 except asyncio.CancelledError:
                     raise
-                except (CommandBlocked, TokenMissing):
+                except (CommandBlocked, TokenMissing) as exc:
+                    log.error("HA client stopped: %s", exc)
                     raise
                 except Exception as exc:  # reconnect on anything else
                     log.warning("HA connection lost (%s: %s); retrying in %.0fs", type(exc).__name__, exc, backoff)
@@ -173,7 +176,7 @@ class HaClient:
         results = await asyncio.gather(*(self._request(REGISTRY_EVENTS[k]) for k in kinds))
         got = dict(zip(kinds, results))
         self.registry.update(areas=got.get("area_registry_updated"), devices=got.get("device_registry_updated"),
-                             entities=got.get("entity_registry_updated"))
+                             entities=got.get("entity_registry_updated"), floors=got.get("floor_registry_updated"))
         for k in kinds:
             self.registry_reloads[k] = self.registry_reloads.get(k, 0) + 1
         log.info("registries loaded: %s", ", ".join(f"{k.split('_')[0]}={len(v)}" for k, v in got.items()))  # type: ignore[arg-type]

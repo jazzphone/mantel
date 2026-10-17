@@ -1,0 +1,60 @@
+draw_ms: median 165.5  runs [199, 164, 163, 167]
+script_s_at_draw: median 0.0385  runs [0.037, 0.045, 0.039, 0.038]
+task_s_at_draw: median 0.1405  runs [0.139, 0.147, 0.142, 0.139]
+layout_s_at_draw: median 0.025  runs [0.025, 0.025, 0.026, 0.025]
+weight_kb: median 9314.0  runs [9314, 9314, 9314, 9314]
+{
+ "ok": true,
+ "draw_ms": 167,
+ "marks": {
+  "module_start": 18,
+  "inputs": 22,
+  "states": 53,
+  "code": 110,
+  "strategy": 132,
+  "rendered": 149
+ },
+ "nav": {
+  "dcl": 18,
+  "load": 18
+ },
+ "script_s_at_draw": 0.038,
+ "task_s_at_draw": 0.139,
+ "layout_s_at_draw": 0.025,
+ "heap_mb": 14.3,
+ "weight_kb": 9314,
+ "request_hosts": [
+  "127.0.0.1:8765"
+ ],
+ "scripts_from": [
+  "127.0.0.1:8765"
+ ],
+ "steady": {
+  "seconds": 20.0,
+  "script_s_per_20s": 0.014,
+  "task_s_per_20s": 0.07,
+  "hub_msgs_per_s": 0.3,
+  "hub_bytes_per_s": 43,
+  "hass_updates_applied": 6,
+  "states_in_page": 226
+ },
+ "narrowed_to": 226,
+ "forbidden_elements": {},
+ "ha_elements_present": [
+  "ha-card",
+  "ha-state-icon"
+ ],
+ "element_count": 2949,
+ "callService": "commands_disabled",
+ "raw_call_service_over_hub": "commands_disabled",
+ "refused_log": [
+  "light.turn_on"
+ ],
+ "calls": {
+  "hk_frontend/settings/subscribe": 1,
+  "hk_frontend/events/subscribe": 1,
+  "hk_music/subscribe": 2,
+  "frontend/subscribe_user_data": 1
+ },
+ "console_errors": []
+}

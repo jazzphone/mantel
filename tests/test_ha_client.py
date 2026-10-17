@@ -99,3 +99,10 @@ async def test_result_resolves_pending_request():
     c._pending[3] = fut
     c.handle({"id": 3, "type": "result", "success": True, "result": [1, 2]})
     assert fut.result() == [1, 2]
+
+
+def test_every_registry_reload_call_is_an_allowed_message():
+    # a reload the allowlist refuses kills the HA task silently (it did, once: floors)
+    for event_type, list_call in REGISTRY_EVENTS.items():
+        check_outgoing({"id": 1, "type": list_call})
+        check_outgoing({"id": 1, "type": "subscribe_events", "event_type": event_type})

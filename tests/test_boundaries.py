@@ -17,10 +17,15 @@ def test_hk_core_does_not_import_homeassistant():
     assert not bad, f"hk_core must not import homeassistant: {bad}"
 
 
+# The one place allowed to speak `hass`: the adapter that builds a hass object for HK's unmodified
+# cards (Phase 1 turns it into the HKClient implementation). Nothing else under web/ may.
+ADAPTER = "web/shim/"
+
+
 def test_web_does_not_reference_hass():
     bad = [str(p.relative_to(ROOT)) for p in _files("web", (".js", ".mjs", ".html", ".ts", ".css"))
-           if HASS_REF.search(p.read_text())]
-    assert not bad, f"web/ must talk to HKClient, not hass.: {bad}"
+           if HASS_REF.search(p.read_text()) and not str(p.relative_to(ROOT)).startswith(ADAPTER)]
+    assert not bad, f"web/ must talk to HKClient, not hass. (only web/shim/ may): {bad}"
 
 
 def test_the_lint_itself_catches_violations():
