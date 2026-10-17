@@ -34,6 +34,7 @@
 <body>
 <header>
   <h1>Mantel state hub</h1>
+  <span class="banner" id="me"></span><button id="logout">Sign out</button>
   <span class="banner">read-only · commands disabled · <span id="conn">connecting…</span></span>
 </header>
 <main>
@@ -152,6 +153,8 @@ $('area').onchange = subscribe;
 $('interval').onchange = subscribe;
 $('clear').onclick = () => { ids.clear(); $('area').value = ''; subscribe(); };
 $('cmd').onclick = () => ws.send(JSON.stringify({ id: 1, type: 'call_service', domain: 'light', service: 'turn_on', target: { entity_id: 'light.nonexistent' } }));
+fetch('/api/me').then(r => r.json()).then(u => { $('me').textContent = `Signed in: ${u.name || u.ha_user_id} (${u.role})`; });
+$('logout').onclick = () => fetch('/logout', { method: 'POST' }).then(() => location.assign('/login'));
 load().then(connect);
 </script>
 </body>

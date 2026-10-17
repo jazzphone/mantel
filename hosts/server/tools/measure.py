@@ -14,10 +14,13 @@ import asyncio
 import json
 import statistics
 import time
+from pathlib import Path
 
 import aiohttp
 
 BASE = "http://127.0.0.1:8765"
+# Mantel needs a sign-in. Mint a cookie file with:  mantel-server session --ha-user-id ID --file ~/.local/share/mantel/measure.cookie
+COOKIE_FILE = Path("~/.local/share/mantel/measure.cookie").expanduser()
 
 
 class Probe:
@@ -31,7 +34,7 @@ class Probe:
         self.sent_updates = 0  # entity-level updates delivered
 
     async def run(self, session: aiohttp.ClientSession) -> None:
-        async with session.ws_connect(BASE.replace("http", "ws") + "/ws", max_msg_size=0) as ws:
+        async with session.ws_connect(BASE.replace("http", "ws") + "/ws", max_msg_size=0, headers={"Origin": BASE}) as ws:
             await ws.send_json({"type": "subscribe", "areas": self.areas, "entity_ids": self.entities, "min_interval": self.min_interval})
             first = True
             async for m in ws:
@@ -66,7 +69,8 @@ async def main() -> None:
     ap.add_argument("--sample", type=float, default=10.0, help="seconds per sample window")
     args = ap.parse_args()
 
-    async with aiohttp.ClientSession() as session:
+    cookie = {"Cookie": f"mantel_session={COOKIE_FILE.read_text().strip()}"}
+    async with aiohttp.ClientSession(headers=cookie) as session:
         entities: list[str] = []
         if args.chatty:
             top = (await stats(session))["upstream"]["top_entities"]

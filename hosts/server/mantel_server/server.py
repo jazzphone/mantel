@@ -12,13 +12,18 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import secrets
 import time
 from importlib.resources import files
 from urllib.parse import urlparse
 
+import aiohttp
 from aiohttp import WSMsgType, web
 
+from . import auth
 from .config import Config
+from .ha_oauth import HaOAuth
+from .store import Store
 from .ha_client import HaClient
 from .registry import Registry
 from .state import StateStore
@@ -186,6 +191,10 @@ async def ws_handler(request: web.Request) -> web.StreamResponse:
     return ws
 
 
+async def root(request: web.Request) -> web.Response:
+    raise web.HTTPFound("/dev")
+
+
 async def dev_page(request: web.Request) -> web.Response:
     html = files("mantel_server").joinpath("static/dev.html").read_text()
     return web.Response(text=html, content_type="text/html", headers={"Cache-Control": "no-store"})
@@ -226,27 +235,38 @@ async def api_stats(request: web.Request) -> web.Response:
     })
 
 
-def build_app(cfg: Config, token: str) -> web.Application:
-    app = web.Application(middlewares=[loopback_only])
+def build_app(cfg: Config, token: str, store: Store | None = None, connect_ha: bool = True,
+              clock=time.time) -> web.Application:
+    app = web.Application(middlewares=[loopback_only, auth.require_session])
     hub = Hub(cfg)
+    app["store"] = store or Store(cfg.data_dir / "mantel.db")
+    app["oauth"] = HaOAuth(cfg.ha_url, cfg.client_id, cfg.redirect_uri)
+    app["state_secret"] = secrets.token_bytes(32)
+    app["clock"] = clock
+    auth.add_routes(app)
     hub.ha = HaClient(cfg.ha_url, token, hub.store, hub.registry, hub.on_change, hub.on_registry)
     app["cfg"] = cfg
     app["hub"] = hub
     app.router.add_get("/ws", ws_handler)
+    app.router.add_get("/", root)
     app.router.add_get("/dev", dev_page)
     app.router.add_get("/api/entities", api_entities)
     app.router.add_get("/api/areas", api_areas)
     app.router.add_get("/api/stats", api_stats)
 
     async def start(app: web.Application) -> None:
-        app["ha_task"] = asyncio.create_task(hub.ha.run())
+        app["http"] = aiohttp.ClientSession()
+        if connect_ha:
+            app["ha_task"] = asyncio.create_task(hub.ha.run())
 
     async def stop(app: web.Application) -> None:
-        app["ha_task"].cancel()
-        try:
-            await app["ha_task"]
-        except (asyncio.CancelledError, Exception):
-            pass
+        await app["http"].close()
+        if connect_ha:
+            app["ha_task"].cancel()
+            try:
+                await app["ha_task"]
+            except (asyncio.CancelledError, Exception):
+                pass
 
     app.on_startup.append(start)
     app.on_cleanup.append(stop)
