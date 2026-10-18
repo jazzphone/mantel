@@ -1806,10 +1806,31 @@
   // state change. The frontend passes every card the SAME object per update,
   // so this is one identity compare per card per update, and the listeners
   // run once per new object, not once per card.
+  var CLIENT_HUB = { last: null, fns: new Set() };
+  function clientSeen(client) {
+    if (!client || client === CLIENT_HUB.last) return;
+    CLIENT_HUB.last = client;
+    CLIENT_HUB.fns.forEach(function (fn) {
+      try { fn(client); } catch (e) { console.error('[hk-cards] client listener', e); }
+    });
+    try { window.dispatchEvent(new CustomEvent('hk-client-update')); } catch (e) { /* shell tests */ }
+  }
+  window.hkCards.client = function () {
+    return (window.hkHostClient.current && window.hkHostClient.current()) || CLIENT_HUB.last;
+  };
+  window.addEventListener('hk-client-update', function () {
+    if (window.hkHostClient.current) clientSeen(window.hkHostClient.current());
+  });
+  window.hkCards.onClient = function (fn) {
+    CLIENT_HUB.fns.add(fn);
+    return function () { CLIENT_HUB.fns.delete(fn); };
+  };
+  // Legacy listeners remain for card families whose actions still need the host input.
   var HUB = { last: null, fns: new Set() };
   function hubSeen(h) {
     if (!h || h === HUB.last) return;
     HUB.last = h;
+    clientSeen(window.hkHostClient.from(h));
     artWatch(h);                   // the reconnect hook (above), from the first hass
     HUB.fns.forEach(function (fn) {
       try { fn(h); } catch (e) { console.error('[hk-cards] hass listener', e); }
@@ -1895,6 +1916,7 @@
     set client(value) {
       this._clientExplicit = true;
       this._hkClient = value;
+      clientSeen(value);
       this._receiveClient();
     }
     _receiveClient() {

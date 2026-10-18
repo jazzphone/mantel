@@ -23,6 +23,10 @@ from mantel_server.store import Store
 
 class OfflineReads:
     """Fictional reads only. This object has no HTTP connection or credentials."""
+    def __init__(self):
+        self.callbacks = {}
+        self.serial = 0
+
     async def request(self, msg):
         if msg["type"] == "get_config":
             return {"unit_system": {"temperature": "°C"}, "time_zone": "UTC", "currency": "USD"}
@@ -31,12 +35,20 @@ class OfflineReads:
         return {}
 
     async def subscribe(self, msg, callback):
-        payload = {"configured": True, "boards": {"dashboard-proof": {"pages": [], "headers": {"home": False}}}}
+        payload = {"configured": True, "weather": {"place": "Offline before"}, "boards": {"dashboard-proof": {"pages": [], "headers": {"home": False}}}}
         asyncio.get_running_loop().call_soon(callback, payload if msg["type"] == "hk_frontend/settings/subscribe" else {})
-        return 1
+        self.serial += 1
+        self.callbacks[self.serial] = (msg["type"], callback)
+        return self.serial
+
+    def publish_settings(self):
+        for kind, callback in list(self.callbacks.values()):
+            if kind == "hk_frontend/settings/subscribe":
+                callback({"configured": True, "weather": {"place": "Offline after"},
+                          "boards": {"dashboard-proof": {"pages": [], "headers": {"home": False}}}})
 
     async def unsubscribe(self, mid):
-        pass
+        self.callbacks.pop(mid, None)
 
     async def close(self):
         pass
@@ -97,9 +109,15 @@ async def smoke(shot=None):
                     assert await browser.eval(text) == "21.4 °C"
                     assert await browser.eval("window.__proofMetric.client === window.__mantel.client")
                     assert await browser.eval("window.hkHostClient.kind === 'mantel' && !window.hkHAClient")
+                    assert await browser.wait("window.hkSettings.live && window.hkSettings.get('weather.place') === 'Offline before'", 5)
+                    await browser.eval("window.__proofClientUpdates = 0; window.__proofEndClient = window.hkCards.onClient(() => window.__proofClientUpdates++);")
                     hub.store.apply_event({"c": {"sensor.proof": {"+": {"s": "22.8", "lu": 2.0}}}})
                     hub.on_change({"sensor.proof"})
                     assert await browser.wait(text + " === '22.8 °C'", 5), "WebSocket update did not reach metric"
+                    assert await browser.eval("window.__proofClientUpdates === 1 && window.hkCards.client() === window.__mantel.client")
+                    hub.readproxy.publish_settings()
+                    assert await browser.wait("window.hkSettings.get('weather.place') === 'Offline after'", 5), "settings update did not reach shared module"
+                    await browser.eval("window.__proofEndClient()")
                     refused = await browser.eval("""(async () => {
                       try { await window.__mantel.client.callWS({type:'call_service',domain:'light',service:'turn_on'}); }
                       catch (error) { return error.code; }
@@ -112,6 +130,7 @@ async def smoke(shot=None):
                     if shot:
                         await browser.screenshot(shot)
                     return {"home_ready": True, "client": "mantel", "initial": "21.4 °C", "updated": "22.8 °C",
+                            "settings": "updated through client subscription", "client_updates": 1,
                             "commands": refused, "external_requests": 0, "browser_exceptions": 0}
         finally:
             store.db.close()

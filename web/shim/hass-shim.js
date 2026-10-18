@@ -92,6 +92,7 @@ export class Host {
       get(t, k) { if (self.recording && typeof k === 'string') self.reads.add(k); return t[k]; },
     });
     this.hass = this.trace ? this._traced(this._raw, '') : this._raw;
+    window.hkMantelClient.setCurrent(this.hass);
   }
 
   // ?trace=1: note every hass field (and connection/config/user/locale/themes member) the page reads,

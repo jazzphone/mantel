@@ -6,7 +6,7 @@
   function create(port) {
     if (!port || typeof port !== 'object') throw new Error('HKClient needs a host port');
     var client = {};
-    ['states', 'config', 'locale', 'language', 'user', 'themes'].forEach(function (key) {
+    ['states', 'config', 'locale', 'language', 'user', 'themes', 'subscriptions'].forEach(function (key) {
       Object.defineProperty(client, key, { enumerable: true, get: function () { return port[key]; } });
     });
     ['formatEntityState', 'callWS', 'bindStateIcon'].forEach(function (key) {
@@ -16,6 +16,25 @@
     });
     return Object.freeze(client);
   }
-  global.hkClient = { create: create };
+  // Stable identity across state snapshots; the host's transport stays private.
+  var transports = new WeakMap();
+  function subscriptions(transport) {
+    if (!transport || typeof transport.subscribeMessage !== 'function') return null;
+    if (transports.has(transport)) return transports.get(transport);
+    var port = Object.freeze({
+      subscribeMessage: function (callback, message, options) {
+        return transport.subscribeMessage(callback, message, options);
+      },
+      addEventListener: function (name, callback) {
+        if (typeof transport.addEventListener === 'function') transport.addEventListener(name, callback);
+      },
+      removeEventListener: function (name, callback) {
+        if (typeof transport.removeEventListener === 'function') transport.removeEventListener(name, callback);
+      }
+    });
+    transports.set(transport, port);
+    return port;
+  }
+  global.hkClient = { create: create, subscriptions: subscriptions };
   try { global.dispatchEvent(new CustomEvent('hk-client-ready')); } catch (e) { /* shell tests */ }
 })(globalThis);

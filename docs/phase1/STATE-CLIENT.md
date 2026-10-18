@@ -2,6 +2,9 @@
 
 Built and validated locally. Production HK has not been deployed or edited.
 
+Follow-on completed: client subscriptions/settings discovery and update listeners; see
+[`SUBSCRIPTIONS.md`](SUBSCRIPTIONS.md) for current evidence and the next continuation point.
+
 ## What changed
 
 `web/client/hk-card-state.js` now owns the common state lookup, entity/group dependency

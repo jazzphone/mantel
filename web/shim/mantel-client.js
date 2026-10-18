@@ -13,12 +13,20 @@
     ['formatEntityState', 'callWS'].forEach(function (key) {
       if (typeof snapshot[key] === 'function') port[key] = function () { return snapshot[key].apply(snapshot, arguments); };
     });
+    Object.defineProperty(port, 'subscriptions', { get: function () { return global.hkClient.subscriptions(snapshot.connection); } });
     port.bindStateIcon = function (element, state) { element.stateObj = state; };
     var client = global.hkClient.create(port);
     clients.set(snapshot, client);
     return client;
   }
-  global.hkMantelClient = { from: from, kind: 'mantel' };
+  var latest = null;
+  function setCurrent(snapshot) {
+    var next = from(snapshot);
+    if (next === latest) return;
+    latest = next;
+    try { global.dispatchEvent(new CustomEvent('hk-client-update')); } catch (e) { /* shell tests */ }
+  }
+  global.hkMantelClient = { from: from, current: function () { return latest; }, setCurrent: setCurrent, kind: 'mantel' };
   global.hkHostClient = global.hkMantelClient;
   try { global.dispatchEvent(new CustomEvent('hk-host-client-ready')); } catch (e) { /* shell tests */ }
 })(globalThis);

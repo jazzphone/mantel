@@ -983,41 +983,45 @@
     };
   }
 
-  // ATTACH once the frontend has a connection -- polled briefly at page load,
-  // then slowly, because a page can come up before its connection does.
-  var attached = false;
+  // The host adapter owns connection discovery. State snapshots share one
+  // subscription port; a replacement port ends the old subscriptions first.
+  var attached = null, subscriptions = [];
+  function currentClient() {
+    var host = window.hkHostClient;
+    return host && host.current ? host.current() : null;
+  }
   function attach() {
-    if (attached) return true;
-    var ha = null;
-    try { ha = document.querySelector('home-assistant'); } catch (e) { return false; }
-    var conn = ha && ha.hass && ha.hass.connection;
-    if (!conn || typeof conn.subscribeMessage !== 'function') return false;
-    attached = true;
-    subscribe(conn, { type: 'hk_frontend/settings/subscribe' }, function (payload) {
+    var client = currentClient(), conn = client && client.subscriptions;
+    if (conn === attached) return !!conn;
+    subscriptions.splice(0).forEach(function (close) { close(); });
+    attached = conn || null;
+    if (!conn) return false;
+    subscriptions.push(subscribe(conn, { type: 'hk_frontend/settings/subscribe' }, function (payload) {
+      if (attached !== conn) return;
       apply(payload);
-      try { reportSeen(ha.hass); } catch (e) { /* the seen report is a nicety */ }
-    }, 'hk-settings');
-    // WHAT THE HOUSE ASKS THIS SCREEN TO DO (hk_frontend.show_popup): handed
-    // on as a window event; the detail sheet (hk-detail.js) decides whether
-    // this screen is one of those asked, and opens the pop-up.
-    subscribe(conn, { type: 'hk_frontend/events/subscribe' }, function (ev) {
+      try { reportSeen(currentClient()); } catch (e) { /* optional screen report */ }
+    }, 'hk-settings'));
+    subscriptions.push(subscribe(conn, { type: 'hk_frontend/events/subscribe' }, function (ev) {
+      if (attached !== conn) return;
       try { window.dispatchEvent(new CustomEvent('hk-house-event', { detail: ev })); } catch (e) { /* no bus */ }
-    }, 'hk-events');
+    }, 'hk-events'));
     return true;
   }
-  if (!attach()) {
-    // Every 100 ms for a minute, then every 2 s for as long as this is a Home
-    // Assistant page (it has a <home-assistant> element) that has not
-    // connected yet. A page that is not one -- a probe, a test -- stops.
-    var tries = 0;
+  // Settings can bootstrap before either the adapter or any card. Events
+  // catch late modules and host updates; a slow check also covers a shell
+  // connection replacement on a page containing no HK cards.
+  window.addEventListener('hk-host-client-ready', attach);
+  window.addEventListener('hk-client-update', attach);
+  var tries = 0, slow = null;
+  function watchSlowly() {
+    if (slow === null) slow = setInterval(attach, 2000);
+  }
+  if (attach()) watchSlowly();
+  else {
     var fast = setInterval(function () {
-      if (attach()) { clearInterval(fast); return; }
-      if (++tries < 600) return;
+      if (!attach() && ++tries < 600) return;
       clearInterval(fast);
-      var ha = null;
-      try { ha = document.querySelector('home-assistant'); } catch (e) { /* none */ }
-      if (!ha) return;
-      var slow = setInterval(function () { if (attach()) clearInterval(slow); }, 2000);
+      watchSlowly();
     }, 100);
   }
 

@@ -14,12 +14,17 @@
     ['formatEntityState', 'callWS'].forEach(function (key) {
       if (typeof hass[key] === 'function') port[key] = function () { return hass[key].apply(hass, arguments); };
     });
+    Object.defineProperty(port, 'subscriptions', { get: function () { return global.hkClient.subscriptions(hass.connection); } });
     port.bindStateIcon = function (element, state) { element.hass = hass; element.stateObj = state; };
     var client = global.hkClient.create(port);
     clients.set(hass, client);
     return client;
   }
-  global.hkHAClient = { from: from };
+  function current() {
+    var root = global.document && typeof document.querySelector === 'function' && document.querySelector('home-assistant');
+    return from(root && root.hass);
+  }
+  global.hkHAClient = { from: from, current: current };
   global.hkHostClient = global.hkHAClient;
   try { global.dispatchEvent(new CustomEvent('hk-host-client-ready')); } catch (e) { /* shell tests */ }
   try { global.dispatchEvent(new CustomEvent('hk-ha-client-ready')); } catch (e) { /* shell tests */ }

@@ -11,5 +11,6 @@ The HA build composes this source with `hosts/ha/frontend/hk-ha-client.js`. Font
 real Apple glyph data remain user-supplied. The Phase 0 snapshot remains a frozen,
 git-ignored reference; it is not the source for new Phase 1 changes.
 
-The base state/update path uses HKClient. Its action and other host-specific handling remain transitional. The remaining
+The base state/update path and settings feed discovery use HKClient, including stable
+subscription ports and client update listeners. See `docs/phase1/SUBSCRIPTIONS.md`. Its action and other host-specific handling remain transitional. The remaining
 cards/modules migrate incrementally; see `docs/phase1/STATE-CLIENT.md`.
