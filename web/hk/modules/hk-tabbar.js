@@ -541,7 +541,7 @@
     var MORE_ICON = 'mdi:dots-horizontal', ROOMS_ICON = 'mdi:view-grid';
 
     var S = { host: null, root: null, on: false, mode: 'full', down: 0, up: 0, sheet: null, built: '', ha: [], haPrefs: undefined,
-              tabs: [], more: [], rooms: [], last: new WeakMap(), view: null, viewPad: null };
+              tabs: [], more: [], mantel: [], rooms: [], last: new WeakMap(), view: null, viewPad: null };
 
     function haRoot() { return SH.overlayRoot(); }
     function esc(v) {
@@ -570,7 +570,8 @@
           '<section class="sheet g" data-sheet="more" aria-label="More"><h2>More</h2><div class="hk-edge"><div class="body">' +
             '<div class="grid pages"></div><h3 class="ch" hidden>Categories</h3><div class="grid pages2" hidden></div>' +
             '<h3 class="hh" hidden>Home Assistant</h3><div class="grid hagrid" hidden></div>' +
-            '<h3 class="rh" hidden>Rooms</h3><div class="grid roomgrid" hidden></div></div></div></section>' +
+            '<h3 class="rh" hidden>Rooms</h3><div class="grid roomgrid" hidden></div>' +
+            '<h3 class="mh" hidden>Mantel</h3><div class="grid mgrid" hidden></div></div></div></section>' +
           '<section class="sheet g" data-sheet="rooms" aria-label="Rooms"><h2>Rooms</h2><div class="hk-edge"><div class="body">' +
             '<div class="grid roomgrid"></div></div></div></section>' +
           '<div class="row">' +
@@ -646,7 +647,7 @@
     function listKey(width) {
       var h = C.client(), side = H.sidebarSource(), b = M.board();
       return [M.dash(), cfgId(M.config()), width, railH(), b.ha_place, b.tab_bar_pos, b.tab_bar_rooms, b.tab_bar_rooms_phone, phoneAt(), phoneSet(), b.tab_bar_more, b.tab_bar_more_phone, b.tab_bar_size, b.tab_bar_tabs, b.tab_bar_tabs_rail, b.ha_row, JSON.stringify(S.haPrefs || null),
-              h && h.user && h.user.is_admin, side && side.panels ? Object.keys(side.panels).join(',') : '', b.menu_rooms, JSON.stringify(b.room_order),
+              h && h.user && h.user.is_admin, H.hostItems().map(function (x) { return x.title + x.href; }).join(','), side && side.panels ? Object.keys(side.panels).join(',') : '', b.menu_rooms, JSON.stringify(b.room_order),
               JSON.stringify(b.categories), JSON.stringify(b.menu_top || []), JSON.stringify(b.pages || []),
               JSON.stringify(b.chips || []), b.chips_row, h && h.user && h.user.id,
               JSON.stringify(h && h.areas ? Object.keys(h.areas).map(function (k) {
@@ -672,10 +673,13 @@
       S.ha = b.ha_row ? H.haItems(H.sidebarSource(), S.haPrefs, { moreOpen: false, sidebarShown: false })
         .filter(function (it) { return it.kind !== 'more'; }) : [];
       if (b.ha_row && S.haPrefs === undefined) loadPrefs();
+      // THE HOST'S OWN PAGES (Mantel settings for an Owner/Admin; none in Home Assistant): the side
+      // menu's 'Mantel' section (hkMenu._.hostItems), at the end of More
+      S.mantel = H.hostItems ? H.hostItems() : [];
       var tabs = [m.home].concat(m.categories).filter(Boolean);
       var sz = b.tab_bar_size;
-      var f = rail ? railFit(tabs.length, m.top.length, railH(), rm === 'more' || S.ha.length > 0, b.tab_bar_tabs_rail, sz)
-                   : fit(tabs.length, m.top.length, width, roomsOn, rm === 'more' || S.ha.length > 0, b.tab_bar_tabs, sz, ph);
+      var f = rail ? railFit(tabs.length, m.top.length, railH(), rm === 'more' || S.ha.length > 0 || S.mantel.length > 0, b.tab_bar_tabs_rail, sz)
+                   : fit(tabs.length, m.top.length, width, roomsOn, rm === 'more' || S.ha.length > 0 || S.mantel.length > 0, b.tab_bar_tabs, sz, ph);
       S.pos = pos;
       if (S.posWas !== pos && S.mode !== 'full') setMode('full');
       S.posWas = pos;
@@ -745,12 +749,15 @@
       var hg = S.sheets.more.querySelector('.hagrid');
       fill(hg, S.ha, 'h');
       hg.hidden = S.sheets.more.querySelector('.hh').hidden = !S.ha.length;
+      var mg = S.sheets.more.querySelector('.mgrid'), mh = S.sheets.more.querySelector('.mh');
+      fill(mg, S.mantel, 'm');
+      mg.hidden = mh.hidden = !S.mantel.length;
       // ...and the section where the screen puts it
       var body = S.sheets.more.querySelector('.body'), hh = S.sheets.more.querySelector('.hh');
       var rh = S.sheets.more.querySelector('.rh'), rg = S.sheets.more.querySelector('.roomgrid');
       var order = place === 'top' ? [hh, hg, pg, ch, pg2, rh, rg] : place === 'categories' ? [pg, hh, hg, ch, pg2, rh, rg]
         : place === 'bottom' ? [pg, ch, pg2, rh, rg, hh, hg] : [pg, ch, pg2, hh, hg, rh, rg];
-      order.forEach(function (el) { body.appendChild(el); });
+      order.concat([mh, mg]).forEach(function (el) { body.appendChild(el); });
       // More Style: the list, about a phone's width; the icons, wide -- and
       // joined, exactly the bar's width
       Object.keys(S.sheets).forEach(function (k) {
@@ -854,9 +861,11 @@
       var el = e.target.closest && e.target.closest('.it');
       if (!el) return;
       var k = el.getAttribute('data-k'), it = listOf(k)[+el.getAttribute('data-i')];
-      if (k === 'h') haGo(it); else go(it);
+      if (k === 'h') haGo(it);
+      else if (k === 'm') { if (it && it.href) { closeSheet(true); location.assign(it.href); } }
+      else go(it);
     }
-    function listOf(k) { return k === 'r' ? S.rooms : k === 'h' ? S.ha : S.more; }
+    function listOf(k) { return k === 'r' ? S.rooms : k === 'h' ? S.ha : k === 'm' ? S.mantel : S.more; }
     // A HOME ASSISTANT ROW does what the side menu's does (hk-menu.js onList):
     // Show Menu opens Home Assistant's own sidebar over the page,
     // Notifications its drawer, the rest open Home Assistant's page
