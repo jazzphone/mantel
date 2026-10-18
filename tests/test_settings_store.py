@@ -447,6 +447,23 @@ async def test_feed_payload_and_events_after_a_save(svc):
     assert [len(f.events) for f in feeds.values()] == [2, 3, 2]
 
 
+async def test_the_feed_sends_discover_rows_as_queries_not_keys(svc):
+    """Browse Music's Discover rows are stored as keys but go to a screen as the queries (HA's as_client:
+    discover_rows), which hk-library.js runs as music_assistant.get_library. Sent as keys, every shelf asked
+    for nothing and drew empty (the house, 2026-10-18)."""
+    await svc.save(OWNER, {"type": "hk_frontend/settings/set",
+                           "changes": {"browse.discover": ["recent_playlists", "favourite_radio", "no_such_row"]}})
+    feed = Feed()
+    end = svc.subscribe_feed(OWNER, feed)
+    rows = feed.events[0]["browse"]["discover"]
+    assert rows == [
+        {"key": "recent_playlists", "title": "Recently played playlists", "media_type": "playlist",
+         "order_by": "last_played_desc"},
+        {"key": "favourite_radio", "title": "Favorite radio", "media_type": "radio", "favorite": True}]
+    assert svc.house_settings()["browse"]["discover"][:2] == ["recent_playlists", "favourite_radio"]   # stored as keys
+    end()
+
+
 async def test_panel_get_shape_and_rights(svc):
     p = await svc.panel_get(ADMIN, {"type": "hk_frontend/panel/get"})
     for key in ("entry_id", "settings", "boards", "tablets", "popups", "custom_pages", "custom_chips", "accessories",

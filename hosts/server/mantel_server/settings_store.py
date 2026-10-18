@@ -55,6 +55,8 @@ from typing import Any, Awaitable, Callable, Iterable, Mapping
 
 from aiohttp import web
 
+from hk_core.settings import model as SM
+
 from .connectors import Ctx, Forbidden, Route, read_routes, ws_handlers
 
 log = logging.getLogger("mantel.settings")
@@ -851,6 +853,12 @@ class SettingsService:
     def _base_feed(self) -> dict:
         house = self.house_settings()
         sections = {k: dict(v) for k, v in house.items() if isinstance(v, dict) and k != "counts"}
+        # Browse Music's Discover rows go out as the queries themselves (HA's as_client: discover_rows), not
+        # the stored keys: a screen runs each as music_assistant.get_library and keeps no copy of SHELVES.
+        # (Sent as keys, every shelf asked for nothing and drew empty: the house, 2026-10-18.)
+        disc = (sections.get("browse") or {}).get("discover")
+        if isinstance(disc, list) and all(isinstance(k, str) for k in disc):
+            sections["browse"]["discover"] = SM.discover_rows(disc)
         tablets = {k: d.body for k, d in self.store.docs("tablet").items()}
         acc = self.store.body("house", "accessories") or {"entities": {}, "rooms": {}, "into": {}, "pages": {}}
         return {
