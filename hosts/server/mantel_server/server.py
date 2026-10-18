@@ -30,6 +30,7 @@ import aiohttp
 from aiohttp import WSMsgType, web
 
 from . import accounts, auth, devices, gateway, health, proof2, rbac_store, readproxy, sessions, settings_store
+from . import linked, service_accounts
 from .authz import Authz, Principal, resolve_door
 from .config import Config
 from .connectors import REFUSE_ALL, Ctx, Hooks
@@ -495,6 +496,10 @@ def wire(app: web.Application, hub: Hub, token: str, connect_ha: bool) -> None:
     # house command, so saves work while commands are off; each save asks RBAC `configure`.
     settings_store.register(app, hub, settings_store.SettingsHooks(
         may_configure=settings_store.rbac_may_configure(rbac_store=store, clock=lambda: app["clock"]())))
+    # Phase 5: Service accounts (Owner-only REST) and the linked hk_frontend's endpoint (/linked/ws,
+    # LAN door + a Service credential with the `linked` scope; Mantel can't call HA through it).
+    service_accounts.register(app, hub)
+    linked.register(app, hub)
     if cfg.commands_enabled:
         log.warning("COMMANDS ARE ENABLED on this server: signed-in users may control Home Assistant within "
                     "their roles (step-up and an audit row for every command)")

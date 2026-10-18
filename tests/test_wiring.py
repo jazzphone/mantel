@@ -287,3 +287,12 @@ async def test_settings_saves_reach_the_store_by_role(off):
     got = await recv(ws)
     assert got["type"] == "settings_result" and got.get("error"), got      # a Child changes no house setting
     await ws.close()
+
+
+def test_linked_and_service_accounts_are_wired(tmp_path):
+    from mantel_server.store import Store
+    app = server.build_app(Config(data_dir=tmp_path, secrets_dir=tmp_path / "s"), "fictional",
+                           store=Store(tmp_path / "m.db"), connect_ha=False)
+    paths = {r.resource.canonical for r in app.router.routes() if r.resource is not None}
+    assert "/linked/ws" in paths and "/api/service-accounts" in paths
+    assert app["linked"] is not None and app["service_accounts"] is not None
