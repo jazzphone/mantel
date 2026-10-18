@@ -21,6 +21,23 @@ from mantel_server.server import build_app
 from mantel_server.store import Store
 
 
+# P2.4: what the HK Settings panel reads first (hk_frontend/panel/get), fictional and minimal: one
+# custom page (its content is a YAML page) and nothing else configured. The real ReadProxy refuses
+# this read (it is not on its allowlist); this smoke stands in for a host that answers it.
+PANEL = {
+    "entry_id": "fictional-entry", "setup_done": True,
+    "settings": {"sky": {}, "look": {}, "generated": {"include_entities": []}, "weather": {}, "security": {},
+                 "features": {}, "headers": {}},
+    "boards": {}, "dashboards": [], "popups": [], "custom_chips": [], "chip_kinds": [], "page_kinds": [],
+    "custom_pages": [{"path": "offline-page", "title": "Offline Page", "icon": "mdi:file-document-outline",
+                      "view": {"cards": [{"type": "tile", "entity": "light.proof"}]}, "item": "fictional-page-item",
+                      "used_on": []}],
+    "accessories": {"entities": {}}, "kinds": {}, "hidden": {}, "counts": {}, "features": {}, "thirdparty": {},
+    "choices": {}, "tablets": {}, "screensavers": {}, "kiosk_devices": [], "tablet_suggest": [], "users": [],
+    "presets": [], "suggest": {}, "integration": {}, "scene_pages": [], "shelves": {},
+}
+
+
 class OfflineReads:
     """Fictional reads only. This object has no HTTP connection or credentials."""
     def __init__(self):
@@ -28,6 +45,8 @@ class OfflineReads:
         self.serial = 0
 
     async def request(self, msg):
+        if msg["type"] == "hk_frontend/panel/get":
+            return PANEL
         if msg["type"] == "get_config":
             return {"unit_system": {"temperature": "°C"}, "time_zone": "UTC", "currency": "USD"}
         if msg["type"] == "frontend/get_themes":
@@ -248,6 +267,84 @@ async def smoke(shot=None):
                                               "frames": 0, "refused": ["hk_frontend/settings/set",
                                                                        "POST /api/config/config_entries/subentries/flow",
                                                                        "image/delete"]}, settings_panel
+                    # P2.4: the HK Settings panel opens in the Mantel page, drawn with HK's own controls only:
+                    # the Mantel adapter's entry hands it Mantel's client; Added Accessories' picker lists the
+                    # fictional entities and searches them; a custom page's YAML editor shows its content,
+                    # says a mistake by line, and its Save is refused at the action port (0 frames).
+                    await browser.eval("""(() => {
+                      window.__proofHash = location.hash;
+                      history.replaceState(null, '', location.pathname + location.search + '#/overview');
+                      const el = document.createElement('hk-settings-panel');
+                      el.id = 'proof-settings';
+                      el.style.cssText = 'position:fixed;inset:0;z-index:2147483000';
+                      el.narrow = true;
+                      el.hass = window.__mantel.hass;   // what panel_custom does in HA: the adapter's entry
+                      document.body.appendChild(el);
+                      window.__proofSettings = el;
+                    })()""")
+                    if not await browser.wait("window.__proofSettings.ready === true && "
+                                              "!!window.__proofSettings.shadowRoot.querySelector('.side .grp')", 20):
+                        raise AssertionError("HK Settings did not open: " + json.dumps(browser.console[-15:]) + " " + json.dumps(
+                            await browser.eval("window.__proofSettings.shadowRoot.textContent.slice(0, 300)")))
+                    panel_open = await browser.eval("""(() => {
+                      const el = window.__proofSettings, sr = el.shadowRoot;
+                      const all = [...sr.querySelectorAll('*')].map(e => e.localName);
+                      return { client: el.client === window.__mantel.client,
+                               side: !!sr.querySelector('.side .search input'),
+                               menu_button: !!sr.querySelector('.sidehead.menubtn'),
+                               ha_forms: all.filter(n => /^ha-(form|yaml-editor|code-editor|selector|entity-picker|textfield|switch|menu-button)$/.test(n)).length };
+                    })()""")
+                    assert panel_open == {"client": True, "side": True, "menu_button": False, "ha_forms": 0}, panel_open
+                    await browser.eval("location.hash = '#/accessories/added'")
+                    add_button = "[...window.__proofSettings.shadowRoot.querySelectorAll('button')].find(b => b.textContent.trim() === 'Add\u2026')"
+                    assert await browser.wait("!!" + add_button, 5), "Added Accessories did not draw"
+                    await browser.eval(add_button + ".click()")
+                    assert await browser.wait("!!window.__proofSettings.shadowRoot.querySelector('.page .search input')", 5), \
+                        "the picker did not open"
+                    picker = await browser.eval("""(async () => {
+                      const sr = window.__proofSettings.shadowRoot;
+                      const rows = () => [...sr.querySelectorAll('.page button.cell[role=checkbox] .lbl .t')].map(t => t.textContent);
+                      const listed = rows();
+                      const inp = sr.querySelector('.page .search input');
+                      inp.value = 'lamp'; inp.dispatchEvent(new Event('input', { bubbles: true }));
+                      await new Promise(r => setTimeout(r, 50));
+                      return { listed: listed.sort(), searched: rows(), hash: location.hash };
+                    })()""")
+                    assert picker == {"listed": ["Offline lamp", "Offline temperature"], "searched": ["Offline lamp"],
+                                      "hash": "#/accessories/added/~also-add"}, picker
+                    await browser.eval("location.hash = '#/pages/offline-page/content'")
+                    assert await browser.wait("!!window.__proofSettings.shadowRoot.querySelector('.codebox textarea')", 5), \
+                        "the YAML page did not draw"
+                    yaml_page = await browser.eval("""(async () => {
+                      const sr = window.__proofSettings.shadowRoot, ta = sr.querySelector('.codebox textarea');
+                      const say = () => sr.querySelector('.codebox .codeerr').textContent;
+                      const shown = ta.value;
+                      ta.value = 'cards: [\\n  {type: tile'; ta.dispatchEvent(new Event('input', { bubbles: true }));
+                      const mistake = say(), invalid = ta.getAttribute('aria-invalid');
+                      ta.value = 'cards:\\n  - type: tile\\n    entity: sensor.proof\\n'; ta.dispatchEvent(new Event('input', { bubbles: true }));
+                      const mended = say();
+                      // every frame that leaves the page while it saves, by its message type
+                      const WS = window.WebSocket.prototype, send = WS.send, sent = [];
+                      WS.send = function (raw) { const m = JSON.parse(raw); sent.push(m.msg ? m.msg.type : m.type); return send.call(this, raw); };
+                      const blocked = window.__blockedWrites, refused0 = window.__mantel.refused.length;
+                      [...sr.querySelectorAll('button')].find(b => b.textContent.trim() === 'Save').click();
+                      await new Promise(r => setTimeout(r, 300));
+                      WS.send = send;
+                      const ha = [...sr.querySelectorAll('*')].map(e => e.localName)
+                        .filter(n => /^ha-(form|yaml-editor|code-editor|selector|entity-picker|textfield|switch|menu-button)$/.test(n)).length;
+                      return { shown, mistake, invalid, mended, sent, blocked: window.__blockedWrites - blocked,
+                               refused: window.__mantel.refused.slice(refused0), ha_forms: ha };
+                    })()""")
+                    assert yaml_page == {"shown": "cards:\n  - type: tile\n    entity: light.proof\n",
+                                         "mistake": "a flow collection is not closed (line 1)", "invalid": "true", "mended": "",
+                                         # the save sends nothing; the page then reads itself again, as in HA
+                                         "sent": ["hk_frontend/panel/get"], "blocked": 0,
+                                         "refused": ["POST /api/config/config_entries/subentries/flow"],
+                                         "ha_forms": 0}, yaml_page
+                    await browser.eval("""(() => {
+                      window.__proofSettings.remove();
+                      history.replaceState(null, '', location.pathname + location.search + (window.__proofHash || ''));
+                    })()""")
                     # The host shell (web/shim/mantel-shell.js): the sky finds Mantel's view container and
                     # the menu mounts in the shell root; the tab bar does too once the screen asks for it.
                     shell = await browser.eval("""(() => {
@@ -280,6 +377,9 @@ async def smoke(shot=None):
                                        "0 frames sent; read path refused call_service (read_only)",
                             "subscriptions": "write and state_changed bus refused (not_allowed); talk-back POST and live socket refused; 0 frames",
                             "settings_panel": "loaded with Mantel's client; a save, a config flow step and a photo forgotten refused at the action port; 0 frames",
+                            "settings_forms": "HK Settings opened in the Mantel page with no HA element; the picker listed and searched "
+                                              "the fictional entities; the YAML editor showed the page and said a mistake by line; "
+                                              "its Save refused at the action port (no write frame; only the page's re-read)",
                             "external_requests": 0, "browser_exceptions": 0}
         finally:
             store.db.close()

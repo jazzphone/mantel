@@ -4,7 +4,8 @@
 // grouped lists with a header and a footer, rows that push a page (›), a
 // switch, a segmented control, a pop-up menu (the system's own <select>, so a
 // Mac and an iPhone draw their own menu), a slider, a text row, a checkmark
-// row, a destructive button, an alert. And the one list every "which, in
+// row, a destructive button, an alert, a YAML editor (the page's own, since
+// Phase 2 P2.4: no host's form element draws any of it). And the one list every "which, in
 // what order" setting uses: Control Center's Include / More editor -- an
 // Automatic switch, the Shown rows (remove, drag or arrow keys to move) and
 // the More rows (add).
@@ -208,6 +209,15 @@
     '.cell input.tx::placeholder{color:var(--hk-label3)}',
     '.cell.textrow:focus-within{box-shadow:inset 0 0 0 2px color-mix(in srgb,var(--hk-tint) 55%,transparent);border-radius:10px}',
     '.cell .unit{color:var(--hk-label2)}',
+    // YAML: the code in a cell of its own, its mistake said under it in red
+    '.codebox{display:block;background:var(--hk-cell);border-radius:10px}',
+    '.codebox textarea{display:block;width:100%;min-height:220px;margin:0;border:0;padding:12px 16px;background:none;',
+    '  color:var(--hk-label);font:13px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace;tab-size:2;white-space:pre;',
+    '  overflow:auto;outline:none;resize:vertical;border-radius:10px}',
+    '.codebox:focus-within{box-shadow:inset 0 0 0 2px color-mix(in srgb,var(--hk-tint) 55%,transparent)}',
+    '.codebox.bad{box-shadow:inset 0 0 0 2px color-mix(in srgb,var(--hk-red) 60%,transparent)}',
+    '.codebox .codeerr{padding:0 16px 10px;font-size:13px;line-height:18px;color:var(--hk-red)}',
+    '.codebox .codeerr:empty{display:none}',
     // CHECK
     '.check{flex:none;width:17px;height:17px;color:var(--hk-tint)}',
     // LIST EDITOR
@@ -701,10 +711,619 @@
     });
   }
 
+  // ------------------------------------------------------------ YAML
+  // THE PAGE'S OWN YAML (Phase 2 P2.4): what Home Assistant's YAML editor
+  // read and wrote, without it, so the page draws on any host. It reads what
+  // that editor's js-yaml (DEFAULT_SCHEMA) reads in a card's options: block
+  // mappings and sequences (a sequence under its key at the key's indent, a
+  // mapping started on a "- " line), flow [..] and {..} (so JSON too), plain,
+  // 'single' and "double" quoted scalars over several lines, | and >
+  // blocks with their chomping and indentation indicators, comments, anchors,
+  // aliases and << merges, the core schema's null/bool/int/float, and a
+  // timestamp as the ISO string it is sent as. A duplicated key, a tab
+  // indent, an unknown tag (!secret, !include: js-yaml refuses them too) or a
+  // line out of place is an error, with its line number.
+  function YamlError(message, line) {
+    this.name = 'YAMLException';
+    this.line = line;
+    this.message = message + (line ? ' (line ' + line + ')' : '');
+  }
+  var Y_NULL = /^(?:~|null|Null|NULL)?$/;
+  var Y_BOOL = /^(?:true|True|TRUE|false|False|FALSE)$/;
+  var Y_INT = /^[-+]?(?:0b[01_]+|0x[0-9a-fA-F_]+|0o[0-7_]+|[0-9][0-9_]*)$/;
+  var Y_FLOAT = /^(?:[-+]?(?:\.[0-9]+|[0-9][0-9_]*)(?:\.[0-9_]*)?(?:[eE][-+]?[0-9]+)?|[-+]?\.(?:inf|Inf|INF)|\.(?:nan|NaN|NAN))$/;
+  var Y_DATE = /^([0-9]{4})-([0-9]{2})-([0-9]{2})$/;
+  var Y_STAMP = /^([0-9]{4})-([0-9]{1,2})-([0-9]{1,2})(?:[Tt]|[ \t]+)([0-9]{1,2}):([0-9]{2}):([0-9]{2})(?:\.([0-9]*))?(?:[ \t]*(Z|([-+])([0-9]{1,2})(?::([0-9]{2}))?))?$/;
+  function yInt(s) {
+    var t = s.replace(/_/g, ''), sign = 1;
+    if (t[0] === '-' || t[0] === '+') { if (t[0] === '-') sign = -1; t = t.slice(1); }
+    if (/^0b/.test(t)) return sign * parseInt(t.slice(2), 2);
+    if (/^0x/.test(t)) return sign * parseInt(t.slice(2), 16);
+    if (/^0o/.test(t)) return sign * parseInt(t.slice(2), 8);
+    return sign * parseInt(t, 10);
+  }
+  function yFloat(s) {
+    var t = s.replace(/_/g, '').toLowerCase();
+    if (t === '.nan') return NaN;
+    if (/^[-+]?\.inf$/.test(t)) return t[0] === '-' ? -Infinity : Infinity;
+    return parseFloat(t);
+  }
+  function yStamp(s) {
+    var m = Y_DATE.exec(s);
+    if (m) return new Date(Date.UTC(+m[1], +m[2] - 1, +m[3])).toISOString();
+    m = Y_STAMP.exec(s);
+    if (!m) return null;
+    var ms = m[7] ? +(m[7] + '00').slice(0, 3) : 0;
+    var t = Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +m[6], ms);
+    if (m[9]) t -= (m[9] === '-' ? -1 : 1) * ((+m[10]) * 60 + (+(m[11] || 0))) * 60000;
+    return new Date(t).toISOString();
+  }
+  // a plain scalar's value, as the core schema resolves it
+  function yPlain(s) {
+    if (Y_NULL.test(s)) return null;
+    if (Y_BOOL.test(s)) return s[0] === 't' || s[0] === 'T';
+    if (Y_INT.test(s)) return yInt(s);
+    if (Y_FLOAT.test(s) && /[0-9]|inf|nan/i.test(s)) return yFloat(s);
+    var d = yStamp(s);
+    return d === null ? s : d;
+  }
+  var ESC = { '0': '\0', 'a': '\x07', 'b': '\b', 't': '\t', '\t': '\t', 'n': '\n', 'v': '\x0B', 'f': '\f', 'r': '\r',
+              'e': '\x1B', ' ': ' ', '"': '"', '/': '/', '\\': '\\', 'N': '\x85', '_': '\xA0', 'L': '\u2028', 'P': '\u2029' };
+
+  function yamlParse(src) {
+    var lines = String(src).replace(/\r\n?/g, '\n').split('\n');
+    // the last line's break ends that line; it starts no line of its own
+    if (lines.length > 1 && lines[lines.length - 1] === '') lines.pop();
+    var P = { lines: lines, i: 0, anchors: {}, seqOk: false };
+    function fail(msg, at) { throw new YamlError(msg, (at === undefined ? P.i : at) + 1); }
+    // a line's content: its indent, and its text without a trailing comment
+    // (a # at the start or after a space, outside quotes)
+    function strip(t) {
+      var q = null, prev = ' ';
+      for (var k = 0; k < t.length; k++) {
+        var c = t[k];
+        if (q) {
+          if (q === '"' && c === '\\') { k++; prev = 'x'; continue; }
+          if (c === q) { if (q === "'" && t[k + 1] === "'") { k++; continue; } q = null; }
+        } else if (c === '#' && /\s/.test(prev)) { return t.slice(0, k).replace(/\s+$/, ''); }
+        else if ((c === '"' || c === "'") && /[\s[{,]/.test(prev)) { q = c; }
+        prev = c;
+      }
+      return t.replace(/\s+$/, '');
+    }
+    function at(k) {
+      var raw = lines[k], n = 0;
+      while (raw[n] === ' ') n++;
+      var text = strip(raw.slice(n));
+      if (text && raw[n] === '\t') fail('a tab cannot indent', k);
+      return { indent: n, text: text };
+    }
+    function blank(k) { return !at(k).text; }
+    function next() {           // the next line with something on it
+      while (P.i < lines.length && blank(P.i)) P.i++;
+      return P.i < lines.length ? at(P.i) : null;
+    }
+    var SEQ = /^-(?:\s|$)/;
+    // a document's end ("...") or the next one's start ("---")
+    function docEnd(c) { return c.indent === 0 && (c.text === '...' || /^---(?:\s|$)/.test(c.text)); }
+    // where a mapping's key ends: the ':' followed by a space or the line's end
+    function keyEnd(t) {
+      var k = 0;
+      if (t[0] === '"' || t[0] === "'") {
+        var q = t[0];
+        for (k = 1; k < t.length; k++) {
+          if (q === '"' && t[k] === '\\') { k++; continue; }
+          if (t[k] === q) { if (q === "'" && t[k + 1] === "'") { k++; continue; } break; }
+        }
+        if (k >= t.length) return -1;
+        k++;
+        while (t[k] === ' ') k++;
+        return t[k] === ':' && (k + 1 === t.length || /\s/.test(t[k + 1])) ? k : -1;
+      }
+      if (/^[[{]/.test(t)) return -1;
+      for (k = 0; k < t.length; k++) {
+        if (t[k] === ':' && (k + 1 === t.length || /\s/.test(t[k + 1]))) return k;
+      }
+      return -1;
+    }
+    function keyOf(raw) {
+      raw = raw.replace(/\s+$/, '');
+      if (raw[0] === '"' || raw[0] === "'") return String(quoted(raw, 0, P.i).v);
+      if (raw === '?' || raw.slice(0, 2) === '? ') fail('a complex key (?) is not supported');
+      if (raw[0] === '*') return String(alias(raw));
+      var v = yPlain(raw);
+      return v === null ? 'null' : String(v);
+    }
+    function alias(t) {
+      var name = t.slice(1).replace(/\s+$/, '');
+      if (!Object.prototype.hasOwnProperty.call(P.anchors, name)) fail('unidentified alias "' + name + '"');
+      return P.anchors[name];
+    }
+    // a quoted scalar starting at t[k]: { v, end } (the index after it)
+    function quoted(t, k, line) {
+      var q = t[k], out = '', j = k + 1;
+      for (; j < t.length; j++) {
+        var c = t[j];
+        if (q === "'" && c === "'") { if (t[j + 1] === "'") { out += "'"; j++; continue; } return { v: out, end: j + 1 }; }
+        if (q === '"' && c === '"') return { v: out, end: j + 1 };
+        if (q === '"' && c === '\\') {
+          var e = t[++j];
+          if (e === undefined) break;
+          if (e === 'x' || e === 'u' || e === 'U') {
+            var len = e === 'x' ? 2 : e === 'u' ? 4 : 8, hex = t.substr(j + 1, len);
+            if (!/^[0-9a-fA-F]+$/.test(hex) || hex.length !== len) fail('a bad escape in a double-quoted string', line);
+            out += String.fromCodePoint(parseInt(hex, 16)); j += len; continue;
+          }
+          if (e === '\n') { while (t[j + 1] === ' ' || t[j + 1] === '\t') j++; continue; }
+          if (!Object.prototype.hasOwnProperty.call(ESC, e)) fail('an unknown escape \\' + e, line);
+          out += ESC[e]; continue;
+        }
+        out += c;
+      }
+      fail('a quoted string is not closed', line);
+    }
+    // folding a quoted scalar's lines: a break is a space, an empty line a newline
+    function fold(parts) {
+      var out = '', blanks = 0;
+      parts.forEach(function (p, n) {
+        var s = n === 0 ? p.replace(/[ \t]+$/, '') : n === parts.length - 1 ? p.replace(/^[ \t]+/, '') : p.trim();
+        if (n > 0 && n < parts.length - 1 && !s) { blanks++; return; }
+        if (n > 0) out += blanks ? new Array(blanks + 1).join('\n') : ' ';
+        blanks = 0;
+        out += s;
+      });
+      return out;
+    }
+    // a quoted scalar that may run over several lines; `rest` begins with it
+    function quotedBlock(rest) {
+      var start = P.i, text = rest, k;
+      for (;;) {
+        try { var r = quoted(text, 0, start); k = r.end; break; }
+        catch (e) {
+          // only a string still open runs on to the next line
+          if (P.i + 1 >= lines.length || !/not closed/.test(e.message)) throw e;
+          P.i++;
+          text += '\n' + lines[P.i];
+        }
+      }
+      var after = strip(text.slice(k));
+      if (after) fail('unexpected text after a quoted string');
+      P.i++;
+      if (text.indexOf('\n') < 0) return quoted(text, 0, start).v;
+      // a double-quoted scalar's escaped breaks were handled by quoted(); fold the rest
+      var q = text[0], body = text.slice(1, k - 1);
+      if (q === "'") return fold(body.split('\n')).replace(/''/g, "'");
+      // (a line ending in an escape -- an odd run of backslashes -- runs on unfolded)
+      var segs = [];
+      body.split('\n').forEach(function (l) {
+        var prev = segs.length ? segs[segs.length - 1] : null;
+        if (prev !== null && /(^|[^\\])(\\\\)*\\$/.test(prev)) segs[segs.length - 1] = prev + '\n' + l;
+        else segs.push(l);
+      });
+      return quoted(q + fold(segs) + q, 0, start).v;
+    }
+    // [..] or {..} that may run over several lines: gathered, then parsed
+    function flowBlock(rest) {
+      var text = rest, depth = 0, q = null, start = P.i;
+      for (;;) {
+        depth = 0; q = null;
+        for (var k = 0; k < text.length; k++) {
+          var c = text[k];
+          if (q) {
+            if (q === '"' && c === '\\') { k++; continue; }
+            if (c === q) { if (q === "'" && text[k + 1] === "'") { k++; continue; } q = null; }
+          } else if (c === '"' || c === "'") q = c;
+          else if (c === '[' || c === '{') depth++;
+          else if (c === ']' || c === '}') depth--;
+        }
+        if (depth <= 0) break;
+        if (P.i + 1 >= lines.length) fail('a flow collection is not closed', start);
+        P.i++;
+        text += ' ' + strip(lines[P.i].trim());
+      }
+      P.i++;
+      var f = { s: text, k: 0 };
+      var v = flowValue(f, start).v;
+      skipWs(f);
+      if (f.k < f.s.length) fail('unexpected text after a flow collection', start);
+      return v;
+    }
+    function skipWs(f) { while (f.k < f.s.length && /\s/.test(f.s[f.k])) f.k++; }
+    function flowValue(f, line) {
+      skipWs(f);
+      var c = f.s[f.k], props = null;
+      if (c === '&' || c === '!') {
+        var m = /^(?:&[^\s,[\]{}]+|![^\s,[\]{}]*)/.exec(f.s.slice(f.k));
+        props = [];
+        while (m) { props.push(m[0]); f.k += m[0].length; skipWs(f); m = /^(?:&[^\s,[\]{}]+|![^\s,[\]{}]*)/.exec(f.s.slice(f.k)); }
+        c = f.s[f.k];
+      }
+      var v, plain = false;
+      if (c === '[') {
+        f.k++; v = [];
+        for (;;) {
+          skipWs(f);
+          if (f.s[f.k] === ']') { f.k++; break; }
+          var item = flowValue(f, line);
+          skipWs(f);
+          if (f.s[f.k] === ':') {            // [a: 1]: a mapping of one pair
+            f.k++;
+            var pair = {};
+            setKey(pair, item.v === null && !item.quoted ? 'null' : String(item.v), flowValue(f, line).v, null, line);
+            item = { v: pair };
+            skipWs(f);
+          }
+          v.push(item.v);
+          if (f.s[f.k] === ',') { f.k++; continue; }
+          if (f.s[f.k] === ']') { f.k++; break; }
+          fail('expected , or ] in a flow sequence', line);
+        }
+      } else if (c === '{') {
+        f.k++; v = {};
+        for (;;) {
+          skipWs(f);
+          if (f.s[f.k] === '}') { f.k++; break; }
+          var key = flowValue(f, line, true);
+          skipWs(f);
+          var val = null;
+          if (f.s[f.k] === ':') { f.k++; val = flowValue(f, line).v; skipWs(f); }
+          setKey(v, key.v === null && !key.quoted ? 'null' : String(key.v), val, null, line);
+          if (f.s[f.k] === ',') { f.k++; continue; }
+          if (f.s[f.k] === '}') { f.k++; break; }
+          fail('expected , or } in a flow mapping', line);
+        }
+      } else if (c === '"' || c === "'") {
+        var r = quoted(f.s, f.k, line); f.k = r.end; v = r.v;
+        return tagged(props, v, true, line);
+      } else if (c === '*') {
+        var am = /^\*[^\s,[\]{}]+/.exec(f.s.slice(f.k));
+        if (!am) fail('an alias needs a name', line);
+        f.k += am[0].length;
+        return { v: alias(am[0]) };
+      } else {
+        var start = f.k;
+        while (f.k < f.s.length && !/[,[\]{}]/.test(f.s[f.k]) &&
+               !(f.s[f.k] === ':' && (f.k + 1 === f.s.length || /[\s,[\]{}]/.test(f.s[f.k + 1])))) f.k++;
+        v = f.s.slice(start, f.k).trim();
+        plain = true;
+      }
+      return tagged(props, v, !plain && typeof v === 'string', line, plain);
+    }
+    // anchors and tags on a node: { v, quoted }
+    function tagged(props, v, isQuoted, line, isPlain) {
+      var tag = null, anchor = null;
+      (props || []).forEach(function (p) { if (p[0] === '&') anchor = p.slice(1); else tag = p; });
+      if (isPlain) v = tag ? v : yPlain(v);
+      if (tag) v = applyTag(tag, v, line);
+      if (anchor) P.anchors[anchor] = v;
+      return { v: v, quoted: isQuoted };
+    }
+    function applyTag(tag, v, line) {
+      switch (tag) {
+        case '!!str': return v === null ? '' : String(v);
+        case '!!int': if (typeof v === 'string' && Y_INT.test(v)) return yInt(v); break;
+        case '!!float': if (typeof v === 'string' && (Y_FLOAT.test(v) || Y_INT.test(v))) return yFloat(v); break;
+        case '!!bool': if (typeof v === 'string' && Y_BOOL.test(v)) return yPlain(v); break;
+        case '!!null': if (v === null || v === '' || (typeof v === 'string' && Y_NULL.test(v))) return null; break;
+        case '!!map': if (v && typeof v === 'object' && !Array.isArray(v)) return v; break;
+        case '!!seq': if (Array.isArray(v)) return v; break;
+        case '!': return v;
+        default: fail('unknown tag ' + tag, line);
+      }
+      fail('cannot resolve a node with the tag ' + tag, line);
+    }
+    function setKey(obj, key, val, merged, line) {
+      if (Object.prototype.hasOwnProperty.call(obj, key) && !(merged && merged[key])) fail('duplicated mapping key "' + key + '"', line);
+      if (merged) delete merged[key];
+      if (key === '__proto__') Object.defineProperty(obj, key, { value: val, enumerable: true, writable: true, configurable: true });
+      else obj[key] = val;
+    }
+    function merge(obj, src, merged, line) {
+      var list = Array.isArray(src) ? src : [src];
+      list.forEach(function (m) {
+        if (!m || typeof m !== 'object' || Array.isArray(m)) fail('a merge (<<) takes a mapping or a list of mappings', line);
+        Object.keys(m).forEach(function (k) {
+          if (!Object.prototype.hasOwnProperty.call(obj, k)) { obj[k] = m[k]; merged[k] = true; }
+        });
+      });
+    }
+    // | and > blocks; `head` is the indicator and its options, n the parent's indent
+    function blockScalar(head, n) {
+      var m = /^([|>])([+-]?)([1-9]?)([+-]?)$/.exec(head);
+      if (!m || (m[2] && m[4])) fail('a bad block scalar header "' + head + '"');
+      var folded = m[1] === '>', chomp = m[2] || m[4], explicit = m[3] ? Math.max(n, 0) + Number(m[3]) : null;
+      P.i++;
+      var body = [], ind = explicit, k = P.i;
+      for (; k < lines.length; k++) {
+        var raw = lines[k];
+        if (!raw.trim()) { body.push(raw); continue; }
+        var sp = 0; while (raw[sp] === ' ') sp++;
+        if (ind === null) { if (sp <= n) break; ind = sp; }
+        if (sp < ind) break;
+        body.push(raw);
+      }
+      P.i = k;
+      var trail = 0;
+      while (body.length && !body[body.length - 1].trim()) { body.pop(); trail++; }
+      var rows = body.map(function (r) { return r.length > ind ? r.slice(ind) : r.trim() ? r : ''; });
+      var out;
+      if (!folded) out = rows.join('\n');
+      else {
+        out = ''; var prev = null, gap = 0;
+        rows.forEach(function (r) {
+          if (r === '') { gap++; return; }
+          var type = /^[ \t]/.test(r) ? 'more' : 'normal';
+          if (prev === null) out += new Array(gap + 1).join('\n');
+          else if (prev === 'normal' && type === 'normal') out += gap ? new Array(gap + 1).join('\n') : ' ';
+          else out += new Array(gap + 2).join('\n');
+          out += r; prev = type; gap = 0;
+        });
+      }
+      if (!rows.length) return chomp === '+' ? new Array(trail + 1).join('\n') : '';
+      if (chomp === '-') return out;
+      if (chomp === '+') return out + '\n' + new Array(trail + 1).join('\n');
+      return out + '\n';
+    }
+    // a value written after "key:" or "- " (rest, maybe empty), its parent at indent n
+    function value(rest, n) {
+      var props = [], line0 = P.i;
+      var m = /^(&[^\s,[\]{}]+|![^\s]*)(?:\s+|$)/.exec(rest);
+      while (m) { props.push(m[1]); rest = rest.slice(m[0].length); m = /^(&[^\s,[\]{}]+|![^\s]*)(?:\s+|$)/.exec(rest); }
+      // "- &a key: v": js-yaml anchors the mapping; not read here (rather than misread as text)
+      if (props.length && rest && !/^[[{"'|>*]/.test(rest) && keyEnd(rest) >= 0) fail('an anchor or a tag before a mapping on its line is not supported');
+      var v, isQuoted = false, plain = false;
+      if (!rest) {
+        P.i++;
+        var nx = next();
+        if (nx && (nx.indent > n || (nx.indent === n && SEQ.test(nx.text) && P.seqOk))) v = node(n, nx.indent === n);
+        else v = null;
+      } else if (rest[0] === '|' || rest[0] === '>') v = blockScalar(rest, n);
+      else if (rest[0] === '[' || rest[0] === '{') v = flowBlock(rest);
+      else if (rest[0] === '"' || rest[0] === "'") { v = quotedBlock(rest); isQuoted = true; }
+      else if (rest[0] === '*') { v = alias(rest); P.i++; return v; }
+      else {
+        // a plain scalar, and its continuation lines (more indented)
+        var parts = [rest];
+        P.i++;
+        while (P.i < lines.length) {
+          if (blank(P.i)) {
+            var j = P.i; while (j < lines.length && blank(j)) j++;
+            if (j < lines.length && at(j).indent > n) { parts.push(''); P.i = j; continue; }
+            break;
+          }
+          var c = at(P.i);
+          if (c.indent <= n) break;
+          if (keyEnd(c.text) >= 0 || SEQ.test(c.text)) fail('bad indentation of a mapping entry or a sequence item');
+          parts.push(c.text); P.i++;
+        }
+        v = parts.length > 1 ? fold(parts) : rest;
+        plain = true;
+      }
+      return tagged(props, v, isQuoted, line0, plain).v;
+    }
+    // the block node starting on the next line with something on it, indented more than n
+    // (or, sameSeq, a sequence at n under its key)
+    function node(n, sameSeq) {
+      var c = next();
+      if (!c) return null;
+      if (c.indent <= n && !(sameSeq && c.indent === n)) return null;
+      if (/^\?(?:\s|$)/.test(c.text)) fail('a complex key (?) is not supported');
+      if (SEQ.test(c.text)) return seq(c.indent);
+      if (keyEnd(c.text) >= 0) return map(c.indent);
+      // a scalar or flow node alone on its lines
+      return value(c.text, n);
+    }
+    function seq(n) {
+      var out = [];
+      for (;;) {
+        var c = next();
+        if (!c || c.indent !== n || !SEQ.test(c.text) || docEnd(c)) break;
+        var raw = lines[P.i], rest = raw.slice(n + 1), pad = 1;
+        while (rest[0] === ' ') { rest = rest.slice(1); pad++; }
+        var restStripped = strip(rest);
+        if (!restStripped) { P.seqOk = false; out.push(value('', n)); continue; }
+        if (SEQ.test(restStripped) || (keyEnd(restStripped) >= 0 && !/^[&!*]/.test(restStripped))) {
+          // "- - x" or "- key: v": the rest of the line is a node at its own column
+          lines[P.i] = new Array(n + pad + 1).join(' ') + rest;
+          out.push(node(n));
+          continue;
+        }
+        P.seqOk = false;
+        out.push(value(restStripped, n));
+      }
+      var after = next();
+      if (after && after.indent > n) fail('bad indentation of a sequence item');
+      return out;
+    }
+    function map(n) {
+      var out = {}, merged = {};
+      for (;;) {
+        var c = next();
+        if (!c || c.indent < n || docEnd(c)) break;
+        if (c.indent > n) fail('bad indentation of a mapping entry');
+        if (SEQ.test(c.text)) break;
+        var k = keyEnd(c.text);
+        if (k < 0) fail('a mapping entry needs "key: value"');
+        var line = P.i, key = keyOf(c.text.slice(0, k)), rest = c.text.slice(k + 1).replace(/^\s+/, '');
+        P.seqOk = true;
+        var v = value(rest, n);
+        if (key === '<<' && c.text.slice(0, k).trim() === '<<') merge(out, v, merged, line);
+        else setKey(out, key, v, merged, line);
+      }
+      return out;
+    }
+
+    var c0 = next(), started = false;
+    // a document start ("---") and directives ("%YAML") before it
+    while (c0 && c0.indent === 0 && /^(?:%|---(?:\s|$))/.test(c0.text)) {
+      if (/^---/.test(c0.text)) {
+        started = true;
+        var restDoc = c0.text.slice(3).trim();
+        if (restDoc) { lines[P.i] = restDoc; break; }
+      }
+      P.i++;
+      c0 = next();
+    }
+    // nothing: js-yaml's undefined; a document marked but empty: null
+    if (!c0) return started ? null : undefined;
+    var doc = node(-1, false);
+    var end = next();
+    if (end && end.text === '...') { P.i++; end = next(); }
+    if (end) fail(/^---/.test(end.text) ? 'only one document is read here' : 'unexpected text');
+    return doc;
+  }
+
+  // WRITING IT: what the editor shows to begin with -- block style, two
+  // spaces, keys in their order, a string quoted ("...") only where it would
+  // read back as something else, a multi-line string as a | block. Whatever
+  // it writes reads back as the same value (the kit's tests check).
+  var Y_RESERVED = /^(?:~|null|Null|NULL|true|True|TRUE|false|False|FALSE|y|Y|yes|Yes|YES|n|N|no|No|NO|on|On|ON|off|Off|OFF|<<|=)$/;
+  function yQuote(s) {
+    return '"' + s.replace(/[\\"\u0000-\u001f\u007f-\u009f\u2028\u2029\ufeff]/g, function (c) {
+      var map = { '\\': '\\\\', '"': '\\"', '\n': '\\n', '\t': '\\t', '\r': '\\r', '\b': '\\b', '\f': '\\f', '\0': '\\0' };
+      if (map[c]) return map[c];
+      var hx = c.charCodeAt(0).toString(16).toUpperCase();
+      return c.charCodeAt(0) < 256 ? '\\x' + ('0' + hx).slice(-2) : '\\u' + ('000' + hx).slice(-4);
+    }) + '"';
+  }
+  function yPlainSafe(s) {
+    if (!s || Y_RESERVED.test(s) || s !== s.trim()) return false;
+    if (yPlain(s) !== s) return false;                       // reads back as a number, a bool, a date...
+    if (/^[-?:,[\]{}#&*!|>'"%@`]/.test(s) && !/^-[^\s-]/.test(s)) return false;
+    if (/^---|^\.\.\./.test(s)) return false;
+    if (/:\s|\s#|:$|[\u0000-\u001f\u007f-\u009f\u2028\u2029\ufeff]/.test(s)) return false;
+    if (/^-/.test(s) && Y_FLOAT.test(s)) return false;
+    return true;
+  }
+  function yScalar(v, asKey) {
+    if (v === null || v === undefined) return 'null';
+    if (typeof v === 'boolean') return v ? 'true' : 'false';
+    if (typeof v === 'number') {
+      if (isNaN(v)) return '.nan';
+      if (v === Infinity) return '.inf';
+      if (v === -Infinity) return '-.inf';
+      if (Object.is(v, -0)) return '-0.0';
+      return String(v);
+    }
+    var s = v instanceof Date ? v.toISOString() : String(v);
+    // a | block, unless its first line's indent or a line of only spaces would not read back
+    if (!asKey && s.indexOf('\n') >= 0 && !/^\n*[ \t]/.test(s) && !/(^|\n)[ \t]+(\n|$)/.test(s) &&
+        !/[\u0000-\u0008\u000b-\u001f\u007f-\u009f\u2028\u2029\ufeff\r]/.test(s)) return null;
+    return yPlainSafe(s) ? s : yQuote(s);
+  }
+  // a node: { inline } (a scalar, {} or []), { inline: '|', after: [lines] }, or { block: [lines] }
+  function yNode(v) {
+    if (Array.isArray(v)) {
+      if (!v.length) return { inline: '[]' };
+      var rows = [];
+      v.forEach(function (item) {
+        var c = yNode(item === undefined ? null : item);
+        if (c.inline !== undefined) {
+          rows.push('- ' + c.inline);
+          (c.after || []).forEach(function (l) { rows.push(l ? '  ' + l : l); });
+        } else {
+          rows.push('- ' + c.block[0]);
+          c.block.slice(1).forEach(function (l) { rows.push(l ? '  ' + l : l); });
+        }
+      });
+      return { block: rows };
+    }
+    if (v && typeof v === 'object' && !(v instanceof Date)) {
+      var keys = Object.keys(v).filter(function (k) { return v[k] !== undefined && typeof v[k] !== 'function'; });
+      if (!keys.length) return { inline: '{}' };
+      var out = [];
+      keys.forEach(function (k) {
+        var kk = yScalar(k, true), c = yNode(v[k]);
+        if (c.inline !== undefined) {
+          out.push(kk + ': ' + c.inline);
+          (c.after || []).forEach(function (l) { out.push(l ? '  ' + l : l); });
+        } else {
+          out.push(kk + ':');
+          c.block.forEach(function (l) { out.push(l ? '  ' + l : l); });
+        }
+      });
+      return { block: out };
+    }
+    var s = yScalar(v);
+    if (s !== null) return { inline: s };
+    // a multi-line string: a literal block, its chomping as its trailing newlines say
+    var str = String(v), m = /\n*$/.exec(str)[0].length;
+    var head = m === 0 ? '|-' : m === 1 ? '|' : '|+';
+    var body = (m === 0 ? str : m === 1 ? str.slice(0, -1) : str.slice(0, -m)).split('\n');
+    if (m > 1) for (var x = 1; x < m; x++) body.push('');
+    return { inline: head, after: body };
+  }
+  function yamlDump(v) {
+    var c = yNode(v === undefined ? null : v);
+    if (c.inline !== undefined) return [c.inline].concat(c.after || []).join('\n') + '\n';
+    return c.block.join('\n') + '\n';
+  }
+  function yEmpty(v) {
+    if (typeof v !== 'object' || v === null) return false;
+    for (var k in v) { if (Object.prototype.hasOwnProperty.call(v, k)) return false; }
+    return true;
+  }
+
+  // A YAML EDITOR: what Home Assistant's YAML editor did on these pages --
+  // the value written out to begin with (nothing for an empty one), read
+  // back at every keystroke, o.onChange(value, valid) each time: empty text is
+  // {} and a mistake is (undefined, false). The mistake is said under it, by
+  // line. Tab indents two spaces (Escape, then Tab, leaves the field);
+  // Return keeps the line's indent, two more after a "key:".
+  // o: { value, label, onChange(value, valid), fk, sk }
+  function yaml(o) {
+    var eid = id('ye');
+    var ta = h('textarea', { class: 'code', 'aria-label': o.label || 'YAML', spellcheck: 'false', autocomplete: 'off',
+                             autocapitalize: 'off', autocorrect: 'off', wrap: 'off', 'data-fk': o.fk || o.sk,
+                             'aria-describedby': eid });
+    ta.value = o.value === undefined || yEmpty(o.value) ? '' : yamlDump(o.value);
+    var msg = h('div', { class: 'codeerr', id: eid, 'aria-live': 'polite' });
+    var box = h('div', { class: 'codebox', 'data-sk': o.sk }, [ta, msg]);
+    var read = function () {
+      var text = ta.value, v, valid = true, err = '';
+      if (text) {
+        try { v = yamlParse(text); } catch (e) { valid = false; err = e && e.message || String(e); }
+      } else v = {};
+      ta.setAttribute('aria-invalid', valid ? 'false' : 'true');
+      msg.textContent = err;
+      box.className = 'codebox' + (valid ? '' : ' bad');
+      box.valid = valid;
+      o.onChange(v, valid);
+    };
+    var escaped = false;
+    var put = function (text, from, to) {
+      if (typeof ta.setRangeText === 'function') ta.setRangeText(text, from, to, 'end');
+      else { ta.value = ta.value.slice(0, from) + text + ta.value.slice(to); }
+      read();
+    };
+    ta.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') { escaped = true; return; }
+      var was = escaped; escaped = false;
+      var s = ta.selectionStart, end = ta.selectionEnd, v = ta.value;
+      var ls = v.lastIndexOf('\n', s - 1) + 1;
+      if (e.key === 'Tab' && !was && !e.altKey && !e.ctrlKey && !e.metaKey) {
+        e.preventDefault();
+        if (e.shiftKey) {
+          var lead = /^ {1,2}/.exec(v.slice(ls));
+          if (lead) { put('', ls, ls + lead[0].length); ta.selectionStart = ta.selectionEnd = Math.max(ls, s - lead[0].length); }
+        } else put('  ', s, end);
+      } else if (e.key === 'Enter' && !e.shiftKey && !e.altKey && !e.ctrlKey && !e.metaKey) {
+        var line = v.slice(ls, s), ind = /^ */.exec(line)[0];
+        if (/:\s*$/.test(line.replace(/\s+#.*$/, ''))) ind += '  ';
+        e.preventDefault();
+        put('\n' + ind, s, end);
+      }
+    });
+    ta.addEventListener('input', read);
+    box.textarea = ta;
+    box.valid = true;
+    return box;
+  }
+
   root.hkSettingsKit = {
-    version: '2.0.0', CSS: CSS, h: h, esc: esc, icon: icon, svg: svg, id: id,
+    version: '2.1.0', CSS: CSS, h: h, esc: esc, icon: icon, svg: svg, id: id,
     CHEV: CHEV, CHECK: CHECK, group: group, nav: nav, toggle: toggle, seg: seg, select: select, slider: slider,
     text: text, info: info, check: check, button: button, listEditor: listEditor, confirm: confirm, label: label, popup: popup,
-    moveVal: moveVal
+    moveVal: moveVal, yaml: yaml, yamlParse: yamlParse, yamlDump: yamlDump, YamlError: YamlError
   };
 })();

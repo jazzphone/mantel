@@ -6,7 +6,8 @@
 //   ha-state-icon  ha-icon for an entity: its `icon` attribute, else a small domain default
 //   ha-svg-icon    an SVG from a path string
 //
-// Not stood in for (not on the Home page): ha-form, ha-yaml-editor, the more-info dialog.
+// Not stood in for (not on the Home page): ha-form, ha-yaml-editor, the more-info dialog. (The HK
+// Settings panel needs neither: since Phase 2 P2.4 it draws with the settings kit's own YAML editor.)
 const NS = 'http://www.w3.org/2000/svg';
 
 class HaCard extends HTMLElement {
