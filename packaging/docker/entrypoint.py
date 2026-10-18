@@ -30,7 +30,11 @@ Home Assistant App (add-on)      recognised by SUPERVISOR_TOKEN in the environme
                                  0600 file and removed from the environment, so the server and anything it
                                  spawns only ever see a file path, like every other mode. Options come from
                                  options.json (packaging/ha-app/config.yaml): commands_enabled (default
-                                 false), log_level, default_screen, ha_door_rules. The server is reached only
+                                 false), log_level, default_screen, ha_door_rules, ma_url and ma_token (Music
+                                 Assistant; the token, a masked option, is moved into a 0600 file like the App
+                                 credential and only its path is passed; on /admin -> Connections these show
+                                 as "set by the installation", and a connection saved there wins over them).
+                                 The server is reached only
                                  through Ingress (--ingress --ingress-only: the signed-in HA user is believed
                                  only from the Supervisor's Ingress proxy, 172.30.32.2), and talks to HA Core
                                  through the Supervisor (ws://supervisor/core/websocket). docs/phase3/HA-APP.md.
@@ -71,6 +75,7 @@ ADMIN_EXTRAS = {
 }
 APP_OPTIONS = Path("/data/options.json")
 APP_TOKEN_FILE = Path("/tmp/ha_token")
+APP_MA_TOKEN_FILE = Path("/tmp/ma_token")       # the App's Music Assistant token (its masked option), 0600
 SUPERVISOR_CORE_URL = "http://supervisor/core"
 SUPERVISOR_WS_URL = "ws://supervisor/core/websocket"
 APP_PORT = "8099"
@@ -177,6 +182,12 @@ def app_args(options: dict, token_file: Path, env: dict[str, str] | None = None)
         args += ["--screen", str(options["default_screen"])]
     if options.get("session_hours"):
         args += ["--session-hours", str(options["session_hours"])]
+    # Music Assistant (Phase 4, music.py): its address is an option; its token a masked option the caller
+    # (plan) has already moved into a private file. Without both, Mantel's music engine stays off.
+    ma_url = str(options.get("ma_url") or "").strip()
+    ma_file = Path(env.get("MANTEL_APP_MA_TOKEN_FILE") or APP_MA_TOKEN_FILE)
+    if ma_url and str(options.get("ma_token") or "").strip():
+        args += ["--ma-url", ma_url, "--ma-token-file", str(ma_file)]
     return args
 
 
@@ -201,7 +212,12 @@ def plan(argv: list[str], env: dict[str, str], options_path: Path = APP_OPTIONS,
         options_path = Path(env.get("MANTEL_APP_OPTIONS") or options_path)
         token_file = Path(env.get("MANTEL_APP_TOKEN_FILE") or token_file)
         write_private(token_file, env.pop("SUPERVISOR_TOKEN"))
-        return app_args(json.loads(options_path.read_text()), token_file, env) + argv, env
+        options = json.loads(options_path.read_text())
+        ma_file = Path(env.get("MANTEL_APP_MA_TOKEN_FILE") or APP_MA_TOKEN_FILE)
+        ma_token = str(options.get("ma_token") or "").strip()
+        if ma_token and str(options.get("ma_url") or "").strip():
+            write_private(ma_file, ma_token)       # out of the options' way: the server only sees a file path
+        return app_args(options, token_file, env) + argv, env
     return container_args(env) + argv, env
 
 
@@ -226,7 +242,8 @@ def main(argv: list[str] | None = None) -> int:
         print(f"mantel entrypoint: {exc}", file=sys.stderr)
         return 2
     if os.getuid() == 0:
-        drop_privileges([Path(env.get("MANTEL_DATA_DIR", "/data"))] + ([APP_TOKEN_FILE] if APP_TOKEN_FILE.exists() else []))
+        drop_privileges([Path(env.get("MANTEL_DATA_DIR", "/data"))]
+                        + [f for f in (APP_TOKEN_FILE, APP_MA_TOKEN_FILE) if f.exists()])
     os.execve(sys.executable, [sys.executable, "-m", "mantel_server", *args], env)
     return 0  # not reached
 

@@ -29,7 +29,8 @@ from urllib.parse import urlparse
 import aiohttp
 from aiohttp import WSMsgType, web
 
-from . import accounts, auth, connect_pairing, devices, gateway, health, ingress, pins, proof2, rbac_store, readproxy, sessions, settings_store
+from . import music
+from . import accounts, alarm_pin, auth, connect_pairing, devices, gateway, health, ingress, pins, proof2, rbac_store, readproxy, sessions, settings_store
 from . import (admin_page, atrest, backup, connections, features, linked, linked_house, linked_owners, login_page,
                service_accounts, talk_relay, user_files)
 from .authz import Authz, Principal, resolve_door
@@ -432,6 +433,7 @@ def build_app(cfg: Config, token: str, store: Store | None = None, connect_ha: b
     login_page.register(app, hub)     # /login (passkey, password + TOTP, Sign in with HA via /login/ha)
     admin_page.register(app, hub)     # /admin (people, devices, roles, service accounts, audit, my PIN)
     pins.register(app, hub)
+    alarm_pin.register(app, hub)      # HK's Alarm PIN: the keypad's code checked by Mantel (GATEWAY.md "The alarm")
     ingress.register(app, hub, token)                   # HA App mode / Connect (cfg.ingress); inert otherwise
     wire(app, hub, token, connect_ha)
     connect_pairing.register(app, hub)                  # Mantel Connect (cfg.connect): pairing + the mTLS listener
@@ -542,6 +544,10 @@ def wire(app: web.Application, hub: Hub, token: str, connect_ha: bool) -> None:
     # Phase 4: hk_core's features on Mantel (each off until an Owner enables it; house commands only
     # through the gateway as the `mantel:features` Service actor)
     features.register(app, hub, hooks)
+    # Phase 4: whole-home music on Mantel, talking to Music Assistant directly (music.py). Its reads answer
+    # in front of the interim bridge once MA and the music settings are in Mantel; its actions run only
+    # through the gateway (commands off: refused, nothing reaches MA)
+    music.register(app, hub, hooks)
     # linked mode's notify and the rest of the entry (Seasonal decorations, Alarm PIN through the
     # gateway as the person whose PIN it is, Live TV), published only while Mantel owns `house`
     linked_house.register(app, hub)
@@ -595,23 +601,28 @@ async def apply_connection(app: web.Application, hub: Hub, connect_ha: bool, kin
                 holder["proxy"] = SignalingProxy(url, token, ws_url=cfg.ha_ws_url or None)
         app["oauth"].ha_url = url.rstrip("/")             # "Sign in with Home Assistant" goes to the new address
         return
+    # Music Assistant. The music engine (music.py) reads app["ma"] at each use, so it follows at once: with a
+    # client it is Mantel's engine (when the music settings are imported), with none the interim bridge to HA.
     client = app.get("ma")
     if cur is None:
         cfg.ma_url = ""
         _set(app, "ma", None)
         if client is not None:
             await client.close()
-        return
-    cfg.ma_url = cur.url
-    if client is None:
-        client = ma_connector.MaClient(cur.url, cfg.ma_token_file, gate=app.get("ma_gate") or REFUSE_ALL,
-                                       token_source=conns.ma_token)
-        _set(app, "ma", client)
-        client.start()
     else:
-        client.token_source = conns.ma_token
-        client.retarget(cur.url, conns.ma_token)
-        client.start()               # it may have stopped earlier for want of a token
+        cfg.ma_url = cur.url
+        if client is None:
+            client = ma_connector.MaClient(cur.url, cfg.ma_token_file, gate=app.get("ma_gate") or REFUSE_ALL,
+                                           token_source=conns.ma_token)
+            _set(app, "ma", client)
+            client.start()
+        else:
+            client.token_source = conns.ma_token
+            client.retarget(cur.url, conns.ma_token)
+            client.start()           # it may have stopped earlier for want of a token
+    music_host = app.get("music")
+    if music_host is not None:
+        music_host.connection_changed()
 
 
 async def policy_tick(app: web.Application, hub: Hub, every: float = POLICY_TICK) -> None:

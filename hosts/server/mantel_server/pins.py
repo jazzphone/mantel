@@ -27,7 +27,7 @@ import asyncio
 import logging
 import re
 import sqlite3
-from typing import Callable
+from typing import Awaitable, Callable
 
 from aiohttp import web
 from argon2 import PasswordHasher
@@ -214,6 +214,60 @@ class Pins:
                 cur = self.db.execute("UPDATE user_pins SET locked_until = ?, failed = 0 WHERE user_id = ? AND failed >= ?",
                                       (now + LOCK_SECONDS, user_id, LOCK_AFTER))
             return ("locked", float(LOCK_SECONDS)) if cur.rowcount else ("invalid", 0.0)
+
+    async def keypad(self, code: object, *, place: str, ip: str | None, person: str | None,
+                     house: Callable[[str], Awaitable[bool]] | None) -> tuple[str, object]:
+        """ONE code typed at an alarm keypad (alarm_pin.py; docs/phase3/PINS-AUDIT.md "The alarm keypad").
+
+        The code may be the house's own Alarm PIN for that keypad (``house``: alarm_pin checks it) or a
+        person's PIN: any live person's at a wall tablet or for linked mode (``person`` None: the PIN names
+        them), only the signed-in person's own on a session (``person`` = their id). Both are checked every
+        time, with no early exit; a person wins over the house code (it names someone). Answers
+        ``("person", User)``, ``("house", None)``, ``("invalid", 0.0)``, ``("locked", seconds)`` or
+        ``("ambiguous", 0.0)`` (two people share the PIN and it is not the house code).
+
+        A wrong code counts ONCE where it is typed (``place``: ``device:<id>`` is the tablet's own PIN pad,
+        so its lockout is shared with the person-PIN step-up) and per source IP; LOCK_AFTER in a row lock
+        the place for LOCK_SECONDS. A person's own lock (verify_user) also stops their session's keypad.
+        One check at a time (the same lock as identify/verify_user). The code is never logged."""
+        async with self._lock():
+            wait = max(self._place(place), self.by_ip.retry_after(f"ip:{ip}"))
+            own = None
+            if person is not None:
+                own = self.db.execute("SELECT * FROM user_pins WHERE user_id = ?", (person,)).fetchone()
+                now = self.clock()
+                if own is not None and own["locked_until"] and own["locked_until"] > now:
+                    wait = max(wait, own["locked_until"] - now)
+            if wait > 0:
+                return "locked", wait
+            typed = isinstance(code, str) and 0 < len(code) <= 64
+            house_ok = bool(await house(code)) if typed and house is not None else False  # type: ignore[arg-type]
+            people: list[sqlite3.Row] = []
+            if typed and PIN.match(code):  # type: ignore[arg-type]
+                if person is None:
+                    people = await self._matches(code)  # type: ignore[arg-type]
+                elif own is not None and await self._verify(own["pin_hash"], code):  # type: ignore[arg-type]
+                    people = [self.db.execute(
+                        "SELECT p.user_id, u.name, u.role, u.kind, u.username, h.ha_user_id FROM user_pins p "
+                        "JOIN users u ON u.id = p.user_id LEFT JOIN ha_links h ON h.user_id = u.id "
+                        "WHERE p.user_id = ? AND u.disabled = 0", (person,)).fetchone()]
+                    people = [r for r in people if r is not None]
+            if len(people) == 1:
+                r = people[0]
+                self._place_ok(place)
+                self._used(r["user_id"])
+                return "person", User(id=r["user_id"], name=r["name"], role=r["role"], kind=r["kind"],
+                                      username=r["username"], ha_user_id=r["ha_user_id"])
+            if house_ok:
+                self._place_ok(place)
+                return "house", None
+            if len(people) > 1:
+                log.error("two people share a PIN (%s); refused at the alarm keypad %s",
+                          ", ".join(p["user_id"] for p in people), place)
+                return "ambiguous", 0.0
+            self.by_ip.fail(f"ip:{ip}")
+            locked = self._place_failed(place)
+            return ("locked", locked) if locked else ("invalid", 0.0)
 
 
 _DEFAULT_HASHER = PasswordHasher()

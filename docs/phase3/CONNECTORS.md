@@ -106,7 +106,12 @@ All of it lives in Mantel's host adapter and server. The shared frontend (`web/h
   (`Authz.may_see`), streamed from HA with Mantel's credential (shared `camera_still.proxy_image`).
   History answers (`history/history_during_period`) lose any camera token or signed picture too.
   Tests: `tests/test_media_art.py` (7).
-- **Music: an interim read-only bridge (2026-10-18), until Phase 4 moves the engine.** HA's
+- **Music: Mantel's own engine since Phase 4 (2026-10-18), once Music Assistant is given to Mantel**
+  ([../phase4/MANTEL-FEATURES.md](../phase4/MANTEL-FEATURES.md) "Music"): `music.py` answers these reads in
+  front of the bridge below when `cfg.ma_url` + its token AND the imported music settings are there (the
+  person's own home room, from Music Assistant directly), and the actions run through the gateway to Music
+  Assistant. Until then the bridge below answers, as before.
+- **Music: the interim read-only bridge (2026-10-18), while Mantel's engine is off.** HA's
   `hk_frontend` integration still runs the music engine, so three of its reads are forwarded, RBAC-
   filtered (rules in the table below): `hk_music/subscribe` (the Music page's configuration feed),
   `hk_music/queue {entity_id, limit?}` (the screensaver panel's Up Next) and
@@ -124,10 +129,9 @@ All of it lives in Mantel's host adapter and server. The shared frontend (`web/h
   - **Queue answers** are rebuilt as `{id, title, artist, duration, image}`; an image address that is
     not `http(s)` or carries a token-like query key is dropped. A player the person may not view
     answers `not_found`, exactly as a nonexistent one, and nothing is sent to HA.
-  - **Page side, not done here:** the host adapter (`web/shim/mantel-host.js`) refuses
-    `hk_music/queue` itself, because its write-word backstop matches `queue`; it needs the same
-    exception the camera reads have before the screensaver's Up Next reaches Mantel.
-  - Later (Phase 4): HK's library and queue reads move to `ma/read`, and the feed to Mantel's engine.
+  - **Page side:** done: `hk_music/queue` is one of the host adapter's `NAMED_READS`.
+  - Phase 4: the feed, the queue and the library are Mantel's engine's (above) when it is on; Browse's library
+    reads still go to HA (`ma/read` is ready for them).
   - **Scratch HA check (2026-10-18):** all three went through `ReadProxy` + `FilteredReads` to the
     real `hk_frontend` and came back as HA's "not set up" answers (`{"configured": false}`, `{"items":
     []}`, `{"ok": false, "message": "Music Assistant is not set up."}`): the scratch HA has no Music
@@ -166,7 +170,8 @@ Sources I relied on (read 2026-10-18):
 | Authenticate | `{"message_id", "command": "auth", "args": {"token"}}` → `result.authenticated == true` |
 | Reads (`MA_READS`) | `players/all`, `player_queues/all`, `player_queues/get_active_queue {player_id}`, `player_queues/items {queue_id, limit, offset}`, `music/{artists,albums,tracks,playlists,radios,audiobooks,podcasts}/library_items {favorite, search, limit, offset, order_by, provider (+album_types / album_artists_only)}`, `music/artists/artist_albums`, `music/artists/artist_tracks`, `music/albums/album_tracks`, `music/playlists/playlist_tracks` (never `force_refresh`), `music/podcasts/podcast_episodes`, `music/item`, `music/item_by_uri`, `music/search {search_query, media_types, limit, library_only}`, `music/browse {path}`, `music/recently_played_items {limit, media_types}` |
 | Events | Everything MA pushes after auth, fanned out locally and optionally filtered by event type. After a reconnect, listeners get a local `{"event": "mantel_reconnected"}` so they read again |
-| Commands (`MA_COMMANDS`, gated) | `player_queues/{play_media, transfer, play, pause, play_pause, stop, next, previous, play_index, seek, shuffle, repeat}`, `players/cmd/{volume_set, volume_mute, power, group_many, ungroup_many, play_announcement}`. Each has an explicit argument list |
+| Commands (`MA_COMMANDS`, gated) | `player_queues/{play_media, transfer, play, pause, play_pause, stop, next, previous, play_index, seek, shuffle, repeat}`, `players/cmd/{volume_set, volume_mute, power, group_many, ungroup_many, play_announcement}`, and (Phase 4, what HA's integration sends for the media_player services the music engine uses) `players/cmd/{play, pause, play_pause, stop, next, previous, ungroup}`. Each has an explicit argument list |
+| Server-only reads (`MA_SERVER_READS`, Phase 4) | `music/playlists/playlist_tracks` with `force_refresh` and `music/recently_played_items` with `played_after_timestamp`: Keep Playlists Ready's refresh, sent only by `MaClient.server_read` / `send_command` (Mantel itself); `check_outgoing` refuses them on the page path (`ma/read`), so `force_refresh` still never comes from a page |
 
 **Command path.** `MaClient.command(identity, command, **args)` works in four steps:
 
@@ -230,6 +235,12 @@ socket ends / read_unsubscribe ─▶ unsubscribe_events ─▶ HA ends the WebR
 | `hk_music/subscribe` (subscription; interim) | `feature:music`. Every event pruned to the players the subject may `view`; `home` always null; unknown keys dropped |
 | `hk_music/queue` (interim) | `view` the `media_player.*` (else `not_found`, nothing sent); `limit` 1..100 (HA's schema). Items rebuilt; token-carrying image addresses dropped |
 | `hk_music/settings/library` (interim) | `feature:music`. Items rebuilt as `{uri, name}` |
+| `hk_music/settings/get` | Never for a page (`SERVER_ONLY_READS`): the music import's own read. A page's is answered by Mantel's engine (`music.ROUTE_RULES`: `configure` on settings) |
+
+The four `hk_music/*` reads are registered by `music.py` in `app["read_routes"]` (`music.ROUTE_RULES`): with
+Mantel's engine on they are answered from Music Assistant and Mantel's settings, never sent to HA; with it off
+the routes hand `subscribe`, `queue` and `settings/library` to the rules above (the bridge) and refuse
+`settings/get` as before.
 | `hk_tv/channels` (interim, [FEATURE-PARITY.md](../phase4/FEATURE-PARITY.md)) | Each channel kept only if the subject may `view` its `camera.*`; its `now` `sensor.*` only if viewable (else null). Rebuilt as `{configured, channels: [{number, name, camera, now}]}`; no other key passes |
 | `hk_notify/settings/get`, `hk_clean_areas/settings/get`, `hk_energy/settings/get`, `hk_tv/settings/get` | Never for a page (`SERVER_ONLY_READS`): the feature import's own reads (`ReadProxy.read_server`) |
 
@@ -288,9 +299,9 @@ target navigated or closed").
   drops, `ReadProxy` clears its subscriptions without telling them. The camera card recovers
   through its own `connectionState` retry. A later slice could send `{"type": "error", "code":
   "connection_lost"}`.
-- **MA reads are gated per feature (`feature:music`), not per player.** MA player ids aren't HA
-  entity ids. A per-player filter needs the MA-player-to-entity map, which a later slice can add
-  to `may_read`.
+- **`ma/read` is gated per feature (`feature:music`), not per player.** MA player ids aren't HA
+  entity ids. The map now exists (`music.ma_players`: the registry's `music_assistant` entities'
+  `unique_id`), and the music engine's own reads filter by entity; `ma/read` could use it too.
 - **`ma_url` and `ma_token_file` are config fields only, not CLI arguments.** Packaging (P3.6) and
   the settings import decide how they're set.
 

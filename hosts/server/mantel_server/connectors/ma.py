@@ -24,6 +24,10 @@ passed in at construction allows that identity that command; the default gate (c
 refuses everything, so until P3.3's gateway is wired nothing but reads can reach MA. Every frame
 passes ``check_outgoing``; a command frame needs a one-shot ticket only ``command()`` mints after the
 gate said yes. tests/test_connectors_ma.py pins all of it against a fake MA server.
+
+Phase 4 (music.py, Mantel's music engine): the gate is the gateway, which lets a music request's ``MusicRun``
+through for the engine's own commands on the house's speakers; and two SERVER-ONLY reads (MA_SERVER_READS, Keep
+Playlists Ready's forced refresh) are sent only by ``server_read`` / ``send_command``, never by ``ma/read``.
 """
 from __future__ import annotations
 
@@ -89,6 +93,24 @@ MA_COMMANDS: dict[str, frozenset[str]] = {
     "players/cmd/group_many": frozenset({"target_player", "child_player_ids"}),
     "players/cmd/ungroup_many": frozenset({"player_ids"}),
     "players/cmd/play_announcement": frozenset({"player_id", "url", "pre_announce", "volume_level"}),
+    # Phase 4 (music.py, Mantel's music engine): what HA's music_assistant integration sends for
+    # media_player.media_play / media_pause / media_play_pause / media_stop / next / previous / unjoin
+    "players/cmd/play": frozenset({"player_id"}),
+    "players/cmd/pause": frozenset({"player_id"}),
+    "players/cmd/play_pause": frozenset({"player_id"}),
+    "players/cmd/stop": frozenset({"player_id"}),
+    "players/cmd/next": frozenset({"player_id"}),
+    "players/cmd/previous": frozenset({"player_id"}),
+    "players/cmd/ungroup": frozenset({"player_id"}),
+}
+
+# SERVER-ONLY READS (Phase 4: music.py's Keep Playlists Ready, hk_core/music/warm.py). Reads Mantel itself
+# makes and a page never can (``ma/read`` goes through ``read``, which knows MA_READS only): a forced
+# refresh of a library playlist's songs (Music Assistant asks the streaming service again and re-caches
+# them; nothing in the library or on a player changes) and the playlists played in the last week.
+MA_SERVER_READS: dict[str, frozenset[str]] = {
+    "music/playlists/playlist_tracks": _ITEM | {"force_refresh"},
+    "music/recently_played_items": frozenset({"limit", "media_types", "played_after_timestamp"}),
 }
 
 
@@ -136,8 +158,18 @@ def check_read(command: object, args: Mapping[str, Any]) -> None:
         raise MaBlocked(f"{command!r} may not carry {sorted(extra)}")
 
 
-def check_outgoing(frame: dict, ticket: _Ticket | None = None) -> None:
-    """Every frame to MA: auth, an allowed read, or a command with its fresh ticket."""
+def check_server_read(command: object, args: Mapping[str, Any]) -> None:
+    allowed = MA_SERVER_READS.get(command)  # type: ignore[arg-type]
+    if allowed is None:
+        raise MaBlocked(f"{command!r} is not a server-only Music Assistant read")
+    extra = set(args) - allowed
+    if extra:
+        raise MaBlocked(f"{command!r} may not carry {sorted(extra)}")
+
+
+def check_outgoing(frame: dict, ticket: _Ticket | None = None, *, server: bool = False) -> None:
+    """Every frame to MA: auth, an allowed read, or a command with its fresh ticket. ``server``: one of
+    Mantel's own server-only reads (MA_SERVER_READS), never a page's."""
     command, args = frame.get("command"), frame.get("args") or {}
     if set(frame) - {"message_id", "command", "args"}:
         raise MaBlocked("unexpected keys in an MA frame")
@@ -145,6 +177,8 @@ def check_outgoing(frame: dict, ticket: _Ticket | None = None) -> None:
         if set(args) != {"token"}:
             raise MaBlocked("auth carries the token only")
         return
+    if server:
+        return check_server_read(command, args)
     if command in MA_READS:
         return check_read(command, args)
     if command in MA_COMMANDS:
@@ -317,9 +351,9 @@ class MaClient:
                 except Exception as exc:  # noqa: BLE001 -- one listener never breaks the others
                     log.warning("MA event listener failed: %s", exc)
 
-    async def _call(self, command: str, args: dict, ticket: _Ticket | None = None) -> Any:
+    async def _call(self, command: str, args: dict, ticket: _Ticket | None = None, server: bool = False) -> Any:
         frame = {"message_id": "", "command": command, "args": args}
-        check_outgoing(frame, ticket)               # before waiting on anything: a refusal sends nothing
+        check_outgoing(frame, ticket, server=server)  # before waiting on anything: a refusal sends nothing
         try:
             await asyncio.wait_for(self.connected.wait(), self.request_timeout)
         except asyncio.TimeoutError as exc:
@@ -342,6 +376,18 @@ class MaClient:
     async def read(self, command: str, **args: Any) -> Any:
         check_read(command, args)
         return await self._call(command, args)
+
+    async def server_read(self, command: str, **args: Any) -> Any:
+        """One of Mantel's own server-only reads (MA_SERVER_READS). Never reachable from a page."""
+        check_server_read(command, args)
+        return await self._call(command, args, server=True)
+
+    async def send_command(self, command: str, **args: Any) -> Any:
+        """hk_core.music.warm's ``MusicServer``: a read (MA_READS) or a server-only read
+        (MA_SERVER_READS). Never a command: anything else is refused and nothing is sent."""
+        if command in MA_READS and not set(args) - MA_READS[command]:
+            return await self.read(command, **args)
+        return await self.server_read(command, **args)
 
     async def players(self) -> Any:
         return await self.read("players/all")

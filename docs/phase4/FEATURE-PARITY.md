@@ -29,6 +29,10 @@ each feature's own `<id>/settings/get` answer, not in panel/get.
 - **The pieces it turns on:** `notifications`, `clean_areas` and `energy` come in **enabled**, because Mantel
   runs them. `live_tv` is imported **off**: its screens read HA's channel cameras (below), and HA already reads
   the guide. A feature HA does not have comes in off, and its read isn't sent.
+- **Music** (Phase 4, `music.import_doc`; [MANTEL-FEATURES.md](MANTEL-FEATURES.md) "Music"): when HA has Music
+  added, one more server-only read, `hk_music/settings/get`, becomes `house/music` (speakers, volume, home rooms
+  as `ha:<HA user id>`, presets, playlists, Keep Playlists Ready, Ignore Announcements; HA's user names are not
+  kept). A music read that fails leaves the features in; the import can be run again.
 - **Kept, never written:** `linked` and `sleep`.
 - **Checked:** the result goes through `check_settings`. Values it can't accept (a non-entity vacuum, a
   malformed channel) are left out rather than failing the import.
@@ -103,14 +107,17 @@ What remains (in HA until Live TV's viewers move):
 
 ## Other gaps
 
-- **HA's own Lovelace energy cards** (`energy-date-selection`, `energy-sources-table`,
-  `energy-devices-graph`, `energy-devices-detail-graph`) are drawn only when the Energy options' `detail` is on.
-  Mantel's view host doesn't have them.
-- **Lovelace's `markdown` card** isn't in the view host either. An Energy page with nothing to show ("Nothing to
-  show yet…") draws an empty placeholder instead of that line.
-- **HK Settings → Features pages** read each feature's `<id>/settings/get`, which pages can't send on Mantel.
-  Since panel/get now lists the features as added, an Owner opening one sees it fail to load. Saving feature
-  settings was already `not_yet`.
+- ~~**HA's own Lovelace energy cards** and the **`markdown` card**~~ done 2026-10-18: Mantel's view host
+  draws `markdown` (the Energy page's "Nothing to show yet..." line) and `energy-date-selection`,
+  `-sources-table`, `-devices-graph` and `-devices-detail-graph` (shown when the Energy options' `detail`
+  is on) with HK's own elements, from `energy/get_prefs` and `recorder/statistics_during_period`
+  (`docs/phase2/VIEW-HOST.md`). No cost columns or period comparison.
+- ~~**HK Settings → Features pages** read each feature's `<id>/settings/get`, which pages can't send on Mantel.~~
+  **Fixed (2026-10-18, [MANTEL-FEATURES.md](MANTEL-FEATURES.md) "Phase 4 ports" item 5):** Mantel answers each page
+  for Owners/Admins and stores Notifications', Clean Areas', Energy's and Live TV's saves in
+  `house/mantel_features`; Alarm PIN's page is an interim rebuilt read of HA's (saves `not_yet`). Music's is
+  Mantel's own settings once Mantel's music engine is on ([MANTEL-FEATURES.md](MANTEL-FEATURES.md) "Music"; its
+  saves then go to `house/music` through the gateway), the interim rebuilt read of HA's until then.
 - **A change made in HA after the import** doesn't reach Mantel until the import is run again (POST or the
   Ingress button).
 

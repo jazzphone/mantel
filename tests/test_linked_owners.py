@@ -274,22 +274,34 @@ async def _pins(env):
         await env.app["pins"].set_pin(uid, pin)
 
 
-async def test_the_alarm_needs_a_person_s_pin_and_commands_off_send_nothing(make_env):
+HOUSE_CODE, HA_CODE, PROTECTED = "8642", "HA-own-code-5150", "alarm_control_panel.house"
+
+
+async def _disarm(lk, mid, code=None, command="alarm_disarm"):
+    res, _ = await lk.call(mid, type="entity_command", unique_id=ALARM_ITEM, command=command,
+                           data={"code": code} if code is not None else {})
+    return res
+
+
+async def test_the_alarm_needs_a_code_and_commands_off_send_nothing(make_env):
     env = await house_env(make_env)
     await _pins(env)
     lk, _ = await linked_ws(env)
-
-    async def disarm(mid, code=None):
-        res, _ = await lk.call(mid, type="entity_command", unique_id=ALARM_ITEM, command="alarm_disarm",
-                               data={"code": code} if code is not None else {})
-        return res
-    assert (await disarm(1))["error"]["code"] == "invalid_code"
-    assert (await disarm(2, "0000"))["error"]["code"] == "invalid_code"
-    res = await disarm(3, "2580")
-    assert res["error"]["code"] == "commands_disabled", res
+    # one path: the linked panel got an Alarm PIN row from HA's registry (tablets off, no house code)
+    row = env.app["alarm_pin"].entry(ALARM_PANEL)
+    assert (row.forward_to, row.tablets, row.house_code, row.arm_required) == (PROTECTED, False, False, True)
+    cfg = [r for r in env.audit(kind="config") if r["action"] == "alarm_pin.linked"]
+    assert len(cfg) == 1 and json.loads(cfg[0]["target"])["forward_to"] == PROTECTED
+    res = await _disarm(lk, 1)
+    assert res["error"] == {"code": "code_required", "message": "Enter the alarm code"}
+    res = await _disarm(lk, 2, "0000")
+    assert res["error"] == {"code": "invalid_code", "message": "Wrong code"}
+    res = await _disarm(lk, 3, "2580")
+    assert res["error"]["code"] == "commands_disabled" and "nothing was sent" in res["error"]["message"], res
     row = env.audit(action="alarm_control_panel.alarm_disarm")[-1]
     assert (row["role"], row["decision"], row["reason"], row["result"]) == \
         ("adult", "denied", "commands_disabled", "not_sent"), "audited as the person, nothing sent"
+    assert json.loads(row["target"]) == [ALARM_PANEL, PROTECTED]
     assert env.app["commander"] is None
     assert "2580" not in json.dumps(env.audit()) and "2580" not in json.dumps(env.app["linked_house"].status())
     await lk.ws.close()
@@ -299,16 +311,82 @@ async def test_the_alarm_through_the_gateway_as_the_person(make_env):
     env = await house_env(make_env, commands=True)
     await _pins(env)
     lk, _ = await linked_ws(env)
-    res, _ = await lk.call(1, type="entity_command", unique_id=ALARM_ITEM, command="alarm_disarm",
-                           data={"code": "1397"})
+    res = await _disarm(lk, 1, "1397")
     assert res["error"]["code"] == "forbidden" and env.fake.sent == [], "a Child is refused the alarm (RBAC)"
     assert env.audit(action="alarm_control_panel.alarm_disarm")[0]["role"] == "child"
-    res, _ = await lk.call(2, type="entity_command", unique_id=ALARM_ITEM, command="alarm_disarm",
-                           data={"code": "2580"})
+    res = await _disarm(lk, 2, "2580")
     assert res["success"] and res["result"]["command"] == "alarm_disarm"
     assert env.fake.sent == ["alarm_control_panel.alarm_disarm"]
-    assert env.fake.frames[0]["service_data"]["entity_id"] == "alarm_control_panel.house"
-    assert "code" not in env.fake.frames[0]["service_data"], "the PIN goes on only to an alarm that asks for one"
+    assert env.fake.frames[0]["service_data"] == {"entity_id": PROTECTED}, "the alarm itself; no code"
     row = env.audit(action="alarm_control_panel.alarm_disarm", decision="allowed")[0]
-    assert row["role"] == "adult" and row["result"] == "ok"
+    assert row["role"] == "adult" and row["result"] == "ok" and row["step_up"] == "pin"
+    await lk.ws.close()
+
+
+async def test_the_house_code_works_in_linked_mode_as_at_a_tablet(make_env):
+    env = await house_env(make_env, commands=True)
+    await env.app["alarm_pin"].set(ALARM_PANEL, pin=HOUSE_CODE, pin_again=HOUSE_CODE)
+    lk, _ = await linked_ws(env)
+    res = await _disarm(lk, 1, HOUSE_CODE)
+    assert res["success"], res
+    assert env.fake.frames[-1]["service_data"] == {"entity_id": PROTECTED}
+    row = env.audit(action="alarm_control_panel.alarm_disarm", decision="allowed")[-1]
+    assert (row["actor"], row["step_up"], row["result"]) == ("mantel:linked", "alarm_pin", "ok")
+    assert HOUSE_CODE not in json.dumps(env.audit())
+    await lk.ws.close()
+
+
+async def test_the_typed_code_is_never_the_alarm_s_own_code(make_env):
+    env = await house_env(make_env, commands=True)
+    await _pins(env)
+    # the protected alarm asks for a code of its own
+    env.app["hub"].store.apply_event({"c": {PROTECTED: {"+": {"s": "armed_away", "lc": 4.0, "a": {
+        "supported_features": 3, "code_format": "number"}}}}})
+    lk, _ = await linked_ws(env)
+    res = await _disarm(lk, 1, "2580")
+    assert res["error"]["code"] == "alarm_ha_code_missing" and env.fake.sent == [], \
+        "no code held by Mantel: refused, the person's PIN is NOT passed on"
+    await env.app["alarm_pin"].set(ALARM_PANEL, ha_code=HA_CODE)
+    res = await _disarm(lk, 2, "2580")
+    assert res["success"], res
+    assert env.fake.frames[-1]["service_data"] == {"entity_id": PROTECTED, "code": HA_CODE}, \
+        "only Mantel's stored code for the alarm, never the typed PIN"
+    assert all("2580" not in json.dumps(f) for f in env.fake.frames)
+    assert HA_CODE not in json.dumps(env.audit()) and "2580" not in json.dumps(env.audit())
+    await lk.ws.close()
+
+
+async def test_wrong_codes_lock_the_linked_keypad(make_env):
+    from mantel_server.pins import LOCK_AFTER
+    env = await house_env(make_env, commands=True)
+    await _pins(env)
+    lk, _ = await linked_ws(env)
+    for n in range(LOCK_AFTER - 1):
+        assert (await _disarm(lk, n + 1, "0000"))["error"]["code"] == "invalid_code"
+    assert (await _disarm(lk, 98, "0000"))["error"]["code"] == "code_locked", "the 5th wrong one locks"
+    res = await _disarm(lk, 99, "2580")
+    assert res["error"]["code"] == "code_locked" and "locked" in res["error"]["message"], \
+        "locked: even a right PIN is refused"
+    assert env.fake.sent == []
+    assert env.audit(action="alarm_control_panel.alarm_disarm")[-1]["reason"] == "alarm_code_locked"
+    await lk.ws.close()
+
+
+async def test_mantel_s_alarm_pin_row_decides_which_alarm(make_env):
+    env = await house_env(make_env, commands=True)
+    await _pins(env)
+    other = "alarm_control_panel.garage"
+    env.app["hub"].store.apply_event({"a": {other: {"s": "disarmed", "lc": 5.0, "a": {"supported_features": 3}}}})
+    await env.app["alarm_pin"].set(ALARM_PANEL, forward_to=other)        # an Owner's setting
+    await env.app["linked_house"].refresh()
+    reg = env.app["linked"].registry
+    assert reg.get(ALARM_ITEM)["attributes"]["protects"] == other and reg.get(ALARM_ITEM)["state"] == "disarmed", \
+        "the mirror follows the alarm commands go to"
+    lk, _ = await linked_ws(env)
+    assert (await _disarm(lk, 1, "2580", command="alarm_arm_away"))["success"]
+    assert env.fake.frames[-1]["service_data"] == {"entity_id": other}
+    # a row pointing at the panel itself would loop through HA: refused, nothing sent
+    await env.app["alarm_pin"].set(ALARM_PANEL, forward_to=ALARM_PANEL)
+    assert (await _disarm(lk, 2, "2580"))["error"]["code"] == "not_set_up"
+    assert env.fake.sent == ["alarm_control_panel.alarm_arm_away"]
     await lk.ws.close()

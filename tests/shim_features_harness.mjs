@@ -5,6 +5,7 @@ import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
 
 const sent = [];
+const SID = '0123456789abcdef0123456789abcdef';      // a snapshot id (notify_snaps: 32 hex)
 const events = [];
 globalThis.window = globalThis;
 globalThis.addEventListener = (name, fn) => { if (name === 'hk-command-refused') globalThis.__refusedHook = fn; };
@@ -114,6 +115,56 @@ async function run(label, commandsOn) {
   await a.callService('switch', 'turn_off', { entity_id: screenEntity('hall', 'photos') });
   res.photosOff = st()[screenEntity('hall', 'photos')].state;
   res.photoFrames = sent.length - k;
+  res.photoReports = sent.slice(k);
+  // ... and with the server refusing it, the page's own switch stays as HK set it
+  const k2 = sent.length;
+  await a.callService('switch', 'turn_on', { entity_id: screenEntity('hall', 'photos') });
+  reply({ type: 'screen_result', id: last().id, error: { code: 'forbidden' } });
+  await tick();
+  res.photosAfterRefusal = st()[screenEntity('hall', 'photos')].state;
+  await a.callService('switch', 'turn_off', { entity_id: screenEntity('hall', 'photos') });
+  reply({ type: 'screen_result', id: last().id, result: { changed: true } });
+  res.photoReports2 = sent.length - k2;
+  // the black switch is the page's too, but its report is screensaver/black's: no photos report
+  const k3 = sent.length;
+  await a.callService('switch', 'turn_on', { entity_id: screenEntity('hall', 'black') });
+  res.blackSwitchFrames = sent.length - k3;
+  await a.callService('switch', 'turn_off', { entity_id: screenEntity('hall', 'black') });
+
+  // All Tablets' "Restart all now": Mantel's tablets_restart, answered as HA answers
+  p = a.callWS({ type: 'hk_frontend/tablet/act', tablet: '*', act: 'restart_all' });
+  res.restartFrame = last(); answer('tablets_restart_result', { restarted: ['hall'], presses: [] }); res.restart = await p;
+  // any other tablet act is not Mantel's: the gateway with commands on, refused with them off
+  const ta = sent.length;
+  try {
+    const q = a.callWS({ type: 'hk_frontend/tablet/act', tablet: 'hall', act: 'wake' });
+    if (commandsOn) { res.wakeActFrame = last(); answer('command_result', { ok: true }); }
+    await q; res.wakeAct = 'ok';
+  } catch (e) { res.wakeAct = e.code; }
+  res.wakeActSent = sent.length - ta;
+
+  // HK Settings -> Features: Mantel's feature saves go to the store, like HK's own settings saves
+  p = a.callWS({ type: 'hk_notify/settings/set', changes: { stay: 60 } });
+  res.featureSave = last(); reply({ type: 'settings_result', id: last().id, result: { configured: true } }); res.featureSaved = await p;
+  p = a.callWS({ type: 'hk_energy/device/section', key: 'k', section: 's' });
+  res.energySave = last(); reply({ type: 'settings_result', id: last().id, error: { code: 'forbidden', message: 'no' } });
+  try { await p; res.energyRefused = 'NOT REJECTED'; } catch (e) { res.energyRefused = e.code; }
+  // Music's and Alarm PIN's settings are still HA's: never a settings write
+  const ms = sent.length;
+  try {
+    const q = a.callWS({ type: 'hk_music/settings/set', changes: {} });
+    if (commandsOn) { res.musicFrame = last(); answer('command_result', {}); }
+    await q; res.music = 'ok';
+  } catch (e) { res.music = e.code; }
+  res.musicSent = sent.length - ms;
+
+  // notification snapshots: HK's sign read, answered with Mantel's route under the page's prefix
+  globalThis.__mantelBase = '/api/hassio_ingress/tok';
+  p = client.callWS({ type: 'hk_notify/snap/sign', snaps: [SID] });
+  res.signFrame = last();
+  reply({ type: 'read_result', id: last().id, result: { signed: { [SID]: '/api/notify/snap/' + SID, evil: 'https://elsewhere/x', odd: '/api/notify/snap/../x' } } });
+  res.signed = await p;
+  globalThis.__mantelBase = '';
 
   // anything else: the gateway when commands are on, refused with nothing sent when off
   const refusedBefore = events.filter((e) => e === 'hk-command-refused').length;
@@ -145,6 +196,15 @@ async function run(label, commandsOn) {
   } catch (e) { res.tv = e.code; }
   res.tvSent = sent.length - tv0;
   res.tvRefusedEvents = events.filter((e) => e === 'hk-command-refused').length - tvRefused;
+  // the Music page in use: Mantel's music host's `music_used`, on every server, never a command
+  const usedRefused = events.filter((e) => e === 'hk-command-refused').length;
+  const u0 = sent.length;
+  const uq = a.callWS({ type: 'hk_music/used' });
+  res.usedFrame = last();
+  reply({ type: 'music_used_result', id: res.usedFrame.id, result: null });
+  res.used = await uq;
+  res.usedSent = sent.length - u0;
+  res.usedRefusedEvents = events.filter((e) => e === 'hk-command-refused').length - usedRefused;
   res.settingsSave = (() => { const q = a.callWS({ type: 'hk_frontend/board/set', board: {} }); const f = last(); reply({ type: 'settings_result', id: f.id, result: { ok: true } }); return f.type; })();
   out[label] = res;
 }

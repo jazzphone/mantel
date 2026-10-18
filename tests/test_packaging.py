@@ -414,6 +414,26 @@ def test_entrypoint_ha_app_moves_the_supervisor_token_into_a_private_file(tmp_pa
     assert parse_args(args).ha_managed_by_app is True          # the Connections page shows HA as the App's
 
 
+def test_entrypoint_ha_app_music_assistant_token_is_a_private_file_never_an_argument(tmp_path):
+    options = tmp_path / "options.json"
+    ma_file = tmp_path / "ma_token"
+    env = {"SUPERVISOR_TOKEN": "fictional-supervisor-credential", "MANTEL_APP_MA_TOKEN_FILE": str(ma_file)}
+    # no address or no token: Mantel's music engine stays off and nothing is written
+    for opts in ({}, {"ma_url": "http://ma.fake.test:8095"}, {"ma_token": "fictional-ma-token"}):
+        options.write_text(json.dumps(opts))
+        args, _ = entrypoint.plan([], dict(env), options_path=options, token_file=tmp_path / "ha_token")
+        assert "--ma-url" not in args and not ma_file.exists()
+    options.write_text(json.dumps({"ma_url": "http://ma.fake.test:8095", "ma_token": "fictional-ma-token"}))
+    args, out_env = entrypoint.plan([], dict(env), options_path=options, token_file=tmp_path / "ha_token")
+    assert args[args.index("--ma-url") + 1] == "http://ma.fake.test:8095"
+    assert args[args.index("--ma-token-file") + 1] == str(ma_file)
+    assert ma_file.read_text() == "fictional-ma-token" and oct(ma_file.stat().st_mode & 0o777) == "0o600"
+    assert "fictional-ma-token" not in " ".join(args) and "fictional-ma-token" not in json.dumps(out_env)
+    from mantel_server.config import parse_args
+    cfg = parse_args(args)
+    assert cfg.ma_url == "http://ma.fake.test:8095" and cfg.ma_token_file == ma_file
+
+
 def test_entrypoint_admin_commands_default_to_the_data_volume(tmp_path):
     args, _ = entrypoint.plan(["links"], {}, options_path=tmp_path / "none")
     assert args == ["links", "--data-dir", "/data"]

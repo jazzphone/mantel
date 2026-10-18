@@ -61,7 +61,8 @@ their reason, in `HA_ELEMENT_LOOKUPS` in `tests/test_shell_boundary.py`:
 
 Also untouched: `hk-camera-live-card` wraps HA's `hui-picture-entity-card` in HA (its `ha-card` is HA's
 and is styled through the `--ha-card-*` variables only; without Lovelace the same config is drawn by
-HK's own `hk-picture-entity`, `docs/phase2/VIEW-HOST.md`), the foreign-card detection in
+HK's own `hk-picture-entity`, `docs/phase2/VIEW-HOST.md`; the same file's `hk-view-markdown` and four
+`hk-energy-*` elements stand in for Lovelace's `markdown` and energy cards), the foreign-card detection in
 `hk-base.js` (`place()`/`tone()` use `hkShell.foreignTags`, no element names), `web/hk/css/`
 (only comments named `ha-card`), the Lovelace card editors (`ha-form`, HA-only), and Mantel's
 stand-ins in `web/shim/ha-elements.js` (the adapter).

@@ -46,6 +46,20 @@ export const CAMERA_SUBSCRIPTIONS = new Set(['camera/webrtc/offer']);
 // The server's allowlist forwards only hk_music/subscribe, /queue and /settings/library (readproxy.py);
 // hk_music/queue_play and every other hk_music/* write still meet WRITE_WORDS here.
 export const NAMED_READS = new Set(['hk_music/queue']);
+// NOTIFICATION SNAPSHOTS (hk-notify.js): HK asks hk_notify/snap/sign {snaps: [id]} for paths an <img> can
+// load. A read (its name carries "sign"): the server answers with Mantel's own route for each picture of
+// a camera the person may see (/api/notify/snap/<id>, no HA token), and the page's prefix goes in front
+// here, as it does for every address Mantel gives a page (HA App mode serves Mantel under Ingress).
+export const SNAP_SIGN = 'hk_notify/snap/sign';
+const SNAP_PATH = /^\/api\/notify\/snap\/[0-9a-f]{32}$/;     // notify_snaps.PATH, nothing else
+export function prefixSigned(result, base) {
+  const signed = result && typeof result.signed === 'object' && result.signed ? result.signed : {};
+  const out = {};
+  for (const [id, path] of Object.entries(signed)) {
+    if (typeof path === 'string' && SNAP_PATH.test(path)) out[id] = (base || '') + path;
+  }
+  return { signed: out };
+}
 // CALENDARS: HK's calendar card reads events with callApi('GET', 'calendars/<entity>?start=&end='),
 // Mantel's one REST read (read_api, RBAC `view` of the calendar). Any other REST call stays refused.
 // (Camera stills need nothing here: the server already gives each camera state an entity_picture on
@@ -145,6 +159,11 @@ export class Host {
     if (typeof window.hkMantelClient.useScreens === 'function') {
       window.hkMantelClient.useScreens({
         owns: (id) => this._owns(id), set: (id, on) => this._setScreen(id, on),
+        // which tablet and which of its two switches an id is ({tablet, kind: 'black'|'photos'}), or null
+        which: (id) => {
+          const m = SCREEN_ENTITY.exec(String(id));
+          return m && this._tablets.has(m[1]) ? { tablet: m[1], kind: /_black_screen$/.test(id) ? 'black' : 'photos' } : null;
+        },
         reported: (tid, black) => this._setScreen(screenEntity(tid, 'black'), black),
       });
     }
@@ -246,6 +265,10 @@ export class Host {
   _call(msg) {
     this._count(msg.type);
     if (CAMERA_READS.has(msg.type) || NAMED_READS.has(msg.type)) return this.hub.read(msg);
+    if (msg.type === SNAP_SIGN) {
+      const base = (typeof window !== 'undefined' && window.__mantelBase) || '';
+      return this.hub.read(msg).then((r) => prefixSigned(r, base));
+    }
     if (WRITE_WORDS.test(msg.type)) return this._refuse(msg.type);
     if (this.fixtures[msg.type] !== undefined) return Promise.resolve(this.fixtures[msg.type]);
     return this.hub.read(msg);

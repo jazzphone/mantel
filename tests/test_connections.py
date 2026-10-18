@@ -678,6 +678,11 @@ async def test_music_assistant_token_save_builds_the_connector_live_and_replace_
         assert client is not None
         await asyncio.wait_for(client.connected.wait(), 5)
         assert await client.read("players/all") == [{"player_id": "fake-den", "display_name": "Den", "state": "idle"}]
+        # the music engine (music.py) follows at once: it runs on this client now
+        music = env.app["music"]
+        assert music.ma is client
+        status, got = await env.call("GET", "/api/music/status")
+        assert status == 200 and got["music_assistant"] is True and got["connected"] is True
         # a page's MA read works through the (new) client
         ws = await env.client.ws_connect("/ws")
         await ws.send_json({"type": "ma/read", "id": 1, "command": "players/all", "args": {}})
@@ -698,6 +703,10 @@ async def test_music_assistant_token_save_builds_the_connector_live_and_replace_
         # Disconnect: the connector is gone; page reads answer unavailable
         assert (await env.call("DELETE", "/api/connections/ma"))[0] == 200
         assert env.app["ma"] is None
+        # music falls back to the interim bridge (Mantel's engine off without Music Assistant)
+        assert music.ma is None and music.active is False
+        status, got = await env.call("GET", "/api/music/status")
+        assert got["music_assistant"] is False and got["active"] is False
         await ws.send_json({"type": "ma/read", "id": 2, "command": "players/all", "args": {}})
         msg = await ws.receive_json(timeout=5)
         while msg.get("type") != "ma_result":

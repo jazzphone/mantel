@@ -316,9 +316,11 @@ async def test_starting_a_clean_stays_a_command(make_env):
     ws = await env.socket(expect_caps=False)
     await ws.send_json({"type": "read", "id": 4, "msg": {"type": "hk_clean_areas/subscribe"}})
     assert (await GF.recv(ws))["error"]["code"] == "not_allowed", "a subscription, never a read that acts"
-    for t in ("hk_clean_areas/settings/set", "hk_clean_areas/settings/get"):
-        await ws.send_json({"type": "read", "id": 5, "msg": {"type": t}})
-        assert (await GF.recv(ws))["error"]["code"] in ("not_allowed", "unavailable")
+    await ws.send_json({"type": "read", "id": 5, "msg": {"type": "hk_clean_areas/settings/set"}})
+    assert (await GF.recv(ws))["error"]["code"] == "not_allowed", "a save is never a read"
+    # the settings page is answered by Mantel now (feature_pages.py; tests/test_feature_pages.py)
+    await ws.send_json({"type": "read", "id": 6, "msg": {"type": "hk_clean_areas/settings/get"}})
+    assert (await GF.recv(ws))["result"]["configured"] is True
     await ws.close()
     assert env.audit() == []
 
@@ -414,7 +416,8 @@ async def test_the_feature_import_again_is_owner_only_and_keeps_linked(make_env)
     r = await env.m.client.post("/api/features/import", headers=env.m.headers())
     body = await r.json()
     assert r.status == 200 and body["added"] == ["music", "live_tv", "clean_areas"]
-    assert proxy.asked == ["hk_frontend/panel/get", "hk_clean_areas/settings/get", "hk_tv/settings/get"]
+    assert proxy.asked == ["hk_frontend/panel/get", "hk_clean_areas/settings/get", "hk_tv/settings/get",
+                           "hk_music/settings/get"]          # Music: music.py's import (house/music)
     assert env.host.settings["linked"]["entry_id"] == "abc123"
     assert env.host.settings["clean_areas"]["options"]["areas"] == ["kitchen"]
     assert (await next_feed(ws))["added"] == ["music", "live_tv", "clean_areas"]
