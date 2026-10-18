@@ -80,8 +80,8 @@
   // A PURE FUNCTION of the dashboard config, the areas and the settings, so
   // the tests can hold it to every rule above without a page.
   //   cfg    the dashboard's lovelace config ({ views: [...] })
-  //   areas  hass.areas (area_id -> { name, icon })
-  //   o      { dash, order: 'az'|'dashboard', user: hass.user.id,
+  //   areas  client.areas (area_id -> { name, icon })
+  //   o      { dash, order: 'az'|'dashboard', user: client.user.id,
   //            categories: [view paths] (empty: the chips' pages), ha: bool,
   //            chips: the screen's Chips (its chips card's kinds), chipsRow }
   function model(cfg, areas, o) {
@@ -322,14 +322,18 @@
     { title: 'Automations', icon: 'mdi:robot', path: '/config/automation/dashboard', panel: 'config/automation' },
     { title: 'Settings', icon: 'mdi:cog', path: '/config/dashboard', panel: 'config', badge: 'settings' }
   ];
-  function haItems(hass, prefs, o) {
+  // `sidebar` is the host's sidebar data: { user, panels, localize }.
+  // slice 9: needs hkShell.sidebar() -- the panels and their titles are Home
+  // Assistant's own and are not on the client; sidebarSource() below is the
+  // one place that still reads the frontend's object for them.
+  function haItems(sidebar, prefs, o) {
     o = o || {};
     prefs = prefs || {};
-    var admin = !!(hass && hass.user && hass.user.is_admin);
-    var panels = (hass && hass.panels) || {};
+    var admin = !!(sidebar && sidebar.user && sidebar.user.is_admin);
+    var panels = (sidebar && sidebar.panels) || {};
     var name = function (t) {
       var s = '';
-      try { s = hass.localize('panel.' + t); } catch (e) { /* no localize */ }
+      try { s = sidebar.localize('panel.' + t); } catch (e) { /* no localize */ }
       return s || t;
     };
     var out = [], pinned = { config: 1 };
@@ -379,8 +383,14 @@
     });
   }
 
+  // slice 9: needs hkShell.sidebar() (see haItems). Until then, the frontend's object.
+  function sidebarSource() {
+    var C = window.hkCards;
+    return C && C.hass ? C.hass() : null;
+  }
+
   window.hkMenu = { version: '1.1.0', _: { model: model, isHere: isHere, glyph: glyph, chipPaths: chipPaths, pagePaths: pagePaths,
-                                           haItems: haItems,
+                                           haItems: haItems, sidebarSource: sidebarSource,
                                            tabCentre: tabCentre, kinds: { ORDER: KIND_ORDER, PAGES: KIND_PAGES } } };
 
   whenBase(function (C) {
@@ -852,7 +862,7 @@
     }
 
     // Everything that can change which pieces show: called on every page
-    // change, settings change, resize and hass push -- all cheap, all
+    // change, settings change, resize and state push -- all cheap, all
     // idempotent.
     function sync() {
       var on = M.on();
@@ -972,7 +982,7 @@
       S.panel.classList.toggle('has-now', on);
       S.now.hidden = !on;
       S.rule.hidden = !on;
-      var H = window.hkHeader, h = C.hass();
+      var H = window.hkHeader, h = C.client();
       if (!on) { S.nowKey = ''; if (H && H.nowDone) H.nowDone(); return; }
       if (!H || typeof H.now !== 'function' || !h || !h.states) return;
       var v = H.now(h.states, C.subscriptions(h));
@@ -1085,7 +1095,7 @@
 
     // ---------------------------------------------------------- the list
     function listKey() {
-      var cfg = M.config(), h = C.hass();
+      var cfg = M.config(), h = C.client(), side = sidebarSource();
       var b = M.board();
       return [M.dash(), b.ha_place, b.menu_rooms, JSON.stringify(b.room_order), b.ha_row,
               JSON.stringify(b.categories), JSON.stringify(b.menu_top || []), JSON.stringify(b.pages || []),
@@ -1094,7 +1104,7 @@
               // the Home Assistant section: More folded or not, this user's
               // sidebar order, and the panels there are
               !!S.shut.ha_more, JSON.stringify(S.haPrefs || null), !!(h && h.user && h.user.is_admin),
-              h && h.panels ? Object.keys(h.panels).join(',') : '',
+              side && side.panels ? Object.keys(side.panels).join(',') : '',
               cfg ? (cfg.views || []).length : 0,
               JSON.stringify(h && h.areas ? Object.keys(h.areas).map(function (k) {
                 return k + ':' + h.areas[k].name + ':' + (h.areas[k].icon || '');
@@ -1107,7 +1117,7 @@
       return CFGS.get(cfg);
     }
     function build() {
-      var cfg = M.config(), h = C.hass();
+      var cfg = M.config(), h = C.client();
       var b = M.board();
       var m = model(cfg, h && h.areas, { dash: M.dash(), order: b.menu_rooms === 'order' ? 'order' : 'az',
                                           roomOrder: b.room_order,
@@ -1141,7 +1151,7 @@
       var ha = '';
       if (m.ha) {
         haUpdates(h, true);
-        ha = section('ha', 'Home Assistant', haItems(h, S.haPrefs, { moreOpen: !!S.shut.ha_more,
+        ha = section('ha', 'Home Assistant', haItems(sidebarSource(), S.haPrefs, { moreOpen: !!S.shut.ha_more,
                                                                      sidebarShown: haSidebarShown() }));
       }
       var place = b.ha_place || 'rooms';
@@ -1780,13 +1790,13 @@
     // do not bubble, so a window listener never hears it).
     document.addEventListener('scroll', scrolled, { capture: true, passive: true });
     window.addEventListener('hk-menu-chip', scrolled);
-    // The dashboard's config arrives (and changes) with the frontend's hass
+    // The dashboard's config arrives (and changes) with the frontend's state
     // pushes; a list built before it is rebuilt at the next open.
-    C.onHass(function () {
+    C.onClient(function () {
       if (!S.root && M.on()) sync();
       else if (S.root && (M.dash() !== S.dash)) { S.dash = M.dash(); S.built = ''; sync(); }
       else if (S.root && S.nowKey) paintNow();      // the weather, a Time & Date sensor
-      if (S.haOn) haUpdates(C.hass());
+      if (S.haOn) haUpdates(C.client());
     });
     // THIS SCREEN'S OWN CLOCK moves without a push: looked at every 15 s,
     // written only when the minute has changed (paintNow compares).

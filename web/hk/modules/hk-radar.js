@@ -272,7 +272,7 @@
   };
 
   // ============================================================ THE RADAR
-  // attach(card, host) -> { update(hass), detach() }. `host` is the card's
+  // attach(card, host) -> { update(client), detach() }. `host` is the card's
   // own element in its shadow root; the radar draws inside it.
   function attach(card, host) {
     var C = window.hkCards, HS = window.hkSettings;
@@ -308,7 +308,7 @@
 
     // ------------------------------------------------------------ state
     var S = {
-      hass: null, plan: null, r: null, key: '', A: null,
+      client: null, plan: null, r: null, key: '', A: null,
       z: 6, cx: 0, cy: 0, home: null, w: 0, h: 0,
       frames: [], i: -1, playing: false, playT: null, refreshT: null, gen: 0, request: 0, selection: 0, ctl: null,
       base: {}, baseZ: null, oldBase: null, fr: {}, failed: {}, meta: null,
@@ -913,11 +913,11 @@
     window.addEventListener('hk-asleep', vis);
 
     // ------------------------------------------- settings and the house
-    function update(hass) {
-      S.hass = hass;
+    function update(client) {
+      S.client = client;
       var r = settings();
       if (!r || !HS.radarPlan) return;
-      var plan = HS.radarPlan(hass);
+      var plan = HS.radarPlan(client);
       var light = !!(HS.rendering && HS.rendering().flat && HS.rendering().theme === 'light');
       E.rc.setAttribute('data-theme', light ? 'light' : 'dark');
       E.rc.style.setProperty('--rm-op', String(r.opacity / 100));

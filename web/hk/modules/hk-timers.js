@@ -1,11 +1,11 @@
 // hk-timers.js - a live countdown a card cannot draw on its own.
 //
 // WHY THIS EXISTS
-// A card render is a pure function of hass, and it runs when one of the
+// A card render is a pure function of the states, and it runs when one of the
 // entities it watches CHANGES STATE (HkBase gates on last_updated). A running
 // timer changes state exactly twice -- once when it starts and once when it
-// finishes. In between, the only thing moving is the wall clock, and hass
-// never fires. So a countdown drawn at render time is a number that is correct
+// finishes. In between, the only thing moving is the wall clock, and no state
+// update arrives. So a countdown drawn at render time is a number that is correct
 // for one frame and then wrong for an hour, which is worse than showing
 // nothing.
 //

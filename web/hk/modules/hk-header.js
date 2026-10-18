@@ -168,7 +168,7 @@
       // `></path>`, NOT `/>`. In HTML the parser keeps a self-closed <path/>
       // but innerHTML SERIALIZES it back as <path ...></path>, so a card that
       // skips a redraw only when its new markup equals innerHTML would, with
-      // `/>`, never match -- and rebuild itself on every hass update, ~10
+      // `/>`, never match -- and rebuild itself on every state update, ~10
       // times a second, flickering. The header card does not compare against
       // innerHTML; this keeps any caller that does honest.
       // (a style, not the fill attribute: an attribute can't hold var())
@@ -799,7 +799,7 @@
   }
   // NEVER THROWS. Safari 27 can raise "SyntaxError: The string did not match
   // the expected pattern" from document.fonts.check() on a page's font
-  // shorthand -- inside the header card's hass setter, that turns the whole
+  // shorthand -- inside the header card's state-update entry, that turns the whole
   // header into an error card. Alignment is a nicety: on any failure the time
   // simply is not nudged.
   function clockShift(root) {

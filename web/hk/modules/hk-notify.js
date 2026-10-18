@@ -117,8 +117,11 @@
   }
 
   // ------------------------------------------------------------- context
-  function haEl() { return window.hkShell.root(); }
-  function hass() { var h = haEl(); return h && h.hass; }
+  // The host's current client (in Home Assistant, the frontend's root element's).
+  function currentClient() {
+    var HC = window.hkHostClient;
+    return (HC && HC.current && HC.current()) || null;
+  }
   function board() {
     var S = window.hkSettings;
     var all = S && typeof S.get === 'function' ? S.get('boards', {}) : null;
@@ -145,7 +148,7 @@
     return !!(window.hkDetail && typeof window.hkDetail.answers === 'function' && window.hkDetail.answers('#' + h));
   }
   function context() {
-    var h = hass();
+    var h = currentClient();
     return { board: board(), editing: editing(), asleep: asleep(), saver: saverOn(), now: new Date(), dash: seg(),
              user: h && h.user ? h.user.id : null,
              states: h ? h.states : {}, popOpen: popOpen, popWould: popWould };
@@ -268,7 +271,7 @@
     if (!n.snap) return Promise.resolve(null);
     var got = signed[n.snap];
     if (got && Date.now() - got.at < SIGN_KEEP_MS) return Promise.resolve(got.url);
-    var h = hass();
+    var h = currentClient();
     if (!h || !h.callWS) return Promise.resolve(null);
     return h.callWS({ type: 'hk_notify/snap/sign', snaps: [n.snap] }).then(function (r) {
       var u = r && r.signed && r.signed[n.snap];

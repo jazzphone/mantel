@@ -12,13 +12,13 @@
 // never touched. A card says when it is going away (see release/subsOf below).
 //
 // USAGE
-//   const d = window.hkStats && window.hkStats.daily(hass, 'sensor.foo', 14, this);
+//   const d = window.hkStats && window.hkStats.daily(client, 'sensor.foo', 14, this);
 //   if (!d) return 'Loading...';        // first render only
 //   // d = [{ t: <Date, HA-local bucket start>, v: <kWh or null> }, ...]
 //   //     oldest first, always exactly 14 entries, gaps filled with null so
 //   //     bars line up with dates rather than sliding when a day is missing.
 //
-//   window.hkStats.daily(hass, id, 14, this, { type: 'mean' })  // temperature
+//   window.hkStats.daily(client, id, 14, this, { type: 'mean' })  // temperature
 //
 // BUCKETS ARE IN HOME ASSISTANT'S TIMEZONE, not the browser's -- see the long
 // note above floorTZ. `tz()` and `fields()` are exported so whoever LABELS a
@@ -129,7 +129,7 @@
   // days step by re-flooring rather than by adding a constant.
 
   // The zone every bucket in this module is expressed in. Set from
-  // hass.config.time_zone the first time a caller hands us a connection --
+  // client.config.time_zone the first time a caller hands us a client --
   // there is no other documented frontend source for it, and it cannot be
   // read before a connection exists.
   //
@@ -139,8 +139,8 @@
   // also the RIGHT answer.
   var HA_TZ = null;
 
-  function useTZ(hass) {
-    var tz = hass && hass.config && hass.config.time_zone;
+  function useTZ(client) {
+    var tz = client && client.config && client.config.time_zone;
     if (tz && tz !== HA_TZ && supported(tz)) HA_TZ = tz;
     return HA_TZ;
   }
@@ -426,7 +426,7 @@
       units: UNITS
     };
 
-    job.hass.callWS(msg).then(function (res) {
+    job.client.callWS(msg).then(function (res) {
       var data = {};
       ids.forEach(function (id) {
         data[id] = align(res && res[id], job.period, job.count, job.type);
@@ -459,7 +459,7 @@
     });
   }
 
-  function request(hass, key, period, count, type, ids, card) {
+  function request(client, key, period, count, type, ids, card) {
     // Anything already on the wire for this key is dropped from the ask, and
     // the caller is attached to the flight instead. If that accounts for
     // everything it wanted, there is nothing to batch and no timer to arm.
@@ -480,12 +480,12 @@
     var job = pending.get(key);
     if (!job) {
       job = {
-        hass: hass, period: period, count: count, type: type,
+        client: client, period: period, count: count, type: type,
         ids: new Set(), cards: new Set(), timer: null
       };
       pending.set(key, job);
     }
-    job.hass = hass;                       // always use the freshest connection
+    job.client = client;                       // always use the freshest client
     ids.forEach(function (id) { job.ids.add(id); });
     if (card) subscribe(job.cards, card);
     // Armed LAST, and only once. Arming it at construction time would let a
@@ -500,15 +500,15 @@
   // `ids` may be a single statistic_id or an array. An array returns an object
   // keyed by id, which is how the "rank every circuit by today's kWh" cards
   // pull thirty series in a single call.
-  function get(hass, ids, count, card, opts) {
-    if (!hass || !hass.callWS) return null;
+  function get(client, ids, count, card, opts) {
+    if (!client || !client.callWS) return null;
     // THE ONE PLACE THE ZONE IS ADOPTED. Every public entry point funnels
     // through here, and it runs before cacheKey below -- which matters,
     // because the key carries the current bucket edge and that edge is
     // zone-dependent. Learning the zone late would otherwise leave one stale
     // entry keyed at the browser's midnight.
     var wasTZ = HA_TZ;
-    if (useTZ(hass) !== wasTZ) cache.clear();
+    if (useTZ(client) !== wasTZ) cache.clear();
     opts = opts || {};
     var period = opts.period || 'day';
     var type = opts.type || 'change';
@@ -524,7 +524,7 @@
 
     if (missing.length) {
       var backedOff = hit && hit.error && (Date.now() - hit.error) < ERROR_BACKOFF_MS;
-      if (!backedOff) request(hass, key, period, count, type, missing, card);
+      if (!backedOff) request(client, key, period, count, type, missing, card);
       // A NEW BUCKET: the same shape's answer from the bucket before, whole,
       // while this one is asked for (cacheKey keeps it until then).
       var prev = !hit || !hit.data ? standIn(key, list) : null;
@@ -542,7 +542,7 @@
     if (hit && (Date.now() - hit.at) > (TTL[period] || TTL.day)) {
       // Stale but usable. Refresh in the background and return what we have,
       // so a re-opened popup draws instantly instead of flashing a placeholder.
-      request(hass, key, period, count, type, list, card);
+      request(client, key, period, count, type, list, card);
     }
 
     if (!many) return hit.data[list[0]];
@@ -552,7 +552,7 @@
   }
 
   // -------------------------------------------------------------------------
-  // dailyPeak(hass, ids, days, card) -- daily totals for a sensor that
+  // dailyPeak(client, ids, days, card) -- daily totals for a sensor that
   // ACCUMULATES through the day and resets at midnight, e.g. the
   // history_stats HVAC run-time sensors.
   //
@@ -567,14 +567,14 @@
   // accumulator is monotonic WITHIN a day, so the maximum over 01:00-23:59 is
   // the value it ended the day on -- and whatever ran between midnight and
   // 01:00 is already counted inside that total.
-  function dailyPeak(hass, ids, days, card) {
+  function dailyPeak(client, ids, days, card) {
     // Enough hour buckets to reach back to HA-local midnight `days-1` days
     // ago. `days-1` whole days is at most 25 hours each across a fall-back, so
     // this asks for one extra hour per day rather than counting exactly -- a
     // slightly longer window costs one bucket and cannot come up short.
     var hours = (days - 1) * 25 + hoursSinceMidnight(Date.now()) + 1;
     var many = Array.isArray(ids);
-    var h = get(hass, ids, hours, card, { period: 'hour', type: 'max' });
+    var h = get(client, ids, hours, card, { period: 'hour', type: 'max' });
     if (!h) return null;
 
     var fold = function (rows) {
@@ -654,11 +654,11 @@
   // the languages whose week starts on a Sunday, where a browser cannot say
   // (Intl.Locale's week info is newer than some wall tablets' WebViews)
   var SUNDAY_FIRST = /^(en(-(us|ca|au|nz|ph|za|in))?|ja|ko|he|zh-(tw|hk)|pt-br|es-(mx|us)|ar|hi|th)$/i;
-  function weekStart(hass) {
-    var L = (hass && hass.locale) || {}, w = String(L.first_weekday || 'language').toLowerCase();
+  function weekStart(client) {
+    var L = (client && client.locale) || {}, w = String(L.first_weekday || 'language').toLowerCase();
     var i = WEEKDAYS.indexOf(w);
     if (i >= 0) return i;
-    var lang = L.language || (hass && hass.language) || (typeof navigator !== 'undefined' && navigator.language) || 'en';
+    var lang = L.language || (client && client.language) || (typeof navigator !== 'undefined' && navigator.language) || 'en';
     try {
       var loc = new Intl.Locale(lang), info = loc.getWeekInfo ? loc.getWeekInfo() : loc.weekInfo;
       if (info && info.firstDay) return info.firstDay % 7;
@@ -684,7 +684,7 @@
   }
 
   // -------------------------------------------------------------------------
-  // history(hass, entityId, hours, card) -- RAW recorded states, not statistics.
+  // history(client, entityId, hours, card) -- RAW recorded states, not statistics.
   //
   // Statistics are hourly at best, which is far too coarse for a live trace --
   // an hour bucket would flatten the very steps the chart exists to show. This
@@ -800,8 +800,8 @@
     });
   }
 
-  function history(hass, entityId, hours, card) {
-    if (!hass || !hass.callApi || !entityId) return null;
+  function history(client, entityId, hours, card) {
+    if (!client || !client.callApi || !entityId) return null;
     hours = hours || 3;
     var key = entityId + '|' + hours;
     var hit = histCache.get(key);
@@ -818,7 +818,7 @@
                 '?filter_entity_id=' + encodeURIComponent(entityId) +
                 '&minimal_response&no_attributes';
 
-      hass.callApi('GET', url).then(function (res) {
+      client.callApi('GET', url).then(function (res) {
         var rows = (Array.isArray(res) && Array.isArray(res[0])) ? res[0] : [];
         var vals = [];
         rows.forEach(function (r) {
@@ -853,19 +853,19 @@
     release: release,
     dailyPeak: dailyPeak,
     freshness: freshness,
-    daily: function (hass, ids, days, card, opts) {
-      return get(hass, ids, days, card, Object.assign({ period: 'day' }, opts || {}));
+    daily: function (client, ids, days, card, opts) {
+      return get(client, ids, days, card, Object.assign({ period: 'day' }, opts || {}));
     },
-    hourly: function (hass, ids, hours, card, opts) {
-      return get(hass, ids, hours, card, Object.assign({ period: 'hour' }, opts || {}));
+    hourly: function (client, ids, hours, card, opts) {
+      return get(client, ids, hours, card, Object.assign({ period: 'hour' }, opts || {}));
     },
     // THE RECORDER'S SHORT-TERM STATISTICS: five-minute buckets, kept ten
     // days. What a live line of the last few hours is drawn from -- one
     // batched call for a whole page of circuits, where history/period would
     // be one request per sensor. The newest bucket is still open, so it is
     // null until the recorder closes it.
-    fiveMinute: function (hass, ids, count, card, opts) {
-      return get(hass, ids, count, card, Object.assign({ period: '5minute', type: 'mean' }, opts || {}));
+    fiveMinute: function (client, ids, count, card, opts) {
+      return get(client, ids, count, card, Object.assign({ period: '5minute', type: 'mean' }, opts || {}));
     },
     // THE ZONE EVERY BUCKET IS EXPRESSED IN, for whoever has to LABEL them.
     // A bucket that starts at HA's midnight must not be captioned with the
@@ -883,7 +883,7 @@
     // HA-local midnight `k` days from the midnight of `at` (k < 0: back)
     addDays: addDays,
     // THE FIRST DAY OF THE WEEK, 0 (Sunday) to 6, as the signed-in user set
-    // it in their Home Assistant profile (hass.locale.first_weekday);
+    // it in their Home Assistant profile (client.locale.first_weekday);
     // "language" is the language's own (Sunday for English)
     weekStart: weekStart,
     // A CALENDAR PERIOD: { start (HA-local midnight), len (days) } of the

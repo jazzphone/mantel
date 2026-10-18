@@ -7,7 +7,7 @@
 // detail sheets' graphs; capsule() and usage()'s own bars were retired.
 //
 // Pure geometry: hand it numbers, get back a markup string. It never touches
-// hass and never fetches anything -- hk-stats.js owns the data, this owns the
+// the client and never fetches anything -- hk-stats.js owns the data, this owns the
 // picture, and a card wires the two together in three lines instead of pasting
 // sixty lines of maths into every template.
 //
@@ -458,13 +458,13 @@
   }
 
   // -------------------------------------------------------------------------
-  // recent(hass, entityId, card, opts) -- the live-trace card in one call.
+  // recent(client, entityId, card, opts) -- the live-trace card in one call.
   //
   // Sibling of usage(): that one is the daily comparison, this one is the last
   // few hours. Returns { ready, ttl, sub, val, chart } so a card fills its
   // slots in one line each.
   // -------------------------------------------------------------------------
-  function recent(hass, entityId, card, opts) {
+  function recent(client, entityId, card, opts) {
     opts = opts || {};
     var hours = opts.hours || 3;
     var ttl = opts.title || 'Whole Home Power';
@@ -475,8 +475,8 @@
     // The headline is the LIVE state, not the last history row -- history can
     // lag by a recorder commit interval (5s by default) and a card that disagrees
     // with the pill next to it reads as broken.
-    var val = power(hass && hass.states ? hass.states : {}, entityId);
-    var pts = window.hkStats.history(hass, entityId, hours, card);
+    var val = power(client && client.states ? client.states : {}, entityId);
+    var pts = window.hkStats.history(client, entityId, hours, card);
     if (!pts) return { ready: false, ttl: ttl, sub: sub, val: val, chart: '' };
     // pts: the history itself, for a card that draws HK's own line
     // (hk-trace-card, with the Energy page's lineSvg)
@@ -484,7 +484,7 @@
   }
 
   // -------------------------------------------------------------------------
-  // usage(hass, statId, card, opts) -- the whole Usages card in one call.
+  // usage(client, statId, card, opts) -- the whole Usages card in one call.
   //
   // The ONLY function here that reaches for hk-stats.js. Everything above is
   // pure geometry; this is deliberately the single seam between the two, so a
@@ -495,7 +495,7 @@
   // flight ready is false and the strings are placeholders, so a template can
   // render it unconditionally.
   // -------------------------------------------------------------------------
-  function usage(hass, statId, card, opts) {
+  function usage(client, statId, card, opts) {
     opts = opts || {};
     var days = opts.days || 14;
     var unit = opts.unit || 'kWh';
@@ -508,8 +508,8 @@
     // at midnight (the HVAC run-time ones). See hk-stats.js -- their daily
     // statistics are contaminated by the reset and cannot be used directly.
     var d = opts.source === 'dailyPeak'
-      ? window.hkStats.dailyPeak(hass, statId, days, card)
-      : window.hkStats.daily(hass, statId, days, card, opts.statOpts);
+      ? window.hkStats.dailyPeak(client, statId, days, card)
+      : window.hkStats.daily(client, statId, days, card, opts.statOpts);
     if (!d) return idle;
 
     var split = Math.ceil(days / 2);

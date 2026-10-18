@@ -37,7 +37,7 @@
   'use strict';
 
   if (window.hkIdle) return;          // hk-loader may import this more than once
-  var SH = window.hkShell;            // the host's page: navigation, its root
+  var SH = window.hkShell;            // the host's page: navigation
 
   var DEFAULT_IDLE_MS = 50000;
   var IDLE_OVERRIDE_MS = null;
@@ -137,6 +137,12 @@
   }
 
 
+  // The host's current client (in Home Assistant, the frontend's root element's).
+  function currentClient() {
+    var HC = window.hkHostClient;
+    return (HC && HC.current && HC.current()) || null;
+  }
+
   // IS SOMEBODY ACTUALLY USING THIS TABLET? binary_sensor.<room>_tablet_in_use
   // answers, when the house defines one -- for example Fully Kiosk's
   // lastUserInteractionTime, gated on its screensaver flag.
@@ -147,7 +153,7 @@
   // TOUCHING a page and no way of READING one. Sit on the Lights page for 50
   // seconds taking it in and this module decides you left.
   //
-  // Returns null when it cannot tell -- no hass, no room, no such entity, or
+  // Returns null when it cannot tell -- no client, no room, no such entity, or
   // the sensor is unknown/unavailable -- and the caller then goes by the timer
   // alone. A tablet we cannot ask about is not one to start second-guessing
   // the timer on.
@@ -156,10 +162,9 @@
     var room = roomFor(parts().dash);
     if (!room) return null;
     try {
-      var root = SH.root();
-      var hass = root && root.hass;
-      if (!hass || !hass.states) return null;
-      var e = hass.states['binary_sensor.' + room + '_tablet_in_use'];
+      var client = currentClient();
+      if (!client || !client.states) return null;
+      var e = client.states['binary_sensor.' + room + '_tablet_in_use'];
       if (!e || e.state === 'unknown' || e.state === 'unavailable') return null;
       return e.state === 'on';
     } catch (err) {
@@ -191,8 +196,8 @@
 
   var timer = null;
 
-  function numberState(hass, entityId) {
-    var entity = hass.states[entityId];
+  function numberState(client, entityId) {
+    var entity = client.states[entityId];
     if (!entity) return 0;
     var value = Number(entity.state);
     return isFinite(value) && value > 0 ? value : 0;
@@ -209,17 +214,16 @@
     var room = roomFor(parts().dash);
     if (!room) return DEFAULT_IDLE_MS;
     try {
-      var root = SH.root();
-      var hass = root && root.hass;
-      if (!hass || !hass.states) return DEFAULT_IDLE_MS;
-      var pref = hass.states['input_select.' + room + '_tablet_idle_return'];
+      var client = currentClient();
+      if (!client || !client.states) return DEFAULT_IDLE_MS;
+      var pref = client.states['input_select.' + room + '_tablet_idle_return'];
       if (!pref) return DEFAULT_IDLE_MS;
       if (Object.prototype.hasOwnProperty.call(FIXED_OPTIONS, pref.state)) {
         return FIXED_OPTIONS[pref.state];
       }
       if (pref.state === 'Auto (10s before Room Idle)') {
-        var seconds = numberState(hass, 'input_number.' + room + '_tablet_room_idle') ||
-          numberState(hass, idleSetting('default', null)) || 60;
+        var seconds = numberState(client, 'input_number.' + room + '_tablet_room_idle') ||
+          numberState(client, idleSetting('default', null)) || 60;
         return Math.max(10, seconds - 10) * 1000;
       }
     } catch (err) {

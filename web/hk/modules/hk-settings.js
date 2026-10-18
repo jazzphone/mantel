@@ -1069,8 +1069,8 @@
   // lookup is made), so Automatic there asks for a provider (reason
   // 'choose'); so does a home with no country set. A zone that is gone:
   // 'zone'. No location at all: 'location'.
-  function radarPlan(hass) {
-    var r = radarNative(), cfg = (hass && hass.config) || {}, states = (hass && hass.states) || {};
+  function radarPlan(client) {
+    var r = radarNative(), cfg = (client && client.config) || {}, states = (client && client.states) || {};
     var out = { enabled: r.enabled, provider: null, chosen: r.provider, lat: null, lon: null,
                 place: 'Home', country: null, reason: null, settings: r };
     if (r.center === 'zone') {
@@ -1310,8 +1310,9 @@
     window.addEventListener('popstate', onNav);
   } catch (e) { /* no window events (a test harness) */ }
 
-  // IS THIS PAGE A LOVELACE PANEL? Read off hass.panels -- a property, not a
-  // walk of the document. null while hass is not up yet (treat as "maybe"),
+  // IS THIS PAGE A LOVELACE PANEL? Read off the host's panel list (the shell
+  // answers) -- a property, not a walk of the document. null while the host
+  // is not up yet (treat as "maybe"),
   // else true/false. The sky, the view fade, the icon repair and the camera
   // poster ask this rather than walk every shadow root on the page, which
   // would cost as much on Settings and Logs as on a dashboard.
@@ -1343,9 +1344,10 @@
   function rememberedTablet() {
     try { return localStorage.getItem(TABLET_KEY) || ''; } catch (e) { return ''; }
   }
-  function userName(hass) {
+  function userName(client) {
     try {
-      var h = hass || (window.hkShell.root() || {}).hass;
+      var HC = window.hkHostClient;
+      var h = client || (HC && HC.current ? HC.current() : null);
       return (h && h.user && h.user.name) || '';
     } catch (e) { return ''; }
   }
@@ -1354,10 +1356,10 @@
     Object.keys(t).forEach(function (k) { out[k] = t[k]; });
     return out;
   }
-  function tablet(hass) {
+  function tablet(client) {
     var items = cur.tablet_items, seg = '';
     try { seg = String(location.pathname).split('/')[1] || ''; } catch (e) { /* a test harness */ }
-    var name = userName(hass);
+    var name = userName(client);
     if (!items) {
       // a server from before 1.14: this screen's own Tablet User
       var b = cur.boards && cur.boards[seg];

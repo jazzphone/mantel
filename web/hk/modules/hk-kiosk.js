@@ -161,14 +161,16 @@
       ? !!HS.tablet(h) : tabletUser(HS && HS.get ? HS.get('boards', null) : null, h.user.name);
     if (!isTablet) return;
     keptOn = true;
-    if (h.suspendWhenHidden === false) return;
+    // slice 9: needs hkShell.keepAwake to own this check (the frontend's own flag, not on the client)
+    if ((ha.hass || {}).suspendWhenHidden === false) return;
     SH.keepAwake(ha);                      // (an older Home Assistant: nothing)
   }
 
   function apply() {
     var p = parts();
     if (!p.main) return;
-    var HS = window.hkSettings, h = p.ha && p.ha.hass;
+    var HS = window.hkSettings, HC = window.hkHostClient;
+    var h = p.ha && HC && HC.current ? HC.current() : null;
     keepConnected(p.ha, h);
     var w = decide({ dashboard: HS && HS.lovelacePanel ? HS.lovelacePanel() : null, cfg: configOf(p), board: boardOf(),
                      admin: !!(h && h.user && h.user.is_admin), off: off, forced: forced });

@@ -385,13 +385,13 @@
     exceptional: 60
   };
 
-  function read(hass) {
-    var sun = hass.states['sun.sun'];
+  function read(client) {
+    var sun = client.states['sun.sun'];
     // Which weather entity, moon source and seasonal gate: Configure ->
     // Weather and Seasonal sky (hk-settings.js), with generic fallbacks when unset.
     var HS = window.hkSettings;
-    var wid = HS ? HS.weatherId(hass.states) : null;
-    var w = wid ? hass.states[wid] : null;
+    var wid = HS ? HS.weatherId(client.states) : null;
+    var w = wid ? client.states[wid] : null;
     var a = (w && w.attributes) || {};
     // An entity with no reading (unknown or unavailable -- a weather outage,
     // a restart) is no weather, as no entity is: not the 40 % of cloud a
@@ -424,13 +424,13 @@
       cond: cond,
       fog: cond === 'fog',
       wet: WET[cond] || { kind: 'none', rate: 0 },
-      moon: HS ? HS.moon(hass.states) : 0.5,
-      season: seasonOf(hass),
+      moon: HS ? HS.moon(client.states) : 0.5,
+      season: seasonOf(client),
       // seasonOf() folds this gate in already (it returns '' when the gate is
       // off), but the surprise selector needs it on its own: most surprises
       // fire on days when no season is running at all, so there is no season
       // string to carry the gate for them.
-      seasonalOn: HS ? HS.seasonalOn(hass.states) : true
+      seasonalOn: HS ? HS.seasonalOn(client.states) : true
     };
     // Sky / Background (hk-settings.js skyLook): this screen's own look,
     // else All Screens'. Weather off leaves the gradient, sun, moon and
@@ -455,7 +455,7 @@
       if (look.lively) {
         out.lively = look.lively;
         if (look.lively.calmEmpty && look.lively.room) {
-          out.lively = Object.assign({}, look.lively, { quiet: roomQuiet(hass, look.lively.room) });
+          out.lively = Object.assign({}, look.lively, { quiet: roomQuiet(client, look.lively.room) });
         }
       }
       if (!look.weather) {
@@ -494,23 +494,23 @@
   // Settings offers the switch only where there are some, by the same rule
   // (hk-settings-model.js roomSensors).
   var QUIET_MS = 5 * 60000, QUIET_CLASSES = { occupancy: 1, motion: 1, presence: 1 }, quietIds = { ents: null, room: '', ids: [] };
-  function roomSensorIds(hass, room) {
-    if (quietIds.ents === hass.entities && quietIds.room === room) return quietIds.ids;
-    var ents = hass.entities || {}, devs = hass.devices || {}, ids = [];
-    Object.keys(hass.states || {}).forEach(function (id) {
+  function roomSensorIds(client, room) {
+    if (quietIds.ents === client.entities && quietIds.room === room) return quietIds.ids;
+    var ents = client.entities || {}, devs = client.devices || {}, ids = [];
+    Object.keys(client.states || {}).forEach(function (id) {
       if (id.indexOf('binary_sensor.') !== 0) return;
-      var st = hass.states[id], e = ents[id];
+      var st = client.states[id], e = ents[id];
       if (!QUIET_CLASSES[st.attributes && st.attributes.device_class] || !e || e.hidden) return;
       var area = e.area_id || (e.device_id && devs[e.device_id] && devs[e.device_id].area_id);
       if (area === room) ids.push(id);
     });
-    quietIds = { ents: hass.entities, room: room, ids: ids };
+    quietIds = { ents: client.entities, room: room, ids: ids };
     return ids;
   }
-  function roomQuiet(hass, room) {
-    var ids = roomSensorIds(hass, room), now = Date.now();
+  function roomQuiet(client, room) {
+    var ids = roomSensorIds(client, room), now = Date.now();
     for (var i = 0; i < ids.length; i++) {
-      var st = hass.states[ids[i]];
+      var st = client.states[ids[i]];
       if (!st) continue;
       if (st.state === 'on') return false;
       var since = Date.parse(st.last_changed || '');
@@ -2281,11 +2281,11 @@
   //   Thanksgiving  Nov 1  - Thanksgiving Day
   //   Christmas     the day after - Dec 25
   // so there is no date arithmetic here at all.
-  function seasonOf(hass) {
-    if (!hass) return '';
+  function seasonOf(client) {
+    if (!client) return '';
     var HS = window.hkSettings;
-    if (!HS || !HS.seasonalOn(hass.states)) return '';
-    var v = HS.seasonName(hass.states);
+    if (!HS || !HS.seasonalOn(client.states)) return '';
+    var v = HS.seasonName(client.states);
     // A season turned off in Configure -> Seasonal sky draws nothing.
     if (HS.themeOn && !HS.themeOn(String(v).toLowerCase())) return '';
     if (v === 'Halloween') return 'halloween';
@@ -3849,7 +3849,7 @@
   // clouds and the falling weather. paint() keeps its per-element state on the
   // element (el._hkSeasonKey), so the two never disturb each other.
   //
-  //   var sc = hkSky.scene(container);  sc.update(hass);  sc.pause(true);  sc.destroy();
+  //   var sc = hkSky.scene(container);  sc.update(client);  sc.pause(true);  sc.destroy();
   var OWN_CSS = [
     '#hk-sky.own{z-index:0}',
     '#hk-sky.own.skyonly .land,#hk-sky.own.skyonly .lbox,#hk-sky.own.skyonly .season,#hk-sky.own.skyonly .near-scenery{display:none}',
@@ -3975,16 +3975,16 @@
   var LAND_MONTH = ['winter', 'winter', 'spring', 'spring', 'spring', 'summer',
                     'summer', 'summer', 'fall', 'fall', 'fall', 'winter'];
   var LAND_SOUTH = { winter: 'summer', summer: 'winter', spring: 'fall', fall: 'spring' };
-  function landSeason(hass, s, when) {
+  function landSeason(client, s, when) {
     if (s.land) return s.land;                 // a dev pin: hkSky._pin({land:'summer'})
     if (s.wet && s.wet.kind === 'snow' && s.wet.rate > 0) return 'winter';
     var north = LAND_MONTH[(when || new Date()).getMonth()];
-    var lat = hass && hass.config && Number(hass.config.latitude);
+    var lat = client && client.config && Number(client.config.latitude);
     return isFinite(lat) && lat < 0 ? LAND_SOUTH[north] : north;
   }
   // day above 6 degrees, dusk (and dawn) down to civil twilight, then night
   function landLight(elev) { return elev > 6 ? 'day' : (elev > -7 ? 'dusk' : 'night'); }
-  function landFile(hass, s, when) { return 'land-' + landSeason(hass, s, when) + '-' + landLight(s.elev) + '.webp'; }
+  function landFile(client, s, when) { return 'land-' + landSeason(client, s, when) + '-' + landLight(s.elev) + '.webp'; }
 
   // ------------------------------------------- the screensaver's own life
   // HK Frontend 1.5: what moves on the forecast screensaver beyond the page's
@@ -4365,8 +4365,8 @@
       build();
     }
 
-    function alive(hass, s) {
-      last = [hass, s];
+    function alive(client, s) {
+      last = [client, s];
       var W = el.clientWidth || 1280, H = el.clientHeight || 800;
       var k = Math.max(W / ART_W, H / ART_H);
       box.style.setProperty('--lbw', (ART_W * k).toFixed(1) + 'px');
@@ -4382,7 +4382,7 @@
       var night = clamp((-4 - s.elev) / 10, 0, 1);
       el.classList.toggle('meteors', night > 0.6 && s.cover < 0.3 && !wet && !s.fog);
 
-      var flies = landSeason(hass, s) === 'summer' && s.elev < -5 && !wet && s.wind < 18;
+      var flies = landSeason(client, s) === 'summer' && s.elev < -5 && !wet && s.wind < 18;
       var fw = h.surprise === 'fourth-of-july' && s.elev < -4;
       part('life', day + '|' + (flies ? 'f' : '-') + (fw ? 'w' : '-') + '|' + size + '|' + L.sigFor('summer') + L.sigFor('fourth-of-july'), function () {
         life.textContent = '';
@@ -4396,7 +4396,7 @@
       var hol = holidayLand(h, light);
       // (a holiday land the art does not have -- Halloween by day before v6 --
       // is missing, and the fader falls back to the season's own)
-      landF.show(hol ? [hol + '.webp', landFile(hass, s)] : [landFile(hass, s)]);
+      landF.show(hol ? [hol + '.webp', landFile(client, s)] : [landFile(client, s)]);
       var lit = hol && landF.shown() === hol + '.webp' ? holidayLights(h, light) : null;
       lightF.show(lit ? [lit.file + '.webp'] : []);
       var lightsUp = !!(lit && lightF.shown() === lit.file + '.webp');
@@ -4425,16 +4425,16 @@
 
     return {
       el: el,
-      update: function (hass) {
-        if (!hass || !hass.states) return null;
-        var s = read(hass);
+      update: function (client) {
+        if (!client || !client.states) return null;
+        var s = read(client);
         if (skyOnly) s.season = '';            // no decorations either
         paint(el, s);
         // an overcast or wet day darkens the land with the sky
         var dim = 1 - 0.3 * clamp((s.cover - 0.4) / 0.6, 0, 1) - (s.wet && s.wet.rate > 0 ? 0.08 : 0);
         el.style.setProperty('--landB', dim.toFixed(3));
         hlEl.style.setProperty('--hlB', (0.85 + 0.15 * dim).toFixed(3));
-        alive(hass, s);
+        alive(client, s);
         return s;
       },
       // the screen is dark (Fully's own screensaver, the page hidden): hold still
@@ -5511,8 +5511,8 @@
     b = t >= 66 ? 255 : (t <= 19 ? 0 : 138.5177312231 * Math.log(t - 10) - 305.0447927307);
     return [r, g, b].map(function (c) { return Math.max(0, Math.min(255, c)); });
   }
-  function sunKelvin(hass, cfg) {
-    var st = hass.states;
+  function sunKelvin(client, cfg) {
+    var st = client.states;
     var pick = cfg && Array.isArray(cfg.sky_source) && cfg.sky_source[0];
     var id = pick && st[pick] ? pick : null;
     if (!id) {
@@ -6145,22 +6145,22 @@
     //   sleep  -- the tablet's screensaver boolean; see applyHidden.
     //   variant-- a key into STATIC. Paints that fixed gradient and no
     //             weather at all. Absent means the live sky.
-    render: function (hass, card, opts) {
+    render: function (client, card, opts) {
       try {
-        if (!hass || !card) return '';
+        if (!client || !card) return '';
         opts = opts || {};
         var P = window.hkSettings, policy = P && P.rendering ? P.rendering() : { flat: false };
         if (mounted && !!mounted._hkFlat !== policy.flat) teardown();
-        if (policy.flat) { renderFlat(hass, card, opts, policy); return ''; }
+        if (policy.flat) { renderFlat(client, card, opts, policy); return ''; }
 
         // Kill switch first: an explicit `off` tears down a mounted sky rather
         // than just declining to mount one, so flipping it is immediate.
-        var en = opts.enable && hass.states[opts.enable];
+        var en = opts.enable && client.states[opts.enable];
         if (en && en.state === 'off') { teardown(); return ''; }
 
         if (opts.sleep) sleepEntity = opts.sleep;
         skyPage = opts.page || null;
-        var sl = sleepEntity && hass.states[sleepEntity];
+        var sl = sleepEntity && client.states[sleepEntity];
         if (sl) asleep = sl.state === 'on';
 
         // Adopt a sky mounted by the PREVIOUS view rather than rebuilding.
@@ -6192,7 +6192,7 @@
 
         // a page's still backdrop: its day stops while the sun is up, its
         // night ones after
-        var up = hass.states['sun.sun'] && Number((hass.states['sun.sun'].attributes || {}).elevation) > 0;
+        var up = client.states['sun.sun'] && Number((client.states['sun.sun'].attributes || {}).elevation) > 0;
         // a photo's tint is a backdrop under it, showing through (paintPhoto)
         var tint = opts.photo && opts.look && opts.look.tint;
         var stops = opts.photo ? (tint ? (up ? tint.day : tint.night) : PHOTO_UNDER) : opts.still
@@ -6201,7 +6201,7 @@
         if (stops && opts.variant === 'lights' && !opts.photo && !opts.still) {
           var HS = window.hkSettings, lc = HS && HS.get ? HS.get('headers.lights', null) : null;
           if (!lc || lc.sky_follow !== false) {
-            var kv = sunKelvin(hass, lc);
+            var kv = sunKelvin(client, lc);
             if (kv) stops = tintStops(stops, kv.k);
           }
         }
@@ -6227,7 +6227,7 @@
           mounted.classList.remove('photo');
           mountedVariant = null;
           mounted.style.setProperty('--artO', '0');
-          var rs = read(hass);
+          var rs = read(client);
           // a page's own fixed backdrop, over this screen's (resolve)
           if (opts.backdrop) rs.backdrop = opts.backdrop;
           else if (opts.backdrop === false) rs.backdrop = null;
@@ -6309,7 +6309,7 @@
   // The sky reads its own configuration out of Lovelace instead of waiting to
   // be called by an invisible card on every view.
   //
-  // WHY NO MOUNT CARD. A zero-height card whose only jobs are to hand `hass`
+  // WHY NO MOUNT CARD. A zero-height card whose only jobs are to hand the client
   // in and to exist on the right page costs a call site on every view -- and
   // with no way to see the new view's config, a path change could only be
   // answered by waiting to find out whether a card on the new view would
@@ -6350,9 +6350,10 @@
     return out;
   }
 
-  function hassNow() {
-    var ha = SH.root();
-    return ha && ha.hass;
+  // The host's current client (in Home Assistant, the frontend's root element's).
+  function clientNow() {
+    var HC = window.hkHostClient;
+    return (HC && HC.current && HC.current()) || null;
   }
 
   // READ THE CONFIG, NEVER SNIFF THE DOM. A probe that looks for a marker
@@ -6480,7 +6481,7 @@
   // FLAT: one solid color or one still photo under a fixed fade -- no sky
   // layers, canvas, grain, sampling, seasonal scene or blur. `opts.flat` is
   // the page's (resolve: hk-settings.js flatBackground).
-  // One bounded bitmap per mounted wallpaper; no work on repeated hass pushes.
+  // One bounded bitmap per mounted wallpaper; no work on repeated state pushes.
   // The request is replaced on navigation/settings changes, so a late image
   // load can only paint the latest request. Canvas shares the image's cover fit.
   function renderFlatImage(layer, pic, look, color) {
@@ -6508,8 +6509,8 @@
     if (pic.complete && pic.naturalWidth) draw();
   }
 
-  function renderFlat(hass, card, opts, policy) {
-    var en = opts.enable && hass.states[opts.enable];
+  function renderFlat(client, card, opts, policy) {
+    var en = opts.enable && client.states[opts.enable];
     var bg = (en && en.state === 'off') ? { color: 'auto' } : (opts.flat || { color: 'auto' });
     if (!mounted || !mounted.isConnected) {
       var host = container(card); if (!host) return;
@@ -6588,7 +6589,7 @@
       if (src && pic.getAttribute('src')) pic.style.display = 'block';
     }
     if (opts.sleep) sleepEntity = opts.sleep;
-    var sl = sleepEntity && hass.states[sleepEntity]; if (sl) asleep = sl.state === 'on';
+    var sl = sleepEntity && client.states[sleepEntity]; if (sl) asleep = sl.state === 'on';
     // never hidden while the tab is: a still picture costs nothing there, and
     // an inline hide stayed until the next tick -- the view's navy, then the
     // photo, each time the tab came back (2026-10-16)
@@ -6615,13 +6616,13 @@
       return;
     }
     if (want === false) { if (mounted) teardown(); return; }
-    var hass = hassNow();
-    if (!hass) return;
+    var client = clientNow();
+    if (!client) return;
     // hui-view-container satisfies container()'s very first test, so it is its
     // own anchor and no card is needed.
     var host = viewContainerEl();
     if (!host) return;
-    window.hkSky.render(hass, host, want);
+    window.hkSky.render(client, host, want);
   }
 
   // Three navigation signals, all proven on wall tablets: location-changed
@@ -6722,7 +6723,7 @@
   // without a ramp the sky appears at 3012ms.
   //
   // The reason is that selfDrive()'s single immediate selfRender() runs at
-  // ~5ms, when there is no hass and no HUI-VIEW-CONTAINER yet, so it bails --
+  // ~5ms, when there is no client and no HUI-VIEW-CONTAINER yet, so it bails --
   // and the next attempt would be the 3000ms backstop tick. Nothing is slow;
   // the retry is just too far away.
   //
