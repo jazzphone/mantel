@@ -1394,6 +1394,11 @@ def may_speak_for(host: FeatureHost, identity: Any, tid: str) -> bool:
 def register(app: web.Application, hub: Any, hooks: Any = None) -> FeatureHost:
     """Install ``app["features"]``: the feature host, its reads and messages, its REST, and the
     linked handler. Every piece is off until the feature settings turn it on."""
+    if "features" in app:
+        # already registered (server.wire does it): a second call only swaps the hooks (read at
+        # use time), so routes, handlers and the hub's callbacks are never installed twice
+        app["features"].hooks = FeatureHooks.coerce(hooks)
+        return app["features"]
     host = FeatureHost(app, hub, FeatureHooks.coerce(hooks))
     app["features"] = host
 

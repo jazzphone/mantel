@@ -149,8 +149,8 @@ async def phase(token: str, commands: bool) -> dict:
                 "linked": {"enabled": True, "entry_id": ENTRY, "backlight": True, "backlights": {"hall": BACKLIGHT}},
             })),
         ], actor=Actor(label="e2e"))
-        # THE WIRING LINE the orchestrator adds to server.py, after linked.register:
-        host = features.register(app, hub, Hooks(may_read=app["authz"].may_read))
+        # server.wire registers the feature host (after linked.register); use the app's own
+        host = app["features"]
         out: dict = {"phase": label}
         people: list = []
         async with TestServer(app, host="127.0.0.1") as server, aiohttp.ClientSession() as ha:
