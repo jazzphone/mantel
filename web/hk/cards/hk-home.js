@@ -313,7 +313,7 @@
     // one resubscribes on every reconnect and retries a refusal with back-off.
     _subAreas() {
       if (!this._auto || this._areaSub || !this.isConnected) return;
-      var conn = this._hass && this._hass.connection;
+      var conn = this.client && this.client.subscriptions;    // the client's port
       var sub = window.hkSettings && window.hkSettings.subscribe;
       if (!conn || typeof conn.subscribeMessage !== 'function' || typeof sub !== 'function') return;
       var self = this;

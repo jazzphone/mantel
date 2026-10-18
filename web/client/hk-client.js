@@ -39,15 +39,47 @@
   ];
   var WRITE_SET = Object.create(null);
   WRITES.forEach(function (t) { WRITE_SET[t] = true; });
+  // THE SUBSCRIPTION PORT'S ALLOWLIST (Phase 1 slice 7). Every subscription the shared frontend
+  // opens is one of these, and each one only reads: a feed of HK's settings, music, schedule and
+  // snoozes, the house's events for pop-ups, a weather forecast, the notification list, the user's
+  // sidebar data, the cleaning rooms on offer, and a camera's WebRTC offer (viewing signaling:
+  // it starts a picture for this page and changes nothing in the house). Anything else, a write
+  // above all, is refused before the host with code `not_allowed`. `subscribe_events` is allowed
+  // only for the event types in SUBSCRIBE_EVENTS (the whole event bus is not a read we offer).
+  var SUBSCRIPTIONS = [
+    'camera/webrtc/offer',
+    'frontend/subscribe_user_data',
+    'hk_clean_areas/subscribe',
+    'hk_frontend/events/subscribe', 'hk_frontend/page_headers/subscribe',
+    'hk_frontend/settings/subscribe', 'hk_frontend/snooze/subscribe',
+    'hk_music/subscribe',
+    'persistent_notification/subscribe',
+    'subscribe_events',
+    'weather/subscribe_forecast'
+  ];
+  var SUBSCRIBE_EVENTS = ['repairs_issue_registry_updated'];
+  var SUB_SET = Object.create(null), EVENT_SET = Object.create(null);
+  SUBSCRIPTIONS.forEach(function (t) { SUB_SET[t] = true; });
+  SUBSCRIBE_EVENTS.forEach(function (t) { EVENT_SET[t] = true; });
+  function subscribable(msg) {
+    if (!msg || typeof msg.type !== 'string' || !SUB_SET[msg.type] || WRITE_SET[msg.type]) return false;
+    return msg.type !== 'subscribe_events' || (typeof msg.event_type === 'string' && !!EVENT_SET[msg.event_type]);
+  }
   function isWrite(msg) { return !!(msg && typeof msg.type === 'string' && WRITE_SET[msg.type]); }
   function disabled() {
     return Object.assign(new Error('commands disabled'), { code: 'commands_disabled' });
   }
-  // THE ACTION PORT. A host that can act gives its port `actions` ({callService, callWS}) and
-  // the call reaches it with exactly the arguments the caller passed (same service, data,
-  // target, notifyOnError, returnResponse; same message). A host that cannot (Mantel, or a
-  // client made from bare data) gets the refusal: nothing is sent, the promise rejects with
-  // code `commands_disabled`, and the port's `refused(detail)` hook, if any, is told.
+  // THE ACTION PORT. A host that can act gives its port `actions` ({callService, callWS,
+  // request, liveSocket}) and the call reaches it with exactly the arguments the caller passed
+  // (same service, data, target, notifyOnError, returnResponse; same message; same path and
+  // init). A host that cannot (Mantel, or a client made from bare data) gets the refusal: nothing
+  // is sent, the promise rejects with code `commands_disabled`, and the port's `refused(detail)`
+  // hook, if any, is told.
+  //  * request(path, init): an authenticated write to the host's HTTP API (the doorbell's
+  //    recorded talk-back POST).
+  //  * liveSocket(): what a dedicated write socket needs (the doorbell's live talk-back, which
+  //    streams `hk_frontend/talk/live` from a worker): resolves {url, token()} once any expired
+  //    credentials are refreshed. Refused, nothing is opened.
   function actionPort(port) {
     var act = port.actions && typeof port.actions === 'object' ? port.actions : null;
     function refuse(detail) {
@@ -68,6 +100,18 @@
           return refuse({ kind: 'ws', what: String(msg && msg.type) });
         }
         return act.callWS(msg);
+      },
+      request: function (path, init) {
+        if (!act || typeof act.request !== 'function') {
+          return refuse({ kind: 'http', what: String((init && init.method) || 'GET') + ' ' + String(path).split('?')[0] });
+        }
+        return act.request.apply(act, arguments);
+      },
+      liveSocket: function () {
+        if (!act || typeof act.liveSocket !== 'function') {
+          return refuse({ kind: 'socket', what: 'live socket' });
+        }
+        return act.liveSocket();
       }
     });
   }
@@ -117,7 +161,14 @@
     if (!transport || typeof transport.subscribeMessage !== 'function') return null;
     if (transports.has(transport)) return transports.get(transport);
     var port = Object.freeze({
+      // Reads only, and only those on the allowlist above: anything else is refused here and
+      // never reaches the transport.
       subscribeMessage: function (callback, message, options) {
+        if (!subscribable(message)) {
+          return Promise.reject(Object.assign(new Error('HKClient.subscriptions does not offer ' +
+            String(message && message.type) + (message && message.type === 'subscribe_events' ? ' ' + String(message.event_type) : '')),
+            { code: 'not_allowed' }));
+        }
         return transport.subscribeMessage(callback, message, options);
       },
       addEventListener: function (name, callback) {
@@ -131,7 +182,9 @@
     return port;
   }
   global.hkClient = { create: create, subscriptions: subscriptions, is: is, isWrite: isWrite,
+                      subscribable: subscribable,
                       DATA: DATA.slice(), METHODS: METHODS.slice(), WRITES: WRITES.slice(),
-                      ACTIONS: ['callService', 'callWS'] };
+                      SUBSCRIPTIONS: SUBSCRIPTIONS.slice(), SUBSCRIBE_EVENTS: SUBSCRIBE_EVENTS.slice(),
+                      ACTIONS: ['callService', 'callWS', 'request', 'liveSocket'] };
   try { global.dispatchEvent(new CustomEvent('hk-client-ready')); } catch (e) { /* shell tests */ }
 })(globalThis);

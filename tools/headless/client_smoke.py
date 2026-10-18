@@ -187,6 +187,19 @@ async def smoke(shot=None):
                       catch (error) { return error.code; }
                     })()""")
                     assert refused == "commands_disabled"
+                    # Slice 7: the subscription port offers only its read allowlist; the doorbell's
+                    # talk-back writes (recorded POST, live socket) go to the action port and are refused.
+                    port = await browser.eval("""(async () => {
+                      const port = window.__mantel.client.subscriptions, frames = window.__sentFrames;
+                      const code = async (p) => { try { await p; return 'sent'; } catch (e) { return e.code; } };
+                      return { write: await code(port.subscribeMessage(() => {}, {type: 'call_service', domain: 'light', service: 'turn_on'})),
+                               bus: await code(port.subscribeMessage(() => {}, {type: 'subscribe_events', event_type: 'state_changed'})),
+                               talk: await code(window.__mantel.client.actions.request('/api/hk_frontend/talk?entity_id=media_player.x', {method: 'POST'})),
+                               live: await code(window.__mantel.client.actions.liveSocket()),
+                               frames: window.__sentFrames - frames };
+                    })()""")
+                    assert port == {"write": "not_allowed", "bus": "not_allowed", "talk": "commands_disabled",
+                                    "live": "commands_disabled", "frames": 0}, port
                     actions = await browser.eval("""(async () => {
                       const { createCardElement, setCardHost } = await import('/web/shim/cards-bridge.js');
                       const tile = createCardElement({type:'custom:hk-tile-card', entity:'light.proof'});
@@ -242,6 +255,7 @@ async def smoke(shot=None):
                             "commands": refused,
                             "actions": "tile tap, sheet control and keypad refused through the action port; "
                                        "0 frames sent; read path refused call_service (read_only)",
+                            "subscriptions": "write and state_changed bus refused (not_allowed); talk-back POST and live socket refused; 0 frames",
                             "external_requests": 0, "browser_exceptions": 0}
         finally:
             store.db.close()

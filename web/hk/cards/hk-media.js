@@ -2987,7 +2987,7 @@
     }
     _subNotes() {
       if (this._noteSub || !this.isConnected) return;
-      var conn = this._hass && this._hass.connection;
+      var conn = this.client && this.client.subscriptions;    // the client's port
       if (!conn || !conn.subscribeMessage) return;
       var self = this;
       this._noteSub = conn.subscribeMessage(function (ev) { self._onNotes(ev); },

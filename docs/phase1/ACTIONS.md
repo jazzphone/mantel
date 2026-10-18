@@ -220,6 +220,8 @@ exceptions are unchanged.
 
 ## Exact continuation point
 
+> **Superseded:** slice 7 is done. See [CONNECTIONS.md](CONNECTIONS.md#exact-continuation-point).
+
 This slice is complete. Next is slice 7: move the raw connections (`hk-cameras.js` ready
 listener and WebRTC signaling, `hk-weather.js`, `hk-saver-weather.js`'s forecast subscription,
 `hk-radar.js`) to the client's subscription port. When that is done, route the camera's

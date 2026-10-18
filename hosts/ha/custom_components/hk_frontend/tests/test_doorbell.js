@@ -97,7 +97,7 @@ print('\n=== live talk (talk_live.py) ===');
 // HA's cushion, so the sender lives in a Worker with its own socket.
 ok('a Worker with its own authenticated websocket sends the words: [handler id][16-bit PCM]',
    /type: 'auth', access_token: d\.token/.test(src) && /type: 'hk_frontend\/talk\/live', entity_id: d\.entity_id, rate: d\.rate/.test(src) &&
-   /out\[0\] = s\.hid; out\.set\(pcm, 1\);/.test(src) && /token: auth\.accessToken/.test(body));
+   /out\[0\] = s\.hid; out\.set\(pcm, 1\);/.test(src) && /token: live\.token\(\)/.test(body) && /Promise\.all\(\[this\._actxMod, act\.liveSocket\(\)\]\)/.test(body));
 ok('the worklet posts straight to the worker (a MessageChannel): the page is not in the path',
    /node\.port\.postMessage\(\{ port: ch\.port1 \}, \[ch\.port1\]\)/.test(body) && /port: ch\.port2 \}, \[ch\.port2\]\)/.test(body) &&
    /if \(this\.out\) this\.out\.postMessage\(this\.b\.buffer/.test(src));
@@ -124,7 +124,7 @@ ok('sending does not close the mic', !/_talkSend\(s\) \{[\s\S]{0,200}_stopTracks
 ok('the sent message says how long the clip was', /'Sent \\u00b7 ' \+ s\.secs\.toFixed\(1\) \+ ' s'/.test(body));
 ok('pointer capture, so sliding off the button still ends the hold', /setPointerCapture/.test(body));
 ok('the clip goes to talk.py for the configured speaker',
-   /'\/api\/hk_frontend\/talk\?entity_id=' \+ encodeURIComponent\(c\.speaker\)/.test(body) && /fetchWithAuth/.test(body));
+   /'\/api\/hk_frontend\/talk\?entity_id=' \+ encodeURIComponent\(c\.speaker\)/.test(body) && /act \? act\.request\(url, init\)/.test(body));
 ok('recording keeps the voice processing on (unlike the mic test)',
    /echoCancellation: true, noiseSuppression: true, autoGainControl: true/.test(body));
 

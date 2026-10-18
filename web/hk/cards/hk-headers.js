@@ -306,10 +306,11 @@
           end_time: new Date().toISOString(), entity_ids: list.concat(outSrc ? [outSrc] : []), minimal_response: false, no_attributes: false,
           significant_changes_only: false });
       });
-      if (wid && this._fcFor !== wid && h.connection) {
+      var fcPort = window.hkCards.subscriptions(h);    // the client's subscription port
+      if (wid && this._fcFor !== wid && fcPort) {
         if (this._fcSub) this._fcSub.then(function (u) { if (u) u(); });
         this._fcFor = wid;
-        this._fcSub = h.connection.subscribeMessage(function (m) { self._fcH = (m && m.forecast) || []; self.redraw(); },
+        this._fcSub = fcPort.subscribeMessage(function (m) { self._fcH = (m && m.forecast) || []; self.redraw(); },
           { type: 'weather/subscribe_forecast', forecast_type: 'hourly', entity_id: wid }).catch(function () { return null; });
       }
       // the card's content width (contentRect: its padding already out)
@@ -469,11 +470,12 @@
       if (!h) return;
       var wid = this._wx(), w = wid && h.states[wid];
       if (!w) return this._paint('<div class="ttl"><b>Outside &amp; Ahead</b></div><div class="wait">No weather</div>');
-      if (this._subWx !== wid && h.connection) {
+      var port = window.hkCards.subscriptions(h);      // the client's subscription port
+      if (this._subWx !== wid && port) {
         this._unsub();
         this._subWx = wid;
         this._subs = ['hourly', 'daily'].map(function (t) {
-          return h.connection.subscribeMessage(function (m) { self['_' + t] = m.forecast || []; self.redraw(); },
+          return port.subscribeMessage(function (m) { self['_' + t] = m.forecast || []; self.redraw(); },
             { type: 'weather/subscribe_forecast', forecast_type: t, entity_id: wid }).catch(function () { return null; });
         });
       }
@@ -582,8 +584,9 @@
   var SCHED = { data: null, sub: null, cards: new Set() };
   function schedule(card, h) {
     SCHED.cards.add(card);
-    if (!SCHED.sub && h && h.connection) {
-      SCHED.sub = h.connection.subscribeMessage(function (m) {
+    var port = !SCHED.sub && h ? window.hkCards.subscriptions(h) : null;
+    if (port) {
+      SCHED.sub = port.subscribeMessage(function (m) {
         SCHED.data = m || {};
         SCHED.cards.forEach(function (c) { c.redraw(); });
       }, { type: 'hk_frontend/page_headers/subscribe' }).catch(function (e) {
@@ -2022,8 +2025,9 @@
     var SNOOZE = { until: {}, sub: null, n: 0, panels: new Set() };
     function snoozed(panel, h) {
       SNOOZE.panels.add(panel);
-      if (!SNOOZE.sub && h && h.connection) {
-        SNOOZE.sub = h.connection.subscribeMessage(function (m) {
+      var port = !SNOOZE.sub && h ? window.hkCards.subscriptions(h) : null;
+      if (port) {
+        SNOOZE.sub = port.subscribeMessage(function (m) {
           SNOOZE.until = (m && m.until) || {}; SNOOZE.n++;
           SNOOZE.panels.forEach(function (p) { p._kick(); });
         }, { type: 'hk_frontend/snooze/subscribe' }).catch(function () { SNOOZE.sub = null; return null; });

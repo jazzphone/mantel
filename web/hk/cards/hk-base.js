@@ -1845,6 +1845,14 @@
     var c = source ? asClient(source) : window.hkCards.client();
     return (c && c.actions) || null;
   };
+  // THE SUBSCRIPTION PORT the same way (Phase 1 slice 7): the given client's
+  // (or a legacy host input's, through the host adapter), else the current
+  // client's. One port per socket, so its identity says "same connection".
+  // Null with no client or no transport.
+  window.hkCards.subscriptions = function (source) {
+    var c = source ? asClient(source) : window.hkCards.client();
+    return (c && c.subscriptions) || null;
+  };
   window.hkCards.onClient = function (fn) {
     CLIENT_HUB.fns.add(fn);
     return function () { CLIENT_HUB.fns.delete(fn); };

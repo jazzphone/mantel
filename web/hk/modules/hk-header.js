@@ -865,13 +865,13 @@
   // (hk-weather.js hkWxForecast, held while the menu shows the weather).
   // {high, low} rounded, either null when there is none.
   var dayW = null;
-  function today(states, conn, wid, day) {
+  function today(states, port, wid, day) {
     var sid = S() ? S().get('weather.forecast_daily', null) : null, fc = null;
     if (sid) {
       fc = ((states[sid] || {}).attributes || {}).forecast;
-    } else if (wid && conn && window.hkWxForecast) {
-      if (dayW && (dayW.conn !== conn || dayW.wid !== wid)) { dayW.release(); dayW = null; }
-      if (!dayW) { dayW = window.hkWxForecast.watch(conn, 'daily', wid, function () {}); dayW.wid = wid; }
+    } else if (wid && port && window.hkWxForecast) {
+      if (dayW && (dayW.conn !== port || dayW.wid !== wid)) { dayW.release(); dayW = null; }
+      if (!dayW) { dayW = window.hkWxForecast.watch(port, 'daily', wid, function () {}); dayW.wid = wid; }
       else dayW.ensure();
       fc = dayW.data();
     }
@@ -886,13 +886,14 @@
   }
   // the menu stopped showing the weather: the subscription goes
   function nowDone() { if (dayW) { dayW.release(); dayW = null; } }
-  function now(states, conn) {
+  // `port`: the client's subscription port (hkCards.subscriptions())
+  function now(states, port) {
     states = states || {};
     var ck = clockParts(states), d = ck.day;
     var wid = S() ? S().weatherId(states) : null;
     var w = (wid && states[wid]) || {}, a = w.attributes || {};
     var temp = num(a.temperature), feels = num(a.apparent_temperature);
-    var hl = today(states, conn, wid, d);
+    var hl = today(states, port, wid, d);
     return {
       high: hl.high, low: hl.low,
       tempN: temp !== null ? Math.round(temp) : null, feelsN: feels !== null ? Math.round(feels) : null,

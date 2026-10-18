@@ -92,7 +92,7 @@ H.run('CLIENT SUBSCRIPTIONS', [function () {
     addEventListener: function (name, fn) { ready.push(fn); },
     removeEventListener: function (name, fn) { ready = ready.filter(function (x) { return x !== fn; }); }
   });
-  var close = window.hkSettings.subscribe(pending, { type: 'proof/subscribe' }, function () { events++; });
+  var close = window.hkSettings.subscribe(pending, { type: 'hk_frontend/settings/subscribe' }, function () { events++; });
   return settle().then(function () {
     H.ok('subscription may still be pending at teardown', !!resolve);
     close();
@@ -103,5 +103,44 @@ H.run('CLIENT SUBSCRIPTIONS', [function () {
     H.eq('late subscription resolution is closed', closes, 1);
     H.eq('pending callback after teardown is ignored', events, 0);
     H.eq('pending subscription removes reconnect listener', ready.length, 0);
+  });
+}, function () {
+  H.section('the subscription port offers only its read allowlist (slice 7)');
+  var t = transport(), port = window.hkClient.subscriptions(t), codes = [];
+  var listed = window.hkClient.SUBSCRIPTIONS.map(function (type) {
+    return type === 'subscribe_events' ? { type: type, event_type: 'repairs_issue_registry_updated' } : { type: type };
+  });
+  listed.forEach(function (m) { port.subscribeMessage(function () {}, m); });
+  H.eq('every listed read reaches the transport, unchanged', t.calls.length + t.other.length, listed.length);
+  H.ok('no listed subscription is a write', window.hkClient.SUBSCRIPTIONS.every(function (type) { return !window.hkClient.isWrite({ type: type }); }));
+  var before = t.calls.length + t.other.length;
+  var refused = [{ type: 'call_service', domain: 'light', service: 'turn_on' }, { type: 'hk_notify/mute' },
+                 { type: 'proof/subscribe' }, { type: 'subscribe_events' },
+                 { type: 'subscribe_events', event_type: 'state_changed' }, null];
+  var all = refused.map(function (m) {
+    return port.subscribeMessage(function () {}, m).then(function () { codes.push('sent'); }, function (e) { codes.push(e.code); });
+  });
+  return Promise.all(all).then(function () {
+    H.eq('writes, unlisted reads and other event types are refused (not_allowed)', codes.join(), refused.map(function () { return 'not_allowed'; }).join());
+    H.eq('and none reached the transport', t.calls.length + t.other.length, before);
+  });
+}, function () {
+  H.section('HA adapter: the talk-back writes reach the frontend (slice 7)');
+  var got = [], auth = { data: { hassUrl: 'https://ha.invalid:8123/' }, accessToken: 'old', expired: true,
+    refreshAccessToken: function () { auth.accessToken = 'new'; auth.expired = false; return Promise.resolve(); } };
+  var raw = { states: {}, auth: auth, callService: function () {}, callWS: function () {},
+              fetchWithAuth: function () { got.push([this === raw].concat([].slice.call(arguments))); return Promise.resolve({ ok: true }); } };
+  var c = window.hkHAClient.from(raw), init = { method: 'POST', body: 'x' };
+  return c.actions.request('/api/hk_frontend/talk?entity_id=media_player.x', init).then(function () {
+    H.ok('request: the frontend\'s fetchWithAuth, same receiver, path and init', got.length === 1 && got[0][0] === true &&
+         got[0][1] === '/api/hk_frontend/talk?entity_id=media_player.x' && got[0][2] === init);
+    return c.actions.liveSocket();
+  }).then(function (live) {
+    H.eq('liveSocket: HA\'s websocket address from its auth', live.url, 'wss://ha.invalid:8123/api/websocket');
+    H.eq('the token read after an expired one is refreshed', live.token(), 'new');
+    return window.hkHAClient.from({ states: {}, callService: function () {} }).actions.liveSocket()
+      .then(function () { return 'opened'; }, function (e) { return e.message; });
+  }).then(function (r) {
+    H.eq('no auth: not available here, as before', r, 'not available here');
   });
 }]);

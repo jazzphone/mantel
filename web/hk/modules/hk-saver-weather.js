@@ -307,28 +307,41 @@
     var hide = Array.isArray(opts.hide) ? opts.hide.slice() : [], h24 = !!opts.h24;
     var fc = {}, fcAt = {}, subs = {}, refused = {}, conn = null, onReady = null;
 
-    // THE FORECAST'S CONNECTION is still the host's own (Phase 1 slice 7 moves
-    // it to the client's subscription port); everything else here reads the client
-    function hostConnection() { var C = window.hkCards, h = C && C.hass && C.hass(); return (h && h.connection) || null; }
+    // THE FORECAST'S CONNECTION is the client's subscription port (one per
+    // socket, the same across state snapshots). A REPLACED PORT (a new socket)
+    // ends the old subscriptions and its reconnect listener, and their late
+    // answers are ignored; the forecast already held stays until the new one
+    // arrives, as after a reconnect.
     function wid() {
       var HS = window.hkSettings, st = client && client.states;
       return st && HS && HS.weatherId ? HS.weatherId(st) : null;
+    }
+    function release() {
+      Object.keys(subs).forEach(function (k) { Promise.resolve(subs[k]).then(function (u) { if (typeof u === 'function') u(); }); });
+      subs = {};
+      if (conn && onReady && typeof conn.removeEventListener === 'function') conn.removeEventListener('ready', onReady);
+      conn = null; onReady = null;
     }
     // THE FORECAST: Configure -> Weather's forecast sensor, else the
     // weather entity's own subscription (as the forecast band has it)
     function forecast(kind) {
       var HS = window.hkSettings, sensor = HS && HS.get ? HS.get('weather.forecast_' + kind, null) : null;
       if (sensor) return ((client.states[sensor] || {}).attributes || {}).forecast || [];
-      var id = wid(), key = kind + '|' + id, c = client && hostConnection();
+      var id = wid(), key = kind + '|' + id, c = (client && client.subscriptions) || null;
+      if (c && conn && c !== conn) release();
       if (id && c && alive && !subs[key] && !(refused[key] && Date.now() < refused[key])) {
-        if (!onReady && typeof c.addEventListener === 'function') {
+        if (!conn) {
           conn = c;
-          onReady = function () { subs = {}; soon(); };       // Home Assistant restarted: ask again
-          c.addEventListener('ready', onReady);
+          if (typeof c.addEventListener === 'function') {
+            onReady = function () { subs = {}; soon(); };     // Home Assistant restarted: ask again
+            c.addEventListener('ready', onReady);
+          }
         }
-        subs[key] = c.subscribeMessage(function (ev) { fc[key] = (ev && ev.forecast) || []; fcAt[key] = Date.now(); soon(); },
-          { type: 'weather/subscribe_forecast', forecast_type: kind, entity_id: id }, { resubscribe: false })
-          .catch(function () { delete subs[key]; refused[key] = Date.now() + 5 * 60e3; return null; });
+        subs[key] = c.subscribeMessage(function (ev) {
+          if (c !== conn) return;                              // a replaced port's late answer
+          fc[key] = (ev && ev.forecast) || []; fcAt[key] = Date.now(); soon();
+        }, { type: 'weather/subscribe_forecast', forecast_type: kind, entity_id: id }, { resubscribe: false })
+          .catch(function () { if (c !== conn) return null; delete subs[key]; refused[key] = Date.now() + 5 * 60e3; return null; });
       }
       return fc[key] || [];
     }
@@ -642,9 +655,7 @@
         // tears down this controller, while the reader keeps it open.
         if (redrawT) { clearTimeout(redrawT); redrawT = null; }
         if (clockT) { clearInterval(clockT); clockT = null; }
-        Object.keys(subs).forEach(function (k) { Promise.resolve(subs[k]).then(function (u) { if (typeof u === 'function') u(); }); });
-        subs = {};
-        if (conn && onReady && typeof conn.removeEventListener === 'function') conn.removeEventListener('ready', onReady);
+        release();
         if (scene) { try { scene.destroy(); } catch (e) { /* gone */ } scene = null; }
         if (el.parentNode) el.parentNode.removeChild(el);
       }

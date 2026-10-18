@@ -28,9 +28,10 @@
 // that wants it (2026-10-16, the Weather page): the band, the page's hourly
 // and daily cards and the weather sheet each WATCH it, and the first to watch
 // asks Home Assistant (weather/subscribe_forecast) while the last to let go
-// drops it. Per connection, so a page that reconnected starts afresh.
+// drops it. Per subscription port (the client's: one per socket, the same
+// across state snapshots), so a page whose socket was replaced starts afresh.
 //
-//   var w = hkWxForecast.watch(conn, 'hourly', 'weather.home', onNew);
+//   var w = hkWxForecast.watch(client.subscriptions, 'hourly', 'weather.home', onNew);
 //   w.data()      the forecast so far ([] until it arrives)
 //   w.ensure()    ask again if a refusal's wait is over (each render)
 //   w.release()   this watcher is done; the last one unsubscribes
@@ -1860,11 +1861,11 @@
         if (sensorId) {
           return ((this._hass.states[sensorId] || {}).attributes || {}).forecast || [];
         }
-        var wid = this._config.entity, conn = this._hass && this._hass.connection;
+        var wid = this._config.entity, conn = this.client && this.client.subscriptions;
         var key = kind + '|' + wid;
         this._fcW = this._fcW || {};
         var w = this._fcW[key];
-        // a new connection object (a page that reconnected) is watched afresh
+        // a new subscription port (a replaced socket) is watched afresh
         if (w && w.conn !== conn) { w.release(); w = this._fcW[key] = null; }
         if (!w && wid && conn && this.isConnected && window.hkWxForecast) {
           var self = this;
@@ -2989,14 +2990,14 @@
       // (hkWxForecast) while open -- the Weather page's own, when the sheet
       // opens over it
       _fc(kind) {
-        var sid = hs('forecast_' + kind), h = this._hass;
+        var sid = hs('forecast_' + kind), h = this._hass, port = this.client && this.client.subscriptions;
         if (sid && h.states[sid]) return (h.states[sid].attributes || {}).forecast || [];
         this._ws = this._ws || {};
         var w = this._ws[kind];
-        if (w && w.conn !== h.connection) { w.release(); w = this._ws[kind] = null; }
-        if (!w && h.connection && this.isConnected && window.hkWxForecast) {
+        if (w && w.conn !== port) { w.release(); w = this._ws[kind] = null; }
+        if (!w && port && this.isConnected && window.hkWxForecast) {
           var self = this;
-          w = this._ws[kind] = window.hkWxForecast.watch(h.connection, kind, this._id, function () {
+          w = this._ws[kind] = window.hkWxForecast.watch(port, kind, this._id, function () {
             self._fcN = (self._fcN || 0) + 1;
             self._hkSig = null; if (self._hass) self.hass = self._hass;
           });

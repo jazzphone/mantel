@@ -2548,14 +2548,18 @@
 
     // ------------------------------------------------------------ webrtc
     _start() {
-      var h = this._hass, c = this._config, self = this;
-      if (!h || !h.connection || !c || !c.entity || !window.RTCPeerConnection) { this._markReady(); return; }
+      // SIGNALING THROUGH THE CLIENT: the client config and our candidates are reads
+      // (client.callWS: in HA the frontend's callWS, the same frame on the same socket), the
+      // offer a read-only subscription on the client's port (on its allowlist). Viewing a
+      // camera changes nothing in the house.
+      var cl = this.client, c = this._config, self = this, port = cl && cl.subscriptions;
+      if (!port || !cl.callWS || !c || !c.entity || !window.RTCPeerConnection) { this._markReady(); return; }
       var gen = this._gen = (this._gen || 0) + 1;
       this._readyDone = false;
-      var conn = h.connection, entity = c.entity;
+      var entity = c.entity;
       var alive = function () { return self._gen === gen && self.isConnected; };
       this._pc = 'pending';
-      conn.sendMessagePromise({ type: 'camera/webrtc/get_client_config', entity_id: entity })
+      cl.callWS({ type: 'camera/webrtc/get_client_config', entity_id: entity })
         .catch(function () { return {}; })
         .then(function (cfg) {
           if (!alive()) return;
@@ -2569,7 +2573,7 @@
           };
           var session = null, pending = [];
           var send = function (cand) {
-            conn.sendMessagePromise({ type: 'camera/webrtc/candidate', entity_id: entity,
+            cl.callWS({ type: 'camera/webrtc/candidate', entity_id: entity,
               session_id: session, candidate: cand }).catch(function () { /* late */ });
           };
           pc.onicecandidate = function (e) {
@@ -2587,7 +2591,7 @@
             return pc.setLocalDescription(offer).then(function () { return offer; });
           }).then(function (offer) {
             if (!alive()) return;
-            return conn.subscribeMessage(function (m) {
+            return port.subscribeMessage(function (m) {
               if (!alive()) return;
               if (m.type === 'session') {
                 session = m.session_id;
@@ -2789,7 +2793,10 @@
     }
 
     _liveStart(s, stream) {
-      var self = this, h = this._hass, ctx = this._audioCtx(), auth = h && h.auth;
+      // THE LIVE SOCKET IS A WRITE: its address and credentials come from the client's action
+      // port (HA: the frontend's websocket and token, refreshed when expired; Mantel: refused,
+      // and nothing is opened or sent).
+      var self = this, ctx = this._audioCtx(), act = this.client && this.client.actions;
       // GIVING UP ON LIVE CLOSES IT. Flipping the flags and the label alone is
       // not enough: the session given up on may still be opening -- a first
       // press waits on a new socket, auth, and Protect handing out a talkback
@@ -2807,17 +2814,15 @@
         self._liveStop(s);
         if (self._talk === s && !s.ended) self._talkUi('rec');
       };
-      var worker = ctx && auth && this._talkWorker();
+      var worker = ctx && act && this._talkWorker();
       if (!worker) { s.fail('not available here'); return; }
       if (!this._actxMod) {
         var url = URL.createObjectURL(new Blob([PCM_TAP], { type: 'application/javascript' }));
         this._actxMod = ctx.audioWorklet.addModule(url);
       }
-      var base = (auth.data && auth.data.hassUrl) || location.origin;
-      var wsUrl = base.replace(/^http/, 'ws').replace(/\/$/, '') + '/api/websocket';
-      Promise.all([this._actxMod,
-                   auth.expired && auth.refreshAccessToken ? auth.refreshAccessToken() : null])
-        .then(function () {
+      Promise.all([this._actxMod, act.liveSocket()])
+        .then(function (r) {
+          var live = r[1];
           if (s.ended || s.liveFailed) return;
           var src = ctx.createMediaStreamSource(stream);
           var node = new AudioWorkletNode(ctx, 'hk-pcm-tap',
@@ -2834,7 +2839,7 @@
           node.port.postMessage({ port: ch.port1 }, [ch.port1]);
           s.key = self._talkKey = (self._talkKey || 0) + 1;
           s.worker = worker;
-          worker.postMessage({ cmd: 'start', key: s.key, url: wsUrl, token: auth.accessToken,
+          worker.postMessage({ cmd: 'start', key: s.key, url: live.url, token: live.token(),
                                entity_id: self._config.speaker, rate: ctx.sampleRate,
                                port: ch.port2 }, [ch.port2]);
           if (s.ended) self._liveStop(s);         // let go while it was opening
@@ -2889,7 +2894,7 @@
     }
 
     _talkSend(s) {
-      var self = this, c = this._config, h = this._hass;
+      var self = this, c = this._config, act = this.client && this.client.actions;
       if (this._talk === s) this._talk = null;
       this._applySound(false);
       if (s.cancel) {
@@ -2906,7 +2911,9 @@
       this._talkUi('busy');
       var url = '/api/hk_frontend/talk?entity_id=' + encodeURIComponent(c.speaker);
       var init = { method: 'POST', body: blob, headers: { 'Content-Type': blob.type || 'audio/webm' } };
-      var req = h && h.fetchWithAuth ? h.fetchWithAuth(url, init) : Promise.reject(new Error('not connected'));
+      // a write: the client's action port (HA: the frontend's own authenticated fetch, same path
+      // and init; Mantel: refused, nothing sent)
+      var req = act ? act.request(url, init) : Promise.reject(new Error('not connected'));
       req.then(function (r) {
         if (!r.ok) {
           return r.json().catch(function () { return {}; }).then(function (b) {
@@ -3093,9 +3100,10 @@
 
     // `ready` is what home-assistant-js-websocket fires when the socket comes
     // BACK -- every reconnect, never the first connect. One listener, on the
-    // connection this card was handed, and only while the card is on the page.
+    // client's subscription port (one per socket, so the same identity across
+    // snapshots), and only while the card is on the page.
     _watchConn() {
-      var conn = this._hass && this._hass.connection;
+      var conn = this.client && this.client.subscriptions;
       if (this.isConnected === false || !conn || conn === this._conn ||
           typeof conn.addEventListener !== 'function') return;
       this._unwatchConn();

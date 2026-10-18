@@ -140,9 +140,9 @@ function scenarios() {
 H.run('ACTION PORT', [function () {
   H.section('the port');
   var rec = recorder(), c = window.hkHAClient.from(rec.hass);
-  H.ok('every client has one frozen action port: callService and callWS',
+  H.ok('every client has one frozen action port: callService, callWS, request and liveSocket',
        Object.isFrozen(c.actions) && typeof c.actions.callService === 'function' && typeof c.actions.callWS === 'function' &&
-       window.hkClient.ACTIONS.join() === 'callService,callWS');
+       window.hkClient.ACTIONS.join() === 'callService,callWS,request,liveSocket');
   H.ok('the read surface still has no service call', !('callService' in c));
   c.actions.callService('light', 'turn_on', { entity_id: 'light.porch' });
   c.actions.callService('hk_frontend', 'music_play', { rooms: [] }, undefined, false, true);

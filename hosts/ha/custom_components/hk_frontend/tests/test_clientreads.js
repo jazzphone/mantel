@@ -81,21 +81,23 @@ H.run('CLIENT READS', [function () {
   window.hkEnergy = E0;
   ctl.destroy();
 }, function () {
-  H.section('the Weather screen: client reads, forecast still on the host connection (slice 7)');
+  H.section('the Weather screen: client reads, its forecast on the client\'s subscription port (slice 7)');
   var subs = [], conn = {
     subscribeMessage: function (cb, msg, opts) { subs.push({ msg: msg, opts: opts }); return Promise.resolve(function () {}); },
     addEventListener: function () {}, removeEventListener: function () {}
   };
   var C0 = window.hkCards, HS0 = window.hkSettings;
-  window.hkCards = { hass: function () { return { connection: conn }; } };
+  // the host object is no longer asked: a connection there must go unused
+  var hostConn = { subscribeMessage: function () { throw new Error('the host connection was used'); } };
+  window.hkCards = { hass: function () { return { connection: hostConn }; } };
   window.hkSettings = { weatherId: function (st) { return st['weather.home'] ? 'weather.home' : null; }, get: function () { return null; } };
   var ctl = window.hkSaverWeather.create({});
-  var none = window.hkClient.create({ states: {} });
+  var none = window.hkClient.create({ states: {}, subscriptions: window.hkClient.subscriptions(conn) });
   H.ok('no weather in the client: nothing to show', ctl.ready(none) === false && subs.length === 0);
   var client = window.hkClient.create({ states: { 'weather.home': { entity_id: 'weather.home', state: 'sunny',
-    attributes: { temperature: 71 }, last_updated: new Date().toISOString() } } });
+    attributes: { temperature: 71 }, last_updated: new Date().toISOString() } }, subscriptions: window.hkClient.subscriptions(conn) });
   H.ok('a weather in the client: ready', ctl.ready(client) === true);
-  H.ok('its forecasts are asked over the host\'s connection, as before', subs.length === 2 &&
+  H.ok('its forecasts are asked over the client\'s port (same messages and options as before)', subs.length === 2 &&
        subs[0].msg.type === 'weather/subscribe_forecast' && subs[0].msg.entity_id === 'weather.home' && subs[0].opts.resubscribe === false,
        subs.map(function (s) { return s.msg.forecast_type; }));
   H.ok('fresh states arrive through setClient', typeof ctl.setClient === 'function' && !ctl.setHass);

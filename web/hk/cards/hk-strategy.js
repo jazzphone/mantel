@@ -1447,7 +1447,10 @@
   // generated (no card has attached it), so it cannot say.
   function musicConfigured(hass) {
     return new Promise(function (resolve) {
-      var conn = hass && hass.connection, done = false, unsub = null;
+      // the subscription port of the client made from Lovelace's object (hk-strategy converts
+      // it at its entry in slice 10; until then, here, through the host adapter)
+      var HC = window.hkHostClient, cl = hass && HC && HC.from ? HC.from(hass) : null;
+      var conn = cl && cl.subscriptions, done = false, unsub = null;
       // an unsubscribe the server refuses (the socket reconnected meanwhile)
       // is not an error: never an uncaught rejection
       var end = function (u) { var r = u(); if (r && r.catch) r.catch(function () {}); };

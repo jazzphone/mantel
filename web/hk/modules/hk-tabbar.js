@@ -873,9 +873,9 @@
     // Assistant section follows them, as the side menu's does): read once
     function loadPrefs() {
       S.haPrefs = null;
-      var h = C.hass(), conn = h && h.connection;
-      if (!conn || typeof conn.sendMessagePromise !== 'function') return;
-      conn.sendMessagePromise({ type: 'frontend/get_user_data', key: 'sidebar' }).then(function (r) {
+      var c = C.client();                  // a read: the current client's read path
+      if (!c || typeof c.callWS !== 'function') return;
+      c.callWS({ type: 'frontend/get_user_data', key: 'sidebar' }).then(function (r) {
         S.haPrefs = (r && r.value) || null;
         S.built = ''; sync();
       }, function () { /* no prefs: Home Assistant's own order */ });

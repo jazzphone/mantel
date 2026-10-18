@@ -12,6 +12,8 @@
 //   5. the calendars and their colours (hkSettings.calendarIds / calendarColor).
 if (typeof HK_ROOT === 'undefined')
   throw new Error('HK_ROOT is not set -- run this through tests/run, not jsc directly');
+// fixtures at now ± hours: the clock is pinned to noon (fixed_clock.js)
+load(HK_ROOT + '/tests/fixed_clock.js');
 load(HK_ROOT + '/tests/dom.js');
 load(HK_ROOT + '/tests/card_harness.js');
 load(HK_ROOT + '/tests/sample_settings.js');

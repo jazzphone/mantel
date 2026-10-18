@@ -34,8 +34,10 @@ var G = customElements.get('hk-tv-guide-card');
 var NBC = { number: '4.1', name: 'NBC', camera: 'camera.tv_nbc', now: 'sensor.tv_nbc_now' };
 var BACKOFF = [5000, 15000, 60000, 300000];
 function looks() { return __timers.filter(function (t) { return t && BACKOFF.indexOf(t.ms) >= 0; }); }
+// a socket as home-assistant-js-websocket's (it subscribes, so the client's
+// subscription port takes it; slice 7 hears `ready` through that port)
 function conn() {
-  return { l: {}, addEventListener: function (t, f) { (this.l[t] = this.l[t] || []).push(f); },
+  return { l: {}, subscribeMessage: function () { return Promise.resolve(function () {}); }, addEventListener: function (t, f) { (this.l[t] = this.l[t] || []).push(f); },
            removeEventListener: function (t, f) { this.l[t] = (this.l[t] || []).filter(function (x) { return x !== f; }); },
            fire: function (t) { (this.l[t] || []).forEach(function (f) { f(); }); } };
 }

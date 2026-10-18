@@ -975,7 +975,7 @@
       var H = window.hkHeader, h = C.hass();
       if (!on) { S.nowKey = ''; if (H && H.nowDone) H.nowDone(); return; }
       if (!H || typeof H.now !== 'function' || !h || !h.states) return;
-      var v = H.now(h.states, h.connection);
+      var v = H.now(h.states, C.subscriptions(h));
       // wxReady: the home's weather glyphs arriving swaps the Material stand-in
       // for the real one, with no weather change to say so.
       var ready = H.wxReady ? H.wxReady() : '';
@@ -1165,9 +1165,11 @@
     // install plus the repairs not ignored (admins). Subscribed only while a
     // screen shows the section, and painted in place -- a count never
     // rebuilds the list.
+    // Through the current client: its subscription port (one per socket, so
+    // the same identity across snapshots) and its read path for the repairs.
     var HC = { notif: 0, updates: 0, issues: 0, conn: null, un: [], at: 0 };
     function haCounts(on) {
-      var h = C.hass(), conn = h && h.connection;
+      var h = C.client(), conn = h && h.subscriptions;
       if (!on || !conn) {
         HC.un.forEach(function (f) { try { f(); } catch (e) { /* gone */ } });
         HC.un = [];
@@ -1198,14 +1200,15 @@
       }, { type: 'frontend/subscribe_user_data', key: 'sidebar' }));
       if (h.user && h.user.is_admin) {
         var issues = function () {
-          conn.sendMessagePromise({ type: 'repairs/list_issues' }).then(function (r) {
+          h.callWS({ type: 'repairs/list_issues' }).then(function (r) {
             HC.issues = ((r && r.issues) || []).filter(function (x) { return !x.ignored; }).length;
             paintBadges();
           }, function () { /* no repairs */ });
         };
         issues();
-        keep(conn.subscribeEvents(function () { clearTimeout(HC.it); HC.it = setTimeout(issues, 500); },
-                                  'repairs_issue_registry_updated'));
+        // home-assistant-js-websocket's subscribeEvents(cb, type) is exactly this message
+        keep(conn.subscribeMessage(function () { clearTimeout(HC.it); HC.it = setTimeout(issues, 500); },
+                                   { type: 'subscribe_events', event_type: 'repairs_issue_registry_updated' }));
       }
     }
     // updates: at most every 5 s, as Home Assistant's own sidebar counts them

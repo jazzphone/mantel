@@ -27,6 +27,21 @@
     if (typeof hass.callWS === 'function') {
       port.actions.callWS = function (msg) { return hass.callWS(msg); };
     }
+    // An authenticated write to HA's HTTP API: the frontend's own fetchWithAuth, same path and init.
+    if (typeof hass.fetchWithAuth === 'function') {
+      port.actions.request = function () { return hass.fetchWithAuth.apply(hass, arguments); };
+    }
+    // A dedicated write socket (the doorbell's live talk-back worker): HA's websocket address
+    // from the frontend's auth, and its access token read after any refresh of an expired one.
+    // Without auth it is "not available here", as before.
+    port.actions.liveSocket = function () {
+      var auth = hass.auth;
+      if (!auth) return Promise.reject(new Error('not available here'));
+      var base = (auth.data && auth.data.hassUrl) || global.location.origin;
+      var url = base.replace(/^http/, 'ws').replace(/\/$/, '') + '/api/websocket';
+      return Promise.resolve(auth.expired && auth.refreshAccessToken ? auth.refreshAccessToken() : null)
+        .then(function () { return { url: url, token: function () { return auth.accessToken; } }; });
+    };
     var client = global.hkClient.create(port);
     clients.set(hass, client);
     hosts.set(client, hass);
