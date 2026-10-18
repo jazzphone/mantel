@@ -35,6 +35,9 @@ spikes/hk-snapshot/
 # This existing CSS loader contains no font data; the actual fonts remain ignored.
 !**/sf-pro.css
 **/hk-glyphs*
+# the home's own uploaded files and backups (user_files.py, backup.py): data, never source
+user-files/
+*.mbk
 
 # agent worktrees
 .claude/worktrees/
