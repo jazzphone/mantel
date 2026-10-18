@@ -1,10 +1,14 @@
-// home.js -- draws one HK dashboard page (default: Home) with HK's own card code, no Lovelace.
+// home.js -- Mantel's bootstrap for an HK dashboard: every page of it, with HK's own card code and
+// no Lovelace.
 //
-//   /<dashboard>/home   e.g. /dashboard-kitchen/home   (/home goes to the default screen)
+//   /<dashboard>/<view>   e.g. /dashboard-kitchen/home, /dashboard-kitchen/lights
+//                         (/home goes to the default screen's Home)
 //
-// What Lovelace did (hui-root, hui-view, hui-card) is a few lines here: run HK's strategy to get the
-// view, create each card element, setConfig, hand it what goes with the client (the host adapter's
-// bridge: Mantel's snapshot at the card's entry), hand the built elements to the view.
+// What Lovelace does (hui-root, hui-view, hui-card) is HK's view host (web/hk/shell/hk-view-host.js):
+// it draws the view the address names from the strategy's output, makes each card, hands it the
+// client through the host adapter's bridge, follows client updates and swaps views on HK's own
+// navigation. This file only connects Mantel's pieces: the hub, the host snapshot and its client,
+// the host shell, and the narrowing of the hub subscription to what the pages seen so far read.
 import './client/hk-client.js';
 import './client/hk-card-state.js';
 import './client/hk-host-shell.js';
@@ -15,7 +19,7 @@ import './shim/ha-elements.js';
 import '/hk/elements/hk-elements.js';
 import { Host, toast } from './shim/mantel-host.js';
 import { Hub } from './shim/hub.js';
-import { installCardBridge, createCardElement, setCardHost } from './shim/cards-bridge.js';
+import '/hk/shell/hk-view-host.js';
 
 const T0 = performance.now();
 const marks = { module_start: Math.round(T0) };   // ms since navigation start; the others are ms after it
@@ -24,7 +28,6 @@ window.__mantelMarks = marks;
 window.__mantelHub = null;
 
 const seg = location.pathname.split('/')[1];
-const pageKey = location.pathname.split('/')[2] || 'home';
 
 const json = (u) => fetch(u).then((r) => { if (!r.ok) throw new Error(u + ' ' + r.status); return r.json(); });
 const hub = new Hub();
@@ -45,10 +48,13 @@ const host = new Host({
 });
 host.installLookups();
 window.hkMantelShell.install(host);
-installCardBridge();
 window.__mantel = host;
 
-const first = new Promise((res) => { hub.onSnapshot = (m) => { host.applySnapshot(m.entities); res(); }; });
+// every snapshot (the first, and each after a change of subscription) settles whoever waits for one
+let snapshotWaiters = [];
+const nextSnapshot = () => new Promise((res) => snapshotWaiters.push(res));
+hub.onSnapshot = (m) => { host.applySnapshot(m.entities); const w = snapshotWaiters; snapshotWaiters = []; w.forEach((f) => f()); };
+const first = nextSnapshot();
 hub.onDiff = (m) => host.applyDiff(m);
 hub.subscribe([], [], true);
 await first;
@@ -64,46 +70,63 @@ if (!(window.hkCards && window.hkCards.TILE)) {
   await new Promise((res) => window.addEventListener('hk-cards-ready', res, { once: true }));
 }
 
-const app = document.getElementById('app');
 const cfg = await window.hkStrategy.generate({}, host.client);
 mark('strategy');
-const view = cfg.views.find((v) => v.path === pageKey) || cfg.views[0];
-window.__mantelView = view;
 
-function build(cardCfg, snapshot) {
-  const el = createCardElement(cardCfg);
-  setCardHost(el, snapshot);
-  return el;
+// NARROWING: after a page is first drawn, note which states the screen really reads and narrow the hub
+// subscription to those (with the pages seen before: a cached page keeps its cards and catches up when
+// shown again). The strategy needed the whole house to decide what to draw, the cards do not. A page
+// not seen yet widens the subscription again first, so it is drawn with the whole house.
+const narrowing = new URLSearchParams(location.search).get('narrow') !== '0';
+const needed = new Set();
+let narrowed = false;
+let narrowTimer = 0;
+async function widen() {
+  if (!narrowed) return;
+  narrowed = false;
+  clearTimeout(narrowTimer);
+  host.recording = false;
+  const got = nextSnapshot();
+  hub.subscribe([], [], true);
+  await got;
 }
-
-const viewEl = document.createElement(view.type.slice(7));
-await customElements.whenDefined(view.type.slice(7));
-viewEl.setConfig(view);
-window.hkHostClient.bridge(viewEl, host.client);
-const els = (view.cards || []).map((c) => build(c, host.snapshot));
-app.appendChild(viewEl);
-viewEl.cards = els;
-// the host shell now knows the view: the sky and the tab bar find it (mantel-shell.js)
-window.hkMantelShell.setPage(viewEl, cfg);
-mark('rendered');
-
-// every change in the house: a new snapshot for the view and each card (as HA hands a new object)
-host.onSnapshot = (s) => { window.hkHostClient.bridge(viewEl, host.client); for (const el of els) setCardHost(el, s); };
-
-// After the first paint, note which states the screen really reads and narrow the hub subscription
-// to those: the strategy needed the whole house to decide what to draw, the cards do not.
-if (new URLSearchParams(location.search).get('narrow') !== '0') {
-  requestAnimationFrame(() => setTimeout(() => {
+function narrowSoon() {
+  if (!narrowing) return;
+  clearTimeout(narrowTimer);
+  narrowTimer = setTimeout(() => requestAnimationFrame(() => {
     host.reads.clear();
     host.recording = true;
-    host.onSnapshot(host.snapshot);              // one more pass over every card, recorded
-    setTimeout(() => {
+    viewHost.refresh();                          // one more pass over every card on the page, recorded
+    narrowTimer = setTimeout(() => {
       host.recording = false;
-      const ids = [...host.reads].filter((k) => host._states[k]);
-      window.__mantelNarrow = ids.length;
-      hub.subscribe(ids, [], false);             // snapshot arrives again, then only these entities' diffs
+      for (const k of host.reads) if (host._states[k]) needed.add(k);
+      window.__mantelNarrow = needed.size;
+      narrowed = true;
+      hub.subscribe([...needed], [], false);     // snapshot arrives again, then only these entities' diffs
       mark('narrowed');
     }, 1500);
-  }, 1500));
+  }), 1500);
 }
+
+const viewHost = window.hkViewHost.create({
+  container: document.getElementById('view'),
+  slot: document.getElementById('app'),
+  config: cfg,
+  client: host.client,
+  base: '/' + seg,
+  willShow: (view, firstVisit) => (firstVisit ? widen() : null),
+});
+window.__mantelViewHost = viewHost;
+// the host shell knows the view host: the sky and the tab bar find the view, the menu the config
+window.hkMantelShell.attach(viewHost);
+viewHost.onView((el, view, config, info) => {
+  window.__mantelView = view;
+  if (info.first) narrowSoon();
+});
+await viewHost.start();
+mark('rendered');
+
+// the house's changes reach the view host as client updates (hkHostClient.current()); the smoke and
+// /dev tools hook here to see each new snapshot
+host.onSnapshot = (s) => { if (window.__mantelOnSnapshot) window.__mantelOnSnapshot(s); };
 window.__mantelReady = true;

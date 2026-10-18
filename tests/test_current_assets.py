@@ -58,3 +58,18 @@ async def test_assets_still_require_a_session(current):
     client, _ = current
     client.session.cookie_jar.clear()
     assert (await client.get("/hk/modules/hk-card-state.js")).status == 401
+
+
+async def test_every_view_of_a_dashboard_is_the_view_host_page(current):
+    client, cfg = current
+    page = (cfg.web / "home.html").read_bytes()
+    for path in ("/dashboard-proof/home", "/dashboard-proof/lights", "/dashboard-kitchen/room-kitchen", "/lovelace/home"):
+        response = await client.get(path)
+        assert response.status == 200, path
+        assert await response.read() == page, path
+    # the view host is shared code, served at the same /hk URL the HA build publishes it at
+    response = await client.get("/hk/shell/hk-view-host.js")
+    assert await response.read() == (cfg.hk_frontend / "shell/hk-view-host.js").read_bytes()
+    # not a dashboard: no page (an API path, a path without a hyphen)
+    assert (await client.get("/api/nothing")).status == 404
+    assert (await client.get("/settings/general")).status == 404

@@ -22,9 +22,13 @@
 
   // Elements the shell can name. `tags` are the element names, for the few
   // places that must write a selector into a stylesheet or test an element
-  // they walked to; a host without that element leaves it null.
+  // they walked to; a host without that element leaves it null. `card` is
+  // the host's own wrapper around a dashboard card (it loads the card's code
+  // lazily and draws an error card for an unknown type): a container card
+  // makes its children in one (hkCards.createCard), and a host without one
+  // (no Lovelace) gets the child made directly by HK's view host.
   var KINDS = ['root', 'main', 'drawer', 'sidebar', 'resolver', 'panel', 'dashboard',
-               'viewContainer', 'view', 'viewBackground'];
+               'viewContainer', 'view', 'viewBackground', 'card'];
 
   var NONE = {
     kind: 'none',

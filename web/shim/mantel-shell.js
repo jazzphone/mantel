@@ -1,6 +1,8 @@
-// Mantel's host shell (the contract is web/client/hk-host-shell.js). Mantel's Home page is its own
-// shell: no HA elements, so HK's overlays (menu, tab bar, pop-ups) mount in #hk-shell-root, and the
-// sky and the tab bar find the view in <hk-view-container id="view">, which home.js fills.
+// Mantel's host shell (the contract is web/client/hk-host-shell.js). Mantel's dashboard page is its
+// own shell: no HA elements, so HK's overlays (menu, tab bar, pop-ups) mount in #hk-shell-root, and
+// the sky and the tab bar find the view in <hk-view-container id="view">, which HK's view host
+// (web/hk/shell/hk-view-host.js) fills: attach(viewHost) merges the view host's answers (the
+// container, the view shown, the dashboard config) over Mantel's own, again on every view change.
 //
 // Its events are HK's own (the contract's defaults: hk-navigate, hk-more-info, hk-toast): since slice
 // 8b nothing in shared code fires or hears a host's raw event names, only hkShell does.
@@ -8,7 +10,6 @@
   'use strict';
   const S = global.hkShell;
   if (!S) throw new Error('hk-host-shell.js has not loaded');
-  const page = { view: null, config: null };
   const byId = (id) => (global.document ? global.document.getElementById(id) : null);
   const container = () => byId('view');
 
@@ -19,22 +20,27 @@
     tags: { viewContainer: 'hk-view-container' },
     root: () => byId('hk-shell-root'),
     overlayRoot: () => byId('hk-shell-root'),
-    // the page itself stands for the dashboard panel (its rect: where the page starts)
+    // the page itself stands for the dashboard panel (its rect: where the page starts); before the
+    // view host is attached there is no view and no config yet
     panel: () => container(),
     viewContainer: () => container(),
     viewSlot: () => container(),
-    view: (c) => (c === undefined || c === container() ? page.view : null),
-    dashboardConfig: () => page.config,
+    view: () => null,
+    dashboardConfig: () => null,
     onDashboard: () => true,
     isDashboard: () => true,
   };
 
-  // home.js, once the view is built: the view element and the dashboard config it came from
-  function setPage(view, config) {
-    page.view = view || null;
-    page.config = config || null;
-    const tags = Object.assign({}, MANTEL.tags, view ? { view: view.localName } : {});
-    S.use(Object.assign({}, MANTEL, { tags }));
+  // home.js, once HK's view host exists: its parts over Mantel's, now and after every view change
+  // (the view host tells its listeners before the new view is attached)
+  function attach(viewHost) {
+    const use = () => {
+      const parts = viewHost.shellParts();
+      const tags = Object.assign({}, MANTEL.tags, parts.tags || {});
+      S.use(Object.assign({}, MANTEL, parts, { tags }));
+    };
+    viewHost.onView(use);
+    use();
   }
 
   // The shell's root answers HK's legacy `root.hass` reads with the shim's current snapshot,
@@ -47,5 +53,5 @@
   }
 
   S.use(MANTEL);
-  global.hkMantelShell = { setPage, install, kind: 'mantel' };
+  global.hkMantelShell = { attach, install, kind: 'mantel' };
 })(globalThis);

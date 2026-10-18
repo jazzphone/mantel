@@ -2760,6 +2760,51 @@
     }
     return el;
   }
+  // MAKE A CHILD CARD (Phase 2 P2.3): the one way a container card (hk-row,
+  // the scenes row, the camera tiles) makes a card inside itself from a config.
+  //
+  // WITH LOVELACE -- the host names its card wrapper (hkShell.tags.card: HA's
+  // hui-card) -- the child is that wrapper, made exactly as the containers
+  // made it before: the wrapper owns lazy module loading, the error card for
+  // an unknown type and the rebuild when a card's code arrives late, so HA's
+  // behaviour does not change. WITHOUT LOVELACE (Mantel, HK's own panel) the
+  // child is the card element itself, made by HK's view host the same way it
+  // makes a view's cards (web/hk/shell/hk-view-host.js): `custom:` cards by
+  // their tag, a few container types drawn by HK, a labelled placeholder for
+  // any other Lovelace type -- never a host element.
+  //
+  // `client` is the container's own; the child gets what goes with it through
+  // the host adapter's bridge, as every nested card does.
+  function cardWrapper() {
+    var S = window.hkShell;
+    return (S && S.tags && S.tags.card) || null;
+  }
+  function createCard(config, client) {
+    var tag = cardWrapper();
+    if (tag) {
+      var el = document.createElement(tag);
+      window.hkHostClient.bridge(el, client);
+      el.preview = false;
+      el.config = config;
+      el.load();
+      return el;
+    }
+    var V = window.hkViewHost;
+    if (V && V.createCardElement) return V.createCardElement(config, client);
+    // neither (a bare page): an HK card by its tag, anything else a note
+    var t = String((config && config.type) || '');
+    if (t.indexOf('custom:') === 0) {
+      var own = create(config);
+      if (own && client) own.hkSetClient(client);
+      return own;
+    }
+    var note = document.createElement('div');
+    note.textContent = 'Not drawn here: ' + (t || 'a card with no type');
+    return note;
+  }
+  window.hkCards.cardWrapper = cardWrapper;
+  window.hkCards.createCard = createCard;
+
   // Exported for hk-campost.js, which reuses this cache as the cameras
   // page's video poster.
   window.hkCards.snapCache = { get: snapCacheGet, put: snapCachePut,
@@ -2962,7 +3007,7 @@
     // margins HK's own grid gives every card. A card placed straight in HA's
     // view has no such margins, so it overhung its column by 8 px.
     try {
-      var top = f && el.parentNode && el.parentNode.localName === 'hui-card';
+      var top = f && el.parentNode && window.hkShell.is(el.parentNode, 'card');
       if (top) el.style.setProperty('--hk-cell-bleed', '0px');
       else if (el.style.getPropertyValue && el.style.getPropertyValue('--hk-cell-bleed')) el.style.removeProperty('--hk-cell-bleed');
     } catch (e) { /* a hint, never a failure */ }

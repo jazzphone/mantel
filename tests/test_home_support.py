@@ -44,19 +44,20 @@ def test_frontend_shapes_match_what_hass_holds():
 
 @pytest.mark.skipif(shutil.which("node") is None, reason="node not installed")
 def test_conditional_conditions():
-    js = f"""globalThis.HTMLElement = class {{}};
-    const {{ holds }} = await import('{ROOT}/web/shim/cards-bridge.js');
-    const hass = {{ states: {{ 'a.x': {{ state: 'idle' }}, 'a.n': {{ state: '3' }} }} }};
-    globalThis.window = {{ matchMedia: () => ({{ matches: true }}) }};
+    # HK's view host draws Lovelace's conditional card in Mantel (web/hk/shell/hk-view-host.js)
+    js = f"""globalThis.window = {{ matchMedia: () => ({{ matches: true }}) }};
+    await import('{ROOT}/web/hk/shell/hk-view-host.js');
+    const {{ holds }} = globalThis.hkViewHost;
+    const client = {{ states: {{ 'a.x': {{ state: 'idle' }}, 'a.n': {{ state: '3' }} }} }};
     console.log(JSON.stringify([
-      holds({{ condition: 'state', entity: 'a.x', state: 'idle' }}, hass),
-      holds({{ condition: 'state', entity: 'a.x', state: 'busy' }}, hass),
-      holds({{ condition: 'state', entity: 'a.x', state_not: 'idle' }}, hass),
-      holds({{ condition: 'numeric_state', entity: 'a.n', above: 2 }}, hass),
-      holds({{ condition: 'numeric_state', entity: 'a.n', above: 3 }}, hass),
-      holds({{ condition: 'or', conditions: [{{ condition: 'state', entity: 'a.x', state: 'no' }}, {{ condition: 'state', entity: 'a.x', state: 'idle' }}] }}, hass),
-      holds({{ condition: 'state', entity: 'a.missing', state: 'idle' }}, hass),
-      holds({{ condition: 'screen', media_query: '(min-width: 640px)' }}, hass),
+      holds({{ condition: 'state', entity: 'a.x', state: 'idle' }}, client),
+      holds({{ condition: 'state', entity: 'a.x', state: 'busy' }}, client),
+      holds({{ condition: 'state', entity: 'a.x', state_not: 'idle' }}, client),
+      holds({{ condition: 'numeric_state', entity: 'a.n', above: 2 }}, client),
+      holds({{ condition: 'numeric_state', entity: 'a.n', above: 3 }}, client),
+      holds({{ condition: 'or', conditions: [{{ condition: 'state', entity: 'a.x', state: 'no' }}, {{ condition: 'state', entity: 'a.x', state: 'idle' }}] }}, client),
+      holds({{ condition: 'state', entity: 'a.missing', state: 'idle' }}, client),
+      holds({{ condition: 'screen', media_query: '(min-width: 640px)' }}, client),
     ]));"""
     out = subprocess.run(["node", "--input-type=module", "-e", js], capture_output=True, text=True, check=True).stdout
     assert json.loads(out) == [True, False, False, True, False, True, False, True]
