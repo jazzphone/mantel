@@ -398,9 +398,10 @@
     var C = window.hkCards, HC = window.hkHostClient;
     return (C && C.client && C.client()) || (HC && HC.current && HC.current()) || null;
   }
-  // ...and the host input, only for what still acts through it (the switch, the
-  // music's buttons and volume) until the client has an action port (slice 6)
-  function hostNow() { var C = window.hkCards; return (C && C.hass && C.hass()) || null; }
+  // ...and its action port, for everything the screensaver changes (the switch,
+  // the music's buttons and volume, its touch and black acknowledgements): the
+  // real call in Home Assistant, refused (`commands_disabled`) in Mantel.
+  function actionsNow() { var c = clientNow(); return (c && c.actions) || null; }
   // A CARD ON THE SCREENSAVER gets the host input that goes with the client
   // (the host adapter's bridge): card families still act through it
   function feedCard(el, c) { var HC = window.hkHostClient; if (el && c && HC && HC.bridge) HC.bridge(el, c); }
@@ -526,11 +527,11 @@
     // ONLY THE TABLET'S OWN USER WRITES IT -- never a forced test page
     // (?hk_saver=force, hkSaver.force()), whatever the gate lets it show
     if (!mine() || /[?&]hk_saver=force\b/.test(location.search) || force) return;
-    var h = hostNow();
-    if (!h || switchState() === want) return;
+    var act = actionsNow();
+    if (!act || switchState() === want) return;
     pendingSwitch = { want: want, until: Date.now() + ECHO_MS };
     try {
-      h.callService(cfg.entity.split('.')[0], want === 'on' ? 'turn_on' : 'turn_off', { entity_id: cfg.entity });
+      act.callService(cfg.entity.split('.')[0], want === 'on' ? 'turn_on' : 'turn_off', { entity_id: cfg.entity });
     } catch (e) { /* offline: the next state change sorts it out */ }
   }
   // A TOUCH ON THE SCREEN, told to the integration (screensaver.py): its
@@ -543,7 +544,7 @@
     var now = Date.now();
     if (now - touchSent < 10000) return;
     touchSent = now;
-    callWS(whoMsg({ type: 'hk_frontend/screensaver/touch' })).catch(function () { /* older integration */ });
+    sendWS(whoMsg({ type: 'hk_frontend/screensaver/touch' })).catch(function () { /* older integration */ });
   }
 
   // Every new client: the switch decides, unless it is still echoing our own
@@ -1552,6 +1553,12 @@
     var h = clientNow();
     if (!h || !h.callWS) return Promise.reject(new Error('no connection'));
     return h.callWS(msg);
+  }
+  // A WRITE (or a service call over the WebSocket): the client's action port.
+  function sendWS(msg) {
+    var act = actionsNow();
+    if (!act) return Promise.reject(new Error('no connection'));
+    return act.callWS(msg);
   }
   // Every image under the folder (sub-folders to LIST_DEPTH), at most LIST_MAX.
   function listPhotos() {
@@ -2791,7 +2798,7 @@
   function upNext(d, sig) {
     mus.nextFor = sig; mus.next = null; mus.year = ''; mus.nextBusy = true;
     var str = function (x) { return typeof x === 'string' ? x : ''; };
-    callWS({ type: 'call_service', domain: 'music_assistant', service: 'get_queue',
+    sendWS({ type: 'call_service', domain: 'music_assistant', service: 'get_queue',
              service_data: { entity_id: d.key }, return_response: true }).then(function (r) {
       if (mus.nextFor !== sig) return;
       mus.nextBusy = false;
@@ -2837,7 +2844,7 @@
     var artist = str(mi.artists && mi.artists[0] && mi.artists[0].name);
     if (!entry || !str(mi.name)) return;
     nextArtSeen[id] = '';
-    callWS({ type: 'call_service', domain: 'music_assistant', service: 'search', return_response: true,
+    sendWS({ type: 'call_service', domain: 'music_assistant', service: 'search', return_response: true,
              service_data: { config_entry_id: entry, name: str(mi.name), artist: artist || undefined, media_type: ['track'], limit: 5 } })
       .then(function (r) {
         var ts = (r && r.response && r.response.tracks) || [];
@@ -2906,13 +2913,13 @@
     if (now - dr.sent >= VOL_EVERY) volSend(); else if (!dr.t) dr.t = setTimeout(volSend, VOL_EVERY - (now - dr.sent));
   }
   function volSend() {
-    var dr = mus.drag, h = hostNow();
+    var dr = mus.drag, act = actionsNow();
     if (dr && dr.t) { clearTimeout(dr.t); dr.t = null; }
-    if (!mus.vol || !h) return;
+    if (!mus.vol || !act) return;
     if (dr) dr.sent = clock.now();
     if (mus.vol.sent === mus.vol.val) return;
     mus.vol.sent = mus.vol.val;
-    try { h.callService('media_player', 'volume_set', { entity_id: mus.vol.key, volume_level: mus.vol.val }); } catch (e) { /* offline */ }
+    try { act.callService('media_player', 'volume_set', { entity_id: mus.vol.key, volume_level: mus.vol.val }); } catch (e) { /* offline */ }
   }
   function volStart(hit, x) {
     mus.drag = { view: hit.view, sent: 0, t: null };
@@ -2934,12 +2941,12 @@
     if (!hit || hit.view.kind !== 'dash') { saverTouched(); musicUsed(); }
     if (hit && hit.art) { openMusic(hit); return; }
     if (hit && hit.vol) { volStart(hit, x); return; }
-    var h = hostNow(), d = hit && hit.view.d, act = hit && hit.btn.getAttribute('data-act');
-    if (!h || !d || !d.key || !act) return;
+    var port = actionsNow(), d = hit && hit.view.d, act = hit && hit.btn.getAttribute('data-act');
+    if (!port || !d || !d.key || !act) return;
     if (act === 'spk' || act === 'brw') { panelFor(hit.view, act === 'spk' ? 'speakers' : 'browse'); return; }
     var svc = act === 'prev' ? 'media_previous_track' : act === 'next' ? 'media_next_track'
             : !d.idle && d.playing ? 'media_pause' : 'media_play';
-    try { h.callService('media_player', svc, { entity_id: d.key }); } catch (e) { /* offline */ }
+    try { port.callService('media_player', svc, { entity_id: d.key }); } catch (e) { /* offline */ }
     var b = hit.btn;
     b.classList.add('hit');
     setTimeout(function () { b.classList.remove('hit'); }, 180);
@@ -2981,8 +2988,7 @@
     var me = { view: v, idleT: null, doneT: null, anim: null,
                src: v.kind === 'pane' ? paneEl : v.kind === 'dash' ? v.box : v.el.querySelector('.msq') };
     me.p = P.create({
-      client: clientNow,
-      hass: hostNow,                 // its buttons still act through the host input (slice 6)
+      client: clientNow,             // its reads, and its buttons through client.actions
       ctx: function () { return musicNow(clientNow()); },
       art: function () { return v.bg[v.flip] || null; },
       // the music moved (Update, a new leader): the screensaver follows it
@@ -3159,7 +3165,7 @@
     var now = Date.now();
     if (now - saverSent < 3000) return;
     saverSent = now;
-    callWS(whoMsg({ type: 'hk_frontend/screensaver/touch', saver: true })).catch(function () { /* older integration */ });
+    sendWS(whoMsg({ type: 'hk_frontend/screensaver/touch', saver: true })).catch(function () { /* older integration */ });
   }
 
   // THE SLIDE: built the first time, then kept like the forecast's layer
@@ -3997,7 +4003,7 @@
   }
   function hkAck(on) {
     var t = hkBoard();
-    callWS(t && !t.legacy ? { type: 'hk_frontend/screensaver/black', tablet: t.id, black: on }
+    sendWS(t && !t.legacy ? { type: 'hk_frontend/screensaver/black', tablet: t.id, black: on }
                           : { type: 'hk_frontend/screensaver/black', dashboard: dashSeg(), black: on })
       .then(function () { if (on) hkAcked = true; }, function () { /* older integration: the sleep falls back */ });
   }

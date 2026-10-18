@@ -3284,9 +3284,9 @@
       if (cap.textContent !== text) cap.textContent = text;
     }
     function watching(on) {
-      var hh = owner._hass;
-      if (!hh || !hh.callWS) return;
-      Promise.resolve(hh.callWS({ type: 'hk_tv/watching', channel: on ? ch.number : null }))
+      var act = owner._actions();          // a write: the client's action port
+      if (!act) return;
+      Promise.resolve(act.callWS({ type: 'hk_tv/watching', channel: on ? ch.number : null }))
         .catch(function (e) { console.warn('[hk-tv] watching', e); });
     }
     var player = {

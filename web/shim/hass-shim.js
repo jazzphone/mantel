@@ -6,7 +6,9 @@
 //
 // RULES
 //  * A NEW hass object after every change (cards compare `hass` by identity in `set hass`).
-//  * callService and every write REFUSE: nothing is sent, a toast says so.
+//  * callService and every write REFUSE: nothing is sent, a toast says so. Shared code acts through
+//    HKClient's action port, which refuses before it reaches this object (mantel-client.js); these
+//    stay as the backstop for card families that still hold the snapshot.
 //  * `document.querySelector('home-assistant' | 'hui-root' | ...)` returns a stub object (never an
 //    element), so HK's lookups work without any HA element existing in the page.
 
@@ -78,6 +80,12 @@ export class Host {
       formatEntityAttributeName: (s, a) => a,
     };
     this._raw = raw;
+    // The client's action port refuses every command itself and sends nothing (mantel-client.js);
+    // what was refused is noted and shown the same way as a refusal here.
+    window.addEventListener('hk-command-refused', (e) => {
+      this.refused.push((e.detail && e.detail.what) || 'command');
+      toast('Commands are disabled in Mantel (read-only)');
+    });
     this.access = new Map();                // hass field -> times read (only with ?trace=1)
     this.trace = new URLSearchParams(location.search).get('trace') === '1';
     this._wrapStates();

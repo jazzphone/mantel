@@ -695,7 +695,10 @@
           reject(new Error('Music Assistant did not respond. Try again.'));
         }, wait || 20000);
         try {
-          Promise.resolve(self._hass.callWS(msg)).then(function (res) {
+          // a service call over the WebSocket (get_library) is a command:
+          // the client's action port; a read stays on the host input (slice 9)
+          var port = window.hkClient.isWrite(msg) ? self._actions() : self._hass;
+          Promise.resolve(port.callWS(msg)).then(function (res) {
             clearTimeout(timer); resolve(res);
           }, function (err) {
             clearTimeout(timer); reject(err);
@@ -755,9 +758,9 @@
       if (this._usedAt && now - this._usedAt < 30000) return;
       this._usedAt = now;
       try {
-        if (this._hass && this._hass.callWS) {
-          Promise.resolve(this._hass.callWS({ type: 'hk_music/used' })).catch(function () {});
-        }
+        // a hint the server acts on: through the action port
+        var act = this._actions();
+        if (act) Promise.resolve(act.callWS({ type: 'hk_music/used' })).catch(function () {});
       } catch (e) { /* nothing to report: it is a hint */ }
     }
 

@@ -194,6 +194,8 @@ Browser smoke (`tools/headless/client_smoke.py`), extended:
 
 ## Exact continuation point
 
+**Superseded by [`ACTIONS.md`](ACTIONS.md) (slice 6 is done).**
+
 This slice is complete. Next is slice 6: put every `callService` and command behind one client
 action port. In HA it makes the real call; in Mantel it returns `commands_disabled`. Start with
 `HkBase._call` and the bridge users listed above:

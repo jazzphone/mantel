@@ -16,15 +16,22 @@
     });
     Object.defineProperty(port, 'subscriptions', { get: function () { return global.hkClient.subscriptions(snapshot.connection); } });
     port.bindStateIcon = function (element, state) { element.stateObj = state; };
+    // NO ACTIONS. Mantel's commands are disabled: the client's action port refuses every
+    // service call and write before anything is sent (the snapshot's own service method is never
+    // reached), and says so here so the page can show it.
+    port.refused = function (detail) {
+      try { global.dispatchEvent(new CustomEvent('hk-command-refused', { detail: detail })); } catch (e) { /* shell tests */ }
+    };
     var client = global.hkClient.create(port);
     clients.set(snapshot, client);
     hosts.set(client, snapshot);
     return client;
   }
-  // THE COMPATIBILITY BRIDGE (until Phase 1 slices 6 and 9): an element whose own actions
-  // still need the host input (a sheet's controls, a card family) gets the host object that
-  // goes with the client it is shown, and nothing else does. A client this adapter did not
-  // make is handed over as itself, read-only.
+  // THE COMPATIBILITY BRIDGE (until Phase 1 slices 7 and 9): a card family that still READS
+  // the host input (the thermostat and alarm keypad inside sheets, the camera stream, the
+  // screensaver's cards, the library card) gets the host object that goes with the client it
+  // is shown, and nothing else does. Actions no longer need it: they go through
+  // client.actions. A client this adapter did not make is handed over as itself, read-only.
   function bridge(element, client) {
     if (!element || !client) return;
     var host = hosts.get(client);

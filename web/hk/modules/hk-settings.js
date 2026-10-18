@@ -1388,15 +1388,17 @@
   // integration once a load, so Wall Tablets can suggest it. Only Fully
   // Kiosk's browser says what it is (its JavaScript interface, `fully`).
   var seenSent = false;
-  function reportSeen(hass) {
+  function reportSeen(client) {
     if (seenSent || !state.live || !cur.tablet_items) return;
     var app = '';
     try { app = (typeof window.fully === 'object' && window.fully) ? 'fully' : ''; } catch (e) { app = ''; }
-    if (!app || tablet(hass)) { seenSent = !!app; return; }
+    if (!app || tablet(client)) { seenSent = !!app; return; }
     seenSent = true;
     try {
       var seg = String(location.pathname).split('/')[1] || '';
-      hass.callWS({ type: 'hk_frontend/tablet/seen', screen: /^[a-z0-9_-]{0,80}$/.test(seg) ? seg : '', app: app })
+      // a write: through the client's action port (refused in Mantel)
+      var act = (window.hkClient && window.hkClient.is(client) ? client : window.hkHostClient.from(client)).actions;
+      act.callWS({ type: 'hk_frontend/tablet/seen', screen: /^[a-z0-9_-]{0,80}$/.test(seg) ? seg : '', app: app })
         .catch(function () { /* an older server */ });
     } catch (e) { /* no connection yet */ }
   }
@@ -1532,8 +1534,10 @@
     var msg = 'HK Frontend: ' + what + ' (' + location.pathname + ')';
     try { console.warn(msg); } catch (e) { /* no console */ }
     try {
-      var h = document.querySelector('home-assistant').hass;
-      Promise.resolve(h.callService('system_log', 'write', { message: msg, level: 'warning', logger: 'hk_frontend.screen' }))
+      // the host's current client (Home Assistant's root element, as before),
+      // through its action port
+      var act = currentClient().actions;
+      Promise.resolve(act.callService('system_log', 'write', { message: msg, level: 'warning', logger: 'hk_frontend.screen' }))
         .catch(function () { /* not allowed for this user: the console has it */ });
     } catch (e) { /* not connected */ }
   }

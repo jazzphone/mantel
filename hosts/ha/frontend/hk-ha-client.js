@@ -17,15 +17,26 @@
     });
     Object.defineProperty(port, 'subscriptions', { get: function () { return global.hkClient.subscriptions(hass.connection); } });
     port.bindStateIcon = function (element, state) { element.hass = hass; element.stateObj = state; };
+    // THE ACTION PORT'S HA SIDE: the real call, with the caller's own arguments, on the
+    // frontend's object (same service, data, target, notifyOnError, returnResponse; the same
+    // WebSocket message). A host input without the method refuses (hkClient), sending nothing.
+    port.actions = {};
+    if (typeof hass.callService === 'function') {
+      port.actions.callService = function () { return hass.callService.apply(hass, arguments); };
+    }
+    if (typeof hass.callWS === 'function') {
+      port.actions.callWS = function (msg) { return hass.callWS(msg); };
+    }
     var client = global.hkClient.create(port);
     clients.set(hass, client);
     hosts.set(client, hass);
     return client;
   }
-  // THE COMPATIBILITY BRIDGE (until Phase 1 slices 6 and 9): an element whose own actions
-  // still need the host input (a sheet's controls, a card family) gets the host object that
-  // goes with the client it is shown, and nothing else does. A client this adapter did not
-  // make is handed over as itself, read-only.
+  // THE COMPATIBILITY BRIDGE (until Phase 1 slices 7 and 9): a card family that still READS
+  // the host input (the thermostat and alarm keypad inside sheets, the camera stream, the
+  // screensaver's cards, the library card) gets the host object that goes with the client it
+  // is shown, and nothing else does. Actions no longer need it: they go through
+  // client.actions. A client this adapter did not make is handed over as itself, read-only.
   function bridge(element, client) {
     if (!element || !client) return;
     var host = hosts.get(client);

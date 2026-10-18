@@ -20,9 +20,8 @@
 // LIVE STATE: the sheet is not a card, so nothing hands it a client. It takes
 // every new one from hkCards.onClient (hk-base.js) AND from the host adapter's
 // current client (hkCards.client(), see open()): the hub only moves while hk
-// cards are on screen. Everything a sheet reads comes through the client; its
-// controls still act through the host input (bridge() below) until the client
-// has an action port.
+// cards are on screen. Everything a sheet reads comes through the client, and
+// its controls act through the client's action port (HkBase._call).
 (function () {
   'use strict';
 
@@ -65,6 +64,11 @@
       input_number: 'blue', input_select: 'blue', alarm_control_panel: 'green'
     };
     function stOf(h, id) { return (h && h.states && id) ? h.states[id] : null; }
+    // A client as is; a legacy host input through the host adapter.
+    function asClient(x) {
+      if (!x || (window.hkClient && window.hkClient.is(x))) return x || null;
+      return window.hkHostClient && window.hkHostClient.from ? window.hkHostClient.from(x) : null;
+    }
     function at(s, k) { return s && s.attributes ? s.attributes[k] : undefined; }
     function num(v) { var n = Number(v); return (v === null || v === '' || !isFinite(n)) ? null : n; }
     function clamp(v, a, b) { return v < a ? a : v > b ? b : v; }
@@ -1101,10 +1105,10 @@
         e.stopPropagation();
         if (t.classList.contains('go')) { navigateFrom(go.path); return; }
         if (t.classList.contains('mute')) {
-          var hh = C.client() || h;
-          if (!hh || !hh.callWS || t.disabled) return;
+          var act = C.actions(C.client() || h);
+          if (!act || t.disabled) return;
           t.disabled = true;
-          hh.callWS({ type: 'hk_notify/mute', key: n.mute, minutes: note.until ? 0 : 60 }).then(function (r) {
+          act.callWS({ type: 'hk_notify/mute', key: n.mute, minutes: note.until ? 0 : 60 }).then(function (r) {
             note.until = r && r.until ? r.until : null;
             t.classList.toggle('on', !!note.until);
             t.querySelector('span').textContent = muteLabel(note.until);
@@ -1542,7 +1546,7 @@
             var kinds = {};
             kinds[k] = tg.checked;
             if (!opts.panel && window.hkStrategy && window.hkStrategy.ownChange) window.hkStrategy.ownChange();
-            h.callWS({ type: 'hk_frontend/hidden/also', entity_ids: [id], kinds: kinds })
+            h.actions.callWS({ type: 'hk_frontend/hidden/also', entity_ids: [id], kinds: kinds })
               .then(function (s2) { paint(s2); if (opts.onSave) opts.onSave(true); },
                     function (err) { fail(err); if (opts.onSave) opts.onSave(false); });
           });
@@ -1553,7 +1557,7 @@
         var places = {};
         rows.forEach(function (r) { var tg = r.querySelector('.tg'); if (!tg.checked) places[tg.dataset.k] = true; });
         if (!opts.panel && window.hkStrategy && window.hkStrategy.ownChange) window.hkStrategy.ownChange();
-        return h.callWS({ type: 'hk_frontend/hidden/set', entity_ids: [id], everywhere: everywhere, places: everywhere ? {} : places })
+        return h.actions.callWS({ type: 'hk_frontend/hidden/set', entity_ids: [id], everywhere: everywhere, places: everywhere ? {} : places })
           .then(function (snap) { paint(snap); if (opts.onSave) opts.onSave(true); },
                 function (err) { fail(err); if (opts.onSave) opts.onSave(false); });
       };
@@ -1566,6 +1570,10 @@
 
     function accessoryPane(h, id, onName, opts) {
       opts = opts || {};
+      // A client; the settings page (slice 11) still hands its host input,
+      // which the host adapter turns into one. Its saves go through the
+      // client's action port, its reads through the client.
+      h = asClient(h);
       var el = document.createElement('div');
       el.className = 'acc';
       // ITS OWN COPY: the pane writes what was just chosen into `cur` as it
@@ -1605,7 +1613,7 @@
         // changed on a dashboard's own sheet: that screen shows it as soon as
         // the sheet closes (hk-strategy.js ownChange)
         if (!opts.panel && window.hkStrategy && window.hkStrategy.ownChange) window.hkStrategy.ownChange();
-        return h.callWS(Object.assign({ type: 'hk_frontend/accessory/set', entity_id: id }, changes)).then(function (r) {
+        return h.actions.callWS(Object.assign({ type: 'hk_frontend/accessory/set', entity_id: id }, changes)).then(function (r) {
           if (opts.onSave) opts.onSave(true);
           return r;
         }, function (e) { fail(e); if (opts.onSave) opts.onSave(false); });
@@ -1740,7 +1748,7 @@
       // ON THE ENERGY PAGE: through the Energy feature's own commands
       if (enRec) {
         var enSave = function (changes) {
-          return h.callWS({ type: 'hk_energy/device/set', key: enRec.key, changes: changes }).catch(fail);
+          return h.actions.callWS({ type: 'hk_energy/device/set', key: enRec.key, changes: changes }).catch(fail);
         };
         var enn = el.querySelector('.enn'), ens = el.querySelector('.ens'), enh = el.querySelector('.enh');
         var enName = (enPlan.names || {})[enRec.key] || enRec.name || '';
@@ -1754,7 +1762,7 @@
           // leaves out hidden devices and empty sections, and rebuilding the
           // list from it lost both. The device is shown there too.
           enh.checked = true;
-          h.callWS({ type: 'hk_energy/device/section', key: enRec.key, section: ens.value }).catch(fail);
+          h.actions.callWS({ type: 'hk_energy/device/section', key: enRec.key, section: ens.value }).catch(fail);
         });
       }
 
@@ -1803,7 +1811,7 @@
       room.addEventListener('change', function () {
         var v = room.value || null;
         if (errBox) errBox.hidden = true;
-        h.callWS({ type: 'config/entity_registry/update', entity_id: id,
+        h.actions.callWS({ type: 'config/entity_registry/update', entity_id: id,
                    area_id: v && v === devArea ? null : v }).catch(fail);
       });
 
@@ -1891,7 +1899,7 @@
           var msg = arr.fav ? { type: 'hk_frontend/board/set', dashboard: arr.dash, changes: { favorites: next.full } }
                             : { type: 'hk_frontend/accessory/order', area_id: arr.area, entities: next.full };
           // one at a time, in the order tapped
-          queue = queue.then(function () { return h.callWS(msg); }).catch(fail);
+          queue = queue.then(function () { return h.actions.callWS(msg); }).catch(fail);
         };
         mvl.addEventListener('click', function () { move(-1); });
         mvr.addEventListener('click', function () { move(1); });
@@ -1952,7 +1960,7 @@
         fav.addEventListener('change', function () {
           if (errBox) errBox.hidden = true;
           if (fav.checked) { var fs = el.querySelector('.sec.fav'); if (fs) fs.hidden = false; }
-          h.callWS({ type: 'hk_frontend/board/favorite', dashboard: dash, entity_id: id,
+          h.actions.callWS({ type: 'hk_frontend/board/favorite', dashboard: dash, entity_id: id,
                      favorite: fav.checked }).catch(fail);
         });
       }
@@ -2103,11 +2111,12 @@
       return el;
     }
 
-    // THE ACTION BRIDGE (until the client has an action port, Phase 1 slice 6):
-    // a sheet's controls call services through HkBase._call, which still needs
-    // the host input. The host adapter hands the panel the host object that
-    // goes with this client (or the client itself, read-only, when there is
-    // none). Everything a panel reads comes through its client either way.
+    // THE CARD-FAMILY BRIDGE (until Phase 1 slices 7 and 9): a sheet's
+    // controls act through the client's action port (HkBase._call), so a
+    // panel is simply shown its client. A card family inside a sheet (the
+    // thermostat, the alarm keypad, the camera's stream, a group's pills)
+    // still reads the host input, which the host adapter hands it for the
+    // client it goes with (or the client itself, read-only, when there is none).
     function bridge(el, client) { window.hkHostClient.bridge(el, client); }
 
     // opts: { direct } -- open this sheet, not the #alarm pop-up that hands
@@ -2270,7 +2279,11 @@
         var ns = stOf(nc, d.id);
         var sig = ns ? ns.last_updated : 'x';
         if (sig !== d.sig) { d.sig = sig; paintHeader(nc); }
-        bridge(panel, nc);
+        // A panel acts through its client's action port, so this file's own
+        // panels are simply shown the client. The ones that still read the
+        // host input (camera, group, custom cards, and the panels other files
+        // define: slices 7 and 9) are given it through the bridge.
+        if (CLIENT_FED.indexOf(panel.constructor) >= 0) panel.client = nc; else bridge(panel, nc);
       };
       feed(h);
       d.off = C.onClient(feed);
@@ -5948,6 +5961,12 @@
       timer: 'hk-detail-timer'
     };
     function def(tag, Ctor) { if (!customElements.get(tag)) customElements.define(tag, Ctor); }
+    // The panels fed a client alone (open(): every panel defined here except
+    // the camera, group and custom-cards sheets, whose cards still read the
+    // host input).
+    var CLIENT_FED = [LightPanel, TogglePanel, FanPanel, CoverPanel, LockPanel, GaragePanel, ButtonPanel,
+                      ClimatePanel, MediaPanel, SensorPanel, StatePanel, BinaryPanel, VacuumPanel, ValvePanel,
+                      NumberPanel, SelectPanel, HumidifierPanel, WaterHeaterPanel, AlarmPanel];
     def('hk-detail-light', LightPanel);
     def('hk-detail-toggle', TogglePanel);
     def('hk-detail-fan', FanPanel);

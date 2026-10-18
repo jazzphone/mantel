@@ -76,8 +76,11 @@ async def smoke(shot=None):
         hub = app["hub"]
         hub.readproxy = OfflineReads()
         hub.store.apply_event({"a": {"sensor.proof": {"s": "21.4", "a": {
-            "friendly_name": "Offline temperature", "unit_of_measurement": "°C"}, "lc": 1.0, "lu": 1.0}}})
-        hub.registry.load([], [], [{"entity_id": "sensor.proof", "platform": "demo"}])
+            "friendly_name": "Offline temperature", "unit_of_measurement": "°C"}, "lc": 1.0, "lu": 1.0},
+            "light.proof": {"s": "off", "a": {"friendly_name": "Offline lamp", "supported_color_modes": ["brightness"]},
+                            "lc": 1.0, "lu": 1.0}}})
+        hub.registry.load([], [], [{"entity_id": "sensor.proof", "platform": "demo"},
+                                   {"entity_id": "light.proof", "platform": "demo"}])
         try:
             async with TestServer(app) as server:
                 async with Browser(port=9337) as browser:
@@ -86,6 +89,7 @@ async def smoke(shot=None):
                     guard = """(() => {
                       const Original = WebSocket, target = new URL(%s).host;
                       window.__blockedWrites = 0;
+                      window.__sentFrames = 0;
                       window.WebSocket = class extends Original {
                         constructor(url, ...args) {
                           if (new URL(url, location.href).host !== target) throw new Error('external socket blocked');
@@ -97,6 +101,7 @@ async def smoke(shot=None):
                               ['call_service','execute_script'].includes(msg.msg && msg.msg.type)) {
                             window.__blockedWrites++; throw new Error('write blocked');
                           }
+                          window.__sentFrames++;
                           return super.send(raw);
                         }
                       };
@@ -164,11 +169,43 @@ async def smoke(shot=None):
                       'https://art.invalid/cover.jpg', 300, r))""")
                     assert art == "https://art.invalid/cover.jpg", art  # signing refused offline: unsigned, unloaded
                     assert await browser.eval("window.hkCards.staleEpoch() === 0")
-                    refused = await browser.eval("""(async () => {
+                    # Slice 6: one action port. The read path refuses a write before the host; the
+                    # action port refuses every command with commands_disabled and sends nothing.
+                    read_path = await browser.eval("""(async () => {
                       try { await window.__mantel.client.callWS({type:'call_service',domain:'light',service:'turn_on'}); }
                       catch (error) { return error.code; }
                     })()""")
+                    assert read_path == "read_only", read_path
+                    refused = await browser.eval("""(async () => {
+                      try { await window.__mantel.client.actions.callWS({type:'call_service',domain:'light',service:'turn_on'}); }
+                      catch (error) { return error.code; }
+                    })()""")
                     assert refused == "commands_disabled"
+                    actions = await browser.eval("""(async () => {
+                      const { createCardElement, setCardHost } = await import('/web/shim/cards-bridge.js');
+                      const tile = createCardElement({type:'custom:hk-tile-card', entity:'light.proof'});
+                      setCardHost(tile, window.__mantel.hass);
+                      document.getElementById('app').prepend(tile);
+                      const frames = window.__sentFrames, refused0 = window.__mantel.refused.length;
+                      const toggled = await tile._call('homeassistant', 'toggle', {entity_id: 'light.proof'});
+                      tile._act({action: 'toggle'}, true);
+                      window.hkDetail.open('light.proof', {});
+                      const panel = window.hkDetail._.state().panel;
+                      const fedClient = panel.client === window.hkCards.client() && !panel._hass;
+                      const sheet = await panel._svc('light', 'turn_on', {brightness_pct: 40});
+                      const keypad = await panel._callErr('alarm_control_panel', 'alarm_disarm', {code: '0000'});
+                      await new Promise(r => setTimeout(r, 50));
+                      window.hkDetail.close(true);
+                      return {toggled, sheet, keypad: keypad.error, fedClient,
+                              frames: window.__sentFrames - frames,
+                              refused: window.__mantel.refused.slice(refused0)};
+                    })()""")
+                    assert actions["toggled"] is False and actions["sheet"] is False, actions
+                    assert actions["keypad"] == "commands disabled", actions
+                    assert actions["fedClient"], actions
+                    assert actions["frames"] == 0, actions          # zero writes: not one frame left the page
+                    assert actions["refused"] == ["homeassistant.toggle", "homeassistant.toggle", "light.turn_on",
+                                                  "alarm_control_panel.alarm_disarm"], actions
                     assert await browser.eval("window.__blockedWrites") == 0
                     exceptions = [line for line in browser.console if line.startswith("EXCEPTION:")]
                     assert not exceptions, exceptions
@@ -180,7 +217,10 @@ async def smoke(shot=None):
                             "detail": "sheet fed the client, followed 22.8 -> 23.5; registries readable; REST POST refused",
                             "music": "Offline Office -> Offline Den, one subscription, focus write refused",
                             "artwork": "signing refused offline, URL unchanged, no reconnect marked",
-                            "commands": refused, "external_requests": 0, "browser_exceptions": 0}
+                            "commands": refused,
+                            "actions": "tile tap, sheet control and keypad refused through the action port; "
+                                       "0 frames sent; read path refused call_service (read_only)",
+                            "external_requests": 0, "browser_exceptions": 0}
         finally:
             store.db.close()
 

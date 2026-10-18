@@ -141,8 +141,9 @@ export function installCardBridge() {
   };
 }
 
-// Migrated metrics receive HKClient explicitly. The compatibility snapshot remains
-// available only for the inherited action bridge, whose writes are refused by Host.
+// Migrated metrics receive HKClient explicitly. The compatibility snapshot remains for card
+// families that still read it (slice 9); their actions go through HKClient's action port,
+// which refuses them in Mantel before anything is sent (Host stays the backstop).
 export function setCardHost(element, snapshot) {
   element.hass = snapshot;
   if (element.localName === 'hk-stat-card') element.client = window.hkHostClient.from(snapshot);

@@ -345,8 +345,8 @@
     },
 
     // Timer actions from the strip's pills. These are inline handlers in an
-    // HTML string (hkTimers.strip), which run in global scope with no `hass`
-    // in reach -- hence `document.querySelector('home-assistant').hass`.
+    // HTML string (hkTimers.strip), which run in global scope with no client
+    // in reach -- hence the host adapter's current client.
     //
     // LIVE REMAINING COMES FROM finishes_at, NOT from the `remaining`
     // attribute. On an ACTIVE timer `remaining` is frozen at whatever it was
@@ -361,20 +361,23 @@
     // at that duration (and rewrites the `duration` attribute), so an extension
     // has to be expressed as an absolute new length.
     act: function (entityId, what) {
-      var root = document.querySelector('home-assistant');
-      var hass = root && root.hass;
-      if (!hass || !hass.callService) {
-        console.error('[hk-timers] no hass for ' + what + ' on ' + entityId);
+      // The host's current client (in Home Assistant, the frontend's root
+      // element's, as before); its action port makes the call -- refused in
+      // Mantel, where commands are disabled.
+      var HC = window.hkHostClient;
+      var client = HC && HC.current ? HC.current() : null;
+      if (!client || !client.actions) {
+        console.error('[hk-timers] no client for ' + what + ' on ' + entityId);
         return false;
       }
-      var st = hass.states && hass.states[entityId];
+      var st = client.states && client.states[entityId];
       if (!st) return false;
 
       if (what === 'finish') {
         // finish, not cancel: it FIRES the finished event, so whatever the
         // timer was for actually happens. Cancel is the silent one and is
         // deliberately not offered here, exactly as on the Timers page.
-        hass.callService('timer', 'finish', { entity_id: entityId });
+        client.actions.callService('timer', 'finish', { entity_id: entityId });
         return true;
       }
 
@@ -394,7 +397,7 @@
       var p = function (n) { return String(n).padStart(2, '0'); };
       var hhmmss = Math.floor(total / 3600) + ':' +
                    p(Math.floor((total % 3600) / 60)) + ':' + p(total % 60);
-      hass.callService('timer', 'start', { entity_id: entityId, duration: hhmmss });
+      client.actions.callService('timer', 'start', { entity_id: entityId, duration: hhmmss });
       return true;
     },
 
@@ -418,7 +421,7 @@
       // PILL CONTROLS (plated only). Restart / +1 min / Finish.
       //
       // Inline onclick handlers because the strip is an HTML string -- see
-      // act() above for the hass escape hatch they call. stopPropagation
+      // act() above for the client escape hatch they call. stopPropagation
       // matters: without it a tap would also reach the card underneath.
       //
       // NOT on the screensaver: that row is a glance from across a room behind

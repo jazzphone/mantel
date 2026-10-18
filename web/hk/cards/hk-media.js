@@ -834,7 +834,6 @@
       me.p = P.create({
         tabs: ['speakers', 'volume', 'queue'],
         client: function () { return self.client; },
-        hass: function () { return self._hass; },
         ctx: function () { return self._musicCtx(); },
         art: function () { return null; },
         stop: true,

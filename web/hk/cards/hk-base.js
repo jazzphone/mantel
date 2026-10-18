@@ -1839,6 +1839,13 @@
   window.addEventListener('hk-client-update', function () {
     if (window.hkHostClient.current) clientSeen(window.hkHostClient.current());
   });
+  // THE ACTION PORT for code that is not a card: the given client's (or, for
+  // a card family still handed the host input, that input's client through
+  // the host adapter), else the current client's. Null with no client.
+  window.hkCards.actions = function (source) {
+    var c = source ? asClient(source) : window.hkCards.client();
+    return (c && c.actions) || null;
+  };
   window.hkCards.onClient = function (fn) {
     CLIENT_HUB.fns.add(fn);
     return function () { CLIENT_HUB.fns.delete(fn); };
@@ -2022,7 +2029,7 @@
       // A door, the alarm, the water or the heat is NEVER one tap: whatever a
       // card's config says, `toggle` on one of these opens its detail instead
       // (homeassistant.toggle on a lock UNLOCKS it).
-      if (action === 'toggle' && neverToggles(this._hass, cfg.entity)) {
+      if (action === 'toggle' && neverToggles(this.client, cfg.entity)) {
         spec = { action: 'more-info' };
         action = 'more-info';
       }
@@ -2093,7 +2100,7 @@
 
     getCardSize() { return 3; }
 
-    // EVERY SERVICE CALL GOES THROUGH HERE. `this._hass.callService(...)`
+    // EVERY SERVICE CALL GOES THROUGH HERE. A bare `callService(...)`
     // written as a statement drops the promise it returns on the floor: a
     // call that REJECTS -- a dropped socket on a tablet's wifi, a script
     // renamed out from under a tile, bad variables, an exception inside the
@@ -2112,11 +2119,16 @@
     // not even mean the script finished -- that returns as soon as the script
     // starts. Proving a device acted needs the entity state afterwards and is
     // deliberately not attempted here.
+    //
+    // THROUGH THE CLIENT'S ACTION PORT. In Home Assistant that is the frontend's
+    // own callService with exactly these arguments; in Mantel the port refuses
+    // (`commands_disabled`) and sends nothing, which lands in the `false` below.
     _call(domain, service, data) {
-      if (!this._hass || !this._hass.callService) return Promise.resolve();
+      var act = this._actions();
+      if (!act) return Promise.resolve();
       var p;
       try {
-        p = this._hass.callService(domain, service, data);
+        p = act.callService(domain, service, data);
       } catch (e) {
         p = Promise.reject(e);
       }
@@ -2132,18 +2144,25 @@
       });
     }
 
+    // The action port of the client this card is shown, or null with none.
+    _actions() {
+      var c = this.client;
+      return (c && c.actions) || null;
+    }
+
     // _call, BUT KEEPING THE ERROR: {ok, error}. For a service that returns no
     // response yet can refuse -- an alarm panel rejecting a code -- where the
     // caller needs to know WHY it did not go.
     _callErr(domain, service, data) {
-      if (!this._hass || !this._hass.callService) {
+      var act = this._actions();
+      if (!act) {
         return Promise.resolve({ ok: false, error: 'not connected' });
       }
       var p;
       try {
         // notifyOnError false: the caller shows the refusal itself (the
         // keypad's "Wrong code"); HA's toast on top of it would say it twice.
-        p = this._hass.callService(domain, service, data, undefined, false);
+        p = act.callService(domain, service, data, undefined, false);
       } catch (e) {
         p = Promise.reject(e);
       }
@@ -2169,7 +2188,8 @@
     // `response` is {} when the call went but answered nothing (an older HA,
     // or a script with no response) -- "accepted, outcome unknown".
     _callResp(domain, service, data) {
-      if (!this._hass || !this._hass.callService) {
+      var act = this._actions();
+      if (!act) {
         return Promise.resolve({ ok: false, error: 'not connected' });
       }
       var p;
@@ -2178,7 +2198,7 @@
         // `data` already carries it. The 5th (notifyOnError) is FALSE -- HA's
         // own error toast is the wrong surface here, the card shows the
         // failure itself.
-        p = this._hass.callService(domain, service, data, undefined, false, true);
+        p = act.callService(domain, service, data, undefined, false, true);
       } catch (e) {
         p = Promise.reject(e);
       }
@@ -3383,9 +3403,9 @@
       focus.hold = opts && opts.hold ? now + MUSIC_HOLD : 0;
       try { if (window.localStorage) localStorage.setItem(MUSIC_KEY, JSON.stringify({ key: key, at: now })); }
       catch (e) { /* first-paint copy only */ }
-      if (writer && writer.callWS) {
+      if (writer && writer.actions) {
         writing++;
-        Promise.resolve(writer.callWS({ type: 'frontend/set_user_data', key: MUSIC_KEY,
+        Promise.resolve(writer.actions.callWS({ type: 'frontend/set_user_data', key: MUSIC_KEY,
                                         value: { key: key, at: now } }))
           .catch(function (e) { console.error('[hkMusic] could not save focus', e); })
           .then(function () { writing--; });

@@ -105,6 +105,18 @@ class HkControlCard extends HTMLElement {
       window.hkGlass.changed();
     }
   }
+  // THE ACTION PORT of the client that goes with the host input this card is
+  // handed (a card family until Phase 1 slice 9): the real call in Home
+  // Assistant, `commands_disabled` in Mantel.
+  _actions() {
+    const host = window.hkHostClient, c = this._hass && host && host.from ? host.from(this._hass) : null;
+    return c ? c.actions : null;
+  }
+  _svc(...args) {
+    const act = this._actions();
+    if (!act) return Promise.reject(new Error("not connected"));
+    return act.callService(...args);
+  }
   set hass(hass) {
     this._hass = hass;
     if (window.hkCards && window.hkCards.tone) window.hkCards.tone(this, hass);
@@ -742,12 +754,12 @@ class HkControlCard extends HTMLElement {
     // is actually showing.
     // `call` LOGS A REJECTION. This card is the one that does not extend
     // HkBase, so it does not get that base class's _call() -- and a bare
-    // callService whose promise is dropped makes a thermostat setpoint that
+    // service call whose promise is dropped makes a thermostat setpoint that
     // never reached HA look identical to one that did. Resolves either way:
     // nothing in here has a recovery to offer, the point is only that the
     // failure is not invisible.
     const root=this.shadowRoot, id=this._entityId(),
-      call=(d,s,data={})=>Promise.resolve(this._hass.callService(d,s,{entity_id:id,...data}))
+      call=(d,s,data={})=>Promise.resolve(this._svc(d,s,{entity_id:id,...data}))
         .catch(err=>{ console.error('hk-control-card: '+d+'.'+s+' failed',data,err); });
     // ---- thermostat ring -------------------------------------------------
     // One pointer handler on the SVG rather than one per knob: on a wall tablet
@@ -1071,9 +1083,9 @@ class HkControlCard extends HTMLElement {
         // levelling, and doing it in the same call leaves the order to chance.
         // Set the group, let it scale, then level the members over the top --
         // which also leaves the group itself reading the number on the slider.
-        return Promise.resolve(this._hass.callService("media_player","volume_set",
+        return Promise.resolve(this._svc("media_player","volume_set",
             {entity_id:id,volume_level:next}))
-          .then(()=>this._hass.callService("media_player","volume_set",
+          .then(()=>this._svc("media_player","volume_set",
             {entity_id:members,volume_level:next}))
           .catch(err=>{ console.error("hk-control-card: group volume_set failed",err); });
       };

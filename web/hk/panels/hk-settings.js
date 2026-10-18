@@ -7216,8 +7216,12 @@
     press(ids) {
       ids = (ids || []).filter(Boolean);
       if (!ids.length) return Promise.resolve();
-      return this._hass.callService('button', 'press', { entity_id: ids });
+      return this.actions().callService('button', 'press', { entity_id: ids });
     }
+    // THE ACTION PORT (HKClient) of the client that goes with this panel's host
+    // input: every service call goes through it (the panel's other saves move
+    // in Phase 1 slice 11).
+    actions() { return window.hkHostClient.from(this._hass).actions; }
     // the kiosk apps' Clear Cache, then -- once it has had a moment -- Reload:
     // the way a tablet picks up new HK files (a reload alone keeps them)
     clearAndReload(tids) {
@@ -7422,8 +7426,8 @@
           if (!ch.ok && ch.fix) {
             cr.push(K.button({ label: 'Fix: ' + ch.title, fk: 't:fix:' + ch.key, onClick: function () {
               var go = ch.fix[0] === 'hk'
-                ? hass.callWS({ type: DOMAIN + '/tablet/act', tablet: tid, act: 'kiosk_saver' })
-                : hass.callService(ch.fix[0], ch.fix[1], ch.fix[2]);
+                ? self.actions().callWS({ type: DOMAIN + '/tablet/act', tablet: tid, act: 'kiosk_saver' })
+                : self.actions().callService(ch.fix[0], ch.fix[1], ch.fix[2]);
               Promise.resolve(go).then(function () { self.announce('Done: ' + ch.title); setTimeout(function () { self.render(true); }, 1500); },
                                        function (e) { self.announce('Couldn’t: ' + ((e && e.message) || e)); });
             } }));

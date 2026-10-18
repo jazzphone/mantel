@@ -672,7 +672,7 @@
           if (!b) return;
           e.stopPropagation();
           var id = b.getAttribute('data-off');
-          self._hass.callService(id.split('.')[0], 'turn_off', { entity_id: id });
+          self._actions().callService(id.split('.')[0], 'turn_off', { entity_id: id });
           b.textContent = '…';
         }, true);
       }

@@ -756,7 +756,6 @@
       return {
         tabs: tabs,
         client: function () { return self.client; },
-        hass: function () { return self._hass; },
         ctx: function () { return self._ctx(); },
         art: function () { return null; },
         stop: true,
@@ -984,9 +983,11 @@
       var e = this._e, sig = c ? c.key + '|' + c.title : '', self = this;
       if (sig !== this._nextFor) {
         this._nextFor = sig;
-        if (!c || !this._hass.callWS) { this._next = null; }
+        var act = this._actions();
+        if (!c || !act) { this._next = null; }
         else {
-          this._hass.callWS({ type: 'call_service', domain: 'music_assistant', service: 'get_queue',
+          // a service call (it only answers): through the action port
+          act.callWS({ type: 'call_service', domain: 'music_assistant', service: 'get_queue',
                               service_data: { entity_id: c.key }, return_response: true }).then(function (r) {
             if (self._nextFor !== sig) return;
             var q = r && r.response && r.response[c.key], n = q && q.next_item, mi = n && n.media_item;
@@ -1051,9 +1052,9 @@
         if (!self._vol || !c || self._vol.sent === self._vol.val) return;
         if (d) d.sent = Date.now();
         self._vol.sent = self._vol.val;
-        var calls = volumeCalls(c, self._M().presets(), self._vol.val), h = self._hass;
+        var calls = volumeCalls(c, self._M().presets(), self._vol.val), act = self._actions();
         calls.reduce(function (p, data) {
-          return p.then(function () { return h.callService('media_player', 'volume_set', data); });
+          return p.then(function () { return act.callService('media_player', 'volume_set', data); });
         }, Promise.resolve()).catch(function (err) { console.error('hk-music: volume_set failed', err); });
       };
       var move = function (x) {

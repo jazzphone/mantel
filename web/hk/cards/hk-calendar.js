@@ -252,19 +252,22 @@
     return o;
   }
   function wsErr(e) { return (e && (e.message || e.code)) || 'Home Assistant refused it.'; }
+  // A write: through the action port of the client that goes with what the
+  // caller holds (a client, or a card family's host input until slice 9).
+  function writer(x) { return window.hkCards.actions(x); }
   function create(hass, cal, f) {
-    return hass.callWS({ type: 'calendar/event/create', entity_id: cal, event: payload(f) })
+    return writer(hass).callWS({ type: 'calendar/event/create', entity_id: cal, event: payload(f) })
       .then(function () { changed(); }, function (e) { throw new Error(wsErr(e)); });
   }
   function update(hass, ev, f, scope) {
     var msg = { type: 'calendar/event/update', entity_id: ev.cal, uid: ev.uid, event: payload(f) };
     if (ev.rid) { msg.recurrence_id = ev.rid; if (scope) msg.recurrence_range = scope; }
-    return hass.callWS(msg).then(function () { changed(); }, function (e) { throw new Error(wsErr(e)); });
+    return writer(hass).callWS(msg).then(function () { changed(); }, function (e) { throw new Error(wsErr(e)); });
   }
   function remove(hass, ev, scope) {
     var msg = { type: 'calendar/event/delete', entity_id: ev.cal, uid: ev.uid };
     if (ev.rid) { msg.recurrence_id = ev.rid; if (scope) msg.recurrence_range = scope; }
-    return hass.callWS(msg).then(function () { changed(); }, function (e) { throw new Error(wsErr(e)); });
+    return writer(hass).callWS(msg).then(function () { changed(); }, function (e) { throw new Error(wsErr(e)); });
   }
 
   // OVERLAPPING EVENTS SIDE BY SIDE in a day's column: each cluster of
@@ -1786,7 +1789,7 @@
         if (color && color === own) color = '';            // its own again: back to automatic
         this._own = { k: key, c: color || null };
         this._paint();
-        h.callWS({ type: 'hk_frontend/calendar/color', key: key, color: color || null }).catch(function (e) {
+        writer(h).callWS({ type: 'hk_frontend/calendar/color', key: key, color: color || null }).catch(function (e) {
           console.warn('[hk-calendar] the color', e);
           self._own = null; self._paint();
         });

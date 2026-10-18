@@ -92,11 +92,11 @@ document.querySelector = function (s) { return s === 'home-assistant' ? haRoot :
 document.hidden = false;
 window.innerWidth = 1280;
 // the client hub hk-base provides (hkCards.client/onClient), over the real HA
-// adapter; hass() remains only as the host input for the saver's own actions
+// adapter; the saver's own actions go through that client's action port (no
+// host input is offered at all)
 var hub = [];
 window.hkCards = { onClient: function (fn) { hub.push(fn); return function () { hub = hub.filter(function (f) { return f !== fn; }); }; },
-                   client: function () { return window.hkHAClient.from(haRoot.hass); },
-                   hass: function () { return haRoot.hass; } };
+                   client: function () { return window.hkHAClient.from(haRoot.hass); } };
 function push(h) { haRoot.hass = h; var c = window.hkHAClient.from(h); hub.slice().forEach(function (f) { f(c); }); }
 
 load(DIR + 'frontend/modules/hk-saver.js');
@@ -312,15 +312,19 @@ ok('...the sky and the cards are told', window.__hkSaverEvents === undefined || 
 push(hassWith('off'));
 ok('the house turning it OFF stops it (wake, the doorbell)', !S.running());
 (function () {
-  // A HOST THAT ONLY READS (no host input for actions): the screensaver still
-  // runs from the client, and no switch write goes anywhere
-  var hass0 = window.hkCards.hass;
-  window.hkCards.hass = function () { return null; };
+  // A HOST THAT ONLY READS (a client with no action transport): the
+  // screensaver still runs from the client, and no switch write goes anywhere
+  var client0 = window.hkCards.client, refused = 0;
+  window.hkCards.client = function () {
+    return window.hkClient.create({ states: haRoot.hass.states, user: haRoot.hass.user,
+                                    refused: function () { refused++; } });
+  };
   calls = [];
   S.start();
-  ok('with no host input it still starts from the client, and writes no switch', S.running() && calls.length === 0, calls);
+  ok('with no host input it still starts from the client, and writes no switch', S.running() && calls.length === 0 && refused === 1,
+     { calls: calls, refused: refused });
   S.stop();
-  window.hkCards.hass = hass0;
+  window.hkCards.client = client0;
 })();
 calls = [];
 S.start();

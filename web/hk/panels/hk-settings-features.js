@@ -307,7 +307,7 @@
     var rows = [K.button({ label: 'Show What Would Be Cleaned', fk: 'clean:test', disabled: !(d.offered || []).length,
       onClick: function () {
         st.test = { busy: true }; P.render();
-        P._hass.callWS({ type: 'call_service', domain: 'hk_frontend', service: 'clean_areas',
+        P.actions().callWS({ type: 'call_service', domain: 'hk_frontend', service: 'clean_areas',
                          service_data: { areas: d.offered, dry_run: true }, return_response: true })
           .then(function (r) { st.test = { res: (r && r.response) || {} }; P.render(); },
                 function (e) { st.test = { error: String((e && e.message) || e) }; P.render(); });

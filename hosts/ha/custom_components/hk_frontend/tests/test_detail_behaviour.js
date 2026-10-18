@@ -291,7 +291,7 @@ frames();
 frames(); frames(); frames();
 ok('...no callback every frame: an open sheet does not keep the screen drawing', !__timers.some(function (t) { return t && t.raf; }));
 polls();
-ok('with no hk card on screen, the sheet still gets the new state from <home-assistant>', d1.panel._hass === H1 && d1.panel._big.textContent === '100%',
+ok('with no hk card on screen, the sheet still gets the new state from <home-assistant>', d1.panel.client === window.hkHAClient.from(H1) && d1.panel._big.textContent === '100%',
    d1.panel._big.textContent);
 // a sheet opened from a sheet takes over its entry
 var depth = HIST.stack.length;
@@ -1090,12 +1090,14 @@ print('\n=== the sheet reads through the client (Phase 1 slice 5) ===');
   var d = _.state();
   ok('it was fed the client, never the host object', d.fed === HC.from(h) && d.fed !== h);
   ok('its panel reads through that client', d.panel.client === HC.from(h) && d.panel._stateObj === h.states['light.c']);
-  ok('its panel holds the matching host input for its controls (the bridge)', d.panel._hass === h);
+  // Phase 1 slice 6: its controls act through the client's action port, so
+  // the panel is shown the client alone (no host input, no bridge)
+  ok('its panel is shown the client alone, no host input', d.panel._hass === null && d.panel.client.actions === HC.from(h).actions);
   ok('the header icon was bound through the client (the adapter hands the icon its host)', d.icon.stateObj === h.states['light.c'] && d.icon.hass === h);
   var h2 = house({ 'light.c': ['on', { supported_color_modes: ['brightness'], brightness: 255, friendly_name: 'Lamp' }, 'c2'] });
   HA.hass = h2;
   polls();
-  ok('the 250 ms look follows the host adapter\'s current client', d.fed === HC.from(h2) && d.panel._hass === h2 && d.panel._big.textContent === '100%',
+  ok('the 250 ms look follows the host adapter\'s current client', d.fed === HC.from(h2) && d.panel.client === HC.from(h2) && d.panel._big.textContent === '100%',
      d.panel._big.textContent);
   var seen = d.fed, h3 = house({ 'light.c': ['off', { supported_color_modes: ['brightness'], friendly_name: 'Lamp' }, 'c3'] });
   var card = new (customElements.get('hk-detail-state'))();
@@ -1103,7 +1105,7 @@ print('\n=== the sheet reads through the client (Phase 1 slice 5) ===');
   HA.hass = h3; card.hass = h3;
   ok('a new client on the hub reaches the open sheet at once (onClient)', d.fed === HC.from(h3) && d.fed !== seen);
   d.panel._svc('light', 'turn_off');
-  ok('its controls still act through the host input', CALLS.join() === 'light.turn_off', CALLS);
+  ok('its controls act through the client\'s action port, reaching the same host', CALLS.join() === 'light.turn_off', CALLS);
   D.close(true); flushPops();
 
   // A CLIENT WITH NO HOST INPUT (a host that only reads): the sheet still
