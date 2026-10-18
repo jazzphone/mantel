@@ -515,7 +515,13 @@ Updated in place (no migration; backup `197c2d14` from 0.1.5 still the rollback 
       menu model (`hkShell.hostMenu()` → `<prefix>/admin`), but that dashboard navigates with the tab bar and
       HK's side menu is off whenever a tab bar shows (`menu.on()` false). Fix for 0.1.7: the entry in the tab
       bar's More sheet too, verified drawn. Until then: open `<prefix>/admin` directly.
-- [ ] Music Assistant on Connections (Avery pastes his MA token), feature import, SF Pro/glyphs, page re-check.
+- [x] **Feature import** (People page, "Import HK's features from Home Assistant again"; reads HA, changes
+      nothing there): music, live_tv, clean_areas, alarm_pin, energy, notifications. Before it, Energy, Power and
+      Live TV opened Home (the views didn't exist in Mantel). After it, at 1366x900: **Energy** draws its 9 cards
+      (period, hero, highlights, where, day, battery, water, tracking, rank); **Power** its 7 (house, status,
+      battery, load, segments, slider, rank); **Live TV** the guide (no page scroll); **Vacuums** gains the
+      Clean Areas picker (`hk-area-select-card`).
+- [ ] Music Assistant on Connections (Avery pastes his MA token; 0.1.7 fixes the CSRF refusal), SF Pro/glyphs.
 
 ### Removal
 
