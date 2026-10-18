@@ -573,13 +573,13 @@
     connectedCallback() {
       if (super.connectedCallback) super.connectedCallback();
       this._bindBack();
-      // The focus can move with no hass push (a context tapped on Play Music,
+      // The focus can move with no state push (a context tapped on Play Music,
       // the saved focus arriving). Re-run the render gate when it does.
       var self = this;
       if (!this._musicOff && window.hkMusic) {
         this._musicOff = window.hkMusic.onChange(function () {
           self._hkSig = null;
-          if (self._hass && self._config) self.hass = self._hass;
+          if (self.client && self._config) self.redraw();
         });
       }
       // Configure -> Browse Music saved: the first page follows at once --
@@ -646,19 +646,20 @@
       // rebuild the card (setConfig would take it back to its first level)
       if (typeof this.playerFor === 'function') { var pf = this.playerFor(); if (pf) return pf; }
       if (this._config.player) return this._config.player;
-      return (M && this._hass && M.player(this._hass)) ||
+      return (M && this.client && M.player(this.client)) ||
              this._config.fallback_player || null;
     }
 
-    set hass(h) {
-      if (window.hkMusic) window.hkMusic.attach(h);
-      Object.getOwnPropertyDescriptor(HkBase.prototype, 'hass').set.call(this, h);
+    // EACH NEW CLIENT (HkBase calls this from Lovelace's entry and from a client set
+    // directly): the music model follows its subscription port.
+    _receiveClient() {
+      if (window.hkMusic) window.hkMusic.attach(this.client);
+      super._receiveClient();
     }
-    get hass() { return this._hass; }
 
     // Re-render when the SELECTION moves (the library must follow it) and not
     // for anything else -- this card's content comes from a websocket call,
-    // not from hass.
+    // not from the states.
     // _playerName() IS IN HERE, not just the player.
     //
     // The crumb prints "Office +1", and the +N comes from the leader's
@@ -688,7 +689,7 @@
     // ------------------------------------------------------------ data
     // `wait`: how long before giving up, 20 s unless the caller knows better
     _ws(msg, wait) {
-      if (!this._hass || !this._hass.callWS) return Promise.reject(new Error('no hass'));
+      if (!this.client || !this.client.callWS) return Promise.reject(new Error('no client'));
       var self = this;
       return new Promise(function (resolve, reject) {
         var timer = setTimeout(function () {
@@ -696,8 +697,8 @@
         }, wait || 20000);
         try {
           // a service call over the WebSocket (get_library) is a command:
-          // the client's action port; a read stays on the host input (slice 9)
-          var port = window.hkClient.isWrite(msg) ? self._actions() : self._hass;
+          // the client's action port; a read is the client's own callWS
+          var port = window.hkClient.isWrite(msg) ? self._actions() : self.client;
           Promise.resolve(port.callWS(msg)).then(function (res) {
             clearTimeout(timer); resolve(res);
           }, function (err) {
@@ -740,7 +741,7 @@
     // back to saved results from memory must also beat a request that was in
     // flight when you pressed back.
     //
-    // NOT ABORTED, just ignored. hass.callWS has no cancel, and a reply that
+    // NOT ABORTED, just ignored. A callWS has no cancel, and a reply that
     // arrives and is dropped costs nothing measurable -- this is about which
     // answer gets to be the truth, not about saving a round trip.
     _seq() {
@@ -1199,9 +1200,9 @@
     // one thing this page says about a press would be invisible on exactly
     // the press that needs it. Setting and clearing it would also rebuild
     // the whole body twice, re-requesting every piece of artwork on it.
-    // `hass-notification` is the event HA's own panels use for this: a
-    // snackbar pinned to the bottom of the screen, above everything, which
-    // kiosk_mode does not hide. `_toast` keeps the last message so a test can
+    // The host's toast (hkShell.toast; in Home Assistant the event its own
+    // panels use): a snackbar pinned to the bottom of the screen, above
+    // everything, which kiosk_mode does not hide. `_toast` keeps the last message so a test can
     // ask what was said.
     _flash(message) {
       this._toast = message;
@@ -1723,14 +1724,14 @@
     _playerName() {
       if (typeof this.playerNameFor === 'function') { var pn = this.playerNameFor(); if (pn) return pn; }
       var M = window.hkMusic, own = this._config && this._config.player;
-      if (M && this._hass && own) {
+      if (M && this.client && own) {
         // the music that player is in, named as everywhere else ("Kitchen +3")
-        var c = M.contexts(this._hass).filter(function (x) {
+        var c = M.contexts(this.client).filter(function (x) {
           return x.key === own || x.members.indexOf(own) >= 0;
         })[0];
         return c ? M.label(c) : (M.nameOf ? M.nameOf(own) : own);
       }
-      if (M && this._hass) return M.resolve(this._hass).name || '';
+      if (M && this.client) return M.resolve(this.client).name || '';
       return this._player() || '';
     }
 

@@ -424,18 +424,21 @@
     }
     getCardSize() { return 12; }
 
-    set hass(h) {
-      if (window.hkMusic) window.hkMusic.attach(h);
-      Object.getOwnPropertyDescriptor(HkBase.prototype, 'hass').set.call(this, h);
-      if (this._lib && this._lib.hass !== h) this._lib.hass = h;
+    // EACH NEW CLIENT (HkBase calls this from Lovelace's entry and from a client set
+    // directly): the music model follows its subscription port, and the library
+    // card inside the page gets what goes with it.
+    _receiveClient() {
+      var c = this.client;
+      if (window.hkMusic) window.hkMusic.attach(c);
+      super._receiveClient();
+      if (this._lib && c && this._lib.client !== c) window.hkHostClient.bridge(this._lib, c);
     }
-    get hass() { return this._hass; }
 
     connectedCallback() {
       if (super.connectedCallback) super.connectedCallback();
       var self = this;
       if (!this._musicOff && window.hkMusic) {
-        this._musicOff = window.hkMusic.onChange(function () { self._hkSig = null; if (self._hass) self.hass = self._hass; });
+        this._musicOff = window.hkMusic.onChange(function () { self._hkSig = null; if (self.client) self.redraw(); });
       }
       if (!this._ro && window.ResizeObserver) {
         this._ro = new ResizeObserver(function () { self._layout(); });
@@ -452,7 +455,7 @@
       // the docked bar coming or going: this page's own Now Playing row stands
       // in while it is not up
       if (!this._onDock) {
-        this._onDock = function () { self._hkSig = null; if (self._hass) self.hass = self._hass; };
+        this._onDock = function () { self._hkSig = null; if (self.client) self.redraw(); };
         window.addEventListener('hk-dock', this._onDock);
       }
       if (!this._onWin) {
@@ -494,7 +497,7 @@
     // what this page shows: hkMusic's answer (a context playing or paused),
     // else nothing
     _ctx() {
-      var Mu = this._M(), h = this._hass;
+      var Mu = this._M(), h = this.client;
       if (!Mu || !h) return null;
       var r = Mu.resolve(h);
       return r && r.context ? r.context : null;
@@ -504,7 +507,7 @@
     _targetRooms() {
       var Mu = this._M();
       if (this._target && this._target.length) return this._target;
-      var p = Mu && this._hass ? Mu.resolve(this._hass).player : null;
+      var p = Mu && this.client ? Mu.resolve(this.client).player : null;
       var pre = p && Mu.presets().filter(function (x) { return x.entity === p; })[0];
       return pre ? pre.members.slice() : p ? [p] : [];
     }
@@ -544,7 +547,7 @@
     }
 
     _sigOf() {
-      var Mu = this._M(), h = this._hass;
+      var Mu = this._M(), h = this.client;
       if (!Mu || !h || !this._config) return null;
       var r = Mu.resolve(h), st = r.player && h.states[r.player];
       return [r.player, r.reason, st ? st.last_updated : '',
@@ -653,9 +656,8 @@
         lib.noteEl = document.createElement('div'); lib.noteEl.className = 'nextnote';
         self._noteEl = lib.noteEl;
         lib.rootExtra = self._playlistsEl();
-        if (self._hass) lib._hass = self._hass;
         lib.setConfig({ type: 'custom:hk-library-card', music: true, layout: 'music' });
-        if (self._hass) lib.hass = self._hass;
+        if (self.client) window.hkHostClient.bridge(lib, self.client);
         // its messages, here (Home Assistant's toast is under the page's own)
         lib.addEventListener(window.hkShell.events.toast, function (e) {
           e.stopPropagation();
@@ -760,7 +762,7 @@
         art: function () { return null; },
         stop: true,
         target: function () { return self._targetRooms(); },
-        setTarget: function (rooms) { self._target = rooms.slice(); self._hkSig = null; if (self._hass) self.hass = self._hass; },
+        setTarget: function (rooms) { self._target = rooms.slice(); self._hkSig = null; if (self.client) self.redraw(); },
         // PLAYING, ITS TICKS ARE WHERE THE NEXT PICK PLAYS (2026-10-14): the
         // same rooms as Plays on's (null: back to what plays)
         next: function () { return self._rooms(); },
@@ -777,7 +779,7 @@
 
     // ------------------------------------------------------------ drawing
     _draw() {
-      var e = this._e, h = this._hass, Mu = this._M();
+      var e = this._e, h = this.client, Mu = this._M();
       if (!e || !h || !Mu) return;
       var c = this._ctx(), st = c ? h.states[c.key] || {} : {}, a = st.attributes || {};
       // music started: the rooms picked for it have done their job (stopped,
@@ -838,7 +840,7 @@
       this._tickOn();
     }
     _drawHouse(c) {
-      var Mu = this._M(), h = this._hass, self = this;
+      var Mu = this._M(), h = this.client, self = this;
       // ONE CARD PER THING PLAYING, not per player (hkMusic.streams): nine
       // HomePods AirPlayed to from one iPhone are one "Dynamite" card, its
       // line "Kitchen, Living Room and 7 more"
@@ -1024,7 +1026,7 @@
 
     // ------------------------------------------------------------ actions
     _transport(cmd) {
-      var c = this._ctx(), h = this._hass;
+      var c = this._ctx(), h = this.client;
       if (!h) return;
       if (!c) {
         // nothing playing: play starts where the page says, with the first playlist
@@ -1086,7 +1088,7 @@
       if (!Mu || !Mu.known(key)) return;
       Mu.setFocus(key);
       this._closePanel(false);
-      this._toast('Now showing ' + Mu.label(Mu.contexts(this._hass).filter(function (x) { return x.key === key; })[0] || { key: key, kind: 'room', members: [key], leader: key }));
+      this._toast('Now showing ' + Mu.label(Mu.contexts(this.client).filter(function (x) { return x.key === key; })[0] || { key: key, kind: 'room', members: [key], leader: key }));
     }
 
     // ------------------------------------------------------------ playing
@@ -1094,7 +1096,7 @@
     // Music asks it (hk-media.js _askThenPlay)
     _askThenPlay(rooms, go) {
       var Mu = this._M(), c = this._ctx(), self = this;
-      var others = Mu.contexts(this._hass).filter(function (x) {
+      var others = Mu.contexts(this.client).filter(function (x) {
         return (!c || x.key !== c.key) && x.members.some(function (r) { return rooms.indexOf(r) < 0; });
       });
       if (!others.length || !C.confirmSheet) { go(); return; }
@@ -1308,7 +1310,7 @@
       this._refreshPlaylists(true);
       if (this._roomsPnl) this._roomsPnl.update();
       if (this._pnl) this._pnl.p.update();
-      if (!c && this._hass) this.hass = this._hass;
+      if (!c && this.client) this.redraw();
     }
     _drawPick() { if (this._pk) this._pk.p.update(); }
     _closePick() {

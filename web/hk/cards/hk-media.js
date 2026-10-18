@@ -27,6 +27,15 @@
       SELECTED_BG = C.SELECTED_BG, SELECTED_TEXT = C.SELECTED_TEXT,
       esc = C.esc, button = C.button;
 
+  // A NESTED CARD'S CLIENT, once the card can take it. hkCards.create configures a card
+  // as soon as its element is defined and hands it nothing before; the host adapter's
+  // bridge then decides what the child gets (in HA, an HA-drawn card needs the
+  // frontend's object). A card that is not defined yet is skipped: the next push feeds it.
+  // slice 9: hkCards.create's hkSetHass should take a client, and this goes.
+  function feed(el, client) {
+    if (el && client && typeof el.setConfig === 'function') window.hkHostClient.bridge(el, client);
+  }
+
   // MUSIC NOT ADDED (2026-10-12). Without the Music feature the player and
   // the speaker picker have no speakers -- empty rooms, "Pick speakers on
   // Play Music" -- so they say what is missing instead. ONLY ON THE
@@ -762,8 +771,8 @@
     // shows, and the transport would act on whatever it said at the moment
     // of the tap.
     _res() {
-      return (window.hkMusic && this._hass)
-        ? window.hkMusic.resolve(this._hass)
+      return (window.hkMusic && this.client)
+        ? window.hkMusic.resolve(this.client)
         : { player: null, context: null, reason: 'none', name: '' };
     }
     _player() {
@@ -771,9 +780,11 @@
       return window.hkMusic && window.hkMusic.ignored(p) ? null : p;
     }
 
-    set hass(h) {
-      if (window.hkMusic) window.hkMusic.attach(h);
-      Object.getOwnPropertyDescriptor(HkBase.prototype, 'hass').set.call(this, h);
+    // EACH NEW CLIENT (HkBase calls this from Lovelace's entry and from a client set
+    // directly): the music model follows its subscription port.
+    _receiveClient() {
+      if (window.hkMusic) window.hkMusic.attach(this.client);
+      super._receiveClient();
       // the open Speakers panel follows the house, a few times a second at
       // most (rooms joining, levels, the queue's song); gone with the music
       var me = this._spk;
@@ -782,7 +793,6 @@
         if (!this._musicCtx()) this._closeSpk(); else me.p.update();
       }
     }
-    get hass() { return this._hass; }
     // the bar on the Music page (.onmusic): no Browse, no Close
     _closeGlyph() {
       var hc = this._root && this._root.querySelector('ha-card.bar');
@@ -814,7 +824,7 @@
     // a moment after a request has landed, when the music goes, and when
     // the page changes.
     _openSpk() {
-      var P = window.hkSaverPanel, self = this, h = this._hass;
+      var P = window.hkSaverPanel, self = this, h = this.client;
       if (this._spk) { this._closeSpk(); return; }
       var btn = this._root && this._root.querySelector('.spk'), card = this._root && this._root.querySelector('ha-card');
       if (!P || !btn || !card || !h || !this._musicCtx()) return;
@@ -976,7 +986,7 @@
 
     // what plays on this screen's music, as hkMusic resolves it
     _musicCtx() {
-      var Mu = window.hkMusic, h = this._hass;
+      var Mu = window.hkMusic, h = this.client;
       var r = Mu && h ? Mu.resolve(h) : null;
       return r && r.context ? r.context : null;
     }
@@ -989,7 +999,7 @@
       var self = this;
       if (!this._musicOff && window.hkMusic) {
         this._musicOff = window.hkMusic.onChange(function () {
-          if (self._hass && self._config) self.redraw();
+          if (self.client && self._config) self.redraw();
         });
       }
       // back on the page with a bar already drawn: follow page changes again
@@ -1007,7 +1017,7 @@
     // this tablet's room and "Ready on Kitchen" because a request is still
     // landing read the same, but they are different states.
     _sigOf() {
-      var h = this._hass, cfg = this._config;
+      var h = this.client, cfg = this._config;
       if (!h || !cfg) return null;
       var r = this._res();
       var p = this._st(r.player);
@@ -1122,7 +1132,7 @@
     // hk_frontend.music_transport (music.py), which checks it is a
     // configured speaker and serialises quick taps on the same player.
     _svc(command) {
-      if (!this._hass) return;
+      if (!this.client) return;
       var player = this._res().player;
       if (player) this._call('hk_frontend', 'music_transport', { player: player, command: command });
     }
@@ -1387,10 +1397,9 @@
       // the no-speaker case reads the same way.
       var pl = this._playerLine(p);
       if (e.player.__txt !== pl) { e.player.__txt = pl; e.player.textContent = pl; }
-      // hkSetHass, not `.hass =`: the nested card may not be upgraded yet, and
-      // HA's cards throw when handed hass before a config. See hkCards.create.
-      if (this._metaCard && this._hass) this._metaCard.hkSetHass(this._hass);
-      if (this._subCard && this._hass) this._subCard.hkSetHass(this._hass);
+      // feed(), not a plain bridge: the nested card may not be upgraded yet.
+      if (this._metaCard && this.client) feed(this._metaCard, this.client);
+      if (this._subCard && this.client) feed(this._subCard, this.client);
     }
   }
 
@@ -1483,7 +1492,7 @@
     }
     getCardSize() { return 1; }
     _sigOf() {
-      var h = this._hass;
+      var h = this.client;
       if (!h) return null;
       var p = this._playing();
       if (!p) return 'none';
@@ -1857,15 +1866,15 @@
     }
 
     _res() {
-      return (window.hkMusic && this._hass)
-        ? window.hkMusic.resolve(this._hass)
+      return (window.hkMusic && this.client)
+        ? window.hkMusic.resolve(this.client)
         : { player: null, context: null, reason: 'none', name: '' };
     }
     _presetFor(entity) {
       return this._presets().filter(function (x) { return x.entity === entity; })[0] || null;
     }
 
-    // ALMOST never re-render from hass. This card shows a SELECTION, and a
+    // ALMOST never re-render from the states. This card shows a SELECTION, and a
     // selection does not change because a track did -- returning a constant
     // (not null, which means "always render") keeps it off the
     // 12-renders-a-second path the base class warns about, and selection
@@ -1889,7 +1898,7 @@
     // whole point of `elsewhere` is that it flips when a room JOINS or LEAVES
     // this page's audio, which can happen with no state change at all.
     _sigOf() {
-      var h = this._hass;
+      var h = this.client;
       if (!h) return 'static';
       var r = this._res();
       var src = this._source();
@@ -1942,7 +1951,7 @@
     // all of its members. For a room it is that room plus whatever is
     // joined to it.
     _hereSet() {
-      var out = {}, h = this._hass, cfg = this._config;
+      var out = {}, h = this.client, cfg = this._config;
       if (!h || !cfg) return out;
       var r = this._res();
       if (r.context) {
@@ -1985,7 +1994,7 @@
       // hkMusic derives them -- ONE derivation for every card on every
       // screen (cards/hk-base.js). It also recognises a sync group by the
       // group's own state rather than by a room list that happens to match.
-      var h = this._hass;
+      var h = this.client;
       if (!h || !this._config || !window.hkMusic) return [];
       return window.hkMusic.contexts(h);
     }
@@ -2030,7 +2039,7 @@
     // Deliberately orthogonal to selection: a room can be selected and playing
     // something else, and that combination is the one worth seeing.
     _playFor(entity, here) {
-      var h = this._hass;
+      var h = this.client;
       var st = h && h.states[entity];
       if (!st || st.state !== 'playing') return '';
       return here[entity] ? 'here' : 'elsewhere';
@@ -2055,12 +2064,12 @@
     // render. Dropping it is the honest half -- the alternative is a
     // selection that says "3 speakers" and plays to two, a silent partial
     // success.
-    // A missing entity also cannot be trusted as a playback target. Once HA
-    // passes hass to a card, its states snapshot is complete; a typo, renamed
+    // A missing entity also cannot be trusted as a playback target. Once the
+    // host hands a card its client, its states snapshot is complete; a typo, renamed
     // entity or removed speaker must be treated as unavailable. MA restarts
     // usually use the explicit `unavailable` state instead.
     _available(entity) {
-      var st = this._hass && this._hass.states[entity];
+      var st = this.client && this.client.states[entity];
       if (!st) return false;
       return st.state !== 'unavailable' && st.state !== 'unknown';
     }
@@ -2083,7 +2092,7 @@
     }
 
     // Seed the Set from what this screen is showing, on first render with a
-    // hass -- and again whenever the focus moves, until the person touches
+    // client -- and again whenever the focus moves, until the person touches
     // the grid (see _touched).
     //
     // FROM THE LIVE GROUP, not just from the leader: with four rooms joined
@@ -2092,7 +2101,7 @@
     // Members this card has no pill for are left out, or the selection could
     // not be cleared by tapping.
     _seed() {
-      if (this._seeded || !this._hass || !this._config) return;
+      if (this._seeded || !this.client || !this._config) return;
       this._seeded = true;
       var r = this._res();
       if (!r.player) return;
@@ -2105,7 +2114,7 @@
       var p = this._presetFor(r.player);
       if (p) { this._sel = new Set(p.entities || []); return; }
       if (!known[r.player]) return;
-      var st = this._hass.states[r.player];
+      var st = this.client.states[r.player];
       var live = ((st && st.attributes && st.attributes.group_members) || [])
         .filter(function (e) { return known[e]; });
       this._sel = new Set(live.length > 1 ? live : [r.player]);
@@ -2195,7 +2204,7 @@
     // card is local and nothing reaches HA until you press something, so the
     // focus resolves to the source and the Set to the destination.
     _source() {
-      if (!this._hass || !this._config) return null;
+      if (!this.client || !this._config) return null;
       return this._res().player || null;
     }
 
@@ -2233,7 +2242,7 @@
     _canTransfer() {
       var src = this._source(), t = this._targets();
       if (!src || !t || !t.length) return false;
-      var st = this._hass && this._hass.states[src];
+      var st = this.client && this.client.states[src];
       if (!st || (st.state !== 'playing' && st.state !== 'paused')) return false;
       // "Add the room it is already in, and nothing else" has no work in it.
       if (t.length === 1 && t[0] === src) return false;
@@ -2363,7 +2372,7 @@
     // one that lights (see _hkLit in _render) -- not one of six that has no
     // tile.
     _play(pl) {
-      if (!this._sel.size || !this._hass) return;
+      if (!this._sel.size || !this.client) return;
       this._playOp = (this._playOp || 0) + 1;
       var expectedOp = this._playOp;
       var self0 = this;
@@ -2385,7 +2394,7 @@
     }
 
     _playNow(pl, requested) {
-      if (!this._hass) return;
+      if (!this.client) return;
       if (!this._requestValid(requested || Array.from(this._sel))) {
         this._requestChanged(); return;
       }
@@ -2464,10 +2473,10 @@
     // THE PRESSED PILL LIGHTS WHILE ITS REQUEST IS IN FLIGHT: the only
     // honest "working on it" is this screen's own request.
     _paintBusy() {
-      var sc = this._scenes || {}, h = this._hass;
+      var sc = this._scenes || {}, h = this.client;
       Object.keys(sc).forEach(function (k) {
         sc[k]._hkSig = null;
-        if (h) sc[k].hkSetHass(h);
+        if (h) feed(sc[k], h);
       });
     }
 
@@ -2912,7 +2921,7 @@
         // A capturing listener on the host runs before the inner handler.
         el.addEventListener('click', function () { if (!el._hkDim) onclick(); }, true);
         this._scenes[key] = el;
-        if (this._hass) el.hkSetHass(this._hass);
+        if (this.client) feed(el, this.client);
       }
       // Dim, do not remove: an empty selection has nothing to play TO, and the
       // row keeping its shape says the playlists are still there.
@@ -2923,16 +2932,16 @@
       return el;
     }
 
-    // The picker never re-renders from hass (see _sigOf), but the pills inside
-    // it are live cards and must still get every hass to light and to draw.
-    set hass(h) {
-      if (window.hkMusic) window.hkMusic.attach(h);
-      Object.getOwnPropertyDescriptor(HkBase.prototype, 'hass').set.call(this, h);
+    // The picker never re-renders from the states (see _sigOf), but the pills inside
+    // it are live cards and must still get every client to light and to draw.
+    _receiveClient() {
+      var c = this.client;
+      if (window.hkMusic) window.hkMusic.attach(c);
+      super._receiveClient();
       var sc = this._scenes || {};
-      Object.keys(sc).forEach(function (k) { sc[k].hkSetHass(h); });
+      Object.keys(sc).forEach(function (k) { feed(sc[k], c); });
       this._subNotes();
     }
-    get hass() { return this._hass; }
 
     // ---- WHAT THE MUSIC ENGINE SAID, SHOWN WHERE THE PRESS WAS MADE --------
     //
@@ -2952,7 +2961,7 @@
     // the tablet is never left holding a message it cannot clear.
     //
     // A websocket SUBSCRIPTION rather than a state read: persistent
-    // notifications have not been entities since 2023.6, so hass.states
+    // notifications have not been entities since 2023.6, so the client's states
     // cannot see them. The subscription is tied to connection, both edges,
     // like the library's back listener, and home-assistant-js-websocket
     // re-subscribes it by itself after a reconnect.
@@ -2972,7 +2981,7 @@
           // (which lands here) BEFORE it writes its own message, so this
           // never erases the one it is about.
           self._notice = '';
-          if (self._hass && self._config) self.redraw();
+          if (self.client && self._config) self.redraw();
         });
       }
     }

@@ -57,5 +57,16 @@ ok('nothing playing: no calls', U.volumeCalls(null, presets, 0.5).length === 0);
      /requestAnimationFrame\(function \(\) \{ mu\.classList\.remove\('relay'\); \}\)/.test(src));
 })();
 
+// THE LIBRARY INSIDE THE PAGE gets what goes with each new client, through the host
+// adapter's bridge (in HA, the frontend's object, which an HkBase card turns back
+// into the same client).
+(function () {
+  var card = new (customElements.get('hk-music-card'))(), lib = {}, host = { states: {} };
+  card._lib = lib;
+  card.hass = host;
+  ok('the library card is handed the object that goes with the page\'s client', lib.hass === host);
+  ok('...and the page\'s client is that object\'s client', card.client === window.hkHostClient.from(host));
+})();
+
 print('\n' + (fail ? fail + ' FAILED, ' : 'ALL ') + pass + ' MUSIC PAGE TESTS PASS');
 if (fail) throw new Error(fail + ' failed');

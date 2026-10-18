@@ -130,6 +130,15 @@ ok('falling edge (trigger_close default) removes the hash', location.hash, '');
 ok('  closes', media._open, false);
 ok('  and runs close_action, as Bubble Card does', media.acts.length, 1);
 
+print('=== a client handed over directly (as Mantel does) drives the trigger the same way ===');
+go('');
+var direct = popup({ hash: '#direct', trigger: T });
+direct.client = window.hkHostClient.from({ states: { m: st('idle') } });
+ok('idle client: stays shut', location.hash, '');
+direct.client = window.hkHostClient.from({ states: { m: st('playing') } });
+ok('playing client: the rising edge sets the hash', location.hash, '#direct');
+go('');
+
 print('=== a bar arriving with its page opens in place; one coming up on it slides ===');
 // (_show reads _settled: false = part of the page appearing -> no slide)
 go('');
