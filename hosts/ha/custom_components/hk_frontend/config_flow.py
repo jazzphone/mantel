@@ -36,7 +36,7 @@ from . import features as F
 from . import files
 from . import lovelace_boards
 from . import settings as S
-from .const import CONF_FILES_FOLDER, DEFAULT_FILES_FOLDER, DOMAIN
+from .const import CONF_FILES_FOLDER, CONF_MANTEL_LINK, DEFAULT_FILES_FOLDER, DOMAIN
 from .features import alarm_pin, clean_areas, energy, live_tv, music, notifications
 from .features.music.const import SUB_PLAYLIST, SUB_PRESET
 from .features.music.flows import PlaylistFlow, PresetFlow
@@ -556,7 +556,7 @@ class PopupSubentryFlow(ConfigSubentryFlow):
 
 class HkOptionsFlow(OptionsFlow):
     """Configure, the way to the HK Settings page: a menu of the page's link
-    and sidebar switch, Your files and Setup check.
+    and sidebar switch, Your files, Linked to Mantel Server and Setup check.
     Each page saves only its own key and comes back to the menu; Done closes."""
 
     PAGES = {"panel": "HK Settings page", "files": "Your files"}
@@ -577,7 +577,7 @@ class HkOptionsFlow(OptionsFlow):
         from .panel import URL_PATH
         saved = f"Saved: {self._saved}." if self._saved else ""
         return self.async_show_menu(
-            step_id="init", menu_options=["panel", "files", "check", "done"],
+            step_id="init", menu_options=["panel", "files", "linked", "check", "done"],
             description_placeholders={"saved": saved, "url": f"/{URL_PATH}"})
 
     async def async_step_init(self, user_input: dict[str, Any] | None = None
@@ -612,6 +612,46 @@ class HkOptionsFlow(OptionsFlow):
                                             S.boards(self.config_entry))
         return self.async_show_form(step_id="check", data_schema=vol.Schema({}),
                                     description_placeholders={"report": setup_check.report(lines)})
+
+    async def async_step_linked(self, user_input: dict[str, Any] | None = None
+                                ) -> ConfigFlowResult:
+        """Linked to Mantel Server (linked_mode.py): off unless switched on
+        here. On, it needs Mantel Server's address and a Service credential
+        (Mantel's `mantel-server service-account create --scope linked`).
+        The credential is kept in the entry's data -- on disk in Home
+        Assistant's .storage, like any integration's token -- and never shown
+        again: left empty, the one already saved is kept. Any change reloads
+        the entry, into or out of linked mode."""
+        from . import linked_mode
+        entry = self.config_entry
+        now = linked_mode.link_of(entry)
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            data = dict(entry.data)
+            if not user_input.get("enabled"):
+                data.pop(CONF_MANTEL_LINK, None)
+            else:
+                url = str(user_input.get("url") or "").strip()
+                token = str(user_input.get("token") or "").strip() or (now or {}).get("token", "")
+                if bad := linked_mode.check_url(url):
+                    errors["url"] = bad
+                if not token:
+                    errors["token"] = "mantel_token_required"
+                if not errors:
+                    data[CONF_MANTEL_LINK] = {"url": url, "token": token}
+            if not errors:
+                if data != dict(entry.data):
+                    # the entry's update listener reloads it, into or out of
+                    # linked mode (__init__.updated, linked_mode.async_setup_entry)
+                    self.hass.config_entries.async_update_entry(entry, data=data)
+                self._saved = "Linked to Mantel Server"
+                return self._menu()
+        return self.async_show_form(step_id="linked", errors=errors, data_schema=vol.Schema({
+            vol.Optional("enabled", default=now is not None): bool,
+            vol.Optional("url", default=(now or {}).get("url", "")): str,
+            vol.Optional("token", default=""): sel.TextSelector(
+                sel.TextSelectorConfig(type=sel.TextSelectorType.PASSWORD)),
+        }), description_placeholders={"state": "linked" if now else "not linked"})
 
     async def async_step_files(self, user_input: dict[str, Any] | None = None
                                ) -> ConfigFlowResult:

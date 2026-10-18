@@ -13,6 +13,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 
 from . import files
+from . import linked_mode
 from . import settings as dash_settings
 
 REDACT = {"hash", "salt", "birthdays"}
@@ -40,4 +41,8 @@ async def async_get_config_entry_diagnostics(hass: HomeAssistant, entry: ConfigE
         # files folder, "bundled:..." the integration's own, None is missing.
         "files": await hass.async_add_executor_job(files.status, hass),
         "features": feats,
+        # Linked to Mantel Server (linked_mode.py): whether, where to, and
+        # whether connected -- never the credential, which is in the entry's
+        # data, not its options
+        "linked": linked_mode.diagnostics(hass, entry),
     }

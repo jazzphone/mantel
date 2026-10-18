@@ -93,6 +93,11 @@ and talk endpoints (EXPOSURE) and the features' actions.
 The features -- Music, Live TV, Clean Areas and Alarm PIN -- are items added
 with Add feature (features/); the entry starts them and follows them. The
 cards find them by their actions and feeds only. See docs/Features.md.
+
+LINKED TO MANTEL SERVER (linked_mode.py, mantel_link.py; Configure, off by
+default): a house that moved HK to Mantel Server keeps the same actions and
+entities here, forwarded to and pushed from Mantel. While the entry's data
+holds no link, none of it runs.
 """
 
 import asyncio
@@ -117,6 +122,7 @@ from . import features as F
 from . import files
 from . import hk_panel
 from . import kinds
+from . import linked_mode
 from . import panel
 from . import rename
 from . import resources
@@ -239,6 +245,11 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     # place: a screen on another page, or asleep, is the automation's own
     # business (a Fully Kiosk load_url with the pop-up's #hash does both).
     async def show_popup(call: ServiceCall) -> None:
+        # LINKED TO MANTEL SERVER (linked_mode.py): the pop-ups and the
+        # screens are Mantel's; the call goes there as made
+        if (linked := linked_mode.active(hass)) is not None:
+            await linked.forward("show_popup", call.data)
+            return
         hash_ = str(call.data["popup"]).strip().lstrip("#").lower()
         known = {p["hash"] for p in dash_settings.popups(_entry(hass))}
         if hash_ not in known:
@@ -262,6 +273,9 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     # Fully Kiosk load_url, which a kiosk without one (Kiosk Satellite) cannot
     # do. The same screens as Show pop-up; a screen not showing it ignores it.
     async def close_popup(call: ServiceCall) -> None:
+        if (linked := linked_mode.active(hass)) is not None:
+            await linked.forward("close_popup", call.data)
+            return
         hash_ = str(call.data["popup"]).strip().lstrip("#").lower()
         async_dispatcher_send(hass, SIGNAL_POPUP, {
             "type": "popup_close", "popup": hash_,
@@ -376,6 +390,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                       "the HK Frontend entry (see the log above). Delete it in Settings -> Devices & services, "
                       "then add the feature again from HK Frontend -> Add feature", entry.title)
         return False
+    # LINKED TO MANTEL SERVER (linked_mode.py, off unless Configure set it):
+    # the same actions and entities, Mantel's; nothing below runs
+    if linked_mode.configured(entry):
+        return await linked_mode.async_setup_entry(hass, entry, PLATFORMS)
 
     @callback
     def changed(*_args: Any) -> None:
@@ -416,6 +434,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         # with it: they only mark it, and it goes round once more if one came
         # while it worked. Its first step yields once, so the writes the same
         # handler makes right after (synchronously) are in before it reads.
+        # linked to Mantel Server just now (Configure): start again, linked
+        if linked_mode.configured(entry):
+            hass.config_entries.async_schedule_reload(entry.entry_id)
+            return
         if pass_state["running"]:
             pass_state["again"] = True
             return
@@ -512,6 +534,9 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     keeps answering from the options."""
     if F.kind_of(entry) != F.FRONTEND:
         return True
+    linked = linked_mode.active(hass)
+    if linked is not None and linked.entry is entry:
+        return await linked_mode.async_unload_entry(hass, entry, PLATFORMS)
     # The platforms first: a failed unload leaves the entry loaded, and it must
     # then still have its settings page (it used to lose it first).
     ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)

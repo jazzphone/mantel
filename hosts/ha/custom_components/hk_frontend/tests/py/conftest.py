@@ -47,6 +47,12 @@ except ImportError:
 
 DOMAIN = "hk_frontend"
 
+# LINKED MODE END TO END (test_linked_e2e.py) runs this integration against
+# Mantel Server's own linked endpoint, so it needs a Mantel checkout: the
+# Mantel repository's suite runs it with MANTEL_ROOT set. Elsewhere (the
+# published repository) it is not collected.
+collect_ignore = [] if os.environ.get("MANTEL_ROOT") else ["test_linked_e2e.py"]
+
 
 @pytest.fixture(autouse=True)
 def auto_enable_custom_integrations(enable_custom_integrations):
