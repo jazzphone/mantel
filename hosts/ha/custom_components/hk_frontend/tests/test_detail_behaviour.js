@@ -275,7 +275,7 @@ HA.hass = H0;
   card.setConfig({ entity: 'sensor.t' });
   var stale = house({ 'sensor.t': ['60', {}] });
   card.hass = stale;
-  ok('hkCards.hass() prefers <home-assistant> over whatever an hk card saw last', C.hass() === H0);
+  ok('hkCards.client() prefers <home-assistant>\'s over whatever an hk card saw last', C.client() === window.hkHostClient.from(H0));
 })();
 resetHistory(); __resetTimers();
 ok('open() takes the sheet', D.open('light.a', {}) === true && _.state().el);
@@ -1092,7 +1092,7 @@ print('\n=== the sheet reads through the client (Phase 1 slice 5) ===');
   ok('its panel reads through that client', d.panel.client === HC.from(h) && d.panel._stateObj === h.states['light.c']);
   // Phase 1 slice 6: its controls act through the client's action port, so
   // the panel is shown the client alone (no host input, no bridge)
-  ok('its panel is shown the client alone, no host input', d.panel.hass === null && d.panel.client.actions === HC.from(h).actions);
+  ok('its panel is shown the client alone, no host input', d.panel.hass == null && d.panel.client.actions === HC.from(h).actions);
   ok('the header icon was bound through the client (the adapter hands the icon its host)', d.icon.stateObj === h.states['light.c'] && d.icon.hass === h);
   var h2 = house({ 'light.c': ['on', { supported_color_modes: ['brightness'], brightness: 255, friendly_name: 'Lamp' }, 'c2'] });
   HA.hass = h2;
@@ -1122,7 +1122,7 @@ print('\n=== the sheet reads through the client (Phase 1 slice 5) ===');
   try {
     ok('a read-only client opens a sheet', D.open('light.ro', {}) === true);
     var r = _.state();
-    ok('...whose panel reads the client and holds no host input', r.panel.client === ro && r.panel.hass === null &&
+    ok('...whose panel reads the client and holds no host input', r.panel.client === ro && r.panel.hass == null &&
        r.panel._stateObj === states['light.ro']);
     ok('...with its icon bound by the client\'s own port', icons > 0 && r.icon.stateObj === states['light.ro'] && !r.icon.hass);
     r.panel._svc('light', 'turn_off');

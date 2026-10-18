@@ -43,7 +43,7 @@ function actor(cfg) {
   calls = []; fired = [];
   var c = Object.create(HkBase.prototype);
   c._config = cfg;
-  c._hass = { states: {}, callService: function (d, s, data) { calls.push(d + '.' + s); calls.push(data); } };
+  hkGive(c, { states: {}, callService: function (d, s, data) { calls.push(d + '.' + s); calls.push(data); } });
   c.dispatchEvent = function (e) { fired.push(e.type); };
   return c;
 }
@@ -58,12 +58,12 @@ print('=== never a one-tap toggle: doors, the alarm, the water, the heat ===');
  ['climate.downstairs_ecobee_thermostat', {}], ['water_heater.wh', {}], ['cover.garage_door', { device_class: 'garage' }]
 ].forEach(function (x) {
   var t = actor({ entity: x[0] });
-  t._hass.states[x[0]] = { entity_id: x[0], state: 'closed', attributes: x[1] };
+  t.hass.states[x[0]] = { entity_id: x[0], state: 'closed', attributes: x[1] };
   t._act({ action: 'toggle' }, false);
   ok(x[0] + ': toggle opens detail, calls nothing', [calls.length, fired[0]], [0, 'hass-more-info']);
 });
 var sh = actor({ entity: 'cover.living_room_shades' });
-sh._hass.states['cover.living_room_shades'] = { entity_id: 'cover.living_room_shades', state: 'open', attributes: { device_class: 'shade' } };
+sh.hass.states['cover.living_room_shades'] = { entity_id: 'cover.living_room_shades', state: 'open', attributes: { device_class: 'shade' } };
 sh._act({ action: 'toggle' }, false);
 ok('a shade still toggles', calls[0], 'homeassistant.toggle');
 var cf = actor({ entity: 'lock.front_door_lock' });

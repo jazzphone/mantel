@@ -15,8 +15,8 @@ function keypad(reply) {
   k._config = { entity: 'alarm_control_panel.p' };
   k._code = '1234'; k._msg = '';
   k.calls = [];
-  k._hass = { states: { 'alarm_control_panel.p': { state: 'armed_away', attributes: {} } },
-              callService: function (d, s, data) { k.calls.push([d, s, data]); return reply(); } };
+  hkGive(k, { states: { 'alarm_control_panel.p': { state: 'armed_away', attributes: {} } },
+              callService: function (d, s, data) { k.calls.push([d, s, data]); return reply(); } });
   k._paint = function () {};
   return k;
 }
@@ -39,7 +39,7 @@ ok('an accepted code shows nothing', k3._msg === '');
 // A SILENT panel (template panel checking the code itself): the optional
 // indicator, turned on by the house's own automation, still reads as wrong.
 var k4 = keypad(function () { return Promise.resolve(); });
-k4._hass.states['input_boolean.alarm_keypad_bad_code'] = { state: 'on', attributes: {} };
+k4.hass.states['input_boolean.alarm_keypad_bad_code'] = { state: 'on', attributes: {} };
 var read = { attrs: {}, setAttribute: function (a, v) { this.attrs[a] = v; }, querySelector: function () { return span; } };
 var span = { textContent: '' };
 k4._root = { querySelector: function () { return read; } };
@@ -64,7 +64,7 @@ function stubRoot() {
   return { read: read, parts: parts, root: { querySelector: function () { return read; } } };
 }
 var k5 = keypad(function () { return Promise.resolve(); });
-k5._hass.states['alarm_control_panel.p'] = { state: 'armed_away', attributes: {}, last_updated: 't' };
+k5.hass.states['alarm_control_panel.p'] = { state: 'armed_away', attributes: {}, last_updated: 't' };
 k5._config.entity = 'alarm_control_panel.p'; k5._code = '';
 var r5 = stubRoot(); k5._root = r5.root; delete k5._paint;
 K.prototype._paint.call(k5);

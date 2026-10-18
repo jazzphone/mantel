@@ -1816,7 +1816,7 @@
     if (GLASS.has(card) && window.hkGlass && window.hkGlass.rendered) window.hkGlass.rendered(card);
   }
 
-  // THE HASS HUB: the newest hass object any card was handed,
+  // THE CLIENT HUB: the newest client any card was handed,
   // for things that are not cards and so are never handed one -- the detail
   // sheets (hk-detail.js) live outside the dashboard and still need every
   // state change. The frontend passes every card the SAME object per update,
@@ -1857,32 +1857,9 @@
     CLIENT_HUB.fns.add(fn);
     return function () { CLIENT_HUB.fns.delete(fn); };
   };
-  // Legacy listeners remain for card families whose actions still need the host input.
-  var HUB = { last: null, fns: new Set() };
-  function hubSeen(h) {
-    if (!h || h === HUB.last) return;
-    HUB.last = h;
-    clientSeen(window.hkHostClient.from(h));
-    HUB.fns.forEach(function (fn) {
-      try { fn(h); } catch (e) { console.error('[hk-cards] hass listener', e); }
-    });
-  }
-  // for a card whose own `set hass` does not call HkBase's (hk-camera-mosaic-card)
-  window.hkCards.seen = hubSeen;
-  window.hkCards.onHass = function (fn) {
-    HUB.fns.add(fn);
-    return function () { HUB.fns.delete(fn); };
-  };
-  // THE ROOT ELEMENT FIRST. The hub is only as fresh as the hk cards on the
-  // screen: on a view or dashboard with none (Home Assistant's own cards) it
-  // keeps whatever the last hk card saw -- a sheet opened there can be 70 s
-  // stale and never move. <home-assistant>
-  // holds the frontend's current object always; the hub is the fallback for
-  // a page without one (the test harness).
-  window.hkCards.hass = function () {
-    var ha = window.hkShell.root();
-    return (ha && ha.hass) || HUB.last;
-  };
+  // A card's entry (the host adapter's hkHostClient.entry) reports each object
+  // the host hands it: the hub moves on to its client.
+  window.hkCards.seen = function (input) { clientSeen(asClient(input)); };
 
   class HkBase extends HTMLElement {
     constructor() {
@@ -1899,7 +1876,6 @@
       }
       this._root = document.createElement('div');
       this.shadowRoot.append(this._root);
-      this._hass = null;
       this._clientExplicit = false;
       this._hkClient = null;
       this._hkSig = null;
@@ -1922,9 +1898,9 @@
 
     // RE-RENDER GATING, IN THE BASE CLASS, BY DEFAULT.
     //
-    // `set hass(h) { this._hass = h; this._render(); }` would render on
+    // Rendering on every new object the host hands a card would render on
     // EVERY state change in the house. MEASURED on a wall tablet: the
-    // frontend hands a card a new hass object ~12x a second, and about 1% of
+    // frontend hands a card a new object ~12x a second, and about 1% of
     // those change what a given card shows. Rendering on all of them is ~90x
     // the work, so a card without gating makes the tablets
     // SLOWER. That is why this lives here and not in each card: it has to be
@@ -1932,17 +1908,17 @@
     //
     // _hkSig, not _sig: HkTimersCard already keeps its own _sig inside
     // _render(), and the two must not collide.
-    set hass(h) {
-      // Compatibility/action bridge for unmigrated card families.
-      this._hass = h;
+    //
+    // LOVELACE'S ENTRY is the host adapter's (hkHostClient.entry(HkBase),
+    // below the class): it keeps the object, reports it to the hub, and calls
+    // _onClient with its client. A card is otherwise handed a client directly.
+    _onClient() {
       this._clientExplicit = false;
-      hubSeen(h);
       this._receiveClient();
     }
-    get hass() { return this._hass; }
 
     get client() {
-      return this._clientExplicit ? this._hkClient : window.hkHostClient.from(this._hass);
+      return this._clientExplicit ? this._hkClient : (this._hkEntryClient || null);
     }
     set client(value) {
       this._clientExplicit = true;
@@ -2939,6 +2915,8 @@
   window.hkCards.scrub = scrub;
   window.hkCards.artJson = artJson;
   window.hkCards.sentenceCase = sentenceCase;
+  // Lovelace's entry for every HkBase card, through the host adapter (loaded first)
+  window.hkHostClient.entry(HkBase);
   window.hkCards.HkBase = HkBase;
 
   // ------------------------------------------- ON SOMEONE ELSE'S DASHBOARD

@@ -36,7 +36,7 @@ function st(id, state, attrs) {
 function card(Ctor, cfg, states) {
   var c = Object.create(Ctor.prototype);
   c._config = cfg;
-  c._hass = { states: states || {} };
+  hkGive(c, { states: states || {} });
   return c;
 }
 function label(cfg, stateObj, states) {
@@ -341,7 +341,7 @@ print('\n=== a button tile lights for a moment when tapped ===');
 function pressable(entity, accept) {
   var c = Object.create(Tile.prototype), calls = [];
   c._config = { entity: entity, tap_action: { action: 'perform-action', perform_action: 'button.press', target: { entity_id: entity } } };
-  c._hass = { states: {}, callService: function (d, s, data) { calls.push(d + '.' + s); return accept ? Promise.resolve() : Promise.reject(new Error('no')); } };
+  hkGive(c, { states: {}, callService: function (d, s, data) { calls.push(d + '.' + s); return accept ? Promise.resolve() : Promise.reject(new Error('no')); } });
   c._render = function () {};
   c.calls = calls;
   return c;
@@ -405,7 +405,7 @@ var Vac = customElements.get('hk-vacuum-card');
 function vsig(vs) {
   var c = Object.create(Vac.prototype);
   c._config = { entity: 'vacuum.v' };
-  c._hass = { states: { 'vacuum.v': vs } };
+  hkGive(c, { states: { 'vacuum.v': vs } });
   return c._sigOf();
 }
 var v1 = { entity_id: 'vacuum.v', state: 'docked', attributes: { battery_level: 40 }, last_updated: 't1' };

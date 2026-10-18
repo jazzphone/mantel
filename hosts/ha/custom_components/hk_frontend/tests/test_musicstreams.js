@@ -114,7 +114,7 @@ var Card = customElements.get('hk-music-card');
 function page(h, mine) {
   var p = Object.create(Card.prototype);
   var house = document.createElement('div');
-  p._hass = h; p._e = { house: house };
+  hkGive(p, h); p._e = { house: house };
   p._M = function () { return M; };
   p._targetRooms = function () { return [e('kitchen')]; };
   p._artImage = function () {};

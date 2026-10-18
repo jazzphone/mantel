@@ -34,7 +34,7 @@ H.run('HKCLIENT', [function () {
   card.client = window.hkClient.create(port);
   H.eq('hostless card uses the client formatter', H.part(card._root, '.state').textContent, 'Reading: 21.4');
   H.eq('hostless card preserves caption', H.part(card._root, '.name').textContent, 'Demo');
-  H.ok('hostless card never received a raw host object', card._hass === null);
+  H.ok('hostless card never received a raw host object', card.hass == null);
   H.ok('hostless icon delegated to the port', icons > 0);
   H.ok('shared card receives no raw host through the port', !H.part(card._root, '.icon').hass);
   var oldSig = card._sigOf();

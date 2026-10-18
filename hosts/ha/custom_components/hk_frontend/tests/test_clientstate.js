@@ -18,7 +18,7 @@ H.run('CLIENT STATE', [function () {
   card.setConfig({ entity: 'sensor.demo' });
   card.client = client('1', 'a', '1');
   H.eq('client supplies base state lookup', card.value.state, '1');
-  H.ok('raw host never assigned', card._hass === null);
+  H.ok('raw host never assigned', card.hass == null);
   var count = card.draws;
   card.client = client('1', 'a', '2');
   H.eq('unrelated entity does not redraw', card.draws, count);

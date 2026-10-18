@@ -41,7 +41,7 @@ ok('floors written out: as written, and never asks', fixed._auto === false && fi
 var got = null, asked = null;
 var c = card({});
 Object.defineProperty(c, 'isConnected', { value: true });
-c._hass = hassWith(function (fn, msg) { got = fn; asked = msg; return Promise.resolve(function () {}); });
+hkGive(c, hassWith(function (fn, msg) { got = fn; asked = msg; return Promise.resolve(function () {}); }));
 ok('while Clean Areas has not answered: nothing drawn yet (not "no rooms")', c._floors() === null);
 c._sigOf(); drainMicrotasks();
 ok('it asks Clean Areas for the offered areas', asked && asked.type === 'hk_clean_areas/subscribe');
@@ -57,21 +57,21 @@ AREAS.den.name = 'Family Room';
 ok('a renamed area changes the signature (it redraws)', c._sigOf() !== s1);
 AREAS.den.name = 'Den';
 var subs = 0;
-c._hass = hassWith(function () { subs++; return Promise.resolve(function () {}); });
+hkGive(c, hassWith(function () { subs++; return Promise.resolve(function () {}); }));
 c._sigOf(); c._sigOf();
 ok('one subscription, not one per hass push', subs === 0);
 
 // THE ORDER within a floor: the card's `order:`, else the screen's Room
 // order when it is used on pages, else A to Z
 var o1 = card({ order: ['kitchen', 'den'] });
-o1._hass = hassWith(function () { return Promise.resolve(function () {}); });
+hkGive(o1, hassWith(function () { return Promise.resolve(function () {}); }));
 o1._offer = { configured: true, areas: ['den', 'kitchen', 'loft', 'attic'] };
 ok('the card’s own order: Kitchen before Den', o1._floors()[0].areas.map(function (a) { return a.id; }).join() === 'kitchen,den');
 ok('...a room not in it follows, A to Z', o1._floors()[1].areas.map(function (a) { return a.id; }).join() === 'attic,loft');
 var saved = globalThis.hkCards;
 globalThis.hkCards = Object.assign({}, saved || {}, { menu: { board: function () { return { page_rooms: 'order', room_order: ['loft', 'kitchen', 'den'] }; } } });
 var o2 = card({});
-o2._hass = o1._hass; o2._offer = o1._offer;
+hkGive(o2, o1.hass); o2._offer = o1._offer;
 ok('no order on the card: the screen’s Room order', o2._floors()[1].areas.map(function (a) { return a.id; }).join() === 'loft,attic' &&
    o2._floors()[0].areas.map(function (a) { return a.id; }).join() === 'kitchen,den');
 var s2 = o2._sigOf();
@@ -81,7 +81,7 @@ globalThis.hkCards = saved;
 
 // a room no longer offered is no longer selected
 var r = card({});
-r._hass = hassWith(function () { return Promise.resolve(function () {}); });
+hkGive(r, hassWith(function () { return Promise.resolve(function () {}); }));
 r._offer = { configured: true, areas: ['kitchen'] };
 r._sel = new Set(['kitchen', 'loft']);
 r._render = customElements.get('hk-area-select-card').prototype._render;
@@ -95,13 +95,13 @@ ok('a selected room that is no longer offered is dropped', r._sel.size === 1 && 
 // {configured: false}.
 var m = card({});
 Object.defineProperty(m, 'isConnected', { value: true });
-m._hass = hassWith(function (fn) { fn({ configured: false, areas: [] }); return Promise.resolve(function () {}); });
+hkGive(m, hassWith(function (fn) { fn({ configured: false, areas: [] }); return Promise.resolve(function () {}); }));
 m._sigOf(); drainMicrotasks();
 // REFUSED (a screen that reconnected before Home Assistant registered the
 // command, after a restart): asked again, never given up on for the page's life.
 var rf = card({}), tries = 0;
 Object.defineProperty(rf, 'isConnected', { value: true });
-rf._hass = hassWith(function () { tries++; return Promise.reject({ code: 'unknown_command' }); });
+hkGive(rf, hassWith(function () { tries++; return Promise.reject({ code: 'unknown_command' }); }));
 var warn = console.warn; console.warn = function () {};
 rf._sigOf(); drainMicrotasks(); rf._sigOf(); rf._sigOf(); drainMicrotasks();
 var once = tries;
@@ -113,12 +113,12 @@ var done = Promise.resolve().then(function () {}).then(function () {}).then(func
   ok('a refused subscribe is not repeated on every hass push', once === 1, once);
   ok('...but is asked again (the restart window), not dropped for good', tries >= 2, tries);
   var ms = card({ start_script: 'script.clean_rooms' });
-  ms._hass = m._hass; ms._offer = { configured: false, areas: [] };
+  hkGive(ms, m.hass); ms._offer = { configured: false, areas: [] };
   ok('...a house’s own clean script still gets every area', ms._floors().reduce(function (n, x) { return n + x.areas.length; }, 0) === 5);
   // leaving the page ends it, through the same helper
   var closed = card({}), live = 0;
   Object.defineProperty(closed, 'isConnected', { value: true, configurable: true });
-  closed._hass = hassWith(function () { live++; return Promise.resolve(function () { live--; return Promise.reject({ code: 'not_found' }); }); });
+  hkGive(closed, hassWith(function () { live++; return Promise.resolve(function () { live--; return Promise.reject({ code: 'not_found' }); }); }));
   closed._sigOf(); drainMicrotasks();
   closed.disconnectedCallback(); drainMicrotasks();
   ok('leaving the page ends the subscription (a refused unsubscribe is not an error)', live === 0 && !closed._areaSub, live);

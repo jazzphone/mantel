@@ -145,7 +145,7 @@ check('every HkBase connectedCallback override chains to super ('
   if (!customElements.get('hk-alarm-keypad-card')) { check('alarm keypad card is registered', false); return; }
   var h = hassThat('ok'), got = null;
   h.callService = function (d, s, data) { h.sent.push(d + '.' + s); got = data; return Promise.resolve({}); };
-  kp._hass = h; kp._code = '1234';
+  hkGive(kp, h); kp._code = '1234';
   var err = null;
   try { kp._alarm('alarm_disarm'); } catch (e) { err = e; }
   check('keypad Disarm does not throw', err === null);
@@ -156,7 +156,7 @@ check('every HkBase connectedCallback override chains to super ('
   check('keypad clears the code after sending', kp._code === '');
 
   var tm = card('hk-timers-card', {});
-  var th = hassThat('ok'); tm._hass = th; err = null;
+  var th = hassThat('ok'); hkGive(tm, th); err = null;
   try { tm._timer('timer.quick_1', 'pause'); } catch (e) { err = e; }
   check('timers pause does not throw', err === null);
   check('timers pause sends timer.pause', th.sent.length === 1 && th.sent[0] === 'timer.pause');
@@ -164,7 +164,7 @@ check('every HkBase connectedCallback override chains to super ('
 
 // --- the shared helper ---------------------------------------------------
 var base = card('hk-tile-card', { entity: 'light.x' });
-base._hass = hassThat('reject');
+hkGive(base, hassThat('reject'));
 logged.length = 0;
 var boolOnFail = null, boolOnOk = null;
 base._call('light', 'turn_on', { entity_id: 'light.x' }).then(function (v) { boolOnFail = v; });
@@ -176,13 +176,13 @@ tick().then(function () {
   // A callService that throws SYNCHRONOUSLY must not take the tap handler
   // down with it.
   var threw = false;
-  base._hass = hassThat('throw');
+  hkGive(base, hassThat('throw'));
   logged.length = 0;
   try { base._call('a', 'b', {}); } catch (e) { threw = true; }
   return tick().then(function () {
     check('a synchronous throw becomes a rejection, not an exception', !threw);
     check('the synchronous throw is logged too', logged.length === 1);
-    base._hass = hassThat('ok');
+    hkGive(base, hassThat('ok'));
     return base._call('x', 'y', {}).then(function (v) { boolOnOk = v; }).then(function () {
     check('an accepted call resolves true', boolOnOk === true);
 
@@ -192,7 +192,7 @@ tick().then(function () {
     kp._paint = function () {};
     kp._parse = function () { return { total: 5400 }; };
 
-    kp._hass = hassThat('reject');
+    hkGive(kp, hassThat('reject'));
     kp._start();
     return tick().then(function () {
       check('a failed timer keeps the digits', kp._digits === '130');
@@ -200,7 +200,7 @@ tick().then(function () {
       check('a failed timer releases the busy latch', kp._busy === false);
 
       // Same card, working backend: NOW it clears.
-      kp._hass = hassThat('ok');
+      hkGive(kp, hassThat('ok'));
       kp._start();
       return tick().then(function () {
         check('a successful timer clears the digits', kp._digits === '');
@@ -213,7 +213,7 @@ tick().then(function () {
         var kp2 = card('hk-timer-new-card', {});
         kp2._digits = '15'; kp2._name = ''; kp2._paint = function () {};
         kp2._parse = function () { return { total: 900 }; };
-        kp2._hass = slow;
+        hkGive(kp2, slow);
         kp2._start(); kp2._start(); kp2._start();
         check('three taps during one flight send one call', slow.sent.length === 1);
         slow._res({});
@@ -224,13 +224,13 @@ tick().then(function () {
           var vac = card('hk-area-select-card', { floors: [], start_script: 'script.clean' });
           vac._sel = new Set(['kitchen', 'office', 'loft']);
           vac._render = function () {};
-          vac._hass = hassThat('reject');
+          hkGive(vac, hassThat('reject'));
           vac._start();
           return tick().then(function () {
             check('a failed clean keeps all three areas selected', vac._sel.size === 3);
             check('a failed clean releases the busy latch', vac._busy === false);
 
-            vac._hass = hassThat('ok');
+            hkGive(vac, hassThat('ok'));
             vac._start();
             return tick().then(function () {
               check('a successful clean clears the selection', vac._sel.size === 0);
@@ -243,10 +243,10 @@ tick().then(function () {
               vac2._sel = new Set(['kitchen', 'loft']);
               vac2._render = function () {};
               var asked = null;
-              vac2._hass = { states: {}, services: { hk_frontend: { clean_areas: {} } }, callService: function (d, s, data, t, n, want) {
+              hkGive(vac2, { states: {}, services: { hk_frontend: { clean_areas: {} } }, callService: function (d, s, data, t, n, want) {
                 asked = [d + '.' + s, data, want];
                 return Promise.resolve({ response: { ok: true, plan: [], unreachable: [] } });
-              } };
+              } });
               vac2._start();
               return tick().then(function () {
                 check('no script: Clean Areas (hk_frontend.clean_areas), asking for the answer',
@@ -256,9 +256,9 @@ tick().then(function () {
                 var vac3 = card('hk-area-select-card', { floors: [] });
                 vac3._sel = new Set(['attic']);
                 vac3._render = function () {};
-                vac3._hass = { states: {}, services: { hk_frontend: { clean_areas: {} } }, callService: function () {
+                hkGive(vac3, { states: {}, services: { hk_frontend: { clean_areas: {} } }, callService: function () {
                   return Promise.resolve({ response: { ok: false, message: 'No vacuum can reach the selected areas.' } });
-                } };
+                } });
                 vac3._start();
                 return tick().then(function () {
                   check('an area no vacuum reaches keeps the selection and says so',
@@ -276,14 +276,14 @@ tick().then(function () {
                   var vac4 = card('hk-area-select-card', { floors: [] });
                   vac4._sel = new Set(['kitchen', 'loft', 'office']);
                   vac4._render = function () {};
-                  vac4._hass = { states: {}, services: { hk_frontend: { clean_areas: {} } }, callService: function () {
+                  hkGive(vac4, { states: {}, services: { hk_frontend: { clean_areas: {} } }, callService: function () {
                     return Promise.resolve({ response: { ok: false,
                       plan: [{ vacuum: 'vacuum.down', action: 'clean_area', areas: ['kitchen'] },
                              { vacuum: 'vacuum.up', action: 'clean_area', areas: ['loft'] },
                              { vacuum: 'vacuum.office', action: 'start', areas: ['office'] }],
                       failed: [{ vacuum: 'vacuum.up', error: 'busy' }],
                       message: 'Some vacuums did not start: vacuum.up' } });
-                  } };
+                  } });
                   vac4._start();
                   return tick().then(function () {
                     check('a partly failed clean keeps only the failed vacuum\'s areas',
@@ -294,9 +294,9 @@ tick().then(function () {
                     var vac5 = card('hk-area-select-card', { floors: [] });
                     vac5._sel = new Set(['kitchen']);
                     vac5._render = function () {};
-                    vac5._hass = { states: {}, services: { hk_frontend: { clean_areas: {} } }, callService: function () {
+                    hkGive(vac5, { states: {}, services: { hk_frontend: { clean_areas: {} } }, callService: function () {
                       return Promise.reject({ code: 'service_validation_error', message: 'HK Frontend is not loaded.' });
-                    } };
+                    } });
                     vac5._start();
                     return tick().then(function () {
                       check('a refusal by Home Assistant is shown as its own words',
@@ -305,10 +305,10 @@ tick().then(function () {
                       var vac6 = card('hk-area-select-card', { floors: [] });
                       vac6._sel = new Set(['kitchen', 'attic']);
                       vac6._render = function () {};
-                      vac6._hass = { states: {}, services: { hk_frontend: { clean_areas: {} } }, callService: function () {
+                      hkGive(vac6, { states: {}, services: { hk_frontend: { clean_areas: {} } }, callService: function () {
                         return Promise.resolve({ response: { ok: true, unreachable: ['attic'],
                           plan: [{ vacuum: 'vacuum.down', action: 'clean_area', areas: ['kitchen'] }] } });
-                      } };
+                      } });
                       vac6._start();
                       return tick().then(function () {
                         check('partly unreachable is a lasting warning, not a failure',
@@ -319,8 +319,8 @@ tick().then(function () {
                         vac7._sel = new Set(['kitchen']);
                         vac7._render = function () {};
                         var called7 = false;
-                        vac7._hass = { states: {}, services: {}, callService: function () {
-                          called7 = true; return Promise.resolve({}); } };
+                        hkGive(vac7, { states: {}, services: {}, callService: function () {
+                          called7 = true; return Promise.resolve({}); } });
                         vac7._start();
                         check('without Clean Areas: says to add it, calls nothing',
                               !called7 && /Add Clean Areas/.test(statusOf(vac7).text) &&
@@ -371,7 +371,7 @@ function keypad(hass) {
   kp._digits = '15'; kp._name = 'Pasta';
   kp._paint = function () {}; kp._render = function () {};
   kp._parse = function () { return { total: 900 }; };
-  kp._hass = hass;
+  hkGive(kp, hass);
   return kp;
 }
 
@@ -384,11 +384,11 @@ function outcomes() {
   k0._start();
   return tick().then(function () {
     check('the keypad calls the script directly, not script.turn_on',
-          k0._hass.sent[0].call === 'script.quick_timer_create');
+          k0.hass.sent[0].call === 'script.quick_timer_create');
     check('the keypad asks for the service response',
-          k0._hass.sent[0].wantsResponse === true);
+          k0.hass.sent[0].wantsResponse === true);
     check('the keypad sends the digits and the name',
-          k0._hass.sent[0].data.digits === '15' && k0._hass.sent[0].data.name === 'Pasta');
+          k0.hass.sent[0].data.digits === '15' && k0.hass.sent[0].data.name === 'Pasta');
     check('a started timer clears the form', k0._digits === '' && k0._name === '');
     check('a started timer reports success', statusOf(k0).kind === 'sent');
 

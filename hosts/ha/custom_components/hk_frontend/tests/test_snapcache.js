@@ -46,7 +46,7 @@ function reset() {
 function card(cfg) {
   var c = Object.create(C.prototype);
   c._config = cfg || {};
-  c._hass = { states: {} };
+  hkGive(c, { states: {} });
   return c;
 }
 function fakeImg(w, h) {
@@ -126,7 +126,7 @@ ok('nothing written before the image loads', Object.keys(stored()).length, 0);
 // drive the callback directly the way the browser would.
 reset();
 var c5 = card({});
-c5._hass = { states: { 'camera.deck': { attributes: { entity_picture: '/api/camera_proxy/camera.deck' } } } };
+hkGive(c5, { states: { 'camera.deck': { attributes: { entity_picture: '/api/camera_proxy/camera.deck' } } } });
 c5._snap({ entity: 'camera.deck' }, 270, 100);
 var s5 = c5._snaps[0];
 s5.imgs[0].naturalWidth = 1920; s5.imgs[0].naturalHeight = 1080;
@@ -142,7 +142,7 @@ ok('downscaled to 160px wide', globalThis.__canvasCalls[0], { w: 160, h: 90 });
 ok('a portrait source keeps ITS aspect too', (function () {
   reset();
   var c = card({});
-  c._hass = { states: { 'camera.p': { attributes: { entity_picture: '/api/camera_proxy/camera.p' } } } };
+  hkGive(c, { states: { 'camera.p': { attributes: { entity_picture: '/api/camera_proxy/camera.p' } } } });
   c._snap({ entity: 'camera.p' }, 270, 100);
   var s = c._snaps[0];
   s.imgs[0].naturalWidth = 600; s.imgs[0].naturalHeight = 800;
@@ -157,7 +157,7 @@ print('\n=== the write is throttled ===');
 // 4GB tablet, for a placeholder nobody is looking at.
 reset();
 var c6 = card({});
-c6._hass = { states: { 'camera.x': { attributes: { entity_picture: '/api/camera_proxy/camera.x' } } } };
+hkGive(c6, { states: { 'camera.x': { attributes: { entity_picture: '/api/camera_proxy/camera.x' } } } });
 c6._snap({ entity: 'camera.x' }, 270, 100);
 var s6 = c6._snaps[0];
 [0, 1].forEach(function (i) { s6.imgs[i].naturalWidth = 1920; s6.imgs[i].naturalHeight = 1080; });
@@ -189,7 +189,7 @@ ok('a build with storage throwing still returns a box', (function () {
 })(), true);
 ok('a successful load with storage throwing does not throw', (function () {
   var c = card({});
-  c._hass = { states: { 'camera.q': { attributes: { entity_picture: '/api/camera_proxy/camera.q' } } } };
+  hkGive(c, { states: { 'camera.q': { attributes: { entity_picture: '/api/camera_proxy/camera.q' } } } });
   c._snap({ entity: 'camera.q' }, 270, 100);
   var s = c._snaps[0];
   s.imgs[0].naturalWidth = 1920; s.imgs[0].naturalHeight = 1080;
@@ -206,7 +206,7 @@ reset();
 globalThis.__canvasTaints = true;
 ok('a tainted canvas is swallowed', (function () {
   var c = card({});
-  c._hass = { states: { 'camera.t': { attributes: { entity_picture: '/api/camera_proxy/camera.t' } } } };
+  hkGive(c, { states: { 'camera.t': { attributes: { entity_picture: '/api/camera_proxy/camera.t' } } } });
   c._snap({ entity: 'camera.t' }, 270, 100);
   var s = c._snaps[0];
   s.imgs[0].naturalWidth = 1920; s.imgs[0].naturalHeight = 1080;
@@ -233,7 +233,7 @@ ok('an entry with no data is ignored', (function () {
 ok('an image with no dimensions is not encoded', (function () {
   reset();
   var c = card({});
-  c._hass = { states: { 'camera.n': { attributes: { entity_picture: '/api/camera_proxy/camera.n' } } } };
+  hkGive(c, { states: { 'camera.n': { attributes: { entity_picture: '/api/camera_proxy/camera.n' } } } });
   c._snap({ entity: 'camera.n' }, 270, 100);
   var s = c._snaps[0];
   s.imgs[0].naturalWidth = 0;                 // a broken image reporting success
@@ -276,7 +276,7 @@ print('\n=== the thumbnail width ===');
 // camera is which while the real one loads, and cannot be mistaken for live.
 reset();
 var c7 = card({});
-c7._hass = { states: { 'camera.w': { attributes: { entity_picture: '/api/camera_proxy/camera.w' } } } };
+hkGive(c7, { states: { 'camera.w': { attributes: { entity_picture: '/api/camera_proxy/camera.w' } } } });
 c7._snap({ entity: 'camera.w' }, 270, 100);
 var s7 = c7._snaps[0];
 s7.imgs[0].naturalWidth = 480; s7.imgs[0].naturalHeight = 270;

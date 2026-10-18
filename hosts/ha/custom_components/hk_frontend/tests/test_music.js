@@ -312,7 +312,7 @@ print('\n=== commands name their player ===');
 var NP = customElements.get('hk-now-playing-card');
 var np = Object.create(NP.prototype);
 np._config = { music: true };
-np._hass = house(group([e('office'), e('loft')]));
+hkGive(np, house(group([e('office'), e('loft')])));
 M._reset(); M.setFocus(e('loft'));
 var called = [];
 np._call = function (d, s, data) { called.push([d + '.' + s, data]); return Promise.resolve(true); };
@@ -321,7 +321,7 @@ ok('play/pause carries the player on screen -- the group leader',
    called.length + ':' + called[0][0] + ':' + called[0][1].player + ':' + called[0][1].command,
    '1:hk_frontend.music_transport:' + e('office') + ':play_pause');
 M._reset();
-np._hass = house({});
+hkGive(np, house({}));
 location.pathname = '/dashboard-phone/0';
 called = [];
 np._svc('next');
@@ -334,7 +334,7 @@ var ss = Object.create(SS.prototype);
 ss._config = { music: true };
 ok('the screensaver watches the integration\'s speakers, presets first',
    ss._players().join(), HK_HOUSE.speakers.map(function (s) { return s.entity; }).join());
-ss._hass = house(merge(group([e('office'), e('loft')], { title: 'Song' })));
+hkGive(ss, house(merge(group([e('office'), e('loft')], { title: 'Song' }))));
 ok('  ...and finds what is playing', ss._playing() && ss._playing().entity_id, e('office'));
 var CH = customElements.get('hk-status-chip-card');
 var chip = new CH();

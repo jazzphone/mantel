@@ -17,7 +17,7 @@ load(root + '/tests/dom.js');
 
 function card(tag, cfg) {
   var c = Object.create(customElements.get(tag).prototype);
-  c._config = cfg; c._hass = { states: {} }; return c;
+  c._config = cfg; hkGive(c, { states: {} }); return c;
 }
 function state(s) { return { state: s, attributes: {} }; }
 

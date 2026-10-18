@@ -54,7 +54,7 @@ function popup(cfg) {
   c._act = function (spec) { this.acts.push(spec); };
   Object.defineProperty(c, 'isConnected', { get: function () { return !!this._conn; } });
   c._conn = true; c.connectedCallback();
-  c._hass = { states: {} };          // present, as it always is live
+  hkGive(c, { states: {} });          // present, as it always is live
   (globalThis.__cards = globalThis.__cards || []).push(c);
   return c;
 }

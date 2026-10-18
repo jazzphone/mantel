@@ -54,13 +54,13 @@ var MAP = {
 function card(option) {
   var c = Object.create(Ctor.prototype);
   c._config = { music: true };
-  c._hass = { states: {} };
+  hkGive(c, { states: {} });
   window.hkMusic._reset();
   if (MAP[option]) window.hkMusic.setFocus(MAP[option]);
   // EVERY MAPPED PLAYER EXISTS, as it does in a real hass: _play checks the
   // player's availability and refuses a speaker hass does not have.
   Object.keys(MAP).forEach(function (k) {
-    c._hass.states[MAP[k]] = { entity_id: MAP[k], state: 'idle', attributes: {} };
+    c.hass.states[MAP[k]] = { entity_id: MAP[k], state: 'idle', attributes: {} };
   });
   // A real element can dispatch; the tests/dom.js stub cannot.
   c.dispatchEvent = function (ev) { (this._events = this._events || []).push(ev); return true; };
@@ -1016,7 +1016,8 @@ ok('a playlist may take two minutes; an artist the usual 20 s', waits.join(','),
 // request it is about, and at most every 30 s.
 c = card('Kitchen'); c._paint = function () {};
 var said = [];
-c._hass.callWS = function (m) { said.push(m.type); return Promise.resolve(); };
+// a host object has its methods from the start (the adapter offers what it has)
+hkGive(c, Object.assign({}, c.hass, { callWS: function (m) { said.push(m.type); return Promise.resolve(); } }));
 c._ws = function (m) { said.push(m.type); return pending().promise; };
 c._stack = [{ title: 'Playlists', id: 'playlists' }, PL];
 c._load(PL);
@@ -1026,7 +1027,8 @@ drain();
 ok('opening and searching say the page is in use, once',
    said.join(','), 'media_player/browse_media,hk_music/used,media_player/browse_media,media_player/search_media');
 c = card('Kitchen'); c._paint = function () {};
-c._hass.callWS = function () { throw new Error('unknown command'); };
+// a host object has its methods from the start (the adapter offers what it has)
+hkGive(c, Object.assign({}, c.hass, { callWS: function () { throw new Error('unknown command'); } }));
 c._ws = function () { return pending().promise; };
 c._load(PL);
 ok('  ...and a backend without the command changes nothing', String(c._err), 'null');
@@ -1095,7 +1097,7 @@ print('\n=== an unavailable speaker is refused out loud, not accepted silently =
 // "Playing".
 ['unavailable', 'unknown'].forEach(function (bad) {
   c = card('Kitchen');
-  c._hass.states['media_player.kitchen_homepod_ma'].state = bad;
+  c.hass.states['media_player.kitchen_homepod_ma'].state = bad;
   c._calls = [];
   c._callResp = function (d, s, data) { this._calls.push([d, s, data]); return Promise.resolve({ ok: true, response: { ok: true } }); };
   c._play({ title: 'Thing', media_content_id: 'x://track/1', media_content_type: 'music' });
@@ -1103,7 +1105,7 @@ print('\n=== an unavailable speaker is refused out loud, not accepted silently =
   ok(bad + ': and it says why', /Kitchen is unavailable/.test(c._toast), true);
 });
 c = card('Kitchen');
-delete c._hass.states['media_player.kitchen_homepod_ma'];
+delete c.hass.states['media_player.kitchen_homepod_ma'];
 c._calls = [];
 c._callResp = function (d, s, data) { this._calls.push([d, s, data]); return Promise.resolve({ ok: true, response: { ok: true } }); };
 c._play({ title: 'Thing', media_content_id: 'x://track/1', media_content_type: 'music' });
@@ -1218,7 +1220,7 @@ print('\n=== the crumb must not lie about how many rooms it will play to ===');
 // _sigOf reads group_members, or nothing repaints.
 function withGroup(option, player, members) {
   var c = card(option);
-  c._hass.states[player] = { state: 'playing',
+  c.hass.states[player] = { state: 'playing',
                              attributes: { group_members: members, media_title: 't' } };
   return c;
 }
@@ -1226,11 +1228,11 @@ var K = 'media_player.kitchen_homepod_ma', L = 'media_player.loft_homepod_ma';
 c = withGroup('Kitchen', K, [K, L]);
 ok('a group of two names both rooms', c._playerName(), 'Kitchen + Loft');
 var sigGrouped = c._sigOf();
-c._hass.states[K].attributes.group_members = [];
+c.hass.states[K].attributes.group_members = [];
 ok('  ...and alone it is just the name', c._playerName(), 'Kitchen');
 ok('  ...which CHANGES the signature, so the card repaints',
    c._sigOf() !== sigGrouped, true);
-c._hass.states[K].attributes.group_members = [K, L, 'media_player.office_homepod_ma'];
+c.hass.states[K].attributes.group_members = [K, L, 'media_player.office_homepod_ma'];
 ok('a group that GREW reads +2', c._playerName(), 'Kitchen +2');
 ok('  ...also a new signature', c._sigOf() !== sigGrouped, true);
 
@@ -1244,7 +1246,7 @@ var asked = [];
 c._load = function () { asked.push('load'); };
 c._search = function () { asked.push('search'); };
 c._crumb = function () { asked.push('crumb'); };
-c._hass.states[K].attributes.group_members = [];     // the group went away
+c.hass.states[K].attributes.group_members = [];     // the group went away
 c._render();
 ok('the same speaker -> repaint the bar only', asked.join(','), 'crumb');
 // a genuinely different speaker still reloads

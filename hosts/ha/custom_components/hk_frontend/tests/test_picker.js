@@ -254,8 +254,8 @@ ok('a lone room is the same one call', calls.length === 1 && calls[0][0] === 'hk
    JSON.stringify(calls));
 ok('  ...and this screen holds its focus on the Office while it loads',
    window.hkMusic.focus() === ent('office') &&
-   window.hkMusic.resolve(c._hass).reason === 'pending',
-   window.hkMusic.focus() + ' ' + window.hkMusic.resolve(c._hass).reason);
+   window.hkMusic.resolve(c.hass).reason === 'pending',
+   window.hkMusic.focus() + ' ' + window.hkMusic.resolve(c.hass).reason);
 
 c = card('Kitchen', GROUP);
 c._clear();
@@ -292,8 +292,8 @@ ok('a silent room gets nothing',
 // play glyph on it would be a lie -- the whole point of the glyph is that it
 // is readable without knowing any color convention.
 var paused = card('Office', null, [ent('office')]);
-paused._hass.states[ent('kitchen')] = { state: 'paused', attributes: {} };
-paused._hass.states[ent('loft')] = { state: 'idle', attributes: {} };
+paused.hass.states[ent('kitchen')] = { state: 'paused', attributes: {} };
+paused.hass.states[ent('loft')] = { state: 'idle', attributes: {} };
 var ph = paused._hereSet();
 ok('a PAUSED room gets no glyph',
    paused._playFor(ent('kitchen'), ph) === '',
@@ -315,12 +315,12 @@ ok('a joined room is here, not elsewhere',
 c = card('Downstairs', null, DOWN);
 // THE SYNC GROUP ITSELF IS PLAYING, as it is in a real home: hkMusic recognizes
 // a preset by the group's own state, not by a room list that happens to match.
-c._hass.states['media_player.downstairs_homepods_downstairs'].state = 'playing';
+c.hass.states['media_player.downstairs_homepods_downstairs'].state = 'playing';
 here = c._hereSet();
 ok('every Downstairs room is here', DOWN.every(function (e) {
   return c._playFor(e, here) === 'here'; }));
 var c2b = card('Downstairs', null, DOWN.concat([ent('office')]));
-c2b._hass.states['media_player.downstairs_homepods_downstairs'].state = 'playing';
+c2b.hass.states['media_player.downstairs_homepods_downstairs'].state = 'playing';
 ok('  ...and a room outside it is not',
    c2b._playFor(ent('office'), c2b._hereSet()) === 'elsewhere',
    c2b._playFor(ent('office'), c2b._hereSet()));
@@ -425,8 +425,8 @@ ok('a silent house has no contexts', c._contexts().length === 0, String(c._conte
 // And silence that REPORTS ITSELF is still silence: a room with a real state
 // of idle must not become a context just because hass knows about it.
 var quiet = card('Office');
-quiet._hass.states[ent('kitchen')] = { state: 'idle', attributes: {} };
-quiet._hass.states[ent('loft')] = { state: 'off', attributes: {} };
+quiet.hass.states[ent('kitchen')] = { state: 'idle', attributes: {} };
+quiet.hass.states[ent('loft')] = { state: 'off', attributes: {} };
 ok('an idle room is not a context', quiet._contexts().length === 0,
    String(quiet._contexts().length));
 // A PAUSED group still is one -- it is a thing in the house you may want to
@@ -454,7 +454,7 @@ ok('  ...and key on the leader', L(office).key === ent('office'), L(office).key)
 // selector at a room because it happens to be group_members[0] would downgrade
 // a real MA sync group to an ad-hoc join.
 c = houseOf([{ members: DOWN, title: 'x', artist: 'y' }], 'Downstairs');
-c._hass.states['media_player.downstairs_homepods_downstairs'].state = 'playing';
+c.hass.states['media_player.downstairs_homepods_downstairs'].state = 'playing';
 var dl = c._ctxLabel(c._contexts()[0]);
 ok('a playing sync group is named as the preset', dl.name === 'Downstairs', dl.name);
 ok('  ...and keys on the SYNC GROUP, not a room',
@@ -639,7 +639,7 @@ c = houseOf(TWO, 'Office');
 c._sel = new Set([ent('loft')]);
 var finishStop;
 calls = [];
-c._hass.callService = function (d, s, data) {
+c.hass.callService = function (d, s, data) {
   calls.push([d + '.' + s, data]);
   if (d === 'hk_frontend' && s === 'music_stop')
     return new Promise(function (resolve) { finishStop = resolve; });
@@ -684,7 +684,7 @@ print('\n=== a speaker that is not there ===');
 // entity is ACCEPTED and does nothing. No error, no toast, nothing in the log.
 function gone(c, entities) {
   entities.forEach(function (e) {
-    c._hass.states[e] = { state: 'unavailable', attributes: {} };
+    c.hass.states[e] = { state: 'unavailable', attributes: {} };
   });
   return c;
 }
@@ -692,12 +692,12 @@ c = card('Office');
 ok('a normal speaker is available', c._available(ent('office')) === true);
 gone(c, [ent('office')]);
 ok('  ...and an unavailable one is not', c._available(ent('office')) === false);
-c._hass.states[ent('office')] = { state: 'unknown', attributes: {} };
+c.hass.states[ent('office')] = { state: 'unknown', attributes: {} };
 ok('`unknown` counts as gone too', c._available(ent('office')) === false);
 // A missing entity cannot be a safe playback target. The Home Assistant hass
 // snapshot is complete when passed to the card; a typo or removed entity must
 // not remain selected and silently send play to nowhere.
-delete c._hass.states[ent('office')];
+delete c.hass.states[ent('office')];
 ok('a missing entity is unavailable', c._available(ent('office')) === false);
 
 // The prune clears the whole requested set. A partial set is a new request
@@ -1038,7 +1038,7 @@ ok('subscribes to persistent notifications', noteSubs().length === 1,
 ok('  ...and hkMusic follows the saved focus on the same connection',
    subs.some(function (s) { return s.msg.type === 'frontend/subscribe_user_data' &&
                                     s.msg.key === 'hk_music_focus'; }));
-c.hass = mkHass('Kitchen'); c._hass.connection = h2.connection; c.hass = c._hass;
+c.hass = mkHass('Kitchen'); c.hass.connection = h2.connection; c.hass = c.hass;
 ok('  ...once, however many hass objects arrive', noteSubs().length === 1, String(noteSubs().length));
 noteSubs()[0].cb({ type: 'current', notifications: {
   speaker_group_failed: { notification_id: 'speaker_group_failed', title: 'Speakers did not group',
@@ -1089,7 +1089,7 @@ var rc = reqCard({ ok: true, response: { ok: true, leader: ent('office') } });
 var op0 = rc._playOp = 7;
 rc._request('script.group_selected_speakers', {}, ent('loft'), op0);
 ok('the target is held on screen while the request runs',
-   window.hkMusic.focus() === ent('loft') && window.hkMusic.resolve(rc._hass).reason === 'pending',
+   window.hkMusic.focus() === ent('loft') && window.hkMusic.resolve(rc.hass).reason === 'pending',
    window.hkMusic.focus());
 settle();
 ok('the LEADER the script reports wins over the card\'s guess',
@@ -1103,7 +1103,7 @@ settle();
 ok('a refusal ANSWER is a failure, in the script\'s own words',
    rc._notice === 'That did not work: The speakers did not group.', rc._notice);
 ok('  ...and the silent room is not left holding the screen',
-   window.hkMusic.resolve(rc._hass).reason !== 'pending', window.hkMusic.resolve(rc._hass).reason);
+   window.hkMusic.resolve(rc.hass).reason !== 'pending', window.hkMusic.resolve(rc.hass).reason);
 
 rc = reqCard({ ok: false, error: 'Connection lost' });
 rc._playOp = 4;

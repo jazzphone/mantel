@@ -23,7 +23,7 @@ function playerField(states, cfg) {
   var sel = states['input_select.media_player_selection'];
   window.hkMusic._reset();
   if (sel && cfg.speaker_map[sel.state]) window.hkMusic.setFocus(cfg.speaker_map[sel.state]);
-  c._hass = { states: states };
+  hkGive(c, { states: states });
   return c._playerLine(c._player());
 }
 var MAP = {
@@ -109,7 +109,7 @@ function iconFor(state) {
   if (state !== null) {
     states[e('kitchen')] = { state: state, attributes: { media_title: 't' } };
   }
-  c._hass = { states: states };
+  hkGive(c, { states: states });
   // THE CARD'S OWN METHOD, not a copy of its expression.
   return c._playIcon(c._player());
 }
@@ -119,7 +119,7 @@ function paintedIcon(state) {
   c._config = { entity: 'input_select.media_player_selection', speaker_map: MAP };
   var states = { 'input_select.media_player_selection': { state: 'Kitchen' } };
   states[e('kitchen')] = { state: state, attributes: { media_title: 't' } };
-  c._hass = { states: states };
+  hkGive(c, { states: states });
   var icon = document.createElement('ha-icon');
   icon.setAttribute('icon', 'mdi:play');
   var btn = document.createElement('div');
@@ -148,10 +148,10 @@ ok('  ...and says Play out loud',        paintedIcon('paused').label, 'Play');
 function sigFor(state, updated) {
   var c = Object.create(NP.prototype);
   c._config = { entity: 'input_select.media_player_selection', speaker_map: MAP };
-  c._hass = { states: {
+  hkGive(c, { states: {
     'input_select.media_player_selection': { state: 'Kitchen', last_updated: 'a' },
     'media_player.kitchen_homepod_ma': { state: state, last_updated: updated,
-                                         attributes: { media_title: 't' } } } };
+                                         attributes: { media_title: 't' } } } });
   return c._sigOf();
 }
 ok('playing -> paused changes the signature',

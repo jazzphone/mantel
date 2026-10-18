@@ -182,7 +182,7 @@ var Metric = customElements.get('hk-stat-card');
 function temp(cfg, attrs, unit) {
   var c = Object.create(Metric.prototype);
   c._config = Object.assign({ entity: 'sensor.t', value_mode: 'temperature' }, cfg);
-  c._hass = unit ? { states: {}, config: { unit_system: { temperature: unit } } } : { states: {} };
+  hkGive(c, unit ? { states: {}, config: { unit_system: { temperature: unit } } } : { states: {} });
   return c._modeValue({ entity_id: 'sensor.t', state: '21.4', attributes: attrs || {} });
 }
 ok('the sensor\'s own unit', temp({}, { unit_of_measurement: '°C' }, '°F'), '21°C');

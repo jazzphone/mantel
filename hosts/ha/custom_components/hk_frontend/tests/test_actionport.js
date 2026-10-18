@@ -67,7 +67,7 @@ function card(Proto, config, rec, m) {
   c._config = config;
   c.events = [];
   c.dispatchEvent = function (e) { c.events.push(e.type); };
-  if (m) { c._clientExplicit = true; c._hkClient = m.client; } else c._hass = rec.hass;
+  if (m) { c._clientExplicit = true; c._hkClient = m.client; } else hkGive(c, rec.hass);
   return c;
 }
 function same(name, got, want) { return H.eq(name, got, want); }
@@ -95,7 +95,7 @@ function scenarios() {
         var K = customElements.get('hk-alarm-keypad-card');
         var c = card(K.prototype, { entity: 'alarm_control_panel.house' }, rec, m);
         c._code = '1234'; c._msg = ''; c._paint = function () {};
-        if (m) c._hass = m.snapshot;              // the keypad still reads its host input (slice 9)
+        if (m) hkGive(c, m.snapshot);              // the keypad still reads its host input (slice 9)
         c._alarm('alarm_disarm');
       }, want: [['callService', 'alarm_control_panel', 'alarm_disarm',
                  { entity_id: 'alarm_control_panel.house', code: '1234' }, undefined, false]] },
