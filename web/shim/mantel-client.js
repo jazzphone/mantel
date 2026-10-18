@@ -131,6 +131,62 @@
   // home.js hands the hub over once it is connected; a port made after the server's capabilities
   // frame said `commands: true` carries actions, any other none.
   function useCommands(hub) { gateway = hub || null; }
+
+  // MANTEL'S OWN FEATURES (docs/phase4/MANTEL-FEATURES.md). Four messages HK's shared code sends to
+  // Home Assistant through the action port are, on Mantel, answers for Mantel's feature host and
+  // never house commands (they leave through hub.screenReport / hub.notifyMute, on every server,
+  // commands on or off; a service call or any other write still goes the way it did):
+  //   hk_frontend/screensaver/touch {tablet, saver?}  -> screen_report {tablet, touch: true, saver?}
+  //   hk_frontend/screensaver/black {tablet, black}   -> screen_report {tablet, black}
+  //   hk_notify/mute {key, minutes}                   -> notify_mute {key, seconds}
+  //   switch.turn_on|turn_off on a tablet's photo screensaver switch -> the page's own state only
+  //     (Mantel's screens, mantel-host.js; the host has no such Home Assistant entity to write)
+  var screens = null;             // the host adapter's {owns(entityId), set(entityId, on), reported(tablet, black)}
+  function useScreens(host) { screens = host || null; }
+  var TABLET_ID = /^[a-z0-9_]{1,40}$/;
+  function screenReport(hub, msg) {
+    var tid = msg.tablet;
+    if (typeof tid !== 'string' || !TABLET_ID.test(tid)) return Promise.reject(fail('not_found', 'No such wall tablet'));
+    var frame = { tablet: tid };
+    if (msg.type === 'hk_frontend/screensaver/touch') {
+      frame.touch = true;
+      if (msg.saver === true) frame.saver = true;
+    } else {
+      if (typeof msg.black !== 'boolean') return Promise.reject(fail('invalid', 'black is true or false'));
+      frame.black = msg.black;
+      if (screens) screens.reported(tid, msg.black);          // the page is the truth about itself
+    }
+    return hub.screenReport(frame);
+  }
+  function notifyMute(hub, msg) {
+    var minutes = msg.minutes === undefined ? 60 : msg.minutes;
+    if (typeof msg.key !== 'string' || typeof minutes !== 'number' || Math.round(minutes) !== minutes || minutes < 0 || minutes > 1440) {
+      return Promise.reject(fail('invalid', 'a notification key and 0 to 1440 minutes'));
+    }
+    return hub.notifyMute(msg.key, minutes * 60);
+  }
+  function withFeatures(port, hub) {
+    var acts = port.actions;
+    if (!acts || !hub || typeof hub.screenReport !== 'function') return;
+    var callWS = acts.callWS, callService = acts.callService;
+    acts.callWS = function (msg) {
+      var t = msg && msg.type;
+      if (t === 'hk_frontend/screensaver/touch' || t === 'hk_frontend/screensaver/black') return screenReport(hub, msg);
+      if (t === 'hk_notify/mute') return notifyMute(hub, msg);
+      return callWS.apply(acts, arguments);
+    };
+    acts.callService = function (domain, service, data) {
+      var id = data && data.entity_id;
+      if (screens && domain === 'switch' && (service === 'turn_on' || service === 'turn_off') && typeof id === 'string' && screens.owns(id)) {
+        screens.set(id, service === 'turn_on');
+        return Promise.resolve([]);
+      }
+      if (typeof callService === 'function') return callService.apply(acts, arguments);
+      // commands off: refused here exactly as the client's action port refuses a host without one
+      port.refused({ kind: 'service', what: domain + '.' + service });
+      return Promise.reject(fail('commands_disabled', 'commands disabled'));
+    };
+  }
   function from(snapshot) {
     if (!snapshot || typeof snapshot !== 'object') return null;
     // a client already (a shared caller passing on what it was given): as is
@@ -156,6 +212,7 @@
     port.refused = function (detail) {
       try { global.dispatchEvent(new CustomEvent('hk-command-refused', { detail: detail })); } catch (e) { /* shell tests */ }
     };
+    withFeatures(port, gateway);
     var client = global.hkClient.create(port);
     clients.set(snapshot, client);
     hosts.set(client, snapshot);
@@ -203,7 +260,7 @@
     try { global.dispatchEvent(new CustomEvent('hk-client-update')); } catch (e) { /* shell tests */ }
   }
   global.hkMantelClient = { from: from, current: function () { return latest; }, setCurrent: setCurrent, bridge: bridge, entry: entry,
-                            useCommands: useCommands, kind: 'mantel', SETTINGS_SAVES: SETTINGS_SAVES.slice() };
+                            useCommands: useCommands, useScreens: useScreens, kind: 'mantel', SETTINGS_SAVES: SETTINGS_SAVES.slice() };
   global.hkHostClient = global.hkMantelClient;
   try { global.dispatchEvent(new CustomEvent('hk-host-client-ready')); } catch (e) { /* shell tests */ }
 })(globalThis);

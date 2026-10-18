@@ -55,6 +55,13 @@ export class Hub {
           this.pending.delete(m.id);
           if (m.error) p.reject(Object.assign(new Error(m.error.message || m.error.code), m.error));
           else p.resolve(m.result);
+        } else if (m.type === 'screen_result' || m.type === 'notify_mute_result') {
+          // the feature host's answers to screen_report / notify_mute (see ask())
+          const p = this.pending.get(m.id);
+          if (!p || !p.ask) return;
+          this.pending.delete(m.id);
+          if (m.error) p.reject(Object.assign(new Error(m.error.message || m.error.code), m.error));
+          else p.resolve(m.result);
         } else if (m.type === 'command_result' || m.type === 'step_up_required') {
           const p = this.pending.get(m.id);
           if (p && p.command) { this.pending.delete(m.id); p.resolve(m); }
@@ -73,7 +80,7 @@ export class Hub {
       if (p.command) {
         this.pending.delete(id);
         p.resolve({ type: 'command_result', error: { code: 'unavailable', message: 'connection lost' } });
-      } else if (p.save) {
+      } else if (p.save || p.ask) {
         this.pending.delete(id);
         p.reject(Object.assign(new Error('connection lost'), { code: 'unavailable', message: 'connection lost' }));
       }
@@ -94,6 +101,26 @@ export class Hub {
       this.ws.send(JSON.stringify({ type: 'settings_write', id, msg }));
     });
   }
+
+  // Mantel's own feature messages (docs/phase4/MANTEL-FEATURES.md): a screen's report and Mute 1 Hour.
+  // Not house commands (nothing reaches Home Assistant): the feature host answers them on every server,
+  // commands on or off. Resolve with the host's result, reject with its error ({code}).
+  ask(type, body) {
+    if (!this.ws || this.ws.readyState !== 1) {
+      return Promise.reject(Object.assign(new Error('not connected'), { code: 'unavailable', message: 'not connected' }));
+    }
+    const id = this.nextId++;
+    return new Promise((resolve, reject) => {
+      this.pending.set(id, { resolve, reject, ask: true });
+      this.ws.send(JSON.stringify(Object.assign({ type, id }, body)));
+    });
+  }
+
+  // {tablet, touch?, saver?, black?}: HK's hk_frontend/screensaver/touch and /black, for Mantel
+  screenReport(frame) { return this.ask('screen_report', frame); }
+
+  // Mute 1 Hour: {key, seconds}
+  notifyMute(key, seconds) { return this.ask('notify_mute', { key, seconds }); }
 
   // true only after this socket's server said so (capabilities); never assumed
   commandsEnabled() { return !!(this.capabilities && this.capabilities.commands === true); }

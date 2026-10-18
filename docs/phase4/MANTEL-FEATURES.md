@@ -170,10 +170,54 @@ or a wall-tablet device in the tablet's room. Mantel tells screens to change wit
 None of these message types is command-shaped. A house command still only ever leaves through the
 gateway.
 
+## The page's side (`web/shim/`, 2026-10-18)
+
+Only Mantel's host adapter changed. The shared frontend (`web/hk`, `web/client`, `web/cards`) still sends
+and reads exactly what it sends to Home Assistant, and HA's build is byte-identical.
+
+- **Events feed.** `hk_frontend/events/subscribe` goes to `hub.readSubscribe` (it was stood in locally), so
+  notifications and pop-ups reach HK's `hk-house-event` as they do from HA. `screen` frames are Mantel's
+  own and are not passed on: they move the two switches below. On subscribe the server first sends a
+  `screen` frame for any tablet that is already black (with its brightness) or showing photos, so a page
+  reloaded under a black screen is told.
+- **What HK reads when HA tells it.** In HA a tablet's black screen and photo screensaver are two switches
+  whose states `hk-saver.js` reads (`black_switch`, `screensaver_switch`). Mantel has no such entities, so
+  `mantel-host.js` keeps the same two states for each tablet under ids of its own,
+  `switch.mantel_<tablet>_black_screen` and `switch.mantel_<tablet>_photo_screensaver`. It names them in
+  the settings feed where the server names none (`tablet_items.<tablet>.black_switch` /
+  `screensaver_switch`; a switch the server did name is kept), and sets them from the `screen` frames
+  (`black`, with `brightness` as an attribute, and `photos`). Until the feed has answered (plus 400 ms for
+  the initial frames) a state is "not known", which HK reads as "no change", never as "not black".
+- **What the page sends** (in `mantel-client.js`, in front of the gateway; on every server, commands on or
+  off; none is a house command, and none calls an HA service):
+
+  | HK sends (the HA message) | Mantel sends |
+  |---|---|
+  | `hk_frontend/screensaver/touch {tablet, saver?}` | `screen_report {tablet, touch: true, saver?: true}` |
+  | `hk_frontend/screensaver/black {tablet, black}` | `screen_report {tablet, black}` |
+  | `hk_notify/mute {key, minutes}` | `notify_mute {key, seconds: minutes * 60}` |
+
+  The page's own report moves its black switch at once (a tap that wakes the screen must not be undone by
+  the stale "on" it was holding). An error from the server (`forbidden` for a tablet that isn't the page's,
+  `invalid`) rejects the promise and is swallowed by HK as it is for an older integration. A report
+  without a `tablet` (the pre-1.14 `dashboard` form) is refused in the page, sending nothing.
+- **The photo switch.** HK turns its photo switch on when the screensaver starts and off when it ends
+  (`switch.turn_on|turn_off`). On Mantel that call is answered inside the page (the switch is the page's
+  own state) and nothing is sent. Any other service call is refused with commands off, or goes to the
+  gateway with them on, exactly as before.
+- **RBAC** is the server's, unchanged: `screen_report` only as `may_speak_for` says (the tablet's user, an
+  admin, anyone for a tablet with no user, or a wall-tablet device in the tablet's room); `notify_mute` any
+  signed-in person.
+- **Not reported to the server:** that the *photos* came up or went away. `screen_report` has no field for
+  it (touch, saver touch and black only), so Mantel's `ScreenState.photos` follows linked HA / Sleep Screen
+  commands, not the page. Adding a `photos` field is a small follow-up if Sleep Screen needs it.
+
 ## Tests
 
 | File | Covers |
 |---|---|
+| `tests/test_shim_features.py` (10) | the real shim run in node (`tests/shim_features_harness.mjs`; `hk-client.js`, `mantel-client.js`, `mantel-host.js`, `hub.js`): the events feed, `screen` frames moving the switches, the settings feed naming them, the exact `screen_report` / `notify_mute` frames with commands off and on, the photo switch local, everything else refused or gated as before, the shared frontend untouched |
+| `tests/test_features.py` | (+1) a page that subscribes under a black screen / photos gets the `screen` frames |
 | `tests/test_mantel_house.py` (6) | wire shapes → views, `last_changed`, copies, registry fields the list lacks, devices/areas/floors, a reloaded registry, the house's zone (callable, naive, unknown), `call_service` to the caller or refused, the port satisfied |
 | `tests/test_mantel_house_contract_*.py` (108) | hk_core's clean areas, notifications, sleep, music, screensaver, tablets and settings suites with MantelHouse underneath |
 | `tests/test_features.py` (17) | See the list below. |
@@ -260,13 +304,7 @@ Nothing else changes: every piece stays off until an Owner turns it on (`PUT /ap
 1. **Wire the line above** in `server.py` (gateway agent's rework permitting), then run
    `tools/e2e/features_e2e.py` again. It calls `features.register` itself, so after the wiring it
    should construct the app without calling it a second time: drop that call in `phase()`.
-2. **The page's side** (`web/`, not touched here):
-   - `web/shim/mantel-host.js:196` stands `hk_frontend/events/subscribe` in locally. Once the wiring
-     line is in, pass it to `hub.readSubscribe` so notifications and pop-ups reach Mantel pages.
-   - The page should send `screen_report` (touch / saver touch / black confirmed), the Mantel
-     equivalents of `hk_frontend/screensaver/touch|black`.
-   - The page should obey `screen` frames (black, photos).
-   - It should send `notify_mute` for Mute 1 Hour.
+2. ~~**The page's side**~~ **done** (2026-10-18, `web/shim/` only; see "The page's side" below).
 3. **Feature settings import:** read HA's Notifications / Clean Areas / Energy / Live TV feature items
    into `house/mantel_features` (today an Owner writes them by REST). The tablets, boards and pop-ups
    already come from P3.5's import.

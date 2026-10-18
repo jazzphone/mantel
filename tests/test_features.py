@@ -294,6 +294,32 @@ async def test_linked_publishes_the_tablets_entities_and_keeps_the_handshake(mak
     await lk.ws.close()
 
 
+async def test_a_page_that_opens_under_a_black_screen_is_told_so(make_env):
+    env = await make_env(settings={"linked": {"enabled": True, "entry_id": ENTRY}})
+    lk, _hello = await linked_ws(env)
+    target = [{"entity_id": "switch.hall_black_screen", "unique_id": UID["black_screen"]}]
+    res, _ = await lk.call(1, type="call_service", service="set_black_screen",
+                           data={"black": True, "brightness": 174}, targets=target)
+    assert res["success"]
+    res, _ = await lk.call(2, type="entity_command", unique_id=UID["photo_screensaver"], command="turn_on", data={})
+    assert res["success"]
+    await env.login("owner1", "owner")
+    ws = await env.socket(expect_caps=False)
+    await ws.send_json({"type": "read_subscribe", "id": 7, "msg": {"type": "hk_frontend/events/subscribe"}})
+    frames, answered = [], False
+    while not (answered and len(frames) >= 2):         # the frames and the answer, in whichever order
+        m = await GF.recv(ws)
+        if m.get("type") == "read_result":
+            answered = True
+        else:
+            frames.append(m["event"])
+    assert frames ==[{"type": "screen", "tablet": "hall", "black": True, "brightness": 174, "dashboards": [], "users": []},
+                      {"type": "screen", "tablet": "hall", "photos": True, "dashboards": [], "users": []}]
+    assert env.audit() == []
+    await ws.close()
+    await lk.ws.close()
+
+
 async def test_a_page_speaks_only_for_its_own_tablet(make_env):
     env = await make_env(settings={"linked": {"enabled": True, "entry_id": ENTRY}},
                          tablet={**TABLET, "user": "hallpanel"})

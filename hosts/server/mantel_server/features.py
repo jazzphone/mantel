@@ -1426,6 +1426,16 @@ def register(app: web.Application, hub: Any, hooks: Any = None) -> FeatureHost:
         if not _principal_ok(ctx.identity):
             raise Forbidden("sign in to receive the house's events")
         end = host.feed.subscribe(ctx.identity, on_event)
+        # a page that opens (or reloads) while a screen is black or showing photos is told so at once,
+        # in the same `screen` frames; a screen that is neither needs no frame (the page's default)
+        for tid, scr in list(host.screens.items()):
+            if tid not in host.tablets:
+                continue
+            if scr.black.on:
+                on_event({"type": "screen", "tablet": tid, "black": True, "brightness": scr.black.brightness,
+                          "dashboards": [], "users": []})
+            if scr.photos:
+                on_event({"type": "screen", "tablet": tid, "photos": True, "dashboards": [], "users": []})
 
         async def unsubscribe() -> None:
             end()
