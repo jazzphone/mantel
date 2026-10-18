@@ -77,7 +77,13 @@ class Browser:
                     self.console.append(f"{d['params']['type']}: {args}"[:400])
                 elif d.get("method") == "Runtime.exceptionThrown":
                     ex = d["params"]["exceptionDetails"]
-                    self.console.append("EXCEPTION: " + str(ex.get("exception", {}).get("description") or ex.get("text"))[:400])
+                    exc = ex.get("exception", {})
+                    what = str(exc.get("description") or ex.get("text"))
+                    # a thrown plain object says only "Object": add its fields (e.g. a socket's {code, message})
+                    props = (exc.get("preview") or {}).get("properties") or []
+                    if props and what in ("Object", "Uncaught"):
+                        what += " " + ", ".join(f"{q.get('name')}={q.get('value')}" for q in props[:6])
+                    self.console.append("EXCEPTION: " + what[:400])
 
     async def restrict_origin(self, origin):
         """For offline smoke tests: allow HTTP requests only to their local fixture server."""
