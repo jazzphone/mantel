@@ -34,9 +34,13 @@ No Home Assistant import here (aiohttp only), so it is tested on its own.
 from __future__ import annotations
 
 import asyncio
+import ipaddress
 import itertools
 import json
 import logging
+import re
+import socket
+from collections.abc import Awaitable, Callable
 from typing import Any, Protocol
 from urllib.parse import urlsplit, urlunsplit
 
@@ -96,14 +100,86 @@ def ws_url(address: str) -> str:
     return urlunsplit((scheme, parts.netloc, parts.path.rstrip("/") or PATH, "", ""))
 
 
+# ---- plain ws:// is accepted only inside this machine and the Supervisor's
+# internal "hassio" Docker network, 172.30.32.0/23, which never leaves the host
+# (the one private range the publish scan allows: tools/publish/publish.py)
+HASSIO_NET = ipaddress.ip_network("172.30.32.0/23")
+# an App's hostname on that network: `local-<slug>` or `<8 hex repo hash>-<slug>`
+# (the Supervisor makes it from the slug, underscores becoming hyphens)
+_APP_HOST = re.compile(r"^(?:local|[0-9a-f]{8})-[a-z0-9][a-z0-9_-]*$")
+
+Resolver = Callable[[str, int], Awaitable[list[str]]]
+
+
+def _ip(host: str) -> ipaddress.IPv4Address | ipaddress.IPv6Address | None:
+    try:
+        return ipaddress.ip_address(host)
+    except ValueError:
+        return None
+
+
+def internal_ip(addr: str) -> bool:
+    """Loopback, or inside 172.30.32.0/23."""
+    ip = _ip(addr.split("%", 1)[0])
+    if ip is None:
+        return False
+    if ip.version == 6 and ip.ipv4_mapped is not None:
+        ip = ip.ipv4_mapped
+    return ip.is_loopback or (ip.version == 4 and ip in HASSIO_NET)
+
+
+def app_hostname(host: str) -> bool:
+    return bool(_APP_HOST.match(host))
+
+
+async def system_resolver(host: str, port: int) -> list[str]:
+    """Every address the name resolves to (the loop's getaddrinfo: not blocking)."""
+    infos = await asyncio.get_running_loop().getaddrinfo(host, port, type=socket.SOCK_STREAM)
+    return list(dict.fromkeys(i[4][0] for i in infos))
+
+
+async def plain_target(address: str, resolver: Resolver | None = None) -> tuple[str | None, list[str]]:
+    """Is a plain ws:// target allowed? (error key or None, the addresses it
+    resolved to, all inside the allowed range when the key is None).
+    Allowed: loopback (127.0.0.1, ::1, localhost); an IP literal inside
+    172.30.32.0/23; an App hostname (shape above) -- and a name only if EVERY
+    address it resolves to is loopback or inside 172.30.32.0/23. A name is
+    never accepted on its shape alone. Anything else: mantel_url_insecure; an
+    allowed-shape name that does not resolve there: mantel_url_not_internal."""
+    parts = urlsplit(ws_url(address))
+    host = (parts.hostname or "").lower()
+    if parts.scheme != "ws":
+        return None, []
+    port = parts.port or 80
+    if _ip(host) is not None:
+        return (None, [host]) if internal_ip(host) else ("mantel_url_insecure", [])
+    if host != "localhost" and not app_hostname(host):
+        return "mantel_url_insecure", []
+    try:
+        addrs = await (resolver or system_resolver)(host, port)
+    except (OSError, UnicodeError):
+        return "mantel_url_not_internal", []
+    if not addrs or not all(internal_ip(a) for a in addrs):
+        return "mantel_url_not_internal", list(addrs)
+    return None, list(addrs)
+
+
+class TargetRefused(LinkError):
+    """A plain ws:// target that no longer resolves inside the allowed range."""
+
+    def __init__(self, message: str) -> None:
+        super().__init__(message, "mantel_url_not_internal")
+
+
 class MantelLink:
     """The client. `run()` is the reconnect loop (a background task); `request()`
     forwards one call and waits for its answer."""
 
     def __init__(self, session: aiohttp.ClientSession, url: str, token: str, listener: Listener, *,
                  timeout: float = TIMEOUT, backoff: tuple[float, float] = BACKOFF,
-                 hello_timeout: float = HELLO_TIMEOUT) -> None:
+                 hello_timeout: float = HELLO_TIMEOUT, resolver: Resolver | None = None) -> None:
         self._session, self.url, self._token = session, ws_url(url), token
+        self._resolver = resolver
         self.listener = listener
         self.timeout, self.backoff, self.hello_timeout = timeout, backoff, hello_timeout
         self._ws: aiohttp.ClientWebSocketResponse | None = None
@@ -127,6 +203,9 @@ class MantelLink:
             except asyncio.CancelledError:
                 self._drop("the link was stopped")
                 raise
+            except TargetRefused as err:
+                self.last_error = err.code
+                _LOGGER.warning("hk_frontend: not connecting to %s: %s (retrying later)", self.url, err.message)
             except aiohttp.WSServerHandshakeError as err:
                 self.last_error = f"HTTP {err.status}"
                 if err.status in (401, 403):
@@ -152,8 +231,24 @@ class MantelLink:
         """One connection, until it ends. True if it got as far as hello."""
         self.attempts += 1
         opened: list[aiohttp.ClientWebSocketResponse] = []
+        url, headers = self.url, {"Authorization": f"Bearer {self._token}"}
+        parts = urlsplit(url)
+        if parts.scheme == "ws":
+            # plain ws: re-resolve and check right now, then connect to the
+            # address that was checked (the original Host header kept), so a
+            # name that changes between check and connect cannot redirect it
+            bad, addrs = await plain_target(url, self._resolver)
+            if bad:
+                raise TargetRefused(
+                    "a plain ws:// address must be this machine or on Home Assistant's internal App network "
+                    "(172.30.32.0/23), and its name no longer resolves there"
+                    if bad == "mantel_url_not_internal" else "a plain ws:// address must be internal")
+            ip = addrs[0].split("%", 1)[0]
+            host = f"[{ip}]" if ":" in ip else ip
+            url = urlunsplit(("ws", f"{host}:{parts.port}" if parts.port else host, parts.path, "", ""))
+            headers["Host"] = parts.netloc
         try:
-            async with self._session.ws_connect(self.url, headers={"Authorization": f"Bearer {self._token}"},
+            async with self._session.ws_connect(url, headers=headers,
                                                 heartbeat=30, max_msg_size=MAX_MSG) as ws:
                 opened.append(ws)
                 return await self._serve(ws)

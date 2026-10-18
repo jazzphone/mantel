@@ -235,14 +235,27 @@ Owner in `/admin` → Service accounts or `POST /api/service-accounts` inside th
 home-rules sidebar now). Ownership (`PUT /api/linked/owners`) likewise works from the Owner's sidebar.
 Caveat: any App with `host_network` also appears as `172.30.32.1`; it would still need the Service credential.
 
-**Blocked on HA's side (decision for Avery).** HK Frontend's Configure accepts plain `http://`/`ws://` only
-for 127.0.0.1/localhost (`linked_mode.check_url` → `mantel_url_insecure`), so it refuses
-`http://local-mantel:8099` today, and the App serves no TLS. Mantel's side is built and tested; HA's form is
-not changed (loosening where a credential may travel in clear is Avery's call). Options: (a) let
-`check_url` also accept the hassio network (`172.30.32.0/23`) and App hostnames (`local-<slug>`,
-`<8 hex>-<slug>`), whose traffic never leaves the HA host; (b) give the App a TLS listener for `/linked/ws`
-(a self-signed certificate HA pins); (c) keep linked mode for the Docker/LXC path only and leave per-tablet
-ownership with HA in the App until then. Until one is chosen, CUTOVER.md's linked-mode steps wait.
+**Decided and built (Avery, 2026-10-18; PLAN decision 24): option (a), tightened.** HK Frontend's Configure
+(`linked_mode.check_url`) and the link itself (`mantel_link.py`) accept plain `http://`/`ws://` only for:
+loopback (127.0.0.1, `localhost`, `::1`); an IP literal inside the hassio network, `172.30.32.0/23`; or an App
+hostname of the Supervisor's shape, `local-<slug>` or `<8 hex>-<slug>` (lowercase letters, digits, hyphen or
+underscore). A hostname is accepted **only if every address it resolves to** is loopback or inside
+`172.30.32.0/23`; a name is never accepted on its shape alone, and a plain name of any other shape stays
+`mantel_url_insecure`. `https://`/`wss://` is allowed anywhere, as before. A shaped name that does not resolve,
+or resolves outside the range (also one address of several), gives the new `mantel_url_not_internal`.
+Resolution is asynchronous (the loop's `getaddrinfo`), never blocking HA.
+
+The check runs **on save** (Configure form) and **again immediately before every connect and reconnect**: the
+link resolves and checks, then connects to the checked address with the original `Host` header (so a name that
+changes between check and connect cannot redirect it; no resolve/connect race remains). If the name no longer
+resolves inside the range, the link refuses to connect, logs a warning (the address, never the credential),
+shows `mantel_url_not_internal` as the link's last error, and retries at the normal backoff (1 s doubling to
+30 s). The credential is never logged or shown.
+
+**How to configure:** HK Frontend → Configure → Linked to Mantel Server: address `http://local-mantel:8099` and
+the Service credential. (The hostname is still to be confirmed on the house; if Supervisor names the App
+differently, use the `<8 hex>-mantel` form it shows in the App's page.) The build's private-address scan
+(`tools/publish/publish.py`) allows this one range, `172.30.32.0/23`, because the code names it.
 
 ## The prefix
 
@@ -519,7 +532,7 @@ else in HA was changed (the App creates no entities, no users, no tokens; HK Fro
 * Wall tablets through the App: the kiosk path (first load by trusted_networks, HA's kiosk mode, restarts,
   ingress-session expiry) and HA Core reaching `http://local-mantel:8099/linked/ws` are read from HA's code
   and tested against stand-ins only; the scratch HA has no Supervisor, so no Ingress. Verify on the Loft.
-  HK Frontend's Configure refuses that plain-http address today ("Linked mode in the App": a decision for Avery).
+  HK Frontend's Configure accepts that address since the 2026-10-18 change ("Linked mode in the App"); not yet installed on the house.
 * No in-page UI link to the People page yet (the address is `<prefix>/ingress/people`; the setup
   confirmation links it). The HK Settings panel's own user management is P3.x front-end work.
 * Passkey step-up does not work through Ingress (RP ID); TOTP and PIN step-up do.
