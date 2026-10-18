@@ -2,7 +2,8 @@
 for the linked mode tests (test_linked_mode.py). It speaks the link's protocol
 (mantel_link.py's docstring), records every frame and header it gets, and the
 test decides what it answers and pushes. Fictional house: one wall tablet
-(Hall), Live TV's viewers and one channel, one Alarm PIN panel."""
+(Hall), Live TV's viewers and one channel, one Alarm PIN panel. By default
+Mantel owns all of it (the whole entry: `owners`); a test sets its own."""
 from __future__ import annotations
 
 import asyncio
@@ -23,6 +24,7 @@ INUSE = "binary_sensor.hall_screen_in_use"
 VIEWERS = "sensor.tv_viewers"
 CAMERA = "camera.tv_channel_nine"
 ALARM = "alarm_control_panel.house_alarm_pin"
+FULL = {"house": "mantel", "tablets": ["hall"]}        # Mantel owns the whole entry
 DEVICE = {"identifier": f"{ENTRY}_hall", "name": "Hall", "manufacturer": "HK Frontend", "model": "Wall Tablet"}
 
 
@@ -32,15 +34,16 @@ def entities() -> list[dict[str, Any]]:
     return [
         {"unique_id": f"{ENTRY}_hall_black_screen", "platform": "switch", "entity_id": BLACK,
          "translation_key": "black_screen", "icon": "mdi:monitor-off", "device": DEVICE, "state": "off",
-         "attributes": {"tablet": "hall", "black_screen": "hk", "brightness": None, "confirmed": False}},
+         "tablet": "hall", "attributes": {"tablet": "hall", "black_screen": "hk", "brightness": None, "confirmed": False}},
         {"unique_id": f"{ENTRY}_hall_photo_screensaver", "platform": "switch", "entity_id": PHOTOS,
          "translation_key": "photo_screensaver", "icon": "mdi:image-multiple", "device": DEVICE, "state": "off",
-         "attributes": {"tablet": "hall", "starts_after": 180}},
+         "tablet": "hall", "attributes": {"tablet": "hall", "starts_after": 180}},
         {"unique_id": f"{ENTRY}_hall_sleep_screen", "platform": "sensor", "entity_id": SLEEP,
-         "translation_key": "sleep_screen", "device": DEVICE, "state": "dashboard",
+         "translation_key": "sleep_screen", "device": DEVICE, "state": "dashboard", "tablet": "hall",
          "attributes": {"tablet": "hall", "decided_by": "hk_frontend", "why": "someone home"}},
         {"unique_id": f"{ENTRY}_hall_screen_in_use", "platform": "binary_sensor", "entity_id": INUSE,
-         "translation_key": "screen_in_use", "device": DEVICE, "state": "off", "attributes": {"tablet": "hall"}},
+         "translation_key": "screen_in_use", "device": DEVICE, "state": "off", "tablet": "hall",
+         "attributes": {"tablet": "hall"}},
         {"unique_id": "01JLINKEDLIVETVITEM0000000_viewers", "platform": "sensor", "entity_id": VIEWERS,
          "has_entity_name": False, "name": "TV viewers", "icon": "mdi:account-eye", "state": 0,
          "attributes": {"users": [], "channels": []}},
@@ -58,6 +61,7 @@ class FakeMantel:
     def __init__(self, token: str = TOKEN) -> None:
         self.token = token
         self.entities = entities()
+        self.owners: dict[str, Any] | None = dict(FULL)   # None: a hello without them
         self.received: list[dict[str, Any]] = []
         self.headers: list[dict[str, str]] = []
         self.sockets: list[web.WebSocketResponse] = []
@@ -85,9 +89,11 @@ class FakeMantel:
         await ws.prepare(request)
         self.connects += 1
         self.sockets.append(ws)
-        await ws.send_json({"type": "hello", "protocol": 1, "services": ["set_black_screen", "show_popup",
-                                                                          "close_popup"],
-                            "entities": self.entities})
+        hello = {"type": "hello", "protocol": 1, "services": ["set_black_screen", "show_popup", "close_popup",
+                                                              "notify"], "entities": self.entities}
+        if self.owners is not None:
+            hello["owners"] = self.owners
+        await ws.send_json(hello)
         try:
             async for frame in ws:
                 msg = json.loads(frame.data)

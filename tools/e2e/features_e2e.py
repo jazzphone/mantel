@@ -149,6 +149,8 @@ async def phase(token: str, commands: bool) -> dict:
                 "linked": {"enabled": True, "entry_id": ENTRY, "backlight": True, "backlights": {"hall": BACKLIGHT}},
             })),
         ], actor=Actor(label="e2e"))
+        # linked mode's per-tablet ownership: the hall tablet is Mantel's (every tablet is HA's by default)
+        app["linked_owners"].set("hall", "mantel", by="e2e")
         # server.wire registers the feature host (after linked.register); use the app's own
         host = app["features"]
         out: dict = {"phase": label}
@@ -200,7 +202,9 @@ async def phase(token: str, commands: bool) -> dict:
                   "reached the fictional screen")
             out["notification"] = {k: ev[k] for k in ("item", "entity", "kind", "title", "message", "important", "mute")}
             await ha_set_state(ha, token, LEAK, "off", leak.get("attributes") or {})
-            check(app["audit"].rows() == [], "a notification is delivered by Mantel itself: no house command, no audit row")
+            check([r for r in app["audit"].rows() if r["kind"] != "config"] == [],
+                  "a notification is delivered by Mantel itself: no house command, no audit row "
+                  "(only the hall's move to Mantel, a config row)")
 
             # -- 2. linked mode: a black-screen request from a fake linked client ---------------------------
             _acct, svc_token = app["service_accounts"].create("e2e-home-assistant", ["linked"])

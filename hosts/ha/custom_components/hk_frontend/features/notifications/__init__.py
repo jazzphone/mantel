@@ -408,10 +408,21 @@ async def async_setup(hass: HomeAssistant) -> None:
     settings_ws.async_register(hass)
 
     async def notify(call: ServiceCall) -> ServiceResponse:
+        # LINKED TO MANTEL SERVER (linked_mode.py): the whole entry Mantel's,
+        # the banner is Mantel's to show; some tablets Mantel's, here as
+        # always and there too (its screens are Mantel's)
+        from ... import linked_mode
+        linked = linked_mode.active(hass)
         entry = running(hass)
+        if linked is not None and (linked.full or (entry is None and linked.tablets)):
+            got = await linked.forward("notify", dict(call.data))
+            got = got if isinstance(got, dict) else {}
+            return {"id": got.get("id"), "snap": bool(got.get("snap"))}
         if entry is None:
             raise ServiceValidationError(translation_domain=DOMAIN, translation_key="notifications_not_set_up")
         sent = await async_deliver(hass, build_action(hass, options(entry), dict(call.data)))
+        if linked is not None:
+            await linked.also("notify", dict(call.data))
         return {"id": sent["id"], "snap": bool(sent["snap"])}
 
     hass.services.async_register(DOMAIN, SERVICE_NOTIFY, notify, NOTIFY_SCHEMA,
