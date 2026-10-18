@@ -10,7 +10,7 @@ README.md, requirements.txt, translations/, icon.png) plus app/: packaging/docke
 hosts/server/mantel_server, hk_core, and web/ stamped with its build id by tools/build_static.py.
 
 Nothing private goes in. Before writing anything the whole plan is scanned and staging stops on any
-finding: no secret-shaped text (HA tokens, keys), no private-network addresses beyond the three named
+finding: no secret-shaped text (HA tokens, keys), no private-network addresses beyond the ones named
 in ALLOWED_ADDRESSES, no font files at all (Apple's SF Pro and the glyphs are licensed: each home adds
 its own through "Your files"), no captured fixtures, databases, key or token files. HK_PRIVATE (a
 regex) adds a home's own words to the scan, as tools/build_ha.py does.
@@ -53,6 +53,7 @@ PRIVATE = [
 # Addresses that are not a home's data, each where it may appear and why.
 ALLOWED_ADDRESSES = {
     "172.30.32.2": "the Supervisor's fixed address on HA's hassio network (where Ingress comes from)",
+    "172.30.32.1": "HA Core as the App sees it on the hassio network (linked mode's client; entrypoint)",
     "172.31.251.2": "Caddy's fixed backend address in Mantel's own compose file (entrypoint help text)",
     "192.0.2.53": "config.py's development default ha_url; App mode always passes --ha-url http://supervisor/core",
 }
@@ -212,7 +213,7 @@ def main(argv: list[str] | None = None) -> int:
         for h in hits[:50]:
             print("  " + h, file=sys.stderr)
         return 1
-    print("private-content scan: clean (no secrets, no private addresses beyond the allowed three, "
+    print("private-content scan: clean (no secrets, no private addresses beyond the allowed ones, "
           "no fonts/glyphs, no fixtures)")
     if a.dry_run:
         return 0

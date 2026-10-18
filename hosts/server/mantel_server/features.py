@@ -315,7 +315,13 @@ def _user_keys(identity: Any) -> set[str]:
     """The ids a notification's / pop-up's ``users`` may name this viewer by (Mantel's id, the linked
     HA user's id, the username)."""
     u = getattr(identity, "user", None)
-    return {k for k in (getattr(u, "id", None), getattr(u, "ha_user_id", None), getattr(u, "username", None)) if k}
+    keys = {k for k in (getattr(u, "id", None), getattr(u, "ha_user_id", None), getattr(u, "username", None)) if k}
+    if u is None:
+        # a wall tablet that is its own HA user (HA App mode, ingress.py): a frame naming that HA user
+        # reaches it, as HA's feed reached the tablet signed in as that user
+        d = getattr(identity, "device", None)
+        keys |= {k for k in (getattr(d, "ha_user_id", None), getattr(d, "ha_name", None)) if k}
+    return keys
 
 
 # ------------------------------------------------------------------------------------ the feed
@@ -1845,12 +1851,16 @@ def _role(identity: Any) -> str | None:
 def may_speak_for(host: FeatureHost, identity: Any, tid: str) -> bool:
     """A page may report for a tablet (a touch, its black) only as screensaver.rules.may_speak_for says:
     the tablet's own user, an admin, or anyone for a tablet with no user; a wall tablet device in
-    the tablet's own room counts as that tablet."""
+    the tablet's own room counts as that tablet, and so does a device that is the tablet's own HA user
+    (HA App mode: the Tablet User's name is HA's name for the HA user linked to the device)."""
     t = host.tablets.get(tid)
     if t is None or not _principal_ok(identity):
         return False
     dev = getattr(identity, "device", None)
     if dev is not None and getattr(identity, "user", None) is None:
+        ha_name = getattr(dev, "ha_name", None)
+        if ha_name and t.get("user") and t["user"] == ha_name:
+            return True
         return bool(t["room"]) and getattr(dev, "room", None) == t["room"]
     u = identity.user
     return SS.may_speak_for(t["user"], signed_in=True, admin=u.role in ("owner", "admin"),

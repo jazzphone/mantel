@@ -18,9 +18,10 @@ ingress: true
 ingress_port: 8099
 panel_icon: mdi:fireplace
 panel_title: Mantel
-# HA administrators only, to begin with (the first Owner must be one). Once the household's HA users
-# are linked to Mantel roles, an Owner may set this to false: unlinked users still get nothing.
-panel_admin: true
+# Every HA user may open the panel (decision 21: wall tablets come through it, and neither tablets nor most
+# household members are HA administrators). Mantel decides who gets anything: an unlinked HA user sees only
+# "Not linked yet", and only an HA administrator (checked with HA itself) can become the first Owner.
+panel_admin: false
 # HA's built-in App credential (SUPERVISOR_TOKEN, to ws://supervisor/core/websocket). No user token.
 homeassistant_api: true
 watchdog: "http://[HOST]:[PORT:8099]/healthz"

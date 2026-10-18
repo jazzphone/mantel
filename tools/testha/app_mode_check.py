@@ -16,6 +16,10 @@ Checks: HA's states and registries arrive over the explicit WebSocket URL; HA's 
 names the scratch user an administrator, so the first-Owner page offers the confirm and the confirm
 links them as Owner; the page signs them in on door 'ha'; a command over the socket is refused
 (commands_disabled) and the HA light it named did not change; the token is in no argument and no log line.
+A wall tablet (decision 21): the Owner links a fictional tablet HA user to a new device in one of the scratch
+HA's areas (REST); that HA user is then the device on door 'ha' (ha_door_rules trusted), its page carries the
+kiosk mark, its socket sees only what its room and the tablet grants allow, its command is refused (commands
+off), and after the unlink it gets 401.
 Never touches /Volumes/config, the house, or ~/.config/mantel.
 """
 from __future__ import annotations
@@ -65,6 +69,59 @@ async def light_state(http, token):
         return (await r.json())["state"]
 
 
+TABLET_HA = "5c4a7c4b1e7ab1e75c4a7c4b1e7ab1e7"       # a FICTIONAL HA user id: the tablet's own HA user
+
+
+async def tablet_check(http, base: str, owner: dict, jar: str) -> dict:
+    """A wall tablet through the App (docs/phase3/HA-APP.md "Wall tablets through the App"): the Owner links
+    a (fictional) tablet HA user to a new device in one of the scratch HA's areas over REST; that HA user's
+    requests are then the device on door 'ha', its page carries the kiosk mark, its socket sees only its
+    room's entities and its commands are refused (commands off)."""
+    csrf = next(p.split("=", 1)[1] for p in jar.split("; ") if p.startswith("mantel_csrf="))
+    async with http.get(base + "/api/areas", headers={**owner, "Cookie": jar}) as r:
+        areas = await r.json()
+    room = max(areas, key=lambda a: a["entities"])
+    hdr = {**owner, "Cookie": jar, "Origin": base, "X-CSRF-Token": csrf}
+    async with http.post(base + "/api/ingress/tablets", headers=hdr,
+                         json={"ha_user_id": TABLET_HA, "room": room["id"], "name": "Scratch tablet"}) as r:
+        assert r.status == 201, (r.status, await r.text())
+        linked = await r.json()
+    tab = {**owner, "X-Remote-User-Id": TABLET_HA, "X-Remote-User-Name": "scratch_tablet",
+           "X-Remote-User-Display-Name": "Scratch Tablet"}
+    async with http.get(base + "/api/session", headers=tab) as r:
+        s = await r.json()
+    assert s["user"] is None and s["device"]["role"] == "wall_tablet" and s["device"]["room"] == room["id"], s
+    assert s["door"] == "ha"
+    async with http.get(base + "/", headers={**tab, "Accept": "text/html", "Sec-Fetch-Dest": "document"},
+                        allow_redirects=False) as r:
+        start = r.headers.get("Location")
+    async with http.get(base + "/dashboard-proof/home",
+                        headers={**tab, "Accept": "text/html", "Sec-Fetch-Dest": "document"}) as r:
+        page = await r.text()
+        assert r.status == 200 and 'name="mantel-kiosk"' in page
+    ws = await http.ws_connect(base + "/ws", headers={**tab, "Origin": base})
+    await ws.send_json({"type": "subscribe", "entity_ids": [], "all": True})
+    snap = await ws.receive_json()
+    while snap.get("type") != "snapshot":
+        snap = await ws.receive_json()
+    seen = sorted(snap["entities"])
+    await ws.send_json({"type": "command", "id": 9, "kind": "service", "domain": "light", "service": "toggle",
+                        "target": {"entity_id": LIGHT}})
+    refused = await ws.receive_json()
+    while refused.get("id") != 9 and refused.get("type") != "error":
+        refused = await ws.receive_json()
+    await ws.close()
+    async with http.delete(base + f"/api/ingress/tablets/{TABLET_HA}", headers=hdr) as r:
+        assert r.status == 200
+    async with http.get(base + "/api/me", headers=tab) as r:
+        assert r.status == 401
+    return {"linked": f"device {linked['device']['name']} in {room['name']}",
+            "session": f"user None, device {s['device']['role']} ({s['device']['room']}), door {s['door']}",
+            "start": start, "kiosk_meta": True, "entities_seen": f"{len(seen)} (e.g. {seen[:3]})",
+            "command": refused.get("code") or (refused.get("error") or {}).get("code"),
+            "unlinked": "401 afterwards"}
+
+
 async def main() -> dict:
     if not testha.ready():
         raise SystemExit("the scratch HA is not running: tools/testha/testha.py up")
@@ -75,7 +132,7 @@ async def main() -> dict:
     (work / "data").mkdir(parents=True)
     options = work / "options.json"
     options.write_text(json.dumps({"commands_enabled": False, "log_level": "info",
-                                   "default_screen": "dashboard-proof", "ha_door_rules": "tunnel"}))
+                                   "default_screen": "dashboard-proof", "ha_door_rules": "trusted"}))
     port = free_port()
     async with aiohttp.ClientSession() as http:
         token = await testha.access_token(http)
@@ -156,6 +213,7 @@ async def main() -> dict:
             light_after = await light_state(http, token)
             assert light_after == light_before, (light_before, light_after)
             result["commands"] = f"refused (commands_disabled) x2; {LIGHT} stayed {light_after}"
+            result["tablet"] = await tablet_check(http, base, ha, jar)
             # the forged-header rule with --ingress-only: a request the Ingress peer did not send is refused
             # (here every local request is the peer, so this is the unit tests' and the smoke's job)
     finally:

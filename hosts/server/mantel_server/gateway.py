@@ -96,6 +96,15 @@ NOTIFY_KINDS = frozenset({"lock", "alarm_control_panel"})
 # Doors that may be remote: the tunnel, and HA's sidebar through Ingress ('ha', HA App mode), which
 # may itself come through HA's own remote access (docs/phase3/HA-APP.md).
 REMOTE_DOORS = frozenset({"tunnel", "ha"})
+
+
+def _not_remote(authz: Any, ident: Any) -> bool:
+    """No "remote access" notice for this identity on the 'ha' door: a person on a trusted sidebar
+    (authz.ha_trusted), or a wall tablet that is its own HA user with the home rules (authz.ha_tablet)."""
+    if authz is None or ident is None:
+        return False
+    return bool((hasattr(authz, "ha_trusted") and authz.ha_trusted(ident))
+                or (hasattr(authz, "ha_tablet") and authz.ha_tablet(ident)))
 # The shortest audit retention window the server accepts (migration 0007's trigger refuses to delete
 # anything younger, whatever the maintenance path is told).
 MIN_RETENTION_DAYS = 30
@@ -683,7 +692,7 @@ class Gateway:
         log.info("%s on %s by %s (audit %d)", cmd.action, ",".join(cmd.targets), _who(principal), aid)
         await reply({"type": "command_result", "result": result, "audit_id": aid})
         authz = self.app.get("authz")
-        trusted = authz is not None and hasattr(authz, "ha_trusted") and authz.ha_trusted(ident)
+        trusted = _not_remote(authz, ident)
         if ident.door in REMOTE_DOORS and sensitive in NOTIFY_KINDS and not trusted:
             await self.notify_owners(principal, cmd, aid)
 
@@ -780,7 +789,7 @@ class Gateway:
         log.info("%s on %s by %s (audit %d)", action, ",".join(targets), _who(acting), aid)
         await reply({"type": "command_result", "result": result, "audit_id": aid})
         authz = self.app.get("authz")
-        trusted = authz is not None and hasattr(authz, "ha_trusted") and authz.ha_trusted(principal.identity)
+        trusted = _not_remote(authz, principal.identity)
         if service == alarm_pin.DISARM and principal.identity.door in REMOTE_DOORS and not trusted:
             cmd.targets = targets
             await self.notify_owners(acting, cmd, aid)

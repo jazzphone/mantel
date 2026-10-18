@@ -40,7 +40,7 @@ Home Assistant App (add-on)      recognised by SUPERVISOR_TOKEN in the environme
                                  through the Supervisor (ws://supervisor/core/websocket). docs/phase3/HA-APP.md.
     Test-only overrides (never set by the Supervisor; for running App mode against a scratch HA):
     MANTEL_APP_OPTIONS, MANTEL_APP_TOKEN_FILE, MANTEL_SUPERVISOR_CORE_URL, MANTEL_SUPERVISOR_WS_URL,
-    MANTEL_INGRESS_PEER, MANTEL_LISTEN, MANTEL_PORT, MANTEL_DATA_DIR
+    MANTEL_INGRESS_PEER, MANTEL_HA_CORE_PEER, MANTEL_LISTEN, MANTEL_PORT, MANTEL_DATA_DIR
 
 Admin commands pass straight through and default to the /data volume (and, for import-settings, backup
 and restore, to the container's HA address, token and secrets):
@@ -81,6 +81,7 @@ APP_MA_TOKEN_FILE = Path("/tmp/ma_token")       # the App's Music Assistant toke
 SUPERVISOR_CORE_URL = "http://supervisor/core"
 SUPERVISOR_WS_URL = "ws://supervisor/core/websocket"
 APP_PORT = "8099"
+HA_CORE_PEER = "172.30.32.1"        # HA Core on the hassio network (the bridge's gateway; Core runs on the host)
 LOG_LEVELS = ("debug", "info", "warning", "error")
 DOOR_RULES = ("trusted", "lan", "tunnel")
 
@@ -183,6 +184,10 @@ def app_args(options: dict, token_file: Path, env: dict[str, str] | None = None)
     args += ["--ingress", "--ingress-only", "--ha-managed-by-app"]   # HA is the App's credential (connections.py)
     for peer in filter(None, (p.strip() for p in env.get("MANTEL_INGRESS_PEER", "").split(","))):
         args += ["--ingress-peer", peer]
+    # HA Core (host network) as the App sees it: linked mode's client (hk_frontend "Linked to Mantel Server",
+    # address http://<the App's hostname>:8099) may reach /linked/ws, with its Service credential
+    for peer in filter(None, (p.strip() for p in env.get("MANTEL_HA_CORE_PEER", HA_CORE_PEER).split(","))):
+        args += ["--ha-core-peer", peer]
     # Commands stay OFF unless the App's option says exactly true (PLAN: off by default).
     if options.get("commands_enabled") is True:
         args.append("--commands-enabled")

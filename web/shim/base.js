@@ -23,6 +23,19 @@ export const wsUrl = (path) => `${location.protocol === 'https:' ? 'wss' : 'ws'}
 const outside = (u) => typeof u === 'string' && u.charAt(0) === '/' && u.charAt(1) !== '/' &&
   u !== base && u.indexOf(base + '/') !== 0;
 
+// A wall tablet that is its own HA user (HA App mode, decision 21; ingress.py marks its page with
+// <meta name="mantel-kiosk">): ask Home Assistant's frontend -- the App panel around this frame
+// (ha-panel-app) -- for its kiosk mode, which hides HA's sidebar and the panel's header bar, so Kiosk
+// Satellite shows Mantel's page full-screen. This is HA's own iframe protocol (the message
+// `home-assistant/subscribe-properties` with `kioskMode: true`, HA frontend 2026.9 and later); an older HA
+// ignores it. Sent to HA's own origin only (Ingress serves this frame from it). People are never marked.
+export const kiosk = !!(base && document.querySelector('meta[name="mantel-kiosk"]'));
+if (kiosk && window.parent && window.parent !== window) {
+  try {
+    window.parent.postMessage({ type: 'home-assistant/subscribe-properties', kioskMode: true }, location.origin);
+  } catch (e) { /* no parent to tell (opened on its own): nothing to hide */ }
+}
+
 if (base) {
   for (const name of ['pushState', 'replaceState']) {
     const original = history[name];
