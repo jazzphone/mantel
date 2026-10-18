@@ -90,7 +90,8 @@ DATA = "linked"                        # hass.data[DOMAIN][DATA]: the running Li
 SERVICES = ("set_black_screen", "show_popup", "close_popup", "notify")
 # Mantel's refusals that are the caller's to fix (the rest are Mantel's trouble)
 _VALIDATION = {"invalid", "unknown_service", "unknown_target", "unknown_entity", "unknown_command",
-               "not_a_black_screen", "invalid_code", "unknown_popup", "not_owned"}
+               "not_a_black_screen", "invalid_code", "code_required", "code_locked", "unknown_popup",
+               "not_owned"}
 # attributes Home Assistant itself sets: never taken from Mantel's
 _RESERVED = {"friendly_name", "icon", "entity_picture", "supported_features", "device_class",
              "unit_of_measurement", "assumed_state", "attribution", "restored", "state_class", "options",

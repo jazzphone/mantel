@@ -36,11 +36,14 @@ WHAT MANTEL DOES. HK's keypad card is unchanged: it calls ``alarm_control_panel.
 An alarm Mantel has no row for keeps the ordinary path for a command WITHOUT a code (RBAC + step-up); a
 code typed for it is still checked here (as a person's PIN) and never forwarded.
 
-LINKED MODE (linked.py; finished by another slice): ``linked_command(app, entity=..., command=..., code=...,
-account=..., peer=...)`` runs HA's forwarded ``alarm_*`` entity command through the SAME gateway path as
-the Service actor ``mantel:linked`` (grants on the configured keypads only), raising ``linked.LinkedError``
-(``invalid_code``, ``code_locked``, ``code_required``, ``forbidden``, ``commands_disabled``, ...) for HA
-to show. The person whose PIN it was is the audit's actor.
+LINKED MODE (linked_house.LinkedHouse._alarm is the only caller): ``linked_command(app, entity=...,
+command=..., code=..., account=..., peer=...)`` runs HA's forwarded ``alarm_*`` entity command through the
+SAME gateway path as the Service actor ``mantel:linked`` (grants on the configured keypads only; wrong
+codes counted at ``keypad:mantel:linked``), raising ``linked.LinkedError`` (``linked_error``: one table
+from the gateway's refusals to the wire codes ``invalid_code``, ``code_locked``, ``code_required``,
+``forbidden``, ``commands_disabled``, ``alarm_ha_code_missing``, ...) for HA to show. The person whose
+PIN it was is the audit's actor. Which alarm the linked panel forwards to is this table's row
+(linked_house makes one from HA's registry when there is none).
 
 REST (Owner/Admin, fresh factor; a PIN or code is never returned): ``GET /api/alarm/pins``, ``PUT
 /api/alarm/pins/{entity}`` ``{forward_to, pin, pin_again, arm_required, tablets, ha_code}``, ``DELETE
@@ -351,13 +354,35 @@ async def linked_command(app: web.Application, *, entity: str, command: str, cod
                                 "service": command, "data": data}, send)
     if "result" in got:
         return got["result"]
-    if got.get("type") == "step_up_required":
-        raise LinkedError("code_required", "Mantel needs the alarm's PIN")
-    err = got.get("error") or {}
-    c = err.get("code") or "failed"
-    if c == "unavailable" and err.get("message") == "commands_disabled":
-        c = "commands_disabled"
-    raise LinkedError(c, err.get("message") or c)
+    raise linked_error(got)
+
+
+# The gateway's refusals as linked mode's wire codes, in ONE place. HA's LinkedAlarmPanel shows
+# "Mantel Server refused <command> on <entity>: <message>" (a ServiceValidationError for the codes in
+# linked_mode._VALIDATION); HK's keypad card says "Wrong code" for a message that mentions a code.
+LINKED_MESSAGES = {
+    "invalid_code": "Wrong code",
+    "code_required": "Enter the alarm code",
+    "commands_disabled": "house commands are disabled on this Mantel Server; nothing was sent",
+    "alarm_ha_code_missing": "Mantel holds no code for the alarm itself (an Owner sets it in Mantel's Alarm PIN "
+                             "settings); nothing was sent",
+    "alarm_pin_unavailable": "Mantel Server has no Alarm PIN engine to check the code; nothing was sent",
+}
+
+
+def linked_error(reply: Mapping[str, Any]) -> Any:
+    """The gateway's reply (not a result) -> ``linked.LinkedError``: ``invalid_code``, ``code_locked``
+    (its message says how long), ``code_required`` (also for a step-up, which only a fresh code
+    answers here), ``forbidden``, ``commands_disabled``, ``alarm_ha_code_missing``, ... The typed code
+    is never in a message."""
+    from .linked import LinkedError
+    if reply.get("type") == "step_up_required":
+        return LinkedError("code_required", LINKED_MESSAGES["code_required"])
+    err = reply.get("error") or {}
+    c, msg = err.get("code") or "failed", err.get("message")
+    if c == "unavailable" and msg in LINKED_MESSAGES:      # the gateway's reason rides in the message
+        c = msg
+    return LinkedError(c, LINKED_MESSAGES.get(c) or msg or c)
 
 
 # -- REST ------------------------------------------------------------------------------------------------

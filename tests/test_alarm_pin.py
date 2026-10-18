@@ -526,3 +526,17 @@ async def test_import_from_has_alarm_pin_page(gw):
     assert asked == [{"type": "hk_alarm_pin/settings/get"}]
     (e,) = gw.app["alarm_pin"].entries()
     assert e.forward_to == ALARM and e.arm_required is False and not e.house_code
+
+
+def test_the_gateway_s_refusals_become_linked_wire_codes_in_one_place():
+    cases = [({"type": "step_up_required"}, "code_required", "Enter the alarm code"),
+             ({"error": {"code": "invalid_code", "message": "Wrong code"}}, "invalid_code", "Wrong code"),
+             ({"error": {"code": "code_locked", "message": "Wrong code too many times; the keypad is locked for 15 min"}},
+              "code_locked", "Wrong code too many times; the keypad is locked for 15 min"),
+             ({"error": {"code": "unavailable", "message": "commands_disabled"}}, "commands_disabled", None),
+             ({"error": {"code": "unavailable", "message": "alarm_ha_code_missing"}}, "alarm_ha_code_missing", None),
+             ({"error": {"code": "forbidden", "message": "not allowed: x on y"}}, "forbidden", "not allowed: x on y")]
+    for reply, code, message in cases:
+        err = A.linked_error(reply)
+        assert isinstance(err, LinkedError) and err.code == code
+        assert err.message == (message or A.LINKED_MESSAGES[code])
