@@ -99,14 +99,20 @@ services:
       # X-Forwarded-For) Mantel believes. Caddy reaches Mantel by the backend-only alias below, so its
       # connections always come from this address. Without it every request counts as the tunnel door.
       MANTEL_TRUSTED_PROXY: 172.31.251.2
+      MANTEL_BACKUP_TARGET: ${MANTEL_BACKUP_TARGET:-}
+      MANTEL_MA_URL: ${MANTEL_MA_URL:-}
     volumes:
       - mantel-data:/data
+      # the nightly encrypted backup's target (the NAS mount on the host); off unless
+      # MANTEL_BACKUP_TARGET is set to /backups
+      - ${MANTEL_BACKUP_DIR:-./backups}:/backups
     tmpfs:
       - /tmp:size=64m
     secrets:
       - ha_token
       - ma_token
-      - data_key
+      - at_rest.key
+      - backup.key
     # The secret files are root:10001 0440 on the host; the image's user has primary gid 10001.
     group_add:
       - "10001"
@@ -208,8 +214,12 @@ secrets:
     file: ${MANTEL_SECRETS_DIR:-/etc/hk/secrets}/ha_token
   ma_token:
     file: ${MANTEL_SECRETS_DIR:-/etc/hk/secrets}/ma_token
-  data_key:
-    file: ${MANTEL_SECRETS_DIR:-/etc/hk/secrets}/data_key
+  # named after the files the server reads in --secrets-dir (/run/secrets): the at-rest key seals
+  # TOTP seeds and device keys in SQLite; the backup key encrypts the nightly backup
+  at_rest.key:
+    file: ${MANTEL_SECRETS_DIR:-/etc/hk/secrets}/at_rest.key
+  backup.key:
+    file: ${MANTEL_SECRETS_DIR:-/etc/hk/secrets}/backup.key
   cloudflare_dns_token:
     file: ${MANTEL_SECRETS_DIR:-/etc/hk/secrets}/cloudflare_dns_token
   cloudflared_token:

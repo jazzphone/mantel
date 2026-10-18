@@ -93,6 +93,8 @@ def parse_args(argv: list[str] | None = None) -> Config:
     p.add_argument("--session-hours", type=float, default=Config.session_hours, help="tunnel-door session lifetime")
     p.add_argument("--lan-session-days", type=float, default=Config.lan_session_days)
     p.add_argument("--rp-id", default=Config.webauthn_rp_id, help="passkey relying-party id (hostname)")
+    p.add_argument("--ma-url", default=Config.ma_url, help="Music Assistant's WebSocket API (ws://ma:8095/ws); empty = off")
+    p.add_argument("--ma-token-file", default=str(Config.ma_token_file), help="Music Assistant's long-lived token (a file)")
     p.add_argument("--commands-enabled", action="store_true",
                    help="turn the command gateway on: signed-in users may control the house through Mantel, "
                         "within their roles, with step-up and an audit row for every command. Off by default")
@@ -163,6 +165,7 @@ def parse_args(argv: list[str] | None = None) -> Config:
                  backup_target=Path(a.backup_target) if a.backup_target else None,
                  backup_key_file=Path(a.backup_key_file) if a.backup_key_file else None,
                  backup_time=a.backup_time, backup_keep_daily=a.backup_keep_daily,
-                 backup_keep_weekly=a.backup_keep_weekly, backup_include_files=not a.backup_no_files)
+                 backup_keep_weekly=a.backup_keep_weekly, backup_include_files=not a.backup_no_files,
+                 ma_url=a.ma_url, ma_token_file=Path(a.ma_token_file))
     assert cfg.host in LOOPBACK or cfg.public_url, "Mantel listens beyond loopback only in container mode"
     return cfg

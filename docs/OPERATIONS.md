@@ -71,7 +71,8 @@ Secrets are **files**, never environment variables, the image or the repository.
 | File | What | Needed |
 |---|---|---|
 | `ha_token` | Long-lived token of a dedicated HA administrator user for Mantel. Create it fresh; never reuse a personal token. | yes |
-| `data_key` | 32 random bytes, base64. Reserved name for the at-rest key. **Not wired yet** (see section 15). | create it now |
+| `at_rest.key` | 32 random bytes, base64. Seals TOTP seeds and device keys in SQLite; read from `/run/secrets` (`--secrets-dir`). **Keep a copy off the box.** | create it now |
+| `backup.key` | 32 random bytes, base64. Encrypts the nightly backup. **Keep a copy off the box.** | create it now |
 | `ma_token` | Music Assistant token. | when the connector is wired |
 | `cloudflare_dns_token` | Cloudflare token (Zone:DNS:Edit on one zone) for Caddy's DNS-01 certificates. | only with DNS-01 TLS |
 | `cloudflared_token` | The tunnel token. | only with `--profile tunnel` |
@@ -128,12 +129,13 @@ curl -X POST "$B/api/bootstrap" -H "Origin: $B" -H 'Content-Type: application/js
 
 It spends the token, creates the Owner in one step and signs them in. Afterwards `/api/bootstrap` answers `410 bootstrap_closed`. Then enrol a TOTP authenticator and a passkey for the Owner (`/api/auth/totp/enroll` and `/enroll/confirm`; `/api/auth/passkey/register/*`). Passkeys need `--rp-id` set to the real hostname first. On the tunnel door a password alone is never accepted, so TOTP or a passkey is mandatory for remote use.
 
-**In the container stacks** the entrypoint passes `link`, `unlink`, `links` and `session` straight through (`docker compose run --rm mantel-server links`). `bootstrap`, `import-settings` and `service-account` are **not** passed through yet. Until they are, run them like this **(unverified, Docker is not installed)**:
+**In the container stacks** every admin command passes straight through the entrypoint, with the container's data folder, HA address, token and secrets filled in:
 
 ```bash
-mantel() { docker compose run --rm --entrypoint python mantel-server -m mantel_server "$@"; }
-mantel bootstrap --data-dir /data
+docker compose run --rm mantel-server bootstrap
 ```
+
+The others work the same way: `links`, `link`, `import-settings`, `service-account create --name linked --scope linked`, `backup --target /backups`, `restore <file>`, `import-files <folder>`.
 
 ## 4. Linking Home Assistant users
 
@@ -376,11 +378,8 @@ Collected from the phase documents; check [PLAN.md](PLAN.md) section 0 for the c
 
 | Gap | Effect | Where |
 |---|---|---|
-| **Images never built or run** (needs Docker) | Everything in the compose, LXC and App sections is unverified. The base-image digests in the Dockerfiles are all-zero placeholders that fail the build until pinned. | [phase3/PACKAGING.md](phase3/PACKAGING.md) |
-| **At-rest key not wired in the containers** | Compose mounts `data_key` at `/run/secrets/data_key`, but the server reads `<secrets-dir>/at_rest.key` and the entrypoint passes no `--secrets-dir`. TOTP enrolment must not be used in a container until this is fixed. | ACCOUNTS.md (P3.6 must), compose.yaml |
-| **Entrypoint passes through only `link`, `unlink`, `links`, `session`** | `bootstrap`, `import-settings`, `service-account` need the `mantel` helper in section 3. | `packaging/docker/entrypoint.py` |
-| **No Music Assistant setting in the packaging** | `ma_url` exists in the config but has no flag or variable; the connector is off in a container. | CONNECTORS.md |
-| **No login page or "Make this a wall tablet" button; no screen to manage people, tablets or PINs** | Administration is REST today; a tablet cannot be enrolled in practice. | `ADMIN-PAGE.md` (in progress) |
+| **Images built and run on Docker Desktop (2026-10-18)**; the LXC and the App on the house are not yet run | The server image runs healthy under the production restrictions; base images are pinned. The full compose stack against the scratch HA and the LXC on proxmox1 are the next checks. | [phase3/PACKAGING.md](phase3/PACKAGING.md) |
+| **No login page yet** | The admin page (`/admin`: people, tablets incl. "enroll this browser", roles, PINs, audit) exists, but signing in still needs a page with password/passkey/HA sign-in. | [phase3/ADMIN-PAGE.md](phase3/ADMIN-PAGE.md) |
 | **HA App: Ingress identity and prefix-relative URLs** | The App starts and is healthy, but sign-in through Ingress does not work yet. The entrypoint passes no `--trusted-proxy` there, so every request counts as `tunnel`. | `HA-APP.md` (in progress), PACKAGING.md |
 | **Mantel Connect has no guided pairing or installer** | The Phase 0 proof used manual key and certificate transfer and a foreground receiver. | PLAN §8, mantel-connect README |
 | **Linked mode's real handlers and the 31 entities** | Built and tested, off by default; Mantel does not yet publish the entities or act on black screen, pop-ups or the alarm. | LINKED-MODE.md "What's left" |

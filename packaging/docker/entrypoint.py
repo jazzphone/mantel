@@ -22,8 +22,17 @@ Home Assistant App (add-on)      recognised by SUPERVISOR_TOKEN in the environme
                                  spawns only ever see a file path, like every other mode. Options come from
                                  options.json. The server is reached only through Ingress.
 
-Admin commands pass straight through and default to the /data volume:
+Admin commands pass straight through and default to the /data volume (and, for import-settings, backup
+and restore, to the container's HA address, token and secrets):
     docker compose run --rm mantel-server links
+    docker compose run --rm mantel-server bootstrap
+    docker compose run --rm mantel-server import-settings
+    docker compose run --rm mantel-server service-account create --name linked --scope linked
+    docker compose run --rm mantel-server backup --target /backups
+
+    MANTEL_SECRETS_DIR     compose    /run/secrets (at_rest.key, backup.key)
+    MANTEL_MA_URL          optional   Music Assistant's API (token: /run/secrets/ma_token); empty = off
+    MANTEL_BACKUP_TARGET   optional   /backups (the host's backup folder, mounted) turns the nightly backup on
 """
 from __future__ import annotations
 
@@ -33,7 +42,15 @@ import os
 import sys
 from pathlib import Path
 
-ADMIN_COMMANDS = {"link", "unlink", "links", "session", "connect-proof"}
+ADMIN_COMMANDS = {"link", "unlink", "links", "session", "connect-proof", "bootstrap", "import-settings",
+                  "service-account", "backup", "restore", "import-files"}
+# what each admin command takes besides --data-dir, filled from the container's own settings when absent
+ADMIN_EXTRAS = {
+    "import-settings": lambda env: ["--ha-url", env.get("MANTEL_HA_URL", ""),
+                                    "--token-file", env.get("MANTEL_HA_TOKEN_FILE", "/run/secrets/ha_token")],
+    "backup": lambda env: ["--secrets-dir", env.get("MANTEL_SECRETS_DIR", "/run/secrets")],
+    "restore": lambda env: ["--secrets-dir", env.get("MANTEL_SECRETS_DIR", "/run/secrets")],
+}
 APP_OPTIONS = Path("/data/options.json")
 APP_TOKEN_FILE = Path("/tmp/ha_token")
 SUPERVISOR_CORE_URL = "http://supervisor/core"
@@ -77,6 +94,13 @@ def container_args(env: dict[str, str]) -> list[str]:
     for host in filter(None, (h.strip() for h in env.get("MANTEL_ALLOW_HOSTS", "").split(","))):
         args += ["--allow-host", host]
     args += trusted_proxy_args(env)
+    # Docker secrets (compose): at_rest.key and backup.key are read from here
+    args += ["--secrets-dir", env.get("MANTEL_SECRETS_DIR", "/run/secrets")]
+    if env.get("MANTEL_MA_URL"):
+        args += ["--ma-url", env["MANTEL_MA_URL"],
+                 "--ma-token-file", env.get("MANTEL_MA_TOKEN_FILE", "/run/secrets/ma_token")]
+    if env.get("MANTEL_BACKUP_TARGET"):
+        args += ["--backup-target", env["MANTEL_BACKUP_TARGET"]]
     if env.get("MANTEL_DEFAULT_SCREEN"):
         args += ["--screen", env["MANTEL_DEFAULT_SCREEN"]]
     if env.get("MANTEL_SESSION_HOURS"):
@@ -110,6 +134,10 @@ def plan(argv: list[str], env: dict[str, str], options_path: Path = APP_OPTIONS,
     env = dict(env)
     if argv and argv[0] in ADMIN_COMMANDS:
         extra = [] if "--data-dir" in argv or argv[0] == "connect-proof" else ["--data-dir", env.get("MANTEL_DATA_DIR", "/data")]
+        given = ADMIN_EXTRAS.get(argv[0], lambda e: [])(env)
+        for flag, value in zip(given[::2], given[1::2]):
+            if flag not in argv and value:
+                extra += [flag, value]
         return argv + extra, env
     if detect_mode(env, options_path) == "ha-app":
         write_private(token_file, env.pop("SUPERVISOR_TOKEN"))

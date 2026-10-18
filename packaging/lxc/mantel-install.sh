@@ -39,7 +39,13 @@ install -d -m 0750 -o root -g 10001 "$SECRETS_DIR"
 for f in ha_token ma_token cloudflare_dns_token cloudflared_token; do
   [ -e "$SECRETS_DIR/$f" ] || { : > "$SECRETS_DIR/$f"; }
 done
-[ -e "$SECRETS_DIR/data_key" ] || { umask 077; head -c 32 /dev/urandom | base64 > "$SECRETS_DIR/data_key"; }
+# the at-rest and backup keys (32 random bytes, base64), named as the server reads them; an older
+# data_key becomes at_rest.key. Keep a copy of both OFF this machine: a restore needs them.
+[ -e "$SECRETS_DIR/data_key" ] && [ ! -e "$SECRETS_DIR/at_rest.key" ] && mv "$SECRETS_DIR/data_key" "$SECRETS_DIR/at_rest.key"
+for k in at_rest.key backup.key; do
+  [ -e "$SECRETS_DIR/$k" ] || { umask 077; head -c 32 /dev/urandom | base64 > "$SECRETS_DIR/$k"; }
+  chown root:10001 "$SECRETS_DIR/$k"; chmod 0440 "$SECRETS_DIR/$k"
+done
 chown root:10001 "$SECRETS_DIR"/* && chmod 0440 "$SECRETS_DIR"/*
 
 cat > /usr/local/sbin/mantel-secret <<'EOS'
