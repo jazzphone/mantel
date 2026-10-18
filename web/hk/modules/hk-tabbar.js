@@ -622,7 +622,7 @@
 
     // ---------------------------------------------------------- the list
     function model() {
-      var cfg = M.config(), h = C.hass(), b = M.board();
+      var cfg = M.config(), h = C.client(), b = M.board();
       return H.model(cfg, h && h.areas, { dash: M.dash(), order: b.menu_rooms === 'order' ? 'order' : 'az',
                                           roomOrder: b.room_order, user: h && h.user && h.user.id,
                                           categories: b.categories, top: b.menu_top, chips: b.chips,
@@ -644,9 +644,9 @@
       return Math.max(0, (window.innerHeight || 800) - d);
     }
     function listKey(width) {
-      var h = C.hass(), b = M.board();
+      var h = C.client(), side = H.sidebarSource(), b = M.board();
       return [M.dash(), cfgId(M.config()), width, railH(), b.ha_place, b.tab_bar_pos, b.tab_bar_rooms, b.tab_bar_rooms_phone, phoneAt(), phoneSet(), b.tab_bar_more, b.tab_bar_more_phone, b.tab_bar_size, b.tab_bar_tabs, b.tab_bar_tabs_rail, b.ha_row, JSON.stringify(S.haPrefs || null),
-              h && h.user && h.user.is_admin, h && h.panels ? Object.keys(h.panels).join(',') : '', b.menu_rooms, JSON.stringify(b.room_order),
+              h && h.user && h.user.is_admin, side && side.panels ? Object.keys(side.panels).join(',') : '', b.menu_rooms, JSON.stringify(b.room_order),
               JSON.stringify(b.categories), JSON.stringify(b.menu_top || []), JSON.stringify(b.pages || []),
               JSON.stringify(b.chips || []), b.chips_row, h && h.user && h.user.id,
               JSON.stringify(h && h.areas ? Object.keys(h.areas).map(function (k) {
@@ -668,8 +668,8 @@
       // Section), the side menu's own list (hkMenu._.haItems) as it shows
       // folded: Integrations, Automations, Settings, Notifications, Show
       // Menu (Home Assistant's whole sidebar, for the rest) and Profile
-      var h = C.hass();
-      S.ha = b.ha_row ? H.haItems(h, S.haPrefs, { moreOpen: false, sidebarShown: false })
+      // slice 9: the sidebar's panels are not on the client (hkMenu._.sidebarSource)
+      S.ha = b.ha_row ? H.haItems(H.sidebarSource(), S.haPrefs, { moreOpen: false, sidebarShown: false })
         .filter(function (it) { return it.kind !== 'more'; }) : [];
       if (b.ha_row && S.haPrefs === undefined) loadPrefs();
       var tabs = [m.home].concat(m.categories).filter(Boolean);
@@ -1138,7 +1138,7 @@
 
     // ------------------------------------------------------------ sync
     // Everything that can change what shows: page changes, settings, resize,
-    // hass pushes. Cheap and idempotent.
+    // state pushes. Cheap and idempotent.
     function sync() {
       var on = wanted();
       if (!on) {
@@ -1219,8 +1219,8 @@
     // HA pushes ~33 state changes a second: only what the list is made of
     // is looked at here -- the dashboard, its config and the areas, each by
     // identity (a new object only when it changed)
-    C.onHass(function () {
-      var h = C.hass(), cfg = M.config(), d = M.dash(), areas = h && h.areas;
+    C.onClient(function () {
+      var h = C.client(), cfg = M.config(), d = M.dash(), areas = h && h.areas;
       if (d === S.dash && cfg === S.cfg && areas === S.areas) return;
       S.dash = d; S.cfg = cfg; S.areas = areas;
       sync();

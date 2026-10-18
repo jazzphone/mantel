@@ -740,12 +740,15 @@
           var cx = ctx();
           S.libFor = cx ? cx.key : null;
           // (the house first: setConfig draws the first level at once, and
-          // with no connection yet it said "no hass"). The library card is a
+          // with no connection yet its first level failed to load). The library card is a
           // card family that still reads the host input (slice 9): the host
           // adapter's bridge hands over the one that goes with the client.
+          // slice 9: drop the priming when hk-library reads this.client (and
+          // HkBase can take a client before setConfig without drawing).
           var lc = client(), HC = window.hkHostClient, held = {};
           if (lc && HC && HC.bridge) HC.bridge(held, lc);
-          if (held.hass) card._hass = held.hass;
+          var prime = held.hass;
+          if (prime) card._hass = prime;
           card.setConfig({ type: 'custom:' + tag, player: S.libFor });
           if (lc && HC && HC.bridge) HC.bridge(card, lc);
           E.lib.innerHTML = '';

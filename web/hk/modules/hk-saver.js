@@ -3371,15 +3371,15 @@
   // song move with it, drawn already.
   var dashV = null;
   if (!customElements.get('hk-music-pane-card')) {
-    customElements.define('hk-music-pane-card', class extends HTMLElement {
+    var MusicPane = class extends HTMLElement {
       constructor() {
         super();
         this._root = this.attachShadow({ mode: 'open' });
       }
       setConfig(c) { this._config = c || {}; }
       getCardSize() { return 0; }
-      set hass(h) { this._hass = h; if (this._v && this._v.live) dashWatch(); }
-      get hass() { return this._hass; }
+      // Lovelace's entry (hkHostClient.entry below) hands each new client here
+      _onClient() { if (this._v && this._v.live) dashWatch(); }
       connectedCallback() {
         if (!this._root.querySelector('.pane')) this._make();
         this._adopt();
@@ -3542,7 +3542,9 @@
         this.addEventListener('pointerup', end);
         this.addEventListener('pointercancel', end);
       }
-    });
+    };
+    window.hkHostClient.entry(MusicPane);
+    customElements.define('hk-music-pane-card', MusicPane);
   }
 
   // ------------------------------------------------------------ the pane
