@@ -30,6 +30,7 @@ hooks. No command was ever sent to the house: nothing here pointed at `/Volumes/
 | `tests/test_gateway.py`, `tests/test_gateway_catalog.py`, `tests/test_wiring.py`, `tests/gateway_fakes.py` | 40 new tests. |
 | `tests/test_config.py`, `tests/test_boundaries.py` | Two invariants restated on purpose (below). |
 | `tests/test_gateway_talk.py`, `tests/test_shim_talk.py` + `tests/shim_talk_harness.mjs`, `tools/e2e/talk_e2e.py` | Doorbell talk-back (section "Doorbell talk-back", added later the same day). |
+| `talk_relay.py`, `ha_client.HaTalkLink`; `tests/test_talk_live.py` + `tests/talk_worker_harness.mjs` | Live talk: the `talk_live` ticket and the `/ws/talk` relay (same section). |
 
 ## The protocol (on the hub socket, `/ws`)
 
@@ -178,8 +179,10 @@ changes (`rbac_store`'s audit hook) land here too as `kind='config'`, before the
   waiting command; a lost socket answers waiting commands `unavailable` (none is re-sent).
 * `mantel-client.js`: a port made after `capabilities` said `commands: true` gets `actions`
   (`callService` with HA's signature, `callWS`, `request` answering a `Response` like
-  `fetchWithAuth`); they send only gateway `command` messages through the hub. `liveSocket` only
-  refuses (`live_unavailable`, no toast): the doorbell card then sends its recorded clip. Every
+  `fetchWithAuth`); they send only gateway `command` messages through the hub. `liveSocket(speaker)`
+  sends one `talk_live` command and resolves Mantel's `/ws/talk` and the ticket, or refuses quietly
+  (`live_unavailable`, no toast): the doorbell card then sends its recorded clip ("Doorbell
+  talk-back"). Every
   other port has no actions: hkClient refuses (`commands_disabled`) and `port.refused` is told, as
   before. `home.js` hands over the hub and republishes the snapshot when capabilities arrive.
 * `mantel-stepup.js`: the prompt (above). `mantel-host.js`: a toast for a denied command.
@@ -295,8 +298,8 @@ Changed existing tests, on purpose:
 and the page is secure, because the microphone needs https) does two things on every press:
 
 1. **Live talk** (`talk_live.py`, UniFi Protect speakers only, unless the card says `live: false`): a
-   Worker opens its **own** WebSocket to HA with an access token from `client.actions.liveSocket()`
-   (`{url, token()}`), subscribes `hk_frontend/talk/live {entity_id: <speaker>, rate}`, gets
+   Worker opens its **own** WebSocket to HA with an access token from
+   `client.actions.liveSocket(speaker)` (`{url, token()}`), subscribes `hk_frontend/talk/live {entity_id: <speaker>, rate}`, gets
    `{handler_id}` back, then sends binary frames `[handler_id][s16le mono PCM]` every 40 ms;
    `unsubscribe_events` is "let go". HA paces the PCM into Protect's talkback session.
 2. **The recorded clip**, kept all the while as the safety net: a `MediaRecorder` clip (≤ 30 s,
@@ -315,9 +318,10 @@ and the page is secure, because the microphone needs https) does two things on e
   with an `audio/*` type from the list below and ≤ 512,000 bytes; the Blob is read and sent as
   base64 inside the usual gateway command (`content_type` = the bare type, `body_b64`). Anything else
   binary is refused locally (`unsupported_body` / `body_too_large`), nothing read or sent. Step-up
-  works as for every command (the same clip is sent again after the prompt). `liveSocket` refuses
-  quietly (`live_unavailable`, no "commands disabled" toast), so the card goes on as a clip. With
-  commands off the port has no `request`: hkClient refuses (`commands_disabled`), nothing sent.
+  works as for every command (the same clip is sent again after the prompt). `liveSocket(speaker)`
+  is live talk (below); whenever it cannot start, it refuses quietly (`live_unavailable`, no toast, no
+  prompt) and the card goes on as a clip. With commands off the port has no `request` and no
+  `liveSocket`: hkClient refuses (`commands_disabled`), nothing sent.
 * **The allowlist** (`ha_client.py`, checked by the gateway's `talk_command` and again by
   `HaCommander.upload` / `check_upload` with its own one-shot `upload` ticket): exactly
   `^/api/hk_frontend/talk\?entity_id=(media_player\.[a-z0-9_]+)$` (one entity, no other query),
@@ -337,36 +341,102 @@ and the page is secure, because the microphone needs https) does two things on e
   `tunnel_cameras` switches plus a fresh factor within 300 s (`step_up_required` otherwise); a Child
   or Guest (cameras denied) is refused whatever their media-player grants; a remote talk does not
   notify the Owners (only locks and alarms do).
-* **Wall tablets**: the camera half passes for every tablet (`HOUSE_GRANTS`); the speaker half follows
-  the tablet's room like any entity. So a tablet whose room is not the doorbell's needs **one Owner
-  grant**: `POST /api/rbac/grants {"effect":"allow","actions":["control"],"resource_kind":"entity",
-  "resource":"media_player.<doorbell speaker>","roles":["wall_tablet"]}` (decision for Avery: a house
-  grant like the cameras' was not added, because it would have to name the speaker).
+* **Wall tablets**: the camera half passes for every tablet (`HOUSE_GRANTS`). The speaker half: every
+  wall tablet may `control` **the doorbell's talk-back speaker(s), for talk only**, with no Owner
+  grant (decision for Avery, 2026-10-18; it replaces "an Owner grant per speaker"). The speakers are
+  derived from HK's own settings: every pop-up of kind `camera` (HK's doorbell pop-up: its camera and
+  its `speaker`, hk_core `settings.model.popup`; Mantel's settings store keeps them as the house
+  document `popups`, written by the settings import and HK's settings page). `authz.talk_policy` is
+  the house policy plus one grant per such speaker (`allow control entity <speaker>` for the role
+  `wall_tablet`), computed like `HOUSE_GRANTS` but used **only** for the two talk-back checks (the
+  clip and live), so a tablet outside the speaker's room still cannot change its volume, play to it
+  or turn it off. Rename or remove the pop-up's speaker and the grant follows at the next command.
+  **An Owner adjusts it** with an ordinary grant, and an explicit deny wins: `POST /api/rbac/grants
+  {"effect":"deny","actions":["control"],"resource_kind":"entity","resource":"media_player.<speaker>",
+  "roles":["wall_tablet"]}` (or `"devices":["<device id>"]` for one tablet). A speaker no pop-up
+  names still needs an allow grant as before; a tablet in the speaker's room needs nothing.
 * **Audit and the off switch** are the gateway's: the row (`kind` http, `action`
   `POST /api/hk_frontend/talk`, `sensitive` camera) is written before anything is sent and a failed
   insert refuses; refused uploads are audited `denied / not_sent`; HA's refusal (`http_4xx/5xx`) is
   the row's result and the page's `Response` status. With commands off the server answers
   `commands_disabled` exactly as for any command, no row, nothing sent.
 
-**Live talk (designed, not built).** It does not fit the gateway as it stands: the gateway is one
-request, one audit row, one ticket, one frame; live talk is a stream of ~25 binary frames a second for
-up to two minutes on a socket of its own, which HK opens from a Worker speaking HA's WebSocket
-protocol with a bearer token. A safe version would be:
-1. The page asks the gateway first: a `talk_live` command (`speaker`), decided and audited exactly as
-   the clip (two checks, the camera rules, step-up via the normal prompt), answered with a one-time
-   ticket bound to that principal, speaker and audit row, valid ~10 s.
-2. `liveSocket()` in the shim resolves `{url: wsUrl('/ws/talk'), token: () => ticket}`; Mantel's
-   `/ws/talk` speaks just enough of HA's protocol for the card's worker (`auth_required` → `auth` with
-   the ticket → `auth_ok`; one `hk_frontend/talk/live` subscription for **that** speaker; binary
-   frames; `unsubscribe_events`). Same-origin, session cookie re-checked, the ticket spent once.
-3. Mantel opens its own HA socket (a new, separate path in `ha_client`: one subscription type, one
-   entity), forwards only binary frames, rewriting the handler id, capped at the declared PCM rate
-   (rate × 2 bytes/s plus slack), closes at 120 s, on unsubscribe, or when the session/device is
-   revoked (the policy tick), and writes the row's result when the stream ends.
-Until then a press through Mantel is a walkie-talkie: the door hears the message a couple of seconds
-after release (what HA does today for any speaker that is not a Protect doorbell).
+**Live talk (built 2026-10-18, `talk_relay.py`).** It does not fit one gateway frame (a stream of
+~25 binary frames a second for up to two minutes, on a socket HK's Worker opens itself and speaks HA's
+protocol on), so the gateway issues a ticket and a relay of its own carries the stream:
 
-**Verified.** Unit: `tests/test_gateway_talk.py` (40: allowed and audited first; LAN Adult with a
+1. **The ticket.** The card asks `client.actions.liveSocket(speaker)` (the shared card now names the
+   speaker; HA's adapter ignores it). Mantel's port sends ONE gateway command
+   `{"kind": "talk_live", "speaker": "media_player.<name>"}`. It is decided exactly as the clip (the
+   same two checks with the talk-back policy, the camera rules, `sensitive` camera), the audit row
+   (`kind` ws, `action` `hk_frontend/talk/live`, targets `[speaker, feature:cameras]`) is written
+   FIRST, and the answer is `{"ticket": <32 random bytes>, "expires_in": 10}`: bound to that
+   connection's identity (session, user, device), that speaker and that row, valid 10 s, spent once.
+   Live never prompts: a refusal, a step-up wanted (the tunnel with a stale factor), commands off, or
+   anything but a ticket rejects quietly (`live_unavailable`) and the press goes on as the clip, which
+   asks for the step-up itself; the next press then goes live. A `step_up` PIN with `talk_live` is
+   refused (`invalid_command`). `hk_frontend/talk/live` as a plain `ws` command is refused
+   (`unsupported_command`), and the command connection's guard refuses the type too.
+2. **The socket.** `liveSocket` resolves `{url: hub.talkUrl(), token: () => ticket}`;
+   `hub.talkUrl()` is `wsUrl('/ws/talk')`, so under HA's Ingress prefix too. `GET /ws/talk` is behind
+   the sign-in like `/ws`: a session (cookies), an `Origin` header (required) whose value
+   `loopback_only` checks (the Ingress host rule included); a Worker's socket carries the page's
+   cookies and origin. With commands off it answers 403 `commands_disabled` before the upgrade (no
+   relay exists, nothing is opened). It speaks the part of HA's protocol the Worker uses:
+   `auth_required` -> `auth` with the ticket -> `auth_ok` (wrong, spent, expired or another
+   identity's ticket: `auth_invalid`, closed 1008, and the row's result says why).
+3. **ONE subscription**: exactly `{id, type: "hk_frontend/talk/live", entity_id, rate}` with the
+   ticket's speaker and a rate talk_live.py accepts; anything else answers a failed `result` and
+   closes (1008). One live talk per person and per tablet at a time (`busy`). The session and device
+   are re-read first.
+4. **Mantel's own HA socket** (`HaCommander.talk_link` -> `ha_client.HaTalkLink`, made only on the
+   command path, with a one-shot `talk` ticket bound to the row; the HA credential stays inside it).
+   It can send exactly: the auth frame; `{"id": 1, "type": "hk_frontend/talk/live", "entity_id":
+   <that speaker>, "rate": <that rate>}`; binary frames `[HA's handler id][PCM]`; and one
+   `{"id": 2, "type": "unsubscribe_events", "subscription": 1}`. HA's result and events are relayed
+   with the client's id; HA's handler id is replaced by `1` (the page never sees HA's).
+5. **Frames.** Binary `[1][even-length s16le PCM up to 100 ms at the rate]`; another handler id, an
+   empty, odd or oversized frame closes the socket (1008; the socket reads at most 19,201 bytes).
+   **Rate cap**: a token bucket of 1.25 x the declared PCM rate with one second of burst; the excess
+   is dropped (HA trims a backlog anyway). The only text frame accepted after the subscription is the
+   one `unsubscribe_events` for it ("let go"); anything else closes the socket.
+6. **The end.** On unsubscribe, either side closing, **120 s** (talk_live.py's own cap), or the policy
+   tick finding the session or device revoked: Mantel lets go on HA's side (HA plays out its cushion),
+   closes both sockets, and writes the row's result: `ok`, `ok:max_session`, `error:<HA's code>`
+   (`not_supported`: not a Protect speaker), `error:ha_failed` (HA's mid-stream error event, relayed
+   to the Worker, which then sends the clip), `error:unauthenticated`, `refused:<why>`, or
+   `error:ticket_unused` / `ticket_expired` / `ticket_other_identity`. Nothing of the audio is stored
+   or logged (counts and the duration only).
+
+The recorded clip stays the safety net exactly as in HA: if live never started (or failed), release
+sends the clip through the gateway (above).
+
+**Verified (live talk).** Unit: `tests/test_talk_live.py` (34, a full app with a loopback stand-in for
+HA's talk_live WebSocket): the audit row before the ticket and nothing opened to HA until the socket;
+the exact frames HA receives (Mantel's credential, the subscription, the PCM with HA's handler id, one
+unsubscribe) and nothing else; the ticket single-use, expiring, bound to who asked, garbage refused;
+another speaker, other subscriptions and other text frames refused; another handler id, empty, odd and
+oversized frames close the socket; the rate cap; the 120 s cap (shortened); one at a time per person;
+HA's refusal and a mid-stream failure relayed and recorded; the page going away lets go; a revoked
+session closed at the policy tick; Child, Guest and a stale tunnel factor get no ticket; wall tablets
+talk (clip and live) on the speaker HK's doorbell pop-up names, nothing else on it, and an Owner's deny
+wins; commands off (no ticket, `/ws/talk` 403); the upgrade's session and Origin rules; the guards
+(classification, `check_command`, `check_talk`, `HaTalkLink`); and **HK's own talk Worker** (the exact
+`TALK_WORKER` source, run in node by `tests/talk_worker_harness.mjs`) streaming through `/ws/talk`, and
+falling back when live cannot start. `tests/test_shim_talk.py` (now 10): `liveSocket(speaker)` is one
+`talk_live` command the server classifies, the Worker gets `/ws/talk` and the ticket; refusals and
+step-up are quiet, nothing re-sent; `talkUrl()` under the Ingress prefix. **Against the scratch HA**
+(`tools/e2e/talk_e2e.py`, 19/19 with the clip checks, 2026-10-18): the Owner's ticket, then HK's Worker
+through Mantel to the scratch HA's REAL `hk_frontend/talk/live`, whose schema took the subscription and
+which refused the demo player (`not_supported`), the Worker told so (the card sends the clip, which
+went through), the row `error:not_supported`, the spent ticket refused; the **streaming** checked with
+HA's side stood in (the demo has no Protect speaker, so talk_live.py cannot open a session): 10 frames
+of 40 ms reached "HA" with its handler id, then one unsubscribe, row `ok`; a Kitchen tablet talks
+(clip and live) once HK's doorbell pop-up names the speaker, and the Owner's deny wins. **Not
+verified**: a real UniFi Protect doorbell hearing a live stream through Mantel, and the card in a
+browser with a real microphone.
+
+**Verified (the clip).** Unit: `tests/test_gateway_talk.py` (40: allowed and audited first; LAN Adult with a
 stale factor needs no step-up; Child refused on the camera half even with the speaker in their room;
 Guest; tablets by room and grant; tunnel step-up then allowed; tunnel switches `tunnel_cameras_off` /
 `tunnel_lan_only`; commands off; 26 refused shapes (paths, methods, types, base64, size); refused
@@ -399,8 +469,12 @@ through Mantel, and the card in a browser against Mantel with a real microphone.
    notifications and scripts are `configure` `settings`.
 6. HK's own writes not otherwise mapped are `configure` `settings` (Owner/Admin) until P3.5 moves HK's
    settings into Mantel with finer rules (e.g. a tablet touching its own screensaver).
-7. HTTP writes are JSON only, except the one talk-back clip (section "Doorbell talk-back"); live talk
-   is not offered (`liveSocket` refuses quietly, so the card sends the clip).
+7. HTTP writes are JSON only, except the one talk-back clip (section "Doorbell talk-back"). Live talk
+   is its own path: a `talk_live` ticket and the `/ws/talk` relay (same section); it never prompts for
+   a step-up (the clip that follows does).
+11. **Wall tablets may talk on the doorbell's speaker** (2026-10-18): the speaker(s) HK's camera
+    pop-ups name, `control` for the two talk-back checks only (`authz.talk_policy`); an Owner's deny
+    grant on the speaker wins. Replaces "an Owner grant per speaker".
 8. P3.4's `feature:media` is decided as `music`.
 9. The Owner notification covers remote **lock** and **alarm** sensitive actions (PLAN §7 says
    unlock/disarm); a remote garage open does not notify yet.

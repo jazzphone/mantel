@@ -81,7 +81,7 @@ async def require_session(request: web.Request, handler):
         if request.method == "GET" and (request.path in PAGE_PATHS or _wants_document(request)):
             raise web.HTTPFound(login_url(request.path_qs if request.path != "/" else None))
         raise web.HTTPUnauthorized(text="sign in at /login")
-    if request.path == "/ws" and request.headers.get("Origin") is None:
+    if request.path in ("/ws", "/ws/talk") and request.headers.get("Origin") is None:
         raise web.HTTPForbidden(text="Origin required")  # browsers always send it; the loopback middleware checks its value
     if request.method not in sessions.SAFE_METHODS and request.path.startswith("/api/"):
         sessions.check_csrf(request, ident)

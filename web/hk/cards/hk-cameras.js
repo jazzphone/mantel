@@ -2794,8 +2794,9 @@
 
     _liveStart(s, stream) {
       // THE LIVE SOCKET IS A WRITE: its address and credentials come from the client's action
-      // port (HA: the frontend's websocket and token, refreshed when expired; Mantel: refused,
-      // and nothing is opened or sent).
+      // port, asked for this speaker (HA: the frontend's websocket and token, refreshed when
+      // expired; Mantel: its /ws/talk and a one-time ticket the gateway issued for this speaker,
+      // or refused quietly so the clip goes).
       var self = this, ctx = this._audioCtx(), act = this.client && this.client.actions;
       // GIVING UP ON LIVE CLOSES IT. Flipping the flags and the label alone is
       // not enough: the session given up on may still be opening -- a first
@@ -2820,7 +2821,7 @@
         var url = URL.createObjectURL(new Blob([PCM_TAP], { type: 'application/javascript' }));
         this._actxMod = ctx.audioWorklet.addModule(url);
       }
-      Promise.all([this._actxMod, act.liveSocket()])
+      Promise.all([this._actxMod, act.liveSocket(this._config.speaker)])
         .then(function (r) {
           var live = r[1];
           if (s.ended || s.liveFailed) return;

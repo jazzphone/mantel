@@ -135,11 +135,26 @@
           });
         });
       },
-      // LIVE TALK is not offered through Mantel (no dedicated write socket; GATEWAY.md "Doorbell
-      // talk-back"). Refused quietly -- no "commands disabled" toast, commands ARE on -- so the
-      // doorbell card goes on as a recorded clip, which `request` above carries through the gateway.
-      liveSocket: function () {
-        return Promise.reject(fail('live_unavailable', 'live talk is not offered through Mantel; the clip is sent instead'));
+      // LIVE TALK (GATEWAY.md "Doorbell talk-back"): the card's Worker opens its own socket with
+      // what this resolves ({url, token()}) and speaks HA's protocol on it. Here that socket is
+      // Mantel's /ws/talk (hub.talkUrl(): under HA's Ingress prefix too), and the token a ONE-TIME
+      // ticket the gateway issues for this speaker after deciding and auditing a `talk_live`
+      // command (the same rules as the clip). Anything but a ticket -- refused, a step-up wanted,
+      // commands off, no speaker -- is refused QUIETLY (`live_unavailable`, no toast, no prompt):
+      // the card then sends its recorded clip through `request`, which asks for any step-up itself.
+      liveSocket: function (speaker) {
+        if (typeof speaker !== 'string' || !SPEAKER.test(speaker) || typeof hub.talkUrl !== 'function') {
+          return Promise.reject(fail('live_unavailable', 'live talk needs the doorbell speaker; the clip is sent instead'));
+        }
+        return hub.command({ kind: 'talk_live', speaker: speaker }).then(function (reply) {
+          var r = reply && reply.result, ticket = r && typeof r.ticket === 'string' ? r.ticket : '';
+          if (!ticket) {
+            var e = reply && reply.error;
+            throw fail('live_unavailable', 'live talk is not available; the clip is sent instead',
+                       { reason: (reply && reply.reason) || (e && (e.reason || e.code)) || 'refused' });
+          }
+          return { url: hub.talkUrl(), token: function () { return ticket; } };
+        });
       }
     };
   }
@@ -148,6 +163,7 @@
   // UPLOAD_MAX_BYTES); this mirrors it so nothing else is ever read or sent. Resolves the gateway
   // command, or null (refused, nothing read) for anything else.
   var TALK_PATH = /^\/api\/hk_frontend\/talk\?entity_id=media_player\.[a-z0-9_]+$/;
+  var SPEAKER = /^media_player\.[a-z0-9_]+$/;          // live talk's one entity (ha_client.TALK_ENTITY)
   var TALK_TYPE = /^audio\/(webm|ogg|mp4|mpeg|aac|wav|x-wav)(\s*;.*)?$/i;
   var TALK_MAX = 512000;
   function header(headers, name) {

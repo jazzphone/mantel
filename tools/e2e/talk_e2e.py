@@ -10,8 +10,20 @@ Checks: the Owner's clip goes through the gateway and HA's talk view answers; th
 told to play HA's signed clip URL; fetching that URL from HA (as the speaker's ffmpeg would) gives back
 exactly the bytes sent, as audio; the audit row was written (allowed, sensitive camera, result ok); a
 Child is refused (cameras) and nothing is sent; a Kitchen wall tablet is refused the speaker until
-the Owner grants it, then talks with no PIN (LAN); an Adult on the tunnel with a stale factor is asked
-to step up and nothing is sent; a binary body to any other path is refused.
+HK's doorbell pop-up names it (then talks, clip and live, with no PIN on the LAN), and an Owner's deny
+grant turns that off; an Adult on the tunnel with a stale factor is asked to step up and nothing is
+sent; a binary body to any other path is refused.
+
+LIVE TALK (talk_relay.py): the Owner's `talk_live` command is audited and answered with a one-time
+ticket; HK's own talk Worker (the exact TALK_WORKER source of hk-cameras.js, run in node by
+tests/talk_worker_harness.mjs with the page's cookies and Origin) opens Mantel's /ws/talk with it, and
+Mantel subscribes the scratch HA's REAL `hk_frontend/talk/live` (the built talk_live.py) on a socket of
+its own. The demo has no UniFi Protect speaker, so HA's real handler refuses (`not_supported`): that
+proves HA's own schema took Mantel's subscription, the refusal reaches the Worker (the card then sends
+the clip, checked again) and the row records it. The STREAMING itself (binary frames, handler ids,
+letting go) cannot run on a demo player, so it is checked against a loopback stand-in for HA's side of
+talk_live (the boundary faked: auth, the subscription, a handler id, the frames, unsubscribe), with
+the same Worker, ticket path and relay. A spent ticket is refused.
 
 SAFETY: as tools/e2e/gateway_e2e.py (scratch URL only; never reads ~/.config/mantel or touches
 /Volumes/config or the house's HA; prints no credential).
@@ -35,7 +47,9 @@ g = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(g)
 
 import aiohttp  # noqa: E402
+from aiohttp import WSMsgType, web  # noqa: E402
 from aiohttp.test_utils import TestServer  # noqa: E402
+from yarl import URL  # noqa: E402
 
 SCRATCH_URL = g.SCRATCH_URL
 PLAY_MEDIA = 512                        # MediaPlayerEntityFeature.PLAY_MEDIA
@@ -45,6 +59,60 @@ CLIP = b"\x1aE\xdf\xa3" + secrets.token_bytes(4000)      # fictional, webm-looki
 def talk(speaker: str, clip: bytes = CLIP, path: str | None = None) -> dict:
     return {"kind": "http", "method": "POST", "path": path or f"/api/hk_frontend/talk?entity_id={speaker}",
             "content_type": "audio/webm;codecs=opus", "body_b64": base64.b64encode(clip).decode()}
+
+
+async def worker(b, base: str, ticket: str, speaker: str, frames: int = 5, rate: int = 48000) -> dict:
+    """HK's talk Worker (tests/talk_worker_harness.mjs) against Mantel's /ws/talk, with b's cookies."""
+    jar = b.http.cookie_jar.filter_cookies(URL(base + "/"))
+    cookie = "; ".join(f"{k}={v.value}" for k, v in jar.items())
+    proc = await asyncio.create_subprocess_exec(
+        "node", str(ROOT / "tests/talk_worker_harness.mjs"), str(ROOT / "web/hk/cards/hk-cameras.js"),
+        base.replace("http", "ws", 1) + "/ws/talk", ticket, cookie, base, speaker, str(rate), str(frames),
+        stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
+    out, err = await asyncio.wait_for(proc.communicate(), 60)
+    if proc.returncode != 0:
+        raise g.Fail(f"the worker harness failed: {err.decode()[-500:]}")
+    return json.loads(out.decode().strip().splitlines()[-1])
+
+
+class StandInTalkLive:
+    """A loopback stand-in for Home Assistant's side of hk_frontend/talk/live (talk_live.py's protocol:
+    auth, the subscription answered by a result and {handler_id, rate, codec}, binary frames,
+    unsubscribe), recording every frame. Used ONLY where the demo cannot stream (no Protect speaker)."""
+    HID = 9
+    TOKEN = "fictional-stand-in-token"
+
+    def __init__(self):
+        self.frames: list = []
+
+    async def handler(self, request):
+        ws = web.WebSocketResponse()
+        await ws.prepare(request)
+        await ws.send_json({"type": "auth_required"})
+        auth = await ws.receive_json()
+        self.frames.append(auth)
+        await ws.send_json({"type": "auth_ok" if auth.get("access_token") == self.TOKEN else "auth_invalid"})
+        async for m in ws:
+            if m.type == WSMsgType.BINARY:
+                self.frames.append(bytes(m.data))
+                continue
+            msg = json.loads(m.data)
+            self.frames.append(msg)
+            await ws.send_json({"id": msg["id"], "type": "result", "success": True, "result": None})
+            if msg.get("type") == "hk_frontend/talk/live":
+                await ws.send_json({"id": msg["id"], "type": "event",
+                                    "event": {"handler_id": self.HID, "rate": 24000, "codec": "opus"}})
+        return ws
+
+
+async def wait_result(app, aid, timeout=10.0):
+    t0 = time.time()
+    while time.time() - t0 < timeout:
+        r = app["audit"].rows(id=aid)[0]["result"]
+        if r is not None:
+            return r
+        await asyncio.sleep(0.1)
+    return None
 
 
 async def ha_get(http, token, path):
@@ -121,16 +189,68 @@ async def run(token: str) -> dict:
             check(r.status == 200 and served == CLIP and ctype.startswith("audio/webm"),
                   f"HA serves the clip back byte for byte as audio ({len(served)} bytes, {ctype})")
 
+            # -- LIVE TALK: the ticket, HK's Worker, the scratch HA's real talk_live --------------------
+            sent = list(app["commander"].sent)
+            reply = await owner.command(kind="talk_live", speaker=speaker)
+            tk = (reply.get("result") or {}).get("ticket")
+            row = app["audit"].rows(id=reply.get("audit_id", 0))[0] if reply.get("audit_id") else {}
+            check(bool(tk) and (row.get("kind"), row.get("action"), row.get("decision"), row.get("result")) ==
+                  ("ws", "hk_frontend/talk/live", "allowed", None) and app["commander"].sent == sent,
+                  "the Owner's talk_live is audited first and answered with a one-time ticket; nothing sent to HA yet")
+            got = await worker(owner, base, tk, speaker)
+            err = (got["said"] or [{}])[0].get("error", "")
+            check(got["sent"] == 0 and "is not a UniFi Protect speaker" in err,
+                  f"HK's Worker opened /ws/talk; Mantel subscribed the scratch HA's real talk_live, whose schema "
+                  f"took it and which refused the demo player ({err!r}): the card falls back to the clip")
+            check(await wait_result(app, reply["audit_id"]) == "error:not_supported"
+                  and app["commander"].sent[-1] == f"hk_frontend/talk/live {speaker}",
+                  "the row's result is HA's refusal (error:not_supported); one talk link was opened")
+            again = await owner.command(**talk(speaker))
+            check(again.get("result") == {"ok": True, "bytes": len(CLIP)}, "the clip that follows goes through")
+            got = await worker(owner, base, tk, speaker)
+            check(got["sent"] == 0 and "error" in (got["said"] or [{}])[0], "the spent ticket is refused (auth_invalid)")
+            # the streaming itself, against a stand-in for HA's side (no Protect speaker in the demo)
+            from mantel_server.config import Config as _Cfg
+            from mantel_server.gateway import load_writes
+            from mantel_server.ha_client import HaCommander
+            stand = StandInTalkLive()
+            sapp = web.Application()
+            sapp.router.add_get("/api/websocket", stand.handler)
+            async with TestServer(sapp, host="127.0.0.1") as sserver:
+                scmd = HaCommander(_Cfg(commands_enabled=True, ha_url=str(sserver.make_url("")).rstrip("/")),
+                                   StandInTalkLive.TOKEN, load_writes())
+                real_link = app["commander"].talk_link
+                app["commander"].talk_link = scmd.talk_link
+                try:
+                    reply = await owner.command(kind="talk_live", speaker=speaker)
+                    got = await worker(owner, base, reply["result"]["ticket"], speaker, frames=10)
+                finally:
+                    app["commander"].talk_link = real_link
+                    await scmd.close()
+                bins = [f for f in stand.frames if isinstance(f, bytes)]
+                texts = [f for f in stand.frames if not isinstance(f, bytes)]
+                check(got["said"] == [{"id": 1, "live": True}] and got["sent"] == 10 and len(bins) == 10
+                      and all(b_[0] == StandInTalkLive.HID and len(b_) == 1 + 1920 * 2 for b_ in bins)
+                      and texts == [{"type": "auth", "access_token": StandInTalkLive.TOKEN},
+                                    {"id": 1, "type": "hk_frontend/talk/live", "entity_id": speaker, "rate": 48000},
+                                    {"id": 2, "type": "unsubscribe_events", "subscription": 1}],
+                      "streaming (HA's side stood in): the Worker went live, 10 frames of 40 ms PCM reached HA "
+                      "with HA's own handler id, then one unsubscribe; nothing else was sent")
+                check(await wait_result(app, reply["audit_id"]) == "ok", "the streamed talk's row: ok")
+
             # -- a Child: cameras are off ---------------------------------------------------------
             child = new("child")
             st, _ = await child.post("/api/auth/password", {"username": "e2e-child", "password": pw["child"]})
             assert st == 200
             await child.connect()
+            sent = list(app["commander"].sent)
             reply = await child.command(**talk(speaker))
-            check(reply.get("error", {}).get("code") == "forbidden" and app["commander"].sent == ["POST /api/hk_frontend/talk"],
-                  f"a Child is refused ({reply.get('error', {}).get('reason')}) and nothing is sent")
+            live = await child.command(kind="talk_live", speaker=speaker)
+            check(reply.get("error", {}).get("code") == "forbidden" and live.get("error", {}).get("code") == "forbidden"
+                  and app["commander"].sent == sent and not app["talk"].tickets,
+                  f"a Child is refused clip and live ({reply.get('error', {}).get('reason')}); nothing is sent, no ticket")
 
-            # -- a wall tablet: the speaker needs a grant, then no PIN on the LAN ---------------------
+            # -- a wall tablet: the speaker from HK's doorbell pop-up, then no PIN on the LAN ---------
             tablet = new("tablet")
             st, _ = await tablet.post("/api/auth/password", {"username": "e2e-owner", "password": pw["owner"]})
             st, body = await tablet.post("/api/devices/enroll", {"name": "Fictional kitchen tablet", "room": "Kitchen"})
@@ -138,12 +258,20 @@ async def run(token: str) -> dict:
             await tablet.connect()
             reply = await tablet.command(**talk(speaker))
             check(reply.get("error", {}).get("reason") == "no_grant" and reply["error"].get("target") == speaker,
-                  "a Kitchen tablet is refused the speaker (no_grant) before the Owner grants it")
-            st, _ = await owner.post("/api/rbac/grants", {"effect": "allow", "actions": ["control"], "resource_kind": "entity",
+                  "a Kitchen tablet is refused the speaker (no_grant) while no pop-up names it")
+            from mantel_server.settings_store import Actor
+            app["settings"].store.write([("house", "popups", {"items": [
+                {"name": "Doorbell", "kind": "camera", "hash": "doorbell", "entity": "camera.demo_camera",
+                 "speaker": speaker}]})], actor=Actor(label="e2e"))       # as HK's settings import keeps it
+            reply = await tablet.command(**talk(speaker))
+            live = await tablet.command(kind="talk_live", speaker=speaker)
+            check(reply.get("result", {}).get("ok") is True and "ticket" in (live.get("result") or {}),
+                  "once HK's doorbell pop-up names the speaker the tablet talks (clip and live), with no PIN (LAN)")
+            st, _ = await owner.post("/api/rbac/grants", {"effect": "deny", "actions": ["control"], "resource_kind": "entity",
                                                          "resource": speaker, "roles": ["wall_tablet"]})
             assert st == 201
             reply = await tablet.command(**talk(speaker))
-            check(reply.get("result", {}).get("ok") is True, "after the Owner's grant the tablet talks, with no PIN (LAN)")
+            check(reply.get("error", {}).get("reason") == "explicit_deny", "an Owner's deny grant on the speaker wins")
 
             # -- an Adult on the tunnel with a stale factor ---------------------------------------
             from mantel_server.accounts import totp

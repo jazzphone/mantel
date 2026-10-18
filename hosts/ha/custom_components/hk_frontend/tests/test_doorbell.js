@@ -97,7 +97,7 @@ print('\n=== live talk (talk_live.py) ===');
 // HA's cushion, so the sender lives in a Worker with its own socket.
 ok('a Worker with its own authenticated websocket sends the words: [handler id][16-bit PCM]',
    /type: 'auth', access_token: d\.token/.test(src) && /type: 'hk_frontend\/talk\/live', entity_id: d\.entity_id, rate: d\.rate/.test(src) &&
-   /out\[0\] = s\.hid; out\.set\(pcm, 1\);/.test(src) && /token: live\.token\(\)/.test(body) && /Promise\.all\(\[this\._actxMod, act\.liveSocket\(\)\]\)/.test(body));
+   /out\[0\] = s\.hid; out\.set\(pcm, 1\);/.test(src) && /token: live\.token\(\)/.test(body) && /Promise\.all\(\[this\._actxMod, act\.liveSocket\(this\._config\.speaker\)\]\)/.test(body));
 ok('the worklet posts straight to the worker (a MessageChannel): the page is not in the path',
    /node\.port\.postMessage\(\{ port: ch\.port1 \}, \[ch\.port1\]\)/.test(body) && /port: ch\.port2 \}, \[ch\.port2\]\)/.test(body) &&
    /if \(this\.out\) this\.out\.postMessage\(this\.b\.buffer/.test(src));

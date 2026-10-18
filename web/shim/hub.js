@@ -122,6 +122,10 @@ export class Hub {
   // Mute 1 Hour: {key, seconds}
   notifyMute(key, seconds) { return this.ask('notify_mute', { key, seconds }); }
 
+  // live talk's own socket (talk_relay.py), at the page's prefix like /ws; the card's Worker opens it
+  // with a one-time ticket from a gateway `talk_live` command (mantel-client.js liveSocket)
+  talkUrl() { return wsUrl('/ws/talk'); }
+
   // true only after this socket's server said so (capabilities); never assumed
   commandsEnabled() { return !!(this.capabilities && this.capabilities.commands === true); }
 

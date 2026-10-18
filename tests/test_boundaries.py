@@ -139,12 +139,18 @@ def test_mantel_host_has_no_action_transport():
         return "\n".join(line.split("//", 1)[0] for line in part.splitlines())
     body = code("function actionsOn", "function useCommands")
     assert "hub.command(" in body and "snapshot" not in body and "fetch(" not in body and "WebSocket" not in body
-    # Doorbell talk-back (GATEWAY.md): liveSocket exists only to refuse quietly (the card then sends its
-    # recorded clip through `request`, a gateway command); it opens nothing and sends nothing.
+    # Doorbell live talk (GATEWAY.md): liveSocket opens nothing itself. It sends ONE gateway command
+    # (`talk_live`, decided and audited on the server) and hands the card's Worker Mantel's own
+    # /ws/talk address and the one-time ticket it got back; anything else is refused quietly
+    # (`live_unavailable`, no toast, no prompt), so the card sends its recorded clip through `request`.
     live = body[body.index("liveSocket:"):]
-    live = live[:live.index("}") + 1]
-    assert re.fullmatch(r"liveSocket: function \(\) \{\s*return Promise\.reject\(fail\('live_unavailable', '[^']*'\)\);\s*\}", live), live
+    live = live[:live.index("\n      }")]
+    assert "hub.command({ kind: 'talk_live', speaker: speaker })" in live
+    assert "url: hub.talkUrl()" in live and "token: function () { return ticket; }" in live
+    assert live.count("hub.command(") == 1 and "live_unavailable" in live and "emit(" not in live
+    assert "port.refused" not in live and "stepUp(" not in live and "settle(" not in live
     assert body.count("liveSocket") == 1
+    assert "talkUrl() { return wsUrl('/ws/talk'); }" in (ROOT / "web/shim/hub.js").read_text()
     saves = code("function savesOn", "// STEP-UP")
     assert "save(hub, msg)" in saves and "isSave(msg)" in saves and "commands_disabled" in saves
     assert "hub.command(" not in saves and "callService" not in saves and "request:" not in saves

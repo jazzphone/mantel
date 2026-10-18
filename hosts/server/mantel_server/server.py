@@ -30,7 +30,7 @@ import aiohttp
 from aiohttp import WSMsgType, web
 
 from . import accounts, auth, connect_pairing, devices, gateway, health, ingress, pins, proof2, rbac_store, readproxy, sessions, settings_store
-from . import admin_page, backup, features, linked, login_page, service_accounts, user_files
+from . import admin_page, backup, features, linked, login_page, service_accounts, talk_relay, user_files
 from .authz import Authz, Principal, resolve_door
 from .config import Config
 from .connectors import REFUSE_ALL, Ctx, Hooks
@@ -502,6 +502,9 @@ def wire(app: web.Application, hub: Hub, token: str, connect_ha: bool) -> None:
     app["commander"] = commander
     gw = gateway.Gateway(app, authz, audit, commander, writes, lambda: app["clock"]()) if cfg.commands_enabled else None
     app["gateway"] = gw
+    # live talk (GATEWAY.md "Doorbell talk-back"): /ws/talk, opened only with a gateway ticket; the
+    # relay exists only while commands are on (the route then refuses before the upgrade)
+    talk_relay.register(app, audit, authz, lambda: app["clock"]())
     hooks = Hooks(may_read=authz.may_read, may_view=authz.may_view, ma_gate=gw if gw is not None else REFUSE_ALL,
                   ha_token=(lambda: token) if connect_ha else None)
     readproxy.register(app, hub, hooks)
@@ -548,6 +551,12 @@ async def tick_once(app: web.Application, hub: Hub) -> None:
             audit.maybe_purge(getattr(app["cfg"], "audit_retention_days", 365.0))
         except Exception:  # noqa: BLE001 -- never let maintenance stop the policy tick
             log.exception("audit retention step failed (nothing was deleted)")
+    talk = app.get("talk")
+    if talk is not None:          # unused live-talk tickets get their audit result; revoked streams close
+        try:
+            await talk.tick()
+        except Exception:  # noqa: BLE001
+            log.exception("live talk tick failed")
     authz: Authz | None = app.get("authz")
     for s in list(hub.sessions):
         if authz is not None and s.principal is not None and not authz.refresh(s.principal):
