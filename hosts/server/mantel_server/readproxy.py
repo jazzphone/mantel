@@ -24,7 +24,7 @@ from urllib.parse import parse_qs, urlsplit
 
 import aiohttp
 
-from .connectors import Ctx, Forbidden, Hooks, allowed_ids, may_feature, read_routes, ws_handlers
+from .connectors import Ctx, Forbidden, Hooks, allowed_ids, may_feature, media_art, read_routes, ws_handlers
 
 log = logging.getLogger("mantel.readproxy")
 
@@ -310,7 +310,11 @@ class FilteredReads:
             if not ids:
                 return {}
             res = await self._proxy().request({**msg, "entity_ids": ids})
-            return {k: v for k, v in (res or {}).items() if k in ids} if isinstance(res, dict) else {}
+            if not isinstance(res, dict):
+                return {}
+            # no HA token in an answer either (camera/artwork pictures, connectors/media_art.py)
+            return {k: [media_art.strip_tokens(k, row) for row in v] if isinstance(v, list) else v
+                    for k, v in res.items() if k in ids}
         if t == "logbook/get_events":
             ids = await self._ids(identity, "history", msg, "entity_ids")
             if not ids:

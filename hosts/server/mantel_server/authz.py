@@ -256,5 +256,14 @@ class Authz:
         live = self.decide(principal.subject, "camera.live", entity_id, ctx=ctx)
         return bool(live.allowed or live.needs_step_up)
 
+    def may_see(self, principal: Any, entity_id: str) -> bool:
+        """Plain ``view`` of one entity (no camera live-view rules, unlike ``may_view``) for a route that serves something of it (media artwork).
+        Exactly True or False."""
+        if not isinstance(principal, Principal) or not principal.valid or not isinstance(entity_id, str):
+            return False
+        if not ENTITY_ID.match(entity_id):
+            return False
+        return self.decide(principal.subject, "view", entity_id).allowed is True
+
     def visible(self, principal: Principal | None, entity_id: str) -> bool:
         return principal is None or principal.gate is None or principal.gate.visible(entity_id)

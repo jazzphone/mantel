@@ -12,6 +12,7 @@ was contacted, no `~/.config/mantel/*` token was read, and nothing in this slice
 | `mantel_server/connectors/__init__.py` | Shared pieces: `Hooks` (RBAC + MA gate + HA token), `Ctx` (one client connection), `Route`, `Forbidden`, and the two app tables `app["ws_handlers"]` and `app["read_routes"]` |
 | `mantel_server/connectors/ma.py` | `MaClient` (connect, token from a secret file, auth, reconnect with backoff, request/response by message id, partial results, event fan-out), the read allowlist `MA_READS`, the command catalog `MA_COMMANDS`, the gated `command()`, and `register` |
 | `mantel_server/connectors/camera.py` | `SignalingProxy` (a `ReadProxy` narrowed to camera signaling; every frame passes `ha_client.check_outgoing`), `CameraSignaling` (view hook, session ownership), and `register` |
+| `mantel_server/connectors/media_art.py` | Media-player artwork: `shape`/`page_shaper` (no HA artwork token in any state; also strips history answers) and `GET /api/media/<entity>/art` (`Authz.may_see`). Added 2026-10-18 |
 | `mantel_server/connectors/camera_still.py` | Camera stills: `shape` (no HA camera token in any state sent to a page; `entity_picture` → Mantel's route) and `GET /api/camera/<entity>/still` (RBAC `Authz.may_still`, streamed from HA's camera_proxy with Mantel's credential). Added 2026-10-18 with the page side |
 | `mantel_server/readproxy.py` | Allowlist extended with media browsing, plus the single REST read (calendar events). `FilteredReads` applies RBAC to every read, `RULES` gives one rule per read type, and `register` |
 | `mantel_server/ha_client.py` | Allowlist extended, explicitly and with key checks, for the three `camera/webrtc/*` messages and `unsubscribe_events` |
@@ -92,9 +93,13 @@ All of it lives in Mantel's host adapter and server. The shared frontend (`web/h
   - `read_api` on `calendar.calendar_1` returned HA's event.
   - `camera/webrtc/get_client_config` reached HA through `read`. HA's demo camera has no WebRTC,
     so HA's own `webrtc_get_client_config_failed` came back.
-- **Still open: media players.** HA gives `media_player` states an `entity_picture` of
-  `/api/media_player_proxy/<entity>?token=…`. That is the same kind of HA token, and it still reaches
-  the page (seen on the scratch HA's demo players). A matching artwork route is the follow-up.
+- **Media players (done, `connectors/media_art.py`):** HA gives `media_player` states an `entity_picture`
+  (and `entity_picture_local`) of `/api/media_player_proxy/<entity>?token=…&cache=…`. Every state sent
+  to a page now carries `<prefix>/api/media/<entity>/art?v=<tag>` instead (remote `https://` artwork is
+  left as is), and `GET /api/media/<entity>/art` serves it to anyone who may `view` the player
+  (`Authz.may_see`), streamed from HA with Mantel's credential (shared `camera_still.proxy_image`).
+  History answers (`history/history_during_period`) lose any camera token or signed picture too.
+  Tests: `tests/test_media_art.py` (7).
 - **Music (not done):** HK's library and queue reads can move from `hk_music/*` and HA's
   `media_player/*` to `ma/read`.
 
@@ -231,6 +236,6 @@ target navigated or closed").
 2. **P3.3:** make the gateway the `ma_gate` (`allow(identity, command, args)` after RBAC, step-up and
    the audit row). Its MA path calls `app["ma"].command(identity, command, **args)`.
 3. **`web/` slice:** done for cameras (signaling, stills) and calendars, in the host adapter. What
-   remains is moving HK's music reads to `ma/read` and media-player artwork.
+   remains is moving HK's music reads to `ma/read` (media-player artwork: done).
 4. **E2E (P3.7) against the scratch HA:** a camera, a calendar and history reads, filtered by role.
    MA stays fake-only until Avery points `ma_url` at a scratch MA.

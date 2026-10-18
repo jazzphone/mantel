@@ -16,8 +16,9 @@ removed where locations are denied). An entity asked for by id but not visible i
 `missing`, exactly like one that does not exist. Without a gate the view behaves as before.
 
 Shaping (gate or not): every state a view sends passes `shape` last, by default
-`connectors.camera_still.shape`, so a camera's HA token (`access_token`, the `?token=` in
-`entity_picture`) never reaches a page; the picture points at Mantel's own still route instead.
+`connectors.media_art.page_shaper`, so no HA token reaches a page: a camera's (`access_token`, the
+`?token=` in `entity_picture`) and a media player's signed artwork; the pictures point at Mantel's own
+routes instead (connectors/camera_still.py, connectors/media_art.py).
 """
 from __future__ import annotations
 
@@ -25,7 +26,7 @@ import fnmatch
 from dataclasses import dataclass, field
 from typing import Callable, Protocol
 
-from .connectors import camera_still
+from .connectors import media_art
 from .registry import Registry
 from .state import StateStore
 
@@ -96,7 +97,7 @@ class ClientView:
                  client_min_interval: float = 0.0, gate: ReadGate | None = None,
                  shape: Callable[[str, dict], dict] | None = None) -> None:
         self.gate = gate
-        self.shape = shape or camera_still.shaper("")
+        self.shape = shape or media_art.page_shaper("")
         self.store = store
         self.registry = registry
         self.coalescing = coalescing

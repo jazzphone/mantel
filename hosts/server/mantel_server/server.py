@@ -35,7 +35,7 @@ from .authz import Authz, Principal, resolve_door
 from .config import Config
 from .connectors import REFUSE_ALL, Ctx, Hooks
 from .connectors import camera as camera_connector
-from .connectors import camera_still
+from .connectors import camera_still, media_art
 from .connectors import ma as ma_connector
 from .ha_oauth import HaOAuth
 from .readproxy import ReadProxy
@@ -100,7 +100,7 @@ class ClientSession:
         self.principal = principal  # None only in a bare app with no sign-in (tests of the hub itself)
         gate = principal.gate if principal is not None else None
         # `base`: the page's Ingress prefix ('' elsewhere), for the camera still URLs states carry
-        self.view = ClientView(hub.store, hub.registry, hub.coalescing, gate=gate, shape=camera_still.shaper(base))
+        self.view = ClientView(hub.store, hub.registry, hub.coalescing, gate=gate, shape=media_art.page_shaper(base))
         self.wake = asyncio.Event()
         self.tx = Counter()  # snapshot + diff frames only (stats frames are excluded)
         self.subscribed = False
@@ -502,6 +502,7 @@ def wire(app: web.Application, hub: Hub, token: str, connect_ha: bool) -> None:
     readproxy.register(app, hub, hooks)
     camera_connector.register(app, hub, hooks)
     camera_still.register(app, hub, authz, token)       # GET /api/camera/<entity>/still (RBAC, HA's token stays here)
+    media_art.register(app, hub, authz, token)          # GET /api/media/<entity>/art (view the player)
     ma_connector.register(app, hub, hooks)
     health.register(app, hub)
     # P3.5: HK's settings from Mantel's own store (reads + settings_write saves). HK's own data, not a

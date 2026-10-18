@@ -102,6 +102,50 @@ def _side(value: str | None) -> int | None:
     return int(value)
 
 
+async def proxy_image(request: web.Request, url: str, params: dict, token: str, what: str, unavailable: str,
+                      not_found: str) -> web.StreamResponse:
+    """Stream one image from HA with Mantel's credential (never logged, never sent on). Shared by the
+    camera stills here and media artwork (media_art.py). Non-image answers become ``unavailable``."""
+    http = request.app.get("http")
+    own = http is None
+    resp: web.StreamResponse | None = None
+    if own:
+        http = aiohttp.ClientSession()
+    try:
+        async with http.get(url, params=params, headers={"Authorization": f"Bearer {token}"},
+                            timeout=aiohttp.ClientTimeout(total=TIMEOUT), allow_redirects=False) as r:
+            if r.status == 404:
+                return _error(404, not_found)
+            ctype = r.headers.get("Content-Type", "").split(";")[0].strip().lower()
+            if r.status != 200 or not ctype.startswith("image/"):
+                log.info("%s: HA answered %s", what, r.status)
+                return _error(502, unavailable)
+            length = r.content_length
+            if length is not None and length > MAX_BYTES:
+                return _error(502, unavailable)
+            resp = web.StreamResponse(headers={"Content-Type": ctype, "Cache-Control": "no-store",
+                                               "X-Content-Type-Options": "nosniff"})
+            if length is not None:
+                resp.content_length = length
+            await resp.prepare(request)
+            sent = 0
+            async for chunk in r.content.iter_chunked(64 * 1024):
+                sent += len(chunk)
+                if sent > MAX_BYTES:
+                    break
+                await resp.write(chunk)
+            await resp.write_eof()
+            return resp
+    except (aiohttp.ClientError, TimeoutError) as exc:
+        log.info("%s: %s", what, type(exc).__name__)
+        if resp is not None and resp.prepared:
+            return resp                                # cut short mid-image: the <img> errors
+        return _error(502, unavailable)
+    finally:
+        if own:
+            await http.close()
+
+
 def register(app: web.Application, hub: Any, authz: Any, token: Callable[[], str] | str) -> None:
     """``GET /api/camera/<entity>/still``. ``authz.may_still(principal, entity_id)`` decides; ``token``
     (Mantel's HA credential, or a callable returning it) is used for HA's camera_proxy only."""
@@ -131,44 +175,10 @@ def register(app: web.Application, hub: Any, authz: Any, token: Callable[[], str
             params = {"width": str(width), "height": str(height)}
         cfg = request.app["cfg"]
         url = f"{cfg.ha_url.rstrip('/')}/api/camera_proxy/{entity_id}"
-        http = request.app.get("http")
-        own = http is None
-        resp: web.StreamResponse | None = None
-        if own:
-            http = aiohttp.ClientSession()
-        try:
-            async with http.get(url, params=params, headers={"Authorization": f"Bearer {get_token()}"},
-                                timeout=aiohttp.ClientTimeout(total=TIMEOUT), allow_redirects=False) as r:
-                if r.status == 404:
-                    return _error(404, "unknown_camera")
-                ctype = r.headers.get("Content-Type", "").split(";")[0].strip().lower()
-                if r.status != 200 or not ctype.startswith("image/"):
-                    log.info("camera still for %s: HA answered %s", entity_id, r.status)
-                    return _error(502, "camera_unavailable")
-                length = r.content_length
-                if length is not None and length > MAX_BYTES:
-                    return _error(502, "camera_unavailable")
-                resp = web.StreamResponse(headers={"Content-Type": ctype, "Cache-Control": "no-store",
-                                                   "X-Content-Type-Options": "nosniff"})
-                if length is not None:
-                    resp.content_length = length
-                await resp.prepare(request)
-                sent = 0
-                async for chunk in r.content.iter_chunked(64 * 1024):
-                    sent += len(chunk)
-                    if sent > MAX_BYTES:
-                        break
-                    await resp.write(chunk)
-                await resp.write_eof()
-                stats["served"] += 1
-                return resp
-        except (aiohttp.ClientError, TimeoutError) as exc:
-            log.info("camera still for %s: %s", entity_id, type(exc).__name__)
-            if resp is not None and resp.prepared:
-                return resp                                # cut short mid-image: the <img> errors
-            return _error(502, "camera_unavailable")
-        finally:
-            if own:
-                await http.close()
+        resp = await proxy_image(request, url, params, get_token(), f"camera still for {entity_id}", "camera_unavailable",
+                                 not_found="unknown_camera")
+        if resp.status == 200:
+            stats["served"] += 1
+        return resp
 
     app.router.add_get(PATH, still)
