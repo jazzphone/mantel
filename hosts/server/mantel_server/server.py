@@ -30,7 +30,7 @@ import aiohttp
 from aiohttp import WSMsgType, web
 
 from . import music
-from . import accounts, alarm_pin, auth, connect_pairing, devices, gateway, health, ingress, pins, proof2, rbac_store, readproxy, sessions, settings_store
+from . import accounts, alarm_pin, auth, connect_pairing, devices, gateway, health, ingress, live_tv, pins, proof2, rbac_store, readproxy, sessions, settings_store
 from . import (admin_page, backup, features, linked, linked_house, linked_owners, login_page,
                service_accounts, talk_relay, user_files)
 from .authz import Authz, Principal, resolve_door
@@ -537,6 +537,8 @@ def wire(app: web.Application, hub: Hub, token: str, connect_ha: bool) -> None:
     # linked mode's notify and the rest of the entry (Seasonal decorations, Alarm PIN through the
     # gateway as the person whose PIN it is, Live TV), published only while Mantel owns `house`
     linked_house.register(app, hub)
+    # Live TV served by Mantel where it has its own go2rtc (--go2rtc-url); otherwise HA's stays the interim
+    live_tv.register(app, hub, hooks)
     # the home's own files (fonts, glyphs, photos; Owner/Admin upload) and the nightly encrypted
     # backup (off unless --backup-target is set)
     user_files.register(app, hub)

@@ -26,8 +26,9 @@ pop-ups and the photo / black switches. This module adds, behind the same hook p
     config audit row); afterwards a disagreement is logged and the row wins, for commands and for the
     mirror alike, so the panel always shows the alarm its commands go to.
   - Live TV's viewers, now-on sensors and channel cameras: now-on from Mantel's guide (the
-    ``live_tv`` piece); viewers 0 (Mantel serves no Live TV stream yet); the cameras are published
-    *unavailable*, with no stream, until Live TV's transcode moves (Phase 4+).
+    ``live_tv`` piece). Where Mantel serves Live TV (live_tv.py, its own go2rtc) the viewers are its
+    count and the channels it serves are available (no stream source); otherwise viewers 0 and the
+    cameras *unavailable*. This module is the one publisher of these unique ids.
 
   Which of them exist, their unique and entity ids, and the protected alarm are read from Home
   Assistant's own entity registry and states (``platform: hk_frontend``, the entry's), so nothing is
@@ -181,11 +182,16 @@ class LinkedHouse:
             }, ("alarm", alarm))
         tv = got["live_tv"]
         guide = {c["number"]: c for c in (self.host.tv.channels()["channels"] if self.host.on("live_tv") else [])}
+        # where Mantel serves Live TV itself (live_tv.py: its own go2rtc), the viewers are its count and
+        # the channels it serves are available (still no stream source: HK's pages play them via Mantel)
+        served = self.app.get("live_tv")
+        served = served if served is not None and served.runs() else None
         if tv.get("viewers"):
             v = tv["viewers"]
+            count, vattrs = served.viewers_state() if served is not None else (0, {"users": [], "channels": []})
             out[v["unique_id"]] = ({"unique_id": v["unique_id"], "platform": "sensor", "entity_id": v["entity_id"],
                                     "name": "TV viewers", "has_entity_name": False, "icon": "mdi:account-eye",
-                                    "state": 0, "attributes": {"users": [], "channels": []}}, ("viewers", None))
+                                    "state": count, "attributes": vattrs}, ("viewers", None))
         for n, d in sorted(tv["now"].items()):
             g = guide.get(n) or {}
             cur, nxt = g.get("now"), g.get("next")
@@ -202,11 +208,14 @@ class LinkedHouse:
                                     "name": d.get("name") or f"TV {n} now", "has_entity_name": False,
                                     "icon": "mdi:television-classic", "state": title,
                                     "attributes": copy.deepcopy(attrs)}, ("now", n))
+        numbers = {c["number"] for c in served.channels()} if served is not None else set()
         for n, d in sorted(tv["cameras"].items()):
-            # no stream on Mantel yet (Live TV's transcode is Phase 4+): unavailable, never a wrong picture
+            # without Mantel's own Live TV: unavailable, never a wrong picture. With it: available, no stream
+            # source (HA's own dashboards don't play Mantel's channels; HK's pages do, through Mantel)
             out[d["unique_id"]] = ({"unique_id": d["unique_id"], "platform": "camera", "entity_id": d["entity_id"],
                                     "name": d.get("name") or f"TV {n}", "has_entity_name": False, "state": "idle",
-                                    "available": False, "attributes": {"channel": n}, "features": {}}, ("camera", n))
+                                    "available": n in numbers, "attributes": {"channel": n}, "features": {}},
+                                   ("camera", n))
         return out
 
     # -- publishing ------------------------------------------------------------------------------------

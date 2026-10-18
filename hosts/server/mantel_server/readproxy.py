@@ -67,7 +67,9 @@ READ_ALLOWED: dict[str, frozenset[str]] = {
     # INTERIM (until Live TV's channel cameras, transcode and viewers move into Mantel): the Live TV page's
     # channel list (hk-tv-guide-card), each channel's camera and "now playing" sensor, from HA's
     # hk_frontend. A read; `hk_tv/watching` (a viewer's heartbeat, which HA writes into a sensor) and
-    # `hk_tv/settings/set` are writes and stay the gateway's (commands off).
+    # `hk_tv/settings/set` are writes and stay the gateway's (commands off). Where Mantel serves Live TV
+    # itself (live_tv.py, its own go2rtc) this read is answered there and never forwarded; the heartbeat is
+    # counted by Mantel everywhere (`tv_watching`) and reaches HA only through the gateway, commands on.
     "hk_tv/channels": frozenset(),
     # The feature import (features.import_features): each added feature's own HK Settings read, ONCE,
     # by Mantel itself. Never for a page: SERVER_ONLY_READS below.

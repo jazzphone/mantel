@@ -51,6 +51,8 @@ HOUSE_GRANTS: tuple[Grant, ...] = (
     # its room's (the role's area grants); an Owner adjusts it with an ordinary deny grant.
     Grant(effect="allow", actions=("view", "control"), resource_kind="feature", resource="music",
           roles={"wall_tablet"}, note="HK's Music page on every wall tablet; its speakers are still its room's"),
+    Grant(effect="allow", actions=("view",), resource_kind="feature", resource="live_tv",
+          roles={"wall_tablet"}, note="Live TV on every wall tablet, as in HA (each channel's camera: the grant above)"),
 )
 
 # THE DOORBELL'S TALK-BACK SPEAKERS for wall tablets (decision recorded in GATEWAY.md "Doorbell

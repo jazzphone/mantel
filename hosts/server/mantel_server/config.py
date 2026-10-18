@@ -72,6 +72,11 @@ class Config:
     connect_listen: str = "0.0.0.0"
     connect_address: str = ""                              # what /admin shows the Owner to type into the App
     log_level: str = "info"
+    # Live TV served by Mantel (live_tv.py): its own go2rtc's API (compose: http://go2rtc:1984, the
+    # backend network; never given to a page). Empty = Mantel does not run Live TV (the HA App: Home
+    # Assistant's own Live TV stays the interim). `live_tv_hardware`: "vaapi" uses the QuickSync templates.
+    go2rtc_url: str = ""
+    live_tv_hardware: str = ""
 
     @property
     def ws_url(self) -> str:
@@ -173,7 +178,16 @@ def parse_args(argv: list[str] | None = None) -> Config:
     p.add_argument("--connect-address", default="", metavar="HOST[:PORT]",
                    help="the address /admin tells the Owner to give the Connect App")
     p.add_argument("--log-level", choices=("debug", "info", "warning", "error"), default=Config.log_level)
+    p.add_argument("--go2rtc-url", default="", metavar="URL",
+                   help="Live TV served by Mantel: its own go2rtc's API (http://go2rtc:1984 in the compose stack). "
+                        "Off when absent (the HA App keeps Home Assistant's Live TV)")
+    p.add_argument("--live-tv-hardware", choices=("none", "vaapi"), default="none",
+                   help="Live TV's transcode: vaapi = QuickSync (needs /dev/dri in go2rtc: compose.gpu.yaml)")
     a = p.parse_args(argv)
+    g2 = urlparse(a.go2rtc_url) if a.go2rtc_url else None
+    if g2 is not None and (g2.scheme not in ("http", "https") or not g2.hostname or g2.path not in ("", "/")
+                           or g2.query or g2.username or g2.password):
+        p.error("--go2rtc-url must be go2rtc's API address, e.g. http://go2rtc:1984")
     if not 1 <= a.connect_port <= 65535:
         p.error("--connect-port must be a TCP port")
     if a.connect and a.ingress_only:
@@ -235,6 +249,7 @@ def parse_args(argv: list[str] | None = None) -> Config:
                  connect=bool(a.connect), connect_port=a.connect_port, connect_listen=a.connect_listen,
                  connect_address=a.connect_address,
                  ingress_only=bool(a.ingress_only), ha_door_rules=a.ha_door_rules, ha_ws_url=a.ha_ws_url,
-                 log_level=a.log_level)
+                 log_level=a.log_level, go2rtc_url=a.go2rtc_url.rstrip("/"),
+                 live_tv_hardware="" if a.live_tv_hardware == "none" else a.live_tv_hardware)
     assert cfg.host in LOOPBACK or cfg.public_url, "Mantel listens beyond loopback only in container mode"
     return cfg

@@ -186,15 +186,34 @@ async function run(label, commandsOn) {
   const w = sent.length;
   try { const q = a.callWS({ type: 'hk_frontend/hidden/set' }); if (commandsOn) { res.hiddenFrame = last(); answer('command_result', []); } await q; res.hidden = 'ok'; } catch (e) { res.hidden = e.code; }
   res.hiddenSent = sent.length - w;
-  // Live TV's viewer heartbeat: quiet with commands off (nothing sent, nothing said), the gateway's with them on
+  // Live TV's viewer heartbeat: always Mantel's `tv_watching` (counted there, never a command). Where Mantel
+  // serves Live TV (ha: false) that is all; where HA's Live TV is the interim (ha: true) it ALSO goes to HA
+  // through the gateway, only with commands on.
   const tvRefused = events.filter((e) => e === 'hk-command-refused').length;
   const tv0 = sent.length;
   try {
     const q = a.callWS({ type: 'hk_tv/watching', channel: '4.1' });
-    if (commandsOn) { res.tvFrame = last(); answer('command_result', { viewers: ['x'] }); }
+    res.tvFrame = last(); answer('tv_watching_result', { viewers: ['Kitchen'], ha: false });
     res.tv = await q;
   } catch (e) { res.tv = e.code; }
   res.tvSent = sent.length - tv0;
+  const tv1 = sent.length;
+  try {
+    const q = a.callWS({ type: 'hk_tv/watching', channel: '4.1' });
+    res.tvInterimFrame = last(); answer('tv_watching_result', { viewers: ['Kitchen'], ha: true });
+    await tick();
+    if (commandsOn) { res.tvForward = last(); answer('command_result', { viewers: ['x'] }); }
+    res.tvInterim = await q;
+  } catch (e) { res.tvInterim = e.code; }
+  res.tvInterimSent = sent.length - tv1;
+  const tv2 = sent.length;
+  let pq = a.callWS({ type: 'hk_tv/watching', channel: null });
+  res.tvStopFrame = last(); answer('tv_watching_result', { viewers: [], ha: false }); await pq;
+  try { await a.callWS({ type: 'hk_tv/watching', channel: '../x' }); res.tvBad = 'NOT REJECTED'; } catch (e) { res.tvBad = e.code; }
+  pq = a.callWS({ type: 'hk_tv/watching', channel: '4.1' });
+  answer('tv_watching_result', null, { code: 'forbidden' });
+  try { await pq; res.tvForbidden = 'NOT REJECTED'; } catch (e) { res.tvForbidden = e.code; }
+  res.tvLaterSent = sent.length - tv2;
   res.tvRefusedEvents = events.filter((e) => e === 'hk-command-refused').length - tvRefused;
   // the Music page in use: Mantel's music host's `music_used`, on every server, never a command
   const usedRefused = events.filter((e) => e === 'hk-command-refused').length;

@@ -304,7 +304,7 @@ command gateway (off on the house: `commands_disabled`, an audit row, nothing se
 | Each tablet's four (`{entry}_{uid}_{key}`, device `{entry}_{uid}`, `tablet: <id>`) | the `linked` piece is on and Mantel owns that tablet | Mantel's screens, the screensaver rules, the Sleep Screen engine (as before) |
 | Seasonal decorations (`{entry}_seasonal_decorations`, device `{entry}` "HK Frontend") | the `linked` piece is on and Mantel owns `house` | Mantel's house settings |
 | Alarm PIN panel (unique id = its item id, device = the item) | the same, once HA's registry has the panel | the protected alarm's state, features and availability from the hub; `code_format: number` (Mantel PINs are digits) |
-| Live TV: `sensor.tv_viewers`, `…_{n}_now`, `camera.tv_*` | the same, once HA's registry has them | now-on from Mantel's guide (`live_tv` piece; "Live" without it); viewers 0 (no Live TV stream on Mantel yet); the cameras **unavailable**, no stream, until Live TV's transcode moves (Phase 4+) |
+| Live TV: `sensor.tv_viewers`, `…_{n}_now`, `camera.tv_*` | the same, once HA's registry has them | now-on from Mantel's guide (`live_tv` piece; "Live" without it); where Mantel serves Live TV (its own go2rtc, `live_tv.py`) the viewers are its count and the channels it serves are available, never with a stream source; otherwise viewers 0 and the cameras **unavailable** (the HA App) |
 
 The house-level unique ids, entity ids, names and the protected alarm are read from Home Assistant's
 own entity registry (`platform: hk_frontend`, the entry's) and states through the hub, never
@@ -428,7 +428,7 @@ Validation of per-tablet ownership and the real handlers (2026-10-18 afternoon, 
    and as a whole (switch linked mode off).
 2. **Not on Mantel yet**, so not answered or published truthfully by it:
    - notification camera snapshots (`snap` is false)
-   - Live TV's stream: the channel cameras are published unavailable, viewers 0
+   - Live TV in the HA App (no go2rtc of Mantel's): the channel cameras are published unavailable, viewers 0 (Docker/LXC: served by Mantel, phase4/FEATURE-PARITY.md)
    - the Alarm PIN takes the house's Mantel Alarm PIN or each person's Mantel PIN. HA's hash is never
      imported, so the house code is set again in Mantel; until then only people's PINs work. Arming
      without a PIN follows the row's `arm_required`, as at a tablet.

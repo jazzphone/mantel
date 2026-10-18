@@ -12,7 +12,7 @@ Contents: [1](#1-the-parts-and-the-two-doors) parts and doors · [2](#2-running-
 |---|---|
 | **Mantel Server** (`hosts/server/mantel_server`) | One Python service. The only thing that holds the Home Assistant and Music Assistant credentials. Owns people, roles, devices, settings and the audit log in one SQLite file. Serves the HK web app. |
 | **Caddy** | TLS, headers and the CSP in the container stacks. It stamps `X-Mantel-Door: lan` or `tunnel` on every request. |
-| **go2rtc / transcode** | Live TV and cameras (compose stack only; not wired to Mantel yet). |
+| **go2rtc / transcode** | Live TV served by Mantel (compose stack only: Mantel sets each channel up there on demand; section 7a). Cameras still use HA's own go2rtc. |
 | **`hk_frontend`** (in HA) | Today's HK Frontend, unchanged, or in *linked mode* the thin piece that forwards `hk_frontend.*` actions to Mantel. |
 | **Mantel Connect** | A small HA App that puts a Mantel running outside HA (Docker, an LXC) in HA's sidebar and the Companion app. Paired once with a one-time code (section 4a); not needed when Mantel runs as the Mantel App. |
 
@@ -51,6 +51,8 @@ It reads Home Assistant's token from `~/.config/mantel/ha_token` and stops with 
 | `--rp-id` | `localhost` | Passkey relying-party id: a **hostname**, never an IP. Set it to the real name before anyone registers a passkey. |
 | `--screen` | `dashboard-kitchen` | The screen `/home` opens. |
 | `--default-interval`, `--override GLOB=SECONDS` | 0 | Coalescing of fast sensors (for example `'sensor.*_distance=1'`). |
+| `--go2rtc-url URL` | none | Live TV served by Mantel through its own go2rtc's API (`http://go2rtc:1984` in the stack). Without it, HA's Live TV stays the interim (section 7a). |
+| `--live-tv-hardware` | `none` | `vaapi`: Live TV's transcode on QuickSync (go2rtc needs `/dev/dri`: `compose.gpu.yaml`). |
 
 ### In the container stacks (Docker, LXC)
 
@@ -64,6 +66,7 @@ The entrypoint turns `MANTEL_*` variables from `packaging/compose/.env` into tho
 | `MANTEL_DEFAULT_SCREEN`, `MANTEL_SESSION_HOURS` | `--screen`, `--session-hours` | Optional. |
 | `MANTEL_DATA_DIR`, `MANTEL_PORT`, `MANTEL_LISTEN`, `MANTEL_HA_TOKEN_FILE` | | Defaults `/data`, `8765`, `0.0.0.0`, `/run/secrets/ha_token`. |
 | `MANTEL_CONNECT`, `MANTEL_CONNECT_ADDRESS`, `MANTEL_HA_DOOR_RULES` | `--connect`, `--connect-address`, `--ha-door-rules` | Mantel Connect (section 4a). `compose.connect.yaml` sets the first; the rules default to `trusted`. |
+| `MANTEL_GO2RTC_URL`, `MANTEL_LIVE_TV_HARDWARE` | `--go2rtc-url`, `--live-tv-hardware` | Live TV (section 7a). `compose.yaml` sets the first to `http://go2rtc:1984`; `compose.gpu.yaml` sets the second to `vaapi`. Never in the HA App. |
 
 There is deliberately **no** environment variable for `--commands-enabled`. See section 8.
 
@@ -246,6 +249,33 @@ Mantel can run HK's whole-home music itself, talking to Music Assistant's own We
 
 Check with `GET /api/music/status` (Owner/Admin): `music_assistant`, `connected`, `settings` and `active` (Mantel answers the Music page) plus the last requests and failure notes. **House commands stay off**: with them off every music action is refused before anything reaches Music Assistant (reads and the feed work). When Avery turns commands on at cutover, the Music page's actions run through the gateway (RBAC on the rooms, an audit row each) and Mantel's engine sends them to Music Assistant. To go back to HA's engine, clear `ma_url` (or remove the token file) and restart.
 
+### 7a. Live TV
+
+**HA App:** nothing to do. HK's Live TV page keeps playing HA's channel cameras (HA's own transcode) as before.
+Mantel now counts the viewer heartbeat itself. With commands on, the heartbeat also reaches HA's
+`sensor.tv_viewers`; with them off, HA doesn't hear about screens watching through Mantel.
+
+**Docker / LXC:** Mantel serves Live TV through the stack's own go2rtc (`compose.yaml` already sets
+`MANTEL_GO2RTC_URL`). To turn it on:
+
+1. In `.env`, set `MANTEL_LAN_IP` (go2rtc's WebRTC address). On a host with QuickSync (proxmox1), also set
+   `COMPOSE_FILE=compose.yaml:compose.gpu.yaml` and `MANTEL_RENDER_GID` (`getent group render | cut -d: -f3`).
+2. Firewall: the container must reach the tuner (`:80` lineup, `:5004` streams), and the tablets must reach
+   `MANTEL_LAN_IP:8555` tcp+udp.
+3. As the Owner, run the feature import again (`POST /api/features/import`). Where Mantel has go2rtc, it brings
+   HA's tuner, guide, channels, names and quality over **with Live TV on**. Or set them yourself:
+   `PUT /api/features/settings` with `live_tv: {enabled: true, tuner: "<HDHomeRun IP>", guide_url: "...",
+   channels: ["4.1", ...], names: {...}, quality: "720"}`.
+4. Turn HA's own Live TV off, or link HA (section 6), so that HA's transcode and Mantel's don't both take a
+   tuner.
+5. Check with `GET /api/live_tv/status` (Owner/Admin): `mode` should be `mantel`, with the channels listed.
+   While someone watches it also shows the sessions, streams and viewers.
+
+A channel is set up in go2rtc when a screen tunes in, and removed 5 s after the last one closes it (go2rtc
+frees the tuner). Who may watch: anyone with the `live_tv` feature (Owner, Admin, Adult; wall tablets by a
+house grant) who may view that channel's camera. Details: [phase4/FEATURE-PARITY.md](phase4/FEATURE-PARITY.md)
+"Live TV served by Mantel".
+
 ## 8. Enabling commands
 
 By default Mantel Server **cannot** send a command to the house. This is the most important switch in the system, and it is deliberate and per server:
@@ -415,6 +445,8 @@ Then restart HA and reload the tablets. Or restore the backup from step 2.
 
 **The Music Assistant or go2rtc frame is blank on https.** An https page cannot frame `http://ma:8095` or open `ws://` to go2rtc (mixed content). Needs those behind TLS (a later Caddy change). See PACKAGING.md.
 
+**Live TV says "Tuning" and never plays (Docker/LXC).** Look at `GET /api/live_tv/status`. If `error` names go2rtc, the go2rtc service is down. If a session exists but no picture comes, check go2rtc's log (`docker compose logs go2rtc`): a `503` from the tuner means both tuners are busy (HA's own Live TV, Plex). If there's no error, check the tablets can reach `MANTEL_LAN_IP:8555` (tcp+udp). An empty channel list for one person means they lack the `live_tv` feature or may not view the channel's camera.
+
 **`client_smoke.py` fails to start Chrome.** It uses the fixed DevTools port 9337 and collides with another job's run. Run it alone.
 
 **The scratch HA is still running.** `testha.py status`, then `testha.py down`. A crashed run can leave `hk-phone`'s menu on the tab bar; `check.py` resets it first.
@@ -429,7 +461,7 @@ Collected from the phase documents; check [PLAN.md](PLAN.md) section 0 for the c
 | **Login page: built, not yet used on the house** | `/login` offers passkey, password + authenticator code, and Sign in with HA, and returns to the page that sent you. Not built: passkeys offered in the user-name autofill; no headless check of `/login` yet. | [phase3/LOGIN-PAGE.md](phase3/LOGIN-PAGE.md) |
 | **HA App: Ingress identity and prefix-relative URLs** | The App starts and is healthy, but sign-in through Ingress does not work yet. The entrypoint passes no `--trusted-proxy` there, so every request counts as `tunnel`. | `HA-APP.md` (in progress), PACKAGING.md |
 | **Mantel Connect: built and verified here, not yet installed on the house (2026-10-18)** | Guided pairing, the mutual-TLS listener, revocation, renewal, `/admin` Connect, the staged App and the compose/LXC switch are built and tested, including real Docker images. Not done: installing the App in the real HA (the real Supervisor Ingress path through Connect, the Companion app over cellular); a QR code for the pairing string. | [phase3/CONNECT.md](phase3/CONNECT.md) "Not done" |
-| **Linked mode's remaining gaps** | Per-tablet ownership, the real handlers and the 31 entities are built and wired (off by default). Not truthful yet: Live TV's channel cameras (published unavailable: no stream on Mantel), notification snapshots; the Alarm PIN takes each person's Mantel PIN, not HA's one Alarm PIN. No `/admin` control for ownership (REST only). | LINKED-MODE.md "What's left" |
+| **Linked mode's remaining gaps** | Per-tablet ownership, the real handlers and the 31 entities are built and wired (off by default). Not truthful yet: Live TV's channel cameras (published unavailable unless Mantel serves Live TV through its own go2rtc, section 7a; never with a stream source), notification snapshots; the Alarm PIN takes each person's Mantel PIN, not HA's one Alarm PIN. No `/admin` control for ownership (REST only). | LINKED-MODE.md "What's left" |
 | **Read side for tablets** | With the default roles a wall tablet has no `notifications` or `media` feature grant (`music`: a house grant since Phase 4, its speakers still its room's); add them when the tablets move. Camera stills, camera live view and calendar events now go through Mantel's connectors with RBAC: stills use `/api/camera/<entity>/still`, and pages never get an HA camera token. Media-player artwork goes through `/api/media/<entity>/art` the same way; no HA token reaches a page, in states or history answers. Live TV's transcode is not moved. | GATEWAY.md, CONNECTORS.md "What the page needs" |
 | **Music: Mantel's engine built, off until Music Assistant is given to Mantel (Phase 4)** | With `ma_url` + the token and the imported music settings (section 7a), Mantel answers the Music page (per-person and per-tablet home room) and runs its actions against Music Assistant directly. Until then the interim bridge to HA stays (`home: null`). Not on Mantel: announcements (always empty), HA's failure notifications (logged, in `/api/music/status`), and Browse's library reads (`music_assistant.get_library` through HA). Not yet run against a real Music Assistant. | [phase4/MANTEL-FEATURES.md](phase4/MANTEL-FEATURES.md) "Music" |
 | **Entity registry and Hidden Accessories reads: answered by Mantel (2026-10-18)** | `config/entity_registry/get` (a light's favourite colours only) and `hk_frontend/hidden/get` are answered from Mantel's own copies with RBAC; neither reaches HA. HK Settings' Hidden Accessories page still reads an empty `hidden` from `hk_frontend/panel/get`, and hiding saves are still `not_yet`. | CONNECTORS.md, [phase3/SETTINGS.md](phase3/SETTINGS.md) "Hidden Accessories" |

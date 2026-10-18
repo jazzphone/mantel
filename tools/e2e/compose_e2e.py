@@ -10,7 +10,13 @@ folder. Commands stay off. The stack runs under its own compose project and is t
 Checks: every service healthy; through Caddy (TLS, the public hostname) /healthz says HA is connected;
 the security headers (CSP, HSTS, nosniff, frame-ancestors); the server runs as uid 10001 on a read-only
 root with /data writable; `bootstrap` and `backup` pass through the entrypoint; the backup restores
-(--verify-only) with the backup key.
+(--verify-only) with the backup key. LIVE TV (live_tv.py): with a fake tuner service added for the run
+(tools/e2e/fake_tuner.py, an MPEG-2/AC-3 test stream; `tuner:5004` on the egress network), the first Owner
+(bootstrap, through Caddy) turns Live TV on, reads the channel list over /ws, and the page's WebRTC offer is
+answered by the stack's own go2rtc, which runs the transcode from the tuner with Mantel's templates; closing
+the player removes the stream; the page never sees go2rtc's or the tuner's address.
+
+    MANTEL_SERVER_IMAGE=mantel-server:<tag> ...   runs a server image other than mantel-server:local
 """
 from __future__ import annotations
 
@@ -76,6 +82,131 @@ async def through_caddy(path: str) -> tuple[int, dict, str]:
             return r.status, dict(r.headers), await r.text()
 
 
+# LIVE TV in the stack (docs/phase4/FEATURE-PARITY.md "Live TV served by Mantel"): a fake tuner service on the
+# egress network (tools/e2e/fake_tuner.py in the server image, an MPEG-2/AC-3 test stream made with ffmpeg),
+# reached by Mantel and the stack's go2rtc as `tuner:5004`. Mantel finds go2rtc at http://go2rtc:1984
+# (compose.yaml) on the backend network.
+LIVE_TV_OVERRIDE = """services:
+  fake-tuner:
+    image: ${MANTEL_SERVER_IMAGE:-mantel-server:local}
+    entrypoint: ["python", "/e2e/fake_tuner.py", "--bind", "0.0.0.0", "--port", "5004", "--ts", "/e2e/tuner.ts"]
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - TUNER_DIR:/e2e:ro
+    networks:
+      egress:
+        aliases:
+          - tuner
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request as u; u.urlopen('http://127.0.0.1:5004/lineup.json')"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+"""
+OFFER = "\r\n".join([
+    "v=0", "o=- 4611731400430051336 2 IN IP4 127.0.0.1", "s=-", "t=0 0", "a=group:BUNDLE 0 1",
+    "m=audio 9 UDP/TLS/RTP/SAVPF 111", "c=IN IP4 0.0.0.0", "a=ice-ufrag:e2eA", "a=ice-pwd:e2eaaaaaaaaaaaaaaaaaaaaa",
+    "a=fingerprint:sha-256 " + ":".join(["AB"] * 32), "a=setup:actpass", "a=mid:0", "a=recvonly", "a=rtcp-mux",
+    "a=rtpmap:111 opus/48000/2", "m=video 9 UDP/TLS/RTP/SAVPF 102", "c=IN IP4 0.0.0.0", "a=ice-ufrag:e2eA",
+    "a=ice-pwd:e2eaaaaaaaaaaaaaaaaaaaaa", "a=fingerprint:sha-256 " + ":".join(["AB"] * 32), "a=setup:actpass",
+    "a=mid:1", "a=recvonly", "a=rtcp-mux", "a=rtpmap:102 H264/90000",
+    "a=fmtp:102 level-asymmetry-allowed=1;packetization-mode=1;profile-level-id=42e01f", ""])
+
+
+def tuner_files(work: Path) -> Path:
+    d = work / "tuner"
+    d.mkdir()
+    shutil.copy(ROOT / "tools/e2e/fake_tuner.py", d / "fake_tuner.py")
+    sh("ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi", "-i", "testsrc=size=1280x720:rate=30",
+       "-f", "lavfi", "-i", "sine=frequency=440:sample_rate=48000", "-t", "20", "-c:v", "mpeg2video", "-b:v", "4M",
+       "-flags", "+ilme+ildct", "-c:a", "ac3", "-b:a", "192k", "-f", "mpegts", str(d / "tuner.ts"))
+    for f in d.iterdir():
+        os.chmod(f, 0o444)
+    os.chmod(d, 0o755)
+    return d
+
+
+async def live_tv(token: str, base: list[str], env: dict) -> None:
+    """Through Caddy, as a page: the first Owner (bootstrap), Live TV turned on, the channel list, a WebRTC
+    offer answered by the stack's go2rtc, the tuner pulled, the stream removed when the player closes."""
+    ctx = ssl.create_default_context()
+    ctx.check_hostname, ctx.verify_mode = False, ssl.CERT_NONE
+    origin = f"https://{HOST}:{PORT}"
+    url = f"https://127.0.0.1:{PORT}"
+    kw = {"headers": {"Host": f"{HOST}:{PORT}", "Origin": origin}, "server_hostname": HOST}
+    jar = aiohttp.CookieJar(unsafe=True)
+    async with aiohttp.ClientSession(connector=aiohttp.TCPConnector(ssl=ctx), cookie_jar=jar) as s:
+        pw = secrets.token_urlsafe(18)
+        r = await s.post(f"{url}/api/bootstrap", json={"token": token, "username": "e2eowner", "name": "E2E Owner",
+                                                        "password": pw}, **kw)
+        check(r.status == 200, f"Live TV: the first Owner is created through Caddy (HTTP {r.status})")
+        csrf = next((c.value for c in jar if c.key == "mantel_csrf"), "")
+        settings = {"live_tv": {"enabled": True, "tuner": "tuner:5004", "channels": ["4.1"], "names": {"4.1": "NBC"}}}
+        r = await s.put(f"{url}/api/features/settings", json=settings,
+                        headers={**kw["headers"], "X-CSRF-Token": csrf}, server_hostname=HOST)
+        check(r.status == 200, f"Live TV: the Owner turns Live TV on (HTTP {r.status})")
+        ws = await s.ws_connect(f"wss://127.0.0.1:{PORT}/ws", **kw)
+        frames: list[dict] = []
+
+        async def recv(pred, timeout=60.0):
+            end = time.monotonic() + timeout
+            while True:
+                m = await asyncio.wait_for(ws.receive_json(), max(0.1, end - time.monotonic()))
+                frames.append(m)
+                if pred(m):
+                    return m
+
+        got: dict = {}
+        for i in range(30):                       # the guide's first fetch and the next tick
+            await ws.send_json({"type": "read", "id": 100 + i, "msg": {"type": "hk_tv/channels"}})
+            got = (await recv(lambda m, i=i: m.get("id") == 100 + i)).get("result") or {}
+            if got.get("channels"):
+                break
+            await asyncio.sleep(2)
+        check([c.get("camera") for c in got.get("channels", [])] == ["camera.tv_nbc"],
+              f"Live TV: hk_tv/channels from Mantel in the stack ({got})")
+        await ws.send_json({"type": "read_subscribe", "id": 2,
+                            "msg": {"type": "camera/webrtc/offer", "entity_id": "camera.tv_nbc", "offer": OFFER}})
+        evs: list[dict] = []
+        try:
+            while not any(e.get("type") == "answer" for e in evs):
+                m = await recv(lambda m: m.get("id") == 2)
+                if m.get("error"):
+                    evs.append({"type": "error", **m["error"]})
+                    break
+                if m.get("type") == "read_event":
+                    evs.append(m["event"])
+        except asyncio.TimeoutError:
+            pass
+        ans = next((e for e in evs if e.get("type") == "answer"), {})
+        check("a=fingerprint" in ans.get("answer", ""), f"Live TV: the stack's go2rtc answers the page's offer {[e.get('type') for e in evs]}")
+        probe = "curl -fsS http://127.0.0.1:1984/api/streams"
+        pulled = False
+        for _ in range(30):
+            out = sh(*base, "exec", "-T", "go2rtc", "sh", "-c", probe, env=env, check_rc=False).stdout
+            if "tuner:5004/auto/v4.1" in out and "libx264" in out:
+                pulled = True
+                break
+            await asyncio.sleep(2)
+        check(pulled, "Live TV: go2rtc runs the transcode from tuner:5004 with Mantel's templates")
+        await ws.send_json({"type": "read_unsubscribe", "id": 2})
+        gone = False
+        for _ in range(30):
+            out = sh(*base, "exec", "-T", "go2rtc", "sh", "-c", probe, env=env, check_rc=False).stdout
+            if out.strip() and "mantel_tv_4_1" not in out:
+                gone = True
+                break
+            await asyncio.sleep(1)
+        check(gone, "Live TV: closing the player removes the stream from go2rtc")
+        text = json.dumps(frames)
+        check("1984" not in text and "tuner:5004" not in text, "Live TV: the page is never told go2rtc's or the tuner's address")
+        await ws.close()
+
+
 def main() -> int:
     started_ha = False
     if not testha.ready():
@@ -98,10 +229,12 @@ def main() -> int:
         f"MANTEL_HA_URL=http://host.docker.internal:{testha.PORT}",
         "MANTEL_TLS_SNIPPET=./caddy/tls-internal.caddy", f"MANTEL_SECRETS_DIR={sec}",
         f"MANTEL_HTTPS_PORT={PORT}", f"MANTEL_BACKUP_DIR={work / 'backups'}", "MANTEL_BACKUP_TARGET=",
-        "MANTEL_MA_URL=", ""]))
+        "MANTEL_MA_URL=", *([f"MANTEL_SERVER_IMAGE={os.environ['MANTEL_SERVER_IMAGE']}"]
+                             if os.environ.get("MANTEL_SERVER_IMAGE") else []), ""]))
+    (compose_dir / "live-tv.e2e.yaml").write_text(LIVE_TV_OVERRIDE.replace("TUNER_DIR", str(tuner_files(work))))
     env = dict(os.environ)
     base = ["docker", "compose", "-p", PROJECT, "--project-directory", str(compose_dir),
-            "-f", str(compose_dir / "compose.yaml")]
+            "-f", str(compose_dir / "compose.yaml"), "-f", str(compose_dir / "live-tv.e2e.yaml")]
     try:
         sh(*base, "config", "-q", env=env)
         check(True, "docker compose config: the file and .env are valid")
@@ -149,6 +282,10 @@ def main() -> int:
         (work / "bootstrap.out").write_text(boot.stdout + boot.stderr)
         check(boot.returncode == 0 and "bootstrap" in (boot.stdout + boot.stderr).lower(),
               "`docker compose exec mantel-server mantel bootstrap` passes through the entrypoint")
+        tok = next((ln.strip() for ln in boot.stdout.splitlines()
+                    if ln.startswith("    ") and ln.strip() and " " not in ln.strip()), "")
+        if check(bool(tok), "the bootstrap printed a one-time setup token"):
+            asyncio.run(live_tv(tok, base, env))
         bk = sh(*base, "exec", "-T", "mantel-server", "mantel", "backup", "--target", "/backups", env=env, check_rc=False)
         (work / "backup.out").write_text(bk.stdout + bk.stderr)
         files = sorted((work / "backups").glob("*.mbk"))
