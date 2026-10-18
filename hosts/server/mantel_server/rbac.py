@@ -47,6 +47,7 @@ FEATURE_DOMAINS: dict[str, frozenset[str]] = {
     "music": frozenset(),
     "energy": frozenset(),
     "notifications": frozenset(),
+    "live_tv": frozenset(),        # the Live TV page and its streams (live_tv.py); each channel also needs its camera
     "settings": frozenset(),       # house-wide HK settings
     "profile": frozenset(),        # a user's own settings
     "users": frozenset(),

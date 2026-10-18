@@ -101,6 +101,9 @@ services:
       MANTEL_TRUSTED_PROXY: 172.31.251.2
       MANTEL_BACKUP_TARGET: ${MANTEL_BACKUP_TARGET:-}
       MANTEL_MA_URL: ${MANTEL_MA_URL:-}
+      # Live TV served by Mantel (docs/phase4/FEATURE-PARITY.md): the stack's own go2rtc, on the backend
+      # network (no login; never given to a page). Mantel sets each channel up there when a screen tunes in.
+      MANTEL_GO2RTC_URL: http://go2rtc:1984
     volumes:
       - mantel-data:/data
       # the nightly encrypted backup's target (the NAS mount on the host); off unless

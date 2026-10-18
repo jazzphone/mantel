@@ -221,6 +221,17 @@
     }
     return hub.notifyMute(msg.key, minutes * 60);
   }
+  var CHANNEL_NO = /^\d{1,4}(\.\d{1,4})?$/;
+  function tvWatching(hub, msg, acts, callWS) {
+    var ch = msg.channel === undefined ? null : msg.channel;
+    if (ch !== null && (typeof ch !== 'string' || !CHANNEL_NO.test(ch))) return Promise.reject(fail('invalid', 'a channel number or null'));
+    if (typeof hub.tvWatching !== 'function') return Promise.resolve({ viewers: [] });
+    return hub.tvWatching(ch).then(function (res) {
+      var commands = typeof hub.commandsEnabled === 'function' && hub.commandsEnabled();
+      if (!(res && res.ha === true) || !commands || typeof callWS !== 'function') return { viewers: (res && res.viewers) || [] };
+      return callWS.call(acts, { type: 'hk_tv/watching', channel: ch });
+    });
+  }
   function withFeatures(port, hub) {
     var acts = port.actions;
     if (!acts || !hub || typeof hub.screenReport !== 'function') return;
@@ -230,12 +241,11 @@
       if (t === 'hk_frontend/screensaver/touch' || t === 'hk_frontend/screensaver/black') return screenReport(hub, msg);
       if (t === 'hk_notify/mute') return notifyMute(hub, msg);
       // LIVE TV'S VIEWER HEARTBEAT (hk-tv-guide-card, on opening a channel and every 60 s while it plays):
-      // in HA it names this screen in sensor.tv_viewers. A write, so the gateway's when commands are on;
-      // with them off it is answered here, quietly and sending nothing (no "commands disabled" toast
-      // a minute into a programme). docs/phase4/FEATURE-PARITY.md "Live TV".
-      if (t === 'hk_tv/watching' && !(typeof hub.commandsEnabled === 'function' && hub.commandsEnabled())) {
-        return Promise.resolve({ viewers: [] });
-      }
+      // counted by Mantel (tv_watching; live_tv.py), never a command, on every server, commands on or off.
+      // Where Mantel serves Live TV it publishes sensor.tv_viewers itself. Where Home Assistant's Live TV is
+      // still the interim (the answer says `ha: true`), HA keeps sensor.tv_viewers: with commands on the
+      // heartbeat ALSO goes to HA through the gateway, as before. docs/phase4/FEATURE-PARITY.md "Live TV".
+      if (t === 'hk_tv/watching') return tvWatching(hub, msg, acts, callWS);
       return callWS.apply(acts, arguments);
     };
     acts.callService = function (domain, service, data) {

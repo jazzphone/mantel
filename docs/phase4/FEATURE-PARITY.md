@@ -25,10 +25,12 @@ each feature's own `<id>/settings/get` answer, not in panel/get.
     fields (`id` + `ITEM_FIELDS`)
   - `hk_clean_areas/settings/get`: `chosen_vacuums` and `chosen_areas` become `options.vacuums` and `options.areas`
   - `hk_energy/settings/get`: `options` (the stored `OPTION_KEYS`, none of what HA works out)
-  - `hk_tv/settings/get`: `host`, `guide_url`, the channels and their names
+  - `hk_tv/settings/get`: `host`, `guide_url`, `quality`, the channels and their names
 - **The pieces it turns on:** `notifications`, `clean_areas` and `energy` come in **enabled**, because Mantel
-  runs them. `live_tv` is imported **off**: its screens read HA's channel cameras (below), and HA already reads
-  the guide. A feature HA does not have comes in off, and its read isn't sent.
+  runs them. `live_tv` is imported **off** where Mantel has no go2rtc of its own (the HA App: its screens read
+  HA's channel cameras, below, and HA already reads the guide), and **on** by the re-import
+  (`POST /api/features/import`) where it has one (Docker/LXC, `--go2rtc-url`; "Live TV served by Mantel"
+  below). A feature HA does not have comes in off, and its read isn't sent.
 - **Kept, never written:** `linked` and `sleep`.
 - **Checked:** the result goes through `check_settings`. Values it can't accept (a non-entity vacuum, a
   malformed channel) are left out rather than failing the import.
@@ -75,9 +77,9 @@ added one, HA's item ids where imported, state `loaded`).
 | **Clean Areas** (`hk-area-select-card`) | `hk_clean_areas/subscribe` → `{configured, areas}` | **Answered by Mantel** (`features.ROUTE_RULES`): `hk_core.clean_areas` coverage/offered over MantelHouse with the imported options. An area is offered only through a vacuum the subject may `view`. It's pushed on settings and registry reloads and on any `vacuum.*` change, and only when it changed (HA sends only changes too). It carries no keys. **Starting a clean** is the page's `hk_frontend.clean_areas` service call: a command, so the gateway handles it (refused while commands are off). It is never this read. |
 | **Energy** | the feed's `energy`; `energy/get_prefs`, `energy/info` (`feature:energy`, pruned); `recorder/statistics_during_period` (`history`, filtered) | The plan as above; the three reads were already allowed |
 | **Power** | the plan's `power` part (from the Energy options' `power`) + live states | Same plan |
-| **Live TV** (`hk-tv-guide-card`) | `hk_tv/channels` → `[{number, name, camera, now}]`; the `now` sensors' states; each channel's camera picture and live view; `hk_tv/watching` heartbeat | **Interim read bridge** to HA (`readproxy.RULES`): a channel is kept only if the subject may `view` its `camera.*`, and its `now` `sensor.*` reads null unless viewable. Rebuilt from the four keys. The camera and sensor states already come through the hub. |
+| **Live TV** (`hk-tv-guide-card`) | `hk_tv/channels` → `[{number, name, camera, now}]`; the `now` sensors' states; each channel's camera picture and live view; `hk_tv/watching` heartbeat | **Docker/LXC (Mantel's own go2rtc): served by Mantel** end to end (`live_tv.py`, below). **HA App: interim read bridge** to HA (`readproxy.RULES`): a channel is kept only if the subject may `view` its `camera.*`, and its `now` `sensor.*` reads null unless viewable. Rebuilt from the four keys. The camera and sensor states already come through the hub. The heartbeat is counted by Mantel in both. |
 
-### Live TV video
+### Live TV video in HA App mode (the interim, unchanged)
 
 What works, and through which path:
 
@@ -85,21 +87,97 @@ What works, and through which path:
   MPEG-2/AC-3 to H.264/AAC), relayed to WebRTC by HA's go2rtc. The player is `hk-doorbell-card` with
   `entity: <channel camera>`, so it signals exactly as a camera's live view does: `camera/webrtc/*` through
   Mantel's camera connector, `Authz.may_view` (`camera.live`), and the media goes browser ↔ HA's go2rtc
-  directly. This is the interim that works in HA App mode, and no new route is needed.
+  directly.
 - **The tile's picture.** It is the camera's `entity_picture`, which Mantel's still route rewrites, so no HA
   token reaches the page.
-- **The heartbeat.** `hk_tv/watching` is a write (HA records the viewer in `sensor.tv_viewers`). With commands
-  on it goes to the gateway. With them off it is answered in the page (`web/shim/mantel-client.js`) and nothing
-  is sent, so a programme doesn't raise a "commands disabled" toast every minute.
+- **The heartbeat** (changed 2026-10-18). `hk_tv/watching` is no longer answered in the page. The shim
+  (`web/shim/mantel-client.js`) sends it to Mantel as `tv_watching` on every server, commands on or off. Mantel
+  counts it (`live_tv.Viewers`, `GET /api/live_tv/status`) and answers `{viewers, ha: true}`. HA's Live TV still
+  keeps `sensor.tv_viewers` here, so the page ALSO sends the original `hk_tv/watching` to HA through the gateway,
+  but only when the operator turned commands on (as before). There's never a "commands disabled" toast.
 
-What remains (in HA until Live TV's viewers move):
+What stays in HA in App mode: the transcode (`live_tv/stream.py`), the channel cameras, the guide's
+coordinator and `sensor.tv_viewers`. With commands off, Mantel counts a screen watching through it, but HA's
+`sensor.tv_viewers` does not (that would be a write to HA, and commands off sends nothing).
 
-- **The transcode** (`live_tv/stream.py`) and the channel cameras.
-- **`sensor.tv_viewers`.** With commands off, a screen watching through Mantel isn't counted, so its tablet's
-  HA-side sleep logic doesn't see it.
-- **Mantel's own Live TV piece** (lineup + XMLTV guide, `mantel/live_tv/guide`) isn't what the page reads.
-  Moving the page to it needs the transcode in Mantel: PLAN §10's ffmpeg/QuickSync path, proven in Proof 4 but
-  not built.
+### Decision: HA App mode keeps the HA-transcode interim (2026-10-18)
+
+The App container could run go2rtc itself. It doesn't, on purpose:
+
+- **WebRTC media needs a published port.** In App mode the only way in is Ingress (HTTP). A go2rtc in the App
+  would need 8555/tcp+udp opened on the HA host. HA-APP.md's hardening and `package_check` (no host network,
+  Ingress only) rule that out. The server image also deliberately carries no ffmpeg or go2rtc (PACKAGING.md
+  "Transcode choice": the process holding the HA token has no media toolchain).
+- **No CPU gain.** An HA VM usually has no GPU, so a transcode in the App is the same CPU ffmpeg HA already
+  runs. QuickSync (Proof 4: 0.14 of a core against 0.84) is only on the LXC.
+- **HA already runs it, on the same machine.** HA's Live TV owns the channel cameras, the guide, the "now
+  playing" sensors and `sensor.tv_viewers`, which the tablets' sleep templates read. A second transcode would
+  use a second of the tuner's two tuners for the same channel, and duplicate those entities.
+- **It's what the house runs today**, and it keeps working unchanged.
+
+So in App mode the entrypoint never passes `--go2rtc-url` (pinned by `tests/test_live_tv.py`), `live_tv.py`
+stays in its `ha` mode, and the only change is that Mantel now counts the heartbeat.
+
+## Live TV served by Mantel (Docker / Proxmox LXC, 2026-10-18)
+
+Where Mantel runs the compose stack, its own go2rtc (the `transcode` image, service `go2rtc` on the backend
+network) does Live TV, and Mantel serves the page end to end: `hosts/server/mantel_server/live_tv.py`. It's on
+when `--go2rtc-url` is set (compose: `MANTEL_GO2RTC_URL=http://go2rtc:1984`) **and** the Live TV piece is on
+with a tuner (`house/mantel_features` `live_tv`: `tuner`, `guide_url`, `channels`, `names`, `quality`).
+
+| What HK's page reads | Answered by |
+|---|---|
+| `hk_tv/channels` | Mantel: the channels of Mantel's Live TV piece (the tuner's lineup and the XMLTV guide, `features.LiveTv`), in order, named as HA names them (a house name wins; a name used twice gets its number). Only for a subject with **`feature:live_tv`**, a new RBAC feature: Owner, Admin and Adult have it through their `all` grants, wall tablets through a house grant, Child and Guest don't. Each channel is listed only if they may `view` its camera, and its `now` sensor only if viewable. |
+| `camera.tv_<name>`, `sensor.tv_<name>_now`, `sensor.tv_viewers` | Mantel's own states with **HA's entity ids** (the same slug). They go into the hub's state store as an overlay that always wins: a linked mirror's copy, or a reconnect's, is put back in the same callback, before any page is sent anything. They also go into the registry with platform `hk_frontend`, so HK's Cameras page leaves them out, as it does HA's. The now sensor carries HA's attributes (title, subtitle, description, start/end, image, next, logo, network). The camera carries no picture and nothing about where it streams from. |
+| `camera/webrtc/get_client_config`, `/offer`, `/candidate` on a channel camera | Mantel. The camera connector's routes are wrapped; any other camera still goes to HA. RBAC first: `feature:live_tv` and `camera.live` on the channel's camera. Then the channel is set up in go2rtc **on demand** (`PATCH /api/streams`, in memory only; `PUT` would try to write the read-only go2rtc.yaml). The offer, answer and candidates are relayed over go2rtc's own WebSocket (`/api/ws?src=`), in HA's event shapes (`session`, `answer`, `candidate {candidate, sdpMLineIndex}`, `error`). A candidate only goes into a session of the same connection. ICE: HA's own default STUN servers. |
+| `hk_tv/watching` | `tv_watching` (above). Counted per screen (a wall tablet's device) or per person, expiring after 150 s without a heartbeat (as HA's does). Published as `sensor.tv_viewers`: state = how many, plus `users`, `channels`, `screens`. A channel Mantel doesn't serve is `not_found`; a subject who may not watch it is `forbidden`. |
+
+**The stream.** One go2rtc stream per channel being watched, `mantel_tv_<n>`. Each is an ffmpeg source that
+names Mantel's templates in `packaging/compose/go2rtc/go2rtc.yaml`:
+`ffmpeg:http://<tuner>:5004/auto/v<n>#input=mantel_tv_in#video=mantel_tv_720#audio=opus`.
+
+- `_1080` comes from the quality setting.
+- `_vaapi` comes from `--live-tv-hardware vaapi`, which `compose.gpu.yaml` sets. That's Proof 4's pipeline:
+  decode, `deinterlace_vaapi`, `scale_vaapi` and `h264_vaapi`, all on the iGPU.
+- The CPU templates use HA's own transcode arguments: yadif; 720p at 3 Mb/s or 1080p at 6 Mb/s; a key frame
+  every second; fast probing. Audio is Opus, for WebRTC.
+- The tuner URL is the lineup's own stream URL when that is a plain `http://<tuner host>[:port]/auto/v<n>` on
+  the configured tuner. Otherwise it's HA's `http://<tuner>:5004/auto/v<n>`. Nothing else (no `#`, no other
+  host) can reach go2rtc's ffmpeg.
+- go2rtc 1.9 refuses `exec:` sources from its API, and its `ffmpeg:` source pushes into go2rtc's own RTSP
+  server. So go2rtc.yaml now runs RTSP, on the container's loopback only (`127.0.0.1:8554`).
+
+**Stop when nobody watches.** Viewers of a channel share one go2rtc stream, so one tuner. go2rtc stops ffmpeg,
+freeing the tuner, when the last WebRTC consumer leaves. Mantel removes the stream 5 s after its last session
+ends (a quick re-tune keeps it), and every 30 s removes any `mantel_tv_*` stream no session uses (after a
+restart, for example).
+
+**Linked mode.** With `linked` on and HA's Live TV item id known (the import's `ha.items.live_tv`), Mantel
+publishes hk_frontend's Live TV entities to the linked HA with their unique ids:
+
+- `{item}_viewers` (`sensor.tv_viewers`, so a tablet's sleep template keeps working)
+- `{item}_{n}_now`
+- `{item}_{n}_camera`
+
+The cameras carry **no stream source**: HA's own dashboards don't play Mantel's channels (HK's pages do,
+through Mantel). Turning Live TV off removes all of them.
+
+**Nothing reaches the page but the SDP answer.** Never the tuner's address, go2rtc's API address or any
+credential (pinned by the tests and both e2e runs). The answer's candidates name go2rtc's published WebRTC port
+at `MANTEL_LAN_IP:8555`, as HA's go2rtc's candidates name HA's today. `GET /api/live_tv/status` (Owner/Admin)
+shows the mode, channels, viewers, sessions, streams, linked entities and last error, and no addresses either.
+
+**What Avery provides to turn it on** (Docker/LXC only):
+
+- **The tuner's address and the guide URL.** The HDHomeRun was `192.0.2.126` in Proof 4. Both come from
+  HA's Live TV settings through the feature import (`POST /api/features/import`, which turns Live TV on where
+  Mantel has go2rtc), or set them with `PUT /api/features/settings` `live_tv`.
+- **`.env`.** `MANTEL_LAN_IP` (go2rtc's WebRTC candidate). On proxmox1, also
+  `COMPOSE_FILE=compose.yaml:compose.gpu.yaml` with `MANTEL_RENDER_GID`.
+- **The firewall.** The LXC's egress to the tuner (`:80` for the lineup, `:5004` for streams, from go2rtc and
+  Mantel), and the tablets' access to `MANTEL_LAN_IP:8555` tcp+udp (PLAN §7's firewall list).
+- **HA's own Live TV.** Turn it off in HA, or link HA (then HA runs none of it). Otherwise HA's transcode and
+  Mantel's could each take a tuner for the same channel.
 
 ## Other gaps
 
@@ -144,4 +222,35 @@ What remains (in HA until Live TV's viewers move):
   - The strategy generated `vacuums` with the **Clean Areas** card offering Kitchen, plus `energy` (period, hero,
     highlights, where, day and gas cards drawn with data) and `power` (house, status and load cards).
   - The Energy plan is again identical to HA's.
-- **Not verified:** Live TV's video (the scratch HA has no HDHomeRun) and anything on the house.
+- **Live TV served by Mantel** (2026-10-18):
+  - `tests/test_live_tv.py` (20 tests): a fake go2rtc that behaves as go2rtc 1.9.9 was seen to, and a fake
+    tuner (`tools/e2e/fake_tuner.py`). Covered:
+    - HA's slug and entity ids; the stream URL can only name the tuner; the templates exist; viewers expire as
+      HA's do
+    - config and entrypoint (never in the App); the import turns Live TV on only with go2rtc
+    - without go2rtc the interim is unchanged
+    - the channels and their entities; RBAC (Guest, Child, the wall-tablet grant)
+    - a channel plays through go2rtc and stops when nobody watches; a quick re-tune keeps the stream;
+      candidates only go into your own session; other cameras still go to HA; go2rtc down is the page's error
+    - the viewers sensor; linked mode's entities and their removal; the overlay wins over HA's copy; stale
+      streams are reaped; the status route
+
+    Also `tests/test_shim_features.py`: the heartbeat in both modes, commands on and off.
+  - `tools/e2e/live_tv_e2e.py` (12/12): Mantel from the checkout, the REAL go2rtc 1.9.9 (`mantel-transcode:local`
+    with the packaged go2rtc.yaml, read-only, all capabilities dropped) and a fake tuner sending real
+    MPEG-2/AC-3. Checked:
+    - go2rtc answers the page's offer, and its ffmpeg pulls the channel with Mantel's templates
+    - the transcode makes pictures (a JPEG of the H.264 stream)
+    - the heartbeat makes `sensor.tv_viewers`
+    - closing the player removes the stream and frees the tuner
+    - no frame names go2rtc or the tuner
+  - `tools/e2e/compose_e2e.py` (19/19, with the scratch HA): the stack now gets a fake tuner service. Through
+    Caddy, the first Owner turns Live TV on, the channel list comes from Mantel, the stack's go2rtc answers the
+    offer and runs the transcode from `tuner:5004`, closing the player removes the stream, and the page never
+    sees go2rtc's or the tuner's address.
+- **Not verified:**
+  - a real HDHomeRun
+  - a browser actually playing: the e2e offer is a hand-made SDP, which go2rtc answers and starts the
+    transcode for, but no media flows
+  - the VAAPI templates on QuickSync (no `/dev/dri` here; Proof 4 ran the same ffmpeg filters by hand)
+  - anything on the house

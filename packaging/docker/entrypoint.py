@@ -47,6 +47,8 @@ and restore, to the container's HA address, token and secrets):
     MANTEL_SECRETS_DIR     compose    /run/secrets (at_rest.key, backup.key)
     MANTEL_MA_URL          optional   Music Assistant's API (token: /run/secrets/ma_token); empty = off
     MANTEL_BACKUP_TARGET   optional   /backups (the host's backup folder, mounted) turns the nightly backup on
+    MANTEL_GO2RTC_URL      compose    http://go2rtc:1984: Live TV served by Mantel through the stack's own go2rtc
+    MANTEL_LIVE_TV_HARDWARE optional  vaapi (compose.gpu.yaml sets it): the QuickSync transcode templates
 """
 from __future__ import annotations
 
@@ -120,12 +122,24 @@ def container_args(env: dict[str, str]) -> list[str]:
                  "--ma-token-file", env.get("MANTEL_MA_TOKEN_FILE", "/run/secrets/ma_token")]
     if env.get("MANTEL_BACKUP_TARGET"):
         args += ["--backup-target", env["MANTEL_BACKUP_TARGET"]]
+    args += live_tv_args(env)
     if env.get("MANTEL_DEFAULT_SCREEN"):
         args += ["--screen", env["MANTEL_DEFAULT_SCREEN"]]
     if env.get("MANTEL_SESSION_HOURS"):
         args += ["--session-hours", env["MANTEL_SESSION_HOURS"]]
     args += connect_args(env)
     return args
+
+
+def live_tv_args(env: dict[str, str]) -> list[str]:
+    """Live TV served by Mantel (compose: its own go2rtc). Never in the HA App (app_args): there Home
+    Assistant's own Live TV stays the interim (docs/phase4/FEATURE-PARITY.md)."""
+    if not env.get("MANTEL_GO2RTC_URL"):
+        return []
+    hw = env.get("MANTEL_LIVE_TV_HARDWARE", "").strip().lower() or "none"
+    if hw not in ("none", "vaapi"):
+        raise ConfigError(f"MANTEL_LIVE_TV_HARDWARE must be vaapi or empty, not {hw!r}")
+    return ["--go2rtc-url", env["MANTEL_GO2RTC_URL"], "--live-tv-hardware", hw]
 
 
 def connect_args(env: dict[str, str]) -> list[str]:

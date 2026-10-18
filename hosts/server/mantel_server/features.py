@@ -36,7 +36,9 @@ settings store; ``PUT /api/features/settings``, Owner only). A piece that is off
 * ``energy``: ``mantel/energy/plan`` (read, RBAC feature ``energy``): HA's Energy settings through the
   read proxy (``energy/get_prefs``), the house through MantelHouse, ``hk_core.energy.plan.build``.
 * ``live_tv``: ``mantel/live_tv/guide`` (read): the HDHomeRun lineup and XMLTV guide fetched from the
-  URLs in the settings (``hooks.fetch``; tests use fakes), parsed by ``hk_core.live_tv_guide``.
+  URLs in the settings (``hooks.fetch``; tests use fakes), parsed by ``hk_core.live_tv_guide``. Where
+  Mantel has its own go2rtc (``--go2rtc-url``), live_tv.py serves the whole page from it: the channels,
+  their cameras and sensors, the streams and the viewers.
 
 THE SERVICE ACTOR. A feature's own house command (the sleep engine, the linked backlight) goes
 through the SAME ``gateway.Gateway`` code path as a person's, as the server's own Service subject
@@ -99,7 +101,7 @@ DEFAULTS: dict[str, dict[str, Any]] = {
     "sleep": {"enabled": False},
     "clean_areas": {"enabled": False, "options": {}},
     "energy": {"enabled": False, "options": {}},
-    "live_tv": {"enabled": False, "tuner": "", "guide_url": "", "channels": [], "names": {}},
+    "live_tv": {"enabled": False, "tuner": "", "guide_url": "", "channels": [], "names": {}, "quality": "720"},
     # NOT A PIECE: what the feature import read from Home Assistant (import_features): the HK features HA
     # had added (``added``, HA's kinds), their items ({kind: [{entry_id, title}]}) and where from. Music,
     # Alarm PIN and Live TV's channel cameras still run in HA: the screens are told they are added from this.
@@ -195,6 +197,8 @@ def check_settings(body: Any) -> dict[str, dict[str, Any]]:
             isinstance(k, str) and _CHANNEL.match(k) and isinstance(n, str) and 0 < len(n) <= 40
             for k, n in tv["names"].items()):
         raise ValueError("live_tv.names: {channel number: its name (up to 40 characters)}")
+    if tv["quality"] not in ("720", "1080"):
+        raise ValueError("live_tv.quality: \"720\" or \"1080\" (the transcode's picture, where Mantel runs Live TV)")
     ha = out["ha"]
     if not isinstance(ha["added"], list) or not all(k in HA_KINDS for k in ha["added"]):
         raise ValueError(f"ha.added: HA's feature kinds ({list(HA_KINDS)})")
@@ -266,12 +270,13 @@ def import_piece(kind: str, page: Any) -> dict[str, Any]:
         return {"enabled": False, "tuner": host if _HOST.match(host) or _URL.match(host) else "",
                 "guide_url": guide if _URL.match(guide) else "",
                 "channels": list(dict.fromkeys(c["number"] for c in chans)),
-                "names": {c["number"]: c["name"] for c in chans if isinstance(c.get("name"), str) and 0 < len(c["name"]) <= 40}}
+                "names": {c["number"]: c["name"] for c in chans if isinstance(c.get("name"), str) and 0 < len(c["name"]) <= 40},
+                "quality": str(page.get("quality")) if str(page.get("quality")) in ("720", "1080") else "720"}
     raise KeyError(kind)
 
 
 async def import_features(panel: Any, read: Callable[[dict], Awaitable[Any]], current: Any = None,
-                          source: str | None = None) -> dict[str, dict[str, Any]]:
+                          source: str | None = None, live_tv_on: bool = False) -> dict[str, dict[str, Any]]:
     """THE FEATURE IMPORT (MANTEL-FEATURES.md "Exact continuation point" item 3): which HK features HA has
     added (``panel``: its ``hk_frontend/panel/get`` answer) and, for Notifications, Clean Areas, Energy
     and Live TV, their settings (one server-only read each, ``read({"type": ...})``; only for a feature
@@ -284,6 +289,9 @@ async def import_features(panel: Any, read: Callable[[dict], Awaitable[Any]], cu
         piece = copy.deepcopy(DEFAULTS[kind])
         if kind in items:
             piece.update(import_piece(kind, await read({"type": t})))
+        # where Mantel runs its own go2rtc (live_tv.py), Live TV comes in on: Mantel serves it
+        if kind == "live_tv" and live_tv_on and piece.get("tuner"):
+            piece["enabled"] = True
         out[kind] = piece
     return check_settings(out)
 
@@ -875,7 +883,8 @@ class LiveTv:
             if cfg["tuner"]:
                 url = cfg["tuner"] if cfg["tuner"].startswith(("http://", "https://")) else f"http://{cfg['tuner']}/lineup.json"
                 data = json.loads(await fetch(url))
-                self.lineup = [{"number": c.get("GuideNumber"), "name": c.get("GuideName") or "", "hd": bool(c.get("HD"))}
+                self.lineup = [{"number": c.get("GuideNumber"), "name": c.get("GuideName") or "", "hd": bool(c.get("HD")),
+                                "url": c.get("URL") if isinstance(c.get("URL"), str) else None}
                                for c in data if isinstance(c, dict) and c.get("GuideNumber")]
             numbers = set(cfg["channels"]) or {c["number"] for c in self.lineup} or None
             if cfg["guide_url"]:
@@ -1556,7 +1565,8 @@ class FeatureHost:
             raise ValueError("Home Assistant's answer has no HK settings in it")
         entry = panel.get("entry_id")
         source = f"ha:{entry}" if isinstance(entry, str) and _ENTRY.match(entry) else "ha"
-        body = await import_features(panel, read, self.doc(FEATURES_DOC) or None, source)
+        body = await import_features(panel, read, self.doc(FEATURES_DOC) or None, source,
+                                     live_tv_on=bool(getattr(self.app.get("cfg"), "go2rtc_url", "")))
         from .settings_store import Actor, actor_of
         actor = actor_of(identity) if identity is not None else Actor(label="mantel-features")
         docs = self.store.write([("house", FEATURES_DOC, body)], actor=actor, action="import",

@@ -46,6 +46,8 @@ LAN_STEP_UP_EXEMPT = frozenset({"camera"})
 HOUSE_GRANTS: tuple[Grant, ...] = (
     Grant(effect="allow", actions=("view", "control.sensitive"), resource_kind="feature", resource="cameras",
           roles={"wall_tablet"}, note="the doorbell pop-up on every wall tablet (LAN only: devices never on the tunnel)"),
+    Grant(effect="allow", actions=("view",), resource_kind="feature", resource="live_tv",
+          roles={"wall_tablet"}, note="Live TV on every wall tablet, as in HA (each channel's camera: the grant above)"),
 )
 
 # THE DOORBELL'S TALK-BACK SPEAKERS for wall tablets (decision recorded in GATEWAY.md "Doorbell

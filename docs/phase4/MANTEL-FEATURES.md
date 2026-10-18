@@ -108,13 +108,14 @@ back in line.
 | `sleep` | See below. | Kiosk calls, gated. With commands off it records `would`. |
 | `clean_areas` | `mantel/clean_areas/coverage` (read: offered areas + coverage) and `clean_areas_run {areas, dry_run}`: `hk_core.clean_areas.async_clean` through MantelHouse | Each robot's call is gated and runs **as the person who asked**. With commands off: `ok: false`, each robot `commands_disabled`. |
 | `energy` | `mantel/energy/plan` (read; RBAC feature `energy` through `hooks.may_read`): HA's Energy settings via the read proxy's server read (`energy/get_prefs`), the house via MantelHouse (`energy_context`, HA's `collect` ported to the port), then `hk_core.energy.plan.build`. Gap: a sensor's helper source (Utility Meter → Integral) isn't on the port, so power sensors are found by the Energy settings, the options and the meter's device. | None |
-| `live_tv` | `mantel/live_tv/guide` (read): the HDHomeRun `lineup.json` and the XMLTV guide, fetched from the URLs in the settings every 30 min (at most 60 MB; `hooks.fetch` in tests), parsed by `hk_core.live_tv_guide`; channels with now/next | None |
+| `live_tv` | `mantel/live_tv/guide` (read): the HDHomeRun `lineup.json` and the XMLTV guide, fetched from the URLs in the settings every 30 min (at most 60 MB; `hooks.fetch` in tests), parsed by `hk_core.live_tv_guide`; channels with now/next. **Where Mantel has its own go2rtc** (`--go2rtc-url`, Docker/LXC): `live_tv.py` serves HK's whole Live TV page from it (`hk_tv/channels`, the channel cameras and "now playing" sensors with HA's entity ids, the WebRTC signaling to go2rtc, `sensor.tv_viewers`, linked HA's Live TV entities). Settings gained `quality` (`720`/`1080`). | None (watching TV is a read; the heartbeat `tv_watching` isn't a command) |
 
 Since 2026-10-18 ([FEATURE-PARITY.md](FEATURE-PARITY.md)): the feature import fills these settings from HA
 (plus `ha`, what HA has added, and `live_tv.names`); `clean_areas` also answers HK's own
 `hk_clean_areas/subscribe`; `energy`'s plan goes to the screens in the settings feed (`energy`), with
 Status & Chips' thermostats as HA's plan has them; the import leaves Mantel's own Live TV guide fetch off
-(the page reads HA's channel cameras through the interim `hk_tv/channels`).
+(the page reads HA's channel cameras through the interim `hk_tv/channels`), except where Mantel has its own
+go2rtc: there the re-import turns Live TV on and Mantel serves it (FEATURE-PARITY.md "Live TV served by Mantel").
 
 **`notifications`.** It follows the hub's changes. `banner.goes_off` decides what a change sets off
 (Goes Off When, Only When, Not Again For, Mute 1 Hour). Then:
@@ -170,7 +171,9 @@ or a wall-tablet device in the tablet's room. Mantel tells screens to change wit
 
 - the music engine (it talks to MA directly: decisions are shared, steps are Phase 4+)
 - Alarm PIN (`not_supported` in linked mode)
-- the tablets' alerts/restart and the Live TV viewers, cameras and transcode
+- the tablets' alerts/restart
+- in the HA App only: the Live TV cameras and transcode (Docker/LXC: Mantel's since 2026-10-18,
+  FEATURE-PARITY.md "Live TV served by Mantel"; the viewer heartbeat is counted by Mantel everywhere)
 - calendars and the history proxies (already read proxies)
 
 None of these message types is command-shaped. A house command still only ever leaves through the
@@ -320,7 +323,9 @@ Nothing else changes: every piece stays off until an Owner turns it on (`PUT /ap
    - calendars' look-ahead and the `notify` action (in linked mode, later)
    - Alarm PIN through the gateway (linked `alarm_*` commands)
    - the music engine against MA
-   - the tablets' alerts and restarts, and the Live TV viewers and cameras
+   - the tablets' alerts and restarts
+   - ~~the Live TV viewers and cameras~~ **done where Mantel has go2rtc** (2026-10-18, `live_tv.py`); the HA
+     App keeps HA's Live TV by decision (FEATURE-PARITY.md)
 
    Each goes through `MantelHouse` and `FeatureCaller` the same way.
 

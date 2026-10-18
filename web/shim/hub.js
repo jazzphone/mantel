@@ -55,8 +55,8 @@ export class Hub {
           this.pending.delete(m.id);
           if (m.error) p.reject(Object.assign(new Error(m.error.message || m.error.code), m.error));
           else p.resolve(m.result);
-        } else if (m.type === 'screen_result' || m.type === 'notify_mute_result') {
-          // the feature host's answers to screen_report / notify_mute (see ask())
+        } else if (m.type === 'screen_result' || m.type === 'notify_mute_result' || m.type === 'tv_watching_result') {
+          // the feature host's answers to screen_report / notify_mute / tv_watching (see ask())
           const p = this.pending.get(m.id);
           if (!p || !p.ask) return;
           this.pending.delete(m.id);
@@ -121,6 +121,10 @@ export class Hub {
 
   // Mute 1 Hour: {key, seconds}
   notifyMute(key, seconds) { return this.ask('notify_mute', { key, seconds }); }
+
+  // Live TV's viewer heartbeat (HK's hk_tv/watching): the channel playing, or null when it stops.
+  // Counted by Mantel (live_tv.py); resolves {viewers, ha} (ha: Home Assistant's Live TV is the interim)
+  tvWatching(channel) { return this.ask('tv_watching', { channel }); }
 
   // live talk's own socket (talk_relay.py), at the page's prefix like /ws; the card's Worker opens it
   // with a one-time ticket from a gateway `talk_live` command (mantel-client.js liveSocket)
