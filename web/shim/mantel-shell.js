@@ -23,8 +23,18 @@
     return path && SERVICE_PATH.test(path) ? (global.__mantelBase || '') + path : null;
   }
 
+  // Mantel's own settings page (/admin) in HK's menu, for an Owner or Admin only (the page and its APIs
+  // refuse everyone else anyway). Under the HA App the address is under the Ingress prefix, so the page
+  // opens inside the same frame.
+  let role = '';
+  function hostMenu() {
+    if (role !== 'owner' && role !== 'admin') return [];
+    return [{ title: 'Mantel settings', icon: 'mdi:cog-outline', href: (global.__mantelBase || '') + '/admin' }];
+  }
+
   const MANTEL = {
     kind: 'mantel',
+    hostMenu,
     // Mantel sends no writes at all (commands_disabled): nothing to hold back
     holdWrites: function () { return true; },
     // Mantel's page has no sidebar of its own for a button to open
@@ -75,5 +85,8 @@
   // home.js hands over GET /api/services ({music_assistant: '/ma/' | null, go2rtc: '/go2rtc/' | null})
   function setServices(got) { services = got && typeof got === 'object' ? got : {}; }
 
-  global.hkMantelShell = { attach, install, setServices, serviceUrl, kind: 'mantel' };
+  // home.js hands over the signed-in person's Mantel role (GET /api/me)
+  function setRole(r) { role = typeof r === 'string' ? r : ''; }
+
+  global.hkMantelShell = { attach, install, setServices, setRole, hostMenu, serviceUrl, kind: 'mantel' };
 })(globalThis);

@@ -353,9 +353,10 @@ async def page(request: web.Request) -> web.StreamResponse:
     base = html.escape(request.get("mantel_base", ""))
     host = proxy_trust.public_host(request)
     wss = f"{'wss' if proxy_trust.is_https(request) else 'ws'}://{host}"
+    referrer = "<meta name=referrer content=same-origin>" if base else ""    # HA's Referrer-Policy: no-referrer breaks POSTs
     body = ("<!doctype html><html lang=en><head><meta charset=utf-8>"
             "<meta name=viewport content='width=device-width,initial-scale=1'>"
-            f"<meta name=mantel-base content='{base}'><title>Test my proxy</title>"
+            f"<meta name=mantel-base content='{base}'>{referrer}<title>Test my proxy</title>"
             f"<link rel=stylesheet href='{base}{PAGE}/check.css'></head><body><main>"
             "<h1>Test my proxy</h1><p class=lead>Checks the reverse proxy in front of Mantel, from this browser. "
             "Open it the way the tablets do (your LAN address) and again the way you reach Mantel remotely.</p>"

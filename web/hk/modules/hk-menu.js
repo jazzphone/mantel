@@ -382,13 +382,22 @@
     });
   }
 
+  // THE HOST'S OWN PAGES (hkShell.hostMenu): Mantel's settings page for an Owner/Admin, opened by a
+  // full page load (inside the same frame when Mantel runs as a Home Assistant App).
+  function hostItems() {
+    var SH = window.hkShell, list = null;
+    try { list = SH && SH.hostMenu ? SH.hostMenu() : null; } catch (e) { list = null; }
+    return (Array.isArray(list) ? list : []).filter(function (x) { return x && x.title && x.href; })
+      .map(function (x) { return { title: String(x.title), icon: x.icon || 'mdi:cog', kind: 'hostlink', href: String(x.href), paths: [] }; });
+  }
+
   function sidebarSource() {
     var SH = window.hkShell;
     return SH && SH.sidebarData ? SH.sidebarData() : null;
   }
 
   window.hkMenu = { version: '1.1.0', _: { model: model, isHere: isHere, glyph: glyph, chipPaths: chipPaths, pagePaths: pagePaths,
-                                           haItems: haItems, sidebarSource: sidebarSource,
+                                           haItems: haItems, hostItems: hostItems, sidebarSource: sidebarSource,
                                            tabCentre: tabCentre, kinds: { ORDER: KIND_ORDER, PAGES: KIND_PAGES } } };
 
   whenBase(function (C) {
@@ -1103,6 +1112,7 @@
               // sidebar order, and the panels there are
               !!S.shut.ha_more, JSON.stringify(S.haPrefs || null), !!(h && h.user && h.user.is_admin),
               side && side.panels ? Object.keys(side.panels).join(',') : '',
+              hostItems().map(function (x) { return x.title + x.href; }).join(','),
               cfg ? (cfg.views || []).length : 0,
               JSON.stringify(h && h.areas ? Object.keys(h.areas).map(function (k) {
                 return k + ':' + h.areas[k].name + ':' + (h.areas[k].icon || '');
@@ -1160,6 +1170,7 @@
       if (place === 'rooms') html += ha;
       html += section('rooms', 'Rooms', m.rooms);
       if (place === 'bottom') html += ha;
+      html += section('host', 'Mantel', hostItems());
       var keep = S.list.scrollTop;
       S.list.innerHTML = html;
       S.list.scrollTop = keep;
@@ -1300,6 +1311,12 @@
         try { localStorage.setItem('hk-menu-shut', JSON.stringify(S.shut)); } catch (x) { /* private */ }
         build();
         markHere();
+        return;
+      }
+      // the host's own page (Mantel settings): a full page load
+      if (it.kind === 'hostlink') {
+        close(true);
+        location.assign(it.href);
         return;
       }
       // Notifications: Home Assistant's own drawer, over the page

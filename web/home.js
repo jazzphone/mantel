@@ -50,6 +50,7 @@ const [registry, user, fixtures, cards, , services] = await Promise.all([
   json(mantelUrl('/api/services')).catch(() => ({})),
 ]);
 window.hkMantelShell.setServices(services);
+window.hkMantelShell.setRole(user.role);
 mark('inputs');
 
 const [config, themes] = await Promise.all([
