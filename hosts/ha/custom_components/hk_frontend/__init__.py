@@ -96,8 +96,10 @@ cards find them by their actions and feeds only. See docs/Features.md.
 
 LINKED TO MANTEL SERVER (linked_mode.py, mantel_link.py; Configure, off by
 default): a house that moved HK to Mantel Server keeps the same actions and
-entities here, forwarded to and pushed from Mantel. While the entry's data
-holds no link, none of it runs.
+entities here, forwarded to and pushed from Mantel -- one wall tablet at a
+time (per-tablet ownership; until the whole entry is Mantel's, everything HA
+still owns runs here as before). While the entry's data holds no link, none
+of it runs.
 """
 
 import asyncio
@@ -245,9 +247,11 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     # place: a screen on another page, or asleep, is the automation's own
     # business (a Fully Kiosk load_url with the pop-up's #hash does both).
     async def show_popup(call: ServiceCall) -> None:
-        # LINKED TO MANTEL SERVER (linked_mode.py): the pop-ups and the
-        # screens are Mantel's; the call goes there as made
-        if (linked := linked_mode.active(hass)) is not None:
+        # LINKED TO MANTEL SERVER (linked_mode.py): the whole entry Mantel's,
+        # the pop-ups and the screens are Mantel's: the call goes there as
+        # made. Some tablets Mantel's: here as always, and there too.
+        linked = linked_mode.active(hass)
+        if linked is not None and linked.full:
             await linked.forward("show_popup", call.data)
             return
         hash_ = str(call.data["popup"]).strip().lstrip("#").lower()
@@ -260,6 +264,8 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
             "type": "popup", "popup": hash_,
             "dashboards": [str(d).strip("/") for d in call.data.get("dashboards") or []],
             "users": [str(u) for u in call.data.get("users") or []]})
+        if linked is not None:
+            await linked.also("show_popup", call.data)
 
     hass.services.async_register(DOMAIN, "show_popup", show_popup, schema=vol.Schema({
         vol.Required("popup"): cv.string,
@@ -273,7 +279,8 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     # Fully Kiosk load_url, which a kiosk without one (Kiosk Satellite) cannot
     # do. The same screens as Show pop-up; a screen not showing it ignores it.
     async def close_popup(call: ServiceCall) -> None:
-        if (linked := linked_mode.active(hass)) is not None:
+        linked = linked_mode.active(hass)
+        if linked is not None and linked.full:
             await linked.forward("close_popup", call.data)
             return
         hash_ = str(call.data["popup"]).strip().lstrip("#").lower()
@@ -281,6 +288,8 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
             "type": "popup_close", "popup": hash_,
             "dashboards": [str(d).strip("/") for d in call.data.get("dashboards") or []],
             "users": [str(u) for u in call.data.get("users") or []]})
+        if linked is not None:
+            await linked.also("close_popup", call.data)
 
     hass.services.async_register(DOMAIN, "close_popup", close_popup, schema=vol.Schema({
         vol.Required("popup"): cv.string,
@@ -390,10 +399,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                       "the HK Frontend entry (see the log above). Delete it in Settings -> Devices & services, "
                       "then add the feature again from HK Frontend -> Add feature", entry.title)
         return False
-    # LINKED TO MANTEL SERVER (linked_mode.py, off unless Configure set it):
-    # the same actions and entities, Mantel's; nothing below runs
-    if linked_mode.configured(entry):
+    # LINKED TO MANTEL SERVER (linked_mode.py, off unless Configure set it),
+    # the whole entry Mantel's: the same actions and entities, Mantel's;
+    # nothing below runs. Linked with the rest still HA's: everything below
+    # runs, less what Mantel owns (its tablets), and the link starts first.
+    if linked_mode.full(entry):
         return await linked_mode.async_setup_entry(hass, entry, PLATFORMS)
+    set_up_for = linked_mode.setup_key(entry)
 
     @callback
     def changed(*_args: Any) -> None:
@@ -434,8 +446,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         # with it: they only mark it, and it goes round once more if one came
         # while it worked. Its first step yields once, so the writes the same
         # handler makes right after (synchronously) are in before it reads.
-        # linked to Mantel Server just now (Configure): start again, linked
-        if linked_mode.configured(entry):
+        # linked to Mantel Server, unlinked, or a tablet moved (Configure, or
+        # Mantel saying so): start again, as it now is
+        if linked_mode.setup_key(entry) != set_up_for:
             hass.config_entries.async_schedule_reload(entry.entry_id)
             return
         if pass_state["running"]:
@@ -520,6 +533,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # THE FEATURES, before the platforms: each platform adds the running
     # features' entities as it is set up (features/async_setup_platform)
     await F.async_start(hass, entry)
+    # linked, the rest still HA's: the link before the platforms, which
+    # attach to it for the entities of the tablets Mantel owns
+    if linked_mode.configured(entry):
+        linked_mode.start(hass, entry)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     # THE WALL TABLETS' alerts and scheduled restart (tablets.py)
     from . import tablets
@@ -535,12 +552,13 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if F.kind_of(entry) != F.FRONTEND:
         return True
     linked = linked_mode.active(hass)
-    if linked is not None and linked.entry is entry:
+    if linked is not None and linked.entry is entry and linked.full:
         return await linked_mode.async_unload_entry(hass, entry, PLATFORMS)
     # The platforms first: a failed unload leaves the entry loaded, and it must
     # then still have its settings page (it used to lose it first).
     ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     if ok:
+        await linked_mode.async_stop(hass, entry)        # linked, the rest HA's: the link too
         panel.async_unregister(hass)
         hk_panel.async_unregister(hass)          # nothing to do while it is off
         await F.async_stop(hass)

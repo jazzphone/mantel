@@ -4,8 +4,8 @@ hk_frontend integration linked to the real ``mantel_server/linked.py`` endpoint,
 The HA harness lives in its own venv (``~/.venvs/hk-ha-test``, which has Home Assistant but not
 Mantel's dependencies), so this stages the integration's Python, tests and translations the way
 ``tools/build_ha.py`` would (without the 3,000 frontend files, which these tests don't read) and runs
-the HA side's ``test_linked_e2e.py`` and ``test_linked_mode.py`` there with ``MANTEL_ROOT`` pointing
-here. Skipped when that venv is absent."""
+the HA side's ``test_linked_e2e.py``, ``test_linked_mode.py`` and ``test_linked_owners.py`` there
+with ``MANTEL_ROOT`` pointing here. Skipped when that venv is absent."""
 from __future__ import annotations
 
 import importlib.util
@@ -41,7 +41,8 @@ def test_home_assistant_linked_to_the_real_endpoint(tmp_path):
     env = {**os.environ, "MANTEL_ROOT": str(ROOT)}
     env.pop("PYTHONPATH", None)
     run = subprocess.run([str(HA_PYTEST), "-q", "-p", "no:cacheprovider", "test_linked_e2e.py",
-                          "test_linked_mode.py"], cwd=tests, env=env, capture_output=True, text=True, timeout=900)
+                          "test_linked_mode.py", "test_linked_owners.py"],
+                         cwd=tests, env=env, capture_output=True, text=True, timeout=900)
     tail = (run.stdout + run.stderr)[-6000:]
     assert run.returncode == 0, tail
     assert " passed" in run.stdout and "skipped" not in run.stdout.splitlines()[-1], tail

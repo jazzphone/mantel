@@ -688,6 +688,8 @@ class FeatureLinked:
             tid, key = host.linked_index.get(t["unique_id"], (None, None))
             if tid is None or key != SS.BLACK_KEY:
                 raise LinkedError("not_a_black_screen", f"{t['entity_id']} is not a black screen switch")
+            if not host.mantel_owns(tid):
+                raise LinkedError("not_owned", f"{t['entity_id']}'s tablet is Home Assistant's, not Mantel's")
             on = await host.set_black(tid, black=data.get("black"), brightness=data.get("brightness"), why="linked")
             out[t["entity_id"]] = {"on": on}
         return out
@@ -1026,10 +1028,19 @@ class FeatureHost:
                     out |= {e for e in eng.kiosk.values() if e.split(".", 1)[0] in KIOSK_DOMAINS}
         if self.on("linked") and self.settings["linked"]["backlight"]:
             for tid in self.tablets:
+                if not self.mantel_owns(tid):
+                    continue
                 eid = self.backlight_of(tid)
                 if eid:
                     out.add(eid)
         return out
+
+    def mantel_owns(self, tid: str) -> bool:
+        """Linked mode's per-tablet ownership (linked_owners.py): Mantel acts for, publishes and answers
+        for a tablet only once an Owner moved it to Mantel. Default (no row, or no ownership at all):
+        Home Assistant's, so HA's own engines keep it and Mantel never drives the same kiosk."""
+        owners = self.app.get("linked_owners")
+        return owners is not None and owners.owns(tid)
 
     def backlight_of(self, tid: str) -> str | None:
         named = self.settings["linked"]["backlights"].get(tid)
@@ -1062,7 +1073,8 @@ class FeatureHost:
             await self._sync_linked()
 
     def _sleep_engines(self) -> None:
-        want = {tid for tid, b in self.boards.items() if self.on("sleep") and SS.deciding(b)}
+        want = {tid for tid, b in self.boards.items()
+                if self.on("sleep") and SS.deciding(b) and self.mantel_owns(tid)}
         for tid in list(self.engines):
             if tid not in want:
                 self.engines.pop(tid).unload()
@@ -1240,7 +1252,8 @@ class FeatureHost:
                         "name": None, "translation_key": key, "has_entity_name": True, "icon": icon,
                         "device": {"identifier": f"{entry}_{uid}", "name": t["name"], "manufacturer": "HK Frontend",
                                    "model": "Wall Tablet"},
-                        "state": state, "attributes": json.loads(json.dumps(attrs, default=str)), "available": True}
+                        "state": state, "attributes": json.loads(json.dumps(attrs, default=str)), "available": True,
+                        "tablet": tid}
         return out
 
     async def _sync_linked(self) -> None:
@@ -1252,11 +1265,14 @@ class FeatureHost:
         index: dict[str, tuple[str, str]] = {}
         if entry:
             for tid in self.tablets:
+                if not self.mantel_owns(tid):
+                    continue
                 for key, desc in self.tablet_entities(tid).items():
                     want[desc["unique_id"]] = desc
                     index[desc["unique_id"]] = (tid, key)
         for uid in list(self._published - set(want)):
-            await reg.remove(uid)
+            # a tablet still in the settings is only no longer Mantel's: HA keeps its registry entry
+            await reg.remove(uid, forget=self.linked_index.get(uid, (None, None))[0] not in self.tablets)
             self._published.discard(uid)
         for uid, desc in want.items():
             have = reg.get(uid)

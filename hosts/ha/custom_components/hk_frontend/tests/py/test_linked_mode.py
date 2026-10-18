@@ -16,11 +16,12 @@ from homeassistant.helpers import device_registry as dr, entity_registry as er
 
 from conftest import entry, house_entry
 from mantel_fake import (
-    ALARM, ALARM_ITEM, BLACK, CAMERA, ENTRY, INUSE, PHOTOS, SLEEP, TOKEN, VIEWERS, FakeMantel, until,
+    ALARM, ALARM_ITEM, BLACK, CAMERA, ENTRY, FULL, INUSE, PHOTOS, SLEEP, TOKEN, VIEWERS, FakeMantel, until,
 )
 
 DOMAIN = "hk_frontend"
 LINK = "mantel_link"
+OWNERS = "mantel_owners"
 
 
 @pytest.fixture
@@ -30,9 +31,13 @@ async def mantel(socket_enabled):
     await fake.close()
 
 
-async def _linked(hass, mantel, *items, token=TOKEN, wait=True):
-    """The house's entry, linked to the stand-in, set up."""
-    e = house_entry(*items, entry_id=ENTRY, data={LINK: {"url": mantel.url, "token": token}})
+async def _linked(hass, mantel, *items, token=TOKEN, wait=True, owners=FULL):
+    """The house's entry, linked to the stand-in, set up (by default wholly
+    Mantel's, as Mantel last said: test_linked_owners.py has the rest)."""
+    data = {LINK: {"url": mantel.url, "token": token}}
+    if owners is not None:
+        data[OWNERS] = owners
+    e = house_entry(*items, entry_id=ENTRY, data=data)
     e.add_to_hass(hass)
     assert await hass.config_entries.async_setup(e.entry_id)
     await hass.async_block_till_done()
@@ -69,7 +74,8 @@ async def test_not_linked_is_the_default_and_nothing_changes(hass, frontend, mon
     assert hass.services.has_service(DOMAIN, "set_black_screen")
     from custom_components.hk_frontend.diagnostics import async_get_config_entry_diagnostics
     assert (await async_get_config_entry_diagnostics(hass, e))["linked"] == {
-        "linked": False, "url": None, "connected": False, "entities": 0, "last_error": None}
+        "linked": False, "url": None, "connected": False, "entities": 0, "last_error": None,
+        "owners": {"house": "ha", "tablets": []}}
 
 
 def test_a_half_filled_link_is_not_a_link():
@@ -130,7 +136,7 @@ async def test_an_entity_the_house_has_keeps_its_entity_id(hass, base, mantel):
     pre.add_to_hass(hass)
     er.async_get(hass).async_get_or_create("switch", DOMAIN, f"{ENTRY}_hall_black_screen", config_entry=pre,
                                            suggested_object_id="hall_tablet_darkness")
-    hass.config_entries.async_update_entry(pre, data={LINK: {"url": mantel.url, "token": TOKEN}})
+    hass.config_entries.async_update_entry(pre, data={LINK: {"url": mantel.url, "token": TOKEN}, OWNERS: FULL})
     assert await hass.config_entries.async_setup(pre.entry_id)
     await until(hass, lambda: (s := hass.states.get("switch.hall_tablet_darkness")) is not None
                 and s.state != "unavailable")
@@ -351,7 +357,10 @@ async def test_configure_links_and_unlinks(hass, frontend, mantel):
     await hass.async_block_till_done()
     assert e.data[LINK] == {"url": mantel.url, "token": TOKEN}
     assert e.options.get(LINK) is None, "never in the options (the dashboard settings)"
-    await until(hass, lambda: _linked_now(hass) is not None and _linked_now(hass).link.connected)
+    # linked: everything HA's until Mantel's hello says the whole entry is Mantel's; then it reloads
+    await until(hass, lambda: _linked_now(hass) is not None and _linked_now(hass).full
+                and _linked_now(hass).link.connected)
+    assert e.data[OWNERS] == FULL, "what Mantel said is kept (a restart without Mantel keeps it)"
     assert hass.states.get("switch.hk_frontend_seasonal_decorations").state == "unavailable", "Mantel's now"
     # the credential is never shown again; left empty, the saved one is kept
     r = await flows.async_init(e.entry_id)
@@ -364,6 +373,6 @@ async def test_configure_links_and_unlinks(hass, frontend, mantel):
     r = await flows.async_configure(r["flow_id"], {"next_step_id": "linked"})
     r = await flows.async_configure(r["flow_id"], {"enabled": False})
     await hass.async_block_till_done()
-    assert LINK not in e.data
+    assert LINK not in e.data and OWNERS not in e.data
     await until(hass, lambda: _linked_now(hass) is None
                 and hass.states.get("switch.hk_frontend_seasonal_decorations").state == "on")

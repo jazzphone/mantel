@@ -175,15 +175,22 @@ HK Settings, plus two things you may need before it works:
 ### Linked to Mantel Server
 
 Off unless you switch it on, and nothing changes while it is off. Linked, HK
-Frontend keeps the same actions (`hk_frontend.set_black_screen`, `show_popup`,
-`close_popup`) and the same entities with the same entity ids, so automations,
-scripts and history keep working, but they are Mantel Server’s: each action is
+Frontend hands the house over one wall tablet at a time: Mantel Server’s Owner
+moves each tablet to Mantel (and, last, the rest of the integration), and this
+page says which tablets are Mantel’s. A tablet still Home Assistant’s runs
+exactly as before. For a tablet Mantel owns, and once everything is Mantel’s,
+HK Frontend keeps the same actions (`hk_frontend.set_black_screen`,
+`show_popup`, `close_popup`, `notify`) and the same entities with the same
+entity ids, so automations, scripts and history keep working, but they are
+Mantel Server’s: each action is
 sent to it over one WebSocket, answered within 10 seconds or failed with an
 error that says why, and it sends every entity’s state. The black screen
 switch’s `confirmed` attribute still turns on when the tablet’s page has gone
 black. While Mantel Server can’t be reached the entities are unavailable and
-the actions fail; the link retries on its own. The features, the wall tablets’
-Sleep Screen and HK Settings don’t run in Home Assistant while linked.
+the actions fail; the link retries on its own. Pop-ups and notifications
+reach Home Assistant’s screens and Mantel Server’s while some tablets are
+Mantel’s. Once everything is Mantel’s, the features, the wall tablets’ Sleep
+Screen and HK Settings don’t run in Home Assistant.
 
 The address is Mantel Server’s LAN address, with `https://` (plain `http://`
 only to this machine, so the credential never crosses the network in clear);
