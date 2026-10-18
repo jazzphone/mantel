@@ -1,65 +1,30 @@
-"""Mantel's database: linked roles, sign-in sessions and dry-run command audit records.
+"""Phase 0's store API, now a thin layer over the P3.1 database (``db.py``, migration 0001_core).
 
-Lives outside git (default ~/.local/share/mantel/mantel.db, folder mode 0700). Session ids are random
-and only their SHA-256 is stored, so a copy of the database cannot be replayed as a cookie.
+Lives outside git (default ~/.local/share/mantel/mantel.db, folder mode 0700). What Phase 0 called a
+*link* (an HA user with a role) is now an HA-linked Mantel user plus its ``ha_links`` row; what it
+called a *session* is a session whose id is an access token. Only SHA-256 hashes of tokens are
+stored, so a copy of the database cannot be replayed as a cookie. The dry-run ``command_audit``
+table (proof 2) is unchanged and append-only.
 """
 from __future__ import annotations
 
-import hashlib
-import os
 import secrets
-import sqlite3
 import time
 from pathlib import Path
 
+from .db import Database
+from .sessions import SessionManager, token_hash
+
 ROLES = ("owner", "admin", "adult", "child", "guest", "wall_tablet")  # PLAN §5
 
-SCHEMA = """
-CREATE TABLE IF NOT EXISTS links (
-    ha_user_id TEXT PRIMARY KEY,
-    role       TEXT NOT NULL CHECK (role IN ('owner','admin','adult','child','guest','wall_tablet')),
-    name       TEXT,
-    created    REAL NOT NULL
-);
-CREATE TABLE IF NOT EXISTS sessions (
-    id_hash    TEXT PRIMARY KEY,
-    ha_user_id TEXT NOT NULL,
-    created    REAL NOT NULL,
-    expires    REAL NOT NULL
-);
-CREATE TABLE IF NOT EXISTS command_audit (
-    id INTEGER PRIMARY KEY,
-    timestamp REAL NOT NULL,
-    actor TEXT,
-    role TEXT,
-    device TEXT NOT NULL CHECK (device = 'unknown'),
-    action TEXT,
-    target TEXT,
-    decision TEXT NOT NULL CHECK (decision IN ('allowed', 'denied')),
-    reason TEXT NOT NULL,
-    dry_run INTEGER NOT NULL CHECK (dry_run = 1),
-    source_ip TEXT
-);
-CREATE TRIGGER IF NOT EXISTS command_audit_no_update BEFORE UPDATE ON command_audit
-BEGIN SELECT RAISE(ABORT, 'audit is append-only'); END;
-CREATE TRIGGER IF NOT EXISTS command_audit_no_delete BEFORE DELETE ON command_audit
-BEGIN SELECT RAISE(ABORT, 'audit is append-only'); END;
-"""
-
-
-def _hash(session_id: str) -> str:
-    return hashlib.sha256(session_id.encode()).hexdigest()
+_hash = token_hash  # Phase 0 name
 
 
 class Store:
     def __init__(self, path: Path) -> None:
-        path = Path(path).expanduser()
-        path.parent.mkdir(parents=True, exist_ok=True)
-        os.chmod(path.parent, 0o700)
-        self.db = sqlite3.connect(path, check_same_thread=False)
-        self.db.row_factory = sqlite3.Row
-        self.db.executescript(SCHEMA)
-        os.chmod(path, 0o600)
+        self.database = Database(path)
+        self.db = self.database.conn
+        self.sessions = SessionManager(self.db, time.time)
 
     def audit_command(self, *, timestamp, actor, role, action, target, decision, reason, source_ip) -> int:
         """Commit a minimal decision record; a failure must propagate to the caller."""
@@ -71,57 +36,83 @@ class Store:
                 (timestamp, actor, role, action, target, decision, reason, source_ip))
         return row.lastrowid
 
-    # -- links -------------------------------------------------------------------------------
-    def link(self, ha_user_id: str, role: str, name: str | None = None, now: float | None = None) -> None:
+    # -- links (HA accounts linked to Mantel users) -------------------------------------------------
+    def link(self, ha_user_id: str, role: str, name: str | None = None, now: float | None = None) -> str:
+        """Link an HA user to a role: re-roles the linked user, or creates one. Returns the user id."""
         if role not in ROLES:
             raise ValueError(f"unknown role {role!r}; roles are {', '.join(ROLES)}")
+        now = time.time() if now is None else now
         with self.db:
-            self.db.execute(
-                "INSERT INTO links (ha_user_id, role, name, created) VALUES (?,?,?,?) "
-                "ON CONFLICT(ha_user_id) DO UPDATE SET role=excluded.role, name=COALESCE(excluded.name, name)",
-                (ha_user_id, role, name, now if now is not None else time.time()))
+            row = self.db.execute("SELECT user_id FROM ha_links WHERE ha_user_id=?", (ha_user_id,)).fetchone()
+            if row:
+                self.db.execute("UPDATE users SET role=?, name=COALESCE(?, name), updated=? WHERE id=?",
+                                (role, name, now, row["user_id"]))
+                return row["user_id"]
+            user_id = secrets.token_hex(16)
+            self.db.execute("INSERT INTO users (id, name, role, kind, created, updated) VALUES (?,?,?,?,?,?)",
+                            (user_id, name, role, "ha_linked", now, now))
+            self.db.execute("INSERT INTO ha_links (ha_user_id, user_id, created) VALUES (?,?,?)",
+                            (ha_user_id, user_id, now))
+        return user_id
+
+    def link_user(self, ha_user_id: str, user_id: str, now: float | None = None) -> None:
+        """Link an HA account to an existing (HK) user."""
+        now = time.time() if now is None else now
+        with self.db:
+            self.db.execute("INSERT INTO ha_links (ha_user_id, user_id, created) VALUES (?,?,?)",
+                            (ha_user_id, user_id, now))
 
     def unlink(self, ha_user_id: str) -> bool:
+        """Remove the link and end the user's sessions. A user that only existed for the link goes too."""
         with self.db:
-            self.db.execute("DELETE FROM sessions WHERE ha_user_id=?", (ha_user_id,))
-            return self.db.execute("DELETE FROM links WHERE ha_user_id=?", (ha_user_id,)).rowcount > 0
+            row = self.db.execute("SELECT u.id, u.kind FROM ha_links h JOIN users u ON u.id = h.user_id "
+                                  "WHERE h.ha_user_id=?", (ha_user_id,)).fetchone()
+            if row is None:
+                return False
+            self.db.execute("DELETE FROM ha_links WHERE ha_user_id=?", (ha_user_id,))
+            self.db.execute("DELETE FROM sessions WHERE user_id=?", (row["id"],))
+            if row["kind"] == "ha_linked":
+                self.db.execute("DELETE FROM users WHERE id=?", (row["id"],))
+        return True
+
+    _LINK = ("SELECT h.ha_user_id, u.role, u.name, h.created, u.id AS user_id, u.disabled "
+             "FROM ha_links h JOIN users u ON u.id = h.user_id ")
 
     def get_link(self, ha_user_id: str) -> dict | None:
-        row = self.db.execute("SELECT * FROM links WHERE ha_user_id=?", (ha_user_id,)).fetchone()
+        row = self.db.execute(self._LINK + "WHERE h.ha_user_id=?", (ha_user_id,)).fetchone()
         return dict(row) if row else None
 
     def list_links(self) -> list[dict]:
-        return [dict(r) for r in self.db.execute("SELECT * FROM links ORDER BY created")]
+        return [dict(r) for r in self.db.execute(self._LINK + "ORDER BY h.created")]
 
     def set_name(self, ha_user_id: str, name: str) -> None:
         with self.db:
-            self.db.execute("UPDATE links SET name=? WHERE ha_user_id=?", (name, ha_user_id))
+            self.db.execute("UPDATE users SET name=? WHERE id=(SELECT user_id FROM ha_links WHERE ha_user_id=?)",
+                            (name, ha_user_id))
 
-    # -- sessions ----------------------------------------------------------------------------
+    # -- sessions (fixed-length access tokens, as Phase 0 issued) ----------------------------------
     def create_session(self, ha_user_id: str, ttl: float, now: float | None = None) -> str:
-        now = time.time() if now is None else now
-        sid = secrets.token_urlsafe(32)
-        with self.db:
-            self.db.execute("DELETE FROM sessions WHERE expires < ?", (now,))
-            self.db.execute("INSERT INTO sessions VALUES (?,?,?,?)", (_hash(sid), ha_user_id, now, now + ttl))
-        return sid
+        """A LAN session for a linked HA user whose cookie value lasts ``ttl`` seconds (no refresh)."""
+        link = self.get_link(ha_user_id)
+        if link is None:
+            raise ValueError(f"HA user {ha_user_id!r} is not linked")
+        issued = self.sessions.create(link["user_id"], "lan", "legacy", now=now, ttl=ttl, refresh=False, fresh=False)
+        return issued.access
 
     def get_session(self, session_id: str | None, now: float | None = None) -> dict | None:
-        """The signed-in user for a cookie value, or None (unknown, expired, or no longer linked).
+        """The signed-in user for a cookie value, or None (unknown, expired, revoked, disabled or unlinked).
 
-        The role is read from the link at every request, so unlinking or re-roling takes effect at once.
+        The role is read from the user at every request, so unlinking or re-roling takes effect at once.
         """
-        if not session_id:
+        row = self.sessions.from_access(session_id, now)
+        if row is None:
             return None
-        now = time.time() if now is None else now
-        row = self.db.execute(
-            "SELECT s.ha_user_id, s.expires, l.role, l.name FROM sessions s "
-            "JOIN links l ON l.ha_user_id = s.ha_user_id WHERE s.id_hash=?", (_hash(session_id),)).fetchone()
-        if row is None or row["expires"] <= now:
-            return None
-        return dict(row)
+        expires = self.db.execute("SELECT MAX(expires) FROM access_tokens WHERE hash=?",
+                                  (token_hash(session_id),)).fetchone()[0]
+        return {"ha_user_id": row["ha_user_id"], "user_id": row["user_id"], "role": row["user_role"],
+                "name": row["user_name"], "expires": min(expires, row["expires"])}
 
     def delete_session(self, session_id: str | None) -> None:
-        if session_id:
-            with self.db:
-                self.db.execute("DELETE FROM sessions WHERE id_hash=?", (_hash(session_id),))
+        row = self.sessions.from_access(session_id)
+        if row is not None:
+            self.sessions.revoke(row["id"], "logout")

@@ -134,15 +134,22 @@ async def complete(env, code="good-code"):
 async def test_linked_user_signs_in_and_the_users_token_is_revoked(env):
     env.store.link("u-avery", "owner")
     r = await complete(env)
-    assert r.status == 302 and r.headers["Location"] == "/dev"
+    # P3.1: a page that moves on to /dev (SameSite=Strict cookies are not sent on a redirect in a
+    # chain that started on HA's site), and Strict cookies (PLAN §7) instead of Phase 0's Lax.
+    assert r.status == 200 and "url=/dev" in await r.text()
     assert env.fake.revoked == ["user-refresh"]                    # revoked
     assert env.fake.user_ws_calls == ["auth/current_user"]          # the user's token did exactly one thing
     exchange = env.fake.token_requests[0]
     assert exchange["grant_type"] == "authorization_code" and exchange["client_id"] == f"http://{env.origin}/"
     c = r.cookies[auth.SESSION_COOKIE]
-    assert c["httponly"] and c["samesite"].lower() == "lax"
+    assert c["httponly"] and c["samesite"].lower() == "strict"
+    for name in ("mantel_refresh", "mantel_csrf"):
+        assert r.cookies[name]["samesite"].lower() == "strict"
+    assert r.cookies["mantel_refresh"]["httponly"] and not r.cookies["mantel_csrf"]["httponly"]
     me = await (await env.client.get("/api/me")).json()
     assert me == {"ha_user_id": "u-avery", "name": "Avery", "role": "owner"}
+    row = env.store.db.execute("SELECT s.method, s.door, u.kind FROM sessions s JOIN users u ON u.id = s.user_id").fetchone()
+    assert tuple(row) == ("ha", "lan", "ha_linked")                # landed in a P3.1 session of the linked user
 
 
 async def test_revoke_happens_even_if_current_user_fails(env):
@@ -171,7 +178,9 @@ async def test_expired_session_is_rejected(env):
     env.store.link("u-avery", "owner")
     await complete(env)
     assert (await env.client.get("/api/me")).status == 200
-    env.now[0] += 12 * 3600 + 1
+    env.now[0] += 12 * 3600 + 1                                     # access token long gone: refreshed on the spot
+    assert (await env.client.get("/api/me")).status == 200
+    env.now[0] += 30 * 86400                                        # P3.1: LAN sessions end 30 days after sign-in
     assert (await env.client.get("/api/me")).status == 401
     r = await env.client.get("/dev", allow_redirects=False)
     assert r.status == 302 and r.headers["Location"] == "/login"
@@ -223,7 +232,7 @@ def test_store_session_ids_are_not_stored_raw(tmp_path):
     s = Store(tmp_path / "x.db")
     s.link("u", "adult")
     sid = s.create_session("u", 60)
-    stored = [r[0] for r in s.db.execute("SELECT id_hash FROM sessions")]
+    stored = [r[0] for r in s.db.execute("SELECT hash FROM access_tokens")]
     assert sid not in stored and len(stored[0]) == 64
     with pytest.raises(ValueError):
         s.link("u", "emperor")

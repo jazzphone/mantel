@@ -22,7 +22,13 @@ class Config:
     fixtures: Path = REPO / "spikes/hk-snapshot/fixtures"      # captured HK feeds (personal data; git-ignored)
     web: Path = REPO / "web"
     data_dir: Path = Path("~/.local/share/mantel")
-    session_hours: float = 12.0
+    secrets_dir: Path = Path("~/.config/mantel/secrets")    # at-rest key file (created 0700/0600 on first use)
+    session_hours: float = 12.0                              # session lifetime on the tunnel door
+    lan_session_days: float = 30.0                           # session lifetime on the LAN door
+    access_minutes: float = 15.0                             # access token lifetime (the refresh token rotates)
+    device_rotate_hours: float = 24.0                        # wall tablet credential rotation
+    webauthn_rp_id: str = "localhost"                        # passkeys: the RP ID (a hostname, never an IP)
+    trusted_proxies: tuple[str, ...] = ()                    # peers whose X-Forwarded-For is believed (P3.6)
 
     @property
     def client_id(self) -> str:  # Mantel's own URL; HA requires redirect_uri on the same host
@@ -44,7 +50,10 @@ def parse_args(argv: list[str] | None = None) -> Config:
                    help="per-entity interval, e.g. 'sensor.*_distance=1' (repeatable)")
     p.add_argument("--data-dir", default=str(Config.data_dir), help="where mantel.db lives (outside git)")
     p.add_argument("--screen", default=Config.default_screen, help="dashboard /home opens (HK board key)")
-    p.add_argument("--session-hours", type=float, default=Config.session_hours)
+    p.add_argument("--secrets-dir", default=str(Config.secrets_dir), help="folder of secret files (at-rest key)")
+    p.add_argument("--session-hours", type=float, default=Config.session_hours, help="tunnel-door session lifetime")
+    p.add_argument("--lan-session-days", type=float, default=Config.lan_session_days)
+    p.add_argument("--rp-id", default=Config.webauthn_rp_id, help="passkey relying-party id (hostname)")
     a = p.parse_args(argv)
     overrides = []
     for item in a.override:
@@ -55,6 +64,7 @@ def parse_args(argv: list[str] | None = None) -> Config:
     # The listen address is deliberately not configurable: loopback only in this prototype.
     cfg = Config(ha_url=a.ha_url, token_file=Path(a.token_file), port=a.port,
                   default_interval=a.default_interval, overrides=overrides,
-                 data_dir=Path(a.data_dir), session_hours=a.session_hours, default_screen=a.screen)
+                 data_dir=Path(a.data_dir), session_hours=a.session_hours, default_screen=a.screen,
+                 secrets_dir=Path(a.secrets_dir), lan_session_days=a.lan_session_days, webauthn_rp_id=a.rp_id)
     assert cfg.host in LOOPBACK, "Mantel listens on loopback only in this prototype"
     return cfg

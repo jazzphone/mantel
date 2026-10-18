@@ -20,7 +20,7 @@ where = ["hosts/server", "."]
 include = ["mantel_server*", "mantel_connect*", "hk_core*"]
 
 [tool.setuptools.package-data]
-mantel_server = ["static/*"]
+mantel_server = ["static/*", "migrations/*.sql"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
