@@ -7,8 +7,9 @@
 //     it; a view without a `path` is addressed by its index),
 //   * make the view element (`custom:` views by their tag) and each card in it
 //     (createCardElement: `custom:` cards by their tag; Lovelace's grid, stacks
-//     and conditional drawn by HK's own small containers below; any other
-//     Lovelace card type a labelled placeholder),
+//     and conditional drawn by HK's own small containers below; the
+//     picture-entity HK's camera cards make drawn by HK's hk-picture-entity;
+//     any other Lovelace card type a labelled placeholder),
 //   * setConfig, then hand the view and every card what goes with the client
 //     (the host adapter's bridge, window.hkHostClient.bridge), in Lovelace's
 //     order: setConfig, the client, narrow, index, cards,
@@ -85,13 +86,78 @@
     if (p && p.replaceChild) p.replaceChild(newEl, oldEl);
   }
 
-  // Lovelace's container types that HK's strategy and cards use, drawn by HK.
+  // Lovelace's container types that HK's strategy and cards use, drawn by HK, and the one picture
+  // card HK's camera cards make (hk-cameras.js: the Cameras page's tiles, the camera strip's live
+  // tile), drawn by HK's hk-picture-entity below.
   var BUILT_IN = {
     'grid': 'hk-view-grid',
     'vertical-stack': 'hk-view-stack',
     'horizontal-stack': 'hk-view-stack',
-    'conditional': 'hk-view-conditional'
+    'conditional': 'hk-view-conditional',
+    'picture-entity': 'hk-picture-entity'
   };
+
+  // ------------------------------------------------------------ picture-entity
+  // Lovelace's picture-entity card, as far as HK's cards use it: a camera's picture (`entity`, or
+  // `camera_image` for an entity that is not a camera), `camera_view` auto (the still, refreshed)
+  // or live (WebRTC), `aspect_ratio`, `fit_mode`, `tap_action` (more-info, navigate, none);
+  // `show_name` / `show_state` (a one-line footer unless false); `theme` is not applied.
+  var PIC_REFRESH_MS = 10000;                    // HA's camera picture refresh (hui-image)
+  var PIC_RETRY_MS = [5000, 15000, 30000, 60000, 120000];
+  var PIC_TRIES = 6;                             // WebRTC attempts before the tile stays on its still
+  var PIC_REFUSED = /^(forbidden|not_allowed|unauthorized|step_up_required)$/;
+  var picBust = 0;
+
+  // HA's aspect ratio forms: "16x9", "16:9", "1.78" (width over 1), "56.25%" (height in % of width).
+  function parseRatio(v) {
+    if (v == null || v === '') return null;
+    var s = String(v).trim();
+    function num(x) { var f = parseFloat(x); if (!isFinite(f) || f <= 0) throw new Error('ratio'); return f; }
+    try {
+      if (/%$/.test(s)) return { w: 100, h: num(s.slice(0, -1)) };
+      var a = s.replace(':', 'x').split('x');
+      return a.length === 1 ? { w: num(a[0]), h: 1 } : { w: num(a[0]), h: num(a[1]) };
+    } catch (e) { return null; }
+  }
+
+  // the still's address: the entity's own picture (in Mantel already Mantel's still route, under the
+  // page's prefix), a counter so the browser never answers from its cache, and the tile's size
+  function stillUrl(pic, w, h) {
+    var q = pic + (pic.indexOf('?') < 0 ? '?' : '&') + '_hk=' + (++picBust);
+    if (w > 0 && h > 0) q += '&width=' + w + '&height=' + h;
+    return q;
+  }
+
+  function later(fn, ms) { return (global.setTimeout || setTimeout)(fn, ms); }
+  function noop() { /* a late or refused answer */ }
+
+  // ICE gathering finished (a camera that wants every candidate in the offer), or 5 s on.
+  function gathered(pc) {
+    return new Promise(function (res) {
+      if (pc.iceGatheringState === 'complete') { res(); return; }
+      var t = later(res, 5000);
+      pc.onicegatheringstatechange = function () {
+        if (pc.iceGatheringState === 'complete') { pc.onicegatheringstatechange = null; clearTimeout(t); res(); }
+      };
+    });
+  }
+
+  var PIC_CSS = ':host{display:block;position:relative;box-sizing:border-box;height:100%;min-height:75px;overflow:hidden;' +
+    'border-radius:var(--ha-card-border-radius,12px);box-shadow:var(--ha-card-box-shadow,none);' +
+    'background:var(--ha-card-background,var(--card-background-color,#1c1c1e))}' +
+    ':host([data-tap]){cursor:pointer}' +
+    '#box{position:relative;width:100%;height:100%}' +
+    '#box.ratio{height:0}' +
+    // TWO STILLS, swapped hard when the new one has loaded: one <img> given a new src paints
+    // nothing until the bytes arrive, a black blink every refresh (hk-cameras.js's strip, the same)
+    '#box>img,#box>video{position:absolute;left:0;top:0;width:100%;height:100%;display:block;border:0;' +
+    'object-fit:var(--hk-pic-fit,cover)}' +
+    '#box>img{opacity:0}' +
+    '#box>img.on{opacity:1}' +
+    '#box>video{z-index:1;background:transparent}' +
+    '.foot{position:absolute;left:0;right:0;bottom:0;z-index:2;display:flex;justify-content:space-between;gap:8px;' +
+    'padding:10px 16px;background:rgba(0,0,0,.3);color:#fff;font:500 14px/1.3 -apple-system,system-ui,sans-serif}' +
+    '.foot>span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}';
 
   // THE CARD FACTORY: a card element from its config, with no Lovelace.
   // `client` (optional): fed after setConfig. The view host makes a view's
@@ -297,7 +363,315 @@
       get cards() { return this._cards || []; }
     }
 
+    // LOVELACE'S PICTURE-ENTITY, FOR A HOST WITHOUT LOVELACE (Mantel, HK's own panel). HK's camera
+    // cards make one per tile through hkCards.createCard; without this every tile was a placeholder.
+    //   auto  the still from the entity's `entity_picture`, refreshed every 10 s while it is on
+    //         screen (as HA's hui-image does), double-buffered so a refresh never blinks
+    //   live  a muted <video> fed by WebRTC through the client, as HA's camera stream: the client
+    //         config and our candidates are reads (client.callWS), the offer a read subscription
+    //         (client.subscriptions), the same messages HA's player sends. The still stays under
+    //         the video (and keeps refreshing) until the video has a picture, and is all there is
+    //         when the camera offers no WebRTC.
+    // hk-cameras.js finds the <video> in its shadow root (playingVideo, releaseMedia), as it finds
+    // HA's.
+    class HkPictureEntity extends H {
+      setConfig(cfg) {
+        if (!cfg || (!cfg.entity && !cfg.camera_image)) throw new Error('picture-entity: an entity is required');
+        var again = !!this._sr && this.isConnected;
+        if (again) this._halt();
+        this._config = cfg;
+        this._ratio = parseRatio(cfg.aspect_ratio);
+        this._natural = null;
+        this._bad = null;
+        this._draw();
+        if (again) this._go();
+      }
+      getCardSize() { return 3; }
+
+      // the camera whose picture is drawn: the entity when it is one, else camera_image (HA's rule)
+      _camera() {
+        var c = this._config || {};
+        return String(c.entity || '').indexOf('camera.') === 0 ? c.entity : (c.camera_image || null);
+      }
+      _live() { return (this._config && this._config.camera_view) === 'live'; }
+      _picture() {
+        var cl = this.client, id = this._camera(), st = cl && cl.states && id ? cl.states[id] : null;
+        var a = st && st.attributes;
+        if (!a || st.state === 'unavailable' || a.restored) return null;
+        return typeof a.entity_picture === 'string' && a.entity_picture ? a.entity_picture : null;
+      }
+
+      _draw() {
+        var sr = this._sr || (this._sr = this.attachShadow({ mode: 'open' }));
+        while (sr.firstChild) sr.removeChild(sr.firstChild);
+        sr.appendChild(styleEl(PIC_CSS));
+        var c = this._config, fit = c.fit_mode === 'contain' || c.fit_mode === 'fill' ? c.fit_mode : 'cover';
+        this.style.setProperty('--hk-pic-fit', fit);
+        var box = this._box = doc().createElement('div');
+        box.id = 'box';
+        var a = doc().createElement('img'), b = doc().createElement('img');
+        a.alt = ''; b.alt = '';
+        a.decoding = 'async'; b.decoding = 'async';
+        box.appendChild(a); box.appendChild(b);
+        this._imgs = [a, b];
+        this._front = -1;
+        this._loading = false;
+        this._video = null;
+        if (this._live()) {
+          var v = this._video = doc().createElement('video');
+          v.muted = true; v.defaultMuted = true; v.autoplay = true; v.playsInline = true;
+          v.setAttribute('muted', ''); v.setAttribute('autoplay', ''); v.setAttribute('playsinline', '');
+          box.appendChild(v);
+        }
+        sr.appendChild(box);
+        this._foot = null;
+        if (c.show_name !== false || c.show_state !== false) {
+          var f = this._foot = doc().createElement('div');
+          f.className = 'foot';
+          f.appendChild(doc().createElement('span'));
+          f.appendChild(doc().createElement('span'));
+          sr.appendChild(f);
+        }
+        this._shape();
+        this._footer();
+        var t = c.tap_action || { action: 'more-info' };
+        if ((t.action || 'more-info') === 'none') this.removeAttribute('data-tap'); else this.setAttribute('data-tap', '');
+        if (!this._tapOn) {
+          var self = this;
+          this._tapOn = function (e) { self._tap(e); };
+          this.addEventListener('click', this._tapOn);
+        }
+      }
+
+      // the card's height: its aspect_ratio, else the picture's own shape (16:9 until one is known)
+      _shape() {
+        var r = this._ratio || this._natural || { w: 16, h: 9 };
+        if (!this._box) return;
+        this._box.className = 'ratio';
+        this._box.style.paddingBottom = (Math.round(10000 * r.h / r.w) / 100) + '%';
+      }
+
+      _footer() {
+        var f = this._foot;
+        if (!f) return;
+        var c = this._config, cl = this.client, st = cl && cl.states ? cl.states[c.entity] : null;
+        var name = c.name || (st && st.attributes && st.attributes.friendly_name) || c.entity || '';
+        var state = st ? (cl.formatEntityState ? cl.formatEntityState(st) : st.state) : '';
+        f.childNodes[0].textContent = c.show_name === false ? '' : name;
+        f.childNodes[1].textContent = c.show_state === false ? '' : state;
+      }
+
+      _tap() {
+        var c = this._config || {}, t = c.tap_action || { action: 'more-info' }, act = t.action || 'more-info', S = shell();
+        if (act === 'none' || !S) return;
+        if (act === 'more-info' && S.moreInfo) S.moreInfo(t.entity || c.entity || this._camera(), this);
+        else if (act === 'navigate' && t.navigation_path && S.navigate) S.navigate(t.navigation_path);
+      }
+
+      _onClient() {
+        this._footer();
+        if (!this.isConnected || !this._sr) return;
+        // a picture to show and none yet, or a new address after one that failed (HA rotated the token)
+        var pic = this._picture();
+        if (pic && (this._front < 0 || (this._bad && this._bad !== pic))) this._load();
+        if (this._live() && !this._pc && !this._retryT) this._startLive();
+      }
+
+      connectedCallback() {
+        if (!this._config) return;
+        if (!this._sr) this._draw();
+        this._go();
+      }
+      disconnectedCallback() { this._halt(); }
+
+      _go() {
+        var self = this, w = win();
+        this._visible = true;
+        var IO = global.IntersectionObserver;
+        if (typeof IO === 'function' && !this._io) {
+          try {
+            this._io = new IO(function (entries) {
+              var e = entries[entries.length - 1];
+              var was = self._visible;
+              self._visible = !!(e && e.isIntersecting);
+              if (self._visible && !was) self._tick();
+            });
+            this._io.observe(this);
+          } catch (e) { this._io = null; }
+        }
+        if (!this._onVis && w.document && w.document.addEventListener) {
+          this._onVis = function () { if (!doc().hidden) self._tick(); };
+          w.document.addEventListener('visibilitychange', this._onVis);
+        }
+        clearInterval(this._timer);
+        this._timer = (global.setInterval || setInterval)(function () { self._tick(); }, PIC_REFRESH_MS);
+        this._tries = 0;
+        this._gaveUp = false;
+        this._load();
+        if (this._live()) this._startLive();
+      }
+      _halt() {
+        clearInterval(this._timer); this._timer = null;
+        clearTimeout(this._retryT); this._retryT = null;
+        if (this._io) { try { this._io.disconnect(); } catch (e) { /* gone */ } this._io = null; }
+        if (this._onVis) {
+          var d = win().document;
+          if (d && d.removeEventListener) d.removeEventListener('visibilitychange', this._onVis);
+          this._onVis = null;
+        }
+        this._teardown();
+      }
+
+      // the video has a picture: it covers the still, which then waits
+      _playing() {
+        var v = this._video;
+        return !!(v && v.readyState >= 2 && v.videoWidth > 0);
+      }
+      _tick() {
+        if (!this.isConnected || !this._visible || doc().hidden) return;
+        if (this._live() && this._playing()) return;
+        this._load();
+      }
+
+      _load() {
+        if (!this._imgs || this._loading) return;
+        var pic = this._picture();
+        // a picture that failed is not asked for again until its address changes (as the strip's)
+        if (!pic || pic === this._bad) return;
+        var i = this._front < 0 ? 0 : (this._front + 1) % 2, im = this._imgs[i], other = this._imgs[1 - i];
+        var r = this.getBoundingClientRect ? this.getBoundingClientRect() : null;
+        var dpr = Math.min(win().devicePixelRatio || 1, 2);
+        var w = r && r.width > 0 ? Math.min(1920, Math.round(r.width * dpr)) : 0;
+        var h = r && r.height > 0 ? Math.min(1920, Math.round(r.height * dpr)) : 0;
+        var self = this, url = stillUrl(pic, w, h);
+        this._loading = true;
+        im.onload = function () {
+          im.onload = im.onerror = null;
+          self._loading = false;
+          self._bad = null;
+          self._front = i;
+          if (im.classList) { im.classList.add('on'); other.classList.remove('on'); }
+          if (!self._ratio && im.naturalWidth > 0 && im.naturalHeight > 0) {
+            self._natural = { w: im.naturalWidth, h: im.naturalHeight };
+            self._shape();
+          }
+        };
+        im.onerror = function () {
+          im.onload = im.onerror = null;
+          self._loading = false;
+          self._bad = pic;
+        };
+        im.src = url;
+      }
+
+      // ------------------------------------------------ live: WebRTC through the client
+      _startLive() {
+        if (this._pc || this._retryT || this._gaveUp || !this.isConnected || !this._video) return;
+        var cl = this.client, port = cl && cl.subscriptions, entity = this._camera(), RTC = global.RTCPeerConnection;
+        if (!cl || typeof cl.callWS !== 'function' || !port || typeof RTC !== 'function' || !entity) return;   // the still only
+        var self = this, gen = this._gen = (this._gen || 0) + 1;
+        var alive = function () { return self._gen === gen && self.isConnected; };
+        this._pc = 'pending';
+        cl.callWS({ type: 'camera/webrtc/get_client_config', entity_id: entity }).then(function (cfg) {
+          if (!alive()) return;
+          cfg = cfg || {};
+          var pc = self._pc = new RTC(cfg.configuration || {});
+          if (cfg.dataChannel) { try { pc.createDataChannel(cfg.dataChannel); } catch (e) { /* none */ } }
+          pc.addTransceiver('audio', { direction: 'recvonly' });
+          pc.addTransceiver('video', { direction: 'recvonly' });
+          var stream = typeof global.MediaStream === 'function' ? new global.MediaStream() : null;
+          pc.ontrack = function (e) {
+            if (!alive()) return;
+            var s = stream || (e.streams && e.streams[0]);
+            if (stream) stream.addTrack(e.track);
+            var v = self._video;
+            if (v && s && v.srcObject !== s) v.srcObject = s;
+            var p = v && v.play ? v.play() : null;
+            if (p && p.catch) p.catch(noop);
+          };
+          var session = null, pending = [], upfront = !!cfg.getCandidatesUpfront;
+          var send = function (cand) {
+            var r = cl.callWS({ type: 'camera/webrtc/candidate', entity_id: entity, session_id: session, candidate: cand });
+            if (r && r.catch) r.catch(noop);
+          };
+          pc.onicecandidate = function (e) {
+            if (!e.candidate || upfront || !alive()) return;
+            var cand = typeof e.candidate.toJSON === 'function' ? e.candidate.toJSON() : e.candidate;
+            if (session) send(cand); else pending.push(cand);
+          };
+          pc.onconnectionstatechange = function () {
+            if (!alive()) return;
+            var s = pc.connectionState;
+            if (s === 'connected') self._tries = 0;
+            if (s === 'failed' || s === 'closed') self._again();
+          };
+          return pc.createOffer().then(function (offer) {
+            return pc.setLocalDescription(offer).then(function () { return offer; });
+          }).then(function (offer) {
+            if (!alive()) return null;
+            return (upfront ? gathered(pc) : Promise.resolve()).then(function () {
+              if (!alive()) return null;
+              var sdp = upfront && pc.localDescription ? pc.localDescription.sdp : offer.sdp;
+              return port.subscribeMessage(function (m) {
+                if (!alive() || !m) return;
+                if (m.type === 'session') {
+                  session = m.session_id;
+                  pending.splice(0).forEach(send);
+                } else if (m.type === 'answer') {
+                  pc.setRemoteDescription({ type: 'answer', sdp: m.answer }).catch(function () { if (alive()) self._again(); });
+                } else if (m.type === 'candidate') {
+                  var ic = typeof m.candidate === 'string' ? { candidate: m.candidate, sdpMLineIndex: 0 } : m.candidate;
+                  var r = pc.addIceCandidate(ic);
+                  if (r && r.catch) r.catch(noop);
+                } else if (m.type === 'error') {
+                  try { console.warn('[hk-picture-entity] ' + entity + ': no live view (' + (m.code || '') + ' ' + (m.message || '') + ')'); } catch (e) { /* no console */ }
+                  self._again();
+                }
+              }, { type: 'camera/webrtc/offer', entity_id: entity, offer: sdp });
+            }).then(function (unsub) {
+              if (typeof unsub !== 'function') return;
+              if (alive()) { self._unsub = unsub; return; }
+              var r = unsub();
+              if (r && r.catch) r.catch(noop);
+            });
+          });
+        }).catch(function (e) {
+          if (alive()) self._again(e);
+        });
+      }
+      // an error or a dead connection: the still meanwhile, another try later. REFUSED (the viewer
+      // may not watch this camera live here, e.g. Mantel's door rules): the still only, no retry.
+      _again(e) {
+        this._teardown();
+        if (e && PIC_REFUSED.test(String(e.code || ''))) { this._gaveUp = true; return; }
+        if (!this.isConnected || this._retryT) return;
+        var n = this._tries = (this._tries || 0) + 1;
+        if (n >= PIC_TRIES) { this._gaveUp = true; return; }      // left on its still
+        var self = this;
+        this._retryT = later(function () {
+          self._retryT = null;
+          if (self.isConnected) self._startLive();
+        }, PIC_RETRY_MS[Math.min(n - 1, PIC_RETRY_MS.length - 1)]);
+      }
+      _teardown() {
+        this._gen = (this._gen || 0) + 1;
+        if (this._unsub) {
+          try { var r = this._unsub(); if (r && r.catch) r.catch(noop); } catch (e) { /* socket gone */ }
+        }
+        this._unsub = null;
+        var pc = this._pc;
+        this._pc = null;
+        if (pc && pc.close) { try { pc.close(); } catch (e) { /* closed */ } }
+        var v = this._video;
+        if (v) {
+          try { if (v.pause) v.pause(); } catch (e) { /* not playing */ }
+          v.srcObject = null;
+        }
+      }
+    }
+
     return {
+      'hk-picture-entity': HkPictureEntity,
       'hk-card-placeholder': HkCardPlaceholder,
       'hk-view-grid': HkViewGrid,
       'hk-view-stack': HkViewStack,
@@ -545,6 +919,7 @@
     createCardElement: createCardElement,
     holds: holds,
     define: define,
+    pictureRatio: parseRatio,
     BUILT_IN: Object.freeze(Object.assign({}, BUILT_IN))
   };
 })(globalThis);

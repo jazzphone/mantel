@@ -125,6 +125,66 @@ def stand_in_hk_feeds(app, reads):
         app["read_routes"][kind] = Route(request=request, subscribe=subscribe)
 
 
+# Cameras without Lovelace: HK's own picture-entity (web/hk/shell/hk-view-host.js) draws the Cameras page's
+# tiles. Two fictional cameras; their stills are a generated picture served through Mantel's own still
+# route (camera_still.proxy_image stood in: nothing reaches a Home Assistant), and their WebRTC signalling
+# goes through Mantel's real camera connector (RBAC gate, session checks, HA's allowlist) to a fictional
+# signalling peer that gives each offer a session and nothing more.
+PROOF_CAMERAS = (("camera.proof_front", "Offline front"), ("camera.proof_back", "Offline back"))
+
+
+def proof_png(width=320, height=180) -> bytes:
+    import struct
+    import zlib
+
+    def chunk(kind, data):
+        return struct.pack(">I", len(data)) + kind + data + struct.pack(">I", zlib.crc32(kind + data) & 0xFFFFFFFF)
+    rows = b"".join(b"\x00" + bytes((40, 90 + y % 60, 140)) * width for y in range(height))
+    return (b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0))
+            + chunk(b"IDAT", zlib.compress(rows)) + chunk(b"IEND", b""))
+
+
+class FictionalSignaling:
+    """Home Assistant's side of camera signaling, fictional: an ICE config, a session for each offer."""
+    def __init__(self):
+        self.frames = []
+        self.subs = {}
+        self.serial = 0
+
+    async def request(self, msg):
+        self.frames.append(dict(msg))
+        if msg["type"] == "camera/webrtc/get_client_config":
+            return {"configuration": {"iceServers": []}}
+        return None
+
+    async def subscribe(self, msg, callback):
+        self.serial += 1
+        self.frames.append({"type": msg["type"], "entity_id": msg["entity_id"], "offer": msg["offer"][:4]})
+        self.subs[self.serial] = callback
+        asyncio.get_running_loop().call_soon(callback, {"type": "session", "session_id": f"proof-session-{self.serial}"})
+        return self.serial
+
+    async def unsubscribe(self, mid):
+        self.subs.pop(mid, None)
+        self.frames.append({"type": "unsubscribe"})
+
+
+def stand_in_cameras(app):
+    from aiohttp import web
+    from mantel_server.connectors import camera_still
+
+    asked = []
+    picture = proof_png()
+
+    async def fictional_still(request, url, params, token, what, unavailable, not_found):
+        asked.append({"url": url.rsplit("/", 1)[-1], **params})
+        return web.Response(body=picture, content_type="image/png")
+    camera_still.proxy_image = fictional_still
+    signaling = FictionalSignaling()
+    app["camera_signaling"]._get = lambda: signaling
+    return asked, signaling
+
+
 async def smoke(shot=None):
     with tempfile.TemporaryDirectory(prefix="mantel-client-smoke-") as folder:
         base = Path(folder)
@@ -145,6 +205,7 @@ async def smoke(shot=None):
         assert imported["imported"] and imported["source"] == "ha:fictional-entry", imported
         hub.readproxy = OfflineReads(app, owner)
         stand_in_hk_feeds(app, hub.readproxy)
+        stills_asked, signaling = stand_in_cameras(app)
         hub.store.apply_event({"a": {"sensor.proof": {"s": "21.4", "a": {
             "friendly_name": "Offline temperature", "unit_of_measurement": "°C"}, "lc": 1.0, "lu": 1.0},
             "light.proof": {"s": "off", "a": {"friendly_name": "Offline lamp", "supported_color_modes": ["brightness"]},
@@ -580,6 +641,87 @@ async def smoke(shot=None):
                     assert not exceptions, exceptions
                     assert not [line for line in browser.console if "[hk-view-host]" in line], browser.console
                     assert not browser.blocked_requests, browser.blocked_requests
+                    # The Cameras page in Mantel: HK's strategy makes it once the house has cameras, and HK's view
+                    # host draws it. Each tile (hk-camera-live-card) is HK's own picture-entity, not a placeholder:
+                    # its still from Mantel's still route (no HA token in the page), the tile 16:9; its live card a
+                    # <video> in the picture's shadow root, signalled through Mantel's camera connector.
+                    hub.store.apply_event({"a": {cid: {"s": "idle", "a": {
+                        "friendly_name": name, "entity_picture": f"/api/camera_proxy/{cid}?token=fictional-camera-token",
+                        "access_token": "fictional-camera-token", "frontend_stream_type": "web_rtc"}, "lc": 1.0, "lu": 1.0}
+                        for cid, name in PROOF_CAMERAS}})
+                    hub.registry.load([], [], [{"entity_id": "sensor.proof", "platform": "demo"},
+                                               {"entity_id": "light.proof", "platform": "demo"},
+                                               {"entity_id": "scene.proof_evening", "platform": "demo"}]
+                                      + [{"entity_id": cid, "platform": "demo"} for cid, _ in PROOF_CAMERAS])
+                    await browser.open(origin + "/dashboard-proof/cameras", cookie)
+                    if not await browser.wait("window.__mantelReady === true", 25):
+                        raise AssertionError("Cameras did not load: " + json.dumps(browser.console[-15:]))
+                    await browser.eval("""window.__deep = (root, out = []) => {
+                      for (const e of root.querySelectorAll('*')) { out.push(e); if (e.shadowRoot) window.__deep(e.shadowRoot, out); }
+                      return out; }""")
+                    tiles_js = "window.__deep(document).filter(e => e.localName === 'hk-camera-live-card')"
+                    assert await browser.wait("window.__mantelViewHost.current().path === 'cameras'", 10), \
+                        "no Cameras page: " + json.dumps(await browser.eval("window.hkShell.dashboardConfig().views.map(v => v.path)"))
+                    assert await browser.wait(f"(() => {{ const t = {tiles_js}; return t.length === 2 && t.every(c => c._still && "
+                                              "c._still.shadowRoot && [...c._still.shadowRoot.querySelectorAll('img')]"
+                                              ".some(i => i.complete && i.naturalWidth > 0)); })()", 15), \
+                        "the camera tiles did not draw their stills: " + json.dumps(await browser.eval(f"""(() => {{
+                          const t = {tiles_js};
+                          return {{ tiles: t.length, cams: Object.keys(window.__mantel._states).filter(k => k.startsWith('camera.'))
+                                      .map(k => window.__mantel._states[k].attributes.entity_picture),
+                                    stills: t.map(c => c._still && [c._still.localName,
+                                      [...((c._still.shadowRoot && c._still.shadowRoot.querySelectorAll('img')) || [])]
+                                        .map(i => [i.getAttribute('src'), i.complete, i.naturalWidth])]) }};
+                        }})()""")) + json.dumps(stills_asked)
+                    assert await browser.wait(f"{tiles_js}.every(c => c._liveEl && c._liveEl.localName === 'hk-picture-entity')", 10), \
+                        "the live cards did not open"
+                    for _ in range(50):
+                        if sum(1 for f in signaling.frames if f["type"] == "camera/webrtc/candidate") >= len(PROOF_CAMERAS):
+                            break
+                        await asyncio.sleep(0.1)
+                    cameras = await browser.eval("""(() => {
+                      const all = window.__deep(document), tiles = all.filter(e => e.localName === 'hk-camera-live-card');
+                      return {
+                        placeholders: all.filter(e => e.localName === 'hk-card-placeholder').map(e => e.getAttribute('data-type')),
+                        tiles: tiles.map(c => {
+                          const r = c.getBoundingClientRect();
+                          const img = [...c._still.shadowRoot.querySelectorAll('img')].find(i => i.naturalWidth > 0);
+                          return { entity: c._config.entity, still: c._still.localName, w: Math.round(r.width), h: Math.round(r.height),
+                                   src: img.getAttribute('src').replace(/_hk=[0-9]+/, '_hk=N').replace(/width=[0-9]+&height=[0-9]+/, 'width&height'),
+                                   video: !!(c._liveEl.shadowRoot && c._liveEl.shadowRoot.querySelector('video')),
+                                   found: (window.hkCameras._live.video(c._liveEl) || {}).tagName || null };
+                        }),
+                        token: all.some(e => /fictional-camera-token|camera_proxy/.test((e.getAttribute && e.getAttribute('src')) || '')) };
+                    })()""")
+                    assert cameras["placeholders"] == [], cameras
+                    assert len(cameras["tiles"]) == 2 and not cameras["token"], cameras
+                    for tile in cameras["tiles"]:
+                        assert tile["still"] == "hk-picture-entity" and tile["video"] and tile["found"] == "VIDEO", tile
+                        assert tile["src"].startswith(f"/api/camera/{tile['entity']}/still?v=") and "_hk=N" in tile["src"] \
+                            and "width&height" in tile["src"], tile
+                        assert tile["w"] > 100 and abs(tile["h"] - tile["w"] * 9 / 16) <= 2, tile
+                    assert {a["url"] for a in stills_asked} == {cid for cid, _ in PROOF_CAMERAS} and \
+                        all("width" in a and "height" in a for a in stills_asked), stills_asked
+                    kinds = [f["type"] for f in signaling.frames]
+                    assert kinds.count("camera/webrtc/get_client_config") >= 2 and kinds.count("camera/webrtc/offer") >= 2, kinds
+                    offers = [f for f in signaling.frames if f["type"] == "camera/webrtc/offer"]
+                    assert all(f["offer"] == "v=0\r" for f in offers), offers
+                    cands = [f for f in signaling.frames if f["type"] == "camera/webrtc/candidate"]
+                    assert cands and all(f["session_id"].startswith("proof-session-") and isinstance(f["candidate"], dict)
+                                         for f in cands), signaling.frames
+                    # Home's camera strip: its live tile is HK's picture-entity too, laid over the strip's poster by
+                    # the strip's own rules (.live>hk-picture-entity, as .live>hui-card in HA)
+                    await browser.eval("window.hkShell.navigate('/dashboard-proof/home')")
+                    strip_js = "window.__deep(document).find(e => e.localName === 'hk-camera-mosaic-card')"
+                    assert await browser.wait(f"(() => {{ const m = {strip_js}; const p = m && m.shadowRoot && "
+                                              "m.shadowRoot.querySelector('.live > hk-picture-entity'); "
+                                              "return !!p && getComputedStyle(p).position === 'absolute' && "
+                                              "getComputedStyle(p).pointerEvents === 'none'; })()", 15), \
+                        "Home's camera strip has no live picture: " + json.dumps(browser.console[-5:])
+                    assert await browser.eval("window.__blockedWrites") == 0
+                    exceptions = [line for line in browser.console if line.startswith("EXCEPTION:")]
+                    assert not exceptions, exceptions
+                    assert not browser.blocked_requests, browser.blocked_requests
                     if shot:
                         await browser.screenshot(shot)
                     return {"home_ready": True, "client": "mantel", "initial": "21.4 °C", "updated": "22.8 °C",
@@ -608,6 +750,12 @@ async def smoke(shot=None):
                             "settings_forms": "HK Settings opened in the Mantel page with no HA element; the picker listed and searched "
                                               "the fictional entities; the YAML editor showed the page and said a mistake by line; "
                                               "its Save refused at the action port (no write frame; only the page's re-read, answered by Mantel's settings store)",
+                            "cameras": f"the Cameras page drew {len(cameras['tiles'])} tiles with HK's own picture-entity "
+                                       f"(0 placeholders; stills through Mantel's still route at the tile's size, 16:9, no HA "
+                                       f"token in the page; live cards' <video> in the picture's shadow root, found by hk-cameras); "
+                                       f"signalling through Mantel's camera connector: {kinds.count('camera/webrtc/get_client_config')} "
+                                       f"client configs, {kinds.count('camera/webrtc/offer')} offers, {len(cands)} candidates with "
+                                       f"the session; Home's camera strip's live tile is one too, placed by the strip's own rules",
                             "external_requests": 0, "browser_exceptions": 0}
         finally:
             store.db.close()

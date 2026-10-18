@@ -59,8 +59,9 @@ their reason, in `HA_ELEMENT_LOOKUPS` in `tests/test_shell_boundary.py`:
 | `web/hk/cards/hk-layout.js` `plateLike` | `el.localName === 'hk-plate' \|\| el.localName === 'ha-card'` | the page-edge measure walks the plates under a node: HK cards' and native HA cards' |
 | `web/hk/iconset/hk-icons.js` repair shim | `el.localName === "ha-icon"` | repairs HA's `ha-icon` after a lost iconset race; other cards on an HK page (HA's tile card with an `hk:` icon) still use it |
 
-Also untouched: `hk-camera-live-card` wraps HA's `hui-picture-entity-card` (its `ha-card` is HA's
-and is styled through the `--ha-card-*` variables only), the foreign-card detection in
+Also untouched: `hk-camera-live-card` wraps HA's `hui-picture-entity-card` in HA (its `ha-card` is HA's
+and is styled through the `--ha-card-*` variables only; without Lovelace the same config is drawn by
+HK's own `hk-picture-entity`, `docs/phase2/VIEW-HOST.md`), the foreign-card detection in
 `hk-base.js` (`place()`/`tone()` use `hkShell.foreignTags`, no element names), `web/hk/css/`
 (only comments named `ha-card`), the Lovelace card editors (`ha-form`, HA-only), and Mantel's
 stand-ins in `web/shim/ha-elements.js` (the adapter).

@@ -910,7 +910,8 @@ if (!css) { var probe=withPic('Front Door');
 ok('the card exposes its CSS to test', !!css, 'len='+css.length);
 // (the live CARD may fade in: it comes in over the frame copied under it,
 // an opaque canvas, so the tile never dims -- see .live>hui-card)
-var cssNoLive = css.replace(/\.live>hui-card\{[^}]*\}/g, '');
+// (HK's own picture-entity, where there is no Lovelace, has the same rule)
+var cssNoLive = css.replace(/\.live>(hui-card|hk-picture-entity)\{[^}]*\}/g, '');
 ok('NO opacity transition on a still', !/\.snap img\{[^}]*transition/.test(css) &&
    !/transition:opacity/.test(cssNoLive), (cssNoLive.match(/transition[^;}]*/g)||[]).join(' | '));
 ok('...the live card fades in, and goes at once', /\.live>hui-card\{[^}]*transition:opacity/.test(css) &&
