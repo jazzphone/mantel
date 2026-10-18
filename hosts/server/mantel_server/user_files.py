@@ -70,6 +70,13 @@ EXT_TYPES = {".woff2": "font/woff2", ".ttf": "font/ttf", ".otf": "font/otf", ".j
 IMAGE_EXT = {"jpeg": ".jpg", "png": ".png", "webp": ".webp"}
 EXT_FORMAT = {".jpg": "jpeg", ".jpeg": "jpeg", ".png": "png", ".webp": "webp"}
 GLYPHS_REL = "iconset/hk-glyphs.js"
+# The only Apple-licensed files HK references (web/hk/fonts/sf-pro.css, web/hk/iconset/hk-icons.js). Where an
+# Owner's copy may sit inside a folder they point the import at: HA's www/hk, the integration's frontend
+# folder, the old hk_local folder, or the files lying directly in it.
+LICENSED_ASSETS = {"SF-Pro.woff2": "fonts/SF-Pro.woff2", "SF-Pro.ttf": "fonts/SF-Pro.ttf",
+                   "hk-glyphs.js": GLYPHS_REL}
+ASSET_PREFIXES = ("", "hk", "www/hk", "frontend", "hk_frontend/frontend", "custom_components/hk_frontend/frontend",
+                  "hk_local")
 PHOTO_ID = re.compile(r"^[0-9a-f]{32}$")
 NOCACHE = {"Cache-Control": "no-cache", "X-Content-Type-Options": "nosniff"}
 
@@ -465,6 +472,41 @@ class UserFiles:
                            "glyphs": glyphs is not None},
                 "usage": self.usage(), "quota": QUOTA}
 
+    # -- the licensed assets ------------------------------------------------------------------------
+    def import_assets(self, folder: Path) -> ImportReport:
+        """Pick exactly the Apple-licensed files HK asks for out of ``folder`` (a copy of HA's www/hk or
+        custom_components/hk_frontend/frontend, or a flat folder holding them) and store them, checked by
+        their bytes like an upload. Nothing else in the folder is looked at, read or copied."""
+        rep = ImportReport(dry_run=self.dry_run)
+        folder = Path(folder)
+        for name, rel in LICENSED_ASSETS.items():
+            found = None
+            for prefix in ASSET_PREFIXES:
+                for cand in (folder / prefix / rel, folder / prefix / name):
+                    if cand.is_file() and not cand.is_symlink() and not any(
+                            q.is_symlink() for q in cand.parents if q == folder or folder in q.parents):
+                        found = cand
+                        break
+                if found:
+                    break
+            if found is None:
+                rep.skipped.append((rel, "not found in that folder"))
+                continue
+            try:
+                if found.stat().st_size > (GLYPHS_MAX if rel == GLYPHS_REL else FONT_MAX):
+                    raise FileError("too_large", "that file is larger than Mantel accepts", 413)
+                data = found.read_bytes()
+                if rel == GLYPHS_REL:
+                    self.add_glyphs(data)
+                else:
+                    self.add_font(name, data)
+                rep.imported.append(rel)
+            except FileError as exc:
+                rep.skipped.append((rel, f"{exc.code}: {exc}"))
+            except OSError as exc:
+                rep.skipped.append((rel, f"unreadable: {exc}"))
+        return rep
+
     # -- the one-time import ----------------------------------------------------------------------
     def import_folder(self, folder: Path, *, images: Path | None = None, www: Path | None = None) -> ImportReport:
         """Copy today's Your files folder (and optionally HA's image store and www folder) in. Idempotent."""
@@ -714,3 +756,29 @@ def cli_import(argv: list[str]) -> int:
     print(f"{len(rep.imported)} {'would be ' if a.dry_run else ''}imported, {len(rep.skipped)} skipped"
           + ("" if a.dry_run else f"; the files are in {store.root}"))
     return 0
+
+
+def cli_files(argv: list[str]) -> int:
+    """``mantel files import-assets FOLDER``: supply SF Pro and HK's glyph set once, from a copy of them."""
+    from .config import Config
+    p = argparse.ArgumentParser(prog="mantel files", description=cli_files.__doc__)
+    sub = p.add_subparsers(dest="action", required=True)
+    ia = sub.add_parser("import-assets", help="pick SF-Pro.woff2, SF-Pro.ttf and hk-glyphs.js out of a folder")
+    ia.add_argument("folder", help="a copy of Home Assistant's www/hk or custom_components/hk_frontend/frontend "
+                                   "folder (fonts/ and iconset/ inside), or any folder holding the files")
+    ia.add_argument("--data-dir", default=str(Config.data_dir))
+    ia.add_argument("--dry-run", action="store_true", help="check everything, write nothing")
+    a = p.parse_args(argv)
+    folder = Path(a.folder).expanduser()
+    if not folder.is_dir():
+        print(f"mantel files: {a.folder} is not a folder", file=sys.stderr)
+        return 2
+    store = UserFiles(Path(a.data_dir).expanduser() / "user-files", dry_run=a.dry_run)
+    rep = store.import_assets(folder)
+    for item in rep.imported:
+        print(("would import  " if a.dry_run else "imported     ") + item)
+    for item, why in rep.skipped:
+        print(f"skipped      {item}  ({why})")
+    print(f"{len(rep.imported)} {'would be ' if a.dry_run else ''}imported, {len(rep.skipped)} skipped"
+          + ("" if a.dry_run else f"; the files are in {store.root}"))
+    return 0 if rep.imported else 1

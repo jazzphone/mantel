@@ -7,7 +7,7 @@ import { credentialJSON, passkeysAvailable, toCreation, toRequest } from '../web
 
 const ROLE_LABEL = { owner: 'Owner', admin: 'Admin', adult: 'Adult', child: 'Child', guest: 'Guest',
                      wall_tablet: 'Wall tablet', service: 'Service' };
-const SECTION_LABEL = { me: 'Me', people: 'People', devices: 'Devices', roles: 'Roles & grants',
+const SECTION_LABEL = { me: 'Me', people: 'People', devices: 'Devices', files: 'Your files', roles: 'Roles & grants',
                         service: 'Service accounts', audit: 'Audit' };
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const ERRORS = {
@@ -649,6 +649,60 @@ function scopesPanel() {
 }
 
 // ============================================================================================================
+// Your files: the Apple-licensed SF Pro font and HK's glyph set, supplied once by this home
+// ============================================================================================================
+const ASSET_SLOTS = [
+  { id: 'woff2', label: 'SF Pro (woff2)', hint: 'SF-Pro.woff2, the font every screen uses.', accept: '.woff2', kind: 'font', name: 'SF-Pro.woff2' },
+  { id: 'ttf', label: 'SF Pro (ttf)', hint: 'SF-Pro.ttf, only needed if you have no woff2.', accept: '.ttf', kind: 'font', name: 'SF-Pro.ttf' },
+  { id: 'glyphs', label: 'HK glyphs', hint: 'hk-glyphs.js, the SF Symbols icon set.', accept: '.js,.json', kind: 'glyphs', name: 'hk-glyphs.js' },
+];
+async function uploadFile(kind, file, name) {
+  const fd = new FormData();
+  if (name) fd.append('name', name);
+  fd.append('file', file, file.name);
+  let res;
+  try {
+    res = await fetch('/api/user-files/' + kind, { method: 'POST', credentials: 'same-origin', headers: { Accept: 'application/json', 'X-CSRF-Token': state.csrf || '' }, body: fd });
+  } catch (e) { throw new ApiError(0, null); }
+  let data = null;
+  try { data = await res.json(); } catch (e) { data = null; }
+  if (!res.ok) throw new ApiError(res.status, data);
+  return data;
+}
+function renderFiles(root) {
+  const panel = live('p-files', 'HK fonts and glyphs', async (reload) => {
+    const info = await api('GET', '/api/user-files');
+    const have = {
+      woff2: info.fonts.find((f) => f.name === 'SF-Pro.woff2'),
+      ttf: info.fonts.find((f) => f.name === 'SF-Pro.ttf'),
+      glyphs: info.glyphs.present ? { size: info.glyphs.size } : null,
+    };
+    const kb = (n) => (n >= 1 << 20 ? (n / (1 << 20)).toFixed(1) + ' MB' : Math.max(1, Math.round(n / 1024)) + ' KB');
+    const rows = ASSET_SLOTS.map((slot) => {
+      const cur = have[slot.id];
+      const input = h('input', { type: 'file', accept: slot.accept, name: 'file-' + slot.id, 'aria-label': 'Choose ' + slot.label });
+      const go = async () => {
+        if (!input.files.length) { say('Choose a file first.', 'err'); return; }
+        const r = await run(() => uploadFile(slot.kind, input.files[0], slot.name), slot.label + ' saved.');
+        if (r) reload();
+      };
+      const remove = cur && btn('Remove', async () => {
+        if (!(await confirmDialog('Remove ' + slot.label + '?', 'Screens fall back to the system font or plain icons until you add it again.', 'Remove', true))) return;
+        if (await run(() => api('DELETE', '/api/user-files/' + slot.kind + '/' + slot.name), slot.label + ' removed.')) reload();
+      }, 'danger', 'remove-' + slot.id);
+      return item([head(h('b', null, slot.label), cur ? badge('in place · ' + kb(cur.size), 'ok') : badge('missing', 'bad')),
+                   meta(slot.hint)],
+      [input, btn(cur ? 'Replace' : 'Upload', go, '', 'upload-' + slot.id), remove], 'files-slot');
+    });
+    return [h('ul', { class: 'list', id: 'asset-slots' }, rows),
+            note(`Used ${kb(info.usage)} of ${kb(info.quota)}.`, 'muted small')];
+  });
+  root.append(h('h2', null, 'Your files'),
+    note('SF Pro and the SF Symbols glyph set are Apple\u2019s, so they cannot ship with Mantel: each home adds its own copy once. They are kept in Mantel\u2019s data, included in its encrypted backups, and nothing here is ever run as code. On a Home Assistant install they are under /config/www/hk (fonts/ and iconset/), or /config/custom_components/hk_frontend/frontend. The same can be done from the command line: mantel files import-assets <folder>.', 'muted small'),
+    panel);
+}
+
+// ============================================================================================================
 // Service accounts
 // ============================================================================================================
 function renderService(root) {
@@ -778,7 +832,7 @@ function renderAudit(root) {
 // ============================================================================================================
 // Shell
 // ============================================================================================================
-const RENDER = { me: renderMe, people: renderPeople, devices: renderDevices, roles: renderRoles, service: renderService, audit: renderAudit };
+const RENDER = { me: renderMe, people: renderPeople, devices: renderDevices, files: renderFiles, roles: renderRoles, service: renderService, audit: renderAudit };
 
 function renderSection(name) {
   if (state.enrolled) return;

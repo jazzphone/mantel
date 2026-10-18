@@ -581,6 +581,31 @@ async def test_hk_files_are_served_for_the_prefix(mk):
     assert f'href="{PREFIX}/hk/css/hk-responsive.css"' in page and f'src="{PREFIX}/web/home.js"' in page
 
 
+async def test_uploaded_licensed_assets_are_served_for_the_prefix_with_etags(mk):
+    """The fonts and the glyph file come from Your files at the URLs the (rewritten) CSS and JS ask for."""
+    from mantel_server import user_files as uf
+    m = await mk()
+    m.store.link(OWNER_HA, "owner")
+    await m.page()
+    for path in ("/hk/fonts/SF-Pro.woff2", "/hk/fonts/SF-Pro.ttf", "/hk/iconset/hk-glyphs.js"):
+        assert (await m.request("GET", path, m.ha())).status == 404, path                   # not supplied yet
+    import struct
+    font = struct.pack(">4sIIHH", b"wOF2", 0x10000, 112, 1, 0) + b"\x00" * 32 + b"\x01" * 64
+    glyphs = {"icons": {"light-on": "M 1 1 L 5 5 Z"}, "twotone": {}, "weather": {}}
+    store = m.app["user_files"]
+    store.add_font("SF-Pro.woff2", font)
+    store.add_glyphs(uf.render_glyphs(glyphs))
+    r = await m.request("GET", "/hk/fonts/SF-Pro.woff2", m.ha())
+    assert r.status == 200 and r.content_type == "font/woff2" and await r.read() == font
+    etag = r.headers["ETag"]
+    assert (await m.request("GET", "/hk/fonts/SF-Pro.woff2", {**m.ha(), "If-None-Match": etag})).status == 304
+    r = await m.request("GET", "/hk/iconset/hk-glyphs.js", m.ha())
+    body = await r.text()
+    assert r.status == 200 and r.content_type == "text/javascript" and "hkGlyphs" in body
+    assert '"/hk/' not in body and "'/hk/" not in body and "/web/" not in body        # no absolute path to rewrite
+    assert (await m.request("GET", "/hk/fonts/SF-Pro.ttf", m.ha())).status == 404            # still not supplied
+
+
 async def test_files_are_untouched_outside_ingress(mk):
     m = await mk(ingress_on=False)
     m.store.link(OWNER_HA, "owner")

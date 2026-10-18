@@ -53,6 +53,8 @@ def test_the_scan_refuses_private_content(tmp_path):
         (f("i.py", 'URL = "http://192.0.2.53:8123"'), "app/hosts/server/mantel_server/elsewhere.py"),
         (f("j.md", "-----BEGIN PRIVATE KEY-----"), "DOCS.md"),
         (f("k.png", b"\x89PNG"), "app/web/hk-glyphs/a.png"),
+        (f("o.js", "window.hkGlyphs = {};"), "app/web/hk/iconset/hk-glyphs.js"),
+        (f("p.ttf"), "app/web/hk/fonts/SF-Pro.ttf"),
     ]
     hits = stage.scan(bad)
     for _, dest in bad:
@@ -118,3 +120,11 @@ def test_main_replaces_a_staged_folder(tmp_path, monkeypatch):
 def test_main_refuses_to_stage_inside_the_repository():
     assert stage.main([str(ROOT / "build-here-never")]) == 2
     assert not (ROOT / "build-here-never").exists()
+
+
+def test_the_real_plan_holds_none_of_the_licensed_assets(pairs):
+    """SF Pro and the glyph set reach a home only through Your files (user_files.py), never the staged App."""
+    for src, dest in pairs:
+        low = dest.lower()
+        assert "sf-pro." not in low or low.endswith(".css"), dest
+        assert "hk-glyphs" not in low and not low.endswith((".woff", ".woff2", ".ttf", ".otf")), dest
