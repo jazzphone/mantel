@@ -33,13 +33,21 @@ WAKES THE SCREEN (an Important one's): every screen the house's Sleep Screen
 decides for, and that allows notifications, is woken for a while
 (sleep_engine.Engine.notify_wake) -- from its photos or from dark, quiet hours
 too -- and the screen shows the banner once it is up.
+
+THE RULES ARE SHARED (hk_core/notifications/, PLAN.md §0 plan review): what an
+accessory is, what sets a notification off, Only When, Mute 1 Hour, Not Again
+For, Do Not Disturb, the payload, the calendars' look-ahead, the migrations and
+the settings page's checks are written once there and asked of HA's house
+through house.py's HaHouse. What stays here is Home Assistant's side: following
+the states and the registry, the calendars' clock and events, the snapshot, the
+pop-ups' channel, waking the screens, the stored options, the action and its
+schema. The names below are kept (thin wrappers taking `hass`), so callers and
+tests are unchanged.
 """
 from __future__ import annotations
 
 import logging
 import re
-import time
-import uuid
 from typing import Any
 
 import voluptuous as vol
@@ -48,17 +56,23 @@ from homeassistant.config_entries import SubentryFlowResult
 from homeassistant.const import EVENT_HOMEASSISTANT_STARTED
 from homeassistant.core import Event, HomeAssistant, ServiceCall, ServiceResponse, State, SupportsResponse, callback
 from homeassistant.exceptions import ServiceValidationError
-from homeassistant.helpers import config_validation as cv, device_registry as dr, entity_registry as er
+from homeassistant.helpers import config_validation as cv, entity_registry as er
 from homeassistant.helpers.debounce import Debouncer
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.helpers.event import async_track_state_change_event
 
 from ...const import DOMAIN, SIGNAL_POPUP
+from ...hk_core.notifications import accessories as A, banner as B, calendars as C, dnd as D
+from ...hk_core.notifications.accessories import TRIGGER_KINDS  # noqa: F401
+from ...hk_core.notifications.banner import (  # noqa: F401 -- the action's fields, and names callers import here
+    ATTR_CAMERA, ATTR_DASHBOARDS, ATTR_ENTITY, ATTR_ICON, ATTR_IMPORTANT, ATTR_MESSAGE, ATTR_PAGE, ATTR_STAY, ATTR_TAP,
+    ATTR_TITLE, ATTR_USERS, ATTR_WAKE, mute_key)
+from ...hk_core.notifications.migrate import TAPS_V, WAKE_V, migrate, migrate_taps, migrate_wake  # noqa: F401
+from ...house import HaHouse, state_view
 from .. import ALARM_PIN, NOTIFICATIONS, TITLES, Feature, entries, item_data, loaded, unique_id
 from ..alarm_pin.const import CONF_ALARM
-from . import rules, settings_ws, snaps as S
-from .const import (CONF_CHIME, CONF_DND, CONF_ITEMS, CONF_SAVER, CONF_STAY, CONF_WAKE, DATA, DEFAULTS, MESSAGE_MAX,
-                    MUTE_S, PAGE_RE, TAPS, TITLE_MAX, WAKE_MAX_S, WAKE_MIN_S)
+from . import rules, settings_ws, snaps as S  # noqa: F401 -- (rules: the feature's names, kept)
+from .const import CAL_TICK_S, CONF_DND, CONF_ITEMS, DATA, DEFAULTS, MESSAGE_MAX, MUTE_S, PAGE_RE, TAPS, TITLE_MAX
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -76,171 +90,62 @@ def _data(hass: HomeAssistant) -> dict[str, Any]:
     return d
 
 
-def mute_key(item: dict[str, Any], eid: str | None) -> str | None:
-    """What Mute 1 Hour mutes: the notification, and for a category (or a
-    calendar's events) the accessory that went off -- None for an
-    automation's own (no item)."""
-    sid = item.get("id")
-    return "%s:%s" % (sid, eid or item.get("entity") or "") if sid else None
+def _pins(hass: HomeAssistant) -> A.Pins:
+    """Alarm PIN's panels, asked only when the shared rules need them."""
+    return lambda: pin_panels(hass)
 
 
 def mutes(hass: HomeAssistant, now: float | None = None) -> dict[str, float]:
     """The mutes still running (key -> until), the ones run out forgotten."""
-    now = time.time() if now is None else now
-    m = _data(hass)["mute"]
-    for k in [k for k, v in m.items() if v <= now]:
-        del m[k]
-    return dict(m)
+    return B.mutes(_data(hass)["mute"], now)
 
 
 def muted(hass: HomeAssistant, key: str | None, now: float | None = None) -> bool:
-    return bool(key) and key in mutes(hass, now)
+    return B.muted(_data(hass)["mute"], key, now)
 
 
 def set_mute(hass: HomeAssistant, key: str, seconds: int = MUTE_S, now: float | None = None) -> float | None:
     """Mute `key` for `seconds` (0: unmute). Until when, or None."""
-    now = time.time() if now is None else now
-    m = _data(hass)["mute"]
-    if seconds <= 0:
-        m.pop(key, None)
-        return None
-    m[key] = now + seconds
-    return m[key]
+    return B.set_mute(_data(hass)["mute"], key, seconds, now)
 
 
 def options(entry: Feature) -> dict[str, Any]:
     """The feature's options, every key there (DEFAULTS)."""
-    o = dict(entry.options)
-    return {**DEFAULTS, **{k: v for k, v in o.items() if k in DEFAULTS}, CONF_ITEMS: list(o.get(CONF_ITEMS) or [])}
+    return B.options(entry.options)
 
 
 # ------------------------------------------------------------ an accessory
-def _device_name(hass: HomeAssistant, entity_id: str) -> str | None:
-    ent = er.async_get(hass).async_get(entity_id)
-    if ent is None or not ent.device_id:
-        return None
-    dev = dr.async_get(hass).async_get(ent.device_id)
-    return (dev.name_by_user or dev.name) if dev else None
-
-
 def name_of(hass: HomeAssistant, entity_id: str) -> str:
-    """The accessory's name for a banner: its friendly name -- or, for a
-    detection a device names after itself ("Front Door Camera Person
-    detected"), the device ("Front Door Camera")."""
-    st = hass.states.get(entity_id)
-    full = str(st.name if st is not None else entity_id.split(".", 1)[-1].replace("_", " ").title())
-    dev = _device_name(hass, entity_id)
-    if dev and full.lower().startswith(dev.lower() + " ") and entity_id.split(".")[0] in ("binary_sensor", "event", "camera"):
-        return dev
-    return full
+    return A.name_of(HaHouse(hass), entity_id)
 
 
 def camera_for(hass: HomeAssistant, entity_id: str) -> str | None:
-    """The camera on the same device (a camera's own detection sensor), the
-    best channel first; None when there is none."""
-    reg = er.async_get(hass)
-    ent = reg.async_get(entity_id)
-    if ent is None or not ent.device_id:
-        return None
-    cams = sorted((e.entity_id for e in er.async_entries_for_device(reg, ent.device_id)
-                   if e.domain == "camera" and not e.disabled_by),
-                  key=lambda c: (0 if "high" in c else 2 if "low" in c else 1, c))
-    return cams[0] if cams else None
-
-
-# THE CAMERAS CATEGORY: one row per camera device (its channels are one
-# camera: the best is its live view), each with the sensor that sets it off
-TRIGGER_KINDS = ("person", "doorbell", "motion", "presence", "vehicle", "animal", "package")
-
-
-def _usable(e: Any) -> bool:
-    return not (e.disabled_by or e.hidden_by or e.entity_category or e.platform == DOMAIN)
+    return A.camera_for(HaHouse(hass), entity_id)
 
 
 def camera_list(hass: HomeAssistant) -> list[str]:
-    """Every camera, one per device (its best channel), not HK Frontend's own
-    (Live TV's channels)."""
-    reg = er.async_get(hass)
-    best: dict[str, str] = {}
-    lone = []
-    for e in reg.entities.values():
-        if e.domain != "camera" or not _usable(e):
-            continue
-        if not e.device_id:
-            lone.append(e.entity_id)
-            continue
-        cur = best.get(e.device_id)
-        if cur is None or _rank(e.entity_id) < _rank(cur):
-            best[e.device_id] = e.entity_id
-    return sorted(set(best.values()) | set(lone))
-
-
-def _rank(cam: str) -> tuple[int, str]:
-    return (0 if "high" in cam else 2 if "low" in cam else 1, cam)
+    return A.camera_list(HaHouse(hass))
 
 
 def trigger_for(hass: HomeAssistant, camera: str) -> str | None:
-    """The sensor a camera's notification goes off on, suggested: its own
-    device's person detection, else its doorbell, motion or presence."""
-    reg = er.async_get(hass)
-    ent = reg.async_get(camera)
-    if ent is None or not ent.device_id:
-        return None
-    found = []
-    for e in er.async_entries_for_device(reg, ent.device_id):
-        if e.domain not in ("binary_sensor", "event") or not _usable(e):
-            continue
-        k = _kind(hass, e.entity_id, e)
-        if k in TRIGGER_KINDS and k != "package":
-            # (a binary sensor before an event: it has an off as well)
-            found.append((TRIGGER_KINDS.index(k), e.domain != "binary_sensor", e.entity_id))
-    return min(found)[2] if found else None
+    return A.trigger_for(HaHouse(hass), camera)
 
 
 def camera_pairs(hass: HomeAssistant, item: dict[str, Any]) -> list[dict[str, Any]]:
-    """A Cameras category's cameras: each with its trigger and its live view
-    (what was chosen, else suggested), and whether it notifies."""
-    chosen = {p.get("camera"): p for p in (item.get("pairs") or []) if isinstance(p, dict)}
-    ex = set(item.get("exclude") or [])
-    out = []
-    for cam in camera_list(hass) + [c for c in chosen if c and c not in camera_list(hass)]:
-        p = chosen.get(cam, {})
-        trig = p.get("trigger") or trigger_for(hass, cam)
-        out.append({"camera": cam, "view": p.get("view") or cam, "trigger": trig, "suggested": trigger_for(hass, cam),
-                    "on": cam not in ex and bool(trig)})
-    return out
+    return A.camera_pairs(HaHouse(hass), item)
 
 
 def describe(hass: HomeAssistant, entity_id: str) -> dict[str, Any]:
-    """What a notification on this accessory is: its kind, choices, name,
-    suggested camera."""
-    st = hass.states.get(entity_id)
-    domain, oid = entity_id.split(".", 1)
-    kind = rules.kind_of(domain, st.attributes.get("device_class") if st else None, oid)
-    cam = camera_for(hass, entity_id) if domain != "camera" else entity_id
-    name = name_of(hass, entity_id)
-    when = rules.default_when(kind)
-    title, message = rules.words(kind, when, name, (when, {}), fired_on=when)
-    icon, tint = rules.look(kind)
-    return {"entity": entity_id, "kind": kind, "name": name, "choices": [list(c) for c in rules.choices(kind)],
-            "when": when, "camera": cam, "event": domain == "event", "title": title, "message": message,
-            "icon": icon, "tint": tint, "important": kind in rules.IMPORTANT,
-            "missing": st is None}
+    return A.describe(HaHouse(hass), entity_id)
 
 
-def _kind(hass: HomeAssistant, entity_id: str, reg_entry: Any = None) -> str:
-    """An accessory's kind, from its state's device class or (before it has
-    a state -- Home Assistant starting) its registry entry's."""
-    domain, oid = entity_id.split(".", 1)
-    st = hass.states.get(entity_id)
-    dc = st.attributes.get("device_class") if st is not None else None
-    if dc is None and reg_entry is not None:
-        dc = reg_entry.device_class or reg_entry.original_device_class
-    return rules.kind_of(domain, dc, oid)
+def _kind(hass: HomeAssistant, entity_id: str) -> str:
+    return A.kind(HaHouse(hass), entity_id)
 
 
 def pin_panels(hass: HomeAssistant) -> dict[str, str]:
-    """Alarm PIN's panels, each with the alarm it stands in front of."""
+    """Alarm PIN's panels, each with the alarm it stands in front of (HK's own
+    settings: the Alarm PIN features and the panels they made)."""
     reg = er.async_get(hass)
     out = {}
     for f in entries(hass, ALARM_PIN):
@@ -252,170 +157,35 @@ def pin_panels(hass: HomeAssistant) -> dict[str, str]:
 
 
 def keypad_for(hass: HomeAssistant, eid: str | None) -> str | None:
-    """THE SHEET A TAP OPENS for an alarm with an Alarm PIN panel in front of
-    it: the panel's, which asks for the PIN -- not the alarm's own, which
-    arms and disarms for anyone (2026-10-13: a tap on the Lyric alarm's
-    notification opened its plain Arm / Disarm sheet, not the keypad)."""
-    if not eid or not eid.startswith("alarm_control_panel."):
-        return eid
-    for panel, alarm in pin_panels(hass).items():
-        if alarm == eid:
-            return panel
-    return eid
+    return A.keypad_for(eid, _pins(hass))
 
 
 def candidates(hass: HomeAssistant, key: str) -> list[str]:
-    """A category's accessories, found: every entity of its kinds that Home
-    Assistant shows (not hidden, disabled or a device's diagnostic), not HK
-    Frontend's own -- except an Alarm PIN panel, listed BESIDE the alarm it
-    protects (2026-10-13, the user's call: both, the panel saying what it is
-    -- settings_ws _named). It mirrors that alarm, so with both ticked only
-    one is watched (members); a tap on either opens the keypad (keypad_for)."""
-    cat = rules.category(key)
-    if cat is None:
-        return []
-    if key == "cameras":
-        return camera_list(hass)
-    kinds = cat[2]
-    reg = er.async_get(hass)
-    pins = pin_panels(hass) if "alarm_panel" in kinds else {}
-    out = []
-    for e in reg.entities.values():
-        if e.disabled_by or e.hidden_by or e.entity_category or (e.platform == DOMAIN and e.entity_id not in pins):
-            continue
-        if _kind(hass, e.entity_id, e) in kinds:
-            out.append(e.entity_id)
-    known = set(reg.entities)
-    for st in hass.states.async_all():         # a YAML entity with no registry entry
-        if st.entity_id not in known and _kind(hass, st.entity_id) in kinds:
-            out.append(st.entity_id)
-    return sorted(set(out))
+    return A.candidates(HaHouse(hass), key, _pins(hass))
 
 
 def members(hass: HomeAssistant, item: dict[str, Any]) -> list[str]:
-    """What a notification watches: its accessory, or its category's less
-    those left out."""
-    if item.get("category") == "cameras":
-        return [p["trigger"] for p in camera_pairs(hass, item) if p["on"]]
-    if item.get("category"):
-        ex = set(item.get("exclude") or [])
-        got = [e for e in candidates(hass, item["category"]) if e not in ex]
-        # AN ALARM AND ITS PIN PANEL ARE ONE ALARM: both ticked, the alarm is
-        # watched and the panel not -- one notification, opening the keypad
-        if any(e.startswith("alarm_control_panel.") for e in got):
-            pins = pin_panels(hass)
-            got = [e for e in got if not (e in pins and pins[e] in got)]
-        return got
-    return [item["entity"]] if item.get("entity") else []
+    return A.members(HaHouse(hass), item, _pins(hass))
 
 
 def about(hass: HomeAssistant, item: dict[str, Any]) -> dict[str, Any]:
-    """describe() for a notification: its accessory's, or its category's."""
-    key = item.get("category")
-    if not key:
-        return describe(hass, item["entity"])
-    cat = rules.category(key) or ("", key, ("state",), {})
-    kind = cat[2][0]
-    when = item.get("when") or cat[3].get("when") or rules.default_when(kind)
-    _t, message = rules.words(kind, when, "", (when, {}), fired_on=when)
-    title = "Each one’s name"
-    if kind == "calendar":
-        title, message = "The event’s name", "When it is, and where"
-    icon, tint = rules.look(kind)
-    return {"category": key, "kind": kind, "name": cat[1], "choices": [list(c) for c in rules.choices(kind)],
-            "when": cat[3].get("when") or rules.default_when(kind), "camera": None, "event": False,
-            "title": title, "message": message, "icon": icon, "tint": tint,
-            "important": bool(cat[3].get("important")), "missing": False}
+    return A.about(HaHouse(hass), item)
 
 
 def _only_ok(hass: HomeAssistant, only: str) -> bool:
-    if only in ("home", "away"):
-        z = hass.states.get("zone.home")
-        try:
-            n = int(float(z.state)) if z is not None else None
-        except ValueError:
-            n = None
-        if n is None:
-            return True               # not known: not held back
-        return n > 0 if only == "home" else n == 0
-    if only == "night":
-        sun = hass.states.get("sun.sun")
-        return sun is None or sun.state == "below_horizon"
-    return True
-
-
-def _initials(name: str) -> str:
-    parts = [p for p in name.replace("-", " ").split() if p[:1].isalpha()]
-    return "".join(p[0] for p in parts[:2]).upper() or "?"
+    return B.only_ok(HaHouse(hass), only)
 
 
 def build(hass: HomeAssistant, opts: dict[str, Any], item: dict[str, Any], new: State | None,
           test: bool = False, eid: str | None = None) -> dict[str, Any]:
-    """What goes to the screens (the snapshot's id is added once taken). A
-    category's: `eid` is the accessory that went off -- its name, its
-    camera unless the category names one."""
-    eid = eid or item.get("entity") or (members(hass, item) or [""])[0]
-    d = describe(hass, eid)
-    kind = d["kind"]
-    view = None
-    if item.get("category") == "cameras":
-        # its own camera's: the snapshot, the live view, the name
-        p = next((x for x in camera_pairs(hass, item) if x["trigger"] == eid), None)
-        view = p["view"] if p else None
-        if view:
-            d = {**d, "name": name_of(hass, p["camera"])}
-    st = (new.state, dict(new.attributes)) if new is not None else None
-    # (a test reads as if it just went off: its Goes Off When, not the state now)
-    fired = (item.get("when") or d["when"]) if test or new is None else new.state
-    title, message = rules.words(kind, item.get("when") or d["when"], d["name"], st, fired_on=fired)
-    icon, tint = rules.look(kind, st)
-    icon = str((new.attributes.get("icon") if new is not None else None) or icon) if kind != "people" else icon
-    if not str(icon).startswith(("hk:", "mdi:")):
-        icon = rules.look(kind, st)[0]
-    camera = (view or item.get("camera") or (camera_for(hass, eid) if item.get("category") else None)) \
-        if item.get("snap") else None
-    if view and not item.get("snap"):
-        camera = None
-    stay = item.get("stay")
-    stay = int(opts[CONF_STAY] if stay is None else stay)
-    important = bool(item.get("important"))
-    tap = item.get("tap") or "sheet"
-    if tap == "camera" and not camera:
-        tap = "sheet"                 # Live Camera with no camera: the accessory's sheet
-    if tap == "page" and not item.get("page"):
-        tap = "sheet"
-    return {
-        "type": "notification", "id": uuid.uuid4().hex, "item": item.get("id"), "entity": eid, "kind": kind,
-        "title": (item.get("title") or "").strip() or title,
-        "message": (item.get("message") or "").strip() or message,
-        "icon": icon, "tint": tint,
-        "picture": (new.attributes.get("entity_picture") if new is not None and kind == "people" else None),
-        "initials": _initials(d["name"]) if kind == "people" else None,
-        # Wakes the Screen: its own, else All Notifications' (Do Not Disturb
-        # still wins for one that isn't Important: wake_screens, each screen)
-        "important": important,
-        "wake": item.get("wake") if isinstance(item.get("wake"), bool) else bool(opts.get(CONF_WAKE)),
-        "stay": stay, "saver": opts[CONF_SAVER], "chime": bool(opts[CONF_CHIME]), "dnd": opts[CONF_DND],
-        "pop": item.get("pop") or None, "camera": camera, "snap": None,
-        "tap": tap, "page": item.get("page") if tap == "page" else None,
-        # ITS SHEET: the accessory's own -- for what a camera sees, the
-        # camera's live (its view, else the snapshot's camera)
-        "sheet": (view or (camera_for(hass, eid) if kind in rules.CAMERA_KINDS else None)
-                  or (camera if kind in rules.CAMERA_KINDS else None) or keypad_for(hass, eid)),
-        # Go To on its sheet: None automatic (the screen works it out), "none", or a page
-        "go": item.get("go") or None,
-        "mute": mute_key(item, eid), "event": None,
-        "buttons": rules.buttons(kind, st, camera), "test": test, "ts": time.time(),
-        "dashboards": [], "users": [],
-    }
+    """What goes to the screens (hk_core banner.build)."""
+    return B.build(HaHouse(hass), opts, item, state_view(new), test=test, eid=eid, pins=_pins(hass))
 
 
 # THE ACTION (hk_frontend.notify): an automation's own banner -- its words,
 # to all screens or some (dashboards, users), with a snapshot if it names a
-# camera. The same payload as an item's, so each screen decides the same way.
-ATTR_TITLE, ATTR_MESSAGE, ATTR_IMPORTANT, ATTR_WAKE, ATTR_STAY = "title", "message", "important", "wake", "stay"
-ATTR_ICON, ATTR_ENTITY, ATTR_CAMERA, ATTR_TAP, ATTR_PAGE, ATTR_DASHBOARDS, ATTR_USERS = (
-    "icon", "entity", "camera", "tap", "page", "dashboards", "users")
+# camera. The same payload as an item's (hk_core banner.build_action); its
+# schema is HA's.
 SERVICE_NOTIFY = "notify"
 STAY_ACTION_MAX = 3600
 ICON = re.compile(r"^(hk|mdi):[a-z0-9-]+$")
@@ -439,73 +209,21 @@ NOTIFY_SCHEMA = vol.Schema({
 
 
 def build_action(hass: HomeAssistant, opts: dict[str, Any], data: dict[str, Any]) -> dict[str, Any]:
-    """What goes to the screens for the action: an item's payload, its words
-    the automation's. Wakes the Screen as an item's: Do Not Disturb holds it
-    back unless it is Important. An accessory named: its icon, its sheet, its
-    buttons. Tap Opens, unless given: the camera, else the accessory's sheet,
-    else nothing."""
-    eid = data.get(ATTR_ENTITY)
-    st = hass.states.get(eid) if eid else None
-    s = (st.state, dict(st.attributes)) if st is not None else None
-    kind = _kind(hass, eid) if eid else "event"
-    icon, tint = rules.look(kind, s)
-    camera = data.get(ATTR_CAMERA)
-    page = data.get(ATTR_PAGE)
-    tap = data.get(ATTR_TAP) or ("page" if page else "camera" if camera else "sheet" if eid else "none")
-    if tap == "page" and not page:
-        tap = "camera" if camera else "sheet" if eid else "none"
-    if tap == "camera" and not camera:
-        tap = "sheet" if eid else "none"
-    if tap == "sheet" and not eid:
-        tap = "none"
-    wake = bool(data.get(ATTR_WAKE))
-    important = bool(data.get(ATTR_IMPORTANT))
-    stay = data.get(ATTR_STAY)
-    return {
-        "type": "notification", "id": uuid.uuid4().hex, "item": None, "entity": eid, "kind": kind,
-        "title": data[ATTR_TITLE], "message": data.get(ATTR_MESSAGE) or "",
-        "icon": data.get(ATTR_ICON) or icon, "tint": tint,
-        "picture": st.attributes.get("entity_picture") if st is not None and kind == "people" else None,
-        "initials": _initials(name_of(hass, eid)) if eid and kind == "people" else None,
-        "important": important, "wake": wake,
-        "stay": int(opts[CONF_STAY] if stay is None else stay),
-        "saver": opts[CONF_SAVER], "chime": bool(opts[CONF_CHIME]), "dnd": opts[CONF_DND],
-        "pop": None, "camera": camera, "snap": None, "tap": tap, "sheet": keypad_for(hass, eid),
-        # a page named: its Go To too; an automation's own has no Mute
-        "page": page if tap == "page" else None, "go": page or None, "mute": None, "event": None,
-        "buttons": rules.buttons(kind, s, camera) if eid else rules.buttons("event", None, camera),
-        "test": False, "ts": time.time(),
-        # (a dashboard as its url path: the screen compares its first segment)
-        "dashboards": [p for p in (str(d).strip().strip("/").split("/")[0] for d in data.get(ATTR_DASHBOARDS) or []) if p],
-        "users": [str(u).strip() for u in data.get(ATTR_USERS) or [] if str(u).strip()],
-    }
+    """What goes to the screens for the action (hk_core banner.build_action)."""
+    return B.build_action(HaHouse(hass), opts, data, pins=_pins(hass))
 
 
 def _wake_for(stay: int) -> int:
-    return WAKE_MAX_S if stay <= 0 else max(WAKE_MIN_S, min(WAKE_MAX_S, stay))
+    return B.wake_for(stay)
+
+
+def _initials(name: str) -> str:
+    return B.initials(name)
 
 
 def dnd_on(hass: HomeAssistant, dnd: dict[str, Any] | None, now: Any = None) -> bool:
-    """Do Not Disturb on now (hk-notify.js dndOn, the same rule): in its
-    hours when scheduled (they may run past midnight; from == to is all
-    day), or while an entity listed is on (a timer while it runs)."""
-    if not dnd:
-        return False
-    from homeassistant.util import dt as dt_util
-    if dnd.get("schedule"):
-        local = dt_util.as_local(now or dt_util.utcnow())
-        n = local.hour * 60 + local.minute
-        try:
-            a, b = (int(str(x).split(":")[0]) * 60 + int(str(x).split(":")[1]) for x in (dnd.get("from"), dnd.get("to")))
-        except (ValueError, IndexError):
-            a = b = None
-        if a is not None and b is not None and (a == b or (a <= n < b if a < b else (n >= a or n < b))):
-            return True
-    for eid in dnd.get("while") or []:
-        st = hass.states.get(eid)
-        if st is not None and st.state in ("on", "active", "home", "open", "playing"):
-            return True
-    return False
+    """Do Not Disturb on now (hk_core dnd.dnd_on; hk-notify.js dndOn, the same rule)."""
+    return D.dnd_on(HaHouse(hass), dnd, now)
 
 
 @callback
@@ -549,55 +267,17 @@ async def async_deliver(hass: HomeAssistant, payload: dict[str, Any]) -> dict[st
     return payload
 
 
-# CALENDARS: an event coming up. The house asks each chosen calendar every
-# minute (calendar.get_events -- Home Assistant's own, every calendar
-# integration answers it) for the events starting within the lead time, and
-# sends each one once, when "start - lead" has just passed. All-day events
-# are left out ("15 minutes before" one would be midnight).
-CAL_TICK_S = 60
-
-
-def _event_time(v: Any) -> Any:
-    """A timed event's start or end as a local datetime; None for an all-day
-    one (a date) or one that cannot be read."""
-    from homeassistant.util import dt as dt_util
-    if not isinstance(v, str) or "T" not in v and " " not in v:
-        return None
-    t = dt_util.parse_datetime(v)
-    return dt_util.as_local(t) if t is not None else None
-
-
+# CALENDARS: an event coming up (hk_core calendars.py decides what is due).
+# HA's side: the clock, once a minute, and the events -- calendar.get_events,
+# Home Assistant's own, which every calendar integration answers.
 def build_calendar(hass: HomeAssistant, opts: dict[str, Any], item: dict[str, Any], cal: str,
                    event: dict[str, Any], lead: int, test: bool = False) -> dict[str, Any]:
-    """An event's notification: the event's name, when it is and where (the
-    calendar's typed Title/Message over them)."""
-    p = build(hass, opts, item, None, test=test, eid=cal)
-    start, end = _event_time(event.get("start")), _event_time(event.get("end"))
-    title, message = (rules.calendar_words(str(event.get("summary") or ""), start, end, lead, str(event.get("location") or ""))
-                      if start is not None else (str(event.get("summary") or "Event"), ""))
-    icon, tint = rules.look("calendar")
-    p.update({"kind": "calendar", "icon": icon, "tint": tint, "buttons": [], "camera": p["camera"] if item.get("snap") else None,
-              "title": (item.get("title") or "").strip() or title, "message": (item.get("message") or "").strip() or message,
-              # THE EVENT, so a tap opens it (HK's event sheet; the screen
-              # finds it in the calendar by its start and name)
-              "event": {"cal": cal, "summary": str(event.get("summary") or ""), "start": event.get("start"),
-                        "end": event.get("end"), "location": str(event.get("location") or ""),
-                        "description": str(event.get("description") or ""), "uid": event.get("uid")}})
-    if p["tap"] == "camera" and not p["camera"]:
-        p["tap"] = "none"
-    return p
+    return C.build_calendar(HaHouse(hass), opts, item, cal, event, lead, test=test, pins=_pins(hass))
 
 
 def build_allday(hass: HomeAssistant, opts: dict[str, Any], item: dict[str, Any], cal: str,
                  event: dict[str, Any], test: bool = False) -> dict[str, Any]:
-    """An all-day event's notification, the morning it starts: its name,
-    "Today · All Day · the place"."""
-    p = build_calendar(hass, opts, item, cal, {**event, "start": None, "end": None}, 0, test=test)
-    title, message = rules.allday_words(str(event.get("summary") or ""), str(event.get("location") or ""))
-    p.update({"title": (item.get("title") or "").strip() or title,
-              "message": (item.get("message") or "").strip() or message})
-    p["event"].update({"start": event.get("start"), "end": event.get("end")})
-    return p
+    return C.build_allday(HaHouse(hass), opts, item, cal, event, test=test, pins=_pins(hass))
 
 
 async def async_events(hass: HomeAssistant, cals: list[str], start: Any, end: Any) -> dict[str, list[dict[str, Any]]]:
@@ -641,68 +321,19 @@ class CalendarWatch:
     async def _tick(self, now: Any = None) -> list[dict[str, Any]]:
         """Look: what came due since the last look (the first: the last
         minute). What was sent."""
-        from datetime import timedelta
         from homeassistant.util import dt as dt_util
         now = now or dt_util.utcnow()
-        last = self._last if self._last is not None else now - timedelta(seconds=CAL_TICK_S)
-        self._last = now
-        out = []
-        for item in options(self.entry)[CONF_ITEMS]:
-            if item.get("category") != "calendars":
-                continue
-            cals = members(self.hass, item)
-            try:
-                lead = max(0, int(item.get("when") or 15))
-            except ValueError:
-                lead = 15
-            got = await async_events(self.hass, cals, last + timedelta(minutes=lead) - timedelta(seconds=1),
-                                     now + timedelta(minutes=lead) + timedelta(seconds=1))
-            for cal, events in got.items():
-                for ev in events:
-                    start = _event_time(ev.get("start"))
-                    if start is None:
-                        continue                      # all day
-                    due = start - timedelta(minutes=lead)
-                    if not (last < due <= now):
-                        continue
-                    key = "%s|%s|%s|%s" % (item.get("id"), cal, ev.get("summary"), ev.get("start"))
-                    if key in self._sent:
-                        continue
-                    self._sent[key] = start.timestamp()
-                    if not _only_ok(self.hass, item.get("only") or "always") or muted(self.hass, mute_key(item, cal)):
-                        continue
-                    p = build_calendar(self.hass, options(self.entry), item, cal, ev, lead)
-                    out.append(await async_deliver(self.hass, p))
-            # ALL-DAY EVENTS: the morning they start, once the chosen time has
-            # just passed -- each of today's
-            at = item.get("allday")
-            if at in rules.ALLDAY_TIMES:
-                local = dt_util.as_local(now)
-                hh, mm = (int(x) for x in at.split(":"))
-                due = local.replace(hour=hh, minute=mm, second=0, microsecond=0)
-                if dt_util.as_local(last) < due <= local:
-                    day = local.replace(hour=0, minute=0, second=0, microsecond=0)
-                    got = await async_events(self.hass, cals, day, day + timedelta(days=1) - timedelta(seconds=1))
-                    for cal, events in got.items():
-                        for ev in events:
-                            st = ev.get("start")
-                            if not isinstance(st, str) or "T" in st or st[:10] != day.date().isoformat():
-                                continue                      # timed, or begun on an earlier day
-                            key = "%s|%s|%s|%s|day" % (item.get("id"), cal, ev.get("summary"), st)
-                            if key in self._sent:
-                                continue
-                            self._sent[key] = due.timestamp()
-                            if not _only_ok(self.hass, item.get("only") or "always") or muted(self.hass, mute_key(item, cal)):
-                                continue
-                            out.append(await async_deliver(self.hass, build_allday(self.hass, options(self.entry), item, cal, ev)))
-        # forget what is long past
-        cut = (now - timedelta(days=1)).timestamp()
-        self._sent = {k: v for k, v in self._sent.items() if v > cut}
-        return out
+        last, self._last = self._last, now
+        hass = self.hass
+        return await C.look_ahead(
+            HaHouse(hass), last, now, self._sent, opts=lambda: options(self.entry),
+            events=lambda cals, start, end: async_events(hass, cals, start, end),
+            deliver=lambda p: async_deliver(hass, p), mute=_data(hass)["mute"], pins=_pins(hass))
 
 
 class Watcher:
-    """Follows the chosen accessories; sends a notification when one goes off."""
+    """Follows the chosen accessories; sends a notification when one goes off
+    (hk_core banner.goes_off decides)."""
 
     def __init__(self, hass: HomeAssistant, entry: Feature) -> None:
         self.hass, self.entry = hass, entry
@@ -763,30 +394,11 @@ class Watcher:
     @callback
     def _changed(self, event: Event) -> None:
         eid = event.data.get("entity_id")
-        old: State | None = event.data.get("old_state")
         new: State | None = event.data.get("new_state")
-        o = (old.state, dict(old.attributes)) if old is not None else None
-        n = (new.state, dict(new.attributes)) if new is not None else None
-        last = _data(self.hass)["last"]
-        now = time.monotonic()
-        for item in options(self.entry)[CONF_ITEMS]:
-            if eid not in self._members.get(str(item.get("id")), ()):
-                continue
-            kind = _kind(self.hass, eid)
-            when = item.get("when") or rules.default_when(kind)
-            if not rules.fires(kind, when, o, n, event=eid.startswith("event.")):
-                continue
-            if not _only_ok(self.hass, item.get("only") or "always"):
-                continue
-            # Mute 1 Hour: that accessory of that notification, quiet
-            if muted(self.hass, mute_key(item, eid)):
-                continue
-            # Not Again For: per accessory (a category's doors each their own)
-            key = "%s:%s" % (item.get("id"), eid)
-            cool = int(item.get("cooldown") or 0)
-            if cool and now - last.get(key, -1e9) < cool:
-                continue
-            last[key] = now
+        d = _data(self.hass)
+        for item in B.goes_off(HaHouse(self.hass), options(self.entry)[CONF_ITEMS], self._members, eid,
+                               state_view(event.data.get("old_state")), state_view(new),
+                               last=d["last"], mute=d["mute"]):
             self.hass.async_create_task(async_send(self.hass, self.entry, item, new, eid=eid),
                                         "hk_frontend notification")
 
@@ -806,61 +418,9 @@ async def async_setup(hass: HomeAssistant) -> None:
                                  supports_response=SupportsResponse.OPTIONAL)
 
 
-# TAP OPENS, ITS MEANING MOVED (2026-10-12). It was what a tap on an opened
-# banner's snapshot did; a tap now opens the accessory's sheet with the
-# notification on it, and Tap Opens is what the banner itself opens. So a
-# notification saved before keeps its sheet: "Nothing" (the picture did
-# nothing) and "Live Camera" on an accessory that isn't what a camera sees
-# (a garage door with its snapshot) become Its Sheet. Once: TAPS_V marks it.
-TAPS_V = "taps_v"
-
-
-def migrate_taps(opts: dict[str, Any]) -> dict[str, Any] | None:
-    """The options with old Tap Opens moved over, or None when there is
-    nothing to do. A new Notifications starts marked (AddSteps)."""
-    if opts.get(TAPS_V):
-        return None
-    cams = ("cameras", "packages", "doorbells")
-    items = []
-    for it in opts.get(CONF_ITEMS) or []:
-        it = dict(it)
-        if it.get("tap") == "none" or (it.get("tap") == "camera" and it.get("category") not in cams):
-            it["tap"] = "sheet"
-        items.append(it)
-    return {**opts, CONF_ITEMS: items, TAPS_V: 2}
-
-
-# WAKES THE SCREEN, ITS OWN OR ALL NOTIFICATIONS' (1.7.1). 1.7.0 saved
-# `wake: False` on every notification it made, and any stored True or False
-# is that notification's own choice -- so none of them followed All
-# Notifications' Wakes the Screen. A stored False becomes "Same as All
-# Notifications" (the key removed, as a new one has None); a True was chosen
-# and stays. Once: WAKE_V marks it.
-WAKE_V = "wake_v"
-
-
-def migrate_wake(opts: dict[str, Any]) -> dict[str, Any] | None:
-    """The options with 1.7.0's `wake: False` following All Notifications,
-    or None when there is nothing to do. A new Notifications starts marked
-    (AddSteps)."""
-    if opts.get(WAKE_V):
-        return None
-    items = []
-    for it in opts.get(CONF_ITEMS) or []:
-        it = dict(it)
-        if it.get("wake") is False:
-            it.pop("wake")
-        items.append(it)
-    return {**opts, CONF_ITEMS: items, WAKE_V: 1}
-
-
 async def async_setup_entry(hass: HomeAssistant, entry: Feature) -> bool:
-    opts = dict(entry.options)
-    moved = None
-    for migrate in (migrate_taps, migrate_wake):
-        done = migrate(opts)
-        if done is not None:
-            opts = moved = done
+    # stored options moved forward (hk_core migrate.py: Tap Opens, Wakes the Screen)
+    moved = migrate(dict(entry.options))
     if moved is not None:
         from .. import async_update
         async_update(hass, entry, options=moved)

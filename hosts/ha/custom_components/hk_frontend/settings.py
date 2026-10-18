@@ -25,6 +25,9 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 
 from . import kinds
+# A time of day ("HH:MM") and Do Not Disturb's shape (a screen's and All Screens'): written once
+# in hk_core with the notifications' rules, read here by every settings check.
+from .hk_core.notifications.dnd import DND_MAX, hhmm, notify_dnd  # noqa: F401
 
 CONF_DASHBOARD = "dashboard"
 
@@ -693,33 +696,6 @@ LIVELY_OCCASIONS: dict[str, tuple[tuple[str, str], ...]] = {
     "winter": (("glints", "new"), ("aurora", "new")),
     "night": (("stars", "both"), ("meteors", "both")),
 }
-
-
-def hhmm(v: Any) -> str | None:
-    """A time of day as "HH:MM", or None."""
-    if not isinstance(v, str):
-        return None
-    try:
-        h, m = (int(x) for x in v.strip().split(":")[:2])
-    except ValueError:
-        return None
-    return "%02d:%02d" % (h, m) if 0 <= h < 24 and 0 <= m < 60 else None
-
-
-DND_MAX = 10
-
-
-def notify_dnd(v: Any) -> dict[str, Any] | None:
-    """Do Not Disturb for notifications: {"schedule": bool, "from": "HH:MM",
-    "to": "HH:MM", "while": [entity ids]} -- on during the hours (they may wrap
-    midnight; from == to is all day) when `schedule`, and while any entity
-    listed is on (an input_boolean, a switch; a timer while it runs). None
-    when `v` is not one; a screen's None follows All Screens."""
-    if not isinstance(v, dict):
-        return None
-    ids = [x for x in (v.get("while") or []) if isinstance(x, str) and re.fullmatch(r"[a-z0-9_]+\.[a-z0-9_]+", x)]
-    return {"schedule": v.get("schedule") is True, "from": hhmm(v.get("from")) or "22:00",
-            "to": hhmm(v.get("to")) or "07:00", "while": list(dict.fromkeys(ids))[:DND_MAX]}
 
 
 def lively(v: Any) -> dict[str, str] | None:
