@@ -468,6 +468,14 @@ async def people_get(request: web.Request) -> web.Response:
                  f"<form method=post action='{base}/ingress/import-settings'><input type=hidden name=csrf value='{csrf}'>"
                  "<button>Import HK's settings from Home Assistant (once)</button></form>"
                  "<p class=note>Reads HK Frontend's settings from Home Assistant one time; changes nothing there.</p>")
+        host = request.app.get("features")
+        if host is not None:
+            told = ", ".join(host.client_added()) or "none"
+            body += (f"<p>HK's features on Mantel's screens: {html.escape(told)}.</p>"
+                     f"<form method=post action='{base}/ingress/import-features'><input type=hidden name=csrf value='{csrf}'>"
+                     "<button>Import HK's features from Home Assistant again</button></form>"
+                     "<p class=note>Reads which features HK Frontend has added (and the settings of Notifications, "
+                     "Clean Areas, Energy and Live TV); changes nothing there.</p>")
     if ident.csrf is None:
         body = "<p>Reload this page once (Mantel is starting your session).</p>" + body
     return _page("People", body)
@@ -538,7 +546,8 @@ async def import_settings_post(request: web.Request) -> web.Response:
     fetch = service.hooks.fetch_ha_settings or proxy.read_hk_settings
     try:
         got = await settings_store.import_settings(service.store, fetch, actor=settings_store.actor_of(ident),
-                                                   model=service.model)
+                                                   model=service.model,
+                                                   read_features=service.hooks.feature_reader(proxy))
     except Exception as exc:  # noqa: BLE001 -- say so; the store is unchanged
         log.warning("settings import failed: %s", type(exc).__name__)
         return _page("Not imported", f"<p>Home Assistant's HK settings could not be read ({html.escape(type(exc).__name__)})."
@@ -547,6 +556,34 @@ async def import_settings_post(request: web.Request) -> web.Response:
         service.publish()
     _audit(request.app, ident.user.id, "owner", "ingress.import_settings", {"source": got.get("source"),
                                                                             "imported": bool(got.get("imported"))})
+    raise web.HTTPSeeOther(base + "/ingress/people")
+
+
+async def import_features_post(request: web.Request) -> web.Response:
+    """The Owner's feature import, again and on its own (features.FeatureHost.import_from_ha, as POST
+    /api/features/import does), from a plain form on the people page."""
+    if not is_ingress(request):
+        raise web.HTTPNotFound()
+    ident = _manager(request)
+    base = request.get("mantel_base", "")
+    if ident.user.role != "owner":
+        raise web.HTTPForbidden(text="Owners only")
+    if request.headers.get("Origin") is None:
+        raise web.HTTPForbidden(text="Origin required")
+    form = parse_qs((await request.text())[:4096])
+    if not ident.csrf or not hmac.compare_digest((form.get("csrf") or [""])[0], ident.csrf):
+        raise web.HTTPForbidden(text="stale form: reload the page")
+    host = request.app.get("features")
+    if host is None:
+        raise web.HTTPNotFound()
+    try:
+        got = await host.import_from_ha(ident)
+    except Exception as exc:  # noqa: BLE001 -- say so; the store is unchanged
+        log.warning("feature import failed: %s", type(exc).__name__)
+        return _page("Not imported", f"<p>Home Assistant's HK features could not be read ({html.escape(type(exc).__name__)})."
+                     f" <a href='{html.escape(base)}/ingress/people'>Back</a></p>", 502)
+    _audit(request.app, ident.user.id, "owner", "ingress.import_features", {"source": got.get("source"),
+                                                                            "added": got.get("added")})
     raise web.HTTPSeeOther(base + "/ingress/people")
 
 
@@ -675,6 +712,7 @@ def register(app: web.Application, hub=None, token: str | None = None) -> None:
     app.router.add_get("/ingress/people", people_get)
     app.router.add_post("/ingress/people", people_post)
     app.router.add_post("/ingress/import-settings", import_settings_post)
+    app.router.add_post("/ingress/import-features", import_features_post)
     who = ", ".join(cfg.ingress_peers)
     if getattr(cfg, "connect", False):
         who = (who + " and " if who else "") + "paired Mantel Connect Apps (client certificate)"

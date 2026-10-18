@@ -213,6 +213,13 @@
       var t = msg && msg.type;
       if (t === 'hk_frontend/screensaver/touch' || t === 'hk_frontend/screensaver/black') return screenReport(hub, msg);
       if (t === 'hk_notify/mute') return notifyMute(hub, msg);
+      // LIVE TV'S VIEWER HEARTBEAT (hk-tv-guide-card, on opening a channel and every 60 s while it plays):
+      // in HA it names this screen in sensor.tv_viewers. A write, so the gateway's when commands are on;
+      // with them off it is answered here, quietly and sending nothing (no "commands disabled" toast
+      // a minute into a programme). docs/phase4/FEATURE-PARITY.md "Live TV".
+      if (t === 'hk_tv/watching' && !(typeof hub.commandsEnabled === 'function' && hub.commandsEnabled())) {
+        return Promise.resolve({ viewers: [] });
+      }
       return callWS.apply(acts, arguments);
     };
     acts.callService = function (domain, service, data) {

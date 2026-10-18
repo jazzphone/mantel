@@ -62,11 +62,24 @@ READ_ALLOWED: dict[str, frozenset[str]] = {
     "hk_music/subscribe": frozenset(),
     "hk_music/queue": frozenset({"entity_id", "limit"}),
     "hk_music/settings/library": frozenset(),
+    # INTERIM (until Live TV's channel cameras, transcode and viewers move into Mantel): the Live TV page's
+    # channel list (hk-tv-guide-card), each channel's camera and "now playing" sensor, from HA's
+    # hk_frontend. A read; `hk_tv/watching` (a viewer's heartbeat, which HA writes into a sensor) and
+    # `hk_tv/settings/set` are writes and stay the gateway's (commands off).
+    "hk_tv/channels": frozenset(),
+    # The feature import (features.import_features): each added feature's own HK Settings read, ONCE,
+    # by Mantel itself. Never for a page: SERVER_ONLY_READS below.
+    "hk_notify/settings/get": frozenset(),
+    "hk_clean_areas/settings/get": frozenset(),
+    "hk_energy/settings/get": frozenset(),
+    "hk_tv/settings/get": frozenset(),
 }
-# Reads only Mantel itself makes (ReadProxy.read_hk_settings); a page's read of one is refused here,
-# whichever path it comes by (FilteredReads, or server.py's Phase 0 read until P3.7 retires it). The
-# page's own `hk_frontend/panel/get` is answered by Mantel's settings store (app["read_routes"]).
-SERVER_ONLY_READS = frozenset({"hk_frontend/panel/get"})
+# Reads only Mantel itself makes (ReadProxy.read_hk_settings / read_server, for the imports); a page's
+# read of one is refused here, whichever path it comes by (FilteredReads, or server.py's Phase 0 read
+# until P3.7 retires it). The page's own `hk_frontend/panel/get` is answered by Mantel's settings store
+# (app["read_routes"]); a feature's settings page is not offered to pages yet.
+SERVER_ONLY_READS = frozenset({"hk_frontend/panel/get", "hk_notify/settings/get", "hk_clean_areas/settings/get",
+                               "hk_energy/settings/get", "hk_tv/settings/get"})
 SUBSCRIBE_TYPES = frozenset({"weather/subscribe_forecast", "persistent_notification/subscribe", "hk_music/subscribe"})
 # housekeeping the proxy itself sends to end a subscription it started
 INTERNAL = {"unsubscribe_events"}
@@ -205,6 +218,13 @@ class ReadProxy:
         """HK's settings as HK Settings reads them (hk_frontend/panel/get): the settings import's one read."""
         return await self.request({"type": "hk_frontend/panel/get"}, server_read=True)
 
+    async def read_server(self, msg: dict) -> Any:
+        """One of the server-only reads (SERVER_ONLY_READS: HK's settings and each feature's settings,
+        for the imports), as Mantel itself asks it. Anything else is refused here."""
+        if not isinstance(msg, dict) or msg.get("type") not in SERVER_ONLY_READS:
+            raise ReadBlocked(f"{msg.get('type') if isinstance(msg, dict) else msg!r} is not a server-only read")
+        return await self.request(msg, server_read=True)
+
     async def get_calendar_events(self, entity_id: str, start: str, end: str) -> Any:
         """GET /api/calendars/<entity>?start&end: the one REST read (REST_READS)."""
         check_calendar(entity_id, start, end)
@@ -246,6 +266,12 @@ RULES: dict[str, str] = {
     "hk_music/queue": "view the media player (media_player.* only), else not_found; limit 1..100; items rebuilt "
                       "as {id, title, artist, duration, image} with token-carrying image addresses dropped",
     "hk_music/settings/library": "feature:music; items rebuilt as {uri, name}",
+    "hk_tv/channels": "each channel kept only if the subject may view its camera.* entity; its `now` sensor.* only if "
+                      "viewable (else null); rebuilt as {configured, channels: [{number, name, camera, now}]}",
+    "hk_notify/settings/get": "never for a page (SERVER_ONLY_READS): the feature import's own read",
+    "hk_clean_areas/settings/get": "never for a page (SERVER_ONLY_READS): the feature import's own read",
+    "hk_energy/settings/get": "never for a page (SERVER_ONLY_READS): the feature import's own read",
+    "hk_tv/settings/get": "never for a page (SERVER_ONLY_READS): the feature import's own read",
 }
 
 
@@ -409,6 +435,42 @@ def music_queue(res: Any) -> dict:
     return {"ok": True, "queue_id": res.get("queue_id"), "index": res.get("index"), "items": items}
 
 
+# ----------------------------------------------------------------- Live TV (interim, until it moves)
+CAMERA_ID = re.compile(r"^camera\.[a-z0-9_]+$")
+SENSOR_ID = re.compile(r"^sensor\.[a-z0-9_]+$")
+CHANNEL_NO = re.compile(r"^\d{1,4}(\.\d{1,4})?$")
+CHANNELS_MAX = 500
+
+
+def tv_entities(res: Any) -> list[str]:
+    """Every entity id an hk_tv/channels answer names (to ask RBAC about them at once)."""
+    out: list[str] = []
+    for c in (res.get("channels") if isinstance(res, dict) else None) or []:
+        if isinstance(c, dict):
+            out += [v for v in (c.get("camera"), c.get("now")) if isinstance(v, str)]
+    return out
+
+
+def tv_channels(res: Any, ok: set[str]) -> dict:
+    """hk_tv/channels' answer (HA: ws_channels, {configured, channels: [{number, name, camera, now}]}) cut
+    down to the channels whose camera the subject may view; a `now` sensor they may not view reads null.
+    Every channel is rebuilt from the four keys, each checked."""
+    if not isinstance(res, dict):
+        return {"configured": False, "channels": []}
+    out = []
+    for c in (res.get("channels") or [])[:CHANNELS_MAX]:
+        if not isinstance(c, dict):
+            continue
+        cam, now, num = c.get("camera"), c.get("now"), c.get("number")
+        if not (isinstance(cam, str) and CAMERA_ID.match(cam) and cam in ok):
+            continue
+        if not (isinstance(num, str) and CHANNEL_NO.match(num)):
+            continue
+        out.append({"number": num, "name": c.get("name")[:80] if isinstance(c.get("name"), str) else num,
+                    "camera": cam, "now": now if isinstance(now, str) and SENSOR_ID.match(now) and now in ok else None})
+    return {"configured": bool(res.get("configured")), "channels": out}
+
+
 class FilteredReads:
     """The page's reads, with the subject's RBAC applied before and after HA."""
 
@@ -515,6 +577,10 @@ class FilteredReads:
             items = res.get("items") if isinstance(res, dict) else None
             return {"items": [{"uri": i["uri"], "name": i.get("name") if isinstance(i.get("name"), str) else i["uri"]}
                               for i in items or [] if isinstance(i, dict) and isinstance(i.get("uri"), str)]}
+        if t == "hk_tv/channels":
+            res = await self._proxy().request(msg)
+            ok = await allowed_ids(self.hooks, identity, "view", tv_entities(res))
+            return tv_channels(res, ok)
         raise ReadBlocked(f"{t!r} has no RBAC rule")          # unreachable while RULES covers READ_ALLOWED
 
     async def subscribe(self, identity: Any, msg: dict, on_event: Callable[[dict], None]):

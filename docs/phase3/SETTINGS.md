@@ -67,8 +67,8 @@ installed by `settings_store.register(app, hub, hooks)` (P3.4's pattern):
 
 | Message (inside `read`/`read_subscribe`) | Answer | Who |
 |---|---|---|
-| `{"type": "hk_frontend/settings/subscribe"}` | result `null`, then an event with the whole payload now and after every change, as HA's feed (`settings.as_client`): `configured`, every house section except `counts`, `boards`, `tablet_items`, `accessories`, `extras`, `popups`, `custom_pages`, `custom_chips`, `kinds`, `added`, plus `personal` (the person's own values, already laid over the sections) | any signed-in subject (as in HA: a wall tablet reads it) |
-| `{"type": "hk_frontend/panel/get"}` | panel.py's shape: `entry_id` (`"mantel"`), `settings`, `boards`, `tablets`, `popups`, `custom_pages` (with `used_on`), `custom_chips`, `accessories`, `setup_done`, the catalog's lists, plus `versions` (`"scope/key": version`). HA's run-time parts (`dashboards`, `kiosk_devices`, `tablet_suggest`, `screensavers`, `counts`, `users`, `thirdparty`, `features`, `integration`, `hidden`, `kinds`, `suggest`) are empty until Mantel has them | `configure` on `settings` (HA: `require_admin`) |
+| `{"type": "hk_frontend/settings/subscribe"}` | result `null`, then an event with the whole payload now and after every change, as HA's feed (`settings.as_client`): `configured`, every house section except `counts`, `boards`, `tablet_items`, `accessories`, `extras`, `popups`, `custom_pages`, `custom_chips`, `kinds`, `added` (which HK features are added, in HA's order) and `energy` (the Energy page's plan, `null` without `feature:energy`), both from the feature host ([FEATURE-PARITY.md](../phase4/FEATURE-PARITY.md)), plus `personal` (the person's own values, already laid over the sections) | any signed-in subject (as in HA: a wall tablet reads it) |
+| `{"type": "hk_frontend/panel/get"}` | panel.py's shape: `entry_id` (`"mantel"`), `settings`, `boards`, `tablets`, `popups`, `custom_pages` (with `used_on`), `custom_chips`, `accessories`, `setup_done`, the catalog's lists, plus `versions` (`"scope/key": version`) and `features` (HA's shape: every feature installed, an entry for each one added; from the feature host). HA's other run-time parts (`dashboards`, `kiosk_devices`, `tablet_suggest`, `screensavers`, `counts`, `users`, `thirdparty`, `integration`, `kinds`, `suggest`) are empty until Mantel has them | `configure` on `settings` (HA: `require_admin`) |
 | `{"type": "mantel/settings/get", "scope", "key"}` | `{scope, key, version, body}` | `configure` on that scope |
 | `{"type": "mantel/settings/history", "scope", "key", "limit"?, "bodies"?}` | `{scope, key, version, history: [{version, action, message, actor, actor_role, device, source, created, diff, body?}]}` newest first, at most 200 | `configure` on that scope |
 
@@ -191,6 +191,12 @@ dict). Each history row records the user, their role and the device.
 4. Each document that does not exist yet is written as version 1; one that exists (an edit made in
    Mantel first) is left alone and listed in `skipped`. The import row records the source
    (`ha:<entry id>`), the read, a SHA-256 of HA's answer, what was written and skipped, who, when.
+5. **The feature items too** (2026-10-18, `read_features`; [FEATURE-PARITY.md](../phase4/FEATURE-PARITY.md)):
+   which HK features HA has added (panel/get's `features`) and, for each of Notifications, Clean Areas,
+   Energy and Live TV that HA has, its settings (one server-only `<id>/settings/get` read each) become
+   `house/mantel_features` (version 1, like the rest). A feature read that fails leaves that one
+   document out (`features_error` in the answer) and `POST /api/features/import` reads them again on
+   their own, which is also how a house imported before this existed gets its features.
 
 Ways to run it:
 

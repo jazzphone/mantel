@@ -560,9 +560,13 @@ class SettingsHooks:
     """may_configure(identity, Scope) -> bool (may be async): may this subject save this document?
     Exactly ``True`` allows; anything else refuses. Deny by default.
     fetch_ha_settings() -> awaitable HA ``hk_frontend/panel/get`` answer, for the import (default:
-    the hub's ReadProxy)."""
+    the hub's ReadProxy).
+    read_ha({"type": ...}) -> awaitable answer of one of HA's server-only reads, for the feature items
+    the import brings over too (default: the hub's ReadProxy.read_server, only when fetch_ha_settings
+    is the default too, so both come from the same Home Assistant)."""
     may_configure: Callable[[Any, Scope], bool | Awaitable[bool]] = deny_configure
     fetch_ha_settings: Callable[[], Awaitable[Any]] | None = None
+    read_ha: Callable[[dict], Awaitable[Any]] | None = None
 
     @classmethod
     def coerce(cls, hooks: Any) -> "SettingsHooks":
@@ -571,9 +575,16 @@ class SettingsHooks:
         if isinstance(hooks, cls):
             return hooks
         if isinstance(hooks, Mapping):
-            return cls(**{k: v for k, v in hooks.items() if k in ("may_configure", "fetch_ha_settings")})
+            return cls(**{k: v for k, v in hooks.items() if k in ("may_configure", "fetch_ha_settings", "read_ha")})
         return cls(may_configure=getattr(hooks, "may_configure", deny_configure),
-                   fetch_ha_settings=getattr(hooks, "fetch_ha_settings", None))
+                   fetch_ha_settings=getattr(hooks, "fetch_ha_settings", None),
+                   read_ha=getattr(hooks, "read_ha", None))
+
+    def feature_reader(self, proxy: Any) -> Callable[[dict], Awaitable[Any]] | None:
+        """What the import reads the feature items with (see read_ha)."""
+        if self.read_ha is not None:
+            return self.read_ha
+        return getattr(proxy, "read_server", None) if self.fetch_ha_settings is None else None
 
 
 def _sides(identity: Any) -> tuple[str | None, str | None, str | None, str | None, str, float | None]:
@@ -664,21 +675,37 @@ def docs_from_panel(payload: Any) -> list[tuple[str, str, dict]]:
 
 
 async def import_settings(store: SettingsStore, fetch: Callable[[], Awaitable[Any]], *, actor: Actor,
-                          model: ThinModel | None = None) -> dict:
+                          model: ThinModel | None = None,
+                          read_features: Callable[[dict], Awaitable[Any]] | None = None) -> dict:
     """The one-time import. Reads HA once (``fetch``: the ``hk_frontend/panel/get`` read), writes each
     document that does not exist yet as version 1 (``action='import'``, ``source='ha:<entry>'``),
     leaves any that exist alone, and records the import. A second run reads nothing and changes
-    nothing: it answers ``{"imported": False, "already": <the first import>}``."""
+    nothing: it answers ``{"imported": False, "already": <the first import>}``.
+
+    ``read_features`` (a server-only read, ``{"type": ...}`` -> HA's answer): the feature items too
+    (features.import_features: which HK features HA has added, and the settings of Notifications, Clean
+    Areas, Energy and Live TV) as ``house/mantel_features``. A feature read that fails leaves that
+    document out (``features_error``); the rest is imported, and ``POST /api/features/import`` can read
+    the features again on their own."""
     model = model or ThinModel()
     prior = store.import_record()
     if prior is not None:
         return {"imported": False, "already": prior}
     payload = await fetch()
     docs = docs_from_panel(payload)
-    for scope, key, body in docs:
-        model.check_document(scope, key, body)
     entry = payload.get("entry_id")
     source = f"ha:{entry}" if isinstance(entry, str) and entry else "ha"
+    features_error = None
+    if read_features is not None:
+        from . import features as F
+        try:
+            docs.append(("house", F.FEATURES_DOC, await F.import_features(payload, read_features, None, source[:80])))
+        except Exception as exc:  # noqa: BLE001 -- the settings still come over; the features can be read again
+            features_error = type(exc).__name__
+            log.warning("the feature items were not imported (%s); POST /api/features/import reads them again",
+                        features_error)
+    for scope, key, body in docs:
+        model.check_document(scope, key, body)
     checksum = hashlib.sha256(_canon(payload).encode()).hexdigest()
     now = float(store.clock())
     written, skipped = [], []
@@ -700,8 +727,11 @@ async def import_settings(store: SettingsStore, fetch: Callable[[], Awaitable[An
     except sqlite3.IntegrityError:
         return {"imported": False, "already": store.import_record()}
     log.info("imported HK settings from %s: %d documents written, %d left as they were", source, len(written), len(skipped))
-    return {"imported": True, "source": source, "read": IMPORT_READ, "checksum": checksum,
-            "written": written, "skipped": skipped}
+    out = {"imported": True, "source": source, "read": IMPORT_READ, "checksum": checksum,
+           "written": written, "skipped": skipped}
+    if read_features is not None:
+        out["features_error"] = features_error
+    return out
 
 
 # -------------------------------------------------------------------------------------- service
@@ -773,6 +803,9 @@ class SettingsService:
         self.model = model or load_model()
         self._feeds: dict[int, tuple[Any, Callable[[dict], None]]] = {}
         self._next = 0
+        # the feature host (features.register sets it): the feed's `added` / `energy` per subject
+        # (``client_part(identity)``) and panel/get's `features` (``panel_features()``), as HA adds them
+        self.features: Any = None
 
     # -- RBAC -----------------------------------------------------------------------------------
     async def allowed(self, identity: Any, scope: Scope) -> bool:
@@ -835,7 +868,18 @@ class SettingsService:
     def feed_payload(self, identity: Any) -> dict:
         """What ``hk_frontend/settings/subscribe`` sends this subject: the same shape HA's feed sends
         (settings.as_client), with the person's own values over the house's (``personal`` says which)."""
-        return self._personalise(self._base_feed(), self.personal(identity))
+        return self._with_features(self._personalise(self._base_feed(), self.personal(identity)), identity)
+
+    def _with_features(self, payload: dict, identity: Any) -> dict:
+        """HA's feed adds which features are added (`added`) and the Energy page's plan (`energy`); so
+        does Mantel's, from its feature host (``house/mantel_features``), once there is one."""
+        if self.features is None:
+            return payload
+        try:
+            payload.update(self.features.client_part(identity))
+        except Exception:  # noqa: BLE001 -- the rest of the feed still goes out (as HA's does)
+            log.exception("the features' part of the settings feed failed")
+        return payload
 
     def panel_payload(self) -> dict:
         """What ``hk_frontend/panel/get`` answers (panel.py ws_panel_get's shape). The parts HA works out
@@ -846,6 +890,12 @@ class SettingsService:
                                    if p.get("path") in (b.get("custom_pages") or [])]}
                  for p in self._items("custom_pages")]
         catalog = self.store.body("house", "catalog")
+        features: dict = {}
+        if self.features is not None:
+            try:
+                features = self.features.panel_features()
+            except Exception:  # noqa: BLE001 -- HK Settings still opens
+                log.exception("panel/get's features failed")
         return {
             "entry_id": "mantel", "source": "mantel",
             "settings": self.house_settings(),
@@ -862,7 +912,7 @@ class SettingsService:
             "page_kinds": catalog.get("page_kinds", []), "scene_pages": catalog.get("scene_pages", []),
             "shelves": catalog.get("shelves", {}),
             "setup_done": bool(self.store.body("house", "setup").get("setup_done")),
-            "suggest": {}, "counts": {}, "users": [], "integration": {}, "thirdparty": {}, "features": {},
+            "suggest": {}, "counts": {}, "users": [], "integration": {}, "thirdparty": {}, "features": features,
             "choices": catalog.get("choices", {}),
             "versions": {f"{s}/{k}": d.version for s in SCOPES if s != "user"
                          for k, d in self.store.docs(s).items()},
@@ -886,7 +936,7 @@ class SettingsService:
                 continue
             base = base if base is not None else self._base_feed()
             try:
-                cb(self._personalise(base, self.personal(identity)))
+                cb(self._with_features(self._personalise(base, self.personal(identity)), identity))
                 sent += 1
             except Exception:  # noqa: BLE001 -- one bad listener never stops the others
                 log.exception("settings feed listener failed")
@@ -1205,7 +1255,8 @@ def register(app: web.Application, hub: Any, hooks: Any = None, *, store: Settin
             return web.json_response({"error": "owner_only"}, status=403)
         try:
             got = await import_settings(store, service.hooks.fetch_ha_settings or fetch_from_hub,
-                                        actor=actor_of(ident), model=service.model)
+                                        actor=actor_of(ident), model=service.model,
+                                        read_features=service.hooks.feature_reader(getattr(hub, "readproxy", None)))
         except SettingsError as exc:
             return web.json_response({"error": exc.code, "message": str(exc)}, status=400 if exc.code != "unavailable" else 503)
         except Exception as exc:  # noqa: BLE001 -- HA unreachable or refused
@@ -1231,7 +1282,8 @@ async def import_cli(data_dir, ha_url: str, token: str, out=print) -> int:
     st = Store(Path(data_dir).expanduser() / "mantel.db")
     proxy = ReadProxy(ha_url, token)
     try:
-        got = await import_settings(SettingsStore(st.db), proxy.read_hk_settings, actor=Actor(label="cli"))
+        got = await import_settings(SettingsStore(st.db), proxy.read_hk_settings, actor=Actor(label="cli"),
+                                    read_features=proxy.read_server)
     except SettingsError as exc:
         out(f"mantel-server: import refused: {exc.code}: {exc}")
         return 1
@@ -1244,6 +1296,8 @@ async def import_cli(data_dir, ha_url: str, token: str, out=print) -> int:
     if got["imported"]:
         out(f"imported HK settings from {got['source']}: {len(got['written'])} documents written as version 1"
             + (f", {len(got['skipped'])} already in Mantel left as they were" if got["skipped"] else ""))
+        if got.get("features_error"):
+            out(f"the feature items were not read ({got['features_error']}); POST /api/features/import reads them again")
     else:
         a = got["already"] or {}
         out(f"already imported from {a.get('source')} at {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(a.get('created') or 0))}; nothing changed")

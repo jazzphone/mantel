@@ -223,6 +223,12 @@ socket ends / read_unsubscribe ─▶ unsubscribe_events ─▶ HA ends the WebR
 | `hk_music/subscribe` (subscription; interim) | `feature:music`. Every event pruned to the players the subject may `view`; `home` always null; unknown keys dropped |
 | `hk_music/queue` (interim) | `view` the `media_player.*` (else `not_found`, nothing sent); `limit` 1..100 (HA's schema). Items rebuilt; token-carrying image addresses dropped |
 | `hk_music/settings/library` (interim) | `feature:music`. Items rebuilt as `{uri, name}` |
+| `hk_tv/channels` (interim, [FEATURE-PARITY.md](../phase4/FEATURE-PARITY.md)) | Each channel kept only if the subject may `view` its `camera.*`; its `now` `sensor.*` only if viewable (else null). Rebuilt as `{configured, channels: [{number, name, camera, now}]}`; no other key passes |
+| `hk_notify/settings/get`, `hk_clean_areas/settings/get`, `hk_energy/settings/get`, `hk_tv/settings/get` | Never for a page (`SERVER_ONLY_READS`): the feature import's own reads (`ReadProxy.read_server`) |
+
+Answered by Mantel's feature host, never sent to HA (`features.ROUTE_RULES`): `hk_clean_areas/subscribe`
+(signed in; areas reached only through a vacuum the subject may `view`), plus the feature host's own
+`hk_frontend/events/subscribe`, `mantel/energy/plan`, `mantel/clean_areas/coverage`, `mantel/live_tv/guide`.
 
 Answered by Mantel, never sent to HA (`readproxy.ROUTE_RULES`, not in `READ_ALLOWED`):
 

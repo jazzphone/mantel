@@ -110,6 +110,12 @@ back in line.
 | `energy` | `mantel/energy/plan` (read; RBAC feature `energy` through `hooks.may_read`): HA's Energy settings via the read proxy's server read (`energy/get_prefs`), the house via MantelHouse (`energy_context`, HA's `collect` ported to the port), then `hk_core.energy.plan.build`. Gap: a sensor's helper source (Utility Meter → Integral) isn't on the port, so power sensors are found by the Energy settings, the options and the meter's device. | None |
 | `live_tv` | `mantel/live_tv/guide` (read): the HDHomeRun `lineup.json` and the XMLTV guide, fetched from the URLs in the settings every 30 min (at most 60 MB; `hooks.fetch` in tests), parsed by `hk_core.live_tv_guide`; channels with now/next | None |
 
+Since 2026-10-18 ([FEATURE-PARITY.md](FEATURE-PARITY.md)): the feature import fills these settings from HA
+(plus `ha`, what HA has added, and `live_tv.names`); `clean_areas` also answers HK's own
+`hk_clean_areas/subscribe`; `energy`'s plan goes to the screens in the settings feed (`energy`), with
+Status & Chips' thermostats as HA's plan has them; the import leaves Mantel's own Live TV guide fetch off
+(the page reads HA's channel cameras through the interim `hk_tv/channels`).
+
 **`notifications`.** It follows the hub's changes. `banner.goes_off` decides what a change sets off
 (Goes Off When, Only When, Not Again For, Mute 1 Hour). Then:
 
@@ -305,9 +311,10 @@ Nothing else changes: every piece stays off until an Owner turns it on (`PUT /ap
    `tools/e2e/features_e2e.py` again. It calls `features.register` itself, so after the wiring it
    should construct the app without calling it a second time: drop that call in `phase()`.
 2. ~~**The page's side**~~ **done** (2026-10-18, `web/shim/` only; see "The page's side" below).
-3. **Feature settings import:** read HA's Notifications / Clean Areas / Energy / Live TV feature items
-   into `house/mantel_features` (today an Owner writes them by REST). The tablets, boards and pop-ups
-   already come from P3.5's import.
+3. ~~**Feature settings import**~~ **done** (2026-10-18, [FEATURE-PARITY.md](FEATURE-PARITY.md)): part of
+   the one-time import, and on its own with `POST /api/features/import` (Owner) or the Ingress people
+   page's button. The screens are told what HA tells them (`added`, `energy`, panel/get's `features`);
+   Clean Areas' picker is answered by Mantel; Live TV's channel list is an interim filtered read.
 4. **What's still HA-only on Mantel:**
    - notification snapshots
    - calendars' look-ahead and the `notify` action (in linked mode, later)
