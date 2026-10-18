@@ -487,6 +487,44 @@ async def test_websocket_through_ingress(mk):
         await m.client.ws_connect("/ws", headers={**headers, "Origin": origin})
 
 
+async def test_mantel_answered_reads_through_ingress(mk):
+    """config/entity_registry/get and hk_frontend/hidden/get through the sidebar door, wired as the server
+    wires them (authz's RBAC, the settings store): answered from Mantel's copies, with ReadProxy.request
+    patched to fail the test if anything tried Home Assistant; commands still disabled."""
+    from mantel_server.settings_store import Actor
+    m = await mk()
+    m.store.link(OWNER_HA, "owner")
+    hub = m.app["hub"]
+    hub.registry.load([{"area_id": "den", "name": "Den"}], [],
+                      [{"entity_id": "light.lamp", "area_id": "den", "device_id": None,
+                        "options": {"light": {"favorite_colors": [{"hs_color": [30, 80]}]},
+                                    "switch_as_x": {"entity_id": "light.wrapper"}}}])
+    hub.store.states["light.lamp"] = {"s": "on", "a": {}, "lc": 1.0, "lu": 1.0}
+    m.app["settings"].store.write([("house", "settings", {"generated": {"exclude_entities": ["light.lamp"]}})],
+                                  actor=Actor(label="test"))
+    await m.page()
+    ws = await m.client.ws_connect("/ws", headers={**m.ha(), "Origin": "http://ha.example:8123",
+                                                   "X-Forwarded-Host": "ha.example:8123",
+                                                   "Cookie": m._cookie_header()})
+
+    async def answer(rid, msg):
+        await ws.send_json({"type": "read", "id": rid, "msg": msg})
+        while True:
+            got = await ws.receive_json()
+            if got.get("type") == "read_result" and got.get("id") == rid:
+                return got
+    reg = await answer(1, {"type": "config/entity_registry/get", "entity_id": "light.lamp"})
+    assert reg["result"] == {"entity_id": "light.lamp", "options": {"light": {"favorite_colors": [{"hs_color": [30, 80]}]}}}
+    missing = await answer(2, {"type": "config/entity_registry/get", "entity_id": "light.nonexistent"})
+    assert missing["error"]["code"] == "not_found"
+    hidden = await answer(3, {"type": "hk_frontend/hidden/get", "entity_ids": ["light.lamp"]})
+    assert hidden["result"]["everywhere"] == ["light.lamp"] and hidden["result"]["can"]["light.lamp"] == ["home", "room", "lights"]
+    await ws.send_json({"type": "call_service", "domain": "light", "service": "turn_on"})
+    while (got := await ws.receive_json()).get("code") != "commands_disabled":
+        pass
+    await ws.close()
+
+
 # -- the prefix ----------------------------------------------------------------------------------------
 async def test_redirects_stay_under_the_prefix(mk):
     m = await mk()

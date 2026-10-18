@@ -65,9 +65,15 @@ def test_readproxy_allowlist_is_pinned_and_has_no_writes():
                                  # P3.4: media browsing (RBAC-filtered in readproxy.FilteredReads)
                                  "media_player/browse_media", "media_player/search_media", "media_source/browse_media",
                                  # P3.5: the settings import's one read (server-only; tests/test_settings_store.py)
-                                 "hk_frontend/panel/get"}
+                                 "hk_frontend/panel/get",
+                                 # interim, until Phase 4: HK's Music page from HA's hk_frontend (RBAC-filtered)
+                                 "hk_music/subscribe", "hk_music/queue", "hk_music/settings/library"}
+    # hk_music/queue READS a speaker's queue (HA: ws_music_queue, entity_id + limit); its write is
+    # hk_music/queue_play, which "play" still catches and check_read refuses
+    READ_NAMED_LIKE_A_WRITE = {"hk_music/queue"}
+    assert WRITE_WORDS.search("hk_music/queue_play")
     for kind, keys in READ_ALLOWED.items():
-        assert not WRITE_WORDS.search(kind), kind
+        assert kind in READ_NAMED_LIKE_A_WRITE or not WRITE_WORDS.search(kind), kind
         assert not any(WRITE_WORDS.search(k) for k in keys), (kind, keys)
     assert INTERNAL == {"unsubscribe_events"}
 

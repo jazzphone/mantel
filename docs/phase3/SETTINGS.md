@@ -118,6 +118,37 @@ or a device. Saves that would change Home Assistant are refused, whatever the ro
 
 `SAVE_KINDS` classifies every type in `hkClient.WRITES` (a test reads `web/client/hk-client.js`).
 
+### Hidden Accessories: `hk_frontend/hidden/get` (2026-10-18)
+
+The accessory sheet's Where It Shows (`hk-detail.js` `wherePane`) asks `hk_frontend/hidden/get
+{entity_ids: [id]}`; HK Settings' Hidden Accessories page reads the same snapshot. In HA it is
+`hiding.snapshot` (`require_admin`). **It is not a setting of its own and needs no import change:**
+every stored part already came over in the one-time import, where it always lived:
+
+| Place | Stored in (Mantel document) |
+|---|---|
+| everywhere (and whole devices, whole rooms) | `house/settings` `generated.exclude_entities` (`exclude_devices`, `exclude_areas`) |
+| home, room | `house/accessories` `entities.<id>.home` / `.room` = `false` |
+| a kind (Climate, Lights, ...) | `house/settings` `counts.<kind>.exclude` (Also count: `.include`) |
+| the old Include in Status off | `house/accessories` `entities.<id>.status` = `false` |
+
+The rest (what each kind finds by itself, what a room shows) is worked out from the house.
+`hosts/server/mantel_server/hidden.py` ports HA's `kinds.candidates` / `automatic` / `suggest` and
+`hiding.snapshot` line for line over the hub's StateStore and Registry, with hk_core's `KINDS`.
+`readproxy.register` answers the read from it (`app["read_routes"]`), never from HA:
+
+* **RBAC:** `configure` on `house/settings` (the same as `hk_frontend/panel/get`; Owner and Admin with
+  the default roles), else `forbidden`. Then every entity the subject may not `view` is taken out of
+  `can`, `off`, `added`, `also` and `everywhere`, and a hidden device or room is named only when it
+  holds an entity the subject may view. An asked-about entity the subject may not view gets
+  `can: []` and nothing else, which is exactly what a nonexistent one gets.
+* **Checked on the scratch HA (2026-10-18):** against HA's own `hk_frontend/hidden/get` over the same
+  states, registries and settings, the whole-house answer and an answer for 60 asked-about entities
+  (plus a nonexistent one) were identical.
+* **Not here:** `hk_frontend/panel/get`'s own `hidden` (and `kinds`) are still empty; HK Settings'
+  Hidden Accessories page reads them from there. Filling them from `hidden.py` (filtered per person
+  the same way) is a small follow-up. The saves (`hidden/set`, `hidden/also`) stay `not_yet`.
+
 ## History and restore
 
 Every version is a history row with the whole body, so any version can be read back

@@ -198,3 +198,77 @@ def test_a_repeated_refusal_is_logged_once_per_interval(caplog):
     lines = [r.getMessage() for r in caplog.records if "refused a read" in r.getMessage()]
     assert len(lines) == 3 and sum("hk_music" in l for l in lines) == 2
     rp._refused_at.clear()
+
+
+# ------------------------------------------------------------- music (interim bridge to HA's hk_frontend)
+def test_music_reads_are_exactly_the_three_reads():
+    music = {t for t in READ_ALLOWED if t.startswith("hk_music/")}
+    assert music == {"hk_music/subscribe", "hk_music/queue", "hk_music/settings/library"}
+    assert "hk_music/subscribe" in SUBSCRIBE_TYPES
+    from mantel_server.readproxy import check_read
+    for bad in ("hk_music/queue_play", "hk_music/used", "hk_music/item/remove", "hk_music/playlist/save",
+                "hk_music/preset/save", "hk_music/settings/set", "hk_music/playlists/order"):
+        with pytest.raises(ReadBlocked):
+            check_read({"type": bad})
+    with pytest.raises(ReadBlocked):
+        check_read({"type": "hk_music/subscribe", "user_id": "someone"})
+
+
+async def test_music_subscription_needs_the_feature_and_is_pruned_to_viewable_players(env):
+    GRANTS[("adult", "view")].add("media_player.upstairs")
+    try:
+        with pytest.raises(Forbidden):
+            await env.reads.subscribe("guest", {"type": "hk_music/subscribe"}, lambda e: None)
+        assert env.fake.frames == []
+        events = []
+        unsub = await env.reads.subscribe("adult", {"type": "hk_music/subscribe"}, events.append)
+        await wait_for(lambda: len(events) == 2)
+        ev = events[0]
+        assert ev["speakers"] == [{"name": "Upstairs", "entity": "media_player.upstairs", "members": []},
+                                  {"name": "Den", "entity": "media_player.den"}]
+        assert ev["floors"] == [{"name": "Main", "entities": ["media_player.den"]}]
+        assert ev["announcements"] == ["media_player.den"]
+        assert ev["home"] is None                          # HA's is Mantel's own HA user's, not this person's
+        assert "media_player.primary" not in str(events) and "media_player.downstairs" not in str(events)
+        assert "secret_extra" not in ev and ev["library_entry"] == "ma-entry-1" and ev["playlists"][0]["key"] == "p1"
+        assert [e["volume"] for e in events] == [0.3, 0.5]          # in the order HA sent them
+        await unsub()
+    finally:
+        GRANTS[("adult", "view")].discard("media_player.upstairs")
+
+
+async def test_music_queue_needs_view_of_the_player_and_hidden_reads_as_nonexistent(env):
+    from mantel_server.readproxy import NotFound
+    got = await env.reads.request("adult", {"type": "hk_music/queue", "entity_id": "media_player.den", "limit": 10})
+    assert got["ok"] and got["index"] == 4
+    assert [i["image"] for i in got["items"]] == ["https://img.example/a.jpg", None, None]   # token / not http
+    assert all(set(i) == {"id", "title", "artist", "duration", "image"} for i in got["items"])
+    frame = sent(env.fake, "hk_music/queue")[0]
+    assert {k: v for k, v in frame.items() if k != "id"} == {"type": "hk_music/queue", "entity_id": "media_player.den",
+                                                             "limit": 10}
+    n = len(env.fake.frames)
+    for eid in ("media_player.primary", "media_player.nonexistent"):
+        with pytest.raises(NotFound):
+            await env.reads.request("adult", {"type": "hk_music/queue", "entity_id": eid})
+    assert len(env.fake.frames) == n                              # neither reached HA
+
+
+@pytest.mark.parametrize("msg", [
+    {"type": "hk_music/queue", "entity_id": "media_player.den", "limit": 0},
+    {"type": "hk_music/queue", "entity_id": "media_player.den", "limit": 101},
+    {"type": "hk_music/queue", "entity_id": "media_player.den", "limit": True},
+    {"type": "hk_music/queue", "entity_id": "light.kitchen"},
+    {"type": "hk_music/queue"},
+    {"type": "hk_music/queue", "entity_id": "media_player.den", "item_id": "i1"},
+])
+async def test_music_queue_malformed_is_refused_before_ha(env, msg):
+    with pytest.raises(ReadBlocked):
+        await env.reads.request("adult", msg)
+    assert env.fake.frames == []
+
+
+async def test_music_library_needs_the_feature_and_is_rebuilt(env):
+    with pytest.raises(Forbidden):
+        await env.reads.request("guest", {"type": "hk_music/settings/library"})
+    assert await env.reads.request("adult", {"type": "hk_music/settings/library"}) == {
+        "items": [{"uri": "library://playlist/1", "name": "Morning"}]}
