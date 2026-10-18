@@ -22,7 +22,7 @@ from importlib.resources import files
 
 from aiohttp import web
 
-from . import rbac
+from . import ingress, rbac
 from .accounts import MANAGERS
 from .devices import DEVICE_ROLES
 from .login_page import login_url
@@ -45,6 +45,14 @@ HEADERS = {"Cache-Control": "no-store", "Content-Security-Policy": CSP, "X-Conte
 
 def _static(name: str) -> str:
     return files("mantel_server").joinpath("static/admin/" + name).read_text(encoding="utf-8")
+
+
+def _headers(request: web.Request) -> dict:
+    """The page's headers. Through Home Assistant's Ingress the page is framed by HA's own page (same
+    origin), so frame-ancestors is 'self' there; everywhere else it stays 'none'."""
+    if not request.get("mantel_base"):
+        return HEADERS
+    return {**HEADERS, "Content-Security-Policy": CSP.replace("frame-ancestors 'none'", "frame-ancestors 'self'")}
 
 
 def sections_for(request: web.Request, ident: Identity) -> list[str]:
@@ -82,8 +90,10 @@ async def page(request: web.Request) -> web.StreamResponse:
                 "content='width=device-width,initial-scale=1'><title>Mantel admin</title>"
                 "<link rel=stylesheet href='/admin/admin.css'><main class=plain><h1>Mantel admin</h1>"
                 "<p>This browser is a wall tablet. Sign in as a person to manage the house.</p></main>")
-        return web.Response(text=body, status=403, content_type="text/html", headers=HEADERS)
-    return web.Response(text=_static("index.html"), content_type="text/html", headers=HEADERS)
+        return web.Response(text=ingress.own_page(body, request.get("mantel_base", "")), status=403,
+                            content_type="text/html", headers=_headers(request))
+    return web.Response(text=ingress.own_page(_static("index.html"), request.get("mantel_base", "")),
+                        content_type="text/html", headers=_headers(request))
 
 
 async def asset(request: web.Request) -> web.StreamResponse:

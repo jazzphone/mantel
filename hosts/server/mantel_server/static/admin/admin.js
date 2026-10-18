@@ -5,6 +5,26 @@
 
 import { credentialJSON, passkeysAvailable, toCreation, toRequest } from '../webauthn.js';
 
+// The page's address prefix. Through Home Assistant's Ingress (docs/phase3/HA-APP.md "The prefix") Mantel
+// puts it in <meta name="mantel-base">; every request and link below goes through url(), so none escapes it.
+// Anywhere else there is no meta tag, BASE is '' and url() returns its argument unchanged.
+const BASE = (() => {
+  const m = document.querySelector('meta[name="mantel-base"]');
+  const c = m && m.getAttribute('content');
+  return c && /^\/api\/hassio_ingress\/[A-Za-z0-9_-]{1,128}$/.test(c) ? c : '';
+})();
+const url = (path) => BASE + path;
+// Signed out: Mantel's own page sends the browser to /login; through Ingress Home Assistant signs people in,
+// so there is no login page, only a reload (which Home Assistant answers) and a message.
+function signedOut() {
+  if (BASE) {
+    document.body.replaceChildren(Object.assign(document.createElement('p'), { className: 'status err', role: 'alert',
+      textContent: 'Home Assistant has signed you out. Reload this page, or reopen Mantel from the sidebar.' }));
+  } else {
+    location.assign('/login?next=' + encodeURIComponent('/admin'));
+  }
+}
+
 const ROLE_LABEL = { owner: 'Owner', admin: 'Admin', adult: 'Adult', child: 'Child', guest: 'Guest',
                      wall_tablet: 'Wall tablet', service: 'Service' };
 const SECTION_LABEL = { me: 'Me', connections: 'Connections', people: 'People', devices: 'Devices', files: 'Your files', roles: 'Roles & grants',
@@ -108,14 +128,14 @@ async function api(method, path, body, opts = {}) {
   }
   let res;
   try {
-    res = await fetch(path, init);
+    res = await fetch(url(path), init);
   } catch (e) {
     throw new ApiError(0, null);
   }
   let data = null;
   try { data = await res.json(); } catch (e) { data = null; }
   if (res.status === 401 && data === null) {      // the middleware's plain 401: we are signed out
-    location.assign('/login?next=' + encodeURIComponent('/admin'));
+    signedOut();
     throw new ApiError(401, null);
   }
   if (res.status === 403 && data && data.error === 'step_up_required' && opts.retry !== false) {
@@ -206,7 +226,7 @@ async function stepUp() {
 
 async function signOut() {
   try { await api('POST', '/api/session/logout', {}, { retry: false }); } catch (e) { /* signing out anyway */ }
-  location.assign('/login');
+  if (BASE) location.reload(); else location.assign('/login');
 }
 
 // -- building blocks -----------------------------------------------------------------------------------
@@ -259,9 +279,10 @@ function renderMe(root) {
               meta(bits.join(' · ') + (me.username ? ' · user name ' + me.username : ''))];
     }),
     sessionsPanel(), passkeysPanel(), totpPanel(), pinPanel(),
-    h('section', { class: 'panel', id: 'p-signout' }, h('h3', null, 'Sign out'),
+    // through Home Assistant's Ingress Home Assistant holds the sign-in: nothing to sign out of here
+    ...(BASE ? [] : [h('section', { class: 'panel', id: 'p-signout' }, h('h3', null, 'Sign out'),
       note('Ends this browser\'s session.'),
-      h('button', { class: 'btn', type: 'button', 'data-act': 'signout', onclick: signOut }, 'Sign out')),
+      h('button', { class: 'btn', type: 'button', 'data-act': 'signout', onclick: signOut }, 'Sign out'))]),
   );
 }
 
@@ -277,7 +298,7 @@ function sessionsPanel() {
         s.current ? 'You will be signed out here.' : 'That browser will be signed out at once.', s.current ? 'Sign out' : 'Revoke', true);
       if (!yes) return;
       if (await run(() => api('DELETE', '/api/sessions/' + encodeURIComponent(s.id)), 'Session revoked.')) {
-        if (s.current) location.assign('/login'); else reload();
+        if (s.current) { if (BASE) location.reload(); else location.assign('/login'); } else reload();
       }
     }, 'danger', 'revoke-session'))))];
   });
@@ -485,7 +506,7 @@ function renderDevices(root) {
         $('#who').textContent = '';
         $('#app').replaceChildren(h('section', { class: 'panel', id: 'p-enrolled' }, h('h2', null, 'This browser is now a wall tablet'),
           h('p', null, `"${r.device.name}"${r.device.room ? ' in ' + r.device.room : ''} is enrolled as a ${roleLabel(r.device.role)}. You have been signed out of this browser.`),
-          h('p', null, h('a', { href: '/home' }, 'Open the dashboard'))));
+          h('p', null, h('a', { href: url('/home') }, 'Open the dashboard'))));
         say('');
       } }, field('Name', name), field('Room', room), field('Role', roleSel),
         h('button', { class: 'btn primary', type: 'submit', 'data-act': 'enroll-device' }, 'Make this a wall tablet'))]
@@ -612,7 +633,7 @@ function grantForm(users, devices, reload) {
 
 function scopesPanel() {
   return live('p-scopes', 'Rooms for a person or tablet', async () => {
-    const [{ users }, { devices }, areasRes] = await Promise.all([api('GET', '/api/users'), api('GET', '/api/devices'), fetch('/api/areas', { credentials: 'same-origin' })]);
+    const [{ users }, { devices }, areasRes] = await Promise.all([api('GET', '/api/users'), api('GET', '/api/devices'), fetch(url('/api/areas'), { credentials: 'same-origin' })]);
     const areas = areasRes.ok ? await areasRes.json() : [];
     const kind = select('scope_kind', [['user', 'A person'], ['device', 'A wall tablet']], 'user');
     const subject = select('scope_subject', []);
@@ -662,7 +683,7 @@ async function uploadFile(kind, file, name) {
   fd.append('file', file, file.name);
   let res;
   try {
-    res = await fetch('/api/user-files/' + kind, { method: 'POST', credentials: 'same-origin', headers: { Accept: 'application/json', 'X-CSRF-Token': state.csrf || '' }, body: fd });
+    res = await fetch(url('/api/user-files/' + kind), { method: 'POST', credentials: 'same-origin', headers: { Accept: 'application/json', 'X-CSRF-Token': state.csrf || '' }, body: fd });
   } catch (e) { throw new ApiError(0, null); }
   let data = null;
   try { data = await res.json(); } catch (e) { data = null; }
@@ -1018,8 +1039,8 @@ function proxyPanel(isOwner) {
     test.disabled = true;
     out.replaceChildren(note('Checking…'));
     try {
-      const mod = await import('/proxy-check/check.js');
-      mod.render(out, await mod.runProxyCheck(''));
+      const mod = await import(url('/proxy-check/check.js'));
+      mod.render(out, await mod.runProxyCheck(BASE));
     } catch (e) {
       out.replaceChildren(note('The check failed: ' + (e && e.message ? e.message : e), 'status err'));
     } finally { test.disabled = false; }
@@ -1054,7 +1075,7 @@ function proxyPanel(isOwner) {
   return h('section', { class: 'panel', id: 'p-conn-proxy' }, h('h3', null, 'HTTPS and your proxy'),
     note('How browsers reach Mantel: Mantel’s Caddy, your own reverse proxy (Nginx Proxy Manager, Traefik, …), the Home Assistant App or a Cloudflare tunnel. The test checks HTTPS, the trusted proxy, the door header, HSTS, the security policy and WebSockets from this browser, and says what to change.', 'muted small'),
     info,
-    isOwner ? h('div', { class: 'acts' }, test, h('a', { class: 'btn small', href: '/proxy-check', target: '_blank', rel: 'noopener' }, 'Open the full page')) : note('Only an Owner can run the test.', 'muted small'),
+    isOwner ? h('div', { class: 'acts' }, test, h('a', { class: 'btn small', href: url('/proxy-check'), target: '_blank', rel: 'noopener' }, 'Open the full page')) : note('Only an Owner can run the test.', 'muted small'),
     out);
 }
 

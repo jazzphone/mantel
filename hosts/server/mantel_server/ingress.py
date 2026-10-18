@@ -939,6 +939,19 @@ def rewrite(text: str, base: str) -> str:
     return PATHNAME_READ.sub(f"location.pathname.slice({len(base)})", text)
 
 
+# Mantel's own static pages (admin, proxy-check) name their assets and the dashboard in href/src attributes;
+# their JS reads the prefix itself (<meta name="mantel-base">), so only the HTML needs this.
+OWN_ATTR = re.compile(r"""\b(href|src)=(["'])/(admin/|proxy-check/|home\2)""")
+
+
+def own_page(text: str, base: str) -> str:
+    """One of Mantel's own pages under the Ingress prefix: the base meta, and its attributes moved under it.
+    Outside Ingress (empty base) the text is returned untouched."""
+    if not base:
+        return text
+    return inject_base(OWN_ATTR.sub(lambda m: f"{m.group(1)}={m.group(2)}{base}/{m.group(3)}", text), base)
+
+
 def inject_base(text: str, base: str, kiosk: bool = False) -> str:
     """The page's prefix for Mantel's own code (web/shim/base.js reads it); for a wall tablet that is its
     own HA user, also the kiosk mark (base.js then asks HA's frontend to hide its sidebar and header)."""

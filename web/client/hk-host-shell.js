@@ -66,6 +66,9 @@
     // localize(key) } (its pages, their titles and icons), or null for a host
     // with no sidebar of its own
     sidebarData: nil,
+    // the host's own pages to list in HK's menu, as [{ title, icon, href }] (a full page load to `href`):
+    // Mantel's settings page for an Owner/Admin. Empty for a host with none (Home Assistant has its own).
+    hostMenu: function () { return []; },
     // HOLD BACK WRITES on the host's own connection (the sky lab's preview):
     // every message `isWrite(msg)` says changes something is not sent, and
     // `onHeld(msg)` is told. true once in place (or when the host sends no
@@ -138,7 +141,7 @@
 
   ['root', 'overlayRoot', 'main', 'mainRoot', 'drawer', 'sidebar', 'resolver', 'panel', 'dashboard',
    'dashboardRoot', 'viewContainer', 'viewSlot', 'view', 'viewBackground', 'toolbar', 'dashboardConfig', 'onDashboard', 'isDashboard',
-   'defined', 'showNotifications', 'keepAwake', 'sidebarData', 'holdWrites', 'menuButton',
+   'defined', 'showNotifications', 'keepAwake', 'sidebarData', 'hostMenu', 'holdWrites', 'menuButton',
    'hostDetail', 'openHostDetail', 'hostToast', 'dialogRoot', 'serviceUrl'].forEach(function (name) {
     shell[name] = function () {
       try { return get(name).apply(shell, arguments); } catch (e) { return name === 'onDashboard' ? true : FALSE[name] ? false : null; }
