@@ -263,6 +263,25 @@ async def test_a_refusal_says_why(hass, base, mantel):
     with pytest.raises(HomeAssistantError, match="refused") as err:
         await hass.services.async_call(DOMAIN, "close_popup", {"popup": "x"}, blocking=True)
     assert not isinstance(err.value, ServiceValidationError)
+
+    # the alarm: Mantel's code refusals are the caller's to fix, and say "code" (HK's keypad: "Wrong code")
+    for code, message in (("invalid_code", "Wrong code"), ("code_required", "Enter the alarm code"),
+                          ("code_locked", "Wrong code too many times; the keypad is locked for 15 min")):
+        async def alarm(ws, msg, code=code, message=message):
+            return {"id": msg["id"], "type": "result", "success": False, "error": {"code": code, "message": message}}
+        mantel.answer = alarm
+        with pytest.raises(ServiceValidationError, match=f"refused alarm_disarm on {ALARM}: {message}"):
+            await hass.services.async_call("alarm_control_panel", "alarm_disarm", {"entity_id": ALARM, "code": "1"},
+                                           blocking=True)
+
+    async def off(ws, msg):
+        return {"id": msg["id"], "type": "result", "success": False, "error": {
+            "code": "commands_disabled", "message": "house commands are disabled on this Mantel Server; nothing was sent"}}
+    mantel.answer = off
+    with pytest.raises(HomeAssistantError, match="nothing was sent") as err:
+        await hass.services.async_call("alarm_control_panel", "alarm_disarm", {"entity_id": ALARM, "code": "1"},
+                                       blocking=True)
+    assert not isinstance(err.value, ServiceValidationError)
     await _unload(hass, e)
 
 

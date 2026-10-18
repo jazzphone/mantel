@@ -509,12 +509,20 @@ protects, with the arm rule. **HA never gives out its PIN or hash**, so the hous
 Mantel (`need_pin`). People's PINs work in the meantime. Changes are audited as `config` rows that
 name the fields, never the values.
 
-**Linked mode** (for `linked.py`'s `alarm_*` handler, being finished in another slice):
-`alarm_pin.linked_command(app, entity=, command=, code=, account=, peer=)` runs HA's forwarded command
-through the same gateway path as the Service actor `mantel:linked`, with grants on configured keypads
-only. It returns the result, or raises `linked.LinkedError` (`invalid_code`, `code_locked`,
-`code_required`, `forbidden`, `commands_disabled`, ...). If a person's PIN was typed, that person is the
-audit's actor.
+**Linked mode** (2026-10-18: one code path). `linked_house.LinkedHouse._alarm`, the handler for HA's
+forwarded `alarm_*` on the linked Alarm PIN panel, only calls
+`alarm_pin.linked_command(app, entity=, command=, code=, account=, peer=)`. That runs the command
+through this same gateway path as the Service actor `mantel:linked`, with grants on configured keypads
+only and wrong codes counted at `keypad:mantel:linked`. The house code works there as at a tablet, and
+a person's PIN names them as the audit's actor. Steps 1–8 above apply unchanged. In particular, **the
+typed code is never sent to HA**: the alarm's own code comes only from Mantel's store. (The earlier
+linked handler had its own path, which would have passed a person's PIN on as the alarm's code. It is
+gone.) The gateway's refusals become linked wire codes in one place, `alarm_pin.linked_error`:
+`invalid_code` ("Wrong code"), `code_locked`, `code_required` (also for a step-up), `forbidden`,
+`commands_disabled`, `alarm_ha_code_missing`, `alarm_pin_unavailable`. **Which alarm** the linked
+panel forwards to is its `alarm_pins` row. That row is authoritative. linked_house creates it from HA's
+registry `protects` only when none exists, with `tablets` off, no house code and a `config` audit row.
+After that the row wins over HA's attribute for the mirror too (docs/phase5/LINKED-MODE.md).
 
 The page (`web/shim/mantel-client.js`): `invalid_code` / `code_locked` / `code_required` are the card's
 to show, so there's no "Not allowed" toast on top (`tests/test_shim_alarm.py`, node harness).

@@ -139,7 +139,11 @@ The rules on each side:
   - commands: per platform, with `code` only for the alarm
   - Refusal codes: `bad_request`, `invalid`, `unknown_service`, `unknown_target`, `unknown_entity`,
     `unknown_command`; the real handlers add `not_set_up`, `not_owned`, `not_a_black_screen`,
-    `unknown_popup`, `invalid_code`, `pin_locked`, `commands_disabled`, `forbidden`, `unavailable`.
+    `unknown_popup`, `invalid_code`, `code_required`, `code_locked`, `commands_disabled`, `forbidden`,
+    `alarm_ha_code_missing`, `unavailable`. The alarm's are produced in one place,
+    `alarm_pin.linked_error` (the gateway's refusals as wire codes, with messages that say "code").
+    HA's validation set (`linked_mode._VALIDATION`) includes `invalid_code`, `code_required` and
+    `code_locked`: they are about the code the person typed.
 - **Timeouts.** Mantel's handler gets 8 s (`timeout`); HA's request gets 10 s (`LinkTimeout`). Every
   request in flight fails with `NotConnected` the moment the socket drops, so an action never hangs.
 - **How HA reports failures.** A refusal with a validation code becomes a `ServiceValidationError`
@@ -291,7 +295,7 @@ command gateway (off on the house: `commands_disabled`, an audit row, nothing se
 | `notify` | `linked_house.LinkedHouse.notify` | hk_core's `banner.build_action` → the event feed; Wakes the Screen through Mantel's Sleep Screen engines (Do Not Disturb unless Important). Needs Mantel's `notifications` piece (`not_set_up` otherwise, as HA answers). No camera snapshot yet (`snap: false`). |
 | photo screensaver / black screen switch | `FeatureLinked` | Mantel's own screen state (`screen` frames), pushed back. |
 | Seasonal decorations | `LinkedHouse` | Its state is Mantel's house setting `sky.decorations`; a command saves it (settings store, versioned, author `linked:<service account>`; HK's own data, as HA's switch writes its options) and the settings feed is re-sent. |
-| Alarm PIN `alarm_*` | `LinkedHouse._alarm` | **A person's Mantel PIN** (pins.py; the keypad's code, checked against every person's PIN, locks after 5 wrong at this link) names who; the command goes **through the gateway as that person** (RBAC: a Child is refused the alarm; the audit row first, naming the person; with commands off `commands_disabled` and nothing sent). The code is passed on only to an alarm that asks for one of its own. A missing or wrong PIN is `invalid_code`; the PIN is never logged, audited or kept. |
+| Alarm PIN `alarm_*` | `LinkedHouse._alarm` → `alarm_pin.linked_command` | **The one alarm path** (docs/phase3/GATEWAY.md "The alarm"), the same gateway code as a page's keypad, as the Service actor `mantel:linked`. The code is **the house's Alarm PIN** for that panel (if an Owner set one) **or a person's Mantel PIN** (it names them, and they become the audit's actor). Wrong codes are counted at `keypad:mantel:linked`: 5 in a row lock it for 15 minutes (`code_locked`). RBAC runs on the panel and the alarm, so a Child is refused (`forbidden`). The audit row comes first. With commands off the answer is `commands_disabled` and nothing is sent. **The typed code is never sent to HA.** If the protected alarm reports a `code_format`, Mantel adds its own stored code for it (`ha_code`), or refuses with `alarm_ha_code_missing`. A missing code is `code_required`, a wrong one `invalid_code`. The code is never logged, audited or kept. |
 
 **What Mantel publishes** (`linked_house.py` for the rest of the entry, features.py for the tablets):
 
@@ -307,6 +311,15 @@ own entity registry (`platform: hk_frontend`, the entry's) and states through th
 invented, and remembered in Mantel's `linked_house` table so a restart while HA mirrors them (and no
 longer shows the originals' attributes) still knows them. They follow the hub (the protected alarm's
 changes), registry reloads, settings saves, a move, and a minute's tick (now-on).
+
+**Which alarm the Alarm PIN panel stands for** (decided 2026-10-18): **Mantel's `alarm_pins` row for
+the panel is authoritative.** An Owner sets it or imports it (`POST /api/alarm/pins/import`), and it
+also holds the house code and the alarm's own code. HA's registry `protects` is used only to create
+that row when none exists (`LinkedHouse.keypad_for`, on the first refresh while Mantel owns `house`).
+That row has `tablets` off and no house code, so only people's PINs work until an Owner sets one. It
+gets a `config` audit row, `alarm_pin.linked`. After that, a disagreement is logged and the row wins
+for both the commands and the mirror, so the panel always shows the alarm its commands go to. A row
+that forwards to the panel itself is refused (`not_set_up`), because it would loop through HA.
 
 ## Security
 
@@ -341,7 +354,7 @@ changes), registry reloads, settings saves, a move, and a minute's tick (now-on)
 | `tests/test_linked_e2e.py` (1) | Stages the integration's Python, tests and translations from `tools/build_ha.py`'s plan, without the frontend files, and runs `test_linked_e2e.py` + `test_linked_mode.py` + `test_linked_owners.py` in `~/.venvs/hk-ha-test` with `MANTEL_ROOT` set. That way the cross-host e2e runs in Mantel's own suite. Skipped only if that venv is absent. |
 | `hosts/ha/…/tests/py/test_linked_owners.py` (6) | Per-tablet ownership on HA's side: a tablet Mantel owns is Mantel's (no engine or entity of HA's; `set_black_screen` forwarded) while Seasonal decorations and the manager stay HA's; pop-ups and `notify` here **and** forwarded; Mantel away never stops HA's own screens; a tablet HA owns stays HA's whatever Mantel describes, nothing forwarded; Mantel moves a tablet (kept in the entry, reload) and back (same registry entry, so the same entity id; HA's own again); a restart without Mantel keeps the last ownership; Configure says who owns what, and unlinking forgets it. |
 | `hosts/ha/…/tests/py/test_linked_e2e.py` (+1) | Step 3 end to end against the REAL `linked.py`: the hall tablet Mantel's, the rest HA's. |
-| `tests/test_linked_owners.py` (11) | Default HA (nothing published, no engine, `unknown_target` / `not_owned`); an Owner's move (who may: Owner on the LAN only; the audit row; `owners` before the entities; Mantel then answers; a repeat writes nothing; back to HA withdrawn with `forget: false`); the rules (`tablets_first`, `unknown_tablet`, `house_first`); the store alone; a restart on the same database (hello's owners and entities); `notify` to Mantel's screens and Wakes the Screen, and `not_set_up` with notifications off; the rest of the entry published only while Mantel owns it (from HA's registry, the protected alarm followed, remembered, withdrawn); Seasonal decorations saved as Mantel's setting; the Alarm PIN (no PIN / wrong PIN `invalid_code`; an Adult's PIN with commands off: `commands_disabled`, an audit row as the person, nothing sent, the PIN nowhere; with commands on through a FakeCommander: a Child refused `forbidden`, an Adult's disarm sent as that person). |
+| `tests/test_linked_owners.py` (15) | Default HA (nothing published, no engine, `unknown_target` / `not_owned`); an Owner's move (who may: Owner on the LAN only; the audit row; `owners` before the entities; Mantel then answers; a repeat writes nothing; back to HA withdrawn with `forget: false`); the rules (`tablets_first`, `unknown_tablet`, `house_first`); the store alone; a restart on the same database (hello's owners and entities); `notify` to Mantel's screens and Wakes the Screen, and `not_set_up` with notifications off; the rest of the entry published only while Mantel owns it (from HA's registry, the protected alarm followed, remembered, withdrawn); Seasonal decorations saved as Mantel's setting; the Alarm PIN through `alarm_pin.linked_command` (its row made from HA's registry, tablets off, audited; no code `code_required`, a wrong one `invalid_code`; an Adult's PIN with commands off: `commands_disabled`, an audit row as the person on `[panel, alarm]`, nothing sent, the PIN nowhere; with commands on through a FakeCommander: a Child refused `forbidden`, an Adult's disarm sent to the alarm itself as that person; the house code works as at a tablet, actor `mantel:linked`; the typed PIN is never the alarm's code (`alarm_ha_code_missing`, then only Mantel's stored code); 5 wrong lock it `code_locked`; Mantel's row decides which alarm, for the mirror too, and a row naming the panel itself is `not_set_up`). |
 
 `test_linked_mode.py` covers:
 
@@ -416,8 +429,9 @@ Validation of per-tablet ownership and the real handlers (2026-10-18 afternoon, 
 2. **Not on Mantel yet**, so not answered or published truthfully by it:
    - notification camera snapshots (`snap` is false)
    - Live TV's stream: the channel cameras are published unavailable, viewers 0
-   - the Alarm PIN uses each person's Mantel PIN, not HA's one Alarm PIN hash (a decision for Avery;
-     HA's hash is not imported, and arming without a PIN is not offered on Mantel)
+   - the Alarm PIN takes the house's Mantel Alarm PIN or each person's Mantel PIN. HA's hash is never
+     imported, so the house code is set again in Mantel; until then only people's PINs work. Arming
+     without a PIN follows the row's `arm_required`, as at a tablet.
 3. **Later (§6 step 2):** retire the tablet plumbing into Mantel, room by room (Loft first). Linked
    mode then shrinks to the popups' actions and a few entities.
 4. Small items:

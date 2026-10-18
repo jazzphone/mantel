@@ -15,9 +15,16 @@ pop-ups and the photo / black switches. This module adds, behind the same hook p
     ``sky.decorations``; turning it on or off from HA saves that setting (HK's own data, like HA's
     switch writing its options: no house command), versioned with the Service account as author.
   - the Alarm PIN panel (unique id = its item id): mirrors the alarm it protects (state, features,
-    availability) from the hub; **arm and disarm need a person's Mantel PIN** (pins.py, locks after 5
-    wrong at this keypad), then go **through the command gateway AS THAT PERSON** (RBAC: a Child is
-    refused the alarm; the audit row first; nothing sent while commands are off: ``commands_disabled``).
+    availability) from the hub; **arm and disarm take the one alarm path**, ``alarm_pin.linked_command``
+    (the same gateway code as a page's keypad: the house's Alarm PIN or a person's PIN, the keypad's
+    lockout, RBAC on the panel and the alarm, so a Child is refused; the audit row first, naming the
+    person whose PIN it was; the alarm's own HA code only from Mantel's store, never the typed code;
+    nothing sent while commands are off: ``commands_disabled``).
+    WHICH ALARM: Mantel's ``alarm_pins`` row for the panel is authoritative (what an Owner set or
+    imported; it also holds the house code and the alarm's own code). HA's registry ``protects`` is
+    used only to make that row when there is none (``keypad_for``: tablets off, no house code, a
+    config audit row); afterwards a disagreement is logged and the row wins, for commands and for the
+    mirror alike, so the panel always shows the alarm its commands go to.
   - Live TV's viewers, now-on sensors and channel cameras: now-on from Mantel's guide (the
     ``live_tv`` piece); viewers 0 (Mantel serves no Live TV stream yet); the cameras are published
     *unavailable*, with no stream, until Live TV's transcode moves (Phase 4+).
@@ -27,7 +34,7 @@ pop-ups and the photo / black switches. This module adds, behind the same hook p
   invented; what was learned is remembered (``linked_house`` table), so a restart while HA mirrors
   them (and so no longer shows the originals) still knows.
 
-Nothing here calls a house service except the alarm, and that only through the gateway.
+Nothing here calls a house service except the alarm, and that only through alarm_pin's gateway path.
 """
 from __future__ import annotations
 
@@ -45,7 +52,6 @@ from hk_core.notifications import banner as NB
 from hk_core.notifications import dnd as ND
 from hk_core.settings import model as SM
 
-from .house import HouseCommandRefused, HouseCommandsDisabled
 from .linked import ALARM_COMMANDS, LinkedError
 
 log = logging.getLogger("mantel.linked_house")
@@ -97,6 +103,10 @@ class LinkedHouse:
             out.append(e)
         return out
 
+    def _keypad_row(self, panel: str) -> Any:
+        keypad = self.app.get("alarm_pin")
+        return keypad.entry(panel) if keypad is not None else None
+
     def learn(self, entry: str) -> dict[str, Any]:
         """What the house has: {"seasonal": entity id, "alarm": {...} | None, "live_tv": {...}}, from HA's
         registry and states, over what was remembered."""
@@ -117,9 +127,16 @@ class LinkedHouse:
                 st = house.state(eid)
                 protects = (st.attributes.get("protects") if st is not None else None) or alarm.get("protects")
                 attrs = st.attributes if st is not None and st.state not in _GONE else {}
+                arm = bool(attrs.get("code_arm_required", alarm.get("code_arm_required", True)))
+                row = self._keypad_row(eid)
+                if row is not None:
+                    # Mantel's Alarm PIN row is authoritative: the panel mirrors the alarm commands go to
+                    if protects and row.forward_to != protects:
+                        log.warning("linked house: HA says %s protects %s, Mantel's Alarm PIN settings say %s; "
+                                    "Mantel's settings win", eid, protects, row.forward_to)
+                    protects, arm = row.forward_to, row.arm_required
                 alarm = {"unique_id": uid, "entity_id": eid, "protects": protects,
-                         "name": name or alarm.get("name"),
-                         "code_arm_required": bool(attrs.get("code_arm_required", alarm.get("code_arm_required", True)))}
+                         "name": name or alarm.get("name"), "code_arm_required": arm}
             elif domain == "sensor" and uid.endswith("_viewers"):
                 tv["viewers"] = {"unique_id": uid, "entity_id": eid}
             elif domain == "sensor" and (m := _NOW.match(uid)):
@@ -202,6 +219,9 @@ class LinkedHouse:
         async with self._lock:
             entry = self.wanted()
             want = self.descriptors(entry) if entry else {}
+            for _desc, (kind, detail) in want.values():
+                if kind == "alarm" and self._keypad_row(detail["entity_id"]) is None:
+                    await self.keypad_for(detail)      # the table is authoritative from now on
             for uid in [u for u in self.descs if u not in want]:
                 await reg.remove(uid, forget=False)
                 self.descs.pop(uid, None)
@@ -278,39 +298,48 @@ class LinkedHouse:
         await self.refresh()
 
     async def _alarm(self, alarm: dict[str, Any], command: str, code: Any, ctx: Any) -> dict[str, Any]:
-        """A person's PIN names who arms or disarms; the call goes through the gateway as that person."""
-        from .authz import Principal
-        from .sessions import Identity
-        pins, authz = self.app.get("pins"), self.app.get("authz")
-        if pins is None or authz is None:
-            raise LinkedError("not_supported", "this Mantel Server has no PINs to check")
-        if not isinstance(code, str) or not code:
-            raise LinkedError("invalid_code", "Mantel Server needs a person's PIN for the alarm")
-        account = getattr(ctx, "account", None)
-        status, value = await pins.identify(code, device_id=f"linked:{getattr(account, 'id', 'ha')}",
-                                            ip=getattr(ctx, "peer", None))
-        if status == "locked":
-            raise LinkedError("pin_locked", f"Too many wrong PINs: try again in {int(value) + 1} s")
-        if status != "ok":
-            raise LinkedError("invalid_code", "Wrong PIN")
-        ident = Identity(user=value, device=None, door="lan", fresh_factor_at=self.app["clock"]())  # type: ignore[arg-type]
-        person = Principal(ident, authz.subject_of(ident), source_ip=getattr(ctx, "peer", None))
-        st = self.host.house.state(alarm["protects"])
-        if st is None or st.state in _GONE:
-            raise LinkedError("unavailable", f"{alarm['protects']} is unavailable")
-        payload: dict[str, Any] = {"entity_id": alarm["protects"]}
-        if st.attributes.get("code_format"):
-            payload["code"] = code              # only to an alarm that asks for a code of its own
-        try:
-            await self.host.house.call_service("alarm_control_panel", command, payload, context=person)
-        except HouseCommandsDisabled:
-            raise LinkedError("commands_disabled", "house commands are disabled on this Mantel Server; "
-                              "nothing was sent") from None
-        except HouseCommandRefused as exc:
-            raise LinkedError(exc.code if exc.code != "unavailable" else "refused",
-                              f"Mantel Server refused {command} for {getattr(value, 'name', None) or 'that person'}"
-                              f" ({exc.code})") from None
-        return {"command": command, "by": getattr(value, "name", None)}
+        """HA's forwarded arm/disarm takes THE alarm path, ``alarm_pin.linked_command``: the house's Alarm
+        PIN or a person's PIN, the keypad's lockout, RBAC on the panel and the alarm, the audit row first,
+        the alarm's own HA code from Mantel's store (never the typed code), commands off: nothing sent.
+        Its refusals are already HA's wire codes (``alarm_pin.linked_error``)."""
+        from . import alarm_pin
+        if self.app.get("alarm_pin") is None:
+            raise LinkedError("not_supported", "this Mantel Server has no Alarm PIN engine")
+        panel = alarm["entity_id"]
+        entry = await self.keypad_for(alarm)
+        if entry is None or entry.forward_to == panel:
+            # never to HA's own mirror of this panel: it would come straight back here
+            raise LinkedError("not_set_up", f"Mantel's Alarm PIN settings name no alarm behind {panel}")
+        if code is not None and not isinstance(code, str):
+            raise LinkedError("invalid", "code: text")
+        await alarm_pin.linked_command(self.app, entity=panel, command=command, code=code or None,
+                                       account=getattr(ctx, "account", None), peer=getattr(ctx, "peer", None))
+        return {"command": command}
+
+    async def keypad_for(self, alarm: dict[str, Any]) -> Any:
+        """The Alarm PIN row (alarm_pin.Entry) for the linked panel. Mantel's ``alarm_pins`` table is
+        AUTHORITATIVE for which alarm a command goes to (module docstring); with no row yet, one is
+        made from what HA's registry says the panel protects, as ``POST /api/alarm/pins/import`` would:
+        wall tablets NOT given it (``tablets`` off) and no house code (people's PINs only) until an Owner
+        sets them. Audited as a config row naming the panel and the alarm."""
+        from . import alarm_pin
+        keypad, panel, protects = self.app.get("alarm_pin"), alarm.get("entity_id"), alarm.get("protects")
+        if keypad is None or not isinstance(panel, str):
+            return None
+        have = keypad.entry(panel)
+        if have is not None:
+            return have
+        if not isinstance(protects, str) or protects == panel or not alarm_pin.PANEL.match(panel) \
+                or not alarm_pin.PANEL.match(protects):
+            return None
+        entry = await keypad.set(panel, forward_to=protects, tablets=False, source="linked",
+                                 arm_required=bool(alarm.get("code_arm_required", True)))
+        audit = self.app.get("audit")
+        if audit is not None:
+            audit.config_event({"actor": alarm_pin.LINKED_ACTOR, "role": "service", "action": "alarm_pin.linked",
+                                "detail": {"entity": panel, "forward_to": protects, "from": "ha_registry"}})
+        log.info("linked house: Alarm PIN %s -> %s, from Home Assistant's registry", panel, protects)
+        return entry
 
     # -- running ---------------------------------------------------------------------------------------
     async def _ticker(self) -> None:
