@@ -20,9 +20,9 @@ HA's engine. This module runs the same engine inside Mantel Server:
   command only for an open run, only one of the engine's own commands, and only on the house's speakers.
   With commands off there is no gateway, the MA client's gate refuses everything, and the page's commands
   are refused before anything is sent (server.py ``commands_disabled``).
-* **Reads** (``hk_music/subscribe``, ``/queue``, ``/settings/library``, ``/settings/get``) are answered here
-  with RBAC (feature ``music``; only the players the person may view; ``/settings/get`` needs ``configure``
-  on settings, as HA's ``require_admin``). The feed's ``home`` is the person's own home room, else the wall
+* **Reads** (``hk_music/subscribe``, ``/queue``, ``/settings/library``) are answered here with RBAC (feature
+  ``music``; only the players the person may view). HK Settings' Music page (``hk_music/settings/get``) is
+  feature_pages.py's route, which answers with ``MusicHost.page`` while this engine is on. The feed's ``home`` is the person's own home room, else the wall
   tablet's room: Mantel knows both (``home_for``).
 * **The configuration** (speakers, house volume, home rooms, presets, playlists, Keep Playlists Ready,
   Ignore Announcements) is Mantel's settings document ``house/music``, imported from HA's music feature
@@ -100,8 +100,6 @@ ROUTE_RULES: dict[str, str] = {
                       "Bridge to HA while Mantel's engine is off",
     "hk_music/settings/library": "feature:music; Music Assistant's library playlists as {uri, name}. Bridge to HA "
                                  "while Mantel's engine is off",
-    "hk_music/settings/get": "configure on settings (HA: require_admin); Mantel's music settings page. Refused while "
-                             "Mantel's engine is off (as before)",
 }
 
 # measured timings (hk_core/music/const.py), read at call time so tests can shorten them
@@ -1372,22 +1370,11 @@ def register(app: Any, hub: Any, hooks: Any = None) -> MusicHost:
             raise Forbidden("may not use music")
         return {"items": await host.library()}
 
-    async def settings_get(ctx: Ctx, msg: dict):
-        if not host.active:
-            raise ReadBlocked("hk_music/settings/get is answered by Mantel's music engine, which is off")
-        if set(msg) - {"type", "id"}:
-            raise ReadBlocked("hk_music/settings/get carries nothing")
-        svc = app.get("settings")
-        from .settings_store import Scope
-        if svc is None or not await svc.allowed(ctx.identity, Scope("house", "settings")):
-            raise Forbidden("the music settings need configure on settings")
-        return host.page()
-
     read_routes(app).update({
         "hk_music/subscribe": Route(subscribe=subscribe),
         "hk_music/queue": Route(request=queue),
         "hk_music/settings/library": Route(request=library),
-        "hk_music/settings/get": Route(request=settings_get),
+        # (HK Settings' Music page, hk_music/settings/get, is feature_pages.py's: MusicHost.page while active)
     })
 
     # "someone is using the Music page" (HA's hk_music/used): Keep Playlists Ready waits. Not a command

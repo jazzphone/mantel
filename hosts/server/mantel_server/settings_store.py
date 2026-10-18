@@ -764,20 +764,29 @@ HA_WRITES = frozenset({
     "hk_frontend/dashboard/titled",  # follows an HA dashboard's title
     "hk_frontend/tablet/seen",       # a tablet reports itself to HA's tablets engine
     "hk_alarm_pin/add", "hk_alarm_pin/remove",     # alarm PINs live with HA's alarm feature
-    "hk_music/queue_play", "hk_notify/test", "hk_tv/watching", "hk_music/used",
+    "hk_music/queue_play", "hk_tv/watching", "hk_music/used",
+})
+# HK Settings -> Features saves Mantel takes (feature_pages.SAVES): checked by the shared checks and stored
+# in Mantel's feature settings (house/mantel_features, audited), never sent to HA. Notifications' test is
+# here too: Mantel's own delivery to its screens, nothing reaches the house.
+FEATURE_SAVES = frozenset({
+    "hk_notify/settings/set", "hk_notify/item/save", "hk_notify/item/remove", "hk_notify/test",
+    "hk_clean_areas/settings/set", "hk_energy/settings/set", "hk_energy/device/set", "hk_energy/device/section",
+    "hk_tv/settings/set",
 })
 NOT_YET = frozenset({
     "hk_frontend/accessory/into", "hk_frontend/accessory/order", "hk_frontend/accessory/page_order",
     "hk_frontend/accessory/room_scenes", "hk_frontend/accessory/set", "hk_frontend/board/favorite",
     "hk_frontend/hidden/also", "hk_frontend/hidden/set",
-    # feature settings: their features still run inside Home Assistant (hk_core features move later)
-    "hk_alarm_pin/settings/set", "hk_clean_areas/settings/set", "hk_energy/device/section", "hk_energy/device/set",
-    "hk_energy/settings/set", "hk_music/item/remove", "hk_music/playlist/save", "hk_music/playlists/order",
-    "hk_music/preset/save", "hk_music/settings/set", "hk_notify/item/remove", "hk_notify/item/save",
-    "hk_notify/mute", "hk_notify/settings/set", "hk_tv/settings/set",
+    # feature settings whose features still run inside Home Assistant (Music, Alarm PIN: their ports later)
+    "hk_alarm_pin/settings/set", "hk_music/item/remove", "hk_music/playlist/save", "hk_music/playlists/order",
+    "hk_music/preset/save", "hk_music/settings/set",
+    # Mute 1 Hour: the page sends it as Mantel's own notify_mute (mantel-client.js), never as a save
+    "hk_notify/mute",
 })
 SAVE_KINDS: dict[str, str] = {**{t: "settings" for t in SETTINGS_SAVES | MANTEL_SAVES},
-                              **{t: "ha_write" for t in HA_WRITES}, **{t: "not_yet" for t in NOT_YET}}
+                              **{t: "ha_write" for t in HA_WRITES}, **{t: "not_yet" for t in NOT_YET},
+                              **{t: "feature" for t in FEATURE_SAVES}}
 REFUSALS = {
     "ha_write": "This save changes Home Assistant. Mantel's house commands are disabled, and the settings "
                 "store never sends anything to Home Assistant.",
@@ -1003,6 +1012,8 @@ class SettingsService:
         kind = SAVE_KINDS.get(t)
         if kind is None:
             raise SettingsError("unknown_type", f"{t!r} is not a settings save")
+        if kind == "feature":
+            return await self._feature_save(identity, msg)
         if kind != "settings":
             raise SettingsError(kind, REFUSALS[kind])
         required, optional = WRITE_KEYS[t]
@@ -1010,6 +1021,20 @@ class SettingsService:
         actor = actor_of(identity)
         handler = getattr(self, "_" + t.split("/", 1)[1].replace("/", "_"))
         return await handler(identity, actor, msg)
+
+    async def _feature_save(self, identity: Any, msg: dict) -> Any:
+        """A feature page's save (HK Settings -> Features): Mantel's feature host checks it with the shared
+        checks and stores it in ``house/mantel_features`` (feature_pages.py). Without a feature host: not yet."""
+        pages = getattr(self.features, "pages", None)
+        if pages is None:
+            raise SettingsError("not_yet", REFUSALS["not_yet"])
+        from .feature_pages import PageError
+        try:
+            return await pages.save(identity, msg)
+        except PageError as exc:
+            if exc.code == "forbidden":
+                log.warning("refused a feature settings change: %s", msg.get("type"))
+            raise SettingsError(exc.code, str(exc), exc.fields or None) from None
 
     def _store(self, changes: list[tuple[str, str, dict]], actor: Actor, msg: dict, user_only: str | None = None,
                **kw) -> list[Doc]:

@@ -94,7 +94,7 @@ async def env(tmp_path, monkeypatch):
     async with TestClient(TestServer(app)) as client:
         e = Env(app, client, token, account)
         yield e
-        assert all(f.get("type") in linked.SERVER_TYPES for f in e.frames), "Mantel sends only its five frame types"
+        assert all(f.get("type") in linked.SERVER_TYPES for f in e.frames), "Mantel sends only its six frame types"
     store.db.close()
 
 
@@ -103,7 +103,8 @@ async def test_the_endpoint_is_public_to_sessions_and_checks_its_own_credential(
     assert linked.PATH in env.app["public_paths"]
     ws, hello = await env.connect()
     assert hello["type"] == "hello" and hello["protocol"] == 1
-    assert hello["services"] == ["set_black_screen", "show_popup", "close_popup"]
+    assert hello["services"] == ["set_black_screen", "show_popup", "close_popup", "notify"]
+    assert hello["owners"] == {"house": "ha", "tablets": []}, "every tablet HA's until an Owner moves one"
     assert {e["unique_id"] for e in hello["entities"]} == {d["unique_id"] for d in ENTITIES}
     black = next(e for e in hello["entities"] if e["unique_id"] == BLACK_UID)
     assert black["entity_id"] == "switch.hall_black_screen" and black["device"] == DEVICE
@@ -199,7 +200,12 @@ async def test_popups_are_recorded_for_the_real_wiring(env):
 
 
 @pytest.mark.parametrize("body,code", [
-    ({"service": "notify", "data": {}}, "unknown_service"),
+    ({"service": "notify", "data": {}}, "invalid"),
+    ({"service": "notify", "data": {"title": "x", "stay": 9999}}, "invalid"),
+    ({"service": "notify", "data": {"title": "x", "camera": "lock.front_door"}}, "invalid"),
+    ({"service": "notify", "data": {"title": "x", "service_data": {}}}, "invalid"),
+    ({"service": "notify", "data": {"title": "x"},
+      "targets": [{"entity_id": "switch.hall_black_screen", "unique_id": BLACK_UID}]}, "invalid"),
     ({"service": "music_play", "data": {}}, "unknown_service"),
     ({"service": "show_popup", "data": {}}, "invalid"),
     ({"service": "show_popup", "data": {"popup": "x", "entity_id": "lock.front"}}, "invalid"),
@@ -297,9 +303,9 @@ def test_descriptors_are_checked():
 
 
 def test_mantel_never_sends_a_command_frame():
-    assert linked.SERVER_TYPES == {"hello", "result", "entity", "state", "removed"}
+    assert linked.SERVER_TYPES == {"hello", "result", "entity", "state", "removed", "owners"}
     assert linked.CLIENT_TYPES == {"call_service", "entity_command", "ping"}
-    assert linked.SERVICES == ("set_black_screen", "show_popup", "close_popup")
+    assert linked.SERVICES == ("set_black_screen", "show_popup", "close_popup", "notify")
 
 
 # -- a handler of the orchestrator's own ---------------------------------------------------------------
@@ -341,3 +347,29 @@ def test_hooks_coerce():
     assert LinkedHooks.coerce(None) == LinkedHooks()
     assert LinkedHooks.coerce({"timeout": 1.0, "unrelated": 1}).timeout == 1.0
     assert LinkedHooks.coerce(Hooks()).handler is None
+
+
+# -- notify, ownership frames, a withdrawn entity (2026-10-18, per-tablet ownership) --------------------
+async def test_notify_is_forwarded_and_checked(env):
+    ws, _ = await env.connect()
+    data = {"title": "Laundry", "message": "The washer is done.", "important": False, "wake": True, "stay": 60,
+            "icon": "mdi:washing-machine", "entity": "sensor.washer", "tap": "sheet", "dashboards": [], "users": []}
+    res, _ = await env.call(ws, 1, service="notify", data=data)
+    assert res["success"] and env.linked.handler.popups[-1] == {"service": "notify", **data}
+    await ws.close()
+
+
+async def test_owners_are_told_at_once_and_a_withdrawn_entity_is_not_forgotten(env):
+    ws, hello = await env.connect()
+    reg: LinkedRegistry = env.linked.registry
+    await reg.set_owners({"house": "nonsense", "tablets": ["loft", "hall", "loft"]})
+    assert (await env.recv(ws)) == {"type": "owners", "owners": {"house": "ha", "tablets": ["hall", "loft"]}}
+    # only no longer Mantel's (its tablet moved back to HA): HA keeps its registry entry
+    await reg.remove(PHOTOS_UID, forget=False)
+    assert (await env.recv(ws)) == {"type": "removed", "unique_id": PHOTOS_UID, "forget": False}
+    # a descriptor names its tablet (the unit of ownership); the house's own name none
+    assert check_entity({"unique_id": "u", "platform": "switch", "tablet": "hall"})["tablet"] == "hall"
+    assert check_entity({"unique_id": "u", "platform": "switch"})["tablet"] is None
+    with pytest.raises(ValueError):
+        check_entity({"unique_id": "u", "platform": "switch", "tablet": 7})
+    await ws.close()

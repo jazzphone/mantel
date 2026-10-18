@@ -64,9 +64,6 @@ READ_ALLOWED: dict[str, frozenset[str]] = {
     "hk_music/subscribe": frozenset(),
     "hk_music/queue": frozenset({"entity_id", "limit"}),
     "hk_music/settings/library": frozenset(),
-    # The music import (music.import_doc, with the feature import): HA's music settings page, ONCE, by
-    # Mantel itself. Never for a page: SERVER_ONLY_READS below (a page's is answered by music.py).
-    "hk_music/settings/get": frozenset(),
     # INTERIM (until Live TV's channel cameras, transcode and viewers move into Mantel): the Live TV page's
     # channel list (hk-tv-guide-card), each channel's camera and "now playing" sensor, from HA's
     # hk_frontend. A read; `hk_tv/watching` (a viewer's heartbeat, which HA writes into a sensor) and
@@ -78,13 +75,23 @@ READ_ALLOWED: dict[str, frozenset[str]] = {
     "hk_clean_areas/settings/get": frozenset(),
     "hk_energy/settings/get": frozenset(),
     "hk_tv/settings/get": frozenset(),
+    # Music's HK Settings page, read by Mantel itself: for the music import (music.import_doc, with the feature
+    # import) and, while Mantel's music engine is off, for HK Settings' Music page (feature_pages.py, rebuilt
+    # key by key; with the engine on, music.py answers from Mantel's own settings). Never sent by a page.
+    "hk_music/settings/get": frozenset(),
+    # Alarm PIN's HK Settings page: read by Mantel itself for the Alarm PIN import (alarm_pin.import_ha_page:
+    # which panel protects which alarm, the arm rule) and for HK Settings' page (feature_pages.py). HA never
+    # sends its PIN or its hash. Never for a page: SERVER_ONLY_READS below.
+    "hk_alarm_pin/settings/get": frozenset(),
 }
 # Reads only Mantel itself makes (ReadProxy.read_hk_settings / read_server, for the imports); a page's
 # read of one is refused here, whichever path it comes by (FilteredReads, or server.py's Phase 0 read
 # until P3.7 retires it). The page's own `hk_frontend/panel/get` is answered by Mantel's settings store
-# (app["read_routes"]); a feature's settings page is not offered to pages yet.
+# (app["read_routes"]), and so is each feature's settings page (feature_pages.py: Mantel's own answer, or
+# for Music and Alarm PIN, still HA's, HA's page read here by Mantel itself and rebuilt).
 SERVER_ONLY_READS = frozenset({"hk_frontend/panel/get", "hk_notify/settings/get", "hk_clean_areas/settings/get",
-                               "hk_energy/settings/get", "hk_tv/settings/get", "hk_music/settings/get"})
+                               "hk_energy/settings/get", "hk_tv/settings/get", "hk_music/settings/get",
+                               "hk_alarm_pin/settings/get"})
 SUBSCRIBE_TYPES = frozenset({"weather/subscribe_forecast", "persistent_notification/subscribe", "hk_music/subscribe"})
 # housekeeping the proxy itself sends to end a subscription it started
 INTERNAL = {"unsubscribe_events"}
@@ -271,14 +278,17 @@ RULES: dict[str, str] = {
     "hk_music/queue": "view the media player (media_player.* only), else not_found; limit 1..100; items rebuilt "
                       "as {id, title, artist, duration, image} with token-carrying image addresses dropped",
     "hk_music/settings/library": "feature:music; items rebuilt as {uri, name}",
-    "hk_music/settings/get": "never for a page (SERVER_ONLY_READS): the music import's own read; pages get "
-                             "Mantel's music engine (music.py)",
     "hk_tv/channels": "each channel kept only if the subject may view its camera.* entity; its `now` sensor.* only if "
                       "viewable (else null); rebuilt as {configured, channels: [{number, name, camera, now}]}",
     "hk_notify/settings/get": "never for a page (SERVER_ONLY_READS): the feature import's own read",
     "hk_clean_areas/settings/get": "never for a page (SERVER_ONLY_READS): the feature import's own read",
     "hk_energy/settings/get": "never for a page (SERVER_ONLY_READS): the feature import's own read",
     "hk_tv/settings/get": "never for a page (SERVER_ONLY_READS): the feature import's own read",
+    "hk_music/settings/get": "never for a page (SERVER_ONLY_READS): the music import's own read, and HK Settings' "
+                             "Music page while Mantel's music engine is off (feature_pages.py, Owner/Admin, rebuilt "
+                             "key by key); with it on, Mantel's own settings (music.py)",
+    "hk_alarm_pin/settings/get": "never for a page (SERVER_ONLY_READS): the Alarm PIN import's own read and HK "
+                                 "Settings' Alarm PIN page (feature_pages.py, Owner/Admin, rebuilt; no PIN)",
 }
 
 

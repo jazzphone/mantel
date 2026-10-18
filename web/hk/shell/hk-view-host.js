@@ -8,7 +8,8 @@
 //   * make the view element (`custom:` views by their tag) and each card in it
 //     (createCardElement: `custom:` cards by their tag; Lovelace's grid, stacks
 //     and conditional drawn by HK's own small containers below; the
-//     picture-entity HK's camera cards make drawn by HK's hk-picture-entity;
+//     picture-entity HK's camera cards make drawn by HK's hk-picture-entity; `markdown` and the
+//     four energy cards of the Energy page's "Home Assistant's Charts" drawn by HK too;
 //     any other Lovelace card type a labelled placeholder),
 //   * setConfig, then hand the view and every card what goes with the client
 //     (the host adapter's bridge, window.hkHostClient.bridge), in Lovelace's
@@ -94,7 +95,12 @@
     'vertical-stack': 'hk-view-stack',
     'horizontal-stack': 'hk-view-stack',
     'conditional': 'hk-view-conditional',
-    'picture-entity': 'hk-picture-entity'
+    'picture-entity': 'hk-picture-entity',
+    'markdown': 'hk-view-markdown',
+    'energy-date-selection': 'hk-energy-date-selection',
+    'energy-sources-table': 'hk-energy-sources-table',
+    'energy-devices-graph': 'hk-energy-devices-graph',
+    'energy-devices-detail-graph': 'hk-energy-devices-detail-graph'
   };
 
   // ------------------------------------------------------------ picture-entity
@@ -234,6 +240,292 @@
     var st = doc().createElement('style');
     st.textContent = css;
     return st;
+  }
+
+  // ------------------------------------------------------------ markdown and the energy cards
+  // Two more Lovelace types HK's strategy emits, for a host without Lovelace.
+  //
+  // `markdown` is the one line an empty Energy page says ("Nothing to show yet...") and the
+  // paragraph a room page that failed to build says, and the weather alert sheet's text. Drawn
+  // as DOM nodes, never as HTML: paragraphs, # headings, - lists, ---, and in a line **bold**,
+  // *italic*, `code` and [text](http/https address). Anything else, templates included ({{ }}),
+  // stays as the text it is.
+  //
+  // The four energy cards HK frames on the Energy page when its "Home Assistant's Charts" option
+  // is on (energy-date-selection, -sources-table, -devices-graph, -devices-detail-graph) are
+  // drawn from the household's Energy settings (energy/get_prefs) and the recorder's statistics
+  // (recorder/statistics_during_period, the 'change' of each meter per hour, day or month). The
+  // date selection sets one period the other three follow. Cost columns and HA's compare-to-previous
+  // period are not drawn.
+  var MD_INLINE = /(\*\*[^*]+\*\*|\*[^*\s][^*]*\*|`[^`]+`|\[[^\]]+\]\(https?:\/\/[^\s)]+\))/;
+
+  function textNode(s) {
+    var d = doc();
+    if (d.createTextNode) return d.createTextNode(s);
+    var sp = d.createElement('span');
+    sp.textContent = s;
+    return sp;
+  }
+
+  function mdInline(text, parent) {
+    String(text).split(MD_INLINE).forEach(function (part) {
+      if (!part) return;
+      var el, m;
+      if (/^\*\*[^*]+\*\*$/.test(part)) { el = doc().createElement('strong'); el.textContent = part.slice(2, -2); }
+      else if (/^\*[^*\s][^*]*\*$/.test(part)) { el = doc().createElement('em'); el.textContent = part.slice(1, -1); }
+      else if (/^`[^`]+`$/.test(part)) { el = doc().createElement('code'); el.textContent = part.slice(1, -1); }
+      else if ((m = /^\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)$/.exec(part))) {
+        el = doc().createElement('a');
+        el.textContent = m[1];
+        el.setAttribute('href', m[2]);
+        el.setAttribute('target', '_blank');
+        el.setAttribute('rel', 'noopener noreferrer');
+      } else el = textNode(part);
+      parent.appendChild(el);
+    });
+  }
+
+  // the blocks of a markdown text, into `parent`
+  function mdBlocks(text, parent) {
+    var para = [], list = null;
+    function add(tag, txt) {
+      var e = doc().createElement(tag);
+      mdInline(txt, e);
+      parent.appendChild(e);
+      return e;
+    }
+    function flush() {
+      if (para.length) add('p', para.join(' '));
+      para = []; list = null;
+    }
+    String(text == null ? '' : text).replace(/\r/g, '').split('\n').forEach(function (raw) {
+      var line = raw.replace(/\s+$/, ''), m;
+      if (!line.trim()) { flush(); return; }
+      if ((m = /^\s{0,3}(#{1,6})\s+(.*)$/.exec(line))) { flush(); add('h' + m[1].length, m[2]); return; }
+      if (/^\s{0,3}(-{3,}|\*{3,}|_{3,})\s*$/.test(line)) { flush(); parent.appendChild(doc().createElement('hr')); return; }
+      if ((m = /^\s*[-*+]\s+(.*)$/.exec(line))) {
+        if (para.length) { add('p', para.join(' ')); para = []; }
+        if (!list) { list = doc().createElement('ul'); parent.appendChild(list); }
+        var li = doc().createElement('li');
+        mdInline(m[1], li);
+        list.appendChild(li);
+        return;
+      }
+      list = null;
+      para.push(line.trim());
+    });
+    flush();
+  }
+
+  var MD_CSS = ':host{display:block;box-sizing:border-box;padding:var(--hk-md-pad,8px 4px);' +
+    'color:var(--primary-text-color,rgba(255,255,255,.85));font:400 15px/1.5 -apple-system,system-ui,sans-serif;' +
+    'overflow-wrap:anywhere}' +
+    'p,ul,h1,h2,h3,h4,h5,h6{margin:0 0 .6em}p:last-child,ul:last-child{margin-bottom:0}' +
+    'h1,h2,h3,h4,h5,h6{font-weight:600;line-height:1.25}h1{font-size:1.5em}h2{font-size:1.25em}h3{font-size:1.1em}' +
+    'ul{padding-left:1.4em}hr{border:0;border-top:1px solid var(--divider-color,rgba(255,255,255,.18));margin:.8em 0}' +
+    'a{color:var(--primary-color,#0a84ff)}code{font-family:ui-monospace,Menlo,monospace;font-size:.92em;' +
+    'background:rgba(127,127,127,.2);border-radius:4px;padding:0 .3em}.title{font-weight:600;margin:0 0 .5em}';
+
+  // ------------------------------------------------------------ energy: the period and the reads
+  var EN_MODES = ['day', 'week', 'month', 'year'];
+  var EN_COLORS = ['#32d74b', '#0a84ff', '#ff9f0a', '#bf5af2', '#ff453a', '#64d2ff', '#ffd60a', '#ff375f'];
+  var EN_FRESH_MS = 120000, EN_PREFS_MS = 600000;
+  var EN = { mode: 'day', off: 0, subs: [], prefs: null, prefsAt: 0, prefsP: null, stats: {} };
+
+  function stats() { return global.hkStats || null; }
+  function dayMs(ms, k) {                            // HA-local midnight k days from ms's
+    var S = stats();
+    if (S && S.addDays) return S.addDays(ms, k || 0);
+    var d = new Date(ms); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() + (k || 0));
+    return d.getTime();
+  }
+  function fieldsOf(ms) {
+    var S = stats();
+    if (S && S.fields) return S.fields(ms);
+    var d = new Date(ms);
+    return { weekday: d.getDay(), day: d.getDate(), month: d.getMonth() + 1, year: d.getFullYear() };
+  }
+  function monthsFrom(startMs, n) {                  // the first of the month n months from startMs's (a first)
+    var t = startMs, i;
+    for (i = 0; i < Math.abs(n); i++) {
+      if (n < 0) { var last = dayMs(t, -1); t = dayMs(last, 1 - fieldsOf(last).day); }
+      else { var f = fieldsOf(t); t = dayMs(t, new Date(Date.UTC(f.year, f.month, 0)).getUTCDate()); }
+    }
+    return t;
+  }
+
+  // the period shown: start, end (exclusive), the recorder's bucket size and each bucket's start
+  function enRange(mode, off, client, now) {
+    now = now || Date.now();
+    var t0 = dayMs(now, 0), f = fieldsOf(t0), s, e, per, edges = [], i, t;
+    if (mode === 'week') {
+      var S = stats(), ws = S && S.weekStart ? S.weekStart(client) : 0;
+      s = dayMs(t0, -(((f.weekday - ws) % 7 + 7) % 7) + 7 * off);
+      e = dayMs(s, 7); per = 'day';
+      for (i = 0; i < 7; i++) edges.push(dayMs(s, i));
+    } else if (mode === 'month') {
+      s = monthsFrom(dayMs(t0, 1 - f.day), off);
+      e = monthsFrom(s, 1); per = 'day';
+      for (t = s; t < e; t = dayMs(t, 1)) edges.push(t);
+    } else if (mode === 'year') {
+      s = monthsFrom(dayMs(t0, 1 - f.day), off * 12 - (f.month - 1));
+      e = monthsFrom(s, 12); per = 'month';
+      for (i = 0; i < 12; i++) edges.push(monthsFrom(s, i));
+    } else {
+      mode = 'day';
+      s = dayMs(t0, off); e = dayMs(s, 1); per = 'hour';
+      for (t = s; t < e; t += 36e5) edges.push(t);
+    }
+    return { mode: mode, start: s, end: e, period: per, edges: edges };
+  }
+
+  function enLabel(r) {
+    var S = stats(), tz = S && S.tz ? S.tz() : undefined, o = { timeZone: tz };
+    function fmt(ms, opts) {
+      try { return new Date(ms).toLocaleDateString(undefined, Object.assign({}, o, opts)); }
+      catch (e) { return new Date(ms).toLocaleDateString(undefined, opts); }
+    }
+    if (r.mode === 'day') return fmt(r.start, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+    if (r.mode === 'week') return fmt(r.start, { month: 'short', day: 'numeric' }) + ' – ' + fmt(r.end - 1, { month: 'short', day: 'numeric', year: 'numeric' });
+    if (r.mode === 'month') return fmt(r.start, { month: 'long', year: 'numeric' });
+    return fmt(r.start, { year: 'numeric' });
+  }
+  function enTick(ms, r) {
+    var S = stats(), o = { timeZone: S && S.tz ? S.tz() : undefined };
+    try {
+      if (r.mode === 'day') return new Date(ms).toLocaleTimeString(undefined, Object.assign({ hour: 'numeric' }, o));
+      if (r.mode === 'year') return new Date(ms).toLocaleDateString(undefined, Object.assign({ month: 'short' }, o));
+      return new Date(ms).toLocaleDateString(undefined, Object.assign({ month: 'short', day: 'numeric' }, o));
+    } catch (e) { return ''; }
+  }
+  function kwh(v) {
+    if (v == null || !isFinite(v)) return '—';
+    var a = Math.abs(v);
+    return (a >= 100 ? Math.round(v) : a >= 10 ? v.toFixed(1) : v.toFixed(2)) + ' kWh';
+  }
+
+  function enSet(mode, off) {
+    if (EN_MODES.indexOf(mode) < 0) mode = 'day';
+    off = Math.min(0, off | 0);
+    if (mode === EN.mode && off === EN.off) return;
+    EN.mode = mode; EN.off = off;
+    EN.subs.slice().forEach(function (fn) { try { fn(); } catch (e) { /* a card gone */ } });
+  }
+
+  // HA's Energy settings, once per ten minutes for every card
+  function enPrefs(client) {
+    var now = Date.now();
+    if (EN.prefs && now - EN.prefsAt < EN_PREFS_MS) return Promise.resolve(EN.prefs);
+    if (EN.prefsP) return EN.prefsP;
+    if (!client || !client.callWS) return Promise.resolve({});
+    EN.prefsP = client.callWS({ type: 'energy/get_prefs' }).then(function (p) {
+      EN.prefs = p && typeof p === 'object' ? p : {}; EN.prefsAt = Date.now(); EN.prefsP = null; return EN.prefs;
+    }, function (err) {
+      EN.prefsP = null;
+      try { console.warn('[hk-energy-cards] energy/get_prefs failed', err); } catch (e) { /* no console */ }
+      return {};
+    });
+    return EN.prefsP;
+  }
+
+  function lst(v) { return Array.isArray(v) ? v : []; }
+  // the meters, by what they are: the grid's two directions (the older flow_from / flow_to lists and
+  // the newer meters on the source itself), solar, the battery's two, gas, water
+  function enSources(pr) {
+    var out = [];
+    function add(label, id) { if (id && typeof id === 'string') out.push({ label: label, id: id }); }
+    lst(pr && pr.energy_sources).forEach(function (s) {
+      if (s.type === 'grid') {
+        if (lst(s.flow_from).length) s.flow_from.forEach(function (f) { add('Grid consumption', f.stat_energy_from); });
+        else add('Grid consumption', s.stat_energy_from);
+        if (lst(s.flow_to).length) s.flow_to.forEach(function (f) { add('Returned to grid', f.stat_energy_to); });
+        else add('Returned to grid', s.stat_energy_to);
+      } else if (s.type === 'solar') add('Solar', s.stat_energy_from);
+      else if (s.type === 'battery') { add('Battery discharged', s.stat_energy_from); add('Battery charged', s.stat_energy_to); }
+      else if (s.type === 'gas') add('Gas', s.stat_energy_from);
+      else if (s.type === 'water') add('Water', s.stat_energy_from);
+    });
+    return out;
+  }
+  function enDevices(pr, client) {
+    return lst(pr && pr.device_consumption).map(function (d) {
+      var id = d && d.stat_consumption, st = id && client && client.states ? client.states[id] : null;
+      return id ? { id: id, name: d.name || (st && st.attributes && st.attributes.friendly_name) || id } : null;
+    }).filter(Boolean);
+  }
+
+  // the 'change' of each meter per bucket of the period: { id: [value|null per edge] }
+  function enFetch(client, ids, r) {
+    ids = ids.filter(function (x, i) { return ids.indexOf(x) === i; });
+    if (!ids.length || !client || !client.callWS) return Promise.resolve({});
+    var key = [r.period, r.start, r.end, ids.join(',')].join('|'), hit = EN.stats[key];
+    if (hit && (hit.p || Date.now() - hit.at < EN_FRESH_MS)) return hit.p || Promise.resolve(hit.data);
+    var p = client.callWS({
+      type: 'recorder/statistics_during_period',
+      start_time: new Date(r.start).toISOString(), end_time: new Date(r.end).toISOString(),
+      period: r.period, statistic_ids: ids, types: ['change'], units: { energy: 'kWh' }
+    }).then(function (res) {
+      var data = {};
+      ids.forEach(function (id) {
+        var arr = r.edges.map(function () { return null; });
+        lst(res && res[id]).forEach(function (row) {
+          var t = +new Date(row.start), v = Number(row.change), k = -1, i;
+          if (!isFinite(t) || !isFinite(v)) return;
+          for (i = r.edges.length - 1; i >= 0; i--) if (r.edges[i] <= t) { k = i; break; }
+          if (k >= 0 && t < r.end) arr[k] = (arr[k] || 0) + v;
+        });
+        data[id] = arr;
+      });
+      EN.stats[key] = { at: Date.now(), data: data };
+      return data;
+    }, function (err) {
+      delete EN.stats[key];
+      try { console.warn('[hk-energy-cards] statistics failed', err); } catch (e) { /* no console */ }
+      return {};
+    });
+    var keys = Object.keys(EN.stats);
+    if (keys.length > 40) delete EN.stats[keys[0]];
+    EN.stats[key] = { at: Date.now(), p: p };
+    return p;
+  }
+  function sumOf(arr) {
+    var s = null;
+    (arr || []).forEach(function (v) { if (v != null) s = (s || 0) + v; });
+    return s;
+  }
+
+  var EN_CSS = ':host{display:block;box-sizing:border-box;padding:16px;overflow:hidden;' +
+    'border-radius:var(--ha-card-border-radius,12px);border:var(--ha-card-border-width,0px) solid var(--ha-card-border-color,transparent);' +
+    'box-shadow:var(--ha-card-box-shadow,none);background:var(--ha-card-background,var(--card-background-color,rgba(28,28,30,.6)));' +
+    'color:var(--primary-text-color,rgba(255,255,255,.94));font:500 14px/1.35 -apple-system,system-ui,sans-serif}' +
+    '.empty{color:var(--secondary-text-color,rgba(255,255,255,.6));padding:4px 0}' +
+    '.date{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px}' +
+    '.date .nav{display:flex;align-items:center;gap:4px}' +
+    '.date .lab{min-width:9em;text-align:center;font-weight:600}' +
+    '.date button,.seg button{font:inherit;color:inherit;background:rgba(255,255,255,.1);border:0;border-radius:10px;padding:6px 12px;cursor:pointer}' +
+    '.date button[disabled]{opacity:.35;cursor:default}' +
+    '.seg{display:flex;gap:4px;margin-left:auto}.seg button.on{background:#fff;color:#1c1c1e}' +
+    'table{width:100%;border-collapse:collapse}td{padding:8px 0;border-bottom:1px solid var(--divider-color,rgba(255,255,255,.12))}' +
+    'td+td{text-align:right;font-variant-numeric:tabular-nums}tr:last-child td{border-bottom:0}' +
+    '.dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:8px}' +
+    '.rank{display:grid;grid-template-columns:minmax(0,35%) 1fr auto;align-items:center;gap:8px 10px;padding:4px 0}' +
+    '.rank .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}' +
+    '.rank .tr{height:10px;border-radius:5px;background:rgba(255,255,255,.1);overflow:hidden}' +
+    '.rank .fill{height:100%;border-radius:5px}.rank .vl{font-variant-numeric:tabular-nums;color:var(--secondary-text-color,rgba(255,255,255,.7))}' +
+    '.cols{display:flex;align-items:flex-end;gap:2px;height:180px;border-bottom:1px solid var(--divider-color,rgba(255,255,255,.18))}' +
+    '.col{flex:1 1 0;min-width:0;height:100%;display:flex;flex-direction:column-reverse}' +
+    '.col>div{width:100%}.ticks{display:flex;justify-content:space-between;color:var(--secondary-text-color,rgba(255,255,255,.6));font-size:12px;padding-top:4px}' +
+    '.legend{display:flex;flex-wrap:wrap;gap:4px 14px;margin-top:10px;font-size:12px;color:var(--secondary-text-color,rgba(255,255,255,.7))}';
+
+  function mk(tag, cls, text) {
+    var e = doc().createElement(tag);
+    if (cls) e.className = cls;
+    if (text != null) e.textContent = text;
+    return e;
+  }
+  function hues() {
+    var P = global.hkCards && global.hkCards.PALETTE && global.hkCards.PALETTE.chart;
+    return Array.isArray(P) && P.length ? P : EN_COLORS;
   }
 
   function makeClasses() {
@@ -670,8 +962,204 @@
       }
     }
 
+    // LOVELACE'S MARKDOWN CARD, the subset HK uses (see mdBlocks above). No HTML is ever parsed.
+    class HkViewMarkdown extends H {
+      setConfig(cfg) {
+        if (!cfg || typeof cfg.content !== 'string') throw new Error('markdown: content is required');
+        this._config = cfg;
+        var sr = this._sr || (this._sr = this.attachShadow({ mode: 'open' }));
+        while (sr.firstChild) sr.removeChild(sr.firstChild);
+        sr.appendChild(styleEl(MD_CSS));
+        if (cfg.title) sr.appendChild(mk('div', 'title', String(cfg.title)));
+        var box = mk('div', 'md');
+        mdBlocks(cfg.content, box);
+        sr.appendChild(box);
+      }
+      getCardSize() { return 2; }
+    }
+
+    // The base of the four energy cards: follows the shared period, asks (once per period, and
+    // again when the answer is two minutes old) for the meters its `_ids` names, and `_paint`s.
+    class HkEnergyCard extends H {
+      setConfig(cfg) {
+        this._config = cfg || {};
+        this._sig = null;
+        var sr = this._sr || (this._sr = this.attachShadow({ mode: 'open' }));
+        while (sr.firstChild) sr.removeChild(sr.firstChild);
+        sr.appendChild(styleEl(EN_CSS));
+        this._body = mk('div', 'body');
+        sr.appendChild(this._body);
+        this._note('Loading…');
+        if (this.isConnected) this._go();
+      }
+      getCardSize() { return 4; }
+      connectedCallback() { if (this._config) this._go(); }
+      disconnectedCallback() {
+        var i = EN.subs.indexOf(this._sub);
+        if (i >= 0) EN.subs.splice(i, 1);
+        this._sub = null;
+        this._sig = null;
+      }
+      _go() {
+        var self = this;
+        if (!this._sub) { this._sub = function () { self._refresh(); }; EN.subs.push(this._sub); }
+        this._refresh();
+      }
+      _onClient() { if (this.isConnected && this._config) this._refresh(); }
+      _note(text) {
+        while (this._body.firstChild) this._body.removeChild(this._body.firstChild);
+        this._body.appendChild(mk('div', 'empty', text));
+      }
+      _clear() { while (this._body.firstChild) this._body.removeChild(this._body.firstChild); return this._body; }
+
+      _refresh() {
+        var cl = this.client, self = this;
+        if (!cl || !cl.callWS || !this._config) return;
+        var r = enRange(EN.mode, EN.off, cl), sig = r.mode + '|' + r.start;
+        if (sig === this._sig && Date.now() - this._at < EN_FRESH_MS) return;
+        this._sig = sig; this._at = Date.now();
+        var tok = this._tok = (this._tok || 0) + 1;
+        enPrefs(cl).then(function (pr) {
+          var ids = self._ids(pr, cl);
+          return enFetch(cl, ids, r).then(function (data) { return { pr: pr, ids: ids, data: data }; });
+        }).then(function (res) {
+          if (tok !== self._tok || !self._sub) return;
+          self._paint(r, res.pr, res.data, cl, res.ids);
+        });
+      }
+    }
+
+    // energy-date-selection: Day / Week / Month / Year and the arrows, the period the others follow
+    class HkEnergyDate extends HkEnergyCard {
+      _go() {
+        var self = this;
+        if (!this._sub) { this._sub = function () { self._refresh(); }; EN.subs.push(this._sub); }
+        this._refresh();
+      }
+      _onClient() { if (this.isConnected && this._config && !this._painted) this._refresh(); }
+      _refresh() {
+        this._painted = true;
+        var r = enRange(EN.mode, EN.off, this.client), body = this._clear(), wrap = mk('div', 'date');
+        var nav = mk('div', 'nav'), prev = mk('button', 'prev', '‹'), next = mk('button', 'next', '›');
+        prev.setAttribute('aria-label', 'Previous');
+        next.setAttribute('aria-label', 'Next');
+        prev.addEventListener('click', function () { enSet(EN.mode, EN.off - 1); });
+        next.addEventListener('click', function () { enSet(EN.mode, EN.off + 1); });
+        if (EN.off >= 0) next.setAttribute('disabled', '');
+        nav.appendChild(prev); nav.appendChild(mk('span', 'lab', enLabel(r))); nav.appendChild(next);
+        wrap.appendChild(nav);
+        var seg = mk('div', 'seg');
+        EN_MODES.forEach(function (m) {
+          var b = mk('button', m === r.mode ? 'on' : '', m.charAt(0).toUpperCase() + m.slice(1));
+          b.setAttribute('data-mode', m);
+          b.addEventListener('click', function () { enSet(m, 0); });
+          seg.appendChild(b);
+        });
+        wrap.appendChild(seg);
+        body.appendChild(wrap);
+      }
+      _ids() { return []; }
+      _paint() { /* _refresh draws it */ }
+    }
+
+    // energy-sources-table: each source's energy over the period
+    class HkEnergySources extends HkEnergyCard {
+      _ids(pr) { return enSources(pr).map(function (s) { return s.id; }); }
+      _paint(r, pr, data) {
+        var src = enSources(pr);
+        if (!src.length) { this._note('No energy sources are set up yet.'); return; }
+        var rows = [], by = {};
+        src.forEach(function (s) {
+          var row = by[s.label];
+          if (!row) { row = by[s.label] = { label: s.label, v: null }; rows.push(row); }
+          var v = sumOf(data[s.id]);
+          if (v != null) row.v = (row.v || 0) + v;
+        });
+        var tb = mk('table'), pal = hues();
+        rows.forEach(function (row, i) {
+          var tr = mk('tr'), c1 = mk('td'), dot = mk('span', 'dot');
+          dot.style.background = pal[i % pal.length];
+          c1.appendChild(dot); c1.appendChild(textNode(row.label));
+          tr.appendChild(c1); tr.appendChild(mk('td', '', kwh(row.v)));
+          tb.appendChild(tr);
+        });
+        this._clear().appendChild(tb);
+      }
+    }
+
+    // energy-devices-graph: the devices, most energy first
+    class HkEnergyDevices extends HkEnergyCard {
+      _ids(pr, cl) { return enDevices(pr, cl).map(function (d) { return d.id; }); }
+      _paint(r, pr, data, cl) {
+        var devs = enDevices(pr, cl).map(function (d) { return { name: d.name, v: sumOf(data[d.id]) }; })
+          .filter(function (d) { return d.v != null && d.v > 0; })
+          .sort(function (a, b) { return b.v - a.v; }).slice(0, 20);
+        if (!devs.length) { this._note(enDevices(pr, cl).length ? 'No device energy for this period.' : 'No individual devices are set up yet.'); return; }
+        var body = this._clear(), max = devs[0].v, c = hues()[0];
+        devs.forEach(function (d) {
+          var row = mk('div', 'rank'), tr = mk('div', 'tr'), fill = mk('div', 'fill');
+          fill.style.width = Math.max(1, Math.round(1000 * d.v / max) / 10) + '%';
+          fill.style.background = c;
+          tr.appendChild(fill);
+          row.appendChild(mk('div', 'nm', d.name)); row.appendChild(tr); row.appendChild(mk('div', 'vl', kwh(d.v)));
+          body.appendChild(row);
+        });
+      }
+    }
+
+    // energy-devices-detail-graph: the devices stacked, one column per hour / day / month
+    class HkEnergyDetail extends HkEnergyCard {
+      _ids(pr, cl) { return enDevices(pr, cl).map(function (d) { return d.id; }); }
+      _paint(r, pr, data, cl) {
+        var devs = enDevices(pr, cl).map(function (d) { return { name: d.name, a: data[d.id] || [], v: sumOf(data[d.id]) }; })
+          .filter(function (d) { return d.v != null && d.v > 0; })
+          .sort(function (a, b) { return b.v - a.v; });
+        if (!devs.length) { this._note(enDevices(pr, cl).length ? 'No device energy for this period.' : 'No individual devices are set up yet.'); return; }
+        var pal = hues(), top = devs.slice(0, 8), rest = devs.slice(8);
+        var series = top.map(function (d, i) { return { name: d.name, a: d.a, color: pal[i % pal.length] }; });
+        if (rest.length) {
+          series.push({ name: 'Other', color: 'rgba(255,255,255,.35)', a: r.edges.map(function (_e, i) {
+            return rest.reduce(function (s, d) { return s + (d.a[i] || 0); }, 0);
+          }) });
+        }
+        var totals = r.edges.map(function (_e, i) { return series.reduce(function (s, d) { return s + (d.a[i] || 0); }, 0); });
+        var max = Math.max.apply(null, totals.concat([0.000001]));
+        var body = this._clear(), cols = mk('div', 'cols');
+        r.edges.forEach(function (t, i) {
+          var col = mk('div', 'col');
+          col.setAttribute('title', enTick(t, r) + ': ' + kwh(totals[i]));
+          series.forEach(function (s) {
+            var v = s.a[i] || 0;
+            if (v <= 0) return;
+            var seg = mk('div');
+            seg.style.height = (Math.round(10000 * v / max) / 100) + '%';
+            seg.style.background = s.color;
+            col.appendChild(seg);
+          });
+          cols.appendChild(col);
+        });
+        body.appendChild(cols);
+        var ticks = mk('div', 'ticks'), n = r.edges.length;
+        [0, Math.floor((n - 1) / 2), n - 1].forEach(function (i) { ticks.appendChild(mk('span', '', enTick(r.edges[i], r))); });
+        body.appendChild(ticks);
+        var lg = mk('div', 'legend');
+        series.forEach(function (s) {
+          var it = mk('span'), dot = mk('span', 'dot');
+          dot.style.background = s.color;
+          it.appendChild(dot); it.appendChild(textNode(s.name));
+          lg.appendChild(it);
+        });
+        body.appendChild(lg);
+      }
+    }
+
     return {
       'hk-picture-entity': HkPictureEntity,
+      'hk-view-markdown': HkViewMarkdown,
+      'hk-energy-date-selection': HkEnergyDate,
+      'hk-energy-sources-table': HkEnergySources,
+      'hk-energy-devices-graph': HkEnergyDevices,
+      'hk-energy-devices-detail-graph': HkEnergyDetail,
       'hk-card-placeholder': HkCardPlaceholder,
       'hk-view-grid': HkViewGrid,
       'hk-view-stack': HkViewStack,

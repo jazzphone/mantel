@@ -29,9 +29,10 @@ from urllib.parse import urlparse
 import aiohttp
 from aiohttp import WSMsgType, web
 
-from . import accounts, auth, connect_pairing, devices, gateway, health, ingress, pins, proof2, rbac_store, readproxy, sessions, settings_store
-from . import admin_page, backup, features, linked, login_page, service_accounts, talk_relay, user_files
 from . import music
+from . import accounts, alarm_pin, auth, connect_pairing, devices, gateway, health, ingress, pins, proof2, rbac_store, readproxy, sessions, settings_store
+from . import (admin_page, backup, features, linked, linked_house, linked_owners, login_page,
+               service_accounts, talk_relay, user_files)
 from .authz import Authz, Principal, resolve_door
 from .config import Config
 from .connectors import REFUSE_ALL, Ctx, Hooks
@@ -420,6 +421,7 @@ def build_app(cfg: Config, token: str, store: Store | None = None, connect_ha: b
     login_page.register(app, hub)     # /login (passkey, password + TOTP, Sign in with HA via /login/ha)
     admin_page.register(app, hub)     # /admin (people, devices, roles, service accounts, audit, my PIN)
     pins.register(app, hub)
+    alarm_pin.register(app, hub)      # HK's Alarm PIN: the keypad's code checked by Mantel (GATEWAY.md "The alarm")
     ingress.register(app, hub, token)                   # HA App mode / Connect (cfg.ingress); inert otherwise
     wire(app, hub, token, connect_ha)
     connect_pairing.register(app, hub)                  # Mantel Connect (cfg.connect): pairing + the mTLS listener
@@ -522,6 +524,9 @@ def wire(app: web.Application, hub: Hub, token: str, connect_ha: bool) -> None:
     # LAN door + a Service credential with the `linked` scope; Mantel can't call HA through it).
     service_accounts.register(app, hub)
     linked.register(app, hub)
+    # linked mode's per-tablet ownership (CUTOVER §1 Option A): every tablet HA's until an Owner moves
+    # it (PUT /api/linked/owners, audited); HA is told in the link's hello and `owners` frames
+    linked_owners.register(app, hub)
     # Phase 4: hk_core's features on Mantel (each off until an Owner enables it; house commands only
     # through the gateway as the `mantel:features` Service actor)
     features.register(app, hub, hooks)
@@ -529,6 +534,9 @@ def wire(app: web.Application, hub: Hub, token: str, connect_ha: bool) -> None:
     # in front of the interim bridge once MA and the music settings are in Mantel; its actions run only
     # through the gateway (commands off: refused, nothing reaches MA)
     music.register(app, hub, hooks)
+    # linked mode's notify and the rest of the entry (Seasonal decorations, Alarm PIN through the
+    # gateway as the person whose PIN it is, Live TV), published only while Mantel owns `house`
+    linked_house.register(app, hub)
     # the home's own files (fonts, glyphs, photos; Owner/Admin upload) and the nightly encrypted
     # backup (off unless --backup-target is set)
     user_files.register(app, hub)

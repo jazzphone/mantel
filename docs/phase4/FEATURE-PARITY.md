@@ -107,16 +107,17 @@ What remains (in HA until Live TV's viewers move):
 
 ## Other gaps
 
-- **HA's own Lovelace energy cards** (`energy-date-selection`, `energy-sources-table`,
-  `energy-devices-graph`, `energy-devices-detail-graph`) are drawn only when the Energy options' `detail` is on.
-  Mantel's view host doesn't have them.
-- **Lovelace's `markdown` card** isn't in the view host either. An Energy page with nothing to show ("Nothing to
-  show yet…") draws an empty placeholder instead of that line.
-- **HK Settings → Features pages** read each feature's `<id>/settings/get`, which pages can't send on Mantel
-  (Music's, `hk_music/settings/get`, is answered by Mantel's music engine once it is on, and its saves go to
-  Mantel's `house/music` through the gateway).
-  Since panel/get now lists the features as added, an Owner opening one sees it fail to load. Saving feature
-  settings was already `not_yet`.
+- ~~**HA's own Lovelace energy cards** and the **`markdown` card**~~ done 2026-10-18: Mantel's view host
+  draws `markdown` (the Energy page's "Nothing to show yet..." line) and `energy-date-selection`,
+  `-sources-table`, `-devices-graph` and `-devices-detail-graph` (shown when the Energy options' `detail`
+  is on) with HK's own elements, from `energy/get_prefs` and `recorder/statistics_during_period`
+  (`docs/phase2/VIEW-HOST.md`). No cost columns or period comparison.
+- ~~**HK Settings → Features pages** read each feature's `<id>/settings/get`, which pages can't send on Mantel.~~
+  **Fixed (2026-10-18, [MANTEL-FEATURES.md](MANTEL-FEATURES.md) "Phase 4 ports" item 5):** Mantel answers each page
+  for Owners/Admins and stores Notifications', Clean Areas', Energy's and Live TV's saves in
+  `house/mantel_features`; Alarm PIN's page is an interim rebuilt read of HA's (saves `not_yet`). Music's is
+  Mantel's own settings once Mantel's music engine is on ([MANTEL-FEATURES.md](MANTEL-FEATURES.md) "Music"; its
+  saves then go to `house/music` through the gateway), the interim rebuilt read of HA's until then.
 - **A change made in HA after the import** doesn't reach Mantel until the import is run again (POST or the
   Ingress button).
 

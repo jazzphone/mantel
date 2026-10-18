@@ -7,9 +7,30 @@ OFF BY DEFAULT. Nothing here runs until the entry's data holds a link
 (CONF_MANTEL_LINK: Mantel Server's address and a Service credential). Without
 one, everything this integration does is exactly what it did before.
 
-WHEN LINKED (the entry is reloaded the moment the link is set or changed):
-  * the actions automations call -- set_black_screen, show_popup, close_popup
-    -- keep their names and schemas, and are FORWARDED to Mantel Server over
+PER-TABLET OWNERSHIP (the cutover: docs/phase6/CUTOVER.md section 1, Option
+A). While the house moves one wall tablet at a time, each tablet is owned by
+Home Assistant (this integration's own engines and entities, as today) or by
+Mantel Server; "house" is the rest of the entry (Seasonal decorations, Alarm
+PIN, Live TV, the features, the HK Settings page). Mantel's Owner moves them
+(Mantel keeps the rows and audits every move); the link's hello and an
+`owners` frame tell this side, which keeps the last word in the entry's data
+(CONF_MANTEL_OWNERS) so a restart without Mantel keeps it, and reloads the
+entry when it changes. Nothing told yet: everything is Home Assistant's.
+
+  * LINKED, "house" HOME ASSISTANT'S (Steps 3-6): today's integration runs as
+    always, except for the tablets Mantel owns: they get no engine and no
+    entities of HA's own; their four entities are Mantel's, mirrored, and
+    set_black_screen on them (or a command to them) is forwarded. show_popup,
+    close_popup and notify run here as always AND are forwarded too, while
+    Mantel owns any tablet (its screens are Mantel's); a Mantel that cannot be
+    reached then only logs, since HA's own screens got it.
+  * LINKED, "house" MANTEL'S (Step 7, every tablet already Mantel's): the
+    whole entry is Mantel's, as below.
+
+WHEN THE WHOLE ENTRY IS MANTEL'S (the entry is reloaded the moment the link or
+the ownership is set or changed):
+  * the actions automations call -- set_black_screen, show_popup, close_popup,
+    notify -- keep their names and schemas, and are FORWARDED to Mantel Server over
     one authenticated WebSocket (mantel_link.py), answered by id. A Mantel
     Server that is not connected, or does not answer in 10 s, fails the action
     with a clear error; one that refuses says why.
@@ -51,7 +72,7 @@ from homeassistant.components.binary_sensor import BinarySensorEntity
 from homeassistant.components.camera import Camera, CameraEntityFeature
 from homeassistant.components.sensor import SensorEntity
 from homeassistant.components.switch import SwitchEntity
-from homeassistant.config_entries import ConfigEntry
+from homeassistant.config_entries import ConfigEntry, ConfigEntryState
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 from homeassistant.helpers import entity_registry as er
@@ -59,17 +80,18 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
 from homeassistant.helpers.entity import Entity
 
-from .const import CONF_MANTEL_LINK, DOMAIN
+from .const import CONF_MANTEL_LINK, CONF_MANTEL_OWNERS, DOMAIN
 from .mantel_link import LinkError, MantelLink, Refused, ws_url
 
 _LOGGER = logging.getLogger(__name__)
 
 DATA = "linked"                        # hass.data[DOMAIN][DATA]: the running Linked
-# what the link forwards (and nothing else): the three actions automations use
-SERVICES = ("set_black_screen", "show_popup", "close_popup")
+# what the link forwards (and nothing else): the actions automations use
+SERVICES = ("set_black_screen", "show_popup", "close_popup", "notify")
 # Mantel's refusals that are the caller's to fix (the rest are Mantel's trouble)
 _VALIDATION = {"invalid", "unknown_service", "unknown_target", "unknown_entity", "unknown_command",
-               "not_a_black_screen", "invalid_code", "unknown_popup"}
+               "not_a_black_screen", "invalid_code", "code_required", "code_locked", "unknown_popup",
+               "not_owned"}
 # attributes Home Assistant itself sets: never taken from Mantel's
 _RESERVED = {"friendly_name", "icon", "entity_picture", "supported_features", "device_class",
              "unit_of_measurement", "assumed_state", "attribution", "restored", "state_class", "options",
@@ -92,6 +114,61 @@ def configured(entry: ConfigEntry | None) -> bool:
     return link_of(entry) is not None
 
 
+def _owners(raw: Any) -> dict[str, Any]:
+    raw = raw if isinstance(raw, Mapping) else {}
+    tablets = raw.get("tablets")
+    tablets = frozenset(str(t) for t in tablets if isinstance(t, str) and t) if isinstance(tablets, list) else frozenset()
+    return {"house": raw.get("house") == "mantel", "tablets": tablets}
+
+
+def owners_of(entry: ConfigEntry | None) -> dict[str, Any]:
+    """Who owns what, as Mantel last said: {"house": bool (the rest of the
+    entry is Mantel's), "tablets": frozenset of the tablet ids Mantel owns}.
+    Nothing said: everything Home Assistant's."""
+    return _owners(entry.data.get(CONF_MANTEL_OWNERS) if entry is not None else None)
+
+
+def wire_owners(owners: Mapping[str, Any]) -> dict[str, Any]:
+    """Mantel's `owners` as kept in the entry's data (normalised)."""
+    o = _owners(owners)
+    return {"house": "mantel" if o["house"] else "ha", "tablets": sorted(o["tablets"])}
+
+
+def full(entry: ConfigEntry | None) -> bool:
+    """Linked, and the whole entry is Mantel's (Step 7): nothing local runs."""
+    return configured(entry) and owners_of(entry)["house"]
+
+
+def setup_key(entry: ConfigEntry | None) -> Any:
+    """What the entry was set up for (a change of it reloads the entry): the
+    link and, while linked, the ownership."""
+    link = link_of(entry)
+    if link is None:
+        return None
+    o = owners_of(entry)
+    return (link["url"], link["token"], o["house"], tuple(sorted(o["tablets"])))
+
+
+def mantel_tablets(hass: HomeAssistant, entry: ConfigEntry | None) -> frozenset[str]:
+    """The tablets Mantel owns (no engine or entity of HA's own for them)."""
+    if not configured(entry):
+        return frozenset()
+    return owners_of(entry)["tablets"]
+
+
+def describe(entry: ConfigEntry | None) -> str:
+    """For Configure and the log: who owns what, in words."""
+    if not configured(entry):
+        return "not linked"
+    o = owners_of(entry)
+    if o["house"]:
+        return "linked; the whole entry is Mantel Server's"
+    if o["tablets"]:
+        return ("linked; Mantel Server owns the tablet(s) " + ", ".join(sorted(o["tablets"]))
+                + ", Home Assistant everything else")
+    return "linked; every tablet is still Home Assistant's"
+
+
 def check_url(address: str) -> str | None:
     """An error key for Configure's form, or None. Plain http/ws only to this
     machine: anywhere else the credential would cross the network in clear
@@ -112,13 +189,14 @@ def active(hass: HomeAssistant) -> "Linked | None":
 
 
 def attach(hass: HomeAssistant, entry: ConfigEntry, platform: str, add: Any) -> bool:
-    """A platform of the house's entry: in linked mode its entities are
-    Mantel's (True: the caller adds nothing of its own)."""
+    """A platform of the house's entry, linked: Mantel's entities of the
+    units it owns are added through it. True when the whole entry is
+    Mantel's (the caller then adds nothing of its own)."""
     linked = active(hass)
     if linked is None or linked.entry is not entry:
         return False
     linked.attach(str(platform), add)
-    return True
+    return linked.full
 
 
 def diagnostics(hass: HomeAssistant, entry: ConfigEntry) -> dict[str, Any]:
@@ -128,7 +206,8 @@ def diagnostics(hass: HomeAssistant, entry: ConfigEntry) -> dict[str, Any]:
     return {"linked": link is not None, "url": link["url"] if link else None,
             "connected": bool(linked and linked.link.connected),
             "entities": len(linked.entities) if linked else 0,
-            "last_error": linked.link.last_error if linked else None}
+            "last_error": linked.link.last_error if linked else None,
+            "owners": wire_owners(entry.data.get(CONF_MANTEL_OWNERS) or {})}
 
 
 # ------------------------------------------------------------ the running link
@@ -144,6 +223,12 @@ class Linked:
         self.descs: dict[str, dict[str, Any]] = {}          # unique id -> Mantel's descriptor
         self.entities: dict[str, LinkedEntity] = {}         # unique id -> the entity added
         self.adders: dict[str, Any] = {}                    # platform -> async_add_entities
+        # who owns what, as the entry was set up (a change reloads it)
+        o = owners_of(entry)
+        self.full: bool = bool(o["house"])
+        self.tablets: frozenset[str] = frozenset(o["tablets"])
+        self._pending_owners: dict[str, Any] | None = None
+        self._unwait: Any = None
 
     @property
     def connected(self) -> bool:
@@ -153,6 +238,9 @@ class Linked:
         self.entry.async_create_background_task(self.hass, self.link.run(), "hk_frontend: link to Mantel Server")
 
     async def stop(self) -> None:
+        if self._unwait is not None:
+            self._unwait()
+            self._unwait = None
         await self.link.close()
 
     @callback
@@ -163,16 +251,64 @@ class Linked:
                 self._add(d)
 
     # ---- the listener (mantel_link.Listener): Mantel's entities, nothing else
+    def mine(self, d: Mapping[str, Any]) -> bool:
+        """Is this entity's unit Mantel's? A tablet's: that tablet moved; the
+        rest: the whole entry moved."""
+        if self.full:
+            return True
+        tablet = d.get("tablet")
+        return isinstance(tablet, str) and tablet in self.tablets
+
+    @callback
+    def on_owners(self, owners: dict[str, Any]) -> None:
+        """Mantel says who owns what. Kept in the entry's data (a restart
+        without Mantel keeps it); a change reloads the entry (the update
+        listener), which then runs HA's own engines for exactly its own."""
+        new = wire_owners(owners)
+        old = self.entry.data.get(CONF_MANTEL_OWNERS)
+        if (wire_owners(old) if isinstance(old, Mapping) else wire_owners({})) == new and (
+                old is not None or new == wire_owners({})):
+            return
+        _LOGGER.warning("hk_frontend: Mantel Server says the house is now owned so: %s (was %s); reloading",
+                        new, old or "everything Home Assistant's")
+        # until the reload: what is no longer Mantel's is never read as deleted
+        # (on_removed), and what is newly Mantel's waits for the reload (HA's
+        # own entity still holds its unique id)
+        o = _owners(new)
+        self.full, self.tablets = self.full and bool(o["house"]), self.tablets & frozenset(o["tablets"])
+        self._pending_owners = new
+        if self.entry.state is ConfigEntryState.LOADED:
+            self._apply_owners()
+        elif self._unwait is None:
+            # the hello came while the entry is still being set up: keep it
+            # (and reload) once it is, never in the middle of its setup
+            @callback
+            def loaded() -> None:
+                if self.entry.state is ConfigEntryState.LOADED:
+                    self._apply_owners()
+            self._unwait = self.entry.async_on_state_change(loaded)
+
+    @callback
+    def _apply_owners(self) -> None:
+        if self._unwait is not None:
+            self._unwait()
+            self._unwait = None
+        new, self._pending_owners = self._pending_owners, None
+        if new is None or self.entry.data.get(CONF_MANTEL_OWNERS) == new:
+            return
+        self.hass.config_entries.async_update_entry(self.entry, data={**self.entry.data, CONF_MANTEL_OWNERS: new})
+
     @callback
     def on_hello(self, entities: list[dict[str, Any]]) -> None:
-        seen = {d["unique_id"] for d in (self._checked(e) for e in entities) if d and self._upsert(d)}
+        seen = {d["unique_id"] for d in (self._checked(e) for e in entities)
+                if d and self.mine(d) and self._upsert(d)}
         for uid in [u for u in self.descs if u not in seen]:
             self._drop(uid, registry=False)          # gone from Mantel's list: off the state machine only
 
     @callback
     def on_entity(self, entity: dict[str, Any]) -> None:
         d = self._checked(entity)
-        if d:
+        if d and self.mine(d):
             self._upsert(d)
 
     @callback
@@ -186,8 +322,12 @@ class Linked:
             ent.apply(d)
 
     @callback
-    def on_removed(self, unique_id: str) -> None:
-        self._drop(unique_id, registry=True)         # Mantel removed it (a tablet removed): as before
+    def on_removed(self, unique_id: str, forget: bool = True) -> None:
+        # Mantel removed it (a tablet removed): from the registry too, as
+        # before. Only no longer Mantel's (its unit moved back to HA): the
+        # registry entry stays, so HA's own entity keeps its entity id.
+        d = self.descs.get(unique_id)
+        self._drop(unique_id, registry=forget and (d is None or self.mine(d)))
 
     @callback
     def on_connected(self, connected: bool) -> None:
@@ -263,6 +403,20 @@ class Linked:
         except LinkError as err:
             raise self._fail(f"hk_frontend.{service}", err) from None
 
+    async def also(self, service: str, data: Mapping[str, Any]) -> Any:
+        """An action HA has just carried out for its own screens, to Mantel
+        too while Mantel owns a tablet (its screens are Mantel's). Mantel not
+        reachable, or refusing: logged, not raised -- HA's own part is done
+        and an automation's next steps still run."""
+        if self.full or not self.tablets:
+            return None
+        try:
+            return await self.forward(service, data)
+        except HomeAssistantError as err:
+            _LOGGER.warning("hk_frontend: %s reached Home Assistant's screens but not Mantel Server's "
+                            "(tablets %s): %s", service, ", ".join(sorted(self.tablets)), err)
+            return None
+
     async def command(self, ent: "LinkedEntity", command: str, code: str | None = None) -> Any:
         """A command to one mirrored entity, to Mantel Server."""
         payload = {"unique_id": ent.unique_id, "command": command, "data": {"code": code} if code is not None else {}}
@@ -273,16 +427,34 @@ class Linked:
 
 
 # ------------------------------------------------------------ setup
-async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, platforms: list[Any]) -> bool:
-    """The house's entry, linked: the link, then the platforms (each attaches)."""
+def start(hass: HomeAssistant, entry: ConfigEntry) -> "Linked":
+    """The link for the house's entry while HA still runs it (house HA's):
+    started before the platforms, which attach to it."""
     linked = Linked(hass, entry)
     hass.data.setdefault(DOMAIN, {})[DATA] = linked
-    link_now = link_of(entry)
+    linked.start()
+    _LOGGER.info("hk_frontend: linked to Mantel Server at %s; %s", linked.link.url, describe(entry))
+    return linked
+
+
+async def async_stop(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    linked = hass.data.get(DOMAIN, {}).get(DATA)
+    if linked is not None and linked.entry is entry:
+        hass.data[DOMAIN].pop(DATA, None)
+        await linked.stop()
+
+
+async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, platforms: list[Any]) -> bool:
+    """The house's entry, linked and wholly Mantel's: the link, then the
+    platforms (each attaches)."""
+    linked = Linked(hass, entry)
+    hass.data.setdefault(DOMAIN, {})[DATA] = linked
+    key_now = setup_key(entry)
 
     async def updated(_hass: HomeAssistant, _entry: ConfigEntry) -> None:
-        # the link set, changed or removed (Configure): start again. Nothing
-        # else is followed in linked mode -- the settings are Mantel's.
-        if link_of(entry) != link_now:
+        # the link or the ownership set, changed or removed: start again.
+        # Nothing else is followed here -- the settings are Mantel's.
+        if setup_key(entry) != key_now:
             hass.config_entries.async_schedule_reload(entry.entry_id)
 
     entry.async_on_unload(entry.add_update_listener(updated))

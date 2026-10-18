@@ -73,8 +73,8 @@ def test_readproxy_allowlist_is_pinned_and_has_no_writes():
                                  # the feature import's reads (server-only; tests/test_feature_parity.py)
                                  "hk_notify/settings/get", "hk_clean_areas/settings/get", "hk_energy/settings/get",
                                  "hk_tv/settings/get",
-                                 # the music import's read (server-only; tests/test_music.py)
-                                 "hk_music/settings/get"}
+                                 # HK Settings' Music and Alarm PIN pages (server-only, interim: feature_pages.py)
+                                 "hk_music/settings/get", "hk_alarm_pin/settings/get"}
     # hk_music/queue READS a speaker's queue (HA: ws_music_queue, entity_id + limit); its write is
     # hk_music/queue_play, which "play" still catches and check_read refuses
     READ_NAMED_LIKE_A_WRITE = {"hk_music/queue"}

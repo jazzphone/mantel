@@ -90,6 +90,23 @@ N min.", "That PIN cannot be used here; ask an Owner." Checked in headless Chrom
 PIN kept it open with that message, the Child's PIN settled `forbidden` and closed it, the Adult's PIN
 unlocked and the audit row named "Offline Adult" at that tablet; 0 browser exceptions.
 
+### The alarm keypad (`Pins.keypad`, added 2026-10-18)
+
+HK's alarm keypad sends the typed code inside the alarm command. The gateway takes the code out and
+`alarm_pin.py` asks `Pins.keypad` once, with GATEWAY.md "The alarm" giving the whole flow:
+
+* **What counts.** The house's Alarm PIN for that keypad (`alarm_pins.pin_hash`, Argon2id, set by an
+  Owner/Admin) or a person's PIN. At a tablet, or for linked mode, the PIN can name anyone; on a
+  session, only the signed-in person's own PIN. Both are always checked. A person beats the house code.
+  Two people with the same PIN, where it isn't the house code, are refused (`ambiguous`).
+* **Where wrong codes count.** Once per wrong code: at a tablet `device:<id>` (the same row as its PIN
+  pad, so the two share one lockout), on a session `keypad:user:<id>` (and the person's own PIN lock
+  also stops it), for linked mode `keypad:mantel:linked`, plus the per-IP limit. A right code resets the
+  place. A Child's correct PIN that RBAC then refuses doesn't count, as above.
+* **Never stored or shown.** The code isn't in the audit, the log, the reply or the frame sent to HA. The
+  alarm's own HA code (`alarm_pins.ha_code`) is sealed with Mantel's key, and only the gateway opens it
+  to build the frame.
+
 ## The audit read API
 
 `GET /api/audit?actor=&device=&decision=&kind=&since=&until=&before=&limit=`

@@ -5,10 +5,14 @@ One WebSocket to Mantel Server's linked endpoint (/linked/ws), authenticated by
 a Service credential sent as `Authorization: Bearer` on the upgrade (never in
 the address). Over it:
 
-    Mantel -> here   hello {protocol, entities}    every entity, on connect
+    Mantel -> here   hello {protocol, entities, owners}   every entity, on connect
                      entity {entity}               one added or replaced
                      state {unique_id, state, attributes, available}
-                     removed {unique_id}
+                     removed {unique_id, forget?}  forget: false = only no
+                                                   longer Mantel's (kept in
+                                                   the registry)
+                     owners {owners}               who owns which tablet
+                                                   (linked_mode.py)
                      result {id, success, result | error {code, message}}
     here -> Mantel   call_service {id, service, data, targets}
                      entity_command {id, unique_id, command, data}
@@ -71,10 +75,11 @@ class Refused(LinkError):
 
 
 class Listener(Protocol):
+    def on_owners(self, owners: dict[str, Any]) -> None: ...
     def on_hello(self, entities: list[dict[str, Any]]) -> None: ...
     def on_entity(self, entity: dict[str, Any]) -> None: ...
     def on_state(self, unique_id: str, state: Any, attributes: dict[str, Any], available: bool) -> None: ...
-    def on_removed(self, unique_id: str) -> None: ...
+    def on_removed(self, unique_id: str, forget: bool = True) -> None: ...
     def on_connected(self, connected: bool) -> None: ...
 
 
@@ -146,29 +151,49 @@ class MantelLink:
     async def _connect_once(self) -> bool:
         """One connection, until it ends. True if it got as far as hello."""
         self.attempts += 1
-        async with self._session.ws_connect(self.url, headers={"Authorization": f"Bearer {self._token}"},
-                                            heartbeat=30, max_msg_size=MAX_MSG) as ws:
-            first = await ws.receive(timeout=self.hello_timeout)
-            hello = json.loads(first.data) if first.type == aiohttp.WSMsgType.TEXT else None
-            if not isinstance(hello, dict) or hello.get("type") != "hello" or hello.get("protocol") != PROTOCOL:
-                raise ValueError("not a Mantel Server linked endpoint (protocol 1)")
-            self._ws = ws
-            self.connected = True
-            self.last_error = None
-            _LOGGER.info("hk_frontend: linked to Mantel Server at %s", self.url)
-            self._safe(self.listener.on_hello, list(hello.get("entities") or []))
-            self._safe(self.listener.on_connected, True)
-            async for frame in ws:
-                if frame.type == aiohttp.WSMsgType.TEXT:
-                    try:
-                        msg = json.loads(frame.data)
-                    except ValueError:
-                        continue
-                    if isinstance(msg, dict):
-                        self._dispatch(msg)
-                elif frame.type in (aiohttp.WSMsgType.ERROR, aiohttp.WSMsgType.CLOSE):
-                    break
-            return True
+        opened: list[aiohttp.ClientWebSocketResponse] = []
+        try:
+            async with self._session.ws_connect(self.url, headers={"Authorization": f"Bearer {self._token}"},
+                                                heartbeat=30, max_msg_size=MAX_MSG) as ws:
+                opened.append(ws)
+                return await self._serve(ws)
+        finally:
+            # aiohttp re-arms a socket's heartbeat timer when a frame (the
+            # server's own close) arrives while it is closing, leaving a 30 s
+            # timer behind a closed link: switch its heartbeat off for good
+            for ws in opened:
+                if hasattr(ws, "_heartbeat"):
+                    ws._heartbeat = None
+                cancel = getattr(ws, "_cancel_heartbeat", None)
+                if callable(cancel):
+                    cancel()
+
+    async def _serve(self, ws: aiohttp.ClientWebSocketResponse) -> bool:
+        """One connection's life: hello, then every frame until it ends."""
+        first = await ws.receive(timeout=self.hello_timeout)
+        hello = json.loads(first.data) if first.type == aiohttp.WSMsgType.TEXT else None
+        if not isinstance(hello, dict) or hello.get("type") != "hello" or hello.get("protocol") != PROTOCOL:
+            raise ValueError("not a Mantel Server linked endpoint (protocol 1)")
+        self._ws = ws
+        self.connected = True
+        self.last_error = None
+        _LOGGER.info("hk_frontend: linked to Mantel Server at %s", self.url)
+        # who owns which tablet first: the entities are taken by it
+        if isinstance(hello.get("owners"), dict):
+            self._safe(self.listener.on_owners, hello["owners"])
+        self._safe(self.listener.on_hello, list(hello.get("entities") or []))
+        self._safe(self.listener.on_connected, True)
+        async for frame in ws:
+            if frame.type == aiohttp.WSMsgType.TEXT:
+                try:
+                    msg = json.loads(frame.data)
+                except ValueError:
+                    continue
+                if isinstance(msg, dict):
+                    self._dispatch(msg)
+            elif frame.type in (aiohttp.WSMsgType.ERROR, aiohttp.WSMsgType.CLOSE):
+                break
+        return True
 
     def _dispatch(self, msg: dict[str, Any]) -> None:
         t = msg.get("type")
@@ -183,7 +208,9 @@ class MantelLink:
             self._safe(self.listener.on_state, msg["unique_id"], msg.get("state"),
                        attrs if isinstance(attrs, dict) else {}, bool(msg.get("available", True)))
         elif t == "removed" and isinstance(msg.get("unique_id"), str):
-            self._safe(self.listener.on_removed, msg["unique_id"])
+            self._safe(self.listener.on_removed, msg["unique_id"], msg.get("forget") is not False)
+        elif t == "owners" and isinstance(msg.get("owners"), dict):
+            self._safe(self.listener.on_owners, msg["owners"])
         else:
             _LOGGER.debug("hk_frontend: ignored a %r frame from Mantel Server", t)
 

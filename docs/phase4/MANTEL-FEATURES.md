@@ -126,8 +126,8 @@ Status & Chips' thermostats as HA's plan has them; the import leaves Mantel's ow
   notification is Important.
 - Mute 1 Hour: `notify_mute {key, seconds}` is persisted in `house/notify_mutes`, so it survives a
   restart.
-- Not on Mantel yet: camera snapshots (`snap` stays None), calendars' look-ahead, and the `notify`
-  action.
+- Since the Phase 4 ports (below): a camera's snapshot (`snap`) and the calendars' look-ahead. Not on
+  Mantel yet: the `notify` action.
 
 **`linked`.** This is the real handler at Phase 5's hook point.
 
@@ -169,9 +169,11 @@ or a wall-tablet device in the tablet's room. Mantel tells screens to change wit
 **Not on Mantel (unchanged by this slice).** These still run in HA, or aren't in scope here:
 
 - ~~the music engine~~ moved 2026-10-18: see "Music" below (on once Music Assistant is given to Mantel)
-- Alarm PIN (`not_supported` in linked mode)
-- the tablets' alerts/restart and the Live TV viewers, cameras and transcode
-- calendars and the history proxies (already read proxies)
+- Alarm PIN in linked mode (`not_supported` until linked.py calls `alarm_pin.linked_command`; the keypad
+  itself is on Mantel since 2026-10-18, below)
+- the Live TV viewers, cameras and transcode (the tablets' alerts/restart and the calendars' look-ahead
+  moved since: "Phase 4 ports" below)
+- the history proxies (already read proxies)
 
 None of these message types is command-shaped. A house command still only ever leaves through the
 gateway.
@@ -194,7 +196,7 @@ in HA App mode until Avery gives Mantel a Music Assistant token. `GET /api/music
 | Decisions | hk_core/music (config, engine, checks, settings, queue item, warm), unchanged, over MantelHouse: the Music Assistant players' `media_player` states and registry entries HA's `music_assistant` integration keeps |
 | Steps | Music Assistant's own WebSocket commands (connectors/ma.py), exactly what HA's integration sends for each service call HA's engine makes (`music.to_ma`): `media_pause/stop/next/...` → `players/cmd/*`, `unjoin` → `players/cmd/ungroup`, `join` → `players/cmd/group_many`, `volume_set` → `players/cmd/volume_set` (0..100), `shuffle_set` → `player_queues/shuffle`, `music_assistant.play_media` → `player_queues/play_media`, `transfer_queue` → `player_queues/transfer`, queue jump → `player_queues/play_index`. A player's MA id is its registry `unique_id` (platform `music_assistant`), its queue id its player id |
 | Engine | `MantelMusic`: HA's MusicManager ported line for line (per-room locks, the newest request wins, Stop cancels, waits on the players' state changes from the hub, every request answers `{ok, leader}` / `{ok: false, message}`) |
-| Reads | `hk_music/subscribe`, `hk_music/queue` (`player_queues/get_active_queue` + `player_queues/items`), `hk_music/settings/library` (`music/playlists/library_items`), `hk_music/settings/get` (HK Settings' music page) |
+| Reads | `hk_music/subscribe`, `hk_music/queue` (`player_queues/get_active_queue` + `player_queues/items`), `hk_music/settings/library` (`music/playlists/library_items`); HK Settings' music page (`hk_music/settings/get`) is feature_pages.py's one route, which answers with `MusicHost.page` (Mantel's settings) while the engine is on |
 | Settings | `house/music` in Mantel's settings store (versioned); HK Settings' saves (`hk_music/settings/set`, `preset/save`, `playlist/save`, `playlists/order`, `item/remove`) are checked by hk_core's settings rules and written there |
 | Keep Playlists Ready | `MantelWarmer` (hk_core's rounds) on Mantel's MA client, while the switch is on and the engine runs; its two refresh reads are **server-only** (`MA_SERVER_READS`: `playlist_tracks` with `force_refresh`, `recently_played_items` with a time) and a page's `ma/read` can never send them |
 | `hk_music/used` | the page's adapter sends `music_used` (`web/shim/mantel-client.js`), answered by the music host on every server, commands on or off: Keep Playlists Ready waits. Never a command |
@@ -286,9 +288,88 @@ and reads exactly what it sends to Home Assistant, and HA's build is byte-identi
 - **RBAC** is the server's, unchanged: `screen_report` only as `may_speak_for` says (the tablet's user, an
   admin, anyone for a tablet with no user, or a wall-tablet device in the tablet's room); `notify_mute` any
   signed-in person.
-- **Not reported to the server:** that the *photos* came up or went away. `screen_report` has no field for
-  it (touch, saver touch and black only), so Mantel's `ScreenState.photos` follows linked HA / Sleep Screen
-  commands, not the page. Adding a `photos` field is a small follow-up if Sleep Screen needs it.
+- **The photos are reported** (since the Phase 4 ports): when HK turns its photo switch on or off (the
+  photo screensaver came up / went away), the page also sends `screen_report {tablet, photos}`, so Mantel's
+  `ScreenState.photos` (what the Sleep Screen and linked HA read) follows the page too. A refusal leaves the
+  page's own switch as HK set it.
+
+## Phase 4 ports (2026-10-18, second slice)
+
+Five more pieces moved onto Mantel, each through `MantelHouse` and `FeatureCaller`, each with RBAC, an
+allowlist of keys, and no HA token in anything a page gets. HA's own engines are untouched; the only HA-side
+change is a no-behaviour move of Energy's settings checks into `hk_core/energy/settings.py` (HA's
+`settings_ws.py` re-exports every name; 697 HA Python tests pass unchanged).
+
+**1. Notification snapshots** (`notify_snaps.py`). A notification naming a camera (an item's Snapshot, a
+Cameras category's camera) has its picture taken first, as HA's `async_deliver` does:
+
+- Taken by Mantel through its own HA credential (`GET <ha>/api/camera_proxy/<camera>`, the still route's
+  call; the connectors' `ha_token` hook), at most 6 s and 8 MB, image types only. Nothing in time: the
+  notification goes without (`snap: null`), as in HA.
+- Kept in `<data_dir>/notify-snaps` (folder 0700, files 0600): the picture plus `{camera, type, until}`.
+  Retention is HA's: 10 minutes, at most 30 (the oldest go first), pruned on every put, every minute and at
+  start (a restart keeps the current ones).
+- The events feed's `snap` is the picture's id (32 random hex characters).
+- HK's `hk_notify/snap/sign {snaps}` is a Mantel read (`read_routes`): `{signed: {id: "/api/notify/snap/<id>"}}`,
+  only for a picture of a camera the person may see as a still (`Authz.may_still`). The page's adapter
+  (`mantel-host.js`) accepts only that exact path shape and puts the page's prefix in front (HA App mode).
+- `GET /api/notify/snap/<id>`: signed-in, decided again with `may_still`; unknown, expired and refused all
+  answer 404. `Cache-Control: private, max-age=<left>`, `nosniff`.
+
+**2. Calendars' look-ahead** (`feature_watch.CalendarLook`). Once a minute, while Notifications is on and
+has a Calendars item, `hk_core.notifications.calendars.look_ahead` runs over MantelHouse. The events come from
+the read proxy's REST calendar read (`GET /api/calendars/<calendar>?start&end`, Mantel's own credential),
+turned into `calendar.get_events`' shape. What is due goes out the one notification way (snapshot, feed,
+Wakes the Screen). HK Settings' Calendars test (`hk_notify/test`) uses `calendars.sample` the same way.
+
+**3. Tablet alerts and restarts** (`feature_watch.TabletWatch`, piece `tablets`, off by default):
+
+- Every minute `hk_core.tablets.alerts.Alerts.check` over MantelHouse with the house settings' `tablets`
+  choices. A raised alert is an Important banner on the screens (`banner.build_action`, as HA's `_banner`),
+  listed in `GET /api/features/status` (`tablets.up`) until it clears. (HA also makes a persistent
+  notification; Mantel has none.)
+- The scheduled restart (`restart_times`, in the house's zone, once per minute): Clear Cache on every tablet,
+  then each restart, every press a `button.press` through `MantelHouse.call_service` → `FeatureCaller` →
+  the gateway as the Service actor. Its computed grants are exactly the planned buttons, only while the
+  schedule is on. With commands off each press is audited `denied`/`commands_disabled` and listed `would`.
+- "Restart all now" (HK's `hk_frontend/tablet/act {act: restart_all}`): the page's adapter sends Mantel's
+  `tablets_restart`; it needs `configure` on settings (HA: admin), and runs as the person, each press a
+  gateway command with that person's rights. No gateway change was needed.
+
+**4. Photos in `screen_report`**: see "The page's side" above (`photos` bool; `may_speak_for` as before).
+
+**5. HK Settings → Features** (`feature_pages.py`). The pages' `<id>/settings/get` reads are answered by
+Mantel (`read_routes`, never forwarded) for Owners/Admins (RBAC `configure` on `settings`, and on
+`notifications` / `energy` / `music` where RBAC has the feature):
+
+| Page | Read | Saves |
+|---|---|---|
+| Notifications | `hk_core` `notifications.settings.page` over Mantel's piece and MantelHouse | `settings/set`, `item/save`, `item/remove` (the shared checks); `test` is Mantel's own delivery |
+| Clean Areas | HA's page shape over `hk_core.clean_areas` | `settings/set` (vacuums, areas) |
+| Energy | options, plan, devices, batteries, sections from HA's Energy settings (read by Mantel) + MantelHouse | `settings/set`, `device/set`, `device/section` (`hk_core/energy/settings.py`) |
+| Live TV | Mantel's piece and its own lineup copy (no tuner is read for the page) | `settings/set`: host, guide, channels, names; `quality` refused (the transcode is HA's) |
+| Music | Mantel's own music settings (`music.MusicHost.page`, HA's shape) while Mantel's music engine is on ("Music" above); otherwise INTERIM: HA's page, a server-only read rebuilt key by key | through the gateway as commands (`hk_music/*`, `configure` on settings) to `house/music` when the engine is on; `settings_write` still refuses them `not_yet` |
+| Alarm PIN | INTERIM: HA's own page, a server-only read rebuilt key by key (`pin_set` only, never a PIN or hash) | still refused `not_yet` (its settings are HA's until that port lands) |
+
+Saves go through the page's `settings_write` (`settings_store.FEATURE_SAVES`, kind `feature`; the page's
+`mantel-client.js FEATURE_SAVES` is pinned to it), are checked by the shared checks, and are written as a new
+version of `house/mantel_features` with who made them (the settings store's history); nothing is sent to HA.
+The running pieces follow at once (a reload).
+
+**Decisions for Avery** (recorded here, not in PLAN.md):
+
+- Snapshots keep HA's retention (10 min, 30 at most) and are plain files under the data folder (0600), not
+  encrypted at rest. Any signed-in person who may view the camera as a still can load a picture.
+- Calendar and tablet-alert banners go to every signed-in screen, as HA's do; no per-person RBAC filter on
+  the feed's notifications (unchanged from the first slice).
+- Tablet alerts on Mantel are banners only (no persistent notification); the banner goes out even when the
+  notifications piece is off (with Notifications' defaults), so an alert is never silent.
+- "Restart all now" on Mantel needs the `tablets` piece on; with it off the page is told `not_set_up`
+  rather than forwarding HA's `tablet/act` through the gateway.
+- Live TV's settings saved in Mantel change Mantel's piece only; HA's channel cameras keep HA's settings until
+  the transcode moves.
+- Music and Alarm PIN pages read HA through an interim server-only read (two new `READ_ALLOWED` entries, both
+  in `SERVER_ONLY_READS`).
 
 ## Tests
 
@@ -335,6 +416,11 @@ twice, with temp databases and the one wiring line, then stops HA. The evidence 
 `<TESTHA_DIR>/features_e2e.json`.
 
 Run 2026-10-18, both a `--reuse` iteration and the full `up --fresh` … `down` run: **26/26 checks passed**.
+Extended with the Phase 4 ports (phase A) and run again `up --fresh` the same day: **35/35**. The leak
+notification carried a snapshot of the demo camera (taken through Mantel's credential, served by
+`/api/notify/snap/<id>` as a 43,965-byte JPEG); `calendar.calendar_1`'s "Future Event" was read by Mantel and
+sent by the look-ahead; HK Settings' Notifications page was answered and saved by Mantel with nothing about it
+read from or written to HA; a page's `photos` report reached linked HA's photo screensaver switch.
 
 - **Both phases:**
   - Mantel reads the scratch HA (121 demo entities).
@@ -388,11 +474,15 @@ Nothing else changes: every piece stays off until an Owner turns it on (`PUT /ap
    page's button. The screens are told what HA tells them (`added`, `energy`, panel/get's `features`);
    Clean Areas' picker is answered by Mantel; Live TV's channel list is an interim filtered read.
 4. **What's still HA-only on Mantel:**
-   - notification snapshots
-   - calendars' look-ahead and the `notify` action (in linked mode, later)
-   - Alarm PIN through the gateway (linked `alarm_*` commands)
+   - ~~notification snapshots~~ done (Phase 4 ports, below)
+   - ~~calendars' look-ahead~~ done; the `notify` action (in linked mode, later)
+   - ~~Alarm PIN through the gateway~~ **done 2026-10-18** (`alarm_pin.py`; GATEWAY.md "The alarm"):
+     Mantel checks the keypad's code (the house's Alarm PIN, set in Mantel or imported from HA's page
+     without its PIN, or a person's PIN), decides arm/disarm as sensitive, audits first and sends to the
+     alarm with Mantel's own copy of the alarm's HA code. Left: linked mode's `alarm_*` handler calling
+     `alarm_pin.linked_command` (linked.py, another slice)
    - ~~the music engine against MA~~ built ("Music" below); waits for Music Assistant's URL and token in Mantel
-   - the tablets' alerts and restarts, and the Live TV viewers and cameras
+   - ~~the tablets' alerts and restarts~~ done; the Live TV viewers and cameras
 
    Each goes through `MantelHouse` and `FeatureCaller` the same way.
 

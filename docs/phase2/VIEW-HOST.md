@@ -26,6 +26,8 @@ strategy's output (`hkStrategy.generate`) without Lovelace's page machinery: no 
     small containers (`hk-view-grid`, `hk-view-stack`, `hk-view-conditional`). Each takes its input
     at the host adapter's entry and gives its children the client. The conditional understands
     `state`, `numeric_state`, `screen`, `user`, `and`/`or`/`not` and the legacy form;
+  - `picture-entity` (the camera cards), `markdown` and the four energy cards below are drawn by HK's
+    own elements too;
   - any other Lovelace card type, a card whose config throws, or one with no type gets a labelled
     `hk-card-placeholder`. HA's own element is never used.
 - **Following the client.** On each `hk-client-update`, the view host takes `hkHostClient.current()`
@@ -222,6 +224,32 @@ The callers:
   `theme` is not applied. HA's HLS fallback is not offered: a camera without WebRTC stays on its
   refreshed still. Tests: `tests/test_pictureentity.js`; the offline smoke draws a Cameras page
   (`tools/headless/client_smoke.py`).
+- **Every built-in type HK's strategy emits is drawn (2026-10-18).** A sweep of the strategy and the
+  cards for non-`custom:` types found: `grid`, `conditional` (HK containers, above), `picture-entity`
+  (above), `markdown` and four energy cards. `vertical-stack`/`horizontal-stack` are not emitted but
+  drawn; `energy-usage-graph` only appears as the Frame card's editor default (a placeholder, never
+  generated). Added to BUILT_IN, all in `hk-view-host.js` (HA's Lovelace never loads it):
+  - **`markdown`** -> `hk-view-markdown`. Used for the empty Energy page ("Nothing to show yet..."),
+    a room page that failed to build, and the weather alert sheet (`hkDetail.open` with
+    `cards: [{type: 'markdown'}]`). Drawn as DOM nodes only: `#` headings, paragraphs (soft line
+    breaks join), `-` lists, `---`, and inline `**bold**`, `*italic*`, `` `code` `` and
+    `[text](http(s) address)` (opens apart, `noopener`). No HTML is parsed (`<img onerror>` stays
+    visible text), a `javascript:` or `data:` link stays text, and templates (`{{ }}`) are not
+    evaluated (HK uses none). `title` is drawn; no `content` is a placeholder ("could not be drawn").
+  - **`energy-date-selection`, `-sources-table`, `-devices-graph`, `-devices-detail-graph`** ->
+    `hk-energy-*` elements, framed by `hk-frame-card` on the Energy page when its "Home Assistant's
+    Charts" option is on. The host provides `loadCardHelpers` (the factory), so the Frame card needed
+    no change. They read `energy/get_prefs` (once per ten minutes, shared) and
+    `recorder/statistics_during_period` (`types: ['change']`, `units: {energy: 'kWh'}`, `period` hour
+    for Day, day for Week and Month, month for Year; both already RBAC-filtered by the read proxy).
+    The date selection holds one shared period (Day / Week / Month / Year with arrows, no future,
+    week starts per the user's profile) that the other three follow; cards off the page stop
+    following. The sources table is one row per kind (grid in, returned, solar, battery out/in, gas,
+    water: kWh); the devices graph ranks devices by the period's kWh; the detail graph stacks the top
+    eight devices per hour/day/month column with an "Other" and a legend. Not drawn: cost columns,
+    compare-to-previous-period, tooltips beyond a column's title, HA's statistics-graph card.
+    A refused or failing read draws the empty line, never an error. Tests:
+    `tests/test_viewcards.js`; the offline smoke draws all five.
 - **Leaving the dashboard.** In Mantel, a menu link to another dashboard or an HA page reloads the
   page at that address. Another dashboard draws; an HA page such as `/config` returns 404.
 - **Mantel only.** `hkShell.panel().lovelace` is undefined, so `hk-detail`'s "generated here" check

@@ -383,7 +383,7 @@ async def test_without_music_assistant_the_reads_go_to_the_bridge(bridge):
     await bridge.read(ws, {"type": "hk_music/queue", "entity_id": "media_player.kitchen_ma"})
     await bridge.read(ws, {"type": "hk_music/settings/library"}, rid=51)
     got = await bridge.read(ws, {"type": "hk_music/settings/get"}, rid=52)
-    assert ev == {"configured": False} and got["error"]["code"] == "not_allowed"
+    assert ev == {"configured": False} and got["error"]["code"] == "forbidden"       # feature_pages: Owner/Admin only
     assert calls == [("subscribe", "hk_music/subscribe"), ("request", "hk_music/queue"),
                      ("request", "hk_music/settings/library")]
     # and the actions go to HA's engine, as before (RBAC now on the rooms, not `configure`)
@@ -392,6 +392,35 @@ async def test_without_music_assistant_the_reads_go_to_the_bridge(bridge):
     assert bridge.fake.frames[-1] == {"type": "call_service", "domain": "hk_frontend", "service": "music_play",
                                       "service_data": {"rooms": ["media_player.kitchen_ma"], "playlist": "pl1"},
                                       "return_response": True}
+    await ws.close()
+
+
+async def test_the_settings_page_is_one_path_mantels_when_on_has_otherwise(on, monkeypatch):
+    """HK Settings' Music page is feature_pages.py's route: Mantel's settings while the engine is on, the interim
+    rebuilt HA read when it is off. Never two handlers."""
+    from mantel_server import feature_pages as FP
+    from mantel_server.connectors import read_routes
+    asked = []
+
+    class Proxy:
+        async def read_server(self, msg):
+            asked.append(msg["type"])
+            return {"configured": True, "state": "loaded", "speakers": [], "presets": [], "playlists": [],
+                    "players": [], "users": [], "homes": {}, "volume": 0.1}
+
+        async def close(self):
+            pass
+
+    on.app["hub"].readproxy = Proxy()
+    route = read_routes(on.app)["hk_music/settings/get"]
+    assert route.request.__module__ == FP.__name__
+    await on.login("owner1", "owner")
+    ws = await on.socket()
+    got = (await on.read(ws, {"type": "hk_music/settings/get"}))["result"]
+    assert got["volume"] == 0.3 and [p["id"] for p in got["presets"]] == ["pre1"] and asked == []   # Mantel's
+    monkeypatch.setattr(type(on.app["music"]), "active", property(lambda self: False))
+    got = (await on.read(ws, {"type": "hk_music/settings/get"}, rid=51))["result"]
+    assert got["volume"] == 0.1 and asked == ["hk_music/settings/get"]                             # HA's, interim
     await ws.close()
 
 
@@ -660,7 +689,8 @@ async def test_status_is_owner_or_admin(off):
 
 
 def test_every_music_read_route_has_one_rule():
-    assert set(M.ROUTE_RULES) == {"hk_music/subscribe", "hk_music/queue", "hk_music/settings/library",
-                                  "hk_music/settings/get"}
+    assert set(M.ROUTE_RULES) == {"hk_music/subscribe", "hk_music/queue", "hk_music/settings/library"}
+    from mantel_server import feature_pages as FP
+    assert FP.PAGE_READS["hk_music/settings/get"] == "music"        # one path: feature_pages, MusicHost.page when on
     assert M.MUSIC_WS <= set(json.loads(open(
         __import__("pathlib").Path(M.__file__).with_name("hk_writes.json")).read())["writes"])

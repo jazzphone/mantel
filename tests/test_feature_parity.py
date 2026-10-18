@@ -316,9 +316,11 @@ async def test_starting_a_clean_stays_a_command(make_env):
     ws = await env.socket(expect_caps=False)
     await ws.send_json({"type": "read", "id": 4, "msg": {"type": "hk_clean_areas/subscribe"}})
     assert (await GF.recv(ws))["error"]["code"] == "not_allowed", "a subscription, never a read that acts"
-    for t in ("hk_clean_areas/settings/set", "hk_clean_areas/settings/get"):
-        await ws.send_json({"type": "read", "id": 5, "msg": {"type": t}})
-        assert (await GF.recv(ws))["error"]["code"] in ("not_allowed", "unavailable")
+    await ws.send_json({"type": "read", "id": 5, "msg": {"type": "hk_clean_areas/settings/set"}})
+    assert (await GF.recv(ws))["error"]["code"] == "not_allowed", "a save is never a read"
+    # the settings page is answered by Mantel now (feature_pages.py; tests/test_feature_pages.py)
+    await ws.send_json({"type": "read", "id": 6, "msg": {"type": "hk_clean_areas/settings/get"}})
+    assert (await GF.recv(ws))["result"]["configured"] is True
     await ws.close()
     assert env.audit() == []
 
