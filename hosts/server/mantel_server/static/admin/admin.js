@@ -3,6 +3,8 @@
 // may do what. The page hides a section when /api/admin/overview does not list it, and shows an API's own refusal.
 // Nothing sensitive is kept: no storage, and a service credential lives in one DOM node until it is dismissed.
 
+import { credentialJSON, passkeysAvailable, toCreation, toRequest } from '../webauthn.js';
+
 const ROLE_LABEL = { owner: 'Owner', admin: 'Admin', adult: 'Adult', child: 'Child', guest: 'Guest',
                      wall_tablet: 'Wall tablet', service: 'Service' };
 const SECTION_LABEL = { me: 'Me', people: 'People', devices: 'Devices', roles: 'Roles & grants',
@@ -113,7 +115,7 @@ async function api(method, path, body, opts = {}) {
   let data = null;
   try { data = await res.json(); } catch (e) { data = null; }
   if (res.status === 401 && data === null) {      // the middleware's plain 401: we are signed out
-    location.assign('/login');
+    location.assign('/login?next=' + encodeURIComponent('/admin'));
     throw new ApiError(401, null);
   }
   if (res.status === 403 && data && data.error === 'step_up_required' && opts.retry !== false) {
@@ -161,49 +163,7 @@ function confirmDialog(title, text, label = 'Confirm', danger = false) {
   ]).then((v) => v === true);
 }
 
-// -- WebAuthn (passkeys) -----------------------------------------------------------------------------
-const b64 = {
-  dec(s) {
-    const t = s.replace(/-/g, '+').replace(/_/g, '/') + '='.repeat((4 - (s.length % 4)) % 4);
-    return Uint8Array.from(atob(t), (c) => c.charCodeAt(0)).buffer;
-  },
-  enc(buf) {
-    let s = '';
-    for (const x of new Uint8Array(buf)) s += String.fromCharCode(x);
-    return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-  },
-};
-const passkeysAvailable = () => !!(window.PublicKeyCredential && navigator.credentials);
-function toCreation(o) {
-  if (PublicKeyCredential.parseCreationOptionsFromJSON) return PublicKeyCredential.parseCreationOptionsFromJSON(o);
-  const c = JSON.parse(JSON.stringify(o));
-  c.challenge = b64.dec(c.challenge);
-  c.user.id = b64.dec(c.user.id);
-  for (const x of c.excludeCredentials || []) x.id = b64.dec(x.id);
-  return c;
-}
-function toRequest(o) {
-  if (PublicKeyCredential.parseRequestOptionsFromJSON) return PublicKeyCredential.parseRequestOptionsFromJSON(o);
-  const c = JSON.parse(JSON.stringify(o));
-  c.challenge = b64.dec(c.challenge);
-  for (const x of c.allowCredentials || []) x.id = b64.dec(x.id);
-  return c;
-}
-function credentialJSON(cred) {
-  if (cred.toJSON) return cred.toJSON();
-  const r = cred.response;
-  const response = { clientDataJSON: b64.enc(r.clientDataJSON) };
-  if (r.attestationObject) {
-    response.attestationObject = b64.enc(r.attestationObject);
-    if (r.getTransports) response.transports = r.getTransports();
-  } else {
-    response.authenticatorData = b64.enc(r.authenticatorData);
-    response.signature = b64.enc(r.signature);
-    if (r.userHandle) response.userHandle = b64.enc(r.userHandle);
-  }
-  return { id: cred.id, rawId: b64.enc(cred.rawId), type: cred.type, response,
-           clientExtensionResults: cred.getClientExtensionResults ? cred.getClientExtensionResults() : {} };
-}
+// -- WebAuthn (passkeys): the helpers live in ../webauthn.js (/webauthn.js), shared with /login ----------
 async function passkeyStepUp() {
   const opt = await api('POST', '/api/auth/passkey/options', { username: state.me.user.username || undefined }, { retry: false });
   const cred = await navigator.credentials.get({ publicKey: toRequest(opt.options) });

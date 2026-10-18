@@ -56,7 +56,7 @@ async def sections(m, tunnel=False):
 # -- who is served ---------------------------------------------------------------------------------
 async def test_signed_out_is_sent_to_login_and_gets_nothing_else(admin):
     r = await admin.client.get("/admin", allow_redirects=False)
-    assert r.status == 302 and r.headers["Location"] == "/login"
+    assert r.status == 302 and r.headers["Location"] == "/login?next=/admin"
     for path in ("/admin/admin.js", "/admin/admin.css", "/api/admin/overview"):
         assert (await admin.client.get(path, allow_redirects=False)).status == 401, path
 

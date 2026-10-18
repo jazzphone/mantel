@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<meta name="referrer" content="same-origin">
+<meta name="mantel-base" content="__BASE__">
+<meta name="mantel-next" content="__NEXT__">
+<meta name="mantel-door" content="__DOOR__">
+<title>Sign in · Mantel</title>
+<link rel="stylesheet" href="login/login.css">
+<script type="module" src="login/login.js"></script>
+</head>
+<body>
+<main class="card" aria-labelledby="title">
+  <h1 id="title">Sign in to Mantel</h1>
+  <p id="door-note" class="note" hidden>You are connecting from away from home. Here a password alone is not
+    enough: use a passkey, or your password and the code from your authenticator app.</p>
+  <p id="status" class="status" role="alert"></p>
+
+  <section id="passkey-step" class="step" hidden>
+    <button id="passkey" type="button" class="btn primary">Sign in with a passkey</button>
+  </section>
+
+  <p id="or-password" class="or" hidden><span>or use your password</span></p>
+
+  <form id="password-form" class="step" method="post" action="login" novalidate hidden>
+    <label for="username">User name</label>
+    <input id="username" name="username" type="text" autocomplete="username" autocapitalize="none"
+           autocorrect="off" spellcheck="false" maxlength="64" required>
+    <label for="password">Password</label>
+    <input id="password" name="password" type="password" autocomplete="current-password" maxlength="1024" required>
+    <button id="password-go" type="submit" class="btn primary">Sign in</button>
+  </form>
+
+  <form id="totp-form" class="step" method="post" action="login" novalidate hidden>
+    <p id="totp-help">Enter the 6-digit code from your authenticator app.</p>
+    <label for="code">Code</label>
+    <input id="code" name="code" type="text" inputmode="numeric" pattern="[0-9]*" autocomplete="one-time-code"
+           maxlength="6" aria-describedby="totp-help" required>
+    <div class="row">
+      <button id="totp-back" type="button" class="btn">Back</button>
+      <button id="totp-go" type="submit" class="btn primary">Continue</button>
+    </div>
+  </form>
+
+  <p id="or-ha" class="or" hidden><span>or</span></p>
+
+  <section class="step">
+    <a id="ha" class="btn" href="__HA_HREF__">Sign in with Home Assistant</a>
+  </section>
+
+  <noscript><p class="note">Passkey and password sign-in need JavaScript. Sign in with Home Assistant works
+    without it.</p></noscript>
+</main>
+</body>
+</html>

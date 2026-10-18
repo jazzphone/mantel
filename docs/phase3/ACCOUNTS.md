@@ -186,9 +186,11 @@ bootstrap_closed`. `GET /api/bootstrap` → `{"open": bool}`.
 | GET | `/api/devices` | Owner/Admin | |
 | DELETE | `/api/devices/{id}` | Owner/Admin or the device | |
 
-Phase 0 routes are unchanged: `/login`, `/auth/callback`, `/logout` (POST; now revokes the family),
+Phase 0 routes are unchanged except `/login`: `/auth/callback`, `/logout` (POST; now revokes the family),
 `/api/me` (same three fields), `/api/proof2/command` (resolves its own session as before; the actor of
-an HK user without an HA link is the user id).
+an HK user without an HA link is the user id). **`/login` is now the sign-in page** (passkey, password +
+TOTP, Sign in with HA) and the HA OAuth start moved to `/login/ha`; the HA callback lands on a safe
+`next` (default `/home`). See [LOGIN-PAGE.md](LOGIN-PAGE.md).
 
 ## Config
 
@@ -265,5 +267,5 @@ Validation: `pytest -q` 281 passed; `tools/build_ha.py` + `tests/run` all suites
   `trusted_proxies`, widen the loopback Host/Origin allowlist to the real hostnames (cookies then
   become `Secure` automatically), set `webauthn_rp_id` to the LAN/public hostname's registrable
   domain, mount `at_rest.key` as a Docker secret, and verify Cloudflare Access JWTs on the tunnel.
-* **Frontend** (not in this slice): a login page (password, TOTP step, passkey), the "Make this a
-  wall tablet" button, session/device lists, and sending `X-CSRF-Token` from the `mantel_csrf` cookie.
+* **Frontend**: the login page is built ([LOGIN-PAGE.md](LOGIN-PAGE.md)); the "Make this a wall
+  tablet" button and session/device lists are in `/admin` ([ADMIN-PAGE.md](ADMIN-PAGE.md)).

@@ -27,7 +27,7 @@ Every request arrives by a **door**. `lan` is the house network, served straight
 ~/.venvs/mantel/bin/mantel-server --ha-url http://192.0.2.53:8123 --commands-enabled   # do not, see section 8
 ```
 
-It reads Home Assistant's token from `~/.config/mantel/ha_token` and stops with a message if the file is missing. The startup line says what mode it is in: `read-only; commands disabled`, or `COMMANDS ENABLED (...)`. Open `/login` ("Sign in with Home Assistant"), then `/home` (the default screen) or `/dev`.
+It reads Home Assistant's token from `~/.config/mantel/ha_token` and stops with a message if the file is missing. The startup line says what mode it is in: `read-only; commands disabled`, or `COMMANDS ENABLED (...)`. Open `/login` (passkey, user name + password with the authenticator code when one is set up, or "Sign in with Home Assistant"; see [phase3/LOGIN-PAGE.md](phase3/LOGIN-PAGE.md)); it then goes on to `/home` (the default screen), or back to the page that sent you there.
 
 ### Flags
 
@@ -379,7 +379,7 @@ Collected from the phase documents; check [PLAN.md](PLAN.md) section 0 for the c
 | Gap | Effect | Where |
 |---|---|---|
 | **Images built and run on Docker Desktop (2026-10-18)**; the LXC and the App on the house are not yet run | The server image runs healthy under the production restrictions; base images are pinned. The full compose stack against the scratch HA and the LXC on proxmox1 are the next checks. | [phase3/PACKAGING.md](phase3/PACKAGING.md) |
-| **No login page yet** | The admin page (`/admin`: people, tablets incl. "enroll this browser", roles, PINs, audit) exists, but signing in still needs a page with password/passkey/HA sign-in. | [phase3/ADMIN-PAGE.md](phase3/ADMIN-PAGE.md) |
+| **Login page: built, not yet used on the house** | `/login` offers passkey, password + authenticator code, and Sign in with HA, and returns to the page that sent you. Not built: passkeys offered in the user-name autofill; no headless check of `/login` yet. | [phase3/LOGIN-PAGE.md](phase3/LOGIN-PAGE.md) |
 | **HA App: Ingress identity and prefix-relative URLs** | The App starts and is healthy, but sign-in through Ingress does not work yet. The entrypoint passes no `--trusted-proxy` there, so every request counts as `tunnel`. | `HA-APP.md` (in progress), PACKAGING.md |
 | **Mantel Connect has no guided pairing or installer** | The Phase 0 proof used manual key and certificate transfer and a foreground receiver. | PLAN §8, mantel-connect README |
 | **Linked mode's real handlers and the 31 entities** | Built and tested, off by default; Mantel does not yet publish the entities or act on black screen, pop-ups or the alarm. | LINKED-MODE.md "What's left" |

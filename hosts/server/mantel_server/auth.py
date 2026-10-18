@@ -1,5 +1,8 @@
 """Sign in with Home Assistant, and the middleware that puts /dev, /api and /ws behind a sign-in.
 
+The sign-in page itself is login_page.py (``/login``); Home Assistant sign-in starts at ``/login/ha``
+here (it was ``GET /login`` before the page existed) and comes back to ``/auth/callback`` as before.
+
 The middleware resolves ``sessions.identity`` (a user session and/or a device credential), refuses
 anonymous requests, requires an Origin on the WebSocket and a CSRF token on state-changing /api/
 requests. Paths in PUBLIC_PATHS and ``app["public_paths"]`` (each slice's sign-in routes) are open.
@@ -12,21 +15,25 @@ import html
 import logging
 import secrets
 import time
-from urllib.parse import urlparse
+from urllib.parse import quote, unquote, urlparse
 
 from aiohttp import web
 
 from . import sessions
-from .config import Config
 from .ha_oauth import HaOAuth, OAuthError
+from .login_page import DEFAULT_NEXT, HA_START, login_url, safe_next
 from .store import Store
 
 log = logging.getLogger("mantel.auth")
 
 SESSION_COOKIE = sessions.ACCESS_COOKIE  # "mantel_session": now an access token
 STATE_COOKIE = "mantel_oauth_state"
+NEXT_COOKIE = "mantel_login_next"        # where to land after HA sign-in; cleaned again at the callback
 STATE_TTL = 600
-PUBLIC_PATHS = {"/login", "/auth/callback", "/logout"}
+PUBLIC_PATHS = {HA_START, "/auth/callback", "/logout"}
+# Signed out, these pages (and any GET that asks for a document) are sent to /login, with ?next= to
+# come back to; everything else signed out gets a plain 401.
+PAGE_PATHS = ("/", "/dev", "/home")
 
 
 # -- signed state cookie --------------------------------------------------------------------------
@@ -71,8 +78,8 @@ async def require_session(request: web.Request, handler):
         return await handler(request)
     ident = sessions.identity(request)
     if not ident.authenticated:
-        if request.path in ("/", "/dev"):
-            raise web.HTTPFound("/login")
+        if request.method == "GET" and (request.path in PAGE_PATHS or _wants_document(request)):
+            raise web.HTTPFound(login_url(request.path_qs if request.path != "/" else None))
         raise web.HTTPUnauthorized(text="sign in at /login")
     if request.path == "/ws" and request.headers.get("Origin") is None:
         raise web.HTTPForbidden(text="Origin required")  # browsers always send it; the loopback middleware checks its value
@@ -82,17 +89,34 @@ async def require_session(request: web.Request, handler):
     return await handler(request)
 
 
+def _wants_document(request: web.Request) -> bool:
+    """A browser navigation (not an API call, a script or an image): worth a redirect to /login."""
+    if request.path.startswith(("/api/", "/ws")):
+        return False
+    dest = request.headers.get("Sec-Fetch-Dest")
+    if dest is not None:
+        return dest == "document"
+    return "text/html" in request.headers.get("Accept", "")
+
+
 # -- handlers ---------------------------------------------------------------------------------------
-async def login(request: web.Request) -> web.StreamResponse:
-    cfg: Config = request.app["cfg"]
+async def login_ha(request: web.Request) -> web.StreamResponse:
+    """Start Sign in with Home Assistant (OAuth): HA's authorize page, with a signed state cookie."""
     oauth: HaOAuth = request.app["oauth"]
+    next_path = safe_next(request.query.get("next"))
     canonical = urlparse(oauth.client_id).netloc
     if request.host != canonical:  # the state cookie must be set on the host HA will send the browser back to
-        raise web.HTTPFound(f"{oauth.client_id.rstrip('/')}/login")
+        query = f"?next={quote(next_path, safe='/')}" if next_path != DEFAULT_NEXT else ""
+        raise web.HTTPFound(f"{oauth.client_id.rstrip('/')}{HA_START}{query}")
     state = secrets.token_urlsafe(24)
     resp = web.HTTPFound(oauth.authorize_url(state))
     resp.set_cookie(STATE_COOKIE, make_state_cookie(request.app["state_secret"], state, request.app["clock"]()),
                     max_age=STATE_TTL, httponly=True, samesite="Lax", path="/auth")
+    if next_path != DEFAULT_NEXT:
+        resp.set_cookie(NEXT_COOKIE, quote(next_path, safe=""), max_age=STATE_TTL, httponly=True,
+                        samesite="Lax", path="/auth")
+    else:
+        resp.del_cookie(NEXT_COOKIE, path="/auth")
     raise resp
 
 
@@ -103,8 +127,11 @@ async def callback(request: web.Request) -> web.StreamResponse:
     expected = read_state_cookie(app["state_secret"], request.cookies.get(STATE_COOKIE), app["clock"]())
     got = request.query.get("state", "")
 
+    next_path = safe_next(unquote(request.cookies.get(NEXT_COOKIE, "")))
+
     def done(resp: web.Response) -> web.Response:
         resp.del_cookie(STATE_COOKIE, path="/auth")
+        resp.del_cookie(NEXT_COOKIE, path="/auth")
         return resp
 
     if expected is None or not got or not hmac.compare_digest(expected, got):
@@ -146,8 +173,9 @@ async def callback(request: web.Request) -> web.StreamResponse:
                                     user_agent=request.headers.get("User-Agent"), source_ip=sessions.client_ip(request))
     # A page, not a redirect: SameSite=Strict cookies set during a navigation that started on HA's
     # site are not sent on a redirect in the same chain, so the next hop must start here.
-    resp = page("Signed in", "<meta http-equiv='refresh' content='0;url=/dev'>"
-                "<p>Signed in. <a href='/dev'>Continue</a>.</p>")
+    dest = html.escape(next_path, quote=True)          # safe_next: a same-origin path, never a URL
+    resp = page("Signed in", f"<meta http-equiv='refresh' content='0;url={dest}'>"
+                f"<p>Signed in. <a href='{dest}'>Continue</a>.</p>")
     sessions.set_session_cookies(request, resp, issued)
     return done(resp)
 
@@ -166,7 +194,7 @@ async def me(request: web.Request) -> web.Response:
 
 
 def add_routes(app: web.Application) -> None:
-    app.router.add_get("/login", login)
+    app.router.add_get(HA_START, login_ha)
     app.router.add_get("/auth/callback", callback)
     app.router.add_route("*", "/logout", logout)
     app.router.add_get("/api/me", me)
