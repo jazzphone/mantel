@@ -523,8 +523,11 @@ Updated in place (no migration; backup `197c2d14` from 0.1.5 still the rollback 
       "HTTPS and your proxy": mode Home Assistant App (Ingress), no door key needed.
 - [ ] **Not reachable on the kitchen dashboard (found by Avery):** the **Mantel settings** entry is in HK's
       menu model (`hkShell.hostMenu()` → `<prefix>/admin`), but that dashboard navigates with the tab bar and
-      HK's side menu is off whenever a tab bar shows (`menu.on()` false). Fix for 0.1.7: the entry in the tab
-      bar's More sheet too, verified drawn. Until then: open `<prefix>/admin` directly.
+      HK's side menu is off whenever a tab bar shows (`menu.on()` false). **Fixed for 0.1.7:** a **Mantel**
+      section at the end of the tab bar's More sheet (hk-tabbar.js, Owner/Admin only; a full page load of
+      `<prefix>/admin`), and still in the side menu where that is the navigation; empty in HA. Drawn check in
+      `tools/headless/client_smoke.py`: the row has an on-screen box and is hit-testable, an Adult has none, a
+      click lands on `/admin`.
 - [x] **Feature import** (People page, "Import HK's features from Home Assistant again"; reads HA, changes
       nothing there): music, live_tv, clean_areas, alarm_pin, energy, notifications. Before it, Energy, Power and
       Live TV opened Home (the views didn't exist in Mantel). After it, at 1366x900: **Energy** draws its 9 cards
