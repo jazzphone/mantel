@@ -272,6 +272,24 @@ on a short list of non-URLs with reasons (HA API paths for the action port, exam
 link base.js handles). Known leftovers, accepted: HK Settings' photo URLs (`/api/image/serve/...`, HA's
 image store) and the dev-only Skylab page's `location.href` jumps; `/dev` (diagnostics) is not prefix-aware.
 
+**Mantel's own pages (`/admin`, `/proxy-check`), fixed for 0.1.6.** Found on the house in 0.1.5: `<prefix>/admin`
+answered 200 but stayed on "Loading", because the page named `/admin/admin.css` and `/admin/admin.js` as absolute
+paths (HA answered those from its own root, as text/plain), and `admin.js` called `fetch('/api/...')` and sent a
+401 to `/login?next=/admin`; nothing in the dashboard's menu led there either. Now: `admin_page.py` serves the
+page through `ingress.own_page()` (the `mantel-base` and referrer metas, `href`/`src` of `/admin/`,
+`/proxy-check/` and `/home` moved under the prefix; outside Ingress the bytes are unchanged), and `admin.js` reads
+`<meta name="mantel-base">` and builds every `fetch`, the `import()` of `/proxy-check/check.js`, links and the
+upload `fetch` through `url()`. A signed-out answer under the prefix shows "Home Assistant has signed you out.
+Reload..." instead of going to `/login`, and the Sign out panel is not drawn (HA holds the sign-in). The admin
+page's CSP says `frame-ancestors 'self'` through Ingress (HA's page frames it; `'none'` everywhere else).
+`/proxy-check` already used the prefix; it now also carries the referrer meta (HA's `no-referrer` otherwise breaks
+its POST). A way in: the dashboard's menu has a **Mantel** section with **Mantel settings** for Owners and Admins
+only (shell method `hkShell.hostMenu`, `web/shim/mantel-shell.js`; opens `<prefix>/admin` in the same frame by a
+full page load), and the admin page has a **Back to the dashboard** link. HA's `/app/local_mantel/admin` still
+does not pass a subpath to the iframe (the frame always opens the Ingress root), so the menu entry is the way in.
+Not done: HK Settings is not an entry of Mantel's menu in this build (no panel is mounted on Mantel's page; the
+Mantel admin folding into HK Settings is PLAN item 8). Tests: `tests/test_ingress_own_pages.py`.
+
 ## The App
 
 * **`config.yaml`**: name Mantel, slug `mantel`, version 0.1.0, `arch: [amd64, aarch64]`,
@@ -468,6 +486,8 @@ update; `/data` kept. Brings HTTPS (decision 22), wall tablets through the App a
 - [x] Starts; migrations 0009–0012 applied; log: `identity from Ingress, believed only from 172.30.32.2`, door
       `ha` uses the trusted rules, `HA Core (172.30.32.1) may reach linked mode's endpoint`, `read-only; commands
       disabled`, `authenticated to Home Assistant 2026.10.2`, registries and 4500 states; no traceback, no token.
+- [!] Found on the house: Mantel's own pages did not work through Ingress and the dashboard had no entry for them
+      (see "The prefix", Mantel's own pages); fixed for 0.1.6.
 - [ ] In the sidebar as Avery (needs his sign-in in the browser): Connections → Music Assistant (Avery pastes his
       MA token), feature import, SF Pro/glyphs from `hk_house/www`, every page at desktop size.
 
