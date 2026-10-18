@@ -460,6 +460,17 @@ Checked in the sidebar as Avery, at desktop size (1366×900):
   main (`mantel.camera` refusals once per camera per 5 minutes), ships with the next update. Avery may opt the
   sidebar into the LAN's rules (`ha_door_rules: lan`), which makes live view work there without a step-up.
 
+### 0.1.5 on the house (2026-10-18 15:51, commit `f9be9cb`, build `8c1b08852dbc14d4`)
+
+HA backup `197c2d14` ("Before_Mantel_App_0.1.5_2026-10-18") taken first. Restaged `--replace`, store refresh,
+update; `/data` kept. Brings HTTPS (decision 22), wall tablets through the App and `panel_admin: false`
+(decision 23: the panel is open to every HA user; unlinked users get only "Not linked yet").
+- [x] Starts; migrations 0009–0012 applied; log: `identity from Ingress, believed only from 172.30.32.2`, door
+      `ha` uses the trusted rules, `HA Core (172.30.32.1) may reach linked mode's endpoint`, `read-only; commands
+      disabled`, `authenticated to Home Assistant 2026.10.2`, registries and 4500 states; no traceback, no token.
+- [ ] In the sidebar as Avery (needs his sign-in in the browser): Connections → Music Assistant (Avery pastes his
+      MA token), feature import, SF Pro/glyphs from `hk_house/www`, every page at desktop size.
+
 ### Removal
 
 Stop and uninstall **Mantel** (Settings → Apps → Mantel → Uninstall); this removes its image and `/data`
