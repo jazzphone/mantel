@@ -13,7 +13,11 @@
      fake linked ``hk_frontend`` (a Service credential on ``/linked/ws``) sends ``set_black_screen``:
      the confirmed handshake holds, NOTHING is sent to HA (the demo light is unchanged, no command
      connection exists), the audit has a ``denied`` / ``commands_disabled`` row for the Service actor
-     and ``GET /api/features/status`` lists the intended ``light.turn_on``.
+     and ``GET /api/features/status`` lists the intended ``light.turn_on``. Also (MANTEL-FEATURES.md
+     "Phase 4 ports"): the notification carries a SNAPSHOT of the demo camera, taken by Mantel through its
+     own credential and served by Mantel's route; the CALENDARS look-ahead sends the demo calendar's
+     event; HK Settings' Notifications page is read and saved in Mantel (nothing read from or written
+     to HA for it); a page's PHOTOS report reaches linked HA's photo screensaver switch.
    * phase B, house commands ENABLED (only here): the same black-screen request results in the
      demo ``light.turn_on`` (the tablet's backlight, ``light.bed_light``) through the command gateway,
      HA's state changes, and the audit row is ``allowed`` / ``ok`` for actor ``mantel:features``;
@@ -50,6 +54,8 @@ testha = GE.testha
 SCRATCH_URL = GE.SCRATCH_URL
 LEAK = "binary_sensor.basement_floor_wet"      # demo moisture sensor (off)
 BACKLIGHT = "light.bed_light"                  # demo light (Bedroom): the fictional tablet's backlight
+CAMERA = "camera.demo_camera"                  # demo camera: the leak notification's snapshot
+CALENDAR = "calendar.calendar_1"               # demo calendar: "Future Event", 30 min after HA started
 ENTRY = "e2e0scratch0entry"
 UID = {k: f"{ENTRY}_hall_{k}" for k in ("black_screen", "photo_screensaver", "screen_in_use", "sleep_screen")}
 TARGET = [{"entity_id": "switch.hall_black_screen", "unique_id": UID["black_screen"]}]
@@ -128,6 +134,7 @@ async def phase(token: str, commands: bool) -> dict:
     from mantel_server.server import build_app
     from mantel_server.settings_store import Actor
     from mantel_server.store import Store
+    from hk_core.notifications.settings import new_category
 
     label = "B (commands ENABLED)" if commands else "A (commands disabled)"
     say(f"--- phase {label}")
@@ -145,7 +152,9 @@ async def phase(token: str, commands: bool) -> dict:
             ("tablet", "hall", {"name": "Hall", "screen": "hk-e2e", "room": "bedroom", "app": "browser",
                                 "black_screen": "hk", "uid": "hall"}),
             ("house", features.FEATURES_DOC, features.check_settings({
-                "notifications": {"enabled": True, "items": [{"id": "n_leak", "entity": LEAK, "when": "on"}]},
+                "notifications": {"enabled": True, "items": [
+                    {"id": "n_leak", "entity": LEAK, "when": "on", "snap": True, "camera": CAMERA},
+                    {**new_category("calendars", {"n_leak"}), "id": "n_cal"}]},
                 "linked": {"enabled": True, "entry_id": ENTRY, "backlight": True, "backlights": {"hall": BACKLIGHT}},
             })),
         ], actor=Actor(label="e2e"))
@@ -201,6 +210,8 @@ async def phase(token: str, commands: bool) -> dict:
             out["notification"] = {k: ev[k] for k in ("item", "entity", "kind", "title", "message", "important", "mute")}
             await ha_set_state(ha, token, LEAK, "off", leak.get("attributes") or {})
             check(app["audit"].rows() == [], "a notification is delivered by Mantel itself: no house command, no audit row")
+            if not commands:
+                await ports(app, host, owner, ev, next_event, out)
 
             # -- 2. linked mode: a black-screen request from a fake linked client ---------------------------
             _acct, svc_token = app["service_accounts"].create("e2e-home-assistant", ["linked"])
@@ -219,6 +230,11 @@ async def phase(token: str, commands: bool) -> dict:
             f = await lk.ws.receive_json(timeout=10)
             check(f["type"] == "state" and f["attributes"]["confirmed"] is True,
                   "the screen reported black: linked HA sees confirmed: true")
+            if not commands:
+                await owner.ws.send_json({"type": "screen_report", "id": 9, "tablet": "hall", "photos": True})
+                f = await lk.ws.receive_json(timeout=10)
+                check(f["type"] == "state" and f["unique_id"] == UID["photo_screensaver"] and f["state"] == "on",
+                      "the page's photos report (screen_report photos) reaches linked HA's photo screensaver switch")
 
             async def status():
                 st, body = await owner.post("/api/features/status", method="GET")
@@ -264,6 +280,47 @@ async def phase(token: str, commands: bool) -> dict:
                 await p.close()
         store.db.close()
     return out
+
+
+async def ports(app, host, owner, ev, next_event, out) -> None:
+    """The Phase 4 ports against the scratch HA: the snapshot, the calendars, a feature page."""
+    import re
+    sid = ev.get("snap")
+    check(isinstance(sid, str) and re.fullmatch(r"[0-9a-f]{32}", sid) is not None,
+          f"the notification carries a snapshot of {CAMERA}, taken by Mantel through its own credential")
+    got = await owner.read({"type": "hk_notify/snap/sign", "snaps": [sid]})
+    check(got.get("result") == {"signed": {sid: f"/api/notify/snap/{sid}"}},
+          "hk_notify/snap/sign answers Mantel's own route (no HA token, no HA address)")
+    async with owner.http.get(owner.base + f"/api/notify/snap/{sid}") as r:
+        body, ctype = await r.read(), r.headers.get("Content-Type", "")
+    check(r.status == 200 and ctype.startswith("image/") and len(body) > 100,
+          f"GET /api/notify/snap/<id> serves the picture ({ctype}, {len(body)} bytes) from Mantel's data")
+    out["snapshot"] = {"content_type": ctype, "bytes": len(body), "kept": host.snaps.status()}
+    # the calendars' look-ahead: the demo calendar's event, sent when start - 15 min has just passed
+    from datetime import datetime, timedelta, timezone
+    now = datetime.now(timezone.utc)
+    evs = await host.calendars.events([CALENDAR], now - timedelta(hours=2), now + timedelta(days=7))
+    timed = [e for e in evs.get(CALENDAR, []) if "T" in (e.get("start") or "")]
+    check(bool(timed), f"Mantel reads {CALENDAR}'s events itself (the REST calendar read): {[e['summary'] for e in timed]}")
+    start = datetime.fromisoformat(timed[0]["start"])
+    host.calendars.last = None
+    sent = await host.calendars.look(now=start - timedelta(minutes=15))
+    cal = await next_event("notification")
+    check(len(sent) == 1 and cal["kind"] == "calendar" and cal["event"]["summary"] == timed[0]["summary"],
+          f"the calendars' look-ahead sent '{cal['title']}: {cal['message']}' to the fictional screen")
+    out["calendar"] = {k: cal[k] for k in ("title", "message", "kind")}
+    # HK Settings -> Features -> Notifications: read and saved in Mantel, nothing read from or written to HA
+    before = len(app["hub"].readproxy.sent_types)
+    page = await owner.read({"type": "hk_notify/settings/get"})
+    check(page.get("result", {}).get("configured") is True and
+          {i["id"] for i in page["result"]["items"]} == {"n_leak", "n_cal"},
+          "HK Settings' Notifications page is answered by Mantel (its own settings and House)")
+    saved = await owner.save({"type": "hk_notify/settings/set", "changes": {"stay": 60}})
+    check(saved.get("result", {}).get("options", {}).get("stay") == 60 and host.notifier.opts["stay"] == 60,
+          "its save went to Mantel's settings store (house/mantel_features), checked by the shared checks")
+    check(not [t for t in app["hub"].readproxy.sent_types[before:] if t.startswith("hk_notify")],
+          "nothing about the page was read from or written to Home Assistant")
+    out["feature_page"] = {"items": len(page["result"]["items"]), "saved_stay": 60}
 
 
 async def _would(status):

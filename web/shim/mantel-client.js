@@ -19,7 +19,16 @@
   var SETTINGS_SAVES = ['hk_frontend/settings/set', 'hk_frontend/board/set', 'hk_frontend/tablet/set',
                         'hk_frontend/setup/done', 'hk_frontend/calendar/color', 'hk_frontend/chip/save',
                         'hk_frontend/chip/remove'];
-  function isSave(msg) { return !!(msg && typeof msg.type === 'string' && SETTINGS_SAVES.indexOf(msg.type) >= 0); }
+  // HK SETTINGS -> FEATURES saves (docs/phase4/MANTEL-FEATURES.md "HK Settings -> Features"): the same
+  // way, to Mantel's feature settings (settings_store.FEATURE_SAVES, a test pins the two lists together;
+  // RBAC `configure` on the server). Music's and Alarm PIN's saves are not here: their settings are still
+  // Home Assistant's, so they stay gateway writes (refused while commands are off).
+  var FEATURE_SAVES = ['hk_notify/settings/set', 'hk_notify/item/save', 'hk_notify/item/remove', 'hk_notify/test',
+                       'hk_clean_areas/settings/set', 'hk_energy/settings/set', 'hk_energy/device/set',
+                       'hk_energy/device/section', 'hk_tv/settings/set'];
+  function isSave(msg) {
+    return !!(msg && typeof msg.type === 'string' && (SETTINGS_SAVES.indexOf(msg.type) >= 0 || FEATURE_SAVES.indexOf(msg.type) >= 0));
+  }
   function save(hub, msg) {
     return hub.write(msg).catch(function (e) {
       if (e && e.code === 'forbidden') emit('hk-command-denied', { what: String(msg.type), reason: 'forbidden', code: 'forbidden' });
@@ -221,6 +230,13 @@
     }
     return hub.notifyMute(msg.key, minutes * 60);
   }
+  // All Tablets' "Restart all now" (hk_frontend/tablet/act {tablet: '*', act: 'restart_all'}): Mantel's
+  // tablets piece runs it as the person who asked, each press a gateway command (refused and audited
+  // while house commands are off). Answered as HA answers: {restarted: [tablet ids]}.
+  function tabletsRestart(hub) {
+    if (typeof hub.ask !== 'function') return Promise.reject(fail('commands_disabled', 'commands disabled'));
+    return hub.ask('tablets_restart', {}).then(function (r) { return { restarted: (r && r.restarted) || [] }; });
+  }
   function withFeatures(port, hub) {
     var acts = port.actions;
     if (!acts || !hub || typeof hub.screenReport !== 'function') return;
@@ -229,6 +245,7 @@
       var t = msg && msg.type;
       if (t === 'hk_frontend/screensaver/touch' || t === 'hk_frontend/screensaver/black') return screenReport(hub, msg);
       if (t === 'hk_notify/mute') return notifyMute(hub, msg);
+      if (t === 'hk_frontend/tablet/act' && msg.act === 'restart_all') return tabletsRestart(hub);
       // LIVE TV'S VIEWER HEARTBEAT (hk-tv-guide-card, on opening a channel and every 60 s while it plays):
       // in HA it names this screen in sensor.tv_viewers. A write, so the gateway's when commands are on;
       // with them off it is answered here, quietly and sending nothing (no "commands disabled" toast
@@ -241,7 +258,14 @@
     acts.callService = function (domain, service, data) {
       var id = data && data.entity_id;
       if (screens && domain === 'switch' && (service === 'turn_on' || service === 'turn_off') && typeof id === 'string' && screens.owns(id)) {
-        screens.set(id, service === 'turn_on');
+        var on = service === 'turn_on';
+        screens.set(id, on);
+        // HK's photo screensaver came up / went away: told to the server (screen_report {tablet, photos}),
+        // so Mantel's Sleep Screen reads it; a refusal changes nothing here (the page's own state stays)
+        var w = typeof screens.which === 'function' ? screens.which(id) : null;
+        if (w && w.kind === 'photos' && TABLET_ID.test(w.tablet)) {
+          hub.screenReport({ tablet: w.tablet, photos: on }).catch(function () { /* the page's own state stays */ });
+        }
         return Promise.resolve([]);
       }
       if (typeof callService === 'function') return callService.apply(acts, arguments);
@@ -323,7 +347,8 @@
     try { global.dispatchEvent(new CustomEvent('hk-client-update')); } catch (e) { /* shell tests */ }
   }
   global.hkMantelClient = { from: from, current: function () { return latest; }, setCurrent: setCurrent, bridge: bridge, entry: entry,
-                            useCommands: useCommands, useScreens: useScreens, kind: 'mantel', SETTINGS_SAVES: SETTINGS_SAVES.slice() };
+                            useCommands: useCommands, useScreens: useScreens, kind: 'mantel', SETTINGS_SAVES: SETTINGS_SAVES.slice(),
+                            FEATURE_SAVES: FEATURE_SAVES.slice() };
   global.hkHostClient = global.hkMantelClient;
   try { global.dispatchEvent(new CustomEvent('hk-host-client-ready')); } catch (e) { /* shell tests */ }
 })(globalThis);

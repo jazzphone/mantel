@@ -108,9 +108,11 @@ What remains (in HA until Live TV's viewers move):
   Mantel's view host doesn't have them.
 - **Lovelace's `markdown` card** isn't in the view host either. An Energy page with nothing to show ("Nothing to
   show yet…") draws an empty placeholder instead of that line.
-- **HK Settings → Features pages** read each feature's `<id>/settings/get`, which pages can't send on Mantel.
-  Since panel/get now lists the features as added, an Owner opening one sees it fail to load. Saving feature
-  settings was already `not_yet`.
+- ~~**HK Settings → Features pages** read each feature's `<id>/settings/get`, which pages can't send on Mantel.~~
+  **Fixed (2026-10-18, [MANTEL-FEATURES.md](MANTEL-FEATURES.md) "Phase 4 ports" item 5):** Mantel answers each page
+  for Owners/Admins and stores Notifications', Clean Areas', Energy's and Live TV's saves in
+  `house/mantel_features`; Music's and Alarm PIN's pages are an interim rebuilt read of HA's, their saves still
+  `not_yet`.
 - **A change made in HA after the import** doesn't reach Mantel until the import is run again (POST or the
   Ingress button).
 
