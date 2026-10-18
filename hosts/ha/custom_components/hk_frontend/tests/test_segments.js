@@ -19,6 +19,23 @@ ok('the chosen one: white, dark text, sliding on a spring', /\{color:#1c1c1e/.te
 ok('Reduce Motion: no slide', css.indexOf('prefers-reduced-motion:reduce') > 0);
 var cards = C.segCss('.option-row', { on: '.active', fill: true, font: '13px' });
 ok('marked another way (.active), sharing the width', cards.indexOf('.option-row button.active::before') > 0 && /flex:1 1 0/.test(cards));
+// THE SLIDE STARTS OUTSIDE ITS OWN BUTTON (slideSeg draws the chosen one's ::before at the old
+// choice's box, then lets it spring home): a choice that clips its own box hides that start, so the
+// old white vanished and the new one grew in place (the detail sheets' Hour / Day / Week / Month,
+// 2026-10-18). No choice -- filled or not -- may clip its overflow.
+var itemRule = function (c) { return (c.match(/(?:^|\})\.[\w-]+ button\{appearance[^}]*\}/) || [''])[0]; };
+ok('a choice sharing the width does not clip the slide (no overflow:hidden)', itemRule(cards).indexOf('flex:1 1 0') > 0 && !/overflow:\s*hidden/.test(itemRule(cards)), itemRule(cards));
+ok('a choice of its own width does not clip the slide either', !/overflow:\s*hidden/.test(itemRule(css)), itemRule(css));
+ok('the slide starts from the old box with no transition (.slide-from)', css.indexOf('button.slide-from::before{transition:none}') > 0);
+// ...and slideSeg really draws that start: the new choice, at the old one's box, for one forced layout
+var seg = { cls: {}, props: {}, log: [] };
+var fake = function (x, w) { return { parentNode: { getBoundingClientRect: function () { return { left: 0 }; } }, getBoundingClientRect: function () { return { left: x, width: w }; }, offsetWidth: 1 }; };
+var nb = fake(100, 90), toBox = C.segBox(nb), oldBox = { x: 0, w: 90 };
+nb.classList = { add: function (c) { seg.log.push('add ' + c); }, remove: function (c) { seg.log.push('remove ' + c); } };
+nb.style = { setProperty: function (k, v) { seg.log.push('set ' + k + '=' + v); }, removeProperty: function (k) { seg.log.push('unset ' + k); } };
+C.slideSeg(nb, oldBox);
+ok('slideSeg: the new choice is drawn at the old box (--hx -100px, same width), then released',
+  seg.log.join('|') === 'add slide-from|set --hx=-100px|set --sx=1|remove slide-from|unset --hx|unset --sx', seg.log.join('|'));
 // the Play Music tabs' own copy, held to the same numbers
 var src = read(HK_ROOT + '/frontend/modules/hk-saver-panel.js');
 var tabs = (src.match(/'\.mptabs\{[^']*'/) || [''])[0], item = (src.match(/'\.mptabs div\{[^']*'/) || [''])[0];

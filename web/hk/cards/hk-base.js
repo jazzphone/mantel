@@ -2861,7 +2861,10 @@
         (o.plate || 'border:' + M.border + ';border-width:var(--hk-seg-bw, 1px);' + M.glass + ';background:' + (o.raised ? 'var(--hk-seg-raised-track,var(--hk-seg-track,' + M.bg + '));box-shadow:var(--hk-field-shadow,none)' : 'var(--hk-seg-track,' + M.bg + ')')) + ';display:flex;gap:2px;position:relative}',
       it + '{appearance:none;font:inherit;box-sizing:border-box;min-width:' + (o.fill ? '0' : '74px') + ';height:' + ih + ';' +
         // sharing the width, a long name wraps to two lines rather than lose its end
-        (o.fill ? 'flex:1 1 0;padding:0 6px;overflow:hidden;text-align:center;line-height:1.1;' : 'padding:0 16px;white-space:nowrap;') +
+        // (NOT overflow:hidden: the chosen one's ::before starts the slide at the old choice's
+        // box, outside this button, and a clip showed it only once it had slid in -- the old white
+        // vanished and the new grew in place, 2026-10-18)
+        (o.fill ? 'flex:1 1 0;padding:0 6px;overflow:visible;overflow-wrap:anywhere;text-align:center;line-height:1.1;' : 'padding:0 16px;white-space:nowrap;') +
         'border-radius:calc(' + ih + ' / 2);border:0;background:transparent;box-shadow:none;',
       '  font-size:' + (o.font || '15px') + ';font-weight:600;color:' + v('ink') + ';cursor:pointer;margin:0;',
       '  display:inline-flex;align-items:center;justify-content:center;gap:6px;',
