@@ -181,6 +181,13 @@ Nothing else is installed on the tablets.
   house runs 2026.10.2. An older HA ignores the message (the page still works, with HA's chrome). People are
   never marked, so the sidebar stays for them. No kiosk-mode plugin, no `?kiosk`, no Kiosk Satellite setting.
 
+**Verified (2026-10-18).** `tests/test_ingress_tablets.py` (19) and the whole Mantel suite; against the scratch
+HA, `tools/testha/app_mode_check.py` through the App's own startup path (`ha_door_rules: trusted`): the Owner
+linked a fictional tablet HA user to a new device in *Living Room* over REST; that HA user's session was `user
+None, device wall_tablet (living_room), door ha`; its page carried the kiosk mark; its socket saw 7 entities
+(its room's and the cameras); its command was refused (`commands_disabled`, commands off); after the unlink it
+got 401. Not yet seen: a real tablet through HA's Ingress and HA's kiosk mode around the frame.
+
 ### The kiosk start URL (what to put in Kiosk Satellite)
 
 ```
