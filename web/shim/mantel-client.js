@@ -105,28 +105,68 @@
         return run({ kind: 'ws', msg: msg }, { kind: 'ws', what: String(msg && msg.type) });
       },
       // An authenticated write to the host's HTTP API, answered as fetch() would (a Response), so
-      // readers written for HA's fetchWithAuth take it as is. JSON bodies only.
+      // readers written for HA's fetchWithAuth take it as is. JSON bodies, and ONE binary upload: the
+      // doorbell's recorded talk-back clip (a Blob to TALK_PATH), sent as base64 in the same gateway
+      // command (talkBody). Any other binary body is refused here, sending nothing.
       request: function (path, init) {
         init = init || {};
         var method = String(init.method || 'GET').toUpperCase();
         var p = String(path).indexOf('/api/') === 0 ? String(path) : '/api/' + String(path).replace(/^\/+/, '');
         var what = { kind: 'http', what: method + ' ' + p.split('?')[0] };
-        var body;
-        if (init.body != null) {
-          if (typeof init.body !== 'string') return Promise.reject(fail('unsupported_body', 'Mantel forwards JSON bodies only'));
-          try { body = JSON.parse(init.body); } catch (e) { return Promise.reject(fail('unsupported_body', 'Mantel forwards JSON bodies only')); }
+        var made;
+        if (init.body != null && typeof init.body !== 'string') {
+          made = talkBody(method, p, init);
+          if (!made) return Promise.reject(fail('unsupported_body', 'Mantel forwards JSON bodies only'));
+        } else {
+          var body;
+          if (init.body != null) {
+            try { body = JSON.parse(init.body); } catch (e) { return Promise.reject(fail('unsupported_body', 'Mantel forwards JSON bodies only')); }
+          }
+          made = Promise.resolve({ kind: 'http', method: method, path: p, body: body });
         }
-        return hub.command({ kind: 'http', method: method, path: p, body: body }).then(function (reply) {
-          var m = reply && reply.error && /^http_(\d{3})$/.exec(reply.error.code || '');
-          if (m) return new Response(reply.error.message || '', { status: Number(m[1]) });
-          return Promise.resolve(settle({ kind: 'http', method: method, path: p, body: body }, what, reply, 0)).then(function (result) {
-            return new Response(JSON.stringify(result === undefined ? null : result),
-                                { status: 200, headers: { 'content-type': 'application/json' } });
+        return made.then(function (cmd) {
+          return hub.command(cmd).then(function (reply) {
+            var m = reply && reply.error && /^http_(\d{3})$/.exec(reply.error.code || '');
+            if (m) return new Response(reply.error.message || '', { status: Number(m[1]) });
+            return Promise.resolve(settle(cmd, what, reply, 0)).then(function (result) {
+              return new Response(JSON.stringify(result === undefined ? null : result),
+                                  { status: 200, headers: { 'content-type': 'application/json' } });
+            });
           });
         });
+      },
+      // LIVE TALK is not offered through Mantel (no dedicated write socket; GATEWAY.md "Doorbell
+      // talk-back"). Refused quietly -- no "commands disabled" toast, commands ARE on -- so the
+      // doorbell card goes on as a recorded clip, which `request` above carries through the gateway.
+      liveSocket: function () {
+        return Promise.reject(fail('live_unavailable', 'live talk is not offered through Mantel; the clip is sent instead'));
       }
-      // no liveSocket: Mantel offers no dedicated write socket (the doorbell's live talk-back stays refused)
     };
+  }
+  // THE ONE BINARY UPLOAD: HK's doorbell sheet POSTs its recorded clip (a Blob, audio/*) to
+  // hk_frontend's talk view. The server holds the real allowlist (ha_client.TALK_PATH, UPLOAD_TYPES,
+  // UPLOAD_MAX_BYTES); this mirrors it so nothing else is ever read or sent. Resolves the gateway
+  // command, or null (refused, nothing read) for anything else.
+  var TALK_PATH = /^\/api\/hk_frontend\/talk\?entity_id=media_player\.[a-z0-9_]+$/;
+  var TALK_TYPE = /^audio\/(webm|ogg|mp4|mpeg|aac|wav|x-wav)(\s*;.*)?$/i;
+  var TALK_MAX = 512000;
+  function header(headers, name) {
+    if (!headers) return null;
+    if (typeof headers.get === 'function') return headers.get(name);
+    for (var k in headers) if (Object.prototype.hasOwnProperty.call(headers, k) && k.toLowerCase() === name) return headers[k];
+    return null;
+  }
+  function talkBody(method, path, init) {
+    var blob = init.body;
+    if (method !== 'POST' || !TALK_PATH.test(path) || typeof Blob === 'undefined' || !(blob instanceof Blob)) return null;
+    var type = String(header(init.headers, 'content-type') || blob.type || '');
+    if (!TALK_TYPE.test(type)) return null;
+    if (blob.size > TALK_MAX) return Promise.reject(fail('body_too_large', 'the clip is too long'));
+    return blob.arrayBuffer().then(function (buf) {
+      var bytes = new Uint8Array(buf), bin = '';
+      for (var i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+      return { kind: 'http', method: 'POST', path: path, content_type: type.split(';')[0].trim().toLowerCase(), body_b64: btoa(bin) };
+    });
   }
   // home.js hands the hub over once it is connected; a port made after the server's capabilities
   // frame said `commands: true` carries actions, any other none.

@@ -139,7 +139,12 @@ def test_mantel_host_has_no_action_transport():
         return "\n".join(line.split("//", 1)[0] for line in part.splitlines())
     body = code("function actionsOn", "function useCommands")
     assert "hub.command(" in body and "snapshot" not in body and "fetch(" not in body and "WebSocket" not in body
-    assert "liveSocket:" not in body
+    # Doorbell talk-back (GATEWAY.md): liveSocket exists only to refuse quietly (the card then sends its
+    # recorded clip through `request`, a gateway command); it opens nothing and sends nothing.
+    live = body[body.index("liveSocket:"):]
+    live = live[:live.index("}") + 1]
+    assert re.fullmatch(r"liveSocket: function \(\) \{\s*return Promise\.reject\(fail\('live_unavailable', '[^']*'\)\);\s*\}", live), live
+    assert body.count("liveSocket") == 1
     saves = code("function savesOn", "// STEP-UP")
     assert "save(hub, msg)" in saves and "isSave(msg)" in saves and "commands_disabled" in saves
     assert "hub.command(" not in saves and "callService" not in saves and "request:" not in saves
