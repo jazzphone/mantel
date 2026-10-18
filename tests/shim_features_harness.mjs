@@ -247,6 +247,45 @@ async function run(label, commandsOn) {
   host.connection.subscribeMessage((ev) => otherSeen.push(ev), { type: 'frontend/subscribe_user_data', key: 'sidebar' });
   await tick();
   res.userDataOtherSeen = otherSeen; res.userDataOtherSent = sent.length - before;
+  // Browse's library (music_assistant.get_library with a response): Mantel's read `music_assistant/get_library`, never a
+  // command, commands on or off; a picture on the /ma proxy gets the page's prefix; anything else stays a command
+  globalThis.__mantelBase = '/ing';
+  const lb0 = sent.length, lbRefused = events.filter((e) => e === 'hk-command-refused').length;
+  const lq = a.callWS({ type: 'call_service', domain: 'music_assistant', service: 'get_library', return_response: true,
+                        service_data: { config_entry_id: 'e1', media_type: 'album', order_by: 'last_played_desc', limit: 12 } });
+  res.libFrame = last();
+  reply({ type: 'read_result', id: res.libFrame.id, result: { items: [
+    { media_type: 'album', uri: 'library://album/1', name: 'A', version: '', image: '/ma/imageproxy?path=a&provider=p&size=256',
+      artists: [{ media_type: 'artist', uri: 'library://artist/2', name: 'B', version: '', image: null }] },
+    { media_type: 'album', uri: 'library://album/2', name: 'C', version: '', image: 'https://img.example/c.jpg' }] } });
+  res.lib = await lq;
+  res.libSent = sent.length - lb0;
+  res.libRefusedEvents = events.filter((e) => e === 'hk-command-refused').length - lbRefused;
+  // Mantel without Music Assistant: the call goes the old way (the gateway, or refused with commands off)
+  const lf0 = sent.length;
+  const fq = a.callWS({ type: 'call_service', domain: 'music_assistant', service: 'get_library', return_response: true,
+                        service_data: { media_type: 'track' } });
+  fq.catch(() => {});
+  reply({ type: 'read_result', id: last().id, error: { code: 'ma_not_configured', message: 'no' } });
+  await tick();
+  if (commandsOn) { res.libFallbackFrame = last(); answer('command_result', { response: { items: [] } }); }
+  try { res.libFallback = await fq; } catch (e) { res.libFallback = e.code; }
+  res.libFallbackSent = sent.length - lf0;
+  // another error is the page's own; another service, or any extra key, is not the read
+  const le0 = sent.length;
+  const eq = a.callWS({ type: 'call_service', domain: 'music_assistant', service: 'get_library', return_response: true, service_data: {} });
+  reply({ type: 'read_result', id: last().id, error: { code: 'forbidden', message: 'no' } });
+  try { await eq; res.libError = 'NOT REJECTED'; } catch (e) { res.libError = e.code; }
+  res.libErrorSent = sent.length - le0;
+  const lo0 = sent.length;
+  for (const bad of [{ type: 'call_service', domain: 'music_assistant', service: 'play_media', return_response: true, service_data: {} },
+                     { type: 'call_service', domain: 'music_assistant', service: 'get_library', service_data: { media_type: 'album' } },
+                     { type: 'call_service', domain: 'music_assistant', service: 'get_library', return_response: true, target: { entity_id: 'x.y' }, service_data: {} }]) {
+    try { const q = a.callWS(bad); if (commandsOn) { (res.libOtherFrames = res.libOtherFrames || []).push(last().type); answer('command_result', null); } await q; (res.libOther = res.libOther || []).push('ok'); }
+    catch (e) { (res.libOther = res.libOther || []).push(e.code); }
+  }
+  res.libOtherSent = sent.length - lo0;
+  globalThis.__mantelBase = '';
   res.settingsSave = (() => { const q = a.callWS({ type: 'hk_frontend/board/set', board: {} }); const f = last(); reply({ type: 'settings_result', id: f.id, result: { ok: true } }); return f.type; })();
   out[label] = res;
 }

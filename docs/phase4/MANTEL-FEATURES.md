@@ -241,8 +241,14 @@ one-time settings import and with `POST /api/features/import`.
 - **The failure notifications** HA raises (`music_play_failed`, `speaker_group_failed`, ...: HK's Speakers picker
   shows them): Mantel logs them and lists them in `/api/music/status` (`notes`), but does not create HA
   persistent notifications (nothing is written to HA).
-- **Browse's library** still calls `music_assistant.get_library` / `media_player/browse_media` through HA (a service
-  call with commands on; `ma/read` is ready for when the card moves).
+- **Browse's library lists** (Discover's shelves and every category list: `music_assistant.get_library` with a
+  response) are Mantel's reads when Music Assistant is given to Mantel: the page's shim sends that one service as the
+  read `music_assistant/get_library`, Mantel checks its fields against HA's action, needs `view` on the music feature,
+  and answers `{items}` in HA's shape from Music Assistant's library commands, on every server (commands off too;
+  nothing audited, nothing to HA). A picture that is not a web address goes by Music Assistant's `/imageproxy` under
+  Mantel's `/ma` (that route needs `control` on music and `--ma-web-url`). Without Music Assistant in Mantel the call
+  goes the old way (the gateway: HA's, or refused with commands off). The tree reads (`media_player/browse_media`,
+  `search_media`: an album's tracks, an artist's albums, a search) still go through HA.
 - **Not run against a real Music Assistant** (none for testing; the house's is never contacted): the message
   shapes follow HA's integration and the official client, and are pinned against a fake. `ma_players` relies on
   HA's `music_assistant` entities' `unique_id` being the MA player id, and the queue id being the player id.

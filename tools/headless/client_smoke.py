@@ -51,6 +51,29 @@ FICTIONAL_HA_SETTINGS = {
 SETTINGS_TYPES = ("hk_frontend/panel/get", "hk_frontend/settings/subscribe")
 
 
+class FictionalLibrary:
+    """Music Assistant as Mantel's music host asks it for Browse's library (app["ma"].library): fictional items
+    per media type, every call kept. Nothing real is contacted."""
+    def __init__(self):
+        self.calls = []
+
+    def start(self):                      # the app's MA connector starts and closes its client; this one has no socket
+        return None
+
+    async def close(self):
+        return None
+
+    async def library(self, media_type, **args):
+        self.calls.append((media_type, dict(args)))
+        kind = media_type.rstrip("s")
+        count = 40 if args.get("limit", 25) >= 40 else min(args.get("limit", 25), 30)
+        start = args.get("offset", 0)
+        return [{"media_type": kind, "uri": f"library://{kind}/{n}", "name": f"Offline {kind} {n}", "version": "",
+                 "image": None, "artists": [{"media_type": "artist", "uri": "library://artist/1", "name": "Offline Band",
+                                             "version": "", "image": None}]}
+                for n in range(start + 1, start + count + 1)]
+
+
 class OfflineReads:
     """Fictional reads only. This object has no HTTP connection or credentials. HK's settings reads go
     to Mantel's settings store through the routes settings_store.register installed (what P3.7's
@@ -61,6 +84,7 @@ class OfflineReads:
         self.callbacks = {}
         self.ends = {}
         self.serial = 0
+        self.speaker = {"name": "Offline Office", "entity": "media_player.offline_office"}
         self.energy_prefs = {}               # what energy/get_prefs answers (the Energy cards' settings)
         self.energy_asked = []               # the statistics reads the Energy cards made
         self.stat_rows = None                # when set: msg -> the statistics answer (the where-card check)
@@ -72,6 +96,12 @@ class OfflineReads:
     async def request(self, msg):
         if msg["type"] in SETTINGS_TYPES:
             return await self.app["read_routes"][msg["type"]].request(self.ctx, msg)
+        if msg["type"] == "media_player/browse_media" and not msg.get("media_content_id"):
+            # Music Assistant's first level as HA's browse_media answers it: the seven categories
+            return {"children": [{"title": t, "media_content_id": i, "media_content_type": "music_assistant", "can_expand": True,
+                                  "can_play": False, "media_class": "directory", "thumbnail": None}
+                                 for t, i in (("Artists", "artists"), ("Albums", "albums"), ("Tracks", "tracks"),
+                                              ("Playlists", "playlists"), ("Radio", "radio"), ("Podcasts", "podcasts"))]}
         if msg["type"] == "get_config":
             return {"unit_system": {"temperature": "°C"}, "time_zone": "UTC", "currency": "USD"}
         if msg["type"] == "frontend/get_themes":
@@ -95,15 +125,17 @@ class OfflineReads:
         if msg["type"] in SETTINGS_TYPES:
             self.ends[self.serial] = await self.app["read_routes"][msg["type"]].subscribe(self.ctx, msg, callback)
             return self.serial
-        music = {"configured": True, "speakers": [{"name": "Offline Office", "entity": "media_player.offline_office"}]}
+        music = {"configured": True, "library_entry": "offline-entry", "speakers": [self.speaker]}
         initial = {"hk_music/subscribe": music}.get(msg["type"], {})
         asyncio.get_running_loop().call_soon(callback, initial)
         return self.serial
 
     def publish_music(self):
+        self.speaker = {"name": "Offline Den", "entity": "media_player.offline_den"}      # (a page loaded later is told too)
         for kind, callback in list(self.callbacks.values()):
             if kind == "hk_music/subscribe":
-                callback({"configured": True, "speakers": [{"name": "Offline Den", "entity": "media_player.offline_den"}]})
+                callback({"configured": True, "library_entry": "offline-entry",
+                          "speakers": [{"name": "Offline Den", "entity": "media_player.offline_den"}]})
 
     def count(self, kind):
         return sum(1 for k, _ in self.callbacks.values() if k == kind)
@@ -216,6 +248,7 @@ async def smoke(shot=None, shots=None):
         cookie = store.create_session("fictional-owner", 300)
         app = build_app(cfg, "unused-offline-token", store=store, connect_ha=False)
         hub = app["hub"]
+        library = app["ma"] = FictionalLibrary()      # Music Assistant given to Mantel (Browse's library reads)
         owner = Identity(User(store.get_link("fictional-owner")["user_id"], "Offline Owner", "owner", "ha_linked"), None, "lan")
         settings = settings_store.register(app, hub, settings_store.SettingsHooks(
             may_configure=settings_store.rbac_may_configure()), model=settings_store.ThinModel())
@@ -874,6 +907,46 @@ async def smoke(shot=None, shots=None):
                              !(m.shadowRoot.textContent || '').includes('No speaker selected');
                     }})()""", 10)
                     assert drawn, "the Music page did not draw Discovery for the saved speaker"
+                    # BROWSE'S LIBRARY IS A READ (house, 2026-10-18 night): Discover's shelves and every category list ask
+                    # music_assistant.get_library, which Mantel refused as a command ("Commands are disabled"). Now the
+                    # shim sends it as Mantel's read and Mantel answers from Music Assistant, with commands off.
+                    # the picked speaker exists now (the first level is browsed on it: the owner may view it)
+                    hub.on_change(hub.store.apply_event({"a": {"media_player.offline_den": {
+                        "s": "idle", "a": {"friendly_name": "Offline Den"}, "lc": 2.0, "lu": 2.0}}}))
+                    hub.registry.entries["media_player.offline_den"] = {"entity_id": "media_player.offline_den",
+                                                                        "platform": "demo"}
+                    card_js = f"window.__deep({music_js}.shadowRoot).find(e => e.localName === 'hk-library-card')"
+                    await browser.eval(f"{card_js}._load(null)")
+                    shelves = await browser.wait(f"""(() => {{
+                      const c = {card_js}; const sh = c && c._shelves;
+                      return !!sh && sh.length > 0 && sh.every(x => x.items && x.items.length > 0);
+                    }})()""", 15)
+                    if not shelves:
+                        probe = await browser.eval(f"""(async () => {{ const c = {card_js};
+                          try {{ return JSON.stringify(await c._ws({{type: 'media_player/browse_media', entity_id: c._player()}})); }}
+                          catch (e) {{ return 'ERR ' + (e && (e.code + ' ' + e.message)); }} }})()""")
+                        state = await browser.eval(f"""(() => {{ const c = {card_js}; if (!c) return 'no card';
+                          return JSON.stringify({{shelves: c._shelves, entry: c._entry(), rows: c._rows(), err: c._err,
+                            items: (c._items || []).length, ctx: c._ctx, loading: c._loading}}); }})()""")
+                        raise AssertionError(f"Discover's shelves did not load with commands off: {state} "
+                                             f"calls={library.calls[:3]} probe={probe}")
+                    shelf_text = await browser.eval(f"""(() => {{ const c = {card_js};
+                      return window.__deep(c.shadowRoot).map(e => e.textContent || '').join('|'); }})()""")
+                    assert "Offline " in shelf_text and "Commands are disabled" not in shelf_text, shelf_text[:300]
+                    assert any(m == "tracks" and a.get("order_by") == "last_played_desc" for m, a in library.calls), library.calls
+                    assert any(m == "playlists" and a.get("favorite") is True for m, a in library.calls), library.calls
+                    before = len(library.calls)
+                    tapped = await browser.wait(f"""(() => {{ const c = {card_js};
+                      const tile = window.__deep(c.shadowRoot).find(e => e.classList && e.classList.contains('it') &&
+                                                                    (e.textContent || '').trim() === 'Albums');
+                      if (!tile) return false; tile.click(); return true; }})()""", 10)
+                    assert tapped, "the Albums category tile was not drawn"
+                    listed = await browser.wait(f"""(() => {{ const c = {card_js};
+                      return !!c._items && c._items.length === 40 && !c._err && !c._loading; }})()""", 10)
+                    assert listed, "a category list did not load with commands off: " + await browser.eval(
+                        f"JSON.stringify({{err: {card_js}._err, n: ({card_js}._items || []).length}})")
+                    assert library.calls[before] == ("albums", {"order_by": "name", "limit": 500, "offset": 0}), library.calls[before:]
+                    assert await browser.eval("window.__blockedWrites") == 0
                     # "WHERE IT'S GOING NOW" (the house, 2026-10-18): drew 0 W on every row in Mantel. A house's
                     # devices are Utility Meters counting Integral sensors that integrate a power sensor; HA's
                     # collect() follows each helper's `source`, Mantel's energy_context did not, so no device had
@@ -1078,6 +1151,8 @@ async def smoke(shot=None, shots=None):
                                       f"({energy['cols']} hourly columns), -devices-graph, -sources-table and -date-selection "
                                       f"drew from energy/get_prefs and {len(hub.readproxy.energy_asked)} statistics read(s) through "
                                       f"Mantel's read path; 0 placeholders",
+                            "music_library": "with commands off, Discover's five shelves and the Albums list (500 a page) loaded from "
+                                             "Music Assistant as Mantel's reads, no command sent",
                             "music_fit": "the Music page (two columns, tab bar along the bottom, the frame running on "
                                          "under it) ends at the window: scrollHeight/innerHeight " + ", ".join(fits),
                             "where_card": "the Energy where-card, from a plan built by Mantel's energy_context (Utility Meter, no source "
