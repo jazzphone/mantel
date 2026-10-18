@@ -1,0 +1,4 @@
+# LAN TLS from Caddy's own local CA: for a home with no domain or no DNS API. Browsers show a warning
+# until the CA root is trusted on each device (the root is in the caddy-data volume under
+# pki/authorities/local/root.crt). Prefer tls-dns01.caddy where there is a domain.
+tls internal

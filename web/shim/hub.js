@@ -15,7 +15,7 @@ export class Hub {
 
   connect() {
     return new Promise((resolve, reject) => {
-      const ws = (this.ws = new WebSocket(`ws://${location.host}/ws`));
+      const ws = (this.ws = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws`));
       ws.onopen = () => resolve();
       ws.onerror = () => reject(new Error('hub connection failed'));
       ws.onclose = () => { if (!this.closing) setTimeout(() => this.connect().then(() => this.onReconnect && this.onReconnect()), 2000); };

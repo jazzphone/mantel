@@ -1,0 +1,8 @@
+# LAN TLS with a real certificate via the ACME DNS-01 challenge (no inbound internet port needed).
+# Needs the mantel-caddy image (packaging/docker/caddy.Dockerfile) and the secret file
+# secrets/cloudflare_dns_token: a Cloudflare API token limited to "Zone / DNS / Edit" for ONE zone.
+# For another DNS host change `cloudflare` and rebuild the image with that provider's module.
+tls {
+	dns cloudflare {file./run/secrets/cloudflare_dns_token}
+	resolvers 1.1.1.1
+}

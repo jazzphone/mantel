@@ -1,0 +1,30 @@
+name: Mantel Server
+version: "0.0.1"
+slug: mantel_server
+description: Mantel Server as a Home Assistant App; sign-in through the HA sidebar (Ingress)
+url: https://github.com/jazzphone/mantel
+# The same layers as the Docker/LXC image, published as the "app" build target (packaging/docker/Dockerfile).
+# Supervisor pulls image:version, so version above must equal a published tag. Pin by tag here, by digest in CI.
+image: ghcr.io/jazzphone/mantel-server-app
+arch:
+  - amd64
+startup: application
+boot: manual
+# The image has its own entrypoint (python /app/entrypoint.py), not an S6 base image.
+init: false
+ingress: true
+ingress_port: 8099
+panel_icon: mdi:fireplace
+panel_title: Mantel
+# Visible to every HA user (their role is Mantel's, not HA's admin flag); Mantel decides who may do what.
+panel_admin: false
+# HA's built-in App credential: Supervisor gives the container SUPERVISOR_TOKEN and the proxy
+# http://supervisor/core. entrypoint.py moves the token into a 0600 file; no user-created token.
+homeassistant_api: true
+apparmor: true
+options:
+  default_screen: dashboard-kitchen
+  session_hours: 12
+schema:
+  default_screen: str
+  session_hours: "float(1,720)"

@@ -214,7 +214,9 @@ class ClientSession:
 async def loopback_only(request: web.Request, handler):
     """Defense against DNS rebinding and cross-site WebSocket hijacking on localhost."""
     hostname = request.host.rsplit(":", 1)[0] if not request.host.endswith("]") else request.host
-    if hostname not in {"127.0.0.1", "localhost", "[::1]"}:
+    hub = request.app.get("hub")
+    allowed = hub.cfg.host_allowed(hostname) if hub is not None else hostname in {"127.0.0.1", "localhost", "[::1]"}
+    if not allowed:  # container mode adds the public name (--public-url / --allow-host); loopback otherwise
         raise web.HTTPForbidden(text="bad Host")
     origin = request.headers.get("Origin")
     if origin and urlparse(origin).netloc != request.host:
