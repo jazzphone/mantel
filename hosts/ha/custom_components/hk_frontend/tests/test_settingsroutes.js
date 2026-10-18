@@ -16,6 +16,9 @@ function ok(name, got, want) {
   else { fail++; print('  FAIL  ' + name + '   got ' + JSON.stringify(got) + ', want ' + JSON.stringify(want)); }
 }
 var P = customElements.get('hk-settings-panel').prototype;
+// A page shown a frontend object the way the panel's entry shows it: the host
+// adapter's client for it, read off the element as `client`.
+function show(pg, frontend) { Object.defineProperty(pg, 'client', { value: window.hkHostClient.from(frontend) }); }
 var page = Object.create(P);
 page.p_overview = function () { return 'overview'; };
 page.p_screen = function (path) { return 'screen:' + path; };
@@ -52,8 +55,8 @@ print('\n=== leaving the page: nothing of it keeps running ===');
   var connected = true;
   Object.defineProperty(pg, 'isConnected', { get: function () { return connected; } });
   var resolveSub = null, unsubbed = 0;
-  pg._hass = { connection: { subscribeMessage: function () {
-    return new Promise(function (r) { resolveSub = r; }); } } };
+  show(pg, { connection: { subscribeMessage: function () {
+    return new Promise(function (r) { resolveSub = r; }); } } });
   P.subscribe.call(pg);
   P.subscribe.call(pg);
   ok('one subscription asked for, however often subscribe() runs while it is on its way', typeof resolveSub, 'function');
@@ -82,7 +85,7 @@ print('=== accessories by type (2026-10-13) ===');
 (function () {
   var pg = Object.create(P);
   pg.data = { settings: { sky: {}, look: {}, generated: {} }, choices: {}, counts: {}, accessories: {} };
-  pg._hass = { states: {}, entities: {}, devices: {}, areas: {} };
+  show(pg, { states: {}, entities: {}, devices: {}, areas: {} });
   pg.p_overview = function () { return 'overview'; };
   var go = function (hash) { return P.resolve.call(pg, hash.replace(/^#\/?/, '').split('/')); };
   ok('a type opens its page', go('#/accessories/type/lights').title, 'Lights');
@@ -149,10 +152,10 @@ print('\n=== Pages (2026-10-16) ===');
   var M = window.hkSettingsModel;
   var pg = Object.create(P);
   pg.p_overview = function () { return 'overview'; };
-  pg._hass = { states: { 'valve.main_water': { state: 'open', attributes: { friendly_name: 'Main Water' } },
+  show(pg, { states: { 'valve.main_water': { state: 'open', attributes: { friendly_name: 'Main Water' } },
                          'weather.home': { state: 'sunny', attributes: {} }, 'calendar.family': { state: 'off', attributes: {} },
                          'camera.porch': { state: 'idle', attributes: {} } },
-               entities: {}, devices: {}, areas: {}, config: {} };
+               entities: {}, devices: {}, areas: {}, config: {} });
   pg.data = { settings: { sky: { pages: {} }, look: {}, generated: {}, headers: {}, status_rows: {}, security: {}, features: {},
                           weather: {}, calendar: {}, cameras: {}, browse: { hide: [], discover: [] } },
               choices: { status_rows: { water: { kinds: ['leaks', 'valves'], default: ['leaks', 'valves'] },
@@ -250,7 +253,7 @@ print('\n=== Flat Colors: one editor at every scope (2026-10-17) ===');
   var SAGE = '#7e9b83', ROSE = '#c17d91', LAV = '#9374bc';
   var pg = Object.create(P), writes = [];
   pg.p_overview = function () { return 'overview'; };
-  pg._hass = { states: {}, entities: {}, devices: {}, areas: { kitchen: { name: 'Kitchen' } }, config: {} };
+  show(pg, { states: {}, entities: {}, devices: {}, areas: { kitchen: { name: 'Kitchen' } }, config: {} });
   var look = { flat: true, flat_theme: 'light', glass: 'clear', flat_colors: { accent: SAGE, off_tint: 'accent' },
                flat_page_colors: { calendar: { accent: ROSE } }, page_accents: {}, page_pills: {} };
   pg.data = { settings: { sky: { pages: {}, flat_pages: {}, flat_background: 'color', flat_color: 'auto' }, look: look, menu: { accent: 'orange' },

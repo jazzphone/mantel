@@ -225,6 +225,29 @@ async def smoke(shot=None):
                     assert actions["frames"] == 0, actions          # zero writes: not one frame left the page
                     assert actions["refused"] == ["homeassistant.toggle", "homeassistant.toggle", "light.turn_on",
                                                   "alarm_control_panel.alarm_disarm"], actions
+                    # Slice 11: the HK Settings panel reads a client and saves through its action port.
+                    # Loaded here with Mantel's client, its saves, a config flow's step and a photo
+                    # forgotten are refused at the port; not one frame leaves the page.
+                    settings_panel = await browser.eval("""(async () => {
+                      for (const f of ['hk-settings-model', 'hk-settings-kit', 'hk-settings-features', 'hk-settings'])
+                        await import('/web/hk/panels/' + f + '.js');
+                      const P = customElements.get('hk-settings-panel').prototype;
+                      const pg = Object.create(P);
+                      Object.defineProperty(pg, 'client', { value: window.__mantel.client });
+                      pg.data = { entry_id: 'fictional-entry', settings: {}, boards: {} };
+                      const frames = window.__sentFrames, refused0 = window.__mantel.refused.length;
+                      const code = async (p) => { try { await p; return 'sent'; } catch (e) { return e.code; } };
+                      const save = await code(pg.actions().callWS({ type: 'hk_frontend/settings/set', changes: { 'look.glass': 'clear' } }));
+                      const flow = await code(pg.rest('POST', 'config/config_entries/subentries/flow', { handler: ['fictional-entry', 'page'] }));
+                      pg.photoForget('/api/image/serve/0123456789abcdef0123456789abcdef/original');
+                      await new Promise(r => setTimeout(r, 50));
+                      return { save, flow, entry: Object.getOwnPropertyDescriptor(P, 'hass') ? 'entry' : 'none',
+                               frames: window.__sentFrames - frames, refused: window.__mantel.refused.slice(refused0) };
+                    })()""")
+                    assert settings_panel == {"save": "commands_disabled", "flow": "commands_disabled", "entry": "entry",
+                                              "frames": 0, "refused": ["hk_frontend/settings/set",
+                                                                       "POST /api/config/config_entries/subentries/flow",
+                                                                       "image/delete"]}, settings_panel
                     # The host shell (web/shim/mantel-shell.js): the sky finds Mantel's view container and
                     # the menu mounts in the shell root; the tab bar does too once the screen asks for it.
                     shell = await browser.eval("""(() => {
@@ -256,6 +279,7 @@ async def smoke(shot=None):
                             "actions": "tile tap, sheet control and keypad refused through the action port; "
                                        "0 frames sent; read path refused call_service (read_only)",
                             "subscriptions": "write and state_changed bus refused (not_allowed); talk-back POST and live socket refused; 0 frames",
+                            "settings_panel": "loaded with Mantel's client; a save, a config flow step and a photo forgotten refused at the action port; 0 frames",
                             "external_requests": 0, "browser_exceptions": 0}
         finally:
             store.db.close()
