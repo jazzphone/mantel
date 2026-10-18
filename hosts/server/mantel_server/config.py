@@ -20,7 +20,9 @@ class Config:
     overrides: list[tuple[str, float]] = field(default_factory=list)
     default_screen: str = "dashboard-kitchen"           # /home goes to /<this>/home
     hk_frontend: Path = REPO / "web/hk"   # current shared HK source; the proof snapshot is reference-only
-    hk_files: Path = REPO / "spikes/hk-snapshot/hk_local"      # "Your files": SF Pro + glyphs (Apple's; never committed)
+    # "Your files" served after the uploaded ones (user_files.py: <data_dir>/user-files, which wins): a dev folder
+    # with SF Pro + glyphs (Apple's; never committed). --hk-files points it elsewhere, e.g. a bind-mounted folder.
+    hk_files: Path = REPO / "spikes/hk-snapshot/hk_local"
     fixtures: Path = REPO / "spikes/hk-snapshot/fixtures"      # captured HK feeds (personal data; git-ignored)
     web: Path = REPO / "web"
     data_dir: Path = Path("~/.local/share/mantel")
@@ -41,10 +43,22 @@ class Config:
     # The long-lived token is read from this secret file at each connect, never from env or logs.
     ma_url: str = ""
     ma_token_file: Path = Path("/run/secrets/ma_token")
+    # Backups (backup.py): off unless a target folder (the NAS mount) is set.
+    backup_target: Path | None = None
+    backup_key_file: Path | None = None                      # default <secrets_dir>/backup.key (not the at-rest key)
+    backup_time: str = "03:15"                               # nightly, in house_tz
+    backup_keep_daily: int = 7
+    backup_keep_weekly: int = 4
+    backup_include_files: bool = True                        # the "Your files" tree goes in the backup too
     # Container mode (packaging/): the server listens on the container's interface behind Caddy.
     # An empty public_url is the loopback prototype. parse_args holds the rules that guard it.
     public_url: str = ""                      # https://mantel.example.com/ : the address browsers use (via Caddy)
     allowed_hosts: tuple[str, ...] = ()       # Host header names accepted besides loopback; "*" = any
+
+    @property
+    def user_files_dir(self) -> Path:
+        """Where the home's own fonts, glyphs and photos live: outside the web root, on the /data volume."""
+        return Path(self.data_dir).expanduser() / "user-files"
 
     @property
     def base_url(self) -> str:
@@ -98,6 +112,17 @@ def parse_args(argv: list[str] | None = None) -> Config:
     p.add_argument("--allow-host", action="append", default=[], metavar="NAME",
                    help="container mode: another Host header name to accept (repeatable). '*' accepts any "
                         "and is only for a server whose sole way in is a trusted proxy (HA Ingress)")
+    p.add_argument("--hk-files", default=str(Config.hk_files), metavar="DIR",
+                   help="a folder served under /hk/ after the uploaded Your files (dev/bind-mount; "
+                        "uploads go to <data-dir>/user-files and win)")
+    p.add_argument("--backup-target", default=None, metavar="DIR",
+                   help="nightly encrypted backups go here (the NAS mount; must exist). Off when absent")
+    p.add_argument("--backup-key-file", default=None, metavar="FILE",
+                   help="the backup key (default <secrets-dir>/backup.key; separate from the at-rest key)")
+    p.add_argument("--backup-time", default=Config.backup_time, metavar="HH:MM", help="nightly backup time, house time")
+    p.add_argument("--backup-keep-daily", type=int, default=Config.backup_keep_daily, metavar="N")
+    p.add_argument("--backup-keep-weekly", type=int, default=Config.backup_keep_weekly, metavar="N")
+    p.add_argument("--backup-no-files", action="store_true", help="back up the database only, not the Your files tree")
     a = p.parse_args(argv)
     host, public_url, allowed = LOOPBACK_DEFAULT, "", ()
     if a.listen is not None:
@@ -114,6 +139,13 @@ def parse_args(argv: list[str] | None = None) -> Config:
         p.error("--public-url / --allow-host only apply together with --listen")
     if not (a.audit_retention_days >= 30) or a.audit_retention_days == float("inf"):
         p.error("--audit-retention-days must be at least 30")
+    from .backup import parse_time
+    try:
+        parse_time(a.backup_time)
+    except ValueError as exc:
+        p.error(str(exc))
+    if a.backup_keep_daily < 1 or a.backup_keep_weekly < 0:
+        p.error("--backup-keep-daily must be at least 1 and --backup-keep-weekly at least 0")
     overrides = []
     for item in a.override:
         pattern, _, secs = item.rpartition("=")
@@ -127,6 +159,10 @@ def parse_args(argv: list[str] | None = None) -> Config:
                  secrets_dir=Path(a.secrets_dir), lan_session_days=a.lan_session_days, webauthn_rp_id=a.rp_id,
                  public_url=public_url, allowed_hosts=allowed, commands_enabled=bool(a.commands_enabled),
                  house_tz=a.house_tz, trusted_proxies=tuple(a.trusted_proxy),
-                 audit_retention_days=float(a.audit_retention_days))
+                 audit_retention_days=float(a.audit_retention_days), hk_files=Path(a.hk_files),
+                 backup_target=Path(a.backup_target) if a.backup_target else None,
+                 backup_key_file=Path(a.backup_key_file) if a.backup_key_file else None,
+                 backup_time=a.backup_time, backup_keep_daily=a.backup_keep_daily,
+                 backup_keep_weekly=a.backup_keep_weekly, backup_include_files=not a.backup_no_files)
     assert cfg.host in LOOPBACK or cfg.public_url, "Mantel listens beyond loopback only in container mode"
     return cfg
