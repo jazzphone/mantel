@@ -64,12 +64,24 @@ class Config:
     ingress_only: bool = False
     ha_door_rules: str = "tunnel"                          # "tunnel" | "lan" | "trusted" (the HA App's default)
     ha_ws_url: str = ""                                    # explicit HA WebSocket URL (App: ws://supervisor/core/websocket)
+    # Mantel Connect (connect_pairing.py): Mantel Server OUTSIDE HA, reached by the Connect App in HA's sidebar
+    # over mutual TLS on its own port. Implies ingress mode (identity from the paired App's X-Remote-User-*
+    # headers), but trusts no socket peer: `ingress_peers` stays empty unless --ingress is also given.
+    connect: bool = False
+    connect_port: int = 8766
+    connect_listen: str = "0.0.0.0"
+    connect_address: str = ""                              # what /admin shows the Owner to type into the App
     log_level: str = "info"
 
     @property
     def ws_url(self) -> str:
         """Home Assistant's WebSocket API: the explicit URL, else derived from ha_url."""
         return self.ha_ws_url or self.ha_url.rstrip("/").replace("http", "ws", 1) + "/api/websocket"
+
+    @property
+    def connect_dir(self) -> Path:
+        """The Connect certificate authority and listener certificate (private keys, mode 0600)."""
+        return Path(self.data_dir).expanduser() / "connect"
 
     @property
     def user_files_dir(self) -> Path:
@@ -153,8 +165,20 @@ def parse_args(argv: list[str] | None = None) -> Config:
     p.add_argument("--ha-ws-url", default="", metavar="URL",
                    help="Home Assistant's WebSocket URL when it is not <ha-url>/api/websocket "
                         "(HA App: ws://supervisor/core/websocket)")
+    p.add_argument("--connect", action="store_true",
+                   help="Mantel Connect: also listen (TLS, client certificates) for the Connect App in Home Assistant's "
+                        "sidebar, and offer pairing (mantel connect pair; /admin). Off by default")
+    p.add_argument("--connect-port", type=int, default=Config.connect_port)
+    p.add_argument("--connect-listen", default=Config.connect_listen, metavar="ADDRESS")
+    p.add_argument("--connect-address", default="", metavar="HOST[:PORT]",
+                   help="the address /admin tells the Owner to give the Connect App")
     p.add_argument("--log-level", choices=("debug", "info", "warning", "error"), default=Config.log_level)
     a = p.parse_args(argv)
+    if not 1 <= a.connect_port <= 65535:
+        p.error("--connect-port must be a TCP port")
+    if a.connect and a.ingress_only:
+        p.error("--ingress-only refuses every request that does not come through Ingress, so it cannot "
+                "be combined with --connect (the Connect listener is the only other way in)")
     if (a.ingress_peer or a.ingress_only) and not a.ingress:
         p.error("--ingress-peer / --ingress-only only apply together with --ingress")
     peers = []
@@ -206,7 +230,10 @@ def parse_args(argv: list[str] | None = None) -> Config:
                  backup_time=a.backup_time, backup_keep_daily=a.backup_keep_daily,
                  backup_keep_weekly=a.backup_keep_weekly, backup_include_files=not a.backup_no_files,
                  ma_url=a.ma_url, ma_token_file=Path(a.ma_token_file),
-                 ingress=bool(a.ingress), ingress_peers=tuple(peers) or Config.ingress_peers,
+                 ingress=bool(a.ingress or a.connect),
+                 ingress_peers=tuple(peers) or (Config.ingress_peers if a.ingress else ()),
+                 connect=bool(a.connect), connect_port=a.connect_port, connect_listen=a.connect_listen,
+                 connect_address=a.connect_address,
                  ingress_only=bool(a.ingress_only), ha_door_rules=a.ha_door_rules, ha_ws_url=a.ha_ws_url,
                  log_level=a.log_level)
     assert cfg.host in LOOPBACK or cfg.public_url, "Mantel listens beyond loopback only in container mode"

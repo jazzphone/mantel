@@ -6,6 +6,9 @@ in a browser under a fake Ingress prefix, and run in App mode against the scratc
 installed on the house** (that is the orchestrator's next step; install steps and checklist below).
 Commands stay off (`commands_enabled: false`).
 
+When Mantel Server runs **outside** HA (Docker, an LXC) the sidebar entry is the Mantel Connect App instead, paired
+once with a one-time code and reusing this page's identity rules unchanged: [CONNECT.md](CONNECT.md).
+
 ## What changed
 
 | Path | What |

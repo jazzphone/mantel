@@ -29,7 +29,7 @@ from urllib.parse import urlparse
 import aiohttp
 from aiohttp import WSMsgType, web
 
-from . import accounts, auth, devices, gateway, health, ingress, pins, proof2, rbac_store, readproxy, sessions, settings_store
+from . import accounts, auth, connect_pairing, devices, gateway, health, ingress, pins, proof2, rbac_store, readproxy, sessions, settings_store
 from . import admin_page, backup, features, linked, login_page, service_accounts, user_files
 from .authz import Authz, Principal, resolve_door
 from .config import Config
@@ -229,6 +229,9 @@ async def loopback_only(request: web.Request, handler):
     hostname = request.host.rsplit(":", 1)[0] if not request.host.endswith("]") else request.host
     hub = request.app.get("hub")
     allowed = hub.cfg.host_allowed(hostname) if hub is not None else hostname in {"127.0.0.1", "localhost", "[::1]"}
+    # a paired Connect App reaches Mantel by whatever address it was given (mutual TLS is the defence
+    # against rebinding there); the browser's own host rides in X-Forwarded-Host (ingress.origin_ok)
+    allowed = allowed or request.get("connect_peer") is not None
     if not allowed:  # container mode adds the public name (--public-url / --allow-host); loopback otherwise
         raise web.HTTPForbidden(text="bad Host")
     origin = request.headers.get("Origin")
@@ -395,7 +398,8 @@ async def api_hk_cards(request: web.Request) -> web.Response:
 
 def build_app(cfg: Config, token: str, store: Store | None = None, connect_ha: bool = True,
               clock=time.time) -> web.Application:
-    app = web.Application(middlewares=[loopback_only, ingress.middleware, auth.require_session])
+    app = web.Application(middlewares=[connect_pairing.middleware, loopback_only, ingress.middleware,
+                                       auth.require_session])
     hub = Hub(cfg)
     app["store"] = store or Store(cfg.data_dir / "mantel.db")
     app["oauth"] = HaOAuth(cfg.ha_url, cfg.client_id, cfg.redirect_uri)
@@ -415,8 +419,9 @@ def build_app(cfg: Config, token: str, store: Store | None = None, connect_ha: b
     login_page.register(app, hub)     # /login (passkey, password + TOTP, Sign in with HA via /login/ha)
     admin_page.register(app, hub)     # /admin (people, devices, roles, service accounts, audit, my PIN)
     pins.register(app, hub)
-    ingress.register(app, hub, token)                   # HA App mode only (cfg.ingress); inert otherwise
+    ingress.register(app, hub, token)                   # HA App mode / Connect (cfg.ingress); inert otherwise
     wire(app, hub, token, connect_ha)
+    connect_pairing.register(app, hub)                  # Mantel Connect (cfg.connect): pairing + the mTLS listener
     app.router.add_get("/ws", ws_handler)
     app.router.add_get("/", root)
     app.router.add_get("/dev", dev_page)

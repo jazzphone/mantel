@@ -34,6 +34,8 @@
 #   var_cpu=4 var_ram=6144 var_disk=32 var_os=debian var_version=13 var_unprivileged=1 var_gpu=yes
 #   var_ctid=<id> var_hostname=mantel var_brg=<bridge> var_vlan=<tag|none> var_storage=<rootdir storage>
 #   var_template_storage=<vztmpl storage> var_install_mode=build|pull
+#   var_connect=no|yes   (yes: also publish Mantel Connect's port 8766, so the Connect App in Home Assistant's
+#   sidebar can be paired: docs/phase3/CONNECT.md. Default no)
 #   (build = build the images in the container from the pushed source; pull = pull published images)
 set -euo pipefail
 
@@ -46,6 +48,7 @@ var_os="${var_os:-debian}"
 var_version="${var_version:-13}"
 var_unprivileged="${var_unprivileged:-1}"
 var_gpu="${var_gpu:-yes}"
+var_connect="${var_connect:-no}"
 var_hostname="${var_hostname:-mantel}"
 var_install_mode="${var_install_mode:-build}"
 var_ctid="${var_ctid:-}"
@@ -66,6 +69,7 @@ variables() {
   [ "$var_unprivileged" = "1" ] || msg_error "var_unprivileged must stay 1: Mantel never runs in a privileged container (PLAN §7)"
   [ "$var_os" = "debian" ] && [ "$var_version" = "13" ] || msg_error "only Debian 13 is supported (var_os=debian var_version=13)"
   case "$var_gpu" in yes|no) ;; *) msg_error "var_gpu must be yes or no" ;; esac
+  case "$var_connect" in yes|no) ;; *) msg_error "var_connect must be yes or no" ;; esac
   case "$var_install_mode" in build|pull) ;; *) msg_error "var_install_mode must be build or pull" ;; esac
 }
 
@@ -224,7 +228,7 @@ EOF
   push_source "$var_ctid"
 
   msg_info "Installing inside the container (Docker, Compose, secret folder, first start; a few minutes)"
-  pct exec "$var_ctid" -- env MANTEL_INSTALL_MODE="$var_install_mode" MANTEL_GPU="$var_gpu" bash "${INSTALL_DIR}/packaging/lxc/mantel-install.sh"
+  pct exec "$var_ctid" -- env MANTEL_INSTALL_MODE="$var_install_mode" MANTEL_GPU="$var_gpu" MANTEL_CONNECT="$var_connect" bash "${INSTALL_DIR}/packaging/lxc/mantel-install.sh"
 }
 
 description() {

@@ -14,7 +14,7 @@ Contents: [1](#1-the-parts-and-the-two-doors) parts and doors · [2](#2-running-
 | **Caddy** | TLS, headers and the CSP in the container stacks. It stamps `X-Mantel-Door: lan` or `tunnel` on every request. |
 | **go2rtc / transcode** | Live TV and cameras (compose stack only; not wired to Mantel yet). |
 | **`hk_frontend`** (in HA) | Today's HK Frontend, unchanged, or in *linked mode* the thin piece that forwards `hk_frontend.*` actions to Mantel. |
-| **Mantel Connect** | A small HA App that puts Mantel in HA's sidebar and the Companion app. |
+| **Mantel Connect** | A small HA App that puts a Mantel running outside HA (Docker, an LXC) in HA's sidebar and the Companion app. Paired once with a one-time code (section 4a); not needed when Mantel runs as the Mantel App. |
 
 Every request arrives by a **door**. `lan` is the house network, served straight by Caddy. `tunnel` is anything coming through Cloudflare. A wall tablet's device credential, a Service account and a plain password sign-in all behave differently on the two doors (device credentials are refused on `tunnel`; a password alone is not enough on `tunnel`; sessions last 30 days on `lan`, 12 hours on `tunnel`). The door is believed only from a trusted proxy (section 2).
 
@@ -40,6 +40,8 @@ It reads Home Assistant's token from `~/.config/mantel/ha_token` and stops with 
 | `--public-url URL` | none | The `https://` address browsers use (through Caddy). It becomes HA's OAuth `client_id`, so "Sign in with Home Assistant" works behind Caddy. |
 | `--allow-host NAME` | none | Further Host names to accept (repeatable). `*` is for the HA App only. |
 | `--trusted-proxy ADDRESS` | none | A reverse proxy whose `X-Mantel-Door` and `X-Forwarded-For` are believed (repeatable, exact IP address). With none, every request through a proxy counts as `tunnel` (fail closed: wall tablets are refused). |
+| `--connect` | off | Mantel Connect: a second TLS listener for the Connect App (client certificates only) and pairing. Implies Ingress identity from a **paired** App, trusting no socket address. Section 4a. |
+| `--connect-port`, `--connect-listen`, `--connect-address` | `8766`, `0.0.0.0`, none | The listener's port and address; the address `/admin` shows the Owner to type into the App. |
 | `--data-dir` | `~/.local/share/mantel` | Where `mantel.db` lives. |
 | `--secrets-dir` | `~/.config/mantel/secrets` | Folder of secret files (the at-rest key). |
 | `--commands-enabled` | off | Turns the command gateway on. See section 8. |
@@ -61,6 +63,7 @@ The entrypoint turns `MANTEL_*` variables from `packaging/compose/.env` into tho
 | `MANTEL_TRUSTED_PROXY` | `--trusted-proxy` | Compose sets Caddy's fixed backend address `172.31.251.2`. Must be IP addresses. |
 | `MANTEL_DEFAULT_SCREEN`, `MANTEL_SESSION_HOURS` | `--screen`, `--session-hours` | Optional. |
 | `MANTEL_DATA_DIR`, `MANTEL_PORT`, `MANTEL_LISTEN`, `MANTEL_HA_TOKEN_FILE` | | Defaults `/data`, `8765`, `0.0.0.0`, `/run/secrets/ha_token`. |
+| `MANTEL_CONNECT`, `MANTEL_CONNECT_ADDRESS`, `MANTEL_HA_DOOR_RULES` | `--connect`, `--connect-address`, `--ha-door-rules` | Mantel Connect (section 4a). `compose.connect.yaml` sets the first; the rules default to `trusted`. |
 
 There is deliberately **no** environment variable for `--commands-enabled`. See section 8.
 
@@ -151,6 +154,34 @@ mantel-server unlink --ha-user-id <id>
 Roles: `owner`, `admin`, `adult`, `child`, `guest`, `wall_tablet` (and `service`, which is only for Service accounts). The starting grants for each are in [phase3/RBAC.md](phase3/RBAC.md) ("Starting roles"). A Child or Guest sees only the rooms they are given: an Owner sets them with `PUT /api/rbac/scopes/user/<id>` (`{"areas": [area names or ids]}`, where `<id>` is Mantel's user id from `GET /api/users`, not the HA id; see RBAC.md "Storage and REST"). Owners can also edit grants and role defaults over `/api/rbac/*`; every such change is audited before it applies. Sign-in with HA works from `/login` and, inside Home Assistant, through Mantel Connect (the guided pairing is not built yet).
 
 Changing a role takes effect at the next command, and open sockets are re-checked every 60 seconds. Disabling a user or unlinking an HA account ends their sessions at once. Admins cannot create or change Owners, and the last enabled Owner cannot be demoted.
+
+### 4a. Mantel in HA's sidebar when Mantel runs outside HA (Mantel Connect)
+
+Only for Docker and the LXC; the Mantel App needs none of this. Design and security rules:
+[phase3/CONNECT.md](phase3/CONNECT.md); the App: `packaging/connect-app/`, [packaging/mantel-connect/README.md](../packaging/mantel-connect/README.md).
+
+```bash
+# turn Connect on (compose: COMPOSE_FILE=compose.yaml:compose.connect.yaml in .env; the LXC script: var_connect=yes)
+docker compose up -d --wait
+# on the Mac: stage the App into HA's local apps share, then install "Mantel Connect" in HA
+~/.venvs/mantel/bin/python tools/stage_connect_app.py <local apps share>/mantel_connect
+# pair (an Owner; or /admin, Connect, Start pairing)
+docker compose exec mantel-server mantel connect pair --address <this host>:8766
+# HA: Settings, Apps, Mantel Connect, Configuration: the address and the code, Save, Restart
+docker compose exec mantel-server mantel connect list      # paired Apps: id, state, last seen
+docker compose exec mantel-server mantel connect revoke --id <id>
+```
+
+* The code is single use and expires in 10 minutes; five wrong proofs burn it; failed attempts are rate limited;
+  a new `pair` withdraws the earlier code (`mantel connect cancel` withdraws it too).
+* Revoking cuts the App off at once and closes its open connections; pair again to reconnect. Certificates
+  renew by themselves (clients 90 days, renewed at 30 left; so does the listener's). The CA, its key and the
+  listener key live in `<data-dir>/connect/` (back them up with the data volume).
+* Pairing, failures, renewals and revocations are in the audit log (section 9; actions `connect.*`).
+* The sidebar counts as the `ha` door (`MANTEL_HA_DOOR_RULES`, default `trusted`). The first Owner is made the
+  same way as in the Mantel App (an HA administrator confirms); link the household at `.../ingress/people`.
+* The connection test is the App's page `/__mantel_connect/status` (inside the sidebar). A plain page in place of
+  Mantel says what is wrong. `mantel connect status` shows the server's side.
 
 ## 5. Wall tablets: accounts, enrolment, PINs
 
@@ -381,7 +412,7 @@ Collected from the phase documents; check [PLAN.md](PLAN.md) section 0 for the c
 | **Images built and run on Docker Desktop (2026-10-18)**; the LXC and the App on the house are not yet run | The server image runs healthy under the production restrictions; base images are pinned. The full compose stack against the scratch HA and the LXC on proxmox1 are the next checks. | [phase3/PACKAGING.md](phase3/PACKAGING.md) |
 | **Login page: built, not yet used on the house** | `/login` offers passkey, password + authenticator code, and Sign in with HA, and returns to the page that sent you. Not built: passkeys offered in the user-name autofill; no headless check of `/login` yet. | [phase3/LOGIN-PAGE.md](phase3/LOGIN-PAGE.md) |
 | **HA App: Ingress identity and prefix-relative URLs** | The App starts and is healthy, but sign-in through Ingress does not work yet. The entrypoint passes no `--trusted-proxy` there, so every request counts as `tunnel`. | `HA-APP.md` (in progress), PACKAGING.md |
-| **Mantel Connect has no guided pairing or installer** | The Phase 0 proof used manual key and certificate transfer and a foreground receiver. | PLAN §8, mantel-connect README |
+| **Mantel Connect: built and verified here, not yet installed on the house (2026-10-18)** | Guided pairing, the mutual-TLS listener, revocation, renewal, `/admin` Connect, the staged App and the compose/LXC switch are built and tested, including real Docker images. Not done: installing the App in the real HA (the real Supervisor Ingress path through Connect, the Companion app over cellular); a QR code for the pairing string. | [phase3/CONNECT.md](phase3/CONNECT.md) "Not done" |
 | **Linked mode's real handlers and the 31 entities** | Built and tested, off by default; Mantel does not yet publish the entities or act on black screen, pop-ups or the alarm. | LINKED-MODE.md "What's left" |
 | **Read side for tablets** | With the default roles a wall tablet has no `music`, `notifications` or `media` feature grant; add them when the tablets move. Camera stills, camera live view and calendar events now go through Mantel's connectors with RBAC: stills use `/api/camera/<entity>/still`, and pages never get an HA camera token. Media-player artwork goes through `/api/media/<entity>/art` the same way; no HA token reaches a page, in states or history answers. Live TV's transcode is not moved. | GATEWAY.md, CONNECTORS.md "What the page needs" |
 | **Music page: interim bridge to HA (2026-10-18)** | `hk_music/subscribe`, `hk_music/queue` and `hk_music/settings/library` are forwarded to HA's `hk_frontend` (which still runs the music engine), RBAC-filtered; every music write stays refused. HA answers as Mantel's own HA user, so the per-user **home room is not the person's** until Phase 4 (MantelHouse runs the engine): Mantel sends `home: null` and the page draws with no room preselected. The host adapter still refuses `hk_music/queue` (its write-word backstop matches `queue`), so the screensaver's Up Next waits on a `web/shim` change. | [phase3/CONNECTORS.md](phase3/CONNECTORS.md) "What the page needs" |

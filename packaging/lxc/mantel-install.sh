@@ -78,6 +78,15 @@ if [ ! -f "$COMPOSE_DIR/.env" ]; then
     printf '%s\n' "COMPOSE_FILE=compose.yaml:compose.gpu.yaml" "MANTEL_RENDER_GID=${rgid}" >> "$COMPOSE_DIR/.env"
     msg_ok "GPU: render group ${rgid}, compose.gpu.yaml enabled"
   fi
+  if [ "${MANTEL_CONNECT:-no}" = "yes" ]; then
+    if grep -q '^COMPOSE_FILE=' "$COMPOSE_DIR/.env"; then
+      sed -i 's|^COMPOSE_FILE=\(.*\)$|COMPOSE_FILE=\1:compose.connect.yaml|' "$COMPOSE_DIR/.env"
+    else
+      printf '%s\n' "COMPOSE_FILE=compose.yaml:compose.connect.yaml" >> "$COMPOSE_DIR/.env"
+    fi
+    printf '%s\n' "MANTEL_CONNECT_ADDRESS=${lan_ip}:8766" >> "$COMPOSE_DIR/.env"
+    msg_ok "Mantel Connect: compose.connect.yaml enabled (port 8766); pair it after the first start"
+  fi
   chmod 0640 "$COMPOSE_DIR/.env"
   msg_ok "wrote .env with this container's address ${lan_ip}; edit MANTEL_HOSTNAME and MANTEL_HA_URL"
 fi
@@ -97,4 +106,7 @@ Installed. Mantel is NOT running yet. Finish like this:
      (DNS-01 TLS also needs:  mantel-secret cloudflare_dns_token)
   3. cd ${COMPOSE_DIR} && docker compose up -d --wait
   4. docker compose run --rm mantel-server links     # first-Owner linking stays an explicit admin step
+$([ "${MANTEL_CONNECT:-no}" = "yes" ] && echo "  5. Mantel in Home Assistant's sidebar: install the Mantel Connect App there, then
+       docker compose exec mantel-server mantel connect pair --address $(hostname -I | awk '{print $1}'):8766
+     (docs/phase3/CONNECT.md)")
 EOF

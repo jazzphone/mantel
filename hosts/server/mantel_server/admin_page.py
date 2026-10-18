@@ -35,7 +35,7 @@ ASSET = PAGE + "/{name}"
 OVERVIEW = "/api/admin/overview"
 ASSETS = {"admin.js": "text/javascript", "admin.css": "text/css"}
 # admin.js imports ../webauthn.js (the passkey helpers shared with /login), served by login_page.py
-SECTIONS = ("me", "people", "devices", "files", "roles", "service", "audit")
+SECTIONS = ("me", "people", "devices", "files", "roles", "service", "connect", "audit")
 
 CSP = ("default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; "
        "base-uri 'none'; form-action 'self'; frame-ancestors 'none'")
@@ -61,6 +61,8 @@ def sections_for(request: web.Request, ident: Identity) -> list[str]:
         out.append("roles")
         if ident.door == "lan":            # service_accounts' REST: an Owner's own session, LAN door only
             out.append("service")
+            if getattr(request.app["cfg"], "connect", False):    # Mantel Connect pairing (connect_pairing.py): same rule
+                out.append("connect")
     authz = request.app.get("authz")
     if authz is not None:                  # GET /api/audit: `configure` on the feature `audit`
         if authz.decide(authz.principal(request).subject, "configure", None, feature="audit").allowed:
@@ -110,6 +112,7 @@ async def overview(request: web.Request) -> web.Response:
         "resource_kinds": list(rbac.RESOURCE_KINDS),
         "features": list(rbac.FEATURES),
         "service_scopes": sorted(SERVICE_SCOPES),
+        "connect_port": getattr(request.app["cfg"], "connect_port", None),
     }, headers=HEADERS)
 
 

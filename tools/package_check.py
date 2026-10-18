@@ -400,6 +400,52 @@ def check_ha_app(path: Path) -> list[str]:
     return problems
 
 
+def check_connect_app(path: Path) -> list[str]:
+    """The Mantel Connect App (packaging/connect-app): Ingress only, no HA/Supervisor API, nothing mapped,
+    the pairing code a masked option that defaults to empty."""
+    doc = parse_yaml(path.read_text())
+    problems = []
+    if doc.get("ingress") is not True:
+        problems.append("connect-app: ingress must be true")
+    for bad in ("host_network", "full_access", "privileged", "devices", "docker_api", "host_pid", "host_dbus",
+                "homeassistant_api", "hassio_api", "auth_api", "hassio_role", "map", "ports", "ports_description",
+                "image"):
+        if doc.get(bad):
+            problems.append(f"connect-app: {bad} must not be set (Ingress is the only way in; nothing else is needed)")
+    if not isinstance(doc.get("panel_admin"), bool):
+        problems.append("connect-app: panel_admin must be set to true or false")
+    if doc.get("boot") != "auto" or not doc.get("watchdog"):
+        problems.append("connect-app: a persistent service needs boot: auto and a watchdog URL")
+    if (doc.get("schema") or {}).get("pairing_code") != "password?":
+        problems.append("connect-app: pairing_code must be a password-type option (masked in HA's form)")
+    if (doc.get("options") or {}).get("pairing_code") not in ("", None):
+        problems.append("connect-app: options.pairing_code must default to empty")
+    return problems
+
+
+def check_connect_compose(path: Path) -> list[str]:
+    """compose.connect.yaml adds exactly one published port (8766) and the switch that turns Connect on."""
+    doc = parse_yaml(path.read_text())
+    problems = []
+    services = doc.get("services") or {}
+    if set(services) != {"mantel-server"}:
+        problems.append("compose.connect.yaml: only mantel-server may appear")
+        return problems
+    svc = services["mantel-server"]
+    if set(svc) - {"environment", "ports"}:
+        problems.append(f"compose.connect.yaml: only environment and ports may be added, not {sorted(set(svc) - {'environment', 'ports'})}")
+    ports = svc.get("ports") or []
+    if len(ports) != 1 or not str(ports[0]).endswith(":8766"):
+        problems.append("compose.connect.yaml: exactly one published port, to container port 8766")
+    env = svc.get("environment") or {}
+    if str(env.get("MANTEL_CONNECT")) != "1":
+        problems.append("compose.connect.yaml: MANTEL_CONNECT must be 1")
+    for key in env:
+        if SECRETISH.search(key):
+            problems.append(f"compose.connect.yaml: {key} looks like a secret; secrets are files")
+    return problems
+
+
 def check_no_committed_secrets(root: Path = ROOT) -> list[str]:
     """No real .env, no secret files in packaging/, no token-shaped text in the packaging tree."""
     problems = []
@@ -440,6 +486,8 @@ def run_all(release: bool = False, root: Path = ROOT) -> list[str]:
     problems += check_caddyfile(pkg / "compose/caddy/Caddyfile")
     problems += check_lxc_script(pkg / "lxc/mantel.sh")
     problems += check_ha_app(pkg / "ha-app/config.yaml")
+    problems += check_connect_app(pkg / "connect-app/config.yaml")
+    problems += check_connect_compose(pkg / "compose/compose.connect.yaml")
     problems += check_no_committed_secrets(root)
     return problems
 

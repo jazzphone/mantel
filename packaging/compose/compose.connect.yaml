@@ -1,0 +1,15 @@
+# Mantel Connect: lets the Mantel Connect App in Home Assistant's sidebar reach this server (docs/phase3/CONNECT.md).
+# Enable by adding this file to COMPOSE_FILE in .env (the LXC script does it for var_connect=yes):
+#   COMPOSE_FILE=compose.yaml:compose.connect.yaml
+# It adds ONE published port, 8766, a TLS listener that answers pairing and then only a paired App's client
+# certificate; Caddy and the ordinary listener are untouched. Then pair:
+#   docker compose exec mantel-server mantel connect pair --address <this host>:8766
+# MANTEL_CONNECT_ADDRESS (host:port as Home Assistant reaches it) is only what /admin shows you to type.
+services:
+  mantel-server:
+    environment:
+      MANTEL_CONNECT: "1"
+      MANTEL_CONNECT_ADDRESS: ${MANTEL_CONNECT_ADDRESS:-}
+      MANTEL_HA_DOOR_RULES: ${MANTEL_HA_DOOR_RULES:-trusted}
+    ports:
+      - "${MANTEL_CONNECT_HOST_PORT:-8766}:8766"
