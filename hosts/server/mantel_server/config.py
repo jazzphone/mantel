@@ -64,6 +64,9 @@ class Config:
     ingress_only: bool = False
     ha_door_rules: str = "tunnel"                          # "tunnel" | "lan" | "trusted" (the HA App's default)
     ha_ws_url: str = ""                                    # explicit HA WebSocket URL (App: ws://supervisor/core/websocket)
+    # HA App mode: HA Core's socket address as the App sees it (172.30.32.1). With ingress_only it may reach
+    # linked mode's endpoint, and only that (ingress.CORE_PATHS; the endpoint still wants a Service credential)
+    ha_core_peers: tuple[str, ...] = ()
     # HA App mode: Home Assistant is reached with the Supervisor's own App credential, so the Connections
     # page shows HA as "Provided by Home Assistant (App)" and never edits it (connections.py)
     ha_managed_by_app: bool = False
@@ -180,6 +183,9 @@ def parse_args(argv: list[str] | None = None) -> Config:
     p.add_argument("--ha-ws-url", default="", metavar="URL",
                    help="Home Assistant's WebSocket URL when it is not <ha-url>/api/websocket "
                         "(HA App: ws://supervisor/core/websocket)")
+    p.add_argument("--ha-core-peer", action="append", default=[], metavar="ADDRESS",
+                   help="with --ingress: HA Core's socket address (HA App: 172.30.32.1), allowed to reach linked "
+                        "mode's endpoint /linked/ws (with its Service credential) even with --ingress-only")
     p.add_argument("--ha-managed-by-app", action="store_true",
                    help="HA App mode: the Home Assistant credential is the Supervisor's (the Connections page "
                         "shows it as provided by Home Assistant and does not edit it)")
@@ -206,14 +212,19 @@ def parse_args(argv: list[str] | None = None) -> Config:
     if a.connect and a.ingress_only:
         p.error("--ingress-only refuses every request that does not come through Ingress, so it cannot "
                 "be combined with --connect (the Connect listener is the only other way in)")
-    if (a.ingress_peer or a.ingress_only) and not a.ingress:
-        p.error("--ingress-peer / --ingress-only only apply together with --ingress")
-    peers = []
+    if (a.ingress_peer or a.ingress_only or a.ha_core_peer) and not a.ingress:
+        p.error("--ingress-peer / --ingress-only / --ha-core-peer only apply together with --ingress")
+    peers, core_peers = [], []
     for raw in a.ingress_peer:
         try:
             peers.append(str(ip_address(raw)))
         except ValueError:
             p.error(f"--ingress-peer must be an IP address, not {raw!r}")
+    for raw in a.ha_core_peer:
+        try:
+            core_peers.append(str(ip_address(raw)))
+        except ValueError:
+            p.error(f"--ha-core-peer must be an IP address, not {raw!r}")
     if a.ha_ws_url and urlparse(a.ha_ws_url).scheme not in ("ws", "wss"):
         p.error("--ha-ws-url must be a ws:// or wss:// URL")
     host, public_url, allowed = LOOPBACK_DEFAULT, "", ()
@@ -262,6 +273,7 @@ def parse_args(argv: list[str] | None = None) -> Config:
                  connect=bool(a.connect), connect_port=a.connect_port, connect_listen=a.connect_listen,
                  connect_address=a.connect_address,
                  ingress_only=bool(a.ingress_only), ha_door_rules=a.ha_door_rules, ha_ws_url=a.ha_ws_url,
+                 ha_core_peers=tuple(core_peers),
                  ha_managed_by_app=bool(a.ha_managed_by_app),
                  log_level=a.log_level, go2rtc_url=a.go2rtc_url.rstrip("/"),
                  live_tv_hardware="" if a.live_tv_hardware == "none" else a.live_tv_hardware)

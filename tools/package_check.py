@@ -381,11 +381,12 @@ def check_ha_app(path: Path) -> list[str]:
     for bad in ("host_network", "full_access", "privileged", "devices", "docker_api", "host_pid", "host_dbus"):
         if doc.get(bad):
             problems.append(f"ha-app: {bad} must not be set")
-    # panel_admin starts true (the first Owner must be an HA administrator; docs/phase3/HA-APP.md) and
-    # may become false once the household is linked: either way Mantel's own roles decide what anyone
-    # may do, and unlinked HA users get nothing. It must be stated, not left to the default.
-    if not isinstance(doc.get("panel_admin"), bool):
-        problems.append("ha-app: panel_admin must be set to true or false")
+    # panel_admin is false (decision 21, docs/phase3/HA-APP.md "Wall tablets through the App"): wall tablets
+    # and household members are not HA administrators, and they open Mantel through this panel. Mantel's own
+    # links and roles decide what anyone may do; unlinked HA users get nothing, and only an HA administrator
+    # (checked with HA itself) can become the first Owner. Stated, not left to the default.
+    if doc.get("panel_admin") is not False:
+        problems.append("ha-app: panel_admin must be false (wall tablets and household members open the panel)")
     if "ports" in doc or "ports_description" in doc:
         problems.append("ha-app: publishes ports; Ingress is the only way in")
     if doc.get("homeassistant_api") is not True:

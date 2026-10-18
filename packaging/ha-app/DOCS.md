@@ -25,9 +25,25 @@ sidebar: Home Assistant signs you in, and Mantel shows you what your Mantel role
 
 ## Who can open it
 
-The panel starts as administrators-only (`panel_admin: true`), because the first Owner must be a Home
-Assistant administrator. Once the household is linked, you may make the panel visible to everyone;
-Mantel's own roles still decide what each person can see and do, and unlinked accounts get nothing.
+Every Home Assistant user can open the panel (`panel_admin: false`): wall tablets and most household
+members are not administrators. Mantel decides what anyone gets: an account that is not linked sees only
+"Not linked yet", each linked person gets their Mantel role, and only a Home Assistant administrator
+(checked with Home Assistant itself) can become the first Owner.
+
+## Wall tablets
+
+Each wall tablet is its own Home Assistant user, signed in by `trusted_networks` in its kiosk browser
+(Kiosk Satellite). To move one to Mantel:
+
+1. As the Owner, open `People` and press **Link as a wall tablet** on the tablet's Home Assistant user:
+   choose *a new device* and the tablet's room. (Needs `ha_door_rules` `trusted` or `lan`.)
+2. In Kiosk Satellite set the start URL to the App's panel on Home Assistant's address, for example
+   `http://homeassistant.local:8123/app/local_mantel` (`/app/<this App's slug>`; the same scheme and host as the
+   tablet uses today). Nothing else changes on the tablet.
+
+The tablet opens on its own HK screen, full screen (Mantel asks Home Assistant to hide its sidebar and
+header for tablets only). Nobody is signed in on it: anything sensitive asks for a person's PIN at the
+tablet. To go back, set the start URL back to the tablet's Home Assistant dashboard.
 
 ## Security notes
 

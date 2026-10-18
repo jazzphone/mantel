@@ -71,6 +71,10 @@ class Device:
     name: str
     role: str
     room: str | None = None
+    # HA App mode: a wall tablet that is its own HA user, linked to this device (ingress.py, table
+    # ha_tablet_links). Its HA user id and HA's name for it (HK's Tablet User is matched by that name).
+    ha_user_id: str | None = None
+    ha_name: str | None = None
 
 
 @dataclass(frozen=True)
@@ -430,7 +434,10 @@ def legacy_user(ident: Identity) -> dict:
         return {"ha_user_id": u.ha_user_id, "name": u.name, "role": u.role, "user_id": u.id,
                 "device_id": ident.device.id if ident.device else None}
     d = ident.device
-    return {"ha_user_id": None, "name": d.name, "role": d.role, "user_id": None, "device_id": d.id}
+    # a tablet that is its own HA user (HA App mode) reads as that HA user, as HK in HA saw it: HK finds
+    # "which tablet am I" by its Tablet User's name (web/hk/modules/hk-settings.js tablet())
+    return {"ha_user_id": d.ha_user_id, "name": d.ha_name or d.name, "role": d.role, "user_id": None,
+            "device_id": d.id}
 
 
 def end_session(request: web.Request, resp: web.StreamResponse, reason: str = "logout") -> None:
@@ -468,7 +475,12 @@ def user_json(u: User | None) -> dict | None:
 
 
 def device_json(d: Device | None) -> dict | None:
-    return None if d is None else {"id": d.id, "name": d.name, "role": d.role, "room": d.room}
+    if d is None:
+        return None
+    out = {"id": d.id, "name": d.name, "role": d.role, "room": d.room}
+    if d.ha_user_id:
+        out["ha_user_id"] = d.ha_user_id
+    return out
 
 
 async def get_session(request: web.Request) -> web.Response:

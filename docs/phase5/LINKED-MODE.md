@@ -328,6 +328,13 @@ that forwards to the panel itself is refused (`not_set_up`), because it would lo
 - **Which door.** The LAN door only: `sessions.door_of` gives 403 `lan_only` for
   `X-Mantel-Door: tunnel` or any Cloudflare header. PLAN §7: machine credentials, like tablets', are
   useless off-site. Caddy already stamps the door on every request (`packaging/compose/caddy/Caddyfile`).
+  **In the HA App** (no Caddy, no published port, `ingress_only`): HA Core reaches the App from
+  `172.30.32.1` (`--ha-core-peer`, set by the App's entrypoint); from that address `/linked/ws` alone is let
+  through and counted as the LAN door, and the credential is still required. HA's option: address
+  `http://local-mantel:8099`. Ownership moves from the Owner's own sidebar there (`authz.home_door`).
+  [../phase3/HA-APP.md](../phase3/HA-APP.md) "Linked mode in the App". **Not usable yet:** this page's
+  address rule (plain `http://` only for 127.0.0.1) refuses that address; how to allow it is Avery's decision
+  (HA-APP.md lists the options).
 - **No browsers.** Any request carrying an `Origin` header gets 403. Browsers always send `Origin`
   on WebSockets and HA's client doesn't, so no page can ever drive this endpoint.
 - **One direction for commands.** HA → Mantel only. Mantel can change only the mirrored entities.

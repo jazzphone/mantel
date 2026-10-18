@@ -99,6 +99,10 @@ def resolve_door(request: web.Request) -> str:
     h = request.headers
     if any(k in h for k in CF_HEADERS):
         return "tunnel"
+    if getattr(request, "get", None) is not None and request.get("ha_core"):
+        # HA App mode: HA Core's own socket peer on linked mode's endpoint only (ingress.middleware marks it;
+        # the endpoint still wants a Service credential) -- the machine on the far side is the HA host
+        return "lan"
     claim = h.get(DOOR_HEADER)
     claim = claim.strip().lower() if claim is not None else None
     peer = request.remote
@@ -238,6 +242,30 @@ class Authz:
         (no Mantel step-up), as HK in HA never asked for one. Roles still decide what they may do."""
         return ident.door == "ha" and ident.user is not None and self.ha_door_mode() == "trusted"
 
+    def ha_tablet(self, ident: sessions.Identity) -> bool:
+        """A wall tablet that is its own HA user (ingress.py ``ha_tablet_links``), through HA's sidebar
+        with the home rules (``trusted`` or ``lan``): the LAN door's tablet in every respect -- the same
+        RBAC rules, a person's PIN at it for anything sensitive, and no "remote access" notice to the
+        Owners. Its trust root is the HA user Ingress vouches for (HA's trusted_networks sign-in on the
+        tablet), never a device credential. With ``tunnel`` rules ingress.py refuses such a tablet."""
+        d = ident.device
+        return ident.door == "ha" and d is not None and bool(d.ha_user_id) and self.rules_door("ha") == "lan"
+
+    def home_door(self, ident: sessions.Identity) -> bool:
+        """Where an Owner may change house-level wiring (linked mode's ownership, Service credentials):
+        the LAN door, or HA's sidebar when it has the home rules -- in the HA App there is no LAN door."""
+        return ident.door == "lan" or (ident.door == "ha" and self.rules_door("ha") == "lan")
+
+    def _ha_tablet_link_live(self, ha_user_id: str, device_id: str) -> bool:
+        store = self.app.get("store")
+        if store is None:
+            return True
+        try:
+            return store.db.execute("SELECT 1 FROM ha_tablet_links WHERE ha_user_id = ? AND device_id = ?",
+                                    (ha_user_id, device_id)).fetchone() is not None
+        except Exception:  # noqa: BLE001 -- no table (a bare test database): no link
+            return False
+
     def subject_of(self, ident: sessions.Identity) -> Subject:
         u, d = ident.user, ident.device
         subject = self.rbac.subject(user_role=u.role if u else None, user_id=u.id if u else None,
@@ -284,7 +312,11 @@ class Authz:
             if row is None or row["revoked"] is not None:
                 p.valid = False
                 return False
-            device = sessions.Device(id=row["id"], name=row["name"], role=row["role"], room=row["room"])
+            if device.ha_user_id and not self._ha_tablet_link_live(device.ha_user_id, device.id):
+                p.valid = False                      # the Owner unlinked the tablet's HA user
+                return False
+            device = sessions.Device(id=row["id"], name=row["name"], role=row["role"], room=row["room"],
+                                     ha_user_id=device.ha_user_id, ha_name=device.ha_name)
         p.identity = replace(ident, user=user, device=device, fresh_factor_at=fresh_at, fresh_factor=fresh)
         p.subject = self.subject_of(p.identity)
         if p.gate is not None:

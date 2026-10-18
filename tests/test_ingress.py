@@ -751,7 +751,8 @@ def test_ha_app_config_declares_what_the_app_needs():
     import package_check as pc
     doc = pc.parse_yaml((ROOT / "packaging/ha-app/config.yaml").read_text())
     assert doc["slug"] == "mantel" and doc["ingress"] is True and doc["ingress_port"] == 8099
-    assert doc["panel_admin"] is True and doc["homeassistant_api"] is True and "image" not in doc
+    # panel_admin false (decision 21): wall tablets and household members are not HA administrators
+    assert doc["panel_admin"] is False and doc["homeassistant_api"] is True and "image" not in doc
     assert set(doc["arch"]) == {"amd64", "aarch64"} and doc["options"]["commands_enabled"] is False
     assert set(doc["options"]) == set(doc["schema"])
     assert pc.check_ha_app(ROOT / "packaging/ha-app/config.yaml") == []

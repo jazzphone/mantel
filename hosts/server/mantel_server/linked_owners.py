@@ -7,8 +7,9 @@ id, the same in HA and in Mantel: P3.5's import) or ``house``: everything of the
 is not a tablet's (Seasonal decorations, the Alarm PIN panel, Live TV's entities; CUTOVER Step 7).
 
 * **Default: Home Assistant.** A unit with no row is HA's, so nothing changes until an Owner moves one.
-* **Set by an Owner** (``PUT /api/linked/owners``: an Owner's own session on the LAN door; CSRF through
-  the session middleware), **audited first**: an ``action_audit`` row (kind ``config``, action
+* **Set by an Owner** (``PUT /api/linked/owners``: an Owner's own session on the LAN door, or on HA's
+  sidebar with the home rules in the HA App, ``authz.home_door``; CSRF through the session middleware),
+  **audited first**: an ``action_audit`` row (kind ``config``, action
   ``linked.owner``, ``{unit, from, to}``) is written before the change is applied, as rbac_store does.
 * **Safe on restart**: the rows are in Mantel's database (migration ``0010_linked_owners.sql``); HA
   keeps the last ownership it was told in its entry's data, so either side restarting alone keeps it.
@@ -180,8 +181,11 @@ def _who(request: web.Request, owner_only: bool) -> Any:
         raise web.HTTPForbidden(text="a person's own session only")
     if role not in (("owner",) if owner_only else ("owner", "admin")):
         raise web.HTTPForbidden(text="Owner only" if owner_only else "Owner or Admin only")
-    if owner_only and ident.door != "lan":
-        raise web.HTTPForbidden(text="ownership is changed on the LAN only")
+    authz = request.app.get("authz")
+    home = ident.door == "lan" or (authz is not None and authz.home_door(ident))
+    if owner_only and not home:
+        # the LAN door, or HA's sidebar with the home rules (the HA App has no LAN door; HA-APP.md)
+        raise web.HTTPForbidden(text="ownership is changed on the LAN (or a trusted HA sidebar) only")
     return ident
 
 

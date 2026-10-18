@@ -5,7 +5,7 @@ a **local App**: the Supervisor builds `Dockerfile` from a folder that `tools/st
 
 | File | What it is |
 |---|---|
-| `config.yaml` | The App: slug `mantel`, Ingress on port 8099, `panel_admin: true`, `homeassistant_api: true` (HA's built-in App credential), options `commands_enabled` (false), `log_level`, `default_screen`, `ha_door_rules`. No `image:` (local build), no ports. |
+| `config.yaml` | The App: slug `mantel`, Ingress on port 8099, `panel_admin: false` (wall tablets and household members open it), `homeassistant_api: true` (HA's built-in App credential), options `commands_enabled` (false), `log_level`, `default_screen`, `ha_door_rules`. No `image:` (local build), no ports. |
 | `Dockerfile` | `python:3.12-slim-bookworm`, the pinned `requirements.txt`, then `app/` (staged). Starts as root only so `entrypoint.py` can chown `/data`, then runs the server as uid 10001. |
 | `requirements.txt` | Exact dependency versions (the ones the tests ran with). |
 | `DOCS.md` | What HA shows on the App's Documentation tab. |

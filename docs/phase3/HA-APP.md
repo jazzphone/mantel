@@ -77,8 +77,9 @@ the server re-checks "administrator" and "no Owner" and then, in one transaction
 re-checks "no Owner" and creates the HA-linked Owner (`kind ha_linked`, the display name). An audit row
 (`config`, `ingress.bootstrap_owner`) and a warning log line record it. Afterwards the page answers 410.
 A non-administrator sees "an administrator must open Mantel first"; if HA cannot be asked, the page says
-so (503) and nothing is created (fail closed). `panel_admin: true` keeps the panel to HA admins anyway
-until the Owner opens it to everyone.
+so (503) and nothing is created (fail closed). The panel is open to every HA user (`panel_admin: false`
+since the wall-tablet slice, below): that never makes anyone an Owner, because the check is HA's own
+administrator list, not who can open the panel.
 
 ### People (linking the household)
 
@@ -88,7 +89,9 @@ or *Unlink*; a by-id form if HA's list cannot be read. Plain forms with the sess
 Origin check; Admins never link, re-role or unlink Owners; the last Owner cannot be removed; each change is
 audited (`ingress.link` / `ingress.unlink`). Unlinking ends that user's sessions at once (Store.unlink).
 For the Owner it also offers **Import HK's settings from Home Assistant (once)**, the same one-time import
-as `POST /api/settings/import` (P3.5), so a fresh App draws the house's dashboards.
+as `POST /api/settings/import` (P3.5), so a fresh App draws the house's dashboards. For each HA user the
+Owner also has **Link as a wall tablet** (a new or existing device, its room): see "Wall tablets through the
+App" below.
 
 ## The door decision: `ha`
 
@@ -110,6 +113,136 @@ fully trusted**, as HK in Home Assistant and the Companion app always were:
 * A sensitive action on `ha` **notifies the Owners** like a remote one (gateway `REMOTE_DOORS`), worded
   "through Home Assistant's sidebar".
 * The audit records door `ha` (migration 0008); a session row shows door `tunnel`, method `ingress`.
+* **Wall tablets come through `ha` too** (decision 21, below): an HA user an Owner linked to a device is that
+  device, and with `trusted` or `lan` it gets the LAN door's tablet rules. A device *credential* is still
+  never accepted on `ha`; the identity comes from the HA user Ingress vouches for.
+
+## Wall tablets through the App (decision 21, 2026-10-18)
+
+**Decision (Avery, 2026-10-18, PLAN decision 21 and §8 "HA App first"):** the HA App is this house's
+deployment, so the wall tablets open Mantel through the App's panel (Ingress) on Home Assistant's own
+address, keeping their HA users. This replaces the earlier rule "wall tablets never come through Ingress".
+
+**What a tablet is today.** Each wall tablet (Kitchen, Loft, Living Room, Master Bath, Master Bedroom) runs
+**Kiosk Satellite**, a kiosk browser with its own ESPHome link to HA for screen, brightness and the voice
+satellite (unaffected by any of this). Its start URL is a page of HA's website (e.g.
+`http://192.0.2.53:8123/dashboard-kitchen`), signed in as the tablet's own HA user by `trusted_networks`.
+Nothing else is installed on the tablets.
+
+### The tablet's HA user is a device
+
+| Piece | What |
+|---|---|
+| `migrations/0012_ha_tablet_links.sql` | `ha_tablet_links(ha_user_id PK, device_id UNIQUE → devices, ha_name, own_device, created, created_by)`. |
+| `ingress.py` | `tablet_link`, `link_tablet` / `unlink_tablet` (audited `ingress.link_tablet` / `ingress.unlink_tablet`), `_tablet_identity`, `tablets_allowed`, `tablet_start`, the People page's *Link as a wall tablet* form, `GET/POST /api/ingress/tablets`, `DELETE /api/ingress/tablets/{ha_user_id}`, the kiosk mark, HA Core's path to `/linked/ws`. |
+| `sessions.py` | `Device.ha_user_id`, `Device.ha_name`; `/api/me` of such a tablet reads as its HA user. |
+| `authz.py` | `ha_tablet(ident)` (the LAN tablet in every respect), `home_door(ident)`; `refresh` keeps the HA link and drops a socket whose link was removed; `resolve_door` treats HA Core's linked-mode request as `lan`. |
+| `gateway.py` | No "remote access" Owner notice for such a tablet (`_not_remote`). |
+| `features.py` | `may_speak_for`: the device is its tablet when HA's name for its HA user is that tablet's Tablet User (or, as before, by room); feed frames naming the tablet's HA user reach it. |
+| `linked_owners.py`, `service_accounts.py` | An Owner on a home-rules sidebar may move tablet ownership and manage Service credentials (the App has no LAN door). |
+| `config.py`, `entrypoint.py` | `--ha-core-peer` (`ha_core_peers`); the App passes `172.30.32.1`. |
+| `web/shim/base.js` | The kiosk request to HA's frontend. |
+| `packaging/ha-app/config.yaml`, `tools/package_check.py` | `panel_admin: false` (required by the check). |
+| `tests/test_ingress_tablets.py` | 19 tests (linking, identity, unlinked refusal, person sessions unaffected, unlink/revoke, no Owner/Admin page for a tablet, the PIN at the tablet, `panel_admin` pinned); `tools/testha/app_mode_check.py` gained a tablet section. |
+
+* **Linking (Owners only).** People page → *Link as a wall tablet*: pick *a new device* or an existing
+  live wall-tablet device (one LAN-enrolled earlier, say) and the room (one of HA's areas), or REST
+  `POST /api/ingress/tablets {"ha_user_id", "device_id"? , "name"?, "room"?}` from an Owner's own session on
+  the LAN or a home-rules sidebar (CSRF as usual). A person link of that HA user is removed in the same
+  transaction (its sessions end); the last Owner cannot become a tablet; a device is one HA user's at most.
+  *Unlink* removes the link and revokes the device if it was made for the link. Both are audited.
+* **Identity.** A request through Ingress whose `X-Remote-User-Id` is a linked tablet is
+  `Identity(user=None, device=Device(…, ha_user_id, ha_name), door="ha", csrf=<the device's CSRF>)`. No
+  Mantel session and no device secret exist for it: the HA user Ingress names on every request is the
+  credential (the trust root is HA's own sign-in of the tablet, i.e. its `trusted_networks` entry). Its page
+  load sets the readable CSRF cookie at the prefix for the step-up code. Its `last_seen`/`source_ip` (the
+  tablet's address as HA saw it) are kept on the device row.
+* **Rules.** With `ha_door_rules: trusted` (the App's default) or `lan`, the device gets the LAN door's
+  tablet rules: its room's entities, every camera (the doorbell pop-up), and for anything sensitive **a
+  person's PIN typed at the tablet**, decided as person ∩ device with the pad's lockout (PINS-AUDIT.md),
+  exactly as on the LAN; HA's sign-in of the tablet is *not* a factor (`ha_trusted` is for people only).
+  The audit says door `ha`; no "remote access" notice is sent for a tablet.
+* **`ha_door_rules: tunnel` refuses linked tablets** (decision made here): RBAC never gives a device the
+  tunnel's rules (PLAN §7: tablets are LAN-only), so rather than a page that loads and can do nothing, the
+  tablet gets "Wall tablets are off for the sidebar" (and `401 tablet_refused` on the API); the People page
+  says so to the Owner. A person's HA user is unaffected by any of this.
+* **Which tablet it is.** `/` and `/home` for such a tablet go to its own HK screen:
+  `<prefix>/<screen>/home?hk_tablet=<tablet id>`, where the tablet is the one in Mantel's HK settings whose
+  *Tablet User* is HA's name for this HA user (else the one in the device's room; else Mantel's default
+  screen). HK remembers `hk_tablet` (`hk-settings.js tablet()`), and `/api/me` gives HK the HA user's id and
+  name as HA's frontend did, so HK's screensaver, black screen and its `screen_report` frames name the same
+  tablet as in HA, and features.py accepts them from this device (`may_speak_for`); feed frames naming the
+  tablet's HA user (`users`) reach it.
+* **HA's sidebar and header.** The page of a linked tablet carries `<meta name="mantel-kiosk">`; Mantel's
+  `base.js` then posts HA's own iframe message `{"type": "home-assistant/subscribe-properties",
+  "kioskMode": true}` to the App panel around it (`ha-panel-app`), which turns on HA's kiosk mode: the
+  sidebar drawer is closed and the panel's 40 px header is not drawn. Read from the frontend HA 2026.9 ships
+  (`home-assistant-frontend 20260826.7`, `ha-panel-app`: `_handleIframeMessage` → `hass-kiosk-mode`); the
+  house runs 2026.10.2. An older HA ignores the message (the page still works, with HA's chrome). People are
+  never marked, so the sidebar stays for them. No kiosk-mode plugin, no `?kiosk`, no Kiosk Satellite setting.
+
+**Verified (2026-10-18).** `tests/test_ingress_tablets.py` (19) and the whole Mantel suite; against the scratch
+HA, `tools/testha/app_mode_check.py` through the App's own startup path (`ha_door_rules: trusted`): the Owner
+linked a fictional tablet HA user to a new device in *Living Room* over REST; that HA user's session was `user
+None, device wall_tablet (living_room), door ha`; its page carried the kiosk mark; its socket saw 7 entities
+(its room's and the cameras); its command was refused (`commands_disabled`, commands off); after the unlink it
+got 401. Not yet seen: a real tablet through HA's Ingress and HA's kiosk mode around the frame.
+
+### The kiosk start URL (what to put in Kiosk Satellite)
+
+```
+http://192.0.2.53:8123/app/local_mantel
+```
+
+* **`/app/<App slug>`** is HA's own route for an App's Ingress panel (`hassio` registers the built-in panel
+  `app`; `ha-panel-app` takes the slug from the path). It is stable: it survives HA and App restarts and
+  updates, does not depend on *Show in sidebar*, and is the same for every tablet (Mantel picks each one's
+  screen). A local App's slug is `local_` + `mantel`; if the App is later installed from an App repository its
+  slug becomes `<repository id>_mantel` (read it from the address bar on the App's page in Settings → Apps).
+  `/local_mantel` (the sidebar entry's own path) also works, but only while *Show in sidebar* is on.
+* **Same scheme and host as today's start URL** (the tablet's current `http://192.0.2.53:8123/...`), so
+  `trusted_networks` signs it in exactly as it does now.
+* **Not** `/api/hassio_ingress/<token>/…`: that address needs HA's `ingress_session` cookie, which only HA's
+  frontend creates (`supervisor/api` → `/ingress/session` over its WebSocket), keeps alive (every 60 s,
+  `/ingress/validate_session`) and re-creates when the Supervisor has dropped it; opened directly it answers
+  401. The token is also per installation.
+* **First load, nothing stored:** HA's frontend has no tokens yet → HA's login → `trusted_networks`
+  (`allow_bypass_login`, the tablet's IP → its one HA user) signs it in with no prompt → back to
+  `/app/local_mantel` → the frontend makes an ingress session (allowed for non-admin users: HA's
+  `WS_NO_ADMIN_ENDPOINTS` lets them create and validate ingress sessions and read the App's info, which is why
+  `panel_admin` must be `false`) → the frame loads Mantel → Mantel sees the tablet's HA user → its device →
+  its screen → HA's chrome hidden. If `trusted_networks` maps the tablet's IP to more than one user, HA shows a
+  user picker instead (as it would for the dashboard URL today).
+* **HA restart:** the frontend reconnects by itself; Mantel's frame stays and its socket reconnects. **App
+  restart/update:** the frame's requests get 502 for a moment; Mantel's page retries its socket; if HA's panel
+  shows its "App not ready" dialog, a reload (Kiosk Satellite's, or HK's nightly tablet restart) clears it.
+  **Ingress session expiry:** HA's panel re-validates every 60 s and makes a new session when validation
+  fails, so a long-running tablet keeps working; a WebView that was suspended longer than the session's life
+  may see 401s for up to a minute after it wakes, until the keep-alive has replaced it (the page's socket
+  retries meanwhile). These three are read from HA's code and Mantel's tests; **check each on the Loft tablet
+  at Step 3** (CUTOVER.md).
+
+### Linked mode in the App
+
+Per-tablet ownership needs HA's `hk_frontend` ("Linked to Mantel Server") to reach Mantel's `/linked/ws`.
+In the App there is no published port and `ingress_only` refuses everything but the Supervisor, so the App
+now also names **HA Core's own address on the hassio network, `172.30.32.1`** (`--ha-core-peer`): from it,
+exactly one path is let through, `/linked/ws`, and treated as the LAN door; the endpoint still needs its
+Service credential (scope `linked`) and refuses any request with an `Origin`. Every other path from that
+address is still refused. HA's option: address `http://local-mantel:8099` (the App's hostname on the hassio
+network, as HA Core reaches `core-mosquitto`; **verify on the house**), the Service credential created by the
+Owner in `/admin` → Service accounts or `POST /api/service-accounts` inside the sidebar (allowed on a
+home-rules sidebar now). Ownership (`PUT /api/linked/owners`) likewise works from the Owner's sidebar.
+Caveat: any App with `host_network` also appears as `172.30.32.1`; it would still need the Service credential.
+
+**Blocked on HA's side (decision for Avery).** HK Frontend's Configure accepts plain `http://`/`ws://` only
+for 127.0.0.1/localhost (`linked_mode.check_url` → `mantel_url_insecure`), so it refuses
+`http://local-mantel:8099` today, and the App serves no TLS. Mantel's side is built and tested; HA's form is
+not changed (loosening where a credential may travel in clear is Avery's call). Options: (a) let
+`check_url` also accept the hassio network (`172.30.32.0/23`) and App hostnames (`local-<slug>`,
+`<8 hex>-<slug>`), whose traffic never leaves the HA host; (b) give the App a TLS listener for `/linked/ws`
+(a self-signed certificate HA pins); (c) keep linked mode for the Docker/LXC path only and leave per-tablet
+ownership with HA in the App until then. Until one is chosen, CUTOVER.md's linked-mode steps wait.
 
 ## The prefix
 
@@ -143,7 +276,8 @@ image store) and the dev-only Skylab page's `location.href` jumps; `/dev` (diagn
 
 * **`config.yaml`**: name Mantel, slug `mantel`, version 0.1.0, `arch: [amd64, aarch64]`,
   `startup: application`, `boot: manual`, `init: true`, `ingress: true`, `ingress_port: 8099`,
-  `panel_icon: mdi:fireplace`, `panel_title: Mantel`, `panel_admin: true`, `homeassistant_api: true`,
+  `panel_icon: mdi:fireplace`, `panel_title: Mantel`, `panel_admin: false` (was `true` up to 0.1.4),
+  `homeassistant_api: true`,
   `watchdog: http://[HOST]:[PORT:8099]/healthz`; options `commands_enabled: false`, `log_level: info`,
   `default_screen: dashboard-kitchen`, `ha_door_rules: tunnel`. No `image:` (the Supervisor builds the
   local folder), no ports, no `hassio_api`/`auth_api`/host network/devices.
@@ -173,8 +307,8 @@ image store) and the dev-only Skylab page's `location.href` jumps; `/dev` (diagn
 Dry run today: 2663 files, 66.2 MB (web 65.2 MB: HK's code and sky/landscape art; mantel_server 0.5 MB;
 hk_core 0.5 MB), scan clean. The scan refuses: font files of any kind (SF Pro is Apple's; each home adds
 its own through "Your files"), `hk-glyphs*`/`hk_local`, fixtures, secrets, `.env`, keys, tokens, databases;
-JWT/GitHub/AWS/private-key-shaped text; private-network addresses except three named ones
-(`172.30.32.2` the Supervisor, `172.31.251.2` compose's Caddy, and config.py's development default
+JWT/GitHub/AWS/private-key-shaped text; private-network addresses except four named ones
+(`172.30.32.2` the Supervisor, `172.30.32.1` HA Core, `172.31.251.2` compose's Caddy, and config.py's development default
 `ha_url` — App mode always overrides it); `HK_PRIVATE` adds a home's own words. Writing goes to a sibling
 temp folder that is renamed into place; `--replace` refuses a folder without the tool's
 `.mantel-stage.json` marker; the repository itself is refused as a target.
@@ -334,8 +468,14 @@ else in HA was changed (the App creates no entities, no users, no tokens; HK Fro
 
 ## Not done / risks
 
-* `panel_admin: true` for now: non-admin household members cannot open the panel until it is set to
-  `false` (a config.yaml change + restage + rebuild). Their Mantel role still governs once they can.
+* `panel_admin: false` is in the repository, not yet on the house (0.1.4 there is admin-only): the next
+  App update opens the panel to every HA user (unlinked ones see "Not linked yet"; Jordan and Riley see
+  their roles). Earlier plan (CUTOVER.md, Avery): open it to the household only at cutover; hold that update
+  until Step 3 if that still stands.
+* Wall tablets through the App: the kiosk path (first load by trusted_networks, HA's kiosk mode, restarts,
+  ingress-session expiry) and HA Core reaching `http://local-mantel:8099/linked/ws` are read from HA's code
+  and tested against stand-ins only; the scratch HA has no Supervisor, so no Ingress. Verify on the Loft.
+  HK Frontend's Configure refuses that plain-http address today ("Linked mode in the App": a decision for Avery).
 * No in-page UI link to the People page yet (the address is `<prefix>/ingress/people`; the setup
   confirmation links it). The HK Settings panel's own user management is P3.x front-end work.
 * Passkey step-up does not work through Ingress (RP ID); TOTP and PIN step-up do.
@@ -348,8 +488,10 @@ else in HA was changed (the App creates no entities, no users, no tokens; HK Fro
 1. Orchestrator: stage into `/Volumes/local_apps/mantel` and run the install + checklist above; record HA
    Core/Supervisor versions and each checklist line's result in this file.
 2. If the Supervisor refuses `config/auth/list` to the App credential: link the first Owner with the
-   `docker exec` fallback and change `bootstrap_state` to fall back to `panel_admin` (only admins can open
-   the panel) — a decision for Avery.
-3. When the household is linked: `panel_admin: false`, version bump, restage `--replace`, rebuild.
+   `docker exec` fallback. (Falling back to "only admins can open the panel" no longer holds: the panel is
+   open to every HA user since `panel_admin: false`; the house already has its Owner.)
+3. `panel_admin: false` is set in the repository (wall tablets): version bump, restage `--replace`, update
+   the App when Avery wants the panel open (at the latest, Step 3 of CUTOVER.md); then link each tablet's HA
+   user as a wall tablet and follow CUTOVER.md.
 4. Front end: a *People* entry in Mantel's menu for Owners/Admins (→ `<prefix>/ingress/people`).
 5. Later: publish the image (packaging/docker `app` target, GHCR) and add `image:` for updates through HA.

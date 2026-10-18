@@ -149,8 +149,10 @@ def _owner(request):
         raise web.HTTPForbidden(text="an Owner's own session only")
     if ident.user.role != "owner":
         raise web.HTTPForbidden(text="Owner only")
-    if ident.door != "lan":
-        raise web.HTTPForbidden(text="service credentials are managed on the LAN only")
+    authz = request.app.get("authz")
+    if not (ident.door == "lan" or (authz is not None and authz.home_door(ident))):
+        # the LAN door, or HA's sidebar with the home rules (the HA App has no LAN door; HA-APP.md)
+        raise web.HTTPForbidden(text="service credentials are managed on the LAN (or a trusted HA sidebar) only")
     return ident
 
 

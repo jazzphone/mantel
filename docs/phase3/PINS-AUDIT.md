@@ -71,6 +71,11 @@ applies each number not yet recorded, in order, so whichever lands first the oth
    `pin_invalid` / `pin_locked` / `pin_ambiguous`, no actor) and nothing is sent.
 4. The socket keeps the tablet's own principal: the next sensitive command asks again.
 5. `methods` is `["pin"]` only when someone has a PIN (else `[]`: nobody here can answer, as before).
+6. **The same at a tablet in the HA App** (decision 21; [HA-APP.md](HA-APP.md) "Wall tablets through the
+   App"): a tablet whose HA user an Owner linked to a device comes through Ingress as that device on door
+   `ha`; with the home rules (`ha_door_rules` trusted or lan) it is decided exactly as above (the LAN's
+   rules, the pad's lockout `device:<id>`), the audit row says door `ha`, and no "remote access" notice
+   goes to the Owners (`authz.ha_tablet`). Tested in `tests/test_ingress_tablets.py`.
 
 ### On a person's own session
 

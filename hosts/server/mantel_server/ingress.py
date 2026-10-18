@@ -12,6 +12,15 @@ prefix (``X-Ingress-Path: /api/hassio_ingress/<token>``). This module turns that
   ``cfg.ingress_only`` (the App's setting) such a request is refused outright (health checks excepted).
 * **Linked users only** (PLAN §5). The HA user id maps through P3.1's ``ha_links`` to a Mantel user and
   its role. An unlinked HA user gets a page saying to ask an Owner, and nothing else.
+* **Wall tablets** (decision 21, PLAN §8 "HA App first"). Each wall tablet in the house is its own HA user
+  (trusted_networks in Kiosk Satellite). An Owner links such an HA user to a Mantel *device* instead
+  (``ha_tablet_links``: wall_tablet role, its room): its requests are then that device with no user, on
+  door ``ha``, and with the home rules (``ha_door_rules`` trusted or lan) the device gets the LAN door's
+  tablet rules -- a person's PIN at it for anything sensitive (person ∩ device), no remote-access notice.
+  The trust root is the HA user Ingress vouches for; a device *credential* is still never accepted on
+  ``ha``. With ``tunnel`` rules such a tablet is refused (devices are never allowed remote rules). Its page
+  opens on its own HK screen (``/home`` → ``/<screen>/home?hk_tablet=<id>``) and asks HA's frontend to hide
+  its sidebar and header (``<meta name="mantel-kiosk">``, web/shim/base.js).
 * **First Owner.** While no enabled Owner exists, an HA *administrator* (checked with HA itself over
   Mantel's own HA credential: ``config/auth/list``) arriving through Ingress may become the Owner,
   after pressing an explicit confirm button (a signed, expiring, single-user form). Afterwards the
@@ -70,8 +79,16 @@ SIGN_IN_PATHS = frozenset({"/login", "/auth/callback", "/api/auth/password", "/a
 SIGN_IN_PREFIX = "/login/"          # the page's assets and /login/ha (login_page.py, auth.py)
 BOOTSTRAP_TTL = 600
 WARN_EVERY = 300.0
-LINK_ROLES = ("owner", "admin", "adult", "child", "guest")   # wall tablets never come through Ingress
+# A person's roles. A wall tablet is not a person: its HA user is linked to a device (link_tablet below).
+LINK_ROLES = ("owner", "admin", "adult", "child", "guest")
 DIRECTORY_TTL = 30.0
+DEVICE_TOUCH_EVERY = 60.0
+NAME_MAX = 64
+# HA Core, seen from inside the App (the hassio network's gateway; HA Core runs on the host network). It
+# may reach exactly one path when the App's ingress_only is on: linked mode's endpoint (linked.py), which
+# wants its own Service credential besides (docs/phase3/HA-APP.md "Linked mode in the App").
+CORE_PATHS = frozenset({"/linked/ws"})
+KIOSK_META = '<meta name="mantel-kiosk" content="tablet">'
 
 # The prefix rewrite of HK's files (see the module docstring). Absolute references to Mantel's own
 # asset roots, right after a quote, backtick or "(" (CSS url(...)). Not /api/: those literals in HK's
@@ -184,6 +201,9 @@ def resolve(request: web.Request) -> Identity | None:
         log.warning("an Ingress request carried no valid %s", USER_ID)
         return Identity(None, None, "ha")
     db = app["store"].db
+    tablet = tablet_link(db, person["id"])
+    if tablet is not None:
+        return _tablet_identity(request, person, tablet)
     row = linked_user(db, person["id"])
     if row is None or row["disabled"]:
         request["ingress_unlinked"] = person
@@ -216,6 +236,52 @@ def resolve(request: web.Request) -> Identity | None:
     mgr.touch(srow, now, sessions.client_ip(request))
     return Identity(user=user, device=None, door="ha", fresh_factor_at=srow["fresh_factor_at"],
                     fresh_factor=srow["fresh_factor"], session_id=srow["id"], csrf=srow["csrf"])
+
+
+def tablet_link(db, ha_user_id: str):
+    """The device an HA user is linked to as a wall tablet (with the device's row), or None."""
+    return db.execute("SELECT t.ha_user_id, t.ha_name, t.own_device, t.created AS linked, d.id, d.name, d.role, "
+                      "d.room, d.csrf, d.revoked, d.last_seen, d.source_ip FROM ha_tablet_links t "
+                      "JOIN devices d ON d.id = t.device_id WHERE t.ha_user_id = ?", (ha_user_id,)).fetchone()
+
+
+def tablets_allowed(app: web.Application) -> bool:
+    """Wall tablets through Ingress only with the home rules on the 'ha' door (trusted or lan): a device
+    is never given the tunnel's rules (rbac refuses devices there; PLAN §7: tablets are LAN-only)."""
+    authz = app.get("authz")
+    if authz is not None:
+        return authz.rules_door("ha") == "lan"
+    return getattr(app["cfg"], "ha_door_rules", "tunnel") in ("trusted", "lan")
+
+
+def _tablet_identity(request: web.Request, person: dict, row) -> Identity:
+    """An HA user linked to a wall-tablet device: the device, no user, door 'ha'. No session is made: the
+    HA user Ingress names on every request is the credential; the device's own CSRF token guards writes."""
+    app = request.app
+    if row["revoked"] is not None:
+        request["ingress_tablet_refused"] = ("revoked", person, row)
+        return Identity(None, None, "ha")
+    if not tablets_allowed(app):
+        request["ingress_tablet_refused"] = ("tunnel_rules", person, row)
+        return Identity(None, None, "ha")
+    now = app["clock"]()
+    ip = sessions.client_ip(request)
+    if row["last_seen"] is None or now - row["last_seen"] >= DEVICE_TOUCH_EVERY or (ip and ip != row["source_ip"]):
+        db = app["store"].db
+        with db:
+            db.execute("UPDATE devices SET last_seen = ?, source_ip = COALESCE(?, source_ip) WHERE id = ?",
+                       (now, ip, row["id"]))
+    device = sessions.Device(id=row["id"], name=row["name"], role=row["role"], room=row["room"],
+                             ha_user_id=person["id"], ha_name=person.get("display") or row["ha_name"] or row["name"])
+    if wants_page(request) and request.cookies.get(sessions.CSRF_COOKIE) != row["csrf"]:
+        # the page's readable CSRF cookie (mantel-stepup.js), scoped to the prefix like every Ingress cookie
+        sessions.queue_cookie(request, sessions.CSRF_COOKIE, row["csrf"],
+                              **sessions._cookie_opts(request, 400 * 86400, httponly=False))
+    return Identity(user=None, device=device, door="ha", csrf=row["csrf"])
+
+
+def is_ha_tablet(ident: Identity | None) -> bool:
+    return ident is not None and ident.user is None and ident.device is not None and bool(ident.device.ha_user_id)
 
 
 def _ours(row, user: User) -> bool:
@@ -332,8 +398,26 @@ def _page(title: str, body: str, status: int = 200) -> web.Response:
                         headers={"Cache-Control": "no-store", "X-Content-Type-Options": "nosniff"})
 
 
+def tablet_refused_page(reason: str, person: dict, row) -> web.Response:
+    who = html.escape(person.get("display") or person.get("username") or "this account")
+    dev = html.escape(row["name"] or "a wall tablet")
+    if reason == "revoked":
+        body = (f"<p>Home Assistant says you are <b>{who}</b>, linked in Mantel to the wall tablet <b>{dev}</b>, "
+                "but that device has been revoked.</p><p>Ask a Mantel Owner to link this tablet again (in Mantel: "
+                "<i>People</i>).</p>")
+        return _page("This tablet is revoked", body, 403)
+    body = (f"<p>Home Assistant says you are <b>{who}</b>, linked in Mantel to the wall tablet <b>{dev}</b>.</p>"
+            "<p>Mantel's sidebar uses its remote rules (the App's option <code>ha_door_rules: tunnel</code>), and "
+            "under them wall tablets are refused. An Owner can set <code>ha_door_rules</code> to "
+            "<code>trusted</code> (the App's default) or <code>lan</code>.</p>")
+    return _page("Wall tablets are off for the sidebar", body, 403)
+
+
 async def unlinked_page(request: web.Request, person: dict | None) -> web.Response:
     base = request.get("mantel_base", "")
+    refused = request.get("ingress_tablet_refused")
+    if refused is not None:
+        return tablet_refused_page(*refused)
     if person is None:
         return _page("Not signed in", "<p>Home Assistant did not say who you are. Reload the page from "
                      "Home Assistant's sidebar.</p>", 401)
@@ -366,7 +450,8 @@ async def bootstrap_get(request: web.Request) -> web.Response:
     if not is_ingress(request):
         raise web.HTTPNotFound()
     person = ha_person(request)
-    if person is not None and linked_user(request.app["store"].db, person["id"]) is not None:
+    db = request.app["store"].db
+    if person is not None and (linked_user(db, person["id"]) is not None or tablet_link(db, person["id"]) is not None):
         raise web.HTTPFound(request.get("mantel_base", "") + "/home")
     return await unlinked_page(request, person)
 
@@ -399,6 +484,8 @@ async def bootstrap_post(request: web.Request) -> web.Response:
         if owner_exists(db):
             return _page("Already set up", f"<p>Mantel already has an Owner. <a href='{html.escape(base)}/home'>"
                          "Continue</a>.</p>", 410)
+        if tablet_link(db, person["id"]) is not None:
+            return _page("Not changed", "<p>This Home Assistant account is a wall tablet in Mantel.</p>", 409)
         if linked_user(db, person["id"]) is not None:
             db.execute("UPDATE users SET role = 'owner', updated = ? WHERE id = (SELECT user_id FROM ha_links "
                        "WHERE ha_user_id = ?)", (now, person["id"]))
@@ -420,6 +507,189 @@ def _audit(app: web.Application, actor: str | None, role: str | None, action: st
     if audit is not None:
         audit.config_event({"timestamp": app["clock"](), "actor": actor, "role": role, "action": action,
                             "detail": detail})
+
+
+# -- wall tablets: an HA user that is a tablet, linked to a device --------------------------------------
+ROOM_RE = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
+
+
+class TabletLinkError(ValueError):
+    def __init__(self, code: str, message: str, status: int = 400) -> None:
+        super().__init__(message)
+        self.code, self.message, self.status = code, message, status
+
+
+def rooms(app: web.Application) -> dict[str, str]:
+    """HA's areas ({area id: name}): a wall tablet's room is an area (RBAC's device_areas)."""
+    hub = app.get("hub")
+    return dict(getattr(getattr(hub, "registry", None), "areas", None) or {})
+
+
+def free_devices(db) -> list:
+    """Wall-tablet devices an HA user could be linked to: live, and not linked to another HA user yet."""
+    return db.execute("SELECT d.id, d.name, d.room FROM devices d LEFT JOIN ha_tablet_links t ON t.device_id = d.id "
+                      "WHERE d.revoked IS NULL AND d.role = 'wall_tablet' AND t.device_id IS NULL "
+                      "ORDER BY d.created").fetchall()
+
+
+def tablet_links(db) -> list[dict]:
+    rows = db.execute("SELECT t.ha_user_id, t.ha_name, t.own_device, t.created, d.id AS device_id, d.name, d.room, "
+                      "d.role, d.revoked FROM ha_tablet_links t JOIN devices d ON d.id = t.device_id ORDER BY t.created")
+    return [{"ha_user_id": r["ha_user_id"], "ha_name": r["ha_name"], "created": r["created"],
+             "own_device": bool(r["own_device"]),
+             "device": {"id": r["device_id"], "name": r["name"], "room": r["room"], "role": r["role"],
+                        "revoked": r["revoked"]}} for r in rows]
+
+
+def _revoke_in(db, device_id: str, reason: str, now: float) -> None:
+    db.execute("UPDATE devices SET revoked = ?, revoked_reason = ? WHERE id = ? AND revoked IS NULL",
+               (now, reason, device_id))
+
+
+def link_tablet(app: web.Application, ha_user_id: str, actor: User, *, device_id: str | None = None,
+                name: str | None = None, room: str | None = None, ha_name: str | None = None) -> dict:
+    """Make an HA user a wall tablet: linked to an existing wall-tablet device (``device_id``) or to a new
+    one (``name``, ``room``). A person link of that HA user is removed (its sessions end), as is an earlier
+    tablet link (a device made for it is revoked). Audited (``ingress.link_tablet``). Owners only: the
+    caller checks. Raises TabletLinkError."""
+    db = app["store"].db
+    if not isinstance(ha_user_id, str) or not USER_RE.match(ha_user_id):
+        raise TabletLinkError("invalid", "ha_user_id: an HA user id")
+    known = rooms(app)
+    if room in ("", None):
+        room = None
+    elif not isinstance(room, str) or not ROOM_RE.match(room) or (known and room not in known):
+        raise TabletLinkError("unknown_room", "room: one of Home Assistant's areas")
+    if name is not None and (not isinstance(name, str) or not name.strip()):
+        name = None
+    if device_id is not None and not isinstance(device_id, str):
+        raise TabletLinkError("unknown_device", "device_id: a live wall-tablet device", 404)
+    person = linked_user(db, ha_user_id)
+    if person is not None and person["role"] == "owner":
+        others = db.execute("SELECT COUNT(*) FROM users WHERE role = 'owner' AND disabled = 0 AND id != ?",
+                            (person["id"],)).fetchone()[0]
+        if not others:
+            raise TabletLinkError("last_owner", "Mantel always keeps at least one Owner", 409)
+    earlier = tablet_link(db, ha_user_id)
+    now = app["clock"]()
+    own = 0
+    if device_id:
+        dev = db.execute("SELECT d.*, t.ha_user_id AS linked_to FROM devices d LEFT JOIN ha_tablet_links t "
+                         "ON t.device_id = d.id WHERE d.id = ?", (device_id,)).fetchone()
+        if dev is None or dev["revoked"] is not None or dev["role"] != "wall_tablet":
+            raise TabletLinkError("unknown_device", "device_id: a live wall-tablet device", 404)
+        if dev["linked_to"] is not None and dev["linked_to"] != ha_user_id:
+            raise TabletLinkError("device_taken", "that device is already another HA user's tablet", 409)
+        if room is not None and room != dev["room"]:
+            with db:
+                db.execute("UPDATE devices SET room = ? WHERE id = ?", (room, device_id))
+    else:
+        mgr = app["devices"]
+        label = (name or ha_name or "Wall tablet").strip()[:NAME_MAX]
+        device_id, _secret, _csrf = mgr.enroll(label, "wall_tablet", room, actor.id)   # the secret is never issued
+        own = 1
+    with db:  # one transaction: never a person link and a tablet link at once
+        if person is not None:
+            db.execute("DELETE FROM ha_links WHERE ha_user_id = ?", (ha_user_id,))
+            db.execute("DELETE FROM sessions WHERE user_id = ?", (person["id"],))
+            if person["kind"] == "ha_linked":
+                db.execute("DELETE FROM users WHERE id = ?", (person["id"],))
+        if earlier is not None:
+            db.execute("DELETE FROM ha_tablet_links WHERE ha_user_id = ?", (ha_user_id,))
+            if earlier["own_device"] and earlier["id"] != device_id:
+                _revoke_in(db, earlier["id"], "tablet_relinked", now)
+        db.execute("INSERT INTO ha_tablet_links (ha_user_id, device_id, ha_name, own_device, created, created_by) "
+                   "VALUES (?,?,?,?,?,?)", (ha_user_id, device_id, (ha_name or "")[:120] or None, own, now, actor.id))
+    row = tablet_link(db, ha_user_id)
+    detail = {"ha_user_id": ha_user_id, "device_id": device_id, "room": row["room"], "new_device": bool(own),
+              "was_person": person["role"] if person is not None else None}
+    _audit(app, actor.id, actor.role, "ingress.link_tablet", detail)
+    log.info("Ingress people: %s linked HA user %s as the wall tablet %s (%s)", actor.name or actor.id, ha_user_id,
+             row["name"], row["room"] or "no room")
+    return {"ha_user_id": ha_user_id, "device": sessions.device_json(sessions.Device(
+        row["id"], row["name"], row["role"], row["room"], ha_user_id=ha_user_id)), "new_device": bool(own)}
+
+
+def unlink_tablet(app: web.Application, ha_user_id: str, actor: User) -> bool:
+    """Remove an HA user's tablet link (its open sockets lose it at the next policy tick); a device that
+    was made for the link is revoked. Audited (``ingress.unlink_tablet``)."""
+    db = app["store"].db
+    row = tablet_link(db, ha_user_id) if isinstance(ha_user_id, str) else None
+    if row is None:
+        return False
+    with db:
+        db.execute("DELETE FROM ha_tablet_links WHERE ha_user_id = ?", (ha_user_id,))
+        if row["own_device"]:
+            _revoke_in(db, row["id"], "tablet_unlinked", app["clock"]())
+    _audit(app, actor.id, actor.role, "ingress.unlink_tablet",
+           {"ha_user_id": ha_user_id, "device_id": row["id"], "revoked": bool(row["own_device"])})
+    log.info("Ingress people: %s unlinked the wall tablet HA user %s", actor.name or actor.id, ha_user_id)
+    return True
+
+
+def _tablet_owner(request: web.Request) -> Identity:
+    """REST: an Owner's own session (a person, not a device) on the LAN or a home-rules sidebar."""
+    ident = sessions.identity(request)
+    if ident.user is None or ident.device is not None or ident.user.role != "owner":
+        raise web.HTTPForbidden(text='{"error":"owner_only"}', content_type="application/json")
+    authz = request.app.get("authz")
+    if not (ident.door == "lan" or (authz is not None and authz.home_door(ident))):
+        raise web.HTTPForbidden(text='{"error":"home_door_only"}', content_type="application/json")
+    return ident
+
+
+async def api_tablets_get(request: web.Request) -> web.Response:
+    ident = sessions.identity(request)
+    if ident.user is None or ident.user.role not in ("owner", "admin"):
+        return sessions.error(403, "forbidden")
+    db = request.app["store"].db
+    return sessions.ok({"tablets": tablet_links(db), "rooms": rooms(request.app),
+                        "free_devices": [dict(r) for r in free_devices(db)],
+                        "allowed": tablets_allowed(request.app)})
+
+
+async def api_tablets_post(request: web.Request) -> web.Response:
+    from .accounts import read_json
+    ident = _tablet_owner(request)
+    body = await read_json(request)
+    if set(body) - {"ha_user_id", "device_id", "name", "room"}:
+        return sessions.error(400, "invalid", message="{ha_user_id, device_id?, name?, room?}")
+    target = body.get("ha_user_id")
+    ha_name = None
+    try:
+        rec = await request.app["ha_directory"].user(target) if isinstance(target, str) else None
+        ha_name = (rec or {}).get("name")
+    except Exception:  # noqa: BLE001 -- the name is a convenience
+        pass
+    try:
+        got = link_tablet(request.app, target, ident.user, device_id=body.get("device_id") or None,
+                          name=body.get("name"), room=body.get("room"), ha_name=ha_name)
+    except TabletLinkError as exc:
+        return sessions.error(exc.status, exc.code, message=exc.message)
+    return sessions.ok(got, status=201)
+
+
+async def api_tablets_delete(request: web.Request) -> web.Response:
+    ident = _tablet_owner(request)
+    if not unlink_tablet(request.app, request.match_info["ha_user_id"], ident.user):
+        return sessions.error(404, "not_found")
+    return sessions.ok()
+
+
+def tablet_start(app: web.Application, device: sessions.Device) -> str | None:
+    """Where a wall tablet's page opens: its HK tablet's screen (HK's settings: the tablet whose Tablet User
+    is HA's name for this HA user, else the one in the device's room), naming the tablet for HK
+    (``?hk_tablet=``, which HK remembers). None: Mantel's default screen."""
+    host = app.get("features")
+    tablets = dict(getattr(host, "tablets", None) or {})      # features.FeatureHost: HK's tablets, as settings say
+    mine = [tid for tid, t in tablets.items() if device.ha_name and t.get("user") == device.ha_name]
+    if not mine and device.room:
+        mine = [tid for tid, t in tablets.items() if t.get("room") == device.room]
+    for tid in sorted(mine):
+        screen = str(tablets[tid].get("screen") or "")
+        if re.fullmatch(r"[A-Za-z0-9_]+-[A-Za-z0-9_-]*", screen) and re.fullmatch(r"[a-z0-9_]+", tid):
+            return f"/{screen}/home?hk_tablet={tid}"
+    return None
 
 
 # -- the people page: Owners and Admins link HA users to roles ----------------------------------------
@@ -444,22 +714,58 @@ async def people_get(request: web.Request) -> web.Response:
     except Exception as exc:  # noqa: BLE001
         log.warning("people page: could not read Home Assistant's users (%s)", type(exc).__name__)
         people, error = [], "<p>Mantel could not read Home Assistant's user list; link by HA user id below.</p>"
+    tablets = {t["ha_user_id"]: t for t in tablet_links(db)}
     seen = {p["id"] for p in people}
     people += [{"id": k, "name": v["name"], "username": None} for k, v in links.items() if k not in seen]
+    people += [{"id": k, "name": v["ha_name"] or v["device"]["name"], "username": None}
+               for k, v in tablets.items() if k not in seen and k not in links]
     csrf = html.escape(ident.csrf or "")
+    owner = ident.user.role == "owner"
+    areas = rooms(request.app)
+    free = free_devices(db)
     rows = []
     for p in people:
-        link = links.get(p["id"])
+        link, tab = links.get(p["id"]), tablets.get(p["id"])
         current = link["role"] if link else ""
+        if tab is not None:
+            dev = tab["device"]
+            where = areas.get(dev["room"] or "", dev["room"] or "no room")
+            shown = f"wall tablet: {dev['name']} ({where}){' — revoked' if dev['revoked'] else ''}"
+        else:
+            shown = current or "not linked"
         options = "".join(f"<option value={r}{' selected' if r == current else ''}>{r}</option>" for r in LINK_ROLES)
-        unlink = (f"<button name=action value=unlink>Unlink</button>" if link else "")
+        unlink = (f"<button name=action value=unlink>Unlink</button>" if link or (tab and owner) else "")
+        tablet_form = ""
+        if owner:
+            # "Link as a wall tablet": this HA user is a tablet (Kiosk Satellite signed in as it), not a person
+            devs = "<option value=''>a new device</option>" + "".join(
+                f"<option value='{html.escape(d['id'])}'>{html.escape(d['name'])}"
+                f"{' (' + html.escape(areas.get(d['room'] or '', d['room'] or '')) + ')' if d['room'] else ''}</option>"
+                for d in free)
+            cur_room = tab["device"]["room"] if tab else ""
+            room_opts = "<option value=''>no room</option>" + "".join(
+                f"<option value='{html.escape(a)}'{' selected' if a == cur_room else ''}>{html.escape(n)}</option>"
+                for a, n in sorted(areas.items(), key=lambda kv: kv[1]))
+            tablet_form = (f"<form method=post action='{base}/ingress/people'><input type=hidden name=csrf value='{csrf}'>"
+                           f"<input type=hidden name=ha_user_id value='{html.escape(p['id'])}'>"
+                           f"<select name=device_id>{devs}</select> in <select name=room>{room_opts}</select> "
+                           "<button name=action value=tablet>Link as a wall tablet</button></form>")
         rows.append(
             f"<tr><td>{html.escape(p.get('name') or p.get('username') or p['id'])}"
-            f"{' (admin in HA)' if is_ha_admin(p) else ''}</td><td>{html.escape(current or 'not linked')}</td>"
+            f"{' (admin in HA)' if is_ha_admin(p) else ''}</td><td>{html.escape(shown)}</td>"
             f"<td><form method=post action='{base}/ingress/people'><input type=hidden name=csrf value='{csrf}'>"
             f"<input type=hidden name=ha_user_id value='{html.escape(p['id'])}'><select name=role>{options}</select> "
-            f"<button name=action value=link>Link</button> {unlink}</form></td></tr>")
-    body = (error + "<table><tr><th>Home Assistant user</th><th>Mantel role</th><th></th></tr>" + "".join(rows) + "</table>"
+            f"<button name=action value=link>Link</button> {unlink}</form>{tablet_form}</td></tr>")
+    note = ""
+    if owner:
+        note = ("<p class=note>A wall tablet is its own Home Assistant user (Kiosk Satellite signed in by trusted_networks). "
+                "<i>Link as a wall tablet</i> makes that account a Mantel device in its room: nobody is signed in on it, "
+                "and anything sensitive asks for a person's PIN at it.</p>")
+        if not tablets_allowed(request.app):
+            note += ("<p class=note><b>Wall tablets are refused on the sidebar now</b> (<code>ha_door_rules: tunnel</code>); "
+                     "set it to <code>trusted</code> or <code>lan</code> for linked tablets to open.</p>")
+    body = (error + "<table><tr><th>Home Assistant user</th><th>In Mantel</th><th></th></tr>" + "".join(rows) + "</table>"
+            + note +
             f"<h2>By HA user id</h2><form method=post action='{base}/ingress/people'><input type=hidden name=csrf "
             f"value='{csrf}'><input name=ha_user_id placeholder='HA user id' size=34> <select name=role>"
             + "".join(f"<option value={r}>{r}</option>" for r in LINK_ROLES)
@@ -499,10 +805,32 @@ async def people_post(request: web.Request) -> web.Response:
     if not ident.csrf or not hmac.compare_digest(get("csrf"), ident.csrf):
         raise web.HTTPForbidden(text="stale form: reload the page")
     target, role, action = get("ha_user_id"), get("role"), get("action")
-    if not USER_RE.match(target) or action not in ("link", "unlink") or (action == "link" and role not in LINK_ROLES):
+    if not USER_RE.match(target) or action not in ("link", "unlink", "tablet") or (action == "link" and role not in LINK_ROLES):
         return _page("Not changed", f"<p>That form was incomplete. <a href='{html.escape(base)}/ingress/people'>Back</a></p>", 400)
     store = request.app["store"]
     db = store.db
+    back = f"<p><a href='{html.escape(base)}/ingress/people'>Back</a></p>"
+    tab = tablet_link(db, target)
+    if action == "tablet" or (tab is not None and action == "unlink"):
+        if ident.user.role != "owner":
+            raise web.HTTPForbidden(text="only an Owner links or unlinks wall tablets")
+        authz = request.app.get("authz")
+        if authz is not None and not authz.home_door(ident):
+            return _page("Not changed", "<p>Wall tablets are linked on the LAN or a trusted sidebar only.</p>" + back, 403)
+        if action == "unlink":
+            unlink_tablet(request.app, target, ident.user)
+            raise web.HTTPSeeOther(base + "/ingress/people")
+        ha_name = None
+        try:
+            ha_name = ((await request.app["ha_directory"].user(target)) or {}).get("name")
+        except Exception:  # noqa: BLE001 -- the name is a convenience
+            pass
+        try:
+            link_tablet(request.app, target, ident.user, device_id=get("device_id") or None, room=get("room") or None,
+                        name=get("name") or None, ha_name=ha_name)
+        except TabletLinkError as exc:
+            return _page("Not changed", f"<p>{html.escape(exc.message)}.</p>" + back, exc.status)
+        raise web.HTTPSeeOther(base + "/ingress/people")
     current = linked_user(db, target)
     if ident.user.role != "owner" and ("owner" in (role, current["role"] if current else None)):
         raise web.HTTPForbidden(text="only an Owner links or unlinks Owners")
@@ -519,6 +847,10 @@ async def people_post(request: web.Request) -> web.Response:
             name = (rec or {}).get("name")
         except Exception:  # noqa: BLE001 -- the name is a convenience
             pass
+        if tab is not None:                 # was a wall tablet: now a person (an Owner's choice only)
+            if ident.user.role != "owner":
+                raise web.HTTPForbidden(text="only an Owner links or unlinks wall tablets")
+            unlink_tablet(request.app, target, ident.user)
         store.link(target, role, name)
     else:
         store.unlink(target)
@@ -607,9 +939,12 @@ def rewrite(text: str, base: str) -> str:
     return PATHNAME_READ.sub(f"location.pathname.slice({len(base)})", text)
 
 
-def inject_base(text: str, base: str) -> str:
-    """The page's prefix for Mantel's own code (web/shim/base.js reads it)."""
+def inject_base(text: str, base: str, kiosk: bool = False) -> str:
+    """The page's prefix for Mantel's own code (web/shim/base.js reads it); for a wall tablet that is its
+    own HA user, also the kiosk mark (base.js then asks HA's frontend to hide its sidebar and header)."""
     meta = f'{REFERRER_META}\n<meta name="mantel-base" content="{html.escape(base)}">'
+    if kiosk:
+        meta += "\n" + KIOSK_META
     return text.replace("<head>", "<head>\n" + meta, 1) if "<head>" in text else meta + text
 
 
@@ -621,12 +956,13 @@ def file_response(request: web.Request, path: Path, headers: dict | None = None,
     if not base or suffix not in REWRITE_SUFFIXES:
         return web.FileResponse(path, headers=headers)
     st = path.stat()
-    key = (str(path), st.st_mtime_ns, st.st_size, base, page)
+    kiosk = page and is_ha_tablet(request.get("identity"))
+    key = (str(path), st.st_mtime_ns, st.st_size, base, page, kiosk)
     hit = _CACHE.get(key)
     if hit is None:
         text = path.read_text(encoding="utf-8", errors="surrogateescape")
         if page:
-            text = inject_base(text, base)
+            text = inject_base(text, base, kiosk)
         body = rewrite(text, base).encode("utf-8", "surrogateescape")
         hit = (body, '"' + hashlib.sha256(body).hexdigest()[:32] + '"')
         _CACHE[key] = hit
@@ -672,6 +1008,11 @@ async def middleware(request: web.Request, handler):
     if not is_ingress(request):
         if any(h in request.headers for h in IDENTITY_HEADERS + (INGRESS_PATH,)):
             _warn_forged(request)
+        if request.path in CORE_PATHS and request.remote in tuple(getattr(cfg, "ha_core_peers", ()) or ()):
+            # HA Core's linked-mode client (hk_frontend "Linked to Mantel Server"); linked.py still wants its
+            # Service credential. authz.resolve_door treats this one request as the LAN door.
+            request["ha_core"] = True
+            return await handler(request)
         if getattr(cfg, "ingress_only", False) and request.path not in HEALTH_PATHS:
             raise web.HTTPForbidden(text="Mantel is reached through Home Assistant's sidebar only")
         return await handler(request)
@@ -690,8 +1031,15 @@ async def middleware(request: web.Request, handler):
         if not ident.authenticated:
             if wants_page(request):
                 return await unlinked_page(request, request.get("ingress_unlinked") or ha_person(request))
+            if request.get("ingress_tablet_refused") is not None:
+                return web.json_response({"error": "tablet_refused", "message": "this wall tablet is not allowed "
+                                          "through the sidebar now"}, status=401)
             return web.json_response({"error": "not_linked", "message": "ask a Mantel Owner to link your "
                                       "Home Assistant account"}, status=401)
+        if request.path in ("/", "/home") and is_ha_tablet(ident):
+            start = tablet_start(request.app, ident.device)      # the tablet's own HK screen
+            if start is not None:
+                raise web.HTTPFound(base + start)
         if request.path == "/":
             raise web.HTTPFound(base + "/home")
     try:
@@ -719,8 +1067,15 @@ def register(app: web.Application, hub=None, token: str | None = None) -> None:
     app.router.add_post("/ingress/people", people_post)
     app.router.add_post("/ingress/import-settings", import_settings_post)
     app.router.add_post("/ingress/import-features", import_features_post)
+    app.router.add_get("/api/ingress/tablets", api_tablets_get)
+    app.router.add_post("/api/ingress/tablets", api_tablets_post)
+    app.router.add_delete("/api/ingress/tablets/{ha_user_id}", api_tablets_delete)
     who = ", ".join(cfg.ingress_peers)
     if getattr(cfg, "connect", False):
         who = (who + " and " if who else "") + "paired Mantel Connect Apps (client certificate)"
     log.info("HA App mode: identity from Ingress, believed only from %s%s; door 'ha' uses the %s rules",
              who, " (Ingress only)" if cfg.ingress_only else "", cfg.ha_door_rules)
+    core = tuple(getattr(cfg, "ha_core_peers", ()) or ())
+    if core:
+        log.info("HA App mode: HA Core (%s) may reach linked mode's endpoint (with its Service credential)",
+                 ", ".join(core))
