@@ -135,7 +135,7 @@ It spends the token, creates the Owner in one step and signs them in. Afterwards
 docker compose exec mantel-server mantel bootstrap
 ```
 
-The others work the same way: `links`, `link`, `import-settings`, `service-account create --name linked --scope linked`, `backup --target /backups`, `import-files <folder>`. A restore runs with the server stopped: `docker compose stop mantel-server`, then `docker compose run --rm --no-deps mantel-server restore <file>`. (Don't use `run` while the server is up: it would start a second server on the same fixed backend address.)
+The others work the same way: `links`, `link`, `import-settings`, `service-account create --name linked --scope linked`, `backup --target /backups`, `import-files <folder>`, `files import-assets <folder>` (SF Pro and the glyph set). A restore runs with the server stopped: `docker compose stop mantel-server`, then `docker compose run --rm --no-deps mantel-server restore <file>`. (Don't use `run` while the server is up: it would start a second server on the same fixed backend address.)
 
 ## 4. Linking Home Assistant users
 
@@ -245,7 +245,7 @@ What to look for: a `denied` row with an unexpected person; `step_up` followed b
 | `at_rest.key` | Without it every TOTP seed in the copy is unreadable. |
 | `/etc/hk/secrets/` (`ha_token`, `ma_token`, tunnel and DNS tokens) | Or recreate them: tokens can be reissued, `at_rest.key` cannot. |
 | `packaging/compose/.env` | The settings. |
-| "Your files" (SF Pro and the SF Symbols glyphs, Apple's, never in the repo) | Not yet kept by Mantel; they are on the house at `/Volumes/config` today. |
+| "Your files" (SF Pro and the SF Symbols glyphs, Apple's, never in the repo) | Kept in `/data/user-files` and inside the encrypted backup (`backup`, unless `--no-files`). To supply them once: /admin, Your files, "HK fonts and glyphs", or `docker compose exec mantel-server mantel files import-assets <folder>` on a copy of HA's `/config/www/hk` (needs `fonts/SF-Pro.woff2` and `iconset/hk-glyphs.js`; see [BACKUP-FILES.md](phase3/BACKUP-FILES.md)). |
 
 A consistent online copy of the database (do not copy `mantel.db` alone while the server runs; WAL mode keeps recent writes in `mantel.db-wal`):
 

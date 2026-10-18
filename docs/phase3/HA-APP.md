@@ -277,8 +277,9 @@ boot manual, watchdog off.
       states reach the page with Mantel's own `<prefix>/api/camera/<entity>/still` and no HA token
       ([CONNECTORS.md](CONNECTORS.md) "What the page needs").
 - [x] Expected 404s only: `hk/fonts/SF-Pro.*` and `hk/iconset/hk-glyphs.js`, the Apple-licensed files that are
-      never staged (the App draws with fallback fonts and glyphs). Supplying them on the house (an Owner
-      upload into `/data`) is a follow-up.
+      never staged (the App draws with fallback fonts and glyphs until an Owner supplies them: /admin, Your files,
+      "HK fonts and glyphs", or `mantel files import-assets <folder>` in the App's container; kept in `/data`, in
+      the App's backups; see [BACKUP-FILES.md](BACKUP-FILES.md)). Still 404 until then, by design.
 - [x] `hk_music/subscribe` is refused by the read allowlist (the music feed moves with the Phase 4 music engine);
       the page backs off; the warning is now logged once per 5 minutes (next App update).
 - [x] People page lists all HA users (incl. the per-tablet HA users and `claude`/`Mantel` admin users). Linked at

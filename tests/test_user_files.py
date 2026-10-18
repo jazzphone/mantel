@@ -562,6 +562,125 @@ async def test_imported_files_are_served_at_the_same_urls_the_old_setup_used(man
     assert (await m.client.get("/hk/probe.html")).status in (404,)
 
 
+# -- the licensed assets: import-assets, serving, ETag ----------------------------------------------------
+def ha_like_folder(tmp_path, layout):
+    """A stand-in for a copy of HA's www/hk (or the integration's frontend folder), with decoys beside the files."""
+    base = tmp_path / "copy"
+    root = base / layout if layout else base
+    (root / "fonts").mkdir(parents=True)
+    (root / "iconset").mkdir()
+    (root / "fonts" / "SF-Pro.woff2").write_bytes(dummy_woff2())
+    (root / "fonts" / "SF-Pro.ttf").write_bytes(dummy_sfnt())
+    (root / "iconset" / "hk-glyphs.js").write_bytes(official_js())
+    (root / "iconset" / "hk-icons.js").write_text("alert(1)")                     # HK's own, never taken
+    (root / "extra.js").write_text("alert(2)")
+    (root / "sky").mkdir()
+    (root / "sky" / "clouds.webp").write_bytes(picture("WEBP", (20, 20)))         # an image: not an asset
+    return base
+
+
+@pytest.mark.parametrize("layout", ["", "hk", "www/hk", "frontend", "custom_components/hk_frontend/frontend"])
+def test_import_assets_picks_only_the_three_known_files_from_any_ha_layout(tmp_path, capsys, layout):
+    src = ha_like_folder(tmp_path, layout)
+    data = tmp_path / "data"
+    assert cli_main(["files", "import-assets", str(src), "--data-dir", str(data), "--dry-run"]) == 0
+    assert "would import" in capsys.readouterr().out and not (data / "user-files").exists()
+    assert cli_main(["files", "import-assets", str(src), "--data-dir", str(data)]) == 0
+    out = capsys.readouterr().out
+    base = data / "user-files"
+    written = sorted(str(p.relative_to(base)) for p in base.rglob("*") if p.is_file())
+    assert written == ["hk/fonts/SF-Pro.ttf", "hk/fonts/SF-Pro.woff2", "hk/iconset/hk-glyphs.js"]
+    assert (base / "hk/fonts/SF-Pro.woff2").read_bytes() == dummy_woff2()
+    assert uf.check_glyphs((base / "hk/iconset/hk-glyphs.js").read_bytes()) == GLYPHS
+    assert "3 imported, 0 skipped" in out
+    assert cli_main(["files", "import-assets", str(src), "--data-dir", str(data)]) == 0       # idempotent
+    assert sorted(str(p.relative_to(base)) for p in base.rglob("*") if p.is_file()) == written
+
+
+def test_import_assets_flat_folder_and_reports_what_is_missing(tmp_path, capsys):
+    flat = tmp_path / "flat"
+    flat.mkdir()
+    (flat / "SF-Pro.woff2").write_bytes(dummy_woff2())
+    data = tmp_path / "data"
+    assert cli_main(["files", "import-assets", str(flat), "--data-dir", str(data)]) == 0
+    out = capsys.readouterr().out
+    assert "imported     fonts/SF-Pro.woff2" in out and "skipped      iconset/hk-glyphs.js  (not found" in out
+    empty = tmp_path / "empty"
+    empty.mkdir()
+    assert cli_main(["files", "import-assets", str(empty), "--data-dir", str(data)]) == 1     # nothing found
+    capsys.readouterr()
+    assert cli_main(["files", "import-assets", str(tmp_path / "nope"), "--data-dir", str(data)]) == 2
+    assert "is not a folder" in capsys.readouterr().err
+
+
+def test_import_assets_validates_type_and_size_and_ignores_symlinks(tmp_path, capsys, monkeypatch):
+    src = tmp_path / "src"
+    (src / "fonts").mkdir(parents=True)
+    (src / "iconset").mkdir()
+    (src / "fonts" / "SF-Pro.woff2").write_bytes(b"not a font at all, just text")             # bad bytes
+    (src / "fonts" / "SF-Pro.ttf").write_bytes(dummy_woff2())                                  # woff2 bytes under .ttf
+    (src / "iconset" / "hk-glyphs.js").write_text("window.hkGlyphs = {icons: fetch('/x')};")   # code, not data
+    data = tmp_path / "data"
+    assert cli_main(["files", "import-assets", str(src), "--data-dir", str(data)]) == 1
+    out = capsys.readouterr().out
+    assert "font_invalid" in out and "font_type_mismatch" in out and "glyphs_invalid" in out
+    assert not list((data / "user-files").rglob("*.*")) if (data / "user-files").exists() else True
+    # a symlinked file is never followed
+    real = tmp_path / "elsewhere.woff2"
+    real.write_bytes(dummy_woff2())
+    (src / "fonts" / "SF-Pro.woff2").unlink()
+    (src / "fonts" / "SF-Pro.woff2").symlink_to(real)
+    assert cli_main(["files", "import-assets", str(src), "--data-dir", str(data)]) == 1
+    assert "skipped      fonts/SF-Pro.woff2  (not found" in capsys.readouterr().out
+    # over the size cap
+    big = tmp_path / "big"
+    (big / "fonts").mkdir(parents=True)
+    (big / "fonts" / "SF-Pro.woff2").write_bytes(dummy_woff2())
+    monkeypatch.setattr(uf, "FONT_MAX", 10)
+    assert cli_main(["files", "import-assets", str(big), "--data-dir", str(data)]) == 1
+    assert "too_large" in capsys.readouterr().out
+
+
+def test_the_entrypoint_passes_files_import_assets_through_with_the_data_dir():
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("mantel_entrypoint_files",
+                                                  Path(__file__).resolve().parents[1] / "packaging/docker/entrypoint.py")
+    ep = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(ep)
+    argv, _ = ep.plan(["files", "import-assets", "/imports/hk"], {"MANTEL_DATA_DIR": "/data"})
+    assert argv == ["files", "import-assets", "/imports/hk", "--data-dir", "/data"]
+
+
+async def test_licensed_assets_are_served_with_type_etag_and_only_when_present(mantel, tmp_path):
+    m = mantel
+    await m.sign_in("jordan")
+    for url in ("/hk/fonts/SF-Pro.woff2", "/hk/fonts/SF-Pro.ttf", "/hk/iconset/hk-glyphs.js"):
+        assert (await m.client.get(url)).status == 404, url                                 # as today
+    src = ha_like_folder(tmp_path, "www/hk")
+    assert cli_main(["files", "import-assets", str(src), "--data-dir", str(m.app["cfg"].data_dir)]) == 0
+    for url, ctype in (("/hk/fonts/SF-Pro.woff2", "font/woff2"), ("/hk/fonts/SF-Pro.ttf", "font/ttf"),
+                       ("/hk/iconset/hk-glyphs.js", "text/javascript")):
+        r = await m.client.get(url)
+        assert r.status == 200 and r.headers["Content-Type"].startswith(ctype), url
+        assert r.headers["Cache-Control"] == "no-cache" and r.headers["X-Content-Type-Options"] == "nosniff"
+        again = await m.client.get(url, headers={"If-None-Match": r.headers["ETag"]})
+        assert again.status == 304, url
+    assert (await m.client.get("/hk/fonts/other.woff2")).status == 404                       # nothing else is served
+
+
+async def test_an_owner_uploads_both_through_the_slots_and_a_child_cannot(mantel):
+    m = mantel
+    await m.sign_in("cody")
+    assert (await upload(m, "font", dummy_woff2(), "x.woff2", name="SF-Pro.woff2")).status == 403
+    assert (await upload(m, "glyphs", official_js(), "hk-glyphs.js")).status == 403
+    await m.sign_in("avery")
+    r = await upload(m, "font", dummy_woff2(), "Whatever Apple Called It.woff2", name="SF-Pro.woff2")
+    assert r.status == 201 and (await r.json())["url"] == "/hk/fonts/SF-Pro.woff2"
+    r = await upload(m, "glyphs", official_js(), "glyphs-export.js")
+    assert r.status == 201 and (await r.json())["url"] == "/hk/iconset/hk-glyphs.js"
+    assert (await (await m.client.get("/api/user-files")).json())["status"] == {"font": True, "glyphs": True}
+
+
 # -- config ------------------------------------------------------------------------------------------
 def test_config_options(tmp_path):
     from mantel_server.config import Config, parse_args

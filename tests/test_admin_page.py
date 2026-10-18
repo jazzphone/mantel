@@ -128,8 +128,8 @@ async def test_a_wall_tablet_alone_is_refused_the_page(admin):
 
 # -- the overview ------------------------------------------------------------------------------------
 @pytest.mark.parametrize("role, expected", [
-    ("owner", ["me", "people", "devices", "roles", "service", "audit"]),
-    ("admin", ["me", "people", "devices", "audit"]),
+    ("owner", ["me", "people", "devices", "files", "roles", "service", "audit"]),
+    ("admin", ["me", "people", "devices", "files", "audit"]),
     ("adult", ["me"]), ("child", ["me"]), ("guest", ["me"]), ("wall_tablet", ["me"]),
 ])
 async def test_sections_by_role(admin, role, expected):
@@ -158,7 +158,7 @@ async def test_the_tunnel_door_loses_service_accounts(admin):
     issued = admin.app["sessions"].create(uid, "tunnel", "passkey")
     admin.client.session.cookie_jar.update_cookies({"mantel_session": issued.access, "mantel_csrf": issued.csrf})
     got = await sections(admin, tunnel=True)
-    assert got == ["me", "people", "devices", "roles", "audit"]
+    assert got == ["me", "people", "devices", "files", "roles", "audit"]
 
 
 async def test_the_audit_section_follows_the_configure_grant(admin):
@@ -202,3 +202,12 @@ async def test_the_forms_use_the_existing_apis_with_the_overview_csrf(admin):
     no = await admin.client.post("/api/users", json={"username": "kid2", "role": "child", "password": PASSWORD},
                                  headers={"X-CSRF-Token": "wrong"})
     assert no.status == 403
+
+
+async def test_the_files_section_has_its_hk_fonts_and_glyphs_slots(admin):
+    await admin.user("avery", "owner")
+    await admin.sign_in("avery")
+    js = (STATIC / "admin.js").read_text()
+    for needle in ("renderFiles", "HK fonts and glyphs", "SF-Pro.woff2", "SF-Pro.ttf", "hk-glyphs.js", "/api/user-files"):
+        assert needle in js, needle
+    assert "files" in await sections(admin)

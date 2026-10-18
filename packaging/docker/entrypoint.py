@@ -36,6 +36,7 @@ and restore, to the container's HA address, token and secrets):
     docker compose exec mantel-server mantel import-settings on the same fixed backend address)
     docker compose exec mantel-server mantel service-account create --name linked --scope linked
     docker compose exec mantel-server mantel backup --target /backups
+    docker compose exec mantel-server mantel files import-assets /imports/hk   (SF Pro + glyphs; OPERATIONS.md)
     docker compose stop mantel-server && docker compose run --rm --no-deps mantel-server restore <file>
 
     MANTEL_SECRETS_DIR     compose    /run/secrets (at_rest.key, backup.key)
@@ -51,7 +52,7 @@ import sys
 from pathlib import Path
 
 ADMIN_COMMANDS = {"link", "unlink", "links", "session", "connect-proof", "bootstrap", "import-settings",
-                  "service-account", "backup", "restore", "import-files"}
+                  "service-account", "backup", "restore", "import-files", "files"}
 # what each admin command takes besides --data-dir, filled from the container's own settings when absent
 ADMIN_EXTRAS = {
     "import-settings": lambda env: ["--ha-url", env.get("MANTEL_HA_URL", ""),

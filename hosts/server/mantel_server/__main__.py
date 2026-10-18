@@ -105,6 +105,9 @@ def main(argv: list[str] | None = None) -> int:
     if argv and argv[0] == "import-files":
         from .user_files import cli_import
         return cli_import(argv[1:])
+    if argv and argv[0] == "files":
+        from .user_files import cli_files
+        return cli_files(argv[1:])
     if argv and argv[0] == "service-account":
         from .service_accounts import cli as service_cli
         return service_cli(argv[1:])

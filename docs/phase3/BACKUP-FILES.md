@@ -188,6 +188,38 @@ What is checked (always the bytes, never the name or the browser's content type)
   PNG (alpha kept) / WebP q88; HEIC becomes JPEG. SVG, GIF, PDF, polyglots and decoder failures are
   `photo_invalid`. The stored id is 32 random hex characters, the shape HA's image store used.
 
+### Supplying SF Pro and the glyph set (the three licensed files)
+
+Apple's files are the only ones HK *needs* from Your files: `fonts/SF-Pro.woff2` (or `SF-Pro.ttf` if you have no
+woff2; a browser that gets a 404 for the woff2 moves on to the ttf) and `iconset/hk-glyphs.js`. No other licensed
+asset is referenced by `web/hk` (`sf-pro.css` and `hk-icons.js` are the only users, and they are in git).
+Without them the pages draw with fallback fonts and missing glyphs, and the URLs 404, as before.
+
+Two ways for an Owner or Admin to add them, both kept in `<data_dir>/user-files` (so in the encrypted backups):
+
+* **/admin, Your files, "HK fonts and glyphs"**: three slots (SF Pro woff2, SF Pro ttf, HK glyphs), each with
+  Upload/Replace/Remove. The slot fixes the stored name, so the file may be called anything; the bytes are
+  checked (woff2/ttf by structure and the extension must agree, 40 MB; the glyph file is parsed as data and
+  rewritten by Mantel, 2 MB). It calls `POST /api/user-files/font` (field `name`) and `/glyphs`.
+* **`mantel files import-assets <folder> [--dry-run]`** (the container's entrypoint passes `files` through, and
+  it defaults `--data-dir` to `/data`): looks in `<folder>` for exactly `fonts/SF-Pro.woff2`,
+  `fonts/SF-Pro.ttf` and `iconset/hk-glyphs.js`, directly or under `hk/`, `www/hk/`, `frontend/`,
+  `custom_components/hk_frontend/frontend/` or `hk_local/`, or the three files lying flat in the folder.
+  Nothing else in the folder is read. Each file passes the upload checks; symlinks are not followed; exit code
+  1 if none was found. Idempotent.
+
+On a Home Assistant install they are where they were put by hand: `/config/www/hk/fonts/SF-Pro.woff2`,
+`/config/www/hk/iconset/hk-glyphs.js` (also check `/config/hk_local/` and
+`/config/custom_components/hk_frontend/frontend/`). Copy that folder off HA first (Samba or `scp`), then
+`docker compose cp ./hk mantel-server:/tmp/hk && docker compose exec mantel-server mantel files import-assets /tmp/hk`.
+
+They are served at `/hk/fonts/SF-Pro.woff2`, `/hk/fonts/SF-Pro.ttf` and `/hk/iconset/hk-glyphs.js` with
+`font/woff2`, `font/ttf`, `text/javascript`, an ETag (revalidated, 304) and `nosniff`, to anyone signed in
+(the page fetches them). Through HA Ingress they sit under the page's prefix like every other `/hk/` file: the
+stylesheet's `url("/hk/fonts/SF-Pro.woff2")` is rewritten to the prefix, and `hk-glyphs.js` contains no absolute
+path (it is written by Mantel and loaded relatively), so it needs no rewrite. They never enter git, an image or
+the staged App (`tools/stage_ha_app.py` refuses font files and `hk-glyphs*`; `tests/test_stage_ha_app.py`).
+
 ### The one-time import
 
 ```bash
