@@ -169,7 +169,8 @@ or a wall-tablet device in the tablet's room. Mantel tells screens to change wit
 **Not on Mantel (unchanged by this slice).** These still run in HA, or aren't in scope here:
 
 - the music engine (it talks to MA directly: decisions are shared, steps are Phase 4+)
-- Alarm PIN (`not_supported` in linked mode)
+- Alarm PIN in linked mode (`not_supported` until linked.py calls `alarm_pin.linked_command`; the keypad
+  itself is on Mantel since 2026-10-18, below)
 - the tablets' alerts/restart and the Live TV viewers, cameras and transcode
 - calendars and the history proxies (already read proxies)
 
@@ -318,7 +319,11 @@ Nothing else changes: every piece stays off until an Owner turns it on (`PUT /ap
 4. **What's still HA-only on Mantel:**
    - notification snapshots
    - calendars' look-ahead and the `notify` action (in linked mode, later)
-   - Alarm PIN through the gateway (linked `alarm_*` commands)
+   - ~~Alarm PIN through the gateway~~ **done 2026-10-18** (`alarm_pin.py`; GATEWAY.md "The alarm"):
+     Mantel checks the keypad's code (the house's Alarm PIN, set in Mantel or imported from HA's page
+     without its PIN, or a person's PIN), decides arm/disarm as sensitive, audits first and sends to the
+     alarm with Mantel's own copy of the alarm's HA code. Left: linked mode's `alarm_*` handler calling
+     `alarm_pin.linked_command` (linked.py, another slice)
    - the music engine against MA
    - the tablets' alerts and restarts, and the Live TV viewers and cameras
 

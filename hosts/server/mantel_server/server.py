@@ -29,7 +29,7 @@ from urllib.parse import urlparse
 import aiohttp
 from aiohttp import WSMsgType, web
 
-from . import accounts, auth, connect_pairing, devices, gateway, health, ingress, pins, proof2, rbac_store, readproxy, sessions, settings_store
+from . import accounts, alarm_pin, auth, connect_pairing, devices, gateway, health, ingress, pins, proof2, rbac_store, readproxy, sessions, settings_store
 from . import admin_page, backup, features, linked, login_page, service_accounts, talk_relay, user_files
 from .authz import Authz, Principal, resolve_door
 from .config import Config
@@ -419,6 +419,7 @@ def build_app(cfg: Config, token: str, store: Store | None = None, connect_ha: b
     login_page.register(app, hub)     # /login (passkey, password + TOTP, Sign in with HA via /login/ha)
     admin_page.register(app, hub)     # /admin (people, devices, roles, service accounts, audit, my PIN)
     pins.register(app, hub)
+    alarm_pin.register(app, hub)      # HK's Alarm PIN: the keypad's code checked by Mantel (GATEWAY.md "The alarm")
     ingress.register(app, hub, token)                   # HA App mode / Connect (cfg.ingress); inert otherwise
     wire(app, hub, token, connect_ha)
     connect_pairing.register(app, hub)                  # Mantel Connect (cfg.connect): pairing + the mTLS listener
