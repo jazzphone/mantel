@@ -1,0 +1,304 @@
+"""P3.1 accounts: password policy, Argon2id, lockout and rate limits, TOTP (RFC 6238), secrets at rest,
+the first-Owner bootstrap and user management. Fictional users, temp databases, no HA."""
+import base64
+import os
+import stat
+
+import pytest
+
+from conftest import PASSWORD
+from mantel_server import __main__ as entry
+from mantel_server.accounts import (ACCOUNT_FAILURES, IP_FAILURES, AttemptLimiter, PolicyError, check_password_policy,
+                                    hotp, otpauth_uri, totp, totp_match)
+from mantel_server.atrest import SecretBox, SecretKeyError, load_or_create_key
+from mantel_server.store import Store
+
+
+def seed_of(secret_b32: str) -> bytes:
+    return base64.b32decode(secret_b32 + "=" * (-len(secret_b32) % 8))
+
+
+# -- passwords ------------------------------------------------------------------------------------
+@pytest.mark.parametrize("bad, code", [
+    ("short", "password_too_short"), ("x" * 11, "password_too_short"), ("a" * 1025, "password_too_long"),
+    ("aaaaaaaaaaaaaaab", "password_too_simple"), ("jordan-is-great", "password_contains_name"), (None, "password_invalid"),
+])
+def test_password_policy(bad, code):
+    with pytest.raises(PolicyError) as e:
+        check_password_policy(bad, "jordan", "Jordan")
+    assert e.value.code == code
+    assert check_password_policy(PASSWORD, "jordan") == PASSWORD
+
+
+async def test_passwords_are_argon2id_and_never_stored_raw(mantel):
+    uid = await mantel.user("jordan", "adult")
+    row = mantel.store.db.execute("SELECT password_hash FROM users WHERE id = ?", (uid,)).fetchone()
+    assert row[0].startswith("$argon2id$") and PASSWORD not in row[0]
+    # the production default is Argon2id with RFC 9106's second recommended parameters
+    from mantel_server.accounts import Accounts
+    default = Accounts(mantel.store.db, SecretBox(key=b"k" * 32), lambda: 0).hasher
+    assert default.type.name == "ID" and default.memory_cost >= 65536 and default.time_cost >= 3
+
+
+def test_attempt_limiter_window():
+    now = [0.0]
+    lim = AttemptLimiter(3, 60, lambda: now[0])
+    for _ in range(3):
+        assert lim.retry_after("k") == 0
+        lim.fail("k")
+    assert 59 < lim.retry_after("k") <= 60
+    now[0] += 61
+    assert lim.retry_after("k") == 0
+
+
+async def test_password_sign_in_success_and_generic_failures(mantel):
+    await mantel.user("jordan", "adult")
+    r, body = await mantel.sign_in("jordan", "wrong password here")
+    assert r.status == 401 and body["error"] == "invalid_credentials"
+    r, body = await mantel.sign_in("nobody", "wrong password here")
+    assert r.status == 401 and body["error"] == "invalid_credentials"      # unknown user looks the same
+    r, body = await mantel.sign_in("Jordan", PASSWORD)                   # user names are case-insensitive
+    assert r.status == 200 and body["user"]["role"] == "adult" and body["csrf"]
+    assert r.cookies["mantel_session"]["samesite"] == "Strict" and r.cookies["mantel_session"]["httponly"]
+    me = await (await mantel.get("/api/session")).json()
+    assert me["user"]["username"] == "jordan" and me["device"] is None and me["door"] == "lan"
+
+
+async def test_account_lockout_after_consecutive_failures(mantel):
+    await mantel.user("jordan", "adult")
+    for _ in range(ACCOUNT_FAILURES):
+        assert (await mantel.sign_in("jordan", "not the password!"))[0].status == 401
+    r, body = await mantel.sign_in("jordan", PASSWORD)                   # even the right password waits
+    assert r.status == 429 and body["retry_after"] > 0
+    row = mantel.store.db.execute("SELECT locked_until FROM users WHERE username='jordan'").fetchone()
+    assert row["locked_until"] > mantel.now[0]                              # stored: survives a restart
+    mantel.now[0] += 15 * 60 + 1
+    assert (await mantel.sign_in("jordan", PASSWORD))[0].status == 200
+
+
+async def test_unknown_account_names_are_limited_like_real_ones(mantel):
+    for _ in range(ACCOUNT_FAILURES):
+        await mantel.sign_in("ghost", "not the password!")
+    assert (await mantel.sign_in("ghost", "not the password!"))[0].status == 429
+
+
+async def test_rate_limit_per_source_ip_across_accounts(mantel):
+    await mantel.user("jordan", "adult")
+    for i in range(IP_FAILURES):
+        await mantel.sign_in(f"spray{i}", "not the password!")
+    r, body = await mantel.sign_in("jordan", PASSWORD)
+    assert r.status == 429 and body["error"] == "too_many_attempts"
+
+
+async def test_sign_in_requires_json_and_origin(mantel):
+    await mantel.user("jordan", "adult")
+    r = await mantel.client.post("/api/auth/password", data={"username": "jordan", "password": PASSWORD})
+    assert r.status == 415                                                  # no form posts (CSRF-able)
+    del mantel.client.session.headers["Origin"]
+    r = await mantel.client.post("/api/auth/password", json={"username": "jordan", "password": PASSWORD})
+    assert r.status == 403
+
+
+# -- TOTP -----------------------------------------------------------------------------------------
+RFC6238 = [  # RFC 6238 appendix B: (time, sha1, sha256, sha512), 8 digits
+    (59, "94287082", "46119246", "90693936"),
+    (1111111109, "07081804", "68084774", "25091201"),
+    (1111111111, "14050471", "67062674", "99943326"),
+    (1234567890, "89005924", "91819424", "93441116"),
+    (2000000000, "69279037", "90698825", "38618901"),
+    (20000000000, "65353130", "77737706", "47863826"),
+]
+SEED_SHA1 = b"12345678901234567890"
+SEED_SHA256 = b"12345678901234567890123456789012"
+SEED_SHA512 = b"1234567890123456789012345678901234567890123456789012345678901234"
+
+
+@pytest.mark.parametrize("t, sha1, sha256, sha512", RFC6238)
+def test_totp_rfc6238_vectors(t, sha1, sha256, sha512):
+    assert totp(SEED_SHA1, t, digits=8, algorithm="sha1") == sha1
+    assert totp(SEED_SHA256, t, digits=8, algorithm="sha256") == sha256
+    assert totp(SEED_SHA512, t, digits=8, algorithm="sha512") == sha512
+
+
+def test_hotp_rfc4226_vectors():
+    expected = ["755224", "287082", "359152", "969429", "338314", "254676", "287922", "162583", "399871", "520489"]
+    assert [hotp(SEED_SHA1, c) for c in range(10)] == expected
+
+
+def test_totp_window_and_replay_guard():
+    now = 1_000_000.0
+    code = totp(SEED_SHA1, now)
+    counter = totp_match(SEED_SHA1, code, now)
+    assert counter == int(now // 30)
+    assert totp_match(SEED_SHA1, code, now + 30) == counter                 # one step of drift is fine
+    assert totp_match(SEED_SHA1, code, now + 90) is None                    # three is not
+    assert totp_match(SEED_SHA1, code, now, last_counter=counter) is None   # each step works once
+    for bad in ("12345", "abcdef", None, 123456, "1234567"):
+        assert totp_match(SEED_SHA1, bad, now) is None
+    assert otpauth_uri(SEED_SHA1, "jordan").startswith("otpauth://totp/Mantel%3Ajordan?secret=")
+
+
+async def test_totp_enrol_then_password_needs_the_code(mantel):
+    await mantel.user("jordan", "adult")
+    await mantel.sign_in("jordan")
+    r = await mantel.post("/api/auth/totp/enroll")
+    assert r.status == 200
+    secret = (await r.json())["secret"]
+    seed = seed_of(secret)
+    assert (await mantel.post("/api/auth/totp/enroll/confirm", {"code": "000000"})).status == 400
+    r = await mantel.post("/api/auth/totp/enroll/confirm", {"code": totp(seed, mantel.now[0])})
+    assert r.status == 200
+    mantel.forget_cookies()
+    mantel.now[0] += 60
+    r, body = await mantel.sign_in("jordan")
+    assert r.status == 200 and body["next"] == "totp" and "mantel_session" not in r.cookies
+    assert (await mantel.get("/api/session")).status == 401
+    code = totp(seed, mantel.now[0])
+    bad = await mantel.post("/api/auth/totp/verify", {"pending": body["pending"], "code": "000000"}, csrf=False)
+    assert bad.status == 401
+    good = await mantel.post("/api/auth/totp/verify", {"pending": body["pending"], "code": code}, csrf=False)
+    assert good.status == 200
+    me = await (await mantel.get("/api/session")).json()
+    assert me["user"]["username"] == "jordan"
+    # the pending token was single use, and the same code cannot be replayed
+    again = await mantel.post("/api/auth/totp/verify", {"pending": body["pending"], "code": code}, csrf=False)
+    assert again.status == 401
+    mantel.forget_cookies()
+    r, body = await mantel.sign_in("jordan")
+    replay = await mantel.post("/api/auth/totp/verify", {"pending": body["pending"], "code": code}, csrf=False)
+    assert replay.status == 401 and (await replay.json())["error"] == "invalid_code"
+
+
+async def test_tunnel_refuses_a_password_alone(mantel):
+    await mantel.user("jordan", "adult")
+    r, body = await mantel.sign_in("jordan", tunnel=True)
+    assert r.status == 403 and body["error"] == "second_factor_required"
+    assert "mantel_session" not in r.cookies
+
+
+async def test_totp_seed_is_encrypted_at_rest_and_bound_to_its_row(mantel, tmp_path):
+    uid = await mantel.user("jordan", "adult")
+    acc = mantel.app["accounts"]
+    secret, _ = acc.totp_begin(uid, "jordan")
+    seed = seed_of(secret)
+    key_file = tmp_path / "secrets" / "at_rest.key"
+    assert stat.S_IMODE(os.stat(key_file).st_mode) == 0o600
+    assert stat.S_IMODE(os.stat(key_file.parent).st_mode) == 0o700
+    sealed = mantel.store.db.execute("SELECT seed_enc FROM totp_credentials").fetchone()[0]
+    assert seed not in sealed and secret.encode() not in sealed
+    mantel.store.db.execute("PRAGMA wal_checkpoint(FULL)")
+    raw = b"".join(p.read_bytes() for p in (tmp_path / "data").iterdir() if p.name.startswith("mantel.db"))
+    assert seed not in raw and secret.encode() not in raw and base64.b32encode(seed) not in raw
+    assert key_file.read_bytes().strip() not in raw
+    assert acc.box.open(sealed, f"totp:{uid}") == seed
+    with pytest.raises(Exception):
+        acc.box.open(sealed, "totp:someone-else")                           # copied to another row: refused
+    with pytest.raises(Exception):
+        SecretBox(key=os.urandom(32)).open(sealed, f"totp:{uid}")            # another key: refused
+
+
+def test_key_file_is_created_once_and_validated(tmp_path):
+    path = tmp_path / "s" / "at_rest.key"
+    k1 = load_or_create_key(path)
+    assert len(k1) == 32 and load_or_create_key(path) == k1
+    path.write_text("too-short")
+    with pytest.raises(SecretKeyError):
+        load_or_create_key(path)
+    with pytest.raises(SecretKeyError):
+        SecretBox().seal(b"x", "a")
+
+
+def test_existing_tests_do_not_create_real_secrets(tmp_path):
+    """The key is read lazily: building an app never touches ~/.config/mantel/secrets."""
+    from mantel_server.config import Config
+    from mantel_server.server import build_app
+    store = Store(tmp_path / "db")
+    try:
+        app = build_app(Config(data_dir=tmp_path, secrets_dir=tmp_path / "never"), "unused", store=store,
+                        connect_ha=False)
+        assert app["secret_box"]._aead is None and not (tmp_path / "never").exists()
+    finally:
+        store.db.close()
+
+
+# -- bootstrap ------------------------------------------------------------------------------------
+async def test_bootstrap_creates_the_first_owner_once(mantel):
+    acc = mantel.app["accounts"]
+    assert (await (await mantel.get("/api/bootstrap")).json())["open"] is True
+    token = acc.issue_bootstrap_token()
+    stored = mantel.store.db.execute("SELECT hash FROM bootstrap_tokens").fetchall()
+    assert len(stored) == 1 and stored[0][0] != token
+    body = {"token": token, "username": "avery", "name": "Fictional Owner", "password": PASSWORD}
+    assert (await mantel.post("/api/bootstrap", {**body, "token": "guess"}, csrf=False)).status == 401
+    assert (await mantel.post("/api/bootstrap", {**body, "password": "short"}, csrf=False)).status == 400
+    r = await mantel.post("/api/bootstrap", body, csrf=False)
+    assert r.status == 200 and (await r.json())["user"]["role"] == "owner"
+    assert (await (await mantel.get("/api/session")).json())["user"]["role"] == "owner"
+    again = await mantel.post("/api/bootstrap", {**body, "username": "mallory"}, csrf=False)
+    assert again.status == 410
+    with pytest.raises(PolicyError):
+        acc.issue_bootstrap_token()
+    assert (await (await mantel.get("/api/bootstrap")).json())["open"] is False
+    assert mantel.store.db.execute("SELECT COUNT(*) FROM users WHERE role='owner'").fetchone()[0] == 1
+
+
+async def test_bootstrap_token_expires_and_a_new_one_replaces_it(mantel):
+    acc = mantel.app["accounts"]
+    first = acc.issue_bootstrap_token()
+    second = acc.issue_bootstrap_token()
+    body = {"username": "avery", "name": "Owner", "password": PASSWORD}
+    assert (await mantel.post("/api/bootstrap", {**body, "token": first}, csrf=False)).status == 401
+    mantel.now[0] += 3601
+    assert (await mantel.post("/api/bootstrap", {**body, "token": second}, csrf=False)).status == 401
+
+
+def test_bootstrap_cli_prints_a_token_only_while_no_owner(tmp_path, capsys):
+    data = tmp_path / "data"
+    assert entry.main(["bootstrap", "--data-dir", str(data)]) == 0
+    assert "One-time setup token" in capsys.readouterr().out
+    store = Store(data / "mantel.db")
+    try:
+        store.link("ha-owner", "owner")                                     # an HA-linked Owner counts
+    finally:
+        store.db.close()
+    assert entry.main(["bootstrap", "--data-dir", str(data)]) == 1
+    assert "already exists" in capsys.readouterr().err
+
+
+# -- user management ------------------------------------------------------------------------------
+async def test_owner_and_admin_manage_users_within_limits(mantel):
+    owner = await mantel.user("avery", "owner")
+    await mantel.user("ada", "admin")
+    await mantel.sign_in("ada")
+    r = await mantel.post("/api/users", {"username": "riley", "name": "Riley", "role": "child", "password": PASSWORD})
+    assert r.status == 201
+    riley = (await r.json())["user"]["id"]
+    assert (await mantel.post("/api/users", {"username": "o2", "role": "owner", "password": PASSWORD})).status == 403
+    r = await mantel.client.patch(f"/api/users/{owner}", json={"disabled": True}, headers=mantel.headers())
+    assert r.status == 403                                                  # admins never manage Owners
+    r = await mantel.client.patch(f"/api/users/{riley}", json={"disabled": True}, headers=mantel.headers())
+    assert r.status == 200 and (await r.json())["user"]["disabled"] is True
+    assert (await mantel.post("/api/users", {"username": "riley", "role": "child", "password": PASSWORD})).status == 409
+    mantel.forget_cookies()
+    assert (await mantel.sign_in("riley"))[0].status == 401                # disabled
+    await mantel.sign_in("avery")
+    r = await mantel.client.patch(f"/api/users/{owner}", json={"role": "adult"}, headers=mantel.headers())
+    assert r.status == 409 and (await r.json())["error"] == "last_owner"
+    mantel.forget_cookies()
+    await mantel.user("kid", "child")
+    await mantel.sign_in("kid")
+    assert (await mantel.get("/api/users")).status == 403
+
+
+async def test_change_password_revokes_other_sessions(mantel):
+    await mantel.user("jordan", "adult")
+    await mantel.sign_in("jordan")
+    other = mantel.app["sessions"].create(mantel.store.db.execute(
+        "SELECT id FROM users WHERE username='jordan'").fetchone()[0], "lan", "password")
+    new = "an even better passphrase"
+    r = await mantel.post("/api/account/password", {"current": PASSWORD, "new": new})
+    assert r.status == 200
+    assert mantel.app["sessions"].get(other.session_id) is None
+    assert (await mantel.get("/api/session")).status == 200                 # this one stays
+    mantel.forget_cookies()
+    assert (await mantel.sign_in("jordan", new))[0].status == 200

@@ -24,7 +24,13 @@ class Config:
     fixtures: Path = REPO / "spikes/hk-snapshot/fixtures"      # captured HK feeds (personal data; git-ignored)
     web: Path = REPO / "web"
     data_dir: Path = Path("~/.local/share/mantel")
-    session_hours: float = 12.0
+    secrets_dir: Path = Path("~/.config/mantel/secrets")    # at-rest key file (created 0700/0600 on first use)
+    session_hours: float = 12.0                              # session lifetime on the tunnel door
+    lan_session_days: float = 30.0                           # session lifetime on the LAN door
+    access_minutes: float = 15.0                             # access token lifetime (the refresh token rotates)
+    device_rotate_hours: float = 24.0                        # wall tablet credential rotation
+    webauthn_rp_id: str = "localhost"                        # passkeys: the RP ID (a hostname, never an IP)
+    trusted_proxies: tuple[str, ...] = ()                    # peers whose X-Forwarded-For is believed (P3.6)
     # P3.4: Music Assistant's own WebSocket API (connectors/ma.py). Empty URL = connector off.
     # The long-lived token is read from this secret file at each connect, never from env or logs.
     ma_url: str = ""
@@ -63,7 +69,10 @@ def parse_args(argv: list[str] | None = None) -> Config:
                    help="per-entity interval, e.g. 'sensor.*_distance=1' (repeatable)")
     p.add_argument("--data-dir", default=str(Config.data_dir), help="where mantel.db lives (outside git)")
     p.add_argument("--screen", default=Config.default_screen, help="dashboard /home opens (HK board key)")
-    p.add_argument("--session-hours", type=float, default=Config.session_hours)
+    p.add_argument("--secrets-dir", default=str(Config.secrets_dir), help="folder of secret files (at-rest key)")
+    p.add_argument("--session-hours", type=float, default=Config.session_hours, help="tunnel-door session lifetime")
+    p.add_argument("--lan-session-days", type=float, default=Config.lan_session_days)
+    p.add_argument("--rp-id", default=Config.webauthn_rp_id, help="passkey relying-party id (hostname)")
     p.add_argument("--listen", default=None, metavar="ADDRESS",
                    help="container mode: listen on this address (e.g. 0.0.0.0 inside a container whose only "
                         "published port belongs to Caddy). Needs --public-url. Default: loopback only")
@@ -97,6 +106,7 @@ def parse_args(argv: list[str] | None = None) -> Config:
     cfg = Config(ha_url=a.ha_url, token_file=Path(a.token_file), host=host, port=a.port,
                  default_interval=a.default_interval, overrides=overrides,
                  data_dir=Path(a.data_dir), session_hours=a.session_hours, default_screen=a.screen,
+                 secrets_dir=Path(a.secrets_dir), lan_session_days=a.lan_session_days, webauthn_rp_id=a.rp_id,
                  public_url=public_url, allowed_hosts=allowed)
     assert cfg.host in LOOPBACK or cfg.public_url, "Mantel listens beyond loopback only in container mode"
     return cfg

@@ -1,4 +1,9 @@
-"""Sign-in routes, session cookies and the middleware that puts /dev, /api and /ws behind them."""
+"""Sign in with Home Assistant, and the middleware that puts /dev, /api and /ws behind a sign-in.
+
+The middleware resolves ``sessions.identity`` (a user session and/or a device credential), refuses
+anonymous requests, requires an Origin on the WebSocket and a CSRF token on state-changing /api/
+requests. Paths in PUBLIC_PATHS and ``app["public_paths"]`` (each slice's sign-in routes) are open.
+"""
 from __future__ import annotations
 
 import hashlib
@@ -11,13 +16,14 @@ from urllib.parse import urlparse
 
 from aiohttp import web
 
+from . import sessions
 from .config import Config
 from .ha_oauth import HaOAuth, OAuthError
 from .store import Store
 
 log = logging.getLogger("mantel.auth")
 
-SESSION_COOKIE = "mantel_session"
+SESSION_COOKIE = sessions.ACCESS_COOKIE  # "mantel_session": now an access token
 STATE_COOKIE = "mantel_oauth_state"
 STATE_TTL = 600
 PUBLIC_PATHS = {"/login", "/auth/callback", "/logout"}
@@ -55,27 +61,24 @@ def page(title: str, body: str, status: int = 200) -> web.Response:
     return web.Response(text=text, status=status, content_type="text/html", headers={"Cache-Control": "no-store"})
 
 
-def set_session_cookie(resp: web.Response, sid: str, ttl: float) -> None:
-    resp.set_cookie(SESSION_COOKIE, sid, max_age=int(ttl), httponly=True, samesite="Lax", path="/")
-
-
 # -- middleware -------------------------------------------------------------------------------------
 @web.middleware
 async def require_session(request: web.Request, handler):
     # This isolated proof resolves its own session so it can audit authentication denials.
     if request.path == "/api/proof2/command" and request.method == "POST":
         return await handler(request)
-    if request.path in PUBLIC_PATHS:
+    if request.path in PUBLIC_PATHS or request.path in request.app.get("public_paths", ()):
         return await handler(request)
-    store: Store = request.app["store"]
-    user = store.get_session(request.cookies.get(SESSION_COOKIE), request.app["clock"]())
-    if user is None:
+    ident = sessions.identity(request)
+    if not ident.authenticated:
         if request.path in ("/", "/dev"):
             raise web.HTTPFound("/login")
         raise web.HTTPUnauthorized(text="sign in at /login")
     if request.path == "/ws" and request.headers.get("Origin") is None:
         raise web.HTTPForbidden(text="Origin required")  # browsers always send it; the loopback middleware checks its value
-    request["user"] = user
+    if request.method not in sessions.SAFE_METHODS and request.path.startswith("/api/"):
+        sessions.check_csrf(request, ident)
+    request["user"] = sessions.legacy_user(ident)
     return await handler(request)
 
 
@@ -134,21 +137,26 @@ async def callback(request: web.Request) -> web.StreamResponse:
                          f"<p>Home Assistant says you are <b>{html.escape(user.get('name') or '?')}</b>, "
                          f"but that account is not linked to a Mantel role yet. Ask an Owner to link it.</p>"
                          f"<p>HA user id: <code>{html.escape(user['id'])}</code></p>", 403))
+    if link["disabled"]:
+        log.info("sign-in refused: the user linked to HA user %s is disabled", user["id"])
+        return done(page("Account disabled", "<p>Ask an Owner.</p>", 403))
     if user.get("name"):
         store.set_name(user["id"], user["name"])
-    sid = store.create_session(user["id"], app["cfg"].session_hours * 3600, app["clock"]())
-    resp = web.HTTPFound("/dev")
-    set_session_cookie(resp, sid, app["cfg"].session_hours * 3600)
-    resp.del_cookie(STATE_COOKIE, path="/auth")
-    raise resp
+    issued = app["sessions"].create(link["user_id"], sessions.door_of(request), "ha",
+                                    user_agent=request.headers.get("User-Agent"), source_ip=sessions.client_ip(request))
+    # A page, not a redirect: SameSite=Strict cookies set during a navigation that started on HA's
+    # site are not sent on a redirect in the same chain, so the next hop must start here.
+    resp = page("Signed in", "<meta http-equiv='refresh' content='0;url=/dev'>"
+                "<p>Signed in. <a href='/dev'>Continue</a>.</p>")
+    sessions.set_session_cookies(request, resp, issued)
+    return done(resp)
 
 
 async def logout(request: web.Request) -> web.StreamResponse:
     if request.method != "POST":
         raise web.HTTPMethodNotAllowed(request.method, ["POST"])
-    request.app["store"].delete_session(request.cookies.get(SESSION_COOKIE))
     resp = web.json_response({"ok": True})
-    resp.del_cookie(SESSION_COOKIE, path="/")
+    sessions.end_session(request, resp)
     return resp
 
 

@@ -63,7 +63,7 @@ async def command(request: web.Request) -> web.Response:
     decision = "allowed" if status == 200 else "denied"
     try:
         audit_id = store.audit_command(
-            timestamp=now, actor=user["ha_user_id"] if user else None,
+            timestamp=now, actor=(user["ha_user_id"] or user["user_id"]) if user else None,
             role=user["role"] if user else None, action=action, target=target,
             decision=decision, reason=reason, source_ip=request.remote)
     except sqlite3.Error:

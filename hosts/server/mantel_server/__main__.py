@@ -13,7 +13,26 @@ from .ha_client import TokenMissing, read_token
 from .server import build_app
 from .store import ROLES, Store
 
-ADMIN_COMMANDS = {"link", "unlink", "links", "session"}
+ADMIN_COMMANDS = {"link", "unlink", "links", "session", "bootstrap"}
+
+
+def bootstrap(store: Store, port: int) -> int:
+    """Print a one-time setup token for the first Owner (only while no Owner exists)."""
+    import time
+
+    from .accounts import BOOTSTRAP_TTL, Accounts, PolicyError
+    from .atrest import SecretBox
+    try:
+        token = Accounts(store.db, SecretBox(), time.time).issue_bootstrap_token()
+    except PolicyError as exc:
+        print(f"mantel-server: {exc}", file=sys.stderr)
+        return 1
+    base = f"http://127.0.0.1:{port}"
+    print(f"One-time setup token (valid {BOOTSTRAP_TTL // 60} minutes; replaces any earlier one):\n\n    {token}\n")
+    print("Create the first Owner with it (POST /api/bootstrap), for example:\n"
+          f"  curl -X POST {base}/api/bootstrap -H 'Origin: {base}' -H 'Content-Type: application/json' \\\n"
+          """       -d '{"token": "<token>", "username": "<name>", "name": "<display name>", "password": "<12+ chars>"}'""")
+    return 0
 
 
 def admin(argv: list[str]) -> int:
@@ -24,8 +43,11 @@ def admin(argv: list[str]) -> int:
     p.add_argument("--name")
     p.add_argument("--data-dir", default=str(Config.data_dir))
     p.add_argument("--file", help="session: write the cookie value here (mode 0600) for tools/measure.py")
+    p.add_argument("--port", type=int, default=Config.port, help="bootstrap: the port shown in the example")
     a = p.parse_args(argv)
     store = Store(Path(a.data_dir) / "mantel.db")
+    if a.command == "bootstrap":
+        return bootstrap(store, a.port)
     if a.command == "links":
         for row in store.list_links():
             print(f"{row['ha_user_id']}  {row['role']:<11} {row['name'] or ''}")

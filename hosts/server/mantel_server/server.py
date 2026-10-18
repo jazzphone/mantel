@@ -20,7 +20,7 @@ from urllib.parse import urlparse
 import aiohttp
 from aiohttp import WSMsgType, web
 
-from . import auth, proof2
+from . import accounts, auth, devices, proof2, sessions
 from .config import Config
 from .ha_oauth import HaOAuth
 from .readproxy import ReadBlocked, ReadProxy
@@ -381,6 +381,9 @@ def build_app(cfg: Config, token: str, store: Store | None = None, connect_ha: b
     manifest = cfg.web / "shared-assets.json"
     app["shared_assets"] = json.loads(manifest.read_text()) if manifest.is_file() else {}
     app["hub"] = hub
+    sessions.register(app, hub)
+    accounts.register(app, hub)
+    devices.register(app, hub)
     app.router.add_get("/ws", ws_handler)
     app.router.add_get("/", root)
     app.router.add_get("/dev", dev_page)
