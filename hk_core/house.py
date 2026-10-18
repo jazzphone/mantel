@@ -65,6 +65,14 @@ class Device:
     name: str | None = None                     # the user's name for it, else its own
 
 
+@dataclass(frozen=True)
+class Floor:
+    """The floor an area is on. `level` orders floors (lower is further down); None when unset."""
+    id: str
+    name: str
+    level: int | None = None
+
+
 class House(Protocol):
     def state(self, entity_id: str) -> State | None:
         """The entity's current state, or None."""
@@ -89,6 +97,9 @@ class House(Protocol):
 
     def area_name(self, area_id: str) -> str | None:
         """An area's name, or None."""
+
+    def area_floor(self, area_id: str) -> Floor | None:
+        """The floor an area is on, or None (no such area, or it has no floor)."""
 
     def local_time(self, when: datetime | None = None) -> datetime:
         """`when` (an aware datetime; a naive one is taken as the house's), default now, in the

@@ -1,4 +1,5 @@
-"""Whole-home music: the configuration model and the request engine.
+"""Whole-home music inside Home Assistant: the configuration from the feature, and the engine
+that runs requests against HA's media players.
 
 The engine plays a playlist (grouping the chosen speakers, or through a
 preset's sync group), moves what is playing, stops, and runs the now-playing
@@ -20,6 +21,15 @@ buttons, with the measured timings in const.py. How it runs them:
   * STOP CANCELS what is running for its rooms; the cancelled request answers
     "stopped".
 
+THE DECISIONS ARE SHARED (hk_core/music/, PLAN.md §0 plan review): the configuration model,
+which rooms a request claims, what is in the way, who leads, what a move leaves behind, the
+refusals, the volume steps -- written once there and asked of HA's house through house.py's
+HaHouse. What stays here is Home Assistant's side: the media_player and music_assistant
+service calls (in the caller's context), the waits on HA's state events, the locks and Stop's
+cancelling, the persistent notifications and the log lines. The names below are kept
+(Room, Preset, Playlist, MusicConfig, CALLER, the timings this module reads at call time, and
+MusicManager's attributes), so callers and tests are unchanged.
+
 Configuration comes from the Music feature (features/__init__.py Feature):
 options (speakers, volume, each user's home room) and its items (presets,
 playlists). Room names and floors
@@ -30,7 +40,6 @@ from __future__ import annotations
 import asyncio
 from collections import defaultdict
 from contextlib import asynccontextmanager
-from dataclasses import dataclass, field
 import itertools
 import logging
 import time
@@ -40,37 +49,26 @@ from typing import Any
 
 from homeassistant.components import persistent_notification
 from homeassistant.config_entries import ConfigEntryState
-from homeassistant.const import STATE_UNAVAILABLE, STATE_UNKNOWN
 from homeassistant.core import Context, Event, HomeAssistant, callback
-from homeassistant.helpers import area_registry as ar
-from homeassistant.helpers import device_registry as dr
-from homeassistant.helpers import entity_registry as er
-from homeassistant.helpers import floor_registry as fr
 from homeassistant.helpers.event import async_track_state_change_event
 
+from ...hk_core.music import config as C, engine as E
+from ...hk_core.music.config import Item, Playlist, Preset, Room  # noqa: F401 -- names callers import here
+from ...hk_core.music.engine import ACTIVE, GONE, STOPPED, SUPERSEDED  # noqa: F401
+from ...house import HaHouse
 from .. import Feature
 
 # The context of the hk_frontend.music_* action being served: set by its
 # handler (features/music/__init__.py), read by MusicManager._call, and
 # carried by asyncio into every await and task of that request.
 CALLER: ContextVar[Context | None] = ContextVar("hk_music_caller", default=None)
-from .const import (
-    CONF_CHOOSER, CONF_GROUP, CONF_HOMES, CONF_ICON, CONF_ITEMS, CONF_MEMBERS, CONF_IGNORE_ANNOUNCEMENTS,
-    CONF_NAME, CONF_ORDER, CONF_SPEAKERS, CONF_VOLUME, DEFAULT_VOLUME,
+from .const import (  # noqa: E402
     JOIN_SETTLE, JOIN_TIMEOUT, NOTE_GROUP, NOTE_PARTIAL, NOTE_PLAY, NOTE_PRESET,
     NOTE_STOP, NOTE_TRANSFER, PAUSE_TIMEOUT, RELEASE_TIMEOUT, START_TIMEOUT,
-    STOP_TIMEOUT, SUB_PLAYLIST, SUB_PRESET, TRANSFER_TIMEOUT, VOLUME_STEP,
+    STOP_TIMEOUT, TRANSFER_TIMEOUT,
 )
 
 _LOGGER = logging.getLogger(__name__)
-
-ACTIVE = ("playing", "paused")
-GONE = (STATE_UNAVAILABLE, STATE_UNKNOWN)
-
-# The two answers a request gives when something newer took its rooms.
-SUPERSEDED = {"ok": False, "superseded": True,
-              "message": "A newer request for these rooms replaced this one."}
-STOPPED = {"ok": False, "superseded": True, "message": "Stopped."}
 
 
 def _log(res: dict[str, Any], msg: str, *args: Any) -> None:
@@ -83,155 +81,24 @@ def _log(res: dict[str, Any], msg: str, *args: Any) -> None:
 
 
 # =========================================================== configuration
-@dataclass
-class Room:
-    entity: str
-    name: str
-    floor: str | None = None
-    level: float = 0
-    index: int = 0          # the order the options listed it
+def _library_entry(hass: HomeAssistant) -> str | None:
+    """Music Assistant's loaded config entry: where the library answers from."""
+    ma = [e for e in hass.config_entries.async_entries("music_assistant")
+          if e.state is ConfigEntryState.LOADED]
+    return ma[0].entry_id if ma else None
 
 
-@dataclass
-class Preset:
-    key: str
-    name: str
-    group: str
-    members: list[str]
+def _items(entry: Feature) -> list[Item]:
+    """The feature's presets and playlists (its subentries), as the shared model reads them."""
+    return [Item(s.subentry_type, s.subentry_id, s.title, s.data) for s in entry.subentries.values()]
 
 
-@dataclass
-class Playlist:
-    key: str
-    name: str
-    icon: str
-    items: list[str]
-    chooser: str | None = None
-    order: float = 0
-
-
-@dataclass
-class MusicConfig:
-    rooms: list[Room] = field(default_factory=list)
-    presets: list[Preset] = field(default_factory=list)
-    playlists: list[Playlist] = field(default_factory=list)
-    volume: float = DEFAULT_VOLUME
-    homes: dict[str, str] = field(default_factory=dict)
-    library_entry: str | None = None
-    ignore_announcements: bool = True
-
-    @property
-    def room_ids(self) -> list[str]:
-        return [r.entity for r in self.rooms]
-
-    def name_of(self, entity: str) -> str:
-        for r in self.rooms:
-            if r.entity == entity:
-                return r.name
-        for p in self.presets:
-            if p.group == entity:
-                return p.name
-        return entity
-
-    def players(self) -> list[str]:
-        """Every player a command may name: the presets' groups and the rooms."""
-        return [p.group for p in self.presets] + self.room_ids
-
-    def preset_for_rooms(self, rooms: Iterable[str]) -> Preset | None:
-        want = set(rooms)
-        for p in self.presets:
-            if set(p.members) == want:
-                return p
-        return None
-
-    def preset_for_group(self, group: str) -> Preset | None:
-        return next((p for p in self.presets if p.group == group), None)
-
-    def playlist(self, key: str | None) -> Playlist | None:
-        return next((p for p in self.playlists if p.key == key), None)
+class MusicConfig(C.MusicConfig):
+    """The shared configuration model (hk_core.music.config), read from the HA feature."""
 
     @classmethod
     def from_entry(cls, hass: HomeAssistant, entry: Feature) -> MusicConfig:
-        opts = entry.options
-        cfg = cls(ignore_announcements=opts.get(CONF_IGNORE_ANNOUNCEMENTS, True),
-                  volume=float(opts.get(CONF_VOLUME, DEFAULT_VOLUME)),
-                  homes=dict(opts.get(CONF_HOMES) or {}))
-        ma = [e for e in hass.config_entries.async_entries("music_assistant")
-              if e.state is ConfigEntryState.LOADED]
-        cfg.library_entry = ma[0].entry_id if ma else None
-        ents, devs = er.async_get(hass), dr.async_get(hass)
-        areas, floors = ar.async_get(hass), fr.async_get(hass)
-        rooms: list[Room] = []
-        for i, entity in enumerate(opts.get(CONF_SPEAKERS) or []):
-            area = None
-            reg = ents.async_get(entity)
-            if reg:
-                area_id = reg.area_id or (
-                    (devs.async_get(reg.device_id).area_id)
-                    if reg.device_id and devs.async_get(reg.device_id) else None)
-                area = areas.async_get_area(area_id) if area_id else None
-            state = hass.states.get(entity)
-            name = (area.name if area else None) or (
-                state.attributes.get("friendly_name") if state else None) or entity
-            floor = floors.async_get_floor(area.floor_id) if area and area.floor_id else None
-            rooms.append(Room(entity, name, floor.name if floor else None,
-                              floor.level if floor and floor.level is not None else 999, i))
-        # FLOORS IN LEVEL ORDER, rooms in the order they were picked within a
-        # floor -- the pill grid reads top to bottom, downstairs first.
-        rooms.sort(key=lambda r: (r.level, r.index))
-        cfg.rooms = rooms
-        for sub in entry.subentries.values():
-            d = sub.data
-            if sub.subentry_type == SUB_PRESET:
-                cfg.presets.append(Preset(sub.subentry_id, d.get(CONF_NAME) or sub.title,
-                                          d[CONF_GROUP], list(d.get(CONF_MEMBERS) or [])))
-            elif sub.subentry_type == SUB_PLAYLIST:
-                cfg.playlists.append(Playlist(
-                    sub.subentry_id, d.get(CONF_NAME) or sub.title,
-                    d.get(CONF_ICON) or "mdi:playlist-music",
-                    list(d.get(CONF_ITEMS) or []),
-                    (d.get(CONF_CHOOSER) or "").strip() or None,
-                    float(d.get(CONF_ORDER, 0) or 0)))
-        # WIDEST PRESET FIRST: a whole-house preset claims its rooms before a
-        # one-floor one.
-        cfg.presets.sort(key=lambda p: -len(p.members))
-        cfg.playlists.sort(key=lambda p: (p.order, p.name))
-        return cfg
-
-    def as_client(self, user_id: str | None) -> dict[str, Any]:
-        """What a screen needs, in the shape hkMusic (cards/hk-base.js) reads."""
-        floors: list[dict[str, Any]] = []
-        for r in self.rooms:
-            label = r.floor or "Other"
-            if not floors or floors[-1]["name"] != label:
-                floors.append({"name": label, "entities": []})
-            floors[-1]["entities"].append(r.entity)
-        pills: list[dict[str, Any]] = []
-        choosers: dict[str, dict[str, Any]] = {}
-        for p in self.playlists:
-            if p.chooser:
-                c = choosers.get(p.chooser)
-                if c is None:
-                    c = choosers[p.chooser] = {"name": p.chooser, "icon": p.icon, "options": []}
-                    pills.append(c)
-                c["options"].append({"name": p.name, "key": p.key})
-            else:
-                pills.append({"name": p.name, "icon": p.icon, "key": p.key})
-        home = self.homes.get(user_id or "")
-        return {
-            # Music Assistant's live config entry, for Browse's get_library --
-            # read at runtime so a re-added MA cannot strand the page.
-            "library_entry": self.library_entry,
-            "configured": True,
-            "speakers": [{"name": p.name, "entity": p.group, "members": p.members}
-                         for p in self.presets]
-                        + [{"name": r.name, "entity": r.entity} for r in self.rooms],
-            "floors": floors,
-            "playlists": pills,
-            "home": home if home in self.room_ids else None,
-            "volume": self.volume,
-            "ignore_announcements": self.ignore_announcements,
-        }
+        return cls.build(HaHouse(hass), entry.options, _items(entry), _library_entry(hass))
 
 
 # =========================================================== the engine
@@ -240,9 +107,10 @@ class MusicManager:
 
     def __init__(self, hass: HomeAssistant, entry: Feature) -> None:
         self.hass, self.entry = hass, entry
+        self.house = HaHouse(hass)
         self._locks: defaultdict[str, asyncio.Lock] = defaultdict(asyncio.Lock)
         self._tlocks: defaultdict[str, asyncio.Lock] = defaultdict(asyncio.Lock)
-        self._stamp: defaultdict[str, int] = defaultdict(int)
+        self._claims = E.Claims()
         self._ids = itertools.count(1)
         # THE REQUESTS IN FLIGHT and the rooms each one claimed, so Stop can
         # cancel them (see stop()). `_stopped` marks a task Stop cancelled, as
@@ -259,18 +127,16 @@ class MusicManager:
 
     # ---------------------------------------------------------- state helpers
     def _state(self, entity: str) -> str | None:
-        st = self.hass.states.get(entity)
-        return st.state if st else None
+        return E.state_of(self.house, entity)
 
     def _attr(self, entity: str, name: str) -> Any:
-        st = self.hass.states.get(entity)
-        return st.attributes.get(name) if st else None
+        return E.attr(self.house, entity, name)
 
     def _members(self, entity: str) -> list[str]:
-        return list(self._attr(entity, "group_members") or [])
+        return E.members(self.house, entity)
 
     def _available(self, entity: str) -> bool:
-        return self._state(entity) not in (None, *GONE)
+        return E.available(self.house, entity)
 
     async def _call(self, domain: str, service: str, data: dict[str, Any]) -> bool:
         """A service call that reports instead of raising.
@@ -319,14 +185,10 @@ class MusicManager:
 
     # ---------------------------------------------------------- claiming rooms
     def _claim(self, rooms: Iterable[str]) -> dict[str, int]:
-        stamps = {}
-        for r in set(rooms):
-            self._stamp[r] += 1
-            stamps[r] = self._stamp[r]
-        return stamps
+        return self._claims.claim(rooms)
 
     def _superseded(self, stamps: dict[str, int]) -> bool:
-        return any(self._stamp[r] != s for r, s in stamps.items())
+        return self._claims.superseded(stamps)
 
     @asynccontextmanager
     async def _request(self, rooms: Iterable[str]):
@@ -368,53 +230,18 @@ class MusicManager:
 
     def _entangled(self, rooms: Iterable[str]) -> set[str]:
         """The rooms asked for, plus every room grouped with one of them."""
-        out = set(rooms)
-        for r in list(out):
-            out.update(m for m in self._members(r) if m in self.config.room_ids)
-        return out
+        return E.entangled(self.house, self.config, rooms)
 
     def _in_the_way(self, cfg: MusicConfig, rooms: Iterable[str],
                     keep: set[str] | None = None) -> list[str]:
-        """Rooms in a group that holds one of `rooms` -- and nothing wider.
-
-        A group somewhere else in the house is somebody's music, not an
-        obstacle. `keep` is a group that should be left standing,
-        e.g. the sync group a preset is about to play through.
-        """
-        want = set(rooms)
-        out = []
-        for r in cfg.room_ids:
-            gm = set(self._members(r))
-            if len(gm) > 1 and gm & want and gm != keep:
-                out.append(r)
-        return out
+        return E.in_the_way(self.house, cfg, rooms, keep)
 
     def _split(self, cfg: MusicConfig, way: list[str],
                want: set[str]) -> list[tuple[str, list[str], list[str]]]:
-        """The groups among `way` that are PLAYING and hold rooms not in
-        `want`: (their leader, the rooms that should keep the music, the
-        whole group). A group wholly wanted, or not playing, is simply
-        released."""
-        out, seen = [], set()
-        for r in way:
-            gm = self._members(r)
-            if len(gm) < 2 or gm[0] in seen:
-                continue
-            seen.add(gm[0])
-            leader = gm[0]
-            rest = [m for m in gm if m not in want and m in cfg.room_ids]
-            if rest and leader in cfg.room_ids and self._state(leader) == "playing":
-                out.append((leader, rest, list(gm)))
-        return out
+        return E.split(self.house, cfg, way, want)
 
     def _existing(self, rooms: list[str]) -> list[str] | None:
-        """The live group whose members are exactly `rooms`, leader first."""
-        want = sorted(rooms)
-        for r in rooms:
-            gm = self._members(r)
-            if len(gm) > 1 and sorted(gm) == want:
-                return gm
-        return None
+        return E.existing(self.house, rooms)
 
     # ---------------------------------------------------------- building blocks
     async def _release(self, rooms: list[str]) -> bool:
@@ -463,16 +290,11 @@ class MusicManager:
                  pl.name if pl else playlist, rooms, user or "-", res, time.monotonic() - t0)
             return res
 
-        fail = self._validate(cfg, rooms)
+        fail, pl = E.check_play(self.house, cfg, rooms, playlist)
         if fail:
             return done(fail)
-        if pl is None or not pl.items:
-            return done({"ok": False, "message": f"There is no playlist called {playlist}."})
-        # A LINK THAT NO LONGER EXISTS IS REFUSED, NOT PLAYED. Given a
-        # `library://playlist/...` it does not have, Music Assistant does
-        # not fail -- it SEARCHES for the text and plays whatever it finds (a
-        # podcast episode, say), and "playing" then looks like success. A
-        # playlist removed from the streaming library would do exactly that
+        # A LINK THAT NO LONGER EXISTS IS REFUSED, NOT PLAYED (engine.gone_from_library).
+        # A playlist removed from the streaming library would do exactly that
         # to its pill.
         gone = await self._missing(cfg, pl.items)
         if gone:
@@ -480,18 +302,13 @@ class MusicManager:
                        f"{pl.name} points at {', '.join(gone)}, which is no longer in the "
                        "Music Assistant library. Edit it in Settings -> Devices & "
                        "services -> HK Frontend -> Music.")
-            return done({"ok": False,
-                         "message": f"{pl.name} is no longer in the music library."})
+            return done(E.gone_from_library(pl))
 
-        preset = cfg.preset_for_rooms(rooms)
-        if preset is not None:
-            if not self._available(preset.group):
-                return done({"ok": False, "message": f"{preset.name} is unavailable right now."})
-            members = preset.members
-        else:
-            members = rooms
+        fail, preset, members = E.play_rooms(self.house, cfg, rooms)
+        if fail:
+            return done(fail)
 
-        stamps = self._claim(self._entangled(members))
+        stamps = self._claim(E.entangled(self.house, cfg, members))
         try:
             async with self._request(stamps):
                 return done(await self._play(cfg, pl, rooms, preset, members, stamps))
@@ -506,17 +323,8 @@ class MusicManager:
         async with self._hold(stamps):
             if self._superseded(stamps):
                 return dict(SUPERSEDED)
-            # WHO LEADS IS READ NOW, holding the rooms -- not when the request
-            # arrived. A request that waited for the lock may find the rooms
-            # grouped under a different leader by the one before it, and
-            # play_media sent to a group MEMBER plays nowhere useful.
-            existing = self._existing(rooms) if preset is None and len(rooms) > 1 else None
-            if preset is not None:
-                target = preset.group
-            else:
-                target = existing[0] if existing else rooms[0]
-            keep = set(preset.members) if preset else None
-            way = [] if existing else self._in_the_way(cfg, members, keep)
+            # WHO LEADS IS READ NOW, holding the rooms (engine.play_target).
+            target, existing, way = E.play_target(self.house, cfg, rooms, preset, members)
             # A GROUP THAT PLAYS ON IN ROOMS NOT PICKED keeps its music there:
             # only the picked rooms are let go (_move -- the music moves off
             # them first when its leader is one), and the rest of the group
@@ -552,7 +360,7 @@ class MusicManager:
                     # only a margin: MA offers no "free now" signal to wait
                     # on, so every room is CHECKED once the group plays.
                     await asyncio.sleep(self.settle)
-            if preset is None and len(rooms) > 1 and not existing:
+            if E.needs_join(rooms, preset, existing):
                 if not await self._join(target, rooms):
                     missing = [cfg.name_of(r) for r in rooms if r not in self._members(target)]
                     self._note(NOTE_GROUP, "Speakers did not group",
@@ -620,28 +428,11 @@ class MusicManager:
                  source, rooms, user or "-", res, time.monotonic() - t0)
             return res
 
-        fail = self._validate(cfg, rooms)
+        fail, preset = E.check_transfer(self.house, cfg, rooms, source)
         if fail:
             return done(fail)
-        if source not in cfg.players():
-            return done({"ok": False, "message": f"{source} is not a speaker this house knows."})
-        if self._state(source) not in ACTIVE:
-            return done({"ok": False, "message": f"{cfg.name_of(source)} is not playing."})
-        preset = cfg.preset_for_rooms(rooms)
-        if preset is not None and source == preset.group:
-            return done({"ok": False, "message": f"The music is already on {preset.name}."})
-        # ALREADY THERE only when the source plays alone: the source by
-        # itself, while it leads a group, is "let the others go" -- what the
-        # Music page asks to free rooms for a new pick, and what Update asks
-        # when rooms are unticked (2026-10-14: it was refused here, "Could
-        # not free Master Bedroom +2: The music is already there.")
-        alone = not [m for m in self._members(source) if m != source and m in cfg.room_ids]
-        if preset is None and source in rooms and len(rooms) == 1 and alone:
-            return done({"ok": False, "message": "The music is already there."})
 
-        was = [m for m in self._members(source) if m in cfg.room_ids]
-        stamps = self._claim(self._entangled(set(rooms) | set(was)
-                                             | ({source} if source in cfg.room_ids else set())))
+        stamps = self._claim(E.transfer_rooms(self.house, cfg, rooms, source))
         try:
             async with self._request(stamps):
                 return done(await self._transfer(cfg, rooms, source, preset, stamps))
@@ -664,16 +455,9 @@ class MusicManager:
         group that plays on in the rooms not picked."""
         # THE HOUSE IS READ NOW, holding the rooms: a request that waited
         # for the lock (a double tap) finds the first one's work done.
-        if preset is not None:
-            leader, others, adding = preset.group, [], False
-        else:
-            adding = source in rooms
-            existing = self._existing(rooms)
-            leader = source if adding else (existing[0] if existing else rooms[0])
-            others = [r for r in rooms if r != leader]
+        leader, others, adding = E.move_plan(self.house, rooms, source, preset)
         if self._state(source) not in ACTIVE:
-            if self._state(leader) in ACTIVE and all(
-                    r in self._members(leader) for r in others):
+            if E.already_moved(self.house, leader, others):
                 return {"ok": True, "leader": leader}      # already done
             return {"ok": False, "message": f"{cfg.name_of(source)} is not playing."}
         if not adding:
@@ -681,12 +465,8 @@ class MusicManager:
             await self._call("music_assistant", "transfer_queue",
                              {"entity_id": leader, "source_player": source,
                               "auto_play": True})
-            # THE LEADER HOLDING THE QUEUE WE MOVED, not merely playing: a
-            # room already playing something would pass the weaker test.
             arrived = await self._wait(
-                [leader], lambda: self._state(leader) in ACTIVE and (
-                    moving is None or self._attr(leader, "media_content_id") == moving),
-                TRANSFER_TIMEOUT)
+                [leader], lambda: E.arrived(self.house, leader, moving), TRANSFER_TIMEOUT)
             if not arrived:
                 self._note(NOTE_TRANSFER, "Music did not move",
                            f"The queue from {cfg.name_of(source)} could not be confirmed "
@@ -711,17 +491,13 @@ class MusicManager:
             else:
                 self._clear(NOTE_PARTIAL)
         # RELEASE WHAT WAS LEFT BEHIND -- last, once the music is safe on the
-        # leader, and only for a ROOM destination: a preset's rooms belong
-        # to its sync group.
-        if leader in cfg.room_ids:
-            stale = [r for r in cfg.room_ids if r not in rooms and len(self._members(r)) > 1
-                     and (source in self._members(r)
-                          or set(self._members(r)) & set(rooms))]
-            if stale:
-                await self._call("media_player", "unjoin", {"entity_id": stale})
-                await self._wait(stale, lambda: all(len(self._members(r)) <= 1 for r in stale),
-                                 RELEASE_TIMEOUT)
-                await self._call("media_player", "media_pause", {"entity_id": stale})
+        # leader (engine.stale).
+        stale = E.stale(self.house, cfg, rooms, leader, source)
+        if stale:
+            await self._call("media_player", "unjoin", {"entity_id": stale})
+            await self._wait(stale, lambda: all(len(self._members(r)) <= 1 for r in stale),
+                             RELEASE_TIMEOUT)
+            await self._call("media_player", "media_pause", {"entity_id": stale})
         res: dict[str, Any] = {"ok": True, "leader": leader}
         if message:
             res["message"] = message
@@ -734,10 +510,9 @@ class MusicManager:
         still waiting for them stand down."""
         rid, t0 = next(self._ids), time.monotonic()
         cfg = self.config
-        whole = not rooms
-        targets = cfg.room_ids if whole else [r for r in rooms if r in cfg.room_ids]
+        whole, targets = E.stop_plan(cfg, rooms)
         if not targets:
-            return {"ok": False, "message": "None of those are rooms this house knows."}
+            return dict(E.NO_ROOMS)
         self._claim(targets)
         # CANCEL WHAT IS STILL RUNNING for these rooms. Stamping alone only
         # stops a request at its next check, so a Move already inside its lock would
@@ -753,7 +528,7 @@ class MusicManager:
             t.cancel()
         if doomed:
             await asyncio.wait(doomed, timeout=STOP_TIMEOUT)
-        groups = [p.group for p in cfg.presets] if whole else []
+        groups = E.stop_groups(cfg, whole)
         if groups:
             await self._call("media_player", "media_stop", {"entity_id": groups})
         await self._call("media_player", "media_stop", {"entity_id": targets})
@@ -778,8 +553,9 @@ class MusicManager:
         """The now-playing buttons. One lock per player, so four quick volume
         taps are four steps."""
         cfg = self.config
-        if player not in cfg.players():
-            return {"ok": False, "message": f"{player} is not a speaker this house knows."}
+        fail = E.check_player(cfg, player)
+        if fail:
+            return fail
         async with self._tlocks[player]:
             if command == "play_pause":
                 ok = await self._call("media_player", "media_play_pause", {"entity_id": player})
@@ -791,12 +567,8 @@ class MusicManager:
             elif command == "stop":
                 ok = await self._call("media_player", "media_stop", {"entity_id": player})
             elif command in ("volume_up", "volume_down", "volume_set"):
-                if command == "volume_set":
-                    new = float(level if level is not None else cfg.volume)
-                else:
-                    cur = float(self._attr(player, "volume_level") or 0)
-                    new = cur + (VOLUME_STEP if command == "volume_up" else -VOLUME_STEP)
-                new = round(min(1.0, max(0.0, new)), 2)
+                current = self._attr(player, "volume_level") if command != "volume_set" else None
+                new = E.new_volume(command, current, level, cfg.volume)
                 ok = await self._call("media_player", "volume_set",
                                       {"entity_id": player, "volume_level": new})
             else:
@@ -821,14 +593,10 @@ class MusicManager:
                  content_id, player, user or "-", res, time.monotonic() - t0)
             return res
 
-        if player not in cfg.players():
-            return done({"ok": False, "message": f"{player} is not a speaker this house knows."})
-        if not self._available(player):
-            return done({"ok": False,
-                         "message": f"{cfg.name_of(player)} is unavailable right now."})
-        group = cfg.preset_for_group(player)
-        stamps = self._claim(self._entangled(
-            [player] if player in cfg.room_ids else (group.members if group else [])))
+        fail = E.check_browse(self.house, cfg, player)
+        if fail:
+            return done(fail)
+        stamps = self._claim(E.browse_rooms(self.house, cfg, player))
         try:
             async with self._request(stamps):
                 ok = await self._call("media_player", "play_media",
@@ -856,7 +624,7 @@ class MusicManager:
         library cannot be asked (MA restarting), nothing is refused: the check
         exists to catch a dead link, not to block music on a slow server.
         """
-        wanted = [i for i in items if i.startswith("library://playlist/")]
+        wanted = E.library_links(items)
         if not wanted or not cfg.library_entry:
             return []
         try:
@@ -867,19 +635,8 @@ class MusicManager:
         except Exception as err:  # noqa: BLE001 -- see the docstring
             _LOGGER.warning("music: could not check the library: %s", err)
             return []
-        have = {i.get("uri") for i in (resp or {}).get("items", [])}
-        return [i for i in wanted if i not in have]
+        return E.missing(wanted, (resp or {}).get("items", []))
 
     # ---------------------------------------------------------- validation
     def _validate(self, cfg: MusicConfig, rooms: list[str]) -> dict[str, Any] | None:
-        if not rooms:
-            return {"ok": False, "message": "Pick at least one speaker."}
-        if len(set(rooms)) != len(rooms):
-            return {"ok": False, "message": "A speaker was asked for twice."}
-        unknown = [r for r in rooms if r not in cfg.room_ids]
-        if unknown:
-            return {"ok": False, "message": f"Not a speaker this house knows: {', '.join(unknown)}."}
-        gone = [cfg.name_of(r) for r in rooms if not self._available(r)]
-        if gone:
-            return {"ok": False, "message": f"{', '.join(gone)} is unavailable right now."}
-        return None
+        return E.validate(self.house, cfg, rooms)
