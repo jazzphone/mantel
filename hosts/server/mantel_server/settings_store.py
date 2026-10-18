@@ -10,8 +10,8 @@ What is here:
   ``restore`` makes a NEW version from an older one's body; nothing is ever rewritten.
 * ``ThinModel``: the checks a write passes before it is stored. It is a deliberately thin stand-in
   for HK's settings model (``settings.py`` / ``settings_api.py`` in the HA component, which another
-  slice is moving to ``hk_core/settings/``). ``load_model()`` uses ``hk_core.settings`` when that
-  package exists and offers ``apply_house``/``apply_board``/``apply_tablet``; otherwise ThinModel.
+  model, ``hk_core/settings/``). ``load_model()`` uses ``hk_core.settings.changes`` (apply_house,
+  apply_board, apply_tablet) and ``hk_core.settings.model`` (merged) when present; otherwise ThinModel.
 * ``SettingsService``: the client API.
     - reads (in a page's ``read`` / ``read_subscribe`` frame, routed by ``app["read_routes"]``):
       ``hk_frontend/settings/subscribe`` (the settings feed: the whole payload now and after every
@@ -42,7 +42,9 @@ from __future__ import annotations
 
 import copy
 import hashlib
+import importlib
 import inspect
+import types
 import json
 import logging
 import re
@@ -525,10 +527,17 @@ class HkCoreModel(ThinModel):
 
 def load_model() -> ThinModel:
     """hk_core's settings model if it is installed and complete; the thin model otherwise."""
+    # hk_core keeps the writes in `changes` and the schema/merge in `model` (hk_core/settings/);
+    # imported by name through sys.modules, so a test can stand either in.
     try:
-        import hk_core.settings as m  # type: ignore[import-not-found]
+        changes = importlib.import_module("hk_core.settings.changes")
+        schema = importlib.import_module("hk_core.settings.model")
     except ImportError:
         return ThinModel()
+    m = types.SimpleNamespace(apply_house=getattr(changes, "apply_house", None),
+                              apply_board=getattr(changes, "apply_board", None),
+                              apply_tablet=getattr(changes, "apply_tablet", None),
+                              merged=getattr(schema, "merged", None))
     if all(callable(getattr(m, n, None)) for n in ("apply_house", "apply_board", "apply_tablet", "merged")):
         return HkCoreModel(m)
     log.warning("hk_core.settings exists but lacks apply_house/apply_board/apply_tablet/merged; using the thin model")

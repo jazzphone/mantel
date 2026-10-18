@@ -251,8 +251,9 @@ def test_board_tablet_and_user_checks():
 
 def test_hk_core_model_plugs_in_when_present(monkeypatch):
     calls = []
-    fake = types.ModuleType("hk_core.settings")
-    fake.merged = lambda options: {**{"look": {"glass": "blur"}}, **options["dashboard"]}
+    fake = types.ModuleType("hk_core.settings.changes")
+    schema = types.ModuleType("hk_core.settings.model")
+    schema.merged = lambda options: {**{"look": {"glass": "blur"}}, **options["dashboard"]}
 
     def apply_house(options, changes):
         calls.append(changes)
@@ -262,7 +263,8 @@ def test_hk_core_model_plugs_in_when_present(monkeypatch):
     fake.apply_house = apply_house
     fake.apply_board = lambda data, changes: ({**data, **changes}, {})
     fake.apply_tablet = lambda data, changes, tid: ({**data, **changes}, {})
-    monkeypatch.setitem(sys.modules, "hk_core.settings", fake)
+    monkeypatch.setitem(sys.modules, "hk_core.settings.changes", fake)
+    monkeypatch.setitem(sys.modules, "hk_core.settings.model", schema)
     model = S.load_model()
     assert isinstance(model, S.HkCoreModel)
     assert model.apply_house({"look": {"glass": "blur"}}, {"look.glass": "clear"}) == ({"look": {"glass": "clear"}}, {})
@@ -270,6 +272,16 @@ def test_hk_core_model_plugs_in_when_present(monkeypatch):
     assert model.apply_house({}, {"sidebar": True})[1] == {"sidebar": "ha_only"} and len(calls) == 2
     del fake.apply_tablet
     assert type(S.load_model()) is S.ThinModel                     # incomplete: the thin model, not half of one
+
+
+def test_the_real_hk_core_settings_model_is_the_one_used():
+    # hk_core/settings/ is in the repo: saves are checked by the same model HA uses
+    model = S.load_model()
+    assert isinstance(model, S.HkCoreModel)
+    ok, errors = model.apply_house({}, {"sky.decorations": False})
+    assert errors == {} and ok["sky"]["decorations"] is False, "a real setting is saved through hk_core's checks"
+    _, bad = model.apply_house({}, {"sky.decorations": "rainbow"})
+    assert bad, "a wrong value is refused by name"
 
 
 # ---------------------------------------------------------------------------------- RBAC on saves
