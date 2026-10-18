@@ -110,7 +110,9 @@ def main(argv: list[str] | None = None) -> int:
               file=sys.stderr)
         return 2
     app = build_app(cfg, token)
-    print(f"mantel-server: {cfg.base_url}login  (listening on {cfg.host}:{cfg.port}; read-only; commands disabled)", flush=True)
+    mode = ("COMMANDS ENABLED (roles, step-up and an audit row for every command)" if cfg.commands_enabled
+            else "read-only; commands disabled")
+    print(f"mantel-server: {cfg.base_url}login  (listening on {cfg.host}:{cfg.port}; {mode})", flush=True)
     web.run_app(app, host=cfg.host, port=cfg.port, print=None)
     return 0
 

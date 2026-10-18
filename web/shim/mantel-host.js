@@ -94,6 +94,13 @@ export class Host {
       this.refused.push((e.detail && e.detail.what) || 'command');
       toast('Commands are disabled in Mantel (read-only)');
     });
+    // With the gateway on (P3.3): a command the server's roles refused, or a step-up nobody answered.
+    this.denied = [];
+    window.addEventListener('hk-command-denied', (e) => {
+      const d = e.detail || {};
+      this.denied.push({ what: d.what, reason: d.reason });
+      toast(d.reason === 'person_pin_required' ? 'A person has to confirm this' : 'Not allowed');
+    });
     this.access = new Map();                // hass field -> times read (only with ?trace=1)
     this.trace = new URLSearchParams(location.search).get('trace') === '1';
     this._wrapStates();

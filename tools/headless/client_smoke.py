@@ -97,6 +97,34 @@ class OfflineReads:
         pass
 
 
+# HK's own feeds and reads (its settings, music, headers, snoozes, cleaning rooms, panel). No Home
+# Assistant read answers them in Mantel (P3.5 moves HK's settings into Mantel Server); since P3.7 the
+# page's reads go through P3.4's RBAC-filtered read handlers, so this smoke answers these the way a
+# connector would, as read routes (app["read_routes"]), from the same fictional OfflineReads.
+HK_FEEDS = ("hk_frontend/panel/get", "hk_frontend/hidden/get", "hk_frontend/settings/subscribe",
+            "hk_frontend/page_headers/subscribe", "hk_frontend/snooze/subscribe", "hk_music/subscribe",
+            "hk_clean_areas/subscribe")
+
+
+def stand_in_hk_feeds(app, reads):
+    from mantel_server.connectors import Route
+
+    async def request(ctx, msg):
+        return await reads.request(msg)
+
+    async def subscribe(ctx, msg, on_event):
+        mid = await reads.subscribe(msg, on_event)
+
+        async def unsubscribe():
+            await reads.unsubscribe(mid)
+        return unsubscribe
+
+    for kind in HK_FEEDS:
+        if kind in app["read_routes"]:
+            continue                 # answered for real (HK's settings: settings_store's routes)
+        app["read_routes"][kind] = Route(request=request, subscribe=subscribe)
+
+
 async def smoke(shot=None):
     with tempfile.TemporaryDirectory(prefix="mantel-client-smoke-") as folder:
         base = Path(folder)
@@ -116,6 +144,7 @@ async def smoke(shot=None):
         imported = await settings_store.import_settings(settings.store, fictional_ha, actor=settings_store.Actor(label="smoke"))
         assert imported["imported"] and imported["source"] == "ha:fictional-entry", imported
         hub.readproxy = OfflineReads(app, owner)
+        stand_in_hk_feeds(app, hub.readproxy)
         hub.store.apply_event({"a": {"sensor.proof": {"s": "21.4", "a": {
             "friendly_name": "Offline temperature", "unit_of_measurement": "°C"}, "lc": 1.0, "lu": 1.0},
             "light.proof": {"s": "off", "a": {"friendly_name": "Offline lamp", "supported_color_modes": ["brightness"]},

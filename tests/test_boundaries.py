@@ -122,9 +122,20 @@ def test_http_writes_go_through_the_action_port():
 
 
 def test_mantel_host_has_no_action_transport():
+    # P3.3: Mantel's port gets actions ONLY when the server's capabilities frame said commands are on,
+    # and those actions only send gateway `command` messages over the hub socket; the snapshot's own
+    # service method is never forwarded. Otherwise the port has no actions and hkClient refuses.
     src = (ROOT / "web/shim/mantel-client.js").read_text()
-    assert "callService" not in src and "port.actions" not in src
+    forwarded = re.search(r"\[('formatEntityState'[^\]]*)\]\.forEach", src).group(1)
+    assert "callService" not in forwarded and "snapshot.callService" not in src
+    assert src.count("port.actions =") == 1 and "if (gateway && gateway.commandsEnabled()) actionsOn(port, gateway);" in src
+    body = src[src.index("function actionsOn"):src.index("function useCommands")]
+    body = "\n".join(line.split("//", 1)[0] for line in body.splitlines())
+    assert "hub.command(" in body and "snapshot" not in body and "fetch(" not in body and "WebSocket" not in body
+    assert "liveSocket:" not in body
     assert "port.refused" in src
+    hub = (ROOT / "web/shim/hub.js").read_text()
+    assert "commandsEnabled()" in hub and "capabilities.commands === true" in hub
     ha = (ROOT / "hosts/ha/frontend/hk-ha-client.js").read_text()
     assert "port.actions.callService" in ha and "port.actions.callWS" in ha
 

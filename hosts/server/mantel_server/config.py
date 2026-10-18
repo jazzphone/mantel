@@ -30,7 +30,12 @@ class Config:
     access_minutes: float = 15.0                             # access token lifetime (the refresh token rotates)
     device_rotate_hours: float = 24.0                        # wall tablet credential rotation
     webauthn_rp_id: str = "localhost"                        # passkeys: the RP ID (a hostname, never an IP)
-    trusted_proxies: tuple[str, ...] = ()                    # peers whose X-Forwarded-For is believed (P3.6)
+    trusted_proxies: tuple[str, ...] = ()                    # peers whose X-Forwarded-For / X-Mantel-Door is believed (P3.6)
+    # P3.3: the command gateway. OFF unless the server's operator turns it on here (the CLI flag
+    # --commands-enabled or a Config built by code): no client message can change it. While off,
+    # ha_client.HaCommander cannot be built and every command answers `commands_disabled`.
+    commands_enabled: bool = False
+    house_tz: str = "UTC"                                    # fallback when HA's get_config gives no time_zone
     # P3.4: Music Assistant's own WebSocket API (connectors/ma.py). Empty URL = connector off.
     # The long-lived token is read from this secret file at each connect, never from env or logs.
     ma_url: str = ""
@@ -73,6 +78,13 @@ def parse_args(argv: list[str] | None = None) -> Config:
     p.add_argument("--session-hours", type=float, default=Config.session_hours, help="tunnel-door session lifetime")
     p.add_argument("--lan-session-days", type=float, default=Config.lan_session_days)
     p.add_argument("--rp-id", default=Config.webauthn_rp_id, help="passkey relying-party id (hostname)")
+    p.add_argument("--commands-enabled", action="store_true",
+                   help="turn the command gateway on: signed-in users may control the house through Mantel, "
+                        "within their roles, with step-up and an audit row for every command. Off by default")
+    p.add_argument("--house-tz", default=Config.house_tz,
+                   help="house time zone for grant schedules when Home Assistant does not say (IANA name)")
+    p.add_argument("--trusted-proxy", action="append", default=[], metavar="ADDRESS",
+                   help="a reverse proxy (Caddy) whose X-Mantel-Door / X-Forwarded-For headers are believed (repeatable)")
     p.add_argument("--listen", default=None, metavar="ADDRESS",
                    help="container mode: listen on this address (e.g. 0.0.0.0 inside a container whose only "
                         "published port belongs to Caddy). Needs --public-url. Default: loopback only")
@@ -107,6 +119,7 @@ def parse_args(argv: list[str] | None = None) -> Config:
                  default_interval=a.default_interval, overrides=overrides,
                  data_dir=Path(a.data_dir), session_hours=a.session_hours, default_screen=a.screen,
                  secrets_dir=Path(a.secrets_dir), lan_session_days=a.lan_session_days, webauthn_rp_id=a.rp_id,
-                 public_url=public_url, allowed_hosts=allowed)
+                 public_url=public_url, allowed_hosts=allowed, commands_enabled=bool(a.commands_enabled),
+                 house_tz=a.house_tz, trusted_proxies=tuple(a.trusted_proxy))
     assert cfg.host in LOOPBACK or cfg.public_url, "Mantel listens beyond loopback only in container mode"
     return cfg

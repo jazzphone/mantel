@@ -23,8 +23,16 @@ def test_missing_token_stops_with_a_message(tmp_path, capsys):
 
 
 def test_ha_client_source_has_no_service_call_path():
+    # P3.3: the state connection (HaClient and its check_outgoing) still has no service-call path at all;
+    # the ONE command path, HaCommander, cannot even be constructed while commands are off (the default).
     from mantel_server import ha_client
-    assert "call_service" not in inspect.getsource(ha_client)
+    assert "call_service" not in inspect.getsource(ha_client.HaClient)
+    assert "call_service" not in inspect.getsource(ha_client.check_outgoing)
+    assert config.Config().commands_enabled is False and config.parse_args([]).commands_enabled is False
+    assert ha_client.commander_for(config.Config(), "fictional", frozenset({"call_service"})) is None
+    with pytest.raises(ha_client.CommandsDisabled):
+        ha_client.HaCommander(config.Config(), "fictional", frozenset({"call_service"}))
+    assert config.parse_args(["--commands-enabled"]).commands_enabled is True
 
 
 # -- container mode (packaging): an explicit, guarded way past loopback ------------------------------------
