@@ -807,6 +807,55 @@ async def smoke(shot=None):
                         assert fit["frame"] > fit["card"] + 16, fit      # the frame still runs on under the bar
                         assert fit["scroll"] <= fit["inner"], fit        # ...and the page that fits does not scroll
                         fits.append(f"{w}x{h} {fit['scroll']}/{fit['inner']}")
+                    # A LONG PAGE ENDS AT ITS CONTENT (Energy, 2026-10-18): a grid page several windows tall, a
+                    # tab bar along the bottom. The root's bottom margin (the page's end) used to collapse through
+                    # the view, so each pass of the page's end added to it and Energy scrolled 73 px past its last
+                    # card (Power, Vacuums the same way). The page must end exactly a gutter below the last card
+                    # plus the bar's room (the view's padding), and that card must show above the bar at the end.
+                    await browser.eval("window.hkShell.navigate('/dashboard-proof/lights')")
+                    assert await browser.wait("window.__mantelViewHost.current().path === 'lights'", 10)
+                    await browser.eval("""(() => {
+                      document.querySelectorAll('#view > hk-tile-card, #view > hk-stat-card').forEach(e => e.remove());
+                      const vh = window.hkViewHost, c = window.__mantel.client, el = window.__mantelViewHost.current().element;
+                      const body = [];
+                      for (let s = 0; s < 8; s++) {
+                        body.push({type: 'custom:hk-heading-card', name: 'Section ' + s});
+                        body.push({type: 'custom:hk-grid-card', layout: {'grid-template-columns': 'repeat(3, 1fr)'},
+                                   cards: Array.from({length: 9}, (_, i) => ({type: 'custom:hk-rank-card',
+                                     entity: 'sensor.proof', name: 'Row ' + i, icon: 'mdi:flash'}))});
+                      }
+                      el.cards = [vh.createCardElement({type: 'custom:hk-grid-card', layout: {margin: '0px -4px'}, cards: body}, c)];
+                    })()""")
+                    long_js = """(async () => {
+                      for (let i = 0; i < 20; i++) await new Promise(r => requestAnimationFrame(r));
+                      await new Promise(r => setTimeout(r, 400));
+                      for (let i = 0; i < 5; i++) await new Promise(r => requestAnimationFrame(r));
+                      const de = document.documentElement, view = document.getElementById('view'), bar = document.getElementById('hk-tabbar') ||
+                        document.querySelector('#hk-shell-root > #hk-tabbar'), el = window.__mantelViewHost.current().element;
+                      const cards = window.__deep(document).filter(e => e.localName === 'hk-rank-card' && e.isConnected);
+                      const last = Math.max(...cards.map(e => e.getBoundingClientRect().bottom + window.scrollY));
+                      const pad = parseFloat(getComputedStyle(view).paddingBottom), gutter = el.constructor.gutter(el);
+                      window.scrollTo(0, de.scrollHeight);
+                      await new Promise(r => requestAnimationFrame(r));
+                      const lastNow = Math.max(...cards.map(e => e.getBoundingClientRect().bottom));
+                      return { cards: cards.length, scroll: de.scrollHeight, inner: window.innerHeight, last, pad, gutter,
+                               after: de.scrollHeight - last, barTop: bar.getBoundingClientRect().top, lastNow,
+                               margin: getComputedStyle(el.shadowRoot.getElementById('root')).marginBottom };
+                    })()"""
+                    longs = []
+                    for w, h in ((1366, 900), (1280, 800), (1366, 900)):
+                        await browser.send("Emulation.setDeviceMetricsOverride", width=w, height=h, deviceScaleFactor=1,
+                                           mobile=False)
+                        lp = await browser.eval(long_js)
+                        assert lp["cards"] >= 72 and lp["scroll"] > 2 * lp["inner"] and lp["pad"] > 40, lp
+                        # (tolerance 1.5 px: scrollHeight is an integer, the margin rounds to a tenth)
+                        assert abs(lp["after"] - (lp["gutter"] + lp["pad"])) <= 1.5, \
+                            f"{w}x{h}: the long page ends {lp['after']:.1f} px below its last card, not " \
+                            f"gutter {lp['gutter']:.1f} + bar room {lp['pad']:.1f}: {lp}"
+                        # (the bar's room is the view's padding; the bar itself folds away on a scroll)
+                        assert lp["lastNow"] <= lp["inner"] - lp["pad"] + 0.5, f"{w}x{h}: the last card is under the bar's room: {lp}"
+                        longs.append(f"{w}x{h} {lp['after']:.1f} px below the last card = gutter {lp['gutter']:.1f} + bar {lp['pad']:.1f}")
+                    await browser.eval("window.scrollTo(0, 0)")
                     if shot:
                         await browser.screenshot(shot)
                     return {"home_ready": True, "client": "mantel", "initial": "21.4 °C", "updated": "22.8 °C",
@@ -847,6 +896,8 @@ async def smoke(shot=None):
                                       f"Mantel's read path; 0 placeholders",
                             "music_fit": "the Music page (two columns, tab bar along the bottom, the frame running on "
                                          "under it) ends at the window: scrollHeight/innerHeight " + ", ".join(fits),
+                            "long_page_end": "a long grid page with the tab bar ends a gutter plus the bar's room below its last card, "
+                                             "that card clear of the bar at the end (tolerance 1.5 px): " + "; ".join(longs),
                             "external_requests": 0, "browser_exceptions": 0}
         finally:
             store.db.close()

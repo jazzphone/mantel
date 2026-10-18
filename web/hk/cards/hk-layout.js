@@ -1228,7 +1228,13 @@
       // Percentage padding uses this view's width, matching the side columns
       // even with a docked menu or a narrower device. Keep the normal header unchanged.
       // (clipped below, never across: the page's end, _pageEnd)
-      st.textContent = ':host{display:block;overflow-y:clip}#root>*{margin:4px 4px 8px}' +
+      // (flow-root: the root's bottom margin -- the page's end -- stays INSIDE
+      // the view. `overflow:clip` makes no block formatting context, so a
+      // plain block let that margin collapse through the view's foot: the
+      // view's box never followed it, a negative one trimmed nothing, and
+      // _pageEnd -- reading the view's foot -- added the same difference on
+      // every pass. Energy ended 73 px past its last card, 2026-10-18.)
+      st.textContent = ':host{display:flow-root;overflow-y:clip}#root>*{margin:4px 4px 8px}' +
         // (a grid of pop-ups alone: no room, no margins -- hk-grid-card _markZero)
         '#root>[data-hk-zero]{margin:0!important}' +
         '#root>[data-hk-page-header=none]{display:none!important}' +
@@ -1359,16 +1365,19 @@
           });
         return;
       }
-      var cs = getComputedStyle(this), gutter = HkGridView.gutter(this);
+      var gutter = HkGridView.gutter(this);
       var low = HkGridView.plateEdge(root, 'bottom', gutter);
       if (low == null) return;
-      var tail = hr.bottom - (parseFloat(cs.paddingBottom) || 0) - low;
-      // (from the margin as it is, never as last set: whatever has reset it
-      // since, the page still ends at its gutter. Rounded DOWN to the tenth:
-      // a page that fits the window exactly -- the Music page -- rounded to
-      // nearest ended 0.05 px past it, which the browser can round up to a
-      // pixel of scroll)
-      var m = parseFloat(getComputedStyle(root).marginBottom) || 0, next = Math.floor((m + gutter - tail) * 10 + 1e-6) / 10;
+      // The root's own bottom edge to the lowest plate (the root's box, never
+      // the view's: whatever margin the root carries now does not enter it,
+      // so a pass changes the margin to a fixed value, not by a step -- the
+      // old reading of the view's foot added the difference again each time).
+      // The margin that puts the page's end a gutter below that plate.
+      // (Rounded DOWN to the tenth: a page that fits the window exactly -- the
+      // Music page -- rounded to nearest ended 0.05 px past it, which the
+      // browser can round up to a pixel of scroll.)
+      var slack = root.getBoundingClientRect().bottom - low;
+      var m = parseFloat(getComputedStyle(root).marginBottom) || 0, next = Math.floor((gutter - slack) * 10 + 1e-6) / 10;
       if (Math.abs(next - m) < 0.5) return;
       this._endM = next;
       root.style.marginBottom = next + 'px';

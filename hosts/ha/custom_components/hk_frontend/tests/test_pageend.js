@@ -140,4 +140,31 @@ function music(foot, cardEnd, rootEnd) {
   ok('plateEdge(left) ignores data-hk-foot', View.plateEdge(mixed._root, 'left') === 0);
 })();
 
+// THE PAGE'S END DOES NOT READ THE VIEW'S FOOT (Energy, 2026-10-18): a view's
+// foot may not follow its root's bottom margin (a margin collapsing through
+// it), and a pass that read it added the same difference again every time
+// -- Energy ended 73 px past its last card, Power and Vacuums the same way.
+// Here the view's foot ignores the margin altogether: every pass must still
+// set the same margin, a gutter below the lowest plate.
+(function () {
+  var r = box('div', 0, 2368, {}, {}, [box('div', 0, 2368, {}, {}, [box('hk-plate', 2200, 2362, GLASS)])]);
+  r.style = {};
+  var v = box('hk-grid-view', 0, 2368);
+  v._root = r; v.isConnected = true; v._holds = View.prototype._holds;
+  var seen = [];
+  for (var i = 0; i < 4; i++) { View.prototype._pageEnd.call(v); seen.push(r.style.marginBottom); }
+  var want = Math.floor((GUTTER - (2368 - 2362)) * 10 + 1e-6) / 10 + 'px';
+  ok('every pass sets the same margin whatever the view\'s foot does (no drift)',
+     seen.every(function (x) { return x === want; }), seen.join(' ') + ' want ' + want);
+  ok('...a gutter below the lowest plate: the root\'s foot + margin = plate + gutter',
+     Math.abs(2368 + parseFloat(r.style.marginBottom) - (2362 + GUTTER)) <= 0.1, r.style.marginBottom);
+  // and a margin left from before, however large, is not added to
+  r.style.marginBottom = '73.2px';
+  View.prototype._pageEnd.call(v);
+  ok('a stale margin is replaced, not added to', r.style.marginBottom === want, r.style.marginBottom);
+  // the view keeps that margin inside it: a block formatting context
+  var src = View.prototype._build.toString();
+  ok('the view is a flow-root, so the root\'s bottom margin stays inside it', /:host\{display:flow-root;/.test(src));
+})();
+
 print(fail ? 'FAIL ' + fail + ' PAGE END TESTS' : 'ALL ' + pass + ' PAGE END TESTS PASS');
