@@ -834,12 +834,12 @@ async def smoke(shot=None, shots=None):
                     class EnergyHouse:
                         _states = {"sensor.proof_grid": State("sensor.proof_grid", "900", kwh),
                                    "sensor.proof_office_utility": State("sensor.proof_office_utility", "3", {
-                                       **kwh, "friendly_name": "Proof Office Utility", "source": "sensor.proof_office_integral"}),
+                                       **kwh, "friendly_name": "Proof Office Utility", "status": "collecting"}),
                                    "sensor.proof_office_integral": State("sensor.proof_office_integral", "30", {
                                        **kwh, "source": "sensor.proof_office_watts"}),
                                    "sensor.proof_office_watts": State("sensor.proof_office_watts", "300", watt),
                                    "sensor.proof_dryer_utility": State("sensor.proof_dryer_utility", "1", {
-                                       **kwh, "friendly_name": "Proof Dryer Utility", "source": "sensor.proof_dryer_integral"}),
+                                       **kwh, "friendly_name": "Proof Dryer Utility", "status": "collecting"}),
                                    "sensor.proof_dryer_integral": State("sensor.proof_dryer_integral", "9", {
                                        **kwh, "source": "sensor.proof_dryer_kw"}),
                                    "sensor.proof_dryer_kw": State("sensor.proof_dryer_kw", "1.5", {
@@ -852,7 +852,14 @@ async def smoke(shot=None, shots=None):
                              "device_consumption": [{"stat_consumption": "sensor.proof_office_utility"},
                                                     {"stat_consumption": "sensor.proof_dryer_utility"}]}
                     fictional_house = mantel_house_of(EnergyHouse())
-                    plan = energy_plan.build(mantel_features.energy_context(fictional_house, prefs, {}), {})
+                    # (what HK's hk_energy/sources answers: Utility Meters publish no `source` attribute; the Integral
+                    # sensors above carry theirs as well, which is the fallback an older HK leaves)
+                    helper_sources = {"sensor.proof_office_utility": "sensor.proof_office_integral",
+                                      "sensor.proof_dryer_utility": "sensor.proof_dryer_integral"}
+                    plan = energy_plan.build(mantel_features.energy_context(fictional_house, prefs, {},
+                                                                            sources=helper_sources), {})
+                    assert {i["power"] for sec in plan["sections"] for i in sec["items"]} == \
+                        {"sensor.proof_office_watts", "sensor.proof_dryer_kw"}, plan["sections"]
                     hub.store.apply_event({"a": {eid: {"s": st.state, "a": dict(st.attributes), "lc": 1.0, "lu": 1.0}
                                                  for eid, st in EnergyHouse._states.items()}})
                     hub.on_change(set(EnergyHouse._states))
@@ -1015,8 +1022,9 @@ async def smoke(shot=None, shots=None):
                                       f"Mantel's read path; 0 placeholders",
                             "music_fit": "the Music page (two columns, tab bar along the bottom, the frame running on "
                                          "under it) ends at the window: scrollHeight/innerHeight " + ", ".join(fits),
-                            "where_card": "the Energy where-card, from a plan built by Mantel's energy_context (Utility Meter -> "
-                                          "Integral -> power sensor, followed by each helper's `source`), drew " + where_says,
+                            "where_card": "the Energy where-card, from a plan built by Mantel's energy_context (Utility Meter, no source "
+                                          "attribute -> Integral -> power sensor: HK's hk_energy/sources, then the Integral's "
+                                          "`source`), drew " + where_says,
                             "long_page_end": "a long grid page with the tab bar ends a gutter plus the bar's room below its last card, "
                                              "that card clear of the bar at the end (tolerance 1.5 px): " + "; ".join(longs),
                             "external_requests": 0, "browser_exceptions": 0}

@@ -77,6 +77,12 @@ READ_ALLOWED: dict[str, frozenset[str]] = {
     "hk_clean_areas/settings/get": frozenset(),
     "hk_energy/settings/get": frozenset(),
     "hk_tv/settings/get": frozenset(),
+    # The Energy plan's one extra read: {sensor: the sensor it counts} for the Utility Meter / Integral /
+    # Derivative sensors (HK's hk_energy/sources, admin-only, read only). HA keeps a helper's source in a
+    # private field of the sensor's object; Utility Meters publish no `source` attribute. Mantel itself asks
+    # (features.energy_inputs); never a page (SERVER_ONLY_READS). An HK that predates it answers an error and
+    # the plan falls back to the sources the states carry.
+    "hk_energy/sources": frozenset(),
     # Music's HK Settings page, read by Mantel itself: for the music import (music.import_doc, with the feature
     # import) and, while Mantel's music engine is off, for HK Settings' Music page (feature_pages.py, rebuilt
     # key by key; with the engine on, music.py answers from Mantel's own settings). Never sent by a page.
@@ -92,7 +98,7 @@ READ_ALLOWED: dict[str, frozenset[str]] = {
 # (app["read_routes"]), and so is each feature's settings page (feature_pages.py: Mantel's own answer, or
 # for Music and Alarm PIN, still HA's, HA's page read here by Mantel itself and rebuilt).
 SERVER_ONLY_READS = frozenset({"hk_frontend/panel/get", "hk_notify/settings/get", "hk_clean_areas/settings/get",
-                               "hk_energy/settings/get", "hk_tv/settings/get", "hk_music/settings/get",
+                               "hk_energy/settings/get", "hk_energy/sources", "hk_tv/settings/get", "hk_music/settings/get",
                                "hk_alarm_pin/settings/get"})
 SUBSCRIBE_TYPES = frozenset({"weather/subscribe_forecast", "persistent_notification/subscribe", "hk_music/subscribe"})
 # housekeeping the proxy itself sends to end a subscription it started
@@ -298,6 +304,7 @@ RULES: dict[str, str] = {
     "hk_clean_areas/settings/get": "never for a page (SERVER_ONLY_READS): the feature import's own read",
     "hk_energy/settings/get": "never for a page (SERVER_ONLY_READS): the feature import's own read",
     "hk_tv/settings/get": "never for a page (SERVER_ONLY_READS): the feature import's own read",
+    "hk_energy/sources": "never for a page (SERVER_ONLY_READS): the Energy plan's own read of the helpers' sources",
     "hk_music/settings/get": "never for a page (SERVER_ONLY_READS): the music import's own read, and HK Settings' "
                              "Music page while Mantel's music engine is off (feature_pages.py, Owner/Admin, rebuilt "
                              "key by key); with it on, Mantel's own settings (music.py)",

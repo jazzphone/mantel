@@ -11,6 +11,33 @@ from ...hk_core.energy.plan import grid_of  # noqa: F401 -- used by collect
 from .const import *  # noqa: F401,F403
 
 
+# ----------------------------------------------------------------- sources
+def source_of(comp: Any, eid: str) -> str | None:
+    """The entity a helper sensor counts or integrates (a Utility Meter's source sensor, an Integral's
+    power sensor), from the sensor's own object: HA keeps it in a private field no state shows."""
+    if comp is None or not eid.startswith("sensor."):
+        return None
+    obj = comp.get_entity(eid)
+    src = getattr(obj, "_sensor_source_id", None) or getattr(obj, "_source_entity", None)
+    return src if isinstance(src, str) and "." in src else None
+
+
+def sources(hass: Any) -> dict[str, str]:
+    """{sensor: its source} for every sensor that has one -- what collect() reads of the sensors it looks
+    at, for a host that cannot read the objects (Mantel; hk_energy/sources). Read only."""
+    try:
+        from homeassistant.components.sensor import DATA_COMPONENT
+        comp = hass.data.get(DATA_COMPONENT)
+    except ImportError:          # pragma: no cover -- every supported release has it
+        return {}
+    out: dict[str, str] = {}
+    for eid in hass.states.async_entity_ids("sensor"):
+        src = source_of(comp, eid)
+        if src:
+            out[eid] = src
+    return out
+
+
 # ----------------------------------------------------------------- collect
 def collect(hass: Any, prefs: Mapping[str, Any] | None, options: Mapping[str, Any] | None,
             house: Mapping[str, Any] | None = None) -> dict[str, Any]:
@@ -38,10 +65,7 @@ def collect(hass: Any, prefs: Mapping[str, Any] | None, options: Mapping[str, An
         st = hass.states.get(eid)
         ent = ereg.async_get(eid)
         attrs = st.attributes if st else {}
-        src = None
-        if comp is not None and eid.startswith("sensor."):
-            obj = comp.get_entity(eid)
-            src = getattr(obj, "_sensor_source_id", None) or getattr(obj, "_source_entity", None)
+        src = source_of(comp, eid)
         entities[eid] = {
             "name": attrs.get("friendly_name") or (ent and (ent.name or ent.original_name)) or eid,
             "device": ent.device_id if ent else None, "dc": attrs.get("device_class") or (

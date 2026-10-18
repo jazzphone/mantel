@@ -466,3 +466,42 @@ def test_a_device_can_carry_its_runtime():
     p = plan.build(ctx, out)
     tile = [i for s in p["sections"] for i in s["items"] if i["key"] == "sensor.ac_utility"][0]
     assert tile["runtime"] == "sensor.ac_run_time"
+
+
+async def test_the_helpers_sources_are_read_only_and_admin_only(hass, frontend, monkeypatch):
+    """hk_energy/sources: {sensor: the sensor it counts} for Utility Meter, Integral and Derivative sensors,
+    from the sensors' own objects (what collect() reads); Mantel's plan asks for it. No writes."""
+    from types import SimpleNamespace
+    from homeassistant.components.sensor import DATA_COMPONENT
+    from homeassistant.exceptions import Unauthorized
+    from custom_components.hk_frontend.features.energy import plan as energy_plan
+    from custom_components.hk_frontend.features.energy.settings_ws import ws_sources
+    objs = {"sensor.office_utility": SimpleNamespace(_sensor_source_id="sensor.office_integral"),
+            "sensor.office_integral": SimpleNamespace(_source_entity="sensor.office_watts"),
+            "sensor.office_watts": SimpleNamespace(),
+            "sensor.odd": SimpleNamespace(_sensor_source_id=7)}
+    for eid in objs:
+        hass.states.async_set(eid, "1")
+
+    real = hass.data.get(DATA_COMPONENT)
+
+    class Comp:
+        def get_entity(self, eid):
+            return objs.get(eid)
+
+        def __getattr__(self, name):          # everything else (its unload at teardown) is the real component's
+            return getattr(real, name)
+    monkeypatch.setitem(hass.data, DATA_COMPONENT, Comp())
+    await hass.auth.async_create_user("Owner")
+    conn = Conn(await hass.auth.async_create_user("Admin", group_ids=["system-admin"]))
+    r = await _call(hass, conn, ws_sources, type="hk_energy/sources")
+    assert r["success"] and r["result"] == {"sources": {"sensor.office_utility": "sensor.office_integral",
+                                                        "sensor.office_integral": "sensor.office_watts"}}
+    assert energy_plan.source_of(Comp(), "sensor.office_utility") == "sensor.office_integral"
+    assert energy_plan.source_of(None, "sensor.office_utility") is None
+    tablet = Conn(await hass.auth.async_create_user("kitchen"))
+    with pytest.raises(Unauthorized):
+        ws_sources(hass, tablet, {"id": 1, "type": "hk_energy/sources"})
+    # collect() sees the same chain
+    c = energy_plan.collect(hass, {}, {"extra": [{"key": "k", "name": "Office", "stat": "sensor.office_utility"}]})
+    assert c["entities"]["sensor.office_utility"]["source"] == "sensor.office_integral"

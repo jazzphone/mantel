@@ -6,6 +6,8 @@
                                                   (name, icon, color, power,
                                                   control, hidden); a null
                                                   value goes back to Automatic
+    hk_energy/sources                          -> {sources: {sensor: the sensor it counts}}, read
+                                                  only (Mantel's plan reads the helpers' sources)
     hk_energy/device/section {key, section}    -> one device moved into a
                                                   section (and shown): every
                                                   other device keeps its place,
@@ -105,6 +107,17 @@ def ws_settings_get(hass: HomeAssistant, connection, msg: dict[str, Any]) -> Non
     connection.send_result(msg["id"], page(hass, entry) if entry else {"configured": False})
 
 
+# THE HELPER SOURCES (read only): which sensor each Utility Meter / Integral / Derivative sensor counts. HA's
+# own plan reads them from the sensors' objects (plan.collect); Mantel cannot, and asks here once for its plan
+# (Utility Meters carry no `source` attribute -- the house, 2026-10-18).
+@websocket_api.websocket_command({vol.Required("type"): "hk_energy/sources"})
+@websocket_api.require_admin
+@callback
+def ws_sources(hass: HomeAssistant, connection, msg: dict[str, Any]) -> None:
+    from . import plan as _plan
+    connection.send_result(msg["id"], {"sources": _plan.sources(hass)})
+
+
 @websocket_api.websocket_command({vol.Required("type"): "hk_energy/settings/set", vol.Required("changes"): dict})
 @websocket_api.require_admin
 @callback
@@ -163,5 +176,5 @@ def ws_device_section(hass: HomeAssistant, connection, msg: dict[str, Any]) -> N
 
 @callback
 def async_register(hass: HomeAssistant) -> None:
-    for cmd in (ws_settings_get, ws_settings_set, ws_device_set, ws_device_section):
+    for cmd in (ws_settings_get, ws_settings_set, ws_device_set, ws_device_section, ws_sources):
         websocket_api.async_register_command(hass, cmd)
