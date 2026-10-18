@@ -46,6 +46,8 @@ export const CAMERA_SUBSCRIPTIONS = new Set(['camera/webrtc/offer']);
 // The server's allowlist forwards only hk_music/subscribe, /queue and /settings/library (readproxy.py);
 // hk_music/queue_play and every other hk_music/* write still meet WRITE_WORDS here.
 export const NAMED_READS = new Set(['hk_music/queue']);
+// HK's per-person user data that Mantel keeps itself (user_data.KEYS; mantel-client.js USER_DATA_KEYS)
+export const USER_DATA_KEYS = new Set(['hk_music_focus']);
 // NOTIFICATION SNAPSHOTS (hk-notify.js): HK asks hk_notify/snap/sign {snaps: [id]} for paths an <img> can
 // load. A read (its name carries "sign"): the server answers with Mantel's own route for each picture of
 // a camera the person may see (/api/notify/snap/<id>, no HA token), and the page's prefix goes in front
@@ -291,7 +293,13 @@ export class Host {
     }
     // the settings feed names no HA switch for a tablet on Mantel: the screens' own are named here
     if (msg.type === 'hk_frontend/settings/subscribe') { const raw = cb; cb = (p) => raw(this._withScreens(p)); }
-    if (msg.type === 'frontend/subscribe_user_data') { queueMicrotask(() => cb({ value: null })); return Promise.resolve(() => {}); }
+    // HK's per-person user data (the Music page's speaker) is Mantel's own, per person or tablet (user_data.py):
+    // the value first, then every change. Any other key, or a server without it, stays the stand-in (no value).
+    if (msg.type === 'frontend/subscribe_user_data') {
+      const none = () => { queueMicrotask(() => cb({ value: null })); return () => {}; };
+      if (!USER_DATA_KEYS.has(msg.key)) return Promise.resolve(none());
+      return this.hub.readSubscribe(msg, cb).catch(() => none());
+    }
     if (CAMERA_SUBSCRIPTIONS.has(msg.type)) return this.hub.readSubscribe(msg, cb);
     if (WRITE_WORDS.test(msg.type)) return this._refuse(msg.type);
     if (this.fixtures[msg.type] !== undefined) {

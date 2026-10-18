@@ -224,6 +224,29 @@ async function run(label, commandsOn) {
   res.used = await uq;
   res.usedSent = sent.length - u0;
   res.usedRefusedEvents = events.filter((e) => e === 'hk-command-refused').length - usedRefused;
+  // HK's per-person user data (the Music page's speaker): Mantel's `user_data_set`, never a command, commands on or off;
+  // any other key is still an ordinary write
+  const ud0 = sent.length, udRefused = events.filter((e) => e === 'hk-command-refused').length;
+  const udq = a.callWS({ type: 'frontend/set_user_data', key: 'hk_music_focus', value: { key: 'media_player.office', at: 7 } });
+  res.userDataFrame = last();
+  reply({ type: 'user_data_set_result', id: res.userDataFrame.id, result: null });
+  res.userData = await udq;
+  res.userDataSent = sent.length - ud0;
+  res.userDataRefusedEvents = events.filter((e) => e === 'hk-command-refused').length - udRefused;
+  try { const q = a.callWS({ type: 'frontend/set_user_data', key: 'sidebar', value: {} }); if (commandsOn) { res.userDataOtherFrame = last(); answer('command_result', null); } await q; res.userDataOther = 'ok'; } catch (e) { res.userDataOther = e.code; }
+  // the subscription is Mantel's read route (value first, then changes); another key stays the stand-in
+  const udSeen = [];
+  host.connection.subscribeMessage((ev) => udSeen.push(ev), { type: 'frontend/subscribe_user_data', key: 'hk_music_focus' });
+  res.userDataSub = last();
+  reply({ type: 'read_result', id: res.userDataSub.id, result: null });
+  reply({ type: 'read_event', id: res.userDataSub.id, event: { value: null } });
+  reply({ type: 'read_event', id: res.userDataSub.id, event: { value: { key: 'media_player.den', at: 9 } } });
+  await tick();
+  res.userDataSeen = udSeen;
+  const otherSeen = [], before = sent.length;
+  host.connection.subscribeMessage((ev) => otherSeen.push(ev), { type: 'frontend/subscribe_user_data', key: 'sidebar' });
+  await tick();
+  res.userDataOtherSeen = otherSeen; res.userDataOtherSent = sent.length - before;
   res.settingsSave = (() => { const q = a.callWS({ type: 'hk_frontend/board/set', board: {} }); const f = last(); reply({ type: 'settings_result', id: f.id, result: { ok: true } }); return f.type; })();
   out[label] = res;
 }

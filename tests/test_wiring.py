@@ -124,7 +124,7 @@ def test_build_app_installs_the_door_rule(tmp_path):
     assert app["door_resolver"] is resolve_door
     assert {"read", "read_subscribe", "read_unsubscribe", "read_api", "ma/read", "ma/subscribe", "ma/unsubscribe",
             "settings_write", "screen_report", "notify_mute", "clean_areas_run", "tablets_restart",
-            "music_used", "tv_watching"} \
+            "music_used", "tv_watching", "user_data_set"} \
         == set(app["ws_handlers"])
     assert app["gateway"] is None and app["commander"] is None and app["ma"] is None
     paths = {r.resource.canonical for r in app.router.routes() if r.resource is not None}

@@ -211,6 +211,11 @@
   //   hk_music/used                                   -> music_used (music.py: Keep Playlists Ready waits)
   //   switch.turn_on|turn_off on a tablet's photo screensaver switch -> the page's own state only
   //     (Mantel's screens, mantel-host.js; the host has no such Home Assistant entity to write)
+  // HK'S PER-PERSON USER DATA (user_data.py): the few keys HK keeps with frontend/set_user_data are Mantel's
+  // own per person (or per tablet), not Home Assistant's: sent as `user_data_set`, on every server, commands on
+  // or off, never a command and never forwarded. Exactly user_data.KEYS (a test pins the two lists together);
+  // any other key goes the way it did (the gateway, or refused when commands are off).
+  var USER_DATA_KEYS = ['hk_music_focus'];
   var screens = null;             // the host adapter's {owns(entityId), set(entityId, on), reported(tablet, black)}
   function useScreens(host) { screens = host || null; }
   var TABLET_ID = /^[a-z0-9_]{1,40}$/;
@@ -261,6 +266,9 @@
       var t = msg && msg.type;
       if (t === 'hk_frontend/screensaver/touch' || t === 'hk_frontend/screensaver/black') return screenReport(hub, msg);
       if (t === 'hk_notify/mute') return notifyMute(hub, msg);
+      if (t === 'frontend/set_user_data' && USER_DATA_KEYS.indexOf(msg.key) >= 0 && typeof hub.ask === 'function') {
+        return hub.ask('user_data_set', { key: msg.key, value: msg.value === undefined ? null : msg.value }).then(function () { return null; });
+      }
       if (t === 'hk_frontend/tablet/act' && msg.act === 'restart_all') return tabletsRestart(hub);
       // LIVE TV'S VIEWER HEARTBEAT (hk-tv-guide-card, on opening a channel and every 60 s while it plays):
       // counted by Mantel (tv_watching; live_tv.py), never a command, on every server, commands on or off.

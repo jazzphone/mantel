@@ -255,7 +255,7 @@ async def smoke(shot=None, shots=None):
                           // settings_write: HK's own settings save, answered by Mantel's settings store (P3.5);
                           // never a house command, and never one wrapping a service call
                           if (!['subscribe','unsubscribe','ping','watch_stats','read','read_subscribe','read_unsubscribe',
-                                'settings_write'].includes(msg.type) ||
+                                'settings_write','user_data_set'].includes(msg.type) ||
                               ['call_service','execute_script'].includes(msg.msg && msg.msg.type)) {
                             window.__blockedWrites++; throw new Error('write blocked');
                           }
@@ -850,6 +850,30 @@ async def smoke(shot=None, shots=None):
                         assert fit["frame"] > fit["card"] + 16, fit      # the frame still runs on under the bar
                         assert fit["scroll"] <= fit["inner"], fit        # ...and the page that fits does not scroll
                         fits.append(f"{w}x{h} {fit['scroll']}/{fit['inner']}")
+                    # THE MUSIC PAGE'S SPEAKER IS MANTEL'S (house, 2026-10-18 night): the person's chosen speaker
+                    # ("Plays on") lives in HA's per-user data; on Mantel it said "No speaker selected." where
+                    # Discovery belongs, and a pick said "Commands are disabled". Now Mantel keeps it per person
+                    # (user_data.py): the pick above was saved by the server (commands are off here), and a
+                    # screen with no first-paint copy gets it back from the server and draws the library.
+                    stored = app["user_data"].get(f"u:{owner.user.id}", "hk_music_focus")
+                    assert stored and stored["key"] == "media_player.offline_den", stored
+                    await browser.eval("localStorage.removeItem('hk_music_focus')")
+                    await browser.eval("location.reload()")
+                    assert await browser.wait("window.__mantelReady === true", 25), "the page did not reload"
+                    await browser.eval("""window.__deep = (root, out = []) => {
+                      for (const e of root.querySelectorAll('*')) { out.push(e); if (e.shadowRoot) window.__deep(e.shadowRoot, out); }
+                      return out; }""")
+                    await browser.eval("window.hkShell.navigate('/dashboard-proof/playmusic')")
+                    if not await browser.wait(f"(() => {{ const m = {music_js}; return !!m && m.isConnected; }})()", 15):
+                        raise AssertionError("no music card after reload: " + await browser.eval("location.href") + json.dumps(browser.console[-8:]))
+                    assert await browser.wait("window.hkMusic.focus() === 'media_player.offline_den'", 10), \
+                        "the saved speaker did not come back from Mantel"
+                    drawn = await browser.wait(f"""(() => {{
+                      const m = {music_js}, deep = window.__deep(m.shadowRoot);
+                      return !!deep.find(e => e.localName === 'hk-library-card') &&
+                             !(m.shadowRoot.textContent || '').includes('No speaker selected');
+                    }})()""", 10)
+                    assert drawn, "the Music page did not draw Discovery for the saved speaker"
                     # "WHERE IT'S GOING NOW" (the house, 2026-10-18): drew 0 W on every row in Mantel. A house's
                     # devices are Utility Meters counting Integral sensors that integrate a power sensor; HA's
                     # collect() follows each helper's `source`, Mantel's energy_context did not, so no device had

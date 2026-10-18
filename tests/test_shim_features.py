@@ -159,7 +159,8 @@ def test_no_house_command_is_made_of_any_of_this(observed):
         for mode in ("off", "on"):
             assert observed[mode][key]["type"] in ("screen_report", "notify_mute")
     assert set(observed["kinds"]) <= {"read_subscribe", "read_unsubscribe", "screen_report", "notify_mute",
-                                      "tv_watching", "command", "settings_write", "tablets_restart", "read", "music_used"}
+                                      "tv_watching", "command", "settings_write", "tablets_restart", "read", "music_used",
+                                      "user_data_set"}
 
 
 @pytest.mark.parametrize("mode", ["off", "on"])
@@ -185,6 +186,23 @@ def test_the_music_page_in_use_is_music_used_never_a_command(observed, mode):
     r = observed[mode]
     assert r["usedFrame"] == {"type": "music_used", "id": r["usedFrame"]["id"]}
     assert (r["used"], r["usedSent"], r["usedRefusedEvents"]) == (None, 1, 0)
+
+
+@pytest.mark.parametrize("mode", ["off", "on"])
+def test_hks_music_speaker_is_mantels_own_user_data_never_a_command(observed, mode):
+    r = observed[mode]
+    assert r["userDataFrame"] == {"type": "user_data_set", "id": r["userDataFrame"]["id"], "key": "hk_music_focus",
+                                  "value": {"key": "media_player.office", "at": 7}}
+    assert (r["userData"], r["userDataSent"], r["userDataRefusedEvents"]) == (None, 1, 0)
+    # followed through the server's read route: the value first, then every change
+    assert r["userDataSub"]["type"] == "read_subscribe" and r["userDataSub"]["msg"]["key"] == "hk_music_focus"
+    assert r["userDataSeen"] == [{"value": None}, {"value": {"key": "media_player.den", "at": 9}}]
+    # another key is not Mantel's: the old stand-in (no value, nothing sent), and its write the old way
+    assert r["userDataOtherSeen"] == [{"value": None}] and r["userDataOtherSent"] == 0
+    if mode == "off":
+        assert r["userDataOther"] == "commands_disabled"
+    else:
+        assert r["userDataOtherFrame"]["type"] == "command"
 
 
 def test_the_frames_are_what_the_servers_handlers_accept():

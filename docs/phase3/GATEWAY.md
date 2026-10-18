@@ -74,7 +74,7 @@ them on, a command-shaped frame that is not `{"type":"command",…}` answers `in
 * **ws** → the type must be in `hkClient.WRITES` (else `not_a_write`: reads go through `read`).
   `call_service` inside `ws` is the service path. Others (`gateway.ws_rule`): `calendar/event/*` =
   `control` on the frame's `entity_id`; `config/entity_registry/update` = `configure` on its
-  `entity_id`; `frontend/set_user_data` = `configure` `profile`; `*/settings/set` = `configure`
+  `entity_id`; `frontend/set_user_data` = `configure` `profile` (except HK's own keys, e.g. `hk_music_focus`: Mantel keeps those per person itself, `user_data.py`, never a command); `*/settings/set` = `configure`
   `settings`; `hk_music/*` = `control` `music`; `hk_notify/*` = `configure` `notifications`;
   `hk_energy/*` = `configure` `energy`; **every other write** (HK boards, dashboards, tablets, Lovelace,
   registries) = `configure` `settings`. A test pins that every catalog type has a rule.
