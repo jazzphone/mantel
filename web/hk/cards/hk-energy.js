@@ -29,20 +29,20 @@
   var HkBase = C.HkBase, register = C.register, firstOf = C.firstOf,
       create = C.create;
 
-  // THE PICKER'S STARTER SENSOR, BY KIND. firstOf(hass, 'sensor') is the
+  // THE PICKER'S STARTER SENSOR, BY KIND. firstOf(client, 'sensor') is the
   // first sensor of any kind -- a media player's bitrate shown as a battery.
   // Each test is tried in turn (best first); the first sensor passing one
   // wins, and with none of them it is the first sensor, as before.
-  function sensorWhere(hass) {
+  function sensorWhere(client) {
     var tests = Array.prototype.slice.call(arguments, 1);
-    var st = (hass && hass.states) || {}, ids = Object.keys(st);
+    var st = (client && client.states) || {}, ids = Object.keys(st);
     for (var t = 0; t < tests.length; t++) {
       for (var i = 0; i < ids.length; i++) {
         if (ids[i].indexOf('sensor.') !== 0) continue;
         if (tests[t]((st[ids[i]] && st[ids[i]].attributes) || {})) return ids[i];
       }
     }
-    return firstOf(hass, 'sensor');
+    return firstOf(client, 'sensor');
   }
 
   // ----------------------------------------------------------- hk-usage
@@ -51,7 +51,7 @@
   // this compares with the usual, and a fortnight of bars under it. Used on
   // the energy and weather pages.
   //
-  // hk-charts.js reads the data -- hkChart.usage(hass, stat, card, opts)
+  // hk-charts.js reads the data -- hkChart.usage(client, stat, card, opts)
   // returns {val, sub, data, split, mPrev} and wakes the card through
   // requestUpdate when its statistics arrive. This card is the plate, the
   // type scale, the grid and HK's bars (barChart, the Energy page's).
@@ -165,12 +165,12 @@
     getCardSize() { return 3; }
 
     // The tile reads STATISTICS, which arrive asynchronously and are not in
-    // hass.states at all -- so the default signature would gate out exactly
+    // the client's states at all -- so the default signature would gate out exactly
     // the update this card exists to show. `entity` is the live sensor and
     // moves often enough to keep the tile current; hkChart caches the
     // statistics and calls requestUpdate when a fetch lands.
     _sigOf() {
-      var h = this._hass, c = this._config;
+      var h = this.client, c = this._config;
       if (!h || !c) return null;
       var s = h.states[c.entity || c.stat];
       return (s ? s.last_updated : 'x') + '|' + (window.hkChart ? '1' : '0');
@@ -181,7 +181,7 @@
     // entity (an external "domain:id" one) has no dialog to open, so it is
     // left as before.
     _act(spec, defaultMoreInfo) {
-      var cfg = this._config || {}, h = this._hass;
+      var cfg = this._config || {}, h = this.client;
       if (cfg.entity || !cfg.stat || !h || !h.states[cfg.stat]) {
         return super._act(spec, defaultMoreInfo);
       }
@@ -223,8 +223,8 @@
       var nm = cfg.name || '';
       if (e.nm.textContent !== nm) e.nm.textContent = nm;
 
-      var u = (window.hkChart && this._hass)
-        ? window.hkChart.usage(this._hass, cfg.stat, this, cfg.opts || {})
+      var u = (window.hkChart && this.client)
+        ? window.hkChart.usage(this.client, cfg.stat, this, cfg.opts || {})
         : {};
       // `compare: false` drops the comparison sentence. The chart already
       // shows the fortnight the sentence describes, so on a 172px tile it is
@@ -317,7 +317,7 @@
     // Raw history arrives asynchronously; the live sensor moving is what keeps
     // the headline current, and hkChart wakes the card when a fetch lands.
     _sigOf() {
-      var h = this._hass, c = this._config;
+      var h = this.client, c = this._config;
       if (!h || !c) return null;
       var s = h.states[c.entity];
       return (s ? s.last_updated : 'x') + '|' + (window.hkChart ? '1' : '0');
@@ -342,8 +342,8 @@
       }
       var e = this._e;
       if (cfg.margin) e.card.style.margin = cfg.margin;
-      var r = (window.hkChart && this._hass)
-        ? window.hkChart.recent(this._hass, cfg.entity, this, cfg.trace || {})
+      var r = (window.hkChart && this.client)
+        ? window.hkChart.recent(this.client, cfg.entity, this, cfg.trace || {})
         : {};
       var ttl = r.ttl || (cfg.trace && cfg.trace.title) || '';
       if (e.ttl.textContent !== ttl) e.ttl.textContent = ttl;
@@ -463,7 +463,7 @@
     }
     getCardSize() { return 2; }
     _sigOf() {
-      var h = this._hass, c = this._config;
+      var h = this.client, c = this._config;
       if (!h || !c) return null;
       var ids = [c.entity, c.discharge, c.stored, c.reserve, c.limit].filter(Boolean);
       var out = '';
@@ -508,8 +508,8 @@
       if (e.kwh.textContent !== kwhTxt) e.kwh.textContent = kwhTxt;
 
       var dis = null;
-      if (C && this._hass && cfg.discharge) {
-        dis = C.power(this._hass.states, cfg.discharge, { watts: true, fallback: null });
+      if (C && this.client && cfg.discharge) {
+        dis = C.power(this.client.states, cfg.discharge, { watts: true, fallback: null });
       }
 
       var body = '';
@@ -557,8 +557,8 @@
       ], 'mdi:gesture-tap')
     ],
     // An energy total (what the Energy page charts), else any energy sensor.
-    function (hass) {
-      return { stat: sensorWhere(hass,
+    function (client) {
+      return { stat: sensorWhere(client,
         function (a) { return a.device_class === 'energy' &&
           (a.state_class === 'total' || a.state_class === 'total_increasing'); },
         function (a) { return a.device_class === 'energy'; }),
@@ -577,8 +577,8 @@
         { name: 'tap_action', selector: { ui_action: {} } }
       ], 'mdi:gesture-tap')
     ],
-    function (hass) {
-      return { entity: sensorWhere(hass, function (a) { return a.device_class === 'power'; }),
+    function (client) {
+      return { entity: sensorWhere(client, function (a) { return a.device_class === 'power'; }),
                trace: { hours: 3, colour: 'orange' } };
     });
 
@@ -604,8 +604,8 @@
         { name: 'tap_action', selector: { ui_action: {} } }
       ], 'mdi:gesture-tap')
     ],
-    function (hass) {
-      return { entity: sensorWhere(hass,
+    function (client) {
+      return { entity: sensorWhere(client,
         function (a) { return a.device_class === 'battery'; },
         function (a) { return a.unit_of_measurement === '%'; }) };
     });
@@ -727,14 +727,14 @@
   // energy/info is what names the cost sensors HA itself made for a source
   // priced by an entity or a number. Neither failing stops the page: without
   // them it is the plan's own meters.
-  function prefs(hass, card) {
+  function prefs(client, card) {
     if (card) EP.cards.add(card);
     var fresh = EP.prefs && (Date.now() - EP.prefsAt) < 10 * 60e3;
-    if (!fresh && !EP.asking && hass && hass.callWS) {
+    if (!fresh && !EP.asking && client && client.callWS) {
       EP.asking = true;
       Promise.all([
-        hass.callWS({ type: 'energy/get_prefs' }),
-        hass.callWS({ type: 'energy/info' }).catch(function () { return {}; })
+        client.callWS({ type: 'energy/get_prefs' }),
+        client.callWS({ type: 'energy/info' }).catch(function () { return {}; })
       ]).then(function (r) {
         EP.prefs = r[0] || {}; EP.info = r[1] || {};
       }).catch(function (e) {
@@ -860,8 +860,8 @@
       rings: page.rings || null
     };
   }
-  function model(hass, card) {
-    var P = plan(), pr = prefs(hass, card);
+  function model(client, card) {
+    var P = plan(), pr = prefs(client, card);
     if (!P || !pr) return null;
     if (!EP.cache || EP.cache.P !== P || EP.cache.pr !== pr) EP.cache = buildModel(P, pr, EP.info);
     return EP.cache;
@@ -882,20 +882,20 @@
     var need = per === 'week' ? 7 * (back + 2) + 37 : 31 * (back + 2) + 31;
     return Math.max(DAYS, Math.ceil(need / 31) * 31);
   }
-  function series(hass, card, M) {
+  function series(client, card, M) {
     var S = window.hkStats;
     if (!S || !M || !M.ids.length) return null;
-    if (hass) EP.ws = S.weekStart(hass);
-    var h = S.hourly(hass, M.ids, HOURS, card), d = S.daily(hass, M.ids, daysFor(period(), EP.back), card);
+    if (client) EP.ws = S.weekStart(client);
+    var h = S.hourly(client, M.ids, HOURS, card), d = S.daily(client, M.ids, daysFor(period(), EP.back), card);
     return h && d ? { h: h, d: d } : null;
   }
   // EACH DAY'S RUNTIME of the devices that have one (hk-stats dailyPeak: the
   // day's highest reading of a counter that resets at midnight). Not waited
   // on: the page draws without it and adds it when it lands.
-  function runtimes(hass, card, M) {
+  function runtimes(client, card, M) {
     var S = window.hkStats;
     if (!S || !S.dailyPeak || !M || !M.runtimes.length) return null;
-    return S.dailyPeak(hass, M.runtimes, daysFor(period(), EP.back), card);
+    return S.dailyPeak(client, M.runtimes, daysFor(period(), EP.back), card);
   }
   // hours as "1h 55m"
   function hm(h) {
@@ -903,15 +903,15 @@
     return m >= 60 ? Math.floor(m / 60) + 'h ' + (m % 60) + 'm' : m + 'm';
   }
   // THE LAST THREE HOURS OF EVERY POWER SENSOR ON THE PAGE, in one call
-  function live(hass, card, M) {
+  function live(client, card, M) {
     var S = window.hkStats;
     if (!S || !S.fiveMinute || !M || !M.powers.length) return null;
-    return S.fiveMinute(hass, M.powers, FIVES, card);
+    return S.fiveMinute(client, M.powers, FIVES, card);
   }
-  function wattsNow(hass, id) {
+  function wattsNow(client, id) {
     var C = window.hkChart;
-    if (!C || !hass || !id) return null;
-    return C.power(hass.states, id, { watts: true, fallback: null });
+    if (!C || !client || !id) return null;
+    return C.power(client.states, id, { watts: true, fallback: null });
   }
 
   // =============================================================== THE SUMS
@@ -1197,17 +1197,17 @@
     return best && best.extra >= extra * 0.6 && best.extra >= 0.5 && (!ranked[1] || best.extra >= ranked[1].extra * 1.5) ? best : null;
   }
   var RING_NAME = { energy: 'Energy', cost: 'Cost', solar: 'Solar', water: 'Water', gas: 'Gas' };
-  function summary(hass, waker, now) {
-    var S = window.hkStats, M = model(hass, waker);
-    if (!S || !M || !hass) return null;
+  function summary(client, waker, now) {
+    var S = window.hkStats, M = model(client, waker);
+    if (!S || !M || !client) return null;
     var ids = houseIds(M);
     if (!ids.length) return null;
-    var h = S.hourly(hass, ids, HOURS, waker), d = S.daily(hass, ids, DAYS, waker);
-    var F = S.fiveMinute(hass, ids, OPEN_FIVES, waker, { type: 'change' });
+    var h = S.hourly(client, ids, HOURS, waker), d = S.daily(client, ids, DAYS, waker);
+    var F = S.fiveMinute(client, ids, OPEN_FIVES, waker, { type: 'change' });
     if (!h || !d) return null;
     var D = { h: h, d: d };
     now = now || Date.now();
-    var T = calc(M, D, 'day', now), Mo = calc(M, D, 'month', now, null, { back: 0, ws: S.weekStart(hass) });
+    var T = calc(M, D, 'day', now), Mo = calc(M, D, 'month', now, null, { back: 0, ws: S.weekStart(client) });
     if (!T || !Mo) return null;
     var o = openHour(M, D, F, T), off = o.upTo - T.today0;
     var eBy = byNow(D, T, off, function (ser, i) { return homeAt(M, ser, i); });
@@ -1218,25 +1218,25 @@
     var typ = { energy: T.typ.home, cost: T.typ.cost, water: T.typ.water, gas: T.typ.gas, solar: T.typ.solar };
     var all = { energy: true, cost: M.hasCost, solar: M.src.solar.length > 0, water: M.src.water.ids.length > 0, gas: M.src.gas.ids.length > 0 };
     var want = Array.isArray(M.rings) && M.rings.length ? M.rings : ['energy', 'cost', 'solar', 'water', 'gas'];
-    var unit = function (k) { return k === 'cost' ? '' : k === 'water' || k === 'gas' ? unitOf(hass, M.src[k].ids[0]) : 'kWh'; };
+    var unit = function (k) { return k === 'cost' ? '' : k === 'water' || k === 'gas' ? unitOf(client, M.src[k].ids[0]) : 'kWh'; };
     var rings = want.filter(function (k) { return all[k]; }).slice(0, 4).map(function (k) {
       return { key: k, name: RING_NAME[k], c: RING[k], v: today[k], typ: typ[k], tick: share[k], unit: unit(k) };
     });
     var devIds = M.devs.filter(function (d) { return d.counted && d.stat; }).map(function (d) { return d.stat; });
-    var dh = S.hourly(hass, devIds, HOURS, waker), dd = S.daily(hass, devIds, DAYS, waker);
-    var df = S.fiveMinute(hass, devIds, OPEN_FIVES, waker, { type: 'change' });
+    var dh = S.hourly(client, devIds, HOURS, waker), dd = S.daily(client, devIds, DAYS, waker);
+    var df = S.fiveMinute(client, devIds, OPEN_FIVES, waker, { type: 'change' });
     var cause = dh && dd ? contributor(M, { h: Object.assign({}, h, dh), d: Object.assign({}, d, dd) }, df, T, o.upTo, today.energy - typ.energy * eBy[0]) : null;
     var receiptTimes = S.freshness ? [S.freshness(h), S.freshness(d), F && S.freshness(F)].filter(Boolean) : [];
     var receivedAt = receiptTimes.length ? Math.min.apply(null, receiptTimes) : null;
     var mo = { energy: Mo.home + o.home, cost: Mo.cost + o.cost, water: Mo.water + o.water, gas: Mo.gas + o.gas, solar: Mo.solar + o.solar };
-    var bat = M.house && hass.states[M.house.entity], bl = bat ? Number(bat.state) : NaN;
+    var bat = M.house && client.states[M.house.entity], bl = bat ? Number(bat.state) : NaN;
     return {
       asOf: o.upTo, receivedAt: receivedAt, hasFives: !!F, contributor: cause, today0: T.today0, rings: rings, typ: typ, today: today, usualByNow: typ.energy * eBy[0],
       yday: eBy[1], month: mo, monthName: MONTHS[S.fields(Mo.start).month - 1],
       // where the month's cost is heading: so far, and a usual day for each day left
       projCost: M.hasCost && Mo.cur ? mo.cost + T.typ.cost * Math.max(0, Mo.n - Mo.whole - eBy[0]) : null,
-      hasCost: M.hasCost, power: wattsNow(hass, M.total.power), battery: isFinite(bl) ? bl : null,
-      money: function (v, dd) { var C = window.hkCards; return C && C.money ? C.money(hass, v, dd) : '$' + fx(v, dd); }
+      hasCost: M.hasCost, power: wattsNow(client, M.total.power), battery: isFinite(bl) ? bl : null,
+      money: function (v, dd) { var C = window.hkCards; return C && C.money ? C.money(client, v, dd) : '$' + fx(v, dd); }
     };
   }
   // RESTART A BUILD ANIMATION WITHOUT A LAYOUT PER CARD: every card and tile
@@ -1306,12 +1306,12 @@
   function hourName(t, tz) { return new Date(t).toLocaleTimeString('en-US', { hour: 'numeric', timeZone: tz }); }
   function dayName(t, tz) { return new Date(t).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', timeZone: tz }); }
 
-  function highlights(M, R, hass, money) {
+  function highlights(M, R, client, money) {
     var out = [], tz = window.hkStats && window.hkStats.tz(), when = whenOf(R.per, R);
     if (R.per === 'now') {
-      var T = M.total, wNow = wattsNow(hass, T.power);
+      var T = M.total, wNow = wattsNow(client, T.power);
       var live = M.devs.filter(function (d) { return d.counted && d.power; })
-        .map(function (d) { return { d: d, w: Math.max(0, wattsNow(hass, d.power) || 0) }; })
+        .map(function (d) { return { d: d, w: Math.max(0, wattsNow(client, d.power) || 0) }; })
         .sort(function (a, b) { return b.w - a.w; });
       var top3 = live.slice(0, 3).filter(function (r) { return r.w >= 5; });
       if (top3.length && wNow > 0) {
@@ -1320,14 +1320,14 @@
       }
       var run = live.filter(function (r) { return r.w >= 1000; })[0];
       if (run) out.push({ more: run.d.power || run.d.stat, ic: GLY.up, c: '#5ac8fa', t: '<b>' + esc(run.d.name) + ' is running</b> at ' + watts(run.w).join(' ') + '.' });
-      var hb = M.house, hs = hb && hass.states[hb.entity];
+      var hb = M.house, hs = hb && client.states[hb.entity];
       if (hs && isFinite(Number(hs.state))) {
-        var ls = hb.label && hass.states[hb.label];
+        var ls = hb.label && client.states[hb.label];
         out.push({ more: hb.entity, ic: GLY.batt, c: '#30d158', t: '<b>The house battery is at ' + Math.round(Number(hs.state)) + '%</b>' +
           (ls && isFinite(Number(ls.state)) ? ', ' + fx(Number(ls.state), 1) + ' kWh stored.' : '.') });
       }
       var cars = M.batts.filter(function (b) { return !b.house; }).map(function (b) {
-        var s = hass.states[b.entity], l = b.label && hass.states[b.label];
+        var s = client.states[b.entity], l = b.label && client.states[b.label];
         if (!s || !isFinite(Number(s.state))) return null;
         return '<b>' + esc(b.name) + '</b> ' + Math.round(Number(s.state)) + '%' +
           (l && isFinite(Number(l.state)) ? ' · ' + fx(Number(l.state), 0) + ' ' + esc((l.attributes || {}).unit_of_measurement || '') : '');
@@ -1441,7 +1441,7 @@
   }
 
   // A TAP ON ANYTHING MARKED data-more="<entity>" opens that entity's sheet
-  // (hass-more-info, which HK's detail sheets answer): one listener per card
+  // (hkShell.moreInfo, which HK's detail sheets answer): one listener per card
   function bindMore(card, el) {
     if (!el || el._hkMore) return;
     el._hkMore = true;
@@ -1472,7 +1472,7 @@
     // the tab, the lit section, HA's settings arriving, and -- on Now --
     // every power sensor the card reads
     _sigOf() {
-      var h = this._hass;
+      var h = this.client;
       if (!h) return null;
       var sig = period() + '|' + (EP.back || 0) + '|' + EP.pick + '|' + EP.ver + '|' + (plan() ? 'p' : '-');
       // NOW MOVES WITH THE HOUSE, BUT NOT 12 TIMES A SECOND: a Now card
@@ -1483,7 +1483,7 @@
     }
     _money(v, d) {
       var C = window.hkCards;
-      return C && C.money ? C.money(this._hass, v, d) : '$' + fx(v, d);
+      return C && C.money ? C.money(this.client, v, d) : '$' + fx(v, d);
     }
     _shell(cls) {
       if (this._built) return;
@@ -1496,11 +1496,11 @@
     }
     // model + statistics + sums, or a reason to wait
     _data() {
-      var M = model(this._hass, this);
+      var M = model(this.client, this);
       if (!M) return { wait: true };
-      var D = series(this._hass, this, M);
+      var D = series(this.client, this, M);
       if (!D) return { M: M, wait: true };
-      var R = calcFor(M, D, period(), runtimes(this._hass, this, M));
+      var R = calcFor(M, D, period(), runtimes(this.client, this, M));
       return R ? { M: M, D: D, R: R } : { M: M, wait: true };
     }
     // A GRAPH THAT READS OUT (hkCards.scrub): `tips[i]` is what bar i says;
@@ -1608,7 +1608,7 @@
     _sigOf() { return period() + '|' + (EP.back || 0) + '|' + EP.ver + '|' + Math.floor(Date.now() / 60e3); }
     _render() {
       var self = this, S = window.hkStats;
-      if (S && this._hass) EP.ws = S.weekStart(this._hass);
+      if (S && this.client) EP.ws = S.weekStart(this.client);
       // this card's own Opens On, before anything has chosen a tab
       if (!EP.period && this._config && PERIODS.indexOf(this._config.opens_on) >= 0) EP.period = this._config.opens_on;
       if (!this._built) {
@@ -1718,7 +1718,7 @@
     return '<div class="tlab">' + out.map(function (x) { return '<span>' + x + '</span>'; }).join('') + '</div>';
   }
   function readingOf(card, M, R, t) {
-    var h = card._hass;
+    var h = card.client;
     if (t.kind === 'cost') return { k: 'Today’s Cost', v: R ? card._money(R.cost, 2) : '—' };
     var s = t.entity && h.states[t.entity];
     if (!s) return null;
@@ -1789,7 +1789,7 @@
       this._shell('hero');
       var x = this._data(), p = period();
       if (x.wait) return this._paint('<div class="wait">Loading…</div>');
-      var M = x.M, R = x.R, h = this._hass, tz = window.hkStats && window.hkStats.tz();
+      var M = x.M, R = x.R, h = this.client, tz = window.hkStats && window.hkStats.tz();
       if (p === 'now') {
         this._ringTab = 'now';               // the rings sweep in again on the way back
         var T = M.total, w = wattsNow(h, T.power), five = live(h, this, M), html;
@@ -1957,8 +1957,8 @@
     }
     return next;
   }
-  function unitOf(hass, id) {
-    var s = id && hass && hass.states[id];
+  function unitOf(client, id) {
+    var s = id && client && client.states[id];
     return (s && s.attributes && s.attributes.unit_of_measurement) || '';
   }
 
@@ -1984,7 +1984,7 @@
       this._shell('hl');
       var x = this._data();
       if (x.wait) return this._paint('<div class="wait">Loading…</div>');
-      var self = this, list = x.M.highlights ? highlights(x.M, x.R, this._hass, function (a, d) { return self._money(a, d); }) : [];
+      var self = this, list = x.M.highlights ? highlights(x.M, x.R, this.client, function (a, d) { return self._money(a, d); }) : [];
       this._paint(list.map(function (it) {
         return '<div class="hli"' + moreAttr(it.more) + (it.sec ? ' data-sec="' + esc(it.sec) + '"' : '') + '><div class="ic" style="background:' + rgba(it.c, 0.14) + ';color:' + it.c + '"><svg viewBox="0 0 24 24">' +
           it.ic + '</svg></div><div class="tx">' + it.t + '</div></div>';
@@ -2023,7 +2023,7 @@
       this._shell('where');
       var x = this._data(), p = period(), self = this;
       if (x.wait) return this._paint('<div class="wait">Loading…</div>');
-      var M = x.M, R = x.R, h = this._hass, rows, rest, total, fmt;
+      var M = x.M, R = x.R, h = this.client, rows, rest, total, fmt;
       if (p === 'now') {
         rows = M.devs.filter(function (d) { return d.counted && d.power; })
           .map(function (d) { return { d: d, v: Math.max(0, wattsNow(h, d.power) || 0) }; });
@@ -2547,7 +2547,7 @@
       this._shell('mini');
       var x = this._data(), p = period();
       if (x.wait) return this._paint('<div class="wait">Loading…</div>');
-      var M = x.M, R = x.R, D = x.D, h = this._hass;
+      var M = x.M, R = x.R, D = x.D, h = this.client;
       var hb = M.house, lvl = hb && h.states[hb.entity] ? Number(h.states[hb.entity].state) : NaN;
       var stored = hb && hb.label && h.states[hb.label] ? Number(h.states[hb.label].state) : NaN;
       var fill, big, cap;
@@ -2598,7 +2598,7 @@
       this._shell('mini');
       var x = this._data(), p = period(), kind = (this._config && this._config.source) === 'gas' ? 'gas' : 'water';
       if (x.wait) return this._paint('<div class="wait">Loading…</div>');
-      var M = x.M, R = x.R, D = x.D, h = this._hass, ids = M.src[kind].ids, tz = window.hkStats && window.hkStats.tz();
+      var M = x.M, R = x.R, D = x.D, h = this.client, ids = M.src[kind].ids, tz = window.hkStats && window.hkStats.tz();
       var unit = unitOf(h, ids[0]) || (kind === 'water' ? 'gal' : '');
       var val = R[kind], typ = R.typ[kind] * R.n, color = kind === 'water' ? RING.water : RING.gas;
       if (ids[0]) this._card.setAttribute('data-more', ids[0]); else this._card.removeAttribute('data-more');
@@ -2673,7 +2673,7 @@
     getCardSize() { return 6; }
     _render() {
       this._shell('track');
-      var x = this._data(), p = period(), h = this._hass, S = window.hkStats;
+      var x = this._data(), p = period(), h = this.client, S = window.hkStats;
       if (x.wait || !S) return this._paint('<div class="wait">Loading…</div>');
       var M = x.M, R = x.R, list = (M.P.usages || []).filter(function (u) { return u && (u.stat || u.entity); });
       if (!list.length) return this._paint('');
@@ -2767,42 +2767,42 @@
   //
   // POWER IS READ WITH ITS UNIT (hkChart.power): one panel reports W and kW
   // side by side.
-  function pw(hass, id) {
-    if (!hass || !id) return null;
+  function pw(client, id) {
+    if (!client || !id) return null;
     var C = window.hkChart;
-    if (C) return C.power(hass.states, id, { watts: true, fallback: null });
-    var s = hass.states[id], n = s ? Number(s.state) : NaN;
+    if (C) return C.power(client.states, id, { watts: true, fallback: null });
+    var s = client.states[id], n = s ? Number(s.state) : NaN;
     if (!isFinite(n)) return null;
     return /^kW$/i.test((s.attributes || {}).unit_of_measurement || '') ? n * 1000 : n;
   }
-  function numOf(hass, id) {
-    var s = id && hass && hass.states[id], n = s ? Number(s.state) : NaN;
+  function numOf(client, id) {
+    var s = id && client && client.states[id], n = s ? Number(s.state) : NaN;
     return s && s.state !== '' && isFinite(n) ? n : null;
   }
-  function isOn(hass, id) { var s = id && hass && hass.states[id]; return !!s && s.state === 'on'; }
+  function isOn(client, id) { var s = id && client && client.states[id]; return !!s && s.state === 'on'; }
   // NO READING IS NOT AN ANSWER: a missing, unknown or unavailable state is
   // null here, never 'off' or 'away'. The panel's grid status reads unknown
   // for a few seconds ~20 times a day, and a car's location goes unavailable
   // whenever its maker's cloud does -- neither means the grid is down or the
   // car has left.
-  function reading(hass, id) {
-    var s = id && hass && hass.states[id];
+  function reading(client, id) {
+    var s = id && client && client.states[id];
     return s && s.state !== '' && s.state !== 'unknown' && s.state !== 'unavailable' ? s.state : null;
   }
-  function gridDown(hass, c) { return !!c.grid_status && reading(hass, c.grid_status) === 'off'; }
-  function carHome(hass, k) { var r = k.home ? reading(hass, k.home) : null; return r == null || r === 'home'; }
+  function gridDown(client, c) { return !!c.grid_status && reading(client, c.grid_status) === 'off'; }
+  function carHome(client, k) { var r = k.home ? reading(client, k.home) : null; return r == null || r === 'home'; }
   // a runtime sensor in hours (or minutes) -> hours
-  function hoursOf(hass, id) {
-    var v = numOf(hass, id);
+  function hoursOf(client, id) {
+    var v = numOf(client, id);
     if (v == null) return null;
-    var u = ((hass.states[id].attributes || {}).unit_of_measurement || 'h').toLowerCase();
+    var u = ((client.states[id].attributes || {}).unit_of_measurement || 'h').toLowerCase();
     return /^min/.test(u) ? v / 60 : /^s/.test(u) ? v / 3600 : /^d/.test(u) ? v * 24 : v;
   }
   function wtxt(w) { return watts(w).join(' '); }
   function whtml(w) { var x = watts(w); return x[0] + '<u>' + x[1] + '</u>'; }
   // charging (+), giving (-) or idle (0), in watts
-  function batFlow(hass, cfg) {
-    var c = pw(hass, cfg.charge) || 0, d = pw(hass, cfg.discharge) || 0;
+  function batFlow(client, cfg) {
+    var c = pw(client, cfg.charge) || 0, d = pw(client, cfg.discharge) || 0;
     return c > 5 ? c : d > 5 ? -d : 0;
   }
   // WHO IS CHARGING, AND AT WHAT (the Power page's cards): with wall chargers
@@ -2814,30 +2814,30 @@
   // A CAR WITH ITS OWN (`charger`, its settings: a Wall Connector, a
   // monitored circuit, or its own reading) is charging when that reads; the
   // rest share what is left, as above.
-  function carsCharging(hass, c) {
-    var all = (c.cars || []).filter(Boolean), atHome = function (k) { return carHome(hass, k); };
-    var own = function (k) { return Math.max(0, pw(hass, k.power) || 0); };
+  function carsCharging(client, c) {
+    var all = (c.cars || []).filter(Boolean), atHome = function (k) { return carHome(client, k); };
+    var own = function (k) { return Math.max(0, pw(client, k.power) || 0); };
     var fixed = all.filter(function (k) { return k.charger; }), taken = fixed.map(function (k) { return k.charger; });
     // (away, a Wall Connector's watts are someone else's car; the car's own
     // reading is a charger somewhere else, not the house's)
     var out = fixed.filter(function (k) { return atHome(k) || k.charger !== k.power; })
-      .map(function (k) { return { car: atHome(k) ? k : null, w: Math.max(0, pw(hass, k.charger) || 0) }; })
+      .map(function (k) { return { car: atHome(k) ? k : null, w: Math.max(0, pw(client, k.charger) || 0) }; })
       .filter(function (x) { return x.w > 5; });
     var cars = all.filter(function (k) { return !k.charger; });
     var chargers = (c.chargers || []).filter(function (id) { return id && taken.indexOf(id) < 0; });
     return out.concat(guess(cars, chargers));
     function guess(cars, chargers) {
       if (!chargers.length) return cars.filter(function (k) { return atHome(k) && own(k) > 5; }).map(function (k) { return { car: k, w: own(k) }; });
-      var live = chargers.map(function (id) { return Math.max(0, pw(hass, id) || 0); }).filter(function (w) { return w > 5; })
+      var live = chargers.map(function (id) { return Math.max(0, pw(client, id) || 0); }).filter(function (w) { return w > 5; })
         .sort(function (a, b) { return b - a; });
       if (!live.length) return [];
       var home = cars.filter(atHome);
       var saysCharging = function (k) {
-        var st = k.state && hass.states[k.state];
+        var st = k.state && client.states[k.state];
         return own(k) > 5 || (st && /^charging$/i.test(st.state));
       };
       var cands = home.filter(saysCharging).sort(function (a, b) { return own(b) - own(a); });
-      if (!cands.length) cands = home.filter(function (k) { return k.plugged && isOn(hass, k.plugged); });
+      if (!cands.length) cands = home.filter(function (k) { return k.plugged && isOn(client, k.plugged); });
       if (!cands.length) cands = home;
       return live.map(function (w, i) { return { car: cands[i] || (cands.length === 1 ? null : cands[0]) || null, w: w }; });
     }
@@ -2874,7 +2874,7 @@
       return out;
     }
     _sigOf() {
-      var h = this._hass;
+      var h = this.client;
       if (!h || !this._config) return null;
       return this._ids().map(function (id) { var s = h.states[id]; return id + '=' + (s ? s.state : 'x'); }).join(';');
     }
@@ -2950,7 +2950,7 @@
     }
     _render() {
       this._shell('flow');
-      var c = this._config || {}, h = this._hass;
+      var c = this._config || {}, h = this.client;
       if (!h) return;
       var gridW = pw(h, c.grid), home = pw(h, c.home), lvl = numOf(h, c.level), bw = batFlow(h, c);
       var gOn = gridW != null && gridW > 5, gs = reading(h, c.grid_status), onGrid = gs === 'on' ? true : gs === 'off' ? false : gOn || bw >= 0;
@@ -3044,7 +3044,7 @@
     }
     _render() {
       this._shell('pst');
-      var c = this._config || {}, h = this._hass;
+      var c = this._config || {}, h = this.client;
       if (!h) return;
       var rows = [], lvl = numOf(h, c.level), home = pw(h, c.home), bh = hoursOf(h, c.backup), bw = batFlow(h, c);
       var gridUp = !gridDown(h, c);
@@ -3126,7 +3126,7 @@
     }
     _render() {
       this._shell('hb');
-      var c = this._config || {}, h = this._hass;
+      var c = this._config || {}, h = this.client;
       if (!h) return;
       var lvl = numOf(h, c.level), level = lvl == null ? 0 : Math.max(0, Math.min(100, lvl));
       var stored = numOf(h, c.stored), bh = hoursOf(h, c.backup), bw = batFlow(h, c);
@@ -3173,7 +3173,7 @@
       ].join('');
     }
     _opts() {
-      var c = this._config || {}, s = this._hass && this._hass.states[c.entity];
+      var c = this._config || {}, s = this.client && this.client.states[c.entity];
       if (Array.isArray(c.options) && c.options.length) {
         return c.options.map(function (o) { return typeof o === 'string' ? { value: o, name: o } : o; });
       }
@@ -3183,7 +3183,7 @@
     }
     _render() {
       this._shell('segc');
-      var c = this._config || {}, h = this._hass, self = this;
+      var c = this._config || {}, h = this.client, self = this;
       if (!h) return;
       var s = h.states[c.entity], cur = this._pending || (s && s.state), opts = this._opts();
       var on = opts.filter(function (o) { return o.value === cur; })[0];
@@ -3200,7 +3200,7 @@
     // a choice: shown at once, then asked of the select; back to the
     // select's own state after 4 s if it never takes
     _choose(v) {
-      var c = this._config || {}, h = this._hass, self = this;
+      var c = this._config || {}, h = this.client, self = this;
       if (!c.entity || !h || v === (h.states[c.entity] || {}).state) return;
       var dom = c.entity.split('.')[0];
       var was = this._card && this._card.querySelector('.seg button[aria-selected="true"]'), from = window.hkCards.segBox(was);
@@ -3409,7 +3409,7 @@
     }
     _render() {
       this._shell('phouse');
-      var c = this._config || {}, h = this._hass, self = this;
+      var c = this._config || {}, h = this.client, self = this;
       if (!h) return;
       // THE PICTURE FOLDER: your own (art.json and its layers, in your
       // files), else the house that ships (frontend/power-house, 2026-10-14)
@@ -3582,7 +3582,7 @@
     }
     _render() {
       this._shell('pload');
-      var c = this._config || {}, h = this._hass;
+      var c = this._config || {}, h = this.client;
       if (!h) return;
       var hw = pw(h, c.home), home = Math.max(0, hw || 0), outage = gridDown(h, c);
       var devs = (c.devices || []).map(function (d) { return { name: d.name, more: d.power, w: Math.max(0, pw(h, d.power) || 0), up: !!d.backed, parent: !!d.parent }; });
@@ -3626,8 +3626,8 @@
   // (the same split, hour by hour, over the Energy page's statistics: what
   // Home Assistant's Energy dashboard does), and how much of today's sun the
   // house used itself.
-  function sunToday(hass, card) {
-    var M = model(hass, card), D = M && series(hass, card, M);
+  function sunToday(client, card) {
+    var M = model(client, card), D = M && series(client, card, M);
     if (!M || !D || !M.src.solar.length) return null;
     var ax = axisOf(D, M);
     if (!ax) return null;
@@ -3656,7 +3656,7 @@
     }
     _render() {
       this._shell('psun');
-      var c = this._config || {}, h = this._hass;
+      var c = this._config || {}, h = this.client;
       if (!h) return;
       var g = pw(h, c.grid), gx = pw(h, c.grid_export), bw = batFlow(h, c);
       var r = powerSplit({ solar: pw(h, c.solar), imp: g == null ? 0 : Math.max(0, g), exp: gx != null ? gx : g != null && g < 0 ? -g : 0,
@@ -3689,7 +3689,7 @@
       { name: 'devices', selector: { object: {} }, helper: 'Each: {name, power, backed}.' },
       { name: 'link', selector: { text: {} }, helper: 'Optional: where Every device opens, e.g. ./energy.' }
     ],
-    function (hass) { return { home: sensorWhere(hass, function (a) { return a.device_class === 'power'; }) }; });
+    function (client) { return { home: sensorWhere(client, function (a) { return a.device_class === 'power'; }) }; });
   register('hk-power-sun-card', HkPowerSunCard, 'HK Where the Sun Goes',
     'The sun now and today: to the house, the battery and the grid, in Home Assistant\'s own order.',
     C && [
@@ -3702,7 +3702,7 @@
         { name: 'discharge', label: 'Battery giving (power)', selector: PWR_SEL }
       ] }
     ],
-    function (hass) { return { solar: sensorWhere(hass, function (a) { return a.device_class === 'power'; }) }; });
+    function (client) { return { solar: sensorWhere(client, function (a) { return a.device_class === 'power'; }) }; });
   register('hk-power-house-card', HkPowerHouseCard, 'HK Power House',
     'The house full width: a layered picture where each part shows only when the house has it, the figures as chips over it, light along the real cables.',
     C && [
@@ -3721,7 +3721,7 @@
       { name: 'chargers', selector: { object: {} }, helper: 'Optional: the wall chargers\' power sensors -- live, where a car\'s own reading lags.' },
       { name: 'art', label: 'Picture folder', selector: { text: {} }, helper: 'A folder of your files with art.json and its layers, e.g. /hk/art/my-house/. Empty: the house that comes with HK Frontend.' }
     ],
-    function (hass) { return { home: sensorWhere(hass, function (a) { return a.device_class === 'power'; }) }; });
+    function (client) { return { home: sensorWhere(client, function (a) { return a.device_class === 'power'; }) }; });
   register('hk-power-flow-card', HkPowerFlowCard, 'HK Power Flow',
     'Right now: from the grid, the house and the battery, over a picture of the house (or as a flow chart).',
     C && [
@@ -3736,7 +3736,7 @@
       { name: 'art', label: 'House picture', selector: { text: {} }, helper: 'Leave empty for the flow chart. The overlay is laid out for one particular house picture, not any picture.' },
       { name: 'title', selector: { text: {} } }
     ],
-    function (hass) { return { home: sensorWhere(hass, function (a) { return a.device_class === 'power'; }) }; });
+    function (client) { return { home: sensorWhere(client, function (a) { return a.device_class === 'power'; }) }; });
   register('hk-power-status-card', HkPowerStatusCard, 'HK Power Status',
     'The home battery system in sentences: a grid outage or fault first, then the source, the backup, EPS and Storm Mode.',
     C && [
@@ -3755,7 +3755,7 @@
       ] },
       { name: 'cars', selector: { object: {} }, helper: 'Each car: {name, level, power, plugged}.' }
     ],
-    function (hass) { return { level: sensorWhere(hass, function (a) { return a.device_class === 'battery'; }) }; });
+    function (client) { return { level: sensorWhere(client, function (a) { return a.device_class === 'battery'; }) }; });
   register('hk-house-battery-card', HkHouseBatteryCard, 'HK House Battery',
     'A home battery as a battery: its level with the reserve and limit marked, its packs, EPS and charging speed.',
     C && [
@@ -3773,14 +3773,14 @@
       { name: 'packs', selector: { object: {} }, helper: 'Each pack: {name, level, temperature}.' },
       { name: 'title', selector: { text: {} } }
     ],
-    function (hass) { return { level: sensorWhere(hass, function (a) { return a.device_class === 'battery'; }) }; });
+    function (client) { return { level: sensorWhere(client, function (a) { return a.device_class === 'battery'; }) }; });
   register('hk-segment-card', HkSegmentCard, 'HK Segmented Choice',
     'A select\'s options as a segmented control, with a line saying what the chosen one does.',
     C && [
       { name: 'entity', required: true, selector: { entity: { filter: [{ domain: 'select' }, { domain: 'input_select' }] } } },
       { name: 'options', selector: { object: {} }, helper: 'Optional: [{value, name, description}], in order. Empty: the select\'s own.' }
     ],
-    function (hass) { return { entity: firstOf(hass, 'select') || firstOf(hass, 'input_select') }; });
+    function (client) { return { entity: firstOf(client, 'select') || firstOf(client, 'input_select') }; });
 
   // THE PAGE'S API FOR THE TILES AND HEADINGS (hk-stat.js): the tab, the lit
   // section, and a device's figures for the tab -- one shared request.
@@ -3790,23 +3790,23 @@
   Object.assign(EP, {
     period: EP.period, plan: plan, getPeriod: period, setPeriod: setPeriod, setPick: setPick, setBack: setBack,
     join: function (card) { EP.cards.add(card); },
-    getModel: function (hass, card) { return model(hass, card); },
+    getModel: function (client, card) { return model(client, card); },
     // { v, unit, line[], usual, cmp } for one tile on the current tab; null
     // while its numbers load
-    tile: function (hass, card, cfg) {
-      var M = model(hass, card);
+    tile: function (client, card, cfg) {
+      var M = model(client, card);
       if (!M) return null;
       var p = PERIODS.indexOf(cfg.period) >= 0 ? cfg.period : period();
       var dev = M.devs.filter(function (d) { return (cfg.stat && d.stat === cfg.stat) || (cfg.power && d.power === cfg.power); })[0];
-      var RT = dev && dev.runtime ? runtimes(hass, card, M) : null;
+      var RT = dev && dev.runtime ? runtimes(client, card, M) : null;
       if (p === 'now') {
-        var five = cfg.power ? live(hass, card, M) : null, ra = RT && RT[dev.runtime], last = ra && ra[ra.length - 1];
+        var five = cfg.power ? live(client, card, M) : null, ra = RT && RT[dev.runtime], last = ra && ra[ra.length - 1];
         return { line: five && five[cfg.power] ? five[cfg.power].map(function (q) { return q.v; }) : null,
                  ran: last && typeof last.v === 'number' ? hm(last.v) + ' today' : null };
       }
-      var D = series(hass, card, M);
+      var D = series(client, card, M);
       if (!D) return null;
-      var R = calcFor(M, D, p, runtimes(hass, card, M));
+      var R = calcFor(M, D, p, runtimes(client, card, M));
       if (!R || !cfg.stat) return null;
       var row = R.devices.filter(function (r) { return r.d.stat === cfg.stat; })[0];
       var val = row ? row.v : sum(R.idx.map(function (i) { return v(R.ser, cfg.stat, i); }));
@@ -3829,8 +3829,8 @@
       return { v: val, line: line, usual: usual, cmp: cmp };
     },
     // a section's total on the tab: watts now, or kWh
-    section: function (hass, card, id, per) {
-      var M = model(hass, card);
+    section: function (client, card, id, per) {
+      var M = model(client, card);
       if (!M) return null;
       var sec = M.sections.filter(function (s) { return s.id === id; })[0];
       if (!sec) return null;
@@ -3838,18 +3838,18 @@
       if (p === 'now') {
         var on = sec.items.filter(function (d) { return d.counted && d.power; });
         if (!on.length) return { color: sec.color, text: '' };
-        return { color: sec.color, text: watts(sum(on.map(function (d) { return Math.max(0, wattsNow(hass, d.power) || 0); }))).join(' ') + ' now' };
+        return { color: sec.color, text: watts(sum(on.map(function (d) { return Math.max(0, wattsNow(client, d.power) || 0); }))).join(' ') + ' now' };
       }
-      var D = series(hass, card, M);
+      var D = series(client, card, M);
       if (!D) return { color: sec.color, text: '' };
-      var R = calcFor(M, D, p, runtimes(hass, card, M)), row = R && R.secs.filter(function (s) { return s.s === sec; })[0];
+      var R = calcFor(M, D, p, runtimes(client, card, M)), row = R && R.secs.filter(function (s) { return s.s === sec; })[0];
       if (!row || !sec.items.some(function (d) { return d.counted; })) return { color: sec.color, text: '' };
       return { color: sec.color, text: kwh(row.v) + ' kWh ' + whenOf(p, R) };
     },
     lineSvg: lineSvg, restartAnim: restartAnim,
     // a meter's kWh so far today, from the page's statistics (null while they load)
-    todayOf: function (hass, card, stat) {
-      var M = model(hass, card), D = M && M.ids.indexOf(stat) >= 0 ? series(hass, card, M) : null;
+    todayOf: function (client, card, stat) {
+      var M = model(client, card), D = M && M.ids.indexOf(stat) >= 0 ? series(client, card, M) : null;
       var a = D && D.d[stat], last = a && a[a.length - 1];
       return last && typeof last.v === 'number' ? last.v : (D ? 0 : null);
     },
