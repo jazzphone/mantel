@@ -4,17 +4,32 @@
   'use strict';
   if (global.hkClient) return;
   var made = new WeakSet();
+  // Read-only surface. Registries (entities/devices/areas/floors) and the service catalog are
+  // the host's current maps; nothing here changes the house.
+  var DATA = ['states', 'entities', 'devices', 'areas', 'floors', 'services',
+              'config', 'locale', 'language', 'user', 'themes', 'subscriptions'];
+  var METHODS = ['formatEntityState', 'formatEntityAttributeValue', 'formatEntityAttributeName',
+                 'callWS', 'bindStateIcon'];
   function create(port) {
     if (!port || typeof port !== 'object') throw new Error('HKClient needs a host port');
     var client = {};
-    ['states', 'config', 'locale', 'language', 'user', 'themes', 'subscriptions'].forEach(function (key) {
+    DATA.forEach(function (key) {
       Object.defineProperty(client, key, { enumerable: true, get: function () { return port[key]; } });
     });
-    ['formatEntityState', 'callWS', 'bindStateIcon'].forEach(function (key) {
+    METHODS.forEach(function (key) {
       Object.defineProperty(client, key, { enumerable: true, get: function () {
         return typeof port[key] === 'function' ? port[key].bind(port) : undefined;
       } });
     });
+    // REST reads only (the recorder's history/period, for instance). Same call shape as the
+    // host's, so shared readers take either; any other method is refused here, before the host.
+    Object.defineProperty(client, 'callApi', { enumerable: true, get: function () {
+      if (typeof port.callApi !== 'function') return undefined;
+      return function (method, path) {
+        if (String(method || '').toUpperCase() !== 'GET') return Promise.reject(new Error('HKClient.callApi is read-only'));
+        return port.callApi('GET', path);
+      };
+    } });
     Object.freeze(client);
     made.add(client);
     return client;
@@ -40,6 +55,6 @@
     transports.set(transport, port);
     return port;
   }
-  global.hkClient = { create: create, subscriptions: subscriptions, is: is };
+  global.hkClient = { create: create, subscriptions: subscriptions, is: is, DATA: DATA.slice(), METHODS: METHODS.slice() };
   try { global.dispatchEvent(new CustomEvent('hk-client-ready')); } catch (e) { /* shell tests */ }
 })(globalThis);

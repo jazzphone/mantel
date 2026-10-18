@@ -16,8 +16,8 @@
 //     again, smaller, into a canvas of its own (the Pre-rendered blur's idea)
 //   - burn-in: the face drifts a few percent every five minutes
 //
-//   hkSaverClock.mount(el, { style, h24, bg, motion, hass })
-//     -> { setHass(h), destroy() }      el: the layer to draw into
+//   hkSaverClock.mount(el, { style, h24, bg, motion, client })
+//     -> { setClient(c), destroy() }    el: the layer to draw into
 (function () {
   'use strict';
   if (window.hkSaverClock) return;
@@ -289,14 +289,14 @@
     col.append(dt, tm, wx, np); f.appendChild(col);
     var wxKey = '', npKey = '';
     return function (d) {
-      var t = hm(d, x.h24), hass = x.hass();
+      var t = hm(d, x.h24), client = x.client();
       put(tm, t.h + ':' + t.m);
       put(dt, DAYS[d.getDay()] + ', ' + MONTHS[d.getMonth()] + ' ' + d.getDate());
       if (!x.vars['--cktoday']) f.style.setProperty('--cktoday', dayAccent(d));
       // brighter by day, lighter at night: the weight follows the light
       f.style.setProperty('--cktw', d.getHours() >= 7 && d.getHours() < 20 ? '600' : '400');
       // THE WEATHER: the screen's weather service (Weather), else the first
-      var states = (hass && hass.states) || {}, wid = x.weather && states[x.weather] ? x.weather : Object.keys(states).filter(function (k) { return k.indexOf('weather.') === 0; })[0];
+      var states = (client && client.states) || {}, wid = x.weather && states[x.weather] ? x.weather : Object.keys(states).filter(function (k) { return k.indexOf('weather.') === 0; })[0];
       var w = wid && states[wid], key = w ? w.state + '|' + (w.attributes || {}).temperature : '';
       if (key !== wxKey) {
         wxKey = key;
@@ -786,7 +786,7 @@
 
   // ------------------------------------------------------------ mount
   // opts: { style, h24, bg (a BGS id, or 'none': something else is behind),
-  //         motion ('slow' | 'still'), hass, scrim, drift }
+  //         motion ('slow' | 'still'), client, scrim, drift }
   function mount(layer, opts) {
     opts = opts || {};
     var style = FACES[opts.style] ? opts.style : 'classic';
@@ -857,12 +857,12 @@
       if (scrim) scrim.style.background = window.hkSettings.rendering().theme === 'light' ? 'rgba(238,236,230,.78)' : 'rgba(0,0,0,.65)';
     }
     layer.appendChild(root);
-    var hass = opts.hass || null;
+    var client = opts.client || null;
     var ctx = {
       h24: !!opts.h24, glass: null, vars: color[2], weather: opts.weather || null,
-      hass: function () { return hass; },
+      client: function () { return client; },
       sun: function () {
-        var s = hass && hass.states && hass.states['sun.sun'], a = s && s.attributes;
+        var s = client && client.states && client.states['sun.sun'], a = s && s.attributes;
         if (!a || !a.next_rising || !a.next_setting) return null;
         var hr = function (iso) { var d = new Date(iso); return isNaN(d) ? null : d.getHours() + d.getMinutes() / 60; };
         var r = hr(a.next_rising), st = hr(a.next_setting);
@@ -938,7 +938,7 @@
       face.style.transform = 'translate(' + ((Math.random() - 0.5) * 4).toFixed(2) + '%,' + ((Math.random() - 0.5) * 4).toFixed(2) + '%)';
     }, 300000);
     return {
-      setHass: function (h) { hass = h; },
+      setClient: function (h) { client = h; },
       // NIGHT MODE (hk-saver.js): the background holds -- nothing behind the
       // clock is drawn while the screen is a dim red clock on black
       night: function (on) { nightOn = !!on; if (!nightOn) { tLast = Date.now(); } },

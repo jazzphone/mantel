@@ -391,10 +391,19 @@
   }
 
   // ------------------------------------------------------------ the page
-  function hassNow() {
-    var ha = document.querySelector('home-assistant');
-    return (ha && ha.hass) || (window.hkCards && window.hkCards.hass && window.hkCards.hass()) || null;
+  // THE HOUSE, AS THE CLIENT: everything this module reads. The host adapter
+  // knows the current one even on a page with no hk cards (in Home Assistant it
+  // reads the frontend's root element), and before hk-base has loaded.
+  function clientNow() {
+    var C = window.hkCards, HC = window.hkHostClient;
+    return (C && C.client && C.client()) || (HC && HC.current && HC.current()) || null;
   }
+  // ...and the host input, only for what still acts through it (the switch, the
+  // music's buttons and volume) until the client has an action port (slice 6)
+  function hostNow() { var C = window.hkCards; return (C && C.hass && C.hass()) || null; }
+  // A CARD ON THE SCREENSAVER gets the host input that goes with the client
+  // (the host adapter's bridge): card families still act through it
+  function feedCard(el, c) { var HC = window.hkHostClient; if (el && c && HC && HC.bridge) HC.bridge(el, c); }
   // THE DASHBOARD'S CONFIG, read where the strategy guard reads it -- the
   // panel's own lovelace object is the authority, never a DOM marker.
   function panel() {
@@ -456,18 +465,18 @@
     var b = all && all[String(location.pathname).split('/')[1] || ''];
     var o = HS && HS.get ? HS.get('look.saver', null) : null;
     if (!b || !o || !S || !S.saverBlock) return null;
-    return S.saverBlock(hassNow(), Object.assign({}, b, { screensaver: true, screensaver_options: o }));
+    return S.saverBlock(clientNow(), Object.assign({}, b, { screensaver: true, screensaver_options: o }));
   }
   var FC_TICK_MS = 5000;
-  var unsubHass = null, cards = [];
+  var unsubCards = null, cards = [];
   var shown = 0, failed = 0, lastPhoto = null;
   var force = false;           // hkSaver.force(true): ignore the user (tests)
 
-  function user() { var h = hassNow(); return h && h.user && h.user.name; }
+  function user() { var h = clientNow(); return h && h.user && h.user.name; }
   // this page's wall tablet (1.14, hkSettings.tablet()), its id or ''
   function tabletNow() {
     var HS = window.hkSettings;
-    if (HS && typeof HS.tablet === 'function') return HS.tablet(hassNow()) || null;
+    if (HS && typeof HS.tablet === 'function') return HS.tablet(clientNow()) || null;
     // a settings module from before 1.14: the screen's own, as it was
     var all = HS && HS.get ? HS.get('boards', null) : null;
     var b = all && all[String(location.pathname).split('/')[1] || ''];
@@ -508,7 +517,7 @@
 
   // ------------------------------------------------------------ the switch
   function switchState() {
-    var h = hassNow();
+    var h = clientNow();
     var s = cfg && cfg.entity && h && h.states[cfg.entity];
     return s ? s.state : null;
   }
@@ -517,7 +526,7 @@
     // ONLY THE TABLET'S OWN USER WRITES IT -- never a forced test page
     // (?hk_saver=force, hkSaver.force()), whatever the gate lets it show
     if (!mine() || /[?&]hk_saver=force\b/.test(location.search) || force) return;
-    var h = hassNow();
+    var h = hostNow();
     if (!h || switchState() === want) return;
     pendingSwitch = { want: want, until: Date.now() + ECHO_MS };
     try {
@@ -537,9 +546,9 @@
     callWS(whoMsg({ type: 'hk_frontend/screensaver/touch' })).catch(function () { /* older integration */ });
   }
 
-  // Every new hass: the switch decides, unless it is still echoing our own
+  // Every new client: the switch decides, unless it is still echoing our own
   // write the other way.
-  function onHass(h) {
+  function onUpdate(h) {
     hkSync(h);
     if (previewOn || !cfg || !cfg.entity || !allowed()) return;
     var st = switchState();
@@ -1174,7 +1183,7 @@
     leaveForecast();
     leaveMusic();
     leaveClock();
-    if (unsubHass) { unsubHass(); unsubHass = null; }
+    if (unsubCards) { unsubCards(); unsubCards = null; }
     cards = [];
     if (host) {
       // let the browser drop the decoded photos now, not at the next GC
@@ -1190,7 +1199,7 @@
   var builtFor = null;
   function cfgKey() { try { return JSON.stringify(cfg); } catch (e) { return String(Math.random()); } }
   function buildCards(info) {
-    var h = hassNow();
+    var h = clientNow();
     cards = [];
     (cfg.cards || []).forEach(function (c, i) {
       var tag = tagOf(c.type);
@@ -1202,7 +1211,7 @@
           // (the corner clock under a big one: there only under the music)
           if (c.music_only) el.setAttribute('muonly', '');
           el.setConfig(cardConf(c, tag));
-          if (h) el.hass = h;
+          feedCard(el, h);
           // IN THE ORDER WRITTEN, whenever each one is defined: a page
           // reloaded under the switch started this before hk-weather.js had
           // loaded, and the weather (defined first there) came in above the
@@ -1219,7 +1228,7 @@
       if (customElements.get(tag)) make();
       else if (customElements.whenDefined) customElements.whenDefined(tag).then(make);
     });
-    if (window.hkCards && window.hkCards.onHass) unsubHass = window.hkCards.onHass(onHassCards);
+    if (window.hkCards && window.hkCards.onClient) unsubCards = window.hkCards.onClient(onClientCards);
   }
   // A CARD'S CONFIG for where it is now: Home Status at the top of the
   // pane sized for it, and the timers in its foot -- set again whenever the
@@ -1230,11 +1239,11 @@
     if (paneUp && tag === 'hk-timer-strip-card') conf.scale = Math.round(1.15 * scaleOf() * 100) / 100;
     return conf;
   }
-  function onHassCards(h) {
-    cards.forEach(function (c) { try { c.hass = h; } catch (e) { /* ignore */ } });
-    if (ckCtl) ckCtl.setHass(h);
-    if (enCtl && enShowing) enCtl.setHass(h);
-    if (wxCtl && wxShowing) wxCtl.setHass(h);
+  function onClientCards(h) {
+    cards.forEach(function (c) { try { feedCard(c, h); } catch (e) { /* ignore */ } });
+    if (ckCtl) ckCtl.setClient(h);
+    if (enCtl && enShowing) enCtl.setClient(h);
+    if (wxCtl && wxShowing) wxCtl.setClient(h);
   }
 
   // ------------------------------------------------------------ start / stop
@@ -1540,7 +1549,7 @@
 
   // ------------------------------------------------------------ photos
   function callWS(msg) {
-    var h = hassNow();
+    var h = clientNow();
     if (!h || !h.callWS) return Promise.reject(new Error('no connection'));
     return h.callWS(msg);
   }
@@ -2065,7 +2074,7 @@
       if (!C) { layer.remove(); if (mode === 'clock') { mode = 'photos'; host.removeAttribute('ckgen'); enterForecast(); } return; }
       ckCtl = C.mount(layer, { style: cfg.clock_style, h24: cfg.clock_24, color: cfg.clock_color, bg: bg, motion: cfg.clock_motion,
                                speed: cfg.clock_speed, depth: cfg.clock_depth, weather: weatherEntity(),
-                               hass: hassNow(), scrim: !dimmed });
+                               client: clientNow(), scrim: !dimmed });
       // TODAY carries its own weather and music: the corners' step aside
       if (host) setAttr(host, 'ckown', cfg.clock_style === 'today');
       nightCheck();
@@ -2222,7 +2231,7 @@
       if (!X || run !== enRun || !on || !root || !cfg || !cfg.energy_slide) return;
       if (!enCtl) enCtl = X.create({ hide: cfg.energy_hide, h24: cfg.clock_24 });
       else enCtl.setHide(cfg.energy_hide);
-      enCtl.ready(hassNow());
+      enCtl.ready(clientNow());
       if (!hold) return;
       var tries = 0, show = function () {
         if (run !== enRun || !on || enShowing) return;
@@ -2233,7 +2242,7 @@
       show();
     });
   }
-  function energyReady() { return !!(enCtl && enCtl.ready(hassNow())); }
+  function energyReady() { return !!(enCtl && enCtl.ready(clientNow())); }
   // the photo on screen, for its blurred copy (a mosaic: its first cell)
   function curImg() {
     var L = displayLayer;
@@ -2255,7 +2264,7 @@
   }
   function showEnergySlide(first) {
     if (!on || !root || !host || enShowing || !enCtl) return false;
-    var h = hassNow(), info = root.querySelector('.info');
+    var h = clientNow(), info = root.querySelector('.info');
     if (!enCtl.ready(h)) return false;
     // above whatever came after it (a clock mounted again), under the corner cards
     if (enCtl.el.parentNode !== root || enCtl.el.nextSibling !== info) root.insertBefore(enCtl.el, info);
@@ -2327,7 +2336,7 @@
         wxCtl = X.create({ hide: cfg.weather_hide, h24: cfg.clock_24 });
         root.insertBefore(wxCtl.el, root.querySelector('.info'));
       } else wxCtl.setHide(cfg.weather_hide);
-      wxCtl.ready(hassNow());
+      wxCtl.ready(clientNow());
       if (!hold) return;
       var tries = 0, show = function () {
         if (run !== wxRun || !on || wxShowing) return;
@@ -2337,14 +2346,14 @@
       show();
     });
   }
-  function weatherReady() { return !!(wxCtl && wxCtl.ready(hassNow())); }
+  function weatherReady() { return !!(wxCtl && wxCtl.ready(clientNow())); }
   function weatherLayout() {
     if (!wxCtl || !root || !host) return;
     wxCtl.layout((window.innerWidth || 0) - (paneUp ? paneW : 0), window.innerHeight || 0);
   }
   function showWeatherSlide(first) {
     if (!on || !root || !host || wxShowing || !wxCtl) return false;
-    var h = hassNow(), info = root.querySelector('.info');
+    var h = clientNow(), info = root.querySelector('.info');
     if (!wxCtl.ready(h)) return false;
     if (wxCtl.el.parentNode !== root || wxCtl.el.nextSibling !== info) root.insertBefore(wxCtl.el, info);
     weatherLayout();
@@ -2516,7 +2525,7 @@
     if (r && r.context && r.reason === 'focus') return r.context;
     return null;
   }
-  function musicPlaying() { var c = musicNow(hassNow()); return !!(c && c.playing); }
+  function musicPlaying() { var c = musicNow(clientNow()); return !!(c && c.playing); }
   // what a view draws: the song, or (nothing playing) the room a play would start
   function musicOf(ctx, h) {
     var M = window.hkMusic;
@@ -2750,7 +2759,7 @@
   }
   // Everything again from the house: what plays, into each view
   function renderMusic() {
-    var h = hassNow();
+    var h = clientNow();
     if ((!on && !dashLive()) || !h) return null;
     var ctx = musicNow(h), now = clock.now();
     var d = musicOf(ctx, h);
@@ -2810,7 +2819,7 @@
   // Once a song, and remembered.
   var nextArtSeen = {};
   function nextArt(d, sig, mi) {
-    var h = hassNow(), str = function (x) { return typeof x === 'string' ? x : ''; };
+    var h = clientNow(), str = function (x) { return typeof x === 'string' ? x : ''; };
     var tail = function (u) { u = str(u); var i = u.indexOf('://'); return i >= 0 ? u.slice(i + 3) : u; };
     var id = tail(mi.uri) || (str(mi.name) + '|' + str(mi.artists && mi.artists[0] && mi.artists[0].name));
     var put = function (url) {
@@ -2897,7 +2906,7 @@
     if (now - dr.sent >= VOL_EVERY) volSend(); else if (!dr.t) dr.t = setTimeout(volSend, VOL_EVERY - (now - dr.sent));
   }
   function volSend() {
-    var dr = mus.drag, h = hassNow();
+    var dr = mus.drag, h = hostNow();
     if (dr && dr.t) { clearTimeout(dr.t); dr.t = null; }
     if (!mus.vol || !h) return;
     if (dr) dr.sent = clock.now();
@@ -2925,7 +2934,7 @@
     if (!hit || hit.view.kind !== 'dash') { saverTouched(); musicUsed(); }
     if (hit && hit.art) { openMusic(hit); return; }
     if (hit && hit.vol) { volStart(hit, x); return; }
-    var h = hassNow(), d = hit && hit.view.d, act = hit && hit.btn.getAttribute('data-act');
+    var h = hostNow(), d = hit && hit.view.d, act = hit && hit.btn.getAttribute('data-act');
     if (!h || !d || !d.key || !act) return;
     if (act === 'spk' || act === 'brw') { panelFor(hit.view, act === 'spk' ? 'speakers' : 'browse'); return; }
     var svc = act === 'prev' ? 'media_previous_track' : act === 'next' ? 'media_next_track'
@@ -2972,8 +2981,9 @@
     var me = { view: v, idleT: null, doneT: null, anim: null,
                src: v.kind === 'pane' ? paneEl : v.kind === 'dash' ? v.box : v.el.querySelector('.msq') };
     me.p = P.create({
-      hass: hassNow,
-      ctx: function () { return musicNow(hassNow()); },
+      client: clientNow,
+      hass: hostNow,                 // its buttons still act through the host input (slice 6)
+      ctx: function () { return musicNow(clientNow()); },
       art: function () { return v.bg[v.flip] || null; },
       // the music moved (Update, a new leader): the screensaver follows it
       follow: function (key) { if (key) { mus.key = key; mus.lostAt = 0; renderMusic(); } },
@@ -3165,7 +3175,7 @@
   // false: nothing plays (nothing shown). first: the screensaver's first view
   function showMusicSlide(first) {
     if (!on || !root || !host || muShowing) return muShowing;
-    var ctx = musicNow(hassNow());
+    var ctx = musicNow(clientNow());
     if (!ctx || !ctx.playing) return false;
     var v = buildMusicSlide(), run = photoRun;
     // (Home Energy over everything: the music in its place)
@@ -3222,7 +3232,7 @@
   }
   // OVER THE FORECAST, the house decides: the slide while music plays, the
   // forecast again MU_GRACE after it stops. Every view follows the house.
-  // At most once a second (a hass comes many times a second).
+  // At most once a second (a new client comes many times a second).
   // THE MUSIC TAKES THE SCREEN while it plays: Music First, or (as before
   // Music First) the music over the forecast
   function takeover() { return !!cfg && (cfg.music_first || (cfg.music_slide && mode !== 'photos')); }
@@ -3234,7 +3244,7 @@
       return;
     }
     mus.watchAt = now;
-    var ctx = mus.views.length ? renderMusic() : musicNow(hassNow());
+    var ctx = mus.views.length ? renderMusic() : musicNow(clientNow());
     // the pane's music: while something plays, or its panel is open, and the
     // grace after (paused music goes too, once the grace is up)
     var g = muGrace(), inUse = !!pnl && pnl.view.kind !== 'dash';
@@ -3295,7 +3305,7 @@
   function dashViews() { return mus.views.filter(function (v) { return v.kind === 'dash'; }); }
   function dashLive() { return mus.views.some(function (v) { return v.kind === 'dash' && v.live && v.el.isConnected; }); }
   // what plays for a pane: hkMusic's answer for this screen (hk-popup.js asks)
-  function musicHas(h) { return !!musicNow(h || hassNow()); }
+  function musicHas(h) { return !!musicNow(h || clientNow()); }
   // the dashboard's pane drawn again from the house, at most once a second
   // (the screensaver's own watch draws every view while it is up)
   var dashAt = 0, dashT = null;
@@ -3611,7 +3621,7 @@
     setAttr(host, 'pcal', cfg.calendar);
     // (playing, not paused: a song left paused does not bring the pane back
     // each time the screensaver starts)
-    var c0 = cfg.music_pane ? musicNow(hassNow()) : null, playing = !!(c0 && c0.playing);
+    var c0 = cfg.music_pane ? musicNow(clientNow()) : null, playing = !!(c0 && c0.playing);
     mus.paneIn = playing; mus.lastActive = playing ? clock.now() : 0;
     setAttr(host, 'pm', playing);
     musicPane(cfg.music_pane);
@@ -3627,8 +3637,7 @@
       try {
         var el = document.createElement(tag);
         el.setConfig({ type: 'custom:' + tag, days: cfg.calendar_days });
-        var h = hassNow();
-        if (h) el.hass = h;
+        feedCard(el, clientNow());
         paneSc.appendChild(el);
         cards.push(el);
         paneCard = el;
@@ -3715,7 +3724,7 @@
     var tag = 'hk-weather-band-card';
     var make = function () {
       if (!host || !box.isConnected) return;
-      var h = hassNow(), HS = window.hkSettings;
+      var h = clientNow(), HS = window.hkSettings;
       var wid = h && HS && HS.weatherId ? HS.weatherId(h.states) : null;
       if (!wid) return;
       try {
@@ -3724,7 +3733,7 @@
         // the other screens, its column slimmer and fewer hours
         el.setConfig({ type: 'custom:' + tag, entity: wid, hours: paneUp ? 8 : 12, days: 6, plain: true,
                        now_width: paneUp ? BAND_NOW_BESIDE : undefined });
-        if (h) el.hass = h;
+        feedCard(el, h);
         // NOT SEEN UNTIL IT IS IN PLACE: it can only be centred once it has
         // drawn (centerBand measures it), so it drew ~25 px off and jumped
         // a quarter second into the slide -- and beside the calendar pane
@@ -4022,9 +4031,9 @@
     downOpts = { hold: CURTAIN_HOLD_HK, onFade: function () { if (v != null) rampBacklight(v, CURTAIN_FADE); } };
     blackChanged();
   }
-  // every new hass and every settings change
+  // every new client and every settings change
   function hkSync(h) {
-    h = h || hassNow();
+    h = h || clientNow();
     var want = hkWanted(h);
     if (want === null) return;                 // not known yet: as it is
     var first = hkFirst;
@@ -4051,7 +4060,7 @@
     hkAck(false);
     touchSent = 0; reportTouch();
     lastInput = Date.now();
-    hkLeave(hassNow());
+    hkLeave(clientNow());
   }
   // THE BLACK THROUGH A RELOAD: hk-settings.js puts a cover up at once on a
   // page that was black (BLACK_KEY); here it gives way to the curtain --
@@ -4133,7 +4142,7 @@
     litAt = clock.now();
     lastInput = Date.now();
     armIdle();
-    setTimeout(function () { var h = hassNow(); if (h && !on) onHass(h); }, LIT_GRACE + 50);
+    setTimeout(function () { var h = clientNow(); if (h && !on) onUpdate(h); }, LIT_GRACE + 50);
   }
   function lightSoon() {
     if (black() || !on || !host || !host.hasAttribute('dark')) return;
@@ -4158,7 +4167,7 @@
   // the page cannot tell, so Fully is asked and Kiosk Satellite is listened
   // to -- or a hidden page); and the corner rows stay above the band.
   function forecastTick(force) {
-    var h = hassNow();
+    var h = clientNow();
     if (fscene && h && h.states) {
       var HS = window.hkSettings, sun = h.states['sun.sun'];
       var wid = HS && HS.weatherId ? HS.weatherId(h.states) : null, w = wid && h.states[wid];
@@ -4192,7 +4201,7 @@
   }
 
   // ------------------------------------------------------------ the loop
-  // The config follows the page: on each view change, and on each new hass
+  // The config follows the page: on each view change, and on each new client
   // (cheap -- a property read, and the dashboard config object is the same
   // object until the dashboard changes).
   // A DASHBOARD HK FRONTEND DOES NOT DRAW (an existing dashboard given HK
@@ -4204,7 +4213,7 @@
     var HS = window.hkSettings, S = window.hkStrategy;
     var all = HS && HS.get ? HS.get('boards', null) : null;
     var b = all && all[String(location.pathname).split('/')[1] || ''];
-    return b && b.screensaver && S && S.saverBlock ? S.saverBlock(hassNow(), b) : null;
+    return b && b.screensaver && S && S.saverBlock ? S.saverBlock(clientNow(), b) : null;
   }
   // compared as written: a block made from the settings is a new object
   // every time
@@ -4252,7 +4261,7 @@
   }
   var refreshedAt = 0;
   function refreshSoon() {
-    // on every hass (~40 a second in a busy house) the switch is checked, but
+    // on every update (~40 a second in a busy house) the switch is checked, but
     // the config only every 2 s: it changes when the dashboard does
     var now = Date.now();
     if (now - refreshedAt < 2000) return;
@@ -4299,9 +4308,9 @@
     return n - resumedAt < RESUME_MS || n - lastBeat > RESUME_MS;
   }
   var hubOff = null;
-  function hookHass() {
-    if (hubOff || !(window.hkCards && window.hkCards.onHass)) return false;
-    hubOff = window.hkCards.onHass(function (h) { refreshSoon(); onHass(h); if (on) musicWatch(); });
+  function hookClient() {
+    if (hubOff || !(window.hkCards && window.hkCards.onClient)) return false;
+    hubOff = window.hkCards.onClient(function (h) { refreshSoon(); onUpdate(h); if (on) musicWatch(); });
     if (window.hkMusic && window.hkMusic.onChange) window.hkMusic.onChange(function () {
       if (on) { mus.watchAt = 0; musicWatch(); }
     });
@@ -4310,9 +4319,9 @@
   // hk-base (the cards) loads after this module; until it does, poll lightly
   (function wait(n) {
     refresh();
-    var h = hassNow();
-    if (h) onHass(h);
-    if (hookHass()) return;
+    var h = clientNow();
+    if (h) onUpdate(h);
+    if (hookClient()) return;
     setTimeout(function () { wait(n + 1); }, n < 60 ? 1000 : 5000);
   })(0);
 
@@ -4359,7 +4368,7 @@
     config: function () { return cfg; },
     // what plays for the dashboard's Now Playing pane (hk-popup.js): there
     // (playing or paused), and playing
-    music: { has: musicHas, playing: function (h) { var c = musicNow(h || hassNow()); return !!(c && c.playing); } },
+    music: { has: musicHas, playing: function (h) { var c = musicNow(h || clientNow()); return !!(c && c.playing); } },
     stats: function () {
       return { on: on, startedBy: startedBy, allowed: allowed(), photos: deck ? deck.items.length : null,
                shown: shown, failed: failed, last: lastPhoto, cards: cards.length,

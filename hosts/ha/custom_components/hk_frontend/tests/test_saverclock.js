@@ -55,7 +55,7 @@ ok('a Master Bathroom is a bathroom, not a bedroom', M.clockRecommend('Master Ba
 ok('Today mounts with a weather service and music playing', (function () {
   var l = document.createElement('div'), hass = { states: { 'weather.home': { state: 'sunny', attributes: { temperature: 71.6, temperature_unit: '\u00b0F' } },
     'media_player.k': { state: 'playing', last_changed: '2026-10-13T10:00:00Z', attributes: { media_title: 'Golden Hour', media_artist: 'The Stand-Ins' } } } };
-  var c = C.mount(l, { style: 'today', drift: false, hass: hass, weather: 'weather.home' }); c.destroy(); return c.style; })(), 'today');
+  var c = C.mount(l, { style: 'today', drift: false, client: window.hkHAClient.from(hass), weather: 'weather.home' }); c.destroy(); return c.style; })(), 'today');
 
 print('=== the word clock ===');
 var w = function (h, m) { return U.wordsAt(new Date(2026, 9, 13, h, m, 0)).join(' '); };
@@ -73,7 +73,7 @@ ok('...only its dots go dark', JSON.stringify(a.filter(function (c, i) { return 
 print('=== every face mounts and ticks ===');
 C.STYLES.filter(function (st) { return !SVG_MARKUP[st[0]]; }).forEach(function (st) {
   var layer = document.createElement('div'), err = null, ctl = null;
-  try { ctl = C.mount(layer, { style: st[0], bg: 'aurora', drift: false, hass: { states: {} } }); ctl.destroy(); } catch (e) { err = String(e); }
+  try { ctl = C.mount(layer, { style: st[0], bg: 'aurora', drift: false, client: window.hkClient.create({ states: {} }) }); ctl.destroy(); } catch (e) { err = String(e); }
   ok(st[1] + ' mounts', err, null);
 });
 ok('an unknown style is Classic', (function () { var l = document.createElement('div'), c = C.mount(l, { style: 'nope', drift: false }); var s = c.style; c.destroy(); return s; })(), 'classic');

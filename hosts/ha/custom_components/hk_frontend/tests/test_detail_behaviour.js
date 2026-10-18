@@ -955,7 +955,10 @@ print('\n=== Climate category sheets ===');
   ok('every nested reading pill uses the sheet blur without joining shared glass',
     group._kids.every(function (el) { return el.config.glass === false; }));
   var kid = group._kids[0];
-  group.hass = Object.assign({}, h);
+  // as in the frontend, the root element holds each new object the panel is
+  // pushed (the sheet follows the host's current client)
+  function pushRoot(x) { HA.hass = x; group.hass = x; }
+  pushRoot(Object.assign({}, h));
   ok('ordinary state pushes keep the pill instances', group._kids[0] === kid);
   // THE LIST IS NOT WORKED OUT AGAIN ON EVERY PUSH: an unrelated state
   // change only hands the pills hass; a member's, or a registry change, does
@@ -963,15 +966,15 @@ print('\n=== Climate category sheets ===');
   group._config.resolve = function (x) { asked++; return realResolve(x); };
   var pushed = 0, kidHass = kid.hass;
   h.states['light.elsewhere'] = { entity_id: 'light.elsewhere', state: 'on', attributes: {}, last_updated: 'u1' };
-  group.hass = Object.assign({}, h);
+  pushRoot(Object.assign({}, h));
   ok('an unrelated state change does not resolve the list again', asked === 0, asked);
   ok('...but the pills still get the new hass', kid.hass !== kidHass && group._kids[0] === kid);
   h.states['sensor.den_t'] = Object.assign({}, h.states['sensor.den_t'], { state: '72', last_updated: 'u2' });
-  group.hass = Object.assign({}, h);
+  pushRoot(Object.assign({}, h));
   ok('a member\'s change does', asked === 1, asked);
   members = ['sensor.bedroom_t'];
   h.entities = Object.assign({}, h.entities);            // the entity registry moved
-  group.hass = Object.assign({}, h);
+  pushRoot(Object.assign({}, h));
   ok('membership and the summary update while the popup is open', group._kids.length === 1 && group._summary.textContent === '80°');
   group._config.resolve = realResolve;
   ok('a pill opens its sensor details', D.open('sensor.bedroom_t', {}));
@@ -1075,6 +1078,61 @@ print('\n=== the automation sheet ===');
   setState(p, 'automation.porch', 'off', { friendly_name: 'Lighting - Front Yard - Porch Lights' }, 't3');
   ok('automation: paused, the line says when it comes back', /Back on at midnight/.test(p._root.querySelector('.note').textContent || ''), p._root.querySelector('.note').textContent);
   window.hkCards.morph = morph0;
+})();
+
+print('\n=== the sheet reads through the client (Phase 1 slice 5) ===');
+(function () {
+  D.close(true); flushPops(); resetHistory(); __resetTimers(); CALLS = [];
+  var HC = window.hkHAClient;
+  var h = house({ 'light.c': ['on', { supported_color_modes: ['brightness'], brightness: 128, friendly_name: 'Lamp' }, 'c1'] });
+  HA.hass = h;
+  ok('a sheet opens from the current client', D.open('light.c', {}) === true);
+  var d = _.state();
+  ok('it was fed the client, never the host object', d.fed === HC.from(h) && d.fed !== h);
+  ok('its panel reads through that client', d.panel.client === HC.from(h) && d.panel._stateObj === h.states['light.c']);
+  ok('its panel holds the matching host input for its controls (the bridge)', d.panel._hass === h);
+  ok('the header icon was bound through the client (the adapter hands the icon its host)', d.icon.stateObj === h.states['light.c'] && d.icon.hass === h);
+  var h2 = house({ 'light.c': ['on', { supported_color_modes: ['brightness'], brightness: 255, friendly_name: 'Lamp' }, 'c2'] });
+  HA.hass = h2;
+  polls();
+  ok('the 250 ms look follows the host adapter\'s current client', d.fed === HC.from(h2) && d.panel._hass === h2 && d.panel._big.textContent === '100%',
+     d.panel._big.textContent);
+  var seen = d.fed, h3 = house({ 'light.c': ['off', { supported_color_modes: ['brightness'], friendly_name: 'Lamp' }, 'c3'] });
+  var card = new (customElements.get('hk-detail-state'))();
+  card.setConfig({ entity: 'sensor.none' });
+  HA.hass = h3; card.hass = h3;
+  ok('a new client on the hub reaches the open sheet at once (onClient)', d.fed === HC.from(h3) && d.fed !== seen);
+  d.panel._svc('light', 'turn_off');
+  ok('its controls still act through the host input', CALLS.join() === 'light.turn_off', CALLS);
+  D.close(true); flushPops();
+
+  // A CLIENT WITH NO HOST INPUT (a host that only reads): the sheet still
+  // shows, read-only -- nothing to send a service call through
+  CALLS = [];
+  var states = { 'light.ro': { entity_id: 'light.ro', state: 'on', last_updated: 'r1', last_changed: 'r1',
+    attributes: { supported_color_modes: ['brightness'], brightness: 64, friendly_name: 'Read Only' } } };
+  var icons = 0;
+  var ro = window.hkClient.create({ states: states, entities: {}, devices: {}, areas: {}, user: { is_admin: false },
+    bindStateIcon: function (el, st) { icons++; el.stateObj = st; } });
+  var cur0 = window.hkHostClient.current, hass0 = C.hass;
+  window.hkHostClient.current = function () { return ro; };
+  C.hass = function () { return null; };
+  try {
+    ok('a read-only client opens a sheet', D.open('light.ro', {}) === true);
+    var r = _.state();
+    ok('...whose panel reads the client and holds no host input', r.panel.client === ro && r.panel._hass === null &&
+       r.panel._stateObj === states['light.ro']);
+    ok('...with its icon bound by the client\'s own port', icons > 0 && r.icon.stateObj === states['light.ro'] && !r.icon.hass);
+    r.panel._svc('light', 'turn_off');
+    ok('...and its controls send nothing', CALLS.length === 0, CALLS);
+    D.close(true); flushPops();
+  } finally { window.hkHostClient.current = cur0; C.hass = hass0; }
+
+  // the day's timeline is a REST read through the client (GET only)
+  var asked = [];
+  var rest = HC.from({ states: {}, callApi: function (m, path) { asked.push(m + ' ' + path.split('?')[0].split('/').slice(0, 2).join('/')); return Promise.resolve([[]]); } });
+  _.dayRows(rest, 'binary_sensor.door');
+  ok('the sheet\'s timeline asks the client for a GET of the recorder\'s history', asked.join() === 'GET history/period', asked);
 })();
 
 print('\n' + (fail ? 'FAIL ' + fail + ' DETAIL BEHAVIOUR TESTS' : 'ALL ' + pass + ' DETAIL BEHAVIOUR TESTS PASS'));

@@ -127,6 +127,26 @@ async def smoke(shot=None):
                     assert await browser.eval("window.__proofClientUpdates === 1 && window.hkCards.client() === window.__mantel.client")
                     hub.readproxy.publish_settings()
                     assert await browser.wait("window.hkSettings.get('weather.place') === 'Offline after'", 5), "settings update did not reach shared module"
+                    # Slice 5: a detail sheet reads through the Mantel client and follows its updates.
+                    assert await browser.eval("""(() => {
+                      const c = window.hkCards.client();
+                      return !!c.entities && 'sensor.proof' in c.entities && !!c.areas && !!c.devices && !('callService' in c);
+                    })()"""), "client registries missing"
+                    post = await browser.eval("""(async () => {
+                      try { await window.hkCards.client().callApi('POST', 'config/config_entries/flow'); return 'sent'; }
+                      catch (error) { return error.message; }
+                    })()""")
+                    assert "read-only" in post, post
+                    assert await browser.eval("window.hkDetail.open('sensor.proof', {}) === true"), "detail sheet did not open"
+                    sheet = "window.hkDetail._.state()"
+                    assert await browser.eval(sheet + ".fed === window.hkCards.client() && " +
+                                              sheet + ".panel.client === window.hkCards.client()"), "sheet not fed the client"
+                    assert await browser.eval(sheet + ".panel._stateObj.state === '22.8'")
+                    hub.store.apply_event({"c": {"sensor.proof": {"+": {"s": "23.5", "lu": 3.0}}}})
+                    hub.on_change({"sensor.proof"})
+                    assert await browser.wait(sheet + ".panel._stateObj.state === '23.5' && " +
+                                              sheet + ".fed === window.hkCards.client()", 5), "open sheet did not follow the client"
+                    await browser.eval("window.hkDetail.close(true)")
                     await browser.eval("window.__proofEndClient()")
                     # Music and artwork reconnect handling through the Mantel client's subscription port.
                     assert await browser.wait("window.hkMusic.configured() && window.hkMusic.speakers()[0].name === 'Offline Office'", 5), \
@@ -157,6 +177,7 @@ async def smoke(shot=None):
                         await browser.screenshot(shot)
                     return {"home_ready": True, "client": "mantel", "initial": "21.4 °C", "updated": "22.8 °C",
                             "settings": "updated through client subscription", "client_updates": 1,
+                            "detail": "sheet fed the client, followed 22.8 -> 23.5; registries readable; REST POST refused",
                             "music": "Offline Office -> Offline Den, one subscription, focus write refused",
                             "artwork": "signing refused offline, URL unchanged, no reconnect marked",
                             "commands": refused, "external_requests": 0, "browser_exceptions": 0}

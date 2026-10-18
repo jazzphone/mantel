@@ -278,7 +278,9 @@
   ].join('\n');
 
   // ------------------------------------------------------------ one panel
-  // o: { hass(), ctx() -- the music on the screensaver (hkMusic's context) or
+  // o: { client() -- the house, everything the panel reads; hass() -- the host
+  // input, only for its buttons (service calls) and the library card, until the
+  // client has an action port (Phase 1 slice 6); ctx() -- the music on the screensaver (hkMusic's context) or
   // null, art() -- its blurred art (a canvas) or null, done(ms) -- close it,
   // follow(key) -- the music moved here, wide() -- two columns fit }
   var TAB_NAME = { speakers: 'Speakers', volume: 'Volume', browse: 'Browse', queue: 'Queue' };
@@ -299,13 +301,14 @@
               chips: q('.mpchips'), rooms: q('.mprooms'), vol: q('[data-p="volume"]'), pl: q('.mppl'), pls: q('.mppls'),
               lib: q('.mplib'), pages: el.querySelectorAll('.mpt'), queue: q('[data-p="queue"]') };
     var S = { tab: 'speakers', ticks: null, busy: '', err: '', key: null, members: [], open: null, art: null,
-              vols: {}, drag: null, lib: null, libFor: null, libRoot: true, closing: false, q: null, qFor: '', qBusy: null };
+              vols: {}, drag: null, lib: null, libClient: null, libFor: null, libRoot: true, closing: false, q: null, qFor: '', qBusy: null };
     var M = function () { return window.hkMusic; };
     // a pick to make here: the Music page's Browse (o.next) or this panel's own
     var nextHere = !!o.next || (o.tabs || ['speakers', 'volume', 'browse']).indexOf('browse') >= 0;
 
     function nameOf(e) { var m = M(); return m && m.nameOf ? m.nameOf(e) : e; }
-    function states() { var h = o.hass(); return (h && h.states) || {}; }
+    function client() { return (o.client && o.client()) || null; }
+    function states() { var h = client(); return (h && h.states) || {}; }
     function ctx() { return o.ctx(); }
     function label(c) { var m = M(); return c ? (m && m.label ? m.label(c) : c.key) : ''; }
 
@@ -425,7 +428,7 @@
       sub(ICON.vhi, c ? [c.title, c.artist].filter(Boolean).join(' · ') || label(c) : picking(c) ? 'Where the next music plays' : '');
       var rooms = m && m.rooms ? m.rooms() : [];
       var others = {};
-      (m && m.contexts ? m.contexts(o.hass()) : []).forEach(function (x) {
+      (m && m.contexts ? m.contexts(client()) : []).forEach(function (x) {
         if (c && x.key === c.key) return;
         x.members.forEach(function (r) { others[r] = x.title || label(x); });
       });
@@ -616,7 +619,7 @@
       if (!c) { E.queue.innerHTML = '<div class="mpnone">Nothing is playing.</div>'; S.qFor = ''; return; }
       if (sig !== S.qFor) {
         S.qFor = sig; S.q = null;
-        var h = o.hass();
+        var h = client();
         if (h && h.callWS) {
           h.callWS({ type: 'hk_music/queue', entity_id: c.key, limit: 40 }).then(function (r) {
             if (S.qFor !== sig) return;
@@ -640,7 +643,7 @@
       if (E.queue.__t !== html) { E.queue.innerHTML = html; E.queue.__t = html; }
     }
     function playQueue(id) {
-      var c = ctx(), h = o.hass();
+      var c = ctx(), h = client();
       if (!c || !h || !h.callWS || S.qBusy) return;
       S.qBusy = id; drawQueue(c);
       h.callWS({ type: 'hk_music/queue_play', entity_id: c.key, item_id: id }).then(function (r) {
@@ -673,7 +676,11 @@
         S.libFor = c.key;
         try { S.lib.setConfig({ type: 'custom:hk-library-card', player: c.key }); } catch (e) { /* as it was */ }
       }
-      if (S.lib) { var h = o.hass(); if (h && S.lib.hass !== h) S.lib.hass = h; }
+      if (S.lib) {
+        // the library card's host input, matched to the client (hk-ha-client.js bridge)
+        var lc = client(), HC = window.hkHostClient;
+        if (lc && S.libClient !== lc && HC && HC.bridge) { S.libClient = lc; HC.bridge(S.lib, lc); }
+      }
       if (S.lib) {
         if (ticksDiffer()) { S.lib.playVia = playNode; S.lib.playerNameFor = function () { return roomsName(ticksNow()); }; }
         else { delete S.lib.playVia; delete S.lib.playerNameFor; }
@@ -738,7 +745,7 @@
           if (h) card.hass = h;
           E.lib.innerHTML = '';
           E.lib.appendChild(card);
-          S.lib = card;
+          S.lib = card; S.libClient = client();
         } catch (e) {
           E.lib.innerHTML = '<div class="mplibmsg">Browse Music could not open here.</div>';
           console.warn('[hk-saver-panel] library', e);
@@ -831,7 +838,7 @@
     function destroy() {
       if (S.drag) volEnd();
       clearTimeout(S.toastT);
-      if (S.lib) { S.lib.remove(); S.lib = null; }
+      if (S.lib) { S.lib.remove(); S.lib = null; S.libClient = null; }
       el.remove();
     }
     return {

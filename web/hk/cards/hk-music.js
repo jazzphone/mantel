@@ -755,6 +755,7 @@
       var self = this;
       return {
         tabs: tabs,
+        client: function () { return self.client; },
         hass: function () { return self._hass; },
         ctx: function () { return self._ctx(); },
         art: function () { return null; },

@@ -95,6 +95,9 @@ The settings migration established these cleanups. They now apply here too:
 
 ## Exact continuation point
 
+**Superseded:** the read-only detail/saver consumers are done; see [`DETAIL-SAVER.md`](DETAIL-SAVER.md)
+for the current continuation point (slice 6, action paths).
+
 This slice is complete. Next, move the read-only detail/saver consumers from
 `hkCards.hass()/onHass` to `hkCards.client()/onClient`. Consumers include `hk-detail.js` sheets,
 `hk-saver*.js` and `hk-saverclock.js`. Extract any missing client methods (read-only `callWS`

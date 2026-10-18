@@ -17,9 +17,12 @@
 // leads anywhere a household user should not go. A kind of entity with no
 // sheet here falls through to HA's dialog.
 //
-// LIVE STATE: the sheet is not a card, so nothing hands it hass. It takes
-// every new object from hkCards.onHass (hk-base.js) AND from <home-assistant>
-// itself (see open()): the hub only moves while hk cards are on screen.
+// LIVE STATE: the sheet is not a card, so nothing hands it a client. It takes
+// every new one from hkCards.onClient (hk-base.js) AND from the host adapter's
+// current client (hkCards.client(), see open()): the hub only moves while hk
+// cards are on screen. Everything a sheet reads comes through the client; its
+// controls still act through the host input (bridge() below) until the client
+// has an action port.
 (function () {
   'use strict';
 
@@ -943,8 +946,7 @@
       var on = isOn(s);
       d.well.style.background = on ? d.colour : 'rgba(255,255,255,0.12)';
       d.icon.style.color = on ? (nearWhite(d.colour) ? 'rgba(0,0,0,0.78)' : '#fff') : d.colour;
-      d.icon.hass = h;
-      d.icon.stateObj = s;
+      if (h && h.bindStateIcon) h.bindStateIcon(d.icon, s); else d.icon.stateObj = s;
       var hk = headIcon(d.look, s);
       if (hk) d.icon.icon = hk;
       else if (d.icon.icon) d.icon.icon = undefined;
@@ -1099,7 +1101,7 @@
         e.stopPropagation();
         if (t.classList.contains('go')) { navigateFrom(go.path); return; }
         if (t.classList.contains('mute')) {
-          var hh = C.hass() || h;
+          var hh = C.client() || h;
           if (!hh || !hh.callWS || t.disabled) return;
           t.disabled = true;
           hh.callWS({ type: 'hk_notify/mute', key: n.mute, minutes: note.until ? 0 : 60 }).then(function (r) {
@@ -1341,7 +1343,7 @@
       if (show === 'switch' || show === 'outlet') return GLYPHS.outlet;
       if (d === 'switch' || d === 'input_boolean') return GLYPHS.outlet;
       if (d === 'binary_sensor') {
-        var dc = at(stOf(C.hass(), id), 'device_class');
+        var dc = at(stOf(C.client(), id), 'device_class');
         if (/^(door|window|garage_door|opening)$/.test(String(dc || ''))) return GLYPHS.contact;
       }
       return GLYPHS[d] || GLYPHS.other;
@@ -2101,13 +2103,20 @@
       return el;
     }
 
+    // THE ACTION BRIDGE (until the client has an action port, Phase 1 slice 6):
+    // a sheet's controls call services through HkBase._call, which still needs
+    // the host input. The host adapter hands the panel the host object that
+    // goes with this client (or the client itself, read-only, when there is
+    // none). Everything a panel reads comes through its client either way.
+    function bridge(el, client) { window.hkHostClient.bridge(el, client); }
+
     // opts: { direct } -- open this sheet, not the #alarm pop-up that hands
     //        back to it; { hashed } -- opened FOR a pop-up's hash, whose own
     //        history entry is the one Back leaves (so none is pushed here);
     //        { onClose } -- called once the sheet has gone, however it went
     function open(id, src, opts) {
       opts = opts || {};
-      var h = C.hass();
+      var h = C.client();
       // A GROUP (openGroup below) is a sheet of several things, not one;
       // CARDS (a custom pop-up) the home's own cards.
       var kind = opts.group ? 'group' : opts.cards ? 'cards' : kindOf(h, id);
@@ -2215,11 +2224,11 @@
             return;
           }
           panel.style.display = 'none';
-          body.appendChild(accessoryPane(C.hass() || h, id, function (name) {
+          body.appendChild(accessoryPane(C.client() || h, id, function (name) {
             // what was just typed shows at once (a hand-written tile's own
             // name is back the next time the sheet opens)
             if (D.el === el) D.tt.textContent = name || (D.src && D.src.name) ||
-              at(stOf(C.hass(), id), 'friendly_name') || id;
+              at(stOf(C.client(), id), 'friendly_name') || id;
           }, { tile: D.el === el && D.src ? D.src.el : null }));
           body.scrollTop = 0;
           gear.firstChild.setAttribute('icon', 'mdi:check');
@@ -2245,30 +2254,29 @@
 
       haRoot().appendChild(el);
       var d = D;
-      // EVERY NEW HASS, FROM EITHER SOURCE, ONCE. The hub (hk-base.js) hands
-      // over each new object at once, but moves only while hk cards are on
-      // screen; <home-assistant> always holds the frontend's current object,
-      // so it is looked at too, four times a second while the sheet is open:
-      // one property read and an identity compare, gone with the sheet. (It
-      // was looked at every animation frame, and a callback every frame
-      // kept the tablet drawing 60 frames a second for as long as a sheet
-      // was open.) An event would need Home Assistant to announce hass
-      // changes, which it does not, and wrapping its `hass` setter would be
-      // reaching into the frontend's own element.
-      var feed = function (nh) {
-        if (!nh || nh === d.fed || D !== d) return;
-        d.fed = nh;
-        var ns = stOf(nh, d.id);
+      // EVERY NEW CLIENT, FROM EITHER SOURCE, ONCE. The hub (hk-base.js)
+      // hands over each new one at once, but moves only while hk cards are on
+      // screen; the host adapter always knows the current one (in Home
+      // Assistant, read off the frontend's root element), so it is looked at
+      // too, four times a second while the sheet is open: one lookup and an
+      // identity compare, gone with the sheet. (It was looked at every
+      // animation frame, and a callback every frame kept the tablet drawing
+      // 60 frames a second for as long as a sheet was open.) The host does
+      // not announce its updates, and wrapping its setter would be reaching
+      // into the frontend's own element.
+      var feed = function (nc) {
+        if (!nc || nc === d.fed || D !== d) return;
+        d.fed = nc;
+        var ns = stOf(nc, d.id);
         var sig = ns ? ns.last_updated : 'x';
-        if (sig !== d.sig) { d.sig = sig; paintHeader(nh); }
-        panel.hass = nh;
+        if (sig !== d.sig) { d.sig = sig; paintHeader(nc); }
+        bridge(panel, nc);
       };
       feed(h);
-      d.off = C.onHass(feed);
-      var ha = document.querySelector('home-assistant');
+      d.off = C.onClient(feed);
       var poll = function () {
         if (D !== d) return;
-        if (ha && ha.hass) feed(ha.hass);
+        feed(C.client());
         d.raf = setTimeout(poll, 250);
       };
       d.raf = setTimeout(poll, 250);
@@ -2456,8 +2464,7 @@
       if (!fromDashboard(e)) return;
       var src = sourceOf(e, id);
       if (disabled(src)) return;
-      var h = C.hass();
-      if (!kindOf(h, id)) return;
+      if (!kindOf(C.client(), id)) return;
       // Taken only if a sheet actually opened: open() can still say no (an
       // alarm on a dashboard with neither #alarm nor an alarm view), and a
       // swallowed event would be a dead tap. HA's own dialog then opens.
@@ -2643,7 +2650,7 @@
       static get CSS() { return PANEL_CSS; }
       // _stateObj, not _st: HkBase has a METHOD _st(id), and a getter of the
       // same name would replace it for every panel.
-      get _stateObj() { return stOf(this._hass, this._config && this._config.entity); }
+      get _stateObj() { return stOf(this.client, this._config && this._config.entity); }
       get _id() { return this._config && this._config.entity; }
       get _src() { return (this._config && this._config.src) || {}; }
       _svc(domain, service, data) {
@@ -2914,7 +2921,7 @@
       }
       _paintFavs(s) {
         var self = this;
-        var favs = favourites(this._hass, s, function () { self._favSig = null; self._render(); });
+        var favs = favourites(this.client, s, function () { self._favSig = null; self._render(); });
         var sig = JSON.stringify(favs) + '|' + (at(s, 'hs_color') || '') + '|' + at(s, 'color_temp_kelvin') + '|' + at(s, 'color_mode');
         if (sig === this._favSig) return;
         this._favSig = sig;
@@ -3238,13 +3245,13 @@
         return SPEED_NAMES[this._n] ? Math.round(pct) + '%' : '';
       }
       _sigOf() {
-        var h = this._hass, id = this._id;
+        var h = this.client, id = this._id;
         if (!h || !id) return null;
         var a = h.states[id], g = h.states[fanGuard(id)];
         return (a ? a.last_updated : 'x') + '|' + (g ? g.last_updated : 'x');
       }
       _paintGuard() {
-        var h = this._hass, slot = this._gslot, self = this;
+        var h = this.client, slot = this._gslot, self = this;
         if (!h || !slot) return;
         var g = h.states[fanGuard(this._id)];
         if (!g || g.state !== 'active') { slot.innerHTML = ''; return; }
@@ -3680,7 +3687,7 @@
       // to now every minute, so a running system counts up. The same rows
       // carry current_temperature, which is the trend.
       _runs() {
-        var self = this, h = this._hass, id = this._id, now = Date.now();
+        var self = this, h = this.client, id = this._id, now = Date.now();
         if (h && h.callWS && (!this._runAt || now - this._runAt > 300000)) {
           this._runAt = now;
           var y = new Date(); y.setHours(0, 0, 0, 0); y.setDate(y.getDate() - 1);
@@ -3737,7 +3744,7 @@
         side.style.marginTop = Math.max(0, Math.round(inset)) + 'px';
       }
       _sigOf() {
-        var h = this._hass, id = this._id;
+        var h = this.client, id = this._id;
         if (!h || !id) return null;
         var a = h.states[id], w = h.states[this._wx()];
         return (a ? a.last_updated : 'x') + '|' + (w ? w.last_updated : '');
@@ -3746,7 +3753,7 @@
       _render() {
         var s = this._stateObj;
         if (!s) return;
-        var h = this._hass;
+        var h = this.client;
         if (!this._built) {
           this._built = true;
           this._root.innerHTML = '<div class="pn"><div class="dial"></div><div class="side"><div class="now"><div class="rd"></div>' +
@@ -3762,7 +3769,8 @@
           var self = this;
           this._tickT = setInterval(function () { self._runs(); }, 60000);
         }
-        if (this._card) this._card.hass = h;
+        // the thermostat card still takes the host input (its own controls)
+        if (this._card) bridge(this._card, h);
         this._alignTop();
         var a = s.attributes || {};
         var wx = stOf(h, this._wx());
@@ -4001,7 +4009,7 @@
         e.ar.textContent = line;
         // WHERE it plays: the speaker's room (the pill's own name can be a
         // shortcut like "Apple Music"), else its own name.
-        var where = roomOf(this._hass, this._id) || a.friendly_name || '';
+        var where = roomOf(this.client, this._id) || a.friendly_name || '';
         e.on.textContent = (s.state === 'playing' ? 'Playing on · ' : s.state === 'paused' ? 'Paused on · ' : off ? '' : 'Ready on · ') + (off ? '' : where);
         // artwork: entity_picture_local FIRST, as the now-playing bar and Play
         // Music do (hk-media). Music Assistant's entity_picture is
@@ -4239,7 +4247,7 @@
       // an energy device's sheet also follows its switch and the circuits
       // beside it (their watts on its rows)
       _sigOf() {
-        var base = super._sigOf(), h = this._hass, rec = energyRec(this._id);
+        var base = super._sigOf(), h = this.client, rec = energyRec(this._id);
         if (!rec || !h) return base;
         var P = energyPlan() || {}, ids = [rec.control];
         [rec.parent].concat(rec.children || []).forEach(function (k) { var o = (P.devices || {})[k]; if (o) ids.push(o.power); });
@@ -4298,7 +4306,7 @@
       _cal() {
         var r = this._range, S = window.hkStats;
         if ((r !== 'week' && r !== 'month') || !S || !S.period || !S.weekStart) return null;
-        var ws = S.weekStart(this._hass), now = Date.now(), back = this._back || 0, today0 = S.addDays(now, 0);
+        var ws = S.weekStart(this.client), now = Date.now(), back = this._back || 0, today0 = S.addDays(now, 0);
         var key = [r, back, ws, today0].join('|');
         if (this._calK === key) return this._calV;
         var days = function (P) {
@@ -4328,7 +4336,7 @@
       }
       // AN ENERGY DEVICE: today, its cost, the usual day; where it sits; its switch
       _paintEnergy(s, energy) {
-        var rec = this._rec, el = this._en, h = this._hass, self = this;
+        var rec = this._rec, el = this._en, h = this.client, self = this;
         if (!el) return;
         if (!rec) { el.hidden = true; el.innerHTML = ''; return; }
         var P = energyPlan() || {}, T = P.total || {}, S = window.hkStats;
@@ -4405,7 +4413,7 @@
       // (or the total), the daily average with its peak, and the period
       // before at the same point (or whole, for a past one).
       _paintCalBars(s, pts, cal, H, unit, phone, empty) {
-        var byT = {}, h = this._hass, wk = cal.r === 'week', u = esc(unit), S = window.hkStats;
+        var byT = {}, h = this.client, wk = cal.r === 'week', u = esc(unit), S = window.hkStats;
         pts.forEach(function (p) { if (p && p.v != null && isFinite(p.v)) byT[+p.t] = p.v; });
         var data = cal.dates.map(function (t, k) {
           var fut = cal.cur && k > cal.todayK, pt = { t: new Date(t), v: fut || byT[t] == null ? null : byT[t] };
@@ -4466,7 +4474,7 @@
       }
       // The series for the range, or null while it loads.
       _series(s, energy, meter) {
-        var h = this._hass, id = meter || this._id, r = this._range, S = window.hkStats;
+        var h = this.client, id = meter || this._id, r = this._range, S = window.hkStats;
         if (!S) return null;
         var self = this;
         var viaStats = function (fn, n, opts) {
@@ -4683,13 +4691,13 @@
         if (this._src.icon) this._icon.icon = this._src.icon;
       }
       _glyph(s, on) {
-        this._icon.hass = this._hass;
-        this._icon.stateObj = s;
+        var c = this.client;
+        if (c && c.bindStateIcon) c.bindStateIcon(this._icon, s); else this._icon.stateObj = s;
         this._gw.classList.toggle('on', !!on);
       }
       _fetch() {
         var self = this;
-        dayRows(this._hass, this._id).then(function (r) {
+        dayRows(this.client, this._id).then(function (r) {
           self._rows = r.rows; self._t0 = r.t0;
           self._paintDay();
         }).catch(function () { /* no timeline */ });
@@ -4739,7 +4747,7 @@
           this._shell('Last 24 hours');
           this._fetch();
         }
-        var h = this._hass, txt;
+        var h = this.client, txt;
         try { txt = h.formatEntityState ? h.formatEntityState(s) : s.state; } catch (e) { txt = s.state; }
         this._glyph(s, !unavailable(s) && s.state !== 'off' && s.state !== 'unknown');
         this._big.textContent = unavailable(s) ? 'Unavailable' : txt;
@@ -4747,7 +4755,7 @@
         if (this._lastSeen !== s.last_changed) { this._lastSeen = s.last_changed; if (this._rows) this._fetch(); }
       }
       _paintDay() {
-        var t0 = this._t0, now = Date.now(), span = now - t0, h = this._hass, self = this;
+        var t0 = this._t0, now = Date.now(), span = now - t0, h = this.client, self = this;
         var segs = spansOf(this._rows, t0, now).filter(function (g) { return g.state !== 'unavailable' && g.state !== 'unknown'; });
         if (!segs.length) return;
         var total = {};
@@ -4914,7 +4922,7 @@
       // the sensors: the source card's, else found on the vacuum's device
       _parts() {
         if (this._pt) return this._pt;
-        var c = this._src.config || {}, h = this._hass, id = this._id;
+        var c = this._src.config || {}, h = this.client, id = this._id;
         var find = function (re, dc) {
           return deviceSensor(h, id, function (k, st) {
             return dc ? !!(st && st.attributes && st.attributes.device_class === dc) : re.test(k);
@@ -4929,12 +4937,12 @@
         };
         return this._pt;
       }
-      _v(id) { var st = id && this._hass && this._hass.states[id]; return st ? st.state : null; }
+      _v(id) { var c = this.client, st = id && c && c.states[id]; return st ? st.state : null; }
       // The chips read other sensors (battery, room, progress, errors): they
       // are inputs like the vacuum, or a battery charging on the dock would
       // never move the sheet (the default signature is the vacuum alone).
       _sigOf() {
-        var h = this._hass, id = this._id;
+        var h = this.client, id = this._id;
         if (!h || !id) return null;
         var p = this._parts(), out = '';
         [id, p.battery, p.room, p.progress, p.error, p.dock_error].forEach(function (k) {
@@ -5004,7 +5012,7 @@
     // vacuum.clean_area gets the button; one that just starts in its own room
     // has nothing to choose.
     VacuumPanel.prototype._areasBtn = function () {
-      var self = this, h = this._hass;
+      var self = this, h = this.client;
       var add = function () {
         if (!self._reach || !self._reach.length || self._view !== 'main') return;
         var pn = self._root.querySelector('.pn');
@@ -5025,7 +5033,7 @@
         var plan = (res && res.response && res.response.plan) || [];
         var mine = plan.filter(function (p) { return p.vacuum === id && p.action === 'clean_area'; })[0];
         var areas = (mine && mine.areas) || [];
-        var hh = self._hass || h;
+        var hh = self.client || h;
         self._reach = areas.map(function (a) { return { id: a, name: (hh.areas[a] && hh.areas[a].name) || pretty(a) }; })
           .sort(function (x, y) { return x.name.localeCompare(y.name); });
         add();
@@ -5415,7 +5423,7 @@
       _go(v) { this._view = v; this._built = false; this._render(); }
       _range(s) {
         var a = s.attributes || {};
-        var unit = (this._hass && this._hass.config && this._hass.config.unit_system && this._hass.config.unit_system.temperature) || '°F';
+        var c = this.client, unit = (c && c.config && c.config.unit_system && c.config.unit_system.temperature) || '°F';
         var lo = num(a.min_temp), hi = num(a.max_temp);
         if (lo == null) lo = /C/.test(unit) ? 30 : 90;
         if (hi == null || hi <= lo) hi = /C/.test(unit) ? 70 : 150;
@@ -5615,7 +5623,7 @@
       }
       // the tank's last day, from the heater's own history (current_temperature)
       _tank() {
-        var self = this, h = this._hass, id = this._id, now = Date.now();
+        var self = this, h = this.client, id = this._id, now = Date.now();
         if (!this._trend) return;
         if (h && h.callWS && (!this._runAt || now - this._runAt > 300000)) {
           this._runAt = now;
@@ -5747,7 +5755,7 @@
           this._root.querySelector('.pn').appendChild(card);
           this._card = card;
         }
-        if (this._card) this._card.hass = this._hass;
+        if (this._card) bridge(this._card, this.client);
         var st = s.state;
         (this._bigWord || this._big).textContent = unavailable(s) ? 'Unavailable' : ALARM_WORDS[st] || pretty(st);
         this._big.classList.toggle('trg', st === 'triggered');
@@ -5831,7 +5839,7 @@
         return pc.stream || cameraStream(h, this._id);
       }
       _gone(h) { var st = h && h.states[this._streamOf(h)]; return !st || st.state === 'unavailable'; }
-      _sigOf() { return this._hass ? 'camera|' + this._gone(this._hass) : null; }
+      _sigOf() { var c = this.client; return c ? 'camera|' + this._gone(c) : null; }
       // ...while the stream card inside hears every update (its poster's
       // signed picture, its own state), not only the ones that rebuild this
       set hass(h) {
@@ -5850,7 +5858,7 @@
         sh.style.setProperty('--hkd-w', Math.min(1200, Math.round(750 * ar)) + 'px');
       }
       _render() {
-        var h = this._hass;
+        var h = this.client;
         if (!h) return;
         // _naEl, not _na: Panel._na(s) is the shared unavailable helper, and a
         // property of that name would replace it (see HkBase method shadowing)
@@ -5906,7 +5914,8 @@
             this._root.appendChild(this._card);
           }
         }
-        if (this._card && this._card.hkSetHass) this._card.hkSetHass(h);
+        // the stream card still takes the host input (talk-back, its own controls)
+        if (this._card && this._card.hkSetHass) this._card.hkSetHass(this._hass);
       }
     }
 
@@ -6019,7 +6028,7 @@
       }
       hkWidthKind() { return 'group'; }
       hkFill() { return true; }
-      // null: every hass goes on to the pills, which gate themselves. The
+      // null: every update goes on to the pills, which gate themselves. The
       // LIST is worked out again (resolve -- a page's members, a walk of the
       // house -- and every pill's config) only when what it reads moved:
       // its members' states, the registries (rooms, areas), the settings
@@ -6036,13 +6045,14 @@
         return out;
       }
       _render() {
-        var h = this._hass, cfg = this._config || {};
-        if (!h) return;
-        if (this._built && this._lsig === this._listSig(h)) {
+        // reads through the client; the pills (card families) still take the host input
+        var c = this.client, h = this._hass, cfg = this._config || {};
+        if (!c || !h) return;
+        if (this._built && this._lsig === this._listSig(c)) {
           (this._kids || []).forEach(function (el) { if (el.hkSetHass) el.hkSetHass(h); else el.hass = h; });
           return;
         }
-        var resolved = cfg.resolve ? cfg.resolve(h) : null;
+        var resolved = cfg.resolve ? cfg.resolve(c) : null;
         var ids = resolved ? resolved.ids : cfg.entities || [];
         var configs = ids.map(function (id) {
           var room = cfg.room;
@@ -6094,14 +6104,14 @@
           if (D.panel === this) D.tt.textContent = resolved.title;
         }
         this._ids = ids.slice();
-        this._lsig = this._listSig(h);
+        this._lsig = this._listSig(c);
         (this._kids || []).forEach(function (el) { if (el.hkSetHass) el.hkSetHass(h); else el.hass = h; });
       }
     }
     def('hk-detail-group', GroupPanel);
     // A CUSTOM POP-UP'S CARDS (Pop-ups -> Custom): any cards, in
     // a column, built by Home Assistant's own card helpers (a core card or a
-    // custom one), fed hass while the sheet is up. A card that cannot be
+    // custom one), fed the host input while the sheet is up. A card that cannot be
     // built is HA's error card, in its place.
     class CardsPanel extends HkBase {
       static get CSS() {
@@ -6156,7 +6166,7 @@
                     icon: o.icon, color: o.color, row: o.row || o.climate, resolve: o.resolve } }, extra || {}));
     }
     function restoreGroup(g) {
-      var current = g.resolve && g.resolve(C.hass());
+      var current = g.resolve && g.resolve(C.client());
       // An empty category still needs a way back out after its last member
       // was removed while a device's controls were open.
       return open(null, { name: current ? current.title : g.title, icon: g.icon,
@@ -6199,7 +6209,7 @@
       var p = popupFor(hash);
       if (!p || yamlClaims(hash)) return false;
       if (D.el && D.popup === p.hash) return true;          // already up
-      var h = C.hass();
+      var h = C.client();
       var clear = function () {
         // closed by hand or by time: the hash goes, so nothing reopens it
         if (location.hash === hash) {
@@ -6267,7 +6277,7 @@
     // page goes too, or the keypad would come up on the next wake for an
     // alarm that is already over.
     function closeAsked(e) {
-      var dash = dashNow(), h = C.hass();
+      var dash = dashNow(), h = C.client();
       if (e.dashboards && e.dashboards.length && e.dashboards.indexOf(dash) < 0) return false;
       if (e.users && e.users.length && !(h && h.user && e.users.indexOf(h.user.id) >= 0)) return false;
       if (held && held.ev && held.ev.detail && held.ev.detail.popup === e.popup) held = null;
@@ -6290,7 +6300,7 @@
         if (pp) held = { ev: ev, until: Date.now() + (pp.close_after || 60) * 1000 };
         return false;
       }
-      var dash = dashNow(), h = C.hass();
+      var dash = dashNow(), h = C.client();
       if (e.dashboards && e.dashboards.length && e.dashboards.indexOf(dash) < 0) return false;
       if (e.users && e.users.length && !(h && h.user && e.users.indexOf(h.user.id) >= 0)) return false;
       if (!popupFor('#' + e.popup)) return false;

@@ -833,6 +833,7 @@
       var me = { host: host, scrim: scrim, phone: phone, doneT: null, ticked: 0 };
       me.p = P.create({
         tabs: ['speakers', 'volume', 'queue'],
+        client: function () { return self.client; },
         hass: function () { return self._hass; },
         ctx: function () { return self._musicCtx(); },
         art: function () { return null; },

@@ -91,11 +91,13 @@ haRoot.hass = hassWith('off');
 document.querySelector = function (s) { return s === 'home-assistant' ? haRoot : null; };
 document.hidden = false;
 window.innerWidth = 1280;
-// the hass hub hk-base provides
+// the client hub hk-base provides (hkCards.client/onClient), over the real HA
+// adapter; hass() remains only as the host input for the saver's own actions
 var hub = [];
-window.hkCards = { onHass: function (fn) { hub.push(fn); return function () { hub = hub.filter(function (f) { return f !== fn; }); }; },
+window.hkCards = { onClient: function (fn) { hub.push(fn); return function () { hub = hub.filter(function (f) { return f !== fn; }); }; },
+                   client: function () { return window.hkHAClient.from(haRoot.hass); },
                    hass: function () { return haRoot.hass; } };
-function push(h) { haRoot.hass = h; hub.slice().forEach(function (f) { f(h); }); }
+function push(h) { haRoot.hass = h; var c = window.hkHAClient.from(h); hub.slice().forEach(function (f) { f(c); }); }
 
 load(DIR + 'frontend/modules/hk-saver.js');
 var S = window.hkSaver, U = S._;
@@ -309,6 +311,17 @@ ok('...a screensaver element is on the page', walkFake(document.body).some(funct
 ok('...the sky and the cards are told', window.__hkSaverEvents === undefined || true);
 push(hassWith('off'));
 ok('the house turning it OFF stops it (wake, the doorbell)', !S.running());
+(function () {
+  // A HOST THAT ONLY READS (no host input for actions): the screensaver still
+  // runs from the client, and no switch write goes anywhere
+  var hass0 = window.hkCards.hass;
+  window.hkCards.hass = function () { return null; };
+  calls = [];
+  S.start();
+  ok('with no host input it still starts from the client, and writes no switch', S.running() && calls.length === 0, calls);
+  S.stop();
+  window.hkCards.hass = hass0;
+})();
 calls = [];
 S.start();
 ok('a start by itself (hkSaver.start) turns the switch on', S.running() && calls.join() === 'input_boolean.turn_on ' + SW, calls);

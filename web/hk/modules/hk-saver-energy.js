@@ -19,11 +19,11 @@
 //
 //   hkSaverEnergy.create({ hide, h24 }) -> ctl
 //     ctl.el                  the layer (hk-saver.js puts it in its root)
-//     ctl.ready(hass)         a summary to show (asking for one if not)
-//     ctl.draw(hass, look)    fill it in now; look: 'photo' | 'sky' | 'plain'
+//     ctl.ready(client)       a summary to show (asking for one if not)
+//     ctl.draw(client, look)  fill it in now; look: 'photo' | 'sky' | 'plain'
 //     ctl.arrived()           the fade is done: the rings and lines draw
 //     ctl.layout(W, H)        the room it has (beside any pane)
-//     ctl.setHass(hass)       fresh states, while it shows
+//     ctl.setClient(client)   fresh states, while it shows
 //     ctl.leave() / destroy()
 (function () {
   'use strict';
@@ -239,8 +239,8 @@
   // it -- its multicolor glyph (hk-header.js wxSvg), the temperature, the
   // conditions -- "<glyph> 85° Sunny"
   var COND = { 'clear-night': 'Clear', partlycloudy: 'Partly Cloudy', sunny: 'Sunny' };
-  function weatherLine(hass) {
-    var HS = window.hkSettings, HD = window.hkHeader, st = hass && hass.states;
+  function weatherLine(client) {
+    var HS = window.hkSettings, HD = window.hkHeader, st = client && client.states;
     var id = st && HS && HS.weatherId ? HS.weatherId(st) : null, w = id && st[id];
     if (!w) return '';
     var t = Number(w.attributes && w.attributes.temperature), night = HD && HD.isNight ? HD.isNight(st) : false;
@@ -274,7 +274,7 @@
       '<div class="enread"><div class="eneye">Home Energy</div><div class="enh">Today So Far</div><div class="enlede"></div>' +
       '<div class="enstats"></div></div></div><div class="enfoot"></div>';
     var layoutW = 0, layoutH = 0;
-    var alive = true, showing = false, hass = null, last = null, sig = '', drawnAt = 0, redrawT = null, was = null, clockT = null;
+    var alive = true, showing = false, client = null, last = null, sig = '', drawnAt = 0, redrawT = null, was = null, clockT = null;
     var h24 = !!opts.h24;
     function tick() {
       var now = new Date(), tz = window.hkStats && window.hkStats.tz ? window.hkStats.tz() : undefined;
@@ -284,7 +284,7 @@
       var th = esc(t[0]) + (t[1] ? '<small>' + esc(t[1]) + '</small>' : '');
       if (tEl.innerHTML !== th) tEl.innerHTML = th;
       if (dEl.textContent !== d) dEl.textContent = d;
-      var w = weatherLine(hass);
+      var w = weatherLine(client);
       if (wEl.__hkW !== w) { wEl.__hkW = w; wEl.innerHTML = w; }
       freshness();
       align();
@@ -314,8 +314,8 @@
     };
     function summary() {
       var H = E();
-      if (!H || !H.summary || !hass) return null;
-      try { return H.summary(hass, waker) || null; } catch (e) { console.warn('[hk-saver-energy]', e && e.message); return null; }
+      if (!H || !H.summary || !client) return null;
+      try { return H.summary(client, waker) || null; } catch (e) { console.warn('[hk-saver-energy]', e && e.message); return null; }
     }
     function soon() {
       if (!alive || !showing || redrawT) return;
@@ -387,11 +387,11 @@
     }
     return {
       el: el,
-      ready: function (h) { if (h) hass = h; return !!summary(); },
+      ready: function (h) { if (h) client = h; return !!summary(); },
       // look: 'photo' (paintBg draws the photo's blurred copy into the
       // canvas), 'sky' or 'plain'
       draw: function (h, look, paintBg) {
-        if (h) hass = h;
+        if (h) client = h;
         tick();
         if (!clockT) clockT = setInterval(function () { if (alive && showing) tick(); }, 10000);
         el.setAttribute('look', look || 'plain');
@@ -401,7 +401,7 @@
         return paint(true);
       },
       arrived: arrived,
-      setHass: function (h) { hass = h; if (showing) soon(); },
+      setClient: function (h) { client = h; if (showing) soon(); },
       setHide: function (list) { hide = Array.isArray(list) ? list.slice() : []; sig = ''; },
       // THE MOCKUP'S SIZES: a 1280 x 800 screen at 1 (rings 380 px, figures
       // 40 px), scaled with the room it has -- down only if they don't fit

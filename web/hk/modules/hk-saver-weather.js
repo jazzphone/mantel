@@ -22,11 +22,11 @@
 //
 //   hkSaverWeather.create({ hide, h24 }) -> ctl
 //     ctl.el                  the layer (hk-saver.js puts it in its root)
-//     ctl.ready(hass)         a weather to show
-//     ctl.draw(hass)          fill it in now, its sky running
+//     ctl.ready(client)       a weather to show
+//     ctl.draw(client)        fill it in now, its sky running
 //     ctl.arrived()           the fade is done: the lines and the bar draw
 //     ctl.layout(W, H)        the room it has (beside any pane)
-//     ctl.setHass(hass), setHide(list), leave(), destroy()
+//     ctl.setClient(client), setHide(list), leave(), destroy()
 (function () {
   'use strict';
   if (window.hkSaverWeather) return;
@@ -303,20 +303,23 @@
       '<div class="wxcorner"><div class="wxt"></div><div class="wxd"></div><div class="wxfresh"></div></div><div class="wxalert"></div><div class="wxbody"></div><div class="foot"></div></div>';
     var inn = el.querySelector('.wxin');
     var layoutW = 0, layoutH = 0, alerts = [], alertSig = '', dialog = null;
-    var alive = true, showing = false, hass = null, sig = '', drawnAt = 0, redrawT = null, clockT = null, scene = null;
+    var alive = true, showing = false, client = null, sig = '', drawnAt = 0, redrawT = null, clockT = null, scene = null;
     var hide = Array.isArray(opts.hide) ? opts.hide.slice() : [], h24 = !!opts.h24;
     var fc = {}, fcAt = {}, subs = {}, refused = {}, conn = null, onReady = null;
 
+    // THE FORECAST'S CONNECTION is still the host's own (Phase 1 slice 7 moves
+    // it to the client's subscription port); everything else here reads the client
+    function hostConnection() { var C = window.hkCards, h = C && C.hass && C.hass(); return (h && h.connection) || null; }
     function wid() {
-      var HS = window.hkSettings, st = hass && hass.states;
+      var HS = window.hkSettings, st = client && client.states;
       return st && HS && HS.weatherId ? HS.weatherId(st) : null;
     }
     // THE FORECAST: Configure -> Weather's forecast sensor, else the
     // weather entity's own subscription (as the forecast band has it)
     function forecast(kind) {
       var HS = window.hkSettings, sensor = HS && HS.get ? HS.get('weather.forecast_' + kind, null) : null;
-      if (sensor) return ((hass.states[sensor] || {}).attributes || {}).forecast || [];
-      var id = wid(), key = kind + '|' + id, c = hass && hass.connection;
+      if (sensor) return ((client.states[sensor] || {}).attributes || {}).forecast || [];
+      var id = wid(), key = kind + '|' + id, c = client && hostConnection();
       if (id && c && alive && !subs[key] && !(refused[key] && Date.now() < refused[key])) {
         if (!onReady && typeof c.addEventListener === 'function') {
           conn = c;
@@ -329,7 +332,7 @@
       }
       return fc[key] || [];
     }
-    function weather() { var id = wid(); return id && hass.states[id] ? hass.states[id] : null; }
+    function weather() { var id = wid(); return id && client.states[id] ? client.states[id] : null; }
     function tick() {
       var now = new Date(), z = tz();
       var t = now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: !h24, timeZone: z }).split(' ');
@@ -357,7 +360,7 @@
       ['hourly', 'daily'].forEach(function (kind) {
         if (hide.indexOf(kind === 'hourly' ? 'hours' : 'days') >= 0) return;
         var HS = window.hkSettings, id = HS && HS.get && HS.get('weather.forecast_' + kind, null);
-        consider(kind === 'hourly' ? 'Hourly forecast' : 'Daily forecast', id && hass && hass.states[id], (kind === 'hourly' ? 6 : 24) * 36e5, id ? null : fcAt[kind + '|' + wid()]);
+        consider(kind === 'hourly' ? 'Hourly forecast' : 'Daily forecast', id && client && client.states[id], (kind === 'hourly' ? 6 : 24) * 36e5, id ? null : fcAt[kind + '|' + wid()]);
       });
       delayed.sort(function (a,b) { return a.at - b.at; });
       var d = delayed[0];
@@ -365,7 +368,7 @@
     }
     function readAlerts() {
       var HS = window.hkSettings, id = HS && HS.get && HS.get('weather.alerts', null);
-      return alertsOf(id && hass && hass.states && hass.states[id], Date.now());
+      return alertsOf(id && client && client.states && client.states[id], Date.now());
     }
     function updateAlerts() {
       alerts = readAlerts();
@@ -430,7 +433,7 @@
       var w = weather();
       freshness();
       if (!w || /^(unavailable|unknown)$/.test(w.state)) return false;
-      hd.states = hass.states;
+      hd.states = client.states;
       var v = view(w, forecast('hourly'), forecast('daily'), Date.now(), hide);
       freshness();
       if (v.t == null) return false;
@@ -597,22 +600,22 @@
         try { scene = window.hkSky.scene(el.querySelector('.wxsky'), { skyOnly: true }); } catch (e) { scene = null; }
       }
       if (!scene) return;
-      if (run && hass) { try { scene.update(hass); } catch (e) { /* the next update */ } }
+      if (run && client) { try { scene.update(client); } catch (e) { /* the next update */ } }
       try { scene.pause(!run); } catch (e) { /* gone */ }
     }
     return {
       el: el,
       // a weather to show (and its forecast asked for, and its sky readied)
       ready: function (h) {
-        if (h) hass = h;
-        var w = hass && weather();
+        if (h) client = h;
+        var w = client && weather();
         if (!w || num((w.attributes || {}).temperature) == null) return false;
         forecast('hourly'); forecast('daily');
         sky(false);
         return true;
       },
       draw: function (h) {
-        if (h) hass = h;
+        if (h) client = h;
         showing = true;
         sky(true);
         tick();
@@ -623,7 +626,7 @@
       arrived: arrived,
       hitAlert: hitAlert,
       openAlerts: openAlerts,
-      setHass: function (h) { hass = h; if (showing) { updateAlerts(); soon(); } },
+      setClient: function (h) { client = h; if (showing) { updateAlerts(); soon(); } },
       setHide: function (list) { hide = Array.isArray(list) ? list.slice() : []; sig = ''; },
       layout: layout,
       leave: function () {

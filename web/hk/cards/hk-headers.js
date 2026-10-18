@@ -2312,8 +2312,8 @@
         var on = s.state === 'active';
         d.well.style.background = on ? TINT : 'rgba(255,255,255,0.12)';
         d.icon.style.color = on ? 'rgba(0,0,0,0.82)' : TINT;
-        d.icon.hass = h;
-        d.icon.stateObj = s;
+        // h: the sheet's client (hk-detail.js paintHeader)
+        if (h.bindStateIcon) h.bindStateIcon(d.icon, s); else d.icon.stateObj = s;
         d.icon.icon = U.headIcon(d.look, s) || (s.attributes || {}).icon || 'mdi:timer-outline';
         // the tile's name, else the accessory's, else the timer's own less "- Timer"
         d.tt.textContent = (d.src && d.src.name) || U.accName(d.id) || nameOf(h, d.id);
