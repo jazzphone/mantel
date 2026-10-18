@@ -4,15 +4,20 @@ Home Assistant's ``hk_frontend`` integration, set to "Linked to Mantel Server", 
 ``hk_frontend.*`` services and the entities HK publishes in HA, so the house's automations, scripts
 and history don't notice the move. It does that over ONE authenticated WebSocket to this endpoint:
 
-* HA forwards the three services automations call (``set_black_screen``, ``show_popup``,
-  ``close_popup``) and the commands HA users send to the mirrored entities (a switch turned on or
+* HA forwards the services automations call (``set_black_screen``, ``show_popup``,
+  ``close_popup``, ``notify``) and the commands HA users send to the mirrored entities (a switch turned on or
   off, the alarm panel armed or disarmed) here; each is answered by id.
 * Mantel pushes the entities it publishes (``LinkedRegistry``): their descriptors (platform,
   unique_id, suggested entity id, name, device) and every state change.
 
 **Direction is one way for commands.** Mantel never asks HA to do anything on this channel: the
-server's frame types are pinned (``SERVER_TYPES``: hello, result, entity, state, removed) and HA's
-side has no handler that calls a service.
+server's frame types are pinned (``SERVER_TYPES``: hello, result, entity, state, removed, owners) and
+HA's side has no handler that calls a service.
+
+**Per-tablet ownership** (linked_owners.py; CUTOVER.md §1 Option A): ``hello`` carries ``owners``
+(``{"house": "ha"|"mantel", "tablets": [ids Mantel owns]}``) and an ``owners`` frame follows every
+move. Each tablet entity names its ``tablet``; HA mirrors and forwards only the units Mantel owns and
+runs its own engines for the rest. With no ``linked_owners`` in the app everything is HA's.
 
 **Who may connect.** A Service account (``service_accounts.py``) with the ``linked`` scope, as an
 ``Authorization: Bearer`` header on the upgrade request (never a cookie or a query string). Refused:
@@ -51,14 +56,14 @@ log = logging.getLogger("mantel.linked")
 PROTOCOL = 1
 PATH = "/linked/ws"
 SCOPE = "linked"
-SERVICES = ("set_black_screen", "show_popup", "close_popup")
+SERVICES = ("set_black_screen", "show_popup", "close_popup", "notify")
 PLATFORMS = ("switch", "sensor", "binary_sensor", "camera", "alarm_control_panel")
 ALARM_COMMANDS = frozenset({"alarm_disarm", "alarm_arm_home", "alarm_arm_away", "alarm_arm_night",
                             "alarm_arm_vacation", "alarm_arm_custom_bypass", "alarm_trigger"})
 COMMANDS: dict[str, frozenset[str]] = {"switch": frozenset({"turn_on", "turn_off", "toggle"}),
                                        "alarm_control_panel": ALARM_COMMANDS}
 CLIENT_TYPES = frozenset({"call_service", "entity_command", "ping"})
-SERVER_TYPES = frozenset({"hello", "result", "entity", "state", "removed"})
+SERVER_TYPES = frozenset({"hello", "result", "entity", "state", "removed", "owners"})
 HANDLER_TIMEOUT = 8.0          # under HA's 10 s, so HA's call gets Mantel's own "timeout" first
 RECHECK_S = 60.0               # how often an idle socket re-checks that its credential is live
 HEARTBEAT_S = 30.0             # pings that find a linked HA gone without a goodbye
@@ -70,6 +75,14 @@ _KEYS = {"call_service": {"id", "type", "service", "data", "targets"},
          "ping": {"id", "type"}}
 _POPUP_KEYS = frozenset({"popup", "dashboards", "users"})
 _BLACK_KEYS = frozenset({"black", "brightness"})
+# hk_frontend.notify, as HA's NOTIFY_SCHEMA validated it (features/notifications)
+_NOTIFY_KEYS = frozenset({"title", "message", "important", "wake", "stay", "icon", "entity", "camera", "tap",
+                          "page", "dashboards", "users"})
+_NOTIFY_TAPS = frozenset({"sheet", "camera", "page", "none"})
+_ICON = re.compile(r"^(hk|mdi):[a-z0-9-]+$")
+_EID = re.compile(r"^[a-z0-9_]+\.[a-z0-9_]+$")
+_PAGE = re.compile(r"^[a-z0-9][a-z0-9_-]{0,63}$")         # hk_core.notifications.const.PAGE_RE
+NO_OWNERS = {"house": "ha", "tablets": []}
 _SLUG = re.compile(r"^[a-z0-9_]+$")
 _KEEP = object()
 
@@ -112,6 +125,8 @@ def check_entity(desc: Mapping[str, Any]) -> dict[str, Any]:
                   identifiers, so the entity stays on its device)
     state, attributes, available    the state
     features      camera {stream_source}; alarm {supported_features, code_format, code_arm_required}
+    tablet        the wall tablet it belongs to (its id: the unit of ownership, linked_owners.py), or
+                  null for the house's own (Seasonal decorations, Alarm PIN, Live TV)
     """
     if not isinstance(desc, Mapping):
         raise ValueError("an entity is an object")
@@ -162,6 +177,10 @@ def check_entity(desc: Mapping[str, Any]) -> dict[str, Any]:
     if not isinstance(feats, Mapping) or not _json_value(dict(feats)):
         raise ValueError("features: an object of JSON values")
     out["features"] = dict(feats)
+    tablet = desc.get("tablet")
+    if tablet is not None and (not isinstance(tablet, str) or not 0 < len(tablet) <= 80):
+        raise ValueError("tablet: the wall tablet's id (its unit of ownership), or null for the house's")
+    out["tablet"] = tablet
     return out
 
 
@@ -176,6 +195,8 @@ class LinkedRegistry:
     def __init__(self) -> None:
         self.entities: dict[str, dict[str, Any]] = {}
         self.clients: set["LinkedClient"] = set()
+        # who owns which unit (linked_owners.py's wire form), told in hello and in `owners` frames
+        self.owners: dict[str, Any] = _copy(NO_OWNERS)
 
     def get(self, unique_id: str) -> dict[str, Any] | None:
         d = self.entities.get(unique_id)
@@ -211,11 +232,21 @@ class LinkedRegistry:
                           "attributes": d["attributes"], "available": d["available"]})
         return _copy(d)
 
-    async def remove(self, unique_id: str) -> bool:
+    async def remove(self, unique_id: str, *, forget: bool = True) -> bool:
+        """Stop publishing one entity. ``forget``: it is gone (a tablet removed), and HA removes it from
+        its registry as before; ``forget=False``: only no longer Mantel's (its unit moved back to HA),
+        so HA keeps its registry entry (and entity id) for its own entity."""
         if self.entities.pop(unique_id, None) is None:
             return False
-        await self._push({"type": "removed", "unique_id": unique_id})
+        await self._push({"type": "removed", "unique_id": unique_id, **({} if forget else {"forget": False})})
         return True
+
+    async def set_owners(self, owners: Mapping[str, Any]) -> None:
+        """Who owns which unit changed: every linked HA is told at once (``owners``), before any
+        entity of a moved unit is published or withdrawn."""
+        self.owners = {"house": "mantel" if owners.get("house") == "mantel" else "ha",
+                       "tablets": sorted({str(t) for t in owners.get("tablets") or []})}
+        await self._push({"type": "owners", "owners": _copy(self.owners)})
 
     async def _push(self, msg: dict[str, Any]) -> None:
         text = json.dumps(msg)
@@ -295,6 +326,9 @@ class MemoryHandler:
     async def call_service(self, service: str, data: dict[str, Any], targets: list[dict[str, str]],
                            ctx: CallCtx) -> dict[str, Any]:
         self.calls.append({"service": service, "data": _copy(data), "targets": _copy(targets)})
+        if service == "notify":
+            self.popups.append({"service": service, **_copy(data)})
+            return {"id": None, "snap": False}
         if service in ("show_popup", "close_popup"):
             self.popups.append({"service": service, **_copy(data)})
             if self.on_popup is not None:
@@ -349,6 +383,38 @@ def _check_strs(v: Any, what: str) -> list[str]:
     return v
 
 
+def _check_notify(data: Mapping[str, Any]) -> None:
+    """hk_frontend.notify's data, checked again here (Mantel never relies on HA's validation)."""
+    if set(data) - _NOTIFY_KEYS:
+        raise LinkedError("invalid", f"unexpected keys {sorted(set(data) - _NOTIFY_KEYS)}")
+    title = data.get("title")
+    from hk_core.notifications.const import MESSAGE_MAX, TITLE_MAX
+    if not isinstance(title, str) or not title.strip() or len(title) > TITLE_MAX:
+        raise LinkedError("invalid", f"title: required, at most {TITLE_MAX} characters")
+    if "message" in data and (not isinstance(data["message"], str) or len(data["message"]) > MESSAGE_MAX):
+        raise LinkedError("invalid", f"message: at most {MESSAGE_MAX} characters")
+    for key in ("important", "wake"):
+        if key in data and not isinstance(data[key], bool):
+            raise LinkedError("invalid", f"{key}: true or false")
+    stay = data.get("stay")
+    if "stay" in data and (isinstance(stay, bool) or not isinstance(stay, int) or not 0 <= stay <= 3600):
+        raise LinkedError("invalid", "stay: 0-3600 seconds")
+    if "icon" in data and (not isinstance(data["icon"], str) or not _ICON.match(data["icon"])):
+        raise LinkedError("invalid", "icon: mdi:<name> or hk:<name>")
+    for key in ("entity", "camera"):
+        if key in data and (not isinstance(data[key], str) or not _EID.match(data[key])):
+            raise LinkedError("invalid", f"{key}: an entity id")
+    if "camera" in data and not data["camera"].startswith("camera."):
+        raise LinkedError("invalid", "camera: a camera.* entity")
+    if "tap" in data and data["tap"] not in _NOTIFY_TAPS:
+        raise LinkedError("invalid", f"tap: one of {sorted(_NOTIFY_TAPS)}")
+    if "page" in data and (not isinstance(data["page"], str) or not _PAGE.match(data["page"])):
+        raise LinkedError("invalid", "page: a view's path")
+    for key in ("dashboards", "users"):
+        if key in data:
+            _check_strs(data[key], key)
+
+
 class Linked:
     """What ``register`` installs as ``app["linked"]``: the registry, the handler, the credential check."""
 
@@ -387,7 +453,11 @@ class Linked:
             raise LinkedError("invalid", "data: an object")
         data = dict(data)
         targets = self._targets(msg)
-        if service in ("show_popup", "close_popup"):
+        if service == "notify":
+            _check_notify(data)
+            if targets:
+                raise LinkedError("invalid", "notify takes no target")
+        elif service in ("show_popup", "close_popup"):
             if set(data) - _POPUP_KEYS:
                 raise LinkedError("invalid", f"unexpected keys {sorted(set(data) - _POPUP_KEYS)}")
             if not isinstance(data.get("popup"), str) or not data["popup"].strip():
@@ -497,7 +567,11 @@ async def ws_endpoint(request: web.Request) -> web.StreamResponse:
     client = LinkedClient(ws, account, peer)
     registry = linked.registry
     registry.clients.add(client)          # added and snapshotted with no await between: no gap
-    hello = {"type": "hello", "protocol": PROTOCOL, "services": list(SERVICES), "entities": registry.snapshot()}
+    owners = request.app.get("linked_owners")
+    if owners is not None:
+        registry.owners = owners.snapshot()          # the rows, read now: safe across a restart
+    hello = {"type": "hello", "protocol": PROTOCOL, "services": list(SERVICES), "entities": registry.snapshot(),
+             "owners": _copy(registry.owners)}
     log.info("linked: %s (%s) connected from %s", getattr(account, "name", "?"), getattr(account, "id", "?"), peer)
     tasks: set[asyncio.Task] = set()
 

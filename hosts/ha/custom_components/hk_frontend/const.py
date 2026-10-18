@@ -26,3 +26,8 @@ DEFAULT_FILES_FOLDER = "hk_local"
 # linked, which is every house's default. Home Assistant writes entry data to
 # .storage/core.config_entries in plain text, like every integration's secrets.
 CONF_MANTEL_LINK = "mantel_link"
+# Who owns which wall tablet while the house moves (linked_mode.py): the last
+# ownership Mantel Server told this side, {"house": "ha"|"mantel", "tablets":
+# [tablet ids Mantel owns]}, kept so a restart without Mantel keeps it. Absent:
+# every tablet (and the rest of the entry) is Home Assistant's.
+CONF_MANTEL_OWNERS = "mantel_owners"

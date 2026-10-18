@@ -43,6 +43,11 @@ for every target -> step-up if needed -> the audit row FIRST (``action_audit``, 
 cannot be written the command is refused and nothing is sent) -> forward with a one-shot ticket bound
 to that row -> the result back to the client and into the row. A remote (tunnel) unlock or disarm
 also notifies the Owners (an HA persistent notification).
+
+THE ALARM KEYPAD (alarm_pin.py; docs/phase3/GATEWAY.md "The alarm"): an ``alarm_control_panel.alarm_*``
+command's ``code`` is taken out in ``service_command``, checked by Mantel (``Gateway._alarm``: the house's
+Alarm PIN or a person's PIN), and never audited, logged or forwarded; the alarm's own HA code, if its
+panel asks for one, comes from Mantel's store.
 """
 from __future__ import annotations
 
@@ -59,7 +64,7 @@ from typing import Any, Awaitable, Callable, Iterable
 
 from aiohttp import web
 
-from . import rbac
+from . import alarm_pin, rbac
 from .authz import ENTITY_ID, Authz, Principal
 from .ha_client import (TALK_ENTITY, TALK_LIVE_TYPE, CommandBlocked, CommandTicket, HaCommandError, HaCommander,
                         HTTP_METHODS, UPLOAD_MAX_BYTES, UPLOAD_METHOD, UPLOAD_MIN_BYTES, UPLOAD_TYPES, _API_PATH,
@@ -133,6 +138,8 @@ class Command:
     targets: list[str] = field(default_factory=list)
     upload: tuple[str, str, bytes] | None = None  # (path, bare content type, bytes): the talk-back clip only
     live: str | None = None                 # live talk: the speaker a /ws/talk ticket is issued for
+    alarm: tuple[str, str] | None = None    # an alarm keypad command: (service, the panel it names)
+    code: str | None = field(default=None, repr=False)  # the keypad's code: checked by Mantel, never sent
 
 
 def _entity_list(value: Any) -> list[str]:
@@ -165,6 +172,20 @@ def service_command(domain: Any, service: Any, data: Any, target: Any, return_re
             raise Refused("unsupported_target", "only entity targets are accepted (area/device/floor/label are not)")
     ids = list(dict.fromkeys(_entity_list(target.get("entity_id")) + _entity_list(data.get("entity_id"))))
     action = f"{domain}.{service}"
+    alarm, code = None, None
+    if alarm_pin.is_keypad(domain, service):
+        # THE ALARM KEYPAD (alarm_pin.py, GATEWAY.md "The alarm"): the code the person typed is taken out
+        # HERE, before anything is audited or sent; Mantel checks it and never forwards it.
+        if set(data) - {"entity_id", "code"} or set(target) - {"entity_id"}:
+            raise Refused("invalid_command", "an alarm command carries entity_id and code only")
+        if len(ids) != 1 or not ids[0].startswith(alarm_pin.DOMAIN + "."):
+            raise Refused("unsupported_target", "an alarm command names exactly one alarm panel")
+        code = data.get("code")
+        if code is not None and not isinstance(code, str):
+            raise Refused("invalid_command", "the code is text")
+        code = code or None
+        data = {k: v for k, v in data.items() if k != "code"}
+        alarm = (service, ids[0])
     if ids:
         checks = [Check(action, eid) for eid in ids]
     elif domain in FEATURE_SERVICES:
@@ -181,7 +202,8 @@ def service_command(domain: Any, service: Any, data: Any, target: Any, return_re
         frame["target"] = target
     if return_response:
         frame["return_response"] = True
-    return Command("service", action, checks, frame=frame, targets=ids or [c.target for c in checks])
+    return Command("service", action, checks, frame=frame, targets=ids or [c.target for c in checks],
+                   alarm=alarm, code=code)
 
 
 def ws_rule(kind: str) -> tuple[str, str]:
@@ -320,6 +342,8 @@ def classify(msg: dict, writes: frozenset[str]) -> Command:
         seg = path.split("?", 1)[0].split("/")
         if method == "POST" and len(seg) == 5 and seg[2] == "services":
             cmd = service_command(seg[3], seg[4], body if isinstance(body, dict) else {}, None)
+            if cmd.alarm is not None:     # its code already taken out; the keypad path is the service command
+                raise Refused("unsupported_command", "an alarm is armed or disarmed with a service command")
             checks = cmd.checks
         else:
             checks = [Check("configure", feature="settings")]
@@ -581,6 +605,16 @@ class Gateway:
             if stepped is None:
                 return
             principal = stepped
+        if cmd.alarm is not None:
+            keypad = self.app.get("alarm_pin")
+            if keypad is not None and (cmd.code is not None or keypad.entry(cmd.alarm[1]) is not None):
+                return await self._alarm(principal, cmd, keypad, reply, fail)
+            if cmd.code is not None:
+                # no keypad engine to check it: a page's code is never forwarded to Home Assistant
+                aid = self.audit.record(principal=principal, kind=cmd.kind, action=cmd.action, targets=cmd.targets,
+                                        decision="denied", reason="alarm_pin_unavailable", result="not_sent")
+                return await reply(fail("unavailable", "alarm_pin_unavailable", aid))
+            # an alarm Mantel guards no keypad for, and no code: the ordinary path below
 
         subject = principal.subject
         ctx = self.authz.context()
@@ -629,6 +663,96 @@ class Gateway:
         trusted = authz is not None and hasattr(authz, "ha_trusted") and authz.ha_trusted(ident)
         if ident.door in REMOTE_DOORS and sensitive in NOTIFY_KINDS and not trusted:
             await self.notify_owners(principal, cmd, aid)
+
+    async def _alarm(self, principal: Principal, cmd: Command, keypad: Any, reply, fail) -> None:
+        """THE ALARM KEYPAD (alarm_pin.py; GATEWAY.md "The alarm"). HK's Alarm PIN, decided by Mantel:
+        the code (already out of the command) is checked by alarm_pin/pins, RBAC decides with
+        ``control.sensitive`` on the keypad panel and the alarm it forwards to whenever a code is needed,
+        the audit row is written FIRST, and only then does the command go to Home Assistant -- to the
+        alarm itself, with the alarm's own HA code from Mantel's store when the panel asks for one."""
+        service, named = cmd.alarm  # type: ignore[misc]
+        entry = keypad.entry_or_default(named)
+        code, action, targets = cmd.code, cmd.action, entry.targets()
+        needed = entry.needs_code(service, code)
+        sensitive = alarm_pin.SENSITIVE if needed else None
+
+        def record(decision: str, reason: str, who: Principal = principal, **kw) -> int:
+            return self.audit.record(principal=who, kind="service", action=action, targets=targets,
+                                     decision=decision, reason=reason, sensitive=sensitive, **kw)
+
+        if needed and code is None:
+            aid = record("denied", "alarm_code_required", result="not_sent")
+            return await reply(fail("code_required", "Enter the alarm code", aid))
+        verdict = alarm_pin.Verdict("none")
+        if code is not None:
+            verdict = await keypad.check(principal, entry, code, self.app.get("pins"))
+            if not verdict.ok:
+                aid = record("denied", f"alarm_code_{verdict.status}", result="not_sent")
+                log.info("alarm keypad %s refused a code from %s (%s)", named, _who(principal), verdict.status)
+                if verdict.status == "locked":
+                    wait = int(verdict.retry_after) + 1
+                    return await reply(fail("code_locked", f"Wrong code too many times; the keypad is locked for "
+                                            f"{(wait + 59) // 60} min", aid, retry_after=wait))
+                return await reply(fail("invalid_code", "Wrong code", aid))
+        # a person's PIN names them: decided as that person (∩ the tablet), for this one command
+        acting = self.authz.with_person(principal, verdict.person) if verdict.status == "person" else principal
+        subject = acting.subject
+        ctx = self.authz.context()
+        policy = keypad.keypad_policy(self.authz, subject)
+        checks = [Check(action, eid) for eid in targets]
+        if needed:
+            checks += [Check("control.sensitive", eid) for eid in targets]
+        decisions = [(c, policy.decide(subject, c.action, c.entity_id, ctx)) for c in checks]
+        denied = next(((c, d) for c, d in decisions if not d.allowed and not d.needs_step_up), None)
+        if denied is not None:
+            c, d = denied
+            aid = record("denied", d.reason, acting, result="not_sent")
+            log.info("denied %s on %s for %s (%s)", action, c.target, _who(acting), d.reason)
+            return await reply(fail("forbidden", f"not allowed: {action} on {c.target}", aid,
+                                    reason=d.reason, target=c.target))
+        step = next((d for _, d in decisions if d.needs_step_up), None)
+        # the house code is the factor on the LAN rules door only (the tunnel still wants the person's own)
+        if step is not None and not (verdict.status == "house" and subject.door == "lan"):
+            aid = record("step_up", step.reason, acting, result="not_sent")
+            return await reply({"type": "step_up_required", "reason": step.reason, "action": action,
+                                "targets": targets, "methods": self._methods(principal),
+                                "window": self.authz.policy_for(subject).step_up_window, "audit_id": aid})
+        # the alarm's OWN code, for a panel that asks for one: Mantel's, never the page's
+        attrs = _attrs(self.app, entry.forward_to)
+        ha_code = None
+        if attrs.get("code_format"):
+            ha_code = keypad.ha_code(entry.entity) if entry.configured else None
+            if not ha_code:
+                aid = record("denied", "alarm_ha_code_missing", acting, result="not_sent")
+                return await reply(fail("unavailable", "alarm_ha_code_missing", aid))
+        if self.commander is None:
+            aid = record("denied", "commands_disabled", acting, result="not_sent")
+            return await reply(fail("unavailable", "commands_disabled", aid))
+        ident = acting.identity
+        factor = {"house": "alarm_pin", "person": "pin"}.get(verdict.status, ident.fresh_factor if needed else None)
+        age = 0.0 if verdict.status in ("house", "person") else (
+            (self.clock() - ident.fresh_factor_at) if (needed and ident.fresh_factor_at) else None)
+        # THE AUDIT ROW FIRST: if this raises, nothing below runs and nothing is sent.
+        aid = record("allowed", "granted", acting, step_up=factor, step_up_age=age)
+        data: dict = {"entity_id": entry.forward_to}
+        if ha_code:
+            data["code"] = ha_code
+        frame = {"type": "call_service", "domain": alarm_pin.DOMAIN, "service": service, "service_data": data}
+        try:
+            result = await self.commander.call(frame, CommandTicket(aid, "ws"))
+        except Exception as exc:  # noqa: BLE001 -- HA's error is the client's answer, and the row's result
+            code_ = _error_code(exc)
+            self._finish(aid, f"error:{code_}")
+            log.warning("%s for %s failed: %s", action, _who(acting), code_)
+            return await reply(fail(code_, str(exc)[:300], aid))
+        self._finish(aid, "ok")
+        log.info("%s on %s by %s (audit %d)", action, ",".join(targets), _who(acting), aid)
+        await reply({"type": "command_result", "result": result, "audit_id": aid})
+        authz = self.app.get("authz")
+        trusted = authz is not None and hasattr(authz, "ha_trusted") and authz.ha_trusted(principal.identity)
+        if service == alarm_pin.DISARM and principal.identity.door in REMOTE_DOORS and not trusted:
+            cmd.targets = targets
+            await self.notify_owners(acting, cmd, aid)
 
     def _unavailable(self, cmd: Command) -> str | None:
         if cmd.live is not None and (self.commander is None or self.app.get("talk") is None):
@@ -706,6 +830,14 @@ def _action(msg: dict) -> str | None:
     if k == "talk_live":
         return TALK_LIVE_TYPE
     return None
+
+
+def _attrs(app: Any, entity_id: str) -> dict:
+    """The entity's attributes from the hub's state copy ({} when unknown)."""
+    hub = app.get("hub") if hasattr(app, "get") else None
+    st = getattr(getattr(hub, "store", None), "states", {}).get(entity_id) if hub is not None else None
+    a = st.get("a") if isinstance(st, dict) else None
+    return a if isinstance(a, dict) else {}
 
 
 def _who(principal: Principal) -> str:

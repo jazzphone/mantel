@@ -152,15 +152,17 @@ freeing the tuner, when the last WebRTC consumer leaves. Mantel removes the stre
 ends (a quick re-tune keeps it), and every 30 s removes any `mantel_tv_*` stream no session uses (after a
 restart, for example).
 
-**Linked mode.** With `linked` on and HA's Live TV item id known (the import's `ha.items.live_tv`), Mantel
-publishes hk_frontend's Live TV entities to the linked HA with their unique ids:
+**Linked mode.** `linked_house.py` stays the one publisher of hk_frontend's Live TV entities: it learns their
+unique and entity ids from HA's registry, and publishes them while Mantel owns `house`. Where Mantel serves
+Live TV, it now takes two things from `live_tv.py`:
 
-- `{item}_viewers` (`sensor.tv_viewers`, so a tablet's sleep template keeps working)
-- `{item}_{n}_now`
-- `{item}_{n}_camera`
+- `{item}_viewers` (`sensor.tv_viewers`) carries Mantel's viewer count, so a tablet's sleep template keeps
+  working. Otherwise it stays 0.
+- `{item}_{n}_camera` is **available** for each channel Mantel serves. Otherwise it's unavailable.
 
-The cameras carry **no stream source**: HA's own dashboards don't play Mantel's channels (HK's pages do,
-through Mantel). Turning Live TV off removes all of them.
+`{item}_{n}_now` comes from Mantel's guide either way. The cameras carry **no stream source**: HA's own
+dashboards don't play Mantel's channels (HK's pages do, through Mantel). Turning Live TV off makes the cameras
+unavailable again and the viewers 0.
 
 **Nothing reaches the page but the SDP answer.** Never the tuner's address, go2rtc's API address or any
 credential (pinned by the tests and both e2e runs). The answer's candidates name go2rtc's published WebRTC port
@@ -181,14 +183,16 @@ shows the mode, channels, viewers, sessions, streams, linked entities and last e
 
 ## Other gaps
 
-- **HA's own Lovelace energy cards** (`energy-date-selection`, `energy-sources-table`,
-  `energy-devices-graph`, `energy-devices-detail-graph`) are drawn only when the Energy options' `detail` is on.
-  Mantel's view host doesn't have them.
-- **Lovelace's `markdown` card** isn't in the view host either. An Energy page with nothing to show ("Nothing to
-  show yet…") draws an empty placeholder instead of that line.
-- **HK Settings → Features pages** read each feature's `<id>/settings/get`, which pages can't send on Mantel.
-  Since panel/get now lists the features as added, an Owner opening one sees it fail to load. Saving feature
-  settings was already `not_yet`.
+- ~~**HA's own Lovelace energy cards** and the **`markdown` card**~~ done 2026-10-18: Mantel's view host
+  draws `markdown` (the Energy page's "Nothing to show yet..." line) and `energy-date-selection`,
+  `-sources-table`, `-devices-graph` and `-devices-detail-graph` (shown when the Energy options' `detail`
+  is on) with HK's own elements, from `energy/get_prefs` and `recorder/statistics_during_period`
+  (`docs/phase2/VIEW-HOST.md`). No cost columns or period comparison.
+- ~~**HK Settings → Features pages** read each feature's `<id>/settings/get`, which pages can't send on Mantel.~~
+  **Fixed (2026-10-18, [MANTEL-FEATURES.md](MANTEL-FEATURES.md) "Phase 4 ports" item 5):** Mantel answers each page
+  for Owners/Admins and stores Notifications', Clean Areas', Energy's and Live TV's saves in
+  `house/mantel_features`; Music's and Alarm PIN's pages are an interim rebuilt read of HA's, their saves still
+  `not_yet`.
 - **A change made in HA after the import** doesn't reach Mantel until the import is run again (POST or the
   Ingress button).
 
@@ -232,7 +236,7 @@ shows the mode, channels, viewers, sessions, streams, linked entities and last e
     - the channels and their entities; RBAC (Guest, Child, the wall-tablet grant)
     - a channel plays through go2rtc and stops when nobody watches; a quick re-tune keeps the stream;
       candidates only go into your own session; other cameras still go to HA; go2rtc down is the page's error
-    - the viewers sensor; linked mode's entities and their removal; the overlay wins over HA's copy; stale
+    - the viewers sensor; linked mode's entities (through linked_house.py: the count, available cameras, and back when off); the overlay wins over HA's copy; stale
       streams are reaped; the status route
 
     Also `tests/test_shim_features.py`: the heartbeat in both modes, commands on and off.

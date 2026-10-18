@@ -409,28 +409,44 @@ async def test_the_viewers_sensor_counts_screens_and_people(rig):
 
 
 async def test_linked_mode_publishes_has_live_tv_entities(rig):
+    # linked_house.py is the one publisher of hk_frontend's Live TV entities (the ids it learns from HA's
+    # registry); where Mantel serves Live TV they carry its viewer count and are available
     r = await rig(linked=True)
+    entry = "e2e0entry0id"
+    hub = r.app["hub"]
+    hub.registry.update(entities=list(hub.registry.entity_entries) + [
+        {"entity_id": "sensor.tv_viewers", "platform": "hk_frontend", "unique_id": f"{ITEM}_viewers",
+         "config_entry_id": entry, "original_name": "TV viewers"},
+        {"entity_id": "sensor.tv_nbc_now", "platform": "hk_frontend", "unique_id": f"{ITEM}_4.1_now",
+         "config_entry_id": entry, "original_name": "TV NBC now"},
+        {"entity_id": "camera.tv_nbc", "platform": "hk_frontend", "unique_id": f"{ITEM}_4.1_camera",
+         "config_entry_id": entry, "original_name": "TV NBC"}])
+    await r.env.login("owner1", "owner")
+    resp = await r.env.m.client.put("/api/linked/owners", json={"unit": "house", "owner": "mantel"},
+                                    headers=r.env.m.headers())
+    assert resp.status == 200
+    await r.tv.sync()
     reg = r.app["linked"].registry
-    uids = set(reg.entities)
-    assert {f"{ITEM}_viewers", f"{ITEM}_4.1_now", f"{ITEM}_4.1_camera", f"{ITEM}_7.1_now", f"{ITEM}_7.1_camera"} <= uids
     v = reg.get(f"{ITEM}_viewers")
     assert (v["entity_id"], v["platform"], v["state"]) == ("sensor.tv_viewers", "sensor", 0)
     cam = reg.get(f"{ITEM}_4.1_camera")
-    assert cam["entity_id"] == "camera.tv_nbc" and cam["features"] == {}, "no stream source is handed to HA"
+    assert cam["entity_id"] == "camera.tv_nbc" and cam["available"] is True and cam["features"] == {}, \
+        "served by Mantel: available, and no stream source is handed to HA"
     assert reg.get(f"{ITEM}_4.1_now")["state"] == "The Fictional Hour"
-    ws = await r.socket("owner1", "owner")
+    ws = await r.env.socket(expect_caps=False)
     await ws.send_json({"type": "tv_watching", "id": 1, "channel": "4.1"})
     await GF.recv(ws)
     v = reg.get(f"{ITEM}_viewers")
     assert v["state"] == 1 and v["attributes"]["users"] == ["Owner1"]
-    # Live TV turned off: the linked entities go with it
+    # Live TV turned off: the cameras go unavailable and the viewers back to 0; Mantel's overlay goes
     body = F.check_settings({**r.app["features"].settings, "live_tv": {**r.app["features"].settings["live_tv"], "enabled": False}})
     r.app["settings"].store.write([("house", F.FEATURES_DOC, body)], actor=Actor(label="test"))
     await r.app["features"].reload()
     await r.tv.sync()
-    assert not {u for u in reg.entities if u.startswith(ITEM)}
-    assert r.state("camera.tv_nbc") is None and r.state(L.VIEWERS_ID) is None
-    assert "camera.tv_nbc" not in r.app["hub"].registry.entries
+    assert reg.get(f"{ITEM}_4.1_camera")["available"] is False and reg.get(f"{ITEM}_viewers")["state"] == 0
+    assert r.state(L.VIEWERS_ID) is None
+    assert "camera.tv_nbc" in hub.registry.entries, "HA's own entry stays; Mantel's overlay entry is gone"
+    assert not hub.registry.entries["camera.tv_nbc"].get("mantel_live_tv")
     await ws.close()
 
 

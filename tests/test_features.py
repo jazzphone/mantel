@@ -58,7 +58,20 @@ class FakeProxy:
         pass
 
 
-async def build(tmp_path, monkeypatch, *, commands=False, settings=None, tablet=None, hooks=None, popups=()):
+def own(app, *units):
+    """The fixture's starting ownership (linked_owners.py): these units Mantel's. Not a move under test,
+    so no audit row (the moves themselves are tested in test_linked_owners.py)."""
+    owners = app["linked_owners"]
+    audit, owners.audit = owners.audit, None
+    try:
+        for u in units:
+            owners.set(u, "mantel", by="test")
+    finally:
+        owners.audit = audit
+
+
+async def build(tmp_path, monkeypatch, *, commands=False, settings=None, tablet=None, hooks=None, popups=(),
+                owned=("hall",)):
     app, store, now, fake = await GF.make(tmp_path, monkeypatch, commands=commands)
     hub = app["hub"]
     hub.registry.load(AREAS, DEVICES, ENTITIES)
@@ -69,6 +82,7 @@ async def build(tmp_path, monkeypatch, *, commands=False, settings=None, tablet=
     if settings is not None:
         docs.append(("house", F.FEATURES_DOC, F.check_settings(settings)))
     st.write(docs, actor=Actor(label="test"))
+    own(app, *owned)
     h = {"may_read": app["authz"].may_read, "tick": 3600.0, **(hooks or {})}
     host = F.register(app, hub, h)
     return app, store, now, fake, host
@@ -157,7 +171,9 @@ async def test_every_piece_is_off_until_the_settings_turn_it_on(make_env):
     env = await make_env()
     host = env.host
     assert host.status()["pieces"] == {p: False for p in F.PIECES}
-    assert type(env.app["linked"].handler).__name__ == "FeatureLinked", "linked mode's hook point is wired"
+    handler = env.app["linked"].handler
+    assert type(handler).__name__ == "LinkedHandler" and handler.features is env.host.linked, \
+        "linked mode's hook point is wired (notify and the house-level entities wrap FeatureLinked)"
     change(env.app, DOOR, "on")
     assert not host.notifier.sent and not host.engines and host.acting_entities() == set()
     with pytest.raises(Exception) as e:

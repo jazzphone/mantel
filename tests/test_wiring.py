@@ -123,7 +123,7 @@ def test_build_app_installs_the_door_rule(tmp_path):
                            store=Store(tmp_path / "m.db"), connect_ha=False)
     assert app["door_resolver"] is resolve_door
     assert {"read", "read_subscribe", "read_unsubscribe", "read_api", "ma/read", "ma/subscribe", "ma/unsubscribe",
-            "settings_write", "screen_report", "notify_mute", "clean_areas_run", "tv_watching"} \
+            "settings_write", "screen_report", "notify_mute", "clean_areas_run", "tablets_restart", "tv_watching"} \
         == set(app["ws_handlers"])
     assert app["gateway"] is None and app["commander"] is None and app["ma"] is None
     paths = {r.resource.canonical for r in app.router.routes() if r.resource is not None}

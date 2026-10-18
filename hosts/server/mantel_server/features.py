@@ -13,8 +13,13 @@ settings store; ``PUT /api/features/settings``, Owner only). A piece that is off
   what a change sets off; the payload (``banner.build``) goes to every Mantel screen listening on
   ``hk_frontend/events/subscribe`` (the message type HK's page already opens: same shapes, served
   from ``app["read_routes"]``), and Wakes the Screen through the Sleep Screen engines. Mute 1 Hour
-  is kept in the settings store (``house/notify_mutes``), so it survives a restart. Snapshots are not
-  taken on Mantel yet (``snap`` stays None).
+  is kept in the settings store (``house/notify_mutes``), so it survives a restart. A notification
+  naming a camera carries its snapshot (``notify_snaps.py``: taken through Mantel's own HA credential,
+  kept with retention, served by Mantel with RBAC), and the Calendars category looks ahead once a
+  minute (``feature_watch.CalendarLook``). HK Settings' feature pages are answered by
+  ``feature_pages.py``.
+* ``tablets``: All Tablets' alerts (an Important banner) and scheduled restart, each press a gateway
+  command (``feature_watch.TabletWatch``).
 * ``linked``: the real handler for Phase 5's linked ``hk_frontend`` (``linked.py``'s hook point):
   ``set_black_screen`` acts on Mantel's screens (hk_core's ``Black``, the confirmed handshake: the new
   state is pushed BEFORE the call's answer), ``show_popup`` / ``close_popup`` go to the screens' event
@@ -66,6 +71,7 @@ import time
 from collections import deque
 from dataclasses import dataclass, field, replace
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from typing import Any, Awaitable, Callable, Mapping
 
 from aiohttp import web
@@ -83,7 +89,9 @@ from hk_core.screensaver.black import Black
 from hk_core.settings import model as SM
 from hk_core.sleep import engine as SE
 
+from . import feature_pages, notify_snaps
 from . import gateway as G
+from .feature_watch import CalendarLook, TabletWatch
 from .connectors import Ctx, Forbidden, Route, deny_read, may_feature, read_routes, ws_handlers
 from .house import HouseCommandRefused, HouseCommandsDisabled, MantelHouse
 from .linked import LinkedError
@@ -94,7 +102,7 @@ FEATURE_ACTOR = "mantel:features"
 FEATURE_ACTOR_NAME = "Mantel features"
 FEATURES_DOC = "mantel_features"        # house/<this>: the pieces and their settings
 MUTES_DOC = "notify_mutes"              # house/<this>: Mute 1 Hour, {"mutes": {key: until (epoch s)}}
-PIECES = ("notifications", "linked", "sleep", "clean_areas", "energy", "live_tv")
+PIECES = ("notifications", "linked", "sleep", "clean_areas", "energy", "live_tv", "tablets")
 DEFAULTS: dict[str, dict[str, Any]] = {
     "notifications": {"enabled": False, "options": {}, "items": []},
     "linked": {"enabled": False, "entry_id": None, "backlight": False, "backlights": {}},
@@ -102,6 +110,9 @@ DEFAULTS: dict[str, dict[str, Any]] = {
     "clean_areas": {"enabled": False, "options": {}},
     "energy": {"enabled": False, "options": {}},
     "live_tv": {"enabled": False, "tuner": "", "guide_url": "", "channels": [], "names": {}, "quality": "720"},
+    # All Tablets' alerts and scheduled restart (feature_watch.TabletWatch), with the house settings' own
+    # `tablets` choices (alert_offline, alert_charging, alert_restart, restart, restart_times)
+    "tablets": {"enabled": False},
     # NOT A PIECE: what the feature import read from Home Assistant (import_features): the HK features HA
     # had added (``added``, HA's kinds), their items ({kind: [{entry_id, title}]}) and where from. Music,
     # Alarm PIN and Live TV's channel cameras still run in HA: the screens are told they are added from this.
@@ -766,8 +777,23 @@ class Notifier:
                 self.deliver(item, new, eid)
 
     def deliver(self, item: dict[str, Any], new: State | None, eid: str) -> dict[str, Any]:
+        payload = NB.build(self.host.house, self.opts, item, new, eid=eid)
+        if payload.get("camera") and self.host.can_snap():
+            self.host.spawn(self.send(payload, item.get("id"), eid))     # the snapshot first, as HA's
+        else:
+            self._out(payload, item.get("id"), eid)
+        return payload
+
+    async def send(self, payload: dict[str, Any], item_id: Any, eid: Any) -> dict[str, Any]:
+        """One notification out the one way (HA's async_deliver): the camera's snapshot taken first
+        (notify_snaps.py; its id is the payload's ``snap``), then the screens' feed, then the wake."""
+        if payload.get("camera") and payload.get("snap") is None and self.host.can_snap():
+            payload["snap"] = await self.host.take_snapshot(str(payload["camera"]))
+        self._out(payload, item_id, eid)
+        return payload
+
+    def _out(self, payload: dict[str, Any], item_id: Any, eid: Any) -> None:
         h = self.host.house
-        payload = NB.build(h, self.opts, item, new, eid=eid)
         screens = self.host.feed.send(payload)
         woke = []
         if payload["wake"] and (payload["important"] or not ND.dnd_on(h, self.opts.get("dnd"), self.host.now())):
@@ -776,9 +802,9 @@ class Notifier:
                 if (self.host.boards.get(tid) or {}).get("notify", True):
                     eng.notify_wake(payload["title"], secs)
                     woke.append(tid)
-        self.sent.append({"at": time.time(), "item": item.get("id"), "entity": eid, "title": payload["title"],
-                          "message": payload["message"], "screens": screens, "woke": woke})
-        return payload
+        self.sent.append({"at": time.time(), "item": item_id, "entity": eid, "title": payload["title"],
+                          "message": payload["message"], "screens": screens, "woke": woke,
+                          "snap": payload.get("snap")})
 
     def set_mute(self, key: str, seconds: int, actor: Any = None) -> float | None:
         until = NB.set_mute(self.mutes, key, seconds, self.host.epoch())
@@ -820,6 +846,8 @@ class FeatureLinked:
             tid, key = host.linked_index.get(t["unique_id"], (None, None))
             if tid is None or key != SS.BLACK_KEY:
                 raise LinkedError("not_a_black_screen", f"{t['entity_id']} is not a black screen switch")
+            if not host.mantel_owns(tid):
+                raise LinkedError("not_owned", f"{t['entity_id']}'s tablet is Home Assistant's, not Mantel's")
             on = await host.set_black(tid, black=data.get("black"), brightness=data.get("brightness"), why="linked")
             out[t["entity_id"]] = {"on": on}
         return out
@@ -1058,6 +1086,10 @@ class FeatureHooks:
     now: Callable[[], datetime] | None = None
     monotonic: Callable[[], float] | None = None
     tick: float = 60.0
+    # notification snapshots (notify_snaps.py): Mantel's own HA credential (the connectors' ha_token), or
+    # take_snapshot(camera) -> (bytes, content type) | None in tests; neither: no snapshots
+    ha_token: Callable[[], str] | None = None
+    take_snapshot: Callable[[str], Awaitable[tuple[bytes, str] | None]] | None = None
 
     @classmethod
     def coerce(cls, hooks: Any) -> "FeatureHooks":
@@ -1068,7 +1100,8 @@ class FeatureHooks:
         if isinstance(hooks, Mapping):
             names = set(cls.__dataclass_fields__)
             return cls(**{k: v for k, v in hooks.items() if k in names})
-        return cls(may_read=getattr(hooks, "may_read", deny_read))      # the connectors' shared Hooks
+        return cls(may_read=getattr(hooks, "may_read", deny_read),      # the connectors' shared Hooks
+                   ha_token=getattr(hooks, "ha_token", None))
 
 
 class FeatureHost:
@@ -1089,6 +1122,12 @@ class FeatureHost:
         self.notifier = Notifier(self)
         self.linked = FeatureLinked(self)
         self.tv = LiveTv(self)
+        cfg = app.get("cfg")
+        folder = (Path(cfg.data_dir).expanduser() / notify_snaps.FOLDER) if getattr(cfg, "data_dir", None) else None
+        self.snaps = notify_snaps.SnapStore(folder, clock=self.epoch)
+        self.calendars = CalendarLook(self)
+        self.tablet_watch = TabletWatch(self)
+        self.pages: feature_pages.FeaturePages | None = None
         self.linked_index: dict[str, tuple[str, str]] = {}     # unique id -> (tablet, key)
         self._own_index: dict[str, tuple[str, str]] = {}       # entity id -> (tablet, role)
         self._published: set[str] = set()
@@ -1212,10 +1251,20 @@ class FeatureHost:
                     out |= {e for e in eng.kiosk.values() if e.split(".", 1)[0] in KIOSK_DOMAINS}
         if self.on("linked") and self.settings["linked"]["backlight"]:
             for tid in self.tablets:
+                if not self.mantel_owns(tid):
+                    continue
                 eid = self.backlight_of(tid)
                 if eid:
                     out.add(eid)
+        out |= self.tablet_watch.grants()          # the scheduled restart's buttons, while it is on
         return out
+
+    def mantel_owns(self, tid: str) -> bool:
+        """Linked mode's per-tablet ownership (linked_owners.py): Mantel acts for, publishes and answers
+        for a tablet only once an Owner moved it to Mantel. Default (no row, or no ownership at all):
+        Home Assistant's, so HA's own engines keep it and Mantel never drives the same kiosk."""
+        owners = self.app.get("linked_owners")
+        return owners is not None and owners.owns(tid)
 
     def backlight_of(self, tid: str) -> str | None:
         named = self.settings["linked"]["backlights"].get(tid)
@@ -1255,7 +1304,8 @@ class FeatureHost:
             self.spawn(self.push_areas())
 
     def _sleep_engines(self) -> None:
-        want = {tid for tid, b in self.boards.items() if self.on("sleep") and SS.deciding(b)}
+        want = {tid for tid, b in self.boards.items()
+                if self.on("sleep") and SS.deciding(b) and self.mantel_owns(tid)}
         for tid in list(self.engines):
             if tid not in want:
                 self.engines.pop(tid).unload()
@@ -1437,7 +1487,8 @@ class FeatureHost:
                         "name": None, "translation_key": key, "has_entity_name": True, "icon": icon,
                         "device": {"identifier": f"{entry}_{uid}", "name": t["name"], "manufacturer": "HK Frontend",
                                    "model": "Wall Tablet"},
-                        "state": state, "attributes": json.loads(json.dumps(attrs, default=str)), "available": True}
+                        "state": state, "attributes": json.loads(json.dumps(attrs, default=str)), "available": True,
+                        "tablet": tid}
         return out
 
     async def _sync_linked(self) -> None:
@@ -1449,11 +1500,14 @@ class FeatureHost:
         index: dict[str, tuple[str, str]] = {}
         if entry:
             for tid in self.tablets:
+                if not self.mantel_owns(tid):
+                    continue
                 for key, desc in self.tablet_entities(tid).items():
                     want[desc["unique_id"]] = desc
                     index[desc["unique_id"]] = (tid, key)
         for uid in list(self._published - set(want)):
-            await reg.remove(uid)
+            # a tablet still in the settings is only no longer Mantel's: HA keeps its registry entry
+            await reg.remove(uid, forget=self.linked_index.get(uid, (None, None))[0] not in self.tablets)
             self._published.discard(uid)
         for uid, desc in want.items():
             have = reg.get(uid)
@@ -1521,8 +1575,44 @@ class FeatureHost:
                 # and then (as HA's own is, at most every CACHE_S, when asked)
                 if self.on("energy") and self.monotonic() - self._energy_at >= ENERGY_REFRESH_S:
                     self.spawn(self.refresh_energy())
+                self.minute()
             except Exception:  # noqa: BLE001
                 log.exception("features: tick failed")
+
+    def minute(self) -> None:
+        """The clock-driven ports' minute: the calendars' look-ahead, the tablets' alerts and scheduled
+        restart (feature_watch.py), and the snapshots' retention (notify_snaps.py)."""
+        if self.calendars.wanted():
+            self.spawn(self.calendars.look())
+        self.tablet_watch.check()
+        self.tablet_watch.due()
+        self.snaps.prune()
+
+    # -- notification snapshots ------------------------------------------------------------------------
+    def can_snap(self) -> bool:
+        return self.hooks.take_snapshot is not None or self.hooks.ha_token is not None
+
+    async def take_snapshot(self, camera: str) -> str | None:
+        """The camera's picture now, kept (notify_snaps.SnapStore); its id, or None (the notification
+        goes without, as HA's)."""
+        if not notify_snaps.CAMERA_ID.match(camera):
+            return None
+        try:
+            if self.hooks.take_snapshot is not None:
+                got = await self.hooks.take_snapshot(camera)
+            elif self.hooks.ha_token is not None:
+                cfg = self.app["cfg"]
+                got = await notify_snaps.take_from_ha(self.app, cfg.ha_url, self.hooks.ha_token(), camera)
+            else:
+                return None
+            if not got:
+                self.snaps.failed += 1
+                return None
+            return self.snaps.put(got[0], got[1], camera)
+        except Exception as exc:  # noqa: BLE001 -- any camera failure: no picture
+            self.snaps.failed += 1
+            log.info("notification snapshot from %s failed: %s", camera, type(exc).__name__)
+            return None
 
     async def _tv_loop(self) -> None:
         while self.on("live_tv"):
@@ -1531,6 +1621,11 @@ class FeatureHost:
 
     # -- reads ---------------------------------------------------------------------------------------
     async def energy_plan(self) -> dict[str, Any]:
+        _prefs, opts, ctx = await self.energy_inputs()
+        return EP.build(ctx, opts)
+
+    async def energy_inputs(self) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
+        """(HA's Energy settings, the feature's options, what the plan is worked out from)."""
         proxy = getattr(self.hub, "readproxy", None)
         if proxy is None:
             raise Forbidden("no connection to Home Assistant's Energy settings")
@@ -1545,8 +1640,8 @@ class FeatureHost:
         opts = self.settings["energy"]["options"]
         house = {**self.store.body("house", "settings"),
                  "accessories": self.store.body("house", "accessories") or {}}
-        return EP.build(energy_context(self.house, prefs if isinstance(prefs, dict) else {}, opts,
-                                       energy_house(self.house, house)), opts)
+        prefs = prefs if isinstance(prefs, dict) else {}
+        return prefs, opts, energy_context(self.house, prefs, opts, energy_house(self.house, house))
 
     def clean_coverage(self) -> dict[str, Any]:
         opts = self.settings["clean_areas"]["options"]
@@ -1722,6 +1817,9 @@ class FeatureHost:
                         for tid, s in self.screens.items()},
             "live_tv": {"lineup": len(self.tv.lineup), "channels": len(self.tv.guide), "fetched_at": self.tv.fetched_at,
                         "error": self.tv.error},
+            "snapshots": self.snaps.status(),
+            "calendars": self.calendars.status(),
+            "tablets": self.tablet_watch.status(),
             "screens_told": {"added": self.client_added(), "energy_plan": self.energy_cache is not None,
                              "energy_error": self.energy_error, "area_pickers": len(self._area_subs),
                              "imported_from": self.settings["ha"]["source"]},
@@ -1859,8 +1957,8 @@ def register(app: web.Application, hub: Any, hooks: Any = None) -> FeatureHost:
     # the page's messages (none is command-shaped; a house command still goes through the gateway)
     async def screen_report(ctx: Ctx, msg: dict) -> None:
         rid, tid = msg.get("id"), msg.get("tablet")
-        ok = isinstance(tid, str) and set(msg) <= {"type", "id", "tablet", "touch", "saver", "black"} \
-            and all(isinstance(msg.get(k), bool) for k in ("touch", "saver", "black") if k in msg)
+        ok = isinstance(tid, str) and set(msg) <= {"type", "id", "tablet", "touch", "saver", "black", "photos"} \
+            and all(isinstance(msg.get(k), bool) for k in ("touch", "saver", "black", "photos") if k in msg)
         if not ok:
             return await ctx.send({"type": "screen_result", "id": rid, "error": {"code": "invalid"}})
         if not may_speak_for(host, ctx.identity, tid):
@@ -1868,6 +1966,10 @@ def register(app: web.Application, hub: Any, hooks: Any = None) -> FeatureHost:
         if msg.get("touch"):
             host.touched(tid, saver=bool(msg.get("saver")))
         changed = await host.page_says(tid, msg["black"]) if "black" in msg else False
+        if "photos" in msg:                 # HK's photo screensaver came up / went away on this page
+            scr = host.screen(tid)
+            changed = changed or (scr is not None and scr.photos != msg["photos"])
+            await host.set_photos(tid, msg["photos"])
         await ctx.send({"type": "screen_result", "id": rid, "result": {"changed": changed}})
 
     async def notify_mute(ctx: Ctx, msg: dict) -> None:
@@ -1893,8 +1995,27 @@ def register(app: web.Application, hub: Any, hooks: Any = None) -> FeatureHost:
                                    dry_run=bool(msg.get("dry_run")), context=ctx.identity)
         await ctx.send({"type": "clean_areas_result", "id": rid, "result": out})
 
+    # All Tablets' "Restart all now" (HK's hk_frontend/tablet/act restart_all): the restart as the person who
+    # asked, each press a gateway command (refused and audited `would` while house commands are off)
+    async def tablets_restart(ctx: Ctx, msg: dict) -> None:
+        rid = msg.get("id")
+        if set(msg) - {"type", "id"}:
+            return await ctx.send({"type": "tablets_restart_result", "id": rid, "error": {"code": "invalid"}})
+        if host.pages is None or not host.pages.may_configure(ctx.identity, "tablets"):
+            return await ctx.send({"type": "tablets_restart_result", "id": rid, "error": {"code": "forbidden"}})
+        if not host.on("tablets"):
+            return await ctx.send({"type": "tablets_restart_result", "id": rid,
+                                   "error": {"code": "not_set_up", "message": "Mantel's tablets piece is off"}})
+        done = await host.tablet_watch.restart_all(context=ctx.identity)
+        last = host.tablet_watch.restarts[-1] if host.tablet_watch.restarts else {}
+        await ctx.send({"type": "tablets_restart_result", "id": rid,
+                        "result": {"restarted": done, "presses": last.get("presses", [])}})
+
     ws_handlers(app).update({"screen_report": screen_report, "notify_mute": notify_mute,
-                             "clean_areas_run": clean_run})
+                             "clean_areas_run": clean_run, "tablets_restart": tablets_restart})
+    # notification snapshots (GET /api/notify/snap/<id>, hk_notify/snap/sign) and HK Settings' feature pages
+    notify_snaps.register(app, host.snaps)
+    host.pages = feature_pages.register(app, host)
 
     # REST: the status (Owner/Admin) and the settings (read Owner/Admin, write Owner)
     def who(request: web.Request, owner_only: bool = False) -> Any:

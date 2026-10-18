@@ -36,7 +36,7 @@ from . import features as F
 from . import files
 from . import lovelace_boards
 from . import settings as S
-from .const import CONF_FILES_FOLDER, CONF_MANTEL_LINK, DEFAULT_FILES_FOLDER, DOMAIN
+from .const import CONF_FILES_FOLDER, CONF_MANTEL_LINK, CONF_MANTEL_OWNERS, DEFAULT_FILES_FOLDER, DOMAIN
 from .features import alarm_pin, clean_areas, energy, live_tv, music, notifications
 from .features.music.const import SUB_PLAYLIST, SUB_PRESET
 from .features.music.flows import PlaylistFlow, PresetFlow
@@ -630,6 +630,9 @@ class HkOptionsFlow(OptionsFlow):
             data = dict(entry.data)
             if not user_input.get("enabled"):
                 data.pop(CONF_MANTEL_LINK, None)
+                # unlinked: everything Home Assistant's again; linking again
+                # starts from that until Mantel says otherwise
+                data.pop(CONF_MANTEL_OWNERS, None)
             else:
                 url = str(user_input.get("url") or "").strip()
                 token = str(user_input.get("token") or "").strip() or (now or {}).get("token", "")
@@ -651,7 +654,7 @@ class HkOptionsFlow(OptionsFlow):
             vol.Optional("url", default=(now or {}).get("url", "")): str,
             vol.Optional("token", default=""): sel.TextSelector(
                 sel.TextSelectorConfig(type=sel.TextSelectorType.PASSWORD)),
-        }), description_placeholders={"state": "linked" if now else "not linked"})
+        }), description_placeholders={"state": linked_mode.describe(entry)})
 
     async def async_step_files(self, user_input: dict[str, Any] | None = None
                                ) -> ConfigFlowResult:

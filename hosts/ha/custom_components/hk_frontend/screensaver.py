@@ -117,6 +117,14 @@ class Manager:
         want = wanted(self.entry)
         reg = er.async_get(self.hass)
         devs = dr.async_get(self.hass)
+        # LINKED (linked_mode.py): a tablet Mantel Server owns has no engine
+        # or entity of HA's own (Mantel's are mirrored); it is still a tablet
+        # (removing it is still the only thing that removes its entities)
+        mantel = linked_mode_tablets(self.hass, self.entry)
+        for tid in [t for t in self.entities if t in mantel and t in want]:
+            for ent in self.entities.pop(tid).values():
+                if ent.hass is not None:
+                    self.hass.async_create_task(ent.async_remove())
         for tid in list(self.entities):
             if tid not in want:
                 for ent in self.entities.pop(tid).values():
@@ -132,6 +140,7 @@ class Manager:
         from .binary_sensor import ScreenInUse
         from .sensor import SleepScreenSensor
         from .switch import BlackScreen, PhotoScreensaver
+        want = {tid: w for tid, w in want.items() if tid not in mantel}
         for tid, w in want.items():
             have = self.entities.setdefault(tid, {})
             uid, name = w["tablet"]["uid"], w["tablet"]["name"]
@@ -273,6 +282,11 @@ class SaverEntity:
 
     def touched(self) -> None:
         self.async_write_ha_state()
+
+
+def linked_mode_tablets(hass: HomeAssistant, entry: ConfigEntry) -> frozenset[str]:
+    from . import linked_mode
+    return linked_mode.mantel_tablets(hass, entry)
 
 
 def device_info(entry: ConfigEntry, uid: str, title: str) -> Any:

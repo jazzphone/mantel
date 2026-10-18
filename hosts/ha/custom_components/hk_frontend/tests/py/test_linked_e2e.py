@@ -21,7 +21,7 @@ from aiohttp.test_utils import TestServer
 from homeassistant.exceptions import HomeAssistantError
 
 from conftest import house_entry
-from mantel_fake import BLACK, DEVICE, ENTRY, SLEEP, until
+from mantel_fake import BLACK, DEVICE, ENTRY, FULL, SLEEP, until
 
 _ROOT = os.environ["MANTEL_ROOT"]
 for _p in (os.path.join(_ROOT, "hosts", "server"), _ROOT):
@@ -49,11 +49,12 @@ async def mantel_server(socket_enabled):
         accounts=accounts, recheck=0.1, heartbeat=None))   # no server ping timer left behind in the harness)
     await linked.registry.publish({
         "unique_id": BLACK_UID, "platform": "switch", "entity_id": BLACK, "translation_key": "black_screen",
-        "icon": "mdi:monitor-off", "device": DEVICE, "state": "off",
+        "icon": "mdi:monitor-off", "device": DEVICE, "state": "off", "tablet": "hall",
         "attributes": {"tablet": "hall", "black_screen": "hk", "brightness": None, "confirmed": False}})
     await linked.registry.publish({
         "unique_id": SLEEP_UID, "platform": "sensor", "entity_id": SLEEP, "translation_key": "sleep_screen",
-        "device": DEVICE, "state": "dashboard", "attributes": {"tablet": "hall"}})
+        "device": DEVICE, "state": "dashboard", "tablet": "hall", "attributes": {"tablet": "hall"}})
+    await linked.registry.set_owners(FULL)          # Mantel owns the whole entry (Step 7)
     server = TestServer(app, host="127.0.0.1")
     await server.start_server()
     yield SimpleNamespace(url=f"http://127.0.0.1:{server.port}", token=token, linked=linked, account=acct,
@@ -63,10 +64,13 @@ async def mantel_server(socket_enabled):
 
 
 async def _setup(hass, server):
+    # nothing kept from before: the hello's owners say the whole entry is Mantel's, and it reloads so
+    # (once set up; async_setup may already see it reloading)
     e = house_entry(entry_id=ENTRY, data={"mantel_link": {"url": server.url, "token": server.token}})
     e.add_to_hass(hass)
-    assert await hass.config_entries.async_setup(e.entry_id)
+    await hass.config_entries.async_setup(e.entry_id)
     await until(hass, lambda: (s := hass.states.get(BLACK)) is not None and s.state != "unavailable")
+    assert e.data["mantel_owners"] == FULL
     return e
 
 
@@ -111,4 +115,31 @@ async def test_a_popup_and_mantel_s_own_refusals_end_to_end(hass, base, mantel_s
         await hass.services.async_call(DOMAIN, "close_popup", {"popup": "doorbell"}, blocking=True)
     await until(hass, lambda: hass.states.get(BLACK).state == "unavailable")
     assert handler.popups[-1]["service"] == "show_popup", "the revoked link's call never reached the handler"
+    assert await hass.config_entries.async_unload(e.entry_id)
+
+
+async def test_one_tablet_mantel_s_the_rest_home_assistant_s_end_to_end(hass, base, mantel_server):
+    """CUTOVER Step 3: the hall tablet is Mantel's, everything else still HA's. The hall's black screen
+    is Mantel's and its set_black_screen goes there; Seasonal decorations is HA's own; a pop-up runs
+    here and is forwarded too."""
+    await mantel_server.linked.registry.set_owners({"house": "ha", "tablets": ["hall"]})
+    tablet = {"subentry_type": "tablet", "unique_id": "hall", "title": "Hall",
+              "data": {"name": "Hall", "screen": "dashboard-hall", "user": "hall", "room": "hall", "uid": "hall"}}
+    screen = {"subentry_type": "dashboard", "unique_id": "dashboard-hall", "title": "Hall",
+              "data": {"screensaver": True}}
+    e = house_entry(screen, tablet, entry_id=ENTRY, minor_version=16,
+                    data={"mantel_link": {"url": mantel_server.url, "token": mantel_server.token},
+                          "mantel_owners": {"house": "ha", "tablets": ["hall"]}})
+    e.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(e.entry_id)
+    await until(hass, lambda: (s := hass.states.get(BLACK)) is not None and s.state != "unavailable")
+    assert hass.states.get("switch.hk_frontend_seasonal_decorations").state == "on", "HA's own"
+    from custom_components.hk_frontend import screensaver
+    mgr = screensaver.manager(hass)
+    assert "hall" not in mgr.entities and "hall" not in mgr.engines, "no engine of HA's for Mantel's tablet"
+    handler = mantel_server.linked.handler
+    await hass.services.async_call(DOMAIN, "set_black_screen", {"entity_id": BLACK, "black": True,
+                                                                "brightness": 120}, blocking=True)
+    assert handler.calls[-1]["targets"] == [{"entity_id": BLACK, "unique_id": BLACK_UID}]
+    assert hass.states.get(BLACK).state == "on" and hass.states.get(BLACK).attributes["confirmed"] is False
     assert await hass.config_entries.async_unload(e.entry_id)

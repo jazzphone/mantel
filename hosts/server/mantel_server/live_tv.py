@@ -12,9 +12,9 @@ it reads the same things it reads from Home Assistant's Live TV feature, answere
   (``camera.tv_<name>``, ``sensor.tv_<name>_now``, ``sensor.tv_viewers``, from the same slug), put
   into the hub's state store as an overlay that always wins (``LocalEntities``) and into the
   registry with platform ``hk_frontend`` (so HK's Cameras page leaves them out, as it does HA's).
-  In linked mode they are also published to Home Assistant with hk_frontend's unique ids
-  (``{live_tv item}_viewers``, ``{item}_{n}_now``, ``{item}_{n}_camera``), so a tablet's sleep
-  template that reads ``sensor.tv_viewers`` keeps working.
+  In linked mode linked_house.py publishes hk_frontend's Live TV entities to Home Assistant (the
+  unique ids it learned from HA's registry) with this module's viewer count and served channels, so a
+  tablet's sleep template that reads ``sensor.tv_viewers`` keeps working.
 * **The video**: the player is HK's camera card on the channel's camera, which signals with
   ``camera/webrtc/*`` as for any camera. For a channel camera those are answered HERE (they wrap the
   camera connector's routes; any other camera still goes to Home Assistant): RBAC first
@@ -131,6 +131,13 @@ def go2rtc_source(url: str, quality: str = "720", hardware: str = "") -> str:
 
 
 # ------------------------------------------------------------------------------------- go2rtc
+def go2rtc_api_url(cfg: Any) -> str:
+    """THE ONE PLACE Mantel reads go2rtc's API address (``--go2rtc-url``, the backend network). Server-side
+    only, never sent to a page. A later HTTPS front for go2rtc's media (e.g. under Mantel's own address)
+    plugs in beside it; every go2rtc call goes through ``Go2rtc`` built from this."""
+    return (getattr(cfg, "go2rtc_url", "") or "").rstrip("/")
+
+
 class Go2rtcError(Exception):
     pass
 
@@ -314,7 +321,7 @@ class MantelLiveTv:
         self.app, self.hub, self.hooks = app, hub, hooks
         self.tv_hooks = tv_hooks or LiveTvHooks()
         cfg = app.get("cfg")
-        url = getattr(cfg, "go2rtc_url", "") or ""
+        url = go2rtc_api_url(cfg)
         self.go2rtc: Go2rtc | None = Go2rtc(url, lambda: app.get("http")) if url else None
         self.hardware = getattr(cfg, "live_tv_hardware", "") or ""
         self.viewers = Viewers()
@@ -322,8 +329,7 @@ class MantelLiveTv:
         self.sessions: dict[str, TvSession] = {}
         self.streams: dict[str, str] = {}                     # stream name -> channel, set up in go2rtc
         self._stop_timers: dict[str, asyncio.TimerHandle] = {}
-        self._published: set[str] = set()
-        self._last_pub: dict[str, tuple] = {}
+        self._linked_sig: tuple | None = None
         self._guide_tried = float("-inf")
         self._tasks: set[asyncio.Task] = set()
         self.heartbeats = 0
@@ -407,11 +413,8 @@ class MantelLiveTv:
             # nothing about where it streams from
             out[c["camera"]] = ("idle", {"channel": c["number"], "friendly_name": f"TV {c['name']}",
                                          "supported_features": 2, "frontend_stream_type": "web_rtc"})
-        snap = self.viewers.snapshot(self.monotonic())
-        out[VIEWERS_ID] = (len(snap), {"users": [v["name"] for v in snap],
-                                       "channels": sorted({v["channel"] for v in snap}),
-                                       "screens": sorted({v["screen"] for v in snap if v["screen"]}),
-                                       "friendly_name": "TV viewers", "icon": "mdi:account-eye"})
+        count, vattrs = self.viewers_state()
+        out[VIEWERS_ID] = (count, {**vattrs, "friendly_name": "TV viewers", "icon": "mdi:account-eye"})
         return out
 
     def registry_entries(self, want: Mapping[str, Any]) -> dict[str, dict[str, Any]]:
@@ -449,53 +452,26 @@ class MantelLiveTv:
         if self.local.registry:
             self._sync_registry()
 
-    # -- linked mode: the same entities in Home Assistant -----------------------------------------------
-    def linked_item(self) -> str | None:
-        """HA's Live TV item id (the import's ``ha.items``): the prefix of hk_frontend's unique ids."""
-        h = self.host
-        if h is None or not h.on("linked"):
-            return None
-        items = h.settings["ha"]["items"].get("live_tv") or []
-        return items[0]["entry_id"] if items else None
+    def viewers_state(self) -> tuple[int, dict[str, Any]]:
+        """sensor.tv_viewers' state and attributes (HA's ViewersSensor, plus the screens)."""
+        snap = self.viewers.snapshot(self.monotonic())
+        return len(snap), {"users": [v["name"] for v in snap], "channels": sorted({v["channel"] for v in snap}),
+                           "screens": sorted({v["screen"] for v in snap if v["screen"]})}
 
-    def linked_entities(self, want: Mapping[str, tuple[Any, dict[str, Any]]]) -> dict[str, dict[str, Any]]:
-        item = self.linked_item()
-        if item is None or not self.runs():
-            return {}
-        out: dict[str, dict[str, Any]] = {}
-
-        def desc(uid: str, platform: str, eid: str, name: str, icon: str | None) -> None:
-            state, attrs = want[eid]
-            out[uid] = {"unique_id": uid, "platform": platform, "entity_id": eid, "name": name,
-                        "has_entity_name": False, "icon": icon, "device": None, "state": state,
-                        "attributes": {k: v for k, v in attrs.items() if k not in ("friendly_name", "icon")},
-                        "available": True}
-        for c in self.channels():
-            desc(f"{item}_{c['number']}_now", "sensor", c["now"], f"TV {c['name']} now", "mdi:television-classic")
-            # no stream source: HA's own dashboards don't play Mantel's channels (HK's pages do, through Mantel)
-            desc(f"{item}_{c['number']}_camera", "camera", c["camera"], f"TV {c['name']}", None)
-            out[f"{item}_{c['number']}_camera"]["attributes"] = {"channel": c["number"]}
-        desc(f"{item}_viewers", "sensor", VIEWERS_ID, "TV viewers", "mdi:account-eye")
-        return out
-
-    async def sync_linked(self, want: Mapping[str, tuple[Any, dict[str, Any]]] | None = None) -> None:
-        lk = self.app.get("linked")
-        reg = getattr(lk, "registry", None)
-        if reg is None:
+    # -- linked mode: linked_house.py publishes hk_frontend's Live TV entities (the ids it learned from HA's
+    # registry) and reads the viewers and the served channels from here; this only asks it to refresh
+    async def sync_linked(self) -> None:
+        lh = self.app.get("linked_house")
+        if lh is None:
             return
-        descs = self.linked_entities(self.wanted() if want is None else want)
-        for uid in list(self._published - set(descs)):
-            await reg.remove(uid)
-            self._published.discard(uid)
-            self._last_pub.pop(uid, None)
-        for uid, d in descs.items():
-            now = (d["state"], d["attributes"])
-            if uid not in self._published or reg.get(uid) is None:
-                await reg.publish(d)
-            elif self._last_pub.get(uid) != now:
-                await reg.update(uid, state=d["state"], attributes=d["attributes"], merge=False)
-            self._published.add(uid)
-            self._last_pub[uid] = now
+        sig = (self.runs(), tuple(c["number"] for c in self.channels()), repr(self.viewers_state()))
+        if sig == self._linked_sig:
+            return
+        self._linked_sig = sig
+        try:
+            await lh.refresh()
+        except Exception:  # noqa: BLE001 -- linked HA's trouble never breaks Live TV
+            log.exception("Live TV: the linked entities were not refreshed")
 
     async def sync(self) -> None:
         """Bring the overlay, the registry and the linked entities in line with the settings and guide."""
@@ -525,7 +501,7 @@ class MantelLiveTv:
             hit = self.local.put_all(want)
             if hit:
                 self.hub.on_change(hit)
-            await self.sync_linked(want)
+            await self.sync_linked()
         return {"viewers": self.viewers.names(now), "ha": mode != "mantel"}
 
     # -- the channel list -------------------------------------------------------------------------------
@@ -788,7 +764,7 @@ class MantelLiveTv:
                 "viewers": self.viewers.snapshot(now), "heartbeats": self.heartbeats,
                 "sessions": [{"channel": s.channel, "session": s.id[:8], "candidates": s.candidates}
                              for s in self.sessions.values()],
-                "streams": sorted(self.streams.values()), "linked": sorted(self._published), "error": self.error,
+                "streams": sorted(self.streams.values()), "error": self.error,
                 "log": list(self.log[-20:])}
 
 
