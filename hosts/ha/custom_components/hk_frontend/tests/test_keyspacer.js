@@ -53,8 +53,8 @@ H.run('KEY AND SPACER', [
         tap_action: { action: 'navigate', navigation_path: './timer-new' } });
     });
     var R = card._root;
-    H.ok('draws before any hass (it needs none)', /<ha-card class="key filled"/.test(R.__html), R.__html);
-    H.ok('a word key has a name, not an icon', /class="name"/.test(R.__html) && !/ha-state-icon/.test(R.__html));
+    H.ok('draws before any hass (it needs none)', /<hk-plate class="key filled"/.test(R.__html), R.__html);
+    H.ok('a word key has a name, not an icon', /class="name"/.test(R.__html) && !/hk-state-icon/.test(R.__html));
     H.eq('the word', H.part(R, '.name').textContent, '+ New Timer');
     H.eq('fill', H.part(R, '.key').style.background, 'rgba(255, 159, 10, 0.95)');
     H.eq('width', H.part(R, '.key').style.width, '184px');
@@ -75,14 +75,14 @@ H.run('KEY AND SPACER', [
       tap_action: { action: 'perform-action', perform_action: 'script.quick_timer_start',
                     data: { duration: '00:05:00' } } });
     card.hass = house.hass();
-    H.ok('the glass variant', /<ha-card class="key glass"/.test(card._root.__html));
+    H.ok('the glass variant', /<hk-plate class="key glass"/.test(card._root.__html));
     tap(H.part(card._root, '.key'));
     H.eq('tap runs the script with its duration', house.calls,
          [{ domain: 'script', service: 'quick_timer_start', data: { duration: '00:05:00' } }]);
     // A config edit in the card editor re-runs setConfig on the SAME element;
     // the key must rebuild with the new variant, not keep the first one.
     card.setConfig({ type: 'custom:hk-key-card', name: '10 min', variant: 'flat' });
-    H.ok('a second setConfig rebuilds (the editor preview)', /<ha-card class="key flat"/.test(card._root.__html));
+    H.ok('a second setConfig rebuilds (the editor preview)', /<hk-plate class="key flat"/.test(card._root.__html));
     H.eq('...with the new word', H.part(card._root, '.name').textContent, '10 min');
     var icon = H.make('hk-key-card');
     H.noThrow('an icon key renders', function () {
@@ -103,7 +103,7 @@ H.run('KEY AND SPACER', [
     H.noThrow('setConfig with the phone config', function () {
       card.setConfig({ type: 'custom:hk-spacer-card', height: '2px' });
     });
-    H.ok('draws an inert, hidden plate', /<ha-card class="spacer" data-hk-role="card" aria-hidden="true">/
+    H.ok('draws an inert, hidden plate', /<hk-plate class="spacer" data-hk-role="card" aria-hidden="true">/
       .test(card._root.__html));
     H.eq('at the configured height', H.part(card._root, '.spacer').style.height, '2px');
     H.noThrow('first hass', function () { card.hass = house.hass(); });

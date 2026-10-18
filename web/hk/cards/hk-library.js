@@ -74,7 +74,7 @@
   }
   function drawNoMusic(card) {
     card._root.innerHTML = '';
-    var el = document.createElement('ha-card');
+    var el = document.createElement('hk-plate');
     el.setAttribute('data-hk-role', 'no-music');
     el.style.cssText = 'display:block;padding:24px;box-sizing:border-box;border-radius:' + M.radius + ';' +
       M.glass + ';border:' + M.border + ';text-align:center;font-size:15px;line-height:1.4;' +
@@ -172,7 +172,7 @@
   class HkLibraryCard extends HkBase {
     static get CSS() {
       return [
-        'ha-card{background:none;box-shadow:none;border:none;padding:0}',
+        'hk-plate{background:none;box-shadow:none;border:none;padding:0}',
 
         // ---- the bar: a breadcrumb row, then search across the full width.
         //
@@ -248,7 +248,7 @@
         '  background:' + window.hkCards.v('key') + ';box-shadow:var(--hk-look-shadow,' + window.hkCards.v('glass-shadow-sm') + ');',
         '  display:flex;align-items:center;justify-content:center}',
         '.it .art img{width:100%;height:100%;object-fit:cover;display:block}',
-        '.it .art ha-icon{--mdc-icon-size:34px;width:34px;height:34px;',
+        '.it .art hk-icon{--mdc-icon-size:34px;width:34px;height:34px;',
         '  color:var(--hk-glyph,rgba(255,255,255,0.45))}',
         // A round cover for artists, square for everything else -- the same
         // shorthand every music app uses, and it saves a subtitle.
@@ -319,7 +319,7 @@
         '  align-items:center;justify-content:center;',
         '  box-shadow:var(--hk-look-shadow,' + window.hkCards.v('glass-shadow-lg') + ')}',
         '.hd .cover img{width:100%;height:100%;object-fit:cover;display:block}',
-        '.hd .cover ha-icon{--mdc-icon-size:44px;width:44px;height:44px;',
+        '.hd .cover hk-icon{--mdc-icon-size:44px;width:44px;height:44px;',
         '  color:var(--hk-glyph,rgba(255,255,255,0.7))}',
         '.hd .meta{min-width:0}',
         '.hd .h1{font-size:26px;font-weight:700;letter-spacing:-0.5px;',
@@ -350,7 +350,7 @@
         '  background:' + window.hkCards.v('key') + ';display:flex;',
         '  align-items:center;justify-content:center}',
         '.rw .thumb img{width:100%;height:100%;object-fit:cover;display:block}',
-        '.rw .thumb ha-icon{--mdc-icon-size:22px;width:22px;height:22px;',
+        '.rw .thumb hk-icon{--mdc-icon-size:22px;width:22px;height:22px;',
         '  color:var(--hk-glyph,rgba(255,255,255,0.8))}',
         // tabular-nums so 9 and 10 do not shuffle the titles sideways.
         '.rw .num{font-size:15px;font-weight:600;text-align:center;',
@@ -373,9 +373,9 @@
         ':host([music]) > div{height:100%}',
         // ...but a phone's one column scrolls as a page: no box of its own
         // (`flow`, set by the Music page), the search scrolling away with it
-        ':host([music][flow]),:host([music][flow]) > div,:host([music][flow]) ha-card{height:auto}',
+        ':host([music][flow]),:host([music][flow]) > div,:host([music][flow]) hk-plate{height:auto}',
         ':host([music][flow]) [data-hk-role="body"]{overflow:visible;flex:none}',
-        ':host([music]) ha-card{height:100%;display:flex;flex-direction:column;position:relative}',
+        ':host([music]) hk-plate{height:100%;display:flex;flex-direction:column;position:relative}',
         // (the search first, level with the page's Playing On; the trail
         // under it only inside something -- at the first level Your
         // Playlists says where it plays)
@@ -390,17 +390,17 @@
         '.srow{display:flex;align-items:center;gap:12px;min-width:0}',
         '.srow .search{flex:1 1 auto;min-width:0;width:auto}',
         '.srow .route{flex:none;height:50px;border-radius:25px;padding:0 16px 0 14px;font-size:15px;margin-left:0;max-width:60%}',
-        '.srow .route ha-icon{--mdc-icon-size:20px;width:20px;height:20px}',
+        '.srow .route hk-icon{--mdc-icon-size:20px;width:20px;height:20px}',
         '.route .full{display:flex;align-items:center;gap:8px;min-width:0;overflow:hidden;white-space:nowrap}',
         '.route .full b{overflow:hidden;text-overflow:ellipsis;min-width:0}',
         '.route .full > span{flex:none}',
-        '.route > svg,.route > ha-icon,.route > .rx{flex:none}',
+        '.route > svg,.route > hk-icon,.route > .rx{flex:none}',
         // a phone: a little smaller, and never more than leaves the search its
         // word (the room names give way first)
         ':host([music][flow]) .srow .route{font-size:14px;padding:0 13px 0 12px;gap:6px;max-width:calc(100% - 118px)}',
         ':host([music][flow]) .srow .route .full{gap:6px}',
         ':host([music][flow]) .srow .route .full > span{font-size:12.5px}',
-        ':host([music][flow]) .srow .route ha-icon{--mdc-icon-size:18px;width:18px;height:18px}',
+        ':host([music][flow]) .srow .route hk-icon{--mdc-icon-size:18px;width:18px;height:18px}',
         ':host([music][flow]) .srow .search{padding:0 18px}',
         // ...ON THE PLAYLISTS' COLUMNS (2026-10-13): the search and Plays on
         // each take a column of the two-up pills under them, the same 14 px
@@ -419,7 +419,7 @@
         ':host([music][flow]) .srow.open .route > svg{display:none}',
         ':host([music]) .bar .nextnote{display:flex;align-items:center;gap:8px;margin:0 2px;font-size:13px;color:' + window.hkCards.v('ink-2') + '}',
         ':host([music]) .bar .nextnote:empty{display:none}',
-        ':host([music]) .bar .nextnote ha-icon{--mdc-icon-size:16px;width:16px;height:16px;flex:none;display:flex}',
+        ':host([music]) .bar .nextnote hk-icon{--mdc-icon-size:16px;width:16px;height:16px;flex:none;display:flex}',
         // (14 px of room each side for the tiles' shadows -- a scroller clips
         // them at its edge -- given back by the margin, so nothing moves)
         ':host([music]) [data-hk-role="body"]{flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;',
@@ -442,7 +442,7 @@
         '.route{margin-left:auto;min-width:0;display:flex;align-items:center;gap:8px;height:34px;padding:0 12px 0 10px;border-radius:17px;',
         '  background:var(--hk-field-bg,' + window.hkCards.v('key') + ');box-shadow:var(--hk-field-shadow,none);border:' + M.border + ';cursor:pointer;box-sizing:border-box;color:' + window.hkCards.v('ink') + '}',
         '.route:active{background:' + window.hkCards.v('key-strong') + '}',
-        '.route ha-icon{--mdc-icon-size:18px;width:18px;height:18px;flex:none;display:flex}',
+        '.route hk-icon{--mdc-icon-size:18px;width:18px;height:18px;flex:none;display:flex}',
         '.route span{font-size:13px;font-weight:500;color:' + window.hkCards.v('ink-2') + ';flex:none}',
         '.route b{font-size:14px;font-weight:600;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
         '.route svg{width:12px;height:12px;flex:none;fill:none;stroke:var(--hk-glyph,rgba(255,255,255,0.6));stroke-width:3;stroke-linecap:round;stroke-linejoin:round}',
@@ -453,9 +453,9 @@
         '.route .rx svg{width:10px;height:10px;stroke:#1d1426}',
         '.yp .yph{flex-wrap:wrap;row-gap:8px}',
         '.yp .nextnote{display:flex;align-items:center;gap:8px;margin:0 2px 14px;font-size:13px;color:' + window.hkCards.v('ink-2') + '}',
-        '.yp .nextnote ha-icon{--mdc-icon-size:16px;width:16px;height:16px;flex:none;display:flex}',
+        '.yp .nextnote hk-icon{--mdc-icon-size:16px;width:16px;height:16px;flex:none;display:flex}',
         '.yp .it.cat.on{background:#fff;color:#1c1c1e}',
-        '.yp .it.cat.on ha-icon,.yp .it.cat.on .txt{color:#1c1c1e}',
+        '.yp .it.cat.on hk-icon,.yp .it.cat.on .txt{color:#1c1c1e}',
         '.yp .it.cat.busy{opacity:.55}',
         '.yp .opts{grid-column:1 / -1;display:flex;flex-wrap:wrap;gap:8px}',
         '.yp .opt{height:36px;padding:0 16px;border-radius:18px;display:flex;align-items:center;font-size:14px;font-weight:600;cursor:pointer;',
@@ -1238,14 +1238,14 @@
       }
       if (!this._built) {
         this._root.innerHTML =
-          '<ha-card data-hk-role="card">' +
+          '<hk-plate data-hk-role="card">' +
           '<div class="bar">' +
           '<div class="crumb" data-hk-role="crumb"></div>' +
           '<input class="search" type="search" placeholder="Search artists, albums, songs…"' +
           ' data-hk-role="search" autocomplete="off" spellcheck="false">' +
           '</div>' +
           '<div data-hk-role="body"></div>' +
-          '</ha-card>';
+          '</hk-plate>';
         var q = this._root.querySelector.bind(this._root);
         if (this._config.layout === 'music' && this.routeEl) {
           // WHERE IT PLAYS, BESIDE THE SEARCH (the Music page's own button,
@@ -1563,9 +1563,9 @@
       if (art) {
         // _artImage, not a bare <img>: an artwork host a tablet cannot
         // reach never fires `error`, so this box would sit empty forever.
-        this._artImage(art, cover, '<ha-icon icon="mdi:album"></ha-icon>', 600);
+        this._artImage(art, cover, '<hk-icon icon="mdi:album"></hk-icon>', 600);
       } else {
-        cover.innerHTML = '<ha-icon icon="mdi:album"></ha-icon>';
+        cover.innerHTML = '<hk-icon icon="mdi:album"></hk-icon>';
       }
       hd.appendChild(cover);
       var txt = document.createElement('div');
@@ -1637,7 +1637,7 @@
       var glyph = function (icon) {
         var d = document.createElement('div');
         d.className = 'thumb';
-        d.innerHTML = '<ha-icon icon="' + icon + '"></ha-icon>';
+        d.innerHTML = '<hk-icon icon="' + icon + '"></hk-icon>';
         return d;
       };
 
@@ -1658,7 +1658,7 @@
           lead = document.createElement('div');
           lead.className = 'thumb';
           self._artImage(n.thumbnail, lead,
-                         '<ha-icon icon="mdi:music-note"></ha-icon>');
+                         '<hk-icon icon="mdi:music-note"></hk-icon>');
         } else {
           lead = glyph('mdi:music-note');
         }
@@ -1835,7 +1835,7 @@
         // does not PARSE innerHTML -- assert the shape.
         var well = document.createElement('div');
         well.className = 'well';
-        well.innerHTML = '<ha-icon icon="' + (n._icon || 'mdi:music') + '"></ha-icon>';
+        well.innerHTML = '<hk-icon icon="' + (n._icon || 'mdi:music') + '"></hk-icon>';
         var txt = document.createElement('div');
         txt.className = 'txt'; txt.textContent = n.title || '';
         el.appendChild(well); el.appendChild(txt);
@@ -1847,9 +1847,9 @@
         // A dead artwork URL must not leave a broken-image glyph on a wall --
         // and an UNREACHABLE one must not leave an empty square, which is
         // what a bare `error` listener cannot catch. See _artImage.
-        this._artImage(n.thumbnail, art, '<ha-icon icon="mdi:music"></ha-icon>');
+        this._artImage(n.thumbnail, art, '<hk-icon icon="mdi:music"></hk-icon>');
       } else {
-        art.innerHTML = '<ha-icon icon="' + (n._icon || 'mdi:music') + '"></ha-icon>';
+        art.innerHTML = '<hk-icon icon="' + (n._icon || 'mdi:music') + '"></hk-icon>';
       }
       el.appendChild(art);
       var nm = document.createElement('div');

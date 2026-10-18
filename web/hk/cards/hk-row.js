@@ -447,7 +447,7 @@
         var q = [node], n = 0;
         while (q.length && n++ < 40) {
           var el = q.shift();
-          var c = el.shadowRoot && el.shadowRoot.querySelector('ha-card');
+          var c = el.shadowRoot && el.shadowRoot.querySelector('hk-plate, ha-card');   // an HK card's plate, or HA's card's
           if (c) return c;
           var kids = [].slice.call(el.children || []);
           if (el.shadowRoot) kids = kids.concat([].slice.call(el.shadowRoot.children || []));

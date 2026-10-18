@@ -97,13 +97,13 @@
     'svg{display:block}',
     '.well{width:34px;height:34px;flex:none;display:grid;place-items:center;border-radius:50%;color:var(--a);',
     '  background:color-mix(in srgb,var(--a) 16%,transparent)}',
-    '.well ha-icon{--mdc-icon-size:19px;width:19px;height:19px;display:flex}',
+    '.well hk-icon{--mdc-icon-size:19px;width:19px;height:19px;display:flex}',
     '.pill{appearance:none;font:inherit;font-size:13px;font-weight:600;color:' + v('ink') + ';background:' + v('key') + ';',
     '  border:1px solid ' + v('line') + ';height:34px;padding:0 14px;border-radius:' + R.capsule('34px') + ';cursor:pointer;flex:none;',
     '  -webkit-tap-highlight-color:transparent;transition:transform .12s ease}',
     '.pill:active{transform:scale(0.97);background:' + v('key-strong') + '}',
     // a phone: the card as tall as what it holds
-    '@media (max-width:' + C.BP.phone + 'px){ha-card.hd{height:auto;min-height:var(--hk-hd-min,200px)}}',
+    '@media (max-width:' + C.BP.phone + 'px){hk-plate.hd{height:auto;min-height:var(--hk-hd-min,200px)}}',
     // THE HEADER BUILDS IN (2026-10-16, the user: "a nice touch"): the first
     // time a card has something to show, its parts rise into place one after
     // another and its graphs draw in from the left -- the Energy page's build
@@ -136,8 +136,8 @@
     }
     _shell(cls) {
       if (this._built) return;
-      this._root.innerHTML = '<ha-card class="hd ' + cls + '" data-hk-role="card"></ha-card>';
-      this._card = this._root.querySelector('ha-card');
+      this._root.innerHTML = '<hk-plate class="hd ' + cls + '" data-hk-role="card"></hk-plate>';
+      this._card = this._root.querySelector('hk-plate');
       var hgt = this._config && this._config.height;
       if (this._card.style && this._card.style.setProperty) this._card.style.setProperty('--hk-ep-h', hgt ? String(hgt) : '240px');
       var self = this;
@@ -638,7 +638,7 @@
         '.lo .s{display:block;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
         '.lo .s em{font-style:normal;color:' + v('warn') + '}',
         '.ok{display:flex;align-items:center;gap:8px;font-size:13px;color:' + v('ink-2') + ';margin:12px 0 4px}',
-        '.ok ha-icon{--mdc-icon-size:15px;width:15px;height:15px;display:flex;color:' + P.green + '}',
+        '.ok hk-icon{--mdc-icon-size:15px;width:15px;height:15px;display:flex;color:' + P.green + '}',
         '.tn{margin-top:auto;border-top:1px solid ' + v('line') + ';padding:10px 0 2px}',
         '.tn .h{display:flex;justify-content:space-between;align-items:baseline;' + C.labelCss('label-small') + '}',
         '.tn .h span{text-transform:none;letter-spacing:0}',
@@ -735,10 +735,10 @@
       var lo = !sensed ? '' : left.length ? shown.map(function (z) {
         var nm = (h.states[z.x.id].attributes || {}).friendly_name || z.x.id;
         var icon = z.x.icon || 'hk:lightbulb';
-        return '<div class="lo" data-more="' + esc(z.x.id) + '"><div class="well" style="--a:' + P.yellow + '"><ha-icon icon="' + esc(icon) + '"></ha-icon></div>' +
+        return '<div class="lo" data-more="' + esc(z.x.id) + '"><div class="well" style="--a:' + P.yellow + '"><hk-icon icon="' + esc(icon) + '"></hk-icon></div>' +
           '<div><b>' + esc(nm) + '</b><span class="s mi">' + esc(z.x.room || '') + ' · <em>empty ' + shortDur(z.empty) + '</em>' +
           (z.bri != null ? ' · ' + Math.round(z.bri / 2.55) + '%' : '') + '</span></div><button class="pill" data-off="' + esc(z.x.id) + '">Turn Off</button></div>';
-      }).join('') : '<div class="ok"><ha-icon icon="hk:check-bold"></ha-icon>Nothing left on in an empty room</div>';
+      }).join('') : '<div class="ok"><hk-icon icon="hk:check-bold"></hk-icon>Nothing left on in an empty room</div>';
       var tn = '';
       if (cfg.tonight !== false) {
         var first = evs[0];
@@ -756,7 +756,7 @@
       var on = lights.map(function (x) { return h.states[x.id]; }).filter(function (s) { return s && s.entity_id.indexOf('light.') === 0 && s.state === 'on'; });
       var head = '<div class="ttl"><b>Light Levels</b><span>' + (on.length ? 'lights on now' : 'now') + '</span></div>';
       if (!on.length) {
-        return this._paint(head + '<div class="lr"><div class="well" style="--a:' + P.yellow + '"><ha-icon icon="hk:lightbulb-outline"></ha-icon></div><div><b>All lights off</b>' +
+        return this._paint(head + '<div class="lr"><div class="well" style="--a:' + P.yellow + '"><hk-icon icon="hk:lightbulb-outline"></hk-icon></div><div><b>All lights off</b>' +
           '<span class="s mi">Brightness and color show here when lights are on</span></div></div>');
       }
       var bri = on.map(function (s) { return num(s.attributes.brightness); }).filter(function (x) { return x != null; }).map(function (x) { return Math.round(x / 2.55); });
@@ -768,10 +768,10 @@
       var lo = bri.length ? Math.min.apply(null, bri) : null, hi = bri.length ? Math.max.apply(null, bri) : null;
       var avg = ks.length ? Math.round(ks.reduce(function (a, b) { return a + b; }, 0) / ks.length / 100) * 100 : null;
       this._paint(head +
-        '<div class="lr"><div class="well" style="--a:' + P.yellow + '"><ha-icon icon="hk:white-balance-sunny"></ha-icon></div><div><b>' +
+        '<div class="lr"><div class="well" style="--a:' + P.yellow + '"><hk-icon icon="hk:white-balance-sunny"></hk-icon></div><div><b>' +
         (lo == null ? '—' : lo === hi ? lo + '%' : lo + '–' + hi + '%') + '</b><span class="s mi">Brightness · ' + bri.length + ' dimmable</span></div></div>' +
         (lo != null ? '<div class="sc"><i style="left:' + lo + '%;width:' + Math.max(2, hi - lo) + '%"></i></div>' : '') +
-        '<div class="lr"><div class="well" style="--a:' + P.orange + '"><ha-icon icon="hk:lightbulb-outline"></ha-icon></div><div><b>' +
+        '<div class="lr"><div class="well" style="--a:' + P.orange + '"><hk-icon icon="hk:lightbulb-outline"></hk-icon></div><div><b>' +
         (avg ? avg + ' K · ' + kelvinWord(avg) : colored ? colored + ' in color' : 'Not reported') + '</b><span class="s mi">Color · ' + ks.length + ' reporting' +
         (colored && avg ? ' · ' + colored + ' in color' : '') + '</span></div></div>' +
         '<div class="ll">From the lights that are on and report it.</div>');
@@ -903,9 +903,9 @@
         // the card's own margins): no height of its own, or it would add them
         ':host{display:block;position:relative;min-height:var(--hk-sec-min,360px)}',
         '.col{position:absolute;inset:0;display:flex;flex-direction:column;gap:10px}',
-        'ha-card.hd.shome{height:auto;flex:1 1 0;min-height:0;padding:20px;container-name:shome}',
+        'hk-plate.hd.shome{height:auto;flex:1 1 0;min-height:0;padding:20px;container-name:shome}',
         '.in{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,357px) minmax(0,1fr);grid-template-rows:minmax(0,1fr);gap:22px}',
-        'ha-card.hd.care{height:auto;flex:none;padding:' + C.CARD.pad + ';flex-direction:row;align-items:center;gap:14px}',
+        'hk-plate.hd.care{height:auto;flex:none;padding:' + C.CARD.pad + ';flex-direction:row;align-items:center;gap:14px}',
         '.hi{display:flex;flex-direction:column;min-width:0;min-height:0}',
         '.hi .lab{' + C.labelCss('label-small') + '}',
         '.stage{flex:1 1 auto;min-height:0;box-sizing:border-box;padding:24px 0 34px;container-type:size;display:flex;align-items:center}',
@@ -952,7 +952,7 @@
         '@container shome (max-width:420px){.co,.wire path{display:none}}',
         // a phone: the column takes its own height
         '@media (max-width:' + C.BP.phone + 'px){:host{height:auto;min-height:0}.col{position:static}',
-        '  ha-card.hd.shome{flex:none;height:560px}ha-card.hd.care{min-height:0}}'
+        '  hk-plate.hd.shome{flex:none;height:560px}hk-plate.hd.care{min-height:0}}'
       ].join('');
     }
     _ids() { return this._watch || []; }
@@ -971,7 +971,7 @@
     }
     _shell() {
       if (this._built) return;
-      this._root.innerHTML = '<div class="col"><ha-card class="hd shome" data-hk-role="card"></ha-card><ha-card class="hd care" data-hk-role="card"></ha-card></div>';
+      this._root.innerHTML = '<div class="col"><hk-plate class="hd shome" data-hk-role="card"></hk-plate><hk-plate class="hd care" data-hk-role="card"></hk-plate></div>';
       this._card = this._root.querySelector('.shome');
       this._care = this._root.querySelector('.care');
       var self = this;
@@ -1092,7 +1092,7 @@
         if (seen[key]) return;
         seen[key] = 1;
         var g = rowGlyph(kind, e.state);
-        rows.push('<div class="ar" data-more="' + esc(id) + '"><ha-icon class="gl" style="--a:' + g.color + '" icon="' + g.icon + '"></ha-icon>' +
+        rows.push('<div class="ar" data-more="' + esc(id) + '"><hk-icon class="gl" style="--a:' + g.color + '" icon="' + g.icon + '"></hk-icon>' +
           '<div class="tx"><b>' + esc(nm + ' ' + word) + '</b>' + (sub ? '<span class="s">' + esc(sub) + '</span>' : '') + '</div><time class="mi">' +
           (t < m0 ? 'Yesterday ' : '') + hm(t) + '</time></div>');
       });
@@ -1138,7 +1138,7 @@
       this._care.style.display = item ? '' : 'none';
       if (item) {
         if (low.length && quiet.length) item.p = item.p.replace(/\.$/, '') + ' · ' + quiet.length + (quiet.length === 1 ? ' sensor isn’t reporting.' : ' sensors aren’t reporting.');
-        C.morph(this._care, '<div class="well" style="--a:' + P.yellow + '"><ha-icon icon="' + item.icon + '"></ha-icon></div><div class="tx"><div class="lab">Device Care</div><b>' + esc(item.b) + '</b><p>' + esc(item.p) + '</p></div>' +
+        C.morph(this._care, '<div class="well" style="--a:' + P.yellow + '"><hk-icon icon="' + item.icon + '"></hk-icon></div><div class="tx"><div class="lab">Device Care</div><b>' + esc(item.b) + '</b><p>' + esc(item.p) + '</p></div>' +
           '<button class="pill"' + (this._careIds.length > 1 ? ' data-care' : '') + ' data-more="' + esc(item.id) + '">' + (this._careIds.length > 1 ? 'Show All' : 'Details') + '</button>');
       }
     }
@@ -1583,7 +1583,7 @@
         '.qk:disabled{opacity:.45;cursor:default}',
         '.mk{display:flex;align-items:center;gap:14px;margin-top:auto;min-width:0}',
         '.mk .new{flex:none;background:' + C.SELECTED_BG + ';color:' + C.SELECTED_TEXT + ';border-color:transparent;padding:0 18px;display:flex;align-items:center;gap:6px}',
-        '.mk .new ha-icon{--mdc-icon-size:18px;width:18px;height:18px;display:flex}',
+        '.mk .new hk-icon{--mdc-icon-size:18px;width:18px;height:18px;display:flex}',
         // (the hint on one line, or not at all: in a narrow card it wrapped
         // to three beside the button)
         '.mk small{font-size:13px;line-height:17px;color:' + v('ink-2') + ';min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
@@ -1632,7 +1632,7 @@
         (st ? ' data-kind="' + st.kind + '">' + esc(st.text) : '>') + '</div></div>' +
         '<div class="qs">' + this._presets().map(function (m) {
           return '<button class="qk" data-q="' + m + '" aria-label="Start a ' + minsLabel(m) + ' timer"' + (busy ? ' disabled' : '') + '>' + minsLabel(m) + '</button>';
-        }).join('') + '</div><div class="mk"><button class="qk new" data-new><ha-icon icon="mdi:plus"></ha-icon>Create a Timer</button>' +
+        }).join('') + '</div><div class="mk"><button class="qk new" data-new><hk-icon icon="mdi:plus"></hk-icon>Create a Timer</button>' +
         '<small>Choose a name &amp; duration</small></div>');
       if (!this._wired) {
         this._wired = true;
@@ -1784,7 +1784,7 @@
     static get PART_CSS() {
       var E = C.EASE, U = C.DUR;
       return [
-        'ha-card.hd.supply{position:relative;isolation:isolate}',
+        'hk-plate.hd.supply{position:relative;isolation:isolate}',
         '.wash{position:absolute;inset:0;z-index:0;overflow:hidden;pointer-events:none;border-radius:inherit;background:' + WAVES.wash + ';',
         '  opacity:0;transition:opacity ' + U.standard + ' ' + E.standard + '}',
         '.on .wash{opacity:1}',
@@ -2049,7 +2049,7 @@
       // Run Now: the sheets' one wide button
       '.run{appearance:none;font:inherit;width:100%;height:50px;border:0;border-radius:25px;background:#fff;color:#1c1c1e;',
       '  font-size:17px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;-webkit-tap-highlight-color:transparent}',
-      '.run ha-icon{--mdc-icon-size:20px}',
+      '.run hk-icon{--mdc-icon-size:20px}',
       '.run:active{opacity:.8}',
       '.run.sent{background:' + C.PALETTE.icon.green + ';color:#fff}',
       C.segCss('.seg', { on: '.sel', fill: true }),
@@ -2066,7 +2066,7 @@
       '.hs::-webkit-scrollbar{display:none}',
       '.r{display:grid;grid-template-columns:22px minmax(0,1fr) auto;align-items:center;gap:10px;padding:10px 0;border-top:1px solid ' + v('line') + '}',
       '.r:first-child{border-top:0}',
-      '.r ha-icon{--mdc-icon-size:18px}',
+      '.r hk-icon{--mdc-icon-size:18px}',
       '.r b{display:block;font-size:15px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
       '.r span{display:block;font-size:13px;color:' + v('ink-2') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
       '.r time{font-size:13px;color:' + v('ink-2') + ';font-variant-numeric:tabular-nums;white-space:nowrap}',
@@ -2156,7 +2156,7 @@
         var mode = on ? 'on' : until ? 'today' : 'off';
         var run = this._root.querySelector('.run');
         run.classList.toggle('sent', !!this._sent);
-        run.innerHTML = this._sent ? '<ha-icon icon="hk:check-bold"></ha-icon>Running' : '<ha-icon icon="mdi:play"></ha-icon>Run Now';
+        run.innerHTML = this._sent ? '<hk-icon icon="hk:check-bold"></hk-icon>Running' : '<hk-icon icon="mdi:play"></hk-icon>Run Now';
         this._pick(mode);
         var p = parts((s.attributes || {}).friendly_name);
         this._root.querySelector('.note').textContent = na ? 'Unavailable' :
@@ -2185,7 +2185,7 @@
           var col = ran ? C.PALETTE.icon.blue : v('ink-2');
           // a run: what set it off; else what was done to it
           var what = ran ? cause(h, r.msg) || 'Ran' : r.st === 'on' ? 'Turned On' : r.st === 'off' ? 'Turned Off' : r.st;
-          return '<div class="r"><ha-icon icon="' + ic + '" style="color:' + col + '"></ha-icon><div><b>' + esc(what) + '</b></div>' +
+          return '<div class="r"><hk-icon icon="' + ic + '" style="color:' + col + '"></hk-icon><div><b>' + esc(what) + '</b></div>' +
             '<time>' + esc(when(r.t)) + '</time></div>';
         }).join('');
         C.morph(this._root.querySelector('.hist'), '<div class="lab"><span>Past 7 Days</span>' +
@@ -2276,7 +2276,7 @@
       '  font:inherit;cursor:pointer;padding:0;-webkit-tap-highlight-color:transparent}',
       '.cmds .ci{width:72px;height:72px;border-radius:' + C.R.capsule('72px') + ';display:flex;align-items:center;justify-content:center;',
       '  background:' + v('key-strong') + ';transition:background ' + C.DUR.fade + ',color ' + C.DUR.fade + '}',
-      '.cmds .ci ha-icon{--mdc-icon-size:28px}',
+      '.cmds .ci hk-icon{--mdc-icon-size:28px}',
       '.cmds button:active .ci{background:rgba(255,255,255,0.24)}',
       '.cmds button.sel .ci{background:var(--tint);color:rgba(0,0,0,0.85)}',
       '.cmds button[disabled]{opacity:.35;cursor:default}',
@@ -2405,13 +2405,13 @@
         var idle = st !== 'active' && st !== 'paused';
         var btn = function (act, icon, label, sel) {
           return '<button data-a="' + act + '" class="' + (sel ? 'sel' : '') + '"' + (na ? ' disabled' : '') + ' aria-label="' + label + '">' +
-            '<span class="ci"><ha-icon icon="' + icon + '"></ha-icon></span><span class="cl">' + label + '</span></button>';
+            '<span class="ci"><hk-icon icon="' + icon + '"></hk-icon></span><span class="cl">' + label + '</span></button>';
         };
         var cmds = st === 'active' ? btn('toggle', 'mdi:pause', 'Pause') : btn('toggle', 'mdi:play', st === 'paused' ? 'Resume' : 'Start', true);
-        cmds += idle ? '<button disabled aria-hidden="true" tabindex="-1"><span class="ci"><ha-icon icon="mdi:plus"></ha-icon></span><span class="cl">5 min</span></button>'
+        cmds += idle ? '<button disabled aria-hidden="true" tabindex="-1"><span class="ci"><hk-icon icon="mdi:plus"></hk-icon></span><span class="cl">5 min</span></button>'
                      : btn('plus', 'mdi:plus', '5 min');
         cmds += btn('restart', 'mdi:restart', 'Restart');
-        cmds += idle ? '<button disabled aria-hidden="true" tabindex="-1"><span class="ci"><ha-icon icon="mdi:check"></ha-icon></span><span class="cl">Finish</span></button>'
+        cmds += idle ? '<button disabled aria-hidden="true" tabindex="-1"><span class="ci"><hk-icon icon="mdi:check"></hk-icon></span><span class="cl">Finish</span></button>'
                      : btn('finish', 'mdi:check', 'Finish');
         C.morph(this._root.querySelector('.cmds'), cmds);
         this._root.querySelector('.why').textContent = this._why || '';

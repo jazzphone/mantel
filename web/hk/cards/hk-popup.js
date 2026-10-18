@@ -501,7 +501,7 @@
     '  border:1px solid rgba(255,255,255,.14);box-shadow:0 8px 24px rgba(0,0,0,.38);color:#fff;',
     '  -webkit-tap-highlight-color:transparent;transition:transform .12s ease}',
     '.b:active{transform:scale(.94)}',
-    '.b ha-icon{--mdc-icon-size:24px;width:24px;height:24px;opacity:.92}'
+    '.b hk-icon{--mdc-icon-size:24px;width:24px;height:24px;opacity:.92}'
   ].join('');
   // Does the page now on the address have a pop-up of this hash? A bar is
   // carried only to a page that has one (not Play Music, its own player the
@@ -1051,8 +1051,8 @@
         b.className = 'hk-stash';
         var sr = b.attachShadow({ mode: 'open' });
         sr.innerHTML = '<style>' + STASH_CSS + '</style><div class="b" role="button" tabindex="0" aria-label="' +
-          String(st.label || 'Show').replace(/"/g, '&quot;') + '"><ha-icon icon="' +
-          String(st.icon || 'mdi:chevron-up').replace(/"/g, '') + '"></ha-icon></div>';
+          String(st.label || 'Show').replace(/"/g, '&quot;') + '"><hk-icon icon="' +
+          String(st.icon || 'mdi:chevron-up').replace(/"/g, '') + '"></hk-icon></div>';
         if (!document.getElementById('hk-stash-css')) {
           var css = document.createElement('style');
           css.id = 'hk-stash-css';
@@ -1288,7 +1288,7 @@
             x.setAttribute('role', 'button');
             x.setAttribute('aria-label', 'Close');
             x.setAttribute('tabindex', '0');
-            x.innerHTML = '<ha-icon icon="mdi:close"></ha-icon>';
+            x.innerHTML = '<hk-icon icon="mdi:close"></hk-icon>';
             x.addEventListener('click', function (e) {
               e.stopPropagation();
               setHash('');

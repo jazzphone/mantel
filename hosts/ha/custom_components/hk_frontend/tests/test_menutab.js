@@ -72,7 +72,7 @@ location.pathname = '/dashboard-hall/0';
 ok('chip then tab: the chip style', M.style() === 'chip', M.style());
 ok('...a round button on Home and beside the back chevron', M.round('home') && M.round('page'));
 ok('...and the tab only once scrolled past', M.tab() === 'scrolled', M.tab());
-// a chip card: its <ha-card> at a place the test moves
+// a chip card: its <hk-plate> at a place the test moves
 var chipTop = 150;
 var chipEl = { isConnected: true, getBoundingClientRect: function () {
   return { top: chipTop, bottom: chipTop + 44, width: 44, left: 16, right: 60 }; } };

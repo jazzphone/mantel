@@ -2302,7 +2302,7 @@
         '.talk .dot{display:none;width:10px;height:10px;border-radius:5px;background:#fff;',
         '  animation:hk-db-pulse 1s ease-in-out infinite}',
         '.talk.rec .dot{display:block}',
-        '.talk.rec ha-icon{display:none}',
+        '.talk.rec hk-icon{display:none}',
         '@keyframes hk-db-pulse{0%,100%{opacity:1}50%{opacity:.25}}',
         '.msg{position:absolute;left:50%;top:18px;transform:translateX(-50%);padding:8px 14px;',
         '  border-radius:14px;background:rgba(28,28,30,.75);color:#fff;font-size:15px;',
@@ -2431,7 +2431,7 @@
         var snd = document.createElement('button');
         snd.className = 'snd';
         snd.setAttribute('aria-label', 'Sound');
-        snd.innerHTML = '<ha-icon></ha-icon>';
+        snd.innerHTML = '<hk-icon></hk-icon>';
         snd.addEventListener('click', function (e) {
           e.stopPropagation();
           // A tap is a user gesture: the browser allows sound from here.
@@ -2489,7 +2489,7 @@
           navigator.mediaDevices.getUserMedia && window.MediaRecorder) {
         var t = document.createElement('button');
         t.className = 'talk';
-        t.innerHTML = '<ha-icon icon="mdi:microphone"></ha-icon><span class="dot"></span><span class="lbl"></span>';
+        t.innerHTML = '<hk-icon icon="mdi:microphone"></hk-icon><span class="dot"></span><span class="lbl"></span>';
         t.addEventListener('pointerdown', function (e) {
           e.preventDefault(); e.stopPropagation();
           try { t.setPointerCapture(e.pointerId); } catch (x) { /* old engine */ }
@@ -2536,7 +2536,7 @@
       if (!b) return;
       var on = this._audible();
       b.classList.toggle('off', !on);
-      var i = b.querySelector('ha-icon');
+      var i = b.querySelector('hk-icon');
       if (i) i.setAttribute('icon', on ? 'mdi:volume-high' : 'mdi:volume-off');
       b.setAttribute('aria-pressed', on ? 'true' : 'false');
     }
@@ -3010,7 +3010,7 @@
         '.tv-art{position:relative;aspect-ratio:16/9;background:#0b0d12;overflow:hidden}',
         '.tv-pic{position:absolute;inset:0}',
         '.tv-pic img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}',
-        '.tv-art ha-icon{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);',
+        '.tv-art hk-icon{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);',
         '  --mdc-icon-size:44px;color:rgba(255,255,255,.4)}',
         '.tv-live{position:absolute;left:10px;top:10px;padding:3px 8px;border-radius:8px;',
         '  background:#ff3b30;color:#fff;font-size:12px;font-weight:700;letter-spacing:.04em}',
@@ -3156,8 +3156,8 @@
       var pic = document.createElement('div');
       pic.className = 'tv-pic';
       art.append(pic);
-      if (a.image) this._artImage(a.image, pic, '<ha-icon icon="mdi:television-classic"></ha-icon>', 600);
-      else pic.innerHTML = '<ha-icon icon="mdi:television-classic"></ha-icon>';
+      if (a.image) this._artImage(a.image, pic, '<hk-icon icon="mdi:television-classic"></hk-icon>', 600);
+      else pic.innerHTML = '<hk-icon icon="mdi:television-classic"></hk-icon>';
       art.insertAdjacentHTML('beforeend', '<span class="tv-live">LIVE</span>');
       if (a.logo) {
         var lg = document.createElement('div');
@@ -3257,7 +3257,7 @@
       '  align-items:center;justify-content:center;background:rgba(28,28,30,.66);color:#fff;' +
       '  cursor:pointer;--mdc-icon-size:24px}' +
       '</style><div class="top"><div class="cap"></div>' +
-      '<div class="x" role="button" aria-label="Close" tabindex="0"><ha-icon icon="mdi:close"></ha-icon></div></div>';
+      '<div class="x" role="button" aria-label="Close" tabindex="0"><hk-icon icon="mdi:close"></hk-icon></div></div>';
     var cam = C.create({ type: 'custom:hk-doorbell-card', entity: ch.camera, fill: true,
                          tuning: ch.name, volume: true, aspect_ratio: '16x9', glass: false });
     el.insertBefore(cam, el.firstChild);

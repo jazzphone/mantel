@@ -226,14 +226,14 @@
     '  background:conic-gradient(#ff9f0a calc(var(--hk-left,1) * 360deg),rgba(255,255,255,0.14) 0)}',
     '.td .gl{width:24px;height:24px;border-radius:50%;background:#ff9f0a;display:flex;align-items:center;justify-content:center;',
     '  box-shadow:0 0 0 2px var(--hk-td-plate,rgb(22,23,26))}',
-    '.td .gl ha-icon{--mdc-icon-size:15px;color:rgba(0,0,0,0.82)}',
+    '.td .gl hk-icon{--mdc-icon-size:15px;color:rgba(0,0,0,0.82)}',
     '.td .nm{grid-area:n;font-size:12px;font-weight:600;line-height:1.15;color:rgba(255,255,255,0.6);',
     '  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:left}',
     '.td hk-countdown{grid-area:t;font-size:18px;line-height:1.1;letter-spacing:-0.3px;color:rgba(255,255,255,0.97);text-align:left}',
     '.td .ct{grid-area:c;display:flex;align-items:center;gap:6px;pointer-events:auto}',
     '.td .ct button{width:36px;height:36px;border-radius:18px;border:0;padding:0;cursor:pointer;background:rgba(255,255,255,0.14);',
     '  display:flex;align-items:center;justify-content:center;-webkit-tap-highlight-color:transparent}',
-    '.td .ct ha-icon{--mdc-icon-size:18px;color:rgba(255,255,255,0.92)}',
+    '.td .ct hk-icon{--mdc-icon-size:18px;color:rgba(255,255,255,0.92)}',
     '.td .dt{display:none}',
     // NARROW: one at a time, swiped; Restart goes (the Timers page has it)
     '@container (max-width:599px){',
@@ -252,14 +252,14 @@
     var btn = function (id, cls, icon, what, label) {
       return '<button type="button" class="' + cls + '" aria-label="' + label + '" ' +
         "onclick=\"event.stopPropagation();window.hkTimers&&window.hkTimers.act('" + esc(id) + "','" + what + "')\">" +
-        '<ha-icon icon="' + icon + '"></ha-icon></button>';
+        '<hk-icon icon="' + icon + '"></hk-icon></button>';
     };
     var segs = rows.map(function (r) {
       var end = Date.parse(r.finishes_at);
       if (isNaN(end)) return '';
       var total = r.total ? ' total="' + Number(r.total) + '"' : '';
       return '<div class="sg">' +
-        '<div class="rg"><div class="gl"><ha-icon icon="mdi:timer-outline"></ha-icon></div></div>' +
+        '<div class="rg"><div class="gl"><hk-icon icon="mdi:timer-outline"></hk-icon></div></div>' +
         '<div class="nm">' + esc(r.name || 'Timer') + '</div>' +
         '<hk-countdown deadline="' + end + '"' + total + '></hk-countdown>' +
         (r.entity_id ? '<div class="ct">' + btn(r.entity_id, 'rs', 'mdi:restart', 'restart', 'Restart timer') +
@@ -452,8 +452,8 @@
             'pointer-events:auto;' +
             'background:rgba(255,255,255,0.16);display:flex;align-items:center;' +
             'justify-content:center;-webkit-tap-highlight-color:transparent;">' +
-            '<ha-icon icon="' + icon + '" style="--mdc-icon-size:' + px(Math.round(bsz * 0.5)) +
-            ';color:rgba(255,255,255,0.92);"></ha-icon></button>';
+            '<hk-icon icon="' + icon + '" style="--mdc-icon-size:' + px(Math.round(bsz * 0.5)) +
+            ';color:rgba(255,255,255,0.92);"></hk-icon></button>';
         };
         // pointer-events:auto is THE thing that makes these work wherever an
         // ancestor sets `pointer-events: none` (a card with no tap action
@@ -489,7 +489,7 @@
                //   glass    the now-playing BAR's own tint, which it rides
                //            above. The two are one visual stack and an opaque
                //            strip over a translucent bar read as a mistake.
-               //            Same recipe as ha-card.np.bar in cards/hk-media.js
+               //            Same recipe as hk-plate.np.bar in cards/hk-media.js
                //            -- change one, change both. NO BACKDROP BLUR,
                //            like the bar: fixed over a scrolling page, a blur
                //            re-blurs every frame.
@@ -508,8 +508,8 @@
                  '<div style="flex:0 0 auto;width:' + px(34) + ';height:' + px(34) +
                  ';border-radius:' + px(17) + ';background:rgba(255,159,10,0.95);' +
                  'display:flex;align-items:center;justify-content:center;">' +
-                   '<ha-icon icon="mdi:timer-outline" style="--mdc-icon-size:' +
-                   px(20) + ';color:rgba(0,0,0,0.82);"></ha-icon></div>' +
+                   '<hk-icon icon="mdi:timer-outline" style="--mdc-icon-size:' +
+                   px(20) + ';color:rgba(0,0,0,0.82);"></hk-icon></div>' +
                  // text-align:left for the same reason the screensaver's
                  // now-playing card needs it: WallPanel's info box centers its
                  // content and these two lines would inherit that, so the name

@@ -3,11 +3,11 @@
 // Scenes, scripts and playlist buttons have no on-state to settle into, so a
 // press has to leave its own trace. CSS :active dies with the finger, so the
 // pill would flash for however long the tap lasted and no longer. This module
-// adds .hk-tapped to the pressed ha-card and holds it for HOLD_MS, which is
+// adds .hk-tapped to the pressed hk-plate and holds it for HOLD_MS, which is
 // also exactly how long the progress ring in cards/hk-tile.js (the scene
 // pill's `--hk-tap` opt-in) takes to sweep once round the icon.
 //
-// Opt-in is by marker: a template declares `--hk-tap: 1` on its ha-card and we
+// Opt-in is by marker: a template declares `--hk-tap: 1` on its hk-plate and we
 // read it back off the computed style. Nothing else is inspected, so this can
 // never touch a card that did not ask for it.
 (function () {
@@ -171,14 +171,14 @@
     hold(gesture.card);
   }
 
-  // The first ha-card up the composed path, or null. composedPath is the only
+  // The first hk-plate up the composed path, or null. composedPath is the only
   // way through a card's shadow root; the event target itself is always
   // the host element.
   function cardUnder(ev) {
     var path = ev.composedPath ? ev.composedPath() : [];
     for (var i = 0; i < path.length; i++) {
       var el = path[i];
-      if (el && el.localName === 'ha-card') { return el; }
+      if (el && el.localName === 'hk-plate') { return el; }
     }
     return null;
   }

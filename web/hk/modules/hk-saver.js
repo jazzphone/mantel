@@ -999,10 +999,10 @@
     // while their panel is open
     '.mbtn.mx{width:calc(48px * var(--z));height:calc(48px * var(--z));background:rgba(255,255,255,.06);box-shadow:inset 0 0 0 calc(1.5px * var(--z)) rgba(255,255,255,.30)}',
     '.mbtn.mx svg{width:52%;height:52%}',
-    '.mbtn.mx ha-icon{--mdc-icon-size:calc(25px * var(--z));width:calc(25px * var(--z));height:calc(25px * var(--z));color:#fff;display:flex}',
+    '.mbtn.mx hk-icon{--mdc-icon-size:calc(25px * var(--z));width:calc(25px * var(--z));height:calc(25px * var(--z));color:#fff;display:flex}',
     '.mbtn.mx.on{background:#fff;box-shadow:none}',
     '.mbtn.mx.on svg{fill:#111}',
-    '.mbtn.mx.on ha-icon{color:#111}',
+    '.mbtn.mx.on hk-icon{color:#111}',
     '[nomx] .mbtn.mx{display:none}',
     '.mbtn.mpp.hit{background:#fff}',
     '.mnext{display:flex;align-items:center;gap:calc(14px * var(--z));margin-top:calc(30px * var(--z));min-width:0}',
@@ -1072,7 +1072,7 @@
     ':host(:not([pcal])) .pm .mbtn{width:calc(50px * var(--z));height:calc(50px * var(--z))}',
     ':host(:not([pcal])) .pm .mbtn.mpp{width:calc(62px * var(--z));height:calc(62px * var(--z))}',
     ':host(:not([pcal])) .pm .mbtn.mx,:host([pcal]) .pm .mbtn.mx{width:calc(42px * var(--z));height:calc(42px * var(--z))}',
-    '.pm .mbtn.mx ha-icon{--mdc-icon-size:calc(22px * var(--z));width:calc(22px * var(--z));height:calc(22px * var(--z))}',
+    '.pm .mbtn.mx hk-icon{--mdc-icon-size:calc(22px * var(--z));width:calc(22px * var(--z));height:calc(22px * var(--z))}',
     ':host(:not([pcal])) .pm .mnext{justify-content:center;margin-top:calc(28px * var(--z));text-align:left}',
     ':host(:not([pcal])) .pm .mnth{width:calc(38px * var(--z));height:calc(38px * var(--z))}',
     ':host(:not([pcal])) .pm .mnl{font-size:calc(10px * var(--z))}',
@@ -2564,7 +2564,7 @@
       '<div class="mfr"><img alt=""></div><div class="mfr"><img alt=""></div></div></div>' +
       '<div class="mcol"><div class="mroom"></div><div class="mtitle"></div><div class="martist"></div><div class="malbum"></div>' +
       '<div class="mprog"><div class="mbar"><i></i></div><div class="mtimes"><span></span><span></span></div></div>' +
-      '<div class="mctl"><div class="mbtn mx" data-act="spk" aria-label="Speakers"><ha-icon icon="hk:homepod"></ha-icon></div>' +
+      '<div class="mctl"><div class="mbtn mx" data-act="spk" aria-label="Speakers"><hk-icon icon="hk:homepod"></hk-icon></div>' +
       '<div class="mbtn" data-act="prev">' + svg(ICON.prev) + '</div><div class="mbtn mpp" data-act="pp">' +
       svg(ICON.play) + '</div><div class="mbtn" data-act="next">' + svg(ICON.next) + '</div>' +
       '<div class="mbtn mx" data-act="brw" aria-label="Browse Music">' + svg(ICON.lib) + '</div>' +

@@ -150,7 +150,7 @@
       '.lab > span:first-child{white-space:nowrap}',
       '.lab .n{text-transform:none;font-size:15px;font-weight:400;letter-spacing:0;color:' + window.hkCards.v('ink-2') + ';white-space:nowrap;margin-left:auto}',
       '.row{display:flex;align-items:center;gap:12px;font-size:16px;line-height:20px}',
-      '.row ha-icon{--mdc-icon-size:20px;opacity:.7;flex:none;display:flex}',
+      '.row hk-icon{--mdc-icon-size:20px;opacity:.7;flex:none;display:flex}',
       '.row .v{margin-left:auto;color:' + window.hkCards.v('ink-2') + '}',
       '.av{border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:650;overflow:hidden;flex:none;',
       '  background:linear-gradient(180deg,#a3a9b5,#7b8190);color:#fff}',
@@ -261,7 +261,7 @@
         var day = '<div class="card hist"><div class="lab"><span>Last 24 Hours</span><span class="n"></span></div><div class="bar"></div>' +
           U.timeRow(DAY, 5) + '</div>';
         var ph = phoneOf(h, s);
-        var dev = ph ? '<div class="card rows"><div class="row"><ha-icon icon="mdi:cellphone"></ha-icon><span>' + esc(ph.name) + '</span>' +
+        var dev = ph ? '<div class="card rows"><div class="row"><hk-icon icon="mdi:cellphone"></hk-icon><span>' + esc(ph.name) + '</span>' +
           (ph.battery ? '<span class="v">' + esc(ph.battery) + '</span>' : '') + '</div></div>' : '';
         var others = Object.keys(h.states).filter(function (k) { return k.indexOf('person.') === 0 && k !== this._id; }, this)
           .sort(function (a, b) { return nameOf(h.states[a]).localeCompare(nameOf(h.states[b])); });

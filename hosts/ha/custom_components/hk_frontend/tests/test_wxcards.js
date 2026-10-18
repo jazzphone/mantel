@@ -127,7 +127,7 @@ H.run('WEATHER CARDS', [
     });
     H.noThrow('first hass', function () { card.hass = house.hass(); });
     var R = card._root;
-    H.ok('draws the plate', /ha-card class="alert"/.test(R.__html), R.__html.slice(0, 60));
+    H.ok('draws the plate', /hk-plate class="alert"/.test(R.__html), R.__html.slice(0, 60));
     H.eq('title', text(H.part(R, '.title')), 'Severe Weather');
     H.eq('source', text(H.part(R, '.src')), 'National Weather Service');
     H.ok('body names the event and when it ends',
@@ -182,7 +182,7 @@ H.run('WEATHER CARDS', [
     H.eq('no hass, nothing drawn yet', H.morphed(card._root), '');
     H.noThrow('first hass', function () { card.hass = house.hass(); });
     var m = H.morphed(card._root);
-    H.ok('draws through morph(), into a clock plate', /^<ha-card class="clock" style="margin:0">/.test(m), m.slice(0, 60));
+    H.ok('draws through morph(), into a clock plate', /^<hk-plate class="clock" style="margin:0">/.test(m), m.slice(0, 60));
     H.ok('the time is the Time sensor, 12-hour', />7:05<\/span>/.test(m) && />AM<\/span>/.test(m));
     H.ok('the screensaver date format', /September, 26th/.test(m));
     H.ok('its own sizes, not the header\'s', /font-size:150px/.test(m) && !/font-size:72px/.test(m));
@@ -377,7 +377,7 @@ H.run('WEATHER CARDS', [
     H.noThrow('first hass', function () { card.hass = house.hass(); });
     var html = card._root.__html;
     H.ok('draws a tappable strip with its margin',
-         /^<ha-card class="strip tappable" style="margin:30px 0px 19px 0px">/.test(html), html.slice(0, 80));
+         /^<hk-plate class="strip tappable" style="margin:30px 0px 19px 0px">/.test(html), html.slice(0, 80));
     H.ok('the temperature is the weather entity\'s', /72°/.test(html));
     H.ok('the tap is wired once, on the root', (card._root._listeners.click || []).length === 1);
 
@@ -409,7 +409,7 @@ H.run('WEATHER CARDS', [
       saver.hass = house.hass();
     });
     H.ok('screensaver: inert (no tap), on its own layer',
-         /^<ha-card class="strip" style="margin:-4px 0px 0px 20px;will-change:transform">/.test(saver._root.__html) &&
+         /^<hk-plate class="strip" style="margin:-4px 0px 0px 20px;will-change:transform">/.test(saver._root.__html) &&
          !(saver._root._listeners.click || []).length);
     return H.lifecycle('strip', card, house, function (c) { c.hass = house.hass(); });
   },

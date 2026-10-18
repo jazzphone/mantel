@@ -166,7 +166,7 @@ ok('media: its own color through the one rule (no override)', proto(Media, {})._
 ok('bare by what the card says: Safari’s none and Chrome’s transparent alike', Tile.prototype._bareWell({}, 'none') && Tile.prototype._bareWell({}, 'transparent') && Tile.prototype._bareWell({ bare_icon: true }, '#fff') && !Tile.prototype._bareWell({}, 'var(--hk-look-well)'));
 var css = C.flatCss();
 ok('a lit pill is pure white in Flat Light (no wash rule)', !/14%,#fff/.test(css) && !/hk-tile-tint/.test(css));
-ok('off pills wear --hk-idle-pill', /ha-card\.card\[data-hk-idle\]:not\(\[data-on="1"\]\):not\(\.hk-tapped\)\{background:var\(--hk-idle-pill\)!important\}/.test(css));
+ok('off pills wear --hk-idle-pill', /hk-plate\.card\[data-hk-idle\]:not\(\[data-on="1"\]\):not\(\.hk-tapped\)\{background:var\(--hk-idle-pill\)!important\}/.test(css));
 ok('a lit or tapped scene is white feedback, an idle one the scene tone', /\.scene:not\(\.hk-tapped\):not\(\[data-on="1"\]\)\{background:var\(--hk-flat-scene\)/.test(css));
 
 // ---- the settings' display model agrees ---------------------------------------

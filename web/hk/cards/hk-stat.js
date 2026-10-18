@@ -76,21 +76,21 @@
 
     // ---- heading ---------------------------------------------------------
     // overflow:visible at EVERY level, and it is load-bearing. Where an
-    // ha-card clips, a text-shadow that reaches outside the 21px line box
+    // hk-plate clips, a text-shadow that reaches outside the 21px line box
     // comes out as a hard rectangular band; this card simply never closes the
     // clip.
-    'ha-card.heading{background:none;border:none;box-shadow:none;',
+    'hk-plate.heading{background:none;border:none;box-shadow:none;',
     '  height:21px;margin:0px;padding:0px 0px 0px 3px;overflow:visible;',
     '  display:flex;align-items:center;justify-content:center;',
     '  font-size:1.2em;text-align:center;',
     '  --ha-ripple-hover-opacity:0;--ha-ripple-pressed-opacity:0}',
-    // width:100% is load-bearing. ha-card is flex with justify-content:center,
+    // width:100% is load-bearing. hk-plate is flex with justify-content:center,
     // so a min-content grid gets CENTRED in the full card width and the
     // heading lands 600px to the right.
     '.heading .grid{display:grid;width:100%;overflow:visible;align-items:center;',
     '  justify-content:start;grid-template-areas:"n";',
     '  grid-template-columns:min-content;grid-template-rows:21px}',
-    // align-self:stretch, because ha-card is a flex box with
+    // align-self:stretch, because hk-plate is a flex box with
     // align-items:center. When a call site makes the card TALLER than the 21px
     // row -- a 42px heading with 18px of lead, as on the energy page -- a
     // CENTRED grid puts the text 2.5px high. Filling the content box and
@@ -115,7 +115,7 @@
     // The link variant adds a chevron chip beside the name.
     '.heading.link .grid{grid-template-areas:"n c";',
     '  grid-template-columns:max-content max-content;column-gap:6px}',
-    'ha-card.heading.link{cursor:pointer}',
+    'hk-plate.heading.link{cursor:pointer}',
     // MEASURED, not written by eye. Every property below moves the box:
     // letter-spacing is 0.2px over ~17 glyphs, the chevron is heavier than
     // the words, the line-height adds almost a pixel, and the colour is 0.62
@@ -166,7 +166,7 @@
     '  .heading.esec:not(.link) .grid{grid-template-areas:"n" "e";grid-template-columns:max-content}',
     '  .heading.esec .esub{justify-self:start;margin-top:0}',
     '}',
-    'ha-card.heading{transition:opacity .2s}',
+    'hk-plate.heading{transition:opacity .2s}',
 
     // ---- metric ----------------------------------------------------------
     // filter:drop-shadow, NOT text-shadow, and the reason is specific: this
@@ -176,7 +176,7 @@
     // element has rendered and clipped, so the ellipsis still works and the
     // shadow escapes. Moving it to a wrapper does not help: text-shadow
     // INHERITS, so every line paints and clips its own copy.
-    'ha-card.metric{background:none;border:none;box-shadow:none;border-radius:0px;',
+    'hk-plate.metric{background:none;border:none;box-shadow:none;border-radius:0px;',
     '  height:78px;margin:0px;padding:0px 4px 0px 3px;overflow:visible;',
     '  display:flex;align-items:center;justify-content:center;',
     '  font-size:1.2em;text-align:center;cursor:pointer;',
@@ -207,7 +207,7 @@
     // ---- hero / pct / rank pill -----------------------------------------
     // One card, three modes: the hero, percent and rank pills share every
     // style exactly and differ only in what their `hero` cell renders.
-    'ha-card.rank{box-sizing:border-box;height:' + window.hkCards.TILE.tall + 'px;width:' + window.hkCards.TILE.css + ';',
+    'hk-plate.rank{box-sizing:border-box;height:' + window.hkCards.TILE.tall + 'px;width:' + window.hkCards.TILE.css + ';',
     '  min-width:' + window.hkCards.TILE.css + ';max-width:' + window.hkCards.TILE.css + ';border-radius:' + window.hkCards.M.radius + ';',
     // the well starts at the pills' inset (hk-tile.js): left 10.3, as a tall tile
     '  padding:12.8px 12.8px 12.8px 10.3px;margin:0px;',
@@ -219,9 +219,9 @@
     '  --ha-ripple-hover-opacity:0;--ha-ripple-pressed-opacity:0;',
     '  transition:background-color .25s ease,transform .12s ease}',
     // in a section: fills its cell, like the tiles (hk-tile.js)
-    ':host([data-hk-cell]) ha-card.rank{width:100%;min-width:0;max-width:none}',
-    'ha-card.rank:active{transform:scale(0.97);filter:brightness(0.93)}',
-    'ha-card.rank[data-on="1"]{background:white}',
+    ':host([data-hk-cell]) hk-plate.rank{width:100%;min-width:0;max-width:none}',
+    'hk-plate.rank:active{transform:scale(0.97);filter:brightness(0.93)}',
+    'hk-plate.rank[data-on="1"]{background:white}',
     // The reading sits top-left and the well top-RIGHT -- the mirror of a
     // tall tile, which is why this is not a hk_pill_tall variant.
     '.rank .grid{display:grid;width:100%;align-self:stretch;',
@@ -243,12 +243,12 @@
     '  font-size:14px;font-weight:600;line-height:1.1;letter-spacing:-0.15px;',
     '  color:' + window.hkCards.v('ink') + ';text-align:left;min-width:0;width:100%;',
     '  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
-    'ha-card.rank[data-on="1"] .name{color:black}',
+    'hk-plate.rank[data-on="1"] .name{color:black}',
     '.rank .label{grid-area:l;justify-self:stretch;align-self:start;',
     '  font-size:14px;font-weight:400;line-height:1.1;letter-spacing:-0.15px;',
     '  color:' + window.hkCards.v('ink-2') + ';text-align:left;min-width:0;width:100%;',
     '  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
-    'ha-card.rank[data-on="1"] .label{color:rgba(0,0,0,0.65)}',
+    'hk-plate.rank[data-on="1"] .label{color:rgba(0,0,0,0.65)}',
     // ON THE ENERGY PAGE (`energy: true`) the empty middle row carries the
     // tile's line: the last three hours of its watts on Now, its last two
     // weeks of kWh on the other tabs; a battery's level as a bar. The tile
@@ -265,7 +265,7 @@
     '.rank .label b.up{color:#ffb340}.rank .label b.down{color:#4cd964}',
     // THE POWER BUTTON, bottom right: 34 px, a 44 px target; the name and
     // label keep clear of it. Off, the tile steps back.
-    'ha-card.rank{position:relative}',
+    'hk-plate.rank{position:relative}',
     '.rank .pwr{position:absolute;right:12.8px;bottom:12.8px;width:34px;height:34px;border-radius:50%;border:0;padding:0;',
     '  display:grid;place-items:center;cursor:pointer;color:#fff;background:#30d158;',
     '  box-shadow:0 2px 6px rgba(0,0,0,0.25);transition:background-color .2s ease,color .2s ease,transform .12s ease;',
@@ -273,7 +273,7 @@
     '.rank .pwr::after{content:"";position:absolute;inset:-5px}',
     '.rank .pwr:active{transform:scale(0.9)}',
     '.rank .pwr[data-on="0"]{background:' + window.hkCards.v('key-strong') + ';color:' + window.hkCards.v('ink-2') + ';box-shadow:none}',
-    'ha-card.rank.haspwr .name,ha-card.rank.haspwr .label{padding-right:42px;box-sizing:border-box}',
+    'hk-plate.rank.haspwr .name,hk-plate.rank.haspwr .label{padding-right:42px;box-sizing:border-box}',
     // BACKED UP BY THE HOUSE BATTERY (`backed`, the Power page and the
     // Energy page): a small green battery at the start of the kWh line -- a
     // picture anyone reads, nothing on the glyph, no name cut short. A
@@ -281,17 +281,17 @@
     // narrow for the battery and "12.4 kWh today" (under 164 px inside its
     // padding: the desk with its sidebar, the iPads, the car, a phone) the
     // word "today" steps aside rather than the line ending in "to...".
-    'ha-card.rank.bkd{container-type:inline-size}',
+    'hk-plate.rank.bkd{container-type:inline-size}',
     '.rank.bkd .label::before{content:"";display:inline-block;width:15px;height:10px;margin-right:5px;vertical-align:-0.5px;',
     '  background:url("data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 16 10%27%3E%3Crect x=%27.75%27 y=%27.75%27 width=%2712.5%27 height=%278.5%27 rx=%272.2%27 fill=%27none%27 stroke=%27%2330d158%27 stroke-width=%271.5%27/%3E%3Crect x=%2714%27 y=%273.3%27 width=%271.6%27 height=%273.4%27 rx=%27.6%27 fill=%27%2330d158%27/%3E%3Crect x=%272.6%27 y=%272.6%27 width=%276.4%27 height=%274.8%27 rx=%271%27 fill=%27%2330d158%27/%3E%3C/svg%3E") no-repeat center/contain}',
     '@container (max-width:163px){.rank.bkd .label .td{display:none}}',
     '.rank .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}',
-    'ha-card.rank.pwroff .hero,ha-card.rank.pwroff .well,ha-card.rank.pwroff .spark{opacity:0.45}',
+    'hk-plate.rank.pwroff .hero,hk-plate.rank.pwroff .well,hk-plate.rank.pwroff .spark{opacity:0.45}',
     // on a new Energy tab its line draws in, left to right (a clip: no layout)
     '@keyframes hkWipe{from{clip-path:inset(0 100% 0 0)}}',
     '.rank .spark.wipe{animation:hkWipe .7s cubic-bezier(.22,.8,.25,1) backwards}',
     '@media (prefers-reduced-motion: reduce){.rank .spark.wipe{animation:none}}',
-    'ha-card.rank{transition:background-color .25s ease,transform .12s ease,opacity .2s}',
+    'hk-plate.rank{transition:background-color .25s ease,transform .12s ease,opacity .2s}',
     // ================================================ PHONE: FILL THE TRACK
     // Below 640px the room grids switch to `repeat(auto-fill, minmax(168px,
     // 1fr))` (see frontend/css/hk-responsive.css), so the track is no longer
@@ -321,7 +321,7 @@
     // the full grid AREA instead and every tile comes out 8px too wide (190.95
     // measured against a 182.95 track), eating the gap (then 12px) to 4px.
     '  :host{max-width:none !important}',
-    '  ha-card.rank{width:calc(100% + var(--hk-cell-bleed, 8px));min-width:0;max-width:none}',
+    '  hk-plate.rank{width:calc(100% + var(--hk-cell-bleed, 8px));min-width:0;max-width:none}',
     '}',
   ].join('');
 
@@ -389,14 +389,14 @@
       if (!this._built) {
         this._roomWas = room;
         this._root.innerHTML =
-          '<ha-card class="heading' + (isLink ? ' link' : '') + (room ? ' room' : '') + (cfg.energy_section ? ' esec' : '') + '" data-hk-role="card">' +
+          '<hk-plate class="heading' + (isLink ? ' link' : '') + (room ? ' room' : '') + (cfg.energy_section ? ' esec' : '') + '" data-hk-role="card">' +
           '<div class="grid"' + (room ? ' role="link" tabindex="0"' : '') + '>\n<div class="name" data-hk-role="name"></div>\n' +
           (cfg.chevron ? '<div class="extra" data-hk-role="extra"></div>\n' : '') +
           (cfg.energy_section ? '<div class="esub" data-hk-role="esub"></div>\n' : '') +
           (room ? '<div class="rchev" aria-hidden="true"><svg viewBox="0 0 8 13" width="8" height="13" fill="none"' +
                   ' style="stroke:var(--hk-mark,rgba(255,255,255,0.55))" stroke-width="2.2" stroke-linecap="round"' +
                   ' stroke-linejoin="round"><path d="M1.6 1.6 L6.4 6.5 L1.6 11.4"/></svg></div>\n' : '') +
-          '</div></ha-card>';
+          '</div></hk-plate>';
         this._e = {
           card: this._root.querySelector('.heading'),
           name: this._root.querySelector('.name'),
@@ -557,8 +557,8 @@
 
       if (!this._built) {
         this._root.innerHTML =
-          '<ha-card class="rank" data-hk-role="card"><div class="grid">' +
-          '<div class="well" data-hk-role="well"><ha-state-icon class="icon" data-hk-role="icon"></ha-state-icon></div>\n' +
+          '<hk-plate class="rank" data-hk-role="card"><div class="grid">' +
+          '<div class="well" data-hk-role="well"><hk-state-icon class="icon" data-hk-role="icon"></hk-state-icon></div>\n' +
           '<div class="name" data-hk-role="name"></div>\n' +
           '<div class="label" data-hk-role="label"></div>\n' +
           '<div class="lvl" aria-hidden="true"><i></i></div>' +
@@ -567,7 +567,7 @@
           // it top-left either way; DOM order only shows in the card's text
           // order.
           '<div class="hero" data-hk-role="hero"></div>\n' +
-          '</div></ha-card>';
+          '</div></hk-plate>';
         this._e = {
           card: this._root.querySelector('.rank'), hero: this._root.querySelector('.hero'),
           icon: this._root.querySelector('.icon'), name: this._root.querySelector('.name'),

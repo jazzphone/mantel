@@ -138,7 +138,7 @@ function view() {
 function card(rect, opts) {
   opts = opts || {};
   var c = new E('HK-TILE-CARD', {}, rect); c.attachShadow();
-  if (!opts.noPlate) { var p = new E('HA-CARD', { glass: 1, radius: '23.5px' }, rect); c.shadowRoot.appendChild(p); c._plate = p; }
+  if (!opts.noPlate) { var p = new E('HK-PLATE', { glass: 1, radius: '23.5px' }, rect); c.shadowRoot.appendChild(p); c._plate = p; }
   return c;
 }
 // A sideways row (hk-row-card's .row) holding cards.
@@ -314,7 +314,7 @@ advance(300);
 var cs0 = computed; advance(5 * 2000 + 50);       // five backstop passes at rest
 ok('at rest, a pass reads no card\'s tree again (only each plate\'s radius and anchor)',
    computed - cs0 <= 5 * 2 * 2, computed - cs0);
-var late = new E('HA-CARD', { glass: 1, radius: '20px' }, { x: 0, y: 300, w: 300, h: 40 });
+var late = new E('HK-PLATE', { glass: 1, radius: '20px' }, { x: 0, y: 300, w: 300, h: 40 });
 plain[0].shadowRoot.appendChild(late);           // a card that renders its plate late
 G.rendered(plain[0]);                            // (HkBase says so after every draw)
 advance(50);

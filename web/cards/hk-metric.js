@@ -13,11 +13,11 @@
       var cfg = this._config, st = this._st(cfg.entity);
       if (!this._built) {
         this._root.innerHTML =
-          '<ha-card class="metric" data-hk-role="card"><div class="grid">' +
-          '<div class="well" data-hk-role="well"><ha-state-icon class="icon" data-hk-role="icon"></ha-state-icon></div>\n' +
+          '<hk-plate class="metric" data-hk-role="card"><div class="grid">' +
+          '<div class="well" data-hk-role="well"><hk-state-icon class="icon" data-hk-role="icon"></hk-state-icon></div>\n' +
           '<div class="name" data-hk-role="name"></div>\n' +
           '<div class="state" data-hk-role="state"></div>\n' +
-          '</div></ha-card>';
+          '</div></hk-plate>';
         this._e = {
           card: this._root.querySelector('.metric'), icon: this._root.querySelector('.icon'),
           name: this._root.querySelector('.name'), state: this._root.querySelector('.state')

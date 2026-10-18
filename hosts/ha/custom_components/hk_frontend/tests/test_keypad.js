@@ -59,7 +59,7 @@ ok('no panel: Unavailable, never a throw', st(undefined).word === 'Unavailable' 
 function stubRoot() {
   var el = function () { return { attrs: {}, style: {}, textContent: '',
     setAttribute: function (a, v) { this.attrs[a] = String(v); }, getAttribute: function (a) { return this.attrs[a]; } }; };
-  var parts = { '.code': el(), '.st ha-icon': el(), '.st span': el() };
+  var parts = { '.code': el(), '.st hk-icon': el(), '.st span': el() };
   var read = el(); read.querySelector = function (q) { return parts[q]; };
   return { read: read, parts: parts, root: { querySelector: function () { return read; } } };
 }
@@ -69,7 +69,7 @@ k5._config.entity = 'alarm_control_panel.p'; k5._code = '';
 var r5 = stubRoot(); k5._root = r5.root; delete k5._paint;
 K.prototype._paint.call(k5);
 ok('at rest the readout is the status', r5.read.attrs['data-mode'] === 'status' &&
-   r5.parts['.st span'].textContent === 'Armed Away' && r5.parts['.st ha-icon'].attrs.icon === 'hk:shield-lock');
+   r5.parts['.st span'].textContent === 'Armed Away' && r5.parts['.st hk-icon'].attrs.icon === 'hk:shield-lock');
 k5._code = '12'; K.prototype._paint.call(k5);
 ok('typing puts the code line back', r5.read.attrs['data-mode'] === 'code' && r5.parts['.code'].textContent === '\u2022\u2022');
 k5._code = ''; k5._config.status = false; K.prototype._paint.call(k5);

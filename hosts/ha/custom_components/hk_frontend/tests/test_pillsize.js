@@ -42,7 +42,7 @@ check('...and says exactly what the window band says', JSON.stringify(byPage) ==
 // the rule says width, min-width and max-width by one name for the pill's CSS
 // width (hk-base.js PILL_W / TILE.css: var(--hk-pill, TILE.w px))
 var P = /width:'\+(PILL_W|TILE\.css|window\.hkCards\.TILE\.css)\+';min-width:'\+\1\+';max-width:'\+\1/;
-[['hk-base.js', '.tile{'], ['hk-tile.js', 'ha-card.card{'], ['hk-stat.js', 'ha-card.rank{']].forEach(function (f) {
+[['hk-base.js', '.tile{'], ['hk-tile.js', 'hk-plate.card{'], ['hk-stat.js', 'hk-plate.rank{']].forEach(function (f) {
   var src = readFile(root + '/frontend/cards/' + f[0]).replace(/',\s*\n\s*'/g, '');
   var at = src.indexOf(f[1]);
   var rule = at < 0 ? '' : src.slice(at, src.indexOf('}', at));
