@@ -43,6 +43,23 @@ class Registry:
                 by_area.setdefault(area, set()).add(eid)
         self.by_area = by_area
 
+    # the registries as HA's list calls returned them (read-only views for MantelHouse, house.py)
+    @property
+    def area_entries(self) -> list[dict]:
+        return self._areas
+
+    @property
+    def device_entries(self) -> list[dict]:
+        return self._devices
+
+    @property
+    def entity_entries(self) -> list[dict]:
+        return self._entities
+
+    @property
+    def floor_entries(self) -> list[dict]:
+        return self._floors
+
     def resolve_area(self, ref: str) -> str | None:
         """Accept an area id or (case-insensitive) area name."""
         if ref in self.areas:
