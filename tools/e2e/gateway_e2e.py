@@ -11,8 +11,10 @@
    Adult (``POST /api/users``), and a wall tablet (``POST /api/devices/enroll``).
 4. Checks: the Owner toggles a demo light and HA's state changes; the Child is denied a lock (nothing
    sent, audit row 'denied') and never receives one; the Adult's unlock asks for step-up and succeeds
-   after a TOTP step-up; the tablet acts in its room and needs a person for a lock; a remote (tunnel)
-   unlock notifies the Owners in HA; every command has an audit row.
+   after a TOTP step-up; the tablet acts in its room and needs a person for a lock; a Child's PIN at the
+   tablet is refused and an Adult's PIN unlocks (the audit names the Adult at the tablet); an Owner's
+   settings save through the socket persists (a Child's is refused); a remote (tunnel) unlock notifies
+   the Owners in HA; every command has an audit row; GET /api/audit returns the run's rows.
 5. Stops the scratch HA (unless --keep-up).
 
 SAFETY: refuses to run unless the HA URL is the scratch one; never reads ~/.config/mantel or touches
@@ -134,6 +136,29 @@ class Browser:
             h["X-Mantel-Door"] = "tunnel"
         async with self.http.request(method, self.base + path, data=json.dumps(body or {}), headers=h) as r:
             return r.status, await r.json(content_type=None)
+
+    async def get(self, path: str):
+        async with self.http.get(self.base + path) as r:
+            return r.status, await r.json(content_type=None)
+
+    async def save(self, msg: dict) -> dict:
+        """HK's own settings save over the socket (settings_write -> settings_result)."""
+        self.n += 1
+        rid = self.n
+        await self.ws.send_json({"type": "settings_write", "id": rid, "msg": msg})
+        while True:
+            m = await self.recv(30)
+            if m.get("type") == "settings_result" and m.get("id") == rid:
+                return m
+
+    async def read(self, msg: dict) -> dict:
+        self.n += 1
+        rid = self.n
+        await self.ws.send_json({"type": "read", "id": rid, "msg": msg})
+        while True:
+            m = await self.recv(30)
+            if m.get("type") == "read_result" and m.get("id") == rid:
+                return m
 
     async def connect(self, *, tunnel=False) -> dict:
         self.ws = await self.http.ws_connect(self.base + "/ws", headers={"X-Mantel-Door": "tunnel"} if tunnel else {})
@@ -302,6 +327,64 @@ async def run(token: str) -> dict:
             reply = await tablet.command(**service("lock", "unlock", KITCHEN_LOCK))
             check(reply.get("type") == "step_up_required" and reply.get("reason") == "person_pin_required",
                   f"the tablet alone needs a person for a lock (person_pin_required) [{reply.get('reason') or reply.get('error')}]")
+            tablet_id = body["device"]["id"]
+
+            # -- a person's PIN at the tablet -----------------------------------------------------------
+            pins = {"adult": "2580", "child": "7913"}
+            st, _ = await adult.post("/api/account/pin", {"pin": pins["adult"]}, method="PUT")   # fresh from step-up
+            assert st == 200
+            child_again = new("child-pin")
+            st, _ = await child_again.post("/api/auth/password", {"username": "e2e-child", "password": pw["child"]})
+            assert st == 200
+            st, _ = await child_again.post("/api/account/pin", {"pin": pins["child"]}, method="PUT")
+            check(st == 200 and app["pins"].has_pin(ids["adult"]) and app["pins"].has_pin(ids["child"]),
+                  "the Adult and the Child set their PINs from their own sessions (PUT /api/account/pin)")
+            if await ha_state(ha_http, token, KITCHEN_LOCK) != "locked":
+                await owner.command(**service("lock", "lock", KITCHEN_LOCK))
+                await until(lambda: ha_state(ha_http, token, KITCHEN_LOCK), "locked")
+            reply = await tablet.command(**service("lock", "unlock", KITCHEN_LOCK))
+            check(reply.get("type") == "step_up_required" and reply.get("methods") == ["pin"],
+                  "the tablet now offers a PIN pad (methods: pin)")
+            sent_before = list(app["commander"].sent)
+            reply = await tablet.command(**service("lock", "unlock", KITCHEN_LOCK),
+                                         step_up={"method": "pin", "pin": pins["child"]})
+            row = app["audit"].rows(id=reply.get("audit_id"))[0]
+            check(reply.get("error", {}).get("code") == "forbidden" and app["commander"].sent == sent_before
+                  and await ha_state(ha_http, token, KITCHEN_LOCK) == "locked",
+                  f"a Child's PIN at the tablet is refused ({reply.get('error', {}).get('reason')}); nothing sent, still locked")
+            check((row["actor"], row["role"], row["device"], row["decision"]) == (ids["child"], "child", tablet_id, "denied"),
+                  "the refused unlock's audit row names the Child at the tablet")
+            reply = await tablet.command(**service("lock", "unlock", KITCHEN_LOCK),
+                                         step_up={"method": "pin", "pin": "9999"})
+            check(reply.get("type") == "step_up_required" and reply.get("pin_error") == "invalid_pin",
+                  "a wrong PIN keeps the PIN pad open (pin_error invalid_pin)")
+            reply = await tablet.command(**service("lock", "unlock", KITCHEN_LOCK),
+                                         step_up={"method": "pin", "pin": pins["adult"]})
+            assert "result" in reply, reply
+            state = await until(lambda: ha_state(ha_http, token, KITCHEN_LOCK), "unlocked")
+            check(state == "unlocked", f"an Adult's PIN at the tablet unlocked {KITCHEN_LOCK}: HA says {state}")
+            row = app["audit"].rows(id=reply["audit_id"])[0]
+            check((row["actor"], row["actor_name"], row["role"], row["device"], row["step_up"], row["result"]) ==
+                  (ids["adult"], "Fictional Adult", "adult", tablet_id, "pin", "ok"),
+                  "the unlock's audit row names the Adult at the tablet (step_up pin, result ok)")
+            reply = await tablet.command(**service("lock", "unlock", KITCHEN_LOCK))
+            check(reply.get("reason") == "person_pin_required", "the PIN counted for that one command only")
+            await owner.command(**service("lock", "lock", KITCHEN_LOCK))
+            await until(lambda: ha_state(ha_http, token, KITCHEN_LOCK), "locked")
+
+            # -- an Owner's settings save through the socket ---------------------------------------------
+            sent_before = list(app["commander"].sent)
+            saved = await owner.save({"type": "hk_frontend/settings/set", "changes": {"look.glass": "clear"}})
+            got = await owner.read({"type": "mantel/settings/get", "scope": "house", "key": "settings"})
+            stored = app["settings"].store.get("house", "settings")
+            check("result" in saved and got.get("result", {}).get("body", {}).get("look", {}).get("glass") == "clear"
+                  and stored.body["look"]["glass"] == "clear" and app["commander"].sent == sent_before,
+                  f"an Owner's settings save through the socket persisted (v{stored.version}); nothing sent to HA")
+            await child_again.connect()
+            refused = await child_again.save({"type": "hk_frontend/settings/set", "changes": {"look.glass": "frosted"}})
+            check(refused.get("error", {}).get("code") == "forbidden"
+                  and app["settings"].store.get("house", "settings").body["look"]["glass"] == "clear",
+                  "a Child's house settings save is refused (forbidden) and changes nothing")
 
             # -- a remote (tunnel) unlock notifies the Owners ----------------------------------------------
             await owner.command(**service("lock", "lock", LOCK))
@@ -337,6 +420,22 @@ async def run(token: str) -> dict:
             check(len(allowed_ok) == sum(1 for s in app["commander"].sent if s != "persistent_notification.create"),
                   "every service call sent to HA has an allowed audit row with result ok")
             check(any(r["kind"] == "system" and r["actor"] == "mantel" for r in rows), "the Owner notification is audited too")
+
+            # -- the audit read API -------------------------------------------------------------------------
+            st, page = await owner.get("/api/audit?limit=500")
+            check(st == 200 and [r["id"] for r in page["rows"]] == [r["id"] for r in reversed(rows)] and page["next"] is None,
+                  f"GET /api/audit returns the run's {len(rows)} rows, newest first (Owner)")
+            st, by_tablet = await owner.get(f"/api/audit?device={tablet_id}&decision=allowed")
+            check(st == 200 and any(r["actor"] == ids["adult"] and r["step_up"] == "pin" for r in by_tablet["rows"])
+                  and all(r["device"] == tablet_id and r["decision"] == "allowed" for r in by_tablet["rows"]),
+                  "the audit API filters by device and decision (the Adult's PIN unlock at the tablet is there)")
+            st, first = await owner.get("/api/audit?limit=3")
+            st2, second = await owner.get(f"/api/audit?limit=3&before={first['next']}")
+            check(st == st2 == 200 and len(first["rows"]) == 3 and second["rows"][0]["id"] < first["rows"][-1]["id"],
+                  "the audit API pages (limit + before)")
+            st, _ = await adult.get("/api/audit")
+            st_t, _ = await tablet.get("/api/audit")
+            check(st == 403 and st_t == 403, "an Adult and a wall tablet may not read the audit (403)")
             evidence = {
                 "mantel": base, "home_assistant": SCRATCH_URL, "house_tz": app["authz"].tz,
                 "sent_to_ha": app["commander"].sent,

@@ -316,6 +316,64 @@ def test_entrypoint_container_mode_builds_the_listen_arguments(tmp_path):
     assert cfg.host_allowed("mantel.example.com") and cfg.host_allowed("192.0.2.10") and not cfg.host_allowed("evil.example")
 
 
+def test_entrypoint_passes_caddys_address_as_the_trusted_proxy(tmp_path, capsys):
+    env = {"MANTEL_HA_URL": "http://ha.local:8123", "MANTEL_PUBLIC_URL": "https://mantel.example.com/",
+           "MANTEL_TRUSTED_PROXY": "172.31.251.2"}
+    args, _ = entrypoint.plan([], env, options_path=tmp_path / "none")
+    assert [args[i + 1] for i, a in enumerate(args) if a == "--trusted-proxy"] == ["172.31.251.2"]
+    from mantel_server.config import parse_args
+    assert parse_args(args).trusted_proxies == ("172.31.251.2",)
+    # more than one, normalised; a service name is refused (Mantel compares the peer's address exactly)
+    args, _ = entrypoint.plan([], {**env, "MANTEL_TRUSTED_PROXY": " 172.31.251.2 , fd00::0002"}, options_path=tmp_path / "none")
+    assert [args[i + 1] for i, a in enumerate(args) if a == "--trusted-proxy"] == ["172.31.251.2", "fd00::2"]
+    with pytest.raises(entrypoint.ConfigError, match="IP addresses"):
+        entrypoint.plan([], {**env, "MANTEL_TRUSTED_PROXY": "caddy"}, options_path=tmp_path / "none")
+    # unset: no flag (every request is the tunnel door), and the start says so
+    args, _ = entrypoint.plan([], {k: v for k, v in env.items() if k != "MANTEL_TRUSTED_PROXY"},
+                              options_path=tmp_path / "none")
+    assert "--trusted-proxy" not in args and "MANTEL_TRUSTED_PROXY is not set" in capsys.readouterr().err
+
+
+def test_compose_makes_caddy_the_trusted_proxy_on_the_backend_network():
+    """Static: the address the entrypoint is given is Caddy's fixed backend address, inside the backend
+    subnet, and Caddy reaches Mantel only by its backend-only alias, so Caddy's connections to Mantel
+    come from exactly that address and the LAN door is recognised behind Caddy."""
+    import ipaddress
+    doc = pc.parse_yaml((ROOT / "packaging/compose/compose.yaml").read_text())
+    services, networks = doc["services"], doc["networks"]
+    trusted = services["mantel-server"]["environment"]["MANTEL_TRUSTED_PROXY"]
+    assert services["caddy"]["networks"]["backend"]["ipv4_address"] == trusted
+    subnet = ipaddress.ip_network(networks["backend"]["ipam"]["config"][0]["subnet"])
+    assert ipaddress.ip_address(trusted) in subnet and networks["backend"]["internal"] is True
+    assert services["mantel-server"]["networks"]["backend"]["aliases"] == ["mantel-backend"]
+    assert "mantel-backend" not in str(services["mantel-server"]["networks"]["egress"])
+    caddyfile = (ROOT / "packaging/compose/caddy/Caddyfile").read_text()
+    upstreams = [line.split()[1] for line in caddyfile.splitlines() if line.strip().startswith("reverse_proxy")]
+    assert upstreams == ["mantel-backend:8765", "mantel-backend:8765"]          # LAN door and tunnel door
+    # the tunnel network is a different subnet: cloudflared can never be the trusted proxy
+    assert ipaddress.ip_address(trusted) not in ipaddress.ip_network(networks["tunnel"]["ipam"]["config"][0]["subnet"])
+
+
+def test_behind_caddy_the_lan_door_is_recognised_only_from_caddys_address():
+    """What the entrypoint's flag buys: X-Mantel-Door: lan from 172.31.251.2 is the LAN door; the same
+    header from any other peer (or no flag) is the tunnel door."""
+    from types import SimpleNamespace
+
+    from mantel_server.authz import resolve_door
+    from mantel_server.config import parse_args
+    args, _ = entrypoint.plan([], {"MANTEL_HA_URL": "http://ha.local:8123", "MANTEL_PUBLIC_URL": "https://m.example/",
+                                   "MANTEL_TRUSTED_PROXY": "172.31.251.2"}, options_path=Path("/nonexistent"))
+    cfg = parse_args(args)
+
+    def door(peer, claim, config=cfg):
+        return resolve_door(SimpleNamespace(app={"cfg": config}, remote=peer,
+                                            headers={"X-Mantel-Door": claim} if claim else {}))
+    assert door("172.31.251.2", "lan") == "lan"
+    assert door("172.31.251.2", "tunnel") == "tunnel" and door("172.31.251.2", None) == "tunnel"
+    assert door("172.31.251.3", "lan") == "tunnel" and door("172.31.250.3", "lan") == "tunnel"
+    assert door("172.31.251.2", "lan", parse_args([])) == "tunnel"        # no --trusted-proxy: fail closed
+
+
 def test_entrypoint_refuses_missing_settings(tmp_path):
     with pytest.raises(entrypoint.ConfigError, match="MANTEL_HA_URL"):
         entrypoint.plan([], {}, options_path=tmp_path / "none")

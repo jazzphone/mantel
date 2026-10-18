@@ -66,7 +66,9 @@
 	request_header X-Mantel-Door lan
 	# A Cloudflare Access assertion only means something on the tunnel door.
 	request_header -Cf-Access-Jwt-Assertion
-	reverse_proxy mantel-server:8765
+	# mantel-backend: Mantel's alias on the backend network only, so this connection always comes from
+	# Caddy's fixed backend address (172.31.251.2), the one peer Mantel trusts (--trusted-proxy).
+	reverse_proxy mantel-backend:8765
 }
 
 # ---- tunnel door (only reachable on the internal tunnel network) ------------------------------------
@@ -75,7 +77,7 @@ http://:8080 {
 	bind {$MANTEL_CADDY_TUNNEL_IP:172.31.250.2}
 	import common
 	request_header X-Mantel-Door tunnel
-	reverse_proxy mantel-server:8765
+	reverse_proxy mantel-backend:8765
 }
 
 # ---- Caddy's own healthcheck (loopback inside the Caddy container) ----------------------------------

@@ -36,6 +36,7 @@ class Config:
     # ha_client.HaCommander cannot be built and every command answers `commands_disabled`.
     commands_enabled: bool = False
     house_tz: str = "UTC"                                    # fallback when HA's get_config gives no time_zone
+    audit_retention_days: float = 365.0                      # action_audit rows older than this are purged (>= 30)
     # P3.4: Music Assistant's own WebSocket API (connectors/ma.py). Empty URL = connector off.
     # The long-lived token is read from this secret file at each connect, never from env or logs.
     ma_url: str = ""
@@ -83,6 +84,9 @@ def parse_args(argv: list[str] | None = None) -> Config:
                         "within their roles, with step-up and an audit row for every command. Off by default")
     p.add_argument("--house-tz", default=Config.house_tz,
                    help="house time zone for grant schedules when Home Assistant does not say (IANA name)")
+    p.add_argument("--audit-retention-days", type=float, default=Config.audit_retention_days, metavar="DAYS",
+                   help="keep audit rows this many days (at least 30); older ones are deleted by the hourly "
+                        "maintenance step, which logs what it deleted")
     p.add_argument("--trusted-proxy", action="append", default=[], metavar="ADDRESS",
                    help="a reverse proxy (Caddy) whose X-Mantel-Door / X-Forwarded-For headers are believed (repeatable)")
     p.add_argument("--listen", default=None, metavar="ADDRESS",
@@ -108,6 +112,8 @@ def parse_args(argv: list[str] | None = None) -> Config:
             allowed = tuple(dict.fromkeys(names))
     if (a.public_url or a.allow_host) and a.listen is None:
         p.error("--public-url / --allow-host only apply together with --listen")
+    if not (a.audit_retention_days >= 30) or a.audit_retention_days == float("inf"):
+        p.error("--audit-retention-days must be at least 30")
     overrides = []
     for item in a.override:
         pattern, _, secs = item.rpartition("=")
@@ -120,6 +126,7 @@ def parse_args(argv: list[str] | None = None) -> Config:
                  data_dir=Path(a.data_dir), session_hours=a.session_hours, default_screen=a.screen,
                  secrets_dir=Path(a.secrets_dir), lan_session_days=a.lan_session_days, webauthn_rp_id=a.rp_id,
                  public_url=public_url, allowed_hosts=allowed, commands_enabled=bool(a.commands_enabled),
-                 house_tz=a.house_tz, trusted_proxies=tuple(a.trusted_proxy))
+                 house_tz=a.house_tz, trusted_proxies=tuple(a.trusted_proxy),
+                 audit_retention_days=float(a.audit_retention_days))
     assert cfg.host in LOOPBACK or cfg.public_url, "Mantel listens beyond loopback only in container mode"
     return cfg

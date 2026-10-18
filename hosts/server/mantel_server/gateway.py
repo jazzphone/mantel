@@ -18,6 +18,16 @@ Client protocol (on the hub socket, /ws):
   <- {"type": "step_up_required", "id": 7, "reason": "step_up_required", "methods": ["totp"],
       "window": 300, "audit_id": 43}      -> the page proves a fresh factor (POST /api/auth/totp/step-up
                                              or a passkey verify) and sends the same command again
+  <- {"type": "step_up_required", ..., "reason": "person_pin_required", "methods": ["pin"]}   (a wall tablet)
+  -> the same command plus "step_up": {"method": "pin", "pin": "2580"}: the PIN names the person
+     (pins.py) and the command is decided ONCE as person ∩ tablet; the audit row names that person.
+     A wrong PIN answers step_up_required with "pin_error": "invalid_pin" | "locked" (+ retry_after)
+     | "ambiguous". On a person's own session a PIN is their step-up factor (methods include "pin").
+     The PIN is never forwarded, stored or logged.
+
+The audit can be read by Owners/Admins (GET /api/audit, filtered and paginated) and keeps a
+retention window (cfg.audit_retention_days, default 365): Audit.purge is the only path that deletes,
+only rows older than the window, and it logs what it deleted (migration 0007).
 
 Each command, in order: resolve the subject from the session (re-read from the database, so a
 step-up or a revocation counts at once) -> classify it (a service; a WebSocket write from
@@ -32,12 +42,15 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import math
 import re
 import sqlite3
 import time
 from dataclasses import dataclass, field
 from importlib.resources import files
 from typing import Any, Awaitable, Callable, Iterable
+
+from aiohttp import web
 
 from . import rbac
 from .authz import ENTITY_ID, Authz, Principal
@@ -63,6 +76,9 @@ SCRIPT_MANAGEMENT = frozenset({"turn_on", "turn_off", "toggle", "reload"})
 # Remote (tunnel) actions that notify the Owners (PLAN §7: "an Owner notification on every remote
 # unlock/disarm"): the sensitive kinds of locks and alarm panels.
 NOTIFY_KINDS = frozenset({"lock", "alarm_control_panel"})
+# The shortest audit retention window the server accepts (migration 0007's trigger refuses to delete
+# anything younger, whatever the maintenance path is told).
+MIN_RETENTION_DAYS = 30
 
 
 def load_writes() -> frozenset[str]:
@@ -288,6 +304,77 @@ class Audit:
             sql += " WHERE " + " AND ".join(f"{k} = ?" for k in where)
         return [dict(r) for r in self.db.execute(sql + " ORDER BY id", tuple(where.values()))]
 
+    # -- reading (GET /api/audit) -----------------------------------------------------------------
+    def query(self, *, actor: str | None = None, device: str | None = None, decision: str | None = None,
+              kind: str | None = None, since: float | None = None, until: float | None = None,
+              before: int | None = None, limit: int = 100) -> tuple[list[dict], int | None]:
+        """Rows newest first, filtered; `before` is the id cursor of the next page (None at the end)."""
+        where, args = [], []
+        for col, value in (("actor", actor), ("device", device), ("decision", decision), ("kind", kind)):
+            if value is not None:
+                where.append(f"{col} = ?")
+                args.append(value)
+        if since is not None:
+            where.append("timestamp >= ?")
+            args.append(since)
+        if until is not None:
+            where.append("timestamp < ?")
+            args.append(until)
+        if before is not None:
+            where.append("id < ?")
+            args.append(before)
+        sql = "SELECT * FROM action_audit" + (" WHERE " + " AND ".join(where) if where else "")
+        got = [dict(r) for r in self.db.execute(sql + " ORDER BY id DESC LIMIT ?", (*args, limit + 1))]
+        more = len(got) > limit
+        got = got[:limit]
+        for r in got:
+            try:
+                r["target"] = json.loads(r["target"]) if r["target"] else []
+            except ValueError:
+                pass
+        return got, (got[-1]["id"] if more and got else None)
+
+    # -- retention (PLAN §7: "append-only with a retention window") ------------------------------------
+    PURGE_EVERY = 3600.0
+
+    def purge(self, retention_days: float) -> int:
+        """THE maintenance path (migration 0007): delete rows older than the window, in one transaction
+        with the permit the DELETE trigger asks for, and log it (audit_maintenance + a 'system' row).
+        Rows inside the window can never be deleted (the trigger refuses, and also refuses anything
+        younger than 30 days by the database's own clock)."""
+        if not isinstance(retention_days, (int, float)) or retention_days < MIN_RETENTION_DAYS:
+            raise ValueError(f"the audit retention window is at least {MIN_RETENTION_DAYS} days")
+        now = self.clock()
+        cutoff = now - float(retention_days) * 86400.0
+        with self.db:
+            span = self.db.execute("SELECT COUNT(*) AS n, MIN(id) AS first, MAX(id) AS last FROM action_audit "
+                                   "WHERE timestamp < ?", (cutoff,)).fetchone()
+            if not span["n"]:
+                return 0
+            self.db.execute("INSERT INTO audit_purge (id, cutoff, started) VALUES (1, ?, ?)", (cutoff, now))
+            deleted = self.db.execute("DELETE FROM action_audit WHERE timestamp < ?", (cutoff,)).rowcount
+            self.db.execute("DELETE FROM audit_purge WHERE id = 1")
+            self.db.execute("INSERT INTO audit_maintenance (timestamp, action, cutoff, retention_days, deleted, "
+                            "first_id, last_id) VALUES (?, 'purge', ?, ?, ?, ?, ?)",
+                            (now, cutoff, float(retention_days), deleted, span["first"], span["last"]))
+            self.db.execute(
+                "INSERT INTO action_audit (timestamp, actor, actor_name, kind, action, target, decision, reason, "
+                "result, result_at) VALUES (?, 'mantel', 'Mantel Server', 'system', 'audit.purge', ?, 'allowed', ?, 'ok', ?)",
+                (now, json.dumps(["feature:audit"]), f"retention:{retention_days:g}d deleted:{deleted} "
+                 f"ids:{span['first']}-{span['last']}", now))
+        log.info("audit retention: deleted %d rows older than %g days (ids %s-%s)", deleted, retention_days,
+                 span["first"], span["last"])
+        return deleted
+
+    def maybe_purge(self, retention_days: float) -> int:
+        """The policy tick's call: at most once an hour."""
+        now = self.clock()
+        last = getattr(self, "_last_purge", None)
+        if last is not None and now - last < self.PURGE_EVERY:
+            return 0
+        self._last_purge = now
+        return self.purge(retention_days)
+
 
 # -- the gateway ---------------------------------------------------------------------------------
 class Gateway:
@@ -320,15 +407,58 @@ class Gateway:
 
     def _methods(self, principal: Principal) -> list[str]:
         u = principal.user
-        acc = self.app.get("accounts")
-        if u is None or acc is None:
-            return []                       # a device alone: a person's factor is needed (not offered yet)
+        acc, pins = self.app.get("accounts"), self.app.get("pins")
+        if u is None:
+            # a device alone: a person's PIN typed at it (if anyone has one; else nobody here can answer)
+            return ["pin"] if principal.device is not None and pins is not None and pins.any_pin() else []
         methods = []
-        if acc.has_totp(u.id):
+        if acc is not None and acc.has_totp(u.id):
             methods.append("totp")
-        if acc.has_passkey(u.id):
+        if acc is not None and acc.has_passkey(u.id):
             methods.append("passkey")
+        if pins is not None and pins.has_pin(u.id):
+            methods.append("pin")
         return methods
+
+    async def _step_up(self, principal: Principal, step: Any, cmd: Command, reply, fail) -> Principal | None:
+        """A PIN sent with the command (``"step_up": {"method": "pin", "pin": "..."}``). At a wall tablet
+        (a device alone) the PIN names the person and the command is decided as person ∩ tablet; on a
+        person's own session it is their step-up factor. None (already answered) when refused."""
+        pins = self.app.get("pins")
+        if (not isinstance(step, dict) or set(step) != {"method", "pin"} or step.get("method") != "pin"
+                or not isinstance(step.get("pin"), str) or pins is None):
+            aid = self.audit.record(principal=principal, kind=cmd.kind, action=cmd.action, targets=cmd.targets,
+                                    decision="denied", reason="invalid_step_up", result="not_sent")
+            await reply(fail("invalid_command", 'step_up is {"method": "pin", "pin": "<digits>"}', aid))
+            return None
+        pin = step["pin"]
+        if principal.user is None and principal.device is not None:
+            status, value = await pins.identify(pin, device_id=principal.device.id, ip=principal.source_ip)
+            if status == "ok":
+                person = self.authz.with_person(principal, value)  # type: ignore[arg-type]
+                log.info("%s confirmed %s by PIN", _who(person), cmd.action)
+                return person
+            reason = "person_pin_required"
+        elif principal.user is not None:
+            status, value = await pins.verify_user(principal.user.id, pin, ip=principal.source_ip)
+            if status == "ok":
+                mgr = self.app.get("sessions")
+                if mgr is not None and principal.identity.session_id is not None:
+                    mgr.mark_fresh(principal.identity.session_id, "pin")
+                    self.authz.refresh(principal)
+                return principal
+            reason = "step_up_required"
+        else:
+            status, value, reason = "invalid", 0.0, "no_subject"
+        code = {"invalid": "invalid_pin", "no_pin": "invalid_pin"}.get(status, status)
+        aid = self.audit.record(principal=principal, kind=cmd.kind, action=cmd.action, targets=cmd.targets,
+                                decision="denied", reason="pin_invalid" if code == "invalid_pin" else f"pin_{code}",
+                                result="not_sent")
+        await reply({"type": "step_up_required", "reason": reason, "pin_error": code,
+                     "retry_after": int(value) + 1 if code == "locked" else 0,  # type: ignore[arg-type]
+                     "action": cmd.action, "targets": cmd.targets, "methods": self._methods(principal),
+                     "window": self.authz.policy_for(principal.subject).step_up_window, "audit_id": aid})
+        return None
 
     async def handle(self, principal: Principal, msg: dict, send: Callable[[dict], Awaitable[None]]) -> None:
         """One `command` message, answered through `send`. Never raises for the client's mistakes."""
@@ -348,6 +478,8 @@ class Gateway:
             await reply(fail("audit_unavailable", "the audit log could not be written; nothing was sent"))
 
     async def _handle(self, principal: Principal, msg: dict, reply, fail) -> None:
+        msg = dict(msg)
+        step = msg.pop("step_up", None)          # a PIN for this one command; never forwarded or stored
         if not self.authz.refresh(principal):
             self.audit.record(principal=principal, kind=_kind(msg), action=None, targets=[], decision="denied",
                               reason="unauthenticated", result="not_sent")
@@ -358,6 +490,11 @@ class Gateway:
             aid = self.audit.record(principal=principal, kind=_kind(msg), action=_action(msg), targets=[],
                                     decision="denied", reason=exc.code, result="not_sent")
             return await reply(fail(exc.code, str(exc), aid))
+        if step is not None:
+            stepped = await self._step_up(principal, step, cmd, reply, fail)
+            if stepped is None:
+                return
+            principal = stepped
 
         subject = principal.subject
         ctx = self.authz.context()
@@ -488,3 +625,66 @@ def _error_code(exc: BaseException) -> str:
         return "unavailable"
     name = type(exc).__name__
     return "refused" if name == "CommandRefused" else "failed"
+
+
+# -- the audit read API (PLAN §5: the Owner's "audit log"; Admins too) ----------------------------------
+AUDIT_DECISIONS = ("allowed", "denied", "step_up")
+AUDIT_KINDS = ("service", "ws", "http", "ma", "config", "system")
+AUDIT_PAGE, AUDIT_PAGE_MAX = 100, 500
+
+
+def _bad(param: str) -> web.Response:
+    return web.json_response({"error": "invalid_query", "param": param}, status=400,
+                             headers={"Cache-Control": "no-store"})
+
+
+async def audit_list(request: web.Request) -> web.Response:
+    """``GET /api/audit?actor=&device=&decision=&kind=&since=&until=&before=&limit=``: newest first;
+    ``next`` is the ``before`` of the next page. Reading the audit is ``configure`` on feature ``audit``
+    (default roles: Owner and Admin; a person at a wall tablet gets the tablet's share: none)."""
+    authz: Authz = request.app["authz"]
+    p = authz.principal(request)
+    if p.user is None or not authz.decide(p.subject, "configure", None, feature="audit").allowed:
+        return web.json_response({"error": "forbidden"}, status=403, headers={"Cache-Control": "no-store"})
+    q = request.query
+    kw: dict[str, Any] = {}
+    for name in ("actor", "device"):
+        if name in q:
+            if not q[name] or len(q[name]) > 64:
+                return _bad(name)
+            kw[name] = q[name]
+    for name, allowed in (("decision", AUDIT_DECISIONS), ("kind", AUDIT_KINDS)):
+        if name in q:
+            if q[name] not in allowed:
+                return _bad(name)
+            kw[name] = q[name]
+    for name in ("since", "until"):
+        if name in q:
+            try:
+                value = float(q[name])
+            except ValueError:
+                return _bad(name)
+            if not math.isfinite(value):
+                return _bad(name)
+            kw[name] = value
+    for name, default in (("before", None), ("limit", AUDIT_PAGE)):
+        raw = q.get(name)
+        if raw is None:
+            if default is not None:
+                kw[name] = default
+            continue
+        try:
+            kw[name] = int(raw)
+        except ValueError:
+            return _bad(name)
+    if not 1 <= kw["limit"] <= AUDIT_PAGE_MAX:
+        return _bad("limit")
+    rows, nxt = request.app["audit"].query(**kw)
+    cfg = request.app.get("cfg")
+    return web.json_response({"ok": True, "rows": rows, "next": nxt,
+                              "retention_days": getattr(cfg, "audit_retention_days", None)},
+                             headers={"Cache-Control": "no-store"})
+
+
+def register_audit(app: web.Application) -> None:
+    app.router.add_get("/api/audit", audit_list)

@@ -210,8 +210,43 @@ itself. It registers the settings store on the app, imports a fictional HA answe
 Owner (what P3.7's read dispatch will do). The two feed updates it checks are now **real saves**
 through the store (`hk_frontend/settings/set` `weather.place`, `hk_frontend/board/set` `menu:
 tabbar`), and HK Settings' YAML page re-read after Save is answered by the store. Music and the other
-reads stay fictional in `OfflineReads`. The page's own saves are still refused at the client's action
-port: the frontend does not send `settings_write` yet.
+reads stay fictional in `OfflineReads`. ~~The page's own saves are still refused at the client's action
+port: the frontend does not send `settings_write` yet.~~ Since the page-saves follow-up (below), HK
+Settings' save in the Mantel page lands in the store.
+
+## Update: saves from the page (follow-up, 2026-10-18)
+
+The frontend now sends HK's settings saves to the store:
+
+* `web/shim/hub.js` `write(msg)` sends `{type: "settings_write", id, msg}` and resolves on
+  `settings_result` (rejects with its `{code, message}`; a lost socket rejects waiting saves with
+  `unavailable`, none is re-sent).
+* `web/shim/mantel-client.js` routes exactly `SETTINGS_SAVES` (`hk_frontend/settings/set`, `board/set`,
+  `tablet/set`, `setup/done`, `calendar/color`, `chip/save`, `chip/remove`, the same list as
+  `settings_store.SETTINGS_SAVES`, pinned by `tests/test_gateway_catalog.py`) through `hub.write`:
+  * **commands off** (the default): the port's only action is that save (`savesOn`); every other
+    write and every service call is refused at the port, sending nothing, exactly as before;
+  * **commands on**: `actions.callWS` sends a settings save to the store and every other write to the
+    gateway (a settings save never becomes a house command, so it never reaches HA's hk_frontend).
+* A refused save comes back as the store's error (`invalid_format` with the field map, `forbidden`,
+  `no_item`, …) on the promise, which HK Settings already words; `forbidden` also raises the denied
+  toast.
+* `tests/test_boundaries.py` now pins that the commands-off port has a save and nothing else (no
+  `callService` / `request` / `liveSocket`, no `hub.command`).
+* `tools/headless/client_smoke.py`: HK Settings' `actions().callWS({type: "hk_frontend/settings/set",
+  changes: {"look.glass": "clear"}})` in the Mantel page returns the store's result, the feed shows it,
+  the store's document and history (`message`, `actor_role: owner`) have it; a bad value comes back
+  `invalid_format`; a config flow step, a photo forgotten and two house commands (`call_service`,
+  `light.turn_on`) are still refused at the port; HA's state connection sent 0 frames and there is no
+  command connection (commands off). The page's socket guard now allows `settings_write` (but never one
+  wrapping `call_service`).
+* `tools/headless/gateway_page_check.py` (commands on): the same save goes to the store, not to the
+  fake command connection.
+* `tools/e2e/gateway_e2e.py`: an Owner's save through the socket persists (read back with
+  `mantel/settings/get`), nothing is sent to HA; a Child's house save is `forbidden` and changes nothing.
+
+Still open from the list below: the config-flow saves (custom pages, pop-ups, new screens) need
+Mantel endpoints of their own; `calendar/color` for non-admins; accessories and feature settings.
 
 ## Tests
 
@@ -270,13 +305,10 @@ another worktree's smoke failed with "Home did not load" before reaching any set
    `Ctx(identity=<P3.1 Identity>)`, and the page's `read`/`read_subscribe` go through
    `readproxy.register`'s handlers so `app["read_routes"]` answers the settings reads. Retiring
    `ClientSession.read` also retires the last path that knew nothing of the store.
-2. **Frontend** (a `web/` slice): `web/shim/hub.js` gains `write(msg)` that sends `{type:
-   "settings_write", id, msg}` and resolves on `settings_result` (same pending map as `read`), and
-   Mantel's client port gives its action port a `callWS` that sends a message whose type is in the
-   settings saves there, and still refuses every other write (`SAVE_KINDS` is the catalog; export it
-   as JSON with P3.3's one catalog). The panel's config-flow saves (custom pages, pop-ups, new
-   screens) need Mantel endpoints of their own (PLAN §3: "rewritten as plain Mantel Server
-   endpoints").
+2. ~~**Frontend**: `hub.js` `write(msg)` and the client port's settings saves~~ done (see "Update:
+   saves from the page" above; the list is pinned against `SETTINGS_SAVES` by a test rather than
+   exported as JSON). Still open: the panel's config-flow saves (custom pages, pop-ups, new screens)
+   need Mantel endpoints of their own (PLAN §3: "rewritten as plain Mantel Server endpoints").
 3. **hk_core's model**: when `hk_core/settings/` lands with `apply_house` / `apply_board` /
    `apply_tablet` / `merged`, `load_model()` picks it up; check `HkCoreModel` against its real
    signatures and swap the catalog document for its constants.

@@ -162,6 +162,7 @@ async def smoke(shot=None):
                       const Original = WebSocket, target = new URL(%s).host;
                       window.__blockedWrites = 0;
                       window.__sentFrames = 0;
+                      window.__settingsWrites = 0;
                       window.WebSocket = class extends Original {
                         constructor(url, ...args) {
                           if (new URL(url, location.href).host !== target) throw new Error('external socket blocked');
@@ -169,10 +170,14 @@ async def smoke(shot=None):
                         }
                         send(raw) {
                           const msg = JSON.parse(raw);
-                          if (!['subscribe','unsubscribe','ping','watch_stats','read','read_subscribe','read_unsubscribe'].includes(msg.type) ||
+                          // settings_write: HK's own settings save, answered by Mantel's settings store (P3.5);
+                          // never a house command, and never one wrapping a service call
+                          if (!['subscribe','unsubscribe','ping','watch_stats','read','read_subscribe','read_unsubscribe',
+                                'settings_write'].includes(msg.type) ||
                               ['call_service','execute_script'].includes(msg.msg && msg.msg.type)) {
                             window.__blockedWrites++; throw new Error('write blocked');
                           }
+                          if (msg.type === 'settings_write') window.__settingsWrites++;
                           window.__sentFrames++;
                           return super.send(raw);
                         }
@@ -331,9 +336,12 @@ async def smoke(shot=None):
                     assert sheets["refusal"] == "Commands are disabled in Mantel (read-only)", sheets
                     assert sheets["toast"] == "Offline toast" and sheets["confirm_in_root"] and not sheets["mantel_box"], sheets
                     assert sheets["refused"] == ["scene.turn_on"] and sheets["frames"] == 0, sheets
-                    # Slice 11: the HK Settings panel reads a client and saves through its action port.
-                    # Loaded here with Mantel's client, its saves, a config flow's step and a photo
-                    # forgotten are refused at the port; not one frame leaves the page.
+                    # Slice 11 + P3.5: the HK Settings panel reads a client and saves through its action port.
+                    # Loaded here with Mantel's client: its settings save goes to Mantel's settings store
+                    # (one `settings_write` frame; the store answers, nothing reaches HA) and lands there; a
+                    # bad value comes back as HA's invalid_format; a config flow's step, a photo forgotten
+                    # and a house command are still refused at the port (commands stay disabled).
+                    commands_before = (hub.ha.tx.msgs, app["commander"])
                     settings_panel = await browser.eval("""(async () => {
                       for (const f of ['hk-settings-model', 'hk-settings-kit', 'hk-settings-features', 'hk-settings'])
                         await import('/web/hk/panels/' + f + '.js');
@@ -341,19 +349,35 @@ async def smoke(shot=None):
                       const pg = Object.create(P);
                       Object.defineProperty(pg, 'client', { value: window.__mantel.client });
                       pg.data = { entry_id: 'fictional-entry', settings: {}, boards: {} };
-                      const frames = window.__sentFrames, refused0 = window.__mantel.refused.length;
+                      const frames = window.__sentFrames, saves0 = window.__settingsWrites, refused0 = window.__mantel.refused.length;
                       const code = async (p) => { try { await p; return 'sent'; } catch (e) { return e.code; } };
-                      const save = await code(pg.actions().callWS({ type: 'hk_frontend/settings/set', changes: { 'look.glass': 'clear' } }));
+                      const saved = await pg.actions().callWS({ type: 'hk_frontend/settings/set', changes: { 'look.glass': 'clear' } });
+                      const bad = await code(pg.actions().callWS({ type: 'hk_frontend/settings/set', changes: { 'weather.place': 5 } }));
                       const flow = await code(pg.rest('POST', 'config/config_entries/subentries/flow', { handler: ['fictional-entry', 'page'] }));
                       pg.photoForget('/api/image/serve/0123456789abcdef0123456789abcdef/original');
+                      const house = await code(window.__mantel.client.actions.callWS({type: 'call_service', domain: 'light', service: 'turn_on'}));
+                      const service = await code(window.__mantel.client.actions.callService('light', 'turn_on', {entity_id: 'light.proof'}));
                       await new Promise(r => setTimeout(r, 50));
-                      return { save, flow, entry: Object.getOwnPropertyDescriptor(P, 'hass') ? 'entry' : 'none',
-                               frames: window.__sentFrames - frames, refused: window.__mantel.refused.slice(refused0) };
+                      return { save: saved && saved.settings && saved.settings.look ? saved.settings.look.glass : saved, bad, flow,
+                               house, service, entry: Object.getOwnPropertyDescriptor(P, 'hass') ? 'entry' : 'none',
+                               feed: window.hkSettings.get('look.glass'),
+                               frames: window.__sentFrames - frames, settings_writes: window.__settingsWrites - saves0,
+                               refused: window.__mantel.refused.slice(refused0) };
                     })()""")
-                    assert settings_panel == {"save": "commands_disabled", "flow": "commands_disabled", "entry": "entry",
-                                              "frames": 0, "refused": ["hk_frontend/settings/set",
-                                                                       "POST /api/config/config_entries/subentries/flow",
-                                                                       "image/delete"]}, settings_panel
+                    assert settings_panel == {"save": "clear", "bad": "invalid_format", "flow": "commands_disabled",
+                                              "house": "commands_disabled", "service": "commands_disabled", "entry": "entry",
+                                              "feed": "clear", "frames": 2, "settings_writes": 2,
+                                              "refused": ["POST /api/config/config_entries/subentries/flow",
+                                                          "image/delete", "call_service", "light.turn_on"]}, settings_panel
+                    stored = settings.store.get("house", "settings")
+                    assert stored.body["look"]["glass"] == "clear" and stored.body["weather"]["place"] == "Offline after", stored
+                    (last,) = settings.store.conn.execute(
+                        "SELECT message, actor_role FROM settings_history WHERE scope='house' AND key='settings' "
+                        "ORDER BY version DESC LIMIT 1").fetchall()
+                    assert tuple(last) == ("hk_frontend/settings/set", "owner"), tuple(last)
+                    # nothing went toward Home Assistant: the state connection sent nothing, and with commands
+                    # off there is no command connection at all
+                    assert (hub.ha.tx.msgs, app["commander"]) == commands_before == (0, None), commands_before
                     # P2.4: the HK Settings panel opens in the Mantel page, drawn with HK's own controls only:
                     # the Mantel adapter's entry hands it Mantel's client; Added Accessories' picker lists the
                     # fictional entities and searches them; a custom page's YAML editor shows its content,
@@ -571,7 +595,10 @@ async def smoke(shot=None):
                                       "no Open in Home Assistant link (no host detail); Activate refused and said in HK's toast "
                                       "layer; a toast and a confirm sheet in #hk-shell-root; 0 frames",
                             "subscriptions": "write and state_changed bus refused (not_allowed); talk-back POST and live socket refused; 0 frames",
-                            "settings_panel": "loaded with Mantel's client; a save, a config flow step and a photo forgotten refused at the action port; 0 frames",
+                            "settings_panel": "loaded with Mantel's client; its settings save went to Mantel's settings store "
+                                              "(settings_write) and was read back from the store and the feed; a bad value came "
+                                              "back invalid_format; a config flow step, a photo forgotten and house commands "
+                                              "refused at the action port; 0 frames toward Home Assistant",
                             "view_host": f"generated views {home['views']}; Home {home['cards']['drawn']} cards drawn "
                                          f"({home['cards']['hidden']} hidden; Lovelace's grid and the scenes row's child drawn by HK), Lights "
                                          f"{lights['cards']['drawn']} drawn, fed each client; HK navigation and back swap "

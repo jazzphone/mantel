@@ -40,3 +40,17 @@ def test_the_catalog_is_writes_only():
     w = load_writes()
     assert "call_service" in w and not (w & set(READ_ALLOWED))
     assert not {"get_config", "get_states", "subscribe_events", "auth", "execute_script", "fire_event"} & w
+
+
+def test_the_pages_settings_saves_are_exactly_the_stores():
+    """mantel-client.js sends these through hub.write (settings_write) instead of the gateway: the same
+    list as settings_store.SETTINGS_SAVES, every one a catalog write, and never a house command."""
+    import re
+
+    from mantel_server.settings_store import HA_WRITES, SAVE_KINDS, SETTINGS_SAVES
+    src = (ROOT / "web/shim/mantel-client.js").read_text()
+    literal = re.search(r"var SETTINGS_SAVES = \[(.*?)\];", src, re.S).group(1)
+    page = set(re.findall(r"'([^']+)'", literal))
+    assert page == set(SETTINGS_SAVES)
+    assert page <= load_writes() and all(SAVE_KINDS[t] == "settings" for t in page)
+    assert not page & HA_WRITES and "call_service" not in page
