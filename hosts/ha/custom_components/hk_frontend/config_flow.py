@@ -636,7 +636,7 @@ class HkOptionsFlow(OptionsFlow):
             else:
                 url = str(user_input.get("url") or "").strip()
                 token = str(user_input.get("token") or "").strip() or (now or {}).get("token", "")
-                if bad := linked_mode.check_url(url):
+                if bad := await linked_mode.check_url(url):
                     errors["url"] = bad
                 if not token:
                     errors["token"] = "mantel_token_required"

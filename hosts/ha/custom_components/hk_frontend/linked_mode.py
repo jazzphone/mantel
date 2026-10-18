@@ -63,7 +63,6 @@ from __future__ import annotations
 from collections.abc import Mapping
 import logging
 from typing import Any
-from urllib.parse import urlsplit
 
 from homeassistant.components.alarm_control_panel import (
     AlarmControlPanelEntity, AlarmControlPanelEntityFeature, AlarmControlPanelState, CodeFormat,
@@ -81,7 +80,7 @@ from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
 from homeassistant.helpers.entity import Entity
 
 from .const import CONF_MANTEL_LINK, CONF_MANTEL_OWNERS, DOMAIN
-from .mantel_link import LinkError, MantelLink, Refused, ws_url
+from .mantel_link import LinkError, MantelLink, Refused, plain_target, ws_url
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -169,18 +168,20 @@ def describe(entry: ConfigEntry | None) -> str:
     return "linked; every tablet is still Home Assistant's"
 
 
-def check_url(address: str) -> str | None:
-    """An error key for Configure's form, or None. Plain http/ws only to this
-    machine: anywhere else the credential would cross the network in clear
-    (Mantel Server's LAN address is TLS, PLAN §7)."""
+async def check_url(address: str) -> str | None:
+    """An error key for Configure's form, or None (run on the event loop; a
+    name is resolved without blocking). wss:// is allowed anywhere. Plain
+    ws:// only to this machine or Home Assistant's internal App network
+    (172.30.32.0/23, which never leaves the host): loopback, an IP literal there, or
+    an App hostname (local-<slug>, <8 hex>-<slug>) whose every resolved
+    address is there -- else the credential would cross the network in clear
+    (Mantel Server's LAN address is TLS, PLAN section 7)."""
     try:
-        url = ws_url(address)
+        ws_url(address)
     except ValueError:
         return "mantel_url_invalid"
-    parts = urlsplit(url)
-    if parts.scheme == "ws" and parts.hostname not in ("127.0.0.1", "localhost", "::1"):
-        return "mantel_url_insecure"
-    return None
+    bad, _ = await plain_target(address)
+    return bad
 
 
 def active(hass: HomeAssistant) -> "Linked | None":
