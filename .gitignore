@@ -30,3 +30,6 @@ spikes/hk-snapshot/
 # This existing CSS loader contains no font data; the actual fonts remain ignored.
 !**/sf-pro.css
 **/hk-glyphs*
+
+# agent worktrees
+.claude/worktrees/
