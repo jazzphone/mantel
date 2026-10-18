@@ -491,6 +491,17 @@ update; `/data` kept. Brings HTTPS (decision 22), wall tablets through the App a
 - [ ] In the sidebar as Avery (needs his sign-in in the browser): Connections → Music Assistant (Avery pastes his
       MA token), feature import, SF Pro/glyphs from `hk_house/www`, every page at desktop size.
 
+### 0.1.6 on the house (2026-10-18 ~16:16, commit `a4fa26e`, build `eab799307d2f4960`)
+
+Updated in place (no migration; backup `197c2d14` from 0.1.5 still the rollback point).
+- [x] `<prefix>/admin` loads through Ingress (CSS, JS, every `/api/...` call under the prefix; 0 console errors):
+      Me, Connections, People, Devices, Your files, Roles & grants, Audit. Connections shows Home Assistant
+      "Provided by Home Assistant (App)", connected, 2026.10.2, 4500 entities; Music Assistant "not set up";
+      "HTTPS and your proxy": mode Home Assistant App (Ingress), no door key needed.
+- [x] HK's menu model has the **Mantel settings** entry for the Owner (`hkShell.hostMenu()` →
+      `<prefix>/admin`); the menu button shows at desktop widths.
+- [ ] Music Assistant on Connections (Avery pastes his MA token), feature import, SF Pro/glyphs, page re-check.
+
 ### Removal
 
 Stop and uninstall **Mantel** (Settings → Apps → Mantel → Uninstall); this removes its image and `/data`
