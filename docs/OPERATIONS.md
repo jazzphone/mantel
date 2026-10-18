@@ -129,13 +129,13 @@ curl -X POST "$B/api/bootstrap" -H "Origin: $B" -H 'Content-Type: application/js
 
 It spends the token, creates the Owner in one step and signs them in. Afterwards `/api/bootstrap` answers `410 bootstrap_closed`. Then enrol a TOTP authenticator and a passkey for the Owner (`/api/auth/totp/enroll` and `/enroll/confirm`; `/api/auth/passkey/register/*`). Passkeys need `--rp-id` set to the real hostname first. On the tunnel door a password alone is never accepted, so TOTP or a passkey is mandatory for remote use.
 
-**In the container stacks** every admin command passes straight through the entrypoint, with the container's data folder, HA address, token and secrets filled in:
+**In the container stacks** run admin commands inside the running server with `mantel`, which goes through the entrypoint so the container's data folder, HA address, token and secrets are filled in:
 
 ```bash
-docker compose run --rm mantel-server bootstrap
+docker compose exec mantel-server mantel bootstrap
 ```
 
-The others work the same way: `links`, `link`, `import-settings`, `service-account create --name linked --scope linked`, `backup --target /backups`, `restore <file>`, `import-files <folder>`.
+The others work the same way: `links`, `link`, `import-settings`, `service-account create --name linked --scope linked`, `backup --target /backups`, `import-files <folder>`. A restore runs with the server stopped: `docker compose stop mantel-server`, then `docker compose run --rm --no-deps mantel-server restore <file>`. (Don't use `run` while the server is up: it would start a second server on the same fixed backend address.)
 
 ## 4. Linking Home Assistant users
 

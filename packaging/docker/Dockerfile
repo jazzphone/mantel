@@ -110,6 +110,10 @@ COPY --chmod=0755 --from=static /out/web /app/web
 COPY --chmod=0755 --from=static /out/BUILD_ID /app/BUILD_ID
 COPY --chmod=0755 --from=static /out/static-manifest.json /app/static-manifest.json
 COPY --chmod=0755 packaging/docker/entrypoint.py /app/entrypoint.py
+# `mantel <command>`: an admin command inside the RUNNING container (docker compose exec mantel-server
+# mantel bootstrap), through the entrypoint so the container's own settings fill in --data-dir, the HA
+# address and the secrets. (`docker compose run` would start a second server on the same fixed address.)
+COPY --chmod=0755 packaging/docker/mantel /usr/local/bin/mantel
 WORKDIR /app
 EXPOSE 8765
 ENTRYPOINT ["python", "/app/entrypoint.py"]

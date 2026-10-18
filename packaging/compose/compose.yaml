@@ -118,6 +118,9 @@ services:
       - "10001"
     networks:
       backend:
+        # every service on backend has a fixed address: Docker hands out the lowest free one, so an
+        # unpinned service that starts first would take Caddy's .2 and Caddy could not start
+        ipv4_address: 172.31.251.3
         aliases:
           - mantel-backend
       egress: {}
@@ -153,8 +156,9 @@ services:
       - "8555:8555/tcp"
       - "8555:8555/udp"
     networks:
-      - backend
-      - egress
+      backend:
+        ipv4_address: 172.31.251.4
+      egress: {}
     healthcheck:
       test: ["CMD", "curl", "-fsS", "-o", "/dev/null", "http://127.0.0.1:1984/api"]
       interval: 30s

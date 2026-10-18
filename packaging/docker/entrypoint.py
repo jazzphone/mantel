@@ -24,11 +24,12 @@ Home Assistant App (add-on)      recognised by SUPERVISOR_TOKEN in the environme
 
 Admin commands pass straight through and default to the /data volume (and, for import-settings, backup
 and restore, to the container's HA address, token and secrets):
-    docker compose run --rm mantel-server links
-    docker compose run --rm mantel-server bootstrap
-    docker compose run --rm mantel-server import-settings
-    docker compose run --rm mantel-server service-account create --name linked --scope linked
-    docker compose run --rm mantel-server backup --target /backups
+    docker compose exec mantel-server mantel links          (inside the running server: `mantel` is this
+    docker compose exec mantel-server mantel bootstrap       entrypoint; `run` would start a second server
+    docker compose exec mantel-server mantel import-settings on the same fixed backend address)
+    docker compose exec mantel-server mantel service-account create --name linked --scope linked
+    docker compose exec mantel-server mantel backup --target /backups
+    docker compose stop mantel-server && docker compose run --rm --no-deps mantel-server restore <file>
 
     MANTEL_SECRETS_DIR     compose    /run/secrets (at_rest.key, backup.key)
     MANTEL_MA_URL          optional   Music Assistant's API (token: /run/secrets/ma_token); empty = off

@@ -539,3 +539,17 @@ def test_build_static_refuses_an_existing_output(tmp_path):
 def test_build_static_stamps_the_real_web_app(tmp_path):
     assert len(build_static.build(ROOT / "web", tmp_path / "out")) == 16
     assert json.loads((tmp_path / "out/static-manifest.json").read_text())["files"]["home.html"]["size"] > 0
+
+
+def test_every_backend_service_has_a_fixed_address():
+    # Docker hands out the lowest free address, so an unpinned service that started first took Caddy's
+    # 172.31.251.2 and Caddy could not start (found by tools/e2e/compose_e2e.py, 2026-10-18)
+    text = (ROOT / "packaging/compose/compose.yaml").read_text()
+    services = text.split("\nservices:\n", 1)[1].split("\nnetworks:\n", 1)[0]
+    for block in re.split(r"\n(?=  [a-z0-9-]+:\n)", services):
+        name = block.strip().split(":", 1)[0]
+        nets = block.split("    networks:", 1)
+        if len(nets) < 2 or "backend" not in nets[1].split("\n    ")[0] + nets[1][:200]:
+            continue
+        after = "\n".join(l for l in nets[1].split("backend", 1)[1].splitlines()[:8] if not l.strip().startswith("#"))
+        assert "ipv4_address: 172.31.251." in after, f"{name} is on backend without a fixed address"

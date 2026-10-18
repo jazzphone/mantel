@@ -1,0 +1,3 @@
+#!/bin/sh
+# an admin command through the container's entrypoint (its settings fill in the paths and secrets)
+exec python /app/entrypoint.py "$@"
