@@ -454,6 +454,71 @@ then allowed with no PIN; a tunnel Adult with a stale factor asked to step up, n
 body to another path refused. **Not verified**: a real UniFi Protect doorbell playing a clip sent
 through Mantel, and the card in a browser against Mantel with a real microphone.
 
+## The alarm: HK's Alarm PIN in Mantel (added 2026-10-18)
+
+HK's keypad card (`web/hk/cards/hk-security.js`) is unchanged: it calls
+`alarm_control_panel.alarm_<x>` with `{entity_id, code}` and shows "Wrong code" for a refusal whose
+message mentions a code. In HA, HK's Alarm PIN feature (`hk_frontend/features/alarm_pin`) checks that
+code (a PBKDF2 hash, constant-time compare) on a second panel in front of an alarm that takes no code.
+Disarming always needs it; arming only while "Require the PIN to arm" is on. In Mantel the gateway and
+`alarm_pin.py` do the same job:
+
+1. **The code comes out first.** `service_command` takes `code` out of any `alarm_control_panel.alarm_*`
+   command (service, `ws` `call_service`; the `/api/services/...` HTTP form is refused) before anything
+   is audited, logged or sent. The command must name exactly one alarm panel, and its data may carry
+   only `entity_id` and `code`.
+2. **Mantel checks it** (`AlarmPins.check` → `Pins.keypad`): the house's Alarm PIN for that keypad
+   (Argon2id, table `alarm_pins`, migration 0010), or a person's PIN. At a wall tablet (or in linked
+   mode) the PIN can name anyone; on a person's own session it must be their own PIN. Both are checked
+   every time, with no early exit. Wrong codes are counted where they are typed. At a tablet that's
+   `device:<id>`, the same lockout as its PIN pad; on a session it's the person; there's also a per-IP
+   limit. 5 wrong codes in a row lock for 15 minutes. A wrong code answers `invalid_code` ("Wrong code"),
+   a lockout `code_locked` (+ `retry_after`), a missing one `code_required`. Each gets a `denied` audit
+   row (`alarm_code_invalid|locked|ambiguous`, `alarm_code_required`) and nothing is sent.
+3. **RBAC.** The command's own check runs on the keypad panel *and* on the alarm it forwards to. When a
+   code is needed (disarm, arm while `arm_required`, or any code given), `control.sensitive` is checked
+   on both as well. A person's PIN is decided as that person (∩ the tablet), for this one command
+   (`with_person`). The session isn't marked fresh. A Child is refused whatever they type: the alarm
+   domain is denied, and their PIN names them. Wall tablets get `control` + `control.sensitive` on
+   configured keypads (`tablets`, on by default, as HK's keypad is on every screen), only for keypad
+   commands (`AlarmPins.keypad_policy`). An Owner's deny grant still wins.
+4. **Step-up per door.** A person's PIN is a fresh factor. The house code is the factor only on the LAN
+   rules door (the LAN, and HA's sidebar when trusted). On the tunnel, and on the `ha` door under tunnel
+   rules, the person still needs their own fresh factor: `step_up_required`, then the page sends the same
+   command again, and the code is checked again. On the trusted `ha` door, HA sign-in is the RBAC
+   factor, but the alarm's PIN is still required, as HK in HA always required it.
+5. **The audit row comes first** (`sensitive: alarm_control_panel`, `step_up: alarm_pin | pin`,
+   targets `[panel, alarm]`). Then the command goes to the **alarm itself** (`forward_to`). If that
+   panel reports a `code_format`, it carries **the alarm's own HA code from Mantel's store** (`ha_code`,
+   AES-GCM sealed with Mantel's key), never the page's. If no code is held, the answer is
+   `alarm_ha_code_missing` and nothing is sent.
+6. **Owner notice:** a disarm through the tunnel, or through the `ha` door under tunnel rules, notifies
+   the Owners as before. There's none for the trusted `ha` door.
+7. **An alarm with no row** keeps the ordinary path for a command *without* a code. A code typed for it
+   is still checked by Mantel (as a person's PIN) and never forwarded. With no keypad engine in the app,
+   a command carrying a code is refused (`alarm_pin_unavailable`).
+8. **Commands off:** the server answers `commands_disabled` as for every command (no gateway exists).
+   Everything up to "would send" is exercised in `tests/test_alarm_pin.py` with the fake connection.
+
+**Settings (REST, Owner/Admin, fresh factor; a PIN or code is never returned):** `GET /api/alarm/pins`,
+`PUT /api/alarm/pins/{entity}` `{forward_to, pin, pin_again, arm_required, tablets, ha_code}` (the PIN
+typed twice, 4–10 digits; `pin: null` removes the house code), `DELETE /api/alarm/pins/{entity}`,
+`POST /api/alarm/pins/import`. The import reads HA's `hk_alarm_pin/settings/get`, a server-only read
+(`readproxy.SERVER_ONLY_READS`), and makes each Alarm PIN panel a keypad that forwards to the alarm it
+protects, with the arm rule. **HA never gives out its PIN or hash**, so the house code is set again in
+Mantel (`need_pin`). People's PINs work in the meantime. Changes are audited as `config` rows that
+name the fields, never the values.
+
+**Linked mode** (for `linked.py`'s `alarm_*` handler, being finished in another slice):
+`alarm_pin.linked_command(app, entity=, command=, code=, account=, peer=)` runs HA's forwarded command
+through the same gateway path as the Service actor `mantel:linked`, with grants on configured keypads
+only. It returns the result, or raises `linked.LinkedError` (`invalid_code`, `code_locked`,
+`code_required`, `forbidden`, `commands_disabled`, ...). If a person's PIN was typed, that person is the
+audit's actor.
+
+The page (`web/shim/mantel-client.js`): `invalid_code` / `code_locked` / `code_required` are the card's
+to show, so there's no "Not allowed" toast on top (`tests/test_shim_alarm.py`, node harness).
+
 ## Decisions (made here; Avery may revisit)
 
 1. **Camera live view needs no step-up on the LAN door** (`authz.LAN_STEP_UP_EXEMPT`), so the doorbell
@@ -480,6 +545,15 @@ through Mantel, and the card in a browser against Mantel with a real microphone.
    unlock/disarm); a remote garage open does not notify yet.
 10. `capabilities` is sent only when commands are on, so a server with them off behaves byte for byte
     as before.
+12. **The alarm keypad** (2026-10-18, section "The alarm"). The house's Alarm PIN works like HA's: anyone
+    who knows it may use it, but within RBAC. That means a tablet's grants at a tablet (no person named),
+    the person's own role on a session, and a Child's session is refused. The house code is a step-up
+    factor on the LAN rules door only. A person's PIN wins over the house code when both match, because
+    it names someone. Arming, when a code is needed, is decided as `control.sensitive`. Mantel sends to
+    the protected alarm directly rather than to HA's Alarm PIN panel. Wall tablets may use configured
+    keypads (`tablets`, default on). A Mantel house code is 4–10 digits (HK's keypad types digits; HA
+    allowed any 4+ characters). If Avery wants only named people to disarm, set no house code
+    (`pin: null`): people's PINs only.
 
 ## Not done / open questions
 

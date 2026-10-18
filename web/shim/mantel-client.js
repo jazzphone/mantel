@@ -67,6 +67,7 @@
       if (!heard) detail.cancel();
     });
   }
+  var KEYPAD_CODES = ['invalid_code', 'code_locked', 'code_required'];
   function actionsOn(port, hub) {
     function settle(body, what, reply, tries) {
       if (reply && reply.type === 'step_up_required') {
@@ -83,6 +84,9 @@
       if (reply && reply.error) {
         var e = reply.error;
         if (e.code === 'commands_disabled') { port.refused(what); return Promise.reject(fail('commands_disabled', 'commands disabled')); }
+        // THE ALARM KEYPAD (GATEWAY.md "The alarm"): a wrong, missing or locked-out code is the keypad
+        // card's to say ("Wrong code", from the message); no "Not allowed" toast on top of it.
+        if (KEYPAD_CODES.indexOf(e.code) >= 0) return Promise.reject(fail(e.code, e.message, { audit_id: reply.audit_id }));
         emit('hk-command-denied', { what: what.what, reason: e.reason || e.code, code: e.code });
         return Promise.reject(fail(e.code, e.message, { reason: e.reason, audit_id: reply.audit_id }));
       }
