@@ -396,7 +396,7 @@ dispatchEvent(new CustomEvent('hk-black', { detail: { on: true } }));
 ok('HK\'s own black screen (hk-black): the same rest', !blk._timer && blk._liveSlot.asleep);
 // a pick under the black (Live Camera Follows moving on): the strip rebuilds,
 // and its new live tile is built asleep -- the Kitchen decoded one for nobody
-var underBlack = {}; for (var k in blk._hass.states) underBlack[k] = blk._hass.states[k];
+var underBlack = {}; for (var k in blk.hass.states) underBlack[k] = blk.hass.states[k];
 underBlack['input_select.cameras'] = { state: NAMES[1], last_updated: 't2' };
 blk.hass = { states: underBlack };
 ok('a new pick under the black: rebuilt for it, its live tile asleep -- no stream mounted',
@@ -761,21 +761,21 @@ ok('nothing on the plate ever requests above the tier',
 var sharp=new C();
 sharp.setConfig({selector:'input_select.cameras',cameras:CAMS,height:202.5,seam:2,
                  snapshot_cap:'960x540'});
-sharp.hass=withPic('Front Door')._hass;
+sharp.hass=withPic('Front Door').hass;
 var so=sharp._snaps.filter(function(s){return s.cssH>150;})[0];
 ok("snapshot_cap:'960x540' buys the sharper tier back",
    dim(sharp._srcFor(so.cam,so),'width')===405, sharp._srcFor(so.cam,so));
 var raw=new C();
 raw.setConfig({selector:'input_select.cameras',cameras:CAMS,height:202.5,seam:2,
                snapshot_cap:false});
-raw.hass=withPic('Front Door')._hass;
+raw.hass=withPic('Front Door').hass;
 var ro=raw._snaps.filter(function(s){return s.cssH>150;})[0];
 ok('snapshot_cap:false asks for the true device size',
    dim(raw._srcFor(ro.cam,ro),'height')===304, raw._srcFor(ro.cam,ro));
 ok('a malformed cap falls back to the tier rather than to nothing',
    (function(){var b=new C();
      b.setConfig({selector:'input_select.cameras',cameras:CAMS,snapshot_cap:'garbage'});
-     b.hass=withPic('Front Door')._hass;
+     b.hass=withPic('Front Door').hass;
      var o=b._snaps[0];
      return dim(b._srcFor(o.cam,o),'width')<=480;})());
 
@@ -859,7 +859,7 @@ function at(dpr, cfg){
   var c=new C();
   c.setConfig(Object.assign({selector:'input_select.cameras',cameras:CAMS,
                              height:202.5,seam:2}, cfg||{}));
-  c.hass=withPic('Front Door')._hass;
+  c.hass=withPic('Front Door').hass;
   return c;
 }
 // dPR must be re-asserted at CALL time: _srcFor reads window.devicePixelRatio
@@ -1077,7 +1077,7 @@ print('\n=== show_age: false removes it entirely ===');
 var noage=new C();
 noage.setConfig({selector:'input_select.cameras',cameras:CAMS,height:202.5,seam:2,
                  show_age:false});
-noage.hass=withPic('Front Door')._hass;
+noage.hass=withPic('Front Door').hass;
 ok('no label elements are created', noage._snaps.every(function(s){return !s.age;}));
 ok('  nor on the poster', !noage._liveSlot.poster.age);
 ok('  and no once-a-second interval is armed', !noage._ages);

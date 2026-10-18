@@ -38,13 +38,14 @@ function ok(n,c,x){if(c){pass++;print('  PASS  '+n);}else{fail++;print('  FAIL  
 // does, and what actually gets emitted.
 function ed(cams){
   var e=Object.create(E.prototype);
-  e._hass={states:{
+  e._build=function(){};                 // DOM assembly is a browser concern
+  // through Lovelace's entry: the editor reads the client made from it
+  e.hass={states:{
     'input_select.cameras':{state:'Front Door',
       attributes:{options:['Front Door','Driveway','Deck']}},
     'camera.a_low':{state:'idle'},'camera.b_low':{state:'idle'},'camera.c_low':{state:'idle'},
     'light.x':{state:'on'}}};
   e._config={selector:'input_select.cameras', cameras:cams||[]};
-  e._build=function(){};                 // DOM assembly is a browser concern
   e._events=[];
   e.dispatchEvent=function(ev){ e._events.push(ev); if(e._onCfg) e._onCfg(ev); return true; };
   e.addEventListener=function(n,fn){ if(n==='config-changed') e._onCfg=fn; };
@@ -59,7 +60,7 @@ ok('camera dropdown lists only camera.* entities',
 ok('option dropdown comes from the selector entity',
    JSON.stringify(e._selectorOptions())==='["Front Door","Driveway","Deck"]',
    JSON.stringify(e._selectorOptions()));
-var e2=ed([]); e2._hass={states:{}}; e2._config={cameras:[]};
+var e2=ed([]); e2.hass={states:{}}; e2._config={cameras:[]};
 ok('no selector configured -> empty options, no throw',
    JSON.stringify(e2._selectorOptions())==='[]');
 
@@ -119,8 +120,9 @@ ok('...and the card plans from it: the first live, no selector needed', (functio
 // the scalar form's schema (hkEditor holds it under the card's own editor tag)
 var form=null;
 (function(){
-  var me=Object.create(E.prototype); me._config={cameras:[]}; me._hass={states:{}};
+  var me=Object.create(E.prototype); me._config={cameras:[]};
   me.textContent=''; me.appendChild=function(){};
+  me.hass={states:{}};
   me._build();
   form=me._form;
 })();

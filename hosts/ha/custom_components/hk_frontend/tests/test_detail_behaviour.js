@@ -115,7 +115,7 @@ function panel(tag, id, h, src) {
   return p;
 }
 function setState(p, id, state, attrs, stamp) {
-  var h = Object.assign({}, p._hass, { states: Object.assign({}, p._hass.states) });
+  var h = Object.assign({}, p.hass, { states: Object.assign({}, p.hass.states) });
   h.states[id] = { entity_id: id, state: state, attributes: attrs, last_updated: stamp, last_changed: stamp };
   p.hass = h;
 }
@@ -1092,7 +1092,7 @@ print('\n=== the sheet reads through the client (Phase 1 slice 5) ===');
   ok('its panel reads through that client', d.panel.client === HC.from(h) && d.panel._stateObj === h.states['light.c']);
   // Phase 1 slice 6: its controls act through the client's action port, so
   // the panel is shown the client alone (no host input, no bridge)
-  ok('its panel is shown the client alone, no host input', d.panel._hass === null && d.panel.client.actions === HC.from(h).actions);
+  ok('its panel is shown the client alone, no host input', d.panel.hass === null && d.panel.client.actions === HC.from(h).actions);
   ok('the header icon was bound through the client (the adapter hands the icon its host)', d.icon.stateObj === h.states['light.c'] && d.icon.hass === h);
   var h2 = house({ 'light.c': ['on', { supported_color_modes: ['brightness'], brightness: 255, friendly_name: 'Lamp' }, 'c2'] });
   HA.hass = h2;
@@ -1122,7 +1122,7 @@ print('\n=== the sheet reads through the client (Phase 1 slice 5) ===');
   try {
     ok('a read-only client opens a sheet', D.open('light.ro', {}) === true);
     var r = _.state();
-    ok('...whose panel reads the client and holds no host input', r.panel.client === ro && r.panel._hass === null &&
+    ok('...whose panel reads the client and holds no host input', r.panel.client === ro && r.panel.hass === null &&
        r.panel._stateObj === states['light.ro']);
     ok('...with its icon bound by the client\'s own port', icons > 0 && r.icon.stateObj === states['light.ro'] && !r.icon.hass);
     r.panel._svc('light', 'turn_off');

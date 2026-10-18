@@ -2,7 +2,8 @@
 // Home Assistant's more-info dialog.
 //
 // THE TAP CONTRACT IS UNCHANGED. A pill's glyph toggles; its name (or any
-// card with nothing to toggle) fires `hass-more-info`, exactly as before.
+// card with nothing to toggle) fires the host's more-info event
+// (hkShell.events.moreInfo), exactly as before.
 // This file catches that event on the way down (a capture listener on
 // window) and opens its own sheet instead of HA's dialog. No dashboard
 // changes, no new gestures, no holds.
@@ -2103,12 +2104,12 @@
       return el;
     }
 
-    // THE CARD-FAMILY BRIDGE (until Phase 1 slices 7 and 9): a sheet's
-    // controls act through the client's action port (HkBase._call), so a
-    // panel is simply shown its client. A card family inside a sheet (the
-    // thermostat, the alarm keypad, the camera's stream, a group's pills)
-    // still reads the host input, which the host adapter hands it for the
-    // client it goes with (or the client itself, read-only, when there is none).
+    // THE BRIDGE: a sheet's controls act through the client's action port
+    // (HkBase._call), so a panel is simply shown its client. A card inside a
+    // sheet (the thermostat, the alarm keypad) gets what goes with the client
+    // from the host adapter: in HA an HK card takes the frontend's object at its
+    // entry and reads the client made from it, and an HA-drawn card needs that
+    // object itself (or the client itself, read-only, when there is none).
     function bridge(el, client) { window.hkHostClient.bridge(el, client); }
 
     // opts: { direct } -- open this sheet, not the #alarm pop-up that hands
@@ -2272,9 +2273,9 @@
         var sig = ns ? ns.last_updated : 'x';
         if (sig !== d.sig) { d.sig = sig; paintHeader(nc); }
         // A panel acts through its client's action port, so this file's own
-        // panels are simply shown the client. The ones that still read the
-        // host input (camera, group, custom cards, and the panels other files
-        // define: slices 7 and 9) are given it through the bridge.
+        // panels are simply shown the client. The rest (camera, group, custom
+        // cards, and the panels other files define) are fed through the bridge,
+        // as before; they read the client too, and pass it on to their cards.
         if (CLIENT_FED.indexOf(panel.constructor) >= 0) panel.client = nc; else bridge(panel, nc);
       };
       feed(h);
@@ -3773,7 +3774,7 @@
           var self = this;
           this._tickT = setInterval(function () { self._runs(); }, 60000);
         }
-        // the thermostat card still takes the host input (its own controls)
+        // the thermostat card gets what goes with the client (the host adapter decides)
         if (this._card) bridge(this._card, h);
         this._alignTop();
         var a = s.attributes || {};
@@ -5844,13 +5845,12 @@
       }
       _gone(h) { var st = h && h.states[this._streamOf(h)]; return !st || st.state === 'unavailable'; }
       _sigOf() { var c = this.client; return c ? 'camera|' + this._gone(c) : null; }
-      // ...while the stream card inside hears every update (its poster's
+      // ...while the stream card inside hears every new client (its poster's
       // signed picture, its own state), not only the ones that rebuild this
-      set hass(h) {
-        if (this._card && this._card.hkSetHass) this._card.hkSetHass(h);
-        super.hass = h;
+      _receiveClient() {
+        if (this._card && this._card.hkSetClient) this._card.hkSetClient(this.client);
+        super._receiveClient();
       }
-      get hass() { return super.hass; }
       // THE SHEET TAKES THE CAMERA'S SHAPE: the pop-ups' sizes, a picture
       // about 750 tall at most 1200 wide -- the doorbell (4:3) 1000 x 750, a
       // 16:9 camera 1200 x 675. A camera with a speaker is the doorbell, so
@@ -5918,8 +5918,8 @@
             this._root.appendChild(this._card);
           }
         }
-        // the stream card still takes the host input (talk-back, its own controls)
-        if (this._card && this._card.hkSetHass) this._card.hkSetHass(this._hass);
+        // the stream card gets what goes with this client (the host adapter decides)
+        if (this._card && this._card.hkSetClient) this._card.hkSetClient(h);
       }
     }
 
@@ -5953,8 +5953,8 @@
     };
     function def(tag, Ctor) { if (!customElements.get(tag)) customElements.define(tag, Ctor); }
     // The panels fed a client alone (open(): every panel defined here except
-    // the camera, group and custom-cards sheets, whose cards still read the
-    // host input).
+    // the camera, group and custom-cards sheets, which hold cards of their own
+    // and are still fed through the bridge).
     var CLIENT_FED = [LightPanel, TogglePanel, FanPanel, CoverPanel, LockPanel, GaragePanel, ButtonPanel,
                       ClimatePanel, MediaPanel, SensorPanel, StatePanel, BinaryPanel, VacuumPanel, ValvePanel,
                       NumberPanel, SelectPanel, HumidifierPanel, WaterHeaterPanel, AlarmPanel];
@@ -6055,11 +6055,11 @@
         return out;
       }
       _render() {
-        // reads through the client; the pills (card families) still take the host input
-        var c = this.client, h = this._hass, cfg = this._config || {};
-        if (!c || !h) return;
+        // reads through the client; each pill gets what goes with it (the host adapter decides)
+        var c = this.client, cfg = this._config || {};
+        if (!c) return;
         if (this._built && this._lsig === this._listSig(c)) {
-          (this._kids || []).forEach(function (el) { if (el.hkSetHass) el.hkSetHass(h); else el.hass = h; });
+          (this._kids || []).forEach(function (el) { feedPill(el, c); });
           return;
         }
         var resolved = cfg.resolve ? cfg.resolve(c) : null;
@@ -6067,10 +6067,10 @@
         var configs = ids.map(function (id) {
           var room = cfg.room;
           if (cfg.row) {
-            var e = (h.entities || {})[id] || {}, d = (h.devices || {})[e.device_id] || {};
-            room = ((h.areas || {})[e.area_id || d.area_id] || {}).name || '';
+            var e = (c.entities || {})[id] || {}, d = (c.devices || {})[e.device_id] || {};
+            room = ((c.areas || {})[e.area_id || d.area_id] || {}).name || '';
           }
-          var t = groupTile(h, id, room, cfg.groupKind);
+          var t = groupTile(c, id, room, cfg.groupKind);
           // The sheet already blurs its backdrop. Every nested pill must
           // stay out of the shared glass renderer too: its clipped layer in
           // the scrolling body adds a second blur inside an animated blur
@@ -6115,14 +6115,20 @@
         }
         this._ids = ids.slice();
         this._lsig = this._listSig(c);
-        (this._kids || []).forEach(function (el) { if (el.hkSetHass) el.hkSetHass(h); else el.hass = h; });
+        (this._kids || []).forEach(function (el) { feedPill(el, c); });
       }
+    }
+    // A PILL (hkCards.create) gets what goes with the client once it is
+    // configured; anything else straight through the host adapter.
+    function feedPill(el, client) {
+      if (el.hkSetClient) el.hkSetClient(client); else window.hkHostClient.bridge(el, client);
     }
     def('hk-detail-group', GroupPanel);
     // A CUSTOM POP-UP'S CARDS (Pop-ups -> Custom): any cards, in
     // a column, built by Home Assistant's own card helpers (a core card or a
-    // custom one), fed the host input while the sheet is up. A card that cannot be
-    // built is HA's error card, in its place.
+    // custom one), fed what goes with the sheet's client (through the host
+    // adapter) while the sheet is up. A card that cannot be built is HA's error
+    // card, in its place.
     class CardsPanel extends HkBase {
       static get CSS() {
         return ':host{display:block}' +
@@ -6133,8 +6139,8 @@
       hkFill() { return true; }
       _sigOf() { return null; }
       _render() {
-        var h = this._hass, cfg = this._config || {}, self = this;
-        if (!h) return;
+        var c = this.client, cfg = this._config || {}, self = this;
+        if (!c) return;
         if (!this._built) {
           this._built = true;
           this._kids = [];
@@ -6152,14 +6158,14 @@
                 try { el = helpers.createCardElement(cc); } catch (e) {
                   el = helpers.createCardElement({ type: 'error', error: String(e && e.message || e), origConfig: cc });
                 }
-                el.hass = self._hass;
+                window.hkHostClient.bridge(el, self.client);
                 box.appendChild(el);
                 self._kids.push(el);
               });
             }, function (e) { console.error('[hk-detail] custom pop-up: no card helpers', e); });
           }
         }
-        (this._kids || []).forEach(function (el) { el.hass = h; });
+        (this._kids || []).forEach(function (el) { window.hkHostClient.bridge(el, c); });
       }
     }
     def('hk-detail-cards', CardsPanel);
@@ -6244,11 +6250,10 @@
     }
     // ONLY ON A DASHBOARD: a show_popup, or a #hash, on one of Home
     // Assistant's own pages (Settings, the map) must not open the sheet
-    // over it. A dashboard is a panel whose component is lovelace.
+    // over it. The host shell knows (in HA: the address's panel is a
+    // lovelace one; not up yet is not a dashboard).
     function onDashboard() {
-      var h = C.hass(), seg = String(location.pathname || '').split('/')[1] || '';
-      var p = h && h.panels && h.panels[seg];
-      return !!p && p.component_name === 'lovelace';
+      return window.hkShell.isDashboard() === true;
     }
     var routeT = null;
     function route() {

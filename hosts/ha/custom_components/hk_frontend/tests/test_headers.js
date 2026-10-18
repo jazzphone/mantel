@@ -225,7 +225,7 @@ H.run('page headers', [
     H.ok('a row whose condition fails now is quieter, and says so', html.indexOf('class="ev wait"') > 0 && html.indexOf('not now') > 0 && html.indexOf('Inside lights on · sunrise') > 0);
     // Turn Off: the light's own service
     card._card.dispatchEvent && null;
-    card._hass.callService('light', 'turn_off', { entity_id: 'light.foyer' });
+    card.hass.callService('light', 'turn_off', { entity_id: 'light.foyer' });
     H.ok('Turn Off sends turn_off for that light', house.calls.some(function (c) { return c.domain === 'light' && c.service === 'turn_off' && c.data.entity_id === 'light.foyer'; }));
     // nothing sensed, nothing scheduled: Light Levels
     var lv = H.make('hk-lights-tonight-card');

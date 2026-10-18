@@ -267,7 +267,7 @@
       if (this._config && this._config.own_cameras) return own;
       var ids = this._board().cameras;
       if (!Array.isArray(ids) || !ids.length) return own;
-      var h = this._hass, by = {};
+      var h = this.client, by = {};
       own.forEach(function (c) { if (c && c.entity) by[c.entity] = c; });
       return ids.filter(function (id) { return !h || !h.states || h.states[id]; }).map(function (id) {
         if (by[id]) return by[id];
@@ -299,7 +299,7 @@
     }
     _optionOf(cam, opts) {
       if (cam.option) return cam.option;
-      var h = this._hass, st = h && h.states && h.states[cam.entity];
+      var h = this.client, st = h && h.states && h.states[cam.entity];
       var names = [cam.name, st && st.attributes && st.attributes.friendly_name]
         .filter(Boolean).map(function (n) { return String(n).toLowerCase(); });
       var best = null;
@@ -316,21 +316,21 @@
     }
 
     // Re-render ONLY when the live selection changes. Returning null here would
-    // mean "always render", and the frontend hands a card a new hass 12x a
-    // second -- see the note on HkBase.set hass. The camera images refresh
+    // mean "always render", and the frontend hands a card a new state object
+    // 12x a second -- see the gating note in HkBase. The camera images refresh
     // themselves; this card only decides WHICH camera sits in slot 1.
     // WITHOUT A SELECTOR THE PLAN NEVER CHANGES -- the first camera is live --
     // so the signature is a constant, not null. Null means "render on every
-    // hass push", and a render rebuilds the plate: a generated dashboard's
+    // state push", and a render rebuilds the plate: a generated dashboard's
     // strip (no selector) would re-create its live tile 12 times a second,
     // so the WebRTC stream is torn down before its first frame -- a black
     // tile, a flickering strip, and go2rtc churning through abandoned
     // sessions until it is restarted.
     _sigOf() {
-      var h = this._hass, c = this._config;
+      var h = this.client, c = this._config;
       if (!h || !c) return null;
       // the item's cameras and live-camera choice change only when a setting
-      // is saved -- never per hass push (the rebuild storm above)
+      // is saved -- never per state push (the rebuild storm above)
       var b = this._board();
       var key = JSON.stringify([b.cameras || [], b.camera_live || '', this._liveOn()]);
       // AFTER A RECONNECT the live tile waits for its camera's first state
@@ -358,7 +358,7 @@
       var stillsOnly = !!(this._config && this._config.stills_only);
       if (stillsOnly) return { live: null, cols: this._columns(cams, false) };
       var selId = this._selector();
-      var selSt = this._hass && selId ? this._hass.states[selId] : null;
+      var h = this.client, selSt = h && selId ? h.states[selId] : null;
       var sel = selSt ? selSt.state : null;
       var opts = (selSt && selSt.attributes && selSt.attributes.options) || [];
       var live = null;
@@ -416,7 +416,7 @@
       // rare case of wanting a different look, and then it is the caller's problem.
       if (this._config.tile_theme) cfg.theme = this._config.tile_theme;
       var el = document.createElement('hui-card');
-      el.hass = this._hass;
+      window.hkHostClient.bridge(el, this.client);   // HA draws it: the adapter decides what it gets
       el.preview = false;
       el.config = cfg;
       el.load();
@@ -440,7 +440,7 @@
     // rest of it -- the URL, the interval, and which cameras get refreshed.
     //
     // The src is the entity's own `entity_picture`, a camera_proxy URL that
-    // arrives pre-signed with a token. It is re-read from hass on EVERY tick
+    // arrives pre-signed with a token. It is re-read from the client on EVERY tick
     // rather than cached, because HA rotates that token and a stale URL 401s
     // into a broken image.
     _snap(cam, cssW, cssH) {
@@ -583,7 +583,7 @@
     // is the registry's placeholder for an entity not set up yet -- never a
     // picture to fetch.
     _picOf(cam) {
-      var st = this._hass && this._hass.states[cam.entity];
+      var h = this.client, st = h && h.states[cam.entity];
       var a = st && st.attributes;
       if (!a || a.restored || C.stale(st)) return null;     // stale: see hk-base.js STALE
       return a.entity_picture || null;
@@ -1082,8 +1082,9 @@
       // between the drop and the reconnect asks the new HA with the old token:
       // one restart can log dozens of "invalid authentication" warnings from a
       // few tablets in seconds -- exactly what a home with ip_ban_enabled would
-      // ban them for. The reconnect brings a fresh hass with fresh tokens, and
+      // ban them for. The reconnect brings fresh states with fresh tokens, and
       // the next tick resumes on its own.
+      // slice 9: needs client.connected (the frontend's connected flag is not on the client yet)
       if (this._hass && this._hass.connected === false) return;
       var snaps = this._snaps || [];
       var every = this._num('refresh', 10);
@@ -1238,7 +1239,7 @@
     // listener that is mid-call, works only by accident of how the browser
     // snapshots the listener list.
     _startTimer() {
-      // Only on the page. _render calls this too, and a card fed `hass`
+      // Only on the page. _render calls this too, and a card fed a client
       // before it is attached (an editor preview, a row rebuilding) must not
       // start fetching stills nobody can see; connectedCallback starts it.
       // (`=== false`: the test DOM has no isConnected at all.)
@@ -1365,7 +1366,7 @@
     }
     connectedCallback() {
       if (super.connectedCallback) super.connectedCallback();
-      if (this._config && this._hass) this._startTimer();
+      if (this._config && this.client) this._startTimer();
     }
     disconnectedCallback() {
       if (super.disconnectedCallback) super.disconnectedCallback();
@@ -1373,7 +1374,7 @@
     }
 
     _render() {
-      if (!this._root || !this._config || !this._hass) return;
+      if (!this._root || !this._config || !this.client) return;
       this._root.textContent = '';
       this._snaps = [];
       this._liveSlot = null;          // an empty `cameras:` must not keep the old poster ticking
@@ -1414,7 +1415,7 @@
         var liveAr = liveW + 'x' + Math.round(H);
         // no live card on a state the new server has not sent (see _sigOf): the
         // poster holds the slot until the camera is back
-        var stale = C.stale(this._hass.states[plan.live.entity]), resting = !stale && this._resting();
+        var stale = C.stale(this.client.states[plan.live.entity]), resting = !stale && this._resting();
         var lv = stale || resting ? document.createElement('div') : this._pic(plan.live, true, liveAr);
         if (VIDEO_OUTSIDE && lv.classList) lv.classList.add('wait');
         var liveBox = document.createElement('div');
@@ -1476,16 +1477,17 @@
       this._startTimer();
     }
 
-    // HASS MUST REACH THE CHILDREN, and HkBase's setter does not do it --
-    // it only gates the re-render. hk-row-card overrides for the same reason.
-    // Without this the picture-entity cards keep whatever hass they were built
+    // EACH NEW CLIENT MUST REACH THE CHILDREN, and HkBase's default does not
+    // do it -- it only gates the re-render. hk-row-card does the same.
+    // Without this the picture-entity cards keep whatever they were built
     // with and go stale between selector changes, which is most of the time
     // (this card deliberately re-renders only when the live camera changes).
-    set hass(h) {
-      this._hass = h;
-      C.seen(h);                     // HkBase's hub: the reconnect hook (hk-base.js STALE)
-      var kids = this._children || [];
-      for (var i = 0; i < kids.length; i++) kids[i].hass = h;
+    // HkBase's entry has already told its hub (the reconnect hook, hk-base.js
+    // STALE); this replaces the rest of HkBase's step, as the setter it
+    // replaces did: its own gate, no tone or wake tracking.
+    _receiveClient() {
+      var c = this.client, kids = this._children || [];
+      for (var i = 0; i < kids.length; i++) window.hkHostClient.bridge(kids[i], c);
 
       // NO WAKE-REBUILD HOOK, and that is a measured decision rather than an
       // omission. Swapping between two conditional copies of the strip on
@@ -1513,7 +1515,6 @@
       this._hkSig = sig;
       this._render();
     }
-    get hass() { return this._hass; }
 
     // Two rows of tiles at ~100px each; HA only needs a rough number.
     getCardSize() { return 2; }
@@ -1523,8 +1524,8 @@
     }
     // THE HOUSE'S FIRST THREE CAMERAS, so the picker's card shows something:
     // an empty list draws nothing at all. No selector: the first is live.
-    static getStubConfig(hass) {
-      var ids = hass && hass.states ? Object.keys(hass.states) : [];
+    static getStubConfig(input) {
+      var client = C.asClient(input), ids = client && client.states ? Object.keys(client.states) : [];
       var cams = ids.filter(function (id) { return id.indexOf('camera.') === 0; }).slice(0, 3);
       return { cameras: cams.map(function (id) { return { entity: id }; }) };
     }
@@ -1551,14 +1552,13 @@
       if (!Array.isArray(this._config.cameras)) this._config.cameras = [];
       this._build();
     }
-    set hass(h) {
-      this._hass = h;
-      if (this._form) this._form.hass = h;
-      // Only the pickers depend on hass; rebuilding on every hass would throw
-      // away focus mid-typing.
+    // EACH NEW CLIENT, through the host adapter's entry (below the class): the
+    // schema form gets what goes with it. Only the pickers depend on the
+    // client; rebuilding on every new one would throw away focus mid-typing.
+    _onClient(c) {
+      if (this._form) window.hkHostClient.bridge(this._form, c);
       if (!this._builtOnce) this._build();
     }
-    get hass() { return this._hass; }
 
     _emit() {
       var cfg = Object.assign({}, this._config);
@@ -1569,14 +1569,14 @@
     }
 
     _cameraEntities() {
-      var h = this._hass;
+      var h = this.client;
       if (!h) return [];
       return Object.keys(h.states).filter(function (e) {
         return e.indexOf('camera.') === 0;
       }).sort();
     }
     _selectorOptions() {
-      var h = this._hass, sel = this._config && this._config.selector;
+      var h = this.client, sel = this._config && this._config.selector;
       if (!h || !sel || !h.states[sel]) return [];
       return (h.states[sel].attributes.options || []).slice();
     }
@@ -1605,7 +1605,7 @@
           { name: 'radius', selector: { text: {} }, helper: 'Default 23.5px.' }
         ] }
       ]));
-      this._form.hass = this._hass;
+      window.hkHostClient.bridge(this._form, this.client);
       this._form.setConfig(this._config);
       this._form.addEventListener('config-changed', function (ev) {
         ev.stopPropagation();
@@ -1707,6 +1707,7 @@
     }
   }
   if (!customElements.get('hk-camera-mosaic-editor')) {
+    window.hkHostClient.entry(HkCameraMosaicEditor);    // Lovelace's entry, through the host adapter
     customElements.define('hk-camera-mosaic-editor', HkCameraMosaicEditor);
   }
 
@@ -1866,15 +1867,17 @@
       this._config = c;
       if (this._still) this._reset();
     }
-    set hass(h) {
-      this._hass = h;
-      if (this._still) this._still.hass = h;
-      if (this._liveEl) this._liveEl.hass = h;
+    // EACH NEW CLIENT, through the host adapter's entry (below the class): the
+    // two picture cards HA draws get what goes with it.
+    _onClient(c) {
+      if (this._still) window.hkHostClient.bridge(this._still, c);
+      if (this._liveEl) window.hkHostClient.bridge(this._liveEl, c);
       if (!this._still && this.isConnected && this._config) this._reset();
     }
     getCardSize() { return 3; }
-    static getStubConfig(hass) {
-      var id = Object.keys((hass && hass.states) || {}).filter(function (k) { return k.indexOf('camera.') === 0; })[0];
+    static getStubConfig(input) {
+      var client = C.asClient(input);
+      var id = Object.keys((client && client.states) || {}).filter(function (k) { return k.indexOf('camera.') === 0; })[0];
       return { entity: id || 'camera.front_door', aspect_ratio: '16x9', fit_mode: 'cover' };
     }
     connectedCallback() {
@@ -1891,7 +1894,7 @@
       this.style.setProperty('--ha-card-border-radius', window.hkCards.v('glass-radius'));
       this.style.borderRadius = 'var(--ha-card-border-radius)';
       this.style.boxShadow = 'var(--hk-look-shadow,' + window.hkCards.v('glass-shadow-sm') + ')';
-      if (this._config && this._hass && !this._still) this._reset();
+      if (this._config && this.client && !this._still) this._reset();
       else if (this._still && !this._live && !this._frame) this._saved();
       this._tries = 0;
       var self = this;
@@ -1942,7 +1945,7 @@
     _card(live) {
       var c = this._config;
       var el = document.createElement('hui-card');
-      el.hass = this._hass;
+      window.hkHostClient.bridge(el, this.client);
       el.preview = false;
       el.config = { type: 'picture-entity', entity: c.entity, camera_view: live ? 'live' : 'auto',
                     show_name: false, show_state: false, aspect_ratio: c.aspect_ratio || '16x9',
@@ -2056,6 +2059,7 @@
       if (this._poll) { clearInterval(this._poll); this._poll = null; }
     }
   }
+  window.hkHostClient.entry(HkCameraLiveCard);    // Lovelace's entry, through the host adapter
   register('hk-camera-live-card', HkCameraLiveCard, 'HK Camera Tile',
     'One live camera. On a page of them, each opens after the one before is playing, so they all connect.',
     [
@@ -2337,7 +2341,7 @@
     }
 
     _render() {
-      var c = this._config, h = this._hass;
+      var c = this._config, h = this.client;
       if (!c || !h) return;
       if (!this._built) this._build();
       var st = h.states[c.entity];
@@ -2663,7 +2667,7 @@
 
     connectedCallback() {
       if (super.connectedCallback) super.connectedCallback();
-      if (this._built && this._hass && !this._pc) this._start();
+      if (this._built && this.client && !this._pc) this._start();
     }
 
     disconnectedCallback() {
@@ -2956,8 +2960,8 @@
           helper: 'Shown until the picture starts, e.g. the channel name.' }
       ] }
     ],
-    function (hass) {
-      var ids = hass ? Object.keys(hass.states) : [];
+    function (client) {
+      var ids = client ? Object.keys(client.states) : [];
       var cam = ids.filter(function (id) { return id.indexOf('camera.') === 0; })[0];
       return { entity: cam || '', live: true, sound: true };
     });
@@ -3043,7 +3047,7 @@
     // whenever the socket comes back (an HA restart), and again on a
     // back-off while the answer is empty -- see there.
     _sigOf() {
-      var h = this._hass;
+      var h = this.client;
       if (!h || !this._channels) return null;
       return this._channels.map(function (c) {
         var st = c.now && h.states[c.now];
@@ -3051,11 +3055,11 @@
       }).join(';');
     }
 
-    set hass(h) {
-      Object.getOwnPropertyDescriptor(HkBase.prototype, 'hass').set.call(this, h);
-      if (this._player) this._player.update(h);
+    // each new client also reaches the full-screen player, after HkBase's step
+    _receiveClient() {
+      super._receiveClient();
+      if (this._player) this._player.update(this.client);
     }
-    get hass() { return this._hass; }
 
     // THE CHANNEL LIST, ASKED FOR AGAIN WHENEVER IT CAN BE WRONG. Asked for
     // once per card, ever, a tablet that drew this page while HA was
@@ -3069,7 +3073,7 @@
     //   * an empty answer never replaces a list already drawn: right after a
     //     restart it means "not set up YET", and the back-off looks again.
     _fetchChannels() {
-      var h = this._hass, self = this;
+      var h = this.client, self = this;
       if (this._loading || !h || !h.callWS) return;
       clearTimeout(this._chanT);
       this._chanT = null;
@@ -3122,7 +3126,7 @@
     }
 
     _render() {
-      var h = this._hass, self = this;
+      var h = this.client, self = this;
       if (!h) return;
       this._watchConn();
       if (!this._channels) { this._fetchChannels(); return; }
@@ -3150,7 +3154,7 @@
     }
 
     _tile(ch) {
-      var self = this, st = (ch.now && this._hass.states[ch.now]) || { state: '', attributes: {} };
+      var self = this, st = (ch.now && this.client.states[ch.now]) || { state: '', attributes: {} };
       var a = st.attributes || {};
       var t = document.createElement('button');
       t.className = 'tv-tile';
@@ -3241,7 +3245,7 @@
   // hk-popup's sheets (position:fixed under a transformed view would be
   // placed against the view, not the screen).
   function tvPlayer(owner, ch) {
-    var h = owner._hass;
+    var h = owner.client;
     var mount = window.hkShell.overlayRoot() || document.body;
     var el = document.createElement('div');
     el.className = 'hktv';
@@ -3278,7 +3282,7 @@
       clearTimeout(quietT);
       quietT = setTimeout(function () { quiet(true); }, TV_CONTROLS_MS);
     }
-    // Runs on EVERY hass push (~10 a second) while the player is up, so it
+    // Runs on EVERY state push (~10 a second) while the player is up, so it
     // writes only a caption that changed: an identical textContent still
     // replaces the text node, and that is a relayout and a repaint over
     // playing video for nothing.
@@ -3295,7 +3299,7 @@
         .catch(function (e) { console.warn('[hk-tv] watching', e); });
     }
     var player = {
-      update: function (hh) { if (!closed) { cam.hkSetHass(hh); caption(hh); } },
+      update: function (hh) { if (!closed) { cam.hkSetClient(hh); caption(hh); } },
       close: function () {
         if (closed) return;
         closed = true;
