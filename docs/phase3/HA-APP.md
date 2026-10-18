@@ -296,9 +296,11 @@ imported settings intact). Checked in the sidebar as Avery:
       request carries an HA `token=`; no request leaves the Ingress prefix.
 - [x] Session: Avery Lane, `owner`, door `ha`. Dashboard draws (screenshot taken).
 - [x] Refused reads are logged once per 5 minutes (one line since the update).
-- Other page reads the allowlist refuses (seen in the log before 0.1.2): `hk_music/subscribe` (music engine,
-  Phase 4), `config/entity_registry/get` and `hk_frontend/hidden/get` (HK screens that edit entities or the
-  hidden list). Those screens show nothing for them in Mantel yet; they are page-side gaps for Phase 4.
+- Other page reads the allowlist refused (seen in the log before 0.1.2): `hk_music/subscribe`,
+  `config/entity_registry/get` and `hk_frontend/hidden/get`. **Answered in main since (for 0.1.3):** the
+  registry read and Hidden Accessories from Mantel's own copies (RBAC-filtered; also in HK Settings'
+  `panel/get`), and an interim music read bridge (`hk_music/subscribe`, `/queue`, `/settings/library`
+  forwarded to HA's engine; home room not preselected until Phase 4).
 
 ### Removal
 

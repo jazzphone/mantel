@@ -165,6 +165,11 @@ class Hiding:
         self._registry = registry
         self._seen: dict[str, frozenset[str]] = {}
 
+    @property
+    def ready(self) -> bool:
+        """Whether there is a house to work it out from (a hub with states and registries)."""
+        return self._store is not None and self._registry is not None
+
     def _device_area(self) -> dict[str, str | None]:
         return {d["id"]: d.get("area_id") for d in self._registry.device_entries
                 if isinstance(d, Mapping) and d.get("id")}

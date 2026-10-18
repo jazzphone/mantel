@@ -47,8 +47,14 @@ def test_calendar_events_are_a_read_api(observed):
     assert observed["results"]["calendar"] == [{"summary": "Fictional event"}]
 
 
+def test_the_music_queue_is_a_read(observed):
+    frames = [m for m in observed["sent"] if m["type"] == "read" and m["msg"]["type"].startswith("hk_music/")]
+    assert [f["msg"] for f in frames] == [{"type": "hk_music/queue", "entity_id": "media_player.kitchen", "limit": 40}]
+    assert observed["results"]["queue"] == {"ok": True, "index": 0, "items": []}
+
+
 def test_everything_else_stays_refused_and_sends_nothing(observed):
-    assert observed["refused"] == ["commands_disabled"] * 3
+    assert observed["refused"] == ["commands_disabled"] * 4
     assert observed["sentAfterRefusals"] == 0
     assert observed["calendarPath"] == ["calendars/calendar.x?start=a&end=b", None, None, None]
     assert not any(m["type"] in ("command", "settings_write") for m in observed["sent"])

@@ -289,3 +289,12 @@ async def test_hidden_get_changes_nothing(env):
     before = {k: d.version for k, d in env.service.store.docs("house").items()}
     await read(env, OWNER, {"type": "hk_frontend/hidden/get"})
     assert {k: d.version for k, d in env.service.store.docs("house").items()} == before
+
+
+# ------------------------------------------------- hk_frontend/panel/get: HK Settings' Hidden Accessories
+async def test_panel_get_carries_the_same_hidden_answer_cut_per_person(env):
+    owner = (await read(env, OWNER, {"type": "hk_frontend/panel/get"}))["result"]["hidden"]
+    assert owner == (await read(env, OWNER, {"type": "hk_frontend/hidden/get"}))["result"]
+    assert owner["everywhere"] == ["light.primary"]
+    admin = (await read(env, ADMIN, {"type": "hk_frontend/panel/get"}))["result"]["hidden"]
+    assert "light.primary" not in json.dumps(admin) and admin["devices"] == []

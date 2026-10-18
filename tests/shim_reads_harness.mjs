@@ -49,10 +49,16 @@ const cal = host.hass.callApi('GET', 'calendars/calendar.family?start=2026-10-18
 reply({ type: 'read_result', id: sent[sent.length - 1].id, result: [{ summary: 'Fictional event' }] });
 out.results.calendar = await cal;
 
+// music (interim): the queue is a read; queue_play stays refused below
+const q = host.hass.callWS({ type: 'hk_music/queue', entity_id: 'media_player.kitchen', limit: 40 });
+reply({ type: 'read_result', id: sent[sent.length - 1].id, result: { ok: true, index: 0, items: [] } });
+out.results.queue = await q;
+
 // still refused, sending nothing: other REST calls, writes, other webrtc-looking writes
 const before = sent.length;
 for (const p of [host.hass.callApi('GET', 'history/period/x'), host.hass.callApi('POST', 'calendars/calendar.family?start=a&end=b'),
-                 host.hass.callWS({ type: 'hk_frontend/settings/set' })]) {
+                 host.hass.callWS({ type: 'hk_frontend/settings/set' }),
+                 host.hass.callWS({ type: 'hk_music/queue_play', entity_id: 'media_player.kitchen', item_id: 'x' })]) {
   try { await p; out.refused.push('NOT REFUSED'); } catch (e) { out.refused.push(e.code); }
 }
 out.sentAfterRefusals = sent.length - before;

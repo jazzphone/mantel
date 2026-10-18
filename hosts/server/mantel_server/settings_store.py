@@ -1138,7 +1138,18 @@ def register(app: web.Application, hub: Any, hooks: Any = None, *, store: Settin
         return unsubscribe
 
     async def panel_get(ctx: Ctx, msg: dict):
-        return await service.panel_get(ctx.identity, msg)
+        payload = await service.panel_get(ctx.identity, msg)
+        # Hidden Accessories (HA: hiding.snapshot in panel.py), worked out from Mantel's own states and
+        # registries (hidden.py, installed by readproxy.register) and cut down to what the person may view
+        hiding, reads = app.get("hiding"), app.get("filtered_reads")
+        if hiding is not None and hiding.ready and reads is not None:
+            from .connectors import allowed_ids
+            settings = {**service.house_settings(),
+                        "accessories": service.store.body("house", "accessories") or {"entities": {}}}
+            snap = hiding.snapshot(settings)
+            visible = await allowed_ids(reads.hooks, ctx.identity, "view", sorted(hiding.entity_ids_in(snap)))
+            payload = {**payload, "hidden": hiding.only_visible(snap, set(visible), None)}
+        return payload
 
     async def get(ctx: Ctx, msg: dict):
         return await service.get(ctx.identity, msg)

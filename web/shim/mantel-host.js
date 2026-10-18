@@ -42,6 +42,10 @@ const WRITE_WORDS = /(^|\/|_)(set|save|remove|delete|add|update|create|call_serv
 // are viewing, never commands, so they are answered before the WRITE_WORDS backstop below.
 export const CAMERA_READS = new Set(['camera/webrtc/get_client_config', 'camera/webrtc/candidate']);
 export const CAMERA_SUBSCRIPTIONS = new Set(['camera/webrtc/offer']);
+// MUSIC (interim, until Phase 4 moves the engine): the queue is a read whose name carries a write word.
+// The server's allowlist forwards only hk_music/subscribe, /queue and /settings/library (readproxy.py);
+// hk_music/queue_play and every other hk_music/* write still meet WRITE_WORDS here.
+export const NAMED_READS = new Set(['hk_music/queue']);
 // CALENDARS: HK's calendar card reads events with callApi('GET', 'calendars/<entity>?start=&end='),
 // Mantel's one REST read (read_api, RBAC `view` of the calendar). Any other REST call stays refused.
 // (Camera stills need nothing here: the server already gives each camera state an entity_picture on
@@ -232,7 +236,7 @@ export class Host {
 
   _call(msg) {
     this._count(msg.type);
-    if (CAMERA_READS.has(msg.type)) return this.hub.read(msg);
+    if (CAMERA_READS.has(msg.type) || NAMED_READS.has(msg.type)) return this.hub.read(msg);
     if (WRITE_WORDS.test(msg.type)) return this._refuse(msg.type);
     if (this.fixtures[msg.type] !== undefined) return Promise.resolve(this.fixtures[msg.type]);
     return this.hub.read(msg);
