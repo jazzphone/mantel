@@ -455,6 +455,8 @@ DEFAULT_ROLES: dict[str, Role] = {r.name: r for r in (
         _g("allow", ("view", "control"), "area", SUBJECT_AREAS, CHILD_DOMAINS,
            note="lights, media, climate in allowed areas"),
         _g("allow", "configure", "feature", "profile", note="their own settings"),
+        _g("allow", ("view", "control"), "feature", "music",
+           note="the Music page (Avery 2026-10-18); its speakers still only in their rooms; an Owner may deny it"),
         _g("deny", "*", "feature", "cameras", note="cameras off"),
         _g("deny", "*", "domain", "lock", note="no locks"),
         _g("deny", "*", "domain", "alarm_control_panel", note="no alarm"),

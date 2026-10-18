@@ -275,3 +275,16 @@ def test_sync_identity_resolvers_work_too(conn):
     app = web.Application()
     store = register(app, FakeHub(), identity=identity, conn=conn)
     assert app["rbac"] is store and isinstance(store, rbac_store.RbacStore)
+
+
+def test_a_child_has_the_music_page_and_an_owner_can_take_it_away(store):
+    s = store.subject(user_role="child", user_id="cody")
+    pol = store.policy()
+    assert pol.decide(s, "view", None, ctx(), feature="music").allowed
+    assert pol.decide(s, "control", None, ctx(), feature="music").allowed
+    # adjustable: an Owner's deny for this one child (or the whole role) wins
+    g = store.add_grant(Grant(effect="deny", actions="*", resource_kind="feature", resource="music", users={"cody"},
+                              note="no music for now"), by="olive")
+    assert not store.policy().decide(s, "view", None, ctx(), feature="music").allowed
+    store.remove_grant(g.id)
+    assert store.policy().decide(s, "view", None, ctx(), feature="music").allowed

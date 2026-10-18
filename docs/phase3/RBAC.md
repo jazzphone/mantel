@@ -102,7 +102,7 @@ unless you pass `policy=`. Rules are applied in this order:
 | owner | allow `*` on all | on / on / on |
 | admin | allow `*` on all; deny `configure` on features `owners`, `credentials` | on / on / on |
 | adult | allow view, control, control.sensitive, history on all; configure on `profile` | on / on / on |
-| child | allow view, control in `@subject` areas for light, media_player, remote, climate, fan; configure `profile`; deny `*` on cameras, `lock`, `alarm_control_panel`, garage; deny configure on `vacuum` | off / off / off |
+| child | allow view, control in `@subject` areas for light, media_player, remote, climate, fan; configure `profile`; view, control the `music` feature (the Music page; added 2026-10-18 at Avery's request; an Owner removes it with a deny grant per child or for the role); deny `*` on cameras, `lock`, `alarm_control_panel`, garage; deny configure on `vacuum` | off / off / off |
 | guest | allow view, control in `@subject` areas for light, switch, fan, climate, media_player, remote, cover, scene; deny `*` on cameras, locations, garage; deny `history` on all | off / off / off |
 | wall_tablet | allow view, control, control.sensitive, history in `@subject` (its room); `sensitive_needs_person` | n/a: devices are refused on the tunnel |
 | service | none: give each endpoint as a feature grant | off / off / off |
