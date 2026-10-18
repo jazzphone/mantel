@@ -202,7 +202,7 @@ async def smoke(shot=None):
                 # a card fed by the hub over the prefixed WebSocket follows a change
                 await browser.eval("""(() => {
                   const m = window.hkViewHost.createCardElement({type:'custom:hk-stat-card',entity:'sensor.proof'}, window.__mantel.client);
-                  document.getElementById('app').prepend(m);
+                  document.getElementById('view').prepend(m);
                   window.__mantelOnSnapshot = () => window.hkHostClient.bridge(m, window.__mantel.client);
                   window.__proofMetric = m;
                 })()""")

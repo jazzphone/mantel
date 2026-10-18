@@ -124,7 +124,6 @@ function narrowSoon() {
 
 const viewHost = window.hkViewHost.create({
   container: document.getElementById('view'),
-  slot: document.getElementById('app'),
   config: cfg,
   client: host.client,
   base: '/' + seg,

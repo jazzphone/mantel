@@ -192,7 +192,7 @@ async def smoke(shot=None):
                       const metric = window.hkViewHost.createCardElement({type:'custom:hk-stat-card',entity:'sensor.proof'},
                                                                          window.__mantel.client);
                       metric.id = 'proof-metric';
-                      document.getElementById('app').prepend(metric);
+                      document.getElementById('view').prepend(metric);
                       window.__mantelOnSnapshot = () => window.hkHostClient.bridge(metric, window.__mantel.client);
                       window.__proofMetric = metric;
                     })()""")
@@ -274,7 +274,7 @@ async def smoke(shot=None):
                     actions = await browser.eval("""(async () => {
                       const tile = window.hkViewHost.createCardElement({type:'custom:hk-tile-card', entity:'light.proof'},
                                                                        window.__mantel.client);
-                      document.getElementById('app').prepend(tile);
+                      document.getElementById('view').prepend(tile);
                       const frames = window.__sentFrames, refused0 = window.__mantel.refused.length;
                       const toggled = await tile._call('homeassistant', 'toggle', {entity_id: 'light.proof'});
                       tile._act({action: 'toggle'}, true);
@@ -304,7 +304,7 @@ async def smoke(shot=None):
                       const root = document.getElementById('hk-shell-root');
                       const tile = window.hkViewHost.createCardElement({type:'custom:hk-tile-card', entity:'scene.proof_evening'},
                                                                        window.__mantel.client);
-                      document.getElementById('app').prepend(tile);
+                      document.getElementById('view').prepend(tile);
                       const asked = window.hkShell.moreInfo('scene.proof_evening', tile);
                       const st = window.hkDetail._.state(), panel = st.panel;
                       await new Promise(r => setTimeout(r, 50));
@@ -463,7 +463,7 @@ async def smoke(shot=None):
                       return { kind: window.hkShell.kind, nav: window.hkShell.navEvent,
                                sky: !!(c && c.querySelector(':scope > #hk-sky')),
                                menu: !!document.querySelector('#hk-shell-root > #hk-menu'),
-                               view: !!window.hkShell.view() && window.hkShell.view().parentNode === document.getElementById('app'),
+                               view: !!window.hkShell.view() && window.hkShell.view().parentNode === document.getElementById('view'),
                                config: !!(window.hkShell.dashboardConfig() || {}).views };
                     })()""")
                     assert shell == {"kind": "mantel", "nav": "hk-navigate", "sky": True, "menu": True,
@@ -491,7 +491,7 @@ async def smoke(shot=None):
                     home = await browser.eval("""(() => {
                       const vh = window.__mantelViewHost, cur = vh.current(), cfg = window.hkShell.dashboardConfig();
                       return { views: cfg.views.map(v => v.path), path: cur.path,
-                               type: cur.element.localName, attached: cur.element.parentNode === document.getElementById('app'),
+                               type: cur.element.localName, attached: cur.element.parentNode === document.getElementById('view'),
                                shell: window.hkShell.view() === cur.element, config: cfg === vh.config,
                                grid: cur.cards.filter(c => c.localName === 'hk-view-grid').length,
                                // the scenes row (a container card) makes its child with hkCards.createCard: no
@@ -518,7 +518,7 @@ async def smoke(shot=None):
                     lights = await browser.eval("""(() => {
                       const cur = window.__mantelViewHost.current(), home = window.__vhHome.element;
                       return { path: location.pathname, type: cur.element.localName,
-                               attached: cur.element.parentNode === document.getElementById('app'),
+                               attached: cur.element.parentNode === document.getElementById('view'),
                                home_detached: home.parentNode === null, shell: window.hkShell.view() === cur.element,
                                tag: window.hkShell.tags.view,
                                sky: window.__vhSky !== null && window.__vhSky === document.querySelector('hk-view-container#view > #hk-sky'),
