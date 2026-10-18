@@ -385,7 +385,7 @@ class Accounts:
             user_name=user["username"] or user["name"] or user_id, user_display_name=user["name"] or user["username"] or "",
             exclude_credentials=existing,
             authenticator_selection=AuthenticatorSelectionCriteria(
-                resident_key=ResidentKeyRequirement.PREFERRED, user_verification=UserVerificationRequirement.REQUIRED))
+                resident_key=ResidentKeyRequirement.REQUIRED, user_verification=UserVerificationRequirement.REQUIRED))
         cid = self._save_challenge(opts.challenge, "register", user_id)
         return cid, json.loads(options_to_json(opts))
 
@@ -640,7 +640,14 @@ async def passkey_options(request: web.Request) -> web.Response:
     wait = acc.retry_after(client_ip(request), None)
     if wait > 0:
         return limited(wait)
-    cid, options = acc.passkey_auth_options(body.get("username"))
+    # A user name narrows the credential list only for that same signed-in person (the admin page's
+    # step-up). Signed out, the request is always discoverable: a stranger learns nothing about which
+    # accounts exist or which passkeys they hold (registration requires discoverable credentials).
+    username = body.get("username")
+    me = identity(request).user
+    if me is None or not isinstance(username, str) or username != me.username:
+        username = None
+    cid, options = acc.passkey_auth_options(username)
     return ok({"challenge_id": cid, "options": options})
 
 

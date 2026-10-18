@@ -118,7 +118,8 @@ async def test_passkey_works_on_the_tunnel_where_a_password_alone_does_not(mante
     origin, h = localhost(mantel)
     r = await mantel.post("/api/auth/passkey/options", {"username": "jordan"}, csrf=False, tunnel=True, headers=h)
     opts = await r.json()
-    assert [c["id"] for c in opts["options"]["allowCredentials"]] == [bytes_to_base64url(auth.cred_id)]
+    # signed out, a user name is ignored: nothing about jordan's passkeys is revealed
+    assert not opts["options"].get("allowCredentials")
     r = await mantel.post("/api/auth/passkey/verify", {"challenge_id": opts["challenge_id"],
                                                        "credential": auth.get(opts["options"], origin)},
                           csrf=False, tunnel=True, headers=h)
@@ -185,3 +186,30 @@ async def test_passkey_step_up_marks_the_session_fresh(mantel):
     listed = (await (await mantel.get("/api/auth/passkeys")).json())["passkeys"]
     assert len(listed) == 1 and listed[0]["name"] == "Phone" and "public_key" not in listed[0]
     assert base64url_to_bytes(listed[0]["id"]) == auth.cred_id
+
+
+async def test_signed_in_step_up_may_name_itself_but_not_someone_else(mantel):
+    await mantel.user("jordan", "adult")
+    await mantel.user("riley", "child")
+    await mantel.sign_in("jordan")
+    auth = SoftAuthenticator()
+    assert (await register(mantel, auth)).status == 201
+    reg = mantel.store.db.execute("SELECT id FROM passkeys").fetchone()["id"]
+    mantel.forget_cookies()
+    await mantel.sign_in("riley")
+    origin, h = localhost(mantel)
+    r = await mantel.post("/api/auth/passkey/options", {"username": "jordan"}, headers=h)
+    assert not (await r.json())["options"].get("allowCredentials")
+    mantel.forget_cookies()
+    await mantel.sign_in("jordan")
+    r = await mantel.post("/api/auth/passkey/options", {"username": "jordan"}, headers=h)
+    assert [c["id"] for c in (await r.json())["options"]["allowCredentials"]] == [reg]
+
+
+async def test_registration_requires_a_discoverable_passkey(mantel):
+    await mantel.user("jordan", "adult")
+    await mantel.sign_in("jordan")
+    origin, h = localhost(mantel)
+    r = await mantel.post("/api/auth/passkey/register/options", {}, headers=h)
+    sel = (await r.json())["options"]["authenticatorSelection"]
+    assert sel["residentKey"] == "required" and sel.get("requireResidentKey") is True
