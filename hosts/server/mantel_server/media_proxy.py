@@ -131,6 +131,13 @@ class Go2rtcStreams:
 
     def __init__(self) -> None:
         self._kinds: dict[str, tuple[str, str | None]] = {}
+        self._channels: frozenset[str] = frozenset()
+
+    def set_channel_cameras(self, cameras) -> None:
+        """Live TV's channel cameras (``camera.tv_*``, live_tv.py). They are not go2rtc streams of their
+        own (a channel plays as ``mantel_tv_<n>``), so asking for one by name is refused rather than
+        taken for an ordinary camera, which would skip the Live TV feature check."""
+        self._channels = frozenset(c for c in cameras if isinstance(c, str))
 
     def allow(self, src: str, kind: str, entity_id: str | None = None) -> None:
         if not SRC.match(src or ""):
@@ -148,6 +155,8 @@ class Go2rtcStreams:
         got = self._kinds.get(src)
         if got is not None:
             return got
+        if src in self._channels:
+            return None
         if self.CAMERA_NAME.match(src or ""):
             return ("camera", src)
         return None
@@ -158,12 +167,22 @@ class Go2rtcStreams:
             return False
         kind, entity = got
         if kind == "camera":
-            return authz.may_view(principal, entity) is True
-        # Live TV: the same two checks as live_tv.py's own signaling gate: the `live_tv` feature, then the
-        # channel's camera (when Live TV named it)
-        if authz is None or not authz.decide(principal.subject, "view", None, feature="live_tv").allowed:
+            return authz is not None and authz.may_view(principal, entity) is True
+        return self.may_live_tv(authz, principal, entity)
+
+    @staticmethod
+    def may_live_tv(authz: Any, principal: Any, camera: str | None) -> bool:
+        """THE Live TV rule, for both of its doors: live_tv.py's signaling (offer, candidates, client
+        config, and its re-check of open sessions) and a Live TV stream asked for under ``/go2rtc/``.
+        The ``live_tv`` feature (``view``), then camera live view on the channel's camera (when named)."""
+        if authz is None or principal is None or not getattr(principal, "valid", False):
             return False
-        return entity is None or authz.may_view(principal, entity) is True
+        ident = getattr(principal, "identity", None)
+        if ident is None or (ident.user is None and ident.device is None):
+            return False
+        if not authz.decide(principal.subject, "view", None, feature="live_tv").allowed:
+            return False
+        return camera is None or authz.may_view(principal, camera) is True
 
 
 # -- the two upstreams -----------------------------------------------------------------------------------

@@ -423,6 +423,9 @@ class MantelLiveTv:
 
     def sync_states(self) -> set[str]:
         want = self.wanted()
+        gate = self.app.get("go2rtc_streams")
+        if gate is not None:       # a channel camera asked for by name under /go2rtc/ is not an ordinary camera
+            gate.set_channel_cameras([c["camera"] for c in self.channels()] if self.runs() else [])
         changed = self.local.put_all(want)
         self.local.registry = self.registry_entries(want)
         self._sync_registry()            # HaClient's first registry load replaces it without a callback

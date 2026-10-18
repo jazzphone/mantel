@@ -496,3 +496,63 @@ async def test_the_settings_feed_says_live_tv_is_added(rig):
     r = await rig()
     assert "live_tv" in r.app["features"].client_added()
     assert r.app["features"].panel_features()["hk_tv"]["entries"][0]["entry_id"] == ITEM
+
+
+# ------------------------------------------------------------------------------------- /go2rtc/ gate
+async def _start_nbc(r):
+    ws = await r.socket("owner1", "owner")
+    await ws.send_json({"type": "read_subscribe", "id": 2,
+                        "msg": {"type": "camera/webrtc/offer", "entity_id": "camera.tv_nbc", "offer": OFFER_SDP}})
+    for _ in range(100):
+        if r.tv.streams:
+            break
+        await asyncio.sleep(0.02)
+    assert r.tv.streams == {"mantel_tv_4_1": "4.1"}
+    return ws
+
+
+async def test_live_tv_streams_under_go2rtc_follow_the_live_tv_gate(rig):
+    r = await rig()
+    m = r.env.m
+    url = "/go2rtc/api/frame.jpeg?src=mantel_tv_4_1"
+    # nobody signed in, and nothing set up yet: refused
+    m.forget_cookies()
+    assert (await m.client.get(url)).status in (401, 403)
+    ws = await _start_nbc(r)
+    # an owner may view it (past the gate: the fake go2rtc has no still, so its own 404 is what comes back)
+    assert (await m.client.get(url)).status != 403
+    # the channel camera's own name is not an ordinary camera stream: refused, whoever asks
+    assert (await m.client.get("/go2rtc/api/frame.jpeg?src=camera.tv_nbc")).status == 403
+    # a child (no Live TV feature, no cameras by default) is refused
+    await r.env.login("kid1", "child")
+    assert (await m.client.get(url)).status == 403
+    # signed out: refused
+    m.forget_cookies()
+    assert (await m.client.get(url)).status in (401, 403)
+    # an adult has Live TV
+    await r.env.login("adult1", "adult")
+    assert (await m.client.get(url)).status != 403
+    # the signaling socket under /go2rtc/ is gated the same way
+    m.forget_cookies()
+    await r.env.login("kid1", "child")
+    import aiohttp
+    with pytest.raises(aiohttp.WSServerHandshakeError) as bad:
+        await m.client.ws_connect("/go2rtc/api/ws?src=mantel_tv_4_1")
+    assert bad.value.status == 403
+    # the stream is dropped with the last viewer: no longer reachable through the gate
+    await r.env.login("owner1", "owner")
+    await ws.send_json({"type": "read_unsubscribe", "id": 2})
+    for _ in range(100):
+        if not r.tv.streams:
+            break
+        await asyncio.sleep(0.02)
+    assert (await m.client.get(url)).status == 403
+    await ws.close()
+
+
+async def test_the_app_mode_has_no_channel_gate_and_no_go2rtc_route(rig):
+    r = await rig(go2rtc=False)
+    m = r.env.m
+    await r.env.login("owner1", "owner")
+    # no go2rtc configured: /go2rtc/ is not configured at all (nothing of an HA transcode is exposed here)
+    assert (await m.client.get("/go2rtc/api/frame.jpeg?src=mantel_tv_4_1")).status == 404
