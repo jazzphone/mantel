@@ -4,8 +4,41 @@
   if (global.hkHAClient) return;
   var clients = new WeakMap();
   var hosts = new WeakMap();      // client -> the host object it was made from
+  // A RECONNECT'S STALE UNSUBSCRIBE (home-assistant-js-websocket). After a reconnect the library
+  // sends each old subscription again under a new id (ids start again on every socket); until
+  // that answer arrives, the subscription's unsubscribe still carries its OLD id. An element
+  // removed in that window (the view is rebuilt on a reconnect: <ha-menu-button>'s notifications
+  // feed) sends unsubscribe_events for the old id on the NEW socket, then deletes that id from the
+  // library's table: whichever new subscription now has that number is ended on both sides. In
+  // about 2 of 5 upgrades under an open page it was HK's settings feed, left on the restarted
+  // server's first, still-empty Status & Chips lists: no chips row until a reload (2026-10-18).
+  // So ids never start again: a new socket's first id follows the last one ever given, and a
+  // stale id names nothing live. An unsubscribe for an id given before the current socket is
+  // held -- not sent (the server never had it), and never settled, so the library's delete after
+  // it never runs either.
+  var guarded = new WeakSet();
+  function guard(conn) {
+    if (!conn || typeof conn !== 'object' || guarded.has(conn) || typeof conn._genCmdId !== 'function' ||
+        typeof conn.commandId !== 'number' || typeof conn.sendMessagePromise !== 'function') return;
+    guarded.add(conn);
+    var gen = conn._genCmdId, sendP = conn.sendMessagePromise;
+    var last = conn.commandId, socket = conn.socket, floor = 0;   // floor: the last id before this socket
+    conn._genCmdId = function () {
+      if (this.socket !== socket) { socket = this.socket; floor = last; }
+      if (this.commandId < last) this.commandId = last;
+      last = gen.call(this);
+      return last;
+    };
+    conn.sendMessagePromise = function (msg) {
+      // (a socket no id was given on yet: every id so far is from before it)
+      if (msg && msg.type === 'unsubscribe_events' && typeof msg.subscription === 'number' &&
+          (this.socket !== socket || msg.subscription <= floor)) return new Promise(function () {});
+      return sendP.apply(this, arguments);
+    };
+  }
   function from(hass) {
     if (!hass || typeof hass !== 'object') return null;
+    guard(hass.connection);
     // a client already (a shared caller passing on what it was given): as is
     if (global.hkClient && global.hkClient.is(hass)) return hass;
     if (clients.has(hass)) return clients.get(hass);
