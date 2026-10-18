@@ -27,7 +27,7 @@ same `hk_frontend.*` action names.
 | Field | Stored | Notes |
 |---|---|---|
 | Linked to Mantel Server | presence of `entry.data["mantel_link"]` | **Off by default.** Turning it off removes the key. |
-| Mantel Server's address | `entry.data["mantel_link"]["url"]` | `https://host[:port]` (or `wss://`). With no path it means `/linked/ws`. No user, query or fragment. Plain `http://`/`ws://` is accepted only for 127.0.0.1/localhost/::1 (`mantel_url_insecure`), so the credential never crosses the network in clear. |
+| Mantel Server's address | `entry.data["mantel_link"]["url"]` | `https://host[:port]` (or `wss://`). With no path it means `/linked/ws`. No user, query or fragment. Plain `http://`/`ws://` is accepted only for loopback (127.0.0.1/localhost/::1), an IP literal in `172.30.32.0/23` (Home Assistant Supervisor's internal hassio network, which never leaves the host), or an App hostname (`local-<slug>`, `<8 hex>-<slug>`, e.g. the Mantel App's `http://local-mantel:8099`) **whose every resolved address** is loopback or in that range, checked on save and again before every connect (the link connects to the checked address with the original Host header; a name that stops resolving there is refused as `mantel_url_not_internal` and retried); anything else plain is `mantel_url_insecure`, so the credential never crosses the network in clear. |
 | Service credential | `entry.data["mantel_link"]["token"]` | A Mantel Service account's (scope `linked`). It's never shown again: left empty, the saved one is kept. |
 
 - **Where it's stored.** The link lives in the entry's **data**, not its options. The options are the
