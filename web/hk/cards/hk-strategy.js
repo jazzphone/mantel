@@ -49,9 +49,15 @@
 //   pages:           false            no category pages
 //   rooms:           false            no room pages
 //
-// It reads hass.floors / areas / devices / entities, which every user --
-// including a non-admin wall tablet -- already has. One websocket call
+// It reads the client's floors / areas / devices / entities, which every
+// user -- including a non-admin wall tablet -- already has. One subscription
 // (hk_music/subscribe, bounded to 4 s) asks whether music is configured.
+//
+// THE CLIENT. Lovelace calls a strategy's static hooks (generate,
+// shouldRegenerate) with its own frontend object; each hook converts it at
+// the door (clientOf below: the host adapter's client, one per object) and
+// everything inside reads only that client. The helpers exported on
+// window.hkStrategy take either, converted the same way.
 (function () {
   'use strict';
 
@@ -60,6 +66,18 @@
   // load: hk-base.js is a parallel-loaded resource, and generate() waits for
   // it (cardsReady below).
   function TL() { return window.hkCards.TILE; }
+  // LOVELACE'S OBJECT -> THE CLIENT, at each entry (null for neither). A
+  // client is taken as it is; anything else goes through the host adapter
+  // (hkHostClient, loaded at bootstrap before this file), which makes one
+  // client per object -- so a cache keyed on what a build was handed keeps
+  // its identity. Not hkCards.asClient: shouldRegenerate can run before
+  // hk-base.js has loaded.
+  function clientOf(input) {
+    if (!input) return null;
+    var K = window.hkClient, H = window.hkHostClient;
+    if (K && typeof K.is === 'function' && K.is(input)) return input;
+    return H && typeof H.from === 'function' ? H.from(input) : null;
+  }
   function cardsReady() {
     if (window.hkCards && window.hkCards.TILE) return Promise.resolve();
     // its readiness EVENT, never a poll: a hidden tab throttles timers
@@ -298,16 +316,16 @@
     if (typeof opts === 'object') HIDES.set(opts, h);
     return h;
   }
-  function areaOf(hass, id) {
-    var e = (hass.entities || {})[id] || {}, devs = hass.devices || {};
+  function areaOf(client, id) {
+    var e = (client.entities || {})[id] || {}, devs = client.devices || {};
     return e.area_id || (e.device_id && devs[e.device_id] && devs[e.device_id].area_id) || null;
   }
-  function hidden(hass, opts, id) {
+  function hidden(client, opts, id) {
     var hide = hideOf(opts);
     if (hide.entities[id]) return true;
-    var e = (hass.entities || {})[id] || {};
+    var e = (client.entities || {})[id] || {};
     if (e.device_id && hide.devices[e.device_id]) return true;
-    var a = areaOf(hass, id);
+    var a = areaOf(client, id);
     return !!(a && hide.areas[a]);
   }
 
@@ -380,10 +398,10 @@
     var A = setting('accessories'), list = A && A.rooms && A.rooms[area];
     return Array.isArray(list) ? list : null;
   }
-  function tileFor(hass, id, name) { return stateNames(tileOf(hass, id, name), id); }
-  function tileOf(hass, id, name) {
+  function tileFor(client, id, name) { return stateNames(tileOf(client, id, name), id); }
+  function tileOf(client, id, name) {
     var d = id.split('.')[0];
-    var e = (hass.entities || {})[id], dv = e && e.device_id && (hass.devices || {})[e.device_id];
+    var e = (client.entities || {})[id], dv = e && e.device_id && (client.devices || {})[e.device_id];
     var a = accOf(id), show = a && a.show_as;
     var t;
     if (show && (d === 'switch' || d === 'light' || d === 'input_boolean')) {
@@ -392,13 +410,13 @@
       t = TILE.switch(id, name);
       t.icon = SHOW_GLYPH[show];
       if (show === 'fan') t.icon_color = 'blue';
-      if (show === 'light' && d === 'light') t = TILE.light(id, name, hass.states[id]);
+      if (show === 'light' && d === 'light') t = TILE.light(id, name, client.states[id]);
       delete t.icon_size;
       sized(t);
     } else {
       // a button that is not a computer's wake is the generic pressable tile
       var fn = d === 'button' && !isTileButton(e) ? anyTile : (TILE[d] || anyTile);
-      t = fn(id, name, hass.states[id], dv && dv.model);
+      t = fn(id, name, client.states[id], dv && dv.model);
     }
     var own = accIcon(id) || (e && ownIcon(e.icon));
     if (t && own && 'icon' in t && own !== t.icon) {
@@ -458,8 +476,8 @@
   // The FULL name ("Family Car Climate"), not the registry's short entity
   // name ("Climate"), which leaves out the device and makes two cars' climate
   // controls indistinguishable. The room prefix is then dropped by shortName.
-  function nameOf(hass, id, ent) {
-    var st = hass.states[id];
+  function nameOf(client, id, ent) {
+    var st = client.states[id];
     return (st && st.attributes && st.attributes.friendly_name) || (ent && ent.name) || id;
   }
 
@@ -492,25 +510,25 @@
   // ONE PASS OVER THE HOUSE PER BUILD. rooms() is asked once for Home and
   // once for every room page (27 times on this house), and each pass walked
   // every entity (4,195): 113k visits, ~170 ms of a tablet's generate().
-  // What it sorts into rooms depends only on the build's hass and its
+  // What it sorts into rooms depends only on the build's client and its
   // exclusions -- not on which areas one caller wants -- so a build keeps the
   // one pass in its options (`__build`, copied into every per-room options
   // object by Object.assign) and rooms() only picks and orders from it. Kept
-  // per BUILD, not per hass object: a second build always looks again.
-  function byArea(hass, opts) {
+  // per BUILD, not per client: a second build always looks again.
+  function byArea(client, opts) {
     var hide = hideOf(opts), into = INTO(), build = opts && opts.__build;
     var key = JSON.stringify([opts.exclude_entities || [], opts.exclude_devices || [], opts.exclude_areas || [],
                               opts.include_entities || [], into]);
     var memo = build && build.byArea;
-    if (memo && memo.key === key && memo.hass === hass) return memo;
-    var ents = hass.entities || {}, devs = hass.devices || {}, areas = hass.areas || {};
+    if (memo && memo.key === key && memo.client === client) return memo;
+    var ents = client.entities || {}, devs = client.devices || {}, areas = client.areas || {};
     var by = {}, more = [], seen = {};
     Object.keys(ents).concat(Object.keys(hide.include)).forEach(function (id) {
       if (seen[id]) return;
       seen[id] = true;
       var e = ents[id] || {}, dom = id.split('.')[0];
       var added = !!hide.include[id];
-      if (!hass.states[id] || hidden(hass, opts, id)) return;
+      if (!client.states[id] || hidden(client, opts, id)) return;
       if (!added && (!TILE[dom] || e.hidden || e.entity_category)) return;
       if (!added && dom === 'button' && !isTileButton(e)) return;
       var area = e.area_id || (e.device_id && devs[e.device_id] && devs[e.device_id].area_id);
@@ -520,13 +538,13 @@
       if (!area || !areas[area]) { if (added) more.push(id); return; }
       (by[area] = by[area] || []).push(id);
     });
-    memo = { key: key, hass: hass, by: by, more: more };
+    memo = { key: key, client: client, by: by, more: more };
     if (build) build.byArea = memo;
     return memo;
   }
-  function rooms(hass, opts) {
-    var areas = hass.areas || {}, floors = hass.floors || {};
-    var hide = hideOf(opts), sorted = byArea(hass, opts);
+  function rooms(client, opts) {
+    var areas = client.areas || {}, floors = client.floors || {};
+    var hide = hideOf(opts), sorted = byArea(client, opts);
     var by = sorted.by, more = sorted.more;
     var list = Object.keys(by);
     if (Array.isArray(opts.areas) && opts.areas.length) {
@@ -548,7 +566,7 @@
     // dropped), so a renamed accessory takes its new place, as on its page
     var sortIds = function (ids, area) {
       var key = {};
-      ids.forEach(function (x) { key[x] = named(hass, x, area || ''); });
+      ids.forEach(function (x) { key[x] = named(client, x, area || ''); });
       return ids.slice().sort(function (x, y) {
         return (rank(x) - rank(y)) || key[x].localeCompare(key[y]);
       });
@@ -581,17 +599,17 @@
 
   // THE NAME A TILE SHOWS: the accessory's own (its gear), else the entity's
   // with the room's name dropped ("Kitchen Table Light" -> "Table Light").
-  function named(hass, id, area) {
-    return accName(id) || shortName(nameOf(hass, id, (hass.entities || {})[id]), area);
+  function named(client, id, area) {
+    return accName(id) || shortName(nameOf(client, id, (client.entities || {})[id]), area);
   }
-  function roomSection(hass, room) {
+  function roomSection(client, room) {
     // "Show in Home" off (the accessory's gear): not on Home -- its room's
     // page and the category pages still list it, as the Home app does.
     var tiles = room.entities.filter(function (id) {
       var a = accOf(id);
       return !(a && a.home === false);
     }).map(function (id) {
-      return placed(tileFor(hass, id, named(hass, id, room.name)), room.id ? { area: room.id } : null);
+      return placed(tileFor(client, id, named(client, id, room.name)), room.id ? { area: room.id } : null);
     }).filter(Boolean);
     var head = heading(room.name);
     if (room.id) head.area = room.id;         // "Living Room ›" when it has a page
@@ -617,8 +635,8 @@
   // room's own order. `areas` may be several (a backyard and its deck).
   var GROUPS = ['Climate', 'Lights', 'Speakers & TVs', 'Security', 'Water', 'Other'];
   var DOORS = { garage: 1, gate: 1, door: 1 };
-  function groupOf(hass, id) {
-    var d = id.split('.')[0], st = hass.states[id];
+  function groupOf(client, id) {
+    var d = id.split('.')[0], st = client.states[id];
     var dc = st && st.attributes && st.attributes.device_class;
     if (d === 'valve' || d === 'water_heater') return 'Water';
     if (d === 'fan' || d === 'climate' || d === 'humidifier' || (d === 'cover' && !DOORS[dc])) return 'Climate';
@@ -627,10 +645,10 @@
     if (d === 'lock' || d === 'alarm_control_panel' || d === 'cover') return 'Security';
     return 'Other';
   }
-  function roomCameras(hass, areas, opts) {
+  function roomCameras(client, areas, opts) {
     var want = {};
     areas.forEach(function (a) { want[a] = true; });
-    return houseCameras(hass, opts, function (id) { return want[areaOf(hass, id)]; });
+    return houseCameras(client, opts, function (id) { return want[areaOf(client, id)]; });
   }
 
   // THE HOUSE'S CAMERAS, ONE TILE PER CAMERA. A UniFi Protect
@@ -652,22 +670,22 @@
   // ESP32 camera on the porch uses too -- so it is the DEVICE that tells them
   // apart: Kiosk Satellite registers itself with manufacturer
   // `kiosk_satellite`. Never the platform alone.
-  function notHouseCamera(hass, e) {
+  function notHouseCamera(client, e) {
     if (NOT_HOUSE_CAMERAS[e.platform]) return true;
-    var d = e.device_id && (hass.devices || {})[e.device_id];
+    var d = e.device_id && (client.devices || {})[e.device_id];
     return !!d && d.manufacturer === 'kiosk_satellite';
   }
-  function houseCameras(hass, opts, pred) {
-    var ents = hass.entities || {};
+  function houseCameras(client, opts, pred) {
+    var ents = client.entities || {};
     var mine = listOf((opts && opts.board) || {}, 'cameras');
     var anyList = {}, boards = setting('boards') || {};
     Object.keys(boards).forEach(function (k) {
       listOf(boards[k] || {}, 'cameras').forEach(function (id) { anyList[id] = true; });
     });
     var byDev = {}, devs = [];
-    shown(hass, opts, 'camera').forEach(function (id) {
+    shown(client, opts, 'camera').forEach(function (id) {
       var e = ents[id] || {};
-      if (notHouseCamera(hass, e) || (pred && !pred(id))) return;
+      if (notHouseCamera(client, e) || (pred && !pred(id))) return;
       var d = e.device_id || id;
       if (!byDev[d]) { byDev[d] = []; devs.push(d); }
       byDev[d].push(id);
@@ -688,10 +706,10 @@
       return x - y || (a < b ? -1 : a > b ? 1 : 0);
     });
   }
-  function roomCards(hass, areas, name, opts) {
+  function roomCards(client, areas, name, opts) {
     areas = [].concat(areas || []).filter(Boolean);
-    var ents = hass.entities || {}, seen = {}, groups = {};
-    rooms(hass, Object.assign({}, opts, { areas: areas })).forEach(function (r) {
+    var ents = client.entities || {}, seen = {}, groups = {};
+    rooms(client, Object.assign({}, opts, { areas: areas })).forEach(function (r) {
       if (!r.id) return;                        // "More" is not a room
       r.entities.forEach(function (id) {
         if (seen[id]) return;
@@ -700,8 +718,8 @@
         var acc = accOf(id);
         if (acc && acc.room === false) return;
         seen[id] = true;
-        var g = groupOf(hass, id);
-        (groups[g] = groups[g] || []).push(placed(tileFor(hass, id, named(hass, id, name)), { area: areas[0], group: g }));
+        var g = groupOf(client, id);
+        (groups[g] = groups[g] || []).push(placed(tileFor(client, id, named(client, id, name)), { area: areas[0], group: g }));
       });
     });
     // Lights A to Z -- unless the room has an order of its own (the gear)
@@ -723,7 +741,7 @@
     // THE CAMERAS AS SNAPSHOTS: stills that refresh, never a live stream --
     // in the camera strip's pattern (below), in a row that scrolls sideways
     // when it is wider than the page. A tap opens the camera, live.
-    var cams = roomCameras(hass, areas, opts);
+    var cams = roomCameras(client, areas, opts);
     if (cams.length) {
       cards.push({ type: 'grid', columns: 1, square: false, view_layout: COL2, cards: [heading('Cameras'),
         // the row reaches out by the tiles' shadow and pads it back inside,
@@ -740,14 +758,14 @@
           pad_left: 26, pad_right: 26, margin: '-8px -22px -10px -22px',
           cards: [{ type: 'custom:hk-camera-mosaic-card', height: 195, seam: 2, snapshot_cap: '480x270',
                     max_upscale: 1.2, show_age: true, stills_only: true, own_cameras: true,
-                    cameras: cams.map(function (id) { return { entity: id, name: fullName(hass, id) }; }) }] }] });
+                    cameras: cams.map(function (id) { return { entity: id, name: fullName(client, id) }; }) }] }] });
     }
     // THE ROOM'S SCENES (2026-10-01): a row of scene pills under the status
     // row -- under the cameras when it has some -- that scrolls sideways, as
     // Home's does (hk-scenes-card in room mode). Each room's own (HK Settings
     // -> Accessories -> the room -> Scenes): its own list, none, or
     // Automatic -- the Home Assistant scenes in the room.
-    var scenes = roomScenes(hass, areas, opts);
+    var scenes = roomScenes(client, areas, opts);
     if (scenes.length) cards.push({ type: 'custom:hk-scenes-card', room: true, scenes: scenes, view_layout: COL2 });
     GROUPS.forEach(function (g) { if (groups[g]) cards.push(section(g, groups[g])); });
     return cards;
@@ -755,20 +773,20 @@
   // A ROOM'S SCENES: the lists its areas have of their own (the Deck's
   // after the Backyard's), else every shown scene in them, A to Z. A list
   // that is empty is a room with no row.
-  function roomScenes(hass, areas, opts) {
+  function roomScenes(client, areas, opts) {
     var A = setting('accessories'), own = (A && A.scenes && typeof A.scenes === 'object') ? A.scenes : {};
     var mine = areas.filter(function (a) { return Array.isArray(own[a]); });
     if (mine.length) {
       var out = [];
       mine.forEach(function (a) {
-        own[a].forEach(function (id) { if (out.indexOf(id) < 0 && hass.states[id] && !hidden(hass, opts, id)) out.push(id); });
+        own[a].forEach(function (id) { if (out.indexOf(id) < 0 && client.states[id] && !hidden(client, opts, id)) out.push(id); });
       });
       return out;
     }
     var want = {};
     areas.forEach(function (a) { want[a] = true; });
-    var st = hass.states;
-    return shown(hass, opts, 'scene', null).filter(function (id) { return want[areaOf(hass, id)]; })
+    var st = client.states;
+    return shown(client, opts, 'scene', null).filter(function (id) { return want[areaOf(client, id)]; })
       .sort(function (x, y) {
         return String(st[x].attributes.friendly_name || x).localeCompare(String(st[y].attributes.friendly_name || y));
       });
@@ -777,8 +795,8 @@
     return String(v || '').toLowerCase().replace(/[’']/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
   }
 
-  function firstOf(hass, domain) {
-    return Object.keys(hass.states).filter(function (k) { return k.indexOf(domain + '.') === 0; }).sort()[0] || null;
+  function firstOf(client, domain) {
+    return Object.keys(client.states).filter(function (k) { return k.indexOf(domain + '.') === 0; }).sort()[0] || null;
   }
 
   function setting(path) {
@@ -800,54 +818,54 @@
   // config/diagnostic entity, has a state), optionally filtered, sorted by id.
   // The house's entity ids by domain, once per build (as byArea): shown() is
   // asked for a dozen domains and each call walked every state.
-  function idsOf(hass, opts, domain) {
-    var build = opts && opts.__build, idx = build && build.hass === hass ? build.domains : null;
+  function idsOf(client, opts, domain) {
+    var build = opts && opts.__build, idx = build && build.client === client ? build.domains : null;
     if (!idx) {
       idx = {};
-      Object.keys(hass.states).forEach(function (id) {
+      Object.keys(client.states).forEach(function (id) {
         var d = id.split('.')[0];
         (idx[d] = idx[d] || []).push(id);
       });
-      if (build) { build.domains = idx; build.hass = hass; }
+      if (build) { build.domains = idx; build.client = client; }
     }
     return idx[domain] || [];
   }
-  function shown(hass, opts, domain, pred) {
-    var ents = hass.entities || {};
-    return idsOf(hass, opts, domain).filter(function (id) {
+  function shown(client, opts, domain, pred) {
+    var ents = client.entities || {};
+    return idsOf(client, opts, domain).filter(function (id) {
       var e = ents[id] || {};
-      if (e.hidden || e.entity_category || hidden(hass, opts, id)) return false;
-      return !pred || pred(hass.states[id]);
+      if (e.hidden || e.entity_category || hidden(client, opts, id)) return false;
+      return !pred || pred(client.states[id]);
     }).sort();
   }
   function dc(st) { return st && st.attributes && st.attributes.device_class; }
 
   // A sensor on the same DEVICE with this device_class -- a vacuum's battery.
-  function sibling(hass, id, deviceClass) {
-    var ents = hass.entities || {}, dev = ents[id] && ents[id].device_id;
+  function sibling(client, id, deviceClass) {
+    var ents = client.entities || {}, dev = ents[id] && ents[id].device_id;
     if (!dev) return null;
     var hit = Object.keys(ents).filter(function (k) {
       return k !== id && ents[k].device_id === dev && k.indexOf('sensor.') === 0 &&
-             dc(hass.states[k]) === deviceClass;
+             dc(client.states[k]) === deviceClass;
     }).sort();
     return hit[0] || null;
   }
 
   // A sensor on the same device whose entity id matches -- a vacuum's
   // current room, its cleaning progress, its dock error.
-  function siblingLike(hass, id, re, not) {
-    var ents = hass.entities || {}, dev = ents[id] && ents[id].device_id;
+  function siblingLike(client, id, re, not) {
+    var ents = client.entities || {}, dev = ents[id] && ents[id].device_id;
     if (!dev) return null;
     return Object.keys(ents).filter(function (k) {
-      return k !== id && ents[k].device_id === dev && k.indexOf('sensor.') === 0 && hass.states[k] &&
+      return k !== id && ents[k].device_id === dev && k.indexOf('sensor.') === 0 && client.states[k] &&
              re.test(k) && !(not && not.test(k));
     }).sort()[0] || null;
   }
-  function friendly(hass, id, area) {
-    var ents = hass.entities || {}, areas = hass.areas || {}, devs = hass.devices || {};
+  function friendly(client, id, area) {
+    var ents = client.entities || {}, areas = client.areas || {}, devs = client.devices || {};
     var e = ents[id] || {};
     var a = e.area_id || (e.device_id && devs[e.device_id] && devs[e.device_id].area_id);
-    return accName(id) || shortName(nameOf(hass, id, e), area || (a && areas[a] && areas[a].name));
+    return accName(id) || shortName(nameOf(client, id, e), area || (a && areas[a] && areas[a].name));
   }
 
   // --------------------------------------------------------- what exists
@@ -857,12 +875,12 @@
   // kind for the whole house -- the chips read the same lists -- and this
   // keeps the ones this dashboard shows (its own YAML may leave out more).
   // Before the integration has answered, the rules below.
-  function inventory(hass, opts) {
+  function inventory(client, opts) {
     var K = setting('kinds') || {};
     if (K && typeof K === 'object' && Object.keys(K).length) {
       var mine = function (kind) {
         return (Array.isArray(K[kind]) ? K[kind] : []).filter(function (id) {
-          return hass.states[id] && !hidden(hass, opts, id);
+          return client.states[id] && !hidden(client, opts, id);
         });
       };
       var gar = mine('garage');
@@ -873,7 +891,7 @@
     }
     var sec = window.hkSettings ? window.hkSettings.get('security', {}) : {};
     var has = function (l) { return Array.isArray(l) && l.length; };
-    var keep = function (l) { return l.filter(function (id) { return !hidden(hass, opts, id); }); };
+    var keep = function (l) { return l.filter(function (id) { return !hidden(client, opts, id); }); };
     var contact = function (kind) {
       return function (st) { return dc(st) === kind; };
     };
@@ -881,30 +899,30 @@
       return function (st) { return list.indexOf(dc(st)) >= 0; };
     };
     return {
-      leaks: shown(hass, opts, 'binary_sensor', contact('moisture')),
-      motion: shown(hass, opts, 'binary_sensor', classes(['motion', 'moving'])),
-      occupancy: shown(hass, opts, 'binary_sensor', classes(['occupancy', 'presence'])),
+      leaks: shown(client, opts, 'binary_sensor', contact('moisture')),
+      motion: shown(client, opts, 'binary_sensor', classes(['motion', 'moving'])),
+      occupancy: shown(client, opts, 'binary_sensor', classes(['occupancy', 'presence'])),
       // a water valve (the Water page's), not a gas one
-      valves: shown(hass, opts, 'valve', function (st) { return dc(st) !== 'gas'; }),
-      lights: shown(hass, opts, 'light'),
+      valves: shown(client, opts, 'valve', function (st) { return dc(st) !== 'gas'; }),
+      lights: shown(client, opts, 'light'),
       climates: (function () {
         var t = window.hkSettings ? window.hkSettings.get('features.thermostats', []) : [];
-        return has(t) ? keep(t).filter(function (id) { return hass.states[id]; }) : shown(hass, opts, 'climate');
+        return has(t) ? keep(t).filter(function (id) { return client.states[id]; }) : shown(client, opts, 'climate');
       })(),
-      fans: shown(hass, opts, 'fan'),
-      blinds: shown(hass, opts, 'cover', function (st) {
+      fans: shown(client, opts, 'fan'),
+      blinds: shown(client, opts, 'cover', function (st) {
         var d = dc(st);
         return d !== 'garage' && d !== 'gate' && d !== 'door';
       }),
-      locks: has(sec.locks) ? keep(sec.locks) : shown(hass, opts, 'lock'),
-      doors: has(sec.doors) ? keep(sec.doors) : shown(hass, opts, 'binary_sensor', contact('door')),
-      windows: has(sec.windows) ? keep(sec.windows) : shown(hass, opts, 'binary_sensor', contact('window')),
-      garage: has(sec.garage) ? keep(sec.garage) : shown(hass, opts, 'cover', function (st) {
+      locks: has(sec.locks) ? keep(sec.locks) : shown(client, opts, 'lock'),
+      doors: has(sec.doors) ? keep(sec.doors) : shown(client, opts, 'binary_sensor', contact('door')),
+      windows: has(sec.windows) ? keep(sec.windows) : shown(client, opts, 'binary_sensor', contact('window')),
+      garage: has(sec.garage) ? keep(sec.garage) : shown(client, opts, 'cover', function (st) {
         return dc(st) === 'garage' || dc(st) === 'gate';
       }),
-      vacuums: shown(hass, opts, 'vacuum'),
-      timers: shown(hass, opts, 'timer'),
-      speakers: shown(hass, opts, 'media_player', function (st) { return dc(st) !== 'tv' && dc(st) !== 'receiver'; })
+      vacuums: shown(client, opts, 'vacuum'),
+      timers: shown(client, opts, 'timer'),
+      speakers: shown(client, opts, 'media_player', function (st) { return dc(st) !== 'tv' && dc(st) !== 'receiver'; })
     };
   }
 
@@ -918,25 +936,25 @@
   // ROW counts (climateMembers -- that, less the rooms the row leaves out,
   // status_rows.climate, read live by the row). A row's exclusions are never
   // a reason for the page to exist or not, so the build reads no status_rows.
-  function climateMembers(hass, o) {
+  function climateMembers(client, o) {
     var cl = (setting('status_rows') || {}).climate || {};
-    return climateFound(hass, o, cl.exclude_areas || []);
+    return climateFound(client, o, cl.exclude_areas || []);
   }
-  function climateFound(hass, o, rowAreas) {
+  function climateFound(client, o, rowAreas) {
     o = o || {};
-    var K = setting('kinds') || {}, A = hass.areas || {}, st = hass.states || {};
+    var K = setting('kinds') || {}, A = client.areas || {}, st = client.states || {};
     var G = setting('generated') || {};
     var opts = {};
     ['exclude_entities', 'exclude_devices', 'exclude_areas'].forEach(function (k) {
       opts[k] = [].concat(G[k] || [], o[k] || [], k === 'exclude_areas' ? rowAreas || [] : []);
     });
     function visible(id) {
-      var e = (hass.entities || {})[id] || {}, own = accOf(id) || {};
+      var e = (client.entities || {})[id] || {}, own = accOf(id) || {};
       return st[id] && !e.hidden && !e.entity_category && !e.disabled_by && own.status !== false &&
-        !membersOf(st[id]) && !hidden(hass, opts, id);
+        !membersOf(st[id]) && !hidden(client, opts, id);
     }
     function reading(k) {
-      if (Array.isArray(K[k])) return K[k].filter(function (id) { return st[id] && !hidden(hass, opts, id); });
+      if (Array.isArray(K[k])) return K[k].filter(function (id) { return st[id] && !hidden(client, opts, id); });
       var ids = [];
       Object.keys(A).forEach(function (a) {
         if (opts.exclude_areas.indexOf(a) >= 0) return;
@@ -946,14 +964,14 @@
         // thermostat reads a temperature, so it stays in that list)
         Object.keys(st).forEach(function (eid) {
           var s = st[eid], off = s.state === 'unavailable' || s.state === 'unknown';
-          if (eid.indexOf('climate.') === 0 && areaOf(hass, eid) === a && visible(eid) &&
+          if (eid.indexOf('climate.') === 0 && areaOf(client, eid) === a && visible(eid) &&
               (('current_' + k) in s.attributes || (off && k === 'temperature'))) ids.push(eid);
         });
       });
       return ids.filter(function (id, i) { return ids.indexOf(id) === i; }).sort();
     }
     function accessories(k, d) {
-      if (Array.isArray(K[k])) return K[k].filter(function (id) { return st[id] && !hidden(hass, opts, id); });
+      if (Array.isArray(K[k])) return K[k].filter(function (id) { return st[id] && !hidden(client, opts, id); });
       return Object.keys(st).filter(function (id) {
         return id.indexOf(d + '.') === 0 && visible(id) && (k !== 'blinds' ||
           ['awning', 'blind', 'curtain', 'shade', 'shutter', 'window', undefined].indexOf(dc(st[id])) >= 0);
@@ -968,21 +986,21 @@
   // the screen's and the row's own rooms left out (status_rows.<page>).
   // Lights and outlets are the Lights page's two halves: what is a light
   // (or drawn as one), and the switches Status & Chips counts with them.
-  function pageMembers(hass, page, o) {
+  function pageMembers(client, page, o) {
     o = o || {};
-    if (page === 'climate') return climateMembers(hass, o);
+    if (page === 'climate') return climateMembers(client, o);
     var G = setting('generated') || {}, row = (setting('status_rows') || {})[page] || {};
     var opts = {};
     ['exclude_entities', 'exclude_devices', 'exclude_areas'].forEach(function (k) {
       opts[k] = [].concat(G[k] || [], o[k] || [], k === 'exclude_areas' ? row.exclude_areas || [] : []);
     });
-    var inv = inventory(hass, opts);
+    var inv = inventory(client, opts);
     var isLight = function (id) {
       var as = (accOf(id) || {}).show_as;
       return as ? as === 'light' : id.split('.')[0] === 'light';
     };
-    var alarm = setting('security.alarm') || firstOf(hass, 'alarm_control_panel');
-    if (alarm && (!hass.states[alarm] || hidden(hass, opts, alarm))) alarm = null;
+    var alarm = setting('security.alarm') || firstOf(client, 'alarm_control_panel');
+    if (alarm && (!client.states[alarm] || hidden(client, opts, alarm))) alarm = null;
     return { lights: inv.lights.filter(isLight), outlets: inv.lights.filter(function (id) { return !isLight(id); }),
              doors: inv.doors, windows: inv.windows, garage: inv.garage, locks: inv.locks, leaks: inv.leaks,
              motion: inv.motion || [], occupancy: inv.occupancy || [], valves: inv.valves || [],
@@ -1042,10 +1060,10 @@
   // the entity's full name -- or the accessory's, which is room-relative the
   // way a room's tiles are ("Lock"), so the room goes in front unless it is
   // already there ("Crawl Space Lock", "Front Door Lock").
-  function fullName(hass, id) {
+  function fullName(client, id) {
     var own = accName(id);
-    if (!own) return nameOf(hass, id, (hass.entities || {})[id]);
-    var room = areaName(hass, id);
+    if (!own) return nameOf(client, id, (client.entities || {})[id]);
+    var room = areaName(client, id);
     return room && fold(own).indexOf(fold(room)) < 0 ? room + ' ' + own : own;
   }
   // A door, window or garage sensor: its open glyph, and its closed one
@@ -1070,9 +1088,9 @@
     var p = CONTACT_PAIRS[own.replace(/^hk:/, '')];
     return p ? p.slice() : [own, own];
   }
-  function contactTile(hass, id, open, closed) {
-    var g = contactGlyphs(id, open, closed), room = areaName(hass, id);
-    var t = { type: 'custom:hk-favorite-card', entity: id, name: named(hass, id, room), room: room, icon: g[0],
+  function contactTile(client, id, open, closed) {
+    var g = contactGlyphs(id, open, closed), room = areaName(client, id);
+    var t = { type: 'custom:hk-favorite-card', entity: id, name: named(client, id, room), room: room, icon: g[0],
               icon_color: 'red', label_mode: 'open_closed' };
     if (g[1] !== g[0]) t.icon_states = { off: g[1] };
     return sized(t);
@@ -1102,14 +1120,14 @@
     return list.map(function (r, i) { return { r: r, k: r.id in rank ? rank[r.id] : order.length, i: i }; })
       .sort(function (x, y) { return x.k - y.k || x.i - y.i; }).map(function (x) { return x.r; });
   }
-  function roomsWith(hass, opts, keep) {
-    return pageOrder(rooms(hass, opts).map(function (r) {
+  function roomsWith(client, opts, keep) {
+    return pageOrder(rooms(client, opts).map(function (r) {
       return { id: r.id, name: r.name, entities: r.entities.filter(keep) };
     }).filter(function (r) { return r.entities.length; }), opts);
   }
-  function roomTiles(hass, r) {
+  function roomTiles(client, r) {
     return r.entities.map(function (id) {
-      return tileFor(hass, id, friendly(hass, id, r.name));
+      return tileFor(client, id, friendly(client, id, r.name));
     });
   }
   // WHAT ITS STATES ARE CALLED (the accessory's On Says / Off Says):
@@ -1124,7 +1142,7 @@
   }
 
   // withSecurity: this screen has a Security page (an alarm, the page wanted)
-  function categoryPages(hass, opts, inv, view, withSecurity) {
+  function categoryPages(client, opts, inv, view, withSecurity) {
     var out = [];
     var dom = function (list) { return function (id) { return list.indexOf(id.split('.')[0]) !== -1; }; };
     if (inv.lights.length) {
@@ -1136,7 +1154,7 @@
       // lights; "Lights" in the menu
       var outlets = inv.lights.some(function (id) { return id.split('.')[0] !== 'light'; });
       var ltitle = outlets ? 'Lights & Outlets' : 'Lights';
-      var litRooms = roomsWith(hass, opts, function (id) { return !!lit[id]; });
+      var litRooms = roomsWith(client, opts, function (id) { return !!lit[id]; });
       var lcards = [titleBar(ltitle), pageRow('lights', opts)];
       // THE HEADER: the rooms lit longest today, and what is left on and
       // coming tonight -- of the page's lights (not its outlets: a light is
@@ -1145,7 +1163,7 @@
         var isLit = function (id) { var as = (accOf(id) || {}).show_as; return as ? as === 'light' : id.split('.')[0] === 'light'; };
         var hdRooms = litRooms.map(function (r) {
           var icons = {}, ls = r.entities.filter(isLit);
-          ls.forEach(function (id) { var t = tileFor(hass, id, ''); if (t && t.icon) icons[id] = t.icon; });
+          ls.forEach(function (id) { var t = tileFor(client, id, ''); if (t && t.icon) icons[id] = t.icon; });
           return { name: r.name, lights: ls, icons: icons };
         }).filter(function (r) { return r.lights.length; });
         if (hdRooms.length) {
@@ -1157,10 +1175,10 @@
       out.push(view({ title: ltitle, menu_title: outlets ? 'Lights' : undefined, icon: 'mdi:lightbulb', path: 'lights',
         subview: true, sky_variant: 'lights',
         background: '#1c1608', cards: lcards.concat(litRooms.map(function (r) {
-            return section(r.name, roomTiles(hass, r)); })) }));
+            return section(r.name, roomTiles(client, r)); })) }));
     }
     // the house's readings, not the row's (its rooms left out are the row's)
-    var climateSources = climateFound(hass, opts, []);
+    var climateSources = climateFound(client, opts, []);
     if (inv.climates.length || inv.fans.length || inv.blinds.length ||
         climateSources.temperature.length || climateSources.humidity.length) {
       var blinds = {};
@@ -1173,8 +1191,8 @@
       var cards = [titleBar('Climate'), { type: 'custom:hk-climate-status-card', view_layout: COL2,
         exclude_entities: opts.exclude_entities, exclude_devices: opts.exclude_devices, exclude_areas: opts.exclude_areas }];
       var thermos = inv.climates.filter(function (id) { return id.indexOf('climate.') === 0; });
-      var wx = (window.hkSettings && window.hkSettings.weatherId && window.hkSettings.weatherId(hass.states)) || firstOf(hass, 'weather');
-      if (wx && hidden(hass, opts, wx)) wx = null;
+      var wx = (window.hkSettings && window.hkSettings.weatherId && window.hkSettings.weatherId(client.states)) || firstOf(client, 'weather');
+      if (wx && hidden(client, opts, wx)) wx = null;
       if (headerOn('climate') && (thermos.length || wx)) {
         var hc = [];
         if (thermos.length) hc.push({ type: 'custom:hk-climate-runtime-card', thermostats: thermos, height: HEADER_H, view_layout: wx ? SPAN2 : SPAN_ALL });
@@ -1194,13 +1212,13 @@
                     'place-content': 'start stretch', 'grid-row-gap': '0px', 'card-margin': '4px 0px 8px', margin: '0px', padding: '0px' } };
       };
       var left = [], widest = 0;
-      roomsWith(hass, opts, function (id) {
+      roomsWith(client, opts, function (id) {
         var d = id.split('.')[0];
         return d === 'fan' || d === 'humidifier' || (d === 'cover' && blinds[id]);
       }).forEach(function (r) {
         widest = Math.max(widest, r.entities.length);
         left.push(heading(r.name));
-        left.push({ type: 'custom:hk-grid-card', cards: roomTiles(hass, r), layout: pillGrid(27) });
+        left.push({ type: 'custom:hk-grid-card', cards: roomTiles(client, r), layout: pillGrid(27) });
       });
       var right = [];
       if (inv.climates.length) {
@@ -1219,7 +1237,7 @@
                     'grid-column-gap': TL().gridGap + 'px', 'grid-row-gap': TL().gridGap + 'px', 'card-margin': '0px',
                     margin: '0px', padding: '4px 0px 15px 4px' },
           cards: inv.climates.map(function (id) {
-            return { type: 'custom:hk-thermostat-card', entity: id, name: fullName(hass, id), dial_width: 'var(--hk-dial, 364px)' };
+            return { type: 'custom:hk-thermostat-card', entity: id, name: fullName(client, id), dial_width: 'var(--hk-dial, 364px)' };
           }) });
       }
       // THE ROOMS AS WIDE AS THEIR WIDEST ROOM NEEDS: two to four pills and
@@ -1252,8 +1270,8 @@
     // this page.
     if ((inv.doors.length || inv.windows.length) && !withSecurity) {
       var dw = [titleBar('Doors & Windows'), pageRow('doors_windows', opts)];
-      if (inv.doors.length) dw.push(section('Doors', inv.doors.map(function (id) { return contactTile(hass, id, 'hk:door-open', 'hk:door-closed'); }), true));
-      if (inv.windows.length) dw.push(section('Windows', inv.windows.map(function (id) { return contactTile(hass, id, 'hk:window-open-variant', 'hk:window-closed-variant'); }), true));
+      if (inv.doors.length) dw.push(section('Doors', inv.doors.map(function (id) { return contactTile(client, id, 'hk:door-open', 'hk:door-closed'); }), true));
+      if (inv.windows.length) dw.push(section('Windows', inv.windows.map(function (id) { return contactTile(client, id, 'hk:window-open-variant', 'hk:window-closed-variant'); }), true));
       out.push(view({ title: 'Doors & Windows', icon: 'mdi:window-closed-variant', path: 'doors-windows', subview: true, sky_variant: 'doors',
                       background: '#1c0e10', cards: dw }));
     }
@@ -1261,37 +1279,37 @@
       // THE TIMERS PAGE: with the quick timers (helpers/quick_timers.yaml)
       // the whole page -- presets, what is running, the New Timer keypad;
       // without them, what is running.
-      var quick = !!hass.states['script.quick_timer_start'];
+      var quick = !!client.states['script.quick_timer_start'];
       var slots = ['timer.quick_1', 'timer.quick_2', 'timer.quick_3', 'timer.quick_4'];
       var tlist = [];
       if (quick) slots.forEach(function (id, i) {
-        if (!hass.states[id]) return;
+        if (!client.states[id]) return;
         var t = { entity: id, label: 'Quick Timer ' + (i + 1), glyph: 'mdi:timer-outline' };
-        if (hass.states['input_text.quick_timer_' + (i + 1) + '_name']) t.label_entity = 'input_text.quick_timer_' + (i + 1) + '_name';
+        if (client.states['input_text.quick_timer_' + (i + 1) + '_name']) t.label_entity = 'input_text.quick_timer_' + (i + 1) + '_name';
         tlist.push(t);
       });
       // ONE NAME PER TIMER on this page, in the running list and the house
       // row alike: "Nap - Timer" is a Nap under a Timers heading, as a tile
       // drops its room's name (the accessory's own name wins).
       var timerName = function (id) {
-        var at = hass.states[id].attributes || {};
+        var at = client.states[id].attributes || {};
         return accName(id) || String(at.friendly_name || id).replace(/\s*[-\u2013]?\s*timer\s*$/i, '') ||
-          fullName(hass, id);
+          fullName(client, id);
       };
       // THE HOUSE TIMERS (Configure -> Your home -> House timers): one tap
       // each, named and pictured as the timers themselves are -- and first in
       // the running list, in their own order, as the hand-written page had them.
-      var houseIds = (setting('features.house_timers') || []).filter(function (id) { return hass.states[id]; });
+      var houseIds = (setting('features.house_timers') || []).filter(function (id) { return client.states[id]; });
       var running = inv.timers.filter(function (id) { return !(quick && slots.indexOf(id) >= 0); });
       houseIds.filter(function (id) { return running.indexOf(id) >= 0; })
         .concat(running.filter(function (id) { return houseIds.indexOf(id) < 0; }))
         .forEach(function (id) {
-          var ent = (hass.entities || {})[id] || {};
+          var ent = (client.entities || {})[id] || {};
           tlist.push({ entity: id, label: timerName(id),
-                       glyph: ent.icon || (hass.states[id].attributes || {}).icon || 'hk:timer-sand' });
+                       glyph: ent.icon || (client.states[id].attributes || {}).icon || 'hk:timer-sand' });
         });
       var house = houseIds.map(function (id) {
-        var ent = (hass.entities || {})[id] || {}, at = hass.states[id].attributes || {};
+        var ent = (client.entities || {})[id] || {}, at = client.states[id].attributes || {};
         return { entity: id, name: timerName(id), icon: accIcon(id) || ent.icon || at.icon || 'mdi:timer-outline' };
       });
       // THE TIMERS PAGE (2026-10-16, PLAN-2026-10-16-utility-pages.md): the
@@ -1309,7 +1327,7 @@
       if (theader) {
         // the line's past: the quick timers and the House Timers -- the ones
         // people start -- not the automations' that cycle all day
-        var mineT = (quick ? slots.filter(function (id) { return hass.states[id]; }) : []).concat(houseIds);
+        var mineT = (quick ? slots.filter(function (id) { return client.states[id]; }) : []).concat(houseIds);
         var th = [{ type: 'custom:hk-timers-order-card', timers: tlist, past: mineT, tint: TINT, height: HEADER_H, view_layout: quick ? SPAN2 : SPAN_ALL }];
         if (quick) th.push({ type: 'custom:hk-timers-start-card', tint: TINT, presets: presets,
           name_chips: chips, height: HEADER_H, view_layout: SPAN1 });
@@ -1355,9 +1373,9 @@
       var vorder = ownOrder('vacuums', inv.vacuums);
       var vcards = vorder.map(function (id) {
         var v = { type: 'custom:hk-vacuum-card', entity: id };
-        var bat = sibling(hass, id, 'battery');
+        var bat = sibling(client, id, 'battery');
         if (bat) v.battery = bat;
-        var find = function (re, not) { return siblingLike(hass, id, re, not); };
+        var find = function (re, not) { return siblingLike(client, id, re, not); };
         var err = find(/operational_error|_error$/, /dock/);
         if (err) v.error = err;
         var dock = find(/dock.*error/);
@@ -1374,13 +1392,13 @@
       // Counters chosen on HK Settings -> Pages -> Vacuums are read in place
       // of those found: each goes to the vacuum on its device (to the only
       // vacuum when there is one), and says by its name which it counts.
-      var picked = (headerOpts('vacuums').counters || []).filter(function (id) { return hass.states[id]; });
-      var devOf = function (id) { return ((hass.entities || {})[id] || {}).device_id || null; };
+      var picked = (headerOpts('vacuums').counters || []).filter(function (id) { return client.states[id]; });
+      var devOf = function (id) { return ((client.entities || {})[id] || {}).device_id || null; };
       var vruns = vorder.map(function (id, i) {
         var mine = picked.filter(function (c) { return vorder.length === 1 || (devOf(c) && devOf(c) === devOf(id)); });
         var find = picked.length
           ? function (re) { return mine.filter(function (c) { return re.test(c); })[0] || null; }
-          : function (re) { return siblingLike(hass, id, re); };
+          : function (re) { return siblingLike(client, id, re); };
         var r = { entity: id };
         if (vcards[i].error) r.error = vcards[i].error;
         var ok = find(/successful_(missions|cleans?)$/), bad = find(/failed_(missions|cleans?)$/), cut = find(/cancel+ed_(missions|cleans?)$/);
@@ -1445,12 +1463,10 @@
   // installed the subscribe is refused, which answers no. The page's own
   // hkMusic has not been handed its configuration yet when a dashboard is
   // generated (no card has attached it), so it cannot say.
-  function musicConfigured(hass) {
+  function musicConfigured(client) {
     return new Promise(function (resolve) {
-      // the subscription port of the client made from Lovelace's object (hk-strategy converts
-      // it at its entry in slice 10; until then, here, through the host adapter)
-      var HC = window.hkHostClient, cl = hass && HC && HC.from ? HC.from(hass) : null;
-      var conn = cl && cl.subscriptions, done = false, unsub = null;
+      // the client's subscription port (its read allowlist offers hk_music/subscribe)
+      var conn = client && client.subscriptions, done = false, unsub = null;
       // an unsubscribe the server refuses (the socket reconnected meanwhile)
       // is not an error: never an uncaught rejection
       var end = function (u) { var r = u(); if (r && r.catch) r.catch(function () {}); };
@@ -1489,11 +1505,11 @@
   // THE CAMERA STRIP: its measured structure and numbers
   // (one live tile, the rest stills, in a mosaic that scrolls), inside the
   // per-dashboard wrapper that sets the nesting depth the rows align by.
-  function cameraStrip(hass, opts, b, page) {
+  function cameraStrip(client, opts, b, page) {
     if (b.camera_strip === false) return null;
-    var ids = listOf(b, 'cameras').length ? listOf(b, 'cameras').filter(function (id) { return hass.states[id]; })
-                                          : houseCameras(hass, opts);
-    ids = ids.filter(function (id) { return !hidden(hass, opts, id); });
+    var ids = listOf(b, 'cameras').length ? listOf(b, 'cameras').filter(function (id) { return client.states[id]; })
+                                          : houseCameras(client, opts);
+    ids = ids.filter(function (id) { return !hidden(client, opts, id); });
     if (!ids.length) return null;
     var head = heading('Cameras');
     if (page) head.navigation_path = './cameras';
@@ -1506,7 +1522,7 @@
                   pad_left: '22px', pad_right: '22px', cards: [{
                     type: 'custom:hk-camera-mosaic-card', height: 195, seam: 2, snapshot_cap: '480x270',
                     max_upscale: 1.2, show_age: true,
-                    cameras: ids.map(function (id) { return { entity: id, name: fullName(hass, id) }; }) }] }] },
+                    cameras: ids.map(function (id) { return { entity: id, name: fullName(client, id) }; }) }] }] },
         // ...and the strip's closing 22 px: 30 px to the scenes with the gap.
         { type: 'custom:hk-spacer-card', height: '22px' }] }] };
   }
@@ -1514,8 +1530,8 @@
   // them -- one height, the ROOM above the name (hk-favorite-card) -- in the
   // favorite shapes: a lock says
   // "Locked", a garage door "Closed", a thermostat its reading and setpoint.
-  function areaName(hass, id) {
-    var ents = hass.entities || {}, devs = hass.devices || {}, areas = hass.areas || {};
+  function areaName(client, id) {
+    var ents = client.entities || {}, devs = client.devices || {}, areas = client.areas || {};
     var e = ents[id] || {};
     var a = e.area_id || (e.device_id && devs[e.device_id] && devs[e.device_id].area_id);
     return (a && areas[a] && areas[a].name) || '';
@@ -1525,14 +1541,14 @@
   // there ("Garage Door" where its room tile is "Door"), and the lights it
   // controls together with ("Main + Table Lights") -- and the state text a
   // favorite reads: a light its brightness, a switch On / Off.
-  function favTile(hass, id) {
+  function favTile(client, id) {
     var fa = accOf(id) || {};
     // its room line: the accessory's own as a favorite (a helper with no
     // area), else its area's
-    var d = id.split('.')[0], st = hass.states[id], area = areaName(hass, id), room = fa.fav_room || area;
+    var d = id.split('.')[0], st = client.states[id], area = areaName(client, id), room = fa.fav_room || area;
     // shortened by its real room only: a room line of its own is just words
     // ("Office" over Office Lights, a group with no area)
-    var name = fa.fav_name || accName(id) || shortName(nameOf(hass, id, (hass.entities || {})[id]), area);
+    var name = fa.fav_name || accName(id) || shortName(nameOf(client, id, (client.entities || {})[id]), area);
     var dc = st && st.attributes && st.attributes.device_class;
     if (d === 'climate' || d === 'water_heater') {
       return { type: 'custom:hk-climate-card', entity: id, name: name, room: room, icon_color: 'blue',
@@ -1554,7 +1570,7 @@
       return mine(Object.assign(base, { icon: 'hk:garage-variant', icon_size: '26px', icon_color: 'mint',
         icon_states: { open: 'hk:garage-open-variant', opening: 'hk:garage-open-variant' }, label_mode: 'open_closed' }));
     }
-    var t = tileFor(hass, id, name);
+    var t = tileFor(client, id, name);
     if (!t) return base;
     t = Object.assign({}, t, { type: 'custom:hk-favorite-card', room: room });
     delete t.view_layout;                     // one height, like every favorite
@@ -1564,14 +1580,14 @@
     // A LIGHT GROUP (its members: membersOf) reads how many are on, "2 On",
     // as the hand-written favorites did; a blind its position.
     var members = d === 'light' && membersOf(st)
-      ? membersOf(st).filter(function (x) { return x !== id && hass.states[x]; }) : [];
+      ? membersOf(st).filter(function (x) { return x !== id && client.states[x]; }) : [];
     if (members.length) { t.label_mode = 'group_count'; t.group = members; }
     else if (d === 'light') t.label_mode = 'brightness';
     else if (d === 'switch' || d === 'input_boolean') t.label_mode = 'on_off';
     else if (d === 'cover') t.label_mode = 'position';
     mine(t);
     var together = (Array.isArray(fa.fav_with) ? fa.fav_with : []).filter(function (x) {
-      return x !== id && hass.states[x];
+      return x !== id && client.states[x];
     });
     if (together.length && (d === 'light' || d === 'switch' || d === 'input_boolean')) {
       var all = [id].concat(together);
@@ -1588,9 +1604,9 @@
     var v = fa && fa.fav_icon ? String(fa.fav_icon) : '';
     return v ? (/^mdi:/.test(v) ? 'hk:' + v.slice(4) : v) : null;
   }
-  function favorites(hass, opts, b) {
-    var tiles = listOf(b, 'favorites').filter(function (id) { return hass.states[id]; }).map(function (id) {
-      return placed(favTile(hass, id), { fav: true });
+  function favorites(client, opts, b) {
+    var tiles = listOf(b, 'favorites').filter(function (id) { return client.states[id]; }).map(function (id) {
+      return placed(favTile(client, id), { fav: true });
     });
     if (!tiles.length) return null;
     // The favorites grid: 9 px below, where a room's is 11.
@@ -1611,15 +1627,15 @@
     }
   }
 
-  function views(hass, opts, music) {
-    var themes = (hass.themes && hass.themes.themes) || {};
+  function views(client, opts, music) {
+    var themes = (client.themes && client.themes.themes) || {};
     var theme = opts.theme || kioskTheme(themes);
     var sky = opts.sky !== false;
-    var weather = (window.hkSettings && window.hkSettings.weatherId(hass.states)) || firstOf(hass, 'weather');
-    var alarm = setting('security.alarm') || firstOf(hass, 'alarm_control_panel');
+    var weather = (window.hkSettings && window.hkSettings.weatherId(client.states)) || firstOf(client, 'weather');
+    var alarm = setting('security.alarm') || firstOf(client, 'alarm_control_panel');
     // Left out means left out everywhere -- its page and its header link too.
-    if (weather && hidden(hass, opts, weather)) weather = null;
-    if (alarm && hidden(hass, opts, alarm)) alarm = null;
+    if (weather && hidden(client, opts, weather)) weather = null;
+    if (alarm && hidden(client, opts, alarm)) alarm = null;
 
     function view(o) {
       var v = Object.assign({ type: 'custom:hk-grid-view', layout: VIEW_LAYOUT, background: '#05070e' }, o);
@@ -1629,7 +1645,7 @@
       return v;
     }
 
-    var inv = inventory(hass, opts);
+    var inv = inventory(client, opts);
     // THE CHIP ROW is the dashboard's own (hk-chips-card): which chips, their
     // order and which are quiet come from its item, live -- no rebuild.
     // `in_menu: false`: a generated screen's menu lists every page under
@@ -1645,8 +1661,8 @@
     // The cameras the item picked for its strip are the Cameras page's too
     // (a house's high-resolution channels and tablet cameras stay off both).
     var cams = listOf(b, 'cameras').length
-      ? listOf(b, 'cameras').filter(function (id) { return hass.states[id] && !hidden(hass, opts, id); })
-      : houseCameras(hass, opts);
+      ? listOf(b, 'cameras').filter(function (id) { return client.states[id] && !hidden(client, opts, id); })
+      : houseCameras(client, opts);
     var hasCams = cams.length > 0 && want('cameras');
     if (!want('weather')) weather = null;
     var alarmId = alarm;                // the #alarm pop-up needs no Security page
@@ -1674,7 +1690,7 @@
     // HOME, in this order: the header and
     // chips, the camera strip, the scenes, the favorites, then the rooms.
     var home = [header];
-    var strip = cameraStrip(hass, opts, b, hasCams);
+    var strip = cameraStrip(client, opts, b, hasCams);
     if (strip) home.push(strip);
     home.push({ type: 'custom:hk-scenes-card', view_layout: COL2 });
     // CAR HOME'S SECURITY: the house's garage doors, its alarm and its locks
@@ -1683,28 +1699,28 @@
     if (carHome) {
       var gates = inv.garage.filter(function (id) { return id.indexOf('cover.') === 0; });
       var guardIds = ownOrder('security', gates).concat(alarmId ? [alarmId] : [], ownOrder('security', inv.locks));
-      guardIds = guardIds.filter(function (id) { return hass.states[id]; });
+      guardIds = guardIds.filter(function (id) { return client.states[id]; });
       // the names the Security page gives them ("Front Door", not "Front Door
       // Lock"), but the house's alarm without a room in front of it, and a
       // lock that would read like another tile keeping its "Lock" (Garage
       // Door Lock beside the Garage Door)
       var full = guardIds.map(function (id) {
-        return id.indexOf('alarm_control_panel.') === 0 ? (accName(id) || nameOf(hass, id, (hass.entities || {})[id])) : fullName(hass, id);
+        return id.indexOf('alarm_control_panel.') === 0 ? (accName(id) || nameOf(client, id, (client.entities || {})[id])) : fullName(client, id);
       });
       var short = full.map(function (n, i) { return guardIds[i].indexOf('lock.') === 0 ? n.replace(/ Lock$/, '') : n; });
       var guardTiles = guardIds.map(function (id, i) {
         var clash = short.some(function (n, j) { return j !== i && fold(n) === fold(short[i]); });
-        return tileFor(hass, id, clash ? full[i] : short[i]);
+        return tileFor(client, id, clash ? full[i] : short[i]);
       }).filter(Boolean);
       if (guardTiles.length) home.push(section('Security', guardTiles));
     }
-    var fav = favorites(hass, opts, b);
+    var fav = favorites(client, opts, b);
     if (fav) home.push(fav);
     // Play Music is reached from the Speakers chip, the menu and a scene pill
     // (Home -> Scenes -> Pills that open a page) -- not a heading of its own
     // between Favorites and the rooms.
-    if (!carHome) rooms(hass, opts).forEach(function (r) {
-      var sec = guarded('the ' + r.name + ' section of Home', function () { return roomSection(hass, r); });
+    if (!carHome) rooms(client, opts).forEach(function (r) {
+      var sec = guarded('the ' + r.name + ' section of Home', function () { return roomSection(client, r); });
       if (sec) home.push(sec);
     });
     // THE #alarm POP-UP. An alarm automation may open
@@ -1728,7 +1744,7 @@
     // the quick timers) -- one docked bar, either part or both. (A screen
     // saved before the Timer Bar had it with its Now Playing Bar.)
     var npOn = !!(b.now_playing && music);
-    var tbOn = (b.timer_bar === undefined ? !!b.now_playing : !!b.timer_bar) && !!hass.states['sensor.running_quick_timers'];
+    var tbOn = (b.timer_bar === undefined ? !!b.now_playing : !!b.timer_bar) && !!client.states['sensor.running_quick_timers'];
     var dockBar = npOn || tbOn ? mediaBar(npOn, tbOn) : null;
     if (dockBar) popups.push(dockBar);
     if (popups.length) {
@@ -1754,7 +1770,7 @@
     var pages = {};
     if (opts.pages !== false) {
       guarded('the category pages', function () {
-        categoryPages(hass, opts, inv, view, !!alarm).forEach(function (v) { pages[v.path] = v; });
+        categoryPages(client, opts, inv, view, !!alarm).forEach(function (v) { pages[v.path] = v; });
       });
     }
 
@@ -1818,9 +1834,9 @@
     // rebuilds anything): the month, week or day, and its events to add,
     // change and delete.
     var HS0 = window.hkSettings;
-    var cals = (HS0 && HS0.calendarIds ? HS0.calendarIds(hass.states)
-                : Object.keys(hass.states).filter(function (k) { return k.indexOf('calendar.') === 0; }))
-      .filter(function (id) { return !hidden(hass, opts, id); });
+    var cals = (HS0 && HS0.calendarIds ? HS0.calendarIds(client.states)
+                : Object.keys(client.states).filter(function (k) { return k.indexOf('calendar.') === 0; }))
+      .filter(function (id) { return !hidden(client, opts, id); });
     if (want('calendar') && cals.length) {
       pages.calendar = view({ title: 'Calendar', path: 'calendar', subview: true, icon: 'mdi:calendar-month', sky_variant: 'calendar', background: '#0e1a18',
         cards: [titleBar('Calendar'), column([{ type: 'custom:hk-calendar-card' }])] });
@@ -1844,11 +1860,11 @@
       var guards = ownOrder('security', inv.locks.concat(inv.garage.filter(function (id) { return id.indexOf('cover.') === 0; })))
         .map(function (id) {
           if (id.indexOf('lock.') === 0) {
-            return { type: 'custom:hk-tile-card', entity: id, name: fullName(hass, id).replace(/ Lock$/, ''),
+            return { type: 'custom:hk-tile-card', entity: id, name: fullName(client, id).replace(/ Lock$/, ''),
                      icon: 'hk:lock', icon_states: { unlocked: 'hk:lock-open-variant' }, icon_color: 'mint',
                      label_mode: 'title' };
           }
-          return { type: 'custom:hk-tile-card', entity: id, name: fullName(hass, id), icon: 'hk:garage-variant',
+          return { type: 'custom:hk-tile-card', entity: id, name: fullName(client, id), icon: 'hk:garage-variant',
                    icon_states: { open: 'hk:garage-open-variant', opening: 'hk:garage-open-variant' },
                    icon_color: 'mint', label_mode: 'title' };
         });
@@ -1886,15 +1902,15 @@
     if (opts.pages !== false && ((inv.leaks && inv.leaks.length) || valves.length)) {
       var wet = {};
       inv.leaks.forEach(function (id) { wet[id] = true; });
-      var byRoom = roomsWith(hass, Object.assign({}, opts, { include_entities: [].concat(opts.include_entities || [], inv.leaks) }),
+      var byRoom = roomsWith(client, Object.assign({}, opts, { include_entities: [].concat(opts.include_entities || [], inv.leaks) }),
                              function (id) { return !!wet[id]; });
       // THE MAIN SUPPLY: the water valve named for it (main, supply,
       // shut-off), else the only one -- unless that one waters a garden
       // (a sprinkler is never the house's supply)
-      var vname = function (id) { return fullName(hass, id) + ' ' + id; };
+      var vname = function (id) { return fullName(client, id) + ' ' + id; };
       // (or the one chosen on HK Settings -> Pages -> Water)
       var hw = headerOpts('water');
-      var supply = (hw.supply && hass.states[hw.supply] ? hw.supply : null) ||
+      var supply = (hw.supply && client.states[hw.supply] ? hw.supply : null) ||
                    valves.filter(function (id) { return /main|supply|shut.?off/i.test(vname(id)); })[0] ||
                    (valves.length === 1 && !/sprinkl|irrigat|garden|drip|hose|lawn|zone|pool/i.test(vname(valves[0])) ? valves[0] : null);
       var wcards = [titleBar('Water'), pageRow('water', opts)];
@@ -1908,10 +1924,10 @@
       var others = valves.filter(function (id) { return !headerOn('water') || id !== supply; });
       // (a chosen supply that is a switch, not one of the valves, too)
       if (!headerOn('water') && supply && valves.indexOf(supply) < 0) others.unshift(supply);
-      if (others.length) wcards.push(section('Valves', others.map(function (id) { return tileFor(hass, id, fullName(hass, id)); })));
+      if (others.length) wcards.push(section('Valves', others.map(function (id) { return tileFor(client, id, fullName(client, id)); })));
       byRoom.forEach(function (r) {
         wcards.push(section(r.name, r.entities.map(function (id) {
-          return { type: 'custom:hk-tile-card', entity: id, name: friendly(hass, id, r.name), icon: 'hk:water',
+          return { type: 'custom:hk-tile-card', entity: id, name: friendly(client, id, r.name), icon: 'hk:water',
                    icon_states: { on: 'hk:water-alert' }, icon_color: 'red', off_icon_color: 'blue', label_mode: 'leak' };
         })));
       });
@@ -1923,7 +1939,7 @@
     // `energy`, features/energy/plan.py) -- while the feature is added
     if (opts.pages !== false && want('energy')) {
       var ev = guarded('the Energy page', function () {
-        return energyView(hass, view, { climate: !!pages.climate });
+        return energyView(client, view, { climate: !!pages.climate });
       });
       if (ev) pages.energy = ev;
     }
@@ -1931,7 +1947,7 @@
     // a kind (`power`), and in place of a custom page at its address
     var pw0 = added('energy') && setting('energy') && setting('energy').power;
     if (opts.pages !== false && pw0 && (want('power') || listOf(b, 'custom_pages').indexOf(pw0.path) >= 0)) {
-      var pwv = guarded('the Power page', function () { return powerView(hass, view); });
+      var pwv = guarded('the Power page', function () { return powerView(client, view); });
       if (pwv) pages.power = pwv;
     }
 
@@ -1990,12 +2006,12 @@
     if (pages.power) { out.push(pages.power); delete pages.power; }
     // A PAGE PER ROOM (Parts -> Room pages): each room heading on Home opens it.
     if (opts.rooms !== false && want('rooms')) {
-      rooms(hass, opts).forEach(function (r) {
+      rooms(client, opts).forEach(function (r) {
         if (!r.id) return;
         var head = { title: r.name, path: 'room-' + slug(r.id), subview: true,
                      area: r.areas && r.areas.length > 1 ? r.areas : r.id };
         out.push(guarded('the ' + r.name + ' page', function () {
-          return view(Object.assign({}, head, { cards: roomCards(hass, r.areas || [r.id], r.name, opts) }));
+          return view(Object.assign({}, head, { cards: roomCards(client, r.areas || [r.id], r.name, opts) }));
         }, function (e) {
           return view(Object.assign({}, head, { cards: [{ type: 'markdown',
             content: 'This room page could not be built (' + String((e && e.message) || e).replace(/[<>&]/g, '') + ').' }] }));
@@ -2055,7 +2071,7 @@
   // hidden and category; a device's area; an area's name and floor; a
   // floor's name and level. Worked out once per registry object (HA
   // replaces the object when it changes), so an unchanged registry costs a
-  // lookup per hass push.
+  // lookup per push of the frontend's object.
   var REG_FIELDS = {
     entities: ['area_id', 'device_id', 'platform', 'name', 'icon', 'hidden', 'entity_category'],
     // a device's names are its tiles' names (friendly_name), its model picks
@@ -2074,25 +2090,27 @@
     regSeen.set(reg, out);
     return out;
   }
-  function regChanged(config, oldHass, newHass) {
-    if (!oldHass || !newHass) return true;
+  function regChanged(config, oldClient, newClient) {
+    if (!oldClient || !newClient) return true;
     return Object.keys(REG_FIELDS).some(function (k) {
-      return oldHass[k] !== newHass[k] && regView(oldHass[k], REG_FIELDS[k]) !== regView(newHass[k], REG_FIELDS[k]);
+      var was = oldClient[k], now = newClient[k];
+      return was !== now && regView(was, REG_FIELDS[k]) !== regView(now, REG_FIELDS[k]);
     });
   }
 
   class HkRoomViewStrategy extends HTMLElement {
-    static shouldRegenerate(config, oldHass, newHass) { return regChanged(config, oldHass, newHass); }
-    static async generate(config, hass) {
+    static shouldRegenerate(config, oldInput, newInput) { return regChanged(config, clientOf(oldInput), clientOf(newInput)); }
+    static async generate(config, input) {
+      var client = clientOf(input);   // Lovelace's entry: from here on, the client only
       if (window.hkSettings && window.hkSettings.whenLive) await window.hkSettings.whenLive(3000);
       await cardsReady();
       var c = config || {};
       var areas = [].concat(c.area || []).filter(Boolean);
-      var A = hass.areas || {};
+      var A = client.areas || {};
       var name = c.name || (A[areas[0]] && A[areas[0]].name) || 'Room';
-      var themes = (hass.themes && hass.themes.themes) || {};
+      var themes = (client.themes && client.themes.themes) || {};
       var v = { type: 'custom:hk-grid-view', layout: VIEW_LAYOUT, background: '#05070e',
-                cards: roomCards(hass, areas, name, Object.assign({}, c, { __build: {} })) };
+                cards: roomCards(client, areas, name, Object.assign({}, c, { __build: {} })) };
       var theme = c.theme || kioskTheme(themes);
       if (theme) v.theme = theme;
       return v;
@@ -2103,8 +2121,9 @@
   }
 
   class HkDashboardStrategy extends HTMLElement {
-    static shouldRegenerate(config, oldHass, newHass) { return regChanged(config, oldHass, newHass); }
-    static async generate(config, hass) {
+    static shouldRegenerate(config, oldInput, newInput) { return regChanged(config, clientOf(oldInput), clientOf(newInput)); }
+    static async generate(config, input) {
+      var client = clientOf(input);   // Lovelace's entry: from here on, the client only
       // THE SETTINGS FIRST. This runs once per load, so it cannot redraw when
       // they arrive: on a browser with no cached copy it waits (up to 3 s)
       // for the integration's answer instead of building from the defaults.
@@ -2143,14 +2162,14 @@
       //     `energy` is the Energy feature's page (onlyPages)
       var only = [];
       if (b.home_page === false && listOf(b, 'only_pages').length) {
-        var mus = opts.music === false ? false : await musicConfigured(hass);
+        var mus = opts.music === false ? false : await musicConfigured(client);
         var keep = listOf(b, 'only_pages');
         // its own list as the page list; a key that is no kind is a custom page
         var ob = Object.assign({}, b, { pages: keep, custom_pages: keep });
-        only = views(hass, Object.assign({}, opts, { board: ob }), mus).slice(1);
+        only = views(client, Object.assign({}, opts, { board: ob }), mus).slice(1);
         if (only.length) standalone(only[0], b);
       } else if (b.home_page === false) {
-        only = onlyPages(hass, opts, b);
+        only = onlyPages(client, opts, b);
       }
       var cfg;
       if (only.length) {
@@ -2159,13 +2178,13 @@
         if (only[0].icon) only[0].menu_icon = only[0].icon;
         cfg = { views: only };
       } else {
-        var music = opts.music === false ? false : await musicConfigured(hass);
-        cfg = { views: views(hass, opts, music) };
+        var music = opts.music === false ? false : await musicConfigured(client);
+        cfg = { views: views(client, opts, music) };
         customPages(cfg.views, listOf(b, 'custom_pages'));
       }
       energyLinks(cfg.views, seg);
       skyPages(cfg.views);
-      var saver = screensaverOf(hass, b);
+      var saver = screensaverOf(client, b);
       if (opts.sky !== false) {
         // THE SKY (hk-sky.js): off everywhere with the house's switch (Look ->
         // Live sky switch), and paused behind this tablet's screensaver
@@ -2268,9 +2287,9 @@
   // `energy` among them is the Energy feature's page while it is added (a
   // generated page wins its address, as on a whole screen). The first page
   // has no back button while the screen has no menu (nowhere to go back to).
-  function onlyPages(hass, opts, b) {
+  function onlyPages(client, opts, b) {
     var mine = listOf(b, 'custom_pages'), keys = mine;
-    var themes = (hass.themes && hass.themes.themes) || {};
+    var themes = (client.themes && client.themes.themes) || {};
     var theme = opts.theme || kioskTheme(themes);
     var sky = opts.sky !== false;
     var mk = function (o) {
@@ -2283,10 +2302,10 @@
     keys.forEach(function (k) {
       var v = null;
       if (k === 'energy') {
-        v = guarded('the Energy page', function () { return energyView(hass, mk, {}, !out.length && b.menu === 'off'); });
+        v = guarded('the Energy page', function () { return energyView(client, mk, {}, !out.length && b.menu === 'off'); });
       }
       var pp = added('energy') && setting('energy') && setting('energy').power;
-      if (!v && pp && (k === 'power' || k === pp.path)) v = guarded('the Power page', function () { return powerView(hass, mk); });
+      if (!v && pp && (k === 'power' || k === pp.path)) v = guarded('the Power page', function () { return powerView(client, mk); });
       if (!v && mine.indexOf(k) >= 0) v = customView(k);
       if (v && !out.some(function (x) { return x.path === v.path; })) out.push(v);
     });
@@ -2357,7 +2376,7 @@
     }
     return hd;
   }
-  function energyView(hass, view, has, first) {
+  function energyView(client, view, has, first) {
     var P = added('energy') ? setting('energy') : null;
     if (!P || typeof P !== 'object') return null;
     has = has || {};
@@ -2493,7 +2512,7 @@
   // every device, each marked when the house battery backs it up. Its
   // address is the plan's `path`, so the page can take over a custom page's
   // address on every screen that lists it.
-  function powerView(hass, view) {
+  function powerView(client, view) {
     var P = added('energy') ? setting('energy') : null, W = P && P.power;
     if (!W || typeof W !== 'object') return null;
     var B = W.battery || {}, hasBat = !!B.level, hasSun = !!W.solar;
@@ -2621,13 +2640,13 @@
   // the running timers). Its helper, the one a tablet's automations read, is
   // input_boolean.wallpanel_screensaver_<its room> -- the name predates
   // HK's own screensaver and is kept, so no automation has to change.
-  function screensaverOf(hass, b) {
+  function screensaverOf(client, b) {
     // 1.14: the screensaver is a WALL TABLET's -- this page's
     // (hkSettings.tablet(): its ?hk_tablet=, else its user), whatever screen
     // it shows; the block names it, and only that tablet runs it
     var HS = window.hkSettings;
     if (HS && HS.get && HS.get('tablet_items', null) !== null) {
-      var t = typeof HS.tablet === 'function' ? HS.tablet(hass) : null;
+      var t = typeof HS.tablet === 'function' ? HS.tablet(client) : null;
       if (!b || !b.screensaver) return null;
       // NOT A TABLET (a desk, HK Settings' preview): the block names the
       // screen's own tablet, or none -- the gate keeps it from running here,
@@ -2638,9 +2657,9 @@
       }
       if (b.screensaver_engine === 'wallpanel' && !t.room) return null;
       var old = t.room ? 'input_boolean.wallpanel_screensaver_' + t.room : null;
-      if (old && !hass.states[old]) old = null;
-      var mineSw = t.screensaver_switch && hass.states[t.screensaver_switch] ? t.screensaver_switch : null;
-      var temp1 = String((hass.config && hass.config.unit_system && hass.config.unit_system.temperature) || '');
+      if (old && !client.states[old]) old = null;
+      var mineSw = t.screensaver_switch && client.states[t.screensaver_switch] ? t.screensaver_switch : null;
+      var temp1 = String((client.config && client.config.unit_system && client.config.unit_system.temperature) || '');
       return { user: t.user, tablet: t.id, entity: b.screensaver_engine === 'wallpanel' ? old : (mineSw || old),
                unit: /C/.test(temp1) ? 'C' : /F/.test(temp1) ? 'F' : '',
                photos: setting('look.photos') || 'media-source://media_source/local/photos' };
@@ -2650,12 +2669,12 @@
     // input_boolean.wallpanel_screensaver_<Tablet Room> a house may still
     // have (and WallPanel can only use an input_boolean)
     var legacy = b.idle_room ? 'input_boolean.wallpanel_screensaver_' + b.idle_room : null;
-    if (legacy && !hass.states[legacy]) legacy = null;
-    var own = b.screensaver_switch && hass.states[b.screensaver_switch] ? b.screensaver_switch : null;
+    if (legacy && !client.states[legacy]) legacy = null;
+    var own = b.screensaver_switch && client.states[b.screensaver_switch] ? b.screensaver_switch : null;
     var ent = b.screensaver_engine === 'wallpanel' ? legacy : (own || legacy);
     // the temperature's letter on the screensaver ("68°F"): Home
     // Assistant's unit system's
-    var temp = String((hass.config && hass.config.unit_system && hass.config.unit_system.temperature) || '');
+    var temp = String((client.config && client.config.unit_system && client.config.unit_system.temperature) || '');
     return { user: b.tablet_user, entity: ent, unit: /C/.test(temp) ? 'C' : /F/.test(temp) ? 'F' : '',
              photos: setting('look.photos') || 'media-source://media_source/local/photos' };
   }
@@ -2736,9 +2755,9 @@
   // hk-saver.js asks for it when the dashboard's own config has no
   // hk_screensaver. HK Frontend's own screensaver only -- WallPanel reads its
   // block from the dashboard itself. null: no screensaver for this screen.
-  function saverBlock(hass, b) {
-    if (!hass || !b || b.screensaver_engine === 'wallpanel') return null;
-    var sv = screensaverOf(hass, b);
+  function saverBlock(client, b) {
+    if (!client || !b || b.screensaver_engine === 'wallpanel') return null;
+    var sv = screensaverOf(client, b);
     return sv ? hkSaver(sv, b.screensaver_options) : null;
   }
   // A THIRD-PARTY CARD'S OWN OPTIONS over the tuned settings:
@@ -3066,15 +3085,25 @@
                          customElements.get('ll-strategy-dashboard-hk-dashboard'))) clearInterval(iv);
     }, 100);
   })();
-  // For tests and the console: hkStrategy.generate(config, hass).
+  // For tests, the console and the other cards: hkStrategy.generate(config,
+  // client). Every helper here that reads the house takes a client or the
+  // host's object, converted at the door like the strategy's own hooks.
+  function viaClient(fn) {
+    return function (input) {
+      var args = Array.prototype.slice.call(arguments);
+      args[0] = clientOf(input);
+      return fn.apply(null, args);
+    };
+  }
   window.hkStrategy = { generate: HkDashboardStrategy.generate, tile: TILE, shortName: shortName,
                         lateError: lateError, recoverLate: recoverLate, defineHere: defineHere,
-                        tileFor: tileFor, roomCards: roomCards, climateMembers: climateMembers, pageMembers: pageMembers,
-                        batteryOf: function (hass, id) { return sibling(hass, id, 'battery'); },
-                        groupOf: groupOf, ownChange: ownChange,
+                        tileFor: viaClient(tileFor), roomCards: viaClient(roomCards),
+                        climateMembers: viaClient(climateMembers), pageMembers: viaClient(pageMembers),
+                        batteryOf: viaClient(function (client, id) { return sibling(client, id, 'battery'); }),
+                        groupOf: viaClient(groupOf), ownChange: ownChange,
                         room: HkRoomViewStrategy.generate,
-                        rooms: rooms, contactGlyphs: contactGlyphs, overlay: overlay,
-                        kioskOf: kioskOf, saverBlock: saverBlock,
+                        rooms: viaClient(rooms), contactGlyphs: contactGlyphs, overlay: overlay,
+                        kioskOf: kioskOf, saverBlock: viaClient(saverBlock),
                         shouldRegenerate: HkDashboardStrategy.shouldRegenerate, inputs: inputs,
                         _built: built, _busy: busy };
 })();
