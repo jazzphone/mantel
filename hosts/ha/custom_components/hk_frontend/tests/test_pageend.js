@@ -57,7 +57,7 @@ function page(rootEnd, kids, minEnd) {
     return Math.max(minEnd, rootEnd + (parseFloat(r.style.marginBottom) || 0));
   });
   v._root = r; v.isConnected = true;
-  v._holds = View.prototype._holds;
+  v._holds = View.prototype._holds; v._clipRoom = function () {};
   v.end = function () { View.prototype._pageEnd.call(v); return v.getBoundingClientRect().bottom; };
   return v;
 }
@@ -150,7 +150,7 @@ function music(foot, cardEnd, rootEnd) {
   var r = box('div', 0, 2368, {}, {}, [box('div', 0, 2368, {}, {}, [box('hk-plate', 2200, 2362, GLASS)])]);
   r.style = {};
   var v = box('hk-grid-view', 0, 2368);
-  v._root = r; v.isConnected = true; v._holds = View.prototype._holds;
+  v._root = r; v.isConnected = true; v._holds = View.prototype._holds; v._clipRoom = function () {};
   var seen = [];
   for (var i = 0; i < 4; i++) { View.prototype._pageEnd.call(v); seen.push(r.style.marginBottom); }
   var want = Math.floor((GUTTER - (2368 - 2362)) * 10 + 1e-6) / 10 + 'px';
@@ -165,6 +165,27 @@ function music(foot, cardEnd, rootEnd) {
   // the view keeps that margin inside it: a block formatting context
   var src = View.prototype._build.toString();
   ok('the view is a flow-root, so the root\'s bottom margin stays inside it', /:host\{display:flow-root;/.test(src));
+  ok('...and clips on both axes (overflow-clip-margin takes no effect on one)', /:host\{display:flow-root;overflow:clip\}/.test(src));
+})();
+
+// THE CLIP REACHES THE BAR'S ROOM (shadows below the last row fade out
+// instead of stopping flat at the view's foot, 2026-10-18)
+(function () {
+  var seen = globalThis.getComputedStyle;
+  globalThis.getComputedStyle = function (el) {
+    var r = seen(el);
+    if (el._pad !== undefined) r.paddingBottom = el._pad;
+    return r;
+  };
+  function view(pad) {
+    var v = { parentElement: pad === null ? null : { _pad: pad, _cs: {} }, style: {} };
+    View.prototype._clipRoom.call(v);
+    return v.style.overflowClipMargin;
+  }
+  ok('the clip reaches the room the container leaves below (the tab bar\'s 96 px)', view('96px') === '96px', view('96px'));
+  ok('a fraction rounds down (never past the room)', view('96.7px') === '96px', view('96.7px'));
+  ok('no room, no margin: the clip as it was', view('0px') === '' && view(null) === '');
+  globalThis.getComputedStyle = seen;
 })();
 
 print(fail ? 'FAIL ' + fail + ' PAGE END TESTS' : 'ALL ' + pass + ' PAGE END TESTS PASS');

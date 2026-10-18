@@ -10,6 +10,7 @@ import asyncio
 import json
 from datetime import datetime
 import sys
+import shutil
 import tempfile
 from pathlib import Path
 
@@ -17,6 +18,10 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "hosts/server"))
 from aiohttp.test_utils import TestServer
 from cdp import Browser
+try:
+    from PIL import Image
+except ImportError:      # the pixel check needs Pillow; the rest of the smoke does not
+    Image = None
 from mantel_server import settings_store
 from mantel_server.config import Config
 from mantel_server.connectors import Ctx
@@ -196,7 +201,7 @@ def stand_in_cameras(app):
     return asked, signaling
 
 
-async def smoke(shot=None):
+async def smoke(shot=None, shots=None):
     with tempfile.TemporaryDirectory(prefix="mantel-client-smoke-") as folder:
         base = Path(folder)
         cfg = Config(data_dir=base / "data", fixtures=base / "fixtures", hk_files=base / "user-files",
@@ -834,13 +839,25 @@ async def smoke(shot=None):
                         document.querySelector('#hk-shell-root > #hk-tabbar'), el = window.__mantelViewHost.current().element;
                       const cards = window.__deep(document).filter(e => e.localName === 'hk-rank-card' && e.isConnected);
                       const last = Math.max(...cards.map(e => e.getBoundingClientRect().bottom + window.scrollY));
+                      // the last row carries a shadow that runs past the gutter below it (30 px down, 60 px blur)
+                      const row = cards.filter(e => Math.abs(e.getBoundingClientRect().bottom + window.scrollY - last) < 2);
+                      row.forEach(e => { e.style.boxShadow = '0 30px 60px rgba(0, 0, 0, 0.9)'; });
+                      const x = row.map(e => e.getBoundingClientRect()).sort((p, q) => p.left - q.left)[0];
+                      const clips = [];
+                      for (let n = el; n; n = n.parentNode || n.host) {
+                        if (n.nodeType !== 1) continue;
+                        const k = getComputedStyle(n);
+                        if (k.overflowY !== 'visible' || k.contain.indexOf('paint') >= 0 || k.clipPath !== 'none')
+                          clips.push([n.localName + (n.id ? '#' + n.id : ''), k.overflowY, k.overflowClipMargin, k.clipPath]);
+                      }
                       const pad = parseFloat(getComputedStyle(view).paddingBottom), gutter = el.constructor.gutter(el);
                       window.scrollTo(0, de.scrollHeight);
                       await new Promise(r => requestAnimationFrame(r));
                       const lastNow = Math.max(...cards.map(e => e.getBoundingClientRect().bottom));
                       return { cards: cards.length, scroll: de.scrollHeight, inner: window.innerHeight, last, pad, gutter,
                                after: de.scrollHeight - last, barTop: bar.getBoundingClientRect().top, lastNow,
-                               margin: getComputedStyle(el.shadowRoot.getElementById('root')).marginBottom };
+                               margin: getComputedStyle(el.shadowRoot.getElementById('root')).marginBottom,
+                               col: Math.round(x.left + x.width / 2), clips, clipMargin: getComputedStyle(el).overflowClipMargin };
                     })()"""
                     longs = []
                     for w, h in ((1366, 900), (1280, 800), (1366, 900)):
@@ -854,6 +871,21 @@ async def smoke(shot=None):
                             f"gutter {lp['gutter']:.1f} + bar room {lp['pad']:.1f}: {lp}"
                         # (the bar's room is the view's padding; the bar itself folds away on a scroll)
                         assert lp["lastNow"] <= lp["inner"] - lp["pad"] + 0.5, f"{w}x{h}: the last card is under the bar's room: {lp}"
+                        png = Path(folder) / f"long-{w}x{h}.png"
+                        await browser.screenshot(str(png))
+                        if shots:
+                            shutil.copy(png, Path(shots) / png.name)
+                        # THE SHADOWS BELOW THE LAST ROW FADE (2026-10-18): the view's clip stopped them flat at its foot,
+                        # a gutter below the row, just above the bar. The view's clip reaches the bar's room, and down the
+                        # column under a last-row card the grey changes smoothly (no step over 8 grey levels) to the window's foot.
+                        view_clip = [c for c in lp["clips"] if c[0] == "hk-grid-view"]
+                        assert view_clip and view_clip[0][1] == "clip" and lp["clipMargin"] != "0px", lp
+                        assert all(c[0] == "hk-grid-view" for c in lp["clips"]), f"something else clips the page's foot: {lp['clips']}"
+                        if Image:
+                            im = Image.open(png).convert("RGB")
+                            grey = [sum(im.getpixel((lp["col"], y))) / 3 for y in range(int(lp["lastNow"]) + 1, h)]
+                            steps = [abs(b - a) for a, b in zip(grey, grey[1:])]
+                            assert grey and max(steps) <= 8, f"{w}x{h}: the shadow below the last row steps by {max(steps):.1f}: {[round(g) for g in grey]}"
                         longs.append(f"{w}x{h} {lp['after']:.1f} px below the last card = gutter {lp['gutter']:.1f} + bar {lp['pad']:.1f}")
                     await browser.eval("window.scrollTo(0, 0)")
                     if shot:
@@ -906,4 +938,6 @@ async def smoke(shot=None):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--shot")
-    print(json.dumps(asyncio.run(smoke(parser.parse_args().shot)), indent=2))
+    parser.add_argument("--shots-dir", help="keep the long-page screenshots here")
+    a = parser.parse_args()
+    print(json.dumps(asyncio.run(smoke(a.shot, a.shots_dir)), indent=2))
