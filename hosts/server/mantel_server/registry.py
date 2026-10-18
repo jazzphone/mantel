@@ -11,6 +11,9 @@ class Registry:
         self.areas: dict[str, str] = {}  # area_id -> name
         self.entity_area: dict[str, str | None] = {}  # entity_id -> area_id
         self.by_area: dict[str, set[str]] = {}
+        self.entries: dict[str, dict] = {}  # entity_id -> its registry entry (device_class lookups)
+        self.area_floor: dict[str, str | None] = {}  # area_id -> floor_id
+        self.floors: dict[str, str] = {}  # floor_id -> name
 
     def update(self, areas: list[dict] | None = None, devices: list[dict] | None = None,
                entities: list[dict] | None = None, floors: list[dict] | None = None) -> None:
@@ -25,6 +28,9 @@ class Registry:
         self._areas, self._devices, self._entities = areas, devices, entities
         self._floors = floors or []
         self.areas = {a["area_id"]: a.get("name") or a["area_id"] for a in areas}
+        self.area_floor = {a["area_id"]: a.get("floor_id") for a in areas}
+        self.floors = {f["floor_id"]: f.get("name") or f["floor_id"] for f in self._floors}
+        self.entries = {e["entity_id"]: e for e in entities}
         device_area = {d["id"]: d.get("area_id") for d in devices}
         entity_area: dict[str, str | None] = {}
         for e in entities:
@@ -45,6 +51,16 @@ class Registry:
         for area_id, name in self.areas.items():
             if name.lower() == low:
                 return area_id
+        return None
+
+    def resolve_floor(self, ref: str) -> str | None:
+        """Accept a floor id or (case-insensitive) floor name."""
+        if ref in self.floors:
+            return ref
+        low = ref.lower()
+        for floor_id, name in self.floors.items():
+            if name.lower() == low:
+                return floor_id
         return None
 
     def entities_in(self, areas: list[str]) -> set[str]:
