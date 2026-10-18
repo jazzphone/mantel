@@ -64,7 +64,7 @@ read -rs -p "Value for $name: " value; echo
 umask 077
 printf '%s' "$value" > "/etc/hk/secrets/$name"
 chown root:10001 "/etc/hk/secrets/$name"; chmod 0440 "/etc/hk/secrets/$name"
-echo "written. Apply with: cd /opt/mantel/packaging/compose && docker compose up -d --wait"
+echo "written. Apply with: cd /opt/mantel/packaging/compose && docker compose up -d --wait   (already running? docker compose restart caddy mantel-server: a changed secret file is not noticed otherwise)"
 EOS
 cat > /usr/local/bin/mantel-update <<'EOS'
 #!/usr/bin/env bash
@@ -107,7 +107,10 @@ if [ ! -f "$COMPOSE_DIR/.env" ]; then
     msg_ok "Mantel Connect: compose.connect.yaml enabled (port 8766); pair it after the first start"
   fi
   chmod 0640 "$COMPOSE_DIR/.env"
-  msg_ok "wrote .env with this container's address ${lan_ip}; edit MANTEL_HOSTNAME and MANTEL_HA_URL"
+  # the nightly backup's folder (MANTEL_BACKUP_DIR defaults to ./backups): Docker would create it root-owned,
+  # and the server runs as uid 10001
+  install -d -m 0750 -o 10001 -g 10001 "$COMPOSE_DIR/backups"
+  msg_ok "wrote .env with this container's address ${lan_ip}; check MANTEL_HOSTNAME (Home Assistant is connected in the browser later)"
 fi
 
 if [ "$MODE" = "build" ]; then

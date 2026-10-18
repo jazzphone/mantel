@@ -161,7 +161,7 @@ Not implemented, on purpose: renaming files to `name.<hash>.ext`. HK's modules r
 cd <checkout>
 python3 tools/package_check.py                               # already passes
 
-# 0. pin the base images (replace the sha256:000... values in packaging/docker/Dockerfile and caddy.Dockerfile)
+# 0. (STALE: the digests are pinned and `package_check.py --release` is clean; skip unless you bump a base image) pin the base images (replace the sha256:000... values in packaging/docker/Dockerfile and caddy.Dockerfile)
 docker buildx imagetools inspect python:3.12-slim-trixie --format '{{.Manifest.Digest}}'
 docker buildx imagetools inspect debian:trixie-slim      --format '{{.Manifest.Digest}}'
 docker buildx imagetools inspect alexxit/go2rtc:1.9.9    --format '{{.Manifest.Digest}}'   # confirm the tag exists
@@ -205,6 +205,8 @@ docker compose exec mantel-server id; docker compose exec mantel-server touch /a
 Unverified-in-this-slice assumptions that step 1-4 will confirm: the go2rtc binary path and `-version` flag, go2rtc reading `${MANTEL_LAN_IP}` in its YAML, `cloudflared tunnel run --token-file`, Compose treating unused declared secret files (empty placeholders) as fine, a non-profiled cloudflared secret not being required, Caddy's `{file./run/secrets/...}` placeholder tolerating the file's content, and Caddy's two `:8080` sites with different `bind` addresses (the adapter output was inspected and is as intended).
 
 ## What needs Proxmox (Avery, on proxmox1)
+
+The full step-by-step runbook is [LXC-PROXMOX1.md](LXC-PROXMOX1.md); the block below is the short form.
 
 ```bash
 # read first; then, from a checkout of this branch copied to the Proxmox host, as root:

@@ -21,7 +21,7 @@
 #   4. with var_gpu=yes and /dev/dri/renderD128 present: shares that render node in (the iGPU stays
 #      shared with the host, not taken away) and tells the container its render group id
 #   5. pushes packaging/ + the app source into /opt/mantel, then runs mantel-install.sh inside
-#      (Docker, Compose, secret folder, .env, unattended security upgrades, first start)
+#      (Docker, Compose, secret folder, .env, image build, unattended security upgrades; it does NOT start Mantel)
 # It touches no other container or VM, changes no host setting, edits no firewall, opens no port.
 #
 # Why this is not "source build.func": community-scripts' build_container downloads the in-container

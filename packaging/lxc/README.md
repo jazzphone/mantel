@@ -15,5 +15,8 @@ mantel-update                             # inside: update with automatic rollba
 bash packaging/lxc/mantel.sh push <id>    # on the host: send a newer checkout and update (build mode)
 ```
 
+Step-by-step runbook for proxmox1 (inputs, GPU, DNS-01 HTTPS, Connections, Connect, Live TV check, backups, removal):
+`docs/phase3/LXC-PROXMOX1.md`.
+
 Why it does not source community-scripts' `build.func`, and the exact steps to verify it on proxmox1:
 `docs/phase3/PACKAGING.md`.
