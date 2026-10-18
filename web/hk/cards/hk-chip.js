@@ -77,7 +77,7 @@
   // (above) is not enough on its own: a chip that renders BEFORE hk-tile.js
   // has run gets the fallback colours and ON_STATES, and the re-render gate
   // then keeps that first frame until a watched entity changes. Folding
-  // "is hk-tile loaded" into every chip signature makes the next hass after
+  // "is hk-tile loaded" into every chip signature makes the next state push after
   // it loads redraw the chip with the real palette.
   function tileToken() { return tile().colourFor ? 'T;' : 't;'; }
 
@@ -612,9 +612,9 @@
     var k = S('kinds', null);
     return !!(k && typeof k === 'object' && Object.keys(k).length);
   }
-  function found(kind, hass) {
+  function found(kind, client) {
     if (kindsLive()) { var k = S('kinds.' + kind, []); return Array.isArray(k) ? k : []; }
-    var f = FIND[kind], states = (hass && hass.states) || {}, ents = (hass && hass.entities) || {};
+    var f = FIND[kind], states = (client && client.states) || {}, ents = (client && client.entities) || {};
     if (!f) return [];
     return Object.keys(states).filter(function (id) {
       if (f[0].indexOf(id.split('.')[0]) < 0) return false;
@@ -641,9 +641,9 @@
   function nav(path) { return path ? { action: 'navigate', navigation_path: path } : { action: 'none' }; }
 
   // One kind's chip, or null when the house has none of it.
-  function kindConfig(kind, hass) {
+  function kindConfig(kind, client) {
     var tap = nav(kindPage(kind));
-    var n = function (k) { return found(k, hass); };
+    var n = function (k) { return found(k, client); };
     switch (kind) {
       case 'smoke': {
         // SMOKE & CO: nothing to say until an alarm goes off, then what it
@@ -652,7 +652,7 @@
         var sm = n('smoke'), co = [], gas = [], smoke = [];
         if (!sm.length) return null;
         sm.forEach(function (id) {
-          var o = hass && hass.states && hass.states[id];
+          var o = client && client.states && client.states[id];
           var dc = o && o.attributes && o.attributes.device_class;
           (dc === 'carbon_monoxide' ? co : dc === 'gas' ? gas : smoke).push(id);
         });
@@ -794,7 +794,7 @@
         // Power Use (General), else the Energy feature's whole home
         var pw = S('features.power', null) || ((S('energy', null) || {}).total || {}).power || null;
         if (!pw) return null;
-        var st = hass && hass.states[pw];
+        var st = client && client.states[pw];
         var u = st && st.attributes && st.attributes.unit_of_measurement;
         // Shown in kW whatever the sensor reports (power sensors come in W, kW and MW).
         var scale = u === 'W' ? 0.001 : u === 'MW' ? 1000 : 1;
@@ -806,25 +806,25 @@
   }
   // The chips a dashboard shows when its item names none: every kind the
   // house has, in the row's order.
-  function autoKinds(hass) {
-    return KIND_ORDER.filter(function (k) { return !!kindConfig(k, hass); });
+  function autoKinds(client) {
+    return KIND_ORDER.filter(function (k) { return !!kindConfig(k, client); });
   }
   // A KIND'S CONFIG, rebuilt only when something it is built from moved:
   // the settings (Status & Chips, the alarm, the page list), HK Music's rooms,
   // the dashboard's views, or -- before the integration's kinds arrive --
-  // the set of entities. Not per hass push: the chip's signature walks its
+  // the set of entities. Not per state push: the chip's signature walks its
   // config, and a new object every push would re-walk it several times a second.
   function expandKind(card) {
     var raw = card._raw;
     if (!raw || !raw.kind) return;
     var HS = window.hkSettings, M = C0().menu;
     var lc = M && M.config ? M.config() : null;
-    // (hass at all: Smoke & CO sorts its alarms by their device class)
-    var key = [HS ? HS.version : -1, window.hkMusic ? window.hkMusic.rooms().length : -1, card._hass ? 1 : 0,
-               kindsLive() ? '' : Object.keys((card._hass && card._hass.states) || {}).length].join('|');
+    // (a client at all: Smoke & CO sorts its alarms by their device class)
+    var key = [HS ? HS.version : -1, window.hkMusic ? window.hkMusic.rooms().length : -1, card.client ? 1 : 0,
+               kindsLive() ? '' : Object.keys((card.client && card.client.states) || {}).length].join('|');
     if (key === card._kindKey && lc === card._kindLc && card._config && card._config.__kind) return;
     card._kindKey = key; card._kindLc = lc;
-    var base = kindConfig(raw.kind, card._hass) ||
+    var base = kindConfig(raw.kind, card.client) ||
                { name: KIND_NAMES[raw.kind] || String(raw.kind), label: '--', missing: true };
     var over = Object.assign({}, raw);
     delete over.kind;
@@ -872,7 +872,7 @@
     // A `kind:` is expanded first (expandKind), so its entities are walked.
     _sigOf() {
       expandKind(this);
-      var h = this._hass, c = this._config;
+      var h = this.client, c = this._config;
       if (!h || !c) return null;
       if (this._sigCfg !== c) { this._sigCfg = c; this._sigIds = entityIds(c); }
       var ids = this._sigIds;
@@ -883,7 +883,7 @@
       }
       // No rooms YET (hk_music has not answered) is a stable state, not
       // "unknown": returning null here would redraw the Speakers chip on
-      // every hass push until the feed arrives. The moment rooms exist the
+      // every state push until the feed arrives. The moment rooms exist the
       // signature changes anyway.
       if (!ids.length) return (c.count && c.count.music) ? tileToken() + 'music:none' : null;
       var out = tileToken();
@@ -961,7 +961,8 @@
       // user, 2026-10-17 -- a chip says how things are, on or off)
       if (window.hkCards.flatColor) e.icon.style.color = window.hkCards.flatColor(e.icon.style.color, 'on');
       e.icon.classList.toggle('spin', cfg.animation === 'spin');
-      if (this._hass) { e.icon.hass = this._hass; e.icon.stateObj = st; }
+      var cl = this.client;
+      if (cl) cl.bindStateIcon(e.icon, st);
       // SAME FIRST-MATCH BRANCH AS THE LABEL, because Security's icon is a
       // branch too: triggered -> shield-alert, any lock open -> lock-open,
       // armed -> shield-lock, else shield-off. One predicate, three uses.
@@ -1029,14 +1030,14 @@
   // `away`: on someone else's dashboard (HkBase place(): data-hk-foreign).
   // The rows' sideways bleed (-22 px each side, paid back in padding) is for
   // HK's own page padding; in a section it runs past the section's edge.
-  function rowPlan(cfg, b, hass, away) {
+  function rowPlan(cfg, b, client, away) {
     b = b || {};
     // The dashboard's Home -> Chips -> "Show the status chips": no row.
     if (b.chips_row === false) return null;
     // THE DASHBOARD'S OWN CHOICE FIRST (its item), then this card's YAML as
     // the default, then every kind the house has.
     var tokens = (Array.isArray(b.chips) && b.chips.length) ? b.chips
-               : (Array.isArray(cfg.chips) && cfg.chips.length) ? cfg.chips : autoKinds(hass);
+               : (Array.isArray(cfg.chips) && cfg.chips.length) ? cfg.chips : autoKinds(client);
     // The dashboard's own chips (entities): chips_extra says WHICH, and the
     // item's chips list may place them among the kinds (Order -> Chips);
     // one not placed follows the kinds. An entity the list
@@ -1102,7 +1103,7 @@
       keys.splice(at, 0, null);
       cards.splice(at, 0, x.card);
     });
-    if (found('smoke', hass).length) cards.unshift({ type: 'custom:hk-status-chip-card', kind: 'smoke', quiet: true });
+    if (found('smoke', client).length) cards.unshift({ type: 'custom:hk-status-chip-card', kind: 'smoke', quiet: true });
     var row = { type: 'custom:hk-row-card', card_width: 'fit-content', gap: 10, pad_top: 14,
                 pad_bottom: 30, pad_left: 22, pad_right: 22, margin: '-15px -22px -32px -22px',
                 cards: cards };
@@ -1139,16 +1140,16 @@
       window.removeEventListener('hk-module-ready', this._wake);
     }
     // A settings change arrives as `hk-module-ready` (the wake above). The
-    // hass pushes only matter before the integration's kinds are in, when
-    // the kinds are found from the states themselves.
-    set hass(h) {
-      var first = !this._hass;
-      this._hass = h;
-      if (C0().tone) C0().tone(this, h);
+    // State pushes only matter before the integration's kinds are in, when
+    // the kinds are found from the states themselves. EACH NEW CLIENT arrives
+    // through the host adapter's entry (below the class).
+    _onClient(client) {
+      var first = !this._seenClient;
+      this._seenClient = client;
+      if (C0().tone) C0().tone(this, client);
       if (first || !kindsLive()) this._plan();
-      if (this._row) this._row.hass = h;
+      if (this._row) window.hkHostClient.bridge(this._row, client);
     }
-    get hass() { return this._hass; }
     getCardSize() { return 1; }
     _board() {
       var M = C0().menu;
@@ -1157,7 +1158,7 @@
     _plan() {
       var cfg = this._cfgIn;
       if (!cfg) return;
-      var row = rowPlan(cfg, this._board(), this._hass, this.hasAttribute('data-hk-foreign'));
+      var row = rowPlan(cfg, this._board(), this.client, this.hasAttribute('data-hk-foreign'));
       var key = JSON.stringify(row);
       if (key === this._key) return;
       var on = !!row;
@@ -1186,7 +1187,7 @@
         this.appendChild(this._row);
       }
       this._row.setConfig(row);
-      if (this._hass) this._row.hass = this._hass;
+      window.hkHostClient.bridge(this._row, this.client);
     }
   }
 
@@ -1212,8 +1213,8 @@
   var SCENE_ICON = { scene: 'mdi:palette', script: 'mdi:script-text-play', button: 'mdi:gesture-tap-button',
                      input_button: 'mdi:gesture-tap-button', automation: 'mdi:robot' };
   function sceneTap(id) { return window.hkCards.sceneTap(id); }
-  function scenePill(hass, id, look) {
-    var st = hass && hass.states[id], ent = hass && hass.entities && hass.entities[id];
+  function scenePill(client, id, look) {
+    var st = client && client.states[id], ent = client && client.entities && client.entities[id];
     var a = (st && st.attributes) || {};
     // its accessory's name, glyph and colour (the gear) before its own
     var own = accOf(id);
@@ -1263,7 +1264,7 @@
              icon_color: lk.color || p[2],
              tap_action: { action: 'navigate', navigation_path: './' + path } };
   }
-  function scenesPlan(cfg, b, hass, away) {
+  function scenesPlan(cfg, b, client, away) {
     b = b || {};
     var T = C0().TILE;
     // A ROOM'S ROW (`room: true`, a room page's): exactly the scenes it was
@@ -1275,7 +1276,7 @@
     if (cfg.room && !ids) return { auto: false, config: null };
     var auto = !ids;
     if (auto) {
-      var st = (hass && hass.states) || {}, ents = (hass && hass.entities) || {};
+      var st = (client && client.states) || {}, ents = (client && client.entities) || {};
       ids = Object.keys(st).filter(function (id) {
         return id.indexOf('scene.') === 0 && !(ents[id] && (ents[id].hidden || ents[id].entity_category));
       }).sort(function (x, y) {
@@ -1301,7 +1302,7 @@
         if (p) pills.push(p);
         return;
       }
-      if (!hass || hass.states[id]) pills.push(scenePill(hass, id, looks[id]));
+      if (!client || client.states[id]) pills.push(scenePill(client, id, looks[id]));
     });
     pages.forEach(function (k) {
       if (placed[k]) return;
@@ -1346,20 +1347,19 @@
     // The count is taken only while the row follows them (_auto): a screen
     // that picks its own scenes -- every one in this house -- has nothing to
     // re-plan, and 4,195 keys on each of ~12 pushes a second was the cost.
-    set hass(h) {
-      var first = !this._hass;
-      var n = (first || this._auto) && h && h.states ? Object.keys(h.states).length : this._n;
-      this._hass = h;
-      if (C0().tone) C0().tone(this, h);
+    _onClient(client) {
+      var first = !this._seenClient;
+      var n = (first || this._auto) && client && client.states ? Object.keys(client.states).length : this._n;
+      this._seenClient = client;
+      if (C0().tone) C0().tone(this, client);
       if (first || (this._auto && n !== this._n)) { this._n = n; this._plan(); }
-      if (this._el) this._el.hass = h;
+      if (this._el) window.hkHostClient.bridge(this._el, client);
     }
-    get hass() { return this._hass; }
     getCardSize() { return 2; }
     _plan() {
       if (!this._cfgIn) return;
       var M = C0().menu;
-      var p = scenesPlan(this._cfgIn, (M && M.board ? M.board() : null) || {}, this._hass,
+      var p = scenesPlan(this._cfgIn, (M && M.board ? M.board() : null) || {}, this.client,
                          this.hasAttribute('data-hk-foreign'));
       this._auto = p.auto;
       var key = JSON.stringify(p.config);
@@ -1379,7 +1379,7 @@
         this._el.preview = false;
         this.appendChild(this._el);
       }
-      this._el.hass = this._hass;
+      window.hkHostClient.bridge(this._el, this.client);
       this._el.config = p.config;
       if (this._el.load) this._el.load();
     }
@@ -1393,6 +1393,10 @@
   // A single chip may be Smoke & CO too; the row's lists may not -- it leads
   // every row on its own (rowPlan), so choosing it there would do nothing.
   var CHIP_KIND_OPTIONS = [{ value: 'smoke', label: KIND_NAMES.smoke }].concat(KIND_OPTIONS);
+  // Lovelace's entry for the two cards that are not an HkBase: the host adapter
+  // turns each object it hands them into a client for `_onClient`.
+  window.hkHostClient.entry(HkChipsCard);
+  window.hkHostClient.entry(HkScenesCard);
   register('hk-status-chip-card', HkStatusChipCard, 'HK Status Chip',
            'A small header chip with an icon, a title and a one-line summary.',
            [
@@ -1495,15 +1499,15 @@
            // switches on a tap -- an input_boolean, else a switch. Only a house
            // with neither gets the segment form: an input_select lit on its
            // current option, a tap choosing it.
-           function (hass) {
-             var ids = hass && hass.states ? Object.keys(hass.states) : [];
+           function (client) {
+             var ids = client && client.states ? Object.keys(client.states) : [];
              var first = function (d) {
                for (var i = 0; i < ids.length; i++) if (ids[i].indexOf(d + '.') === 0) return ids[i];
                return null;
              };
              var tog = first('input_boolean') || first('switch');
              if (tog) return { entity: tog, tap_action: { action: 'toggle' } };
-             var sel = firstOf(hass, 'input_select'), st = hass && hass.states && hass.states[sel];
+             var sel = firstOf(client, 'input_select'), st = client && client.states && client.states[sel];
              var opt = st ? st.state : 'Everywhere';
              return { entity: sel, name: opt, option: opt,
                       tap_action: { action: 'perform-action', perform_action: 'input_select.select_option',

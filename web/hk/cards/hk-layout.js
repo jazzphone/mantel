@@ -152,12 +152,12 @@
       this.classList.toggle('hide-phone', config.phone === 'hide');
     }
     getCardSize() { return 6; }
-    set hass(h) {
-      super.hass = h;
-      // The wrapper is static; the child owns its independent update gate.
-      if (this._child) this._child.hass = h;
+    // The wrapper is static; the child owns its independent update gate.
+    // EACH NEW CLIENT (either entry of HkBase), then the child gets what goes with it.
+    _receiveClient() {
+      super._receiveClient();
+      if (this._child) window.hkHostClient.bridge(this._child, this.client);
     }
-    get hass() { return this._hass; }
     // The frame has no state of its own; the child gates its own renders.
     _sigOf() { return 'static'; }
     // HA's OWN HELPERS BUILD THE CHILD, not document.createElement.
@@ -200,7 +200,7 @@
         });
         self._child = el;
         self._e.appendChild(el);
-        if (self._hass) el.hass = self._hass;
+        window.hkHostClient.bridge(el, self.client);
       };
       if (window.loadCardHelpers) {
         var make = function () {
@@ -327,7 +327,7 @@
   class HkBackCard extends HkBase {
     static get CSS() { return ROUND_CSS; }
     getCardSize() { return 1; }
-    // Depends on the URL and the menu's state, not on hass: the menu button
+    // Depends on the URL and the menu's state, not on the client: the menu button
     // beside the chevron comes and goes with the menu's settings.
     _sigOf() { return 'menu=' + menu().sig(); }
     connectedCallback() { super.connectedCallback(); chipBack(this); }
@@ -488,7 +488,7 @@
       super.setConfig(config);
     }
     getCardSize() { return 1; }
-    // A key has no state -- it never needs a re-render from hass at all.
+    // A key has no state -- it never needs a re-render from the client at all.
     _sigOf() { return 'static'; }
     _render() {
       var cfg = this._config;
@@ -513,7 +513,8 @@
       if (cfg.fill) e.card.style.background = cfg.fill;
       if (e.icon) {
         e.icon.icon = cfg.icon;
-        if (this._hass) e.icon.hass = this._hass;
+        var cl = this.client;
+        if (cl) cl.bindStateIcon(e.icon);
         if (cfg.icon_color) e.icon.style.color = cfg.icon_color;
       }
       if (e.name && e.name.textContent !== cfg.name) e.name.textContent = cfg.name;
@@ -601,7 +602,7 @@
     // signature could describe it honestly -- null means "always render",
     // the safe answer, and a dashboard rarely has more than one.
     _sigOf() {
-      var c = this._config, h = this._hass;
+      var c = this._config, h = this.client;
       if (!c || !h) return null;
       if (c.variant === 'state') return HkBase.prototype._sigOf.call(this);
       if (c.variant !== 'climate') return null;
@@ -661,11 +662,11 @@
     // ---- security: shut, locked, and the garage.
     _security() {
       // NO STATES YET IS THE NORMAL FIRST RENDER. setConfig() renders before
-      // Lovelace assigns hass, and hkHeader.status(null) throws -- which HA
+      // Lovelace hands over its object, and hkHeader.status(null) throws -- which HA
       // catches by replacing the whole card with a permanent error card, so
       // the block would never appear at all. Guard on the states object, not
       // just on hkHeader.
-      var st = this._hass && this._hass.states;
+      var st = this.client && this.client.states;
       var s = (st && window.hkHeader) ? window.hkHeader.status(st) : null;
       // No hkHeader is not "all clear" -- it is "cannot tell", and this card
       // says so rather than reading "Home Secure" for an empty map.
@@ -859,8 +860,8 @@
         { name: 'tap_action', selector: { ui_action: {} } }
       ], 'mdi:gesture-tap')
     ],
-    function (hass) { return { variant: 'security', icon: 'mdi:shield-home',
-                               garage: firstOf(hass, 'cover') }; });
+    function (client) { return { variant: 'security', icon: 'mdi:shield-home',
+                                 garage: firstOf(client, 'cover') }; });
 
   // ---------------------------------------------------------------------
   // hk-grid-card -- the grid host, owned here.
@@ -1019,12 +1020,12 @@
     _sigOf() { return this._isPageHeader() ? this._headerState() : 'static'; }
     getCardSize() { return 6; }
 
-    set hass(h) {
-      super.hass = h;
-      var kids = this._kids || [];
-      for (var i = 0; i < kids.length; i++) kids[i].hass = h;
+    // EACH NEW CLIENT (either entry of HkBase): every child gets what goes with it.
+    _receiveClient() {
+      super._receiveClient();
+      var kids = this._kids || [], client = this.client;
+      for (var i = 0; i < kids.length; i++) window.hkHostClient.bridge(kids[i], client);
     }
-    get hass() { return this._hass; }
 
     // Only grid-* and place-* reach the grid, matching layout-card. Anything
     // else in `layout` is handled explicitly above or ignored, and ignoring it
@@ -1159,7 +1160,7 @@
           });
           root.appendChild(el);
           self._kids.push(el);
-          if (self._hass) el.hass = self._hass;
+          window.hkHostClient.bridge(el, self.client);
         });
       });
     }
@@ -1184,8 +1185,8 @@
   //
   // A VIEW IS A DIFFERENT CONTRACT FROM A CARD, and a simpler one: Home
   // Assistant builds the card elements itself and hands them over as
-  // `.cards`, already carrying `hass`. There is no loadCardHelpers dance here.
-  // What HA sets, in this order: setConfig(), then hass, lovelace, narrow,
+  // `.cards`, already fed by Lovelace. There is no loadCardHelpers dance here.
+  // What HA sets, in this order: setConfig(), then the host object, lovelace, narrow,
   // index, cards, badges -- any of which can arrive more than once.
   //
   // THE PLACEMENT COMES FROM THE CONFIG, NOT THE ELEMENTS. `view_layout` is a
@@ -1206,9 +1207,9 @@
       this._place();
     }
     // HA may set these before or after setConfig; none of them changes layout,
-    // and the cards already have their own hass.
-    set hass(h) { this._hass = h; }
-    get hass() { return this._hass; }
+    // and the cards already have what they read. Lovelace's object is taken at
+    // the host adapter's entry (below the class): the view keeps it for the
+    // getter and does nothing else with it.
     set lovelace(l) { this._lovelace = l; }
     get lovelace() { return this._lovelace; }
     set narrow(n) { this._narrow = n; }
@@ -1520,6 +1521,7 @@
     return gone.length ? out.filter(function (el) { return el !== null; }) : out;
   };
 
+  window.hkHostClient.entry(HkGridView);
   if (!customElements.get('hk-grid-view')) {
     customElements.define('hk-grid-view', HkGridView);
   }
