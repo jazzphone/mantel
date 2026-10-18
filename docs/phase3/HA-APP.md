@@ -498,8 +498,10 @@ Updated in place (no migration; backup `197c2d14` from 0.1.5 still the rollback 
       Me, Connections, People, Devices, Your files, Roles & grants, Audit. Connections shows Home Assistant
       "Provided by Home Assistant (App)", connected, 2026.10.2, 4500 entities; Music Assistant "not set up";
       "HTTPS and your proxy": mode Home Assistant App (Ingress), no door key needed.
-- [x] HK's menu model has the **Mantel settings** entry for the Owner (`hkShell.hostMenu()` →
-      `<prefix>/admin`); the menu button shows at desktop widths.
+- [ ] **Not reachable on the kitchen dashboard (found by Avery):** the **Mantel settings** entry is in HK's
+      menu model (`hkShell.hostMenu()` → `<prefix>/admin`), but that dashboard navigates with the tab bar and
+      HK's side menu is off whenever a tab bar shows (`menu.on()` false). Fix for 0.1.7: the entry in the tab
+      bar's More sheet too, verified drawn. Until then: open `<prefix>/admin` directly.
 - [ ] Music Assistant on Connections (Avery pastes his MA token), feature import, SF Pro/glyphs, page re-check.
 
 ### Removal
