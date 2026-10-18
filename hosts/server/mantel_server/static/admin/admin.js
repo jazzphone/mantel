@@ -128,7 +128,7 @@ function csrfNow() {
 
 async function api(method, path, body, opts = {}) {
   const init = { method, credentials: 'same-origin', headers: { Accept: 'application/json' } };
-  if (method !== 'GET') init.headers['X-CSRF-Token'] = csrfNow();
+  if (method !== 'GET') init.headers['X-CSRF-Token'] = opts.csrf || csrfNow();
   if (body !== undefined) {
     init.headers['Content-Type'] = 'application/json';
     init.body = JSON.stringify(body);
@@ -150,7 +150,8 @@ async function api(method, path, body, opts = {}) {
   }
   if (res.status === 403 && data && data.error === 'csrf' && method !== 'GET' && !opts.csrfRetried) {
     try { await refreshMe(); } catch (e) { /* the retry reports */ }   // the session's token, read again
-    return api(method, path, body, { ...opts, csrfRetried: true });
+    // ...and sent as the server gave it: a browser may hold a stale mantel_csrf the cookie read would pick again
+    return api(method, path, body, { ...opts, csrfRetried: true, csrf: state.csrf || undefined });
   }
   if (!res.ok) throw new ApiError(res.status, data);
   return data;

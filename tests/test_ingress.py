@@ -187,6 +187,29 @@ async def test_one_session_per_browser_and_requests_reuse_it(mk):
     assert m.store.db.execute("SELECT COUNT(*) FROM sessions").fetchone()[0] == 1
 
 
+async def test_a_page_that_has_service_worker_fetches_starts_the_session_and_saves_work(mk):
+    """HA's service worker fetches the sidebar frame's page itself: Sec-Fetch-Dest empty, Mode navigate (the
+    house, Chrome and Safari, 2026-10-18). Until this was read as a page, no session was ever started there,
+    the page had no CSRF token and every Test/Save said 'The page lost its session token'."""
+    m = await mk(rules="trusted")                        # the house's sidebar rules
+    m.store.link(OWNER_HA, "owner")
+    sw = {"Sec-Fetch-Dest": "empty", "Sec-Fetch-Mode": "navigate", "Sec-Fetch-Site": "same-origin",
+          "Accept": "text/html,application/xhtml+xml"}
+    r = await m.request("GET", "/admin", {**m.ha(), **sw})
+    assert r.status == 200
+    assert {"mantel_session", "mantel_refresh", "mantel_csrf"} <= set(m.jar)
+    s = await (await m.request("GET", "/api/session", m.ha())).json()
+    assert s["session_id"] and s["csrf"] == m.jar["mantel_csrf"]
+    r = await m.request("POST", "/api/connections/ma/test", {**m.ha(), "X-CSRF-Token": m.jar["mantel_csrf"]}, json={})
+    assert r.status == 422 and (await r.json())["error"] == "url_invalid"     # past the CSRF check
+    # a script or an API call the worker fetches (mode cors / same-origin) still starts nothing
+    m.jar.clear()
+    for mode in ("cors", "same-origin", "no-cors"):
+        await m.request("GET", "/api/session", {**m.ha(), "Sec-Fetch-Dest": "empty", "Sec-Fetch-Mode": mode})
+    assert "mantel_csrf" not in m.jar
+    assert m.store.db.execute("SELECT COUNT(*) FROM sessions").fetchone()[0] == 1
+
+
 async def test_forged_headers_from_any_other_peer_are_ignored_and_logged(mk, caplog):
     m = await mk(peers=("172.30.32.2",))           # the test client (127.0.0.1) is not the Supervisor
     m.store.link(OWNER_HA, "owner")

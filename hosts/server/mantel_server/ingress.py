@@ -185,6 +185,11 @@ def linked_user(db, ha_user_id: str):
 def wants_page(request: web.Request) -> bool:
     if request.method != "GET":
         return False
+    # A page load that HA's service worker fetches for the sidebar frame arrives as Sec-Fetch-Dest: empty,
+    # Sec-Fetch-Mode: navigate; reading only the destination, no session (and no CSRF token) was ever
+    # started in browsers where that worker runs (Avery's Chrome and Safari, the house, 2026-10-18).
+    if request.headers.get("Sec-Fetch-Mode") == "navigate":
+        return True
     dest = request.headers.get("Sec-Fetch-Dest")
     if dest is not None:
         return dest in ("document", "iframe")
