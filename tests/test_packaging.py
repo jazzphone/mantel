@@ -3,6 +3,7 @@ plus the code that ships with them (health endpoint, entrypoint, listen-address 
 
 No Docker, no network. Build/run verification is listed in docs/phase3/PACKAGING.md.
 """
+import re
 import importlib.util
 import json
 import shutil
@@ -46,9 +47,16 @@ def test_repository_packaging_is_clean():
     assert pc.run_all() == []
 
 
-def test_release_mode_refuses_placeholder_digests():
-    problems = pc.run_all(release=True)
-    assert problems and all("placeholder digest" in p for p in problems)
+def test_release_mode_refuses_placeholder_digests(tmp_path):
+    # every base image in the repo is pinned (2026-10-18): release mode is clean...
+    assert pc.run_all(release=True) == []
+    # ...and still refuses an all-zero placeholder wherever one appears
+    df = tmp_path / "Dockerfile"
+    text = (ROOT / "packaging/docker/Dockerfile").read_text()
+    pinned = re.search(r"python:3\.12-slim-trixie@(sha256:[0-9a-f]{64})", text).group(1)
+    df.write_text(text.replace(pinned, pc.ZERO_DIGEST, 1))
+    problems = pc.check_dockerfile(df, release=True)
+    assert any("placeholder digest" in p for p in problems), problems
 
 
 def test_dockerfile_user_healthcheck_and_no_secret_env():
