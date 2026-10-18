@@ -135,6 +135,17 @@ ha.got = [];
 S.keepAwake(ha);
 ok('keepAwake: hass-suspend-when-hidden { suspend: false } on the root', ha.got[0].type === 'hass-suspend-when-hidden' &&
    ha.got[0].detail.suspend === false && ha.got[0].init.bubbles === undefined);
+ha.got = [];
+var rootWas = ha.hass;
+ha.hass = { suspendWhenHidden: false };
+S.keepAwake(ha);
+ok('keepAwake: nothing to ask when the frontend already keeps the page connected', ha.got.length === 0);
+ha.hass = { user: { name: 'Jo', is_admin: true }, panels: { map: { title: 'map', icon: 'mdi:map' } },
+            localize: function (k) { return k === 'panel.map' ? 'Map' : ''; } };
+var side = S.sidebarData();
+ok('sidebarData(): the frontend\'s user, panels and their titles', side.user.name === 'Jo' && side.panels.map.icon === 'mdi:map' &&
+   side.localize('panel.map') === 'Map');
+ha.hass = rootWas;
 globalThis.customElements = { get: function (n) { return n === 'home-assistant' ? function () {} : undefined; } };
 ok('defined(): HA\'s element in the current registry', S.defined() === true);
 

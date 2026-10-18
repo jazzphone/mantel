@@ -55,8 +55,13 @@
     // the host's shell element has been defined (its page has started)
     defined: function () { return false; },
     // the host's notification drawer, and its "stay connected while hidden"
+    // (the host skips it when the page is already kept connected)
     showNotifications: function () {},
-    keepAwake: function () {}
+    keepAwake: function () {},
+    // the host's own sidebar for HK's menu and tab bar: { user, panels,
+    // localize(key) } (its pages, their titles and icons), or null for a host
+    // with no sidebar of its own
+    sidebarData: nil
   };
   KINDS.forEach(function (k) { NONE.tags[k] = null; });
 
@@ -91,7 +96,7 @@
 
   ['root', 'overlayRoot', 'main', 'mainRoot', 'drawer', 'sidebar', 'resolver', 'panel', 'dashboard',
    'dashboardRoot', 'viewContainer', 'viewSlot', 'view', 'viewBackground', 'toolbar', 'dashboardConfig', 'onDashboard', 'isDashboard',
-   'defined', 'showNotifications', 'keepAwake'].forEach(function (name) {
+   'defined', 'showNotifications', 'keepAwake', 'sidebarData'].forEach(function (name) {
     shell[name] = function () {
       try { return get(name).apply(shell, arguments); } catch (e) { return name === 'onDashboard' ? true : null; }
     };

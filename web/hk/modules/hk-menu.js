@@ -322,10 +322,9 @@
     { title: 'Automations', icon: 'mdi:robot', path: '/config/automation/dashboard', panel: 'config/automation' },
     { title: 'Settings', icon: 'mdi:cog', path: '/config/dashboard', panel: 'config', badge: 'settings' }
   ];
-  // `sidebar` is the host's sidebar data: { user, panels, localize }.
-  // slice 9: needs hkShell.sidebar() -- the panels and their titles are Home
-  // Assistant's own and are not on the client; sidebarSource() below is the
-  // one place that still reads the frontend's object for them.
+  // `sidebar` is the host's sidebar data: { user, panels, localize }
+  // (hkShell.sidebarData(): the panels and their titles are the host's own pages,
+  // not house data, so they come from the shell, not the client).
   function haItems(sidebar, prefs, o) {
     o = o || {};
     prefs = prefs || {};
@@ -383,10 +382,9 @@
     });
   }
 
-  // slice 9: needs hkShell.sidebar() (see haItems). Until then, the frontend's object.
   function sidebarSource() {
-    var C = window.hkCards;
-    return C && C.hass ? C.hass() : null;
+    var SH = window.hkShell;
+    return SH && SH.sidebarData ? SH.sidebarData() : null;
   }
 
   window.hkMenu = { version: '1.1.0', _: { model: model, isHere: isHere, glyph: glyph, chipPaths: chipPaths, pagePaths: pagePaths,

@@ -161,9 +161,9 @@
       ? !!HS.tablet(h) : tabletUser(HS && HS.get ? HS.get('boards', null) : null, h.user.name);
     if (!isTablet) return;
     keptOn = true;
-    // slice 9: needs hkShell.keepAwake to own this check (the frontend's own flag, not on the client)
-    if ((ha.hass || {}).suspendWhenHidden === false) return;
-    SH.keepAwake(ha);                      // (an older Home Assistant: nothing)
+    // (the shell skips it when the host already keeps the page connected;
+    // an older Home Assistant: nothing)
+    SH.keepAwake(ha);
   }
 
   function apply() {

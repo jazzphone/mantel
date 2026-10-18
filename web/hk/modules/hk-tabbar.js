@@ -668,7 +668,7 @@
       // Section), the side menu's own list (hkMenu._.haItems) as it shows
       // folded: Integrations, Automations, Settings, Notifications, Show
       // Menu (Home Assistant's whole sidebar, for the rest) and Profile
-      // slice 9: the sidebar's panels are not on the client (hkMenu._.sidebarSource)
+      // the host's sidebar (hkShell.sidebarData(), through hkMenu._.sidebarSource)
       S.ha = b.ha_row ? H.haItems(H.sidebarSource(), S.haPrefs, { moreOpen: false, sidebarShown: false })
         .filter(function (it) { return it.kind !== 'more'; }) : [];
       if (b.ha_row && S.haPrefs === undefined) loadPrefs();

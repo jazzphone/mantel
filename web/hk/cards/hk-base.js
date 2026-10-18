@@ -1950,6 +1950,13 @@
       clientSeen(value);
       this._receiveClient();
     }
+    // A CLIENT BEFORE A CONFIG, without drawing: for a parent that must hand a
+    // card its client before setConfig (setConfig draws at once). The next
+    // client, or the host's object at the entry, replaces it as usual.
+    adopt(client) {
+      this._clientExplicit = true;
+      this._hkClient = client;
+    }
     _receiveClient() {
       tone(this, this.client);
       track(this);

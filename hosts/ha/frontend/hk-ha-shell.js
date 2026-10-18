@@ -100,11 +100,21 @@
       var m = HA.main();
       if (m) m.dispatchEvent(new global.CustomEvent('hass-show-notifications', { bubbles: true, composed: true }));
     },
-    // keep the websocket while the page is hidden (a wall tablet)
+    // keep the websocket while the page is hidden (a wall tablet); nothing to
+    // ask when the frontend already keeps it (its own suspendWhenHidden flag)
     keepAwake: function (root) {
       var r = root || HA.root();
+      if (r && (r.hass || {}).suspendWhenHidden === false) return;
       if (r) r.dispatchEvent(new global.CustomEvent('hass-suspend-when-hidden', { detail: { suspend: false } }));
     }
+  };
+
+  // the frontend's sidebar data: the user, the panels, and their titles
+  HA.sidebarData = function () {
+    var r = HA.root(), h = r && r.hass;
+    if (!h) return null;
+    return { user: h.user, panels: h.panels,
+             localize: typeof h.localize === 'function' ? function (k) { return h.localize(k); } : null };
   };
 
   global.hkShell.use(HA);
