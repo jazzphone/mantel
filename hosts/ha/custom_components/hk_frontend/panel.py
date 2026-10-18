@@ -592,14 +592,9 @@ async def ws_tablet_act(hass: HomeAssistant, connection: websocket_api.ActiveCon
         connection.send_error(msg["id"], "no_tablet", "There is no such tablet")
         return
     if act == "kiosk_saver":
-        p = tablets.parts(hass, t["app"], t["device"])
-        if p.get("saver_mode"):
-            await hass.services.async_call("select", "select_option",
-                                           {"entity_id": p["saver_mode"], "option": "Black"}, blocking=True)
-        if p.get("saver_timeout"):
-            await hass.services.async_call("number", "set_value",
-                                           {"entity_id": p["saver_timeout"], "value": tablets.SAVER_TIMEOUT},
-                                           blocking=True)
+        from .hk_core.tablets.kiosk import kiosk_saver_calls
+        for domain, service, data in kiosk_saver_calls(tablets.parts(hass, t["app"], t["device"])):
+            await hass.services.async_call(domain, service, data, blocking=True)
         connection.send_result(msg["id"], {"ok": True})
         return
     mgr = screensaver.manager(hass)
