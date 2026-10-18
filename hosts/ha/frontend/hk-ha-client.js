@@ -6,6 +6,8 @@
   var hosts = new WeakMap();      // client -> the host object it was made from
   function from(hass) {
     if (!hass || typeof hass !== 'object') return null;
+    // a client already (a shared caller passing on what it was given): as is
+    if (global.hkClient && global.hkClient.is(hass)) return hass;
     if (clients.has(hass)) return clients.get(hass);
     if (!global.hkClient) throw new Error('HKClient has not loaded');
     var port = {};

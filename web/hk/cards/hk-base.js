@@ -341,7 +341,7 @@
   // another gets them too) and every literal they replace stays the fallback:
   //   var(--hk-ink, rgba(255,255,255,0.94))
   // is today's white wherever the tone is not set -- HK's own screens, a dark
-  // theme, the sky, an overlay. Checked on every hass by tone() (a theme
+  // theme, the sky, an overlay. Checked on every new client by tone() (a theme
   // switched to dark arrives as one): a property read, and nothing written
   // unless it changed. T above is the dark side of the same names.
   var LIGHT = {
@@ -712,7 +712,7 @@
   }
   function syncFlat() {
     FLAT_ROOTS.forEach(function (el) { if (el.isConnected === false) FLAT_ROOTS.delete(el); else flatTone(el); });
-    ON_PAGE.forEach(function (el) { tone(el, el.client || el._hass); markAsleep(el); });
+    ON_PAGE.forEach(function (el) { tone(el, el.client); markAsleep(el); });
   }
 
 
@@ -1278,12 +1278,12 @@
   var NEVER_TOGGLE = { lock: 1, alarm_control_panel: 1, valve: 1, climate: 1, water_heater: 1,
                        siren: 1, vacuum: 1, camera: 1 };
   var DOOR_COVERS = { garage: 1, gate: 1, door: 1 };
-  function neverToggles(hass, id) {
+  function neverToggles(client, id) {
     if (!id || typeof id !== 'string') return false;
     var d = id.split('.')[0];
     if (NEVER_TOGGLE[d]) return true;
     if (d !== 'cover') return false;
-    var st = hass && hass.states && hass.states[id];
+    var st = client && client.states && client.states[id];
     return !!(st && st.attributes && DOOR_COVERS[st.attributes.device_class]);
   }
 
@@ -1728,7 +1728,7 @@
   // card now. So "which modules are loaded" is an input to every card like any
   // entity, and a card is redrawn when that input changes -- not on a timer and
   // not on the hope that some unrelated state changes soon. A card on a cached,
-  // detached view catches up on its next hass, because its _hkGen is behind.
+  // detached view catches up on its next state push, because its _hkGen is behind.
   var GEN = { n: 0 };
   var LIVE = [];
   function track(el) {
@@ -2684,11 +2684,11 @@
         this._config = Object.assign({}, config);
         this._render();
       }
-      set hass(h) {
-        this._hass = h;
-        if (this._form) this._form.hass = h;
+      // each new client (the host adapter's entry, below): HA's ha-form
+      // gets what goes with it through the adapter
+      _onClient(c) {
+        if (this._form) window.hkHostClient.bridge(this._form, c);
       }
-      get hass() { return this._hass; }
 
       _render() {
         if (!this._form) {
@@ -2704,7 +2704,7 @@
           this._form.addEventListener('value-changed', this._changed.bind(this));
           this.appendChild(this._form);
         }
-        this._form.hass = this._hass;
+        window.hkHostClient.bridge(this._form, this.client);
         this._form.schema = schema;
         this._form.data = this._config || {};
       }
@@ -2723,6 +2723,7 @@
       }
     }
 
+    window.hkHostClient.entry(HkConfigEditor);
     customElements.define(etag, HkConfigEditor);
     return etag;
   }
@@ -2742,11 +2743,13 @@
   // and volume slider are an hk-media-control-card on the player's own glass.
   //
   // THE ORDER IS THE WHOLE POINT. A custom element that is not upgraded yet
-  // has no setConfig, and HA's own cards throw if they are handed `hass`
-  // before a config. So: create, wait for the definition if need be, then
-  // setConfig, and only then start forwarding hass. `setHass` is a function on
+  // has no setConfig, and HA's own cards throw if they are handed the frontend's
+  // object before a config. So: create, wait for the definition if need be, then
+  // setConfig, and only then start forwarding. `hkSetClient` is a function on
   // the returned element rather than a plain property assignment so a caller
-  // can hand it hass on every render without knowing whether it is ready yet.
+  // can hand it the client on every render without knowing whether it is ready
+  // yet; what the child gets goes through the host adapter (hkHostClient.bridge).
+  // `hkSetHass` is the same function under its old name, for callers not yet moved.
   function create(cfg) {
     if (!cfg || !cfg.type) return null;
     var t = String(cfg.type);
@@ -2757,13 +2760,15 @@
       try {
         el.setConfig(cfg);
         ready = true;
-        if (pending) { el.hass = pending; pending = null; }
+        if (pending) { window.hkHostClient.bridge(el, pending); pending = null; }
       } catch (e) {
         console.error('[hk] nested card setConfig failed', e, cfg);
       }
     }
-    el.hkSetHass = function (h) {
-      if (ready) el.hass = h; else pending = h;
+    el.hkSetClient = el.hkSetHass = function (source) {
+      var c = asClient(source);
+      if (!c) return;
+      if (ready) window.hkHostClient.bridge(el, c); else pending = c;
     };
     if (typeof el.setConfig === 'function') configure();
     else if (window.customElements && customElements.whenDefined) {
@@ -2899,7 +2904,7 @@
   window.hkCards.px = px;
   window.hkCards.bleedSides = bleedSides;
   window.hkCards.esc = esc;
-  // MONEY in the house's currency (hass.config.currency) and its language --
+  // MONEY in the house's currency (client.config.currency) and its language --
   // never a "$" of our own: the Energy page's Today's Cost and the detail
   // sheet's both come through here
   window.hkCards.money = function (h, v, digits) {
@@ -3205,7 +3210,7 @@
     index();
     // `seen`: the contexts already playing when this focus was chosen, by
     // key -> since. Taken on the first resolve after a change, because a
-    // choice has no hass of its own. Only music NOT in it can pull a screen
+    // choice has no state of its own. Only music NOT in it can pull a screen
     // whose own music has gone quiet.
     var focus = { key: null, at: 0, hold: 0, seen: null };
     // The context this screen is following (rule 3), so a PAUSE does not let
@@ -3262,8 +3267,8 @@
     // happens to match, and it only claims its rooms when every one of them is
     // actually active -- a stale `paused` group must not hide a room that has
     // since started playing something else.
-    function contexts(hass) {
-      var states = (hass && hass.states) || {};
+    function contexts(client) {
+      var states = (client && client.states) || {};
       var seen = {}, out = [];
       function ctx(key, kind, members, st) {
         var a = (st && st.attributes) || {};
@@ -3351,8 +3356,8 @@
     // {player, context, reason, name}. `reason` says which rule answered, so a
     // card -- and a person debugging one -- can tell "you chose this" from
     // "this is what is playing".
-    function resolve(hass) {
-      var ctxs = contexts(hass);
+    function resolve(client) {
+      var ctxs = contexts(client);
       // (only the LAST answer's follow carries over: any other answer ends it)
       var was = follow; follow = null;
       var now = Date.now();
@@ -3522,7 +3527,7 @@
       speakers: function () { return MUSIC.speakers.slice(); },
       rooms: rooms, presets: presets, known: known, isGroup: isGroup,
       nameOf: nameOf, home: home, ignored: ignored, active: active, contexts: contexts, streams: streams, resolve: resolve,
-      player: function (hass) { return resolve(hass).player; },
+      player: function (client) { return resolve(client).player; },
       label: label, setFocus: setFocus, release: release, attach: attach,
       onChange: onChange, focus: function () { return focus.key; },
       configured: function () { return MUSIC.configured; },
@@ -3569,7 +3574,7 @@
   //   button card, else the tab. Phones always get the chip: a 16 px margin
   //   has no room for a tab without covering the tiles.
   // The panel element is kept while it is on the page: the menu's questions
-  // and every room heading's link ask for it on each hass push (three
+  // and every room heading's link ask for it on each state push (three
   // shadow-root lookups a time). A dashboard switch replaces the panel, and
   // the one kept is then off the page and looked for again.
   var panelKept = null;
@@ -3681,7 +3686,7 @@
   }
   // ONE COPY PER SETTINGS VERSION AND DASHBOARD. The menu's questions (sig,
   // style, on, clock...) each ask boardOf again, and the cards ask them on
-  // every hass push: ~95 keys copied a dozen times a push, measured as the
+  // every state push: ~95 keys copied a dozen times a push, measured as the
   // largest HK cost of an idle Home (headless, 6x slower). hk-settings counts
   // every feed it applies (version) and replaces the settings whole, never in
   // place. Callers here only read it; menu.board() hands out a copy. (A

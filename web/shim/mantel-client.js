@@ -6,6 +6,8 @@
   var hosts = new WeakMap();      // client -> the host object it was made from
   function from(snapshot) {
     if (!snapshot || typeof snapshot !== 'object') return null;
+    // a client already (a shared caller passing on what it was given): as is
+    if (global.hkClient && global.hkClient.is(snapshot)) return snapshot;
     if (clients.has(snapshot)) return clients.get(snapshot);
     var port = {};
     ['states', 'entities', 'devices', 'areas', 'floors', 'services', 'config', 'locale', 'language', 'user', 'themes'].forEach(function (key) {
