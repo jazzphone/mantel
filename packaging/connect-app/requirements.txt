@@ -1,0 +1,15 @@
+# Mantel Connect's dependencies for the HA App image, pinned to the versions the test suite ran with
+# (pyproject.toml holds the ranges). All have manylinux wheels for amd64 and aarch64.
+aiohttp==3.14.5
+aiohappyeyeballs==2.7.1
+aiosignal==1.4.0
+attrs==26.1.0
+frozenlist==1.8.0
+multidict==7.1.0
+propcache==0.5.4
+yarl==1.25.1
+idna==3.20
+typing_extensions==4.16.0
+cryptography==50.0.2
+cffi==2.1.1
+pycparser==3.11

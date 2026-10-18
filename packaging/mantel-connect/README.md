@@ -1,4 +1,53 @@
-# Mantel Connect — Phase 0 identity proof
+# Mantel Connect
+
+Mantel Connect puts a **Mantel Server running outside Home Assistant** (Docker, a Proxmox LXC) in HA's
+sidebar and the Companion app. Use it only then: when Mantel runs as the Mantel App
+(`packaging/ha-app/`) it does this itself. Design, protocol, security rules and verification:
+[docs/phase3/CONNECT.md](../../docs/phase3/CONNECT.md).
+
+**Guided pairing replaces the Phase 0 proof's manual key and certificate transfer and foreground receiver.**
+There is nothing to copy by hand, look up or keep open in a terminal.
+
+| Where | What |
+|---|---|
+| `packaging/connect-app/` | The Mantel Connect **HA App** (config, Dockerfile, DOCS, translations). Its code is `hosts/server/mantel_connect/`. |
+| `tools/stage_connect_app.py` | Assembles that App as a local HA App folder, with the same private-content scan as the Mantel App's stager. |
+| `packaging/compose/compose.connect.yaml` | Turns Connect on in the Docker/LXC stack: one published TLS port, 8766. The "receiver" is Mantel Server itself, a persistent service under compose (`restart: unless-stopped`, healthcheck), so no separate process runs in a terminal. |
+| `hosts/server/mantel_server/connect_pairing.py` | Mantel's side: pairing codes, the private Connect CA, the mutual-TLS listener, revocation, renewal, `mantel connect ...`, `/admin` Connect. |
+
+## Install, in four steps
+
+```bash
+# 1. Mantel with Connect on (Docker/LXC). In packaging/compose/.env:
+#      COMPOSE_FILE=compose.yaml:compose.connect.yaml
+#      MANTEL_CONNECT_ADDRESS=<this host>:8766        # only what /admin shows you to type
+#    (the LXC script does this with var_connect=yes), then:
+docker compose up -d --wait
+
+# 2. The Connect App in HA (on the Mac; the target is HA's local apps share, never a path inside the repo):
+~/.venvs/mantel/bin/python tools/stage_connect_app.py --dry-run
+~/.venvs/mantel/bin/python tools/stage_connect_app.py <local apps share>/mantel_connect
+#    then in HA: refresh the App store, install "Mantel Connect" from Local apps (protection mode stays on).
+
+# 3. Pair: /admin, Connect, Start pairing   (or:)
+docker compose exec mantel-server mantel connect pair --address <this host>:8766
+#    -> a one-time code, valid ten minutes
+
+# 4. HA: Settings, Apps, Mantel Connect, Configuration: enter the address and the code, Save, Restart.
+#    Open "Mantel" in the sidebar. The first HA administrator is offered the Owner role.
+```
+
+Revoke in `/admin` (Connect) or `mantel connect revoke --id <id>`; re-pair with a new code. Renewal of
+certificates is automatic (90-day certificates, renewed 30 days ahead, on both sides). If the sidebar
+shows a plain page instead of Mantel, it says why (wrong or expired code, Mantel not reachable, revoked);
+the App's `/healthz` is its watchdog. `mantel connect status|list|cancel` show and withdraw state.
+
+Tests: `~/.venvs/mantel/bin/python -m pytest tests/test_connect_pairing.py tests/test_stage_connect_app.py -q`.
+
+---
+
+# Phase 0 identity proof (kept for reference; not the installer)
+
 
 **Built/tested locally; live HA installation and Ingress → Owner mapping confirmed by Avery. Avery also confirmed Companion app access over cellular; the Phase 0 identity proof passed.**
 Avery selected existing LXC 103 (`mantel-proof4`) for the receiver. Do not destroy it yet.
@@ -103,8 +152,8 @@ Avery confirmed the installed App displays his name and role `owner`. The receiv
 running in LXC 103 at `https://192.168.2.113:8766`. Avery subsequently confirmed the Companion app page also works over cellular through
 the existing HA remote connection. This completes the Phase 0 identity proof.
 
-The finished installer must replace these manual transfers with guided pairing, automated
-credential/certificate provisioning and renewal, and a persistent receiver service.
+The installer that replaces these manual transfers (guided pairing, automatic credentials and certificate
+renewal, a persistent service) is the section above and docs/phase3/CONNECT.md.
 
 
 - Record HA Core/Supervisor versions and whether the App builds/starts with protection on.

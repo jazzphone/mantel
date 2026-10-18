@@ -5,7 +5,9 @@ signed-in HA user to every request (``X-Remote-User-Id`` / ``-Name`` / ``-Displa
 prefix (``X-Ingress-Path: /api/hassio_ingress/<token>``). This module turns that into Mantel's identity.
 
 * **Unforgeable.** The headers are believed ONLY when ``cfg.ingress`` is on AND the socket peer is one
-  of ``cfg.ingress_peers`` (default ``172.30.32.2``, the Supervisor on the hassio network). Never a
+  of ``cfg.ingress_peers`` (default ``172.30.32.2``, the Supervisor on the hassio network) OR the request
+  is a paired Mantel Connect App's (client certificate checked against the pairings, connect_pairing.py:
+  Mantel running outside HA). Never a
   forwarded-for header, never anyone else: from any other peer they are ignored and logged, and with
   ``cfg.ingress_only`` (the App's setting) such a request is refused outright (health checks excepted).
 * **Linked users only** (PLAN §5). The HA user id maps through P3.1's ``ha_links`` to a Mantel user and
@@ -92,8 +94,11 @@ def is_ingress(request: web.Request) -> bool:
     if cached is not None:
         return cached
     cfg = request.app.get("cfg")
+    # Two ways to be the Ingress proxy: the Supervisor's socket address (HA App mode), or a paired Mantel
+    # Connect App that connect_pairing.py has just authenticated by client certificate on its own listener
+    # (Mantel outside HA). Nothing else, ever.
     got = bool(getattr(cfg, "ingress", False)) and request.remote is not None \
-        and request.remote in tuple(getattr(cfg, "ingress_peers", ()) or ())
+        and (request.get("connect_peer") is not None or request.remote in tuple(getattr(cfg, "ingress_peers", ()) or ()))
     request["ingress"] = got
     return got
 
@@ -670,5 +675,8 @@ def register(app: web.Application, hub=None, token: str | None = None) -> None:
     app.router.add_get("/ingress/people", people_get)
     app.router.add_post("/ingress/people", people_post)
     app.router.add_post("/ingress/import-settings", import_settings_post)
+    who = ", ".join(cfg.ingress_peers)
+    if getattr(cfg, "connect", False):
+        who = (who + " and " if who else "") + "paired Mantel Connect Apps (client certificate)"
     log.info("HA App mode: identity from Ingress, believed only from %s%s; door 'ha' uses the %s rules",
-             ", ".join(cfg.ingress_peers), " (Ingress only)" if cfg.ingress_only else "", cfg.ha_door_rules)
+             who, " (Ingress only)" if cfg.ingress_only else "", cfg.ha_door_rules)

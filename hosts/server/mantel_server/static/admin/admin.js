@@ -8,7 +8,7 @@ import { credentialJSON, passkeysAvailable, toCreation, toRequest } from '../web
 const ROLE_LABEL = { owner: 'Owner', admin: 'Admin', adult: 'Adult', child: 'Child', guest: 'Guest',
                      wall_tablet: 'Wall tablet', service: 'Service' };
 const SECTION_LABEL = { me: 'Me', people: 'People', devices: 'Devices', roles: 'Roles & grants',
-                        service: 'Service accounts', audit: 'Audit' };
+                        service: 'Service accounts', connect: 'Connect', audit: 'Audit' };
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const ERRORS = {
   invalid_credentials: 'That did not match.',
@@ -692,6 +692,68 @@ function renderService(root) {
 }
 
 // ============================================================================================================
+// Connect (Home Assistant's sidebar, when Mantel runs outside Home Assistant)
+// ============================================================================================================
+function renderConnect(root) {
+  const codeBox = h('div', { id: 'code-slot' });
+  const list = live('p-connect', 'Paired Apps', async (reload) => {
+    const got = await api('GET', '/api/connect');
+    const active = got.pairings.filter((p) => !p.revoked);
+    const gone = got.pairings.filter((p) => p.revoked);
+    const row = (p) => item([
+      head(h('b', null, p.name), p.revoked && badge('revoked', 'bad')),
+      meta(`paired ${fmt(p.created)} · last seen ${ago(p.last_seen)}${p.last_ip ? ' from ' + p.last_ip : ''} · certificate until ${fmt(p.cert_expires)}`),
+    ], p.revoked ? null : btn('Revoke', async () => {
+      if (!(await confirmDialog('Revoke ' + p.name + '?', 'The Mantel Connect App is cut off at once and its open connections are closed. To use Mantel in Home Assistant again you pair it anew.', 'Revoke', true))) return;
+      if (await run(() => api('DELETE', '/api/connect/pairings/' + encodeURIComponent(p.id)), 'Connection revoked.')) reload();
+    }, 'danger', 'revoke-connect'), p.revoked ? 'off' : '');
+    return [active.length ? h('ul', { class: 'list' }, active.map(row)) : note('Nothing is paired yet.'),
+            gone.length ? [h('h3', null, 'Revoked'), h('ul', { class: 'list' }, gone.map(row))] : null];
+  });
+  const address = h('input', { name: 'connect-address', maxlength: 100, autocomplete: 'off', autocapitalize: 'none',
+                               value: `${location.hostname}:${state.me.connect_port}` });
+  const start = h('button', { class: 'btn primary', type: 'button', 'data-act': 'start-pairing', onclick: async () => {
+    const r = await run(() => api('POST', '/api/connect/pair', {}));
+    if (!r) return;
+    const left = h('span', null);
+    const tick = () => { left.textContent = r.expires - nowS() > 0 ? Math.ceil((r.expires - nowS()) / 60) + ' min left' : 'expired'; };
+    tick();
+    const dismiss = h('button', { class: 'btn', type: 'button', 'data-act': 'dismiss-code', onclick: async () => {
+      await run(() => api('DELETE', '/api/connect/pair'));
+      codeBox.replaceChildren();
+    } }, 'Withdraw this code');
+    const copy = h('button', { class: 'btn', type: 'button', 'data-act': 'copy-code', onclick: async () => {
+      try { await navigator.clipboard.writeText(r.code); say('Copied.', 'ok'); } catch (e) { say('Select the code and copy it by hand.', 'err'); }
+    } }, 'Copy code');
+    codeBox.replaceChildren(h('section', { class: 'panel token', id: 'p-code' }, h('h3', null, 'Pairing code'),
+      h('code', { class: 'secret', id: 'pairing-code' }, r.code), h('p', { class: 'muted' }, 'Valid once, for ', left, '.'),
+      note('In Home Assistant open Settings, Apps, Mantel Connect, Configuration. Enter this Mantel address and the code, press Save, then Restart the App:', ''),
+      h('code', { class: 'secret', id: 'pairing-address' }, address.value.trim()),
+      h('div', { class: 'acts' }, copy, dismiss)));
+    // while the code is on screen, notice when it is spent (paired) or has expired
+    const timer = setInterval(async () => {
+      if (!document.getElementById('p-code')) { clearInterval(timer); return; }
+      tick();
+      try {
+        const got = await api('GET', '/api/connect');
+        if (!got.pending) {
+          clearInterval(timer);
+          const paired = got.pairings.some((p) => !p.revoked && p.created >= r.expires - got.ttl - 1);
+          codeBox.replaceChildren(note(paired ? 'Paired. The code is spent.' : 'The code expired or was withdrawn.', 'status ' + (paired ? 'ok' : '')));
+          list.reload();
+        }
+      } catch (e) { /* the next tick tries again */ }
+    }, 4000);
+    list.reload();
+  } }, 'Start pairing');
+  root.append(h('h2', null, 'Connect'),
+    note('Mantel Connect puts Mantel in Home Assistant\'s sidebar and the Companion app when Mantel runs outside Home Assistant. Install the Mantel Connect App in Home Assistant, then pair it here: you get a one-time code that works for ten minutes. Home Assistant signs people in; their Mantel roles still decide what they see. Managed on the home network only.', 'muted small'),
+    h('section', { class: 'panel', id: 'p-pair' }, h('h3', null, 'Pair the Mantel Connect App'),
+      field('The address Home Assistant should use to reach Mantel', address), h('div', { class: 'acts' }, start)),
+    codeBox, list);
+}
+
+// ============================================================================================================
 // Audit
 // ============================================================================================================
 function renderAudit(root) {
@@ -778,7 +840,7 @@ function renderAudit(root) {
 // ============================================================================================================
 // Shell
 // ============================================================================================================
-const RENDER = { me: renderMe, people: renderPeople, devices: renderDevices, roles: renderRoles, service: renderService, audit: renderAudit };
+const RENDER = { me: renderMe, people: renderPeople, devices: renderDevices, roles: renderRoles, service: renderService, connect: renderConnect, audit: renderAudit };
 
 function renderSection(name) {
   if (state.enrolled) return;

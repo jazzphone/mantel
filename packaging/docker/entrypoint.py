@@ -15,6 +15,11 @@ Docker / Proxmox LXC (compose)   settings from MANTEL_* environment variables (n
     MANTEL_TRUSTED_PROXY   compose    Caddy's fixed backend address (172.31.251.2), comma list of IPs:
                                       passed as --trusted-proxy so Caddy's X-Mantel-Door: lan is believed
     MANTEL_DEFAULT_SCREEN, MANTEL_SESSION_HOURS   optional
+    MANTEL_CONNECT         optional   1/yes turns on Mantel Connect (packaging/compose/compose.connect.yaml sets
+                                      it): a second TLS listener on 8766 for the Connect App in HA's sidebar,
+                                      pairing (`mantel connect pair`; /admin -> Connect), and the 'ha' door's rules
+                                      (MANTEL_HA_DOOR_RULES, default trusted). MANTEL_CONNECT_ADDRESS is only
+                                      what /admin shows the Owner to type into the App. docs/phase3/CONNECT.md.
 
 Home Assistant App (add-on)      recognised by SUPERVISOR_TOKEN in the environment plus /data/options.json.
                                  The built-in App credential is HA's own SUPERVISOR_TOKEN: it is moved into a
@@ -50,7 +55,7 @@ import os
 import sys
 from pathlib import Path
 
-ADMIN_COMMANDS = {"link", "unlink", "links", "session", "connect-proof", "bootstrap", "import-settings",
+ADMIN_COMMANDS = {"link", "unlink", "links", "session", "connect-proof", "connect", "bootstrap", "import-settings",
                   "service-account", "backup", "restore", "import-files"}
 # what each admin command takes besides --data-dir, filled from the container's own settings when absent
 ADMIN_EXTRAS = {
@@ -118,6 +123,21 @@ def container_args(env: dict[str, str]) -> list[str]:
         args += ["--screen", env["MANTEL_DEFAULT_SCREEN"]]
     if env.get("MANTEL_SESSION_HOURS"):
         args += ["--session-hours", env["MANTEL_SESSION_HOURS"]]
+    args += connect_args(env)
+    return args
+
+
+def connect_args(env: dict[str, str]) -> list[str]:
+    """Mantel Connect (Mantel outside HA, reached by the Connect App): off unless MANTEL_CONNECT is yes."""
+    if env.get("MANTEL_CONNECT", "").strip().lower() not in ("1", "yes", "true", "on"):
+        return []
+    rules = env.get("MANTEL_HA_DOOR_RULES", "trusted").strip().lower()
+    if rules not in DOOR_RULES:
+        raise ConfigError(f"MANTEL_HA_DOOR_RULES must be one of {', '.join(DOOR_RULES)}, not {rules!r}")
+    args = ["--connect", "--connect-listen", env.get("MANTEL_CONNECT_LISTEN", "0.0.0.0"),
+            "--connect-port", env.get("MANTEL_CONNECT_INTERNAL_PORT", "8766"), "--ha-door-rules", rules]
+    if env.get("MANTEL_CONNECT_ADDRESS"):
+        args += ["--connect-address", env["MANTEL_CONNECT_ADDRESS"]]
     return args
 
 

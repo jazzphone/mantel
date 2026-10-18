@@ -83,6 +83,9 @@ def plan() -> list[tuple[Path, str]]:
     pairs = [(APP_SRC / name, name) for name in APP_FILES]
     pairs.append((ROOT / "packaging/docker/entrypoint.py", "app/entrypoint.py"))
     pairs += _tree(ROOT / "hosts/server/mantel_server", "app/hosts/server/mantel_server")
+    # mantel_server.connect_pairing imports the pairing protocol (Mantel Connect, for a Mantel outside HA);
+    # the code is imported by every server, so it ships in every image, switched off
+    pairs += _tree(ROOT / "hosts/server/mantel_connect", "app/hosts/server/mantel_connect")
     pairs += _tree(ROOT / "hk_core", "app/hk_core", keep=lambda p: p.suffix in (".py", ".md", ".json"))
     bs = _load_build_static()
     web = ROOT / "web"

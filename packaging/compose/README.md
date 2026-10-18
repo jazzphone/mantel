@@ -8,6 +8,7 @@ Full description, findings and the exact commands to verify it: `docs/phase3/PAC
 |---|---|
 | `compose.yaml` | The stack. Plain YAML subset (no anchors) so `tools/package_check.py` can verify the hardening. |
 | `compose.gpu.yaml` | Adds `/dev/dri` to the transcode. Enable with `COMPOSE_FILE=compose.yaml:compose.gpu.yaml` in `.env` where the host has an iGPU. |
+| `compose.connect.yaml` | Mantel Connect: one more published port (8766, TLS, client certificates) for the Connect App in Home Assistant's sidebar. Enable with `COMPOSE_FILE=compose.yaml:compose.connect.yaml`, then `docker compose exec mantel-server mantel connect pair`. See `docs/phase3/CONNECT.md`. |
 | `.env.example` | Settings only, **no secrets**. Copy to `.env` (git-ignored). |
 | `secrets/README.md` | The secret files (`/etc/hk/secrets/...`), their owner/mode and how to create them. |
 | `caddy/Caddyfile`, `tls-dns01.caddy`, `tls-internal.caddy` | LAN door with TLS (DNS-01 or Caddy's own CA), tunnel door, headers, CSP. |

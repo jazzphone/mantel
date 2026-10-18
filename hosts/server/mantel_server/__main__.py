@@ -108,6 +108,9 @@ def main(argv: list[str] | None = None) -> int:
     if argv and argv[0] == "service-account":
         from .service_accounts import cli as service_cli
         return service_cli(argv[1:])
+    if argv and argv[0] == "connect":
+        from .connect_pairing import cli as connect_cli
+        return connect_cli(argv[1:])
     if argv and argv[0] == "connect-proof":
         from .connect_proof import main as connect_main
         return connect_main(argv[1:])
@@ -126,7 +129,15 @@ def main(argv: list[str] | None = None) -> int:
     mode = ("COMMANDS ENABLED (roles, step-up and an audit row for every command)" if cfg.commands_enabled
             else "read-only; commands disabled")
     print(f"mantel-server: {cfg.base_url}login  (listening on {cfg.host}:{cfg.port}; {mode})", flush=True)
-    web.run_app(app, host=cfg.host, port=cfg.port, print=None)
+    if cfg.connect:
+        import asyncio
+
+        from .connect_pairing import serve
+        print(f"mantel-server: Mantel Connect listens on {cfg.connect_listen}:{cfg.connect_port} (TLS, client certificates)",
+              flush=True)
+        asyncio.run(serve(app, cfg))
+    else:
+        web.run_app(app, host=cfg.host, port=cfg.port, print=None)
     return 0
 
 
