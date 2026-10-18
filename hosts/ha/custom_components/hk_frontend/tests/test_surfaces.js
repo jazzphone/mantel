@@ -19,7 +19,7 @@ var EXCEPT = [
   // glyphs over the Music page's artwork tint: white, like the art's own text
   ['hk-music.js', /var\(--hk-glyph,#fff\)/, 'over the artwork'],
   // a glyph standing in for missing artwork: quiet on purpose
-  ['hk-music.js', /\.(art|nx \.th|mini \.th|cx \.th) (ha-icon|svg)/, 'artwork placeholder'],
+  ['hk-music.js', /\.(art|nx \.th|mini \.th|cx \.th) (hk-icon|svg)/, 'artwork placeholder'],
   ['hk-library.js', /color:var\(--hk-glyph,rgba\(255,255,255,0\.(45|7|8)\)\)/, 'artwork placeholder'],
   ['hk-media.js', /color:var\(--hk-glyph,rgba\(255,255,255,0\.7\)\)/, 'artwork placeholder'],
   // the volume row's speaker glyphs, quieter than the controls

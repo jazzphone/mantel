@@ -57,7 +57,7 @@
   }
   function drawNoMusic(card) {
     card._root.innerHTML = '';
-    var el = document.createElement('ha-card');
+    var el = document.createElement('hk-plate');
     el.setAttribute('data-hk-role', 'no-music');
     el.style.cssText = 'display:block;padding:24px;box-sizing:border-box;border-radius:' + M.radius + ';' +
       M.glass + ';border:' + M.border + ';text-align:center;font-size:15px;line-height:1.4;' +
@@ -204,7 +204,7 @@
       L + '.mproom{background:var(--hk-glass-plate)}',
       L + '.mproom.sel{background:var(--hk-key)}',
       L + '.mproom .ri{background:var(--hk-key-strong)}',
-      L + '.mproom .ri ha-icon,' + L + '.mppill ha-icon{color:var(--hk-glyph)}',
+      L + '.mproom .ri hk-icon,' + L + '.mppill hk-icon{color:var(--hk-glyph)}',
       L + '.mproom .mpck{box-shadow:inset 0 0 0 2px var(--hk-line-strong)}',
       L + '.mproom.sel .mpck{background:var(--hk-ink)}',
       L + '.mproom.sel .mpck svg{fill:var(--hk-flat-elevated)}',
@@ -219,7 +219,7 @@
       L + '.mpvs .tr b{box-shadow:0 1px 4px rgba(28,26,22,.3)}',
       L + '.mppill{background:var(--hk-key)}',
       L + '.mppill.on{background:var(--hk-ink);color:var(--hk-flat-elevated)}',
-      L + '.mppill.on ha-icon{color:var(--hk-flat-elevated)}',
+      L + '.mppill.on hk-icon{color:var(--hk-flat-elevated)}',
       L + '.mpmini .ia,' + L + '.mpq .th{background-color:var(--hk-key)}',
       L + '.mpmini .b{background:var(--hk-key)}',
       L + '.mpmini .b svg{fill:var(--hk-ink)}',
@@ -232,7 +232,7 @@
 
   var CSS = [
     ':host{display:block}',
-    'ha-card{background:none;box-shadow:none;border:none;padding:0;position:relative}',
+    'hk-plate{background:none;box-shadow:none;border:none;padding:0;position:relative}',
     // (its one row exactly the page's height below the title: an auto row
     // grew to everything Browse holds, so Browse never scrolled in itself --
     // a finger on it moved nothing; a wheel moved the whole page)
@@ -266,7 +266,7 @@
     // PLAYING ON: as tall as the search beside it and level with it; Change
     // a button inside it, inset 7 px and concentric with it (18 - 7 = 11)
     '.pon{flex:none;display:flex;align-items:center;gap:10px;height:50px;padding:0 7px 0 14px;border-radius:18px;margin-bottom:14px;box-sizing:border-box}',
-    '.pon ha-icon{--mdc-icon-size:22px;width:22px;height:22px;color:var(--hk-glyph,#fff);flex:none;display:flex}',
+    '.pon hk-icon{--mdc-icon-size:22px;width:22px;height:22px;color:var(--hk-glyph,#fff);flex:none;display:flex}',
     '.pon .tx{flex:1;min-width:0;line-height:1.2}',
     '.pon .tx small{display:block;font-size:11px;font-weight:600;letter-spacing:0.4px;opacity:.6;text-transform:uppercase}',
     '.pon .tx b{display:block;font-size:15px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
@@ -288,7 +288,7 @@
     '.cx.on{background:' + window.hkCards.v('key-strong') + ';box-shadow:inset 0 0 0 1.5px var(--hk-mark,rgba(255,255,255,.55));cursor:default}',
     '.cx .th{width:40px;height:40px;border-radius:8px;background:' + window.hkCards.v('key') + ';flex:none;overflow:hidden;display:flex;align-items:center;justify-content:center}',
     '.cx .th img{width:100%;height:100%;object-fit:cover;display:block}',
-    '.cx .th ha-icon,.cx .th svg{--mdc-icon-size:20px;width:20px;height:20px;fill:var(--hk-glyph,rgba(255,255,255,.5));color:var(--hk-glyph,rgba(255,255,255,.5))}',
+    '.cx .th hk-icon,.cx .th svg{--mdc-icon-size:20px;width:20px;height:20px;fill:var(--hk-glyph,rgba(255,255,255,.5));color:var(--hk-glyph,rgba(255,255,255,.5))}',
     '.cx .t{flex:1;min-width:0;line-height:1.2}',
     '.cx .t b{display:block;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
     '.cx .t small{display:block;font-size:12px;opacity:.7;white-space:nowrap;overflow:hidden}',
@@ -315,7 +315,7 @@
     // Tinted's, the glass cards' -- the user, 2026-10-17)
     '  box-shadow:var(--hk-look-shadow,' + window.hkCards.v('glass-shadow-lg') + ');display:flex;align-items:center;justify-content:center}',
     '.art img{width:100%;height:100%;object-fit:cover;display:block}',
-    '.art ha-icon{--mdc-icon-size:72px;width:72px;height:72px;color:var(--hk-glyph,rgba(255,255,255,.4))}',
+    '.art hk-icon{--mdc-icon-size:72px;width:72px;height:72px;color:var(--hk-glyph,rgba(255,255,255,.4))}',
     '.tt{font-size:26px;font-weight:700;letter-spacing:-.3px;margin-top:18px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:none}',
     '.st{font-size:17px;opacity:.75;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:none}',
     '.prog{margin-top:16px;flex:none}',
@@ -331,9 +331,9 @@
     '.tr .x{width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;',
     '  box-shadow:inset 0 0 0 1.5px ' + window.hkCards.v('mark') + ';background:' + window.hkCards.v('key') + '}',
     '.tr .x svg{width:21px;height:21px;fill:var(--hk-glyph,#fff)}',
-    '.tr .x ha-icon{--mdc-icon-size:22px;width:22px;height:22px;color:var(--hk-glyph,#fff);display:flex}',
+    '.tr .x hk-icon{--mdc-icon-size:22px;width:22px;height:22px;color:var(--hk-glyph,#fff);display:flex}',
     '.tr .x.on{background:#fff;box-shadow:none}',
-    '.tr .x.on svg{fill:#1d1426}.tr .x.on ha-icon{color:#1d1426}',
+    '.tr .x.on svg{fill:#1d1426}.tr .x.on hk-icon{color:#1d1426}',
     '.tr .x.gone{visibility:hidden}',
     // FLAT: the empty art and the Speakers and Queue buttons sit on the page
     // itself, so they are raised as the playlist pills beside them are -- the
@@ -395,7 +395,7 @@
     '.mini .pp{width:44px;height:44px;display:flex;align-items:center;justify-content:center;flex:none;cursor:pointer}',
     '.mini .pp svg{width:26px;height:26px;fill:var(--hk-glyph,#fff)}',
     '.mini .rb{width:44px;height:44px;border-radius:50%;background:' + window.hkCards.v('key') + ';display:flex;align-items:center;justify-content:center;flex:none;cursor:pointer}',
-    '.mini .rb ha-icon{--mdc-icon-size:22px;width:22px;height:22px;color:var(--hk-glyph,#fff);display:flex}',
+    '.mini .rb hk-icon{--mdc-icon-size:22px;width:22px;height:22px;color:var(--hk-glyph,#fff);display:flex}',
 
     '.toast{position:absolute;left:50%;bottom:20px;transform:translate(-50%,10px);background:rgba(255,255,255,.96);color:#111;font-weight:600;',
     '  font-size:14px;padding:10px 18px;border-radius:99px;opacity:0;transition:opacity .25s,transform .25s;pointer-events:none;z-index:30;',
@@ -578,17 +578,17 @@
     _build() {
       var self = this;
       this._root.innerHTML =
-        '<ha-card><div class="mu">' +
+        '<hk-plate><div class="mu">' +
           '<section class="left">' +
             '<div class="grab" role="button" aria-label="Close Now Playing"></div>' +
-            '<div class="pon glass"><ha-icon icon="hk:homepod"></ha-icon><div class="tx"><small></small><b></b></div>' +
+            '<div class="pon glass"><hk-icon icon="hk:homepod"></hk-icon><div class="tx"><small></small><b></b></div>' +
               '<button class="chg" data-k="change">Change</button></div>' +
             '<div class="house"></div>' +
             '<div class="front">' +
-              '<div class="artbox"><div class="art"><ha-icon icon="mdi:music"></ha-icon></div></div>' +
+              '<div class="artbox"><div class="art"><hk-icon icon="mdi:music"></hk-icon></div></div>' +
               '<div class="tt"></div><div class="st"></div>' +
               '<div class="prog"><div class="b"><i></i></div><div class="t"><span></span><span></span></div></div>' +
-              '<div class="tr"><div class="x" data-k="speakers" role="button" aria-label="Speakers"><ha-icon icon="hk:homepod"></ha-icon></div>' +
+              '<div class="tr"><div class="x" data-k="speakers" role="button" aria-label="Speakers"><hk-icon icon="hk:homepod"></hk-icon></div>' +
                 '<div class="p" data-k="previous" role="button" aria-label="Previous">' + svg(ICON.prev) + '</div>' +
                 '<div class="p big" data-k="play_pause" role="button" aria-label="Play or pause">' + svg(ICON.play) + '</div>' +
                 '<div class="p" data-k="next" role="button" aria-label="Next">' + svg(ICON.next) + '</div>' +
@@ -599,9 +599,9 @@
           '</section>' +
           '<section class="right"><div class="mini"><div class="th" data-k="now">' + svg(ICON.note) + '</div><div class="t" data-k="now"><b></b><small></small></div>' +
             '<div class="pp" data-k="play_pause" role="button" aria-label="Play or pause">' + svg(ICON.play) + '</div>' +
-            '<div class="rb" data-k="speakers" role="button" aria-label="Speakers"><ha-icon icon="hk:homepod"></ha-icon></div></div></section>' +
+            '<div class="rb" data-k="speakers" role="button" aria-label="Speakers"><hk-icon icon="hk:homepod"></hk-icon></div></div></section>' +
           '<section class="rooms"></section>' +
-        '</div><div class="scrim"></div><div class="toast"></div></ha-card>';
+        '</div><div class="scrim"></div><div class="toast"></div></hk-plate>';
       var q = this._root.querySelector.bind(this._root);
       if (this._ro) this._ro.observe(q('.artbox'));
       // the page's font, once it has loaded (measured before, a name was cut)
@@ -812,8 +812,8 @@
       }
       if (pic !== this._artUrl) {
         this._artUrl = pic;
-        e.art.innerHTML = '<ha-icon icon="mdi:music"></ha-icon>';
-        if (pic) { var box = e.art; box.innerHTML = ''; this._artImage(pic, box, '<ha-icon icon="mdi:music"></ha-icon>', 700); }
+        e.art.innerHTML = '<hk-icon icon="mdi:music"></hk-icon>';
+        if (pic) { var box = e.art; box.innerHTML = ''; this._artImage(pic, box, '<hk-icon icon="mdi:music"></hk-icon>', 700); }
       }
       e.tt.textContent = c ? (c.title || a.media_title || this._label()) : 'Nothing Playing';
       e.st.textContent = c ? [c.artist || a.media_artist, a.media_album_name].filter(Boolean).join(' · ') : 'Pick a playlist, or search, to start';
@@ -1214,7 +1214,7 @@
         if (this._routeBtn.__t !== ri) { this._routeBtn.innerHTML = ri; this._routeBtn.__t = ri; }
       }
       if (this._noteEl) {
-        var note = set ? '<ha-icon icon="mdi:volume-high"></ha-icon><span>' + esc(keep.length ? (c.title || Mu.label(c)) + ' keeps playing on ' + this._roomsLabel(keep) + '.'
+        var note = set ? '<hk-icon icon="mdi:volume-high"></hk-icon><span>' + esc(keep.length ? (c.title || Mu.label(c)) + ' keeps playing on ' + this._roomsLabel(keep) + '.'
                                                                                          : (c.title || Mu.label(c)) + ' stops: your next pick replaces it.') + '</span>' : '';
         if (this._noteEl.__t !== note) { this._noteEl.innerHTML = note; this._noteEl.__t = note; }
       }
@@ -1226,7 +1226,7 @@
       var html = '<div class="yph"><h3>Your Playlists</h3></div><div class="grid cats">';
       pls.forEach(function (p, i) {
         var open = self._openOpts === p.name, busy = self._busyPl === p.name;
-        html += '<div class="it cat tile' + (open ? ' on' : '') + (busy ? ' busy' : '') + '" data-pl="' + i + '"><div class="well"><ha-icon icon="' + esc(p.icon || 'mdi:playlist-music') + '"></ha-icon></div>' +
+        html += '<div class="it cat tile' + (open ? ' on' : '') + (busy ? ' busy' : '') + '" data-pl="' + i + '"><div class="well"><hk-icon icon="' + esc(p.icon || 'mdi:playlist-music') + '"></hk-icon></div>' +
                 '<div class="txt">' + esc(p.name) + '</div></div>';
         if (open && p.options) html += '<div class="opts">' + p.options.map(function (o, j) { return '<div class="opt" data-opt="' + i + ':' + j + '">' + esc(o.name) + '</div>'; }).join('') + '</div>';
       });
@@ -1243,7 +1243,7 @@
         el.classList.toggle('set', set);
         el.setAttribute('aria-label', (set ? 'Next plays on ' : 'Plays on ') + nl + '. Change');
       }
-      return '<ha-icon icon="hk:homepod"></ha-icon><span class="full"><span>' + (set ? 'Next plays on' : 'Plays on') + '</span><b>' + esc(nl) + '</b></span>' +
+      return '<hk-icon icon="hk:homepod"></hk-icon><span class="full"><span>' + (set ? 'Next plays on' : 'Plays on') + '</span><b>' + esc(nl) + '</b></span>' +
              '<span class="num">' + n + '</span>' +
              (set ? '<i class="rx" role="button" aria-label="Back to what is playing"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></i>'
                   : '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>');
@@ -1275,7 +1275,7 @@
       if (this._cols === 3) { this._openPanel('speakers'); return; }
       this._closePick();
       this._closePanel(false);
-      var card = this._root.querySelector('ha-card');
+      var card = this._root.querySelector('hk-plate');
       var scrim = document.createElement('div'); scrim.className = 'pkscrim';
       var box = document.createElement('div'); box.className = 'pk';
       var cr = card.getBoundingClientRect(), ar = (anchor || card).getBoundingClientRect();
@@ -1346,7 +1346,7 @@
       p.el.classList.add('up');
       var me = this._pnl = { p: p, sheet: sheet };
       if (sheet) {
-        this._root.querySelector('ha-card').appendChild(p.el);
+        this._root.querySelector('hk-plate').appendChild(p.el);
         p.size(window.innerWidth, Math.min(640, window.innerHeight * 0.86), 1);
         p.show(tab);
         this._e.scrim.classList.add('on');

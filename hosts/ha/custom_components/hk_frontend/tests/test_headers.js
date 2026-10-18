@@ -273,7 +273,7 @@ H.run('page headers', [
       card.hass = hass();
       var html2 = drawn(card);
       H.ok('a close folds into its open: "Front Door closed · Open for 4 seconds"', html2.indexOf('Front Door closed') > 0 && html2.indexOf('Open for 4 seconds') > 0, html2.slice(-600));
-      H.ok('each row has its glyph', (html2.match(/class="ar"[^>]*><ha-icon class="gl"/g) || []).length === 2 && html2.indexOf('hk:door-closed') > 0 && html2.indexOf('hk:lock"') > 0, html2.slice(-900));
+      H.ok('each row has its glyph', (html2.match(/class="ar"[^>]*><hk-icon class="gl"/g) || []).length === 2 && html2.indexOf('hk:door-closed') > 0 && html2.indexOf('hk:lock"') > 0, html2.slice(-900));
       // EXPAND: the open keeps its own row; the close still says how long
       H.ok('grouped: an Expand button', html2.indexOf('data-expand') > 0 && html2.indexOf('>Expand<') > 0);
       card._setExpanded(true);
@@ -339,6 +339,6 @@ H.run('page headers', [
     var k = H.make('hk-alarm-keypad-card');
     k.setConfig({ type: 'custom:hk-alarm-keypad-card', entity: 'alarm_control_panel.house', boxed: true, entries: ['binary_sensor.door'] });
     k.hass = house.hass();
-    H.ok('its own plate, titled', !!k._root.querySelector('ha-card.kp') || /kp/.test(JSON.stringify(Object.keys(k._root))), 'boxed');
+    H.ok('its own plate, titled', !!k._root.querySelector('hk-plate.kp') || /kp/.test(JSON.stringify(Object.keys(k._root))), 'boxed');
   }
 ]);

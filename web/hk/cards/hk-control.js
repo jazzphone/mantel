@@ -15,7 +15,7 @@
 // WHAT DIFFERS, AND WHY (each line is a measurement or a bug):
 //   1. class + element renamed (HkControlCard / hk-control-card) so both can
 //      be registered side by side.
-//   2. Glyph centring. Sizing the ha-icon box (23px / 21px) without pinning
+//   2. Glyph centring. Sizing the hk-icon box (23px / 21px) without pinning
 //      --mdc-icon-size to match renders the internal SVG at whatever the
 //      inherited default is, overflowing its own box -- +2.5px on BOTH axes
 //      in a 57px disc, the signature of a centred box with an oversized
@@ -204,8 +204,8 @@ class HkControlCard extends HTMLElement {
       /* the name and the value 8 px apart, not 12: three sliders across a
          932 px page left "Charging Speed" 3 px short beside "2.5 kW" */
       .head .titles{margin-right:-4px}
-      .glyph{width:42px;height:42px;border-radius:50%;display:grid;place-items:center;background:var(--hk-accent,rgba(255,159,10,.96));flex:0 0 42px;line-height:0}.glyph ha-icon{display:block;line-height:0}
-      .glyph ha-icon{width:23px;height:23px;--mdc-icon-size:23px;color:white}
+      .glyph{width:42px;height:42px;border-radius:50%;display:grid;place-items:center;background:var(--hk-accent,rgba(255,159,10,.96));flex:0 0 42px;line-height:0}.glyph hk-icon{display:block;line-height:0}
+      .glyph hk-icon{width:23px;height:23px;--mdc-icon-size:23px;color:white}
       .titles{min-width:0;flex:1}
       .name{font-size:17px;line-height:1.12;font-weight:720;letter-spacing:-.25px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
       .sub{font-size:12.5px;line-height:1.2;font-weight:540;color:${window.hkCards.v('ink-2')};margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -368,7 +368,7 @@ class HkControlCard extends HTMLElement {
          above the bottom (the EcoFlow page) */
       .compact.tilel{box-sizing:border-box;height:${this._tallPx()};padding:20px 22px 24px;display:flex;flex-direction:column}
       .compact.tilel .range-wrap{margin-top:auto;padding:0 2px}
-      .compact .glyph{width:38px;height:38px;flex-basis:38px}.compact .glyph ha-icon{width:21px;height:21px;--mdc-icon-size:21px}
+      .compact .glyph{width:38px;height:38px;flex-basis:38px}.compact .glyph hk-icon{width:21px;height:21px;--mdc-icon-size:21px}
       .value{font-size:21px;font-weight:720;letter-spacing:-.35px;margin-left:auto;white-space:nowrap}
       .range-wrap{display:grid;grid-template-columns:minmax(0,1fr);align-items:center;margin-top:14px;touch-action:pan-y;cursor:pointer;-webkit-tap-highlight-color:transparent}
       .prog-track{height:6px;border-radius:4px;background:${window.hkCards.v('line-strong')};overflow:hidden;margin:2px 0 7px}
@@ -629,25 +629,25 @@ class HkControlCard extends HTMLElement {
     const pct = (max>min && Number.isFinite(val)) ? (((val-min)/(max-min))*100).toFixed(2) : 0;
     if (this._config.layout === "tile") this.setAttribute("data-tilel", ""); else this.removeAttribute("data-tilel");
     return `<div class="surface compact${this._config.layout === "tile" ? " tilel" : ""}">
-      <div class="head"><div class="glyph"><ha-icon icon="${this._icon("number")}"></ha-icon></div><div class="titles"><div class="name">${this._esc(this._name())}</div><div class="sub">${this._esc(this._rangeText(min, max, unit))}</div></div><div class="value" data-live>${Number.isFinite(val)?this._valueText(val, unit):"—"}</div></div>
+      <div class="head"><div class="glyph"><hk-icon icon="${this._icon("number")}"></hk-icon></div><div class="titles"><div class="name">${this._esc(this._name())}</div><div class="sub">${this._esc(this._rangeText(min, max, unit))}</div></div><div class="value" data-live>${Number.isFinite(val)?this._valueText(val, unit):"—"}</div></div>
       <div class="range-wrap"><input class="filled" data-number type="range" min="${min}" max="${max}" step="${step}" value="${val}" style="--hk-fill:${pct}%"></div>
     </div>`;
   }
   _select(s){
     const options=s?.attributes?.options||[];
-    return `<div class="surface compact"><div class="head"><div class="glyph"><ha-icon icon="${this._icon("select")}"></ha-icon></div><div class="titles"><div class="name">${this._esc(this._name())}</div><div class="sub">Choose an operating mode</div></div><div class="value">${this._esc(this._pretty(s?.state))}</div></div><div class="option-row${options.length>5?" many":""}" style="--count:${Math.max(1,options.length)}">${options.map(o=>`<button class="segment ${s?.state===o?"active":""}" data-option="${this._esc(o)}">${this._esc(this._pretty(o))}</button>`).join("")}</div></div>`;
+    return `<div class="surface compact"><div class="head"><div class="glyph"><hk-icon icon="${this._icon("select")}"></hk-icon></div><div class="titles"><div class="name">${this._esc(this._name())}</div><div class="sub">Choose an operating mode</div></div><div class="value">${this._esc(this._pretty(s?.state))}</div></div><div class="option-row${options.length>5?" many":""}" style="--count:${Math.max(1,options.length)}">${options.map(o=>`<button class="segment ${s?.state===o?"active":""}" data-option="${this._esc(o)}">${this._esc(this._pretty(o))}</button>`).join("")}</div></div>`;
   }
   _switch(s){
     const on=s?.state==="on";
-    return `<div class="surface compact"><div class="head"><div class="glyph"><ha-icon icon="${this._icon("switch")}"></ha-icon></div><div class="titles"><div class="name">${this._esc(this._name())}</div><div class="sub">${on?"Enabled":"Disabled"}</div></div><button class="toggle ${on?"on":""}" data-toggle>${on?"On":"Off"}</button></div></div>`;
+    return `<div class="surface compact"><div class="head"><div class="glyph"><hk-icon icon="${this._icon("switch")}"></hk-icon></div><div class="titles"><div class="name">${this._esc(this._name())}</div><div class="sub">${on?"Enabled":"Disabled"}</div></div><button class="toggle ${on?"on":""}" data-toggle>${on?"On":"Off"}</button></div></div>`;
   }
   _valve(s){
     const state=s?.state||"unknown";
-    return `<div class="surface compact"><div class="head"><div class="glyph"><ha-icon icon="${this._icon("valve")}"></ha-icon></div><div class="titles"><div class="name">${this._esc(this._name())}</div><div class="sub">${this._esc(this._config.subtitle || ({water:"Water valve",gas:"Gas valve"})[s?.attributes?.device_class] || "Valve")}</div></div><div class="value">${this._esc(this._pretty(state))}</div></div><div class="option-row" style="--count:2"><button class="segment ${state==="open"?"active":""}" data-valve="open">Open</button><button class="segment ${state==="closed"?"active":""}" data-valve="close">Close</button></div></div>`;
+    return `<div class="surface compact"><div class="head"><div class="glyph"><hk-icon icon="${this._icon("valve")}"></hk-icon></div><div class="titles"><div class="name">${this._esc(this._name())}</div><div class="sub">${this._esc(this._config.subtitle || ({water:"Water valve",gas:"Gas valve"})[s?.attributes?.device_class] || "Valve")}</div></div><div class="value">${this._esc(this._pretty(state))}</div></div><div class="option-row" style="--count:2"><button class="segment ${state==="open"?"active":""}" data-valve="open">Open</button><button class="segment ${state==="closed"?"active":""}" data-valve="close">Close</button></div></div>`;
   }
   _waterHeater(s){
     const options=s?.attributes?.operation_list||[];
-    return `<div class="surface compact"><div class="head"><div class="glyph"><ha-icon icon="${this._icon("water_heater")}"></ha-icon></div><div class="titles"><div class="name">${this._esc(this._name())}</div><div class="sub">${Number.isFinite(Number(s?.attributes?.current_temperature))?Math.round(Number(s.attributes.current_temperature))+"° current · "+Math.round(Number(s.attributes.temperature))+"° target":"Operating mode"}</div></div><div class="value">${this._esc(this._pretty(s?.state))}</div></div><div class="option-row water-modes">${options.map(o=>`<button class="segment ${s?.state===o?"active":""}" data-water-mode="${this._esc(o)}">${this._esc(this._pretty(o))}</button>`).join("")}</div></div>`;
+    return `<div class="surface compact"><div class="head"><div class="glyph"><hk-icon icon="${this._icon("water_heater")}"></hk-icon></div><div class="titles"><div class="name">${this._esc(this._name())}</div><div class="sub">${Number.isFinite(Number(s?.attributes?.current_temperature))?Math.round(Number(s.attributes.current_temperature))+"° current · "+Math.round(Number(s.attributes.temperature))+"° target":"Operating mode"}</div></div><div class="value">${this._esc(this._pretty(s?.state))}</div></div><div class="option-row water-modes">${options.map(o=>`<button class="segment ${s?.state===o?"active":""}" data-water-mode="${this._esc(o)}">${this._esc(this._pretty(o))}</button>`).join("")}</div></div>`;
   }
   // For the Play Music page. The now-playing card renders HTML strings, so a
   // real volume slider with a bound <input> event belongs here: this card

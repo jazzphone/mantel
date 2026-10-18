@@ -141,7 +141,7 @@ var savedGlyphs = window.hkGlyphs;
 window.hkGlyphs = undefined;
 ok('not ready without the file', H.wxReady(), false);
 ok('all 15 conditions x day/night draw a Material icon', everyCondition(function (g) {
-  return /^<ha-icon class="hk-wx" icon="mdi:(weather-[a-z-]+|alert)" role="img" aria-label="[^"]+"/.test(g);
+  return /^<hk-icon class="hk-wx" icon="mdi:(weather-[a-z-]+|alert)" role="img" aria-label="[^"]+"/.test(g);
 }), '');
 ok('sunny is the yellow sun', /icon="mdi:weather-sunny"[^>]*color:#FFD60A/.test(H.wxSvg('sunny', 26)), true);
 ok('partly cloudy at night is the night cloud', /mdi:weather-night-partly-cloudy/.test(H.wxSvg('partlycloudy', 26, { night: true })), true);
@@ -154,7 +154,7 @@ var glyphsWas = window.hkGlyphs;
 window.hkGlyphs = { weather: { 'cloud.rain.fill': ['0 0 120 120', [['c', 'M0 0h1v1z'], ['w', 'M2 2h1v1z']]] } };
 ok('...an SF symbol too, by its own name', /<svg class="hk-wx" data-sym="cloud.rain.fill"/.test(H.wxSvg('rainy', 30, { sym: true })) && !/data-sym/.test(H.wxSvg('rainy', 30)), true);
 window.hkGlyphs = glyphsWas;
-ok('stand-in carries o.style', /margin-right:12px;"><\/ha-icon>$/.test(H.wxSvg('cloudy', 30, { style: ' margin-right:12px;' })), true);
+ok('stand-in carries o.style', /margin-right:12px;"><\/hk-icon>$/.test(H.wxSvg('cloudy', 30, { style: ' margin-right:12px;' })), true);
 
 print('=== glyphs: the home\'s file -> multicolor inline SVG ===');
 // Stand-in drawings, one per symbol, each layer a rectangle with its role --

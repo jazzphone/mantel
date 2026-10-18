@@ -75,16 +75,16 @@
       return [
         ':host{display:block}',
         // boxed: the page card's plate, padding and corner
-        'ha-card.kp{box-sizing:border-box;display:flex;flex-direction:column;height:100%;padding:' + C.CARD.pad + ';margin:0;' +
+        'hk-plate.kp{box-sizing:border-box;display:flex;flex-direction:column;height:100%;padding:' + C.CARD.pad + ';margin:0;' +
           C.plate('card') + ';color:' + v('ink') + '}',
         '.hd{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:28px;margin-bottom:12px}',
         // the title follows the box's width -- 17 in the tablet's 360 box,
         // about 15 in an iPad's narrower one -- so it and the badge both fit
-        'ha-card.kp{container-type:inline-size}',
+        'hk-plate.kp{container-type:inline-size}',
         '.hd b{font-size:min(17px,5.5cqw);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
         '.badge{display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 11px;box-sizing:border-box;border-radius:' + R.capsule('28px') + ';',
         '  background:' + v('key') + ';border:1px solid ' + v('line') + ';font-size:13px;font-weight:500;color:' + v('ink-2') + ';white-space:nowrap;cursor:pointer}',
-        '.badge ha-icon{--mdc-icon-size:15px;width:15px;height:15px;display:flex}',
+        '.badge hk-icon{--mdc-icon-size:15px;width:15px;height:15px;display:flex}',
         // the field: recessed, "Enter code" until typed, dots while typing
         '.read{height:var(--hk-kp-key,48px);border-radius:' + R.inner + 'px;margin:0 0 10px;box-sizing:border-box;',
         '  background:' + v('well-bg') + ';border:1px solid ' + v('line') + ';display:flex;align-items:center;justify-content:center}',
@@ -97,26 +97,26 @@
         '.read .st{display:none;align-items:center;gap:10px;min-width:0}',
         '.read[data-mode="status"] .st{display:flex}',
         '.read[data-mode="status"] .code{display:none}',
-        '.read .st ha-icon{--mdc-icon-size:22px;width:22px;height:22px;flex:none;display:flex}',
+        '.read .st hk-icon{--mdc-icon-size:22px;width:22px;height:22px;flex:none;display:flex}',
         '.read .st span{font-size:17px;font-weight:600;color:' + v('ink') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
         '.pad{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}',
         '.k{height:var(--hk-kp-key,48px);border-radius:' + R.inner + 'px;font-size:19.7px;font-weight:700;letter-spacing:-0.45px;' + key + '}',
         '.k.sm{font-size:15px;font-weight:500;letter-spacing:0;color:' + v('ink-2') + '}',
-        '.k ha-icon{--mdc-icon-size:20px;width:20px;height:20px;display:flex;color:' + v('ink-2') + '}',
+        '.k hk-icon{--mdc-icon-size:20px;width:20px;height:20px;display:flex;color:' + v('ink-2') + '}',
         '.k:active,.a:active{transform:scale(0.97);background:' + v('key-strong') + '}',
         '.acts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:10px}',
         '.a{height:44px;border-radius:' + R.capsule('44px') + ';padding:0 6px;gap:6px;font-size:13px;font-weight:600;' + key + '}',
-        '.a ha-icon{--mdc-icon-size:16px;width:16px;height:16px;flex:none;display:flex;color:' + v('ink-2') + '}',
+        '.a hk-icon{--mdc-icon-size:16px;width:16px;height:16px;flex:none;display:flex;color:' + v('ink-2') + '}',
         '.a span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
         // the mode the alarm is in: its button lit in the mode's own color
         '.a.cur{background:color-mix(in srgb,var(--c) 20%,transparent);border-color:color-mix(in srgb,var(--c) 50%,transparent)}',
-        '.a.cur ha-icon{color:var(--c)}',
+        '.a.cur hk-icon{color:var(--c)}',
         '.a.home{--c:' + P.blue + '}.a.away{--c:' + P.green + '}.a.off{--c:' + P.red + '}',
         // a panel with no code: taller buttons, the only thing to press
         '.tap .a{height:var(--hk-kp-key,48px);border-radius:' + R.capsule('48px') + ';font-size:15px}',
         '.foot{display:flex;align-items:center;justify-content:center;gap:6px;margin-top:auto;padding-top:12px;font-size:11px;font-weight:600;color:' + v('ink-2') + '}',
-        '.foot ha-icon{--mdc-icon-size:13px;width:13px;height:13px;display:flex;color:' + P.green + '}',
-        '.foot.open ha-icon{color:' + v('warn') + '}',
+        '.foot hk-icon{--mdc-icon-size:13px;width:13px;height:13px;display:flex;color:' + P.green + '}',
+        '.foot.open hk-icon{color:' + v('warn') + '}',
         '@media (prefers-reduced-motion: reduce){.k,.k:active,.a,.a:active{transition:none;transform:none}}'
       ].join('');
     }
@@ -256,7 +256,7 @@
       if (span.classList) span.classList.toggle('ph', ph);
       if (!rest) return;
       var s = HkAlarmKeypadCard.status(this._st(this._panel()));
-      var icon = read.querySelector('.st ha-icon'), word = read.querySelector('.st span');
+      var icon = read.querySelector('.st hk-icon'), word = read.querySelector('.st span');
       if (icon.getAttribute('icon') !== s.icon) icon.setAttribute('icon', s.icon);
       icon.style.color = s.color;
       word.textContent = s.word;
@@ -275,7 +275,7 @@
       var badge = this._root.querySelector('.badge');
       if (badge) {
         var s = HkAlarmKeypadCard.status(ps);
-        var bi = badge.querySelector('ha-icon');
+        var bi = badge.querySelector('hk-icon');
         if (bi.getAttribute('icon') !== s.icon) bi.setAttribute('icon', s.icon);
         bi.style.color = s.color;
         badge.querySelector('span').textContent = s.word;
@@ -287,7 +287,7 @@
           return x && /^(on|open|opening)$/.test(x.state);
         });
         foot.classList.toggle('open', open.length > 0);
-        var fi = foot.querySelector('ha-icon');
+        var fi = foot.querySelector('hk-icon');
         fi.setAttribute('icon', open.length ? 'hk:alert-circle' : 'hk:check-bold');
         var name = function (id) { var x = h.states[id]; return (x && x.attributes.friendly_name) || id; };
         foot.querySelector('span').textContent = !open.length ? 'All entry points closed'
@@ -301,7 +301,7 @@
       d.className = cls;
       C.button(d, fn);
       if (icon) {
-        var i = document.createElement('ha-icon'); i.setAttribute('icon', icon);
+        var i = document.createElement('hk-icon'); i.setAttribute('icon', icon);
         d.appendChild(i);
         if (label) { var s = document.createElement('span'); s.textContent = label; d.appendChild(s); }
         else d.setAttribute('aria-label', 'Delete');
@@ -326,12 +326,12 @@
       // BOXED: in its own plate, with its title and the state's badge
       var host = this._root;
       if (c.boxed) {
-        host = document.createElement('ha-card');
+        host = document.createElement('hk-plate');
         host.className = 'kp';
         host.setAttribute('data-hk-role', 'card');
         var hd = document.createElement('div');
         hd.className = 'hd';
-        hd.innerHTML = '<b></b><span class="badge" role="button" tabindex="0"><ha-icon></ha-icon><span></span></span>';
+        hd.innerHTML = '<b></b><span class="badge" role="button" tabindex="0"><hk-icon></hk-icon><span></span></span>';
         hd.querySelector('b').textContent = c.title || 'Security System';
         hd.querySelector('.badge').addEventListener('click', function () {
           window.hkShell.moreInfo(self._panel(), self);
@@ -345,7 +345,7 @@
       read.setAttribute('role', 'status');
       var code = document.createElement('span'); code.className = 'code';
       var st = document.createElement('div'); st.className = 'st';
-      st.appendChild(document.createElement('ha-icon'));
+      st.appendChild(document.createElement('hk-icon'));
       st.appendChild(document.createElement('span'));
       read.appendChild(code); read.appendChild(st);
       host.appendChild(read);
@@ -357,7 +357,7 @@
         if (!c.boxed || !Array.isArray(c.entries) || !c.entries.length) return;
         var f = document.createElement('div');
         f.className = 'foot';
-        f.innerHTML = '<ha-icon></ha-icon><span></span>';
+        f.innerHTML = '<hk-icon></hk-icon><span></span>';
         host.appendChild(f);
       };
       if (codeless) {

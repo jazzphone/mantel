@@ -1,7 +1,7 @@
 // HK's host elements, Home Assistant's side (Phase 2, P2.1; web/hk/elements/hk-elements.js has the
 // shared ones). An entity's icon from its state is the host's own knowledge -- HA's state- and
-// translation-aware icons -- so here hk-state-icon is a thin box around HA's ha-state-icon, and
-// HK's cards look exactly as before. client.bindStateIcon (hk-ha-client.js) hands it HA's object
+// translation-aware icons -- so here hk-state-icon is a transparent box around HA's ha-state-icon,
+// and HK's cards look exactly as before. client.bindStateIcon (hk-ha-client.js) hands it HA's object
 // and the state; Mantel's hk-state-icon is a stand-in (web/shim/ha-elements.js).
 (function (global) {
   'use strict';
@@ -11,10 +11,11 @@
   class HkStateIcon extends HTMLElement {
     constructor() {
       super();
-      this.attachShadow({ mode: 'open' }).innerHTML =
-        '<style>:host{display:inline-flex;align-items:center;justify-content:center;vertical-align:middle;' +
-        'width:var(--mdc-icon-size,24px);height:var(--mdc-icon-size,24px)}' +
-        'ha-state-icon{width:100%;height:100%;--mdc-icon-size:100%}</style>';
+      // A box that is not there (Phase 2 P2.2): the host takes ha-state-icon's place (HA's has no
+      // styles of its own, so it is an inline box the cards' CSS sizes and lays out), and the
+      // ha-state-icon inside is display:contents, so its ha-icon lays out exactly as it did when
+      // the cards made ha-state-icon themselves.
+      this.attachShadow({ mode: 'open' }).innerHTML = '<style>' + HkStateIcon.CSS + '</style>';
       this._inner = null;
     }
     // HA's own state icon inside (made on first use)
@@ -33,5 +34,6 @@
     set icon(v) { this._el().icon = v; }
     get icon() { return this._inner ? this._inner.icon : undefined; }
   }
+  HkStateIcon.CSS = 'ha-state-icon{display:contents}';
   ce.define('hk-state-icon', HkStateIcon);
 })(globalThis);

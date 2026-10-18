@@ -184,7 +184,7 @@
     '.mproom{display:flex;align-items:center;gap:12px;min-height:52px;padding:6px 10px 6px 8px;border-radius:13px;background:rgba(255,255,255,.07);',
     '  cursor:pointer;box-sizing:border-box}',
     '.mproom .ri{flex:none;width:38px;height:38px;border-radius:50%;background:rgba(255,255,255,.12);display:flex;align-items:center;justify-content:center}',
-    '.mproom .ri ha-icon{--mdc-icon-size:21px;width:21px;height:21px;color:#fff}',
+    '.mproom .ri hk-icon{--mdc-icon-size:21px;width:21px;height:21px;color:#fff}',
     '.mproom .rn{flex:1;min-width:0}',
     '.mproom .rn b{display:block;font-size:16px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
     '.mproom .rn small{display:flex;align-items:center;gap:6px;font-size:12.5px;opacity:.72;margin-top:1px;white-space:nowrap;overflow:hidden}',
@@ -237,10 +237,10 @@
     '.mpanel[wide] .mppls{grid-template-columns:repeat(3,minmax(0,1fr))}',
     '.mppill{display:flex;align-items:center;gap:10px;height:50px;padding:0 12px;border-radius:13px;background:rgba(255,255,255,.10);',
     '  font-size:15px;font-weight:600;cursor:pointer;min-width:0;box-sizing:border-box}',
-    '.mppill ha-icon{--mdc-icon-size:20px;width:20px;height:20px;flex:none;color:#fff}',
+    '.mppill hk-icon{--mdc-icon-size:20px;width:20px;height:20px;flex:none;color:#fff}',
     '.mppill span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
     '.mppill.on{background:rgba(255,255,255,.9);color:#111;text-shadow:none}',
-    '.mppill.on ha-icon{color:#111}',
+    '.mppill.on hk-icon{color:#111}',
     '.mppill.busy{opacity:.6}',
     '.mpopts{grid-column:1 / -1;display:flex;flex-wrap:wrap;gap:8px}',
     '.mpopts:empty{display:none}',
@@ -446,7 +446,7 @@
         var line = mem ? '<span class="mpeq"><i></i><i></i><i></i></span>' + (c && c.playing ? 'Playing here' : 'Paused here')
                  : off ? 'Unavailable' : others[k] ? 'Playing ' + esc(others[k]) + stops : '';
         return '<div class="mproom' + (on ? ' sel' : '') + (off && !on && !mem ? ' off' : '') +
-               '" data-room="' + esc(k) + '"><div class="ri"><ha-icon icon="hk:homepod"></ha-icon></div><div class="rn"><b>' + esc(r.name) + '</b>' +
+               '" data-room="' + esc(k) + '"><div class="ri"><hk-icon icon="hk:homepod"></hk-icon></div><div class="rn"><b>' + esc(r.name) + '</b>' +
                (line ? '<small>' + line + '</small>' : '') + '</div><div class="mpck">' + svg(ICON.check) + '</div></div>';
       }).join('');
       if (E.rooms.__t !== html) { E.rooms.innerHTML = html; E.rooms.__t = html; }
@@ -667,7 +667,7 @@
       var html = pls.map(function (p, i) {
         var on = S.open === i;
         return '<div class="mppill' + (on ? ' on' : '') + (S.busy === 'pl' + i ? ' busy' : '') + '" data-pl="' + i + '">' +
-               (p.icon ? '<ha-icon icon="' + esc(p.icon) + '"></ha-icon>' : '') + '<span>' + esc(p.name) + '</span></div>' +
+               (p.icon ? '<hk-icon icon="' + esc(p.icon) + '"></hk-icon>' : '') + '<span>' + esc(p.name) + '</span></div>' +
                (on && p.options ? '<div class="mpopts">' + p.options.map(function (x, j) {
                  return '<div class="mpchip" data-opt="' + i + ':' + j + '">' + esc(x.name) + '</div>';
                }).join('') + '</div>' : '');

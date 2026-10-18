@@ -52,7 +52,7 @@
   // than each stretched to fill its box.
   //
   // WITHOUT THAT FILE, Material Design's weather icons stand in (WX_MDI below),
-  // drawn by <ha-icon> from Home Assistant's own icon set, so nothing ships
+  // drawn by <hk-icon> from the host's Material icon set, so nothing ships
   // here either. When the file arrives after a card has drawn, hk-icons.js
   // announces it (hk-module-ready) and every card redraws with the real glyph.
   //
@@ -141,11 +141,11 @@
     return WX_NAME[k] || titleCase(k.replace(/-/g, ' '));
   }
 
-  // Inline SVG, not <ha-icon>: an iconset path is ONE color (two at most, via
+  // Inline SVG, not <hk-icon>: an iconset path is ONE color (two at most, via
   // secondaryPath), and the point of these is the multicolor. Inline also means
-  // nothing to resolve -- no custom-iconset lookup, so none of ha-icon's
+  // nothing to resolve -- no custom-iconset lookup, so none of the icon element's
   // sticky-blank first render (a miss at first render is cached for good).
-  // The Material stand-in IS an <ha-icon>, but of a built-in mdi: name, which
+  // The Material stand-in IS an <hk-icon>, but of a built-in mdi: name, which
   // has no such race.
   //   o.night   the night glyph where Apple has one
   //   o.style   extra inline CSS on the <svg> (margins, filter)
@@ -158,11 +158,11 @@
     var size = typeof px === 'number' ? px + 'px' : String(px);
     if (!sym) {
       var m = WX_MDI[name] || WX_MDI['cloud.sun.fill'];
-      return '<ha-icon class="hk-wx"' + (o.sym ? ' data-sym="mdi"' : '') + ' icon="mdi:' + m[0] + '" role="img" aria-label="' +
+      return '<hk-icon class="hk-wx"' + (o.sym ? ' data-sym="mdi"' : '') + ' icon="mdi:' + m[0] + '" role="img" aria-label="' +
         esc(conditionName(state)) + '" style="display:inline-flex; flex:0 0 auto;' +
         ' align-items:center; justify-content:center; vertical-align:middle; width:' + size +
         '; height:' + size + '; --mdc-icon-size:' + size + '; color:' + WX_COLOUR[m[1]] + ';' +
-        (o.style || '') + '"></ha-icon>';
+        (o.style || '') + '"></hk-icon>';
     }
     var paths = sym[1].map(function (l) {
       // `></path>`, NOT `/>`. In HTML the parser keeps a self-closed <path/>

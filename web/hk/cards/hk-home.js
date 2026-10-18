@@ -75,7 +75,7 @@
         // and at a fixed 188 the four buttons would be pushed out of the card
         // and cut off. Every ordinary card is exactly 188; one
         // with more to say grows.
-        'ha-card.vac{box-sizing:border-box;display:block;min-height:188px;',
+        'hk-plate.vac{box-sizing:border-box;display:block;min-height:188px;',
         '  border-radius:' + window.hkCards.M.radius + ';padding:16px 18px;overflow:hidden;cursor:pointer;',
         '  ' + window.hkCards.M.glass + ';',
         '  border:' + window.hkCards.M.border + ';',
@@ -92,9 +92,9 @@
         // LIVE is green with dark ink -- the same "it is doing something right
         // now" signal the progress chip uses.
         '.vac .ico[data-live="1"]{background:rgba(48,209,88,0.95)}',
-        '.vac .ico ha-icon{--mdc-icon-size:28px;width:28px;height:28px;',
+        '.vac .ico hk-icon{--mdc-icon-size:28px;width:28px;height:28px;',
         '  color:var(--hk-glyph,rgba(255,255,255,0.80))}',
-        '.vac .ico[data-live="1"] ha-icon{color:rgba(0,0,0,0.82)}',
+        '.vac .ico[data-live="1"] hk-icon{color:rgba(0,0,0,0.82)}',
         '.vac .label{grid-area:label;justify-self:start;align-self:center;',
         '  min-width:0;overflow:hidden;font-size:18px;font-weight:600;',
         '  letter-spacing:-0.45px;color:' + window.hkCards.v('ink') + ';line-height:1.25;',
@@ -114,7 +114,7 @@
         '  display:flex;align-items:center;justify-content:center;cursor:pointer;',
         '  transition:background-color .25s ease,transform .12s ease}',
         '.vac .cmd:active{transform:scale(0.97);filter:brightness(0.93)}',
-        '.vac .cmd ha-icon{width:23px;height:23px;--mdc-icon-size:23px;',
+        '.vac .cmd hk-icon{width:23px;height:23px;--mdc-icon-size:23px;',
         '  color:' + window.hkCards.v('glyph') + '}',
         '@media (prefers-reduced-motion:reduce){',
         '  .vac .cmd,.vac .cmd:active,.vac .ico{transition:none;transform:none}}'
@@ -191,17 +191,17 @@
       var cfg = this._config;
       if (!this._built) {
         var cmds = HkVacuumCard.COMMANDS;
-        var html = '<ha-card class="vac" data-hk-role="card"><div class="grid">' +
-          '<div class="ico" data-hk-role="ico"><ha-icon icon="mdi:robot-vacuum"></ha-icon></div>' +
+        var html = '<hk-plate class="vac" data-hk-role="card"><div class="grid">' +
+          '<div class="ico" data-hk-role="ico"><hk-icon icon="mdi:robot-vacuum"></hk-icon></div>' +
           '<div class="label" data-hk-role="label"></div>' +
           '<div class="meta" data-hk-role="meta"></div>';
         for (var i = 0; i < cmds.length; i++) {
           html += '<div class="cmd" style="grid-area:' + cmds[i][0] + '"' +
                   ' role="button" aria-label="' + cmds[i][3] + '"' +
                   ' data-hk-role="' + cmds[i][0] + '">' +
-                  '<ha-icon icon="' + cmds[i][1] + '"></ha-icon></div>';
+                  '<hk-icon icon="' + cmds[i][1] + '"></hk-icon></div>';
         }
-        this._root.innerHTML = html + '</div></ha-card>';
+        this._root.innerHTML = html + '</div></hk-plate>';
         var q = this._root.querySelector.bind(this._root);
         this._e = { card: q('.vac'), ico: q('.ico'), label: q('.label'), meta: q('.meta') };
         var self = this;
@@ -693,7 +693,7 @@
         '.tc > .head{grid-area:head;justify-self:stretch;min-width:0;overflow:hidden}',
         '.tc > .count{grid-area:count;justify-self:stretch;align-self:center;min-width:0}',
         // The four controls, with an
-        // explicit 21px icon row -- an <ha-icon> has no intrinsic height, so a
+        // explicit 21px icon row -- an <hk-icon> has no intrinsic height, so a
         // min-content row collapses it to nothing and the buttons render as
         // bare captions. The caption row CAN be min-content; text sizes itself.
         '.tb{height:52px;border-radius:18px;background:' + window.hkCards.v('key') + ';',
@@ -701,7 +701,7 @@
         '  display:grid;grid-template-columns:minmax(0,1fr);',
         '  grid-template-rows:21px min-content;align-content:center;',
         '  justify-items:center;row-gap:3px;cursor:pointer;user-select:none}',
-        '.tb ha-icon{--mdc-icon-size:19px;width:19px;height:19px;',
+        '.tb hk-icon{--mdc-icon-size:19px;width:19px;height:19px;',
         '  color:' + window.hkCards.v('glyph') + '}',
         '.tb > span{font-size:11px;font-weight:600;letter-spacing:0.1px;',
         '  line-height:1;color:' + window.hkCards.v('ink-2') + '}',
@@ -876,7 +876,7 @@
       d.className = 'tb';
       d.style.gridArea = area;
       button(d, fn);
-      var i = document.createElement('ha-icon'); i.setAttribute('icon', icon);
+      var i = document.createElement('hk-icon'); i.setAttribute('icon', icon);
       var s = document.createElement('span'); s.textContent = label;
       d.appendChild(i); d.appendChild(s);
       return d;
@@ -924,9 +924,9 @@
           '<div style="flex:0 0 auto;width:' + well + 'px;height:' + well + 'px;border-radius:' + (well / 2) + 'px;' +
             'background:' + bg + ';display:flex;align-items:center;' +
             'justify-content:center;">' +
-            '<ha-icon icon="' + esc(t.glyph || 'mdi:timer-outline') + '" ' +
+            '<hk-icon icon="' + esc(t.glyph || 'mdi:timer-outline') + '" ' +
               'style="--mdc-icon-size:' + esc(px) + ';color:' + fg + ';">' +
-            '</ha-icon></div>' +
+            '</hk-icon></div>' +
           '<div style="min-width:0;text-align:left;">' +
             '<div style="font-size:17px;font-weight:600;letter-spacing:-0.45px;' +
               'color:' + window.hkCards.v('ink') + ';line-height:1.25;overflow:hidden;' +
@@ -1951,11 +1951,11 @@
     }
     static get CSS() {
       return [
-        'ha-card.strip{background:none;box-shadow:none;border:none;',
+        'hk-plate.strip{background:none;box-shadow:none;border:none;',
         '  padding:0;margin:0;display:block}',
         // The screensaver's row is wrapped in a position:fixed div by strip()
         // itself, so its host must take no space and must not clip.
-        'ha-card.strip.fixed{height:0;overflow:visible}',
+        'hk-plate.strip.fixed{height:0;overflow:visible}',
         '.strip > div{min-width:0;overflow:hidden}'
       ].join('');
     }
@@ -1971,8 +1971,8 @@
     _render() {
       var cfg = this._config;
       if (!this._built) {
-        this._root.innerHTML = '<ha-card class="strip' +
-          (cfg.fixed ? ' fixed' : '') + '" data-hk-role="card"></ha-card>';
+        this._root.innerHTML = '<hk-plate class="strip' +
+          (cfg.fixed ? ' fixed' : '') + '" data-hk-role="card"></hk-plate>';
         this._e = this._root.querySelector('.strip');
         // The module loads in parallel with this card. One listener, once,
         // and only while the card is attached (see _wire).

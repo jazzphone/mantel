@@ -348,7 +348,7 @@
       // the label's foot, so a long name's ellipsis stays inside it
       '  border:0;margin:0;padding:0 10px;border-radius:calc(var(--bh) / 2 - var(--g) + 1px);background:none;color:rgba(255,255,255,0.94);',
       '  font:inherit;font-size:var(--tf);font-weight:600;letter-spacing:0;cursor:pointer;transition:background-color .2s ease,opacity .2s ease}',
-      '.tab ha-icon{--mdc-icon-size:var(--ti);width:var(--ti);height:var(--ti);display:flex}',
+      '.tab hk-icon{--mdc-icon-size:var(--ti);width:var(--ti);height:var(--ti);display:flex}',
       '.tab span{max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
       // THE PAGE YOU ARE ON: its capsule reaches WIDEN px past the tab on each
       // side, into the gaps, as Apple Music's does -- nothing else ever
@@ -370,7 +370,7 @@
       // FOLDED (shrink): one round button with the current page's icon
       '.cur{display:none;flex:1;align-items:center;justify-content:center;border:0;padding:0;margin:0;background:none;',
       '  color:' + window.hkCards.v('accent') + ';cursor:pointer;border-radius:50%}',
-      '.cur ha-icon{--mdc-icon-size:var(--ci);width:var(--ci);height:var(--ci);display:flex}',
+      '.cur hk-icon{--mdc-icon-size:var(--ci);width:var(--ci);height:var(--ci);display:flex}',
       '.root.small .pill{width:calc(var(--bh) - 6px);height:calc(var(--bh) - 6px);border-radius:50%}',
       '.root.small .tab{display:none}',
       '.root.small .cur{display:flex}',
@@ -379,7 +379,7 @@
       '  justify-content:center;padding:0;margin:0;color:rgba(255,255,255,0.94);cursor:pointer;',
       '  transition:width .34s ' + EASE + ',height .34s ' + EASE + '}',
       '.root.hasrooms .roomsbtn{display:flex}',
-      '.roomsbtn ha-icon{--mdc-icon-size:var(--ci);width:var(--ci);height:var(--ci);display:flex}',
+      '.roomsbtn hk-icon{--mdc-icon-size:var(--ci);width:var(--ci);height:var(--ci);display:flex}',
       '.roomsbtn.here,.roomsbtn[aria-expanded="true"]{color:' + window.hkCards.v('accent') + '}',
       '.root.small .roomsbtn{width:calc(var(--bh) - 6px);height:calc(var(--bh) - 6px)}',
       '.tab:active,.roomsbtn:active,.cur:active{filter:brightness(1.25)}',
@@ -436,8 +436,8 @@
       // (the icons in the menu's own color -- Automatic's orange; only the
       // page you're on takes its page's: the side menu's rule. The user,
       // 2026-10-17: Climate turned every room and page blue.)
-      '.it ha-icon{--mdc-icon-size:40px;width:40px;height:40px;flex:none;display:flex;color:var(--hk-accent-base,' + window.hkCards.v('accent') + ')}',
-      '.it.here ha-icon{color:' + window.hkCards.v('accent') + '}',
+      '.it hk-icon{--mdc-icon-size:40px;width:40px;height:40px;flex:none;display:flex;color:var(--hk-accent-base,' + window.hkCards.v('accent') + ')}',
+      '.it.here hk-icon{color:' + window.hkCards.v('accent') + '}',
       '.it span{max-width:100%;line-height:1.2;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;',
       '  overflow-wrap:anywhere}',
       // THE PAGE YOU ARE ON keeps a plate round its icon and name, as the
@@ -446,20 +446,20 @@
       '.it.here span{color:' + window.hkCards.v('accent') + '}',
       // ROOMS ON THEIR OWN SHEET (the Rooms button): each icon in a soft round
       // plate (Control Center's look). In More they look like its pages.
-      '[data-sheet="rooms"] .roomgrid .it ha-icon{--mdc-icon-size:28px;width:58px;height:58px;border-radius:50%;',
+      '[data-sheet="rooms"] .roomgrid .it hk-icon{--mdc-icon-size:28px;width:58px;height:58px;border-radius:50%;',
       '  align-items:center;justify-content:center;background:rgba(255,255,255,0.12);transition:background-color .15s ease}',
-      '[data-sheet="rooms"] .roomgrid .it.here ha-icon{background:' + window.hkCards.v('accent') + ';color:var(--hk-on-accent,#fff)}',
+      '[data-sheet="rooms"] .roomgrid .it.here hk-icon{background:' + window.hkCards.v('accent') + ';color:var(--hk-on-accent,#fff)}',
       // THE LIST (More Style: List): rows like the side menu's -- the icon
       // beside the whole name, the page you are on in the highlight colour --
       // and about a phone's width on every screen
       '.sheet.list .grid{grid-template-columns:1fr;gap:2px}',
       '.sheet.list .it{flex-direction:row;justify-content:flex-start;gap:14px;min-height:44px;padding:0 14px;border-radius:12px;',
       '  font-size:17px;font-weight:400;letter-spacing:-0.41px;text-align:left}',
-      '.sheet.list .it ha-icon{--mdc-icon-size:22px;width:22px;height:22px}',
+      '.sheet.list .it hk-icon{--mdc-icon-size:22px;width:22px;height:22px}',
       '.sheet.list .it span{display:block;flex:1;min-width:0;white-space:nowrap;text-overflow:ellipsis}',
       '.sheet.list .it.here{background:' + window.hkCards.v('accent') + ';color:var(--hk-on-accent,#fff)}',
-      '.sheet.list .it.here span,.sheet.list .it.here ha-icon{color:var(--hk-on-accent,#fff)}',
-      '.sheet.list .roomgrid .it ha-icon{width:22px;height:22px;background:none;--mdc-icon-size:22px}',
+      '.sheet.list .it.here span,.sheet.list .it.here hk-icon{color:var(--hk-on-accent,#fff)}',
+      '.sheet.list .roomgrid .it hk-icon{width:22px;height:22px;background:none;--mdc-icon-size:22px}',
       '.it:active{filter:brightness(1.25)}',
       // ---- TAB BAR POSITION: TOP. The bottom's mirror: More hangs from the
       // bar, the bar hides upward
@@ -574,8 +574,8 @@
           '<section class="sheet g" data-sheet="rooms" aria-label="Rooms"><h2>Rooms</h2><div class="hk-edge"><div class="body">' +
             '<div class="grid roomgrid"></div></div></div></section>' +
           '<div class="row">' +
-            '<nav class="pill g" aria-label="Tab Bar"><button class="cur" aria-label="Show the tab bar"><ha-icon></ha-icon></button></nav>' +
-            '<button class="roomsbtn g" aria-label="Rooms" aria-expanded="false"><ha-icon icon="' + icon(ROOMS_ICON) + '"></ha-icon></button>' +
+            '<nav class="pill g" aria-label="Tab Bar"><button class="cur" aria-label="Show the tab bar"><hk-icon></hk-icon></button></nav>' +
+            '<button class="roomsbtn g" aria-label="Rooms" aria-expanded="false"><hk-icon icon="' + icon(ROOMS_ICON) + '"></hk-icon></button>' +
           '</div>' +
         '</div>';
       S.root = sr.querySelector('.root');
@@ -686,12 +686,12 @@
       S.tabs = p.tabs; S.more = p.more; S.rooms = rm === 'off' ? [] : p.rooms; S.roomsMode = rm;
       var html = '';
       p.tabs.forEach(function (it, i) {
-        html += '<button class="tab" data-t="' + i + '"><ha-icon icon="' + icon(it.icon) + '"></ha-icon><span>' +
+        html += '<button class="tab" data-t="' + i + '"><hk-icon icon="' + icon(it.icon) + '"></hk-icon><span>' +
           esc(it.title) + '</span></button>';
       });
       if (f.more) {
-        html += '<button class="tab" data-t="more" aria-expanded="false"><ha-icon icon="' + icon(MORE_ICON) +
-          '"></ha-icon><span>More</span></button>';
+        html += '<button class="tab" data-t="more" aria-expanded="false"><hk-icon icon="' + icon(MORE_ICON) +
+          '"></hk-icon><span>More</span></button>';
       }
       // THE SAME TABS ARE KEPT, not drawn again: a module arriving on a new
       // page (hk-module-ready) asks for a rebuild, and new buttons would cut
@@ -761,7 +761,7 @@
     }
     function fill(grid, items, k, at) {
       grid.innerHTML = items.map(function (it, i) {
-        return '<button class="it" data-k="' + k + '" data-i="' + (i + (at || 0)) + '"><ha-icon icon="' + icon(it.icon) + '"></ha-icon><span>' +
+        return '<button class="it" data-k="' + k + '" data-i="' + (i + (at || 0)) + '"><hk-icon icon="' + icon(it.icon) + '"></hk-icon><span>' +
           esc(it.title) + '</span></button>';
       }).join('');
     }
@@ -832,7 +832,7 @@
       // folded, the button shows where you are: the page's tab, More, a
       // room, else Home
       var ci = curIcon || (inRoom ? ROOMS_ICON : (S.tabs[0] && S.tabs[0].icon) || 'mdi:home');
-      var ie = S.cur.querySelector('ha-icon'), want = H.glyph(ci);
+      var ie = S.cur.querySelector('hk-icon'), want = H.glyph(ci);
       if (ie.getAttribute('icon') !== want) ie.setAttribute('icon', want);
     }
 

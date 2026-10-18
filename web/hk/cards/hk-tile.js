@@ -177,21 +177,20 @@
 
   // TWO LEVELS, not one:
   //
-  //   ha-card#card   material box -- flex, overflow:hidden, text-align:center
+  //   hk-plate#card  material box -- flex, overflow:hidden, text-align:center
   //     div.grid     the grid -- areas, gaps, align-content:center
   //       .well / .name / .label
   //
   // The material box centres and the grid lays out: one element cannot be
   // both a flex box and a grid box.
   //
-  // <ha-card> rather than a div: it carries HA's own card
-  // styling (font-size 16.8px, overflow, text-align), so those come from
-  // HA instead of being hardcoded here and
-  // drifting the next time HA changes them.
+  // <hk-plate> rather than a div: it carries the card plate's styling (HA's
+  // ha-card rules under HK's name, elements/hk-elements.js) and the
+  // --ha-card-* variables, as every HK card's plate does.
   var TILE = window.hkCards.TILE;
   var CSS = [
     ':host{display:block}',
-    'ha-card.card{',
+    'hk-plate.card{',
     '  box-sizing:border-box;',
     // --hk-pill: the pill everywhere but an iPad held upright (css/hk-responsive.css).
     '  height:' + TILE.h + 'px;width:' + TILE.css + ';min-width:' + TILE.css + ';max-width:' + TILE.css + ';',
@@ -219,12 +218,12 @@
     '  --ha-ripple-hover-opacity:0;--ha-ripple-pressed-opacity:0;',
     '  transition:background-color .25s ease,transform .12s ease;',
     '}',
-    'ha-card.card:active{transform:scale(0.97);filter:brightness(0.93)}',
+    'hk-plate.card:active{transform:scale(0.97);filter:brightness(0.93)}',
     // Lit, the plate is opaque white: a blur behind it ("Blur each card")
     // would be composited every frame and never seen.
-    'ha-card.card[data-on="1"]{background:white;--hk-glass-backdrop:none}',
+    'hk-plate.card[data-on="1"]{background:white;--hk-glass-backdrop:none}',
     // ...and on a light page (hk-base.js tone) lifts off it with a shadow
-    ':host([data-hk-light]) ha-card.card[data-on="1"]{box-shadow:var(--hk-on-shadow)}',
+    ':host([data-hk-light]) hk-plate.card[data-on="1"]{box-shadow:var(--hk-on-shadow)}',
 
     '.grid{display:grid;width:100%;',
     '  grid-template-columns:42px minmax(0,1fr);',
@@ -244,11 +243,11 @@
     // renders the same today but diverges the moment a glyph is swapped for
     // one with different padding.
     // THE GLYPH MUST BE CENTRED IN ITS OWN BOX, or a spinning fan wobbles.
-    // ha-state-icon renders its ha-icon as an INLINE box, so without flex the
+    // hk-state-icon (HA's ha-state-icon) renders its icon as an INLINE box, so without flex the
     // glyph's height comes from the line strut: it sits 1.31px above the box
     // centre -- the rotation axis -- and measures 20.2px tall instead of
-    // 23.7px, slightly small and slightly high. The inner ha-icon lives
-    // inside ha-state-icon's shadow root, so a style check of the card alone
+    // 23.7px, slightly small and slightly high. The inner icon lives
+    // inside the state icon's shadow root, so a style check of the card alone
     // misses it. Flex centring makes the shadow child fill and centre.
     '.icon{width:' + TILE.glyph + 'px;height:' + TILE.glyph + 'px;--mdc-icon-size:100%;' +
     '  display:flex;align-items:center;justify-content:center;line-height:0;',
@@ -259,7 +258,7 @@
     '  color:' + window.hkCards.v('ink') + ';',
     '  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;',
     '  min-width:0;width:100%}',
-    'ha-card.card[data-on="1"] .name{color:black}',
+    'hk-plate.card[data-on="1"] .name{color:black}',
 
     '.label{grid-area:l;justify-self:stretch;text-align:left;align-self:start;',
     '  font-weight:400;font-size:15px;letter-spacing:-0.23px;line-height:' + TILE.lineH + 'px;',
@@ -267,8 +266,8 @@
     '  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
     // IN A SECTION (HA's Sections view, not HK's grid): the tile fills its
     // cell, two to a section by default, instead of sitting pill-wide in it.
-    ':host([data-hk-cell]) ha-card.card{width:100%;min-width:0;max-width:none}',
-    'ha-card.card[data-on="1"] .label{color:' + window.hkCards.v('ink-on-state') + '}',
+    ':host([data-hk-cell]) hk-plate.card{width:100%;min-width:0;max-width:none}',
+    'hk-plate.card[data-on="1"] .label{color:' + window.hkCards.v('ink-on-state') + '}',
 
     // ---- scene variant -------------------------------------------------
     // A scene is NOT a pill with a different grid. Diffing every resolved
@@ -280,15 +279,15 @@
     // No outer shadow by default -- only the inset rim, which is what
     // carries the glass read here; `elevated` adds the pill shadow (the
     // scenes row opens room for it inside its clip, see hk-row-card).
-    'ha-card.card.scene{box-shadow:var(--hk-look-shadow, ' + window.hkCards.v('glass-shadow-scene') + ')}',
+    'hk-plate.card.scene{box-shadow:var(--hk-look-shadow, ' + window.hkCards.v('glass-shadow-scene') + ')}',
     // `elevated` -- the action tile -- is a scene with the outer shadow PUT
     // BACK.
-    'ha-card.card.scene.elevated{box-shadow:var(--hk-look-shadow, inset 0 1px 0 rgba(255,255,255,0.20),' +
+    'hk-plate.card.scene.elevated{box-shadow:var(--hk-look-shadow, inset 0 1px 0 rgba(255,255,255,0.20),' +
     '  0 8px 22px rgba(0,0,0,0.12))}',
     '.card.scene .grid{grid-template-rows:1fr;row-gap:normal;align-items:center;column-gap:' + TILE.sceneWellGap + 'px}',
     // a scene's glyph and name stay where they were: its text already sits
     // where the Home app's does (the accessory pill's moved 0.5 / 0.9 left)
-    'ha-card.card.scene{padding-left:' + TILE.scenePadL + 'px}',
+    'hk-plate.card.scene{padding-left:' + TILE.scenePadL + 'px}',
     // THE WELL IS NOT PAINTED. A scene centres a bare glyph in the same 42px
     // slot -- no circle, no fill. This is the single easiest difference to miss
     // by eye and the reason one card with four layouts cannot work.
@@ -312,11 +311,11 @@
     // trace: the white plate, and the ring that sweeps round the glyph.
     //
     // `--hk-tap: 1` is a MARKER, not a style. /hk/hk-tap.js reads it off the
-    // computed style of the ha-card under the finger and holds `.hk-tapped`
+    // computed style of the hk-plate under the finger and holds `.hk-tapped`
     // for 1050ms -- exactly one sweep of the ring. It finds this card through
     // composedPath, so a shadow root is no obstacle; the card only has to opt
     // in. Nothing else consumes the marker.
-    'ha-card.card.scene{--hk-tap:1;',
+    'hk-plate.card.scene{--hk-tap:1;',
     '  transition:background-color 1.2s ease-out,transform .14s ease}',
     // ASYMMETRIC ON PURPOSE: no transition going in, so the flip is instant,
     // and a long one coming out, so the tile keeps glowing for about a second
@@ -325,7 +324,7 @@
     // The Home app does not "brighten" a tapped scene -- it flips the pill to the
     // same solid-white ACTIVE look a switched-on accessory gets. So the base
     // tile's brightness dim must not apply here.
-    'ha-card.card.scene:active{filter:none}',
+    'hk-plate.card.scene:active{filter:none}',
     // THE WHITE PLATE IS .hk-tapped ONLY -- never `:active`.
     //
     // `:active` is set the instant a finger lands, and the browser cannot know
@@ -343,13 +342,13 @@
     // finger is down" signal, so it is safe on the ambiguous event.
     // COST: if /hk/modules/hk-tap.js fails to load, a scene tap gets the scale
     // and no white flip.
-    'ha-card.card.scene.hk-tapped{',
+    'hk-plate.card.scene.hk-tapped{',
     '  transition:none;background:rgba(255,255,255,0.96)}',
     // !important IS LOAD-BEARING: without it the glyph stays white on a
     // tapped scene while the name goes black. _render assigns
     // the icon's colour as an INLINE style (it is computed per state), and an
     // inline style beats a stylesheet rule -- but not an important one.
-    'ha-card.card.scene.hk-tapped .name,ha-card.card.scene.hk-tapped .icon{',
+    'hk-plate.card.scene.hk-tapped .name,hk-plate.card.scene.hk-tapped .icon{',
     '  transition:none;color:rgba(0,0,0,0.92)!important;fill:rgba(0,0,0,0.92)!important}',
     // The ring is drawn INSIDE the well (inset:0) so it sits round the glyph
     // and the well's own overflow:hidden never touches it. Only the
@@ -361,7 +360,7 @@
     '  -webkit-mask:radial-gradient(closest-side,rgba(0,0,0,0) calc(100% - 2.5px),#000 calc(100% - 2.5px));',
     '  mask:radial-gradient(closest-side,rgba(0,0,0,0) calc(100% - 2.5px),#000 calc(100% - 2.5px));',
     '  opacity:0;pointer-events:none;transition:opacity .25s ease-out}',
-    'ha-card.card.scene.hk-tapped .well::after{',
+    'hk-plate.card.scene.hk-tapped .well::after{',
     '  opacity:1;transition:none;animation:hk-ring-sweep 1.05s linear}',
     // --hk-ring has to be REGISTERED as an <angle> to interpolate at all --
     // an unregistered custom property is just a token stream and would jump
@@ -376,14 +375,14 @@
     // tapped plate's near-black glyph above is !important too, and the well's
     // off background is written inline.
     '.card.scene.tinted .well{border-radius:50%;transition:background-color 1.2s ease-out}',
-    'ha-card.card.scene.tinted[data-on="1"] .icon,ha-card.card.scene.tinted.hk-tapped .icon{width:25px;height:25px}',
-    'ha-card.card.scene.tinted.hk-tapped .well{transition:none;background:var(--hk-tint)!important}',
-    'ha-card.card.scene.tinted.hk-tapped .icon{color:#fff!important;fill:#fff!important}',
+    'hk-plate.card.scene.tinted[data-on="1"] .icon,hk-plate.card.scene.tinted.hk-tapped .icon{width:25px;height:25px}',
+    'hk-plate.card.scene.tinted.hk-tapped .well{transition:none;background:var(--hk-tint)!important}',
+    'hk-plate.card.scene.tinted.hk-tapped .icon{color:#fff!important;fill:#fff!important}',
     '@media (prefers-reduced-motion:reduce){',
-    '  ha-card.card.scene,ha-card.card.scene:active,ha-card.card.scene.hk-tapped,',
+    '  hk-plate.card.scene,hk-plate.card.scene:active,hk-plate.card.scene.hk-tapped,',
     '  .card.scene .well,.card.scene .name,.card.scene .icon{',
     '    transition:none;transform:none}',
-    '  ha-card.card.scene.hk-tapped .well::after{animation:none;opacity:0}}',
+    '  hk-plate.card.scene.hk-tapped .well::after{animation:none;opacity:0}}',
 
     // A RUNNING FAN'S GLYPH SPINS: the fan tile defaults `animation: spin`,
     // and the on-state turns that into the hk-spin keyframe below. It is
@@ -401,7 +400,7 @@
     // card draws them) -- the Home app's favorite is taller than its pill
     // (76.6 against 70, iPad points), and sits on a taller row (hk-strategy.js
     // pillGrid: TILE.favRow).
-    'ha-card.card.three-line{height:' + TILE.fav + 'px}',
+    'hk-plate.card.three-line{height:' + TILE.fav + 'px}',
     '.card.three-line{padding:' + TILE.favPadY + 'px 12.8px ' + TILE.favPadY + 'px ' + TILE.padL + 'px}',
     '.card.three-line .grid{grid-template-rows:' + TILE.lineH + 'px ' + TILE.lineH + 'px ' + TILE.lineH + 'px;row-gap:' + TILE.favRowGap + 'px}',
     '.card.three-line .label{align-self:center}',
@@ -411,7 +410,7 @@
     '  font-size:15px;font-weight:400;line-height:' + TILE.lineH + 'px;letter-spacing:-0.23px;',
     '  color:' + window.hkCards.v('ink-2') + ';min-width:0;width:100%;',
     '  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
-    'ha-card.card[data-on="1"] .room{color:' + window.hkCards.v('ink-on-room') + '}',
+    'hk-plate.card[data-on="1"] .room{color:' + window.hkCards.v('ink-on-room') + '}',
 
     // ---- tall variant ----------------------------------------------------
     // 17 differences from the pill, and the type is the one that surprises: a tall tile sets
@@ -425,9 +424,9 @@
     // inset 13.8px against the pills' 11.3px), which the eye catches at once
     // in a column of pills and tall tiles.
     // Top/bottom/right keep the tall tile's own 12.8.
-    'ha-card.card.tall{height:' + TILE.tall + 'px;padding:12.8px 12.8px 12.8px ' + TILE.padL + 'px;',
+    'hk-plate.card.tall{height:' + TILE.tall + 'px;padding:12.8px 12.8px 12.8px ' + TILE.padL + 'px;',
     '  box-shadow:var(--hk-look-shadow, ' + window.hkCards.v('glass-shadow-tall') + ')}',
-    // align-self:stretch is load-bearing. ha-card is flex with
+    // align-self:stretch is load-bearing. hk-plate is flex with
     // align-items:center, so without it the grid is CENTRED inside the tall
     // card rather than filling it -- every row lands ~25px low, which no
     // colour or size check would notice.
@@ -457,15 +456,15 @@
     '  font-size:35.3px;letter-spacing:0.38px;font-weight:700;line-height:1}',
 
     '@keyframes hk-spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}',
-    'ha-card.card[data-on="1"] .icon.spin{animation:hk-spin 1.35s linear infinite}',
+    'hk-plate.card[data-on="1"] .icon.spin{animation:hk-spin 1.35s linear infinite}',
     // ANIMATIONS OFF (Sky / Background, hk-base.js hk-still, 2026-10-10): the
     // glyph stands upright. Running alone it kept the page drawing every
     // frame once the sky stood still (a Mac: 19% of a core with the sky
     // paused, 8% with the fans too).
-    ':host([hk-still]) ha-card.card .icon.spin{animation:none}',
+    ':host([hk-still]) hk-plate.card .icon.spin{animation:none}',
 
     '@media (prefers-reduced-motion:reduce){',
-    '  ha-card.card,ha-card.card:active,.well,.icon{transition:none;transform:none;animation:none}}',
+    '  hk-plate.card,hk-plate.card:active,.well,.icon{transition:none;transform:none;animation:none}}',
     // ================================================ PHONE: FILL THE TRACK
     // Below 640px the room grids switch to `repeat(auto-fill, minmax(168px,
     // 1fr))` (see frontend/css/hk-responsive.css), so the track is no longer
@@ -495,7 +494,7 @@
     // the full grid AREA instead and every tile comes out 8px too wide (190.95
     // measured against a 182.95 track), eating the gap (then 12px) to 4px.
     '  :host{max-width:none !important}',
-    '  ha-card.card{width:calc(100% + var(--hk-cell-bleed, 8px));min-width:0;max-width:none}',
+    '  hk-plate.card{width:calc(100% + var(--hk-cell-bleed, 8px));min-width:0;max-width:none}',
     '}',
   ].join('');
 
@@ -671,9 +670,9 @@
 
       if (!this._built) {
         this._root.innerHTML =
-          '<ha-card class="card" data-hk-role="card">' +
+          '<hk-plate class="card" data-hk-role="card">' +
           '  <div class="grid">' +
-          '    <div class="well" data-hk-role="well"><ha-state-icon class="icon" data-hk-role="icon"></ha-state-icon></div>' +
+          '    <div class="well" data-hk-role="well"><hk-state-icon class="icon" data-hk-role="icon"></hk-state-icon></div>' +
           '    <div class="name" data-hk-role="name"></div>' +
           '    <div class="label" data-hk-role="label"></div>' +
           // AFTER the label in DOM order. grid-area puts it on the top row
@@ -681,7 +680,7 @@
           // "Front Door / Locked / Living Room", the accessory first.
           '    <div class="room"></div>' +
           '  </div>' +
-          '</ha-card>';
+          '</hk-plate>';
         this._els = {
           card: this._root.querySelector('.card'),
           grid: this._root.querySelector('.grid'),

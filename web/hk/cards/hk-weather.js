@@ -208,7 +208,7 @@
       static get CSS() {
         return [
           // a page card's plate (hkCards.plate)
-          'ha-card.wtile{box-sizing:border-box;display:block;height:172px;',
+          'hk-plate.wtile{box-sizing:border-box;display:block;height:172px;',
           '  padding:14px 16px;margin:0;' + window.hkCards.plate('card') + ';',
           '  --ha-ripple-hover-opacity:0;--ha-ripple-pressed-opacity:0}',
           // `start` on a tablet, where five tiles share a row at ~230px each and
@@ -530,10 +530,10 @@
         if (this._isPage()) { if (this.client) this._renderPage(); return; }
         if (!this._built) {
           this._root.innerHTML =
-            '<ha-card class="wtile" data-hk-role="card"><div class="grid">' +
+            '<hk-plate class="wtile" data-hk-role="card"><div class="grid">' +
             '<div class="cap" data-hk-role="cap"></div>' +
             '<div class="body" data-hk-role="body"></div>' +
-            '</div></ha-card>';
+            '</div></hk-plate>';
           var q = this._root.querySelector.bind(this._root);
           this._e = { card: q('.wtile'), cap: q('.cap'), body: q('.body') };
           if (cfg.tap_action && cfg.tap_action.action !== 'none') {
@@ -609,7 +609,7 @@
           // OVERFLOW IS VISIBLE AT EVERY LEVEL, and that is load-bearing: the
           // whole header is drawn under one drop-shadow filter, and a filter's
           // output is clipped by any ancestor that clips.
-          'ha-card.hdr{box-sizing:border-box;display:block;min-height:118px;',
+          'hk-plate.hdr{box-sizing:border-box;display:block;min-height:118px;',
           '  background:transparent;box-shadow:none;border:none;overflow:visible;',
           '  padding:28px 0px 14px 0px;',
           // 9px, not 14px: the status chip carries a 5px TOP margin so its
@@ -634,14 +634,14 @@
           // with the menu always shown): the header steps aside and leaves
           // only the page's top margin, so the chip row moves up level with
           // the menu's clock -- about 130 px back on a wall tablet.
-          'ha-card.hdr.gone{min-height:0;height:' + GONE_H + 'px;padding:0;margin:0}',
+          'hk-plate.hdr.gone{min-height:0;height:' + GONE_H + 'px;padding:0;margin:0}',
           '.hdr.gone .grid{display:none}',
           // STACKED: on someone else's dashboard (data-hk-foreign) narrower
           // than HK_STACK_W -- a section, a Masonry column -- the security
           // line goes under the clock, and the weather under the time when
           // they don't fit side by side. Nothing is dropped (_fitWx). HK's own
           // screens never stack: a narrow one keeps dropping the clock.
-          ':host([data-hk-stack]) ha-card.hdr{padding:12px 0px 10px 0px;min-height:0}',
+          ':host([data-hk-stack]) hk-plate.hdr{padding:12px 0px 10px 0px;min-height:0}',
           ':host([data-hk-stack]) .hdr .grid{grid-template-areas:"left" "right";',
           '  grid-template-columns:minmax(0,1fr);row-gap:10px}',
           ':host([data-hk-stack]) .hdr .half{min-height:0}',
@@ -722,10 +722,10 @@
         var cfg = this._config;
         if (!this._built) {
           this._root.innerHTML =
-            '<ha-card class="hdr" data-hk-role="card"><div class="grid">' +
+            '<hk-plate class="hdr" data-hk-role="card"><div class="grid">' +
             '<div class="half left" role="button" data-hk-role="left"></div>' +
             '<div class="half right" role="button" data-hk-role="right"></div>' +
-            '</div></ha-card>';
+            '</div></hk-plate>';
           var q = this._root.querySelector.bind(this._root);
           this._e = { left: q('.left'), right: q('.right') };
           // New, empty halves: forget what was written into the old ones, or
@@ -756,7 +756,7 @@
           this._built = true;
         }
         var gone = menuHasTime();
-        var card = this._root.querySelector('ha-card.hdr');
+        var card = this._root.querySelector('hk-plate.hdr');
         if (card && card.classList) card.classList.toggle('gone', gone);
         if (gone) { this._lastL = this._lastR = null; return; }
         var H = window.hkHeader, st = this.client && this.client.states;
@@ -880,7 +880,7 @@
     class HkScreensaverStatusCard extends Base {
       static get CSS() {
         return [
-          'ha-card.ssstat{background:none;box-shadow:none;border:none;padding:0;margin:0;height:0;',
+          'hk-plate.ssstat{background:none;box-shadow:none;border:none;padding:0;margin:0;height:0;',
           '  overflow:visible;display:block}',
           '.sscorner{position:fixed;top:var(--hk-ss-status-top,44px);right:var(--hk-ss-status-right,50px);',
           // (--hk-ss-status-width: the calendar pane's width, when it sits there)
@@ -899,7 +899,7 @@
       _sigOf() { return this.client ? this._html() : null; }
       _render() {
         if (!this._built) {
-          this._root.innerHTML = '<ha-card class="ssstat" data-hk-role="card"><div class="sscorner"></div></ha-card>';
+          this._root.innerHTML = '<hk-plate class="ssstat" data-hk-role="card"><div class="sscorner"></div></hk-plate>';
           this._e = this._root.querySelector('.sscorner');
           this._built = true;
           // a rebuild (a new config) starts empty: what it last drew is gone
@@ -920,7 +920,7 @@
           // shared tokens. This card ONLY RENDERS WHEN AN ALERT IS LIVE, so
           // drift here would be invisible until it matters, which is the
           // argument for it not being hand-rolled.
-          'ha-card.alert{box-sizing:border-box;display:block;',
+          'hk-plate.alert{box-sizing:border-box;display:block;',
           '  padding:16px 20px 14px 20px;margin:0px 0px 12px 0px;' + window.hkCards.plate('card') + ';',
           '  --ha-ripple-hover-opacity:0;--ha-ripple-pressed-opacity:0}',
           '.alert .grid{display:grid;',
@@ -1012,19 +1012,19 @@
         var cfg = this._config;
         if (!this._built) {
           this._root.innerHTML =
-            '<ha-card class="alert" data-hk-role="card"><div class="grid">' +
-            '<ha-icon class="icon" data-hk-role="icon" icon="' +
-            (cfg.icon || 'mdi:alert') + '"></ha-icon>' +
+            '<hk-plate class="alert" data-hk-role="card"><div class="grid">' +
+            '<hk-icon class="icon" data-hk-role="icon" icon="' +
+            (cfg.icon || 'mdi:alert') + '"></hk-icon>' +
             '<div class="title" data-hk-role="title"></div>' +
             '<div class="src" data-hk-role="src"></div>' +
             '<div class="body" data-hk-role="body"></div>' +
             '<div class="count" data-hk-role="count"></div>' +
-            '</div></ha-card>';
+            '</div></hk-plate>';
           var q = this._root.querySelector.bind(this._root);
           this._e = { icon: q('.icon'), title: q('.title'), src: q('.src'),
                       body: q('.body'), count: q('.count') };
           if (cfg.details) {
-            var self = this, card = q('ha-card');
+            var self = this, card = q('hk-plate');
             card.setAttribute('role', 'button'); card.setAttribute('tabindex', '0');
             card.style.cursor = 'pointer';
             card.addEventListener('click', function () { self._details(); });
@@ -1263,11 +1263,11 @@
       '.hero .ol{font-size:13px;font-weight:500;line-height:1.5;margin:13px auto 0;max-width:520px;color:' + C.v('ink-2') + '}',
       '@media (max-width:' + C.BP.phone + 'px){.hero{padding:27px 12px 22px}.hero .tp{font-size:76px}.hero .ol{max-width:290px}}',
       // ---- the page's plates: hourly and daily (hkCards.plate, CARD's 20 / 22)
-      'ha-card.wxp{box-sizing:border-box;display:flex;flex-direction:column;padding:' + C.CARD.pad + ';margin:0;' + C.plate('card') + ';overflow:hidden;',
+      'hk-plate.wxp{box-sizing:border-box;display:flex;flex-direction:column;padding:' + C.CARD.pad + ';margin:0;' + C.plate('card') + ';overflow:hidden;',
       '  color:' + C.v('ink') + ';--ha-ripple-hover-opacity:0;--ha-ripple-pressed-opacity:0}',
       '.wxp .hd{display:flex;justify-content:space-between;align-items:center;gap:12px;min-height:34px}',
       '.wxp .tt{display:flex;align-items:center;gap:7px;font-size:13px;font-weight:600;color:' + C.v('ink-2') + ';white-space:nowrap}',
-      '.wxp .tt ha-icon{--mdc-icon-size:17px;width:17px;height:17px;flex:none;display:flex;align-items:center;justify-content:center;line-height:0}',
+      '.wxp .tt hk-icon{--mdc-icon-size:17px;width:17px;height:17px;flex:none;display:flex;align-items:center;justify-content:center;line-height:0}',
       '.wxp .wait{margin:auto;padding:24px 0;font-size:14px;color:' + C.v('ink-3') + ';text-align:center}',
       C.segCss('.wxp .seg'),
       '.wxp .seg button:disabled{opacity:.4;cursor:default}',
@@ -1297,8 +1297,8 @@
       '@media (max-width:' + C.BP.phone + 'px){.wxp.hrly .hd{flex-direction:column;align-items:stretch;gap:12px}',
       '  .wxp.hrly .seg button{flex:1 1 0}.wxp .rd{flex-direction:column;gap:5px}.wxp .hs{margin-top:10px}}',
       // the days: on one shared scale, low to high
-      'ha-card.wxp.dly{height:var(--hk-wx-pair-h,455px)}',
-      ':host([data-hk-cell]) ha-card.wxp.dly{height:100%}',
+      'hk-plate.wxp.dly{height:var(--hk-wx-pair-h,455px)}',
+      ':host([data-hk-cell]) hk-plate.wxp.dly{height:100%}',
       '.wxp.dly .hd{margin-bottom:6px}',
       '.wxp .dys{flex:1 1 auto;display:flex;flex-direction:column;min-height:0}',
       '.wxp .dy{flex:1 1 0;display:grid;grid-template-columns:50px 35px 34px minmax(25px,1fr) 34px;align-items:center;gap:10px;',
@@ -1460,10 +1460,10 @@
         this._metricShown = metric;
         if (this._sel != null && this._sel >= hrs.length) this._sel = null;
         if (!this._built) {
-          this._root.innerHTML = '<ha-card class="wxp hrly"><div class="hd">' +
-            '<div class="tt"><ha-icon icon="hk:clock"></ha-icon>Hourly Forecast</div>' +
+          this._root.innerHTML = '<hk-plate class="wxp hrly"><div class="hd">' +
+            '<div class="tt"><hk-icon icon="hk:clock"></hk-icon>Hourly Forecast</div>' +
             '<div class="seg" role="radiogroup" aria-label="Hourly forecast shows"></div></div>' +
-            '<div class="hs"><div class="hrs"></div></div><div class="rd" aria-live="polite"></div></ha-card>';
+            '<div class="hs"><div class="hrs"></div></div><div class="rd" aria-live="polite"></div></hk-plate>';
           var q = this._root.querySelector.bind(this._root);
           this._e = { seg: q('.seg'), hs: q('.hs'), hrs: q('.hrs'), rd: q('.rd') };
           this._e.seg.addEventListener('click', function (e) {
@@ -1518,7 +1518,7 @@
         e.hrs.style.minWidth = hrs.length ? (hrs.length * 64 + (hrs.length - 1) * 5) + 'px' : '';
         C.morph(e.hrs, hrs.length ? cells : '<div class="wait">' + (state === 'wait' ? 'Loading the forecast…' : 'No hourly forecast from ' + esc(this._service() || 'the weather service') + '.') + '</div>');
         e.hrs.setAttribute('data-state', state);
-        if (hrs.length && buildDue(this)) build(this, this._root.querySelector('ha-card.wxp'));
+        if (hrs.length && buildDue(this)) build(this, this._root.querySelector('hk-plate.wxp'));
         else if (was === 'wait' && state === 'ok') arrive(e.hrs);
         var rd = this._sel != null && hrs[this._sel] ? esc(say(hrs[this._sel], this._sel)) : (hrs.length ? 'Tap an hour for its details' : '');
         C.morph(e.rd, rd + (this._service() ? '<span>' + esc(this._service()) + '</span>' : ''));
@@ -1530,8 +1530,8 @@
         var pg = wxPage(), days = this._days(pg.days), state = this._fcState('daily', days);
         var t = num(a.temperature);
         if (!this._built) {
-          this._root.innerHTML = '<ha-card class="wxp dly"><div class="hd"><div class="tt"><ha-icon icon="mdi:calendar-month"></ha-icon><span class="nm"></span></div></div>' +
-            '<div class="dys" role="list"></div><div class="ft"></div></ha-card>';
+          this._root.innerHTML = '<hk-plate class="wxp dly"><div class="hd"><div class="tt"><hk-icon icon="mdi:calendar-month"></hk-icon><span class="nm"></span></div></div>' +
+            '<div class="dys" role="list"></div><div class="ft"></div></hk-plate>';
           var q = this._root.querySelector.bind(this._root);
           this._e = { nm: q('.nm'), dys: q('.dys'), ft: q('.ft') };
           this._e.dys.addEventListener('click', function (ev) {
@@ -1566,7 +1566,7 @@
         var was = e.dys.getAttribute('data-state');
         C.morph(e.dys, days.length ? rows : '<div class="wait">' + (state === 'wait' ? 'Loading the forecast…' : 'No daily forecast from ' + esc(this._service() || 'the weather service') + '.') + '</div>');
         e.dys.setAttribute('data-state', state);
-        if (days.length && buildDue(this)) build(this, this._root.querySelector('ha-card.wxp'));
+        if (days.length && buildDue(this)) build(this, this._root.querySelector('hk-plate.wxp'));
         else if (was === 'wait' && state === 'ok') arrive(e.dys);
         // the week in a line: its warmest and coolest days
         var ft = '';
@@ -1592,7 +1592,7 @@
         return [
           // The plate: a page card's (hkCards.plate, CARD's 20 / 22 padding),
           // and the band's own 12px bottom margin.
-          'ha-card.band{' + window.hkCards.plate('card') + ';',
+          'hk-plate.band{' + window.hkCards.plate('card') + ';',
           '  padding:' + window.hkCards.CARD.pad + ';margin:0 0 12px 0;',
           '  display:block;overflow:hidden}',
           // A GRID WITH A FIXED 300px LEFT TRACK AND A 24px COLUMN GAP. A
@@ -1652,7 +1652,7 @@
           // so the columns sit where they do on the plate (and the 397 in
           // _fit stays true); top and bottom go, so the band's text is its
           // edge.
-          'ha-card.band.plain{background:none;border:none;border-radius:0;box-shadow:none;',
+          'hk-plate.band.plain{background:none;border:none;border-radius:0;box-shadow:none;',
           '  -webkit-backdrop-filter:none;backdrop-filter:none;padding:0 24px;margin:0}',
           '.plain .wrap{text-shadow:var(--hk-glow,0 1px 3px rgba(0,0,0,0.45),0 4px 18px rgba(0,0,0,0.35))}',
           '.plain .place,.plain .sub,.plain .lbl,.plain .lo,.plain .pop.wet{color:var(--hk-ink-2,#fff)}',
@@ -1972,7 +1972,7 @@
         };
 
         this._root.innerHTML =
-          '<ha-card class="band' + (cfg.plain ? ' plain' : '') + '"><div class="wrap' + (narrow ? ' narrow' : '') + '"' +
+          '<hk-plate class="band' + (cfg.plain ? ' plain' : '') + '"><div class="wrap' + (narrow ? ' narrow' : '') + '"' +
           (this._nowW() !== 300 ? ' style="--hk-now-w:' + this._nowW() + 'px"' : '') + '>' +
             '<div class="now">' +
               '<div class="place">' + esc(cfg.place || this._place()) + '</div>' +
@@ -1987,12 +1987,12 @@
               '<div class="hrule"></div>' +
               '<div class="strip" style="' + tracks(days.length || nDays) + '">' + dayCells + '</div>' +
             '</div>' +
-          '</div></ha-card>';
+          '</div></hk-plate>';
 
         // Bound per render, not once: _render replaces innerHTML wholesale, so
-        // the previous ha-card and its listener are discarded with it. There
+        // the previous hk-plate and its listener are discarded with it. There
         // is nothing to accumulate.
-        var card = this._root.querySelector('ha-card');
+        var card = this._root.querySelector('hk-plate');
         if (card) {
           this._bind(card, 'tap_action', null);
           // Only look tappable when it is. `pointer` on a card that does
@@ -2017,10 +2017,10 @@
                        humidity: 'hk:water-percent', moon: 'mdi:moon-waning-crescent', pressure: 'mdi:gauge' };
     var TILE_NAMES = { wind: 'Wind', sun: 'Sunrise', uv: 'UV Index', humidity: 'Humidity', moon: 'Moon', pressure: 'Pressure' };
     var TILE_PAGE_CSS = [
-      'ha-card.wtile.pg{display:flex;flex-direction:column;height:var(--hk-wx-tile-h,190px);padding:' + C.CARD.pad + ';cursor:pointer;color:' + C.v('ink') + '}',
-      ':host([data-hk-cell]) ha-card.wtile.pg{height:100%}',
+      'hk-plate.wtile.pg{display:flex;flex-direction:column;height:var(--hk-wx-tile-h,190px);padding:' + C.CARD.pad + ';cursor:pointer;color:' + C.v('ink') + '}',
+      ':host([data-hk-cell]) hk-plate.wtile.pg{height:100%}',
       '.pg .pt{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:' + C.v('ink-2') + ';white-space:nowrap;overflow:hidden}',
-      '.pg .pt ha-icon{--mdc-icon-size:15px;width:15px;height:15px;flex:none;display:flex;align-items:center;justify-content:center;line-height:0}',
+      '.pg .pt hk-icon{--mdc-icon-size:15px;width:15px;height:15px;flex:none;display:flex;align-items:center;justify-content:center;line-height:0}',
       '.pg .pb{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;justify-content:center}',
       '.pg .nb{font-size:30px;font-weight:700;letter-spacing:-0.6px;line-height:1.1;font-variant-numeric:tabular-nums;white-space:nowrap}',
       '.pg .nb small{font-size:13px;font-weight:600;letter-spacing:0;color:' + C.v('ink-2') + ';margin-left:3px}',
@@ -2189,10 +2189,10 @@
       _renderPage() {
         var self = this, v = this._config.variant;
         if (!this._built) {
-          this._root.innerHTML = '<ha-card class="wtile pg" role="button" tabindex="0"><div class="pt"><ha-icon></ha-icon><span></span></div>' +
-            '<div class="pb"></div><p class="pn"></p></ha-card>';
+          this._root.innerHTML = '<hk-plate class="wtile pg" role="button" tabindex="0"><div class="pt"><hk-icon></hk-icon><span></span></div>' +
+            '<div class="pb"></div><p class="pn"></p></hk-plate>';
           var q = this._root.querySelector.bind(this._root);
-          this._e = { card: q('ha-card'), ic: q('.pt ha-icon'), tt: q('.pt span'), pb: q('.pb'), pn: q('.pn') };
+          this._e = { card: q('hk-plate'), ic: q('.pt hk-icon'), tt: q('.pt span'), pb: q('.pb'), pn: q('.pn') };
           var open = function () {
             if (!window.hkDetail || !window.hkDetail.open) return;
             var HS = window.hkSettings, id = self._config.entity || (HS && HS.weatherId ? HS.weatherId(self.client.states) : null);
@@ -2413,15 +2413,15 @@
       static get FLAT_MOTION() { return true; }
       static get CSS() {
         // Same reason as the clock: on the screensaver the shadow is a
-        // text-shadow inherited from WallPanel's info box, and ha-card clips
+        // text-shadow inherited from WallPanel's info box, and hk-plate clips
         // by default -- which cuts the 68px blur into a hard grey band.
         return ':host{overflow:visible}' +
-               'ha-card.strip{background:none;border:none;box-shadow:none;' +
+               'hk-plate.strip{background:none;border:none;box-shadow:none;' +
                'padding:2px 3px 0 3px;display:block;overflow:visible}' +
-               'ha-card.strip.tappable{cursor:pointer}' +
+               'hk-plate.strip.tappable{cursor:pointer}' +
                '.strip div,.strip span{overflow:visible}' +
                // fitted to its width, as the header is (hkHeader.fitWeather)
-               fitCss('ha-card.strip');
+               fitCss('hk-plate.strip');
       }
       // No entity in the config: the one chosen in Configure -> Weather and
       // sky, else the house's first weather entity. Re-resolved with every
@@ -2448,7 +2448,7 @@
 
       // TAP.
       //
-      // THE LISTENER GOES ON _root, NOT ON THE ha-card. _render() reassigns
+      // THE LISTENER GOES ON _root, NOT ON THE hk-plate. _render() reassigns
       // this._root.innerHTML on every state change, so anything bound to the
       // card inside it is discarded a few seconds later -- the tap would work
       // once and then stop, which is worse than not working at all. _root is
@@ -2498,12 +2498,12 @@
         var ta = c.tap_action;
         var tappable = (ta && ta.action !== 'none') ? ' tappable' : '';
         // `layer: true` (the screensaver sets it): see the clock card below.
-        this._root.innerHTML = '<ha-card class="strip' + tappable + '" style="margin:' +
+        this._root.innerHTML = '<hk-plate class="strip' + tappable + '" style="margin:' +
           (c.margin != null ? c.margin : '0 0 12px 0') +
-          (c.layer ? ';will-change:transform' : '') + '">' + body + '</ha-card>';
+          (c.layer ? ';will-change:transform' : '') + '">' + body + '</hk-plate>';
         this._wireTap();
         var self = this;
-        fitOnResize(this, function (H) { H.fitWeather(self._root.querySelector('ha-card.strip')); });
+        fitOnResize(this, function (H) { H.fitWeather(self._root.querySelector('hk-plate.strip')); });
       }
       getCardSize() { return 1; }
     }
@@ -2512,11 +2512,11 @@
       static get CSS() {
         // OVERFLOW VISIBLE, and it is load-bearing on the screensaver: the
         // shadow there is a text-shadow inherited from WallPanel's info box,
-        // and ha-card clips by default, so the 68px blur comes out as a hard
+        // and hk-plate clips by default, so the 68px blur comes out as a hard
         // grey band round the clock. `:host` too -- a shadow that escapes the
         // card is still clipped by the host element.
         return ':host{overflow:visible}' +
-               'ha-card.clock{background:none;border:none;box-shadow:none;' +
+               'hk-plate.clock{background:none;border:none;box-shadow:none;' +
                'padding:0;display:block;overflow:visible}' +
                '.clock>div,.clock div{overflow:visible}';
       }
@@ -2575,7 +2575,7 @@
         // morph, not innerHTML: this runs every minute on the screensaver, and
         // rebuilding the 150px time recreates its layer (the header flicker).
         window.hkCards.morph(this._root,
-          '<ha-card class="clock" style="' + st + '">' + body + '</ha-card>');
+          '<hk-plate class="clock" style="' + st + '">' + body + '</hk-plate>');
         this._align();
       }
       // Line the time's first stroke up with the date's (hkHeader.clockShift).

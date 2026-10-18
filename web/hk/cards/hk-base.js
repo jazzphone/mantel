@@ -275,16 +275,16 @@
   // THE PAGE CARD (the Energy page's, and the page headers'): the plate and
   // padding at a fixed height (--hk-ep-h), the one title row (.ttl), and the
   // shared pieces -- .wait, .num, the figure (.big, its unit in <u>), the
-  // caption (.cap) and the label (.k, its dot <i>). `cls` is the ha-card's
+  // caption (.cap) and the label (.k, its dot <i>). `cls` is the hk-plate's
   // class. Defined below figureCss (it uses it), hoisted.
   function pageCardCss(cls) {
     return [
-      'ha-card.' + cls + '{box-sizing:border-box;display:flex;flex-direction:column;height:var(--hk-ep-h,320px);',
+      'hk-plate.' + cls + '{box-sizing:border-box;display:flex;flex-direction:column;height:var(--hk-ep-h,320px);',
       '  padding:' + CARD.pad + ';margin:0;' + plate('card') + ';overflow:hidden;',
       '  color:' + v('ink') + ';container-type:inline-size;',
       '  --ha-ripple-hover-opacity:0;--ha-ripple-pressed-opacity:0}',
       // in a Sections view: the cell's own height
-      ':host([data-hk-cell]) ha-card.' + cls + '{height:100%}',
+      ':host([data-hk-cell]) hk-plate.' + cls + '{height:100%}',
       // ONE TITLE ROW for every card: the name left, the detail right, one baseline
       titleRow('.ttl'),
       '.wait{margin:auto;font-size:14px;color:' + v('ink-3') + '}',
@@ -538,8 +538,8 @@
       // FLAT COLORS (2026-10-17): a lit pill is pure white; an OFF one wears
       // its source's wash (hk-tile.js, flatIdle: --hk-idle-pill, its glyph
       // --hk-idle-glyph), so on and off read apart by color, not shade
-      p + ' ha-card.card[data-hk-idle]:not([data-on="1"]):not(.hk-tapped){background:var(--hk-idle-pill)!important}' +
-      p + ' ha-card.card.scene[data-hk-idle]:not([data-on="1"]):not(.hk-tapped) .icon{color:var(--hk-idle-glyph)!important;fill:var(--hk-idle-glyph)!important}' +
+      p + ' hk-plate.card[data-hk-idle]:not([data-on="1"]):not(.hk-tapped){background:var(--hk-idle-pill)!important}' +
+      p + ' hk-plate.card.scene[data-hk-idle]:not([data-on="1"]):not(.hk-tapped) .icon{color:var(--hk-idle-glyph)!important;fill:var(--hk-idle-glyph)!important}' +
       p + ' .scene .well::after{display:none!important}' +
       (keepMotion ? '' : p + ' .anim,' + p + ' .anim>*{opacity:1;clip-path:none;transform:none}') +
       p + ' .vs{background:var(--hk-key)!important}' +
@@ -1603,10 +1603,10 @@
     // display:flex, so the glyph sits in the middle of its circle, on
     // EVERY tile.
     //
-    // ha-icon renders its glyph as an INLINE-level child, so it is placed on
+    // hk-icon (like HA's ha-icon) renders its glyph as an INLINE-level child, so it is placed on
     // a baseline inside a line box built from the inherited line-height
     // (22.4px) against a 23px icon -- and the half-leading pushes it down.
-    // The well is already a flex box and centres the ha-icon perfectly; it
+    // The well is already a flex box and centres the hk-icon perfectly; it
     // is the next level down that drifts.
     //
     // Without it, measured on six category pills, the glyph sits
@@ -1616,15 +1616,15 @@
     // being nameable.
     //
     // Same family as the 5px offset that made the speaker pills' play glyph
-    // sit low (see hk-media.js _pill, which solved it by dropping ha-icon
-    // for an inline <svg>). Making the ha-icon a flex container removes
+    // sit low (see hk-media.js _pill, which solved it by dropping the icon element
+    // for an inline <svg>). Making the hk-icon a flex container removes
     // baseline alignment entirely, which is the cause rather than the
     // symptom -- a -0.81px nudge would be a number nobody could justify
     // later.
     // WHITE, as the label is, unless a tile colors its own glyph (a scene's,
     // inline). Inherited, it took the page's text color -- black under a
     // light Home Assistant theme: the Browse Music categories (2026-10-10).
-    '.tile .well ha-icon{--mdc-icon-size:' + TILE.glyph + 'px;width:' + TILE.glyph + 'px;height:' + TILE.glyph + 'px;color:' + v('glyph') + ';',
+    '.tile .well hk-icon{--mdc-icon-size:' + TILE.glyph + 'px;width:' + TILE.glyph + 'px;height:' + TILE.glyph + 'px;color:' + v('glyph') + ';',
     '  display:flex;align-items:center;justify-content:center}',
     '.tile .txt{justify-self:stretch;text-align:left;align-self:center;',
     '  font-weight:600;font-size:15px;line-height:1.1;letter-spacing:-0.23px;',
@@ -4002,7 +4002,7 @@
       var b = boardOf(dashSeg()).menu;
       return b === 'chip_scroll' || b === 'chip_home' ? 'scrolled' : 'never';
     },
-    // The round buttons on the page now (their <ha-card>s), for the
+    // The round buttons on the page now (their <hk-plate>s), for the
     // scrolled tab. A card that draws one hands itself over when it draws or
     // is attached again (a cached view comes back without drawing), and takes
     // itself back when it leaves the page (chipGone) -- held any longer, every

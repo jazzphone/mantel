@@ -200,8 +200,8 @@
            where no media query fires. The same shape is needed at a width
            this file cannot see.
 
-       hk-media.js emits that shape for `ha-card.np.tall` AND for
-       `ha-card.np` under @media (max-width:640px) -- one definition, not
+       hk-media.js emits that shape for `hk-plate.np.tall` AND for
+       `hk-plate.np` under @media (max-width:640px) -- one definition, not
        two that drift apart. */
 
     /* The Cameras page: one feed per row on a phone,

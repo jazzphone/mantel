@@ -43,7 +43,7 @@ H.run('MEDIA TILE', [
     });
     H.noThrow('first hass', function () { card.hass = house.hass(); });
     var R = card._root, P = function (s) { return H.part(R, s); };
-    H.ok('draws the pill', /<ha-card class="card" data-hk-role="card">/.test(R.__html));
+    H.ok('draws the pill', /<hk-plate class="card" data-hk-role="card">/.test(R.__html));
     H.eq('no room line: the part is removed, not hidden', P('.room').parentNode, null);
     H.eq('name', P('.name').textContent, 'HomePod');
     H.eq('playing with a source reads Playing, as the Home app\'s HomePods do', P('.label').textContent, 'Playing');

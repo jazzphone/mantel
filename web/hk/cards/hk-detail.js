@@ -598,7 +598,7 @@
     }
 
     function glyph(icon, size) {
-      return '<ha-icon icon="' + esc(icon) + '" style="--mdc-icon-size:' + size + 'px"></ha-icon>';
+      return '<hk-icon icon="' + esc(icon) + '" style="--mdc-icon-size:' + size + 'px"></hk-icon>';
     }
     var BACK = 'M15.4 7.4 14 6l-6 6 6 6 1.4-1.4L10.8 12z';
 
@@ -704,7 +704,7 @@
       '.hkd .hd{display:flex;align-items:center;gap:14px;flex-shrink:0;height:44px}',
       '.hkd .well{width:44px;height:44px;border-radius:22px;flex-shrink:0;display:flex;',
       '  align-items:center;justify-content:center;background:rgba(255,255,255,0.12);transition:background .2s}',
-      '.hkd .well ha-state-icon{--mdc-icon-size:24px;width:24px;height:24px;display:flex}',
+      '.hkd .well hk-state-icon{--mdc-icon-size:24px;width:24px;height:24px;display:flex}',
       '.hkd .tx{flex-grow:1;min-width:0}',
       '.hkd .tt{font-size:22px;font-weight:700;letter-spacing:-0.35px;line-height:24px;',
       '  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
@@ -812,7 +812,7 @@
       '.hkn-col{width:340px;flex:none;display:flex;flex-direction:column;align-items:center;justify-content:center;',
       '  text-align:center;border-radius:' + SP.cardR + 'px;background:rgba(255,255,255,0.08);padding:24px ' + SP.inset + 'px;box-sizing:border-box}',
       '.hkn-col .hero{width:96px;height:96px;border-radius:48px;display:flex;align-items:center;justify-content:center;flex:none}',
-      '.hkn-col .hero ha-icon{--mdc-icon-size:48px;color:#fff;display:flex}',
+      '.hkn-col .hero hk-icon{--mdc-icon-size:48px;color:#fff;display:flex}',
       '.hkn-col .pic{width:100%;aspect-ratio:16/9;border-radius:12px;object-fit:cover;flex:none;background:rgba(255,255,255,0.06);cursor:pointer}',
       '.hkn-col .imp{margin-top:20px;font-size:12px;line-height:16px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:#ff453a}',
       '.hkn-col .what{margin-top:20px;font-size:22px;font-weight:700;letter-spacing:-0.35px;line-height:26px;overflow-wrap:anywhere}',
@@ -824,7 +824,7 @@
       '  white-space:nowrap;background:rgba(255,255,255,0.14);color:#fff;font:inherit;font-size:16px;font-weight:600;cursor:pointer;',
       '  -webkit-tap-highlight-color:transparent;min-width:0}',
       '.hkn-b:active{background:rgba(255,255,255,0.24)}',
-      '.hkn-b ha-icon{--mdc-icon-size:20px;display:flex;flex:none}',
+      '.hkn-b hk-icon{--mdc-icon-size:20px;display:flex;flex:none}',
       '.hkn-b span{overflow:hidden;text-overflow:ellipsis}',
       '.hkn-b .chev{opacity:.5;font-size:19px;margin-left:-2px;flex:none}',
       '.hkn-b.on{background:rgba(255,255,255,0.92);color:rgba(0,0,0,0.85)}',
@@ -835,9 +835,9 @@
       '.hkn-card .r1{display:flex;align-items:center;gap:12px}',
       '.hkn-card .r2{display:flex;gap:' + SP.block + 'px}',
       '.hkn-card .r2 .hkn-b{flex:1;height:40px;border-radius:20px;font-size:14px;padding:0 12px;gap:6px}',
-      '.hkn-card .r2 .hkn-b ha-icon{--mdc-icon-size:18px}',
+      '.hkn-card .r2 .hkn-b hk-icon{--mdc-icon-size:18px}',
       '.hkn-card .ni{width:32px;height:32px;border-radius:9px;display:flex;align-items:center;justify-content:center;flex:none}',
-      '.hkn-card .ni ha-icon{--mdc-icon-size:19px;color:#fff;display:flex}',
+      '.hkn-card .ni hk-icon{--mdc-icon-size:19px;color:#fff;display:flex}',
       '.hkn-card .nt{flex:1;min-width:0}',
       '.hkn-card .n1{font-size:15px;font-weight:650;line-height:20px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
       '.hkn-card .n2{font-size:13px;line-height:18px;color:' + window.hkCards.v('ink-2') + ';overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
@@ -850,7 +850,7 @@
       '  background:rgba(24,24,28,0.93)}',
       '.hkn-card.under{margin:' + SP.block + 'px}',
       // a phone: the words alone, a little smaller ("Doors & Windows ›" fits)
-      '@media (max-width:' + C.BP.phone + 'px){.hkn-card .r2 .hkn-b ha-icon{display:none}.hkn-card .r2 .hkn-b{font-size:13px;padding:0 10px}}'
+      '@media (max-width:' + C.BP.phone + 'px){.hkn-card .r2 .hkn-b hk-icon{display:none}.hkn-card .r2 .hkn-b{font-size:13px;padding:0 10px}}'
     ].join('');
 
     var D = { el: null };
@@ -1069,9 +1069,9 @@
     // mode: col | card | over | under
     function noteEl(h, note, mode) {
       var n = note.n || {}, go = goFor(h, n), el = document.createElement('div');
-      var icon = '<ha-icon icon="' + esc(n.icon || 'hk:bell') + '"></ha-icon>';
+      var icon = '<hk-icon icon="' + esc(n.icon || 'hk:bell') + '"></hk-icon>';
       var b = function (cls, ic, text, chev) {
-        return '<button class="hkn-b ' + cls + '">' + (ic ? '<ha-icon icon="' + esc(ic) + '"></ha-icon>' : '') +
+        return '<button class="hkn-b ' + cls + '">' + (ic ? '<hk-icon icon="' + esc(ic) + '"></hk-icon>' : '') +
           '<span>' + esc(text) + '</span>' + (chev ? '<span class="chev">›</span>' : '') + '</button>';
       };
       var acts = (go ? b('go', go.icon, go.title, true) : '') +
@@ -1638,8 +1638,8 @@
       var arr = opts.tile ? arrangeOf(h, id, opts.tile) : null;
       if (arr) {
         html += '<div class="sec arr"><div class="cap">Arrange</div><div class="grp">' +
-          '<div class="arrb"><button class="mvl" aria-label="Move Left"><ha-icon icon="mdi:chevron-left"></ha-icon>Move Left</button>' +
-          '<button class="mvr" aria-label="Move Right">Move Right<ha-icon icon="mdi:chevron-right"></ha-icon></button></div>' +
+          '<div class="arrb"><button class="mvl" aria-label="Move Left"><hk-icon icon="mdi:chevron-left"></hk-icon>Move Left</button>' +
+          '<button class="mvr" aria-label="Move Right">Move Right<hk-icon icon="mdi:chevron-right"></hk-icon></button></div>' +
           '<div class="mini" aria-hidden="true"></div><span class="sr" aria-live="polite"></span></div>' +
           '<div class="note">' + esc(arr.note) + '</div></div>';
       }
@@ -1874,7 +1874,7 @@
           mini.innerHTML = arr.visible.map(function (x) {
             var t = arr.look[x] || {};
             return '<div class="mt' + (t.tall ? ' tall' : '') + (x === id ? ' on' : '') + '">' +
-              (t.icon ? '<ha-icon icon="' + esc(t.icon) + '"></ha-icon>' : '') + '<span>' + esc(t.name || x) + '</span></div>';
+              (t.icon ? '<hk-icon icon="' + esc(t.icon) + '"></hk-icon>' : '') + '<span>' + esc(t.name || x) + '</span></div>';
           }).join('');
           var i = arr.visible.indexOf(id);
           mvl.disabled = i <= 0;
@@ -1907,7 +1907,7 @@
         var btn = function (it) {
           var on = chosen === it.v || chosen.replace(/^(hk|mdi):/, '') === it.v.replace(/^(hk|mdi):/, '');
           return '<button data-v="' + esc(it.v) + '" aria-label="' + esc(it.v.replace(/^(hk|mdi):/, '').replace(/-/g, ' ')) +
-                 (it.mdi ? ' (Material)' : '') + '"' + (on ? ' class="on"' : '') + '><ha-icon icon="' + esc(it.icon) + '"></ha-icon></button>';
+                 (it.mdi ? ' (Material)' : '') + '"' + (on ? ' class="on"' : '') + '><hk-icon icon="' + esc(it.icon) + '"></hk-icon></button>';
         };
         var query = String(q || '').trim();
         box._q = query;
@@ -2147,10 +2147,10 @@
         '.hkd[hk-flat] .x,.hkd[hk-flat] .gear{background:var(--hk-key);color:var(--hk-ink)}' +
         '.hkd[hk-flat] .well{background:var(--hk-key)}' + '</style><div class="bd"></div>' +
         '<div class="sheet" role="dialog" aria-modal="true" aria-labelledby="hkd-t' + tok + '">' +
-          '<div class="hd"><div class="well"><ha-state-icon></ha-state-icon></div>' +
+          '<div class="hd"><div class="well"><hk-state-icon></hk-state-icon></div>' +
           '<div class="tx"><div class="tt" id="hkd-t' + tok + '"></div></div>' +
-          '<button class="gear" aria-label="Accessory settings" hidden><ha-icon icon="mdi:cog"></ha-icon></button>' +
-          '<button class="x" aria-label="Close"><ha-icon icon="mdi:close"></ha-icon></button></div>' +
+          '<button class="gear" aria-label="Accessory settings" hidden><hk-icon icon="mdi:cog"></hk-icon></button>' +
+          '<button class="x" aria-label="Close"><hk-icon icon="mdi:close"></hk-icon></button></div>' +
           '<div class="body-frame"><div class="body"></div></div></div>';
       var sheet = el.querySelector('.sheet');
       var panel = document.createElement(tag);
@@ -2164,7 +2164,7 @@
 
       D = {
         el: el, id: id, kind: kind, src: src || {}, panel: panel, sheet: sheet, tok: tok,
-        well: el.querySelector('.well'), icon: el.querySelector('ha-state-icon'),
+        well: el.querySelector('.well'), icon: el.querySelector('hk-state-icon'),
         tt: el.querySelector('.tt'), fed: null,
         // where it opened: a move to another page, or to a pop-up's hash,
         // takes the sheet down (see `moved` below)
@@ -2198,14 +2198,14 @@
         var bk = document.createElement('button');
         bk.className = 'x';
         bk.setAttribute('aria-label', 'Back');
-        bk.innerHTML = '<ha-icon icon="mdi:chevron-left"></ha-icon>';
+        bk.innerHTML = '<hk-icon icon="mdi:chevron-left"></hk-icon>';
         bk.addEventListener('click', function (e) { e.stopPropagation(); close(); });
         el.querySelector('.hd').insertBefore(bk, el.querySelector('.well'));
       } else if (D.returnGroup) {
         var back = document.createElement('button');
         back.className = 'x';
         back.setAttribute('aria-label', 'Back to ' + D.returnGroup.title);
-        back.innerHTML = '<ha-icon icon="mdi:chevron-left"></ha-icon>';
+        back.innerHTML = '<hk-icon icon="mdi:chevron-left"></hk-icon>';
         back.addEventListener('click', function (e) { e.stopPropagation(); close(); });
         el.querySelector('.hd').insertBefore(back, el.querySelector('.well'));
       }
@@ -4639,7 +4639,7 @@
       '  background:rgba(255,255,255,0.07);transition:background .25s}',
       '.gw .gc{width:120px;height:120px;border-radius:60px;display:flex;align-items:center;justify-content:center;',
       '  background:rgba(255,255,255,0.14);color:rgba(255,255,255,0.85);transition:background .25s,color .25s}',
-      '.gw ha-state-icon{--mdc-icon-size:56px;display:flex}',
+      '.gw hk-state-icon{--mdc-icon-size:56px;display:flex}',
       '.gw.on{background:color-mix(in srgb,var(--hkd-accent,#56bde4) 22%,transparent)}',
       '.gw.on .gc{background:var(--hkd-accent,#56bde4);color:#fff}',
       '.big.w{font-size:52px}',
@@ -4656,13 +4656,13 @@
       '.tl .lg span{display:inline-flex;align-items:center;gap:6px}',
       '.tl .lg b{width:10px;height:10px;border-radius:3px;display:inline-block}',
       '@media (max-width:' + C.BP.phone + 'px){.pn{gap:16px}.gw{width:150px;height:150px;border-radius:75px}',
-      '  .gw .gc{width:100px;height:100px;border-radius:50px}.gw ha-state-icon{--mdc-icon-size:48px}',
+      '  .gw .gc{width:100px;height:100px;border-radius:50px}.gw hk-state-icon{--mdc-icon-size:48px}',
       '  .big.w{font-size:44px}.tl .bar{height:52px}}'
     ].join('');
     var DAY = 24 * 3600000;
     var QUARTERS = '<b class="q" style="left:25%"></b><b class="q" style="left:50%"></b><b class="q" style="left:75%"></b>';
     function senseShell(title) {
-      return '<div class="pn"><div class="gw"><div class="gc"><ha-state-icon></ha-state-icon></div></div>' +
+      return '<div class="pn"><div class="gw"><div class="gc"><hk-state-icon></hk-state-icon></div></div>' +
         '<div class="big w"></div><div class="since"></div>' +
         '<div class="tl" hidden><div class="th"><span class="t">' + title + '</span><span class="n"></span></div>' +
         '<div class="bar"></div>' + timeRow(DAY, 5) + '<div class="lg" hidden></div></div></div>';
@@ -4690,7 +4690,7 @@
       _shell(title) {
         this._root.innerHTML = senseShell(title);
         var q = this._root.querySelector.bind(this._root);
-        this._gw = q('.gw'); this._icon = q('ha-state-icon');
+        this._gw = q('.gw'); this._icon = q('hk-state-icon');
         this._big = q('.big'); this._since = q('.since'); this._tl = q('.tl');
         this.style.setProperty('--hkd-accent', colourName(lookFor(this._src, this._id), this._id));
         if (this._src.icon) this._icon.icon = this._src.icon;
@@ -5676,7 +5676,7 @@
           '.big.al{font-size:40px;align-self:center;display:flex;align-items:center;gap:12px}',
           '.big.al.trg{color:#ff453a}',
           // the shield the Security page's keypad shows at rest, in its colour
-          '.big.al ha-icon{--mdc-icon-size:36px;width:36px;height:36px;display:flex;flex:none}',
+          '.big.al hk-icon{--mdc-icon-size:36px;width:36px;height:36px;display:flex;flex:none}',
           // the Security page's keypad, unboxed, its keys a size up for the sheet
           'hk-alarm-keypad-card{display:block;--hk-kp-key:56px}',
           // AN ALARM WITH NO CODE, AS A SHADE'S SHEET: the state's word, and
@@ -5748,9 +5748,9 @@
         }
         if (!this._built) {
           this._built = true;
-          this._root.innerHTML = '<div class="pn"><div class="big al"><ha-icon></ha-icon><span></span></div></div>';
+          this._root.innerHTML = '<div class="pn"><div class="big al"><hk-icon></hk-icon><span></span></div></div>';
           this._big = this._root.querySelector('.big');
-          this._bigIcon = this._big.querySelector('ha-icon');
+          this._bigIcon = this._big.querySelector('hk-icon');
           this._bigWord = this._big.querySelector('span');
           var card = document.createElement('hk-alarm-keypad-card');
           // glass: false -- the sheet is its own blur (as every panel).

@@ -249,7 +249,7 @@
   // is used.
   class HkSpacerCard extends HkBase {
     static get CSS() {
-      return ['ha-card.spacer{display:block;background:none;box-shadow:none;',
+      return ['hk-plate.spacer{display:block;background:none;box-shadow:none;',
               '  border:none;padding:0;margin:0}'].join('');
     }
     setConfig(config) { super.setConfig(config || {}); }
@@ -258,7 +258,7 @@
     _render() {
       if (!this._built) {
         this._root.innerHTML =
-          '<ha-card class="spacer" data-hk-role="card" aria-hidden="true"></ha-card>';
+          '<hk-plate class="spacer" data-hk-role="card" aria-hidden="true"></hk-plate>';
         this._e = this._root.querySelector('.spacer');
         this._built = true;
       }
@@ -285,7 +285,7 @@
     // other looks set --hk-chip-backdrop: none, as for the chips. It had the
     // plate and not the blur: the menu chip read clear at the head of a
     // frosted row.)
-    'ha-card.back{width:44px;height:44px;border-radius:50%;padding:0;margin:0;flex:none;',
+    'hk-plate.back{width:44px;height:44px;border-radius:50%;padding:0;margin:0;flex:none;',
     '  ' + M.glass + ';border:' + M.border + ';',
     '  backdrop-filter:var(--hk-chip-backdrop,blur(20px) saturate(1.4) brightness(0.82));',
     '  -webkit-backdrop-filter:var(--hk-chip-backdrop,blur(20px) saturate(1.4) brightness(0.82));',
@@ -294,13 +294,13 @@
     '  cursor:pointer;color:' + window.hkCards.v('glyph') + ';',
     '  --ha-ripple-hover-opacity:0;--ha-ripple-pressed-opacity:0;',
     '  transition:transform .12s ease}',
-    'ha-card.back:active{transform:scale(0.97);filter:brightness(0.93)}',
+    'hk-plate.back:active{transform:scale(0.97);filter:brightness(0.93)}',
     // ON A LIGHT PAGE (hk-base.js tone) no blur: brightness(0.82) would
     // darken the page behind the plate (the chips do the same, hk-chip.js)
-    ':host([data-hk-light]) ha-card.back{backdrop-filter:none;-webkit-backdrop-filter:none}',
+    ':host([data-hk-light]) hk-plate.back{backdrop-filter:none;-webkit-backdrop-filter:none}',
     // The menu glyph at the chevron's optical size: an SF glyph fills its
     // 24 box to 21, so 20px here draws it as wide as the 20px chevron.
-    'ha-card.back ha-icon{--mdc-icon-size:20px;width:20px;height:20px;display:flex}',
+    'hk-plate.back hk-icon{--mdc-icon-size:20px;width:20px;height:20px;display:flex}',
     // MENU, BACK, TITLE: 20px between each, so a tap meant for one does not
     // land on its neighbour. The title's 20 is the page's own grid gap.
     '.pair{display:flex;align-items:center;gap:20px}'
@@ -313,8 +313,8 @@
                   icon: function () { return ''; }, toggle: function () {} };
   function menu() { return (C && C.menu && C.menu.sig) ? C.menu : NO_MENU; }
   function roundMenu() {
-    return '<ha-card class="back menu" data-hk-role="menu" role="button" aria-label="Menu">' +
-      '<ha-icon icon="' + menu().icon() + '"></ha-icon></ha-card>';
+    return '<hk-plate class="back menu" data-hk-role="menu" role="button" aria-label="Menu">' +
+      '<hk-icon icon="' + menu().icon() + '"></hk-icon></hk-plate>';
   }
 
   // A card that drew the round menu button, attached again (a cached view
@@ -347,11 +347,11 @@
       // makes it read small and off-centre, and this stroke weight (2.6) was
       // matched to the 19.7px headings it sits beside.
       var back =
-        '<ha-card class="back" data-hk-role="card" role="button" aria-label="Back">' +
+        '<hk-plate class="back" data-hk-role="card" role="button" aria-label="Back">' +
         '<svg viewBox="0 0 24 24" width="20" height="20" fill="none"' +
         ' style="stroke:' + window.hkCards.v('glyph') + '" stroke-width="2.6"' +
         ' stroke-linecap="round" stroke-linejoin="round">' +
-        '<path d="M15 4.5 L7.5 12 L15 19.5"/></svg></ha-card>';
+        '<path d="M15 4.5 L7.5 12 L15 19.5"/></svg></hk-plate>';
       this._root.innerHTML = withMenu ? '<div class="pair">' + roundMenu() + back + '</div>' : back;
       this._root.querySelector('[data-hk-role="card"]')
           .addEventListener('click', this._up.bind(this));
@@ -391,7 +391,7 @@
       }
       var path = '/' + seg[1] + (up ? '/' + up : '');
       // dimmed for a drawn frame first: the tap answered before the page is
-      window.hkCards.navigate(path, this._root && this._root.querySelector('ha-card.back'));
+      window.hkCards.navigate(path, this._root && this._root.querySelector('hk-plate.back'));
     }
   }
 
@@ -446,36 +446,36 @@
   class HkKeyCard extends HkBase {
     static get CSS() {
       return [
-        'ha-card.key{display:flex;align-items:center;justify-content:center;',
+        'hk-plate.key{display:flex;align-items:center;justify-content:center;',
         '  box-sizing:border-box;cursor:pointer;overflow:hidden;',
         '  transition:background-color .25s ease,transform .12s ease;',
         '  --ha-ripple-hover-opacity:0;--ha-ripple-pressed-opacity:0}',
-        'ha-card.key:active{transform:scale(0.97);filter:brightness(0.93)}',
+        'hk-plate.key:active{transform:scale(0.97);filter:brightness(0.93)}',
         // ---- flat: the controls inside a vacuum card
-        'ha-card.key.flat{height:52px;border-radius:18px;padding:0;border:none;',
+        'hk-plate.key.flat{height:52px;border-radius:18px;padding:0;border:none;',
         '  box-shadow:none;background:' + window.hkCards.v('key') + '}',
-        'ha-card.key.flat .icon{width:23px;height:23px;color:' + window.hkCards.v('glyph') + '}',
+        'hk-plate.key.flat .icon{width:23px;height:23px;color:' + window.hkCards.v('glyph') + '}',
         // ---- glass: the free-standing duration chips
         // 116x56 and a 20px radius: wider and flatter than the 52px controls
         // above, because a row of NINE 52px squares reads as a keypad, which
         // is the wrong idea -- these are not digits you combine.
-        'ha-card.key.glass{height:56px;width:116px;border-radius:20px;padding:0;',
+        'hk-plate.key.glass{height:56px;width:116px;border-radius:20px;padding:0;',
         '  ' + window.hkCards.M.glass + ';',
         '  border:' + window.hkCards.M.border + ';',
         '  box-shadow:var(--hk-look-shadow, inset 0 1px 0 rgba(255,255,255,0.20),0 6px 18px rgba(0,0,0,0.10))}',
-        'ha-card.key.filled{height:56px;width:116px;border-radius:20px;padding:0;',
+        'hk-plate.key.filled{height:56px;width:116px;border-radius:20px;padding:0;',
         '  border:none;box-shadow:var(--hk-look-shadow, inset 0 1px 0 rgba(255,255,255,0.20),',
         '  0 6px 18px rgba(0,0,0,0.10))}',
         '.key .name{font-size:17px;font-weight:600;letter-spacing:-0.4px;',
         '  color:' + window.hkCards.v('ink') + ';white-space:nowrap}',
-        'ha-card.key.filled .name{color:rgba(0,0,0,0.88);font-weight:700}',
+        'hk-plate.key.filled .name{color:rgba(0,0,0,0.88);font-weight:700}',
         // PHONE: FILL THE TRACK. The Timers row auto-fills ~118px columns
         // below 640px and a 184px "+ New Timer" would overflow its column,
         // printing on top of the "5 min" chip beside it. Same shape as the
         // pills: calc(100% + 8px) restores layout-card's 4px side margins.
         '@media (max-width:' + window.hkCards.BP.phone + 'px){',
         '  :host{max-width:none !important}',
-        '  ha-card.key.glass,ha-card.key.filled{',
+        '  hk-plate.key.glass,hk-plate.key.filled{',
         '    width:calc(100% + var(--hk-cell-bleed,8px)) !important;',
         '    min-width:0 !important;max-width:none !important}',
         '}'
@@ -496,10 +496,10 @@
         var variant = ['flat', 'glass', 'filled'].indexOf(cfg.variant) >= 0
           ? cfg.variant : 'glass';
         this._root.innerHTML =
-          '<ha-card class="key ' + variant + '" data-hk-role="card">' +
-          (cfg.icon ? '<ha-state-icon class="icon" data-hk-role="icon"></ha-state-icon>'
+          '<hk-plate class="key ' + variant + '" data-hk-role="card">' +
+          (cfg.icon ? '<hk-state-icon class="icon" data-hk-role="icon"></hk-state-icon>'
                     : '<div class="name" data-hk-role="name"></div>') +
-          '</ha-card>';
+          '</hk-plate>';
         this._e = {
           card: this._root.querySelector('.key'),
           icon: this._root.querySelector('.icon'),
@@ -537,7 +537,7 @@
       return [
         // No plate at all -- these sit on the Tesla's own background. The
         // three stacked drop-shadows are what makes them legible over it.
-        'ha-card.info{box-sizing:border-box;display:block;height:108px;',
+        'hk-plate.info{box-sizing:border-box;display:block;height:108px;',
         '  border-radius:0;padding:12px;background:none;border:none;box-shadow:none;',
         '  cursor:pointer;',
         '  filter:var(--hk-glow,drop-shadow(0px 1px 3px rgba(0,0,0,0.30))',
@@ -573,7 +573,7 @@
         // 54 px column would put the shield 12 px right of the lock icons and
         // "Disarmed" 20 px right of their names; this centres the shield on
         // the lock icons' column and starts the words where their names do.
-        'ha-card.info.state{height:104px;border-radius:24px;padding:16px 18px 16px 15.3px;',
+        'hk-plate.info.state{height:104px;border-radius:24px;padding:16px 18px 16px 15.3px;',
         '  filter:none}',
         '.info.state .grid{grid-template-columns:42px 1fr;column-gap:10px;',
         '  align-items:center;align-content:center}',
@@ -744,13 +744,13 @@
       var cfg = this._config;
       if (!this._built) {
         this._root.innerHTML =
-          '<ha-card class="info' + (cfg.variant === 'state' ? ' state' : '') +
+          '<hk-plate class="info' + (cfg.variant === 'state' ? ' state' : '') +
           '" data-hk-role="card"><div class="grid">' +
-          '<ha-icon class="icon" data-hk-role="icon"></ha-icon>' +
+          '<hk-icon class="icon" data-hk-role="icon"></hk-icon>' +
           '<div class="name" data-hk-role="name"></div>' +
           '<div class="label" data-hk-role="label">' +
           '<span data-hk-role="l1"></span><span data-hk-role="l2"></span></div>' +
-          '</div></ha-card>';
+          '</div></hk-plate>';
         var q = this._root.querySelector.bind(this._root);
         this._e = { card: q('.info'), icon: q('.icon'), name: q('.name'),
                     l1: q('[data-hk-role="l1"]'), l2: q('[data-hk-role="l2"]') };
@@ -1413,7 +1413,7 @@
     }
   }
 
-  // the edge of the outermost plate under `node` (a card's ha-card, a camera
+  // the edge of the outermost plate under `node` (an HK card's hk-plate or HA's ha-card, a camera
   // tile) on one side -- 'bottom' its lowest bottom, 'left' its leftmost left
   // -- in viewport px, or null: only the children whose boxes reach within
   // REACH of that side are searched, through shadow roots, so a page is
@@ -1430,7 +1430,7 @@
     var side = parseFloat(getComputedStyle(v).getPropertyValue('--hk-side')) || 0.02;
     return PAGE_EDGE + v.getBoundingClientRect().width * side;
   };
-  // A PLATE: what draws a surface -- a card's ha-card with a background or a
+  // A PLATE: what draws a surface -- an HK card's hk-plate or HA's ha-card with a background or a
   // shadow (not a heading's or a row's clear one), or any rounded box that
   // does (a vacuum card's, a calendar panel, a TV tile, a camera tile).
   // Never a fixed layer (a sticky bar's strip, a sheet).
@@ -1438,7 +1438,7 @@
     var cs = getComputedStyle(el);
     if (cs.position === 'fixed') return false;
     var drawn = cs.backgroundColor !== 'rgba(0, 0, 0, 0)' || cs.backgroundImage !== 'none' || cs.boxShadow !== 'none';
-    return drawn && (el.localName === 'ha-card' || parseFloat(cs.borderTopLeftRadius) >= 8);
+    return drawn && (el.localName === 'hk-plate' || el.localName === 'ha-card' || parseFloat(cs.borderTopLeftRadius) >= 8);
   }
   HkGridView.plateEdge = function (node, side) {
     var best = null, n0 = 0, low = side === 'bottom';

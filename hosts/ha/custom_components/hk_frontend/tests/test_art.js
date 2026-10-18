@@ -73,7 +73,7 @@ flush().then(function () {
     ok('the socket\'s `ready` forgets every kept path: the next paint signs afresh', n === 2 && /authSig=S2$/.test(p3), [n, p3]);
 
     var box = document.createElement('div'), B = MZ + '?stale';
-    var img = C.HkBase.prototype._artImage.call({ client: window.hkHAClient.from(h2) }, B, box, '<ha-icon></ha-icon>', 300);
+    var img = C.HkBase.prototype._artImage.call({ client: window.hkHAClient.from(h2) }, B, box, '<hk-icon></hk-icon>', 300);
     var errs = function () { (img._listeners.error || []).forEach(function (f) { f(); }); };
     return sign().then(function () {
       var first = img.src;

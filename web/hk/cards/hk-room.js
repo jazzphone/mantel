@@ -523,9 +523,9 @@
       '.g{width:32px;height:32px;flex:none;position:relative;display:flex;align-items:center;',
       '  justify-content:center;color:' + window.hkCards.v('glyph') + ';',
       '  filter:var(--hk-glow,drop-shadow(0 1px 2px rgba(0,0,0,0.28)) drop-shadow(0 2px 6px rgba(0,0,0,0.16)))}',
-      '.g ha-icon{--mdc-icon-size:27px;width:27px;height:27px;display:flex}',
+      '.g hk-icon{--mdc-icon-size:27px;width:27px;height:27px;display:flex}',
       '.g svg{position:absolute;inset:0}',
-      '.g.ring ha-icon{--mdc-icon-size:14px;width:14px;height:14px}',
+      '.g.ring hk-icon{--mdc-icon-size:14px;width:14px;height:14px}',
       '.it.dim .g{opacity:0.5}',
       '.tx{display:flex;flex-direction:column;min-width:0}',
       '.t,.v{font-size:15px;line-height:19px;letter-spacing:-0.24px;white-space:nowrap;',
@@ -588,7 +588,7 @@
           return '<button class="it' + (it.dim ? ' dim' : '') + (it.alert ? ' alert' : '') + '" data-i="' + i +
             '" role="listitem" aria-label="' + esc(it.title + ', ' + it.value) + '">' +
             '<span class="g' + (ring ? ' ring' : '') + '">' + (ring ? gauge(it.gauge) : '') +
-            '<ha-icon icon="' + esc(icon(it)) + '"></ha-icon></span>' +
+            '<hk-icon icon="' + esc(icon(it)) + '"></hk-icon></span>' +
             '<span class="tx"><span class="t">' + esc(it.title) + '</span><span class="v">' + esc(it.value) +
             '</span></span></button>';
         }).join('');

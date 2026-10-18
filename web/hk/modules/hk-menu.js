@@ -529,7 +529,7 @@
       '  cursor:pointer;-webkit-tap-highlight-color:transparent;transition:background-color .15s ease}',
       '.row + .row{margin-top:2px}',
       // the highlight: the screen's Highlight Colour (paintIcons), Apple's orange by default
-      '.row ha-icon{--mdc-icon-size:22px;width:22px;height:22px;flex:none;display:flex;color:' + window.hkCards.v('accent') + '}',
+      '.row hk-icon{--mdc-icon-size:22px;width:22px;height:22px;flex:none;display:flex;color:' + window.hkCards.v('accent') + '}',
       '.row span{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
       // THE HIGHLIGHT SLIDES TO THE NEW ROW (2026-10-10), as the tab bar's
       // does: it is a layer behind the row (::before), started over the row
@@ -542,7 +542,7 @@
       '  transform:translate(var(--hx,0px),var(--hy,0px)) scale(var(--sx,1),var(--sy,1));',
       '  transition:transform .42s ' + SPRING + '}',
       '.row.here.slide-from::before{transition:none}',
-      '.row.here ha-icon{color:var(--hk-on-accent,#fff)}',
+      '.row.here hk-icon{color:var(--hk-on-accent,#fff)}',
       // the Home Assistant section: iOS count bubbles, "More" and its rows
       '.row .bdg{flex:none;min-width:22px;height:22px;padding:0 7px;box-sizing:border-box;border-radius:11px;',
       '  background:#ff3b30;color:#fff;font-size:13px;font-weight:600;line-height:22px;text-align:center;letter-spacing:0}',
@@ -550,7 +550,7 @@
       '.row.more svg{flex:none;opacity:.45;transform:rotate(-90deg);transition:transform .2s ease}',
       '.row.more[aria-expanded="true"] svg{transform:none}',
       '.row.sub{height:40px;padding-left:50px;font-size:15px;color:' + window.hkCards.v('ink') + '}',
-      '.row.sub ha-icon{--mdc-icon-size:20px;width:20px;height:20px;color:rgba(235,235,245,0.6)}',
+      '.row.sub hk-icon{--mdc-icon-size:20px;width:20px;height:20px;color:rgba(235,235,245,0.6)}',
       '@media (hover:hover){.row:not(.here):hover{background:rgba(255,255,255,0.07)}}',
       '.row:focus-visible,.sh:focus-visible,.tab:focus-visible{outline:2px solid rgba(255,255,255,0.7);outline-offset:-2px}',
       // SECTION HEADINGS: the Home app's "Categories" / "Rooms", which fold.
@@ -600,9 +600,9 @@
       // over the page (the tab is on top of the page, so it may)
       '.tab::before{content:"";position:absolute;top:-16px;bottom:-16px;left:-4px;right:-14px}',
       '.tab:active{filter:brightness(1.25)}',
-      '.tab ha-icon{--mdc-icon-size:var(--tab-ic,16px);width:var(--tab-ic,16px);height:var(--tab-ic,16px);display:flex;margin-left:-1px}',
+      '.tab hk-icon{--mdc-icon-size:var(--tab-ic,16px);width:var(--tab-ic,16px);height:var(--tab-ic,16px);display:flex;margin-left:-1px}',
       '.tab svg{display:none;margin-left:-1px;width:calc(var(--tab-ic,16px) - 2px);height:calc(var(--tab-ic,16px) - 2px)}',
-      '.root.open .tab ha-icon{display:none}',
+      '.root.open .tab hk-icon{display:none}',
       '.root.open .tab svg{display:block}',
       // A PHONE'S HOME WITH NO CHIP to hold the menu button: a round one of
       // its own, top left. The last resort; every other page has its back
@@ -615,7 +615,7 @@
       '  -webkit-backdrop-filter:blur(20px) saturate(1.4) brightness(0.82);backdrop-filter:blur(20px) saturate(1.4) brightness(0.82)}',
       '.root.fabbed .fab{display:flex}',
       '.root.open .fab{display:none}',
-      '.fab ha-icon{--mdc-icon-size:20px;width:20px;height:20px;display:flex}',
+      '.fab hk-icon{--mdc-icon-size:20px;width:20px;height:20px;display:flex}',
       // THE EDGE SWIPE'S STRIP (wireEdge): the page's left margin, invisible,
       // under the tab (the clip paints after it). touch-action pan-y: a drag
       // up or down still scrolls the page, but a sideways one is ours -- no
@@ -677,9 +677,9 @@
               '<div class="wx" role="link" aria-label="Weather"><span class="g"></span><span class="tp"></span></div>' +
               '<div class="d"></div><div class="c" role="link" aria-label="Weather"></div></div>' +
             '<div class="rule" hidden></div><div class="hk-edge"><div class="list"></div></div>' +
-            '<button class="tab" aria-label="Menu" aria-expanded="false"><ha-icon></ha-icon>' + CHEV_L + '</button>' +
+            '<button class="tab" aria-label="Menu" aria-expanded="false"><hk-icon></hk-icon>' + CHEV_L + '</button>' +
           '</nav></div>' +
-          '<button class="fab" aria-label="Menu"><ha-icon></ha-icon></button>' +
+          '<button class="fab" aria-label="Menu"><hk-icon></hk-icon></button>' +
         '</div>';
       S.root = sr.querySelector('.root');
       S.panel = sr.querySelector('.panel');
@@ -827,7 +827,7 @@
         S.host.style.setProperty('--hk-on-accent', a.on);
       }
       [S.tab, S.fab].forEach(function (b) {
-        var i = b && b.querySelector('ha-icon');
+        var i = b && b.querySelector('hk-icon');
         if (i && i.getAttribute('icon') !== icon) i.setAttribute('icon', icon);
       });
     }
@@ -919,7 +919,7 @@
     // Its item's Menu: "Chip, the tab once scrolled past" / "Chip on Home, tab
     // on the other pages" (hk-base.js menu.tab() says 'scrolled'): the tab
     // slides in while every round button on the page is out of sight, and
-    // back out when one returns. The buttons are the cards' own <ha-card>s
+    // back out when one returns. The buttons are the cards' own <hk-plate>s
     // (menu.chips()), looked at on scroll -- one or two rects a frame, and
     // only on such a dashboard.
     //
@@ -1132,8 +1132,8 @@
         var cls = it.kind === 'sub' ? ' sub' : it.kind === 'more' ? ' more' : '';
         var tail = it.badge ? '<b class="bdg" data-badge="' + it.badge + '" hidden></b>' : it.kind === 'more' ? CHEV_D : '';
         return '<button class="row' + cls + '" data-i="' + (S.items.length - 1) + '"' +
-          (it.kind === 'more' ? ' aria-expanded="' + !!it.open + '"' : '') + '><ha-icon icon="' +
-          esc(glyph(it.icon)) + '"></ha-icon><span>' + esc(it.title) + '</span>' + tail + '</button>';
+          (it.kind === 'more' ? ' aria-expanded="' + !!it.open + '"' : '') + '><hk-icon icon="' +
+          esc(glyph(it.icon)) + '"></hk-icon><span>' + esc(it.title) + '</span>' + tail + '</button>';
       }
       function section(key, title, items) {
         if (!items.length) return '';

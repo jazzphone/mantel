@@ -120,7 +120,7 @@ function paintedIcon(state) {
   var states = { 'input_select.media_player_selection': { state: 'Kitchen' } };
   states[e('kitchen')] = { state: state, attributes: { media_title: 't' } };
   hkGive(c, { states: states });
-  var icon = document.createElement('ha-icon');
+  var icon = document.createElement('hk-icon');
   icon.setAttribute('icon', 'mdi:play');
   var btn = document.createElement('div');
   btn.querySelector = function () { return icon; };
@@ -174,7 +174,7 @@ function renderedIcon(state) {
                            attributes: { media_title: 't', media_artist: 'a' } };
   c.hass = { states: states, callService: function () {} };
   var btn = c._e && c._e.play;
-  var ic = btn && btn.querySelector('ha-icon');
+  var ic = btn && btn.querySelector('hk-icon');
   return { icon: ic ? ic.getAttribute('icon') : '(no button)',
            label: btn ? btn.getAttribute('aria-label') : '(no button)' };
   } finally { window.hkCards.morph = realMorph; }

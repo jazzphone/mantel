@@ -255,8 +255,8 @@
     '.seg.pvsize .lb,.seg.pvsize .sh{display:block;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
     '.seg.pvsize .sh,.seg.pvsize.short .lb{display:none}',
     '.seg.pvsize.short .sh{display:block}',
-    '.seg.pvsize ha-icon{--mdc-icon-size:20px;width:20px;height:20px;display:flex}',
-    '.seg.pvsize ha-icon.rot{transform:rotate(90deg)}',
+    '.seg.pvsize hk-icon{--mdc-icon-size:20px;width:20px;height:20px;display:flex}',
+    '.seg.pvsize hk-icon.rot{transform:rotate(90deg)}',
     // the sky preview's moments (Day, Night, Spooky Night), over the sizes
     '.seg.pvmoment{display:grid;width:100%;margin-top:12px;box-sizing:border-box}',
     '.seg.pvmoment button{min-width:0;padding:0 6px}',
@@ -1549,7 +1549,7 @@
       var dims = h('span', { class: 'pvdim' });
       var btns = sizes.map(function (z, i) {
         var btn = h('button', { type: 'button', role: 'radio', 'data-size': z.key, 'aria-label': z.label, title: z.label }, [
-          h('ha-icon', { icon: z.icon, class: z.rotate ? 'rot' : '', 'aria-hidden': 'true' }),
+          h('hk-icon', { icon: z.icon, class: z.rotate ? 'rot' : '', 'aria-hidden': 'true' }),
           h('span', { class: 'lb', text: z.label }),
           h('span', { class: 'sh', text: z.short || z.label })]);
         btn.addEventListener('click', function () { choose(z.key); });

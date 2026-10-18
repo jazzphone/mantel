@@ -237,7 +237,7 @@ print('\n=== a YAML page draws with the kit\'s editor, no HA element ===');
   ok('...nor asked for (no hidden ha-form loading HA\'s editor)', asked.filter(function (n) { return HA_FORMS.test(n); }), []);
   ok('the panel\'s source names none of them', /'ha-(form|yaml-editor|menu-button|entity-picker|selector|textfield|switch|code-editor)'/.test(SRC), false);
   ok('...nor loads the frontend\'s card helpers for them', /loadCardHelpers/.test(SRC), false);
-  ok('the kit names no host element but its icon', (KIT_SRC.match(/'ha-[a-z-]+'/g) || []), ["'ha-icon'"]);
+  ok('the kit names no host element, not even an icon (it draws hk-icon)', (KIT_SRC.match(/'ha-[a-z-]+'/g) || []), []);
 })();
 
 print('\n=== what each YAML page saves (the same as with HA\'s editor) ===');

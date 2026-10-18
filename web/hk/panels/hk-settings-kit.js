@@ -45,7 +45,7 @@
     });
     return e;
   }
-  function icon(name, cls) { return h('ha-icon', { icon: name, class: cls || 'ic', 'aria-hidden': 'true' }); }
+  function icon(name, cls) { return h('hk-icon', { icon: name, class: cls || 'ic', 'aria-hidden': 'true' }); }
 
   // ------------------------------------------------------------ the look
   // Apple's system colors and materials, light and dark (:host([dark])).

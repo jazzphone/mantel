@@ -104,17 +104,17 @@
     // ---- shared chip material ------------------------------------------
     // The lit top rim again -- the glass material is that line, not the
     // gradient. Chips add nothing to that rule; they only differ in size.
-    'ha-card.chip{box-sizing:border-box;margin:0px;',
+    'hk-plate.chip{box-sizing:border-box;margin:0px;',
     '  border:' + window.hkCards.M.border + ';',
     '  display:flex;align-items:center;justify-content:center;',
     '  overflow:hidden;text-align:center;font-size:1.2em;cursor:pointer;',
     '  --ha-ripple-hover-opacity:0;--ha-ripple-pressed-opacity:0;',
     '  transition:background-color .25s ease,transform .12s ease}',
-    'ha-card.chip:active{transform:scale(0.97);filter:brightness(0.93)}',
+    'hk-plate.chip:active{transform:scale(0.97);filter:brightness(0.93)}',
     // tap_action: none -- a chip that only REPORTS (Mail). It must not press
     // in or show a hand, or it promises an action that never comes.
-    'ha-card.chip.inert{cursor:default}',
-    'ha-card.chip.inert:active{transform:none;filter:none}',
+    'hk-plate.chip.inert{cursor:default}',
+    'hk-plate.chip.inert:active{transform:none;filter:none}',
     '.grid{display:grid;width:100%}',
 
     // ---- status chip -----------------------------------------------------
@@ -132,7 +132,7 @@
     //
     // brightness(0.82) is not optional either: blur alone measured LIGHTER
     // than bright cloud, because the plate is purely additive white.
-    'ha-card.chip.status{height:' + window.hkCards.CHIP.h + 'px;width:fit-content;min-width:0px;max-width:none;',
+    'hk-plate.chip.status{height:' + window.hkCards.CHIP.h + 'px;width:fit-content;min-width:0px;max-width:none;',
     '  border-radius:' + window.hkCards.CHIP.h / 2 + 'px;padding:5px 22px 5px 7.7px;margin:5px 0px 11px 0px;',
     '  background:var(--hk-chip-plate,linear-gradient(145deg,rgba(255,255,255,0.16),rgba(255,255,255,0.07)));',
     '  backdrop-filter:var(--hk-chip-backdrop,blur(20px) saturate(1.4) brightness(0.82));',
@@ -148,7 +148,7 @@
     // ON A LIGHT PAGE (hk-base.js tone): the house glass, as every other
     // plate there -- not this white plate and a blur that darkens the page
     // behind it (the tone sets --hk-glass-plate and --hk-glass-shadow-chip).
-    ':host([data-hk-light]) ha-card.chip.status{background:var(--hk-glass-plate);',
+    ':host([data-hk-light]) hk-plate.chip.status{background:var(--hk-glass-plate);',
     '  backdrop-filter:none;-webkit-backdrop-filter:none;box-shadow:var(--hk-glass-shadow-chip)}',
     '.status .grid{grid-template-areas:"i n" "i l";grid-template-columns:22px max-content;',
     '  grid-template-rows:min-content min-content;row-gap:1.5px;column-gap:5px;align-content:center}',
@@ -158,7 +158,7 @@
     '.status .well{grid-area:i;display:flex;align-items:center;justify-content:center;',
     '  width:22px;overflow:hidden}',
     // THE GLYPH WOULD SIT 4px LOW, and not because of the container:
-    // ha-state-icon measures 18px and centres correctly, but the ha-icon
+    // hk-state-icon measures 18px and centres correctly, but the icon
     // INSIDE it inherits line-height 26.88px (the chip's font-size:1.2em) and
     // renders as a 20px inline box, baseline-shifted down (measured: glyph
     // centre 252 against a card centre of 248).
@@ -177,24 +177,24 @@
     // ---- toggle / segment ------------------------------------------------
     // Text-only, centred, 40px. The two are the same object; only the
     // selection TEST differs, which is why they share every rule here.
-    'ha-card.chip.toggle{height:40px;border-radius:20px;padding:0px 14px;',
+    'hk-plate.chip.toggle{height:40px;border-radius:20px;padding:0px 14px;',
     '  ' + window.hkCards.M.glass + ';',
     '  box-shadow:var(--hk-look-shadow, ' + window.hkCards.v('glass-shadow-chip') + ')}',
-    'ha-card.chip.toggle[data-on="1"]{background:rgba(255,255,255,0.96);--hk-glass-backdrop:none}',
+    'hk-plate.chip.toggle[data-on="1"]{background:rgba(255,255,255,0.96);--hk-glass-backdrop:none}',
     '.toggle .grid{grid-template-areas:"n";grid-template-columns:minmax(0,1fr);align-content:center}',
     '.toggle .name{grid-area:n;justify-self:center;',
     '  font-size:13.5px;font-weight:600;letter-spacing:-0.1px;',
     '  color:' + window.hkCards.v('ink') + ';',
     '  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
-    'ha-card.chip.toggle[data-on="1"] .name{color:rgba(0,0,0,0.88)}',
+    'hk-plate.chip.toggle[data-on="1"] .name{color:rgba(0,0,0,0.88)}',
 
 
     '@keyframes hk-spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}',
-    'ha-card[data-on="1"] .icon.spin{animation:hk-spin 1.35s linear infinite}',
+    'hk-plate[data-on="1"] .icon.spin{animation:hk-spin 1.35s linear infinite}',
     // Animations off (Sky / Background): upright, as on the tile (hk-tile.js)
-    ':host([hk-still]) ha-card .icon.spin{animation:none}',
+    ':host([hk-still]) hk-plate .icon.spin{animation:none}',
     '@media (prefers-reduced-motion:reduce){',
-    '  ha-card,ha-card:active,.icon{transition:none;transform:none;animation:none}}'
+    '  hk-plate,hk-plate:active,.icon{transition:none;transform:none;animation:none}}'
   ].join('');
 
   // ---------------------------------------------------------------- chips
@@ -933,14 +933,14 @@
       this._show(!cfg.missing && (!cfg.quiet || this._active(cfg, st)));
       if (!this._built) {
         this._root.innerHTML =
-          '<ha-card class="chip status" data-hk-role="card"><div class="grid">' +
-          '<div class="well" data-hk-role="well"><ha-state-icon class="icon" data-hk-role="icon"></ha-state-icon></div>' +
+          '<hk-plate class="chip status" data-hk-role="card"><div class="grid">' +
+          '<div class="well" data-hk-role="well"><hk-state-icon class="icon" data-hk-role="icon"></hk-state-icon></div>' +
           // The newlines are not cosmetic: without whitespace between these
           // elements the card's text reads "Lights3 On" rather than
           // "Lights 3 On" -- to a screen reader, or in a copy.
           '\n<div class="name" data-hk-role="name"></div>\n' +
           '<div class="label" data-hk-role="label"></div>\n' +
-          '</div></ha-card>';
+          '</div></hk-plate>';
         this._e = {
           card: this._root.querySelector('.chip'), icon: this._root.querySelector('.icon'),
           name: this._root.querySelector('.name'), label: this._root.querySelector('.label')
@@ -991,8 +991,8 @@
       var cfg = this._config, st = this._st(cfg.entity), on = this._isOn(st);
       if (!this._built) {
         this._root.innerHTML =
-          '<ha-card class="chip toggle" data-hk-role="card"><div class="grid">' +
-          '<div class="name" data-hk-role="name"></div></div></ha-card>';
+          '<hk-plate class="chip toggle" data-hk-role="card"><div class="grid">' +
+          '<div class="name" data-hk-role="name"></div></div></hk-plate>';
         this._e = { card: this._root.querySelector('.chip'), name: this._root.querySelector('.name') };
         // No hold -- see hk-tile.js. A long press does what a tap does.
         this._bind(this._e.card, 'tap_action', null);

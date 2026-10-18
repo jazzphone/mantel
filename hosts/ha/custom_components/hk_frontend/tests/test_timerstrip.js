@@ -48,7 +48,7 @@ H.run('TIMER STRIP', [
     var house = timerHouse([PASTA]), card = H.make('hk-timer-strip-card');
     var w0 = H.snapshot().window;
     H.noThrow('setConfig with the screensaver config', function () { card.setConfig(SAVER); });
-    H.ok('the host is the zero-height fixed plate', /<ha-card class="strip fixed"/.test(card._root.__html));
+    H.ok('the host is the zero-height fixed plate', /<hk-plate class="strip fixed"/.test(card._root.__html));
     H.eq('it waits for the module: one listener', H.snapshot().window - w0, 1);
     H.noThrow('first hass', function () { card.hass = house.hass(); });
     H.eq('nothing to draw yet, and that is not an error', H.morphed(H.part(card._root, '.strip')), '');

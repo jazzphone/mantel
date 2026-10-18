@@ -67,7 +67,7 @@
       return [
         // The glass plate, its padding, and the caption/value type scale --
         // the same material hk_glass_tile gives every pop-up tile.
-        'ha-card.usage{box-sizing:border-box;display:block;',
+        'hk-plate.usage{box-sizing:border-box;display:block;',
         '  height:var(--hk-usage-height,214px);padding:15px 16px 13px 16px;margin:0;' + window.hkCards.plate('card') + ';',
         '  --ha-ripple-hover-opacity:0;--ha-ripple-pressed-opacity:0}',
         // Four stacked text rows plus the plot. Fixed height rather than auto
@@ -194,13 +194,13 @@
       var cfg = this._config;
       if (!this._built) {
         this._root.innerHTML =
-          '<ha-card class="usage' + (cfg.align === 'center' ? ' mid' : '') +
+          '<hk-plate class="usage' + (cfg.align === 'center' ? ' mid' : '') +
           '" data-hk-role="card"><div class="grid">' +
           '<div class="nm" data-hk-role="nm"></div>' +
           '<div class="val" data-hk-role="val"></div>' +
           '<div class="sub" data-hk-role="sub"></div>' +
           '<div class="chart" data-hk-role="chart"></div>' +
-          '</div></ha-card>';
+          '</div></hk-plate>';
         var q = this._root.querySelector.bind(this._root);
         this._e = { card: q('.usage'), nm: q('.nm'), val: q('.val'),
                     sub: q('.sub'), chart: q('.chart') };
@@ -280,7 +280,7 @@
     static get FLAT_MOTION() { return true; }
     static get CSS() {
       return [
-        'ha-card.trace{box-sizing:border-box;display:block;',
+        'hk-plate.trace{box-sizing:border-box;display:block;',
         '  padding:18px 22px 16px 22px;margin:0;' + window.hkCards.plate('card') + ';',
         '  --ha-ripple-hover-opacity:0;--ha-ripple-pressed-opacity:0}',
         '.trace .grid{display:grid;',
@@ -326,12 +326,12 @@
       var cfg = this._config;
       if (!this._built) {
         this._root.innerHTML =
-          '<ha-card class="trace" data-hk-role="card"><div class="grid">' +
+          '<hk-plate class="trace" data-hk-role="card"><div class="grid">' +
           '<div class="ttl" data-hk-role="ttl"></div>' +
           '<div class="sub" data-hk-role="sub"></div>' +
           '<div class="val" data-hk-role="val"></div>' +
           '<div class="body" data-hk-role="body"></div>' +
-          '</div></ha-card>';
+          '</div></hk-plate>';
         var q = this._root.querySelector.bind(this._root);
         this._e = { card: q('.trace'), ttl: q('.ttl'), sub: q('.sub'),
                     val: q('.val'), body: q('.body') };
@@ -416,7 +416,7 @@
     static get FLAT_MOTION() { return true; }
     static get CSS() {
       return [
-        'ha-card.strip2{box-sizing:border-box;display:block;',
+        'hk-plate.strip2{box-sizing:border-box;display:block;',
         '  padding:15px 18px 13px 18px;margin:0;' + window.hkCards.plate('card') + ';',
         '  cursor:pointer;',
         '  --ha-ripple-hover-opacity:0;--ha-ripple-pressed-opacity:0}',
@@ -482,12 +482,12 @@
       var cfg = this._config;
       if (!this._built) {
         this._root.innerHTML =
-          '<ha-card class="strip2" data-hk-role="card">' +
+          '<hk-plate class="strip2" data-hk-role="card">' +
           '<div class="head"><div class="ttl" data-hk-role="ttl"></div>' +
           '<div class="read"><span class="kwh" data-hk-role="kwh"></span>' +
           '<span class="soc" data-hk-role="soc"></span></div></div>' +
           '<div class="body" data-hk-role="body"></div>' +
-          '</ha-card>';
+          '</hk-plate>';
         var q = this._root.querySelector.bind(this._root);
         this._e = { card: q('.strip2'), ttl: q('.ttl'), kwh: q('.kwh'), soc: q('.soc'), body: q('.body') };
         this._bind(this._e.card, 'tap_action', null);
@@ -1487,8 +1487,8 @@
     }
     _shell(cls) {
       if (this._built) return;
-      this._root.innerHTML = '<ha-card class="ep ' + cls + '" data-hk-role="card"></ha-card>';
-      this._card = this._root.querySelector('ha-card');
+      this._root.innerHTML = '<hk-plate class="ep ' + cls + '" data-hk-role="card"></hk-plate>';
+      this._card = this._root.querySelector('hk-plate');
       var hgt = this._config && this._config.height;
       if (hgt) this._card.style.setProperty('--hk-ep-h', String(hgt));
       bindMore(this, this._card);
@@ -1549,13 +1549,13 @@
         // ON THE PAGE'S EDGES, as the cards under it (they are in a grid that
         // gives each 4 px a side; this sits in the page's column, where a grid
         // would end its sticking): DESIGN.md "Page edges"
-        'ha-card.ep{margin-left:4px;margin-right:4px;width:auto}',
-        'ha-card.ep.period{height:auto;background:none;border:1px solid transparent;box-shadow:none;padding:0 4px;',
+        'hk-plate.ep{margin-left:4px;margin-right:4px;width:auto}',
+        'hk-plate.ep.period{height:auto;background:none;border:1px solid transparent;box-shadow:none;padding:0 4px;',
         '  flex-direction:row;align-items:center;gap:12px;min-height:36px;overflow:visible;flex-wrap:wrap;',
         '  border-radius:24px;transition:background-color .25s ease,padding .25s ease,box-shadow .25s ease,border-color .25s ease}',
         // the look's floating plate where it has one (Tinted: no blur, the
         // menu's and tab bar's near-opaque plate), else a frosted strip
-        ':host([data-stuck]) ha-card.ep.period{padding:6px 6px 6px 16px;background:' + window.hkCards.v('float-plate') + ';',
+        ':host([data-stuck]) hk-plate.ep.period{padding:6px 6px 6px 16px;background:' + window.hkCards.v('float-plate') + ';',
         '  -webkit-backdrop-filter:var(--hk-float-backdrop,blur(24px) saturate(1.6));backdrop-filter:var(--hk-float-backdrop,blur(24px) saturate(1.6));',
         '  border-color:rgba(255,255,255,0.12);box-shadow:0 8px 24px rgba(0,0,0,0.28)}',
         ':host([data-stuck]) .pt{text-shadow:none}',
@@ -1575,7 +1575,7 @@
         '.seg .live{width:7px;height:7px;border-radius:50%;background:#30d158;box-shadow:0 0 0 3px rgba(48,209,88,0.25)}',
         '@media (max-width:' + window.hkCards.BP.phone + 'px){.seg{width:100%}.seg button{flex:1;min-width:0;padding:0 6px}.seg .pfx{display:none}.ps{flex:1 1 auto}',
         // floating on a phone: just the tabs, so the strip takes one row
-        '  :host([data-stuck]) .pt,:host([data-stuck]) .ps,:host([data-stuck]) .nav{display:none}:host([data-stuck]) ha-card.ep.period{padding:5px}}'
+        '  :host([data-stuck]) .pt,:host([data-stuck]) .ps,:host([data-stuck]) .nav{display:none}:host([data-stuck]) hk-plate.ep.period{padding:5px}}'
       ].join('');
     }
     getCardSize() { return 1; }
@@ -1741,7 +1741,7 @@
   class HkEnergyHeroCard extends HkEnergyBase {
     static get PART_CSS() {
       return [
-        'ha-card.ep.hero{--hk-ep-h:320px}',
+        'hk-plate.ep.hero{--hk-ep-h:320px}',
         '.rh{display:grid;grid-template-columns:200px minmax(0,1fr);gap:28px;align-items:center;height:100%}',
         '.rings{width:200px;height:200px}',
         '.rings .tick{fill:#fff;filter:drop-shadow(0 0 2px rgba(0,0,0,.55))}',
@@ -1780,7 +1780,7 @@
         '.mr i{grid-column:1/-1;display:block;height:6px;border-radius:3px;background:' + window.hkCards.v('key') + ';overflow:hidden}',
         '.mr i em{display:block;height:100%;border-radius:3px}',
         '.cmp .big{font-size:22px;margin-top:5px}',
-        '@media (max-width:' + window.hkCards.BP.phone + 'px){ha-card.ep.hero{--hk-ep-h:450px}.rh{grid-template-columns:1fr;justify-items:center;gap:20px}',
+        '@media (max-width:' + window.hkCards.BP.phone + 'px){hk-plate.ep.hero{--hk-ep-h:450px}.rh{grid-template-columns:1fr;justify-items:center;gap:20px}',
         '  .rh>div{width:100%}.rings{width:180px;height:180px}.stats{gap:10px}.stat .big{font-size:24px}.of{white-space:normal}',
         '  .reads{grid-template-columns:repeat(2,minmax(0,1fr));row-gap:14px}.nowv .big{font-size:40px}}'
       ].join('');
@@ -1966,7 +1966,7 @@
   class HkEnergyHighlightsCard extends HkEnergyBase {
     static get PART_CSS() {
       return [
-        'ha-card.ep.hl{--hk-ep-h:320px;padding:6px 22px;display:grid;grid-template-rows:repeat(4,minmax(0,1fr))}',
+        'hk-plate.ep.hl{--hk-ep-h:320px;padding:6px 22px;display:grid;grid-template-rows:repeat(4,minmax(0,1fr))}',
         // THE TEXT CENTERED ON ITS ICON, however many lines (2026-10-13, the
         // user's call: centered on the first line, two lines read as pushed down)
         '.hli{display:grid;grid-template-columns:32px minmax(0,1fr);gap:12px;align-content:center;align-items:center;',
@@ -1977,7 +1977,7 @@
         '.hli .tx{font-size:15px;font-weight:500;line-height:20px;color:' + window.hkCards.v('ink-2') + ';',
         '  display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;overflow:hidden}',
         '.hli .tx b{color:' + window.hkCards.v('ink') + ';font-weight:600}',
-        '@media (max-width:' + window.hkCards.BP.phone + 'px){ha-card.ep.hl{--hk-ep-h:380px}}'
+        '@media (max-width:' + window.hkCards.BP.phone + 'px){hk-plate.ep.hl{--hk-ep-h:380px}}'
       ].join('');
     }
     _render() {
@@ -2005,7 +2005,7 @@
       return [
         // ITS HEIGHT FOLLOWS ITS KEY, which is the same on every tab (the
         // sections never change with it), so it still never shifts
-        'ha-card.ep.where{height:auto;min-height:' + window.hkCards.TILE.tall + 'px}',
+        'hk-plate.ep.where{height:auto;min-height:' + window.hkCards.TILE.tall + 'px}',
         '.bar{display:flex;height:24px;border-radius:8px;overflow:hidden;margin:14px 0 16px;gap:2px;background:' + window.hkCards.v('key') + ';flex:none}',
         '.bar i{display:block;height:100%;min-width:2px;cursor:pointer;transition:opacity .2s}',
         '.chips{display:flex;justify-content:space-between;gap:10px 18px;flex-wrap:wrap}',
@@ -2123,7 +2123,7 @@
   class HkEnergyDayCard extends HkEnergyBase {
     static get PART_CSS() {
       return [
-        'ha-card.ep.shape{--hk-ep-h:340px}',
+        'hk-plate.ep.shape{--hk-ep-h:340px}',
         // PACKED, NOT STRETCHED: in one column the chart fills the card; wider,
         // the chart keeps its own width (--mw), the figures sit beside it, and
         // the devices that used the most take what is left
@@ -2199,7 +2199,7 @@
         '.leg i.dash{width:18px;height:0;border-radius:0;border-top:1.5px dashed rgba(255,255,255,0.6)}',
         '.leg .li{display:inline-flex;align-items:center;gap:6px;white-space:nowrap;margin-right:8px}',
         '.leg .gr{flex:1}',
-        '@media (max-width:' + window.hkCards.BP.phone + 'px){ha-card.ep.shape{--hk-ep-h:330px}}'
+        '@media (max-width:' + window.hkCards.BP.phone + 'px){hk-plate.ep.shape{--hk-ep-h:330px}}'
       ].join('');
     }
     _render() {
@@ -2499,7 +2499,7 @@
       '</svg>';
   }
   var MINI_CSS = [
-    'ha-card.ep.mini{--hk-ep-h:340px}',
+    'hk-plate.ep.mini{--hk-ep-h:340px}',
     '.flow{display:flex;align-items:center;gap:14px;margin-top:12px;flex:none}',
     '.flow .gl{flex:none}',
     '.flow .big{line-height:1}',
@@ -2528,7 +2528,7 @@
     '  border-left:1px solid ' + window.hkCards.v('line') + ';padding-left:22px}',
     '.ms .big{font-size:22px;margin-top:5px}',
     '@container (min-width:' + window.hkCards.BP.cardSide + 'px){.ms{display:flex}.trio{display:none}}',
-    '@media (max-width:' + window.hkCards.BP.phone + 'px){ha-card.ep.mini{--hk-ep-h:330px}}'
+    '@media (max-width:' + window.hkCards.BP.phone + 'px){hk-plate.ep.mini{--hk-ep-h:330px}}'
   ].join('');
   // the side panel's three figures: [label, value, note]
   function sidePanel(items) {
@@ -2650,7 +2650,7 @@
     static get PART_CSS() {
       return MINI_CSS + [
         // (4 px in, on the page's edges as the cards beside it: DESIGN.md "Page edges")
-        'ha-card.ep.track{height:auto;padding:6px 22px;margin-left:4px;margin-right:4px;width:auto}',
+        'hk-plate.ep.track{height:auto;padding:6px 22px;margin-left:4px;margin-right:4px;width:auto}',
         // TWO COLUMNS OF ROWS on a wide screen: half the height
         '.tl{display:grid;grid-template-columns:minmax(0,1fr);column-gap:40px}',
         '@container (min-width:' + window.hkCards.BP.cardRows + 'px){.tl{grid-template-columns:repeat(2,minmax(0,1fr))}.tl .tr:nth-child(2){border-top:0}}',
@@ -2847,7 +2847,7 @@
     // (stretched, not a percentage: the grid stretches the host to the row,
     // and the card grows in it)
     ':host([data-fill]){display:flex;flex-direction:column}' +
-    'ha-card.ep.fill{flex:1 1 auto;height:auto !important;min-height:var(--hk-ep-h,0px)}' +
+    'hk-plate.ep.fill{flex:1 1 auto;height:auto !important;min-height:var(--hk-ep-h,0px)}' +
     // THE CARD BUILDS IN the first time it has something to show, as the
     // page headers do (hk-headers.js BASE_CSS): its parts rise into place one
     // after another; the graphs build by EP_CSS's .anim. Never on an update.
@@ -2880,8 +2880,8 @@
     }
     _shell(cls) {
       if (this._built) return;
-      this._root.innerHTML = '<ha-card class="ep ' + cls + '" data-hk-role="card"></ha-card>';
-      this._card = this._root.querySelector('ha-card');
+      this._root.innerHTML = '<hk-plate class="ep ' + cls + '" data-hk-role="card"></hk-plate>';
+      this._card = this._root.querySelector('hk-plate');
       var hgt = this._config && this._config.height;
       if (hgt) this._card.style.setProperty('--hk-ep-h', String(hgt));
       // FILL THE ROW (`fill`: the Power page's pairs): every card in a row as
@@ -2921,7 +2921,7 @@
   class HkPowerFlowCard extends HkPowerBase {
     static get PART_CSS() {
       return [
-        'ha-card.ep.flow{--hk-ep-h:320px}',
+        'hk-plate.ep.flow{--hk-ep-h:320px}',
         '.hart{position:relative;flex:1;min-height:0;margin-top:6px;display:flex;align-items:flex-end;justify-content:center}',
         '.hbox{position:relative;height:100%;max-width:100%;aspect-ratio:1600/700}',
         '.hbox img,.hbox .hov,.hbox .cab{position:absolute;inset:0;width:100%;height:100%}',
@@ -2945,7 +2945,7 @@
         '.hart:not(.none) + .fwrap{display:none}',
         '.fwrap{flex:1;min-height:0;display:flex;align-items:center}',
         '.fchart{width:100%;height:100%;max-height:220px}',
-        '@media (max-width:' + window.hkCards.BP.phone + 'px){ha-card.ep.flow{--hk-ep-h:280px}.hf .big{font-size:18px}.hf .k{font-size:10px}}'
+        '@media (max-width:' + window.hkCards.BP.phone + 'px){hk-plate.ep.flow{--hk-ep-h:280px}.hf .big{font-size:18px}.hf .k{font-size:10px}}'
       ].join('');
     }
     _render() {
@@ -3029,7 +3029,7 @@
   class HkPowerStatusCard extends HkPowerBase {
     static get PART_CSS() {
       return [
-        'ha-card.ep.pst{--hk-ep-h:320px;padding:6px 22px;display:grid;grid-template-rows:repeat(4,minmax(0,1fr))}',
+        'hk-plate.ep.pst{--hk-ep-h:320px;padding:6px 22px;display:grid;grid-template-rows:repeat(4,minmax(0,1fr))}',
         // the text centered on its icon, as the Energy page's highlights
         '.hli{display:grid;grid-template-columns:32px minmax(0,1fr);gap:12px;align-content:center;align-items:center;border-top:1px solid ' + window.hkCards.v('line') + '}',
         '.hli:first-child{border-top:0}',
@@ -3039,7 +3039,7 @@
         '  display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;overflow:hidden}',
         '.hli .tx b{color:' + window.hkCards.v('ink') + ';font-weight:600}',
         '.hli.alert .tx b{color:#ff6961}',
-        '@media (max-width:' + window.hkCards.BP.phone + 'px){ha-card.ep.pst{--hk-ep-h:380px}}'
+        '@media (max-width:' + window.hkCards.BP.phone + 'px){hk-plate.ep.pst{--hk-ep-h:380px}}'
       ].join('');
     }
     _render() {
@@ -3088,7 +3088,7 @@
   class HkHouseBatteryCard extends HkPowerBase {
     static get PART_CSS() {
       return [
-        'ha-card.ep.hb{height:auto;min-height:256px}',
+        'hk-plate.ep.hb{height:auto;min-height:256px}',
         '.bt2{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(220px,1fr);gap:36px;flex:1;min-height:0;margin-top:26px;align-items:center}',
         '@container (max-width:720px){.bt2{grid-template-columns:1fr;gap:20px;margin-top:30px}}',
         '.cell{position:relative;height:118px;border-radius:24px;border:6px solid var(--hk-battery-shell,rgba(255,255,255,.42));padding:6px;margin-right:16px;box-sizing:border-box}',
@@ -3162,7 +3162,7 @@
   class HkSegmentCard extends HkPowerBase {
     static get PART_CSS() {
       return [
-        'ha-card.ep.segc{height:auto;padding:16px 18px}',
+        'hk-plate.ep.segc{height:auto;padding:16px 18px}',
         // HK's segmented control (the calendar's), its choices sharing the width
         window.hkCards.segCss('.seg'),
         '.seg button{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;padding:0 8px}',
@@ -3324,7 +3324,7 @@
       var v = window.hkCards.v, B = window.hkCards.BLUR;
       return [
         ':host{display:block}',
-        'ha-card.ep.phouse{height:auto;background:none;border:0;box-shadow:none;padding:0;overflow:visible}',
+        'hk-plate.ep.phouse{height:auto;background:none;border:0;box-shadow:none;padding:0;overflow:visible}',
         '.hart{position:relative;width:100%;margin:58px auto 0}',
         '.hart svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}',
         '.pic{position:absolute;inset:0}',
@@ -3557,7 +3557,7 @@
     static get PART_CSS() {
       var v = window.hkCards.v;
       return [
-        'ha-card.ep.pload{--hk-ep-h:270px}',
+        'hk-plate.ep.pload{--hk-ep-h:270px}',
         '.lbar{display:flex;height:16px;border-radius:8px;overflow:hidden;background:' + v('key') + ';margin-top:14px;gap:2px;flex:none}',
         '.lbar i{display:block;height:100%}',
         '.lg2{display:flex;flex-wrap:wrap;gap:4px 14px;margin-top:8px;font-size:13px;color:' + v('ink-2') + '}',
@@ -3643,7 +3643,7 @@
     static get PART_CSS() {
       var v = window.hkCards.v;
       return [
-        'ha-card.ep.psun{--hk-ep-h:270px}',
+        'hk-plate.ep.psun{--hk-ep-h:270px}',
         '.sg{display:grid;grid-template-columns:1fr;gap:16px;margin-top:16px}',
         '@container (min-width:' + window.hkCards.BP.cardSide + 'px){.sg{grid-template-columns:1fr 1fr;gap:36px}}',
         '.sbar{display:flex;height:16px;border-radius:8px;overflow:hidden;background:' + v('key') + ';margin-top:8px;gap:2px}',

@@ -186,3 +186,76 @@ def test_the_view_host_names_no_host_element():
 
 def code_of_text(text: str) -> str:
     return strip_js_comments(text)
+
+
+# Phase 2 P2.2: HK's cards draw with HK's own elements (web/hk/elements/hk-elements.js): hk-icon,
+# hk-plate, and the host's hk-state-icon (bound with client.bindStateIcon). Shared code may no
+# longer make or style HA's icon and card elements. The only names left are LOOKUPS that must also
+# find Home Assistant's own card or icon on an HK page, each listed here with the line it sits on:
+# the code, comments removed, must contain the snippet.
+ELEMENT_NAMES = ("ha-icon", "ha-card", "ha-state-icon", "ha-svg-icon")
+ELEMENT_REF = re.compile(r"(?<![\w-])(?:" + "|".join(re.escape(n) for n in sorted(ELEMENT_NAMES, key=len, reverse=True))
+                         + r")(?![\w-])", re.I)
+# what makes one: markup, createElement, the settings kit's h()
+ELEMENT_MADE = re.compile(r"(?:<|createElement\(\s*['\"]|\bh\(\s*['\"])(?:"
+                          + "|".join(re.escape(n) for n in sorted(ELEMENT_NAMES, key=len, reverse=True))
+                          + r")(?![\w-])", re.I)
+HA_ELEMENT_LOOKUPS = {
+    # a row's lead: the first showing plate, an HK card's or HA's own card's (a conditional chip)
+    "web/hk/cards/hk-row.js": ["el.shadowRoot.querySelector('hk-plate, ha-card')"],
+    # the page edge: the outermost plate under a node, an HK card's or a native HA card's
+    "web/hk/cards/hk-layout.js": ["el.localName === 'hk-plate' || el.localName === 'ha-card'"],
+    # the hk: iconset repairs HA's ha-icon (other cards may draw hk: names with it) after a lost race
+    "web/hk/iconset/hk-icons.js": ['el.localName === "ha-icon"'],
+}
+
+
+def element_refs() -> dict[str, list[str]]:
+    """{file: [the code line of every HA icon/card element name]} in shared code (comments removed)."""
+    out: dict[str, list[str]] = {}
+    for p in sorted((ROOT / "web").rglob("*")):
+        if not p.is_file() or p.suffix not in (".js", ".mjs", ".html", ".css") or "node_modules" in p.parts:
+            continue
+        rel = str(p.relative_to(ROOT))
+        if rel.startswith(ADAPTERS):
+            continue
+        code = code_of(p) if p.suffix != ".css" else re.sub(r"/\*.*?\*/", " ", p.read_text(), flags=re.S)
+        for line in code.splitlines():
+            if ELEMENT_REF.search(line):
+                out.setdefault(rel, []).append(line.strip())
+    return out
+
+
+def test_shared_code_makes_no_ha_icon_or_card():
+    made = {}
+    for rel, lines in element_refs().items():
+        hits = [ln[:160] for ln in lines if ELEMENT_MADE.search(ln)]
+        if hits:
+            made[rel] = hits[:3]
+    assert not made, f"Draw with hk-icon / hk-plate / hk-state-icon (web/hk/elements/hk-elements.js): {made}"
+
+
+def test_ha_element_names_are_only_the_listed_lookups():
+    found = element_refs()
+    bad = {}
+    for rel, lines in found.items():
+        allowed = HA_ELEMENT_LOOKUPS.get(rel, [])
+        stray = [ln[:160] for ln in lines if not any(a in ln for a in allowed)]
+        if stray:
+            bad[rel] = stray[:4]
+    assert not bad, ("HK's own cards draw with hk-icon / hk-plate / hk-state-icon. A lookup that must also find HA's "
+                     f"own element goes in HA_ELEMENT_LOOKUPS with its reason: {bad}")
+    # and every listed lookup still exists (a stale allowance would let a new use in)
+    for rel, allowed in HA_ELEMENT_LOOKUPS.items():
+        for a in allowed:
+            assert any(a in ln for ln in found.get(rel, [])), f"{rel}: listed lookup not found any more: {a}"
+
+
+def test_element_lint_catches_the_names_and_ignores_comments():
+    assert ELEMENT_MADE.findall(code_of_text("x = '<ha-card class=\"tile\">';"))
+    assert ELEMENT_MADE.findall(code_of_text("var i = document.createElement('ha-icon');"))
+    assert ELEMENT_MADE.findall(code_of_text("h('ha-icon', { icon: n })"))
+    assert ELEMENT_MADE.findall(code_of_text("s = '<ha-state-icon></ha-state-icon>';")) == ["<ha-state-icon"]
+    assert not ELEMENT_MADE.findall(code_of_text("q('hk-plate'); x = '<hk-icon icon=\"mdi:a\"></hk-icon>';"))
+    assert ELEMENT_REF.findall(code_of_text("css = '.well ha-icon{--mdc-icon-size:20px}';")) == ["ha-icon"]
+    assert not ELEMENT_REF.findall(code_of_text("// an <ha-card> did this\ns = '--ha-card-background'; t = 'ha-icon-picker';"))

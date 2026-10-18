@@ -203,7 +203,7 @@
     '.nb.behind{pointer-events:none}',
     '.nb.behind > *{opacity:0}',
     '.ic{flex:none;width:var(--ic);height:var(--ic);border-radius:calc(var(--ic) * .26);display:grid;place-items:center;position:relative;overflow:hidden}',
-    '.ic ha-icon{--mdc-icon-size:calc(var(--ic) * .6);color:#fff;display:block}',
+    '.ic hk-icon{--mdc-icon-size:calc(var(--ic) * .6);color:#fff;display:block}',
     '.ic.av{border-radius:50%;background:linear-gradient(180deg,#a3a9b5,#7b8190);color:#fff;font-weight:600;font-size:calc(var(--ic) * .4);letter-spacing:.3px}',
     '.ic img{width:100%;height:100%;object-fit:cover;display:block}',
     '.tx{flex:1;min-width:0}',
@@ -258,7 +258,7 @@
   function iconHtml(n) {
     if (n.kind === 'people' && n.picture) return '<div class="ic av"><img src="' + esc(n.picture) + '" alt=""></div>';
     if (n.kind === 'people') return '<div class="ic av">' + esc(n.initials || '') + '</div>';
-    return '<div class="ic" style="background:' + esc(n.tint || '#8e8e93') + '"><ha-icon icon="' + esc(n.icon || 'hk:bell') + '"></ha-icon></div>';
+    return '<div class="ic" style="background:' + esc(n.tint || '#8e8e93') + '"><hk-icon icon="' + esc(n.icon || 'hk:bell') + '"></hk-icon></div>';
   }
   function bannerHtml(n) {
     return iconHtml(n) + '<div class="tx">' + (n.important || n.test ? '<div class="imp-tag' + (n.test && !n.important ? ' test' : '') + '">' +

@@ -324,7 +324,7 @@ async def check_menu(r: Run):
     await r.b.send("Emulation.setDeviceMetricsOverride", width=820, height=900, deviceScaleFactor=1, mobile=False)
     await r.goto("/hk-phone", "window.__tag('hk-menu-button-card').length>0")
     await asyncio.sleep(3)
-    opened = await r.click("(function(){var m=__tag('hk-menu-button-card')[0]; return m && m.shadowRoot && m.shadowRoot.querySelector('ha-card');})()")
+    opened = await r.click("(function(){var m=__tag('hk-menu-button-card')[0]; return m && m.shadowRoot && m.shadowRoot.querySelector('hk-plate, ha-card');})()")
     await asyncio.sleep(2)
     shot = await r.shot("05-menu-open")
     badge = "(function(){var b=__deep(document,n=>n.classList&&n.classList.contains('bdg')&&n.getAttribute('data-badge')==='%s')[0]; return b? {t:b.textContent,h:b.hidden}:null;})()"

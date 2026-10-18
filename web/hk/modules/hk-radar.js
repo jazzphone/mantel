@@ -205,14 +205,14 @@
       '.caption{' + C.plate('tile') + ';background:' + v('overlay-solid') + ';border-radius:' + C.R.inner + 'px;padding:10px 12px;min-width:0;max-width:calc(100% - 56px)}',
       '.tt{display:flex;align-items:center;gap:7px;font-size:13px;font-weight:600;color:var(--rm-ink);text-shadow:0 1px 6px rgba(var(--rm-scrim),.6)}',
       '.caption .tt{color:' + v('ink') + ';text-shadow:none}',
-      '.tt ha-icon{--mdc-icon-size:17px;width:17px;height:17px;flex:none;display:flex;align-items:center;justify-content:center;line-height:0}',
+      '.tt hk-icon{--mdc-icon-size:17px;width:17px;height:17px;flex:none;display:flex;align-items:center;justify-content:center;line-height:0}',
       '.st{font-size:11px;font-weight:500;margin-top:5px;color:var(--rm-ink2);text-shadow:0 1px 6px rgba(var(--rm-scrim),.6)}',
       '.caption .st{color:' + v('ink-2') + ';text-shadow:none;line-height:1.4}',
       '.btn{' + C.plate('tile') + ';appearance:none;color:' + C.v('ink') + ';font:inherit;cursor:pointer;',
       '  display:grid;place-items:center;padding:0;margin:0;-webkit-tap-highlight-color:transparent}',
       '.btn:focus-visible{outline:2px solid ' + C.v('ink') + ';outline-offset:3px}',
       '.btn:active{transform:scale(.96)}',
-      '.btn ha-icon{--mdc-icon-size:21px;width:21px;height:21px;line-height:0}',
+      '.btn hk-icon{--mdc-icon-size:21px;width:21px;height:21px;line-height:0}',
       '.xp{width:44px;height:44px;border-radius:50%;flex:none}',
       '.tools{position:absolute;top:' + (C.CARD.y + 58) + 'px;right:' + C.CARD.x + 'px;z-index:5;display:grid;gap:6px}',
       '.tools .btn{width:44px;height:44px;border-radius:22px;font-size:20px;font-weight:500;line-height:1}',
@@ -287,14 +287,14 @@
       '<div class="rc"><div class="map" role="application" aria-roledescription="map" tabindex="0">' +
         '<div class="stage"><div class="lyr base"></div><div class="lyr wx"></div><div class="lyr mk"></div></div></div>' +
         '<div class="scrim"></div>' +
-        '<div class="hd"><div class="caption"><div class="tt"><ha-icon icon="' + ICONS.radar + '"></ha-icon><span>Precipitation Radar</span></div>' +
+        '<div class="hd"><div class="caption"><div class="tt"><hk-icon icon="' + ICONS.radar + '"></hk-icon><span>Precipitation Radar</span></div>' +
           '<div class="st" aria-live="polite"></div></div>' +
-          '<button class="btn xp" type="button" aria-label="Expand radar" aria-expanded="false"><ha-icon icon="' + ICONS.expand + '"></ha-icon></button></div>' +
-        '<div class="tools"><button class="btn rcn" type="button" aria-label="Center the map"><ha-icon icon="' + ICONS.locate + '"></ha-icon></button>' +
+          '<button class="btn xp" type="button" aria-label="Expand radar" aria-expanded="false"><hk-icon icon="' + ICONS.expand + '"></hk-icon></button></div>' +
+        '<div class="tools"><button class="btn rcn" type="button" aria-label="Center the map"><hk-icon icon="' + ICONS.locate + '"></hk-icon></button>' +
           '<button class="btn zin" type="button" aria-label="Zoom in">+</button><button class="btn zout" type="button" aria-label="Zoom out">−</button></div>' +
         '<div class="lg" aria-hidden="true"><span>Light</span><i></i><span>Heavy</span></div>' +
         '<div class="msg" hidden><div class="mt"></div><button class="btn rt" type="button">Try Again</button></div>' +
-        '<div class="pb"><button class="btn pl" type="button" aria-label="Play radar history"><ha-icon icon="' + ICONS.play + '"></ha-icon></button>' +
+        '<div class="pb"><button class="btn pl" type="button" aria-label="Play radar history"><hk-icon icon="' + ICONS.play + '"></hk-icon></button>' +
           '<div class="tl"><input type="range" min="0" max="0" value="0" step="1" aria-label="Radar frame" disabled>' +
           '<div class="lb"><span class="t0"></span><output></output><span>Latest</span></div></div></div>' +
         '<div class="history" role="img" aria-label="Radar history" hidden><div class="times"><span class="start"></span><output></output><span class="end"></span></div>' +
@@ -644,7 +644,7 @@
       clearTimeout(S.playT);
       S.playT = null;
       E.pl.setAttribute('aria-label', on ? 'Pause radar history' : 'Play radar history');
-      E.pl.querySelector('ha-icon').setAttribute('icon', on ? ICONS.pause : ICONS.play);
+      E.pl.querySelector('hk-icon').setAttribute('icon', on ? ICONS.pause : ICONS.play);
       if (on) step(true);
       else keepOnly(S.i >= 0 && S.frames[S.i] ? [S.frames[S.i].id] : []);
     }
@@ -844,7 +844,7 @@
         try { dlg.showModal(); } catch (x) { dlg.setAttribute('open', ''); }
         E.xp.setAttribute('aria-label', 'Close full-screen radar');
         E.xp.setAttribute('aria-expanded', 'true');
-        E.xp.querySelector('ha-icon').setAttribute('icon', 'mdi:close');
+        E.xp.querySelector('hk-icon').setAttribute('icon', 'mdi:close');
         E.rc.classList.remove('calm');
         E.rc.classList.remove('preview');
         S.interactive = !!S.r.interactive;
@@ -859,7 +859,7 @@
         dlg = null;
         E.xp.setAttribute('aria-label', 'Expand radar');
         E.xp.setAttribute('aria-expanded', 'false');
-        E.xp.querySelector('ha-icon').setAttribute('icon', ICONS.expand);
+        E.xp.querySelector('hk-icon').setAttribute('icon', ICONS.expand);
         E.rc.classList.toggle('calm', !!S.r && !S.r.playback_controls);
         E.rc.classList.add('preview');
         S.interactive = false;
