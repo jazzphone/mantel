@@ -18,6 +18,7 @@
         "menu_options": {
           "panel": "HK Settings page (every setting; show it in the sidebar)",
           "files": "Your files (font and icons)",
+          "linked": "Linked to Mantel Server (when the house has moved to it)",
           "check": "Setup check (what is ready, what to fix)",
           "done": "Done"
         },
@@ -43,6 +44,20 @@
           "files_folder": "For example hk_local. Everything in it is readable without signing in, like /local/, so use a folder that holds nothing else."
         }
       },
+      "linked": {
+        "title": "Linked to Mantel Server",
+        "description": "Now: {state}.\n\nOnly for a house that has moved HK to Mantel Server. Linked, this integration keeps the same actions (hk_frontend.set_black_screen, show_popup, close_popup) and the same entities, with the same entity ids, but they are Mantel Server's: each action is sent to it, and it sends every entity's state. Nothing here runs locally any more (the features, the wall tablets' Sleep Screen, the HK Settings page). Off, everything works as it always has.\n\nThe credential is a Mantel Server Service account's (scope `linked`). Home Assistant keeps it in its own storage on disk (.storage/core.config_entries), as it does every integration's token; anyone who can read that file or a backup of it can use it, so revoke it on Mantel Server if a backup leaks. Saving reloads the integration.",
+        "data": {
+          "enabled": "Linked to Mantel Server",
+          "url": "Mantel Server's address",
+          "token": "Service credential"
+        },
+        "data_description": {
+          "enabled": "Off is the default, and how every house that has not moved runs.",
+          "url": "For example https://mantel.example.lan (the LAN address: Mantel Server refuses this link through the tunnel).",
+          "token": "Paste it once; it is never shown again. Leave empty to keep the one already saved."
+        }
+      },
       "check": {
         "title": "Setup check",
         "description": "What these pages need from this Home Assistant, and how to fix what is missing. Nothing here changes anything; submit to go back.\n\n{report}"
@@ -52,7 +67,10 @@
       "folder_required": "Enter a folder name.",
       "folder_outside_config": "The folder must be inside /config.",
       "folder_is_config": "Choose a folder inside /config, not /config itself.",
-      "folder_not_dedicated": "That folder holds Home Assistant's own files. Everything in it would be readable without signing in; choose a dedicated folder."
+      "folder_not_dedicated": "That folder holds Home Assistant's own files. Everything in it would be readable without signing in; choose a dedicated folder.",
+      "mantel_url_invalid": "Enter Mantel Server's address, starting with https:// (or http://, ws://, wss://), with no user name or query.",
+      "mantel_token_required": "Paste the Service credential Mantel Server gave you.",
+      "mantel_url_insecure": "Use https:// (or wss://) for an address on the network: over plain http the credential would cross it in clear. Plain http is accepted only for this machine (127.0.0.1)."
     }
   },
   "issues": {

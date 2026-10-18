@@ -22,7 +22,7 @@ DOC = "\n".join(open(os.path.join(DOCS, f), encoding="utf-8").read()
 
 async def test_configure_is_the_way_to_the_page(hass, frontend):
     r = await hass.config_entries.options.async_init(entry(hass).entry_id)
-    assert r["type"] == "menu" and r["menu_options"] == ["panel", "files", "check", "done"]
+    assert r["type"] == "menu" and r["menu_options"] == ["panel", "files", "linked", "check", "done"]
     assert r["description_placeholders"]["url"] == "/hk-settings"
     assert "hk settings page" in TR["options"]["step"]["init"]["description"].lower()
     # a page saves its own key and comes back, saying so; Done closes
@@ -37,7 +37,7 @@ async def test_configure_is_the_way_to_the_page(hass, frontend):
     # the house's own Configure pages (a feature's are its own, `<kind>_…`)
     from custom_components.hk_frontend.features import KINDS
     own = {k for k in TR["options"]["step"] if not k.startswith(KINDS)}
-    assert own == {"init", "panel", "files", "check"}, "no page left behind"
+    assert own == {"init", "panel", "files", "linked", "check"}, "no page left behind"
 
 
 @pytest.fixture

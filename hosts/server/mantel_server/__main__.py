@@ -96,6 +96,9 @@ def main(argv: list[str] | None = None) -> int:
     argv = sys.argv[1:] if argv is None else argv
     if argv and argv[0] == "import-settings":
         return import_settings(argv[1:])
+    if argv and argv[0] == "service-account":
+        from .service_accounts import cli as service_cli
+        return service_cli(argv[1:])
     if argv and argv[0] == "connect-proof":
         from .connect_proof import main as connect_main
         return connect_main(argv[1:])

@@ -16,6 +16,9 @@ from . import features as F
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry,
                             async_add_entities: AddConfigEntryEntitiesCallback) -> None:
+    from . import linked_mode
+    if linked_mode.attach(hass, entry, "sensor", async_add_entities):
+        return                      # linked to Mantel Server: Mantel's entities
     await F.async_setup_platform(hass, Platform.SENSOR, async_add_entities)
     from . import screensaver
     await screensaver.async_setup_platform(hass, entry, "sensor", async_add_entities)

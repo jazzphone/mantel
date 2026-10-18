@@ -25,10 +25,19 @@ from .entity import HkEntity
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry,
                             async_add_entities: AddConfigEntryEntitiesCallback) -> None:
+    from . import linked_mode
+    if linked_mode.attach(hass, entry, "switch", async_add_entities):
+        # LINKED TO MANTEL SERVER: Mantel's switches, the same action, forwarded
+        _register_set_black_screen()
+        return
     async_add_entities([SeasonalDecorations(entry)])
     # each screen's photo screensaver and black screen switches (screensaver.py)
     from . import screensaver
     await screensaver.async_setup_platform(hass, entry, "switch", async_add_entities)
+    _register_set_black_screen()
+
+
+def _register_set_black_screen() -> None:
     # hk_frontend.set_black_screen: black on or off, and the brightness it
     # comes back to, in one call (the house's sleep and wake scripts)
     entity_platform.async_get_current_platform().async_register_entity_service(

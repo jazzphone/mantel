@@ -18,6 +18,9 @@ from .hk_core.screensaver.rules import in_use
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry,
                             async_add_entities: AddConfigEntryEntitiesCallback) -> None:
+    from . import linked_mode
+    if linked_mode.attach(hass, entry, "binary_sensor", async_add_entities):
+        return                      # linked to Mantel Server: Mantel's entities
     await async_setup_platform(hass, entry, "binary_sensor", async_add_entities)
 
 

@@ -12,4 +12,7 @@ from . import features as F
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry,
                             async_add_entities: AddConfigEntryEntitiesCallback) -> None:
+    from . import linked_mode
+    if linked_mode.attach(hass, entry, "camera", async_add_entities):
+        return                      # linked to Mantel Server: Mantel's entities
     await F.async_setup_platform(hass, Platform.CAMERA, async_add_entities)

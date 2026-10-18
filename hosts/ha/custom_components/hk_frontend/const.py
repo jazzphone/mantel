@@ -19,3 +19,10 @@ SIGNAL_POPUP = f"{DOMAIN}_popup"
 # the bundle -- where the Apple font and glyphs go, since they cannot ship here.
 CONF_FILES_FOLDER = "files_folder"
 DEFAULT_FILES_FOLDER = "hk_local"
+
+# ---- linked mode (linked_mode.py, mantel_link.py): "Linked to Mantel Server".
+# Kept in the entry's DATA (not its options, which are the dashboard settings):
+# {"url": Mantel Server's address, "token": a Service credential}. Absent = not
+# linked, which is every house's default. Home Assistant writes entry data to
+# .storage/core.config_entries in plain text, like every integration's secrets.
+CONF_MANTEL_LINK = "mantel_link"
