@@ -576,6 +576,15 @@ read-only, commands disabled. Brings Mantel's own per-person HK user data (the M
       `call_service music_assistant.get_library` (return_response), which Mantel's gateway treats as a command.
       Fix in flight: answer it as a read from Music Assistant directly (agent).
 
+### 0.1.10 on the house (2026-10-18 ~19:25, commit `f494669`, build `4a4e6dcd758bf673`)
+
+Updated in place (no migration). Found by Avery: a detail sheet's chart drew nothing on **Hour** and **Day**
+(Week/Month fine). Cause: those two read HA's REST `history/period` (hk-stats.js history()), which Mantel refused
+("Commands are disabled"); Week/Month use statistics over the WebSocket. Fix (`6897921`): the shim asks the allowed
+WebSocket read `history/history_during_period` and returns the REST shape.
+- [x] On the house, through the page's own client: `GET history/period` for `sensor.crawl_space_dehumidifier_power`
+      returns 28 rows for the last hour and 169 for the last day (was refused).
+
 ### Removal
 
 Stop and uninstall **Mantel** (Settings → Apps → Mantel → Uninstall); this removes its image and `/data`
