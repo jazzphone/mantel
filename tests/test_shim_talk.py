@@ -1,7 +1,9 @@
 """Doorbell talk-back on the page side (web/shim/mantel-client.js): the card's recorded clip, sent exactly
 as HK's doorbell card sends it to HA (client.actions.request with a Blob), becomes ONE gateway command
-that the server's classify() accepts byte for byte; nothing else binary is read or sent; live talk is
-refused quietly so the card falls back to the clip. Run in node (tests/shim_talk_harness.mjs)."""
+that the server's classify() accepts byte for byte; nothing else binary is read or sent. Live talk:
+liveSocket(speaker) is ONE gateway `talk_live` command, and the card's Worker gets Mantel's /ws/talk (under
+the Ingress prefix too) and the one-time ticket; anything else is refused quietly so the card falls back to
+the clip. Run in node (tests/shim_talk_harness.mjs)."""
 import base64
 import json
 import shutil
@@ -22,7 +24,8 @@ def observed():
     if shutil.which("node") is None:
         pytest.skip("node not installed")
     out = subprocess.run(["node", str(ROOT / "tests/shim_talk_harness.mjs"), str(ROOT / "web/client/hk-client.js"),
-                          str(ROOT / "web/shim/mantel-client.js")], capture_output=True, text=True, timeout=30)
+                          str(ROOT / "web/shim/mantel-client.js"), str(ROOT / "web/shim/hub.js")],
+                         capture_output=True, text=True, timeout=30)
     assert out.returncode == 0, out.stderr
     return json.loads(out.stdout.strip().splitlines()[-1])
 
@@ -54,9 +57,31 @@ def test_nothing_else_binary_is_read_or_sent(observed):
     assert observed["localSent"] == 0
 
 
-def test_live_talk_is_refused_quietly_so_the_clip_goes(observed):
+def test_live_talk_without_a_speaker_is_refused_quietly_so_the_clip_goes(observed):
     assert observed["live"] == {"error": "live_unavailable"}
     assert observed["liveEvents"] == [] and observed["liveSent"] == 0
+
+
+def test_live_talk_is_one_gateway_command_then_mantels_socket_and_the_ticket(observed):
+    assert observed["liveOk"] == {"url": "wss://mantel.test/ws/talk", "token": "fictional-ticket-1"}
+    (cmd,) = observed["liveOkSent"]
+    assert cmd == {"kind": "talk_live", "speaker": SPEAKER}
+    c = classify(cmd, load_writes())                     # what the gateway makes of it
+    assert c.live == SPEAKER and c.action == "hk_frontend/talk/live"
+
+
+def test_live_talk_refusals_are_quiet_and_send_nothing_more(observed):
+    assert [q["error"] for q in observed["liveQuiet"]] == ["live_unavailable"] * 4
+    assert [q.get("reason") for q in observed["liveQuiet"]] == ["no_grant", "step_up_required", "commands_disabled",
+                                                                 "refused"]
+    assert observed["liveQuietSent"] == 4                # one command each, never a resend
+    assert observed["liveQuietEvents"] == []             # no toast, no step-up prompt: the clip asks
+    assert [b["error"] for b in observed["liveBad"]] == ["live_unavailable"] * 4 and observed["liveBadSent"] == 0
+    assert observed["liveNoUrl"]["error"] == "live_unavailable" and observed["liveNoUrlSent"] == 0
+
+
+def test_the_talk_socket_follows_the_ingress_prefix(observed):
+    assert observed["hubTalkUrl"] == "wss://ha.test:8123/api/hassio_ingress/Fict_ional-1/ws/talk"
 
 
 def test_with_commands_off_talk_back_is_refused_and_nothing_sent(observed):
@@ -68,3 +93,5 @@ def test_the_shared_card_is_unchanged():
     cams = (ROOT / "web/hk/cards/hk-cameras.js").read_text()
     assert "var url = '/api/hk_frontend/talk?entity_id=' + encodeURIComponent(c.speaker);" in cams
     assert "body_b64" not in cams and "content_type" not in cams
+    assert "act.liveSocket(this._config.speaker)" in cams          # the one change: the speaker is named
+    assert "access_token: d.token" in cams and "type: 'hk_frontend/talk/live', entity_id: d.entity_id" in cams

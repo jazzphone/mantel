@@ -48,6 +48,35 @@ HOUSE_GRANTS: tuple[Grant, ...] = (
           roles={"wall_tablet"}, note="the doorbell pop-up on every wall tablet (LAN only: devices never on the tunnel)"),
 )
 
+# THE DOORBELL'S TALK-BACK SPEAKERS for wall tablets (decision recorded in GATEWAY.md "Doorbell
+# talk-back"). HK configures the doorbell pop-up in its own settings (a pop-up of kind `camera`: its
+# `entity` camera and its `speaker`, hk_core settings.model.popup; Mantel's settings store keeps them
+# as the house document `popups`). Every wall tablet may `control` exactly those speakers, and ONLY
+# for talk-back (the gateway's two talk checks decide with talk_policy; any other command on the
+# speaker -- volume, play, power -- is decided without it, by the tablet's room as before). An Owner
+# adjusts it with an ordinary grant: an explicit deny on the speaker for `wall_tablet` (or one device)
+# wins, since deny always wins over allow.
+TALK_ROLES = frozenset({"wall_tablet"})
+TALK_NOTE = "talk-back on the doorbell's speaker, from HK's pop-up settings (talk only)"
+_SPEAKER = re.compile(r"^media_player\.[a-z0-9_]+$")
+
+
+def talk_speakers(popups: Iterable[Any]) -> frozenset[str]:
+    """The speakers of HK's camera pop-ups (the doorbell sheet's talk-back target)."""
+    out = set()
+    for p in popups or ():
+        if not isinstance(p, dict) or (p.get("kind") or "camera") != "camera":
+            continue
+        sp = p.get("speaker")
+        if isinstance(sp, str) and _SPEAKER.match(sp):
+            out.add(sp)
+    return frozenset(out)
+
+
+def talk_grants(speakers: Iterable[str]) -> tuple[Grant, ...]:
+    return tuple(Grant(effect="allow", actions=("control",), resource_kind="entity", resource=s, roles=TALK_ROLES,
+                       note=TALK_NOTE) for s in sorted(speakers))
+
 
 def _is_loopback(peer: str | None) -> bool:
     try:
@@ -151,6 +180,37 @@ class Authz:
     def decide(self, subject: Subject, action: str, entity_id: str | None, *, feature: str | None = None,
                ctx: Context | None = None) -> Decision:
         return self.policy_for(subject).decide(subject, action, entity_id, ctx or self.context(), feature=feature)
+
+    # -- talk-back (the doorbell's speaker for wall tablets; see TALK_ROLES) ------------------------
+    def talk_speakers(self) -> frozenset[str]:
+        """The doorbell talk-back speakers HK's pop-up settings name (Mantel's settings store)."""
+        svc = self.app.get("settings")
+        store = getattr(svc, "store", None)
+        if store is None:
+            return frozenset()
+        try:
+            return talk_speakers(store.body("house", "popups").get("items") or [])
+        except Exception:  # noqa: BLE001 -- unreadable settings grant nothing
+            log.exception("could not read HK's pop-ups for the talk-back speakers")
+            return frozenset()
+
+    def talk_policy(self, subject: Subject) -> Policy:
+        """The house policy plus the talk-back speaker grants. Used ONLY for the talk-back checks."""
+        base = self.policy_for(subject)
+        speakers = self.talk_speakers()
+        if not speakers:
+            return base
+        key = (id(base), speakers)
+        cached = getattr(self, "_talk_cache", None)
+        if cached is not None and cached[0] == key and cached[1] is base:
+            return cached[2]
+        got = replace(base, grants=tuple(base.grants) + talk_grants(speakers))
+        self._talk_cache = (key, base, got)
+        return got
+
+    def decide_talk(self, subject: Subject, action: str, entity_id: str | None, *, feature: str | None = None,
+                    ctx: Context | None = None) -> Decision:
+        return self.talk_policy(subject).decide(subject, action, entity_id, ctx or self.context(), feature=feature)
 
     # -- identity -> subject ----------------------------------------------------------------------
     def rules_door(self, door: str) -> str:

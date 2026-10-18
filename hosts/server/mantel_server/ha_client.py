@@ -320,6 +320,156 @@ def check_upload(method: object, path: object, content_type: object, body: objec
     _spend(ticket, "upload")
 
 
+# LIVE TALK (docs/phase3/GATEWAY.md "Doorbell talk-back"): hk_frontend's `hk_frontend/talk/live`
+# subscription (hosts/ha/.../talk_live.py), on a Home Assistant socket of its own (HaTalkLink) that
+# can send exactly: auth, ONE subscription for ONE media_player at a rate talk_live.py accepts, binary
+# frames [HA's handler id][s16le PCM], and the one unsubscribe_events that ends that subscription.
+# It is never sent on the command connection (check_command refuses the type there).
+TALK_LIVE_TYPE = "hk_frontend/talk/live"
+TALK_RATES = (8000, 16000, 22050, 24000, 32000, 44100, 48000, 88200, 96000)   # talk_live.py RATES
+TALK_ENTITY = re.compile(r"^media_player\.[a-z0-9_]+$")
+TALK_FRAME_MS = 100             # the longest frame accepted (the card sends 40 ms)
+
+
+def talk_frame_max(rate: int) -> int:
+    """The most PCM bytes one binary frame may carry at `rate` (16-bit mono, TALK_FRAME_MS)."""
+    return rate * 2 * TALK_FRAME_MS // 1000
+
+
+def check_talk(entity_id: object, rate: object, ticket: object) -> None:
+    """A live talk subscription, checked at the command path (the gateway and the relay checked it first)."""
+    if not isinstance(entity_id, str) or not TALK_ENTITY.match(entity_id):
+        raise CommandBlocked("live talk is for one media_player entity")
+    if not isinstance(rate, int) or isinstance(rate, bool) or rate not in TALK_RATES:
+        raise CommandBlocked(f"live talk's rate is one of {TALK_RATES}")
+    _spend(ticket, "talk")
+
+
+class HaTalkLink:
+    """Mantel's own Home Assistant socket for ONE live talk (made only by ``HaCommander.talk_link``,
+    after the gateway's audit row, with a one-shot ``talk`` ticket). What it can send is fixed when it
+    is made: the auth frame; ``{"id": 1, "type": "hk_frontend/talk/live", "entity_id": <that speaker>,
+    "rate": <that rate>}``; binary frames ``[HA's handler id][PCM]`` of even length up to
+    ``talk_frame_max(rate)``; and ``{"id": 2, "type": "unsubscribe_events", "subscription": 1}``.
+    Nothing else, whatever it is asked. The credential never leaves this object."""
+
+    SUB_ID = 1
+
+    def __init__(self, ws_url: str, token: str, entity_id: str, rate: int, timeout: float = 10.0) -> None:
+        self.ws_url = ws_url
+        self._token = token  # never logged
+        self.entity_id, self.rate, self.timeout = entity_id, rate, timeout
+        self.frame_max = talk_frame_max(rate)
+        self.handler_id: int | None = None          # HA's, from its first event
+        self.info: dict = {}                        # {rate, codec} from HA's first event
+        self.frames = 0
+        self.bytes = 0
+        self._http: aiohttp.ClientSession | None = None
+        self._ws: aiohttp.ClientWebSocketResponse | None = None
+        self._opened = False
+        self._stopped = False
+        self._early: dict | None = None             # an event HA sent before its result
+
+    def __repr__(self) -> str:  # never the token
+        return f"HaTalkLink({self.entity_id!r}, rate={self.rate}, frames={self.frames})"
+
+    @property
+    def closed(self) -> bool:
+        return self._ws is None or self._ws.closed
+
+    async def open(self) -> None:
+        """Connect, authenticate, subscribe; returns once HA accepted the subscription. Raises
+        HaCommandError with HA's code when it refused (``not_supported``: not a Protect speaker)."""
+        if self._opened:
+            raise CommandBlocked("a talk link opens once")
+        self._opened = True
+        self._http = aiohttp.ClientSession()
+        try:
+            ws = await self._http.ws_connect(self.ws_url, max_msg_size=1 << 20, heartbeat=30)
+            self._ws = ws
+            first = await asyncio.wait_for(ws.receive_json(), self.timeout)
+            if first.get("type") != "auth_required":
+                raise HaCommandError("unavailable", "unexpected greeting from Home Assistant")
+            await ws.send_json({"type": "auth", "access_token": self._token})
+            if (await asyncio.wait_for(ws.receive_json(), self.timeout)).get("type") != "auth_ok":
+                raise HaCommandError("unavailable", "Home Assistant rejected Mantel's credential")
+            await ws.send_json({"id": self.SUB_ID, "type": TALK_LIVE_TYPE, "entity_id": self.entity_id,
+                                "rate": self.rate})
+            while True:
+                m = await asyncio.wait_for(ws.receive_json(), self.timeout)
+                if m.get("id") != self.SUB_ID:
+                    continue
+                if m.get("type") == "result":
+                    if m.get("success"):
+                        return
+                    err = m.get("error") or {}
+                    raise HaCommandError(str(err.get("code") or "error"), str(err.get("message") or "")[:200])
+                if m.get("type") == "event":       # an event before the result: keep it for recv()
+                    self._early = m.get("event")
+                    return
+        except BaseException:
+            await self.close()
+            raise
+
+    async def recv(self) -> dict | None:
+        """The next event of the subscription (HA's ``{handler_id, rate, codec}`` or ``{error}``), or
+        None when HA's socket closed. The handler id is kept here; the caller gets the event as is."""
+        if self._early is not None:
+            ev, self._early = self._early, None
+            return self._note(ev)
+        ws = self._ws
+        if ws is None:
+            return None
+        async for m in ws:
+            if m.type != aiohttp.WSMsgType.TEXT:
+                break
+            try:
+                data = json.loads(m.data)
+            except ValueError:
+                continue
+            if data.get("type") == "event" and data.get("id") == self.SUB_ID and isinstance(data.get("event"), dict):
+                return self._note(data["event"])
+        return None
+
+    def _note(self, ev: dict) -> dict:
+        hid = ev.get("handler_id")
+        if self.handler_id is None and isinstance(hid, int) and not isinstance(hid, bool) and 0 < hid < 256:
+            self.handler_id = hid
+            self.info = {k: ev.get(k) for k in ("rate", "codec")}
+        return ev
+
+    async def send_audio(self, pcm: bytes) -> bool:
+        """One frame of PCM, prefixed with HA's handler id. False (nothing sent) before HA gave one,
+        after stop(), or for anything that is not an even-length frame up to frame_max bytes."""
+        if (self.handler_id is None or self._stopped or self.closed or not isinstance(pcm, bytes)
+                or not pcm or len(pcm) % 2 or len(pcm) > self.frame_max):
+            return False
+        await self._ws.send_bytes(bytes((self.handler_id,)) + pcm)  # type: ignore[union-attr]
+        self.frames += 1
+        self.bytes += len(pcm)
+        return True
+
+    async def stop(self) -> None:
+        """Let go: HA plays out what it holds, then ends its session. Sent at most once."""
+        if self._stopped:
+            return
+        self._stopped = True
+        if self._opened and not self.closed:
+            try:
+                await self._ws.send_json({"id": 2, "type": "unsubscribe_events", "subscription": self.SUB_ID})  # type: ignore[union-attr]
+            except (ConnectionError, RuntimeError):
+                pass
+
+    async def close(self) -> None:
+        self._stopped = True
+        ws, http = self._ws, self._http
+        self._ws = self._http = None
+        if ws is not None:
+            await ws.close()
+        if http is not None:
+            await http.close()
+
+
 class CommandsDisabled(CommandBlocked):
     """The command path was asked for while cfg.commands_enabled is off."""
 
@@ -329,7 +479,7 @@ class HaCommandError(Exception):
 
     def __init__(self, code: str, message: str = "") -> None:
         super().__init__(f"{code}: {message}" if message else code)
-        self.code = code
+        self.code, self.message = code, message
 
 
 class CommandTicket:
@@ -353,6 +503,8 @@ def check_command(frame: object, ticket: object, writes: frozenset[str]) -> None
     kind = frame.get("type") if isinstance(frame, dict) else None
     if kind not in writes:
         raise CommandBlocked(f"refusing to send {kind!r}: not in the write catalog (hkClient.WRITES)")
+    if kind == TALK_LIVE_TYPE:
+        raise CommandBlocked("live talk has its own Home Assistant socket (HaTalkLink), never the command connection")
     if "id" in frame:  # type: ignore[operator]
         raise CommandBlocked("the command connection numbers its own frames")
     if kind == "call_service":
@@ -483,6 +635,13 @@ class HaCommander:
                 return json.loads(text) if text else None
             except ValueError:
                 return text[:2000]
+
+    def talk_link(self, entity_id: str, rate: int, ticket: CommandTicket) -> HaTalkLink:
+        """Live talk's own Home Assistant socket (``check_talk``: one speaker, a known rate, a ticket
+        bound to the audit row). Not connected yet: ``await link.open()``."""
+        check_talk(entity_id, rate, ticket)
+        self.sent.append(f"{TALK_LIVE_TYPE} {entity_id}")
+        return HaTalkLink(self.ws_url, self._token, entity_id, rate, timeout=min(self.timeout, 10.0))
 
     async def close(self) -> None:
         if self._reader is not None:

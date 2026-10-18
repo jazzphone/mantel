@@ -16,6 +16,10 @@ Client protocol (on the hub socket, /ws):
   -> {"type": "command", "id": 11, "kind": "http", "method": "POST",
       "path": "/api/hk_frontend/talk?entity_id=media_player.door_speaker",
       "content_type": "audio/webm", "body_b64": "<the clip>"}     (the ONE binary upload: talk_command)
+  -> {"type": "command", "id": 12, "kind": "talk_live", "speaker": "media_player.door_speaker"}
+  <- {"type": "command_result", "id": 12, "result": {"ticket": "<one-time>", "expires_in": 10}, "audit_id": 44}
+                                          (LIVE TALK: the ticket opens ONE stream on /ws/talk, talk_relay.py;
+                                           the row's result is written when the stream ends)
   <- {"type": "command_result", "id": 7, "result": ..., "audit_id": 41}
   <- {"type": "command_result", "id": 7, "error": {"code": "forbidden", "reason": "no_grant"}, "audit_id": 42}
   <- {"type": "step_up_required", "id": 7, "reason": "step_up_required", "methods": ["totp"],
@@ -57,18 +61,22 @@ from aiohttp import web
 
 from . import rbac
 from .authz import ENTITY_ID, Authz, Principal
-from .ha_client import (CommandBlocked, CommandTicket, HaCommandError, HaCommander, HTTP_METHODS, UPLOAD_MAX_BYTES,
-                        UPLOAD_METHOD, UPLOAD_MIN_BYTES, UPLOAD_TYPES, _API_PATH, talk_target, upload_type)
+from .ha_client import (TALK_ENTITY, TALK_LIVE_TYPE, CommandBlocked, CommandTicket, HaCommandError, HaCommander,
+                        HTTP_METHODS, UPLOAD_MAX_BYTES, UPLOAD_METHOD, UPLOAD_MIN_BYTES, UPLOAD_TYPES, _API_PATH,
+                        talk_target, upload_type)
 
 log = logging.getLogger("mantel.gateway")
 
-KINDS = ("service", "ws", "http", "ma")
+KINDS = ("service", "ws", "http", "ma", "talk_live")
 KEYS = {
     "service": frozenset({"type", "id", "kind", "domain", "service", "data", "target", "return_response"}),
     "ws": frozenset({"type", "id", "kind", "msg"}),
     "http": frozenset({"type", "id", "kind", "method", "path", "body", "content_type", "body_b64"}),
     "ma": frozenset({"type", "id", "kind", "command", "args"}),
+    "talk_live": frozenset({"type", "id", "kind", "speaker"}),
 }
+# the audit's kind for each client kind (live talk is a Home Assistant WebSocket subscription)
+AUDIT_KIND = {"talk_live": "ws"}
 TARGET_KEYS = frozenset({"entity_id", "area_id", "device_id", "floor_id", "label_id"})
 NON_ENTITY_TARGETS = TARGET_KEYS - {"entity_id"}
 _NAME = re.compile(r"^[a-z0-9_]+$")
@@ -107,6 +115,7 @@ class Check:
     action: str
     entity_id: str | None = None
     feature: str | None = None
+    talk: bool = False                      # decided with the talk-back policy (authz.talk_policy)
 
     @property
     def target(self) -> str:
@@ -123,6 +132,7 @@ class Command:
     ma: tuple[str, dict] | None = None      # (command, args)
     targets: list[str] = field(default_factory=list)
     upload: tuple[str, str, bytes] | None = None  # (path, bare content type, bytes): the talk-back clip only
+    live: str | None = None                 # live talk: the speaker a /ws/talk ticket is issued for
 
 
 def _entity_list(value: Any) -> list[str]:
@@ -212,6 +222,22 @@ _B64 = re.compile(r"^[A-Za-z0-9+/]*={0,2}$")
 _B64_MAX = 4 * ((UPLOAD_MAX_BYTES + 2) // 3)
 
 
+def talk_checks(speaker: str) -> list[Check]:
+    """The two talk-back checks (clip and live alike), decided with the talk-back policy, so a wall
+    tablet may talk on the doorbell's speaker from HK's pop-up settings (authz.TALK_ROLES)."""
+    return [Check("media_player.play_media", speaker, talk=True), Check(TALK_ACTION, feature="cameras", talk=True)]
+
+
+def talk_live_command(msg: dict) -> Command:
+    """LIVE TALK (docs/phase3/GATEWAY.md "Doorbell talk-back"): the same two checks as the clip; what
+    is forwarded is a one-time ticket for ONE stream on /ws/talk (talk_relay.py), not a frame."""
+    speaker = msg.get("speaker")
+    if not isinstance(speaker, str) or not TALK_ENTITY.match(speaker):
+        raise Refused("unsupported_target", "live talk is for one media_player entity (the doorbell's speaker)")
+    checks = talk_checks(speaker)
+    return Command("ws", TALK_LIVE_TYPE, checks, live=speaker, targets=[c.target for c in checks])
+
+
 def talk_command(method: Any, path: str, msg: dict) -> Command:
     import base64
     speaker = talk_target(path)
@@ -232,7 +258,7 @@ def talk_command(method: Any, path: str, msg: dict) -> Command:
         raise Refused("body_too_large", f"the clip is at most {UPLOAD_MAX_BYTES} bytes")
     if len(body) < UPLOAD_MIN_BYTES:
         raise Refused("unsupported_body", "the clip is empty")
-    checks = [Check("media_player.play_media", speaker), Check(TALK_ACTION, feature="cameras")]
+    checks = talk_checks(speaker)
     return Command("http", f"{UPLOAD_METHOD} {path.split('?', 1)[0]}", checks, upload=(path, ctype, body),
                    targets=[c.target for c in checks])
 
@@ -244,6 +270,8 @@ def classify(msg: dict, writes: frozenset[str]) -> Command:
         raise Refused("invalid_command", f"kind is one of {KINDS}")
     if set(msg) - KEYS[kind]:
         raise Refused("invalid_command", f"a {kind} command carries {sorted(KEYS[kind])} only")
+    if kind == "talk_live":
+        return talk_live_command(msg)
     if kind == "service":
         return service_command(msg.get("domain"), msg.get("service"), msg.get("data"), msg.get("target"),
                                msg.get("return_response", False))
@@ -254,6 +282,8 @@ def classify(msg: dict, writes: frozenset[str]) -> Command:
         t = inner["type"]
         if t not in writes:
             raise Refused("not_a_write", f"{t!r} is not a write (hkClient.WRITES); reads go through `read`")
+        if t == TALK_LIVE_TYPE:
+            raise Refused("unsupported_command", "live talk is the talk_live command and its own socket (/ws/talk)")
         if t == "call_service":
             extra = set(inner) - {"type", "id", "domain", "service", "service_data", "target", "return_response"}
             if extra:
@@ -541,6 +571,11 @@ class Gateway:
             aid = self.audit.record(principal=principal, kind=_kind(msg), action=_action(msg), targets=[],
                                     decision="denied", reason=exc.code, result="not_sent")
             return await reply(fail(exc.code, str(exc), aid))
+        if step is not None and cmd.live is not None:
+            # a ticket is bound to this connection's own identity; a PIN-named person is not it
+            aid = self.audit.record(principal=principal, kind=cmd.kind, action=cmd.action, targets=cmd.targets,
+                                    decision="denied", reason="invalid_step_up", result="not_sent")
+            return await reply(fail("invalid_command", "live talk takes no step_up; the clip asks for one", aid))
         if step is not None:
             stepped = await self._step_up(principal, step, cmd, reply, fail)
             if stepped is None:
@@ -549,8 +584,8 @@ class Gateway:
 
         subject = principal.subject
         ctx = self.authz.context()
-        decisions = [(c, self.authz.decide(subject, c.action, c.entity_id, feature=c.feature, ctx=ctx))
-                     for c in cmd.checks]
+        decisions = [(c, (self.authz.decide_talk if c.talk else self.authz.decide)(
+                          subject, c.action, c.entity_id, feature=c.feature, ctx=ctx)) for c in cmd.checks]
         denied = next(((c, d) for c, d in decisions if not d.allowed and not d.needs_step_up), None)
         sensitive = next((d.sensitive for _, d in decisions if d.sensitive), None)
         if denied is not None:
@@ -586,7 +621,8 @@ class Gateway:
             self._finish(aid, f"error:{code}")
             log.warning("%s for %s failed: %s", cmd.action, _who(principal), code)
             return await reply(fail(code, str(exc)[:300], aid))
-        self._finish(aid, "ok")
+        if cmd.live is None:
+            self._finish(aid, "ok")        # live talk: the relay writes the result when the stream ends
         log.info("%s on %s by %s (audit %d)", cmd.action, ",".join(cmd.targets), _who(principal), aid)
         await reply({"type": "command_result", "result": result, "audit_id": aid})
         authz = self.app.get("authz")
@@ -595,6 +631,8 @@ class Gateway:
             await self.notify_owners(principal, cmd, aid)
 
     def _unavailable(self, cmd: Command) -> str | None:
+        if cmd.live is not None and (self.commander is None or self.app.get("talk") is None):
+            return "commands_disabled"
         if cmd.kind == "ma":
             return None if self.app.get("ma") is not None else "music_assistant_off"
         return None if self.commander is not None else "commands_disabled"
@@ -606,6 +644,8 @@ class Gateway:
             log.exception("could not write the result of audit row %d (the command itself ran)", aid)
 
     async def _forward(self, principal: Principal, cmd: Command, aid: int) -> Any:
+        if cmd.live is not None:
+            return self.app["talk"].issue(principal, cmd.live, aid)
         if cmd.kind in ("service", "ws"):
             return await self.commander.call(dict(cmd.frame or {}), CommandTicket(aid, "ws"))  # type: ignore[union-attr]
         if cmd.upload is not None:
@@ -649,7 +689,7 @@ class Gateway:
 
 def _kind(msg: dict) -> str:
     k = msg.get("kind")
-    return k if k in KINDS else "service"
+    return AUDIT_KIND.get(k, k) if k in KINDS else "service"
 
 
 def _action(msg: dict) -> str | None:
@@ -663,6 +703,8 @@ def _action(msg: dict) -> str | None:
         return f"{msg.get('method')} {str(msg.get('path')).split('?', 1)[0]}"[:200]
     if k == "ma" and isinstance(msg.get("command"), str):
         return msg["command"][:200]
+    if k == "talk_live":
+        return TALK_LIVE_TYPE
     return None
 
 

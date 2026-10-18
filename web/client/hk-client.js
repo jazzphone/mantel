@@ -85,9 +85,10 @@
   // hook, if any, is told.
   //  * request(path, init): an authenticated write to the host's HTTP API (the doorbell's
   //    recorded talk-back POST).
-  //  * liveSocket(): what a dedicated write socket needs (the doorbell's live talk-back, which
-  //    streams `hk_frontend/talk/live` from a worker): resolves {url, token()} once any expired
-  //    credentials are refreshed. Refused, nothing is opened.
+  //  * liveSocket(speaker): what a dedicated write socket needs (the doorbell's live talk-back, which
+  //    streams `hk_frontend/talk/live` for `speaker` from a worker): resolves {url, token()} once any
+  //    expired credentials are refreshed (HA: its own socket and token, the speaker unused; Mantel: its
+  //    /ws/talk and a one-time ticket for that speaker). Refused, nothing is opened.
   function actionPort(port) {
     var act = port.actions && typeof port.actions === 'object' ? port.actions : null;
     function refuse(detail) {
@@ -119,7 +120,7 @@
         if (!act || typeof act.liveSocket !== 'function') {
           return refuse({ kind: 'socket', what: 'live socket' });
         }
-        return act.liveSocket();
+        return act.liveSocket.apply(act, arguments);
       }
     });
   }
