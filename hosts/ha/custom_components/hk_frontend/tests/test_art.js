@@ -43,14 +43,16 @@ flush().then(function () {
   var src = readFile(HK_ROOT + '/frontend/cards/hk-base.js');
   ok('_artImage sends outside URLs through artSign, and only while the tile is still waiting',
      /var put = function \(p\) \{ if \(!done\) \{ signed = p !== url; img\.src = p; \} \};/.test(src) &&
-     /if \(artRemote\(url\)\) artSign\(this\._hass, url, sz, put\);/.test(src));
+     /if \(artRemote\(url\)\) artSign\(this\.client, url, sz, put\);/.test(src));
 
   // A SIGNATURE DIES WITH THE HA THAT MADE IT: HA's signing secret is drawn
   // at start-up and never saved, so every kept path is a 401 after a
   // restart. Driven: the socket's `ready` forgets them all,
   // and an <img> that errors on one gets ONE fresh signature, then gives up.
   print('\n=== signed paths are forgotten when HA restarts ===');
-  var n = 0, conn = { l: {}, addEventListener: function (t, f) { (this.l[t] = this.l[t] || []).push(f); },
+  // A real HA connection also subscribes; the client's subscription port needs both.
+  var n = 0, conn = { l: {}, subscribeMessage: function () { return Promise.resolve(function () {}); },
+                      addEventListener: function (t, f) { (this.l[t] = this.l[t] || []).push(f); },
                       fire: function (t) { (this.l[t] || []).forEach(function (f) { f(); }); } };
   var h2 = { connection: conn, callWS: function (m) {
     n++; var s = {}; m.urls.forEach(function (u) { s[u] = '/api/hk_frontend/art?u=' + encodeURIComponent(u) + '&s=' + m.size + '&authSig=S' + n; });
@@ -71,7 +73,7 @@ flush().then(function () {
     ok('the socket\'s `ready` forgets every kept path: the next paint signs afresh', n === 2 && /authSig=S2$/.test(p3), [n, p3]);
 
     var box = document.createElement('div'), B = MZ + '?stale';
-    var img = C.HkBase.prototype._artImage.call({ _hass: h2 }, B, box, '<ha-icon></ha-icon>', 300);
+    var img = C.HkBase.prototype._artImage.call({ client: window.hkHAClient.from(h2) }, B, box, '<ha-icon></ha-icon>', 300);
     var errs = function () { (img._listeners.error || []).forEach(function (f) { f(); }); };
     return sign().then(function () {
       var first = img.src;

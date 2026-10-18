@@ -243,8 +243,10 @@ var conn = {
   sendMessagePromise: function (m) { sent.push(m); return Promise.resolve(); },
   subscribeMessage: function (cb, m) { subs.push({ cb: cb, m: m }); return Promise.resolve(function () {}); }
 };
-M.attach({ connection: conn });
-M.attach({ connection: conn });
+// As in Home Assistant, the host's callWS is the connection's sendMessagePromise.
+function hassOn(c) { return { connection: c, callWS: function (m) { return c.sendMessagePromise(m); } }; }
+M.attach(hassOn(conn));
+M.attach(hassOn(conn));
 function sub(type) { return subs.filter(function (s) { return s.m.type === type; }); }
 ok('subscribes to the saved focus once per connection',
    sub('frontend/subscribe_user_data').length, 1);

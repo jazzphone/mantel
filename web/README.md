@@ -12,5 +12,6 @@ real Apple glyph data remain user-supplied. The Phase 0 snapshot remains a froze
 git-ignored reference; it is not the source for new Phase 1 changes.
 
 The base state/update path and settings feed discovery use HKClient, including stable
-subscription ports and client update listeners. See `docs/phase1/SUBSCRIPTIONS.md`. Its action and other host-specific handling remain transitional. The remaining
+subscription ports and client update listeners. See `docs/phase1/SUBSCRIPTIONS.md`. Artwork
+reconnect handling and the music feeds use the same port (`docs/phase1/MUSIC-ART.md`). Its action and other host-specific handling remain transitional. The remaining
 cards/modules migrate incrementally; see `docs/phase1/STATE-CLIENT.md`.

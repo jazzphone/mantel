@@ -3,6 +3,7 @@
 (function (global) {
   'use strict';
   if (global.hkClient) return;
+  var made = new WeakSet();
   function create(port) {
     if (!port || typeof port !== 'object') throw new Error('HKClient needs a host port');
     var client = {};
@@ -14,8 +15,12 @@
         return typeof port[key] === 'function' ? port[key].bind(port) : undefined;
       } });
     });
-    return Object.freeze(client);
+    Object.freeze(client);
+    made.add(client);
+    return client;
   }
+  // Shared code that still accepts a legacy host input asks this before adapting it.
+  function is(value) { return !!value && typeof value === 'object' && made.has(value); }
   // Stable identity across state snapshots; the host's transport stays private.
   var transports = new WeakMap();
   function subscriptions(transport) {
@@ -35,6 +40,6 @@
     transports.set(transport, port);
     return port;
   }
-  global.hkClient = { create: create, subscriptions: subscriptions };
+  global.hkClient = { create: create, subscriptions: subscriptions, is: is };
   try { global.dispatchEvent(new CustomEvent('hk-client-ready')); } catch (e) { /* shell tests */ }
 })(globalThis);

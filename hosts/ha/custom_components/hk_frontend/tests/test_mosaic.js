@@ -1227,7 +1227,8 @@ print('\n=== after a restart: nothing asked of a state the new server has not se
 // HA restarted: the socket's `ready` comes before the resubscribe's snapshot,
 // the page still holds every old state (old tokens), and HA rebuilds the card.
 (function () {
-  var cn = { l: {}, addEventListener: function (t, f) { (this.l[t] = this.l[t] || []).push(f); } };
+  var cn = { l: {}, subscribeMessage: function () { return Promise.resolve(function () {}); },
+             addEventListener: function (t, f) { (this.l[t] = this.l[t] || []).push(f); } };
   var st = { 'input_select.cameras': { state: 'Front Door', last_updated: 't' } };
   CAMS.forEach(function (c) {
     st[c.entity] = { state: 'recording', attributes: { entity_picture: '/api/camera_proxy/' + c.entity + '?token=OLD' } };

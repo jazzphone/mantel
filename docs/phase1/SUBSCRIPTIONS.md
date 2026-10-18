@@ -60,6 +60,9 @@ Reproduce using the composed-build commands in `RESULTS.md` and:
 
 ## Exact continuation point
 
+**Superseded:** artwork invalidation and music feeds are done; see [`MUSIC-ART.md`](MUSIC-ART.md)
+for the current continuation point (read-only detail/saver consumers).
+
 This slice is complete; no partial implementation is waiting on a usage reset.
 Phase 1 remains in progress. Next migrate the remaining shared reconnect/subscription
 users in `web/hk/cards/hk-base.js`: artwork invalidation (`artWatch`) and music feeds.

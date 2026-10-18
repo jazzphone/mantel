@@ -3,12 +3,15 @@ load(HK_ROOT + '/tests/dom.js');
 load(HK_ROOT + '/tests/card_harness.js');
 load(HK_ROOT + '/frontend/cards/hk-base.js');
 function settle() { var p = Promise.resolve(); for (var i = 0; i < 12; i++) p = p.then(function () {}); return p; }
+// calls/closed count the settings feeds; hkMusic's own feeds (hk-base.js,
+// pinned in test_musicart.js) attach through the same port and go to `other`.
 function transport() {
-  var t = { calls: [], ready: [], closed: 0 };
+  var t = { calls: [], ready: [], closed: 0, other: [] };
   t.subscribeMessage = function (cb, msg, opts) {
     H.ok('subscription keeps transport receiver', this === t);
-    t.calls.push({ cb: cb, msg: msg, opts: opts });
-    return Promise.resolve(function () { t.closed++; });
+    var settings = /^hk_frontend\//.test(msg.type);
+    (settings ? t.calls : t.other).push({ cb: cb, msg: msg, opts: opts });
+    return Promise.resolve(function () { if (settings) t.closed++; });
   };
   t.addEventListener = function (name, cb) { if (name === 'ready') t.ready.push(cb); };
   t.removeEventListener = function (name, cb) { t.ready = t.ready.filter(function (fn) { return fn !== cb; }); };

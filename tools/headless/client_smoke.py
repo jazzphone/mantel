@@ -36,7 +36,9 @@ class OfflineReads:
 
     async def subscribe(self, msg, callback):
         payload = {"configured": True, "weather": {"place": "Offline before"}, "boards": {"dashboard-proof": {"pages": [], "headers": {"home": False}}}}
-        asyncio.get_running_loop().call_soon(callback, payload if msg["type"] == "hk_frontend/settings/subscribe" else {})
+        music = {"configured": True, "speakers": [{"name": "Offline Office", "entity": "media_player.offline_office"}]}
+        initial = {"hk_frontend/settings/subscribe": payload, "hk_music/subscribe": music}.get(msg["type"], {})
+        asyncio.get_running_loop().call_soon(callback, initial)
         self.serial += 1
         self.callbacks[self.serial] = (msg["type"], callback)
         return self.serial
@@ -46,6 +48,14 @@ class OfflineReads:
             if kind == "hk_frontend/settings/subscribe":
                 callback({"configured": True, "weather": {"place": "Offline after"},
                           "boards": {"dashboard-proof": {"pages": [], "headers": {"home": False}}}})
+
+    def publish_music(self):
+        for kind, callback in list(self.callbacks.values()):
+            if kind == "hk_music/subscribe":
+                callback({"configured": True, "speakers": [{"name": "Offline Den", "entity": "media_player.offline_den"}]})
+
+    def count(self, kind):
+        return sum(1 for k, _ in self.callbacks.values() if k == kind)
 
     async def unsubscribe(self, mid):
         self.callbacks.pop(mid, None)
@@ -118,6 +128,22 @@ async def smoke(shot=None):
                     hub.readproxy.publish_settings()
                     assert await browser.wait("window.hkSettings.get('weather.place') === 'Offline after'", 5), "settings update did not reach shared module"
                     await browser.eval("window.__proofEndClient()")
+                    # Music and artwork reconnect handling through the Mantel client's subscription port.
+                    assert await browser.wait("window.hkMusic.configured() && window.hkMusic.speakers()[0].name === 'Offline Office'", 5), \
+                        "music configuration did not arrive through the client port"
+                    assert hub.readproxy.count("hk_music/subscribe") == 1, "music subscribed more than once"
+                    hub.readproxy.publish_music()
+                    assert await browser.wait("window.hkMusic.speakers()[0].name === 'Offline Den'", 5), "music update did not arrive"
+                    music_write = await browser.eval("""(async () => {
+                      const taken = window.hkMusic.setFocus('media_player.offline_den');
+                      await new Promise(r => setTimeout(r, 50));
+                      return taken && window.hkMusic.focus() === 'media_player.offline_den';
+                    })()""")
+                    assert music_write, "a refused focus write jammed the music model"
+                    art = await browser.eval("""new Promise(r => window.hkCards.artUrl(
+                      'https://art.invalid/cover.jpg', 300, r))""")
+                    assert art == "https://art.invalid/cover.jpg", art  # signing refused offline: unsigned, unloaded
+                    assert await browser.eval("window.hkCards.staleEpoch() === 0")
                     refused = await browser.eval("""(async () => {
                       try { await window.__mantel.client.callWS({type:'call_service',domain:'light',service:'turn_on'}); }
                       catch (error) { return error.code; }
@@ -131,6 +157,8 @@ async def smoke(shot=None):
                         await browser.screenshot(shot)
                     return {"home_ready": True, "client": "mantel", "initial": "21.4 °C", "updated": "22.8 °C",
                             "settings": "updated through client subscription", "client_updates": 1,
+                            "music": "Offline Office -> Offline Den, one subscription, focus write refused",
+                            "artwork": "signing refused offline, URL unchanged, no reconnect marked",
                             "commands": refused, "external_requests": 0, "browser_exceptions": 0}
         finally:
             store.db.close()

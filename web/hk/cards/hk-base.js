@@ -968,29 +968,46 @@
   // have yet ("Camera not found"). So the objects the page holds at `ready`
   // are marked; whatever the new server sends is a NEW object, so after a
   // mere network blip (everything re-sent at once) nothing is held back.
+  //
+  // THROUGH THE HOST'S SUBSCRIPTION PORT (HKClient.subscriptions), never the
+  // raw connection: the port's identity follows the transport, so new state
+  // snapshots on the same socket do not add listeners, and a replacement
+  // socket gets its own. The states marked are the current client's.
   var artConn = null, STALE = null, staleEpoch = 0;
-  function artWatch(hass) {
-    var conn = hass && hass.connection;
-    if (!conn || conn === artConn || typeof conn.addEventListener !== 'function') return;
+  // A client as is; a legacy host input through the host adapter.
+  function asClient(source) {
+    if (!source) return null;
+    if (window.hkClient && window.hkClient.is(source)) return source;
+    var host = window.hkHostClient;
+    return host && host.from ? host.from(source) : null;
+  }
+  // A replaced port's listener goes with it: its late `ready` must not mark
+  // the new server's states.
+  function artReady() {
+    artSigned.clear();
+    var c = window.hkCards.client(), s = c && c.states, set = new WeakSet();
+    if (s) for (var k in s) if (s[k] && typeof s[k] === 'object') set.add(s[k]);
+    STALE = set;
+    staleEpoch++;
+  }
+  function artWatch(client) {
+    var conn = client && client.subscriptions;
+    if (!conn || conn === artConn) return;
+    if (artConn) artConn.removeEventListener('ready', artReady);
     artConn = conn;
-    conn.addEventListener('ready', function () {
-      artSigned.clear();
-      var h = window.hkCards.hass(), s = h && h.states, set = new WeakSet();
-      if (s) for (var k in s) if (s[k] && typeof s[k] === 'object') set.add(s[k]);
-      STALE = set;
-      staleEpoch++;
-    });
+    conn.addEventListener('ready', artReady);
   }
   // true while `st` is a state the server that is up now has not sent
   window.hkCards.stale = function (st) { return !!(STALE && st && STALE.has(st)); };
   // 0 until the first reconnect: a card can skip the question entirely
   window.hkCards.staleEpoch = function () { return staleEpoch; };
   function artForget(url, size) { artSigned.delete(size + ' ' + url); }
-  function artSign(hass, url, size, cb) {
-    artWatch(hass);
+  function artSign(source, url, size, cb) {
+    var client = asClient(source);
+    artWatch(client);
     var key = size + ' ' + url, hit = artSigned.get(key);
     if (hit && Date.now() - hit.at < ART_RESIGN_MS) { cb(hit.path); return; }
-    if (!hass || !hass.callWS) { cb(url); return; }
+    if (!client || !client.callWS) { cb(url); return; }
     var q = artQueues[size] || (artQueues[size] = { waiters: new Map(), timer: null });
     if (!q.waiters.has(url)) q.waiters.set(url, []);
     q.waiters.get(url).push(cb);
@@ -1000,7 +1017,7 @@
       var urls = Array.from(q.waiters.keys());
       if (artSigned.size > 3000) artSigned.clear();
       for (var i = 0; i < urls.length; i += 200) (function (batch) {
-        Promise.resolve(hass.callWS({ type: 'hk_frontend/art/sign', urls: batch, size: size }))
+        Promise.resolve(client.callWS({ type: 'hk_frontend/art/sign', urls: batch, size: size }))
           .then(function (res) {
             var got = (res && res.signed) || {};
             batch.forEach(function (u) {
@@ -1810,6 +1827,7 @@
   function clientSeen(client) {
     if (!client || client === CLIENT_HUB.last) return;
     CLIENT_HUB.last = client;
+    artWatch(client);              // the reconnect hook (above), from the first client
     CLIENT_HUB.fns.forEach(function (fn) {
       try { fn(client); } catch (e) { console.error('[hk-cards] client listener', e); }
     });
@@ -1831,7 +1849,6 @@
     if (!h || h === HUB.last) return;
     HUB.last = h;
     clientSeen(window.hkHostClient.from(h));
-    artWatch(h);                   // the reconnect hook (above), from the first hass
     HUB.fns.forEach(function (fn) {
       try { fn(h); } catch (e) { console.error('[hk-cards] hass listener', e); }
     });
@@ -2229,13 +2246,13 @@
         if (signed && !resigned && !done) {
           resigned = true;
           artForget(url, sz);
-          artSign(self._hass, url, sz, put);
+          artSign(self.client, url, sz, put);
           return;
         }
         fail();
       });
       img.alt = '';
-      if (artRemote(url)) artSign(this._hass, url, sz, put);
+      if (artRemote(url)) artSign(this.client, url, sz, put);
       else img.src = url;
       box.appendChild(img);
       return img;
@@ -2879,7 +2896,7 @@
   window.hkCards.artUrl = function (url, size, cb, fresh) {
     if (!artRemote(url)) { cb(url); return; }
     if (fresh) artForget(url, size);
-    artSign(window.hkCards.hass(), url, size, cb);
+    artSign(window.hkCards.client(), url, size, cb);
   };
   window.hkCards.button = button;
   window.hkCards.scrub = scrub;
@@ -3169,7 +3186,8 @@
     // followed one now does too, until it stops or something else starts.
     var follow = null;
     var listeners = [];
-    var conn = null, writing = 0;
+    // conn: the subscription port attached; writer: the newest client on it.
+    var conn = null, writer = null, writing = 0, attachEpoch = 0, closers = [];
 
     function known(e) { return !!(e && byEntity[e]); }
     function isGroup(e) { return !!(byEntity[e] && byEntity[e].members); }
@@ -3365,10 +3383,10 @@
       focus.hold = opts && opts.hold ? now + MUSIC_HOLD : 0;
       try { if (window.localStorage) localStorage.setItem(MUSIC_KEY, JSON.stringify({ key: key, at: now })); }
       catch (e) { /* first-paint copy only */ }
-      if (conn && conn.sendMessagePromise) {
+      if (writer && writer.callWS) {
         writing++;
-        conn.sendMessagePromise({ type: 'frontend/set_user_data', key: MUSIC_KEY,
-                                  value: { key: key, at: now } })
+        Promise.resolve(writer.callWS({ type: 'frontend/set_user_data', key: MUSIC_KEY,
+                                        value: { key: key, at: now } }))
           .catch(function (e) { console.error('[hkMusic] could not save focus', e); })
           .then(function () { writing--; });
       }
@@ -3414,12 +3432,21 @@
       return function () {};
     }
 
-    function attach(hass) {
-      var c = hass && hass.connection;
-      if (!c || c === conn || !c.subscribeMessage) return;
-      conn = c;
-      sub(c, { type: 'hk_music/subscribe' }, configure, 'hkMusic');
-      sub(c, { type: 'frontend/subscribe_user_data', key: MUSIC_KEY }, function (ev) {
+    // THROUGH THE HOST'S SUBSCRIPTION PORT: new state snapshots on the same
+    // socket share one port, so they never subscribe twice. A replacement port
+    // ends the old pair first, and an old pair's late answer is ignored.
+    function attach(source) {
+      var client = asClient(source), c = client && client.subscriptions;
+      if (!c) return;
+      if (c === conn) { writer = client; return; }
+      closers.splice(0).forEach(function (close) { close(); });
+      conn = c; writer = client;
+      var my = ++attachEpoch;
+      closers.push(sub(c, { type: 'hk_music/subscribe' }, function (cfg) {
+        if (my === attachEpoch) configure(cfg);
+      }, 'hkMusic'));
+      closers.push(sub(c, { type: 'frontend/subscribe_user_data', key: MUSIC_KEY }, function (ev) {
+        if (my !== attachEpoch) return;
         var v = ev && ev.value;
         // A key is taken even if the speaker list has not arrived yet (the
         // two subscriptions answer in either order); resolve() validates it.
@@ -3428,21 +3455,25 @@
         try { if (window.localStorage) localStorage.setItem(MUSIC_KEY, JSON.stringify(v)); }
         catch (e) { /* first-paint copy only */ }
         emit();
-      }, 'hkMusic focus');
+      }, 'hkMusic focus'));
     }
 
     // ATTACHED BY THE PAGE, not only by the music cards: a Speakers chip
     // (count: {music: true}) or a popup opened by `entity_from: {music: true}`
     // needs the speaker list on a page with no music card on it.
+    // The host adapter owns discovery; its events also catch a late adapter
+    // and a replacement connection on a page with no music card.
     (function () {
       var tries = 0;
       function selfAttach() {
-        var ha = null;
-        try { ha = document.querySelector('home-assistant'); } catch (e) { return true; }
-        if (!(ha && ha.hass && ha.hass.connection)) return false;
-        attach(ha.hass);
+        var host = window.hkHostClient, client = null;
+        try { client = host && host.current ? host.current() : null; } catch (e) { return true; }
+        if (!(client && client.subscriptions)) return false;
+        attach(client);
         return true;
       }
+      window.addEventListener('hk-host-client-ready', selfAttach);
+      window.addEventListener('hk-client-update', selfAttach);
       if (selfAttach()) return;
       var t = setInterval(function () {
         if (selfAttach() || ++tries >= 300) clearInterval(t);   // a minute; cards attach too
@@ -3470,7 +3501,7 @@
       libraryEntry: function () { return MUSIC.library || null; },
       HOLD: MUSIC_HOLD,
       // Tests only: start from a clean slate, and hand in a configuration.
-      _reset: function () { focus = { key: null, at: 0, hold: 0, seen: null }; follow = null; listeners = []; conn = null; writing = 0; },
+      _reset: function () { focus = { key: null, at: 0, hold: 0, seen: null }; follow = null; listeners = []; conn = null; writer = null; writing = 0; },
       _configure: configure
     };
   })();
