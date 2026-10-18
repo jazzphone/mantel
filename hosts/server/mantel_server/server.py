@@ -33,6 +33,7 @@ from . import music
 from . import accounts, alarm_pin, auth, connect_pairing, devices, gateway, health, ingress, live_tv, pins, proof2, rbac_store, readproxy, sessions, settings_store
 from . import (admin_page, atrest, backup, connections, features, linked, linked_house, linked_owners, login_page,
                service_accounts, talk_relay, user_files)
+from . import ma_page, media_proxy, proxy_check, proxy_trust, security_headers
 from .authz import Authz, Principal, resolve_door
 from .config import Config
 from .connectors import REFUSE_ALL, Ctx, Hooks
@@ -400,8 +401,11 @@ async def api_hk_cards(request: web.Request) -> web.Response:
 
 def build_app(cfg: Config, token: str, store: Store | None = None, connect_ha: bool = True,
               clock=time.time) -> web.Application:
-    app = web.Application(middlewares=[connect_pairing.middleware, loopback_only, ingress.middleware,
-                                       auth.require_session])
+    # proxy_trust first after Connect's peer check: forwarding, door and identity headers from anyone who
+    # may not send them are gone before any other code reads a header
+    app = web.Application(middlewares=[connect_pairing.middleware, proxy_trust.middleware, loopback_only,
+                                       ingress.middleware, auth.require_session])
+    security_headers.register(app)    # Mantel's own CSP/HSTS/nosniff/..., behind any proxy or none
     hub = Hub(cfg)
     app["store"] = store or Store(cfg.data_dir / "mantel.db")
     # Connections (connections.py): Mantel's own saved HA/MA credentials win over the installation's files;
@@ -557,6 +561,11 @@ def wire(app: web.Application, hub: Hub, token: str, connect_ha: bool) -> None:
     # backup (off unless --backup-target is set)
     user_files.register(app, hub)
     backup.register(app, hub)
+    # Music Assistant's web app and go2rtc under Mantel's own address (/ma/, /go2rtc/; each only when
+    # configured), and the Owner's "Test my proxy" (/proxy-check)
+    ma_page.register(app, hub)       # the token for the Music Assistant page (Connections; signs the /ma/ frame in)
+    media_proxy.register(app, hub)
+    proxy_check.register(app, hub)
     if cfg.commands_enabled:
         log.warning("COMMANDS ARE ENABLED on this server: signed-in users may control Home Assistant within "
                     "their roles (step-up and an audit row for every command)")

@@ -43,10 +43,13 @@ window.__mantelHub = hub;
 window.hkMantelClient.useCommands(hub);
 let hostForCaps = null;
 hub.onCapabilities = () => { if (hostForCaps) hostForCaps._publish(); };
-const [registry, user, fixtures, cards] = await Promise.all([
+const [registry, user, fixtures, cards, , services] = await Promise.all([
   json(mantelUrl('/api/registry')), json(mantelUrl('/api/me')), json(mantelUrl('/api/fixtures')),
   json(mantelUrl('/api/hk-cards')), hub.connect(),
+  // Music Assistant / go2rtc under Mantel's own address, when this server serves them (media_proxy.py)
+  json(mantelUrl('/api/services')).catch(() => ({})),
 ]);
+window.hkMantelShell.setServices(services);
 mark('inputs');
 
 const [config, themes] = await Promise.all([

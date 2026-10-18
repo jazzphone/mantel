@@ -962,6 +962,102 @@ function pendingConnection(pid, reload) {
   return box;
 }
 
+// THE TOKEN FOR THE MUSIC ASSISTANT PAGE (ma_page.py): an ordinary MA user's token that signs HK's embedded
+// Music Assistant page in, server-side. Separate from the connection above (Mantel's own, often an MA admin).
+function withPageToken(panel, info, can) {
+  if (!info || info.state !== 'set') return panel;
+  const box = h('div', { class: 'stack', id: 'ma-page-token' }, note('Loading'));
+  const out = h('div', { 'aria-live': 'polite' });
+  const draw = (page) => {
+    const lines = [h('h4', null, 'Token for the Music Assistant page')];
+    lines.push(note('HK’s Browse Music page shows Music Assistant’s own web app. With a token here, Mantel signs that page in to Music Assistant as an ordinary MA user (never an administrator), so nobody has to sign in to MA on each screen. The token stays sealed in Mantel; the page never sees it. Without one, the page shows Music Assistant’s own sign-in.', 'muted small'));
+    if (page.set && page.saved) {
+      const who = page.saved.user && page.saved.user.name ? page.saved.user.name : 'an MA user';
+      lines.push(meta('Signs in as ' + who + ', since ' + fmt(page.saved.since) + (page.saved.expires ? '; expires ' + fmt(page.saved.expires) : '')));
+    } else lines.push(meta(page.unreadable ? 'The saved token could not be opened (was the at-rest key changed?).' : 'Not set: the page shows Music Assistant’s own sign-in.'));
+    if (can) {
+      const token = h('input', { name: 'ma-page-token', type: 'password', maxlength: 4096, autocomplete: 'off', autocapitalize: 'none', 'aria-label': 'Music Assistant page token' });
+      const user = h('input', { name: 'ma-page-username', autocomplete: 'off', autocapitalize: 'none', maxlength: 200 });
+      const pass = h('input', { name: 'ma-page-password', type: 'password', autocomplete: 'off', maxlength: 1024 });
+      const save = (body) => async () => {
+        out.replaceChildren(note('Testing and saving…'));
+        try {
+          const r = await api('POST', '/api/connections/ma/page', body());
+          token.value = ''; pass.value = '';
+          out.replaceChildren();
+          say('The Music Assistant page now signs in as ' + ((r.page.saved && r.page.saved.user && r.page.saved.user.name) || 'that user') + '.', 'ok');
+          draw(r.page);
+        } catch (e) { out.replaceChildren(errorPanel(e)); }
+      };
+      lines.push(field('A long-lived token of an ordinary MA user', token),
+        h('div', { class: 'acts' }, btn('Save token', save(() => ({ token: token.value.trim() })), 'primary', 'ma-page-save')),
+        h('fieldset', null, h('legend', null, 'Or sign in once as that MA user'),
+          field('User name', user), field('Password', pass),
+          h('div', { class: 'acts' }, btn('Sign in and save', save(() => ({ username: user.value.trim(), password: pass.value })), '', 'ma-page-login'))));
+      if (page.set) {
+        lines.push(h('div', { class: 'acts' }, btn('Remove', async () => {
+          if (!(await confirmDialog('Remove the page token?', 'The Music Assistant page goes back to MA’s own sign-in.', 'Remove', true))) return;
+          try { const r = await api('DELETE', '/api/connections/ma/page'); draw(r.page); } catch (e) { out.replaceChildren(errorPanel(e)); }
+        }, 'danger', 'ma-page-remove')));
+      }
+    }
+    lines.push(out);
+    box.replaceChildren(...lines);
+  };
+  api('GET', '/api/connections/ma/page').then((r) => draw(r.page), (e) => box.replaceChildren(errorPanel(e)));
+  panel.append(box);
+  return panel;
+}
+
+// HTTPS and the reverse proxy (proxy_check.py): Owner only. The check itself is /proxy-check's module
+// (runProxyCheck), run here in place; the full page stays at /proxy-check.
+function proxyPanel(isOwner) {
+  const out = h('div', { id: 'proxy-check-results' });
+  const info = h('div', { id: 'proxy-info' }, note('Loading'));
+  const test = btn('Test my proxy', async () => {
+    test.disabled = true;
+    out.replaceChildren(note('Checking…'));
+    try {
+      const mod = await import('/proxy-check/check.js');
+      mod.render(out, await mod.runProxyCheck(''));
+    } catch (e) {
+      out.replaceChildren(note('The check failed: ' + (e && e.message ? e.message : e), 'status err'));
+    } finally { test.disabled = false; }
+  }, '', 'proxy-check');
+  const shownKey = h('div', { id: 'proxy-newkey', 'aria-live': 'polite' });
+  const draw = (s) => {
+    const lines = [
+      meta('Mode: ' + s.mode_label), note(s.mode_detail, 'muted small'),
+      meta('HTTPS on this request: ' + (s.https_seen ? 'yes' : 'no') + (s.public_url ? '; configured address ' + s.public_url : '')),
+      meta('Trusted proxies: ' + (s.trusted_proxies.length ? s.trusted_proxies.join(', ') : 'none')),
+    ];
+    if (s.door_key.required) {
+      lines.push(meta('Door key (' + s.door_key.header + '): ' + (s.door_key.set ? 'set' + (s.door_key.since ? ', since ' + fmt(s.door_key.since) : '') : 'not set')));
+      lines.push(note('Your proxy must send this installation’s door key with the door header. The key is shown once after a change, and in Test my proxy.', 'muted small'));
+      if (s.can_rotate) {
+        lines.push(h('div', { class: 'acts' }, btn('Rotate door key', async () => {
+          if (!(await confirmDialog('Rotate the door key?', 'Your proxy must then send the new key; until you paste it in, its requests are treated as coming from the internet.', 'Rotate', true))) return;
+          try {
+            const r = await api('POST', '/api/admin/proxy-check/door-key');
+            shownKey.replaceChildren(note('New door key (shown once; paste it into your proxy):', 'small'), h('code', { id: 'proxy-newkey-value' }, r.door_key.value));
+            say('Door key rotated.', 'ok');
+            const again = await api('GET', '/api/admin/proxy-check/summary');
+            draw(again);
+          } catch (e) { shownKey.replaceChildren(errorPanel(e)); }
+        }, 'danger', 'door-key-rotate')));
+      }
+    } else lines.push(note('No door key is needed in this mode.', 'muted small'));
+    lines.push(shownKey);
+    info.replaceChildren(...lines);
+  };
+  api('GET', '/api/admin/proxy-check/summary').then(draw, (e) => info.replaceChildren(errorPanel(e)));
+  return h('section', { class: 'panel', id: 'p-conn-proxy' }, h('h3', null, 'HTTPS and your proxy'),
+    note('How browsers reach Mantel: Mantel’s Caddy, your own reverse proxy (Nginx Proxy Manager, Traefik, …), the Home Assistant App or a Cloudflare tunnel. The test checks HTTPS, the trusted proxy, the door header, HSTS, the security policy and WebSockets from this browser, and says what to change.', 'muted small'),
+    info,
+    isOwner ? h('div', { class: 'acts' }, test, h('a', { class: 'btn small', href: '/proxy-check', target: '_blank', rel: 'noopener' }, 'Open the full page')) : note('Only an Owner can run the test.', 'muted small'),
+    out);
+}
+
 function renderConnections(root) {
   const pid = new URLSearchParams(location.search).get('connection');
   const panels = h('div', { id: 'p-connections' }, note('Loading'));
@@ -973,7 +1069,8 @@ function renderConnections(root) {
         !can ? note('Only an Owner can change connections.', 'muted small') : null,
         can && got.needs_fresh ? note('From outside the home network you will be asked to confirm it is you first.', 'muted small') : null,
         connectionPanel('ha', got.connections.ha, can, reload),
-        connectionPanel('ma', got.connections.ma, can, reload),
+        withPageToken(connectionPanel('ma', got.connections.ma, can, reload), got.connections.ma, can),
+        state.me && state.me.user && ['owner', 'admin'].includes(state.me.user.role) ? proxyPanel(state.me.user.role === 'owner') : null,
       ]));
     } catch (e) { panels.replaceChildren(errorPanel(e)); }
   };

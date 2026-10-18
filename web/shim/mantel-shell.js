@@ -12,6 +12,16 @@
   if (!S) throw new Error('hk-host-shell.js has not loaded');
   const byId = (id) => (global.document ? global.document.getElementById(id) : null);
   const container = () => byId('view');
+  // Music Assistant's web app and go2rtc, served by Mantel under its own address when configured
+  // (media_proxy.py; GET /api/services says which this identity may use): same-origin paths under
+  // the page's prefix, so HK's MA frame and go2rtc sockets are https on an https page.
+  // (/ma/hassio_ingress/mantel/: the same app, signed in by Mantel with the page token; ma_page.py)
+  const SERVICE_PATH = /^\/(?:ma(?:\/hassio_ingress\/mantel)?|go2rtc)\/$/;
+  let services = {};
+  function serviceUrl(name) {
+    const path = services && typeof services[name] === 'string' ? services[name] : null;
+    return path && SERVICE_PATH.test(path) ? (global.__mantelBase || '') + path : null;
+  }
 
   const MANTEL = {
     kind: 'mantel',
@@ -25,6 +35,7 @@
     hostDetail: () => false,
     openHostDetail: () => false,
     hostToast: () => false,
+    serviceUrl,
     tags: { viewContainer: 'hk-view-container' },
     root: () => byId('hk-shell-root'),
     overlayRoot: () => byId('hk-shell-root'),
@@ -61,5 +72,8 @@
   }
 
   S.use(MANTEL);
-  global.hkMantelShell = { attach, install, kind: 'mantel' };
+  // home.js hands over GET /api/services ({music_assistant: '/ma/' | null, go2rtc: '/go2rtc/' | null})
+  function setServices(got) { services = got && typeof got === 'object' ? got : {}; }
+
+  global.hkMantelShell = { attach, install, setServices, serviceUrl, kind: 'mantel' };
 })(globalThis);

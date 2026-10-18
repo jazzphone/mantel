@@ -1,0 +1,38 @@
+# Bring your own reverse proxy (Nginx Proxy Manager, Traefik, ...) instead of Mantel's Caddy.
+# docs/OPERATIONS.md "HTTPS" and docs/phase3/PACKAGING.md "Bring your own proxy".
+#
+#   in .env:  COMPOSE_FILE=compose.yaml:compose.byo-proxy.yaml
+#             MANTEL_TRUSTED_PROXY=<your proxy's address, as Mantel sees it>
+#             MANTEL_HTTP_BIND=<this host's LAN address your proxy reaches>   (default: all addresses)
+#
+# What changes: Caddy does not start (it is moved behind a profile nobody turns on); Mantel Server
+# publishes ONE plain-HTTP port (8765) for your proxy, which owns TLS. Your proxy must send
+# X-Mantel-Door: lan (or tunnel on a host the internet reaches), overwriting anything the browser sent,
+# together with this installation's door key in X-Mantel-Door-Key (`docker compose exec mantel-server
+# mantel door-key`, or the Owner's /proxy-check page). Mantel believes the door ONLY from
+# MANTEL_TRUSTED_PROXY with the right key, and treats a request from there WITHOUT them as the tunnel
+# door (fail closed). Mantel itself removes forwarding, door and HA identity headers from everyone
+# else, and sets its own CSP/HSTS. Open https://<your name>/proxy-check as the Owner to test the result.
+#
+# Keep the published port off the internet and, ideally, reachable only from the proxy (bind it to the
+# address the proxy uses, or firewall it): a browser that bypasses the proxy gets the tunnel door over
+# plain HTTP.
+#
+# The Cloudflare tunnel (--profile tunnel) still works: cloudflared then reaches Mantel directly on the
+# internal tunnel network (service URL http://172.31.250.2:8765 in the Cloudflare dashboard) and is never
+# trusted, so it is always the tunnel door.
+
+services:
+  caddy:
+    profiles:
+      - caddy-not-used
+
+  mantel-server:
+    ports:
+      - "${MANTEL_HTTP_BIND:-0.0.0.0}:${MANTEL_HTTP_PORT:-8765}:8765"
+    environment:
+      MANTEL_TRUSTED_PROXY: ${MANTEL_TRUSTED_PROXY:?set MANTEL_TRUSTED_PROXY in .env (your proxy's IP address)}
+      MANTEL_PROXY_KIND: own
+    networks:
+      tunnel:
+        ipv4_address: 172.31.250.2

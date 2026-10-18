@@ -107,7 +107,13 @@ def resolve_door(request: web.Request) -> str:
     claim = claim.strip().lower() if claim is not None else None
     peer = request.remote
     if peer is not None and peer in trusted:
-        return "lan" if claim == "lan" else "tunnel"     # Caddy always stamps: missing/unknown fails closed
+        if claim == "lan":
+            # with the home's own proxy, only with this installation's door key (door_key.py)
+            from . import door_key, proxy_trust
+            if door_key.door_allowed(request):
+                return "lan"
+            proxy_trust._warn(peer, f"{DOOR_HEADER}: lan without the right {door_key.HEADER}")
+        return "tunnel"                                   # Caddy always stamps: missing/unknown fails closed
     if claim is not None and claim != "lan":
         return "tunnel"                                   # a stricter claim is honoured from anyone
     if claim == "lan" and not _is_loopback(peer):

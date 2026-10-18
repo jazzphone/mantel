@@ -292,6 +292,9 @@ async def test_a_channel_plays_through_go2rtc_and_stops_when_nobody_watches(rig)
     assert r.go2rtc.streams["mantel_tv_4_1"] == \
         f"ffmpeg:http://{r.tuner_addr}/auto/v4.1#input=mantel_tv_in#video=mantel_tv_720#audio=opus"
     assert r.go2rtc.offers == [("mantel_tv_4_1", OFFER_SDP)]
+    # registered with media_proxy's /go2rtc/ gate while it is set up (as a Live TV stream of its camera)
+    gate = r.tv.app["go2rtc_streams"]
+    assert gate.kind_of("mantel_tv_4_1") == ("live_tv", "camera.tv_nbc")
     sid = events[0]["session_id"]
     got = await r.ask(ws, 3, {"type": "camera/webrtc/candidate", "entity_id": "camera.tv_nbc", "session_id": sid,
                               "candidate": {"candidate": "candidate:9 1 udp 1 192.0.2.77 5000 typ host",
@@ -313,6 +316,7 @@ async def test_a_channel_plays_through_go2rtc_and_stops_when_nobody_watches(rig)
         await asyncio.sleep(0.02)
     assert ("DELETE", "mantel_tv_4_1") in r.go2rtc.calls and r.go2rtc.streams == {}
     assert r.tv.sessions == {} and r.tv.streams == {}
+    assert gate.kind_of("mantel_tv_4_1") is None, "dropped from the /go2rtc/ gate with the stream"
     assert r.go2rtc.open.get("mantel_tv_4_1") == 0, "the go2rtc socket was closed"
     assert r.env.audit() == [], "watching TV is not a command"
     await ws.close()
@@ -492,3 +496,63 @@ async def test_the_settings_feed_says_live_tv_is_added(rig):
     r = await rig()
     assert "live_tv" in r.app["features"].client_added()
     assert r.app["features"].panel_features()["hk_tv"]["entries"][0]["entry_id"] == ITEM
+
+
+# ------------------------------------------------------------------------------------- /go2rtc/ gate
+async def _start_nbc(r):
+    ws = await r.socket("owner1", "owner")
+    await ws.send_json({"type": "read_subscribe", "id": 2,
+                        "msg": {"type": "camera/webrtc/offer", "entity_id": "camera.tv_nbc", "offer": OFFER_SDP}})
+    for _ in range(100):
+        if r.tv.streams:
+            break
+        await asyncio.sleep(0.02)
+    assert r.tv.streams == {"mantel_tv_4_1": "4.1"}
+    return ws
+
+
+async def test_live_tv_streams_under_go2rtc_follow_the_live_tv_gate(rig):
+    r = await rig()
+    m = r.env.m
+    url = "/go2rtc/api/frame.jpeg?src=mantel_tv_4_1"
+    # nobody signed in, and nothing set up yet: refused
+    m.forget_cookies()
+    assert (await m.client.get(url)).status in (401, 403)
+    ws = await _start_nbc(r)
+    # an owner may view it (past the gate: the fake go2rtc has no still, so its own 404 is what comes back)
+    assert (await m.client.get(url)).status != 403
+    # the channel camera's own name is not an ordinary camera stream: refused, whoever asks
+    assert (await m.client.get("/go2rtc/api/frame.jpeg?src=camera.tv_nbc")).status == 403
+    # a child (no Live TV feature, no cameras by default) is refused
+    await r.env.login("kid1", "child")
+    assert (await m.client.get(url)).status == 403
+    # signed out: refused
+    m.forget_cookies()
+    assert (await m.client.get(url)).status in (401, 403)
+    # an adult has Live TV
+    await r.env.login("adult1", "adult")
+    assert (await m.client.get(url)).status != 403
+    # the signaling socket under /go2rtc/ is gated the same way
+    m.forget_cookies()
+    await r.env.login("kid1", "child")
+    import aiohttp
+    with pytest.raises(aiohttp.WSServerHandshakeError) as bad:
+        await m.client.ws_connect("/go2rtc/api/ws?src=mantel_tv_4_1")
+    assert bad.value.status == 403
+    # the stream is dropped with the last viewer: no longer reachable through the gate
+    await r.env.login("owner1", "owner")
+    await ws.send_json({"type": "read_unsubscribe", "id": 2})
+    for _ in range(100):
+        if not r.tv.streams:
+            break
+        await asyncio.sleep(0.02)
+    assert (await m.client.get(url)).status == 403
+    await ws.close()
+
+
+async def test_the_app_mode_has_no_channel_gate_and_no_go2rtc_route(rig):
+    r = await rig(go2rtc=False)
+    m = r.env.m
+    await r.env.login("owner1", "owner")
+    # no go2rtc configured: /go2rtc/ is not configured at all (nothing of an HA transcode is exposed here)
+    assert (await m.client.get("/go2rtc/api/frame.jpeg?src=mantel_tv_4_1")).status == 404

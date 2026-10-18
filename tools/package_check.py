@@ -319,28 +319,105 @@ def check_compose(path: Path, release: bool = False) -> list[str]:
 # Caddyfile, LXC script, HA App, repository hygiene
 # ---------------------------------------------------------------------------------------------------
 def check_caddyfile(path: Path) -> list[str]:
+    """Caddy stamps the door and drops identity headers; it must NOT set a Content-Security-Policy:
+    Mantel Server sets its own (security_headers.py) and a second CSP header would be enforced too."""
     text = path.read_text()
+    code = "\n".join(line.split("#", 1)[0] for line in text.splitlines())
     problems = []
-    csp = re.search(r'Content-Security-Policy\s+"([^"]+)"', text)
-    if not csp:
-        return ["Caddyfile: no Content-Security-Policy"]
-    policy = csp.group(1)
-    directives = {d.split()[0]: d.split()[1:] for d in policy.split(";") if d.strip()}
-    if directives.get("script-src") != ["'self'"]:
-        problems.append(f"Caddyfile: script-src must be exactly 'self' (got {directives.get('script-src')})")
-    for d, vals in directives.items():
-        if "'unsafe-eval'" in vals or (d.startswith("script") and "'unsafe-inline'" in vals):
-            problems.append(f"Caddyfile: CSP {d} allows unsafe scripting")
-    for need in ("default-src", "frame-ancestors", "base-uri", "object-src"):
-        if need not in directives:
-            problems.append(f"Caddyfile: CSP lacks {need}")
-    for header in ("Strict-Transport-Security", "X-Content-Type-Options", "Referrer-Policy", "Permissions-Policy"):
-        if header not in text:
-            problems.append(f"Caddyfile: missing {header}")
-    if "admin off" not in text:
+    if re.search(r"^\s*(?:header\s+)?\??Content-Security-Policy\s", code, re.M | re.I):
+        problems.append("Caddyfile: sets a Content-Security-Policy; Mantel Server sets its own "
+                        "(security_headers.py) and browsers enforce both")
+    if "admin off" not in code:
         problems.append("Caddyfile: the admin API should be off")
-    if "X-Mantel-Door" not in text:
+    if "X-Mantel-Door" not in code:
         problems.append("Caddyfile: no X-Mantel-Door stamp for the two doors")
+    for h in ("X-Remote-User-Id", "X-Remote-User-Name", "X-Remote-User-Display-Name", "X-Ingress-Path", "X-Mantel-Door"):
+        if not re.search(rf"request_header\s+-{re.escape(h)}\b", code):
+            problems.append(f"Caddyfile: does not delete a client-supplied {h}")
+    return problems
+
+
+def _load_security_headers(path: Path):
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("_mantel_security_headers", path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)          # stdlib only at import time (the module says so)
+    return mod
+
+
+def check_security_headers(path: Path) -> list[str]:
+    """Mantel Server's own security headers (hosts/server/mantel_server/security_headers.py), the policy
+    every page gets behind any proxy: strict script-src, no eval anywhere, the framing and HSTS rules."""
+    name = "security_headers.py"
+    try:
+        mod = _load_security_headers(path)
+    except Exception as exc:  # noqa: BLE001
+        return [f"{name}: cannot be loaded without aiohttp ({type(exc).__name__}: {exc})"]
+    problems = []
+    page, ma = mod.PAGE_POLICY, mod.MA_POLICY
+    if tuple(page.get("script-src", ())) != ("'self'",):
+        problems.append(f"{name}: the page policy's script-src must be exactly 'self' (got {page.get('script-src')})")
+    for label, pol in (("page", page), ("Music Assistant", ma)):
+        for d, vals in pol.items():
+            if "'unsafe-eval'" in vals or "'wasm-unsafe-eval'" in vals:
+                problems.append(f"{name}: the {label} policy's {d} allows eval")
+            if d == "script-src" and any(v not in ("'self'", "'unsafe-inline'") for v in vals):
+                problems.append(f"{name}: the {label} policy loads scripts from elsewhere: {vals}")
+        for need in ("default-src", "frame-ancestors", "base-uri", "object-src"):
+            if need not in pol:
+                problems.append(f"{name}: the {label} policy lacks {need}")
+        if "'none'" not in pol.get("object-src", ()):
+            problems.append(f"{name}: the {label} policy's object-src must be 'none'")
+    if any(v in ("*", "http:") for v in page.get("img-src", ())):
+        problems.append(f"{name}: the page policy's img-src may allow any https image, never plain http: or *")
+    if tuple(page.get("frame-ancestors", ())) != ("'self'",) or tuple(ma.get("frame-ancestors", ())) != ("'self'",):
+        problems.append(f"{name}: frame-ancestors must default to 'self' (operators add origins explicitly)")
+    if "max-age=" not in getattr(mod, "HSTS", ""):
+        problems.append(f"{name}: no HSTS max-age")
+    for h in ("X-Content-Type-Options", "Referrer-Policy", "Permissions-Policy"):
+        if h not in mod.STATIC:
+            problems.append(f"{name}: missing {h}")
+    https = mod.headers_for("/home", None, host="m.example", https=True)
+    plain = mod.headers_for("/home", None, host="m.example", https=False)
+    ingress = mod.headers_for("/home", None, host="m.example", https=True, ingress=True)
+    if "Strict-Transport-Security" not in https or "Strict-Transport-Security" in plain \
+            or "Strict-Transport-Security" in ingress:
+        problems.append(f"{name}: HSTS must be sent on https only, and never through HA's Ingress")
+    return problems
+
+
+def check_byo_compose(path: Path) -> list[str]:
+    """compose.byo-proxy.yaml: Caddy off, ONE published port to Mantel's 8765, the trusted proxy required,
+    and Mantel on the tunnel network at Caddy's old address (cloudflared reaches it there, untrusted)."""
+    try:
+        doc = parse_yaml(path.read_text())
+    except YamlSubsetError as exc:
+        return [f"{path.name}: outside the supported YAML subset ({exc})"]
+    problems = []
+    services = doc.get("services") or {}
+    if set(services) != {"caddy", "mantel-server"}:
+        return [f"{path.name}: only caddy (turned off) and mantel-server may appear"]
+    caddy = services["caddy"] or {}
+    if set(caddy) != {"profiles"} or not _as_list(caddy.get("profiles")):
+        problems.append(f"{path.name}: caddy may only be moved behind a profile (turned off), nothing else")
+    svc = services["mantel-server"] or {}
+    extra = set(svc) - {"ports", "environment", "networks"}
+    if extra:
+        problems.append(f"{path.name}: only ports, environment and networks may be added to mantel-server, not {sorted(extra)}")
+    ports = _as_list(svc.get("ports"))
+    if len(ports) != 1 or not str(ports[0]).endswith(":8765"):
+        problems.append(f"{path.name}: exactly one published port, to Mantel's 8765")
+    env = svc.get("environment") or {}
+    if ":?" not in str(env.get("MANTEL_TRUSTED_PROXY", "")):
+        problems.append(f"{path.name}: MANTEL_TRUSTED_PROXY must be required (${{MANTEL_TRUSTED_PROXY:?...}})")
+    if str(env.get("MANTEL_PROXY_KIND")) != "own":
+        problems.append(f"{path.name}: MANTEL_PROXY_KIND must be own")
+    for key in env:
+        if SECRETISH.search(str(key)):
+            problems.append(f"{path.name}: {key} looks like a secret; secrets are files")
+    nets = svc.get("networks") or {}
+    if set(nets) - {"tunnel"} or ((nets.get("tunnel") or {}).get("ipv4_address") != "172.31.250.2"):
+        problems.append(f"{path.name}: mantel-server may only join the tunnel network, at 172.31.250.2 (Caddy's tunnel address)")
     return problems
 
 
@@ -359,6 +436,8 @@ def check_lxc_script(path: Path) -> list[str]:
         problems.append("mantel.sh: must default to Debian 13")
     if "set -euo pipefail" not in text:
         problems.append("mantel.sh: no 'set -euo pipefail'")
+    if 'var_tls="${var_tls:-}"' not in text or 'MANTEL_TLS="$var_tls"' not in text:
+        problems.append("mantel.sh: must ask for the HTTPS choice (var_tls) and pass it to mantel-install.sh")
     for name in ("variables", "update_script", "build_container", "description"):
         if not re.search(rf"^{name}\(\)", text, re.M):
             problems.append(f"mantel.sh: community-scripts layout needs {name}()")
@@ -485,6 +564,8 @@ def run_all(release: bool = False, root: Path = ROOT) -> list[str]:
     problems += check_dockerfile(pkg / "docker/caddy.Dockerfile", release, require_nonroot=False)
     problems += check_compose(pkg / "compose/compose.yaml", release)
     problems += check_caddyfile(pkg / "compose/caddy/Caddyfile")
+    problems += check_security_headers(root / "hosts/server/mantel_server/security_headers.py")
+    problems += check_byo_compose(pkg / "compose/compose.byo-proxy.yaml")
     problems += check_lxc_script(pkg / "lxc/mantel.sh")
     problems += check_ha_app(pkg / "ha-app/config.yaml")
     problems += check_connect_app(pkg / "connect-app/config.yaml")

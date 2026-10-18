@@ -5,6 +5,10 @@
 #   docker compose up -d --wait
 #   docker compose --profile tunnel up -d --wait        # only if you use the Cloudflare tunnel (PLAN §7 way 2)
 #
+# TLS, four ways (docs/OPERATIONS.md "HTTPS"): this file's Caddy with your domain (DNS-01, the default) or
+# with its own CA (MANTEL_TLS_SNIPPET=./caddy/tls-internal.caddy); your own reverse proxy instead of Caddy
+# (add compose.byo-proxy.yaml); and the Cloudflare tunnel (--profile tunnel) beside any of them.
+#
 # Written in a deliberately plain YAML subset (no anchors, merge keys or block scalars) so that
 # tools/package_check.py can verify the hardening below without a YAML library. Keep it that way.
 #
@@ -41,9 +45,6 @@ services:
       - "${MANTEL_HTTPS_PORT:-443}:443"
     environment:
       MANTEL_HOSTNAME: ${MANTEL_HOSTNAME:?set MANTEL_HOSTNAME in .env}
-      MANTEL_CONNECT_SRC: ${MANTEL_CONNECT_SRC:-}
-      MANTEL_FRAME_SRC: ${MANTEL_FRAME_SRC:-}
-      MANTEL_FRAME_ANCESTORS: ${MANTEL_FRAME_ANCESTORS:-'none'}
       MANTEL_CLOUDFLARED_IP: 172.31.250.3
       MANTEL_CADDY_TUNNEL_IP: 172.31.250.2
     volumes:
@@ -106,7 +107,15 @@ services:
       MANTEL_MA_URL: ${MANTEL_MA_URL:-}
       # Live TV served by Mantel (docs/phase4/FEATURE-PARITY.md): the stack's own go2rtc, on the backend
       # network (no login; never given to a page). Mantel sets each channel up there when a screen tunes in.
+      # Its viewing paths are also served to pages under Mantel's own /go2rtc/ (behind sign-in).
       MANTEL_GO2RTC_URL: http://go2rtc:1984
+      # Music Assistant's web app (default: the host of the MA address), framed by HK through Mantel's /ma/
+      MANTEL_MA_WEB_URL: ${MANTEL_MA_WEB_URL:-}
+      # Mantel sets its own CSP/HSTS (security_headers.py): extra origins for HK's pages, and who may frame them
+      MANTEL_CONNECT_SRC: ${MANTEL_CONNECT_SRC:-}
+      MANTEL_FRAME_SRC: ${MANTEL_FRAME_SRC:-}
+      MANTEL_FRAME_ANCESTORS: ${MANTEL_FRAME_ANCESTORS:-}
+      MANTEL_PROXY_KIND: caddy
     volumes:
       - mantel-data:/data
       # the nightly encrypted backup's target (the NAS mount on the host); off unless

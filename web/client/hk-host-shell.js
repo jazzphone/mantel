@@ -90,6 +90,12 @@
     // true when the host draws the toast event (events.toast) itself; false:
     // HK's own toast layer (web/hk/shell/hk-overlays.js) draws it
     hostToast: function () { return false; },
+    // A SERVICE THE HOST SERVES ON THE PAGE'S OWN ORIGIN: serviceUrl(name)
+    // is a same-origin path ('/ma/', under the page's prefix) for
+    // 'music_assistant' (its web app) or 'go2rtc' (its viewing API), or
+    // null when the host does not (HK then uses the service's own address,
+    // as in Home Assistant, where Music Assistant keeps its own port).
+    serviceUrl: nil,
     // where HK's own dialogs (the confirm and choose sheets) and its toast
     // layer mount: the overlay root, else the document's body
     dialogRoot: function () {
@@ -133,7 +139,7 @@
   ['root', 'overlayRoot', 'main', 'mainRoot', 'drawer', 'sidebar', 'resolver', 'panel', 'dashboard',
    'dashboardRoot', 'viewContainer', 'viewSlot', 'view', 'viewBackground', 'toolbar', 'dashboardConfig', 'onDashboard', 'isDashboard',
    'defined', 'showNotifications', 'keepAwake', 'sidebarData', 'holdWrites', 'menuButton',
-   'hostDetail', 'openHostDetail', 'hostToast', 'dialogRoot'].forEach(function (name) {
+   'hostDetail', 'openHostDetail', 'hostToast', 'dialogRoot', 'serviceUrl'].forEach(function (name) {
     shell[name] = function () {
       try { return get(name).apply(shell, arguments); } catch (e) { return name === 'onDashboard' ? true : FALSE[name] ? false : null; }
     };

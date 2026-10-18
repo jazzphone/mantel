@@ -11,8 +11,8 @@ Contents: [1](#1-the-parts-and-the-two-doors) parts and doors · [2](#2-running-
 | Part | What it is |
 |---|---|
 | **Mantel Server** (`hosts/server/mantel_server`) | One Python service. The only thing that holds the Home Assistant and Music Assistant credentials. Owns people, roles, devices, settings and the audit log in one SQLite file. Serves the HK web app. |
-| **Caddy** | TLS, headers and the CSP in the container stacks. It stamps `X-Mantel-Door: lan` or `tunnel` on every request. |
-| **go2rtc / transcode** | Live TV served by Mantel (compose stack only: Mantel sets each channel up there on demand; section 7a). Cameras still use HA's own go2rtc. |
+| **Caddy** | TLS in the container stacks (or your own reverse proxy instead: section 2, "HTTPS"). It stamps `X-Mantel-Door: lan` or `tunnel` on every request. Mantel Server sets its own CSP, HSTS and the other security headers. |
+| **go2rtc / transcode** | Live TV served by Mantel (compose stack only: Mantel sets each channel up there on demand; section 7a). Cameras still use HA's own go2rtc. Its viewing paths reach pages only through Mantel's `/go2rtc/` (sign-in, RBAC). |
 | **`hk_frontend`** (in HA) | Today's HK Frontend, unchanged, or in *linked mode* the thin piece that forwards `hk_frontend.*` actions to Mantel. |
 | **Mantel Connect** | A small HA App that puts a Mantel running outside HA (Docker, an LXC) in HA's sidebar and the Companion app. Paired once with a one-time code (section 4a); not needed when Mantel runs as the Mantel App. |
 
@@ -39,7 +39,11 @@ It reads Home Assistant's token from `~/.config/mantel/ha_token` if that file ex
 | `--listen ADDRESS` | loopback only | Container mode. Needs `--public-url`. Without `--listen` the server binds `127.0.0.1` and nothing else is possible. |
 | `--public-url URL` | none | The `https://` address browsers use (through Caddy). It becomes HA's OAuth `client_id`, so "Sign in with Home Assistant" works behind Caddy. |
 | `--allow-host NAME` | none | Further Host names to accept (repeatable). `*` is for the HA App only. |
-| `--trusted-proxy ADDRESS` | none | A reverse proxy whose `X-Mantel-Door` and `X-Forwarded-For` are believed (repeatable, exact IP address). With none, every request through a proxy counts as `tunnel` (fail closed: wall tablets are refused). |
+| `--trusted-proxy ADDRESS` | none | A reverse proxy whose `X-Mantel-Door` and `X-Forwarded-For`/`-Proto`/`-Host` are believed (repeatable, exact IP address). With none, every request through a proxy counts as `tunnel` (fail closed: wall tablets are refused). A trusted proxy that sends no door header is `tunnel` too. HA identity headers are never believed from it. |
+| `--ma-web-url URL` | the host of `--ma-url` | Music Assistant's web app, served to pages under `/ma/` (section 2, "Music Assistant and go2rtc through Mantel"). |
+| `--go2rtc-url URL` | none | go2rtc's API; its viewing paths are served under `/go2rtc/`. |
+| `--frame-ancestors`, `--csp-connect-src`, `--csp-frame-src` | none | Extra CSP origins (repeatable). By default only Mantel's own pages may frame it. |
+| `--proxy-kind caddy\|own` | none | Which proxy owns TLS; tunes `/proxy-check`'s advice. |
 | `--connect` | off | Mantel Connect: a second TLS listener for the Connect App (client certificates only) and pairing. Implies Ingress identity from a **paired** App, trusting no socket address. Section 4a. |
 | `--connect-port`, `--connect-listen`, `--connect-address` | `8766`, `0.0.0.0`, none | The listener's port and address; the address `/admin` shows the Owner to type into the App. |
 | `--data-dir` | `~/.local/share/mantel` | Where `mantel.db` lives. |
@@ -69,9 +73,93 @@ The entrypoint turns `MANTEL_*` variables from `packaging/compose/.env` into tho
 | `MANTEL_DEFAULT_SCREEN`, `MANTEL_SESSION_HOURS` | `--screen`, `--session-hours` | Optional. |
 | `MANTEL_DATA_DIR`, `MANTEL_PORT`, `MANTEL_LISTEN`, `MANTEL_HA_TOKEN_FILE` | | Defaults `/data`, `8765`, `0.0.0.0`, `/run/secrets/ha_token`. |
 | `MANTEL_CONNECT`, `MANTEL_CONNECT_ADDRESS`, `MANTEL_HA_DOOR_RULES` | `--connect`, `--connect-address`, `--ha-door-rules` | Mantel Connect (section 4a). `compose.connect.yaml` sets the first; the rules default to `trusted`. |
-| `MANTEL_GO2RTC_URL`, `MANTEL_LIVE_TV_HARDWARE` | `--go2rtc-url`, `--live-tv-hardware` | Live TV (section 7a). `compose.yaml` sets the first to `http://go2rtc:1984`; `compose.gpu.yaml` sets the second to `vaapi`. Never in the HA App. |
+| `MANTEL_GO2RTC_URL`, `MANTEL_LIVE_TV_HARDWARE` | `--go2rtc-url`, `--live-tv-hardware` | Live TV (section 7a). `compose.yaml` sets the first to `http://go2rtc:1984`; `compose.gpu.yaml` sets the second to `vaapi`. Never in the HA App. The same go2rtc's viewing paths are served to pages under `/go2rtc/`. |
+| `MANTEL_MA_WEB_URL` | `--ma-web-url` | Music Assistant's web app under `/ma/` (default: the host of the MA address). |
+| `MANTEL_FRAME_ANCESTORS`, `MANTEL_CONNECT_SRC`, `MANTEL_FRAME_SRC` | the CSP flags | Space or comma separated origins. They moved from Caddy to Mantel Server. |
+| `MANTEL_PROXY_KIND` | `--proxy-kind` | Set by `compose.yaml` (`caddy`) and `compose.byo-proxy.yaml` (`own`). |
+| `MANTEL_HTTP_BIND`, `MANTEL_HTTP_PORT` | | Bring your own proxy only: the address and port Mantel publishes for it (default all addresses, `8765`). |
 
 There is deliberately **no** environment variable for `--commands-enabled`. See section 8.
+
+### HTTPS: four ways
+
+Mantel needs HTTPS for its sign-in cookies, passkeys and talk-back, and so that Music Assistant's frame and go2rtc's sockets work (they go through Mantel, below). Pick one; the HA App needs none of this (Home Assistant's own address and Ingress serve it).
+
+| | You have | Do this | The door header |
+|---|---|---|---|
+| **1. Mantel's Caddy, your domain** | a domain on Cloudflare DNS | the default: `MANTEL_TLS_SNIPPET=./caddy/tls-dns01.caddy`, `mantel-secret cloudflare_dns_token` (a token limited to Zone, DNS, Edit for that one zone), `MANTEL_HOSTNAME=mantel.<your domain>`, a LAN DNS record pointing that name at the host | Caddy stamps it |
+| **2. Mantel's Caddy, its own CA** | no domain | `MANTEL_TLS_SNIPPET=./caddy/tls-internal.caddy`; trust Caddy's root (`caddy-data` volume, `pki/authorities/local/root.crt`) on every device, or accept the warning once per device | Caddy stamps it |
+| **3. Your own reverse proxy** | Nginx Proxy Manager, Traefik, ... already owning TLS | add `compose.byo-proxy.yaml` to `COMPOSE_FILE`, set `MANTEL_TRUSTED_PROXY` to the proxy's address **as Mantel sees it**, point the proxy at `http://<this host>:8765` with WebSockets on, and make it send the door header (below) | your proxy must |
+| **4. Cloudflare tunnel** | remote access, beside 1, 2 or 3 | `mantel-secret cloudflared_token`, `docker compose --profile tunnel up -d`; Cloudflare Access in front is mandatory. The service URL is Caddy's tunnel door `http://172.31.250.2:8080` (1, 2) or Mantel itself `http://172.31.250.2:8765` (3) | always `tunnel` |
+
+The LXC installer (`packaging/lxc/mantel.sh`) asks which of the four you want and writes `.env` to match.
+
+**Bring your own proxy: the rules Mantel enforces itself.** The door header `X-Mantel-Door: lan|tunnel` is believed only from `MANTEL_TRUSTED_PROXY`, and only together with **this installation's door key** in `X-Mantel-Door-Key`; from there, **no header (or no right key) means `tunnel`** (fail closed), so a proxy host that forgets it gives wall tablets nothing rather than giving the internet the LAN door. `X-Forwarded-For`/`-Proto`/`-Host` count only from the trusted proxy; HA identity headers (`X-Remote-User-*`, `X-Ingress-Path`) are removed from everyone except HA's Ingress, the trusted proxy included. Mantel sets its own CSP, HSTS (when the proxy says https), `nosniff`, `Referrer-Policy` and `frame-ancestors`, so don't add a CSP in the proxy (browsers enforce both). Keep Mantel's published port off the internet and reachable only by the proxy if you can (`MANTEL_HTTP_BIND`, a firewall rule): a browser that goes around the proxy is the tunnel door over plain HTTP.
+
+**Nginx Proxy Manager.** Add a Proxy Host: domain `mantel.<your domain>`, scheme `http`, forward hostname/IP = this host, port `8765`, **Websockets Support on**, Block Common Exploits on. SSL tab: your certificate, Force SSL, HTTP/2 (leave NPM's HSTS off: Mantel sends it). Advanced tab, paste this (NPM leaves out its own `location /` when the box contains one, which is what keeps these headers from being lost to nginx's inheritance rule):
+
+```nginx
+location / {
+    proxy_pass http://MANTEL_ADDRESS:8765;
+    proxy_http_version 1.1;
+    proxy_set_header Host $http_host;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection $http_connection;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header X-Forwarded-Host $http_host;
+    proxy_set_header X-Mantel-Door lan;
+    proxy_set_header X-Mantel-Door-Key MANTEL_DOOR_KEY;
+    proxy_set_header X-Remote-User-Id "";
+    proxy_set_header X-Remote-User-Name "";
+    proxy_set_header X-Remote-User-Display-Name "";
+    proxy_set_header X-Ingress-Path "";
+    proxy_read_timeout 1h;
+    proxy_buffering off;
+    client_max_body_size 12m;
+}
+```
+
+(`$http_host`, not NPM's usual `$host`: it keeps a non-standard port, which the browser's `Origin` carries and Mantel compares.) **The door key.** Mantel makes a random key on first start and keeps it sealed in its data (and its encrypted backups). Replace `MANTEL_DOOR_KEY` above with it: `/proxy-check` shows it to the Owner with the block filled in (Connections, "HTTPS and your proxy", shows the HTTPS mode, the trusted proxies and whether the key is set, to an Owner or Admin, never the key; an Owner can rotate it there and sees the new key once), or run `docker compose exec mantel-server mantel door-key`. "Make a new key" there (or `mantel door-key --rotate`) replaces it at once; paste the new one into the proxy, because until then the proxy's requests are the tunnel door. Without the key, a proxy host that passes a browser's own `X-Mantel-Door` through cannot hand anyone the LAN door. Mantel's Caddy and the HA App need no key.
+
+Use `lan` only on a proxy host that listens on your LAN alone; a host the internet can reach sends `tunnel`. `MANTEL_TRUSTED_PROXY` is NPM's address as Mantel sees it: NPM on another machine, that machine's LAN address; NPM in Docker on the same host, the address its connections arrive from (often the Docker bridge's gateway; `/proxy-check` tells you). The compose end-to-end run (`tools/e2e/compose_e2e.py`) uses exactly this block in a plain nginx as "your proxy".
+
+**Traefik** (dynamic configuration; Traefik passes `Host`, sets `X-Forwarded-*` and upgrades WebSockets on its own):
+
+```yaml
+http:
+  middlewares:
+    mantel-lan:
+      headers:
+        customRequestHeaders:
+          X-Mantel-Door: "lan"
+          X-Mantel-Door-Key: "MANTEL_DOOR_KEY"   # this installation's door key
+          X-Remote-User-Id: ""            # an empty value removes the header
+          X-Remote-User-Name: ""
+          X-Remote-User-Display-Name: ""
+          X-Ingress-Path: ""
+  routers:
+    mantel:
+      rule: "Host(`mantel.example.com`)"
+      entryPoints: [websecure]
+      tls:
+        certResolver: letsencrypt
+      middlewares: [mantel-lan]
+      service: mantel
+  services:
+    mantel:
+      loadBalancer:
+        servers:
+          - url: "http://MANTEL_ADDRESS:8765"
+```
+
+**Test my proxy.** As the Owner, open `https://<your name>/proxy-check` from a LAN browser (and again remotely). It checks that HTTPS is in use, the request came through the trusted proxy, the door header is present, plausible and overwritten (the page sends its own value, which must not arrive), the client address is forwarded, HSTS and the CSP arrived once, and the WebSocket upgrade passes by the same door. Each finding says what to change, with the NPM block above to copy. Signed out on that door (the usual symptom of a missing door header), it still says which door Mantel sees.
+
+### Music Assistant and go2rtc through Mantel
+
+An https page cannot frame Music Assistant's `http://…:8095` or open `ws://` to go2rtc, so Mantel serves both under its own address: Music Assistant's web app at `/ma/` (`MANTEL_MA_WEB_URL`, default the host of `MANTEL_MA_URL`) and go2rtc's viewing paths at `/go2rtc/` (`MANTEL_GO2RTC_URL`). Both need a Mantel sign-in: Music Assistant needs `control` on the `music` feature (wall tablets have it through the house music grant), a go2rtc camera stream that camera's live view, a Live TV stream the `live_tv` feature and its channel camera's live view (Live TV registers each stream while it is set up and removes it when dropped). Where Mantel serves Live TV (Docker/LXC) its streams are reachable only this way: go2rtc publishes no HTTP port, and a channel camera asked for by name is refused. Only the paths HK needs are passed (never MA's JSON-RPC API, never go2rtc's stream management, config, restart or web pages); MA's and go2rtc's addresses, cookies and headers never reach the page. HK's "Browse Music" frame (`hk-browse-card`) uses `/ma/` on Mantel automatically; in Home Assistant it keeps MA's own port. Music Assistant's own sign-in appears inside the frame, unless you give Mantel a **token for the Music Assistant page** (below).
+
+**The token for the Music Assistant page** (optional; Connections, the Music Assistant panel). Mantel's own MA connection is usually an administrator; the page gets an *ordinary* MA user instead, so every screen opens MA signed in without anyone typing an MA password, and with only a user's rights. To make one: in Music Assistant, Settings, Users, add a user (for example `mantel-page`) with the **User** role (not Admin); then either type that user's name and password once in the panel ("Sign in and save": Mantel makes a long-lived token for it and keeps no password), or sign in to MA as that user, open its profile, Long-lived tokens, create one, and paste it ("Save token"). An administrator's token is refused. The token stays sealed in Mantel and never reaches a page: Mantel signs the frame's own connection in to MA, the way MA's app is signed in behind Home Assistant's Ingress (the frame then opens `/ma/hassio_ingress/mantel/`; signing out of MA there is refused). MA's long-lived tokens last a year. If MA refuses the token (revoked, expired), the frame shows MA's own sign-in again. This relies on how MA's web app recognises an Ingress session (checked against MA's frontend source on 2026-10-18); a later MA may change it, and the frame then falls back to MA's own sign-in.
 
 ### Secrets
 
@@ -453,7 +541,7 @@ Then restart HA and reload the tablets. Or restore the backup from step 2.
 
 **"Not linked yet" after Sign in with Home Assistant.** The page prints the HA user id; an Owner links it (section 4). "Account disabled" means the linked person is disabled.
 
-**Every wall tablet is refused, or every request counts as the tunnel.** The LAN door is believed only from a proxy listed with `--trusted-proxy`. Behind Caddy that is `MANTEL_TRUSTED_PROXY` (Caddy's fixed backend address); with it unset the entrypoint warns and fails closed. Tablet device credentials, Service accounts and device enrolment are all refused on `tunnel` (`403 lan_only`).
+**Every wall tablet is refused, or every request counts as the tunnel.** The LAN door is believed only from a proxy listed with `--trusted-proxy`, and only when that proxy sends `X-Mantel-Door: lan`. Behind Caddy that is `MANTEL_TRUSTED_PROXY` (Caddy's fixed backend address); with it unset the entrypoint warns and fails closed. Behind your own proxy, `MANTEL_TRUSTED_PROXY` must be the proxy's address as Mantel sees it and the proxy must send the header: open `/proxy-check` as the Owner. Tablet device credentials, Service accounts and device enrolment are all refused on `tunnel` (`403 lan_only`).
 
 **A wall tablet's PIN pad says "try again in N min".** It is locked after 5 wrong PINs for 15 minutes; even the right PIN is refused until then. It survives a restart. Wait, or clear the lockout row in `pin_lockouts` with the server stopped.
 
@@ -469,7 +557,9 @@ Then restart HA and reload the tablets. Or restore the backup from step 2.
 
 **The browser warns about the certificate.** With `tls-internal.caddy` the certificate comes from Caddy's own CA; trust its root on each device, or use DNS-01 with a real domain.
 
-**The Music Assistant or go2rtc frame is blank on https.** An https page cannot frame `http://ma:8095` or open `ws://` to go2rtc (mixed content). Needs those behind TLS (a later Caddy change). See PACKAGING.md.
+**The Music Assistant frame is blank, or says Music Assistant is on your local network.** On Mantel the frame is `/ma/`: set `MANTEL_MA_URL` (or `MANTEL_MA_WEB_URL`) and check the person may `control` the `music` feature (`GET /api/services` says `music_assistant: null` otherwise). A `502 upstream_unavailable` from `/ma/` means Mantel cannot reach Music Assistant. In Home Assistant the frame still points at MA's own `http://…:8095`, which an https page cannot frame.
+
+**Two Content-Security-Policy headers, or Music Assistant's frame refused by its policy.** Your proxy adds its own CSP; remove it (Mantel sets its own). `/proxy-check` finds this.
 
 **Live TV says "Tuning" and never plays (Docker/LXC).** Look at `GET /api/live_tv/status`. If `error` names go2rtc, the go2rtc service is down. If a session exists but no picture comes, check go2rtc's log (`docker compose logs go2rtc`): a `503` from the tuner means both tuners are busy (HA's own Live TV, Plex). If there's no error, check the tablets can reach `MANTEL_LAN_IP:8555` (tcp+udp). An empty channel list for one person means they lack the `live_tv` feature or may not view the channel's camera.
 

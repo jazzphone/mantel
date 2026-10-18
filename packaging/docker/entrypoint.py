@@ -56,7 +56,12 @@ and restore, to the container's HA address, token and secrets):
     MANTEL_MA_URL          optional   Music Assistant's API (token: /run/secrets/ma_token); empty = off
     MANTEL_BACKUP_TARGET   optional   /backups (the host's backup folder, mounted) turns the nightly backup on
     MANTEL_GO2RTC_URL      compose    http://go2rtc:1984: Live TV served by Mantel through the stack's own go2rtc
+                                      (its viewing paths also served to pages under /go2rtc/)
     MANTEL_LIVE_TV_HARDWARE optional  vaapi (compose.gpu.yaml sets it): the QuickSync transcode templates
+    MANTEL_MA_WEB_URL      optional   Music Assistant's web app (default: the host of MANTEL_MA_URL), served under /ma/
+    MANTEL_FRAME_ANCESTORS optional   origins (besides Mantel itself) that may frame Mantel's pages
+    MANTEL_CONNECT_SRC, MANTEL_FRAME_SRC   optional   extra CSP origins for HK's pages
+    MANTEL_PROXY_KIND      compose    caddy | own (bring your own proxy): tunes /proxy-check's advice
 """
 from __future__ import annotations
 
@@ -67,13 +72,14 @@ import sys
 from pathlib import Path
 
 ADMIN_COMMANDS = {"link", "unlink", "links", "session", "connect-proof", "connect", "bootstrap", "import-settings",
-                  "service-account", "backup", "restore", "import-files", "files"}
+                  "service-account", "backup", "restore", "import-files", "files", "door-key"}
 # what each admin command takes besides --data-dir, filled from the container's own settings when absent
 ADMIN_EXTRAS = {
     "import-settings": lambda env: ["--ha-url", env.get("MANTEL_HA_URL", ""),
                                     "--token-file", env.get("MANTEL_HA_TOKEN_FILE", "/run/secrets/ha_token")],
     "backup": lambda env: ["--secrets-dir", env.get("MANTEL_SECRETS_DIR", "/run/secrets")],
     "restore": lambda env: ["--secrets-dir", env.get("MANTEL_SECRETS_DIR", "/run/secrets")],
+    "door-key": lambda env: ["--secrets-dir", env.get("MANTEL_SECRETS_DIR", "/run/secrets")],
 }
 APP_OPTIONS = Path("/data/options.json")
 APP_TOKEN_FILE = Path("/tmp/ha_token")
@@ -132,6 +138,7 @@ def container_args(env: dict[str, str]) -> list[str]:
     if env.get("MANTEL_MA_URL"):
         args += ["--ma-url", env["MANTEL_MA_URL"],
                  "--ma-token-file", env.get("MANTEL_MA_TOKEN_FILE", "/run/secrets/ma_token")]
+    args += media_and_header_args(env)
     if env.get("MANTEL_BACKUP_TARGET"):
         args += ["--backup-target", env["MANTEL_BACKUP_TARGET"]]
     args += live_tv_args(env)
@@ -140,6 +147,29 @@ def container_args(env: dict[str, str]) -> list[str]:
     if env.get("MANTEL_SESSION_HOURS"):
         args += ["--session-hours", env["MANTEL_SESSION_HOURS"]]
     args += connect_args(env)
+    return args
+
+
+def _list(value: str) -> list[str]:
+    return [v for v in value.replace(",", " ").split() if v]
+
+
+def media_and_header_args(env: dict[str, str]) -> list[str]:
+    """Music Assistant's web app under Mantel's own /ma/ (media_proxy.py; go2rtc's address comes from
+    live_tv_args, the one go2rtc setting), the
+    extra CSP sources (security_headers.py; space or comma separated) and which proxy owns TLS."""
+    args: list[str] = []
+    if env.get("MANTEL_MA_WEB_URL"):
+        args += ["--ma-web-url", env["MANTEL_MA_WEB_URL"]]
+    for var, flag in (("MANTEL_FRAME_ANCESTORS", "--frame-ancestors"), ("MANTEL_CONNECT_SRC", "--csp-connect-src"),
+                      ("MANTEL_FRAME_SRC", "--csp-frame-src")):
+        for source in _list(env.get(var, "")):
+            args += [flag, source]
+    kind = env.get("MANTEL_PROXY_KIND", "").strip().lower()
+    if kind:
+        if kind not in ("caddy", "own"):
+            raise ConfigError(f"MANTEL_PROXY_KIND must be caddy or own, not {kind!r}")
+        args += ["--proxy-kind", kind]
     return args
 
 

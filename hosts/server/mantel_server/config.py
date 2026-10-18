@@ -44,6 +44,16 @@ class Config:
     # The long-lived token is read from this secret file at each connect, never from env or logs.
     ma_url: str = ""
     ma_token_file: Path = Path("/run/secrets/ma_token")
+    # media_proxy.py: Music Assistant's web app served under Mantel's own address (/ma/) so an https page
+    # can frame it (go2rtc's viewing paths likewise under /go2rtc/, from `go2rtc_url` below). Empty = off.
+    # Defaults to the host of `ma_url` (ws://ma:8095/ws -> http://ma:8095/). Never sent to a page.
+    ma_web_url: str = ""
+    # security_headers.py: extra CSP sources (frame-ancestors adds to 'self'; connect-src/frame-src to the
+    # page policy). `proxy_kind` says which reverse proxy owns TLS ("caddy" | "own" | ""), for /proxy-check.
+    frame_ancestors: tuple[str, ...] = ()
+    csp_connect_src: tuple[str, ...] = ()
+    csp_frame_src: tuple[str, ...] = ()
+    proxy_kind: str = ""
     # Backups (backup.py): off unless a target folder (the NAS mount) is set.
     backup_target: Path | None = None
     backup_key_file: Path | None = None                      # default <secrets_dir>/backup.key (not the at-rest key)
@@ -141,6 +151,16 @@ def parse_args(argv: list[str] | None = None) -> Config:
     p.add_argument("--rp-id", default=Config.webauthn_rp_id, help="passkey relying-party id (hostname)")
     p.add_argument("--ma-url", default=Config.ma_url, help="Music Assistant's WebSocket API (ws://ma:8095/ws); empty = off")
     p.add_argument("--ma-token-file", default=str(Config.ma_token_file), help="Music Assistant's long-lived token (a file)")
+    p.add_argument("--ma-web-url", default="", metavar="URL",
+                   help="Music Assistant's web app, served to pages under /ma/ (default: the host of --ma-url)")
+    p.add_argument("--frame-ancestors", action="append", default=[], metavar="SOURCE",
+                   help="CSP frame-ancestors source allowed besides 'self' (repeatable), e.g. https://ha.example.com")
+    p.add_argument("--csp-connect-src", action="append", default=[], metavar="SOURCE",
+                   help="extra CSP connect-src source for HK's pages (repeatable)")
+    p.add_argument("--csp-frame-src", action="append", default=[], metavar="SOURCE",
+                   help="extra CSP frame-src source for HK's pages (repeatable)")
+    p.add_argument("--proxy-kind", choices=("caddy", "own", ""), default="",
+                   help="which reverse proxy owns TLS (Mantel's Caddy, or your own); tunes /proxy-check's advice")
     p.add_argument("--commands-enabled", action="store_true",
                    help="turn the command gateway on: signed-in users may control the house through Mantel, "
                         "within their roles, with step-up and an audit row for every command. Off by default")
@@ -199,7 +219,8 @@ def parse_args(argv: list[str] | None = None) -> Config:
     p.add_argument("--log-level", choices=("debug", "info", "warning", "error"), default=Config.log_level)
     p.add_argument("--go2rtc-url", default="", metavar="URL",
                    help="Live TV served by Mantel: its own go2rtc's API (http://go2rtc:1984 in the compose stack). "
-                        "Off when absent (the HA App keeps Home Assistant's Live TV)")
+                        "Off when absent (the HA App keeps Home Assistant's Live TV). Its viewing paths are also "
+                        "served to pages under /go2rtc/ (media_proxy.py)")
     p.add_argument("--live-tv-hardware", choices=("none", "vaapi"), default="none",
                    help="Live TV's transcode: vaapi = QuickSync (needs /dev/dri in go2rtc: compose.gpu.yaml)")
     a = p.parse_args(argv)
@@ -227,6 +248,15 @@ def parse_args(argv: list[str] | None = None) -> Config:
             p.error(f"--ha-core-peer must be an IP address, not {raw!r}")
     if a.ha_ws_url and urlparse(a.ha_ws_url).scheme not in ("ws", "wss"):
         p.error("--ha-ws-url must be a ws:// or wss:// URL")
+    for flag, value in (("--ma-web-url", a.ma_web_url),):
+        if value and (urlparse(value).scheme not in ("http", "https") or not urlparse(value).hostname):
+            p.error(f"{flag} must be an http(s):// URL")
+    from .security_headers import valid_source
+    for flag, values in (("--frame-ancestors", a.frame_ancestors), ("--csp-connect-src", a.csp_connect_src),
+                         ("--csp-frame-src", a.csp_frame_src)):
+        for v in values:
+            if not valid_source(v):
+                p.error(f"{flag}: {v!r} is not a CSP source (an origin such as https://ha.example.com, or 'none')")
     host, public_url, allowed = LOOPBACK_DEFAULT, "", ()
     if a.listen is not None:
         host = a.listen
@@ -268,6 +298,9 @@ def parse_args(argv: list[str] | None = None) -> Config:
                  backup_time=a.backup_time, backup_keep_daily=a.backup_keep_daily,
                  backup_keep_weekly=a.backup_keep_weekly, backup_include_files=not a.backup_no_files,
                  ma_url=a.ma_url, ma_token_file=Path(a.ma_token_file),
+                 ma_web_url=a.ma_web_url, frame_ancestors=tuple(a.frame_ancestors),
+                 csp_connect_src=tuple(a.csp_connect_src), csp_frame_src=tuple(a.csp_frame_src),
+                 proxy_kind=a.proxy_kind,
                  ingress=bool(a.ingress or a.connect),
                  ingress_peers=tuple(peers) or (Config.ingress_peers if a.ingress else ()),
                  connect=bool(a.connect), connect_port=a.connect_port, connect_listen=a.connect_listen,

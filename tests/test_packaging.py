@@ -267,17 +267,64 @@ def test_lxc_script_violations_are_found(tmp_path):
         assert any(expect in p for p in problems), (expect, problems)
 
 
-def test_caddy_csp_violations_are_found(tmp_path):
+def test_lxc_installer_offers_the_https_choice(tmp_path):
+    text = (ROOT / "packaging/lxc/mantel.sh").read_text()
+    assert "dns01" in text and "internal" in text and "own" in text and "var_tunnel" in text
+    install = (ROOT / "packaging/lxc/mantel-install.sh").read_text()
+    assert "compose.byo-proxy.yaml" in install and "MANTEL_TRUSTED_PROXY=" in install
+    d = tmp_path / "x"
+    d.mkdir()
+    (d / "mantel.sh").write_text(text.replace('MANTEL_TLS="$var_tls"', ""))
+    shutil.copy(ROOT / "packaging/lxc/mantel-install.sh", d / "mantel-install.sh")
+    assert any("HTTPS choice" in m for m in pc.check_lxc_script(d / "mantel.sh"))
+
+
+def test_caddy_violations_are_found(tmp_path):
     good = (ROOT / "packaging/compose/caddy/Caddyfile").read_text()
+    assert pc.check_caddyfile(ROOT / "packaging/compose/caddy/Caddyfile") == []
     for edit, expect in [
-        (lambda t: t.replace("script-src 'self'", "script-src 'self' 'unsafe-inline'"), "script-src"),
-        (lambda t: t.replace("script-src 'self'", "script-src 'self' 'unsafe-eval'"), "unsafe"),
-        (lambda t: t.replace("Strict-Transport-Security", "X-Other"), "Strict-Transport-Security"),
-        (lambda t: t.replace("frame-ancestors", "frame-x"), "frame-ancestors"),
+        # Mantel Server sets its own CSP; a second one from Caddy would be enforced too (breaks /ma/)
+        (lambda t: t.replace("-Server", '-Server\n\t\tContent-Security-Policy "default-src \'none\'"'),
+         "sets a Content-Security-Policy"),
+        (lambda t: t.replace("request_header -X-Remote-User-Id", "# gone"), "X-Remote-User-Id"),
+        (lambda t: t.replace("admin off", "admin localhost:2019"), "admin API"),
     ]:
         p = tmp_path / "Caddyfile"
         p.write_text(edit(good))
         assert any(expect in m for m in pc.check_caddyfile(p)), expect
+
+
+def test_mantels_own_security_headers_are_checked(tmp_path):
+    src = ROOT / "hosts/server/mantel_server/security_headers.py"
+    assert pc.check_security_headers(src) == []
+    good = src.read_text()
+    for edit, expect in [
+        (lambda t: t.replace('"script-src": ("\'self\'",),', '"script-src": ("\'self\'", "\'unsafe-inline\'"),', 1), "exactly \'self\'"),
+        (lambda t: t.replace('"script-src": ("\'self\'", "\'unsafe-inline\'"),', '"script-src": ("\'self\'", "\'unsafe-eval\'"),'), "eval"),
+        (lambda t: t.replace('"frame-ancestors": ("\'self\'",),', '"frame-ancestors": ("*",),', 1), "frame-ancestors"),
+        (lambda t: t.replace("if https and not ingress:", "if True:"), "HSTS"),
+    ]:
+        p = tmp_path / "security_headers.py"
+        p.write_text(edit(good))
+        assert edit(good) != good, expect
+        assert any(expect in m for m in pc.check_security_headers(p)), (expect, pc.check_security_headers(p))
+
+
+def test_byo_proxy_override_is_checked(tmp_path):
+    src = ROOT / "packaging/compose/compose.byo-proxy.yaml"
+    assert pc.check_byo_compose(src) == []
+    good = src.read_text()
+    for edit, expect in [
+        (lambda t: t.replace("MANTEL_TRUSTED_PROXY: ${MANTEL_TRUSTED_PROXY:?set", "MANTEL_TRUSTED_PROXY: ${MANTEL_TRUSTED_PROXY:-set"), "required"),
+        (lambda t: t.replace("}:8765\"", "}:8765\"\n      - \"8443:8443\""), "exactly one published port"),
+        (lambda t: t.replace("ipv4_address: 172.31.250.2", "ipv4_address: 172.31.250.9"), "tunnel network"),
+        (lambda t: t.replace("MANTEL_PROXY_KIND: own", "MANTEL_PROXY_KIND: caddy"), "own"),
+        (lambda t: t.replace("      - caddy-not-used", "      - caddy-not-used\n    image: caddy"), "profile"),
+    ]:
+        p = tmp_path / "compose.byo-proxy.yaml"
+        p.write_text(edit(good))
+        assert edit(good) != good, expect
+        assert any(expect in m for m in pc.check_byo_compose(p)), (expect, pc.check_byo_compose(p))
 
 
 def test_committed_env_and_secret_files_are_found(tmp_path):

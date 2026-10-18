@@ -423,6 +423,9 @@ class MantelLiveTv:
 
     def sync_states(self) -> set[str]:
         want = self.wanted()
+        gate = self.app.get("go2rtc_streams")
+        if gate is not None:       # a channel camera asked for by name under /go2rtc/ is not an ordinary camera
+            gate.set_channel_cameras([c["camera"] for c in self.channels()] if self.runs() else [])
         changed = self.local.put_all(want)
         self.local.registry = self.registry_entries(want)
         self._sync_registry()            # HaClient's first registry load replaces it without a callback
@@ -562,6 +565,7 @@ class MantelLiveTv:
         try:
             await self.go2rtc.put_stream(name, src)
             self.streams[name] = ch["number"]
+            self._proxy_gate(name, True, ch["camera"])
             ws = await self.go2rtc.connect(name)
         except (aiohttp.ClientError, asyncio.TimeoutError, Go2rtcError) as exc:
             self.error = f"{type(exc).__name__}: {exc}"[:200]
@@ -670,9 +674,21 @@ class MantelLiveTv:
         if not any(s.stream == name for s in self.sessions.values()):
             await self._drop(name)
 
+    def _proxy_gate(self, name: str, on: bool, camera: str | None = None) -> None:
+        """media_proxy's per-stream gate for /go2rtc/ (a page may view a Live TV stream there only while
+        Mantel has it set up): registered with each on-demand stream, removed when it is dropped."""
+        streams = self.app.get("go2rtc_streams")
+        if streams is None:
+            return
+        if on:
+            streams.allow(name, "live_tv", camera)
+        else:
+            streams.forget(name)
+
     async def _drop(self, name: str) -> None:
         self._cancel_stop(name)
         self.streams.pop(name, None)
+        self._proxy_gate(name, False)
         if self.go2rtc is not None:
             await self.go2rtc.drop_stream(name)
 
@@ -745,6 +761,8 @@ class MantelLiveTv:
         self.sessions.clear()
         for h in self._stop_timers.values():
             h.cancel()
+        for name in list(self.streams):
+            self._proxy_gate(name, False)
         if self.go2rtc is not None:
             for name in list(self.streams):
                 await self.go2rtc.drop_stream(name)
