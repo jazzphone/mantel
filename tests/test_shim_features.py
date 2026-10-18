@@ -87,9 +87,60 @@ def test_reports_and_mute_leave_as_the_feature_hosts_frames(observed, mode):
 
 
 @pytest.mark.parametrize("mode", ["off", "on"])
-def test_the_photo_switch_is_the_pages_own_and_sends_nothing(observed, mode):
+def test_the_photo_switch_is_the_pages_own_and_is_reported_not_commanded(observed, mode):
     r = observed[mode]
-    assert (r["photosOn"], r["photosOff"], r["photoFrames"]) == ("on", "off", 0)
+    assert (r["photosOn"], r["photosOff"]) == ("on", "off")
+    # HK's photo screensaver coming up / going away is told to Mantel (screen_report's `photos`), so
+    # its Sleep Screen sees it: two reports, neither a command nor an HA service call
+    strip = lambda f: {k: v for k, v in f.items() if k != "id"}      # noqa: E731
+    assert r["photoFrames"] == 2
+    assert [strip(f) for f in r["photoReports"]] == [{"type": "screen_report", "tablet": "hall", "photos": True},
+                                                     {"type": "screen_report", "tablet": "hall", "photos": False}]
+    assert r["photosAfterRefusal"] == "on" and r["photoReports2"] == 2, "a refusal leaves the page's own state"
+    assert r["blackSwitchFrames"] == 0, "the black switch's report is screensaver/black's"
+
+
+@pytest.mark.parametrize("mode", ["off", "on"])
+def test_restart_all_now_is_mantels_tablets_restart(observed, mode):
+    r = observed[mode]
+    assert {k: v for k, v in r["restartFrame"].items() if k != "id"} == {"type": "tablets_restart"}
+    assert r["restart"] == {"restarted": ["hall"]}
+    if mode == "off":
+        assert (r["wakeAct"], r["wakeActSent"]) == ("commands_disabled", 0)
+    else:
+        assert r["wakeActFrame"]["type"] == "command" and r["wakeActFrame"]["msg"]["act"] == "wake"
+
+
+@pytest.mark.parametrize("mode", ["off", "on"])
+def test_feature_settings_saves_go_to_mantels_store(observed, mode):
+    r = observed[mode]
+    assert r["featureSave"] == {"type": "settings_write", "id": r["featureSave"]["id"],
+                                "msg": {"type": "hk_notify/settings/set", "changes": {"stay": 60}}}
+    assert r["featureSaved"] == {"configured": True}
+    assert r["energySave"]["type"] == "settings_write" and r["energyRefused"] == "forbidden"
+    # Music's settings are still HA's: a gateway write (refused, nothing sent, while commands are off)
+    if mode == "off":
+        assert (r["music"], r["musicSent"]) == ("commands_disabled", 0)
+    else:
+        assert r["musicFrame"]["type"] == "command"
+
+
+def test_the_feature_saves_are_exactly_the_stores():
+    import re
+    from mantel_server.settings_store import FEATURE_SAVES, SAVE_KINDS
+    from mantel_server.feature_pages import SAVES
+    src = (ROOT / "web/shim/mantel-client.js").read_text()
+    page = set(re.findall(r"'([^']+)'", re.search(r"var FEATURE_SAVES = \[(.*?)\];", src, re.S).group(1)))
+    assert page == set(FEATURE_SAVES) == set(SAVES)
+    assert all(SAVE_KINDS[t] == "feature" for t in page)
+
+
+def test_snapshot_paths_are_signed_under_the_pages_prefix(observed):
+    r = observed["off"]
+    sid = "0123456789abcdef0123456789abcdef"
+    assert r["signFrame"]["type"] == "read" and r["signFrame"]["msg"] == {"type": "hk_notify/snap/sign", "snaps": [sid]}
+    # Mantel's own route, under the page's prefix; anything else the answer named is dropped
+    assert r["signed"] == {"signed": {sid: f"/api/hassio_ingress/tok/api/notify/snap/{sid}"}}
 
 
 def test_no_house_command_is_made_of_any_of_this(observed):
@@ -108,7 +159,7 @@ def test_no_house_command_is_made_of_any_of_this(observed):
         for mode in ("off", "on"):
             assert observed[mode][key]["type"] in ("screen_report", "notify_mute")
     assert set(observed["kinds"]) <= {"read_subscribe", "read_unsubscribe", "screen_report", "notify_mute",
-                                      "command", "settings_write"}
+                                      "command", "settings_write", "tablets_restart", "read"}
 
 
 @pytest.mark.parametrize("mode", ["off", "on"])
@@ -125,7 +176,7 @@ def test_live_tvs_viewer_heartbeat(observed, mode):
 def test_the_frames_are_what_the_servers_handlers_accept():
     # the same keys features.py validates (screen_report: tablet + bools; notify_mute: key + seconds)
     src = (ROOT / "hosts/server/mantel_server/features.py").read_text()
-    assert 'set(msg) <= {"type", "id", "tablet", "touch", "saver", "black"}' in src
+    assert 'set(msg) <= {"type", "id", "tablet", "touch", "saver", "black", "photos"}' in src
     assert 'set(msg) - {"type", "id", "key", "seconds"}' in src
 
 

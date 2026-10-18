@@ -108,9 +108,11 @@ What remains (in HA until Live TV's viewers move):
   `-sources-table`, `-devices-graph` and `-devices-detail-graph` (shown when the Energy options' `detail`
   is on) with HK's own elements, from `energy/get_prefs` and `recorder/statistics_during_period`
   (`docs/phase2/VIEW-HOST.md`). No cost columns or period comparison.
-- **HK Settings → Features pages** read each feature's `<id>/settings/get`, which pages can't send on Mantel.
-  Since panel/get now lists the features as added, an Owner opening one sees it fail to load. Saving feature
-  settings was already `not_yet`.
+- ~~**HK Settings → Features pages** read each feature's `<id>/settings/get`, which pages can't send on Mantel.~~
+  **Fixed (2026-10-18, [MANTEL-FEATURES.md](MANTEL-FEATURES.md) "Phase 4 ports" item 5):** Mantel answers each page
+  for Owners/Admins and stores Notifications', Clean Areas', Energy's and Live TV's saves in
+  `house/mantel_features`; Music's and Alarm PIN's pages are an interim rebuilt read of HA's, their saves still
+  `not_yet`.
 - **A change made in HA after the import** doesn't reach Mantel until the import is run again (POST or the
   Ingress button).
 
