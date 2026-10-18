@@ -30,7 +30,7 @@ import aiohttp
 from aiohttp import WSMsgType, web
 
 from . import accounts, auth, devices, gateway, health, pins, proof2, rbac_store, readproxy, sessions, settings_store
-from . import backup, features, linked, service_accounts, user_files
+from . import admin_page, backup, features, linked, service_accounts, user_files
 from .authz import Authz, Principal, resolve_door
 from .config import Config
 from .connectors import REFUSE_ALL, Ctx, Hooks
@@ -406,6 +406,7 @@ def build_app(cfg: Config, token: str, store: Store | None = None, connect_ha: b
     sessions.register(app, hub)
     accounts.register(app, hub)
     devices.register(app, hub)
+    admin_page.register(app, hub)     # /admin (people, devices, roles, service accounts, audit, my PIN)
     pins.register(app, hub)
     wire(app, hub, token, connect_ha)
     app.router.add_get("/ws", ws_handler)

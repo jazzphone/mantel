@@ -306,3 +306,11 @@ def test_user_files_and_backup_are_wired(tmp_path):
     paths = {r.resource.canonical for r in app.router.routes() if r.resource is not None}
     assert "/api/user-files" in paths
     assert any(k for k in app if "backup" in str(k)), "backup.register installed its service"
+
+
+def test_admin_page_is_wired(tmp_path):
+    from mantel_server.store import Store
+    app = server.build_app(Config(data_dir=tmp_path, secrets_dir=tmp_path / "s"), "fictional",
+                           store=Store(tmp_path / "m.db"), connect_ha=False)
+    paths = {r.resource.canonical for r in app.router.routes() if r.resource is not None}
+    assert "/admin" in paths and "/api/admin/overview" in paths
