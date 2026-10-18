@@ -2732,7 +2732,6 @@
   // the returned element rather than a plain property assignment so a caller
   // can hand it the client on every render without knowing whether it is ready
   // yet; what the child gets goes through the host adapter (hkHostClient.bridge).
-  // `hkSetHass` is the same function under its old name, for callers not yet moved.
   function create(cfg) {
     if (!cfg || !cfg.type) return null;
     var t = String(cfg.type);
@@ -2748,7 +2747,7 @@
         console.error('[hk] nested card setConfig failed', e, cfg);
       }
     }
-    el.hkSetClient = el.hkSetHass = function (source) {
+    el.hkSetClient = function (source) {
       var c = asClient(source);
       if (!c) return;
       if (ready) window.hkHostClient.bridge(el, c); else pending = c;

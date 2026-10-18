@@ -33,7 +33,7 @@
   // quick-timer helpers (helpers/quick_timers.yaml) are not installed.
   // A nested card made by create() takes its client once it is configured (an
   // unupgraded element would keep a plain property that shadows the setter).
-  // slice 9: needs hk-base.js's hkSetHass to take a client; until then this
+  // slice 9: needs hk-base.js's hkSetClient to take a client; until then this
   // does what it does, with the host adapter deciding what the child gets.
   function feed(el, client) {
     if (!el || !client) return;

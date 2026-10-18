@@ -3,7 +3,8 @@
 //   /<dashboard>/home   e.g. /dashboard-kitchen/home   (/home goes to the default screen)
 //
 // What Lovelace did (hui-root, hui-view, hui-card) is a few lines here: run HK's strategy to get the
-// view, create each card element, setConfig, give it `hass`, hand the built elements to the view.
+// view, create each card element, setConfig, hand it what goes with the client (the host adapter's
+// bridge: Mantel's snapshot at the card's entry), hand the built elements to the view.
 import './client/hk-client.js';
 import './client/hk-card-state.js';
 import './client/hk-host-shell.js';
@@ -11,7 +12,7 @@ import './shim/mantel-shell.js';
 import './cards/hk-metric.js';
 import './shim/mantel-client.js';
 import './shim/ha-elements.js';
-import { Host, toast } from './shim/hass-shim.js';
+import { Host, toast } from './shim/mantel-host.js';
 import { Hub } from './shim/hub.js';
 import { installCardBridge, createCardElement, setCardHost } from './shim/cards-bridge.js';
 
@@ -28,7 +29,7 @@ const json = (u) => fetch(u).then((r) => { if (!r.ok) throw new Error(u + ' ' + 
 const hub = new Hub();
 window.__mantelHub = hub;
 const [registry, user, fixtures, cards] = await Promise.all([
-  json('/api/hass-registry'), json('/api/me'), json('/api/fixtures'), json('/api/hk-cards'), hub.connect(),
+  json('/api/registry'), json('/api/me'), json('/api/fixtures'), json('/api/hk-cards'), hub.connect(),
 ]);
 mark('inputs');
 
@@ -63,30 +64,30 @@ if (!(window.hkCards && window.hkCards.TILE)) {
 }
 
 const app = document.getElementById('app');
-const cfg = await window.hkStrategy.generate({}, host.hass);
+const cfg = await window.hkStrategy.generate({}, host.client);
 mark('strategy');
 const view = cfg.views.find((v) => v.path === pageKey) || cfg.views[0];
 window.__mantelView = view;
 
-function build(cardCfg, hass) {
+function build(cardCfg, snapshot) {
   const el = createCardElement(cardCfg);
-  setCardHost(el, hass);
+  setCardHost(el, snapshot);
   return el;
 }
 
 const viewEl = document.createElement(view.type.slice(7));
 await customElements.whenDefined(view.type.slice(7));
 viewEl.setConfig(view);
-viewEl.hass = host.hass;
-const els = (view.cards || []).map((c) => build(c, host.hass));
+window.hkHostClient.bridge(viewEl, host.client);
+const els = (view.cards || []).map((c) => build(c, host.snapshot));
 app.appendChild(viewEl);
 viewEl.cards = els;
 // the host shell now knows the view: the sky and the tab bar find it (mantel-shell.js)
 window.hkMantelShell.setPage(viewEl, cfg);
 mark('rendered');
 
-// every change in the house: a new hass object for the view and each card (as HA does)
-host.onHass = (h) => { viewEl.hass = h; for (const el of els) setCardHost(el, h); };
+// every change in the house: a new snapshot for the view and each card (as HA hands a new object)
+host.onSnapshot = (s) => { window.hkHostClient.bridge(viewEl, host.client); for (const el of els) setCardHost(el, s); };
 
 // After the first paint, note which states the screen really reads and narrow the hub subscription
 // to those: the strategy needed the whole house to decide what to draw, the cards do not.
@@ -94,7 +95,7 @@ if (new URLSearchParams(location.search).get('narrow') !== '0') {
   requestAnimationFrame(() => setTimeout(() => {
     host.reads.clear();
     host.recording = true;
-    host.onHass(host.hass);                      // one more pass over every card, recorded
+    host.onSnapshot(host.snapshot);              // one more pass over every card, recorded
     setTimeout(() => {
       host.recording = false;
       const ids = [...host.reads].filter((k) => host._states[k]);

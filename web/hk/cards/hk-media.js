@@ -31,7 +31,7 @@
   // as soon as its element is defined and hands it nothing before; the host adapter's
   // bridge then decides what the child gets (in HA, an HA-drawn card needs the
   // frontend's object). A card that is not defined yet is skipped: the next push feeds it.
-  // slice 9: hkCards.create's hkSetHass should take a client, and this goes.
+  // slice 9: hkCards.create's hkSetClient should take a client, and this goes.
   function feed(el, client) {
     if (el && client && typeof el.setConfig === 'function') window.hkHostClient.bridge(el, client);
   }

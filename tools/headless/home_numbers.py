@@ -67,7 +67,7 @@ async def one_load(shot=None, idle=0, url=URL):
             before = await metrics(b)
             hub0 = await b.eval("[window.__mantelHub.msgs, window.__mantelHub.bytes]")
             hass0 = await b.eval("window.__mantel.hass")  and 0
-            await b.eval("window.__mantelUpdates = 0; (() => { const h = window.__mantel; const prev = h.onHass; h.onHass = (x) => { window.__mantelUpdates++; prev(x); }; })(); 1")
+            await b.eval("window.__mantelUpdates = 0; (() => { const h = window.__mantel; const prev = h.onSnapshot; h.onSnapshot = (x) => { window.__mantelUpdates++; prev(x); }; })(); 1")
             await asyncio.sleep(idle)
             after = await metrics(b)
             hub1 = await b.eval("[window.__mantelHub.msgs, window.__mantelHub.bytes]")

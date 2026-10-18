@@ -386,7 +386,7 @@ def build_app(cfg: Config, token: str, store: Store | None = None, connect_ha: b
     app.router.add_get("/hk/{path:.+}", hk_file)
     app.router.add_get("/web/{path:.+}", web_file)
     app.router.add_get("/static/mdi/{name}", mdi_file)
-    app.router.add_get("/api/hass-registry", api_registry)
+    app.router.add_get("/api/registry", api_registry)
     app.router.add_get("/api/fixtures", api_fixtures)
     app.router.add_get("/api/hk-cards", api_hk_cards)
     app.router.add_get("/api/entities", api_entities)

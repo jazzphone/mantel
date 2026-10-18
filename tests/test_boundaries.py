@@ -33,19 +33,19 @@ ADAPTER = "web/shim/"
 
 
 def test_web_does_not_reference_hass():
-    # Phase 1 imports the existing frontend intact. Existing HA dependencies have
-    # fixed per-file budgets; new shared code has none. Remove budgets as files migrate.
-    budgets = json.loads((ROOT / "docs/phase1/legacy-ha-access.json").read_text())
+    # Phase 1 is done (2026-10-18): the shared frontend talks only to HKClient and the host
+    # shell. Home Assistant's object is named only in the host adapters (web/shim/ here,
+    # hosts/ha/frontend/ for HA, which is outside web/). No budgets remain: zero, everywhere.
     raw = re.compile(r"\b(?:hass|_hass)\b")
     bad = []
     for p in _files("web", (".js", ".mjs", ".html", ".ts", ".css")):
         rel = str(p.relative_to(ROOT))
         if rel.startswith(ADAPTER):
             continue
-        count = len(raw.findall(p.read_text()))
-        if count > budgets.get(rel, 0):
-            bad.append(f"{rel}: {count} > {budgets.get(rel, 0)}")
-    assert not bad, f"Shared frontend must use HKClient; legacy access may only decrease: {bad}"
+        n = len(raw.findall(p.read_text()))
+        if n:
+            bad.append(f"{rel}: {n}")
+    assert not bad, f"Shared frontend must use HKClient (no `hass` outside the adapters): {bad}"
 
 
 def test_the_lint_itself_catches_violations():

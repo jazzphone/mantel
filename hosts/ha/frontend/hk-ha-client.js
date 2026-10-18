@@ -49,11 +49,11 @@
     hosts.set(client, hass);
     return client;
   }
-  // THE COMPATIBILITY BRIDGE (until Phase 1 slices 7 and 9): a card family that still READS
-  // the host input (the thermostat and alarm keypad inside sheets, the camera stream, the
-  // screensaver's cards, the library card) gets the host object that goes with the client it
-  // is shown, and nothing else does. Actions no longer need it: they go through
-  // client.actions. A client this adapter did not make is handed over as itself, read-only.
+  // THE BRIDGE: how a parent hands a child element what goes with a client. The child takes
+  // the host's object at its entry -- an element the host draws itself (a hui-card, ha-form, a
+  // third-party card) needs exactly that, and an HK card turns it back into this client
+  // (entry, below). Shared code passes clients only; the host's object is named only here.
+  // A client this adapter did not make is handed over as itself, read-only.
   function bridge(element, client) {
     if (!element || !client) return;
     var host = hosts.get(client);

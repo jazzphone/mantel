@@ -1,4 +1,4 @@
-// hass-shim.js -- a `hass` object for HK's cards, built from Mantel Server instead of Home Assistant.
+// mantel-host.js (was hass-shim.js) -- a `hass`-shaped snapshot for HK's cards, built from Mantel Server instead of Home Assistant.
 //
 // The hub client (hub.js) feeds it: states and diffs from the state hub, the registries as HA's
 // frontend holds them, HK's captured feeds (fixtures) and live reads through the server's ReadProxy.
@@ -92,6 +92,8 @@ export class Host {
   }
 
   get client() { return window.hkHostClient.from(this.hass); }
+  // the current snapshot (the object the adapter makes clients from), by its neutral name
+  get snapshot() { return this.hass; }
 
   _wrapStates() {
     const self = this;
@@ -153,7 +155,7 @@ export class Host {
     this._raw = Object.assign({}, this._raw);
     this._wrapStates();
     this.listeners && this.listeners.forEach((fn) => fn(this.hass));
-    if (this.onHass) this.onHass(this.hass);
+    if (this.onSnapshot) this.onSnapshot(this.hass);
   }
 
   // -- messages ---------------------------------------------------------------------------------

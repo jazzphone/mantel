@@ -38,7 +38,7 @@
   }
 
   // The shell's root answers HK's legacy `root.hass` reads with the shim's current snapshot,
-  // as the stub for document.querySelector('home-assistant') does (hass-shim.js).
+  // as the stub for document.querySelector('home-assistant') does (mantel-host.js).
   function install(host) {
     const root = MANTEL.root();
     if (root && !Object.getOwnPropertyDescriptor(root, 'hass')) {

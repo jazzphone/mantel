@@ -1,7 +1,9 @@
 # Frontend source
 
-- `hk/`: existing HK frontend imported for Phase 1, with fixed per-file budgets for
-  remaining raw HA dependencies in `docs/phase1/legacy-ha-access.json`.
+- `hk/`: the HK frontend. Since Phase 1 (2026-10-18) it reads only HKClient (`client()`,
+  `client.subscriptions`, `client.actions`) and the host shell; Home Assistant's object is named
+  only in the host adapters (`shim/` for Mantel, `hosts/ha/frontend/` for HA), enforced by
+  `tests/test_boundaries.py`.
 - `client/`: shared client interface and card state/update lifecycle; zero raw HA dependencies.
   `client/hk-host-shell.js` is the host-shell contract: shared code reaches the host's page
   (overlay mount, view container, navigation, detail sheets, toasts) only through `hkShell`;

@@ -122,8 +122,8 @@ async def smoke(shot=None):
                       metric.id = 'proof-metric';
                       setCardHost(metric, window.__mantel.hass);
                       document.getElementById('app').prepend(metric);
-                      const update = window.__mantel.onHass;
-                      window.__mantel.onHass = (snapshot) => { update(snapshot); setCardHost(metric, snapshot); };
+                      const update = window.__mantel.onSnapshot;
+                      window.__mantel.onSnapshot = (snapshot) => { update(snapshot); setCardHost(metric, snapshot); };
                       window.__proofMetric = metric;
                     })()""")
                     text = "window.__proofMetric._e.state.textContent"
