@@ -8,6 +8,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+from datetime import datetime
 import sys
 import tempfile
 from pathlib import Path
@@ -54,6 +55,8 @@ class OfflineReads:
         self.callbacks = {}
         self.ends = {}
         self.serial = 0
+        self.energy_prefs = {}               # what energy/get_prefs answers (the Energy cards' settings)
+        self.energy_asked = []               # the statistics reads the Energy cards made
 
     @staticmethod
     async def _drop(msg):
@@ -66,6 +69,14 @@ class OfflineReads:
             return {"unit_system": {"temperature": "°C"}, "time_zone": "UTC", "currency": "USD"}
         if msg["type"] == "frontend/get_themes":
             return {"themes": {}, "darkMode": True}
+        if msg["type"] == "energy/get_prefs":
+            return self.energy_prefs
+        if msg["type"] == "recorder/statistics_during_period":
+            # fictional statistics: one row, hour 9 of the first day asked for (4 kWh for the dryer, 2 for the rest)
+            self.energy_asked.append(msg)
+            first = datetime.fromisoformat(msg["start_time"].replace("Z", "+00:00")).timestamp() * 1000
+            return {i: [{"start": first + 9 * 3600e3, "end": first + 10 * 3600e3,
+                         "change": 4.0 if i.endswith("dryer") else 2.0}] for i in msg["statistic_ids"]}
         return {}
 
     async def subscribe(self, msg, callback):
@@ -722,6 +733,47 @@ async def smoke(shot=None):
                     exceptions = [line for line in browser.console if line.startswith("EXCEPTION:")]
                     assert not exceptions, exceptions
                     assert not browser.blocked_requests, browser.blocked_requests
+                    # ENERGY WITHOUT LOVELACE: the strategy's empty Energy page is a `markdown` card, and its
+                    # "Home Assistant's Charts" are four Lovelace energy cards inside HK's frame. Both are HK's own
+                    # elements in the view host (no placeholder): the empty line is drawn, and the charts come from
+                    # energy/get_prefs and the recorder's statistics through Mantel's read path.
+                    hub.readproxy.energy_prefs = {
+                        "energy_sources": [{"type": "grid", "flow_from": [{"stat_energy_from": "sensor.proof_grid"}],
+                                            "flow_to": []}],
+                        "device_consumption": [{"stat_consumption": "sensor.proof_dryer", "name": "Offline dryer"},
+                                               {"stat_consumption": "sensor.proof_oven", "name": "Offline oven"}]}
+                    await browser.eval("""(() => {
+                      const view = document.getElementById('view');
+                      const mk = (cfg) => { const e = window.hkViewHost.createCardElement(cfg, window.__mantel.client);
+                                            e.className = 'proof-energy'; view.prepend(e); return e; };
+                      mk({type: 'markdown', content: 'Nothing to show yet: add devices in Home Assistant\u2019s Energy settings, or on HK Settings \u2192 Features \u2192 Energy.'});
+                      for (const t of ['energy-devices-detail-graph', 'energy-devices-graph', 'energy-sources-table', 'energy-date-selection'])
+                        mk({type: 'custom:hk-frame-card', card: {type: t}});
+                    })()""")
+                    energy_js = """(() => {
+                      const all = window.__deep(document), q = (tag) => all.find(e => e.localName === tag);
+                      const cols = q('hk-energy-devices-detail-graph') && q('hk-energy-devices-detail-graph').shadowRoot.querySelectorAll('.col');
+                      const names = q('hk-energy-devices-graph') && [...q('hk-energy-devices-graph').shadowRoot.querySelectorAll('.nm')].map(n => n.textContent);
+                      const rows = q('hk-energy-sources-table') && [...q('hk-energy-sources-table').shadowRoot.querySelectorAll('tr')].map(r => r.textContent);
+                      const date = q('hk-energy-date-selection') && q('hk-energy-date-selection').shadowRoot.querySelectorAll('.seg button').length;
+                      const md = q('hk-view-markdown') && q('hk-view-markdown').shadowRoot.textContent;
+                      return {cols: cols ? cols.length : 0, names, rows, date, md,
+                              placeholders: all.filter(e => e.localName === 'hk-card-placeholder').length};
+                    })()"""
+                    assert await browser.wait(f"(() => {{ const e = {energy_js}; return e.cols >= 23 && e.names && e.names.length && "
+                                              "e.rows && e.rows.length && e.date === 4; })()", 15), \
+                        "the Energy cards did not draw: " + json.dumps(await browser.eval(energy_js))
+                    energy = await browser.eval(energy_js)
+                    assert energy["md"].find("Nothing to show yet: add devices") >= 0, energy
+                    assert energy["names"] == ["Offline dryer", "Offline oven"] and energy["rows"] == ["Grid consumption2.00 kWh"], energy
+                    assert energy["placeholders"] == 0, energy
+                    assert hub.readproxy.energy_asked and all(
+                        set(m) <= {"type", "start_time", "end_time", "statistic_ids", "period", "types", "units"}
+                        and m["types"] == ["change"] and m["period"] == "hour" for m in hub.readproxy.energy_asked), \
+                        hub.readproxy.energy_asked
+                    assert await browser.eval("window.__blockedWrites") == 0
+                    assert not [line for line in browser.console if line.startswith("EXCEPTION:")], browser.console
+                    await browser.eval("document.querySelectorAll('.proof-energy').forEach(e => e.remove())")
                     # THE MUSIC PAGE FITS THE WINDOW (2026-10-18): with the tab bar along the bottom, two columns
                     # fill the window below the title and the frame runs on under the bar; the page's end must not
                     # count the bar's room a second time (it scrolled 110+ px for nothing). Compared as the browser
@@ -789,6 +841,10 @@ async def smoke(shot=None):
                                        f"signalling through Mantel's camera connector: {kinds.count('camera/webrtc/get_client_config')} "
                                        f"client configs, {kinds.count('camera/webrtc/offer')} offers, {len(cands)} candidates with "
                                        f"the session; Home's camera strip's live tile is one too, placed by the strip's own rules",
+                            "energy": f"a `markdown` card drew the empty Energy line; HK-framed energy-devices-detail-graph "
+                                      f"({energy['cols']} hourly columns), -devices-graph, -sources-table and -date-selection "
+                                      f"drew from energy/get_prefs and {len(hub.readproxy.energy_asked)} statistics read(s) through "
+                                      f"Mantel's read path; 0 placeholders",
                             "music_fit": "the Music page (two columns, tab bar along the bottom, the frame running on "
                                          "under it) ends at the window: scrollHeight/innerHeight " + ", ".join(fits),
                             "external_requests": 0, "browser_exceptions": 0}
