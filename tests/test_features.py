@@ -541,6 +541,41 @@ async def test_a_feature_call_without_a_gateway_is_refused_clearly():
     assert caller.log[-1]["outcome"] == "would"
 
 
+def test_the_energy_plan_follows_a_meters_helper_chain_to_its_power_sensor():
+    """Utility Meter -> Integral -> power sensor, on three devices (nothing shared): each helper's
+    `source` attribute is the link. Without it no device had watts and the page's "Where it's going
+    now" drew 0 W on every row (the house, 2026-10-18)."""
+    from mantel_house_fakes import mantel_house_of
+    from hk_core.energy import plan as EP
+    from hk_core.house import Device, Entity, State
+    kwh = {"unit_of_measurement": "kWh", "device_class": "energy"}
+
+    class Fake:
+        _states = {"sensor.grid_import": State("sensor.grid_import", "1200", kwh),
+                   "sensor.office_utility": State("sensor.office_utility", "2.4", {**kwh, "friendly_name": "Office Utility",
+                                                  "source": "sensor.office_integral"}),
+                   "sensor.office_integral": State("sensor.office_integral", "30", {**kwh, "source": "sensor.office_watts"}),
+                   "sensor.office_watts": State("sensor.office_watts", "350", {"unit_of_measurement": "W",
+                                                                              "device_class": "power"}),
+                   "sensor.dryer_utility": State("sensor.dryer_utility", "1.0", {**kwh, "friendly_name": "Dryer Utility",
+                                                 "source": "sensor.dryer_integral"}),
+                   "sensor.dryer_integral": State("sensor.dryer_integral", "9", {**kwh, "source": "sensor.dryer_kw"}),
+                   "sensor.dryer_kw": State("sensor.dryer_kw", "1.5", {"unit_of_measurement": "kW", "device_class": "power"})}
+        _entities = {k: Entity(k) for k in _states}
+        _devices = {}
+        _areas = {}
+    prefs = {"energy_sources": [{"type": "grid", "flow_from": [{"stat_energy_from": "sensor.grid_import"}]}],
+             "device_consumption": [{"stat_consumption": "sensor.office_utility"},
+                                    {"stat_consumption": "sensor.dryer_utility"}]}
+    ctx = F.energy_context(mantel_house_of(Fake()), prefs, {})
+    assert ctx["entities"]["sensor.office_utility"]["source"] == "sensor.office_integral"
+    assert "sensor.office_watts" in ctx["entities"] and "sensor.dryer_kw" in ctx["entities"]
+    plan = EP.build(ctx, {})
+    items = {i["key"]: i for s in plan["sections"] for i in s.get("items", [])}
+    assert items["sensor.office_utility"]["power"] == "sensor.office_watts"
+    assert items["sensor.dryer_utility"]["power"] == "sensor.dryer_kw"
+
+
 def test_energy_context_reads_the_house_through_the_port():
     from mantel_house_fakes import mantel_house_of
     from hk_core.house import Device, Entity, State

@@ -8,7 +8,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 import sys
 import shutil
 import tempfile
@@ -62,6 +62,7 @@ class OfflineReads:
         self.serial = 0
         self.energy_prefs = {}               # what energy/get_prefs answers (the Energy cards' settings)
         self.energy_asked = []               # the statistics reads the Energy cards made
+        self.stat_rows = None                # when set: msg -> the statistics answer (the where-card check)
 
     @staticmethod
     async def _drop(msg):
@@ -76,6 +77,9 @@ class OfflineReads:
             return {"themes": {}, "darkMode": True}
         if msg["type"] == "energy/get_prefs":
             return self.energy_prefs
+        if msg["type"] == "recorder/statistics_during_period" and self.stat_rows:
+            self.energy_asked.append(msg)
+            return self.stat_rows(msg)
         if msg["type"] == "recorder/statistics_during_period":
             # fictional statistics: one row, hour 9 of the first day asked for (4 kWh for the dryer, 2 for the rest)
             self.energy_asked.append(msg)
@@ -812,6 +816,86 @@ async def smoke(shot=None, shots=None):
                         assert fit["frame"] > fit["card"] + 16, fit      # the frame still runs on under the bar
                         assert fit["scroll"] <= fit["inner"], fit        # ...and the page that fits does not scroll
                         fits.append(f"{w}x{h} {fit['scroll']}/{fit['inner']}")
+                    # "WHERE IT'S GOING NOW" (the house, 2026-10-18): drew 0 W on every row in Mantel. A house's
+                    # devices are Utility Meters counting Integral sensors that integrate a power sensor; HA's
+                    # collect() follows each helper's `source`, Mantel's energy_context did not, so no device had
+                    # watts. The plan here is built the way Mantel builds it (energy_context over a fictional house,
+                    # hk_core.energy.plan.build); the page draws the where-card from it with live states for the
+                    # power sensors and statistics for today, in Now and in Today.
+                    sys.path.insert(0, str(ROOT))
+                    sys.path.insert(0, str(ROOT / "tests"))
+                    from hk_core.energy import plan as energy_plan
+                    from hk_core.house import Entity, State
+                    from mantel_server import features as mantel_features
+                    from mantel_house_fakes import mantel_house_of
+                    kwh = {"unit_of_measurement": "kWh", "device_class": "energy"}
+                    watt = {"unit_of_measurement": "W", "device_class": "power"}
+
+                    class EnergyHouse:
+                        _states = {"sensor.proof_grid": State("sensor.proof_grid", "900", kwh),
+                                   "sensor.proof_office_utility": State("sensor.proof_office_utility", "3", {
+                                       **kwh, "friendly_name": "Proof Office Utility", "source": "sensor.proof_office_integral"}),
+                                   "sensor.proof_office_integral": State("sensor.proof_office_integral", "30", {
+                                       **kwh, "source": "sensor.proof_office_watts"}),
+                                   "sensor.proof_office_watts": State("sensor.proof_office_watts", "300", watt),
+                                   "sensor.proof_dryer_utility": State("sensor.proof_dryer_utility", "1", {
+                                       **kwh, "friendly_name": "Proof Dryer Utility", "source": "sensor.proof_dryer_integral"}),
+                                   "sensor.proof_dryer_integral": State("sensor.proof_dryer_integral", "9", {
+                                       **kwh, "source": "sensor.proof_dryer_kw"}),
+                                   "sensor.proof_dryer_kw": State("sensor.proof_dryer_kw", "1.5", {
+                                       "unit_of_measurement": "kW", "device_class": "power"})}
+                        _entities = {k: Entity(k) for k in _states}
+                        _devices = {}
+                        _areas = {}
+                    prefs = {"energy_sources": [{"type": "grid", "flow_from": [{"stat_energy_from": "sensor.proof_grid"}],
+                                                 "flow_to": []}],
+                             "device_consumption": [{"stat_consumption": "sensor.proof_office_utility"},
+                                                    {"stat_consumption": "sensor.proof_dryer_utility"}]}
+                    fictional_house = mantel_house_of(EnergyHouse())
+                    plan = energy_plan.build(mantel_features.energy_context(fictional_house, prefs, {}), {})
+                    hub.store.apply_event({"a": {eid: {"s": st.state, "a": dict(st.attributes), "lc": 1.0, "lu": 1.0}
+                                                 for eid, st in EnergyHouse._states.items()}})
+                    hub.on_change(set(EnergyHouse._states))
+                    hub.readproxy.energy_prefs = prefs
+                    today_kwh = {"sensor.proof_grid": 5.0, "sensor.proof_office_utility": 3.0, "sensor.proof_dryer_utility": 1.0}
+
+                    def stat_rows(msg):
+                        # today's first bucket only (the page's time zone is UTC): hour and day alike
+                        day0 = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0).timestamp() * 1000
+                        out = {}
+                        for sid in msg["statistic_ids"]:
+                            if msg["period"] in ("hour", "day") and sid in today_kwh:
+                                out[sid] = [{"start": day0, "end": day0 + 3600e3, "change": today_kwh[sid]}]
+                        return out
+                    hub.readproxy.stat_rows = stat_rows
+                    await browser.eval("window.hkShell.navigate('/dashboard-proof/lights')")
+                    assert await browser.wait("window.__mantelViewHost.current().path === 'lights'", 10)
+                    await browser.eval("""((plan) => {
+                      const hs = window.hkSettings, get = hs.get.bind(hs);
+                      hs.get = (k, d) => k === 'energy' ? plan : get(k, d);
+                      document.querySelectorAll('#view > hk-tile-card, #view > hk-stat-card').forEach(e => e.remove());
+                      const card = window.hkViewHost.createCardElement({type: 'custom:hk-energy-where-card'}, window.__mantel.client);
+                      card.id = 'proof-where';
+                      window.__mantelViewHost.current().element.cards = [card];
+                    })(%s)""" % json.dumps(plan))
+                    where_js = """(() => { const c = window.__deep(document).find(e => e.id === 'proof-where'), r = c && c.shadowRoot;
+                      return r ? { title: (r.querySelector('.ttl') || {}).textContent, chips: [...r.querySelectorAll('.chip')].map(e => e.textContent),
+                                   bar: [...r.querySelectorAll('.bar i')].map(e => e.title) } : null; })()"""
+                    await browser.eval("window.hkEnergyPage.setPeriod('now')")
+                    await asyncio.sleep(3)
+                    now_where = await browser.eval(where_js)
+                    await browser.eval("window.hkEnergyPage.setPeriod('day')")
+                    await asyncio.sleep(3)
+                    day_where = await browser.eval(where_js)
+                    # Now: 300 W + 1.5 kW = 1.80 kW, 17% / 83%; Today: 5.0 kWh in, 3.0 + 1.0 on devices (60% / 20%, 20% not)
+                    assert now_where and now_where["title"].endswith("1.80 kW"), now_where
+                    assert now_where["chips"] == ["Rooms300 W · 17%", "Appliances1.50 kW · 83%"], now_where
+                    assert now_where["bar"] == ["Proof Office: 300 W", "Proof Dryer: 1.50 kW"], now_where
+                    assert day_where and day_where["title"].endswith("5.0 kWh today"), day_where
+                    assert day_where["chips"] == ["Rooms3.0 kWh · 60%", "Appliances1.0 kWh · 20%",
+                                                  "Not on a device1.0 kWh · 20%"], day_where
+                    where_says = f"Now {now_where['title'][len('Where it’s going now'):]} ({', '.join(now_where['chips'])}); " \
+                                 f"Today {day_where['title'][len('Where it went'):]}"
                     # A LONG PAGE ENDS AT ITS CONTENT (Energy, 2026-10-18): a grid page several windows tall, a
                     # tab bar along the bottom. The root's bottom margin (the page's end) used to collapse through
                     # the view, so each pass of the page's end added to it and Energy scrolled 73 px past its last
@@ -928,6 +1012,8 @@ async def smoke(shot=None, shots=None):
                                       f"Mantel's read path; 0 placeholders",
                             "music_fit": "the Music page (two columns, tab bar along the bottom, the frame running on "
                                          "under it) ends at the window: scrollHeight/innerHeight " + ", ".join(fits),
+                            "where_card": "the Energy where-card, from a plan built by Mantel's energy_context (Utility Meter -> "
+                                          "Integral -> power sensor, followed by each helper's `source`), drew " + where_says,
                             "long_page_end": "a long grid page with the tab bar ends a gutter plus the bar's room below its last card, "
                                              "that card clear of the bar at the end (tolerance 1.5 px): " + "; ".join(longs),
                             "external_requests": 0, "browser_exceptions": 0}

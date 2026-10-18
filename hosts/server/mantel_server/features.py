@@ -948,8 +948,7 @@ class LiveTv:
 def energy_context(house: Any, prefs: Mapping[str, Any] | None, options: Mapping[str, Any] | None,
                    settings: Mapping[str, Any] | None = None) -> dict[str, Any]:
     """What ``hk_core.energy.plan.build`` reads, from Mantel's house (HA's ``collect`` over the port).
-    A sensor's helper source (``source``: a Utility Meter's Integral) is not on the House port, so the
-    plan finds power sensors by the Energy settings, the options and the meter's device instead."""
+    A helper's source (a Utility Meter's Integral, and its power sensor) is its state's `source` attribute."""
     options = dict(options or {})
     settings = dict(settings or {})
     entities: dict[str, dict[str, Any]] = {}
@@ -961,9 +960,15 @@ def energy_context(house: Any, prefs: Mapping[str, Any] | None, options: Mapping
             return entities[eid]
         st, ent = house.state(eid), house.entity(eid)
         attrs = st.attributes if st else {}
+        # A HELPER'S SOURCE: a Utility Meter and an Integral (Riemann sum) sensor say what they count in
+        # their `source` attribute; HA's collect() reads it from the sensor's own object. Without it the
+        # chain meter -> Integral -> power sensor was never followed here, every device lost its watts and
+        # the Energy page's "Where it's going now" drew 0 W everywhere (the house, 2026-10-18).
+        src = attrs.get("source") if eid.startswith("sensor.") else None
         entities[eid] = {"name": attrs.get("friendly_name") or eid, "device": ent.device_id if ent else None,
                          "dc": attrs.get("device_class") or (ent and (ent.device_class or ent.original_device_class)),
-                         "unit": attrs.get("unit_of_measurement"), "state": st.state if st else None, "source": None,
+                         "unit": attrs.get("unit_of_measurement"), "state": st.state if st else None,
+                         "source": src if isinstance(src, str) and "." in src else None,
                          "category": bool(ent and ent.entity_category), "platform": ent.platform if ent else None}
         return entities[eid]
 
@@ -995,8 +1000,15 @@ def energy_context(house: Any, prefs: Mapping[str, Any] | None, options: Mapping
     stats += [t for t in settings.get("thermostats") or [] if isinstance(t, str)]
     stats += [settings[k] for k in ("outside", "power") if isinstance(settings.get(k), str)]
     for s in stats:
-        info(s)
+        e = info(s)
         device_mates(s)
+        # the source chain, followed now so build() can walk it (as HA's collect does): each sensor in it,
+        # and what sits on its device (a smart plug's watts beside the kWh a Utility Meter counts)
+        hops = 0
+        while e and e.get("source") and hops < 4:
+            device_mates(e["source"])
+            e = info(e["source"])
+            hops += 1
     grid = EP.grid_of(prefs)
     if grid.get("stat") and house.state(f"{grid['stat']}_cost") is not None:
         info(f"{grid['stat']}_cost")
