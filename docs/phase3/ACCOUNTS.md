@@ -73,8 +73,8 @@ from mantel_server.sessions import identity, Identity, User, Device
 
 ident: Identity = identity(request)   # resolved once per request, cached in request["identity"]
 ident.user        # User(id, name, role, kind, username, ha_user_id) or None
-ident.device      # Device(id, name, role, room) or None
-ident.door        # "lan" | "tunnel"
+ident.device      # Device(id, name, role, room, ha_user_id=None, ha_name=None) or None
+ident.door        # "lan" | "tunnel" | "ha" (HA's sidebar, HA App mode)
 ident.fresh_factor_at   # epoch seconds of the last interactive factor (sign-in, passkey/TOTP step-up) or None
 ident.fresh_factor      # "password", "password+totp", "passkey", "totp", "ha", "bootstrap", … or None
 ident.session_id, ident.csrf
@@ -155,6 +155,22 @@ response never strands a tablet; re-issued after 60 s if unseen); then the old o
 retired secret seen more than 60 s later revokes the device (`credential_reuse`). Unused for 90 days
 → refused. A device cookie on the tunnel door is ignored and logged. `DELETE /api/devices/{id}`
 (Owner/Admin, or the device itself) revokes at once; `GET /api/devices` lists (never hashes).
+
+**Wall tablets in the HA App** (decision 21, 2026-10-18; [HA-APP.md](HA-APP.md) "Wall tablets through the
+App"): each house tablet is already its own HA user (trusted_networks in Kiosk Satellite). An Owner links
+that **HA user to a device** instead of a person (People page *Link as a wall tablet*, or `POST
+/api/ingress/tablets {ha_user_id, device_id? | name?, room?}`; `DELETE /api/ingress/tablets/{ha_user_id}`;
+`GET /api/ingress/tablets` for Owners/Admins; each audited `ingress.link_tablet` / `ingress.unlink_tablet`).
+Table `ha_tablet_links` (migration `0012`): `ha_user_id` → `device_id` (UNIQUE both ways), `ha_name`,
+`own_device` (a device made for the link is revoked when it is unlinked; an existing LAN-enrolled device is
+kept), `created`, `created_by`. An HA user is a person *or* a tablet, never both (linking one way removes the
+other in one transaction; the last Owner cannot be turned into a tablet). Through Ingress that HA user then
+resolves to `Identity(user=None, device=Device(id, name, "wall_tablet", room, ha_user_id, ha_name), door="ha",
+csrf=<the device's CSRF token>)`: no session row and no device secret are ever issued (the secret made at
+creation is discarded); the HA user Ingress vouches for on every request is the credential. `Device` gained
+the optional `ha_user_id` / `ha_name`; `/api/me` for such a tablet answers as that HA user (HK finds its
+tablet by the Tablet User's name). Device credentials remain refused on `ha`, and with `ha_door_rules:
+tunnel` a linked tablet is refused (`401 tablet_refused`).
 
 **First Owner**: `mantel-server bootstrap [--data-dir …]` prints a one-time token (valid 1 h; a
 new run replaces it) **only while no enabled Owner exists** (an HA-linked Owner counts). `POST
