@@ -165,7 +165,7 @@ function music(foot, cardEnd, rootEnd) {
   // the view keeps that margin inside it: a block formatting context
   var src = View.prototype._build.toString();
   ok('the view is a flow-root, so the root\'s bottom margin stays inside it', /:host\{display:flow-root;/.test(src));
-  ok('...and clips on both axes (overflow-clip-margin takes no effect on one)', /:host\{display:flow-root;overflow:clip\}/.test(src));
+  ok('...clipping below only, with no overflow-clip-margin (Safari has none)', /:host\{display:flow-root;overflow-y:clip\}/.test(src) && !/clip-margin\s*:/.test(src + View.prototype._clipRoom.toString()));
 })();
 
 // THE CLIP REACHES THE BAR'S ROOM (shadows below the last row fade out
@@ -180,11 +180,11 @@ function music(foot, cardEnd, rootEnd) {
   function view(pad) {
     var v = { parentElement: pad === null ? null : { _pad: pad, _cs: {} }, style: {} };
     View.prototype._clipRoom.call(v);
-    return v.style.overflowClipMargin;
+    return v.style.paddingBottom + '|' + v.style.marginBottom;
   }
-  ok('the clip reaches the room the container leaves below (the tab bar\'s 96 px)', view('96px') === '96px', view('96px'));
-  ok('a fraction rounds down (never past the room)', view('96.7px') === '96px', view('96.7px'));
-  ok('no room, no margin: the clip as it was', view('0px') === '' && view(null) === '');
+  ok('the clipping box is as tall again as the room the container leaves below (96 px), and takes no layout room for it', view('96px') === '96px|-96px', view('96px'));
+  ok('a fraction rounds down (never past the room)', view('96.7px') === '96px|-96px', view('96.7px'));
+  ok('no room, no margin: the clip as it was', view('0px') === '|' && view(null) === '|');
   globalThis.getComputedStyle = seen;
 })();
 

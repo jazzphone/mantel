@@ -1234,11 +1234,10 @@
       // view's box never followed it, a negative one trimmed nothing, and
       // _pageEnd -- reading the view's foot -- added the same difference on
       // every pass. Energy ended 73 px past its last card, 2026-10-18.)
-      // (overflow-clip-margin, set by _pageEnd: the clip stops at the view's
-      // foot -- a gutter below the last plate -- and a plate's shadow runs
-      // further (30-60 px), which the clip cut off flat just above the tab
-      // bar, the user 2026-10-18. See _clipRoom.)
-      st.textContent = ':host{display:flow-root;overflow:clip}#root>*{margin:4px 4px 8px}' +
+      // (the clip stops at the view's foot -- a gutter below the last plate --
+      // and a plate's shadow runs further (30-60 px), which the clip cut off
+      // flat just above the tab bar, the user 2026-10-18. See _clipRoom.)
+      st.textContent = ':host{display:flow-root;overflow-y:clip}#root>*{margin:4px 4px 8px}' +
         // (a grid of pop-ups alone: no room, no margins -- hk-grid-card _markZero)
         '#root>[data-hk-zero]{margin:0!important}' +
         '#root>[data-hk-page-header=none]{display:none!important}' +
@@ -1342,18 +1341,21 @@
     // view and adds to it as before -- so nothing that runs on under the bar
     // may count: a card that fits itself to the window ends the page its own
     // foot below its box (data-hk-foot, plateEdge; the Music page).
-    // THE CLIP REACHES THE ROOM BELOW THE VIEW (overflow-clip-margin): what
-    // lies under the view is its container's bottom padding -- the tab bar's
-    // room, empty by design -- so paint may run on that far (a shadow fades
-    // out there instead of stopping flat at the view's foot) and nothing is
-    // added to what scrolls, the room being part of the page already. No room,
-    // no margin: the clip as it was. (A px number: a var() holding the bar's
-    // calc() is not taken by overflow-clip-margin.)
+    // THE CLIP REACHES THE ROOM BELOW THE VIEW: what lies under the view is
+    // its container's bottom padding -- the tab bar's room, empty by design --
+    // so the clipping box is made that much taller (padding-bottom) and takes
+    // no layout room for it (the same amount of negative margin-bottom): paint
+    // may run on that far (a shadow fades out there instead of stopping flat
+    // at the view's foot), and nothing is added to what scrolls, the room
+    // being part of the page already. No room, no padding: the clip as it
+    // was. (Plain box model, so Safari does it too; overflow-clip-margin is
+    // not in it.)
     _clipRoom() {
       var p = this.parentElement, room = 0;
       if (p) room = Math.max(0, Math.floor(parseFloat(getComputedStyle(p).paddingBottom) || 0));
-      var v = room ? room + 'px' : '';
-      if (this.style.overflowClipMargin !== v) this.style.overflowClipMargin = v;
+      var pad = room ? room + 'px' : '', mar = room ? -room + 'px' : '';
+      if (this.style.paddingBottom !== pad) this.style.paddingBottom = pad;
+      if (this.style.marginBottom !== mar) this.style.marginBottom = mar;
     }
     _pageEnd() {
       var root = this._root;

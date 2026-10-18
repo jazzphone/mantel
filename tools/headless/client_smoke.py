@@ -941,7 +941,7 @@ async def smoke(shot=None, shots=None):
                       return { cards: cards.length, scroll: de.scrollHeight, inner: window.innerHeight, last, pad, gutter,
                                after: de.scrollHeight - last, barTop: bar.getBoundingClientRect().top, lastNow,
                                margin: getComputedStyle(el.shadowRoot.getElementById('root')).marginBottom,
-                               col: Math.round(x.left + x.width / 2), clips, clipMargin: getComputedStyle(el).overflowClipMargin };
+                               col: Math.round(x.left + x.width / 2), clips, clipPad: getComputedStyle(el).paddingBottom, clipMar: getComputedStyle(el).marginBottom };
                     })()"""
                     longs = []
                     for w, h in ((1366, 900), (1280, 800), (1366, 900)):
@@ -963,7 +963,10 @@ async def smoke(shot=None, shots=None):
                         # a gutter below the row, just above the bar. The view's clip reaches the bar's room, and down the
                         # column under a last-row card the grey changes smoothly (no step over 8 grey levels) to the window's foot.
                         view_clip = [c for c in lp["clips"] if c[0] == "hk-grid-view"]
-                        assert view_clip and view_clip[0][1] == "clip" and lp["clipMargin"] != "0px", lp
+                        # (the clipping box is as tall again as the bar's room, and takes no layout room for it: plain box model,
+                        # so Safari does it as well as Chrome)
+                        assert view_clip and view_clip[0][1] == "clip", lp
+                        assert lp["clipPad"] == f"{lp['pad']:.0f}px" and lp["clipMar"] == f"{-lp['pad']:.0f}px", lp
                         assert all(c[0] == "hk-grid-view" for c in lp["clips"]), f"something else clips the page's foot: {lp['clips']}"
                         if Image:
                             im = Image.open(png).convert("RGB")
