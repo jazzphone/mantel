@@ -176,3 +176,16 @@ before P2.4, plus the ordered boot) and HA stopped and started under the page.
 - A single opaque `EXCEPTION: Object` showed up in two runs. It appears equally with **no** build
   change (old to old), so it is the socket dropping on a restart, not HK.
 - `tools/headless/cdp.py` now records a thrown object's fields, so the next one says what it is.
+
+## Known: a stray `not_found` after a restart (harmless, intermittent)
+
+Decoded by `cdp.py`'s new field capture: the opaque `EXCEPTION: Object` is
+`{code: "not_found", message: "Subscription not found."}`, an unsubscribe answered by a server that
+restarted and never had that subscription. It appears in some open-screen restart runs and not
+others: on the old build (old to old) and the new one (new to new) alike. The page stays drawn and
+keeps following state every time.
+- `7b79946` makes the client's subscription port resolve on exactly that refusal. It didn't silence
+  this one, so the call comes from outside HK's port: home-assistant-js-websocket's own reconnect
+  handling or HA's frontend.
+- `restart_check.py` now lists every refused command with the message it answered
+  (`failed_results`), so the next run that catches it names the source.

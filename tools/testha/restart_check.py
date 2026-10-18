@@ -68,6 +68,28 @@ async def toggle(token: str, entity: str) -> None:
                      headers={"Authorization": "Bearer " + token})
 
 
+def failed_results(b) -> list[dict]:
+    """Every websocket command the server refused, with the message it answered (the last one
+    sent under that id): after a restart, a `not_found` here says which subscription a page let
+    go of that the new server never had."""
+    sent, out = {}, []
+    for ev in b.events:
+        m = ev.get("method")
+        if m not in ("Network.webSocketFrameSent", "Network.webSocketFrameReceived"):
+            continue
+        try:
+            d = json.loads(ev["params"]["response"]["payloadData"])
+        except (ValueError, KeyError, TypeError):
+            continue
+        if not isinstance(d, dict):
+            continue
+        if m.endswith("Sent") and "id" in d:
+            sent[d["id"]] = d
+        elif d.get("type") == "result" and d.get("success") is False:
+            out.append({"id": d.get("id"), "error": d.get("error"), "answered": sent.get(d.get("id"))})
+    return out
+
+
 async def run(new_tree: str, page: str, out: Path) -> dict:
     if not testha.ready():
         raise SystemExit("the scratch HA is not running the old build: run testha.py up --fresh with TESTHA_REPO=<old> first")
@@ -113,9 +135,10 @@ async def run(new_tree: str, page: str, out: Path) -> dict:
             await b.screenshot(str(shot))
         except Exception:                             # noqa: BLE001 -- a screenshot is a bonus
             shot = None
+        refused = failed_results(b)
         ok = bool(grid) and after >= max(1, before - 1) and not bad and (follows is None or follows["ok"])
         return {"ok": ok, "page": page, "drawn_before": before, "drawn_after": after, "grid_after": grid,
-                "follows_state": follows, "errors_since_swap": bad[:20], "console_since_swap": len(since),
+                "follows_state": follows, "errors_since_swap": bad[:20], "failed_results": refused[:20], "console_since_swap": len(since),
                 "screenshot": str(shot) if shot else None}
 
 
