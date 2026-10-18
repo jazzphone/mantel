@@ -33,6 +33,54 @@ LIBRARY = [{"uri": "library://playlist/1", "name": "Morning Mix", "item_id": "1"
             "provider_mappings": [{"provider_domain": "apple_music"}]},
            {"uri": "library://playlist/2", "name": "Evening", "item_id": "2",
             "provider_mappings": [{"provider_domain": "builtin"}]}]
+def _art(n: int, remote: bool = False) -> dict:
+    return {"type": "thumb", "path": f"https://img.example/{n}.jpg" if remote else f"/data/art/{n}.jpg",
+            "provider": "library", "remotely_accessible": remote}
+
+
+def _artist(n: int, name: str) -> dict:
+    return {"item_id": str(n), "provider": "library", "media_type": "artist", "uri": f"library://artist/{n}",
+            "name": name, "version": "", "image": None}
+
+
+# Music Assistant's library items (to_dict shapes), per media type: what music/<type>/library_items answers
+BAND, SOLOIST = _artist(7, "Band"), _artist(8, "Soloist")
+ALBUMS = [{"item_id": str(i), "provider": "library", "media_type": "album", "uri": f"library://album/{i}",
+           "name": f"Album {chr(64 + i)}", "version": "Deluxe" if i == 2 else "", "album_type": t,
+           "favorite": i in (2, 4), "last_played": 100 - i, "artists": [BAND if i % 2 else SOLOIST],
+           "metadata": {"images": [{"type": "fanart", "path": "/x/fan.jpg", "provider": "library"}, _art(i)]}}
+          for i, t in ((1, "album"), (2, "album"), (3, "single"), (4, "compilation"), (5, "album"))]
+TRACKS = [{"item_id": str(i), "provider": "library", "media_type": "track", "uri": f"library://track/{i}",
+           "name": f"Song {i}", "version": "", "favorite": i == 3, "artists": [BAND], "album": ALBUMS[0],
+           "image": _art(i, remote=True)} for i in range(1, 8)]
+ARTISTS = [dict(BAND, favorite=True, image=_art(7)), dict(SOLOIST, favorite=False, image=None)]
+RADIOS = [{"item_id": "r1", "provider": "tunein", "media_type": "radio", "uri": "library://radio/r1",
+           "name": "Jazz FM", "version": "", "favorite": True, "image": None}]
+PODCASTS = [{"item_id": "p1", "provider": "rss", "media_type": "podcast", "uri": "library://podcast/p1",
+             "name": "Talk Show", "version": "", "favorite": False, "image": None}]
+LIB_ITEMS = {"artists": ARTISTS, "albums": ALBUMS, "tracks": TRACKS, "playlists": LIBRARY, "radios": RADIOS,
+             "podcasts": PODCASTS, "audiobooks": []}
+
+
+def library_answer(cmd: str, args: dict) -> list:
+    """What Music Assistant answers music/<type>/library_items: the filters it takes (favorite, search, album_types,
+    album_artists_only), an order, offset and limit."""
+    items = list(LIB_ITEMS[cmd.split("/")[1]])
+    if args.get("favorite") is not None:
+        items = [i for i in items if bool(i.get("favorite")) == args["favorite"]]
+    if args.get("search"):
+        items = [i for i in items if args["search"].lower() in i["name"].lower()]
+    if args.get("album_types"):
+        items = [i for i in items if i.get("album_type") in args["album_types"]]
+    if args.get("album_artists_only"):
+        items = [i for i in items if i["name"] == "Band"]
+    order = args.get("order_by")
+    if order in ("last_played", "last_played_desc"):
+        items.sort(key=lambda i: i.get("last_played", 0), reverse=order.endswith("_desc"))
+    off = args.get("offset", 0)
+    return items[off: off + args.get("limit", 500)]
+
+
 QUEUE_ITEMS = [{"queue_item_id": "qi-3", "name": "Song Three", "duration": 200,
                 "media_item": {"name": "Song Three", "artists": [{"name": "Band"}],
                                "image": {"path": "https://img.example/3.jpg"}}},
@@ -104,8 +152,8 @@ class HouseMa(FakeMa):
         async def ok(result):
             await ws.send_json({"message_id": mid, "result": result, "partial": False})
 
-        if cmd == "music/playlists/library_items":
-            return await ok(LIBRARY)
+        if cmd.startswith("music/") and cmd.endswith("/library_items"):
+            return await ok(library_answer(cmd, args))
         if cmd == "player_queues/get_active_queue":
             return await ok({"queue_id": args["player_id"], "current_index": 2, "items": 9})
         if cmd == "player_queues/items":

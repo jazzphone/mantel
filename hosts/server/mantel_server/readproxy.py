@@ -688,6 +688,8 @@ def parse_api_path(method: object, path: object) -> tuple[str, str, str]:
 
 def _error_code(exc: BaseException) -> str:
     from .ha_client import CommandBlocked
+    if isinstance(getattr(exc, "read_code", None), str):     # an error that names its own code (music.MaNotConfigured)
+        return exc.read_code
     if isinstance(exc, (ReadBlocked, CommandBlocked)):
         return "not_allowed"
     if isinstance(exc, Forbidden):

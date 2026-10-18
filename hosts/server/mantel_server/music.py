@@ -34,10 +34,21 @@ THE SWITCH (``MusicHost.active``): Mantel answers only when BOTH Music Assistant
 to the interim bridge and every command to HA's engine, exactly as before, so the house keeps working in
 HA App mode until Music Assistant's URL and token are given to Mantel (docs/OPERATIONS.md).
 
+**Browse's library reads are reads** (``music_assistant/get_library``, ``MusicHost.get_library``): HK's library card
+asks ``call_service music_assistant.get_library`` with ``return_response`` for its Discover shelves and every
+category list. The page's shim (mantel-client.js) sends exactly that service, and nothing else, as the read
+``music_assistant/get_library`` (Mantel's own read type, answered here), so it works with commands off and never
+reaches the gateway, the audit or Home Assistant. Fields are checked against what HA's action accepts
+(``check_get_library``), RBAC is ``view`` on feature ``music`` (no player is involved), and the answer is HA's
+``{items: [{media_type, uri, name, version, image, artists, album}]}`` from Music Assistant's library-items
+commands. Without Music Assistant in Mantel the read answers ``ma_not_configured`` and the shim falls back to the
+old path (the call as a gateway command: HA's, or refused with commands off).
+
 Not here (docs/phase4/MANTEL-FEATURES.md "Music"): announcements (HA watches its own ``call_service`` bus;
 Mantel's HA connection does not see service calls, so ``announcements`` is always empty), the failure
 notifications (HA raises persistent notifications; Mantel logs them and lists them in its status), and
-Browse's library reads (HK's library card still calls ``music_assistant.get_library`` in HA).
+Browse's tree reads (``media_player/browse_media`` and ``search_media`` for an album's tracks, an artist's
+albums, a search: HK still sends those through Home Assistant).
 """
 from __future__ import annotations
 
@@ -100,6 +111,9 @@ ROUTE_RULES: dict[str, str] = {
                       "Bridge to HA while Mantel's engine is off",
     "hk_music/settings/library": "feature:music; Music Assistant's library playlists as {uri, name}. Bridge to HA "
                                  "while Mantel's engine is off",
+    "music_assistant/get_library": "feature:music (view; no player); HA's music_assistant.get_library fields only; "
+                                   "Music Assistant's library items as {items: [...]}. Needs Music Assistant in Mantel "
+                                   "(else ma_not_configured), not the music settings",
 }
 
 # measured timings (hk_core/music/const.py), read at call time so tests can shorten them
@@ -109,6 +123,11 @@ from hk_core.music.const import (  # noqa: E402
 
 # The request being served (set by MusicHost.run, carried into every await of it): its MusicRun.
 RUN: ContextVar["MusicRun | None"] = ContextVar("mantel_music_run", default=None)
+
+
+class MaNotConfigured(ConnectionError):
+    """Answered to a library read when Music Assistant is not given to Mantel (readproxy._error_code: `read_code`)."""
+    read_code = "ma_not_configured"
 
 
 class MusicRefusal(HaCommandError):
@@ -334,6 +353,118 @@ class MusicRun:
             return False
         self.sent.append(command)
         return True
+
+
+# ---------------------------------------------------------------------------- Browse's library read
+# music_assistant.get_library as HA 2026.10 accepts it (the action's fields), and Music Assistant's command per type.
+LIBRARY_COMMAND = {"artist": "artists", "album": "albums", "track": "tracks", "playlist": "playlists",
+                   "radio": "radios", "podcast": "podcasts", "audiobook": "audiobooks"}
+LIBRARY_ORDER = frozenset({"name", "name_desc", "sort_name", "sort_name_desc", "timestamp_added",
+                           "timestamp_added_desc", "last_played", "last_played_desc", "play_count",
+                           "play_count_desc", "random", "random_play_count"})
+ALBUM_TYPES = frozenset({"album", "single", "compilation", "ep", "unknown"})
+LIBRARY_FIELDS = frozenset({"config_entry_id", "media_type", "favorite", "search", "limit", "offset", "order_by",
+                            "album_type", "album_artists_only"})
+LIBRARY_LIMIT = 500
+IMAGE_SIZE = 256
+
+
+def check_get_library(data: Any) -> dict[str, Any]:
+    """``music_assistant.get_library``'s service data -> Music Assistant's ``library_items`` call:
+    ``{"media_type": "albums", "args": {...}}``. Anything HA's action would not take raises ValueError."""
+    if not isinstance(data, Mapping):
+        raise ValueError("get_library takes its fields in service_data")
+    extra = set(data) - LIBRARY_FIELDS
+    if extra:
+        raise ValueError(f"get_library may not carry {sorted(extra)}")
+    entry = data.get("config_entry_id")
+    if entry is not None and (not isinstance(entry, str) or len(entry) > 128):
+        raise ValueError("config_entry_id is a string")
+    kind = data.get("media_type")
+    if kind not in LIBRARY_COMMAND:
+        raise ValueError(f"media_type is one of {sorted(LIBRARY_COMMAND)}")
+    args: dict[str, Any] = {}
+    for key in ("favorite", "album_artists_only"):
+        if key in data:
+            if not isinstance(data[key], bool):
+                raise ValueError(f"{key} is true or false")
+            if key == "album_artists_only" and kind != "artist":
+                raise ValueError("album_artists_only is for artists")
+            args[key] = data[key]
+    if "search" in data:
+        if not isinstance(data["search"], str) or len(data["search"]) > TEXT_MAX:
+            raise ValueError(f"search is text of at most {TEXT_MAX} characters")
+        if data["search"]:
+            args["search"] = data["search"]
+    for key, low, high in (("limit", 1, LIBRARY_LIMIT), ("offset", 0, 10_000_000)):
+        if key in data:
+            v = data[key]
+            if isinstance(v, bool) or not isinstance(v, int) or not low <= v <= high:
+                raise ValueError(f"{key} is {low}..{high}")
+            args[key] = v
+    args.setdefault("limit", 25)                      # HA's default
+    if "order_by" in data:
+        if data["order_by"] not in LIBRARY_ORDER:
+            raise ValueError(f"order_by is one of {sorted(LIBRARY_ORDER)}")
+        args["order_by"] = data["order_by"]
+    if "album_type" in data:
+        kinds = data["album_type"]
+        if kind != "album":
+            raise ValueError("album_type is for albums")
+        if isinstance(kinds, str):
+            kinds = [kinds]
+        if not isinstance(kinds, list) or not kinds or not all(k in ALBUM_TYPES for k in kinds):
+            raise ValueError(f"album_type is some of {sorted(ALBUM_TYPES)}")
+        args["album_types"] = list(dict.fromkeys(kinds))
+    return {"media_type": LIBRARY_COMMAND[kind], "args": args}
+
+
+def _library_image(v: Any) -> str | None:
+    """A library item's picture as a page can load it: the artwork's own address when it is a web one without a
+    token, else Music Assistant's image proxy under Mantel's ``/ma`` (media_proxy.py: the page's prefix goes in
+    front in the shim). None when there is none."""
+    from urllib.parse import quote
+    from .readproxy import _safe_image
+    if isinstance(v, str):
+        return _safe_image(v)
+    if not isinstance(v, Mapping) or not isinstance(v.get("path"), str) or not v["path"]:
+        return None
+    path, provider = v["path"], v.get("provider")
+    if v.get("remotely_accessible") is True or path.startswith(("http://", "https://")):
+        return _safe_image(path)
+    if not isinstance(provider, str):
+        return None
+    return f"/ma/imageproxy?path={quote(path, safe='')}&provider={quote(provider, safe='')}&size={IMAGE_SIZE}"
+
+
+def _item_image(item: Mapping[str, Any]) -> str | None:
+    img = item.get("image")
+    if img is None:
+        meta = item.get("metadata")
+        imgs = meta.get("images") if isinstance(meta, Mapping) else None
+        if isinstance(imgs, list):
+            ranked = [i for i in imgs if isinstance(i, Mapping)]
+            ranked.sort(key=lambda i: 0 if i.get("type") == "thumb" else 1)
+            img = ranked[0] if ranked else None
+    return _library_image(img)
+
+
+def library_item(item: Mapping[str, Any], nested: bool = False) -> dict[str, Any]:
+    """HA's ``media_item_dict_from_mass_item``: {media_type, uri, name, version, image[, artists, album]}."""
+    def text(v: Any) -> str:
+        return v if isinstance(v, str) else ""
+    kind = item.get("media_type")
+    out: dict[str, Any] = {"media_type": text(getattr(kind, "value", kind)), "uri": text(item.get("uri")),
+                           "name": text(item.get("name")), "version": text(item.get("version")),
+                           "image": _item_image(item)}
+    if not nested:
+        artists = item.get("artists")
+        if isinstance(artists, list) and artists:
+            out["artists"] = [library_item(a, True) for a in artists if isinstance(a, Mapping)]
+        album = item.get("album")
+        if isinstance(album, Mapping):
+            out["album"] = library_item(album, True)
+    return out
 
 
 # ----------------------------------------------------------------------------------- the gateway's side
@@ -1052,6 +1183,17 @@ class MusicHost:
             got = got.get("items")
         return [i for i in got or [] if isinstance(i, Mapping)]
 
+    async def get_library(self, query: dict[str, Any]) -> dict[str, Any]:
+        """Browse's library read (``check_get_library``'s result): HA's {items} from Music Assistant."""
+        try:
+            got = await self.ma.library(query["media_type"], **query["args"])
+        except Exception as err:  # noqa: BLE001 -- the page's error, never a dropped request
+            log.info("music: the library could not be read: %s", type(err).__name__)
+            raise ConnectionError("Music Assistant could not be read.") from None
+        if isinstance(got, Mapping):
+            got = got.get("items")
+        return {"items": [library_item(i) for i in got or [] if isinstance(i, Mapping)]}
+
     async def library(self) -> list[dict[str, str]]:
         try:
             lib = await self.library_playlists(order=True)
@@ -1382,10 +1524,22 @@ def register(app: Any, hub: Any, hooks: Any = None) -> MusicHost:
             raise Forbidden("may not use music")
         return {"items": await host.library()}
 
+    async def get_library(ctx: Ctx, msg: dict):
+        if host.ma is None:
+            raise MaNotConfigured("Music Assistant is not connected to Mantel.")
+        try:
+            query = check_get_library({k: v for k, v in msg.items() if k not in ("type", "id")})
+        except ValueError as err:
+            raise ReadBlocked(str(err)) from None
+        if not await may_feature(hooks, ctx.identity, "music"):
+            raise Forbidden("may not use music")
+        return await host.get_library(query)
+
     read_routes(app).update({
         "hk_music/subscribe": Route(subscribe=subscribe),
         "hk_music/queue": Route(request=queue),
         "hk_music/settings/library": Route(request=library),
+        "music_assistant/get_library": Route(request=get_library),
         # (HK Settings' Music page, hk_music/settings/get, is feature_pages.py's: MusicHost.page while active)
     })
 

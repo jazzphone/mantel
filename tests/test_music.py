@@ -689,8 +689,156 @@ async def test_status_is_owner_or_admin(off):
 
 
 def test_every_music_read_route_has_one_rule():
-    assert set(M.ROUTE_RULES) == {"hk_music/subscribe", "hk_music/queue", "hk_music/settings/library"}
+    assert set(M.ROUTE_RULES) == {"hk_music/subscribe", "hk_music/queue", "hk_music/settings/library",
+                                  "music_assistant/get_library"}
     from mantel_server import feature_pages as FP
     assert FP.PAGE_READS["hk_music/settings/get"] == "music"        # one path: feature_pages, MusicHost.page when on
     assert M.MUSIC_WS <= set(json.loads(open(
         __import__("pathlib").Path(M.__file__).with_name("hk_writes.json")).read())["writes"])
+
+
+# ------------------------------------------------------------------------------- Browse's library (get_library)
+def lib(**fields):
+    return {"type": "music_assistant/get_library", "config_entry_id": MF.MA_ENTRY, **fields}
+
+
+def lib_reads(env):
+    return [(f["command"], f["args"]) for f in env.ma.frames if f["command"].endswith("/library_items")]
+
+
+async def test_a_discover_row_is_a_read_with_commands_off(off):
+    await a_discover_row_is_a_read(off)
+
+
+async def test_a_discover_row_is_a_read_with_commands_on(on):
+    await a_discover_row_is_a_read(on)
+
+
+async def a_discover_row_is_a_read(env):
+    await env.connected()
+    await env.login("jamie", "adult")
+    ws = await env.socket(expect_caps=False)
+    got = await env.read(ws, lib(media_type="album", order_by="last_played_desc", limit=2))
+    items = got["result"]["items"]
+    # recent first (MA ordered it), HA's item shape: names, uri, version, picture, the artist, no extra keys
+    assert [i["name"] for i in items] == ["Album A", "Album B"]
+    assert items[1] == {"media_type": "album", "uri": "library://album/2", "name": "Album B", "version": "Deluxe",
+                        "image": "/ma/imageproxy?path=%2Fdata%2Fart%2F2.jpg&provider=library&size=256",
+                        "artists": [{"media_type": "artist", "uri": "library://artist/8", "name": "Soloist",
+                                     "version": "", "image": None}]}
+    assert lib_reads(env) == [("music/albums/library_items", {"limit": 2, "order_by": "last_played_desc"})]
+    # never a command: nothing audited, nothing sent to Home Assistant, nothing but reads sent to Music Assistant
+    assert env.audit() == []
+    assert env.ma.sent() == []
+    if env.fake is not None:
+        assert env.fake.sent == []
+    await ws.close()
+
+
+async def test_favorites_and_category_pages_and_search(off):
+    await off.connected()
+    await off.login("jamie", "adult")
+    ws = await off.socket(expect_caps=False)
+    fav = (await off.read(ws, lib(media_type="track", favorite=True), rid=51))["result"]["items"]
+    assert [i["name"] for i in fav] == ["Song 3"]
+    assert fav[0]["image"] == "https://img.example/3.jpg"                       # a remote picture as it is
+    assert fav[0]["artists"][0]["name"] == "Band" and fav[0]["album"]["name"] == "Album A"
+    assert "album" not in fav[0]["album"] and "artists" not in fav[0]["album"]    # nested items are plain
+    # a category listing pages by offset and limit, in name order; a short page ends the list
+    names = []
+    for n, offset in enumerate((0, 3, 6)):
+        page = (await off.read(ws, lib(media_type="track", order_by="name", limit=3, offset=offset), rid=60 + n))["result"]["items"]
+        names.append([i["name"] for i in page])
+    assert names == [["Song 1", "Song 2", "Song 3"], ["Song 4", "Song 5", "Song 6"], ["Song 7"]]
+    got = (await off.read(ws, lib(media_type="album", search="album c"), rid=70))["result"]["items"]
+    assert [i["name"] for i in got] == ["Album C"]
+    # each type reaches its own library command; HA's default limit is 25
+    for kind, cmd in (("artist", "artists"), ("radio", "radios"), ("podcast", "podcasts"), ("playlist", "playlists"),
+                      ("audiobook", "audiobooks")):
+        await off.read(ws, lib(media_type=kind), rid=80)
+        assert lib_reads(off)[-1] == (f"music/{cmd}/library_items", {"limit": 25})
+    only = (await off.read(ws, lib(media_type="album", album_type=["single", "compilation"]), rid=81))["result"]["items"]
+    assert [i["name"] for i in only] == ["Album C", "Album D"]
+    assert lib_reads(off)[-1][1]["album_types"] == ["single", "compilation"]
+    one = (await off.read(ws, lib(media_type="artist", album_artists_only=True), rid=82))["result"]["items"]
+    assert [i["name"] for i in one] == ["Band"] and one[0]["image"].startswith("/ma/imageproxy?")
+    pl = (await off.read(ws, lib(media_type="playlist"), rid=83))["result"]["items"]
+    assert [i["uri"] for i in pl] == ["library://playlist/1", "library://playlist/2"]
+    await ws.close()
+
+
+@pytest.mark.parametrize("bad", [
+    {"media_type": "show"}, {}, {"media_type": "album", "limit": 0}, {"media_type": "album", "limit": 501},
+    {"media_type": "album", "limit": True}, {"media_type": "album", "limit": "5"}, {"media_type": "album", "offset": -1},
+    {"media_type": "album", "order_by": "name; drop"}, {"media_type": "album", "favorite": "yes"},
+    {"media_type": "album", "search": 5}, {"media_type": "album", "search": "x" * 201},
+    {"media_type": "album", "provider": "spotify"}, {"media_type": "album", "return_response": True},
+    {"media_type": "track", "album_type": ["album"]}, {"media_type": "album", "album_type": ["live"]},
+    {"media_type": "album", "album_type": []}, {"media_type": "album", "album_artists_only": True},
+    {"media_type": "album", "config_entry_id": 5}, {"media_type": "album", "entity_id": "media_player.kitchen_ma"},
+])
+async def test_fields_HA_would_not_take_are_refused_and_nothing_is_asked(off, bad):
+    await off.connected()
+    await off.login("jamie", "adult")
+    ws = await off.socket(expect_caps=False)
+    msg = {"type": "music_assistant/get_library", **bad}
+    got = await off.read(ws, msg)
+    assert got["error"]["code"] == "not_allowed", got
+    assert lib_reads(off) == []
+    await ws.close()
+
+
+def test_the_checked_query_is_music_assistants_library_command():
+    assert M.check_get_library({"media_type": "radio", "favorite": False, "limit": 500, "offset": 3, "search": "",
+                                "order_by": "random"}) == {
+        "media_type": "radios", "args": {"favorite": False, "limit": 500, "offset": 3, "order_by": "random"}}
+    assert M.check_get_library({"media_type": "album", "album_type": "ep"})["args"]["album_types"] == ["ep"]
+    with pytest.raises(ValueError):
+        M.check_get_library(["media_type"])
+
+
+async def test_without_music_view_nothing_is_asked_of_music_assistant(off):
+    await off.connected()
+    await off.login("gwen", "guest")
+    ws = await off.socket(expect_caps=False)
+    got = await off.read(ws, lib(media_type="album"))
+    assert got["error"]["code"] == "forbidden"
+    assert lib_reads(off) == []
+    await ws.close()
+    await off.login("jamie", "adult")                       # and it is the person's own right, not the server's
+    ws = await off.socket(expect_caps=False)
+    assert "result" in await off.read(ws, lib(media_type="album"))
+    await ws.close()
+
+
+async def test_music_assistant_failing_is_unavailable_not_a_dropped_request(off):
+    await off.connected()
+    await off.login("jamie", "adult")
+    ws = await off.socket(expect_caps=False)
+
+    async def broken(*_a, **_k):
+        raise RuntimeError("boom")
+    off.app["ma"].library = broken
+    got = await off.read(ws, lib(media_type="album"))
+    assert got["error"] == {"code": "unavailable", "message": "Music Assistant could not be read."}
+    await ws.close()
+
+
+async def test_without_music_assistant_in_mantel_the_read_says_so(bridge):
+    # the page's shim then sends the call the old way (a gateway command to HA); here, only the read's answer
+    await bridge.login("jamie", "adult")
+    ws = await bridge.socket()
+    got = await bridge.read(ws, lib(media_type="album"))
+    assert got["error"]["code"] == "ma_not_configured" and "not connected" in got["error"]["message"]
+    assert bridge.fake.frames == []
+    await ws.close()
+
+
+async def test_the_library_needs_music_assistant_not_the_music_settings(no_doc):
+    await no_doc.connected()
+    await no_doc.login("jamie", "adult")
+    ws = await no_doc.socket(expect_caps=False)
+    assert no_doc.app["music"].active is False
+    got = await no_doc.read(ws, lib(media_type="playlist"))
+    assert len(got["result"]["items"]) == 2
+    await ws.close()

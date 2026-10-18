@@ -258,6 +258,29 @@
     if (typeof hub.ask !== 'function') return Promise.reject(fail('commands_disabled', 'commands disabled'));
     return hub.ask('tablets_restart', {}).then(function (r) { return { restarted: (r && r.restarted) || [] }; });
   }
+  var LIBRARY_KEYS = ['type', 'domain', 'service', 'service_data', 'return_response'];
+  function isLibraryRead(msg) {
+    return !!msg && msg.type === 'call_service' && msg.domain === 'music_assistant' && msg.service === 'get_library' &&
+      msg.return_response === true && Object.keys(msg).every(function (k) { return LIBRARY_KEYS.indexOf(k) >= 0; }) &&
+      (msg.service_data === undefined || (msg.service_data !== null && typeof msg.service_data === 'object' && !Array.isArray(msg.service_data)));
+  }
+  // answered as Home Assistant's WebSocket does a service call with a response: {response: {items}}; a picture on
+  // Mantel's /ma proxy gets the page's prefix in front (HA App mode serves Mantel under Ingress)
+  function libraryRead(hub, msg) {
+    var q = Object.assign({}, msg.service_data || {}, { type: 'music_assistant/get_library' });
+    return hub.read(q).then(function (res) {
+      var base = global.__mantelBase || '';
+      var fix = function (v) {
+        if (!v || typeof v !== 'object') return v;
+        var out = Object.assign({}, v);
+        if (typeof out.image === 'string' && out.image.indexOf('/ma/imageproxy?') === 0) out.image = base + out.image;
+        if (Array.isArray(out.artists)) out.artists = out.artists.map(fix);
+        if (out.album) out.album = fix(out.album);
+        return out;
+      };
+      return { response: { items: ((res && res.items) || []).map(fix) } };
+    });
+  }
   function withFeatures(port, hub) {
     var acts = port.actions;
     if (!acts || !hub || typeof hub.screenReport !== 'function') return;
@@ -276,6 +299,18 @@
       // still the interim (the answer says `ha: true`), HA keeps sensor.tv_viewers: with commands on the
       // heartbeat ALSO goes to HA through the gateway, as before. docs/phase4/FEATURE-PARITY.md "Live TV".
       if (t === 'hk_tv/watching') return tvWatching(hub, msg, acts, callWS);
+      // BROWSE'S LIBRARY (hk-library.js: Discover's shelves and every category list) asks
+      // music_assistant.get_library over the socket. A read of Music Assistant's library, never a command: sent as
+      // Mantel's read `music_assistant/get_library` (music.py), on every server, commands on or off, nothing audited
+      // and nothing reaching Home Assistant. Only that one service with return_response; anything else about
+      // call_service is a command as before. Mantel without Music Assistant answers `ma_not_configured`: the call then
+      // goes the old way (the gateway: Home Assistant's, or refused when commands are off).
+      if (isLibraryRead(msg) && typeof hub.read === 'function') {
+        return libraryRead(hub, msg).catch(function (e) {
+          if (e && e.code === 'ma_not_configured') return callWS.call(acts, msg);
+          throw e;
+        });
+      }
       // THE MUSIC PAGE IS IN USE (hk-library.js, on a browse, a search or a play): in HA it only tells Keep
       // Playlists Ready to wait. Not a command (nothing reaches Music Assistant or HA): Mantel's music host
       // answers `music_used` on every server, commands on or off (docs/phase4/MANTEL-FEATURES.md "Music").

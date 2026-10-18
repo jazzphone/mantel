@@ -205,6 +205,30 @@ def test_hks_music_speaker_is_mantels_own_user_data_never_a_command(observed, mo
         assert r["userDataOtherFrame"]["type"] == "command"
 
 
+@pytest.mark.parametrize("mode", ["off", "on"])
+def test_browses_library_is_a_music_read_never_a_command(observed, mode):
+    r = observed[mode]
+    assert r["libFrame"] == {"type": "read", "id": r["libFrame"]["id"], "msg": {
+        "type": "music_assistant/get_library", "config_entry_id": "e1", "media_type": "album",
+        "order_by": "last_played_desc", "limit": 12}}
+    # answered as HA's WebSocket answers a service call with a response; the proxy picture carries the page's prefix
+    assert [i["image"] for i in r["lib"]["response"]["items"]] == ["/ing/ma/imageproxy?path=a&provider=p&size=256",
+                                                                    "https://img.example/c.jpg"]
+    assert r["lib"]["response"]["items"][0]["artists"][0]["name"] == "B"
+    assert (r["libSent"], r["libRefusedEvents"]) == (1, 0)
+    # no Music Assistant in Mantel: the old way (the gateway's command, or refused with commands off)
+    if mode == "off":
+        assert r["libFallback"] == "commands_disabled" and r["libFallbackSent"] == 1
+    else:
+        assert r["libFallbackFrame"]["type"] == "command" and r["libFallback"] == {"response": {"items": []}}
+    assert r["libError"] == "forbidden" and r["libErrorSent"] == 1
+    # another service, no response asked for, a target: not the read
+    if mode == "off":
+        assert r["libOther"] == ["commands_disabled"] * 3 and r["libOtherSent"] == 0
+    else:
+        assert r["libOtherFrames"] == ["command"] * 3 and r["libOtherSent"] == 3
+
+
 def test_the_frames_are_what_the_servers_handlers_accept():
     # the same keys features.py validates (screen_report: tablet + bools; notify_mute: key + seconds)
     src = (ROOT / "hosts/server/mantel_server/features.py").read_text()
