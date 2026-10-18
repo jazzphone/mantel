@@ -42,7 +42,7 @@ function reset() {
   __resetTimers();
 }
 // A card stub: _snap and _ageText are prototype methods and read only _config
-// and _hass, so they run without the element being constructed.
+// and the client, so they run without the element being constructed.
 function card(cfg) {
   var c = Object.create(C.prototype);
   c._config = cfg || {};

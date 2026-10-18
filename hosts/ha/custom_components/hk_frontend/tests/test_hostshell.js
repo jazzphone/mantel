@@ -146,6 +146,19 @@ var side = S.sidebarData();
 ok('sidebarData(): the frontend\'s user, panels and their titles', side.user.name === 'Jo' && side.panels.map.icon === 'mdi:map' &&
    side.localize('panel.map') === 'Map');
 ha.hass = rootWas;
+var sent = [], held = [];
+ha.hass = { connection: { sendMessage: function (m) { sent.push(m.type); },
+                          sendMessagePromise: function (m) { sent.push(m.type); return Promise.resolve('answer'); } } };
+ok('holdWrites: in place on the frontend\'s socket', S.holdWrites(function (m) { return m.type === 'call_service'; },
+                                                            function (m) { held.push(m.type); }) === true);
+ha.hass.connection.sendMessage({ type: 'call_service' });
+ha.hass.connection.sendMessagePromise({ type: 'call_service' });
+ha.hass.connection.sendMessage({ type: 'get_states' });
+ha.hass.connection.sendMessagePromise({ type: 'get_states' });
+ok('...a write is held and told, a read still goes', held.join() === 'call_service,call_service' && sent.join() === 'get_states,get_states');
+ha.hass = {};
+ok('...without a socket yet: not in place', S.holdWrites(function () { return true; }, function () {}) === false);
+ha.hass = rootWas;
 globalThis.customElements = { get: function (n) { return n === 'home-assistant' ? function () {} : undefined; } };
 ok('defined(): HA\'s element in the current registry', S.defined() === true);
 

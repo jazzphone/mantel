@@ -14,6 +14,8 @@
 
   const MANTEL = {
     kind: 'mantel',
+    // Mantel sends no writes at all (commands_disabled): nothing to hold back
+    holdWrites: function () { return true; },
     tags: { viewContainer: 'hk-view-container' },
     root: () => byId('hk-shell-root'),
     overlayRoot: () => byId('hk-shell-root'),

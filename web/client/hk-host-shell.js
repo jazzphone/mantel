@@ -61,7 +61,12 @@
     // the host's own sidebar for HK's menu and tab bar: { user, panels,
     // localize(key) } (its pages, their titles and icons), or null for a host
     // with no sidebar of its own
-    sidebarData: nil
+    sidebarData: nil,
+    // HOLD BACK WRITES on the host's own connection (the sky lab's preview):
+    // every message `isWrite(msg)` says changes something is not sent, and
+    // `onHeld(msg)` is told. true once in place (or when the host sends no
+    // writes at all), false while it cannot be yet.
+    holdWrites: function () { return false; }
   };
   KINDS.forEach(function (k) { NONE.tags[k] = null; });
 
@@ -96,7 +101,7 @@
 
   ['root', 'overlayRoot', 'main', 'mainRoot', 'drawer', 'sidebar', 'resolver', 'panel', 'dashboard',
    'dashboardRoot', 'viewContainer', 'viewSlot', 'view', 'viewBackground', 'toolbar', 'dashboardConfig', 'onDashboard', 'isDashboard',
-   'defined', 'showNotifications', 'keepAwake', 'sidebarData'].forEach(function (name) {
+   'defined', 'showNotifications', 'keepAwake', 'sidebarData', 'holdWrites'].forEach(function (name) {
     shell[name] = function () {
       try { return get(name).apply(shell, arguments); } catch (e) { return name === 'onDashboard' ? true : null; }
     };

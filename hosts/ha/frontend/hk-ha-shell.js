@@ -117,6 +117,22 @@
              localize: typeof h.localize === 'function' ? function (k) { return h.localize(k); } : null };
   };
 
+  // the sky lab's preview: the frontend's own socket stops sending writes
+  HA.holdWrites = function (isWrite, onHeld) {
+    var r = HA.root(), conn = r && r.hass && r.hass.connection;
+    if (!conn) return false;
+    var send = conn.sendMessage.bind(conn), sendP = conn.sendMessagePromise.bind(conn);
+    conn.sendMessage = function (msg, id) {
+      if (msg && isWrite(msg)) { onHeld(msg); return; }
+      return send(msg, id);
+    };
+    conn.sendMessagePromise = function (msg) {
+      if (msg && isWrite(msg)) { onHeld(msg); return Promise.resolve(null); }
+      return sendP(msg);
+    };
+    return true;
+  };
+
   global.hkShell.use(HA);
   global.hkHAShell = HA;
 })(globalThis);
