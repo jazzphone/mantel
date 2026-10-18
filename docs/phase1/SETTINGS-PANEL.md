@@ -155,6 +155,8 @@ No change in the HA build: the same messages, paths, inits and receivers. Stated
 
 ## Exact continuation point
 
+> **Superseded:** Phase 1 is complete. See [CARDS.md](CARDS.md#exact-continuation-point).
+
 This slice is complete on its branch, not merged. Next:
 1. The orchestrator merges this slice and lowers the three budgets in `legacy-ha-access.json`
    to 0 (or removes them), then adds the dynamic write types above to `hkClient.WRITES`.

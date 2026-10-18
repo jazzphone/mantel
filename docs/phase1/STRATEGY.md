@@ -96,6 +96,8 @@ Mantel, browser smoke passed.
 
 ## Exact continuation point
 
+> **Superseded:** Phase 1 is complete. See [CARDS.md](CARDS.md#exact-continuation-point).
+
 hk-strategy.js is at 0. Next: lower its budget in `legacy-ha-access.json` (220 → 0) and record the
 slice in PLAN.md's roadmap row 10 when this merges. Slice 11 (HK Settings panel) can follow the
 same pattern: convert at the panel's entry with a local `clientOf`, rename parameters, and add an

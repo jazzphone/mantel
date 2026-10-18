@@ -220,7 +220,7 @@ exceptions are unchanged.
 
 ## Exact continuation point
 
-> **Superseded:** slice 7 is done. See [CONNECTIONS.md](CONNECTIONS.md#exact-continuation-point).
+> **Superseded:** slices 7–12 are done (the settings saves moved in slice 11, [SETTINGS-PANEL.md](SETTINGS-PANEL.md)). See [CARDS.md](CARDS.md#exact-continuation-point).
 
 This slice is complete. Next is slice 7: move the raw connections (`hk-cameras.js` ready
 listener and WebRTC signaling, `hk-weather.js`, `hk-saver-weather.js`'s forecast subscription,

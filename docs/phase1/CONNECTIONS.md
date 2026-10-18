@@ -108,6 +108,8 @@ in `test_weathersheet.js` can switch to the shared helper when it merges.
 
 ## Exact continuation point
 
+> **Superseded:** Phase 1 is complete. See [CARDS.md](CARDS.md#exact-continuation-point).
+
 This slice is complete. Next:
 1. ~~Merge slice 8b, switch `test_weathersheet.js` to `tests/fixed_clock.js`, revalidate.~~
    Done in the merge commit: 117 suites, 665 HA Python, 155 Mantel and the smoke all pass; raw-host total 1,600.
