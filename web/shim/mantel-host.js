@@ -21,6 +21,17 @@ export function stateObj(entityId, s) {
   };
 }
 
+// A wall tablet's screens (see SCREENS in Host): the ids of the two switches the adapter keeps for it
+export const SCREEN_SETTLE_MS = 400;
+const TABLET_ID =/^[a-z0-9_]{1,40}$/;
+const SCREEN_ENTITY = /^switch\.mantel_([a-z0-9_]{1,40})_(?:black_screen|photo_screensaver)$/;
+export function screenEntity(tid, kind) { return `switch.mantel_${tid}_${kind === 'black' ? 'black_screen' : 'photo_screensaver'}`; }
+function screenState(id, on, attributes) {
+  const now = new Date().toISOString();
+  return { entity_id: id, state: on ? 'on' : 'off', attributes: Object.assign({}, attributes),
+           last_changed: now, last_updated: now, context: { id: '', parent_id: null, user_id: null } };
+}
+
 // Writes are never sent. Reads go to the server, which has its own allowlist.
 const WRITE_WORDS = /(^|\/|_)(set|save|remove|delete|add|update|create|call_service|order|favorite|touch|black|seen|mute|test|sign|queue|play|transfer|talk|offer|candidate)(_|\/|$)/;
 
@@ -69,6 +80,11 @@ export class Host {
     this.reads = new Set();                 // entity ids read through hass.states after the build
     this.recording = false;
     this._states = {};
+    // Mantel's own screens (see "SCREENS" below): states HK reads as it reads a tablet's switches in HA
+    this._overlay = {};                     // entity id -> state object
+    this._merged = this._states;            // what hass.states shows: the hub's states plus the overlay
+    this._tablets = new Set();              // wall tablets the settings feed named
+    this._screensReady = false;             // the events feed answered: the defaults (off) are true
     const self = this;
     const listeners = new Map();
     this.connection = {
@@ -119,6 +135,12 @@ export class Host {
       this.denied.push({ what: d.what, reason: d.reason });
       toast(d.reason === 'person_pin_required' ? 'A person has to confirm this' : 'Not allowed');
     });
+    if (typeof window.hkMantelClient.useScreens === 'function') {
+      window.hkMantelClient.useScreens({
+        owns: (id) => this._owns(id), set: (id, on) => this._setScreen(id, on),
+        reported: (tid, black) => this._setScreen(screenEntity(tid, 'black'), black),
+      });
+    }
     this.access = new Map();                // hass field -> times read (only with ?trace=1)
     this.trace = new URLSearchParams(location.search).get('trace') === '1';
     this._wrapStates();
@@ -131,7 +153,7 @@ export class Host {
   _wrapStates() {
     const self = this;
     // while recording, reading a state by id notes the id (what a screen really needs from the hub)
-    this._raw.states = new Proxy(this._states, {
+    this._raw.states = new Proxy(this._merged, {
       get(t, k) { if (self.recording && typeof k === 'string') self.reads.add(k); return t[k]; },
     });
     this.hass = this.trace ? this._traced(this._raw, '') : this._raw;
@@ -185,6 +207,7 @@ export class Host {
   }
 
   _publish() {
+    this._merged = Object.keys(this._overlay).length ? Object.assign({}, this._states, this._overlay) : this._states;
     this._raw = Object.assign({}, this._raw);
     this._wrapStates();
     this.listeners && this.listeners.forEach((fn) => fn(this.hass));
@@ -217,9 +240,21 @@ export class Host {
 
   _subscribe(cb, msg) {
     this._count(msg.type);
-    // Stood in locally: the house's popup events are not relayed in this proof; the user-data feed is
-    // per HA user and Mantel has no HA user for the viewer.
-    if (msg.type === 'hk_frontend/events/subscribe') return Promise.resolve(() => {});
+    // The house's events (notifications, pop-ups, and Mantel's own `screen` frames) come from the
+    // feature host's feed under the same message type (features.py). The user-data feed stays stood in:
+    // it is per HA user and Mantel has no HA user for the viewer.
+    if (msg.type === 'hk_frontend/events/subscribe') {
+      return this.hub.readSubscribe(msg, (ev) => {
+        if (ev && ev.type === 'screen') this._screen(ev); else cb(ev);
+      }).then((unsub) => {
+        // the server's frames for a screen that is already black follow its answer closely: "off" is
+        // only taken to be true once they have had a moment to arrive (until then HK reads "not known")
+        setTimeout(() => { this._screensReady = true; this._seedScreens(); }, SCREEN_SETTLE_MS);
+        return unsub;
+      });
+    }
+    // the settings feed names no HA switch for a tablet on Mantel: the screens' own are named here
+    if (msg.type === 'hk_frontend/settings/subscribe') { const raw = cb; cb = (p) => raw(this._withScreens(p)); }
     if (msg.type === 'frontend/subscribe_user_data') { queueMicrotask(() => cb({ value: null })); return Promise.resolve(() => {}); }
     if (CAMERA_SUBSCRIPTIONS.has(msg.type)) return this.hub.readSubscribe(msg, cb);
     if (WRITE_WORDS.test(msg.type)) return this._refuse(msg.type);
@@ -229,6 +264,74 @@ export class Host {
       return Promise.resolve(() => {});
     }
     return this.hub.readSubscribe(msg, cb);
+  }
+
+  // -- SCREENS ----------------------------------------------------------------------------------
+  // In Home Assistant a wall tablet's black screen and photo screensaver are two switches of the
+  // hk_frontend integration; HK's page reads their states (hk-saver.js) and reports back with
+  // hk_frontend/screensaver/touch|black. Mantel has no such entities, so the host adapter keeps the
+  // same two states for each tablet itself, under ids of its own (switch.mantel_<tablet>_black_screen,
+  // ..._photo_screensaver), fills them into the settings feed where Home Assistant would, and sets them
+  // from the feature host's `screen` frames {tablet, black|photos}. HK's code is untouched: it sees
+  // a switch go on or off. The page's reports go out in mantel-client.js (screen_report).
+  _owns(id) {
+    const m = SCREEN_ENTITY.exec(String(id));
+    return !!m && this._tablets.has(m[1]);
+  }
+
+  _setScreen(id, on) {
+    const m = SCREEN_ENTITY.exec(String(id));
+    if (!m || !this._tablets.has(m[1])) return;
+    const cur = this._overlay[id];
+    if (cur && cur.state === (on ? 'on' : 'off')) return;
+    this._overlay[id] = screenState(id, on, cur ? cur.attributes : {});
+    this._publish();
+  }
+
+  // a `screen` frame: {tablet, black, brightness?} or {tablet, photos}
+  _screen(ev) {
+    const tid = ev.tablet;
+    if (typeof tid !== 'string' || !TABLET_ID.test(tid)) return;
+    this._tablets.add(tid);
+    if (typeof ev.black === 'boolean') {
+      const id = screenEntity(tid, 'black');
+      const attrs = typeof ev.brightness === 'number' ? { brightness: ev.brightness } : {};
+      this._overlay[id] = screenState(id, ev.black, attrs);
+    }
+    if (typeof ev.photos === 'boolean') {
+      const id = screenEntity(tid, 'photos');
+      this._overlay[id] = screenState(id, ev.photos, {});
+    }
+    this._publish();
+  }
+
+  // every known tablet reads "off" for both, once the feed has had its say (until then: not known)
+  _seedScreens() {
+    if (!this._screensReady) return;
+    let added = false;
+    for (const tid of this._tablets) {
+      for (const kind of ['black', 'photos']) {
+        const id = screenEntity(tid, kind);
+        if (!this._overlay[id]) { this._overlay[id] = screenState(id, false, {}); added = true; }
+      }
+    }
+    if (added) this._publish();
+  }
+
+  // the settings feed with each tablet's two switches named (where the server named none)
+  _withScreens(p) {
+    if (!p || typeof p !== 'object' || !p.tablet_items || typeof p.tablet_items !== 'object') return p;
+    const items = {};
+    for (const [tid, t] of Object.entries(p.tablet_items)) {
+      if (!t || typeof t !== 'object' || !TABLET_ID.test(tid)) { items[tid] = t; continue; }
+      this._tablets.add(tid);
+      items[tid] = Object.assign({}, t, {
+        screensaver_switch: t.screensaver_switch || screenEntity(tid, 'photos'),
+        black_switch: t.black_switch || screenEntity(tid, 'black'),
+      });
+    }
+    this._seedScreens();
+    return Object.assign({}, p, { tablet_items: items });
   }
 
   // -- the stubs HK's DOM lookups land on -------------------------------------------------------
