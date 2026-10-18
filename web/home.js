@@ -15,6 +15,7 @@ import './client/hk-host-shell.js';
 import './shim/mantel-shell.js';
 import './cards/hk-metric.js';
 import './shim/mantel-client.js';
+import './shim/mantel-stepup.js';
 import './shim/ha-elements.js';
 import '/hk/elements/hk-elements.js';
 import { Host, toast } from './shim/mantel-host.js';
@@ -34,6 +35,12 @@ const seg = location.pathname.split('/')[1];
 const json = (u) => fetch(u).then((r) => { if (!r.ok) throw new Error(u + ' ' + r.status); return r.json(); });
 const hub = new Hub();
 window.__mantelHub = hub;
+// Commands: only a server whose operator turned the gateway on sends `capabilities` (commands: true);
+// clients made after that carry actions (mantel-client.js). Until then, and on every other server,
+// the action port refuses with commands_disabled and nothing is sent.
+window.hkMantelClient.useCommands(hub);
+let hostForCaps = null;
+hub.onCapabilities = () => { if (hostForCaps) hostForCaps._publish(); };
 const [registry, user, fixtures, cards] = await Promise.all([
   json('/api/registry'), json('/api/me'), json('/api/fixtures'), json('/api/hk-cards'), hub.connect(),
 ]);
@@ -49,6 +56,8 @@ const host = new Host({
   config, themes,
 });
 host.installLookups();
+hostForCaps = host;
+if (hub.commandsEnabled()) host._publish();     // capabilities came before the host: new clients now act
 window.hkMantelShell.install(host);
 window.__mantel = host;
 

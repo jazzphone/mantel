@@ -5,7 +5,16 @@ Client protocol (JSON text frames, /ws):
   <- {"type":"snapshot","entities":{id:{s,a,lc,lu}},"missing":[...]}
   <- {"type":"diff","changes":{id:{"+":{...},"-":{"a":[...]}}},"added":{...},"removed":[...]}
   -> {"type":"unsubscribe"} | {"type":"ping"} | {"type":"watch_stats"}
-Anything that looks like a command gets {"type":"error","code":"commands_disabled"}.
+  -> any type in app["ws_handlers"] (P3.4: read, read_subscribe, read_unsubscribe, read_api, ma/*)
+Anything that looks like a command gets {"type":"error","code":"commands_disabled"} -- unless the
+server's operator turned the command gateway on (cfg.commands_enabled), in which case the socket
+first receives {"type":"capabilities","commands":true,...} and {"type":"command",...} messages go
+to gateway.py (RBAC, step-up, audit, then Home Assistant).
+
+P3.7 wiring (build_app): every slice's register(); one Principal per socket (authz.py: the session's
+user and device, the door, the fresh factor) whose RBAC gate filters the socket's view and whose
+identity the connectors and the gateway decide with; a once-a-minute policy tick (schedules, guest
+windows, revocations); the house time zone from HA's get_config, with cfg.house_tz as the fallback.
 """
 from __future__ import annotations
 
@@ -20,16 +29,22 @@ from urllib.parse import urlparse
 import aiohttp
 from aiohttp import WSMsgType, web
 
-from . import accounts, auth, devices, proof2, sessions
+from . import accounts, auth, devices, gateway, health, proof2, rbac_store, readproxy, sessions
+from .authz import Authz, Principal, resolve_door
 from .config import Config
+from .connectors import REFUSE_ALL, Ctx, Hooks
+from .connectors import camera as camera_connector
+from .connectors import ma as ma_connector
 from .ha_oauth import HaOAuth
-from .readproxy import ReadBlocked, ReadProxy
+from .readproxy import ReadProxy
 from .store import Store
-from .ha_client import HaClient
+from .ha_client import HaClient, commander_for
 from .registry import Registry
 from .state import StateStore
 from .stats import Counter
-from .view import ClientView, Coalescing
+from .view import ClientView, Coalescing, filter_registry
+
+POLICY_TICK = 60.0          # seconds between re-checks of what each socket may see (schedules, revocations)
 
 log = logging.getLogger("mantel.server")
 
@@ -75,15 +90,30 @@ class Hub:
 
 
 class ClientSession:
-    def __init__(self, hub: Hub, ws: web.WebSocketResponse) -> None:
+    def __init__(self, hub: Hub, ws: web.WebSocketResponse, principal: Principal | None = None,
+                 app: web.Application | None = None) -> None:
         self.hub = hub
         self.ws = ws
-        self.view = ClientView(hub.store, hub.registry, hub.coalescing)
+        self.app = app
+        self.principal = principal  # None only in a bare app with no sign-in (tests of the hub itself)
+        gate = principal.gate if principal is not None else None
+        self.view = ClientView(hub.store, hub.registry, hub.coalescing, gate=gate)
         self.wake = asyncio.Event()
         self.tx = Counter()  # snapshot + diff frames only (stats frames are excluded)
         self.subscribed = False
         self.watch = False
-        self.read_subs: dict[int, int] = {}  # page's read id -> ReadProxy subscription id
+        # P3.4's per-connection context: the connectors' handlers answer through it, and close() ends
+        # every subscription they opened (WebRTC sessions, forecasts, MA events)
+        self.ctx = Ctx(send=self.send, identity=principal)
+        self.tasks: set[asyncio.Task] = set()
+
+    def spawn(self, coro) -> None:
+        t = asyncio.get_running_loop().create_task(coro)
+        self.tasks.add(t)
+        t.add_done_callback(self.tasks.discard)
+
+    async def send_quiet(self, msg: dict) -> None:
+        await self.send(msg, count=False)
 
     async def send(self, msg: dict, count: bool = True) -> None:
         data = json.dumps(msg, separators=(",", ":"))
@@ -131,11 +161,19 @@ class ClientSession:
             return
         kind = classify(msg)
         if kind == "command":
-            err = dict(COMMANDS_DISABLED)
+            gw = self.app.get("gateway") if self.app is not None else None
+            if gw is not None and self.principal is not None and isinstance(msg, dict) and msg.get("type") == "command":
+                self.spawn(gw.handle(self.principal, msg, self.send_quiet))
+                return
+            if gw is not None:
+                err = {"type": "error", "code": "invalid_command",
+                       "message": 'send {"type": "command", "kind": "service"|"ws"|"http"|"ma", ...}'}
+            else:
+                err = dict(COMMANDS_DISABLED)
+                log.warning("blocked a command-type message from a client")
             if "id" in msg:
                 err["id"] = msg["id"]
             await self.send(err, count=False)
-            log.warning("blocked a command-type message from a client")
         elif kind == "subscribe":
             ids = [e for e in msg.get("entity_ids") or [] if isinstance(e, str)]
             areas = [a for a in msg.get("areas") or [] if isinstance(a, str)]
@@ -153,50 +191,22 @@ class ClientSession:
             await self.send({"type": "pong"}, count=False)
         elif kind == "watch_stats":
             self.watch = True
-        elif kind in ("read", "read_subscribe", "read_unsubscribe"):
-            asyncio.get_running_loop().create_task(self.read(kind, msg))
         else:
-            await self.send({"type": "error", "code": "unknown_type"}, count=False)
-
-    async def read(self, kind: str, msg: dict) -> None:
-        """Live HA reads for the page, through the ReadProxy and its own allowlist."""
-        rid = msg.get("id")
-        proxy = self.hub.readproxy
-
-        async def fail(code: str, text: str = "") -> None:
-            await self.send({"type": "read_result", "id": rid, "error": {"code": code, "message": text}}, count=False)
-
-        if proxy is None or not isinstance(rid, int):
-            return await fail("unavailable")
-        try:
-            if kind == "read_unsubscribe":
-                mid = self.read_subs.pop(rid, None)
-                if mid is not None:
-                    await proxy.unsubscribe(mid)
-                return
-            inner = msg.get("msg")
-            if not isinstance(inner, dict):
-                return await fail("invalid")
-            if kind == "read":
-                result = await proxy.request(inner)
-                await self.send({"type": "read_result", "id": rid, "result": result})
+            # P3.4's handler table (reads, camera signaling, MA reads): after classify(), so nothing
+            # command-shaped ever reaches a connector whatever is registered there
+            handlers = self.app.get("ws_handlers", {}) if self.app is not None else {}
+            handler = handlers.get(msg.get("type")) if isinstance(msg, dict) else None
+            if handler is None:
+                await self.send({"type": "error", "code": "unknown_type"}, count=False)
             else:
-                loop = asyncio.get_running_loop()
-
-                def on_event(ev: dict) -> None:
-                    loop.create_task(self.send({"type": "read_event", "id": rid, "event": ev}))
-
-                self.read_subs[rid] = await proxy.subscribe(inner, on_event)
-                await self.send({"type": "read_result", "id": rid, "result": None}, count=False)
-        except ReadBlocked as exc:
-            log.warning("blocked a read: %s", exc)
-            await fail("not_allowed", str(exc))
-        except Exception as exc:  # noqa: BLE001 -- a failed read is the page's error, never the socket's
-            await fail("failed", str(exc))
+                self.spawn(handler(self.ctx, msg))
 
     async def run(self) -> None:
         tasks = [asyncio.create_task(self.pump()), asyncio.create_task(self.stats_loop())]
         try:
+            gw = self.app.get("gateway") if self.app is not None else None
+            if gw is not None:  # only when the operator turned commands on: the page then offers actions
+                await self.send(gw.capabilities(self.principal), count=False)
             async for m in self.ws:
                 if m.type == WSMsgType.TEXT:
                     await self.handle(m.data)
@@ -205,9 +215,9 @@ class ClientSession:
         finally:
             for t in tasks:
                 t.cancel()
-            if self.hub.readproxy:
-                for mid in self.read_subs.values():
-                    await self.hub.readproxy.unsubscribe(mid)
+            for t in list(self.tasks):
+                t.cancel()
+            await self.ctx.close()
 
 
 @web.middleware
@@ -227,8 +237,10 @@ async def loopback_only(request: web.Request, handler):
 async def ws_handler(request: web.Request) -> web.StreamResponse:
     hub: Hub = request.app["hub"]
     ws = web.WebSocketResponse(heartbeat=30, max_msg_size=1 << 20)
+    authz: Authz | None = request.app.get("authz")
+    principal = authz.principal(request) if authz is not None else None
     await ws.prepare(request)
-    session = ClientSession(hub, ws)
+    session = ClientSession(hub, ws, principal, request.app)
     hub.sessions.add(session)
     try:
         await session.run()
@@ -246,11 +258,20 @@ async def dev_page(request: web.Request) -> web.Response:
     return web.Response(text=html, content_type="text/html", headers={"Cache-Control": "no-store"})
 
 
+def request_gate(request: web.Request):
+    """The RBAC read filter for a REST read (the same gate a socket of this identity gets)."""
+    authz: Authz | None = request.app.get("authz")
+    return authz.principal(request).gate if authz is not None else None
+
+
 async def api_entities(request: web.Request) -> web.Response:
     hub: Hub = request.app["hub"]
     reg = hub.registry
+    gate = request_gate(request)
     out = []
     for eid, st in hub.store.states.items():
+        if gate is not None and not gate.visible(eid):
+            continue
         area = reg.entity_area.get(eid)
         out.append({"id": eid, "name": st["a"].get("friendly_name") or "", "area": reg.areas.get(area, "") if area else ""})
     out.sort(key=lambda e: e["id"])
@@ -347,7 +368,7 @@ async def home_page(request: web.Request) -> web.StreamResponse:
 
 
 async def api_registry(request: web.Request) -> web.Response:
-    return web.json_response(request.app["hub"].registry.frontend_shapes())
+    return web.json_response(filter_registry(request.app["hub"].registry.frontend_shapes(), request_gate(request)))
 
 
 async def api_fixtures(request: web.Request) -> web.Response:
@@ -384,6 +405,7 @@ def build_app(cfg: Config, token: str, store: Store | None = None, connect_ha: b
     sessions.register(app, hub)
     accounts.register(app, hub)
     devices.register(app, hub)
+    wire(app, hub, token, connect_ha)
     app.router.add_get("/ws", ws_handler)
     app.router.add_get("/", root)
     app.router.add_get("/dev", dev_page)
@@ -406,12 +428,19 @@ def build_app(cfg: Config, token: str, store: Store | None = None, connect_ha: b
 
     async def start(app: web.Application) -> None:
         app["http"] = aiohttp.ClientSession()
+        app["tick_task"] = asyncio.create_task(policy_tick(app, hub))
         if connect_ha:
             hub.readproxy = ReadProxy(cfg.ha_url, token)
             app["ha_task"] = asyncio.create_task(hub.ha.run())
+            app["tz_task"] = asyncio.create_task(house_tz(app, hub))
 
     async def stop(app: web.Application) -> None:
         await app["http"].close()
+        for name in ("tick_task", "tz_task"):
+            if name in app:
+                app[name].cancel()
+        if app.get("commander") is not None:
+            await app["commander"].close()
         if hub.readproxy:
             await hub.readproxy.close()
         if connect_ha:
@@ -424,3 +453,87 @@ def build_app(cfg: Config, token: str, store: Store | None = None, connect_ha: b
     app.on_startup.append(start)
     app.on_cleanup.append(stop)
     return app
+
+
+# -- P3.7 wiring ------------------------------------------------------------------------------------
+def _rbac_identity(request: web.Request) -> dict | None:
+    """rbac_store's resolver: the signed-in user (its REST is Owner-only; a device alone is no one)."""
+    ident = sessions.identity(request)
+    return {"user_id": ident.user.id, "role": ident.user.role} if ident.user is not None else None
+
+
+def _csrf_ok(request: web.Request) -> bool:
+    try:
+        sessions.check_csrf(request, sessions.identity(request))
+    except web.HTTPForbidden:
+        return False
+    return True
+
+
+def wire(app: web.Application, hub: Hub, token: str, connect_ha: bool) -> None:
+    """Register P3.2 (RBAC), P3.3 (gateway), P3.4 (connectors) and P3.6 (health) with real hooks."""
+    cfg: Config = app["cfg"]
+    app["door_resolver"] = resolve_door                     # X-Mantel-Door believed from trusted proxies only
+    audit = gateway.Audit(app["store"].db, lambda: app["clock"]())
+    app["audit"] = audit
+    store = rbac_store.register(app, hub, identity=_rbac_identity, store=rbac_store.RbacStore(app["store"].db),
+                                csrf=_csrf_ok, audit=audit.config_event)
+    authz = Authz(app, hub, store, lambda: app["clock"]())
+    app["authz"] = authz
+    writes = gateway.load_writes()
+    commander = commander_for(cfg, token, writes)        # None unless cfg.commands_enabled
+    app["commander"] = commander
+    gw = gateway.Gateway(app, authz, audit, commander, writes, lambda: app["clock"]()) if cfg.commands_enabled else None
+    app["gateway"] = gw
+    hooks = Hooks(may_read=authz.may_read, may_view=authz.may_view, ma_gate=gw if gw is not None else REFUSE_ALL,
+                  ha_token=(lambda: token) if connect_ha else None)
+    readproxy.register(app, hub, hooks)
+    camera_connector.register(app, hub, hooks)
+    ma_connector.register(app, hub, hooks)
+    health.register(app, hub)
+    if cfg.commands_enabled:
+        log.warning("COMMANDS ARE ENABLED on this server: signed-in users may control Home Assistant within "
+                    "their roles (step-up and an audit row for every command)")
+
+
+async def policy_tick(app: web.Application, hub: Hub, every: float = POLICY_TICK) -> None:
+    """Once a minute: schedules and guest windows open or close, roles change, sessions and devices
+    are revoked. Each socket's principal is re-read; a socket whose session is gone is closed."""
+    while True:
+        await asyncio.sleep(every)
+        try:
+            await tick_once(app, hub)
+        except Exception:  # noqa: BLE001 -- the next tick tries again
+            log.exception("policy tick failed")
+
+
+async def tick_once(app: web.Application, hub: Hub) -> None:
+    authz: Authz | None = app.get("authz")
+    for s in list(hub.sessions):
+        if authz is not None and s.principal is not None and not authz.refresh(s.principal):
+            log.info("closing a socket whose session or device ended")
+            await s.ws.close()
+            continue
+        s.view.policy_changed()
+        s.wake.set()
+
+
+async def house_tz(app: web.Application, hub: Hub, attempts: int = 30) -> None:
+    """The house's time zone (for grant schedules) from HA's get_config, cfg.house_tz until then."""
+    authz: Authz = app["authz"]
+    delay = 2.0
+    for _ in range(attempts):
+        try:
+            got = await hub.readproxy.request({"type": "get_config"})  # type: ignore[union-attr]
+            tz = got.get("time_zone") if isinstance(got, dict) else None
+            if isinstance(tz, str) and tz:
+                if authz.set_tz(tz, "home_assistant"):
+                    await tick_once(app, hub)
+                log.info("house time zone: %s (from Home Assistant)", authz.tz)
+            return
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:  # noqa: BLE001 -- HA not up yet: keep the fallback and retry
+            log.info("house time zone not read yet (%s); using %s", type(exc).__name__, authz.tz)
+        await asyncio.sleep(delay)
+        delay = min(delay * 2, 60.0)

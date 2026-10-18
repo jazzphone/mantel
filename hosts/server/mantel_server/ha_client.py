@@ -1,7 +1,11 @@
 """Read-only connection to Home Assistant's WebSocket API.
 
-SAFETY: this module can only *send* the message types in ALLOWED_TYPES. There is no way to call a
-service through it, under any setting. A test (tests/test_ha_client.py) pins that.
+SAFETY: HaClient (the state connection) can only *send* the message types in ALLOWED_TYPES. There is
+no way to call a service through it, under any setting. A test (tests/test_ha_client.py) pins that.
+
+P3.3 adds the ONE command path, HaCommander (end of this file): its own connection, which exists
+only when the server's operator set ``cfg.commands_enabled`` (config/CLI, never a client). It sends
+a frame only with a one-shot CommandTicket bound to the audit row the gateway wrote first.
 
 ALLOWED_TYPES is also what every other Mantel connection on this HA credential checks each frame
 against before sending it: connectors/camera.py's signaling connection does, frame by frame.
@@ -11,6 +15,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import re
 import time
 from collections import Counter as TallyCounter
 from pathlib import Path
@@ -267,3 +272,174 @@ class HaClient:
                     self.entity_updates += len(touched)
                     self.updates_by_entity.update(touched)
                 self.on_change(touched)
+
+
+# ------------------------------------------------------------------------------ P3.3: the command path
+# Everything below is reached only through gateway.py, after RBAC, step-up and the audit row.
+CALL_SERVICE_KEYS = frozenset({"domain", "service", "service_data", "target", "return_response"})
+HTTP_METHODS = frozenset({"POST", "PUT", "PATCH", "DELETE"})
+_API_PATH = re.compile(r"^/api/[A-Za-z0-9_\-./]+(\?[A-Za-z0-9_\-.=&%:+,]*)?$")
+
+
+class CommandsDisabled(CommandBlocked):
+    """The command path was asked for while cfg.commands_enabled is off."""
+
+
+class HaCommandError(Exception):
+    """Home Assistant answered a command with an error (its code is kept, its text is not logged)."""
+
+    def __init__(self, code: str, message: str = "") -> None:
+        super().__init__(f"{code}: {message}" if message else code)
+        self.code = code
+
+
+class CommandTicket:
+    """Minted by the gateway after the audit row is written; good for exactly one frame of `kind`."""
+    __slots__ = ("audit_id", "kind", "used")
+
+    def __init__(self, audit_id: int, kind: str) -> None:
+        self.audit_id, self.kind, self.used = audit_id, kind, False
+
+
+def _spend(ticket: object, kind: str) -> None:
+    if not isinstance(ticket, CommandTicket) or ticket.used or ticket.kind != kind:
+        raise CommandBlocked("a command needs its own unused ticket (the gateway mints one after the audit row)")
+    if not isinstance(ticket.audit_id, int) or isinstance(ticket.audit_id, bool) or ticket.audit_id <= 0:
+        raise CommandBlocked("a command ticket must name the audit row written for it")
+    ticket.used = True
+
+
+def check_command(frame: object, ticket: object, writes: frozenset[str]) -> None:
+    """A WebSocket command frame: call_service with its own keys, or a write from hkClient.WRITES."""
+    kind = frame.get("type") if isinstance(frame, dict) else None
+    if kind not in writes:
+        raise CommandBlocked(f"refusing to send {kind!r}: not in the write catalog (hkClient.WRITES)")
+    if "id" in frame:  # type: ignore[operator]
+        raise CommandBlocked("the command connection numbers its own frames")
+    if kind == "call_service":
+        extra = set(frame) - {"type"} - CALL_SERVICE_KEYS  # type: ignore[arg-type]
+        if extra or not isinstance(frame.get("domain"), str) or not isinstance(frame.get("service"), str):  # type: ignore[union-attr]
+            raise CommandBlocked("call_service carries domain, service, service_data, target, return_response only")
+    _spend(ticket, "ws")
+
+
+def check_http(method: object, path: object, ticket: object) -> None:
+    if method not in HTTP_METHODS:
+        raise CommandBlocked(f"HTTP writes are {sorted(HTTP_METHODS)}; got {method!r}")
+    if not isinstance(path, str) or not _API_PATH.match(path) or ".." in path or "//" in path:
+        raise CommandBlocked("an HTTP write goes to a plain /api/... path on Home Assistant")
+    _spend(ticket, "http")
+
+
+class HaCommander:
+    """Mantel's command connection to Home Assistant (PLAN §4 "Command gateway").
+
+    Built only when ``cfg.commands_enabled is True`` (``commander_for``); the constructor refuses
+    otherwise. Its own WebSocket (the state connection's allowlist is untouched) and plain REST for
+    HTTP writes, with Mantel's HA credential. Every frame passes ``check_command`` / ``check_http``
+    and spends a ticket the gateway minted after writing the audit row.
+    """
+
+    def __init__(self, cfg, token: str, writes: frozenset[str], timeout: float = 30.0) -> None:
+        if getattr(cfg, "commands_enabled", False) is not True:
+            raise CommandsDisabled("commands are disabled on this server (commands_enabled is off)")
+        self.base_url = cfg.ha_url.rstrip("/")
+        self.ws_url = self.base_url.replace("http", "ws", 1) + "/api/websocket"
+        self._token = token  # never logged
+        self.writes = frozenset(writes)
+        self.timeout = timeout
+        self.sent: list[str] = []          # what was sent, in order (services / types / "POST /api/..."): tests, stats
+        self._http: aiohttp.ClientSession | None = None
+        self._ws: aiohttp.ClientWebSocketResponse | None = None
+        self._reader: asyncio.Task | None = None
+        self._lock = asyncio.Lock()
+        self._next = 0
+        self._pending: dict[int, asyncio.Future] = {}
+
+    def __repr__(self) -> str:  # never the token
+        return f"HaCommander({self.base_url!r}, sent={len(self.sent)})"
+
+    async def _connect(self) -> aiohttp.ClientWebSocketResponse:
+        async with self._lock:
+            if self._ws is not None and not self._ws.closed:
+                return self._ws
+            self._http = self._http or aiohttp.ClientSession()
+            ws = await self._http.ws_connect(self.ws_url, max_msg_size=0, heartbeat=30)
+            first = await asyncio.wait_for(ws.receive_json(), self.timeout)
+            if first.get("type") != "auth_required":
+                await ws.close()
+                raise RuntimeError("unexpected greeting from Home Assistant")
+            await ws.send_json({"type": "auth", "access_token": self._token})
+            if (await asyncio.wait_for(ws.receive_json(), self.timeout)).get("type") != "auth_ok":
+                await ws.close()
+                raise RuntimeError("Home Assistant rejected the token (auth_invalid)")
+            self._ws = ws
+            self._reader = asyncio.create_task(self._read(ws))
+            return ws
+
+    async def _read(self, ws: aiohttp.ClientWebSocketResponse) -> None:
+        try:
+            async for m in ws:
+                if m.type != aiohttp.WSMsgType.TEXT:
+                    break
+                data = json.loads(m.data)
+                fut = self._pending.pop(data.get("id"), None) if data.get("type") == "result" else None
+                if fut is not None and not fut.done():
+                    if data.get("success"):
+                        fut.set_result(data.get("result"))
+                    else:
+                        err = data.get("error") or {}
+                        fut.set_exception(HaCommandError(str(err.get("code") or "error"), str(err.get("message") or "")))
+        finally:
+            for fut in self._pending.values():
+                if not fut.done():
+                    fut.set_exception(ConnectionError("Home Assistant connection closed"))
+            self._pending.clear()
+            if self._ws is ws:
+                self._ws = None
+
+    async def call(self, frame: dict, ticket: CommandTicket) -> object:
+        """Send one WebSocket command frame (checked, ticketed) and return HA's result."""
+        check_command(frame, ticket, self.writes)
+        ws = await self._connect()
+        self._next += 1
+        mid = self._next
+        fut = asyncio.get_running_loop().create_future()
+        self._pending[mid] = fut
+        self.sent.append(f"{frame['domain']}.{frame['service']}" if frame["type"] == "call_service" else frame["type"])
+        await ws.send_str(json.dumps({"id": mid, **frame}))
+        try:
+            return await asyncio.wait_for(fut, self.timeout)
+        finally:
+            self._pending.pop(mid, None)
+
+    async def http(self, method: str, path: str, body: object, ticket: CommandTicket) -> object:
+        """One authenticated HTTP write to HA's REST API (checked, ticketed)."""
+        check_http(method, path, ticket)
+        self._http = self._http or aiohttp.ClientSession()
+        self.sent.append(f"{method} {path.split('?', 1)[0]}")
+        async with self._http.request(method, self.base_url + path, json=body,
+                                      headers={"Authorization": f"Bearer {self._token}"},
+                                      timeout=aiohttp.ClientTimeout(total=self.timeout)) as r:
+            text = await r.text()
+            if r.status >= 400:
+                raise HaCommandError(f"http_{r.status}", text[:200])
+            try:
+                return json.loads(text) if text else None
+            except ValueError:
+                return text[:2000]
+
+    async def close(self) -> None:
+        if self._reader is not None:
+            self._reader.cancel()
+        if self._ws is not None:
+            await self._ws.close()
+        if self._http is not None:
+            await self._http.close()
+
+
+def commander_for(cfg, token: str, writes: frozenset[str]) -> HaCommander | None:
+    """The command path, or None while commands are disabled (the default)."""
+    if getattr(cfg, "commands_enabled", False) is not True:
+        return None
+    return HaCommander(cfg, token, writes)
