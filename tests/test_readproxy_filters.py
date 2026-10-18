@@ -181,3 +181,20 @@ async def test_no_hooks_means_deny():
     assert await reads.request("owner", {"type": "history/history_during_period", "entity_ids": ["light.a"]}) == {}
     with pytest.raises(Forbidden):
         await reads.request("owner", {"type": "energy/info"})
+
+
+def test_a_repeated_refusal_is_logged_once_per_interval(caplog):
+    """A page feed that is not served yet retries for ever; the log says so once per interval."""
+    from mantel_server import readproxy as rp
+    rp._refused_at.clear()
+    clock = [1000.0]
+    with caplog.at_level("WARNING", logger="mantel.readproxy"):
+        for _ in range(5):
+            rp._warn_refused("'hk_music/subscribe' is not an allowed read", now=lambda: clock[0])
+            clock[0] += 2
+        clock[0] += rp.REFUSED_WARN_EVERY
+        rp._warn_refused("'hk_music/subscribe' is not an allowed read", now=lambda: clock[0])
+        rp._warn_refused("'other/read' is not an allowed read", now=lambda: clock[0])
+    lines = [r.getMessage() for r in caplog.records if "refused a read" in r.getMessage()]
+    assert len(lines) == 3 and sum("hk_music" in l for l in lines) == 2
+    rp._refused_at.clear()

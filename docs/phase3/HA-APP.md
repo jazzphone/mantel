@@ -246,7 +246,7 @@ users (...)`); the fallback is a one-off link from the App's container (`docker 
 python /app/entrypoint.py link --ha-user-id <Avery's HA id> --role owner --name Avery`, HA id from HA →
 Settings → People → Users, advanced mode) — the entrypoint defaults it to `/data`.
 
-### Installed on the house (2026-10-18 10:33)
+### Installed on the house (2026-10-18 10:33; 0.1.1 at 10:47)
 
 HA Core 2026.10.2. HA backup `b6bccdca` ("Before_Mantel_App_2026-10-18") taken first. Staged from `0d6ea1d`
 (build `34ec4e8ed5ddd420`); the same staged folder was built locally with Docker first (imports ok).
@@ -260,7 +260,31 @@ boot manual, watchdog off.
 - [x] `/healthz` (watchdog path) 200, HA connected.
 - [x] A direct request from another App (not the Ingress proxy) with spoofed `X-Remote-User-*` headers:
       **403** "reached through Home Assistant's sidebar only".
-- [ ] Steps 5–7 and the rest of the checklist need Avery signed in to HA (the sidebar page as an HA admin).
+- [x] **Found on the house, fixed in 0.1.1 (`e9e63ca`):** *Make me Mantel's Owner* answered "bad Origin". HA's
+      HTTP layer stamps `Referrer-Policy: no-referrer` on every response it proxies (Ingress included), and under
+      that policy a browser sends `Origin: null` on a same-origin form POST. Every page served through Ingress
+      now carries `<meta name="referrer" content="same-origin">`, which overrides the header for the document.
+      Updated in place (restage `--replace`, store refresh, *update*); the database was kept.
+- [x] The setup page offered the button (the App credential can read `config/auth/list`); after the confirm:
+      "You are Mantel's Owner"; log `HA administrator Avery Lane (...) is now Mantel's first Owner`.
+- [x] `/api/session` in the sidebar frame: Avery Lane, `owner`, door `ha`.
+- [x] The dashboard (`dashboard-kitchen/home`) draws live in the sidebar (Chrome as Avery, and Avery's Safari via
+      `hasslocal`); all ~88 requests are under `/api/hassio_ingress/…`, except camera stills, which go to HA's own
+      `/api/camera_proxy/…?token=` with HA's entity-picture tokens (works because the frame is on HA's origin; the
+      camera connector routing is the known page-side gap).
+- [x] Expected 404s only: `hk/fonts/SF-Pro.*` and `hk/iconset/hk-glyphs.js`, the Apple-licensed files that are
+      never staged (the App draws with fallback fonts and glyphs). Supplying them on the house (an Owner
+      upload into `/data`) is a follow-up.
+- [x] `hk_music/subscribe` is refused by the read allowlist (the music feed moves with the Phase 4 music engine);
+      the page backs off; the warning is now logged once per 5 minutes (next App update).
+- [x] People page lists all HA users (incl. the per-tablet HA users and `claude`/`Mantel` admin users); linking
+      Jordan, Riley, … is Avery's choice of roles (not done for him).
+- [x] **Import HK's settings from Home Assistant (once)**: "imported from ha:01M35SP186GRY0MYPNJ6PDCG1Q".
+- [ ] Not tapped on purpose: a light (the house rule is no service calls at all; refusal with commands off
+      is covered by `tools/e2e/gateway_e2e.py` against the scratch HA).
+- [ ] Companion app over cellular; non-admin user (needs `panel_admin: false`); the App in HA's next backup.
+- Avery's Safari via `hasslocal` got `401` on its first loads (10:34–10:42) before the Owner existed and works
+  since; not reproduced, noted.
 
 ### Removal
 

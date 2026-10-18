@@ -18,6 +18,7 @@ import asyncio
 import json
 import logging
 import re
+import time
 from typing import Any, Callable
 from urllib.parse import parse_qs, urlsplit
 
@@ -399,6 +400,21 @@ def _error_code(exc: BaseException) -> str:
     return "failed"
 
 
+_refused_at: dict[str, float] = {}
+REFUSED_WARN_EVERY = 300.0
+
+
+def _warn_refused(text: str, now: Callable[[], float] = time.monotonic) -> None:
+    """A refused read, logged once per distinct refusal every REFUSED_WARN_EVERY seconds: a page's
+    feed that is not served yet (hk_music/subscribe until Phase 4) retries with backoff for ever."""
+    t = now()
+    if t - _refused_at.get(text, float("-inf")) >= REFUSED_WARN_EVERY:
+        if len(_refused_at) > 256:
+            _refused_at.clear()
+        _refused_at[text] = t
+        log.warning("refused a read: %s (repeats are logged every %d s)", text, REFUSED_WARN_EVERY)
+
+
 def register(app, hub, hooks) -> FilteredReads:
     """Client messages `read`, `read_subscribe`, `read_unsubscribe`, `read_api`, RBAC-filtered.
 
@@ -416,7 +432,7 @@ def register(app, hub, hooks) -> FilteredReads:
         except Exception as exc:  # noqa: BLE001 -- a failed read is the page's error, never the socket's
             code = _error_code(exc)
             if code in ("not_allowed", "forbidden"):
-                log.warning("refused a read: %s", exc)
+                _warn_refused(str(exc))
             await ctx.send({"type": "read_result", "id": rid, "error": {"code": code, "message": str(exc)}})
             return
         await ctx.send({"type": "read_result", "id": rid, "result": result})
