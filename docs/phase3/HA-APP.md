@@ -565,6 +565,17 @@ without the fix); the admin page's one retry sends the token the server just gav
 - [ ] "Where it's going now" still 0 W: the house's HK has no `hk_energy/sources` yet, so Mantel falls back to the
       `source` attributes Utility Meters lack. Needs the next HK install.
 
+### 0.1.9 on the house (2026-10-18 ~19:11, commit `ee2c801`, build `8b6b43073bceb4a6`)
+
+Updated in place through the HA connector (backup `29a769d0` from the HK install half an hour earlier covers the
+App's data). Log: `applied migration 0013_user_data`; authenticated to HA 2026.10.2 and Music Assistant 2.10.7;
+read-only, commands disabled. Brings Mantel's own per-person HK user data (the Music "Plays on" speaker).
+- [x] Music page (Claude's pane, Avery's Mantel user): speaker kept by Mantel ("Plays on Downstairs"), no more "No
+      speaker selected."; Your Playlists and the Library categories draw.
+- [ ] **Discover shelves and category lists** still refused ("Commands are disabled"): HK loads them with
+      `call_service music_assistant.get_library` (return_response), which Mantel's gateway treats as a command.
+      Fix in flight: answer it as a read from Music Assistant directly (agent).
+
 ### Removal
 
 Stop and uninstall **Mantel** (Settings → Apps → Mantel → Uninstall); this removes its image and `/data`
