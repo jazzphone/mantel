@@ -168,13 +168,85 @@ or a wall-tablet device in the tablet's room. Mantel tells screens to change wit
 
 **Not on Mantel (unchanged by this slice).** These still run in HA, or aren't in scope here:
 
-- the music engine (it talks to MA directly: decisions are shared, steps are Phase 4+)
+- ~~the music engine~~ moved 2026-10-18: see "Music" below (on once Music Assistant is given to Mantel)
 - Alarm PIN (`not_supported` in linked mode)
 - the tablets' alerts/restart and the Live TV viewers, cameras and transcode
 - calendars and the history proxies (already read proxies)
 
 None of these message types is command-shaped. A house command still only ever leaves through the
 gateway.
+
+## Music: the engine in Mantel, talking to Music Assistant directly (2026-10-18)
+
+`hosts/server/mantel_server/music.py` (`app["music"]`, a `MusicHost`; wired in `server.wire()` after the feature
+host). HA's `hk_frontend` music engine is no longer needed once it is on.
+
+**The switch (`MusicHost.active`).** Mantel answers only when **both** Music Assistant is configured in Mantel
+(`cfg.ma_url` and its token file: [../OPERATIONS.md](../OPERATIONS.md) section 7a) **and** the music settings are
+in Mantel's store (`house/music`, from the feature import). Otherwise every music read goes to the interim bridge
+(readproxy.py, as before) and every music action to HA's engine through the gateway, so the house keeps working
+in HA App mode until Avery gives Mantel a Music Assistant token. `GET /api/music/status` (Owner/Admin) says which.
+
+**What runs where.**
+
+| Part | On Mantel |
+|---|---|
+| Decisions | hk_core/music (config, engine, checks, settings, queue item, warm), unchanged, over MantelHouse: the Music Assistant players' `media_player` states and registry entries HA's `music_assistant` integration keeps |
+| Steps | Music Assistant's own WebSocket commands (connectors/ma.py), exactly what HA's integration sends for each service call HA's engine makes (`music.to_ma`): `media_pause/stop/next/...` → `players/cmd/*`, `unjoin` → `players/cmd/ungroup`, `join` → `players/cmd/group_many`, `volume_set` → `players/cmd/volume_set` (0..100), `shuffle_set` → `player_queues/shuffle`, `music_assistant.play_media` → `player_queues/play_media`, `transfer_queue` → `player_queues/transfer`, queue jump → `player_queues/play_index`. A player's MA id is its registry `unique_id` (platform `music_assistant`), its queue id its player id |
+| Engine | `MantelMusic`: HA's MusicManager ported line for line (per-room locks, the newest request wins, Stop cancels, waits on the players' state changes from the hub, every request answers `{ok, leader}` / `{ok: false, message}`) |
+| Reads | `hk_music/subscribe`, `hk_music/queue` (`player_queues/get_active_queue` + `player_queues/items`), `hk_music/settings/library` (`music/playlists/library_items`), `hk_music/settings/get` (HK Settings' music page) |
+| Settings | `house/music` in Mantel's settings store (versioned); HK Settings' saves (`hk_music/settings/set`, `preset/save`, `playlist/save`, `playlists/order`, `item/remove`) are checked by hk_core's settings rules and written there |
+| Keep Playlists Ready | `MantelWarmer` (hk_core's rounds) on Mantel's MA client, while the switch is on and the engine runs; its two refresh reads are **server-only** (`MA_SERVER_READS`: `playlist_tracks` with `force_refresh`, `recently_played_items` with a time) and a page's `ma/read` can never send them |
+| `hk_music/used` | the page's adapter sends `music_used` (`web/shim/mantel-client.js`), answered by the music host on every server, commands on or off: Keep Playlists Ready waits. Never a command |
+
+**Per person, per device.** The feed's `home` is the signed-in person's home room (chosen in Mantel's music
+settings, keyed by Mantel user; or, until then, the one HA had for the HA user they are linked to: imported as
+`ha:<HA user id>`), else the wall tablet's: the first speaker, in the order the speakers were picked, in the
+device's room. It is sent only if the person may view that speaker. HA's own answer was Mantel's HA user's, so
+the bridge always sent `null`.
+
+**RBAC.** Reads: feature `music`; only the players the subject may `view` (a preset when its sync group or all
+its rooms are viewable; a hidden or nonexistent queue answers `not_found`); the settings page needs `configure` on
+settings (HA: `require_admin`). Actions (`classify_service` / `classify_ws`, called from `gateway.classify`):
+`control` on feature `music` and `hk_frontend.music_*` on every room/source/player the call names; Stop All names
+every room and a preset's group is checked as its rooms (`MusicHost.expand`); `queue_play` is
+`media_player.play_media` on its player; the settings writes are `configure` on settings. This also fixes the
+fallback: through the gateway those service calls used to be `configure` on settings (Owner/Admin only), and the
+settings writes `control` on music (any Adult). **Wall tablets** get a house grant of `view`/`control` on feature
+`music` (`authz.HOUSE_GRANTS`; recorded for Avery's review): HK's Music page on every tablet, its speakers still
+its room's.
+
+**Commands.** Only through the gateway: RBAC, the audit row first, then `Gateway._forward` →
+`MusicHost.run(principal, music, audit_id)`, which mints a `MusicRun`. The MA client's gate is the gateway, and
+`Gateway.allow` lets a `MusicRun` through only while it is open, only for the engine's own commands
+(`RUN_COMMANDS`), and only on the house's speakers (their MA ids). **Commands off** (the house): there is no
+gateway, the MA client's gate is `REFUSE_ALL`, and the page's commands are answered `commands_disabled` before
+anything is sent; nothing reaches Music Assistant (pinned). Answers keep HA's shapes: a service call
+`{context, response}`, a refusal without `return_response` an error (HA's `_answer`), a settings refusal
+`invalid_format` with HA's JSON field map.
+
+**Import.** `music.import_doc`: when HA has Music added (panel/get's `features.hk_music`), one server-only read of
+`hk_music/settings/get` (new in `readproxy.SERVER_ONLY_READS`); speakers, volume, home rooms, presets, playlists
+(HA's item ids kept), Keep Playlists Ready and Ignore Announcements. HA's user names are not kept. It runs with the
+one-time settings import and with `POST /api/features/import`.
+
+**Not on Mantel (documented gaps).**
+- **Announcements** (`announcements` is always `[]`): HA spots them by watching its own `call_service` bus; Mantel's
+  HA connection does not receive service calls. During a TTS announcement on a HomePod the page may briefly show it
+  as what is playing.
+- **The failure notifications** HA raises (`music_play_failed`, `speaker_group_failed`, ...: HK's Speakers picker
+  shows them): Mantel logs them and lists them in `/api/music/status` (`notes`), but does not create HA
+  persistent notifications (nothing is written to HA).
+- **Browse's library** still calls `music_assistant.get_library` / `media_player/browse_media` through HA (a service
+  call with commands on; `ma/read` is ready for when the card moves).
+- **Not run against a real Music Assistant** (none for testing; the house's is never contacted): the message
+  shapes follow HA's integration and the official client, and are pinned against a fake. `ma_players` relies on
+  HA's `music_assistant` entities' `unique_id` being the MA player id, and the queue id being the player id.
+
+Tests: `tests/test_music.py` (26, against `tests/music_fakes.py`'s fake MA: exact MA messages per request, RBAC,
+per-person and per-tablet home room, commands off, the gate, the switch, import, Keep Playlists Ready, settings
+saves), `tests/test_shim_features.py` (+2, `music_used`), `tests/test_packaging.py` (+1, the App's token file).
+Offline e2e over real sockets: `~/.venvs/mantel/bin/python tools/e2e/music_e2e.py` (12/12; commands off then on).
 
 ## The page's side (`web/shim/`, 2026-10-18)
 
@@ -319,7 +391,7 @@ Nothing else changes: every piece stays off until an Owner turns it on (`PUT /ap
    - notification snapshots
    - calendars' look-ahead and the `notify` action (in linked mode, later)
    - Alarm PIN through the gateway (linked `alarm_*` commands)
-   - the music engine against MA
+   - ~~the music engine against MA~~ built ("Music" below); waits for Music Assistant's URL and token in Mantel
    - the tablets' alerts and restarts, and the Live TV viewers and cameras
 
    Each goes through `MantelHouse` and `FeatureCaller` the same way.

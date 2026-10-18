@@ -1561,6 +1561,12 @@ class FeatureHost:
         actor = actor_of(identity) if identity is not None else Actor(label="mantel-features")
         docs = self.store.write([("house", FEATURES_DOC, body)], actor=actor, action="import",
                                 message="feature import", source=source)
+        music = self.app.get("music")           # Music's settings too (music.py: house/music), when HA has Music
+        if music is not None:
+            try:
+                docs += [True] if await music.import_from_ha(panel, read, actor, source) else []
+            except Exception as exc:  # noqa: BLE001 -- the features are in; music can be imported again
+                log.warning("music settings were not imported (%s)", type(exc).__name__)
         await self.reload()
         if self.on("live_tv") and self.started:
             self.spawn(self.tv.refresh())

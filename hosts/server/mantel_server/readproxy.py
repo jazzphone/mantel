@@ -55,13 +55,18 @@ READ_ALLOWED: dict[str, frozenset[str]] = {
     # P3.5: HK's settings, read ONCE by Mantel itself for the one-time settings import
     # (settings_store.import_settings). Never for a page: SERVER_ONLY_READS below.
     "hk_frontend/panel/get": frozenset(),
-    # INTERIM (until Phase 4 moves the music engine into Mantel): HK's Music page, read from HA's
-    # hk_frontend integration, which still runs the engine. Reads only; every other hk_music/* type
-    # (queue_play, used, item/remove, playlist/save, preset/save, settings/set, playlists/order) is a
-    # write or a side effect and stays the gateway's (commands off).
+    # THE INTERIM MUSIC BRIDGE: HK's Music page, read from HA's hk_frontend integration. Since Phase 4 these
+    # are answered by Mantel's own music engine (music.py, talking to Music Assistant directly) once Music
+    # Assistant and the music settings are in Mantel; until then (HA App mode with no MA token in Mantel)
+    # music.py's routes hand them to this bridge. Reads only; every other hk_music/* type (queue_play, used,
+    # item/remove, playlist/save, preset/save, settings/set, playlists/order) is a write or a side effect
+    # and stays the gateway's (commands off).
     "hk_music/subscribe": frozenset(),
     "hk_music/queue": frozenset({"entity_id", "limit"}),
     "hk_music/settings/library": frozenset(),
+    # The music import (music.import_doc, with the feature import): HA's music settings page, ONCE, by
+    # Mantel itself. Never for a page: SERVER_ONLY_READS below (a page's is answered by music.py).
+    "hk_music/settings/get": frozenset(),
     # INTERIM (until Live TV's channel cameras, transcode and viewers move into Mantel): the Live TV page's
     # channel list (hk-tv-guide-card), each channel's camera and "now playing" sensor, from HA's
     # hk_frontend. A read; `hk_tv/watching` (a viewer's heartbeat, which HA writes into a sensor) and
@@ -79,7 +84,7 @@ READ_ALLOWED: dict[str, frozenset[str]] = {
 # until P3.7 retires it). The page's own `hk_frontend/panel/get` is answered by Mantel's settings store
 # (app["read_routes"]); a feature's settings page is not offered to pages yet.
 SERVER_ONLY_READS = frozenset({"hk_frontend/panel/get", "hk_notify/settings/get", "hk_clean_areas/settings/get",
-                               "hk_energy/settings/get", "hk_tv/settings/get"})
+                               "hk_energy/settings/get", "hk_tv/settings/get", "hk_music/settings/get"})
 SUBSCRIBE_TYPES = frozenset({"weather/subscribe_forecast", "persistent_notification/subscribe", "hk_music/subscribe"})
 # housekeeping the proxy itself sends to end a subscription it started
 INTERNAL = {"unsubscribe_events"}
@@ -266,6 +271,8 @@ RULES: dict[str, str] = {
     "hk_music/queue": "view the media player (media_player.* only), else not_found; limit 1..100; items rebuilt "
                       "as {id, title, artist, duration, image} with token-carrying image addresses dropped",
     "hk_music/settings/library": "feature:music; items rebuilt as {uri, name}",
+    "hk_music/settings/get": "never for a page (SERVER_ONLY_READS): the music import's own read; pages get "
+                             "Mantel's music engine (music.py)",
     "hk_tv/channels": "each channel kept only if the subject may view its camera.* entity; its `now` sensor.* only if "
                       "viewable (else null); rebuilt as {configured, channels: [{number, name, camera, now}]}",
     "hk_notify/settings/get": "never for a page (SERVER_ONLY_READS): the feature import's own read",

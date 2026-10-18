@@ -46,6 +46,11 @@ LAN_STEP_UP_EXEMPT = frozenset({"camera"})
 HOUSE_GRANTS: tuple[Grant, ...] = (
     Grant(effect="allow", actions=("view", "control.sensitive"), resource_kind="feature", resource="cameras",
           roles={"wall_tablet"}, note="the doorbell pop-up on every wall tablet (LAN only: devices never on the tunnel)"),
+    # Phase 4 music (docs/phase4/MANTEL-FEATURES.md "Music"; recorded for Avery's review): HK's Music page on every
+    # wall tablet, as in HA (each tablet is an HA user who may use it). Which speakers it shows and plays stays
+    # its room's (the role's area grants); an Owner adjusts it with an ordinary deny grant.
+    Grant(effect="allow", actions=("view", "control"), resource_kind="feature", resource="music",
+          roles={"wall_tablet"}, note="HK's Music page on every wall tablet; its speakers are still its room's"),
 )
 
 # THE DOORBELL'S TALK-BACK SPEAKERS for wall tablets (decision recorded in GATEWAY.md "Doorbell

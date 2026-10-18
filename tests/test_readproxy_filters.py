@@ -203,7 +203,9 @@ def test_a_repeated_refusal_is_logged_once_per_interval(caplog):
 # ------------------------------------------------------------- music (interim bridge to HA's hk_frontend)
 def test_music_reads_are_exactly_the_three_reads():
     music = {t for t in READ_ALLOWED if t.startswith("hk_music/")}
-    assert music == {"hk_music/subscribe", "hk_music/queue", "hk_music/settings/library"}
+    assert music == {"hk_music/subscribe", "hk_music/queue", "hk_music/settings/library", "hk_music/settings/get"}
+    from mantel_server.readproxy import SERVER_ONLY_READS
+    assert "hk_music/settings/get" in SERVER_ONLY_READS     # the music import's own read, never a page's
     assert "hk_music/subscribe" in SUBSCRIBE_TYPES
     from mantel_server.readproxy import check_read
     for bad in ("hk_music/queue_play", "hk_music/used", "hk_music/item/remove", "hk_music/playlist/save",

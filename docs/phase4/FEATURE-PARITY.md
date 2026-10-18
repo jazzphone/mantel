@@ -29,6 +29,10 @@ each feature's own `<id>/settings/get` answer, not in panel/get.
 - **The pieces it turns on:** `notifications`, `clean_areas` and `energy` come in **enabled**, because Mantel
   runs them. `live_tv` is imported **off**: its screens read HA's channel cameras (below), and HA already reads
   the guide. A feature HA does not have comes in off, and its read isn't sent.
+- **Music** (Phase 4, `music.import_doc`; [MANTEL-FEATURES.md](MANTEL-FEATURES.md) "Music"): when HA has Music
+  added, one more server-only read, `hk_music/settings/get`, becomes `house/music` (speakers, volume, home rooms
+  as `ha:<HA user id>`, presets, playlists, Keep Playlists Ready, Ignore Announcements; HA's user names are not
+  kept). A music read that fails leaves the features in; the import can be run again.
 - **Kept, never written:** `linked` and `sleep`.
 - **Checked:** the result goes through `check_settings`. Values it can't accept (a non-entity vacuum, a
   malformed channel) are left out rather than failing the import.
@@ -108,7 +112,9 @@ What remains (in HA until Live TV's viewers move):
   Mantel's view host doesn't have them.
 - **Lovelace's `markdown` card** isn't in the view host either. An Energy page with nothing to show ("Nothing to
   show yet…") draws an empty placeholder instead of that line.
-- **HK Settings → Features pages** read each feature's `<id>/settings/get`, which pages can't send on Mantel.
+- **HK Settings → Features pages** read each feature's `<id>/settings/get`, which pages can't send on Mantel
+  (Music's, `hk_music/settings/get`, is answered by Mantel's music engine once it is on, and its saves go to
+  Mantel's `house/music` through the gateway).
   Since panel/get now lists the features as added, an Owner opening one sees it fail to load. Saving feature
   settings was already `not_yet`.
 - **A change made in HA after the import** doesn't reach Mantel until the import is run again (POST or the

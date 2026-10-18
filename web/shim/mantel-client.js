@@ -195,6 +195,7 @@
   //   hk_frontend/screensaver/touch {tablet, saver?}  -> screen_report {tablet, touch: true, saver?}
   //   hk_frontend/screensaver/black {tablet, black}   -> screen_report {tablet, black}
   //   hk_notify/mute {key, minutes}                   -> notify_mute {key, seconds}
+  //   hk_music/used                                   -> music_used (music.py: Keep Playlists Ready waits)
   //   switch.turn_on|turn_off on a tablet's photo screensaver switch -> the page's own state only
   //     (Mantel's screens, mantel-host.js; the host has no such Home Assistant entity to write)
   var screens = null;             // the host adapter's {owns(entityId), set(entityId, on), reported(tablet, black)}
@@ -236,6 +237,10 @@
       if (t === 'hk_tv/watching' && !(typeof hub.commandsEnabled === 'function' && hub.commandsEnabled())) {
         return Promise.resolve({ viewers: [] });
       }
+      // THE MUSIC PAGE IS IN USE (hk-library.js, on a browse, a search or a play): in HA it only tells Keep
+      // Playlists Ready to wait. Not a command (nothing reaches Music Assistant or HA): Mantel's music host
+      // answers `music_used` on every server, commands on or off (docs/phase4/MANTEL-FEATURES.md "Music").
+      if (t === 'hk_music/used' && typeof hub.ask === 'function') return hub.ask('music_used', {}).then(function () { return null; });
       return callWS.apply(acts, arguments);
     };
     acts.callService = function (domain, service, data) {

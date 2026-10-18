@@ -11,3 +11,9 @@ configuration:
   ha_door_rules:
     name: Sidebar access rules
     description: trusted (default) treats being signed in to Home Assistant as enough, as HK in Home Assistant always was; lan uses the home network's rules (a code for locks and the alarm); tunnel uses Mantel's remote-access rules.
+  ma_url:
+    name: Music Assistant address
+    description: Music Assistant's own API, for example http://music-assistant.local:8095 (its WebSocket API is at /ws). Empty (the default) leaves Mantel's music engine off, and the Music page keeps reading Home Assistant's. Together with the token below, Mantel runs whole-home music itself.
+  ma_token:
+    name: Music Assistant token
+    description: A long-lived token made in Music Assistant for Mantel alone. Kept by the Supervisor as a masked option; Mantel reads it from a private file and never logs it.

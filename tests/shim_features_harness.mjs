@@ -145,6 +145,15 @@ async function run(label, commandsOn) {
   } catch (e) { res.tv = e.code; }
   res.tvSent = sent.length - tv0;
   res.tvRefusedEvents = events.filter((e) => e === 'hk-command-refused').length - tvRefused;
+  // the Music page in use: Mantel's music host's `music_used`, on every server, never a command
+  const usedRefused = events.filter((e) => e === 'hk-command-refused').length;
+  const u0 = sent.length;
+  const uq = a.callWS({ type: 'hk_music/used' });
+  res.usedFrame = last();
+  reply({ type: 'music_used_result', id: res.usedFrame.id, result: null });
+  res.used = await uq;
+  res.usedSent = sent.length - u0;
+  res.usedRefusedEvents = events.filter((e) => e === 'hk-command-refused').length - usedRefused;
   res.settingsSave = (() => { const q = a.callWS({ type: 'hk_frontend/board/set', board: {} }); const f = last(); reply({ type: 'settings_result', id: f.id, result: { ok: true } }); return f.type; })();
   out[label] = res;
 }

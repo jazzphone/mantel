@@ -108,7 +108,7 @@ def test_no_house_command_is_made_of_any_of_this(observed):
         for mode in ("off", "on"):
             assert observed[mode][key]["type"] in ("screen_report", "notify_mute")
     assert set(observed["kinds"]) <= {"read_subscribe", "read_unsubscribe", "screen_report", "notify_mute",
-                                      "command", "settings_write"}
+                                      "command", "settings_write", "music_used"}
 
 
 @pytest.mark.parametrize("mode", ["off", "on"])
@@ -120,6 +120,13 @@ def test_live_tvs_viewer_heartbeat(observed, mode):
     else:
         # a write: the gateway's, as a `command` frame, exactly as HK sends it to HA
         assert r["tvFrame"]["type"] == "command" and r["tvSent"] == 1 and r["tv"] == {"viewers": ["x"]}
+
+
+@pytest.mark.parametrize("mode", ["off", "on"])
+def test_the_music_page_in_use_is_music_used_never_a_command(observed, mode):
+    r = observed[mode]
+    assert r["usedFrame"] == {"type": "music_used", "id": r["usedFrame"]["id"]}
+    assert (r["used"], r["usedSent"], r["usedRefusedEvents"]) == (None, 1, 0)
 
 
 def test_the_frames_are_what_the_servers_handlers_accept():

@@ -414,7 +414,8 @@ async def test_the_feature_import_again_is_owner_only_and_keeps_linked(make_env)
     r = await env.m.client.post("/api/features/import", headers=env.m.headers())
     body = await r.json()
     assert r.status == 200 and body["added"] == ["music", "live_tv", "clean_areas"]
-    assert proxy.asked == ["hk_frontend/panel/get", "hk_clean_areas/settings/get", "hk_tv/settings/get"]
+    assert proxy.asked == ["hk_frontend/panel/get", "hk_clean_areas/settings/get", "hk_tv/settings/get",
+                           "hk_music/settings/get"]          # Music: music.py's import (house/music)
     assert env.host.settings["linked"]["entry_id"] == "abc123"
     assert env.host.settings["clean_areas"]["options"]["areas"] == ["kitchen"]
     assert (await next_feed(ws))["added"] == ["music", "live_tv", "clean_areas"]
