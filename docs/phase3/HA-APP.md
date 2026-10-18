@@ -326,6 +326,16 @@ Mantel admin folding into HK Settings is PLAN item 8). Tests: `tests/test_ingres
   uses the Supervisor's credential; no HA token is ever asked for, and the server refuses changes with
   `409 provided_by_app`). **Music Assistant is editable** there: the App can reach MA directly with an address and
   an MA token or MA user sign-in, sealed in `/data/connections` (inside the App's own HA backups too).
+* **Music Assistant address suggestion** (App 0.1.7, `MaSuggester` in `connections.py`): HA's WebSocket does not
+  expose a config entry's `data` (`config_entries/get` omits it), and Mantel has no Supervisor API, so nothing is
+  read from HA and `ha_client`'s allowlist is unchanged. Instead, in App mode only, when MA is not set up and an
+  Owner/Admin loads `GET /api/connections`, Mantel probes the official Music Assistant App's hostnames
+  `d5369777-music-assistant`, `-beta`, `-nightly` (port 8095; Supervisor DNS resolves App hostnames): resolve the
+  name, then an unauthenticated GET of MA's `/info` (2 s each, no credentials, no redirects); the first answer with
+  `server_id` and `server_version` becomes `ma.suggested_url` (+ `suggested_from: "music_assistant_app"`), cached
+  5 minutes. A name, never an IP. The page only prefills the editable address box with a hint; it never tests or
+  saves by itself. Outside App mode, for non-managers and once MA is set up, nothing is probed. Tests:
+  `tests/test_connections.py` (fake resolver and `/info`).
 
 ## Staging
 
@@ -513,8 +523,11 @@ Updated in place (no migration; backup `197c2d14` from 0.1.5 still the rollback 
       "HTTPS and your proxy": mode Home Assistant App (Ingress), no door key needed.
 - [ ] **Not reachable on the kitchen dashboard (found by Avery):** the **Mantel settings** entry is in HK's
       menu model (`hkShell.hostMenu()` → `<prefix>/admin`), but that dashboard navigates with the tab bar and
-      HK's side menu is off whenever a tab bar shows (`menu.on()` false). Fix for 0.1.7: the entry in the tab
-      bar's More sheet too, verified drawn. Until then: open `<prefix>/admin` directly.
+      HK's side menu is off whenever a tab bar shows (`menu.on()` false). **Fixed for 0.1.7:** a **Mantel**
+      section at the end of the tab bar's More sheet (hk-tabbar.js, Owner/Admin only; a full page load of
+      `<prefix>/admin`), and still in the side menu where that is the navigation; empty in HA. Drawn check in
+      `tools/headless/client_smoke.py`: the row has an on-screen box and is hit-testable, an Adult has none, a
+      click lands on `/admin`.
 - [x] **Feature import** (People page, "Import HK's features from Home Assistant again"; reads HA, changes
       nothing there): music, live_tv, clean_areas, alarm_pin, energy, notifications. Before it, Energy, Power and
       Live TV opened Home (the views didn't exist in Mantel). After it, at 1366x900: **Energy** draws its 9 cards

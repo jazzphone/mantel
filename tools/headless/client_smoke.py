@@ -8,6 +8,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import os
 from datetime import datetime, timezone
 import sys
 import shutil
@@ -633,6 +634,39 @@ async def smoke(shot=None, shots=None):
                     exceptions = [line for line in browser.console if line.startswith("EXCEPTION:")]
                     assert not exceptions, exceptions
                     assert not browser.blocked_requests, browser.blocked_requests
+                    # "Mantel settings" in the TAB BAR's More sheet (the side menu is off whenever a bar shows):
+                    # DRAWN, not read off the model -- a non-zero box on screen for the Owner, none for an Adult,
+                    # and a click is a full page load of /admin.
+                    more_row = """(() => {
+                      const bar = document.querySelector('#hk-shell-root > #hk-tabbar'), sr = bar && bar.shadowRoot;
+                      const rows = () => sr ? [...sr.querySelectorAll('.sheet[data-sheet="more"].open .it[data-k="m"]')] : [];
+                      const box = (el) => { const r = el.getBoundingClientRect(); return [Math.round(r.width), Math.round(r.height)]; };
+                      return { rows, box, sr };
+                    })"""
+                    await browser.eval("window.__moreProbe = " + more_row)
+                    await browser.eval("window.__moreProbe().sr.querySelector('.tab[data-t=\"more\"]').click()")
+                    assert await browser.wait("window.__moreProbe().rows().length === 1", 5), "no Mantel row in the open More sheet"
+                    drawn = await browser.eval("""(async () => {
+                      await new Promise(r => setTimeout(r, 900));        // the sheet's opening motion
+                      const p = window.__moreProbe(), el = p.rows()[0], r = el.getBoundingClientRect();
+                      const sheet = el.closest('.sheet').getBoundingClientRect();
+                      const top = p.sr.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+                      return { text: el.textContent.trim(), box: p.box(el), inside: r.top >= sheet.top - 1 && r.bottom <= sheet.bottom + 1,
+                               hit: !!top && (top === el || el.contains(top)) };
+                    })()""")
+                    assert drawn["text"] == "Mantel settings" and drawn["box"][0] > 40 and drawn["box"][1] > 20 \
+                        and drawn["inside"] and drawn["hit"], drawn
+                    if os.environ.get("MANTEL_SHOT_MORE"):
+                        await browser.screenshot(os.environ["MANTEL_SHOT_MORE"])
+                    # an Adult: the same sheet, no row
+                    await browser.eval("window.hkMantelShell.setRole('adult'); window.dispatchEvent(new Event('resize'));")
+                    assert await browser.wait("window.__moreProbe().rows().length === 0 && "
+                                              "!window.__moreProbe().sr.querySelector('.mh:not([hidden])')", 5), \
+                        "an Adult still has the Mantel row in More"
+                    await browser.eval("window.hkMantelShell.setRole('owner'); window.dispatchEvent(new Event('resize'));")
+                    assert await browser.wait("window.__moreProbe().rows().length === 1", 5), "the Owner's row did not return"
+                    await browser.eval("window.__moreProbe().rows()[0].click()")
+                    assert await browser.wait("location.pathname === '/admin'", 10), "the row did not open /admin"
                     # A page opened by its own address is drawn first by the view host. With narrowing on (the
                     # page's default), the hub subscription narrows to what Lights reads; a page not seen yet
                     # (Home) widens it again first, then it narrows to both pages' reads.

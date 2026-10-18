@@ -64,6 +64,7 @@ import logging
 import os
 import re
 import secrets
+import socket
 import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -612,10 +613,71 @@ def failed(exc: ConnectionFailed, status_code: int = 422) -> web.Response:
     return error(status_code, exc.code, message=exc.message)
 
 
+# -- the Music Assistant App suggestion (App mode only) ---------------------------------------------------
+# d5369777 is the official Music Assistant App repository's id, the same on every install; Supervisor's DNS
+# resolves App hostnames (underscores become hyphens). Names only, never an IP: App addresses can change.
+MA_APP_CANDIDATES = ("http://d5369777-music-assistant:8095", "http://d5369777-music-assistant-beta:8095",
+                     "http://d5369777-music-assistant-nightly:8095")
+MA_PROBE_TIMEOUT = 2.0
+MA_SUGGEST_TTL = 300.0
+
+
+class MaSuggester:
+    """Finds Music Assistant's App by its well-known hostnames: resolve the name, then GET MA's unauthenticated
+    /info, no credentials, short timeout. The answer (found or not) is cached for a few minutes."""
+
+    def __init__(self, clock: Callable[[], float] = time.time, resolve=None, fetch=None) -> None:
+        self.clock = clock
+        self._resolve = resolve or self._real_resolve
+        self._fetch = fetch or self._real_fetch
+        self._cache: tuple[float, str | None] | None = None
+        self.probes = 0
+
+    @staticmethod
+    async def _real_resolve(host: str) -> bool:
+        infos = await asyncio.get_running_loop().getaddrinfo(host, None, type=socket.SOCK_STREAM)
+        return bool(infos)
+
+    @staticmethod
+    async def _real_fetch(http: aiohttp.ClientSession, url: str) -> object:
+        async with http.get(url + "/info", allow_redirects=False,
+                            timeout=aiohttp.ClientTimeout(total=MA_PROBE_TIMEOUT)) as r:
+            if r.status != 200:
+                return None
+            return await r.json(content_type=None)
+
+    async def find(self, http: aiohttp.ClientSession) -> str | None:
+        now = self.clock()
+        if self._cache is not None and now - self._cache[0] < MA_SUGGEST_TTL:
+            return self._cache[1]
+        found = None
+        for url in MA_APP_CANDIDATES:
+            self.probes += 1
+            try:
+                async with asyncio.timeout(MA_PROBE_TIMEOUT):
+                    if not await self._resolve(urlparse(url).hostname):
+                        continue
+                    info = await self._fetch(http, url)
+            except (OSError, asyncio.TimeoutError, aiohttp.ClientError, ValueError):
+                continue
+            if isinstance(info, dict) and info.get("server_id") and info.get("server_version"):
+                found = url
+                break
+        self._cache = (now, found)
+        return found
+
+
 async def api_status(request: web.Request) -> web.Response:
     ident = _viewer(request)
     rule = edit_rule(request, ident)
-    return ok({"connections": {k: status(request.app, k) for k in KINDS}, "can_edit": rule != "owner_only",
+    conns: Connections = request.app["connections"]
+    out = {k: status(request.app, k) for k in KINDS}
+    if conns.app_mode and out["ma"]["state"] == "not_set_up":
+        found = await request.app["ma_suggester"].find(request.app["http"])
+        if found:
+            out["ma"]["suggested_url"] = found
+            out["ma"]["suggested_from"] = "music_assistant_app"
+    return ok({"connections": out, "can_edit": rule != "owner_only",
                "needs_fresh": rule == "fresh", "door": ident.door})
 
 
@@ -863,6 +925,7 @@ async def _save_pending(request: web.Request, ident: Identity, pid: str) -> web.
 
 def register(app: web.Application, conns: Connections) -> None:
     app["connections"] = conns
+    app["ma_suggester"] = MaSuggester(lambda: app["clock"]())
     app.setdefault("public_paths", set()).add(CALLBACK)
     r = app.router
     r.add_get(API, api_status)
