@@ -161,9 +161,12 @@ ok('a custom: card is its own element, by its tag', card instanceof TCard && car
 ok('...configured, then handed the client (through the host adapter\'s bridge)', log.join() === 't-card:setConfig,t-card:client' &&
    card.config.name === 'A' && card.client === c1 && card.got === c1, log);
 
-var ph = V.createCardElement({ type: 'picture-entity', entity: 'camera.x' }, c1);
+var ph = V.createCardElement({ type: 'picture-glance', entity: 'camera.x' }, c1);
 ok('a Lovelace card type HK does not draw: a labelled placeholder', ph.localName === 'hk-card-placeholder' &&
-   ph.getAttribute('data-type') === 'picture-entity' && /picture-entity/.test(ph.textContent) && /Home Assistant/.test(ph.textContent), ph.textContent);
+   ph.getAttribute('data-type') === 'picture-glance' && /picture-glance/.test(ph.textContent) && /Home Assistant/.test(ph.textContent), ph.textContent);
+var pe = V.createCardElement({ type: 'picture-entity', entity: 'camera.x', show_name: false, show_state: false }, c1);
+ok('Lovelace\'s picture-entity (HK\'s camera tiles): HK\'s own hk-picture-entity, fed the client (tests/test_pictureentity.js)',
+   pe.localName === 'hk-picture-entity' && pe.client === c1 && V.BUILT_IN['picture-entity'] === 'hk-picture-entity', pe.localName);
 var bad = V.createCardElement({ type: 'custom:t-card', boom: true }, c1);
 ok('a card whose config throws: a placeholder that says so', bad.localName === 'hk-card-placeholder' && /could not be drawn/.test(bad.textContent));
 ok('no type at all: a placeholder', V.createCardElement({}, c1).localName === 'hk-card-placeholder');

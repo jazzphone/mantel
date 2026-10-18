@@ -203,6 +203,9 @@
         '  object-fit:cover;opacity:0;z-index:0}',
         '.live>img.on{opacity:1}',
         '.live>hui-card{position:absolute;inset:0;z-index:1;transition:opacity .3s ease}',
+        // ...and HK's own picture-entity where there is no Lovelace (Mantel, HK's panel: made by
+        // hkCards.createCard through HK's view host), the same rule for each of the three
+        '.live>hk-picture-entity{position:absolute;inset:0;z-index:1;transition:opacity .3s ease}',
         // NO PICTURE, NO VIDEO (2026-10-09): until the stream has a frame,
         // and from the moment a navigation away begins, the live card is
         // out of sight and the frame copied under it shows (_grabLive). A
@@ -214,6 +217,7 @@
         // the page, where opacity does not reach -- a fresh live card at
         // opacity 0 still showed white for a frame (screen-recorded).
         '.live>hui-card.wait{opacity:0;visibility:hidden;transition:none}',
+        '.live>hk-picture-entity.wait{opacity:0;visibility:hidden;transition:none}',
         // ...AND THE COPIED FRAME STAYS ON TOP until the video has DRAWN one
         // (2026-10-09). Shown the moment it reports a picture, the video's own
         // surface was still black for 60-350 ms in 3 returns to Home of 5
@@ -230,6 +234,7 @@
         // under a finger. The tap goes through the card to the .live box
         // instead, which opens the pop-up itself.
         '.live.pop>hui-card{pointer-events:none}',
+        '.live.pop>hk-picture-entity{pointer-events:none}',
         '.plate{display:grid;overflow:hidden;width:max-content;',
         // THE PLATE REPLACES THE PER-CARD THEME, it does not layer on top of
         // one. Passing a camera `theme:` to each tile AND setting these

@@ -202,9 +202,26 @@ The callers:
   detail panels) still names `hui-<type>-card` for a built-in type. It is only used with `custom:`
   types today. On a host without Lovelace it should use the view host's factory; this is a small
   follow-up.
-- **Camera tile CSS.** `hk-cameras.js` still has three CSS selectors that name `.live>hui-card`.
-  They are style rules, not lookups. Without Lovelace, the live tile's picture is a placeholder
-  (Mantel has no camera stream yet; P2.5 and later), so they don't apply there.
+- **Camera tile CSS.** `hk-cameras.js` has three CSS rules that name `.live>hui-card` (style rules,
+  not lookups); each now has a twin naming `.live>hk-picture-entity` for hosts without Lovelace
+  (below). In HA nothing changes: the twins match nothing there.
+- **HK's own picture-entity (2026-10-18).** Without Lovelace, HK's camera cards (`hk-camera-live-card`
+  on the Cameras page, the camera strip's live tile) got a placeholder for every tile: they make
+  Lovelace's `picture-entity` through `hkCards.createCard`. The view host now has `picture-entity`
+  as a BUILT_IN, drawn by `hk-picture-entity` (in `hk-view-host.js`, so HA's Lovelace never loads
+  it; HK's own HA panel does). It covers what HK's cards use: `entity` / `camera_image`,
+  `camera_view` auto (the still from `entity_picture`, refreshed every 10 s while on screen and the
+  page visible, two `<img>` swapped hard so a refresh never blinks, `_hk` counter and the tile's
+  size at up to 2x in the URL) or live (a muted inline `<video>` in its shadow root, where
+  `hk-cameras.js` finds and releases it, fed by WebRTC through the client: `get_client_config`
+  and `candidate` as reads, the `offer` as a read subscription, `getCandidatesUpfront` honoured;
+  the still stays under the video and keeps refreshing until it has a picture; errors retry 5 s to
+  2 min, 6 tries, a refusal never), `aspect_ratio` (HA's forms: `16x9`, `16:9`, `1.78`, `56%`; none:
+  the picture's own shape, 16:9 until known), `fit_mode`, `tap_action` (more-info through
+  `hkShell.moreInfo`, navigate, none), `show_name` / `show_state` (a one-line footer unless false).
+  `theme` is not applied. HA's HLS fallback is not offered: a camera without WebRTC stays on its
+  refreshed still. Tests: `tests/test_pictureentity.js`; the offline smoke draws a Cameras page
+  (`tools/headless/client_smoke.py`).
 - **Leaving the dashboard.** In Mantel, a menu link to another dashboard or an HA page reloads the
   page at that address. Another dashboard draws; an HA page such as `/config` returns 404.
 - **Mantel only.** `hkShell.panel().lovelace` is undefined, so `hk-detail`'s "generated here" check

@@ -67,6 +67,12 @@ All of it lives in Mantel's host adapter and server. The shared frontend (`web/h
   before the adapter's write-word backstop, which used to refuse `offer` and `candidate`. The messages
   are byte-for-byte what the card sends to HA, and the camera connector decides each one
   (`may_view`).
+  - The page side without Lovelace (2026-10-18): the Cameras page's tiles and the camera strip's live
+    tile are Lovelace `picture-entity` configs, which HK's view host now draws with its own
+    `hk-picture-entity` (`web/hk/shell/hk-view-host.js`; `docs/phase2/VIEW-HOST.md`). Its still is the
+    state's `entity_picture` (Mantel's still route) plus `_hk`/`width`/`height`; its live view sends
+    these three messages through the client. A refusal (`forbidden`, e.g. the `ha` door without
+    `tunnel_cameras`) leaves the tile on its still with no retry.
 - **Camera stills: done.** These go through Mantel, never HA's own `camera_proxy`.
   - `connectors/camera_still.py` shapes every state a `view.ClientView` sends, with or without an
     RBAC gate. A camera's `access_token` is dropped. Its `entity_picture` becomes
