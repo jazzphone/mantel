@@ -5,8 +5,9 @@
 # A plain Python base (as the Mantel Connect proof App used live): Mantel needs no S6 or bashio. The
 # container starts as root only so entrypoint.py can hand /data (mounted root-owned by the Supervisor)
 # and the token file to uid 10001; it then drops root for good BEFORE the server starts.
-# Pin by digest when building for release (docker buildx imagetools inspect python:3.12-slim-bookworm).
-FROM python:3.12-slim-bookworm
+# Pinned by digest (the multi-arch index: amd64 and aarch64); refresh with
+# `docker buildx imagetools inspect python:3.12-slim-bookworm`.
+FROM python:3.12-slim-bookworm@sha256:34386ef0cb081344d7ec1c103ba398e6e9f64e9ab3a1509accc92a4e24a07258
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \

@@ -259,7 +259,6 @@ else in HA was changed (the App creates no entities, no users, no tokens; HK Fro
 * No in-page UI link to the People page yet (the address is `<prefix>/ingress/people`; the setup
   confirmation links it). The HK Settings panel's own user management is P3.x front-end work.
 * Passkey step-up does not work through Ingress (RP ID); TOTP and PIN step-up do.
-* The base image is pinned by tag, not digest (no Docker here to look it up).
 * `/dev` diagnostics and HK Settings' photo URLs are not prefix-aware (above).
 * Requests that arrive before the page's first load set cookies run without a session (read-only);
   the policy tick cannot close such a socket on unlink (it closes it on the next reload).
