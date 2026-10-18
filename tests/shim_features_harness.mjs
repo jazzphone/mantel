@@ -135,6 +135,16 @@ async function run(label, commandsOn) {
   const w = sent.length;
   try { const q = a.callWS({ type: 'hk_frontend/hidden/set' }); if (commandsOn) { res.hiddenFrame = last(); answer('command_result', []); } await q; res.hidden = 'ok'; } catch (e) { res.hidden = e.code; }
   res.hiddenSent = sent.length - w;
+  // Live TV's viewer heartbeat: quiet with commands off (nothing sent, nothing said), the gateway's with them on
+  const tvRefused = events.filter((e) => e === 'hk-command-refused').length;
+  const tv0 = sent.length;
+  try {
+    const q = a.callWS({ type: 'hk_tv/watching', channel: '4.1' });
+    if (commandsOn) { res.tvFrame = last(); answer('command_result', { viewers: ['x'] }); }
+    res.tv = await q;
+  } catch (e) { res.tv = e.code; }
+  res.tvSent = sent.length - tv0;
+  res.tvRefusedEvents = events.filter((e) => e === 'hk-command-refused').length - tvRefused;
   res.settingsSave = (() => { const q = a.callWS({ type: 'hk_frontend/board/set', board: {} }); const f = last(); reply({ type: 'settings_result', id: f.id, result: { ok: true } }); return f.type; })();
   out[label] = res;
 }

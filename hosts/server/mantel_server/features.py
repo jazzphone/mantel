@@ -56,6 +56,7 @@ from __future__ import annotations
 
 import asyncio
 import copy
+import inspect
 import json
 import logging
 import re
@@ -98,7 +99,35 @@ DEFAULTS: dict[str, dict[str, Any]] = {
     "sleep": {"enabled": False},
     "clean_areas": {"enabled": False, "options": {}},
     "energy": {"enabled": False, "options": {}},
-    "live_tv": {"enabled": False, "tuner": "", "guide_url": "", "channels": []},
+    "live_tv": {"enabled": False, "tuner": "", "guide_url": "", "channels": [], "names": {}},
+    # NOT A PIECE: what the feature import read from Home Assistant (import_features): the HK features HA
+    # had added (``added``, HA's kinds), their items ({kind: [{entry_id, title}]}) and where from. Music,
+    # Alarm PIN and Live TV's channel cameras still run in HA: the screens are told they are added from this.
+    "ha": {"added": [], "items": {}, "source": None},
+}
+# HK Frontend's feature kinds as Home Assistant has them (hk_frontend/features KINDS, in its order), and
+# HK Settings' ids for them (setup_check.COMPANIONS, in its order): the shapes the screens read
+HA_KINDS = ("music", "live_tv", "clean_areas", "alarm_pin", "energy", "notifications")
+COMPANIONS = (("hk_music", "music", "Music"), ("hk_alarm_pin", "alarm_pin", "Alarm PIN"),
+              ("hk_clean_areas", "clean_areas", "Clean Areas"), ("hk_tv", "live_tv", "Live TV"),
+              ("hk_energy", "energy", "Energy"), ("hk_notify", "notifications", "Notifications"))
+# the features whose engines still run in Home Assistant (music; the alarm's PIN; Live TV's channel
+# cameras, transcode and viewers): added on Mantel's screens while HA has them (the import's ``ha.added``)
+HA_RUN = frozenset({"music", "alarm_pin", "live_tv"})
+# what the feature import reads, per piece: each feature's own HK Settings read in HA (server-only reads,
+# readproxy.SERVER_ONLY_READS), made into Mantel's piece by import_piece
+FEATURE_READS = {"notifications": "hk_notify/settings/get", "clean_areas": "hk_clean_areas/settings/get",
+                 "energy": "hk_energy/settings/get", "live_tv": "hk_tv/settings/get"}
+IMPORTED = ("ha", *FEATURE_READS)          # what an import (re)writes; `linked` and `sleep` stay as they are
+# Every read this module answers in app["read_routes"] has exactly one rule here (pinned by
+# tests/test_feature_parity.py). None is forwarded to Home Assistant.
+ROUTE_RULES: dict[str, str] = {
+    "hk_frontend/events/subscribe": "signed in; a frame naming `users` reaches only those people",
+    "mantel/live_tv/guide": "signed in",
+    "mantel/energy/plan": "feature:energy",
+    "mantel/clean_areas/coverage": "signed in",
+    "hk_clean_areas/subscribe": "signed in; {configured, areas} from hk_core clean_areas over MantelHouse; an area "
+                                "is offered only through a vacuum the subject may view; carries nothing",
 }
 # a tablet's four linked entities: key -> (platform, icon), as hk_frontend makes them
 TABLET_ENTITIES = {SS.BLACK_KEY: ("switch", "mdi:monitor-off"), SS.SWITCH_KEY: ("switch", "mdi:image-multiple"),
@@ -113,6 +142,7 @@ _CHANNEL = re.compile(r"^\d{1,4}(\.\d{1,4})?$")
 _TID = re.compile(r"^[a-z0-9_-]{1,80}$")
 LOG_KEEP = 100
 LIVE_TV_REFRESH_S = 1800
+ENERGY_REFRESH_S = 300.0               # the Energy page's plan, worked out again at least this often
 MAX_FETCH = 60_000_000
 
 
@@ -123,7 +153,7 @@ def check_settings(body: Any) -> dict[str, dict[str, Any]]:
         body = {}
     if not isinstance(body, Mapping):
         raise ValueError("the feature settings are an object")
-    extra = set(body) - set(PIECES)
+    extra = set(body) - set(DEFAULTS)
     if extra:
         raise ValueError(f"unknown pieces {sorted(extra)}; pieces are {list(PIECES)}")
     out = copy.deepcopy(DEFAULTS)
@@ -133,7 +163,7 @@ def check_settings(body: Any) -> dict[str, dict[str, Any]]:
         bad = set(v) - set(DEFAULTS[piece])
         if bad:
             raise ValueError(f"{piece}: unknown keys {sorted(bad)}")
-        if "enabled" in v and not isinstance(v["enabled"], bool):
+        if piece != "ha" and "enabled" in v and not isinstance(v["enabled"], bool):
             raise ValueError(f"{piece}.enabled: true or false")
         out[piece].update(copy.deepcopy(dict(v)))
     n = out["notifications"]
@@ -161,7 +191,101 @@ def check_settings(body: Any) -> dict[str, dict[str, Any]]:
         raise ValueError("live_tv.guide_url: an http(s) URL of an XMLTV file")
     if not isinstance(tv["channels"], list) or not all(isinstance(c, str) and _CHANNEL.match(c) for c in tv["channels"]):
         raise ValueError("live_tv.channels: channel numbers such as \"4.1\"")
+    if not isinstance(tv["names"], Mapping) or not all(
+            isinstance(k, str) and _CHANNEL.match(k) and isinstance(n, str) and 0 < len(n) <= 40
+            for k, n in tv["names"].items()):
+        raise ValueError("live_tv.names: {channel number: its name (up to 40 characters)}")
+    ha = out["ha"]
+    if not isinstance(ha["added"], list) or not all(k in HA_KINDS for k in ha["added"]):
+        raise ValueError(f"ha.added: HA's feature kinds ({list(HA_KINDS)})")
+    if not isinstance(ha["items"], Mapping) or not all(
+            k in HA_KINDS and isinstance(v, list) and all(
+                isinstance(i, Mapping) and set(i) <= {"entry_id", "title"} and isinstance(i.get("entry_id"), str)
+                and _ENTRY.match(i["entry_id"]) and isinstance(i.get("title", ""), str) for i in v)
+            for k, v in ha["items"].items()):
+        raise ValueError("ha.items: {kind: [{entry_id, title}]}")
+    if ha["source"] is not None and not (isinstance(ha["source"], str) and len(ha["source"]) <= 80):
+        raise ValueError("ha.source: where the features were imported from")
     return out
+
+
+# ------------------------------------------------------------------------------- the feature import
+def ha_items(panel: Any) -> dict[str, list[dict[str, str]]]:
+    """HA's ``hk_frontend/panel/get`` answer's ``features`` (panel.py _features: {id: {name, kind,
+    installed, entries: [{entry_id, title, state}]}}) -> {kind: [{entry_id, title}]}, the added ones."""
+    feats = panel.get("features") if isinstance(panel, Mapping) else None
+    out: dict[str, list[dict[str, str]]] = {}
+    for fid, kind, _name in COMPANIONS:
+        f = feats.get(fid) if isinstance(feats, Mapping) else None
+        if not isinstance(f, Mapping) or f.get("kind", kind) != kind:
+            continue
+        got = [{"entry_id": e["entry_id"], "title": str(e.get("title") or "")[:80]}
+               for e in f.get("entries") or [] if isinstance(e, Mapping) and isinstance(e.get("entry_id"), str)
+               and _ENTRY.match(e["entry_id"])]
+        if got:
+            out[kind] = got
+    return out
+
+
+def _strs(v: Any, pattern: re.Pattern | None = None) -> list[str]:
+    return list(dict.fromkeys(x for x in v if isinstance(x, str) and (pattern is None or pattern.match(x)))) \
+        if isinstance(v, list) else []
+
+
+_ENTITY = re.compile(r"^[a-z0-9_]+\.[a-z0-9_]+$")
+_AREA = re.compile(r"^[A-Za-z0-9_\-]{1,100}$")
+
+
+def import_piece(kind: str, page: Any) -> dict[str, Any]:
+    """One feature's HK Settings page in HA (its ``<id>/settings/get`` answer) -> Mantel's piece, with
+    exactly the stored values the page shows (the item's options and data; nothing worked out at run
+    time). A page that says the feature is not set up gives the piece off. Values that would not pass
+    check_settings are left out rather than failing the whole import."""
+    if not isinstance(page, Mapping) or not page.get("configured"):
+        return {"enabled": False}
+    if kind == "clean_areas":
+        return {"enabled": True, "options": {"vacuums": _strs(page.get("chosen_vacuums"), _ENTITY),
+                                             "areas": _strs(page.get("chosen_areas"), _AREA)}}
+    if kind == "energy":
+        from hk_core.energy.const import OPTION_KEYS
+        opts = page.get("options") if isinstance(page.get("options"), Mapping) else {}
+        return {"enabled": True, "options": {k: copy.deepcopy(opts[k]) for k in OPTION_KEYS if opts.get(k) is not None}}
+    if kind == "notifications":
+        from hk_core.notifications.const import ITEM_FIELDS
+        opts = page.get("options") if isinstance(page.get("options"), Mapping) else {}
+        items = [{k: copy.deepcopy(it[k]) for k in ("id", *ITEM_FIELDS) if it.get(k) is not None}
+                 for it in page.get("items") or [] if isinstance(it, Mapping) and isinstance(it.get("id"), str) and it["id"]]
+        return {"enabled": True, "options": {k: copy.deepcopy(v) for k, v in opts.items() if v is not None},
+                "items": items}
+    if kind == "live_tv":
+        host, guide = str(page.get("host") or "").strip(), str(page.get("guide_url") or "").strip()
+        chans = [c for c in page.get("channels") or [] if isinstance(c, Mapping) and isinstance(c.get("number"), str)
+                 and _CHANNEL.match(c["number"])]
+        # Mantel's own guide fetch stays off: the screens draw HA's channel cameras and "now playing"
+        # sensors (hk_tv/channels, an interim read), and HA's coordinator already reads the guide
+        return {"enabled": False, "tuner": host if _HOST.match(host) or _URL.match(host) else "",
+                "guide_url": guide if _URL.match(guide) else "",
+                "channels": list(dict.fromkeys(c["number"] for c in chans)),
+                "names": {c["number"]: c["name"] for c in chans if isinstance(c.get("name"), str) and 0 < len(c["name"]) <= 40}}
+    raise KeyError(kind)
+
+
+async def import_features(panel: Any, read: Callable[[dict], Awaitable[Any]], current: Any = None,
+                          source: str | None = None) -> dict[str, dict[str, Any]]:
+    """THE FEATURE IMPORT (MANTEL-FEATURES.md "Exact continuation point" item 3): which HK features HA has
+    added (``panel``: its ``hk_frontend/panel/get`` answer) and, for Notifications, Clean Areas, Energy
+    and Live TV, their settings (one server-only read each, ``read({"type": ...})``; only for a feature
+    HA has added). -> Mantel's feature settings: ``current`` (default: none) with ``ha`` and those four
+    pieces replaced; ``linked`` and ``sleep`` are kept. Reads only; never writes to HA."""
+    items = ha_items(panel)
+    out = check_settings(current)
+    out["ha"] = {"added": [k for k in HA_KINDS if k in items], "items": items, "source": source}
+    for kind, t in FEATURE_READS.items():
+        piece = copy.deepcopy(DEFAULTS[kind])
+        if kind in items:
+            piece.update(import_piece(kind, await read({"type": t})))
+        out[kind] = piece
+    return check_settings(out)
 
 
 def _slug(name: str, fallback: str) -> str:
@@ -765,7 +889,7 @@ class LiveTv:
     def channels(self) -> dict[str, Any]:
         cfg = self.host.settings["live_tv"]
         now = self.host.now()
-        names = {c["number"]: c["name"] for c in self.lineup}
+        names = {**{c["number"]: c["name"] for c in self.lineup}, **cfg["names"]}   # a name of the house's own wins
         numbers = list(cfg["channels"]) or [c["number"] for c in self.lineup] or sorted(self.guide)
         out = []
         for n in numbers:
@@ -870,6 +994,50 @@ def energy_context(house: Any, prefs: Mapping[str, Any] | None, options: Mapping
             "vehicles": sorted(vehicles)}
 
 
+def found_thermostats(house: Any, settings: Mapping[str, Any]) -> list[str]:
+    """Status & Chips' thermostats as HA's kinds.resolve finds them (hk_frontend/kinds.py), for the
+    Energy page's plan: every climate entity, less hidden, disabled, config/diagnostic ones and groups,
+    less Leave out (``generated``: entities, devices, areas); then a saved ``counts.thermostats``
+    (exclude / include), else the older ``features.thermostats`` list; then an accessory whose
+    "Include in status" is off is taken out."""
+    from hk_core.house import area_of
+    from hk_core.settings.kinds import clean
+    states = {s.entity_id: s for s in house.states("climate")}
+    lo = settings.get("generated") if isinstance(settings.get("generated"), Mapping) else {}
+    x_ent, x_dev, x_area = (set(lo.get(k) or []) for k in ("exclude_entities", "exclude_devices", "exclude_areas"))
+    auto = []
+    for eid, st in sorted(states.items()):
+        ent = house.entity(eid)
+        if ent is not None and (ent.hidden or ent.disabled or ent.entity_category):
+            continue
+        if any(isinstance(st.attributes.get(k), list) for k in ("entity_id", "group_entities")):
+            continue
+        area = area_of(house, ent)
+        if eid in x_ent or (ent and ent.device_id in x_dev) or (area and area in x_area):
+            continue
+        auto.append(eid)
+    saved = clean((settings.get("counts") or {}).get("thermostats") if isinstance(settings.get("counts"), Mapping) else None)
+    if saved is None:
+        old = (settings.get("features") or {}).get("thermostats") if isinstance(settings.get("features"), Mapping) else None
+        old = [e for e in old if isinstance(e, str)] if isinstance(old, list) else []
+        out = [e for e in old if e in states] if old else auto
+    else:
+        drop = set(saved["exclude"])
+        out = [e for e in auto if e not in drop]
+        out += sorted(e for e in saved["include"] if e in states and e not in out and e not in drop)
+    acc = ((settings.get("accessories") or {}).get("entities") or {}) if isinstance(settings.get("accessories"), Mapping) else {}
+    return [e for e in out if not (isinstance(acc.get(e), Mapping) and acc[e].get("status") is False)]
+
+
+def energy_house(house: Any, settings: Mapping[str, Any]) -> dict[str, Any]:
+    """What HA's plan borrows from the house's settings (features/energy house()): Status & Chips'
+    thermostats, the outside temperature and Power Use."""
+    feats = settings.get("features") if isinstance(settings.get("features"), Mapping) else {}
+    weather = settings.get("weather") if isinstance(settings.get("weather"), Mapping) else {}
+    return {"thermostats": found_thermostats(house, settings), "outside": weather.get("outside"),
+            "power": feats.get("power")}
+
+
 # ---------------------------------------------------------------------------------- the host
 @dataclass
 class FeatureHooks:
@@ -922,6 +1090,15 @@ class FeatureHost:
         self._reload_lock = asyncio.Lock()
         self._feed_unsub: Callable[[], None] | None = None
         self.started = False
+        # what the screens are told (the settings feed's `added` and `energy`): the Energy page's plan as
+        # last worked out, and the pair last published
+        self.energy_cache: dict[str, Any] | None = None
+        self.energy_error: str | None = None
+        self._energy_at = float("-inf")
+        self._client_sent: tuple | None = None
+        # hk_clean_areas/subscribe: id -> [identity, on_event, last body sent]
+        self._area_subs: dict[int, list] = {}
+        self._area_n = 0
 
     # -- clocks and settings ------------------------------------------------------------------------
     def now(self) -> datetime:
@@ -1060,6 +1237,13 @@ class FeatureHost:
             self.notifier.configure(self.settings["notifications"])
             self._sleep_engines()
             await self._sync_linked()
+            # the screens: a feature turned on or off changes their pages (the settings feed's `added`),
+            # and the Energy page's plan and the areas on offer follow the settings and the registries
+            if not self.on("energy"):
+                self.energy_cache = None
+            self._sync_client()
+            self.spawn(self.refresh_energy())
+            self.spawn(self.push_areas())
 
     def _sleep_engines(self) -> None:
         want = {tid for tid, b in self.boards.items() if self.on("sleep") and SS.deciding(b)}
@@ -1098,6 +1282,10 @@ class FeatureHost:
                     self._followed[eid] = new
                 if hit:
                     eng.evaluate()
+            # a vacuum that appears, goes or changes what it can do changes the areas on offer (HA's
+            # subscribe follows the vacuums' registry entries; each screen is sent only a real change)
+            if self._area_subs and any(e.startswith("vacuum.") for e in changed):
+                self.spawn(self.push_areas())
         except Exception:  # noqa: BLE001 -- a feature's bug never breaks the hub's own callback
             log.exception("features: a state change failed")
 
@@ -1320,6 +1508,10 @@ class FeatureHost:
                     self.update_in_use(tid)
                 for eng in list(self.engines.values()):
                     eng.evaluate()
+                # HA says nothing when its Energy settings are saved: the plan is worked out again now
+                # and then (as HA's own is, at most every CACHE_S, when asked)
+                if self.on("energy") and self.monotonic() - self._energy_at >= ENERGY_REFRESH_S:
+                    self.spawn(self.refresh_energy())
             except Exception:  # noqa: BLE001
                 log.exception("features: tick failed")
 
@@ -1333,13 +1525,170 @@ class FeatureHost:
         proxy = getattr(self.hub, "readproxy", None)
         if proxy is None:
             raise Forbidden("no connection to Home Assistant's Energy settings")
-        prefs = await proxy.request({"type": "energy/get_prefs"})
+        try:
+            prefs = await proxy.request({"type": "energy/get_prefs"})
+        except RuntimeError as exc:
+            # HA answers not_found while no Energy settings were ever saved; its own plan is then worked
+            # out from the feature's options alone (energy.prefs() is None), and so is this one
+            if str(exc) != "not_found":
+                raise
+            prefs = {}
         opts = self.settings["energy"]["options"]
-        return EP.build(energy_context(self.house, prefs if isinstance(prefs, dict) else {}, opts), opts)
+        house = {**self.store.body("house", "settings"),
+                 "accessories": self.store.body("house", "accessories") or {}}
+        return EP.build(energy_context(self.house, prefs if isinstance(prefs, dict) else {}, opts,
+                                       energy_house(self.house, house)), opts)
 
     def clean_coverage(self) -> dict[str, Any]:
         opts = self.settings["clean_areas"]["options"]
         return {"offered": CA.offered(self.house, opts), "coverage": CA.coverage(self.house, opts)}
+
+    async def import_from_ha(self, identity: Any = None) -> dict[str, Any]:
+        """The feature import again, on its own (``POST /api/features/import``, the Ingress people page):
+        HA's panel/get once, each added feature's settings read once (readproxy's server-only reads),
+        written as a new version of ``house/mantel_features`` (action ``import``). Never writes to HA."""
+        proxy = getattr(self.hub, "readproxy", None)
+        read = getattr(proxy, "read_server", None)
+        if read is None:
+            raise LookupError("no connection to Home Assistant to import from")
+        panel = await read({"type": "hk_frontend/panel/get"})
+        if not isinstance(panel, Mapping):
+            raise ValueError("Home Assistant's answer has no HK settings in it")
+        entry = panel.get("entry_id")
+        source = f"ha:{entry}" if isinstance(entry, str) and _ENTRY.match(entry) else "ha"
+        body = await import_features(panel, read, self.doc(FEATURES_DOC) or None, source)
+        from .settings_store import Actor, actor_of
+        actor = actor_of(identity) if identity is not None else Actor(label="mantel-features")
+        docs = self.store.write([("house", FEATURES_DOC, body)], actor=actor, action="import",
+                                message="feature import", source=source)
+        await self.reload()
+        if self.on("live_tv") and self.started:
+            self.spawn(self.tv.refresh())
+        log.info("imported HK's features from %s: added %s", source, self.client_added())
+        return {"imported": True, "source": source, "changed": bool(docs), "added": self.client_added(),
+                "settings": self.settings}
+
+    # -- what the screens are told about the features --------------------------------------------------
+    def client_added(self) -> list[str]:
+        """The settings feed's ``added`` (HA: the kinds of the features loaded), in HA's order: a piece
+        Mantel runs while it is on, and a feature whose engine is still HA's while HA has it added."""
+        ha = set(self.settings["ha"]["added"])
+        return [k for k in HA_KINDS if (k in PIECES and self.on(k)) or (k in HA_RUN and k in ha)]
+
+    def _may_feature_now(self, identity: Any, feature: str) -> bool:
+        """RBAC ``view`` of ``feature:<name>``, asked synchronously (the settings feed is built in a
+        callback). A hook that can only answer later refuses (fail closed)."""
+        if identity is None:
+            return False
+        key = f"feature:{feature}"
+        try:
+            got = self.hooks.may_read(identity, "view", [key])
+        except Exception:  # noqa: BLE001 -- a failing hook refuses
+            log.exception("features: the read hook failed; refusing %s", key)
+            return False
+        if inspect.isawaitable(got):
+            if asyncio.iscoroutine(got):
+                got.close()
+            return False
+        return key in set(got or ())
+
+    def client_part(self, identity: Any) -> dict[str, Any]:
+        """The settings feed's ``added`` and ``energy`` for this subject (HA's ws_settings_subscribe adds
+        the same two). ``energy`` is the Energy page's plan (hk_core.energy.plan.build), only for a
+        subject with ``feature:energy`` (as ``mantel/energy/plan`` and HA's ``energy/get_prefs`` read are)."""
+        plan = self.energy_cache if self.on("energy") and self._may_feature_now(identity, "energy") else None
+        return {"added": self.client_added(), "energy": plan}
+
+    def panel_features(self) -> dict[str, dict[str, Any]]:
+        """``hk_frontend/panel/get``'s ``features`` in HA's shape (panel.py _features): every feature
+        installed, with an entry for each one added (HA's item ids from the import)."""
+        added, items = set(self.client_added()), self.settings["ha"]["items"]
+        out: dict[str, dict[str, Any]] = {}
+        for fid, kind, name in COMPANIONS:
+            got = (items.get(kind) or [{"entry_id": f"mantel_{kind}", "title": name}]) if kind in added else []
+            out[fid] = {"name": name, "kind": kind, "installed": True,
+                        "entries": [{"entry_id": i["entry_id"], "title": i.get("title") or name, "state": "loaded"}
+                                    for i in got]}
+        return out
+
+    def _sync_client(self) -> None:
+        """Tell every screen when what it is told about the features changed (a new settings feed)."""
+        now = (tuple(self.client_added()), self.energy_cache if self.on("energy") else None)
+        if now == self._client_sent:
+            return
+        self._client_sent = now
+        svc = self.app.get("settings")
+        if svc is not None:
+            svc.publish()
+
+    def _ha_ready(self) -> bool:
+        ev = getattr(getattr(self.hub, "ha", None), "connected", None)
+        return bool(ev is not None and ev.is_set()) and getattr(self.hub, "readproxy", None) is not None
+
+    async def refresh_energy(self, force: bool = False) -> dict[str, Any] | None:
+        """Work the Energy page's plan out again (HA's Energy settings read once, the house from the
+        hub) and tell the screens if it changed. Only once Mantel is connected to HA (or ``force``)."""
+        if not self.on("energy"):
+            self.energy_cache = None
+            self._sync_client()
+            return None
+        if not force and not self._ha_ready():
+            return self.energy_cache
+        self._energy_at = self.monotonic()
+        try:
+            plan = await self.energy_plan()
+        except Exception as exc:  # noqa: BLE001 -- the last plan stays; tried again on the next tick
+            self.energy_error = f"{type(exc).__name__}: {exc}"[:300]
+            log.warning("the Energy page's plan was not worked out: %s", self.energy_error)
+            return self.energy_cache
+        self.energy_error = None
+        if self.on("energy"):
+            self.energy_cache = plan
+            self._sync_client()
+        return plan
+
+    # -- Clean Areas' area picker (hk_clean_areas/subscribe, answered by Mantel) --------------------
+    async def area_offer(self, identity: Any) -> dict[str, Any]:
+        """HA's ``hk_clean_areas/subscribe`` body, {configured, areas}, from hk_core's Clean Areas over
+        Mantel's House: the areas the picker offers (``clean_areas.offered``), reached only through
+        vacuums this subject may ``view`` (an area only a hidden vacuum reaches is not offered)."""
+        if not self.on("clean_areas"):
+            return {"configured": False, "areas": []}
+        from .connectors import allowed_ids
+        opts = self.settings["clean_areas"]["options"]
+        part = [v for v in CA.coverage(self.house, opts) if v["taking_part"]]
+        ok = await allowed_ids(self.hooks, identity, "view", [v["vacuum"] for v in part])  # type: ignore[arg-type]
+        reach: list[str] = []
+        for v in part:
+            if v["vacuum"] in ok:
+                for a in v["areas"]:
+                    if a not in reach:
+                        reach.append(a)
+        chosen = list(opts.get("areas") or [])
+        return {"configured": True, "areas": [a for a in chosen if a in reach] if chosen else reach}
+
+    def subscribe_areas(self, identity: Any, on_event: Callable[[dict], None]) -> tuple[int, Callable[[], None]]:
+        self._area_n += 1
+        sid = self._area_n
+        self._area_subs[sid] = [identity, on_event, None]
+        return sid, lambda: self._area_subs.pop(sid, None) and None
+
+    async def push_areas(self, only: int | None = None) -> None:
+        """Each listening picker its areas, when they changed for it (as HA's push sends a change only)."""
+        for sid, sub in list(self._area_subs.items()):
+            if only is not None and sid != only:
+                continue
+            try:
+                body = await self.area_offer(sub[0])
+            except Exception:  # noqa: BLE001 -- nothing rather than too much
+                log.exception("features: the areas on offer could not be worked out")
+                continue
+            if sid in self._area_subs and body != sub[2]:
+                sub[2] = body
+                try:
+                    sub[1](body)
+                except Exception:  # noqa: BLE001 -- one closed screen never stops the others
+                    log.exception("an area picker's listener failed")
 
     def status(self) -> dict[str, Any]:
         calls = list(self.caller.log)
@@ -1363,6 +1712,9 @@ class FeatureHost:
                         for tid, s in self.screens.items()},
             "live_tv": {"lineup": len(self.tv.lineup), "channels": len(self.tv.guide), "fetched_at": self.tv.fetched_at,
                         "error": self.tv.error},
+            "screens_told": {"added": self.client_added(), "energy_plan": self.energy_cache is not None,
+                             "energy_error": self.energy_error, "area_pickers": len(self._area_subs),
+                             "imported_from": self.settings["ha"]["source"]},
         }
 
 
@@ -1453,7 +1805,11 @@ def register(app: web.Application, hub: Any, hooks: Any = None) -> FeatureHost:
             return {"configured": False}
         if not await may_feature(host.hooks, ctx.identity, "energy"):    # type: ignore[arg-type]
             raise Forbidden("not allowed: the energy page")
-        return {"configured": True, "plan": await host.energy_plan()}
+        plan = await host.energy_plan()
+        if host.on("energy") and plan != host.energy_cache:     # the screens' copy follows a fresher plan
+            host.energy_cache = plan
+            host._sync_client()
+        return {"configured": True, "plan": plan}
 
     async def coverage(ctx: Ctx, msg: dict):
         if not _principal_ok(ctx.identity):
@@ -1462,12 +1818,33 @@ def register(app: web.Application, hub: Any, hooks: Any = None) -> FeatureHost:
             return {"configured": False, "offered": [], "coverage": []}
         return {"configured": True, **host.clean_coverage()}
 
+    # HK's area picker (hk-area-select-card), exactly as it subscribes to HA: answered here from hk_core's
+    # Clean Areas over Mantel's House, never forwarded. Starting a clean is a COMMAND (the page's
+    # hk_frontend.clean_areas service call, or clean_areas_run): the gateway's, never this read's.
+    async def clean_areas_subscribe(ctx: Ctx, msg: dict, on_event: Callable[[dict], None]):
+        from .readproxy import ReadBlocked
+        if set(msg) - {"type", "id"}:
+            raise ReadBlocked("hk_clean_areas/subscribe carries nothing")
+        if not _principal_ok(ctx.identity):
+            raise Forbidden("sign in to see the areas to clean")
+        sid, end = host.subscribe_areas(ctx.identity, on_event)
+        await host.push_areas(only=sid)            # now, as HA's subscribe answers at once
+
+        async def unsubscribe() -> None:
+            end()
+        return unsubscribe
+
     read_routes(app).update({
         "hk_frontend/events/subscribe": Route(subscribe=events),
         "mantel/live_tv/guide": Route(request=tv_guide),
         "mantel/energy/plan": Route(request=energy),
         "mantel/clean_areas/coverage": Route(request=coverage),
+        "hk_clean_areas/subscribe": Route(subscribe=clean_areas_subscribe),
     })
+    # the settings feed's `added` / `energy` and panel/get's `features` (settings_store.SettingsService)
+    svc = app.get("settings")
+    if svc is not None:
+        svc.features = host
 
     # the page's messages (none is command-shaped; a house command still goes through the gateway)
     async def screen_report(ctx: Ctx, msg: dict) -> None:
@@ -1539,9 +1916,25 @@ def register(app: web.Application, hub: Any, hooks: Any = None) -> FeatureHost:
             host.spawn(host.tv.refresh())
         return web.json_response({"settings": host.settings})
 
+    async def api_import(request: web.Request) -> web.Response:
+        """Read the feature items from HA again (Owner only): ``ha`` and the four imported pieces are
+        replaced, ``linked`` and ``sleep`` kept; a new version of ``house/mantel_features``."""
+        ident = who(request, owner_only=True)
+        try:
+            got = await host.import_from_ha(ident)
+        except LookupError as exc:
+            return web.json_response({"error": {"code": "unavailable", "message": str(exc)}}, status=503)
+        except ValueError as exc:
+            return web.json_response({"error": {"code": "invalid", "message": str(exc)}}, status=400)
+        except Exception as exc:  # noqa: BLE001 -- HA unreachable or refused; nothing was written
+            log.warning("feature import failed: %s", type(exc).__name__)
+            return web.json_response({"error": {"code": "import_failed", "message": type(exc).__name__}}, status=502)
+        return web.json_response(got)
+
     app.router.add_get("/api/features/status", api_status)
     app.router.add_get("/api/features/settings", api_settings)
     app.router.add_put("/api/features/settings", api_settings_put)
+    app.router.add_post("/api/features/import", api_import)
 
     async def start(_app: web.Application) -> None:
         await host.start()

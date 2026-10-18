@@ -43,6 +43,36 @@ MUSIC_QUEUE = {"ok": True, "queue_id": "q-den", "index": 4, "items": [
     {"id": "i3", "title": "Song 3", "artist": "", "duration": None, "image": "/local/x.jpg"}]}
 
 
+# hk_tv/channels as HA's Live TV feature answers it (ws_channels), fictional, with one misbehaving row
+TV_CHANNELS = {"configured": True, "channels": [
+    {"number": "4.1", "name": "NBC", "camera": "camera.live_tv_4_1", "now": "sensor.live_tv_4_1_now"},
+    {"number": "5.1", "name": "FOX", "camera": "camera.live_tv_5_1", "now": "sensor.live_tv_5_1_now", "token": "x"},
+    {"number": "7.1", "name": "ABC", "camera": "camera.live_tv_7_1", "now": "sensor.live_tv_7_1_now"},
+    {"number": "../x", "name": "bad", "camera": "camera.live_tv_bad", "now": None},
+    {"number": "9.1", "name": "not a camera", "camera": "light.kitchen", "now": None}]}
+# each feature's HK Settings page as HA answers it (its <id>/settings/get), trimmed and fictional
+FEATURE_PAGES = {
+    "hk_clean_areas/settings/get": {
+        "configured": True, "state": "loaded", "vacuums": [{"vacuum": "vacuum.robot", "taking_part": True}],
+        "chosen_vacuums": ["vacuum.robot", "Not An Entity"], "chosen_areas": ["kitchen"], "offered": ["kitchen"],
+        "areas": [], "unreached": []},
+    "hk_energy/settings/get": {
+        "configured": True, "state": "loaded",
+        "options": {"follow": True, "title": "Power & Energy", "top": None, "power": {"path": "power", "home": "sensor.home_power"},
+                    "sections": [{"id": "rooms", "name": "Rooms", "items": ["sensor.fridge"]}]},
+        "plan": {"worked_out": "by HA"}, "devices": [], "batteries": [], "sections": [], "grid": None},
+    "hk_notify/settings/get": {
+        "configured": True, "state": "loaded",
+        "options": {"stay": 15, "saver": "important", "chime": True, "dnd": {"schedule": False, "from": "22:00", "to": "07:00", "while": []}, "wake": False},
+        "items": [{"id": "n_door", "entity": "binary_sensor.front_door", "when": "on", "title": "", "message": None,
+                   "kind": "door", "name": "Front Door", "choices": [], "muted": []}, {"entity": "no id"}],
+        "categories": [], "limits": {}},
+    "hk_tv/settings/get": {
+        "configured": True, "state": "loaded", "title": "Live TV", "host": "192.0.2.40", "guide_url": "http://192.0.2.41/xmltv.xml",
+        "quality": "720", "channels": [{"number": "4.1", "name": "NBC"}, {"number": "x", "name": "bad"}], "lineup": None},
+}
+
+
 class FakeHa:
     def __init__(self) -> None:
         self.frames: list[dict] = []          # every WebSocket frame Mantel sent (auth included)
@@ -152,6 +182,10 @@ class FakeHa:
             return await ok(json.loads(json.dumps(MUSIC_QUEUE)))
         if t == "hk_music/settings/library":
             return await ok({"items": [{"uri": "library://playlist/1", "name": "Morning", "owner": "x"}, {"name": "no uri"}]})
+        if t == "hk_tv/channels":
+            return await ok(json.loads(json.dumps(TV_CHANNELS)))
+        if t in FEATURE_PAGES:
+            return await ok(json.loads(json.dumps(FEATURE_PAGES[t])))
         self.unexpected.append(t)
         await ws.send_json({"id": mid, "type": "result", "success": False, "error": {"code": "unknown_command"}})
 

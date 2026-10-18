@@ -485,7 +485,8 @@ async def ha():
 
 def test_panel_get_is_on_the_allowlist_as_a_server_only_read():
     assert READ_ALLOWED["hk_frontend/panel/get"] == frozenset()
-    assert SERVER_ONLY_READS == {"hk_frontend/panel/get"} and "hk_frontend/panel/get" in RULES
+    assert SERVER_ONLY_READS == {"hk_frontend/panel/get", "hk_notify/settings/get", "hk_clean_areas/settings/get",
+                                 "hk_energy/settings/get", "hk_tv/settings/get"} and "hk_frontend/panel/get" in RULES
     readproxy.check_read({"type": "hk_frontend/panel/get"})
     with pytest.raises(ReadBlocked):
         readproxy.check_read({"type": "hk_frontend/panel/get", "entry_id": "x"})
@@ -589,7 +590,7 @@ def test_the_cli_imports_once_from_ha(tmp_path, capsys):
         args = ["import-settings", "--data-dir", str(tmp_path / "data"), "--ha-url", f"http://127.0.0.1:{port}",
                 "--token-file", str(token)]
         assert main(args) == 0
-        assert "imported HK settings from ha:fictional-entry: 9 documents written as version 1" in capsys.readouterr().out
+        assert "imported HK settings from ha:fictional-entry: 10 documents written as version 1" in capsys.readouterr().out
         assert main(args) == 0
         assert "already imported from ha:fictional-entry" in capsys.readouterr().out
         assert fake.sent_types() == ["auth", "hk_frontend/panel/get"]
@@ -599,7 +600,7 @@ def test_the_cli_imports_once_from_ha(tmp_path, capsys):
         loop.call_soon_threadsafe(loop.stop)
         thread.join(5)
     d = Database(tmp_path / "data" / "mantel.db")
-    assert d.conn.execute("SELECT COUNT(*) FROM settings_docs").fetchone()[0] == 9
+    assert d.conn.execute("SELECT COUNT(*) FROM settings_docs").fetchone()[0] == 10      # + house/mantel_features (no features added in HA)
     d.close()
 
 

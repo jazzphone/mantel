@@ -67,7 +67,12 @@ def test_readproxy_allowlist_is_pinned_and_has_no_writes():
                                  # P3.5: the settings import's one read (server-only; tests/test_settings_store.py)
                                  "hk_frontend/panel/get",
                                  # interim, until Phase 4: HK's Music page from HA's hk_frontend (RBAC-filtered)
-                                 "hk_music/subscribe", "hk_music/queue", "hk_music/settings/library"}
+                                 "hk_music/subscribe", "hk_music/queue", "hk_music/settings/library",
+                                 # interim, until Live TV moves: the guide card's channel list (RBAC-filtered)
+                                 "hk_tv/channels",
+                                 # the feature import's reads (server-only; tests/test_feature_parity.py)
+                                 "hk_notify/settings/get", "hk_clean_areas/settings/get", "hk_energy/settings/get",
+                                 "hk_tv/settings/get"}
     # hk_music/queue READS a speaker's queue (HA: ws_music_queue, entity_id + limit); its write is
     # hk_music/queue_play, which "play" still catches and check_read refuses
     READ_NAMED_LIKE_A_WRITE = {"hk_music/queue"}

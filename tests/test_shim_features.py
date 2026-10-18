@@ -111,6 +111,17 @@ def test_no_house_command_is_made_of_any_of_this(observed):
                                       "command", "settings_write"}
 
 
+@pytest.mark.parametrize("mode", ["off", "on"])
+def test_live_tvs_viewer_heartbeat(observed, mode):
+    r = observed[mode]
+    if mode == "off":
+        # answered in the page: nothing sent, no "commands disabled" toast every minute of a programme
+        assert (r["tv"], r["tvSent"], r["tvRefusedEvents"]) == ({"viewers": []}, 0, 0)
+    else:
+        # a write: the gateway's, as a `command` frame, exactly as HK sends it to HA
+        assert r["tvFrame"]["type"] == "command" and r["tvSent"] == 1 and r["tv"] == {"viewers": ["x"]}
+
+
 def test_the_frames_are_what_the_servers_handlers_accept():
     # the same keys features.py validates (screen_report: tablet + bools; notify_mute: key + seconds)
     src = (ROOT / "hosts/server/mantel_server/features.py").read_text()
