@@ -702,7 +702,9 @@ async def mantel_app(tmp_path, monkeypatch):
     async def fetch():
         fetched.append(1)
         return PANEL
-    service = S.register(app, app["hub"], S.SettingsHooks(may_configure=S.rbac_may_configure(), fetch_ha_settings=fetch))
+    # build_app registers the settings store (server.wire); this test gives it a fake HA to import from
+    service = app["settings"]
+    service.hooks = S.SettingsHooks(may_configure=S.rbac_may_configure(), fetch_ha_settings=fetch)
     async with TestClient(TestServer(app)) as client:
         origin = str(client.make_url("")).rstrip("/")
         client.session.headers["Origin"] = origin

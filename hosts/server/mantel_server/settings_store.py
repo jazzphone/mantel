@@ -1168,7 +1168,6 @@ def register(app: web.Application, hub: Any, hooks: Any = None, *, store: Settin
 
     ws_handlers(app)["settings_write"] = on_write
 
-    hooks_ = service.hooks
 
     async def fetch_from_hub() -> Any:
         proxy = getattr(hub, "readproxy", None)
@@ -1194,7 +1193,7 @@ def register(app: web.Application, hub: Any, hooks: Any = None, *, store: Settin
         if role != "owner":
             return web.json_response({"error": "owner_only"}, status=403)
         try:
-            got = await import_settings(store, hooks_.fetch_ha_settings or fetch_from_hub,
+            got = await import_settings(store, service.hooks.fetch_ha_settings or fetch_from_hub,
                                         actor=actor_of(ident), model=service.model)
         except SettingsError as exc:
             return web.json_response({"error": exc.code, "message": str(exc)}, status=400 if exc.code != "unavailable" else 503)

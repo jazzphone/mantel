@@ -122,7 +122,8 @@ def test_build_app_installs_the_door_rule(tmp_path):
     app = server.build_app(Config(data_dir=tmp_path, secrets_dir=tmp_path / "s"), "fictional",
                            store=Store(tmp_path / "m.db"), connect_ha=False)
     assert app["door_resolver"] is resolve_door
-    assert {"read", "read_subscribe", "read_unsubscribe", "read_api", "ma/read", "ma/subscribe", "ma/unsubscribe"} \
+    assert {"read", "read_subscribe", "read_unsubscribe", "read_api", "ma/read", "ma/subscribe", "ma/unsubscribe",
+            "settings_write"} \
         == set(app["ws_handlers"])
     assert app["gateway"] is None and app["commander"] is None and app["ma"] is None
     paths = {r.resource.canonical for r in app.router.routes() if r.resource is not None}
@@ -266,3 +267,23 @@ def test_classify_still_refuses_every_command_shape():
                 {"type": "ma/read", "service": "y"}):
         assert server.classify(msg) == "command"
     assert server.classify({"type": "read"}) == "read"         # a read handler refuses any extra key itself
+
+
+# -- P3.5's settings store, wired --------------------------------------------------------------------
+async def test_settings_saves_reach_the_store_by_role(off):
+    await off.login("avery", "owner")
+    ws = await off.socket(expect_caps=False)
+    await ws.send_json({"type": "settings_write", "id": 1,
+                        "msg": {"type": "hk_frontend/settings/set", "changes": {"sky.decorations": False}}})
+    got = await recv(ws)
+    assert got["type"] == "settings_result" and "error" not in got, got
+    await ws.close()
+    assert off.app["settings"].store is not None
+    off.m.forget_cookies()
+    await off.login("cody", "child")
+    ws = await off.socket(expect_caps=False)
+    await ws.send_json({"type": "settings_write", "id": 2,
+                        "msg": {"type": "hk_frontend/settings/set", "changes": {"sky.decorations": True}}})
+    got = await recv(ws)
+    assert got["type"] == "settings_result" and got.get("error"), got      # a Child changes no house setting
+    await ws.close()

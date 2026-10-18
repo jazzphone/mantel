@@ -29,7 +29,7 @@ from urllib.parse import urlparse
 import aiohttp
 from aiohttp import WSMsgType, web
 
-from . import accounts, auth, devices, gateway, health, proof2, rbac_store, readproxy, sessions
+from . import accounts, auth, devices, gateway, health, proof2, rbac_store, readproxy, sessions, settings_store
 from .authz import Authz, Principal, resolve_door
 from .config import Config
 from .connectors import REFUSE_ALL, Ctx, Hooks
@@ -491,6 +491,10 @@ def wire(app: web.Application, hub: Hub, token: str, connect_ha: bool) -> None:
     camera_connector.register(app, hub, hooks)
     ma_connector.register(app, hub, hooks)
     health.register(app, hub)
+    # P3.5: HK's settings from Mantel's own store (reads + settings_write saves). HK's own data, not a
+    # house command, so saves work while commands are off; each save asks RBAC `configure`.
+    settings_store.register(app, hub, settings_store.SettingsHooks(
+        may_configure=settings_store.rbac_may_configure(rbac_store=store, clock=lambda: app["clock"]())))
     if cfg.commands_enabled:
         log.warning("COMMANDS ARE ENABLED on this server: signed-in users may control Home Assistant within "
                     "their roles (step-up and an audit row for every command)")
