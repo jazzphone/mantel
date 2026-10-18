@@ -1,0 +1,6 @@
+#!/bin/sh
+# HK Frontend's Python tests (pytest + Home Assistant's
+# own test harness). The venv lives OUTSIDE the repo; built on first use.
+VENV="$HOME/.venvs/hk-ha-test"
+[ -x "$VENV/bin/pytest" ] || { python3 -m venv "$VENV" && "$VENV/bin/pip" install -q pytest-homeassistant-custom-component; } || exit 1
+cd "$(dirname "$0")" && exec "$VENV/bin/pytest" -q -p no:cacheprovider "$@"

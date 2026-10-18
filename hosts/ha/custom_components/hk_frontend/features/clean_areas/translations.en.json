@@ -1,0 +1,50 @@
+{
+  "config_subentries": {
+    "feature": {
+      "step": {
+        "clean_areas": {
+          "title": "Clean Areas",
+          "description": "Clean chosen areas with whichever vacuums can reach them, from each vacuum's room map in Home Assistant. Pick which vacuums take part.",
+          "data": {
+            "vacuums": "Vacuums"
+          },
+          "data_description": {
+            "vacuums": "Empty: every vacuum. Each one's rooms come from its room map in Home Assistant (the vacuum's own entity settings). One that cannot clean by area starts when its own area is chosen; one with clean-by-area but no room map is skipped (for example a second integration's copy of the same robot)."
+          }
+        },
+        "clean_areas_options": {
+          "title": "Clean Areas",
+          "data": {
+            "vacuums": "Vacuums",
+            "areas": "Areas"
+          },
+          "data_description": {
+            "vacuums": "Empty: every vacuum. Each one's rooms come from its room map in Home Assistant (the vacuum's own entity settings). One that cannot clean by area starts when its own area is chosen; one with clean-by-area but no room map is skipped (for example a second integration's copy of the same robot).",
+            "areas": "Which areas the vacuum area picker offers. Empty: every area a vacuum that takes part can reach (by its room map, or its own area for one that only starts)."
+          }
+        }
+      }
+    }
+  },
+  "services": {
+    "clean_areas": {
+      "name": "Clean areas",
+      "description": "Send each vacuum the chosen areas it covers (from its room map in Home Assistant). Answers with what was sent.",
+      "fields": {
+        "areas": {
+          "name": "Areas",
+          "description": "The areas to clean."
+        },
+        "dry_run": {
+          "name": "Dry run",
+          "description": "Only answer with the plan; start nothing."
+        }
+      }
+    }
+  },
+  "exceptions": {
+    "clean_areas_not_set_up": {
+      "message": "Clean Areas is not added. Add it in Settings -> Devices & services -> HK Frontend -> Add feature."
+    }
+  }
+}

@@ -1,0 +1,196 @@
+{
+  "config_subentries": {
+    "preset": {
+      "entry_type": "Preset",
+      "initiate_flow": {
+        "user": "Add music preset"
+      },
+      "step": {
+        "user": {
+          "title": "Add a preset",
+          "description": "A Music Assistant sync group, and the rooms it plays in. Home Assistant can’t read a sync group’s rooms, so they are picked here.",
+          "data": {
+            "name": "Name",
+            "group": "Music Assistant sync group",
+            "members": "Its rooms"
+          }
+        },
+        "reconfigure": {
+          "title": "Edit preset",
+          "description": "A Music Assistant sync group, and the rooms it plays in.",
+          "data": {
+            "name": "Name",
+            "group": "Music Assistant sync group",
+            "members": "Its rooms"
+          }
+        }
+      },
+      "error": {
+        "no_name": "Give it a name.",
+        "no_members": "Pick the rooms it plays in.",
+        "not_a_speaker": "Every room must be one of the configured speakers.",
+        "group_is_room": "Pick the sync group player, not a room."
+      },
+      "abort": {
+        "reconfigure_successful": "Saved.",
+        "music_not_added": "Add Music first: Add feature → Music."
+      }
+    },
+    "playlist": {
+      "entry_type": "Playlist",
+      "initiate_flow": {
+        "user": "Add music playlist"
+      },
+      "step": {
+        "user": {
+          "title": "Add a playlist",
+          "description": "A pill under Your Playlists on the Music page. Pick one or more playlists from the Music Assistant library; they play as one shuffled queue.",
+          "data": {
+            "name": "Name",
+            "icon": "Icon",
+            "items": "Playlists",
+            "chooser": "Chooser",
+            "order": "Order"
+          },
+          "data_description": {
+            "chooser": "Optional. Playlists with the same chooser name become ONE pill that asks which, like Decades.",
+            "order": "Lower comes first."
+          }
+        },
+        "reconfigure": {
+          "title": "Edit playlist",
+          "description": "A pill under Your Playlists on the Music page.",
+          "data": {
+            "name": "Name",
+            "icon": "Icon",
+            "items": "Playlists",
+            "chooser": "Chooser",
+            "order": "Order"
+          },
+          "data_description": {
+            "chooser": "Optional. Playlists with the same chooser name become ONE pill that asks which, like Decades.",
+            "order": "Lower comes first."
+          }
+        }
+      },
+      "error": {
+        "no_name": "Give it a name.",
+        "no_items": "Pick at least one playlist.",
+        "not_in_library": "That playlist isn’t in the Music Assistant library. Pick one from the list, or add it to your library first."
+      },
+      "abort": {
+        "reconfigure_successful": "Saved.",
+        "music_not_added": "Add Music first: Add feature → Music."
+      }
+    },
+    "feature": {
+      "step": {
+        "music": {
+          "title": "Music",
+          "description": "Whole-home music through Music Assistant: the speakers each room plays on, sync-group presets, and playlist pills, for the Music page and for automations. It starts empty: choose the speakers with its gear (or in HK Settings), then add presets and playlists with Add music preset and Add music playlist."
+        },
+        "music_options": {
+          "title": "Speakers and volume",
+          "description": "The rooms the Music page offers, and the volume every room is set to when a playlist starts. Room names and floors come from each speaker’s area.",
+          "data": {
+            "speakers": "Speakers (rooms)",
+            "volume": "House playlist volume"
+          },
+          "data_description": {
+            "speakers": "Music Assistant players, one per room. Sync groups are added as presets, not here.",
+            "volume": "Every room a playlist plays in is set to this."
+          }
+        },
+        "music_homes": {
+          "title": "Each tablet’s room",
+          "description": "Each wall tablet signs in as its own user. The room picked here is what its Music page shows when nothing else is chosen, and wins when music plays in more than one place."
+        }
+      },
+      "error": {
+        "music_no_speakers": "Pick at least one speaker.",
+        "music_group_is_room": "A sync group can’t also be a room. Add it as a preset instead."
+      }
+    }
+  },
+  "services": {
+    "music_play": {
+      "name": "Play music",
+      "description": "Play a configured playlist on a set of rooms: a preset’s sync group, one room, or a new group.",
+      "fields": {
+        "rooms": {
+          "name": "Rooms",
+          "description": "Room players."
+        },
+        "playlist": {
+          "name": "Playlist",
+          "description": "The playlist’s id."
+        }
+      }
+    },
+    "music_transfer": {
+      "name": "Move or add rooms",
+      "description": "Move what is playing to a set of rooms, or add rooms to it, keeping the queue and position.",
+      "fields": {
+        "rooms": {
+          "name": "Rooms",
+          "description": "Where the music should be."
+        },
+        "source": {
+          "name": "Source",
+          "description": "The player the music is on now."
+        }
+      }
+    },
+    "music_stop": {
+      "name": "Stop music",
+      "description": "Stop and ungroup these rooms, or the whole house.",
+      "fields": {
+        "rooms": {
+          "name": "Rooms",
+          "description": "Leave empty for the whole house."
+        }
+      }
+    },
+    "music_transport": {
+      "name": "Music transport",
+      "description": "Play/pause, next, previous, stop or volume on one player.",
+      "fields": {
+        "player": {
+          "name": "Player",
+          "description": "A room or a preset’s group."
+        },
+        "command": {
+          "name": "Command",
+          "description": "What to do."
+        },
+        "level": {
+          "name": "Level",
+          "description": "For volume_set, 0 to 1."
+        }
+      }
+    },
+    "music_play_media": {
+      "name": "Play music item",
+      "description": "Play one item from the library on a player (Browse on the Music page).",
+      "fields": {
+        "player": {
+          "name": "Player",
+          "description": "A room or a preset’s group."
+        },
+        "media_content_id": {
+          "name": "Item",
+          "description": "A library uri."
+        },
+        "media_content_type": {
+          "name": "Type",
+          "description": "The media type."
+        }
+      }
+    }
+  },
+  "exceptions": {
+    "music_not_set_up": {
+      "message": "Music is not added. Add it in Settings -> Devices & services -> HK Frontend -> Add feature."
+    }
+  }
+}

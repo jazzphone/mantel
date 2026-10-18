@@ -1,0 +1,343 @@
+{
+ "about": "HK Frontend's own house for the Power page (hk-power-house-card): a made-up house, drawn in layers that show only what a house has -- solar on its roof, the battery cabinet, the car while one is home. A Picture Folder of your own (art.json and its layers, in your files) takes its place. Its `doors` place the Security page's ways in: `at`, the spot on the picture; `tag`, where the label sits clear of the house (canvas pixels).",
+ "canvas": [
+  1536,
+  1024
+ ],
+ "anchors": {
+  "grid": [
+   62,
+   236
+  ],
+  "solar": [
+   699,
+   301
+  ],
+  "house": [
+   527,
+   780
+  ],
+  "battery": [
+   1432.5,
+   719
+  ],
+  "cars": [
+   1148,
+   818
+  ]
+ },
+ "battery_window": [
+  [
+   1405,
+   722
+  ],
+  [
+   1457,
+   719
+  ],
+  [
+   1457,
+   890
+  ],
+  [
+   1405,
+   896
+  ]
+ ],
+ "paths": {
+  "grid": [
+   [
+    96.0,
+    286.0
+   ],
+   [
+    121.17,
+    365.77
+   ],
+   [
+    156.38,
+    436.62
+   ],
+   [
+    195.14,
+    486.67
+   ],
+   [
+    231.0,
+    504.0
+   ],
+   [
+    237.63,
+    516.07
+   ],
+   [
+    245.37,
+    515.93
+   ],
+   [
+    248.0,
+    506.0
+   ],
+   [
+    240,
+    500
+   ],
+   [
+    240,
+    610
+   ]
+  ],
+  "solar_to_battery": [
+   [
+    760,
+    397
+   ],
+   [
+    760,
+    436
+   ],
+   [
+    756,
+    480
+   ],
+   [
+    740,
+    550
+   ],
+   [
+    715,
+    605
+   ],
+   [
+    783,
+    657
+   ],
+   [
+    900,
+    675
+   ],
+   [
+    1130,
+    675
+   ],
+   [
+    1337,
+    675
+   ],
+   [
+    1405,
+    719
+   ]
+  ],
+  "battery_to_house": [
+   [
+    1405,
+    810
+   ],
+   [
+    1377,
+    805
+   ],
+   [
+    1355,
+    798
+   ],
+   [
+    1340,
+    794
+   ]
+  ],
+  "to_charger_a": [
+   [
+    1405,
+    812
+   ],
+   [
+    1378,
+    811
+   ],
+   [
+    1341,
+    808
+   ],
+   [
+    1310,
+    680
+   ],
+   [
+    1145,
+    691
+   ],
+   [
+    965,
+    708
+   ],
+   [
+    908,
+    725
+   ],
+   [
+    908,
+    790
+   ]
+  ]
+ },
+ "chargers": {
+  "a": [
+   908,
+   790
+  ]
+ },
+ "cars": {
+  "a": {
+   "port": [
+    1026,
+    858
+   ],
+   "cable": [
+    [
+     908.0,
+     805.0
+    ],
+    [
+     913.67,
+     837.99
+    ],
+    [
+     921.9,
+     861.34
+    ],
+    [
+     932.61,
+     876.15
+    ],
+    [
+     945.7,
+     883.54
+    ],
+    [
+     961.1,
+     884.63
+    ],
+    [
+     978.71,
+     880.51
+    ],
+    [
+     998.45,
+     872.31
+    ],
+    [
+     1020.24,
+     861.13
+    ],
+    [
+     1026,
+     858
+    ]
+   ]
+  }
+ },
+ "windows": [],
+ "layers": {
+  "house": [
+   "house.trim.webp",
+   2,
+   197,
+   1534,
+   827
+  ],
+  "solar": [
+   "solar.trim.webp",
+   370,
+   199,
+   661,
+   215
+  ],
+  "battery": [
+   "battery.trim.webp",
+   1340,
+   695,
+   134,
+   216
+  ],
+  "pole": [
+   "pole.trim.webp",
+   30,
+   233,
+   224,
+   618
+  ],
+  "charger": [
+   "charger.trim.webp",
+   892,
+   770,
+   28,
+   44
+  ],
+  "car": [
+   "car.trim.webp",
+   1001,
+   789,
+   379,
+   222
+  ],
+  "cable": [
+   "cable.trim.webp",
+   902,
+   800,
+   129,
+   92
+  ]
+ },
+ "bar_cx": 1432.5,
+ "crop": 150,
+ "max_height": 560,
+ "chip_side": {
+  "battery": "r",
+  "cars": "l",
+  "grid": "r"
+ },
+ "fade": {
+  "right": [
+   0.86,
+   0.985
+  ],
+  "bottom": [
+   0.9,
+   1
+  ]
+ },
+ "doors": {
+  "front_door": {
+   "at": [
+    526,
+    797
+   ],
+   "tag": [
+    192,
+    987
+   ]
+  },
+  "back_door": {
+   "at": [
+    1012,
+    347
+   ],
+   "tag": [
+    1322,
+    237
+   ]
+  },
+  "garage": {
+   "at": [
+    1110,
+    837
+   ],
+   "tag": [
+    1342,
+    997
+   ]
+  }
+ }
+}

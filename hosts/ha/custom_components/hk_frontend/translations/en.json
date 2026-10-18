@@ -1,0 +1,846 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "HK Frontend",
+        "description": "Adds HK Frontend: Apple Home–style dashboards for this house, set up from the HK Settings page in the sidebar. Nothing is asked here and nothing is imported. Afterwards, Add feature on this integration adds its optional features: Music, Live TV, Clean Areas and Alarm PIN."
+      }
+    },
+    "abort": {
+      "already_configured": "That’s already set up. Use Configure to change it.",
+      "single_instance_allowed": "HK Frontend is already set up. Use Configure to change it."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Configure",
+        "menu_options": {
+          "panel": "HK Settings page (every setting; show it in the sidebar)",
+          "files": "Your files (font and icons)",
+          "check": "Setup check (what is ready, what to fix)",
+          "done": "Done"
+        },
+        "description": "Every setting of the HK Frontend dashboards is on the **[HK Settings page]({url})** (HK Settings in the sidebar): each screen with its live preview, the settings all screens share, the accessories, pop-ups and custom pages. Here are only the way there, your files and the setup check. {saved}"
+      },
+      "panel": {
+        "title": "HK Settings page",
+        "description": "**[Open the HK Settings page]({url})** -- every setting of the HK Frontend dashboards in one place: each screen beside its live preview, the settings all screens share, the accessories, pop-ups and custom pages. For admins only.",
+        "data": {
+          "sidebar": "Show HK Settings in the sidebar"
+        },
+        "data_description": {
+          "sidebar": "Off: it leaves the sidebar for everyone, and the link above -- the first page behind the gear on HK Frontend's card -- still opens it. Each person can also hide it from just their own sidebar."
+        }
+      },
+      "files": {
+        "title": "Your files",
+        "description": "Apple's SF Pro font and the SF Symbols glyphs cannot ship with this integration, so they live in a folder of your own under /config, served at /hk/ ahead of the bundled files. It survives integration updates.\n\nPut the font at fonts/SF-Pro.woff2 (or fonts/SF-Pro.ttf, as Apple ships it) and the glyph data at iconset/hk-glyphs.js.\n\nFound now: font {font}, glyphs {glyphs}.",
+        "data": {
+          "files_folder": "Folder (under /config)"
+        },
+        "data_description": {
+          "files_folder": "For example hk_local. Everything in it is readable without signing in, like /local/, so use a folder that holds nothing else."
+        }
+      },
+      "check": {
+        "title": "Setup check",
+        "description": "What these pages need from this Home Assistant, and how to fix what is missing. Nothing here changes anything; submit to go back.\n\n{report}"
+      }
+    },
+    "error": {
+      "folder_required": "Enter a folder name.",
+      "folder_outside_config": "The folder must be inside /config.",
+      "folder_is_config": "Choose a folder inside /config, not /config itself.",
+      "folder_not_dedicated": "That folder holds Home Assistant's own files. Everything in it would be readable without signing in; choose a dedicated folder."
+    }
+  },
+  "issues": {
+    "missing_font": {
+      "title": "SF Pro font not added",
+      "description": "HK Frontend is designed around Apple’s SF Pro, which can’t ship with it. Download SF Pro from {fonts_url} and copy SF-Pro.ttf (the variable font) to /config/{folder}/fonts/ — or, smaller, a SF-Pro.woff2 made from it with tools/font/make_woff2.py from {repo_url}. Until then the screens use Roboto. How: {guide_url}"
+    },
+    "missing_glyphs": {
+      "title": "SF Symbols glyphs not added",
+      "description": "The hk: icons are Apple’s SF Symbols, which can’t ship with HK Frontend. On a Mac with the SF Symbols app, build /config/{folder}/iconset/hk-glyphs.js with tools/sf_symbols/build_glyphs.py from {repo_url}. Until then each hk: icon is drawn as the Material Design icon of the same name, and the weather with Material’s weather icons. How: {guide_url}"
+    },
+    "ha_too_old": {
+      "title": "Home Assistant is too old for HK Frontend",
+      "description": "This is Home Assistant {version}. The HK pages are built and tested against {minimum} or newer, and older frontends draw them wrongly. Update Home Assistant (Settings → System → Updates)."
+    },
+    "theme_missing": {
+      "title": "HK Kiosk theme not loaded",
+      "description": "The HK pages draw their colors, font and glass from the HK Kiosk theme. HK Frontend loads it itself, and this time it could not (the log says why). You can load it from configuration.yaml instead:\n\n1. In configuration.yaml, under `frontend:`, add `themes: !include_dir_merge_named themes` (skip this if you already load themes from a folder).\n2. Create `/config/themes/hk_kiosk.yaml` containing the single line `!include ../custom_components/hk_frontend/theme/hk_kiosk_theme.yaml`\n3. Developer tools → YAML → **Themes** (or restart).\n\nThis message clears itself once the theme loads."
+    }
+  },
+  "selector": {
+    "screen_kind": {
+      "options": {
+        "wall_tablet": "A wall tablet -- menu always open with the time and weather, back to Home when left alone, no Home Assistant header",
+        "personal": "Phones and iPads -- the menu behind a button, the time in the header",
+        "computer": "A computer -- the menu open beside the page",
+        "car": "A car's browser -- no menu, sized for the car",
+        "energy": "An energy display -- only the Energy page (HK Frontend's Energy feature), no menu, no Home Assistant header",
+        "custom": "Something else -- the defaults"
+      }
+    },
+    "popup_kind": {
+      "options": {
+        "camera": "A camera or doorbell -- the picture to every edge, with talk-back when it has a speaker",
+        "alarm": "The alarm keypad",
+        "accessories": "Several accessories on one sheet",
+        "cards": "Custom -- your own cards, in YAML"
+      }
+    },
+    "popup_width": {
+      "options": {
+        "narrow": "Narrow (460)",
+        "wide": "Wide (820)"
+      }
+    }
+  },
+  "entity": {
+    "switch": {
+      "seasonal_decorations": {
+        "name": "Seasonal decorations"
+      },
+      "photo_screensaver": {
+        "name": "Photo screensaver"
+      },
+      "black_screen": {
+        "name": "Black screen"
+      }
+    },
+    "binary_sensor": {
+      "screen_in_use": {
+        "name": "Screen in use"
+      }
+    },
+    "sensor": {
+      "sleep_screen": {
+        "name": "Sleep screen"
+      }
+    }
+  },
+  "config_subentries": {
+    "feature": {
+      "entry_type": "Feature",
+      "initiate_flow": {
+        "user": "Add feature",
+        "reconfigure": "Settings"
+      },
+      "step": {
+        "user": {
+          "title": "Add a feature",
+          "description": "Each feature is optional, and each can be removed again without touching the screens.",
+          "menu_options": {
+            "music": "Music — whole-home music through Music Assistant",
+            "live_tv": "Live TV — an HDHomeRun tuner’s channels on the screens",
+            "clean_areas": "Clean Areas — clean chosen rooms with whichever vacuums reach them",
+            "alarm_pin": "Alarm PIN — a PIN in front of an alarm that takes none",
+            "energy": "Energy — an Energy page built from Home Assistant’s Energy settings",
+            "notifications": "Notifications — a banner on the screens when something happens at home"
+          }
+        },
+        "energy": {
+          "title": "Energy",
+          "description": "An Energy page for your screens: the whole home’s power and today’s cost, a fortnight of daily use, and a live tile for each circuit, room, appliance and outlet. It starts from Home Assistant’s own Energy settings (Settings → Dashboards → Energy); its sections, names and rows are then on the HK Settings page, Pages → Energy. A screen shows it once Energy is on its Pages, or pick “Energy Display” when you add a screen.",
+          "data": {
+            "follow": "List Home Assistant’s Energy devices"
+          },
+          "data_description": {
+            "follow": "On: every device in Home Assistant’s Energy settings gets a tile, including ones added later. Off: only the devices you add on its HK Settings page."
+          }
+        },
+        "energy_options": {
+          "title": "Energy",
+          "description": "Its sections, names, readings and daily bars are on the HK Settings page: {url}",
+          "data": {
+            "follow": "List Home Assistant’s Energy devices"
+          },
+          "data_description": {
+            "follow": "On: every device in Home Assistant’s Energy settings gets a tile, including ones added later. Off: only the devices you add on its HK Settings page."
+          }
+        },
+        "alarm_pin": {
+          "title": "Add a PIN to an alarm",
+          "description": "For an alarm that arms and disarms for anyone who asks (it takes no code of its own). Alarm PIN adds a second alarm panel that mirrors it and arms or disarms it only with this PIN. A wrong PIN is refused, so any keypad shows \"Wrong code\". Point your keypads and dashboards at the new panel; automations can keep using the alarm itself.\n\nThe PIN is never stored or shown: only a secure hash of it is kept.",
+          "data": {
+            "alarm": "Alarm to protect",
+            "pin": "PIN",
+            "pin_again": "PIN again",
+            "arm_required": "Require the PIN to arm"
+          },
+          "data_description": {
+            "alarm": "Its own settings should take no code.",
+            "pin": "At least 4 characters.",
+            "pin_again": "Type it once more, so a slip can’t be saved.",
+            "arm_required": "Off: arming needs no PIN (one that is given must still be right). Disarming always needs it."
+          }
+        },
+        "alarm_pin_options": {
+          "title": "Alarm PIN",
+          "description": "The PIN is never shown: type a new one twice to change it, or leave both empty to keep the current one.",
+          "data": {
+            "alarm": "Alarm to protect",
+            "pin": "New PIN",
+            "pin_again": "New PIN again",
+            "arm_required": "Require the PIN to arm"
+          },
+          "data_description": {
+            "alarm": "Choose another to move the PIN and its panel to it; the PIN and the arm rule stay the same. Its own settings should take no code.",
+            "pin": "At least 4 characters. Both empty keeps the current PIN.",
+            "pin_again": "Type it once more, so a slip can’t be saved.",
+            "arm_required": "Off: arming needs no PIN (one that is given must still be right). Disarming always needs it."
+          }
+        },
+        "clean_areas": {
+          "title": "Clean Areas",
+          "description": "Clean chosen areas with whichever vacuums can reach them, from each vacuum's room map in Home Assistant. Pick which vacuums take part.",
+          "data": {
+            "vacuums": "Vacuums"
+          },
+          "data_description": {
+            "vacuums": "Empty: every vacuum. Each one's rooms come from its room map in Home Assistant (the vacuum's own entity settings). One that cannot clean by area starts when its own area is chosen; one with clean-by-area but no room map is skipped (for example a second integration's copy of the same robot)."
+          }
+        },
+        "clean_areas_options": {
+          "title": "Clean Areas",
+          "data": {
+            "vacuums": "Vacuums",
+            "areas": "Areas"
+          },
+          "data_description": {
+            "vacuums": "Empty: every vacuum. Each one's rooms come from its room map in Home Assistant (the vacuum's own entity settings). One that cannot clean by area starts when its own area is chosen; one with clean-by-area but no room map is skipped (for example a second integration's copy of the same robot).",
+            "areas": "Which areas the vacuum area picker offers. Empty: every area a vacuum that takes part can reach (by its room map, or its own area for one that only starts)."
+          }
+        },
+        "live_tv": {
+          "title": "Live TV",
+          "description": "Watch an HDHomeRun’s channels live on your screens.",
+          "data": {
+            "host": "HDHomeRun address",
+            "guide_url": "Guide (XMLTV) address"
+          },
+          "data_description": {
+            "host": "The tuner’s IP address on your network.",
+            "guide_url": "Optional. An XMLTV file that says what is on each channel."
+          }
+        },
+        "live_tv_channels": {
+          "title": "Channels",
+          "description": "Pick the channels to show. You can add or remove channels later with Live TV’s gear, or in HK Settings.",
+          "data": {
+            "channels": "Channels",
+            "quality": "Picture quality"
+          }
+        },
+        "live_tv_options": {
+          "title": "Live TV",
+          "description": "Add or remove channels, change the picture quality, or set the guide.",
+          "data": {
+            "channels": "Channels",
+            "quality": "Picture quality",
+            "guide_url": "Guide (XMLTV) address"
+          },
+          "data_description": {
+            "guide_url": "Optional. An XMLTV file that says what is on each channel. Leave it empty for no guide."
+          }
+        },
+        "music": {
+          "title": "Music",
+          "description": "Whole-home music through Music Assistant: the speakers each room plays on, sync-group presets, and playlist pills, for the Music page and for automations. It starts empty: choose the speakers with its gear (or in HK Settings), then add presets and playlists with Add music preset and Add music playlist."
+        },
+        "music_options": {
+          "title": "Speakers and volume",
+          "description": "The rooms the Music page offers, and the volume every room is set to when a playlist starts. Room names and floors come from each speaker’s area.",
+          "data": {
+            "speakers": "Speakers (rooms)",
+            "volume": "House playlist volume"
+          },
+          "data_description": {
+            "speakers": "Music Assistant players, one per room. Sync groups are added as presets, not here.",
+            "volume": "Every room a playlist plays in is set to this."
+          }
+        },
+        "music_homes": {
+          "title": "Each tablet’s room",
+          "description": "Each wall tablet signs in as its own user. The room picked here is what its Music page shows when nothing else is chosen, and wins when music plays in more than one place."
+        },
+        "notifications": {
+          "title": "Notifications",
+          "description": "A banner at the top of your screens when an accessory does something — a door opens, someone arrives, a camera sees a person — with a camera’s snapshot taken that moment. Choose the accessories, and where and when banners show, on the HK Settings page: {url}"
+        },
+        "notifications_options": {
+          "title": "Notifications",
+          "description": "The notifications, Do Not Disturb and where they show are on the HK Settings page: {url}"
+        }
+      },
+      "abort": {
+        "already_configured": "That feature is already added.",
+        "reconfigure_successful": "Saved.",
+        "alarm_pin_already_configured": "That alarm already has a PIN. Change it with that PIN’s gear.",
+        "live_tv_cannot_connect": "Could not reach the HDHomeRun. Check that it is on and at the same address."
+      },
+      "error": {
+        "alarm_pin_own_panel": "That is one of Alarm PIN’s own panels. Choose the alarm it should protect.",
+        "alarm_pin_taken": "Another Alarm PIN already protects that alarm.",
+        "alarm_pin_too_short": "Use at least 4 characters.",
+        "alarm_pin_mismatch": "The two PINs don’t match. Type the same PIN in both.",
+        "live_tv_cannot_connect": "Could not reach an HDHomeRun at that address.",
+        "live_tv_no_channels": "The tuner has no channels. Run a channel scan on it first.",
+        "live_tv_guide_failed": "Could not read a guide at that address.",
+        "live_tv_pick_one": "Pick at least one channel.",
+        "music_no_speakers": "Pick at least one speaker.",
+        "music_group_is_room": "A sync group can’t also be a room. Add it as a preset instead."
+      }
+    },
+    "dashboard": {
+      "initiate_flow": {
+        "user": "Add dashboard"
+      },
+      "entry_type": "Dashboard",
+      "step": {
+        "user": {
+          "title": "Add a dashboard",
+          "description": "Pick a dashboard to give it its own settings. Next: what it is shown on, which sets its starting values. Its settings are then on its page on the HK Settings page, which its gear opens.",
+          "data": {
+            "dashboard": "Dashboard"
+          },
+          "data_description": {
+            "dashboard": "Its url path. Dashboards that already have an item are not listed."
+          }
+        },
+        "kind": {
+          "title": "What is this screen?",
+          "description": "{dashboard} (`{path}`). Pick what it is and it starts with the settings that suit it -- the menu, where the time and weather sit, going back to Home when left alone. Every one can be changed afterwards on the HK Settings page.",
+          "data": {
+            "kind": "This dashboard is shown on"
+          }
+        }
+      },
+      "abort": {
+        "already_configured": "That dashboard already has an item.",
+        "no_dashboards": "Every dashboard already has an item.",
+        "use_panel": "The settings for {dashboard} are on the HK Settings page: **[open {dashboard}]({url})**."
+      }
+    },
+    "popup": {
+      "initiate_flow": {
+        "user": "Add pop-up"
+      },
+      "entry_type": "Pop-up",
+      "step": {
+        "user": {
+          "title": "Add a pop-up",
+          "description": "A pop-up opens on any dashboard whose address ends in its hash -- `#doorbell` -- which is how an automation that loads `dashboard-kitchen/0#doorbell` on a tablet shows it, and what the Show pop-up action opens.",
+          "data": {
+            "name": "Name",
+            "kind": "Shows",
+            "hash": "Hash"
+          },
+          "data_description": {
+            "hash": "Letters, digits, - and _. Empty: made from the name (Front Door → front-door)."
+          }
+        },
+        "details": {
+          "title": "{name}",
+          "description": "`#{hash}`",
+          "data": {
+            "entity": "Camera / Alarm panel",
+            "speaker": "Talk-back speaker",
+            "stream": "Full-resolution picture",
+            "entities": "Accessories",
+            "close_after": "Close after",
+            "dashboards": "Only on these dashboards",
+            "cards": "Cards",
+            "icon": "Icon",
+            "width": "Width"
+          },
+          "data_description": {
+            "entity": "Camera: the camera it shows. Alarm: the panel (empty: the house’s, chosen on Pages → Security).",
+            "speaker": "The camera's speaker (a doorbell's), for the talk button. Empty: the one on the camera's own device, if any.",
+            "stream": "The camera entity to stream in the sheet. Empty: the device's high-resolution channel, else the camera itself.",
+            "entities": "What the sheet shows, in this order.",
+            "close_after": "It closes itself this long after the last touch.",
+            "dashboards": "Empty: every dashboard answers its hash.",
+            "cards": "Custom: the sheet's cards, as a list in YAML (a single card works too).",
+            "icon": "Custom: the glyph in the sheet's header.",
+            "width": "Custom: a narrow sheet (460) or a wide one (820)."
+          }
+        },
+        "reconfigure": {
+          "title": "{name}",
+          "description": "`#{hash}` -- a {kind} pop-up. A different kind is a different pop-up: add it, and delete this one.",
+          "data": {
+            "name": "Name",
+            "entity": "Camera / Alarm panel",
+            "speaker": "Talk-back speaker",
+            "stream": "Full-resolution picture",
+            "entities": "Accessories",
+            "close_after": "Close after",
+            "dashboards": "Only on these dashboards",
+            "cards": "Cards",
+            "icon": "Icon",
+            "width": "Width"
+          },
+          "data_description": {
+            "entity": "Camera: the camera it shows. Alarm: the panel (empty: the house’s, chosen on Pages → Security).",
+            "speaker": "The camera's speaker (a doorbell's), for the talk button. Empty: the one on the camera's own device, if any.",
+            "stream": "The camera entity to stream in the sheet. Empty: the device's high-resolution channel, else the camera itself.",
+            "entities": "What the sheet shows, in this order.",
+            "close_after": "It closes itself this long after the last touch.",
+            "dashboards": "Empty: every dashboard answers its hash.",
+            "cards": "Custom: the sheet's cards, as a list in YAML (a single card works too).",
+            "icon": "Custom: the glyph in the sheet's header.",
+            "width": "Custom: a narrow sheet (460) or a wide one (820)."
+          }
+        }
+      },
+      "error": {
+        "name_needed": "Give it a name.",
+        "bad_hash": "Letters, digits, - and _ only, starting with a letter or digit, at most 40.",
+        "hash_taken": "Another pop-up already has this hash.",
+        "popup_cards": "Cards in YAML: a list of cards, each with a type."
+      },
+      "abort": {
+        "reconfigure_successful": "Saved.",
+        "already_configured": "Another item already has that name or address. Choose another."
+      }
+    },
+    "page": {
+      "initiate_flow": {
+        "user": "Add page"
+      },
+      "entry_type": "Custom page",
+      "step": {
+        "user": {
+          "title": "Add a custom page",
+          "description": "A page you write yourself, in YAML, that any generated dashboard can show: pick it on the dashboard's Pages. Start blank, or from a page of any dashboard -- its cards are copied, and from then on the page is the house's own.",
+          "data": {
+            "title": "Name",
+            "path": "Address",
+            "icon": "Icon",
+            "start": "Start from"
+          },
+          "data_description": {
+            "title": "Its title and its name in the menu, for example Energy.",
+            "path": "The last part of its address (energy, as in /hk-kitchen-ui/energy): lowercase letters, digits and dashes. Empty: made from the name. Not one a generated page uses itself (lights, climate...).",
+            "icon": "Its icon in the menu.",
+            "start": "A blank page, or a copy of a dashboard's page."
+          }
+        },
+        "view": {
+          "title": "{title}",
+          "description": "The page in YAML, as a dashboard's view -- its type, layout and cards -- shown at /{path} on every screen that lists it. Its name, address and icon are the page's own; the rest is yours.",
+          "data": {
+            "view": "The page (YAML)"
+          },
+          "data_description": {
+            "view": "Empty: a page with no cards yet."
+          }
+        },
+        "reconfigure": {
+          "title": "{title}",
+          "description": "At /{path} on every screen that lists it. Its address stays: the screens know it by that. Saving reaches every screen showing it within seconds.",
+          "data": {
+            "title": "Name",
+            "icon": "Icon",
+            "view": "The page (YAML)"
+          },
+          "data_description": {
+            "view": "As a dashboard's view: its type, layout and cards."
+          }
+        }
+      },
+      "error": {
+        "name_needed": "Give it a name.",
+        "bad_page_path": "Lowercase letters, digits and dashes, starting with a letter or digit -- and not an address a generated page uses itself, or a room page's (room-...).",
+        "page_path_taken": "Another custom page has this address.",
+        "page_not_found": "That page could not be read from its dashboard.",
+        "page_view": "The page must be YAML keys and values (a view: type, cards...), not a list or a single value, and under 300,000 characters."
+      },
+      "abort": {
+        "reconfigure_successful": "Saved.",
+        "already_configured": "Another item already has that name or address. Choose another."
+      }
+    },
+    "chip": {
+      "initiate_flow": {
+        "user": "Add chip"
+      },
+      "entry_type": "Custom chip",
+      "step": {
+        "user": {
+          "title": "Custom chip",
+          "description": "A status chip you write in YAML (an hk-status-chip-card, or one inside a conditional that shows it only sometimes). Any screen can show it: HK Settings, a screen's Status Chips.",
+          "data": {
+            "name": "Name",
+            "after": "Sits",
+            "card": "The chip (YAML)"
+          },
+          "data_description": {
+            "name": "Its name in the lists, for example House Battery.",
+            "after": "Where it sits in the chip row, unless a screen orders its chips itself.",
+            "card": "The card, for example type: custom:hk-status-chip-card with entity, name and icon."
+          }
+        },
+        "reconfigure": {
+          "title": "Custom chip",
+          "description": "A status chip you write in YAML (an hk-status-chip-card, or one inside a conditional that shows it only sometimes). Any screen can show it: HK Settings, a screen's Status Chips.",
+          "data": {
+            "name": "Name",
+            "after": "Sits",
+            "card": "The chip (YAML)"
+          },
+          "data_description": {
+            "name": "Its name in the lists, for example House Battery.",
+            "after": "Where it sits in the chip row, unless a screen orders its chips itself.",
+            "card": "The card, for example type: custom:hk-status-chip-card with entity, name and icon."
+          }
+        }
+      },
+      "error": {
+        "name_needed": "Give it a name.",
+        "chip_card": "The chip must be YAML with a type, such as type: custom:hk-status-chip-card."
+      },
+      "abort": {
+        "reconfigure_successful": "Saved.",
+        "already_configured": "Another item already has that name or address. Choose another."
+      }
+    },
+    "tablet": {
+      "initiate_flow": {
+        "user": "Add wall tablet"
+      },
+      "entry_type": "Wall tablet",
+      "step": {
+        "user": {
+          "title": "Add a wall tablet",
+          "description": "Wall tablets are set up on the HK Settings page, under All Screens → Wall Tablets."
+        }
+      },
+      "abort": {
+        "use_panel": "Wall tablets are set up on the HK Settings page: **[open {tablet}]({url})**."
+      }
+    },
+    "preset": {
+      "entry_type": "Preset",
+      "initiate_flow": {
+        "user": "Add music preset"
+      },
+      "step": {
+        "user": {
+          "title": "Add a preset",
+          "description": "A Music Assistant sync group, and the rooms it plays in. Home Assistant can’t read a sync group’s rooms, so they are picked here.",
+          "data": {
+            "name": "Name",
+            "group": "Music Assistant sync group",
+            "members": "Its rooms"
+          }
+        },
+        "reconfigure": {
+          "title": "Edit preset",
+          "description": "A Music Assistant sync group, and the rooms it plays in.",
+          "data": {
+            "name": "Name",
+            "group": "Music Assistant sync group",
+            "members": "Its rooms"
+          }
+        }
+      },
+      "error": {
+        "no_name": "Give it a name.",
+        "no_members": "Pick the rooms it plays in.",
+        "not_a_speaker": "Every room must be one of the configured speakers.",
+        "group_is_room": "Pick the sync group player, not a room."
+      },
+      "abort": {
+        "reconfigure_successful": "Saved.",
+        "music_not_added": "Add Music first: Add feature → Music."
+      }
+    },
+    "playlist": {
+      "entry_type": "Playlist",
+      "initiate_flow": {
+        "user": "Add music playlist"
+      },
+      "step": {
+        "user": {
+          "title": "Add a playlist",
+          "description": "A pill under Your Playlists on the Music page. Pick one or more playlists from the Music Assistant library; they play as one shuffled queue.",
+          "data": {
+            "name": "Name",
+            "icon": "Icon",
+            "items": "Playlists",
+            "chooser": "Chooser",
+            "order": "Order"
+          },
+          "data_description": {
+            "chooser": "Optional. Playlists with the same chooser name become ONE pill that asks which, like Decades.",
+            "order": "Lower comes first."
+          }
+        },
+        "reconfigure": {
+          "title": "Edit playlist",
+          "description": "A pill under Your Playlists on the Music page.",
+          "data": {
+            "name": "Name",
+            "icon": "Icon",
+            "items": "Playlists",
+            "chooser": "Chooser",
+            "order": "Order"
+          },
+          "data_description": {
+            "chooser": "Optional. Playlists with the same chooser name become ONE pill that asks which, like Decades.",
+            "order": "Lower comes first."
+          }
+        }
+      },
+      "error": {
+        "no_name": "Give it a name.",
+        "no_items": "Pick at least one playlist.",
+        "not_in_library": "That playlist isn’t in the Music Assistant library. Pick one from the list, or add it to your library first."
+      },
+      "abort": {
+        "reconfigure_successful": "Saved.",
+        "music_not_added": "Add Music first: Add feature → Music."
+      }
+    }
+  },
+  "services": {
+    "show_popup": {
+      "name": "Show pop-up",
+      "description": "Opens a pop-up (Pop-ups on HK Frontend's page) on the screens showing an HK dashboard -- in place: it does not wake a sleeping tablet or change its page.",
+      "fields": {
+        "popup": {
+          "name": "Pop-up",
+          "description": "Its hash, for example doorbell."
+        },
+        "dashboards": {
+          "name": "Dashboards",
+          "description": "Only screens showing these dashboards (url paths). Empty: any dashboard."
+        },
+        "users": {
+          "name": "Users",
+          "description": "Only screens signed in as these users (user ids). Empty: anyone."
+        }
+      }
+    },
+    "close_popup": {
+      "name": "Close pop-up",
+      "description": "Closes a pop-up (Pop-ups on HK Frontend's page) on the screens showing it -- the other half of Show pop-up, for one held open as long as something lasts (the alarm keypad). A screen not showing it is left alone.",
+      "fields": {
+        "popup": {
+          "name": "Pop-up",
+          "description": "Its hash, for example alarm."
+        },
+        "dashboards": {
+          "name": "Dashboards",
+          "description": "Only screens showing these dashboards (url paths). Empty: any dashboard."
+        },
+        "users": {
+          "name": "Users",
+          "description": "Only screens signed in as these users (user ids). Empty: anyone."
+        }
+      }
+    },
+    "clean_areas": {
+      "name": "Clean areas",
+      "description": "Send each vacuum the chosen areas it covers (from its room map in Home Assistant). Answers with what was sent.",
+      "fields": {
+        "areas": {
+          "name": "Areas",
+          "description": "The areas to clean."
+        },
+        "dry_run": {
+          "name": "Dry run",
+          "description": "Only answer with the plan; start nothing."
+        }
+      }
+    },
+    "music_play": {
+      "name": "Play music",
+      "description": "Play a configured playlist on a set of rooms: a preset’s sync group, one room, or a new group.",
+      "fields": {
+        "rooms": {
+          "name": "Rooms",
+          "description": "Room players."
+        },
+        "playlist": {
+          "name": "Playlist",
+          "description": "The playlist’s id."
+        }
+      }
+    },
+    "music_transfer": {
+      "name": "Move or add rooms",
+      "description": "Move what is playing to a set of rooms, or add rooms to it, keeping the queue and position.",
+      "fields": {
+        "rooms": {
+          "name": "Rooms",
+          "description": "Where the music should be."
+        },
+        "source": {
+          "name": "Source",
+          "description": "The player the music is on now."
+        }
+      }
+    },
+    "music_stop": {
+      "name": "Stop music",
+      "description": "Stop and ungroup these rooms, or the whole house.",
+      "fields": {
+        "rooms": {
+          "name": "Rooms",
+          "description": "Leave empty for the whole house."
+        }
+      }
+    },
+    "music_transport": {
+      "name": "Music transport",
+      "description": "Play/pause, next, previous, stop or volume on one player.",
+      "fields": {
+        "player": {
+          "name": "Player",
+          "description": "A room or a preset’s group."
+        },
+        "command": {
+          "name": "Command",
+          "description": "What to do."
+        },
+        "level": {
+          "name": "Level",
+          "description": "For volume_set, 0 to 1."
+        }
+      }
+    },
+    "music_play_media": {
+      "name": "Play music item",
+      "description": "Play one item from the library on a player (Browse on the Music page).",
+      "fields": {
+        "player": {
+          "name": "Player",
+          "description": "A room or a preset’s group."
+        },
+        "media_content_id": {
+          "name": "Item",
+          "description": "A library uri."
+        },
+        "media_content_type": {
+          "name": "Type",
+          "description": "The media type."
+        }
+      }
+    },
+    "set_black_screen": {
+      "name": "Set black screen",
+      "description": "A wall tablet's HK Frontend black screen (Black Screen: HK Frontend on its screen): black over the page and the backlight at its lowest, and the brightness it comes back to.",
+      "fields": {
+        "black": {
+          "name": "Black",
+          "description": "On: black now. Off: the page fades back in at the wake brightness."
+        },
+        "brightness": {
+          "name": "Wake brightness",
+          "description": "The backlight it comes back to, 0-255. Kept while black; the page restores it as it fades in."
+        }
+      }
+    },
+    "notify": {
+      "name": "Show notification",
+      "description": "Shows a banner at the top of the screens (Notifications), like one of its own: on every screen that allows notifications, or only those listed. Each screen decides as it does for any notification: Do Not Disturb, its screensaver, asleep.",
+      "fields": {
+        "title": {
+          "name": "Title",
+          "description": "The banner's first line (up to 40 characters)."
+        },
+        "message": {
+          "name": "Message",
+          "description": "The second line (up to 120 characters)."
+        },
+        "important": {
+          "name": "Important",
+          "description": "Outlined red; gets through Do Not Disturb, and shows on a screensaver set to Important."
+        },
+        "wake": {
+          "name": "Wakes the screen",
+          "description": "Turns a sleeping screen on, up to its screensaver, to show it. Do Not Disturb still holds it back unless it is Important."
+        },
+        "stay": {
+          "name": "Stays on screen",
+          "description": "Seconds it stays; 0 until dismissed. Empty: as All Screens' Stays On Screen."
+        },
+        "icon": {
+          "name": "Icon",
+          "description": "An hk: or mdi: icon. Empty: the accessory's, or a bell."
+        },
+        "entity": {
+          "name": "Accessory",
+          "description": "What it is about: its icon, its buttons (Close a garage door, Lock a lock), and the sheet a tap opens."
+        },
+        "camera": {
+          "name": "Camera snapshot",
+          "description": "A camera to take a snapshot from the moment it is sent; a tap on it opens the live view."
+        },
+        "tap": {
+          "name": "Tap opens",
+          "description": "sheet (the accessory's sheet, the notification at its top), camera (the live view), page (the page below) or none. Empty: the page, else the camera, else the accessory, else nothing."
+        },
+        "page": {
+          "name": "Page",
+          "description": "A page of the screen's own dashboard (its path, like kitchen): a tap opens it, and the accessory's sheet goes to it."
+        },
+        "dashboards": {
+          "name": "Dashboards",
+          "description": "Only screens showing these dashboards (url paths). Empty: any dashboard."
+        },
+        "users": {
+          "name": "Users",
+          "description": "Only screens signed in as these users (user ids). Empty: anyone."
+        }
+      }
+    },
+    "pause_automation": {
+      "name": "Pause automation",
+      "description": "Turns an automation off and back on at a set time -- by default the next midnight (the automation sheet's Off Until Tomorrow). Kept across restarts; turning it on or off by hand ends the pause.",
+      "fields": {
+        "entity_id": {
+          "name": "Automation",
+          "description": "The automation to pause."
+        },
+        "until": {
+          "name": "Until",
+          "description": "When to turn it back on. Empty: the next midnight."
+        }
+      }
+    },
+    "resume_automation": {
+      "name": "Resume automation",
+      "description": "Ends a pause: turns the automation back on now.",
+      "fields": {
+        "entity_id": {
+          "name": "Automation",
+          "description": "The automation to turn back on."
+        }
+      }
+    }
+  },
+  "exceptions": {
+    "clean_areas_not_set_up": {
+      "message": "Clean Areas is not added. Add it in Settings -> Devices & services -> HK Frontend -> Add feature."
+    },
+    "alarm_pin_invalid_code": {
+      "message": "Wrong code. The alarm code is not correct."
+    },
+    "alarm_pin_unavailable": {
+      "message": "The alarm ({entity}) isn’t available right now."
+    },
+    "music_not_set_up": {
+      "message": "Music is not added. Add it in Settings -> Devices & services -> HK Frontend -> Add feature."
+    },
+    "notifications_not_set_up": {
+      "message": "Notifications is not added. Add it in Settings -> Devices & services -> HK Frontend -> Add feature."
+    }
+  }
+}

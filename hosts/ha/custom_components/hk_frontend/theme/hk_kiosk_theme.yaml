@@ -1,0 +1,211 @@
+HK Kiosk:
+  # The theme-root variables are anchored on their own (&hk_root) rather than
+  # the whole theme, so HK Kiosk Camera can merge them and bring its own
+  # `modes` without redefining a merged key (the loader warns about that).
+  <<: &hk_root
+    # SF Pro (from your files folder), else Roboto. Theme-root keys apply to
+    # both modes. The frontend (2026.8 and later) resolves body text through
+    # --ha-font-family-body only; --primary-font-family and the paper-font-*
+    # set no longer exist in the bundle. font-family inherits, so this crosses
+    # into every card's shadow DOM without any per-card styling.
+    ha-font-family-body: "'SF Pro', -apple-system, BlinkMacSystemFont, Roboto, Noto, sans-serif"
+    ha-font-family-heading: "'SF Pro', -apple-system, BlinkMacSystemFont, Roboto, Noto, sans-serif"
+    ha-font-family-longform: "'SF Pro', -apple-system, BlinkMacSystemFont, Roboto, Noto, sans-serif"
+
+    # THE GLASS MATERIAL, as CSS custom properties.
+    #
+    # The material's values live in ONE place, hkCards.T in
+    # frontend/cards/hk-base.js; tools/gen_theme.py writes the hk-* keys below
+    # from it (tests/py/test_theme_values.py holds the two equal). The theme
+    # publishes them and every hk card inherits them through var(--hk-glass-*)
+    # -- to change the material, change T and run gen_theme.py.
+    #
+    # Theme keys become CSS custom properties, and a theme applies to the whole
+    # view, so every card on a HK Kiosk view can read these. The cards use
+    # var(--hk-glass-bg) etc. with the literal as a fallback, so a card still
+    # renders correctly if it is ever placed on a view with another theme.
+    #
+    # THE SHADOWS ARE TWO, BY CARD SIZE, and that is deliberate rather than
+    # untidy -- see the material note in cards/hk-base.js:
+    #   sm  56-70px tiles (pills, chips, keypad keys, scene tiles)
+    #   lg  larger blocks (glass tiles, vacuum cards, the tall pill)
+    hk-glass-bg: linear-gradient(145deg, rgba(255,255,255,0.12), rgba(255,255,255,0.056))
+    hk-glass-border: 1px solid rgba(255,255,255,0.13)
+    hk-glass-shadow-sm: 0 8px 22px rgba(0,0,0,0.12)
+    hk-glass-shadow-lg: 0 10px 28px rgba(0,0,0,0.12)
+    hk-glass-radius: 23.5px
+    # The per-shape shadows the cards read (hk-tile.js, hk-stat.js,
+    # hk-chip.js) and the two status colors (hk-base.js, hk-media.js), with
+    # exactly the values the cards fall back to, so a theme edit reaches them
+    # without a JS change.
+    hk-glass-shadow-pill: inset 0 1px 0 rgba(255,255,255,0.20), 0 8px 22px rgba(0,0,0,0.12)
+    hk-glass-shadow-scene: inset 0 1px 0 rgba(255,255,255,0.20)
+    hk-glass-shadow-tall: inset 0 1px 0 rgba(255,255,255,0.20), 0 10px 28px rgba(0,0,0,0.12)
+    hk-glass-shadow-chip: inset 0 1px 0 rgba(255,255,255,0.20), 0 6px 18px rgba(0,0,0,0.10)
+    hk-warn: "#FFB340"
+    hk-fail: "#FF6961"
+    # The icon well inside a pill -- a dark disc the glyph sits on.
+    hk-well-bg: rgba(0,0,0,0.14)
+    # No card shadow, in both modes. It lives HERE, at the root, so the Camera
+    # theme below can give its modes a shadow without redefining a key it also
+    # merges from the mode anchors -- Home Assistant's YAML loader warns about
+    # that on every load, even though the later value wins.
+    ha-card-box-shadow: none
+  modes:
+    dark: &hk_dark
+      primary-background-color: "#111111"
+      secondary-background-color: "#282828"
+      card-background-color: "#1c1c1c"
+      divider-color: rgba(225, 225, 225, .12)
+      primary-text-color: "#e1e1e1"
+      secondary-text-color: "#9b9b9b"
+      disabled-text-color: "#6f6f6f"
+      primary-color: "#03a9f4"
+      accent-color: "#ff9800"
+      app-header-background-color: "#111111"
+      app-header-text-color: "#e1e1e1"
+      sidebar-icon-color: rgba(225, 225, 225, 0.9)
+      sidebar-text-color: rgba(225, 225, 225, 0.9)
+      paper-item-icon-color: rgba(225, 225, 225, 0.9)
+      paper-item-icon-active-color: "#03a9f4"
+      ha-card-border-width: 0px
+      ha-card-border-color: transparent
+      # HOME ASSISTANT'S OWN DIALOGS. Every more-info sheet, every settings
+      # dialog, every entity picker -- none of them are Lovelace cards, so
+      # no card's CSS can reach them, and unthemed they land as a stock gray
+      # slab with square-ish corners in the middle of a dashboard where
+      # everything else is a 23.5px rounded plate.
+      #
+      # These names were read out of the RUNNING frontend bundle, not guessed:
+      # HA's theming docs list only primary/accent and state colors and
+      # explicitly disclaim everything else, so the only trustworthy source is
+      # the shipped CSS. The defaults being replaced are, in order:
+      # var(--ha-border-radius-2xl) = 20px, var(--card-background-color), and
+      # brightness(68%). Re-check them after a frontend upgrade -- an unknown
+      # custom property is silently ignored, so this fails by doing nothing.
+      #
+      # REAL GLASS: a translucent surface plus a backdrop blur.
+      #
+      # The constraint below is that the surface must be a flat COLOR -- and a
+      # translucent rgba() is a perfectly good color. Only a gradient is not.
+      # The blur is a separate variable that lands on `backdrop-filter:`, so the
+      # two together give the same material the tiles use, on HA's own dialogs.
+      #
+      # This is a STATIC filter on a surface that appears once, a different
+      # cost from ANIMATING a full-size backdrop-filter in on every open,
+      # which hitches on a wall tablet. If a dialog ever stutters on open,
+      # drop the filter and raise the alpha to 1 -- radius, scrim and shadow
+      # all still work without it.
+      ha-dialog-border-radius: 23.5px
+      # A flat COLOR, not a gradient -- translucent is fine, layered is not.
+      # This variable does not land on a `background:` property: it feeds
+      # `--wa-color-surface-raised`, which is used as `background-color:`. A
+      # gradient there is an invalid color, the token is dropped, and the dialog
+      # renders with NO background at all -- the light control floating over the
+      # dashboard with nothing behind it. Verified by doing exactly that.
+      #
+      # THE SCRIM IS WHAT DECIDES HOW MUCH COLOR THE GLASS PICKS UP, not the
+      # alpha. The scrim paints BEHIND the sheet, and the sheet's backdrop-filter
+      # samples whatever is behind it -- including the scrim. At brightness(45%)
+      # the backdrop is already two-thirds dead before the glass ever sees it, so
+      # lowering the surface alpha alone just makes the sheet muddier rather than
+      # more colorful. 62% is the lever.
+      #
+      # saturate(2.2) is doing the Apple trick: a heavy blur averages colors
+      # toward gray, so the saturation has to be pushed well past 1 just to get
+      # back to looking like the thing behind it. brightness() inside the
+      # SURFACE filter buys back the legibility the lighter scrim gave up, and it
+      # is applied after the sampling, so it costs contrast rather than hue.
+      # 0.80, not 0.88: behind a bright PHOTO wallpaper, 0.88 leaves the
+      # dialog's secondary text (the gray room line above the title) at the
+      # edge of legible. Brightness is the right dial for that rather than
+      # alpha: it darkens the sampled backdrop uniformly and keeps its hue,
+      # where more alpha would gray the color back out and undo the point of
+      # the exercise.
+      ha-dialog-surface-background: rgba(32, 32, 38, 0.55)
+      ha-dialog-surface-backdrop-filter: blur(44px) saturate(2.2) brightness(0.80)
+      ha-dialog-scrim-backdrop-filter: brightness(62%)
+      dialog-box-shadow: 0 26px 64px rgba(0, 0, 0, 0.55)
+      paper-card-background-color: var(--card-background-color)
+      paper-dialog-background-color: var(--card-background-color)
+      paper-listbox-background-color: var(--card-background-color)
+      # Kiosk text token, read by hk-layout.js (the back button).
+      kiosk-text: rgba(255,255,255,0.92)
+    light: &hk_light
+      primary-background-color: "#f5f5f5"
+      secondary-background-color: "#eaeaea"
+      card-background-color: "#ffffff"
+      divider-color: rgba(0, 0, 0, .12)
+      primary-text-color: "#1f1f1f"
+      secondary-text-color: "#6b6b6b"
+      disabled-text-color: "#9a9a9a"
+      primary-color: "#03a9f4"
+      accent-color: "#ff9800"
+      app-header-background-color: "#f5f5f5"
+      app-header-text-color: "#1f1f1f"
+      sidebar-icon-color: rgba(0, 0, 0, 0.75)
+      sidebar-text-color: rgba(0, 0, 0, 0.75)
+      paper-item-icon-color: rgba(0, 0, 0, 0.75)
+      paper-item-icon-active-color: "#03a9f4"
+      ha-card-border-width: 0px
+      ha-card-border-color: transparent
+      # See the dark block above for why these four exist and where the names
+      # came from.
+      ha-dialog-border-radius: 23.5px
+      ha-dialog-surface-background: rgba(252, 252, 254, 0.58)
+      ha-dialog-surface-backdrop-filter: blur(44px) saturate(2.2) brightness(1.06)
+      ha-dialog-scrim-backdrop-filter: brightness(84%)
+      dialog-box-shadow: 0 26px 64px rgba(0, 0, 0, 0.22)
+      paper-card-background-color: var(--card-background-color)
+      paper-dialog-background-color: var(--card-background-color)
+      paper-listbox-background-color: var(--card-background-color)
+      kiosk-text: rgba(0,0,0,0.87)
+
+# Camera corners. (The weather radar and the native cards wear
+# hk-frame-card's glass materials instead, since a lazily loaded card cannot
+# take a theme at all.)
+#
+# `type: picture-entity` has no styling hooks of its own -- no border-radius
+# option, no template -- so the only way to give a camera the same 23.5px corner
+# every pill and tile on these dashboards uses is a theme. Otherwise cards
+# round at HA's stock 12px, which next to a row of 23.5px pills reads as a
+# different design language rather than a different content type.
+#
+# Anchored to HK Kiosk because HA seeds a themed element with the stock dark
+# palette first, so this has to carry the whole palette, not just the
+# override.
+#
+# If the CARD rounds but the picture inside it keeps square corners, the clip is
+# missing rather than the radius: check that ha-card still sets overflow:hidden
+# in whatever frontend version is running. A theme cannot set that -- there is
+# no variable for it -- so the fallback would be a wrapper, not more theming.
+HK Kiosk Camera:
+  <<: *hk_root
+  modes:
+    dark:
+      <<: *hk_dark
+      ha-card-border-radius: 23.5px
+      # TRANSPARENT, and this is the whole point rather than a detail. The
+      # picture is clipped to the radius but the CARD's own background is not,
+      # so a tinted plate behind it shows as a faint SQUARE shoulder in each
+      # corner -- the rounded photo sitting on an un-rounded rectangle. Anything
+      # opaque here brings that back. The image covers the card completely, so
+      # there is nothing for a background to do.
+      ha-card-background: transparent
+      # THE SAME SHADOW THE CHIPS AND SCENES ROWS WEAR -- the pills'
+      # `0 8px 22px rgba(0,0,0,0.12)`. All three scrolling rows sit on one page,
+      # so a camera lifting differently from a scene pill reads as two
+      # materials.
+      #
+      # IT ONLY SURVIVES BECAUSE THE CAMERA ROW (an hk-row-card) OPENS ROOM FOR
+      # IT. Any horizontal scroller clips on all four edges (`overflow-x: auto`
+      # forces `overflow-y` to compute to `auto`), so without the row's pad_*
+      # this paints into the clip and comes off as a hard-edged "square
+      # shoulder" wedge. The two move together: reach is `blur -/+ offset`,
+      # i.e. 14 above, 30 below, 22 each side.
+      ha-card-box-shadow: 0 8px 22px rgba(0, 0, 0, 0.12)
+    light:
+      <<: *hk_light
+      ha-card-border-radius: 23.5px
+      ha-card-background: transparent
+      ha-card-box-shadow: 0 8px 22px rgba(0, 0, 0, 0.10)

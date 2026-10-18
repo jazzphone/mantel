@@ -2,7 +2,7 @@
 
 Mantel is HK Frontend as its own platform: a standalone server that talks to Home Assistant and Music Assistant over their APIs, serves the HK web app without Lovelace, and adds real role-based access control. The full plan is in [docs/PLAN.md](docs/PLAN.md).
 
-**Status: Phase 0 (proof of architecture).** Everything here is isolated and read-only; nothing live changes.
+**Status: Phase 1, first slice built and tested locally.** Phase 0 architecture proofs passed. The shared frontend and HA source now live here; production HK has not been changed. See `docs/phase1/RESULTS.md` for the composed HA build and first metric HKClient adapter.
 
 ## Layout
 

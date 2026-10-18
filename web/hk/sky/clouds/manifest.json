@@ -1,0 +1,2744 @@
+{
+ "version": 1,
+ "variants": [
+  "day",
+  "grey",
+  "golden",
+  "dusk",
+  "night"
+ ],
+ "clouds": [
+  {
+   "id": "cumulus-near-01",
+   "set": "cumulus-near",
+   "band": "overhead",
+   "w": 1200,
+   "h": 500,
+   "base": 0.828,
+   "bbox": [
+    0.1017,
+    0.168,
+    0.9142,
+    0.84
+   ],
+   "alpha": 0.2734,
+   "luma": {
+    "day": 171.5,
+    "grey": 114.5,
+    "golden": 148.2,
+    "dusk": 109.9,
+    "night": 37.9
+   },
+   "soft": [
+    480,
+    240,
+    120,
+    64,
+    32
+   ]
+  },
+  {
+   "id": "cumulus-near-02",
+   "set": "cumulus-near",
+   "band": "overhead",
+   "w": 1200,
+   "h": 500,
+   "base": 0.859,
+   "bbox": [
+    0.1333,
+    0.112,
+    0.8333,
+    0.878
+   ],
+   "alpha": 0.2673,
+   "luma": {
+    "day": 180.1,
+    "grey": 111.1,
+    "golden": 151.1,
+    "dusk": 118.5,
+    "night": 48.4
+   },
+   "soft": [
+    480,
+    240,
+    120,
+    64,
+    32
+   ]
+  },
+  {
+   "id": "cumulus-near-03",
+   "set": "cumulus-near",
+   "band": "overhead",
+   "w": 1200,
+   "h": 500,
+   "base": 0.793,
+   "bbox": [
+    0.0708,
+    0.086,
+    0.9283,
+    0.818
+   ],
+   "alpha": 0.3063,
+   "luma": {
+    "day": 184.8,
+    "grey": 115.7,
+    "golden": 146.2,
+    "dusk": 116.2,
+    "night": 40.6
+   },
+   "soft": [
+    480,
+    240,
+    120,
+    64,
+    32
+   ]
+  },
+  {
+   "id": "cumulus-near-04",
+   "set": "cumulus-near",
+   "band": "overhead",
+   "w": 1200,
+   "h": 500,
+   "base": 0.793,
+   "bbox": [
+    0.1075,
+    0.14,
+    0.9042,
+    0.802
+   ],
+   "alpha": 0.3302,
+   "luma": {
+    "day": 185.5,
+    "grey": 111.6,
+    "golden": 148.5,
+    "dusk": 120.3,
+    "night": 45.0
+   },
+   "soft": [
+    480,
+    240,
+    120,
+    64,
+    32
+   ]
+  },
+  {
+   "id": "cumulus-near-05",
+   "set": "cumulus-near",
+   "band": "overhead",
+   "w": 1200,
+   "h": 500,
+   "base": 0.816,
+   "bbox": [
+    0.0892,
+    0.132,
+    0.9042,
+    0.844
+   ],
+   "alpha": 0.2884,
+   "luma": {
+    "day": 189.8,
+    "grey": 118.6,
+    "golden": 150.8,
+    "dusk": 119.0,
+    "night": 51.0
+   },
+   "soft": [
+    480,
+    240,
+    120,
+    64,
+    32
+   ]
+  },
+  {
+   "id": "cumulus-near-06",
+   "set": "cumulus-near",
+   "band": "overhead",
+   "w": 1200,
+   "h": 500,
+   "base": 0.861,
+   "bbox": [
+    0.1325,
+    0.112,
+    0.8642,
+    0.88
+   ],
+   "alpha": 0.2856,
+   "luma": {
+    "day": 181.8,
+    "grey": 120.7,
+    "golden": 136.1,
+    "dusk": 115.2,
+    "night": 51.9
+   },
+   "soft": [
+    480,
+    240,
+    120,
+    64,
+    32
+   ]
+  },
+  {
+   "id": "cumulus-near-07",
+   "set": "cumulus-near",
+   "band": "overhead",
+   "w": 1200,
+   "h": 500,
+   "base": 0.853,
+   "bbox": [
+    0.0842,
+    0.098,
+    0.915,
+    0.872
+   ],
+   "alpha": 0.3818,
+   "luma": {
+    "day": 186.1,
+    "grey": 127.3,
+    "golden": 147.0,
+    "dusk": 117.5,
+    "night": 47.9
+   },
+   "soft": [
+    480,
+    240,
+    120,
+    64,
+    32
+   ]
+  },
+  {
+   "id": "cumulus-near-08",
+   "set": "cumulus-near",
+   "band": "overhead",
+   "w": 1200,
+   "h": 500,
+   "base": 0.845,
+   "bbox": [
+    0.1133,
+    0.13,
+    0.8942,
+    0.854
+   ],
+   "alpha": 0.2675,
+   "luma": {
+    "day": 168.3,
+    "grey": 116.7,
+    "golden": 128.8,
+    "dusk": 109.7,
+    "night": 40.6
+   },
+   "soft": [
+    480,
+    240,
+    120,
+    64,
+    32
+   ]
+  },
+  {
+   "id": "cumulus-mid-01",
+   "set": "cumulus-mid",
+   "band": "mid",
+   "w": 750,
+   "h": 300,
+   "base": 0.7383,
+   "bbox": [
+    0.1827,
+    0.1533,
+    0.8307,
+    0.7567
+   ],
+   "alpha": 0.2167,
+   "luma": {
+    "day": 183.0,
+    "grey": 114.6,
+    "golden": 146.7,
+    "dusk": 106.8,
+    "night": 43.5
+   },
+   "soft": [
+    480,
+    240,
+    120,
+    64,
+    32
+   ]
+  },
+  {
+   "id": "cumulus-mid-02",
+   "set": "cumulus-mid",
+   "band": "mid",
+   "w": 750,
+   "h": 300,
+   "base": 0.77,
+   "bbox": [
+    0.1693,
+    0.2033,
+    0.8533,
+    0.7967
+   ],
+   "alpha": 0.1914,
+   "luma": {
+    "day": 179.1,
+    "grey": 115.0,
+    "golden": 148.3,
+    "dusk": 114.2,
+    "night": 45.2
+   },
+   "soft": [
+    480,
+    240,
+    120,
+    64,
+    32
+   ]
+  },
+  {
+   "id": "cumulus-mid-03",
+   "set": "cumulus-mid",
+   "band": "mid",
+   "w": 750,
+   "h": 300,
+   "base": 0.755,
+   "bbox": [
+    0.2053,
+    0.2033,
+    0.768,
+    0.77
+   ],
+   "alpha": 0.1652,
+   "luma": {
+    "day": 175.4,
+    "grey": 104.1,
+    "golden": 128.3,
+    "dusk": 114.5,
+    "night": 44.4
+   },
+   "soft": [
+    480,
+    240,
+    120,
+    64,
+    32
+   ]
+  },
+  {
+   "id": "cumulus-mid-04",
+   "set": "cumulus-mid",
+   "band": "mid",
+   "w": 750,
+   "h": 300,
+   "base": 0.7517,
+   "bbox": [
+    0.1947,
+    0.2267,
+    0.848,
+    0.77
+   ],
+   "alpha": 0.1697,
+   "luma": {
+    "day": 182.1,
+    "grey": 119.3,
+    "golden": 148.6,
+    "dusk": 122.8,
+    "night": 48.9
+   },
+   "soft": [
+    480,
+    240,
+    120,
+    64,
+    32
+   ]
+  },
+  {
+   "id": "cumulus-mid-05",
+   "set": "cumulus-mid",
+   "band": "mid",
+   "w": 750,
+   "h": 300,
+   "base": 0.755,
+   "bbox": [
+    0.1507,
+    0.1433,
+    0.88,
+    0.7733
+   ],
+   "alpha": 0.2347,
+   "luma": {
+    "day": 187.3,
+    "grey": 123.1,
+    "golden": 144.7,
+    "dusk": 114.9,
+    "night": 54.4
+   },
+   "soft": [
+    480,
+    240,
+    120,
+    64,
+    32
+   ]
+  },
+  {
+   "id": "cumulus-mid-06",
+   "set": "cumulus-mid",
+   "band": "mid",
+   "w": 750,
+   "h": 300,
+   "base": 0.7667,
+   "bbox": [
+    0.184,
+    0.2033,
+    0.8333,
+    0.79
+   ],
+   "alpha": 0.1666,
+   "luma": {
+    "day": 184.4,
+    "grey": 128.8,
+    "golden": 130.1,
+    "dusk": 125.8,
+    "night": 46.7
+   },
+   "soft": [
+    480,
+    240,
+    120,
+    64,
+    32
+   ]
+  },
+  {
+   "id": "cumulus-far-01",
+   "set": "cumulus-far",
+   "band": "horizon",
+   "w": 450,
+   "h": 128,
+   "base": 0.5156,
+   "bbox": [
+    0.1267,
+    0.3594,
+    0.8689,
+    0.5234
+   ],
+   "alpha": 0.0341,
+   "luma": {
+    "day": 187.2,
+    "grey": 105.8,
+    "golden": 116.2,
+    "dusk": 100.0,
+    "night": 63.3
+   },
+   "soft": [
+    240,
+    120,
+    64,
+    32
+   ]
+  },
+  {
+   "id": "cumulus-far-02",
+   "set": "cumulus-far",
+   "band": "horizon",
+   "w": 450,
+   "h": 128,
+   "base": 0.5625,
+   "bbox": [
+    0.1311,
+    0.4297,
+    0.88,
+    0.5703
+   ],
+   "alpha": 0.0364,
+   "luma": {
+    "day": 178.2,
+    "grey": 104.9,
+    "golden": 121.1,
+    "dusk": 102.1,
+    "night": 51.4
+   },
+   "soft": [
+    240,
+    120,
+    64,
+    32
+   ]
+  },
+  {
+   "id": "cumulus-far-03",
+   "set": "cumulus-far",
+   "band": "horizon",
+   "w": 450,
+   "h": 128,
+   "base": 0.5508,
+   "bbox": [
+    0.14,
+    0.4062,
+    0.86,
+    0.5625
+   ],
+   "alpha": 0.021,
+   "luma": {
+    "day": 186.0,
+    "grey": 102.2,
+    "golden": 91.2,
+    "dusk": 107.0,
+    "night": 57.8
+   },
+   "soft": [
+    240,
+    120,
+    64,
+    32
+   ]
+  },
+  {
+   "id": "cumulus-far-04",
+   "set": "cumulus-far",
+   "band": "horizon",
+   "w": 450,
+   "h": 128,
+   "base": 0.5625,
+   "bbox": [
+    0.1711,
+    0.4219,
+    0.8067,
+    0.5781
+   ],
+   "alpha": 0.0302,
+   "luma": {
+    "day": 195.0,
+    "grey": 104.6,
+    "golden": 133.8,
+    "dusk": 98.0,
+    "night": 72.0
+   },
+   "soft": [
+    240,
+    120,
+    64,
+    32
+   ]
+  },
+  {
+   "id": "cumulus-far-05",
+   "set": "cumulus-far",
+   "band": "horizon",
+   "w": 450,
+   "h": 128,
+   "base": 0.6211,
+   "bbox": [
+    0.1533,
+    0.4141,
+    0.8711,
+    0.6328
+   ],
+   "alpha": 0.0634,
+   "luma": {
+    "day": 191.6,
+    "grey": 107.3,
+    "golden": 142.8,
+    "dusk": 110.1,
+    "night": 44.6
+   },
+   "soft": [
+    240,
+    120,
+    64,
+    32
+   ]
+  },
+  {
+   "id": "cumulus-far-06",
+   "set": "cumulus-far",
+   "band": "horizon",
+   "w": 450,
+   "h": 128,
+   "base": 0.5508,
+   "bbox": [
+    0.1956,
+    0.4453,
+    0.8844,
+    0.5625
+   ],
+   "alpha": 0.0185,
+   "luma": {
+    "day": 187.7,
+    "grey": 100.9,
+    "golden": 123.9,
+    "dusk": 118.1,
+    "night": 57.4
+   },
+   "soft": [
+    240,
+    120,
+    64,
+    32
+   ]
+  },
+  {
+   "id": "cumulus-far-07",
+   "set": "cumulus-far",
+   "band": "horizon",
+   "w": 450,
+   "h": 128,
+   "base": 0.5586,
+   "bbox": [
+    0.1489,
+    0.4219,
+    0.86,
+    0.5703
+   ],
+   "alpha": 0.0267,
+   "luma": {
+    "day": 188.4,
+    "grey": 91.0,
+    "golden": 107.6,
+    "dusk": 97.3,
+    "night": 57.3
+   },
+   "soft": [
+    240,
+    120,
+    64,
+    32
+   ]
+  },
+  {
+   "id": "cumulus-far-08",
+   "set": "cumulus-far",
+   "band": "horizon",
+   "w": 450,
+   "h": 128,
+   "base": 0.5898,
+   "bbox": [
+    0.1578,
+    0.4062,
+    0.8533,
+    0.6016
+   ],
+   "alpha": 0.0452,
+   "luma": {
+    "day": 175.8,
+    "grey": 97.5,
+    "golden": 133.8,
+    "dusk": 101.9,
+    "night": 55.6
+   },
+   "soft": [
+    240,
+    120,
+    64,
+    32
+   ]
+  },
+  {
+   "id": "stratocumulus-01",
+   "set": "stratocumulus",
+   "band": "overhead",
+   "w": 1500,
+   "h": 600,
+   "base": 0.8575,
+   "bbox": [
+    0.0933,
+    0.1367,
+    0.9273,
+    0.875
+   ],
+   "alpha": 0.3262,
+   "luma": {
+    "day": 179.1,
+    "grey": 122.3,
+    "golden": 136.2,
+    "dusk": 116.5,
+    "night": 49.9
+   },
+   "soft": [
+    480,
+    240,
+    120,
+    64,
+    32
+   ]
+  },
+  {
+   "id": "stratocumulus-02",
+   "set": "stratocumulus",
+   "band": "overhead",
+   "w": 1500,
+   "h": 600,
+   "base": 0.7233,
+   "bbox": [
+    0.0533,
+    0.1767,
+    0.954,
+    0.7717
+   ],
+   "alpha": 0.268,
+   "luma": {
+    "day": 175.4,
+    "grey": 115.0,
+    "golden": 148.3,
+    "dusk": 116.0,
+    "night": 48.6
+   },
+   "soft": [
+    480,
+    240,
+    120,
+    64,
+    32
+   ]
+  },
+  {
+   "id": "stratocumulus-03",
+   "set": "stratocumulus",
+   "band": "overhead",
+   "w": 1500,
+   "h": 600,
+   "base": 0.8333,
+   "bbox": [
+    0.0887,
+    0.15,
+    0.9153,
+    0.85
+   ],
+   "alpha": 0.3271,
+   "luma": {
+    "day": 182.7,
+    "grey": 121.2,
+    "golden": 142.6,
+    "dusk": 117.0,
+    "night": 42.3
+   },
+   "soft": [
+    480,
+    240,
+    120,
+    64,
+    32
+   ]
+  },
+  {
+   "id": "stratocumulus-04",
+   "set": "stratocumulus",
+   "band": "overhead",
+   "w": 1500,
+   "h": 600,
+   "base": 0.8242,
+   "bbox": [
+    0.086,
+    0.1267,
+    0.93,
+    0.84
+   ],
+   "alpha": 0.2798,
+   "luma": {
+    "day": 178.3,
+    "grey": 130.7,
+    "golden": 132.4,
+    "dusk": 110.6,
+    "night": 44.4
+   },
+   "soft": [
+    480,
+    240,
+    120,
+    64,
+    32
+   ]
+  },
+  {
+   "id": "stratocumulus-05",
+   "set": "stratocumulus",
+   "band": "overhead",
+   "w": 1500,
+   "h": 600,
+   "base": 0.8125,
+   "bbox": [
+    0.0887,
+    0.1533,
+    0.9187,
+    0.8367
+   ],
+   "alpha": 0.3332,
+   "luma": {
+    "day": 178.5,
+    "grey": 108.8,
+    "golden": 147.7,
+    "dusk": 115.7,
+    "night": 51.9
+   },
+   "soft": [
+    480,
+    240,
+    120,
+    64,
+    32
+   ]
+  },
+  {
+   "id": "altocumulus-01",
+   "set": "altocumulus",
+   "band": "mid",
+   "w": 1400,
+   "h": 475,
+   "base": 0.8042,
+   "bbox": [
+    0.1493,
+    0.1747,
+    0.8543,
+    0.8211
+   ],
+   "alpha": 0.1615,
+   "luma": {
+    "day": 183.6,
+    "grey": 128.0,
+    "golden": 148.6,
+    "dusk": 121.0,
+    "night": 55.3
+   }
+  },
+  {
+   "id": "altocumulus-02",
+   "set": "altocumulus",
+   "band": "mid",
+   "w": 1400,
+   "h": 475,
+   "base": 0.8526,
+   "bbox": [
+    0.0736,
+    0.0989,
+    0.915,
+    0.8758
+   ],
+   "alpha": 0.1974,
+   "luma": {
+    "day": 192.3,
+    "grey": 121.5,
+    "golden": 146.4,
+    "dusk": 117.0,
+    "night": 46.3
+   }
+  },
+  {
+   "id": "altocumulus-03",
+   "set": "altocumulus",
+   "band": "mid",
+   "w": 1400,
+   "h": 475,
+   "base": 0.8263,
+   "bbox": [
+    0.1371,
+    0.1474,
+    0.865,
+    0.8842
+   ],
+   "alpha": 0.1937,
+   "luma": {
+    "day": 180.8,
+    "grey": 119.9,
+    "golden": 143.5,
+    "dusk": 121.4,
+    "night": 49.1
+   }
+  },
+  {
+   "id": "cirrus-01",
+   "set": "cirrus",
+   "band": "high",
+   "w": 1300,
+   "h": 425,
+   "base": 0.74,
+   "bbox": [
+    0.1954,
+    0.1788,
+    0.8062,
+    0.8165
+   ],
+   "alpha": 0.0535,
+   "luma": {
+    "day": 208.4,
+    "grey": 98.1,
+    "golden": 139.2,
+    "dusk": 104.8,
+    "night": 55.3
+   }
+  },
+  {
+   "id": "cirrus-02",
+   "set": "cirrus",
+   "band": "high",
+   "w": 1300,
+   "h": 425,
+   "base": 0.8059,
+   "bbox": [
+    0.2354,
+    0.16,
+    0.7538,
+    0.8447
+   ],
+   "alpha": 0.0406,
+   "luma": {
+    "day": 209.1,
+    "grey": 83.8,
+    "golden": 143.7,
+    "dusk": 105.1,
+    "night": 49.7
+   }
+  },
+  {
+   "id": "cirrus-03",
+   "set": "cirrus",
+   "band": "high",
+   "w": 1300,
+   "h": 425,
+   "base": 0.7882,
+   "bbox": [
+    0.1846,
+    0.1882,
+    0.8185,
+    0.8259
+   ],
+   "alpha": 0.0424,
+   "luma": {
+    "day": 209.7,
+    "grey": 80.7,
+    "golden": 125.5,
+    "dusk": 97.7,
+    "night": 57.4
+   }
+  },
+  {
+   "id": "cirrus-04",
+   "set": "cirrus",
+   "band": "high",
+   "w": 1300,
+   "h": 425,
+   "base": 0.7435,
+   "bbox": [
+    0.1846,
+    0.1812,
+    0.8131,
+    0.7976
+   ],
+   "alpha": 0.0476,
+   "luma": {
+    "day": 210.7,
+    "grey": 89.6,
+    "golden": 138.0,
+    "dusk": 108.6,
+    "night": 44.1
+   }
+  },
+  {
+   "id": "cirrus-05",
+   "set": "cirrus",
+   "band": "high",
+   "w": 1300,
+   "h": 425,
+   "base": 0.6871,
+   "bbox": [
+    0.19,
+    0.1482,
+    0.8085,
+    0.8518
+   ],
+   "alpha": 0.0512,
+   "luma": {
+    "day": 217.2,
+    "grey": 88.3,
+    "golden": 148.9,
+    "dusk": 99.8,
+    "night": 58.4
+   }
+  },
+  {
+   "id": "cumulonimbus-01",
+   "set": "cumulonimbus",
+   "band": "low",
+   "w": 900,
+   "h": 800,
+   "base": 0.8838,
+   "bbox": [
+    0.0767,
+    0.14,
+    0.93,
+    0.8875
+   ],
+   "alpha": 0.4026,
+   "luma": {
+    "day": 152.8,
+    "grey": 107.0,
+    "golden": 120.4,
+    "dusk": 100.3,
+    "night": 41.5
+   }
+  },
+  {
+   "id": "cumulonimbus-02",
+   "set": "cumulonimbus",
+   "band": "low",
+   "w": 900,
+   "h": 800,
+   "base": 0.8625,
+   "bbox": [
+    0.0733,
+    0.22,
+    0.9378,
+    0.8875
+   ],
+   "alpha": 0.3484,
+   "luma": {
+    "day": 154.8,
+    "grey": 108.6,
+    "golden": 126.6,
+    "dusk": 106.5,
+    "night": 43.5
+   }
+  },
+  {
+   "id": "overcast-deck-01",
+   "set": "overcast-deck",
+   "band": "full",
+   "w": 2560,
+   "h": 1440,
+   "base": 0.9996,
+   "bbox": [
+    0.0,
+    0.0,
+    1.0,
+    1.0
+   ],
+   "alpha": 0.9235,
+   "luma": {
+    "day": 144.0,
+    "grey": 91.7,
+    "golden": 122.2,
+    "dusk": 94.5,
+    "night": 28.0
+   }
+  },
+  {
+   "id": "overcast-deck-02",
+   "set": "overcast-deck",
+   "band": "full",
+   "w": 2560,
+   "h": 1440,
+   "base": 0.9996,
+   "bbox": [
+    0.0,
+    0.0,
+    1.0,
+    1.0
+   ],
+   "alpha": 0.9242,
+   "luma": {
+    "day": 141.4,
+    "grey": 91.3,
+    "golden": 122.4,
+    "dusk": 98.9,
+    "night": 29.9
+   }
+  },
+  {
+   "id": "overcast-patch-01",
+   "set": "overcast-patch",
+   "band": "low",
+   "w": 1100,
+   "h": 400,
+   "base": 0.7963,
+   "bbox": [
+    0.1327,
+    0.1525,
+    0.8782,
+    0.84
+   ],
+   "alpha": 0.233,
+   "luma": {
+    "day": 109.6,
+    "grey": 98.5,
+    "golden": 123.4,
+    "dusk": 96.1,
+    "night": 41.6
+   },
+   "soft": [
+    480,
+    240,
+    120,
+    64,
+    32
+   ]
+  },
+  {
+   "id": "overcast-patch-02",
+   "set": "overcast-patch",
+   "band": "low",
+   "w": 1100,
+   "h": 400,
+   "base": 0.8275,
+   "bbox": [
+    0.1291,
+    0.15,
+    0.8945,
+    0.8475
+   ],
+   "alpha": 0.3033,
+   "luma": {
+    "day": 111.1,
+    "grey": 92.0,
+    "golden": 119.0,
+    "dusk": 100.3,
+    "night": 40.5
+   },
+   "soft": [
+    480,
+    240,
+    120,
+    64,
+    32
+   ]
+  },
+  {
+   "id": "overcast-patch-03",
+   "set": "overcast-patch",
+   "band": "low",
+   "w": 1100,
+   "h": 400,
+   "base": 0.7475,
+   "bbox": [
+    0.15,
+    0.2325,
+    0.8709,
+    0.825
+   ],
+   "alpha": 0.1864,
+   "luma": {
+    "day": 118.8,
+    "grey": 96.7,
+    "golden": 134.2,
+    "dusk": 96.3,
+    "night": 46.7
+   },
+   "soft": [
+    480,
+    240,
+    120,
+    64,
+    32
+   ]
+  },
+  {
+   "id": "overcast-patch-04",
+   "set": "overcast-patch",
+   "band": "low",
+   "w": 1100,
+   "h": 400,
+   "base": 0.81,
+   "bbox": [
+    0.1255,
+    0.1475,
+    0.8564,
+    0.8475
+   ],
+   "alpha": 0.2474,
+   "luma": {
+    "day": 118.9,
+    "grey": 84.9,
+    "golden": 120.5,
+    "dusk": 107.7,
+    "night": 39.1
+   },
+   "soft": [
+    480,
+    240,
+    120,
+    64,
+    32
+   ]
+  },
+  {
+   "id": "horizon-haze-01",
+   "set": "horizon-haze",
+   "band": "horizon",
+   "w": 2048,
+   "h": 300,
+   "base": 0.665,
+   "bbox": [
+    0.021,
+    0.34,
+    0.9741,
+    0.6967
+   ],
+   "alpha": 0.0819,
+   "luma": {
+    "day": 181.9,
+    "grey": 77.9,
+    "golden": 122.0,
+    "dusk": 95.5,
+    "night": 51.4
+   }
+  },
+  {
+   "id": "horizon-haze-02",
+   "set": "horizon-haze",
+   "band": "horizon",
+   "w": 2048,
+   "h": 300,
+   "base": 0.6567,
+   "bbox": [
+    0.0288,
+    0.39,
+    0.9712,
+    0.6833
+   ],
+   "alpha": 0.0508,
+   "luma": {
+    "day": 189.9,
+    "grey": 78.5,
+    "golden": 116.2,
+    "dusk": 85.0,
+    "night": 54.2
+   }
+  },
+  {
+   "id": "cumulus-small-01",
+   "set": "cumulus-small",
+   "band": "mid",
+   "w": 500,
+   "h": 200,
+   "base": 0.73,
+   "bbox": [
+    0.104,
+    0.205,
+    0.894,
+    0.76
+   ],
+   "alpha": 0.201,
+   "luma": {
+    "day": 188.3,
+    "grey": 117.7,
+    "golden": 142.1,
+    "dusk": 137.6,
+    "night": 47.5
+   },
+   "soft": [
+    240,
+    120,
+    64,
+    32
+   ]
+  },
+  {
+   "id": "cumulus-small-02",
+   "set": "cumulus-small",
+   "band": "mid",
+   "w": 550,
+   "h": 225,
+   "base": 0.78,
+   "bbox": [
+    0.0927,
+    0.1822,
+    0.9055,
+    0.8089
+   ],
+   "alpha": 0.2647,
+   "luma": {
+    "day": 178.3,
+    "grey": 128.0,
+    "golden": 133.1,
+    "dusk": 131.5,
+    "night": 42.2
+   },
+   "soft": [
+    240,
+    120,
+    64,
+    32
+   ]
+  },
+  {
+   "id": "cumulus-small-03",
+   "set": "cumulus-small",
+   "band": "mid",
+   "w": 450,
+   "h": 180,
+   "base": 0.725,
+   "bbox": [
+    0.2267,
+    0.2167,
+    0.7711,
+    0.7611
+   ],
+   "alpha": 0.1589,
+   "luma": {
+    "day": 180.0,
+    "grey": 116.8,
+    "golden": 142.5,
+    "dusk": 127.6,
+    "night": 33.3
+   },
+   "soft": [
+    240,
+    120,
+    64,
+    32
+   ]
+  },
+  {
+   "id": "cumulus-small-04",
+   "set": "cumulus-small",
+   "band": "mid",
+   "w": 500,
+   "h": 210,
+   "base": 0.7571,
+   "bbox": [
+    0.252,
+    0.1905,
+    0.746,
+    0.7857
+   ],
+   "alpha": 0.1254,
+   "luma": {
+    "day": 183.3,
+    "grey": 118.8,
+    "golden": 147.5,
+    "dusk": 129.6,
+    "night": 41.2
+   },
+   "soft": [
+    240,
+    120,
+    64,
+    32
+   ]
+  },
+  {
+   "id": "cumulus-small-05",
+   "set": "cumulus-small",
+   "band": "mid",
+   "w": 425,
+   "h": 170,
+   "base": 0.6647,
+   "bbox": [
+    0.1224,
+    0.2824,
+    0.8753,
+    0.7
+   ],
+   "alpha": 0.1397,
+   "luma": {
+    "day": 181.6,
+    "grey": 113.1,
+    "golden": 149.5,
+    "dusk": 139.3,
+    "night": 39.8
+   },
+   "soft": [
+    240,
+    120,
+    64,
+    32
+   ]
+  },
+  {
+   "id": "cumulus-small-06",
+   "set": "cumulus-small",
+   "band": "mid",
+   "w": 525,
+   "h": 220,
+   "base": 0.7705,
+   "bbox": [
+    0.301,
+    0.1818,
+    0.6971,
+    0.8
+   ],
+   "alpha": 0.1268,
+   "luma": {
+    "day": 180.9,
+    "grey": 118.2,
+    "golden": 127.5,
+    "dusk": 126.7,
+    "night": 42.9
+   },
+   "soft": [
+    240,
+    120,
+    64,
+    32
+   ]
+  },
+  {
+   "id": "cumulus-small-07",
+   "set": "cumulus-small",
+   "band": "mid",
+   "w": 375,
+   "h": 155,
+   "base": 0.6935,
+   "bbox": [
+    0.2187,
+    0.2516,
+    0.776,
+    0.7355
+   ],
+   "alpha": 0.1285,
+   "luma": {
+    "day": 190.6,
+    "grey": 114.3,
+    "golden": 140.6,
+    "dusk": 125.8,
+    "night": 39.9
+   },
+   "soft": [
+    240,
+    120,
+    64,
+    32
+   ]
+  },
+  {
+   "id": "cumulus-small-08",
+   "set": "cumulus-small",
+   "band": "mid",
+   "w": 550,
+   "h": 225,
+   "base": 0.7733,
+   "bbox": [
+    0.2436,
+    0.1778,
+    0.7545,
+    0.8
+   ],
+   "alpha": 0.181,
+   "luma": {
+    "day": 177.5,
+    "grey": 119.7,
+    "golden": 141.0,
+    "dusk": 126.8,
+    "night": 39.3
+   },
+   "soft": [
+    240,
+    120,
+    64,
+    32
+   ]
+  },
+  {
+   "id": "cumulus-small-09",
+   "set": "cumulus-small",
+   "band": "mid",
+   "w": 475,
+   "h": 190,
+   "base": 0.7289,
+   "bbox": [
+    0.2021,
+    0.2105,
+    0.7958,
+    0.7632
+   ],
+   "alpha": 0.1504,
+   "luma": {
+    "day": 187.6,
+    "grey": 123.4,
+    "golden": 145.7,
+    "dusk": 124.2,
+    "night": 47.6
+   },
+   "soft": [
+    240,
+    120,
+    64,
+    32
+   ]
+  },
+  {
+   "id": "cumulus-small-10",
+   "set": "cumulus-small",
+   "band": "mid",
+   "w": 500,
+   "h": 195,
+   "base": 0.7487,
+   "bbox": [
+    0.278,
+    0.2154,
+    0.722,
+    0.7795
+   ],
+   "alpha": 0.1145,
+   "luma": {
+    "day": 189.4,
+    "grey": 121.2,
+    "golden": 140.5,
+    "dusk": 132.9,
+    "night": 47.8
+   },
+   "soft": [
+    240,
+    120,
+    64,
+    32
+   ]
+  },
+  {
+   "id": "cumulus-small-11",
+   "set": "cumulus-small",
+   "band": "mid",
+   "w": 400,
+   "h": 160,
+   "base": 0.6875,
+   "bbox": [
+    0.2275,
+    0.25,
+    0.7725,
+    0.725
+   ],
+   "alpha": 0.1176,
+   "luma": {
+    "day": 188.7,
+    "grey": 120.3,
+    "golden": 141.1,
+    "dusk": 133.2,
+    "night": 42.6
+   },
+   "soft": [
+    240,
+    120,
+    64,
+    32
+   ]
+  },
+  {
+   "id": "cumulus-small-12",
+   "set": "cumulus-small",
+   "band": "mid",
+   "w": 525,
+   "h": 210,
+   "base": 0.7595,
+   "bbox": [
+    0.2724,
+    0.1905,
+    0.7257,
+    0.7905
+   ],
+   "alpha": 0.1291,
+   "luma": {
+    "day": 174.4,
+    "grey": 119.3,
+    "golden": 141.6,
+    "dusk": 123.8,
+    "night": 43.9
+   },
+   "soft": [
+    240,
+    120,
+    64,
+    32
+   ]
+  },
+  {
+   "id": "cumulus-small-13",
+   "set": "cumulus-small",
+   "band": "mid",
+   "w": 450,
+   "h": 175,
+   "base": 0.72,
+   "bbox": [
+    0.2533,
+    0.2286,
+    0.7467,
+    0.7543
+   ],
+   "alpha": 0.1272,
+   "luma": {
+    "day": 182.6,
+    "grey": 122.4,
+    "golden": 137.8,
+    "dusk": 128.3,
+    "night": 44.5
+   },
+   "soft": [
+    240,
+    120,
+    64,
+    32
+   ]
+  },
+  {
+   "id": "cumulus-small-14",
+   "set": "cumulus-small",
+   "band": "mid",
+   "w": 550,
+   "h": 225,
+   "base": 0.7778,
+   "bbox": [
+    0.1891,
+    0.1778,
+    0.8109,
+    0.8044
+   ],
+   "alpha": 0.2085,
+   "luma": {
+    "day": 185.0,
+    "grey": 118.8,
+    "golden": 138.5,
+    "dusk": 131.9,
+    "night": 37.1
+   },
+   "soft": [
+    240,
+    120,
+    64,
+    32
+   ]
+  },
+  {
+   "id": "cumulus-small-15",
+   "set": "cumulus-small",
+   "band": "mid",
+   "w": 425,
+   "h": 180,
+   "base": 0.7306,
+   "bbox": [
+    0.2894,
+    0.2222,
+    0.7082,
+    0.7667
+   ],
+   "alpha": 0.1013,
+   "luma": {
+    "day": 186.6,
+    "grey": 119.1,
+    "golden": 139.3,
+    "dusk": 135.0,
+    "night": 37.7
+   },
+   "soft": [
+    240,
+    120,
+    64,
+    32
+   ]
+  },
+  {
+   "id": "cumulus-small-16",
+   "set": "cumulus-small",
+   "band": "mid",
+   "w": 500,
+   "h": 200,
+   "base": 0.75,
+   "bbox": [
+    0.284,
+    0.2,
+    0.714,
+    0.78
+   ],
+   "alpha": 0.1347,
+   "luma": {
+    "day": 184.3,
+    "grey": 119.0,
+    "golden": 143.5,
+    "dusk": 129.4,
+    "night": 35.8
+   },
+   "soft": [
+    240,
+    120,
+    64,
+    32
+   ]
+  },
+  {
+   "id": "cumulus-small-17",
+   "set": "cumulus-small",
+   "band": "mid",
+   "w": 475,
+   "h": 185,
+   "base": 0.7189,
+   "bbox": [
+    0.1579,
+    0.2162,
+    0.84,
+    0.7514
+   ],
+   "alpha": 0.1659,
+   "luma": {
+    "day": 178.4,
+    "grey": 130.5,
+    "golden": 140.3,
+    "dusk": 125.7,
+    "night": 40.3
+   },
+   "soft": [
+    240,
+    120,
+    64,
+    32
+   ]
+  },
+  {
+   "id": "cumulus-small-18",
+   "set": "cumulus-small",
+   "band": "mid",
+   "w": 525,
+   "h": 215,
+   "base": 0.7581,
+   "bbox": [
+    0.2571,
+    0.1907,
+    0.741,
+    0.786
+   ],
+   "alpha": 0.1492,
+   "luma": {
+    "day": 183.9,
+    "grey": 128.7,
+    "golden": 144.5,
+    "dusk": 130.9,
+    "night": 43.9
+   },
+   "soft": [
+    240,
+    120,
+    64,
+    32
+   ]
+  },
+  {
+   "id": "cumulus-small-19",
+   "set": "cumulus-small",
+   "band": "mid",
+   "w": 400,
+   "h": 165,
+   "base": 0.6788,
+   "bbox": [
+    0.285,
+    0.2424,
+    0.7075,
+    0.7152
+   ],
+   "alpha": 0.0833,
+   "luma": {
+    "day": 185.3,
+    "grey": 108.3,
+    "golden": 146.3,
+    "dusk": 137.9,
+    "night": 38.4
+   },
+   "soft": [
+    240,
+    120,
+    64,
+    32
+   ]
+  },
+  {
+   "id": "cumulus-small-20",
+   "set": "cumulus-small",
+   "band": "mid",
+   "w": 550,
+   "h": 220,
+   "base": 0.7477,
+   "bbox": [
+    0.1491,
+    0.1818,
+    0.8455,
+    0.7773
+   ],
+   "alpha": 0.1871,
+   "luma": {
+    "day": 181.6,
+    "grey": 119.8,
+    "golden": 143.9,
+    "dusk": 127.6,
+    "night": 40.6
+   },
+   "soft": [
+    240,
+    120,
+    64,
+    32
+   ]
+  },
+  {
+   "id": "cumulus-small-21",
+   "set": "cumulus-small",
+   "band": "mid",
+   "w": 450,
+   "h": 180,
+   "base": 0.7278,
+   "bbox": [
+    0.3156,
+    0.2222,
+    0.6844,
+    0.7611
+   ],
+   "alpha": 0.0951,
+   "luma": {
+    "day": 184.4,
+    "grey": 111.2,
+    "golden": 139.7,
+    "dusk": 131.3,
+    "night": 51.9
+   },
+   "soft": [
+    240,
+    120,
+    64,
+    32
+   ]
+  },
+  {
+   "id": "cumulus-small-22",
+   "set": "cumulus-small",
+   "band": "mid",
+   "w": 500,
+   "h": 205,
+   "base": 0.7512,
+   "bbox": [
+    0.24,
+    0.1951,
+    0.76,
+    0.7805
+   ],
+   "alpha": 0.1763,
+   "luma": {
+    "day": 175.0,
+    "grey": 117.9,
+    "golden": 145.0,
+    "dusk": 133.2,
+    "night": 39.6
+   },
+   "soft": [
+    240,
+    120,
+    64,
+    32
+   ]
+  },
+  {
+   "id": "cumulus-small-23",
+   "set": "cumulus-small",
+   "band": "mid",
+   "w": 425,
+   "h": 170,
+   "base": 0.7118,
+   "bbox": [
+    0.2094,
+    0.2353,
+    0.7906,
+    0.7471
+   ],
+   "alpha": 0.1229,
+   "luma": {
+    "day": 182.5,
+    "grey": 122.5,
+    "golden": 146.6,
+    "dusk": 128.8,
+    "night": 41.0
+   },
+   "soft": [
+    240,
+    120,
+    64,
+    32
+   ]
+  },
+  {
+   "id": "cumulus-small-24",
+   "set": "cumulus-small",
+   "band": "mid",
+   "w": 525,
+   "h": 225,
+   "base": 0.7356,
+   "bbox": [
+    0.2838,
+    0.1778,
+    0.7143,
+    0.7644
+   ],
+   "alpha": 0.1086,
+   "luma": {
+    "day": 193.1,
+    "grey": 128.8,
+    "golden": 141.6,
+    "dusk": 135.3,
+    "night": 44.2
+   },
+   "soft": [
+    240,
+    120,
+    64,
+    32
+   ]
+  },
+  {
+   "id": "cumulus-large-01",
+   "set": "cumulus-large",
+   "band": "overhead",
+   "w": 1300,
+   "h": 550,
+   "base": 0.8227,
+   "bbox": [
+    0.0392,
+    0.1164,
+    0.96,
+    0.8345
+   ],
+   "alpha": 0.3976,
+   "luma": {
+    "day": 188.1,
+    "grey": 122.7,
+    "golden": 152.7,
+    "dusk": 132.2,
+    "night": 40.9
+   },
+   "soft": [
+    480,
+    240,
+    120,
+    64,
+    32
+   ]
+  },
+  {
+   "id": "cumulus-large-02",
+   "set": "cumulus-large",
+   "band": "overhead",
+   "w": 1400,
+   "h": 650,
+   "base": 0.8654,
+   "bbox": [
+    0.0371,
+    0.0923,
+    0.9621,
+    0.8754
+   ],
+   "alpha": 0.3693,
+   "luma": {
+    "day": 175.7,
+    "grey": 127.3,
+    "golden": 142.9,
+    "dusk": 124.9,
+    "night": 37.5
+   },
+   "soft": [
+    480,
+    240,
+    120,
+    64,
+    32
+   ]
+  },
+  {
+   "id": "cumulus-large-03",
+   "set": "cumulus-large",
+   "band": "overhead",
+   "w": 1200,
+   "h": 500,
+   "base": 0.867,
+   "bbox": [
+    0.145,
+    0.086,
+    0.8542,
+    0.88
+   ],
+   "alpha": 0.3887,
+   "luma": {
+    "day": 175.5,
+    "grey": 121.1,
+    "golden": 144.3,
+    "dusk": 126.8,
+    "night": 41.2
+   },
+   "soft": [
+    480,
+    240,
+    120,
+    64,
+    32
+   ]
+  },
+  {
+   "id": "cumulus-large-04",
+   "set": "cumulus-large",
+   "band": "overhead",
+   "w": 1350,
+   "h": 600,
+   "base": 0.8858,
+   "bbox": [
+    0.1859,
+    0.0717,
+    0.8126,
+    0.8967
+   ],
+   "alpha": 0.2999,
+   "luma": {
+    "day": 167.9,
+    "grey": 123.7,
+    "golden": 147.0,
+    "dusk": 128.5,
+    "night": 43.2
+   },
+   "soft": [
+    480,
+    240,
+    120,
+    64,
+    32
+   ]
+  },
+  {
+   "id": "cumulus-large-05",
+   "set": "cumulus-large",
+   "band": "overhead",
+   "w": 1250,
+   "h": 550,
+   "base": 0.8827,
+   "bbox": [
+    0.0416,
+    0.0927,
+    0.9576,
+    0.8945
+   ],
+   "alpha": 0.466,
+   "luma": {
+    "day": 178.2,
+    "grey": 128.0,
+    "golden": 146.2,
+    "dusk": 132.8,
+    "night": 47.1
+   },
+   "soft": [
+    480,
+    240,
+    120,
+    64,
+    32
+   ]
+  },
+  {
+   "id": "cumulus-large-06",
+   "set": "cumulus-large",
+   "band": "overhead",
+   "w": 1400,
+   "h": 650,
+   "base": 0.8692,
+   "bbox": [
+    0.1807,
+    0.0646,
+    0.8179,
+    0.88
+   ],
+   "alpha": 0.2556,
+   "luma": {
+    "day": 174.4,
+    "grey": 129.9,
+    "golden": 138.9,
+    "dusk": 130.1,
+    "night": 40.9
+   },
+   "soft": [
+    480,
+    240,
+    120,
+    64,
+    32
+   ]
+  },
+  {
+   "id": "cumulus-large-07",
+   "set": "cumulus-large",
+   "band": "overhead",
+   "w": 1100,
+   "h": 475,
+   "base": 0.8758,
+   "bbox": [
+    0.1655,
+    0.0905,
+    0.8327,
+    0.8905
+   ],
+   "alpha": 0.2857,
+   "luma": {
+    "day": 181.7,
+    "grey": 123.9,
+    "golden": 142.3,
+    "dusk": 130.7,
+    "night": 45.0
+   },
+   "soft": [
+    480,
+    240,
+    120,
+    64,
+    32
+   ]
+  },
+  {
+   "id": "cumulus-large-08",
+   "set": "cumulus-large",
+   "band": "overhead",
+   "w": 1300,
+   "h": 575,
+   "base": 0.8991,
+   "bbox": [
+    0.2,
+    0.0765,
+    0.7992,
+    0.9096
+   ],
+   "alpha": 0.2908,
+   "luma": {
+    "day": 173.8,
+    "grey": 126.4,
+    "golden": 149.4,
+    "dusk": 133.5,
+    "night": 45.7
+   },
+   "soft": [
+    480,
+    240,
+    120,
+    64,
+    32
+   ]
+  },
+  {
+   "id": "cumulus-row-01",
+   "set": "cumulus-row",
+   "band": "horizon",
+   "w": 1800,
+   "h": 270,
+   "base": 0.7204,
+   "bbox": [
+    0.0111,
+    0.2407,
+    0.9889,
+    0.7296
+   ],
+   "alpha": 0.1749,
+   "luma": {
+    "day": 197.7,
+    "grey": 119.7,
+    "golden": 142.0,
+    "dusk": 138.1,
+    "night": 43.2
+   },
+   "soft": [
+    480,
+    240,
+    120,
+    64,
+    32
+   ]
+  },
+  {
+   "id": "cumulus-row-02",
+   "set": "cumulus-row",
+   "band": "horizon",
+   "w": 1800,
+   "h": 310,
+   "base": 0.6677,
+   "bbox": [
+    0.0167,
+    0.3065,
+    0.9844,
+    0.6742
+   ],
+   "alpha": 0.0797,
+   "luma": {
+    "day": 192.8,
+    "grey": 120.7,
+    "golden": 154.8,
+    "dusk": 133.7,
+    "night": 49.2
+   },
+   "soft": [
+    480,
+    240,
+    120,
+    64,
+    32
+   ]
+  },
+  {
+   "id": "cumulus-row-03",
+   "set": "cumulus-row",
+   "band": "horizon",
+   "w": 1800,
+   "h": 240,
+   "base": 0.7479,
+   "bbox": [
+    0.0117,
+    0.2167,
+    0.9839,
+    0.7542
+   ],
+   "alpha": 0.1613,
+   "luma": {
+    "day": 186.4,
+    "grey": 121.5,
+    "golden": 153.2,
+    "dusk": 135.2,
+    "night": 44.3
+   },
+   "soft": [
+    480,
+    240,
+    120,
+    64,
+    32
+   ]
+  },
+  {
+   "id": "cumulus-row-04",
+   "set": "cumulus-row",
+   "band": "horizon",
+   "w": 1800,
+   "h": 290,
+   "base": 0.8034,
+   "bbox": [
+    0.0161,
+    0.1586,
+    0.9839,
+    0.8069
+   ],
+   "alpha": 0.1665,
+   "luma": {
+    "day": 184.0,
+    "grey": 107.3,
+    "golden": 143.3,
+    "dusk": 131.5,
+    "night": 48.5
+   },
+   "soft": [
+    480,
+    240,
+    120,
+    64,
+    32
+   ]
+  },
+  {
+   "id": "cumulus-row-05",
+   "set": "cumulus-row",
+   "band": "horizon",
+   "w": 1800,
+   "h": 210,
+   "base": 0.7571,
+   "bbox": [
+    0.015,
+    0.2,
+    0.9839,
+    0.7667
+   ],
+   "alpha": 0.1604,
+   "luma": {
+    "day": 190.8,
+    "grey": 116.9,
+    "golden": 154.5,
+    "dusk": 131.8,
+    "night": 49.9
+   },
+   "soft": [
+    480,
+    240,
+    120,
+    64,
+    32
+   ]
+  },
+  {
+   "id": "cumulus-row-06",
+   "set": "cumulus-row",
+   "band": "horizon",
+   "w": 1800,
+   "h": 310,
+   "base": 0.829,
+   "bbox": [
+    0.0156,
+    0.1355,
+    0.9794,
+    0.8323
+   ],
+   "alpha": 0.1526,
+   "luma": {
+    "day": 191.6,
+    "grey": 119.1,
+    "golden": 141.6,
+    "dusk": 125.6,
+    "night": 47.2
+   },
+   "soft": [
+    480,
+    240,
+    120,
+    64,
+    32
+   ]
+  },
+  {
+   "id": "cumulus-row-07",
+   "set": "cumulus-row",
+   "band": "horizon",
+   "w": 1800,
+   "h": 260,
+   "base": 0.7942,
+   "bbox": [
+    0.0217,
+    0.1654,
+    0.9656,
+    0.8
+   ],
+   "alpha": 0.1233,
+   "luma": {
+    "day": 195.8,
+    "grey": 127.3,
+    "golden": 157.9,
+    "dusk": 125.5,
+    "night": 48.8
+   },
+   "soft": [
+    480,
+    240,
+    120,
+    64,
+    32
+   ]
+  },
+  {
+   "id": "cumulus-row-08",
+   "set": "cumulus-row",
+   "band": "horizon",
+   "w": 1800,
+   "h": 280,
+   "base": 0.8018,
+   "bbox": [
+    0.0211,
+    0.15,
+    0.9833,
+    0.8071
+   ],
+   "alpha": 0.1682,
+   "luma": {
+    "day": 180.8,
+    "grey": 118.1,
+    "golden": 148.0,
+    "dusk": 130.5,
+    "night": 39.6
+   },
+   "soft": [
+    480,
+    240,
+    120,
+    64,
+    32
+   ]
+  },
+  {
+   "id": "cirrus-streak-01",
+   "set": "cirrus-streak",
+   "band": "high",
+   "w": 2000,
+   "h": 225,
+   "base": 0.7889,
+   "bbox": [
+    0.037,
+    0.24,
+    0.9485,
+    0.7644
+   ],
+   "alpha": 0.0164,
+   "luma": {
+    "day": 237.6,
+    "grey": 86.3,
+    "golden": 187.4,
+    "dusk": 125.6,
+    "night": 69.4
+   }
+  },
+  {
+   "id": "cirrus-streak-02",
+   "set": "cirrus-streak",
+   "band": "high",
+   "w": 2000,
+   "h": 300,
+   "base": 0.845,
+   "bbox": [
+    0.0515,
+    0.1733,
+    0.953,
+    0.83
+   ],
+   "alpha": 0.0242,
+   "luma": {
+    "day": 233.6,
+    "grey": 115.8,
+    "golden": 183.6,
+    "dusk": 150.5,
+    "night": 54.4
+   }
+  },
+  {
+   "id": "cirrus-streak-03",
+   "set": "cirrus-streak",
+   "band": "high",
+   "w": 2000,
+   "h": 200,
+   "base": 0.765,
+   "bbox": [
+    0.044,
+    0.26,
+    0.938,
+    0.74
+   ],
+   "alpha": 0.0116,
+   "luma": {
+    "day": 229.9,
+    "grey": 96.7,
+    "golden": 168.8,
+    "dusk": 147.8,
+    "night": 39.6
+   }
+  },
+  {
+   "id": "cirrus-streak-04",
+   "set": "cirrus-streak",
+   "band": "high",
+   "w": 2000,
+   "h": 275,
+   "base": 0.8255,
+   "bbox": [
+    0.051,
+    0.1855,
+    0.9655,
+    0.8073
+   ],
+   "alpha": 0.0357,
+   "luma": {
+    "day": 232.9,
+    "grey": 106.4,
+    "golden": 148.8,
+    "dusk": 150.8,
+    "night": 51.0
+   }
+  },
+  {
+   "id": "cirrus-streak-05",
+   "set": "cirrus-streak",
+   "band": "high",
+   "w": 2000,
+   "h": 175,
+   "base": 0.7429,
+   "bbox": [
+    0.04,
+    0.2857,
+    0.9605,
+    0.72
+   ],
+   "alpha": 0.0121,
+   "luma": {
+    "day": 230.8,
+    "grey": 84.1,
+    "golden": 162.6,
+    "dusk": 137.4,
+    "night": 51.6
+   }
+  },
+  {
+   "id": "cirrus-streak-06",
+   "set": "cirrus-streak",
+   "band": "high",
+   "w": 2000,
+   "h": 300,
+   "base": 0.8333,
+   "bbox": [
+    0.0445,
+    0.1933,
+    0.9595,
+    0.82
+   ],
+   "alpha": 0.0263,
+   "luma": {
+    "day": 235.2,
+    "grey": 95.5,
+    "golden": 166.8,
+    "dusk": 148.0,
+    "night": 64.9
+   }
+  },
+  {
+   "id": "cirrus-streak-07",
+   "set": "cirrus-streak",
+   "band": "high",
+   "w": 2000,
+   "h": 240,
+   "base": 0.7854,
+   "bbox": [
+    0.0345,
+    0.2042,
+    0.9665,
+    0.7417
+   ],
+   "alpha": 0.0161,
+   "luma": {
+    "day": 229.2,
+    "grey": 98.9,
+    "golden": 195.6,
+    "dusk": 150.8,
+    "night": 57.9
+   }
+  },
+  {
+   "id": "cirrus-streak-08",
+   "set": "cirrus-streak",
+   "band": "high",
+   "w": 2000,
+   "h": 260,
+   "base": 0.8308,
+   "bbox": [
+    0.05,
+    0.2115,
+    0.9615,
+    0.8077
+   ],
+   "alpha": 0.0242,
+   "luma": {
+    "day": 228.8,
+    "grey": 92.8,
+    "golden": 166.6,
+    "dusk": 142.8,
+    "night": 36.8
+   }
+  },
+  {
+   "id": "cumulus-fractus-01",
+   "set": "cumulus-fractus",
+   "band": "mid",
+   "w": 325,
+   "h": 140,
+   "base": 0.7214,
+   "bbox": [
+    0.2246,
+    0.2786,
+    0.7785,
+    0.6929
+   ],
+   "alpha": 0.0352,
+   "luma": {
+    "day": 218.6,
+    "grey": 138.5,
+    "golden": 163.0,
+    "dusk": 161.9,
+    "night": 58.3
+   },
+   "soft": [
+    240,
+    120,
+    64,
+    32
+   ]
+  },
+  {
+   "id": "cumulus-fractus-02",
+   "set": "cumulus-fractus",
+   "band": "mid",
+   "w": 350,
+   "h": 150,
+   "base": 0.75,
+   "bbox": [
+    0.2171,
+    0.2667,
+    0.7771,
+    0.7267
+   ],
+   "alpha": 0.0293,
+   "luma": {
+    "day": 211.1,
+    "grey": 128.8,
+    "golden": 173.5,
+    "dusk": 139.4,
+    "night": 63.9
+   },
+   "soft": [
+    240,
+    120,
+    64,
+    32
+   ]
+  },
+  {
+   "id": "cumulus-fractus-03",
+   "set": "cumulus-fractus",
+   "band": "mid",
+   "w": 300,
+   "h": 135,
+   "base": 0.7222,
+   "bbox": [
+    0.37,
+    0.3037,
+    0.6067,
+    0.6963
+   ],
+   "alpha": 0.0112,
+   "luma": {
+    "day": 212.6,
+    "grey": 114.1,
+    "golden": 177.0,
+    "dusk": 145.1,
+    "night": 56.2
+   },
+   "soft": [
+    120,
+    64,
+    32
+   ]
+  },
+  {
+   "id": "cumulus-fractus-04",
+   "set": "cumulus-fractus",
+   "band": "mid",
+   "w": 350,
+   "h": 150,
+   "base": 0.71,
+   "bbox": [
+    0.1457,
+    0.3,
+    0.84,
+    0.6867
+   ],
+   "alpha": 0.0292,
+   "luma": {
+    "day": 214.9,
+    "grey": 136.1,
+    "golden": 176.1,
+    "dusk": 143.3,
+    "night": 53.4
+   },
+   "soft": [
+    240,
+    120,
+    64,
+    32
+   ]
+  },
+  {
+   "id": "cumulus-fractus-05",
+   "set": "cumulus-fractus",
+   "band": "mid",
+   "w": 275,
+   "h": 130,
+   "base": 0.7,
+   "bbox": [
+    0.3855,
+    0.3154,
+    0.6182,
+    0.6692
+   ],
+   "alpha": 0.0074,
+   "luma": {
+    "day": 218.0,
+    "grey": 125.5,
+    "golden": 156.7,
+    "dusk": 154.2,
+    "night": 49.8
+   },
+   "soft": [
+    120,
+    64,
+    32
+   ]
+  },
+  {
+   "id": "cumulus-fractus-06",
+   "set": "cumulus-fractus",
+   "band": "mid",
+   "w": 325,
+   "h": 145,
+   "base": 0.7448,
+   "bbox": [
+    0.3354,
+    0.2828,
+    0.6615,
+    0.7241
+   ],
+   "alpha": 0.0128,
+   "luma": {
+    "day": 213.1,
+    "grey": 134.0,
+    "golden": 160.0,
+    "dusk": 142.2,
+    "night": 52.5
+   },
+   "soft": [
+    240,
+    120,
+    64,
+    32
+   ]
+  },
+  {
+   "id": "cumulus-fractus-07",
+   "set": "cumulus-fractus",
+   "band": "mid",
+   "w": 350,
+   "h": 150,
+   "base": 0.7533,
+   "bbox": [
+    0.3514,
+    0.2733,
+    0.6514,
+    0.7333
+   ],
+   "alpha": 0.0184,
+   "luma": {
+    "day": 213.5,
+    "grey": 125.3,
+    "golden": 162.3,
+    "dusk": 148.9,
+    "night": 44.9
+   },
+   "soft": [
+    240,
+    120,
+    64,
+    32
+   ]
+  },
+  {
+   "id": "cumulus-fractus-08",
+   "set": "cumulus-fractus",
+   "band": "mid",
+   "w": 300,
+   "h": 140,
+   "base": 0.7321,
+   "bbox": [
+    0.3667,
+    0.2929,
+    0.63,
+    0.7071
+   ],
+   "alpha": 0.0072,
+   "luma": {
+    "day": 217.9,
+    "grey": 123.6,
+    "golden": 158.4,
+    "dusk": 156.8,
+    "night": 55.7
+   },
+   "soft": [
+    120,
+    64,
+    32
+   ]
+  }
+ ]
+}

@@ -1,0 +1,28 @@
+name: Tests
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  python:
+    name: Python (Home Assistant test harness)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # the harness release the suite was last run with (Home Assistant
+      # 2026.9.3); Python 3.13 cannot install anything newer than 2026.2
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+      - run: pip install pytest-homeassistant-custom-component==0.13.366
+      - run: cd tests/py && pytest -q -p no:cacheprovider
+
+  javascript:
+    # the card suites run on JavaScriptCore, which every macOS runner has
+    name: JavaScript (JavaScriptCore)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: tests/run

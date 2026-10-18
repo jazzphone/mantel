@@ -1,0 +1,213 @@
+{
+  "halloween-v1": {
+    "file": "halloween-v1.webp",
+    "width": 1586,
+    "height": 992,
+    "alpha": 0.675,
+    "luma": 41.69
+  },
+  "christmas-v1": {
+    "file": "christmas-v1.webp",
+    "width": 1585,
+    "height": 992,
+    "alpha": 0.6173,
+    "luma": 115.01
+  },
+  "fall-v1": {
+    "file": "fall-v1.webp",
+    "width": 1585,
+    "height": 992,
+    "alpha": 0.6487,
+    "luma": 56.92
+  },
+  "summer-v1": {
+    "file": "summer-v1.webp",
+    "width": 1586,
+    "height": 992,
+    "alpha": 0.6395,
+    "luma": 86.85
+  },
+  "july4-v1": {
+    "file": "july4-v1.webp",
+    "width": 1586,
+    "height": 992,
+    "alpha": 0.6805,
+    "luma": 65.61
+  },
+  "spring-v1": {
+    "file": "spring-v1.webp",
+    "width": 1586,
+    "height": 992,
+    "alpha": 0.6622,
+    "luma": 93.34
+  },
+  "winter-v1": {
+    "file": "winter-v1.webp",
+    "width": 1586,
+    "height": 992,
+    "alpha": 0.6677,
+    "luma": 119.19
+  },
+  "birthday-v1": {
+    "file": "birthday-v1.webp",
+    "width": 1586,
+    "height": 992,
+    "alpha": 0.6884,
+    "luma": 75.27
+  },
+  "balloons-v1": {
+    "file": "balloons-v1.webp",
+    "width": 1024,
+    "height": 1536,
+    "alpha": 0.2551,
+    "luma": 101.42
+  },
+  "patches": {
+    "halloween": [
+      [
+        "lantern",
+        344,
+        48,
+        64,
+        160
+      ],
+      [
+        "lantern",
+        200,
+        112,
+        80,
+        136
+      ],
+      [
+        "lantern",
+        1280,
+        120,
+        64,
+        112
+      ],
+      [
+        "lantern",
+        1336,
+        256,
+        80,
+        112
+      ],
+      [
+        "pumpkin",
+        0,
+        672,
+        384,
+        152
+      ],
+      [
+        "pumpkin",
+        1352,
+        728,
+        234,
+        136
+      ]
+    ],
+    "christmas": [
+      [
+        "bulb",
+        122,
+        58,
+        44,
+        44
+      ],
+      [
+        "bulb",
+        150,
+        78,
+        44,
+        44
+      ],
+      [
+        "bulb",
+        182,
+        154,
+        44,
+        44
+      ],
+      [
+        "bulb",
+        78,
+        222,
+        44,
+        44
+      ],
+      [
+        "bulb",
+        138,
+        238,
+        44,
+        44
+      ],
+      [
+        "bulb",
+        46,
+        462,
+        44,
+        44
+      ],
+      [
+        "bulb",
+        1406,
+        162,
+        44,
+        44
+      ],
+      [
+        "bulb",
+        1414,
+        194,
+        44,
+        44
+      ],
+      [
+        "bulb",
+        1466,
+        286,
+        44,
+        44
+      ],
+      [
+        "bulb",
+        1454,
+        306,
+        44,
+        44
+      ],
+      [
+        "bulb",
+        1418,
+        326,
+        44,
+        44
+      ],
+      [
+        "bulb",
+        1446,
+        466,
+        44,
+        44
+      ]
+    ],
+    "birthday": [
+      [
+        "front",
+        148,
+        769,
+        196,
+        118
+      ],
+      [
+        "front",
+        1324,
+        702,
+        262,
+        247
+      ]
+    ]
+  }
+}

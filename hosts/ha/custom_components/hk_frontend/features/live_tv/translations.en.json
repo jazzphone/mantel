@@ -1,0 +1,49 @@
+{
+  "config_subentries": {
+    "feature": {
+      "step": {
+        "live_tv": {
+          "title": "Live TV",
+          "description": "Watch an HDHomeRun’s channels live on your screens.",
+          "data": {
+            "host": "HDHomeRun address",
+            "guide_url": "Guide (XMLTV) address"
+          },
+          "data_description": {
+            "host": "The tuner’s IP address on your network.",
+            "guide_url": "Optional. An XMLTV file that says what is on each channel."
+          }
+        },
+        "live_tv_channels": {
+          "title": "Channels",
+          "description": "Pick the channels to show. You can add or remove channels later with Live TV’s gear, or in HK Settings.",
+          "data": {
+            "channels": "Channels",
+            "quality": "Picture quality"
+          }
+        },
+        "live_tv_options": {
+          "title": "Live TV",
+          "description": "Add or remove channels, change the picture quality, or set the guide.",
+          "data": {
+            "channels": "Channels",
+            "quality": "Picture quality",
+            "guide_url": "Guide (XMLTV) address"
+          },
+          "data_description": {
+            "guide_url": "Optional. An XMLTV file that says what is on each channel. Leave it empty for no guide."
+          }
+        }
+      },
+      "error": {
+        "live_tv_cannot_connect": "Could not reach an HDHomeRun at that address.",
+        "live_tv_no_channels": "The tuner has no channels. Run a channel scan on it first.",
+        "live_tv_guide_failed": "Could not read a guide at that address.",
+        "live_tv_pick_one": "Pick at least one channel."
+      },
+      "abort": {
+        "live_tv_cannot_connect": "Could not reach the HDHomeRun. Check that it is on and at the same address."
+      }
+    }
+  }
+}

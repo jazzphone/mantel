@@ -1,0 +1,30 @@
+/* SF Pro variable font for the tablet dashboards.
+   Single variable file, axes:
+     wght 1-1000  (covers the 800/900 weights the hk cards use)
+     opsz 17-28   (17 = SF Pro Text, 28 = SF Pro Display)
+   font-optical-sizing defaults to `auto`, so the browser picks Text for small
+   tile labels and Display for large headings on its own - no per-size mapping.
+   font-display: block, not swap, so the kiosk never flashes Roboto first.
+
+   /hk/, not /local/: same directory, served by custom_components/hk_frontend
+   Cache-Control: no-cache. This stylesheet is itself a Lovelace resource at
+   /hk/fonts/sf-pro.css and carries no ?v= -- it revalidates instead. The woff2
+   is 2.5 MB and will realistically never change, so /local/'s 31-day cache
+   would do for it; it is served from /hk/ anyway so that NOTHING here
+   depends on a URL nobody can bump. The cost is one conditional request per
+   page load answered with a 304 and no body.
+
+   THE FONT ITSELF IS NOT IN THIS FOLDER. SF Pro is Apple's and cannot ship
+   with the integration; each home puts its own copy in its files folder
+   (files.py), which /hk/ answers ahead of this one at the same URL. The woff2
+   comes first; Apple ships a .ttf, and a browser that gets a 404 for the woff2
+   moves on to it, so a home that has only dropped in Apple's file still works.
+   A home with the woff2 never asks for the second URL. */
+@font-face {
+  font-family: "SF Pro";
+  src: url("/hk/fonts/SF-Pro.woff2") format("woff2"),
+       url("/hk/fonts/SF-Pro.ttf") format("truetype");
+  font-weight: 1 1000;
+  font-style: normal;
+  font-display: block;
+}

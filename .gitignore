@@ -27,4 +27,6 @@ secrets/
 # Apple-licensed files and HK snapshot/fixtures: never tracked (also enforced by tests/test_proof1_guards.py)
 spikes/hk-snapshot/
 **/SF-Pro*
+# This existing CSS loader contains no font data; the actual fonts remain ignored.
+!**/sf-pro.css
 **/hk-glyphs*

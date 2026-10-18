@@ -1,0 +1,83 @@
+#!/bin/sh
+# Run every hk-* frontend suite.
+#
+# jsc, not node: JavaScriptCore ships with macOS, so no Node install is
+# needed, and it runs these modules for real.
+#
+#     tests/run            everything
+#     tests/run chip       just the suites whose name contains "chip"
+#
+# THE SUITES DO NOT KNOW WHERE THEY LIVE, and never guess: a hardcoded
+# absolute path would let a copy of this repository anywhere else run its
+# tests against some other tree and report itself green.
+#
+# So the root is injected instead, from this script's own location: a generated
+# prelude defines HK_ROOT and jsc evaluates it in the same global before the
+# suite. A suite run without it fails loudly rather than reaching for an
+# absolute path -- see the guard each one carries.
+JSC=/System/Library/Frameworks/JavaScriptCore.framework/Versions/A/Helpers/jsc
+DIR=$(cd "$(dirname "$0")" && pwd)
+ROOT=$(cd "$DIR/.." && pwd)
+[ -x "$JSC" ] || { echo "jsc not found at $JSC"; exit 1; }
+
+# The prelude lives outside the repo so it is never committed and never
+# mistaken for a suite.
+TMP=$(mktemp -d) || exit 1
+trap 'rm -rf "$TMP"' EXIT INT TERM
+# THE REPOSITORY'S LAYOUT: the component is custom_components/hk_frontend and
+# tests/, docs/ and tools/ sit beside it. The suites read HK_ROOT/frontend/...
+# and HK_ROOT/tests/..., so they get a view of the component with those
+# folders linked in -- the same shape as a component that carries its own.
+if [ -d "$ROOT/custom_components/hk_frontend" ]; then
+  VIEW="$TMP/hk_frontend"
+  mkdir -p "$VIEW"
+  for e in "$ROOT"/custom_components/hk_frontend/*; do ln -s "$e" "$VIEW/"; done
+  for e in tests docs tools; do [ -e "$ROOT/$e" ] && ln -s "$ROOT/$e" "$VIEW/$e"; done
+  ROOT="$VIEW"
+fi
+PRELUDE="$TMP/hkroot.js"
+printf 'var HK_ROOT = "%s";\n' "$ROOT" > "$PRELUDE"
+# The same Phase 1 definitions bootstrapped by the HA adapter. They contain
+# no DOM work at load time and may run before the test DOM is created.
+printf 'load(HK_ROOT + "/frontend/modules/hk-client.js");\n' >> "$PRELUDE"
+printf 'load(HK_ROOT + "/frontend/modules/hk-ha-client.js");\n' >> "$PRELUDE"
+printf 'load(HK_ROOT + "/frontend/modules/hk-metric.js");\n' >> "$PRELUDE"
+# HK_FILES: a home's files folder (files.py), for the suites that can also
+# check the home's own Apple assets. Unset, they use tests/fixtures instead.
+printf 'var HK_FILES = "%s";\n' "${HK_FILES:-}" >> "$PRELUDE"
+# HK_UPDATE_SNAPSHOT=1: test_csssnapshot rewrites its fixture instead of
+# comparing (a step that changes a design value on purpose)
+printf 'var HK_UPDATE_SNAPSHOT = "%s";\n' "${HK_UPDATE_SNAPSHOT:-}" >> "$PRELUDE"
+
+fail=0
+ran=0
+for f in "$DIR"/test_*.js; do
+  name=$(basename "$f" .js)
+  case "$name" in *"$1"*) ;; *) [ -n "$1" ] && continue ;; esac
+  ran=$((ran + 1))
+  out=$("$JSC" "$PRELUDE" "$f" 2>&1)
+  # THE EXIT STATUS IS CHECKED, not only the last line of output: a suite
+  # that dies before printing its summary -- or exits nonzero after printing
+  # one -- must not be counted as a pass.
+  status=$?
+  last=$(printf '%s\n' "$out" | tail -1)
+  case "$last" in
+    *"ALL "*PASS*) ok=1 ;;
+    *)             ok=0 ;;
+  esac
+  if [ "$status" -ne 0 ] || [ "$ok" -ne 1 ]; then
+    fail=1
+    printf '  %-16s FAILED (exit %s)\n' "$name" "$status"
+    printf '%s\n' "$out" | grep -E "FAIL|Exception|SyntaxError" | head -8 | sed 's/^/      /'
+  else
+    printf '  %-16s %s\n' "$name" "$last"
+  fi
+done
+
+# A filter that matches nothing is a mistake, not a pass.
+if [ "$ran" -eq 0 ]; then
+  echo "  -- no suites matched '$1' --"
+  exit 1
+fi
+[ "$fail" = 0 ] && echo "  -- all suites green --" || echo "  -- FAILURES --"
+exit $fail

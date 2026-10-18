@@ -1,0 +1,288 @@
+"""BUILD THE PUBLIC REPOSITORY from this component (HK Frontend 1.0).
+
+The component is developed in Mantel under hosts/ha/, with shared frontend
+source under web/. The build plan composes those sources and publishes the
+repository HACS installs from:
+
+    custom_components/hk_frontend/   what HACS installs (no tests, tools, docs)
+    tests/  tools/  docs/            beside it
+    README.md                        the component's README
+    LICENSE  hacs.json  .github/ ... tools/publish/root/
+
+Every published file is scanned for private data (PRIVATE: local host names,
+private IP addresses, keys and tokens, plus any names given in HK_PRIVATE);
+one hit and nothing is written. With --wiki, the GitHub Wiki is built from
+docs/ into WIKI_DIR (a clone of the Wiki's repository), scanned the same way,
+and committed with the same message. Then both test suites run IN the built repository, so the layout is
+proven, and -- only with --commit -- it is committed (and pushed with --push).
+
+    python3 tools/publish/publish.py REPO_DIR [--commit "message"] [--push] [--no-tests] [--wiki WIKI_DIR]
+    python3 tools/publish/publish.py --scan          only report what would be refused
+"""
+from __future__ import annotations
+
+import argparse
+import os
+import re
+import shutil
+import subprocess
+import sys
+from pathlib import Path
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+COMPONENT = os.path.dirname(os.path.dirname(HERE))
+# caches -- never published; .sfcache holds glyphs exported from Apple's SF
+# Symbols app, which can't be passed on
+SKIP_DIRS = {"__pycache__", ".mypy_cache", ".pytest_cache", ".ruff_cache", ".sfcache", "sf-exports",
+             ".DS_Store"}
+BESIDE = ("tests", "tools", "docs")          # published next to the component
+# What must never be published: keys and tokens, and addresses on a private
+# network (192.0.2.x, the documentation range, is what examples use). A
+# home's own names, host names and subnets are its business: they come from
+# HK_PRIVATE (a regex, "word|word|..."), never from this file -- which is
+# published, and would name them.
+PRIVATE = [
+    r"\b192\.168\.\d{1,3}\.\d{1,3}\b", r"\b10\.\d{1,3}\.\d{1,3}\.\d{1,3}\b",
+    r"\b172\.(1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3}\b",
+    r"eyJ[A-Za-z0-9_-]{20,}",                      # a JWT (a Home Assistant token)
+    r"gh[pousr]_[A-Za-z0-9]{20,}", r"AKIA[0-9A-Z]{16}", r"-----BEGIN [A-Z ]*PRIVATE KEY-----",
+]
+# this file names the patterns above; it is not scanned for them
+SELF = os.path.abspath(__file__)
+TEXT = (".py", ".js", ".json", ".yaml", ".yml", ".md", ".css", ".html", ".txt", ".sh", "")
+
+
+# AN ART DELIVERY'S PROOFS (tools/sky/src/land-holiday/): its sources and
+# DONE.json are published; the artist's working folder, contact sheets and
+# diff maps are not (.gitignore says the same)
+SKIP_ART = re.compile(r"(^|/)tools/sky/src/[^/]+/(work/|contact-[^/]*\.png$|diff-[^/]*\.png$)")
+# THE DASHBOARD SCENES' ART (tools/sky/src/decor*/) and what their parked
+# preview built from it (frontend/sky/scenes/): concepts and motion layers still
+# in review, untracked and not in any release -- none of it is published. Nor is
+# New Decorations' review page, a mock dashboard for judging the art by hand.
+SKIP_UNRELEASED = re.compile(r"(^|/)((tools/sky/src/decor[^/]*|frontend/sky/scenes)/"
+                             r"|frontend/pages/seasonal-scenery-review\.html$)")
+
+
+# WHAT GIT IGNORES IS NEVER PUBLISHED: an art delivery's sources stay beside
+# what was made from them, untracked (Realistic clouds' 236 MB of PNG in
+# tools/sky/src/clouds/, Codex's unused woodland art in land-woods/), and the
+# patterns above only know the folders they name. Empty outside a checkout.
+def git_ignored(root: str) -> set[str]:
+    try:
+        out = subprocess.run(["git", "ls-files", "--others", "--ignored", "--exclude-standard", "-z", "."],
+                             cwd=root, capture_output=True, check=True).stdout
+    except (OSError, subprocess.CalledProcessError):
+        return set()
+    return {p for p in out.decode().split("\0") if p}
+
+
+# WHO A PUBLISHED COMMIT SAYS MADE IT: the project's GitHub account and its
+# noreply address -- never this machine's git identity, which put a full name
+# and a host name on the public history (1.4.5 to 1.5.0). The scan above
+# reads files only; a commit's author is not a file.
+AS_PUBLISHER = ("-c", "user.name=jazzphone", "-c", "user.email=jazzphone@users.noreply.github.com")
+
+
+def files_under(root: str):
+    ignored = git_ignored(root)
+    for d, dirs, files in os.walk(root):
+        dirs[:] = [x for x in dirs if x not in SKIP_DIRS]
+        for f in files:
+            path = os.path.join(d, f)
+            rel = os.path.relpath(path, root).replace(os.sep, "/")
+            if f not in SKIP_DIRS and rel not in ignored and not SKIP_ART.search(rel) and not SKIP_UNRELEASED.search(rel):
+                yield path
+
+
+def plan() -> list[tuple[str, str]]:
+    """(source, path in the repository) for every published file."""
+    out: list[tuple[str, str]] = []
+    for src in files_under(COMPONENT):
+        rel = os.path.relpath(src, COMPONENT)
+        top = rel.split(os.sep, 1)[0]
+        if top in BESIDE:
+            if rel.startswith(os.path.join("tools", "publish")):
+                if rel.startswith(os.path.join("tools", "publish", "root") + os.sep):
+                    out.append((src, os.path.relpath(src, os.path.join(HERE, "root"))))
+                elif rel == os.path.join("tools", "publish", "publish.py"):
+                    out.append((src, rel))
+                continue
+            out.append((src, rel))
+        elif rel == "README.md":
+            out.append((src, "README.md"))
+        else:
+            out.append((src, os.path.join("custom_components", "hk_frontend", rel)))
+    # Mantel is now the development source. Keep one frontend copy and compose
+    # its shared files with the HA host only when producing the HACS artifact.
+    mantel = Path(COMPONENT).parent.parent.parent.parent
+    frontend = mantel / "web/hk"
+    if frontend.is_dir():
+        for src in files_under(str(frontend)):
+            rel = os.path.relpath(src, frontend)
+            out.append((src, os.path.join("custom_components", "hk_frontend", "frontend", rel)))
+        for src, rel in (
+            ("web/client/hk-client.js", "modules/hk-client.js"),
+            ("hosts/ha/frontend/hk-ha-client.js", "modules/hk-ha-client.js"),
+            ("web/cards/hk-metric.js", "modules/hk-metric.js"),
+        ):
+            out.append((str(mantel / src), "custom_components/hk_frontend/frontend/" + rel))
+    return out
+
+
+def scan(pairs) -> list[str]:
+    extra = os.environ.get("HK_PRIVATE", "")
+    pats = [re.compile(p, re.I) for p in PRIVATE + ([extra] if extra else [])]
+    hits: list[str] = []
+    for src, dest in pairs:
+        if os.path.splitext(src)[1] not in TEXT or os.path.getsize(src) > 5_000_000:
+            continue
+        own = os.path.abspath(src) == SELF
+        try:
+            text = open(src, encoding="utf-8").read()
+        except UnicodeDecodeError:
+            continue
+        for n, line in enumerate(text.splitlines(), 1):
+            for i, p in enumerate(pats):
+                if own and i < len(PRIVATE):
+                    continue
+                if p.search(line):
+                    hits.append(f"{dest}:{n}: {line.strip()[:120]}")
+                    break
+    return hits
+
+
+# ---- the Wiki. docs/ holds one file per Wiki page, named as the page is
+# (Live-TV.md is "Live TV"), linking to each other as files so the same links
+# work in the repository. For the Wiki: the first heading goes (the Wiki shows
+# the page name), Page.md links lose the .md, images point at docs/images on
+# main, and links out of docs/ point at the repository.
+REPO_URL = "https://github.com/jazzphone/hk-frontend"
+RAW = "https://raw.githubusercontent.com/jazzphone/hk-frontend/main/docs/"
+
+
+def wiki_pages() -> list[tuple[str, str]]:
+    docs = os.path.join(COMPONENT, "docs")
+    names = {f for f in os.listdir(docs) if f.endswith(".md")}
+    out = []
+    for f in sorted(names):
+        text = open(os.path.join(docs, f), encoding="utf-8").read()
+        if not f.startswith("_") and text.startswith("# "):
+            text = text.split("\n", 1)[1].lstrip("\n")
+
+        def link(m):
+            target, anchor = m.group(2), m.group(3) or ""
+            if target in names:
+                return f"{m.group(1)}({target[:-3]}{anchor})"
+            raise SystemExit(f"docs/{f}: link to a page that doesn't exist: {target}")
+        text = re.sub(r"(\]|\bhref=)\(([A-Za-z_-]+\.md)(#[^)\s]*)?\)", link, text)
+        text = re.sub(r"\]\(images/", "](" + RAW + "images/", text)
+        text = re.sub(r'src="images/', 'src="' + RAW + "images/", text)
+        text = re.sub(r"\]\(\.\./([^)]*)\)", lambda m: f"]({REPO_URL}/blob/main/{m.group(1)})", text)
+        for img in re.findall(re.escape(RAW) + r"(images/[^)\s\"]+)", text):
+            if not os.path.exists(os.path.join(docs, img)):
+                raise SystemExit(f"docs/{f}: image not in docs/: {img}")
+        out.append((f, text))
+    return out
+
+
+def scan_texts(items) -> list[str]:
+    extra = os.environ.get("HK_PRIVATE", "")
+    pats = [re.compile(p, re.I) for p in PRIVATE + ([extra] if extra else [])]
+    return [f"wiki/{name}:{n}: {line.strip()[:120]}"
+            for name, text in items for n, line in enumerate(text.splitlines(), 1)
+            if any(p.search(line) for p in pats)]
+
+
+def build_wiki(wiki: str, pages) -> None:
+    for name in os.listdir(wiki):
+        if name.endswith(".md"):
+            os.remove(os.path.join(wiki, name))
+    for name, text in pages:
+        open(os.path.join(wiki, name), "w", encoding="utf-8").write(text)
+
+
+def build(repo: str, pairs) -> None:
+    keep = {".git"}
+    for name in os.listdir(repo) if os.path.isdir(repo) else []:
+        if name not in keep:
+            path = os.path.join(repo, name)
+            shutil.rmtree(path) if os.path.isdir(path) and not os.path.islink(path) else os.remove(path)
+    for src, dest in pairs:
+        target = os.path.join(repo, dest)
+        os.makedirs(os.path.dirname(target), exist_ok=True)
+        shutil.copy2(src, target)
+        # a script (tests/run, tests/py/run) is run by name in the docs; the
+        # share it is developed on does not keep the executable bit
+        with open(target, "rb") as f:
+            if f.read(2) == b"#!":
+                os.chmod(target, 0o755)
+
+
+def stage(cwd) -> int:
+    """Stage exactly what is on disk, names' case included. On a
+    case-insensitive disk (a Mac's, the config share) git would otherwise keep
+    an old name's case: docs/screens.md replaced by docs/Screens.md stays
+    screens.md in the index, and a link to Screens.md breaks on GitHub."""
+    subprocess.call(["git", "rm", "-r", "-q", "--cached", "--ignore-unmatch", "."], cwd=cwd)
+    return run(["git", "-c", "core.ignorecase=false", "add", "-A"], cwd)
+
+
+def run(cmd, cwd) -> int:
+    print("$", " ".join(cmd))
+    return subprocess.call(cmd, cwd=cwd)
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("repo", nargs="?")
+    ap.add_argument("--scan", action="store_true")
+    ap.add_argument("--commit")
+    ap.add_argument("--push", action="store_true")
+    ap.add_argument("--no-tests", action="store_true")
+    ap.add_argument("--wiki")
+    a = ap.parse_args()
+    pairs = plan()
+    pages = wiki_pages()
+    hits = scan(pairs) + scan_texts(pages)
+    if a.scan:
+        print("\n".join(hits) if hits else "clean")
+        return 2 if hits else 0
+    if not a.repo:
+        ap.error("REPO_DIR is required")
+    if hits:
+        print("PRIVATE DATA -- nothing was written:")
+        print("\n".join(hits[:60]))
+        return 2
+    os.makedirs(a.repo, exist_ok=True)
+    build(a.repo, pairs)
+    print(f"built {len(pairs)} files in {a.repo}")
+    if not a.no_tests:
+        venv = os.path.expanduser("~/.venvs/hk-ha-test/bin/pytest")
+        if run([venv, "-q", "-p", "no:cacheprovider"], os.path.join(a.repo, "tests", "py")) != 0:
+            return 1
+        if run([os.path.join(a.repo, "tests", "run")], a.repo) != 0:
+            return 1
+    if a.wiki:
+        if not os.path.isdir(os.path.join(a.wiki, ".git")):
+            ap.error("--wiki must be a clone of the Wiki's repository")
+        build_wiki(a.wiki, pages)
+        print(f"built {len(pages)} Wiki pages in {a.wiki}")
+    if a.commit:
+        if a.wiki:
+            stage(a.wiki)
+            if subprocess.call(["git", "diff", "--cached", "--quiet"], cwd=a.wiki) != 0 and \
+                    run(["git", *AS_PUBLISHER, "commit", "-q", "-m", a.commit], a.wiki) != 0:
+                return 1
+        if not os.path.isdir(os.path.join(a.repo, ".git")):
+            run(["git", "init", "-b", "main"], a.repo)
+        stage(a.repo)
+        if run(["git", *AS_PUBLISHER, "commit", "-q", "-m", a.commit], a.repo) != 0:
+            return 1
+        if a.push and run(["git", "push", "-u", "origin", "main", "--tags"], a.repo) != 0:
+            return 1
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

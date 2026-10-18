@@ -1,5 +1,6 @@
 """Architecture lint (PLAN §4): the shared code must not know it is inside Home Assistant."""
 import re
+import json
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -23,9 +24,19 @@ ADAPTER = "web/shim/"
 
 
 def test_web_does_not_reference_hass():
-    bad = [str(p.relative_to(ROOT)) for p in _files("web", (".js", ".mjs", ".html", ".ts", ".css"))
-           if HASS_REF.search(p.read_text()) and not str(p.relative_to(ROOT)).startswith(ADAPTER)]
-    assert not bad, f"web/ must talk to HKClient, not hass. (only web/shim/ may): {bad}"
+    # Phase 1 imports the existing frontend intact. Existing HA dependencies have
+    # fixed per-file budgets; new shared code has none. Remove budgets as files migrate.
+    budgets = json.loads((ROOT / "docs/phase1/legacy-ha-access.json").read_text())
+    raw = re.compile(r"\b(?:hass|_hass)\b")
+    bad = []
+    for p in _files("web", (".js", ".mjs", ".html", ".ts", ".css")):
+        rel = str(p.relative_to(ROOT))
+        if rel.startswith(ADAPTER):
+            continue
+        count = len(raw.findall(p.read_text()))
+        if count > budgets.get(rel, 0):
+            bad.append(f"{rel}: {count} > {budgets.get(rel, 0)}")
+    assert not bad, f"Shared frontend must use HKClient; legacy access may only decrease: {bad}"
 
 
 def test_the_lint_itself_catches_violations():

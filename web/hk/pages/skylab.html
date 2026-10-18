@@ -1,0 +1,26 @@
+<!doctype html><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1">
+<meta name=robots content=noindex>
+<title>Sky Lab</title>
+<!-- Sky Lab: the real hk-sky.js in a real view container, driven by hand --
+     every weather, time of day and scene, to see what the sky does. Served as
+     /hk/pages/skylab.html, which is PUBLIC (EXPOSURE in __init__.py): this
+     page holds no data, reads no state and frames nothing. The panel is
+     modules/hk-skylab.js; its Dashboard button opens a real dashboard with
+     ?skylab, signed in as itself and preview only. -->
+<style>
+ html,body{margin:0;height:100%;background:#0d1420;color:#eaf0ff;font:15px/1.4 -apple-system,system-ui,sans-serif;overflow:hidden}
+ #skyframe{display:block;position:fixed;inset:0;z-index:0}
+</style>
+<hui-view-container id=skyframe><div id=card></div></hui-view-container>
+<script>
+(function () {
+  function load(src, next) {
+    var s = document.createElement('script');
+    s.src = src + '?v=' + Date.now();
+    s.onload = next;
+    s.onerror = function () { document.body.textContent = 'Sky Lab did not load (' + src + ').'; };
+    document.head.appendChild(s);
+  }
+  load('/hk/modules/hk-sky.js', function () { load('/hk/modules/hk-skylab.js'); });
+})();
+</script>

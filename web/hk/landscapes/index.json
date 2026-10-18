@@ -1,0 +1,355 @@
+{
+ "about": "HK Frontend's Landscapes: photos behind the screensaver's clock (Behind the Clock: Landscapes) and, as Sky / Background's Landscapes, behind a screen. Each is CC0 or public domain, from Wikimedia Commons; source is its page there. thumb: a small copy for HK Settings' picker.",
+ "photos": [
+  {
+   "file": "01.webp",
+   "title": "White mountain with wooded slopes",
+   "source": "https://commons.wikimedia.org/wiki/File:White_mountain_with_wooded_slopes_(Unsplash).jpg",
+   "license": "CC0",
+   "thumb": "thumbs/01.webp"
+  },
+  {
+   "file": "02.webp",
+   "title": "Clouds around a mountain",
+   "source": "https://commons.wikimedia.org/wiki/File:Clouds_around_a_mountain_(Unsplash).jpg",
+   "license": "CC0",
+   "thumb": "thumbs/02.webp"
+  },
+  {
+   "file": "03.webp",
+   "title": "Marmolada, Italy",
+   "source": "https://commons.wikimedia.org/wiki/File:Marmolada,_Italy.jpg",
+   "license": "CC0",
+   "thumb": "thumbs/03.webp"
+  },
+  {
+   "file": "04.webp",
+   "title": "Cold-snow-winter-mountain",
+   "source": "https://commons.wikimedia.org/wiki/File:Cold-snow-winter-mountain_(24243607271).jpg",
+   "license": "CC0",
+   "thumb": "thumbs/04.webp"
+  },
+  {
+   "file": "05.webp",
+   "title": "Matterhorn sunset 2016",
+   "source": "https://commons.wikimedia.org/wiki/File:Matterhorn_sunset_2016_(Unsplash).jpg",
+   "license": "CC0",
+   "thumb": "thumbs/05.webp"
+  },
+  {
+   "file": "06.webp",
+   "title": "Cloudy mountain valley",
+   "source": "https://commons.wikimedia.org/wiki/File:Cloudy_mountain_valley_(Unsplash).jpg",
+   "license": "CC0",
+   "thumb": "thumbs/06.webp"
+  },
+  {
+   "file": "07.webp",
+   "title": "Picturesque mountain valley",
+   "source": "https://commons.wikimedia.org/wiki/File:Picturesque_mountain_valley_(Unsplash).jpg",
+   "license": "CC0",
+   "thumb": "thumbs/07.webp"
+  },
+  {
+   "file": "08.webp",
+   "title": "Peaceful mountain lake",
+   "source": "https://commons.wikimedia.org/wiki/File:Peaceful_mountain_lake_(Unsplash).jpg",
+   "license": "CC0",
+   "thumb": "thumbs/08.webp"
+  },
+  {
+   "file": "09.webp",
+   "title": "Lote, Noruega",
+   "source": "https://commons.wikimedia.org/wiki/File:Lote,_Noruega.jpg",
+   "license": "CC0",
+   "thumb": "thumbs/09.webp"
+  },
+  {
+   "file": "10.webp",
+   "title": "Welcome to Reyðarfjörður",
+   "source": "https://commons.wikimedia.org/wiki/File:Welcome_to_Rey%C3%B0arfj%C3%B6r%C3%B0ur_(Unsplash).jpg",
+   "license": "CC0",
+   "thumb": "thumbs/10.webp"
+  },
+  {
+   "file": "11.webp",
+   "title": "Snow Hooker Lake",
+   "source": "https://commons.wikimedia.org/wiki/File:Snow_Hooker_Lake_(Unsplash).jpg",
+   "license": "CC0",
+   "thumb": "thumbs/11.webp"
+  },
+  {
+   "file": "12.webp",
+   "title": "Snow and sunset at Isolation Lake",
+   "source": "https://commons.wikimedia.org/wiki/File:Snow_and_sunset_at_Isolation_Lake_(Unsplash).jpg",
+   "license": "CC0",
+   "thumb": "thumbs/12.webp"
+  },
+  {
+   "file": "13.webp",
+   "title": "Mountain lake",
+   "source": "https://commons.wikimedia.org/wiki/File:Mountain_lake_(Unsplash).jpg",
+   "license": "CC0",
+   "thumb": "thumbs/13.webp"
+  },
+  {
+   "file": "14.webp",
+   "title": "Ripples on a mountain lake",
+   "source": "https://commons.wikimedia.org/wiki/File:Ripples_on_a_mountain_lake_(Unsplash).jpg",
+   "license": "CC0",
+   "thumb": "thumbs/14.webp"
+  },
+  {
+   "file": "15.webp",
+   "title": "Clouds mirrored in a mountain lake",
+   "source": "https://commons.wikimedia.org/wiki/File:Clouds_mirrored_in_a_mountain_lake_(Unsplash).jpg",
+   "license": "CC0",
+   "thumb": "thumbs/15.webp"
+  },
+  {
+   "file": "16.webp",
+   "title": "Peyto Lake, Canada",
+   "source": "https://commons.wikimedia.org/wiki/File:Peyto_Lake,_Canada.jpg",
+   "license": "CC0",
+   "thumb": "thumbs/16.webp"
+  },
+  {
+   "file": "17.webp",
+   "title": "Lake(byWolfgangMoritzer)",
+   "source": "https://commons.wikimedia.org/wiki/File:Lake(byWolfgangMoritzer).jpg",
+   "license": "CC0",
+   "thumb": "thumbs/17.webp"
+  },
+  {
+   "file": "18.webp",
+   "title": "Dark-forest-combo-9",
+   "source": "https://commons.wikimedia.org/wiki/File:Dark-forest-combo-9.jpg",
+   "license": "CC0",
+   "thumb": "thumbs/18.webp"
+  },
+  {
+   "file": "19.webp",
+   "title": "Stars Galaxy Rocky Mountain",
+   "source": "https://commons.wikimedia.org/wiki/File:Stars_Galaxy_Rocky_Mountain_(Unsplash).jpg",
+   "license": "CC0",
+   "thumb": "thumbs/19.webp"
+  },
+  {
+   "file": "20.webp",
+   "title": "San Bruno Mountains at Night",
+   "source": "https://commons.wikimedia.org/wiki/File:San_Bruno_Mountains_at_Night_(Unsplash).jpg",
+   "license": "CC0",
+   "thumb": "thumbs/20.webp"
+  },
+  {
+   "file": "21.webp",
+   "title": "Lofoten, Norway",
+   "source": "https://commons.wikimedia.org/wiki/File:Lofoten,_Norway_(Unsplash).jpg",
+   "license": "CC0",
+   "thumb": "thumbs/21.webp"
+  },
+  {
+   "file": "22.webp",
+   "title": "Silhouette mountain range and yellow sky",
+   "source": "https://commons.wikimedia.org/wiki/File:Silhouette_mountain_range_and_yellow_sky_(Unsplash).jpg",
+   "license": "CC0",
+   "thumb": "thumbs/22.webp"
+  },
+  {
+   "file": "23.webp",
+   "title": "Mountain sunset",
+   "source": "https://commons.wikimedia.org/wiki/File:Mountain_sunset_(Unsplash).jpg",
+   "license": "CC0",
+   "thumb": "thumbs/23.webp"
+  },
+  {
+   "file": "24.webp",
+   "title": "The setting sun over the ocean islands",
+   "source": "https://commons.wikimedia.org/wiki/File:The_setting_sun_over_the_ocean_islands_(Unsplash).jpg",
+   "license": "CC0",
+   "thumb": "thumbs/24.webp"
+  },
+  {
+   "file": "25.webp",
+   "title": "Pink sunset over a river town",
+   "source": "https://commons.wikimedia.org/wiki/File:Pink_sunset_over_a_river_town_(Unsplash).jpg",
+   "license": "CC0",
+   "thumb": "thumbs/25.webp"
+  },
+  {
+   "file": "26.webp",
+   "title": "National Park",
+   "source": "https://commons.wikimedia.org/wiki/File:National_Park_(44384398831).jpg",
+   "license": "Public domain",
+   "thumb": "thumbs/26.webp"
+  },
+  {
+   "file": "27.webp",
+   "title": "Sandy beach at sunset",
+   "source": "https://commons.wikimedia.org/wiki/File:Sandy_beach_at_sunset_(Unsplash).jpg",
+   "license": "CC0",
+   "thumb": "thumbs/27.webp"
+  },
+  {
+   "file": "28.webp",
+   "title": "Wooden path to the beach",
+   "source": "https://commons.wikimedia.org/wiki/File:Wooden_path_to_the_beach_(Unsplash).jpg",
+   "license": "CC0",
+   "thumb": "thumbs/28.webp"
+  },
+  {
+   "file": "29.webp",
+   "title": "Blue ocean by the sand beach",
+   "source": "https://commons.wikimedia.org/wiki/File:Blue_ocean_by_the_sand_beach_(Unsplash).jpg",
+   "license": "CC0",
+   "thumb": "thumbs/29.webp"
+  },
+  {
+   "file": "30.webp",
+   "title": "Ocean washing on the beach",
+   "source": "https://commons.wikimedia.org/wiki/File:Ocean_washing_on_the_beach_(Unsplash).jpg",
+   "license": "CC0",
+   "thumb": "thumbs/30.webp"
+  },
+  {
+   "file": "31.webp",
+   "title": "Pfeiffer Beach at Dusk",
+   "source": "https://commons.wikimedia.org/wiki/File:Pfeiffer_Beach_at_Dusk_(Unsplash).jpg",
+   "license": "CC0",
+   "thumb": "thumbs/31.webp"
+  },
+  {
+   "file": "32.webp",
+   "title": "Mountains in the Valley",
+   "source": "https://commons.wikimedia.org/wiki/File:Mountains_in_the_Valley_(Unsplash).jpg",
+   "license": "CC0",
+   "thumb": "thumbs/32.webp"
+  },
+  {
+   "file": "33.webp",
+   "title": "Green valley in the canyon",
+   "source": "https://commons.wikimedia.org/wiki/File:Green_valley_in_the_canyon_(Unsplash).jpg",
+   "license": "CC0",
+   "thumb": "thumbs/33.webp"
+  },
+  {
+   "file": "34.webp",
+   "title": "Sea of dunes",
+   "source": "https://commons.wikimedia.org/wiki/File:Sea_of_dunes_(Unsplash).jpg",
+   "license": "CC0",
+   "thumb": "thumbs/34.webp"
+  },
+  {
+   "file": "35.webp",
+   "title": "Grand Canyon National Park, Sunset From Bright Angel Trail 3379 - Flickr - Grand Canyon NPS",
+   "source": "https://commons.wikimedia.org/wiki/File:Grand_Canyon_National_Park,_Sunset_From_Bright_Angel_Trail_3379_-_Flickr_-_Grand_Canyon_NPS.jpg",
+   "license": "Public domain",
+   "thumb": "thumbs/35.webp"
+  },
+  {
+   "file": "36.webp",
+   "title": "Grand Canyon National Park — Summer Thunderstorm 70367",
+   "source": "https://commons.wikimedia.org/wiki/File:Grand_Canyon_National_Park_%E2%80%94_Summer_Thunderstorm_70367_(51441851059).jpg",
+   "license": "Public domain",
+   "thumb": "thumbs/36.webp"
+  },
+  {
+   "file": "37.webp",
+   "title": "Surreal Sunrise in Oljato-Monument Valley",
+   "source": "https://commons.wikimedia.org/wiki/File:Surreal_Sunrise_in_Oljato-Monument_Valley_(Unsplash).jpg",
+   "license": "CC0",
+   "thumb": "thumbs/37.webp"
+  },
+  {
+   "file": "38.webp",
+   "title": "Mountain valley in the autumn",
+   "source": "https://commons.wikimedia.org/wiki/File:Mountain_valley_in_the_autumn_(Unsplash).jpg",
+   "license": "CC0",
+   "thumb": "thumbs/38.webp"
+  },
+  {
+   "file": "39.webp",
+   "title": "Blue stream with a waterfall",
+   "source": "https://commons.wikimedia.org/wiki/File:Blue_stream_with_a_waterfall_(Unsplash).jpg",
+   "license": "CC0",
+   "thumb": "thumbs/39.webp"
+  },
+  {
+   "file": "40.webp",
+   "title": "Lower Yosemite Falls",
+   "source": "https://commons.wikimedia.org/wiki/File:Lower_Yosemite_Falls_(Unsplash).jpg",
+   "license": "CC0",
+   "thumb": "thumbs/40.webp"
+  },
+  {
+   "file": "41.webp",
+   "title": "Swimming under a waterfall",
+   "source": "https://commons.wikimedia.org/wiki/File:Swimming_under_a_waterfall_(Unsplash).jpg",
+   "license": "CC0",
+   "thumb": "thumbs/41.webp"
+  },
+  {
+   "file": "42.webp",
+   "title": "Small waterfall in a sunny forest",
+   "source": "https://commons.wikimedia.org/wiki/File:Small_waterfall_in_a_sunny_forest_(Unsplash).jpg",
+   "license": "CC0",
+   "thumb": "thumbs/42.webp"
+  },
+  {
+   "file": "43.webp",
+   "title": "Waterfall (Unsplash xQpV6OzWL8E)",
+   "source": "https://commons.wikimedia.org/wiki/File:Waterfall_(Unsplash_xQpV6OzWL8E).jpg",
+   "license": "CC0",
+   "thumb": "thumbs/43.webp"
+  },
+  {
+   "file": "44.webp",
+   "title": "Waterfall in yosemite",
+   "source": "https://commons.wikimedia.org/wiki/File:Waterfall_in_yosemite_(Unsplash).jpg",
+   "license": "CC0",
+   "thumb": "thumbs/44.webp"
+  },
+  {
+   "file": "45.webp",
+   "title": "Snow covered mountain reflection",
+   "source": "https://commons.wikimedia.org/wiki/File:Snow_covered_mountain_reflection_(Unsplash).jpg",
+   "license": "CC0",
+   "thumb": "thumbs/45.webp"
+  },
+  {
+   "file": "46.webp",
+   "title": "Snow road by the river",
+   "source": "https://commons.wikimedia.org/wiki/File:Snow_road_by_the_river_(Unsplash).jpg",
+   "license": "CC0",
+   "thumb": "thumbs/46.webp"
+  },
+  {
+   "file": "47.webp",
+   "title": "Yosemite National Park YOSE8123",
+   "source": "https://commons.wikimedia.org/wiki/File:Yosemite_National_Park_YOSE8123.jpg",
+   "license": "Public domain",
+   "thumb": "thumbs/47.webp"
+  },
+  {
+   "file": "48.webp",
+   "title": "New Forest walk",
+   "source": "https://commons.wikimedia.org/wiki/File:New_Forest_walk_(Unsplash).jpg",
+   "license": "CC0",
+   "thumb": "thumbs/48.webp"
+  },
+  {
+   "file": "49.webp",
+   "title": "Trail Ridge Road Summit, Estes Park",
+   "source": "https://commons.wikimedia.org/wiki/File:Trail_Ridge_Road_Summit,_Estes_Park.jpg",
+   "license": "CC0",
+   "thumb": "thumbs/49.webp"
+  },
+  {
+   "file": "50.webp",
+   "title": "Acadia National Park, Echo Lake from Beech Cliff Trail",
+   "source": "https://commons.wikimedia.org/wiki/File:Acadia_National_Park,_Echo_Lake_from_Beech_Cliff_Trail.jpg",
+   "license": "Public domain",
+   "thumb": "thumbs/50.webp"
+  }
+ ]
+}

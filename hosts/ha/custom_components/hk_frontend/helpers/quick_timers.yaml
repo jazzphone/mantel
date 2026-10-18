@@ -1,0 +1,363 @@
+###############################################################################
+# HK Frontend -- QUICK TIMERS (optional helpers)
+#
+# What the timer cards need: four countdown slots anyone can set from a
+# dashboard, a name for each, the two scripts that claim a free slot, and a
+# sensor listing the running ones.
+#
+#   hk-timer-new-card / keypad   -> script.quick_timer_create
+#   preset buttons               -> script.quick_timer_start
+#   running-timers widget,
+#   screensaver timers           -> sensor.running_quick_timers
+#
+# INSTALL: include this file as its own package, for example
+#     # /config/packages/hk_frontend_quick_timers.yaml
+#     !include ../custom_components/hk_frontend/helpers/quick_timers.yaml
+# (with `homeassistant: packages: !include_dir_named packages`). It is its own
+# package so its `template:` list merges with yours instead of replacing it.
+#
+# WHY FOUR, AND WHY PREALLOCATED
+# A dashboard cannot create an entity. `timer.start` can override duration on an
+# existing timer, so a pool of preallocated slots is the only way to offer
+# "set a timer" from Lovelace without a helper-creating script and a restart.
+# Four is the smallest pool that survives a real kitchen (pasta + oven + laundry,
+# with one spare); the creator and the preset buttons claim the lowest IDLE
+# slot, so the numbers are an implementation detail you never see. When all four
+# are running the page says so rather than silently stealing one.
+#
+# EACH SLOT CARRIES A NAME. `timer.*` entities have no writable name -- the
+# friendly_name is fixed at config time -- so the label a timer is created with
+# lives in a parallel input_text per slot, and the card reads it from there.
+#
+# DURATION IS A PLACEHOLDER. `duration: 0` is deliberate: every start passes its
+# own duration, and the Restart button re-runs the timer's own last `duration`
+# attribute. RESTORE: true, so a running quick timer survives a restart.
+#
+# DELIBERATELY NOT WIRED TO ANYTHING. Doing something when one finishes
+# (announce on which speakers? push to whom?) is each home's own automation.
+###############################################################################
+
+timer:
+  quick_1:
+    name: Quick Timer 1
+    icon: mdi:timer-outline
+    duration: 0
+    restore: true
+  quick_2:
+    name: Quick Timer 2
+    icon: mdi:timer-outline
+    duration: 0
+    restore: true
+  quick_3:
+    name: Quick Timer 3
+    icon: mdi:timer-outline
+    duration: 0
+    restore: true
+  quick_4:
+    name: Quick Timer 4
+    icon: mdi:timer-outline
+    duration: 0
+    restore: true
+
+###############################################################################
+# The dispatch script.
+#
+# WHY A SCRIPT AND NOT DASHBOARD JS
+# "Find the first idle slot" is one rule, and the Timers page calls it from its
+# preset buttons and its keypad. Written as dashboard JS it would be reachable
+# only from Lovelace, and invisible to Developer Tools. As a script it is one
+# definition, testable from the Actions tab, and available to a voice
+# assistant or an automation without being rewritten.
+#
+# mode: queued, NOT parallel. The whole script is a read-then-write on shared
+# state: it reads which slots are idle and then claims one. Two parallel runs
+# would both read "quick_1 is idle" and the second would overwrite the first's
+# timer instead of taking quick_2. Queued serializes them, and because
+# `timer.start` has written the new state by the time the action returns, the
+# next run in the queue sees the slot it just took.
+#
+# A QUEUE IS PER SCRIPT ENTITY. `mode: queued` serializes runs of THIS script
+# against each other and against nothing else. Were script.quick_timer_create
+# to carry its own copy of the same `select('is_state','idle') | first`
+# expression, it would sit in its own independent queue -- so a preset tap on
+# one tablet and a named timer on another could both read "quick_1 is idle"
+# and the second would overwrite the first. Queued mode cannot protect that.
+#
+# So there is exactly ONE allocator. quick_timer_create parses its keypad
+# digits and then CALLS this script; it never looks at slots at all. The
+# call is a blocking `action: script.quick_timer_start`, not script.turn_on --
+# that is what puts the named path into this script's queue instead of running
+# beside it. A second read-then-write hidden in another script would not be a
+# fix, it would be the same bug with more steps.
+#
+# NO SLOT FREE = DO NOTHING, and SAY SO. Nothing is stolen: taking a running
+# timer would destroy something somebody set, and a persistent notification
+# is HA chrome on a kiosk tablet, which nothing else on these dashboards
+# produces. Both of those are ruled out.
+#
+# But doing nothing SILENTLY is not enough. On the Timers page all four cards
+# are visibly counting down, so the reason is on screen. The New Timer page
+# is a keypad and shows no slots at all: you type a duration, press Start,
+# the form clears, and nothing happens anywhere you can see. There are only
+# four slots, so this is an ordinary Tuesday, not a corner case.
+#
+# So both scripts RETURN A RESPONSE saying what they did:
+#
+#   {started: true,  slot: "timer.quick_2"}
+#   {started: false, reason: "no_free_slot"}
+#   {started: false, reason: "zero_duration"}     (quick_timer_create only)
+#
+# A response is the HA-native way to answer "what happened" and it is scoped to
+# the caller -- no helper entity, no second read-then-write, and nothing added
+# to the state machine. The allocator is the ONLY thing that picks a slot;
+# it just reports the pick it made.
+#
+# CALLING THESE WITHOUT WANTING THE ANSWER IS FINE. `supports_response` is
+# optional for a script with a response variable, so a caller that does not
+# need the answer (a preset button, an automation) calls
+# script.quick_timer_start with no response and it behaves the same.
+###############################################################################
+
+script:
+  quick_timer_start:
+    alias: Start a Quick Timer
+    description: >-
+      Start the first idle timer.quick_* slot for the given duration. Does
+      nothing if all four are already running. Called by the preset buttons on
+      the Timers page.
+    mode: queued
+    max: 10
+    icon: mdi:timer-plus-outline
+    fields:
+      duration:
+        name: Duration
+        description: How long to run, as HH:MM:SS.
+        required: true
+        example: "00:15:00"
+        selector:
+          duration:
+      name:
+        name: Name
+        description: Optional label for the card. Defaults to "Timer".
+        required: false
+        example: Pasta
+        selector:
+          text:
+    sequence:
+      - alias: Pick the lowest-numbered idle slot
+        variables:
+          slot: >-
+            {{ ['timer.quick_1', 'timer.quick_2', 'timer.quick_3', 'timer.quick_4']
+               | select('is_state', 'idle') | list | first | default('', true) }}
+      - alias: Start it, if there was one
+        if:
+          - condition: template
+            value_template: "{{ slot != '' }}"
+        then:
+          - alias: Claim the slot
+            action: timer.start
+            target:
+              entity_id: "{{ slot }}"
+            data:
+              duration: "{{ duration }}"
+          - alias: Label it
+            # A preset button carries no name, so the slot gets a generic one.
+            # It still has to be WRITTEN: the helper holds whatever the last
+            # timer in this slot was called, and without this a 15-minute preset
+            # would inherit "Pasta" from an hour ago.
+            action: input_text.set_value
+            target:
+              entity_id: "input_text.quick_timer_{{ slot.split('_') | last }}_name"
+            data:
+              value: "{{ name | default('Timer', true) }}"
+          # STOP INSIDE THE BRANCH, not a variable read after it. A `variables`
+          # step inside `then:` is scoped to that block, so setting a result
+          # here and reading it below the `if` would read an undefined name.
+          # Stopping in place sidesteps the scoping question entirely: the
+          # response is built where `slot` is unambiguously in scope.
+          - alias: Report the slot that was claimed
+            variables:
+              result:
+                started: true
+                slot: "{{ slot }}"
+          - stop: Slot claimed
+            response_variable: result
+      # FALL-THROUGH IS THE FAILURE PATH. Reached only when the `if` was false,
+      # because the success path above always stops.
+      - alias: Every slot was already running
+        variables:
+          result:
+            started: false
+            reason: no_free_slot
+      - stop: No slot free
+        response_variable: result
+
+  quick_timer_create:
+    alias: Create a Named Quick Timer
+    description: >-
+      Start the first idle timer.quick_* slot from the New Timer page: a
+      keypad buffer of up to four digits (HHMM) plus a label. Does nothing if
+      all four slots are running or the duration works out to zero.
+    mode: queued
+    max: 10
+    icon: mdi:timer-plus-outline
+    fields:
+      digits:
+        name: Digits
+        description: Up to four digits, read as HHMM -- "5" is 5 minutes, "130" is 1h30.
+        required: true
+        example: "130"
+        selector:
+          text:
+      name:
+        name: Name
+        description: What to call it on the card.
+        required: false
+        example: Pasta
+        selector:
+          text:
+    sequence:
+      # NO SLOT LOOKUP HERE. This script's job is the keypad: turn digits into
+      # a duration, then hand it to the one script that owns allocation. A
+      # copy of the idle-slot expression here, in its own queue, is exactly
+      # how two of these could claim the same slot -- see the note above
+      # script.quick_timer_start.
+      - alias: Work out the duration
+        variables:
+          # MICROWAVE SEMANTICS, on purpose. The digits are right-aligned into
+          # HHMM and zero-padded, so "5" is five minutes and "130" is an hour
+          # and a half -- the thing everyone already knows how to type. Minutes
+          # are NOT clamped to 59: "90" meaning ninety minutes falls out of the
+          # arithmetic for free and is a reasonable thing to type.
+          secs: >-
+            {% set d = (digits | default('', true) | string)[-4:] | trim %}
+            {% if d == '' or not d.isdigit() %}
+              0
+            {% else %}
+              {% set p = '%04d' | format(d | int) %}
+              {{ (p[:2] | int) * 3600 + (p[2:] | int) * 60 }}
+            {% endif %}
+      - alias: Hand it to the allocator, if the digits came to anything
+        if:
+          - condition: template
+            value_template: "{{ (secs | int) > 0 }}"
+        then:
+          # A BLOCKING CALL, not script.turn_on. `action: script.<name>` waits
+          # for the script to finish, which is what puts this run INTO
+          # quick_timer_start's queue rather than beside it. script.turn_on
+          # would return immediately and bring back the race the single
+          # allocator exists to remove.
+          #
+          # Whether a slot was free is quick_timer_start's decision, and doing
+          # nothing when none is, is its documented behavior -- so there is no
+          # second opinion about it here. This script PASSES THAT ANSWER ON
+          # unchanged rather than forming one of its own.
+          - alias: Start a Quick Timer with this duration and name
+            action: script.quick_timer_start
+            response_variable: allocation
+            data:
+              # HH:MM:SS, because that is this field's stated contract. `secs`
+              # is always a whole number of minutes, so the seconds place is
+              # always 00.
+              duration: >-
+                {{ '%02d:%02d:00' | format((secs | int) // 3600,
+                                           ((secs | int) % 3600) // 60) }}
+              # Blank name -> "Timer". An empty input_text is also invalid for
+              # some consumers, so it never gets written empty. quick_timer_start
+              # defaults it the same way; stated here so the intent is visible
+              # at the call site too.
+              name: >-
+                {{ (name | default('', true) | trim) or 'Timer' }}
+          # Same reason as in quick_timer_start: stop where `allocation` is in
+          # scope rather than reading it after the `if`.
+          - alias: Hand the allocator's answer back to the keypad
+            stop: Allocator answered
+            response_variable: allocation
+      # FALL-THROUGH: the digits came to nothing. Distinct from no_free_slot,
+      # because the two need different words on the card -- one is "the house
+      # is full", the other is "you did not type a duration".
+      - alias: Nothing was typed
+        variables:
+          result:
+            started: false
+            reason: zero_duration
+      - stop: Nothing to start
+        response_variable: result
+      # NO "clear the form" STEP. The New Timer page (custom:hk-timer-new-card,
+      # frontend/cards/hk-home.js) keeps its half-typed entry in the browser and
+      # clears its own fields, so there is nothing here to reset -- and nothing
+      # a second tablet could clear out from under somebody mid-entry.
+
+###############################################################################
+# The name each slot is currently running under.
+#
+# WHY input_text AND NOT A SINGLE JSON BLOB
+# One helper per slot means the timer card can read its own label with a plain
+# states[] lookup -- no parsing, no shared-write race between two slots being
+# created a second apart. Four extra helpers is a fair price for that.
+#
+# `initial:` is deliberately absent. An input_text with `initial:` is reset on
+# every restart, which would wipe the label off a timer that restored and is
+# still counting down (the timers themselves are restore: true).
+###############################################################################
+
+input_text:
+  quick_timer_1_name:
+    name: Quick Timer 1 Name
+    max: 40
+    icon: mdi:tag-outline
+  quick_timer_2_name:
+    name: Quick Timer 2 Name
+    max: 40
+    icon: mdi:tag-outline
+  quick_timer_3_name:
+    name: Quick Timer 3 Name
+    max: 40
+    icon: mdi:tag-outline
+  quick_timer_4_name:
+    name: Quick Timer 4 Name
+    max: 40
+    icon: mdi:tag-outline
+
+  # NO SCRATCH HELPERS for the New Timer page's half-typed digits and name:
+  # global ones would make two tablets share one half-typed form, and every
+  # keypress a service call broadcast to every client. custom:hk-timer-new-card
+  # keeps that entry in the browser and passes the finished digits and name
+  # to script.quick_timer_create above.
+  #
+  # The quick_timer_N_name helpers above are different: those are the running
+  # timers' labels, read by the cards. They are the house's state, not one
+  # screen's.
+
+template:
+  - sensor:
+      # JUST THE ONES A PERSON SET, for the floating widget and the screensaver.
+      #
+      # "Every timer" includes the timers a house's automations run (a
+      # no-motion light timer, say), which can be running most of the time --
+      # gating a pop-up on that would have it permanently open. Only a timer
+      # somebody created deserves to interrupt.
+      - name: Running Quick Timers
+        unique_id: running_quick_timers
+        icon: mdi:timer-outline
+        state: >
+          {{ ['timer.quick_1', 'timer.quick_2', 'timer.quick_3', 'timer.quick_4']
+             | select('is_state', 'active') | list | count }}
+        state_class: measurement
+        attributes:
+          # Sorted by how soon each one fires, so the widget lists the most
+          # urgent first and does not reorder itself as they tick.
+          running: >
+            {%- set ns = namespace(rows=[]) -%}
+            {%- for e in ['timer.quick_1', 'timer.quick_2',
+                          'timer.quick_3', 'timer.quick_4'] -%}
+              {%- if is_state(e, 'active') -%}
+                {%- set nm = states('input_text.quick_timer_' ~ e.split('_') | last ~ '_name') -%}
+                {%- set ns.rows = ns.rows + [{
+                      'entity_id': e,
+                      'name': 'Timer' if nm in ['', 'unknown', 'unavailable', none] else nm,
+                      'finishes_at': state_attr(e, 'finishes_at')
+                    }] -%}
+              {%- endif -%}
+            {%- endfor -%}
+            {{ ns.rows | sort(attribute='finishes_at') }}

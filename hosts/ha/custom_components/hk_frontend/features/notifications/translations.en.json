@@ -1,0 +1,82 @@
+{
+  "config_subentries": {
+    "feature": {
+      "step": {
+        "user": {
+          "menu_options": {
+            "notifications": "Notifications — a banner on the screens when something happens at home"
+          }
+        },
+        "notifications": {
+          "title": "Notifications",
+          "description": "A banner at the top of your screens when an accessory does something — a door opens, someone arrives, a camera sees a person — with a camera’s snapshot taken that moment. Choose the accessories, and where and when banners show, on the HK Settings page: {url}"
+        },
+        "notifications_options": {
+          "title": "Notifications",
+          "description": "The notifications, Do Not Disturb and where they show are on the HK Settings page: {url}"
+        }
+      }
+    }
+  },
+  "services": {
+    "notify": {
+      "name": "Show notification",
+      "description": "Shows a banner at the top of the screens (Notifications), like one of its own: on every screen that allows notifications, or only those listed. Each screen decides as it does for any notification: Do Not Disturb, its screensaver, asleep.",
+      "fields": {
+        "title": {
+          "name": "Title",
+          "description": "The banner's first line (up to 40 characters)."
+        },
+        "message": {
+          "name": "Message",
+          "description": "The second line (up to 120 characters)."
+        },
+        "important": {
+          "name": "Important",
+          "description": "Outlined red; gets through Do Not Disturb, and shows on a screensaver set to Important."
+        },
+        "wake": {
+          "name": "Wakes the screen",
+          "description": "Turns a sleeping screen on, up to its screensaver, to show it. Do Not Disturb still holds it back unless it is Important."
+        },
+        "stay": {
+          "name": "Stays on screen",
+          "description": "Seconds it stays; 0 until dismissed. Empty: as All Screens' Stays On Screen."
+        },
+        "icon": {
+          "name": "Icon",
+          "description": "An hk: or mdi: icon. Empty: the accessory's, or a bell."
+        },
+        "entity": {
+          "name": "Accessory",
+          "description": "What it is about: its icon, its buttons (Close a garage door, Lock a lock), and the sheet a tap opens."
+        },
+        "camera": {
+          "name": "Camera snapshot",
+          "description": "A camera to take a snapshot from the moment it is sent; a tap on it opens the live view."
+        },
+        "tap": {
+          "name": "Tap opens",
+          "description": "sheet (the accessory's sheet, the notification at its top), camera (the live view), page (the page below) or none. Empty: the page, else the camera, else the accessory, else nothing."
+        },
+        "page": {
+          "name": "Page",
+          "description": "A page of the screen's own dashboard (its path, like kitchen): a tap opens it, and the accessory's sheet goes to it."
+        },
+        "dashboards": {
+          "name": "Dashboards",
+          "description": "Only screens showing these dashboards (url paths). Empty: any dashboard."
+        },
+        "users": {
+          "name": "Users",
+          "description": "Only screens signed in as these users (user ids). Empty: anyone."
+        }
+      }
+    }
+  },
+  "exceptions": {
+    "notifications_not_set_up": {
+      "message": "Notifications is not added. Add it in Settings -> Devices & services -> HK Frontend -> Add feature."
+    }
+  }
+}

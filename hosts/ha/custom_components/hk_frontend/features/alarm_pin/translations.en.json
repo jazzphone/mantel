@@ -1,0 +1,57 @@
+{
+  "config_subentries": {
+    "feature": {
+      "step": {
+        "alarm_pin": {
+          "title": "Add a PIN to an alarm",
+          "description": "For an alarm that arms and disarms for anyone who asks (it takes no code of its own). Alarm PIN adds a second alarm panel that mirrors it and arms or disarms it only with this PIN. A wrong PIN is refused, so any keypad shows \"Wrong code\". Point your keypads and dashboards at the new panel; automations can keep using the alarm itself.\n\nThe PIN is never stored or shown: only a secure hash of it is kept.",
+          "data": {
+            "alarm": "Alarm to protect",
+            "pin": "PIN",
+            "pin_again": "PIN again",
+            "arm_required": "Require the PIN to arm"
+          },
+          "data_description": {
+            "alarm": "Its own settings should take no code.",
+            "pin": "At least 4 characters.",
+            "pin_again": "Type it once more, so a slip can’t be saved.",
+            "arm_required": "Off: arming needs no PIN (one that is given must still be right). Disarming always needs it."
+          }
+        },
+        "alarm_pin_options": {
+          "title": "Alarm PIN",
+          "description": "The PIN is never shown: type a new one twice to change it, or leave both empty to keep the current one.",
+          "data": {
+            "alarm": "Alarm to protect",
+            "pin": "New PIN",
+            "pin_again": "New PIN again",
+            "arm_required": "Require the PIN to arm"
+          },
+          "data_description": {
+            "alarm": "Choose another to move the PIN and its panel to it; the PIN and the arm rule stay the same. Its own settings should take no code.",
+            "pin": "At least 4 characters. Both empty keeps the current PIN.",
+            "pin_again": "Type it once more, so a slip can’t be saved.",
+            "arm_required": "Off: arming needs no PIN (one that is given must still be right). Disarming always needs it."
+          }
+        }
+      },
+      "error": {
+        "alarm_pin_own_panel": "That is one of Alarm PIN’s own panels. Choose the alarm it should protect.",
+        "alarm_pin_taken": "Another Alarm PIN already protects that alarm.",
+        "alarm_pin_too_short": "Use at least 4 characters.",
+        "alarm_pin_mismatch": "The two PINs don’t match. Type the same PIN in both."
+      },
+      "abort": {
+        "alarm_pin_already_configured": "That alarm already has a PIN. Change it with that PIN’s gear."
+      }
+    }
+  },
+  "exceptions": {
+    "alarm_pin_invalid_code": {
+      "message": "Wrong code. The alarm code is not correct."
+    },
+    "alarm_pin_unavailable": {
+      "message": "The alarm ({entity}) isn’t available right now."
+    }
+  }
+}

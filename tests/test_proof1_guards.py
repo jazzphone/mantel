@@ -21,7 +21,9 @@ def _tracked():
 
 def test_no_tracked_file_under_the_hk_snapshot_or_named_like_apples_files():
     bad = [f for f in _tracked() if f.startswith("spikes/hk-snapshot/")
-           or Path(f).name.lower().startswith(("sf-pro", "hk-glyphs"))]
+           or Path(f).name.lower().startswith("hk-glyphs")
+           or (Path(f).name.lower().startswith("sf-pro") and Path(f).suffix.lower() in
+               {".ttf", ".otf", ".woff", ".woff2"})]
     assert not bad, f"never track these: {bad}"
 
 
