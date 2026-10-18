@@ -146,6 +146,24 @@
     return b;
   };
 
+  // THE HOST'S OWN DETAIL AND TOASTS (Phase 2 P2.5, docs/phase2/SHEETS.md). HA has a detail
+  // dialog for every entity (more-info), so what HK has no sheet of its own for keeps going
+  // there, exactly as before: hk-detail.js lets the more-info event through untouched. Asked
+  // for directly (the generic sheet's "Open in Home Assistant"), it is the same event from
+  // <home-assistant>, which HK's own listener never takes (it is not from a dashboard).
+  HA.hostDetail = function () { return true; };
+  HA.openHostDetail = function (entityId) {
+    var r = HA.root();
+    if (!r || !entityId) return false;
+    r.dispatchEvent(new global.CustomEvent('hass-more-info', { bubbles: true, composed: true, detail: { entityId: entityId } }));
+    return true;
+  };
+  // HA draws hass-notification itself (its own snackbar): HK's toast layer stays out
+  HA.hostToast = function () { return true; };
+  // HK's confirm and choose sheets mount where they always have: the document's body, above
+  // HA's page and outside its shadow root (not HA's overlay root, where HA's own dialogs are)
+  HA.dialogRoot = function () { var d = doc(); return (d && d.body) || null; };
+
   // TWO MODES. "lovelace" (the default, and the only one unless HK's own panel is switched
   // on): every answer above, by Lovelace's path. "panel" (Phase 2 P2.6, hk_panel.py): HK's
   // own panel is on screen, drawn by HK's view host with no Lovelace. Then the dashboard's

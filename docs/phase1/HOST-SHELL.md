@@ -57,6 +57,8 @@ because slice 5 continues from it in parallel; the merge should link it to this 
 | `toast(detail, from?)` | `hass-notification`, bubbling + composed |
 | `showNotifications()` | `hass-show-notifications` on main |
 | `keepAwake(root?)` | `hass-suspend-when-hidden { suspend: false }` on the root |
+| `hostDetail(id)`, `openHostDetail(id, from?)` | (Phase 2 P2.5, `docs/phase2/SHEETS.md`) true; `hass-more-info` from the root. Default/Mantel: false (HK's generic sheet) |
+| `hostToast()`, `dialogRoot()` | (P2.5) true (HA's snackbar); `document.body`. Default/Mantel: false (HK's toast layer); the overlay root |
 
 ## What moved
 

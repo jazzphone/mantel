@@ -20,6 +20,8 @@ import '/hk/elements/hk-elements.js';
 import { Host, toast } from './shim/mantel-host.js';
 import { Hub } from './shim/hub.js';
 import '/hk/shell/hk-view-host.js';
+// HK's own toast layer: Mantel draws no toast of its own (hkShell.hostToast() is false)
+import '/hk/shell/hk-overlays.js';
 
 const T0 = performance.now();
 const marks = { module_start: Math.round(T0) };   // ms since navigation start; the others are ms after it

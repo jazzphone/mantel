@@ -77,10 +77,30 @@
     // client } -- each one given is handed to it. Returns the button to place
     // (`el` again once it has one), or null for a host with no sidebar of its
     // own to open.
-    menuButton: nil
+    menuButton: nil,
+    // THE HOST'S OWN DETAIL AND TOASTS (Phase 2 P2.5). HK draws a sheet for
+    // every kind of entity it knows (hk-detail.js) and its generic sheet for
+    // the rest; a host that has its own detail dialog for any entity (Home
+    // Assistant's more-info) keeps getting what HK has no dedicated sheet
+    // for, as before. hostDetail(entityId): true when the host has its own
+    // detail for it; openHostDetail(entityId, from?): show it (true when
+    // shown). A host without one: false, and HK's generic sheet is used.
+    hostDetail: function () { return false; },
+    openHostDetail: function () { return false; },
+    // true when the host draws the toast event (events.toast) itself; false:
+    // HK's own toast layer (web/hk/shell/hk-overlays.js) draws it
+    hostToast: function () { return false; },
+    // where HK's own dialogs (the confirm and choose sheets) and its toast
+    // layer mount: the overlay root, else the document's body
+    dialogRoot: function () {
+      var d = global.document;
+      return this.overlayRoot() || (d && d.body) || null;
+    }
   };
   KINDS.forEach(function (k) { NONE.tags[k] = null; });
 
+  // the capabilities a throwing host answers no to (not null)
+  var FALSE = { hostDetail: 1, openHostDetail: 1, hostToast: 1 };
   var impl = NONE, tags = Object.assign({}, NONE.tags), events = Object.assign({}, NONE.events);
   function get(name) { return impl[name] !== undefined ? impl[name] : NONE[name]; }
 
@@ -112,9 +132,10 @@
 
   ['root', 'overlayRoot', 'main', 'mainRoot', 'drawer', 'sidebar', 'resolver', 'panel', 'dashboard',
    'dashboardRoot', 'viewContainer', 'viewSlot', 'view', 'viewBackground', 'toolbar', 'dashboardConfig', 'onDashboard', 'isDashboard',
-   'defined', 'showNotifications', 'keepAwake', 'sidebarData', 'holdWrites', 'menuButton'].forEach(function (name) {
+   'defined', 'showNotifications', 'keepAwake', 'sidebarData', 'holdWrites', 'menuButton',
+   'hostDetail', 'openHostDetail', 'hostToast', 'dialogRoot'].forEach(function (name) {
     shell[name] = function () {
-      try { return get(name).apply(shell, arguments); } catch (e) { return name === 'onDashboard' ? true : null; }
+      try { return get(name).apply(shell, arguments); } catch (e) { return name === 'onDashboard' ? true : FALSE[name] ? false : null; }
     };
   });
 
@@ -162,7 +183,11 @@
     target.dispatchEvent(ev);
     return ev;
   };
-  // A toast: `detail` is { message, duration, action? }.
+  // A toast: `detail` is { message, duration, action? }. Fired as the host's
+  // toast event, bubbling and composed (a page of HK's that shows its
+  // library's messages itself hears it on the way up and stops it); the host
+  // draws it (hostToast()), or HK's own toast layer does once it reaches the
+  // window (web/hk/shell/hk-overlays.js).
   shell.toast = function (detail, from) {
     var target = from || shell.root();
     if (!target) return null;

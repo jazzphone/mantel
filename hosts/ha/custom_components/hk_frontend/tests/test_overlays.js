@@ -36,7 +36,7 @@ var EXCEPT = {
 var FILES = ['cards/hk-base', 'cards/hk-calendar', 'cards/hk-cameras', 'cards/hk-chip', 'cards/hk-control', 'cards/hk-detail',
   'cards/hk-energy', 'cards/hk-home', 'cards/hk-layout', 'cards/hk-library', 'cards/hk-media', 'cards/hk-music', 'cards/hk-person',
   'cards/hk-popup', 'cards/hk-room', 'cards/hk-row', 'cards/hk-security', 'cards/hk-stat', 'cards/hk-tile', 'cards/hk-weather',
-  'modules/hk-header', 'modules/hk-timers', 'modules/hk-menu', 'modules/hk-tabbar', 'modules/hk-notify'];
+  'modules/hk-header', 'modules/hk-timers', 'modules/hk-menu', 'modules/hk-tabbar', 'modules/hk-notify', 'shell/hk-overlays'];
 var seen = 0;
 FILES.forEach(function (f) {
   var src = read(HK_ROOT + '/frontend/' + f + '.js'), m, re = /rgba\(\s*(\d+),\s*(\d+),\s*(\d+),\s*(0?\.\d+)\s*\)/g;

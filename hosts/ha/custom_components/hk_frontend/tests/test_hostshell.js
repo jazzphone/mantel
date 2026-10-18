@@ -48,7 +48,8 @@ var main = shadowed('home-assistant-main', [drawer, sidebar, resolver]);
 var ha = shadowed('home-assistant', [main], { hass: { panels: { 'dashboard-kitchen': { component_name: 'lovelace' }, config: { component_name: 'config' } },
                                                        panelUrl: 'dashboard-kitchen' } });
 var lookups = 0;
-globalThis.document = { querySelector: function (s) { if (s === 'home-assistant') { lookups++; return ha; } return null; } };
+var body = new Node_('body');
+globalThis.document = { body: body, querySelector: function (s) { if (s === 'home-assistant') { lookups++; return ha; } return null; } };
 
 var S = window.hkShell;
 ok('the HA shell is installed by the prelude', S.kind === 'ha' && window.hkHAShell && S.navEvent === 'location-changed');
@@ -127,6 +128,15 @@ ok('...without a card, from <home-assistant>', ha.got.length === 1 && ha.got[0].
 S.toast({ message: 'Hi', duration: 12000 });
 ok('toast: hass-notification from <home-assistant>, its detail as given',
    ha.got[1].type === 'hass-notification' && ha.got[1].detail.message === 'Hi' && ha.got[1].detail.duration === 12000 && ha.got[1].init.composed);
+// Phase 2 P2.5: HA's own detail and toasts, behind the shell's capabilities
+ok('hostDetail: HA has a detail dialog (more-info) for any entity', S.hostDetail('scene.evening') === true && S.hostDetail('sun.sun') === true);
+ha.got = [];
+ok('openHostDetail: hass-more-info from <home-assistant>, bubbling, composed, the entity in detail',
+   S.openHostDetail('scene.evening') === true && ha.got.length === 1 && ha.got[0].type === 'hass-more-info' &&
+   ha.got[0].init.bubbles === true && ha.got[0].init.composed === true && ha.got[0].detail.entityId === 'scene.evening');
+ok('...and nothing without an entity', S.openHostDetail('') === false && ha.got.length === 1);
+ok('hostToast: HA draws its own toasts', S.hostToast() === true);
+ok('dialogRoot: the document\'s body, where HK\'s confirm sheets have always mounted', S.dialogRoot() === body);
 main.got = [];
 S.showNotifications();
 ok('showNotifications: hass-show-notifications on main', main.got.length === 1 && main.got[0].type === 'hass-show-notifications' &&
@@ -236,6 +246,16 @@ ok('without a host: no elements', S.kind === 'none' && S.root() === null && S.ov
    S.viewContainer() === null && S.dashboardConfig() === null && !S.is(container, 'viewContainer') && S.isDashboard() === null);
 ok('...HK\'s own neutral event names', S.navEvent === 'hk-navigate' && S.events.moreInfo === 'hk-more-info' && S.events.toast === 'hk-toast');
 ok('...a sheet or toast with nowhere to go is nothing', S.moreInfo('light.x') === null && S.toast({ message: 'x' }) === null);
+ok('...no detail and no toasts of its own (HK\'s generic sheet and toast layer)', S.hostDetail('light.x') === false &&
+   S.openHostDetail('light.x') === false && S.hostToast() === false);
+ok('...HK\'s dialogs mount on the body when there is no overlay root', S.dialogRoot() === body);
+var own = new Node_('div', [], { id: 'hk-shell-root' });
+S.use({ kind: 'mantel', overlayRoot: function () { return own; } });
+ok('a host with an overlay root and no dialog root of its own: the overlay root', S.dialogRoot() === own && S.hostDetail('x') === false);
+S.use({ kind: 'test', hostDetail: function () { throw new Error('boom'); }, hostToast: function () { throw new Error('boom'); },
+        dialogRoot: function () { throw new Error('boom'); } });
+ok('a throwing capability says no (false), a throwing dialog root null', S.hostDetail('x') === false && S.hostToast() === false && S.dialogRoot() === null);
+S.use(null);
 fired = [];
 S.navigate('/z');
 ok('...navigation still moves and announces itself', fired[0].e.type === 'hk-navigate' && pushed[pushed.length - 1][1] === '/z');

@@ -19,6 +19,12 @@
     holdWrites: function () { return true; },
     // Mantel's page has no sidebar of its own for a button to open
     menuButton: () => null,
+    // no detail dialog and no toasts of its own (Phase 2 P2.5): HK's generic sheet takes what HK has
+    // no dedicated sheet for, HK's toast layer (web/hk/shell/hk-overlays.js) draws the toasts, and HK's
+    // dialogs mount in the overlay root (the contract's dialogRoot)
+    hostDetail: () => false,
+    openHostDetail: () => false,
+    hostToast: () => false,
     tags: { viewContainer: 'hk-view-container' },
     root: () => byId('hk-shell-root'),
     overlayRoot: () => byId('hk-shell-root'),

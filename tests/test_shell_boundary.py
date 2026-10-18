@@ -259,3 +259,66 @@ def test_element_lint_catches_the_names_and_ignores_comments():
     assert not ELEMENT_MADE.findall(code_of_text("q('hk-plate'); x = '<hk-icon icon=\"mdi:a\"></hk-icon>';"))
     assert ELEMENT_REF.findall(code_of_text("css = '.well ha-icon{--mdc-icon-size:20px}';")) == ["ha-icon"]
     assert not ELEMENT_REF.findall(code_of_text("// an <ha-card> did this\ns = '--ha-card-background'; t = 'ha-icon-picker';"))
+
+
+# Phase 2 P2.5 (docs/phase2/SHEETS.md): HK's own sheets and dialogs. The generic sheet (hk-detail.js),
+# the toast layer (web/hk/shell/hk-overlays.js) and the confirm/choose sheets (hk-base.js) are HK's;
+# shared code never makes or asks for HA's dialogs or notifications. What the HA build still hands to
+# HA (its more-info dialog, its snackbar) goes through hkShell (openHostDetail, the toast event), and
+# only HA's shell names it.
+DIALOG_NAMES = ("show-dialog", "ha-more-info-dialog", "more-info-dialog", "ha-toast", "notification-manager",
+                "dialog-box", "ha-snackbar")
+DIALOG_REF = re.compile(r"(?<![\w-])(?:" + "|".join(re.escape(n) for n in sorted(DIALOG_NAMES, key=len, reverse=True))
+                        + r")(?![\w-])", re.I)
+
+
+# LOOKUPS, not uses: the detail listener recognises HA's own dialogs in a tap's path, to leave a
+# card inside one (the card editor's preview, HA's more-info) to HA.
+HA_DIALOG_LOOKUPS = {
+    "web/hk/cards/hk-detail.js": ["'HA-MORE-INFO-DIALOG': 1"],
+}
+
+
+def test_shared_code_asks_for_no_ha_dialog_or_notification():
+    found = {}
+    for p in sorted((ROOT / "web").rglob("*.js")):
+        rel = str(p.relative_to(ROOT))
+        if rel.startswith(ADAPTERS) or "node_modules" in p.parts:
+            continue
+        allowed = HA_DIALOG_LOOKUPS.get(rel, [])
+        hits = [ln.strip()[:160] for ln in code_of(p).splitlines()
+                if DIALOG_REF.search(ln) and not any(a in ln for a in allowed)]
+        if hits:
+            found[rel] = hits
+    assert not found, f"HK draws its own sheets, toasts and confirmations (docs/phase2/SHEETS.md): {found}"
+    for rel, allowed in HA_DIALOG_LOOKUPS.items():
+        code = code_of(ROOT / rel)
+        assert all(a in code for a in allowed), f"{rel}: listed lookup not found any more"
+    assert DIALOG_REF.findall(code_of_text("el.dispatchEvent(new CustomEvent('show-dialog', {}));"))
+    assert not DIALOG_REF.findall(code_of_text("// HA confirms through show-dialog\nx = 'hk-confirm';"))
+
+
+def test_the_toast_layer_names_no_host_element():
+    src = code_of(ROOT / "web/hk/shell/hk-overlays.js")
+    assert not HOST_ELEMENT.findall(src) and not SHELL_REF.findall(src)
+
+
+def test_hosts_declare_their_own_detail_and_toasts():
+    contract = code_of(ROOT / "web/client/hk-host-shell.js")
+    for name in ("hostDetail", "openHostDetail", "hostToast", "dialogRoot"):
+        assert f"'{name}'" in contract, name                       # wrapped by the shell (a throw is no)
+    mantel = code_of(ROOT / "web/shim/mantel-shell.js")
+    for name in ("hostDetail", "openHostDetail", "hostToast"):
+        assert re.search(name + r":\s*\(\)\s*=>\s*false", mantel), name
+    ha = code_of(ROOT / "hosts/ha/frontend/hk-ha-shell.js")
+    assert re.search(r"HA\.hostDetail = function \(\) \{ return true; \}", ha)
+    assert re.search(r"HA\.hostToast = function \(\) \{ return true; \}", ha)
+    assert "'hass-more-info'" in ha.split("HA.openHostDetail", 1)[1].split("};", 1)[0]
+
+
+def test_mantel_loads_hk_toast_layer_and_ha_keeps_its_snackbar():
+    home = (ROOT / "web/home.js").read_text()
+    assert "import '/hk/shell/hk-overlays.js';" in home
+    assert home.index("import './shim/mantel-shell.js';") < home.index("import '/hk/shell/hk-overlays.js';")
+    boot = (ROOT / "hosts/ha/custom_components/hk_frontend/boot.py").read_text()
+    assert "hk-overlays" not in boot                # HA draws its own toasts: the layer is not loaded there

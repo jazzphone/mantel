@@ -24,7 +24,10 @@ export function stateObj(entityId, s) {
 // Writes are never sent. Reads go to the server, which has its own allowlist.
 const WRITE_WORDS = /(^|\/|_)(set|save|remove|delete|add|update|create|call_service|order|favorite|touch|black|seen|mute|test|sign|queue|play|transfer|talk|offer|candidate)(_|\/|$)/;
 
+// Mantel's refusals ("Commands are disabled") are said in HK's own toast layer once it has loaded
+// (web/hk/shell/hk-overlays.js), like every toast of HK's; this box is only the fallback before it.
 export function toast(text) {
+  if (typeof window !== 'undefined' && window.hkOverlays) { window.hkOverlays.toast({ message: text, duration: 2600 }); return; }
   let box = document.getElementById('mantel-toast');
   if (!box) {
     box = document.createElement('div');
@@ -76,8 +79,13 @@ export class Host {
       hassUrl: (path = '') => location.origin + path,
       localize: (key) => key,
       formatEntityState: (s) => (s ? s.state + (s.attributes.unit_of_measurement ? ' ' + s.attributes.unit_of_measurement : '') : ''),
-      formatEntityAttributeValue: (s, a) => String((s && s.attributes[a]) ?? ''),
-      formatEntityAttributeName: (s, a) => a,
+      // as HA's own fallbacks: a list joined, a key's words with the first one capitalised (the
+      // generic sheet's lines, Phase 2 P2.5)
+      formatEntityAttributeValue: (s, a) => {
+        const v = s && s.attributes[a];
+        return Array.isArray(v) ? v.join(', ') : String(v ?? '');
+      },
+      formatEntityAttributeName: (s, a) => String(a).replace(/_/g, ' ').replace(/^./, (c) => c.toUpperCase()),
     };
     this._raw = raw;
     // The client's action port refuses every command itself and sends nothing (mantel-client.js);

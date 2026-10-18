@@ -1073,8 +1073,9 @@
   // and which of the two you get is a per-tablet setting nothing in this
   // frontend owns.
   //
-  // So the sheet is ours: one element, reused, appended to document.body so
-  // no card's `overflow:hidden` can clip it. Escape and the backdrop cancel.
+  // So the sheet is ours: one element, reused, appended to the host shell's
+  // dialog root (hkShell.dialogRoot(): document.body in Home Assistant, as it
+  // always was; Mantel's overlay root) so no card's `overflow:hidden` can clip it. Escape and the backdrop cancel.
   //
   // TWO CHOICES, NOT ONE (opts). A circuit switch asks a
   // yes/no question where "no" means "do nothing", and Cancel says that
@@ -1088,6 +1089,13 @@
   // Escape and the backdrop always mean "neither" -- that is the only way out
   // once both buttons commit to something.
   var _sheet = null;
+  // WHERE HK'S OWN DIALOGS MOUNT (Phase 2 P2.5): the host shell's dialog root,
+  // and there again when a sheet made earlier is opened after the host's root
+  // changed. Nothing to mount in: left where it is.
+  function dialogMount(el) {
+    var sh = window.hkShell, r = (sh && sh.dialogRoot ? sh.dialogRoot() : null) || document.body;
+    if (r && el.parentNode !== r) r.appendChild(el);
+  }
   // ------------------------------------------------------- chooseSheet
   //
   // A LIST TO PICK ONE OF, in the same material as confirmSheet below.
@@ -1242,9 +1250,9 @@
         '<div class="box"><div class="txt"></div>' +
         '<div class="list hk-fades"></div>' +
         '<button class="opt cancel" data-cancel>Cancel</button></div>';
-      document.body.appendChild(_choose);
+      dialogMount(_choose);
       edges(_choose.querySelector('.list'));
-    }
+    } else dialogMount(_choose);
     var close = function () {
       _choose.removeAttribute('data-open');
       document.removeEventListener('keydown', esc, true);
@@ -1372,8 +1380,8 @@
         '<div class="txt"></div><div class="det"></div>' +
         '<div class="row"><button data-no>Cancel</button>' +
         '<button data-yes>Confirm</button></div></div>';
-      document.body.appendChild(_sheet);
-    }
+      dialogMount(_sheet);
+    } else dialogMount(_sheet);
     var close = function () {
       _sheet.removeAttribute('data-open');
       document.removeEventListener('keydown', esc, true);

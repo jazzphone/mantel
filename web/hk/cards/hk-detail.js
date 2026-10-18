@@ -15,8 +15,16 @@
 //
 // SIMPLE, ON PURPOSE. One big control per sheet; only the thermostat and
 // sensors carry extra information. No history, no settings, nothing that
-// leads anywhere a household user should not go. A kind of entity with no
-// sheet here falls through to HA's dialog.
+// leads anywhere a household user should not go.
+//
+// A KIND OF ENTITY WITH NO SHEET HERE (Phase 2 P2.5, docs/phase2/SHEETS.md)
+// goes to the host's own detail when the host has one (hkShell.hostDetail:
+// Home Assistant's more-info dialog, exactly as before -- the event is let
+// through untouched), and to HK's generic sheet when it has none (Mantel):
+// its state and key attributes in the client's words, a control only where
+// one is obvious, and for an admin on a host with its own detail, "Open in
+// Home Assistant". On such a host every request is HK's to answer (sheets
+// switched off, a tap from outside a dashboard): no tap is ever dead.
 //
 // LIVE STATE: the sheet is not a card, so nothing hands it a client. It takes
 // every new one from hkCards.onClient (hk-base.js) AND from the host adapter's
@@ -101,7 +109,8 @@
       return { colour: colour, temp: temp, dim: dim, effects: fx };
     }
 
-    // WHICH SHEET. null = not ours; HA's dialog opens as before.
+    // WHICH SHEET. null = no sheet of its own here: the host's own detail
+    // (HA's dialog, as before), or HK's generic sheet on a host without one.
     function kindOf(h, id) {
       var s = stOf(h, id);
       if (!s) return null;
@@ -643,6 +652,8 @@
       // a person (them | where they are) and an event (it | its day): two
       // columns on a tablet, one on a phone
       person: WIDE, event: WIDE, weather: WIDE, automation: STD, timer: STD,
+      // HK's generic sheet (Phase 2 P2.5): a state, a few lines, at most a button
+      generic: STD,
       // a room's "3 Windows": two full pills a row (2 x 196 + 10 of its ~410)
       group: STD,
       // a custom pop-up's own cards: narrow or wide, as it asks
@@ -2115,20 +2126,28 @@
     // opts: { direct } -- open this sheet, not the #alarm pop-up that hands
     //        back to it; { hashed } -- opened FOR a pop-up's hash, whose own
     //        history entry is the one Back leaves (so none is pushed here);
-    //        { onClose } -- called once the sheet has gone, however it went
+    //        { onClose } -- called once the sheet has gone, however it went;
+    //        { generic } -- true: HK's generic sheet when there is no sheet of
+    //        its own here (or its element is not defined); 'only': the
+    //        generic sheet whatever the kind (sheets switched off on a host
+    //        without a detail of its own)
     function open(id, src, opts) {
       opts = opts || {};
       var h = C.client();
       // A GROUP (openGroup below) is a sheet of several things, not one;
       // CARDS (a custom pop-up) the home's own cards.
-      var kind = opts.group ? 'group' : opts.cards ? 'cards' : kindOf(h, id);
+      var kind = opts.group ? 'group' : opts.cards ? 'cards' : opts.generic === 'only' ? 'generic' : kindOf(h, id);
+      if (!kind && opts.generic) kind = 'generic';
       if (!kind) return false;
       // THE ALARM IS A SHEET LIKE THE REST -- just the keypad -- opened
       // directly on a tap, not through a # pop-up. The #alarm pop-up remains
       // for an alarm automation that opens it by URL, and it hands straight
       // back here (opts.direct).
       var tag = PANELS[kind];
+      if ((!tag || !customElements.get(tag)) && opts.generic && !opts.group && !opts.cards) { kind = 'generic'; tag = PANELS.generic; }
       if (!tag || !customElements.get(tag)) return false;
+      // the generic sheet is about a state: nothing to show for none
+      if (kind === 'generic' && !stOf(h, id)) return false;
       // A SHEET OPENED FROM A SHEET takes over the open one's history entry
       // rather than stacking a second: pushing again would leave the first
       // entry behind, and the next Back press would land on it and do nothing.
@@ -2374,6 +2393,32 @@
       if (d.onClose) { try { d.onClose(); } catch (e) { /* the caller's */ } }
     }
 
+    // "OPEN IN HOME ASSISTANT" (the generic sheet, for an admin on a host with
+    // a detail of its own): the sheet goes first, with its history entry --
+    // the host's dialog keeps one of its own, and the Back that took the
+    // sheet's entry would otherwise land on the dialog's and close it -- and
+    // then the host shows its own detail. false: the host has none.
+    function toHost(id) {
+      var sh = window.hkShell;
+      if (!id || !sh.hostDetail(id)) return false;
+      var go = function () { sh.openHostDetail(id); };
+      var d = D;
+      if (!d.el) { go(); return true; }
+      var back = !!(d.pushed && ours(d));
+      close(false, true);
+      if (!back) { go(); return true; }
+      var done = false;
+      var run = function () {
+        if (done) return;
+        done = true;
+        window.removeEventListener('popstate', run);
+        go();
+      };
+      window.addEventListener('popstate', run);
+      setTimeout(run, 400);
+      return true;
+    }
+
     window.addEventListener('popstate', function () {
       if (D.el && !ours(D)) {
         if (D.returnGroup && location.pathname === D.path && location.hash === D.hash) restoreGroup(D.returnGroup);
@@ -2463,17 +2508,21 @@
       return !!(src && src.config && src.config.detail === false);
     }
 
+    // THE HOST'S OWN DETAIL (HA's dialog) keeps what HK leaves: a tap from
+    // the host's own pages, sheets switched off, a kind with no sheet here --
+    // let through untouched. A host without one leaves it all to HK: the
+    // generic sheet in place of a missing one ('only': sheets switched off).
     window.addEventListener(window.hkShell.events.moreInfo, function (e) {
       var id = e.detail && e.detail.entityId;
       if (!id) return;
-      if (!fromDashboard(e)) return;
-      var src = sourceOf(e, id);
-      if (disabled(src)) return;
-      if (!kindOf(C.client(), id)) return;
-      // Taken only if a sheet actually opened: open() can still say no (an
-      // alarm on a dashboard with neither #alarm nor an alarm view), and a
-      // swallowed event would be a dead tap. HA's own dialog then opens.
-      if (!open(id, src)) return;
+      var host = window.hkShell.hostDetail(id);
+      if (host && !fromDashboard(e)) return;
+      var src = sourceOf(e, id), off = disabled(src);
+      if (host && (off || !kindOf(C.client(), id))) return;
+      // Taken only if a sheet actually opened: open() can still say no (a
+      // sheet's element not defined yet), and a swallowed event would be a
+      // dead tap. The host's own dialog then opens.
+      if (!open(id, src, host ? undefined : { generic: off ? 'only' : true })) return;
       e.stopImmediatePropagation();
       e.stopPropagation();
     }, true);
@@ -4786,6 +4835,145 @@
       }
     }
 
+    // ------------------------------------------------------------ generic
+    // THE GENERIC SHEET (Phase 2 P2.5): an entity HK draws no sheet of its
+    // own for, on a host without a detail of its own (Mantel; Home Assistant
+    // keeps its more-info dialog for these). Its glyph, its state in the
+    // client's words, since when, what it says about itself (its key
+    // attributes, named and formatted by the client), a control only where
+    // one is obvious, and for an admin on a host with a detail of its own,
+    // "Open in Home Assistant" (toHost). Nothing else: no history, no
+    // settings beyond the gear every sheet has for an admin.
+    //
+    // NOT A KEY ATTRIBUTE: what the sheet already shows (name, glyph, unit,
+    // the state's class), the host's bookkeeping, and anything that is not
+    // a short value.
+    var GENERIC_SKIP = {
+      friendly_name: 1, icon: 1, entity_picture: 1, supported_features: 1, supported_color_modes: 1,
+      assumed_state: 1, attribution: 1, device_class: 1, unit_of_measurement: 1, state_class: 1,
+      editable: 1, id: 1, restored: 1, entity_id: 1, hidden: 1, icon_color: 1, options: 1
+    };
+    var GENERIC_ROWS = 8;
+    // [{ key, name, value }]: at most GENERIC_ROWS, in the entity's own order
+    function genericRows(c, s) {
+      var a = (s && s.attributes) || {}, out = [];
+      Object.keys(a).forEach(function (k) {
+        if (out.length >= GENERIC_ROWS || GENERIC_SKIP[k]) return;
+        var v = a[k], t = typeof v;
+        var short = t === 'string' ? v !== '' && v.length <= 120 : t === 'number' ? isFinite(v) : t === 'boolean' ? true :
+          Array.isArray(v) ? v.length > 0 && v.length <= 6 && v.every(function (x) { return typeof x === 'string' || typeof x === 'number'; }) : false;
+        if (!short) return;
+        var name, value;
+        try { name = c && c.formatEntityAttributeName ? c.formatEntityAttributeName(s, k) : k; } catch (e) { name = k; }
+        try { value = c && c.formatEntityAttributeValue ? c.formatEntityAttributeValue(s, k) : String(v); } catch (e) { value = String(v); }
+        if (value == null || value === '') return;
+        out.push({ key: k, name: String(name || k), value: String(value) });
+      });
+      return out;
+    }
+    // THE ONE OBVIOUS CONTROL, through the client's action port: a toggle
+    // (homeassistant.toggle) for an on/off state in a domain that takes one,
+    // Activate for a scene, Run for a script; none for anything else, and
+    // never for what HK never toggles in one tap (hk-base's neverToggles).
+    var GENERIC_TOGGLE = { remote: 1, group: 1, input_boolean: 1, switch: 1, light: 1, fan: 1, humidifier: 1 };
+    function genericControl(c, id, s) {
+      if (!s || !id) return null;
+      var d = domainOf(id);
+      if (C.neverToggles && C.neverToggles(c, id)) return null;
+      if (d === 'scene') return { kind: 'run', label: 'Activate', domain: 'scene', service: 'turn_on' };
+      if (d === 'script') return { kind: 'run', label: 'Run', domain: 'script', service: 'turn_on' };
+      if (GENERIC_TOGGLE[d] && (s.state === 'on' || s.state === 'off')) {
+        return { kind: 'toggle', label: s.state === 'on' ? 'Turn Off' : 'Turn On', domain: 'homeassistant', service: 'toggle' };
+      }
+      return null;
+    }
+    var GENERIC_CSS = [
+      // a long state (a date and time, a sentence) steps down and wraps rather than leave the sheet
+      '.big{max-width:100%;overflow-wrap:anywhere}',
+      '.big.w.long{font-size:30px;letter-spacing:-0.5px;line-height:1.15}',
+      '.gbtn{min-width:200px;height:50px;padding:0 24px;border:0;border-radius:25px;font:inherit;font-size:17px;font-weight:600;',
+      '  color:' + window.hkCards.v('ink') + ';background:rgba(255,255,255,0.16);cursor:pointer;-webkit-tap-highlight-color:transparent}',
+      '.gbtn.on{background:#30d158;color:#fff}',
+      '.gbtn[disabled]{opacity:.45;cursor:default}',
+      '.attrs{align-self:stretch;padding:4px 20px;border-radius:20px;background:rgba(255,255,255,0.08)}',
+      '.attrs .r{display:flex;justify-content:space-between;align-items:baseline;gap:16px;padding:12px 0;font-size:15px}',
+      '.attrs .r + .r{border-top:0.5px solid rgba(255,255,255,0.12)}',
+      '.attrs .k{color:' + window.hkCards.v('ink-2') + '}',
+      '.attrs .v{text-align:right;overflow-wrap:anywhere}',
+      '.hostlink{appearance:none;border:0;background:none;font:inherit;font-size:15px;color:#0a84ff;cursor:pointer;padding:6px 10px}',
+      ':host([hk-flat]) .attrs{background:' + C.v('key') + '}',
+      ':host([hk-flat]) .attrs .r + .r{border-top-color:' + C.v('line') + '}',
+      ':host([hk-flat]) .gbtn:not(.on){background:' + C.v('key') + ';color:' + C.v('glyph') + '}'
+    ].join('');
+    class GenericPanel extends SensePanel {
+      static get CSS() { return PANEL_CSS + SENSE_CSS + GENERIC_CSS; }
+      hkWidthKind() { return 'generic'; }
+      _render() {
+        var s = this._stateObj, c = this.client, self = this;
+        if (!s) return;
+        if (!this._built) {
+          this._built = true;
+          this._shell('');
+          var pn = this._root.querySelector('.pn');
+          this._gCtl = document.createElement('button');
+          this._gCtl.className = 'gbtn';
+          this._gCtl.hidden = true;
+          this._gCtl.addEventListener('click', function () { self._gRun(); });
+          this._gList = document.createElement('div');
+          this._gList.className = 'attrs';
+          this._gList.hidden = true;
+          this._gHost = document.createElement('button');
+          this._gHost.className = 'hostlink';
+          this._gHost.textContent = 'Open in Home Assistant';
+          this._gHost.hidden = true;
+          this._gHost.addEventListener('click', function () { toHost(self._id); });
+          pn.appendChild(this._gCtl);
+          pn.appendChild(this._gList);
+          pn.appendChild(this._gHost);
+        }
+        var txt;
+        try { txt = c && c.formatEntityState ? c.formatEntityState(s) : s.state; } catch (e) { txt = s.state; }
+        this._glyph(s, isOn(s));
+        this._big.textContent = gone(s) ? 'Unavailable' : txt;
+        this._big.classList.toggle('long', String(this._big.textContent).length > 14);
+        this._since.textContent = unavailable(s) ? '' : sinceText(s.last_changed);
+        // the control: what it does now (a toggle's word follows the state)
+        var ctl = genericControl(c, this._id, s);
+        this._gSpec = ctl;
+        this._gCtl.hidden = !ctl;
+        if (ctl) {
+          this._gCtl.textContent = ctl.label;
+          this._gCtl.classList.toggle('on', ctl.kind === 'toggle' && s.state === 'on');
+          this._gCtl.disabled = gone(s);
+        }
+        // the key attributes, redrawn only when what they say changed
+        var rows = genericRows(c, s), sig = JSON.stringify(rows);
+        if (sig !== this._gSig) {
+          this._gSig = sig;
+          this._gRows = rows;
+          this._gList.innerHTML = '';
+          rows.forEach(function (r) {
+            var row = document.createElement('div'), k = document.createElement('span'), v = document.createElement('span');
+            row.className = 'r'; k.className = 'k'; v.className = 'v';
+            k.textContent = r.name; v.textContent = r.value;
+            row.appendChild(k); row.appendChild(v);
+            self._gList.appendChild(row);
+          });
+          this._gList.hidden = !rows.length;
+        }
+        // an admin, on a host with a detail of its own (none in Mantel)
+        this._gHost.hidden = !(canEdit(c) && window.hkShell.hostDetail(this._id));
+      }
+      _gRun() {
+        var ctl = this._gSpec, s = this._stateObj, self = this;
+        if (!ctl || !s || gone(s)) return;
+        var go = function () { self._svc(ctl.domain, ctl.service); };
+        var conf = this._src.confirmation;
+        if (conf && C.confirmSheet) C.confirmSheet(conf.text || (ctl.label + '?'), go);
+        else go();
+      }
+    }
+
     // ------------------------------------------------------------ lists
     // One pick-list look for every "choose one of these": a select, a
     // humidifier's modes. The current row carries the orange tick the light's
@@ -5949,7 +6137,10 @@
       event: 'hk-detail-event',
       weather: 'hk-detail-weather',
       automation: 'hk-detail-automation',
-      timer: 'hk-detail-timer'
+      timer: 'hk-detail-timer',
+      // HK's generic sheet, for a kind with no sheet of its own on a host
+      // without a detail of its own (Phase 2 P2.5)
+      generic: 'hk-detail-generic'
     };
     function def(tag, Ctor) { if (!customElements.get(tag)) customElements.define(tag, Ctor); }
     // The panels fed a client alone (open(): every panel defined here except
@@ -5957,8 +6148,9 @@
     // and are still fed through the bridge).
     var CLIENT_FED = [LightPanel, TogglePanel, FanPanel, CoverPanel, LockPanel, GaragePanel, ButtonPanel,
                       ClimatePanel, MediaPanel, SensorPanel, StatePanel, BinaryPanel, VacuumPanel, ValvePanel,
-                      NumberPanel, SelectPanel, HumidifierPanel, WaterHeaterPanel, AlarmPanel];
+                      NumberPanel, SelectPanel, HumidifierPanel, WaterHeaterPanel, AlarmPanel, GenericPanel];
     def('hk-detail-light', LightPanel);
+    def('hk-detail-generic', GenericPanel);
     def('hk-detail-toggle', TogglePanel);
     def('hk-detail-fan', FanPanel);
     def('hk-detail-cover', CoverPanel);
@@ -6356,6 +6548,7 @@
         nearWhite: nearWhite, spanTo: spanTo, trendOf: trendOf, reportsAction: reportsAction,
         accessoryPane: accessoryPane, accName: accName, accIcon: accIcon, canEdit: canEdit, glyphsFor: glyphsFor, glyphSearch: glyphSearch, arrangeOf: arrangeOf, arrangeMove: arrangeMove, money: money, ACC_CSS: ACC_CSS,
         popupFor: popupFor, openPopup: openPopup, route: route, asked: asked, onDashboard: onDashboard, SHEET_CSS: SHEET_CSS,
+        genericControl: genericControl, genericRows: genericRows, toHost: toHost, GENERIC_SKIP: GENERIC_SKIP,
         state: function () { return D; }
       }
     };

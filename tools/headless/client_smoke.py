@@ -244,6 +244,47 @@ async def smoke(shot=None):
                     assert actions["frames"] == 0, actions          # zero writes: not one frame left the page
                     assert actions["refused"] == ["homeassistant.toggle", "homeassistant.toggle", "light.turn_on",
                                                   "alarm_control_panel.alarm_disarm"], actions
+                    # P2.5: HK's own sheets and dialogs. An entity HK has no sheet of its own for (a scene) opens HK's
+                    # generic sheet in Mantel (no host detail): no HA element anywhere in it, no "Open in Home
+                    # Assistant" even for the owner; its Activate is refused at the action port and said in HK's
+                    # own toast layer; a toast and a confirm sheet mount in #hk-shell-root; 0 frames sent.
+                    sheets = await browser.eval("""(async () => {
+                      const frames = window.__sentFrames, refused0 = window.__mantel.refused.length;
+                      const root = document.getElementById('hk-shell-root');
+                      const tile = window.hkViewHost.createCardElement({type:'custom:hk-tile-card', entity:'scene.proof_evening'},
+                                                                       window.__mantel.client);
+                      document.getElementById('app').prepend(tile);
+                      const asked = window.hkShell.moreInfo('scene.proof_evening', tile);
+                      const st = window.hkDetail._.state(), panel = st.panel;
+                      await new Promise(r => setTimeout(r, 50));
+                      const names = [];
+                      const walk = (n) => { for (const e of n.querySelectorAll('*')) { names.push(e.localName); if (e.shadowRoot) walk(e.shadowRoot); } };
+                      walk(st.el);
+                      const sheet = { event: asked && asked.type, kind: st.kind, tag: panel && panel.localName,
+                                      in_shell_root: st.el.parentNode === root, state: panel._big.textContent,
+                                      control: panel._gCtl.hidden ? null : panel._gCtl.textContent, link: !panel._gHost.hidden,
+                                      ha_elements: names.filter(n => /^(ha|hui)-/.test(n)),
+                                      host_dialogs: document.querySelectorAll('home-assistant, ha-more-info-dialog, ha-dialog').length };
+                      panel._gCtl.click();
+                      await new Promise(r => setTimeout(r, 50));
+                      const refusal = window.hkOverlays.current() && window.hkOverlays.current().detail.message;
+                      window.hkDetail.close(true);
+                      window.hkShell.toast({ message: 'Offline toast' });
+                      const layer = root.querySelector(':scope > #hk-toasts'), msg = layer && layer.querySelector('.toast .msg');
+                      const confirm = window.hkCards.confirmSheet('Offline question?', () => {});
+                      const confirm_in_root = confirm.parentNode === root;
+                      confirm.querySelector('[data-no]').click();
+                      tile.remove();
+                      return { sheet, refusal, toast: msg && msg.textContent, confirm_in_root,
+                               mantel_box: !!document.getElementById('mantel-toast'),
+                               refused: window.__mantel.refused.slice(refused0), frames: window.__sentFrames - frames };
+                    })()""")
+                    assert sheets["sheet"] == {"event": "hk-more-info", "kind": "generic", "tag": "hk-detail-generic",
+                                               "in_shell_root": True, "state": "unknown", "control": "Activate", "link": False,
+                                               "ha_elements": [], "host_dialogs": 0}, sheets
+                    assert sheets["refusal"] == "Commands are disabled in Mantel (read-only)", sheets
+                    assert sheets["toast"] == "Offline toast" and sheets["confirm_in_root"] and not sheets["mantel_box"], sheets
+                    assert sheets["refused"] == ["scene.turn_on"] and sheets["frames"] == 0, sheets
                     # Slice 11: the HK Settings panel reads a client and saves through its action port.
                     # Loaded here with Mantel's client, its saves, a config flow's step and a photo
                     # forgotten are refused at the port; not one frame leaves the page.
@@ -479,6 +520,9 @@ async def smoke(shot=None):
                             "commands": refused,
                             "actions": "tile tap, sheet control and keypad refused through the action port; "
                                        "0 frames sent; read path refused call_service (read_only)",
+                            "sheets": "a scene (no sheet of its own) opened HK's generic sheet in #hk-shell-root, no HA element, "
+                                      "no Open in Home Assistant link (no host detail); Activate refused and said in HK's toast "
+                                      "layer; a toast and a confirm sheet in #hk-shell-root; 0 frames",
                             "subscriptions": "write and state_changed bus refused (not_allowed); talk-back POST and live socket refused; 0 frames",
                             "settings_panel": "loaded with Mantel's client; a save, a config flow step and a photo forgotten refused at the action port; 0 frames",
                             "view_host": f"generated views {home['views']}; Home {home['cards']['drawn']} cards drawn "
