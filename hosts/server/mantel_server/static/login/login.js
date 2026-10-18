@@ -58,6 +58,13 @@ export function messageFor(status, data, step) {
     case 'pending_invalid': return 'That took too long. Enter your password again.';
     case 'origin_not_allowed_for_passkeys': return 'Passkeys need the name you use to reach Mantel, not an IP address.';
     case 'ingress_sign_in': return 'Inside Home Assistant, Home Assistant signs you in.';
+    case 'bootstrap_token_invalid': return 'That setup code is wrong, used or expired. Make a new one on the server.';
+    case 'bootstrap_closed': return 'Mantel already has an Owner. Sign in instead.';
+    case 'password_too_short': return 'Passwords need at least 12 characters.';
+    case 'password_too_long': return 'That password is too long.';
+    case 'password_too_simple': return 'That password repeats too few characters. Pick a longer, varied one.';
+    case 'password_contains_name': return 'The password must not contain the user name.';
+    case 'username_invalid': return 'User names are 1 to 64 letters, digits, dots, dashes or underscores.';
     case 'json_required': case 'invalid_json': case 'origin_required':
       return 'This browser sent an incomplete request. Reload the page and try again.';
     default: break;
@@ -90,6 +97,22 @@ export function signIn({ fetchImpl, base = '', credentials } = {}) {
                                methods: (r.data && r.data.methods) || [], message: messageFor(r.status, r.data, step) });
 
   return {
+    // first start (no Owner yet): is the one-time setup open?
+    async setupOpen() {
+      try {
+        const res = await doFetch(base + '/api/bootstrap', { credentials: 'same-origin', headers: { Accept: 'application/json' } });
+        const data = await res.json();
+        return res.status === 200 && !!(data && data.open);
+      } catch (e) {
+        return false;
+      }
+    },
+    async bootstrap(token, username, name, password) {
+      if (!token || !username || !password) return fail({ status: 400, data: { error: 'username_and_password_required' } });
+      const r = await post('/api/bootstrap', { token, username, name: name || username, password });
+      if (r.status === 200 && r.data && r.data.ok) return { kind: 'done', data: r.data };
+      return fail(r, 'setup');
+    },
     async password(username, password) {
       if (!username || !password) return fail({ status: 400, data: { error: 'username_and_password_required' } });
       const r = await post('/api/auth/password', { username, password });
@@ -144,7 +167,7 @@ export function start(doc = globalThis.document, win = globalThis.window) {
     status: $('status'), doorNote: $('door-note'), passkeyStep: $('passkey-step'), passkey: $('passkey'),
     orPassword: $('or-password'), orHa: $('or-ha'), pwForm: $('password-form'), user: $('username'),
     pw: $('password'), pwGo: $('password-go'), totpForm: $('totp-form'), code: $('code'),
-    totpGo: $('totp-go'), back: $('totp-back'),
+    totpGo: $('totp-go'), back: $('totp-back'), setupForm: $('setup-form'),
   };
   let pending = null;
   let busy = false;
@@ -248,6 +271,28 @@ export function start(doc = globalThis.document, win = globalThis.window) {
       els.code.focus();
     });
   });
+
+  // First start: while no Owner exists, offer the one-time setup; the new Owner then lands on Connections
+  if (els.setupForm) {
+    flow.setupOpen().then((open) => { if (open) els.setupForm.hidden = false; });
+    els.setupForm.addEventListener('submit', (ev) => {
+      ev.preventDefault();
+      run(async () => {
+        const f = els.setupForm;
+        const pw = $('setup-password');
+        const r = await flow.bootstrap($('setup-token').value.trim(), $('setup-username').value.trim(),
+                                       $('setup-name').value.trim(), pw.value);
+        if (r.kind === 'done') {
+          pw.value = '';
+          say('Owner created.', true);
+          win.location.replace(base + '/admin#connections');
+          return;
+        }
+        say(r.message);
+        f.setAttribute('aria-invalid', 'true');
+      });
+    });
+  }
 
   els.back.addEventListener('click', () => {
     showPasswordStep();

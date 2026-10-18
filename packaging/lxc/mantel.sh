@@ -238,10 +238,11 @@ description() {
 
 Next steps (details: docs/phase3/PACKAGING.md):
   1. pct enter ${var_ctid}
-  2. mantel-secret ha_token            # paste the token of the dedicated HA user "mantel-server"
-     (and cloudflare_dns_token if you use DNS-01 TLS), then:  cd ${INSTALL_DIR}/packaging/compose && docker compose up -d --wait
-  3. edit ${INSTALL_DIR}/packaging/compose/.env (hostname, HA address) if the guess was wrong
-  4. point your LAN DNS name at ${ip:-the container}, open https://<that name>/
+  2. edit ${INSTALL_DIR}/packaging/compose/.env (hostname, TLS) if the guess was wrong
+     (mantel-secret cloudflare_dns_token if you use DNS-01 TLS), then:  cd ${INSTALL_DIR}/packaging/compose && docker compose up -d --wait
+  3. docker compose exec mantel-server mantel bootstrap     # a one-time setup code for the first Owner
+  4. point your LAN DNS name at ${ip:-the container}, open https://<that name>/login ("First start"), then
+     /admin -> Connections -> "Connect to Home Assistant" (no token file to handle)
 Remove it any time:  pct stop ${var_ctid} && pct destroy ${var_ctid} --purge
 EOF
 }

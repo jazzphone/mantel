@@ -144,6 +144,7 @@ def register(app, hub, hooks) -> CameraSignaling:
     holder: dict[str, SignalingProxy | None] = {"proxy": None}
     signaling = CameraSignaling(lambda: holder["proxy"], hooks)
     app["camera_signaling"] = signaling
+    app["camera_signaling_holder"] = holder         # connections.py retargets the proxy on a new HA credential
     read_routes(app).update({
         CONFIG: Route(request=signaling.client_config),
         CANDIDATE: Route(request=signaling.candidate),

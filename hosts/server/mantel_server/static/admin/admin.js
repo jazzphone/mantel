@@ -7,7 +7,7 @@ import { credentialJSON, passkeysAvailable, toCreation, toRequest } from '../web
 
 const ROLE_LABEL = { owner: 'Owner', admin: 'Admin', adult: 'Adult', child: 'Child', guest: 'Guest',
                      wall_tablet: 'Wall tablet', service: 'Service' };
-const SECTION_LABEL = { me: 'Me', people: 'People', devices: 'Devices', files: 'Your files', roles: 'Roles & grants',
+const SECTION_LABEL = { me: 'Me', connections: 'Connections', people: 'People', devices: 'Devices', files: 'Your files', roles: 'Roles & grants',
                         service: 'Service accounts', connect: 'Connect', audit: 'Audit' };
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const ERRORS = {
@@ -808,6 +808,182 @@ function renderConnect(root) {
 }
 
 // ============================================================================================================
+// Connections: Home Assistant and Music Assistant (connections.py). A token typed here lives only in its input
+// until it is sent; the server never sends one back (status says who Mantel is connected as, and since when).
+// ============================================================================================================
+const SOURCE_LABEL = { app: 'Provided by Home Assistant (App)', mantel: 'Saved in Mantel', install: 'Set by the installation' };
+const METHOD_LABEL = { oauth: 'Home Assistant sign-in', token: 'pasted token', login: 'Music Assistant sign-in' };
+
+function connectionResult(kind, r, warnings) {
+  const user = (r && r.user) || {};
+  const bits = [];
+  if (user.name) bits.push('as ' + user.name + (user.is_admin ? ' (administrator)' : ''));
+  if (r && r.version) bits.push((kind === 'ha' ? 'Home Assistant ' : 'Music Assistant ') + r.version);
+  if (kind === 'ha' && r && typeof r.entities === 'number') bits.push(r.entities + ' entities');
+  return [note('It works: connected ' + bits.join(' · ') + '.', 'conn-ok'),
+          ...(warnings || []).map((w) => note(w, 'panel warn'))];
+}
+
+function connectionPanel(kind, info, can, reload) {
+  const label = info.label;
+  const now = info.live || {};
+  const saved = info.saved;
+  const set = info.state === 'set';
+  const lines = [];
+  const top = [];
+  if (info.source) top.push(badge(SOURCE_LABEL[info.source] || info.source));
+  top.push(set ? (now.connected ? badge('connected', 'cur') : badge('not connected', 'bad')) : badge('not set up', 'bad'));
+  lines.push(head(...top));
+  if (info.url) lines.push(meta('Address: ' + info.url));
+  if (saved) {
+    const who = saved.user && saved.user.name ? 'Connected as ' + saved.user.name + (saved.user.is_admin ? ' (administrator)' : '') : 'Connected';
+    lines.push(meta(`${who}, since ${fmt(saved.since)} · ${METHOD_LABEL[saved.method] || saved.method}${saved.by_name ? ' · set by ' + saved.by_name : ''}`));
+    if (saved.expires) lines.push(meta('The token expires ' + fmt(saved.expires) + '; replace it before then.'));
+  }
+  if (set && now.connected) {
+    const bits = [];
+    if (now.version) bits.push('version ' + now.version);
+    if (typeof now.entities === 'number') bits.push(now.entities + ' entities');
+    if (now.connected_since) bits.push('connected since ' + fmt(now.connected_since));
+    if (now.user && now.user.name) bits.push('as ' + now.user.name);
+    if (bits.length) lines.push(meta(bits.join(' · ')));
+  } else if (set && now.error) {
+    lines.push(note('Not connected: ' + now.error, 'status err'));
+  }
+  if (info.source === 'install') {
+    lines.push(note('This comes from the installation’s secret file' + (info.install.file ? ' (' + info.install.file + ')' : '') +
+      '. Replace saves Mantel’s own copy, which then wins; disconnecting that copy goes back to the file.', 'muted small'));
+  }
+  if (info.install && info.install.overridden) lines.push(note('The installation also has a file for this; Mantel’s saved copy wins over it.', 'muted small'));
+  if (info.unreadable) lines.push(note('Mantel’s saved copy could not be opened (was the at-rest key changed?). Set it up again.', 'status err'));
+  if (!info.editable) {
+    lines.push(note('Mantel runs as a Home Assistant App and uses the App’s own access to Home Assistant. Nothing to set up here.', 'muted small'));
+    return h('section', { class: 'panel', id: 'p-conn-' + kind }, h('h3', null, label), frag(lines));
+  }
+  const form = h('div', { class: 'stack', id: 'conn-form-' + kind, hidden: set });
+  const acts = [];
+  if (can && set) acts.push(btn('Replace', () => { form.hidden = !form.hidden; }, '', 'replace-' + kind));
+  if (can && (info.source === 'mantel' || info.unreadable)) {
+    acts.push(btn('Disconnect', async () => {
+      const back = info.install && info.install.present ? ' Mantel goes back to the installation’s file.' : ' Mantel stops using ' + label + ' until it is set up again.';
+      const revoke = kind === 'ha' ? ' To revoke the token in Home Assistant as well: that user’s profile, Security, Long-lived access tokens.' : '';
+      if (!(await confirmDialog('Disconnect ' + label + '?', 'Mantel forgets its saved token.' + back + revoke, 'Disconnect', true))) return;
+      if (await run(() => api('DELETE', '/api/connections/' + kind), label + ' disconnected.')) reload();
+    }, 'danger', 'disconnect-' + kind));
+  }
+  if (can) form.append(...connectionForm(kind, info, reload));
+  return h('section', { class: 'panel', id: 'p-conn-' + kind }, h('h3', null, label), frag(lines),
+           acts.length ? h('div', { class: 'acts' }, acts) : null, can ? form : null);
+}
+
+function connectionForm(kind, info, reload) {
+  const label = info.label;
+  const out = h('div', { 'aria-live': 'polite', id: 'conn-result-' + kind });
+  const url = h('input', { name: kind + '-url', type: 'url', required: true, maxlength: 300, autocomplete: 'off', autocapitalize: 'none',
+                           value: info.url || '', placeholder: kind === 'ha' ? 'http://homeassistant.local:8123' : 'http://music-assistant.local:8095' });
+  const token = h('input', { name: kind + '-token', type: 'password', maxlength: 4096, autocomplete: 'off', autocapitalize: 'none', 'aria-label': label + ' token' });
+  const user = kind === 'ma' ? h('input', { name: 'ma-username', autocomplete: 'off', autocapitalize: 'none', maxlength: 200 }) : null;
+  const pass = kind === 'ma' ? h('input', { name: 'ma-password', type: 'password', autocomplete: 'off', maxlength: 1024 }) : null;
+  const body = (mode) => {
+    const b = { url: url.value.trim() };
+    if (mode === 'login') { b.username = user.value.trim(); b.password = pass.value; } else b.token = token.value.trim();
+    return b;
+  };
+  const forget = () => { token.value = ''; if (pass) pass.value = ''; };
+  const test = (mode) => async () => {
+    out.replaceChildren(note('Testing…'));
+    try {
+      const r = await api('POST', '/api/connections/' + kind + '/test', body(mode));
+      out.replaceChildren(...connectionResult(kind, r.result, r.warnings));
+    } catch (e) { out.replaceChildren(errorPanel(e)); }
+  };
+  const save = (mode) => async () => {
+    out.replaceChildren(note('Testing and saving…'));
+    try {
+      const r = await api('POST', '/api/connections/' + kind, body(mode));
+      forget();
+      out.replaceChildren();
+      const as = r.connection && r.connection.saved && r.connection.saved.user && r.connection.saved.user.name;
+      say(label + ' connected' + (as ? ' as ' + as : '') + '.', 'ok');
+      reload();
+    } catch (e) { out.replaceChildren(errorPanel(e)); }
+  };
+  const nodes = [field(label + '’s address', url)];
+  if (kind === 'ha') {
+    nodes.push(h('fieldset', null, h('legend', null, 'Connect by signing in to Home Assistant'),
+      note('Home Assistant opens its sign-in page. Sign in there as the Home Assistant user Mantel should act as: a dedicated administrator (for example one named mantel-server), not your own account. Mantel then makes a long-lived token for that user and keeps it sealed.', 'muted small'),
+      h('div', { class: 'acts' }, h('button', { class: 'btn primary', type: 'button', 'data-act': 'ha-oauth', onclick: async () => {
+        out.replaceChildren();
+        try {
+          const r = await api('POST', '/api/connections/ha/oauth/start', { url: url.value.trim() });
+          location.assign(r.authorize_url);
+        } catch (e) { out.replaceChildren(errorPanel(e)); }
+      } }, 'Connect to Home Assistant'))));
+  } else {
+    nodes.push(h('fieldset', null, h('legend', null, 'Sign in with a Music Assistant user'),
+      note('Music Assistant 2.7 and later. The password is used once to make a long-lived token for that user, and is not kept.', 'muted small'),
+      h('div', { class: 'grid' }, field('User name', user), field('Password', pass)),
+      h('div', { class: 'acts' }, btn('Test', test('login'), '', 'ma-login-test'), btn('Save', save('login'), 'primary', 'ma-login-save'))));
+  }
+  nodes.push(h('fieldset', null, h('legend', null, 'Or paste a long-lived token'),
+    note(kind === 'ha' ? 'In Home Assistant, signed in as Mantel’s user: your profile, Security, Long-lived access tokens, Create token.'
+                       : 'In Music Assistant: Settings, your profile, create a long-lived token.', 'muted small'),
+    field('Token', token),
+    h('div', { class: 'acts' }, btn('Test', test('token'), '', kind + '-token-test'), btn('Save', save('token'), 'primary', kind + '-token-save'))));
+  nodes.push(out);
+  return nodes;
+}
+
+function pendingConnection(pid, reload) {
+  const title = () => h('h3', null, 'Connect to Home Assistant');
+  const box = h('section', { class: 'panel token', id: 'p-conn-pending' }, title(), note('Loading'));
+  const clear = () => { history.replaceState(null, '', location.pathname + location.hash); };
+  (async () => {
+    let p;
+    try { p = (await api('GET', '/api/connections/pending/' + encodeURIComponent(pid))).pending; } catch (e) { box.replaceChildren(title(), errorPanel(e)); clear(); return; }
+    if (p.state !== 'ready') {
+      box.replaceChildren(title(), note(p.error ? p.error.message : 'The sign-in did not finish.', 'status err'));
+      clear();
+      return;
+    }
+    const r = p.result;
+    box.replaceChildren(title(),
+      note(`Home Assistant at ${p.url} says Mantel would act as ${(r.user && r.user.name) || 'that user'}${r.user && r.user.is_admin ? ' (an administrator)' : ''}.`, ''),
+      ...connectionResult('ha', r, p.warnings),
+      h('div', { class: 'acts' },
+        h('button', { class: 'btn primary', type: 'button', 'data-act': 'ha-oauth-save', onclick: async () => {
+          if (await run(() => api('POST', '/api/connections/ha', { pending: p.id }), 'Home Assistant connected.')) { box.remove(); clear(); reload(); }
+        } }, 'Save this connection'),
+        h('button', { class: 'btn', type: 'button', 'data-act': 'ha-oauth-cancel', onclick: async () => {
+          await run(() => api('DELETE', '/api/connections/pending/' + encodeURIComponent(p.id)));
+          box.remove(); clear();
+        } }, 'Cancel')));
+  })();
+  return box;
+}
+
+function renderConnections(root) {
+  const pid = new URLSearchParams(location.search).get('connection');
+  const panels = h('div', { id: 'p-connections' }, note('Loading'));
+  const reload = async () => {
+    try {
+      const got = await api('GET', '/api/connections');
+      const can = got.can_edit;
+      panels.replaceChildren(frag([
+        !can ? note('Only an Owner can change connections.', 'muted small') : null,
+        can && got.needs_fresh ? note('From outside the home network you will be asked to confirm it is you first.', 'muted small') : null,
+        connectionPanel('ha', got.connections.ha, can, reload),
+        connectionPanel('ma', got.connections.ma, can, reload),
+      ]));
+    } catch (e) { panels.replaceChildren(errorPanel(e)); }
+  };
+  reload();
+  root.append(h('h2', null, 'Connections'),
+    note('How Mantel reaches Home Assistant and Music Assistant. Each connection is tested before it is saved. Tokens are kept sealed in Mantel’s data (and its encrypted backups), are never shown again and never leave the server; a change applies at once, without a restart.', 'muted small'),
+    frag([pid ? pendingConnection(pid, reload) : null]), panels);
+}
+
+// ============================================================================================================
 // Audit
 // ============================================================================================================
 function renderAudit(root) {
@@ -894,7 +1070,7 @@ function renderAudit(root) {
 // ============================================================================================================
 // Shell
 // ============================================================================================================
-const RENDER = { me: renderMe, people: renderPeople, devices: renderDevices, files: renderFiles, roles: renderRoles, service: renderService, connect: renderConnect, audit: renderAudit };
+const RENDER = { me: renderMe, connections: renderConnections, people: renderPeople, devices: renderDevices, files: renderFiles, roles: renderRoles, service: renderService, connect: renderConnect, audit: renderAudit };
 
 function renderSection(name) {
   if (state.enrolled) return;
@@ -923,7 +1099,9 @@ async function start() {
     nav.append(h('button', { type: 'button', 'data-section': s, onclick: () => { location.hash = s; } }, SECTION_LABEL[s]));
   }
   window.addEventListener('hashchange', () => renderSection(location.hash.slice(1)));
-  renderSection(location.hash.slice(1));
+  // first run: while Home Assistant is not set up, the Owner lands on Connections
+  const first = !location.hash && state.me.ha_set_up === false && state.me.sections.includes('connections');
+  renderSection(first ? 'connections' : location.hash.slice(1));
   window.__adminReady = true;
 }
 start();

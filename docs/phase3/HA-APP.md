@@ -156,6 +156,11 @@ image store) and the dev-only Skylab page's `location.href` jumps; `/dev` (diagn
   --listen 0.0.0.0 --allow-host * --ingress --ingress-only ...`, chowns `/data` to 10001, drops root, execs
   the server. HaClient, ReadProxy, the camera signaling and (when on) the commander all use the Supervisor's
   WebSocket; REST goes to `http://supervisor/core/api/...`. Commands only when the option is exactly `true`.
+* **Connections page** (2026-10-18, `connections.py`): the entrypoint also passes `--ha-managed-by-app`, so
+  `/admin` → Connections shows Home Assistant as **"Provided by Home Assistant (App)"** with no form (the App
+  uses the Supervisor's credential; no HA token is ever asked for, and the server refuses changes with
+  `409 provided_by_app`). **Music Assistant is editable** there: the App can reach MA directly with an address and
+  an MA token or MA user sign-in, sealed in `/data/connections` (inside the App's own HA backups too).
 
 ## Staging
 

@@ -19,6 +19,23 @@
     enough: use a passkey, or your password and the code from your authenticator app.</p>
   <p id="status" class="status" role="alert"></p>
 
+  <form id="setup-form" class="step" method="post" action="login" novalidate hidden>
+    <p class="note">First start: Mantel has no Owner yet. Get a one-time setup code on the server
+      (<code>docker compose exec mantel-server mantel bootstrap</code>, or <code>mantel-server bootstrap</code>)
+      and create the Owner here. Next, the admin page connects Home Assistant.</p>
+    <label for="setup-token">Setup code</label>
+    <input id="setup-token" name="token" type="text" autocomplete="off" autocapitalize="none" autocorrect="off"
+           spellcheck="false" maxlength="200" required>
+    <label for="setup-username">User name</label>
+    <input id="setup-username" name="username" type="text" autocomplete="username" autocapitalize="none"
+           autocorrect="off" spellcheck="false" maxlength="64" required>
+    <label for="setup-name">Your name</label>
+    <input id="setup-name" name="name" type="text" autocomplete="name" maxlength="100">
+    <label for="setup-password">Password (at least 12 characters)</label>
+    <input id="setup-password" name="password" type="password" autocomplete="new-password" maxlength="1024" required>
+    <button id="setup-go" type="submit" class="btn primary">Create the Owner</button>
+  </form>
+
   <section id="passkey-step" class="step" hidden>
     <button id="passkey" type="button" class="btn primary">Sign in with a passkey</button>
   </section>

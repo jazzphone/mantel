@@ -16,10 +16,20 @@ def test_override_parsing():
     assert cfg.overrides == [("sensor.*_distance", 1.0)] and cfg.default_interval == 0.5
 
 
-def test_missing_token_stops_with_a_message(tmp_path, capsys):
-    rc = entry.main(["--token-file", str(tmp_path / "missing"), "--port", "0"])
-    assert rc == 2
-    assert "not found" in capsys.readouterr().err
+def test_missing_token_starts_unconnected_and_points_at_the_connections_page(tmp_path, capsys, monkeypatch):
+    """Connections page (connections.py): no token file is no longer fatal; the server starts with HA not
+    connected (it never tries one without a credential) and says where to set it up. The App's own
+    credential file is still required."""
+    started = []
+    monkeypatch.setattr(entry.web, "run_app", lambda app, **kw: started.append(app))
+    rc = entry.main(["--token-file", str(tmp_path / "missing"), "--port", "0", "--ha-url", "",
+                     "--data-dir", str(tmp_path / "data"), "--secrets-dir", str(tmp_path / "secrets")])
+    assert rc == 0 and len(started) == 1
+    assert started[0]["hub"].ha._token == "" and started[0]["connections"].current("ha") is None
+    assert "admin#connections" in capsys.readouterr().out
+    rc = entry.main(["--token-file", str(tmp_path / "missing"), "--port", "0", "--ha-managed-by-app",
+                     "--data-dir", str(tmp_path / "data"), "--secrets-dir", str(tmp_path / "secrets")])
+    assert rc == 2 and "App credential" in capsys.readouterr().err
 
 
 def test_ha_client_source_has_no_service_call_path():

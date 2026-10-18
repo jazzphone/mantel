@@ -3,9 +3,13 @@
 
 Stdlib only; it replaces itself with the server (exec), so the server is PID 1's process and gets signals.
 
-Docker / Proxmox LXC (compose)   settings from MANTEL_* environment variables (none of them secret),
-                                 the Home Assistant token from a FILE (default /run/secrets/ha_token).
-    MANTEL_HA_URL          required   http://homeassistant.local:8123
+Docker / Proxmox LXC (compose)   settings from MANTEL_* environment variables (none of them secret).
+                                 Home Assistant and Music Assistant are normally set up after the first
+                                 start on the admin page (/admin, Connections; connections.py), which keeps
+                                 Mantel's own sealed copy on the data volume. A token FILE from the
+                                 installation (default /run/secrets/ha_token) still works and is shown as
+                                 "set by the installation"; an empty file counts as none.
+    MANTEL_HA_URL          optional   http://homeassistant.local:8123 (with the ha_token file); else the page
     MANTEL_PUBLIC_URL      required   https://mantel.example.com/   (what browsers type; Caddy serves it)
     MANTEL_ALLOW_HOSTS     optional   comma list of further Host names, e.g. the LAN IP
     MANTEL_LISTEN          optional   default 0.0.0.0 (the container interface, behind Caddy only)
@@ -101,10 +105,12 @@ def trusted_proxy_args(env: dict[str, str]) -> list[str]:
 
 
 def container_args(env: dict[str, str]) -> list[str]:
-    missing = [k for k in ("MANTEL_HA_URL", "MANTEL_PUBLIC_URL") if not env.get(k)]
+    missing = [k for k in ("MANTEL_PUBLIC_URL",) if not env.get(k)]
     if missing:
         raise ConfigError("missing " + ", ".join(missing) + " (set them in packaging/compose/.env)")
-    args = ["--ha-url", env["MANTEL_HA_URL"],
+    # no MANTEL_HA_URL: Home Assistant is set up on the admin page (Connections); an empty address keeps
+    # the server from ever trying a built-in default
+    args = ["--ha-url", env.get("MANTEL_HA_URL", "").strip(),
             "--token-file", env.get("MANTEL_HA_TOKEN_FILE", "/run/secrets/ha_token"),
             "--data-dir", env.get("MANTEL_DATA_DIR", "/data"),
             "--port", env.get("MANTEL_PORT", "8765"),
@@ -155,7 +161,7 @@ def app_args(options: dict, token_file: Path, env: dict[str, str] | None = None)
             "--port", env.get("MANTEL_PORT", APP_PORT), "--listen", listen]
     if listen not in ("127.0.0.1", "::1"):
         args += ["--public-url", "https://ingress.invalid/", "--allow-host", "*"]
-    args += ["--ingress", "--ingress-only"]
+    args += ["--ingress", "--ingress-only", "--ha-managed-by-app"]   # HA is the App's credential (connections.py)
     for peer in filter(None, (p.strip() for p in env.get("MANTEL_INGRESS_PEER", "").split(","))):
         args += ["--ingress-peer", peer]
     # Commands stay OFF unless the App's option says exactly true (PLAN: off by default).

@@ -9,7 +9,8 @@ Debian 13, Docker + the compose stack from `packaging/compose/`). PLAN §7, §8.
 
 ```bash
 bash packaging/lxc/mantel.sh              # on the Proxmox host, as root, from a checkout you have read
-pct enter <id>                            # then: mantel-secret ha_token ; cd /opt/mantel/packaging/compose && docker compose up -d --wait
+pct enter <id>                            # then: cd /opt/mantel/packaging/compose && docker compose up -d --wait
+                                          # browser: /login "First start" (code: mantel bootstrap), /admin -> Connections
 mantel-update                             # inside: update with automatic rollback (registry images)
 bash packaging/lxc/mantel.sh push <id>    # on the host: send a newer checkout and update (build mode)
 ```

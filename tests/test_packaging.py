@@ -383,8 +383,17 @@ def test_behind_caddy_the_lan_door_is_recognised_only_from_caddys_address():
 
 
 def test_entrypoint_refuses_missing_settings(tmp_path):
-    with pytest.raises(entrypoint.ConfigError, match="MANTEL_HA_URL"):
+    with pytest.raises(entrypoint.ConfigError, match="MANTEL_PUBLIC_URL"):
         entrypoint.plan([], {}, options_path=tmp_path / "none")
+
+
+def test_entrypoint_without_an_ha_address_leaves_it_to_the_connections_page(tmp_path):
+    """No MANTEL_HA_URL: an explicitly empty address (never the built-in default); the page sets it up."""
+    args, _ = entrypoint.plan([], {"MANTEL_PUBLIC_URL": "https://m.example/"}, options_path=tmp_path / "none")
+    assert args[:2] == ["--ha-url", ""]
+    from mantel_server.config import parse_args
+    cfg = parse_args(args)
+    assert cfg.ha_url == "" and cfg.ha_managed_by_app is False
 
 
 def test_entrypoint_ha_app_moves_the_supervisor_token_into_a_private_file(tmp_path):
@@ -402,6 +411,7 @@ def test_entrypoint_ha_app_moves_the_supervisor_token_into_a_private_file(tmp_pa
     from mantel_server.config import parse_args
     assert parse_args(args).host_allowed("anything.example")
     assert "fictional-supervisor-credential" not in " ".join(args)
+    assert parse_args(args).ha_managed_by_app is True          # the Connections page shows HA as the App's
 
 
 def test_entrypoint_admin_commands_default_to_the_data_volume(tmp_path):

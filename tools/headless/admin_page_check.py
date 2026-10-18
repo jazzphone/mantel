@@ -33,9 +33,11 @@ from mantel_server.accounts import totp  # noqa: E402
 from mantel_server.config import Config  # noqa: E402
 from mantel_server.server import build_app  # noqa: E402
 from mantel_server.store import Store  # noqa: E402
+from test_connections import FakeHa  # noqa: E402
 
 PASSWORD = "fictional password for the kid"      # fictional; at least 12 characters
-SECTIONS = ["Me", "People", "Devices", "Roles & grants", "Service accounts", "Audit"]
+SECTIONS = ["Me", "Connections", "People", "Devices", "Your files", "Roles & grants", "Service accounts", "Audit"]
+HA_TOKEN = "fictional-admin-check-ha-token"     # the fake Home Assistant's; typed into the page, never shown again
 
 
 def seed_of(secret: str) -> bytes:
@@ -129,9 +131,10 @@ async def check(shots: Path) -> dict:
     with tempfile.TemporaryDirectory(prefix="mantel-admin-page-") as folder:
         base = Path(folder)
         cfg = Config(data_dir=base / "data", secrets_dir=base / "secrets", fixtures=base / "fixtures",
-                     hk_files=base / "user-files", default_screen="dashboard-proof")
+                     hk_files=base / "user-files", default_screen="dashboard-proof", ha_url="",
+                     token_file=base / "no-ha-token", ma_token_file=base / "no-ma-token")
         store = Store(cfg.data_dir / "proof.db")
-        app = build_app(cfg, "unused-offline-token", store=store, connect_ha=False)
+        app = build_app(cfg, "", store=store, connect_ha=False)     # first run: Home Assistant not set up yet
         app["accounts"].hasher = PasswordHasher(time_cost=1, memory_cost=8, parallelism=1)
         admin_page.register(app, app["hub"])
         acc, sessions, audit = app["accounts"], app["sessions"], app["audit"]
@@ -150,6 +153,8 @@ async def check(shots: Path) -> dict:
             audit.record(principal=None, kind="service", action="lock.unlock", targets=["lock.fictional_door"],
                          decision="denied", reason="explicit_deny", actor="child-id", actor_name="Fictional Child")
 
+        fake_ha = FakeHa([HA_TOKEN])              # a fictional Home Assistant on loopback, for Connections
+        ha_url = await fake_ha.start()
         async with TestServer(app) as server:
             origin = str(server.make_url("")).rstrip("/")
 
@@ -164,12 +169,53 @@ async def check(shots: Path) -> dict:
             async with Browser(width=390, height=844, port=9347) as browser:
                 await browser.restrict_origin(origin)
                 p = Page(browser, shots)
-                await browser.open(origin + "/admin#me", mine.access)
+                await browser.open(origin + "/admin", mine.access)
                 await p.wait("window.__adminReady === true", "the page to start")
                 out["nav"] = await p.js("[...document.querySelectorAll('#nav button')].map(b => b.textContent)")
                 assert out["nav"] == SECTIONS, out["nav"]
                 out["who"] = await p.js("document.querySelector('#who').textContent")
                 assert out["who"] == "Fictional Owner · Owner · home network", out
+
+                # ---- Connections: first run lands here while Home Assistant is not set up
+                await p.wait("!!document.querySelector('#section-connections #p-conn-ha')", "Connections on first run")
+                assert "not set up" in await p.js("document.querySelector('#p-conn-ha').textContent")
+                await p.fill("#p-conn-ha [name=ha-url]", ha_url)
+                await p.fill("#p-conn-ha [name=ha-token]", "wrong-token")
+                await p.click("#p-conn-ha [data-act=ha-token-test]")
+                await p.wait("document.querySelector('#conn-result-ha').textContent.includes('did not accept the token')", "a plain refusal")
+                await p.fill("#p-conn-ha [name=ha-token]", HA_TOKEN)
+                await p.click("#p-conn-ha [data-act=ha-token-test]")
+                await p.wait("document.querySelector('#conn-result-ha').textContent.includes('It works')", "the test result")
+                out["connections_test"] = await p.js("document.querySelector('#conn-result-ha').textContent")
+                assert "mantel-server" in out["connections_test"] and "2 entities" in out["connections_test"], out
+                await p.click("#p-conn-ha [data-act=ha-token-save]")
+                await p.wait("document.querySelector('#p-conn-ha') && document.querySelector('#p-conn-ha').textContent.includes('Connected as mantel-server')", "the saved connection")
+                assert (cfg.connections_dir / "ha.connection").is_file()
+                body = await p.js("document.body.textContent + [...document.querySelectorAll('input')].map(i => i.value).join(' ')")
+                assert HA_TOKEN not in body                                   # never shown again, not left in an input
+                await p.no_overflow("Connections")
+                out["shots"].append(await p.shot("admin-connections"))
+                # Connect to Home Assistant (OAuth): HA's own page is another origin (blocked here), so the hop
+                # back is made by hand; the page then shows the pending connection and saves it
+                start = await p.js(f"""fetch('/api/connections/ha/oauth/start', {{method: 'POST', credentials: 'same-origin',
+                    headers: {{'Content-Type': 'application/json', 'X-CSRF-Token': {json.dumps(mine.csrf)}}},
+                    body: JSON.stringify({{url: {json.dumps(ha_url)}}})}}).then(r => r.json())""")
+                from urllib.parse import parse_qs, urlparse
+                state = parse_qs(urlparse(start["authorize_url"]).query)["state"][0]
+                fake_ha.codes["fictional-code"] = ("fictional-access", "fictional-refresh")
+                async with aiohttp.ClientSession() as http:
+                    r = await http.get(f"{origin}/auth/connection/callback", params={"state": state, "code": "fictional-code"})
+                    assert r.status == 200 and f"connection={start['pending']}" in await r.text()
+                await browser.open(origin + f"/admin?connection={start['pending']}#connections", mine.access)
+                await p.wait("!!document.querySelector('#p-conn-pending [data-act=ha-oauth-save]')", "the pending sign-in")
+                assert "mantel-server" in await p.js("document.querySelector('#p-conn-pending').textContent")
+                out["shots"].append(await p.shot("admin-connections-oauth", full=False))
+                await p.click("#p-conn-pending [data-act=ha-oauth-save]")
+                await p.wait("!document.querySelector('#p-conn-pending') && document.querySelector('#p-conn-ha').textContent.includes('Home Assistant sign-in')", "the OAuth connection saved")
+                assert fake_ha.llat_names and "fictional-refresh" in fake_ha.revoked
+                assert await p.js("location.search") == ""
+                out["connections"] = {"tested": True, "saved_token": True, "saved_oauth": True}
+                await p.go("me")
 
                 # ---- Me
                 await p.wait("document.querySelectorAll('#p-sessions .item').length === 2", "two sessions")
@@ -406,6 +452,7 @@ async def check(shots: Path) -> dict:
                 out["shots"].append(await p.shot("admin-me-adult"))
                 out["adult_console_problems"] = [c for c in browser.console if c.startswith("EXCEPTION") or "Content Security" in c]
                 assert not out["adult_console_problems"], out["adult_console_problems"]
+        await fake_ha.close()
         store.db.close()
     return out
 

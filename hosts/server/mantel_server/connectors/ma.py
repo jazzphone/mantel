@@ -167,9 +167,13 @@ def ws_url_of(url: str) -> str:
 
 class MaClient:
     def __init__(self, url: str, token_file: Path, gate: Any = REFUSE_ALL, *, request_timeout: float = 30.0,
-                 backoff_start: float = 1.0, backoff_max: float = 30.0) -> None:
+                 backoff_start: float = 1.0, backoff_max: float = 30.0,
+                 token_source: Callable[[], str] | None = None) -> None:
         self.ws_url = ws_url_of(url)
         self.token_file = Path(token_file)          # read at each connect (rotation); value never stored on self
+        # connections.py: Mantel's own sealed copy (the Connections page) wins over the file when set;
+        # called at each connect, like the file read, so the value is never kept on the client
+        self.token_source = token_source
         self.gate = gate
         self.request_timeout = request_timeout
         self.backoff_start, self.backoff_max = backoff_start, backoff_max
@@ -231,8 +235,26 @@ class MaClient:
         self._pending.clear()
         self._partial.clear()
 
+    def retarget(self, url: str, token_source: Callable[[], str] | None = None) -> None:
+        """A new address and/or token (connections.py, hot apply): the open socket is closed and run()
+        reconnects with the new values after its usual short backoff. Listeners get the local
+        ``mantel_reconnected`` event as after any reconnect, so they read again."""
+        self.ws_url = ws_url_of(url)
+        self.token_source = token_source
+        ws = self._ws
+        if ws is not None and not ws.closed:
+            asyncio.get_running_loop().create_task(ws.close())
+
+    def _token(self) -> str:
+        if self.token_source is not None:
+            token = self.token_source()
+            if not token:
+                raise MaTokenMissing("Music Assistant has no token (admin page: Connections)")
+            return token
+        return read_secret(self.token_file)
+
     async def _session(self, session: aiohttp.ClientSession) -> None:
-        token = read_secret(self.token_file)
+        token = self._token()
         async with session.ws_connect(self.ws_url, max_msg_size=0, heartbeat=30) as ws:
             info = await asyncio.wait_for(ws.receive_json(), self.request_timeout)
             if not isinstance(info, dict) or "server_version" not in info:
@@ -379,14 +401,19 @@ def register(app, hub, hooks) -> MaClient | None:
     hooks = Hooks.coerce(hooks)
     cfg = app["cfg"]
     url = getattr(cfg, "ma_url", "") or ""
-    client = MaClient(url, getattr(cfg, "ma_token_file"), gate=hooks.ma_gate) if url else None
+    client = MaClient(url, getattr(cfg, "ma_token_file"), gate=hooks.ma_gate,
+                      token_source=app.get("ma_token_source")) if url else None
     app["ma"] = client
+    app["ma_gate"] = hooks.ma_gate          # connections.py builds a client with it when MA is set up later
+
+    def current() -> MaClient | None:       # connections.py may build or remove the client at run time
+        return app.get("ma")
 
     async def fail(ctx: Ctx, rid: Any, code: str, text: str = "") -> None:
         await ctx.send({"type": "ma_result", "id": rid, "error": {"code": code, "message": text}})
 
     async def allowed(ctx: Ctx, rid: Any) -> bool:
-        if client is None:
+        if current() is None:
             await fail(ctx, rid, "unavailable")
             return False
         if not await may_feature(hooks, ctx.identity, "music"):
@@ -404,7 +431,7 @@ def register(app, hub, hooks) -> MaClient | None:
                 raise MaBlocked("ma/read carries type, id, command and args only")
             if not isinstance(args, dict):
                 raise MaBlocked("args must be an object")
-            result = await client.read(msg.get("command"), **args)  # type: ignore[union-attr,arg-type]
+            result = await current().read(msg.get("command"), **args)  # type: ignore[union-attr,arg-type]
         except MaBlocked as exc:
             log.warning("refused an MA read: %s", exc)
             return await fail(ctx, rid, "not_allowed", str(exc))
@@ -422,7 +449,7 @@ def register(app, hub, hooks) -> MaClient | None:
         if (not isinstance(rid, int) or ("ma", rid) in ctx.subs or set(msg) - {"type", "id", "events"}
                 or (events is not None and not (isinstance(events, list) and all(isinstance(e, str) for e in events)))):
             return await fail(ctx, rid, "invalid")
-        stop = client.subscribe(lambda ev: ctx.emit({"type": "ma_event", "id": rid, "event": ev}), events)  # type: ignore[union-attr]
+        stop = current().subscribe(lambda ev: ctx.emit({"type": "ma_event", "id": rid, "event": ev}), events)  # type: ignore[union-attr]
 
         async def unsubscribe() -> None:
             stop()
@@ -434,12 +461,13 @@ def register(app, hub, hooks) -> MaClient | None:
 
     ws_handlers(app).update({"ma/read": on_read, "ma/subscribe": on_subscribe, "ma/unsubscribe": on_unsubscribe})
 
-    if client is not None:
-        async def start(app) -> None:
-            client.start()
+    async def start(app) -> None:
+        if current() is not None:
+            current().start()
 
-        async def stop(app) -> None:
-            await client.close()
-        app.on_startup.append(start)
-        app.on_cleanup.append(stop)
+    async def stop(app) -> None:
+        if current() is not None:
+            await current().close()
+    app.on_startup.append(start)
+    app.on_cleanup.append(stop)
     return client

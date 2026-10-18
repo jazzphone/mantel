@@ -75,3 +75,4 @@ input:focus-visible, .btn:focus-visible { outline: 3px solid var(--acc); outline
 @media (prefers-reduced-motion: no-preference) {
   .btn { transition: opacity .15s; }
 }
+.note code { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12px; overflow-wrap: anywhere; }

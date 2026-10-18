@@ -103,6 +103,10 @@ def _wants_document(request: web.Request) -> bool:
 async def login_ha(request: web.Request) -> web.StreamResponse:
     """Start Sign in with Home Assistant (OAuth): HA's authorize page, with a signed state cookie."""
     oauth: HaOAuth = request.app["oauth"]
+    if not oauth.ha_url:          # first run: the Owner has not connected Home Assistant yet (connections.py)
+        return page("Home Assistant is not connected yet", "<p>Mantel does not know Home Assistant's address yet. "
+                    "An Owner signs in with a password and connects it on the admin page (Connections). "
+                    "<a href='/login'>Back</a>.</p>", 409)
     next_path = safe_next(request.query.get("next"))
     canonical = urlparse(oauth.client_id).netloc
     if request.host != canonical:  # the state cookie must be set on the host HA will send the browser back to

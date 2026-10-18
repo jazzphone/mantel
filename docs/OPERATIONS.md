@@ -27,14 +27,14 @@ Every request arrives by a **door**. `lan` is the house network, served straight
 ~/.venvs/mantel/bin/mantel-server --ha-url http://192.0.2.53:8123 --commands-enabled   # do not, see section 8
 ```
 
-It reads Home Assistant's token from `~/.config/mantel/ha_token` and stops with a message if the file is missing. The startup line says what mode it is in: `read-only; commands disabled`, or `COMMANDS ENABLED (...)`. Open `/login` (passkey, user name + password with the authenticator code when one is set up, or "Sign in with Home Assistant"; see [phase3/LOGIN-PAGE.md](phase3/LOGIN-PAGE.md)); it then goes on to `/home` (the default screen), or back to the page that sent you there.
+It reads Home Assistant's token from `~/.config/mantel/ha_token` if that file exists. Without it the server starts anyway, not connected, and says where to fix that: sign in as the Owner and open `/admin` → **Connections** (section 2a). A connection saved there wins over the file. The startup line says what mode it is in: `read-only; commands disabled`, or `COMMANDS ENABLED (...)`. Open `/login` (passkey, user name + password with the authenticator code when one is set up, or "Sign in with Home Assistant"; see [phase3/LOGIN-PAGE.md](phase3/LOGIN-PAGE.md)); it then goes on to `/home` (the default screen), or back to the page that sent you there.
 
 ### Flags
 
 | Flag | Default | Meaning |
 |---|---|---|
 | `--ha-url` | `http://192.0.2.53:8123` | Home Assistant's address. |
-| `--token-file` | `~/.config/mantel/ha_token` | Mantel's HA token, read at startup and never printed. The HA user must be an administrator (HK Settings' read needs one, and the command path uses it). |
+| `--token-file` | `~/.config/mantel/ha_token` | Optional: the installation's HA token, read at startup and never printed; shown on the Connections page as "set by the installation". The HA user should be an administrator (HK Settings' read needs one, and the command path uses it). Normally HA is set up on the page instead (section 2a). |
 | `--port` | `8765` | Listening port. |
 | `--listen ADDRESS` | loopback only | Container mode. Needs `--public-url`. Without `--listen` the server binds `127.0.0.1` and nothing else is possible. |
 | `--public-url URL` | none | The `https://` address browsers use (through Caddy). It becomes HA's OAuth `client_id`, so "Sign in with Home Assistant" works behind Caddy. |
@@ -44,6 +44,8 @@ It reads Home Assistant's token from `~/.config/mantel/ha_token` and stops with 
 | `--connect-port`, `--connect-listen`, `--connect-address` | `8766`, `0.0.0.0`, none | The listener's port and address; the address `/admin` shows the Owner to type into the App. |
 | `--data-dir` | `~/.local/share/mantel` | Where `mantel.db` lives. |
 | `--secrets-dir` | `~/.config/mantel/secrets` | Folder of secret files (the at-rest key). |
+| `--ma-url`, `--ma-token-file` | none, `/run/secrets/ma_token` | Optional: Music Assistant from the installation. Normally set up on the Connections page. |
+| `--ha-managed-by-app` | off | HA App mode only (the entrypoint sets it): HA is the App's own credential, read-only on the Connections page. |
 | `--commands-enabled` | off | Turns the command gateway on. See section 8. |
 | `--house-tz` | `UTC` | Time zone for grant schedules when HA does not say. HA's own zone is used once read. |
 | `--audit-retention-days` | `365` | Audit rows older than this are purged hourly. Must be at least 30. |
@@ -58,7 +60,8 @@ The entrypoint turns `MANTEL_*` variables from `packaging/compose/.env` into tho
 
 | Variable | Becomes | Notes |
 |---|---|---|
-| `MANTEL_HA_URL`, `MANTEL_PUBLIC_URL` | `--ha-url`, `--public-url` | Required. |
+| `MANTEL_PUBLIC_URL` | `--public-url` | Required. |
+| `MANTEL_HA_URL`, `MANTEL_MA_URL` | `--ha-url`, `--ma-url` | Optional: normally Home Assistant and Music Assistant are set up on the admin page (section 2a). With an address here and a non-empty `ha_token` / `ma_token` file the page shows them as "set by the installation". |
 | `MANTEL_ALLOW_HOSTS` | `--allow-host` | Comma list, for example the LAN IP. |
 | `MANTEL_TRUSTED_PROXY` | `--trusted-proxy` | Compose sets Caddy's fixed backend address `172.31.251.2`. Must be IP addresses. |
 | `MANTEL_DEFAULT_SCREEN`, `MANTEL_SESSION_HOURS` | `--screen`, `--session-hours` | Optional. |
@@ -73,16 +76,28 @@ Secrets are **files**, never environment variables, the image or the repository.
 
 | File | What | Needed |
 |---|---|---|
-| `ha_token` | Long-lived token of a dedicated HA administrator user for Mantel. Create it fresh; never reuse a personal token. | yes |
+| `ha_token` | Optional (an empty placeholder is fine): a long-lived token of a dedicated HA administrator user. Normally Mantel's own sealed copy is made on the Connections page instead (section 2a). Never reuse a personal token. | no |
 | `at_rest.key` | 32 random bytes, base64. Seals TOTP seeds and device keys in SQLite; read from `/run/secrets` (`--secrets-dir`). **Keep a copy off the box.** | create it now |
 | `backup.key` | 32 random bytes, base64. Encrypts the nightly backup. **Keep a copy off the box.** | create it now |
-| `ma_token` | Music Assistant token. | when the connector is wired |
+| `ma_token` | Optional, like `ha_token`: Music Assistant's token; normally set on the Connections page. | no |
 | `cloudflare_dns_token` | Cloudflare token (Zone:DNS:Edit on one zone) for Caddy's DNS-01 certificates. | only with DNS-01 TLS |
 | `cloudflared_token` | The tunnel token. | only with `--profile tunnel` |
 
 In the LXC, `mantel-secret <name>` reads a secret from the keyboard (no echo, no history) into the right place with the right owner. Rotate by replacing the file and `docker compose restart <service>`. Full details: [../packaging/compose/secrets/README.md](../packaging/compose/secrets/README.md).
 
+Credentials set on the Connections page are **not** in this folder (it is read-only inside the container): Mantel keeps them in `<data-dir>/connections/` (`/data/connections`), folder 0700, files 0600, sealed with `at_rest.key`, and inside every encrypted backup. Mantel's saved copy wins over a file here.
+
 Secrets at rest in SQLite (TOTP seeds) are encrypted with AES-256-GCM using `<secrets-dir>/at_rest.key`, created 0600 on first use. **Losing this file makes every enrolled TOTP unreadable**, so back it up with the database (section 10). Tokens, passwords and PINs are stored only as hashes.
+
+### 2a. Connecting Home Assistant and Music Assistant (the Connections page)
+
+Setup now: **start the container, create the first Owner (section 3), open `/admin` → Connections.** The page opens there by itself while Home Assistant is not set up.
+
+1. **Home Assistant.** Type its address (for example `http://homeassistant.local:8123`, the address *Mantel's* network reaches it at), then **Connect to Home Assistant**: HA's sign-in page opens; sign in **as the HA user Mantel should act as**, a dedicated administrator (create one named `mantel-server` in HA first: Settings → People → Add person, "Can log in", administrator). Back on Mantel's page you see who Mantel would act as, HA's version and how many entities it has; **Save this connection**. Mantel makes a long-lived token for that user (`Mantel Server (<date>)` in that user's HA profile) and revokes the short sign-in. Or paste a long-lived token made in that user's profile (Security → Long-lived access tokens) and press Test, then Save. The browser must be able to reach the HA address for the sign-in; otherwise paste a token.
+2. **Music Assistant** (optional). Its address (`http://<host>:8095`), then an MA user name and password (MA 2.7+; used once to make a long-lived token, not kept; MA's tokens last a year and the page shows the date) or a pasted token. Test, Save.
+3. Nothing to restart: Mantel connects at once (open screens just receive the new states). `/healthz` turns `ok`.
+
+Only an Owner changes connections; on the tunnel door that needs a fresh factor; Admins see the status. Each change is audited (`config`, `connection.ha.saved`, never the token). **Replace** saves a new one; **Disconnect** removes Mantel's saved copy (and falls back to the installation's file if there is one). Disconnecting does not revoke the token in HA: delete `Mantel Server (<date>)` from that user's profile too if you want it gone. In the Mantel App (HA App mode) Home Assistant shows "Provided by Home Assistant (App)" and is not editable; Music Assistant is. Details: [phase3/ADMIN-PAGE.md](phase3/ADMIN-PAGE.md) "Connections".
 
 ### The data folder
 
@@ -122,7 +137,7 @@ There is no Owner on a new database, and nothing creates one for you. Two ways; 
 mantel-server link --ha-user-id <id> --role owner --name "Avery"
 ```
 
-**B. A Mantel account with a password.** Only while no enabled Owner exists:
+**B. A Mantel account with a password** (the usual first start in Docker or the LXC, where nothing is linked to HA yet). Only while no enabled Owner exists. Make a one-time setup code on the server, then open `/login`: while no Owner exists it shows **First start** with fields for the setup code, user name, name and password; it creates the Owner, signs them in and opens `/admin` → Connections. The same by REST:
 
 ```bash
 mantel-server bootstrap            # prints a one-time token, valid one hour; a new run replaces it

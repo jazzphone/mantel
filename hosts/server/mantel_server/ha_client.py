@@ -123,11 +123,26 @@ class HaClient:
         self.biggest: list[tuple[int, list[str]]] = []  # largest event frames: (bytes, first entity ids)
         self.updates_by_entity: TallyCounter[str] = TallyCounter()  # after the initial snapshot
         self.connected_since: float | None = None
+        self.last_error: str | None = None   # why the last attempt failed (plain words, never the token)
+        self.ha_version: str | None = None
         self._next_id = 0
         self._pending: dict[int, asyncio.Future] = {}
         self._sub_id: int | None = None
         self._ws: aiohttp.ClientWebSocketResponse | None = None
         self._first_event = True
+        self._retarget = asyncio.Event()     # connections.py: new address/credential, reconnect now
+
+    def retarget(self, ws_url: str, token: str) -> None:
+        """A new Home Assistant address and/or credential (the Connections page, hot apply). The open
+        connection is closed; run() reconnects with the new values at once. An empty token parks run()
+        until a credential arrives. Pages connected to Mantel keep their sockets and their last states."""
+        self.ws_url = ws_url
+        self._token = token
+        self.last_error = None
+        self._retarget.set()
+        ws = self._ws
+        if ws is not None and not ws.closed:
+            asyncio.get_running_loop().create_task(ws.close())
 
     async def _send(self, message: dict) -> None:
         check_outgoing(message)
@@ -148,6 +163,12 @@ class HaClient:
         backoff = 1.0
         async with aiohttp.ClientSession() as session:
             while True:
+                if not self._token:            # not set up yet (Connections page): wait for a credential
+                    self.last_error = None
+                    await self._retarget.wait()
+                    self._retarget.clear()
+                    continue
+                self._retarget.clear()
                 try:
                     await self._session(session)
                     backoff = 1.0
@@ -157,6 +178,7 @@ class HaClient:
                     log.error("HA client stopped: %s", exc)
                     raise
                 except Exception as exc:  # reconnect on anything else
+                    self.last_error = str(exc) if isinstance(exc, RuntimeError) else type(exc).__name__
                     log.warning("HA connection lost (%s: %s); retrying in %.0fs", type(exc).__name__, exc, backoff)
                 self.connected.clear()
                 self.connected_since = None
@@ -164,8 +186,14 @@ class HaClient:
                     if not fut.done():
                         fut.cancel()
                 self._pending.clear()
-                await asyncio.sleep(backoff)
-                backoff = min(backoff * 2, 30.0)
+                if self._retarget.is_set():    # retargeted: reconnect now, with the new values
+                    backoff = 1.0
+                    continue
+                try:
+                    await asyncio.wait_for(self._retarget.wait(), backoff)
+                    backoff = 1.0
+                except asyncio.TimeoutError:
+                    backoff = min(backoff * 2, 30.0)
 
     async def _session(self, session: aiohttp.ClientSession) -> None:
         async with session.ws_connect(self.ws_url, max_msg_size=0, heartbeat=30) as ws:
@@ -178,6 +206,8 @@ class HaClient:
             if reply.get("type") != "auth_ok":
                 raise RuntimeError("Home Assistant rejected the token (auth_invalid)")
             log.info("authenticated to Home Assistant %s", reply.get("ha_version", "?"))
+            self.ha_version = reply.get("ha_version")
+            self.last_error = None
             self.connected.set()
             self.connected_since = time.time()
             self._first_event = True
@@ -550,10 +580,22 @@ class HaCommander:
     def __repr__(self) -> str:  # never the token
         return f"HaCommander({self.base_url!r}, sent={len(self.sent)})"
 
+    def retarget(self, base_url: str, ws_url: str, token: str) -> None:
+        """New address/credential (connections.py): the command socket is closed and the next command
+        connects with the new values. A command in flight on the old socket fails (it was audited)."""
+        self.base_url = base_url.rstrip("/")
+        self.ws_url = ws_url
+        self._token = token
+        ws = self._ws
+        if ws is not None and not ws.closed:
+            asyncio.get_running_loop().create_task(ws.close())
+
     async def _connect(self) -> aiohttp.ClientWebSocketResponse:
         async with self._lock:
             if self._ws is not None and not self._ws.closed:
                 return self._ws
+            if not self._token:
+                raise ConnectionError("Home Assistant is not connected yet (admin page: Connections)")
             self._http = self._http or aiohttp.ClientSession()
             ws = await self._http.ws_connect(self.ws_url, max_msg_size=0, heartbeat=30)
             first = await asyncio.wait_for(ws.receive_json(), self.timeout)
