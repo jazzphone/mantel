@@ -277,6 +277,50 @@ async def rotate(request: web.Request) -> web.Response:
                              headers={"Cache-Control": "no-store"})
 
 
+SUMMARY = API + "/summary"           # GET: the Connections page's HTTPS panel (Owner/Admin; never a secret)
+
+MODES = {
+    "ha_app": ("Home Assistant App (Ingress)", "Home Assistant terminates HTTPS and signs people in; Mantel sees only Ingress."),
+    "caddy": ("Caddy (Mantel's own)", "Mantel's Caddy terminates HTTPS and stamps the door header itself."),
+    "own": ("Your own reverse proxy", "Your proxy terminates HTTPS and must send the door header and this installation's door key."),
+    "direct": ("No proxy", "Mantel listens on plain HTTP on this machine (Mantel itself does not terminate TLS): "
+                           "fine on loopback, not for remote use."),
+}
+
+
+def mode_of(cfg) -> str:
+    if getattr(cfg, "ingress_only", False):
+        return "ha_app"
+    kind = getattr(cfg, "proxy_kind", "") or ""
+    if kind in ("caddy", "own"):
+        return kind
+    return "own" if getattr(cfg, "trusted_proxies", ()) else "direct"
+
+
+async def summary(request: web.Request) -> web.Response:
+    """What the Connections page's HTTPS panel draws: the mode, the trusted proxy settings and whether a door
+    key is set (and since when). NEVER the key itself: it is shown only by the Test my proxy report and
+    once after a rotation, to an Owner."""
+    ident = sessions.identity(request)
+    if ident.user is None or ident.device is not None or ident.user.role not in ("owner", "admin"):
+        raise web.HTTPForbidden(text="Owners and admins only")
+    cfg = request.app.get("cfg")
+    mode = mode_of(cfg)
+    dk = door_key.of(request.app)
+    need = door_key.required(cfg)
+    return web.json_response({
+        "mode": mode, "mode_label": MODES[mode][0], "mode_detail": MODES[mode][1],
+        "proxy_kind": getattr(cfg, "proxy_kind", "") or "",
+        "trusted_proxies": list(getattr(cfg, "trusted_proxies", ()) or ()),
+        "public_url": getattr(cfg, "public_url", "") or "",
+        "https_seen": proxy_trust.is_https(request),
+        "door_key": {"required": need, "set": bool(need and dk is not None and dk.value()),
+                     "since": dk.since() if need and dk is not None else None, "header": door_key.HEADER},
+        "can_rotate": ident.user.role == "owner" and need and dk is not None,
+        "test_url": PAGE,
+    }, headers={"Cache-Control": "no-store"})
+
+
 async def api(request: web.Request) -> web.Response:
     _owner(request)
     return web.json_response(report(request), headers={"Cache-Control": "no-store"})
@@ -339,4 +383,5 @@ def register(app: web.Application, hub=None) -> None:
     app.router.add_get(PAGE, page)
     app.router.add_get(PAGE + "/{name}", asset)
     app.router.add_get(API, api)
+    app.router.add_get(SUMMARY, summary)
     app.router.add_get(WS, ws)

@@ -170,3 +170,47 @@ def test_the_key_is_required_only_with_your_own_proxy():
     from mantel_server.config import Config
     assert door_key.required(Config(proxy_kind="own"))
     assert not door_key.required(Config(proxy_kind="caddy")) and not door_key.required(Config())
+
+
+async def test_the_connections_panel_summary_shows_mode_and_key_status_never_the_key(m):
+    key = m.app["door_key"].value()
+    r = await m.client.get(proxy_check.SUMMARY, headers=GOOD)
+    body = await r.json()
+    assert r.status == 200 and body["mode"] == "own" and body["trusted_proxies"] == [PROXY]
+    assert body["door_key"]["required"] and body["door_key"]["set"] and body["door_key"]["since"]
+    assert body["can_rotate"] is True and body["test_url"] == "/proxy-check"
+    assert key not in json.dumps(body)
+    # not an Owner/Admin: refused; signed out: refused
+    await m.user("kid", "child")
+    m.client.session.cookie_jar.clear()
+    assert (await m.client.get(proxy_check.SUMMARY, headers=GOOD)).status in (401, 403)
+    status = (await m.client.post("/api/auth/password", json={"username": "adult", "password": "correct horse battery staple"},
+                                  headers=GOOD)).status
+    assert status == 200
+    assert (await m.client.get(proxy_check.SUMMARY, headers=GOOD)).status == 403
+
+
+async def test_an_admin_sees_the_summary_but_cannot_rotate(m):
+    await m.user("adm", "admin")
+    m.client.session.cookie_jar.clear()
+    assert (await m.client.post("/api/auth/password", json={"username": "adm", "password": "correct horse battery staple"},
+                                headers=GOOD)).status == 200
+    body = await (await m.client.get(proxy_check.SUMMARY, headers=GOOD)).json()
+    assert body["mode"] == "own" and body["can_rotate"] is False
+    r = await m.client.post(proxy_check.DOOR_KEY, headers={**GOOD, "X-CSRF-Token": m.cookie("mantel_csrf")})
+    assert r.status == 403
+
+
+def test_the_mode_names():
+    from mantel_server.config import Config
+    assert proxy_check.mode_of(Config(ingress_only=True)) == "ha_app"
+    assert proxy_check.mode_of(Config(proxy_kind="caddy")) == "caddy"
+    assert proxy_check.mode_of(Config(proxy_kind="own")) == "own"
+    assert proxy_check.mode_of(Config()) == "direct"
+
+
+def test_the_admin_page_draws_the_https_panel_from_the_summary():
+    from pathlib import Path
+    js = (Path(__file__).resolve().parents[1] / "hosts/server/mantel_server/static/admin/admin.js").read_text()
+    assert "/api/admin/proxy-check/summary" in js and "door-key-rotate" in js and "Test my proxy" in js
+    assert "['owner', 'admin'].includes" in js

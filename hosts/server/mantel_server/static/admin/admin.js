@@ -1011,8 +1011,9 @@ function withPageToken(panel, info, can) {
 
 // HTTPS and the reverse proxy (proxy_check.py): Owner only. The check itself is /proxy-check's module
 // (runProxyCheck), run here in place; the full page stays at /proxy-check.
-function proxyPanel() {
+function proxyPanel(isOwner) {
   const out = h('div', { id: 'proxy-check-results' });
+  const info = h('div', { id: 'proxy-info' }, note('Loading'));
   const test = btn('Test my proxy', async () => {
     test.disabled = true;
     out.replaceChildren(note('Checking…'));
@@ -1023,9 +1024,37 @@ function proxyPanel() {
       out.replaceChildren(note('The check failed: ' + (e && e.message ? e.message : e), 'status err'));
     } finally { test.disabled = false; }
   }, '', 'proxy-check');
+  const shownKey = h('div', { id: 'proxy-newkey', 'aria-live': 'polite' });
+  const draw = (s) => {
+    const lines = [
+      meta('Mode: ' + s.mode_label), note(s.mode_detail, 'muted small'),
+      meta('HTTPS on this request: ' + (s.https_seen ? 'yes' : 'no') + (s.public_url ? '; configured address ' + s.public_url : '')),
+      meta('Trusted proxies: ' + (s.trusted_proxies.length ? s.trusted_proxies.join(', ') : 'none')),
+    ];
+    if (s.door_key.required) {
+      lines.push(meta('Door key (' + s.door_key.header + '): ' + (s.door_key.set ? 'set' + (s.door_key.since ? ', since ' + fmt(s.door_key.since) : '') : 'not set')));
+      lines.push(note('Your proxy must send this installation’s door key with the door header. The key is shown once after a change, and in Test my proxy.', 'muted small'));
+      if (s.can_rotate) {
+        lines.push(h('div', { class: 'acts' }, btn('Rotate door key', async () => {
+          if (!(await confirmDialog('Rotate the door key?', 'Your proxy must then send the new key; until you paste it in, its requests are treated as coming from the internet.', 'Rotate', true))) return;
+          try {
+            const r = await api('POST', '/api/admin/proxy-check/door-key');
+            shownKey.replaceChildren(note('New door key (shown once; paste it into your proxy):', 'small'), h('code', { id: 'proxy-newkey-value' }, r.door_key.value));
+            say('Door key rotated.', 'ok');
+            const again = await api('GET', '/api/admin/proxy-check/summary');
+            draw(again);
+          } catch (e) { shownKey.replaceChildren(errorPanel(e)); }
+        }, 'danger', 'door-key-rotate')));
+      }
+    } else lines.push(note('No door key is needed in this mode.', 'muted small'));
+    lines.push(shownKey);
+    info.replaceChildren(...lines);
+  };
+  api('GET', '/api/admin/proxy-check/summary').then(draw, (e) => info.replaceChildren(errorPanel(e)));
   return h('section', { class: 'panel', id: 'p-conn-proxy' }, h('h3', null, 'HTTPS and your proxy'),
-    note('How browsers reach Mantel: Mantel’s Caddy, your own reverse proxy (Nginx Proxy Manager, Traefik, …) or a Cloudflare tunnel. The test checks HTTPS, the trusted proxy, the door header, HSTS, the security policy and WebSockets from this browser, and says what to change.', 'muted small'),
-    h('div', { class: 'acts' }, test, h('a', { class: 'btn small', href: '/proxy-check', target: '_blank', rel: 'noopener' }, 'Open the full page')),
+    note('How browsers reach Mantel: Mantel’s Caddy, your own reverse proxy (Nginx Proxy Manager, Traefik, …), the Home Assistant App or a Cloudflare tunnel. The test checks HTTPS, the trusted proxy, the door header, HSTS, the security policy and WebSockets from this browser, and says what to change.', 'muted small'),
+    info,
+    isOwner ? h('div', { class: 'acts' }, test, h('a', { class: 'btn small', href: '/proxy-check', target: '_blank', rel: 'noopener' }, 'Open the full page')) : note('Only an Owner can run the test.', 'muted small'),
     out);
 }
 
@@ -1041,7 +1070,7 @@ function renderConnections(root) {
         can && got.needs_fresh ? note('From outside the home network you will be asked to confirm it is you first.', 'muted small') : null,
         connectionPanel('ha', got.connections.ha, can, reload),
         withPageToken(connectionPanel('ma', got.connections.ma, can, reload), got.connections.ma, can),
-        state.me && state.me.user && state.me.user.role === 'owner' ? proxyPanel() : null,
+        state.me && state.me.user && ['owner', 'admin'].includes(state.me.user.role) ? proxyPanel(state.me.user.role === 'owner') : null,
       ]));
     } catch (e) { panels.replaceChildren(errorPanel(e)); }
   };
