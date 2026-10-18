@@ -20,9 +20,28 @@
   var ce = global.customElements;
   if (!ce || ce.get('hk-icon')) return;
 
-  var ICON_CSS = ':host{display:inline-flex;align-items:center;justify-content:center;position:relative;' +
-    'vertical-align:middle;fill:currentcolor;width:var(--mdc-icon-size,24px);height:var(--mdc-icon-size,24px)}' +
-    'svg{width:100%;height:100%;pointer-events:none;display:block}';
+  // HA's ha-icon is two boxes: the element itself (`:host{fill:currentColor}`, so INLINE) and the
+  // ha-svg-icon it renders inside (inline-flex, --mdc-icon-size square). HK's cards were tuned
+  // against exactly that (hk-base.js's well, hk-media.js's vOffset), so hk-icon draws the same two
+  // boxes with the same rules (frontend 2026.9): `.i` is ha-svg-icon's :host. Nothing is drawn
+  // until a name is set, as ha-icon renders nothing without one.
+  var ICON_CSS = ':host{fill:currentcolor}' +
+    '.i{display:var(--ha-icon-display,inline-flex);vertical-align:middle;fill:var(--icon-primary-color,currentcolor);' +
+    'width:var(--mdc-icon-size,24px);height:var(--mdc-icon-size,24px);justify-content:center;align-items:center;position:relative}' +
+    '.i[hidden]{display:none}' +
+    'svg{pointer-events:none;width:100%;height:100%;display:block}' +
+    'path.p{opacity:var(--icon-primary-opactity,1)}' +
+    'path.s{fill:var(--icon-secondary-color,currentcolor);opacity:var(--icon-secondary-opactity,.5)}';
+
+  // Icons asked for before their set (or the host's MDI database, hkIcons) was registered: they
+  // are drawn again when it is (hk-icons.js calls hkElements.iconsetAdded), not left blank.
+  var waiting = new Set();
+  function known(name) {
+    var i = (name || '').indexOf(':'), set = i < 0 ? 'mdi' : name.slice(0, i);
+    var custom = global.customIconsets && global.customIconsets[set];
+    if (typeof custom === 'function') return true;
+    return set === 'mdi' && !!(global.hkIcons && typeof global.hkIcons.mdiPath === 'function');
+  }
 
   // name -> {path, secondaryPath?, viewBox?} or null; never throws
   function resolve(name) {
@@ -46,8 +65,8 @@
       super();
       var root = this.attachShadow({ mode: 'open' });
       root.innerHTML = '<style>' + ICON_CSS + '</style>' +
-        '<svg viewBox="0 0 24 24" preserveAspectRatio="xMidYMid meet" focusable="false" role="img" aria-hidden="true">' +
-        '<path class="p"></path><path class="s" style="opacity:.4"></path></svg>';
+        '<span class="i" hidden><svg viewBox="0 0 24 24" preserveAspectRatio="xMidYMid meet" focusable="false" role="img" aria-hidden="true">' +
+        '<g><path class="p"></path><path class="s"></path></g></svg></span>';
       this._icon = '';
       this._drawn = null;
     }
@@ -62,7 +81,9 @@
     // what is drawn now ({path, secondaryPath, viewBox} or null), for tests and callers
     get drawn() { return this._drawn; }
     _load() {
-      var want = this._icon, self = this;
+      var want = this._icon, self = this, box = this.shadowRoot.querySelector('.i');
+      if (box) box.hidden = !want;
+      if (want && !known(want)) waiting.add(this); else waiting.delete(this);
       return resolve(want).then(function (icon) { if (want === self._icon) self._paint(icon); });
     }
     _paint(icon) {
@@ -123,5 +144,13 @@
 
   ce.define('hk-icon', HkIcon);
   ce.define('hk-plate', HkPlate);
-  global.hkElements = { version: '1.0.0', resolveIcon: resolve, PLATE_CSS: PLATE_CSS };
+  // an iconset (or hkIcons) has just been registered: draw the icons that asked too early
+  function iconsetAdded() {
+    var again = [];
+    waiting.forEach(function (el) { if (known(el._icon)) again.push(el); });
+    again.forEach(function (el) { waiting.delete(el); el._load(); });
+    return again.length;
+  }
+
+  global.hkElements = { version: '1.1.0', resolveIcon: resolve, iconsetAdded: iconsetAdded, PLATE_CSS: PLATE_CSS, ICON_CSS: ICON_CSS };
 })(globalThis);

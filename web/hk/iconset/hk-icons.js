@@ -107,6 +107,10 @@ window.customIconsets["hk"] = async (name) => {
   return mdi ? { path: mdi, viewBox: '0 0 24 24' } : undefined;
 };
 window.hkIcons = { version: "1.1.0", mdiPath, MDI_ALIAS };
+// HK's own hk-icon (elements/hk-elements.js) draws an icon asked for before this set existed
+// again now; it never caches a miss, so no repair shim is needed for it (the one below is for
+// Home Assistant's ha-icon, which other cards on the page may still use with hk: names).
+try { window.hkElements && window.hkElements.iconsetAdded && window.hkElements.iconsetAdded(); } catch (e) { /* no elements */ }
 // ---------------------------------------------------------------------------
 // Self-heal for ha-icon's permanently-cached failure.
 //
