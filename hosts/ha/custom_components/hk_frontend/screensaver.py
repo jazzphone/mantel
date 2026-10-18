@@ -36,6 +36,12 @@ input_boolean.wallpanel_screensaver_<room> (its Tablet Room) and automations
 on it. While that helper exists the switch mirrors it both ways, so nothing
 breaks and the house can move to the switch in its own time; once it is
 deleted the mirror is simply idle.
+
+The rules are shared (hk_core/screensaver/: the board each tablet reads, the
+in-use window, who may speak for a tablet, the black screen's meaning, when a
+tablet gets a Sleep Screen engine) and re-exported here under their names;
+the entities, devices, registry, websocket commands, timers and the engines
+(sleep_engine.py) are Home Assistant's.
 """
 from __future__ import annotations
 
@@ -55,50 +61,28 @@ from homeassistant.util import dt as dt_util
 
 from . import settings as S
 from .const import DOMAIN, SIGNAL_CONFIG
+from .hk_core.screensaver import rules as R
+from .hk_core.screensaver.rules import (  # noqa: F401 -- shared
+    BLACK_KEY, INUSE_KEY, MARGIN, MIN_WINDOW, SWITCH_KEY, as_board, window_of,
+)
 
 _LOGGER = logging.getLogger(__name__)
 DATA = "saver"                 # hass.data[DOMAIN][DATA]: the manager
-SWITCH_KEY = "photo_screensaver"
-BLACK_KEY = "black_screen"
-INUSE_KEY = "screen_in_use"
-MARGIN = 60                    # s: the window is Starts After less this
-MIN_WINDOW = 15
-
-
-def window_of(starts_after: int) -> int:
-    """The in-use window for a Starts After: a minute less, so the photos can
-    only come up after the screen has stopped counting as in use (the house's
-    reconciler and the screensaver can never disagree about who goes first)."""
-    return max(MIN_WINDOW, int(starts_after) - MARGIN)
 
 
 def wanted(entry: ConfigEntry) -> dict[str, dict[str, Any]]:
     """The tablets, each with what its entities and Sleep Screen read (1.14:
     a tablet's own, no longer a screen's). `{tablet id: {"sub": its item,
     "tablet": tablet(), "board": as_board()}}`."""
-    out: dict[str, dict[str, Any]] = {}
     tabs = S.tablets(entry)
     screens = {s.unique_id: s for s in entry.subentries.values()
                if s.subentry_type == S.SUBENTRY_DASHBOARD and s.unique_id}
-    for sub in entry.subentries.values():
-        if sub.subentry_type != S.SUBENTRY_TABLET or sub.unique_id not in tabs:
-            continue
-        t = tabs[sub.unique_id]
-        scr = screens.get(t["screen"])
-        b = S.resolved(S.board(scr.data if scr else None), entry.options)
-        out[sub.unique_id] = {"sub": sub, "tablet": t, "board": as_board(t, b)}
-    return out
+    items = {sub.unique_id: sub for sub in entry.subentries.values() if sub.subentry_type == S.SUBENTRY_TABLET}
 
-
-def as_board(t: dict[str, Any], b: dict[str, Any]) -> dict[str, Any]:
-    """What Sleep Screen and the entities read, in the shape they always
-    read it: the tablet's Sleep Screen and Black Screen, its screen's
-    screensaver options (Starts After), the screen's path and the tablet's
-    user and room."""
-    return {"sleep": t["sleep"], "black_screen": t["black_screen"],
-            "screensaver_options": b["screensaver_options"], "screensaver": b["screensaver"],
-            "dashboard": t["screen"], "tablet_user": t["user"], "idle_room": t["room"],
-            "notify": b.get("notify", True), "notify_dnd": b.get("notify_dnd")}
+    def screen_board(path: str) -> dict[str, Any]:
+        scr = screens.get(path)
+        return S.resolved(S.board(scr.data if scr else None), entry.options)
+    return R.wanted(items, tabs, screen_board)
 
 
 class Manager:
@@ -159,12 +143,12 @@ class Manager:
             # a tablet lifted off its screen (1.14): its device moves to the
             # tablet's item BEFORE its entities are added there
             self._adopt(dev, w["sub"].subentry_id)
-            for kind, platform, cls in (("switch", "switch", PhotoScreensaver), ("black", "switch", BlackScreen),
-                                        ("binary_sensor", "binary_sensor", ScreenInUse),
-                                        ("sleep", "sensor", SleepScreenSensor)):
+            classes = {"switch": PhotoScreensaver, "black": BlackScreen, "binary_sensor": ScreenInUse,
+                       "sleep": SleepScreenSensor}
+            for kind, platform in R.KINDS:
                 if kind in have or platform not in self.adders:
                     continue
-                ent = cls(self, tid, name, uid)
+                ent = classes[kind](self, tid, name, uid)
                 have[kind] = ent
                 self.adders[platform]([ent], config_subentry_id=w["sub"].subentry_id)
         self._sync_engines(want)
@@ -197,20 +181,18 @@ class Manager:
     def _sync_engines(self, want: dict[str, Any]) -> None:
         """An engine for each screen whose Sleep Screen is Decided By HK
         Frontend (or shadow), built again when what it reads changes."""
-        import json
         from .sleep_engine import Engine
         for path in list(self.engines):
-            sl = (want.get(path) or {}).get("board", {}).get("sleep") or {}
-            if sl.get("decided_by") not in ("hk", "shadow"):
+            if not R.deciding((want.get(path) or {}).get("board", {})):
                 self.engines.pop(path).unload()
                 self._engine_keys.pop(path, None)
         for path, w in want.items():
             b = w["board"]
-            if (b.get("sleep") or {}).get("decided_by") not in ("hk", "shadow"):
+            if not R.deciding(b):
                 continue
             have = self.entities.get(path, {})
             ids = {k: getattr(e, "entity_id", None) for k, e in have.items()}
-            key = json.dumps([b.get("sleep"), b.get("black_screen"), b.get("screensaver_options"), ids], sort_keys=True, default=str)
+            key = R.engine_key(b, ids)
             if self._engine_keys.get(path) == key:
                 continue
             eng = self.engines.get(path) or Engine(self.hass, self, path)
@@ -233,40 +215,24 @@ class Manager:
     def tablets_on(self, path: str, user: Any = None) -> list[str]:
         """The tablets running screen `path` -- those signed in as `user`
         (a Home Assistant user) first, when given."""
-        mine = [tid for tid, w in wanted(self.entry).items() if w["tablet"]["screen"] == path]
-        if user is not None:
-            mine.sort(key=lambda tid: self.board(tid)["tablet_user"] != getattr(user, "name", None))
-        return mine
+        return R.tablets_on(wanted(self.entry), path,
+                            R.ANYONE if user is None else getattr(user, "name", None))
+
+    def _ids(self) -> dict[str, dict[str, str | None]]:
+        return {tid: {k: e.entity_id for k, e in have.items()} for tid, have in self.entities.items()}
 
     def switch_ids(self) -> dict[str, str]:
         """{path: entity id} of each screen's switch, for the settings feed."""
-        out: dict[str, str] = {}
-        for path, have in self.entities.items():
-            sw = have.get("switch")
-            if sw is not None and sw.entity_id:
-                out[path] = sw.entity_id
-        return out
+        return R.ids_of(self._ids(), "switch")
 
     def black_ids(self) -> dict[str, str]:
         """{path: entity id} of each screen's black screen switch."""
-        out: dict[str, str] = {}
-        for path, have in self.entities.items():
-            b = have.get("black")
-            if b is not None and b.entity_id:
-                out[path] = b.entity_id
-        return out
+        return R.ids_of(self._ids(), "black")
 
     def entity_ids(self) -> dict[str, dict[str, str | None]]:
         """{path: {"switch": id, "in_use": id}} for the settings page, which
         names them on the screen's Screensaver page."""
-        out: dict[str, dict[str, str | None]] = {}
-        for path, have in self.entities.items():
-            sw, use, blk, slp = have.get("switch"), have.get("binary_sensor"), have.get("black"), have.get("sleep")
-            out[path] = {"switch": sw.entity_id if sw is not None else None,
-                         "in_use": use.entity_id if use is not None else None,
-                         "black": blk.entity_id if blk is not None else None,
-                         "sleep": slp.entity_id if slp is not None else None}
-        return out
+        return R.named(self._ids())
 
     @callback
     def saver_touched(self, path: str) -> None:
@@ -299,15 +265,11 @@ class SaverEntity:
         self._attr_device_info = device_info(mgr.entry, uid, title)
 
     def _starts_after(self) -> int:
-        return int(self._mgr.board(self._path)["screensaver_options"]["starts_after"])
+        return R.starts_after(self._mgr.board(self._path))
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
-        t = self._mgr.touch.get(self._path)
-        sa = self._starts_after()
-        return {"tablet": self._path, "dashboard": self._mgr.board(self._path).get("dashboard") or None,
-                "starts_after": sa, "in_use_window": window_of(sa),
-                "last_touch": t.isoformat() if t else None}
+        return R.attributes(self._path, self._mgr.board(self._path), self._mgr.touch.get(self._path))
 
     def touched(self) -> None:
         self.async_write_ha_state()
@@ -357,7 +319,8 @@ def _which(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg:
     if not tid or tid not in mgr.entities:
         return mgr, None
     owner = mgr.board(tid)["tablet_user"]
-    if not (user and (user.is_admin or not owner or user.name == owner)):
+    if not R.may_speak_for(owner, signed_in=bool(user), admin=bool(user and user.is_admin),
+                           name=user.name if user else None):
         return mgr, ""
     return mgr, tid
 
