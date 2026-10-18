@@ -100,7 +100,8 @@ dashboard URL sent to `/login?next=…`.
 ## Not done
 
 * Conditional mediation (passkeys offered in the user-name field's autofill) — a later nicety.
-* `POST /api/auth/passkey/options {username}` still returns that user's credential ids (P3.1
-  behaviour); the page does not use it.
+* ~~`POST /api/auth/passkey/options {username}` returns that user's credential ids~~ fixed (`8a2ea4a`):
+  the user name is honoured only for that same signed-in person (admin step-up); signed out the request
+  is always discoverable, and registration now requires a discoverable credential.
 * `tools/headless/admin_page_check.py` was updated for the new redirect but not re-run here; no
   headless check of `/login` yet.
