@@ -119,9 +119,16 @@ function messageOf(status, data) {
   return status ? 'The server answered ' + status + '.' : 'Could not reach the server.';
 }
 
+// The session's CSRF token as it is now: the readable cookie is renewed with the session (another tab, a
+// rotated refresh), so it wins over the copy the page read when it loaded.
+function csrfNow() {
+  const m = document.cookie.match(/(?:^|;\s*)mantel_csrf=([^;]*)/);
+  return (m && decodeURIComponent(m[1])) || state.csrf || '';
+}
+
 async function api(method, path, body, opts = {}) {
   const init = { method, credentials: 'same-origin', headers: { Accept: 'application/json' } };
-  if (method !== 'GET') init.headers['X-CSRF-Token'] = state.csrf || '';
+  if (method !== 'GET') init.headers['X-CSRF-Token'] = csrfNow();
   if (body !== undefined) {
     init.headers['Content-Type'] = 'application/json';
     init.body = JSON.stringify(body);
@@ -140,6 +147,10 @@ async function api(method, path, body, opts = {}) {
   }
   if (res.status === 403 && data && data.error === 'step_up_required' && opts.retry !== false) {
     if (await stepUp()) return api(method, path, body, { retry: false });
+  }
+  if (res.status === 403 && data && data.error === 'csrf' && method !== 'GET' && !opts.csrfRetried) {
+    try { await refreshMe(); } catch (e) { /* the retry reports */ }   // the session's token, read again
+    return api(method, path, body, { ...opts, csrfRetried: true });
   }
   if (!res.ok) throw new ApiError(res.status, data);
   return data;
@@ -683,7 +694,7 @@ async function uploadFile(kind, file, name) {
   fd.append('file', file, file.name);
   let res;
   try {
-    res = await fetch(url('/api/user-files/' + kind), { method: 'POST', credentials: 'same-origin', headers: { Accept: 'application/json', 'X-CSRF-Token': state.csrf || '' }, body: fd });
+    res = await fetch(url('/api/user-files/' + kind), { method: 'POST', credentials: 'same-origin', headers: { Accept: 'application/json', 'X-CSRF-Token': csrfNow() }, body: fd });
   } catch (e) { throw new ApiError(0, null); }
   let data = null;
   try { data = await res.json(); } catch (e) { data = null; }

@@ -51,6 +51,7 @@ main { padding: 8px 16px 48px; max-width: 980px; margin: 0 auto; }
 .panel > :last-child { margin-bottom: 0; }
 .panel > h3:first-child { margin-top: 0; }
 .acts select { width: auto; min-width: 130px; }
+fieldset > .acts, .panel > .acts { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 10px; }
 .panel.warn { background: var(--warn-soft); }
 .token { background: var(--acc-soft); border-color: var(--acc); }
 
