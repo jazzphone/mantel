@@ -163,4 +163,104 @@ H.run('CLIENT SUBSCRIPTIONS', [function () {
     H.eq('an unsubscribe the restarted server never knew resolves; any other refusal still rejects',
          got.join(), 'resolved:undefined,rejected:unknown_error');
   });
+}, function () {
+  H.section('a reconnect\'s stale unsubscribe ends no new subscription (2026-10-18)');
+  // home-assistant-js-websocket's Connection, the parts this race runs through, as HA 2026.9
+  // ships it (_handleClose, _setSocket, subscribeMessage): ids start again on every socket, an
+  // old subscription is sent again on the new one, and until that is answered its unsubscribe
+  // keeps the OLD id -- sent on the new socket, then deleted from the new table.
+  function Conn() { this.commandId = 1; this.commands = new Map(); this.wire = []; this.socket = { n: 1 }; }
+  Conn.prototype._genCmdId = function () { return ++this.commandId; };
+  Conn.prototype.sendMessage = function (msg, id) {
+    if (!id) id = this._genCmdId();
+    msg.id = id;
+    this.wire.push({ socket: this.socket.n, type: msg.type, id: id, subscription: msg.subscription });
+  };
+  Conn.prototype.sendMessagePromise = function (msg) {
+    var self = this;
+    return new Promise(function (resolve, reject) {
+      var id = self._genCmdId();
+      self.commands.set(id, { resolve: resolve, reject: reject });
+      self.sendMessage(msg, id);
+    });
+  };
+  Conn.prototype.subscribeMessage = function (cb, msg, opts) {
+    var self = this, info;
+    return new Promise(function (resolve, reject) {
+      var id = self._genCmdId();
+      info = { resolve: resolve, reject: reject, callback: cb,
+               subscribe: !(opts && opts.resubscribe === false) ? function () { return self.subscribeMessage(cb, msg, opts); } : undefined,
+               unsubscribe: function () {
+                 return self.sendMessagePromise({ type: 'unsubscribe_events', subscription: id })
+                   .then(function () { self.commands.delete(id); });
+               } };
+      self.commands.set(id, info);
+      self.sendMessage(msg, id);
+    }).then(function () { return function () { return info.unsubscribe(); }; });
+  };
+  // the server: answers what it was sent on this socket, and drops an unsubscribed id
+  Conn.prototype.serve = function () {
+    var self = this, live = this.live || (this.live = {});
+    this.wire.forEach(function (w) {
+      if (w.done || w.socket !== self.socket.n) return;
+      w.done = true;
+      if (w.type === 'unsubscribe_events') delete live[w.subscription]; else live[w.id] = true;
+      var c = self.commands.get(w.id);
+      if (c) c.resolve(null);
+    });
+  };
+  Conn.prototype.event = function (id, ev) {           // the server's event, if it still has the id
+    var c = this.commands.get(id);
+    if (this.live[id] && c && c.callback) c.callback(ev);
+  };
+  Conn.prototype.reconnect = function () {
+    var old = this.commands;
+    this.commandId = 1; this.commands = new Map(); this.socket = { n: this.socket.n + 1 }; this.live = {};
+    old.forEach(function (info) {
+      if (info.subscribe) info.subscribe().then(function (u) { info.unsubscribe = u; info.resolve(); });
+    });
+  };
+  function settle() { var p = Promise.resolve(); for (var i = 0; i < 12; i++) p = p.then(function () {}); return p; }
+  // A screen's feeds before the restart: one HK lets go of itself on a reconnect (2), the
+  // menu button's notifications (3). After it: the notifications sent again, HK's settings
+  // anew -- and the menu button removed before its resubscribe is answered.
+  function upgrade(guarded) {
+    var conn = new Conn(), got = [], bell, settingsId;
+    if (guarded) window.hkHAClient.from({ states: {}, connection: conn });
+    var a = conn.subscribeMessage(function () {}, { type: 'hk_frontend/events/subscribe' }, { resubscribe: false });
+    var b = conn.subscribeMessage(function () {}, { type: 'persistent_notification/subscribe' });
+    conn.serve();
+    return Promise.all([a, b]).then(function (u) {
+      bell = u[1];
+      conn.reconnect();
+      var s = conn.subscribeMessage(function (ev) { got.push(ev); }, { type: 'hk_frontend/settings/subscribe' });
+      settingsId = conn.commandId;
+      bell();                                           // its resubscribe not answered yet
+      return settle().then(function () { conn.serve(); return s; });
+    }).then(function () {
+      return settle();
+    }).then(function () {
+      conn.event(settingsId, { kinds: { lights: ['light.a'] } });
+      return { conn: conn, got: got, settingsId: settingsId };
+    });
+  }
+  return upgrade(false).then(function (r) {
+    H.eq('the library alone: the stale unsubscribe names the new settings feed', r.conn.wire.filter(function (w) {
+      return w.type === 'unsubscribe_events'; }).map(function (w) { return w.socket + ':' + w.subscription; }).join(), '2:' + r.settingsId);
+    H.eq('the library alone: the settings feed hears nothing more', r.got.length, 0);
+    return upgrade(true);
+  }).then(function (r) {
+    H.eq('guarded: no unsubscribe for an old socket\'s id goes out', r.conn.wire.filter(function (w) {
+      return w.type === 'unsubscribe_events'; }).length, 0);
+    H.ok('guarded: ids go on from the last one given, on the new socket too', r.settingsId > 3);
+    H.eq('guarded: the settings feed still hears the server', r.got.length, 1);
+    // a subscription of the new socket still lets go for real
+    var c = r.conn, p = c.subscribeMessage(function () {}, { type: 'subscribe_events' }), id = c.commandId;
+    c.serve();
+    return p.then(function (u) {
+      u();
+      H.ok('guarded: an unsubscribe of this socket goes out', c.wire.some(function (w) {
+        return w.type === 'unsubscribe_events' && w.subscription === id; }));
+    });
+  });
 }]);
