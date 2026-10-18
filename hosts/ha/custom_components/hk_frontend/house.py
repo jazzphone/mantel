@@ -22,7 +22,7 @@ from .hk_core.house import Device, Entity, Floor, State
 
 def state_view(st) -> State | None:
     """An HA State as the port's plain view (None stays None)."""
-    return State(st.entity_id, st.state, dict(st.attributes)) if st is not None else None
+    return State(st.entity_id, st.state, dict(st.attributes), st.last_changed) if st is not None else None
 
 
 _state = state_view

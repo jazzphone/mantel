@@ -150,7 +150,7 @@ quiet('the Climate row leaving a room out rebuilds nothing (no page depends on i
 // strategy's LIVE_KEYS fails here (the tab bar's thirteen and `ha_place` once
 // rebuilt every screen -- sheets closed, cameras reconnected -- on each change).
 (function () {
-  var py = read(HK_ROOT + '/settings.py');
+  var py = read(HK_ROOT + '/hk_core/settings/model.py');   // the settings model (hk_core)
   var m = /\nMENU_KEYS = \{([\s\S]*?)\}\n/.exec(py);
   var keys = m ? (m[1].match(/"([a-z_]+)":/g) || []).map(function (k) { return k.slice(1, -2); }) : [];
   ok('settings.py MENU_KEYS read (' + keys.length + ' keys)', keys.length >= 20, keys.length);

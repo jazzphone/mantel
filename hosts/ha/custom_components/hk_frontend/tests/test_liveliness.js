@@ -107,7 +107,7 @@ var x2=scene({all:'custom',occ:{christmas:'custom'},custom:{christmas:{sleigh:0,
 check('Sleigh Off: no sleigh; Lights Off: steady (lv-still)',!x2.querySelector('.sleigh')&&x2.classes['lv-still']===true);
 
 // ---- the table is the same everywhere
-var model=read(HK_ROOT+'/frontend/panels/hk-settings-model.js'),py=read(HK_ROOT+'/settings.py');
+var model=read(HK_ROOT+'/frontend/panels/hk-settings-model.js'),py=read(HK_ROOT+'/hk_core/settings/model.py');   // the settings model (hk_core)
 var knobs=Object.keys(LV.KNOBS);
 check('every knob has its kind and type in settings.py LIVELY_KNOBS',knobs.every(function(k){
   var m=new RegExp('"'+k+'": *\\("'+LV.KNOBS[k][0]+'", *"'+LV.KNOBS[k][1]+'"\\)').exec(py);return !!m;}),
