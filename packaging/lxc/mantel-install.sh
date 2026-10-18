@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Runs INSIDE the Mantel container (mantel.sh executes it with pct exec). Debian 13, as root.
 # Installs Docker + Compose, prepares the secret folder and .env, and builds the images.
-# It does NOT start Mantel: that needs your Home Assistant token first (printed at the end).
+# It does NOT start Mantel (printed at the end). Home Assistant is connected afterwards in the browser
+# (/admin -> Connections), so no token file has to be handled.
 # Idempotent: running it again keeps your .env and secret files.
 set -euo pipefail
 
@@ -101,12 +102,14 @@ fi
 cat <<EOF
 
 Installed. Mantel is NOT running yet. Finish like this:
-  1. mantel-secret ha_token                 # token of the dedicated HA user "mantel-server"
-  2. nano ${COMPOSE_DIR}/.env               # MANTEL_HOSTNAME, MANTEL_HA_URL, TLS choice
+  1. nano ${COMPOSE_DIR}/.env               # MANTEL_HOSTNAME and the TLS choice (no Home Assistant token needed)
      (DNS-01 TLS also needs:  mantel-secret cloudflare_dns_token)
-  3. cd ${COMPOSE_DIR} && docker compose up -d --wait
-  4. docker compose run --rm mantel-server links     # first-Owner linking stays an explicit admin step
-$([ "${MANTEL_CONNECT:-no}" = "yes" ] && echo "  5. Mantel in Home Assistant's sidebar: install the Mantel Connect App there, then
+  2. cd ${COMPOSE_DIR} && docker compose up -d --wait
+  3. docker compose exec mantel-server mantel bootstrap   # a one-time setup code for the first Owner
+  4. In a browser: https://<MANTEL_HOSTNAME>/login -> "First start": the code, your user name and password
+  5. Then /admin -> Connections -> "Connect to Home Assistant" (sign in there as a dedicated HA
+     administrator, e.g. "mantel-server"), and Music Assistant if you use it. No restart needed.
+$([ "${MANTEL_CONNECT:-no}" = "yes" ] && echo "  6. Mantel in Home Assistant's sidebar: install the Mantel Connect App there, then
        docker compose exec mantel-server mantel connect pair --address $(hostname -I | awk '{print $1}'):8766
      (docs/phase3/CONNECT.md)")
 EOF

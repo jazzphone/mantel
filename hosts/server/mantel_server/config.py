@@ -64,6 +64,9 @@ class Config:
     ingress_only: bool = False
     ha_door_rules: str = "tunnel"                          # "tunnel" | "lan" | "trusted" (the HA App's default)
     ha_ws_url: str = ""                                    # explicit HA WebSocket URL (App: ws://supervisor/core/websocket)
+    # HA App mode: Home Assistant is reached with the Supervisor's own App credential, so the Connections
+    # page shows HA as "Provided by Home Assistant (App)" and never edits it (connections.py)
+    ha_managed_by_app: bool = False
     # Mantel Connect (connect_pairing.py): Mantel Server OUTSIDE HA, reached by the Connect App in HA's sidebar
     # over mutual TLS on its own port. Implies ingress mode (identity from the paired App's X-Remote-User-*
     # headers), but trusts no socket peer: `ingress_peers` stays empty unless --ingress is also given.
@@ -87,6 +90,13 @@ class Config:
     def connect_dir(self) -> Path:
         """The Connect certificate authority and listener certificate (private keys, mode 0600)."""
         return Path(self.data_dir).expanduser() / "connect"
+
+    @property
+    def connections_dir(self) -> Path:
+        """Mantel's own copies of the HA and MA credentials set on the Connections page (connections.py):
+        sealed with the at-rest key, folder 0700, files 0600, on the data volume (in the container stacks
+        the install's secrets folder is a read-only mount) and inside every encrypted backup."""
+        return Path(self.data_dir).expanduser() / "connections"
 
     @property
     def user_files_dir(self) -> Path:
@@ -170,6 +180,9 @@ def parse_args(argv: list[str] | None = None) -> Config:
     p.add_argument("--ha-ws-url", default="", metavar="URL",
                    help="Home Assistant's WebSocket URL when it is not <ha-url>/api/websocket "
                         "(HA App: ws://supervisor/core/websocket)")
+    p.add_argument("--ha-managed-by-app", action="store_true",
+                   help="HA App mode: the Home Assistant credential is the Supervisor's (the Connections page "
+                        "shows it as provided by Home Assistant and does not edit it)")
     p.add_argument("--connect", action="store_true",
                    help="Mantel Connect: also listen (TLS, client certificates) for the Connect App in Home Assistant's "
                         "sidebar, and offer pairing (mantel connect pair; /admin). Off by default")
@@ -249,6 +262,7 @@ def parse_args(argv: list[str] | None = None) -> Config:
                  connect=bool(a.connect), connect_port=a.connect_port, connect_listen=a.connect_listen,
                  connect_address=a.connect_address,
                  ingress_only=bool(a.ingress_only), ha_door_rules=a.ha_door_rules, ha_ws_url=a.ha_ws_url,
+                 ha_managed_by_app=bool(a.ha_managed_by_app),
                  log_level=a.log_level, go2rtc_url=a.go2rtc_url.rstrip("/"),
                  live_tv_hardware="" if a.live_tv_hardware == "none" else a.live_tv_hardware)
     assert cfg.host in LOOPBACK or cfg.public_url, "Mantel listens beyond loopback only in container mode"

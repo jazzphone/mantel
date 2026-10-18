@@ -1298,6 +1298,18 @@ class MusicHost:
                 "keep_ready": {"on": self.warmer.on, "last": self.warmer.status()},
                 "announcements": "not on Mantel (HA watches its own service calls)"}
 
+    def connection_changed(self) -> None:
+        """Music Assistant was connected, moved or disconnected on the Connections page (connections.py,
+        server.apply_connection): ``self.ma`` already reads the new client (or None). Screens subscribed to
+        Mantel's feed get it again now. A screen that is on the interim bridge, or on Mantel's feed after a
+        disconnect, keeps that subscription until it subscribes again (its next page load or reconnect);
+        reads and commands switch at once."""
+        log.info("music: Music Assistant %s; Mantel's engine is %s", "connected" if self.ma is not None else "removed",
+                 "on" if self.active else "off (the interim bridge answers)")
+        if self._subs:
+            for sid in list(self._subs):
+                asyncio.get_running_loop().create_task(self._push_one(sid, force=True))
+
     async def start(self) -> None:
         self.started = True
         self.warmer.follow()

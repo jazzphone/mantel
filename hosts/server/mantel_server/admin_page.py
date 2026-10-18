@@ -10,7 +10,7 @@ The one thing added here is a read the UI was missing, ``GET /api/admin/overview
 sign-in factors I have, which no existing read tells me), the door, my CSRF token, the lists the
 forms offer (roles, actions, features, …) and **which sections this identity may use**. The section
 list uses the same checks as the routes behind them (Owner/Admin for people and devices, Owner for
-roles and service accounts, the ``configure`` grant on the ``audit`` feature for the audit), so a
+roles and service accounts, Owner/Admin for Connections, the ``configure`` grant on the ``audit`` feature for the audit), so a
 section is hidden exactly when its API would refuse; the API still refuses on its own.
 
 CSP (docs/phase3/PACKAGING.md): the page needs ``script-src 'self'`` and, being all external files with
@@ -35,7 +35,7 @@ ASSET = PAGE + "/{name}"
 OVERVIEW = "/api/admin/overview"
 ASSETS = {"admin.js": "text/javascript", "admin.css": "text/css"}
 # admin.js imports ../webauthn.js (the passkey helpers shared with /login), served by login_page.py
-SECTIONS = ("me", "people", "devices", "files", "roles", "service", "connect", "audit")
+SECTIONS = ("me", "connections", "people", "devices", "files", "roles", "service", "connect", "audit")
 
 CSP = ("default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; "
        "base-uri 'none'; form-action 'self'; frame-ancestors 'none'")
@@ -57,6 +57,7 @@ def sections_for(request: web.Request, ident: Identity) -> list[str]:
     role = ident.user.role
     if role in MANAGERS:                   # accounts.require_manager guards /api/users and /api/devices
         out += ["people", "devices", "files"]   # files: user_files' REST, also require_manager
+        out.append("connections")          # connections.py: Owner/Admin read; only an Owner changes
     if role == "owner":                    # rbac_store's REST is Owner-only
         out.append("roles")
         if ident.door == "lan":            # service_accounts' REST: an Owner's own session, LAN door only
@@ -113,6 +114,8 @@ async def overview(request: web.Request) -> web.Response:
         "features": list(rbac.FEATURES),
         "service_scopes": sorted(SERVICE_SCOPES),
         "connect_port": getattr(request.app["cfg"], "connect_port", None),
+        # first run: the page opens Connections while Home Assistant is not set up (connections.py)
+        "ha_set_up": (request.app["connections"].current("ha") is not None) if "connections" in request.app else True,
     }, headers=HEADERS)
 
 

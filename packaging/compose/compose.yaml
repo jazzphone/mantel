@@ -87,9 +87,12 @@ services:
     mem_limit: 1g
     cpus: 2.0
     pids_limit: 256
-    # Settings are plain variables (nothing secret); the HA token is a file under /run/secrets.
+    # Settings are plain variables (nothing secret). HA/MA tokens are set on the admin page (Connections) and
+    # sealed on the data volume; an installation's token files under /run/secrets still work.
     environment:
-      MANTEL_HA_URL: ${MANTEL_HA_URL:?set MANTEL_HA_URL in .env}
+      # optional: Home Assistant is normally set up on the admin page (/admin, Connections) after the
+      # first start; an address here plus the ha_token file is shown there as "set by the installation"
+      MANTEL_HA_URL: ${MANTEL_HA_URL:-}
       MANTEL_PUBLIC_URL: https://${MANTEL_HOSTNAME:?set MANTEL_HOSTNAME in .env}/
       MANTEL_ALLOW_HOSTS: ${MANTEL_ALLOW_HOSTS:-}
       MANTEL_HA_TOKEN_FILE: /run/secrets/ha_token

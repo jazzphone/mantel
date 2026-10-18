@@ -189,6 +189,13 @@ picked up on the next connect. The value is never stored on the client or logged
 empty file stops the connector (`MaTokenMissing`). A rejected token keeps retrying with backoff
 (1 s doubling to 30 s), because the secret may get fixed.
 
+**Since 2026-10-18 (Connections page, `connections.py`):** `MaClient(..., token_source=callable)` takes the token
+from Mantel's own sealed copy (set on `/admin` → Connections) when there is one, else from the installation's file
+(called at each connect, never stored on the client); `MaClient.retarget(url, token_source)` closes the socket and
+reconnects to a new address/token (listeners get `mantel_reconnected`). `register` looks the client up as
+`app["ma"]` at each message (it may be built, retargeted or removed at run time) and leaves `app["ma_gate"]` for
+the client built later. That is the whole interface the Connections work needs from this module.
+
 ## Camera flow
 
 ```

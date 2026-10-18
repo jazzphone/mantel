@@ -7,16 +7,25 @@ folder. Commands stay off. The stack runs under its own compose project and is t
 
     ~/.venvs/mantel/bin/python tools/e2e/compose_e2e.py
 
-Checks: every service healthy; through Caddy (TLS, the public hostname) /healthz says HA is connected;
-the security headers (CSP, HSTS, nosniff, frame-ancestors); the server runs as uid 10001 on a read-only
-root with /data writable; `bootstrap` and `backup` pass through the entrypoint; the backup restores
-(--verify-only) with the backup key. LIVE TV (live_tv.py): with a fake tuner service added for the run
-(tools/e2e/fake_tuner.py, an MPEG-2/AC-3 test stream; `tuner:5004` on the egress network), the first Owner
-(bootstrap, through Caddy) turns Live TV on, reads the channel list over /ws, and the page's WebRTC offer is
-answered by the stack's own go2rtc, which runs the transcode from the tuner with Mantel's templates; closing
-the player removes the stream; the page never sees go2rtc's or the tuner's address.
+Home Assistant is set up THROUGH THE PAGE, as a person would (connections.py): no HA address in .env and an
+empty ha_token file. The stack starts unconnected; the first Owner is created with `mantel bootstrap` and
+POST /api/bootstrap (what the login page's first-start form sends); then, through Caddy, a pasted long-lived
+token is tested, and "Connect to Home Assistant" runs HA's real login flow (as the scratch HA's throwaway
+user) back to Mantel's callback, and is saved. Mantel connects without a restart.
 
-    MANTEL_SERVER_IMAGE=mantel-server:<tag> ...   runs a server image other than mantel-server:local
+Checks: every service healthy; HA not connected before the page sets it up; the security headers (CSP, HSTS,
+nosniff, frame-ancestors); the connection tested and saved through the page, sealed in /data/connections
+(0600), never in a response or a log; /healthz then says HA is connected; the server runs as uid 10001 on a
+read-only root with /data writable; `bootstrap` and `backup` pass through the entrypoint; the backup restores
+(--verify-only) with the backup key.
+
+LIVE TV (live_tv.py): with a fake tuner service added for the run (tools/e2e/fake_tuner.py, an MPEG-2/AC-3
+test stream; `tuner:5004` on the egress network), the Owner (signed in with the password set at first start)
+turns Live TV on, reads the channel list over /ws, and the page's WebRTC offer is answered by the stack's own
+go2rtc, which runs the transcode from the tuner with Mantel's templates; closing the player removes the stream;
+the page never sees go2rtc's or the tuner's address.
+
+MANTEL_E2E_SERVER_IMAGE=<tag> runs another server image than mantel-server:local (a branch's own build).
 """
 from __future__ import annotations
 
@@ -69,6 +78,113 @@ def key() -> str:
 async def scratch_token() -> str:
     async with aiohttp.ClientSession() as h:
         return await testha.access_token(h)
+
+
+def caddy_session() -> aiohttp.ClientSession:
+    ctx = ssl.create_default_context()
+    ctx.check_hostname, ctx.verify_mode = False, ssl.CERT_NONE
+    return aiohttp.ClientSession(connector=aiohttp.TCPConnector(ssl=ctx), cookie_jar=aiohttp.CookieJar(unsafe=True))
+
+
+async def caddy_call(s: aiohttp.ClientSession, method: str, path: str, body=None, params=None) -> tuple[int, object]:
+    """One request to Mantel through Caddy on the public hostname, as the page sends it (Origin, CSRF, JSON)."""
+    headers = {"Host": HOST, "Origin": f"https://{HOST}"}
+    jar = {c.key: c.value for c in s.cookie_jar}
+    if "mantel_csrf" in jar:
+        headers["X-CSRF-Token"] = jar["mantel_csrf"]
+    async with s.request(method, f"https://127.0.0.1:{PORT}{path}", headers=headers, server_hostname=HOST,
+                         json=body, params=params, allow_redirects=False) as r:
+        text = await r.text()
+        try:
+            return r.status, json.loads(text)
+        except ValueError:
+            return r.status, text
+
+
+async def scratch_long_lived_token() -> str:
+    """A long-lived token of the scratch HA's throwaway user, as a person would paste it."""
+    async with aiohttp.ClientSession() as h:
+        access = await testha.access_token(h)
+        async with h.ws_connect(f"ws://127.0.0.1:{testha.PORT}/api/websocket") as ws:
+            await ws.receive_json()
+            await ws.send_json({"type": "auth", "access_token": access})
+            await ws.receive_json()
+            await ws.send_json({"id": 1, "type": "auth/long_lived_access_token",
+                                "client_name": f"compose e2e {secrets.token_hex(3)}", "lifespan": 1})
+            return (await ws.receive_json())["result"]
+
+
+async def ha_login_code(client_id: str, redirect_uri: str) -> str:
+    """HA's own login page, done over its login-flow API with the scratch user: the authorization code."""
+    c = testha.creds()
+    async with aiohttp.ClientSession() as h:
+        async with h.post(testha.BASE + "/auth/login_flow", json={"client_id": client_id, "handler": ["homeassistant", None],
+                                                                  "redirect_uri": redirect_uri}) as r:
+            flow = await r.json()
+        async with h.post(testha.BASE + f"/auth/login_flow/{flow['flow_id']}",
+                          json={"username": c["username"], "password": c["password"], "client_id": client_id}) as r:
+            done = await r.json()
+    if done.get("type") != "create_entry":
+        raise SystemExit(f"HA's login flow did not finish: {done.get('type')} {done.get('errors')}")
+    return done["result"]
+
+
+async def set_up_through_the_page(base: list, env: dict, work: Path) -> dict:
+    """The first Owner, then Home Assistant on the Connections page; returns what was seen."""
+    from urllib.parse import parse_qs, urlparse
+    seen: dict = {}
+    boot = sh(*base, "exec", "-T", "mantel-server", "mantel", "bootstrap", env=env, check_rc=False)
+    (work / "bootstrap.out").write_text("(setup code withheld)\n" if boot.returncode == 0 else boot.stderr)
+    code = next((ln.strip() for ln in boot.stdout.splitlines() if ln.startswith("    ") and ln.strip()), "")
+    check(boot.returncode == 0 and code, "`docker compose exec mantel-server mantel bootstrap` passes through the entrypoint")
+    password = secrets.token_urlsafe(18)
+    llat = await scratch_long_lived_token()
+    seen["secrets"] = [llat, password, code]
+    async with caddy_session() as s:
+        status, body = await caddy_call(s, "GET", "/api/bootstrap")
+        check(status == 200 and body.get("open") is True, "first start: the setup is open (the login page offers it)")
+        status, body = await caddy_call(s, "POST", "/api/bootstrap", {"token": code, "username": "owner-e2e",
+                                                                       "name": "E2E Owner", "password": password})
+        check(status == 200, f"the first Owner is created through Caddy (HTTP {status})")
+        status, body = await caddy_call(s, "GET", "/api/admin/overview")
+        check(status == 200 and body.get("ha_set_up") is False and "connections" in body.get("sections", []),
+              "the admin page opens on Connections: Home Assistant is not set up")
+        ha_url = f"http://host.docker.internal:{testha.PORT}"
+        status, body = await caddy_call(s, "POST", "/api/connections/ha/test", {"url": ha_url, "token": "not-a-real-token"})
+        check(status == 422 and body.get("error") == "token_refused" and "did not accept" in body.get("message", ""),
+              "a wrong token is refused in plain words")
+        status, body = await caddy_call(s, "POST", "/api/connections/ha/test", {"url": ha_url, "token": llat})
+        r = body.get("result", {}) if isinstance(body, dict) else {}
+        check(status == 200 and (r.get("entities") or 0) > 10 and r.get("version") and (r.get("user") or {}).get("is_admin"),
+              f"a pasted long-lived token tests live: HA {r.get('version')}, {r.get('entities')} entities, as {(r.get('user') or {}).get('name')}")
+        # Connect to Home Assistant: HA's real login (its login-flow API, as its sign-in page uses it)
+        status, body = await caddy_call(s, "POST", "/api/connections/ha/oauth/start", {"url": ha_url})
+        q = parse_qs(urlparse(body["authorize_url"]).query)
+        check(status == 200 and q["client_id"] == [f"https://{HOST}/"]
+              and q["redirect_uri"] == [f"https://{HOST}/auth/connection/callback"],
+              "Connect to Home Assistant: HA's authorize page, with Mantel's public address as the client")
+        code_ha = await ha_login_code(q["client_id"][0], q["redirect_uri"][0])
+        status, text = await caddy_call(s, "GET", "/auth/connection/callback", params={"state": q["state"][0], "code": code_ha})
+        check(status == 200 and f"connection={body['pending']}" in str(text), "HA sent the browser back; Mantel tested the sign-in")
+        status, got = await caddy_call(s, "GET", f"/api/connections/pending/{body['pending']}")
+        p = got.get("pending", {}) if isinstance(got, dict) else {}
+        check(p.get("state") == "ready" and (p.get("result") or {}).get("entities"),
+              f"the pending connection shows who Mantel would act as ({(p.get('result') or {}).get('user', {}).get('name')})")
+        status, saved = await caddy_call(s, "POST", "/api/connections/ha", {"pending": body["pending"]})
+        conn = saved.get("connection", {}) if isinstance(saved, dict) else {}
+        check(status == 200 and conn.get("source") == "mantel" and (conn.get("saved") or {}).get("method") == "oauth",
+              "saved: a long-lived token made for that user, sealed by Mantel")
+        deadline, live = time.time() + 60, {}
+        while time.time() < deadline:
+            _, st = await caddy_call(s, "GET", "/api/connections")
+            live = st["connections"]["ha"]["live"]
+            if live.get("connected") and live.get("entities"):
+                break
+            await asyncio.sleep(2)
+        check(live.get("connected") is True and live.get("entities"),
+              f"applied without a restart: Mantel is connected ({live.get('entities')} entities, HA {live.get('version')})")
+        seen["responses"] = json.dumps([body, got, saved, st, r])
+    return seen
 
 
 async def through_caddy(path: str) -> tuple[int, dict, str]:
@@ -131,7 +247,7 @@ def tuner_files(work: Path) -> Path:
 
 
 async def live_tv(token: str, base: list[str], env: dict) -> None:
-    """Through Caddy, as a page: the first Owner (bootstrap), Live TV turned on, the channel list, a WebRTC
+    """Through Caddy, as a page (`token`: the Owner's password from first start): signed in, Live TV turned on, the channel list, a WebRTC
     offer answered by the stack's go2rtc, the tuner pulled, the stream removed when the player closes."""
     ctx = ssl.create_default_context()
     ctx.check_hostname, ctx.verify_mode = False, ssl.CERT_NONE
@@ -140,10 +256,8 @@ async def live_tv(token: str, base: list[str], env: dict) -> None:
     kw = {"headers": {"Host": f"{HOST}:{PORT}", "Origin": origin}, "server_hostname": HOST}
     jar = aiohttp.CookieJar(unsafe=True)
     async with aiohttp.ClientSession(connector=aiohttp.TCPConnector(ssl=ctx), cookie_jar=jar) as s:
-        pw = secrets.token_urlsafe(18)
-        r = await s.post(f"{url}/api/bootstrap", json={"token": token, "username": "e2eowner", "name": "E2E Owner",
-                                                        "password": pw}, **kw)
-        check(r.status == 200, f"Live TV: the first Owner is created through Caddy (HTTP {r.status})")
+        r = await s.post(f"{url}/api/auth/password", json={"username": "owner-e2e", "password": token}, **kw)
+        check(r.status == 200, f"Live TV: the Owner signs in through Caddy (HTTP {r.status})")
         csrf = next((c.value for c in jar if c.key == "mantel_csrf"), "")
         settings = {"live_tv": {"enabled": True, "tuner": "tuner:5004", "channels": ["4.1"], "names": {"4.1": "NBC"}}}
         r = await s.put(f"{url}/api/features/settings", json=settings,
@@ -219,14 +333,15 @@ def main() -> int:
     sec = work / "secrets"
     sec.mkdir(mode=0o700)
     (work / "backups").mkdir()
-    token = asyncio.run(scratch_token())
-    for name, text in {"ha_token": token, "ma_token": "", "at_rest.key": key(), "backup.key": key(),
+    # Home Assistant is set up through the page: an empty ha_token file (as the LXC script makes it) and no address
+    for name, text in {"ha_token": "", "ma_token": "", "at_rest.key": key(), "backup.key": key(),
                        "cloudflare_dns_token": "", "cloudflared_token": ""}.items():
         (sec / name).write_text(text)
         os.chmod(sec / name, 0o444)            # Docker Desktop: the container's user must read them
     (compose_dir / ".env").write_text("\n".join([
         f"MANTEL_HOSTNAME={HOST}", "MANTEL_LAN_IP=127.0.0.1",
-        f"MANTEL_HA_URL=http://host.docker.internal:{testha.PORT}",
+        "MANTEL_HA_URL=",
+        *([f"MANTEL_SERVER_IMAGE={os.environ['MANTEL_E2E_SERVER_IMAGE']}"] if os.environ.get("MANTEL_E2E_SERVER_IMAGE") else []),
         "MANTEL_TLS_SNIPPET=./caddy/tls-internal.caddy", f"MANTEL_SECRETS_DIR={sec}",
         f"MANTEL_HTTPS_PORT={PORT}", f"MANTEL_BACKUP_DIR={work / 'backups'}", "MANTEL_BACKUP_TARGET=",
         "MANTEL_MA_URL=", *([f"MANTEL_SERVER_IMAGE={os.environ['MANTEL_SERVER_IMAGE']}"]
@@ -247,9 +362,25 @@ def main() -> int:
         if up.returncode:
             (work / "up.log").write_text(up.stdout + up.stderr)
             say("compose up failed; see", work / "up.log")
+        probe = "import urllib.request as u;print(u.urlopen('http://127.0.0.1:8765/healthz').read().decode())"
+        out = sh(*base, "exec", "-T", "mantel-server", "python", "-c", probe, env=env, check_rc=False).stdout
+        try:
+            first = json.loads(out)
+        except ValueError:
+            first = {}
+        check(first.get("upstream", {}).get("home_assistant", {}).get("connected") is False,
+              "started with no Home Assistant credential: running, not connected (status degraded)")
+        seen = asyncio.run(set_up_through_the_page(base, env, work))
+        token = seen["secrets"][0]
+        mode = sh(*base, "exec", "-T", "mantel-server", "sh", "-c",
+                  "stat -c '%a %u' /data/connections /data/connections/ha.connection", env=env, check_rc=False).stdout.split()
+        check(mode == ["700", "10001", "600", "10001"], f"the sealed connection file: /data/connections 0700, ha.connection 0600 ({mode})")
+        raw = sh(*base, "exec", "-T", "mantel-server", "sh", "-c", "grep -c eyJ /data/connections/ha.connection || true",
+                 env=env, check_rc=False).stdout.strip()
+        check(raw == "0", "the file is sealed (no token text in it)")
+        check(not any(x in seen["responses"] for x in seen["secrets"]), "no token or password in any answer to the page")
         # Mantel connected to the scratch HA (health is internal: read it inside the container)
         deadline, body = time.time() + 60, {}
-        probe = "import urllib.request as u;print(u.urlopen('http://127.0.0.1:8765/healthz').read().decode())"
         while time.time() < deadline:
             out = sh(*base, "exec", "-T", "mantel-server", "python", "-c", probe, env=env, check_rc=False).stdout
             try:
@@ -277,15 +408,11 @@ def main() -> int:
         rw = sh(*base, "exec", "-T", "mantel-server", "sh", "-c", "touch /data/.w && echo ok", env=env, check_rc=False)
         check(uid == "10001" and ro.returncode != 0 and rw.stdout.strip() == "ok",
               f"mantel-server: uid {uid}, read-only root, /data writable")
-        # admin commands through the entrypoint
-        boot = sh(*base, "exec", "-T", "mantel-server", "mantel", "bootstrap", env=env, check_rc=False)
-        (work / "bootstrap.out").write_text(boot.stdout + boot.stderr)
-        check(boot.returncode == 0 and "bootstrap" in (boot.stdout + boot.stderr).lower(),
-              "`docker compose exec mantel-server mantel bootstrap` passes through the entrypoint")
-        tok = next((ln.strip() for ln in boot.stdout.splitlines()
-                    if ln.startswith("    ") and ln.strip() and " " not in ln.strip()), "")
-        if check(bool(tok), "the bootstrap printed a one-time setup token"):
-            asyncio.run(live_tv(tok, base, env))
+        # admin commands through the entrypoint (bootstrap was used above)
+        logs = sh(*base, "logs", "--no-color", "mantel-server", env=env, check_rc=False)
+        check(not any(x in logs.stdout + logs.stderr for x in seen["secrets"][:2]),
+              "the server's log holds no token and no password")
+        asyncio.run(live_tv(seen["secrets"][1], base, env))
         bk = sh(*base, "exec", "-T", "mantel-server", "mantel", "backup", "--target", "/backups", env=env, check_rc=False)
         (work / "backup.out").write_text(bk.stdout + bk.stderr)
         files = sorted((work / "backups").glob("*.mbk"))

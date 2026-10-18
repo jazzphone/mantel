@@ -124,11 +124,15 @@ def main(argv: list[str] | None = None) -> int:
                         format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     try:
         token = read_token(cfg.token_file)
-    except TokenMissing as exc:
-        print(f"mantel-server: {exc}\nCreate a long-lived access token in Home Assistant and save it there (chmod 600).",
-              file=sys.stderr)
-        return 2
+    except TokenMissing:
+        if cfg.ha_managed_by_app:          # the App's credential is written by the entrypoint: it must be there
+            print(f"mantel-server: the Home Assistant App credential file {cfg.token_file} is missing", file=sys.stderr)
+            return 2
+        token = ""                         # the Connections page (or a saved copy of Mantel's own) supplies it
     app = build_app(cfg, token)
+    if not app["connections"].ha_token():
+        print(f"mantel-server: Home Assistant is not connected yet. Sign in as the Owner and open "
+              f"{cfg.base_url}admin#connections to connect it.", flush=True)
     mode = ("COMMANDS ENABLED (roles, step-up and an audit row for every command)" if cfg.commands_enabled
             else "read-only; commands disabled")
     print(f"mantel-server: {cfg.base_url}login  (listening on {cfg.host}:{cfg.port}; {mode})", flush=True)

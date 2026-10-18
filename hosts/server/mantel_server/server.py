@@ -31,7 +31,7 @@ from aiohttp import WSMsgType, web
 
 from . import music
 from . import accounts, alarm_pin, auth, connect_pairing, devices, gateway, health, ingress, live_tv, pins, proof2, rbac_store, readproxy, sessions, settings_store
-from . import (admin_page, backup, features, linked, linked_house, linked_owners, login_page,
+from . import (admin_page, atrest, backup, connections, features, linked, linked_house, linked_owners, login_page,
                service_accounts, talk_relay, user_files)
 from .authz import Authz, Principal, resolve_door
 from .config import Config
@@ -404,6 +404,18 @@ def build_app(cfg: Config, token: str, store: Store | None = None, connect_ha: b
                                        auth.require_session])
     hub = Hub(cfg)
     app["store"] = store or Store(cfg.data_dir / "mantel.db")
+    # Connections (connections.py): Mantel's own saved HA/MA credentials win over the installation's files;
+    # everything below is built with what is in effect, and retargeted in place when it changes
+    conns = connections.Connections(cfg, atrest.SecretBox(cfg.secrets_dir / atrest.KEY_FILE), clock,
+                                    install_ha_token=token)
+    own_ha, own_ma = conns.current("ha"), conns.current("ma")
+    if own_ha is not None and own_ha.source == "mantel":
+        cfg.ha_url = own_ha.url
+    if own_ma is not None and own_ma.source == "mantel":
+        cfg.ma_url = own_ma.url
+    token = conns.ha_token()
+    app["ma_token_source"] = conns.ma_token
+    connections.register(app, conns)
     app["oauth"] = HaOAuth(cfg.ha_url, cfg.client_id, cfg.redirect_uri)
     app["state_secret"] = secrets.token_bytes(32)
     app["clock"] = clock
@@ -449,7 +461,7 @@ def build_app(cfg: Config, token: str, store: Store | None = None, connect_ha: b
         app["http"] = aiohttp.ClientSession()
         app["tick_task"] = asyncio.create_task(policy_tick(app, hub))
         if connect_ha:
-            hub.readproxy = ReadProxy(cfg.ha_url, token, ws_url=cfg.ha_ws_url or None)
+            hub.readproxy = ReadProxy(cfg.ha_url, conns.ha_token(), ws_url=cfg.ha_ws_url or None)
             app["ha_task"] = asyncio.create_task(hub.ha.run())
             app["tz_task"] = asyncio.create_task(house_tz(app, hub))
 
@@ -508,13 +520,15 @@ def wire(app: web.Application, hub: Hub, token: str, connect_ha: bool) -> None:
     # live talk (GATEWAY.md "Doorbell talk-back"): /ws/talk, opened only with a gateway ticket; the
     # relay exists only while commands are on (the route then refuses before the upgrade)
     talk_relay.register(app, audit, authz, lambda: app["clock"]())
+    conns: connections.Connections = app["connections"]
     hooks = Hooks(may_read=authz.may_read, may_view=authz.may_view, ma_gate=gw if gw is not None else REFUSE_ALL,
-                  ha_token=(lambda: token) if connect_ha else None)
+                  ha_token=conns.ha_token if connect_ha else None)
     readproxy.register(app, hub, hooks)
     camera_connector.register(app, hub, hooks)
-    camera_still.register(app, hub, authz, token)       # GET /api/camera/<entity>/still (RBAC, HA's token stays here)
-    media_art.register(app, hub, authz, token)          # GET /api/media/<entity>/art (view the player)
+    camera_still.register(app, hub, authz, conns.ha_token)   # GET /api/camera/<entity>/still (RBAC, HA's token stays here)
+    media_art.register(app, hub, authz, conns.ha_token)      # GET /api/media/<entity>/art (view the player)
     ma_connector.register(app, hub, hooks)
+    conns.appliers.append(lambda kind, cur: apply_connection(app, hub, connect_ha, kind, cur))
     health.register(app, hub)
     # P3.5: HK's settings from Mantel's own store (reads + settings_write saves). HK's own data, not a
     # house command, so saves work while commands are off; each save asks RBAC `configure`.
@@ -546,6 +560,71 @@ def wire(app: web.Application, hub: Hub, token: str, connect_ha: bool) -> None:
     if cfg.commands_enabled:
         log.warning("COMMANDS ARE ENABLED on this server: signed-in users may control Home Assistant within "
                     "their roles (step-up and an audit row for every command)")
+
+
+def _set(app: web.Application, key: str, value) -> None:
+    """Replace one app entry after start-up (the MA client is built or removed at run time). aiohttp warns
+    about changing a started app's state; this one key is read at each use (app.get("ma")), so it is safe."""
+    import warnings
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", DeprecationWarning)
+        app[key] = value
+
+
+async def apply_connection(app: web.Application, hub: Hub, connect_ha: bool, kind: str,
+                           cur: "connections.Current | None") -> None:
+    """Hot apply (connections.py): a saved, replaced or removed connection takes effect without a restart.
+    The HA objects are retargeted in place (nothing holds a stale one); MA's client is built, retargeted or
+    removed. Each closes its socket and reconnects at once; pages keep their own sockets to Mantel."""
+    cfg: Config = app["cfg"]
+    conns: connections.Connections = app["connections"]
+    if kind == "ha":
+        if conns.app_mode:
+            return
+        url = cur.url if cur is not None else conns.install_url["ha"]
+        token = cur.token if cur is not None else ""
+        cfg.ha_url = url
+        ws = cfg.ws_url
+        hub.ha.retarget(ws, token)
+        if hub.readproxy is not None:
+            hub.readproxy.retarget(url, token, ws_url=cfg.ha_ws_url or None)
+        elif connect_ha:
+            hub.readproxy = ReadProxy(url, token, ws_url=cfg.ha_ws_url or None)
+        if app.get("commander") is not None:
+            app["commander"].retarget(url, ws, token)
+        if app.get("ha_directory") is not None:
+            app["ha_directory"].retarget(ws, token)
+        holder = app.get("camera_signaling_holder")
+        if holder is not None:
+            if holder.get("proxy") is not None:
+                holder["proxy"].retarget(url, token, ws_url=cfg.ha_ws_url or None)
+            elif connect_ha:
+                from .connectors.camera import SignalingProxy
+                holder["proxy"] = SignalingProxy(url, token, ws_url=cfg.ha_ws_url or None)
+        app["oauth"].ha_url = url.rstrip("/")             # "Sign in with Home Assistant" goes to the new address
+        return
+    # Music Assistant. The music engine (music.py) reads app["ma"] at each use, so it follows at once: with a
+    # client it is Mantel's engine (when the music settings are imported), with none the interim bridge to HA.
+    client = app.get("ma")
+    if cur is None:
+        cfg.ma_url = ""
+        _set(app, "ma", None)
+        if client is not None:
+            await client.close()
+    else:
+        cfg.ma_url = cur.url
+        if client is None:
+            client = ma_connector.MaClient(cur.url, cfg.ma_token_file, gate=app.get("ma_gate") or REFUSE_ALL,
+                                           token_source=conns.ma_token)
+            _set(app, "ma", client)
+            client.start()
+        else:
+            client.token_source = conns.ma_token
+            client.retarget(cur.url, conns.ma_token)
+            client.start()           # it may have stopped earlier for want of a token
+    music_host = app.get("music")
+    if music_host is not None:
+        music_host.connection_changed()
 
 
 async def policy_tick(app: web.Application, hub: Hub, every: float = POLICY_TICK) -> None:

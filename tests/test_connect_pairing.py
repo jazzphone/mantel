@@ -438,7 +438,9 @@ async def test_connect_off_means_no_listener_routes_and_no_trust(tmp_path, monke
     store = Store(cfg.data_dir / "mantel.db")
     app = build_app(cfg, "unused", store=store, connect_ha=False)
     assert "connect" not in app
-    assert not [r for r in app.router.routes() if "connect" in str(r.resource.canonical)]
+    # (the Connections page, connections.py, is a different thing: /api/connections, /auth/connection/...)
+    assert not [r for r in app.router.routes() if "connect" in str(r.resource.canonical)
+                and "connection" not in str(r.resource.canonical)]
     store.db.close()
 
 

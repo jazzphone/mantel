@@ -150,10 +150,22 @@ class ReadProxy:
         self.rx_bytes = 0
         self.sent_types: list[str] = []
 
+    def retarget(self, ha_url: str, token: str, ws_url: str | None = None) -> None:
+        """New address/credential (connections.py, hot apply): the open connection is closed (its
+        pending reads fail, its subscriptions end) and the next read connects with the new values."""
+        self.base_url = ha_url.rstrip("/")
+        self.ws_url = ws_url or self.base_url.replace("http", "ws", 1) + "/api/websocket"
+        self._token = token
+        ws = self._ws
+        if ws is not None and not ws.closed:
+            asyncio.get_running_loop().create_task(ws.close())
+
     async def _connect(self) -> None:
         async with self._lock:
             if self._ws is not None and not self._ws.closed:
                 return
+            if not self._token:
+                raise ConnectionError("Home Assistant is not connected yet (admin page: Connections)")
             self._http = self._http or aiohttp.ClientSession()
             ws = await self._http.ws_connect(self.ws_url, max_msg_size=0, heartbeat=30)
             await ws.receive_json()
