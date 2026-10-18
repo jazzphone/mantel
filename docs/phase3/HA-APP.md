@@ -277,8 +277,8 @@ boot manual, watchdog off.
       upload into `/data`) is a follow-up.
 - [x] `hk_music/subscribe` is refused by the read allowlist (the music feed moves with the Phase 4 music engine);
       the page backs off; the warning is now logged once per 5 minutes (next App update).
-- [x] People page lists all HA users (incl. the per-tablet HA users and `claude`/`Mantel` admin users); linking
-      Jordan, Riley, … is Avery's choice of roles (not done for him).
+- [x] People page lists all HA users (incl. the per-tablet HA users and `claude`/`Mantel` admin users). Linked at
+      Avery's direction: Jordan → `adult`, Riley → `child` (they can open the panel once `panel_admin: false`).
 - [x] **Import HK's settings from Home Assistant (once)**: "imported from ha:01M35SP186GRY0MYPNJ6PDCG1Q".
 - [ ] Not tapped on purpose: a light (the house rule is no service calls at all; refusal with commands off
       is covered by `tools/e2e/gateway_e2e.py` against the scratch HA).
