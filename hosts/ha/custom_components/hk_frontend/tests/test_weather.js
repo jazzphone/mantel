@@ -47,7 +47,7 @@ function wind(states) {
     speed: 'sensor.wind_speed',
     gust: 'sensor.wind_gust'
   };
-  c._hass = { states: states };
+  Object.defineProperty(c, 'client', { value: window.hkHostClient.from({ states: states }) });
   return text(c._wind());
 }
 
@@ -57,7 +57,7 @@ print('=== wind: no speed sensor configured ===');
 (function () {
   var c = Object.create(WTile.prototype);
   c._config = { variant: 'wind', entity: 'weather.owm' };
-  c._hass = { states: { 'weather.owm': WX } };
+  Object.defineProperty(c, 'client', { value: window.hkHostClient.from({ states: { 'weather.owm': WX } }) });
   ok('reads the weather entity\'s own wind_speed', /\b5 mph\b/.test(text(c._wind())), true);
 })();
 
@@ -215,7 +215,7 @@ ok('no sun.sun -> day, never a guess', H.nightAt({}, '2026-09-14T05:00:00Z'), fa
 // the live sky draws.
 var mt = Object.create(WTile.prototype);
 mt._config = { variant: 'moon' };
-mt._hass = { states: {} };
+Object.defineProperty(mt, 'client', { value: window.hkHostClient.from({ states: {} }) });
 window.hkSettings = { moon: function () { return 0.5; } };
 ok('no sensor: the built-in phase', mt._phase(), 0.5);
 ok('...drawn as a full moon', /Full/.test(mt._moon()) && /Moon/.test(mt._moon()), true);
@@ -244,7 +244,7 @@ print('=== forecast subscription: refused, warned once, backed off ===');
   function band() {
     var b = Object.create(Band.prototype);
     b._config = { entity: 'weather.refuser' };
-    b._hass = { states: {}, connection: conn };
+    Object.defineProperty(b, 'client', { value: window.hkHostClient.from({ states: {}, connection: conn }) });
     b.isConnected = true;
     b.requestUpdate = function () {};
     return b;

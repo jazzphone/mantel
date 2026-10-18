@@ -126,7 +126,7 @@
     getCardSize() { return 5; }
     _ids() { return []; }
     _sigOf() {
-      var h = this._hass;
+      var h = this.client;
       if (!h) return null;
       // the minute too: "on 12 min", "next in 2 h" move with the clock
       return (this._ver || 0) + '|' + Math.floor(Date.now() / MIN) + '|' + this._ids().map(function (id) {
@@ -162,7 +162,7 @@
         setTimeout(function () { card.classList.remove('anim'); }, 1600);
       }
     }
-    redraw() { this._ver = (this._ver || 0) + 1; this._hkSig = null; if (this._hass) this.hass = this._hass; }
+    redraw() { this._ver = (this._ver || 0) + 1; this._hkSig = null; if (this.client) super.redraw(); }
     _load(key, every, fn) {
       var self = this, now = Date.now();
       this._at = this._at || {};
@@ -282,14 +282,14 @@
     // the thermostats counted: Settings' pick, else the page's (the strategy
     // hands them over) that report heating and cooling
     _list() {
-      var h = this._hass, c = this._config || {}, pick = header('climate').thermostats;
+      var h = this.client, c = this._config || {}, pick = header('climate').thermostats;
       var all = (Array.isArray(pick) && pick.length ? pick : c.thermostats || []).filter(function (id) { return h.states[id] && /^climate\./.test(id); });
       return all.slice(0, 3);
     }
     _ids() { return this._list(); }
     _render() {
       this._shell('crun');
-      var h = this._hass, self = this;
+      var h = this.client, self = this;
       if (!h) return;
       var ths = this._list(), from = midnight(), now = Date.now();
       var acting = ths.filter(function (id) { return 'hvac_action' in (h.states[id].attributes || {}); });
@@ -459,14 +459,14 @@
       ].join('');
     }
     _wx() {
-      var h = this._hass, c = this._config || {};
+      var h = this.client, c = this._config || {};
       return c.weather || (window.hkSettings && window.hkSettings.weatherId && window.hkSettings.weatherId(h.states)) ||
         Object.keys(h.states).filter(function (id) { return id.indexOf('weather.') === 0; })[0];
     }
     _ids() { return [this._wx(), hs('weather.outside', null), 'sun.sun']; }
     _render() {
       this._shell('cout');
-      var h = this._hass, self = this;
+      var h = this.client, self = this;
       if (!h) return;
       var wid = this._wx(), w = wid && h.states[wid];
       if (!w) return this._paint('<div class="ttl"><b>Outside &amp; Ahead</b></div><div class="wait">No weather</div>');
@@ -543,7 +543,7 @@
     }
     _render() {
       this._shell('lday');
-      var h = this._hass, self = this;
+      var h = this.client, self = this;
       if (!h) return;
       var ents = this._ents().filter(function (e) { return h.states[e[0]]; }), from = midnight(), now = Date.now();
       var head = '<div class="ttl"><b>Lighting Through the Day</b></div><div class="sub">Time with at least one light on, by room</div>';
@@ -679,7 +679,7 @@
           b.textContent = '…';
         }, true);
       }
-      var h = this._hass;
+      var h = this.client;
       if (!h) return;
       var cfg = header('lights'), now = Date.now();
       var lights = this._lights().filter(function (x) { return h.states[x.id]; });
@@ -752,7 +752,7 @@
       this._paint(head + lo + tn);
     }
     _levels(lights) {
-      var h = this._hass;
+      var h = this.client;
       var on = lights.map(function (x) { return h.states[x.id]; }).filter(function (s) { return s && s.entity_id.indexOf('light.') === 0 && s.state === 'on'; });
       var head = '<div class="ttl"><b>Light Levels</b><span>' + (on.length ? 'lights on now' : 'now') + '</span></div>';
       if (!on.length) {
@@ -999,7 +999,7 @@
     }
     _render() {
       this._shell();
-      var h = this._hass, c = this._config || {}, self = this;
+      var h = this.client, c = this._config || {}, self = this;
       if (!h) return;
       var cfg = header('security'), now = Date.now();
       var ways = waysIn(h, c, cfg);
@@ -1278,7 +1278,7 @@
     disconnectedCallback() { super.disconnectedCallback(); VACH.cards.delete(this); }
     _render() {
       this._shell('vweek');
-      var h = this._hass;
+      var h = this.client;
       if (!h) return;
       var list = this._list().filter(function (x) { return h.states[x.entity]; });
       var head0 = '<div class="ttl"><b>Cleaning This Week</b><span>Last 7 days</span></div>';
@@ -1370,7 +1370,7 @@
     disconnectedCallback() { super.disconnectedCallback(); VACH.cards.delete(this); }
     _render() {
       this._shell('vlast');
-      var h = this._hass;
+      var h = this.client;
       if (!h) return;
       var list = this._list().filter(function (x) { return h.states[x.entity]; });
       if (!list.length) return this._paint('<div class="ttl"><b>Last Runs</b></div><div class="wait">No vacuums</div>');
@@ -1491,7 +1491,7 @@
     }
     _render() {
       this._shell('tord');
-      var h = this._hass, self = this;
+      var h = this.client, self = this;
       if (!h) return;
       var tint = (this._config || {}).tint || P.orange, now = Date.now();
       this._card.style.setProperty('--tint', tint);
@@ -1603,7 +1603,7 @@
     }
     _quick(m) {
       var self = this, p = this._script('quick_script', 'script.quick_timer_start'), label = minsLabel(m);
-      if (!this._hass.states[p.join('.')]) { this._setStatus('failed', 'The quick-timer helpers are not installed.'); return this.redraw(); }
+      if (!this.client.states[p.join('.')]) { this._setStatus('failed', 'The quick-timer helpers are not installed.'); return this.redraw(); }
       if (!this._begin('Starting ' + label + '…')) return;
       this._callResp(p[0], p[1], { duration: minsHms(m) }).then(function (r) {
         self._end();
@@ -1625,7 +1625,7 @@
     }
     _render() {
       this._shell('tstart');
-      var h = this._hass, self = this;
+      var h = this.client, self = this;
       if (!h) return;
       var st = this._hkStatus, busy = !!this._busy;
       this._paint('<div class="ttl"><b>Start a Timer</b><div class="hk-status" role="status" aria-live="polite"' +
@@ -1679,7 +1679,7 @@
     _ids() { return []; }
     _render() {
       this._shell('wday');
-      var h = this._hass;
+      var h = this.client;
       if (!h) return;
       var head = '<div class="ttl"><b>Water Through the Day</b><span>Hourly</span></div>';
       // a meter chosen on HK Settings -> Pages -> Water wins over the
@@ -1877,7 +1877,7 @@
     }
     _render() {
       this._shell('supply');
-      var h = this._hass, c = this._config || {}, self = this;
+      var h = this.client, c = this._config || {}, self = this;
       if (!h) return;
       var st = h.states[c.entity], s = supplyState(st);
       // a command sent and not yet answered: said as on its way, until the
@@ -1911,7 +1911,7 @@
         this._card.addEventListener('click', function (e) {
           var b = e.target && e.target.closest ? e.target.closest('.sw button') : null;
           if (!b || b.disabled) return;
-          var want = b.getAttribute('data-v') === 'on', now = supplyState((self._hass || {}).states[self._config.entity]);
+          var want = b.getAttribute('data-v') === 'on', now = supplyState((self.client || {}).states[self._config.entity]);
           if ((want && now === 'open') || (!want && now === 'closed')) return;
           self._ask(want);
         });
@@ -1924,7 +1924,7 @@
   register('hk-climate-runtime-card', HkClimateRuntimeCard, 'HK Heating & Cooling Today',
     'Each thermostat’s heating and cooling today, hour by hour (the Climate page’s header).',
     [{ name: 'thermostats', selector: { entity: { multiple: true, filter: { domain: 'climate' } } } }].concat(HEIGHT),
-    function (hass) { return { thermostats: Object.keys(hass.states).filter(function (id) { return id.indexOf('climate.') === 0; }).slice(0, 3) }; });
+    function (client) { return { thermostats: Object.keys(client.states).filter(function (id) { return id.indexOf('climate.') === 0; }).slice(0, 3) }; });
   register('hk-climate-outside-card', HkClimateOutsideCard, 'HK Outside & Ahead',
     'The weather now, today’s high and low, the next hours and the evening ahead (the Climate page’s header).',
     [{ name: 'weather', selector: { entity: { filter: { domain: 'weather' } } } }].concat(HEIGHT), function () { return {}; });
@@ -1959,7 +1959,7 @@
   register('hk-water-supply-card', HkWaterSupplyCard, 'HK Main Water Supply',
     'The main water valve: its position, On / Off, and water behind the card while it is open (the Water page’s header).',
     [{ name: 'entity', selector: { entity: { filter: { domain: ['valve', 'switch'] } } } }, { name: 'title', selector: { text: {} } }].concat(HEIGHT),
-    function (hass) { return { entity: Object.keys(hass.states).filter(function (id) { return id.indexOf('valve.') === 0; })[0] }; });
+    function (client) { return { entity: Object.keys(client.states).filter(function (id) { return id.indexOf('valve.') === 0; })[0] }; });
 
   window.hkHeaders = { version: '1.0.0', vacRuns: vacRuns, supplyState: supplyState, timerRuns: timerRuns, nextTime: nextTime, goneQuiet: goneQuiet, kindOf: kindOf, rowGlyph: rowGlyph, waysIn: waysIn, wayState: wayState, bars: bars, spans: spans, merge: merge,
     // tests: a picture's art.json as if fetched, and the schedule as if sent
@@ -2089,7 +2089,7 @@
         d.tt.textContent = parts((s.attributes || {}).friendly_name || d.id).name;
         return true;
       }
-      _kick() { this._hkSig = null; if (this._hass) this.hass = this._hass; }
+      _kick() { this._hkSig = null; if (this.client) super.redraw(); }
       _sigOf() {
         var s = this._stateObj;
         return s ? s.last_updated + '|' + SNOOZE.n + '|' + (this._logN || 0) + '|' + (this._sent ? 1 : 0) + '|' + Math.floor(Date.now() / 60e3) : null;
@@ -2113,7 +2113,7 @@
       }
       // the logbook's last week, read once a sheet (and again after a run)
       _history() {
-        var h = this._hass, self = this;
+        var h = this.client, self = this;
         if (this._log || !h || !h.callWS) return;
         this._log = [];
         var now = Date.now();
@@ -2128,7 +2128,7 @@
           }).catch(function () { self._log = []; self._logN = (self._logN || 0) + 1; self._kick(); });
       }
       _render() {
-        var h = this._hass, s = this._stateObj, self = this;
+        var h = this.client, s = this._stateObj, self = this;
         if (!h || !s) return;
         if (!this._built) {
           this._built = true;
@@ -2323,16 +2323,16 @@
         d.tt.textContent = (d.src && d.src.name) || U.accName(d.id) || nameOf(h, d.id);
         return true;
       }
-      _kick() { this._hkSig = null; if (this._hass) this.hass = this._hass; }
+      _kick() { this._hkSig = null; if (this.client) super.redraw(); }
       _sigOf() {
-        var s = this._stateObj, h = this._hass, lab = labelOf(this._id);
+        var s = this._stateObj, h = this.client, lab = labelOf(this._id);
         return s ? s.last_updated + '|' + (lab && h.states[lab] ? h.states[lab].state : '') + '|' + (this._logN || 0) + '|' +
           (this._why || '') + '|' + Math.floor(Date.now() / MIN) : null;
       }
       connectedCallback() { if (super.connectedCallback) super.connectedCallback(); this._log = null; }
       // the week's runs, read once a sheet (and again when it starts or stops)
       _history() {
-        var h = this._hass, self = this, id = this._id, lab = labelOf(id), now = Date.now();
+        var h = this.client, self = this, id = this._id, lab = labelOf(id), now = Date.now();
         var st = this._stateObj && this._stateObj.state;
         if (this._logFor === st && this._log) return;
         this._logFor = st;
@@ -2363,7 +2363,7 @@
         Promise.resolve(call).then(function (ok) { self._why = ok === false ? 'Could not reach Home Assistant' : ''; self._kick(); });
       }
       _render() {
-        var h = this._hass, s = this._stateObj, self = this;
+        var h = this.client, s = this._stateObj, self = this;
         if (!h || !s) return;
         if (!this._built) {
           this._built = true;
