@@ -65,7 +65,7 @@ ok('no keys -> the entity state',
 
 print('\n=== THE SIGNATURE DECLARES WHAT THE LABEL READS ===');
 function sig(cfg, states){
-  return C.prototype._sigOf.call({ _hass: { states: states }, _config: cfg });
+  return C.prototype._sigOf.call({ client: { states: states }, _config: cfg });
 }
 var base={'lock.a':S('locked','t1'),'lock.b':S('locked','t1'),'s.src':S('grid','t1')};
 var moved={'lock.a':S('locked','t1'),'lock.b':S('unlocked','t2'),'s.src':S('grid','t1')};
@@ -322,9 +322,9 @@ ok('Moderate -> orange', sev('Moderate')==='orange');
 ok('missing severity -> orange', sev(undefined)==='orange');
 
 print('\n=== a chip built from parts still watches its sources ===');
-var sigA = C.prototype._sigOf.call({_hass:{states:{'s.t':S('70','t1'),'s.f':S('0','t1')}},
+var sigA = C.prototype._sigOf.call({ client: {states:{'s.t':S('70','t1'),'s.f':S('0','t1')}},
   _config:{parts:[{source:'s.t'},{source:'s.f'}]}});
-var sigB = C.prototype._sigOf.call({_hass:{states:{'s.t':S('71','t2'),'s.f':S('0','t1')}},
+var sigB = C.prototype._sigOf.call({ client: {states:{'s.t':S('71','t2'),'s.f':S('0','t1')}},
   _config:{parts:[{source:'s.t'},{source:'s.f'}]}});
 ok('a part source moving changes the signature', sigA!==sigB);
 ok('  (and it is not null -- the chip would render once and freeze)', sigA!==null);
@@ -420,7 +420,7 @@ ok('reduce does not leak into a nested part',
    label(card(PACKS, packs(86, 83, 100, 99))).indexOf('86/83%')===0);
 
 print('\n=== signature watches EVERY entity the config reads ===');
-function sig(cfg, states){ return C.prototype._sigOf.call({ _hass:{states:states}, _config:cfg }); }
+function sig(cfg, states){ return C.prototype._sigOf.call({ client: {states:states}, _config:cfg }); }
 var CLIM = { name:'Climate', parts:[{source:'sensor.house_temperature'}],
   icon_rules:[{ when:{any_of:['climate.down','climate.up'], attribute:'hvac_action', state:'cooling'}, icon:'hk:snow' }],
   icon_color_rules:[{ when:{any_of:['climate.down','climate.up'], attribute:'hvac_action', state:'heating'}, color:'orange' }],

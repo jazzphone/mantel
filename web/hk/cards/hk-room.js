@@ -64,7 +64,7 @@
   // Which kind an entity counts toward, or null. A group of other entities
   // never: its members count themselves -- a helper's (attributes.entity_id)
   // or any integration's, a Hue room, a Zigbee group (group_entities).
-  function kindOf(id, st, hass) {
+  function kindOf(id, st, client) {
     var d = dom(id), dc = attr(st, 'device_class');
     if (Array.isArray(attr(st, 'entity_id')) || Array.isArray(attr(st, 'group_entities'))) return null;
     if (d === 'light' || d === 'switch' || d === 'input_boolean') {
@@ -91,7 +91,7 @@
     if (d === 'media_player') {
       if (dc === 'tv') return 'tvs';
       if (dc === 'receiver') return null;
-      var e = hass && (hass.entities || {})[id], dev = e && (hass.devices || {})[e.device_id];
+      var e = client && (client.entities || {})[id], dev = e && (client.devices || {})[e.device_id];
       return dev && /apple tv/i.test(dev.model || '') ? 'tvs' : 'speakers';
     }
     if (d === 'binary_sensor') {
@@ -106,33 +106,33 @@
   }
 
   // An area's entities, as the generated dashboard counts them.
-  // MEMOISED ON THE REGISTRIES: the status row asks on every hass push
+  // MEMOISED ON THE REGISTRIES: the status row asks on every state push
   // (several a second) to see whether anything changed, and this walks
   // every registry entry -- thousands in a large home. HA replaces
-  // hass.entities / hass.devices when a registry changes, so their identity
+  // the client's entities / devices when a registry changes, so their identity
   // (and the areas asked for) is the whole key.
   var memo = { ents: null, devs: null, key: '', out: null };
-  function members(hass, areas) {
+  function members(client, areas) {
     var key = areas.join('|');
-    if (memo.ents === hass.entities && memo.devs === hass.devices && memo.key === key && memo.out) return memo.out;
-    var out = walk(hass, areas);
-    memo = { ents: hass.entities, devs: hass.devices, key: key, out: out };
+    if (memo.ents === client.entities && memo.devs === client.devices && memo.key === key && memo.out) return memo.out;
+    var out = walk(client, areas);
+    memo = { ents: client.entities, devs: client.devices, key: key, out: out };
     return out;
   }
-  function walk(hass, areas) {
-    var ents = hass.entities || {}, devs = hass.devices || {}, want = {}, out = [];
+  function walk(client, areas) {
+    var ents = client.entities || {}, devs = client.devices || {}, want = {}, out = [];
     areas.forEach(function (a) { want[a] = true; });
     Object.keys(ents).forEach(function (id) {
       var e = ents[id] || {};
       if (e.hidden || e.entity_category) return;
-      var a = areaOf(hass, id);
+      var a = areaOf(client, id);
       if (a && want[a]) out.push(id);
     });
     return out.sort();
   }
   // its own area, else its device's
-  function areaOf(hass, id) {
-    var e = (hass.entities || {})[id] || {}, devs = hass.devices || {};
+  function areaOf(client, id) {
+    var e = (client.entities || {})[id] || {}, devs = client.devices || {};
     return e.area_id || (e.device_id && devs[e.device_id] && devs[e.device_id].area_id) || null;
   }
 
@@ -178,8 +178,8 @@
   // the ROOM it is detected in ("Motion -- Emma's Room", "3 Rooms --
   // Occupied"), as a category page's row does; a room's own row has no
   // need. null: nothing to show.
-  function describe(hass, k, ids, where) {
-    var st = hass.states || {}, n = ids.length;
+  function describe(client, k, ids, where) {
+    var st = client.states || {}, n = ids.length;
     if (!n) return null;
     var live = ids.filter(function (id) { var s = st[id]; return s && !OFF[s.state]; });
     var hot = live.filter(function (id) { return isOn(k, st[id]); });
@@ -196,7 +196,7 @@
       if (where && on) {
         var rooms = [];
         hot.forEach(function (id) {
-          var a = (hass.areas || {})[areaOf(hass, id)];
+          var a = (client.areas || {})[areaOf(client, id)];
           if (a && a.name && rooms.indexOf(a.name) < 0) rooms.push(a.name);
         });
         if (rooms.length === 1) value = rooms[0];
@@ -226,7 +226,7 @@
     return { kind: k, title: noun, value: value, ids: ids, dim: false, on: on, alert: k === 'locks' && !!on };
   }
 
-  // THE ROW'S ITEMS -- a pure function of hass, the areas and the kinds, so
+  // THE ROW'S ITEMS -- a pure function of the client, the areas and the kinds, so
   // the tests hold it to every rule without a page.
   //   o: { items: [kinds], temperature, humidity, include: [ids], exclude: [ids],
   //        entities: [ids], exclude_entities, exclude_devices, exclude_areas }
@@ -237,9 +237,9 @@
   // can hold more than the page shows: a second integration's copy of the
   // same shades (a Matter bridge), a relay that is not a room's device. The
   // sensor kinds still come from the whole area.
-  function items(hass, areas, o) {
+  function items(client, areas, o) {
     o = o || {};
-    var st = hass.states || {}, A = hass.areas || {}, out = [];
+    var st = client.states || {}, A = client.areas || {}, out = [];
     // in the order the card or the house lists them (each once, known ones)
     var kinds = (o.items && o.items.length ? o.items : KINDS).filter(function (k, i, arr) {
       return KINDS.indexOf(k) !== -1 && arr.indexOf(k) === i;
@@ -253,15 +253,15 @@
     (o.exclude || []).concat(o.exclude_entities || []).forEach(function (id) { skip[id] = true; });
     (o.exclude_devices || []).forEach(function (d) { offDev[d] = true; });
     (o.exclude_areas || []).forEach(function (a) { offArea[a] = true; });
-    var ents = hass.entities || {};
+    var ents = client.entities || {};
     var left = function (id) {
       if (skip[id]) return true;
       var e = ents[id] || {};
       if (e.device_id && offDev[e.device_id]) return true;
-      var a = areaOf(hass, id);
+      var a = areaOf(client, id);
       return !!(a && offArea[a]);
     };
-    var ids = members(hass, areas).concat(o.include || []).filter(function (id, i, arr) {
+    var ids = members(client, areas).concat(o.include || []).filter(function (id, i, arr) {
       return !left(id) && arr.indexOf(id) === i;
     });
     var own = Array.isArray(o.entities) ? o.entities.filter(function (id) { return !left(id); }) : null;
@@ -270,7 +270,7 @@
       list.forEach(function (id) {
         var s = st[id];
         if (!s || OFF[s.state]) return;
-        var k = kindOf(id, s, hass);
+        var k = kindOf(id, s, client);
         if (!k || !!ACCESSORY[k] !== accessories) return;
         if (by[k] && by[k].indexOf(id) !== -1) return;
         (by[k] = by[k] || []).push(id);
@@ -302,7 +302,7 @@
                    gauge: k === 'humidity' ? v / 100 : (c ? (v - 7) / 29 : (v - 45) / 52) });
         return;
       }
-      var it = describe(hass, k, by[k] || [], false);
+      var it = describe(client, k, by[k] || [], false);
       if (it) out.push(it);
     });
     return out;
@@ -331,15 +331,15 @@
   // A CATEGORY PAGE'S ROW (Lights, Doors & Windows, Water, Security): the
   // same lists the page and the chips count (hkStrategy.pageMembers), and its
   // sensors say which rooms -- "Motion: Emma's Room".
-  function pageItems(hass, page, o) {
+  function pageItems(client, page, o) {
     o = o || {};
-    if (page === 'climate') return climateItems(hass, o);
+    if (page === 'climate') return climateItems(client, o);
     var S = window.hkStrategy;
-    var by = S && S.pageMembers ? S.pageMembers(hass, page, o) : {};
+    var by = S && S.pageMembers ? S.pageMembers(client, page, o) : {};
     return picked(page, o).map(function (k) {
       // (the batteries are the vacuums')
-      return UTILITY[k] ? UTILITY[k](hass, by[k] || (k === 'vacuum_battery' ? by.vacuums : null) || [])
-                        : describe(hass, k, by[k] || [], true);
+      return UTILITY[k] ? UTILITY[k](client, by[k] || (k === 'vacuum_battery' ? by.vacuums : null) || [])
+                        : describe(client, k, by[k] || [], true);
     }).filter(Boolean);
   }
   // THE VACUUMS' AND TIMERS' ROWS: what is working now -- never a count of
@@ -348,8 +348,8 @@
   var BAT = { ents: null, by: {} };
   var VAC_BUSY = { cleaning: 'Cleaning', returning: 'Returning', paused: 'Paused' };
   var UTILITY = {
-    vacuums: function (hass, ids) {
-      var st = hass.states || {}, n = ids.length;
+    vacuums: function (client, ids) {
+      var st = client.states || {}, n = ids.length;
       if (!n) return null;
       var live = ids.filter(function (id) { return st[id] && !OFF[st[id].state]; });
       var noun = n === 1 ? 'Vacuum' : n + ' Vacuums';
@@ -368,17 +368,17 @@
                ids: ids, dim: !on && !err, on: on, alert: !!err };
     },
     // the lowest battery: the vacuum's own, else its device's battery sensor
-    vacuum_battery: function (hass, ids) {
+    vacuum_battery: function (client, ids) {
       var S = window.hkStrategy, lows = [];
       // the device's battery sensor, looked up once per registry (the row
       // asks on every push)
-      if (BAT.ents !== hass.entities) { BAT.ents = hass.entities; BAT.by = {}; }
+      if (BAT.ents !== client.entities) { BAT.ents = client.entities; BAT.by = {}; }
       ids.forEach(function (id) {
-        var s = hass.states[id], b = s && s.attributes && s.attributes.battery_level;
+        var s = client.states[id], b = s && s.attributes && s.attributes.battery_level;
         if (b == null && S && S.batteryOf) {
-          if (!(id in BAT.by)) BAT.by[id] = S.batteryOf(hass, id);
+          if (!(id in BAT.by)) BAT.by[id] = S.batteryOf(client, id);
           var bid = BAT.by[id];
-          b = bid && hass.states[bid] ? hass.states[bid].state : null;
+          b = bid && client.states[bid] ? client.states[bid].state : null;
         }
         var v = Number(b);
         if (b != null && b !== '' && isFinite(v)) lows.push({ id: id, v: v });
@@ -390,8 +390,8 @@
                value: (lo === hi ? lo + '%' : lo + '\u2013' + hi + '%') + (lo <= 20 ? ' \u00b7 Low' : ''),
                ids: lows.map(function (x) { return x.id; }), dim: false, on: 1, alert: lo <= 20, battery: lo };
     },
-    timers: function (hass, ids) {
-      var st = hass.states || {};
+    timers: function (client, ids) {
+      var st = client.states || {};
       if (!ids.length) return null;
       var run = ids.filter(function (id) { return st[id] && st[id].state === 'active'; }).length;
       var pause = ids.filter(function (id) { return st[id] && st[id].state === 'paused'; }).length;
@@ -404,8 +404,8 @@
   };
   // Current ambient readings, shared by the summary and the popup pills.
   // A thermostat's setpoint is deliberately never a reading source.
-  function climateReading(hass, id, kind) {
-    var s = (hass.states || {})[id];
+  function climateReading(client, id, kind) {
+    var s = (client.states || {})[id];
     if (!s || OFF[s.state]) return null;
     var a = s.attributes || {}, d = dom(id);
     var raw = d === 'climate' ? a['current_' + kind] : (d === 'sensor' ? s.state : null);
@@ -413,7 +413,7 @@
     var v = Number(raw);
     if (!isFinite(v)) return null;
     if (kind === 'humidity') return v >= 0 && v <= 100 ? v : null;
-    var target = ((hass.config || {}).unit_system || {}).temperature || '°F';
+    var target = ((client.config || {}).unit_system || {}).temperature || '°F';
     var unit = a.unit_of_measurement || (d === 'climate' ? target : null);
     var from = String(unit || '').replace('°', '').toUpperCase();
     var to = String(target).replace('°', '').toUpperCase();
@@ -421,20 +421,20 @@
     var c = from === 'F' ? (v - 32) * 5 / 9 : from === 'K' ? v - 273.15 : v;
     return to === 'F' ? c * 9 / 5 + 32 : to === 'K' ? c + 273.15 : c;
   }
-  function climateItems(hass, o) {
+  function climateItems(client, o) {
     o = o || {};
     var S = window.hkStrategy;
-    var by = S && S.climateMembers ? S.climateMembers(hass, o) : {};
+    var by = S && S.climateMembers ? S.climateMembers(client, o) : {};
     var out = [];
     picked('climate', o).forEach(function (k) {
       var ids = by[k] || [];
       if (!ids.length) return;
       if (k === 'temperature' || k === 'humidity') {
-        var values = ids.map(function (id) { return climateReading(hass, id, k); }).filter(function (v) { return v != null; });
+        var values = ids.map(function (id) { return climateReading(client, id, k); }).filter(function (v) { return v != null; });
         var lo = values.length ? Math.round(Math.min.apply(null, values)) : null;
         var hi = values.length ? Math.round(Math.max.apply(null, values)) : null;
         var avg = values.length ? values.reduce(function (a, b) { return a + b; }, 0) / values.length : 0;
-        var unit = ((hass.config || {}).unit_system || {}).temperature || '°F';
+        var unit = ((client.config || {}).unit_system || {}).temperature || '°F';
         out.push({ kind: k, title: k === 'temperature' ? 'Temperature' : 'Humidity', ids: ids,
           value: values.length ? (lo === hi ? String(lo) : lo + '–' + hi) + (k === 'temperature' ? '°' : '%') : 'Unavailable',
           dim: !values.length, gauge: !values.length ? 0.5 : k === 'humidity' ? avg / 100 :
@@ -442,7 +442,7 @@
         return;
       }
       // blinds and fans: the one accessory rule every row uses
-      var it = describe(hass, k, ids, false);
+      var it = describe(client, k, ids, false);
       if (it) out.push(it);
     });
     return out;
@@ -557,7 +557,7 @@
       _itemsFor(h) { return items(h, this._areas(), this._opts()); }
       // The entities it reads, and the settings that shape it.
       _sigOf() {
-        var h = this._hass;
+        var h = this.client;
         if (!h || !h.states) return null;
         var list = this._itemsFor(h);
         this._items = list;
@@ -571,7 +571,7 @@
         return sig + (window.hkGlyphs ? 'g' : '');
       }
       _render() {
-        var h = this._hass;
+        var h = this.client;
         if (!h) return;
         var list = this._items || this._itemsFor(h);
         this.toggleAttribute('hidden', !list.length);
@@ -628,7 +628,7 @@
           return;
         }
         var D = window.hkDetail;
-        var room = (this._hass.areas && this._hass.areas[this._areas()[0]]) || {};
+        var room = (this.client.areas && this.client.areas[this._areas()[0]]) || {};
         if (D && D.openGroup && C.setting('look.details', true) !== false) {
           D.openGroup(it.title, it.ids, { icon: icon(it), room: room.name || '', kind: it.kind });
           return;
@@ -699,8 +699,8 @@
           { name: 'include', selector: { entity: { multiple: true } }, helper: 'Count these too, from outside the area.' }
         ], 'mdi:tune')
       ],
-      function (hass) {
-        var a = hass && hass.areas ? Object.keys(hass.areas)[0] : null;
+      function (client) {
+        var a = client && client.areas ? Object.keys(client.areas)[0] : null;
         return { area: a || 'living_room' };
       });
     window.hkRoom.Card = HkRoomStatusCard;
