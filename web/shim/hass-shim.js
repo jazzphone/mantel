@@ -83,6 +83,8 @@ export class Host {
     this._wrapStates();
   }
 
+  get client() { return window.hkHostClient.from(this.hass); }
+
   _wrapStates() {
     const self = this;
     // while recording, reading a state by id notes the id (what a screen really needs from the hub)
@@ -182,7 +184,9 @@ export class Host {
     const stub = {
       get hass() { return self.hass; },
       localName: 'home-assistant', isMantelStub: true,
-      shadowRoot: { querySelector: () => null, querySelectorAll: () => [] },
+      // No HA shell exists. A fake shadow root makes current shell modules
+      // attempt to mount menus into a non-DOM object; defer those modules instead.
+      shadowRoot: null,
       querySelector: () => null, querySelectorAll: () => [],
       addEventListener() {}, removeEventListener() {},
     };

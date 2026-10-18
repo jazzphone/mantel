@@ -14,6 +14,7 @@ import shutil
 import subprocess
 import tempfile
 import time
+from urllib.parse import urlsplit
 
 import aiohttp
 
@@ -69,12 +70,29 @@ class Browser:
                 fut.set_exception(RuntimeError(d["error"]["message"])) if "error" in d else fut.set_result(d.get("result", {}))
             else:
                 self.events.append(d)
+                if d.get("method") == "Fetch.requestPaused":
+                    asyncio.create_task(self._check_request(d["params"]))
                 if d.get("method") == "Runtime.consoleAPICalled":
                     args = " ".join(str(a.get("value", a.get("description", ""))) for a in d["params"]["args"])
                     self.console.append(f"{d['params']['type']}: {args}"[:400])
                 elif d.get("method") == "Runtime.exceptionThrown":
                     ex = d["params"]["exceptionDetails"]
                     self.console.append("EXCEPTION: " + str(ex.get("exception", {}).get("description") or ex.get("text"))[:400])
+
+    async def restrict_origin(self, origin):
+        """For offline smoke tests: allow HTTP requests only to their local fixture server."""
+        self.allowed_origin = urlsplit(origin).netloc
+        self.blocked_requests = []
+        await self.send("Fetch.enable", patterns=[{"urlPattern": "*", "requestStage": "Request"}])
+
+    async def _check_request(self, event):
+        request_id = event["requestId"]
+        url = event["request"]["url"]
+        if urlsplit(url).netloc != self.allowed_origin:
+            self.blocked_requests.append(urlsplit(url).netloc)
+            await self.send("Fetch.failRequest", requestId=request_id, errorReason="BlockedByClient")
+        else:
+            await self.send("Fetch.continueRequest", requestId=request_id)
 
     async def send(self, method, **params):
         self._id += 1

@@ -6,7 +6,7 @@
   function create(port) {
     if (!port || typeof port !== 'object') throw new Error('HKClient needs a host port');
     var client = {};
-    ['states', 'config', 'locale', 'language', 'user'].forEach(function (key) {
+    ['states', 'config', 'locale', 'language', 'user', 'themes'].forEach(function (key) {
       Object.defineProperty(client, key, { enumerable: true, get: function () { return port[key]; } });
     });
     ['formatEntityState', 'callWS', 'bindStateIcon'].forEach(function (key) {

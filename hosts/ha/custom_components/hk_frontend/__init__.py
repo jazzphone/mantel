@@ -205,6 +205,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
         # Phase 1 client contract, HA port and shared metric factory. The card
         # family waits for their ready events, so resource order is immaterial.
         "/hk/modules/hk-client.js",
+        "/hk/modules/hk-card-state.js",
         "/hk/modules/hk-ha-client.js",
         "/hk/modules/hk-metric.js",
         # The dashboard settings (settings.py) -- FIRST, because the header,

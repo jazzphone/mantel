@@ -2,7 +2,7 @@
 
 Avery confirmed HK has no other feature work in flight and authorized Phase 1.
 Phase 0 is preserved in commit `48fea33`, pushed to the private Mantel remote with his
-explicit authorization. This slice is built and tested locally; it is **not deployed**.
+explicit authorization. This slice is built and tested locally; it is **not deployed**. Follow-on work is recorded in [STATE-CLIENT.md](STATE-CLIENT.md).
 
 ## One development source, a separate HA build
 

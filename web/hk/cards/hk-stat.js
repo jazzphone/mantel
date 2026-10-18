@@ -23,11 +23,11 @@
 
   // Event, never a poll -- see hk-tile.js for why rAF is wrong here.
   function whenBase(fn) {
-    var events = ['hk-cards-ready', 'hk-client-ready', 'hk-ha-client-ready', 'hk-metric-ready'];
+    var events = ['hk-cards-ready', 'hk-client-ready', 'hk-host-client-ready', 'hk-metric-ready'];
     var done = false;
     function ready() {
       if (done || !window.hkCards || !window.hkCards.HkBase ||
-          !window.hkClient || !window.hkHAClient || !window.hkCreateMetricCard) return;
+          !window.hkClient || !window.hkHostClient || !window.hkCreateMetricCard) return;
       done = true;
       events.forEach(function (event) { window.removeEventListener(event, ready); });
       fn(window.hkCards.HkBase);
@@ -348,10 +348,6 @@
   }
 
   class HkStatBase extends HkBase {
-    // Transitional host bridge. The extracted metric reads only this client;
-    // the other card families still receive Lovelace's existing host object.
-    get client() { return this._metricClient || window.hkHAClient.from(this._hass); }
-    set client(value) { this._metricClient = value; this._hkSig = null; this.redraw(); }
 
 
     // Flat keeps its motion: the drawing in IS the chart (hk-base flatCss)

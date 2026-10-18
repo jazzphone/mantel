@@ -1,5 +1,5 @@
 {
-  "web/hk/cards/hk-base.js": 89,
+  "web/hk/cards/hk-base.js": 83,
   "web/hk/cards/hk-calendar.js": 75,
   "web/hk/cards/hk-cameras.js": 74,
   "web/hk/cards/hk-chip.js": 71,
@@ -17,7 +17,7 @@
   "web/hk/cards/hk-room.js": 68,
   "web/hk/cards/hk-row.js": 8,
   "web/hk/cards/hk-security.js": 7,
-  "web/hk/cards/hk-stat.js": 18,
+  "web/hk/cards/hk-stat.js": 17,
   "web/hk/cards/hk-strategy.js": 265,
   "web/hk/cards/hk-tile.js": 29,
   "web/hk/cards/hk-weather.js": 84,
@@ -42,5 +42,5 @@
   "web/hk/panels/hk-settings-features.js": 13,
   "web/hk/panels/hk-settings-model.js": 11,
   "web/hk/panels/hk-settings.js": 195,
-  "web/home.js": 14
+  "web/home.js": 12
 }

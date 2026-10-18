@@ -440,7 +440,7 @@ var noTile = sig(ARR,{'sensor.pack_a':S('80','a'),'sensor.pack_b':S('80','a')});
 window.hkTile = saved;
 ok('hk-tile loading late changes the signature, so the chip redraws', withTile!==noTile);
 var Toggle = customElements.get('hk-toggle-card');
-var tg = function(){ return Toggle.prototype._sigOf.call({ _hass:{states:{'input_boolean.x':S('on','a')}}, _config:{entity:'input_boolean.x'} }); };
+var tg = function(){ return Toggle.prototype._sigOf.call({ client:window.hkClient.create({states:{'input_boolean.x':S('on','a')}}), _config:{entity:'input_boolean.x'} }); };
 var tgWith = tg(); window.hkTile = {}; var tgNo = tg(); window.hkTile = saved;
 ok('toggle chips carry the same hk-tile token', tgWith!==tgNo && tgWith.indexOf('input_boolean.x')>=0);
 

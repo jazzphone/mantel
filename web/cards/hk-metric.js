@@ -5,10 +5,6 @@
   if (global.hkCreateMetricCard) return;
   global.hkCreateMetricCard = function (HkStatBase, metricColour, FLOW_FLOOR) {
   class HkMetricCard extends HkStatBase {
-    _st(id) {
-      var client = this.client;
-      return client && client.states && client.states[id];
-    }
     setConfig(config) {
       if (!config || !config.entity) throw new Error('hk-stat: `entity` is required');
       super.setConfig(config);

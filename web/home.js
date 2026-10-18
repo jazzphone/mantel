@@ -4,10 +4,14 @@
 //
 // What Lovelace did (hui-root, hui-view, hui-card) is a few lines here: run HK's strategy to get the
 // view, create each card element, setConfig, give it `hass`, hand the built elements to the view.
+import './client/hk-client.js';
+import './client/hk-card-state.js';
+import './cards/hk-metric.js';
+import './shim/mantel-client.js';
 import './shim/ha-elements.js';
 import { Host, toast } from './shim/hass-shim.js';
 import { Hub } from './shim/hub.js';
-import { installCardBridge, createCardElement } from './shim/cards-bridge.js';
+import { installCardBridge, createCardElement, setCardHost } from './shim/cards-bridge.js';
 
 const T0 = performance.now();
 const marks = { module_start: Math.round(T0) };   // ms since navigation start; the others are ms after it
@@ -63,7 +67,7 @@ window.__mantelView = view;
 
 function build(cardCfg, hass) {
   const el = createCardElement(cardCfg);
-  el.hass = hass;
+  setCardHost(el, hass);
   return el;
 }
 
@@ -77,7 +81,7 @@ viewEl.cards = els;
 mark('rendered');
 
 // every change in the house: a new hass object for the view and each card (as HA does)
-host.onHass = (h) => { viewEl.hass = h; for (const el of els) el.hass = h; };
+host.onHass = (h) => { viewEl.hass = h; for (const el of els) setCardHost(el, h); };
 
 // After the first paint, note which states the screen really reads and narrow the hub subscription
 // to those: the strategy needed the whole house to decide what to draw, the cards do not.

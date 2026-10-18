@@ -1,5 +1,6 @@
 """The HA artifact is assembled from Mantel only, with no live installation writes."""
 import importlib.util
+import json
 from pathlib import Path
 
 import pytest
@@ -27,6 +28,8 @@ def test_ha_build_has_one_frontend_source_and_no_server_or_house_files():
     assert not any("mantel_server" in dest or "mantel_connect" in dest for dest in dests)
     assert not any(Path(dest).suffix.lower() in {".woff2", ".ttf", ".otf", ".key", ".db"} for dest in dests)
     assert not (ROOT / "hosts/ha/custom_components/hk_frontend/frontend").exists()
+    for url, source in json.loads((ROOT / "web/shared-assets.json").read_text()).items():
+        assert dests[prefix + url] == ROOT / "web" / source
 
 
 def test_build_refuses_existing_destination_without_replacing_files(tmp_path):

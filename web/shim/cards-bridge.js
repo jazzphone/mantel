@@ -85,7 +85,7 @@ class MantelConditionalCard extends HTMLElement {
   set hass(h) {
     this._hass = h;
     const on = (this._cfg.conditions || []).every((c) => holds(c, h));
-    if (on) this._el.hass = h;
+    if (on) setCardHost(this._el, h);
     if (on !== this._on) {
       this._on = on;
       this.hidden = !on;
@@ -110,7 +110,7 @@ class MantelCard extends HTMLElement {
   }
   _show(on) { this.hidden = !on; this.style.display = on ? 'block' : 'none'; }
   // (a card may show itself by its `hidden` attribute alone, so it is read after every hass, as hui-card does)
-  set hass(h) { this._hass = h; if (this._el) { this._el.hass = h; this._show(!this._el.hidden); } }
+  set hass(h) { this._hass = h; if (this._el) { setCardHost(this._el, h); this._show(!this._el.hidden); } }
   get hass() { return this._hass; }
   set config(c) { this._config = c; }
   get config() { return this._config; }
@@ -124,7 +124,7 @@ class MantelCard extends HTMLElement {
     this._built = key;
     this._el = createCardElement(this._config);
     this.appendChild(this._el);
-    if (this._hass) this._el.hass = this._hass;
+    if (this._hass) setCardHost(this._el, this._hass);
     this._show(!this._el.hidden);
   }
   connectedCallback() { if (!this.style.display) this.style.display = 'block'; }
@@ -139,4 +139,11 @@ export function installCardBridge() {
   Document.prototype.createElement = function (tag, opts) {
     return create.call(this, String(tag).toLowerCase() === 'hui-card' ? 'mantel-card' : tag, opts);
   };
+}
+
+// Migrated metrics receive HKClient explicitly. The compatibility snapshot remains
+// available only for the inherited action bridge, whose writes are refused by Host.
+export function setCardHost(element, snapshot) {
+  element.hass = snapshot;
+  if (element.localName === 'hk-stat-card') element.client = window.hkHostClient.from(snapshot);
 }

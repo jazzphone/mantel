@@ -22,6 +22,7 @@ proven, and -- only with --commit -- it is committed (and pushed with --push).
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import re
 import shutil
@@ -121,12 +122,13 @@ def plan() -> list[tuple[str, str]]:
         for src in files_under(str(frontend)):
             rel = os.path.relpath(src, frontend)
             out.append((src, os.path.join("custom_components", "hk_frontend", "frontend", rel)))
-        for src, rel in (
-            ("web/client/hk-client.js", "modules/hk-client.js"),
-            ("hosts/ha/frontend/hk-ha-client.js", "modules/hk-ha-client.js"),
-            ("web/cards/hk-metric.js", "modules/hk-metric.js"),
-        ):
-            out.append((str(mantel / src), "custom_components/hk_frontend/frontend/" + rel))
+        shared = json.loads((mantel / "web/shared-assets.json").read_text())
+        for rel, src in shared.items():
+            source = (mantel / "web" / src).resolve()
+            source.relative_to((mantel / "web").resolve())
+            out.append((str(source), "custom_components/hk_frontend/frontend/" + rel))
+        out.append((str(mantel / "hosts/ha/frontend/hk-ha-client.js"),
+                    "custom_components/hk_frontend/frontend/modules/hk-ha-client.js"))
     return out
 
 

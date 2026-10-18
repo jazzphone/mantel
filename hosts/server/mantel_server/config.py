@@ -17,7 +17,7 @@ class Config:
     default_interval: float = 0.0
     overrides: list[tuple[str, float]] = field(default_factory=list)
     default_screen: str = "dashboard-kitchen"           # /home goes to /<this>/home
-    hk_frontend: Path = REPO / "spikes/hk-snapshot/frontend"   # HK's cards/modules/css (git-ignored snapshot)
+    hk_frontend: Path = REPO / "web/hk"   # current shared HK source; the proof snapshot is reference-only
     hk_files: Path = REPO / "spikes/hk-snapshot/hk_local"      # "Your files": SF Pro + glyphs (Apple's; never committed)
     fixtures: Path = REPO / "spikes/hk-snapshot/fixtures"      # captured HK feeds (personal data; git-ignored)
     web: Path = REPO / "web"

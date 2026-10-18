@@ -52,16 +52,16 @@ H.run('HKCLIENT', [function () {
   return first.callWS({ type: 'read_demo' }).then(function (result) { H.eq('read result is forwarded', result, 'read_demo'); });
 }, function () {
   // Re-load the family with prerequisites absent, then deliver them in a different order.
-  var factory = window.hkCreateMetricCard, adapter = window.hkHAClient;
+  var factory = window.hkCreateMetricCard, adapter = window.hkHostClient;
   delete window.hkStat;
   delete window.hkCreateMetricCard;
-  delete window.hkHAClient;
+  delete window.hkHostClient;
   load(HK_ROOT + '/frontend/cards/hk-stat.js');
   H.ok('family waits for definitions', !window.hkStat.HkMetricCard);
   window.hkCreateMetricCard = factory;
   window.dispatchEvent(new CustomEvent('hk-metric-ready'));
   H.ok('one dependency is not enough', !window.hkStat.HkMetricCard);
-  window.hkHAClient = adapter;
-  window.dispatchEvent(new CustomEvent('hk-ha-client-ready'));
+  window.hkHostClient = adapter;
+  window.dispatchEvent(new CustomEvent('hk-host-client-ready'));
   H.ok('ready events complete registration', !!window.hkStat.HkMetricCard);
 }]);

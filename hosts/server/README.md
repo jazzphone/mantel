@@ -9,3 +9,5 @@ Mantel Server. Today it holds the Phase 0 state hub prototype (`mantel_server/`)
 - `tools/measure.py` upstream-vs-downstream traffic measurement
 
 Mantel Connect has a separate TLS identity-only proof receiver (`mantel-server connect-proof`), which takes no HA token and never exposes the state hub. Its HA App and deployment steps are in `packaging/mantel-connect/README.md`; live installation remains pending.
+
+New Mantel Server processes serve current frontend code from `web/hk` plus `web/shared-assets.json`; only user files and captured feeds remain in the local proof directory. Home uses Mantel's client port. Restart an already-running prototype to load these backend changes; no production HA deployment is involved. See `docs/phase1/STATE-CLIENT.md`.

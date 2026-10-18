@@ -8,7 +8,7 @@
     if (clients.has(hass)) return clients.get(hass);
     if (!global.hkClient) throw new Error('HKClient has not loaded');
     var port = {};
-    ['states', 'config', 'locale', 'language', 'user'].forEach(function (key) {
+    ['states', 'config', 'locale', 'language', 'user', 'themes'].forEach(function (key) {
       Object.defineProperty(port, key, { get: function () { return hass[key]; } });
     });
     ['formatEntityState', 'callWS'].forEach(function (key) {
@@ -20,5 +20,7 @@
     return client;
   }
   global.hkHAClient = { from: from };
+  global.hkHostClient = global.hkHAClient;
+  try { global.dispatchEvent(new CustomEvent('hk-host-client-ready')); } catch (e) { /* shell tests */ }
   try { global.dispatchEvent(new CustomEvent('hk-ha-client-ready')); } catch (e) { /* shell tests */ }
 })(globalThis);

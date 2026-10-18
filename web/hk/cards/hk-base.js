@@ -51,6 +51,7 @@
 (function () {
   'use strict';
 
+  function initialize() {
   if (window.hkCards) return;          // hk-loader may import this twice
   window.hkCards = { version: '1.1.0' };
 
@@ -711,7 +712,7 @@
   }
   function syncFlat() {
     FLAT_ROOTS.forEach(function (el) { if (el.isConnected === false) FLAT_ROOTS.delete(el); else flatTone(el); });
-    ON_PAGE.forEach(function (el) { tone(el, el._hass); markAsleep(el); });
+    ON_PAGE.forEach(function (el) { tone(el, el.client || el._hass); markAsleep(el); });
   }
 
 
@@ -1724,7 +1725,7 @@
     LIVE = LIVE.filter(function (r) { return !!r.deref(); });
     LIVE.forEach(function (r) {
       var el = r.deref();
-      if (el && el.isConnected && el._config && el._hass) {
+      if (el && el.isConnected && el._config && el.client) {
         try { el.requestUpdate(); } catch (e) { console.error('[hk-cards] wake', e); }
       }
     });
@@ -1847,6 +1848,8 @@
       this._root = document.createElement('div');
       this.shadowRoot.append(this._root);
       this._hass = null;
+      this._clientExplicit = false;
+      this._hkClient = null;
       this._hkSig = null;
     }
 
@@ -1878,18 +1881,27 @@
     // _hkSig, not _sig: HkTimersCard already keeps its own _sig inside
     // _render(), and the two must not collide.
     set hass(h) {
+      // Compatibility/action bridge for unmigrated card families.
       this._hass = h;
-      tone(this, h);
+      this._clientExplicit = false;
       hubSeen(h);
-      track(this);
-      var sig = this._sigOf();
-      if (sig !== null && sig === this._hkSig && this._hkGen === GEN.n) return;
-      this._hkSig = sig;
-      this._hkGen = GEN.n;
-      this._render();
-      glassRendered(this);
+      this._receiveClient();
     }
     get hass() { return this._hass; }
+
+    get client() {
+      return this._clientExplicit ? this._hkClient : window.hkHostClient.from(this._hass);
+    }
+    set client(value) {
+      this._clientExplicit = true;
+      this._hkClient = value;
+      this._receiveClient();
+    }
+    _receiveClient() {
+      tone(this, this.client);
+      track(this);
+      window.hkCardState.receive(this, GEN.n, glassRendered);
+    }
 
     // Default signature: the last_updated of every entity the config names.
     // last_updated moves when the state OR any attribute changes, which is
@@ -1899,30 +1911,7 @@
     // dependencies cannot be inferred -- the correct behaviour for
     // any card that does not declare its entities. Override in a card that
     // reads entities the config does not list.
-    _sigOf() {
-      var h = this._hass, c = this._config;
-      if (!h || !c) return null;
-      var ids = [];
-      if (c.entity) ids.push(c.entity);
-      if (Array.isArray(c.entities)) {
-        c.entities.forEach(function (e) {
-          ids.push(typeof e === 'string' ? e : (e && e.entity));
-        });
-      }
-      // `group:` -- a tile that stands for several entities (the average
-      // brightness of two lights, the count on in a bathroom). Declared here
-      // so EVERY card gets the wake for free: a group tile whose members were
-      // not in the signature renders once and then freezes -- the same trap as
-      // the chips'.
-      if (Array.isArray(c.group)) ids = ids.concat(c.group);
-      if (!ids.length) return null;
-      var out = '';
-      for (var i = 0; i < ids.length; i++) {
-        var st = ids[i] && h.states[ids[i]];
-        out += (ids[i] || '') + '=' + (st ? st.last_updated : 'x') + ';';
-      }
-      return out;
-    }
+    _sigOf() { return window.hkCardState.signature(this.client, this._config); }
 
     // THE hk-stats.js / hk-charts.js WAKE BRIDGE.
     //
@@ -1944,12 +1933,7 @@
     // _render() instead drew the card AGAIN on the next push that changed
     // nothing -- a whole second build of the Live TV guide after every
     // channel fetch (the render audit's churn check, 2026-09-29).
-    redraw() {
-      this._hkSig = this._hass ? this._sigOf() : null;
-      this._hkGen = GEN.n;
-      this._render();
-      glassRendered(this);
-    }
+    redraw() { window.hkCardState.redraw(this, GEN.n, glassRendered); }
 
     // ---------------------------------------------------------- actions
     //
@@ -2369,7 +2353,7 @@
 
     connectedCallback() {
       place(this);
-      tone(this, this._hass);
+      tone(this, this.client);
       glassJoin(this, true);
       ON_PAGE.add(this);
       markAsleep(this);
@@ -2377,10 +2361,10 @@
       if (window.hkFrostTint) window.hkFrostTint.joined(this);
       if (!this._hkStatsLost) return;
       this._hkStatsLost = false;
-      if (this._hass && this._config) this.requestUpdate();
+      if (this.client && this._config) this.requestUpdate();
     }
 
-    _st(id) { return this._hass && this._hass.states[id]; }
+    _st(id) { return window.hkCardState.state(this.client, id); }
     _render() { /* subclasses */ }
   }
 
@@ -4109,4 +4093,13 @@
   window.hkCards.SELECTED_TEXT = SELECTED_TEXT;
 
   window.dispatchEvent(new Event('hk-cards-ready'));
+  }
+  var prerequisites = ['hk-client-ready', 'hk-card-state-ready', 'hk-host-client-ready'];
+  function ready() {
+    if (!window.hkClient || !window.hkCardState || !window.hkHostClient) return;
+    prerequisites.forEach(function (event) { window.removeEventListener(event, ready); });
+    initialize();
+  }
+  prerequisites.forEach(function (event) { window.addEventListener(event, ready); });
+  ready();
 })();

@@ -306,7 +306,16 @@ async def hk_file(request: web.Request) -> web.StreamResponse:
     """/hk/<path>: "Your files" first, HK's bundled frontend otherwise (backend/files.py's rule)."""
     cfg: Config = request.app["cfg"]
     rel = request.match_info["path"]
-    for base in (cfg.hk_files, cfg.hk_frontend):
+    # Shared modules are composed at the same /hk URLs used by the HA build.
+    override = safe_file(cfg.hk_files, rel)
+    if override:
+        return web.FileResponse(override, headers=NO_CACHE)
+    shared = request.app["shared_assets"].get(rel)
+    if shared:
+        path = safe_file(cfg.web, shared)
+        if path:
+            return web.FileResponse(path, headers=NO_CACHE)
+    for base in (cfg.hk_frontend,):
         path = safe_file(base, rel)
         if path:
             return web.FileResponse(path, headers=NO_CACHE)
@@ -367,6 +376,8 @@ def build_app(cfg: Config, token: str, store: Store | None = None, connect_ha: b
     app.router.add_post(proof2.PATH, proof2.command)
     hub.ha = HaClient(cfg.ha_url, token, hub.store, hub.registry, hub.on_change, hub.on_registry)
     app["cfg"] = cfg
+    manifest = cfg.web / "shared-assets.json"
+    app["shared_assets"] = json.loads(manifest.read_text()) if manifest.is_file() else {}
     app["hub"] = hub
     app.router.add_get("/ws", ws_handler)
     app.router.add_get("/", root)
