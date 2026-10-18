@@ -20,6 +20,7 @@ def test_the_page_policy_matches_what_packaging_justified():
     assert d["script-src"] == ["'self'"] and d["default-src"] == ["'none'"] and d["object-src"] == ["'none'"]
     assert d["frame-ancestors"] == ["'self'"]                       # HK Settings' preview frames Mantel itself
     assert "wss://mantel.example.com" in d["connect-src"]           # older Safari: 'self' is not wss
+    assert d["img-src"] == ["'self'", "data:", "blob:", "https:"]  # providers' album art from any https CDN
     assert "'unsafe-eval'" not in sh.page_policy() and "'unsafe-eval'" not in sh.ma_policy()
     ma = directives(sh.ma_policy())
     assert ma["frame-ancestors"] == ["'self'"] and ma["script-src"] == ["'self'", "'unsafe-inline'"]

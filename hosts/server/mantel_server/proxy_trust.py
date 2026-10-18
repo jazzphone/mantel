@@ -120,6 +120,8 @@ def to_remove(request: web.Request) -> list[str]:
         if ids:
             drop += ids
             ingress._warn_forged(request)        # "ignored HA identity headers (...) from <peer>", rate-limited
+    if not trusted and "X-Mantel-Door-Key" in h:
+        drop.append("X-Mantel-Door-Key")      # door_key.py: only the trusted proxy may present it
     if not (trusted or through_ingress):
         fwd = [n for n in FORWARDING if n in h]
         drop += fwd

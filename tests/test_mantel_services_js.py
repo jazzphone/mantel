@@ -29,6 +29,8 @@ for (const base of ['', '/api/hassio_ingress/Fict1onal']) {
               other: hkShell.serviceUrl('nope') };
   hkMantelShell.setServices({ music_assistant: 'https://evil.example/ma/', go2rtc: '/go2rtc/../x' });
   r.evil = hkShell.serviceUrl('music_assistant'); r.dots = hkShell.serviceUrl('go2rtc');
+  hkMantelShell.setServices({ music_assistant: '/ma/hassio_ingress/mantel/' });
+  r.signed = hkShell.serviceUrl('music_assistant');
   hkMantelShell.setServices(null);
   r.cleared = hkShell.serviceUrl('music_assistant');
   out[base || 'root'] = r;
@@ -42,6 +44,6 @@ def test_service_urls_are_same_origin_paths_under_the_prefix():
     got = json.loads(subprocess.run(["node", "-e", SCRIPT, str(ROOT)], capture_output=True, text=True,
                                     check=True, timeout=30).stdout)
     assert got["root"] == {"before": None, "ma": "/ma/", "g2": None, "other": None, "evil": None, "dots": None,
-                           "cleared": None}
+                           "signed": "/ma/hassio_ingress/mantel/", "cleared": None}
     ing = got["/api/hassio_ingress/Fict1onal"]
     assert ing["ma"] == "/api/hassio_ingress/Fict1onal/ma/" and ing["evil"] is None and ing["before"] is None

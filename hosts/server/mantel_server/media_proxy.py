@@ -37,6 +37,7 @@ configuration, restart, logs and its own web pages are never reachable. Stream S
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import re
 from dataclasses import dataclass
@@ -51,6 +52,7 @@ from . import proxy_trust, sessions
 log = logging.getLogger("mantel.media_proxy")
 
 MA, GO2RTC = "/ma", "/go2rtc"
+ALIAS_PATH = "hassio_ingress/mantel/"    # = ma_page.ALIAS
 SERVICES_PATH = "/api/services"
 RECHECK = 60.0
 MAX_BODY = 1 << 20                  # a request body (MA's forms, a WebRTC offer)
@@ -172,6 +174,7 @@ class Plan:
     query: str
     ws: bool
     rewrite: bool
+    signed: bool = False      # Music Assistant under ma_page.ALIAS: signed in with the page token (ma_page.py)
 
 
 class Upstream:
@@ -220,6 +223,16 @@ class MusicAssistant(Upstream):
         self.announced: set[str] = set()   # base_url values MA announced in server_info (also replaced)
 
     def plan(self, request: web.Request, tail: str) -> Plan | None:
+        from .ma_page import ALIAS
+        signed = tail.startswith(ALIAS) or tail == ALIAS.rstrip("/")
+        if signed:
+            tail = tail[len(ALIAS):]
+        got = self._plan(request, tail)
+        if got is not None and signed:
+            got.signed = True
+        return got
+
+    def _plan(self, request: web.Request, tail: str) -> Plan | None:
         if MA_DENY.match(tail):
             return None
         query = request.query_string
@@ -437,6 +450,47 @@ class MediaProxy:
             log.warning("%s did not answer %s (%s)", up.service, plan.path or "/", type(exc).__name__)
             return _error(502, "upstream_unavailable", up.service)
 
+    async def sign_in(self, request: web.Request, up: "MusicAssistant", upstream, ws, rewrite) -> bool:
+        """ma_page.py: authenticate this socket to MA with the page token, then give the page MA's
+        server_info saying `homeassistant_addon: true`, so MA's app asks `auth/me` instead of signing in.
+        False (and server_info passed on as it came) without a token or when MA refuses it."""
+        from .ma_page import of
+        page = of(request.app)
+        token = page.token() if page is not None else ""
+        first = await upstream.receive(timeout=15)
+        if first.type != WSMsgType.TEXT:
+            return False
+        text = first.data
+        up.learn(text)
+        ok_ = False
+        if token:
+            try:
+                await upstream.send_str(json.dumps({"message_id": "mantel-page-auth", "command": "auth",
+                                                    "args": {"token": token, "device_name": "Mantel"}}))
+                while True:
+                    m = await upstream.receive(timeout=15)
+                    if m.type != WSMsgType.TEXT:
+                        break
+                    got = json.loads(m.data)
+                    if isinstance(got, dict) and got.get("message_id") == "mantel-page-auth":
+                        res = got.get("result")
+                        ok_ = isinstance(res, dict) and res.get("authenticated") is True
+                        break
+            except (asyncio.TimeoutError, ValueError, aiohttp.ClientError) as exc:
+                log.warning("Music Assistant page sign-in failed (%s)", type(exc).__name__)
+            if not ok_:
+                log.warning("Music Assistant refused the page token; the frame shows MA's own sign-in")
+        if ok_:
+            try:
+                info = json.loads(text)
+                if isinstance(info, dict):
+                    info["homeassistant_addon"] = True
+                    text = json.dumps(info)
+            except ValueError:
+                ok_ = False
+        await ws.send_str(up.rewriter(public_base(request, up.prefix))(text) if rewrite is not None else text)
+        return ok_
+
     async def relay(self, request: web.Request, up: Upstream, plan: Plan, principal: Any) -> web.StreamResponse:
         stats = self.stats[up.name]
         protocols = [p.strip() for p in request.headers.get("Sec-WebSocket-Protocol", "").split(",")
@@ -460,6 +514,9 @@ class MediaProxy:
         stats["served"] += 1
         base = public_base(request, up.prefix)
         rewrite = up.rewriter(base) if isinstance(up, MusicAssistant) else None
+        signed_in = False
+        if plan.signed and isinstance(up, MusicAssistant):
+            signed_in = await self.sign_in(request, up, upstream, ws, rewrite)
 
         async def down() -> None:            # upstream -> page
             nonlocal rewrite
@@ -479,8 +536,14 @@ class MediaProxy:
                     break
 
         async def upward() -> None:          # page -> upstream
+            from .ma_page import BLOCKED
             async for m in ws:
                 if m.type == WSMsgType.TEXT:
+                    if signed_in:
+                        refused = _blocked_command(m.data, BLOCKED)
+                        if refused is not None:
+                            await ws.send_str(refused)
+                            continue
                     await upstream.send_str(m.data)
                 elif m.type == WSMsgType.BINARY:
                     await upstream.send_bytes(m.data)
@@ -507,6 +570,19 @@ class MediaProxy:
             await ws.close()
             self.sockets.discard(ws)
         return ws
+
+
+def _blocked_command(text: str, blocked: frozenset) -> str | None:
+    """On a socket Mantel signed in (ma_page.py): MA's answer refusing a command that would end or change
+    that sign-in, or None to pass the frame on."""
+    try:
+        msg = json.loads(text)
+    except ValueError:
+        return None
+    if isinstance(msg, dict) and msg.get("command") in blocked:
+        return json.dumps({"message_id": msg.get("message_id"), "error_code": 403,
+                           "details": "Not through Mantel: this page is signed in to Music Assistant by Mantel."})
+    return None
 
 
 def ma_web_url(cfg, conns: Any = None) -> str:
@@ -550,7 +626,9 @@ def services_for(app: web.Application, principal: Any) -> dict[str, str | None]:
         return out
     ma = proxy.upstreams.get(MA)
     if ma is not None and ma.base and ma.authorize(app, principal, Plan("", "", False, False), None):
-        out["music_assistant"] = MA + "/"
+        page = app.get("ma_page")
+        # with the page token: the address under which Mantel signs the frame in (ma_page.py)
+        out["music_assistant"] = MA + "/" + (ALIAS_PATH if page is not None and page.token() else "")
     g2 = proxy.upstreams.get(GO2RTC)
     if g2 is not None and g2.base and principal is not None and principal.valid and \
             (principal.identity.user is not None or principal.identity.device is not None):

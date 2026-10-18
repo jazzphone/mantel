@@ -442,8 +442,38 @@ def owner_token(base, env) -> str:
     return m.group(1) if m else ""
 
 
+async def ma_page_checks(b: "Browser", label: str, ma: Upstream, port: int) -> None:
+    """Connections: Music Assistant (the engine's connection), then the token for the Music Assistant page;
+    the frame's socket is then signed in by Mantel and the page never sees the token."""
+    ma_addr = ma.url
+    status, _, body = await b.post("/api/connections/ma", {"url": ma_addr, "token": "admin-token"})
+    check(status == 200, f"{label}: Music Assistant set up on the Connections page (HTTP {status} {loads(body).get('error', '')})")
+    status, _, body = await b.post("/api/connections/ma/page", {"token": "admin-token"})
+    check(status == 422 and loads(body).get("error") == "admin_token",
+          f"{label}: an MA administrator's token is refused for the page ({status})")
+    status, _, body = await b.post("/api/connections/ma/page", {"username": "listener", "password": "fictional-pass"})
+    check(status == 200 and b"page-token-user" not in body and loads(body).get("page", {}).get("set") is True,
+          f"{label}: the page token is made by signing in once as an ordinary MA user ({status})")
+    status, _, body = await b.get("/api/services")
+    check(loads(body).get("music_assistant") == "/ma/hassio_ingress/mantel/",
+          f"{label}: HK's frame now opens the signed-in address ({loads(body).get('music_assistant')})")
+    try:
+        async with b.ws("/ma/hassio_ingress/mantel/ws") as ws:
+            info = json.loads((await ws.receive(timeout=10)).data)
+            await ws.send_str(json.dumps({"message_id": "m1", "command": "auth/me"}))
+            me = json.loads((await ws.receive(timeout=10)).data)
+            await ws.send_str(json.dumps({"message_id": "m2", "command": "auth/logout"}))
+            no = json.loads((await ws.receive(timeout=10)).data)
+        check(info.get("homeassistant_addon") is True and (me.get("result") or {}).get("username") == "listener"
+              and no.get("error_code") == 403 and "page-token-user" not in json.dumps([info, me, no]),
+              f"{label}: the /ma/ frame's socket is signed in by Mantel (auth/me: {(me.get('result') or {}).get('username')}), "
+              "sign-out refused, no token in the page")
+    except Exception as exc:  # noqa: BLE001
+        check(False, f"{label}: the signed-in /ma/ socket ({type(exc).__name__}: {exc})")
+
+
 async def web_checks(base, env, port: int, label: str, ma: Upstream, username: str = "owner",
-                     password: str = PASSWORD) -> None:
+                     password: str = PASSWORD, page_token: bool = False) -> None:
     """Through the proxy at https://mantel.localhost:<port>: headers, the first Owner, /proxy-check, /ma/,
     /go2rtc/."""
     async with Browser(port) as b:
@@ -455,6 +485,7 @@ async def web_checks(base, env, port: int, label: str, ma: Upstream, username: s
         status, h, _ = await b.get("/api/version")
         csp = h.get("Content-Security-Policy", "")
         check("script-src 'self'" in csp and "frame-ancestors 'self'" in csp and f"wss://{HOST}" in csp
+              and "img-src 'self' data: blob: https:;" in csp
               and h.get("Strict-Transport-Security") == "max-age=31536000" and h.get("X-Content-Type-Options") == "nosniff"
               and "aiohttp" not in h.get("Server", "") and "Python" not in h.get("Server", ""),
               f"{label}: Mantel's own headers arrive (CSP with wss://{HOST}, HSTS, nosniff, no Server of Mantel's) "
@@ -502,6 +533,8 @@ async def web_checks(base, env, port: int, label: str, ma: Upstream, username: s
         hit = ma.hits[-1][2] if ma.hits else {}
         check(not any(k in hit for k in ("Cookie", "Authorization", "X-Forwarded-For", "X-Mantel-Door", "Origin")),
               f"{label}: nothing of Mantel's (cookies, forwarding, door, origin) reached Music Assistant")
+        if page_token:
+            await ma_page_checks(b, label, ma, port)
         # go2rtc through /go2rtc/
         status, _, body = await b.get("/go2rtc/api/streams")
         check(status == 404 and b'"service": "go2rtc"' in body, f"{label}: go2rtc's stream management is not reachable ({status})")
@@ -637,7 +670,7 @@ def run_caddy(work: Path, ma: Upstream, ma_port: int) -> None:
               and headers.get("X-Content-Type-Options") == "nosniff",
               f"security headers on {HOST}: CSP script-src 'self' + frame-ancestors, HSTS, nosniff")
         # HTTPS: Mantel's own headers, /proxy-check, /ma/, /go2rtc/ through Caddy (the Owner made above)
-        asyncio.run(web_checks(base, env, PORT, "caddy", ma, "owner-e2e", seen["secrets"][1]))
+        asyncio.run(web_checks(base, env, PORT, "caddy", ma, "owner-e2e", seen["secrets"][1], page_token=True))
         # the server's own restrictions
         uid = sh(*base, "exec", "-T", "mantel-server", "id", "-u", env=env).stdout.strip()
         ro = sh(*base, "exec", "-T", "mantel-server", "sh", "-c", "touch /app/x", env=env, check_rc=False)
@@ -729,7 +762,7 @@ networks:
 """
 
 
-async def byo_extra_checks(label: str) -> None:
+async def byo_extra_checks(label: str, door: str) -> None:
     # the host without the door header: fail closed, and the probe shows the browser's header passes
     async with Browser(NGINX_BARE_PORT) as b:
         status, _, body = await b.get("/api/proxy-check/basics")
@@ -741,6 +774,15 @@ async def byo_extra_checks(label: str) -> None:
         got = loads(body)
         check(got.get("probe_passed") is True,
               f"{label}: ...and the probe shows that host passes a browser's own door header through (what /proxy-check warns about)")
+        status, _, body = await b.get("/api/proxy-check/basics", headers={"X-Mantel-Door": "lan"})
+        got = loads(body)
+        check(got.get("door") == "tunnel" and got.get("door_key") == "missing",
+              f"{label}: ...but a browser's own `X-Mantel-Door: lan` through it is still the tunnel door: no door key {got}")
+        status, _, body = await b.get("/api/proxy-check/basics", headers={"X-Mantel-Door": "lan",
+                                                                         "X-Mantel-Door-Key": "a-guess"})
+        got = loads(body)
+        check(got.get("door") == "tunnel" and got.get("door_key") == "wrong",
+              f"{label}: ...nor with a guessed key {got.get('door')}/{got.get('door_key')}")
         status, _, body = await b.post("/api/auth/password", {"username": "owner", "password": PASSWORD})
         got = loads(body)
         check(got.get("error") == "second_factor_required",
@@ -778,8 +820,7 @@ def run_byo(work: Path, ma: Upstream, ma_port: int) -> None:
     sh("openssl", "req", "-x509", "-newkey", "rsa:2048", "-nodes", "-days", "2", "-subj", f"/CN={HOST}",
        "-keyout", str(tls / "key.pem"), "-out", str(tls / "cert.pem"))
     os.chmod(tls / "key.pem", 0o644)       # nginx in its container reads it (throwaway, self-signed)
-    block = "\n".join("        " + line for line in npm_advanced(f"{MANTEL_PROXYNET_IP}:8765").splitlines())
-    (compose_dir / "nginx.conf").write_text(NGINX_CONF.format(host=HOST, block=block, mantel=MANTEL_PROXYNET_IP))
+    (compose_dir / "nginx.conf").write_text("events {}\n")      # until the door key is known (below)
     (compose_dir / "compose.e2e-proxy.yaml").write_text(E2E_OVERRIDE.format(
         nginx_image=NGINX_IMAGE, port=PORT, bare=NGINX_BARE_PORT, nginx_ip=NGINX_IP, mantel_ip=MANTEL_PROXYNET_IP))
     with (compose_dir / ".env").open("a") as f:
@@ -788,10 +829,21 @@ def run_byo(work: Path, ma: Upstream, ma_port: int) -> None:
             "-f", str(compose_dir / "compose.yaml"), "-f", str(compose_dir / "compose.byo-proxy.yaml"),
             "-f", str(compose_dir / "compose.e2e-proxy.yaml")]
     try:
+        # Mantel first, then its door key into "your proxy" (as an operator pastes it), then the proxy
+        sh(*base, "up", "-d", "--wait", "--wait-timeout", "240", "mantel-server", "go2rtc", env=env, check_rc=False,
+           timeout=600)
+        got = sh(*base, "exec", "-T", "mantel-server", "mantel", "door-key", env=env, check_rc=False).stdout
+        m = re.search(r"X-Mantel-Door-Key (\S+);", got)
+        door = m.group(1) if m else ""
+        check(len(door) >= 40, f"{label}: `mantel door-key` prints this installation's door key ({len(door)} chars)")
+        block = "\n".join("        " + line for line in npm_advanced(f"{MANTEL_PROXYNET_IP}:8765", key=door).splitlines())
+        (compose_dir / "nginx.conf").write_text(NGINX_CONF.format(host=HOST, block=block, mantel=MANTEL_PROXYNET_IP))
         up(base, env, work, label, {"mantel-server", "go2rtc", "your-proxy"})
         wait_connected(base, env, label, token)
         asyncio.run(web_checks(base, env, PORT, label, ma))
-        asyncio.run(byo_extra_checks(label))
+        asyncio.run(byo_extra_checks(label, door))
+        logs = sh(*base, "logs", "--no-color", "mantel-server", env=env, check_rc=False)
+        check(door not in logs.stdout + logs.stderr, f"{label}: the door key is in no log line")
         server_checks(base, env, work, label)
     finally:
         logs_and_down(base, env, work, label, ("your-proxy", "mantel-server", "go2rtc"))

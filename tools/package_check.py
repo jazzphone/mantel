@@ -368,6 +368,8 @@ def check_security_headers(path: Path) -> list[str]:
                 problems.append(f"{name}: the {label} policy lacks {need}")
         if "'none'" not in pol.get("object-src", ()):
             problems.append(f"{name}: the {label} policy's object-src must be 'none'")
+    if any(v in ("*", "http:") for v in page.get("img-src", ())):
+        problems.append(f"{name}: the page policy's img-src may allow any https image, never plain http: or *")
     if tuple(page.get("frame-ancestors", ())) != ("'self'",) or tuple(ma.get("frame-ancestors", ())) != ("'self'",):
         problems.append(f"{name}: frame-ancestors must default to 'self' (operators add origins explicitly)")
     if "max-age=" not in getattr(mod, "HSTS", ""):

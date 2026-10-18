@@ -20,6 +20,7 @@ async def m(tmp_path, monkeypatch):
                             public_url="https://mantel.example.com/", allowed_hosts=("mantel.example.com",))
     await got.user("owner", "owner")
     await got.user("adult", "adult")
+    GOOD["X-Mantel-Door-Key"] = got.app["door_key"].value()     # your own proxy sends the door key
     status = (await got.client.post("/api/auth/password", json={"username": "owner",
                                     "password": "correct horse battery staple"}, headers=GOOD)).status
     assert status == 200
@@ -38,7 +39,7 @@ async def check(m, headers):
 async def test_a_correct_proxy_passes(m):
     checks, body = await check(m, GOOD)
     assert body["door"] == "lan" and body["https"] is True and body["client"] == "192.168.1.40"
-    for cid in ("https", "trusted_proxy", "door_header", "forwarded_for", "door_overwrite"):
+    for cid in ("https", "trusted_proxy", "door_header", "forwarded_for", "door_overwrite", "door_key"):
         assert checks[cid]["ok"] is True, checks[cid]
     assert "proxy_set_header X-Mantel-Door lan;" in body["npm_advanced"]
     assert "X-Mantel-Door: \"lan\"" in body["traefik"]
@@ -120,3 +121,52 @@ def test_the_documented_npm_block_is_the_one_the_check_hands_out():
     ops = (Path(__file__).resolve().parents[1] / "docs/OPERATIONS.md").read_text()
     block = ops.split("```nginx\n", 1)[1].split("```", 1)[0].rstrip("\n")
     assert block == proxy_check.npm_advanced()
+
+
+async def test_with_your_own_proxy_the_door_needs_this_installations_key(m):
+    key = m.app["door_key"].value()
+    assert len(key) >= 40
+    # the report shows the Owner the key, and the paste carries it
+    checks, body = await check(m, GOOD)
+    assert body["door_key"]["value"] == key and f"X-Mantel-Door-Key {key};" in body["npm_advanced"]
+    assert f'X-Mantel-Door-Key: "{key}"' in body["traefik"]
+    # without it, or with another, the trusted proxy's `lan` is ignored: the tunnel door
+    h = {k: v for k, v in GOOD.items() if k not in ("X-Test-Peer", "X-Mantel-Door-Key")}
+    checks, body = report_for(m, PROXY, h)
+    assert body["door"] == "tunnel" and checks["door_key"]["ok"] is False and key in checks["door_key"]["paste"]
+    checks, body = report_for(m, PROXY, {**h, "X-Mantel-Door-Key": "not-the-key"})
+    assert body["door"] == "tunnel" and "wrong" in checks["door_key"]["title"]
+    # the public answer says which, never the key
+    b = await (await m.client.get(proxy_check.BASICS, headers={"X-Test-Peer": PROXY, "X-Mantel-Door": "lan"})).json()
+    assert b["door"] == "tunnel" and b["door_key"] == "missing" and key not in json.dumps(b)
+    # nobody but the trusted proxy may present a key
+    b = await (await m.client.get(proxy_check.BASICS, headers={"X-Test-Peer": "192.0.2.99", "X-Mantel-Door": "lan",
+                                                               "X-Mantel-Door-Key": key})).json()
+    assert b["door"] == "tunnel"
+
+
+async def test_rotating_the_door_key(m):
+    old = m.app["door_key"].value()
+    csrf = m.cookie("mantel_csrf")
+    r = await m.client.post(proxy_check.DOOR_KEY, headers={**GOOD, "X-CSRF-Token": csrf})
+    body = await r.json()
+    assert r.status == 200 and body["door_key"]["value"] != old
+    new = body["door_key"]["value"]
+    # the old key no longer opens the LAN door; the new one does
+    door = lambda: m.client.get(proxy_check.BASICS, headers=GOOD)  # noqa: E731
+    assert (await (await door()).json())["door"] == "tunnel"
+    GOOD["X-Mantel-Door-Key"] = new
+    assert (await (await door()).json())["door"] == "lan"
+    rows = m.store.db.execute("SELECT * FROM action_audit").fetchall()
+    assert any("door_key.rotated" in str(dict(r)) for r in rows) and not any(new in str(dict(r)) for r in rows)
+    # sealed on disk: a new key object reads it back, and the file holds no key text
+    from mantel_server.door_key import DoorKey
+    assert DoorKey(m.app["connections"].files).value() == new
+    assert new.encode() not in m.app["connections"].files.path("door_key").read_bytes()
+
+
+def test_the_key_is_required_only_with_your_own_proxy():
+    from mantel_server import door_key
+    from mantel_server.config import Config
+    assert door_key.required(Config(proxy_kind="own"))
+    assert not door_key.required(Config(proxy_kind="caddy")) and not door_key.required(Config())

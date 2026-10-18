@@ -94,6 +94,38 @@ function el(tag, cls, text) {
   return e;
 }
 
+function csrf() {
+  const m = document.cookie.match(/(?:^|; )mantel_csrf=([^;]+)/);
+  return m ? decodeURIComponent(m[1]) : '';
+}
+
+// THE DOOR KEY (door_key.py): with your own proxy, the door counts only with this installation's key.
+// Owner only (the report carries it only for an Owner); rotating means pasting the new key into the proxy.
+function doorKeyBox(dk) {
+  const wrap = el('div', 'doorkey');
+  wrap.appendChild(el('strong', null, 'Door key for your proxy'));
+  wrap.appendChild(el('p', null, `Your proxy sends it as ${dk.header} with the door (the blocks above include it). Keep it private.`));
+  const pre = el('pre', 'paste', `proxy_set_header ${dk.header} ${dk.value};`);
+  wrap.appendChild(pre);
+  const copy = el('button', null, 'Copy');
+  copy.type = 'button';
+  copy.addEventListener('click', () => navigator.clipboard && navigator.clipboard.writeText(dk.value));
+  const rot = el('button', null, 'Make a new key');
+  rot.type = 'button';
+  rot.addEventListener('click', async () => {
+    if (!window.confirm('Make a new door key? Your proxy keeps the LAN door only after you paste the new key into it.')) return;
+    const base = (document.querySelector('meta[name="mantel-base"]') || {}).content || '';
+    const res = await fetch(base + '/api/admin/proxy-check/door-key', { method: 'POST', credentials: 'same-origin',
+      headers: { 'X-CSRF-Token': csrf() } });
+    const got = await res.json().catch(() => ({}));
+    if (res.ok && got.door_key) pre.textContent = `proxy_set_header ${got.door_key.header} ${got.door_key.value};`;
+    else pre.textContent = 'Not changed: ' + (got.error || res.status);
+  });
+  wrap.appendChild(copy);
+  wrap.appendChild(rot);
+  return wrap;
+}
+
 export function render(box, result) {
   box.textContent = '';
   const bad = result.checks.filter((c) => c.ok === false).length;
@@ -117,6 +149,7 @@ export function render(box, result) {
   }
   box.appendChild(list);
   const r = result.report;
+  if (r.door_key && r.door_key.value) box.appendChild(doorKeyBox(r.door_key));
   box.appendChild(el('p', 'note', `Seen by Mantel: from ${r.peer}, client ${r.client}, door ${r.door}, ${r.https ? 'https' : 'http'}; trusted proxy ${r.trusted.join(', ') || 'none'}.`));
 }
 

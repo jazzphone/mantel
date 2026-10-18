@@ -72,13 +72,14 @@ import sys
 from pathlib import Path
 
 ADMIN_COMMANDS = {"link", "unlink", "links", "session", "connect-proof", "connect", "bootstrap", "import-settings",
-                  "service-account", "backup", "restore", "import-files", "files"}
+                  "service-account", "backup", "restore", "import-files", "files", "door-key"}
 # what each admin command takes besides --data-dir, filled from the container's own settings when absent
 ADMIN_EXTRAS = {
     "import-settings": lambda env: ["--ha-url", env.get("MANTEL_HA_URL", ""),
                                     "--token-file", env.get("MANTEL_HA_TOKEN_FILE", "/run/secrets/ha_token")],
     "backup": lambda env: ["--secrets-dir", env.get("MANTEL_SECRETS_DIR", "/run/secrets")],
     "restore": lambda env: ["--secrets-dir", env.get("MANTEL_SECRETS_DIR", "/run/secrets")],
+    "door-key": lambda env: ["--secrets-dir", env.get("MANTEL_SECRETS_DIR", "/run/secrets")],
 }
 APP_OPTIONS = Path("/data/options.json")
 APP_TOKEN_FILE = Path("/tmp/ha_token")

@@ -33,7 +33,7 @@ from . import music
 from . import accounts, alarm_pin, auth, connect_pairing, devices, gateway, health, ingress, live_tv, pins, proof2, rbac_store, readproxy, sessions, settings_store
 from . import (admin_page, atrest, backup, connections, features, linked, linked_house, linked_owners, login_page,
                service_accounts, talk_relay, user_files)
-from . import media_proxy, proxy_check, proxy_trust, security_headers
+from . import ma_page, media_proxy, proxy_check, proxy_trust, security_headers
 from .authz import Authz, Principal, resolve_door
 from .config import Config
 from .connectors import REFUSE_ALL, Ctx, Hooks
@@ -563,6 +563,7 @@ def wire(app: web.Application, hub: Hub, token: str, connect_ha: bool) -> None:
     backup.register(app, hub)
     # Music Assistant's web app and go2rtc under Mantel's own address (/ma/, /go2rtc/; each only when
     # configured), and the Owner's "Test my proxy" (/proxy-check)
+    ma_page.register(app, hub)       # the token for the Music Assistant page (Connections; signs the /ma/ frame in)
     media_proxy.register(app, hub)
     proxy_check.register(app, hub)
     if cfg.commands_enabled:

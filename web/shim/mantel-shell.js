@@ -15,7 +15,8 @@
   // Music Assistant's web app and go2rtc, served by Mantel under its own address when configured
   // (media_proxy.py; GET /api/services says which this identity may use): same-origin paths under
   // the page's prefix, so HK's MA frame and go2rtc sockets are https on an https page.
-  const SERVICE_PATH = /^\/(?:ma|go2rtc)\/$/;
+  // (/ma/hassio_ingress/mantel/: the same app, signed in by Mantel with the page token; ma_page.py)
+  const SERVICE_PATH = /^\/(?:ma(?:\/hassio_ingress\/mantel)?|go2rtc)\/$/;
   let services = {};
   function serviceUrl(name) {
     const path = services && typeof services[name] === 'string' ? services[name] : null;

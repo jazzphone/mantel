@@ -50,8 +50,9 @@ PAGE_POLICY: dict[str, tuple[str, ...]] = {
     "default-src": ("'none'",),
     "script-src": ("'self'",),
     "style-src": ("'self'", "'unsafe-inline'"),
-    "img-src": ("'self'", "data:", "blob:", "https://tile.openstreetmap.org", "https://*.rainviewer.com",
-                "https://mapservices.weather.noaa.gov"),
+    # any https image (Avery, 2026-10-18): music providers' album art comes from their own CDNs (mzstatic,
+    # theaudiodb, ...), besides the map tiles and radar; images cannot run code
+    "img-src": ("'self'", "data:", "blob:", "https:"),
     "font-src": ("'self'", "data:"),
     "media-src": ("'self'", "blob:"),
     "connect-src": ("'self'", "https://api.rainviewer.com", "https://tile.openstreetmap.org",

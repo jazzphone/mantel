@@ -25,7 +25,8 @@ from urllib.parse import urlsplit
 from aiohttp import WSMsgType, web
 
 from . import authz as authz_mod
-from . import proxy_trust, sessions
+from . import door_key, proxy_trust, sessions
+from .accounts import STEP_UP_WINDOW
 from .login_page import login_url
 
 PAGE = "/proxy-check"
@@ -33,15 +34,17 @@ ASSETS = {"check.js": "text/javascript", "check.css": "text/css"}
 API = "/api/admin/proxy-check"
 WS = API + "/ws"
 PROBE = "mantel-proxy-check-probe"   # the value the browser sends as X-Mantel-Door: must never arrive
-BASICS = "/api/proxy-check/basics"   # public: this request's own door, for a page that is signed out on it
+BASICS = "/api/proxy-check/basics"
+DOOR_KEY = API + "/door-key"           # POST: a new door key (Owner)   # public: this request's own door, for a page that is signed out on it
 
 CSP = ("default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self' {ws}; "
        "base-uri 'none'; form-action 'none'; frame-ancestors 'self'")
 
 
-def npm_advanced(upstream: str = "MANTEL_ADDRESS:8765", door: str = "lan") -> str:
+def npm_advanced(upstream: str = "MANTEL_ADDRESS:8765", door: str = "lan", key: str = door_key.PLACEHOLDER) -> str:
     """Nginx Proxy Manager, proxy host -> Advanced -> Custom Nginx Configuration (one `location /`
-    replaces NPM's own, so these headers are not lost to nginx's inheritance rule)."""
+    replaces NPM's own, so these headers are not lost to nginx's inheritance rule). `key`: this
+    installation's door key (door_key.py; the placeholder in the docs and for anyone but an Owner)."""
     return "\n".join([
         "location / {",
         f"    proxy_pass http://{upstream};",
@@ -53,6 +56,7 @@ def npm_advanced(upstream: str = "MANTEL_ADDRESS:8765", door: str = "lan") -> st
         "    proxy_set_header X-Forwarded-Proto $scheme;",
         "    proxy_set_header X-Forwarded-Host $http_host;",
         f"    proxy_set_header X-Mantel-Door {door};",
+        f"    proxy_set_header {door_key.HEADER} {key};",
         '    proxy_set_header X-Remote-User-Id "";',
         '    proxy_set_header X-Remote-User-Name "";',
         '    proxy_set_header X-Remote-User-Display-Name "";',
@@ -102,7 +106,10 @@ def report(request: web.Request) -> dict:
     def add(cid: str, ok, title: str, detail: str, fix: str = "", paste: str = "") -> None:
         checks.append({"id": cid, "ok": ok, "title": title, "detail": detail, "fix": fix, "paste": paste})
 
-    npm = npm_advanced()
+    need_key = door_key.required(cfg)
+    dk = door_key.of(request.app) if need_key else None
+    key_value = dk.value() if dk is not None else None
+    npm = npm_advanced(key=key_value or door_key.PLACEHOLDER)
     if https:
         add("https", True, "HTTPS is in use", "Your browser reached Mantel over HTTPS.")
     else:
@@ -153,6 +160,19 @@ def report(request: web.Request) -> dict:
                 "Set it exactly once (proxy_set_header overwrites; add_header does not).", npm)
         else:
             add("door_header", True, f"Door: {door}", f"Your proxy says this is the {good[0]} door.")
+    if trusted and need_key:
+        st = door_key.status(request)
+        if st == "ok":
+            add("door_key", True, "Door key", "Your proxy sends this installation's door key with the door.")
+        elif st == "missing":
+            add("door_key", False, "Your proxy does not send the door key",
+                f"With your own proxy, Mantel believes the door only together with this installation's key "
+                f"({door_key.HEADER}); without it every request is the tunnel door.",
+                "Add the key line of the block below to the proxy host (NPM: Advanced tab).", npm)
+        else:
+            add("door_key", False, "Your proxy sends the wrong door key",
+                "The key your proxy sends is not this installation's (an old key from before a rotation?).",
+                "Paste the block below again (it has the current key).", npm)
     if via_cf:
         add("door_plausible", True if door == "tunnel" else False, "Came through Cloudflare",
             "Cloudflare's headers are present, so Mantel uses the tunnel door's rules whatever else is said.")
@@ -181,8 +201,14 @@ def report(request: web.Request) -> dict:
             + ("" if same else " Sign in with Home Assistant returns to the configured address."))
     return {"checks": checks, "probe": PROBE, "proxy_kind": kind, "door": door, "https": https,
             "peer": peer, "client": client, "trusted": trusted_list,
-            "npm_advanced": npm, "npm_advanced_tunnel": npm_advanced(door="tunnel"),
-            "traefik": TRAEFIK}
+            "npm_advanced": npm, "npm_advanced_tunnel": npm_advanced(door="tunnel", key=key_value or door_key.PLACEHOLDER),
+            "traefik": traefik(key_value or door_key.PLACEHOLDER),
+            # Owner only (this whole report is): the key the proxy must send, when it must
+            "door_key": {"value": key_value, "since": dk.since(), "header": door_key.HEADER} if dk is not None else None}
+
+
+def traefik(key: str = door_key.PLACEHOLDER) -> str:
+    return TRAEFIK.replace(door_key.PLACEHOLDER, key)
 
 
 TRAEFIK = """http:
@@ -191,6 +217,7 @@ TRAEFIK = """http:
       headers:
         customRequestHeaders:
           X-Mantel-Door: "lan"
+          X-Mantel-Door-Key: "MANTEL_DOOR_KEY"
           X-Remote-User-Id: ""
           X-Remote-User-Name: ""
           X-Remote-User-Display-Name: ""
@@ -223,7 +250,30 @@ async def basics(request: web.Request) -> web.Response:
                               # the page sends PROBE as X-Mantel-Door: arriving here, the proxy passes the
                               # browser's own door header through (anyone could claim the LAN door)
                               "probe_passed": any(c.strip() == PROBE for c in claims),
+                              "door_key": door_key.status(request) if trusted else None,
                               "npm_advanced": npm_advanced()},
+                             headers={"Cache-Control": "no-store"})
+
+
+async def rotate(request: web.Request) -> web.Response:
+    """A new door key (Owner; CSRF by the session middleware; a fresh factor on the tunnel door). The proxy
+    must then send the new one: until it does, its requests are the tunnel door."""
+    ident = _owner(request)
+    if sessions.door_of(request) != "lan" and not ident.fresh_within(STEP_UP_WINDOW, request.app["clock"]()):
+        return web.json_response({"error": "step_up_required"}, status=403)
+    dk = door_key.of(request.app)
+    if dk is None:
+        raise web.HTTPNotFound()
+    audit = request.app.get("audit")
+    if audit is not None:
+        try:
+            audit.config_event({"actor": ident.user.id, "role": ident.user.role, "action": "door_key.rotated",
+                                "detail": {}, "timestamp": request.app["clock"]()})
+        except Exception:  # noqa: BLE001 -- nothing changes without its audit row
+            return web.json_response({"error": "audit_unavailable"}, status=503)
+    dk.rotate()
+    return web.json_response({"ok": True, "door_key": {"value": dk.value(), "since": dk.since(),
+                                                       "header": door_key.HEADER}},
                              headers={"Cache-Control": "no-store"})
 
 
@@ -282,6 +332,8 @@ async def asset(request: web.Request) -> web.StreamResponse:
 
 
 def register(app: web.Application, hub=None) -> None:
+    door_key.install(app)
+    app.router.add_post(DOOR_KEY, rotate)
     app.setdefault("public_paths", set()).add(BASICS)
     app.router.add_get(BASICS, basics)
     app.router.add_get(PAGE, page)

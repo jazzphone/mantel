@@ -28,10 +28,16 @@ async def fake_peer(request: web.Request, handler):
 
 
 # -- fictional upstreams ------------------------------------------------------------------------------
+MA_USERS = {"page-token-user": {"user_id": "u1", "username": "listener", "display_name": "Listener", "role": "user"},
+            "admin-token": {"user_id": "u0", "username": "admin", "display_name": "Admin", "role": "admin"}}
+
+
 @dataclass
 class Upstream:
     hits: list = field(default_factory=list)       # (method, path_qs, headers dict, body bytes)
     server: TestServer | None = None
+    commands: list = field(default_factory=list)   # MA socket commands received
+    revoked: set = field(default_factory=set)      # tokens MA no longer accepts
 
     @property
     def url(self) -> str:
@@ -89,9 +95,37 @@ def ma_app(up: Upstream) -> web.Application:
         sock = web.WebSocketResponse()
         await sock.prepare(request)
         await sock.send_str(json.dumps({"server_id": "fictional", "base_url": "http://192.0.2.30:8095",
-                                        "server_version": "2.7.0"}))
+                                        "server_version": "2.7.0", "homeassistant_addon": False}))
+        user = None
         async for m in sock:
-            if m.type == aiohttp.WSMsgType.TEXT:
+            if m.type != aiohttp.WSMsgType.TEXT:
+                continue
+            try:
+                msg = json.loads(m.data)
+            except ValueError:
+                msg = {}
+            cmd, mid = msg.get("command"), msg.get("message_id")
+            up.commands.append(cmd)
+            if cmd == "auth":                       # MA 2.7's socket sign-in with a token
+                token = (msg.get("args") or {}).get("token")
+                who = MA_USERS.get(token) if token not in up.revoked else None
+                if who is not None:
+                    user = who
+                await sock.send_str(json.dumps({"message_id": mid, "result": {"authenticated": who is not None,
+                                                                                **({"user": who} if who else {})}}))
+            elif cmd == "auth/me":
+                await sock.send_str(json.dumps({"message_id": mid, **({"result": user} if user else
+                                                                       {"error_code": 401, "details": "unauthenticated"})}))
+            elif cmd == "auth/login":
+                args = msg.get("args") or {}
+                good = args.get("username") == "listener" and args.get("password") == "fictional-pass"
+                await sock.send_str(json.dumps({"message_id": mid, "result": {"success": good, **(
+                    {"access_token": "session-of-listener", "user": MA_USERS["page-token-user"]} if good else {})}}))
+                if good:
+                    MA_USERS["session-of-listener"] = MA_USERS["page-token-user"]
+            elif cmd == "auth/token/create":
+                await sock.send_str(json.dumps({"message_id": mid, "result": "page-token-user"}))
+            else:
                 await sock.send_str(json.dumps({"echo": m.data, "img": "http://192.0.2.30:8095/imageproxy?x=1"}))
         return sock
 

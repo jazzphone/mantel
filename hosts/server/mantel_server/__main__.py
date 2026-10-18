@@ -114,6 +114,9 @@ def main(argv: list[str] | None = None) -> int:
     if argv and argv[0] == "connect":
         from .connect_pairing import cli as connect_cli
         return connect_cli(argv[1:])
+    if argv and argv[0] == "door-key":
+        from .door_key import cli as door_key_cli
+        return door_key_cli(argv[1:])
     if argv and argv[0] == "connect-proof":
         from .connect_proof import main as connect_main
         return connect_main(argv[1:])
