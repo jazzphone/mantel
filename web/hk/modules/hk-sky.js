@@ -69,6 +69,9 @@
   // `mounted` variable, and the first copy's element would be orphaned on the
   // page with nothing left holding a reference to tear it down.
   if (window.hkSky) return;
+  // the host's page (hk-host-shell.js): the view container the sky lives in,
+  // the dashboard's config, navigation
+  var SH = window.hkShell;
 
   var CAP = 86;              // mean luminance ceiling, 0-255. See above.
 
@@ -1462,7 +1465,7 @@
   function container(card) {
     var n = card;
     for (var i = 0; i < 40 && n; i++) {
-      if (n.tagName === 'HUI-VIEW-CONTAINER') return n;
+      if (SH.is(n, 'viewContainer')) return n;
       n = n.parentNode || n.host;
       if (n && n.nodeType === 11) n = n.host;   // ShadowRoot -> its host
     }
@@ -3828,7 +3831,7 @@
     el.innerHTML = layersHtml(false);
 
     // AFTER hui-view-background, so equal z-index resolves in our favor.
-    var bg = host.querySelector('hui-view-background');
+    var bg = SH.viewBackground(host);
     if (bg && bg.nextSibling) host.insertBefore(el, bg.nextSibling);
     else if (bg) host.appendChild(el);
     else host.insertBefore(el, host.firstChild);
@@ -5926,7 +5929,7 @@
       document.addEventListener('keydown', focusCheck, true);
       // the setting changed, or another screen's settings now apply
       window.addEventListener('hk-module-ready', focusCheck);
-      window.addEventListener('location-changed', focusCheck);
+      SH.onNavigate(focusCheck);
     } catch (e) { /* no window events */ }
   }
   // WHAT THE REALISTIC CLOUDS ARE NOW: how many are up, and how many of the
@@ -6348,7 +6351,7 @@
   }
 
   function hassNow() {
-    var ha = document.querySelector('home-assistant');
+    var ha = SH.root();
     return ha && ha.hass;
   }
 
@@ -6357,7 +6360,7 @@
   // lovelace.config is the authority.
   function lovelaceCfg() {
     var p = lovelacePanelEl();
-    return (p && p.lovelace && p.lovelace.config) || null;
+    return (p && p.lovelace && p.lovelace.config) || SH.dashboardConfig() || null;
   }
   // HOME ASSISTANT'S OWN PATH TO THE PANEL AND ITS VIEW CONTAINER, read
   // straight down (as hk-popup's viewNow does) -- deepFind walked every
@@ -6366,22 +6369,14 @@
   // changes in the walks alone). The walk stays as the fallback should
   // Home Assistant ever move them.
   function lovelacePanelEl() {
-    try {
-      var ha = document.querySelector('home-assistant');
-      var sr = ha && ha.shadowRoot, main = sr && sr.querySelector('home-assistant-main');
-      var ms = main && main.shadowRoot, p = ms && ms.querySelector('ha-panel-lovelace');
-      if (!p && ms) { var r0 = ms.querySelector('partial-panel-resolver'); p = r0 && r0.querySelector('ha-panel-lovelace'); }
-      if (p) return p;
-    } catch (e) { /* the walk below */ }
-    return deepFind('HA-PANEL-LOVELACE');
+    var p = SH.panel();
+    if (p) return p;
+    return SH.tags.panel ? deepFind(SH.tags.panel.toUpperCase()) : null;   // the walk
   }
   function viewContainerEl() {
-    try {
-      var p = lovelacePanelEl(), root = p && p.shadowRoot && p.shadowRoot.querySelector('hui-root');
-      var c = root && root.shadowRoot && root.shadowRoot.querySelector('hui-view-container');
-      if (c) return c;
-    } catch (e) { /* the walk below */ }
-    return deepFind('HUI-VIEW-CONTAINER');
+    var c = SH.viewContainer(lovelacePanelEl());
+    if (c) return c;
+    return SH.tags.viewContainer ? deepFind(SH.tags.viewContainer.toUpperCase()) : null;
   }
 
   function currentView(cfg) {
@@ -6546,7 +6541,7 @@
       tintL.style.cssText = 'position:absolute;inset:0;pointer-events:none;mix-blend-mode:color;display:none';
       lightL.style.cssText = 'position:absolute;inset:0;pointer-events:none;display:none';
       mounted.appendChild(img); mounted.appendChild(tintL); mounted.appendChild(lightL); mounted.appendChild(scrim);
-      var vb = host.querySelector('hui-view-background');
+      var vb = SH.viewBackground(host);
       if (vb && vb.nextSibling) host.insertBefore(mounted, vb.nextSibling); else host.insertBefore(mounted, host.firstChild);
       watch();
     }
@@ -6664,7 +6659,7 @@
   // The poll is KEPT for a view of any other type, which cannot announce
   // itself, so a stock masonry view added to a sky dashboard degrades to
   // polling rather than never repainting.
-  function viewEl() { return deepFind('HUI-VIEW'); }
+  function viewEl() { return SH.tags.view ? deepFind(SH.tags.view.toUpperCase()) : null; }
 
   var ANNOUNCING = 'custom:hk-grid-view';
   var navWait = null;
@@ -6758,7 +6753,7 @@
   function selfDrive() {
     if (selfPoll) return;
     selfPoll = setInterval(stateTick, 3000);
-    window.addEventListener('location-changed', onNav);
+    SH.onNavigate(onNav);
     window.addEventListener('popstate', onNav);
     window.addEventListener('hk-view-ready', onViewReady);
     // A settings change: a dashboard's Live sky may have been switched.

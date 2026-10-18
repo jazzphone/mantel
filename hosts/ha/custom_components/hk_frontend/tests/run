@@ -42,6 +42,8 @@ printf 'var HK_ROOT = "%s";\n' "$ROOT" > "$PRELUDE"
 printf 'load(HK_ROOT + "/frontend/modules/hk-client.js");\n' >> "$PRELUDE"
 printf 'load(HK_ROOT + "/frontend/modules/hk-card-state.js");\n' >> "$PRELUDE"
 printf 'load(HK_ROOT + "/frontend/modules/hk-ha-client.js");\n' >> "$PRELUDE"
+printf 'load(HK_ROOT + "/frontend/modules/hk-host-shell.js");\n' >> "$PRELUDE"
+printf 'load(HK_ROOT + "/frontend/modules/hk-ha-shell.js");\n' >> "$PRELUDE"
 printf 'load(HK_ROOT + "/frontend/modules/hk-metric.js");\n' >> "$PRELUDE"
 # HK_FILES: a home's files folder (files.py), for the suites that can also
 # check the home's own Apple assets. Unset, they use tests/fixtures instead.

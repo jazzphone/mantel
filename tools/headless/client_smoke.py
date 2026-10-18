@@ -49,6 +49,12 @@ class OfflineReads:
                 callback({"configured": True, "weather": {"place": "Offline after"},
                           "boards": {"dashboard-proof": {"pages": [], "headers": {"home": False}}}})
 
+    def publish_tabbar(self):
+        for kind, callback in list(self.callbacks.values()):
+            if kind == "hk_frontend/settings/subscribe":
+                callback({"configured": True, "weather": {"place": "Offline after"},
+                          "boards": {"dashboard-proof": {"pages": [], "headers": {"home": False}, "menu": "tabbar"}}})
+
     def publish_music(self):
         for kind, callback in list(self.callbacks.values()):
             if kind == "hk_music/subscribe":
@@ -149,6 +155,21 @@ async def smoke(shot=None):
                       catch (error) { return error.code; }
                     })()""")
                     assert refused == "commands_disabled"
+                    # The host shell (web/shim/mantel-shell.js): the sky finds Mantel's view container and
+                    # the menu mounts in the shell root; the tab bar does too once the screen asks for it.
+                    shell = await browser.eval("""(() => {
+                      const c = document.querySelector('hk-view-container#view');
+                      return { kind: window.hkShell.kind, nav: window.hkShell.navEvent,
+                               sky: !!(c && c.querySelector(':scope > #hk-sky')),
+                               menu: !!document.querySelector('#hk-shell-root > #hk-menu'),
+                               view: !!window.hkShell.view() && window.hkShell.view().parentNode === document.getElementById('app'),
+                               config: !!(window.hkShell.dashboardConfig() || {}).views };
+                    })()""")
+                    assert shell == {"kind": "mantel", "nav": "location-changed", "sky": True, "menu": True,
+                                     "view": True, "config": True}, shell
+                    hub.readproxy.publish_tabbar()
+                    assert await browser.wait("!!document.querySelector('#hk-shell-root > #hk-tabbar')", 5), \
+                        "the tab bar did not mount in Mantel's shell root"
                     assert await browser.eval("window.__blockedWrites") == 0
                     exceptions = [line for line in browser.console if line.startswith("EXCEPTION:")]
                     assert not exceptions, exceptions
@@ -159,6 +180,7 @@ async def smoke(shot=None):
                             "settings": "updated through client subscription", "client_updates": 1,
                             "music": "Offline Office -> Offline Den, one subscription, focus write refused",
                             "artwork": "signing refused offline, URL unchanged, no reconnect marked",
+                            "host_shell": "mantel: sky in hk-view-container, menu and tab bar in #hk-shell-root",
                             "commands": refused, "external_requests": 0, "browser_exceptions": 0}
         finally:
             store.db.close()

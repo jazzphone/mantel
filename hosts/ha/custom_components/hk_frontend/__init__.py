@@ -207,6 +207,11 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
         "/hk/modules/hk-client.js",
         "/hk/modules/hk-card-state.js",
         "/hk/modules/hk-ha-client.js",
+        # The host shell (HK's one door to HA's own elements and frontend
+        # events) and its HA implementation. Before every module that mounts
+        # on, navigates or listens to Home Assistant's page.
+        "/hk/modules/hk-host-shell.js",
+        "/hk/modules/hk-ha-shell.js",
         "/hk/modules/hk-metric.js",
         # The dashboard settings (settings.py) -- FIRST, because the header,
         # the sky, the idle return and the car viewport all read it at their

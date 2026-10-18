@@ -1134,7 +1134,7 @@
       var p = location.pathname;
       if (p !== ENTRY.path) { ENTRY.path = p; ENTRY.at = (window.performance && performance.now()) || Date.now(); ENTRY.first = null; }
     }
-    window.addEventListener('location-changed', markEntry);
+    window.hkShell.onNavigate(markEntry);
     window.addEventListener('popstate', markEntry);
     function motionOk() {
       if (!wxPage().load_animation) return false;

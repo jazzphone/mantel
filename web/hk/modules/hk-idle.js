@@ -37,6 +37,7 @@
   'use strict';
 
   if (window.hkIdle) return;          // hk-loader may import this more than once
+  var SH = window.hkShell;            // the host's page: navigation, its root
 
   var DEFAULT_IDLE_MS = 50000;
   var IDLE_OVERRIDE_MS = null;
@@ -86,7 +87,7 @@
         var kids = root.querySelectorAll ? root.querySelectorAll('*') : [];
         for (var i = 0; i < kids.length && !panel; i++) {
           var e = kids[i];
-          if (e.tagName === 'HA-PANEL-LOVELACE') { panel = e; return; }
+          if (SH.is(e, 'panel')) { panel = e; return; }
           if (e.shadowRoot && !seen.has(e.shadowRoot)) { seen.add(e.shadowRoot); walk(e.shadowRoot, d + 1); }
         }
       })(document, 0);
@@ -155,7 +156,7 @@
     var room = roomFor(parts().dash);
     if (!room) return null;
     try {
-      var root = document.querySelector('home-assistant');
+      var root = SH.root();
       var hass = root && root.hass;
       if (!hass || !hass.states) return null;
       var e = hass.states['binary_sensor.' + room + '_tablet_in_use'];
@@ -185,10 +186,7 @@
     var target = '/' + parts().dash + '/0' + (location.search || '');
     // Exactly what HA's own navigate() does. The event has to be composed, or
     // it will not cross the shadow boundary out of whatever fired it.
-    history.pushState(null, '', target);
-    window.dispatchEvent(new CustomEvent('location-changed', {
-      bubbles: true, composed: true
-    }));
+    SH.navigate(target, { bubbles: true, composed: true });
   }
 
   var timer = null;
@@ -211,7 +209,7 @@
     var room = roomFor(parts().dash);
     if (!room) return DEFAULT_IDLE_MS;
     try {
-      var root = document.querySelector('home-assistant');
+      var root = SH.root();
       var hass = root && root.hass;
       if (!hass || !hass.states) return DEFAULT_IDLE_MS;
       var pref = hass.states['input_select.' + room + '_tablet_idle_return'];
@@ -262,7 +260,7 @@
   // A view change is itself activity, and it is also what arms the timer when
   // you first open a subview. Both HA's navigate() and the browser's own back
   // button land here.
-  window.addEventListener('location-changed', reset);
+  SH.onNavigate(reset);
   window.addEventListener('popstate', reset);
 
   // Coming back from the screensaver should not immediately fire a countdown

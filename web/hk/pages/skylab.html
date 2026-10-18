@@ -11,7 +11,7 @@
  html,body{margin:0;height:100%;background:#0d1420;color:#eaf0ff;font:15px/1.4 -apple-system,system-ui,sans-serif;overflow:hidden}
  #skyframe{display:block;position:fixed;inset:0;z-index:0}
 </style>
-<hui-view-container id=skyframe><div id=card></div></hui-view-container>
+<hk-view-container id=skyframe><div id=card></div></hk-view-container>
 <script>
 (function () {
   function load(src, next) {
@@ -21,6 +21,10 @@
     s.onerror = function () { document.body.textContent = 'Sky Lab did not load (' + src + ').'; };
     document.head.appendChild(s);
   }
-  load('/hk/modules/hk-sky.js', function () { load('/hk/modules/hk-skylab.js'); });
+  // the host shell, with this page's own view container (hk-host-shell.js)
+  load('/hk/modules/hk-host-shell.js', function () {
+    hkShell.use({ kind: 'page', tags: { viewContainer: 'hk-view-container' } });
+    load('/hk/modules/hk-sky.js', function () { load('/hk/modules/hk-skylab.js'); });
+  });
 })();
 </script>

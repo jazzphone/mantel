@@ -831,7 +831,7 @@
       var self = this;
       this._dayFromUrl();
       if (!this._onLoc) { this._onLoc = function () { self._dayFromUrl(); }; }
-      window.addEventListener('location-changed', this._onLoc);
+      window.hkShell.onNavigate(this._onLoc);
       window.addEventListener('hk-calendar-changed', this._onChanged);
       window.addEventListener('resize', this._onResize);
       // (a docked bar or the Now Playing pane coming or going changes the room)
@@ -855,7 +855,7 @@
     disconnectedCallback() {
       if (super.disconnectedCallback) super.disconnectedCallback();
       window.removeEventListener('hk-calendar-changed', this._onChanged);
-      window.removeEventListener('location-changed', this._onLoc);
+      window.hkShell.offNavigate(this._onLoc);
       window.removeEventListener('resize', this._onResize);
       window.removeEventListener('hk-dock', this._onResize);
       window.removeEventListener('hk-pane', this._onResize);
@@ -889,7 +889,7 @@
       // desk opened at the 620 px default stayed there until a resize; 2026-10-16)
       var hv = null, inner = null, n = this, prev = null;
       for (var i = 0; i < 40 && n; i++) {
-        if (n.localName === 'hui-view') { hv = n; inner = prev; break; }
+        if (window.hkShell.is(n, 'view')) { hv = n; inner = prev; break; }
         if (n.nodeType === 1) prev = n;
         n = n.parentNode || n.host;
       }

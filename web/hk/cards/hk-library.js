@@ -1202,9 +1202,7 @@
     // ask what was said.
     _flash(message) {
       this._toast = message;
-      this.dispatchEvent(new CustomEvent('hass-notification', {
-        detail: { message: message }, bubbles: true, composed: true
-      }));
+      window.hkShell.toast({ message: message }, this);
     }
 
     _retry() {

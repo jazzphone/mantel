@@ -129,6 +129,8 @@ def plan() -> list[tuple[str, str]]:
             out.append((str(source), "custom_components/hk_frontend/frontend/" + rel))
         out.append((str(mantel / "hosts/ha/frontend/hk-ha-client.js"),
                     "custom_components/hk_frontend/frontend/modules/hk-ha-client.js"))
+        out.append((str(mantel / "hosts/ha/frontend/hk-ha-shell.js"),
+                    "custom_components/hk_frontend/frontend/modules/hk-ha-shell.js"))
     return out
 
 

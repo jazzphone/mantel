@@ -931,7 +931,7 @@
       var hd = this._head(t, st, compact);
       hd.style.cursor = 'pointer';
       button(hd, function () {
-        self.dispatchEvent(new CustomEvent('hass-more-info', { bubbles: true, composed: true, detail: { entityId: e } }));
+        window.hkShell.moreInfo(e, self);
       });
       hd.setAttribute('aria-label', 'Open ' + (hd.textContent || 'timer'));
       c.appendChild(hd);

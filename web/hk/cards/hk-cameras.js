@@ -432,9 +432,7 @@
     // #doorbell pop-up stays for a doorbell-ring automation, which opens it
     // by URL, not by tap.
     _openCam(cam) {
-      this.dispatchEvent(new CustomEvent('hass-more-info', {
-        detail: { entityId: cam.entity }, bubbles: true, composed: true
-      }));
+      window.hkShell.moreInfo(cam.entity, this);
     }
 
     // A STILL CAMERA IS RENDERED HERE, NOT BY picture-entity, and the reason is
@@ -1325,7 +1323,7 @@
           self._keepStills();
           self._leaving = true;
         };
-        window.addEventListener('location-changed', this._onNav);
+        window.hkShell.onNavigate(this._onNav);
       }
       if (!this._onSaverCovered) {
         this._onSaverCovered = function () { self._stopInterval(); self._sleepLive(); };
@@ -1355,7 +1353,7 @@
       if (this._onSaver) { window.removeEventListener('hk-saver', this._onSaver); this._onSaver = null; }
       if (this._onSaverCovered) { window.removeEventListener('hk-saver-covered', this._onSaverCovered); this._onSaverCovered = null; }
       if (this._onPopup) { window.removeEventListener('hk-popup-change', this._onPopup); this._onPopup = null; }
-      if (this._onNav) { window.removeEventListener('location-changed', this._onNav); this._onNav = null; }
+      if (this._onNav) { window.hkShell.offNavigate(this._onNav); this._onNav = null; }
       if (this._onBlack) {
         var ob = this._onBlack;
         ['kiosksatellite:screensaverstart', 'kiosksatellite:screensaverstop',
@@ -3236,8 +3234,7 @@
   // placed against the view, not the screen).
   function tvPlayer(owner, ch) {
     var h = owner._hass;
-    var ha = document.querySelector('home-assistant');
-    var mount = (ha && ha.shadowRoot) || document.body;
+    var mount = window.hkShell.overlayRoot() || document.body;
     var el = document.createElement('div');
     el.className = 'hktv';
     el.innerHTML = '<style>' +

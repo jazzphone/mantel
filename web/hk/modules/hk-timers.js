@@ -361,7 +361,7 @@
     // at that duration (and rewrites the `duration` attribute), so an extension
     // has to be expressed as an absolute new length.
     act: function (entityId, what) {
-      var root = document.querySelector('home-assistant');
+      var root = window.hkShell.root();
       var hass = root && root.hass;
       if (!hass || !hass.callService) {
         console.error('[hk-timers] no hass for ' + what + ' on ' + entityId);

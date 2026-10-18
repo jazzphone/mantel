@@ -5,6 +5,8 @@ copy and is not edited by Mantel's build tools.
 
 - `custom_components/hk_frontend/`: imported HA backend, tests, public docs and tools.
 - `frontend/hk-ha-client.js`: the first HKClient HA port.
+- `frontend/hk-ha-shell.js`: the HA host shell, the only frontend file that names HA's own
+  elements and frontend events (`docs/phase1/HOST-SHELL.md`).
 - `../../web/hk/`: existing frontend, kept once and composed into the HA artifact.
 - `../../web/client/` and `../../web/cards/`: extracted host-independent source.
 

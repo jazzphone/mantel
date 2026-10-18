@@ -1450,7 +1450,7 @@
       var id = t && t.getAttribute('data-more');
       if (!id) return;
       e.stopPropagation();
-      card.dispatchEvent(new CustomEvent('hass-more-info', { bubbles: true, composed: true, detail: { entityId: id } }));
+      window.hkShell.moreInfo(id, card);
     });
   }
   function moreAttr(id) { return id ? ' data-more="' + esc(id) + '"' : ''; }
@@ -1922,7 +1922,7 @@
             return;
           }
           var id = t.kind === 'cost' ? (M.total.power || M.total.stat) : t.entity;
-          if (id) self.dispatchEvent(new CustomEvent('hass-more-info', { bubbles: true, composed: true, detail: { entityId: id } }));
+          if (id) window.hkShell.moreInfo(id, self);
         });
       });
     }
@@ -3615,7 +3615,7 @@
         a.addEventListener('click', function (e) {
           e.preventDefault(); e.stopPropagation();
           history.pushState(null, '', a.getAttribute('data-nav'));
-          self.dispatchEvent(new CustomEvent('location-changed', { bubbles: true, composed: true }));
+          window.hkShell.announce({ bubbles: true, composed: true }, self);
         });
       }
     }

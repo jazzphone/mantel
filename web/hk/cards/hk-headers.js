@@ -146,7 +146,7 @@
         var id = t && t.getAttribute('data-more');
         if (!id) return;
         e.stopPropagation();
-        self.dispatchEvent(new CustomEvent('hass-more-info', { bubbles: true, composed: true, detail: { entityId: id } }));
+        window.hkShell.moreInfo(id, self);
       });
       this._built = true;
     }
@@ -990,7 +990,7 @@
         var id = t && t.getAttribute('data-more');
         if (!id) return;
         e.stopPropagation();
-        self.dispatchEvent(new CustomEvent('hass-more-info', { bubbles: true, composed: true, detail: { entityId: id } }));
+        window.hkShell.moreInfo(id, self);
       });
       this._built = true;
     }

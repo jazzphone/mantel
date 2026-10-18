@@ -254,7 +254,7 @@ print('\n=== live OR a clip, never both (driven) ===');
 
 print('\n=== camera pop-ups ===');
 ok('a tap on a camera opens its camera sheet (more-info), never a pop-up',
-   /_openCam\(cam\) \{\n\s*this\.dispatchEvent\(new CustomEvent\('hass-more-info'/.test(src) && !/hkPopup\.open\(cam\.popup\)/.test(src));
+   /_openCam\(cam\) \{\n\s*window\.hkShell\.moreInfo\(cam\.entity, this\)/.test(src) && !/hkPopup\.open\(cam\.popup\)/.test(src));
 ok('...and the live tile does not also act: its box takes every tap (pop-up or camera sheet)',
    /tap_action: live \? \{ action: 'none' \} : \{ action: 'more-info' \}/.test(src) &&
    /liveBox\.classList\.add\('pop', 'tap'\);\n\s*liveBox\.addEventListener\('click'/.test(src));

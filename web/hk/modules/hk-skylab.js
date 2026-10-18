@@ -73,7 +73,7 @@
   var locked = false;
   function lockDown() {
     if (locked) return true;
-    var ha = document.querySelector('home-assistant');
+    var ha = window.hkShell.root();
     var conn = ha && ha.hass && ha.hass.connection;
     if (!conn) return false;
     var send = conn.sendMessage.bind(conn), sendP = conn.sendMessagePromise.bind(conn);
@@ -217,8 +217,7 @@
       $('dashSel').addEventListener('change', function () {
         var path = $('dashSel').value;
         store(DASH_KEY, path);
-        history.pushState(null, '', '/' + path);
-        window.dispatchEvent(new CustomEvent('location-changed', { detail: { replace: false } }));
+        window.hkShell.navigate('/' + path, { detail: { replace: false } });
       });
     }
   }
@@ -245,7 +244,7 @@
     CHECKS.forEach(function (id) { if (v[id] !== undefined) $(id).checked = v[id]; });
   }
   function fillDashboards() {
-    var ha = document.querySelector('home-assistant'), panels = (ha && ha.hass && ha.hass.panels) || {};
+    var ha = window.hkShell.root(), panels = (ha && ha.hass && ha.hass.panels) || {};
     var list = Object.keys(panels).map(function (k) { return panels[k]; })
       .filter(function (p) { return p.component_name === 'lovelace' && p.url_path !== 'lovelace'; })
       .sort(function (a, b) { return String(a.title || a.url_path).localeCompare(String(b.title || b.url_path)); });

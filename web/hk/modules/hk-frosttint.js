@@ -27,7 +27,7 @@
   'use strict';
   if (window.hkFrostTint) return;
 
-  var VIEWS = ['HUI-VIEW', 'HUI-MASONRY-VIEW', 'HUI-SECTIONS-VIEW', 'HUI-PANEL-VIEW'];
+  var VIEWS = window.hkShell.viewTags.map(function (t) { return t.toUpperCase(); });   // the host's view kinds
   var STOPS_AT = [0, 0.42, 0.72, 1];          // the sky gradient's stops (hk-sky .grad)
   var SAT_MAX = 0.55, LIGHT = 0.27;           // the wash: its hue, this much color, this light
   var GROUND_FROM = 0.45, GROUND_OVER = 0.2;  // the scenery's ground: from here down, blended in over this
@@ -180,7 +180,7 @@
   };
   // the page, the sky's colors, the settings, the window
   try {
-    window.addEventListener('location-changed', function () { skyEl = null; soon(null); });
+    window.hkShell.onNavigate(function () { skyEl = null; soon(null); });
     window.addEventListener('popstate', function () { skyEl = null; soon(null); });
     window.addEventListener('hk-sky-paint', function () { soon(null); });
     window.addEventListener('resize', function () { soon(null); });

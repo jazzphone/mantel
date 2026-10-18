@@ -6,6 +6,8 @@
 // view, create each card element, setConfig, give it `hass`, hand the built elements to the view.
 import './client/hk-client.js';
 import './client/hk-card-state.js';
+import './client/hk-host-shell.js';
+import './shim/mantel-shell.js';
 import './cards/hk-metric.js';
 import './shim/mantel-client.js';
 import './shim/ha-elements.js';
@@ -40,6 +42,7 @@ const host = new Host({
   config, themes,
 });
 host.installLookups();
+window.hkMantelShell.install(host);
 installCardBridge();
 window.__mantel = host;
 
@@ -78,6 +81,8 @@ viewEl.hass = host.hass;
 const els = (view.cards || []).map((c) => build(c, host.hass));
 app.appendChild(viewEl);
 viewEl.cards = els;
+// the host shell now knows the view: the sky and the tab bar find it (mantel-shell.js)
+window.hkMantelShell.setPage(viewEl, cfg);
 mark('rendered');
 
 // every change in the house: a new hass object for the view and each card (as HA does)
