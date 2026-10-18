@@ -14,13 +14,18 @@ Read filter (PLAN §5, P3.2): a view may carry a `gate` (an `rbac.Gate`, or anyt
 selects entities the session may `view`, and every state it sends has passed `redact` (people's GPS
 removed where locations are denied). An entity asked for by id but not visible is reported
 `missing`, exactly like one that does not exist. Without a gate the view behaves as before.
+
+Shaping (gate or not): every state a view sends passes `shape` last, by default
+`connectors.camera_still.shape`, so a camera's HA token (`access_token`, the `?token=` in
+`entity_picture`) never reaches a page; the picture points at Mantel's own still route instead.
 """
 from __future__ import annotations
 
 import fnmatch
 from dataclasses import dataclass, field
-from typing import Protocol
+from typing import Callable, Protocol
 
+from .connectors import camera_still
 from .registry import Registry
 from .state import StateStore
 
@@ -88,8 +93,10 @@ def filter_registry(shapes: dict, gate: ReadGate | None) -> dict:
 
 class ClientView:
     def __init__(self, store: StateStore, registry: Registry, coalescing: Coalescing,
-                 client_min_interval: float = 0.0, gate: ReadGate | None = None) -> None:
+                 client_min_interval: float = 0.0, gate: ReadGate | None = None,
+                 shape: Callable[[str, dict], dict] | None = None) -> None:
         self.gate = gate
+        self.shape = shape or camera_still.shaper("")
         self.store = store
         self.registry = registry
         self.coalescing = coalescing
@@ -107,11 +114,13 @@ class ClientView:
         return self.gate is None or self.gate.visible(eid)
 
     def _current(self, eid: str) -> dict | None:
-        """The state as this session may see it (None if absent)."""
+        """The state as this session may see it (None if absent), shaped for a page."""
         st = self.store.states.get(eid)
-        if st is None or self.gate is None:
-            return st
-        return self.gate.redact(eid, st)
+        if st is None:
+            return None
+        if self.gate is not None:
+            st = self.gate.redact(eid, st)
+        return self.shape(eid, st)
 
     # -- selection ---------------------------------------------------------------------------
     def _resolve(self) -> set[str]:

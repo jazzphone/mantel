@@ -123,6 +123,16 @@ export class Hub {
     });
   }
 
+  // the one REST read Mantel offers (readproxy.REST_READS: GET calendars/<entity>?start&end), as
+  // {type: 'read_api', id, method, path}; answered by read_result like read()
+  readApi(method, path) {
+    const id = this.nextId++;
+    return new Promise((resolve, reject) => {
+      this.pending.set(id, { resolve, reject });
+      this.ws.send(JSON.stringify({ type: 'read_api', id, method, path }));
+    });
+  }
+
   readSubscribe(msg, cb) {
     const id = this.nextId++;
     return new Promise((resolve, reject) => {

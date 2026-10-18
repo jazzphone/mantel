@@ -24,6 +24,23 @@ export function stateObj(entityId, s) {
 // Writes are never sent. Reads go to the server, which has its own allowlist.
 const WRITE_WORDS = /(^|\/|_)(set|save|remove|delete|add|update|create|call_service|order|favorite|touch|black|seen|mute|test|sign|queue|play|transfer|talk|offer|candidate)(_|\/|$)/;
 
+// CAMERA LIVE VIEW (docs/phase3/CONNECTORS.md "Camera flow"): the camera card's WebRTC signaling goes
+// to Mantel's camera connector exactly as the card sends it to HA -- the client config and its
+// candidates as reads (hub.read), the offer as a read subscription (hub.readSubscribe). The server
+// decides each with the camera live-view rules (RBAC, the door) and owns the session checks. These
+// are viewing, never commands, so they are answered before the WRITE_WORDS backstop below.
+export const CAMERA_READS = new Set(['camera/webrtc/get_client_config', 'camera/webrtc/candidate']);
+export const CAMERA_SUBSCRIPTIONS = new Set(['camera/webrtc/offer']);
+// CALENDARS: HK's calendar card reads events with callApi('GET', 'calendars/<entity>?start=&end='),
+// Mantel's one REST read (read_api, RBAC `view` of the calendar). Any other REST call stays refused.
+// (Camera stills need nothing here: the server already gives each camera state an entity_picture on
+// Mantel's own still route, under the page's prefix, and never HA's token.)
+const CALENDAR_PATH = /^\/?(?:api\/)?calendars\/calendar\.[a-z0-9_]+\?/;
+export function calendarPath(method, path) {
+  if (String(method || '').toUpperCase() !== 'GET' || typeof path !== 'string' || !CALENDAR_PATH.test(path)) return null;
+  return path.replace(/^\/?(?:api\/)?/, '');
+}
+
 // Mantel's refusals ("Commands are disabled") are said in HK's own toast layer once it has loaded
 // (web/hk/shell/hk-overlays.js), like every toast of HK's; this box is only the fallback before it.
 export function toast(text) {
@@ -74,7 +91,7 @@ export class Host {
       connection: this.connection,
       callService: (domain, service) => self._refuse(`${domain}.${service}`),
       callWS: (msg) => self._call(msg),
-      callApi: (method, path) => self._refuse(`api ${method} ${path}`),
+      callApi: (method, path) => self._api(method, path),
       fetchWithAuth: (path) => Promise.reject(new Error('not available: ' + path)),
       // under the page's prefix (shim/base.js): what the page asks for is Mantel's, never HA's own site
       hassUrl: (path = '') => location.origin + (window.__mantelBase || '') + path,
@@ -183,8 +200,16 @@ export class Host {
     return Promise.reject(Object.assign(new Error('commands disabled'), { code: 'commands_disabled' }));
   }
 
+  _api(method, path) {
+    const rel = calendarPath(method, path);
+    if (rel === null) return this._refuse(`api ${method} ${path}`);
+    this._count('read_api calendars');
+    return this.hub.readApi('GET', rel);
+  }
+
   _call(msg) {
     this._count(msg.type);
+    if (CAMERA_READS.has(msg.type)) return this.hub.read(msg);
     if (WRITE_WORDS.test(msg.type)) return this._refuse(msg.type);
     if (this.fixtures[msg.type] !== undefined) return Promise.resolve(this.fixtures[msg.type]);
     return this.hub.read(msg);
@@ -196,6 +221,7 @@ export class Host {
     // per HA user and Mantel has no HA user for the viewer.
     if (msg.type === 'hk_frontend/events/subscribe') return Promise.resolve(() => {});
     if (msg.type === 'frontend/subscribe_user_data') { queueMicrotask(() => cb({ value: null })); return Promise.resolve(() => {}); }
+    if (CAMERA_SUBSCRIPTIONS.has(msg.type)) return this.hub.readSubscribe(msg, cb);
     if (WRITE_WORDS.test(msg.type)) return this._refuse(msg.type);
     if (this.fixtures[msg.type] !== undefined) {
       const payload = this.fixtures[msg.type];
