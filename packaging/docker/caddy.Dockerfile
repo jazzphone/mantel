@@ -13,8 +13,8 @@
 #
 # Pin both FROMs by digest (the all-zero values are placeholders; see the note in ./Dockerfile):
 #   docker buildx imagetools inspect caddy:2.10-builder --format '{{.Manifest.Digest}}'
-ARG CADDY_BUILDER_IMAGE=caddy:2.10-builder@sha256:0000000000000000000000000000000000000000000000000000000000000000
-ARG CADDY_IMAGE=caddy:2.10@sha256:0000000000000000000000000000000000000000000000000000000000000000
+ARG CADDY_BUILDER_IMAGE=caddy:2.10-builder@sha256:01668408cc26e2e00c9d067c30cb43b2ba14ad1f2808beda55503cb2a31f59dc
+ARG CADDY_IMAGE=caddy:2.10@sha256:c3d7ee5d2b11f9dc54f947f68a734c84e9c9666c92c88a7f30b9cba5da182adb
 
 FROM ${CADDY_BUILDER_IMAGE} AS builder
 RUN xcaddy build --with github.com/caddy-dns/cloudflare

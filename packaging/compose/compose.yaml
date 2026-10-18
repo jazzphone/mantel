@@ -160,7 +160,7 @@ services:
   cloudflared:
     profiles:
       - tunnel
-    image: ${MANTEL_CLOUDFLARED_IMAGE:-cloudflare/cloudflared:2025.9.1@sha256:0000000000000000000000000000000000000000000000000000000000000000}
+    image: ${MANTEL_CLOUDFLARED_IMAGE:-cloudflare/cloudflared:2025.9.1@sha256:4604b477520dc8322af5427da68b44f0bf814938e9d2e4814f2249ee4b03ffdf}
     restart: unless-stopped
     read_only: true
     cap_drop:

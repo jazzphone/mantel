@@ -33,9 +33,9 @@
 #
 # NO SECRETS ARE BAKED IN OR PASSED AS ENV. Tokens are files mounted at /run/secrets/ at run time.
 
-ARG PYTHON_IMAGE=python:3.12-slim-trixie@sha256:0000000000000000000000000000000000000000000000000000000000000000
-ARG DEBIAN_IMAGE=debian:trixie-slim@sha256:0000000000000000000000000000000000000000000000000000000000000000
-ARG GO2RTC_IMAGE=alexxit/go2rtc:1.9.9@sha256:0000000000000000000000000000000000000000000000000000000000000000
+ARG PYTHON_IMAGE=python:3.12-slim-trixie@sha256:a6e34c598f2467ed0e9a8d349809fcd8b5c603269512df273a0bb1784edc11b1
+ARG DEBIAN_IMAGE=debian:trixie-slim@sha256:a29215f6a35e51e22adffa17f89e9d2ef06214e64a2bad10d765c46aea49f11f
+ARG GO2RTC_IMAGE=alexxit/go2rtc:1.9.9@sha256:7d31dcb73633310e80497c431f4534c81ed55ec0708db3262bc56918e654bba5
 
 
 # ---- static: the web app, stamped with a build id --------------------------------------------------
@@ -101,13 +101,15 @@ RUN groupadd --system --gid 10001 mantel \
  && useradd --system --uid 10001 --gid 10001 --no-create-home --shell /usr/sbin/nologin mantel \
  && install -d -o 10001 -g 10001 -m 0750 /data
 COPY --from=deps /opt/venv /opt/venv
-COPY hosts/server/mantel_server /app/hosts/server/mantel_server
-COPY hosts/server/mantel_connect /app/hosts/server/mantel_connect
-COPY hk_core /app/hk_core
-COPY --from=static /out/web /app/web
-COPY --from=static /out/BUILD_ID /app/BUILD_ID
-COPY --from=static /out/static-manifest.json /app/static-manifest.json
-COPY packaging/docker/entrypoint.py /app/entrypoint.py
+# --chmod: the source tree may come from a share where every file is owner-only (SMB on the NAS);
+# the image's non-root user must be able to read it.
+COPY --chmod=0755 hosts/server/mantel_server /app/hosts/server/mantel_server
+COPY --chmod=0755 hosts/server/mantel_connect /app/hosts/server/mantel_connect
+COPY --chmod=0755 hk_core /app/hk_core
+COPY --chmod=0755 --from=static /out/web /app/web
+COPY --chmod=0755 --from=static /out/BUILD_ID /app/BUILD_ID
+COPY --chmod=0755 --from=static /out/static-manifest.json /app/static-manifest.json
+COPY --chmod=0755 packaging/docker/entrypoint.py /app/entrypoint.py
 WORKDIR /app
 EXPOSE 8765
 ENTRYPOINT ["python", "/app/entrypoint.py"]
