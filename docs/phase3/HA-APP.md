@@ -557,10 +557,13 @@ still start nothing); test `test_a_page_that_has_service_worker_fetches_starts_t
 without the fix); the admin page's one retry sends the token the server just gave. Validation: 129 JS suites,
 723 HA Python, 2,355 Mantel, smoke ok.
 - [x] Running 0.1.8; the Music Assistant connection survived the update (saved, live connected).
-- [ ] Avery's own browsers: the console check should show one `mantel_csrf` and `testAnswer: "url_invalid"`, and
-      Connections Test/Save should work.
-- [ ] More → Mantel settings on the kitchen dashboard; Energy (no overscroll, shadows fade in Safari; watts in
-      "Where it's going" need the next HK install).
+- [x] Avery's own Chrome after a reload: Connections Test works (reported by Avery).
+- [x] Kitchen dashboard at 1366x900 (Claude's pane, `hasslocal`): More shows a **Mantel** section with **Mantel
+      settings**, which opens `<prefix>/admin`.
+- [x] Energy: 37 cards draw; at the bottom of the scroll the last row (Charging) ends a gutter above the tab bar
+      (102 px below the last card), no overscroll; shadows fade under the bar (Chromium; Safari by eye still open).
+- [ ] "Where it's going now" still 0 W: the house's HK has no `hk_energy/sources` yet, so Mantel falls back to the
+      `source` attributes Utility Meters lack. Needs the next HK install.
 
 ### Removal
 
