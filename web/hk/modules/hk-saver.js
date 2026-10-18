@@ -408,18 +408,12 @@
   // THE DASHBOARD'S CONFIG, read where the strategy guard reads it -- the
   // panel's own lovelace object is the authority, never a DOM marker.
   function panel() {
-    var ha = document.querySelector('home-assistant');
-    var main = ha && ha.shadowRoot && ha.shadowRoot.querySelector('home-assistant-main');
-    var p = main && main.shadowRoot && main.shadowRoot.querySelector('ha-panel-lovelace');
-    if (p) return p;
-    var r = main && main.shadowRoot && main.shadowRoot.querySelector('partial-panel-resolver');
-    return (r && r.querySelector && r.querySelector('ha-panel-lovelace')) || null;
+    return window.hkShell.panel();
   }
   // the font the dashboard's view draws in (its theme is on the view)
   function viewFont() {
     try {
-      var p = panel(), hr = p && p.shadowRoot && p.shadowRoot.querySelector('hui-root');
-      var v = hr && hr.shadowRoot && hr.shadowRoot.querySelector('hui-view-container');
+      var v = window.hkShell.viewContainer(panel());
       return v ? getComputedStyle(v).fontFamily : '';
     } catch (e) { return ''; }
   }
@@ -726,7 +720,7 @@
   // the dashboard is still under the screensaver, drawing (stop's WAKE)
   function go(path) {
     if (String(location.pathname) === path) return;
-    try { history.pushState(null, '', path); window.dispatchEvent(new CustomEvent('location-changed')); } catch (e) { /* stay */ }
+    try { window.hkShell.navigate(path); } catch (e) { /* stay */ }
   }
 
   // ------------------------------------------------------------ the element
@@ -1529,7 +1523,7 @@
       return;
     }
     if (coveredPage) return;
-    var page = document.querySelector('home-assistant');
+    var page = window.hkShell.root();
     if (!page || !page.style) return;
     coveredPage = page;
     pageVisibility = { value: page.style.getPropertyValue('visibility'), priority: page.style.getPropertyPriority('visibility') };
@@ -4284,7 +4278,7 @@
       v.bg = v.el.querySelectorAll('canvas.mbg'); v.pic = null;
     }); renderMusic(); }
   });
-  window.addEventListener('location-changed', function () { setTimeout(refresh, 0); });
+  window.hkShell.onNavigate(function () { setTimeout(refresh, 0); });
   window.addEventListener('popstate', function () { setTimeout(refresh, 0); });
   window.addEventListener('resize', function () { if (on) { layoutPane(); layoutMusic(); placePanel(); } });
   document.addEventListener('visibilitychange', function () {

@@ -771,7 +771,7 @@
     });
     // ITS MESSAGES ARE SHOWN HERE: Home Assistant's toast is on the dashboard,
     // under the screensaver
-    el.addEventListener('hass-notification', function (e) {
+    el.addEventListener(window.hkShell.events.toast, function (e) {
       e.stopPropagation();
       if (e.detail && e.detail.message) toast(e.detail.message);
     });

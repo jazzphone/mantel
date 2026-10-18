@@ -855,8 +855,7 @@
     var D = { el: null };
 
     function haRoot() {
-      var ha = document.querySelector('home-assistant');
-      return (ha && ha.shadowRoot) || document.body;
+      return window.hkShell.overlayRoot() || document.body;
     }
 
     // THE ROOM: the media sheet's "Playing on · Living Room" (a pill can be
@@ -987,10 +986,8 @@
     // the config cannot be read.
     function hasView(path) {
       try {
-        var ha = document.querySelector('home-assistant');
-        var main = ha.shadowRoot.querySelector('home-assistant-main');
-        var panel = main.shadowRoot.querySelector('ha-panel-lovelace');
-        var views = panel && panel.lovelace && panel.lovelace.config && panel.lovelace.config.views;
+        var conf = window.hkShell.dashboardConfig();
+        var views = conf && conf.views;
         if (!views) return null;
         return views.some(function (x) { return x.path === path; });
       } catch (e) { return null; }
@@ -1004,10 +1001,7 @@
     // wins. A calendar's event: the Calendar page at that day.
     function viewOf(path) {
       try {
-        var ha = document.querySelector('home-assistant');
-        var main = ha.shadowRoot.querySelector('home-assistant-main');
-        var panel = main.shadowRoot.querySelector('ha-panel-lovelace');
-        var views = panel.lovelace.config.views;
+        var views = window.hkShell.dashboardConfig().views;
         for (var i = 0; i < views.length; i++) if (views[i].path === path) return views[i];
       } catch (e) { /* no dashboard */ }
       return null;
@@ -1477,9 +1471,7 @@
     // draw favorites, so only there is "Favorite on this dashboard" offered.
     function generatedHere() {
       try {
-        var ha = document.querySelector('home-assistant');
-        var main = ha.shadowRoot.querySelector('home-assistant-main');
-        var panel = main.shadowRoot.querySelector('ha-panel-lovelace');
+        var panel = window.hkShell.panel();
         var raw = panel && panel.lovelace && panel.lovelace.rawConfig;
         return !!(raw && raw.strategy && /hk-dashboard$/.test(String(raw.strategy.type || '')));
       } catch (e) { return false; }
@@ -2403,7 +2395,7 @@
       if (D.popup && location.hash !== '#' + D.popup) { close(true); return; }
       if (location.pathname !== D.path || (location.hash && location.hash !== D.hash)) close(true);
     }
-    window.addEventListener('location-changed', moved);
+    window.hkShell.onNavigate(moved);
     window.addEventListener('hashchange', moved);
 
     // ESCAPE CLOSES IT, like HA's dialog. On window, bubbling: hk-base's
@@ -2420,8 +2412,7 @@
         try { if (ours(D)) history.replaceState(null, '', location.href); } catch (e) { /* ok */ }
         close(true);
       }
-      history.pushState(null, '', path);
-      window.dispatchEvent(new CustomEvent('location-changed'));
+      window.hkShell.navigate(path);
     }
 
     // ------------------------------------------------------------ interception
@@ -2437,7 +2428,7 @@
         var t = path[i] && path[i].tagName;
         if (!t) continue;
         if (HA_OWN[t]) return false;
-        if (t === 'HA-PANEL-LOVELACE' || t.indexOf('HK-') === 0) mine = true;
+        if (window.hkShell.is(path[i], 'panel') || t.indexOf('HK-') === 0) mine = true;
       }
       return mine;
     }
@@ -2471,7 +2462,7 @@
       return !!(src && src.config && src.config.detail === false);
     }
 
-    window.addEventListener('hass-more-info', function (e) {
+    window.addEventListener(window.hkShell.events.moreInfo, function (e) {
       var id = e.detail && e.detail.entityId;
       if (!id) return;
       if (!fromDashboard(e)) return;
@@ -6266,7 +6257,7 @@
       if (!hash || hash.length < 2 || !onDashboard() || !popupFor(hash)) return;
       routeT = setTimeout(function () { if (location.hash === hash) openPopup(hash); }, POPUP_GRACE_MS);
     }
-    ['location-changed', 'hashchange', 'popstate'].forEach(function (ev) {
+    [window.hkShell.navEvent, 'hashchange', 'popstate'].forEach(function (ev) {
       window.addEventListener(ev, route);
     });
     // the pop-ups can arrive after the page (a fresh load with #doorbell)
@@ -6331,7 +6322,7 @@
       if (same && D.el && D.popup === e.popup) { armAuto(); return true; }
       try {
         history[same ? 'replaceState' : 'pushState'](history.state, '', location.pathname + location.search + '#' + e.popup);
-        window.dispatchEvent(new CustomEvent('location-changed', { detail: { replace: false } }));
+        window.hkShell.announce({ detail: { replace: false } });
       } catch (err) { return false; }
       return true;
     }

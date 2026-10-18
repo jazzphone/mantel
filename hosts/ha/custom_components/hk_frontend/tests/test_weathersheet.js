@@ -1,6 +1,13 @@
 // Both entry points share a single selected-day layout. Forecast fixtures
 // make it impossible to accidentally chart today's hours under tomorrow.
 if(typeof HK_ROOT==='undefined')throw Error('run through tests/run');
+// THE CLOCK IS PINNED to noon of today's date: the fixtures' "next hours" (now + 1 h, now + 2 h)
+// crossed midnight between 22:00 and 24:00, so "a day without hourly coverage" saw hours that
+// belong to tomorrow and failed. At noon they stay on today, whatever the real hour is.
+(function(){var Real=Date,at=new Real();at.setHours(12,0,0,0);var NOW=at.getTime();
+ var Fake=function(){var a=arguments;return a.length?new (Function.prototype.bind.apply(Real,[null].concat([].slice.call(a))))():new Real(NOW)};
+ Fake.prototype=Real.prototype;Fake.now=function(){return NOW};Fake.UTC=Real.UTC;Fake.parse=Real.parse;
+ Date=Fake;})();
 load(HK_ROOT+'/tests/dom.js');
 load(HK_ROOT+'/tests/card_harness.js');
 load(HK_ROOT+'/tests/sample_settings.js');

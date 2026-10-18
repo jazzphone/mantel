@@ -299,7 +299,7 @@ function ev(tags) { return { composedPath: function () { return tags.map(functio
 ok('taken from a dashboard', _.fromDashboard(ev(['HK-TILE-CARD', 'DIV', 'HA-PANEL-LOVELACE', 'HOME-ASSISTANT'])));
 ok('taken from an hk pop-up (beside the panel)', _.fromDashboard(ev(['HK-LIGHT-CARD', 'DIV', 'HOME-ASSISTANT'])));
 ok('NOT from HA\'s Settings screens', !_.fromDashboard(ev(['HA-DATA-TABLE', 'HA-PANEL-CONFIG', 'HOME-ASSISTANT'])));
-ok('the capture listener runs before HA\'s, and only takes the tap when a sheet opened', /window\.addEventListener\('hass-more-info', function \(e\) \{[\s\S]{0,700}\}, true\);/.test(src) &&
+ok('the capture listener runs before HA\'s, and only takes the tap when a sheet opened', /window\.addEventListener\(window\.hkShell\.events\.moreInfo, function \(e\) \{[\s\S]{0,700}\}, true\);/.test(src) &&
    /if \(!open\(id, src\)\) return;\s*e\.stopImmediatePropagation\(\);/.test(src));
 ok('the Configure switch, a card\'s detail: false, or hk-detail-off turn it off',
    /C\.setting\('look\.details', true\) === false/.test(src) && /src\.config\.detail === false/.test(src));

@@ -156,7 +156,7 @@ taps navigate (`pushState` + event) but Mantel's Home has no router yet (Phase 2
 - Browser smoke: passed, with the new host-shell assertions; zero blocked writes, external
   requests and browser exceptions; commands `commands_disabled`.
 
-## Exact continuation point
+## Exact continuation point (superseded by Slice 8b below)
 
 Slice 8 is complete except for slice 5's files, which were being edited in parallel and were
 left alone. When slice 5 has merged, move these to `hkShell` and lower
@@ -172,3 +172,59 @@ HK's own event names (or drop its `events` override):
 
 Then slice 9 onward: the `root().hass` legacy reads (hk-idle, hk-sky, hk-notify, hk-settings,
 hk-timers, hk-skylab, hk-base `hkCards.hass()`) move to the client.
+
+## Slice 8b: the last shell references, HK's own event names, a clock-free fixture
+
+Branch `phase1-slice8b` (parallel with slice 7; the planning session merges it).
+
+### What moved (29 shell references to 0)
+
+- `hk-detail.js`: `haRoot()` is `hkShell.overlayRoot() || document.body`; `hasView`/`viewOf` read
+  `hkShell.dashboardConfig().views`; `generatedHere` reads `hkShell.panel().lovelace.rawConfig`; the
+  sheet's `moved` listener, the three-event route listener and `navigateFrom` use
+  `onNavigate` / `navEvent` / `navigate`; the hash navigation of `asked` uses `announce({detail:{replace:false}})`
+  after its own history call; the capture listener hears `hkShell.events.moreInfo`; `fromDashboard`
+  asks `hkShell.is(el, 'panel')` instead of the tag name.
+- `hk-saver.js`: `panel()` is `hkShell.panel()`; `viewFont` uses `hkShell.viewContainer(panel())`; `go()`
+  is `hkShell.navigate`; the page cover uses `hkShell.root()`; the refresh listener is `onNavigate`.
+- `hk-saver-panel.js`: the toast listener hears `hkShell.events.toast`.
+- `tests/test_shell_boundary.py` has no budget file any more: any HA element or event name in `web/`
+  outside `web/shim/` fails it. `docs/phase1/legacy-ha-shell.json` is deleted (29 to 0).
+  `test_detail.js`'s source-pattern test follows the listener's new spelling.
+
+Behavior in the HA build is unchanged: same elements, same event names (the HA adapter still maps
+`navigate` to `location-changed`, `moreInfo` to `hass-more-info`, `toast` to `hass-notification`),
+same history calls. One small difference: `hk-saver.js`'s panel lookup now also tries the form the
+other modules used (direct, then under the resolver), as it already did; the dashboard-config and
+`viewFont` reads that threw on a missing element now answer null (they sat in try blocks).
+
+### Mantel's event names
+
+`web/shim/mantel-shell.js` no longer overrides `events`: Mantel's shell uses the contract's
+defaults `hk-navigate`, `hk-more-info`, `hk-toast`. Nothing in shared code names a host's raw
+events, so both sides agree through `hkShell`. The smoke asserts `nav == "hk-navigate"`. The HA host
+is untouched.
+
+### The weather-sheet fixture
+
+`test_weathersheet.js` built its hourly fixture from `Date.now() + 1 h / + 2 h`, so between 22:00 and
+24:00 those hours were tomorrow's, and "a day without hourly coverage" (tomorrow) found coverage. The
+test now pins `Date` to noon of the current date before anything loads. Proof (built tree, a copy of
+`tests/run` that loads a fake clock into the prelude): the OLD test fails at a faked 23:30 and passes at
+12:00; the NEW test passes at 23:30 and at 12:00.
+
+Found, not fixed (out of scope): `test_calendar` "the next one says how soon" is also clock-dependent
+(its event is now + 30 min, which crosses midnight after 23:30). The whole suite at a faked 12:00 is green;
+at a faked 23:30 only that assertion fails.
+
+### Validation
+
+Frontend 117 suites green (real clock); HA Python 665 passed, 1 skipped; Mantel 155 passed; browser
+smoke green (0 external requests, 0 browser exceptions, commands disabled). `hass` budget unchanged (1,617).
+
+### Exact continuation point
+
+The host-shell work is complete: no shared code names an HA element or event. Remaining Phase 1 work is
+the `hass` budget (slices 9 to 11): the `root().hass` legacy reads (hk-idle, hk-sky, hk-notify,
+hk-settings, hk-timers, hk-skylab, hk-base `hkCards.hass()`) move to the client. Optionally make
+`test_calendar`'s soon-event fixture clock-independent the same way.
