@@ -66,7 +66,7 @@ def main(argv: list[str] | None = None) -> int:
               file=sys.stderr)
         return 2
     app = build_app(cfg, token)
-    print(f"mantel-server: http://{cfg.host}:{cfg.port}/login  (read-only; commands disabled)")
+    print(f"mantel-server: {cfg.base_url}login  (listening on {cfg.host}:{cfg.port}; read-only; commands disabled)", flush=True)
     web.run_app(app, host=cfg.host, port=cfg.port, print=None)
     return 0
 

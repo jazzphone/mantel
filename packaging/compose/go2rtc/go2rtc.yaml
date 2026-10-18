@@ -1,0 +1,17 @@
+# go2rtc for Mantel's Live TV (and later camera) streams. Mounted read-only at /config/go2rtc.yaml.
+# Mantel Server adds and removes channel streams at run time through the API below (PUT/DELETE
+# /api/streams), e.g. an ffmpeg source for an HDHomeRun channel with #video=h264#hardware, which
+# go2rtc runs as ffmpeg with VAAPI/QuickSync when /dev/dri is present (compose.gpu.yaml), or on the
+# CPU otherwise. Nothing is declared statically, so a fresh install streams nothing.
+api:
+  listen: ":1984"          # internal network only: compose publishes no port for it. go2rtc's API has no login.
+  origin: ""               # no cross-origin callers
+rtsp:
+  listen: ""               # off
+webrtc:
+  listen: ":8555"          # published tcp+udp by compose.yaml so tablets reach it directly
+  candidates:
+    - ${MANTEL_LAN_IP}:8555
+streams: {}
+log:
+  level: info

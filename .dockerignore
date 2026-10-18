@@ -1,0 +1,35 @@
+# The Docker build context is the repository root. Keep it small, and keep anything private out of it.
+.git
+.claude
+.venv
+venv
+**/__pycache__
+**/*.pyc
+.pytest_cache
+.DS_Store
+
+# secrets and local config: never part of an image
+.env
+.env.*
+**/secrets
+*.key
+*.pem
+*.token
+*token*.txt
+
+# Apple-licensed fonts/glyphs and captured house data (see .gitignore); each home supplies its own
+spikes
+**/SF-Pro*
+**/hk-glyphs*
+
+# not needed inside the images
+docs
+tests
+packaging/compose
+packaging/lxc
+packaging/ha-app
+packaging/mantel-connect
+tools/headless
+tools/testha
+hosts/ha
+hosts/server/tools

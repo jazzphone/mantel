@@ -15,6 +15,11 @@ secrets/
 .env.*
 *.pem
 *.key
+# ...except the secret-free templates and docs of the compose stack (packaging/compose/)
+!.env.example
+!packaging/compose/secrets/
+packaging/compose/secrets/*
+!packaging/compose/secrets/README.md
 
 # OS / editor
 .DS_Store

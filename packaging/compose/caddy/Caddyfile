@@ -1,0 +1,86 @@
+# Mantel's Caddy (PLAN §7, §8). Mounted at /etc/caddy/Caddyfile. Settings arrive as MANTEL_* variables
+# from packaging/compose/.env (no secrets there; the DNS token is read from a secret FILE below).
+#
+# Two doors, two rule sets (PLAN §7):
+#   LAN door     https://{$MANTEL_HOSTNAME}  : TLS here, published on :443. Tablets and LAN clients.
+#   tunnel door  http://<tunnel-ip>:8080     : plain HTTP on the internal tunnel network ONLY, where
+#                                              cloudflared is the only other container. Tunnel clients.
+# Caddy stamps X-Mantel-Door on every request after deleting any value the client sent, so Mantel Server
+# can tell the doors apart (wall-tablet credentials are refused on "tunnel"). Mantel Server is reachable
+# only from Caddy (internal network), so it can trust that header.
+
+{
+	admin off
+	# Only cloudflared (fixed address on the tunnel network) may tell us a client's real address.
+	servers {
+		trusted_proxies static {$MANTEL_CLOUDFLARED_IP:172.31.250.3}
+	}
+	log {
+		output stdout
+		format json
+	}
+}
+
+# ---- shared pieces -----------------------------------------------------------------------------
+
+(security_headers) {
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Cross-Origin-Resource-Policy "same-origin"
+		Permissions-Policy "camera=(), microphone=(self), geolocation=(), payment=(), usb=(), fullscreen=(self), autoplay=(self)"
+		Content-Security-Policy "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://tile.openstreetmap.org https://*.rainviewer.com https://mapservices.weather.noaa.gov; font-src 'self' data:; media-src 'self' blob:; connect-src 'self' https://api.rainviewer.com https://tile.openstreetmap.org https://mapservices.weather.noaa.gov {$MANTEL_CONNECT_SRC:}; worker-src 'self' blob:; frame-src 'self' {$MANTEL_FRAME_SRC:}; frame-ancestors {$MANTEL_FRAME_ANCESTORS:'none'}; base-uri 'self'; form-action 'self'; object-src 'none'; manifest-src 'self'"
+		-Server
+	}
+}
+
+(common) {
+	encode zstd gzip
+	import security_headers
+
+	# Identity and routing headers that only a trusted proxy may set (HA Ingress, Mantel Connect):
+	# never accepted from a browser, on either door.
+	request_header -X-Remote-User-Id
+	request_header -X-Remote-User-Name
+	request_header -X-Remote-User-Display-Name
+	request_header -X-Ingress-Path
+	request_header -X-Hass-Source
+	request_header -X-Mantel-Door
+
+	# The container healthcheck talks to Mantel Server directly; the outside never sees it.
+	@internal path /healthz
+	respond @internal 404
+
+	request_body {
+		max_size 12MB
+	}
+}
+
+# ---- LAN door -------------------------------------------------------------------------------------
+
+{$MANTEL_HOSTNAME} {
+	# TLS: DNS-01 (tls-dns01.caddy, default) or Caddy's own CA (tls-internal.caddy); chosen in .env.
+	import /etc/caddy/tls.caddy
+	import common
+	request_header X-Mantel-Door lan
+	# A Cloudflare Access assertion only means something on the tunnel door.
+	request_header -Cf-Access-Jwt-Assertion
+	reverse_proxy mantel-server:8765
+}
+
+# ---- tunnel door (only reachable on the internal tunnel network) ------------------------------------
+
+http://:8080 {
+	bind {$MANTEL_CADDY_TUNNEL_IP:172.31.250.2}
+	import common
+	request_header X-Mantel-Door tunnel
+	reverse_proxy mantel-server:8765
+}
+
+# ---- Caddy's own healthcheck (loopback inside the Caddy container) ----------------------------------
+
+http://127.0.0.1:8080 {
+	bind 127.0.0.1
+	respond /ready 200
+}

@@ -1,0 +1,11 @@
+# Adds the Intel iGPU (QuickSync/VAAPI) to the Live TV transcode. Only meaningful where /dev/dri exists;
+# the LXC script and the README add it to COMPOSE_FILE in .env when the host has one:
+#   COMPOSE_FILE=compose.yaml:compose.gpu.yaml
+# MANTEL_RENDER_GID is the gid of the "render" group owning /dev/dri/renderD128 INSIDE this host/LXC
+# (getent group render | cut -d: -f3). Without this file go2rtc transcodes on the CPU.
+services:
+  go2rtc:
+    devices:
+      - /dev/dri:/dev/dri
+    group_add:
+      - "${MANTEL_RENDER_GID:?set MANTEL_RENDER_GID in .env (getent group render | cut -d: -f3)}"
