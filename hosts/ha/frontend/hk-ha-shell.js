@@ -146,6 +146,70 @@
     return b;
   };
 
+  // TWO MODES. "lovelace" (the default, and the only one unless HK's own panel is switched
+  // on): every answer above, by Lovelace's path. "panel" (Phase 2 P2.6, hk_panel.py): HK's
+  // own panel is on screen, drawn by HK's view host with no Lovelace. Then the dashboard's
+  // parts are the panel's own -- the panel element HA made, the view container and the view
+  // in it, the config the view host draws -- and there is no hui-root, no toolbar, no view
+  // background and no card wrapper (tags.card null: hkCards.createCard makes children with
+  // the view host's factory). The rest stays HA's: the root and the overlay root the menu,
+  // tab bar and sheets mount in, the drawer and sidebar, the events.
+  var own = null;
+
+  function panelImpl() {
+    var o = own, parts = o.host.shellParts(), ptags = parts.tags || {};
+    var impl = Object.assign({}, HA, {
+      tags: Object.assign({}, HA.tags, {
+        panel: o.el.localName || null, dashboard: null, viewBackground: null, card: null,
+        viewContainer: ptags.viewContainer || null, view: ptags.view || null
+      }),
+      panel: function () { return o.el; },
+      dashboard: function () { return null; },
+      dashboardRoot: function () { return null; },
+      viewContainer: function () { return parts.viewContainer(); },
+      viewSlot: function () { return parts.viewSlot(); },
+      view: function (c) { return parts.view(c); },
+      viewBackground: function () { return null; },
+      toolbar: function () { return null; },
+      dashboardConfig: function () { return parts.dashboardConfig(); },
+      // HK's panel is a dashboard; anywhere else, as HA says
+      onDashboard: function () {
+        var r = HA.root(), h = r && r.hass;
+        if (h && o.url && h.panelUrl === o.url) return true;
+        return HA.onDashboard();
+      },
+      isDashboard: function () {
+        var seg = global.location.pathname.split('/')[1] || '';
+        if (o.url && seg === o.url) return true;
+        return HA.isDashboard();
+      }
+    });
+    return impl;
+  }
+
+  // The panel element (hk-ha-panel.js) on screen: `el` the panel, `viewHost` HK's view host
+  // drawing in it, `url` the panel's address (its first segment). Answers again on every
+  // view (the view's element name changes), as Mantel's shell does.
+  HA.ownPanel = function (el, viewHost, url) {
+    if (own && own.off) own.off();
+    var o = own = { el: el, host: viewHost, url: url || null, off: null };
+    var use = function () { if (own === o) global.hkShell.use(panelImpl()); };
+    o.off = viewHost.onView(use);
+    use();
+    return global.hkShell;
+  };
+  // The panel left the page (or was never there): Lovelace's answers again. `el`: only if
+  // that panel is the one in charge.
+  HA.lovelace = function (el) {
+    var was = own;
+    if (!was || (el && was.el !== el)) return global.hkShell;
+    if (was.off) was.off();
+    own = null;
+    global.hkShell.use(HA);
+    return global.hkShell;
+  };
+  HA.currentMode = function () { return own ? 'panel' : 'lovelace'; };
+
   global.hkShell.use(HA);
   global.hkHAShell = HA;
 })(globalThis);
