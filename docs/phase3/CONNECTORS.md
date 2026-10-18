@@ -56,7 +56,7 @@ Registered client message types (pinned): `read`, `read_subscribe`, `read_unsubs
 `ma/read`, `ma/subscribe`, `ma/unsubscribe`. None is a command type, and no client message can send
 an MA or HA command.
 
-### What the page needs (done 2026-10-18, except music)
+### What the page needs (done 2026-10-18; music through an interim bridge)
 
 All of it lives in Mantel's host adapter and server. The shared frontend (`web/hk`, `web/client`,
 `web/cards`) is unchanged, so HA's build of it stays byte-identical.
@@ -100,8 +100,44 @@ All of it lives in Mantel's host adapter and server. The shared frontend (`web/h
   (`Authz.may_see`), streamed from HA with Mantel's credential (shared `camera_still.proxy_image`).
   History answers (`history/history_during_period`) lose any camera token or signed picture too.
   Tests: `tests/test_media_art.py` (7).
-- **Music (not done):** HK's library and queue reads can move from `hk_music/*` and HA's
-  `media_player/*` to `ma/read`.
+- **Music: an interim read-only bridge (2026-10-18), until Phase 4 moves the engine.** HA's
+  `hk_frontend` integration still runs the music engine, so three of its reads are forwarded, RBAC-
+  filtered (rules in the table below): `hk_music/subscribe` (the Music page's configuration feed),
+  `hk_music/queue {entity_id, limit?}` (the screensaver panel's Up Next) and
+  `hk_music/settings/library` (HK Settings' playlist picker). No other `hk_music/*` type is allowed:
+  `queue_play`, `used`, `item/remove`, `playlist/save`, `preset/save`, `settings/set` and
+  `playlists/order` are writes or side effects, the gateway's business, and commands stay off.
+  - **What the feed keeps:** `configured`, `library_entry` (Music Assistant's config entry id, for
+    Browse), `playlists` (names, icons, keys), `volume`, `ignore_announcements`, and the players the
+    person may `view`: speakers and presets (a preset whose group player is hidden goes; a visible
+    preset loses the hidden members), floors (empty ones go) and `announcements`. Any other key HA
+    adds is dropped.
+  - **`home` is always null.** HA answers as Mantel's own HA user, so the per-user home room HA works
+    out is that user's, not the person's. The page draws without it (no room preselected) until
+    Phase 4, when MantelHouse runs the engine and knows the person.
+  - **Queue answers** are rebuilt as `{id, title, artist, duration, image}`; an image address that is
+    not `http(s)` or carries a token-like query key is dropped. A player the person may not view
+    answers `not_found`, exactly as a nonexistent one, and nothing is sent to HA.
+  - **Page side, not done here:** the host adapter (`web/shim/mantel-host.js`) refuses
+    `hk_music/queue` itself, because its write-word backstop matches `queue`; it needs the same
+    exception the camera reads have before the screensaver's Up Next reaches Mantel.
+  - Later (Phase 4): HK's library and queue reads move to `ma/read`, and the feed to Mantel's engine.
+  - **Scratch HA check (2026-10-18):** all three went through `ReadProxy` + `FilteredReads` to the
+    real `hk_frontend` and came back as HA's "not set up" answers (`{"configured": false}`, `{"items":
+    []}`, `{"ok": false, "message": "Music Assistant is not set up."}`): the scratch HA has no Music
+    Assistant, so the pruning of a configured feed is checked with fakes only.
+- **Entity registry and Hidden Accessories: answered by Mantel (2026-10-18).** HK's pages send two
+  more reads HA used to answer. Mantel answers both itself and forwards neither (`readproxy.MANTEL_READS`,
+  rules in `readproxy.ROUTE_RULES`, registered in `app["read_routes"]` by `readproxy.register`):
+  - `config/entity_registry/get {entity_id}`: HK's one caller (`hk-detail.js` `favourites`, for an
+    admin) reads only `options.light.favorite_colors`. Mantel answers from the hub's copy of the entity
+    registry (`config/entity_registry/list` carries `options`; checked on the scratch HA) with
+    `{entity_id, options: {light: {favorite_colors}}}` and nothing else, each colour checked (one known
+    colour key with its numbers). HA's own answer also carries device, area and config entry ids,
+    aliases, labels, capabilities and every integration's options, some of which name other entities
+    (`switch_as_x`), so none of it is sent. `view` the entity; otherwise, or if it does not exist,
+    `not_found` "Entity not found" (the same frame).
+  - `hk_frontend/hidden/get {entity_ids?}`: see [SETTINGS.md](SETTINGS.md) "Hidden Accessories".
 
 ## Music Assistant: the API messages used
 
@@ -178,6 +214,16 @@ socket ends / read_unsubscribe ─▶ unsubscribe_events ─▶ HA ends the WebR
 | `media_player/browse_media`, `media_player/search_media` | `view` the media player |
 | `media_source/browse_media` | `feature:media`. `media-source://camera…` is refused, and camera children are pruned (cameras go through the camera connector) |
 | `GET /api/calendars/<calendar.x>?start&end` (`read_api`, the only REST read) | `view` the calendar. Strict path, entity and ISO-date checks. GET only |
+| `hk_music/subscribe` (subscription; interim) | `feature:music`. Every event pruned to the players the subject may `view`; `home` always null; unknown keys dropped |
+| `hk_music/queue` (interim) | `view` the `media_player.*` (else `not_found`, nothing sent); `limit` 1..100 (HA's schema). Items rebuilt; token-carrying image addresses dropped |
+| `hk_music/settings/library` (interim) | `feature:music`. Items rebuilt as `{uri, name}` |
+
+Answered by Mantel, never sent to HA (`readproxy.ROUTE_RULES`, not in `READ_ALLOWED`):
+
+| Read | Rule |
+|---|---|
+| `config/entity_registry/get` | `view` the entity, else `not_found` (as a nonexistent one). From the hub's registry copy: `entity_id` and `options.light.favorite_colors` only |
+| `hk_frontend/hidden/get` | `configure` on settings (HA: `require_admin`). Every entity, device and room the subject may not `view` is left out; an asked-about one reads as nonexistent |
 
 `check_read` runs first: an unlisted type or an extra key never reaches HA. A `read` frame that
 carries anything besides `type`, `id` and `msg` is refused. This matters because a `cmd` key riding
@@ -206,6 +252,9 @@ on a `read` gets past `server.classify()`.
 | `tests/test_connectors_ma.py` (26) | Pins; auth with the file token; reads; partial results joined; event filter and stop; reconnect with backoff; a bad token retried until fixed; a missing token file stops the connector; the command refused by default with nothing sent; a refusing gate; an allowing gate sends catalog commands only; `register` (feature gate, off without a URL) |
 | `tests/test_connectors_camera.py` (14) | ICE config unchanged; denied → nothing forwarded; offer relay, candidate, unsubscribe; session ownership; malformed offers; the signaling connection sends only signaling; every frame on HA's allowlist; `register` |
 | `tests/test_readproxy_filters.py` (31) | One rule per read; history, logbook and statistics filtered both ways; energy pruning; the location stripped; media browsing; forecast and notification subscriptions; calendar REST and `read_api` parsing (POST, traversal, extra query, bad dates, absolute URLs refused); a hook can't widen; no hooks means deny |
+| `tests/test_readproxy_filters.py` (+10, music) | Exactly the three `hk_music/*` reads (every write refused); the feed needs `feature:music` and is pruned in order; the queue needs `view` of the player, hidden and nonexistent alike `not_found` with nothing sent; malformed queue reads refused before HA; the library rebuilt |
+| `tests/test_mantel_reads.py` (28) | `config/entity_registry/get` and `hk_frontend/hidden/get`: one rule each and never on the HA allowlist; only the favourite colours (no other entity, id or token); hidden and nonexistent read the same; malformed reads and the writes refused; hidden.py's port against HA's own `test_hiding.py` cases; `configure` needed; per-person pruning of entities, devices and rooms; nothing written |
+| `tests/test_ingress.py` (+1) | Both Mantel-answered reads through the HA App's Ingress door, with any HA read failing the test; commands still disabled |
 | `tests/test_connectors_wiring.py` (9) | All three registers over a real local WebSocket, dispatched as P3.7 will. Covers: pinned handler set; commands never reach a connector; commands inside or riding on a read; camera over `read`/`read_subscribe`; socket close ends the WebRTC session; filtered reads; MA reads |
 | `tests/test_ha_client.py` (+8), `tests/test_proof1_guards.py` | Allowlist pins updated: the exact set, signaling key checks, camera-only |
 

@@ -20,6 +20,27 @@ PREFS = {
     ],
     "device_consumption": [{"stat_consumption": "sensor.fridge"}, {"stat_consumption": "sensor.secret_lab"}],
 }
+# hk_music/subscribe's event as HA's hk_frontend sends it (MusicConfig.as_client + announcements), fictional
+MUSIC = {
+    "library_entry": "ma-entry-1", "configured": True,
+    "speakers": [{"name": "Downstairs", "entity": "media_player.downstairs",
+                  "members": ["media_player.den", "media_player.primary"]},
+                 {"name": "Upstairs", "entity": "media_player.upstairs", "members": ["media_player.primary"]},
+                 {"name": "Den", "entity": "media_player.den"},
+                 {"name": "Primary Bedroom", "entity": "media_player.primary"}],
+    "floors": [{"name": "Main", "entities": ["media_player.den"]},
+               {"name": "Upper", "entities": ["media_player.primary"]}],
+    "playlists": [{"name": "Morning", "icon": "mdi:coffee", "key": "p1"}],
+    "home": "media_player.primary", "volume": 0.3, "ignore_announcements": True,
+    "announcements": ["media_player.den", "media_player.primary"],
+    "secret_extra": "dropped",
+}
+MUSIC_QUEUE = {"ok": True, "queue_id": "q-den", "index": 4, "items": [
+    {"id": "i1", "title": "Song", "artist": "Band", "duration": 200, "image": "https://img.example/a.jpg",
+     "extra": "x"},
+    {"id": "i2", "title": "Song 2", "artist": "Band", "duration": 180,
+     "image": "https://ma.example/imageproxy?path=x&access_token=fictional"},
+    {"id": "i3", "title": "Song 3", "artist": "", "duration": None, "image": "/local/x.jpg"}]}
 
 
 class FakeHa:
@@ -123,6 +144,14 @@ class FakeHa:
                 {"title": "Photos", "media_content_id": "media-source://media_source/local/photos"},
                 {"title": "Cameras", "media_content_id": "media-source://camera"},
                 {"title": "Porch", "media_content_id": "media-source://camera/camera.porch"}]})
+        if t == "hk_music/subscribe":
+            await ok()
+            await event(json.loads(json.dumps(MUSIC)))
+            return await event({**json.loads(json.dumps(MUSIC)), "volume": 0.5})     # a change, in order
+        if t == "hk_music/queue":
+            return await ok(json.loads(json.dumps(MUSIC_QUEUE)))
+        if t == "hk_music/settings/library":
+            return await ok({"items": [{"uri": "library://playlist/1", "name": "Morning", "owner": "x"}, {"name": "no uri"}]})
         self.unexpected.append(t)
         await ws.send_json({"id": mid, "type": "result", "success": False, "error": {"code": "unknown_command"}})
 
