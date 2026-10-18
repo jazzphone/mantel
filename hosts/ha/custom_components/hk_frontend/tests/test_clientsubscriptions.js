@@ -143,4 +143,24 @@ H.run('CLIENT SUBSCRIPTIONS', [function () {
   }).then(function (r) {
     H.eq('no auth: not available here, as before', r, 'not available here');
   });
+}, function () {
+  H.section('letting go after a restart: the server\'s not_found is no error (slice 7 port)');
+  var answers = { old: Promise.reject({ code: 'not_found', message: 'Subscription not found.' }),
+                  other: Promise.reject({ code: 'unknown_error' }) };
+  answers.old.catch(function () {}); answers.other.catch(function () {});
+  var which = 'old';
+  var t = { subscribeMessage: function () { return Promise.resolve(function () { return answers[which]; }); },
+            addEventListener: function () {}, removeEventListener: function () {} };
+  var port = window.hkClient.subscriptions(t), got = [];
+  return port.subscribeMessage(function () {}, { type: 'hk_frontend/settings/subscribe' }).then(function (unsub) {
+    return unsub().then(function (v) { got.push('resolved:' + v); }, function (e) { got.push('rejected:' + e.code); });
+  }).then(function () {
+    which = 'other';
+    return port.subscribeMessage(function () {}, { type: 'hk_frontend/settings/subscribe' });
+  }).then(function (unsub) {
+    return unsub().then(function () { got.push('resolved'); }, function (e) { got.push('rejected:' + e.code); });
+  }).then(function () {
+    H.eq('an unsubscribe the restarted server never knew resolves; any other refusal still rejects',
+         got.join(), 'resolved:undefined,rejected:unknown_error');
+  });
 }]);

@@ -177,7 +177,19 @@
             String(message && message.type) + (message && message.type === 'subscribe_events' ? ' ' + String(message.event_type) : '')),
             { code: 'not_allowed' }));
         }
-        return transport.subscribeMessage(callback, message, options);
+        // ENDING ONE AFTER A RESTART IS NOT AN ERROR. The server that came back
+        // never had this subscription, so it answers the unsubscribe with
+        // `not_found`; a caller letting go (often without waiting) must not
+        // leave an uncaught rejection behind. Every other error still rejects.
+        return Promise.resolve(transport.subscribeMessage(callback, message, options)).then(function (unsub) {
+          if (typeof unsub !== 'function') return unsub;
+          return function () {
+            var r = unsub.apply(this, arguments);
+            return r && typeof r.then === 'function'
+              ? r.then(undefined, function (err) { if (err && err.code === 'not_found') return undefined; throw err; })
+              : r;
+          };
+        });
       },
       addEventListener: function (name, callback) {
         if (typeof transport.addEventListener === 'function') transport.addEventListener(name, callback);
