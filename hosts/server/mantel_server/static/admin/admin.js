@@ -912,7 +912,7 @@ function connectionForm(kind, info, reload) {
   const label = info.label;
   const out = h('div', { 'aria-live': 'polite', id: 'conn-result-' + kind });
   const url = h('input', { name: kind + '-url', type: 'url', required: true, maxlength: 300, autocomplete: 'off', autocapitalize: 'none',
-                           value: info.url || '', placeholder: kind === 'ha' ? 'http://homeassistant.local:8123' : 'http://music-assistant.local:8095' });
+                           value: info.url || info.suggested_url || '', placeholder: kind === 'ha' ? 'http://homeassistant.local:8123' : 'http://music-assistant.local:8095' });
   const token = h('input', { name: kind + '-token', type: 'password', maxlength: 4096, autocomplete: 'off', autocapitalize: 'none', 'aria-label': label + ' token' });
   const user = kind === 'ma' ? h('input', { name: 'ma-username', autocomplete: 'off', autocapitalize: 'none', maxlength: 200 }) : null;
   const pass = kind === 'ma' ? h('input', { name: 'ma-password', type: 'password', autocomplete: 'off', maxlength: 1024 }) : null;
@@ -940,7 +940,9 @@ function connectionForm(kind, info, reload) {
       reload();
     } catch (e) { out.replaceChildren(errorPanel(e)); }
   };
+  const suggested = !info.url && info.suggested_url && info.suggested_from === 'music_assistant_app';
   const nodes = [field(label + '’s address', url)];
+  if (suggested) nodes.push(note('Found Music Assistant’s App — press Test'));   // a prefill only: never auto-tests, never auto-saves
   if (kind === 'ha') {
     nodes.push(h('fieldset', null, h('legend', null, 'Connect by signing in to Home Assistant'),
       note('Home Assistant opens its sign-in page. Sign in there as the Home Assistant user Mantel should act as: a dedicated administrator (for example one named mantel-server), not your own account. Mantel then makes a long-lived token for that user and keeps it sealed.', 'muted small'),

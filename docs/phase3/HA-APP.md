@@ -326,6 +326,16 @@ Mantel admin folding into HK Settings is PLAN item 8). Tests: `tests/test_ingres
   uses the Supervisor's credential; no HA token is ever asked for, and the server refuses changes with
   `409 provided_by_app`). **Music Assistant is editable** there: the App can reach MA directly with an address and
   an MA token or MA user sign-in, sealed in `/data/connections` (inside the App's own HA backups too).
+* **Music Assistant address suggestion** (App 0.1.7, `MaSuggester` in `connections.py`): HA's WebSocket does not
+  expose a config entry's `data` (`config_entries/get` omits it), and Mantel has no Supervisor API, so nothing is
+  read from HA and `ha_client`'s allowlist is unchanged. Instead, in App mode only, when MA is not set up and an
+  Owner/Admin loads `GET /api/connections`, Mantel probes the official Music Assistant App's hostnames
+  `d5369777-music-assistant`, `-beta`, `-nightly` (port 8095; Supervisor DNS resolves App hostnames): resolve the
+  name, then an unauthenticated GET of MA's `/info` (2 s each, no credentials, no redirects); the first answer with
+  `server_id` and `server_version` becomes `ma.suggested_url` (+ `suggested_from: "music_assistant_app"`), cached
+  5 minutes. A name, never an IP. The page only prefills the editable address box with a hint; it never tests or
+  saves by itself. Outside App mode, for non-managers and once MA is set up, nothing is probed. Tests:
+  `tests/test_connections.py` (fake resolver and `/info`).
 
 ## Staging
 

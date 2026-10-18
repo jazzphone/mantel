@@ -828,3 +828,107 @@ async def test_bootstrap_then_the_admin_page_starts_on_connections(envs):
     assert r.status == 200
     _, ov = await env.call("GET", "/api/admin/overview")
     assert ov["user"]["role"] == "owner" and ov["ha_set_up"] is False and ov["sections"][:2] == ["me", "connections"]
+
+
+# -- the Music Assistant App suggestion -----------------------------------------------------------------------
+class SuggestFakes:
+    """Fake name resolution and MA /info for the three App hostnames."""
+
+    def __init__(self, answers):
+        self.answers = answers          # host -> info (odd: resolves but is not MA); absent: no such name
+        self.resolved: list[str] = []
+        self.fetched: list[str] = []
+
+    async def resolve(self, host):
+        self.resolved.append(host)
+        if host not in self.answers:
+            raise OSError("no such name")
+        return True
+
+    async def fetch(self, http, url):
+        self.fetched.append(url)
+        return self.answers[url.split("//")[1].split(":")[0]]
+
+
+MA_INFO = {"server_id": "abc", "server_version": "2.7.0"}
+
+
+def install_suggester(env, answers):
+    fakes = SuggestFakes(answers)
+    env.app["ma_suggester"]._resolve, env.app["ma_suggester"]._fetch = fakes.resolve, fakes.fetch
+    return fakes
+
+
+async def test_suggestion_first_candidate_by_name_not_ip(envs):
+    env = await envs(app_mode=True, connect_ha=False)
+    fakes = install_suggester(env, {"d5369777-music-assistant": MA_INFO})
+    await owner(env)
+    _, body = await env.call("GET", "/api/connections")
+    ma = body["connections"]["ma"]
+    assert ma["suggested_url"] == "http://d5369777-music-assistant:8095" and ma["suggested_from"] == "music_assistant_app"
+    assert "suggested_url" not in body["connections"]["ha"]
+    assert fakes.fetched == ["http://d5369777-music-assistant:8095"]
+
+
+async def test_suggestion_beta_when_stable_is_not_music_assistant(envs):
+    env = await envs(app_mode=True, connect_ha=False)
+    install_suggester(env, {"d5369777-music-assistant": {"hello": "not ma"},
+                            "d5369777-music-assistant-beta": MA_INFO})
+    await owner(env)
+    _, body = await env.call("GET", "/api/connections")
+    assert body["connections"]["ma"]["suggested_url"] == "http://d5369777-music-assistant-beta:8095"
+
+
+async def test_no_suggestion_when_nothing_answers(envs):
+    env = await envs(app_mode=True, connect_ha=False)
+    fakes = install_suggester(env, {})
+    await owner(env)
+    _, body = await env.call("GET", "/api/connections")
+    assert "suggested_url" not in body["connections"]["ma"] and len(fakes.resolved) == 3
+
+
+async def test_no_probing_outside_app_mode(envs):
+    env = await envs(connect_ha=False)
+    fakes = install_suggester(env, {"d5369777-music-assistant": MA_INFO})
+    await owner(env)
+    _, body = await env.call("GET", "/api/connections")
+    assert "suggested_url" not in body["connections"]["ma"] and fakes.resolved == []
+
+
+async def test_no_probing_for_non_managers_and_when_ma_is_set_up(envs):
+    env = await envs(app_mode=True, connect_ha=False)
+    fakes = install_suggester(env, {"d5369777-music-assistant": MA_INFO})
+    await env.user("mom", "adult")
+    await env.sign_in("mom")
+    assert (await env.call("GET", "/api/connections"))[0] == 403
+    assert fakes.resolved == []
+    ma = FakeMa(MA_TOKEN_A)
+    server, ma_url = await start_ma(ma)
+    try:
+        await owner(env)
+        assert (await env.call("POST", "/api/connections/ma", {"url": ma_url, "token": MA_TOKEN_A}))[0] == 200
+        _, body = await env.call("GET", "/api/connections")
+        assert "suggested_url" not in body["connections"]["ma"] and fakes.resolved == []
+    finally:
+        await server.close()
+
+
+async def test_suggestion_is_cached_for_a_few_minutes(envs):
+    env = await envs(app_mode=True, connect_ha=False)
+    fakes = install_suggester(env, {"d5369777-music-assistant": MA_INFO})
+    await owner(env)
+    for _ in range(3):
+        await env.call("GET", "/api/connections")
+    assert len(fakes.fetched) == 1
+    env.now[0] += 301
+    await env.call("GET", "/api/connections")
+    assert len(fakes.fetched) == 2
+
+
+def test_admin_page_uses_the_suggestion_only_as_a_prefill():
+    from pathlib import Path
+    js = (Path(__file__).parents[1] / "hosts/server/mantel_server/static/admin/admin.js").read_text()
+    assert "info.url || info.suggested_url" in js and "Found Music Assistant’s App — press Test" in js
+    assert js.count("suggested_url") == 2
+    i = js.index("const suggested")
+    assert "api(" not in js[i:i + 400] and ".click()" not in js[i:i + 400]
