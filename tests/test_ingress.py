@@ -195,8 +195,8 @@ async def test_forged_headers_from_any_other_peer_are_ignored_and_logged(mk, cap
         r = await m.request("GET", "/api/me", m.ha())
     assert r.status == 401
     assert "ignored HA identity headers" in caplog.text and "127.0.0.1" in caplog.text
-    r = await m.page()
-    assert r.status == 401
+    r = await m.page()                               # signed out: sent to Mantel's own sign-in page
+    assert r.status == 302 and r.headers["Location"] == "/login?next=/dashboard-kitchen/home"
     assert not any(c.startswith("mantel_session=") for c in r.headers.getall("Set-Cookie", []))
     assert m.store.db.execute("SELECT COUNT(*) FROM sessions").fetchone()[0] == 0
 
@@ -213,7 +213,8 @@ async def test_headers_are_never_read_when_ingress_is_off(mk):
     m.store.link(OWNER_HA, "owner")
     assert (await m.request("GET", "/api/me", m.ha())).status == 401
     r = await m.request("GET", "/dashboard-kitchen/home", {**m.ha(), **PAGE})
-    assert r.status == 401 and "mantel-base" not in await r.text()
+    assert r.status == 302 and r.headers["Location"] == "/login?next=/dashboard-kitchen/home"
+    assert "mantel-base" not in await r.text()
 
 
 async def test_an_ingress_session_cookie_is_no_one_outside_ingress(mk):
@@ -417,10 +418,23 @@ async def test_sign_in_routes_and_tablet_enrolment_are_refused_through_ingress(m
         assert r.status == 403 and (await r.json())["error"] == "ingress_sign_in", path
     r = await m.request("GET", "/login", {**m.ha(), **PAGE})
     assert r.status == 403
+    # the sign-in page's other paths too: HA has signed the person in, and nothing starts a session here
+    for path in ("/login/ha", "/login/ha?next=/admin", "/login/login.js", "/login/login.css"):
+        r = await m.request("GET", path, {**m.ha(), **PAGE})
+        assert r.status == 403 and "Set-Cookie" not in r.headers, path
+        assert "Signed in by Home Assistant" in await r.text() and PREFIX + "/home" in await r.text(), path
     r = await m.request("POST", "/api/devices/enroll", {**m.ha(), "X-CSRF-Token": m.jar["mantel_csrf"],
                                                         "Origin": str(m.client.make_url("")).rstrip("/")},
                         json={"name": "x", "room": "kitchen"})
     assert r.status == 403 and (await r.json())["error"] == "lan_only"
+
+
+async def test_the_sign_in_page_still_works_outside_ingress_unless_ingress_only(mk):
+    m = await mk(peers=("172.30.32.2",))              # this client is not the Supervisor
+    r = await m.request("GET", "/login", PAGE)
+    assert r.status == 200 and '<meta name="mantel-base" content="">' in await r.text()
+    m2 = await mk(peers=("172.30.32.2",), only=True)
+    assert (await m2.request("GET", "/login", PAGE)).status == 403
 
 
 async def test_csrf_is_still_required_for_state_changing_api_calls(mk):

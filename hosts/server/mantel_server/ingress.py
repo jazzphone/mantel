@@ -65,6 +65,7 @@ OWN_PATHS = frozenset({"/ingress/bootstrap"})           # open to an unlinked HA
 # sessions on a door they do not know: refused there.
 SIGN_IN_PATHS = frozenset({"/login", "/auth/callback", "/api/auth/password", "/api/auth/totp/verify",
                            "/api/auth/passkey/options", "/api/auth/passkey/verify", "/api/bootstrap"})
+SIGN_IN_PREFIX = "/login/"          # the page's assets and /login/ha (login_page.py, auth.py)
 BOOTSTRAP_TTL = 600
 WARN_EVERY = 300.0
 LINK_ROLES = ("owner", "admin", "adult", "child", "guest")   # wall tablets never come through Ingress
@@ -627,7 +628,7 @@ async def middleware(request: web.Request, handler):
     request["cookie_path"] = base + "/"
     request["cookie_secure"] = _https(request)
     request["ingress_client_ip"] = _client_ip(request)
-    if request.path in SIGN_IN_PATHS:
+    if request.path in SIGN_IN_PATHS or request.path.startswith(SIGN_IN_PREFIX):
         if wants_page(request):
             return _page("Signed in by Home Assistant", "<p>Through Home Assistant's sidebar, Home Assistant "
                          f"signs you in. <a href='{html.escape(base)}/home'>Open Mantel</a>.</p>", 403)

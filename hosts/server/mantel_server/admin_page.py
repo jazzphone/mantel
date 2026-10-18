@@ -25,6 +25,7 @@ from aiohttp import web
 from . import rbac
 from .accounts import MANAGERS
 from .devices import DEVICE_ROLES
+from .login_page import login_url
 from .service_accounts import SCOPES as SERVICE_SCOPES
 from .sessions import Identity, identity
 from .store import ROLES
@@ -33,6 +34,7 @@ PAGE = "/admin"
 ASSET = PAGE + "/{name}"
 OVERVIEW = "/api/admin/overview"
 ASSETS = {"admin.js": "text/javascript", "admin.css": "text/css"}
+# admin.js imports ../webauthn.js (the passkey helpers shared with /login), served by login_page.py
 SECTIONS = ("me", "people", "devices", "roles", "service", "audit")
 
 CSP = ("default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; "
@@ -71,7 +73,7 @@ def sections_for(request: web.Request, ident: Identity) -> list[str]:
 async def page(request: web.Request) -> web.StreamResponse:
     ident = identity(request)
     if ident.user is None and ident.device is None:
-        raise web.HTTPFound("/login")      # "/admin" is a public path so that this can be a redirect, not a 401
+        raise web.HTTPFound(login_url(PAGE))   # "/admin" is a public path so that this can be a redirect, not a 401
     if ident.user is None:
         body = ("<!doctype html><html lang=en><meta charset=utf-8><meta name=viewport "
                 "content='width=device-width,initial-scale=1'><title>Mantel admin</title>"

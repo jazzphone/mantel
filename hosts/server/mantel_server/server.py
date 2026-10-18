@@ -30,7 +30,7 @@ import aiohttp
 from aiohttp import WSMsgType, web
 
 from . import accounts, auth, devices, gateway, health, ingress, pins, proof2, rbac_store, readproxy, sessions, settings_store
-from . import admin_page, backup, features, linked, service_accounts, user_files
+from . import admin_page, backup, features, linked, login_page, service_accounts, user_files
 from .authz import Authz, Principal, resolve_door
 from .config import Config
 from .connectors import REFUSE_ALL, Ctx, Hooks
@@ -410,6 +410,7 @@ def build_app(cfg: Config, token: str, store: Store | None = None, connect_ha: b
     sessions.register(app, hub)
     accounts.register(app, hub)
     devices.register(app, hub)
+    login_page.register(app, hub)     # /login (passkey, password + TOTP, Sign in with HA via /login/ha)
     admin_page.register(app, hub)     # /admin (people, devices, roles, service accounts, audit, my PIN)
     pins.register(app, hub)
     ingress.register(app, hub, token)                   # HA App mode only (cfg.ingress); inert otherwise

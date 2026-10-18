@@ -79,7 +79,7 @@ async def env(tmp_path):
 
 
 async def start_login(env):
-    r = await env.client.get("/login", allow_redirects=False)
+    r = await env.client.get("/login/ha", allow_redirects=False)   # the OAuth start (GET /login before the page)
     assert r.status == 302
     q = parse_qs(urlparse(r.headers["Location"]).query)
     return r, q
@@ -134,9 +134,9 @@ async def complete(env, code="good-code"):
 async def test_linked_user_signs_in_and_the_users_token_is_revoked(env):
     env.store.link("u-avery", "owner")
     r = await complete(env)
-    # P3.1: a page that moves on to /dev (SameSite=Strict cookies are not sent on a redirect in a
-    # chain that started on HA's site), and Strict cookies (PLAN §7) instead of Phase 0's Lax.
-    assert r.status == 200 and "url=/dev" in await r.text()
+    # P3.1: a page that moves on to the default screen, no next given (SameSite=Strict cookies are not
+    # sent on a redirect in a chain that started on HA's site), and Strict cookies (PLAN §7), not Lax.
+    assert r.status == 200 and "url=/home" in await r.text()
     assert env.fake.revoked == ["user-refresh"]                    # revoked
     assert env.fake.user_ws_calls == ["auth/current_user"]          # the user's token did exactly one thing
     exchange = env.fake.token_requests[0]
@@ -183,7 +183,7 @@ async def test_expired_session_is_rejected(env):
     env.now[0] += 30 * 86400                                        # P3.1: LAN sessions end 30 days after sign-in
     assert (await env.client.get("/api/me")).status == 401
     r = await env.client.get("/dev", allow_redirects=False)
-    assert r.status == 302 and r.headers["Location"] == "/login"
+    assert r.status == 302 and r.headers["Location"] == "/login?next=/dev"
 
 
 async def test_unlinking_ends_the_session_at_once(env):
@@ -226,6 +226,57 @@ async def test_everything_but_login_is_behind_sign_in(env):
     for path in ("/api/entities", "/api/areas", "/api/stats", "/api/me"):
         assert (await env.client.get(path)).status == 401
     assert (await env.client.get("/dev", allow_redirects=False)).status == 302
+
+
+# -- the sign-in page's "Sign in with Home Assistant" (/login/ha) and its next path -----------------
+async def ha_round_trip(env, query=""):
+    r = await env.client.get("/login/ha" + query, allow_redirects=False)
+    assert r.status == 302 and r.headers["Location"].startswith(env.app["cfg"].ha_url + "/auth/authorize?")
+    state = parse_qs(urlparse(r.headers["Location"]).query)["state"][0]
+    cb = await env.client.get("/auth/callback", params={"code": "good-code", "state": state}, allow_redirects=False)
+    return r, cb
+
+
+async def test_ha_sign_in_comes_back_to_next(env):
+    env.store.link("u-avery", "owner")
+    r, cb = await ha_round_trip(env, "?next=/admin")
+    c = r.cookies[auth.NEXT_COOKIE]
+    assert c["httponly"] and c["samesite"].lower() == "lax" and c["path"] == "/auth"
+    text = await cb.text()
+    assert cb.status == 200 and "url=/admin'" in text and "href='/admin'" in text
+    assert cb.cookies[auth.NEXT_COOKIE].value == ""                  # spent
+    assert (await env.client.get("/api/me")).status == 200
+
+
+async def test_ha_sign_in_never_redirects_off_site(env):
+    env.store.link("u-avery", "owner")
+    for bad in ("?next=//evil.example/x", "?next=https://evil.example/", "?next=/login", "?next=/%5Cevil"):
+        env.client.session.cookie_jar.clear()
+        r, cb = await ha_round_trip(env, bad)
+        assert not r.cookies.get(auth.NEXT_COOKIE) or r.cookies[auth.NEXT_COOKIE].value == "", bad
+        text = await cb.text()
+        assert "url=/home'" in text and "evil" not in text, bad
+    # a next cookie planted by someone else is cleaned again at the callback
+    env.client.session.cookie_jar.clear()
+    r = await env.client.get("/login/ha", allow_redirects=False)
+    state = parse_qs(urlparse(r.headers["Location"]).query)["state"][0]
+    env.client.session.cookie_jar.update_cookies({auth.NEXT_COOKIE: "https%3A%2F%2Fevil.example%2F"},
+                                                 response_url=env.client.make_url("/auth/"))
+    cb = await env.client.get("/auth/callback", params={"code": "good-code", "state": state}, allow_redirects=False)
+    text = await cb.text()
+    assert "url=/home'" in text and "evil" not in text
+
+
+async def test_ha_sign_in_moves_to_the_canonical_host_keeping_next(env):
+    port = env.client.server.port
+    r = await env.client.get("/login/ha?next=/admin", headers={"Host": f"localhost:{port}"}, allow_redirects=False)
+    assert r.status == 302 and r.headers["Location"] == f"http://{env.origin}/login/ha?next=/admin"
+    assert auth.STATE_COOKIE not in r.cookies
+
+
+async def test_the_page_links_to_ha_sign_in(env):
+    r = await env.client.get("/login?next=/admin")
+    assert r.status == 200 and 'href="login/ha?next=/admin"' in await r.text()
 
 
 def test_store_session_ids_are_not_stored_raw(tmp_path):

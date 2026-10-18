@@ -156,7 +156,7 @@ async def check(shots: Path) -> dict:
             # signed out: sent to /login, nothing else served
             async with aiohttp.ClientSession() as http:
                 r = await http.get(origin + "/admin", allow_redirects=False)
-                assert r.status == 302 and r.headers["Location"] == "/login", r.status
+                assert r.status == 302 and r.headers["Location"] == "/login?next=/admin", r.status
                 assert (await http.get(origin + "/admin/admin.js", allow_redirects=False)).status == 401
             out["signed_out"] = "302 /login"
 

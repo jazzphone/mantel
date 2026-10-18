@@ -18,8 +18,10 @@ users; no Home Assistant was contacted.
 
 ## Serving, sign-in and CSP
 
-* `/admin` is added to `app["public_paths"]` so the handler can send a **signed-out browser to `/login`
-  (302)** instead of the middleware's bare 401. Everything else (`/admin/admin.js`, `/admin/admin.css`,
+* `/admin` is added to `app["public_paths"]` so the handler can send a **signed-out browser to
+  `/login?next=/admin` (302)** instead of the middleware's bare 401 (the sign-in page brings them back:
+  [LOGIN-PAGE.md](LOGIN-PAGE.md)). The passkey helpers now live in `static/webauthn.js` (served at
+  `/webauthn.js`, imported as `../webauthn.js`), shared with the sign-in page. Everything else (`/admin/admin.js`, `/admin/admin.css`,
   `/api/admin/overview`) stays behind the normal sign-in (signed out: 401).
 * A **wall tablet on its own** gets a short 403 page (a person signs in on top of a tablet to manage anything,
   and then only "Me" shows: the person ∩ tablet rule leaves nothing to configure).
