@@ -52,9 +52,9 @@ def test_the_lint_itself_catches_violations():
 # callService, and every known write message goes through `<client>.actions.callWS`.
 ACTION_RECEIVER = re.compile(r"(?:\b_?actions(?:\(\))?|\bact|\bport|\bwriter\([^)]*\))$")
 SERVICE_CALL = re.compile(r"([\w.$()\[\]]+)\.callService\(")
-# Saves that still go straight to the host input: the HK Settings panel (slice 11) and the
-# doorbell's talk-back (slice 7). Recorded in docs/phase1/ACTIONS.md.
-WRITE_EXCEPTIONS = ("web/hk/panels/hk-settings.js", "web/hk/panels/hk-settings-features.js")
+# Saves that still go straight to the host input: none. The HK Settings panel's moved onto the
+# port in slice 11 (docs/phase1/SETTINGS-PANEL.md), the doorbell's in slice 7.
+WRITE_EXCEPTIONS: tuple[str, ...] = ()
 
 
 def _writes():
@@ -92,6 +92,24 @@ def test_write_messages_go_through_the_action_port():
     assert {"call_service", "hk_notify/mute", "config/entity_registry/update", "hk_frontend/hidden/set",
             "hk_energy/device/set", "hk_frontend/board/favorite", "hk_music/queue_play",
             "frontend/set_user_data"} <= writes
+
+
+def test_http_writes_go_through_the_action_port():
+    # Slice 11: an authenticated HTTP write (an upload, a config flow's step) is
+    # `<client>.actions.request(path, init)`; the shared frontend never calls the host's own
+    # fetchWithAuth, and its callApi is for GET only (HKClient refuses anything else).
+    write_api = re.compile(r"\.callApi\(\s*'(?!GET')")
+    bad = []
+    for p in _files("web/hk", (".js",)):
+        rel = str(p.relative_to(ROOT))
+        for n, line in enumerate(p.read_text().splitlines(), 1):
+            if line.lstrip().startswith("//"):
+                continue
+            if "fetchWithAuth" in line or write_api.search(line):
+                bad.append(f"{rel}:{n}: {line.strip()[:120]}")
+    assert not bad, f"HTTP writes must use client.actions.request: {bad}"
+    assert write_api.search("hass.callApi('POST', base, {})")
+    assert not write_api.search("client.callApi('GET', 'history/period')")
 
 
 def test_mantel_host_has_no_action_transport():

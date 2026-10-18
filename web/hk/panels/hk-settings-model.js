@@ -554,12 +554,12 @@
   // The occupancy, motion and presence sensors in a room -- where Calm When
   // Nobody's Around can tell the room is empty (the same rule as hk-sky.js
   // roomSensorIds)
-  function roomSensors(hass, room) {
-    if (!room || !hass) return [];
-    var ents = hass.entities || {}, devs = hass.devices || {}, out = [];
-    Object.keys(hass.states || {}).forEach(function (id) {
+  function roomSensors(client, room) {
+    if (!room || !client) return [];
+    var ents = client.entities || {}, devs = client.devices || {}, out = [];
+    Object.keys(client.states || {}).forEach(function (id) {
       if (id.indexOf('binary_sensor.') !== 0) return;
-      var st = hass.states[id], e = ents[id];
+      var st = client.states[id], e = ents[id];
       var dc = st && st.attributes && st.attributes.device_class;
       if (!(dc === 'occupancy' || dc === 'motion' || dc === 'presence') || !e || e.hidden) return;
       var area = e.area_id || (e.device_id && devs[e.device_id] && devs[e.device_id].area_id);
@@ -2129,8 +2129,8 @@
   // country, reason }. Automatic: NOAA for a home Home Assistant places in
   // the US, RainViewer elsewhere; a zone's country is not known (nothing is
   // looked up), so there Automatic asks (reason 'choose').
-  function radarPlanOf(r, hass) {
-    var cfg = (hass && hass.config) || {}, states = (hass && hass.states) || {};
+  function radarPlanOf(r, client) {
+    var cfg = (client && client.config) || {}, states = (client && client.states) || {};
     var out = { enabled: !!r.enabled, provider: null, chosen: r.provider, lat: null, lon: null, place: 'Home', country: null, reason: null };
     if (r.center === 'zone') {
       var z = r.zone && states[r.zone], za = (z && z.attributes) || {};

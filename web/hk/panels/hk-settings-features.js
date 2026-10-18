@@ -287,7 +287,7 @@
   function cleanMain(P, c, d) {
     var names = {};
     (d.areas || []).concat(d.unreached || []).forEach(function (a) { names[a.id] = a.name; });
-    var areaName = function (id) { return names[id] || ((P._hass.areas || {})[id] || {}).name || id; };
+    var areaName = function (id) { return names[id] || ((P.client.areas || {})[id] || {}).name || id; };
     var err = P.err('f:hk_clean_areas:vacuums');
     c.appendChild(K.group({ header: 'Vacuums', footer: (err ? err + ' ' : '') +
         'A vacuum that cleans by area gets the chosen rooms on its room map; one that can’t starts when its own room is chosen. ' +
@@ -594,7 +594,7 @@
     var st = P.feat('hk_music');
     if (!st.library && !st.libLoading) {
       st.libLoading = true;
-      P._hass.callWS({ type: 'hk_music/settings/library' }).then(function (r) {
+      P.client.callWS({ type: 'hk_music/settings/library' }).then(function (r) {
         st.library = (r && r.items) || []; st.libLoading = false; P.render(true);
       }, function () { st.library = []; st.libLoading = false; P.render(true); });
     }
@@ -707,7 +707,7 @@
   // an entity's name; one with none of its own (Home Assistant's own cost
   // sensor) by its id, not a made-up one
   function enName(P, id) {
-    var st = P._hass && P._hass.states[id];
+    var st = P.client && P.client.states[id];
     return st && st.attributes && st.attributes.friendly_name ? P.name(id) : id;
   }
   function energyDev(P, key, changes) {
@@ -835,7 +835,7 @@
       onAddOther: function () {
         P.go(P.picker('energy-top', { title: 'Add Reading', value: null, items: function () {
           return P.entityIds({ domains: ['climate', 'sensor'], shown: true }).filter(function (id) {
-            var a = (P._hass.states[id] || {}).attributes || {};
+            var a = (P.client.states[id] || {}).attributes || {};
             return id.indexOf('climate.') === 0 || a.device_class === 'temperature' || a.device_class === 'humidity' ||
                    a.device_class === 'power';
           }).map(function (id) { return { value: id, label: P.name(id), sub: id }; });
@@ -868,7 +868,7 @@
       onAddOther: function () {
         P.go(P.picker('energy-usage', { title: 'Add to Tracking', value: null, items: function () {
           return P.entityIds({ domains: ['sensor'], shown: true }).filter(function (id) {
-            var a = (P._hass.states[id] || {}).attributes || {};
+            var a = (P.client.states[id] || {}).attributes || {};
             return ['power', 'energy', 'duration'].indexOf(a.device_class) >= 0;
           }).map(function (id) { return { value: id, label: P.name(id), sub: id }; });
         }, onPick: function (v) {
@@ -1273,8 +1273,8 @@
             .concat(P.entityIds(PWR).map(function (id) { return { value: id, label: P.name(id), sub: id }; }));
         },
         onPick: function (v) { carSet(k.level, 'charger', v || null); } });
-      var val = cur === 'car' ? 'The Car’s Own Reading' : cur ? (P._hass.states[cur] ? P.name(cur) : cur + ' (missing)') : 'Automatic';
-      var where = k.home && P._hass && P._hass.states[k.home] ? (P._hass.states[k.home].state === 'home' ? 'Home' : 'Away') : '';
+      var val = cur === 'car' ? 'The Car’s Own Reading' : cur ? (P.client.states[cur] ? P.name(cur) : cur + ' (missing)') : 'Automatic';
+      var where = k.home && P.client && P.client.states[k.home] ? (P.client.states[k.home].state === 'home' ? 'Home' : 'Away') : '';
       c.appendChild(K.group({ header: co.name || found, footer: i < cars.length - 1 ? null :
           'Name: blank is the name its integration gives it. Charging Power: what reads its charging. Automatic shares the chargers’ watts among the cars that say they are ' +
           'charging, so with two cars charging it can guess wrong; choose its charger, the circuit it charges on, or its own reading (minutes behind) to know.' }, [
@@ -1476,7 +1476,7 @@
   var NOTIFY_PAGES = [['security', 'Security'], ['doors-windows', 'Doors & Windows'], ['lights', 'Lights'], ['climate', 'Climate'],
                       ['water', 'Water'], ['cameras', 'Cameras'], ['calendar', 'Calendar'], ['vacuums', 'Vacuums'], ['timers', 'Timers']];
   function notifyPages(P) {
-    var areas = (P._hass && P._hass.areas) || {};
+    var areas = (P.client && P.client.areas) || {};
     var slug = function (v) { return String(v || '').toLowerCase().replace(/[’']/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''); };
     var rooms = Object.keys(areas).map(function (k) { return ['room-' + slug(k), areas[k].name || k]; })
       .sort(function (a, b) { return a[1].localeCompare(b[1]); });

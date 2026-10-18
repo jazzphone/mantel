@@ -55,6 +55,35 @@
       img.src = u;
     });
   }
+  // AN HTTP WRITE TO THE HOST'S API (a config flow's start, step or
+  // abandon), made exactly as the frontend's own callApi makes one, but
+  // through the client's action port (`request`, an authenticated fetch of a
+  // path on the host): the path under /api/; a JSON body, with its type, when
+  // there is one; the answer read as JSON when it says it is JSON, else as
+  // text; an error answer, a body that won't parse or a request that never
+  // arrived thrown as {error, status_code, body}, as callApi throws them. A
+  // host that cannot act refuses (commands_disabled), sending nothing, and
+  // that refusal is passed on as it is.
+  function restWrite(actions, method, path, body) {
+    var init = { method: method, headers: {} };
+    if (body) {
+      init.headers['Content-Type'] = 'application/json;charset=UTF-8';
+      init.body = JSON.stringify(body);
+    }
+    return Promise.resolve(actions.request('/api/' + path, init)).then(function (res) {
+      var type = res.headers.get('content-type');
+      var read = type && type.indexOf('application/json') >= 0
+        ? res.json().catch(function (e) { throw { error: 'Unable to parse JSON response', status_code: e && e.status, body: null }; })
+        : res.text();
+      return read.then(function (b) {
+        if (!res.ok) throw { error: 'Response error: ' + res.status, status_code: res.status, body: b };
+        return b;
+      });
+    }, function (e) {
+      if (e && e.code === 'commands_disabled') throw e;
+      throw { error: 'Request error', status_code: undefined, body: undefined };
+    });
+  }
   function ensureFont() {
     if (document.querySelector('link[data-hk-font]')) return;
     var l = document.createElement('link');
@@ -80,13 +109,13 @@
     return formReady;
   }
   var yamlReady = null;
-  function loadYaml(hass) {
+  function loadYaml(client) {
     if (customElements.get('ha-yaml-editor')) return Promise.resolve(true);
     if (yamlReady) return yamlReady;
     yamlReady = loadHaForm().then(function () {
       // an object selector's form brings the YAML editor with it
       var f = document.createElement('ha-form');
-      f.hass = hass; f.schema = [{ name: 'x', selector: { object: {} } }]; f.data = {};
+      window.hkHostClient.bridge(f, client); f.schema = [{ name: 'x', selector: { object: {} } }]; f.data = {};
       f.style.display = 'none';
       document.body.appendChild(f);
       return Promise.race([customElements.whenDefined('ha-yaml-editor').then(function () { return true; }),
@@ -512,15 +541,18 @@
         }, 0);
       };
     }
-    set hass(v) {
-      var first = !this._hass;
-      this._hass = v;
+    // THE HOST'S ENTRY (window.hkHostClient.entry, below): Home Assistant's
+    // panel_custom hands this element the frontend's object; the page gets
+    // the host adapter's client for each new one, and reads `this.client`.
+    // The first one starts the page; each one may change light/dark.
+    _onClient(client) {
+      var first = !this._hadClient;
+      this._hadClient = client;
       if (first) this.boot();
-      var dark = !!(v && v.themes && v.themes.darkMode);
+      var dark = !!(client && client.themes && client.themes.darkMode);
       if (dark !== this.hasAttribute('dark')) this.toggleAttribute('dark', dark);
-      if (this._menuBtn) this._menuBtn.hass = v;
+      if (this._menuBtn) window.hkHostClient.bridge(this._menuBtn, client);
     }
-    get hass() { return this._hass; }
     set narrow(v) { this._narrow = v; if (this._menuBtn) this._menuBtn.narrow = v; if (this.ready) this.render(); }
     set panel(v) { this._panel = v; }
     set route(v) { /* our own hash is the route */ }
@@ -619,7 +651,7 @@
       if (this._fit) this._fit();
     }
     async reload() {
-      this.data = await this._hass.callWS({ type: DOMAIN + '/panel/get' });
+      this.data = await this.client.callWS({ type: DOMAIN + '/panel/get' });
     }
     // every change, from here or anywhere (Configure, a gear, another
     // browser), comes back over the settings feed: read again and redraw
@@ -627,10 +659,11 @@
     // the moment it arrives -- else it would live on unseen, reloading the
     // whole page's settings at every change made anywhere
     subscribe() {
-      if (this._unsub || this._subbing || !this._hass || !this._hass.connection) return;
+      var port = this.client && this.client.subscriptions;
+      if (this._unsub || this._subbing || !port) return;
       var self = this, first = true;
       this._subbing = true;
-      this._hass.connection.subscribeMessage(function () {
+      port.subscribeMessage(function () {
         if (first) { first = false; return; }
         self.soon();
       }, { type: DOMAIN + '/settings/subscribe' }).then(function (u) {
@@ -806,7 +839,7 @@
       var st = this.feats[domain], self = this;
       st.loading = true;
       try {
-        st.data = await this._hass.callWS(Object.assign({ type: domain + '/settings/get' }, fresh ? { fresh: true } : {}));
+        st.data = await this.client.callWS(Object.assign({ type: domain + '/settings/get' }, fresh ? { fresh: true } : {}));
         st.error = null;
       } catch (e) {
         st.error = String((e && e.message) || e);
@@ -843,7 +876,7 @@
       this.render();
       this.status('saving');
       try {
-        var r = await this._hass.callWS(msg);
+        var r = await this.actions().callWS(msg);
         apply(r);
         this.status('saved');
         this.render();
@@ -989,9 +1022,9 @@
       this.status('saving');
       try {
         // the dashboard itself: its title is the sidebar's name
-        await this._hass.callWS({ type: 'lovelace/dashboards/update', dashboard_id: x.id, title: title });
+        await this.actions().callWS({ type: 'lovelace/dashboards/update', dashboard_id: x.id, title: title });
         // ...and the screen's own item (and its screensaver's device) after it
-        await this._hass.callWS({ type: DOMAIN + '/dashboard/titled', dashboard: x.path });
+        await this.actions().callWS({ type: DOMAIN + '/dashboard/titled', dashboard: x.path });
         this._renaming = null; this._renameDraft = null; this._renameErr = null;
         try { await this.reload(); } catch (e) { x.title = title; }
         this.status('saved');
@@ -1174,7 +1207,7 @@
       var head = h('div', { class: 'sidehead' });
       if (this._narrow && customElements.get('ha-menu-button')) {
         if (!this._menuBtn) { this._menuBtn = document.createElement('ha-menu-button'); }
-        this._menuBtn.hass = this._hass; this._menuBtn.narrow = this._narrow;
+        window.hkHostClient.bridge(this._menuBtn, this.client); this._menuBtn.narrow = this._narrow;
         head.appendChild(this._menuBtn);
         head.classList.add('menubtn');
       }
@@ -1236,7 +1269,7 @@
       d.popups.forEach(function (p) { extra.push({ label: p.name || p.hash, route: 'popups/' + p.hash, where: 'Pop-up', words: '#' + p.hash }); });
       (d.custom_pages || []).forEach(function (p) { extra.push({ label: p.title, route: 'pages/' + p.path, where: 'Custom Page', words: p.path }); });
       extra = extra.concat(F.search(d.features));
-      var areas = this._hass.areas || {};
+      var areas = this.client.areas || {};
       Object.keys(areas).forEach(function (a) { extra.push({ label: areas[a].name, route: 'house/rooms/' + a, where: 'Room', words: 'room scenes' }); });
       var res = M.search(this.q, screens, extra).slice(0, 60);
       if (!res.length) return K.group({ footer: 'No settings match “' + this.q.trim() + '”.' }, []);
@@ -1258,25 +1291,25 @@
     name(id) {
       if (!id) return '';
       var a = ((this.data.accessories || {}).entities || {})[id];
-      var st = this._hass.states[id];
+      var st = this.client.states[id];
       return (a && a.name) || (st && st.attributes.friendly_name) || id;
     }
     areaOf(id) {
-      var e = (this._hass.entities || {})[id] || {}, devs = this._hass.devices || {};
+      var e = (this.client.entities || {})[id] || {}, devs = this.client.devices || {};
       return e.area_id || (e.device_id && devs[e.device_id] && devs[e.device_id].area_id) || '';
     }
-    areaName(a) { var x = (this._hass.areas || {})[a]; return (x && x.name) || a; }
+    areaName(a) { var x = (this.client.areas || {})[a]; return (x && x.name) || a; }
     areasAZ() {
-      var areas = this._hass.areas || {};
+      var areas = this.client.areas || {};
       return Object.keys(areas).sort(function (p, q) { return String(areas[p].name).localeCompare(String(areas[q].name)); });
     }
     entityIds(filter) {
-      var hass = this._hass, ents = hass.entities || {};
-      return Object.keys(hass.states).filter(function (id) {
+      var client = this.client, ents = client.entities || {};
+      return Object.keys(client.states).filter(function (id) {
         var dom = id.split('.')[0];
         if (filter.domains && filter.domains.indexOf(dom) < 0) return false;
         if (filter.re && !filter.re.test(id)) return false;
-        if (filter.dc && hass.states[id].attributes.device_class !== filter.dc) return false;
+        if (filter.dc && client.states[id].attributes.device_class !== filter.dc) return false;
         if (filter.shown) { var e = ents[id] || {}; if (e.hidden || e.entity_category) return false; }
         return true;
       });
@@ -1297,7 +1330,7 @@
         },
         onPick: o.onPick
       });
-      var st = o.value && this._hass.states[o.value];
+      var st = o.value && this.client.states[o.value];
       var val = o.value ? (st ? this.name(o.value) : o.value + ' (missing)') : (o.none || 'None'), sub = o.sub;
       // "Automatic (Main Power)", "Same as General (Lyric Alarm)": on the
       // row, the value it follows, and whose under the label -- as every
@@ -1360,7 +1393,7 @@
     // An entity's room is its area's (room: '' = No Room); a list where
     // nothing has a room is one plain list, with no headings.
     pickList(c, o) {
-      var self = this, hass = this._hass;
+      var self = this, client = this.client;
       if (o.tabs) c.appendChild(K.group({}, [K.seg({ label: 'Pick', fk: 'pick:tab', value: o.tab, options: o.tabs,
         onChange: function (x) { o.onTab(x); } })]));
       var sb = h('div', { class: 'search', style: 'margin:0 0 ' + (o.multi ? 22 : 18) + 'px' });
@@ -1397,13 +1430,13 @@
       };
       var roomOf = function (it) {
         if (it.room !== undefined && it.room !== null) return it.room;
-        return hass.states[it.value] ? (self.areaName(self.areaOf(it.value)) || '') : null;
+        return client.states[it.value] ? (self.areaName(self.areaOf(it.value)) || '') : null;
       };
       var paint = function () {
         box.innerHTML = '';
         var words = inp.value.trim().toLowerCase().split(/\s+/).filter(Boolean);
         var all = o.items(o.tab).map(function (it) {
-          var ent = !!hass.states[it.value];
+          var ent = !!client.states[it.value];
           return { value: it.value, label: it.label, room: roomOf(it), note: it.note,
                    // under its room, an entity's second line is its id (two
                    // "Water Heater"s told apart), whatever the caller wrote
@@ -1509,7 +1542,7 @@
           K.nav({ label: 'Custom Pages', value: String((d.custom_pages || []).length), href: '#/pages' })]));
         if (!check && !self._checking) {
           self._checking = true;
-          self._hass.callWS({ type: DOMAIN + '/setup/check' }).then(function (r) {
+          self.client.callWS({ type: DOMAIN + '/setup/check' }).then(function (r) {
             self._check = r.lines; self._checking = false; self.render(true);
           }, function () { self._checking = false; });
         }
@@ -2078,7 +2111,6 @@
         } })]);
     }
     async deleteScreen(x) {
-      var hass = this._hass;
       // the preview is that dashboard, running: unload it first, or it
       // reports its own dashboard missing the moment it is deleted
       var pv = this.pageEl.querySelector('.pvcol');
@@ -2086,10 +2118,10 @@
       this._pv = null; this._fit = null;
       this.status('saving');
       try {
-        if (x.item) await hass.callWS({ type: 'config_entries/subentries/delete', entry_id: this.data.entry_id, subentry_id: x.item });
-        var list = await hass.callWS({ type: 'lovelace/dashboards/list' });
+        if (x.item) await this.actions().callWS({ type: 'config_entries/subentries/delete', entry_id: this.data.entry_id, subentry_id: x.item });
+        var list = await this.client.callWS({ type: 'lovelace/dashboards/list' });
         var d = (list || []).filter(function (y) { return y.url_path === x.path; })[0];
-        if (d) await hass.callWS({ type: 'lovelace/dashboards/delete', dashboard_id: d.id });
+        if (d) await this.actions().callWS({ type: 'lovelace/dashboards/delete', dashboard_id: d.id });
         this.status('saved');
         this.announce(x.title + ' deleted');
       } catch (e) {
@@ -2711,13 +2743,13 @@
     // through ESPHome and is told apart by its device's manufacturer -- and
     // Live TV's channels.
     notHouseCamera(id) {
-      var hs = this._hass || {}, e = (hs.entities || {})[id] || {};
+      var hs = this.client || {}, e = (hs.entities || {})[id] || {};
       if ({ fully_kiosk: 1, hk_frontend: 1, hk_tv: 1 }[e.platform]) return true;
       var d = e.device_id && (hs.devices || {})[e.device_id];
       return !!d && d.manufacturer === 'kiosk_satellite';
     }
     s_cameras(c, x, b) {
-      var self = this, set = function (ch) { return self.setB(x.path, ch); }, ents = this._hass.entities || {};
+      var self = this, set = function (ch) { return self.setB(x.path, ch); }, ents = this.client.entities || {};
       var ok = this.entityIds({ domains: ['camera'], shown: true }).filter(function (id) { return !self.notHouseCamera(id); }).sort();
       var autoCams = M.autoCameras(ok, function (id) { return (ents[id] || {}).device_id; });
       var top = [];
@@ -2770,7 +2802,7 @@
     // like), and the automation that moves it, written for your cameras'
     // own person and motion sensors (M.livePlan, M.liveYaml).
     s_cameraLive(c, x, b) {
-      var self = this, hs = this._hass, ents = hs.entities || {}, devs = hs.devices || {};
+      var self = this, hs = this.client, ents = hs.entities || {}, devs = hs.devices || {};
       var set = function (ch) { return self.setB(x.path, ch); };
       var ok = this.entityIds({ domains: ['camera'], shown: true }).filter(function (id) { return !self.notHouseCamera(id); }).sort();
       var mdl = M.camerasModel(b, ok, M.autoCameras(ok, function (id) { return (ents[id] || {}).device_id; }));
@@ -2813,7 +2845,7 @@
       var missing = plan.filter(function (p) { return p.missing; }).length;
       if (!sel) {
         rows.push(K.button({ label: 'Create the Dropdown', fk: 'cams:live:create', onClick: function () {
-          hs.callWS({ type: 'input_select/create', name: 'Live Camera', icon: 'mdi:cctv', options: opts }).then(function (item) {
+          self.actions().callWS({ type: 'input_select/create', name: 'Live Camera', icon: 'mdi:cctv', options: opts }).then(function (item) {
             return set({ camera_live: 'input_select.' + item.id }).then(function () { self.announce('Live Camera made and chosen'); });
           }, function (e) { self.announce('Couldn’t make it: ' + ((e && e.message) || e)); });
         } }));
@@ -2852,7 +2884,7 @@
       c.appendChild(pre);
     }
     s_scenes(c, x, b) {
-      var self = this, set = function (ch) { return self.setB(x.path, ch); }, ents = this._hass.entities || {};
+      var self = this, set = function (ch) { return self.setB(x.path, ch); }, ents = this.client.entities || {};
       c.appendChild(K.group({}, [K.toggle({ label: 'Show Scenes Row', sk: 'b:scenes_row', on: b.scenes_row,
                                             onChange: function (on) { set({ scenes_row: on }); } })]));
       if (!b.scenes_row) return;
@@ -3132,7 +3164,7 @@
           K.info({ label: 'Rooms on Pages', value: label(PAGES, b.page_rooms) })] : []), 'Rooms', '#/house/rooms');
         return;
       }
-      var az = this.areasAZ(), areas = this._hass.areas || {};
+      var az = this.areasAZ(), areas = this.client.areas || {};
       var mdl = M.roomsModel(b, az);
       c.appendChild(K.listEditor({ fk: 'rooms', auto: mdl.auto, minRows: 1, announce: this.announce.bind(this),
         autoFooter: 'Automatic: Home shows its rooms as the screen lists them' + (x.generated ? ' (floor by floor, then A to Z).' : '.'),
@@ -3618,8 +3650,9 @@
       var self = this;
       if (this._enSrc !== undefined) return this._enSrc;
       this._enSrc = null;
-      if (this.hass && this.hass.callWS) {
-        this.hass.callWS({ type: 'energy/get_prefs' }).then(function (pr) {
+      var client = this.client;
+      if (client && client.callWS) {
+        client.callWS({ type: 'energy/get_prefs' }).then(function (pr) {
           var t = {};
           ((pr && pr.energy_sources) || []).forEach(function (x) { t[x.type] = true; });
           self._enSrc = t;
@@ -3892,13 +3925,13 @@
         rows.push(row(nm + 'Photo Screensaver', e['switch'], 'On while the photos show'));
         rows.push(row(nm + 'In Use', e.in_use, 'Touched within its window'));
       });
-      var room = b.idle_room, leg = room && this._hass && this._hass.states['input_boolean.wallpanel_screensaver_' + room];
+      var room = b.idle_room, leg = room && this.client && this.client.states['input_boolean.wallpanel_screensaver_' + room];
       return K.group({ header: 'For Automations', footer: 'Each wall tablet’s own. Photo Screensaver is on while the photos show: turn it on to start them now ' +
           '(bedtime, say), off to close them (the doorbell). In Use is on while the tablet was touched within its window.' +
           (leg ? ' The older input_boolean.wallpanel_screensaver_' + room + ' follows it both ways until you delete it.' : '') }, rows);
     }
     stateLabel(id) {
-      var st = this._hass && this._hass.states[id];
+      var st = this.client && this.client.states[id];
       return st ? (st.state === 'on' ? 'On' : st.state === 'off' ? 'Off' : st.state) : '';
     }
     // HEADER & SIDEBAR: what HK Frontend hides (hk-kiosk.js) -- and, on a
@@ -4008,10 +4041,10 @@
         } }));
       }
       c.appendChild(K.group({}, rows));
-      loadYaml(this._hass).then(function (ok) {
+      loadYaml(this.client).then(function (ok) {
         if (ok) {
           var ed = document.createElement('ha-yaml-editor');
-          ed.hass = self._hass;
+          window.hkHostClient.bridge(ed, self.client);
           ed.defaultValue = cur;
           ed.addEventListener('value-changed', function (e) {
             e.stopPropagation(); valid = e.detail.isValid !== false; cur = e.detail.value;
@@ -4179,28 +4212,27 @@
     // a dashboard's item, through its own flow (what it is shown on, then
     // its menu as that starts it)
     async createItem(path, kind) {
-      var hass = this._hass, base = 'config/config_entries/subentries/flow';
-      var r = await hass.callApi('POST', base, { handler: [this.data.entry_id, 'dashboard'] });
+      var base = 'config/config_entries/subentries/flow';
+      var r = await this.rest('POST', base, { handler: [this.data.entry_id, 'dashboard'] });
       var fid = r.flow_id;
       try {
-        r = await hass.callApi('POST', base + '/' + fid, { dashboard: path });
-        if (r.step_id === 'kind') r = await hass.callApi('POST', base + '/' + fid, { kind: kind });
-        if (r.step_id === 'settings') r = await hass.callApi('POST', base + '/' + fid, {});
+        r = await this.rest('POST', base + '/' + fid, { dashboard: path });
+        if (r.step_id === 'kind') r = await this.rest('POST', base + '/' + fid, { kind: kind });
+        if (r.step_id === 'settings') r = await this.rest('POST', base + '/' + fid, {});
       } catch (e) {
-        hass.callApi('DELETE', base + '/' + fid).catch(function () {});
+        this.rest('DELETE', base + '/' + fid).catch(function () {});
         throw e;
       }
       if (r.type !== 'create_entry') throw new Error(r.reason || 'not set up');
     }
     async createScreen(title, kind, admin) {
-      var hass = this._hass;
       var slug = 'hk-' + title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 30);
       var taken = this.data.dashboards.map(function (d) { return d.path; });
       var path = slug, n = 2;
       while (taken.indexOf(path) >= 0) path = slug + '-' + (n++);
-      await hass.callWS({ type: 'lovelace/dashboards/create', url_path: path, title: title,
+      await this.actions().callWS({ type: 'lovelace/dashboards/create', url_path: path, title: title,
                           icon: 'mdi:home-heart', show_in_sidebar: true, require_admin: !!admin, mode: 'storage' });
-      await hass.callWS({ type: 'lovelace/config/save', url_path: path, config: { strategy: { type: 'custom:hk-dashboard' } } });
+      await this.actions().callWS({ type: 'lovelace/config/save', url_path: path, config: { strategy: { type: 'custom:hk-dashboard' } } });
       await this.createItem(path, kind);
       return path;
     }
@@ -4296,7 +4328,7 @@
     // feature (Energy, Music, Live TV) opens on that feature's settings;
     // those pages' own sub-pages keep their #/features/... addresses.
     pageHas() {
-      var st = (this._hass && this._hass.states) || {}, n = function (dom) {
+      var st = (this.client && this.client.states) || {}, n = function (dom) {
         return Object.keys(st).filter(function (k) { return k.indexOf(dom + '.') === 0; }).length;
       };
       return { kinds: this.data.kinds || {}, alarm: this.hs('security.alarm'), cameras: n('camera'), calendars: n('calendar'), weather: n('weather') };
@@ -4569,7 +4601,7 @@
         if (sub[0] === 'order') return mk('Room Order', function (c) { self.h_roomOrder(c); });
         // THE ROOM PAGES' STATUS ROW (Status Rows' until 2026-10-16)
         if (sub[0] === 'status') return mk('Room Status Row', function (c) { self.h_statusRow(c, 'rooms'); });
-        var areasH = (this._hass && this._hass.areas) || {};
+        var areasH = (this.client && this.client.areas) || {};
         if (sub[0] && areasH[sub[0]]) {
           var aid = sub[0], rn = this.areaName(aid), rb = [rn, base + '/' + encodeURIComponent(aid)];
           if (sub[1] === 'order') return { title: 'Tile Order', back: rb, body: function (c) { self.a_roomOrder(c, aid); } };
@@ -4748,7 +4780,7 @@
       // Lighting's color temperature when the house has it, else the sun's
       if (page === 'lights') {
         var al = this.entityIds({ domains: ['switch'] }).filter(function (id) {
-          var a = (self._hass.states[id] || {}).attributes || {};
+          var a = (self.client.states[id] || {}).attributes || {};
           return /adaptive_lighting/.test(id) && a.color_temp_kelvin != null;
         });
         c.appendChild(K.group({ header: 'Background', footer: al.length
@@ -4780,7 +4812,7 @@
       } else if (page === 'security') {
         var way = function (k, label) {
           return listRow(k, label, null, ents(['lock', 'binary_sensor', 'cover'], function (id) {
-            var dc = (self._hass.states[id].attributes || {}).device_class;
+            var dc = (self.client.states[id].attributes || {}).device_class;
             return id.indexOf('binary_sensor.') !== 0 || /^(door|garage_door|opening)$/.test(dc || '');
           }), label, 'Automatic');
         };
@@ -4841,14 +4873,14 @@
     // (for a reading, the sensors and thermostats that report it), not
     // already counted; the server adds only what it could be (hiding._also).
     countAdd(kind, ck) {
-      var self = this, hass = this._hass, reading = kind === 'temperature' || kind === 'humidity';
+      var self = this, client = this.client, reading = kind === 'temperature' || kind === 'humidity';
       var T = M.accType(kind);
       var href = this.picker('count-add:' + kind, { title: 'Add to ' + (T ? T[1] : 'Also Count'), value: null, multi: true,
         items: function () {
           return self.entityIds({ domains: ck.also || ck.domains || [], shown: true }).filter(function (id) {
             if (ck.found.indexOf(id) >= 0 || ck.exclude.indexOf(id) >= 0) return false;
             if (!reading) return true;
-            var a = (hass.states[id] || {}).attributes || {};
+            var a = (client.states[id] || {}).attributes || {};
             return id.indexOf('climate.') === 0 ? ('current_' + kind) in a : a.device_class === kind;
           }).map(function (id) { return { value: id, label: self.name(id), sub: (self.areaName(self.areaOf(id)) || 'No room') + ' · ' + id }; });
         },
@@ -4867,13 +4899,13 @@
     // the page's alone)
     h_weather(c) {
       var self = this, set = function (k) { return function (v) { var o = {}; o[k] = v; self.setH(o); }; };
-      var place = (this._hass.config && this._hass.config.location_name) || 'Home';
+      var place = (this.client.config && this.client.config.location_name) || 'Home';
       c.appendChild(K.group({ header: 'Weather Source', footer: 'The header, Climate and the screensaver use these too. Place: the name over the temperature; empty, this home’s name, ' + String(place).toUpperCase() + '.' }, [
         this.entityRow({ label: 'Weather Service', sk: 'weather.entity', value: this.hs('weather.entity'), none: 'First Weather Entity',
                          filter: { domains: ['weather'] }, onPick: set('weather.entity') }),
         K.text({ label: 'Place', sk: 'weather.place', value: this.hs('weather.place'), placeholder: place, maxlength: 60,
                  error: this.err('weather.place'), onCommit: function (v) { self.setH({ 'weather.place': v }); } })]));
-      var pg = M.wxPage(this.data.settings), r = M.radarOf(this.data.settings), plan = M.radarPlanOf(r, this._hass);
+      var pg = M.wxPage(this.data.settings), r = M.radarOf(this.data.settings), plan = M.radarPlanOf(r, this.client);
       c.appendChild(K.group({ header: 'Forecast', footer: 'What the Weather page shows. Only on this page: the header and the screensaver keep their own.' }, [
         K.nav({ label: 'Forecast & Details', value: M.forecastSummary(pg), href: '#/page/weather/forecast', sk: 'weather.page' })]));
       var keys = ['feels_like', 'humidity', 'wind', 'gust', 'uv', 'outside', 'forecast_daily', 'forecast_hourly', 'alerts'];
@@ -4929,7 +4961,7 @@
     }
     // THE RADAR MAP (hk-radar.js): HK's own, over OpenStreetMap
     h_radar(c) {
-      var self = this, r = M.radarOf(this.data.settings), plan = M.radarPlanOf(r, this._hass);
+      var self = this, r = M.radarOf(this.data.settings), plan = M.radarPlanOf(r, this.client);
       var rows = [K.toggle({ label: 'Show Radar', on: r.enabled, sk: 'weather.radar_native.enabled',
                              onChange: function (on) { self.radarSet({ enabled: on }); } })];
       var says = r.enabled ? (plan.reason ? M.RADAR_REASONS[plan.reason]
@@ -5055,7 +5087,7 @@
     // show: every calendar, A to Z (automatic), or the ones chosen, in order;
     // each with its colour (its own page)
     calIds() {
-      var st = (this._hass && this._hass.states) || {};
+      var st = (this.client && this.client.states) || {};
       return Object.keys(st).filter(function (k) { return k.indexOf('calendar.') === 0; }).sort();
     }
     calColor(id, shown) {
@@ -5170,7 +5202,7 @@
       var self = this, mine = this.hs('calendar.entities') || [], shown = mine.length ? mine : this.calIds();
       var all = Object.assign({}, this.hs('calendar.colors') || {});
       var i = shown.indexOf(id), autoKey = M.CAL_COLORS[(i < 0 ? 0 : i) % M.CAL_COLORS.length];
-      var st = this._hass && this._hass.states[id], f = (st && st.attributes && st.attributes.supported_features) || 0;
+      var st = this.client && this.client.states[id], f = (st && st.attributes && st.attributes.supported_features) || 0;
       var can = [f & 1 ? 'added' : null, f & 4 ? 'changed' : null, f & 2 ? 'deleted' : null].filter(Boolean);
       c.appendChild(K.group({ footer: 'Its events’ color on the Calendar page and the screensaver. Automatic: the next color by its place in the list.' }, [
         K.select({ label: 'Color', sk: 'calendar.colors', value: all[id] || '', placeholder: 'Automatic',
@@ -5589,7 +5621,7 @@
         var blob = await shrinkPhoto(file, 2560);
         var fd = new FormData();
         fd.append('file', blob, 'hk-background.jpg');
-        var r = await this._hass.fetchWithAuth('/api/image/upload', { method: 'POST', body: fd });
+        var r = await this.actions().request('/api/image/upload', { method: 'POST', body: fd });
         if (!r.ok) throw new Error(r.status === 413 ? 'It’s too big.' : 'Home Assistant answered ' + r.status + '.');
         var j = await r.json();
         if (!j || !/^[0-9a-f]{32}$/.test(j.id || '')) throw new Error('Home Assistant didn’t say where it put it.');
@@ -5615,7 +5647,7 @@
         Object.keys(b.sky_page_photos || {}).forEach(function (k) { used.push(b.sky_page_photos[k]); });
       });
       if (used.indexOf(url) >= 0) return;
-      this._hass.callWS({ type: 'image/delete', image_id: m[1] }).catch(function () { /* already gone */ });
+      this.actions().callWS({ type: 'image/delete', image_id: m[1] }).catch(function () { /* already gone */ });
     }
     // The picker reads choices from the server, just like dates and themes.
     // Loading the dashboard's settings module here would start its websocket
@@ -5967,7 +5999,7 @@
                             href: base + '/sky/lively', value: 'Custom' }));
         }
         // only where the screen's room can tell it is empty
-        if (b.idle_room && M.roomSensors(this._hass, b.idle_room).length) {
+        if (b.idle_room && M.roomSensors(this.client, b.idle_room).length) {
           rows.push(K.toggle({ label: 'Calm When Nobody\u2019s Around', sub: 'Half as much moving while ' + this.areaName(b.idle_room) +
               ' has been empty for 5 minutes', sk: 'b:sky_calm_empty', on: !!b.sky_calm_empty,
             onChange: function (v) { self.setB(x.path, { sky_calm_empty: v }); } }));
@@ -6136,7 +6168,7 @@
           var k = self.roomKey(aid);
           if (!k) return null;
           var n = self.skyPageNow({ key: k, room: true }, b);
-          return K.nav({ label: self.areaName(aid), icon: ((self._hass.areas || {})[aid] || {}).icon || 'mdi:texture-box',
+          return K.nav({ label: self.areaName(aid), icon: ((self.client.areas || {})[aid] || {}).icon || 'mdi:texture-box',
                          value: n.own ? M.skyModeLabel(n.mode, bds) : 'Same as Room Pages', href: base + encodeURIComponent(k), sk: (b ? 'b:sky_pages:' : 'sky.pages:') + k });
         }).filter(Boolean);
         if (rrows.length) c.appendChild(K.group({ header: 'Each Room', footer: 'A room left alone is the same as Room Pages. A photo of the room itself, say, behind its page.' }, rrows));
@@ -6508,7 +6540,7 @@
           var k = self.roomKey(aid);
           if (!k) return null;
           var n = self.flatPageNow({ key: k, room: true }, b);
-          return K.nav({ label: self.areaName(aid), icon: ((self._hass.areas || {})[aid] || {}).icon || 'mdi:texture-box',
+          return K.nav({ label: self.areaName(aid), icon: ((self.client.areas || {})[aid] || {}).icon || 'mdi:texture-box',
                          value: n.own ? self.flatModeLabel(n.mode, theme) : 'Same as Room Pages', href: base + '/page/' + encodeURIComponent(k),
                          sk: (b ? 'b:sky_flat_pages:' : 'sky.flat_pages:') + k });
         }).filter(Boolean);
@@ -6959,7 +6991,7 @@
     // every screen's Home strip and Cameras page, and the room pages' cameras
     // in that order -- unless a screen sets its own (that screen -> Cameras).
     h_cameras(c) {
-      var self = this, ents = this._hass.entities || {};
+      var self = this, ents = this.client.entities || {};
       var ok = this.entityIds({ domains: ['camera'], shown: true }).filter(function (id) { return !self.notHouseCamera(id); }).sort();
       var autoCams = M.autoCameras(ok, function (id) { return (ents[id] || {}).device_id; });
       var save = function (v) { return self.setH({ 'cameras.order': v }); };
@@ -7049,7 +7081,7 @@
         K.toggle({ label: 'Room Headings Open Room Pages', sk: 'rooms.headings', on: rooms.headings !== false,
                    onChange: function (on) { self.setH({ 'rooms.headings': on }); } }),
         K.nav({ label: 'Status Row', value: M.statusSummary(st), href: '#/house/rooms/status', sk: 'rooms.status' })]));
-      var areas = (this._hass && this._hass.areas) || {}, az = this.areasAZ();
+      var areas = (this.client && this.client.areas) || {}, az = this.areasAZ();
       var g = this.data.settings.generated || {}, hidden = g.exclude_areas || [];
       var into = ((this.data.accessories || {}).into) || {};
       var onHome = M.roomsModel(hb, az).rows.map(function (r) { return r.value; });
@@ -7066,7 +7098,7 @@
         })));
     }
     h_roomOrder(c) {
-      var self = this, hb = this.houseRooms(), az = this.areasAZ(), areas = (this._hass && this._hass.areas) || {};
+      var self = this, hb = this.houseRooms(), az = this.areasAZ(), areas = (this.client && this.client.areas) || {};
       var mdl = M.roomsModel(hb, az);
       var setR = function (ch) { return self.setH(M.houseRoomsSave(ch)); };
       var icon = function (a) { return (areas[a] || {}).icon || 'mdi:texture-box'; };
@@ -7085,7 +7117,7 @@
       c.appendChild(K.group({ footer: 'For every screen whose Rooms are Same as All Screens. The order is also the menu’s and the pages’, where those say Room Order.' }, []));
     }
     h_room(c, aid) {
-      var self = this, hass = this._hass, areas = hass.areas || {}, az = this.areasAZ();
+      var self = this, client = this.client, areas = client.areas || {}, az = this.areasAZ();
       var g = this.data.settings.generated || {}, hidden = (g.exclude_areas || []).slice(), shown = hidden.indexOf(aid) < 0;
       var hb = this.houseRooms(), onHome = M.roomsModel(hb, az).rows.some(function (r) { return r.value === aid; });
       var into = ((this.data.accessories || {}).into || {})[aid] || '';
@@ -7197,7 +7229,7 @@
         }, function (r) { if (r && r.tablet) d.tablets[tid] = Object.assign({}, d.tablets[tid] || {}, r.tablet); });
     }
     tabletStatusOf(tid) {
-      return M.tabletStatus(this.tabs()[tid], this._hass.states, (this.data.screensavers || {})[tid]);
+      return M.tabletStatus(this.tabs()[tid], this.client.states, (this.data.screensavers || {})[tid]);
     }
     // a time from Home Assistant, as the house reads it: 8:16 PM; another
     // day's with its day
@@ -7218,10 +7250,13 @@
       if (!ids.length) return Promise.resolve();
       return this.actions().callService('button', 'press', { entity_id: ids });
     }
-    // THE ACTION PORT (HKClient) of the client that goes with this panel's host
-    // input: every service call goes through it (the panel's other saves move
-    // in Phase 1 slice 11).
-    actions() { return window.hkHostClient.from(this._hass).actions; }
+    // THE ACTION PORT (HKClient) of this panel's client: every save, service
+    // call, config flow and upload goes through it. A host that cannot act
+    // refuses there, sending nothing.
+    actions() { return this.client.actions; }
+    // AN HTTP WRITE to the host's API (the config flows: start a step,
+    // answer it, abandon it), through the action port; see restWrite.
+    rest(method, path, body) { return restWrite(this.actions(), method, path, body); }
     // the kiosk apps' Clear Cache, then -- once it has had a moment -- Reload:
     // the way a tablet picks up new HK files (a reload alone keeps them)
     clearAndReload(tids) {
@@ -7232,7 +7267,7 @@
       }).then(function () { return self.press(parts.map(function (p) { return p.reload; })); });
     }
     h_tablets(c) {
-      var self = this, tabs = this.tabs(), ids = this.tabIds(), st = this._hass.states;
+      var self = this, tabs = this.tabs(), ids = this.tabIds(), st = this.client.states;
       var hs = (this.data.settings && this.data.settings.tablets) || {};
       // WHAT MAY BE A TABLET that isn't one (tablets.py suggestions)
       (this.data.tablet_suggest || []).forEach(function (sg) {
@@ -7314,7 +7349,7 @@
     t_one(c, tid) {
       var self = this, t = this.tabs()[tid];
       if (!t) { c.appendChild(K.group({ footer: 'There is no such tablet. It may have been removed.' }, [])); return; }
-      var hass = this._hass, st = hass.states, p = t.parts || {}, base = '#/house/tablets/' + encodeURIComponent(tid);
+      var client = this.client, st = client.states, p = t.parts || {}, base = '#/house/tablets/' + encodeURIComponent(tid);
       var ts = this.tabletStatusOf(tid), ids = (this.data.screensavers || {})[tid] || {};
       var house = (this.data.settings && this.data.settings.tablets) || {};
       var set = function (ch) { return self.setT(tid, ch); };
@@ -7389,7 +7424,7 @@
       var dashes = (this.data.dashboards || []).filter(function (x) { return x.item || x.path === t.screen; });
       var users = (this.data.users || []).slice();
       if (t.user && users.indexOf(t.user) < 0) users.push(t.user);
-      var devArea = t.device && hass.devices && hass.devices[t.device] ? hass.devices[t.device].area_id : '';
+      var devArea = t.device && client.devices && client.devices[t.device] ? client.devices[t.device].area_id : '';
       var setup = [
         K.text({ label: 'Name', sk: 't:name', value: t.name, error: this.err('t:name') ? 'Give it a name.' : null,
                  onCommit: function (v) { if (v.trim()) set({ name: v.trim() }); } }),
@@ -7438,7 +7473,7 @@
       // ACTIONS: what its kiosk app (and Sleep Screen) can do
       var act = [];
       var ask = function (what) {
-        return hass.callWS({ type: DOMAIN + '/tablet/act', tablet: tid, act: what }).then(function () {
+        return self.actions().callWS({ type: DOMAIN + '/tablet/act', tablet: tid, act: what }).then(function () {
           self.announce(what === 'wake' ? t.name + ' is waking' : t.name + ' is going dark');
         }, function (e) { self.announce('Couldn’t: ' + ((e && e.message) || e)); });
       };
@@ -7549,12 +7584,12 @@
 
     // ---------------------------------------------------------- accessories
     accIds() {
-      var self = this, hass = this._hass, ents = hass.entities || {}, acc = (this.data.accessories || {}).entities || {};
+      var self = this, client = this.client, ents = client.entities || {}, acc = (this.data.accessories || {}).entities || {};
       var chipIds = {};
       Object.keys(this.data.boards || {}).forEach(function (p) {
         ((self.data.boards[p] || {}).chips_extra || []).forEach(function (id) { chipIds[id] = true; });
       });
-      return Object.keys(hass.states).filter(function (id) {
+      return Object.keys(client.states).filter(function (id) {
         var e = ents[id] || {};
         if (acc[id] || chipIds[id]) return true;
         if (!TILE_DOMAINS.test(id) || e.hidden || e.entity_category) return false;
@@ -7613,18 +7648,18 @@
     // number is what its page and chip count (a kind's `found`), or how
     // many of its domain HK shows.
     typeMembers(T) {
-      var self = this, o = T[4], hass = this._hass;
+      var self = this, o = T[4], client = this.client;
       if (o.energy) return [];
       if (o.kind) {
         var ck = (this.data.counts || {})[o.kind] || {}, H = this.hid(), seen = {}, out = [];
-        var add = function (id) { if (!seen[id] && hass.states[id]) { seen[id] = 1; out.push(id); } };
+        var add = function (id) { if (!seen[id] && client.states[id]) { seen[id] = 1; out.push(id); } };
         (ck.found || []).forEach(add);
         (ck.exclude || []).forEach(add);
         return out;
       }
       return this.accIds().filter(function (id) {
         if (o.domains.indexOf(id.split('.')[0]) < 0 || self.hiddenAll(id)) return false;
-        return !o.dc || o.dc.indexOf(((hass.states[id] || {}).attributes || {}).device_class) >= 0;
+        return !o.dc || o.dc.indexOf(((client.states[id] || {}).attributes || {}).device_class) >= 0;
       });
     }
     // hidden everywhere (by itself, its device or its room): one row on a
@@ -7632,16 +7667,16 @@
     // hides would crowd every room
     hiddenAll(id) { return /^(Everywhere|With Its)/.test(this.hideText(id)); }
     typeHidden(T) {
-      var self = this, o = T[4], H = this.hid(), hass = this._hass;
+      var self = this, o = T[4], H = this.hid(), client = this.client;
       if (o.energy) return [];
-      if (o.kind) return H.everywhere.filter(function (id) { return hass.states[id] && (H.can[id] || []).indexOf(o.kind) >= 0; });
+      if (o.kind) return H.everywhere.filter(function (id) { return client.states[id] && (H.can[id] || []).indexOf(o.kind) >= 0; });
       return this.accIds().filter(function (id) {
         if (o.domains.indexOf(id.split('.')[0]) < 0 || !self.hiddenAll(id)) return false;
-        return !o.dc || o.dc.indexOf(((hass.states[id] || {}).attributes || {}).device_class) >= 0;
+        return !o.dc || o.dc.indexOf(((client.states[id] || {}).attributes || {}).device_class) >= 0;
       });
     }
     typeCount(T) {
-      if (T[4].kind) return (((this.data.counts || {})[T[4].kind] || {}).found || []).filter(function (id) { return this._hass.states[id]; }, this).length;
+      if (T[4].kind) return (((this.data.counts || {})[T[4].kind] || {}).found || []).filter(function (id) { return this.client.states[id]; }, this).length;
       return this.typeMembers(T).length;
     }
     typeSays(T) {
@@ -7654,7 +7689,7 @@
     }
     // the type an accessory's tile is, for a room's list
     typeOf(id) {
-      var dom = id.split('.')[0], dc = ((this._hass.states[id] || {}).attributes || {}).device_class;
+      var dom = id.split('.')[0], dc = ((this.client.states[id] || {}).attributes || {}).device_class;
       if (dom === 'binary_sensor') return { door: 'doors', window: 'windows', garage_door: 'garage', smoke: 'smoke', carbon_monoxide: 'smoke',
                                             moisture: 'leaks', motion: 'motion', moving: 'motion', occupancy: 'occupancy', presence: 'occupancy' }[dc] || null;
       if (dom === 'sensor') return dc === 'temperature' || dc === 'humidity' ? dc : null;
@@ -7665,7 +7700,7 @@
                timer: 'timers', camera: 'cameras' }[dom] || null;
     }
     a_root(c) {
-      var self = this, hass = this._hass, areas = hass.areas || {}, g = this.data.settings.generated;
+      var self = this, client = this.client, areas = client.areas || {}, g = this.data.settings.generated;
       var acc = (this.data.accessories || {}).entities || {};
       var ids = this.accIds();
       var sb = h('div', { class: 'search', style: 'margin:0 0 22px' });
@@ -7809,7 +7844,7 @@
       });
     }
     a_room(c, aid) {
-      var self = this, hass = this._hass, areas = hass.areas || {}, acc = (this.data.accessories || {}).entities || {};
+      var self = this, client = this.client, areas = client.areas || {}, acc = (this.data.accessories || {}).entities || {};
       var ids = this.accIds().filter(function (id) {
         var a = self.areaOf(id);
         return aid === '-' ? !a && id.indexOf('timer.') !== 0 : aid === '~timers' ? !a && id.indexOf('timer.') === 0 : a === aid;
@@ -7848,7 +7883,7 @@
       var self = this, own = (((this.data.accessories || {}).scenes || {})[aid]);
       var auto = !Array.isArray(own), autoIds = this.roomScenesAuto(aid), cur = auto ? autoIds : own;
       var save = function (v) { self.ws({ type: DOMAIN + '/accessory/room_scenes', area_id: aid, entities: v }); };
-      var row = function (id) { return { value: id, label: self.name(id), sub: self._hass.states[id] ? id : id + ' (missing)' }; };
+      var row = function (id) { return { value: id, label: self.name(id), sub: self.client.states[id] ? id : id + ' (missing)' }; };
       c.appendChild(K.listEditor({ fk: 'rs', auto: auto, announce: this.announce.bind(this), shownHeader: 'Scenes',
         autoFooter: 'Automatic: the Home Assistant scenes in this room, A to Z' + (autoIds.length ? '.' : ' — it has none, so there’s no row.'),
         emptyText: auto ? 'No scenes in this room' : 'No scenes row',
@@ -7907,8 +7942,8 @@
     hid() {
       return this.data.hidden || { places: {}, order: [], can: {}, off: {}, everywhere: [], devices: [], areas: [] };
     }
-    devName(did) { var d = (this._hass.devices || {})[did]; return d ? (d.name_by_user || d.name || did) : 'A Removed Device'; }
-    devOf(id) { return ((this._hass.entities || {})[id] || {}).device_id || null; }
+    devName(did) { var d = (this.client.devices || {})[did]; return d ? (d.name_by_user || d.name || did) : 'A Removed Device'; }
+    devOf(id) { return ((this.client.entities || {})[id] || {}).device_id || null; }
     // what hides it, in a few words: "" when nothing does
     hideText(id) {
       var H = this.hid(), dv = this.devOf(id), a = this.areaOf(id);
@@ -7929,7 +7964,7 @@
       return a ? this.areaName(a) + ' Room Page' : 'Room Pages';
     }
     hiddenCount() {
-      var H = this.hid(), devs = this._hass.devices || {}, areas = this._hass.areas || {};
+      var H = this.hid(), devs = this.client.devices || {}, areas = this.client.areas || {};
       return this.hiddenEntities().length + H.devices.filter(function (d) { return devs[d]; }).length +
         H.areas.filter(function (a) { return areas[a]; }).length;
     }
@@ -7937,14 +7972,14 @@
     hiddenEntities() {
       var H = this.hid(), self = this, seen = {};
       return H.everywhere.concat(Object.keys(H.off)).filter(function (id) {
-        if (seen[id] || !self._hass.states[id]) return false;
+        if (seen[id] || !self.client.states[id]) return false;
         seen[id] = true;
         var dv = self.devOf(id), a = self.areaOf(id);
         return !(dv && H.devices.indexOf(dv) >= 0) && !(a && H.areas.indexOf(a) >= 0);
       });
     }
     accGlyph(id) {
-      var a = ((this.data.accessories || {}).entities || {})[id] || {}, st = this._hass.states[id];
+      var a = ((this.data.accessories || {}).entities || {})[id] || {}, st = this.client.states[id];
       if (a.icon) return String(a.icon).replace(/^mdi:/, 'hk:');
       if (st && st.attributes.icon) return st.attributes.icon;
       return { light: 'mdi:lightbulb', switch: 'mdi:toggle-switch-variant', fan: 'mdi:fan', cover: 'mdi:window-shutter',
@@ -7975,7 +8010,7 @@
         ['hide'], function () { self.hideMerge(ids, guess); }, function (r) { self.hideMerge(ids, r); });
     }
     a_hidden(c) {
-      var self = this, H = this.hid(), hass = this._hass, devs = hass.devices || {};
+      var self = this, H = this.hid(), client = this.client, devs = client.devices || {};
       var v = this._hv || (this._hv = { f: 'all', q: '' });
       c.appendChild(K.group({}, [K.button({ label: 'Hide Accessories…', fk: 'hide:start', onClick: function () {
         self._hp = { ents: [], devs: [], tab: 'acc', q: '' };
@@ -8014,17 +8049,17 @@
           })));
         var isRecent = function (x) { return recent.indexOf(x) >= 0; };
         if (v.f !== 'some') {
-          var rooms = H.areas.filter(function (a) { return (hass.areas || {})[a] && m(self.areaName(a)); });
+          var rooms = H.areas.filter(function (a) { return (client.areas || {})[a] && m(self.areaName(a)); });
           if (rooms.length) box.appendChild(K.group({ header: 'Whole Rooms', footer: 'A room is hidden from its own Room Settings, with everything in it.' },
             rooms.map(function (a) {
-              return K.nav({ label: self.areaName(a), icon: ((hass.areas || {})[a] || {}).icon || 'mdi:texture-box', value: 'Everywhere',
+              return K.nav({ label: self.areaName(a), icon: ((client.areas || {})[a] || {}).icon || 'mdi:texture-box', value: 'Everywhere',
                              href: '#/house/rooms/' + encodeURIComponent(a) });
             })));
           var dl = H.devices.filter(function (d) { return devs[d] && !isRecent('dev:' + d) && m(self.devName(d) + ' ' + self.areaName(devs[d].area_id)); })
             .sort(function (a, b) { return self.devName(a).localeCompare(self.devName(b)); });
           if (dl.length) box.appendChild(K.group({ header: 'Whole Devices', footer: 'Every accessory of a hidden device is hidden everywhere.' },
             dl.map(function (d) {
-              var n = Object.keys(hass.entities || {}).filter(function (id) { return hass.entities[id].device_id === d && hass.states[id]; }).length;
+              var n = Object.keys(client.entities || {}).filter(function (id) { return client.entities[id].device_id === d && client.states[id]; }).length;
               return K.nav({ label: self.devName(d), sub: (self.areaName(devs[d].area_id) || 'No room') + ' · ' + n + (n === 1 ? ' entity' : ' entities'),
                              icon: 'mdi:devices', value: 'Everywhere', href: '#/accessories/hidden/device/' + encodeURIComponent(d), fk: 'hide:dev:' + d });
             })));
@@ -8044,7 +8079,7 @@
             return K.nav({ label: self.placeName(k), sub: (H.places[k] || ['', ''])[1], value: byK[k] + ' Hidden',
                            href: '#/accessories/hidden/kind/' + k, fk: 'hide:kind:' + k });
           })));
-        var goneD = H.devices.filter(function (d) { return !devs[d]; }), goneE = H.everywhere.filter(function (id) { return !hass.states[id]; });
+        var goneD = H.devices.filter(function (d) { return !devs[d]; }), goneE = H.everywhere.filter(function (id) { return !client.states[id]; });
         if ((goneD.length || goneE.length) && v.f !== 'some' && !q) {
           box.appendChild(K.group({ header: 'No Longer in Home Assistant', footer: 'Hidden once, then removed from Home Assistant. Nothing shows them now.' },
             goneD.map(function (d) { return K.info({ label: 'A removed device', sub: d, value: 'Gone' }); })
@@ -8065,7 +8100,7 @@
     // Next -- the picker every other page uses now (pickList); a device is
     // ticked as "dev:<id>"
     a_hidePick(c) {
-      var self = this, H = this.hid(), hass = this._hass, devs = hass.devices || {};
+      var self = this, H = this.hid(), client = this.client, devs = client.devices || {};
       var p = this._hp || (this._hp = { ents: [], devs: [], tab: 'acc', q: '' });
       if (!p.sel) p.sel = p.ents.concat(p.devs.map(function (d) { return 'dev:' + d; }));
       this.pickList(c, { title: 'Accessories', multi: true, sel: p.sel, verb: 'Next',
@@ -8075,15 +8110,15 @@
         items: function (tab) {
           if (tab === 'dev') {
             return Object.keys(devs).filter(function (d) {
-              return Object.keys(hass.entities || {}).some(function (id) {
-                return hass.entities[id].device_id === d && hass.states[id] && !hass.entities[id].entity_category; });
+              return Object.keys(client.entities || {}).some(function (id) {
+                return client.entities[id].device_id === d && client.states[id] && !client.entities[id].entity_category; });
             }).map(function (d) {
               return { value: 'dev:' + d, label: self.devName(d), room: self.areaName(devs[d].area_id) || '', icon: 'mdi:devices',
                        note: H.devices.indexOf(d) >= 0 ? 'Hidden · Everywhere' : '' };
             });
           }
           var ids = {};
-          self.accIds().concat(Object.keys(H.can), H.everywhere).forEach(function (id) { if (hass.states[id]) ids[id] = 1; });
+          self.accIds().concat(Object.keys(H.can), H.everywhere).forEach(function (id) { if (client.states[id]) ids[id] = 1; });
           return Object.keys(ids).map(function (id) {
             var why = self.hideText(id);
             return { value: id, label: self.name(id), note: why ? 'Hidden · ' + why : '' };
@@ -8100,9 +8135,9 @@
     // picked (id null) it waits for Hide; for one accessory (id) each switch
     // saves as it changes, as the rest of HK Settings does.
     a_hideWhere(c, id) {
-      var self = this, H = this.hid(), hass = this._hass;
+      var self = this, H = this.hid(), client = this.client;
       var p = this._hp || { ents: [], devs: [] };
-      var ents = id ? [id] : p.ents.filter(function (x) { return hass.states[x]; }), dvs = id ? [] : p.devs.slice();
+      var ents = id ? [id] : p.ents.filter(function (x) { return client.states[x]; }), dvs = id ? [] : p.devs.slice();
       if (!ents.length && !dvs.length) { c.appendChild(K.group({ footer: 'Nothing picked.' }, [K.nav({ label: 'Pick Accessories', href: '#/accessories/hidden/pick' })])); return; }
       // the choice: one accessory's is what is saved; a new hide's starts at Everywhere
       var d;
@@ -8192,9 +8227,9 @@
         } })]));
     }
     a_hideDevice(c, did) {
-      var self = this, hass = this._hass, g = this.data.settings.generated, cur = g.exclude_devices || [], hid = cur.indexOf(did) >= 0;
-      var dev = (hass.devices || {})[did];
-      var ids = Object.keys(hass.entities || {}).filter(function (id) { return hass.entities[id].device_id === did && hass.states[id] && !hass.entities[id].entity_category; });
+      var self = this, client = this.client, g = this.data.settings.generated, cur = g.exclude_devices || [], hid = cur.indexOf(did) >= 0;
+      var dev = (client.devices || {})[did];
+      var ids = Object.keys(client.entities || {}).filter(function (id) { return client.entities[id].device_id === did && client.states[id] && !client.entities[id].entity_category; });
       c.appendChild(K.group({ footer: hid ? 'Every accessory of this device is hidden everywhere. It stays in Home Assistant.' : 'Shown wherever HK puts its accessories.' }, [
         K.info({ label: this.devName(did), sub: dev ? (this.areaName(dev.area_id) || 'No room') : did, icon: 'mdi:devices' }),
         K.toggle({ label: 'Hidden Everywhere', on: hid, fk: 'hide:dev', onChange: function (on) {
@@ -8218,8 +8253,8 @@
         onChange: set, addLabel: 'Add…', onAddOther: function () {
           self.go(self.picker('also-add', { title: 'Add Accessories', value: null, multi: true,
             items: function () {
-              var ents = self._hass.entities || {};
-              return Object.keys(self._hass.states).filter(function (id) {
+              var ents = self.client.entities || {};
+              return Object.keys(self.client.states).filter(function (id) {
                 var e = ents[id] || {};
                 return cur.indexOf(id) < 0 && !tiles[id] && !e.hidden && !e.entity_category;
               }).map(function (id) { return { value: id, label: self.name(id) }; });
@@ -8230,7 +8265,7 @@
     }
     a_one(c, id) {
       var self = this;
-      if (!this._hass.states[id]) { c.appendChild(K.group({ footer: 'This entity doesn’t exist any more.' }, [])); return; }
+      if (!this.client.states[id]) { c.appendChild(K.group({ footer: 'This entity doesn’t exist any more.' }, [])); return; }
       var box = h('div', { class: 'accwrap' });
       c.appendChild(box);
       loadCards().then(function () {
@@ -8239,7 +8274,7 @@
         var st = document.createElement('style');
         st.textContent = D.ACC_CSS || '';
         box.appendChild(st);
-        box.appendChild(D.accessoryPane(self._hass, id, function () { self.status('saved'); self.soon(); }, { panel: true, onSaved: function (ok) { self.status(ok ? 'saved' : 'error'); } }));
+        box.appendChild(D.accessoryPane(self.client, id, function () { self.status('saved'); self.soon(); }, { panel: true, onSaved: function (ok) { self.status(ok ? 'saved' : 'error'); } }));
       });
     }
 
@@ -8274,8 +8309,8 @@
       } };
     }
     async popupFlow(p, values) {
-      var hass = this._hass, base = 'config/config_entries/subentries/flow';
-      var r = await hass.callApi('POST', base, { handler: [this.data.entry_id, 'popup'], subentry_id: p.item });
+      var base = 'config/config_entries/subentries/flow';
+      var r = await this.rest('POST', base, { handler: [this.data.entry_id, 'popup'], subentry_id: p.item });
       var body = {};
       Object.keys(values).forEach(function (k) {
         var v = values[k];
@@ -8283,12 +8318,12 @@
         body[k] = v;
       });
       var r2;
-      try { r2 = await hass.callApi('POST', base + '/' + r.flow_id, body); } catch (e) {
-        hass.callApi('DELETE', base + '/' + r.flow_id).catch(function () {});
+      try { r2 = await this.rest('POST', base + '/' + r.flow_id, body); } catch (e) {
+        this.rest('DELETE', base + '/' + r.flow_id).catch(function () {});
         throw e;
       }
       if (r2.type === 'form') {
-        hass.callApi('DELETE', base + '/' + r.flow_id).catch(function () {});
+        this.rest('DELETE', base + '/' + r.flow_id).catch(function () {});
         var code = r2.errors && Object.keys(r2.errors).map(function (k) { return r2.errors[k]; })[0];
         throw new Error(M.errorText(code || 'unknown'));
       }
@@ -8437,24 +8472,24 @@
       } })]));
     }
     async addPopup(np) {
-      var hass = this._hass, base = 'config/config_entries/subentries/flow';
-      var r = await hass.callApi('POST', base, { handler: [this.data.entry_id, 'popup'] });
+      var base = 'config/config_entries/subentries/flow';
+      var r = await this.rest('POST', base, { handler: [this.data.entry_id, 'popup'] });
       var fid = r.flow_id;
       try {
         var first = { name: np.name.trim(), kind: np.kind };
         if (np.hash.trim()) first.hash = np.hash.trim();
-        r = await hass.callApi('POST', base + '/' + fid, first);
+        r = await this.rest('POST', base + '/' + fid, first);
         if (r.type === 'form' && r.step_id === 'user') throw new Error(M.errorText(Object.keys(r.errors || {}).map(function (k) { return r.errors[k]; })[0]));
         var det = { close_after: np.kind === 'alarm' ? 3600 : 60 };
         if (np.entity) det.entity = np.entity;
         if (np.kind === 'camera' && np.speaker) det.speaker = np.speaker;
         if (np.kind === 'accessories') det.entities = np.entities;
         if (np.kind === 'cards') det.width = 'narrow';
-        r = await hass.callApi('POST', base + '/' + fid, det);
+        r = await this.rest('POST', base + '/' + fid, det);
         if (r.type !== 'create_entry') throw new Error(M.errorText(Object.keys(r.errors || {}).map(function (k) { return r.errors[k]; })[0]));
         return r.result && r.result.unique_id || first.hash || slug(np.name);
       } catch (e) {
-        hass.callApi('DELETE', base + '/' + fid).catch(function () {});
+        this.rest('DELETE', base + '/' + fid).catch(function () {});
         throw e;
       }
     }
@@ -8481,16 +8516,16 @@
       } };
     }
     async pageSave(p, changes) {
-      var hass = this._hass, base = 'config/config_entries/subentries/flow', self = this;
+      var base = 'config/config_entries/subentries/flow', self = this;
       var v = Object.assign({ title: p.title, icon: p.icon, view: p.view }, changes);
       var body = { title: v.title, view: v.view };
       if (v.icon) body.icon = v.icon;
       this.status('saving');
       try {
-        var r = await hass.callApi('POST', base, { handler: [this.data.entry_id, 'page'], subentry_id: p.item });
-        var r2 = await hass.callApi('POST', base + '/' + r.flow_id, body);
+        var r = await this.rest('POST', base, { handler: [this.data.entry_id, 'page'], subentry_id: p.item });
+        var r2 = await this.rest('POST', base + '/' + r.flow_id, body);
         if (r2.type === 'form') {
-          hass.callApi('DELETE', base + '/' + r.flow_id).catch(function () {});
+          this.rest('DELETE', base + '/' + r.flow_id).catch(function () {});
           throw new Error(M.errorText(Object.keys(r2.errors || {}).map(function (k) { return r2.errors[k]; })[0]));
         }
         delete this.errors['pg:' + p.path];
@@ -8535,8 +8570,8 @@
       if (!this._starts) {
         this._starts = [['blank', 'A Blank Page']];
         var base = 'config/config_entries/subentries/flow';
-        this._hass.callApi('POST', base, { handler: [this.data.entry_id, 'page'] }).then(function (r) {
-          self._hass.callApi('DELETE', base + '/' + r.flow_id).catch(function () {});
+        this.rest('POST', base, { handler: [this.data.entry_id, 'page'] }).then(function (r) {
+          self.rest('DELETE', base + '/' + r.flow_id).catch(function () {});
           var f = (r.data_schema || []).filter(function (x) { return x.name === 'start'; })[0];
           var opts = f && f.selector && f.selector.select && f.selector.select.options || [];
           self._starts = opts.map(function (o) { return [o.value, o.value === 'blank' ? 'A Blank Page' : o.label]; });
@@ -8559,23 +8594,23 @@
         } })]));
     }
     async addPage(np) {
-      var hass = this._hass, base = 'config/config_entries/subentries/flow';
-      var r = await hass.callApi('POST', base, { handler: [this.data.entry_id, 'page'] });
+      var base = 'config/config_entries/subentries/flow';
+      var r = await this.rest('POST', base, { handler: [this.data.entry_id, 'page'] });
       var fid = r.flow_id;
       try {
         var first = { title: np.title.trim(), start: np.start || 'blank' };
         if (np.path.trim()) first.path = np.path.trim();
         if (np.icon.trim()) first.icon = np.icon.trim();
-        r = await hass.callApi('POST', base + '/' + fid, first);
+        r = await this.rest('POST', base + '/' + fid, first);
         if (r.step_id === 'user') throw new Error(M.errorText(Object.keys(r.errors || {}).map(function (k) { return r.errors[k]; })[0]));
         // the view step holds the imported (or blank) page: submit it as it is
         var vf = (r.data_schema || []).filter(function (x) { return x.name === 'view'; })[0];
         var view = vf && vf.description && vf.description.suggested_value || { cards: [] };
-        r = await hass.callApi('POST', base + '/' + fid, { view: view });
+        r = await this.rest('POST', base + '/' + fid, { view: view });
         if (r.type !== 'create_entry') throw new Error(M.errorText(Object.keys(r.errors || {}).map(function (k) { return r.errors[k]; })[0]));
         return (r.result && r.result.unique_id) || first.path || slug(first.title);
       } catch (e) {
-        hass.callApi('DELETE', base + '/' + fid).catch(function () {});
+        this.rest('DELETE', base + '/' + fid).catch(function () {});
         throw e;
       }
     }
@@ -8660,7 +8695,7 @@
           c.appendChild(K.group({}, [K.info({ label: 'Checking…' })]));
           if (!self._checking) {
             self._checking = true;
-            self._hass.callWS({ type: DOMAIN + '/setup/check' }).then(function (r) { self._check = r.lines; self._checking = false; self.render(); },
+            self.client.callWS({ type: DOMAIN + '/setup/check' }).then(function (r) { self._check = r.lines; self._checking = false; self.render(); },
               function (e) { self._checking = false; self._check = [{ ok: false, title: 'Setup check failed', detail: String(e && e.message || e) }]; self.render(); });
           }
           return;
@@ -8753,7 +8788,7 @@
             } })]));
             if (!self._setupMarked) {
               self._setupMarked = true;
-              self._hass.callWS({ type: DOMAIN + '/setup/done', done: true }).catch(function () {});
+              self.actions().callWS({ type: DOMAIN + '/setup/done', done: true }).catch(function () {});
             }
             return;
           }
@@ -8773,6 +8808,7 @@
   function slug(t) {
     return String(t || '').toLowerCase().replace(/['’]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40);
   }
+  window.hkHostClient.entry(HkSettingsPanel);
   customElements.define('hk-settings-panel', HkSettingsPanel);
   window.hkSettingsPanel = { version: '2.0.0' };
 })();
