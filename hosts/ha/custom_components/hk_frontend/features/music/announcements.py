@@ -4,6 +4,13 @@ Native HomePods don't label TTS in their state. Observe the service call,
 then suppress its player until playback ends. Music Assistant's AirPlay
 entity is matched by its MAC-derived unique id, never room or friendly name.
 Nothing here changes audio, player state, or an automation.
+
+Which calls are announcements, what a player is playing and which players an
+announcement hides are shared (hk_core/music/announcements.py). Watching HA's
+call_service and state_changed events, the markers' timers and the screens'
+nudge are Home Assistant's, and so are `aliases`: a player's physical twins come
+from HA's device registry (MAC connections, unique ids), which the House port
+does not carry.
 """
 from __future__ import annotations
 
@@ -14,6 +21,7 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import device_registry as dr, entity_registry as er
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 
+from ...hk_core.music import announcements as A
 from .const import SIGNAL_CONFIG
 
 START_TIMEOUT = 20
@@ -21,18 +29,8 @@ MAX_SECONDS = 120
 END_GRACE = 2
 
 
-def _ids(value) -> list[str]:
-    if isinstance(value, str):
-        return [v.strip() for v in value.split(",") if v.strip()]
-    return [v for v in value if isinstance(v, str)] if isinstance(value, (list, tuple)) else []
-
-
-def _content(state):
-    if state is None or state.state not in ("playing", "paused", "buffering"):
-        return None
-    a = state.attributes
-    value = (a.get("media_content_id"), a.get("media_title"), a.get("media_artist"))
-    return value if any(value) else None
+_ids = A.ids
+_content = A.content
 
 
 class Announcements:
@@ -87,32 +85,20 @@ class Announcements:
         data = event.data
         domain, service = data.get("domain"), data.get("service", "")
         args = data.get("service_data") or {}
-        sources = []
         # An explicit ordinary play supersedes a pending announcement marker.
-        if domain == "media_player" and service in ("play_media", "media_play") and args.get("announce") is not True:
-            for source in _ids(args.get("entity_id")):
-                targets = self.aliases(source)
-                for key, row in list(self.pending.items()):
-                    if row["players"] & targets:
-                        self.clear(key)
-        if domain == "tts":
-            if service == "speak":
-                sources = _ids(args.get("media_player_entity_id"))
-            elif service.endswith("_say"):
-                sources = _ids(args.get("entity_id"))
-        elif ((domain == "media_player" and service == "play_media" and args.get("announce") is True)
-              or (domain == "music_assistant" and service == "play_announcement")):
-            sources = _ids(args.get("entity_id"))
+        for source in A.released(domain, service, args):
+            targets = self.aliases(source)
+            for key, row in list(self.pending.items()):
+                if row["players"] & targets:
+                    self.clear(key)
+        sources = A.announced(domain, service, args)
         if not sources or not self.config().ignore_announcements:
             return
         for source in sources:
             if not source.startswith("media_player."):
                 continue
-            players = self.aliases(source)
-            preset = self.config().preset_for_group(source)
-            if preset:
-                players.update(preset.members)
-            if not players.intersection(self.config().players()):
+            players = A.hidden(self.config(), source, self.aliases(source))
+            if players is None:
                 continue
             self.clear(source, notify=False)
             row = {"players": players, "started": False, "timers": [],

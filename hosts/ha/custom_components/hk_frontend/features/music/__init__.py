@@ -21,6 +21,11 @@ Every action ANSWERS: call it with return_response and read {ok, leader} or
 when the feature is added, so a call made while it is not added gets a clear
 error rather than "unknown action". The websocket commands keep their hk_music/
 names: the screens and the settings page speak them.
+
+The music engine's decisions are shared (hk_core/music/, PLAN.md §0 plan review);
+this package is Home Assistant's side of it: the actions and their schemas, the
+websocket commands, the config and options flows, the feature's lifecycle, and
+every call to Music Assistant's integration.
 """
 from __future__ import annotations
 
@@ -40,6 +45,8 @@ from homeassistant.helpers import selector as sel
 from homeassistant.helpers.dispatcher import async_dispatcher_connect, async_dispatcher_send
 
 from ...const import DOMAIN
+from ...hk_core.music import queue
+from ...hk_core.music.queue import QUEUE_MAX
 from .. import MUSIC, TITLES, Feature, entries, item_data, loaded, unique_id
 from . import settings_ws
 from .const import (
@@ -326,8 +333,7 @@ class ReconfigureSteps:
 # player_queues/items and player_queues/play_index. Not a public Home
 # Assistant contract: when it is not there (Music Assistant missing, or an
 # upgrade moved it) the answer is {ok: false} and the page shows the next song
-# alone.
-QUEUE_MAX = 100
+# alone. A song's shape is shared (hk_core/music/queue.py).
 
 
 async def _queue_id(hass: HomeAssistant, entity_id: str) -> tuple[str | None, Any]:
@@ -337,16 +343,7 @@ async def _queue_id(hass: HomeAssistant, entity_id: str) -> tuple[str | None, An
     return q.get("queue_id"), q.get("current_index")
 
 
-def _item(it: Any) -> dict[str, Any]:
-    d = it if isinstance(it, dict) else (it.to_dict() if hasattr(it, "to_dict") else {})
-    mi = d.get("media_item") or {}
-    artists = mi.get("artists") or []
-    img = d.get("image") or mi.get("image") or (mi.get("album") or {}).get("image")
-    if isinstance(img, dict):
-        img = img.get("path")
-    return {"id": d.get("queue_item_id"), "title": mi.get("name") or d.get("name") or "",
-            "artist": artists[0].get("name", "") if artists and isinstance(artists[0], dict) else "",
-            "duration": d.get("duration"), "image": img if isinstance(img, str) and img.startswith("http") else None}
+_item = queue.item
 
 
 @websocket_api.websocket_command({vol.Required("type"): "hk_music/queue",

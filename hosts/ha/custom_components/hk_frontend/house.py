@@ -14,9 +14,10 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers import area_registry as ar
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers import floor_registry as fr
 from homeassistant.util import dt as dt_util
 
-from .hk_core.house import Device, Entity, State
+from .hk_core.house import Device, Entity, Floor, State
 
 
 def state_view(st) -> State | None:
@@ -69,6 +70,11 @@ class HaHouse:
     def area_name(self, area_id: str) -> str | None:
         a = ar.async_get(self._hass).async_get_area(area_id)
         return a.name if a else None
+
+    def area_floor(self, area_id: str) -> Floor | None:
+        a = ar.async_get(self._hass).async_get_area(area_id)
+        f = fr.async_get(self._hass).async_get_floor(a.floor_id) if a and a.floor_id else None
+        return Floor(f.floor_id, f.name, f.level) if f else None
 
     def local_time(self, when: datetime | None = None) -> datetime:
         return dt_util.as_local(when or dt_util.utcnow())

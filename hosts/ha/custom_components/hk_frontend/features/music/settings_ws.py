@@ -15,7 +15,9 @@ at a time:
 
 Admin only. Checked by the same helpers as those dialogs (flows.py's
 speakers_errors / preset_errors / playlist_errors), refused BY FIELD (the
-error's message is a JSON map, field -> a sentence to show), and stored
+error's message is a JSON map, field -> a sentence to show) -- the checks, the
+words and each save's shape are shared (hk_core/music/settings.py); who may
+ask, what the choices are and where it is kept are Home Assistant's -- and stored
 where they store it: the entry's options, and its preset and playlist
 subentries. The screens hear every change at once (the entry's update
 listener tells them). Nothing here is hard-coded: the choices are Music
@@ -37,33 +39,15 @@ from homeassistant.config_entries import ConfigSubentry
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import entity_registry as er
 
+from ...hk_core.music import settings as S
+from ...hk_core.music.settings import MSG, TEXT_MAX  # noqa: F401 -- names callers read here
 from .. import MUSIC, Feature, async_update, entries
 from .const import (
-    CONF_CHOOSER, CONF_GROUP, CONF_HOMES, CONF_ICON, CONF_ITEMS, CONF_KEEP_READY, CONF_IGNORE_ANNOUNCEMENTS, CONF_MEMBERS,
-    CONF_NAME, CONF_ORDER, CONF_SPEAKERS, CONF_VOLUME, DEFAULT_VOLUME, SUB_PLAYLIST, SUB_PRESET,
+    CONF_GROUP, CONF_HOMES, CONF_KEEP_READY, CONF_IGNORE_ANNOUNCEMENTS, CONF_ORDER, CONF_SPEAKERS, CONF_VOLUME,
+    DEFAULT_VOLUME, SUB_PLAYLIST, SUB_PRESET,
 )
-from .flows import library, playlist_errors, preset_errors, speakers_errors
+from .flows import library, playlist_errors, preset_errors, speakers_errors  # noqa: F401
 from .music import MusicConfig
-
-MSG = {
-    "no_speakers": "Choose at least one speaker.",
-    "group_is_room": "A sync group can’t also be a room: add it as a preset.",
-    "no_name": "Give it a name.",
-    "no_members": "Choose the rooms it plays in.",
-    "not_a_speaker": "Every room must be one of the speakers.",
-    "group_room": "Choose the sync group’s own player, not a room.",
-    "no_items": "Choose at least one playlist.",
-    "not_in_library": "That playlist isn’t in the Music Assistant library.",
-    "volume": "Choose 0 to 100 %.",
-    "homes": "A home room must be one of the speakers.",
-    "on_off": "Choose on or off.",
-    "not_a_player": "That isn’t a Music Assistant player.",
-    "list": "That list couldn’t be read.",
-    "unknown": "That setting doesn’t exist.",
-    "no_item": "That preset or playlist is gone.",
-    "text": "That text is too long.",
-}
-TEXT_MAX = 60
 
 
 def _entry(hass: HomeAssistant) -> Feature | None:
@@ -136,64 +120,13 @@ def _refused(connection, msg_id: int, errors: dict[str, str]) -> None:
     connection.send_error(msg_id, "invalid_format", json.dumps(errors))
 
 
-def _say(codes: dict[str, str]) -> dict[str, str]:
-    out = {}
-    for k, v in codes.items():
-        out[k] = MSG["group_room"] if (k == CONF_GROUP and v == "group_is_room") else MSG.get(v, v)
-    return out
+_say = S.say
 
 
 def apply(hass: HomeAssistant, entry: Feature, changes: dict[str, Any]
           ) -> tuple[dict[str, Any], dict[str, str]]:
-    opts, errors = dict(entry.options), {}
-    players = set(_players(hass, entry))
-    for k in changes:
-        if k not in (CONF_SPEAKERS, CONF_VOLUME, CONF_HOMES, CONF_KEEP_READY, CONF_IGNORE_ANNOUNCEMENTS):
-            errors[k] = MSG["unknown"]
-    if CONF_SPEAKERS in changes:
-        sp = changes[CONF_SPEAKERS]
-        if not isinstance(sp, list) or not all(isinstance(x, str) for x in sp):
-            errors[CONF_SPEAKERS] = MSG["list"]
-        elif any(x not in players for x in sp):
-            errors[CONF_SPEAKERS] = MSG["not_a_player"]
-        elif e := speakers_errors(list(dict.fromkeys(sp)), _groups(entry)):
-            errors.update(_say(e))
-        else:
-            opts[CONF_SPEAKERS] = list(dict.fromkeys(sp))
-            # a home room that is no longer a speaker is no home room
-            opts[CONF_HOMES] = {u: r for u, r in (opts.get(CONF_HOMES) or {}).items() if r in opts[CONF_SPEAKERS]}
-    if CONF_VOLUME in changes:
-        v = changes[CONF_VOLUME]
-        if isinstance(v, bool) or not isinstance(v, (int, float)) or not 0 <= v <= 1:
-            errors[CONF_VOLUME] = MSG["volume"]
-        else:
-            opts[CONF_VOLUME] = round(float(v), 2)
-    if CONF_IGNORE_ANNOUNCEMENTS in changes:
-        if not isinstance(changes[CONF_IGNORE_ANNOUNCEMENTS], bool):
-            errors[CONF_IGNORE_ANNOUNCEMENTS] = MSG["on_off"]
-        else:
-            opts[CONF_IGNORE_ANNOUNCEMENTS] = changes[CONF_IGNORE_ANNOUNCEMENTS]
-    if CONF_KEEP_READY in changes:
-        if not isinstance(changes[CONF_KEEP_READY], bool):
-            errors[CONF_KEEP_READY] = MSG["on_off"]
-        else:
-            opts[CONF_KEEP_READY] = changes[CONF_KEEP_READY]
-    if CONF_HOMES in changes:
-        h = changes[CONF_HOMES]
-        rooms = opts.get(CONF_SPEAKERS) or []
-        if not isinstance(h, dict):
-            errors[CONF_HOMES] = MSG["list"]
-        elif any(r is not None and r not in rooms for r in h.values()):
-            errors[CONF_HOMES] = MSG["homes"]
-        else:
-            homes = dict(opts.get(CONF_HOMES) or {})
-            for user, r in h.items():
-                if r:
-                    homes[str(user)] = r
-                else:
-                    homes.pop(str(user), None)
-            opts[CONF_HOMES] = homes
-    return opts, errors
+    """The options after `changes`, and the refusals by field (hk_core.music.settings.apply)."""
+    return S.apply(entry.options, changes, set(_players(hass, entry)), _groups(entry))
 
 
 @websocket_api.websocket_command({vol.Required("type"): "hk_music/settings/get"})
@@ -235,8 +168,7 @@ def _sub(entry: Feature, sid: str | None, kind: str) -> ConfigSubentry | None:
     return s if s is not None and s.subentry_type == kind else None
 
 
-def _text(v: Any) -> str:
-    return str(v or "").strip()
+_text = S.text
 
 
 @websocket_api.websocket_command({
@@ -258,15 +190,12 @@ async def ws_preset_save(hass: HomeAssistant, connection, msg: dict[str, Any]) -
         _refused(connection, msg["id"], {"item": MSG["no_item"]})
         return
     name, group, members = _text(msg["name"]), msg["group"], list(dict.fromkeys(msg["members"]))
-    errors = _say(preset_errors(name, group, members, list(entry.options.get(CONF_SPEAKERS) or [])))
-    if not errors and len(name) > TEXT_MAX:
-        errors[CONF_NAME] = MSG["text"]
-    if not errors and group not in _players(hass, entry):
-        errors[CONF_GROUP] = MSG["not_a_player"]
+    errors = S.check_preset(name, group, members, list(entry.options.get(CONF_SPEAKERS) or []),
+                            lambda: _players(hass, entry))
     if errors:
         _refused(connection, msg["id"], errors)
         return
-    data = {CONF_NAME: name, CONF_GROUP: group, CONF_MEMBERS: members}
+    data = S.preset_data(name, group, members)
     if sub is None:
         hass.config_entries.async_add_subentry(entry.house, ConfigSubentry(
             data=MappingProxyType(data), subentry_type=SUB_PRESET, title=name, unique_id=None))
@@ -298,10 +227,7 @@ async def ws_playlist_save(hass: HomeAssistant, connection, msg: dict[str, Any])
     name, chooser = _text(msg["name"]), _text(msg.get("chooser"))
     items = [i for i in dict.fromkeys(msg["items"]) if i]
     lib = await library(hass)
-    errors = _say(playlist_errors(name, items, {i["uri"] for i in lib}))
-    for k, v in ((CONF_NAME, name), (CONF_CHOOSER, chooser)):
-        if not errors.get(k) and len(v) > TEXT_MAX:
-            errors[k] = MSG["text"]
+    errors = S.check_playlist(name, chooser, items, {i["uri"] for i in lib})
     if errors:
         _refused(connection, msg["id"], errors)
         return
@@ -313,18 +239,11 @@ async def ws_playlist_save(hass: HomeAssistant, connection, msg: dict[str, Any])
         if sub is None:
             _refused(connection, msg["id"], {"item": MSG["no_item"]})
             return
-    old = dict(sub.data) if sub else {}
-    order = msg.get("order")
-    if order is None:
-        # a new pill goes last; an edited one keeps its place
-        order = old.get(CONF_ORDER) if sub else max(
-            [float(s.data.get(CONF_ORDER, 0) or 0) for s in entry.subentries.values()
-             if s.subentry_type == SUB_PLAYLIST] or [0]) + 10
-    data: dict[str, Any] = {CONF_NAME: name, CONF_ICON: _text(msg.get("icon")) or old.get(CONF_ICON) or "mdi:playlist-music",
-                            CONF_ITEMS: items, CONF_ORDER: float(order or 0)}
-    if chooser:
-        data[CONF_CHOOSER] = chooser
-    title = f"{chooser} · {name}" if chooser else name
+    # a new pill goes last; an edited one keeps its place
+    title, data = S.playlist_save(
+        name, chooser, items, msg.get("icon"), msg.get("order"), sub.data if sub else None,
+        [float(s.data.get(CONF_ORDER, 0) or 0) for s in entry.subentries.values()
+         if s.subentry_type == SUB_PLAYLIST])
     if sub is None:
         hass.config_entries.async_add_subentry(entry.house, ConfigSubentry(
             data=MappingProxyType(data), subentry_type=SUB_PLAYLIST, title=title, unique_id=None))
@@ -349,9 +268,9 @@ async def ws_playlists_order(hass: HomeAssistant, connection, msg: dict[str, Any
     if any(s is None for s in subs):
         _refused(connection, msg["id"], {"ids": MSG["no_item"]})
         return
-    for n, s in enumerate(subs, 1):
-        if float(s.data.get(CONF_ORDER, 0) or 0) != n * 10:
-            hass.config_entries.async_update_subentry(entry.house, s, data={**s.data, CONF_ORDER: float(n * 10)})
+    for i, order in S.reorder([s.data.get(CONF_ORDER, 0) for s in subs]):
+        s = subs[i]
+        hass.config_entries.async_update_subentry(entry.house, s, data={**s.data, CONF_ORDER: order})
     connection.send_result(msg["id"], await page(hass))
 
 

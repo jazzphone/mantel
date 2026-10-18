@@ -8,8 +8,10 @@ once Music is added):
                           behind a CHOOSER pill with others (one Decades pill
                           for six decade playlists).
 
-The checks here are Music's gear's, these forms' and the HK Settings page's
-(settings_ws.py): one set of rules, whichever way a house edits its music.
+The checks are Music's gear's, these forms' and the HK Settings page's
+(settings_ws.py): one set of rules, whichever way a house edits its music. They
+are shared (hk_core/music/checks.py) and re-exported here under their names;
+the forms, their selectors and the library read are Home Assistant's.
 Room names and floors are not asked for: they come from each speaker's area
 and that area's floor, so renaming an area renames its pill.
 """
@@ -22,6 +24,9 @@ import voluptuous as vol
 from homeassistant.config_entries import ConfigEntryState, ConfigSubentryFlow, SubentryFlowResult
 from homeassistant.helpers import selector as sel
 
+from ...hk_core.music import checks
+from ...hk_core.music.checks import playlist_errors, preset_errors, speakers_errors  # noqa: F401 -- shared
+from ...house import HaHouse
 from .const import (
     CONF_CHOOSER, CONF_GROUP, CONF_ICON, CONF_ITEMS, CONF_MEMBERS, CONF_NAME, CONF_ORDER,
     CONF_SPEAKERS, CONF_VOLUME,
@@ -50,41 +55,6 @@ def speakers_schema(groups: list[str]) -> vol.Schema:
     })
 
 
-def speakers_errors(speakers: list[str], groups: list[str]) -> dict[str, str]:
-    """Configure's check on the speakers (shared with the settings page)."""
-    if not speakers:
-        return {CONF_SPEAKERS: "no_speakers"}
-    if set(speakers) & set(groups):
-        return {CONF_SPEAKERS: "group_is_room"}
-    return {}
-
-
-def preset_errors(name: str, group: Any, members: list[str], rooms: list[str]) -> dict[str, str]:
-    """A preset's check (the preset form's, and the settings page's)."""
-    if not name:
-        return {CONF_NAME: "no_name"}
-    if not members:
-        return {CONF_MEMBERS: "no_members"}
-    if any(m not in rooms for m in members):
-        return {CONF_MEMBERS: "not_a_speaker"}
-    if group in rooms:
-        return {CONF_GROUP: "group_is_room"}
-    return {}
-
-
-def playlist_errors(name: str, items: list[str], known: set[str] | None) -> dict[str, str]:
-    """A playlist's check. `known`: the library's uris (None: not readable).
-    A link the library does not have would not fail when pressed -- Music
-    Assistant searches for the text and plays what it finds."""
-    if not name:
-        return {CONF_NAME: "no_name"}
-    if not items:
-        return {CONF_ITEMS: "no_items"}
-    if known and any(i.startswith("library://") and i not in known for i in items):
-        return {CONF_ITEMS: "not_in_library"}
-    return {}
-
-
 async def library(hass) -> list[dict[str, str]]:
     """The Music Assistant library's playlists [{uri, name}], by name."""
     loaded = [e for e in hass.config_entries.async_entries("music_assistant")
@@ -104,8 +74,7 @@ async def library(hass) -> list[dict[str, str]]:
 
 
 def name_of(hass, entity: str) -> str:
-    st = hass.states.get(entity)
-    return (st.attributes.get("friendly_name") if st else None) or entity
+    return checks.name_of(HaHouse(hass), entity)
 
 
 class _Sub(ConfigSubentryFlow):
