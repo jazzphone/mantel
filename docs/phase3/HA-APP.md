@@ -302,6 +302,19 @@ imported settings intact). Checked in the sidebar as Avery:
   `panel/get`), and an interim music read bridge (`hk_music/subscribe`, `/queue`, `/settings/library`
   forwarded to HA's engine; home room not preselected until Phase 4).
 
+### 0.1.3 on the house (2026-10-18 ~12:19, commit `226c8ab`)
+
+Checked in the sidebar as Avery, at desktop size (1366×900):
+- [x] **Cameras page** draws: 9 cameras, 3×3, 16:9 tiles with stills through Mantel (`hk-picture-entity`, 18
+      elements, 0 placeholders). Avery had reported it "all messed up" (placeholders) in 0.1.2.
+- [x] **Calendar** ends above the tab bar (last week row and "Add an Event" visible), events load.
+- [x] **Music** page draws (playlists, library, "Plays on Downstairs") through the interim read bridge.
+- [x] No ERROR lines in the log.
+- **Live video is refused on the `ha` door** (by design: the sidebar uses the tunnel's rules, and live view
+  there needs a step-up), so the tiles stay on refreshed stills. The connector logged every retry; fixed in
+  main (`mantel.camera` refusals once per camera per 5 minutes), ships with the next update. Avery may opt the
+  sidebar into the LAN's rules (`ha_door_rules: lan`), which makes live view work there without a step-up.
+
 ### Removal
 
 Stop and uninstall **Mantel** (Settings → Apps → Mantel → Uninstall); this removes its image and `/data`

@@ -272,3 +272,19 @@ async def test_music_library_needs_the_feature_and_is_rebuilt(env):
         await env.reads.request("guest", {"type": "hk_music/settings/library"})
     assert await env.reads.request("adult", {"type": "hk_music/settings/library"}) == {
         "items": [{"uri": "library://playlist/1", "name": "Morning"}]}
+
+
+def test_a_refused_live_view_is_logged_once_per_camera_per_interval(caplog):
+    from mantel_server.connectors import camera as cam
+    cam._refused_at.clear()
+    clock = [500.0]
+    with caplog.at_level("WARNING", logger="mantel.camera"):
+        for _ in range(4):
+            cam._warn_refused("camera.porch", now=lambda: clock[0])
+            cam._warn_refused("camera.yard", now=lambda: clock[0])
+            clock[0] += 3
+        clock[0] += cam.REFUSED_WARN_EVERY
+        cam._warn_refused("camera.porch", now=lambda: clock[0])
+    lines = [r.getMessage() for r in caplog.records if "refused camera view" in r.getMessage()]
+    assert len(lines) == 3
+    cam._refused_at.clear()

@@ -24,6 +24,7 @@ connection of their own (SignalingProxy) whose every frame passes ha_client.chec
 from __future__ import annotations
 
 import logging
+import time
 from typing import Any, Callable
 
 from ..ha_client import SIGNALING_TYPES, CommandBlocked, check_outgoing
@@ -31,6 +32,20 @@ from ..readproxy import ReadProxy
 from . import Ctx, Forbidden, Hooks, Route, read_routes, resolve
 
 log = logging.getLogger("mantel.camera")
+
+_refused_at: dict[str, float] = {}
+REFUSED_WARN_EVERY = 300.0
+
+
+def _warn_refused(entity_id: str, now: Callable[[], float] | None = None) -> None:
+    """A refused live view, logged once per camera every REFUSED_WARN_EVERY seconds: a page whose live
+    tiles are refused (the 'ha' door's tunnel rules without a step-up) asks again and again."""
+    t = (now or time.monotonic)()
+    if t - _refused_at.get(entity_id, float("-inf")) >= REFUSED_WARN_EVERY:
+        if len(_refused_at) > 256:
+            _refused_at.clear()
+        _refused_at[entity_id] = t
+        log.warning("refused camera view of %s (repeats are logged every %d s)", entity_id, REFUSED_WARN_EVERY)
 
 CONFIG, OFFER, CANDIDATE = "camera/webrtc/get_client_config", "camera/webrtc/offer", "camera/webrtc/candidate"
 
@@ -71,7 +86,7 @@ class CameraSignaling:
         if not isinstance(entity_id, str) or not entity_id.startswith("camera."):
             raise CommandBlocked("camera signaling needs a camera entity_id")
         if await resolve(self.hooks.may_view(ctx.identity, entity_id)) is not True:
-            log.warning("refused camera view of %s", entity_id)
+            _warn_refused(entity_id)
             raise Forbidden(f"may not view {entity_id}")
         return entity_id
 
