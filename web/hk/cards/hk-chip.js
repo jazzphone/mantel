@@ -1374,8 +1374,18 @@
         }
       }
       if (!on) return;
+      var wrapper = window.hkCards.cardWrapper();
+      if (!wrapper) {
+        // No Lovelace: the card itself (hkCards.createCard), made again for a
+        // new plan, as Lovelace's wrapper builds its card again for a new config.
+        var next = window.hkCards.createCard(p.config, this.client);
+        if (this._el && this._el.parentNode === this) this.replaceChild(next, this._el);
+        else this.appendChild(next);
+        this._el = next;
+        return;
+      }
       if (!this._el) {
-        this._el = document.createElement('hui-card');
+        this._el = document.createElement(wrapper);
         this._el.preview = false;
         this.appendChild(this._el);
       }

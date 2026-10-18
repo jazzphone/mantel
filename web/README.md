@@ -9,7 +9,11 @@
   (overlay mount, view container, navigation, detail sheets, toasts) only through `hkShell`;
   HA element/event names may appear nowhere else (`tests/test_shell_boundary.py`).
 - `cards/hk-metric.js`: the existing metric card extracted to consume that interface.
-- `home.html`, `home.js`, `shim/`, `mdi/`: read-only Mantel Home with its own client port.
+- `hk/shell/hk-view-host.js`: HK's view host (Phase 2 P2.3). It draws a dashboard from the
+  strategy's output (views, cards, routing between views) without Lovelace or any host element;
+  see `docs/phase2/VIEW-HOST.md`.
+- `home.html`, `home.js`, `shim/`, `mdi/`: read-only Mantel dashboards (every view, through the
+  view host) with Mantel's own client port.
 - `shared-assets.json`: shared modules composed at /hk URLs in HA and Mantel.
 
 The HA build composes this source with `hosts/ha/frontend/hk-ha-client.js`. Fonts and

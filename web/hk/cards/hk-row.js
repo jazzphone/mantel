@@ -502,14 +502,10 @@
     // ll-rebuild handling that swipe-card gets WRONG -- its _rebuildCard calls
     // a method that does not exist, so a card built before its custom element
     // registers stays an invisible placeholder until a page reload. Using
-    // hui-card is why this card needs no patch for that.
+    // hui-card is why this card needs no patch for that. hkCards.createCard
+    // makes exactly that with Lovelace, and the card itself without it.
     _createCard(config) {
-      var el = document.createElement('hui-card');
-      window.hkHostClient.bridge(el, this.client);
-      el.preview = false;
-      el.config = config;
-      el.load();
-      return el;
+      return window.hkCards.createCard(config, this.client);
     }
 
     // EACH NEW CLIENT, through the host adapter's entry (below the class): the

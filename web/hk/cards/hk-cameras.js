@@ -415,11 +415,8 @@
       // straight back. `tile_theme` is still accepted in the config for the
       // rare case of wanting a different look, and then it is the caller's problem.
       if (this._config.tile_theme) cfg.theme = this._config.tile_theme;
-      var el = document.createElement('hui-card');
-      window.hkHostClient.bridge(el, this.client);   // HA draws it: the adapter decides what it gets
-      el.preview = false;
-      el.config = cfg;
-      el.load();
+      // HA draws it (in Lovelace's card wrapper): the adapter decides what it gets
+      var el = window.hkCards.createCard(cfg, this.client);
       (this._children = this._children || []).push(el);
       return el;
     }
@@ -1943,14 +1940,9 @@
     }
     _card(live) {
       var c = this._config;
-      var el = document.createElement('hui-card');
-      window.hkHostClient.bridge(el, this.client);
-      el.preview = false;
-      el.config = { type: 'picture-entity', entity: c.entity, camera_view: live ? 'live' : 'auto',
-                    show_name: false, show_state: false, aspect_ratio: c.aspect_ratio || '16x9',
-                    fit_mode: c.fit_mode || 'cover' };
-      el.load();
-      return el;
+      return window.hkCards.createCard({ type: 'picture-entity', entity: c.entity, camera_view: live ? 'live' : 'auto',
+                                         show_name: false, show_state: false, aspect_ratio: c.aspect_ratio || '16x9',
+                                         fit_mode: c.fit_mode || 'cover' }, this.client);
     }
     _reset() {
       this._stop();

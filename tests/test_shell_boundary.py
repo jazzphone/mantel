@@ -128,5 +128,32 @@ def test_shell_lint_catches_lookups_and_ignores_comments():
     assert SHELL_REF.findall(code_of_text("r = /a'b/; q = 'hass-more-info';")) == ["hass-more-info"]
 
 
+# Phase 2 P2.3: a container card makes its children with hkCards.createCard (Lovelace's wrapper only
+# where the host names one, hkShell.tags.card), and HK's view host makes no host element at all.
+CARD_WRAPPER_MADE = re.compile(r"createElement\(\s*['\"]hui-card['\"]", re.I)
+HOST_ELEMENT = re.compile(r"(?<![\w-])(?:hui|ha)-[a-z][a-z-]*(?![\w-])", re.I)
+
+
+def test_containers_make_children_through_the_shared_factory():
+    found = {}
+    for p in sorted((ROOT / "web").rglob("*.js")):
+        rel = str(p.relative_to(ROOT))
+        if rel.startswith(ADAPTERS):
+            continue
+        hits = len(CARD_WRAPPER_MADE.findall(code_of(p)))
+        if hits:
+            found[rel] = hits
+    assert not found, f"Make a child card with hkCards.createCard (web/hk/cards/hk-base.js): {found}"
+    assert CARD_WRAPPER_MADE.findall("var el = document.createElement('hui-card');")
+
+
+def test_the_view_host_names_no_host_element():
+    src = code_of(ROOT / "web/hk/shell/hk-view-host.js")
+    # CSS custom properties (--grid-card-gap) are not elements
+    names = [m for m in HOST_ELEMENT.findall(src)]
+    assert not names, names
+    assert not SHELL_REF.findall(src)
+
+
 def code_of_text(text: str) -> str:
     return strip_js_comments(text)

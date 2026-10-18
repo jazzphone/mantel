@@ -21,7 +21,9 @@
     tags: {
       root: 'home-assistant', main: 'home-assistant-main', drawer: 'ha-drawer', sidebar: 'ha-sidebar',
       resolver: 'partial-panel-resolver', panel: 'ha-panel-lovelace', dashboard: 'hui-root',
-      viewContainer: 'hui-view-container', view: 'hui-view', viewBackground: 'hui-view-background'
+      viewContainer: 'hui-view-container', view: 'hui-view', viewBackground: 'hui-view-background',
+      // Lovelace's card wrapper: lazy loading, the error card, ll-rebuild
+      card: 'hui-card'
     },
     viewTags: ['hui-view', 'hui-masonry-view', 'hui-sections-view', 'hui-panel-view'],
     foreignTags: ['hui-view', 'hui-sections-view', 'hui-masonry-view', 'hui-panel-view', 'hui-sidebar-view',

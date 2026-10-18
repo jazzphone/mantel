@@ -393,7 +393,11 @@ def build_app(cfg: Config, token: str, store: Store | None = None, connect_ha: b
     app.router.add_get("/api/areas", api_areas)
     app.router.add_get("/api/stats", api_stats)
 
-    app.router.add_get("/{seg}/home", home_page)    # last: the page HK's cards draw into
+    # last: the page HK's cards draw into, for every view of a dashboard (HK's view host draws the
+    # one the address names). A dashboard's address has a hyphen, as HA requires (dashboard-kitchen),
+    # so /api/…, /hk/…, /web/… and /static/… never land here.
+    app.router.add_get("/{seg}/home", home_page)
+    app.router.add_get(r"/{seg:[A-Za-z0-9_]+-[A-Za-z0-9_-]*}/{view:[A-Za-z0-9_-]+}", home_page)
 
     async def start(app: web.Application) -> None:
         app["http"] = aiohttp.ClientSession()

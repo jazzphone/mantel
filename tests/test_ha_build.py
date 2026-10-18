@@ -58,3 +58,14 @@ def test_host_shell_bootstraps_before_every_module_that_uses_it():
              ("hk-host-shell.js", "hk-ha-shell.js", "hk-settings.js", "tesla-viewport.js", "hk-tap.js", "hk-loader.js")]
     assert order == sorted(order)
     assert bootstrap.index('"/hk/modules/hk-ha-shell.js"') < bootstrap.index('"/hk/cards/hk-strategy.js"')
+
+
+def test_view_host_is_published_but_not_loaded_in_ha():
+    """Phase 2 P2.3: HK's view host ships with the frontend (P2.6's panel will load it), but HA's
+    bootstrap does not load it: Lovelace still draws HK dashboards in HA."""
+    dests = {dest: Path(src) for src, dest in builder().plan()}
+    assert dests["custom_components/hk_frontend/frontend/shell/hk-view-host.js"] == ROOT / "web/hk/shell/hk-view-host.js"
+    bootstrap = (ROOT / "hosts/ha/custom_components/hk_frontend/__init__.py").read_text()
+    assert "hk-view-host" not in bootstrap
+    shell = (ROOT / "hosts/ha/frontend/hk-ha-shell.js").read_text()
+    assert "card: 'hui-card'" in shell          # containers keep Lovelace's wrapper in HA

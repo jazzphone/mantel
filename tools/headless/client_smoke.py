@@ -84,9 +84,11 @@ async def smoke(shot=None):
         hub.store.apply_event({"a": {"sensor.proof": {"s": "21.4", "a": {
             "friendly_name": "Offline temperature", "unit_of_measurement": "°C"}, "lc": 1.0, "lu": 1.0},
             "light.proof": {"s": "off", "a": {"friendly_name": "Offline lamp", "supported_color_modes": ["brightness"]},
-                            "lc": 1.0, "lu": 1.0}}})
+                            "lc": 1.0, "lu": 1.0},
+            "scene.proof_evening": {"s": "unknown", "a": {"friendly_name": "Offline evening"}, "lc": 1.0, "lu": 1.0}}})
         hub.registry.load([], [], [{"entity_id": "sensor.proof", "platform": "demo"},
-                                   {"entity_id": "light.proof", "platform": "demo"}])
+                                   {"entity_id": "light.proof", "platform": "demo"},
+                                   {"entity_id": "scene.proof_evening", "platform": "demo"}])
         try:
             async with TestServer(app) as server:
                 async with Browser(port=9337) as browser:
@@ -116,14 +118,13 @@ async def smoke(shot=None):
                     await browser.open(origin + "/dashboard-proof/home?narrow=0", cookie)
                     if not await browser.wait("window.__mantelReady === true", 25):
                         raise AssertionError("Home did not load: " + json.dumps(browser.console[-15:]))
+                    # A card made by HK's view host's factory (as it makes a view's cards), fed each new client.
                     await browser.eval("""(async () => {
-                      const { createCardElement, setCardHost } = await import('/web/shim/cards-bridge.js');
-                      const metric = createCardElement({type:'custom:hk-stat-card',entity:'sensor.proof'});
+                      const metric = window.hkViewHost.createCardElement({type:'custom:hk-stat-card',entity:'sensor.proof'},
+                                                                         window.__mantel.client);
                       metric.id = 'proof-metric';
-                      setCardHost(metric, window.__mantel.hass);
                       document.getElementById('app').prepend(metric);
-                      const update = window.__mantel.onSnapshot;
-                      window.__mantel.onSnapshot = (snapshot) => { update(snapshot); setCardHost(metric, snapshot); };
+                      window.__mantelOnSnapshot = () => window.hkHostClient.bridge(metric, window.__mantel.client);
                       window.__proofMetric = metric;
                     })()""")
                     text = "window.__proofMetric._e.state.textContent"
@@ -201,9 +202,8 @@ async def smoke(shot=None):
                     assert port == {"write": "not_allowed", "bus": "not_allowed", "talk": "commands_disabled",
                                     "live": "commands_disabled", "frames": 0}, port
                     actions = await browser.eval("""(async () => {
-                      const { createCardElement, setCardHost } = await import('/web/shim/cards-bridge.js');
-                      const tile = createCardElement({type:'custom:hk-tile-card', entity:'light.proof'});
-                      setCardHost(tile, window.__mantel.hass);
+                      const tile = window.hkViewHost.createCardElement({type:'custom:hk-tile-card', entity:'light.proof'},
+                                                                       window.__mantel.client);
                       document.getElementById('app').prepend(tile);
                       const frames = window.__sentFrames, refused0 = window.__mantel.refused.length;
                       const toggled = await tile._call('homeassistant', 'toggle', {entity_id: 'light.proof'});
@@ -263,9 +263,113 @@ async def smoke(shot=None):
                     hub.readproxy.publish_tabbar()
                     assert await browser.wait("!!document.querySelector('#hk-shell-root > #hk-tabbar')", 5), \
                         "the tab bar did not mount in Mantel's shell root"
+                    # Phase 2 P2.3: HK's view host draws every page of the generated dashboard. Home was drawn by
+                    # it; HK's own navigation moves to Lights in the same container (the sky stays), the back
+                    # button returns to the cached Home, a hash (a pop-up) is not a page change, and each page's
+                    # cards follow the client. Commands stay blocked; not one frame leaves the page meanwhile.
+                    await browser.eval("""(() => {
+                      window.__drew = (cards) => ({
+                        cards: cards.length,
+                        drawn: cards.filter(c => c.isConnected && !c.hidden && c.localName !== 'hk-card-placeholder' &&
+                                            ((c.shadowRoot && c.shadowRoot.childNodes.length > 0) || c.childNodes.length > 0)).length,
+                        hidden: cards.filter(c => c.hidden).length,
+                        placeholders: cards.filter(c => c.localName === 'hk-card-placeholder').length,
+                        fed: cards.every(c => c.client === window.__mantel.client) });
+                      window.__vhFrames = window.__sentFrames;
+                      window.__vhSky = document.querySelector('hk-view-container#view > #hk-sky');
+                      window.__vhHome = window.__mantelViewHost.current();
+                    })()""")
+                    home = await browser.eval("""(() => {
+                      const vh = window.__mantelViewHost, cur = vh.current(), cfg = window.hkShell.dashboardConfig();
+                      return { views: cfg.views.map(v => v.path), path: cur.path,
+                               type: cur.element.localName, attached: cur.element.parentNode === document.getElementById('app'),
+                               shell: window.hkShell.view() === cur.element, config: cfg === vh.config,
+                               grid: cur.cards.filter(c => c.localName === 'hk-view-grid').length,
+                               // the scenes row (a container card) makes its child with hkCards.createCard: no
+                               // Lovelace here, so HK's own grid, holding hk-grid-card > hk-row-card > the pills
+                               scenes: (() => { const s = cur.cards.find(c => c.localName === 'hk-scenes-card');
+                                                const g = s && s.firstElementChild;
+                                                return s && !s.hidden && g ? [g.localName, !!document.querySelector('hui-card'),
+                                                  !!(g.shadowRoot && g.shadowRoot.querySelector('hk-grid-card'))] : null; })(),
+                               cards: window.__drew(cur.cards) };
+                    })()""")
+                    assert home["path"] == "home" and home["type"] == "hk-grid-view" and home["attached"] and home["shell"] \
+                        and home["config"] and len(home["views"]) >= 2 and "lights" in home["views"], home
+                    assert home["grid"] == 1, home      # Lovelace's grid card, drawn by HK (no hui-* element)
+                    assert home["scenes"] == ["hk-view-grid", False, True], home
+                    assert home["cards"]["placeholders"] == 0 and home["cards"]["drawn"] >= 1 and home["cards"]["fed"] \
+                        and home["cards"]["drawn"] + home["cards"]["hidden"] == home["cards"]["cards"], home
+                    await browser.eval("window.hkShell.navigate('/dashboard-proof/lights')")
+                    assert await browser.wait("window.__mantelViewHost.current().path === 'lights' && "
+                                              "window.__mantelViewHost.current().element.isConnected", 10), \
+                        "the view host did not move to Lights: " + json.dumps(browser.console[-10:])
+                    hub.store.apply_event({"c": {"light.proof": {"+": {"s": "on", "lu": 4.0}}}})
+                    hub.on_change({"light.proof"})
+                    assert await browser.wait("window.__mantel.hass.states['light.proof'].state === 'on'", 5)
+                    lights = await browser.eval("""(() => {
+                      const cur = window.__mantelViewHost.current(), home = window.__vhHome.element;
+                      return { path: location.pathname, type: cur.element.localName,
+                               attached: cur.element.parentNode === document.getElementById('app'),
+                               home_detached: home.parentNode === null, shell: window.hkShell.view() === cur.element,
+                               tag: window.hkShell.tags.view,
+                               sky: window.__vhSky !== null && window.__vhSky === document.querySelector('hk-view-container#view > #hk-sky'),
+                               cards: window.__drew(cur.cards) };
+                    })()""")
+                    assert lights["path"] == "/dashboard-proof/lights" and lights["type"] == "hk-grid-view" and lights["attached"] \
+                        and lights["home_detached"] and lights["shell"] and lights["tag"] == "hk-grid-view" and lights["sky"], lights
+                    assert lights["cards"]["placeholders"] == 0 and lights["cards"]["drawn"] >= 1 and lights["cards"]["fed"] \
+                        and lights["cards"]["drawn"] + lights["cards"]["hidden"] == lights["cards"]["cards"], lights
+                    await browser.eval("history.back()")
+                    assert await browser.wait("window.__mantelViewHost.current().path === 'home'", 10), "back did not return Home"
+                    back = await browser.eval("""(() => {
+                      const cur = window.__mantelViewHost.current();
+                      return { cached: cur.element === window.__vhHome.element, attached: cur.element.isConnected,
+                               cards: window.__drew(cur.cards) };
+                    })()""")
+                    assert back["cached"] and back["attached"] and back["cards"]["fed"], back   # caught up with the client
+                    hashed = await browser.eval("""(async () => {
+                      const el = window.__mantelViewHost.current().element;
+                      location.hash = 'proof-popup';
+                      await new Promise(r => setTimeout(r, 100));
+                      const same = window.__mantelViewHost.current().element === el && el.isConnected;
+                      history.back();
+                      await new Promise(r => setTimeout(r, 100));
+                      return same && window.__mantelViewHost.current().element === el;
+                    })()""")
+                    assert hashed, "a hash change swapped the view"
+                    view_frames = await browser.eval("window.__sentFrames - window.__vhFrames")
+                    assert view_frames == 0, view_frames
                     assert await browser.eval("window.__blockedWrites") == 0
                     exceptions = [line for line in browser.console if line.startswith("EXCEPTION:")]
                     assert not exceptions, exceptions
+                    assert not browser.blocked_requests, browser.blocked_requests
+                    # A page opened by its own address is drawn first by the view host. With narrowing on (the
+                    # page's default), the hub subscription narrows to what Lights reads; a page not seen yet
+                    # (Home) widens it again first, then it narrows to both pages' reads.
+                    await browser.open(origin + "/dashboard-proof/lights", cookie)
+                    if not await browser.wait("window.__mantelReady === true", 25):
+                        raise AssertionError("Lights did not load: " + json.dumps(browser.console[-15:]))
+                    direct = await browser.eval("""(() => {
+                      const cur = window.__mantelViewHost.current();
+                      return { path: cur.path, cached: window.__mantelViewHost.cached(),
+                               cards: cur.cards.length, placeholders: document.querySelectorAll('hk-card-placeholder').length };
+                    })()""")
+                    assert direct["path"] == "lights" and direct["cached"] == ["lights"] and direct["cards"] >= 1 \
+                        and direct["placeholders"] == 0, direct
+                    assert await browser.wait("window.__mantelNarrow !== undefined", 15), "Lights did not narrow"
+                    narrowed_at = await browser.eval("window.__mantelMarks.narrowed")
+                    await browser.eval("window.hkShell.navigate('/dashboard-proof/home')")
+                    assert await browser.wait("window.__mantelViewHost.current().path === 'home' && "
+                                              "window.__mantelViewHost.current().element.isConnected", 10), "Home after Lights"
+                    assert await browser.wait(f"window.__mantelMarks.narrowed > {narrowed_at}", 15), "Home did not narrow"
+                    narrow = await browser.eval("""(() => ({
+                      ids: window.__mantelNarrow, states: Object.keys(window.__mantel._states).sort(),
+                      fed: window.__mantelViewHost.current().cards.every(c => c.client === window.__mantel.client) }))()""")
+                    assert narrow["fed"] and "scene.proof_evening" in narrow["states"] and "light.proof" in narrow["states"], narrow
+                    assert await browser.eval("window.__blockedWrites") == 0
+                    exceptions = [line for line in browser.console if line.startswith("EXCEPTION:")]
+                    assert not exceptions, exceptions
+                    assert not [line for line in browser.console if "[hk-view-host]" in line], browser.console
                     assert not browser.blocked_requests, browser.blocked_requests
                     if shot:
                         await browser.screenshot(shot)
@@ -280,6 +384,12 @@ async def smoke(shot=None):
                                        "0 frames sent; read path refused call_service (read_only)",
                             "subscriptions": "write and state_changed bus refused (not_allowed); talk-back POST and live socket refused; 0 frames",
                             "settings_panel": "loaded with Mantel's client; a save, a config flow step and a photo forgotten refused at the action port; 0 frames",
+                            "view_host": f"generated views {home['views']}; Home {home['cards']['drawn']} cards drawn "
+                                         f"({home['cards']['hidden']} hidden; Lovelace's grid and the scenes row's child drawn by HK), Lights "
+                                         f"{lights['cards']['drawn']} drawn, fed each client; HK navigation and back swap "
+                                         f"views in one container (sky kept, Home cached); a hash is no page change; "
+                                         f"/dashboard-proof/lights opened directly, narrowed, then Home widened and narrowed to both pages' "
+                                         f"{narrow['ids']} states; 0 placeholders; {view_frames} frames sent while moving between views",
                             "external_requests": 0, "browser_exceptions": 0}
         finally:
             store.db.close()
