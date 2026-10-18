@@ -12,6 +12,7 @@ import './shim/mantel-shell.js';
 import './cards/hk-metric.js';
 import './shim/mantel-client.js';
 import './shim/ha-elements.js';
+import '/hk/elements/hk-elements.js';
 import { Host, toast } from './shim/mantel-host.js';
 import { Hub } from './shim/hub.js';
 import { installCardBridge, createCardElement, setCardHost } from './shim/cards-bridge.js';

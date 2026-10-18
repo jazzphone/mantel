@@ -24,6 +24,8 @@ def test_ha_build_has_one_frontend_source_and_no_server_or_house_files():
     assert dests[prefix + "modules/hk-metric.js"] == ROOT / "web/cards/hk-metric.js"
     assert dests[prefix + "modules/hk-ha-client.js"] == ROOT / "hosts/ha/frontend/hk-ha-client.js"
     assert dests[prefix + "modules/hk-ha-shell.js"] == ROOT / "hosts/ha/frontend/hk-ha-shell.js"
+    assert dests[prefix + "modules/hk-ha-elements.js"] == ROOT / "hosts/ha/frontend/hk-ha-elements.js"
+    assert dests[prefix + "elements/hk-elements.js"] == ROOT / "web/hk/elements/hk-elements.js"
     assert dests[prefix + "modules/hk-host-shell.js"] == ROOT / "web/client/hk-host-shell.js"
     assert dests[prefix + "fonts/sf-pro.css"].is_file()
     assert all(Path(src).is_relative_to(ROOT) for src, _ in pairs)

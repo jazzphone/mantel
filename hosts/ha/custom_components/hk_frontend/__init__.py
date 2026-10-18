@@ -221,6 +221,10 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
         # The hk: iconset. ha-icon caches a custom-iconset miss for the life of
         # the page, so it must be registered before any card first renders.
         "/hk/iconset/hk-icons.js",
+        # HK's own elements (hk-icon, hk-plate) and the host's (hk-state-icon around HA's
+        # ha-state-icon): defined before any card first renders (Phase 2, P2.1).
+        "/hk/elements/hk-elements.js",
+        "/hk/modules/hk-ha-elements.js",
         # Pins the layout viewport on the dashboards shown in a car's browser
         # only; a car browser can report <900px and trip the dashboard's own
         # mobile breakpoint. Tune from the car with ?vw=<px> on the URL.

@@ -103,6 +103,11 @@ class HaSvgIcon extends HTMLElement {
   set secondaryPath(p) { this._parts.s.setAttribute('d', p || ''); }
 }
 
-for (const [tag, cls] of [['ha-card', HaCard], ['ha-icon', HaIcon], ['ha-state-icon', HaStateIcon], ['ha-svg-icon', HaSvgIcon]]) {
+// Mantel's hk-state-icon (the host's element; HK's own hk-icon and hk-plate are shared:
+// web/hk/elements/hk-elements.js): the same small domain default as the ha-state-icon stand-in.
+class HkStateIcon extends HaStateIcon {}
+
+for (const [tag, cls] of [['ha-card', HaCard], ['ha-icon', HaIcon], ['ha-state-icon', HaStateIcon], ['ha-svg-icon', HaSvgIcon],
+                          ['hk-state-icon', HkStateIcon]]) {
   if (!customElements.get(tag)) customElements.define(tag, cls);
 }
