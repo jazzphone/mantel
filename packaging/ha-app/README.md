@@ -1,18 +1,24 @@
 # packaging/ha-app/
 
-Mantel Server packaged as a Home Assistant App (add-on): `config.yaml` (Ingress, built-in App
-credential, options). It runs the **same image layers** as Docker and the LXC: the `app` build target
-of `packaging/docker/Dockerfile` (it differs only in starting as root to chown `/data`, then dropping
-to uid 10001 in `entrypoint.py` before the server starts). PLAN §8.
+Mantel Server packaged as a Home Assistant App (add-on), the third way to run it (PLAN §8), installed as
+a **local App**: the Supervisor builds `Dockerfile` from a folder that `tools/stage_ha_app.py` assembles.
 
-Status: **scaffold, not yet usable end to end.** The container starts and reports healthy on :8099, but
-two things the Ingress mode needs are not built (details in `docs/phase3/PACKAGING.md`):
+| File | What it is |
+|---|---|
+| `config.yaml` | The App: slug `mantel`, Ingress on port 8099, `panel_admin: true`, `homeassistant_api: true` (HA's built-in App credential), options `commands_enabled` (false), `log_level`, `default_screen`, `ha_door_rules`. No `image:` (local build), no ports. |
+| `Dockerfile` | `python:3.12-slim-bookworm`, the pinned `requirements.txt`, then `app/` (staged). Starts as root only so `entrypoint.py` can chown `/data`, then runs the server as uid 10001. |
+| `requirements.txt` | Exact dependency versions (the ones the tests ran with). |
+| `DOCS.md` | What HA shows on the App's Documentation tab. |
+| `translations/en.yaml` | Option names and descriptions. |
+| `icon.png` | The store icon (a mantelpiece; drawn by a script, no third-party artwork). |
 
-1. Identity. In this mode the signed-in HA user arrives from Ingress headers; Mantel Server does not
-   accept them yet (that is the accounts slice, with the trusted-proxy rule from PLAN §7).
-2. Paths. Ingress serves the App under a prefix; Mantel's pages load `/hk/...` and `/web/...` by
-   absolute path, which Ingress does not rewrite.
+Stage it (never by hand):
 
-Install for development (local App): copy this folder to HA's local `addons` share, replace `image:`
-with a locally built tag (or add a `build.yaml`), refresh the store, install. Needs a running HA; this
-repository's tooling never connects to one.
+```bash
+~/.venvs/mantel/bin/python tools/stage_ha_app.py --dry-run          # list + private-content scan, writes nothing
+~/.venvs/mantel/bin/python tools/stage_ha_app.py /path/to/local_apps/mantel
+```
+
+The staged folder holds `app/entrypoint.py` (packaging/docker/entrypoint.py), `app/hosts/server/mantel_server`,
+`app/hk_core`, and `app/web` stamped by `tools/build_static.py`. Identity, the door decision, the path prefix,
+install steps and removal: `docs/phase3/HA-APP.md`.

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+from ipaddress import ip_address
 from dataclasses import dataclass, field
 from pathlib import Path
 from urllib.parse import urlparse
@@ -45,6 +46,21 @@ class Config:
     # An empty public_url is the loopback prototype. parse_args holds the rules that guard it.
     public_url: str = ""                      # https://mantel.example.com/ : the address browsers use (via Caddy)
     allowed_hosts: tuple[str, ...] = ()       # Host header names accepted besides loopback; "*" = any
+    # HA App mode (packaging/ha-app, docs/phase3/HA-APP.md). `ingress`: the signed-in HA user arrives in
+    # Ingress's X-Remote-User-* headers, believed ONLY from a socket peer in `ingress_peers` (the
+    # Supervisor's Ingress proxy on the hassio network). `ingress_only`: every other peer is refused
+    # (health checks excepted). `ha_door_rules`: what RBAC's door rules treat the 'ha' door as.
+    ingress: bool = False
+    ingress_peers: tuple[str, ...] = ("172.30.32.2",)
+    ingress_only: bool = False
+    ha_door_rules: str = "tunnel"                          # "tunnel" (default) | "lan" (the Owner's opt-in)
+    ha_ws_url: str = ""                                    # explicit HA WebSocket URL (App: ws://supervisor/core/websocket)
+    log_level: str = "info"
+
+    @property
+    def ws_url(self) -> str:
+        """Home Assistant's WebSocket API: the explicit URL, else derived from ha_url."""
+        return self.ha_ws_url or self.ha_url.rstrip("/").replace("http", "ws", 1) + "/api/websocket"
 
     @property
     def base_url(self) -> str:
@@ -98,7 +114,30 @@ def parse_args(argv: list[str] | None = None) -> Config:
     p.add_argument("--allow-host", action="append", default=[], metavar="NAME",
                    help="container mode: another Host header name to accept (repeatable). '*' accepts any "
                         "and is only for a server whose sole way in is a trusted proxy (HA Ingress)")
+    p.add_argument("--ingress", action="store_true",
+                   help="HA App mode: accept the signed-in HA user from Ingress's X-Remote-User-* headers, "
+                        "only from an --ingress-peer (the Supervisor's Ingress proxy)")
+    p.add_argument("--ingress-peer", action="append", default=[], metavar="ADDRESS",
+                   help="the Ingress proxy's socket address (repeatable; default 172.30.32.2)")
+    p.add_argument("--ingress-only", action="store_true",
+                   help="with --ingress: refuse every request that does not come through Ingress (health excepted)")
+    p.add_argument("--ha-door-rules", choices=("tunnel", "lan"), default=Config.ha_door_rules,
+                   help="RBAC door rules for requests through HA's sidebar (the 'ha' door): tunnel (default) or lan")
+    p.add_argument("--ha-ws-url", default="", metavar="URL",
+                   help="Home Assistant's WebSocket URL when it is not <ha-url>/api/websocket "
+                        "(HA App: ws://supervisor/core/websocket)")
+    p.add_argument("--log-level", choices=("debug", "info", "warning", "error"), default=Config.log_level)
     a = p.parse_args(argv)
+    if (a.ingress_peer or a.ingress_only) and not a.ingress:
+        p.error("--ingress-peer / --ingress-only only apply together with --ingress")
+    peers = []
+    for raw in a.ingress_peer:
+        try:
+            peers.append(str(ip_address(raw)))
+        except ValueError:
+            p.error(f"--ingress-peer must be an IP address, not {raw!r}")
+    if a.ha_ws_url and urlparse(a.ha_ws_url).scheme not in ("ws", "wss"):
+        p.error("--ha-ws-url must be a ws:// or wss:// URL")
     host, public_url, allowed = LOOPBACK_DEFAULT, "", ()
     if a.listen is not None:
         host = a.listen
@@ -127,6 +166,8 @@ def parse_args(argv: list[str] | None = None) -> Config:
                  secrets_dir=Path(a.secrets_dir), lan_session_days=a.lan_session_days, webauthn_rp_id=a.rp_id,
                  public_url=public_url, allowed_hosts=allowed, commands_enabled=bool(a.commands_enabled),
                  house_tz=a.house_tz, trusted_proxies=tuple(a.trusted_proxy),
-                 audit_retention_days=float(a.audit_retention_days))
+                 audit_retention_days=float(a.audit_retention_days), ingress=bool(a.ingress),
+                 ingress_peers=tuple(peers) or Config.ingress_peers, ingress_only=bool(a.ingress_only),
+                 ha_door_rules=a.ha_door_rules, ha_ws_url=a.ha_ws_url, log_level=a.log_level)
     assert cfg.host in LOOPBACK or cfg.public_url, "Mantel listens beyond loopback only in container mode"
     return cfg

@@ -93,7 +93,7 @@ Not implemented, on purpose: renaming files to `name.<hash>.ext`. HK's modules r
 ## Open gaps found (for the orchestrator / later slices)
 
 1. **`/healthz` needs the sign-in exemption.** `health.register` adds its two paths to `auth.PUBLIC_PATHS` (a module-level set) because I may not edit `auth.py`. P3.1's session middleware must keep them public. `server.py` does not call `health.register` yet (P3.7 wiring); the full-app test calls it explicitly.
-2. **HA App is a scaffold.** Ingress serves the App under `/api/hassio_ingress/<token>/`; Mantel's pages use absolute `/hk/...` and `/web/...` URLs, which break under a prefix. And the signed-in user arrives as `X-Remote-User-*` headers from `172.30.32.2`; Mantel Server accepts none yet (P3.1's trusted-proxy rule; `mantel_connect/` already has the signed-channel logic for the sidebar page). The App starts and goes healthy; sign-in through Ingress does not work yet.
+2. **HA App is a scaffold.** Ingress serves the App under `/api/hassio_ingress/<token>/`; Mantel's pages use absolute `/hk/...` and `/web/...` URLs, which break under a prefix. And the signed-in user arrives as `X-Remote-User-*` headers from `172.30.32.2`; Mantel Server accepts none yet (P3.1's trusted-proxy rule; `mantel_connect/` already has the signed-channel logic for the sidebar page). The App starts and goes healthy; sign-in through Ingress does not work yet. *(Update 2026-10-18: done — Ingress identity, the `ha` door, the prefix and the Supervisor connection: `docs/phase3/HA-APP.md`.)*
 3. **"Your files" and fixtures.** `Config.hk_files` defaults to `<repo>/spikes/...`, which is not in the image, so SF Pro/glyphs are absent in a container until the "Your files" upload lands (PLAN §4: they move to `/data`). There is no CLI option for it yet (not touched: outside the listen-address brief).
 4. **Mixed content** for Music Assistant iframe and go2rtc websockets on https (above).
 5. **Door header and Access JWT** are stamped by Caddy but unused by the server.
@@ -173,6 +173,6 @@ The Docker-in-unprivileged-LXC risk from proof 4 (AppArmor/runc on some Proxmox 
 1. Avery pins the base-image digests and runs the Docker steps above; fix whatever the first real build finds (most likely: go2rtc binary path/flag, the cloudflared flag, Debian's compose package name in `mantel-install.sh`).
 2. Orchestrator (P3.7): call `health.register(app, hub)` from `server.py`; make P3.1's session middleware keep `/healthz` and `/api/version` public; read `X-Mantel-Door` and the Access JWT for the tunnel door rules.
 3. Front end: move the 301 inline `style=` attributes and `<style>` elements to adopted sheets, add a Report-Only strict-style policy, then enforce; build module URLs relative to the build prefix to unlock hashed, immutable assets (design above).
-4. HA App: Ingress identity headers from `172.30.32.2` mapped to a Mantel user, and prefix-relative URLs; until then the App is a scaffold.
+4. ~~HA App: Ingress identity headers from `172.30.32.2` mapped to a Mantel user, and prefix-relative URLs.~~ Done: `docs/phase3/HA-APP.md`.
 5. TLS for Music Assistant and go2rtc (via Caddy) so the media iframe and talk-back sockets work on https.
 6. CI: GHCR publish, Trivy + SBOM + cosign, Renovate for the digests, `requirements.lock` with hashes.

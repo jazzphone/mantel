@@ -76,6 +76,9 @@ SCRIPT_MANAGEMENT = frozenset({"turn_on", "turn_off", "toggle", "reload"})
 # Remote (tunnel) actions that notify the Owners (PLAN §7: "an Owner notification on every remote
 # unlock/disarm"): the sensitive kinds of locks and alarm panels.
 NOTIFY_KINDS = frozenset({"lock", "alarm_control_panel"})
+# Doors that may be remote: the tunnel, and HA's sidebar through Ingress ('ha', HA App mode), which
+# may itself come through HA's own remote access (docs/phase3/HA-APP.md).
+REMOTE_DOORS = frozenset({"tunnel", "ha"})
 # The shortest audit retention window the server accepts (migration 0007's trigger refuses to delete
 # anything younger, whatever the maintenance path is told).
 MIN_RETENTION_DAYS = 30
@@ -538,7 +541,7 @@ class Gateway:
         self._finish(aid, "ok")
         log.info("%s on %s by %s (audit %d)", cmd.action, ",".join(cmd.targets), _who(principal), aid)
         await reply({"type": "command_result", "result": result, "audit_id": aid})
-        if ident.door == "tunnel" and sensitive in NOTIFY_KINDS:
+        if ident.door in REMOTE_DOORS and sensitive in NOTIFY_KINDS:
             await self.notify_owners(principal, cmd, aid)
 
     def _unavailable(self, cmd: Command) -> str | None:
@@ -572,7 +575,9 @@ class Gateway:
         notifications when commands are on (audited as the server's own action); logged otherwise."""
         who = _who(principal)
         when = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(self.clock()))
-        message = f"{who} used {cmd.action} on {', '.join(cmd.targets)} remotely (tunnel door) at {when}."
+        door = principal.identity.door if principal is not None else "tunnel"
+        how = "through Home Assistant's sidebar" if door == "ha" else "remotely (tunnel door)"
+        message = f"{who} used {cmd.action} on {', '.join(cmd.targets)} {how} at {when}."
         if self.commander is None:
             log.warning("OWNER NOTICE (not sent: commands are off): %s", message)
             return

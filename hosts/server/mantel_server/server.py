@@ -29,7 +29,7 @@ from urllib.parse import urlparse
 import aiohttp
 from aiohttp import WSMsgType, web
 
-from . import accounts, auth, devices, gateway, health, pins, proof2, rbac_store, readproxy, sessions, settings_store
+from . import accounts, auth, devices, gateway, health, ingress, pins, proof2, rbac_store, readproxy, sessions, settings_store
 from . import linked, service_accounts
 from .authz import Authz, Principal, resolve_door
 from .config import Config
@@ -230,7 +230,8 @@ async def loopback_only(request: web.Request, handler):
     if not allowed:  # container mode adds the public name (--public-url / --allow-host); loopback otherwise
         raise web.HTTPForbidden(text="bad Host")
     origin = request.headers.get("Origin")
-    if origin and urlparse(origin).netloc != request.host:
+    # through HA's Ingress (HA App mode) the browser's host may arrive as X-Forwarded-Host (ingress.py)
+    if origin and urlparse(origin).netloc != request.host and not ingress.origin_ok(request, urlparse(origin).netloc):
         raise web.HTTPForbidden(text="bad Origin")
     return await handler(request)
 
@@ -331,18 +332,20 @@ async def hk_file(request: web.Request) -> web.StreamResponse:
     cfg: Config = request.app["cfg"]
     rel = request.match_info["path"]
     # Shared modules are composed at the same /hk URLs used by the HA build.
+    # (ingress.file_response: a plain FileResponse, except through HA's Ingress, where HK's code is
+    # served for the page's prefix; see ingress.py)
     override = safe_file(cfg.hk_files, rel)
     if override:
-        return web.FileResponse(override, headers=NO_CACHE)
+        return ingress.file_response(request, override, NO_CACHE)
     shared = request.app["shared_assets"].get(rel)
     if shared:
         path = safe_file(cfg.web, shared)
         if path:
-            return web.FileResponse(path, headers=NO_CACHE)
+            return ingress.file_response(request, path, NO_CACHE)
     for base in (cfg.hk_frontend,):
         path = safe_file(base, rel)
         if path:
-            return web.FileResponse(path, headers=NO_CACHE)
+            return ingress.file_response(request, path, NO_CACHE)
     raise web.HTTPNotFound()
 
 
@@ -350,7 +353,7 @@ async def web_file(request: web.Request) -> web.StreamResponse:
     path = safe_file(request.app["cfg"].web, request.match_info["path"])
     if not path:
         raise web.HTTPNotFound()
-    return web.FileResponse(path, headers=NO_CACHE)
+    return ingress.file_response(request, path, NO_CACHE)
 
 
 async def mdi_file(request: web.Request) -> web.StreamResponse:
@@ -365,7 +368,7 @@ async def home_redirect(request: web.Request) -> web.StreamResponse:
 
 
 async def home_page(request: web.Request) -> web.StreamResponse:
-    return web.FileResponse(request.app["cfg"].web / "home.html", headers=NO_CACHE)
+    return ingress.file_response(request, request.app["cfg"].web / "home.html", NO_CACHE, page=True)
 
 
 async def api_registry(request: web.Request) -> web.Response:
@@ -390,7 +393,7 @@ async def api_hk_cards(request: web.Request) -> web.Response:
 
 def build_app(cfg: Config, token: str, store: Store | None = None, connect_ha: bool = True,
               clock=time.time) -> web.Application:
-    app = web.Application(middlewares=[loopback_only, auth.require_session])
+    app = web.Application(middlewares=[loopback_only, ingress.middleware, auth.require_session])
     hub = Hub(cfg)
     app["store"] = store or Store(cfg.data_dir / "mantel.db")
     app["oauth"] = HaOAuth(cfg.ha_url, cfg.client_id, cfg.redirect_uri)
@@ -398,7 +401,8 @@ def build_app(cfg: Config, token: str, store: Store | None = None, connect_ha: b
     app["clock"] = clock
     auth.add_routes(app)
     app.router.add_post(proof2.PATH, proof2.command)
-    hub.ha = HaClient(cfg.ha_url, token, hub.store, hub.registry, hub.on_change, hub.on_registry)
+    hub.ha = HaClient(cfg.ha_url, token, hub.store, hub.registry, hub.on_change, hub.on_registry,
+                      ws_url=cfg.ha_ws_url or None)
     app["cfg"] = cfg
     manifest = cfg.web / "shared-assets.json"
     app["shared_assets"] = json.loads(manifest.read_text()) if manifest.is_file() else {}
@@ -407,6 +411,7 @@ def build_app(cfg: Config, token: str, store: Store | None = None, connect_ha: b
     accounts.register(app, hub)
     devices.register(app, hub)
     pins.register(app, hub)
+    ingress.register(app, hub, token)                   # HA App mode only (cfg.ingress); inert otherwise
     wire(app, hub, token, connect_ha)
     app.router.add_get("/ws", ws_handler)
     app.router.add_get("/", root)
@@ -432,7 +437,7 @@ def build_app(cfg: Config, token: str, store: Store | None = None, connect_ha: b
         app["http"] = aiohttp.ClientSession()
         app["tick_task"] = asyncio.create_task(policy_tick(app, hub))
         if connect_ha:
-            hub.readproxy = ReadProxy(cfg.ha_url, token)
+            hub.readproxy = ReadProxy(cfg.ha_url, token, ws_url=cfg.ha_ws_url or None)
             app["ha_task"] = asyncio.create_task(hub.ha.run())
             app["tz_task"] = asyncio.create_task(house_tz(app, hub))
 

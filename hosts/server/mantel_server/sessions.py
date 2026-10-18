@@ -39,7 +39,12 @@ CSRF_HEADER = "X-CSRF-Token"
 ACCESS_TTL = 15 * 60
 REFRESH_REUSE_GRACE = 30.0           # a refresh token seen again this soon is a parallel request, not theft
 TOUCH_EVERY = 60.0
-DOORS = ("lan", "tunnel")
+DOORS = ("lan", "tunnel")            # the doors a session row is stored with
+# Doors a request can come by: the two above, plus 'ha' (through Home Assistant's sidebar, Ingress, HA
+# App mode only; ingress.py). An 'ha' session is stored as door 'tunnel' with method 'ingress' (the
+# stricter stored value; see docs/phase3/HA-APP.md) and only ever resolved through Ingress.
+REQUEST_DOORS = DOORS + ("ha",)
+INGRESS_METHOD = "ingress"
 SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
 LOOPBACK_HOSTS = frozenset({"127.0.0.1", "localhost", "[::1]", "::1"})
 COOKIE_QUEUE = "mantel_cookie_queue"
@@ -105,7 +110,7 @@ def door_of(request: web.Request) -> str:
     resolver = request.app.get("door_resolver")
     if resolver is not None:
         door = resolver(request)
-        return door if door in DOORS else "tunnel"
+        return door if door in REQUEST_DOORS else "tunnel"
     h = request.headers
     if any(k in h for k in ("Cf-Connecting-Ip", "Cf-Access-Jwt-Assertion", "Cf-Ray")):
         return "tunnel"
@@ -117,6 +122,8 @@ def door_of(request: web.Request) -> str:
 
 def client_ip(request: web.Request) -> str | None:
     """The socket peer, or the last X-Forwarded-For hop when the peer is a configured trusted proxy."""
+    if request.get("ingress_client_ip") is not None:   # set by ingress.py for Ingress requests only
+        return request["ingress_client_ip"]
     remote = request.remote
     cfg = request.app.get("cfg")
     trusted = tuple(getattr(cfg, "trusted_proxies", ()) or ())
@@ -137,9 +144,18 @@ def cookie_secure(request: web.Request) -> bool:
     whatever the proxy headers say. The loopback prototype is plain http on 127.0.0.1, where
     traffic never leaves the machine.
     """
+    override = request.get("cookie_secure")       # ingress.py: the browser's scheme as HA saw it
+    if override is not None:
+        return bool(override)
     host = request.host or ""
     name = host if host.endswith("]") else host.rsplit(":", 1)[0]
     return name.lower() not in LOOPBACK_HOSTS
+
+
+def cookie_path(request: web.Request | None) -> str:
+    """'/' normally; under HA Ingress the page's prefix ('/api/hassio_ingress/<token>/', ingress.py), so
+    Mantel's cookies are scoped to Mantel's own pages and never sent to the rest of HA's site."""
+    return (request.get("cookie_path") if request is not None else None) or "/"
 
 
 # -- storage --------------------------------------------------------------------------------------
@@ -275,7 +291,7 @@ class SessionManager:
 
 # -- cookies --------------------------------------------------------------------------------------
 def _cookie_opts(request: web.Request, max_age: float, httponly: bool = True) -> dict:
-    return dict(max_age=max(0, int(max_age)), httponly=httponly, samesite="Strict", path="/",
+    return dict(max_age=max(0, int(max_age)), httponly=httponly, samesite="Strict", path=cookie_path(request),
                 secure=cookie_secure(request))
 
 
@@ -287,9 +303,9 @@ def set_session_cookies(request: web.Request, resp: web.StreamResponse, issued: 
     resp.set_cookie(CSRF_COOKIE, issued.csrf, **_cookie_opts(request, issued.expires - now, httponly=False))
 
 
-def clear_session_cookies(resp: web.StreamResponse) -> None:
+def clear_session_cookies(resp: web.StreamResponse, request: web.Request | None = None) -> None:
     for name in (ACCESS_COOKIE, REFRESH_COOKIE, CSRF_COOKIE):
-        resp.del_cookie(name, path="/")
+        resp.del_cookie(name, path=cookie_path(request))
 
 
 def queue_cookie(request: web.Request, name: str, value: str | None, **opts) -> None:
@@ -353,6 +369,12 @@ def identity(request: web.Request) -> Identity:
     if cached is not None:
         return cached
     app = request.app
+    hook = app.get("ingress_identity")       # HA App mode (ingress.py): Ingress requests resolve there
+    if hook is not None:
+        got = hook(request)
+        if got is not None:
+            request["identity"] = got
+            return got
     mgr: SessionManager | None = app.get("sessions")
     door = door_of(request)
     if mgr is None:
@@ -377,6 +399,11 @@ def identity(request: web.Request) -> Identity:
         else:
             for name in (ACCESS_COOKIE, REFRESH_COOKIE, CSRF_COOKIE):
                 queue_cookie(request, name, None)
+    if row is not None and row["method"] == INGRESS_METHOD:
+        # an Ingress session is only good through Ingress (ingress.py resolves those): a copied cookie
+        # presented anywhere else is no one
+        log.warning("ignored an Ingress session presented outside Ingress (from %s)", request.remote)
+        row = None
     user = None
     if row is not None:
         user = user_from_row(row)
@@ -421,7 +448,7 @@ def end_session(request: web.Request, resp: web.StreamResponse, reason: str = "l
             sid = request["identity"].session_id
         if sid is not None:
             mgr.revoke(sid, reason, now)
-    clear_session_cookies(resp)
+    clear_session_cookies(resp, request)
 
 
 # -- REST -----------------------------------------------------------------------------------------
@@ -461,7 +488,8 @@ async def refresh(request: web.Request) -> web.Response:
     if request.get("refreshed"):
         return ok({"session_id": ident.session_id})
     mgr: SessionManager = request.app["sessions"]
-    status, value = mgr.rotate(request.cookies.get(REFRESH_COOKIE), request.app["clock"](), ident.door)
+    stored = ident.door if ident.door in DOORS else "tunnel"     # an 'ha' (Ingress) session is stored as tunnel
+    status, value = mgr.rotate(request.cookies.get(REFRESH_COOKIE), request.app["clock"](), stored)
     if status == "ok":
         resp = ok({"session_id": ident.session_id, "csrf": value[0].csrf})
         set_session_cookies(request, resp, value[0])
@@ -470,7 +498,7 @@ async def refresh(request: web.Request) -> web.Response:
         return ok({"session_id": ident.session_id})
     resp = error(401, "refresh_" + status)
     if status == "reuse":
-        clear_session_cookies(resp)
+        clear_session_cookies(resp, request)
     return resp
 
 
@@ -513,7 +541,7 @@ async def revoke_session(request: web.Request) -> web.Response:
     mgr.revoke(row["id"], "revoked_by_user")
     resp = ok()
     if row["id"] == ident.session_id:
-        clear_session_cookies(resp)
+        clear_session_cookies(resp, request)
     return resp
 
 

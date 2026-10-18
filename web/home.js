@@ -9,6 +9,8 @@
 // client through the host adapter's bridge, follows client updates and swaps views on HK's own
 // navigation. This file only connects Mantel's pieces: the hub, the host snapshot and its client,
 // the host shell, and the narrowing of the hub subscription to what the pages seen so far read.
+// first: the page's address prefix (HA App mode, Ingress; '' everywhere else) -- shim/base.js
+import { mantelUrl } from './shim/base.js';
 import './client/hk-client.js';
 import './client/hk-card-state.js';
 import './client/hk-host-shell.js';
@@ -42,7 +44,8 @@ window.hkMantelClient.useCommands(hub);
 let hostForCaps = null;
 hub.onCapabilities = () => { if (hostForCaps) hostForCaps._publish(); };
 const [registry, user, fixtures, cards] = await Promise.all([
-  json('/api/registry'), json('/api/me'), json('/api/fixtures'), json('/api/hk-cards'), hub.connect(),
+  json(mantelUrl('/api/registry')), json(mantelUrl('/api/me')), json(mantelUrl('/api/fixtures')),
+  json(mantelUrl('/api/hk-cards')), hub.connect(),
 ]);
 mark('inputs');
 

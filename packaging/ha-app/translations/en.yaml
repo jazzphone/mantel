@@ -1,0 +1,13 @@
+configuration:
+  commands_enabled:
+    name: Allow house commands
+    description: Off by default (read-only). When on, signed-in people may control the house through Mantel within their Mantel roles, with a PIN or code for locks and alarms, and every command is audited.
+  log_level:
+    name: Log level
+    description: How much Mantel writes to this App's log.
+  default_screen:
+    name: Default screen
+    description: The HK dashboard the sidebar opens (its address, for example dashboard-kitchen).
+  ha_door_rules:
+    name: Sidebar access rules
+    description: tunnel (default) treats the sidebar like remote access for cameras, locations and sensitive actions; lan treats it like the home network.

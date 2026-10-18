@@ -1,12 +1,16 @@
 // hub.js -- the page's connection to Mantel Server: the state hub (/ws) plus reads, and commands
 // when the server allows them.
 //
+// The socket's address follows the page's prefix (shim/base.js: HA App mode serves Mantel under HA's
+// Ingress path; '' everywhere else).
 // One WebSocket. Frames the page receives: snapshot / diff (states), read_result / read_event
 // (the server's filtered reads), settings_result (HK's own settings saves, `write`), error, and --
 // only on a server whose operator turned the command gateway on -- capabilities, command_result and
 // step_up_required. On a server with commands off
 // (the default) nothing the page sends can change anything: the server answers every command with
 // `commands_disabled`, never says `capabilities`, and the page offers no actions at all.
+import { wsUrl } from './base.js';
+
 export class Hub {
   constructor() {
     this.ws = null;
@@ -21,7 +25,7 @@ export class Hub {
 
   connect() {
     return new Promise((resolve, reject) => {
-      const ws = (this.ws = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws`));
+      const ws = (this.ws = new WebSocket(wsUrl('/ws')));
       ws.onopen = () => resolve();
       ws.onerror = () => reject(new Error('hub connection failed'));
       ws.onclose = () => {
