@@ -17,7 +17,7 @@ class FakeSocket {
 }
 globalThis.WebSocket = FakeSocket;
 
-const { Host, calendarPath } = await import('./mantel-host.mjs');
+const { Host, calendarPath, historyRequest } = await import('./mantel-host.mjs');
 const { Hub } = await import('./hub.mjs');
 
 const hub = new Hub();
@@ -48,6 +48,22 @@ unsub();
 const cal = host.hass.callApi('GET', 'calendars/calendar.family?start=2026-10-18T00:00:00&end=2026-10-19T00:00:00');
 reply({ type: 'read_result', id: sent[sent.length - 1].id, result: [{ summary: 'Fictional event' }] });
 out.results.calendar = await cal;
+
+// history: a detail sheet's Hour/Day chart asks HA's REST history; Mantel asks the WebSocket read and
+// gives the REST shape back
+const start = new Date(Date.UTC(2026, 9, 18, 12)).toISOString();
+const hist = host.hass.callApi('GET', 'history/period/' + encodeURIComponent(start) +
+  '?filter_entity_id=' + encodeURIComponent('sensor.office_watts') + '&minimal_response&no_attributes');
+await Promise.resolve();
+out.historySent = sent[sent.length - 1].msg;
+reply({ type: 'read_result', id: sent[sent.length - 1].id,
+        result: { 'sensor.office_watts': [{ s: '300', lu: 1792360000 }, { s: '350.5', lu: 1792360060, lc: 1792360060 }] } });
+out.results.history = await hist;
+out.historyParse = [historyRequest('GET', 'history/period/' + encodeURIComponent(start) + '?filter_entity_id=a.b,c.d&end_time=' + encodeURIComponent(start)),
+                    historyRequest('GET', 'history/period/not-a-time?filter_entity_id=a.b'),
+                    historyRequest('GET', 'history/period/' + encodeURIComponent(start) + '?filter_entity_id=Bad Id'),
+                    historyRequest('GET', 'history/period/' + encodeURIComponent(start) + '?filter_entity_id=a.b&other=1'),
+                    historyRequest('POST', 'history/period/' + encodeURIComponent(start) + '?filter_entity_id=a.b')];
 
 // music (interim): the queue is a read; queue_play stays refused below
 const q = host.hass.callWS({ type: 'hk_music/queue', entity_id: 'media_player.kitchen', limit: 40 });

@@ -72,6 +72,55 @@ export function calendarPath(method, path) {
   return path.replace(/^\/?(?:api\/)?/, '');
 }
 
+// HISTORY: a detail sheet's Hour and Day charts (hk-stats.js history()) read HA's REST history,
+// GET history/period/<start>?filter_entity_id=<ids>[&end_time=][&minimal_response][&no_attributes]. Mantel
+// has no REST history: it is asked as the WebSocket read history/history_during_period (readproxy.py, RBAC
+// `history` on each id) and the answer is given back in the REST shape ([[{entity_id, state,
+// last_changed, last_updated}, ...]], one list per id that has rows). Any other history path stays refused.
+const HISTORY_PATH = /^\/?(?:api\/)?history\/period\/([^/?]+)\?(.*)$/;
+const ENTITY_ID = /^[a-z_]+\.[a-z0-9_]+$/;
+export function historyRequest(method, path) {
+  if (String(method || '').toUpperCase() !== 'GET' || typeof path !== 'string') return null;
+  const m = HISTORY_PATH.exec(path);
+  if (!m) return null;
+  let start;
+  try { start = decodeURIComponent(m[1]); } catch (e) { return null; }
+  if (!Number.isFinite(Date.parse(start))) return null;
+  const q = new URLSearchParams(m[2]);
+  const ids = String(q.get('filter_entity_id') || '').split(',').map((s) => s.trim()).filter(Boolean);
+  if (!ids.length || ids.length > 50 || !ids.every((id) => ENTITY_ID.test(id))) return null;
+  for (const k of q.keys()) {
+    if (!['filter_entity_id', 'end_time', 'minimal_response', 'no_attributes', 'significant_changes_only'].includes(k)) return null;
+  }
+  const msg = { type: 'history/history_during_period', start_time: start, entity_ids: ids,
+                minimal_response: q.has('minimal_response'), no_attributes: q.has('no_attributes'),
+                // as HA's REST view: on unless the query says 0
+                significant_changes_only: q.get('significant_changes_only') !== '0' };
+  const end = q.get('end_time');
+  if (end !== null) {
+    if (!Number.isFinite(Date.parse(end))) return null;
+    msg.end_time = end;
+  }
+  return msg;
+}
+// the WebSocket answer ({id: [{s, a?, lu, lc?}, ...]}) in the REST shape HK reads
+export function historyAsRest(ids, res) {
+  const iso = (sec) => (typeof sec === 'number' && Number.isFinite(sec) ? new Date(sec * 1000).toISOString() : null);
+  const out = [];
+  for (const id of ids) {
+    const rows = res && Array.isArray(res[id]) ? res[id] : [];
+    if (!rows.length) continue;
+    out.push(rows.map((r) => {
+      const row = { entity_id: id, state: r.s !== undefined ? r.s : r.state,
+                    last_changed: iso(r.lc !== undefined ? r.lc : r.lu) || r.last_changed || null,
+                    last_updated: iso(r.lu) || r.last_updated || null };
+      if (r.a) row.attributes = r.a;
+      return row;
+    }));
+  }
+  return out;
+}
+
 // Mantel's refusals ("Commands are disabled") are said in HK's own toast layer once it has loaded
 // (web/hk/shell/hk-overlays.js), like every toast of HK's; this box is only the fallback before it.
 export function toast(text) {
@@ -258,6 +307,11 @@ export class Host {
   }
 
   _api(method, path) {
+    const hist = historyRequest(method, path);
+    if (hist) {
+      this._count('history/history_during_period');
+      return this.hub.read(hist).then((res) => historyAsRest(hist.entity_ids, res));
+    }
     const rel = calendarPath(method, path);
     if (rel === null) return this._refuse(`api ${method} ${path}`);
     this._count('read_api calendars');

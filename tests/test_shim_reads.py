@@ -47,6 +47,24 @@ def test_calendar_events_are_a_read_api(observed):
     assert observed["results"]["calendar"] == [{"summary": "Fictional event"}]
 
 
+def test_a_detail_sheets_hour_and_day_history_is_the_websocket_read(observed):
+    """hk-stats.js history() asks HA's REST history/period (the Hour and Day charts); on Mantel that was refused
+    ("Commands are disabled", an empty chart: the house, 2026-10-18). It is the allowed WebSocket read
+    history/history_during_period (RBAC `history` per id on the server), answered in the REST shape."""
+    assert observed["historySent"] == {
+        "type": "history/history_during_period", "start_time": "2026-10-18T12:00:00.000Z",
+        "entity_ids": ["sensor.office_watts"], "minimal_response": True, "no_attributes": True,
+        "significant_changes_only": True}
+    assert observed["results"]["history"] == [[
+        {"entity_id": "sensor.office_watts", "state": "300", "last_changed": "2026-10-18T21:46:40.000Z",
+         "last_updated": "2026-10-18T21:46:40.000Z"},
+        {"entity_id": "sensor.office_watts", "state": "350.5", "last_changed": "2026-10-18T21:47:40.000Z",
+         "last_updated": "2026-10-18T21:47:40.000Z"}]]
+    two, bad_time, bad_id, extra, post = observed["historyParse"]
+    assert two["entity_ids"] == ["a.b", "c.d"] and two["end_time"] == "2026-10-18T12:00:00.000Z"
+    assert bad_time is None and bad_id is None and extra is None and post is None
+
+
 def test_the_music_queue_is_a_read(observed):
     frames = [m for m in observed["sent"] if m["type"] == "read" and m["msg"]["type"].startswith("hk_music/")]
     assert [f["msg"] for f in frames] == [{"type": "hk_music/queue", "entity_id": "media_player.kitchen", "limit": 40}]
