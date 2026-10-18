@@ -64,6 +64,15 @@ for (const p of [host.hass.callApi('GET', 'history/period/x'), host.hass.callApi
 out.sentAfterRefusals = sent.length - before;
 out.calendarPath = [calendarPath('GET', '/api/calendars/calendar.x?start=a&end=b'), calendarPath('GET', 'calendars/calendar.x/../y?a'),
                     calendarPath('GET', 'states'), calendarPath('PUT', 'calendars/calendar.x?start=a')];
+// self-healing narrowing: a read of an id the (narrowed) states lack is reported once per read, never while
+// recording, never for a present id or a non-entity key
+const misses = [];
+host.onMiss = (id) => misses.push(id);
+host.applySnapshot({ 'light.kitchen': { s: 'on', a: {}, lc: 1, lu: 1 } });
+const st = host.hass.states;
+void st['light.kitchen']; void st['vacuum.downstairs']; void st['toJSON'];
+host.recording = true; void st['vacuum.upstairs']; host.recording = false;
+out.misses = misses;
 out.sent = sent;
 console.log(JSON.stringify(out));
 process.exit(0);

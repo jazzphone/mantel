@@ -65,3 +65,8 @@ def test_the_shared_frontend_is_untouched_by_this():
     cams = (ROOT / "web/hk/cards/hk-cameras.js").read_text()
     assert "/api/camera/" not in cams and "read_api" not in cams and "readSubscribe" not in cams
     assert "read_api" not in (ROOT / "web/hk/cards/hk-calendar.js").read_text()
+
+
+def test_a_read_the_narrowed_states_lack_is_reported(observed):
+    # home.js asks the hub again for it (web/home.js host.onMiss), so a late read is never left "unknown"
+    assert observed["misses"] == ["vacuum.downstairs"]

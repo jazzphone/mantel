@@ -66,8 +66,10 @@ window.__mantel = host;
 
 // every snapshot (the first, and each after a change of subscription) settles whoever waits for one
 let snapshotWaiters = [];
+let narrowed = false;                  // (narrowing: below) declared here, read by every snapshot
+const houseIds = new Set();            // every entity id of the house, from each whole-house snapshot
 const nextSnapshot = () => new Promise((res) => snapshotWaiters.push(res));
-hub.onSnapshot = (m) => { host.applySnapshot(m.entities); const w = snapshotWaiters; snapshotWaiters = []; w.forEach((f) => f()); };
+hub.onSnapshot = (m) => { if (!narrowed) for (const id of Object.keys(m.entities || {})) houseIds.add(id); host.applySnapshot(m.entities); const w = snapshotWaiters; snapshotWaiters = []; w.forEach((f) => f()); };
 const first = nextSnapshot();
 hub.onDiff = (m) => host.applyDiff(m);
 hub.subscribe([], [], true);
@@ -93,8 +95,18 @@ mark('strategy');
 // not seen yet widens the subscription again first, so it is drawn with the whole house.
 const narrowing = new URLSearchParams(location.search).get('narrow') !== '0';
 const needed = new Set();
-let narrowed = false;
 let narrowTimer = 0;
+// SELF-HEALING: every entity id the house has (from each whole-house snapshot). A card that reads one
+// after the page narrowed -- a timer, a later render, a path the recorded pass missed -- adds it, and the
+// hub is asked again (batched), so the card never stays "unknown" (seen on the Vacuums page, 2026-10-18).
+let missTimer = 0;
+host.onMiss = (id) => {
+  if (!narrowed || needed.has(id) || !houseIds.has(id)) return;
+  needed.add(id);
+  window.__mantelNarrow = needed.size;
+  clearTimeout(missTimer);
+  missTimer = setTimeout(() => { if (narrowed) hub.subscribe([...needed], [], false); }, 150);
+};
 async function widen() {
   if (!narrowed) return;
   narrowed = false;

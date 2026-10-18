@@ -83,6 +83,9 @@ export class Host {
     this.calls = new Map();                 // message type -> times asked (the measured surface)
     this.reads = new Set();                 // entity ids read through hass.states after the build
     this.recording = false;
+    // a read of an id the current (narrowed) subscription does not carry: home.js asks the hub for it
+    // (onMiss), so a card that reads something later than the recorded pass still gets its state
+    this.onMiss = null;
     this._states = {};
     // Mantel's own screens (see "SCREENS" below): states HK reads as it reads a tablet's switches in HA
     this._overlay = {};                     // entity id -> state object
@@ -158,7 +161,13 @@ export class Host {
     const self = this;
     // while recording, reading a state by id notes the id (what a screen really needs from the hub)
     this._raw.states = new Proxy(this._merged, {
-      get(t, k) { if (self.recording && typeof k === 'string') self.reads.add(k); return t[k]; },
+      get(t, k) {
+        if (typeof k === 'string') {
+          if (self.recording) self.reads.add(k);
+          else if (self.onMiss && !(k in t) && k.indexOf('.') > 0) self.onMiss(k);
+        }
+        return t[k];
+      },
     });
     this.hass = this.trace ? this._traced(this._raw, '') : this._raw;
     window.hkMantelClient.setCurrent(this.hass);
