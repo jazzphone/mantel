@@ -275,12 +275,13 @@ description() {
 
 Next steps (details: docs/phase3/PACKAGING.md):
   1. pct enter ${var_ctid}
-  2. mantel-secret ha_token            # paste the token of the dedicated HA user "mantel-server"
+  2. edit ${INSTALL_DIR}/packaging/compose/.env (hostname, HTTPS) if the guess was wrong
      $([ "$var_tls" = dns01 ] && echo "mantel-secret cloudflare_dns_token   # Zone / DNS / Edit, for that one zone")$([ "$var_tunnel" = yes ] && echo "
      mantel-secret cloudflared_token")
      then:  cd ${INSTALL_DIR}/packaging/compose && docker compose up -d --wait
-  3. edit ${INSTALL_DIR}/packaging/compose/.env (hostname, HA address) if the guess was wrong
-  4. $([ "$var_tls" = own ] && echo "point your proxy at http://${ip:-the container}:8765 (docs/OPERATIONS.md: the NPM block), then open https://${var_domain}/proxy-check as the Owner" || echo "point ${var_domain} at ${ip:-the container} in your LAN DNS, open https://${var_domain}/")
+  3. docker compose exec mantel-server mantel bootstrap     # a one-time setup code for the first Owner
+  4. $([ "$var_tls" = own ] && echo "point your proxy at http://${ip:-the container}:8765 (docs/OPERATIONS.md: the NPM block), open https://${var_domain}/login" || echo "point ${var_domain} at ${ip:-the container} in your LAN DNS, open https://${var_domain}/login") ("First start"), then
+     /admin -> Connections -> "Connect to Home Assistant" (no token file to handle)$([ "$var_tls" = own ] && echo "; and /proxy-check")
 Remove it any time:  pct stop ${var_ctid} && pct destroy ${var_ctid} --purge
 EOF
 }

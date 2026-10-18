@@ -1,17 +1,37 @@
 # go2rtc for Mantel's Live TV (and later camera) streams. Mounted read-only at /config/go2rtc.yaml.
-# Mantel Server adds and removes channel streams at run time through the API below (PUT/DELETE
-# /api/streams), e.g. an ffmpeg source for an HDHomeRun channel with #video=h264#hardware, which
-# go2rtc runs as ffmpeg with VAAPI/QuickSync when /dev/dri is present (compose.gpu.yaml), or on the
-# CPU otherwise. Nothing is declared statically, so a fresh install streams nothing.
+#
+# Mantel Server adds and removes one stream per channel being watched, at run time, through the API
+# below (PATCH /api/streams: in memory only, never written back to this read-only file; DELETE when
+# nobody watches). Each is an ffmpeg source naming the HDHomeRun channel and the two templates
+# below, e.g.
+#   ffmpeg:http://<tuner>:5004/auto/v4.1#input=mantel_tv_in#video=mantel_tv_720#audio=opus
+# and the _vaapi pair when MANTEL_LIVE_TV_HARDWARE=vaapi (compose.gpu.yaml sets it with /dev/dri).
+# go2rtc starts ffmpeg when the first screen connects and stops it a few seconds after the last one
+# leaves, so viewers of one channel share one tuner. Nothing is declared statically: a fresh install
+# streams nothing. (go2rtc 1.9 refuses exec: sources from its API; the ffmpeg: source with these
+# templates is what Mantel uses. docs/phase4/FEATURE-PARITY.md "Live TV served by Mantel".)
 api:
-  listen: ":1984"          # internal network only: compose publishes no port for it. go2rtc's API has no login.
+  listen: ":1984"          # backend network only: compose publishes no port for it. go2rtc's API has no login.
   origin: ""               # no cross-origin callers
 rtsp:
-  listen: ""               # off
+  # go2rtc's ffmpeg: source pushes ffmpeg's output into go2rtc's own RTSP server, so the module must
+  # run; it listens on the container's loopback only (nothing outside the container can reach it).
+  listen: "127.0.0.1:8554"
 webrtc:
   listen: ":8555"          # published tcp+udp by compose.yaml so tablets reach it directly
   candidates:
     - ${MANTEL_LAN_IP}:8555
+ffmpeg:
+  # The HDHomeRun sends MPEG-2 video (broadcast HD is 1080i) and AC-3 audio, which no browser plays.
+  # Fast start, as HA's own Live TV transcode does: probe a second, not five; a key frame every second.
+  mantel_tv_in: "-probesize 1500000 -analyzeduration 1000000 -fflags +genpts+discardcorrupt -i {input}"
+  mantel_tv_720: "-vf yadif=0:-1:0,scale=-2:720 -c:v libx264 -preset veryfast -tune zerolatency -profile:v high -level:v 4.1 -pix_fmt yuv420p -b:v 3000k -maxrate 3500k -bufsize 3000k -g 30 -keyint_min 30 -bf 0"
+  mantel_tv_1080: "-vf yadif=0:-1:0 -c:v libx264 -preset veryfast -tune zerolatency -profile:v high -level:v 4.1 -pix_fmt yuv420p -b:v 6000k -maxrate 7000k -bufsize 6000k -g 30 -keyint_min 30 -bf 0"
+  # QuickSync (VAAPI), the pipeline Proof 4 measured at 0.14 of a core: decode, deinterlace, scale and
+  # encode all on the iGPU. Needs /dev/dri (compose.gpu.yaml).
+  mantel_tv_in_vaapi: "-vaapi_device /dev/dri/renderD128 -hwaccel vaapi -hwaccel_output_format vaapi -probesize 1500000 -analyzeduration 1000000 -fflags +genpts+discardcorrupt -i {input}"
+  mantel_tv_720_vaapi: "-vf deinterlace_vaapi,scale_vaapi=w=1280:h=720 -c:v h264_vaapi -profile:v high -level:v 4.1 -b:v 3000k -maxrate 3500k -bufsize 3000k -g 30 -keyint_min 30 -bf 0"
+  mantel_tv_1080_vaapi: "-vf deinterlace_vaapi -c:v h264_vaapi -profile:v high -level:v 4.1 -b:v 6000k -maxrate 7000k -bufsize 6000k -g 30 -keyint_min 30 -bf 0"
 streams: {}
 log:
   level: info

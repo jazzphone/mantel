@@ -66,7 +66,7 @@ async def test_the_feature_import_brings_each_added_feature_over():
         "an item keeps its stored fields only (no page decorations, no id-less item)"
     tv = got["live_tv"]
     assert tv == {"enabled": False, "tuner": "192.0.2.40", "guide_url": "http://192.0.2.41/xmltv.xml",
-                  "channels": ["4.1"], "names": {"4.1": "NBC"}}, "Mantel's own guide fetch stays off"
+                  "channels": ["4.1"], "names": {"4.1": "NBC"}, "quality": "720"}, "Mantel's own guide fetch stays off"
     assert got["linked"] == F.DEFAULTS["linked"] and got["sleep"] == F.DEFAULTS["sleep"]
     assert F.check_settings(got) == got
 
@@ -416,7 +416,8 @@ async def test_the_feature_import_again_is_owner_only_and_keeps_linked(make_env)
     r = await env.m.client.post("/api/features/import", headers=env.m.headers())
     body = await r.json()
     assert r.status == 200 and body["added"] == ["music", "live_tv", "clean_areas"]
-    assert proxy.asked == ["hk_frontend/panel/get", "hk_clean_areas/settings/get", "hk_tv/settings/get"]
+    assert proxy.asked == ["hk_frontend/panel/get", "hk_clean_areas/settings/get", "hk_tv/settings/get",
+                           "hk_music/settings/get"]          # Music: music.py's import (house/music)
     assert env.host.settings["linked"]["entry_id"] == "abc123"
     assert env.host.settings["clean_areas"]["options"]["areas"] == ["kitchen"]
     assert (await next_feed(ws))["added"] == ["music", "live_tv", "clean_areas"]

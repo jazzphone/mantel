@@ -240,6 +240,12 @@ class HaDirectory:
         self._cache: tuple[float, list[dict]] | None = None
         self._lock = asyncio.Lock()
 
+    def retarget(self, ws_url: str, token: str | None) -> None:
+        """New address/credential (connections.py): the next read uses them; the cached list is dropped."""
+        self.ws_url = ws_url
+        self._token = token
+        self._cache = None
+
     async def users(self) -> list[dict]:
         async with self._lock:
             if self._cache is not None and time.monotonic() - self._cache[0] < self.ttl:

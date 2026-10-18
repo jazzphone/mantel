@@ -88,9 +88,12 @@ services:
     mem_limit: 1g
     cpus: 2.0
     pids_limit: 256
-    # Settings are plain variables (nothing secret); the HA token is a file under /run/secrets.
+    # Settings are plain variables (nothing secret). HA/MA tokens are set on the admin page (Connections) and
+    # sealed on the data volume; an installation's token files under /run/secrets still work.
     environment:
-      MANTEL_HA_URL: ${MANTEL_HA_URL:?set MANTEL_HA_URL in .env}
+      # optional: Home Assistant is normally set up on the admin page (/admin, Connections) after the
+      # first start; an address here plus the ha_token file is shown there as "set by the installation"
+      MANTEL_HA_URL: ${MANTEL_HA_URL:-}
       MANTEL_PUBLIC_URL: https://${MANTEL_HOSTNAME:?set MANTEL_HOSTNAME in .env}/
       MANTEL_ALLOW_HOSTS: ${MANTEL_ALLOW_HOSTS:-}
       MANTEL_HA_TOKEN_FILE: /run/secrets/ha_token
@@ -102,10 +105,12 @@ services:
       MANTEL_TRUSTED_PROXY: 172.31.251.2
       MANTEL_BACKUP_TARGET: ${MANTEL_BACKUP_TARGET:-}
       MANTEL_MA_URL: ${MANTEL_MA_URL:-}
-      # Music Assistant's web app (default: the host of MANTEL_MA_URL) and go2rtc, served to pages under
-      # Mantel's own /ma/ and /go2rtc/ (viewing paths only, behind sign-in), so they work on https
+      # Live TV served by Mantel (docs/phase4/FEATURE-PARITY.md): the stack's own go2rtc, on the backend
+      # network (no login; never given to a page). Mantel sets each channel up there when a screen tunes in.
+      # Its viewing paths are also served to pages under Mantel's own /go2rtc/ (behind sign-in).
+      MANTEL_GO2RTC_URL: http://go2rtc:1984
+      # Music Assistant's web app (default: the host of the MA address), framed by HK through Mantel's /ma/
       MANTEL_MA_WEB_URL: ${MANTEL_MA_WEB_URL:-}
-      MANTEL_GO2RTC_URL: ${MANTEL_GO2RTC_URL:-http://go2rtc:1984}
       # Mantel sets its own CSP/HSTS (security_headers.py): extra origins for HK's pages, and who may frame them
       MANTEL_CONNECT_SRC: ${MANTEL_CONNECT_SRC:-}
       MANTEL_FRAME_SRC: ${MANTEL_FRAME_SRC:-}

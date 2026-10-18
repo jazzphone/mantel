@@ -138,6 +138,9 @@ class Command:
     targets: list[str] = field(default_factory=list)
     upload: tuple[str, str, bytes] | None = None  # (path, bare content type, bytes): the talk-back clip only
     live: str | None = None                 # live talk: the speaker a /ws/talk ticket is issued for
+    # MUSIC (music.py): one of HK's music actions or writes, {"op", "args", "return_response"}. Run by
+    # Mantel's music engine (Music Assistant directly) when it is on; otherwise `frame` goes to HA as before.
+    music: dict | None = None
     alarm: tuple[str, str] | None = None    # an alarm keypad command: (service, the panel it names)
     code: str | None = field(default=None, repr=False)  # the keypad's code: checked by Mantel, never sent
 
@@ -294,7 +297,12 @@ def classify(msg: dict, writes: frozenset[str]) -> Command:
         raise Refused("invalid_command", f"a {kind} command carries {sorted(KEYS[kind])} only")
     if kind == "talk_live":
         return talk_live_command(msg)
+    from . import music      # HK's music actions and writes (hk_frontend.music_*, hk_music/*): music.py's checks
     if kind == "service":
+        got = music.classify_service(msg.get("domain"), msg.get("service"), msg.get("data"), msg.get("target"),
+                                     msg.get("return_response", False))
+        if got is not None:
+            return got
         return service_command(msg.get("domain"), msg.get("service"), msg.get("data"), msg.get("target"),
                                msg.get("return_response", False))
     if kind == "ws":
@@ -310,8 +318,15 @@ def classify(msg: dict, writes: frozenset[str]) -> Command:
             extra = set(inner) - {"type", "id", "domain", "service", "service_data", "target", "return_response"}
             if extra:
                 raise Refused("invalid_command", f"call_service may not carry {sorted(extra)}")
+            got = music.classify_service(inner.get("domain"), inner.get("service"), inner.get("service_data"),
+                                         inner.get("target"), inner.get("return_response", False))
+            if got is not None:
+                return got
             return service_command(inner.get("domain"), inner.get("service"), inner.get("service_data"),
                                    inner.get("target"), inner.get("return_response", False))
+        got = music.classify_ws(inner)
+        if got is not None:
+            return got
         action, on = ws_rule(t)
         what, name = on.split(":", 1)
         if what == "entity":
@@ -501,6 +516,11 @@ class Gateway:
     # The Music Assistant command gate (connectors.Hooks.ma_gate): an MA command is allowed only
     # with the one-shot ticket this gateway minted for exactly that principal, command and args.
     def allow(self, identity: Any, command: str, args: dict) -> bool:
+        from .music import MusicRun
+        if isinstance(identity, MusicRun):
+            # one music request's steps (music.py): minted in _forward below after RBAC and the audit
+            # row, open only while that request runs, for its own commands on the house's speakers only
+            return identity.allow(command, args) is True
         queue = self._ma_tickets.get(id(identity)) or []
         key = json.dumps(args, sort_keys=True, default=str)
         for i, (c, a, ticket) in enumerate(queue):
@@ -617,6 +637,9 @@ class Gateway:
             # an alarm Mantel guards no keypad for, and no code: the ordinary path below
 
         subject = principal.subject
+        engine = self._music_engine(cmd)
+        if engine is not None:
+            cmd = engine.expand(cmd)        # Stop All: every room; a preset's group: its rooms
         ctx = self.authz.context()
         decisions = [(c, (self.authz.decide_talk if c.talk else self.authz.decide)(
                           subject, c.action, c.entity_id, feature=c.feature, ctx=ctx)) for c in cmd.checks]
@@ -663,6 +686,14 @@ class Gateway:
         trusted = authz is not None and hasattr(authz, "ha_trusted") and authz.ha_trusted(ident)
         if ident.door in REMOTE_DOORS and sensitive in NOTIFY_KINDS and not trusted:
             await self.notify_owners(principal, cmd, aid)
+
+    def _music_engine(self, cmd: Command) -> Any:
+        """Mantel's music engine when it runs this command (music.py: on once Music Assistant and the
+        music settings are in Mantel); None sends a music command to Home Assistant's engine as before."""
+        if cmd.music is None:
+            return None
+        engine = self.app.get("music")
+        return engine if engine is not None and engine.active else None
 
     async def _alarm(self, principal: Principal, cmd: Command, keypad: Any, reply, fail) -> None:
         """THE ALARM KEYPAD (alarm_pin.py; GATEWAY.md "The alarm"). HK's Alarm PIN, decided by Mantel:
@@ -757,6 +788,8 @@ class Gateway:
     def _unavailable(self, cmd: Command) -> str | None:
         if cmd.live is not None and (self.commander is None or self.app.get("talk") is None):
             return "commands_disabled"
+        if self._music_engine(cmd) is not None:
+            return None
         if cmd.kind == "ma":
             return None if self.app.get("ma") is not None else "music_assistant_off"
         return None if self.commander is not None else "commands_disabled"
@@ -770,6 +803,9 @@ class Gateway:
     async def _forward(self, principal: Principal, cmd: Command, aid: int) -> Any:
         if cmd.live is not None:
             return self.app["talk"].issue(principal, cmd.live, aid)
+        engine = self._music_engine(cmd)
+        if engine is not None:
+            return await engine.run(principal, cmd.music, aid)
         if cmd.kind in ("service", "ws"):
             return await self.commander.call(dict(cmd.frame or {}), CommandTicket(aid, "ws"))  # type: ignore[union-attr]
         if cmd.upload is not None:

@@ -74,6 +74,55 @@ A person at a wall tablet (user + device) always gets just Me. Unknown or hidden
   person to sign in again.
 * *Sign out*: `POST /api/session/logout`.
 
+**Connections** (Owner/Admin may look; only an Owner changes; added 2026-10-18, `connections.py`). How Mantel
+reaches Home Assistant and Music Assistant, so nobody handles token files. The section is second in the bar and
+**the page opens on it while Home Assistant is not set up** (`ha_set_up: false` in the overview: the first run).
+
+* *Status*, per connection (`GET /api/connections`): where it comes from (**Saved in Mantel**, **Set by the
+  installation**, **Provided by Home Assistant (App)**, or not set up), the address, "connected as
+  `<HA/MA user>` (administrator), since …", how (HA sign-in, pasted token, MA sign-in) and by whom, the live state
+  (connected, version, entity count, or the last error in words) and, for MA tokens, when they expire. A token is
+  **never** shown again: no answer from the server contains one.
+* *Home Assistant*: the address, then either **Connect to Home Assistant** (HA's own sign-in page; sign in there
+  **as the user Mantel should act as**, a dedicated administrator such as `mantel-server`, not yourself; back on
+  the page Mantel shows who it would act as, HA's version and the entity count, and **Save this connection**
+  makes a long-lived token for that user, named `Mantel Server (<date>)`, and revokes the short sign-in), or
+  **paste a long-lived token** (Test, Save). A non-administrator is accepted with a warning (importing HK's
+  settings and listing HA's users need an administrator).
+* *Music Assistant*: the address, then a Music Assistant **user name and password** (MA 2.7+: used once for
+  `auth/login` and `auth/token/create`, kept nowhere) or a pasted token (Test, Save). MA's tokens last a year.
+* **Test** runs the live check and saves nothing; **Save** tests again and saves only if it passes. Errors are
+  plain words: the address is malformed, nothing answers there, something answers but is not HA/MA, the token
+  was refused, the certificate does not match, it timed out.
+* **Replace** opens the same form. **Disconnect** removes *Mantel's* saved copy (confirm first): Mantel then goes
+  back to the installation's file if there is one, or HA/MA is not set up. A connection that comes only from the
+  installation's file cannot be disconnected here (`409 set_by_installation`, with the file named).
+* **Who**: Owner on the home network; on the tunnel door a fresh factor (the usual "Confirm it is you" step-up);
+  through HA's sidebar HA's sign-in counts when the sidebar is trusted (`ha_door_rules: trusted`). Admins see the
+  status read-only. Every change writes an audit row first (`config`, `connection.ha.saved` / `…disconnected`,
+  with the address and the HA/MA user, never the token); no audit, no change.
+* **HA App mode**: the Home Assistant panel reads "Provided by Home Assistant (App)" and has no form (the server
+  refuses changes with `409 provided_by_app`); Music Assistant is editable.
+* **Takes effect at once**: no restart. Mantel's HA objects are retargeted in place and reconnect; pages open on
+  tablets keep their socket to Mantel and simply receive the new states. MA's connector is built, moved or
+  removed the same way.
+
+REST: `GET /api/connections`; `POST /api/connections/{ha|ma}/test` and `POST /api/connections/{ha|ma}`
+(`{url, token}`, or for MA `{url, username, password}`, or for HA `{pending}`); `DELETE /api/connections/{ha|ma}`;
+`POST /api/connections/ha/oauth/start {url}` → `{authorize_url, pending}`; HA returns the browser to the public
+`GET /auth/connection/callback` (no session cookie travels on that hop: the one-time `state` names the pending
+sign-in an Owner started; nothing is saved there) which sends it on to `/admin?connection=<id>#connections`;
+`GET`/`DELETE /api/connections/pending/{id}` (only the Owner who started it). Pending sign-ins live ten minutes in
+server memory; their refresh token is revoked when cancelled, expired or saved.
+
+**Where the token lives.** `<data-dir>/connections/{ha,ma}.connection`: folder 0700, files 0600, AES-GCM sealed
+with the at-rest key (associated data `connection:<kind>`), in every encrypted backup (`connections/` tree) and
+put back by a restore. Inside the container stacks that is `/data/connections` on the data volume, because the
+installation's `/run/secrets` is a read-only mount. **Precedence: Mantel's saved copy wins over the
+installation's file** (`--token-file` with `--ha-url`, `--ma-token-file` with `--ma-url`; an empty file counts as
+none), so "Replace" on an installed connection simply writes Mantel's copy; removing that copy goes back to the
+file. If the at-rest key changes, a saved copy cannot be opened: the page says so and the server runs on.
+
 **People** (Owner/Admin): `GET /api/users`; create a Mantel account `POST /api/users` (an Admin cannot offer
 Owner); change a role or disable/enable `PATCH /api/users/{id}` (the server refuses to remove the last Owner;
 an Admin cannot touch an Owner, so those rows have no controls; you cannot disable yourself here); clear
@@ -138,6 +187,18 @@ asserts no sideways page scroll in any section at 390 px.
   `admin-me.png`, `admin-stepup.png`, `admin-people.png`, `admin-roles.png`, `admin-service.png`,
   `admin-devices.png`, `admin-audit.png`, `admin-me-adult.png`; desktop width: `admin-people-desktop.png`,
   `admin-audit-desktop.png`.
+
+* Connections (2026-10-18): `tests/test_connections.py` (23: first run, RBAC per role, the tunnel's fresh factor,
+  the `ha` door rule, plain errors, save → sealed 0600 file + hot reconnect + audit without the token, replace to
+  another HA with an open page that only sees new states, the installation's file shown/overridden/restored,
+  disconnect, a restart keeps the saved copy, a damaged file is reported, App mode read-only, the OAuth flow
+  against a fake HA auth endpoint (long-lived token made, refresh token revoked, another Owner cannot use it,
+  cancel/expiry/refusal), MA token save/replace/disconnect with a live connector, MA sign-in (password kept
+  nowhere), backup/restore of the sealed files, the login page's first-start form in node).
+  `tools/headless/admin_page_check.py` now opens `/admin` on first run, lands on Connections, tests a wrong and a
+  right token against a fictional HA, saves (token not in the DOM or any input afterwards), and saves a
+  pending "Connect to Home Assistant" sign-in. `tools/e2e/compose_e2e.py` sets HA up through the page against the
+  scratch HA (HA's real login flow).
 
 ## Wiring (orchestrator, `server.py`)
 

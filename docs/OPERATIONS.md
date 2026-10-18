@@ -12,7 +12,7 @@ Contents: [1](#1-the-parts-and-the-two-doors) parts and doors · [2](#2-running-
 |---|---|
 | **Mantel Server** (`hosts/server/mantel_server`) | One Python service. The only thing that holds the Home Assistant and Music Assistant credentials. Owns people, roles, devices, settings and the audit log in one SQLite file. Serves the HK web app. |
 | **Caddy** | TLS in the container stacks (or your own reverse proxy instead: section 2, "HTTPS"). It stamps `X-Mantel-Door: lan` or `tunnel` on every request. Mantel Server sets its own CSP, HSTS and the other security headers. |
-| **go2rtc / transcode** | Live TV and cameras (compose stack only). Its viewing paths reach pages only through Mantel's `/go2rtc/` (sign-in, RBAC). |
+| **go2rtc / transcode** | Live TV served by Mantel (compose stack only: Mantel sets each channel up there on demand; section 7a). Cameras still use HA's own go2rtc. Its viewing paths reach pages only through Mantel's `/go2rtc/` (sign-in, RBAC). |
 | **`hk_frontend`** (in HA) | Today's HK Frontend, unchanged, or in *linked mode* the thin piece that forwards `hk_frontend.*` actions to Mantel. |
 | **Mantel Connect** | A small HA App that puts a Mantel running outside HA (Docker, an LXC) in HA's sidebar and the Companion app. Paired once with a one-time code (section 4a); not needed when Mantel runs as the Mantel App. |
 
@@ -27,14 +27,14 @@ Every request arrives by a **door**. `lan` is the house network, served straight
 ~/.venvs/mantel/bin/mantel-server --ha-url http://192.0.2.53:8123 --commands-enabled   # do not, see section 8
 ```
 
-It reads Home Assistant's token from `~/.config/mantel/ha_token` and stops with a message if the file is missing. The startup line says what mode it is in: `read-only; commands disabled`, or `COMMANDS ENABLED (...)`. Open `/login` (passkey, user name + password with the authenticator code when one is set up, or "Sign in with Home Assistant"; see [phase3/LOGIN-PAGE.md](phase3/LOGIN-PAGE.md)); it then goes on to `/home` (the default screen), or back to the page that sent you there.
+It reads Home Assistant's token from `~/.config/mantel/ha_token` if that file exists. Without it the server starts anyway, not connected, and says where to fix that: sign in as the Owner and open `/admin` → **Connections** (section 2a). A connection saved there wins over the file. The startup line says what mode it is in: `read-only; commands disabled`, or `COMMANDS ENABLED (...)`. Open `/login` (passkey, user name + password with the authenticator code when one is set up, or "Sign in with Home Assistant"; see [phase3/LOGIN-PAGE.md](phase3/LOGIN-PAGE.md)); it then goes on to `/home` (the default screen), or back to the page that sent you there.
 
 ### Flags
 
 | Flag | Default | Meaning |
 |---|---|---|
 | `--ha-url` | `http://192.0.2.53:8123` | Home Assistant's address. |
-| `--token-file` | `~/.config/mantel/ha_token` | Mantel's HA token, read at startup and never printed. The HA user must be an administrator (HK Settings' read needs one, and the command path uses it). |
+| `--token-file` | `~/.config/mantel/ha_token` | Optional: the installation's HA token, read at startup and never printed; shown on the Connections page as "set by the installation". The HA user should be an administrator (HK Settings' read needs one, and the command path uses it). Normally HA is set up on the page instead (section 2a). |
 | `--port` | `8765` | Listening port. |
 | `--listen ADDRESS` | loopback only | Container mode. Needs `--public-url`. Without `--listen` the server binds `127.0.0.1` and nothing else is possible. |
 | `--public-url URL` | none | The `https://` address browsers use (through Caddy). It becomes HA's OAuth `client_id`, so "Sign in with Home Assistant" works behind Caddy. |
@@ -48,6 +48,8 @@ It reads Home Assistant's token from `~/.config/mantel/ha_token` and stops with 
 | `--connect-port`, `--connect-listen`, `--connect-address` | `8766`, `0.0.0.0`, none | The listener's port and address; the address `/admin` shows the Owner to type into the App. |
 | `--data-dir` | `~/.local/share/mantel` | Where `mantel.db` lives. |
 | `--secrets-dir` | `~/.config/mantel/secrets` | Folder of secret files (the at-rest key). |
+| `--ma-url`, `--ma-token-file` | none, `/run/secrets/ma_token` | Optional: Music Assistant from the installation. Normally set up on the Connections page. |
+| `--ha-managed-by-app` | off | HA App mode only (the entrypoint sets it): HA is the App's own credential, read-only on the Connections page. |
 | `--commands-enabled` | off | Turns the command gateway on. See section 8. |
 | `--house-tz` | `UTC` | Time zone for grant schedules when HA does not say. HA's own zone is used once read. |
 | `--audit-retention-days` | `365` | Audit rows older than this are purged hourly. Must be at least 30. |
@@ -55,6 +57,8 @@ It reads Home Assistant's token from `~/.config/mantel/ha_token` and stops with 
 | `--rp-id` | `localhost` | Passkey relying-party id: a **hostname**, never an IP. Set it to the real name before anyone registers a passkey. |
 | `--screen` | `dashboard-kitchen` | The screen `/home` opens. |
 | `--default-interval`, `--override GLOB=SECONDS` | 0 | Coalescing of fast sensors (for example `'sensor.*_distance=1'`). |
+| `--go2rtc-url URL` | none | Live TV served by Mantel through its own go2rtc's API (`http://go2rtc:1984` in the stack). Without it, HA's Live TV stays the interim (section 7a). |
+| `--live-tv-hardware` | `none` | `vaapi`: Live TV's transcode on QuickSync (go2rtc needs `/dev/dri`: `compose.gpu.yaml`). |
 
 ### In the container stacks (Docker, LXC)
 
@@ -62,13 +66,15 @@ The entrypoint turns `MANTEL_*` variables from `packaging/compose/.env` into tho
 
 | Variable | Becomes | Notes |
 |---|---|---|
-| `MANTEL_HA_URL`, `MANTEL_PUBLIC_URL` | `--ha-url`, `--public-url` | Required. |
+| `MANTEL_PUBLIC_URL` | `--public-url` | Required. |
+| `MANTEL_HA_URL`, `MANTEL_MA_URL` | `--ha-url`, `--ma-url` | Optional: normally Home Assistant and Music Assistant are set up on the admin page (section 2a). With an address here and a non-empty `ha_token` / `ma_token` file the page shows them as "set by the installation". |
 | `MANTEL_ALLOW_HOSTS` | `--allow-host` | Comma list, for example the LAN IP. |
 | `MANTEL_TRUSTED_PROXY` | `--trusted-proxy` | Compose sets Caddy's fixed backend address `172.31.251.2`. Must be IP addresses. |
 | `MANTEL_DEFAULT_SCREEN`, `MANTEL_SESSION_HOURS` | `--screen`, `--session-hours` | Optional. |
 | `MANTEL_DATA_DIR`, `MANTEL_PORT`, `MANTEL_LISTEN`, `MANTEL_HA_TOKEN_FILE` | | Defaults `/data`, `8765`, `0.0.0.0`, `/run/secrets/ha_token`. |
 | `MANTEL_CONNECT`, `MANTEL_CONNECT_ADDRESS`, `MANTEL_HA_DOOR_RULES` | `--connect`, `--connect-address`, `--ha-door-rules` | Mantel Connect (section 4a). `compose.connect.yaml` sets the first; the rules default to `trusted`. |
-| `MANTEL_MA_WEB_URL`, `MANTEL_GO2RTC_URL` | `--ma-web-url`, `--go2rtc-url` | Compose points go2rtc at the stack's own (`http://go2rtc:1984`). |
+| `MANTEL_GO2RTC_URL`, `MANTEL_LIVE_TV_HARDWARE` | `--go2rtc-url`, `--live-tv-hardware` | Live TV (section 7a). `compose.yaml` sets the first to `http://go2rtc:1984`; `compose.gpu.yaml` sets the second to `vaapi`. Never in the HA App. The same go2rtc's viewing paths are served to pages under `/go2rtc/`. |
+| `MANTEL_MA_WEB_URL` | `--ma-web-url` | Music Assistant's web app under `/ma/` (default: the host of the MA address). |
 | `MANTEL_FRAME_ANCESTORS`, `MANTEL_CONNECT_SRC`, `MANTEL_FRAME_SRC` | the CSP flags | Space or comma separated origins. They moved from Caddy to Mantel Server. |
 | `MANTEL_PROXY_KIND` | `--proxy-kind` | Set by `compose.yaml` (`caddy`) and `compose.byo-proxy.yaml` (`own`). |
 | `MANTEL_HTTP_BIND`, `MANTEL_HTTP_PORT` | | Bring your own proxy only: the address and port Mantel publishes for it (default all addresses, `8765`). |
@@ -147,7 +153,7 @@ http:
 
 ### Music Assistant and go2rtc through Mantel
 
-An https page cannot frame Music Assistant's `http://…:8095` or open `ws://` to go2rtc, so Mantel serves both under its own address: Music Assistant's web app at `/ma/` (`MANTEL_MA_WEB_URL`, default the host of `MANTEL_MA_URL`) and go2rtc's viewing paths at `/go2rtc/` (`MANTEL_GO2RTC_URL`). Both need a Mantel sign-in: Music Assistant needs `control` on the `music` feature (a wall tablet needs that grant added, like the rest of music), a go2rtc camera stream that camera's live view, a Live TV stream a signed-in person or tablet. Only the paths HK needs are passed (never MA's JSON-RPC API, never go2rtc's stream management, config, restart or web pages); MA's and go2rtc's addresses, cookies and headers never reach the page. HK's "Browse Music" frame (`hk-browse-card`) uses `/ma/` on Mantel automatically; in Home Assistant it keeps MA's own port. Music Assistant's own sign-in, if yours has one, appears inside the frame: Mantel adds no MA credential for the page.
+An https page cannot frame Music Assistant's `http://…:8095` or open `ws://` to go2rtc, so Mantel serves both under its own address: Music Assistant's web app at `/ma/` (`MANTEL_MA_WEB_URL`, default the host of `MANTEL_MA_URL`) and go2rtc's viewing paths at `/go2rtc/` (`MANTEL_GO2RTC_URL`). Both need a Mantel sign-in: Music Assistant needs `control` on the `music` feature (wall tablets have it through the house music grant), a go2rtc camera stream that camera's live view, a Live TV stream the `live_tv` feature and its channel camera's live view (Live TV registers each stream while it is set up and removes it when dropped). Only the paths HK needs are passed (never MA's JSON-RPC API, never go2rtc's stream management, config, restart or web pages); MA's and go2rtc's addresses, cookies and headers never reach the page. HK's "Browse Music" frame (`hk-browse-card`) uses `/ma/` on Mantel automatically; in Home Assistant it keeps MA's own port. Music Assistant's own sign-in, if yours has one, appears inside the frame: Mantel adds no MA credential for the page.
 
 ### Secrets
 
@@ -155,16 +161,30 @@ Secrets are **files**, never environment variables, the image or the repository.
 
 | File | What | Needed |
 |---|---|---|
-| `ha_token` | Long-lived token of a dedicated HA administrator user for Mantel. Create it fresh; never reuse a personal token. | yes |
+| `ha_token` | Optional (an empty placeholder is fine): a long-lived token of a dedicated HA administrator user. Normally Mantel's own sealed copy is made on the Connections page instead (section 2a). Never reuse a personal token. | no |
 | `at_rest.key` | 32 random bytes, base64. Seals TOTP seeds and device keys in SQLite; read from `/run/secrets` (`--secrets-dir`). **Keep a copy off the box.** | create it now |
 | `backup.key` | 32 random bytes, base64. Encrypts the nightly backup. **Keep a copy off the box.** | create it now |
-| `ma_token` | Music Assistant token. | when the connector is wired |
+| `ma_token` | Optional, like `ha_token`: Music Assistant's long-lived token, with `MANTEL_MA_URL`; normally set on the Connections page instead (section 2a). With Music Assistant connected, Mantel runs whole-home music itself (section 7a). | to move music off HA |
 | `cloudflare_dns_token` | Cloudflare token (Zone:DNS:Edit on one zone) for Caddy's DNS-01 certificates. | only with DNS-01 TLS |
 | `cloudflared_token` | The tunnel token. | only with `--profile tunnel` |
 
 In the LXC, `mantel-secret <name>` reads a secret from the keyboard (no echo, no history) into the right place with the right owner. Rotate by replacing the file and `docker compose restart <service>`. Full details: [../packaging/compose/secrets/README.md](../packaging/compose/secrets/README.md).
 
+Credentials set on the Connections page are **not** in this folder (it is read-only inside the container): Mantel keeps them in `<data-dir>/connections/` (`/data/connections`), folder 0700, files 0600, sealed with `at_rest.key`, and inside every encrypted backup. Mantel's saved copy wins over a file here.
+
 Secrets at rest in SQLite (TOTP seeds) are encrypted with AES-256-GCM using `<secrets-dir>/at_rest.key`, created 0600 on first use. **Losing this file makes every enrolled TOTP unreadable**, so back it up with the database (section 10). Tokens, passwords and PINs are stored only as hashes.
+
+### 2a. Connecting Home Assistant and Music Assistant (the Connections page)
+
+Setup now: **start the container, create the first Owner (section 3), open `/admin` → Connections.** The page opens there by itself while Home Assistant is not set up.
+
+1. **Home Assistant.** Type its address (for example `http://homeassistant.local:8123`, the address *Mantel's* network reaches it at), then **Connect to Home Assistant**: HA's sign-in page opens; sign in **as the HA user Mantel should act as**, a dedicated administrator (create one named `mantel-server` in HA first: Settings → People → Add person, "Can log in", administrator). Back on Mantel's page you see who Mantel would act as, HA's version and how many entities it has; **Save this connection**. Mantel makes a long-lived token for that user (`Mantel Server (<date>)` in that user's HA profile) and revokes the short sign-in. Or paste a long-lived token made in that user's profile (Security → Long-lived access tokens) and press Test, then Save. The browser must be able to reach the HA address for the sign-in; otherwise paste a token.
+2. **Music Assistant** (optional). Its address (`http://<host>:8095`), then an MA user name and password (MA 2.7+; used once to make a long-lived token, not kept; MA's tokens last a year and the page shows the date) or a pasted token. Test, Save.
+3. Nothing to restart: Mantel connects at once (open screens just receive the new states). `/healthz` turns `ok`.
+
+**Where a connection comes from, in order (the one rule for HA and MA):** (1) in the Mantel App, Home Assistant is always the App's own credential (not editable); (2) **a connection saved on this page** (Mantel's sealed copy) wins over (3) the installation's: the files `ha_token` / `ma_token` with `MANTEL_HA_URL` / `MANTEL_MA_URL` (or `--token-file`/`--ha-url`, `--ma-token-file`/`--ma-url`), and in the Mantel App the **Music Assistant address/token options** on its Configuration tab; (4) otherwise not set up. An empty file or option counts as none. Disconnecting Mantel's copy goes back to (3) at once.
+
+Only an Owner changes connections; on the tunnel door that needs a fresh factor; Admins see the status. Each change is audited (`config`, `connection.ha.saved`, never the token). **Replace** saves a new one; **Disconnect** removes Mantel's saved copy (and falls back to the installation's file if there is one). Disconnecting does not revoke the token in HA: delete `Mantel Server (<date>)` from that user's profile too if you want it gone. In the Mantel App (HA App mode) Home Assistant shows "Provided by Home Assistant (App)" and is not editable; Music Assistant is. Details: [phase3/ADMIN-PAGE.md](phase3/ADMIN-PAGE.md) "Connections".
 
 ### The data folder
 
@@ -204,7 +224,7 @@ There is no Owner on a new database, and nothing creates one for you. Two ways; 
 mantel-server link --ha-user-id <id> --role owner --name "Avery"
 ```
 
-**B. A Mantel account with a password.** Only while no enabled Owner exists:
+**B. A Mantel account with a password** (the usual first start in Docker or the LXC, where nothing is linked to HA yet). Only while no enabled Owner exists. Make a one-time setup code on the server, then open `/login`: while no Owner exists it shows **First start** with fields for the setup code, user name, name and password; it creates the Owner, signs them in and opens `/admin` → Connections. The same by REST:
 
 ```bash
 mantel-server bootstrap            # prints a one-time token, valid one hour; a new run replaces it
@@ -312,7 +332,48 @@ mantel-server import-settings --ha-url http://192.0.2.53:8123 --token-file ~/.co
 
 Or, as the Owner, `POST /api/settings/import` (`GET` shows whether it ran and whether the settings are still empty). It is idempotent: a second run reports when the first ran and changes nothing; a document you already edited in Mantel is left alone and listed as skipped. Every imported document is version 1 in an append-only history; any version can be read back or restored (`mantel/settings/history`, `mantel/settings/restore`). In the container stacks use the `mantel` helper from section 3 with `--token-file /run/secrets/ha_token`.
 
-What does not import yet (it keeps running in Home Assistant): accessories and hidden accessories, and every feature's own settings (music, notifications, energy, Live TV, Clean Areas, Alarm PIN). HK Settings saves from the page already go to Mantel's store, never to HA, and are allowed while commands are off. See [phase3/SETTINGS.md](phase3/SETTINGS.md) for the list of what is refused and why.
+What does not import yet (it keeps running in Home Assistant): accessories and hidden accessories, and Alarm PIN's settings. The features' own settings (notifications, energy, Live TV, Clean Areas, and music's speakers, presets, playlists and home rooms) come with the feature import (`POST /api/features/import`, [phase4/FEATURE-PARITY.md](phase4/FEATURE-PARITY.md)). HK Settings saves from the page already go to Mantel's store, never to HA, and are allowed while commands are off. See [phase3/SETTINGS.md](phase3/SETTINGS.md) for the list of what is refused and why.
+
+### 7a. Music Assistant (Mantel's music engine)
+
+> **The normal way is the Connections page** (section 2a): Music Assistant's address and an MA sign-in or token, typed in once, sealed on the data volume, applied without a restart (the engine below follows at once; with Music Assistant disconnected the Music page goes back to the interim bridge). The file and App-option paths below are the *installation's* source: the page shows them as "set by the installation", and **a connection saved on the page wins over them** (the one precedence rule, section 2a).
+
+Mantel can run HK's whole-home music itself, talking to Music Assistant's own WebSocket API instead of through HA's `hk_frontend` engine ([phase4/MANTEL-FEATURES.md](phase4/MANTEL-FEATURES.md) "Music"). It needs two things, and **until both are there nothing changes**: the Music page keeps reading HA's engine through the interim bridge and its buttons go to HA's engine (when commands are on), exactly as before.
+
+1. **Music Assistant's address and a token for Mantel.** Make a long-lived token in Music Assistant for Mantel alone (its web UI, under your user profile; never reuse one HA or a person holds). The token is a **file**, never an environment variable, a command-line value or a log line; Mantel reads it at every connect (rotation = replace the file, restart) and never stores or logs its value.
+   - *Compose / LXC:* `mantel-secret ma_token` (or write `/etc/hk/secrets/ma_token`, `root:10001`, `0440`), set `MANTEL_MA_URL=http://<music assistant>:8095` in `packaging/compose/.env`, and `docker compose up -d`. The token is mounted at `/run/secrets/ma_token`.
+   - *By hand:* `--ma-url http://<music assistant>:8095 --ma-token-file <secrets-dir>/ma_token` (a 0600 file).
+   - *HA App (the house today):* the App's Configuration tab: **Music Assistant address** (`ma_url`) and **Music Assistant token** (`ma_token`, a masked password field). The entrypoint moves the token into a private 0600 file (`/tmp/ma_token`) before the server starts and passes only its path; it is never on the command line, in the environment or in the log. Clearing either option turns Mantel's engine off again at the next start.
+2. **The music settings in Mantel.** The feature import brings them (HA's `hk_music/settings/get`, read once; nothing is written to HA): as the Owner, `POST /api/features/import` or the Ingress people page's import button. A new install's one-time import brings them too.
+
+Check with `GET /api/music/status` (Owner/Admin): `music_assistant`, `connected`, `settings` and `active` (Mantel answers the Music page) plus the last requests and failure notes. **House commands stay off**: with them off every music action is refused before anything reaches Music Assistant (reads and the feed work). When Avery turns commands on at cutover, the Music page's actions run through the gateway (RBAC on the rooms, an audit row each) and Mantel's engine sends them to Music Assistant. To go back to HA's engine, clear `ma_url` (or remove the token file) and restart.
+
+### 7a. Live TV
+
+**HA App:** nothing to do. HK's Live TV page keeps playing HA's channel cameras (HA's own transcode) as before.
+Mantel now counts the viewer heartbeat itself. With commands on, the heartbeat also reaches HA's
+`sensor.tv_viewers`; with them off, HA doesn't hear about screens watching through Mantel.
+
+**Docker / LXC:** Mantel serves Live TV through the stack's own go2rtc (`compose.yaml` already sets
+`MANTEL_GO2RTC_URL`). To turn it on:
+
+1. In `.env`, set `MANTEL_LAN_IP` (go2rtc's WebRTC address). On a host with QuickSync (proxmox1), also set
+   `COMPOSE_FILE=compose.yaml:compose.gpu.yaml` and `MANTEL_RENDER_GID` (`getent group render | cut -d: -f3`).
+2. Firewall: the container must reach the tuner (`:80` lineup, `:5004` streams), and the tablets must reach
+   `MANTEL_LAN_IP:8555` tcp+udp.
+3. As the Owner, run the feature import again (`POST /api/features/import`). Where Mantel has go2rtc, it brings
+   HA's tuner, guide, channels, names and quality over **with Live TV on**. Or set them yourself:
+   `PUT /api/features/settings` with `live_tv: {enabled: true, tuner: "<HDHomeRun IP>", guide_url: "...",
+   channels: ["4.1", ...], names: {...}, quality: "720"}`.
+4. Turn HA's own Live TV off, or link HA (section 6), so that HA's transcode and Mantel's don't both take a
+   tuner.
+5. Check with `GET /api/live_tv/status` (Owner/Admin): `mode` should be `mantel`, with the channels listed.
+   While someone watches it also shows the sessions, streams and viewers.
+
+A channel is set up in go2rtc when a screen tunes in, and removed 5 s after the last one closes it (go2rtc
+frees the tuner). Who may watch: anyone with the `live_tv` feature (Owner, Admin, Adult; wall tablets by a
+house grant) who may view that channel's camera. Details: [phase4/FEATURE-PARITY.md](phase4/FEATURE-PARITY.md)
+"Live TV served by Mantel".
 
 ## 8. Enabling commands
 
@@ -485,6 +546,8 @@ Then restart HA and reload the tablets. Or restore the backup from step 2.
 
 **Two Content-Security-Policy headers, or Music Assistant's frame refused by its policy.** Your proxy adds its own CSP; remove it (Mantel sets its own). `/proxy-check` finds this.
 
+**Live TV says "Tuning" and never plays (Docker/LXC).** Look at `GET /api/live_tv/status`. If `error` names go2rtc, the go2rtc service is down. If a session exists but no picture comes, check go2rtc's log (`docker compose logs go2rtc`): a `503` from the tuner means both tuners are busy (HA's own Live TV, Plex). If there's no error, check the tablets can reach `MANTEL_LAN_IP:8555` (tcp+udp). An empty channel list for one person means they lack the `live_tv` feature or may not view the channel's camera.
+
 **`client_smoke.py` fails to start Chrome.** It uses the fixed DevTools port 9337 and collides with another job's run. Run it alone.
 
 **The scratch HA is still running.** `testha.py status`, then `testha.py down`. A crashed run can leave `hk-phone`'s menu on the tab bar; `check.py` resets it first.
@@ -499,9 +562,9 @@ Collected from the phase documents; check [PLAN.md](PLAN.md) section 0 for the c
 | **Login page: built, not yet used on the house** | `/login` offers passkey, password + authenticator code, and Sign in with HA, and returns to the page that sent you. Not built: passkeys offered in the user-name autofill; no headless check of `/login` yet. | [phase3/LOGIN-PAGE.md](phase3/LOGIN-PAGE.md) |
 | **HA App: Ingress identity and prefix-relative URLs** | The App starts and is healthy, but sign-in through Ingress does not work yet. The entrypoint passes no `--trusted-proxy` there, so every request counts as `tunnel`. | `HA-APP.md` (in progress), PACKAGING.md |
 | **Mantel Connect: built and verified here, not yet installed on the house (2026-10-18)** | Guided pairing, the mutual-TLS listener, revocation, renewal, `/admin` Connect, the staged App and the compose/LXC switch are built and tested, including real Docker images. Not done: installing the App in the real HA (the real Supervisor Ingress path through Connect, the Companion app over cellular); a QR code for the pairing string. | [phase3/CONNECT.md](phase3/CONNECT.md) "Not done" |
-| **Linked mode's remaining gaps** | Per-tablet ownership, the real handlers and the 31 entities are built and wired (off by default). Not truthful yet: Live TV's channel cameras (published unavailable: no stream on Mantel), notification snapshots; the Alarm PIN takes each person's Mantel PIN, not HA's one Alarm PIN. No `/admin` control for ownership (REST only). | LINKED-MODE.md "What's left" |
-| **Read side for tablets** | With the default roles a wall tablet has no `music`, `notifications` or `media` feature grant; add them when the tablets move. Camera stills, camera live view and calendar events now go through Mantel's connectors with RBAC: stills use `/api/camera/<entity>/still`, and pages never get an HA camera token. Media-player artwork goes through `/api/media/<entity>/art` the same way; no HA token reaches a page, in states or history answers. Live TV's transcode is not moved. | GATEWAY.md, CONNECTORS.md "What the page needs" |
-| **Music page: interim bridge to HA (2026-10-18)** | `hk_music/subscribe`, `hk_music/queue` and `hk_music/settings/library` are forwarded to HA's `hk_frontend` (which still runs the music engine), RBAC-filtered; every music write stays refused. HA answers as Mantel's own HA user, so the per-user **home room is not the person's** until Phase 4 (MantelHouse runs the engine): Mantel sends `home: null` and the page draws with no room preselected. The host adapter still refuses `hk_music/queue` (its write-word backstop matches `queue`), so the screensaver's Up Next waits on a `web/shim` change. | [phase3/CONNECTORS.md](phase3/CONNECTORS.md) "What the page needs" |
+| **Linked mode's remaining gaps** | Per-tablet ownership, the real handlers and the 31 entities are built and wired (off by default). Not truthful yet: Live TV's channel cameras (published unavailable unless Mantel serves Live TV through its own go2rtc, section 7a; never with a stream source), notification snapshots; the Alarm PIN takes each person's Mantel PIN, not HA's one Alarm PIN. No `/admin` control for ownership (REST only). | LINKED-MODE.md "What's left" |
+| **Read side for tablets** | With the default roles a wall tablet has no `notifications` or `media` feature grant (`music`: a house grant since Phase 4, its speakers still its room's); add them when the tablets move. Camera stills, camera live view and calendar events now go through Mantel's connectors with RBAC: stills use `/api/camera/<entity>/still`, and pages never get an HA camera token. Media-player artwork goes through `/api/media/<entity>/art` the same way; no HA token reaches a page, in states or history answers. Live TV's transcode is not moved. | GATEWAY.md, CONNECTORS.md "What the page needs" |
+| **Music: Mantel's engine built, off until Music Assistant is given to Mantel (Phase 4)** | With `ma_url` + the token and the imported music settings (section 7a), Mantel answers the Music page (per-person and per-tablet home room) and runs its actions against Music Assistant directly. Until then the interim bridge to HA stays (`home: null`). Not on Mantel: announcements (always empty), HA's failure notifications (logged, in `/api/music/status`), and Browse's library reads (`music_assistant.get_library` through HA). Not yet run against a real Music Assistant. | [phase4/MANTEL-FEATURES.md](phase4/MANTEL-FEATURES.md) "Music" |
 | **Entity registry and Hidden Accessories reads: answered by Mantel (2026-10-18)** | `config/entity_registry/get` (a light's favourite colours only) and `hk_frontend/hidden/get` are answered from Mantel's own copies with RBAC; neither reaches HA. HK Settings' Hidden Accessories page still reads an empty `hidden` from `hk_frontend/panel/get`, and hiding saves are still `not_yet`. | CONNECTORS.md, [phase3/SETTINGS.md](phase3/SETTINGS.md) "Hidden Accessories" |
 | **Backups and a rehearsed restore** | Interim steps only (section 10). | `BACKUP-FILES.md` (in progress) |
 | **Cloudflare Access JWT, new-device notifications, shared rate limits** | The tunnel door is stamped by Caddy but the JWT is not verified yet; do not publish a tunnel hostname before it is. | ACCOUNTS.md "Not yet", PACKAGING.md |

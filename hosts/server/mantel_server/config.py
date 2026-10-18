@@ -44,11 +44,10 @@ class Config:
     # The long-lived token is read from this secret file at each connect, never from env or logs.
     ma_url: str = ""
     ma_token_file: Path = Path("/run/secrets/ma_token")
-    # media_proxy.py: Music Assistant's web app and go2rtc served under Mantel's own address (/ma/, /go2rtc/)
-    # so an https page can frame MA and reach go2rtc same-origin. Empty = that proxy is off. MA's web app
-    # defaults to the host of `ma_url` (ws://ma:8095/ws -> http://ma:8095/). Never sent to a page.
+    # media_proxy.py: Music Assistant's web app served under Mantel's own address (/ma/) so an https page
+    # can frame it (go2rtc's viewing paths likewise under /go2rtc/, from `go2rtc_url` below). Empty = off.
+    # Defaults to the host of `ma_url` (ws://ma:8095/ws -> http://ma:8095/). Never sent to a page.
     ma_web_url: str = ""
-    go2rtc_url: str = ""
     # security_headers.py: extra CSP sources (frame-ancestors adds to 'self'; connect-src/frame-src to the
     # page policy). `proxy_kind` says which reverse proxy owns TLS ("caddy" | "own" | ""), for /proxy-check.
     frame_ancestors: tuple[str, ...] = ()
@@ -75,6 +74,9 @@ class Config:
     ingress_only: bool = False
     ha_door_rules: str = "tunnel"                          # "tunnel" | "lan" | "trusted" (the HA App's default)
     ha_ws_url: str = ""                                    # explicit HA WebSocket URL (App: ws://supervisor/core/websocket)
+    # HA App mode: Home Assistant is reached with the Supervisor's own App credential, so the Connections
+    # page shows HA as "Provided by Home Assistant (App)" and never edits it (connections.py)
+    ha_managed_by_app: bool = False
     # Mantel Connect (connect_pairing.py): Mantel Server OUTSIDE HA, reached by the Connect App in HA's sidebar
     # over mutual TLS on its own port. Implies ingress mode (identity from the paired App's X-Remote-User-*
     # headers), but trusts no socket peer: `ingress_peers` stays empty unless --ingress is also given.
@@ -83,6 +85,11 @@ class Config:
     connect_listen: str = "0.0.0.0"
     connect_address: str = ""                              # what /admin shows the Owner to type into the App
     log_level: str = "info"
+    # Live TV served by Mantel (live_tv.py): its own go2rtc's API (compose: http://go2rtc:1984, the
+    # backend network; never given to a page). Empty = Mantel does not run Live TV (the HA App: Home
+    # Assistant's own Live TV stays the interim). `live_tv_hardware`: "vaapi" uses the QuickSync templates.
+    go2rtc_url: str = ""
+    live_tv_hardware: str = ""
 
     @property
     def ws_url(self) -> str:
@@ -93,6 +100,13 @@ class Config:
     def connect_dir(self) -> Path:
         """The Connect certificate authority and listener certificate (private keys, mode 0600)."""
         return Path(self.data_dir).expanduser() / "connect"
+
+    @property
+    def connections_dir(self) -> Path:
+        """Mantel's own copies of the HA and MA credentials set on the Connections page (connections.py):
+        sealed with the at-rest key, folder 0700, files 0600, on the data volume (in the container stacks
+        the install's secrets folder is a read-only mount) and inside every encrypted backup."""
+        return Path(self.data_dir).expanduser() / "connections"
 
     @property
     def user_files_dir(self) -> Path:
@@ -136,9 +150,6 @@ def parse_args(argv: list[str] | None = None) -> Config:
     p.add_argument("--ma-token-file", default=str(Config.ma_token_file), help="Music Assistant's long-lived token (a file)")
     p.add_argument("--ma-web-url", default="", metavar="URL",
                    help="Music Assistant's web app, served to pages under /ma/ (default: the host of --ma-url)")
-    p.add_argument("--go2rtc-url", default="", metavar="URL",
-                   help="go2rtc's API (http://go2rtc:1984), served to pages under /go2rtc/ (viewing paths only); "
-                        "empty = off")
     p.add_argument("--frame-ancestors", action="append", default=[], metavar="SOURCE",
                    help="CSP frame-ancestors source allowed besides 'self' (repeatable), e.g. https://ha.example.com")
     p.add_argument("--csp-connect-src", action="append", default=[], metavar="SOURCE",
@@ -189,6 +200,9 @@ def parse_args(argv: list[str] | None = None) -> Config:
     p.add_argument("--ha-ws-url", default="", metavar="URL",
                    help="Home Assistant's WebSocket URL when it is not <ha-url>/api/websocket "
                         "(HA App: ws://supervisor/core/websocket)")
+    p.add_argument("--ha-managed-by-app", action="store_true",
+                   help="HA App mode: the Home Assistant credential is the Supervisor's (the Connections page "
+                        "shows it as provided by Home Assistant and does not edit it)")
     p.add_argument("--connect", action="store_true",
                    help="Mantel Connect: also listen (TLS, client certificates) for the Connect App in Home Assistant's "
                         "sidebar, and offer pairing (mantel connect pair; /admin). Off by default")
@@ -197,7 +211,17 @@ def parse_args(argv: list[str] | None = None) -> Config:
     p.add_argument("--connect-address", default="", metavar="HOST[:PORT]",
                    help="the address /admin tells the Owner to give the Connect App")
     p.add_argument("--log-level", choices=("debug", "info", "warning", "error"), default=Config.log_level)
+    p.add_argument("--go2rtc-url", default="", metavar="URL",
+                   help="Live TV served by Mantel: its own go2rtc's API (http://go2rtc:1984 in the compose stack). "
+                        "Off when absent (the HA App keeps Home Assistant's Live TV). Its viewing paths are also "
+                        "served to pages under /go2rtc/ (media_proxy.py)")
+    p.add_argument("--live-tv-hardware", choices=("none", "vaapi"), default="none",
+                   help="Live TV's transcode: vaapi = QuickSync (needs /dev/dri in go2rtc: compose.gpu.yaml)")
     a = p.parse_args(argv)
+    g2 = urlparse(a.go2rtc_url) if a.go2rtc_url else None
+    if g2 is not None and (g2.scheme not in ("http", "https") or not g2.hostname or g2.path not in ("", "/")
+                           or g2.query or g2.username or g2.password):
+        p.error("--go2rtc-url must be go2rtc's API address, e.g. http://go2rtc:1984")
     if not 1 <= a.connect_port <= 65535:
         p.error("--connect-port must be a TCP port")
     if a.connect and a.ingress_only:
@@ -213,7 +237,7 @@ def parse_args(argv: list[str] | None = None) -> Config:
             p.error(f"--ingress-peer must be an IP address, not {raw!r}")
     if a.ha_ws_url and urlparse(a.ha_ws_url).scheme not in ("ws", "wss"):
         p.error("--ha-ws-url must be a ws:// or wss:// URL")
-    for flag, value in (("--ma-web-url", a.ma_web_url), ("--go2rtc-url", a.go2rtc_url)):
+    for flag, value in (("--ma-web-url", a.ma_web_url),):
         if value and (urlparse(value).scheme not in ("http", "https") or not urlparse(value).hostname):
             p.error(f"{flag} must be an http(s):// URL")
     from .security_headers import valid_source
@@ -263,7 +287,7 @@ def parse_args(argv: list[str] | None = None) -> Config:
                  backup_time=a.backup_time, backup_keep_daily=a.backup_keep_daily,
                  backup_keep_weekly=a.backup_keep_weekly, backup_include_files=not a.backup_no_files,
                  ma_url=a.ma_url, ma_token_file=Path(a.ma_token_file),
-                 ma_web_url=a.ma_web_url, go2rtc_url=a.go2rtc_url, frame_ancestors=tuple(a.frame_ancestors),
+                 ma_web_url=a.ma_web_url, frame_ancestors=tuple(a.frame_ancestors),
                  csp_connect_src=tuple(a.csp_connect_src), csp_frame_src=tuple(a.csp_frame_src),
                  proxy_kind=a.proxy_kind,
                  ingress=bool(a.ingress or a.connect),
@@ -271,6 +295,8 @@ def parse_args(argv: list[str] | None = None) -> Config:
                  connect=bool(a.connect), connect_port=a.connect_port, connect_listen=a.connect_listen,
                  connect_address=a.connect_address,
                  ingress_only=bool(a.ingress_only), ha_door_rules=a.ha_door_rules, ha_ws_url=a.ha_ws_url,
-                 log_level=a.log_level)
+                 ha_managed_by_app=bool(a.ha_managed_by_app),
+                 log_level=a.log_level, go2rtc_url=a.go2rtc_url.rstrip("/"),
+                 live_tv_hardware="" if a.live_tv_hardware == "none" else a.live_tv_hardware)
     assert cfg.host in LOOPBACK or cfg.public_url, "Mantel listens beyond loopback only in container mode"
     return cfg

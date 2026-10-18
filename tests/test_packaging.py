@@ -430,8 +430,17 @@ def test_behind_caddy_the_lan_door_is_recognised_only_from_caddys_address():
 
 
 def test_entrypoint_refuses_missing_settings(tmp_path):
-    with pytest.raises(entrypoint.ConfigError, match="MANTEL_HA_URL"):
+    with pytest.raises(entrypoint.ConfigError, match="MANTEL_PUBLIC_URL"):
         entrypoint.plan([], {}, options_path=tmp_path / "none")
+
+
+def test_entrypoint_without_an_ha_address_leaves_it_to_the_connections_page(tmp_path):
+    """No MANTEL_HA_URL: an explicitly empty address (never the built-in default); the page sets it up."""
+    args, _ = entrypoint.plan([], {"MANTEL_PUBLIC_URL": "https://m.example/"}, options_path=tmp_path / "none")
+    assert args[:2] == ["--ha-url", ""]
+    from mantel_server.config import parse_args
+    cfg = parse_args(args)
+    assert cfg.ha_url == "" and cfg.ha_managed_by_app is False
 
 
 def test_entrypoint_ha_app_moves_the_supervisor_token_into_a_private_file(tmp_path):
@@ -449,6 +458,27 @@ def test_entrypoint_ha_app_moves_the_supervisor_token_into_a_private_file(tmp_pa
     from mantel_server.config import parse_args
     assert parse_args(args).host_allowed("anything.example")
     assert "fictional-supervisor-credential" not in " ".join(args)
+    assert parse_args(args).ha_managed_by_app is True          # the Connections page shows HA as the App's
+
+
+def test_entrypoint_ha_app_music_assistant_token_is_a_private_file_never_an_argument(tmp_path):
+    options = tmp_path / "options.json"
+    ma_file = tmp_path / "ma_token"
+    env = {"SUPERVISOR_TOKEN": "fictional-supervisor-credential", "MANTEL_APP_MA_TOKEN_FILE": str(ma_file)}
+    # no address or no token: Mantel's music engine stays off and nothing is written
+    for opts in ({}, {"ma_url": "http://ma.fake.test:8095"}, {"ma_token": "fictional-ma-token"}):
+        options.write_text(json.dumps(opts))
+        args, _ = entrypoint.plan([], dict(env), options_path=options, token_file=tmp_path / "ha_token")
+        assert "--ma-url" not in args and not ma_file.exists()
+    options.write_text(json.dumps({"ma_url": "http://ma.fake.test:8095", "ma_token": "fictional-ma-token"}))
+    args, out_env = entrypoint.plan([], dict(env), options_path=options, token_file=tmp_path / "ha_token")
+    assert args[args.index("--ma-url") + 1] == "http://ma.fake.test:8095"
+    assert args[args.index("--ma-token-file") + 1] == str(ma_file)
+    assert ma_file.read_text() == "fictional-ma-token" and oct(ma_file.stat().st_mode & 0o777) == "0o600"
+    assert "fictional-ma-token" not in " ".join(args) and "fictional-ma-token" not in json.dumps(out_env)
+    from mantel_server.config import parse_args
+    cfg = parse_args(args)
+    assert cfg.ma_url == "http://ma.fake.test:8095" and cfg.ma_token_file == ma_file
 
 
 def test_entrypoint_admin_commands_default_to_the_data_volume(tmp_path):

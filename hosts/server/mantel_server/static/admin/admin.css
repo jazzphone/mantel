@@ -110,3 +110,4 @@ tr.step td:first-child { box-shadow: inset 3px 0 0 #c98a00; }
   .item { grid-template-columns: 1fr auto; align-items: center; }
   .item .acts { margin-top: 0; justify-content: flex-end; }
 }
+.conn-ok { color: var(--ok); font-weight: 600; }

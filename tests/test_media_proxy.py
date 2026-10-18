@@ -165,9 +165,14 @@ async def test_go2rtc_cameras_follow_live_view_and_live_tv_must_be_registered(en
     assert r.status == 403
     m.app["go2rtc_streams"].allow("tv_4_1", "live_tv")
     assert (await m.client.get("/go2rtc/api/frame.jpeg?src=tv_4_1")).status == 200
-    # a child: no cameras, but Live TV
+    # a child: no cameras and (by default) no Live TV feature; an adult has Live TV
     await m.as_role("child")
     assert (await m.client.get("/go2rtc/api/frame.jpeg?src=camera.front_door")).status == 403
+    assert (await m.client.get("/go2rtc/api/frame.jpeg?src=tv_4_1")).status == 403
+    await m.as_role("adult")
+    assert (await m.client.get("/go2rtc/api/frame.jpeg?src=tv_4_1")).status == 200
+    # registered with its channel camera, Live TV also needs that camera's live view (as live_tv.py's gate)
+    m.app["go2rtc_streams"].allow("tv_4_1", "live_tv", "camera.tv_nbc")
     assert (await m.client.get("/go2rtc/api/frame.jpeg?src=tv_4_1")).status == 200
     m.app["go2rtc_streams"].forget("tv_4_1")
     assert (await m.client.get("/go2rtc/api/frame.jpeg?src=tv_4_1")).status == 403
@@ -226,11 +231,16 @@ async def test_services_say_what_this_identity_may_use(env, tmp_path, monkeypatc
 
 def test_ma_web_address_defaults_to_the_api_host():
     from mantel_server.config import Config
-    ups = media_proxy.upstreams_from(Config(ma_url="ws://ma.local:8095/ws"))
-    assert [u.base for u in ups] == ["http://ma.local:8095"]
-    ups = media_proxy.upstreams_from(Config(ma_url="wss://ma.local/ws", go2rtc_url="http://go2rtc:1984"))
-    assert [u.base for u in ups] == ["https://ma.local", "http://go2rtc:1984"]
-    assert media_proxy.upstreams_from(Config()) == []
+    assert media_proxy.ma_web_url(Config(ma_url="ws://ma.local:8095/ws")) == "http://ma.local:8095"
+    assert media_proxy.ma_web_url(Config(ma_url="wss://ma.local/ws")) == "https://ma.local"
+    assert media_proxy.ma_web_url(Config(ma_url="http://ma.local:8095")) == "http://ma.local:8095"
+    assert media_proxy.ma_web_url(Config(ma_url="ws://x/ws", ma_web_url="http://web:1/")) == "http://web:1/"
+    assert media_proxy.ma_web_url(Config()) == ""
+
+    class Conns:
+        def effective_url(self, kind):
+            return "http://from-the-page:8095" if kind == "ma" else ""
+    assert media_proxy.ma_web_url(Config(ma_url="ws://install/ws"), Conns()) == "http://from-the-page:8095"
 
 
 def test_safe_tail_and_redirect_rules():

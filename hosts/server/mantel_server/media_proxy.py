@@ -157,8 +157,11 @@ class Go2rtcStreams:
         kind, entity = got
         if kind == "camera":
             return authz.may_view(principal, entity) is True
-        ident = principal.identity
-        return ident.user is not None or ident.device is not None      # Live TV: signed in (as its guide)
+        # Live TV: the same two checks as live_tv.py's own signaling gate: the `live_tv` feature, then the
+        # channel's camera (when Live TV named it)
+        if authz is None or not authz.decide(principal.subject, "view", None, feature="live_tv").allowed:
+            return False
+        return entity is None or authz.may_view(principal, entity) is True
 
 
 # -- the two upstreams -----------------------------------------------------------------------------------
@@ -176,10 +179,23 @@ class Upstream:
     prefix = ""
     service = ""
 
-    def __init__(self, base: str) -> None:
-        parts = urlsplit(base)
-        self.base = f"{parts.scheme}://{parts.netloc}{parts.path.rstrip('/')}"
-        self.origin = f"{parts.scheme}://{parts.netloc}"
+    def __init__(self, base: "str | Callable[[], str]") -> None:
+        # the address is read at each request: Music Assistant's comes from the Connections page and
+        # changes without a restart (connections.py hot apply)
+        self._source = base if callable(base) else (lambda: base)
+
+    @property
+    def base(self) -> str:
+        raw = (self._source() or "").strip()
+        if not raw:
+            return ""
+        parts = urlsplit(raw)
+        return f"{parts.scheme}://{parts.netloc}{parts.path.rstrip('/')}"
+
+    @property
+    def origin(self) -> str:
+        parts = urlsplit(self.base)
+        return f"{parts.scheme}://{parts.netloc}" if parts.netloc else ""
 
     def plan(self, request: web.Request, tail: str) -> Plan | None:
         raise NotImplementedError
@@ -199,7 +215,7 @@ class Upstream:
 class MusicAssistant(Upstream):
     name, prefix, service = "music_assistant", MA, "Music Assistant"
 
-    def __init__(self, base: str) -> None:
+    def __init__(self, base: "str | Callable[[], str]") -> None:
         super().__init__(base)
         self.announced: set[str] = set()   # base_url values MA announced in server_info (also replaced)
 
@@ -349,6 +365,8 @@ class MediaProxy:
     def handler(self, up: Upstream):
         async def handle(request: web.Request) -> web.StreamResponse:
             stats = self.stats[up.name]
+            if not up.base:
+                return _error(404, "not_configured", up.service)
             tail = safe_tail(request.match_info.get("tail", ""))
             if tail is None:
                 stats["not_allowed"] += 1
@@ -491,18 +509,37 @@ class MediaProxy:
         return ws
 
 
-def upstreams_from(cfg) -> list[Upstream]:
-    out: list[Upstream] = []
-    ma_web = getattr(cfg, "ma_web_url", "") or ""
-    if not ma_web and getattr(cfg, "ma_url", ""):
-        p = urlsplit(cfg.ma_url)
-        if p.scheme in ("ws", "wss") and p.netloc:
-            ma_web = f"{'https' if p.scheme == 'wss' else 'http'}://{p.netloc}/"
-    if ma_web:
-        out.append(MusicAssistant(ma_web))
-    if getattr(cfg, "go2rtc_url", ""):
-        out.append(Go2rtc(cfg.go2rtc_url))
-    return out
+def ma_web_url(cfg, conns: Any = None) -> str:
+    """Music Assistant's web app: ``--ma-web-url`` if set, else the host of MA's address (the Connections
+    page's, else the installation's ``--ma-url``): ws://ma:8095/ws -> http://ma:8095."""
+    explicit = getattr(cfg, "ma_web_url", "") or ""
+    if explicit:
+        return explicit
+    url = ""
+    if conns is not None:
+        try:
+            url = conns.effective_url("ma") or ""
+        except Exception:  # noqa: BLE001 -- no MA connection readable: off
+            url = ""
+    url = url or getattr(cfg, "ma_url", "") or ""
+    p = urlsplit(url)
+    if not p.netloc:
+        return ""
+    scheme = {"ws": "http", "wss": "https"}.get(p.scheme, p.scheme)
+    if scheme not in ("http", "https"):
+        return ""
+    path = p.path.rstrip("/")
+    path = path[:-3] if path.endswith("/ws") else path
+    return f"{scheme}://{p.netloc}{path}"
+
+
+def upstreams_for(app: web.Application) -> list[Upstream]:
+    """Both upstreams, always (each answers ``not_configured`` while it has no address). go2rtc's address
+    is Live TV's (live_tv.go2rtc_api_url: the one place it is read)."""
+    from .live_tv import go2rtc_api_url
+    cfg = app["cfg"]
+    return [MusicAssistant(lambda: ma_web_url(cfg, app.get("connections"))),
+            Go2rtc(lambda: go2rtc_api_url(cfg))]
 
 
 def services_for(app: web.Application, principal: Any) -> dict[str, str | None]:
@@ -512,20 +549,21 @@ def services_for(app: web.Application, principal: Any) -> dict[str, str | None]:
     if proxy is None:
         return out
     ma = proxy.upstreams.get(MA)
-    if ma is not None and ma.authorize(app, principal, Plan("", "", False, False), None):
+    if ma is not None and ma.base and ma.authorize(app, principal, Plan("", "", False, False), None):
         out["music_assistant"] = MA + "/"
-    if GO2RTC in proxy.upstreams and principal is not None and principal.valid and \
+    g2 = proxy.upstreams.get(GO2RTC)
+    if g2 is not None and g2.base and principal is not None and principal.valid and \
             (principal.identity.user is not None or principal.identity.device is not None):
         out["go2rtc"] = GO2RTC + "/"
     return out
 
 
 def register(app: web.Application, hub: Any = None) -> MediaProxy | None:
-    """``/ma/…`` and ``/go2rtc/…`` (each only when configured) and ``GET /api/services``. Call after
-    ``app["authz"]`` exists (server.wire)."""
+    """``/ma/…`` and ``/go2rtc/…`` (each ``not_configured`` until it has an address) and ``GET /api/services``.
+    Call after ``app["authz"]`` (and ``app["connections"]``) exist (server.wire)."""
     app.setdefault("go2rtc_streams", Go2rtcStreams())
-    ups = upstreams_from(app["cfg"])
-    proxy = MediaProxy(app, ups) if ups else None
+    ups = upstreams_for(app)
+    proxy = MediaProxy(app, ups)
     app["media_proxy"] = proxy
 
     async def services(request: web.Request) -> web.Response:
@@ -536,14 +574,11 @@ def register(app: web.Application, hub: Any = None) -> MediaProxy | None:
         return web.json_response(services_for(request.app, principal), headers={"Cache-Control": "no-store"})
 
     app.router.add_get(SERVICES_PATH, services)
-    if proxy is None:
-        return None
     for up in ups:
         async def bare(request: web.Request, _p=up.prefix) -> web.StreamResponse:
             raise web.HTTPFound(_p + "/" + (f"?{request.query_string}" if request.query_string else ""))
         app.router.add_route("*", up.prefix, bare)
         app.router.add_route("*", up.prefix + "/{tail:.*}", proxy.handler(up))
-        log.info("%s is served under %s/ (Mantel's sign-in and RBAC; viewing paths only)", up.service, up.prefix)
     app.on_startup.append(proxy.start)
     app.on_cleanup.append(proxy.stop)
     return proxy

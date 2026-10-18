@@ -704,6 +704,14 @@ async def import_settings(store: SettingsStore, fetch: Callable[[], Awaitable[An
             features_error = type(exc).__name__
             log.warning("the feature items were not imported (%s); POST /api/features/import reads them again",
                         features_error)
+        from . import music as M     # Music's settings (house/music), when HA has Music added
+        try:
+            body = await M.import_doc(payload, read_features, source[:80])
+            if body is not None:
+                docs.append(("house", M.MUSIC_DOC, body))
+        except Exception as exc:  # noqa: BLE001 -- as the features: POST /api/features/import reads it again
+            log.warning("the music settings were not imported (%s); POST /api/features/import reads them again",
+                        type(exc).__name__)
     for scope, key, body in docs:
         model.check_document(scope, key, body)
     checksum = hashlib.sha256(_canon(payload).encode()).hexdigest()

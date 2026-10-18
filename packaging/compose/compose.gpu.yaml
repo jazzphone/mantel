@@ -9,3 +9,7 @@ services:
       - /dev/dri:/dev/dri
     group_add:
       - "${MANTEL_RENDER_GID:?set MANTEL_RENDER_GID in .env (getent group render | cut -d: -f3)}"
+  mantel-server:
+    environment:
+      # Mantel names the QuickSync templates (packaging/compose/go2rtc/go2rtc.yaml *_vaapi) for Live TV
+      MANTEL_LIVE_TV_HARDWARE: vaapi

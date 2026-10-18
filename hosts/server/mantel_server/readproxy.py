@@ -55,17 +55,21 @@ READ_ALLOWED: dict[str, frozenset[str]] = {
     # P3.5: HK's settings, read ONCE by Mantel itself for the one-time settings import
     # (settings_store.import_settings). Never for a page: SERVER_ONLY_READS below.
     "hk_frontend/panel/get": frozenset(),
-    # INTERIM (until Phase 4 moves the music engine into Mantel): HK's Music page, read from HA's
-    # hk_frontend integration, which still runs the engine. Reads only; every other hk_music/* type
-    # (queue_play, used, item/remove, playlist/save, preset/save, settings/set, playlists/order) is a
-    # write or a side effect and stays the gateway's (commands off).
+    # THE INTERIM MUSIC BRIDGE: HK's Music page, read from HA's hk_frontend integration. Since Phase 4 these
+    # are answered by Mantel's own music engine (music.py, talking to Music Assistant directly) once Music
+    # Assistant and the music settings are in Mantel; until then (HA App mode with no MA token in Mantel)
+    # music.py's routes hand them to this bridge. Reads only; every other hk_music/* type (queue_play, used,
+    # item/remove, playlist/save, preset/save, settings/set, playlists/order) is a write or a side effect
+    # and stays the gateway's (commands off).
     "hk_music/subscribe": frozenset(),
     "hk_music/queue": frozenset({"entity_id", "limit"}),
     "hk_music/settings/library": frozenset(),
     # INTERIM (until Live TV's channel cameras, transcode and viewers move into Mantel): the Live TV page's
     # channel list (hk-tv-guide-card), each channel's camera and "now playing" sensor, from HA's
     # hk_frontend. A read; `hk_tv/watching` (a viewer's heartbeat, which HA writes into a sensor) and
-    # `hk_tv/settings/set` are writes and stay the gateway's (commands off).
+    # `hk_tv/settings/set` are writes and stay the gateway's (commands off). Where Mantel serves Live TV
+    # itself (live_tv.py, its own go2rtc) this read is answered there and never forwarded; the heartbeat is
+    # counted by Mantel everywhere (`tv_watching`) and reaches HA only through the gateway, commands on.
     "hk_tv/channels": frozenset(),
     # The feature import (features.import_features): each added feature's own HK Settings read, ONCE,
     # by Mantel itself. Never for a page: SERVER_ONLY_READS below.
@@ -73,8 +77,9 @@ READ_ALLOWED: dict[str, frozenset[str]] = {
     "hk_clean_areas/settings/get": frozenset(),
     "hk_energy/settings/get": frozenset(),
     "hk_tv/settings/get": frozenset(),
-    # INTERIM (until Music's settings move into Mantel): its HK Settings page, read by Mantel itself for an
-    # Owner/Admin and rebuilt key by key (feature_pages.py). Never sent by a page.
+    # Music's HK Settings page, read by Mantel itself: for the music import (music.import_doc, with the feature
+    # import) and, while Mantel's music engine is off, for HK Settings' Music page (feature_pages.py, rebuilt
+    # key by key; with the engine on, music.py answers from Mantel's own settings). Never sent by a page.
     "hk_music/settings/get": frozenset(),
     # Alarm PIN's HK Settings page: read by Mantel itself for the Alarm PIN import (alarm_pin.import_ha_page:
     # which panel protects which alarm, the arm rule) and for HK Settings' page (feature_pages.py). HA never
@@ -145,10 +150,22 @@ class ReadProxy:
         self.rx_bytes = 0
         self.sent_types: list[str] = []
 
+    def retarget(self, ha_url: str, token: str, ws_url: str | None = None) -> None:
+        """New address/credential (connections.py, hot apply): the open connection is closed (its
+        pending reads fail, its subscriptions end) and the next read connects with the new values."""
+        self.base_url = ha_url.rstrip("/")
+        self.ws_url = ws_url or self.base_url.replace("http", "ws", 1) + "/api/websocket"
+        self._token = token
+        ws = self._ws
+        if ws is not None and not ws.closed:
+            asyncio.get_running_loop().create_task(ws.close())
+
     async def _connect(self) -> None:
         async with self._lock:
             if self._ws is not None and not self._ws.closed:
                 return
+            if not self._token:
+                raise ConnectionError("Home Assistant is not connected yet (admin page: Connections)")
             self._http = self._http or aiohttp.ClientSession()
             ws = await self._http.ws_connect(self.ws_url, max_msg_size=0, heartbeat=30)
             await ws.receive_json()
@@ -281,8 +298,9 @@ RULES: dict[str, str] = {
     "hk_clean_areas/settings/get": "never for a page (SERVER_ONLY_READS): the feature import's own read",
     "hk_energy/settings/get": "never for a page (SERVER_ONLY_READS): the feature import's own read",
     "hk_tv/settings/get": "never for a page (SERVER_ONLY_READS): the feature import's own read",
-    "hk_music/settings/get": "never for a page (SERVER_ONLY_READS): read by Mantel for HK Settings' Music page "
-                             "(feature_pages.py, Owner/Admin, rebuilt key by key)",
+    "hk_music/settings/get": "never for a page (SERVER_ONLY_READS): the music import's own read, and HK Settings' "
+                             "Music page while Mantel's music engine is off (feature_pages.py, Owner/Admin, rebuilt "
+                             "key by key); with it on, Mantel's own settings (music.py)",
     "hk_alarm_pin/settings/get": "never for a page (SERVER_ONLY_READS): the Alarm PIN import's own read and HK "
                                  "Settings' Alarm PIN page (feature_pages.py, Owner/Admin, rebuilt; no PIN)",
 }

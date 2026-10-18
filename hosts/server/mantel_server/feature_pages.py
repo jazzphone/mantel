@@ -10,9 +10,10 @@ page failed to load. Here Mantel answers them itself:
 * **Reads** (``app["read_routes"]``, never forwarded): Notifications, Clean Areas, Energy and Live TV from
   Mantel's own feature settings (``house/mantel_features``) and its House (MantelHouse), in exactly HA's
   page shapes, worked out by the same shared rules (``hk_core.notifications.settings.page``,
-  ``hk_core.clean_areas``, ``hk_core.energy.plan``). Music and Alarm PIN still run in Home Assistant (their
-  engines and stored settings are HA's until those ports land), so their pages are an INTERIM filtered read
-  of HA's own page (a server-only read, rebuilt key by key, nothing else passed on).
+  ``hk_core.clean_areas``, ``hk_core.energy.plan``). Music: Mantel's own music settings (music.py's
+  ``MusicHost.page``) once Mantel's music engine is on (Music Assistant and the music settings in Mantel);
+  until then, and for Alarm PIN, an INTERIM filtered read of HA's own page (a server-only read, rebuilt key
+  by key, nothing else passed on).
 * **Saves** (the page's ``settings_write``, through ``settings_store.SettingsService``): checked by the same
   shared checks HA uses (``hk_core.notifications.settings``, ``hk_core.energy.settings``, Clean Areas' and
   Live TV's field checks), written to Mantel's settings store as a new version of ``house/mantel_features``
@@ -62,8 +63,9 @@ PAGE_RULES: dict[str, str] = {
                               "Mantel itself, the plan over MantelHouse; carries fresh only",
     "hk_tv/settings/get": "configure on settings; Mantel's live_tv piece and its own lineup copy (no tuner read); "
                           "carries fresh only",
-    "hk_music/settings/get": "configure on settings and music; INTERIM: HA's page (a server-only read) rebuilt key by "
-                             "key, until the music engine's settings move",
+    "hk_music/settings/get": "configure on settings and music; with Mantel's music engine on (music.py), Mantel's own "
+                             "music settings in HA's page shape; otherwise INTERIM: HA's page (a server-only read) "
+                             "rebuilt key by key",
     "hk_alarm_pin/settings/get": "configure on settings; INTERIM: HA's page (a server-only read) rebuilt key by key "
                                  "(no PIN, only pin_set), until Alarm PIN's settings move",
 }
@@ -199,6 +201,11 @@ class FeaturePages:
             return await self.energy_page() if h.on("energy") else {"configured": False}
         if piece == "live_tv":
             return self.tv_page()
+        if piece == "music":
+            music = h.app.get("music")
+            if music is not None and music.active:
+                # Mantel's music engine runs (music.py): its own settings, in HA's page shape
+                return music.page()
         if piece in HA_PAGES:
             proxy = getattr(h.hub, "readproxy", None)
             read = getattr(proxy, "read_server", None)

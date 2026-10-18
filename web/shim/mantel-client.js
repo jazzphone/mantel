@@ -208,6 +208,7 @@
   //   hk_frontend/screensaver/touch {tablet, saver?}  -> screen_report {tablet, touch: true, saver?}
   //   hk_frontend/screensaver/black {tablet, black}   -> screen_report {tablet, black}
   //   hk_notify/mute {key, minutes}                   -> notify_mute {key, seconds}
+  //   hk_music/used                                   -> music_used (music.py: Keep Playlists Ready waits)
   //   switch.turn_on|turn_off on a tablet's photo screensaver switch -> the page's own state only
   //     (Mantel's screens, mantel-host.js; the host has no such Home Assistant entity to write)
   var screens = null;             // the host adapter's {owns(entityId), set(entityId, on), reported(tablet, black)}
@@ -234,6 +235,17 @@
     }
     return hub.notifyMute(msg.key, minutes * 60);
   }
+  var CHANNEL_NO = /^\d{1,4}(\.\d{1,4})?$/;
+  function tvWatching(hub, msg, acts, callWS) {
+    var ch = msg.channel === undefined ? null : msg.channel;
+    if (ch !== null && (typeof ch !== 'string' || !CHANNEL_NO.test(ch))) return Promise.reject(fail('invalid', 'a channel number or null'));
+    if (typeof hub.tvWatching !== 'function') return Promise.resolve({ viewers: [] });
+    return hub.tvWatching(ch).then(function (res) {
+      var commands = typeof hub.commandsEnabled === 'function' && hub.commandsEnabled();
+      if (!(res && res.ha === true) || !commands || typeof callWS !== 'function') return { viewers: (res && res.viewers) || [] };
+      return callWS.call(acts, { type: 'hk_tv/watching', channel: ch });
+    });
+  }
   // All Tablets' "Restart all now" (hk_frontend/tablet/act {tablet: '*', act: 'restart_all'}): Mantel's
   // tablets piece runs it as the person who asked, each press a gateway command (refused and audited
   // while house commands are off). Answered as HA answers: {restarted: [tablet ids]}.
@@ -251,12 +263,15 @@
       if (t === 'hk_notify/mute') return notifyMute(hub, msg);
       if (t === 'hk_frontend/tablet/act' && msg.act === 'restart_all') return tabletsRestart(hub);
       // LIVE TV'S VIEWER HEARTBEAT (hk-tv-guide-card, on opening a channel and every 60 s while it plays):
-      // in HA it names this screen in sensor.tv_viewers. A write, so the gateway's when commands are on;
-      // with them off it is answered here, quietly and sending nothing (no "commands disabled" toast
-      // a minute into a programme). docs/phase4/FEATURE-PARITY.md "Live TV".
-      if (t === 'hk_tv/watching' && !(typeof hub.commandsEnabled === 'function' && hub.commandsEnabled())) {
-        return Promise.resolve({ viewers: [] });
-      }
+      // counted by Mantel (tv_watching; live_tv.py), never a command, on every server, commands on or off.
+      // Where Mantel serves Live TV it publishes sensor.tv_viewers itself. Where Home Assistant's Live TV is
+      // still the interim (the answer says `ha: true`), HA keeps sensor.tv_viewers: with commands on the
+      // heartbeat ALSO goes to HA through the gateway, as before. docs/phase4/FEATURE-PARITY.md "Live TV".
+      if (t === 'hk_tv/watching') return tvWatching(hub, msg, acts, callWS);
+      // THE MUSIC PAGE IS IN USE (hk-library.js, on a browse, a search or a play): in HA it only tells Keep
+      // Playlists Ready to wait. Not a command (nothing reaches Music Assistant or HA): Mantel's music host
+      // answers `music_used` on every server, commands on or off (docs/phase4/MANTEL-FEATURES.md "Music").
+      if (t === 'hk_music/used' && typeof hub.ask === 'function') return hub.ask('music_used', {}).then(function () { return null; });
       return callWS.apply(acts, arguments);
     };
     acts.callService = function (domain, service, data) {

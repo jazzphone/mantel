@@ -8,7 +8,9 @@ with AES-256-GCM, is a gzip-compressed tar holding
 * ``mantel.db``      a consistent snapshot made with SQLite's online backup API (safe while the server
                      writes, WAL included), checked with ``PRAGMA integrity_check`` before it is packed;
 * ``manifest.json``  schema version, row counts per table, when, and what else is inside;
-* ``user-files/...`` the "Your files" tree (user_files.py), unless switched off.
+* ``user-files/...`` the "Your files" tree (user_files.py), unless switched off;
+* ``connections/...`` Mantel's own HA/MA credentials from the Connections page (connections.py), as the sealed
+                     files they are (sealed with the at-rest key, so a restore needs that key too).
 
 **The key.** ``<secrets_dir>/backup.key`` (base64url of 32 random bytes, 0600; created on the first backup,
 with a loud notice, if it is missing). It is *separate from* the at-rest key (``at_rest.key``): the backups
@@ -91,6 +93,7 @@ MAX_META = 4096
 MAX_UNPACKED = 16 << 30            # a decompression-bomb guard on restore (16 GiB)
 DB_NAME = "mantel.db"
 FILES_DIR = "user-files"
+CONNECTIONS_DIR = "connections"     # connections.py: <data_dir>/connections, sealed files
 DEFAULT_TIME = "03:15"
 
 
@@ -318,6 +321,9 @@ def create_backup(data_dir: Path, target: Path, key: bytes, *, now: datetime | N
             tar.add(work / DB_NAME, arcname=DB_NAME, recursive=False)
             if with_files:
                 manifest["file_count"] = _add_tree(tar, files_root, FILES_DIR)
+            conn_root = data_dir / CONNECTIONS_DIR
+            if conn_root.is_dir():
+                manifest["connections"] = _add_tree(tar, conn_root, CONNECTIONS_DIR)
             blob = json.dumps(manifest, indent=1, sort_keys=True).encode()
             member = tarfile.TarInfo("manifest.json")
             member.size, member.mtime = len(blob), int(now.timestamp())
@@ -404,8 +410,9 @@ def _unpack(payload: Path, out: Path) -> tuple[dict, int]:
         try:
             for m in tar:
                 name = _safe_member(m.name)
-                if name is None or not (name in (DB_NAME, "manifest.json") or name == FILES_DIR
-                                        or name.startswith(FILES_DIR + "/")):
+                if name is None or not (name in (DB_NAME, "manifest.json") or name in (FILES_DIR, CONNECTIONS_DIR)
+                                        or name.startswith(FILES_DIR + "/")
+                                        or name.startswith(CONNECTIONS_DIR + "/")):
                     raise BackupError("corrupt", f"the backup contains an unexpected entry {m.name!r}")
                 if m.isdir():
                     (out / name).mkdir(parents=True, exist_ok=True)
@@ -518,7 +525,8 @@ def restore(backup: Path, key: bytes, data_dir: Path, *, replace: bool = False, 
         suffix = ".before-restore-" + now.astimezone(timezone.utc).strftime("%Y%m%d-%H%M%S")
         moved: list[tuple[Path, Path]] = []
         try:
-            for p in [live, *sidecars, data_dir / FILES_DIR]:
+            conn_tree = stage / "unpacked" / CONNECTIONS_DIR
+            for p in [live, *sidecars, data_dir / FILES_DIR] + ([data_dir / CONNECTIONS_DIR] if conn_tree.is_dir() else []):
                 if p.exists() or p.is_symlink():
                     aside = p.with_name(p.name + suffix)
                     n = 1
@@ -531,6 +539,11 @@ def restore(backup: Path, key: bytes, data_dir: Path, *, replace: bool = False, 
             os.chmod(live, 0o600)
             if files_tree.is_dir():
                 os.replace(files_tree, data_dir / FILES_DIR)
+            if conn_tree.is_dir():
+                os.replace(conn_tree, data_dir / CONNECTIONS_DIR)
+                os.chmod(data_dir / CONNECTIONS_DIR, 0o700)
+                for f in (data_dir / CONNECTIONS_DIR).iterdir():
+                    os.chmod(f, 0o600)
         except OSError as exc:
             for original, aside in reversed(moved):                  # put the old data back
                 with contextlib.suppress(OSError):

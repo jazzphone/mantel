@@ -159,18 +159,32 @@ def test_no_house_command_is_made_of_any_of_this(observed):
         for mode in ("off", "on"):
             assert observed[mode][key]["type"] in ("screen_report", "notify_mute")
     assert set(observed["kinds"]) <= {"read_subscribe", "read_unsubscribe", "screen_report", "notify_mute",
-                                      "command", "settings_write", "tablets_restart", "read"}
+                                      "tv_watching", "command", "settings_write", "tablets_restart", "read", "music_used"}
 
 
 @pytest.mark.parametrize("mode", ["off", "on"])
 def test_live_tvs_viewer_heartbeat(observed, mode):
     r = observed[mode]
+    # always counted by Mantel: one tv_watching frame (not a command), commands on or off, no toast
+    assert r["tvFrame"] == {"type": "tv_watching", "id": r["tvFrame"]["id"], "channel": "4.1"}
+    assert (r["tv"], r["tvSent"], r["tvRefusedEvents"]) == ({"viewers": ["Kitchen"]}, 1, 0)
+    assert r["tvStopFrame"]["channel"] is None and r["tvBad"] == "invalid" and r["tvForbidden"] == "forbidden"
+    assert r["tvLaterSent"] == 2, "the stop and the refused one were sent; the malformed one was not"
+    assert r["tvInterimFrame"]["type"] == "tv_watching"
     if mode == "off":
-        # answered in the page: nothing sent, no "commands disabled" toast every minute of a programme
-        assert (r["tv"], r["tvSent"], r["tvRefusedEvents"]) == ({"viewers": []}, 0, 0)
+        # HA's Live TV is the interim but commands are off: nothing goes to HA
+        assert (r["tvInterim"], r["tvInterimSent"]) == ({"viewers": ["Kitchen"]}, 1)
     else:
-        # a write: the gateway's, as a `command` frame, exactly as HK sends it to HA
-        assert r["tvFrame"]["type"] == "command" and r["tvSent"] == 1 and r["tv"] == {"viewers": ["x"]}
+        # ... and with commands on HA hears it too (sensor.tv_viewers is HA's there), through the gateway
+        assert r["tvForward"]["type"] == "command" and r["tvForward"]["msg"]["type"] == "hk_tv/watching"
+        assert (r["tvInterim"], r["tvInterimSent"]) == ({"viewers": ["x"]}, 2)
+
+
+@pytest.mark.parametrize("mode", ["off", "on"])
+def test_the_music_page_in_use_is_music_used_never_a_command(observed, mode):
+    r = observed[mode]
+    assert r["usedFrame"] == {"type": "music_used", "id": r["usedFrame"]["id"]}
+    assert (r["used"], r["usedSent"], r["usedRefusedEvents"]) == (None, 1, 0)
 
 
 def test_the_frames_are_what_the_servers_handlers_accept():
@@ -178,6 +192,10 @@ def test_the_frames_are_what_the_servers_handlers_accept():
     src = (ROOT / "hosts/server/mantel_server/features.py").read_text()
     assert 'set(msg) <= {"type", "id", "tablet", "touch", "saver", "black", "photos"}' in src
     assert 'set(msg) - {"type", "id", "key", "seconds"}' in src
+    # tv_watching: channel only (live_tv.py), answered as tv_watching_result, which hub.js accepts
+    tv = (ROOT / "hosts/server/mantel_server/live_tv.py").read_text()
+    assert 'set(msg) - {"type", "id", "channel"}' in tv and '"tv_watching_result"' in tv
+    assert "'tv_watching_result'" in (ROOT / "web/shim/hub.js").read_text()
 
 
 def test_the_shared_frontend_is_untouched_by_this():

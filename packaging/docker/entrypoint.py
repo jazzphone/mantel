@@ -3,9 +3,13 @@
 
 Stdlib only; it replaces itself with the server (exec), so the server is PID 1's process and gets signals.
 
-Docker / Proxmox LXC (compose)   settings from MANTEL_* environment variables (none of them secret),
-                                 the Home Assistant token from a FILE (default /run/secrets/ha_token).
-    MANTEL_HA_URL          required   http://homeassistant.local:8123
+Docker / Proxmox LXC (compose)   settings from MANTEL_* environment variables (none of them secret).
+                                 Home Assistant and Music Assistant are normally set up after the first
+                                 start on the admin page (/admin, Connections; connections.py), which keeps
+                                 Mantel's own sealed copy on the data volume. A token FILE from the
+                                 installation (default /run/secrets/ha_token) still works and is shown as
+                                 "set by the installation"; an empty file counts as none.
+    MANTEL_HA_URL          optional   http://homeassistant.local:8123 (with the ha_token file); else the page
     MANTEL_PUBLIC_URL      required   https://mantel.example.com/   (what browsers type; Caddy serves it)
     MANTEL_ALLOW_HOSTS     optional   comma list of further Host names, e.g. the LAN IP
     MANTEL_LISTEN          optional   default 0.0.0.0 (the container interface, behind Caddy only)
@@ -26,7 +30,11 @@ Home Assistant App (add-on)      recognised by SUPERVISOR_TOKEN in the environme
                                  0600 file and removed from the environment, so the server and anything it
                                  spawns only ever see a file path, like every other mode. Options come from
                                  options.json (packaging/ha-app/config.yaml): commands_enabled (default
-                                 false), log_level, default_screen, ha_door_rules. The server is reached only
+                                 false), log_level, default_screen, ha_door_rules, ma_url and ma_token (Music
+                                 Assistant; the token, a masked option, is moved into a 0600 file like the App
+                                 credential and only its path is passed; on /admin -> Connections these show
+                                 as "set by the installation", and a connection saved there wins over them).
+                                 The server is reached only
                                  through Ingress (--ingress --ingress-only: the signed-in HA user is believed
                                  only from the Supervisor's Ingress proxy, 172.30.32.2), and talks to HA Core
                                  through the Supervisor (ws://supervisor/core/websocket). docs/phase3/HA-APP.md.
@@ -47,8 +55,10 @@ and restore, to the container's HA address, token and secrets):
     MANTEL_SECRETS_DIR     compose    /run/secrets (at_rest.key, backup.key)
     MANTEL_MA_URL          optional   Music Assistant's API (token: /run/secrets/ma_token); empty = off
     MANTEL_BACKUP_TARGET   optional   /backups (the host's backup folder, mounted) turns the nightly backup on
+    MANTEL_GO2RTC_URL      compose    http://go2rtc:1984: Live TV served by Mantel through the stack's own go2rtc
+                                      (its viewing paths also served to pages under /go2rtc/)
+    MANTEL_LIVE_TV_HARDWARE optional  vaapi (compose.gpu.yaml sets it): the QuickSync transcode templates
     MANTEL_MA_WEB_URL      optional   Music Assistant's web app (default: the host of MANTEL_MA_URL), served under /ma/
-    MANTEL_GO2RTC_URL      compose    go2rtc's API (http://go2rtc:1984), its viewing paths served under /go2rtc/
     MANTEL_FRAME_ANCESTORS optional   origins (besides Mantel itself) that may frame Mantel's pages
     MANTEL_CONNECT_SRC, MANTEL_FRAME_SRC   optional   extra CSP origins for HK's pages
     MANTEL_PROXY_KIND      compose    caddy | own (bring your own proxy): tunes /proxy-check's advice
@@ -72,6 +82,7 @@ ADMIN_EXTRAS = {
 }
 APP_OPTIONS = Path("/data/options.json")
 APP_TOKEN_FILE = Path("/tmp/ha_token")
+APP_MA_TOKEN_FILE = Path("/tmp/ma_token")       # the App's Music Assistant token (its masked option), 0600
 SUPERVISOR_CORE_URL = "http://supervisor/core"
 SUPERVISOR_WS_URL = "ws://supervisor/core/websocket"
 APP_PORT = "8099"
@@ -106,10 +117,12 @@ def trusted_proxy_args(env: dict[str, str]) -> list[str]:
 
 
 def container_args(env: dict[str, str]) -> list[str]:
-    missing = [k for k in ("MANTEL_HA_URL", "MANTEL_PUBLIC_URL") if not env.get(k)]
+    missing = [k for k in ("MANTEL_PUBLIC_URL",) if not env.get(k)]
     if missing:
         raise ConfigError("missing " + ", ".join(missing) + " (set them in packaging/compose/.env)")
-    args = ["--ha-url", env["MANTEL_HA_URL"],
+    # no MANTEL_HA_URL: Home Assistant is set up on the admin page (Connections); an empty address keeps
+    # the server from ever trying a built-in default
+    args = ["--ha-url", env.get("MANTEL_HA_URL", "").strip(),
             "--token-file", env.get("MANTEL_HA_TOKEN_FILE", "/run/secrets/ha_token"),
             "--data-dir", env.get("MANTEL_DATA_DIR", "/data"),
             "--port", env.get("MANTEL_PORT", "8765"),
@@ -126,6 +139,7 @@ def container_args(env: dict[str, str]) -> list[str]:
     args += media_and_header_args(env)
     if env.get("MANTEL_BACKUP_TARGET"):
         args += ["--backup-target", env["MANTEL_BACKUP_TARGET"]]
+    args += live_tv_args(env)
     if env.get("MANTEL_DEFAULT_SCREEN"):
         args += ["--screen", env["MANTEL_DEFAULT_SCREEN"]]
     if env.get("MANTEL_SESSION_HOURS"):
@@ -139,13 +153,12 @@ def _list(value: str) -> list[str]:
 
 
 def media_and_header_args(env: dict[str, str]) -> list[str]:
-    """Music Assistant's web app and go2rtc under Mantel's own /ma/ and /go2rtc/ (media_proxy.py), the
+    """Music Assistant's web app under Mantel's own /ma/ (media_proxy.py; go2rtc's address comes from
+    live_tv_args, the one go2rtc setting), the
     extra CSP sources (security_headers.py; space or comma separated) and which proxy owns TLS."""
     args: list[str] = []
     if env.get("MANTEL_MA_WEB_URL"):
         args += ["--ma-web-url", env["MANTEL_MA_WEB_URL"]]
-    if env.get("MANTEL_GO2RTC_URL"):
-        args += ["--go2rtc-url", env["MANTEL_GO2RTC_URL"]]
     for var, flag in (("MANTEL_FRAME_ANCESTORS", "--frame-ancestors"), ("MANTEL_CONNECT_SRC", "--csp-connect-src"),
                       ("MANTEL_FRAME_SRC", "--csp-frame-src")):
         for source in _list(env.get(var, "")):
@@ -156,6 +169,17 @@ def media_and_header_args(env: dict[str, str]) -> list[str]:
             raise ConfigError(f"MANTEL_PROXY_KIND must be caddy or own, not {kind!r}")
         args += ["--proxy-kind", kind]
     return args
+
+
+def live_tv_args(env: dict[str, str]) -> list[str]:
+    """Live TV served by Mantel (compose: its own go2rtc). Never in the HA App (app_args): there Home
+    Assistant's own Live TV stays the interim (docs/phase4/FEATURE-PARITY.md)."""
+    if not env.get("MANTEL_GO2RTC_URL"):
+        return []
+    hw = env.get("MANTEL_LIVE_TV_HARDWARE", "").strip().lower() or "none"
+    if hw not in ("none", "vaapi"):
+        raise ConfigError(f"MANTEL_LIVE_TV_HARDWARE must be vaapi or empty, not {hw!r}")
+    return ["--go2rtc-url", env["MANTEL_GO2RTC_URL"], "--live-tv-hardware", hw]
 
 
 def connect_args(env: dict[str, str]) -> list[str]:
@@ -185,7 +209,7 @@ def app_args(options: dict, token_file: Path, env: dict[str, str] | None = None)
             "--port", env.get("MANTEL_PORT", APP_PORT), "--listen", listen]
     if listen not in ("127.0.0.1", "::1"):
         args += ["--public-url", "https://ingress.invalid/", "--allow-host", "*"]
-    args += ["--ingress", "--ingress-only"]
+    args += ["--ingress", "--ingress-only", "--ha-managed-by-app"]   # HA is the App's credential (connections.py)
     for peer in filter(None, (p.strip() for p in env.get("MANTEL_INGRESS_PEER", "").split(","))):
         args += ["--ingress-peer", peer]
     # Commands stay OFF unless the App's option says exactly true (PLAN: off by default).
@@ -201,6 +225,12 @@ def app_args(options: dict, token_file: Path, env: dict[str, str] | None = None)
         args += ["--screen", str(options["default_screen"])]
     if options.get("session_hours"):
         args += ["--session-hours", str(options["session_hours"])]
+    # Music Assistant (Phase 4, music.py): its address is an option; its token a masked option the caller
+    # (plan) has already moved into a private file. Without both, Mantel's music engine stays off.
+    ma_url = str(options.get("ma_url") or "").strip()
+    ma_file = Path(env.get("MANTEL_APP_MA_TOKEN_FILE") or APP_MA_TOKEN_FILE)
+    if ma_url and str(options.get("ma_token") or "").strip():
+        args += ["--ma-url", ma_url, "--ma-token-file", str(ma_file)]
     return args
 
 
@@ -225,7 +255,12 @@ def plan(argv: list[str], env: dict[str, str], options_path: Path = APP_OPTIONS,
         options_path = Path(env.get("MANTEL_APP_OPTIONS") or options_path)
         token_file = Path(env.get("MANTEL_APP_TOKEN_FILE") or token_file)
         write_private(token_file, env.pop("SUPERVISOR_TOKEN"))
-        return app_args(json.loads(options_path.read_text()), token_file, env) + argv, env
+        options = json.loads(options_path.read_text())
+        ma_file = Path(env.get("MANTEL_APP_MA_TOKEN_FILE") or APP_MA_TOKEN_FILE)
+        ma_token = str(options.get("ma_token") or "").strip()
+        if ma_token and str(options.get("ma_url") or "").strip():
+            write_private(ma_file, ma_token)       # out of the options' way: the server only sees a file path
+        return app_args(options, token_file, env) + argv, env
     return container_args(env) + argv, env
 
 
@@ -250,7 +285,8 @@ def main(argv: list[str] | None = None) -> int:
         print(f"mantel entrypoint: {exc}", file=sys.stderr)
         return 2
     if os.getuid() == 0:
-        drop_privileges([Path(env.get("MANTEL_DATA_DIR", "/data"))] + ([APP_TOKEN_FILE] if APP_TOKEN_FILE.exists() else []))
+        drop_privileges([Path(env.get("MANTEL_DATA_DIR", "/data"))]
+                        + [f for f in (APP_TOKEN_FILE, APP_MA_TOKEN_FILE) if f.exists()])
     os.execve(sys.executable, [sys.executable, "-m", "mantel_server", *args], env)
     return 0  # not reached
 
