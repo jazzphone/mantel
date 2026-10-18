@@ -50,3 +50,19 @@ async def test_a_devices_entities_and_name_come_from_has_registries(hass):
     devs.async_update_device(dev.id, name_by_user="Loft Tablet")
     assert house.device(dev.id).name == "Loft Tablet", "the user's name for it"
     assert house.device("no_such_device") is None and house.device_entities("no_such_device") == []
+
+
+async def test_a_state_says_when_it_last_changed(hass):
+    """What the Sleep Screen's decisions read (hk_core/sleep: when presence rose, when the lit
+    lights or Good Night last changed): a state's last_changed, the state's own, not moved by an
+    attribute; and two views of the same state are equal whenever it was read."""
+    hass.states.async_set("binary_sensor.hall_motion", "on", {"device_class": "motion"})
+    st = hass.states.get("binary_sensor.hall_motion")
+    house = HaHouse(hass)
+    first = house.state("binary_sensor.hall_motion")
+    assert first.last_changed == st.last_changed and first.last_changed.tzinfo is not None
+    hass.states.async_set("binary_sensor.hall_motion", "on", {"device_class": "motion", "friendly_name": "Motion"})
+    assert house.state("binary_sensor.hall_motion").last_changed == st.last_changed, "an attribute is no change"
+    hass.states.async_set("binary_sensor.hall_motion", "on", {"device_class": "motion"})
+    assert house.state("binary_sensor.hall_motion") == first
+    assert [s.last_changed for s in house.states("binary_sensor")] == [st.last_changed]

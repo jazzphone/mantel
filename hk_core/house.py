@@ -22,9 +22,13 @@ from typing import Any, Protocol
 
 @dataclass(frozen=True)
 class State:
+    """An entity's state. `last_changed`: when its state (not just its attributes) last
+    changed, aware, when the host knows (the Sleep Screen's presence and lights read it); it
+    takes no part in comparing two views."""
     entity_id: str
     state: str
     attributes: Mapping[str, Any] = field(default_factory=dict)
+    last_changed: datetime | None = field(default=None, compare=False)
 
     @property
     def domain(self) -> str:
