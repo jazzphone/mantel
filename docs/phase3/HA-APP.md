@@ -246,6 +246,22 @@ users (...)`); the fallback is a one-off link from the App's container (`docker 
 python /app/entrypoint.py link --ha-user-id <Avery's HA id> --role owner --name Avery`, HA id from HA →
 Settings → People → Users, advanced mode) — the entrypoint defaults it to `/data`.
 
+### Installed on the house (2026-10-18 10:33)
+
+HA Core 2026.10.2. HA backup `b6bccdca` ("Before_Mantel_App_2026-10-18") taken first. Staged from `0d6ea1d`
+(build `34ec4e8ed5ddd420`); the same staged folder was built locally with Docker first (imports ok).
+Store refresh → **Mantel 0.1.0** under local apps → install (Supervisor build) → start. Options left at
+`commands_enabled: false`, `default_screen: dashboard-kitchen`, `ha_door_rules: tunnel`; Protection mode on,
+boot manual, watchdog off.
+
+- [x] Builds and starts; migrations 0001–0008 applied; log: `HA App mode: identity from Ingress, believed only
+      from 172.30.32.2 (Ingress only); door 'ha' uses the tunnel rules`, `read-only; commands disabled`,
+      `authenticated to Home Assistant 2026.10.2`, registries and 4499 states loaded; no traceback, no token.
+- [x] `/healthz` (watchdog path) 200, HA connected.
+- [x] A direct request from another App (not the Ingress proxy) with spoofed `X-Remote-User-*` headers:
+      **403** "reached through Home Assistant's sidebar only".
+- [ ] Steps 5–7 and the rest of the checklist need Avery signed in to HA (the sidebar page as an HA admin).
+
 ### Removal
 
 Stop and uninstall **Mantel** (Settings → Apps → Mantel → Uninstall); this removes its image and `/data`
