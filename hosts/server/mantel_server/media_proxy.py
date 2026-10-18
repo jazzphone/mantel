@@ -1,0 +1,549 @@
+"""Music Assistant's web app and go2rtc, served under Mantel's own address (``/ma/…``, ``/go2rtc/…``).
+
+WHY. An https Mantel cannot frame ``http://ma:8095`` (mixed content: the browser blanks the frame) nor
+open ``ws://`` to go2rtc (docs/phase3/PACKAGING.md "mixed content"). Served by Mantel, both are
+same-origin with HK's page, on whatever TLS Mantel's proxy (Caddy, the home's own, HA's Ingress) gives
+it, and behind Mantel's sign-in.
+
+RULES (docs/phase3/PACKAGING.md "Music Assistant and go2rtc through Mantel"):
+
+* **Never an open proxy.** Each upstream is ONE configured base URL (``--ma-web-url`` / ``--go2rtc-url``);
+  the page names only a path under it, checked against an allowlist of exactly what HK needs (``MA_*``,
+  ``GO2RTC_*`` below). ``..``, empty segments, backslashes, control characters: refused. Anything else
+  answers 404 without contacting the upstream.
+* **Mantel's sign-in and RBAC first.** The session middleware has already refused anonymous requests.
+  Music Assistant: ``control`` on the feature ``music`` (its web app plays and queues music). go2rtc: per
+  stream (``Go2rtcStreams``): a stream registered as a camera's needs that camera's live view
+  (authz.may_view, the same rule as the WebRTC signaling); a Live TV stream needs a signed-in person or
+  device (as the Live TV guide does); an unknown stream is refused. Long-lived sockets are re-checked
+  every ``RECHECK`` seconds and closed when the session, the device or the grant is gone.
+* **Nothing about the upstream reaches the page.** Requests go out with a short allowlist of headers
+  (never Mantel's cookies, ``Authorization``, ``Origin`` or the forwarding headers); answers come back
+  with a short allowlist (never ``Set-Cookie``, ``Server``, the upstream's own CSP); a redirect to the
+  upstream's own address is moved under the prefix; Music Assistant's text answers and WebSocket frames
+  have the upstream's address (the configured one, and the ``base_url`` MA announces in its
+  ``server_info``) replaced by the page's own ``https://<host>[<ingress prefix>]/ma``. Errors name the
+  service, never its address. No credential is added for the page: Music Assistant's own sign-in, if it
+  has one, shows inside the frame (the person's MA account, not Mantel's MA token).
+* **Prefix-aware.** Through HA's Ingress the page's prefix comes first (``<prefix>/ma/``); redirects
+  are moved under it by ingress.py, and the rewritten addresses carry it.
+
+go2rtc's paths are the viewing ones only (its WebRTC/MSE socket, the WHEP-style ``POST /api/webrtc``,
+the frame, MP4/HLS/MJPEG streams and its two player modules); stream management (``/api/streams``),
+configuration, restart, logs and its own web pages are never reachable. Stream SETUP is Live TV's job
+(features.py, go2rtc's API from the server side); it tells this module which stream is what with
+``app["go2rtc_streams"].allow(src, "live_tv")`` / ``.allow(src, "camera", entity_id)``.
+"""
+from __future__ import annotations
+
+import asyncio
+import logging
+import re
+from dataclasses import dataclass
+from typing import Any, Callable
+from urllib.parse import quote, urlsplit
+
+import aiohttp
+from aiohttp import WSMsgType, web
+
+from . import proxy_trust, sessions
+
+log = logging.getLogger("mantel.media_proxy")
+
+MA, GO2RTC = "/ma", "/go2rtc"
+SERVICES_PATH = "/api/services"
+RECHECK = 60.0
+MAX_BODY = 1 << 20                  # a request body (MA's forms, a WebRTC offer)
+MAX_REWRITE = 16 << 20              # a text answer of MA's that gets its upstream address replaced
+MAX_WS_MSG = 16 << 20
+CHUNK = 64 << 10
+
+REQ_HEADERS = ("Accept", "Accept-Language", "Content-Type", "Range", "If-None-Match", "If-Modified-Since",
+               "If-Range", "Cache-Control", "User-Agent")
+RESP_HEADERS = ("Content-Type", "Cache-Control", "ETag", "Last-Modified", "Content-Range", "Accept-Ranges",
+                "Expires", "Content-Disposition", "Content-Language")
+WS_SUBPROTOCOL = re.compile(r"^[A-Za-z0-9._-]{1,64}$")
+REWRITE_TYPES = ("text/html", "text/css", "text/javascript", "application/javascript", "application/json",
+                 "text/plain", "application/manifest+json")
+
+# -- Music Assistant: its web app (a Vue app built to run under a prefix, as it does under HA's
+# Ingress), its WebSocket API, its image proxy and its own sign-in pages. Never its JSON-RPC HTTP API.
+MA_STATIC = re.compile(r"^(?:|index\.html|[A-Za-z0-9._-]+\.(?:js|mjs|css|png|svg|ico|webmanifest|json|woff2?|ttf|"
+                       r"map|txt|webp|jpg|jpeg|gif)|(?:assets|img|images|icons|fonts|static)/[A-Za-z0-9._/@-]+)$")
+MA_GET_EXTRA = re.compile(r"^(?:imageproxy|info|login|auth/[A-Za-z0-9._/-]+)$")
+MA_POST = re.compile(r"^(?:login|auth/[A-Za-z0-9._/-]+)$")
+MA_WS = frozenset({"ws"})
+MA_DENY = re.compile(r"^(?:api|api-docs|jsonrpc)(?:/|$)")
+
+# -- go2rtc: viewing only.
+SRC = re.compile(r"^[A-Za-z0-9_.:-]{1,64}$")
+HLS_ID = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
+G_WS = {"api/ws": frozenset({"src", "media"})}
+G_POST = {"api/webrtc": frozenset({"src"})}
+G_GET = {
+    "api/frame.jpeg": frozenset({"src", "width", "height", "w", "h", "cache"}),
+    "api/stream.mp4": frozenset({"src", "mp4", "duration", "media"}),
+    "api/stream.m3u8": frozenset({"src", "mp4", "media"}),
+    "api/stream.mjpeg": frozenset({"src"}),
+    "api/hls/playlist.m3u8": frozenset({"id"}),
+    "api/hls/segment.ts": frozenset({"id", "n"}),
+    "api/hls/segment.m4s": frozenset({"id", "n"}),
+    "api/hls/init.mp4": frozenset({"id"}),
+    "video-rtc.js": frozenset(),
+    "video-stream.js": frozenset(),
+}
+
+
+def _error(status: int, code: str, service: str | None = None) -> web.Response:
+    body = {"error": code}
+    if service:
+        body["service"] = service
+    return web.json_response(body, status=status, headers={"Cache-Control": "no-store"})
+
+
+def safe_tail(tail: str) -> str | None:
+    """The path under the prefix if it is plain (no '..', '.', empty inner segments, backslash or
+    control characters), else None."""
+    if not isinstance(tail, str) or len(tail) > 1024 or "\\" in tail or any(ord(c) < 32 or ord(c) == 127 for c in tail):
+        return None
+    parts = tail.split("/")
+    for i, seg in enumerate(parts):
+        if seg in (".", ".."):
+            return None
+        if seg == "" and i != len(parts) - 1:
+            return None
+    return tail
+
+
+def is_ws_upgrade(request: web.Request) -> bool:
+    return request.method == "GET" and request.headers.get("Upgrade", "").lower() == "websocket"
+
+
+# -- go2rtc's streams: which is what -------------------------------------------------------------------
+class Go2rtcStreams:
+    """Which go2rtc stream is what, for the per-stream decision. Live TV (or whatever sets a stream up
+    in go2rtc) registers it; a stream named like a camera entity (``camera.front_door``) is that
+    camera's even unregistered; anything else is refused."""
+
+    CAMERA_NAME = re.compile(r"^camera\.[a-z0-9_]+$")
+
+    def __init__(self) -> None:
+        self._kinds: dict[str, tuple[str, str | None]] = {}
+
+    def allow(self, src: str, kind: str, entity_id: str | None = None) -> None:
+        if not SRC.match(src or ""):
+            raise ValueError(f"not a go2rtc stream name: {src!r}")
+        if kind not in ("live_tv", "camera"):
+            raise ValueError("kind must be 'live_tv' or 'camera'")
+        if kind == "camera" and not (entity_id and self.CAMERA_NAME.match(entity_id)):
+            raise ValueError("a camera stream names its camera entity")
+        self._kinds[src] = (kind, entity_id)
+
+    def forget(self, src: str) -> None:
+        self._kinds.pop(src, None)
+
+    def kind_of(self, src: str) -> tuple[str, str | None] | None:
+        got = self._kinds.get(src)
+        if got is not None:
+            return got
+        if self.CAMERA_NAME.match(src or ""):
+            return ("camera", src)
+        return None
+
+    def may(self, authz: Any, principal: Any, src: str) -> bool:
+        got = self.kind_of(src)
+        if got is None or principal is None or not getattr(principal, "valid", False):
+            return False
+        kind, entity = got
+        if kind == "camera":
+            return authz.may_view(principal, entity) is True
+        ident = principal.identity
+        return ident.user is not None or ident.device is not None      # Live TV: signed in (as its guide)
+
+
+# -- the two upstreams -----------------------------------------------------------------------------------
+@dataclass
+class Plan:
+    """What one request becomes: the upstream path + query, and whether it is a socket."""
+    path: str
+    query: str
+    ws: bool
+    rewrite: bool
+
+
+class Upstream:
+    name = ""
+    prefix = ""
+    service = ""
+
+    def __init__(self, base: str) -> None:
+        parts = urlsplit(base)
+        self.base = f"{parts.scheme}://{parts.netloc}{parts.path.rstrip('/')}"
+        self.origin = f"{parts.scheme}://{parts.netloc}"
+
+    def plan(self, request: web.Request, tail: str) -> Plan | None:
+        raise NotImplementedError
+
+    def authorize(self, app: web.Application, principal: Any, plan: Plan, request: web.Request) -> bool:
+        raise NotImplementedError
+
+    def url(self, plan: Plan, ws: bool = False) -> str:
+        u = f"{self.base}/{quote(plan.path, safe='/._-~@')}"
+        if plan.query:
+            u += "?" + plan.query
+        if ws:
+            u = "ws" + u[4:] if u.startswith("http:") else "wss" + u[5:]
+        return u
+
+
+class MusicAssistant(Upstream):
+    name, prefix, service = "music_assistant", MA, "Music Assistant"
+
+    def __init__(self, base: str) -> None:
+        super().__init__(base)
+        self.announced: set[str] = set()   # base_url values MA announced in server_info (also replaced)
+
+    def plan(self, request: web.Request, tail: str) -> Plan | None:
+        if MA_DENY.match(tail):
+            return None
+        query = request.query_string
+        if len(query) > 4096:
+            return None
+        if is_ws_upgrade(request):
+            return Plan(tail, query, True, False) if tail in MA_WS else None
+        if request.method in ("GET", "HEAD"):
+            if MA_STATIC.match(tail) or MA_GET_EXTRA.match(tail):
+                return Plan(tail, query, False, True)
+            return None
+        if request.method == "POST" and MA_POST.match(tail):
+            return Plan(tail, query, False, True)
+        return None
+
+    def authorize(self, app, principal, plan, request) -> bool:
+        authz = app.get("authz")
+        if authz is None or principal is None or not principal.valid:
+            return False
+        return authz.decide(principal.subject, "control", None, feature="music").allowed is True
+
+    def rewriter(self, public_base: str) -> Callable[[str], str]:
+        olds = sorted({self.origin, self.base, *self.announced}, key=len, reverse=True)
+        olds = [o.rstrip("/") for o in olds if o]
+
+        def rewrite(text: str) -> str:
+            for old in olds:
+                if old in text:
+                    text = text.replace(old, public_base)
+            return text
+        return rewrite
+
+    def learn(self, text: str) -> None:
+        """MA's first frame (server_info) names its own base_url: replace that address too."""
+        m = re.search(r'"base_url"\s*:\s*"(https?://[^"\s]{1,200})"', text)
+        if m:
+            got = m.group(1).rstrip("/")
+            if got not in self.announced and len(self.announced) < 8:
+                self.announced.add(got)
+
+
+class Go2rtc(Upstream):
+    name, prefix, service = "go2rtc", GO2RTC, "go2rtc"
+
+    def plan(self, request: web.Request, tail: str) -> Plan | None:
+        if is_ws_upgrade(request):
+            table = G_WS
+        elif request.method in ("GET", "HEAD"):
+            table = G_GET
+        elif request.method == "POST":
+            table = G_POST
+        else:
+            return None
+        allowed = table.get(tail)
+        if allowed is None:
+            return None
+        q = request.query
+        if set(q) - allowed or any(len(q.getall(k)) != 1 for k in q):
+            return None
+        if "src" in allowed and tail not in ("video-rtc.js", "video-stream.js"):
+            if not SRC.match(q.get("src", "")):
+                return None
+        if "id" in allowed and not HLS_ID.match(q.get("id", "")):
+            return None
+        for k in set(q) - {"src", "id"}:
+            if not re.fullmatch(r"[A-Za-z0-9_,.=-]{0,64}", q[k]):
+                return None
+        query = "&".join(f"{quote(k)}={quote(q[k], safe=':.-_,')}" for k in sorted(q))
+        return Plan(tail, query, table is G_WS, False)
+
+    def authorize(self, app, principal, plan, request) -> bool:
+        if principal is None or not principal.valid:
+            return False
+        if plan.path in ("video-rtc.js", "video-stream.js"):
+            return True                       # go2rtc's player modules: static code, nothing of the house
+        if plan.path.startswith("api/hls/"):
+            # an HLS id is go2rtc's own random session id, handed out only in the answer to an
+            # authorised stream.m3u8; the person must still be signed in
+            ident = principal.identity
+            return ident.user is not None or ident.device is not None
+        src = request.query.get("src", "")
+        return app["go2rtc_streams"].may(app.get("authz"), principal, src)
+
+
+# -- the handler ----------------------------------------------------------------------------------------
+def public_base(request: web.Request, prefix: str) -> str:
+    """https://<host>[<ingress prefix>]/ma : what the page uses for the upstream."""
+    return proxy_trust.public_origin(request) + request.get("mantel_base", "") + prefix
+
+
+def _req_headers(request: web.Request) -> dict[str, str]:
+    return {k: request.headers[k] for k in REQ_HEADERS if k in request.headers}
+
+
+def _resp_headers(up_headers, extra: dict | None = None) -> dict[str, str]:
+    out = {k: up_headers[k] for k in RESP_HEADERS if k in up_headers}
+    out.update(extra or {})
+    return out
+
+
+def _location(up: Upstream, location: str) -> str | None:
+    """An upstream redirect, moved under the prefix (ingress.py adds the Ingress prefix); None when it
+    leaves the upstream (refused: Mantel never redirects a page to the upstream's own address)."""
+    parts = urlsplit(location)
+    if parts.scheme or parts.netloc:
+        if f"{parts.scheme}://{parts.netloc}" != up.origin:
+            return None
+        path = parts.path
+        base_path = urlsplit(up.base).path
+        if base_path and path.startswith(base_path):
+            path = path[len(base_path):]
+    else:
+        path = parts.path
+        if not path.startswith("/"):
+            return location     # relative to the current page: already under the prefix
+    out = up.prefix + (path if path.startswith("/") else "/" + path)
+    if parts.query:
+        out += "?" + parts.query
+    if parts.fragment:
+        out += "#" + parts.fragment
+    return out
+
+
+class MediaProxy:
+    def __init__(self, app: web.Application, upstreams: list[Upstream]) -> None:
+        self.app = app
+        self.upstreams = {u.prefix: u for u in upstreams}
+        self.http: aiohttp.ClientSession | None = None
+        self.sockets: set[web.WebSocketResponse] = set()
+        self.stats = {u.name: {"served": 0, "refused": 0, "not_allowed": 0, "upstream_errors": 0} for u in upstreams}
+
+    async def start(self, app: web.Application) -> None:
+        # its own session: no cookie jar (an upstream's cookies must never be shared between people)
+        self.http = aiohttp.ClientSession(cookie_jar=aiohttp.DummyCookieJar(), auto_decompress=True,
+                                          timeout=aiohttp.ClientTimeout(total=None, connect=10, sock_read=120))
+
+    async def stop(self, app: web.Application) -> None:
+        for ws in list(self.sockets):
+            await ws.close(code=1001, message=b"server shutting down")
+        if self.http is not None:
+            await self.http.close()
+
+    def handler(self, up: Upstream):
+        async def handle(request: web.Request) -> web.StreamResponse:
+            stats = self.stats[up.name]
+            tail = safe_tail(request.match_info.get("tail", ""))
+            if tail is None:
+                stats["not_allowed"] += 1
+                return _error(404, "not_found", up.service)
+            plan = up.plan(request, tail)
+            if plan is None:
+                stats["not_allowed"] += 1
+                return _error(404, "not_found", up.service)
+            authz = request.app.get("authz")
+            principal = authz.principal(request) if authz is not None else None
+            if not up.authorize(request.app, principal, plan, request):
+                stats["refused"] += 1
+                return _error(403, "forbidden", up.service)
+            if plan.ws:
+                if request.headers.get("Origin") is None:
+                    return _error(403, "origin_required", up.service)   # loopback_only checked its value
+                return await self.relay(request, up, plan, principal)
+            return await self.forward(request, up, plan)
+        return handle
+
+    async def forward(self, request: web.Request, up: Upstream, plan: Plan) -> web.StreamResponse:
+        stats = self.stats[up.name]
+        body = None
+        if request.method == "POST":
+            if request.content_length is not None and request.content_length > MAX_BODY:
+                return _error(413, "too_large", up.service)
+            try:
+                body = await request.read()          # the app's client_max_size (1 MiB) bounds it too
+            except web.HTTPRequestEntityTooLarge:
+                return _error(413, "too_large", up.service)
+            if len(body) > MAX_BODY:
+                return _error(413, "too_large", up.service)
+        try:
+            async with self.http.request(request.method, up.url(plan), headers=_req_headers(request), data=body,
+                                         allow_redirects=False) as r:
+                if 300 <= r.status < 400 and "Location" in r.headers:
+                    moved = _location(up, r.headers["Location"])
+                    if moved is None:
+                        stats["upstream_errors"] += 1
+                        return _error(502, "upstream_redirect_refused", up.service)
+                    return web.Response(status=r.status, headers=_resp_headers(r.headers, {"Location": moved}))
+                ctype = r.headers.get("Content-Type", "").split(";")[0].strip().lower()
+                if isinstance(up, MusicAssistant) and plan.rewrite and ctype in REWRITE_TYPES \
+                        and request.method != "HEAD":
+                    raw = await r.content.read(MAX_REWRITE + 1)
+                    if len(raw) > MAX_REWRITE:
+                        stats["upstream_errors"] += 1
+                        return _error(502, "upstream_answer_too_large", up.service)
+                    charset = r.charset or "utf-8"
+                    text = raw.decode(charset, errors="surrogateescape")
+                    up.learn(text)
+                    text = up.rewriter(public_base(request, up.prefix))(text)
+                    stats["served"] += 1
+                    return web.Response(status=r.status, body=text.encode(charset, errors="surrogateescape"),
+                                        headers=_resp_headers(r.headers))
+                resp = web.StreamResponse(status=r.status, headers=_resp_headers(r.headers))
+                if r.content_length is not None and "Content-Encoding" not in r.headers:
+                    resp.content_length = r.content_length
+                await resp.prepare(request)
+                if request.method != "HEAD":
+                    async for chunk in r.content.iter_chunked(CHUNK):
+                        await resp.write(chunk)
+                await resp.write_eof()
+                stats["served"] += 1
+                return resp
+        except (aiohttp.ClientError, asyncio.TimeoutError, OSError) as exc:
+            stats["upstream_errors"] += 1
+            log.warning("%s did not answer %s (%s)", up.service, plan.path or "/", type(exc).__name__)
+            return _error(502, "upstream_unavailable", up.service)
+
+    async def relay(self, request: web.Request, up: Upstream, plan: Plan, principal: Any) -> web.StreamResponse:
+        stats = self.stats[up.name]
+        protocols = [p.strip() for p in request.headers.get("Sec-WebSocket-Protocol", "").split(",")
+                     if WS_SUBPROTOCOL.match(p.strip())]
+        try:
+            upstream = await self.http.ws_connect(up.url(plan, ws=True), headers=_req_headers(request),
+                                                  protocols=protocols, max_msg_size=MAX_WS_MSG, heartbeat=30,
+                                                  autoping=True)
+        except (aiohttp.ClientError, asyncio.TimeoutError, OSError) as exc:
+            stats["upstream_errors"] += 1
+            log.warning("%s refused its socket (%s)", up.service, type(exc).__name__)
+            return _error(502, "upstream_unavailable", up.service)
+        ws = web.WebSocketResponse(heartbeat=30, max_msg_size=MAX_WS_MSG,
+                                   protocols=[upstream.protocol] if upstream.protocol else ())
+        try:
+            await ws.prepare(request)
+        except Exception:
+            await upstream.close()
+            raise
+        self.sockets.add(ws)
+        stats["served"] += 1
+        base = public_base(request, up.prefix)
+        rewrite = up.rewriter(base) if isinstance(up, MusicAssistant) else None
+
+        async def down() -> None:            # upstream -> page
+            nonlocal rewrite
+            async for m in upstream:
+                if m.type == WSMsgType.TEXT:
+                    text = m.data
+                    if rewrite is not None:
+                        before = len(up.announced)
+                        up.learn(text)
+                        if len(up.announced) != before:
+                            rewrite = up.rewriter(base)
+                        text = rewrite(text)
+                    await ws.send_str(text)
+                elif m.type == WSMsgType.BINARY:
+                    await ws.send_bytes(m.data)
+                else:
+                    break
+
+        async def upward() -> None:          # page -> upstream
+            async for m in ws:
+                if m.type == WSMsgType.TEXT:
+                    await upstream.send_str(m.data)
+                elif m.type == WSMsgType.BINARY:
+                    await upstream.send_bytes(m.data)
+                else:
+                    break
+
+        async def watch() -> None:           # the session, the device and the grant, again and again
+            authz = request.app.get("authz")
+            while True:
+                await asyncio.sleep(RECHECK)
+                if authz is None or principal is None or not authz.refresh(principal) \
+                        or not up.authorize(request.app, principal, plan, request):
+                    log.info("closing a %s socket: its session or grant ended", up.service)
+                    return
+
+        tasks = [asyncio.create_task(down()), asyncio.create_task(upward()), asyncio.create_task(watch())]
+        try:
+            await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
+        finally:
+            for t in tasks:
+                t.cancel()
+            await asyncio.gather(*tasks, return_exceptions=True)
+            await upstream.close()
+            await ws.close()
+            self.sockets.discard(ws)
+        return ws
+
+
+def upstreams_from(cfg) -> list[Upstream]:
+    out: list[Upstream] = []
+    ma_web = getattr(cfg, "ma_web_url", "") or ""
+    if not ma_web and getattr(cfg, "ma_url", ""):
+        p = urlsplit(cfg.ma_url)
+        if p.scheme in ("ws", "wss") and p.netloc:
+            ma_web = f"{'https' if p.scheme == 'wss' else 'http'}://{p.netloc}/"
+    if ma_web:
+        out.append(MusicAssistant(ma_web))
+    if getattr(cfg, "go2rtc_url", ""):
+        out.append(Go2rtc(cfg.go2rtc_url))
+    return out
+
+
+def services_for(app: web.Application, principal: Any) -> dict[str, str | None]:
+    """Which of the two this identity may use, as paths under the page's prefix (None: off or refused)."""
+    proxy: MediaProxy | None = app.get("media_proxy")
+    out: dict[str, str | None] = {"music_assistant": None, "go2rtc": None}
+    if proxy is None:
+        return out
+    ma = proxy.upstreams.get(MA)
+    if ma is not None and ma.authorize(app, principal, Plan("", "", False, False), None):
+        out["music_assistant"] = MA + "/"
+    if GO2RTC in proxy.upstreams and principal is not None and principal.valid and \
+            (principal.identity.user is not None or principal.identity.device is not None):
+        out["go2rtc"] = GO2RTC + "/"
+    return out
+
+
+def register(app: web.Application, hub: Any = None) -> MediaProxy | None:
+    """``/ma/…`` and ``/go2rtc/…`` (each only when configured) and ``GET /api/services``. Call after
+    ``app["authz"]`` exists (server.wire)."""
+    app.setdefault("go2rtc_streams", Go2rtcStreams())
+    ups = upstreams_from(app["cfg"])
+    proxy = MediaProxy(app, ups) if ups else None
+    app["media_proxy"] = proxy
+
+    async def services(request: web.Request) -> web.Response:
+        authz = request.app.get("authz")
+        principal = authz.principal(request) if authz is not None else None
+        if not sessions.identity(request).authenticated:
+            raise web.HTTPUnauthorized()
+        return web.json_response(services_for(request.app, principal), headers={"Cache-Control": "no-store"})
+
+    app.router.add_get(SERVICES_PATH, services)
+    if proxy is None:
+        return None
+    for up in ups:
+        async def bare(request: web.Request, _p=up.prefix) -> web.StreamResponse:
+            raise web.HTTPFound(_p + "/" + (f"?{request.query_string}" if request.query_string else ""))
+        app.router.add_route("*", up.prefix, bare)
+        app.router.add_route("*", up.prefix + "/{tail:.*}", proxy.handler(up))
+        log.info("%s is served under %s/ (Mantel's sign-in and RBAC; viewing paths only)", up.service, up.prefix)
+    app.on_startup.append(proxy.start)
+    app.on_cleanup.append(proxy.stop)
+    return proxy

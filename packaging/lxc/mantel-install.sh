@@ -10,6 +10,10 @@ COMPOSE_DIR="$INSTALL_DIR/packaging/compose"
 SECRETS_DIR="/etc/hk/secrets"
 MODE="${MANTEL_INSTALL_MODE:-build}"
 GPU="${MANTEL_GPU:-no}"
+TLS="${MANTEL_TLS:-}"            # dns01 | internal | own (mantel.sh asks; docs/OPERATIONS.md "HTTPS: four ways")
+DOMAIN="${MANTEL_DOMAIN:-}"
+PROXY_IP="${MANTEL_PROXY_IP:-}"
+TUNNEL="${MANTEL_TUNNEL:-no}"
 
 msg_info() { printf '\n==> %s\n' "$*"; }
 msg_ok()   { printf '    ok: %s\n' "$*"; }
@@ -73,17 +77,31 @@ if [ ! -f "$COMPOSE_DIR/.env" ]; then
   cp "$COMPOSE_DIR/.env.example" "$COMPOSE_DIR/.env"
   sed -i "s|^MANTEL_LAN_IP=.*|MANTEL_LAN_IP=${lan_ip}|" "$COMPOSE_DIR/.env"
   sed -i "s|^MANTEL_ALLOW_HOSTS=.*|MANTEL_ALLOW_HOSTS=${lan_ip}|" "$COMPOSE_DIR/.env"
+  add_compose_file() {   # add_compose_file NAME: append to COMPOSE_FILE (creating it with compose.yaml first)
+    if grep -q '^COMPOSE_FILE=' "$COMPOSE_DIR/.env"; then
+      sed -i "s|^COMPOSE_FILE=\(.*\)$|COMPOSE_FILE=\1:$1|" "$COMPOSE_DIR/.env"
+    else
+      printf '%s\n' "COMPOSE_FILE=compose.yaml:$1" >> "$COMPOSE_DIR/.env"
+    fi
+  }
+  [ -n "$DOMAIN" ] && sed -i "s|^MANTEL_HOSTNAME=.*|MANTEL_HOSTNAME=${DOMAIN}|" "$COMPOSE_DIR/.env"
+  case "$TLS" in
+    internal) sed -i "s|^MANTEL_TLS_SNIPPET=.*|MANTEL_TLS_SNIPPET=./caddy/tls-internal.caddy|" "$COMPOSE_DIR/.env"
+              msg_ok "HTTPS: Caddy's own certificate authority (trust its root on each device)" ;;
+    own)      add_compose_file compose.byo-proxy.yaml
+              printf '%s\n' "MANTEL_TRUSTED_PROXY=${PROXY_IP}" "MANTEL_HTTP_BIND=${lan_ip}" >> "$COMPOSE_DIR/.env"
+              [ -n "$PROXY_IP" ] || warn "set MANTEL_TRUSTED_PROXY in .env to your proxy's address before the first start"
+              msg_ok "HTTPS: your own proxy; Mantel publishes http://${lan_ip}:8765 for it (compose.byo-proxy.yaml)" ;;
+    dns01|"") msg_ok "HTTPS: Caddy with your domain (DNS-01); needs mantel-secret cloudflare_dns_token" ;;
+  esac
   if [ "$GPU" = "yes" ] && [ -c /dev/dri/renderD128 ]; then
     rgid="$(getent group render | cut -d: -f3)"
-    printf '%s\n' "COMPOSE_FILE=compose.yaml:compose.gpu.yaml" "MANTEL_RENDER_GID=${rgid}" >> "$COMPOSE_DIR/.env"
+    add_compose_file compose.gpu.yaml
+    printf '%s\n' "MANTEL_RENDER_GID=${rgid}" >> "$COMPOSE_DIR/.env"
     msg_ok "GPU: render group ${rgid}, compose.gpu.yaml enabled"
   fi
   if [ "${MANTEL_CONNECT:-no}" = "yes" ]; then
-    if grep -q '^COMPOSE_FILE=' "$COMPOSE_DIR/.env"; then
-      sed -i 's|^COMPOSE_FILE=\(.*\)$|COMPOSE_FILE=\1:compose.connect.yaml|' "$COMPOSE_DIR/.env"
-    else
-      printf '%s\n' "COMPOSE_FILE=compose.yaml:compose.connect.yaml" >> "$COMPOSE_DIR/.env"
-    fi
+    add_compose_file compose.connect.yaml
     printf '%s\n' "MANTEL_CONNECT_ADDRESS=${lan_ip}:8766" >> "$COMPOSE_DIR/.env"
     msg_ok "Mantel Connect: compose.connect.yaml enabled (port 8766); pair it after the first start"
   fi
@@ -102,9 +120,12 @@ cat <<EOF
 
 Installed. Mantel is NOT running yet. Finish like this:
   1. mantel-secret ha_token                 # token of the dedicated HA user "mantel-server"
-  2. nano ${COMPOSE_DIR}/.env               # MANTEL_HOSTNAME, MANTEL_HA_URL, TLS choice
-     (DNS-01 TLS also needs:  mantel-secret cloudflare_dns_token)
-  3. cd ${COMPOSE_DIR} && docker compose up -d --wait
+  2. nano ${COMPOSE_DIR}/.env               # MANTEL_HA_URL (and check MANTEL_HOSTNAME, the HTTPS choice)
+$([ "$TLS" = "dns01" ] || [ -z "$TLS" ] && echo "     mantel-secret cloudflare_dns_token     # DNS-01: a token limited to Zone / DNS / Edit for one zone")$([ "$TUNNEL" = "yes" ] && echo "
+     mantel-secret cloudflared_token        # then start with: docker compose --profile tunnel up -d --wait")
+  3. cd ${COMPOSE_DIR} && docker compose up -d --wait$([ "$TLS" = "own" ] && echo "
+     then point your proxy at http://$(hostname -I | awk '{print $1}'):8765 with WebSockets on and the X-Mantel-Door
+     header (docs/OPERATIONS.md 'HTTPS: four ways'), and open https://${DOMAIN:-<your name>}/proxy-check as the Owner")
   4. docker compose run --rm mantel-server links     # first-Owner linking stays an explicit admin step
 $([ "${MANTEL_CONNECT:-no}" = "yes" ] && echo "  5. Mantel in Home Assistant's sidebar: install the Mantel Connect App there, then
        docker compose exec mantel-server mantel connect pair --address $(hostname -I | awk '{print $1}'):8766

@@ -149,4 +149,22 @@ rc.connectedCallback();
 check('coming back (a cached view) puts the listener back', resizers() - r0 === 1);
 rc.disconnectedCallback();
 check('...and leaving again takes it off', resizers() - r0 === 0);
+
+// --- a host that serves Music Assistant on its own origin ---------------------
+// Mantel serves MA's web app under its own address (/ma/, behind its sign-in),
+// and says so through the shell. Home Assistant's shell does not: everything
+// above is HA's behaviour, unchanged.
+check('Home Assistant\'s shell serves no MA of its own', hkShell.serviceUrl('music_assistant') === null);
+var withMa = function (fn) { return Object.assign({}, hkShell._none, { serviceUrl: fn }); };
+hkShell.use(withMa(function (n) { return n === 'music_assistant' ? '/api/hassio_ingress/T/ma/' : null; }));
+check('a host serving MA: the frame is same-origin under its path', card()._target(remote) === '/api/hassio_ingress/T/ma/#/home');
+check('...and is never treated as blocked on https', card()._blocked(remote) === false);
+check('...the configured path follows', card({ path: '/#/library' })._target(remote) === '/api/hassio_ingress/T/ma/#/library');
+check('an explicit host still wins over the host\'s service', card({ host: 'music.lan' })._target(tablet) === 'http://music.lan:8095/#/home');
+hkShell.use(withMa(function () { return 'https://elsewhere.example/ma/'; }));
+check('only a path on this origin is taken, never another site', card()._target(tablet) === 'http://192.0.2.10:8095/#/home');
+hkShell.use(withMa(function () { return '//elsewhere.example/ma/'; }));
+check('...nor a protocol-relative address', card()._target(tablet) === 'http://192.0.2.10:8095/#/home');
+hkShell.use(withMa(function () { throw new Error('a broken host'); }));
+check('a throwing host is the same as none', card()._target(tablet) === 'http://192.0.2.10:8095/#/home');
 print(fail ? 'FAIL ' + fail + ' BROWSE TESTS' : 'ALL ' + pass + ' BROWSE TESTS PASS');

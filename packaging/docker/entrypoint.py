@@ -47,6 +47,11 @@ and restore, to the container's HA address, token and secrets):
     MANTEL_SECRETS_DIR     compose    /run/secrets (at_rest.key, backup.key)
     MANTEL_MA_URL          optional   Music Assistant's API (token: /run/secrets/ma_token); empty = off
     MANTEL_BACKUP_TARGET   optional   /backups (the host's backup folder, mounted) turns the nightly backup on
+    MANTEL_MA_WEB_URL      optional   Music Assistant's web app (default: the host of MANTEL_MA_URL), served under /ma/
+    MANTEL_GO2RTC_URL      compose    go2rtc's API (http://go2rtc:1984), its viewing paths served under /go2rtc/
+    MANTEL_FRAME_ANCESTORS optional   origins (besides Mantel itself) that may frame Mantel's pages
+    MANTEL_CONNECT_SRC, MANTEL_FRAME_SRC   optional   extra CSP origins for HK's pages
+    MANTEL_PROXY_KIND      compose    caddy | own (bring your own proxy): tunes /proxy-check's advice
 """
 from __future__ import annotations
 
@@ -118,6 +123,7 @@ def container_args(env: dict[str, str]) -> list[str]:
     if env.get("MANTEL_MA_URL"):
         args += ["--ma-url", env["MANTEL_MA_URL"],
                  "--ma-token-file", env.get("MANTEL_MA_TOKEN_FILE", "/run/secrets/ma_token")]
+    args += media_and_header_args(env)
     if env.get("MANTEL_BACKUP_TARGET"):
         args += ["--backup-target", env["MANTEL_BACKUP_TARGET"]]
     if env.get("MANTEL_DEFAULT_SCREEN"):
@@ -125,6 +131,30 @@ def container_args(env: dict[str, str]) -> list[str]:
     if env.get("MANTEL_SESSION_HOURS"):
         args += ["--session-hours", env["MANTEL_SESSION_HOURS"]]
     args += connect_args(env)
+    return args
+
+
+def _list(value: str) -> list[str]:
+    return [v for v in value.replace(",", " ").split() if v]
+
+
+def media_and_header_args(env: dict[str, str]) -> list[str]:
+    """Music Assistant's web app and go2rtc under Mantel's own /ma/ and /go2rtc/ (media_proxy.py), the
+    extra CSP sources (security_headers.py; space or comma separated) and which proxy owns TLS."""
+    args: list[str] = []
+    if env.get("MANTEL_MA_WEB_URL"):
+        args += ["--ma-web-url", env["MANTEL_MA_WEB_URL"]]
+    if env.get("MANTEL_GO2RTC_URL"):
+        args += ["--go2rtc-url", env["MANTEL_GO2RTC_URL"]]
+    for var, flag in (("MANTEL_FRAME_ANCESTORS", "--frame-ancestors"), ("MANTEL_CONNECT_SRC", "--csp-connect-src"),
+                      ("MANTEL_FRAME_SRC", "--csp-frame-src")):
+        for source in _list(env.get(var, "")):
+            args += [flag, source]
+    kind = env.get("MANTEL_PROXY_KIND", "").strip().lower()
+    if kind:
+        if kind not in ("caddy", "own"):
+            raise ConfigError(f"MANTEL_PROXY_KIND must be caddy or own, not {kind!r}")
+        args += ["--proxy-kind", kind]
     return args
 
 

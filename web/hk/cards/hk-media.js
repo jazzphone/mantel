@@ -3138,7 +3138,21 @@
     // not on the same machine as HA; unset, it follows whatever address this
     // page was reached on, which is the whole point.
     _host(loc) { return this._config.host || (loc || location).hostname; }
+    // SAME ORIGIN WHEN THE HOST SERVES IT. A host that serves Music
+    // Assistant's web app under its own address (Mantel: /ma/, behind its
+    // sign-in) says so through the shell; the frame is then same-origin --
+    // https on an https page -- and nothing below about ports or mixed
+    // content applies. An explicit `host` still wins (MA elsewhere). Only a
+    // path on this origin is taken, never another site.
+    _service() {
+      if (this._config.host) return null;
+      var S = window.hkShell;
+      var u = S && typeof S.serviceUrl === 'function' ? S.serviceUrl('music_assistant') : null;
+      return typeof u === 'string' && u.charAt(0) === '/' && u.charAt(1) !== '/' ? u : null;
+    }
     _target(loc) {
+      var svc = this._service();
+      if (svc) return svc.replace(/\/+$/, '') + '/' + String(this._config.path || '').replace(/^\/+/, '');
       return (loc || location).protocol + '//' + this._host(loc) +
              ':' + this._config.port + this._config.path;
     }
@@ -3148,7 +3162,8 @@
     }
     _blocked(loc) {
       // Only https-over-http is blocked. http pages -- every wall tablet --
-      // frame http happily.
+      // frame http happily, and a same-origin frame (_service) never is.
+      if (this._service()) return false;
       return (loc || location).protocol === 'https:';
     }
 

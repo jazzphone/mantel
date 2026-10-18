@@ -14,7 +14,7 @@ has been built or run, because Docker is not installed on this Mac and no Proxmo
 | `.dockerignore` | The build context is the repo root; this keeps `.git`, docs, tests, secrets, `spikes/` and Apple fonts out. |
 | `hosts/server/mantel_server/health.py` | `register(app, hub)` adds `GET /healthz` (liveness + HA link status, no secrets, 200 unless `?strict=1`) and `GET /api/version` (build id). `python -m mantel_server.health` is the HEALTHCHECK probe. |
 | `tools/build_static.py` | Stages `web/` and stamps a content-derived build id (`BUILD_ID`, `static-manifest.json`); the Dockerfile runs it. |
-| `packaging/compose/compose.yaml` (+ `compose.gpu.yaml`, `.env.example`, `caddy/`, `go2rtc/`, `secrets/README.md`, `update.sh`) | The stack: caddy, mantel-server, go2rtc (+ the transcode), optional cloudflared (`--profile tunnel`). |
+| `packaging/compose/compose.yaml` (+ `compose.gpu.yaml`, `compose.byo-proxy.yaml`, `.env.example`, `caddy/`, `go2rtc/`, `secrets/README.md`, `update.sh`) | The stack: caddy, mantel-server, go2rtc (+ the transcode), optional cloudflared (`--profile tunnel`). `compose.byo-proxy.yaml` replaces Caddy with the home's own reverse proxy (below). |
 | `packaging/lxc/mantel.sh`, `mantel-install.sh` | The Proxmox LXC installer (community-scripts layout) and its in-container half. |
 | `packaging/ha-app/config.yaml` | The HA App definition (Ingress, built-in App credential). Scaffold: see "Open gaps". |
 | `tools/package_check.py`, `tests/test_packaging.py` | The static validation (below). |
@@ -65,13 +65,63 @@ Other directives and why:
 
 * `img-src 'self' data: blob: https://tile.openstreetmap.org https://*.rainviewer.com https://mapservices.weather.noaa.gov`: OSM tiles (`hk-person`, `hk-radar`), RainViewer/NOAA radar, `data:` SVG masks in `hk-energy`/`hk-stat`/`hk-settings`.
 * `connect-src 'self' https://api.rainviewer.com https://tile.openstreetmap.org https://mapservices.weather.noaa.gov`: radar fetches. `'self'` covers the same-origin `wss://.../ws`. Extra origins (go2rtc, HA) go through `MANTEL_CONNECT_SRC`.
-* `frame-src 'self' $MANTEL_FRAME_SRC`: `hk-media.js` iframes **Music Assistant's web app** and `hk-settings.js` creates an iframe. **Mixed content:** an https Mantel cannot frame `http://ma:8095` or open `ws://` to go2rtc. Either MA/go2rtc sit behind TLS (Caddy can proxy them, a later change) or those cards stay broken on https. Not solved here.
-* `frame-ancestors 'none'` by default, **but** HA Ingress (and Mantel Connect's sidebar page) display Mantel inside HA's page. Those modes need `MANTEL_FRAME_ANCESTORS` set to HA's origin. PLAN §7 states `'none'` flatly; it cannot hold for the HA-sidebar way in.
+* `frame-src 'self' $MANTEL_FRAME_SRC`: `hk-media.js` iframes **Music Assistant's web app** and `hk-settings.js` creates an iframe. **Mixed content** (an https Mantel cannot frame `http://ma:8095` or open `ws://` to go2rtc): *solved since* by serving both under Mantel's own address (`/ma/`, `/go2rtc/`; "HTTPS, four ways" below), so `'self'` covers them.
+* `frame-ancestors`: was `'none'` by default. *Now `'self'`:* HK Settings previews a dashboard in an iframe of Mantel's own page (blank under `'none'`), and HA Ingress / Mantel Connect show Mantel inside HA's page on the same origin. `MANTEL_FRAME_ANCESTORS` adds another origin; `'none'` still forbids all framing.
 * `Referrer-Policy: strict-origin-when-cross-origin`, not `no-referrer`: OSM's tile policy requires a Referer.
 * `Permissions-Policy` keeps `microphone=(self)` (doorbell talk-back), denies camera/geolocation/payment/usb.
 * `default-src 'none'`, `object-src 'none'`, `base-uri 'self'`, `form-action 'self'`, HSTS (`max-age=31536000`, no preload).
 
-`tools/package_check.py` fails if `script-src` is anything but `'self'` or any directive carries `'unsafe-eval'`.
+`tools/package_check.py` fails if `script-src` is anything but `'self'` or any directive carries `'unsafe-eval'` (it now reads the policy from `security_headers.py`, below).
+
+*Update (HTTPS slice):* the policy above moved from the Caddyfile into Mantel Server (`hosts/server/mantel_server/security_headers.py`), so it holds behind any proxy; see "Security headers" below.
+
+## HTTPS, four ways (and the HA App, which needs none)
+
+| | TLS by | Compose | Door header stamped by |
+|---|---|---|---|
+| 1. Your domain | Mantel's Caddy, ACME DNS-01 (Cloudflare token as a secret file) | `compose.yaml`, `MANTEL_TLS_SNIPPET=./caddy/tls-dns01.caddy` | Caddy |
+| 2. No domain | Mantel's Caddy, its internal CA (trust the root per device) | `compose.yaml`, `tls-internal.caddy` | Caddy |
+| 3. Bring your own proxy | the home's Nginx Proxy Manager / Traefik / ... | `compose.yaml:compose.byo-proxy.yaml`, `MANTEL_TRUSTED_PROXY=<proxy IP>` | the home's proxy (Mantel believes it from that IP only) |
+| 4. Remote access | Cloudflare (tunnel), beside 1-3 | `--profile tunnel` | nobody needs to: cloudflared is never trusted, so always `tunnel` |
+
+Operator steps, the NPM and Traefik examples: [OPERATIONS.md, "HTTPS: four ways"](../OPERATIONS.md#https-four-ways). The LXC installer asks for the choice (`var_tls=dns01|internal|own`, `var_tunnel=yes|no`) and writes `.env`.
+
+### Bring your own proxy (`compose.byo-proxy.yaml`)
+
+Caddy is moved behind a profile nobody turns on; `mantel-server` publishes one plain-HTTP port (`${MANTEL_HTTP_BIND:-0.0.0.0}:${MANTEL_HTTP_PORT:-8765}:8765`, on the `egress` network: published ports never work on the internal `backend`), requires `MANTEL_TRUSTED_PROXY` (`${...:?}`), says `MANTEL_PROXY_KIND=own`, and joins the internal `tunnel` network at Caddy's old address `172.31.250.2`, so cloudflared can still reach it (service URL `http://172.31.250.2:8765`). `package_check.check_byo_compose` holds exactly that shape. The trust rules are Mantel's own, not the proxy's (`proxy_trust.py`):
+
+* `X-Mantel-Door` is believed only from a `--trusted-proxy` socket address; from there a request **without** it is `tunnel` (fail closed); from any other non-loopback peer it is removed (the request is `tunnel` anyway). Cloudflare headers force `tunnel` from anyone.
+* `X-Forwarded-For` / `-Proto` / `-Host` / `-Port` / `-Prefix`, `Forwarded`, `X-Real-IP`: removed unless the peer is the trusted proxy (or HA's Ingress proxy, which ingress.py reads).
+* `X-Remote-User-*`, `X-Ingress-Path`, `X-Hass-Source`: removed unless the request is HA's Ingress (`ingress.is_ingress`), **the trusted proxy included**: the home's proxy can never name a person.
+* Removal happens on a clone of the request before `loopback_only`; what handlers store on the clone (queued cookies, the prefix) is copied back, because aiohttp prepares a returned response with the original request object.
+
+* `/healthz` answers 404 to anything arriving through the trusted proxy (what Caddy's `respond /healthz 404` did); the container healthcheck asks on loopback.
+
+Verified on Docker Desktop (2026-10-18, `tools/e2e/compose_e2e.py`, 43/43): the Caddy stack and the your-own-proxy stack (a plain nginx with exactly the OPERATIONS.md NPM block, TLS, its own network) against the scratch HA, a fictional Music Assistant on the Mac and the real go2rtc image.
+
+Cloudflared is deliberately never a trusted proxy: it forwards the browser's own headers, so trusting it would let an internet client claim `lan`.
+
+### Security headers (`security_headers.py`)
+
+Mantel sets on every answer (only where the answer has none, so `/login` and `/admin` keep their stricter policies): the CSP above, `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, `Cross-Origin-Resource-Policy: same-origin`, the `Permissions-Policy`, and **HSTS only on https** (TLS on its own socket, or `X-Forwarded-Proto: https` from the trusted proxy), **never through HA's Ingress** (HA's origin). It removes `Server`. Differences from Caddy's old copy: `frame-ancestors 'self'` (above) and `connect-src` naming the page's own `wss://<host>` (older Safari does not match WebSockets with `'self'`). Under Ingress the documents keep `<meta name="referrer" content="same-origin">` (ingress.py), which overrides the header in the page: HA stamps `no-referrer`, under which a same-origin POST would carry `Origin: null`.
+
+The Caddyfile no longer sets any of these (only `-Server`): a second `Content-Security-Policy` header would be enforced too (the intersection) and break Music Assistant's frame, which has its own policy. `package_check` now fails a Caddyfile that sets a CSP, and checks the policy in `security_headers.py` instead (loaded by path; the module imports only the standard library at import time).
+
+### Music Assistant and go2rtc through Mantel (`media_proxy.py`)
+
+`/ma/…` serves Music Assistant's web app (`--ma-web-url`, default the host of `--ma-url`) and `/go2rtc/…` go2rtc's viewing paths (`--go2rtc-url`; compose sets the stack's own `http://go2rtc:1984`), HTTP and WebSocket, so HK's frame and sockets are same-origin https behind any of the four setups, and through Ingress (`<prefix>/ma/`).
+
+* **No open proxy.** One configured base URL each; the page names only a path, checked against an allowlist: MA's app files (`index.html`, `assets/…`, root icons/manifest), `imageproxy`, `info`, its own sign-in (`login`, `auth/…`) and its `ws`; never `api` (JSON-RPC), `api-docs`. go2rtc: `api/ws` (`src`, `media` only; never `dst`), `POST api/webrtc?src=` (WHEP-style), `api/frame.jpeg`, `api/stream.mp4|m3u8|mjpeg`, `api/hls/…?id=`, and its player modules `video-rtc.js`/`video-stream.js`; never `api/streams`, `api/config`, `api/restart`, `api/exit`, `api/log` or its pages. `..`, empty segments, backslashes, control characters, unknown or repeated query keys: 404 without contacting the upstream.
+* **Sign-in and RBAC first.** MA: `control` on the feature `music`. go2rtc, per stream (`app["go2rtc_streams"]`): a camera stream (registered, or named like `camera.x`) needs that camera's live view (`authz.may_view`); a Live TV stream (registered by whoever sets it up: `allow(src, "live_tv")`) a signed-in person or device; anything else 403. Sockets need an `Origin` (checked by `loopback_only`) and are re-checked every 60 s, closed when the session, device or grant ends.
+* **Nothing of the upstream reaches the page.** Requests carry only `Accept*`, `Content-Type`, `Range`, conditional headers, `Cache-Control`, `User-Agent` (never Mantel's cookies, `Authorization`, `Origin`, forwarding or door headers); answers only content/caching headers (never `Set-Cookie`, `Server`, the upstream's CSP/`X-Frame-Options`). An upstream redirect is moved under the prefix, or refused if it leaves the upstream. MA's text answers and WebSocket frames have the configured address and the `base_url` MA announces in `server_info` replaced by `https://<host>[<prefix>]/ma`. Errors name the service, never its address. Its HTTP client has no cookie jar (an upstream cookie is never shared between people). No credential is added for the page: MA's own sign-in, if any, shows inside the frame.
+* **MA's CSP** (`/ma/` answers): `default-src 'self'`, `script-src 'self' 'unsafe-inline'` (MA's bootstrap, not HK's code; still no eval and no other host), `img-src 'self' data: blob: https:` (providers' artwork CDNs), `connect-src 'self'`, `frame-ancestors 'self'`. `/go2rtc/` answers get `default-src 'none'; frame-ancestors 'self'; sandbox`.
+* **HK** reads where they are through the host shell: `hkShell.serviceUrl('music_assistant' | 'go2rtc')` (shared contract, `web/client/hk-host-shell.js`; `null` by default and in HA). Mantel's shell answers from `GET /api/services` (`{music_assistant: '/ma/' | null, go2rtc: '/go2rtc/' | null}` for this identity), under the page's prefix. `hk-browse-card` frames `serviceUrl + path` when given one (an explicit `host` still wins; only a same-origin path is taken), so HA's behaviour is unchanged.
+
+Not covered: Music Assistant's own stream server (port 8097, used by MA's "play in this browser") is not proxied, so that one MA feature stays http-only; WebRTC media still flows directly to go2rtc's published 8555 (its ICE candidate is the host's LAN address, as before).
+
+### Test my proxy (`proxy_check.py`)
+
+`GET /proxy-check` (Owner, either door): a page whose module (`/proxy-check/check.js`, exporting `runProxyCheck(base)` so the admin page's Connections section can embed it) reads `GET /api/admin/proxy-check` with a probe `X-Mantel-Door` value, opens `/api/admin/proxy-check/ws`, and checks the response headers. Findings: https in use; came via the trusted proxy (or which address it came from instead); door header present, single, plausible for the client address (an internet address on `lan` fails) and **overwritten** (the probe must not arrive); `X-Forwarded-For`; the configured host; HSTS and exactly one CSP arrived; the WebSocket upgrade works by the same door. Each failure has a plain-language fix and, where it helps, the NPM Advanced block to paste. `GET /api/proxy-check/basics` (public: only this request's own door and https) lets the page explain a sign-out caused by arriving on the wrong door.
 
 ## Static checks (run here, pass)
 
@@ -95,8 +145,8 @@ Not implemented, on purpose: renaming files to `name.<hash>.ext`. HK's modules r
 1. **`/healthz` needs the sign-in exemption.** `health.register` adds its two paths to `auth.PUBLIC_PATHS` (a module-level set) because I may not edit `auth.py`. P3.1's session middleware must keep them public. `server.py` does not call `health.register` yet (P3.7 wiring); the full-app test calls it explicitly.
 2. **HA App is a scaffold.** Ingress serves the App under `/api/hassio_ingress/<token>/`; Mantel's pages use absolute `/hk/...` and `/web/...` URLs, which break under a prefix. And the signed-in user arrives as `X-Remote-User-*` headers from `172.30.32.2`; Mantel Server accepts none yet (P3.1's trusted-proxy rule; `mantel_connect/` already has the signed-channel logic for the sidebar page). The App starts and goes healthy; sign-in through Ingress does not work yet. *(Update 2026-10-18: done — Ingress identity, the `ha` door, the prefix and the Supervisor connection: `docs/phase3/HA-APP.md`.)*
 3. **"Your files" and fixtures.** `Config.hk_files` defaults to `<repo>/spikes/...`, which is not in the image, so SF Pro/glyphs are absent in a container until the "Your files" upload lands (PLAN §4: they move to `/data`). There is no CLI option for it yet (not touched: outside the listen-address brief).
-4. **Mixed content** for Music Assistant iframe and go2rtc websockets on https (above).
-5. **Door header and Access JWT** are stamped by Caddy but unused by the server.
+4. ~~**Mixed content** for Music Assistant iframe and go2rtc websockets on https.~~ Done: `/ma/` and `/go2rtc/` through Mantel ("HTTPS, four ways").
+5. **Door header and Access JWT** are stamped by Caddy but unused by the server. *(The door header is read since P3.3, and now also from the home's own proxy; the Access JWT is still not verified.)*
 6. **Python dependency hashes.** The build supports `packaging/docker/requirements.lock` (`--require-hashes`); generate it with `pip-compile --generate-hashes` on a machine with network; without it the build installs pyproject's ranges. No Trivy/SBOM/cosign/GHCR CI exists yet.
 7. **Proxmox firewall egress allow-list** (PLAN §7) is documented, not scripted.
 8. `tools/headless/client_smoke.py` uses fixed Chrome DevTools port 9337 and collides when two slices run it at once (it failed twice for that reason here, and passes on a private port). Not changed.
@@ -174,5 +224,5 @@ The Docker-in-unprivileged-LXC risk from proof 4 (AppArmor/runc on some Proxmox 
 2. Orchestrator (P3.7): call `health.register(app, hub)` from `server.py`; make P3.1's session middleware keep `/healthz` and `/api/version` public; read `X-Mantel-Door` and the Access JWT for the tunnel door rules.
 3. Front end: move the 301 inline `style=` attributes and `<style>` elements to adopted sheets, add a Report-Only strict-style policy, then enforce; build module URLs relative to the build prefix to unlock hashed, immutable assets (design above).
 4. ~~HA App: Ingress identity headers from `172.30.32.2` mapped to a Mantel user, and prefix-relative URLs.~~ Done: `docs/phase3/HA-APP.md`.
-5. TLS for Music Assistant and go2rtc (via Caddy) so the media iframe and talk-back sockets work on https.
+5. ~~TLS for Music Assistant and go2rtc (via Caddy)~~ Done differently: Mantel serves them under `/ma/` and `/go2rtc/` behind its sign-in, so any proxy's TLS covers them.
 6. CI: GHCR publish, Trivy + SBOM + cosign, Renovate for the digests, `requirements.lock` with hashes.

@@ -1,0 +1,16 @@
+body { font: 16px/1.45 system-ui, sans-serif; margin: 0; background: #05070e; color: #eee; }
+main { max-width: 44em; margin: 2.5em auto; padding: 0 16px; }
+a { color: #9cf; }
+.lead, .note { color: #aaa; }
+.summary { font-weight: 600; }
+.summary.good { color: #7d7; }
+.summary.bad { color: #f99; }
+ul.checks { list-style: none; padding: 0; }
+ul.checks li { border-left: 4px solid #555; padding: .4em .9em; margin: .8em 0; background: #0d1120; }
+ul.checks li.ok { border-color: #4a4; }
+ul.checks li.fail { border-color: #d55; }
+ul.checks li.info { border-color: #58a; }
+ul.checks p { margin: .3em 0; }
+.fix { color: #fd9; }
+pre.paste { background: #000; padding: .6em; overflow-x: auto; font-size: 13px; }
+button { font: inherit; padding: .3em .9em; }
