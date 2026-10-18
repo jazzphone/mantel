@@ -12,6 +12,7 @@ was contacted, no `~/.config/mantel/*` token was read, and nothing in this slice
 | `mantel_server/connectors/__init__.py` | Shared pieces: `Hooks` (RBAC + MA gate + HA token), `Ctx` (one client connection), `Route`, `Forbidden`, and the two app tables `app["ws_handlers"]` and `app["read_routes"]` |
 | `mantel_server/connectors/ma.py` | `MaClient` (connect, token from a secret file, auth, reconnect with backoff, request/response by message id, partial results, event fan-out), the read allowlist `MA_READS`, the command catalog `MA_COMMANDS`, the gated `command()`, and `register` |
 | `mantel_server/connectors/camera.py` | `SignalingProxy` (a `ReadProxy` narrowed to camera signaling; every frame passes `ha_client.check_outgoing`), `CameraSignaling` (view hook, session ownership), and `register` |
+| `mantel_server/connectors/camera_still.py` | Camera stills: `shape` (no HA camera token in any state sent to a page; `entity_picture` → Mantel's route) and `GET /api/camera/<entity>/still` (RBAC `Authz.may_still`, streamed from HA's camera_proxy with Mantel's credential). Added 2026-10-18 with the page side |
 | `mantel_server/readproxy.py` | Allowlist extended with media browsing, plus the single REST read (calendar events). `FilteredReads` applies RBAC to every read, `RULES` gives one rule per read type, and `register` |
 | `mantel_server/ha_client.py` | Allowlist extended, explicitly and with key checks, for the three `camera/webrtc/*` messages and `unsubscribe_events` |
 | `mantel_server/config.py` | `ma_url` (empty = connector off) and `ma_token_file` (default `/run/secrets/ma_token`) |
@@ -54,16 +55,48 @@ Registered client message types (pinned): `read`, `read_subscribe`, `read_unsubs
 `ma/read`, `ma/subscribe`, `ma/unsubscribe`. None is a command type, and no client message can send
 an MA or HA command.
 
-### What the page needs (a later `web/` slice; not done here)
+### What the page needs (done 2026-10-18, except music)
 
-- **Cameras:** route the camera card's `client.callWS` for `camera/webrtc/get_client_config` and
-  `camera/webrtc/candidate` to `hub.read(msg)`. Route its `subscriptions.subscribeMessage` for
-  `camera/webrtc/offer` to `hub.readSubscribe(msg, cb)`. The messages stay byte-for-byte what the
-  card sends to HA today, which is §10's "one-line change for the cards".
-- **Calendars:** `client.callApi('GET', 'calendars/<id>?start&end')` becomes
-  `{type: "read_api", id, method: "GET", path}`.
-- **Music:** HK's library and queue reads can move from `hk_music/*` and HA's `media_player/*` to
-  `ma/read`.
+All of it lives in Mantel's host adapter and server. The shared frontend (`web/hk`, `web/client`,
+`web/cards`) is unchanged, so HA's build of it stays byte-identical.
+
+- **Camera live view: done.** `web/shim/mantel-host.js` answers the camera card's `callWS` for
+  `camera/webrtc/get_client_config` and `camera/webrtc/candidate` with `hub.read(msg)`, and its
+  `subscribeMessage` for `camera/webrtc/offer` with `hub.readSubscribe(msg, cb)`. These are checked
+  before the adapter's write-word backstop, which used to refuse `offer` and `candidate`. The messages
+  are byte-for-byte what the card sends to HA, and the camera connector decides each one
+  (`may_view`).
+- **Camera stills: done.** These go through Mantel, never HA's own `camera_proxy`.
+  - `connectors/camera_still.py` shapes every state a `view.ClientView` sends, with or without an
+    RBAC gate. A camera's `access_token` is dropped. Its `entity_picture` becomes
+    `<prefix>/api/camera/<entity>/still?v=<tag>`, where the prefix is the page's Ingress prefix in
+    HA App mode and `''` elsewhere. `v` is a salted HMAC of HA's URL: it changes when HA rotates the
+    camera token, so the card retries after a failure as it does in HA, and it reveals nothing.
+  - `GET /api/camera/<entity>/still[?width&height]` decides with `Authz.may_still`: `view` the camera,
+    and `camera.live` either allowed or only waiting for a step-up. That is the live-view policy
+    minus step-up, so the tunnel and `ha` doors still need the role's `tunnel_cameras`. If allowed,
+    it streams HA's `/api/camera_proxy/<entity>` using Mantel's own HA credential.
+  - Responses: 403 when refused (checked before existence), 404 for an unknown entity or one that
+    isn't a camera, 400 for a bad size or an unexpected query key, 502 when HA fails. Refusals are
+    logged once per camera and door every 5 minutes.
+- **Calendars: done.** `callApi('GET', 'calendars/<calendar.x>?start&end')` becomes
+  `hub.readApi` → `{type: "read_api", id, method: "GET", path}` (readproxy checks the path strictly
+  and decides `view`). Every other `callApi` is still refused, and nothing is sent.
+- **Tests:** `tests/test_camera_still.py` (13) and `tests/test_shim_reads.py` (4, runs the adapter
+  in node).
+- **Scratch HA check (demo devices, 127.0.0.1:8124):**
+  - The Owner's snapshot carried no camera token and no `camera_proxy` URL.
+  - `GET /api/camera/camera.demo_camera/still?…&width=480&height=270` returned 200 `image/jpg`,
+    43,965 bytes, starting `ffd8ff`.
+  - A Child got 403.
+  - `read_api` on `calendar.calendar_1` returned HA's event.
+  - `camera/webrtc/get_client_config` reached HA through `read`. HA's demo camera has no WebRTC,
+    so HA's own `webrtc_get_client_config_failed` came back.
+- **Still open: media players.** HA gives `media_player` states an `entity_picture` of
+  `/api/media_player_proxy/<entity>?token=…`. That is the same kind of HA token, and it still reaches
+  the page (seen on the scratch HA's demo players). A matching artwork route is the follow-up.
+- **Music (not done):** HK's library and queue reads can move from `hk_music/*` and HA's
+  `media_player/*` to `ma/read`.
 
 ## Music Assistant: the API messages used
 
@@ -197,7 +230,7 @@ target navigated or closed").
    harness assertions onto the real `ClientSession`.
 2. **P3.3:** make the gateway the `ma_gate` (`allow(identity, command, args)` after RBAC, step-up and
    the audit row). Its MA path calls `app["ma"].command(identity, command, **args)`.
-3. **`web/` slice:** point the camera card's signaling and the calendar card's `callApi` at
-   `hub.read` / `hub.readSubscribe` / `read_api`, then move HK's music reads to `ma/read`.
+3. **`web/` slice:** done for cameras (signaling, stills) and calendars, in the host adapter. What
+   remains is moving HK's music reads to `ma/read` and media-player artwork.
 4. **E2E (P3.7) against the scratch HA:** a camera, a calendar and history reads, filtered by role.
    MA stays fake-only until Avery points `ma_url` at a scratch MA.

@@ -241,5 +241,20 @@ class Authz:
             return False
         return self.decide(principal.subject, "camera.live", entity_id).allowed is True
 
+    def may_still(self, principal: Any, entity_id: str) -> bool:
+        """A camera still (``GET /api/camera/<entity>/still``): the live-view policy minus step-up.
+        The subject may ``view`` the camera, and ``camera.live`` is allowed or only waits for a fresh
+        factor; the door's camera rules (the tunnel's ``tunnel_cameras``) refuse as they do for live
+        view. Exactly True or False."""
+        if not isinstance(principal, Principal) or not principal.valid or not isinstance(entity_id, str):
+            return False
+        if not ENTITY_ID.match(entity_id) or not entity_id.startswith("camera."):
+            return False
+        ctx = self.context()
+        if not self.decide(principal.subject, "view", entity_id, ctx=ctx).allowed:
+            return False
+        live = self.decide(principal.subject, "camera.live", entity_id, ctx=ctx)
+        return bool(live.allowed or live.needs_step_up)
+
     def visible(self, principal: Principal | None, entity_id: str) -> bool:
         return principal is None or principal.gate is None or principal.gate.visible(entity_id)

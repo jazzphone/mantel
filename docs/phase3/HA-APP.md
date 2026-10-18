@@ -271,7 +271,9 @@ boot manual, watchdog off.
 - [x] The dashboard (`dashboard-kitchen/home`) draws live in the sidebar (Chrome as Avery, and Avery's Safari via
       `hasslocal`); all ~88 requests are under `/api/hassio_ingress/…`, except camera stills, which go to HA's own
       `/api/camera_proxy/…?token=` with HA's entity-picture tokens (works because the frame is on HA's origin; the
-      camera connector routing is the known page-side gap).
+      camera connector routing is the known page-side gap). Closed in the repo since (not yet on the house):
+      states reach the page with Mantel's own `<prefix>/api/camera/<entity>/still` and no HA token
+      ([CONNECTORS.md](CONNECTORS.md) "What the page needs").
 - [x] Expected 404s only: `hk/fonts/SF-Pro.*` and `hk/iconset/hk-glyphs.js`, the Apple-licensed files that are
       never staged (the App draws with fallback fonts and glyphs). Supplying them on the house (an Owner
       upload into `/data`) is a follow-up.

@@ -35,6 +35,7 @@ from .authz import Authz, Principal, resolve_door
 from .config import Config
 from .connectors import REFUSE_ALL, Ctx, Hooks
 from .connectors import camera as camera_connector
+from .connectors import camera_still
 from .connectors import ma as ma_connector
 from .ha_oauth import HaOAuth
 from .readproxy import ReadProxy
@@ -92,13 +93,14 @@ class Hub:
 
 class ClientSession:
     def __init__(self, hub: Hub, ws: web.WebSocketResponse, principal: Principal | None = None,
-                 app: web.Application | None = None) -> None:
+                 app: web.Application | None = None, base: str = "") -> None:
         self.hub = hub
         self.ws = ws
         self.app = app
         self.principal = principal  # None only in a bare app with no sign-in (tests of the hub itself)
         gate = principal.gate if principal is not None else None
-        self.view = ClientView(hub.store, hub.registry, hub.coalescing, gate=gate)
+        # `base`: the page's Ingress prefix ('' elsewhere), for the camera still URLs states carry
+        self.view = ClientView(hub.store, hub.registry, hub.coalescing, gate=gate, shape=camera_still.shaper(base))
         self.wake = asyncio.Event()
         self.tx = Counter()  # snapshot + diff frames only (stats frames are excluded)
         self.subscribed = False
@@ -242,7 +244,7 @@ async def ws_handler(request: web.Request) -> web.StreamResponse:
     authz: Authz | None = request.app.get("authz")
     principal = authz.principal(request) if authz is not None else None
     await ws.prepare(request)
-    session = ClientSession(hub, ws, principal, request.app)
+    session = ClientSession(hub, ws, principal, request.app, base=request.get("mantel_base", ""))
     hub.sessions.add(session)
     try:
         await session.run()
@@ -498,6 +500,7 @@ def wire(app: web.Application, hub: Hub, token: str, connect_ha: bool) -> None:
                   ha_token=(lambda: token) if connect_ha else None)
     readproxy.register(app, hub, hooks)
     camera_connector.register(app, hub, hooks)
+    camera_still.register(app, hub, authz, token)       # GET /api/camera/<entity>/still (RBAC, HA's token stays here)
     ma_connector.register(app, hub, hooks)
     health.register(app, hub)
     # P3.5: HK's settings from Mantel's own store (reads + settings_write saves). HK's own data, not a
