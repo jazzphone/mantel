@@ -72,8 +72,30 @@ def admin(argv: list[str]) -> int:
     return 0
 
 
+def import_settings(argv: list[str]) -> int:
+    """`mantel-server import-settings`: the one-time import of HK's settings from Home Assistant (P3.5).
+    Reads `hk_frontend/panel/get` once over the read path; writes nothing to Home Assistant."""
+    import asyncio
+
+    from .settings_store import import_cli
+    p = argparse.ArgumentParser(prog="mantel-server import-settings")
+    p.add_argument("--data-dir", default=str(Config.data_dir))
+    p.add_argument("--ha-url", default=Config.ha_url)
+    p.add_argument("--token-file", default=str(Config.token_file),
+                   help="Mantel's HA token (an HA admin user's: HK Settings' read needs admin)")
+    a = p.parse_args(argv)
+    try:
+        token = read_token(Path(a.token_file))
+    except TokenMissing as exc:
+        print(f"mantel-server: {exc}", file=sys.stderr)
+        return 2
+    return asyncio.run(import_cli(a.data_dir, a.ha_url, token))
+
+
 def main(argv: list[str] | None = None) -> int:
     argv = sys.argv[1:] if argv is None else argv
+    if argv and argv[0] == "import-settings":
+        return import_settings(argv[1:])
     if argv and argv[0] == "connect-proof":
         from .connect_proof import main as connect_main
         return connect_main(argv[1:])

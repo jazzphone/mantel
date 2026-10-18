@@ -45,7 +45,14 @@ READ_ALLOWED: dict[str, frozenset[str]] = {
     "media_player/search_media": frozenset({"entity_id", "search_query", "media_content_id", "media_content_type",
                                             "media_filter_classes"}),
     "media_source/browse_media": frozenset({"media_content_id"}),
+    # P3.5: HK's settings, read ONCE by Mantel itself for the one-time settings import
+    # (settings_store.import_settings). Never for a page: SERVER_ONLY_READS below.
+    "hk_frontend/panel/get": frozenset(),
 }
+# Reads only Mantel itself makes (ReadProxy.read_hk_settings); a page's read of one is refused here,
+# whichever path it comes by (FilteredReads, or server.py's Phase 0 read until P3.7 retires it). The
+# page's own `hk_frontend/panel/get` is answered by Mantel's settings store (app["read_routes"]).
+SERVER_ONLY_READS = frozenset({"hk_frontend/panel/get"})
 SUBSCRIBE_TYPES = frozenset({"weather/subscribe_forecast", "persistent_notification/subscribe"})
 # housekeeping the proxy itself sends to end a subscription it started
 INTERNAL = {"unsubscribe_events"}
@@ -142,8 +149,10 @@ class ReadProxy:
         await self._ws.send_str(json.dumps({**msg, "id": mid}))
         return mid
 
-    async def request(self, msg: dict):
+    async def request(self, msg: dict, *, server_read: bool = False):
         self.check(msg)
+        if msg.get("type") in SERVER_ONLY_READS and not server_read:
+            raise ReadBlocked(f"{msg.get('type')!r} is read by Mantel itself (the settings import), never for a page")
         mid = await self._send(msg)
         fut = asyncio.get_running_loop().create_future()
         self._pending[mid] = fut
@@ -172,6 +181,10 @@ class ReadProxy:
             await self._send({"type": "unsubscribe_events", "subscription": mid})
         except Exception:
             pass
+
+    async def read_hk_settings(self) -> Any:
+        """HK's settings as HK Settings reads them (hk_frontend/panel/get): the settings import's one read."""
+        return await self.request({"type": "hk_frontend/panel/get"}, server_read=True)
 
     async def get_calendar_events(self, entity_id: str, start: str, end: str) -> Any:
         """GET /api/calendars/<entity>?start&end: the one REST read (REST_READS)."""
@@ -207,6 +220,8 @@ RULES: dict[str, str] = {
     "media_player/browse_media": "view the media player",
     "media_player/search_media": "view the media player",
     "media_source/browse_media": "feature:media; camera sources refused and pruned",
+    "hk_frontend/panel/get": "never for a page (SERVER_ONLY_READS): the settings import's own read; pages get "
+                             "Mantel's settings store",
 }
 
 
@@ -280,6 +295,8 @@ class FilteredReads:
         t = msg["type"]
         if t in SUBSCRIBE_TYPES:
             raise ReadBlocked(f"{t!r} is a subscription (read_subscribe)")
+        if t in SERVER_ONLY_READS:
+            raise ReadBlocked(f"{t!r} is read by Mantel itself, never for a page")
         if t == "get_config":
             res = await self._proxy().request(msg)
             if isinstance(res, dict) and not await may_feature(self.hooks, identity, "locations"):

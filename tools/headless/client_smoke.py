@@ -16,19 +16,24 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "hosts/server"))
 from aiohttp.test_utils import TestServer
 from cdp import Browser
+from mantel_server import settings_store
 from mantel_server.config import Config
+from mantel_server.connectors import Ctx
 from mantel_server.server import build_app
+from mantel_server.sessions import Identity, User
 from mantel_server.store import Store
 
 
-# P2.4: what the HK Settings panel reads first (hk_frontend/panel/get), fictional and minimal: one
-# custom page (its content is a YAML page) and nothing else configured. The real ReadProxy refuses
-# this read (it is not on its allowlist); this smoke stands in for a host that answers it.
-PANEL = {
+# P3.5: HK's settings come from Mantel's own settings store (mantel_server/settings_store.py), as they
+# will in production; the smoke no longer stands in for `hk_frontend/panel/get` or the settings feed.
+# The store is seeded by the one-time import, from this fictional answer of a Home Assistant: what HK
+# Settings reads first (one custom page, whose content is a YAML page) and one screen.
+FICTIONAL_HA_SETTINGS = {
     "entry_id": "fictional-entry", "setup_done": True,
-    "settings": {"sky": {}, "look": {}, "generated": {"include_entities": []}, "weather": {}, "security": {},
-                 "features": {}, "headers": {}},
-    "boards": {}, "dashboards": [], "popups": [], "custom_chips": [], "chip_kinds": [], "page_kinds": [],
+    "settings": {"sky": {}, "look": {}, "generated": {"include_entities": []}, "weather": {"place": "Offline before"},
+                 "security": {}, "features": {}, "headers": {}},
+    "boards": {"dashboard-proof": {"pages": [], "headers": {"home": False}, "menu": "auto"}},
+    "dashboards": [], "popups": [], "custom_chips": [], "chip_kinds": [], "page_kinds": [],
     "custom_pages": [{"path": "offline-page", "title": "Offline Page", "icon": "mdi:file-document-outline",
                       "view": {"cards": [{"type": "tile", "entity": "light.proof"}]}, "item": "fictional-page-item",
                       "used_on": []}],
@@ -36,17 +41,27 @@ PANEL = {
     "choices": {}, "tablets": {}, "screensavers": {}, "kiosk_devices": [], "tablet_suggest": [], "users": [],
     "presets": [], "suggest": {}, "integration": {}, "scene_pages": [], "shelves": {},
 }
+SETTINGS_TYPES = ("hk_frontend/panel/get", "hk_frontend/settings/subscribe")
 
 
 class OfflineReads:
-    """Fictional reads only. This object has no HTTP connection or credentials."""
-    def __init__(self):
+    """Fictional reads only. This object has no HTTP connection or credentials. HK's settings reads go
+    to Mantel's settings store through the routes settings_store.register installed (what P3.7's
+    read dispatch does), as the signed-in fictional Owner."""
+    def __init__(self, app, identity):
+        self.app = app
+        self.ctx = Ctx(send=self._drop, identity=identity)
         self.callbacks = {}
+        self.ends = {}
         self.serial = 0
 
+    @staticmethod
+    async def _drop(msg):
+        pass
+
     async def request(self, msg):
-        if msg["type"] == "hk_frontend/panel/get":
-            return PANEL
+        if msg["type"] in SETTINGS_TYPES:
+            return await self.app["read_routes"][msg["type"]].request(self.ctx, msg)
         if msg["type"] == "get_config":
             return {"unit_system": {"temperature": "°C"}, "time_zone": "UTC", "currency": "USD"}
         if msg["type"] == "frontend/get_themes":
@@ -54,25 +69,15 @@ class OfflineReads:
         return {}
 
     async def subscribe(self, msg, callback):
-        payload = {"configured": True, "weather": {"place": "Offline before"}, "boards": {"dashboard-proof": {"pages": [], "headers": {"home": False}}}}
-        music = {"configured": True, "speakers": [{"name": "Offline Office", "entity": "media_player.offline_office"}]}
-        initial = {"hk_frontend/settings/subscribe": payload, "hk_music/subscribe": music}.get(msg["type"], {})
-        asyncio.get_running_loop().call_soon(callback, initial)
         self.serial += 1
         self.callbacks[self.serial] = (msg["type"], callback)
+        if msg["type"] in SETTINGS_TYPES:
+            self.ends[self.serial] = await self.app["read_routes"][msg["type"]].subscribe(self.ctx, msg, callback)
+            return self.serial
+        music = {"configured": True, "speakers": [{"name": "Offline Office", "entity": "media_player.offline_office"}]}
+        initial = {"hk_music/subscribe": music}.get(msg["type"], {})
+        asyncio.get_running_loop().call_soon(callback, initial)
         return self.serial
-
-    def publish_settings(self):
-        for kind, callback in list(self.callbacks.values()):
-            if kind == "hk_frontend/settings/subscribe":
-                callback({"configured": True, "weather": {"place": "Offline after"},
-                          "boards": {"dashboard-proof": {"pages": [], "headers": {"home": False}}}})
-
-    def publish_tabbar(self):
-        for kind, callback in list(self.callbacks.values()):
-            if kind == "hk_frontend/settings/subscribe":
-                callback({"configured": True, "weather": {"place": "Offline after"},
-                          "boards": {"dashboard-proof": {"pages": [], "headers": {"home": False}, "menu": "tabbar"}}})
 
     def publish_music(self):
         for kind, callback in list(self.callbacks.values()):
@@ -84,6 +89,9 @@ class OfflineReads:
 
     async def unsubscribe(self, mid):
         self.callbacks.pop(mid, None)
+        end = self.ends.pop(mid, None)
+        if end is not None:
+            await end()
 
     async def close(self):
         pass
@@ -99,7 +107,15 @@ async def smoke(shot=None):
         cookie = store.create_session("fictional-owner", 300)
         app = build_app(cfg, "unused-offline-token", store=store, connect_ha=False)
         hub = app["hub"]
-        hub.readproxy = OfflineReads()
+        owner = Identity(User(store.get_link("fictional-owner")["user_id"], "Offline Owner", "owner", "ha_linked"), None, "lan")
+        settings = settings_store.register(app, hub, settings_store.SettingsHooks(
+            may_configure=settings_store.rbac_may_configure()), model=settings_store.ThinModel())
+
+        async def fictional_ha():
+            return json.loads(json.dumps(FICTIONAL_HA_SETTINGS))
+        imported = await settings_store.import_settings(settings.store, fictional_ha, actor=settings_store.Actor(label="smoke"))
+        assert imported["imported"] and imported["source"] == "ha:fictional-entry", imported
+        hub.readproxy = OfflineReads(app, owner)
         hub.store.apply_event({"a": {"sensor.proof": {"s": "21.4", "a": {
             "friendly_name": "Offline temperature", "unit_of_measurement": "°C"}, "lc": 1.0, "lu": 1.0},
             "light.proof": {"s": "off", "a": {"friendly_name": "Offline lamp", "supported_color_modes": ["brightness"]},
@@ -156,7 +172,8 @@ async def smoke(shot=None):
                     hub.on_change({"sensor.proof"})
                     assert await browser.wait(text + " === '22.8 °C'", 5), "WebSocket update did not reach metric"
                     assert await browser.eval("window.__proofClientUpdates === 1 && window.hkCards.client() === window.__mantel.client")
-                    hub.readproxy.publish_settings()
+                    # a real save through Mantel's settings store reaches the page's settings feed
+                    await settings.save(owner, {"type": "hk_frontend/settings/set", "changes": {"weather.place": "Offline after"}})
                     assert await browser.wait("window.hkSettings.get('weather.place') === 'Offline after'", 5), "settings update did not reach shared module"
                     # Slice 5: a detail sheet reads through the Mantel client and follows its updates.
                     assert await browser.eval("""(() => {
@@ -398,7 +415,8 @@ async def smoke(shot=None):
                     })()""")
                     assert shell == {"kind": "mantel", "nav": "hk-navigate", "sky": True, "menu": True,
                                      "view": True, "config": True}, shell
-                    hub.readproxy.publish_tabbar()
+                    await settings.save(owner, {"type": "hk_frontend/board/set", "dashboard": "dashboard-proof",
+                                                "changes": {"menu": "tabbar"}})
                     assert await browser.wait("!!document.querySelector('#hk-shell-root > #hk-tabbar')", 5), \
                         "the tab bar did not mount in Mantel's shell root"
                     # Phase 2 P2.3: HK's view host draws every page of the generated dashboard. Home was drawn by
@@ -512,7 +530,7 @@ async def smoke(shot=None):
                     if shot:
                         await browser.screenshot(shot)
                     return {"home_ready": True, "client": "mantel", "initial": "21.4 °C", "updated": "22.8 °C",
-                            "settings": "updated through client subscription", "client_updates": 1,
+                            "settings": "served by Mantel's settings store (imported once from a fictional HA answer); a save reached the page through the settings feed", "client_updates": 1,
                             "detail": "sheet fed the client, followed 22.8 -> 23.5; registries readable; REST POST refused",
                             "music": "Offline Office -> Offline Den, one subscription, focus write refused",
                             "artwork": "signing refused offline, URL unchanged, no reconnect marked",
@@ -533,7 +551,7 @@ async def smoke(shot=None):
                                          f"{narrow['ids']} states; 0 placeholders; {view_frames} frames sent while moving between views",
                             "settings_forms": "HK Settings opened in the Mantel page with no HA element; the picker listed and searched "
                                               "the fictional entities; the YAML editor showed the page and said a mistake by line; "
-                                              "its Save refused at the action port (no write frame; only the page's re-read)",
+                                              "its Save refused at the action port (no write frame; only the page's re-read, answered by Mantel's settings store)",
                             "external_requests": 0, "browser_exceptions": 0}
         finally:
             store.db.close()

@@ -63,7 +63,9 @@ def test_readproxy_allowlist_is_pinned_and_has_no_writes():
                                  "logbook/get_events", "recorder/statistics_during_period", "energy/get_prefs",
                                  "energy/info",
                                  # P3.4: media browsing (RBAC-filtered in readproxy.FilteredReads)
-                                 "media_player/browse_media", "media_player/search_media", "media_source/browse_media"}
+                                 "media_player/browse_media", "media_player/search_media", "media_source/browse_media",
+                                 # P3.5: the settings import's one read (server-only; tests/test_settings_store.py)
+                                 "hk_frontend/panel/get"}
     for kind, keys in READ_ALLOWED.items():
         assert not WRITE_WORDS.search(kind), kind
         assert not any(WRITE_WORDS.search(k) for k in keys), (kind, keys)
