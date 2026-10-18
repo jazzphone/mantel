@@ -37,7 +37,7 @@
 // hash changed to ANOTHER pop-up's -- switching sheets is not closing.
 //
 // WHERE THE SHEET LIVES: inside home-assistant's shadow root, NOT document.body.
-// The cards in it fire hass-more-info / hass-action / show-dialog, and
+// The cards in it fire the host's more-info, action and show-dialog events, and
 // home-assistant only hears events that bubble through it. Mounted on body, a
 // lock tile in the alarm sheet would tap and do nothing. Inside the root the
 // events bubble (composed) up to the host and work; the theme still reaches it,
@@ -49,7 +49,7 @@
 // positioned against that ancestor, not the screen.
 //
 // THE CHILD CARDS are built once, on first open, by HA's own
-// createCardElement, and fed hass ONLY while open. Closed, they are detached --
+// createCardElement, and fed their client ONLY while open. Closed, they are detached --
 // which is what stops the doorbell's live stream -- and cost nothing.
 (function () {
   'use strict';
@@ -278,7 +278,7 @@
       // `hk-music-mini` while it is one column (a phone), where the docked
       // bar is its mini player; at two or three columns its own player is
       // the page and the bar would only repeat it. The card fires
-      // `hk-popup-flags` when it changes, which re-evaluates (no hass push
+      // `hk-popup-flags` when it changes, which re-evaluates (no state push
       // carries it).
       case 'flag':
         var de = document.documentElement;
@@ -748,7 +748,7 @@
 
   // EVERY ENTITY A CONFIG'S TRIGGER DEPENDS ON, collected once from the config.
   //
-  // This is what lets `set hass` gate like every other card in the library.
+  // This is what lets `_receiveClient` gate like every other card in the library.
   // Both halves of `entity_from` go in -- the SELECTOR (whose state chooses the
   // target) and EVERY entity its map can choose -- so a change to either the
   // choice or the chosen speaker wakes the card. `dismiss_scope` too, because
@@ -831,12 +831,12 @@
 
       getCardSize() { return 0; }
       _render() {}                     // the host draws nothing, ever
-      _sigOf() { return null; }        // see set hass below
+      _sigOf() { return null; }        // see _receiveClient below
 
       // GATED LIKE EVERY OTHER CARD IN THIS LIBRARY.
       //
-      // Ungated, _evalTrigger() runs on EVERY hass push. The frontend hands a
-      // card a new hass ~10x a second, so the three pop-ups on a view run ~300
+      // Ungated, _evalTrigger() runs on EVERY state push. The frontend hands a
+      // card a new client ~10x a second, so the three pop-ups on a view run ~300
       // evaluations in 10s -- and #media's `dismissable` branch does a
       // synchronous localStorage.getItem + JSON.parse inside each one (150
       // reads in 15s), over a stretch in which the ENTIRE card library renders
@@ -849,10 +849,12 @@
       // schedules itself for those through _graceTimer. So nothing is lost.
       //
       // A card with no trigger has no ids and no signature, and skips outright.
-      set hass(h) {
-        this._hass = h;
+      // (HkBase calls it from Lovelace's entry and from a client set directly; it
+      // does NOT chain to HkBase's own, which would tone and track a card that draws nothing.)
+      _receiveClient() {
+        var c = this.client;
         if (this._open && this._kids) {
-          this._kids.forEach(function (k) { k.hass = h; });
+          this._kids.forEach(function (k) { window.hkHostClient.bridge(k, c); });
         }
         if (this._open && this._config && this._config.pane) this._place();
         // NO TRIGGER AT ALL -> nothing to evaluate, ever. #alarm and #doorbell
@@ -866,7 +868,7 @@
         // having moved. _graceTimer covers that on its own in a live browser,
         // but the gate must not be the only thing standing between a stopped
         // speaker and a sheet that closes -- tests/test_popup.js drives exactly
-        // that case ("21 s after stopping: closed") through a hass push with a
+        // that case ("21 s after stopping: closed") through a state push with a
         // fake clock, and it is the honest expression of the requirement.
         var ids = this._timePending ? null : this._trigIds;
         if (ids && ids.length) {
@@ -884,7 +886,7 @@
           // connectedCallback, which also forces a re-evaluation).
           var sig = window.hkMusic ? 'focus=' + window.hkMusic.focus() + ';' : '', st;
           for (var i = 0; i < ids.length; i++) {
-            st = h && h.states[ids[i]];
+            st = c && c.states[ids[i]];
             sig += ids[i] + '=' + (st ? st.state + '@' + st.last_updated : 'x') + ';';
           }
           if (sig === this._trigSig) return;
@@ -892,7 +894,6 @@
         }
         this._evalTrigger();
       }
-      get hass() { return this._hass; }
 
       connectedCallback() {
         if (super.connectedCallback) super.connectedCallback();
@@ -909,7 +910,7 @@
         });
         // _evalTrigger bails while disconnected, so a card that has just come
         // back must re-evaluate even if no entity moved in the meantime.
-        // Clearing the gate's signature is what guarantees the next hass does.
+        // Clearing the gate's signature is what guarantees the next push does.
         this._trigSig = null;
         // ARRIVING WITH THE PAGE: until the trigger has been looked at since
         // this card joined the page, a sheet that opens is part of the page
@@ -917,28 +918,28 @@
         this._settled = false;
         // A FOCUS CHANGE IS A TRIGGER CHANGE when the trigger follows the
         // music (`entity_from: {music: true}`): tapping another context on the
-        // Play Music page must move the bar with it, and nothing in hass moved.
+        // Play Music page must move the bar with it, and nothing in the states moved.
         if (!this._onFlags) {
-          this._onFlags = function () { if (self._hass) self._evalTrigger(); };
+          this._onFlags = function () { if (self.client) self._evalTrigger(); };
           window.addEventListener('hk-popup-flags', this._onFlags);
         }
         if (!this._musicOff && window.hkMusic) {
           this._musicOff = window.hkMusic.onChange(function () {
             // The speaker list is part of the trigger's entity list: read it
             // again. A card configured before the music settings have arrived
-            // keeps an EMPTY list, and with nothing to sign the gate in `set
-            // hass` never engages -- every push would re-evaluate the trigger
+            // keeps an EMPTY list, and with nothing to sign the gate in
+            // `_receiveClient` never engages -- every push would re-evaluate the trigger
             // for the life of the page.
             self._trigIds = triggerEntities(self._config);
             self._trigSig = null;
-            if (self._hass) self._evalTrigger();
+            if (self.client) self._evalTrigger();
           });
         }
         this._sync();
-        // ...and re-evaluate NOW rather than on the next hass push. Coming back
+        // ...and re-evaluate NOW rather than on the next state push. Coming back
         // from the Play Music page, the hash is empty, so _sync has nothing to
         // match and only the trigger can re-open the sheet.
-        if (this._hass) this._evalTrigger();
+        if (this.client) this._evalTrigger();
       }
 
       disconnectedCallback() {
@@ -1017,10 +1018,9 @@
       }
 
       _scopeSig() {
-        var st = this._hass.states;
-        var hass = this._hass;
+        var client = this.client, st = client.states;
         return (this._config.dismiss_scope || []).map(function (sc) {
-          if (sc.music) return window.hkMusic ? String(window.hkMusic.player(hass)) : '';
+          if (sc.music) return window.hkMusic ? String(window.hkMusic.player(client)) : '';
           var e = st[sc.entity], v = e ? e.state : '';
           if (sc.above != null) return Number(v) > Number(sc.above) ? '1' : '0';
           return v;
@@ -1064,7 +1064,7 @@
           dset(self._hash, null);
           self._stashShow(false);
           self._trigSig = null;
-          if (self._hass) self._evalTrigger();
+          if (self.client) self._evalTrigger();
         };
         sr.querySelector('.b').addEventListener('click', back);
         sr.querySelector('.b').addEventListener('keydown', function (ev) { if (ev.key === 'Enter' || ev.key === ' ') back(); });
@@ -1075,9 +1075,9 @@
 
       _evalTrigger() {
         var cfg = this._config, self = this;
-        if (!cfg || !cfg.trigger || !this._hass || !this.isConnected) return;
+        if (!cfg || !cfg.trigger || !this.client || !this.isConnected) return;
         var ctx = { now: Date.now(), next: Infinity };
-        var now = met([].concat(cfg.trigger), this._hass.states, ctx);
+        var now = met([].concat(cfg.trigger), this.client.states, ctx);
         var first = this._prevTrigger === undefined;
         var rose = now && !this._prevTrigger;
         this._prevTrigger = now;
@@ -1096,7 +1096,7 @@
             // Keep confirming while dismissed, even if no state changes arrive.
             //
             // ITS OWN TIMER, NOT ctx.next. ctx.next sets _timePending, and
-            // _timePending makes `set hass` skip the gate -- which is right for a
+            // _timePending makes `_receiveClient` skip the gate -- which is right for a
             // 20s grace window and wrong for a dismissal, because a dismissal
             // lasts until somebody walks away. It would put this card back on the
             // ungated path the gate exists to avoid: ~10 evaluations a second,
@@ -1112,7 +1112,7 @@
         this._stashShow(now && dismissed);
 
         clearTimeout(this._graceTimer);
-        // Read by the gate in `set hass` above: true while this card owes
+        // Read by the gate in `_receiveClient` above: true while this card owes
         // itself another look on the clock alone.
         this._timePending = ctx.next !== Infinity;
         if (this._timePending) {
@@ -1134,7 +1134,7 @@
           // The rule is: never slam shut a sheet the URL asked for before its
           // own state has been seen. As a bare `&& !first` that leaves a page
           // loaded AT `#media` with nothing playing showing the bar FOREVER --
-          // the first pass refuses to close, and the gate in `set hass` then
+          // the first pass refuses to close, and the gate in `_receiveClient` then
           // blocks every later push because, with the home idle, no trigger
           // entity ever moves again. Nothing gives it a second look.
           //
@@ -1169,14 +1169,14 @@
         var self = this, cfg = this._config;
         this._kids = [];
         if (typeof window.loadCardHelpers !== 'function') {
-          // Reached from `set hass`; a throw here would error the whole card.
+          // Reached from `_receiveClient`; a throw here would error the whole card.
           console.error('hk-popup: loadCardHelpers is not available; the sheet stays empty');
           return Promise.resolve();
         }
         return window.loadCardHelpers().then(function (helpers) {
           cfg.cards.forEach(function (cc) {
             var el = helpers.createCardElement(cc);
-            if (self._hass) el.hass = self._hass;
+            if (self.client) window.hkHostClient.bridge(el, self.client);
             self._kids.push(el);
             self._sheet.appendChild(el);
           });
@@ -1305,7 +1305,7 @@
         var kidsReady = this._kids ? Promise.resolve() : this._build();
         if (this._kids) {
           this._kids.forEach(function (k) {
-            if (self._hass) k.hass = self._hass;
+            if (self.client) window.hkHostClient.bridge(k, self.client);
             self._sheet.appendChild(k);
           });
         }
@@ -1417,12 +1417,12 @@
 
       // WHERE IT GOES NOW (placeFor): the classes on the sheet's box, the
       // pane's width, the player's own top or bottom; published while open.
-      // Cheap and idempotent: on every hass while open, a resize, a
+      // Cheap and idempotent: on every push while open, a resize, a
       // settings change, the music in the pane coming or going.
       _place() {
         var cfg = this._config, el = this._el;
         if (!el || !cfg || !cfg.dock) return;
-        var has = !!cfg.pane && paneMusic(this._hass), self = this, now = Date.now(), playing = this._musicPlaying();
+        var has = !!cfg.pane && paneMusic(this.client), self = this, now = Date.now(), playing = this._musicPlaying();
         if (has && playing) this._musicAt = now;
         // PAUSED OR GONE, the pane up: it stays the grace (Hide After a
         // Pause) from the last of the music playing, the sheet opening and its
@@ -1465,7 +1465,7 @@
       }
       // is this screen's music playing (not paused, not gone)
       _musicPlaying() {
-        var S = window.hkSaver, h = this._hass;
+        var S = window.hkSaver, h = this.client;
         try { return !!(h && S && S.music && S.music.playing && S.music.playing(h)); } catch (e) { return false; }
       }
       // WHEN ITS CARDS WERE LAST IN USE (hkLastUse: a panel open is now, a
@@ -1541,12 +1541,12 @@
         // trigger close (the session ended), not a switch to another sheet,
         // not the view going away.
         if (runAction && this._config.dismissable && !this._triggerClosing &&
-            this._prevTrigger === true && this._hass) {
+            this._prevTrigger === true && this.client) {
           dset(this._hash, { sig: this._scopeSig(), seen: Date.now() });
           // START THE LOOP HERE, or it never starts at all. The record is
           // written AFTER the last _evalTrigger, so that run saw no record,
           // armed no timer, and left _timePending false -- and the gate in
-          // `set hass` then blocks every push until a trigger entity moves.
+          // the gate in `_receiveClient` then blocks every push until a trigger entity moves.
           // The refresh-and-expire loop is what notices the screensaver, so
           // without this the dismissal would be effectively permanent.
           //
@@ -1564,7 +1564,7 @@
           this._stashShow(true);
         }
         this._triggerClosing = false;
-        if (runAction && this._config.close_action && this._hass) {
+        if (runAction && this._config.close_action && this.client) {
           this._act(this._config.close_action);
         }
       }
@@ -1585,7 +1585,7 @@
       getCardSize() { return 0; }
       _sigOf() { return null; }              // each pop-up gates its own renders
       _render() {
-        var h = this._hass, cfg = this._config || {};
+        var h = this.client, cfg = this._config || {};
         if (!this._built) {
           this._built = true;
           this._root.innerHTML = '';
@@ -1595,7 +1595,7 @@
           }).filter(Boolean);
           this._kids.forEach(function (k) { root.appendChild(k); });
         }
-        if (h) this._kids.forEach(function (k) { k.hkSetHass(h); });
+        if (h) this._kids.forEach(function (k) { window.hkHostClient.bridge(k, h); });
       }
     }
     customElements.define('hk-popup-group-card', HkPopupGroupCard);
