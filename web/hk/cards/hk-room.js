@@ -624,8 +624,7 @@
       }
       _open(it) {
         if (it.ids.length === 1) {
-          this.dispatchEvent(new CustomEvent('hass-more-info', { bubbles: true, composed: true,
-            detail: { entityId: it.ids[0] } }));
+          window.hkShell.moreInfo(it.ids[0], this);
           return;
         }
         var D = window.hkDetail;
@@ -634,8 +633,7 @@
           D.openGroup(it.title, it.ids, { icon: icon(it), room: room.name || '', kind: it.kind });
           return;
         }
-        this.dispatchEvent(new CustomEvent('hass-more-info', { bubbles: true, composed: true,
-          detail: { entityId: it.ids[0] } }));
+        window.hkShell.moreInfo(it.ids[0], this);
       }
     }
 
@@ -660,8 +658,7 @@
           return;
         }
         // One security system, or detail.js still loading: HA's own sheet.
-        this.dispatchEvent(new CustomEvent('hass-more-info', { bubbles: true, composed: true,
-          detail: { entityId: it.ids[0] } }));
+        window.hkShell.moreInfo(it.ids[0], this);
       }
     }
     // The Climate page's, as it was first (1.4.6): a page row for `climate`.

@@ -52,6 +52,8 @@
 (function () {
   'use strict';
   if (window.hkMenu) return;
+  // the host's page: where the menu mounts, navigation, HA's own sidebar
+  var SH = window.hkShell;
 
   // THE FIRST LOAD AFTER AN UPDATE can pair this file with the previous
   // hk-base.js, still in the service worker's cache. The menu then stays out of the way for that one load rather
@@ -633,10 +635,7 @@
     var S = { host: null, root: null, open: false, dash: null, idle: null, shut: {}, built: '' };
     try { S.shut = JSON.parse(localStorage.getItem('hk-menu-shut') || '{}') || {}; } catch (e) { S.shut = {}; }
 
-    function haRoot() {
-      var ha = document.querySelector('home-assistant');
-      return (ha && ha.shadowRoot) || null;
-    }
+    function haRoot() { return SH.overlayRoot(); }
     function narrow() { return (window.innerWidth || 1280) < M.NARROW; }
     // Its item's Menu: "Always open beside the page", when there is room.
     function docked() { return M.docked(); }
@@ -1073,8 +1072,7 @@
       if (!has || !dash) return;
       var path = '/' + dash + '/weather';
       if (location.pathname === path) return;
-      history.pushState(null, '', path);
-      window.dispatchEvent(new CustomEvent('location-changed'));
+      SH.navigate(path);
     }
 
     function isHome() {
@@ -1296,8 +1294,7 @@
       // Notifications: Home Assistant's own drawer, over the page
       if (it.kind === 'notif') {
         close(true);
-        var hm = haParts().main;
-        if (hm) hm.dispatchEvent(new CustomEvent('hass-show-notifications', { bubbles: true, composed: true }));
+        SH.showNotifications();
         return;
       }
       // A Home Assistant page: kiosk mode is lifted outside the dashboards
@@ -1306,8 +1303,7 @@
         try { sessionStorage.setItem(ESCAPE_KEY, '1'); } catch (x) { /* private mode */ }
         HA.used = true;
         close(true);
-        history.pushState(null, '', it.path);
-        window.dispatchEvent(new CustomEvent('location-changed'));
+        SH.navigate(it.path);
         return;
       }
       // The selection moves at once, so the tap is answered before the page is.
@@ -1321,8 +1317,7 @@
       // main thread for half a second -- or the slide would begin after it
       var N = window.hkCards && window.hkCards.navigate;
       if (N) { N(it.path, null); return; }
-      history.pushState(null, '', it.path);
-      window.dispatchEvent(new CustomEvent('location-changed'));
+      SH.navigate(it.path);
     }
 
     // ------------------------------------------ Home Assistant's own sidebar
@@ -1338,11 +1333,7 @@
     // sidebar there too.
     var HA = { active: false };
     function haParts() {
-      var ha = document.querySelector('home-assistant');
-      var main = ha && ha.shadowRoot && ha.shadowRoot.querySelector('home-assistant-main');
-      var sr = main && main.shadowRoot;
-      return { main: main, sr: sr, drawer: sr && sr.querySelector('ha-drawer'),
-               sidebar: sr && sr.querySelector('ha-sidebar') };
+      return { main: SH.main(), sr: SH.mainRoot(), drawer: SH.drawer(), sidebar: SH.sidebar() };
     }
     // Home Assistant's sidebar already on screen beside the page (no kiosk
     // mode, a wide window): Show Menu would open what is there.
@@ -1360,8 +1351,9 @@
       try { sessionStorage.setItem(ESCAPE_KEY, '1'); } catch (e) { /* private mode */ }
       // Two rules to lift: kiosk mode hides the sidebar in home-assistant-main
       // and, on a phone, HA's drawer as well, inside ha-drawer.
+      var T = SH.tags;
       var lift = liftRule(p.sr, ':host{--ha-sidebar-width:256px !important;--mdc-drawer-width:256px !important}' +
-                             'ha-drawer > ha-sidebar{display:flex !important}');
+                             T.drawer + ' > ' + T.sidebar + '{display:flex !important}');
       var lift2 = p.drawer.shadowRoot ? liftRule(p.drawer.shadowRoot, 'wa-drawer[open]{display:block !important}') : null;
       // HK Frontend's own hiding (hk-kiosk.js) steps aside the same way
       if (window.hkKiosk) window.hkKiosk.hold(true);
@@ -1377,7 +1369,7 @@
         if (seen) restoreHaSidebar();
       }, 250);
       HA.nav = function () { if (p.drawer.open) p.drawer.open = false; setTimeout(restoreHaSidebar, 350); };
-      window.addEventListener('location-changed', HA.nav);
+      SH.onNavigate(HA.nav);
     }
     // OUTSIDE THE DASHBOARDS, HOME ASSISTANT IS HOME ASSISTANT.
     // kiosk-mode's rules outlive the dashboard that set them: open Settings
@@ -1394,11 +1386,7 @@
     function rowUsed() {
       try { return sessionStorage.getItem(ESCAPE_KEY) === '1'; } catch (e) { return !!HA.used; }
     }
-    function onDashboard() {
-      var el = document.querySelector('home-assistant'), h = el && el.hass;
-      var p = h && h.panels && h.panelUrl ? h.panels[h.panelUrl] : null;
-      return !p || p.component_name === 'lovelace';
-    }
+    function onDashboard() { return SH.onDashboard(); }
     function kioskRules() {
       var p = haParts(), out = [];
       [p.sr, p.drawer && p.drawer.shadowRoot].forEach(function (root) {
@@ -1420,14 +1408,14 @@
       });
     }
     function onPageChange() { syncOutside(); setTimeout(syncOutside, 150); setTimeout(syncOutside, 800); }
-    ['location-changed', 'popstate'].forEach(function (ev) { window.addEventListener(ev, onPageChange); });
+    [SH.navEvent, 'popstate'].forEach(function (ev) { window.addEventListener(ev, onPageChange); });
 
     function restoreHaSidebar() {
       if (!HA.active) return;
       var h = HA;
       HA = { active: false, used: true };
       clearInterval(h.poll);
-      window.removeEventListener('location-changed', h.nav);
+      SH.offNavigate(h.nav);
       // after the drawer's own close animation, so it does not snap shut
       setTimeout(function () {
         try { h.p.drawer.type = h.type || ''; h.p.sidebar.alwaysExpand = !!h.expand; } catch (e) { /* gone */ }
@@ -1723,11 +1711,9 @@
     }
     function tellAppSwipe() {
       try { if (sessionStorage.getItem(TOLD_KEY)) return; sessionStorage.setItem(TOLD_KEY, '1'); } catch (e) { /* private */ }
-      var ha = document.querySelector('home-assistant');
-      if (!ha) return;
-      ha.dispatchEvent(new CustomEvent('hass-notification', { bubbles: true, composed: true, detail: {
+      SH.toast({
         message: 'The Home Assistant app’s own swipe opens its sidebar too. In the app, set Settings → ' +
-                 'Companion App → Gestures → Swipe Right to None.', duration: 12000 } }));
+                 'Companion App → Gestures → Swipe Right to None.', duration: 12000 });
     }
 
     // the Now Playing pane's widths, as hk-popup.js wrote them on <html>
@@ -1739,10 +1725,7 @@
     }
     // DOCKED (Menu: "Always open beside the page"): the panel stays beside
     // the page and the view is pushed right by its width.
-    function viewEl() {
-      var p = M.panel(), root = p && p.shadowRoot && p.shadowRoot.querySelector('hui-root');
-      return (root && root.shadowRoot && root.shadowRoot.querySelector('#view')) || null;
-    }
+    function viewEl() { return SH.viewSlot(M.panel()); }
     // ...AND BESIDE THE NOW PLAYING PANE (hk-popup.js publishes its width
     // on <html> as --hk-pane-l / --hk-pane-r while it is up): the view is
     // narrowed by it on its side, so the page lays itself out in what is
@@ -1777,7 +1760,7 @@
         if (S.root && docked()) markHere();
       });
     }
-    window.addEventListener('location-changed', onNav);
+    SH.onNavigate(onNav);
     window.addEventListener('popstate', onNav);
     window.addEventListener('hashchange', function () { if (S.open) close(true); });
     window.addEventListener('keydown', function (e) {

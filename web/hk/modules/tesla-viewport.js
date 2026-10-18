@@ -184,7 +184,7 @@
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", run);
   else run();
   // HA is a single-page app: navigating between dashboards never reloads.
-  window.addEventListener("location-changed", run);
+  window.hkShell.onNavigate(run);
   window.addEventListener("popstate", run);
   // Split screen <-> full screen changes the window without a reload.
   window.addEventListener("resize", run);

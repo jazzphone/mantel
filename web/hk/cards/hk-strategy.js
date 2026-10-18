@@ -2984,10 +2984,8 @@
   }
   function refresh() {
     try {
-      var ha = document.querySelector('home-assistant');
-      var main = ha && ha.shadowRoot && ha.shadowRoot.querySelector('home-assistant-main');
-      var panel = main && main.shadowRoot && main.shadowRoot.querySelector('ha-panel-lovelace');
-      var root = panel && panel.shadowRoot && panel.shadowRoot.querySelector('hui-root');
+      var panel = window.hkShell.panel();
+      var root = panel ? window.hkShell.dashboard(panel) : null;
       (root || panel).dispatchEvent(new CustomEvent('config-refresh', { bubbles: true, composed: true }));
     } catch (e) { /* not on a dashboard */ }
   }
@@ -3005,11 +3003,7 @@
     try { return JSON.stringify(L.config).indexOf('ll-strategy-dashboard-hk-dashboard') >= 0; }
     catch (e) { return false; }
   }
-  function lovelacePanel() {
-    var ha = document.querySelector('home-assistant');
-    var main = ha && ha.shadowRoot && ha.shadowRoot.querySelector('home-assistant-main');
-    return main && main.shadowRoot && main.shadowRoot.querySelector('ha-panel-lovelace');
-  }
+  function lovelacePanel() { return window.hkShell.panel(); }
   function recoverLate() {
     try {
       if (lateError(lovelacePanel())) { refresh(); kioskAgain(); }
@@ -3027,7 +3021,7 @@
       try { p = lovelacePanel(); } catch (e) { /* gone */ }
       var built = p && p.lovelace && !lateError(p) && p.lovelace.config && p.lovelace.config.views &&
                   p.lovelace.config.views.length > 0;
-      if (built) window.dispatchEvent(new CustomEvent('location-changed', { detail: { replace: true } }));
+      if (built) window.hkShell.announce({ detail: { replace: true } });
       if (built || ++n >= 40) clearInterval(iv);
     }, 250);
   }
@@ -3065,7 +3059,7 @@
     var n = 0;
     var iv = setInterval(function () {
       try { defineHere(); } catch (e) { /* the registry is mid-swap: next tick */ }
-      if (++n >= 600 || (customElements.get('home-assistant') &&
+      if (++n >= 600 || (window.hkShell.defined() &&
                          customElements.get('ll-strategy-dashboard-hk-dashboard'))) clearInterval(iv);
     }, 100);
   })();

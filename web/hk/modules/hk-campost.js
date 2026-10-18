@@ -243,7 +243,7 @@
     }, 60);
   }
 
-  window.addEventListener('location-changed', navigated);
+  window.hkShell.onNavigate(navigated);
   window.addEventListener('popstate', navigated);
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', chase);

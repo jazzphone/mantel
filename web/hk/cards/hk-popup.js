@@ -388,9 +388,7 @@
   // expanded drawer.
   function sidebarWidth() {
     try {
-      var main = document.querySelector('home-assistant');
-      main = main && main.shadowRoot && main.shadowRoot.querySelector('home-assistant-main');
-      var sb = main && main.shadowRoot && main.shadowRoot.querySelector('ha-sidebar');
+      var sb = window.hkShell.sidebar();
       if (!sb) return 0;
       var b = sb.getBoundingClientRect();
       // Only a rail actually drawn at the left edge counts. A hidden sidebar
@@ -511,11 +509,7 @@
   // the view the URL shows, from the dashboard's config (null: not found)
   function shownView() {
     try {
-      var ha = document.querySelector('home-assistant');
-      var main = ha && ha.shadowRoot && ha.shadowRoot.querySelector('home-assistant-main');
-      var sr = main && main.shadowRoot, p = sr && sr.querySelector('ha-panel-lovelace');
-      if (!p && sr) { var r0 = sr.querySelector('partial-panel-resolver'); p = r0 && r0.querySelector('ha-panel-lovelace'); }
-      var views = p && p.lovelace && p.lovelace.config && p.lovelace.config.views;
+      var cfg = window.hkShell.dashboardConfig(), views = cfg && cfg.views;
       if (!Array.isArray(views)) return null;
       var seg = String(location.pathname).split('/')[2] || '';
       return views.filter(function (x, i) { return x && (x.path === seg || (!x.path && String(i) === seg)); })[0] || (!seg ? views[0] : null);
@@ -592,14 +586,9 @@
   }
   function viewNow() {
     try {
-      var ha = document.querySelector('home-assistant');
-      var main = ha && ha.shadowRoot && ha.shadowRoot.querySelector('home-assistant-main');
-      var sr = main && main.shadowRoot, p = sr && sr.querySelector('ha-panel-lovelace');
-      if (!p && sr) { var r0 = sr.querySelector('partial-panel-resolver'); p = r0 && r0.querySelector('ha-panel-lovelace'); }
-      var root = p && p.shadowRoot && p.shadowRoot.querySelector('hui-root');
-      var v = root && root.shadowRoot && root.shadowRoot.querySelector('#view');
+      var v = window.hkShell.viewSlot();
       // the view itself, not the background beside it (fixed, first)
-      return (v && (v.querySelector(':scope > hui-view') || v.lastElementChild)) || null;
+      return (v && (v.querySelector(':scope > ' + window.hkShell.tags.view) || v.lastElementChild)) || null;
     } catch (e) { return null; }
   }
   function dockRoom(h, top) {
@@ -635,7 +624,7 @@
   // middle of the page's build.) A view of another kind says nothing: one
   // look once the page change is surely done.
   var dockWait = null;
-  window.addEventListener('location-changed', function () {
+  window.hkShell.onNavigate(function () {
     if (!dockH) return;
     clearTimeout(dockWait);
     dockWait = setTimeout(function () { dockWait = null; dockRoom(dockH); }, 1500);
@@ -812,7 +801,7 @@
     var base = location.href.split('#')[0];
     if (h) history.pushState(null, '', base + h);
     else history.replaceState(history.state, '', base);
-    window.dispatchEvent(new CustomEvent('location-changed', { detail: { replace: !h } }));
+    window.hkShell.announce({ detail: { replace: !h } });
   }
 
   function boot() {
@@ -915,7 +904,7 @@
         if (!this._onLoc) {
           this._onLoc = function () { self._sync(); };
         }
-        ['location-changed', 'hashchange', 'popstate'].forEach(function (ev) {
+        [window.hkShell.navEvent, 'hashchange', 'popstate'].forEach(function (ev) {
           window.addEventListener(ev, self._onLoc);
         });
         // _evalTrigger bails while disconnected, so a card that has just come
@@ -959,7 +948,7 @@
           MOUNTED[this._mountedAs] = Math.max(0, (MOUNTED[this._mountedAs] || 0) - 1);
           this._mountedAs = null;
         }
-        ['location-changed', 'hashchange', 'popstate'].forEach(function (ev) {
+        [window.hkShell.navEvent, 'hashchange', 'popstate'].forEach(function (ev) {
           window.removeEventListener(ev, self._onLoc);
         });
         if (this._onFlags) { window.removeEventListener('hk-popup-flags', this._onFlags); this._onFlags = null; }
@@ -1217,8 +1206,7 @@
           window.addEventListener('hk-module-ready', this._onInset);
         }
         if (!this._el) {
-          var ha = document.querySelector('home-assistant');
-          this._mount = (ha && ha.shadowRoot) || document.body;
+          this._mount = window.hkShell.overlayRoot() || document.body;
           var el = document.createElement('div');
           el.className = 'hkp' + (cfg.position === 'bottom' ? ' bottom' : '') +
                          (cfg.modal === false ? ' plain' : '') +

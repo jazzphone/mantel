@@ -816,11 +816,7 @@
     var cfg = null, seg = '';
     try {
       seg = decodeURIComponent((String(location.pathname).split('/')[2] || '').split('?')[0]);
-      var ha = document.querySelector('home-assistant'), sr = ha && ha.shadowRoot;
-      var main = sr && sr.querySelector('home-assistant-main'), ms = main && main.shadowRoot;
-      var p = ms && ms.querySelector('ha-panel-lovelace');
-      if (!p && ms) { var r0 = ms.querySelector('partial-panel-resolver'); p = r0 && r0.querySelector('ha-panel-lovelace'); }
-      cfg = p && p.lovelace && p.lovelace.config;
+      cfg = window.hkShell.dashboardConfig();
     } catch (e) { /* no document (a test harness) */ }
     var views = cfg && cfg.views, v = null;
     if (views && views.length) {
@@ -1310,7 +1306,7 @@
     announce();
   }
   try {
-    window.addEventListener('location-changed', onNav);
+    window.hkShell.onNavigate(onNav);
     window.addEventListener('popstate', onNav);
   } catch (e) { /* no window events (a test harness) */ }
 
@@ -1319,14 +1315,7 @@
   // else true/false. The sky, the view fade, the icon repair and the camera
   // poster ask this rather than walk every shadow root on the page, which
   // would cost as much on Settings and Logs as on a dashboard.
-  function lovelacePanel() {
-    var ha = document.querySelector('home-assistant');
-    var panels = ha && ha.hass && ha.hass.panels;
-    if (!panels) return null;
-    var seg = location.pathname.split('/')[1] || 'lovelace';
-    var p = panels[seg];
-    return !!(p && p.component_name === 'lovelace');
-  }
+  function lovelacePanel() { return window.hkShell.isDashboard(); }
 
   // WHICH WALL TABLET THIS IS (1.14, docs/Wall-Tablets.md). A tablet is
   // its own item, apart from the screen it runs, so the page needs to know
@@ -1356,7 +1345,7 @@
   }
   function userName(hass) {
     try {
-      var h = hass || (document.querySelector('home-assistant') || {}).hass;
+      var h = hass || (window.hkShell.root() || {}).hass;
       return (h && h.user && h.user.name) || '';
     } catch (e) { return ''; }
   }
@@ -1511,12 +1500,10 @@
   }
   function panel() {
     if (typeof document === 'undefined' || typeof document.querySelector !== 'function') return null;
-    var ha = document.querySelector('home-assistant');
-    var main = ha && ha.shadowRoot && ha.shadowRoot.querySelector('home-assistant-main');
-    return main && main.shadowRoot && main.shadowRoot.querySelector('ha-panel-lovelace');
+    return window.hkShell.panel();
   }
   function rebuild(p) {
-    var root = p && p.shadowRoot && p.shadowRoot.querySelector('hui-root');
+    var root = p ? window.hkShell.dashboard(p) : null;
     (root || p).dispatchEvent(new CustomEvent('config-refresh', { bubbles: true, composed: true }));
     // kiosk mode reads the dashboard's kiosk_mode on a page change: once the
     // rebuilt dashboard is in place, tell it the page changed, or Home
@@ -1526,7 +1513,7 @@
       var q = null;
       try { q = S.panel(); } catch (e) { /* gone */ }
       var built = q && q.lovelace && q.lovelace.config && !stuck(q.lovelace);
-      if (built) window.dispatchEvent(new CustomEvent('location-changed', { detail: { replace: true } }));
+      if (built) window.hkShell.announce({ detail: { replace: true } });
       if (built || ++n >= 40) clearInterval(iv);
     }, 250);
   }

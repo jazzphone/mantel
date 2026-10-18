@@ -532,7 +532,7 @@
     connectedCallback() {
       window.addEventListener('hashchange', this._onHash);
       window.addEventListener('popstate', this._onHash);
-      window.addEventListener('location-changed', this._onHash);
+      window.hkShell.onNavigate(this._onHash);
       this.shadowRoot.addEventListener('pointerdown', this._onPress, true);
       window.addEventListener('pointerup', this._onRelease, true);
       // a choice made is a press over, whatever the browser told us
@@ -544,7 +544,7 @@
     disconnectedCallback() {
       window.removeEventListener('hashchange', this._onHash);
       window.removeEventListener('popstate', this._onHash);
-      window.removeEventListener('location-changed', this._onHash);
+      window.hkShell.offNavigate(this._onHash);
       this.shadowRoot.removeEventListener('pointerdown', this._onPress, true);
       window.removeEventListener('pointerup', this._onRelease, true);
       window.removeEventListener('pointercancel', this._onRelease, true);
@@ -3882,7 +3882,7 @@
         var a = K.nav({ label: label, sub: id, href: '#', sk: 'saver:ent:' + id, value: self.stateLabel(id) });
         a.addEventListener('click', function (ev) {
           ev.preventDefault(); ev.stopPropagation();
-          self.dispatchEvent(new CustomEvent('hass-more-info', { detail: { entityId: id }, bubbles: true, composed: true }));
+          window.hkShell.moreInfo(id, self);
         });
         return a;
       };

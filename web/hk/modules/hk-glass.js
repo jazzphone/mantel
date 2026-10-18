@@ -65,6 +65,7 @@
 (function () {
   'use strict';
   if (window.hkGlass) return;
+  var SH = window.hkShell;     // the host's page: its view container, navigation
 
   var MAT = 'blur(20px) saturate(1.4) brightness(0.82)';
   // PRE-RENDERED: the mode, the picture, and when it is painted again --
@@ -233,7 +234,7 @@
   var plates = new Map();        // card -> [{el, anchor, scrolls, sideways, clips}]
   var layers = new Map();        // anchor (or DOC) -> {layers, posWas}
   var DOC = { doc: true };
-  var VIEWS = ['HUI-VIEW', 'HUI-MASONRY-VIEW', 'HUI-SECTIONS-VIEW', 'HUI-PANEL-VIEW'];
+  var VIEWS = SH.viewTags.map(function (t) { return t.toUpperCase(); });
   var active = false, queued = false, full = true, timer = null, ro = null, hostRo = null;
   var BACKSTOP_MS = 30000;
   // Cards to collect() again on the next update: the ones that joined or
@@ -462,15 +463,7 @@
     });
     viewMo.observe(box, { childList: true });
   }
-  function viewContainer() {
-    var ha = document.querySelector('home-assistant');
-    var main = ha && ha.shadowRoot && ha.shadowRoot.querySelector('home-assistant-main');
-    var res = main && main.shadowRoot && main.shadowRoot.querySelector('partial-panel-resolver');
-    var panel = res && res.querySelector('ha-panel-lovelace');
-    var hr = panel && panel.shadowRoot && panel.shadowRoot.querySelector('hui-root');
-    var root = hr && hr.shadowRoot;
-    return (root && (root.querySelector('hui-view-container') || root.querySelector('#view'))) || null;
-  }
+  function viewContainer() { return SH.viewContainer() || SH.viewSlot(); }
 
   function newLayer(anchor) {
     var layer = document.createElement('div');
@@ -1265,7 +1258,7 @@
     if (active) return;
     active = true; full = true;
     watchViews();
-    window.addEventListener('location-changed', watchViews);
+    SH.onNavigate(watchViews);
     document.addEventListener('pointerdown', onDown, true);
     document.addEventListener('pointerup', onUp, true);
     document.addEventListener('pointercancel', onUp, true);
@@ -1297,7 +1290,7 @@
     }
     if (PRE) {
       viewUp = here();
-      window.addEventListener('location-changed', onNavPre);
+      SH.onNavigate(onNavPre);
       window.addEventListener('popstate', onNavPre);
       window.addEventListener('hk-sky-paint', onSkyPaint);
       window.addEventListener('hk-sky-change', onSkyChange);
@@ -1308,7 +1301,7 @@
   function stop() {
     if (!active) return;
     active = false;
-    window.removeEventListener('location-changed', watchViews);
+    SH.offNavigate(watchViews);
     if (viewMo) { viewMo.disconnect(); viewMo = null; viewBox = null; }
     clearInterval(timer); timer = null;
     if (hostRo) { hostRo.disconnect(); hostRo = null; }
@@ -1328,7 +1321,7 @@
     cache.forEach(function (c) { if (c.url !== pre.url) { try { URL.revokeObjectURL(c.url); } catch (e) { /* gone */ } } }); cache.clear();
     pics.clear();
     pinned.forEach(function (t, el) { unpinEl(el); });
-    window.removeEventListener('location-changed', onNavPre);
+    SH.offNavigate(onNavPre);
     window.removeEventListener('popstate', onNavPre);
     window.removeEventListener('hk-sky-paint', onSkyPaint);
     window.removeEventListener('hk-sky-change', onSkyChange);

@@ -657,7 +657,7 @@
         lib.setConfig({ type: 'custom:hk-library-card', music: true, layout: 'music' });
         if (self._hass) lib.hass = self._hass;
         // its messages, here (Home Assistant's toast is under the page's own)
-        lib.addEventListener('hass-notification', function (e) {
+        lib.addEventListener(window.hkShell.events.toast, function (e) {
           e.stopPropagation();
           if (e.detail && e.detail.message) self._toast(e.detail.message);
         });

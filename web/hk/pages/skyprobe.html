@@ -32,7 +32,7 @@
 <button id=measure disabled>Measure all combinations</button>
 <p id=result>Loading sky…</p>
 </div>
-<hui-view-container id=skyframe><div id=card></div></hui-view-container>
+<hk-view-container id=skyframe><div id=card></div></hk-view-container>
 <script>
 (function(){
   const rows=[];
@@ -81,10 +81,15 @@
 // cadence only; it forces browser work and is not a CPU/GPU power measurement.
 (async function () {
   const result = document.getElementById('result'), button = document.getElementById('measure');
-  const script = document.createElement('script');
-  script.src = '/hk/modules/hk-sky.js?v=' + Date.now();
+  const add = (src) => new Promise((resolve, reject) => {
+    const script = document.createElement('script');
+    script.src = src + '?v=' + Date.now(); script.onload = resolve; script.onerror = reject; document.head.appendChild(script);
+  });
   try {
-    await new Promise((resolve, reject) => { script.onload = resolve; script.onerror = reject; document.head.appendChild(script); });
+    // the host shell, with this page's own view container (hk-host-shell.js)
+    await add('/hk/modules/hk-host-shell.js');
+    hkShell.use({ kind: 'page', tags: { viewContainer: 'hk-view-container' } });
+    await add('/hk/modules/hk-sky.js');
     hkSky.render({ states: {} }, document.getElementById('card'));
 
     const frame = document.getElementById('skyframe');

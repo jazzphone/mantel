@@ -23,6 +23,8 @@ def test_ha_build_has_one_frontend_source_and_no_server_or_house_files():
     assert dests[prefix + "cards/hk-stat.js"] == ROOT / "web/hk/cards/hk-stat.js"
     assert dests[prefix + "modules/hk-metric.js"] == ROOT / "web/cards/hk-metric.js"
     assert dests[prefix + "modules/hk-ha-client.js"] == ROOT / "hosts/ha/frontend/hk-ha-client.js"
+    assert dests[prefix + "modules/hk-ha-shell.js"] == ROOT / "hosts/ha/frontend/hk-ha-shell.js"
+    assert dests[prefix + "modules/hk-host-shell.js"] == ROOT / "web/client/hk-host-shell.js"
     assert dests[prefix + "fonts/sf-pro.css"].is_file()
     assert all(Path(src).is_relative_to(ROOT) for src, _ in pairs)
     assert not any("mantel_server" in dest or "mantel_connect" in dest for dest in dests)
@@ -46,3 +48,11 @@ def test_shared_metric_has_no_raw_host_access_and_bootstraps_explicitly():
     bootstrap = (ROOT / "hosts/ha/custom_components/hk_frontend/__init__.py").read_text()
     for filename in ("hk-client.js", "hk-ha-client.js", "hk-metric.js"):
         assert f'"/hk/modules/{filename}"' in bootstrap
+
+
+def test_host_shell_bootstraps_before_every_module_that_uses_it():
+    bootstrap = (ROOT / "hosts/ha/custom_components/hk_frontend/__init__.py").read_text()
+    order = [bootstrap.index(f'"/hk/modules/{name}"') for name in
+             ("hk-host-shell.js", "hk-ha-shell.js", "hk-settings.js", "tesla-viewport.js", "hk-tap.js", "hk-loader.js")]
+    assert order == sorted(order)
+    assert bootstrap.index('"/hk/modules/hk-ha-shell.js"') < bootstrap.index('"/hk/cards/hk-strategy.js"')

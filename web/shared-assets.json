@@ -1,5 +1,6 @@
 {
   "modules/hk-client.js": "client/hk-client.js",
   "modules/hk-card-state.js": "client/hk-card-state.js",
+  "modules/hk-host-shell.js": "client/hk-host-shell.js",
   "modules/hk-metric.js": "cards/hk-metric.js"
 }

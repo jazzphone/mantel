@@ -902,7 +902,7 @@
     if (choice === 'none') return 'none';
     return choice === 'smart' ? (nav.exact ? 'none' : 'context') : 'current';
   }
-  var HEADER_EVENTS = ['hk-page-navigation', 'hk-module-ready', 'location-changed', 'popstate', 'resize'];
+  var HEADER_EVENTS = ['hk-page-navigation', 'hk-module-ready', window.hkShell.navEvent, 'popstate', 'resize'];
   class HkGridCard extends HkBase {
     _isPageHeader() {
       var c = this._config || {}, kids = c.cards || [];

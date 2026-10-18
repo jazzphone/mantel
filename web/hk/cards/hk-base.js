@@ -1310,8 +1310,7 @@
   // as fast with this and the other page-change holds gone). `el` is kept
   // for the callers.
   function navigate(path, el) {  // eslint-disable-line no-unused-vars
-    history.pushState(null, '', path);
-    window.dispatchEvent(new CustomEvent('location-changed'));
+    window.hkShell.navigate(path);
   }
 
   function confirmSheet(text, onOk, opts) {
@@ -1781,7 +1780,7 @@
     }
   }
   window.addEventListener('hk-asleep', function () { ON_PAGE.forEach(markAsleep); });
-  ['hk-module-ready', 'location-changed'].forEach(function (t) {
+  ['hk-module-ready', window.hkShell.navEvent].forEach(function (t) {
     window.addEventListener(t, function () {
       syncFlat();
       var now = stillNow();
@@ -1873,7 +1872,7 @@
   // holds the frontend's current object always; the hub is the fallback for
   // a page without one (the test harness).
   window.hkCards.hass = function () {
-    var ha = document.querySelector && document.querySelector('home-assistant');
+    var ha = window.hkShell.root();
     return (ha && ha.hass) || HUB.last;
   };
 
@@ -2093,9 +2092,7 @@
         }
         return;
       }
-      this.dispatchEvent(new CustomEvent('hass-more-info', {
-        bubbles: true, composed: true, detail: { entityId: cfg.entity }
-      }));
+      window.hkShell.moreInfo(cfg.entity, this);
     }
 
     getCardSize() { return 3; }
@@ -2937,9 +2934,8 @@
   //   neither (the page body)     -> an HK overlay: the screensaver, a sheet,
   //                                  a pop-up, a banner -- HK's own surface
   var HK_PAGE = { 'hk-grid-view': 1 };
-  var HA_PAGE = { 'hui-view': 1, 'hui-sections-view': 1, 'hui-masonry-view': 1, 'hui-panel-view': 1,
-                  'hui-sidebar-view': 1, 'hui-card-preview': 1, 'hui-card-picker': 1,
-                  'hui-dialog-edit-card': 1, 'ha-panel-lovelace': 1 };
+  var HA_PAGE = {};                     // the host's own views and card editor (hk-host-shell.js)
+  window.hkShell.foreignTags.forEach(function (t) { HA_PAGE[t] = 1; });
   // (Also notes on the card whether it sits INSIDE another HK card --
   // `_hkNested` -- which tone() reads: only the outermost sets the light look.)
   function foreign(el) {
@@ -3568,17 +3564,10 @@
       var lv = panelKept.lovelace, up = lv && lv.urlPath;
       if (!up || up === dashSeg()) return panelKept;
     }
-    try {
-      var ha = document.querySelector('home-assistant');
-      var main = ha && ha.shadowRoot && ha.shadowRoot.querySelector('home-assistant-main');
-      panelKept = (main && main.shadowRoot && main.shadowRoot.querySelector('ha-panel-lovelace')) || null;
-      return panelKept;
-    } catch (e) { return null; }
+    panelKept = window.hkShell.panel();
+    return panelKept;
   }
-  function lovelaceConfig() {
-    var p = panelLovelace();
-    return (p && p.lovelace && p.lovelace.config) || null;
-  }
+  function lovelaceConfig() { return window.hkShell.dashboardConfig(panelLovelace()); }
   function dashSeg() { return String(location.pathname).split('/')[1] || ''; }
   // HIGHLIGHT COLOR AUTOMATIC (2026-10-16): each page in its own color --
   // the view's address, its kind's color; Home, the rooms and the rest
@@ -3854,8 +3843,7 @@
     if (!p || !p.getBoundingClientRect) return 0;
     var top = p.getBoundingClientRect().top + (window.scrollY || 0);
     try {
-      var root = p.shadowRoot && p.shadowRoot.querySelector('hui-root');
-      var h = root && root.shadowRoot && root.shadowRoot.querySelector('.header');
+      var h = window.hkShell.toolbar(p);
       if (h && getComputedStyle(h).display !== 'none') top += h.getBoundingClientRect().height;
     } catch (e) { /* no toolbar to find */ }
     return top;

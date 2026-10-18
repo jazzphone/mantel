@@ -125,13 +125,12 @@
   // and turning it off globally would break the code editors in Settings.
   function killTapHighlight() {
     try {
-      var ha = document.querySelector('home-assistant');
-      var main = ha && ha.shadowRoot && ha.shadowRoot.querySelector('home-assistant-main');
-      var root = main && main.shadowRoot;
+      var SH = window.hkShell, T = SH.tags;
+      var root = SH.mainRoot();
       if (!root || root.__hkTapHighlightOff) return !!(root && root.__hkTapHighlightOff);
       var sheet = new CSSStyleSheet();
       sheet.replaceSync(
-        'partial-panel-resolver,ha-sidebar{-webkit-tap-highlight-color:transparent !important}'
+        T.resolver + ',' + T.sidebar + '{-webkit-tap-highlight-color:transparent !important}'
       );
       root.adoptedStyleSheets = root.adoptedStyleSheets.concat(sheet);
       root.__hkTapHighlightOff = true;

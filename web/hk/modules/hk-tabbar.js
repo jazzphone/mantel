@@ -44,6 +44,8 @@
 (function () {
   'use strict';
   if (window.hkTabBar) return;
+  // the host's page: where the bar mounts, its view, navigation
+  var SH = window.hkShell;
 
   // ---------------------------------------------------------------- sizes
   // Measured against iOS 26's tab bar and fitted to a 402 px iPhone: a tab
@@ -541,10 +543,7 @@
     var S = { host: null, root: null, on: false, mode: 'full', down: 0, up: 0, sheet: null, built: '', ha: [], haPrefs: undefined,
               tabs: [], more: [], rooms: [], last: new WeakMap(), view: null, viewPad: null };
 
-    function haRoot() {
-      var ha = document.querySelector('home-assistant');
-      return (ha && ha.shadowRoot) || null;
-    }
+    function haRoot() { return SH.overlayRoot(); }
     function esc(v) {
       return String(v == null ? '' : v).replace(/[&<>"]/g, function (c) {
         return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
@@ -841,8 +840,7 @@
     function go(it) {
       closeSheet();
       if (!it || H.isHere(it, location.pathname)) return;
-      history.pushState(null, '', it.path);
-      window.dispatchEvent(new CustomEvent('location-changed'));
+      SH.navigate(it.path);
     }
     function onTab(e) {
       var el = e.target.closest && e.target.closest('.tab');
@@ -865,17 +863,11 @@
     function haGo(it) {
       if (!it) return;
       closeSheet(true);
-      var ha = document.querySelector('home-assistant');
       if (it.kind === 'ha') { if (window.hkMenu && window.hkMenu.openHaSidebar) window.hkMenu.openHaSidebar(); return; }
-      if (it.kind === 'notif') {
-        var hm = ha && ha.shadowRoot && ha.shadowRoot.querySelector('home-assistant-main');
-        if (hm) hm.dispatchEvent(new CustomEvent('hass-show-notifications', { bubbles: true, composed: true }));
-        return;
-      }
+      if (it.kind === 'notif') { SH.showNotifications(); return; }
       if (!it.path) return;
       try { sessionStorage.setItem('hk-ha-row-used', '1'); } catch (e) { /* private mode */ }
-      history.pushState(null, '', it.path);
-      window.dispatchEvent(new CustomEvent('location-changed'));
+      SH.navigate(it.path);
     }
     // this user's Home Assistant sidebar order and hidden pages (More's Home
     // Assistant section follows them, as the side menu's does): read once
@@ -1018,13 +1010,11 @@
       if (!root || !root.querySelector || root.querySelector('style#hk-bar-room')) return;
       var st = document.createElement('style');
       st.id = 'hk-bar-room';
-      st.textContent = '#view[hk-bar-room]>hui-view{min-height:calc(100vh - var(--hk-bar-room,0px))!important}';
-      (root.appendChild ? root : document.head).appendChild(st);
+      st.textContent = '#view[hk-bar-room]>' + SH.tags.view + '{min-height:calc(100vh - var(--hk-bar-room,0px))!important}';
+      // (a view in the document itself -- a host with no shadow roots: the head)
+      (root.appendChild && root !== document ? root : document.head).appendChild(st);
     }
-    function viewEl() {
-      var p = M.panel(), root = p && p.shadowRoot && p.shadowRoot.querySelector('hui-root');
-      return (root && root.shadowRoot && root.shadowRoot.querySelector('#view')) || null;
-    }
+    function viewEl() { return SH.viewSlot(M.panel()); }
     // A FULL RAIL PUSHES THE PAGE ASIDE (Shrink or Hide; Stay keeps a strip
     // of room instead): while the rail is full the dashboard is scaled down
     // away from it, just enough to clear it, and eased back as it folds or
@@ -1051,7 +1041,7 @@
       var b = M.board() || {}, pos = S.pos;
       var how = S.on && pos ? room(pos, scrollOf(b), b.tab_bar_adjust) : 'none';
       var on = how === 'scale' || how === 'shift';
-      var v = viewEl(), hv = v && v.querySelector('hui-view');
+      var v = viewEl(), hv = SH.view(v);
       if (S.asideEl && S.asideEl !== hv) { S.asideEl.style.transform = ''; S.asideEl.style.transformOrigin = ''; S.asideEl = null; }
       if (!hv || !on) {
         if (hv && S.asideEl === hv) { hv.style.transform = ''; S.asideEl = null; }
@@ -1211,7 +1201,7 @@
       if (navFrame) return;
       navFrame = requestAnimationFrame(function () { navFrame = 0; sync(); });
     }
-    window.addEventListener('location-changed', onNav);
+    SH.onNavigate(onNav);
     window.addEventListener('popstate', onNav);
     window.addEventListener('hk-view-ready', function () { sync(); });
     window.addEventListener('keydown', function (e) {

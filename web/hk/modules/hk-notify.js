@@ -117,7 +117,7 @@
   }
 
   // ------------------------------------------------------------- context
-  function haEl() { return document.querySelector('home-assistant'); }
+  function haEl() { return window.hkShell.root(); }
   function hass() { var h = haEl(); return h && h.hass; }
   function board() {
     var S = window.hkSettings;
@@ -454,8 +454,7 @@
     var url = '/' + seg() + '/' + String(path).replace(/^\/+/, '');
     var D = window.hkDetail;
     if (D && typeof D.navigateFrom === 'function') { D.navigateFrom(url); return; }
-    history.pushState(null, '', url);
-    window.dispatchEvent(new CustomEvent('location-changed'));
+    window.hkShell.navigate(url);
   }
   function sheet(id, n, snap) {
     var D = window.hkDetail, done = false;
@@ -464,8 +463,7 @@
     }
     if (done) return;
     // not one of HK's sheets: Home Assistant's own dialog
-    var h = haEl();
-    if (h) h.dispatchEvent(new CustomEvent('hass-more-info', { detail: { entityId: id }, bubbles: true, composed: true }));
+    window.hkShell.moreInfo(id);
   }
 
   // --------------------------------------------------------------- chime

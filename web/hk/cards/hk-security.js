@@ -334,7 +334,7 @@
         hd.innerHTML = '<b></b><span class="badge" role="button" tabindex="0"><ha-icon></ha-icon><span></span></span>';
         hd.querySelector('b').textContent = c.title || 'Security System';
         hd.querySelector('.badge').addEventListener('click', function () {
-          self.dispatchEvent(new CustomEvent('hass-more-info', { bubbles: true, composed: true, detail: { entityId: self._panel() } }));
+          window.hkShell.moreInfo(self._panel(), self);
         });
         host.appendChild(hd);
         this._root.appendChild(host);

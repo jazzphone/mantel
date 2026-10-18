@@ -47,13 +47,15 @@
 (function () {
   'use strict';
   if (window.hkKiosk) return;              // hk-loader may import this twice
+  // the host's page (hk-host-shell.js): its elements, their names, navigation
+  var SH = window.hkShell, T = SH.tags;
 
   var SIDEBAR = 'hk-kiosk-sidebar', HEADER = 'hk-kiosk-header';
   var CSS = {
     // the sidebar: no width (so no page padding for it and a full-width
     // header), and not drawn
     main: ':host([' + SIDEBAR + ']){--ha-sidebar-width:0px !important}' +
-          ':host([' + SIDEBAR + ']) ha-drawer > ha-sidebar{display:none !important}',
+          ':host([' + SIDEBAR + ']) ' + T.drawer + ' > ' + T.sidebar + '{display:none !important}',
     // ...its shell (which keeps a 1 px border at no width) and the phone's
     // pull-out drawer, which would open empty. AT ONCE: Home Assistant
     // animates the page's padding (0.25 s), so hiding the sidebar on load slid
@@ -64,7 +66,7 @@
             ':host([' + SIDEBAR + ']) wa-drawer{display:none !important}',
     // the header, and the room the views keep for it
     root: ':host([' + HEADER + ']) .header{display:none !important}' +
-          ':host([' + HEADER + ']) hui-view-container{padding-top:calc(var(--safe-area-inset-top, 0px) + ' +
+          ':host([' + HEADER + ']) ' + T.viewContainer + '{padding-top:calc(var(--safe-area-inset-top, 0px) + ' +
           'var(--view-container-padding-top, 0px)) !important}'
   };
 
@@ -106,12 +108,7 @@
     try { return decodeURIComponent(String(location.pathname).split('/')[1] || ''); } catch (e) { return ''; }
   }
   function parts() {
-    var ha = document.querySelector('home-assistant');
-    var main = ha && ha.shadowRoot && ha.shadowRoot.querySelector('home-assistant-main');
-    var sr = main && main.shadowRoot;
-    return { ha: ha, main: main, drawer: sr && sr.querySelector('ha-drawer'),
-             resolver: sr && sr.querySelector('partial-panel-resolver'),
-             panel: sr && sr.querySelector('ha-panel-lovelace') };
+    return { ha: SH.root(), main: SH.main(), drawer: SH.drawer(), resolver: SH.resolver(), panel: SH.panel() };
   }
   // this dashboard's config -- only once the panel on the page IS this
   // dashboard's (on the way from one to another the old one is still there)
@@ -165,8 +162,7 @@
     if (!isTablet) return;
     keptOn = true;
     if (h.suspendWhenHidden === false) return;
-    try { ha.dispatchEvent(new CustomEvent('hass-suspend-when-hidden', { detail: { suspend: false } })); }
-    catch (e) { /* an older Home Assistant */ }
+    SH.keepAwake(ha);                      // (an older Home Assistant: nothing)
   }
 
   function apply() {
@@ -180,7 +176,7 @@
     var side = !!(w && w.sidebar && !held);
     mark(p.main, SIDEBAR, side, CSS.main);
     mark(p.drawer, SIDEBAR, side, CSS.drawer);
-    var root = p.panel && p.panel.shadowRoot && p.panel.shadowRoot.querySelector('hui-root');
+    var root = p.panel ? SH.dashboard(p.panel) : null;
     mark(root, HEADER, !!(w && w.header), CSS.root);
     watch(p);
   }
@@ -207,7 +203,7 @@
 
   try {
     readUrl();
-    window.addEventListener('location-changed', function () { readUrl(); soon(); });
+    SH.onNavigate(function () { readUrl(); soon(); });
     window.addEventListener('popstate', function () { readUrl(); soon(); });
   } catch (e) { /* no window events (a test harness) */ }
   // until Home Assistant's page is there, and the settings

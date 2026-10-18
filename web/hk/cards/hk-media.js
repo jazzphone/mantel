@@ -796,10 +796,10 @@
       if (on && !this._onLoc) {
         var self = this;
         this._onLoc = function () { setTimeout(function () { self._closeGlyph(); }, 0); self._closeSpk(); };
-        window.addEventListener('location-changed', this._onLoc);
+        window.hkShell.onNavigate(this._onLoc);
         window.addEventListener('popstate', this._onLoc);
       } else if (!on && this._onLoc) {
-        window.removeEventListener('location-changed', this._onLoc);
+        window.hkShell.offNavigate(this._onLoc);
         window.removeEventListener('popstate', this._onLoc);
         this._onLoc = null;
       }
@@ -1235,8 +1235,7 @@
             }
             // Leave the hash behind, or the sheet re-opens over the page it
             // just navigated to.
-            history.pushState(null, '', t);
-            window.dispatchEvent(new CustomEvent('location-changed'));
+            window.hkShell.navigate(t);
           };
           ['.art', '.title', '.artist'].forEach(function (sel) {
             var el = q(sel);
@@ -1253,8 +1252,7 @@
           // BROWSE: the Music page, in its search box
           q('.brw').addEventListener('click', function () {
             self._closeSpk();
-            history.pushState(null, '', '/' + String(location.pathname).split('/')[1] + '/music-browse');
-            window.dispatchEvent(new CustomEvent('location-changed'));
+            window.hkShell.navigate('/' + String(location.pathname).split('/')[1] + '/music-browse');
           });
         }
         q('.close').addEventListener('click', function () { self._putAway(); });
@@ -2760,8 +2758,7 @@
           if (t.slice(0, 2) === './') {
             t = '/' + String(location.pathname).split('/')[1] + '/' + t.slice(2);
           }
-          history.pushState(null, '', t);
-          window.dispatchEvent(new CustomEvent('location-changed'));
+          window.hkShell.navigate(t);
         });
         cr.appendChild(br);
       }
