@@ -2,8 +2,9 @@
 // when the server allows them.
 //
 // One WebSocket. Frames the page receives: snapshot / diff (states), read_result / read_event
-// (the server's filtered reads), error, and -- only on a server whose operator turned the command
-// gateway on -- capabilities, command_result and step_up_required. On a server with commands off
+// (the server's filtered reads), settings_result (HK's own settings saves, `write`), error, and --
+// only on a server whose operator turned the command gateway on -- capabilities, command_result and
+// step_up_required. On a server with commands off
 // (the default) nothing the page sends can change anything: the server answers every command with
 // `commands_disabled`, never says `capabilities`, and the page offers no actions at all.
 export class Hub {
@@ -44,6 +45,12 @@ export class Hub {
         } else if (m.type === 'capabilities') {
           this.capabilities = m;
           this.onCapabilities(m);
+        } else if (m.type === 'settings_result') {
+          const p = this.pending.get(m.id);
+          if (!p || !p.save) return;
+          this.pending.delete(m.id);
+          if (m.error) p.reject(Object.assign(new Error(m.error.message || m.error.code), m.error));
+          else p.resolve(m.result);
         } else if (m.type === 'command_result' || m.type === 'step_up_required') {
           const p = this.pending.get(m.id);
           if (p && p.command) { this.pending.delete(m.id); p.resolve(m); }
@@ -56,13 +63,32 @@ export class Hub {
     });
   }
 
-  // a socket that closed answers no command: each waiting one is told, none is re-sent
+  // a socket that closed answers no command or save: each waiting one is told, none is re-sent
   _dropCommands() {
     for (const [id, p] of this.pending) {
-      if (!p.command) continue;
-      this.pending.delete(id);
-      p.resolve({ type: 'command_result', error: { code: 'unavailable', message: 'connection lost' } });
+      if (p.command) {
+        this.pending.delete(id);
+        p.resolve({ type: 'command_result', error: { code: 'unavailable', message: 'connection lost' } });
+      } else if (p.save) {
+        this.pending.delete(id);
+        p.reject(Object.assign(new Error('connection lost'), { code: 'unavailable', message: 'connection lost' }));
+      }
     }
+  }
+
+  // HK's own settings saves (P3.5): `msg` exactly as the page sends it to HA (hk_frontend/settings/set,
+  // board/set, ...). Not a house command: Mantel's settings store answers it (RBAC `configure`), on
+  // every server, commands on or off, and nothing reaches Home Assistant. Resolves with the store's
+  // result, rejects with its error ({code, message}: HA's `invalid_format` field map, `forbidden`, ...).
+  write(msg) {
+    if (!this.ws || this.ws.readyState !== 1) {
+      return Promise.reject(Object.assign(new Error('not connected'), { code: 'unavailable', message: 'not connected' }));
+    }
+    const id = this.nextId++;
+    return new Promise((resolve, reject) => {
+      this.pending.set(id, { resolve, reject, save: true });
+      this.ws.send(JSON.stringify({ type: 'settings_write', id, msg }));
+    });
   }
 
   // true only after this socket's server said so (capabilities); never assumed

@@ -29,7 +29,7 @@ from urllib.parse import urlparse
 import aiohttp
 from aiohttp import WSMsgType, web
 
-from . import accounts, auth, devices, gateway, health, proof2, rbac_store, readproxy, sessions, settings_store
+from . import accounts, auth, devices, gateway, health, pins, proof2, rbac_store, readproxy, sessions, settings_store
 from . import linked, service_accounts
 from .authz import Authz, Principal, resolve_door
 from .config import Config
@@ -406,6 +406,7 @@ def build_app(cfg: Config, token: str, store: Store | None = None, connect_ha: b
     sessions.register(app, hub)
     accounts.register(app, hub)
     devices.register(app, hub)
+    pins.register(app, hub)
     wire(app, hub, token, connect_ha)
     app.router.add_get("/ws", ws_handler)
     app.router.add_get("/", root)
@@ -477,6 +478,7 @@ def wire(app: web.Application, hub: Hub, token: str, connect_ha: bool) -> None:
     app["door_resolver"] = resolve_door                     # X-Mantel-Door believed from trusted proxies only
     audit = gateway.Audit(app["store"].db, lambda: app["clock"]())
     app["audit"] = audit
+    gateway.register_audit(app)                             # GET /api/audit (Owner/Admin)
     store = rbac_store.register(app, hub, identity=_rbac_identity, store=rbac_store.RbacStore(app["store"].db),
                                 csrf=_csrf_ok, audit=audit.config_event)
     authz = Authz(app, hub, store, lambda: app["clock"]())
@@ -517,6 +519,12 @@ async def policy_tick(app: web.Application, hub: Hub, every: float = POLICY_TICK
 
 
 async def tick_once(app: web.Application, hub: Hub) -> None:
+    audit = app.get("audit")
+    if audit is not None:
+        try:  # the audit's retention window (at most hourly; the maintenance path logs what it deleted)
+            audit.maybe_purge(getattr(app["cfg"], "audit_retention_days", 365.0))
+        except Exception:  # noqa: BLE001 -- never let maintenance stop the policy tick
+            log.exception("audit retention step failed (nothing was deleted)")
     authz: Authz | None = app.get("authz")
     for s in list(hub.sessions):
         if authz is not None and s.principal is not None and not authz.refresh(s.principal):

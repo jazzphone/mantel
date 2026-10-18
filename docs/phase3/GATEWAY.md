@@ -42,8 +42,13 @@ hooks. No command was ever sent to the house: nothing here pointed at `/Volumes/
 <- {"type":"command_result","id":7,"result":<HA's result>,"audit_id":41}
 <- {"type":"command_result","id":7,"error":{"code":"forbidden","reason":"no_grant","target":"light.x"},"audit_id":42}
 <- {"type":"step_up_required","id":7,"reason":"step_up_required"|"person_pin_required","action":"lock.unlock",
-    "targets":["lock.front_door"],"methods":["totp","passkey"],"window":300,"audit_id":43}
+    "targets":["lock.front_door"],"methods":["totp","passkey","pin"],"window":300,"audit_id":43}
+-> {"type":"command","id":8, ...the same command..., "step_up":{"method":"pin","pin":"2580"}}     (since PINS-AUDIT.md)
+<- {"type":"step_up_required","id":8, ..., "pin_error":"invalid_pin"|"locked"|"ambiguous","retry_after":0}
 ```
+
+(Update, later the same day: a person's PIN at a wall tablet, the PIN as a step-up factor, the audit
+read API and retention, and the packaging's `--trusted-proxy` are done: `docs/phase3/PINS-AUDIT.md`.)
 
 Error codes: `forbidden` (RBAC; `reason` is the engine's), `invalid_command`, `not_a_write`,
 `unsupported_target`, `unsupported_body`, `unauthenticated` (the session or device ended while the
@@ -91,8 +96,11 @@ differ (`tools/export_writes.py` regenerates, `--check` compares).
    steps up a signed-in session). P3.1 marks the session's `fresh_factor_at`.
 3. The page sends the same command again. The gateway re-reads the session row **at every command**,
    so the fresh factor counts at once; after 300 s it asks again (tested at 299 / 301 s).
-4. **A wall tablet alone** (`person_pin_required`) gets `methods: []` and the page says "A person has to
-   confirm this": the person-PIN-at-the-tablet flow is not built yet (continuation point).
+4. **A wall tablet alone** (`person_pin_required`) gets `methods: ["pin"]` (once anyone has a PIN;
+   `[]` before that): the prompt shows a PIN pad, the PIN goes back inside the same command
+   (`step_up`), the server finds which person it belongs to and decides that one command as person ∩
+   tablet; the audit row names the person. Done in `docs/phase3/PINS-AUDIT.md` (originally the
+   continuation point here).
 
 Note (P3.1's semantics, unchanged): a sign-in is itself a fresh factor, so for five minutes after
 signing in a sensitive action needs no second prompt.
@@ -112,8 +120,9 @@ signing in a sensitive action needs no second prompt.
 | `result`, `result_at` | NULL until HA answered; `ok`, `error:<code>`, or `not_sent` (denied/step-up rows) |
 
 Rules: the row is written **before** anything is sent, and a failed insert refuses the command
-(`audit_unavailable`, tested); a trigger forbids DELETE, and UPDATE is allowed only to write `result`
-once, from NULL (tested); service data is never stored (it can carry an alarm code). The forward
+(`audit_unavailable`, tested); a trigger forbids DELETE (since migration 0007: except rows older than
+the retention window, by the logged maintenance path only; PINS-AUDIT.md), and UPDATE is allowed only
+to write `result` once, from NULL (tested); service data is never stored (it can carry an alarm code). The forward
 needs a `CommandTicket` bound to that row's id, which `HaCommander` spends once (tested). RBAC REST
 changes (`rbac_store`'s audit hook) land here too as `kind='config'`, before they are applied. Proof
 2's `command_audit` table is unchanged for `/api/proof2/command`.
@@ -297,15 +306,11 @@ Changed existing tests, on purpose:
 
 ## Not done / open questions
 
-* **A person's PIN at a wall tablet** (`person_pin_required`): needs a PIN factor (P3.1 left it to P3.3)
-  and a way to name the person on a device-only socket; then decide again with that person as the user.
-* A PIN factor generally (TOTP and passkey are the step-up factors today).
-* Audit retention window and an Owner-only audit read API (`feature:audit`).
+* ~~A person's PIN at a wall tablet~~, ~~a PIN factor generally~~, ~~audit retention and an audit read
+  API~~, ~~the packaging's `--trusted-proxy`~~: done, see `docs/phase3/PINS-AUDIT.md`.
 * The tablets' read-side features: with the default roles a wall tablet has no `music`,
   `notifications` or `media` feature grant, so those reads are refused for a tablet alone (P3.2's
   model; add grants or role defaults when the tablet cutover is planned).
-* The packaging entrypoint does not pass `--trusted-proxy` yet: behind Caddy every request is
-  `tunnel` (fail closed) until it does.
 * MA commands through the gateway are tested with the gate only (MA stays fake-only until a scratch MA).
 * The `/dev` page's endpoints `/api/stats` (top updating entity ids) and `/api/areas` (entity counts)
   are behind sign-in but not RBAC-filtered; `/api/registry` and `/api/entities` are.
@@ -315,11 +320,10 @@ Changed existing tests, on purpose:
 1. **Cutover (Avery):** decide on decisions 1 and 2, then run the house server with `--commands-enabled`
    (and `--trusted-proxy <caddy>` behind Caddy) only when ready; before that, run
    `tools/e2e/gateway_e2e.py` once more on the commit being deployed.
-2. **Packaging (P3.6 follow-up):** pass `--trusted-proxy` (Caddy's address on the backend network) and,
-   if wanted, `--commands-enabled` from `MANTEL_*` settings in `packaging/docker/entrypoint.py`.
-3. **Person-at-tablet PIN:** a per-user PIN (Argon2id, lockout) in P3.1's style, a
-   `POST /api/auth/pin/step-up {user, pin}` usable from a device socket, and the gateway deciding again
-   with that person as the user (the engine already intersects).
-4. **P3.5:** move HK's settings writes into Mantel (finer RBAC than `configure settings`), retire the
-   smoke's feed stand-ins.
-5. **Audit read API** for Owners and a retention job.
+2. ~~Packaging: pass `--trusted-proxy`~~ done (`MANTEL_TRUSTED_PROXY`, Caddy's fixed backend address;
+   PINS-AUDIT.md). `--commands-enabled` from the entrypoint stays a cutover decision.
+3. ~~Person-at-tablet PIN~~ done (PINS-AUDIT.md). The PIN travels inside the command rather than a
+   separate `POST /api/auth/pin/step-up`, so the person is named and the command decided in one step.
+4. ~~P3.5: HK's settings writes from the page~~ done: they go to Mantel's settings store
+   (`settings_write`), never through the gateway (SETTINGS.md).
+5. ~~Audit read API and retention~~ done (`GET /api/audit`, `--audit-retention-days`; PINS-AUDIT.md).

@@ -12,6 +12,8 @@ Docker / Proxmox LXC (compose)   settings from MANTEL_* environment variables (n
     MANTEL_PORT            optional   default 8765
     MANTEL_DATA_DIR        optional   default /data
     MANTEL_HA_TOKEN_FILE   optional   default /run/secrets/ha_token
+    MANTEL_TRUSTED_PROXY   compose    Caddy's fixed backend address (172.31.251.2), comma list of IPs:
+                                      passed as --trusted-proxy so Caddy's X-Mantel-Door: lan is believed
     MANTEL_DEFAULT_SCREEN, MANTEL_SESSION_HOURS   optional
 
 Home Assistant App (add-on)      recognised by SUPERVISOR_TOKEN in the environment plus /data/options.json.
@@ -25,6 +27,7 @@ Admin commands pass straight through and default to the /data volume:
 """
 from __future__ import annotations
 
+import ipaddress
 import json
 import os
 import sys
@@ -44,6 +47,23 @@ def detect_mode(env: dict[str, str], options_path: Path = APP_OPTIONS) -> str:
     return "ha-app" if env.get("SUPERVISOR_TOKEN") and options_path.is_file() else "container"
 
 
+def trusted_proxy_args(env: dict[str, str]) -> list[str]:
+    """``--trusted-proxy`` for each address in MANTEL_TRUSTED_PROXY (compose: Caddy's fixed address on the
+    backend network, 172.31.251.2). Mantel compares the socket peer's address exactly, so each entry must
+    be an IP address (a service name would never match). Unset: none, and every request is the tunnel
+    door (fail closed), which the startup warning below says."""
+    out = []
+    for raw in filter(None, (a.strip() for a in env.get("MANTEL_TRUSTED_PROXY", "").split(","))):
+        try:
+            out += ["--trusted-proxy", str(ipaddress.ip_address(raw))]
+        except ValueError:
+            raise ConfigError(f"MANTEL_TRUSTED_PROXY must list IP addresses (Caddy's backend address), not {raw!r}")
+    if not out:
+        print("mantel entrypoint: MANTEL_TRUSTED_PROXY is not set: no request is recognised as the LAN door "
+              "(wall tablets will be refused)", file=sys.stderr)
+    return out
+
+
 def container_args(env: dict[str, str]) -> list[str]:
     missing = [k for k in ("MANTEL_HA_URL", "MANTEL_PUBLIC_URL") if not env.get(k)]
     if missing:
@@ -56,6 +76,7 @@ def container_args(env: dict[str, str]) -> list[str]:
             "--public-url", env["MANTEL_PUBLIC_URL"]]
     for host in filter(None, (h.strip() for h in env.get("MANTEL_ALLOW_HOSTS", "").split(","))):
         args += ["--allow-host", host]
+    args += trusted_proxy_args(env)
     if env.get("MANTEL_DEFAULT_SCREEN"):
         args += ["--screen", env["MANTEL_DEFAULT_SCREEN"]]
     if env.get("MANTEL_SESSION_HOURS"):

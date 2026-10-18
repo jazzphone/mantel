@@ -13,7 +13,7 @@
 # files. No service mounts the Docker socket. Only Caddy (443) and go2rtc (WebRTC 8555) publish ports.
 #
 # Networks:
-#   backend  internal, no route out : caddy <-> mantel-server <-> go2rtc
+#   backend  internal, 172.31.251.0/28, no route out : caddy (fixed .2: Mantel's one trusted proxy) <-> mantel-server <-> go2rtc
 #   egress   normal bridge          : caddy (ACME, published 443), mantel-server (HA/MA/internet), go2rtc (cameras, tuner)
 #   tunnel   internal, 172.31.250.0/29 : caddy and cloudflared ONLY. cloudflared can reach nothing else.
 #   cf_out   normal bridge          : cloudflared alone, for its outbound connection to Cloudflare
@@ -56,7 +56,8 @@ services:
     secrets:
       - cloudflare_dns_token
     networks:
-      backend: {}
+      backend:
+        ipv4_address: 172.31.251.2
       egress: {}
       tunnel:
         ipv4_address: 172.31.250.2
@@ -94,6 +95,10 @@ services:
       MANTEL_HA_TOKEN_FILE: /run/secrets/ha_token
       MANTEL_DATA_DIR: /data
       MANTEL_PORT: "8765"
+      # Caddy's fixed address on the backend network: the only peer whose X-Mantel-Door: lan (and
+      # X-Forwarded-For) Mantel believes. Caddy reaches Mantel by the backend-only alias below, so its
+      # connections always come from this address. Without it every request counts as the tunnel door.
+      MANTEL_TRUSTED_PROXY: 172.31.251.2
     volumes:
       - mantel-data:/data
     tmpfs:
@@ -106,8 +111,10 @@ services:
     group_add:
       - "10001"
     networks:
-      - backend
-      - egress
+      backend:
+        aliases:
+          - mantel-backend
+      egress: {}
     healthcheck:
       test: ["CMD", "python", "-m", "mantel_server.health", "--port", "8765"]
       interval: 30s
@@ -178,6 +185,9 @@ services:
 networks:
   backend:
     internal: true
+    ipam:
+      config:
+        - subnet: 172.31.251.0/28
   egress: {}
   tunnel:
     internal: true

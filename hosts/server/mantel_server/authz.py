@@ -93,6 +93,14 @@ class Principal:
     def device(self) -> sessions.Device | None:
         return self.identity.device
 
+    @property
+    def door(self) -> str:
+        return self.identity.door
+
+    @property
+    def fresh_factor_at(self) -> float | None:
+        return self.identity.fresh_factor_at
+
 
 class Authz:
     def __init__(self, app: web.Application, hub, rbac_store, clock: Callable[[], float] = time.time) -> None:
@@ -160,6 +168,15 @@ class Authz:
         p = Principal(ident, self.subject_of(ident), sessions.client_ip(request))
         p.gate = rbac.Gate(lambda: self.policy_for(p.subject), p.subject, self.context)
         return p
+
+    def with_person(self, p: Principal, person: sessions.User, factor: str = "pin") -> Principal:
+        """A person who just proved themselves at this device (their PIN at a wall tablet), for ONE
+        command: the device's principal with that person as the user and a factor fresh now, so the
+        engine decides person ∩ device. Nothing is stored; the socket keeps its own principal."""
+        ident = replace(p.identity, user=person, fresh_factor_at=self.clock(), fresh_factor=factor,
+                        session_id=None, csrf=None)
+        return Principal(ident, self.subject_of(ident), p.source_ip, gate=None, valid=p.valid,
+                         extra={"person_at_device": True})
 
     def refresh(self, p: Principal) -> bool:
         """Re-read the session and device rows. False (and ``p.valid`` cleared) when either is gone."""

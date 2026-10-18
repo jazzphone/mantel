@@ -12,18 +12,55 @@
   function emit(name, detail) {
     try { global.dispatchEvent(new CustomEvent(name, { detail: detail })); } catch (e) { /* shell tests */ }
   }
+  // HK'S OWN SETTINGS SAVES (P3.5) are not house commands: Mantel's settings store answers them
+  // (hub.write -> settings_write, RBAC `configure` on the server), on every server, commands on or off,
+  // and nothing reaches Home Assistant. Exactly settings_store.SETTINGS_SAVES (a test pins the two
+  // lists together); every other write still goes to the gateway, or is refused when commands are off.
+  var SETTINGS_SAVES = ['hk_frontend/settings/set', 'hk_frontend/board/set', 'hk_frontend/tablet/set',
+                        'hk_frontend/setup/done', 'hk_frontend/calendar/color', 'hk_frontend/chip/save',
+                        'hk_frontend/chip/remove'];
+  function isSave(msg) { return !!(msg && typeof msg.type === 'string' && SETTINGS_SAVES.indexOf(msg.type) >= 0); }
+  function save(hub, msg) {
+    return hub.write(msg).catch(function (e) {
+      if (e && e.code === 'forbidden') emit('hk-command-denied', { what: String(msg.type), reason: 'forbidden', code: 'forbidden' });
+      throw fail((e && e.code) || 'failed', (e && e.message) || 'the save failed');
+    });
+  }
+  // Commands off (the default): the port's only action is a settings save; every other write and
+  // every service call is refused here, before anything is sent, exactly as with no actions at all.
+  function savesOn(port, hub) {
+    port.actions = {
+      callWS: function (msg) {
+        if (isSave(msg)) return save(hub, msg);
+        port.refused({ kind: 'ws', what: String(msg && msg.type) });
+        return Promise.reject(fail('commands_disabled', 'commands disabled'));
+      }
+      // no callService / request / liveSocket: hkClient refuses them (commands_disabled), sending nothing
+    };
+  }
   // STEP-UP. The gateway answers a sensitive action without a fresh factor with step_up_required;
   // the page proves one (HK's prompt, web/shim/mantel-stepup.js, hears `hk-step-up-required` and
-  // calls detail.done() once the server accepted a PIN code or a passkey, or detail.cancel()), and
-  // the same command is sent once more. With nobody to answer, it is refused (step_up_required).
-  function stepUp(reply, what) {
+  // calls detail.done() once the server accepted an authenticator code or a passkey, or
+  // detail.cancel()), and the same command is sent once more. A PIN (method `pin`: a person's PIN at
+  // a wall tablet, or their own) goes back inside the command: detail.submit({method:'pin', pin})
+  // sends it again with the PIN; a refused PIN answers {error, retry_after} and the prompt stays,
+  // anything else ends it. With nobody to answer, it is refused (step_up_required).
+  function stepUp(reply, what, resend) {
     return new Promise(function (resolve, reject) {
       var settled = false;
       var detail = {
         reason: reply.reason, methods: reply.methods || [], window: reply.window, action: reply.action,
         targets: reply.targets || [], what: what,
-        done: function () { if (!settled) { settled = true; resolve(); } },
-        cancel: function () { if (!settled) { settled = true; reject(fail('step_up_cancelled', 'step-up cancelled')); } }
+        done: function () { if (!settled) { settled = true; resolve(null); } },
+        cancel: function () { if (!settled) { settled = true; reject(fail('step_up_cancelled', 'step-up cancelled')); } },
+        submit: function (step) {
+          if (settled) return Promise.resolve({ ok: true });
+          return resend(step).then(function (r) {
+            if (r && r.type === 'step_up_required' && r.pin_error) return { error: r.pin_error, retry_after: r.retry_after || 0 };
+            if (!settled) { settled = true; resolve(r); }
+            return { ok: true };
+          });
+        }
       };
       var heard = false;
       try { heard = !global.dispatchEvent(new CustomEvent('hk-step-up-required', { detail: detail, cancelable: true })); } catch (e) { /* shell tests */ }
@@ -37,7 +74,9 @@
           emit('hk-command-denied', { what: what.what, reason: reply.reason });
           return Promise.reject(fail('step_up_required', reply.reason, { reason: reply.reason }));
         }
-        return stepUp(reply, what).then(function () {
+        var resend = function (step) { return hub.command(Object.assign({}, body, { step_up: step })); };
+        return stepUp(reply, what, resend).then(function (answered) {
+          if (answered) return settle(body, what, answered, tries + 1);     // the PIN went with it
           return hub.command(body).then(function (r) { return settle(body, what, r, tries + 1); });
         });
       }
@@ -62,6 +101,7 @@
         return run(body, { kind: 'service', what: domain + '.' + service });
       },
       callWS: function (msg) {
+        if (isSave(msg)) return save(hub, msg);                  // HK's settings: the store, not HA
         return run({ kind: 'ws', msg: msg }, { kind: 'ws', what: String(msg && msg.type) });
       },
       // An authenticated write to the host's HTTP API, answered as fetch() would (a Response), so
@@ -108,10 +148,11 @@
     // ACTIONS ONLY WHEN THE SERVER SAYS SO. On a server whose operator turned the command gateway on,
     // the socket's `capabilities` frame says `commands: true`, and this port then gets `actions`
     // that send gateway `command` messages over the hub socket (nothing else: the snapshot's own
-    // service method is never reached). Otherwise (the default) the port has NO actions: the client's
-    // action port refuses every service call and write before anything is sent, and says so here
-    // (`refused`) so the page can show it.
+    // service method is never reached). Otherwise (the default) the port's only action is HK's own
+    // settings save (to Mantel's settings store): the client's action port refuses every service call
+    // and every other write before anything is sent, and says so here (`refused`) so the page can show it.
     if (gateway && gateway.commandsEnabled()) actionsOn(port, gateway);
+    else if (gateway && typeof gateway.write === 'function') savesOn(port, gateway);
     port.refused = function (detail) {
       try { global.dispatchEvent(new CustomEvent('hk-command-refused', { detail: detail })); } catch (e) { /* shell tests */ }
     };
@@ -162,7 +203,7 @@
     try { global.dispatchEvent(new CustomEvent('hk-client-update')); } catch (e) { /* shell tests */ }
   }
   global.hkMantelClient = { from: from, current: function () { return latest; }, setCurrent: setCurrent, bridge: bridge, entry: entry,
-                            useCommands: useCommands, kind: 'mantel' };
+                            useCommands: useCommands, kind: 'mantel', SETTINGS_SAVES: SETTINGS_SAVES.slice() };
   global.hkHostClient = global.hkMantelClient;
   try { global.dispatchEvent(new CustomEvent('hk-host-client-ready')); } catch (e) { /* shell tests */ }
 })(globalThis);
