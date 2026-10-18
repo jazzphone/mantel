@@ -585,6 +585,18 @@ WebSocket read `history/history_during_period` and returns the REST shape.
 - [x] On the house, through the page's own client: `GET history/period` for `sensor.crawl_space_dehumidifier_power`
       returns 28 rows for the last hour and 169 for the last day (was refused).
 
+### 0.1.11 and 0.1.12 on the house (2026-10-18 evening, commits `dd31817`, `f663973`)
+
+0.1.11: Browse's library as a read (`music_assistant.get_library` answered by Mantel from Music Assistant, never a
+command; agent branch merged `ab91f31`). On the house the reads answered with real items and artwork, but the
+Discover shelves drew empty: Mantel's settings feed sent the Discover rows as stored keys, not queries. 0.1.12
+(`914d511`): the feed expands them as HA's `as_client` does.
+- [x] Music page (Claude's pane): five Discover shelves loaded, commands off: Recently played playlists 12 (e.g.
+      "Essential Christmas"), Recently played albums 12, Favorite playlists 12, Recently added 12, Favorite radio 1.
+- [x] Avery uploaded SF-Pro.woff2 and hk-glyphs.js in Your files; HK's real font and icons draw (reported by Avery).
+- Smoke note: one of six runs of `client_smoke.py` lost the page to a navigation during the Music page's fit step
+  (before any new step); the other five passed. Flaky, to tidy.
+
 ### Removal
 
 Stop and uninstall **Mantel** (Settings → Apps → Mantel → Uninstall); this removes its image and `/data`
