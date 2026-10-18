@@ -36,7 +36,7 @@ Needs a Home Assistant long-lived access token in `~/.config/mantel/ha_token` (r
 ```
 
 - Listens on **127.0.0.1 only** (not configurable). Host and Origin headers are checked.
-- **Read-only.** The HA client can only send `auth`, `subscribe_entities`, the three registry list calls and `ping`. Any command from a client gets `commands_disabled`.
+- **Read-only.** The HA client can only send `auth`, `subscribe_entities`, the three registry list calls and `ping`. WebSocket commands get `commands_disabled`. The isolated `/api/proof2/command` endpoint only evaluates a dry-run request for the fictional `light.proof2_demo`; it never executes anything (see `docs/proof2/RESULTS.md`).
 - `/dev`: pick an area or entities, watch live updates, see messages/bytes per second from HA vs to your client.
 - Client protocol is documented at the top of `hosts/server/mantel_server/server.py`.
 

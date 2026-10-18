@@ -17,7 +17,7 @@ mantel-server = "mantel_server.__main__:main"
 
 [tool.setuptools.packages.find]
 where = ["hosts/server", "."]
-include = ["mantel_server*", "hk_core*"]
+include = ["mantel_server*", "mantel_connect*", "hk_core*"]
 
 [tool.setuptools.package-data]
 mantel_server = ["static/*"]

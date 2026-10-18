@@ -20,7 +20,7 @@ from urllib.parse import urlparse
 import aiohttp
 from aiohttp import WSMsgType, web
 
-from . import auth
+from . import auth, proof2
 from .config import Config
 from .ha_oauth import HaOAuth
 from .readproxy import ReadBlocked, ReadProxy
@@ -364,6 +364,7 @@ def build_app(cfg: Config, token: str, store: Store | None = None, connect_ha: b
     app["state_secret"] = secrets.token_bytes(32)
     app["clock"] = clock
     auth.add_routes(app)
+    app.router.add_post(proof2.PATH, proof2.command)
     hub.ha = HaClient(cfg.ha_url, token, hub.store, hub.registry, hub.on_change, hub.on_registry)
     app["cfg"] = cfg
     app["hub"] = hub

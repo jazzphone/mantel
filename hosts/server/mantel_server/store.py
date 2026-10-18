@@ -1,4 +1,4 @@
-"""Mantel's own small database: which HA user is linked to which Mantel role, and sign-in sessions.
+"""Mantel's database: linked roles, sign-in sessions and dry-run command audit records.
 
 Lives outside git (default ~/.local/share/mantel/mantel.db, folder mode 0700). Session ids are random
 and only their SHA-256 is stored, so a copy of the database cannot be replayed as a cookie.
@@ -27,6 +27,23 @@ CREATE TABLE IF NOT EXISTS sessions (
     created    REAL NOT NULL,
     expires    REAL NOT NULL
 );
+CREATE TABLE IF NOT EXISTS command_audit (
+    id INTEGER PRIMARY KEY,
+    timestamp REAL NOT NULL,
+    actor TEXT,
+    role TEXT,
+    device TEXT NOT NULL CHECK (device = 'unknown'),
+    action TEXT,
+    target TEXT,
+    decision TEXT NOT NULL CHECK (decision IN ('allowed', 'denied')),
+    reason TEXT NOT NULL,
+    dry_run INTEGER NOT NULL CHECK (dry_run = 1),
+    source_ip TEXT
+);
+CREATE TRIGGER IF NOT EXISTS command_audit_no_update BEFORE UPDATE ON command_audit
+BEGIN SELECT RAISE(ABORT, 'audit is append-only'); END;
+CREATE TRIGGER IF NOT EXISTS command_audit_no_delete BEFORE DELETE ON command_audit
+BEGIN SELECT RAISE(ABORT, 'audit is append-only'); END;
 """
 
 
@@ -43,6 +60,16 @@ class Store:
         self.db.row_factory = sqlite3.Row
         self.db.executescript(SCHEMA)
         os.chmod(path, 0o600)
+
+    def audit_command(self, *, timestamp, actor, role, action, target, decision, reason, source_ip) -> int:
+        """Commit a minimal decision record; a failure must propagate to the caller."""
+        with self.db:
+            row = self.db.execute(
+                "INSERT INTO command_audit "
+                "(timestamp, actor, role, device, action, target, decision, reason, dry_run, source_ip) "
+                "VALUES (?, ?, ?, 'unknown', ?, ?, ?, ?, 1, ?)",
+                (timestamp, actor, role, action, target, decision, reason, source_ip))
+        return row.lastrowid
 
     # -- links -------------------------------------------------------------------------------
     def link(self, ha_user_id: str, role: str, name: str | None = None, now: float | None = None) -> None:
