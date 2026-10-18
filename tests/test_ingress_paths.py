@@ -95,6 +95,7 @@ def test_mantels_own_code_builds_its_urls_through_base_js():
 def test_the_page_html_is_entirely_under_the_prefix():
     html = ingress.rewrite(ingress.inject_base((WEB / "home.html").read_text(), PREFIX), PREFIX)
     assert f'<meta name="mantel-base" content="{PREFIX}">' in html
+    assert '<meta name="referrer" content="same-origin">' in html   # HA's no-referrer would null the Origin
     refs = re.findall(r'(?:href|src)="([^"]+)"', html)
     assert refs and all(r.startswith(PREFIX + "/") for r in refs), refs
 

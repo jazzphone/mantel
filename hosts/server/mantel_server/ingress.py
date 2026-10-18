@@ -78,6 +78,10 @@ ASSET_LITERAL = re.compile(r"""(["'`(])/(hk|web|static/mdi)/""")
 PATHNAME_READ = re.compile(r"\blocation\.pathname\b(?!\s*=(?!=))")
 CONTENT_TYPES = {".js": "text/javascript", ".mjs": "text/javascript", ".css": "text/css", ".html": "text/html"}
 CACHE_LIMIT = 48 * 1024 * 1024
+# HA stamps `Referrer-Policy: no-referrer` on every response it proxies, Ingress included; under that
+# policy a browser sends `Origin: null` on a same-origin POST, which server.loopback_only must refuse.
+# A document's own referrer meta overrides the header, so every page served through Ingress carries it.
+REFERRER_META = '<meta name="referrer" content="same-origin">'
 
 
 # -- who is asking ----------------------------------------------------------------------------------
@@ -305,7 +309,7 @@ async def bootstrap_state(request: web.Request, person: dict) -> tuple[str, dict
 
 
 def _page(title: str, body: str, status: int = 200) -> web.Response:
-    text = ("<!doctype html><html lang=en><meta charset=utf-8>"
+    text = ("<!doctype html><html lang=en><meta charset=utf-8>" + REFERRER_META +
             "<meta name=viewport content='width=device-width,initial-scale=1'>"
             f"<title>{html.escape(title)}</title><style>body{{font:16px system-ui,sans-serif;max-width:36em;"
             "margin:3em auto;padding:0 1em;background:#05070e;color:#eee}a{color:#9cf}"
@@ -556,7 +560,7 @@ def rewrite(text: str, base: str) -> str:
 
 def inject_base(text: str, base: str) -> str:
     """The page's prefix for Mantel's own code (web/shim/base.js reads it)."""
-    meta = f'<meta name="mantel-base" content="{html.escape(base)}">'
+    meta = f'{REFERRER_META}\n<meta name="mantel-base" content="{html.escape(base)}">'
     return text.replace("<head>", "<head>\n" + meta, 1) if "<head>" in text else meta + text
 
 

@@ -282,10 +282,14 @@ async def test_first_owner_bootstrap_for_an_ha_admin_after_confirm(mk):
     text = await r.text()
     assert r.status == 403 and "Make me Mantel's Owner" in text
     assert f"action='{PREFIX}/ingress/bootstrap'" in text
+    # HA's no-referrer header would make the browser send Origin: null on this form; the page's meta wins
+    assert '<meta name="referrer" content="same-origin">' in text
     assert m.store.get_link(OWNER_HA) is None        # nothing happens until the confirm
     nonce = _nonce(text)
     # the form must come from the page (Origin), carry the nonce, and be the same HA user
     r = await m.request("POST", "/ingress/bootstrap", m.ha(), data={"nonce": nonce})
+    assert r.status == 403 and m.store.get_link(OWNER_HA) is None
+    r = await m.request("POST", "/ingress/bootstrap", {**m.ha(), "Origin": "null"}, data={"nonce": nonce})
     assert r.status == 403 and m.store.get_link(OWNER_HA) is None
     origin = {"Origin": str(m.client.make_url("")).rstrip("/")}
     r = await m.request("POST", "/ingress/bootstrap", {**m.ha(ADULT_HA), **origin}, data={"nonce": nonce})
