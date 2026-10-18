@@ -722,6 +722,39 @@ async def smoke(shot=None):
                     exceptions = [line for line in browser.console if line.startswith("EXCEPTION:")]
                     assert not exceptions, exceptions
                     assert not browser.blocked_requests, browser.blocked_requests
+                    # THE MUSIC PAGE FITS THE WINDOW (2026-10-18): with the tab bar along the bottom, two columns
+                    # fill the window below the title and the frame runs on under the bar; the page's end must not
+                    # count the bar's room a second time (it scrolled 110+ px for nothing). Compared as the browser
+                    # rounds scrollHeight, after the page's end has settled (a few frames, a ResizeObserver).
+                    await browser.eval("window.hkShell.navigate('/dashboard-proof/playmusic')")
+                    music_js = "window.__deep(document).find(e => e.localName === 'hk-music-card')"
+                    assert await browser.wait(f"(() => {{ const m = {music_js}; return !!m && m.isConnected && "
+                                              "!!m.style.getPropertyValue('--mu-h') && "
+                                              "!!document.querySelector('#hk-shell-root > #hk-tabbar'); })()", 15), \
+                        "the Music page did not lay out its columns: " + json.dumps(browser.console[-5:])
+                    fit_js = f"""(async () => {{
+                      for (let i = 0; i < 20; i++) await new Promise(r => requestAnimationFrame(r));
+                      await new Promise(r => setTimeout(r, 300));
+                      for (let i = 0; i < 5; i++) await new Promise(r => requestAnimationFrame(r));
+                      const m = {music_js}, mu = m.shadowRoot.querySelector('.mu'), de = document.documentElement;
+                      const v = window.__mantelViewHost.current().element, root = v.shadowRoot && v.shadowRoot.getElementById('root');
+                      return {{ cols: mu.getAttribute('cols'), scroll: de.scrollHeight, inner: window.innerHeight,
+                               bar: getComputedStyle(de).getPropertyValue('--hk-tabbar-h').trim(),
+                               card: Math.round(m.getBoundingClientRect().bottom * 10) / 10,
+                               frame: Math.round(mu.getBoundingClientRect().bottom * 10) / 10,
+                               rootEnd: root ? getComputedStyle(root).marginBottom : null }};
+                    }})()"""
+                    fits = []
+                    # (the window the user measured, then back: a resize re-lays the page, and the page's end
+                    # once grew by the bar's room again on every one)
+                    for w, h in ((1280, 800), (1366, 900), (1280, 800)):
+                        await browser.send("Emulation.setDeviceMetricsOverride", width=w, height=h, deviceScaleFactor=1,
+                                           mobile=False)
+                        fit = await browser.eval(fit_js)
+                        assert fit["cols"] in ("2", "3") and fit["bar"] not in ("", "0px"), fit
+                        assert fit["frame"] > fit["card"] + 16, fit      # the frame still runs on under the bar
+                        assert fit["scroll"] <= fit["inner"], fit        # ...and the page that fits does not scroll
+                        fits.append(f"{w}x{h} {fit['scroll']}/{fit['inner']}")
                     if shot:
                         await browser.screenshot(shot)
                     return {"home_ready": True, "client": "mantel", "initial": "21.4 °C", "updated": "22.8 °C",
@@ -756,6 +789,8 @@ async def smoke(shot=None):
                                        f"signalling through Mantel's camera connector: {kinds.count('camera/webrtc/get_client_config')} "
                                        f"client configs, {kinds.count('camera/webrtc/offer')} offers, {len(cands)} candidates with "
                                        f"the session; Home's camera strip's live tile is one too, placed by the strip's own rules",
+                            "music_fit": "the Music page (two columns, tab bar along the bottom, the frame running on "
+                                         "under it) ends at the window: scrollHeight/innerHeight " + ", ".join(fits),
                             "external_requests": 0, "browser_exceptions": 0}
         finally:
             store.db.close()

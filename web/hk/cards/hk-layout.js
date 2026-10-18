@@ -1329,7 +1329,9 @@
     // a plate or its shadow (the gutter is wider than any shadow). Run when
     // the page's size changes (a ResizeObserver: cards arriving, a resize),
     // never on a timer. The tab bar's room below a page is padding on the
-    // view and adds to it as before.
+    // view and adds to it as before -- so nothing that runs on under the bar
+    // may count: a card that fits itself to the window ends the page its own
+    // foot below its box (data-hk-foot, plateEdge; the Music page).
     _pageEnd() {
       var root = this._root;
       if (!root || !this.isConnected) return;
@@ -1357,13 +1359,16 @@
           });
         return;
       }
-      var low = HkGridView.plateEdge(root, 'bottom');
-      if (low == null) return;
       var cs = getComputedStyle(this), gutter = HkGridView.gutter(this);
+      var low = HkGridView.plateEdge(root, 'bottom', gutter);
+      if (low == null) return;
       var tail = hr.bottom - (parseFloat(cs.paddingBottom) || 0) - low;
       // (from the margin as it is, never as last set: whatever has reset it
-      // since, the page still ends at its gutter)
-      var m = parseFloat(getComputedStyle(root).marginBottom) || 0, next = Math.round((m + gutter - tail) * 10) / 10;
+      // since, the page still ends at its gutter. Rounded DOWN to the tenth:
+      // a page that fits the window exactly -- the Music page -- rounded to
+      // nearest ended 0.05 px past it, which the browser can round up to a
+      // pixel of scroll)
+      var m = parseFloat(getComputedStyle(root).marginBottom) || 0, next = Math.floor((m + gutter - tail) * 10 + 1e-6) / 10;
       if (Math.abs(next - m) < 0.5) return;
       this._endM = next;
       root.style.marginBottom = next + 'px';
@@ -1440,7 +1445,21 @@
     var drawn = cs.backgroundColor !== 'rgba(0, 0, 0, 0)' || cs.backgroundImage !== 'none' || cs.boxShadow !== 'none';
     return drawn && (el.localName === 'hk-plate' || el.localName === 'ha-card' || parseFloat(cs.borderTopLeftRadius) >= 8);
   }
-  HkGridView.plateEdge = function (node, side) {
+  // A CARD THAT KEEPS ITS OWN FOOT (data-hk-foot, in px; 2026-10-18): a
+  // card that fits itself to the window ends the page itself, that far below
+  // its own box -- not a gutter below its lowest plate. The Music page's
+  // two columns fill the window to a 16 px foot, and with a tab bar along
+  // the bottom its frame runs on under the bar (hk-music.js): measured as a
+  // plate, the page ended a gutter below the WINDOW's foot, counting the
+  // bar's room a second time (it scrolled 114 px, the user 2026-10-18). Its
+  // box is searched no further: what runs on under the bar is not the page.
+  // With `gutter` (the page's end, _pageEnd) such a card counts as a plate
+  // ending (foot - gutter) below its box, so the page ends its foot below it.
+  function footOf(el) {
+    var f = el.getAttribute ? el.getAttribute('data-hk-foot') : null;
+    return f == null || f === '' || isNaN(parseFloat(f)) ? null : parseFloat(f);
+  }
+  HkGridView.plateEdge = function (node, side, gutter) {
     var best = null, n0 = 0, low = side === 'bottom';
     // (a box inside a scroller counts only as far as the scroller shows it:
     // the calendar's hours run 1,500 px down inside their panel)
@@ -1467,7 +1486,12 @@
       var max = Math.max.apply(null, boxes.map(function (x) { return at(x[1]); }));
       boxes.forEach(function (x) {
         if (at(x[1]) < max - REACH) return;
-        var k = x[0];
+        var k = x[0], foot = low ? footOf(k) : null;
+        if (foot != null) {
+          var e = at(x[1]) + foot - (gutter || 0);
+          if (best === null || e > best) best = e;
+          return;
+        }
         if (k.localName === 'hk-camera-live-card' || plateLike(k)) {
           if (best === null || at(x[1]) > best) best = at(x[1]);
           return;

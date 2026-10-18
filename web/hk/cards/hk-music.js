@@ -717,6 +717,13 @@
       // which a finger could scroll, 2026-10-15)
       if (cols >= 2) this.style.setProperty('--mu-h', 'max(420px, calc(' + Math.floor(vh - Math.max(0, top) - 16) + 'px + ' + BAR_GAP + '))');
       else { this.style.removeProperty('--mu-h'); this.style.setProperty('--mu-rh', Math.round(vh - 90) + 'px'); }
+      // ...and so the page ends the 16 px foot below this card's box, where
+      // the window (or the bar's room) begins -- not a page gutter below the
+      // frame that runs on under the bar, which counted the bar's room twice
+      // and scrolled a page that fits (hk-layout.js data-hk-foot,
+      // 2026-10-18). One column is an ordinary page and ends at its gutter.
+      if (cols >= 2) { if (this.getAttribute('data-hk-foot') !== '16') this.setAttribute('data-hk-foot', '16'); }
+      else if (this.hasAttribute('data-hk-foot')) this.removeAttribute('data-hk-foot');
       // THREE COLUMNS: the Speakers column ticks where the next pick plays
       // (and moves what plays), so Plays on and its line go and the search
       // takes the row (the user's design, 2026-10-14)
