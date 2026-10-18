@@ -65,7 +65,7 @@ SUPERVISOR_CORE_URL = "http://supervisor/core"
 SUPERVISOR_WS_URL = "ws://supervisor/core/websocket"
 APP_PORT = "8099"
 LOG_LEVELS = ("debug", "info", "warning", "error")
-DOOR_RULES = ("tunnel", "lan")
+DOOR_RULES = ("trusted", "lan", "tunnel")
 
 
 class ConfigError(Exception):
@@ -142,7 +142,7 @@ def app_args(options: dict, token_file: Path, env: dict[str, str] | None = None)
         args.append("--commands-enabled")
     level = str(options.get("log_level") or "info").lower()
     args += ["--log-level", level if level in LOG_LEVELS else "info"]
-    rules = str(options.get("ha_door_rules") or "tunnel").lower()
+    rules = str(options.get("ha_door_rules") or "trusted").lower()
     if rules not in DOOR_RULES:
         raise ConfigError(f"ha_door_rules must be one of {', '.join(DOOR_RULES)}, not {rules!r}")
     args += ["--ha-door-rules", rules]

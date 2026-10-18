@@ -10,4 +10,4 @@ configuration:
     description: The HK dashboard the sidebar opens (its address, for example dashboard-kitchen).
   ha_door_rules:
     name: Sidebar access rules
-    description: tunnel (default) treats the sidebar like remote access for cameras, locations and sensitive actions; lan treats it like the home network.
+    description: trusted (default) treats being signed in to Home Assistant as enough, as HK in Home Assistant always was; lan uses the home network's rules (a code for locks and the alarm); tunnel uses Mantel's remote-access rules.

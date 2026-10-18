@@ -11,9 +11,9 @@ Commands stay off (`commands_enabled: false`).
 | Path | What |
 |---|---|
 | `hosts/server/mantel_server/ingress.py` (new) | Identity from Ingress, the first-Owner bootstrap, the people page, the settings-import form, the prefix (redirects, served files), the middleware. `register(app, hub, token)`; inert unless `cfg.ingress`. |
-| `mantel_server/config.py` | `ingress`, `ingress_peers` (default `172.30.32.2`), `ingress_only`, `ha_door_rules` (`tunnel`/`lan`), `ha_ws_url`, `log_level`; flags `--ingress --ingress-peer --ingress-only --ha-door-rules --ha-ws-url --log-level`; `cfg.ws_url`. |
+| `mantel_server/config.py` | `ingress`, `ingress_peers` (default `172.30.32.2`), `ingress_only`, `ha_door_rules` (`trusted`/`lan`/`tunnel`), `ha_ws_url`, `log_level`; flags `--ingress --ingress-peer --ingress-only --ha-door-rules --ha-ws-url --log-level`; `cfg.ws_url`. |
 | `mantel_server/sessions.py` | `identity()` asks `app["ingress_identity"]` first; an `ingress`-method session is refused outside Ingress; cookie path/`Secure` and client IP can come from the Ingress middleware; `REQUEST_DOORS` adds `ha`; refresh of an `ha` session. |
-| `mantel_server/authz.py` | `rules_door()`: the `ha` door gets the tunnel's RBAC rules, or the LAN's when `ha_door_rules = lan`. |
+| `mantel_server/authz.py` | `rules_door()`, `ha_trusted()`: the `ha` door gets the LAN's rules and HA's sign-in as the factor (`trusted`), the LAN's (`lan`) or the tunnel's (`tunnel`). |
 | `mantel_server/gateway.py` | `REMOTE_DOORS = {tunnel, ha}`: a sensitive action through the sidebar notifies the Owners like a remote one. |
 | `mantel_server/migrations/0008_ha_door.sql` (new) | Rebuilds `action_audit` so its `door` CHECK allows `ha` (rows, ids, AUTOINCREMENT position, indexes and both append-only triggers kept). |
 | `mantel_server/server.py` | Middleware order `loopback_only → ingress → require_session`; Origin may match `X-Forwarded-Host` through Ingress; `/hk/`, `/web/` and the home page go through `ingress.file_response`; HA clients take `cfg.ha_ws_url`. |
@@ -89,17 +89,19 @@ as `POST /api/settings/import` (P3.5), so a fresh App draws the house's dashboar
 
 ## The door decision: `ha`
 
-Requests through the sidebar come by a third door, **`ha`**. Recorded decision:
+Requests through the sidebar come by a third door, **`ha`**. **Decision (Avery, 2026-10-18): the sidebar is
+fully trusted**, as HK in Home Assistant and the Companion app always were:
 
-* **Not `lan`.** Wall tablets do not use Ingress (they keep the LAN door and their device credentials,
-  PLAN §7), and an Ingress request may come from anywhere HA is reachable — the Companion app over
-  cellular, HA's Cloudflare tunnel. Its security rests on HA's login (turn on HA's TOTP for everyone).
-* **RBAC treats `ha` like `tunnel`** (`authz.rules_door`): sensitive actions only for roles whose
-  `tunnel_sensitive` switch is on (Owner/Admin/Adult by default), always with step-up; cameras and
-  locations follow `tunnel_cameras`/`tunnel_locations`; the LAN-only step-up exemption for camera live view
-  does not apply. The per-role switches are the Owner's existing knobs.
-* **Owner opt-in:** the App option `ha_door_rules: lan` applies the LAN's rules to the `ha` door instead
-  (e.g. a house that reaches HA only on its LAN). Device credentials are refused on `ha` either way.
+* **`ha_door_rules: trusted` (the App's default since 0.1.4).** The `ha` door gets the LAN's RBAC rules, and
+  the HA sign-in counts as a fresh factor (`authz.ha_trusted`), so nothing asks for a Mantel code: live
+  cameras, locks, garage and the alarm work in the sidebar and the Companion app, at home or away. Each
+  person's Mantel role still decides what they may do (a Child still cannot unlock a door or see cameras),
+  every command is audited, and no "remote access" Owner notice is sent for the sidebar. Its security rests on
+  HA's login (turn on HA's two-step verification for everyone).
+* **Other choices:** `lan` (the LAN's rules, so locks and the alarm ask for a code; live cameras do not) and
+  `tunnel` (Mantel's remote rules: each role's `tunnel_*` switches, a recent code for live cameras and
+  sensitive actions; the default up to 0.1.3).
+* Only the `ha` door: Mantel's own remote door (`tunnel`, a future Cloudflare hostname) keeps the remote rules.
 * **Device credentials are never accepted on `ha`**, wall-tablet enrolment answers `403 lan_only`, linked
   mode and Service accounts (LAN door only) are refused.
 * A sensitive action on `ha` **notifies the Owners** like a remote one (gateway `REMOTE_DOORS`), worded

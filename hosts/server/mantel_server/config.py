@@ -62,7 +62,7 @@ class Config:
     ingress: bool = False
     ingress_peers: tuple[str, ...] = ("172.30.32.2",)
     ingress_only: bool = False
-    ha_door_rules: str = "tunnel"                          # "tunnel" (default) | "lan" (the Owner's opt-in)
+    ha_door_rules: str = "tunnel"                          # "tunnel" | "lan" | "trusted" (the HA App's default)
     ha_ws_url: str = ""                                    # explicit HA WebSocket URL (App: ws://supervisor/core/websocket)
     log_level: str = "info"
 
@@ -148,7 +148,7 @@ def parse_args(argv: list[str] | None = None) -> Config:
                    help="the Ingress proxy's socket address (repeatable; default 172.30.32.2)")
     p.add_argument("--ingress-only", action="store_true",
                    help="with --ingress: refuse every request that does not come through Ingress (health excepted)")
-    p.add_argument("--ha-door-rules", choices=("tunnel", "lan"), default=Config.ha_door_rules,
+    p.add_argument("--ha-door-rules", choices=("tunnel", "lan", "trusted"), default=Config.ha_door_rules,
                    help="RBAC door rules for requests through HA's sidebar (the 'ha' door): tunnel (default) or lan")
     p.add_argument("--ha-ws-url", default="", metavar="URL",
                    help="Home Assistant's WebSocket URL when it is not <ha-url>/api/websocket "

@@ -589,7 +589,9 @@ class Gateway:
         self._finish(aid, "ok")
         log.info("%s on %s by %s (audit %d)", cmd.action, ",".join(cmd.targets), _who(principal), aid)
         await reply({"type": "command_result", "result": result, "audit_id": aid})
-        if ident.door in REMOTE_DOORS and sensitive in NOTIFY_KINDS:
+        authz = self.app.get("authz")
+        trusted = authz is not None and hasattr(authz, "ha_trusted") and authz.ha_trusted(ident)
+        if ident.door in REMOTE_DOORS and sensitive in NOTIFY_KINDS and not trusted:
             await self.notify_owners(principal, cmd, aid)
 
     def _unavailable(self, cmd: Command) -> str | None:

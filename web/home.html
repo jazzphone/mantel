@@ -13,7 +13,10 @@
      its DIRECT child, as hui-view is hui-view-container's in HA: the tab bar's room (--hk-tabbar-h)
      pads this element, and cards that fit the window (hk-calendar.js _measure) read it from the
      view's parent. */
-  hk-view-container { display: block; position: relative; isolation: isolate; min-height: 100vh; }
+  /* border-box: the tab bar's room is INSIDE the window's height, so a page that fits does not scroll
+     (content-box made every page 100vh + --hk-tabbar-h tall: a 96 px scroll for nothing) */
+  hk-view-container { display: block; position: relative; isolation: isolate; min-height: 100vh;
+                      box-sizing: border-box; }
 </style>
 </head>
 <body>

@@ -413,6 +413,32 @@ async def test_ha_door_gets_the_tunnel_rules_unless_the_owner_opts_in(mk):
     assert m2.app["authz"].rules_door("ha") == "lan"
 
 
+async def test_a_trusted_sidebar_is_home_rules_and_ha_sign_in_is_the_factor(mk):
+    """ha_door_rules=trusted (the HA App's default, Avery 2026-10-18): HA's sign-in is enough, as HK in HA
+    always was -- no Mantel step-up for cameras, locks or the alarm -- but each role still decides."""
+    m = await mk(rules="trusted")
+    authz = m.app["authz"]
+    assert authz.rules_door("ha") == "lan" and authz.ha_door_mode() == "trusted"
+    adult = sessions.Identity(sessions.User("a", "A", "adult", "ha_linked"), None, "ha")
+    subj = authz.subject_of(adult)
+    assert subj.door == "lan" and subj.fresh_factor_at == m.now[0] and authz.ha_trusted(adult)
+    # a lock: allowed outright (no step-up asked); the camera's live view too
+    lock = authz.decide(subj, "control.sensitive", "lock.front_door")
+    assert lock.allowed is True and not lock.needs_step_up
+    assert authz.decide(subj, "camera.live", "camera.doorbell").allowed is True
+    # a child is still a child: no lock, no camera
+    child = authz.subject_of(sessions.Identity(sessions.User("c", "C", "child", "ha_linked"), None, "ha"))
+    assert authz.decide(child, "control.sensitive", "lock.front_door").allowed is not True
+    assert authz.decide(child, "camera.live", "camera.doorbell").allowed is not True
+    # only the sidebar: the same person on the tunnel door still needs a fresh factor
+    tun = authz.subject_of(sessions.Identity(sessions.User("a", "A", "adult", "password"), None, "tunnel"))
+    assert tun.fresh_factor_at is None and authz.decide(tun, "control.sensitive", "lock.front_door").allowed is not True
+    # and the other modes are unchanged: tunnel asks for a step-up on the sidebar
+    m2 = await mk(rules="tunnel")
+    s2 = m2.app["authz"].subject_of(adult)
+    assert s2.door == "tunnel" and s2.fresh_factor_at is None and not m2.app["authz"].ha_trusted(adult)
+
+
 async def test_sign_in_routes_and_tablet_enrolment_are_refused_through_ingress(mk):
     m = await mk()
     m.store.link(OWNER_HA, "owner")
@@ -671,6 +697,8 @@ def test_entrypoint_app_mode_turns_on_ingress_and_keeps_commands_off(tmp_path):
         assert "--commands-enabled" not in ep.plan([], dict(env), options_path=options, token_file=tmp_path / "t")[0]
     options.write_text(json.dumps({"commands_enabled": True}))
     assert parse_args(ep.plan([], dict(env), options_path=options, token_file=tmp_path / "t")[0]).commands_enabled
+    options.write_text(json.dumps({}))                 # the App's default: the sidebar is trusted
+    assert parse_args(ep.plan([], dict(env), options_path=options, token_file=tmp_path / "t")[0]).ha_door_rules == "trusted"
     options.write_text(json.dumps({"ha_door_rules": "anything"}))
     with pytest.raises(ep.ConfigError):
         ep.plan([], dict(env), options_path=options, token_file=tmp_path / "t")
