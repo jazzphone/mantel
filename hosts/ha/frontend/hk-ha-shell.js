@@ -135,6 +135,17 @@
     return true;
   };
 
+  // the sidebar's own toggle on a narrow window: <ha-menu-button>, handed the
+  // frontend's object for the client (the HA adapter's bridge) and `narrow`
+  HA.menuButton = function (el, opts) {
+    var o = opts || {}, ce = global.customElements;
+    if (!el && !(ce && ce.get('ha-menu-button'))) return null;
+    var b = el || doc().createElement('ha-menu-button');
+    if (o.client && global.hkHAClient) global.hkHAClient.bridge(b, o.client);
+    if (Object.prototype.hasOwnProperty.call(o, 'narrow')) b.narrow = o.narrow;
+    return b;
+  };
+
   global.hkShell.use(HA);
   global.hkHAShell = HA;
 })(globalThis);

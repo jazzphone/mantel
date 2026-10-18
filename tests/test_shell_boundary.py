@@ -19,6 +19,8 @@ SHELL_NAMES = (
     "hui-view-container", "hui-view-background", "partial-panel-resolver", "ha-drawer", "ha-sidebar",
     "location-changed", "hass-more-info", "hass-notification", "hass-toggle-menu",
     "hass-show-notifications", "ll-rebuild", "hass-suspend-when-hidden",
+    # Phase 2 P2.4: the sidebar's own button (hkShell.menuButton makes it, in HA's shell)
+    "ha-menu-button",
 )
 SHELL_REF = re.compile(r"(?<![\w-])(?:" + "|".join(re.escape(n) for n in sorted(SHELL_NAMES, key=len, reverse=True))
                        + r")(?![\w-])", re.I)
@@ -114,7 +116,34 @@ def test_the_shared_shell_contract_names_no_ha_element():
     src = code_of(ROOT / "web/client/hk-host-shell.js")
     assert not SHELL_REF.findall(src)
     ha = (ROOT / "hosts/ha/frontend/hk-ha-shell.js").read_text()
-    assert "location-changed" in ha and "ha-panel-lovelace" in ha
+    assert "location-changed" in ha and "ha-panel-lovelace" in ha and "ha-menu-button" in ha
+
+
+# Phase 2 P2.4: the HK Settings panel draws with HK's own controls (the settings kit). HA's form
+# elements are gone from it; the Lovelace card editors (web/hk/cards/, HA's "Edit card" dialog)
+# keep ha-form, since they exist only inside HA.
+PANELS = "web/hk/panels/"
+FORM_NAMES = ("ha-form", "ha-yaml-editor", "ha-code-editor", "ha-entity-picker", "ha-selector", "ha-textfield",
+              "ha-switch", "ha-select", "ha-combo-box", "ha-icon-picker", "ha-menu-button")
+FORM_REF = re.compile(r"(?<![\w-])(?:" + "|".join(re.escape(n) for n in sorted(FORM_NAMES, key=len, reverse=True))
+                      + r")(?![\w-])", re.I)
+
+
+def test_the_settings_panel_names_no_ha_form_element():
+    found = {}
+    for p in sorted((ROOT / PANELS).glob("*.js")):
+        hits = FORM_REF.findall(code_of(p))
+        if hits:
+            found[str(p.relative_to(ROOT))] = sorted(set(hits))
+    assert not found, f"Use the settings kit (web/hk/panels/hk-settings-kit.js) or hkShell: {found}"
+    # nor loads the frontend's card helpers to pull them in
+    assert not any("loadCardHelpers" in code_of(p) for p in (ROOT / PANELS).glob("*.js"))
+
+
+def test_form_lint_catches_the_names_and_ignores_comments():
+    assert FORM_REF.findall(code_of_text("var f = document.createElement('ha-form');")) == ["ha-form"]
+    assert FORM_REF.findall(code_of_text("customElements.get('ha-yaml-editor')")) == ["ha-yaml-editor"]
+    assert not FORM_REF.findall(code_of_text("// ha-form did this\nx = 'ha-formula'; y = 'ha-switch-x';"))
 
 
 def test_shell_lint_catches_lookups_and_ignores_comments():

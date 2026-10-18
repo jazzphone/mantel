@@ -17,6 +17,8 @@
     kind: 'mantel',
     // Mantel sends no writes at all (commands_disabled): nothing to hold back
     holdWrites: function () { return true; },
+    // Mantel's page has no sidebar of its own for a button to open
+    menuButton: () => null,
     tags: { viewContainer: 'hk-view-container' },
     root: () => byId('hk-shell-root'),
     overlayRoot: () => byId('hk-shell-root'),

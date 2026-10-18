@@ -70,7 +70,14 @@
     // every message `isWrite(msg)` says changes something is not sent, and
     // `onHeld(msg)` is told. true once in place (or when the host sends no
     // writes at all), false while it cannot be yet.
-    holdWrites: function () { return false; }
+    holdWrites: function () { return false; },
+    // THE HOST'S OWN SIDEBAR BUTTON, for a page of HK's own drawn as one of
+    // the host's pages (the settings panel) on a narrow window: `el` the
+    // button this page has already (null the first time), opts { narrow,
+    // client } -- each one given is handed to it. Returns the button to place
+    // (`el` again once it has one), or null for a host with no sidebar of its
+    // own to open.
+    menuButton: nil
   };
   KINDS.forEach(function (k) { NONE.tags[k] = null; });
 
@@ -105,7 +112,7 @@
 
   ['root', 'overlayRoot', 'main', 'mainRoot', 'drawer', 'sidebar', 'resolver', 'panel', 'dashboard',
    'dashboardRoot', 'viewContainer', 'viewSlot', 'view', 'viewBackground', 'toolbar', 'dashboardConfig', 'onDashboard', 'isDashboard',
-   'defined', 'showNotifications', 'keepAwake', 'sidebarData', 'holdWrites'].forEach(function (name) {
+   'defined', 'showNotifications', 'keepAwake', 'sidebarData', 'holdWrites', 'menuButton'].forEach(function (name) {
     shell[name] = function () {
       try { return get(name).apply(shell, arguments); } catch (e) { return name === 'onDashboard' ? true : null; }
     };

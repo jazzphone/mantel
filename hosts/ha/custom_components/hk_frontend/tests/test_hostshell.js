@@ -162,6 +162,22 @@ ha.hass = rootWas;
 globalThis.customElements = { get: function (n) { return n === 'home-assistant' ? function () {} : undefined; } };
 ok('defined(): HA\'s element in the current registry', S.defined() === true);
 
+// ---------------------------------------------------------- the sidebar button (P2.4)
+// The settings panel's narrow-window button that opens HA's sidebar: HA's own
+// element, made and fed here (the panel names no HA element).
+var made = [];
+document.createElement = function (t) { var n = new Node_(t); made.push(n); return n; };
+ok('menuButton: none while HA has not defined its button', S.menuButton(null, { narrow: true }) === null && made.length === 0);
+globalThis.customElements = { get: function (n) { return n === 'home-assistant' || n === 'ha-menu-button' ? function () {} : undefined; } };
+var frontend = { states: {} }, mb = S.menuButton(null, { narrow: true, client: window.hkHAClient.from(frontend) });
+ok('...HA\'s <ha-menu-button>, handed the frontend\'s object for the client, and narrow',
+   mb && mb.localName === 'ha-menu-button' && made.length === 1 && mb.hass === frontend && mb.narrow === true, mb);
+ok('...the same button again, with only what is given handed to it', S.menuButton(mb, { narrow: false }) === mb &&
+   made.length === 1 && mb.narrow === false && mb.hass === frontend);
+var frontend2 = { states: {} };
+S.menuButton(mb, { client: window.hkHAClient.from(frontend2) });
+ok('...a new client: its object, narrow untouched', mb.hass === frontend2 && mb.narrow === false);
+
 // ---------------------------------------------------------- no host
 S.use(null);
 ok('without a host: no elements', S.kind === 'none' && S.root() === null && S.overlayRoot() === null && S.panel() === null &&
@@ -172,6 +188,7 @@ fired = [];
 S.navigate('/z');
 ok('...navigation still moves and announces itself', fired[0].e.type === 'hk-navigate' && pushed[pushed.length - 1][1] === '/z');
 ok('...on a dashboard (nothing says otherwise), host not defined', S.onDashboard() === true && S.defined() === false);
+ok('...no sidebar button to place', S.menuButton(null, { narrow: true }) === null && S.menuButton(mb, { narrow: true }) === null);
 S.use({ kind: 'test', tags: { viewContainer: 'x-view' }, panel: function () { throw new Error('boom'); } });
 ok('a host\'s omissions keep the defaults; a throwing lookup is null', S.kind === 'test' && S.tags.view === null &&
    S.tags.viewContainer === 'x-view' && S.panel() === null && S.root() === null);

@@ -90,40 +90,6 @@
     l.rel = 'stylesheet'; l.href = '/hk/fonts/sf-pro.css'; l.setAttribute('data-hk-font', '');
     document.head.appendChild(l);
   }
-  // <ha-form>, and through it the YAML editor, are loaded by the frontend
-  // only when something needs them: an entities card's editor pulls them in.
-  var formReady = null;
-  function loadHaForm() {
-    if (customElements.get('ha-form')) return Promise.resolve();
-    if (formReady) return formReady;
-    formReady = (async function () {
-      try {
-        var helpers = window.loadCardHelpers ? await window.loadCardHelpers() : null;
-        if (helpers) {
-          var c = await helpers.createCardElement({ type: 'entities', entities: [] });
-          if (c && c.constructor && c.constructor.getConfigElement) await c.constructor.getConfigElement();
-        }
-      } catch (e) { /* whenDefined below still waits */ }
-      await customElements.whenDefined('ha-form');
-    })();
-    return formReady;
-  }
-  var yamlReady = null;
-  function loadYaml(client) {
-    if (customElements.get('ha-yaml-editor')) return Promise.resolve(true);
-    if (yamlReady) return yamlReady;
-    yamlReady = loadHaForm().then(function () {
-      // an object selector's form brings the YAML editor with it
-      var f = document.createElement('ha-form');
-      window.hkHostClient.bridge(f, client); f.schema = [{ name: 'x', selector: { object: {} } }]; f.data = {};
-      f.style.display = 'none';
-      document.body.appendChild(f);
-      return Promise.race([customElements.whenDefined('ha-yaml-editor').then(function () { return true; }),
-                           new Promise(function (r) { setTimeout(function () { r(false); }, 6000); })])
-        .then(function (ok) { f.remove(); return ok; });
-    });
-    return yamlReady;
-  }
   // The dashboards' own modules, for an accessory's settings: the settings
   // feed they read, the glyphs, the detail sheet's pane.
   var cardsReady = null;
@@ -327,11 +293,9 @@
     '.big h2{margin:6px 0 0;font-family:var(--hk-display);font-size:28px;font-weight:700}',
     '.big p{margin:0;max-width:44ch;color:var(--hk-label2);font-size:15px;line-height:20px}',
     '.steps{font-size:13px;color:var(--hk-label2);text-align:center;margin:0 0 8px}',
-    // Home Assistant's own editor on the card: its grey panels made clear
-    '.yaml{display:block;background:var(--hk-cell);border-radius:10px;padding:8px 6px;min-height:120px;',
-    '  --code-editor-background-color:transparent;--code-editor-gutter-color:transparent}',
+    // the kit's YAML editor is the card (.codebox)
+    '.yaml{display:block}',
     'pre.ex{margin:0;padding:12px 16px;font:13px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--hk-label);white-space:pre-wrap}',
-    '.yaml textarea{width:100%;min-height:220px;border:0;background:none;color:var(--hk-label);font:13px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace;outline:none;resize:vertical}',
     '.skycolors{display:flex;gap:8px;flex-wrap:wrap}.skycolors input[type=color]{width:44px;height:44px;padding:3px;border:1px solid var(--hk-label2);border-radius:8px;background:transparent}',
     '.ok{color:var(--hk-green)} .warn{color:var(--hk-orange)} .note{color:var(--hk-label2)}',
     // A TABLET'S DAY LEFT ALONE (Wall Tablets, 1.14): Touched -> Home ->
@@ -551,9 +515,10 @@
       if (first) this.boot();
       var dark = !!(client && client.themes && client.themes.darkMode);
       if (dark !== this.hasAttribute('dark')) this.toggleAttribute('dark', dark);
-      if (this._menuBtn) window.hkHostClient.bridge(this._menuBtn, client);
+      // the host's own sidebar button, when it drew one, follows the client
+      if (this._menuBtn) window.hkShell.menuButton(this._menuBtn, { client: client });
     }
-    set narrow(v) { this._narrow = v; if (this._menuBtn) this._menuBtn.narrow = v; if (this.ready) this.render(); }
+    set narrow(v) { this._narrow = v; if (this._menuBtn) window.hkShell.menuButton(this._menuBtn, { narrow: v }); if (this.ready) this.render(); }
     set panel(v) { this._panel = v; }
     set route(v) { /* our own hash is the route */ }
     // NAVIGATION: our own links are "#/..." and handled here. Home Assistant
@@ -902,7 +867,7 @@
     typing() {
       var a = this.shadowRoot.activeElement;
       return !!(a && (a.tagName === 'INPUT' && a.type !== 'range' || a.tagName === 'TEXTAREA' ||
-                      a.tagName === 'HA-YAML-EDITOR' || a.closest && a.closest('.accwrap')));
+                      a.closest && a.closest('.accwrap')));
     }
     render(background, navigated) {
       if (!this.ready || !this.data) return;
@@ -1205,10 +1170,12 @@
       side.innerHTML = '';
       var top = h('div', { class: 'sidetop' });
       var head = h('div', { class: 'sidehead' });
-      if (this._narrow && customElements.get('ha-menu-button')) {
-        if (!this._menuBtn) { this._menuBtn = document.createElement('ha-menu-button'); }
-        window.hkHostClient.bridge(this._menuBtn, this.client); this._menuBtn.narrow = this._narrow;
-        head.appendChild(this._menuBtn);
+      // A NARROW WINDOW: the host's own button that opens its sidebar (none
+      // on a host without one: Mantel)
+      var mb = this._narrow ? window.hkShell.menuButton(this._menuBtn || null, { narrow: this._narrow, client: this.client }) : null;
+      if (mb) {
+        this._menuBtn = mb;
+        head.appendChild(mb);
         head.classList.add('menubtn');
       }
       head.appendChild(h('h1', { text: 'HK Settings' }));
@@ -4041,26 +4008,14 @@
         } }));
       }
       c.appendChild(K.group({}, rows));
-      loadYaml(this.client).then(function (ok) {
-        if (ok) {
-          var ed = document.createElement('ha-yaml-editor');
-          window.hkHostClient.bridge(ed, self.client);
-          ed.defaultValue = cur;
-          ed.addEventListener('value-changed', function (e) {
-            e.stopPropagation(); valid = e.detail.isValid !== false; cur = e.detail.value;
-            if (valid && o.onDraft) o.onDraft(cur);
-          });
-          box.appendChild(ed);
-        } else {
-          var ta = h('textarea', { 'aria-label': 'Options as JSON', spellcheck: 'false' });
-          ta.value = JSON.stringify(cur, null, 2);
-          ta.addEventListener('input', function () {
-            try { cur = ta.value.trim() ? JSON.parse(ta.value) : {}; valid = true; } catch (e) { valid = false; }
-            if (valid && o.onDraft) o.onDraft(cur);
-          });
-          box.appendChild(ta);
-        }
-      });
+      // THE KIT'S YAML EDITOR (Phase 2 P2.4; Home Assistant's before): the
+      // value written out, read back at every change -- empty is {}, a
+      // mistake leaves Save saying so
+      box.appendChild(K.yaml({ value: cur, label: o.label || 'YAML', fk: o.sk + ':yaml', sk: o.sk + ':yaml',
+        onChange: function (v, ok) {
+          valid = ok; cur = v;
+          if (valid && o.onDraft) o.onDraft(cur);
+        } }));
     }
 
     // ---------------------------------------------------------- add a screen
