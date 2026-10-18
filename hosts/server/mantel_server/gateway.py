@@ -13,6 +13,9 @@ Client protocol (on the hub socket, /ws):
   -> {"type": "command", "id": 8, "kind": "ws", "msg": {"type": "config/entity_registry/update", ...}}
   -> {"type": "command", "id": 9, "kind": "http", "method": "POST", "path": "/api/...", "body": {...}}
   -> {"type": "command", "id": 10, "kind": "ma", "command": "player_queues/play", "args": {...}}
+  -> {"type": "command", "id": 11, "kind": "http", "method": "POST",
+      "path": "/api/hk_frontend/talk?entity_id=media_player.door_speaker",
+      "content_type": "audio/webm", "body_b64": "<the clip>"}     (the ONE binary upload: talk_command)
   <- {"type": "command_result", "id": 7, "result": ..., "audit_id": 41}
   <- {"type": "command_result", "id": 7, "error": {"code": "forbidden", "reason": "no_grant"}, "audit_id": 42}
   <- {"type": "step_up_required", "id": 7, "reason": "step_up_required", "methods": ["totp"],
@@ -54,7 +57,8 @@ from aiohttp import web
 
 from . import rbac
 from .authz import ENTITY_ID, Authz, Principal
-from .ha_client import (CommandBlocked, CommandTicket, HaCommandError, HaCommander, HTTP_METHODS, _API_PATH)
+from .ha_client import (CommandBlocked, CommandTicket, HaCommandError, HaCommander, HTTP_METHODS, UPLOAD_MAX_BYTES,
+                        UPLOAD_METHOD, UPLOAD_MIN_BYTES, UPLOAD_TYPES, _API_PATH, talk_target, upload_type)
 
 log = logging.getLogger("mantel.gateway")
 
@@ -62,7 +66,7 @@ KINDS = ("service", "ws", "http", "ma")
 KEYS = {
     "service": frozenset({"type", "id", "kind", "domain", "service", "data", "target", "return_response"}),
     "ws": frozenset({"type", "id", "kind", "msg"}),
-    "http": frozenset({"type", "id", "kind", "method", "path", "body"}),
+    "http": frozenset({"type", "id", "kind", "method", "path", "body", "content_type", "body_b64"}),
     "ma": frozenset({"type", "id", "kind", "command", "args"}),
 }
 TARGET_KEYS = frozenset({"entity_id", "area_id", "device_id", "floor_id", "label_id"})
@@ -118,6 +122,7 @@ class Command:
     http: tuple[str, str, Any] | None = None  # (method, path, body)
     ma: tuple[str, dict] | None = None      # (command, args)
     targets: list[str] = field(default_factory=list)
+    upload: tuple[str, str, bytes] | None = None  # (path, bare content type, bytes): the talk-back clip only
 
 
 def _entity_list(value: Any) -> list[str]:
@@ -193,6 +198,45 @@ def ws_rule(kind: str) -> tuple[str, str]:
     return "configure", "feature:settings"
 
 
+# DOORBELL TALK-BACK (docs/phase3/GATEWAY.md "Doorbell talk-back"). The one HTTP write that carries
+# bytes: the recorded clip HK's doorbell sheet POSTs to hk_frontend's talk view, which has the
+# speaker play it (media_player.play_media). Two checks, both must pass:
+#   * `media_player.play_media` on the speaker: what HA will do with it (RBAC `control` on that entity);
+#   * `camera.talk` on feature `cameras`: talking at the door is part of the doorbell, so it follows
+#     the camera rules: sensitive kind `camera`, so on the LAN door no step-up (as live view,
+#     authz.LAN_STEP_UP_EXEMPT) and wall tablets may (authz.HOUSE_GRANTS); on the tunnel (and the `ha`
+#     door under tunnel rules) the role's `tunnel_sensitive` and `tunnel_cameras` switches plus a
+#     fresh factor; a Child or Guest (cameras denied) never.
+TALK_ACTION = "camera.talk"
+_B64 = re.compile(r"^[A-Za-z0-9+/]*={0,2}$")
+_B64_MAX = 4 * ((UPLOAD_MAX_BYTES + 2) // 3)
+
+
+def talk_command(method: Any, path: str, msg: dict) -> Command:
+    import base64
+    speaker = talk_target(path)
+    if method != UPLOAD_METHOD or speaker is None:
+        raise Refused("unsupported_body", "a binary body goes only to POST /api/hk_frontend/talk?entity_id=media_player.<name>")
+    if msg.get("body") is not None:
+        raise Refused("invalid_command", "an upload carries body_b64, not body")
+    ctype = upload_type(msg.get("content_type"))
+    if ctype is None:
+        raise Refused("unsupported_body", f"the clip is one of {sorted(UPLOAD_TYPES)}")
+    raw = msg.get("body_b64")
+    if not isinstance(raw, str) or not _B64.match(raw) or len(raw) % 4:
+        raise Refused("unsupported_body", "body_b64 is the clip in base64")
+    if len(raw) > _B64_MAX:
+        raise Refused("body_too_large", f"the clip is at most {UPLOAD_MAX_BYTES} bytes")
+    body = base64.b64decode(raw, validate=True)
+    if len(body) > UPLOAD_MAX_BYTES:
+        raise Refused("body_too_large", f"the clip is at most {UPLOAD_MAX_BYTES} bytes")
+    if len(body) < UPLOAD_MIN_BYTES:
+        raise Refused("unsupported_body", "the clip is empty")
+    checks = [Check("media_player.play_media", speaker), Check(TALK_ACTION, feature="cameras")]
+    return Command("http", f"{UPLOAD_METHOD} {path.split('?', 1)[0]}", checks, upload=(path, ctype, body),
+                   targets=[c.target for c in checks])
+
+
 def classify(msg: dict, writes: frozenset[str]) -> Command:
     """A client `command` message -> Command, or Refused. Pure: no I/O."""
     kind = msg.get("kind")
@@ -237,6 +281,10 @@ def classify(msg: dict, writes: frozenset[str]) -> Command:
             raise Refused("invalid_command", f"method is one of {sorted(HTTP_METHODS)}")
         if not isinstance(path, str) or not _API_PATH.match(path) or ".." in path or "//" in path:
             raise Refused("invalid_command", "path is a plain /api/... path")
+        if "body_b64" in msg or "content_type" in msg:
+            return talk_command(method, path, msg)
+        if path.split("?", 1)[0].startswith("/api/hk_frontend/talk"):
+            raise Refused("unsupported_body", "the talk-back clip is audio (body_b64 + content_type)")
         if body is not None and not isinstance(body, (dict, list)):
             raise Refused("unsupported_body", "the body is JSON (an object or a list)")
         seg = path.split("?", 1)[0].split("/")
@@ -558,6 +606,9 @@ class Gateway:
     async def _forward(self, principal: Principal, cmd: Command, aid: int) -> Any:
         if cmd.kind in ("service", "ws"):
             return await self.commander.call(dict(cmd.frame or {}), CommandTicket(aid, "ws"))  # type: ignore[union-attr]
+        if cmd.upload is not None:
+            path, ctype, data = cmd.upload
+            return await self.commander.upload(path, ctype, data, CommandTicket(aid, "upload"))  # type: ignore[union-attr]
         if cmd.kind == "http":
             method, path, body = cmd.http  # type: ignore[misc]
             return await self.commander.http(method, path, body, CommandTicket(aid, "http"))  # type: ignore[union-attr]

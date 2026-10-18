@@ -281,6 +281,44 @@ CALL_SERVICE_KEYS = frozenset({"domain", "service", "service_data", "target", "r
 HTTP_METHODS = frozenset({"POST", "PUT", "PATCH", "DELETE"})
 _API_PATH = re.compile(r"^/api/[A-Za-z0-9_\-./]+(\?[A-Za-z0-9_\-.=&%:+,]*)?$")
 
+# THE ONE BINARY UPLOAD (docs/phase3/GATEWAY.md "Doorbell talk-back"): the doorbell sheet's recorded
+# talk-back clip, which HK POSTs to hk_frontend's talk view (hosts/ha/.../talk.py) as the raw audio
+# body. Exactly this path (one media_player entity in the query, nothing else), POST only, an audio
+# type from talk.py's AUDIO_TYPES, and a size the hub socket can carry. Every other HTTP write stays
+# JSON; no other path may ever carry bytes.
+UPLOAD_METHOD = "POST"
+TALK_PATH = re.compile(r"^/api/hk_frontend/talk\?entity_id=(media_player\.[a-z0-9_]+)$")
+UPLOAD_TYPES = frozenset({"audio/webm", "audio/ogg", "audio/mp4", "audio/mpeg", "audio/aac", "audio/wav",
+                          "audio/x-wav"})
+UPLOAD_MIN_BYTES = 200          # talk.py answers "clip empty" below this
+UPLOAD_MAX_BYTES = 512_000      # the card's longest hold (30 s) is ~120 KB of 32 kbit/s opus; as base64 it
+                                # still fits the hub socket's 1 MiB frame
+
+
+def upload_type(content_type: object) -> str | None:
+    """The bare audio type (`audio/webm;codecs=opus` -> `audio/webm`), or None when not allowed."""
+    if not isinstance(content_type, str) or len(content_type) > 100:
+        return None
+    bare = content_type.split(";", 1)[0].strip().lower()
+    return bare if bare in UPLOAD_TYPES else None
+
+
+def talk_target(path: object) -> str | None:
+    """The speaker entity of an allowed talk-back upload path, or None."""
+    m = TALK_PATH.match(path) if isinstance(path, str) else None
+    return m.group(1) if m else None
+
+
+def check_upload(method: object, path: object, content_type: object, body: object, ticket: object) -> None:
+    """The talk-back clip, checked again at the command connection (the gateway checked it first)."""
+    if method != UPLOAD_METHOD or talk_target(path) is None:
+        raise CommandBlocked("the only binary upload is POST /api/hk_frontend/talk?entity_id=media_player.<name>")
+    if not isinstance(content_type, str) or upload_type(content_type) != content_type:
+        raise CommandBlocked(f"an upload is one of {sorted(UPLOAD_TYPES)} (the bare type)")
+    if not isinstance(body, bytes) or not UPLOAD_MIN_BYTES <= len(body) <= UPLOAD_MAX_BYTES:
+        raise CommandBlocked(f"an upload is {UPLOAD_MIN_BYTES}..{UPLOAD_MAX_BYTES} bytes")
+    _spend(ticket, "upload")
+
 
 class CommandsDisabled(CommandBlocked):
     """The command path was asked for while cfg.commands_enabled is off."""
@@ -422,6 +460,22 @@ class HaCommander:
         async with self._http.request(method, self.base_url + path, json=body,
                                       headers={"Authorization": f"Bearer {self._token}"},
                                       timeout=aiohttp.ClientTimeout(total=self.timeout)) as r:
+            text = await r.text()
+            if r.status >= 400:
+                raise HaCommandError(f"http_{r.status}", text[:200])
+            try:
+                return json.loads(text) if text else None
+            except ValueError:
+                return text[:2000]
+
+    async def upload(self, path: str, content_type: str, body: bytes, ticket: CommandTicket) -> object:
+        """The talk-back clip (``check_upload``: one path, audio, bounded), POSTed as the raw body."""
+        check_upload(UPLOAD_METHOD, path, content_type, body, ticket)
+        self._http = self._http or aiohttp.ClientSession()
+        self.sent.append(f"{UPLOAD_METHOD} {path.split('?', 1)[0]}")
+        async with self._http.post(self.base_url + path, data=body,
+                                   headers={"Authorization": f"Bearer {self._token}", "Content-Type": content_type},
+                                   timeout=aiohttp.ClientTimeout(total=self.timeout)) as r:
             text = await r.text()
             if r.status >= 400:
                 raise HaCommandError(f"http_{r.status}", text[:200])

@@ -10,7 +10,7 @@ from argon2 import PasswordHasher
 
 from conftest import Mantel
 from mantel_server.accounts import totp
-from mantel_server.ha_client import check_command, check_http
+from mantel_server.ha_client import check_command, check_http, check_upload
 
 HOUSE_AREAS = [{"area_id": "kitchen", "name": "Kitchen"}, {"area_id": "cody_room", "name": "Cody's Room"},
                {"area_id": "porch", "name": "Porch"}]
@@ -41,6 +41,7 @@ class FakeCommander:
         self.writes = frozenset(writes)
         self.sent: list[str] = []
         self.frames: list[dict] = []
+        self.uploads: list[tuple] = []
         self.fail: Exception | None = None
 
     async def call(self, frame, ticket):
@@ -55,6 +56,12 @@ class FakeCommander:
         check_http(method, path, ticket)
         self.sent.append(f"{method} {path.split('?', 1)[0]}")
         return {"ok": True}
+
+    async def upload(self, path, content_type, body, ticket):
+        check_upload("POST", path, content_type, body, ticket)
+        self.sent.append(f"POST {path.split('?', 1)[0]}")
+        self.uploads.append((path, content_type, body, ticket.audit_id))
+        return {"ok": True, "bytes": len(body)}
 
     async def close(self):
         pass
