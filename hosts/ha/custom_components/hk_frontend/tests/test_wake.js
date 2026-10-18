@@ -52,14 +52,14 @@ ok('...exactly once: the next identical hass is gated again', q.renders === afte
 print('\n=== cards that read no entity never redraw on hass ===');
 ['hk-area-select-card', 'hk-timer-new-card'].forEach(function (tag) {
   var C = customElements.get(tag);
-  ok(tag + ' signature is static', C.prototype._sigOf.call({ _hass: { states: {} }, _config: {} }) === 'static');
+  ok(tag + ' signature is static', C.prototype._sigOf.call({ client: { states: {} }, _config: {} }) === 'static');
 });
 
 print('\n=== the keypad watches its wrong-code flag ===');
 var K = customElements.get('hk-alarm-keypad-card');
 function ksig(u) {
   return K.prototype._sigOf.call({ _config: { entity: 'alarm_control_panel.p' },
-    _hass: { states: { 'alarm_control_panel.p': S('disarmed', 't1'), 'input_boolean.alarm_keypad_bad_code': S('on', u) } } });
+    client: { states: { 'alarm_control_panel.p': S('disarmed', 't1'), 'input_boolean.alarm_keypad_bad_code': S('on', u) } } });
 }
 ok('bad-code flag flipping changes the signature', ksig('t1') !== ksig('t2'));
 

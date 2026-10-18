@@ -175,7 +175,7 @@
     // shadowing it makes this method call itself forever -- every
     // Home/Away/Disarm press overflows the stack and sends nothing.
     _alarm(service) {
-      if (!this._hass) { return; }
+      if (!this.client) { return; }
       var self = this;
       // WRONG CODE, BUILT IN. An alarm integration that checks the code refuses
       // the call with an error ("Invalid alarm code ..."), and that refusal is
@@ -218,7 +218,7 @@
     // the wrong-code flag never reaches the screen: "Wrong code" could not
     // appear unless the panel happened to change in the same moment.
     _sigOf() {
-      var h = this._hass, c = this._config;
+      var h = this.client, c = this._config;
       if (!h || !c) return null;
       // the panel as _panel() finds it: the status in the readout reads it;
       // boxed, the entry points its footer counts too
@@ -233,7 +233,7 @@
     _paint() {
       var read = this._root.querySelector('.read');
       // the panel became one with a code, or without one: drawn again
-      if (this._built && this._config && this._hass) {
+      if (this._built && this._config && this.client) {
         var ps = this._st(this._panel());
         var shape = (HkAlarmKeypadCard.codeless(ps) ? 'tap:' : 'pad:') + HkAlarmKeypadCard.modes(ps).join(',');
         if (this._shape && shape !== this._shape) { this._built = false; this._render(); return; }
@@ -282,7 +282,7 @@
       }
       var foot = this._root.querySelector('.foot');
       if (foot) {
-        var h = this._hass, open = (this._config.entries || []).filter(function (id) {
+        var h = this.client, open = (this._config.entries || []).filter(function (id) {
           var x = h && h.states[id];
           return x && /^(on|open|opening)$/.test(x.state);
         });
@@ -428,8 +428,8 @@
       selector: { entity: { filter: { domain: 'input_boolean' } } } },
     // In its own plate, with a title and the alarm's state (the Security page)
     { name: 'boxed', selector: { boolean: {} } }
-  ], function (hass) {
-    return setting('security.alarm') ? {} : { entity: firstOfDomain(hass, 'alarm_control_panel') };
+  ], function (client) {
+    return setting('security.alarm') ? {} : { entity: firstOfDomain(client, 'alarm_control_panel') };
   });
 
   window.hkSecurity = { version: '1.0.0' };

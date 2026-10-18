@@ -71,10 +71,10 @@ class HkControlCard extends HTMLElement {
       // the YAML entity -- typically a whole-home sync group -- would let a
       // drag on a screen showing NOTHING PLAYING level every speaker in the
       // home, so the card renders inert instead (`.off` in _media).
-      return window.hkMusic.player(this._hass) || null;
+      return window.hkMusic.player(this.client) || null;
     }
     if (ef && ef.selector) {
-      const sel = this._hass?.states?.[ef.selector]?.state;
+      const sel = this.client?.states?.[ef.selector]?.state;
       const mapped = ef.map && sel != null ? ef.map[sel] : null;
       if (mapped) return mapped;
     }
@@ -90,7 +90,7 @@ class HkControlCard extends HTMLElement {
     if (window.hkCards && window.hkCards.place) {
       window.hkCards.place(this);
       if (window.hkCards.flatSurface) window.hkCards.flatSurface(this, 'control');
-      if (this._hass && window.hkCards.tone) window.hkCards.tone(this, this._hass);
+      if (this.client && window.hkCards.tone) window.hkCards.tone(this, this.client);
     }
     // A bare control draws no plate, so it has nothing for the blur to cut.
     if (this._config && this._config.bare) return;
@@ -105,11 +105,10 @@ class HkControlCard extends HTMLElement {
       window.hkGlass.changed();
     }
   }
-  // THE ACTION PORT of the client that goes with the host input this card is
-  // handed (a card family until Phase 1 slice 9): the real call in Home
-  // Assistant, `commands_disabled` in Mantel.
+  // THE ACTION PORT of this card's client: the real call in Home Assistant,
+  // `commands_disabled` in Mantel.
   _actions() {
-    const host = window.hkHostClient, c = this._hass && host && host.from ? host.from(this._hass) : null;
+    const c = this.client;
     return c ? c.actions : null;
   }
   _svc(...args) {
@@ -117,11 +116,12 @@ class HkControlCard extends HTMLElement {
     if (!act) return Promise.reject(new Error("not connected"));
     return act.callService(...args);
   }
-  set hass(hass) {
-    this._hass = hass;
-    if (window.hkCards && window.hkCards.tone) window.hkCards.tone(this, hass);
+  // EACH NEW CLIENT, through the host adapter's entry (below the class).
+  _onClient(client) {
+    if (!client) return;
+    if (window.hkCards && window.hkCards.tone) window.hkCards.tone(this, client);
     const id = this._entityId();
-    const s = hass.states[id];
+    const s = client.states[id];
     // The resolved id is part of the signature: switching speakers can leave
     // state and attributes looking identical (two idle HomePods), and without
     // the id in here the card would keep drawing the previous speaker.
@@ -137,7 +137,7 @@ class HkControlCard extends HTMLElement {
   }
   getCardSize(){ return this._domain()==="climate" ? 5 : 2; }
   _domain(){ return this._config.control || String(this._entityId()||"").split(".")[0]; }
-  _state(){ return this._hass?.states?.[this._entityId()]; }
+  _state(){ return this.client?.states?.[this._entityId()]; }
   _name(){
     return this._config.name || this._state()?.attributes?.friendly_name || this._entityId();
   }
@@ -237,12 +237,12 @@ class HkControlCard extends HTMLElement {
       ".option-row .segment,.tstat-modes .segment,.tstat-fan .segment{transform:none;filter:none}";
   }
   _render(){
-    if(!this._hass || !this._config) return;
+    if(!this.client || !this._config) return;
     // hk-base.js FIRST. This card is its own Lovelace resource and can run
     // before hk-base.js, whose material, palette and escaper it draws with.
     // Until that has run, draw nothing and wait for hk-cards-ready -- the
     // wait every HkBase card makes before it is even defined. A first frame
-    // painted from stand-ins would be kept: the gate in `set hass` holds a
+    // painted from stand-ins would be kept: the gate in `_onClient` holds a
     // frame until the entity changes.
     const C = window.hkCards;
     if(!C || !C.register){
@@ -995,7 +995,7 @@ class HkControlCard extends HTMLElement {
       const show=(v)=>{ el.value=String(v); el.dispatchEvent(new Event("input")); };
       // UNDER A FINGER, as the dial: a redraw while dragging (another room's
       // volume, a position update) rebuilds the slider and the thumb stops
-      // following the finger -- `set hass` waits for the lift (_deferred)
+      // following the finger -- `_onClient` waits for the lift (_deferred)
       const held=(on)=>{
         this._dragging=on;
         if(!on && this._deferred){ this._deferred=false; this._render(); }
@@ -1103,6 +1103,9 @@ class HkControlCard extends HTMLElement {
   }
 }
 // its size in HA's Sections view (hk-base.js GRID)
+// Lovelace's entry: the host adapter (loaded at bootstrap, before any card file)
+// turns each object it hands the card into a client for `_onClient`.
+window.hkHostClient.entry(HkControlCard);
 if (window.hkCards && window.hkCards.sized) window.hkCards.sized('hk-control-card', HkControlCard);
 if(!customElements.get("hk-control-card")) customElements.define("hk-control-card",HkControlCard);
 
@@ -1140,8 +1143,8 @@ if(!customElements.get("hk-control-card")) customElements.define("hk-control-car
       ], "mdi:cog")
     ]);
     HkControlCard.getConfigElement = function () { return document.createElement(etag); };
-    HkControlCard.getStubConfig = function (hass) {
-      var ids = hass ? Object.keys(hass.states) : [];
+    HkControlCard.getStubConfig = function (input) {
+      var client = window.hkCards.asClient(input), ids = client ? Object.keys(client.states) : [];
       for (var i = 0; i < ids.length; i++) {
         if (ids[i].indexOf("climate.") === 0) return { entity: ids[i] };
       }
@@ -1215,8 +1218,8 @@ if(!window.customCards.some(c=>c.type==="hk-control-card")) window.customCards.p
         ], "mdi:cog")
       ]);
       V.getConfigElement = function () { return document.createElement(etag); };
-      V.getStubConfig = function (hass) {
-        var ids = hass ? Object.keys(hass.states) : [];
+      V.getStubConfig = function (input) {
+        var client = window.hkCards.asClient(input), ids = client ? Object.keys(client.states) : [];
         for (var i = 0; i < ids.length; i++) {
           if (ids[i].indexOf(stubDomain + ".") === 0) return { entity: ids[i] };
         }

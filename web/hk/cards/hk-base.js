@@ -2986,12 +2986,12 @@
     var S = window.hkSky, m = S && S.element ? S.element() : null;
     return !!(m && m.isConnected);
   }
-  function tone(el, hass) {
+  function tone(el, client) {
     if (!el || !el.style || !el.hasAttribute) return;
     var light = false;
     try {
-      light = el.hasAttribute('data-hk-foreign') && !!hass && !!hass.themes &&
-              hass.themes.darkMode === false && !skyShown();
+      light = el.hasAttribute('data-hk-foreign') && !!client && !!client.themes &&
+              client.themes.darkMode === false && !skyShown();
     } catch (e) { light = false; }
     // ONLY THE OUTERMOST HK CARD carries the tokens; a card inside it
     // inherits them -- so a dark plate inside a card (Now Playing's artwork,
@@ -3066,7 +3066,7 @@
     // has one". The picker would then offer a switch as the stub for the light,
     // fan and cover cards.
     if (stub && !Object.prototype.hasOwnProperty.call(Ctor, 'getStubConfig')) {
-      Ctor.getStubConfig = stub;
+      Ctor.getStubConfig = clientStub(stub);
     }
     window.customCards = window.customCards || [];
     window.customCards.push({ type: tag, name: name, description: description, preview: true });
@@ -3081,14 +3081,20 @@
       Ctor.getConfigElement = function () { return document.createElement(etag); };
     }
     if (stub && !Object.prototype.hasOwnProperty.call(Ctor, 'getStubConfig')) {
-      Ctor.getStubConfig = stub;
+      Ctor.getStubConfig = clientStub(stub);
     }
+  }
+  // THE PICKER'S STUB GETS A CLIENT. Lovelace calls getStubConfig with its own
+  // object; the stub is shared code, so it is handed the client made from it
+  // (the host adapter's), and reads `client.states` like every card.
+  function clientStub(stub) {
+    return function (input) { return stub(asClient(input)); };
   }
 
   // The picker calls getStubConfig to build its preview, so it has to name an
   // entity that actually exists in THIS house or the preview renders empty.
-  function firstOf(hass, domain) {
-    var ids = hass ? Object.keys(hass.states) : [];
+  function firstOf(client, domain) {
+    var ids = client && client.states ? Object.keys(client.states) : [];
     for (var i = 0; i < ids.length; i++) {
       if (ids[i].indexOf(domain + '.') === 0) return ids[i];
     }
@@ -4102,7 +4108,11 @@
     for (var i = list.length - 1; i >= 0; i--) if (list[i] && list[i].type === tag) list.splice(i, 1);
   };
   window.hkCards.place = place;            // a card that is not an HkBase calls it on connect
-  window.hkCards.tone = tone;              // ...and this on every hass
+  window.hkCards.tone = tone;              // ...and this on every new client
+  // A legacy host input or a client -> the client (null for neither). For the
+  // few entry points the host calls with its own object (a picker stub defined
+  // on the class itself, Lovelace's strategy hooks).
+  window.hkCards.asClient = asClient;
   window.hkCards.FLAT = FLAT;
   window.hkCards.PAGE_ACCENTS = PAGE_ACCENTS;
   window.hkCards.pageTone = pageTone;

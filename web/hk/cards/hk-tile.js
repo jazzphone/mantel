@@ -769,7 +769,7 @@
       // defaults it on.
       e.icon.classList.toggle('spin', this._animation() === 'spin');
 
-      if (this._hass) { e.icon.hass = this._hass; e.icon.stateObj = st; }
+      var cl = this.client; if (cl) cl.bindStateIcon(e.icon, st);
       var ic = this._icon(st);
       if (ic) e.icon.icon = ic;
 
@@ -787,8 +787,8 @@
   // A TV or speaker tile: what it is playing, or its input.
   class HkMediaCard extends HkTileBase {
     // A real player from this home, so the picker preview is not empty.
-    static getStubConfig(hass) {
-      var ids = hass ? Object.keys(hass.states) : [];
+    static getStubConfig(input) {
+      var client = window.hkCards.asClient(input), ids = client ? Object.keys(client.states) : [];
       for (var i = 0; i < ids.length; i++) {
         if (ids[i].indexOf('media_player.') === 0) return { entity: ids[i] };
       }
@@ -1110,7 +1110,7 @@
       var sig = super._sigOf(), mode = (this._config || {}).label_mode;
       if (mode === 'climate_temperature' || mode === 'climate_humidity') {
         sig += ';reading:' + !!(window.hkRoom && window.hkRoom.climateReading) + ':' +
-          ((((this._hass || {}).config || {}).unit_system || {}).temperature || '°F');
+          ((((this.client || {}).config || {}).unit_system || {}).temperature || '°F');
       }
       return sig;
     }
@@ -1120,7 +1120,7 @@
     // It stands for its group: no entity of its own.
     _entityOptional(c) { return !!(c && c.label_mode === 'unreported' && Array.isArray(c.group) && c.group.length); }
     _unreported() {
-      var h = this._hass, grp = Array.isArray(this._config.group) ? this._config.group : [];
+      var h = this.client, grp = Array.isArray(this._config.group) ? this._config.group : [];
       return grp.filter(function (id) { var x = h && h.states[id]; return !x || (x.state !== 'on' && x.state !== 'off'); }).length;
     }
     _isOn(st) {
@@ -1134,7 +1134,7 @@
       var s = (st && st.state) || 'unknown';
       if (cfg.label_mode === 'climate_temperature' || cfg.label_mode === 'climate_humidity') {
         var kind = cfg.label_mode.slice(8), R = window.hkRoom;
-        var reading = R && R.climateReading && this._hass ? R.climateReading(this._hass, cfg.entity, kind) : null;
+        var reading = R && R.climateReading && this.client ? R.climateReading(this.client, cfg.entity, kind) : null;
         return reading == null ? 'Unavailable' : Math.round(reading) + (kind === 'temperature' ? '°' : '%');
       }
 
@@ -1330,7 +1330,7 @@
     // A scene pill may be just an action: the Live TV pill navigates to the
     // Live TV page and has no entity. It then never lights (no state).
     _entityOptional() { return true; }
-    // ...and nothing in hass can change it, so it draws once. HkBase's default
+    // ...and no state change can change it, so it draws once. HkBase's default
     // signature is NULL -- "render on every push" -- when the config names no
     // entity, which would put an entity-less pill on several renders a second
     // on every dashboard that has one. 'static', like the back chevron. A
@@ -1454,44 +1454,44 @@
   register('hk-favorite-card', HkFavoriteCard, 'HK Favorite Tile',
     'A tile with the room name above the entity name, for a favorites row.',
     tileSchema([ROOM], undefined, [BARE_COLOUR, WELL], { map: true, spin: true }),
-    function (hass) { return { entity: firstOf(hass, 'light'), room: 'Living Room' }; });
+    function (client) { return { entity: firstOf(client, 'light'), room: 'Living Room' }; });
 
   register('hk-climate-card', HkClimateCard, 'HK Climate Favorite Tile',
     'A favorites tile for a thermostat, with the current temperature in place of the icon.',
     tileSchema([ROOM], ['setpoint', 'setpoint_verb'], undefined, { domains: CLIMATE, climate: true }),
-    function (hass) { return { entity: firstOf(hass, 'climate'), room: 'Hallway' }; });
+    function (client) { return { entity: firstOf(client, 'climate'), room: 'Hallway' }; });
 
   register('hk-climate-tall-card', HkClimateTallCard, 'HK Climate Tall Tile',
     'A double-height thermostat tile with the current temperature and target.',
     tileSchema([], ['setpoint_verb', 'setpoint'], undefined, { domains: CLIMATE, climate: true }),
-    function (hass) { return { entity: firstOf(hass, 'climate') }; });
+    function (client) { return { entity: firstOf(client, 'climate') }; });
 
   register('hk-tall-card', HkTallCard, 'HK Tall Tile',
     'A double-height tile for any entity, like the lock and garage tiles in the Home app.',
     tileSchema([], undefined, [BARE_COLOUR, WELL], { map: true, spin: true }),
-    function (hass) { return { entity: firstOf(hass, 'lock') }; });
+    function (client) { return { entity: firstOf(client, 'lock') }; });
 
   register('hk-tile-card', HkTileCard, 'HK Tile',
     'A Home app–style tile for any entity: icon, name and a status line.',
     tileSchema([], undefined, [BARE_COLOUR, WELL], { map: true, spin: true }),
-    function (hass) { return { entity: firstOf(hass, 'switch') }; });
+    function (client) { return { entity: firstOf(client, 'switch') }; });
 
   register('hk-light-card', HkLightCard, 'HK Light Tile',
     'A light tile that shows brightness. Tap the icon to switch it on or off.',
     // The status text is the whole point of this card -- it computes
     // brightness -- so no status choice is offered.
     tileSchema([], [], [BARE_COLOUR, WELL], { domains: ['light'] }),
-    function (hass) { return { entity: firstOf(hass, 'light'), icon_tap_action: { action: 'toggle' } }; });
+    function (client) { return { entity: firstOf(client, 'light'), icon_tap_action: { action: 'toggle' } }; });
 
   register('hk-fan-card', HkFanCard, 'HK Fan Tile',
     'A fan tile that shows its speed, with a spinning icon while on.',
     tileSchema([], [], [{ name: 'animation', selector: C.selOptions(['spin', 'none']) }], { domains: ['fan'] }),
-    function (hass) { return { entity: firstOf(hass, 'fan'), icon_tap_action: { action: 'toggle' } }; });
+    function (client) { return { entity: firstOf(client, 'fan'), icon_tap_action: { action: 'toggle' } }; });
 
   register('hk-cover-card', HkCoverCard, 'HK Cover Tile',
     'A blind, shade or garage door tile that shows how far open it is.',
     tileSchema([], [], undefined, { domains: ['cover'] }),
-    function (hass) { return { entity: firstOf(hass, 'cover'), icon_tap_action: { action: 'toggle' } }; });
+    function (client) { return { entity: firstOf(client, 'cover'), icon_tap_action: { action: 'toggle' } }; });
 
   register('hk-scene-card', HkSceneCard, 'HK Scene Tile',
     'A tile that runs a scene or script when tapped, and lights up while it runs.',
@@ -1513,7 +1513,7 @@
         { name: 'tap_action', selector: { ui_action: {} } }
       ], 'mdi:gesture-tap')
     ],
-    function (hass) { return { entity: firstOf(hass, 'script') }; });
+    function (client) { return { entity: firstOf(client, 'script') }; });
 
   window.hkTile.HkTileCard = HkTileCard;
   window.hkTile.HkSceneCard = HkSceneCard;

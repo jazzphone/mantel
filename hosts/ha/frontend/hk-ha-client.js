@@ -57,11 +57,35 @@
     var host = hosts.get(client);
     if (host) element.hass = host; else element.client = client;
   }
+  // THE LOVELACE ENTRY for a shared card that is not an HkBase (hk-row, hk-control, …).
+  // The host sets `hass` on a card; the card never sees that object: it gets
+  // `_onClient(client)` with this adapter's client for each new one, and reads
+  // `this.client`. The getter gives the host (and a parent card) the object back.
+  function entry(Ctor) {
+    Object.defineProperty(Ctor.prototype, 'hass', {
+      configurable: true,
+      set: function (input) {
+        this._hkInput = input;
+        var c = from(input);
+        this._hkEntryClient = c;
+        var C = global.hkCards;
+        if (C && typeof C.seen === 'function') C.seen(input);
+        if (typeof this._onClient === 'function') this._onClient(c);
+      },
+      get: function () { return this._hkInput; }
+    });
+    if (!Object.prototype.hasOwnProperty.call(Ctor.prototype, 'client')) {
+      Object.defineProperty(Ctor.prototype, 'client', {
+        configurable: true,
+        get: function () { return this._hkEntryClient || null; }
+      });
+    }
+  }
   function current() {
     var root = global.document && typeof document.querySelector === 'function' && document.querySelector('home-assistant');
     return from(root && root.hass);
   }
-  global.hkHAClient = { from: from, current: current, bridge: bridge };
+  global.hkHAClient = { from: from, current: current, bridge: bridge, entry: entry };
   global.hkHostClient = global.hkHAClient;
   try { global.dispatchEvent(new CustomEvent('hk-host-client-ready')); } catch (e) { /* shell tests */ }
   try { global.dispatchEvent(new CustomEvent('hk-ha-client-ready')); } catch (e) { /* shell tests */ }

@@ -248,7 +248,7 @@
       // on someone else's dashboard: the row, not the cards in it, carries
       // the light look (hk-base.js place / tone)
       if (window.hkCards && window.hkCards.place) window.hkCards.place(this);
-      if (window.hkCards && window.hkCards.tone) window.hkCards.tone(this, this._hass);
+      if (window.hkCards && window.hkCards.tone) window.hkCards.tone(this, this.client);
       if (window.hkCards && window.hkCards.flatSurface) {
         window.hkCards.flatSurface(this, 'row');
         if (!this._flatStyle) { this._flatStyle = document.createElement('style'); this._flatStyle.textContent = window.hkCards.flatCss(); this._root.appendChild(this._flatStyle); }
@@ -505,19 +505,20 @@
     // hui-card is why this card needs no patch for that.
     _createCard(config) {
       var el = document.createElement('hui-card');
-      el.hass = this._hass;
+      window.hkHostClient.bridge(el, this.client);
       el.preview = false;
       el.config = config;
       el.load();
       return el;
     }
 
-    set hass(h) {
-      if (window.hkCards && window.hkCards.tone) window.hkCards.tone(this, h);
-      this._hass = h;
-      for (var i = 0; i < this._children.length; i++) this._children[i].hass = h;
+    // EACH NEW CLIENT, through the host adapter's entry (below the class): the
+    // row's tone, and every child card gets what goes with it (the host adapter
+    // decides: in HA a card Home Assistant draws needs the frontend's object).
+    _onClient(c) {
+      if (window.hkCards && window.hkCards.tone) window.hkCards.tone(this, c);
+      for (var i = 0; i < this._children.length; i++) window.hkHostClient.bridge(this._children[i], c);
     }
-    get hass() { return this._hass; }
 
     // The row is as tall as its tallest child; HA only needs a rough number for
     // masonry, and these dashboards use grid-layout anyway.
@@ -528,6 +529,7 @@
     var C = window.hkCards;
     // its size in HA's Sections view (hk-base.js GRID)
     if (window.hkCards && window.hkCards.sized) window.hkCards.sized('hk-row-card', HkRowCard);
+    window.hkHostClient.entry(HkRowCard);    // Lovelace's entry, through the host adapter
     if (!customElements.get('hk-row-card')) customElements.define('hk-row-card', HkRowCard);
     if (C && C.editor) {
       var etag = C.editor('hk-row-card', [

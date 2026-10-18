@@ -236,14 +236,14 @@
         return (this._depsMemo = { ents: h.entities, trk: trk, people: people, bat: bat });
       }
       _sigOf() {
-        var h = this._hass, s = stOf(h, this._id);
+        var h = this.client, s = stOf(h, this._id);
         if (!s) return 'x';
         var D = this._deps(h, s);
         var others = D.people.map(function (k) { return h.states[k] ? h.states[k].state : ''; }).join(',');
         return [s.last_updated, others, D.bat && h.states[D.bat] ? h.states[D.bat].state : ''].join('|');
       }
       _render() {
-        var h = this._hass, s = this._stateObj;
+        var h = this.client, s = this._stateObj;
         if (!h || !s) return;
         var one = matchMedia('(max-width:' + C.BP.phone + 'px)').matches;
         var home = s.state === 'home';
@@ -306,7 +306,7 @@
       }
       _fetch() {
         var self = this;
-        U.dayRows(this._hass, this._id).then(function (r) { self._rows = r.rows; self._t0 = r.t0; self._paintDay(); })
+        U.dayRows(this.client, this._id).then(function (r) { self._rows = r.rows; self._t0 = r.t0; self._paintDay(); })
           .catch(function () { /* no history */ });
       }
       // the home / away bar: home green, a zone blue; and the day in words

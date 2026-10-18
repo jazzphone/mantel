@@ -37,6 +37,30 @@
     var host = hosts.get(client);
     if (host) element.hass = host; else element.client = client;
   }
+  // THE LOVELACE ENTRY for a shared card that is not an HkBase (hk-row, hk-control, …).
+  // The host sets `hass` on a card; the card never sees that object: it gets
+  // `_onClient(client)` with this adapter's client for each new one, and reads
+  // `this.client`. The getter gives the host (and a parent card) the object back.
+  function entry(Ctor) {
+    Object.defineProperty(Ctor.prototype, 'hass', {
+      configurable: true,
+      set: function (input) {
+        this._hkInput = input;
+        var c = from(input);
+        this._hkEntryClient = c;
+        var C = global.hkCards;
+        if (C && typeof C.seen === 'function') C.seen(input);
+        if (typeof this._onClient === 'function') this._onClient(c);
+      },
+      get: function () { return this._hkInput; }
+    });
+    if (!Object.prototype.hasOwnProperty.call(Ctor.prototype, 'client')) {
+      Object.defineProperty(Ctor.prototype, 'client', {
+        configurable: true,
+        get: function () { return this._hkEntryClient || null; }
+      });
+    }
+  }
   var latest = null;
   function setCurrent(snapshot) {
     var next = from(snapshot);
@@ -44,7 +68,7 @@
     latest = next;
     try { global.dispatchEvent(new CustomEvent('hk-client-update')); } catch (e) { /* shell tests */ }
   }
-  global.hkMantelClient = { from: from, current: function () { return latest; }, setCurrent: setCurrent, bridge: bridge, kind: 'mantel' };
+  global.hkMantelClient = { from: from, current: function () { return latest; }, setCurrent: setCurrent, bridge: bridge, entry: entry, kind: 'mantel' };
   global.hkHostClient = global.hkMantelClient;
   try { global.dispatchEvent(new CustomEvent('hk-host-client-ready')); } catch (e) { /* shell tests */ }
 })(globalThis);

@@ -371,7 +371,7 @@
     _sigOf() {
       // No entity: a heading depends on its config alone, so it never needs to
       // re-render on a state change. Returning a constant means the base class
-      // gates it out of every hass push. A ROOM heading also
+      // gates it out of every state push. A ROOM heading also
       // depends on where its room page is (and whether headings link at all).
       if (this._config && this._config.energy_section) return energySig(this._config.energy_period);
       return this._config && this._config.area ? 'room=' + this._roomPath() : 'static';
@@ -458,7 +458,7 @@
     // is lit on the page (hk-energy.js window.hkEnergyPage)
     _energySub() {
       var EP = energyPage(this), id = this._config.energy_section, pin = this._config.energy_period;
-      var x = EP ? EP.section(this._hass, this, id, pin) : null;
+      var x = EP ? EP.section(this.client, this, id, pin) : null;
       var html = x && x.text ? '<i style="background:' + x.color + '"></i>' + x.text : '';
       if (this._e.esub._h !== html) { this._e.esub.innerHTML = html; this._e.esub._h = html; }
       this._e.card.style.opacity = !pin && EP && EP.pick && EP.pick !== id ? '0.28' : '';
@@ -546,8 +546,8 @@
     _watts(st) {
       var cfg = this._config;
       var pid = cfg.power || cfg.entity;
-      if (!window.hkChart || !this._hass) return null;
-      return window.hkChart.power(this._hass.states, pid, { watts: true, fallback: null });
+      if (!window.hkChart || !this.client) return null;
+      return window.hkChart.power(this.client.states, pid, { watts: true, fallback: null });
     }
 
     _render() {
@@ -628,7 +628,7 @@
         e.pwr.setAttribute('aria-label', 'Power, ' + (cfg.name || '') + (ctlOn ? ', on' : ', off'));
         e.card.classList.toggle('pwroff', !!ctl && !ctlOn);
       }
-      if (this._hass) { e.icon.hass = this._hass; e.icon.stateObj = st; }
+      var cl = this.client; if (cl) cl.bindStateIcon(e.icon, st);
       if (cfg.icon) e.icon.icon = cfg.icon;
 
       // ---- the reading
@@ -682,7 +682,7 @@
       }
       if (mode === 'energy' && !cfg.label && !cfg.label_entity) {
         lb = this._today() !== null ? 'Today' : '';
-      } else if (!cfg.label && !cfg.label_entity && cfg.stat && window.hkStats && this._hass) {
+      } else if (!cfg.label && !cfg.label_entity && cfg.stat && window.hkStats && this.client) {
         var t = this._today();
         lb = Number.isFinite(t) ? (t.toFixed(1) + ' kWh today') : '';
         // "today" its own span: a narrow backed-up tile sets it aside
@@ -719,7 +719,7 @@
         return;
       }
       e.lvl.classList.remove('on');
-      var x = EP.tile(this._hass, this, { stat: cfg.stat, power: cfg.power || (mode === 'rank' ? cfg.entity : null), period: p });
+      var x = EP.tile(this.client, this, { stat: cfg.stat, power: cfg.power || (mode === 'rank' ? cfg.entity : null), period: p });
       var line = x && x.line;
       if (p !== 'now' && x && typeof x.v === 'number') {
         var idle = x.v < 0.05;
@@ -754,9 +754,9 @@
       // ON THE ENERGY PAGE, from the page's own statistics (one request for
       // every tile), not a fortnight of its section's of its own
       var EP = cfg.energy && window.hkEnergyPage;
-      if (EP && EP.todayOf && cfg.stat) return EP.todayOf(this._hass, this, cfg.stat);
-      if (!window.hkStats || !this._hass || !id) return null;
-      var all = window.hkStats.daily(this._hass, cfg.peers || [id], 14, this);
+      if (EP && EP.todayOf && cfg.stat) return EP.todayOf(this.client, this, cfg.stat);
+      if (!window.hkStats || !this.client || !id) return null;
+      var all = window.hkStats.daily(this.client, cfg.peers || [id], 14, this);
       var a = all && all[id], t = (a && a.length) ? a[a.length - 1].v : null;
       return Number.isFinite(t) ? t : null;
     }
@@ -765,7 +765,7 @@
     // card's own entity -- so the default signature would gate out exactly the
     // updates this card exists to show.
     _sigOf() {
-      var h = this._hass, c = this._config;
+      var h = this.client, c = this._config;
       if (!h || !c) return null;
       var ids = [c.entity, c.power, c.label_entity, c.control].filter(Boolean);
       var out = c.energy ? energySig(c.energy === 'now' ? 'now' : null) + ';' : '';
@@ -844,7 +844,7 @@
                { name: 'tap_action', selector: { ui_action: {} } }
              ], 'mdi:gesture-tap')
            ],
-           function (hass) { return { entity: firstOf(hass, 'sensor') }; });
+           function (client) { return { entity: firstOf(client, 'sensor') }; });
 
   register('hk-rank-card', HkRankCard, 'HK Reading Tile',
            'A tile with a large reading: a value, a percentage, or a device\'s power use ranked against others.',
@@ -889,7 +889,7 @@
                { name: 'tap_action', selector: { ui_action: {} } }
              ], 'mdi:gesture-tap')
            ],
-           function (hass) { return { entity: firstOf(hass, 'sensor'), mode: 'hero' }; });
+           function (client) { return { entity: firstOf(client, 'sensor'), mode: 'hero' }; });
 
   window.hkStat.HkHeadingCard = HkHeadingCard;
   window.hkStat.HkMetricCard = HkMetricCard;

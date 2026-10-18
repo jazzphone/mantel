@@ -104,12 +104,12 @@ function scenarios() {
       }, want: [['callService', 'lock', 'unlock', { entity_id: 'lock.front' }]] },
     { name: 'climate setpoint (the thermostat card)', run: function (rec, m) {
         var c = Object.create(customElements.get('hk-control-card').prototype);
-        c._hass = m ? m.snapshot : rec.hass;
+        Object.defineProperty(c, 'client', { value: window.hkHostClient.from(m ? m.snapshot : rec.hass) });
         c._svc('climate', 'set_temperature', { entity_id: 'climate.hall', temperature: 70 });
       }, want: [['callService', 'climate', 'set_temperature', { entity_id: 'climate.hall', temperature: 70 }]] },
     { name: 'media volume (the media control card)', run: function (rec, m) {
         var c = Object.create(customElements.get('hk-control-card').prototype);
-        c._hass = m ? m.snapshot : rec.hass;
+        Object.defineProperty(c, 'client', { value: window.hkHostClient.from(m ? m.snapshot : rec.hass) });
         c._svc('media_player', 'volume_set', { entity_id: 'media_player.den', volume_level: 0.4 });
       }, want: [['callService', 'media_player', 'volume_set', { entity_id: 'media_player.den', volume_level: 0.4 }]] },
     { name: 'timer finish (the strip\'s pill)', run: function () { window.hkTimers.act('timer.tea', 'finish'); },

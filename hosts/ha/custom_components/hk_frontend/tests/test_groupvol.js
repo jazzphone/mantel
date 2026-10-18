@@ -122,7 +122,7 @@ g.shadowRoot.querySelector('[data-vol]').onchange();
 // The card sends the group FIRST and the members after, so the promise has to
 // settle before the second call is visible.
 drainMicrotasks();
-var gs = g._hass.sent.filter(function (x) { return x.svc === 'media_player.volume_set'; });
+var gs = g.hass.sent   /* the entry hands back the object it was given */.filter(function (x) { return x.svc === 'media_player.volume_set'; });
 check('two calls: the group, then its members', gs.length === 2, gs);
 check('  the group entity first -- setting it LAST would re-scale the members',
       gs[0].data.entity_id === DG, gs[0].data);
