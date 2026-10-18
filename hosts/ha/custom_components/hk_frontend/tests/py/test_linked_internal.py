@@ -38,8 +38,8 @@ async def test_allowed_without_resolution(url, resolve):
     assert await linked_mode.check_url(url) is None
 
 
-@pytest.mark.parametrize("url", ["http://172.30.34.1:8099", "http://192.0.2.53:8099",
-                                 "http://172.30.31.255:8099", "http://mantel.example.lan",
+@pytest.mark.parametrize("url", ["http://203.0.113.1:8099", "http://192.0.2.53:8099",
+                                 "http://198.51.100.1:8099", "http://mantel.example.lan",
                                  "http://[fd00::1]:8099"])
 async def test_refused_insecure(url, resolve):
     assert await linked_mode.check_url(url) == "mantel_url_insecure"
