@@ -381,10 +381,22 @@ def check_ha_app(path: Path) -> list[str]:
     for bad in ("host_network", "full_access", "privileged", "devices", "docker_api", "host_pid", "host_dbus"):
         if doc.get(bad):
             problems.append(f"ha-app: {bad} must not be set")
-    if doc.get("panel_admin") is not False:
-        problems.append("ha-app: panel_admin must be false (Mantel decides who may do what)")
-    if "ports" in doc:
+    # panel_admin starts true (the first Owner must be an HA administrator; docs/phase3/HA-APP.md) and
+    # may become false once the household is linked: either way Mantel's own roles decide what anyone
+    # may do, and unlinked HA users get nothing. It must be stated, not left to the default.
+    if not isinstance(doc.get("panel_admin"), bool):
+        problems.append("ha-app: panel_admin must be set to true or false")
+    if "ports" in doc or "ports_description" in doc:
         problems.append("ha-app: publishes ports; Ingress is the only way in")
+    if doc.get("homeassistant_api") is not True:
+        problems.append("ha-app: homeassistant_api must be true (HA's built-in App credential)")
+    for extra in ("hassio_api", "auth_api", "hassio_role"):
+        if doc.get(extra):
+            problems.append(f"ha-app: {extra} is not needed and must not be set")
+    if (doc.get("options") or {}).get("commands_enabled") is not False:
+        problems.append("ha-app: options.commands_enabled must default to false")
+    if "image" in doc:
+        problems.append("ha-app: no image: the App is built locally from its Dockerfile (tools/stage_ha_app.py)")
     return problems
 
 

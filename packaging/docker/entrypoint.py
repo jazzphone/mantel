@@ -20,7 +20,14 @@ Home Assistant App (add-on)      recognised by SUPERVISOR_TOKEN in the environme
                                  The built-in App credential is HA's own SUPERVISOR_TOKEN: it is moved into a
                                  0600 file and removed from the environment, so the server and anything it
                                  spawns only ever see a file path, like every other mode. Options come from
-                                 options.json. The server is reached only through Ingress.
+                                 options.json (packaging/ha-app/config.yaml): commands_enabled (default
+                                 false), log_level, default_screen, ha_door_rules. The server is reached only
+                                 through Ingress (--ingress --ingress-only: the signed-in HA user is believed
+                                 only from the Supervisor's Ingress proxy, 172.30.32.2), and talks to HA Core
+                                 through the Supervisor (ws://supervisor/core/websocket). docs/phase3/HA-APP.md.
+    Test-only overrides (never set by the Supervisor; for running App mode against a scratch HA):
+    MANTEL_APP_OPTIONS, MANTEL_APP_TOKEN_FILE, MANTEL_SUPERVISOR_CORE_URL, MANTEL_SUPERVISOR_WS_URL,
+    MANTEL_INGRESS_PEER, MANTEL_LISTEN, MANTEL_PORT, MANTEL_DATA_DIR
 
 Admin commands pass straight through and default to the /data volume (and, for import-settings, backup
 and restore, to the container's HA address, token and secrets):
@@ -55,6 +62,10 @@ ADMIN_EXTRAS = {
 APP_OPTIONS = Path("/data/options.json")
 APP_TOKEN_FILE = Path("/tmp/ha_token")
 SUPERVISOR_CORE_URL = "http://supervisor/core"
+SUPERVISOR_WS_URL = "ws://supervisor/core/websocket"
+APP_PORT = "8099"
+LOG_LEVELS = ("debug", "info", "warning", "error")
+DOOR_RULES = ("tunnel", "lan")
 
 
 class ConfigError(Exception):
@@ -62,6 +73,7 @@ class ConfigError(Exception):
 
 
 def detect_mode(env: dict[str, str], options_path: Path = APP_OPTIONS) -> str:
+    options_path = Path(env.get("MANTEL_APP_OPTIONS") or options_path)
     return "ha-app" if env.get("SUPERVISOR_TOKEN") and options_path.is_file() else "container"
 
 
@@ -109,13 +121,31 @@ def container_args(env: dict[str, str]) -> list[str]:
     return args
 
 
-def app_args(options: dict, token_file: Path) -> list[str]:
+def app_args(options: dict, token_file: Path, env: dict[str, str] | None = None) -> list[str]:
     # HA Ingress is the only way in (no ports are published), so the Host name HA's proxy forwards is not
     # knowable here: '*' is accepted ONLY in this mode. The placeholder public URL is never used for
-    # sign-in (Ingress identity replaces "Sign in with Home Assistant"); see docs/phase3/PACKAGING.md.
-    args = ["--ha-url", SUPERVISOR_CORE_URL, "--token-file", str(token_file), "--data-dir", "/data",
-            "--port", "8099", "--listen", "0.0.0.0",
-            "--public-url", "https://ingress.invalid/", "--allow-host", "*"]
+    # sign-in (Ingress identity replaces "Sign in with Home Assistant"); see docs/phase3/HA-APP.md.
+    env = env or {}
+    data = env.get("MANTEL_DATA_DIR", "/data")
+    listen = env.get("MANTEL_LISTEN", "0.0.0.0")
+    args = ["--ha-url", env.get("MANTEL_SUPERVISOR_CORE_URL", SUPERVISOR_CORE_URL),
+            "--ha-ws-url", env.get("MANTEL_SUPERVISOR_WS_URL", SUPERVISOR_WS_URL),
+            "--token-file", str(token_file), "--data-dir", data, "--secrets-dir", f"{data}/secrets",
+            "--port", env.get("MANTEL_PORT", APP_PORT), "--listen", listen]
+    if listen not in ("127.0.0.1", "::1"):
+        args += ["--public-url", "https://ingress.invalid/", "--allow-host", "*"]
+    args += ["--ingress", "--ingress-only"]
+    for peer in filter(None, (p.strip() for p in env.get("MANTEL_INGRESS_PEER", "").split(","))):
+        args += ["--ingress-peer", peer]
+    # Commands stay OFF unless the App's option says exactly true (PLAN: off by default).
+    if options.get("commands_enabled") is True:
+        args.append("--commands-enabled")
+    level = str(options.get("log_level") or "info").lower()
+    args += ["--log-level", level if level in LOG_LEVELS else "info"]
+    rules = str(options.get("ha_door_rules") or "tunnel").lower()
+    if rules not in DOOR_RULES:
+        raise ConfigError(f"ha_door_rules must be one of {', '.join(DOOR_RULES)}, not {rules!r}")
+    args += ["--ha-door-rules", rules]
     if options.get("default_screen"):
         args += ["--screen", str(options["default_screen"])]
     if options.get("session_hours"):
@@ -141,8 +171,10 @@ def plan(argv: list[str], env: dict[str, str], options_path: Path = APP_OPTIONS,
                 extra += [flag, value]
         return argv + extra, env
     if detect_mode(env, options_path) == "ha-app":
+        options_path = Path(env.get("MANTEL_APP_OPTIONS") or options_path)
+        token_file = Path(env.get("MANTEL_APP_TOKEN_FILE") or token_file)
         write_private(token_file, env.pop("SUPERVISOR_TOKEN"))
-        return app_args(json.loads(options_path.read_text()), token_file) + argv, env
+        return app_args(json.loads(options_path.read_text()), token_file, env) + argv, env
     return container_args(env) + argv, env
 
 

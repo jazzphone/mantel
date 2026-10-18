@@ -153,11 +153,19 @@ class Authz:
         return self.policy_for(subject).decide(subject, action, entity_id, ctx or self.context(), feature=feature)
 
     # -- identity -> subject ----------------------------------------------------------------------
+    def rules_door(self, door: str) -> str:
+        """The door whose RBAC rules apply. 'ha' (HA's sidebar through Ingress, HA App mode) gets the
+        tunnel's rules: HA's own login may be remote, through HA's tunnel. The Owner can opt in to
+        the LAN's (cfg.ha_door_rules = "lan"; docs/phase3/HA-APP.md). Unknown: tunnel (fail closed)."""
+        if door == "ha":
+            return "lan" if getattr(self.app.get("cfg"), "ha_door_rules", "tunnel") == "lan" else "tunnel"
+        return door if door in rbac.DOORS else "tunnel"
+
     def subject_of(self, ident: sessions.Identity) -> Subject:
         u, d = ident.user, ident.device
         subject = self.rbac.subject(user_role=u.role if u else None, user_id=u.id if u else None,
                                     device_role=d.role if d else None, device_id=d.id if d else None,
-                                    door=ident.door if ident.door in rbac.DOORS else "tunnel",
+                                    door=self.rules_door(ident.door),
                                     fresh_factor_at=ident.fresh_factor_at if u else None)
         if d is not None and not subject.device_areas and d.room:
             subject = replace(subject, device_areas=frozenset({d.room}))  # its enrolled room, until scoped

@@ -33,6 +33,8 @@
   ].join('');
   var LABEL = { step_up_required: 'Confirm it is you', person_pin_required: 'A person needs to confirm this' };
 
+  // Mantel's REST API under the page's prefix (shim/base.js; '' except in HA App mode)
+  function api(path) { return (global.__mantelBase || '') + path; }
   function cookie(name) {
     var m = (global.document.cookie || '').match(new RegExp('(?:^|; )' + name + '=([^;]*)'));
     return m ? decodeURIComponent(m[1]) : '';
@@ -41,12 +43,12 @@
   function csrf() {
     var c = cookie('mantel_csrf');
     if (c) return Promise.resolve(c);
-    return fetch('/api/session', { credentials: 'same-origin' }).then(function (r) { return r.json(); })
+    return fetch(api('/api/session'), { credentials: 'same-origin' }).then(function (r) { return r.json(); })
       .then(function (j) { return (j && j.csrf) || ''; }, function () { return ''; });
   }
   function post(path, body) {
     return csrf().then(function (token) {
-      return fetch(path, { method: 'POST', credentials: 'same-origin',
+      return fetch(api(path), { method: 'POST', credentials: 'same-origin',
                            headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': token },
                            body: JSON.stringify(body || {}) });
     }).then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { j._status = r.status; return j; }); });

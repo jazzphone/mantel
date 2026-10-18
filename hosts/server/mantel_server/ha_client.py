@@ -100,8 +100,9 @@ class HaClient:
     def __init__(self, url: str, token: str, store: StateStore, registry: Registry,
                  on_change: Callable[[set[str]], None],
                  on_registry: Callable[[], None] | None = None,
-                 registry_debounce: float = 2.0) -> None:
-        self.ws_url = url.rstrip("/").replace("http", "ws", 1) + "/api/websocket"
+                 registry_debounce: float = 2.0, ws_url: str | None = None) -> None:
+        # ws_url: an explicit WebSocket URL (HA App: the Supervisor's ws://supervisor/core/websocket)
+        self.ws_url = ws_url or url.rstrip("/").replace("http", "ws", 1) + "/api/websocket"
         self._token = token  # never logged
         self.store = store
         self.registry = registry
@@ -344,7 +345,7 @@ class HaCommander:
         if getattr(cfg, "commands_enabled", False) is not True:
             raise CommandsDisabled("commands are disabled on this server (commands_enabled is off)")
         self.base_url = cfg.ha_url.rstrip("/")
-        self.ws_url = self.base_url.replace("http", "ws", 1) + "/api/websocket"
+        self.ws_url = getattr(cfg, "ha_ws_url", "") or self.base_url.replace("http", "ws", 1) + "/api/websocket"
         self._token = token  # never logged
         self.writes = frozenset(writes)
         self.timeout = timeout

@@ -90,9 +90,9 @@ def check_calendar(entity_id: object, start: object, end: object) -> None:
 class ReadProxy:
     check = staticmethod(check_read)       # what request/subscribe accept (a subclass may narrow it)
 
-    def __init__(self, ha_url: str, token: str) -> None:
+    def __init__(self, ha_url: str, token: str, ws_url: str | None = None) -> None:
         self.base_url = ha_url.rstrip("/")
-        self.ws_url = self.base_url.replace("http", "ws", 1) + "/api/websocket"
+        self.ws_url = ws_url or self.base_url.replace("http", "ws", 1) + "/api/websocket"
         self._token = token
         self._ws: aiohttp.ClientWebSocketResponse | None = None
         self._http: aiohttp.ClientSession | None = None

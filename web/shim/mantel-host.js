@@ -70,13 +70,14 @@ export class Host {
                 time_zone: 'local', first_weekday: 'language' },
       selectedLanguage: null, selectedTheme: null, panelUrl: 'home', panels: {}, services: {},
       connected: true, suspendWhenHidden: false, kioskMode: false, dockedSidebar: 'auto',
-      auth: { data: { hassUrl: location.origin } },
+      auth: { data: { hassUrl: location.origin + (window.__mantelBase || '') } },
       connection: this.connection,
       callService: (domain, service) => self._refuse(`${domain}.${service}`),
       callWS: (msg) => self._call(msg),
       callApi: (method, path) => self._refuse(`api ${method} ${path}`),
       fetchWithAuth: (path) => Promise.reject(new Error('not available: ' + path)),
-      hassUrl: (path = '') => location.origin + path,
+      // under the page's prefix (shim/base.js): what the page asks for is Mantel's, never HA's own site
+      hassUrl: (path = '') => location.origin + (window.__mantelBase || '') + path,
       localize: (key) => key,
       formatEntityState: (s) => (s ? s.state + (s.attributes.unit_of_measurement ? ' ' + s.attributes.unit_of_measurement : '') : ''),
       // as HA's own fallbacks: a list joined, a key's words with the first one capitalised (the

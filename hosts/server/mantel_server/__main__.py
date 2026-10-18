@@ -114,7 +114,8 @@ def main(argv: list[str] | None = None) -> int:
     if argv and argv[0] in ADMIN_COMMANDS:
         return admin(argv)
     cfg = parse_args(argv)
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+    logging.basicConfig(level=getattr(logging, cfg.log_level.upper(), logging.INFO),
+                        format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     try:
         token = read_token(cfg.token_file)
     except TokenMissing as exc:

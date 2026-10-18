@@ -12,6 +12,10 @@ from pathlib import Path
 
 import pytest
 from aiohttp.test_utils import TestClient, TestServer
+
+# the newest schema this build migrates to: the migrations folder decides, never a literal
+LATEST = max(int(p.name[:4]) for p in
+             (Path(__file__).resolve().parents[1] / "hosts/server/mantel_server/migrations").glob("[0-9][0-9][0-9][0-9]_*.sql"))
 from argon2 import PasswordHasher
 
 from conftest import PASSWORD, Mantel
@@ -121,10 +125,10 @@ def test_round_trip_with_a_row_in_every_table(tmp_path, key, target):
     assert out.name == "mantel-20261018-031500.mbk" and out.stat().st_mode & 0o777 == 0o600
     raw = out.read_bytes()
     assert SECRET_MARKER.encode() not in raw and b"SQLite format" not in raw and b"Dummy" not in raw
-    assert bk.read_meta(out)["schema"] == 7
+    assert bk.read_meta(out)["schema"] == LATEST
     fresh = tmp_path / "fresh"
     report = bk.restore(out, key, fresh)
-    assert report.schema == 7 and report.files == 2 and not report.replaced and report.migrated == []
+    assert report.schema == LATEST and report.files == 2 and not report.replaced and report.migrated == []
     after = dump(fresh / "mantel.db")
     assert after == before                                              # every table, every row
     conn = sqlite3.connect(str(fresh / "mantel.db"))
@@ -179,7 +183,7 @@ def test_a_snapshot_is_consistent_while_the_server_writes_in_wal_mode(tmp_path, 
     for i, out in enumerate(outs):
         fresh = tmp_path / f"fresh{i}"
         rep = bk.restore(out, key, fresh)
-        assert rep.schema == 7
+        assert rep.schema == LATEST
         conn = sqlite3.connect(str(fresh / "mantel.db"))
         assert conn.execute("PRAGMA integrity_check").fetchone()[0] == "ok"
         assert conn.execute("SELECT COUNT(*) FROM action_audit").fetchone()[0] >= 1
@@ -327,9 +331,9 @@ def test_an_older_backup_is_migrated_to_this_build_before_it_is_swapped_in(tmp_p
     assert bk.read_meta(out)["schema"] == 3
     fresh = tmp_path / "fresh"
     report = bk.restore(out, key, fresh)
-    assert report.schema == 3 and report.migrated == [4, 5, 6, 7]
+    assert report.schema == 3 and report.migrated == list(range(4, LATEST + 1))
     conn = sqlite3.connect(str(fresh / "mantel.db"))
-    assert conn.execute("SELECT MAX(version) FROM schema_version").fetchone()[0] == 7
+    assert conn.execute("SELECT MAX(version) FROM schema_version").fetchone()[0] == LATEST
     assert conn.execute("SELECT name FROM users").fetchone()[0] == "Ann"
     conn.close()
 
@@ -620,7 +624,7 @@ async def test_status_and_run_now_are_for_managers_and_run_now_for_the_owner(app
     assert body["backups"][0]["name"] == body["status"]["last_file"]
     key, _ = bk.load_key(Path(app["cfg"].secrets_dir) / "backup.key")
     rep = bk.restore(nas / body["status"]["last_file"], key, nas.parent / "restored")
-    assert rep.schema == 7 and rep.tables["users"] == 3
+    assert rep.schema == LATEST and rep.tables["users"] == 3
     audit = app["store"].db.execute("SELECT action FROM action_audit WHERE action LIKE 'backup.%'").fetchall()
     assert [a["action"] for a in audit] == ["backup.ok"]
 

@@ -137,7 +137,8 @@ def register(app, hub, hooks) -> CameraSignaling:
 
     async def start(app) -> None:
         if hooks.ha_token is not None:
-            holder["proxy"] = SignalingProxy(app["cfg"].ha_url, hooks.ha_token())
+            cfg = app["cfg"]
+            holder["proxy"] = SignalingProxy(cfg.ha_url, hooks.ha_token(), ws_url=getattr(cfg, "ha_ws_url", "") or None)
 
     async def stop(app) -> None:
         if holder["proxy"] is not None:

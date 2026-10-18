@@ -1,30 +1,36 @@
-name: Mantel Server
-version: "0.0.1"
-slug: mantel_server
-description: Mantel Server as a Home Assistant App; sign-in through the HA sidebar (Ingress)
+# Mantel as a Home Assistant App (add-on), installed as a LOCAL App: tools/stage_ha_app.py assembles
+# this folder with Mantel's code into HA's local apps share, and the Supervisor builds the Dockerfile
+# next to this file (no `image:` key: a local build). docs/phase3/HA-APP.md has the install steps.
+name: Mantel
+version: "0.1.0"
+slug: mantel
+description: HK's home screens, served by Mantel Server inside Home Assistant (sign-in through the sidebar)
 url: https://github.com/jazzphone/mantel
-# The same layers as the Docker/LXC image, published as the "app" build target (packaging/docker/Dockerfile).
-# Supervisor pulls image:version, so version above must equal a published tag. Pin by tag here, by digest in CI.
-image: ghcr.io/jazzphone/mantel-server-app
 arch:
   - amd64
+  - aarch64
 startup: application
 boot: manual
-# The image has its own entrypoint (python /app/entrypoint.py), not an S6 base image.
-init: false
+init: true
+# The sidebar page (Ingress) is the only way in: no ports are published. HA's Ingress adds the signed-in
+# HA user to each request; Mantel believes it only from the Supervisor's Ingress proxy (172.30.32.2).
 ingress: true
 ingress_port: 8099
 panel_icon: mdi:fireplace
 panel_title: Mantel
-# Visible to every HA user (their role is Mantel's, not HA's admin flag); Mantel decides who may do what.
-panel_admin: false
-# HA's built-in App credential: Supervisor gives the container SUPERVISOR_TOKEN and the proxy
-# http://supervisor/core. entrypoint.py moves the token into a 0600 file; no user-created token.
+# HA administrators only, to begin with (the first Owner must be one). Once the household's HA users
+# are linked to Mantel roles, an Owner may set this to false: unlinked users still get nothing.
+panel_admin: true
+# HA's built-in App credential (SUPERVISOR_TOKEN, to ws://supervisor/core/websocket). No user token.
 homeassistant_api: true
-apparmor: true
+watchdog: "http://[HOST]:[PORT:8099]/healthz"
 options:
+  commands_enabled: false
+  log_level: info
   default_screen: dashboard-kitchen
-  session_hours: 12
+  ha_door_rules: tunnel
 schema:
+  commands_enabled: bool
+  log_level: list(debug|info|warning|error)
   default_screen: str
-  session_hours: "float(1,720)"
+  ha_door_rules: list(tunnel|lan)
