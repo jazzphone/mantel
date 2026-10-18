@@ -112,6 +112,7 @@ from homeassistant.helpers.typing import ConfigType
 import homeassistant.helpers.config_validation as cv
 
 from . import accessories
+from . import boot
 from . import features as F
 from . import files
 from . import kinds
@@ -133,6 +134,14 @@ _LOGGER = logging.getLogger(__name__)
 CONFIG_SCHEMA = cv.empty_config_schema(DOMAIN)
 
 
+def _boot_text(hass: HomeAssistant) -> str:
+    """The ordered boot file (boot.py), from the files /hk serves. Runs in the executor."""
+    def read(path: str) -> str | None:
+        target = files.resolve(hass, path)
+        return target.read_text(encoding="utf-8") if target is not None else None
+    return boot.bundle(read)
+
+
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     """Register frontend/ (and your files ahead of it) at /hk with
     revalidate-always caching."""
@@ -150,6 +159,12 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
         requires_auth = False   # see EXPOSURE in the module docstring
 
         async def get(self, request, filename):
+            # THE ORDERED BOOT (boot.py): HK's bootstrap modules as one file,
+            # made from the files this view serves, on every request.
+            if filename == boot.BOOT:
+                text = await hass.async_add_executor_job(_boot_text, hass)
+                return web.Response(text=text, content_type="application/javascript",
+                                    headers={"Cache-Control": "no-cache"})
             # resolve() stats the path (two Path.resolve + is_file): off the
             # event loop, as aiohttp's own static handler does.
             target = await hass.async_add_executor_job(files.resolve, hass, filename)
@@ -189,66 +204,20 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     # THE BOOTSTRAP MODULES -- registered here, not in configuration.yaml.
     #
     # add_extra_js_url() is the SAME mechanism as `frontend: extra_module_url:`
-    # in configuration.yaml (it is what frontend/__init__.py calls for each
-    # entry of that list), so the tags and their load time are the same; the
-    # list just lives with the files it names. `dependencies: frontend` in
-    # manifest.json is what guarantees the frontend's URL registry exists by
-    # the time this runs.
+    # in configuration.yaml; `dependencies: frontend` in manifest.json is what
+    # guarantees the frontend's URL registry exists by the time this runs.
     #
-    # ORDER MATTERS. Loaded at frontend bootstrap, BEFORE
-    # Lovelace injects its resources (the card files), so these run before any
-    # card first renders. Changing this LIST needs a restart; editing a FILE
-    # does not (/hk/ is no-cache).
+    # ONE URL, IN ORDER. HA's frontend imports every extra module in parallel,
+    # in no fixed order, so HK's client, adapter and shell (which depend on one
+    # another at load) are served as ONE ordered file: boot.py has the order,
+    # the reasons and what is imported after the core (the settings, the
+    # iconset, the header, the loader and the dashboard strategy, which HA waits
+    # at most 5 s for). Loaded at frontend bootstrap, before Lovelace injects
+    # its resources (the card files). Changing boot.py's lists needs a restart;
+    # editing a FILE does not (/hk/ is no-cache, the boot file is made per request).
     from homeassistant.components.frontend import add_extra_js_url
 
-    for url in (
-        # Phase 1 client contract, HA port and shared metric factory. The card
-        # family waits for their ready events, so resource order is immaterial.
-        "/hk/modules/hk-client.js",
-        "/hk/modules/hk-card-state.js",
-        "/hk/modules/hk-ha-client.js",
-        # The host shell (HK's one door to HA's own elements and frontend
-        # events) and its HA implementation. Before every module that mounts
-        # on, navigates or listens to Home Assistant's page.
-        "/hk/modules/hk-host-shell.js",
-        "/hk/modules/hk-ha-shell.js",
-        "/hk/modules/hk-metric.js",
-        # The dashboard settings (settings.py) -- FIRST, because the header,
-        # the sky, the idle return and the car viewport all read it at their
-        # first paint. It paints from its own cached copy until the websocket
-        # answers.
-        "/hk/modules/hk-settings.js",
-        # The hk: iconset. ha-icon caches a custom-iconset miss for the life of
-        # the page, so it must be registered before any card first renders.
-        "/hk/iconset/hk-icons.js",
-        # HK's own elements (hk-icon, hk-plate) and the host's (hk-state-icon around HA's
-        # ha-state-icon): defined before any card first renders (Phase 2, P2.1).
-        "/hk/elements/hk-elements.js",
-        "/hk/modules/hk-ha-elements.js",
-        # Pins the layout viewport on the dashboards shown in a car's browser
-        # only; a car browser can report <900px and trip the dashboard's own
-        # mobile breakpoint. Tune from the car with ?vw=<px> on the URL.
-        "/hk/modules/tesla-viewport.js",
-        # Holds the tapped look on momentary tiles for the 1.05s the progress
-        # ring takes to sweep; registers --hk-ring as an <angle>.
-        "/hk/modules/hk-tap.js",
-        # The header's clock + weather builders and the Apple weather glyphs.
-        # Direct, not via hk-loader, because the header is the first thing
-        # painted and must not blank for a beat on every load.
-        "/hk/modules/hk-header.js",
-        # Imports the order-independent modules (stats, charts, sky, idle,
-        # timers, campost, glass, skyshot, notify) -- see its MODULES list.
-        "/hk/modules/hk-loader.js",
-        # The generated dashboards' STRATEGY. Home Assistant waits at most 5 s
-        # for a custom strategy's element and then shows "Error loading the
-        # dashboard strategy" until the page is reloaded; as a Lovelace
-        # resource it only starts loading once the dashboard is asked for, so
-        # a slow start (a tablet reloaded while Home Assistant is busy) could
-        # lose that race. Here it is defined before any dashboard asks. It is
-        # also a resource (resources.py): the same URL is one module, loaded once.
-        "/hk/cards/hk-strategy.js",
-    ):
-        add_extra_js_url(hass, url)
+    add_extra_js_url(hass, boot.URL)
 
     websocket_api.async_register_command(hass, ws_settings_subscribe)
     websocket_api.async_register_command(hass, ws_events_subscribe)
