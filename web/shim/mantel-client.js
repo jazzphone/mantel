@@ -10,7 +10,7 @@
     if (global.hkClient && global.hkClient.is(snapshot)) return snapshot;
     if (clients.has(snapshot)) return clients.get(snapshot);
     var port = {};
-    ['states', 'entities', 'devices', 'areas', 'floors', 'services', 'config', 'locale', 'language', 'user', 'themes'].forEach(function (key) {
+    ['states', 'entities', 'devices', 'areas', 'floors', 'services', 'config', 'locale', 'language', 'user', 'themes', 'connected'].forEach(function (key) {
       Object.defineProperty(port, key, { get: function () { return snapshot[key]; } });
     });
     ['formatEntityState', 'formatEntityAttributeValue', 'formatEntityAttributeName', 'callWS', 'callApi'].forEach(function (key) {

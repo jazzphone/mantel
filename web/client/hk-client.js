@@ -6,9 +6,10 @@
   if (global.hkClient) return;
   var made = new WeakSet();
   // Read-only surface. Registries (entities/devices/areas/floors) and the service catalog are
-  // the host's current maps; nothing here changes the house.
+  // the host's current maps; nothing here changes the house. `connected`: false while the
+  // host's socket is down (undefined when the host cannot say).
   var DATA = ['states', 'entities', 'devices', 'areas', 'floors', 'services',
-              'config', 'locale', 'language', 'user', 'themes', 'subscriptions'];
+              'config', 'locale', 'language', 'user', 'themes', 'connected', 'subscriptions'];
   var METHODS = ['formatEntityState', 'formatEntityAttributeValue', 'formatEntityAttributeName',
                  'callWS', 'bindStateIcon'];
   // WRITES AND READS ARE TOLD APART AT THE PORT. Every WebSocket message the shared frontend
@@ -17,23 +18,30 @@
   // refuses them before the host. `call_service` (a service call over WebSocket, even one that
   // only answers) is a command, as `actions.callService` is.
   var WRITES = [
+    'calendar/event/create', 'calendar/event/delete', 'calendar/event/update',
     'call_service',
-    'calendar/event/create', 'calendar/event/update', 'calendar/event/delete',
-    'config/entity_registry/update', 'config_entries/subentries/delete',
+    'config/entity_registry/update',
+    'config_entries/subentries/delete',
     'frontend/set_user_data',
     'hk_alarm_pin/add', 'hk_alarm_pin/remove', 'hk_alarm_pin/settings/set',
-    'hk_energy/device/set', 'hk_energy/device/section',
-    'hk_frontend/accessory/order', 'hk_frontend/accessory/set',
-    'hk_frontend/board/favorite', 'hk_frontend/board/set',
-    'hk_frontend/calendar/color',
-    'hk_frontend/hidden/also', 'hk_frontend/hidden/set',
-    'hk_frontend/screensaver/black', 'hk_frontend/screensaver/touch',
-    'hk_frontend/tablet/act', 'hk_frontend/tablet/seen', 'hk_frontend/talk/live',
+    'hk_clean_areas/settings/set',
+    'hk_energy/device/section', 'hk_energy/device/set', 'hk_energy/settings/set',
+    'hk_frontend/accessory/into', 'hk_frontend/accessory/order',
+    'hk_frontend/accessory/page_order', 'hk_frontend/accessory/room_scenes',
+    'hk_frontend/accessory/set', 'hk_frontend/board/favorite', 'hk_frontend/board/set',
+    'hk_frontend/calendar/color', 'hk_frontend/chip/remove', 'hk_frontend/chip/save',
+    'hk_frontend/dashboard/titled', 'hk_frontend/hidden/also', 'hk_frontend/hidden/set',
+    'hk_frontend/screensaver/black', 'hk_frontend/screensaver/touch', 'hk_frontend/settings/set',
+    'hk_frontend/setup/done', 'hk_frontend/tablet/act', 'hk_frontend/tablet/add',
+    'hk_frontend/tablet/remove', 'hk_frontend/tablet/seen', 'hk_frontend/tablet/set',
+    'hk_frontend/talk/live',
     'hk_music/item/remove', 'hk_music/playlist/save', 'hk_music/playlists/order',
-    'hk_music/preset/save', 'hk_music/queue_play', 'hk_music/used',
-    'hk_notify/item/remove', 'hk_notify/item/save', 'hk_notify/mute', 'hk_notify/test',
-    'hk_tv/watching',
-    'image/delete', 'input_select/create',
+    'hk_music/preset/save', 'hk_music/queue_play', 'hk_music/settings/set', 'hk_music/used',
+    'hk_notify/item/remove', 'hk_notify/item/save', 'hk_notify/mute', 'hk_notify/settings/set',
+    'hk_notify/test',
+    'hk_tv/settings/set', 'hk_tv/watching',
+    'image/delete',
+    'input_select/create',
     'lovelace/config/save', 'lovelace/dashboards/create', 'lovelace/dashboards/delete',
     'lovelace/dashboards/update'
   ];

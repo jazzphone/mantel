@@ -1084,8 +1084,7 @@
       // few tablets in seconds -- exactly what a home with ip_ban_enabled would
       // ban them for. The reconnect brings fresh states with fresh tokens, and
       // the next tick resumes on its own.
-      // slice 9: needs client.connected (the frontend's connected flag is not on the client yet)
-      if (this._hass && this._hass.connected === false) return;
+      if (this.client && this.client.connected === false) return;
       var snaps = this._snaps || [];
       var every = this._num('refresh', 10);
       if (every <= 0) every = 10;                     // timeout basis only

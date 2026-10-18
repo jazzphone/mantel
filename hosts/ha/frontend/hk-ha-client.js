@@ -11,7 +11,7 @@
     if (clients.has(hass)) return clients.get(hass);
     if (!global.hkClient) throw new Error('HKClient has not loaded');
     var port = {};
-    ['states', 'entities', 'devices', 'areas', 'floors', 'services', 'config', 'locale', 'language', 'user', 'themes'].forEach(function (key) {
+    ['states', 'entities', 'devices', 'areas', 'floors', 'services', 'config', 'locale', 'language', 'user', 'themes', 'connected'].forEach(function (key) {
       Object.defineProperty(port, key, { get: function () { return hass[key]; } });
     });
     ['formatEntityState', 'formatEntityAttributeValue', 'formatEntityAttributeName', 'callWS', 'callApi'].forEach(function (key) {

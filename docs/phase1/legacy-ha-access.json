@@ -1,13 +1,5 @@
 {
   "web/hk/cards/hk-base.js": 14,
-  "web/hk/cards/hk-cameras.js": 67,
-  "web/hk/cards/hk-detail.js": 14,
-  "web/hk/cards/hk-headers.js": 35,
-  "web/hk/cards/hk-strategy.js": 265,
-  "web/hk/cards/hk-weather.js": 82,
   "web/hk/modules/hk-skylab.js": 4,
-  "web/hk/panels/hk-settings-features.js": 12,
-  "web/hk/panels/hk-settings-model.js": 11,
-  "web/hk/panels/hk-settings.js": 192,
   "web/home.js": 12
 }
