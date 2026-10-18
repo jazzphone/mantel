@@ -1,6 +1,6 @@
-"""Clean Areas' constants."""
+"""Clean Areas' constants (the option keys are the shared logic's: hk_core/clean_areas.py)."""
 
-CONF_VACUUMS = "vacuums"      # which vacuums take part; empty = every vacuum
-CONF_AREAS = "areas"          # which areas the picker offers; empty = every area a vacuum reaches
+from ...hk_core.clean_areas import CONF_AREAS, CONF_VACUUMS  # noqa: F401 -- re-exported
+
 SIGNAL_CHANGED = "hk_clean_areas_changed"   # the settings changed: the pickers ask again
 SERVICE_CLEAN = "clean_areas"               # hk_frontend.clean_areas

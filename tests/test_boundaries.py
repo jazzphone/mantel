@@ -18,6 +18,15 @@ def test_hk_core_does_not_import_homeassistant():
     assert not bad, f"hk_core must not import homeassistant: {bad}"
 
 
+def test_hk_core_imports_only_relatively():
+    # hk_core is vendored into the HA component (custom_components.hk_frontend.hk_core) and
+    # imported as `hk_core` by Mantel Server: an absolute import of itself, or of either host,
+    # would only work in one of the two.
+    absolute = re.compile(r"^\s*(from|import)\s+(hk_core|custom_components|mantel_server)\b", re.M)
+    bad = [str(p.relative_to(ROOT)) for p in _files("hk_core", (".py",)) if absolute.search(p.read_text())]
+    assert not bad, f"hk_core must import itself relatively and no host: {bad}"
+
+
 # The one place allowed to speak `hass`: the adapter that builds a hass object for HK's unmodified
 # cards (Phase 1 turns it into the HKClient implementation). Nothing else under web/ may.
 ADAPTER = "web/shim/"

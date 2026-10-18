@@ -127,6 +127,13 @@ def plan() -> list[tuple[str, str]]:
             source = (mantel / "web" / src).resolve()
             source.relative_to((mantel / "web").resolve())
             out.append((str(source), "custom_components/hk_frontend/frontend/" + rel))
+        # The shared feature logic (hk_core): vendored inside the component, so HA imports it
+        # as custom_components.hk_frontend.hk_core (it only imports relatively).
+        core = mantel / "hk_core"
+        for src in files_under(str(core)):
+            rel = os.path.relpath(src, core)
+            if rel.endswith(".py") or rel == "README.md":
+                out.append((src, os.path.join("custom_components", "hk_frontend", "hk_core", rel)))
         out.append((str(mantel / "hosts/ha/frontend/hk-ha-client.js"),
                     "custom_components/hk_frontend/frontend/modules/hk-ha-client.js"))
         out.append((str(mantel / "hosts/ha/frontend/hk-ha-shell.js"),
