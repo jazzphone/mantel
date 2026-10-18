@@ -5,7 +5,7 @@
 - `client/`: shared client interface and card state/update lifecycle; zero raw HA dependencies.
   `client/hk-host-shell.js` is the host-shell contract: shared code reaches the host's page
   (overlay mount, view container, navigation, detail sheets, toasts) only through `hkShell`;
-  HA element/event names are budgeted in `docs/phase1/legacy-ha-shell.json`.
+  HA element/event names may appear nowhere else (`tests/test_shell_boundary.py`).
 - `cards/hk-metric.js`: the existing metric card extracted to consume that interface.
 - `home.html`, `home.js`, `shim/`, `mdi/`: read-only Mantel Home with its own client port.
 - `shared-assets.json`: shared modules composed at /hk URLs in HA and Mantel.

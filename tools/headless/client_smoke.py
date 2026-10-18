@@ -235,7 +235,7 @@ async def smoke(shot=None):
                                view: !!window.hkShell.view() && window.hkShell.view().parentNode === document.getElementById('app'),
                                config: !!(window.hkShell.dashboardConfig() || {}).views };
                     })()""")
-                    assert shell == {"kind": "mantel", "nav": "location-changed", "sky": True, "menu": True,
+                    assert shell == {"kind": "mantel", "nav": "hk-navigate", "sky": True, "menu": True,
                                      "view": True, "config": True}, shell
                     hub.readproxy.publish_tabbar()
                     assert await browser.wait("!!document.querySelector('#hk-shell-root > #hk-tabbar')", 5), \

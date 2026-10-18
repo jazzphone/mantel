@@ -109,8 +109,8 @@ in `test_weathersheet.js` can switch to the shared helper when it merges.
 ## Exact continuation point
 
 This slice is complete. Next:
-1. Merge slice 8b (`phase1-slice8b`), switch `test_weathersheet.js` to `tests/fixed_clock.js`,
-   and revalidate.
+1. ~~Merge slice 8b, switch `test_weathersheet.js` to `tests/fixed_clock.js`, revalidate.~~
+   Done in the merge commit: 117 suites, 665 HA Python, 155 Mantel and the smoke all pass; raw-host total 1,600.
 2. Slice 9: the card families read `client()`, HkBase owns the Lovelace `hass` entry, and the
    bridge goes away.
 

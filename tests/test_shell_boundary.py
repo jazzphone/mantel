@@ -3,15 +3,13 @@
 Home Assistant's own element names (`home-assistant`, `hui-root`, `ha-panel-lovelace`, …) and its
 frontend events (`location-changed`, `hass-more-info`, …) may appear in shared code only inside
 the host-shell adapters. Code is scanned with comments removed: an explanation of what HA does is
-fine, a lookup or an event is not. Files still waiting to move carry a budget in
-`docs/phase1/legacy-ha-shell.json`; budgets may only decrease, and new files have none.
+fine, a lookup or an event is not. Slice 8b took the last budget (`legacy-ha-shell.json`) to 0, so
+there are no exceptions left.
 """
-import json
 import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-BUDGETS = ROOT / "docs/phase1/legacy-ha-shell.json"
 # The adapters: Mantel's shim (web/shim/, which stands in for HA's page) and the HA implementation,
 # which lives outside web/ in hosts/ha/frontend/hk-ha-shell.js.
 ADAPTERS = ("web/shim/",)
@@ -108,9 +106,8 @@ def shell_counts() -> dict[str, int]:
 
 
 def test_shared_code_reaches_the_ha_shell_only_through_the_adapter():
-    budgets = json.loads(BUDGETS.read_text())
-    over = [f"{rel}: {n} > {budgets.get(rel, 0)}" for rel, n in shell_counts().items() if n > budgets.get(rel, 0)]
-    assert not over, f"Use hkShell (web/client/hk-host-shell.js); HA shell references may only decrease: {over}"
+    found = shell_counts()
+    assert not found, f"Use hkShell (web/client/hk-host-shell.js); no HA shell reference is allowed outside the adapters: {found}"
 
 
 def test_the_shared_shell_contract_names_no_ha_element():
