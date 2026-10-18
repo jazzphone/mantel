@@ -30,7 +30,7 @@ import aiohttp
 from aiohttp import WSMsgType, web
 
 from . import accounts, auth, devices, gateway, health, pins, proof2, rbac_store, readproxy, sessions, settings_store
-from . import features, linked, service_accounts
+from . import backup, features, linked, service_accounts, user_files
 from .authz import Authz, Principal, resolve_door
 from .config import Config
 from .connectors import REFUSE_ALL, Ctx, Hooks
@@ -505,6 +505,10 @@ def wire(app: web.Application, hub: Hub, token: str, connect_ha: bool) -> None:
     # Phase 4: hk_core's features on Mantel (each off until an Owner enables it; house commands only
     # through the gateway as the `mantel:features` Service actor)
     features.register(app, hub, hooks)
+    # the home's own files (fonts, glyphs, photos; Owner/Admin upload) and the nightly encrypted
+    # backup (off unless --backup-target is set)
+    user_files.register(app, hub)
+    backup.register(app, hub)
     if cfg.commands_enabled:
         log.warning("COMMANDS ARE ENABLED on this server: signed-in users may control Home Assistant within "
                     "their roles (step-up and an audit row for every command)")

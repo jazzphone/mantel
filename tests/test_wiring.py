@@ -296,3 +296,13 @@ def test_linked_and_service_accounts_are_wired(tmp_path):
     paths = {r.resource.canonical for r in app.router.routes() if r.resource is not None}
     assert "/linked/ws" in paths and "/api/service-accounts" in paths
     assert app["linked"] is not None and app["service_accounts"] is not None
+
+
+def test_user_files_and_backup_are_wired(tmp_path):
+    from mantel_server.store import Store
+    app = server.build_app(Config(data_dir=tmp_path, secrets_dir=tmp_path / "s"), "fictional",
+                           store=Store(tmp_path / "m.db"), connect_ha=False)
+    assert app["user_files"] is not None
+    paths = {r.resource.canonical for r in app.router.routes() if r.resource is not None}
+    assert "/api/user-files" in paths
+    assert any(k for k in app if "backup" in str(k)), "backup.register installed its service"
