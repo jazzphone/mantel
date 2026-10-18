@@ -536,6 +536,32 @@ Updated in place (no migration; backup `197c2d14` from 0.1.5 still the rollback 
       Clean Areas picker (`hk-area-select-card`).
 - [ ] Music Assistant on Connections (Avery pastes his MA token; 0.1.7 fixes the CSRF refusal), SF Pro/glyphs.
 
+### 0.1.7 on the house (2026-10-18 evening, commit `0475684`, build `dc8430090eb5b9cd`)
+
+Updated in place through the Home Assistant connector (store `check_updates`, then `update`; no migration, `/data`
+kept, options unchanged, commands off). Brings the Energy merge (`89c8ab2`), Mantel settings in More, and the
+admin page's CSRF retry.
+- [!] **Connections Save still refused in Avery's own Chrome and Safari** ("The page lost its session token"), while
+      it worked in Claude's browser pane on the same addresses (`homeassistant.local`, `hasslocal`, inside the
+      sidebar frame). A read-only console check (`tools/diagnose_session_snippet.js`) showed **no Mantel cookies at
+      all** in his frame (only HA's `ingress_session`) and no CSRF token from the server; his HAR showed why: **HA's
+      frontend service worker fetches the frame's pages itself**, so they arrive as `Sec-Fetch-Dest: empty`,
+      `Sec-Fetch-Mode: navigate`, and `ingress.wants_page()` (destination only) never started a session. Fixed in 0.1.8.
+- [x] Music Assistant saved meanwhile from Claude's pane (Avery pasted his token there): `http://d5369777-music-assistant:8095`,
+      MA 2.10.7, user "Mantel", live connected.
+
+### 0.1.8 on the house (2026-10-18 evening, commit `c900194`)
+
+Updated in place the same way. `wants_page()` counts `Sec-Fetch-Mode: navigate` as a page (API and script fetches
+still start nothing); test `test_a_page_that_has_service_worker_fetches_starts_the_session_and_saves_work` (fails
+without the fix); the admin page's one retry sends the token the server just gave. Validation: 129 JS suites,
+723 HA Python, 2,355 Mantel, smoke ok.
+- [x] Running 0.1.8; the Music Assistant connection survived the update (saved, live connected).
+- [ ] Avery's own browsers: the console check should show one `mantel_csrf` and `testAnswer: "url_invalid"`, and
+      Connections Test/Save should work.
+- [ ] More → Mantel settings on the kitchen dashboard; Energy (no overscroll, shadows fade in Safari; watts in
+      "Where it's going" need the next HK install).
+
 ### Removal
 
 Stop and uninstall **Mantel** (Settings → Apps → Mantel → Uninstall); this removes its image and `/data`
