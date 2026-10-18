@@ -23,6 +23,10 @@ class Config:
     web: Path = REPO / "web"
     data_dir: Path = Path("~/.local/share/mantel")
     session_hours: float = 12.0
+    # P3.4: Music Assistant's own WebSocket API (connectors/ma.py). Empty URL = connector off.
+    # The long-lived token is read from this secret file at each connect, never from env or logs.
+    ma_url: str = ""
+    ma_token_file: Path = Path("/run/secrets/ma_token")
 
     @property
     def client_id(self) -> str:  # Mantel's own URL; HA requires redirect_uri on the same host

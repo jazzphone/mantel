@@ -2,6 +2,9 @@
 
 SAFETY: this module can only *send* the message types in ALLOWED_TYPES. There is no way to call a
 service through it, under any setting. A test (tests/test_ha_client.py) pins that.
+
+ALLOWED_TYPES is also what every other Mantel connection on this HA credential checks each frame
+against before sending it: connectors/camera.py's signaling connection does, frame by frame.
 """
 from __future__ import annotations
 
@@ -30,7 +33,22 @@ ALLOWED_TYPES = frozenset({
     "config/floor_registry/list",
     "subscribe_events",  # only for REGISTRY_EVENTS, enforced in check_outgoing
     "ping",
+    # P3.4: camera WebRTC *viewing* signaling for HK's camera card (connectors/camera.py). Each may
+    # carry exactly the keys in KEYED_TYPES; none of them changes anything in the house.
+    "camera/webrtc/get_client_config",
+    "camera/webrtc/offer",
+    "camera/webrtc/candidate",
+    "unsubscribe_events",  # ends a subscription the connection started; carries only `subscription`
 })
+
+# The keys (besides id/type) each signaling message may carry. HA's own schemas:
+# homeassistant/components/camera/webrtc.py (ws_get_client_config, ws_webrtc_offer, ws_candidate).
+SIGNALING_TYPES: dict[str, frozenset[str]] = {
+    "camera/webrtc/get_client_config": frozenset({"entity_id"}),
+    "camera/webrtc/offer": frozenset({"entity_id", "offer"}),
+    "camera/webrtc/candidate": frozenset({"entity_id", "session_id", "candidate"}),
+}
+KEYED_TYPES: dict[str, frozenset[str]] = {**SIGNALING_TYPES, "unsubscribe_events": frozenset({"subscription"})}
 
 # registry event -> the list call that reloads just that registry
 REGISTRY_EVENTS = {
@@ -64,6 +82,13 @@ def check_outgoing(message: dict) -> None:
         raise CommandBlocked(f"refusing to send {message.get('type')!r} to Home Assistant (read-only)")
     if message["type"] == "subscribe_events" and message.get("event_type") not in REGISTRY_EVENTS:
         raise CommandBlocked(f"subscribe_events is limited to {sorted(REGISTRY_EVENTS)}; got {message.get('event_type')!r}")
+    keys = KEYED_TYPES.get(message["type"])
+    if keys is not None:
+        extra = set(message) - {"id", "type"} - keys
+        if extra:
+            raise CommandBlocked(f"{message['type']!r} may not carry {sorted(extra)}")
+        if message["type"] in SIGNALING_TYPES and not str(message.get("entity_id", "")).startswith("camera."):
+            raise CommandBlocked(f"{message['type']!r} is for camera entities only")
 
 
 class HaClient:

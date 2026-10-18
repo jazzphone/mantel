@@ -1,0 +1,203 @@
+# Phase 3 P3.4: connectors (2026-10-18)
+
+Music Assistant over its own WebSocket API, camera WebRTC signaling proxied to Home Assistant, and
+the read proxies with RBAC applied. PLAN §3, §4 ("proxies, not copies"), §5, §7 ("Remote cameras:
+same as today"), §10 (cameras, music). Everything here is tested against fakes only. No real HA or MA
+was contacted, no `~/.config/mantel/*` token was read, and nothing in this slice can send a command.
+
+## Modules
+
+| Module | What it does |
+|---|---|
+| `mantel_server/connectors/__init__.py` | Shared pieces: `Hooks` (RBAC + MA gate + HA token), `Ctx` (one client connection), `Route`, `Forbidden`, and the two app tables `app["ws_handlers"]` and `app["read_routes"]` |
+| `mantel_server/connectors/ma.py` | `MaClient` (connect, token from a secret file, auth, reconnect with backoff, request/response by message id, partial results, event fan-out), the read allowlist `MA_READS`, the command catalog `MA_COMMANDS`, the gated `command()`, and `register` |
+| `mantel_server/connectors/camera.py` | `SignalingProxy` (a `ReadProxy` narrowed to camera signaling; every frame passes `ha_client.check_outgoing`), `CameraSignaling` (view hook, session ownership), and `register` |
+| `mantel_server/readproxy.py` | Allowlist extended with media browsing, plus the single REST read (calendar events). `FilteredReads` applies RBAC to every read, `RULES` gives one rule per read type, and `register` |
+| `mantel_server/ha_client.py` | Allowlist extended, explicitly and with key checks, for the three `camera/webrtc/*` messages and `unsubscribe_events` |
+| `mantel_server/config.py` | `ma_url` (empty = connector off) and `ma_token_file` (default `/run/secrets/ma_token`) |
+
+I did not touch `server.py`, `web/`, `hk_core/`, `hosts/ha/`, `store.py` or `auth.py`.
+
+## Hook interfaces (what P3.2 and P3.3 plug in)
+
+```python
+Hooks(
+    may_read=lambda identity, kind, ids: subset_of_ids,     # kind: "view" | "history"; may be async
+    may_view=lambda identity, entity_id: bool,              # camera live view; may be async
+    ma_gate=<object with allow(identity, command, args) -> bool>,   # may be async
+    ha_token=lambda: "<Mantel's HA token>",                 # for camera's own HA connection
+)
+```
+
+- **`ids`** can be entity ids, statistic ids, or `feature:<name>` for a whole feature. The features
+  used are `music`, `energy`, `notifications`, `media` and `locations`, matching §5's resource list.
+- **A hook can't widen a read.** The answer is intersected with what was asked.
+- **Deny by default.** A hook that's left out refuses everything. The default `ma_gate` is
+  `connectors.REFUSE_ALL`.
+- **`may_view` must return exactly `True`.** Anything else counts as a denial.
+
+## Wiring contract for P3.7
+
+Each module exposes `register(app, hub, hooks)`. P3.7 calls them from `build_app` and adds three
+things to `ClientSession`:
+
+1. **One `Ctx` per socket:** `Ctx(send=self.send, identity=<user+device>)`, and `await ctx.close()`
+   in `run()`'s `finally`. Closing ends every subscription: WebRTC sessions, forecasts, MA events.
+2. **Dispatch to the handler table.** In `handle()`, `classify()` runs first and still refuses
+   anything command-shaped. Any other type found in `app["ws_handlers"]` goes to
+   `handler(ctx, msg)` as a task.
+3. **Retire `ClientSession.read()`.** `readproxy.register` installs `read`, `read_subscribe` and
+   `read_unsubscribe` with the same frames, so `web/shim/hub.js` is unchanged. It also adds
+   `read_api` for calendar events.
+
+Registered client message types (pinned): `read`, `read_subscribe`, `read_unsubscribe`, `read_api`,
+`ma/read`, `ma/subscribe`, `ma/unsubscribe`. None is a command type, and no client message can send
+an MA or HA command.
+
+### What the page needs (a later `web/` slice; not done here)
+
+- **Cameras:** route the camera card's `client.callWS` for `camera/webrtc/get_client_config` and
+  `camera/webrtc/candidate` to `hub.read(msg)`. Route its `subscriptions.subscribeMessage` for
+  `camera/webrtc/offer` to `hub.readSubscribe(msg, cb)`. The messages stay byte-for-byte what the
+  card sends to HA today, which is §10's "one-line change for the cards".
+- **Calendars:** `client.callApi('GET', 'calendars/<id>?start&end')` becomes
+  `{type: "read_api", id, method: "GET", path}`.
+- **Music:** HK's library and queue reads can move from `hk_music/*` and HA's `media_player/*` to
+  `ma/read`.
+
+## Music Assistant: the API messages used
+
+Sources I relied on (read 2026-10-18):
+
+- MA server `music_assistant/controllers/webserver/websocket_client.py`: the server info on
+  connect, the `auth` command with `args.token`, the success shape `{"authenticated": true, "user"}`,
+  events only after auth, and partial results streamed in chunks of 500.
+- `music_assistant_models/api.py`: `CommandMessage {message_id: str, command, args}`,
+  `SuccessResultMessage {message_id, result, partial}`,
+  `ErrorResultMessage {message_id, error_code, details, …}`, `ServerInfoMessage {server_id,
+  server_version, schema_version, …}`, and `EventMessage = MassEvent {event, object_id, data}`.
+- `music_assistant_client/players.py`, `player_queues.py` and `music.py`: the command names
+  exactly as the official client sends them. HA's `music_assistant` integration calls MA through
+  this library (`play_media`, `transfer_queue`, `get_library`, `get_queue`, `play_announcement`).
+
+| Step | Messages |
+|---|---|
+| Connect | `ws://<ma>:8095/ws`. The server sends its info; I check that `server_version` is present |
+| Authenticate | `{"message_id", "command": "auth", "args": {"token"}}` → `result.authenticated == true` |
+| Reads (`MA_READS`) | `players/all`, `player_queues/all`, `player_queues/get_active_queue {player_id}`, `player_queues/items {queue_id, limit, offset}`, `music/{artists,albums,tracks,playlists,radios,audiobooks,podcasts}/library_items {favorite, search, limit, offset, order_by, provider (+album_types / album_artists_only)}`, `music/artists/artist_albums`, `music/artists/artist_tracks`, `music/albums/album_tracks`, `music/playlists/playlist_tracks` (never `force_refresh`), `music/podcasts/podcast_episodes`, `music/item`, `music/item_by_uri`, `music/search {search_query, media_types, limit, library_only}`, `music/browse {path}`, `music/recently_played_items {limit, media_types}` |
+| Events | Everything MA pushes after auth, fanned out locally and optionally filtered by event type. After a reconnect, listeners get a local `{"event": "mantel_reconnected"}` so they read again |
+| Commands (`MA_COMMANDS`, gated) | `player_queues/{play_media, transfer, play, pause, play_pause, stop, next, previous, play_index, seek, shuffle, repeat}`, `players/cmd/{volume_set, volume_mute, power, group_many, ungroup_many, play_announcement}`. Each has an explicit argument list |
+
+**Command path.** `MaClient.command(identity, command, **args)` works in four steps:
+
+1. Refuse anything not in the catalog.
+2. Ask `gate.allow(identity, command, args)`. If the answer isn't exactly `True`, raise
+   `CommandRefused` and send nothing.
+3. Mint a one-shot `_Ticket` for that command.
+4. Send. `check_outgoing` passes a command frame only with its own unused ticket.
+
+`register` adds no client message for commands. P3.3's gateway calls `app["ma"].command(...)` itself,
+with its own step-up and audit, and is passed in as `hooks.ma_gate`.
+
+**Token.** `read_secret(cfg.ma_token_file)` runs at every connect, so a rotated secret file is
+picked up on the next connect. The value is never stored on the client or logged. A missing or
+empty file stops the connector (`MaTokenMissing`). A rejected token keeps retrying with backoff
+(1 s doubling to 30 s), because the secret may get fixed.
+
+## Camera flow
+
+```
+screen ──read {camera/webrtc/get_client_config}──▶ Mantel ──(may_view?)──▶ HA  → ICE config, returned UNCHANGED
+screen ──read_subscribe {camera/webrtc/offer}────▶ Mantel ──(may_view?)──▶ HA  → events relayed as they come:
+                                                                                 session, answer, candidate…, error
+screen ──read {camera/webrtc/candidate}──────────▶ Mantel ──(may_view? + own session?)──▶ HA
+screen ◀════════════ video: directly between the screen and HA's go2rtc (STUN only, as today) ════════════▶
+socket ends / read_unsubscribe ─▶ unsubscribe_events ─▶ HA ends the WebRTC session
+```
+
+- **Denied:** `Forbidden`, which reaches the page as `{"error": {"code": "forbidden"}}`. Nothing is
+  forwarded. The signaling connection isn't even opened.
+- **Candidates:** forwarded only for a `session_id` that HA opened for the same client connection
+  and the same camera. One viewer can't feed candidates into another viewer's session.
+- **Message shapes:** must be camera entities and carry exactly HA's keys (`ha_client.SIGNALING_TYPES`).
+  The offer must be an SDP string.
+- **The connection:** `SignalingProxy` is its own HA connection, opened with `hooks.ha_token()`.
+  It can't send anything but the signaling types, plus `auth` and `unsubscribe_events`.
+
+## Read proxies and their filters (`readproxy.RULES`, one per type)
+
+| Read | Rule |
+|---|---|
+| `get_config` | Open. `latitude`, `longitude`, `elevation` and `radius` only with `feature:locations` |
+| `frontend/get_themes` | Open (the theme list) |
+| `weather/subscribe_forecast` (subscription) | `view` the weather entity |
+| `persistent_notification/subscribe` (subscription) | `feature:notifications` |
+| `history/history_during_period` | `entity_ids` required (without them it's the whole house). Filtered to the ids the subject may read the `history` of. Nothing allowed → `{}` with no HA call. The answer is filtered too |
+| `logbook/get_events` | Same as history. Entries for other entities are dropped. A `context_entity_id` the subject may not read is stripped |
+| `recorder/statistics_during_period` | `statistic_ids` filtered by `history`. The answer is filtered too |
+| `energy/get_prefs` | `feature:energy`. Any list entry naming a `stat_*` or `entity_*` the subject may not `view` is pruned |
+| `energy/info` | `feature:energy` |
+| `media_player/browse_media`, `media_player/search_media` | `view` the media player |
+| `media_source/browse_media` | `feature:media`. `media-source://camera…` is refused, and camera children are pruned (cameras go through the camera connector) |
+| `GET /api/calendars/<calendar.x>?start&end` (`read_api`, the only REST read) | `view` the calendar. Strict path, entity and ISO-date checks. GET only |
+
+`check_read` runs first: an unlisted type or an extra key never reaches HA. A `read` frame that
+carries anything besides `type`, `id` and `msg` is refused. This matters because a `cmd` key riding
+on a `read` gets past `server.classify()`.
+
+## Invariants (each pinned by a test)
+
+- **Nothing in this slice can send a command.**
+  - HA: every allowed type is a read, or viewing signaling with exact keys.
+  - MA: only auth and `MA_READS`. A catalog command goes out only through `command()`, only with
+    the gate's yes, and only once.
+  - Client: command-shaped messages are refused by `classify` before any connector sees them, and
+    no registered type is a command type.
+- **`ha_client.ALLOWED_TYPES` is pinned to its exact set.** `READ_ALLOWED` is pinned in
+  `test_proof1_guards.py`. `MA_READS` and `MA_COMMANDS` don't overlap, and no read name is a
+  write word.
+- **Every frame the signaling connection sent is on HA's allowlist.**
+- **RBAC never widens a read.** No hooks means deny.
+- **Video never flows through Mantel.** The ICE config is HA's, unchanged.
+
+## Tests
+
+| File | Covers |
+|---|---|
+| `tests/connector_fakes.py` | Fake HA (WebSocket: auth, signaling, every read, plus the calendar REST read) and fake MA (server info, auth, results, partials, events, drop/push). Both record every frame |
+| `tests/test_connectors_ma.py` (26) | Pins; auth with the file token; reads; partial results joined; event filter and stop; reconnect with backoff; a bad token retried until fixed; a missing token file stops the connector; the command refused by default with nothing sent; a refusing gate; an allowing gate sends catalog commands only; `register` (feature gate, off without a URL) |
+| `tests/test_connectors_camera.py` (14) | ICE config unchanged; denied → nothing forwarded; offer relay, candidate, unsubscribe; session ownership; malformed offers; the signaling connection sends only signaling; every frame on HA's allowlist; `register` |
+| `tests/test_readproxy_filters.py` (31) | One rule per read; history, logbook and statistics filtered both ways; energy pruning; the location stripped; media browsing; forecast and notification subscriptions; calendar REST and `read_api` parsing (POST, traversal, extra query, bad dates, absolute URLs refused); a hook can't widen; no hooks means deny |
+| `tests/test_connectors_wiring.py` (9) | All three registers over a real local WebSocket, dispatched as P3.7 will. Covers: pinned handler set; commands never reach a connector; commands inside or riding on a read; camera over `read`/`read_subscribe`; socket close ends the WebRTC session; filtered reads; MA reads |
+| `tests/test_ha_client.py` (+8), `tests/test_proof1_guards.py` | Allowlist pins updated: the exact set, signaling key checks, camera-only |
+
+Validation: `~/.venvs/mantel/bin/python -m pytest -q` → **305 passed** (217 before this slice).
+`tools/headless/client_smoke.py` passes when it runs alone. It drives the shared headless Chrome on
+:9222, and runs fail when another worktree's smoke uses that browser at the same time ("Inspected
+target navigated or closed").
+
+## Known limits
+
+- **A dropped HA connection is silent to WebRTC subscribers.** When the signaling connection
+  drops, `ReadProxy` clears its subscriptions without telling them. The camera card recovers
+  through its own `connectionState` retry. A later slice could send `{"type": "error", "code":
+  "connection_lost"}`.
+- **MA reads are gated per feature (`feature:music`), not per player.** MA player ids aren't HA
+  entity ids. A per-player filter needs the MA-player-to-entity map, which a later slice can add
+  to `may_read`.
+- **`ma_url` and `ma_token_file` are config fields only, not CLI arguments.** Packaging (P3.6) and
+  the settings import decide how they're set.
+
+## Exact continuation point
+
+1. **P3.7:** wire `readproxy.register`, `camera.register` and `ma.register` in `build_app` with
+   `Hooks(may_read=<P3.2 read filter>, may_view=<P3.2 camera view>, ma_gate=<P3.3 gateway>,
+   ha_token=lambda: token)`. Add the `Ctx` and handler dispatch to `ClientSession` as described in
+   the wiring contract, and delete `ClientSession.read()`. Port `tests/test_connectors_wiring.py`'s
+   harness assertions onto the real `ClientSession`.
+2. **P3.3:** make the gateway the `ma_gate` (`allow(identity, command, args)` after RBAC, step-up and
+   the audit row). Its MA path calls `app["ma"].command(identity, command, **args)`.
+3. **`web/` slice:** point the camera card's signaling and the calendar card's `callApi` at
+   `hub.read` / `hub.readSubscribe` / `read_api`, then move HK's music reads to `ma/read`.
+4. **E2E (P3.7) against the scratch HA:** a camera, a calendar and history reads, filtered by role.
+   MA stays fake-only until Avery points `ma_url` at a scratch MA.

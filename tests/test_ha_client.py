@@ -3,8 +3,8 @@ from pathlib import Path
 
 import pytest
 
-from mantel_server.ha_client import (ALLOWED_TYPES, REGISTRY_EVENTS, CommandBlocked, HaClient, TokenMissing,
-                                     check_outgoing, read_token)
+from mantel_server.ha_client import (ALLOWED_TYPES, REGISTRY_EVENTS, SIGNALING_TYPES, CommandBlocked, HaClient,
+                                     TokenMissing, check_outgoing, read_token)
 from mantel_server.registry import Registry
 from mantel_server.state import StateStore
 
@@ -16,10 +16,39 @@ def test_nothing_but_read_messages_can_be_sent(bad):
         check_outgoing({"id": 1, "type": bad, "domain": "valve", "service": "close"})
 
 
-def test_allowed_set_is_only_reads():
+VALID = {  # one well-formed frame per allowed type
+    "subscribe_events": {"event_type": "area_registry_updated"},
+    "camera/webrtc/get_client_config": {"entity_id": "camera.porch"},
+    "camera/webrtc/offer": {"entity_id": "camera.porch", "offer": "v=0"},
+    "camera/webrtc/candidate": {"entity_id": "camera.porch", "session_id": "s", "candidate": {}},
+    "unsubscribe_events": {"subscription": 4},
+}
+
+
+def test_allowed_set_is_pinned_and_only_reads():
+    assert ALLOWED_TYPES == {"auth", "subscribe_entities", "config/area_registry/list", "config/device_registry/list",
+                             "config/entity_registry/list", "config/floor_registry/list", "subscribe_events", "ping",
+                             "camera/webrtc/get_client_config", "camera/webrtc/offer", "camera/webrtc/candidate",
+                             "unsubscribe_events"}
     for t in ALLOWED_TYPES:
         assert "service" not in t and "update" not in t and "delete" not in t and "create" not in t
-        check_outgoing({"type": t, "event_type": "area_registry_updated"})
+        check_outgoing({"type": t, **VALID.get(t, {})})
+    assert set(SIGNALING_TYPES) == {t for t in ALLOWED_TYPES if t.startswith("camera/")}
+
+
+@pytest.mark.parametrize("message", [
+    {"type": "camera/webrtc/offer", "entity_id": "camera.porch", "offer": "v=0", "service": "turn_off"},
+    {"type": "camera/webrtc/offer", "entity_id": "lock.front", "offer": "v=0"},
+    {"type": "camera/webrtc/get_client_config", "entity_id": "camera.porch", "domain": "camera"},
+    {"type": "camera/webrtc/candidate", "entity_id": "valve.main", "session_id": "s", "candidate": {}},
+    {"type": "camera/webrtc/get_client_config"},
+    {"type": "unsubscribe_events", "subscription": 1, "event_type": "state_changed"},
+    {"type": "camera/turn_off", "entity_id": "camera.porch"},
+    {"type": "camera/stream", "entity_id": "camera.porch"},
+])
+def test_signaling_frames_carry_only_their_keys_for_cameras_only(message):
+    with pytest.raises(CommandBlocked):
+        check_outgoing(message)
 
 
 @pytest.mark.parametrize("event_type", sorted(REGISTRY_EVENTS))
