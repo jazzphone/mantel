@@ -109,3 +109,21 @@ def test_view_host_is_published_but_not_loaded_in_ha():
     assert "hk-view-host" not in bootstrap
     shell = (ROOT / "hosts/ha/frontend/hk-ha-shell.js").read_text()
     assert "card: 'hui-card'" in shell          # containers keep Lovelace's wrapper in HA
+
+
+def test_ha_panel_is_published_and_loaded_only_by_its_opt_in_panel():
+    """Phase 2 P2.6: HK's own HA panel element ships beside the HA adapters, but nothing at HA's
+    bootstrap loads it or the view host: only the panel_custom that hk_panel.py registers when
+    `hk_panel` is set (off by default) names its module. Lovelace dashboards are untouched."""
+    dests = {dest: Path(src) for src, dest in builder().plan()}
+    assert dests["custom_components/hk_frontend/frontend/modules/hk-ha-panel.js"] == ROOT / "hosts/ha/frontend/hk-ha-panel.js"
+    component = ROOT / "hosts/ha/custom_components/hk_frontend"
+    boot = (component / "boot.py").read_text()
+    assert "hk-ha-panel" not in boot and "hk-view-host" not in boot
+    assert "hk-ha-panel" not in (component / "__init__.py").read_text()
+    assert "hk-ha-panel" not in (component / "resources.py").read_text()
+    panel = (component / "hk_panel.py").read_text()
+    assert '"/hk/modules/hk-ha-panel.js' in panel or "/hk/modules/hk-ha-panel.js?" in panel
+    # the panel's element is the HA adapter: the only place it names HA's object is its entry
+    js = (ROOT / "hosts/ha/frontend/hk-ha-panel.js").read_text()
+    assert "hkHostClient.from(input)" in js and "hkViewHost.create" in js and "hkHAShell.ownPanel" in js

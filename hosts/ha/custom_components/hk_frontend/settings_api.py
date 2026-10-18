@@ -819,8 +819,19 @@ HOUSE.update({
 IMAGE_HOUSE = re.compile(r"^sky\.flat_image_look\.patch$|^sky\.flat_page_image_looks\.([a-z0-9][a-z0-9_-]{0,39})$")
 FLAT_HOUSE = re.compile(r"^look\.flat_colors\.(accent|off_tint|pages)$|^look\.flat_page_colors\.([a-z0-9][a-z0-9_-]{0,39})$")
 SKY_DATE = re.compile(r"^sky\.(" + "|".join(S.SKY_BUILT_IN) + r")_(from|to)$")
+
+
+def _hk_panel(v: Any) -> dict[str, Any] | None:
+    """HK as its own panel (hk_panel.py): None/False (off), or {screen, admin?, sidebar?}."""
+    from . import hk_panel
+    try:
+        return hk_panel.check(v)
+    except ValueError as err:
+        raise Invalid("hk_panel") from err
+
+
 # Options of the integration itself, beside `dashboard`.
-TOP = {"sidebar": _bool}
+TOP = {"sidebar": _bool, "hk_panel": _hk_panel}
 
 
 def apply_house(options: Mapping[str, Any], changes: Mapping[str, Any]

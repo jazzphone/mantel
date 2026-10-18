@@ -115,6 +115,7 @@ from . import accessories
 from . import boot
 from . import features as F
 from . import files
+from . import hk_panel
 from . import kinds
 from . import panel
 from . import rename
@@ -354,6 +355,10 @@ def ws_settings_subscribe(hass: HomeAssistant, connection: websocket_api.ActiveC
         # added: a screen whose Pages list Energy draws it from this
         from .features import energy
         payload["energy"] = energy.client(hass)
+        # HK AS ITS OWN PANEL (hk_panel.py), only while it is on: its screen's
+        # settings under its address too
+        house = _entry(hass)
+        payload = hk_panel.mirror(payload, house.options if house else None)
         connection.send_message(websocket_api.event_message(msg["id"], payload))
 
     connection.subscriptions[msg["id"]] = async_dispatcher_connect(hass, SIGNAL_CONFIG, send)
@@ -384,6 +389,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         await panel.async_register(hass, sidebar["shown"])
     except Exception:  # noqa: BLE001 -- the settings still work from Configure
         _LOGGER.exception("hk_frontend: the HK Settings page could not be added")
+    # HK AS ITS OWN PANEL (hk_panel.py): opt-in, nothing registered while off
+    own = {"conf": None}
+    try:
+        own["conf"] = await hk_panel.async_follow(hass, entry.options, None)
+    except Exception:  # noqa: BLE001 -- the dashboards do not need it
+        _LOGGER.exception("hk_frontend: the HK panel could not be added")
 
     async def check_files() -> None:
         folder = entry.options.get(CONF_FILES_FOLDER)
@@ -431,6 +442,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 await panel.async_register(hass, sidebar["shown"])
             except Exception:  # noqa: BLE001
                 _LOGGER.exception("hk_frontend: the HK Settings page could not be updated")
+        # the HK panel switched on, off or changed (nothing while it stays off)
+        try:
+            own["conf"] = await hk_panel.async_follow(hass, entry.options, own["conf"])
+        except Exception:  # noqa: BLE001
+            _LOGGER.exception("hk_frontend: the HK panel could not be updated")
         tracker = hass.data.get(DOMAIN, {}).get(kinds.DATA)
         if tracker:
             tracker.settings_changed()
@@ -501,6 +517,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     if ok:
         panel.async_unregister(hass)
+        hk_panel.async_unregister(hass)          # nothing to do while it is off
         await F.async_stop(hass)
         async_dispatcher_send(hass, SIGNAL_CONFIG)
     return ok

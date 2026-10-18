@@ -140,6 +140,9 @@ def plan() -> list[tuple[str, str]]:
                     "custom_components/hk_frontend/frontend/modules/hk-ha-shell.js"))
         out.append((str(mantel / "hosts/ha/frontend/hk-ha-elements.js"),
                     "custom_components/hk_frontend/frontend/modules/hk-ha-elements.js"))
+        # HK as its own panel (hk_panel.py, opt-in): the panel's element, loaded only by it
+        out.append((str(mantel / "hosts/ha/frontend/hk-ha-panel.js"),
+                    "custom_components/hk_frontend/frontend/modules/hk-ha-panel.js"))
     return out
 
 

@@ -178,6 +178,58 @@ var frontend2 = { states: {} };
 S.menuButton(mb, { client: window.hkHAClient.from(frontend2) });
 ok('...a new client: its object, narrow untouched', mb.hass === frontend2 && mb.narrow === false);
 
+// ---------------------------------------------------------- HK's own panel (P2.6)
+// hk-ha-panel.js on screen: the dashboard's parts are the panel's and its view host's,
+// no Lovelace card wrapper; the rest (root, overlays, sidebar, events) stays HA's.
+ok('the Lovelace mode by default', window.hkHAShell.currentMode() === 'lovelace' && S.tags.card === 'hui-card');
+var hkPanel = shadowed('hk-ha-panel'), vc = new Node_('hk-view-container', [], { id: 'view' }), gv = new Node_('hk-grid-view');
+var viewListeners = [], vhCfg = { views: [{ path: 'home' }] }, shown = null;
+var fakeHost = {
+  shellParts: function () {
+    return { panel: function () { return vc; }, viewContainer: function () { return vc; }, viewSlot: function () { return vc; },
+             view: function (c) { return (c === undefined || c === vc) ? shown : null; },
+             dashboardConfig: function () { return vhCfg; },
+             tags: { viewContainer: 'hk-view-container', view: shown ? shown.localName : null } };
+  },
+  onView: function (fn) { viewListeners.push(fn); return function () { viewListeners = viewListeners.filter(function (x) { return x !== fn; }); }; }
+};
+window.hkHAShell.ownPanel(hkPanel, fakeHost, 'hk-panel');
+ok('ownPanel: the panel mode, HA\'s kind and events kept', window.hkHAShell.currentMode() === 'panel' && S.kind === 'ha' &&
+   S.navEvent === 'location-changed' && S.events.moreInfo === 'hass-more-info');
+ok('...the panel is the panel element; no hui-root, toolbar or view background',
+   S.panel() === hkPanel && S.dashboard() === null && S.dashboardRoot() === null && S.toolbar() === null && S.viewBackground() === null);
+ok('...the view container and the config are the view host\'s', S.viewContainer() === vc && S.viewSlot() === vc &&
+   S.dashboardConfig() === vhCfg && S.view() === null);
+ok('...no Lovelace card wrapper: children are made by the view host', S.tags.card === null && !S.is(new Node_('hui-card'), 'card'));
+ok('...tags: the panel\'s own names, no dashboard', S.tags.panel === 'hk-ha-panel' && S.tags.dashboard === null &&
+   S.tags.viewContainer === 'hk-view-container' && S.is(vc, 'viewContainer') && S.tags.viewBackground === null);
+ok('...HA\'s root, overlay root, sidebar and drawer as before', S.root() === ha && S.overlayRoot() === ha.shadowRoot &&
+   S.sidebar() === sidebar && S.drawer() === drawer);
+shown = gv;
+viewListeners.slice().forEach(function (fn) { fn(gv, vhCfg.views[0], vhCfg, { first: true, path: 'home' }); });
+ok('...a new view: answered again (its name in the tags, the view itself)', S.view() === gv && S.view(vc) === gv &&
+   S.tags.view === 'hk-grid-view' && S.is(gv, 'view'));
+ha.hass.panelUrl = 'hk-panel';
+location.pathname = '/hk-panel/home';
+ok('...on the panel: a dashboard (both questions)', S.onDashboard() === true && S.isDashboard() === true);
+ha.hass.panelUrl = 'config';
+location.pathname = '/config/integrations';
+ok('...elsewhere: as HA says', S.onDashboard() === false && S.isDashboard() === false);
+ha.hass.panelUrl = 'dashboard-kitchen';
+location.pathname = '/dashboard-kitchen/home';
+ok('...a Lovelace dashboard is still one', S.onDashboard() === true && S.isDashboard() === true);
+window.hkHAShell.lovelace(new Node_('hk-ha-panel'));
+ok('lovelace(another panel): the panel in charge stays', window.hkHAShell.currentMode() === 'panel' && S.panel() === hkPanel);
+window.hkHAShell.lovelace(hkPanel);
+ok('lovelace(): Lovelace\'s answers again, the wrapper back', window.hkHAShell.currentMode() === 'lovelace' &&
+   S.panel() === panel && S.dashboard() === huiRoot && S.tags.card === 'hui-card' && S.tags.panel === 'ha-panel-lovelace' &&
+   S.viewContainer() === container && S.dashboardConfig() === panel.lovelace.config);
+viewListeners.slice().forEach(function (fn) { fn(gv, vhCfg.views[0], vhCfg, { first: false, path: 'home' }); });
+ok('...a view after leaving changes nothing (its listener is gone)', viewListeners.length === 0 &&
+   window.hkHAShell.currentMode() === 'lovelace' && S.tags.card === 'hui-card');
+window.hkHAShell.lovelace();
+ok('...and again is nothing', window.hkHAShell.currentMode() === 'lovelace' && S.panel() === panel);
+
 // ---------------------------------------------------------- no host
 S.use(null);
 ok('without a host: no elements', S.kind === 'none' && S.root() === null && S.overlayRoot() === null && S.panel() === null &&
