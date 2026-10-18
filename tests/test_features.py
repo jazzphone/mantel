@@ -541,6 +541,110 @@ async def test_a_feature_call_without_a_gateway_is_refused_clearly():
     assert caller.log[-1]["outcome"] == "would"
 
 
+class SourcesProxy(FakeProxy):
+    """HA's answers: the Energy settings, and HK's hk_energy/sources through the server-only read."""
+    def __init__(self, prefs, sources=None, error=None):
+        super().__init__(prefs)
+        self.sources, self.error, self.server_asked = sources, error, []
+
+    async def read_server(self, msg):
+        self.server_asked.append(msg)
+        if self.error:
+            raise RuntimeError(self.error)
+        return {"sources": self.sources}
+
+
+UTILITY_PREFS = {"energy_sources": [{"type": "grid", "flow_from": [{"stat_energy_from": "sensor.grid_import"}]}],
+                 "device_consumption": [{"stat_consumption": "sensor.office_utility"},
+                                        {"stat_consumption": "sensor.downstairs_ac_utility"}]}
+UTILITY_STATES = {"sensor.grid_import": {"s": "1200", "a": {"unit_of_measurement": "kWh", "device_class": "energy"}, "lc": 1.0},
+                  # the house's meters: Utility Meters, NO source attribute; the Integral sensors have one
+                  "sensor.office_utility": {"s": "2.4", "a": {"unit_of_measurement": "kWh", "device_class": "energy",
+                                                              "friendly_name": "Office Utility", "status": "collecting"}, "lc": 1.0},
+                  "sensor.downstairs_ac_utility": {"s": "0.5", "a": {"unit_of_measurement": "kWh", "device_class": "energy",
+                                                                      "friendly_name": "Downstairs AC Utility"}, "lc": 1.0},
+                  "sensor.office": {"s": "3", "a": {"unit_of_measurement": "kWh", "device_class": "energy",
+                                                    "source": "sensor.office_live"}, "lc": 1.0},
+                  "sensor.office_live": {"s": "350", "a": {"unit_of_measurement": "W", "device_class": "power"}, "lc": 1.0},
+                  "sensor.downstairs_ac": {"s": "1", "a": {"unit_of_measurement": "kWh", "device_class": "energy"}, "lc": 1.0},
+                  "sensor.downstairs_ac_live": {"s": "1500", "a": {"unit_of_measurement": "W", "device_class": "power"}, "lc": 1.0}}
+UTILITY_SOURCES = {"sensor.office_utility": "sensor.office", "sensor.office": "sensor.office_live",
+                   "sensor.downstairs_ac_utility": "sensor.downstairs_ac", "sensor.downstairs_ac": "sensor.downstairs_ac_live"}
+
+
+async def _utility_plan(make_env, proxy):
+    env = await make_env(settings={"energy": {"enabled": True}})
+    env.app["hub"].readproxy = proxy
+    env.app["hub"].store.apply_event({"a": UTILITY_STATES})
+    await env.login("owner1", "owner")
+    ws = await env.socket(expect_caps=False)
+    await ws.send_json({"type": "read", "id": 1, "msg": {"type": "mantel/energy/plan"}})
+    got = await GF.recv(ws)
+    await ws.close()
+    plan = got["result"]["plan"]
+    return {i["key"]: i for s in plan["sections"] for i in s.get("items", [])}
+
+
+async def test_the_energy_plan_asks_hk_for_the_utility_meters_sources(make_env):
+    """The house: every device meter a Utility Meter without a `source` attribute; HA's hk_energy/sources
+    (admin read, once per plan) gives meter -> Integral -> power sensor. Mantel only ever reads it
+    (server-only read)."""
+    proxy = SourcesProxy(UTILITY_PREFS, UTILITY_SOURCES)
+    items = await _utility_plan(make_env, proxy)
+    assert {"type": "hk_energy/sources"} in proxy.server_asked
+    assert items["sensor.office_utility"]["power"] == "sensor.office_live"
+    assert items["sensor.downstairs_ac_utility"]["power"] == "sensor.downstairs_ac_live"
+
+
+async def test_without_hks_sources_the_plan_falls_back_to_the_sources_the_states_carry(make_env):
+    """An HK that predates the read (an error answer): no crash; a Utility Meter's chain is lost (it has no
+    attribute) but nothing else changes -- the plan is built, the tiles show kWh."""
+    proxy = SourcesProxy(UTILITY_PREFS, error="unknown_command")
+    items = await _utility_plan(make_env, proxy)
+    assert {"type": "hk_energy/sources"} in proxy.server_asked
+    assert items["sensor.office_utility"]["power"] is None
+
+
+def test_hk_energy_sources_is_a_server_only_read_and_not_a_page_read():
+    from mantel_server import readproxy as RP
+    assert "hk_energy/sources" in RP.SERVER_ONLY_READS and RP.READ_ALLOWED["hk_energy/sources"] == frozenset()
+
+
+def test_the_energy_plan_follows_a_meters_helper_chain_to_its_power_sensor():
+    """Utility Meter -> Integral -> power sensor, on three devices (nothing shared): each helper's
+    `source` attribute is the link. Without it no device had watts and the page's "Where it's going
+    now" drew 0 W on every row (the house, 2026-10-18)."""
+    from mantel_house_fakes import mantel_house_of
+    from hk_core.energy import plan as EP
+    from hk_core.house import Device, Entity, State
+    kwh = {"unit_of_measurement": "kWh", "device_class": "energy"}
+
+    class Fake:
+        _states = {"sensor.grid_import": State("sensor.grid_import", "1200", kwh),
+                   "sensor.office_utility": State("sensor.office_utility", "2.4", {**kwh, "friendly_name": "Office Utility",
+                                                  "source": "sensor.office_integral"}),
+                   "sensor.office_integral": State("sensor.office_integral", "30", {**kwh, "source": "sensor.office_watts"}),
+                   "sensor.office_watts": State("sensor.office_watts", "350", {"unit_of_measurement": "W",
+                                                                              "device_class": "power"}),
+                   "sensor.dryer_utility": State("sensor.dryer_utility", "1.0", {**kwh, "friendly_name": "Dryer Utility",
+                                                 "source": "sensor.dryer_integral"}),
+                   "sensor.dryer_integral": State("sensor.dryer_integral", "9", {**kwh, "source": "sensor.dryer_kw"}),
+                   "sensor.dryer_kw": State("sensor.dryer_kw", "1.5", {"unit_of_measurement": "kW", "device_class": "power"})}
+        _entities = {k: Entity(k) for k in _states}
+        _devices = {}
+        _areas = {}
+    prefs = {"energy_sources": [{"type": "grid", "flow_from": [{"stat_energy_from": "sensor.grid_import"}]}],
+             "device_consumption": [{"stat_consumption": "sensor.office_utility"},
+                                    {"stat_consumption": "sensor.dryer_utility"}]}
+    ctx = F.energy_context(mantel_house_of(Fake()), prefs, {})
+    assert ctx["entities"]["sensor.office_utility"]["source"] == "sensor.office_integral"
+    assert "sensor.office_watts" in ctx["entities"] and "sensor.dryer_kw" in ctx["entities"]
+    plan = EP.build(ctx, {})
+    items = {i["key"]: i for s in plan["sections"] for i in s.get("items", [])}
+    assert items["sensor.office_utility"]["power"] == "sensor.office_watts"
+    assert items["sensor.dryer_utility"]["power"] == "sensor.dryer_kw"
+
+
 def test_energy_context_reads_the_house_through_the_port():
     from mantel_house_fakes import mantel_house_of
     from hk_core.house import Device, Entity, State

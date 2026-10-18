@@ -1228,7 +1228,16 @@
       // Percentage padding uses this view's width, matching the side columns
       // even with a docked menu or a narrower device. Keep the normal header unchanged.
       // (clipped below, never across: the page's end, _pageEnd)
-      st.textContent = ':host{display:block;overflow-y:clip}#root>*{margin:4px 4px 8px}' +
+      // (flow-root: the root's bottom margin -- the page's end -- stays INSIDE
+      // the view. `overflow:clip` makes no block formatting context, so a
+      // plain block let that margin collapse through the view's foot: the
+      // view's box never followed it, a negative one trimmed nothing, and
+      // _pageEnd -- reading the view's foot -- added the same difference on
+      // every pass. Energy ended 73 px past its last card, 2026-10-18.)
+      // (the clip stops at the view's foot -- a gutter below the last plate --
+      // and a plate's shadow runs further (30-60 px), which the clip cut off
+      // flat just above the tab bar, the user 2026-10-18. See _clipRoom.)
+      st.textContent = ':host{display:flow-root;overflow-y:clip}#root>*{margin:4px 4px 8px}' +
         // (a grid of pop-ups alone: no room, no margins -- hk-grid-card _markZero)
         '#root>[data-hk-zero]{margin:0!important}' +
         '#root>[data-hk-page-header=none]{display:none!important}' +
@@ -1332,9 +1341,26 @@
     // view and adds to it as before -- so nothing that runs on under the bar
     // may count: a card that fits itself to the window ends the page its own
     // foot below its box (data-hk-foot, plateEdge; the Music page).
+    // THE CLIP REACHES THE ROOM BELOW THE VIEW: what lies under the view is
+    // its container's bottom padding -- the tab bar's room, empty by design --
+    // so the clipping box is made that much taller (padding-bottom) and takes
+    // no layout room for it (the same amount of negative margin-bottom): paint
+    // may run on that far (a shadow fades out there instead of stopping flat
+    // at the view's foot), and nothing is added to what scrolls, the room
+    // being part of the page already. No room, no padding: the clip as it
+    // was. (Plain box model, so Safari does it too; overflow-clip-margin is
+    // not in it.)
+    _clipRoom() {
+      var p = this.parentElement, room = 0;
+      if (p) room = Math.max(0, Math.floor(parseFloat(getComputedStyle(p).paddingBottom) || 0));
+      var pad = room ? room + 'px' : '', mar = room ? -room + 'px' : '';
+      if (this.style.paddingBottom !== pad) this.style.paddingBottom = pad;
+      if (this.style.marginBottom !== mar) this.style.marginBottom = mar;
+    }
     _pageEnd() {
       var root = this._root;
       if (!root || !this.isConnected) return;
+      this._clipRoom();
       var hr = this.getBoundingClientRect();
       if (!hr.height || !hr.width) return;
       // (a page still building in -- its contents rising into place by a
@@ -1359,16 +1385,19 @@
           });
         return;
       }
-      var cs = getComputedStyle(this), gutter = HkGridView.gutter(this);
+      var gutter = HkGridView.gutter(this);
       var low = HkGridView.plateEdge(root, 'bottom', gutter);
       if (low == null) return;
-      var tail = hr.bottom - (parseFloat(cs.paddingBottom) || 0) - low;
-      // (from the margin as it is, never as last set: whatever has reset it
-      // since, the page still ends at its gutter. Rounded DOWN to the tenth:
-      // a page that fits the window exactly -- the Music page -- rounded to
-      // nearest ended 0.05 px past it, which the browser can round up to a
-      // pixel of scroll)
-      var m = parseFloat(getComputedStyle(root).marginBottom) || 0, next = Math.floor((m + gutter - tail) * 10 + 1e-6) / 10;
+      // The root's own bottom edge to the lowest plate (the root's box, never
+      // the view's: whatever margin the root carries now does not enter it,
+      // so a pass changes the margin to a fixed value, not by a step -- the
+      // old reading of the view's foot added the difference again each time).
+      // The margin that puts the page's end a gutter below that plate.
+      // (Rounded DOWN to the tenth: a page that fits the window exactly -- the
+      // Music page -- rounded to nearest ended 0.05 px past it, which the
+      // browser can round up to a pixel of scroll.)
+      var slack = root.getBoundingClientRect().bottom - low;
+      var m = parseFloat(getComputedStyle(root).marginBottom) || 0, next = Math.floor((gutter - slack) * 10 + 1e-6) / 10;
       if (Math.abs(next - m) < 0.5) return;
       this._endM = next;
       root.style.marginBottom = next + 'px';

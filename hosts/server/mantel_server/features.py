@@ -946,10 +946,12 @@ class LiveTv:
 
 # ------------------------------------------------------------------------------------- energy
 def energy_context(house: Any, prefs: Mapping[str, Any] | None, options: Mapping[str, Any] | None,
-                   settings: Mapping[str, Any] | None = None) -> dict[str, Any]:
+                   settings: Mapping[str, Any] | None = None,
+                   sources: Mapping[str, str] | None = None) -> dict[str, Any]:
     """What ``hk_core.energy.plan.build`` reads, from Mantel's house (HA's ``collect`` over the port).
-    A sensor's helper source (``source``: a Utility Meter's Integral) is not on the House port, so the
-    plan finds power sensors by the Energy settings, the options and the meter's device instead."""
+    A helper's source (a Utility Meter's Integral, and its power sensor): `sources`, HK's read in HA
+    (``hk_energy/sources``: HA's own collect() reads the sensors' objects, which Utility Meters need -- they
+    publish no `source` attribute), else the state's `source` attribute (an Integral sensor has one)."""
     options = dict(options or {})
     settings = dict(settings or {})
     entities: dict[str, dict[str, Any]] = {}
@@ -961,9 +963,15 @@ def energy_context(house: Any, prefs: Mapping[str, Any] | None, options: Mapping
             return entities[eid]
         st, ent = house.state(eid), house.entity(eid)
         attrs = st.attributes if st else {}
+        # A HELPER'S SOURCE: a Utility Meter and an Integral (Riemann sum) sensor say what they count in
+        # their `source` attribute; HA's collect() reads it from the sensor's own object. Without it the
+        # chain meter -> Integral -> power sensor was never followed here, every device lost its watts and
+        # the Energy page's "Where it's going now" drew 0 W everywhere (the house, 2026-10-18).
+        src = (sources or {}).get(eid) or (attrs.get("source") if eid.startswith("sensor.") else None)
         entities[eid] = {"name": attrs.get("friendly_name") or eid, "device": ent.device_id if ent else None,
                          "dc": attrs.get("device_class") or (ent and (ent.device_class or ent.original_device_class)),
-                         "unit": attrs.get("unit_of_measurement"), "state": st.state if st else None, "source": None,
+                         "unit": attrs.get("unit_of_measurement"), "state": st.state if st else None,
+                         "source": src if isinstance(src, str) and "." in src else None,
                          "category": bool(ent and ent.entity_category), "platform": ent.platform if ent else None}
         return entities[eid]
 
@@ -995,8 +1003,15 @@ def energy_context(house: Any, prefs: Mapping[str, Any] | None, options: Mapping
     stats += [t for t in settings.get("thermostats") or [] if isinstance(t, str)]
     stats += [settings[k] for k in ("outside", "power") if isinstance(settings.get(k), str)]
     for s in stats:
-        info(s)
+        e = info(s)
         device_mates(s)
+        # the source chain, followed now so build() can walk it (as HA's collect does): each sensor in it,
+        # and what sits on its device (a smart plug's watts beside the kWh a Utility Meter counts)
+        hops = 0
+        while e and e.get("source") and hops < 4:
+            device_mates(e["source"])
+            e = info(e["source"])
+            hops += 1
     grid = EP.grid_of(prefs)
     if grid.get("stat") and house.state(f"{grid['stat']}_cost") is not None:
         info(f"{grid['stat']}_cost")
@@ -1148,6 +1163,8 @@ class FeatureHost:
         # last worked out, and the pair last published
         self.energy_cache: dict[str, Any] | None = None
         self.energy_error: str | None = None
+        self._helper_sources: dict[str, str] = {}      # the last good hk_energy/sources answer
+        self._helper_sources_warned = False
         self._energy_at = float("-inf")
         self._client_sent: tuple | None = None
         # hk_clean_areas/subscribe: id -> [identity, on_event, last body sent]
@@ -1647,7 +1664,31 @@ class FeatureHost:
         house = {**self.store.body("house", "settings"),
                  "accessories": self.store.body("house", "accessories") or {}}
         prefs = prefs if isinstance(prefs, dict) else {}
-        return prefs, opts, energy_context(self.house, prefs, opts, energy_house(self.house, house))
+        return prefs, opts, energy_context(self.house, prefs, opts, energy_house(self.house, house),
+                                           sources=await self.helper_sources(proxy))
+
+    async def helper_sources(self, proxy: Any) -> dict[str, str]:
+        """{helper sensor: the sensor it counts}, from HK's own read in HA (``hk_energy/sources``, read only,
+        by Mantel itself): a Utility Meter publishes no `source` attribute, so the chain meter -> Integral ->
+        power sensor is only in HA's objects. Kept from the last good answer: an HK that predates the read, or
+        a failed call, leaves the plan on the sources the states carry (energy_context falls back to them)."""
+        read = getattr(proxy, "read_server", None)
+        if read is None:
+            return self._helper_sources
+        try:
+            got = await read({"type": "hk_energy/sources"})
+        except Exception as exc:  # noqa: BLE001 -- older HK ("unknown_command"), HA away: the last answer, or none
+            if not self._helper_sources_warned:
+                self._helper_sources_warned = True
+                log.info("HK's hk_energy/sources is not answering (%s); the Energy plan follows the sources the states carry",
+                         type(exc).__name__)
+            return self._helper_sources
+        src = got.get("sources") if isinstance(got, Mapping) else None
+        if isinstance(src, Mapping):
+            self._helper_sources = {k: v for k, v in src.items()
+                                    if isinstance(k, str) and isinstance(v, str) and "." in k and "." in v}
+            self._helper_sources_warned = False
+        return self._helper_sources
 
     def clean_coverage(self) -> dict[str, Any]:
         opts = self.settings["clean_areas"]["options"]

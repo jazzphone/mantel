@@ -57,7 +57,7 @@ function page(rootEnd, kids, minEnd) {
     return Math.max(minEnd, rootEnd + (parseFloat(r.style.marginBottom) || 0));
   });
   v._root = r; v.isConnected = true;
-  v._holds = View.prototype._holds;
+  v._holds = View.prototype._holds; v._clipRoom = function () {};
   v.end = function () { View.prototype._pageEnd.call(v); return v.getBoundingClientRect().bottom; };
   return v;
 }
@@ -138,6 +138,54 @@ function music(foot, cardEnd, rootEnd) {
   ok('a lower ordinary plate still ends the page a gutter below it', Math.abs(end - (1000 + GUTTER)) <= 0.1, end);
   // the left edge is untouched by a foot
   ok('plateEdge(left) ignores data-hk-foot', View.plateEdge(mixed._root, 'left') === 0);
+})();
+
+// THE PAGE'S END DOES NOT READ THE VIEW'S FOOT (Energy, 2026-10-18): a view's
+// foot may not follow its root's bottom margin (a margin collapsing through
+// it), and a pass that read it added the same difference again every time
+// -- Energy ended 73 px past its last card, Power and Vacuums the same way.
+// Here the view's foot ignores the margin altogether: every pass must still
+// set the same margin, a gutter below the lowest plate.
+(function () {
+  var r = box('div', 0, 2368, {}, {}, [box('div', 0, 2368, {}, {}, [box('hk-plate', 2200, 2362, GLASS)])]);
+  r.style = {};
+  var v = box('hk-grid-view', 0, 2368);
+  v._root = r; v.isConnected = true; v._holds = View.prototype._holds; v._clipRoom = function () {};
+  var seen = [];
+  for (var i = 0; i < 4; i++) { View.prototype._pageEnd.call(v); seen.push(r.style.marginBottom); }
+  var want = Math.floor((GUTTER - (2368 - 2362)) * 10 + 1e-6) / 10 + 'px';
+  ok('every pass sets the same margin whatever the view\'s foot does (no drift)',
+     seen.every(function (x) { return x === want; }), seen.join(' ') + ' want ' + want);
+  ok('...a gutter below the lowest plate: the root\'s foot + margin = plate + gutter',
+     Math.abs(2368 + parseFloat(r.style.marginBottom) - (2362 + GUTTER)) <= 0.1, r.style.marginBottom);
+  // and a margin left from before, however large, is not added to
+  r.style.marginBottom = '73.2px';
+  View.prototype._pageEnd.call(v);
+  ok('a stale margin is replaced, not added to', r.style.marginBottom === want, r.style.marginBottom);
+  // the view keeps that margin inside it: a block formatting context
+  var src = View.prototype._build.toString();
+  ok('the view is a flow-root, so the root\'s bottom margin stays inside it', /:host\{display:flow-root;/.test(src));
+  ok('...clipping below only, with no overflow-clip-margin (Safari has none)', /:host\{display:flow-root;overflow-y:clip\}/.test(src) && !/clip-margin\s*:/.test(src + View.prototype._clipRoom.toString()));
+})();
+
+// THE CLIP REACHES THE BAR'S ROOM (shadows below the last row fade out
+// instead of stopping flat at the view's foot, 2026-10-18)
+(function () {
+  var seen = globalThis.getComputedStyle;
+  globalThis.getComputedStyle = function (el) {
+    var r = seen(el);
+    if (el._pad !== undefined) r.paddingBottom = el._pad;
+    return r;
+  };
+  function view(pad) {
+    var v = { parentElement: pad === null ? null : { _pad: pad, _cs: {} }, style: {} };
+    View.prototype._clipRoom.call(v);
+    return v.style.paddingBottom + '|' + v.style.marginBottom;
+  }
+  ok('the clipping box is as tall again as the room the container leaves below (96 px), and takes no layout room for it', view('96px') === '96px|-96px', view('96px'));
+  ok('a fraction rounds down (never past the room)', view('96.7px') === '96px|-96px', view('96.7px'));
+  ok('no room, no margin: the clip as it was', view('0px') === '|' && view(null) === '|');
+  globalThis.getComputedStyle = seen;
 })();
 
 print(fail ? 'FAIL ' + fail + ' PAGE END TESTS' : 'ALL ' + pass + ' PAGE END TESTS PASS');
