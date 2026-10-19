@@ -87,9 +87,30 @@ class FakeMantel:
     async def ok(self, ws, msg):
         return {"id": msg["id"], "type": "result", "success": True, "result": {"ok": True}}
 
+    # ---- pairing by code (Mantel's linked_pairing.py, the same proofs)
+    code: str | None = None          # the pending code ("ABCDE-FGHJK-MNPQR-STVWX"), set by a test
+    lie = False                      # answer with a proof that does not match (a look-alike Mantel)
+
+    async def pair(self, request: web.Request) -> web.StreamResponse:
+        import hashlib, hmac as _hmac, re as _re
+        body = await request.json()
+        self.received.append({"type": "pair", **{k: body.get(k) for k in ("code_id", "name")}})
+        raw = _re.sub(r"[\s-]", "", self.code or "").upper()
+        key = hashlib.sha256(b"mantel-link-pair-v1|key|" + raw.encode()).digest()
+        mac = lambda *p: _hmac.new(key, "|".join(p).encode(), hashlib.sha256).hexdigest()  # noqa: E731
+        if not raw or body.get("code_id") != raw[:5] or body.get("proof") != mac(
+                "mantel-link-pair-v1", "client", body["code_id"], body["nonce"], body["name"]):
+            return web.json_response({"error": {"code": "invalid_code", "message": "no"}}, status=403)
+        self.code = None
+        proof = mac("mantel-link-pair-v1", "server", body["code_id"], body["nonce"], INSTANCE,
+                    hashlib.sha256(self.token.encode()).hexdigest())
+        return web.json_response({"v": 1, "token": self.token, "instance": INSTANCE,
+                                  "proof": ("0" * 64) if self.lie else proof})
+
     async def start(self) -> "FakeMantel":
         app = web.Application()
         app.router.add_get("/linked/ws", self.handler)
+        app.router.add_post("/linked/pair", self.pair)
         self.server = TestServer(app, host="127.0.0.1")
         await self.server.start_server()
         self.url = f"http://127.0.0.1:{self.server.port}"

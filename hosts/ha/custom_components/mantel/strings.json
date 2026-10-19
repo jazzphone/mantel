@@ -3,10 +3,11 @@
     "step": {
       "user": {
         "title": "Mantel Link",
-        "description": "Link Home Assistant to Mantel. Mantel's address is https://, or http:// only for the Mantel App on this machine (http://local-mantel:8099). The credential is a Mantel Service credential (Mantel Settings, Service Accounts).",
+        "description": "Link Home Assistant to Mantel. Mantel's address is https://, or http:// only for the Mantel App on this machine (http://local-mantel:8099). Then a pairing code from Mantel Settings, Connections, Home Assistant Link, or a Mantel Service credential (Mantel Settings, Service Accounts).",
         "data": {
           "url": "Mantel's address",
-          "token": "Service credential"
+          "code": "Pairing code",
+          "token": "Or a Service credential"
         }
       },
       "reconfigure": {
@@ -25,7 +26,11 @@
       "invalid_auth": "Mantel refused that credential.",
       "cannot_connect": "Couldn't reach Mantel at that address.",
       "mantel_too_old": "That Mantel is older than Mantel Link. Update Mantel first.",
-      "another_mantel": "That address is a different Mantel. Remove Mantel Link and add it again to change Mantel."
+      "another_mantel": "That address is a different Mantel. Remove Mantel Link and add it again to change Mantel.",
+      "code_or_token": "Enter a pairing code (or a Service credential).",
+      "invalid_code": "Mantel did not accept that pairing code. Make a new one in Mantel Settings.",
+      "rate_limited": "Too many tries. Wait a few minutes and try again.",
+      "not_mantel": "That address answered, but it couldn't prove it is the Mantel that made the code."
     },
     "abort": {
       "already_configured": "This Mantel is already linked.",
@@ -38,44 +43,104 @@
       "name": "Set black screen",
       "description": "Turns a wall tablet's black screen on or off and sets the brightness it comes back to.",
       "fields": {
-        "black": {"name": "Black", "description": "On or off."},
-        "brightness": {"name": "Brightness", "description": "The brightness to come back to (0-255)."}
+        "black": {
+          "name": "Black",
+          "description": "On or off."
+        },
+        "brightness": {
+          "name": "Brightness",
+          "description": "The brightness to come back to (0-255)."
+        }
       }
     },
     "show_popup": {
       "name": "Show pop-up",
       "description": "Opens one of Mantel's pop-ups on its screens.",
       "fields": {
-        "popup": {"name": "Pop-up", "description": "The pop-up's name (its #hash)."},
-        "dashboards": {"name": "Screens", "description": "Only these screens."},
-        "users": {"name": "People", "description": "Only screens these people are signed in to."}
+        "popup": {
+          "name": "Pop-up",
+          "description": "The pop-up's name (its #hash)."
+        },
+        "dashboards": {
+          "name": "Screens",
+          "description": "Only these screens."
+        },
+        "users": {
+          "name": "People",
+          "description": "Only screens these people are signed in to."
+        }
       }
     },
     "close_popup": {
       "name": "Close pop-up",
       "description": "Closes one of Mantel's pop-ups on its screens.",
       "fields": {
-        "popup": {"name": "Pop-up", "description": "The pop-up's name (its #hash)."},
-        "dashboards": {"name": "Screens", "description": "Only these screens."},
-        "users": {"name": "People", "description": "Only screens these people are signed in to."}
+        "popup": {
+          "name": "Pop-up",
+          "description": "The pop-up's name (its #hash)."
+        },
+        "dashboards": {
+          "name": "Screens",
+          "description": "Only these screens."
+        },
+        "users": {
+          "name": "People",
+          "description": "Only screens these people are signed in to."
+        }
       }
     },
     "notify": {
       "name": "Notify",
       "description": "Shows a banner on Mantel's screens.",
       "fields": {
-        "title": {"name": "Title", "description": "Up to 40 characters."},
-        "message": {"name": "Message", "description": "Up to 120 characters."},
-        "important": {"name": "Important", "description": "Shown even in Do Not Disturb."},
-        "wake": {"name": "Wake the screen", "description": "Wakes a sleeping screen."},
-        "stay": {"name": "Stays on screen", "description": "Seconds; 0 until dismissed."},
-        "icon": {"name": "Icon", "description": "mdi: or hk: icon."},
-        "entity": {"name": "Entity", "description": "What a tap opens."},
-        "camera": {"name": "Camera", "description": "A camera to show."},
-        "tap": {"name": "Tap opens", "description": "What a tap opens."},
-        "page": {"name": "Page", "description": "The page a tap opens."},
-        "dashboards": {"name": "Screens", "description": "Only these screens."},
-        "users": {"name": "People", "description": "Only screens these people are signed in to."}
+        "title": {
+          "name": "Title",
+          "description": "Up to 40 characters."
+        },
+        "message": {
+          "name": "Message",
+          "description": "Up to 120 characters."
+        },
+        "important": {
+          "name": "Important",
+          "description": "Shown even in Do Not Disturb."
+        },
+        "wake": {
+          "name": "Wake the screen",
+          "description": "Wakes a sleeping screen."
+        },
+        "stay": {
+          "name": "Stays on screen",
+          "description": "Seconds; 0 until dismissed."
+        },
+        "icon": {
+          "name": "Icon",
+          "description": "mdi: or hk: icon."
+        },
+        "entity": {
+          "name": "Entity",
+          "description": "What a tap opens."
+        },
+        "camera": {
+          "name": "Camera",
+          "description": "A camera to show."
+        },
+        "tap": {
+          "name": "Tap opens",
+          "description": "What a tap opens."
+        },
+        "page": {
+          "name": "Page",
+          "description": "The page a tap opens."
+        },
+        "dashboards": {
+          "name": "Screens",
+          "description": "Only these screens."
+        },
+        "users": {
+          "name": "People",
+          "description": "Only screens these people are signed in to."
+        }
       }
     }
   }

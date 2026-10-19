@@ -95,3 +95,36 @@ async def test_mantel_link_against_the_real_endpoint(hass, mantel_server):
     await hass.services.async_call("mantel", "show_popup", {"popup": "doorbell"}, blocking=True)
     assert m.linked.handler.popups[-1]["service"] == "show_popup"
     assert await hass.config_entries.async_unload(e.entry_id)
+
+
+async def test_paired_by_code_against_the_real_mantel(hass, socket_enabled):
+    """An Owner's code from Mantel's real linked_pairing.py, typed into Mantel Link's form: traded once, Mantel's
+    proof checked, the credential opens the link."""
+    from homeassistant import config_entries
+    from mantel_server import linked_pairing
+    conn = sqlite3.connect(":memory:")
+    conn.row_factory = sqlite3.Row
+    service_accounts.ensure_schema(conn)
+    accounts = service_accounts.ServiceAccounts(conn)
+    app = web.Application()
+    app["clock"] = time.time
+    app["service_accounts"] = accounts
+    lk = mantel_linked.register(app, None, mantel_linked.LinkedHooks(accounts=accounts, recheck=0.1, heartbeat=None))
+    lk.instance = INSTANCE
+    pairing = linked_pairing.register(app)
+    server = TestServer(app, host="127.0.0.1")
+    await server.start_server()
+    try:
+        url = f"http://127.0.0.1:{server.port}"
+        code = pairing.start("owner-1")["code"]
+        r = await hass.config_entries.flow.async_init("mantel", context={"source": config_entries.SOURCE_USER})
+        r = await hass.config_entries.flow.async_configure(r["flow_id"], {"url": url, "code": code.lower()})
+        assert r["type"] == "create_entry", r
+        e = hass.config_entries.async_entries("mantel")[0]
+        assert e.unique_id == INSTANCE and e.data["token"].startswith("msvc_")
+        assert accounts.verify(e.data["token"], "linked").name == "Home Assistant - Mantel Link"
+        await until(hass, lambda: e.runtime_data.connected)
+        assert pairing.pending() is None, "spent"
+        assert await hass.config_entries.async_unload(e.entry_id)
+    finally:
+        await server.close()

@@ -78,6 +78,7 @@ def test_an_owner_sees_both_links_and_hands_the_bridge_over(tmp_path):
     links = got["Linked Now"]["rows"]
     assert [r["label"] for r in links] == ["HK Frontend", "Mantel Link"]
     assert "can hand over" in links[0]["sub"] and "HK Frontend is also in Home Assistant, linked" in links[1]["sub"]
+    assert [r["label"] for r in got["Pair Mantel Link"]["rows"]] == ["Make a Pairing Code"]
     bridge = got["The Bridge"]["rows"]
     assert bridge[0]["value"] == "HK Frontend"
     assert [r["label"] for r in bridge[1:]] == ["Hand the Bridge to Mantel Link…"]
@@ -94,6 +95,7 @@ def test_with_mantel_link_holding_it_the_owner_can_give_it_back(tmp_path):
 
 def test_an_admin_reads_and_changes_nothing(tmp_path):
     got = groups(run(tmp_path, owners())["admin"])
+    assert "Pair Mantel Link" not in got
     assert [r["kind"] for r in got["The Bridge"]["rows"]] == ["info"]
     assert all(r["kind"] == "info" for r in got["Who Runs Each Wall Tablet"]["rows"])
     assert "Only an Owner" in got["The Bridge"]["footer"]
@@ -102,3 +104,12 @@ def test_an_admin_reads_and_changes_nothing(tmp_path):
 def test_nothing_linked_says_how_to_add_mantel_link(tmp_path):
     got = groups(run(tmp_path, {**owners(), "links": []})["owner"])
     assert got["Linked Now"]["rows"] == [] and "Add Integration, Mantel Link" in got["Linked Now"]["footer"]
+
+
+def test_without_hk_frontend_mantel_link_shows_them(tmp_path):
+    d = owners()
+    d["links"] = [{"domain": "mantel", "protocol": 2, "features": ["bridge"], "since": 1,
+                   "report": {"hk_frontend": {"installed": False, "loaded": False, "linked": False}}}]
+    got = groups(run(tmp_path, d)["owner"])
+    shown = got["The Bridge"]["rows"][0]
+    assert shown["value"] == "Mantel Link" and shown["sub"] == "Home Assistant has no HK Frontend"

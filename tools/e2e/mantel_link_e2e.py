@@ -8,7 +8,8 @@ Phase ``alone`` (slice 9.2), a Home Assistant WITHOUT HK Frontend:
      wall tablet (Hall) that an Owner moves to Mantel, its ``linked`` piece on, a pop-up, and a Service
      account for HA.
   3. Adds Mantel Link through the scratch HA's own REST, as a user does in its UI (Settings, Devices &
-     Services, Add, Mantel Link: the address and the credential). Then checks, on the real HA:
+     Services, Add, Mantel Link: the address and a pairing code the Owner made in Mantel Settings, 9.4).
+     Then checks, on the real HA:
      - the tablet's four entities are live, Mantel Link's (platform ``mantel``), with Mantel's unique ids;
      - ``mantel.set_black_screen`` and the alias ``hk_frontend.set_black_screen`` both reach Mantel,
        and the black screen's ``confirmed`` handshake holds (the page's report confirms it);
@@ -87,10 +88,11 @@ until = LE.until
 class HA(LE.HA):
     """The scratch HA's own REST and WebSocket, as its admin."""
 
-    async def add_mantel_link(self, url: str, token: str) -> dict:
+    async def add_mantel_link(self, url: str, token: str | None = None, code: str | None = None) -> dict:
         st, flow = await self.post("/api/config/config_entries/flow", {"handler": "mantel"})
         assert st == 200 and flow.get("step_id") == "user", flow
-        st, done = await self.post(f"/api/config/config_entries/flow/{flow['flow_id']}", {"url": url, "token": token})
+        st, done = await self.post(f"/api/config/config_entries/flow/{flow['flow_id']}",
+                                   {"url": url, **({"token": token} if token else {}), **({"code": code} if code else {})})
         assert st == 200, done
         return done
 
@@ -159,9 +161,8 @@ async def run_alone(token: str) -> dict:
                 assert st == 200, body
                 st, body = await owner.post("/api/linked/owners", {"unit": "hall", "owner": "mantel"}, method="PUT")
                 check(st == 200 and body["wire"]["tablets"] == ["hall"], "an Owner moves the Hall tablet to Mantel")
-                _acct, svc = app["service_accounts"].create("scratch-home-assistant", ["linked"])
                 try:
-                    await steps_alone(app, ha, owner, base, svc, out)
+                    await steps_alone(app, ha, owner, base, out)
                 finally:
                     e = await ha.mantel_entry()
                     if e:
@@ -175,12 +176,17 @@ async def run_alone(token: str) -> dict:
     return out
 
 
-async def steps_alone(app, ha: HA, owner, base: str, svc: str, out: dict) -> None:
+async def steps_alone(app, ha: HA, owner, base: str, out: dict) -> None:
     lk = app["linked"]
     instance = lk.instance
-    done = await ha.add_mantel_link(base, svc)
-    check(done.get("type") == "create_entry", "Settings, Devices & Services, Add, Mantel Link: tested and saved")
+    st, made = await owner.post("/api/linked/pair", {})
+    check(st == 200 and made.get("code"), "the Owner makes a pairing code (Mantel Settings, Home Assistant Link)")
+    done = await ha.add_mantel_link(base, code=made["code"])
+    check(done.get("type") == "create_entry", "Settings, Devices & Services, Add, Mantel Link: the address and the "
+                                               "code, traded for a credential, tested and saved")
     entry = done["result"]["entry_id"]
+    st, pend = await owner.post("/api/linked/pair", method="GET")
+    check(pend.get("pending") is None and pend.get("paired"), "the code is spent; Mantel made the credential")
     diag = await until(lambda: _diag(ha, entry, lambda d: d.get("connected")))
     check(diag is not None and diag["instance"] == instance and diag["protocol"] == 2,
           "HA's diagnostics: linked to this Mantel (its instance id), protocol 2")
@@ -242,7 +248,7 @@ async def steps_alone(app, ha: HA, owner, base: str, svc: str, out: dict) -> Non
                                      and d.get("connected")))
     check(diag is not None and diag["state"] == "mirroring" and diag["connected"],
           "HA's diagnostics: connected, mirroring, Mantel Link holds the bridge")
-    check(svc not in json.dumps(diag), "the credential is not in HA's diagnostics")
+    check("msvc_" not in json.dumps(diag), "no credential in HA's diagnostics")
     st = await until(lambda: _all_live(ha))
     check(st is not None, "the four entities are still live after the reload")
     check(app["audit"].rows(kind="service") == [], "no household service was called (commands disabled)")

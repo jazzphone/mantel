@@ -31,7 +31,8 @@ from aiohttp import WSMsgType, web
 
 from . import frame_origins, music
 from . import accounts, alarm_pin, auth, connect_pairing, devices, gateway, health, ingress, live_tv, pins, proof2, rbac_store, readproxy, sessions, settings_store
-from . import (admin_page, atrest, backup, connections, features, linked, linked_house, linked_owners, login_page,
+from . import (admin_page, atrest, backup, connections, features, linked, linked_house, linked_owners, linked_pairing,
+               login_page,
                service_accounts, talk_relay, user_files)
 from . import default_screens, direct, direct_tls, ha_dashboards, ma_page, media_proxy, proxy_check, proxy_trust, security_headers, tablet_links, user_data
 from .authz import Authz, Principal, resolve_door
@@ -609,6 +610,9 @@ def wire(app: web.Application, hub: Hub, token: str, connect_ha: bool) -> None:
     # linked mode's per-tablet ownership (CUTOVER §1 Option A): every tablet HA's until an Owner moves
     # it (PUT /api/linked/owners, audited); HA is told in the link's hello and `owners` frames
     linked_owners.register(app, hub)
+    # Mantel Link's pairing codes (docs/phase9/MANTEL-LINK.md 9.4): an Owner's one-time code, traded once at
+    # /linked/pair for a `linked` Service credential, both sides proving they know it
+    linked_pairing.register(app)
     # Phase 4: hk_core's features on Mantel (each off until an Owner enables it; house commands only
     # through the gateway as the `mantel:features` Service actor)
     features.register(app, hub, hooks)

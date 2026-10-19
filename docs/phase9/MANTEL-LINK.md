@@ -1,7 +1,7 @@
 # Phase 9: Mantel Link replaces HK Frontend in Home Assistant (decision 28)
 
 **Status (2026-10-19): being built on branch `claude/mantel-link-b012d1`, one slice at a time. Done: 9.1, 9.2,
-9.3 (see "Build record" at the end). Nothing is on the house; 9.11 waits for Avery, step by step.**
+9.3, 9.4 (see "Build record" at the end). Nothing is on the house; 9.11 waits for Avery, step by step.**
 
 ## The decision
 
@@ -298,3 +298,30 @@ Frontend). `test_e2e_mantel.py` links it to the real `mantel_server/linked.py`.
 - **Browser pane** (a local Mantel against the scratch HA, signed in through the scratch HA's trusted network):
   the Home Assistant Link page at desktop and phone width, the hand-over from its button. Found: the page showed
   the pre-hand-over read until reloaded; it now reads again 4 s after a hand-over.
+
+### 9.4 Pairing codes: done
+
+- **Mantel** (`mantel_server/linked_pairing.py`): an Owner's one-time code (`POST /api/linked/pair`, LAN or a
+  trusted HA sidebar; Mantel Connect's code format: 20 characters, about 98 bits, ten minutes, one at a time, five
+  wrong proofs burn it), **held in memory only**, traded once at `POST /linked/pair` (public to sessions; the LAN
+  door, never a browser; the App's HA Core peer allowed as for `/linked/ws`) for a new Service account
+  "Home Assistant - Mantel Link" (scope `linked`). Both sides prove they know the code: Mantel Link's HMAC over
+  the code id, a nonce and its name; Mantel's over the nonce, its instance id and the credential's hash, checked
+  by Mantel Link before it believes anything, so a look-alike answering a zeroconf announcement can't hand Home
+  Assistant a credential. Rate limits as Mantel Connect's. Audited (`linked.pair_start`, `_cancel`, `_ok` with the
+  account id, `_failed` with `burned`); never the code or the credential.
+- **Deviation:** the plan said "reusing connect_pairing". The code format, the rate-limit windows and the
+  burn rule are reused; the storage is not (Connect keeps its pending code's key in SQLite and allows one pending
+  Connect code at a time), so Mantel Link's codes live in memory instead and never clash with Connect's.
+- **Mantel Link** (`pairing.py`; the setup form): Mantel's address and a pairing code (any case, spaces or
+  dashes), or a Service credential. Errors in words: `invalid_code`, `rate_limited`, `not_mantel`,
+  `code_or_token`. Plain http only to the checked internal address, as the link.
+- **Mantel Settings → Connections → Home Assistant Link → Pair Mantel Link** (Owner): Make a Pairing Code, the code
+  shown once with Copy and Withdraw; the page notices when it is spent. Also fixed there: with no HK Frontend in
+  Home Assistant the bridge reads "Shown By Mantel Link · Home Assistant has no HK Frontend" (it said HK
+  Frontend).
+- **Checks:** `tests/test_linked_pairing.py` (3), Mantel Link's `test_pairing.py` (2) and an end-to-end pairing
+  against the real `linked_pairing.py` (`test_e2e_mantel.py`); the settings page in node (5). **Scratch HA
+  without HK Frontend** (`mantel_link_e2e.py --phase alone`): **27/27**, now adding Mantel Link with a code the
+  Owner made (spent, the credential made by Mantel). Browser pane: the page, Make a Pairing Code, the code held
+  while pending, Withdraw.

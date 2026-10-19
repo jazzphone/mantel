@@ -1213,8 +1213,13 @@ function pLink() {
     const links = d.links || [];
     c.appendChild(group({ header: 'Linked Now', footer: links.length ? null : 'Nothing in Home Assistant is linked to Mantel. Add Mantel Link in Home Assistant: Settings, Devices & Services, Add Integration, Mantel Link.' },
       links.map((l) => info(LINK_NAME[l.domain] || l.domain, linkSays(l), 'Connected'))));
+    if (owner) drawLinkPairing(c);
     const holder = (d.bridge && d.bridge.holder) || 'hk_frontend', b = d.bridge || {};
-    const rows = [info('Shown By', b.changed ? 'since ' + fmt(b.changed) : null, LINK_NAME[holder])];
+    // a Home Assistant without HK Frontend has no one else: Mantel Link shows them whoever holds the bridge
+    const ml = links.find((l) => l.domain === 'mantel'), hkThere = ml && ((ml.report || {}).hk_frontend || {}).installed;
+    const alone = holder !== 'mantel' && ml && hkThere === false && !links.some((l) => l.domain === 'hk_frontend');
+    const rows = [info('Shown By', alone ? 'Home Assistant has no HK Frontend' : b.changed ? 'since ' + fmt(b.changed) : null,
+                       alone ? 'Mantel Link' : LINK_NAME[holder])];
     if (owner && holder !== 'mantel') rows.push(button('Hand the Bridge to Mantel Link…', async () => {
       if (!(await ask({ title: 'Hand the bridge to Mantel Link?', message: 'Mantel Link then shows Mantel’s wall tablets and the house in Home Assistant, under the same entity ids, with their history. HK Frontend lets go of them first. You can give it back.', ok: 'Hand Over' }))) return;
       await act('link', () => api('PUT', '/api/linked/owners', { unit: 'bridge', owner: 'mantel' }), 'Mantel Link holds the bridge.', 'link');
@@ -1236,6 +1241,46 @@ function pLink() {
                                label + (on ? ' is Mantel’s.' : ' is Home Assistant’s.'), 'link') });
       })));
   } };
+}
+
+// PAIR MANTEL LINK (linked_pairing.py): a one-time code, ten minutes, typed into Mantel Link's setup in Home
+// Assistant (by hand, or after it discovered Mantel); shown once, then only "spent" or "expired"
+let linkPairTimer = null;
+function drawLinkPairing(c) {
+  const code = shown.linkPair;
+  if (code) {
+    const left = code.expires - nowS();
+    c.appendChild(group({ header: 'Pairing Code', footer: 'Valid once, for ' + (left > 0 ? Math.ceil(left / 60) + ' min' : 'no longer: it expired') +
+      '. In Home Assistant: Settings, Devices & Services. Open Mantel (Discovered), or Add Integration, Mantel Link with this Mantel’s address, and enter the code.' },
+      [secretCell(code.code, 'link-pairing-code'), copyButton(code.code, 'Copy Code'),
+       button('Withdraw This Code', async () => { await act('link', () => api('DELETE', '/api/linked/pair')); delete shown.linkPair; redraw(); }, { destructive: true, fk: 'mx:link-withdraw' })]));
+    return;
+  }
+  c.appendChild(group({ header: 'Pair Mantel Link', footer: 'For Mantel Link in a Home Assistant that found Mantel on the network, or one you add by hand. You get a one-time code that works for ten minutes; Home Assistant trades it for its own credential (listed under Service Accounts).' }, [
+    button('Make a Pairing Code', async () => {
+      const r = await act('link', () => api('POST', '/api/linked/pair', {}));
+      if (!r) return;
+      shown.linkPair = r;
+      watchLinkPairing(r);
+      redraw();
+    }, { fk: 'mx:link-pair' })]));
+}
+function watchLinkPairing(r) {
+  clearInterval(linkPairTimer);
+  linkPairTimer = setInterval(async () => {
+    if (!shown.linkPair) { clearInterval(linkPairTimer); return; }
+    try {
+      const got = await api('GET', '/api/linked/pair');
+      if (!got.pending) {
+        clearInterval(linkPairTimer);
+        const paired = (got.paired || []).some((p) => p.at >= r.expires - got.ttl - 1);
+        delete shown.linkPair;
+        flash = { key: 'link', text: paired ? 'Mantel Link is paired. The code is spent.' : 'The code expired or was withdrawn.', err: !paired };
+        forget('link');
+        redraw();
+      }
+    } catch (e) { /* the next tick tries again */ }
+  }, 3000);
 }
 
 function pProxy() {
