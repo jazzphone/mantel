@@ -41,12 +41,35 @@ CSP = ("default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' 
        "base-uri 'none'; form-action 'none'; frame-ancestors 'self'")
 
 
-def npm_advanced(upstream: str = "MANTEL_ADDRESS:8765", door: str = "lan", key: str = door_key.PLACEHOLDER) -> str:
+UPSTREAM = "MANTEL_ADDRESS:8765"            # the compose stack's own port (OPERATIONS.md)
+APP_UPSTREAM = "HA_MACHINE_ADDRESS:8100"     # the HA App's direct port: the host's address is not visible inside
+APP_UPSTREAM_NOTE = ("    # HA_MACHINE_ADDRESS: your Home Assistant machine's LAN address; 8100: the App's host port "
+                     "(Network tab)")
+
+
+def upstream_for(cfg) -> str:
+    """What the proxy forwards to: the HA App's direct port when it has one (direct.py), else the stack's."""
+    from . import direct
+    return APP_UPSTREAM if direct.enabled(cfg) else UPSTREAM
+
+
+def npm_advanced(upstream: str = UPSTREAM, door: str = "lan", key: str = door_key.PLACEHOLDER) -> str:
     """Nginx Proxy Manager, proxy host -> Advanced -> Custom Nginx Configuration (one `location /`
     replaces NPM's own, so these headers are not lost to nginx's inheritance rule). `key`: this
-    installation's door key (door_key.py; the placeholder in the docs and for anyone but an Owner)."""
+    installation's door key (door_key.py; the placeholder in the docs and for anyone but an Owner).
+    The `lan` block says `tunnel` for what came through Cloudflare (a tunnel into the same proxy host;
+    authz.resolve_door also gives Cloudflare's headers the tunnel door). The HA App's upstream says
+    which address to fill in: the address left as MANTEL_ADDRESS made a pasted block load nothing (the
+    house, 2026-10-19)."""
+    if door == "lan":
+        door_lines = ["    set $mantel_door lan;",
+                      "    if ($http_cf_connecting_ip) { set $mantel_door tunnel; }",
+                      "    proxy_set_header X-Mantel-Door $mantel_door;"]
+    else:
+        door_lines = [f"    proxy_set_header X-Mantel-Door {door};"]
     return "\n".join([
         "location / {",
+        *([APP_UPSTREAM_NOTE] if upstream == APP_UPSTREAM else []),
         f"    proxy_pass http://{upstream};",
         "    proxy_http_version 1.1;",
         "    proxy_set_header Host $http_host;",
@@ -55,7 +78,7 @@ def npm_advanced(upstream: str = "MANTEL_ADDRESS:8765", door: str = "lan", key: 
         "    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;",
         "    proxy_set_header X-Forwarded-Proto $scheme;",
         "    proxy_set_header X-Forwarded-Host $http_host;",
-        f"    proxy_set_header X-Mantel-Door {door};",
+        *door_lines,
         f"    proxy_set_header {door_key.HEADER} {key};",
         '    proxy_set_header X-Remote-User-Id "";',
         '    proxy_set_header X-Remote-User-Name "";',
@@ -110,7 +133,8 @@ def report(request: web.Request) -> dict:
     need_key = door_key.required(cfg)
     dk = door_key.of(request.app) if need_key else None
     key_value = dk.value() if dk is not None else None
-    npm = npm_advanced(key=key_value or door_key.PLACEHOLDER)
+    up = upstream_for(cfg)
+    npm = npm_advanced(up, key=key_value or door_key.PLACEHOLDER)
     if https:
         add("https", True, "HTTPS is in use", "Your browser reached Mantel over HTTPS.")
     else:
@@ -193,7 +217,7 @@ def report(request: web.Request) -> dict:
             f"The client address is {client}, which is not a private address, yet the door is lan. If this "
             "proxy host is reachable from the internet, everyone gets the wall tablets' door.",
             "Use X-Mantel-Door tunnel on any proxy host the internet can reach, and lan only on a host that "
-            "listens on your LAN alone.", npm_advanced(door="tunnel"))
+            "listens on your LAN alone.", npm_advanced(up, door="tunnel"))
     elif door == "tunnel" and trusted and claims and _private(client) is True:
         add("door_plausible", None, "A LAN address on the tunnel door",
             f"The client address {client} is private but the proxy says tunnel. Fine if you meant this host "
@@ -213,7 +237,7 @@ def report(request: web.Request) -> dict:
             + ("" if same else " Sign in with Home Assistant returns to the configured address."))
     return {"checks": checks, "probe": PROBE, "proxy_kind": kind, "door": door, "https": https,
             "peer": peer, "client": client, "trusted": trusted_list,
-            "npm_advanced": npm, "npm_advanced_tunnel": npm_advanced(door="tunnel", key=key_value or door_key.PLACEHOLDER),
+            "npm_advanced": npm, "npm_advanced_tunnel": npm_advanced(up, door="tunnel", key=key_value or door_key.PLACEHOLDER),
             "traefik": traefik(key_value or door_key.PLACEHOLDER),
             # Owner only (this whole report is): the key the proxy must send, when it must
             "door_key": {"value": key_value, "since": dk.since(), "header": door_key.HEADER} if dk is not None else None}
@@ -269,7 +293,7 @@ async def basics(request: web.Request) -> web.Response:
                               # browser's own door header through (anyone could claim the LAN door)
                               "probe_passed": any(c.strip() == PROBE for c in claims),
                               "door_key": door_key.status(request) if trusted else None,
-                              "npm_advanced": npm_advanced()},
+                              "npm_advanced": npm_advanced(upstream_for(request.app.get("cfg")))},
                              headers={"Cache-Control": "no-store"})
 
 

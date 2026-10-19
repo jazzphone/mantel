@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import json
 
+from pathlib import Path
+
 import pytest
 
 from mantel_server import proxy_check
@@ -41,7 +43,7 @@ async def test_a_correct_proxy_passes(m):
     assert body["door"] == "lan" and body["https"] is True and body["client"] == "192.168.1.40"
     for cid in ("https", "trusted_proxy", "door_header", "forwarded_for", "door_overwrite", "door_key"):
         assert checks[cid]["ok"] is True, checks[cid]
-    assert "proxy_set_header X-Mantel-Door lan;" in body["npm_advanced"]
+    assert "set $mantel_door lan;" in body["npm_advanced"]
     assert "X-Mantel-Door: \"lan\"" in body["traefik"]
 
 
@@ -61,7 +63,7 @@ async def test_a_missing_door_header_is_found_with_the_fix(m):
     h = {k: v for k, v in GOOD.items() if k not in ("X-Mantel-Door", "X-Test-Peer")}
     checks, body = report_for(m, PROXY, h)
     assert body["door"] == "tunnel"
-    assert checks["door_header"]["ok"] is False and "proxy_set_header X-Mantel-Door lan;" in checks["door_header"]["paste"]
+    assert checks["door_header"]["ok"] is False and "set $mantel_door lan;" in checks["door_header"]["paste"]
     # signed out on that door, the page still learns which door it is (public, nothing configured in it)
     r = await m.client.get(proxy_check.BASICS, headers={"X-Test-Peer": PROXY})
     b = await r.json()
@@ -214,3 +216,19 @@ def test_the_admin_page_draws_the_https_panel_from_the_summary():
     js = (Path(__file__).resolve().parents[1] / "hosts/server/mantel_server/static/admin/admin.js").read_text()
     assert "/api/admin/proxy-check/summary" in js and "door-key-rotate" in js and "Test my proxy" in js
     assert "['owner', 'admin'].includes" in js
+
+
+def test_the_ha_apps_block_names_the_address_to_fill_in():
+    """The HA App handed out `proxy_pass http://MANTEL_ADDRESS:8765` (the compose stack's), and a block pasted
+    as it was loaded nothing (the house, 2026-10-19). On the App's direct port the block forwards to the HA
+    machine's port 8100 and says what to put in; Cloudflare's requests are stamped tunnel."""
+    from types import SimpleNamespace
+    app_block = proxy_check.npm_advanced(proxy_check.upstream_for(SimpleNamespace(direct_port=8100)))
+    assert "proxy_pass http://HA_MACHINE_ADDRESS:8100;" in app_block and "MANTEL_ADDRESS:8765" not in app_block
+    assert "# HA_MACHINE_ADDRESS: your Home Assistant machine's LAN address" in app_block
+    assert "if ($http_cf_connecting_ip) { set $mantel_door tunnel; }" in app_block
+    assert proxy_check.upstream_for(SimpleNamespace(direct_port=0)) == "MANTEL_ADDRESS:8765"
+    tunnel = proxy_check.npm_advanced(proxy_check.APP_UPSTREAM, door="tunnel")
+    assert "proxy_set_header X-Mantel-Door tunnel;" in tunnel and "$mantel_door" not in tunnel
+    docs = (Path(__file__).resolve().parents[1] / "packaging/ha-app/DOCS.md").read_text()
+    assert "proxy_pass http://HA_MACHINE_ADDRESS:8100;" in docs and "set $mantel_door lan;" in docs

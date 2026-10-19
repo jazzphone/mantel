@@ -108,7 +108,9 @@ location / {
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
     proxy_set_header X-Forwarded-Proto $scheme;
     proxy_set_header X-Forwarded-Host $http_host;
-    proxy_set_header X-Mantel-Door lan;
+    set $mantel_door lan;
+    if ($http_cf_connecting_ip) { set $mantel_door tunnel; }
+    proxy_set_header X-Mantel-Door $mantel_door;
     proxy_set_header X-Mantel-Door-Key MANTEL_DOOR_KEY;
     proxy_set_header X-Remote-User-Id "";
     proxy_set_header X-Remote-User-Name "";

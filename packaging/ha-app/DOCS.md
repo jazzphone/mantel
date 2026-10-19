@@ -86,6 +86,7 @@ Your proxy owns HTTPS and forwards to the App over plain HTTP.
 
    ```nginx
    location / {
+       # HA_MACHINE_ADDRESS: your Home Assistant machine's LAN address; 8100: the App's host port (Network tab)
        proxy_pass http://HA_MACHINE_ADDRESS:8100;
        proxy_http_version 1.1;
        proxy_set_header Host $http_host;
@@ -94,7 +95,9 @@ Your proxy owns HTTPS and forwards to the App over plain HTTP.
        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
        proxy_set_header X-Forwarded-Proto $scheme;
        proxy_set_header X-Forwarded-Host $http_host;
-       proxy_set_header X-Mantel-Door lan;
+       set $mantel_door lan;
+       if ($http_cf_connecting_ip) { set $mantel_door tunnel; }
+       proxy_set_header X-Mantel-Door $mantel_door;
        proxy_set_header X-Mantel-Door-Key MANTEL_DOOR_KEY;
        proxy_set_header X-Remote-User-Id "";
        proxy_set_header X-Remote-User-Name "";
@@ -106,7 +109,8 @@ Your proxy owns HTTPS and forwards to the App over plain HTTP.
    }
    ```
 
-   Replace `HA_MACHINE_ADDRESS` and `MANTEL_DOOR_KEY` (the key from step 3).
+   Replace `HA_MACHINE_ADDRESS` (your Home Assistant machine's LAN address, the one you open it by at home; the block on the
+   Test my proxy page has the same placeholder) and `MANTEL_DOOR_KEY` (the key from step 3; never paste it anywhere else).
    **Access tab: required.** Give this proxy host an NPM *Access List* that allows only your home's
    networks (for example your LAN's `a.b.c.0/24`) and denies all, or run an NPM that the internet cannot
    reach at all. The block above tells Mantel "this is the home network"; a certificate's name is public
@@ -114,16 +118,8 @@ Your proxy owns HTTPS and forwards to the App over plain HTTP.
    rules. (Mantel also refuses the home rules when the visitor's own address is an internet one, but do not
    rely on that alone.) For access from outside, use a separate proxy host that sends `tunnel`, or Home
    Assistant's sidebar.
-   **Cloudflare Tunnel into the same proxy host:** replace the `X-Mantel-Door lan` line with
-
-   ```nginx
-       set $mantel_door lan;
-       if ($http_cf_connecting_ip) { set $mantel_door tunnel; }
-       proxy_set_header X-Mantel-Door $mantel_door;
-   ```
-
-   so what came through Cloudflare is stamped `tunnel` (Mantel also gives any request carrying Cloudflare's
-   headers the remote rules). Point the tunnel at the proxy's HTTPS port with the origin server name set to
+   **Cloudflare Tunnel into the same proxy host:** the `set $mantel_door` lines above stamp `tunnel` on what came
+   through Cloudflare (Mantel also gives any request carrying Cloudflare's headers the remote rules). Point the tunnel at the proxy's HTTPS port with the origin server name set to
    Mantel's name, allow cloudflared's address in the Access List, and keep a local DNS record that sends
    home devices straight to the proxy, not out through Cloudflare (a tablet through the tunnel gets the
    remote rules).
