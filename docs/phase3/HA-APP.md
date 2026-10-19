@@ -799,6 +799,14 @@ No migration. Validation 130 JS, 723 HA Python, 2,590 Mantel, smoke ok.
 - Seen: after the App restart a Settings page opened straight at its Ingress address got HA's own
   "401: Unauthorized" until Mantel was opened once from HA's sidebar (HA's Ingress session had lapsed, not Mantel).
 
+### 0.1.20 (2026-10-19)
+
+Pairing the Kitchen tablet (Kiosk Satellite 2026.10.6) said "not Kiosk Satellite's remote administration". Cause:
+one `content.read(1 MB)` returns only what has arrived, so the command list (several pieces) was cut short and its
+JSON failed. Fixed with `kiosk.read_body` (every piece, capped), also in Fully's client and the Music Assistant page
+rewrite. Found with a wrong-password pairing through the App (it got "refused that password", so the App reached the
+tablet) and a fake tablet that answers in pieces, which gave the same message before the fix.
+
 ### Removal
 
 Stop and uninstall **Mantel** (Settings → Apps → Mantel → Uninstall); this removes its image and `/data`
