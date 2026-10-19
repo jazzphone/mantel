@@ -66,9 +66,13 @@ def sections_for(request: web.Request, ident: Identity) -> list[str]:
     if role in MANAGERS:                   # accounts.require_manager guards /api/users and /api/devices
         out += ["people", "devices", "files"]   # files: user_files' REST, also require_manager
         out.append("connections")          # connections.py: Owner/Admin read; only an Owner changes
+    authz = request.app.get("authz")
     if role == "owner":                    # rbac_store's REST is Owner-only
         out.append("roles")
-        if ident.door == "lan":            # service_accounts' REST: an Owner's own session, LAN door only
+        # service_accounts' REST: an Owner's own session on the LAN door, or HA's sidebar with the home
+        # rules (service_accounts._owner; the HA App has no LAN door, so the section was never shown there:
+        # the house, 2026-10-18, needed for linked mode's credential)
+        if ident.door == "lan" or (authz is not None and hasattr(authz, "home_door") and authz.home_door(ident)):
             out.append("service")
             if getattr(request.app["cfg"], "connect", False):    # Mantel Connect pairing (connect_pairing.py): same rule
                 out.append("connect")

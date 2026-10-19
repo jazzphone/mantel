@@ -822,3 +822,19 @@ async def test_owner_imports_hks_settings_once_from_the_people_page(mk):
     assert "import-settings" not in page
     r = await m.request("POST", "/ingress/import-settings", {**m.ha(ADULT_HA), **origin}, data={"csrf": m.jar["mantel_csrf"]})
     assert r.status == 403
+
+
+async def test_an_owner_on_a_trusted_sidebar_sees_service_accounts_and_may_create_one(mk):
+    """Linked mode needs a Service credential, made by the Owner in Mantel settings. Under the HA App there is no
+    LAN door, and the admin page offered the Service accounts section on the LAN door only, so Avery could not
+    find it (the house, 2026-10-18), though the REST allowed HA's sidebar with the home rules all along."""
+    m = await mk(rules="trusted")
+    m.store.link(OWNER_HA, "owner")
+    await m.page()
+    ov = await (await m.request("GET", "/api/admin/overview", m.ha())).json()
+    assert "service" in ov["sections"], ov["sections"]
+    m2 = await mk(rules="tunnel")
+    m2.store.link(OWNER_HA, "owner")
+    await m2.page()
+    ov2 = await (await m2.request("GET", "/api/admin/overview", m2.ha())).json()
+    assert "service" not in ov2["sections"]             # tunnel rules: still not from the sidebar
