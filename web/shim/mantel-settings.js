@@ -1119,6 +1119,11 @@ const origin = (u) => { try { return new URL(u).origin; } catch (e) { return '';
 function framedBy() {
   try { const a = location.ancestorOrigins; return a && a.length ? a[a.length - 1] : null; } catch (e) { return null; }
 }
+// an Owner trusts one Home Assistant address to show Mantel in a frame (frame_origins.py; audited, applied at once)
+function allowFrame(key, addr) {
+  return act(key, () => api('POST', '/api/admin/frame-origins', { origin: addr }),
+             addr.replace(/^https?:\/\//, '') + ' may now show Mantel. Reload the dashboard in Home Assistant.', HAD, 'proxy');
+}
 function drawHaDashboard(c, ctx) {
   if (!me || !MANAGER(me.user.role)) return;
   const key = 'ha-dash:' + ctx.screen;
@@ -1134,9 +1139,21 @@ function drawHaDashboard(c, ctx) {
     cache[HAD] = { data: await api('PUT', '/api/admin/screens/' + encodeURIComponent(ctx.screen) + '/ha-dashboard', body) };
     hadAt = Date.now();
   }, okText);
+  const allowedFrames = (d.frame_ancestors || []).map(origin);
+  const top = framedBy(), topBlocked = !!top && !allowedFrames.includes(top);
   const rows = [K().toggle({ label: 'Show in Home Assistant', sub: cur ? 'In its sidebar as ' + cur.title : null, on: !!cur,
     fk: 'mx:had:on', onChange: async (on) => {
-      if (on) { put({ on: true, title: ctx.title || undefined }, 'Added to Home Assistant.'); return; }
+      if (on) {
+        // shown inside HA at an address that may not frame Mantel yet: an Owner's turning it on trusts that address
+        const body = { on: true, title: ctx.title || undefined };
+        if (topBlocked && me.user.role === 'owner') body.frame_origin = top;
+        act(key, async () => {
+          const r = await api('PUT', '/api/admin/screens/' + encodeURIComponent(ctx.screen) + '/ha-dashboard', body);
+          cache[HAD] = { data: r }; hadAt = Date.now();
+          if (r.frame_approved) flash = { key, text: 'Added to Home Assistant, and ' + r.frame_approved.replace(/^https?:\/\//, '') + ' may now show Mantel.' };
+        }, 'Added to Home Assistant.');
+        return;
+      }
       if (!(await ask({ title: 'Remove ' + cur.title + ' from Home Assistant?', message: 'The dashboard leaves Home Assistant’s sidebar for everyone. Anyone whose Home Assistant opens on it opens on Home Assistant’s default instead.', ok: 'Remove', destructive: true }))) { redraw(); return; }
       put({ on: false }, 'Removed from Home Assistant.');
     } })];
@@ -1148,6 +1165,11 @@ function drawHaDashboard(c, ctx) {
     rows.push(K().select({ label: 'Who Sees It', value: cur.require_admin ? 'admin' : 'all', fk: 'mx:had:who',
       options: [['all', 'Everyone'], ['admin', 'Home Assistant Administrators Only']],
       onChange: (v) => put({ on: true, require_admin: v === 'admin' }, 'Saved.') }));
+  }
+  if (cur && topBlocked) {
+    rows.push(me.user.role === 'owner'
+      ? button('Allow ' + top.replace(/^https?:\/\//, '') + ' to Show Mantel', () => allowFrame(key, top), { fk: 'mx:had:allow' })
+      : info('Not Allowed Here', 'Home Assistant is open at ' + top.replace(/^https?:\/\//, '') + ', which may not show Mantel yet: an Owner allows it (Connections → HTTPS and Your Proxy).', 'Blank', 'warn'));
   }
   const notes = [];
   if (cur) {
@@ -1214,28 +1236,43 @@ function pProxy() {
 function drawFrames(c, s) {
   const got = loadHad();
   if (!got || got.err || got.data.state === 'direct_access_off') return;
-  const allowed = (s.frame_ancestors || []).map(origin).filter(Boolean);
-  const okAt = (o) => allowed.includes(o);
+  const owner = me.user.role === 'owner', key = 'frames';
   const plain = (o) => o.replace(/^https?:\/\//, '');
-  const rows = [info('Allowed to Show Mantel', null, allowed.length ? allowed.map(plain).join(', ') : 'None', allowed.length ? '' : 'warn')];
-  const seen = new Set();
-  const check = (label, o, sub) => {
-    if (!o || seen.has(label + o)) return;
-    seen.add(label + o);
-    rows.push(info(label, plain(o) + (sub ? ' · ' + sub : ''), okAt(o) ? 'OK' : 'Fix', okAt(o) ? '' : 'warn'));
+  const listed = s.frame_origins || (s.frame_ancestors || []).map((o) => ({ origin: o, source: 'option' }));
+  const allowed = listed.map((x) => origin(x.origin)).filter(Boolean);
+  const okAt = (o) => allowed.includes(o);
+  const SOURCE = { option: 'From the App’s options', home_assistant: 'Home Assistant’s own address (Settings → System → Network)', approved: 'Allowed here' };
+  const rows = listed.length ? listed.map((x) => info(plain(x.origin), SOURCE[x.source] || x.source, x.source === 'approved' ? 'Allowed' : 'Automatic'))
+    : [info('Allowed to Show Mantel', null, 'None', 'warn')];
+  const seen = new Set(allowed);
+  const offer = (label, o, sub) => {               // an address HA is (or may be) opened at that is not allowed yet
+    if (!o || seen.has(o)) return;
+    seen.add(o);
+    rows.push(owner ? button('Allow ' + plain(o) + (sub ? ' (' + sub + ')' : ''), () => allowFrame(key, o), { fk: 'mx:frames:allow:' + o })
+                    : info(label, plain(o) + (sub ? ' · ' + sub : ''), 'Not Allowed', 'warn'));
   };
-  for (const a of got.data.ha_addresses || []) check(a.kind === 'internal' ? 'Home Assistant at Home' : 'Home Assistant Away', origin(a.url), 'its ' + a.kind + ' URL');
-  const top = framedBy();
-  if (top) check('This Page', top, 'shown inside it now');
-  const typed = draft('frames').addr;
-  if (typed) check('Checked', origin(/^https?:\/\//.test(typed) ? typed : 'https://' + typed));
-  rows.push(K().text({ label: 'Check an Address', value: typed || '', placeholder: 'https://homeassistant.example.com', maxlength: 300, inputmode: 'url',
-    fk: 'mx:frames:addr', onCommit: (v) => { draft('frames').addr = v.trim(); redraw(); } }));
-  const opt = s.frame_option === 'ha_frame_origins'
-    ? 'add the missing ones to the App option ha_frame_origins (comma separated; ha_sign_in_url’s is always allowed), then restart the App'
-    : 'add the missing ones with --frame-ancestors (MANTEL_FRAME_ANCESTORS in the container), then restart Mantel';
-  c.appendChild(group({ header: 'Home Assistant’s Frame', footer: 'A screen in Home Assistant’s sidebar loads only when Home Assistant was opened at an ' +
-    'allowed address; at any other the browser refuses it. Every address you open Home Assistant at, at home and away, needs to be allowed: ' + opt + '.' }, rows));
+  for (const a of got.data.ha_addresses || []) offer(a.kind === 'internal' ? 'Home Assistant at Home' : 'Home Assistant Away', origin(a.url), 'its ' + a.kind + ' URL');
+  offer('This Page', framedBy(), 'Home Assistant is open here now');
+  c.appendChild(group({ header: 'Home Assistant’s Frame', footer: 'A screen in Home Assistant’s sidebar shows only when Home Assistant is opened at one of ' +
+    'these addresses; at any other the browser shows a blank page. Home Assistant’s own internal and external URL are allowed by themselves.' +
+    (owner ? ' Allow every other address you open Home Assistant at.' : ' An Owner allows others.') }, rows));
+  const approved = listed.filter((x) => x.source === 'approved');
+  if (owner) {
+    const typed = draft('frames').addr || '';
+    c.appendChild(group({ footer: 'Like https://homeassistant.example.com or http://homeassistant.local:8123: the address in the browser when Home Assistant is open, without the page after it.' }, [
+      K().text({ label: 'Allow an Address', value: typed, placeholder: 'https://homeassistant.example.com', maxlength: 300, inputmode: 'url',
+                 fk: 'mx:frames:addr', onCommit: (v) => { draft('frames').addr = v.trim(); redraw(); } }),
+      button('Allow', async () => {
+        const v = (draft('frames').addr || '').trim();
+        if (!v) return;
+        if (await allowFrame(key, /^https?:\/\//i.test(v) ? v : 'https://' + v)) { draft('frames').addr = ''; redraw(); }
+      }, { fk: 'mx:frames:add' }),
+      ...approved.map((x) => button('Remove ' + plain(x.origin) + '…', async () => {
+        if (!(await ask({ title: 'Remove ' + plain(x.origin) + '?', message: 'Home Assistant opened at this address shows a blank page instead of Mantel.', ok: 'Remove', destructive: true }))) return;
+        act(key, () => api('DELETE', '/api/admin/frame-origins?origin=' + encodeURIComponent(x.origin)), 'Removed.', HAD, 'proxy');
+      }, { destructive: true, fk: 'mx:frames:remove:' + x.origin }))]));
+  }
+  result(c, key);
 }
 
 // ============================================================================================ Audit

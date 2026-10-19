@@ -173,10 +173,12 @@ dashboard → Webpage**, the screen's address (for example `https://mantel.examp
 Unlike the App's own "Mantel" entry, a Webpage dashboard can be your **default dashboard** (Profile →
 Dashboard), so the Companion app opens it.
 
-* Home Assistant may show Mantel in a frame only from the addresses Mantel knows: `ha_sign_in_url`'s, plus
-  any in `ha_frame_origins` (Home Assistant's other addresses, separated by commas, e.g. the one used at home
-  and the one used away). Everything else still may not frame Mantel. Connections → HTTPS and Your Proxy
-  checks Home Assistant's own internal and external URLs, and any address you type, against that list.
+* Home Assistant may show Mantel in a frame only from the addresses Mantel knows, and anywhere else the browser
+  shows a blank page. Allowed by themselves: Home Assistant's own **internal and external URL** (HA →
+  Settings → System → Network) and `ha_sign_in_url`'s. Any other address you open Home Assistant at: allow it
+  in **Mantel Settings → Connections → HTTPS and Your Proxy → Home Assistant's Frame** (an Owner; it applies at
+  once, no restart), or turn on *Show in Home Assistant* while Home Assistant is open at that address, which
+  allows it for you. `ha_frame_origins` (separated by commas) still adds addresses from the App's options.
 * Open Home Assistant by a name in the **same domain** as Mantel's (e.g. `ha.example.com` beside
   `mantel.example.com`), in the Companion app too (internal and external URL). Mantel's sign-in cookies are
   same-site only: from `http://homeassistant.local:8123` or an IP address the frame cannot stay signed in.

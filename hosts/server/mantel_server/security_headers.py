@@ -102,12 +102,18 @@ def render(policy: dict[str, tuple[str, ...]]) -> str:
     return "; ".join(f"{k} {' '.join(v)}" for k, v in policy.items())
 
 
-def page_policy(cfg=None, host: str | None = None, https: bool = False) -> str:
+def _ancestors(cfg, ancestors) -> tuple[str, ...]:
+    """The frame-ancestors sources: what frame_origins.ancestors(app) gave, else the operator's alone (the tests)."""
+    got = getattr(cfg, "frame_ancestors", ()) if ancestors is None else ancestors
+    return tuple(s for s in (got or ()) if valid_source(s))
+
+
+def page_policy(cfg=None, host: str | None = None, https: bool = False, ancestors=None) -> str:
     """HK's page policy with the operator's extra sources and the page's own WebSocket origin."""
     pol = {k: tuple(v) for k, v in PAGE_POLICY.items()}
     extra_connect = tuple(s for s in getattr(cfg, "csp_connect_src", ()) or () if valid_source(s))
     extra_frame = tuple(s for s in getattr(cfg, "csp_frame_src", ()) or () if valid_source(s))
-    ancestors = tuple(s for s in getattr(cfg, "frame_ancestors", ()) or () if valid_source(s))
+    ancestors = _ancestors(cfg, ancestors)
     own_ws = (f"{'wss' if https else 'ws'}://{host}",) if host and _HOST.match(host) else ()
     pol["connect-src"] = pol["connect-src"] + own_ws + extra_connect
     pol["frame-src"] = pol["frame-src"] + extra_frame
@@ -118,34 +124,34 @@ def page_policy(cfg=None, host: str | None = None, https: bool = False) -> str:
     return render(pol)
 
 
-def own_page_csp(csp: str, cfg=None, *, ingress: bool = False) -> str:
+def own_page_csp(csp: str, cfg=None, *, ingress: bool = False, ancestors=None) -> str:
     """A stricter page's policy (``/login``, ``/admin``: ``frame-ancestors 'none'``) with the frames it may sit
     in: HA's own page through Ingress ('self'), and the operator's frame-ancestors (a Webpage dashboard in HA's
     sidebar shows the direct address, and a signed-out frame lands on /login). Nothing else ever frames it."""
-    ancestors = tuple(s for s in getattr(cfg, "frame_ancestors", ()) or () if valid_source(s))
+    ancestors = _ancestors(cfg, ancestors)
     if "'none'" in ancestors:
         return csp
     allowed = (("'self'",) if ingress else ()) + tuple(a for a in ancestors if a != "'self'")
     return csp.replace("frame-ancestors 'none'", "frame-ancestors " + " ".join(allowed)) if allowed else csp
 
 
-def ma_policy(cfg=None) -> str:
+def ma_policy(cfg=None, ancestors=None) -> str:
     pol = dict(MA_POLICY)
-    ancestors = tuple(s for s in getattr(cfg, "frame_ancestors", ()) or () if valid_source(s) and s != "'none'")
+    ancestors = tuple(s for s in _ancestors(cfg, ancestors) if s != "'none'")
     pol["frame-ancestors"] = ("'self'",) + tuple(a for a in ancestors if a != "'self'")
     return render(pol)
 
 
 def headers_for(path: str, cfg=None, *, host: str | None = None, https: bool = False,
-                ingress: bool = False) -> dict[str, str]:
+                ingress: bool = False, ancestors=None) -> dict[str, str]:
     """Every header Mantel's own baseline puts on a response to `path` (a pure function: the tests)."""
     out = dict(STATIC)
     if path.startswith(MA_PREFIX):
-        out["Content-Security-Policy"] = ma_policy(cfg)
+        out["Content-Security-Policy"] = ma_policy(cfg, ancestors)
     elif path.startswith(GO2RTC_PREFIX):
         out["Content-Security-Policy"] = GO2RTC_POLICY
     else:
-        out["Content-Security-Policy"] = page_policy(cfg, host, https)
+        out["Content-Security-Policy"] = page_policy(cfg, host, https, ancestors)
     if https and not ingress:
         out["Strict-Transport-Security"] = HSTS
     return out
@@ -154,6 +160,7 @@ def headers_for(path: str, cfg=None, *, host: str | None = None, https: bool = F
 def register(app) -> None:
     """Install the baseline on every response (on_response_prepare also covers WebSocket handshakes,
     files and error pages, whichever request object prepares them)."""
+    from . import frame_origins
     from . import ingress as ingress_mod
     from . import proxy_trust
 
@@ -162,7 +169,8 @@ def register(app) -> None:
         through_ingress = ingress_mod.is_ingress(request)
         https = proxy_trust.is_https(request)
         host = proxy_trust.public_host(request)
-        for name, value in headers_for(request.path, cfg, host=host, https=https, ingress=through_ingress).items():
+        for name, value in headers_for(request.path, cfg, host=host, https=https, ingress=through_ingress,
+                                       ancestors=frame_origins.ancestors(request.app)).items():
             if name not in response.headers:
                 response.headers[name] = value
         response.headers.pop("Server", None)

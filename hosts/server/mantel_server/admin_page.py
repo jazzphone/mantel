@@ -29,7 +29,7 @@ from importlib.resources import files
 
 from aiohttp import web
 
-from . import ingress, rbac, security_headers
+from . import frame_origins, ingress, rbac, security_headers
 from .accounts import MANAGERS
 from .devices import DEVICE_ROLES
 from .login_page import login_url
@@ -59,7 +59,8 @@ def _headers(request: web.Request) -> dict:
     """The page's headers. Through Home Assistant's Ingress the page is framed by HA's own page (same
     origin), so frame-ancestors is 'self' there; the operator's frame-ancestors (HA's Webpage dashboards
     showing the direct address) may frame it too; everywhere else it stays 'none'."""
-    csp = security_headers.own_page_csp(CSP, request.app.get("cfg"), ingress=bool(request.get("mantel_base")))
+    csp = security_headers.own_page_csp(CSP, request.app.get("cfg"), ingress=bool(request.get("mantel_base")),
+                                       ancestors=frame_origins.ancestors(request.app))
     return HEADERS if csp == CSP else {**HEADERS, "Content-Security-Policy": csp}
 
 

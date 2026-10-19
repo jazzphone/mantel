@@ -29,7 +29,7 @@ from urllib.parse import urlparse
 import aiohttp
 from aiohttp import WSMsgType, web
 
-from . import music
+from . import frame_origins, music
 from . import accounts, alarm_pin, auth, connect_pairing, devices, gateway, health, ingress, live_tv, pins, proof2, rbac_store, readproxy, sessions, settings_store
 from . import (admin_page, atrest, backup, connections, features, linked, linked_house, linked_owners, login_page,
                service_accounts, talk_relay, user_files)
@@ -590,6 +590,7 @@ def wire(app: web.Application, hub: Hub, token: str, connect_ha: bool) -> None:
     readproxy.register(app, hub, hooks)
     default_screens.register(app)    # the screen each person or tablet opens on (Mantel Settings)
     ha_dashboards.register(app)      # a screen as a Webpage dashboard in HA's sidebar (a screen's page; HA is the record)
+    frame_origins.register(app)      # which HA addresses may show Mantel in a frame (HA's own, an Owner's approved ones)
     user_data.register(app, hub)     # HK's per-person frontend user data (the Music page's speaker), Mantel's own
     camera_connector.register(app, hub, hooks)
     camera_still.register(app, hub, authz, conns.ha_token)   # GET /api/camera/<entity>/still (RBAC, HA's token stays here)
@@ -740,6 +741,8 @@ async def house_tz(app: web.Application, hub: Hub, attempts: int = 30) -> None:
     for _ in range(attempts):
         try:
             got = await hub.readproxy.request({"type": "get_config"})  # type: ignore[union-attr]
+            if app.get("frame_origins") is not None:
+                app["frame_origins"].learn(got)      # HA's own addresses may frame Mantel (frame_origins.py)
             tz = got.get("time_zone") if isinstance(got, dict) else None
             if isinstance(tz, str) and tz:
                 if authz.set_tz(tz, "home_assistant"):

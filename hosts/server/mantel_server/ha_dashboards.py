@@ -41,6 +41,7 @@ import aiohttp
 from aiohttp import web
 
 from . import connections as C
+from . import frame_origins
 from .accounts import read_json, require_manager
 from .default_screens import SCREEN, screens
 from .sessions import error, ok
@@ -221,6 +222,8 @@ async def _read(sess: HaSession, app: web.Application) -> dict:
         hc = await sess.call("get_config")
     except HaError:
         hc = {}
+    if app.get("frame_origins") is not None:
+        app["frame_origins"].learn(hc)             # HA's own addresses may frame Mantel (frame_origins.py)
     addresses = [{"kind": k, "url": hc.get(k + "_url").rstrip("/")} for k in ("internal", "external")
                  if isinstance(hc, dict) and isinstance(hc.get(k + "_url"), str) and hc.get(k + "_url")]
     out = {"state": "ok", "message": None, "base": sess.base, "ha_user": {"name": me.get("name"), "is_admin": bool(me.get("is_admin"))},
@@ -260,8 +263,11 @@ def ha_url(cfg, addresses: list[dict]) -> str:
     return "" if getattr(cfg, "ha_managed_by_app", False) else (getattr(cfg, "ha_url", "") or "").rstrip("/")
 
 
-def _public(data: dict) -> dict:
-    return {k: v for k, v in data.items() if k != "taken"}
+def _public(data: dict, app: web.Application | None = None) -> dict:
+    out = {k: v for k, v in data.items() if k != "taken"}
+    if app is not None:                  # the HA addresses that may show Mantel now (frame_origins.py)
+        out["frame_ancestors"] = [a for a in frame_origins.ancestors(app) if a.startswith(("http://", "https://"))]
+    return out
 
 
 # -- REST ----------------------------------------------------------------------------------------------
@@ -280,7 +286,7 @@ async def api_list(request: web.Request) -> web.Response:
     except HaError as exc:
         return ok({"state": "ha_not_connected", "message": f"Home Assistant didn’t list its dashboards ({exc.code}).",
                    "base": base, "dashboards": [], "screens": [], "ha_addresses": [], "ha_url": ""})
-    return ok(_public(data))
+    return ok(_public(data, app))
 
 
 OFF = ("Home Assistant can show a screen only at Mantel’s own address. Turn on direct access first "
@@ -308,6 +314,10 @@ def _body(app: web.Application, key: str, body: dict) -> dict:
         if not isinstance(body["require_admin"], bool):
             raise ValueError
         out["require_admin"] = body["require_admin"]
+    if body.get("frame_origin") is not None:     # the HA address this page is shown in (an Owner trusts it with this)
+        if not isinstance(body["frame_origin"], str):
+            raise ValueError
+        out["frame_origin"] = body["frame_origin"]
     return out
 
 
@@ -387,7 +397,13 @@ async def api_put(request: web.Request) -> web.Response:
             return error(502, "ha_refused", message=f"Home Assistant refused it: {exc.message or exc.code}.")
     if "refused" in got:
         return got["refused"]
-    return ok(_public(got))
+    approved = None
+    if want["on"] and want.get("frame_origin") and ident.user.role == "owner":
+        # an Owner turned it on inside HA's sidebar at this address: that address may now show Mantel (audited)
+        approved, err = await frame_origins.approve(request, ident, want["frame_origin"], "show in home assistant")
+        if err is not None:
+            approved = None
+    return ok({**_public(got, app), "frame_approved": approved})
 
 
 def register(app: web.Application) -> None:

@@ -29,7 +29,7 @@ from urllib.parse import quote, urlsplit
 
 from aiohttp import web
 
-from . import security_headers
+from . import frame_origins, security_headers
 from .sessions import door_of, identity
 
 PAGE = "/login"
@@ -111,7 +111,7 @@ async def page(request: web.Request) -> web.StreamResponse:
     if ident.user is not None:                 # a person already: go on (a tablet alone gets the page)
         raise web.HTTPFound(next_path, headers={"Cache-Control": "no-store"})
     # a Webpage dashboard in HA's sidebar frames the direct address; signed out, that frame lands here
-    csp = security_headers.own_page_csp(CSP, request.app.get("cfg"))
+    csp = security_headers.own_page_csp(CSP, request.app.get("cfg"), ancestors=frame_origins.ancestors(request.app))
     return web.Response(text=render(request, next_path), content_type="text/html",
                         headers={**HEADERS, "Content-Security-Policy": csp})
 

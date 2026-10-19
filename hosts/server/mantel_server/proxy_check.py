@@ -25,7 +25,7 @@ from urllib.parse import urlsplit
 from aiohttp import WSMsgType, web
 
 from . import authz as authz_mod
-from . import door_key, proxy_trust, sessions
+from . import door_key, frame_origins, proxy_trust, sessions
 from .accounts import STEP_UP_WINDOW
 from .login_page import login_url
 
@@ -372,7 +372,8 @@ async def summary(request: web.Request) -> web.Response:
         "can_rotate": ident.user.role == "owner" and need and dk is not None,
         "test_url": PAGE,
         # the Home Assistant addresses that may show Mantel in a frame (a Webpage dashboard; security_headers.py)
-        "frame_ancestors": [a for a in (getattr(cfg, "frame_ancestors", ()) or ()) if a.startswith(("http://", "https://"))],
+        "frame_ancestors": [a for a in frame_origins.ancestors(request.app) if a.startswith(("http://", "https://"))],
+        "frame_origins": frame_origins.of(request.app).described() if frame_origins.of(request.app) else [],
         "frame_option": "ha_frame_origins" if getattr(cfg, "ha_managed_by_app", False) else "--frame-ancestors",
     }, headers={"Cache-Control": "no-store"})
 

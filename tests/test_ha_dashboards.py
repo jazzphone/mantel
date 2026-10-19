@@ -317,3 +317,20 @@ async def test_the_https_page_gets_the_frame_ancestors(mantel):
     assert got["frame_ancestors"] == ["https://ha.example.com"] and got["frame_option"] == "--frame-ancestors"
     m.app["cfg"].ha_managed_by_app = True
     assert (await (await m.get("/api/admin/proxy-check/summary")).json())["frame_option"] == "ha_frame_origins"
+
+
+async def test_turned_on_inside_ha_by_an_owner_that_address_may_show_mantel(mantel, ha):
+    """Show in Home Assistant, turned on in HA's sidebar opened at an address nobody listed, made a white page (the house,
+    2026-10-19): the page sends the address it is shown in, and for an Owner that address is approved (audited)."""
+    m = mantel
+    await owner(m, "ada", "admin")
+    r = await put(m, "dashboard-loft", {"on": True, "frame_origin": "https://ha.lan.example"})
+    assert r.status == 200 and (await r.json())["frame_approved"] is None          # an Admin cannot approve frames
+    m.forget_cookies()
+    await owner(m)
+    r = await put(m, "dashboard-kitchen", {"on": True, "frame_origin": "https://ha.lan.example/"})
+    body = await r.json()
+    assert r.status == 200 and body["frame_approved"] == "https://ha.lan.example"
+    assert "https://ha.lan.example" in body["frame_ancestors"]
+    assert "https://ha.lan.example" in (await m.get("/login")).headers["Content-Security-Policy"]
+    assert (await put(m, "dashboard-loft", {"on": True, "frame_origin": 7})).status == 400

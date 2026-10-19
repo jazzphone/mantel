@@ -290,13 +290,21 @@ def test_without_direct_access_or_ha_nothing_and_a_non_admin_connection_says_how
     assert g["rows"] == [] and g["footer"].startswith("Add one yourself")
 
 
-def test_the_https_page_checks_has_addresses_against_the_allowed_frames(tmp_path):
-    got = had_run(tmp_path, [], framed=["https://ha.example.com"])
+def test_the_https_page_lists_the_allowed_frames_and_offers_the_missing_ones(tmp_path):
+    """Home Assistant's Frame: every allowed address and where it comes from; an Owner gets an Allow button for each HA
+    address that is not allowed yet (no App option to edit, no restart: frame_origins.py)."""
+    got = had_run(tmp_path, [], framed=["https://ha-lan.example.com"])
     [g] = got["frames"]
     rows = {r["label"]: r for r in g["rows"]}
-    assert rows["Allowed to Show Mantel"]["value"] == "ha.example.com"
-    assert rows["Home Assistant at Home"]["value"] == "Fix" and rows["Home Assistant at Home"]["valueCls"] == "warn"
-    assert rows["Home Assistant Away"]["value"] == "OK"
-    assert rows["This Page"]["value"] == "OK"
-    assert "Check an Address" in rows
-    assert "ha_frame_origins" in g["footer"]
+    assert rows["ha.example.com"]["value"] == "Automatic"                                      # allowed already
+    assert rows["Allow ha-home.example.com (its internal URL)"]["kind"] == "button"            # HA's own, not yet
+    assert rows["Allow ha-lan.example.com (Home Assistant is open here now)"]["kind"] == "button"
+    assert "Allow ha.example.com (its external URL)" not in rows                               # allowed: not offered
+    assert "blank page" in g["footer"] and "ha_frame_origins" not in g["footer"]
+
+
+def test_turned_on_inside_ha_at_an_address_not_allowed_it_says_so_and_offers_to_allow_it(tmp_path):
+    got = had_run(tmp_path, [LOFT], framed=["https://ha-lan.example.com"])
+    [g] = got["owner"]
+    labels = [r["label"] for r in g["rows"]]
+    assert "Allow ha-lan.example.com to Show Mantel" in labels

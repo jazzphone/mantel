@@ -180,7 +180,8 @@ def _ha_via(request: web.Request) -> str:
     ha_sign_in_url names the away one. HA's sign-in page sends X-Frame-Options: SAMEORIGIN, so in a frame it
     loads only from the address the dashboard is on. Anything else: the configured sign-in address."""
     via = request.query.get("via", "").rstrip("/")
-    allowed = getattr(request.app.get("cfg"), "frame_ancestors", ()) or ()
+    from . import frame_origins
+    allowed = frame_origins.ancestors(request.app)
     return via if via and via in allowed and via.startswith(("https://", "http://")) else ""
 
 
