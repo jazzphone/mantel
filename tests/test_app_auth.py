@@ -450,3 +450,80 @@ def test_migration_0016_makes_the_tables():
     sql = (ROOT / "hosts/server/mantel_server/migrations/0016_app.sql").read_text()
     for t in ("app_credentials", "apple_links", "app_settings"):
         assert f"CREATE TABLE {t}" in sql
+
+
+# -- the app's notifications (10.5) -------------------------------------------------------------------
+async def test_an_apps_notification_is_sealed_to_the_phone(mantel, tmp_path):
+    import json as _json
+    from mantel_server import apns, push
+    m = mantel
+    phone, tok = await sign_in_app(m)
+    m.forget_cookies()
+    note_key = ec.generate_private_key(ec.SECP256R1())
+    body = {"token": "ab" * 32, "key": app_crypto.b64u(app_crypto.raw_public(note_key.public_key())), "env": "sandbox"}
+    r, got = await phone.call("POST", "/api/app/push/register", body)
+    assert r.status == 201
+    sent = []
+
+    async def transport(url, headers, data):
+        sent.append((url, headers, data))
+        return 200, {}
+    secrets_dir = m.app["cfg"].secrets_dir
+    sender = m.app["apns"]
+    sender.transport = transport
+    p = m.app["pusher"]
+    msg = push.Message(title="Front Door", body="Opened", tag="door", important=True, entity="lock.front_door")
+    assert await p.deliver(p.recipients({"type": "notification"}), msg) == {"skipped": 1}     # no key yet: nothing sent
+    apple_key = ec.generate_private_key(ec.SECP256R1())
+    from cryptography.hazmat.primitives import serialization
+    (secrets_dir / apns.KEY_FILE).write_bytes(apple_key.private_bytes(serialization.Encoding.PEM,
+                                              serialization.PrivateFormat.PKCS8, serialization.NoEncryption()))
+    (secrets_dir / apns.CONF_FILE).write_text(_json.dumps({"key_id": "KEY123", "team_id": "TEAM123",
+                                                           "topic": "com.example.mantel"}))
+    assert await p.deliver(p.recipients({"type": "notification"}), msg) == {"ok": 1}
+    url, headers, data = sent[0]
+    assert url == "https://api.sandbox.push.apple.com/3/device/" + "ab" * 32
+    assert headers["apns-topic"] == "com.example.mantel" and headers["apns-push-type"] == "alert"
+    claims = app_crypto.verify_es256_jwt(headers["authorization"][7:], apple_key.public_key())
+    assert claims["iss"] == "TEAM123"
+    payload = _json.loads(data)
+    assert payload["aps"]["alert"] == {"title": "Mantel", "body": "New notification"}       # nothing readable to Apple
+    assert payload["aps"]["interruption-level"] == "time-sensitive" and payload["aps"]["mutable-content"] == 1
+    assert b"Front Door" not in data
+    inner = _json.loads(app_crypto.open_sealed(payload["m"], note_key))
+    assert inner["title"] == "Front Door" and inner["entity"] == "lock.front_door"
+    # signing the app out removes its push target
+    assert (await phone.call("POST", "/api/app/sign-out"))[0].status == 200
+    assert p.targets.everyone() == []
+
+
+async def test_a_notifications_snapshot_follows_the_screens_rule(mantel):
+    m = mantel
+    phone, _ = await sign_in_app(m)
+    m.forget_cookies()
+    store = m.app["features"].snaps
+    sid = store.put(b"\xff\xd8fictional", "image/jpeg", "camera.doorbell")
+    calls = []
+    m.app["authz"].may_still = lambda p, cam: calls.append(cam) or True
+    r = await m.client.get("/api/app/snap", params={"id": sid}, headers=phone.headers("GET", "/api/app/snap"))
+    assert r.status == 200 and await r.read() == b"\xff\xd8fictional" and calls == ["camera.doorbell"]
+    m.app["authz"].may_still = lambda p, cam: False
+    assert (await phone.call("GET", "/api/app/snap?id=" + sid))[0].status == 404
+    assert (await phone.call("GET", "/api/app/snap?id=" + "0" * 32))[0].status == 404
+
+
+async def test_the_summary_gives_a_players_artwork_without_has_token(mantel):
+    m = mantel
+    m.app["hub"].store.states.update({
+        "media_player.loft": {"s": "playing", "a": {"friendly_name": "Loft", "entity_picture":
+                              "/api/media_player_proxy/media_player.loft?token=SECRET&cache=abc"}, "lc": 1.0, "lu": 1.0},
+        "media_player.den": {"s": "playing", "a": {"friendly_name": "Den", "entity_picture": "https://cdn.example/cover.jpg"},
+                             "lc": 1.0, "lu": 1.0}})
+    phone, _ = await sign_in_app(m)
+    m.forget_cookies()
+    await phone.call("PUT", "/api/app/favorites", {"favorites": ["media_player.loft", "media_player.den"]})
+    r, s = await phone.call("GET", "/api/app/summary")
+    arts = {f["entity_id"]: f["art"] for f in s["favorites"]}
+    assert arts["media_player.den"] == "https://cdn.example/cover.jpg"
+    assert arts["media_player.loft"].startswith("/api/app/art?entity=media_player.loft&v=")
+    assert "SECRET" not in str(s)                      # HA's artwork token never leaves Mantel

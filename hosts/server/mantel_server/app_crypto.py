@@ -137,7 +137,7 @@ def es256_verify(key: ec.EllipticCurvePublicKey, data: bytes, sig: bytes) -> boo
 
 
 def es256_jwt(key: ec.EllipticCurvePrivateKey, claims: dict[str, Any], header: dict[str, Any] | None = None) -> str:
-    head = {"typ": "JWT", "alg": "ES256", **(header or {})}
+    head = {k: v for k, v in {"typ": "JWT", "alg": "ES256", **(header or {})}.items() if v is not None}
     signing = (b64u(json.dumps(head, separators=(",", ":")).encode()) + "." +
                b64u(json.dumps(claims, separators=(",", ":")).encode()))
     return signing + "." + b64u(es256_sign(key, signing.encode()))

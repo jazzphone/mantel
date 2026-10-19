@@ -42,3 +42,10 @@ user-files/
 # agent worktrees
 .claude/worktrees/
 .claude/settings.local.json
+
+# the Apple apps (apple/): Xcode's and SwiftPM's own state; builds go to DerivedData outside the repo
+apple/**/.build/
+apple/**/.swiftpm/
+apple/**/xcuserdata/
+apple/**/*.xcuserstate
+apple/**/project.xcworkspace/
