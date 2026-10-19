@@ -88,28 +88,58 @@ def _is_loopback(peer: str | None) -> bool:
         return False
 
 
+def _global_client(request: web.Request) -> bool:
+    """The forwarded client is an internet address (not private, loopback or link-local)."""
+    try:
+        ip = ip_address(sessions.client_ip(request) or "")
+    except ValueError:
+        return False
+    if ip.version == 6 and ip.ipv4_mapped is not None:
+        ip = ip.ipv4_mapped
+    return ip.is_global
+
+
+def claim_of(headers) -> str | None:
+    claim = headers.get(DOOR_HEADER)
+    return claim.strip().lower() if claim is not None else None
+
+
 def resolve_door(request: web.Request) -> str:
     """'lan' or 'tunnel' for this request (see the module docstring). Never raises."""
-    cfg = request.app.get("cfg")
-    trusted = tuple(getattr(cfg, "trusted_proxies", ()) or ())
     h = request.headers
     if any(k in h for k in CF_HEADERS):
         return "tunnel"
+    from . import direct, proxy_trust
+    if direct.builtin_https(request):
+        # the App's built-in HTTPS listener (direct.py): no proxy stamps a door, the socket peer decides.
+        # A stricter claim from the client is still honoured.
+        if claim_of(h) not in (None, "lan"):
+            return "tunnel"
+        return direct.https_door(request)
     if getattr(request, "get", None) is not None and request.get("ha_core"):
         # HA App mode: HA Core's own socket peer on linked mode's endpoint only (ingress.middleware marks it;
         # the endpoint still wants a Service credential) -- the machine on the far side is the HA host
         return "lan"
-    claim = h.get(DOOR_HEADER)
-    claim = claim.strip().lower() if claim is not None else None
+    claim = claim_of(h)
     peer = request.remote
-    if peer is not None and peer in trusted:
+    if proxy_trust.is_trusted(request):
         if claim == "lan":
             # with the home's own proxy, only with this installation's door key (door_key.py)
-            from . import door_key, proxy_trust
+            from . import door_key
             if door_key.door_allowed(request):
+                if direct.is_direct(request) and _global_client(request):
+                    # the App's direct port: a keyed `lan` for an internet client means the proxy host is
+                    # reachable from outside (defence in depth; DOCS.md asks for an access list)
+                    proxy_trust._warn(peer, f"{DOOR_HEADER}: lan for an internet client")
+                    return "tunnel"
                 return "lan"
             proxy_trust._warn(peer, f"{DOOR_HEADER}: lan without the right {door_key.HEADER}")
         return "tunnel"                                   # Caddy always stamps: missing/unknown fails closed
+    if direct.is_direct(request):
+        if claim == "lan" and proxy_trust.listed(request):
+            from . import door_key
+            proxy_trust._warn(peer, f"{DOOR_HEADER}: lan without the right {door_key.HEADER}")
+        return "tunnel"                                   # the direct port behind the home's proxy: not loopback rules
     if claim is not None and claim != "lan":
         return "tunnel"                                   # a stricter claim is honoured from anyone
     if claim == "lan" and not _is_loopback(peer):

@@ -54,10 +54,16 @@ PRIVATE = [
 ALLOWED_ADDRESSES = {
     "172.30.32.2": "the Supervisor's fixed address on HA's hassio network (where Ingress comes from)",
     "172.30.32.1": "HA Core as the App sees it on the hassio network (linked mode's client; entrypoint)",
+    "172.30.32.0": "HA's hassio network (172.30.32.0/23): never the LAN door on the direct port (direct.py, entrypoint)",
+    "172.17.0.0": "Docker's default bridge (172.17.0.0/16): never the LAN door on the direct port (direct.py, entrypoint)",
+    "10.0.0.0": "RFC 1918, direct.py's default home networks (built-in HTTPS)",
+    "172.16.0.0": "RFC 1918, direct.py's default home networks (built-in HTTPS)",
+    "192.168.0.0": "RFC 1918, direct.py's default home networks (built-in HTTPS)",
     "172.31.251.2": "Caddy's fixed backend address in Mantel's own compose file (entrypoint help text)",
     "192.0.2.53": "config.py's development default ha_url; App mode always passes --ha-url http://supervisor/core",
 }
-ALLOWED_AT = {"192.0.2.53": {"app/hosts/server/mantel_server/config.py"}}
+ALLOWED_AT = {"192.0.2.53": {"app/hosts/server/mantel_server/config.py"},
+              **{n: {"app/hosts/server/mantel_server/direct.py"} for n in ("10.0.0.0", "172.16.0.0", "192.168.0.0")}}
 
 
 def _load_build_static():

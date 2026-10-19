@@ -146,6 +146,13 @@ def main(argv: list[str] | None = None) -> int:
         print(f"mantel-server: Mantel Connect listens on {cfg.connect_listen}:{cfg.connect_port} (TLS, client certificates)",
               flush=True)
         asyncio.run(serve(app, cfg))
+    elif cfg.direct_port:
+        import asyncio
+
+        from .direct import serve as serve_direct
+        how = "HTTPS with Mantel's own certificate" if cfg.direct_tls else "plain HTTP behind your own proxy"
+        print(f"mantel-server: direct access on {cfg.host}:{cfg.direct_port} for {cfg.public_url} ({how})", flush=True)
+        asyncio.run(serve_direct(app, cfg))
     else:
         web.run_app(app, host=cfg.host, port=cfg.port, print=None)
     return 0

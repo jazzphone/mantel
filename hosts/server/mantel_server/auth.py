@@ -34,6 +34,42 @@ PUBLIC_PATHS = {HA_START, "/auth/callback", "/logout"}
 # Signed out, these pages (and any GET that asks for a document) are sent to /login, with ?next= to
 # come back to; everything else signed out gets a plain 401.
 PAGE_PATHS = ("/", "/dev", "/home")
+STATES_MAX = 512                          # sign-ins started and not yet back (single use, below)
+CALLBACKS_PER_WINDOW = 20                 # /auth/callback per client address per window
+CALLBACK_WINDOW = 300.0
+
+
+def _issued_states(app) -> dict:
+    """Server-side record of each started sign-in's state: a state counts once, then never again."""
+    return app.setdefault("oauth_states", {})
+
+
+def _remember_state(app, state: str, now: float) -> None:
+    states = _issued_states(app)
+    for s, exp in list(states.items()):
+        if exp < now:
+            del states[s]
+    while len(states) >= STATES_MAX:
+        del states[next(iter(states))]
+    states[state] = now + STATE_TTL
+
+
+def _use_state(app, state: str, now: float) -> bool:
+    exp = _issued_states(app).pop(state, None)
+    return exp is not None and exp >= now
+
+
+def _callback_allowed(request: web.Request, now: float) -> bool:
+    hits = request.app.setdefault("oauth_callback_hits", {})
+    who = sessions.client_ip(request) or "?"
+    recent = [t for t in hits.get(who, ()) if now - t < CALLBACK_WINDOW]
+    if len(hits) > 4096:
+        hits.clear()
+    if len(recent) >= CALLBACKS_PER_WINDOW:
+        hits[who] = recent
+        return False
+    hits[who] = recent + [now]
+    return True
 
 
 # -- signed state cookie --------------------------------------------------------------------------
@@ -103,6 +139,12 @@ def _wants_document(request: web.Request) -> bool:
 async def login_ha(request: web.Request) -> web.StreamResponse:
     """Start Sign in with Home Assistant (OAuth): HA's authorize page, with a signed state cookie."""
     oauth: HaOAuth = request.app["oauth"]
+    if not oauth.ha_url and getattr(request.app.get("cfg"), "ha_managed_by_app", False):
+        # the HA App's direct access without the sign-in address option (server.oauth_url)
+        return page("Sign in with Home Assistant is not set up", "<p>This Mantel runs as a Home Assistant App. To "
+                    "sign in with Home Assistant at this address, an administrator sets the App's option "
+                    "<b>Home Assistant address for sign-in</b> (for example http://homeassistant.local:8123). "
+                    "<a href='/login'>Back</a>.</p>", 409)
     if not oauth.ha_url:          # first run: the Owner has not connected Home Assistant yet (connections.py)
         return page("Home Assistant is not connected yet", "<p>Mantel does not know Home Assistant's address yet. "
                     "An Owner signs in with a password and connects it on the admin page (Connections). "
@@ -113,12 +155,16 @@ async def login_ha(request: web.Request) -> web.StreamResponse:
         query = f"?next={quote(next_path, safe='/')}" if next_path != DEFAULT_NEXT else ""
         raise web.HTTPFound(f"{oauth.client_id.rstrip('/')}{HA_START}{query}")
     state = secrets.token_urlsafe(24)
+    now = request.app["clock"]()
+    _remember_state(request.app, state, now)
+    from . import proxy_trust
+    secure = proxy_trust.is_https(request)
     resp = web.HTTPFound(oauth.authorize_url(state))
-    resp.set_cookie(STATE_COOKIE, make_state_cookie(request.app["state_secret"], state, request.app["clock"]()),
-                    max_age=STATE_TTL, httponly=True, samesite="Lax", path="/auth")
+    resp.set_cookie(STATE_COOKIE, make_state_cookie(request.app["state_secret"], state, now),
+                    max_age=STATE_TTL, httponly=True, samesite="Lax", path="/auth", secure=secure)
     if next_path != DEFAULT_NEXT:
         resp.set_cookie(NEXT_COOKIE, quote(next_path, safe=""), max_age=STATE_TTL, httponly=True,
-                        samesite="Lax", path="/auth")
+                        samesite="Lax", path="/auth", secure=secure)
     else:
         resp.del_cookie(NEXT_COOKIE, path="/auth")
     raise resp
@@ -138,7 +184,11 @@ async def callback(request: web.Request) -> web.StreamResponse:
         resp.del_cookie(NEXT_COOKIE, path="/auth")
         return resp
 
-    if expected is None or not got or not hmac.compare_digest(expected, got):
+    if not _callback_allowed(request, app["clock"]()):
+        log.warning("sign-in callbacks from %s are being refused for a while (too many)", sessions.client_ip(request))
+        return done(page("Too many attempts", "<p>Wait a few minutes, then <a href='/login'>try again</a>.</p>", 429))
+    if expected is None or not got or not hmac.compare_digest(expected, got) \
+            or not _use_state(app, expected, app["clock"]()):
         return done(page("Sign-in failed", "<p>This sign-in did not start here, or took too long. "
                          "<a href='/login'>Try again</a>.</p>", 400))
     code = request.query.get("code")

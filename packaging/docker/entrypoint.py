@@ -34,13 +34,24 @@ Home Assistant App (add-on)      recognised by SUPERVISOR_TOKEN in the environme
                                  Assistant; the token, a masked option, is moved into a 0600 file like the App
                                  credential and only its path is passed; on /admin -> Connections these show
                                  as "set by the installation", and a connection saved there wins over them).
-                                 The server is reached only
-                                 through Ingress (--ingress --ingress-only: the signed-in HA user is believed
-                                 only from the Supervisor's Ingress proxy, 172.30.32.2), and talks to HA Core
+                                 The sidebar page is always
+                                 Ingress (--ingress --ingress-only: the signed-in HA user is believed only from
+                                 the Supervisor's Ingress proxy, 172.30.32.2), and Mantel talks to HA Core
                                  through the Supervisor (ws://supervisor/core/websocket). docs/phase3/HA-APP.md.
+                                 Direct access (decision 26), the option `access`:
+                                   ingress  (default) nothing else; the App's port 8100 is not listened on
+                                   proxy    plain HTTP on 8100 for the home's own proxy: public_url, the
+                                            proxy's address(es) in trusted_proxies, and the door key
+                                   https    HTTPS on 8100 with Mantel's own Let's Encrypt certificate (DNS-01
+                                            through Cloudflare): public_url and cloudflare_token (a masked
+                                            option, moved into a 0600 file like the others); acme_email,
+                                            acme_staging optional
+                                 ha_sign_in_url (HA's address for browsers) turns on "Sign in with Home
+                                 Assistant" there; Mantel's own side of it goes to http://homeassistant:8123.
     Test-only overrides (never set by the Supervisor; for running App mode against a scratch HA):
     MANTEL_APP_OPTIONS, MANTEL_APP_TOKEN_FILE, MANTEL_SUPERVISOR_CORE_URL, MANTEL_SUPERVISOR_WS_URL,
-    MANTEL_INGRESS_PEER, MANTEL_HA_CORE_PEER, MANTEL_LISTEN, MANTEL_PORT, MANTEL_DATA_DIR
+    MANTEL_INGRESS_PEER, MANTEL_HA_CORE_PEER, MANTEL_LISTEN, MANTEL_PORT, MANTEL_DATA_DIR,
+    MANTEL_DIRECT_PORT, MANTEL_HA_OAUTH_URL, MANTEL_APP_CF_TOKEN_FILE
 
 Admin commands pass straight through and default to the /data volume (and, for import-settings, backup
 and restore, to the container's HA address, token and secrets):
@@ -84,9 +95,16 @@ ADMIN_EXTRAS = {
 APP_OPTIONS = Path("/data/options.json")
 APP_TOKEN_FILE = Path("/tmp/ha_token")
 APP_MA_TOKEN_FILE = Path("/tmp/ma_token")       # the App's Music Assistant token (its masked option), 0600
+APP_CF_TOKEN_FILE = Path("/tmp/cloudflare_token")   # built-in HTTPS: the Cloudflare DNS token (masked), 0600
 SUPERVISOR_CORE_URL = "http://supervisor/core"
 SUPERVISOR_WS_URL = "ws://supervisor/core/websocket"
 APP_PORT = "8099"
+DIRECT_PORT = "8100"                # direct access (config.yaml `ports`: 8100/tcp, mapped to a host port by the Owner)
+HA_OAUTH_URL = "http://homeassistant:8123"   # HA Core on the hassio network: "Sign in with HA"'s code exchange
+ACCESS_MODES = ("ingress", "proxy", "https")
+# HA's hassio network and Docker's default bridge (mantel_server/direct.py NEVER_LAN): relays, not a home's proxy
+RELAY_NETWORKS = ("172.30.32.0/23", "fd0c:ac1e:2100::/48", "172.17.0.0/16")
+LETSENCRYPT_STAGING = "https://acme-staging-v02.api.letsencrypt.org/directory"
 HA_CORE_PEER = "172.30.32.1"        # HA Core on the hassio network (the bridge's gateway; Core runs on the host)
 LOG_LEVELS = ("debug", "info", "warning", "error")
 DOOR_RULES = ("trusted", "lan", "tunnel")
@@ -209,9 +227,16 @@ def app_args(options: dict, token_file: Path, env: dict[str, str] | None = None)
             "--ha-ws-url", env.get("MANTEL_SUPERVISOR_WS_URL", SUPERVISOR_WS_URL),
             "--token-file", str(token_file), "--data-dir", data, "--secrets-dir", f"{data}/secrets",
             "--port", env.get("MANTEL_PORT", APP_PORT), "--listen", listen]
+    access = str(options.get("access") or "ingress").strip().lower()
+    if access not in ACCESS_MODES:
+        raise ConfigError(f"access must be one of {', '.join(ACCESS_MODES)}, not {access!r}")
+    public = public_url_option(options) if access != "ingress" else ""
     if listen not in ("127.0.0.1", "::1"):
-        args += ["--public-url", "https://ingress.invalid/", "--allow-host", "*"]
-    args += ["--ingress", "--ingress-only", "--ha-managed-by-app"]   # HA is the App's credential (connections.py)
+        # '*' is checked on the Ingress port only; the direct port answers only to public_url's name (direct.py)
+        args += ["--public-url", public or "https://ingress.invalid/", "--allow-host", "*"]
+    args += ["--ingress", "--ingress-only", "--ha-managed-by-app"]
+    if access != "ingress":
+        args += direct_args(access, public, options, env)   # HA is the App's credential (connections.py)
     for peer in filter(None, (p.strip() for p in env.get("MANTEL_INGRESS_PEER", "").split(","))):
         args += ["--ingress-peer", peer]
     # HA Core (host network) as the App sees it: linked mode's client (hk_frontend "Linked to Mantel Server",
@@ -237,6 +262,77 @@ def app_args(options: dict, token_file: Path, env: dict[str, str] | None = None)
     ma_file = Path(env.get("MANTEL_APP_MA_TOKEN_FILE") or APP_MA_TOKEN_FILE)
     if ma_url and str(options.get("ma_token") or "").strip():
         args += ["--ma-url", ma_url, "--ma-token-file", str(ma_file)]
+    return args
+
+
+def public_url_option(options: dict) -> str:
+    """The App's public_url: https://<Mantel's own name>[:port]/, what tablets and browsers type."""
+    from urllib.parse import urlsplit
+    raw = str(options.get("public_url") or "").strip()
+    u = urlsplit(raw)
+    try:
+        u.port
+    except ValueError:
+        u = urlsplit("")
+    if u.scheme != "https" or not u.hostname or u.path not in ("", "/") or u.query or u.fragment or u.username \
+            or u.password or _is_ip(u.hostname):
+        raise ConfigError("direct access needs public_url: Mantel's own https:// name, for example "
+                          "https://mantel.example.com (a name, not an IP address; add :port if it is not 443)")
+    return f"https://{u.netloc.lower()}/"
+
+
+def _is_ip(name: str) -> bool:
+    try:
+        ipaddress.ip_address(name.strip("[]"))
+        return True
+    except ValueError:
+        return False
+
+
+def direct_args(access: str, public: str, options: dict, env: dict[str, str]) -> list[str]:
+    """Direct access (decision 26; mantel_server/direct.py): the second listener and its rules."""
+    from urllib.parse import urlsplit
+    args = ["--direct-port", env.get("MANTEL_DIRECT_PORT", DIRECT_PORT), "--rp-id", urlsplit(public).hostname]
+    sign_in = str(options.get("ha_sign_in_url") or "").strip().rstrip("/")
+    if sign_in:
+        u = urlsplit(sign_in)
+        if u.scheme not in ("http", "https") or not u.hostname or u.path or u.query or u.username or u.password:
+            raise ConfigError("ha_sign_in_url must be Home Assistant's address as browsers know it, for example "
+                              "http://homeassistant.local:8123")
+        args += ["--ha-browser-url", sign_in, "--ha-oauth-url", env.get("MANTEL_HA_OAUTH_URL", HA_OAUTH_URL)]
+    if access == "proxy":
+        proxies = _list(str(options.get("trusted_proxies") or ""))
+        if not proxies:
+            raise ConfigError("access proxy needs trusted_proxies: your proxy's address as Mantel sees it "
+                              "(the Test my proxy page shows it)")
+        for raw in proxies:
+            try:
+                ip = ipaddress.ip_address(raw)
+            except ValueError:
+                raise ConfigError(f"trusted_proxies must list IP addresses, not {raw!r}") from None
+            if any(ip in ipaddress.ip_network(n) for n in RELAY_NETWORKS if ipaddress.ip_network(n).version == ip.version):
+                print(f"mantel entrypoint: WARNING trusted_proxies holds {ip}, an address of Home Assistant's internal "
+                      "or Docker's bridge network: anything relayed through it (other Apps, HA Core, Docker's port "
+                      "mapping) arrives from there. Mantel still wants the door key with every request, but a direct "
+                      "address for your proxy is safer (DOCS.md, Direct access)", file=sys.stderr)
+            args += ["--trusted-proxy", str(ip)]
+        args += ["--proxy-kind", "own"]           # the door counts only with this installation's door key
+    else:
+        if not str(options.get("cloudflare_token") or "").strip():
+            raise ConfigError("access https needs cloudflare_token: a Cloudflare API token with Zone / Zone / "
+                              "Read and Zone / DNS / Edit on public_url's zone")
+        cf_file = env.get("MANTEL_APP_CF_TOKEN_FILE") or str(APP_CF_TOKEN_FILE)
+        args += ["--direct-tls", "acme", "--acme-dns-token-file", cf_file]
+        email = str(options.get("acme_email") or "").strip()
+        if email:
+            args += ["--acme-email", email]
+        if options.get("acme_staging") is True:
+            args += ["--acme-directory", LETSENCRYPT_STAGING]
+        for raw in _list(str(options.get("lan_networks") or "")):
+            try:
+                args += ["--lan-network", str(ipaddress.ip_network(raw, strict=False))]
+            except ValueError:
+                raise ConfigError(f"lan_networks must list networks such as 192.0.2.0/24, not {raw!r}") from None
     return args
 
 
@@ -266,7 +362,11 @@ def plan(argv: list[str], env: dict[str, str], options_path: Path = APP_OPTIONS,
         ma_token = str(options.get("ma_token") or "").strip()
         if ma_token and str(options.get("ma_url") or "").strip():
             write_private(ma_file, ma_token)       # out of the options' way: the server only sees a file path
-        return app_args(options, token_file, env) + argv, env
+        args = app_args(options, token_file, env)
+        cf_token = str(options.get("cloudflare_token") or "").strip()
+        if "--direct-tls" in args and cf_token:
+            write_private(Path(env.get("MANTEL_APP_CF_TOKEN_FILE") or APP_CF_TOKEN_FILE), cf_token)
+        return args + argv, env
     return container_args(env) + argv, env
 
 
@@ -292,7 +392,7 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     if os.getuid() == 0:
         drop_privileges([Path(env.get("MANTEL_DATA_DIR", "/data"))]
-                        + [f for f in (APP_TOKEN_FILE, APP_MA_TOKEN_FILE) if f.exists()])
+                        + [f for f in (APP_TOKEN_FILE, APP_MA_TOKEN_FILE, APP_CF_TOKEN_FILE) if f.exists()])
     os.execve(sys.executable, [sys.executable, "-m", "mantel_server", *args], env)
     return 0  # not reached
 

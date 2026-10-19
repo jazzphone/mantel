@@ -90,7 +90,8 @@ def report(request: web.Request) -> dict:
     cfg = request.app["cfg"]
     trusted_list = list(getattr(cfg, "trusted_proxies", ()) or ())
     peer = request.remote
-    trusted = proxy_trust.is_trusted(request)
+    # the listed peer (with the App's direct port, its headers count only with the door key: checked below)
+    trusted = proxy_trust.listed(request)
     https = proxy_trust.is_https(request)
     door = sessions.door_of(request)
     claims = request.headers.getall(authz_mod.DOOR_HEADER, [])
@@ -127,15 +128,26 @@ def report(request: web.Request) -> dict:
         add("trusted_proxy", False, "No trusted proxy is configured",
             f"The request came from {peer}. Mantel trusts no proxy, so it treats everyone as the internet "
             "(tunnel door): wall tablets are refused and client addresses are your proxy's.",
-            f"Set MANTEL_TRUSTED_PROXY={peer} in packaging/compose/.env (if {peer} is your proxy as Mantel sees "
-            "it), then: docker compose up -d")
+            (f"Set the App's option trusted_proxies to {peer} (if {peer} is your proxy as Mantel sees it), "
+             "then restart the App") if getattr(cfg, "ha_managed_by_app", False) else
+            (f"Set MANTEL_TRUSTED_PROXY={peer} in packaging/compose/.env (if {peer} is your proxy as Mantel sees "
+             "it), then: docker compose up -d"))
     else:
         add("trusted_proxy", False, "Did not come through your trusted proxy",
             f"The request came from {peer}, but Mantel trusts {', '.join(trusted_list)}. Either this browser "
             "reached Mantel's port directly (bypassing the proxy), or the proxy's address is not the one "
             "configured.",
-            f"If {peer} is your proxy, set MANTEL_TRUSTED_PROXY={peer} in .env and restart Mantel. Otherwise "
+            f"If {peer} is your proxy, {_set_proxy(cfg, peer)}. Otherwise "
             "open Mantel only by its proxy's address (and keep Mantel's port off the internet).")
+    from . import direct
+    relays = [a for a in trusted_list if direct.never_lan(a)]
+    if relays and direct.enabled(cfg):
+        add("trusted_proxy_relay", False, "Your trusted proxy is a relay address",
+            f"{', '.join(relays)} is in Home Assistant's internal network or Docker's bridge: other Apps, Home "
+            "Assistant itself and anything Docker relays arrive from there. Mantel then believes your proxy's "
+            "headers only with the door key, so keep the key secret.",
+            "Give your proxy a direct path to this port (its own LAN address as Mantel sees it), or run it as a "
+            "Home Assistant App on the internal network.")
     probe_passed = any(c.strip() == PROBE for c in claims)
     if probe_passed:
         add("door_overwrite", False, "Your proxy passes the browser's door header through",
@@ -205,6 +217,12 @@ def report(request: web.Request) -> dict:
             "traefik": traefik(key_value or door_key.PLACEHOLDER),
             # Owner only (this whole report is): the key the proxy must send, when it must
             "door_key": {"value": key_value, "since": dk.since(), "header": door_key.HEADER} if dk is not None else None}
+
+
+def _set_proxy(cfg, peer: str) -> str:
+    if getattr(cfg, "ha_managed_by_app", False):
+        return f"set the App's option trusted_proxies to {peer} and restart the App"
+    return f"set MANTEL_TRUSTED_PROXY={peer} in .env and restart Mantel"
 
 
 def traefik(key: str = door_key.PLACEHOLDER) -> str:
@@ -283,14 +301,20 @@ MODES = {
     "ha_app": ("Home Assistant App (Ingress)", "Home Assistant terminates HTTPS and signs people in; Mantel sees only Ingress."),
     "caddy": ("Caddy (Mantel's own)", "Mantel's Caddy terminates HTTPS and stamps the door header itself."),
     "own": ("Your own reverse proxy", "Your proxy terminates HTTPS and must send the door header and this installation's door key."),
+    "builtin": ("Home Assistant App, built-in HTTPS", "On the App's direct port Mantel serves HTTPS itself with a "
+                "Let's Encrypt certificate; a home (private) address is the LAN door, any other the tunnel door."),
     "direct": ("No proxy", "Mantel listens on plain HTTP on this machine (Mantel itself does not terminate TLS): "
                            "fine on loopback, not for remote use."),
 }
 
 
-def mode_of(cfg) -> str:
+def mode_of(cfg, request: web.Request | None = None) -> str:
     if getattr(cfg, "ingress_only", False):
-        return "ha_app"
+        from . import direct
+        if request is None or not direct.is_direct(request):
+            return "ha_app"
+        # the App's direct access (direct.py), as this request reached it
+        return "builtin" if getattr(cfg, "direct_tls", "") == "acme" else "own"
     kind = getattr(cfg, "proxy_kind", "") or ""
     if kind in ("caddy", "own"):
         return kind
@@ -305,7 +329,7 @@ async def summary(request: web.Request) -> web.Response:
     if ident.user is None or ident.device is not None or ident.user.role not in ("owner", "admin"):
         raise web.HTTPForbidden(text="Owners and admins only")
     cfg = request.app.get("cfg")
-    mode = mode_of(cfg)
+    mode = mode_of(cfg, request)
     dk = door_key.of(request.app)
     need = door_key.required(cfg)
     return web.json_response({

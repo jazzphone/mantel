@@ -466,8 +466,17 @@ def check_ha_app(path: Path) -> list[str]:
     # (checked with HA itself) can become the first Owner. Stated, not left to the default.
     if doc.get("panel_admin") is not False:
         problems.append("ha-app: panel_admin must be false (wall tablets and household members open the panel)")
-    if "ports" in doc or "ports_description" in doc:
-        problems.append("ha-app: publishes ports; Ingress is the only way in")
+    # Direct access (decision 26): exactly one opt-in port, 8100/tcp, unpublished (null) until the Owner maps it,
+    # and the access option defaulting to the sidebar only
+    ports = doc.get("ports")
+    if ports is not None and ports not in ({"8100/tcp": None}, {"8100/tcp": "null"}):
+        problems.append("ha-app: the only port is 8100/tcp (direct access), unpublished by default (null)")
+    if ports is not None and set(doc.get("ports_description") or {}) != set(ports):
+        problems.append("ha-app: describe the direct-access port in ports_description")
+    if (doc.get("options") or {}).get("access", "ingress") != "ingress":
+        problems.append("ha-app: options.access must default to ingress (the sidebar only)")
+    if (doc.get("schema") or {}).get("cloudflare_token", "password?") != "password?":
+        problems.append("ha-app: cloudflare_token must be a password-type option (masked in HA's form)")
     if doc.get("homeassistant_api") is not True:
         problems.append("ha-app: homeassistant_api must be true (HA's built-in App credential)")
     for extra in ("hassio_api", "auth_api", "hassio_role"):

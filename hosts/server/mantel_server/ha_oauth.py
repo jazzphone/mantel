@@ -28,15 +28,18 @@ def check_redirect(client_id: str, redirect_uri: str) -> None:
 
 
 class HaOAuth:
-    def __init__(self, ha_url: str, client_id: str, redirect_uri: str) -> None:
+    def __init__(self, ha_url: str, client_id: str, redirect_uri: str, browser_url: str = "") -> None:
         check_redirect(client_id, redirect_uri)
         self.ha_url = ha_url.rstrip("/")
+        # HA's address as the browser knows it, when Mantel reaches HA by another (the HA App: the browser
+        # uses http://homeassistant.local:8123, Mantel http://homeassistant:8123 on HA's internal network)
+        self.browser_url = browser_url.rstrip("/")
         self.client_id = client_id
         self.redirect_uri = redirect_uri
 
     def authorize_url(self, state: str) -> str:
         q = urlencode({"client_id": self.client_id, "redirect_uri": self.redirect_uri, "state": state})
-        return f"{self.ha_url}/auth/authorize?{q}"
+        return f"{self.browser_url or self.ha_url}/auth/authorize?{q}"
 
     async def exchange_code(self, http: aiohttp.ClientSession, code: str) -> dict:
         data = {"grant_type": "authorization_code", "code": code, "client_id": self.client_id}

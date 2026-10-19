@@ -129,9 +129,8 @@ def client_ip(request: web.Request) -> str | None:
     if request.get("ingress_client_ip") is not None:   # set by ingress.py for Ingress requests only
         return request["ingress_client_ip"]
     remote = request.remote
-    cfg = request.app.get("cfg")
-    trusted = tuple(getattr(cfg, "trusted_proxies", ()) or ())
-    if remote and remote in trusted:
+    from . import proxy_trust
+    if remote and proxy_trust.is_trusted(request):
         hops = [h.strip() for h in request.headers.get("X-Forwarded-For", "").split(",") if h.strip()]
         if hops:
             try:

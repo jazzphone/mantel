@@ -320,7 +320,8 @@ Tests: `tests/test_ingress_own_pages.py`.
   `homeassistant_api: true`,
   `watchdog: http://[HOST]:[PORT:8099]/healthz`; options `commands_enabled: false`, `log_level: info`,
   `default_screen: dashboard-kitchen`, `ha_door_rules: tunnel`. No `image:` (the Supervisor builds the
-  local folder), no ports, no `hassio_api`/`auth_api`/host network/devices.
+  local folder), no `hassio_api`/`auth_api`/host network/devices. Since decision 26 one opt-in port,
+  `8100/tcp: null`, and the direct-access options (`access: ingress` by default; "Direct access" below).
 * **`Dockerfile`**: `python:3.12-slim-bookworm` (a plain Python base, as the Mantel Connect proof App that
   ran on this house), the pinned `requirements.txt`, uid 10001, `COPY app /app`, `CMD python /app/entrypoint.py`.
   (packaging/docker/Dockerfile's `app` target remains the path for a published image later.)
@@ -345,6 +346,118 @@ Tests: `tests/test_ingress_own_pages.py`.
   5 minutes. A name, never an IP. The page only prefills the editable address box with a hint; it never tests or
   saves by itself. Outside App mode, for non-managers and once MA is set up, nothing is probed. Tests:
   `tests/test_connections.py` (fake resolver and `/info`).
+
+## Direct access (decision 26, 2026-10-18)
+
+**Decision 26 (Avery, revised the same evening):** the HA App stays the primary deployment (HA's automatic
+connection, Music Assistant by App hostname, HA's backups, easy updates), with **optional direct access**:
+Mantel at its own address for tablets and devices at home, for homes that want it. The Proxmox LXC stays the
+advanced path (independence from HA's machine, GPU Live TV). Living only inside HA's Ingress frame had cost
+direct screen links, HA's service worker in the way, no way to be a default dashboard and `hassio_ingress`
+addresses; direct access removes those for whoever turns it on, and changes nothing for anyone else.
+
+**Three modes, the App option `access`; Ingress is always on:**
+
+| `access` | Port 8100 | TLS | Who decides the door there |
+|---|---|---|---|
+| `ingress` (default) | not listened on | HA's | (only the sidebar) |
+| `proxy` | plain HTTP | the home's proxy (NPM, Traefik) | the proxy's `X-Mantel-Door`, from `trusted_proxies` only, with the door key |
+| `https` | HTTPS | Mantel's own Let's Encrypt certificate | the peer: a private address is `lan`, anything else `tunnel` |
+
+`config.yaml` declares one port, `8100/tcp: null` (unpublished until the Owner maps it in the App's Network
+section; `tools/package_check.py` allows exactly that), with `ports_description`. Options: `public_url`
+(required for either mode: `https://<name>[:port]/`, a name, not an IP; it becomes Mantel's public URL, OAuth
+client id and passkey RP id), `trusted_proxies` (`proxy`), `cloudflare_token` (masked; `https`), `acme_email`,
+`acme_staging`, `ha_sign_in_url`. The entrypoint (`packaging/docker/entrypoint.py` `direct_args`) checks them
+and stops the App with a reason when one is wrong; the Cloudflare token goes to `/tmp/cloudflare_token` (0600,
+chowned to the server user), never an argument, the environment or a log.
+
+**How the server tells the two ports apart** (`mantel_server/direct.py`). One aiohttp application, two
+listeners (`direct.serve`): 8099 (Ingress) and 8100. A request is *direct* when its socket's local port is
+`cfg.direct_port`; the peer address plays no part, because Docker's port mapping may show any client (NPM, a
+tablet) as the hassio bridge's gateway `172.30.32.1`, which is also HA Core's address. Then:
+
+* `ingress.is_ingress` is false on the direct port, whatever the peer (so `X-Remote-User-*`/`X-Ingress-Path`
+  are removed there by `proxy_trust` and logged); the Ingress-only gate lets the direct port through and
+  nothing else; HA Core's linked-mode exception (`/linked/ws` from `172.30.32.1`) applies on 8099 only.
+* `proxy_trust.is_trusted` counts `trusted_proxies` on the direct port only (forwarding headers, the door
+  header, the door key; `authz.resolve_door` and `sessions.client_ip` ask it). On 8099 nobody is "the proxy".
+* The Host check (`server.loopback_only`): any Host on 8099 (HA's proxy forwards whatever it got, and linked
+  mode uses `local-mantel:8099`), only `public_url`'s name on 8100 (`cfg.direct_hosts`): DNS rebinding.
+* `proxy` mode sets `--proxy-kind own`, so the door key is required (door_key.py); an untrusted peer on the
+  direct port is the tunnel door even from loopback. After the security review the listed proxy counts **only
+  with the key** on this port, for every header (`proxy_trust.is_trusted` vs `listed`): its address alone may be
+  `172.30.32.1`, i.e. anyone Docker relays. The entrypoint and `/proxy-check` warn about a hassio/Docker-bridge
+  address in `trusted_proxies`. A keyed `lan` for a global client address is downgraded to `tunnel` (defence in
+  depth; DOCS.md requires an NPM Access List, since the name is public in CT logs). The key travels NPM → HA's
+  port in plain HTTP: a LAN hop. NPM as an HA App has a hassio address that can change on restart.
+* "Sign in with Home Assistant" (every mode, auth.py): the state is single use, kept server-side (512 at most,
+  10 minutes), the callback is limited to 20 per client address per 5 minutes (429), and the state cookie is
+  `Secure` on https.
+* "Sign in with Home Assistant" needs HA's address as browsers know it (`ha_sign_in_url` →
+  `--ha-browser-url`); the code exchange, `auth/current_user` and the revoke go to `http://homeassistant:8123`
+  on HA's internal network (`--ha-oauth-url`), since the Supervisor's `http://supervisor/core` proxies HA's
+  API, not its `/auth`. Without the option the button's page names it (409).
+* Enrolled wall tablets (devices.py, LAN door only) work as in the containers; `/home` now sends any enrolled
+  device to its HK tablet's screen (`ingress.tablet_start`: HK's tablet in the device's room), in every mode.
+* Connections → "HTTPS and your proxy" names the mode of the port the page was opened on (`own`, or the new
+  `builtin`); through the sidebar it stays "Home Assistant App (Ingress)", and the door key is rotated there.
+
+**Built-in HTTPS: why Mantel's own ACME client, not Caddy in the App** (`mantel_server/direct_tls.py`). The
+compose stack's Caddy (xcaddy + the Cloudflare DNS module) is proven, but in the App it would mean either
+compiling Caddy on the house's HA machine at every App build (the Supervisor builds local Apps there: a Go
+toolchain, minutes of CPU and about a gigabyte of memory, on a box that may be a Raspberry Pi) or downloading
+an unpinnable binary from Caddy's build service; and two long-running processes in a container whose
+entrypoint execs one server under `init: true`, with nothing to restart Caddy if it dies (the watchdog only
+asks Mantel). Certbot's `acme` library would add half a dozen pinned packages (josepy, requests, ...). DNS-01
+itself is a handful of HTTPS requests, and everything it needs (aiohttp, cryptography) is already in the image,
+pinned and tested. So Mantel does it: RFC 8555 with an ES256 account key, newOrder → the `dns-01` challenge →
+a TXT record through Cloudflare's API (the zone found by name, so the token has Zone / Zone / Read and Zone / DNS / Edit on that zone) → wait until Cloudflare's DoH
+resolver shows it → respond → finalize with a fresh P-256 key's CSR → download the chain; the TXT record is
+removed afterwards, success or not. HTTP-01 is not offered: it needs port 80 reachable from the internet, which
+is what DNS-01 avoids (and Caddy in the compose stack uses DNS-01 too).
+
+* Files in `/data/tls` (0700/0600, inside HA's backups): `account.key`, `cert.pem`, `cert.key`.
+* Until a certificate exists the port serves a 7-day self-signed placeholder for the name (so it answers and
+  the log says why); the new certificate is loaded into the same `SSLContext`, so new connections use it with
+  no restart. Renewal 30 days before expiry, checked every 12 hours; failures retry after 1, 3, 12, then 24
+  hours (Let's Encrypt's failed-validation limit), and `acme_staging` uses the staging directory.
+* Log lines carry Let's Encrypt's or Cloudflare's error code and message, never the token, a key or a header.
+* The door: no proxy stamps one, so the socket peer decides (`direct.https_door`): an address in
+  `lan_networks` (default RFC 1918, ULA, the container's loopback) → `lan`, anything else → `tunnel`; HA's
+  hassio network `172.30.32.0/23`, `fd0c:ac1e:2100::/48` and Docker's `172.17.0.0/16` are never `lan`, whatever
+  the list says (through Docker's userland proxy, a hairpin or a host relay every visitor arrives as
+  `172.30.32.1`). A client's `X-Mantel-Door: tunnel` still tightens. Tablets need a direct LAN path. **Never
+  forward the port from the internet.** Remote use stays HA's sidebar/Companion app (or the LXC's tunnel door).
+* While the placeholder is served (`CertManager.pending`), every request on the port but `/healthz` gets a
+  503 "certificate pending" page (ingress.middleware's direct branch): no sign-in over an unverifiable
+  certificate.
+* Hardening after the orchestrator's security review (2026-10-18): a new chain is checked (the leaf is for the
+  generated key, its names are exactly the name, not expired, loads into a fresh `SSLContext`) and written as
+  one key+chain file (`tls.pem`: temp, fsync, rename, folder fsync), so the pair is never half-replaced; a
+  damaged file at start falls back to the placeholder instead of stopping the App; the issued bundle is kept as
+  `pending.pem` until installed (no second issuance after a restart); `state.json` keeps the directory (a switch
+  between staging and the real service reissues), failures and the next attempt (the backoff survives restarts);
+  an unreadable `account.key` is moved aside and replaced; the TXT name is `_acme-challenge.<requested name>` and
+  an authorization for another name is refused; every URL must be on the directory's origin, no redirects are
+  followed, `Retry-After` is honoured (capped at a minute), `--acme-directory` must be https; the CSR has no
+  CN (SAN only); renegotiation is off; a TXT record whose create answer was lost is found by name and removed.
+  `/data/tls` is plain files (not sealed with the at-rest key) and inside HA's backups.
+
+**Tests** (`tests/test_direct_access.py`, 52 after the review fixes): the options per mode (defaults, every refusal, the token file
+0600 and never in the arguments), the server flags' guards, `config.yaml`'s port and the package check; the real
+two-listener server on two loopback ports per mode: the gate (8099 still refuses non-Ingress, 8100 serves
+Mantel's sign-in), the Host check, Ingress headers believed on 8099 and not on 8100 from the same peer, the door
+key (lan only with it; tunnel without, with a wrong one, or from a peer that is not the proxy), trust only on
+8100 (`/healthz` hidden from the proxy there, 200 for the watchdog on 8099), TLS on 8100 with the placeholder
+and the peer's door, "Sign in with Home Assistant" to `ha_sign_in_url` with Mantel's public client id, an
+enrolled tablet opening its HK screen (and refused without the LAN door); and the ACME client against a
+fictional ACME server and Cloudflare (`tests/acme_fakes.py`: every JWS verified, nonces, the TXT value checked
+against the account key): issuance, a stale nonce retried, the record removed, files 0600, a restart keeping
+account and certificate, renewal at 30 days, a new name, backoff, the token never in the logs, a name outside
+the token's zones. The existing byo compose run (`tools/e2e/compose_e2e.py`) covers the same door-key rules
+behind a real nginx. Not covered here: the Supervisor's actual port mapping (the scratch HA has no Supervisor)
+and Let's Encrypt itself; both are first seen on the house.
 
 ## Staging
 
