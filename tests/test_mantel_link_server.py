@@ -67,10 +67,12 @@ async def test_hk_frontend_unchanged_mantel_link_gets_protocol_2(make_env):
         res, _ = await link.call(2, type="report", report=bad)
         assert res["error"]["code"] == "invalid", bad
     # a refusal names the action as the caller knows it
-    res, _ = await link.call(3, type="call_service", service="music_play", data={})
-    assert res["error"]["message"].startswith("mantel.music_play")
+    res, _ = await link.call(3, type="call_service", service="launch_rockets", data={})
+    assert res["error"]["code"] == "unknown_service" and res["error"]["message"].startswith("mantel.launch_rockets")
+    # protocol 2 forwards HK's other actions too (linked_actions.py); HK Frontend's protocol 1 never did
     res, _ = await hk.call(2, type="call_service", service="music_play", data={})
-    assert res["error"]["message"].startswith("hk_frontend.music_play")
+    assert res["error"]["code"] == "unknown_service" and res["error"]["message"].startswith("hk_frontend.music_play")
+    assert "music_play" in hello["services"] and "clean_areas" in hello["services"]
     # Mantel Settings sees both links, never a credential
     await env.login("owner1", "owner")
     body = await (await env.m.get("/api/linked/owners")).json()

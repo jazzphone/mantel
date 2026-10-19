@@ -60,6 +60,9 @@ LINK_HEADER = "X-Mantel-Link"  # "domain=mantel; protocol=2; features=a,b" on th
 PATH = "/linked/ws"
 SCOPE = "linked"
 SERVICES = ("set_black_screen", "show_popup", "close_popup", "notify")
+# protocol 2 also forwards HK Frontend's other actions, run by Mantel's own engines (linked_actions.py)
+SERVICES_2 = SERVICES + ("music_play", "music_transfer", "music_stop", "music_transport", "music_play_media",
+                         "clean_areas", "pause_automation", "resume_automation")
 PLATFORMS = ("switch", "sensor", "binary_sensor", "camera", "alarm_control_panel")
 ALARM_COMMANDS = frozenset({"alarm_disarm", "alarm_arm_home", "alarm_arm_away", "alarm_arm_night",
                             "alarm_arm_vacation", "alarm_arm_custom_bypass", "alarm_trigger"})
@@ -337,6 +340,7 @@ class CallCtx:
     account: Any
     peer: str | None
     domain: str = "hk_frontend"
+    protocol: int = 1
 
 
 # -- where forwarded calls go ------------------------------------------------------------------------
@@ -534,14 +538,20 @@ class Linked:
 
     async def call_service(self, msg: Mapping[str, Any], ctx: CallCtx) -> Any:
         service = msg.get("service")
-        if service not in SERVICES:
+        if service not in (SERVICES_2 if getattr(ctx, "protocol", 1) >= 2 else SERVICES):
             raise LinkedError("unknown_service", f"{ctx.domain}.{service} is not forwarded to Mantel Server")
         data = msg.get("data") or {}
         if not isinstance(data, Mapping):
             raise LinkedError("invalid", "data: an object")
         data = dict(data)
         targets = self._targets(msg)
-        if service == "notify":
+        if service not in SERVICES:
+            # music, Clean Areas, automation snooze: checked by linked_actions.py and the command gateway
+            if targets:
+                raise LinkedError("invalid", f"{service} takes no target")
+            if not _json_value(data):
+                raise LinkedError("invalid", "data: JSON values")
+        elif service == "notify":
             _check_notify(data)
             if targets:
                 raise LinkedError("invalid", "notify takes no target")
@@ -588,7 +598,7 @@ class Linked:
 
 async def _answer(linked: Linked, client: LinkedClient, msg: dict[str, Any]) -> None:
     mid = msg["id"]
-    ctx = CallCtx(client.account, client.peer, client.domain)
+    ctx = CallCtx(client.account, client.peer, client.domain, client.protocol)
     try:
         t = msg["type"]
         if t == "ping":
@@ -666,7 +676,8 @@ async def ws_endpoint(request: web.Request) -> web.StreamResponse:
     owners = request.app.get("linked_owners")
     if owners is not None:
         registry.owners = wire_owners(owners.snapshot())     # the rows, read now: safe across a restart
-    hello = {"type": "hello", "protocol": protocol, "services": list(SERVICES), "entities": registry.snapshot(),
+    hello = {"type": "hello", "protocol": protocol, "services": list(SERVICES_2 if protocol >= 2 else SERVICES),
+             "entities": registry.snapshot(),
              "owners": _copy(registry.owners)}
     if protocol >= 2:
         # Mantel Link: which Mantel this is (its config entry's unique id), never a secret

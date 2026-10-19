@@ -38,6 +38,12 @@ Phase ``phones`` (slice 9.7): a stand-in Companion-app phone in the scratch HA (
 reaches a Mantel screen and the phone (with Mantel's Dismiss); the Companion app's ``mobile_app_notification_action``
 for it reaches Mantel, which takes the banner down; another app's action does nothing.
 
+Phase ``actions`` (slice 9.8): HK Frontend's music, Clean Areas and automation-snooze actions from the scratch HA
+(no HK Frontend, so ``hk_frontend.*`` are Mantel Link's aliases) reach Mantel's own engines: with Mantel's commands
+off, a Clean Areas dry run answers its plan and the rest are refused in words (and audited), music without Mantel's
+music engine is refused and never sent back to HA; with commands on (fictional demo devices only), Clean Areas
+starts the demo robot in the Kitchen through Mantel's gateway as ``mantel:linked``.
+
 Phase ``zeroconf`` (slice 9.5): Mantel's real announcer (mantel_server/announce.py, run with the scratch HA's
 own python-zeroconf) announces a fictional Mantel as ``_mantel._tcp`` on LOOPBACK ONLY, and the scratch HA
 (``testha.py up --zeroconf-probe``: a scratch-only component browsing that one type on loopback, since HA's own
@@ -132,7 +138,7 @@ class HA(LE.HA):
 
 
 def mantel_app(token: str, folder: Path, entry_id: str | None = None, port: int = 0, board: dict | None = None,
-               frame_ancestors: tuple[str, ...] = ()):
+               frame_ancestors: tuple[str, ...] = (), commands: bool = False):
     from mantel_server import features
     from mantel_server.config import Config
     from mantel_server.server import build_app
@@ -140,7 +146,7 @@ def mantel_app(token: str, folder: Path, entry_id: str | None = None, port: int 
     from mantel_server.store import Store
     cfg = Config(data_dir=folder / "data", secrets_dir=folder / "secrets", port=port, ha_url=SCRATCH_URL,
                  frame_ancestors=tuple(frame_ancestors),
-                 ha_ws_url=SCRATCH_URL.replace("http", "ws") + "/api/websocket", commands_enabled=False)
+                 ha_ws_url=SCRATCH_URL.replace("http", "ws") + "/api/websocket", commands_enabled=commands)
     assert cfg.ha_url == SCRATCH_URL and "192.168." not in cfg.ha_url
     store = Store(cfg.data_dir / "mantel.db")
     app = build_app(cfg, token, store=store, connect_ha=True)
@@ -502,6 +508,95 @@ async def run_zeroconf(token: str) -> dict:
     return out
 
 
+# ------------------------------------------------------------------------------------- phase: actions
+VACUUM = "vacuum.demo_vacuum_2_second_floor"     # a demo robot that starts (no room map): cleans the area it is in
+
+
+async def run_actions(token: str) -> dict:
+    out: dict = {}
+    async with aiohttp.ClientSession() as http:
+        ha = HA(http, token)
+        areas = {a["name"]: a["area_id"] for a in await ha.ws(type="config/area_registry/list")}
+        for v in ("vacuum.demo_vacuum_3_third_floor",):          # an earlier run's choice, out of the Kitchen
+            await ha.ws(type="config/entity_registry/update", entity_id=v, area_id=None)
+        await ha.ws(type="config/entity_registry/update", entity_id=VACUUM, area_id=areas["Kitchen"])
+        await ha.post("/api/services/vacuum/return_to_base", {"entity_id": VACUUM})
+        for commands in (False, True):
+            with tempfile.TemporaryDirectory(prefix="mantel-link-actions-") as folder:
+                app, store, cfg = mantel_app(token, Path(folder), commands=commands)
+                from mantel_server import features
+                from mantel_server.settings_store import Actor
+                app["settings"].store.write([("house", features.FEATURES_DOC, features.check_settings(
+                    {"linked": {"enabled": True}, "clean_areas": {"enabled": True}}))], actor=Actor(label="e2e"))
+                async with TestServer(app, host="127.0.0.1") as server:
+                    base = str(server.make_url("")).rstrip("/")
+                    await asyncio.wait_for(app["hub"].ha.ready.wait(), 60)
+                    owner = GE.Browser(base, "owner")
+                    try:
+                        st, body = await owner.post("/api/bootstrap", {
+                            "token": app["accounts"].issue_bootstrap_token(), "username": "e2e-owner",
+                            "name": "Fictional Owner", "password": secrets.token_urlsafe(18)})
+                        assert st == 200, body
+                        st, made = await owner.post("/api/linked/pair", {})
+                        done = await ha.add_mantel_link(base, code=made["code"])
+                        check(done.get("type") == "create_entry",
+                              f"Mantel Link added (Mantel with house commands {'ON' if commands else 'off'})")
+                        entry = done["result"]["entry_id"]
+                        await until(lambda: _diag(ha, entry, lambda d: d.get("connected")))
+                        try:
+                            await (steps_actions_on if commands else steps_actions_off)(app, ha, out)
+                        finally:
+                            await ha.delete_entry(entry)
+                    finally:
+                        await owner.http.close()
+                store.db.close()
+        await ha.post("/api/services/vacuum/return_to_base", {"entity_id": VACUUM})
+    return out
+
+
+async def _refused(ha: HA, path: str, body: dict, words: str) -> bool:
+    log = Path(testha.SCRATCH) / "hass.log"
+    seen = log.read_text(errors="replace").count(words)
+    s, _ = await ha.post(path, body)
+    return s >= 400 and log.read_text(errors="replace").count(words) > seen
+
+
+async def steps_actions_off(app, ha: HA, out: dict) -> None:
+    s, got = await ha.post("/api/services/hk_frontend/clean_areas?return_response", {"areas": ["kitchen"], "dry_run": True})
+    plan = (got or {}).get("service_response") or {} if isinstance(got, dict) else {}
+    if not plan:
+        say("note: HA answered", s, str(got)[:300])
+    check(s == 200 and plan.get("dry_run") is True and plan["plan"][0]["vacuum"] == VACUUM,
+          "hk_frontend.clean_areas (a dry run) reaches Mantel's Clean Areas: its plan comes back")
+    check(await _refused(ha, "/api/services/mantel/clean_areas", {"areas": ["kitchen"]},
+                         "Mantel refused mantel.clean_areas: house commands are disabled"),
+          "mantel.clean_areas with Mantel's commands off: refused in words (HA's log), nothing sent")
+    check(await _refused(ha, "/api/services/hk_frontend/pause_automation", {"entity_id": "automation.e2e"},
+                         "Mantel refused hk_frontend.pause_automation: house commands are disabled"),
+          "hk_frontend.pause_automation with commands off: refused in words")
+    check(await _refused(ha, "/api/services/mantel/music_stop", {},
+                         "Mantel refused mantel.music_stop: Mantel's music isn't on"),
+          "mantel.music_stop without Mantel's music: refused in words, never sent back to HA")
+    rows = [r for r in app["audit"].rows() if r["actor"] == "mantel:linked"]
+    check(rows and all(r["reason"] == "commands_disabled" for r in rows), "each attempt audited as mantel:linked")
+    st = await ha.state(VACUUM)
+    check(st["state"] == "docked", f"{VACUUM} untouched")
+
+
+async def steps_actions_on(app, ha: HA, out: dict) -> None:
+    s, got = await ha.post("/api/services/mantel/clean_areas?return_response", {"areas": ["kitchen"]})
+    res = ((got or {}).get("service_response") or {}) if isinstance(got, dict) else {}
+    if res.get("ok") is not True:
+        say("note: HA answered", s, str(got)[:400])
+    check(s == 200 and res.get("ok") is True, "mantel.clean_areas with commands on: Mantel's Clean Areas answers ok")
+    st = await until(lambda: _state_is(ha, VACUUM, ("cleaning",)))
+    check(st is not None, f"...and the demo robot {VACUUM} is cleaning (vacuum.start through Mantel's gateway)")
+    row = app["audit"].rows(action="vacuum.start")[0]
+    check((row["actor"], row["decision"], row["result"]) == ("mantel:linked", "allowed", "ok"),
+          "audited as mantel:linked, allowed, sent")
+    out["clean"] = res
+
+
 # ------------------------------------------------------------------------------------- phase: phones
 async def run_phones(token: str) -> dict:
     out: dict = {}
@@ -596,13 +691,13 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--keep-up", action="store_true", help="leave the scratch HA running afterwards")
     ap.add_argument("--reuse", action="store_true", help="use the scratch HA this caller already started; leave it up")
-    ap.add_argument("--phase", choices=["alone", "handover", "zeroconf", "phones"], default="alone",
+    ap.add_argument("--phase", choices=["alone", "handover", "zeroconf", "phones", "actions"], default="alone",
                     help="alone: no HK Frontend (9.2); handover: HK Frontend linked, the bridge handed over and back (9.3)")
     a = ap.parse_args()
     if not a.reuse:
         GE.wait_for_free_harness()
         extra = {"alone": ("--no-hk",), "handover": (), "zeroconf": ("--no-hk", "--zeroconf-probe"),
-                 "phones": ("--no-hk", "--phone-probe")}[a.phase]
+                 "phones": ("--no-hk", "--phone-probe"), "actions": ("--no-hk",)}[a.phase]
         say(f"starting the scratch HA (testha.py up --fresh {' '.join(extra)}); this takes a few minutes")
         GE.harness("up", "--fresh", *extra)
     elif not testha.ready():
@@ -610,7 +705,7 @@ def main() -> int:
     try:
         token = asyncio.run(GE.token_for_scratch())
         evidence = asyncio.run({"alone": run_alone, "handover": run_handover, "zeroconf": run_zeroconf,
-                                "phones": run_phones}[a.phase](token))
+                                "phones": run_phones, "actions": run_actions}[a.phase](token))
         del token
         out = Path(testha.SCRATCH) / f"mantel_link_e2e_{a.phase}.json"
         out.write_text(json.dumps({"checks": RESULTS, **evidence}, indent=1, default=str))

@@ -156,6 +156,38 @@
           "description": "Only screens these people are signed in to."
         }
       }
+    },
+    "music_play": {
+      "name": "Play music",
+      "description": "Plays a playlist in the rooms named (Mantel's music)."
+    },
+    "music_transfer": {
+      "name": "Move music",
+      "description": "Moves what one player plays to the rooms named."
+    },
+    "music_stop": {
+      "name": "Stop music",
+      "description": "Stops the music in the rooms named, or everywhere."
+    },
+    "music_transport": {
+      "name": "Music controls",
+      "description": "Play/pause, next, previous, stop or volume on one player."
+    },
+    "music_play_media": {
+      "name": "Play this",
+      "description": "Plays one item on one player."
+    },
+    "clean_areas": {
+      "name": "Clean areas",
+      "description": "Sends the vacuums that reach them to clean the areas named (Mantel's Clean Areas)."
+    },
+    "pause_automation": {
+      "name": "Pause an automation",
+      "description": "Turns an automation off until a time (default: midnight), then on again."
+    },
+    "resume_automation": {
+      "name": "Resume an automation",
+      "description": "Turns a paused automation on again now."
     }
   }
 }

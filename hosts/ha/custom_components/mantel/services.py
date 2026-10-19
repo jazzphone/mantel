@@ -11,6 +11,10 @@ same schema HK Frontend had; Mantel checks it all again and answers.
   show_popup         a pop-up on Mantel's screens (all, or `dashboards` /
   close_popup        `users` named)
   notify             a banner on Mantel's screens; answers {id, snap}
+  music_*            HK Frontend's music actions, run by Mantel's music engine
+  clean_areas        HK Frontend's Clean Areas, run by Mantel (answers its plan)
+  pause_automation   an automation off until a time (default: midnight), and
+  resume_automation  on again; run by Mantel through its command gateway
 
 THE ALIASES. Registered only for a name HK Frontend does not have right now:
 if HK Frontend (still installed) sets up later, its own registration replaces
@@ -80,7 +84,10 @@ def _forwarder(hass: HomeAssistant, domain: str, service: str):
     name = f"{domain}.{service}"
 
     async def handle(call: ServiceCall) -> ServiceResponse:
-        result = await _bridge(hass, name).forward(service, call.data, name=name)
+        data = dict(call.data)
+        if service == "pause_automation" and data.get("until") is not None:
+            data["until"] = data["until"].isoformat()          # a datetime, as text over the link
+        result = await _bridge(hass, name).forward(service, data, name=name)
         if call.return_response:
             return result if isinstance(result, dict) else {"result": result}
         return None
@@ -115,12 +122,37 @@ def _register(hass: HomeAssistant, domain: str, service: str) -> None:
     elif service == "set_black_screen" and domain == HK_DOMAIN:
         hass.services.async_register(domain, service, _black_screen_alias(hass),
                                      cv.make_entity_service_schema(BLACK_SCREEN_SCHEMA))
+    elif service in MORE_SCHEMAS:
+        hass.services.async_register(domain, service, _forwarder(hass, domain, service), MORE_SCHEMAS[service],
+                                     supports_response=SupportsResponse.OPTIONAL if service in ANSWERS
+                                     else SupportsResponse.NONE)
 
+
+# HK Frontend's other actions (slice 9.8): Mantel runs them (its music engine, Clean Areas, the gateway's
+# automation snooze); the same schemas as HK Frontend's
+ROOMS = vol.All(cv.ensure_list, [cv.entity_id])
+TRANSPORT = ("play_pause", "next", "previous", "stop", "volume_up", "volume_down", "volume_set")   # hk_core music
+AUTOMATION = vol.All(cv.entity_ids, [cv.entity_domain("automation")])
+MORE_SCHEMAS: dict[str, Any] = {
+    "music_play": vol.Schema({vol.Required("rooms"): ROOMS, vol.Required("playlist"): cv.string}),
+    "music_transfer": vol.Schema({vol.Required("rooms"): ROOMS, vol.Required("source"): cv.entity_id}),
+    "music_stop": vol.Schema({vol.Optional("rooms"): ROOMS}),
+    "music_transport": vol.Schema({vol.Required("player"): cv.entity_id, vol.Required("command"): vol.In(TRANSPORT),
+                                   vol.Optional("level"): vol.All(vol.Coerce(float), vol.Range(min=0, max=1))}),
+    "music_play_media": vol.Schema({vol.Required("player"): cv.entity_id, vol.Required("media_content_id"): cv.string,
+                                    vol.Required("media_content_type"): cv.string}),
+    "clean_areas": vol.Schema({vol.Required("areas"): vol.All(cv.ensure_list, [cv.string]),
+                               vol.Optional("dry_run", default=False): cv.boolean}),
+    "pause_automation": vol.Schema({vol.Required("entity_id"): AUTOMATION, vol.Optional("until"): cv.datetime}),
+    "resume_automation": vol.Schema({vol.Required("entity_id"): AUTOMATION}),
+}
+# which of them answer (HK Frontend's: music and Clean Areas)
+ANSWERS = {"music_play", "music_transfer", "music_stop", "music_transport", "music_play_media", "clean_areas"}
 
 # the mantel.* domain actions (set_black_screen is the switch platform's)
-OWN = ("show_popup", "close_popup", "notify")
+OWN = ("show_popup", "close_popup", "notify", *MORE_SCHEMAS)
 # the hk_frontend.* names Mantel Link answers while HK Frontend does not
-ALIASES = ("set_black_screen", "show_popup", "close_popup", "notify")
+ALIASES = ("set_black_screen", "show_popup", "close_popup", "notify", *MORE_SCHEMAS)
 
 
 def _descriptions() -> dict[str, dict[str, Any]]:

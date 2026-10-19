@@ -1,7 +1,7 @@
 # Phase 9: Mantel Link replaces HK Frontend in Home Assistant (decision 28)
 
 **Status (2026-10-19): being built on branch `claude/mantel-link-b012d1`, one slice at a time. Done: 9.1, 9.2,
-9.3, 9.4, 9.5, 9.6, 9.7 (see "Build record" at the end). Nothing is on the house; 9.11 waits for Avery, step by step.**
+9.3, 9.4, 9.5, 9.6, 9.7, 9.8 (see "Build record" at the end). Nothing is on the house; 9.11 waits for Avery, step by step.**
 
 ## The decision
 
@@ -425,3 +425,28 @@ Frontend). `test_e2e_mantel.py` links it to the real `mantel_server/linked.py`.
   `mantel.notify` reaches a Mantel screen and the phone with Mantel's Dismiss and tag, the phone's Dismiss takes
   the banner down, another app's action does nothing, no household service called. Browser pane: the Phones
   group, a switch saved.
+
+### 9.8 Forwarded music, Clean Areas and automation snooze: done
+
+- **Mantel Link** registers `music_play`, `music_transfer`, `music_stop`, `music_transport`, `music_play_media`,
+  `clean_areas`, `pause_automation` and `resume_automation` as `mantel.*` and, while HK Frontend doesn't answer
+  them, `hk_frontend.*`, with HK Frontend's schemas (music and Clean Areas answer; `until` goes over the link as
+  ISO text). Protocol 2 only (`linked.SERVICES_2`); HK Frontend's protocol 1 still forwards only its four.
+- **Mantel** (`mantel_server/linked_actions.py`) runs them with its own engines and **never sends one back to HA's
+  `hk_frontend`**, which may now be Mantel Link's own alias (a loop): music only on Mantel's engine (else
+  `not_set_up` in words), Clean Areas with hk_core's plan and one vacuum call per robot (a dry run only plans),
+  the snooze as `automation.turn_off` now and `turn_on` at `until` (default the next midnight, the house's time;
+  resumed early on request; forgotten if someone turns it on; kept in `linked_house` across restarts; a 30 s
+  tick). All through the command gateway as `mantel:linked`, audited first, refused in words with commands off.
+- **Its grants** (computed, never stored): `control` on the vacuums Clean Areas uses, on `media_player` and the
+  music feature, and `control` + `control.sensitive` on `automation` (turning one off or on is sensitive in
+  Mantel's RBAC). An Owner's deny naming `mantel:linked` wins (tested).
+- **Finding, for later (not changed here):** a page's own `hk_frontend.clean_areas` / `pause_automation` (Mantel's
+  gateway, `service_command`) still goes to HA's `hk_frontend`. With HK Frontend there, that is HK's, as today;
+  once it is removed it reaches Mantel Link's alias and comes back to `linked_actions` (the right engines, one hop
+  longer). Moving those page calls straight onto Mantel's engines is a follow-up.
+- **Checks:** Mantel's `tests/test_linked_actions.py` (6); Mantel Link's `test_more_actions.py` (3). **Scratch HA**
+  (`mantel_link_e2e.py --phase actions`, no HK Frontend): **11/11**: commands off: a Clean Areas dry run answers its
+  plan through `hk_frontend.clean_areas`, Clean Areas, pause and music refused in words, every attempt audited as
+  `mantel:linked`, the robot untouched; commands on (fictional demo devices): `mantel.clean_areas` starts the
+  demo robot in the Kitchen through Mantel's gateway, audited allowed and sent.

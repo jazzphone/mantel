@@ -405,6 +405,13 @@ class LinkedHandler:
     async def call_service(self, service: str, data: dict[str, Any], targets: list[dict[str, str]], ctx: Any) -> Any:
         if service == "notify":
             return await self.house.notify(data, ctx)
+        from . import linked_actions
+        if service in linked_actions.SERVICES:
+            actions = self.house.app.get("linked_actions")
+            if actions is None:
+                from .linked import LinkedError
+                raise LinkedError("not_set_up", f"{service} isn't run by this Mantel")
+            return await actions.call(service, data, ctx)
         return await self.features.call_service(service, data, targets, ctx)
 
     async def entity_command(self, unique_id: str, command: str, data: dict[str, Any], ctx: Any) -> Any:
