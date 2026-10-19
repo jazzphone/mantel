@@ -774,6 +774,13 @@ HA backup `de1c24f9` first. Carries:
 - Option texts: only the alarm asks for a code (`e4ac65b`).
 
 Validation 130 JS, 723 HA Python, 2,502 Mantel, smoke ok.
+- [x] Updated and running (build `00ae61e215dabb2f`), HA connected; options kept (`access: proxy`, NPM
+      192.0.2.254, sign-in at hassiot, commands on, port 8100).
+- [x] `https://mantel.example.com/` answers through NPM (sign-in page with Sign in with Home Assistant).
+- [x] Mantel Settings through HA's sidebar (pane): 7 screens, 162 accessories, Setup Check Ready; People & Access,
+      Connections (HA and MA connected), Your Files; HTTPS and Your Proxy shows Rotate Door Key (not pressed:
+      Avery rotates and pastes the key into NPM himself).
+- [ ] Avery: rotate the door key, NPM Advanced block and Access List, then `/proxy-check` at home and over the tunnel.
 
 ### Removal
 
