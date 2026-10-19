@@ -298,3 +298,23 @@ async def test_panel_get_carries_the_same_hidden_answer_cut_per_person(env):
     assert owner["everywhere"] == ["light.primary"]
     admin = (await read(env, ADMIN, {"type": "hk_frontend/panel/get"}))["result"]["hidden"]
     assert "light.primary" not in json.dumps(admin) and admin["devices"] == []
+
+
+# ------------------------------------------------- hk_frontend/setup/check: Mantel's own Setup Check
+async def test_setup_check_is_answered_by_mantel_with_its_own_needs(env):
+    """HK Settings' Setup Check on Mantel said "'hk_frontend/setup/check' is not an allowed read" (the house,
+    2026-10-18). Mantel answers it itself, in the page's shape: HA and Music Assistant connections, Apple's font
+    and glyphs, house commands, screens. Nothing is asked of Home Assistant."""
+    env.service.store.write([("board", "dashboard-kitchen", {"menu": "auto"})], actor=S.Actor(label="test"))
+    r = await read(env, OWNER, {"type": "hk_frontend/setup/check"})
+    lines = r["result"]["lines"]
+    assert all(set(ln) == {"ok", "title", "detail"} and ln["ok"] in (True, False, None) for ln in lines)
+    titles = [ln["title"] for ln in lines]
+    assert titles[0].startswith("Home Assistant") and titles[1].startswith("Music Assistant")
+    assert "House Commands" in titles and lines[-1] == {"ok": True, "title": "Screens", "detail": "1 in Mantel."}
+    assert not ASKED                                     # never forwarded to HA
+
+
+@pytest.mark.parametrize("who", [ADULT, CHILD, None])
+async def test_setup_check_needs_configure_on_settings(env, who):
+    assert (await read(env, who, {"type": "hk_frontend/setup/check"}))["error"]["code"] == "forbidden"

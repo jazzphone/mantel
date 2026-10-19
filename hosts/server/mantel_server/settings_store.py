@@ -1262,6 +1262,14 @@ def register(app: web.Application, hub: Any, hooks: Any = None, *, store: Settin
             payload = {**payload, "hidden": hiding.only_visible(snap, set(visible), None)}
         return payload
 
+    async def setup_check(ctx: Ctx, msg: dict):
+        # HK Settings' Setup Check: Mantel's own needs (setup_check.py), never HA's check
+        SettingsService._only(msg, set())
+        if not await service.allowed(ctx.identity, Scope("house", "settings")):
+            raise Forbidden("HK Settings needs configure on settings")
+        from . import setup_check as checks
+        return {"lines": checks.lines(app, len(service.store.docs("board")))}
+
     async def get(ctx: Ctx, msg: dict):
         return await service.get(ctx.identity, msg)
 
@@ -1271,6 +1279,7 @@ def register(app: web.Application, hub: Any, hooks: Any = None, *, store: Settin
     read_routes(app).update({
         "hk_frontend/settings/subscribe": Route(subscribe=feed),
         "hk_frontend/panel/get": Route(request=panel_get),
+        "hk_frontend/setup/check": Route(request=setup_check),
         "mantel/settings/get": Route(request=get),
         "mantel/settings/history": Route(request=history),
     })
