@@ -337,26 +337,30 @@ def safe_file(base, rel: str):
     return None
 
 
-async def hk_file(request: web.Request) -> web.StreamResponse:
-    """/hk/<path>: "Your files" first, HK's bundled frontend otherwise (backend/files.py's rule)."""
-    cfg: Config = request.app["cfg"]
-    rel = request.match_info["path"]
-    # Shared modules are composed at the same /hk URLs used by the HA build.
-    # (ingress.file_response: a plain FileResponse, except through HA's Ingress, where HK's code is
-    # served for the page's prefix; see ingress.py)
+def hk_path(app: web.Application, rel: str):
+    """The file /hk/<rel> answers with after the uploaded Your files (user_files.py, served ahead of this
+    route): the dev folder (``--hk-files``), then the shared modules, then HK's bundled frontend; else None."""
+    cfg: Config = app["cfg"]
     override = safe_file(cfg.hk_files, rel)
     if override:
-        return ingress.file_response(request, override, NO_CACHE)
-    shared = request.app["shared_assets"].get(rel)
+        return override
+    # Shared modules are composed at the same /hk URLs used by the HA build.
+    shared = app["shared_assets"].get(rel)
     if shared:
         path = safe_file(cfg.web, shared)
         if path:
-            return ingress.file_response(request, path, NO_CACHE)
-    for base in (cfg.hk_frontend,):
-        path = safe_file(base, rel)
-        if path:
-            return ingress.file_response(request, path, NO_CACHE)
-    raise web.HTTPNotFound()
+            return path
+    return safe_file(cfg.hk_frontend, rel)
+
+
+async def hk_file(request: web.Request) -> web.StreamResponse:
+    """/hk/<path>: "Your files" first, HK's bundled frontend otherwise (backend/files.py's rule)."""
+    # (ingress.file_response: a plain FileResponse, except through HA's Ingress, where HK's code is
+    # served for the page's prefix; see ingress.py)
+    path = hk_path(request.app, request.match_info["path"])
+    if not path:
+        raise web.HTTPNotFound()
+    return ingress.file_response(request, path, NO_CACHE)
 
 
 async def web_file(request: web.Request) -> web.StreamResponse:
