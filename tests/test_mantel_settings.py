@@ -182,3 +182,121 @@ def test_nothing_the_ha_build_ships_says_mantel_outside_a_comment():
     assert said == []
     shell = (WEB / "shim/mantel-shell.js").read_text(encoding="utf-8")
     assert "section: 'Mantel'" in shell                      # Mantel names its own section
+
+
+# -- a screen in Home Assistant's sidebar (ha_dashboards.py) and the HTTPS page's frame check ------------------
+# The kit is a recording stub (no DOM): each row is {kind, label, sub, value, on, ...}, each group {header, footer, rows}.
+HAD_SCRIPT = r"""
+import { readFileSync } from 'node:fs';
+globalThis.window = globalThis;
+globalThis.document = { querySelector: () => null, cookie: '' };
+globalThis.location = { hostname: 'mantel.example', hash: '', search: '', pathname: '/settings', ancestorOrigins: JSON.parse(process.argv[4]) };
+const plain = (o) => (o == null ? o : typeof o === 'object' ? (o._text !== undefined ? o._text : JSON.stringify(o)) : o);
+const row = (kind) => (o) => ({ kind, label: o.label, sub: plain(o.sub), value: o.value, on: o.on, valueCls: o.valueCls,
+                                options: o.options, fk: o.fk, setAttribute() {} });
+window.hkSettingsKit = {
+  group: (o, rows) => ({ kind: 'group', header: o.header || null, footer: plain(o.footer), rows: rows.filter(Boolean) }),
+  info: row('info'), toggle: row('toggle'), text: row('text'), select: row('select'), nav: row('nav'), button: row('button'),
+  h: (tag, attrs) => ({ _text: (attrs && attrs.text) || '' }),
+};
+const reads = JSON.parse(readFileSync(process.argv[3], 'utf8'));
+globalThis.fetch = async (u) => {
+  const path = String(u);
+  if (!(path in reads)) throw new Error('unexpected ' + path);
+  return { ok: true, status: 200, json: async () => reads[path] };
+};
+const m = await import(process.argv[2]);
+const out = {};
+const tick = () => new Promise((r) => setTimeout(r, 0));
+async function draw(me, fn) {
+  m._reset(me);
+  const panel = { render() {}, status() {}, shadowRoot: null };
+  const c = { kids: [], appendChild(k) { this.kids.push(k); return k; } };
+  for (let i = 0; i < 3; i++) {                  // a draw asks the server; the next has its answer
+    c.kids = [];
+    fn(panel, c);
+    await tick(); await tick();
+  }
+  return c.kids;
+}
+const owner = JSON.parse(process.argv[5]), adult = JSON.parse(process.argv[6]);
+const screen = (me) => draw(me, (p, c) => m.host.extend('screen', c, { screen: 'dashboard-loft', title: 'Loft' }, p));
+out.adult = await screen(adult);
+out.owner = await screen(owner);
+const proxy = await draw(owner, (p, c) => { m.host.page(['mantel', 'connections', 'proxy'], p).body(c); });
+out.frames = proxy.filter((g) => g.header === 'Home Assistant’s Frame');
+process.stdout.write(JSON.stringify(out));
+"""
+
+BASE_URL = "https://mantel.example.com/"
+
+
+def had_run(tmp_path, dashboards, state="ok", message=None, framed=()):
+    if shutil.which("node") is None:
+        pytest.skip("node not installed")
+    reads = {
+        "/api/admin/ha-dashboards": {"ok": True, "state": state, "message": message, "base": BASE_URL,
+                                     "ha_url": "https://ha.example.com",
+                                     "ha_addresses": [{"kind": "internal", "url": "https://ha-home.example.com"},
+                                                      {"kind": "external", "url": "https://ha.example.com"}],
+                                     "dashboards": dashboards,
+                                     "screens": [{"path": "dashboard-loft", "title": "Loft", "url": BASE_URL + "dashboard-loft/home"}]},
+        "/api/admin/proxy-check/summary": {"mode": "own", "mode_label": "Your Proxy", "mode_detail": "", "public_url": BASE_URL,
+                                           "https_seen": True, "trusted_proxies": [], "can_rotate": False,
+                                           "door_key": {"required": False}, "frame_ancestors": ["https://ha.example.com"],
+                                           "frame_option": "ha_frame_origins"},
+    }
+    (tmp_path / "base.mjs").write_text((WEB / "shim/base.js").read_text(encoding="utf-8"))
+    (tmp_path / "mantel-settings.mjs").write_text(MODULE.replace("from './base.js'", "from './base.mjs'"))
+    (tmp_path / "script.mjs").write_text(HAD_SCRIPT)
+    (tmp_path / "reads.json").write_text(json.dumps(reads))
+    got = subprocess.run(["node", str(tmp_path / "script.mjs"), str(tmp_path / "mantel-settings.mjs"),
+                          str(tmp_path / "reads.json"), json.dumps(list(framed)),
+                          json.dumps(overview("owner", ALL)), json.dumps(overview("adult", ["me"]))],
+                         capture_output=True, text=True, timeout=60)
+    assert got.returncode == 0, got.stderr
+    return json.loads(got.stdout)
+
+
+LOFT = {"id": "mantel_loft", "url_path": "mantel-loft", "title": "Upstairs", "icon": "mdi:fireplace", "require_admin": True,
+        "show_in_sidebar": True, "screen": "dashboard-loft", "url": BASE_URL + "dashboard-loft/home"}
+
+
+def test_a_screens_page_offers_show_in_home_assistant_to_owners_and_admins_only(tmp_path):
+    got = had_run(tmp_path, [])
+    assert got["adult"] == []
+    [g] = got["owner"]
+    assert g["header"] == "Home Assistant"
+    assert [(r["kind"], r["label"], r["on"]) for r in g["rows"]] == [("toggle", "Show in Home Assistant", False)]
+    assert BASE_URL + "dashboard-loft/home" in g["footer"]
+
+
+def test_on_it_shows_has_own_title_icon_who_and_the_start_page_line(tmp_path):
+    got = had_run(tmp_path, [LOFT, {**LOFT, "id": "other", "url_path": "by-hand"}])
+    [g] = got["owner"]
+    rows = {r["label"]: r for r in g["rows"]}
+    assert rows["Show in Home Assistant"]["on"] is True and rows["Show in Home Assistant"]["sub"] == "In its sidebar as Upstairs"
+    assert rows["Title"]["value"] == "Upstairs" and rows["Icon"]["value"] == "mdi:fireplace"     # HA's, as HA has them
+    assert rows["Who Sees It"]["value"] == "admin"
+    assert [o[1] for o in rows["Who Sees It"]["options"]] == ["Everyone", "Home Assistant Administrators Only"]
+    assert "ha.example.com/mantel-loft" in g["footer"] and "Profile → Dashboard" in g["footer"]
+    assert "2 dashboards of this screen" in g["footer"]
+
+
+def test_without_direct_access_or_ha_nothing_and_a_non_admin_connection_says_how(tmp_path):
+    assert had_run(tmp_path, [], state="direct_access_off", message="x")["owner"] == []
+    assert had_run(tmp_path, [], state="ha_not_connected", message="x")["owner"] == []
+    [g] = had_run(tmp_path, [], state="not_ha_admin", message="Add one yourself in Home Assistant: …")["owner"]
+    assert g["rows"] == [] and g["footer"].startswith("Add one yourself")
+
+
+def test_the_https_page_checks_has_addresses_against_the_allowed_frames(tmp_path):
+    got = had_run(tmp_path, [], framed=["https://ha.example.com"])
+    [g] = got["frames"]
+    rows = {r["label"]: r for r in g["rows"]}
+    assert rows["Allowed to Show Mantel"]["value"] == "ha.example.com"
+    assert rows["Home Assistant at Home"]["value"] == "Fix" and rows["Home Assistant at Home"]["valueCls"] == "warn"
+    assert rows["Home Assistant Away"]["value"] == "OK"
+    assert rows["This Page"]["value"] == "OK"
+    assert "Check an Address" in rows
+    assert "ha_frame_origins" in g["footer"]

@@ -211,5 +211,28 @@ print('\n=== a host\'s own groups on a wall tablet\'s page (extend) ===');
   ok('Home Assistant (no host): HK\'s page alone', texts(tabletPage(null)).indexOf('The host’s own group') < 0, true);
 })();
 
+print('\n=== a host\'s own groups on a screen\'s page (extend) ===');
+(function () {
+  function screenPage(host) {
+    var pg = page(host, Object.assign(JSON.parse(JSON.stringify(DATA)), { boards: { 'dashboard-kitchen': { categories: [], menu_top: [] } } }));
+    pg.setAttribute('wide', '');                 // (a desk-wide page: its preview beside it, no Open Screen row)
+    var c = document.createElement('div');
+    pg.resolve(['screens', 'dashboard-kitchen']).body(c);
+    return c;
+  }
+  var asked = [];
+  var x = example();
+  x.extend = function (where, c, ctx) {
+    asked.push([where, ctx]);
+    var g = document.createElement('section'); g._text = 'The host’s own group'; c.appendChild(g);
+  };
+  var c = screenPage(x), t = texts(c);
+  ok('the host is asked on a screen\'s page, with the screen', asked, [['screen', { screen: 'dashboard-kitchen', title: 'Kitchen' }]]);
+  ok('...and what it draws follows This Device', t.indexOf('The host’s own group') > t.indexOf('This Device'), true);
+  var y = example(); y.extend = function () { throw new Error('a host that fails'); };
+  ok('a host that throws leaves HK\'s page whole', texts(screenPage(y)).indexOf('Copy Settings From…') >= 0, true);
+  ok('Home Assistant (no host): HK\'s page alone', texts(screenPage(null)).indexOf('The host’s own group') < 0, true);
+})();
+
 print(fail ? 'FAIL ' + fail + ' SETTINGS HOST TESTS' : 'ALL ' + pass + ' SETTINGS HOST TESTS PASS');
 if (fail) throw new Error('settings host tests failed');

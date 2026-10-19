@@ -33,7 +33,7 @@ from . import music
 from . import accounts, alarm_pin, auth, connect_pairing, devices, gateway, health, ingress, live_tv, pins, proof2, rbac_store, readproxy, sessions, settings_store
 from . import (admin_page, atrest, backup, connections, features, linked, linked_house, linked_owners, login_page,
                service_accounts, talk_relay, user_files)
-from . import default_screens, direct, direct_tls, ma_page, media_proxy, proxy_check, proxy_trust, security_headers, tablet_links, user_data
+from . import default_screens, direct, direct_tls, ha_dashboards, ma_page, media_proxy, proxy_check, proxy_trust, security_headers, tablet_links, user_data
 from .authz import Authz, Principal, resolve_door
 from .config import Config
 from .connectors import REFUSE_ALL, Ctx, Hooks
@@ -589,6 +589,7 @@ def wire(app: web.Application, hub: Hub, token: str, connect_ha: bool) -> None:
                   ha_token=conns.ha_token if connect_ha else None)
     readproxy.register(app, hub, hooks)
     default_screens.register(app)    # the screen each person or tablet opens on (Mantel Settings)
+    ha_dashboards.register(app)      # a screen as a Webpage dashboard in HA's sidebar (a screen's page; HA is the record)
     user_data.register(app, hub)     # HK's per-person frontend user data (the Music page's speaker), Mantel's own
     camera_connector.register(app, hub, hooks)
     camera_still.register(app, hub, authz, conns.ha_token)   # GET /api/camera/<entity>/still (RBAC, HA's token stays here)
