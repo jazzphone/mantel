@@ -2359,17 +2359,23 @@
   // null when the feature is not added. `has`: the pages this screen has
   // (a thermostat opens Climate when there is one, else its sheet);
   // `first`: the screen's first page, with no menu -- no back button.
-  // the reading tiles' grid: a tall tile and the gap a row, and the gap
-  // paid back under the last one
+  // the reading tiles' grid: a tall tile and the gap a row. The last row
+  // keeps its gap, as a room's pills keep theirs (pillGrid's `space`): with
+  // the heading's 21 px above its text, the next section's name sits 32 px
+  // below these tiles and 11 px above its own, as on Lights, Climate and
+  // every room-style page (it was paid back, and Energy's and Power's
+  // sections sat 13 px closer -- 2026-10-18; client_smoke measures both)
   function trackGrid() {
     var T = TL();
     return { 'grid-auto-flow': 'dense', 'grid-auto-rows': (T.tall + T.gridGap) + 'px', 'grid-column-gap': T.gridGap + 'px',
              'grid-row-gap': '0px', 'grid-template-columns': 'repeat(auto-fill, var(--hk-track, ' + T.w + 'px))',
-             margin: '0px 0px -' + T.gridGap + 'px 0px', padding: '0px var(--hk-pill-end, 0px) 0px 0px' };
+             margin: '0px', padding: '0px var(--hk-pill-end, 0px) 0px 0px' };
   }
   var BATTERY_STEPS = [{ at_least: 60, color: 'green' }, { at_least: 25, color: 'yellow' }, { color: 'red' }];
   function energyHeading(name, link) {
-    var hd = { type: 'custom:hk-heading-card', name: name, height: '42px', padding: '18px 0px 8px 3px' };
+    // the 21px row with 21 above it and none below: the text at a room
+    // heading's place in the section's rhythm (trackGrid)
+    var hd = { type: 'custom:hk-heading-card', name: name, height: '42px', padding: '21px 0px 0px 3px' };
     if (link && link.path) {
       hd.navigation_path = link.path;
       hd.chevron = (link.text || 'More') + (/›$/.test(link.text || '') ? '' : '›');
@@ -2471,9 +2477,8 @@
       if (!tiles.length) return;
       var hd = energyHeading(s.name, s.link);
       hd.energy_section = s.id;
-      // its height is a minimum (hk-stat.js): the 21px row plus 18 above and
-      // 3 below is the same 42px, and room for the total's own line on a phone
-      hd.padding = '18px 0px 3px 3px';
+      // its height is a minimum (hk-stat.js): the same 42px, and room for
+      // the total's own line on a phone
       body.push(hd);
       body.push({ type: 'custom:hk-grid-card', cards: tiles, layout: trackGrid() });
     });
