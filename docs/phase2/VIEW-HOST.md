@@ -81,7 +81,11 @@ It draws **every** page of the dashboard, not only Home. The server serves `home
 Narrowing the hub subscription now works per page. After a page is first drawn, its reads are
 recorded and the subscription narrows to everything read on the pages seen so far, so a cached
 page stays correct. A page not seen yet widens the subscription back to the whole house before it
-is drawn. `?narrow=0` still turns narrowing off.
+is drawn. `?narrow=0` still turns narrowing off. A state read after narrowing (`host.onMiss`) and a
+notification's accessory and camera (its `sheet`, `entity` and `camera`, kept as the notification
+arrives) join the narrowed set: a tap on a banner opens a sheet whose entity is often on no page seen
+(2026-10-19: the tap found no state, opened nothing and took the banner away; pinned by the smoke's
+`notification_taps`).
 
 `web/shim/cards-bridge.js` is gone. Its pieces moved:
 
