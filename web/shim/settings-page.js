@@ -92,8 +92,10 @@ try {
 
   const el = document.createElement('hk-settings-panel');
   el.id = 'mantel-settings';
-  el.narrow = window.innerWidth < 900;
-  window.addEventListener('resize', () => { el.narrow = window.innerWidth < 900; });
+  // narrow: one column (the panel's own measure, hk-settings.js: under 700 px wide or 500 px tall)
+  const narrow = () => window.innerWidth < 700 || window.innerHeight < 500;
+  el.narrow = narrow();
+  window.addEventListener('resize', () => { el.narrow = narrow(); });
   el.hass = host.hass;
   document.body.appendChild(el);
   host.onSnapshot = (h) => { el.hass = h; };      // the panel follows the house, as HA hands it each new hass

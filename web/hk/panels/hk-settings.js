@@ -139,8 +139,16 @@
     // the panel to its content and the window scrolled the menu and the page
     // together. The window's height gives each its own scroll.
     ':host{height:100vh;height:100dvh}',
+    // SAFE AREAS (an iPhone or iPad full screen: the web app on the Home
+    // Screen, a native app's web view): the notch, the status bar and the rounded
+    // corners stay out of the lists. The host keeps the window's height and
+    // pads itself; the bottom (the home indicator) pads each scroller's end,
+    // so rows scroll under it but the last one stops above it. env() is 0
+    // everywhere else (HA's panel, a desktop browser), so nothing moves there.
+    ':host{box-sizing:border-box;background:var(--hk-bg);',
+    '  padding:env(safe-area-inset-top,0px) env(safe-area-inset-right,0px) 0 env(safe-area-inset-left,0px)}',
     '.app{display:flex;height:100%;overflow:hidden;position:relative}',
-    '.side{flex:none;width:320px;height:100%;overflow-y:auto;overscroll-behavior:contain;padding:0 16px 40px;',
+    '.side{flex:none;width:320px;height:100%;overflow-y:auto;overscroll-behavior:contain;padding:0 16px calc(40px + env(safe-area-inset-bottom,0px));',
     '  border-right:.5px solid var(--hk-sep)}',
     '.sidetop{position:sticky;top:0;z-index:2;background:var(--hk-bg);padding:10px 0 12px;margin:0 -4px;',
     '  border-bottom:.5px solid transparent;transition:border-color .2s}',
@@ -218,7 +226,7 @@
     '.bar:not(.scrolled) .mid{max-width:0}',
     '.bar:not(.scrolled) .lead{flex:0 1 auto;max-width:calc(100% - 96px)}',
     '.scroll{flex:1;overflow-y:auto;overscroll-behavior:contain;padding-top:52px}',
-    '.page{max-width:680px;margin:0 auto;padding:6px 20px 80px}',
+    '.page{max-width:680px;margin:0 auto;padding:6px 20px calc(80px + env(safe-area-inset-bottom,0px))}',
     // 32px between the columns only: between the title and the settings the
     // subtitle's own 24px, as on every page without a preview (a 32px row
     // gap on top made it 56)
@@ -354,11 +362,11 @@
     '.live{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}',
     '.loading{display:flex;align-items:center;justify-content:center;height:100%;color:var(--hk-label2)}',
     // ONE COLUMN (phones, narrow windows): the list is its own page
-    ':host(:not([wide])) .side{width:100%;border-right:0;padding:0 16px 40px}',
+    ':host(:not([wide])) .side{width:100%;border-right:0;padding:0 16px calc(40px + env(safe-area-inset-bottom,0px))}',
     ':host(:not([wide])) .sidehead h1{font-size:34px;line-height:41px}',
     ':host(:not([wide])) .app[data-view="root"] .detail{display:none}',
     ':host(:not([wide])) .app[data-view="detail"] .side{display:none}',
-    ':host(:not([wide])) .page{padding:6px 16px 80px}',
+    ':host(:not([wide])) .page{padding:6px 16px calc(80px + env(safe-area-inset-bottom,0px))}',
     // AT LEAST ONE SCREEN TALL: on a phone nothing above gives the page a
     // height, so `height:100%` would be the content's, and a short page
     // would end in a band of Home Assistant's own gray under it
@@ -675,7 +683,12 @@
     }
     measure() {
       var w = this.getBoundingClientRect().width || window.innerWidth;
-      var wide = w >= 860, xwide = w >= 1320;
+      // TWO COLUMNS from 700 px, as iOS Settings on an iPad: every iPad held
+      // upright (744 to 1032 px) gets the list beside the page, a phone one
+      // column (below 700 even in landscape: 932 px is the widest iPhone, but
+      // 844 x 390 has no height for a sidebar, so that is height-checked)
+      var tall = (this.getBoundingClientRect().height || window.innerHeight) >= 500;
+      var wide = w >= 700 && tall, xwide = w >= 1320;
       var changed = wide !== this.hasAttribute('wide') || xwide !== this.hasAttribute('xwide');
       this.toggleAttribute('wide', wide);
       this.toggleAttribute('xwide', xwide);
