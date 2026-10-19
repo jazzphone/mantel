@@ -1,7 +1,7 @@
 # Phase 9: Mantel Link replaces HK Frontend in Home Assistant (decision 28)
 
 **Status (2026-10-19): being built on branch `claude/mantel-link-b012d1`, one slice at a time. Done: 9.1, 9.2,
-9.3, 9.4 (see "Build record" at the end). Nothing is on the house; 9.11 waits for Avery, step by step.**
+9.3, 9.4, 9.5 (see "Build record" at the end). Nothing is on the house; 9.11 waits for Avery, step by step.**
 
 ## The decision
 
@@ -179,6 +179,14 @@ From docs/phase4/FEATURE-PARITY.md, checked per house; anything unchecked keeps 
   model "Wall Tablet". Entity ids unchanged. If Avery prefers the domain `mantel_link`, change it before 9.1; after,
   it is another migration.
 
+- **M5, announcing Mantel from Docker/LXC (open, 2026-10-19):** multicast never leaves Docker's bridge networks, so
+  zeroconf needs either a process on the host's network or the host's own avahi. Built: Mantel writes a non-secret
+  `announce.json`; the **opt-in** `compose.announce.yaml` runs the announcer (same image, user 10001, no
+  capabilities, read-only, only the data volume read-only) on the host network, the one service anywhere that
+  `package_check.py` lets do so; or `python -m mantel_server.announce --avahi` prints a service file for the
+  host's avahi. Without either, Mantel Link is added by hand (address + pairing code). Avery: keep the overlay
+  opt-in (recommended), make it default, or avahi only?
+
 ## Risks
 
 - **Registry migration needs the entities unloaded.** The hand-over reloads HK first, then migrates; 9.3 tests an
@@ -325,3 +333,38 @@ Frontend). `test_e2e_mantel.py` links it to the real `mantel_server/linked.py`.
   without HK Frontend** (`mantel_link_e2e.py --phase alone`): **27/27**, now adding Mantel Link with a code the
   Owner made (spent, the credential made by Mantel). Browser pane: the page, Make a Pairing Code, the code held
   while pending, Withdraw.
+
+### 9.5 Discovery: done
+
+- **From the App** (`mantel_server/supervisor_discovery.py`; `config.yaml` `hassio_api: true` + `discovery:
+  [mantel]`, the entrypoint's `--supervisor-url http://supervisor`): at every start Mantel revokes the credential
+  it made last time, makes a new `linked` one ("Home Assistant - App discovery"), deletes its previous
+  announcement and posts `{service: mantel, config: {url: http://<the App's hostname from /addons/self/info>:8099,
+  token, instance}}` with the App's Supervisor credential. Remembers the account id and the discovery's uuid,
+  never the credential; audited (`linked.app_discovery`); failure only logs.
+- **From Docker/LXC** (`mantel_server/announce.py`): Mantel writes `announce.json` ({instance, https url,
+  version}, `--announce-file`, on by default in the container, `MANTEL_ANNOUNCE=0` turns it off); the announcer
+  (`python -m mantel_server.announce`) advertises `_mantel._tcp` with TXT `instance`, `url`, `path`, `version`.
+  Packaging: `compose.announce.yaml` (opt-in, decision M5 above), `--avahi`, `--check` (its healthcheck),
+  `zeroconf` added to Mantel's dependencies (Docker image; the App doesn't need it).
+- **Mantel Link** (`config_flow.py`): `async_step_hassio` → one-click `hassio_confirm` (tested with a probe before
+  it is saved); an entry set up from the App's announcement follows its new credential and address (the same
+  instance id), an entry set up any other way is left alone. `async_step_zeroconf` (manifest `zeroconf:
+  ["_mantel._tcp.local."]`) → `zeroconf_confirm` asking only for a pairing code, with Mantel's https address
+  shown; a zeroconf entry follows Mantel's new address. Announcements that aren't Mantel's (no https, no
+  32-hex instance) are refused. Brand icons (`brand/icon.png`, `icon@2x.png`: the App's fireplace, redrawn at
+  256/512).
+- **Deviation:** `single_config_entry` is dropped from the manifest. With it, HA aborts every flow, discovery
+  included, while an entry exists, so the App's rotated credential could never reach the entry it set up. "One
+  Mantel, one entry" is kept by the flow itself (a different instance id: `another_mantel_linked`; by hand while
+  linked: `single_instance_allowed`).
+- **Checks:** Mantel Link's `test_discovery.py` (8, HA's `HassioServiceInfo` / `ZeroconfServiceInfo`);
+  `tests/test_mantel_link_discovery.py` (5: the App's announcement and rotation against a fake Supervisor, the
+  file and its avahi form, the entrypoint's flags in both modes, the packaging rules). **Real HA, real
+  announcer** (`mantel_link_e2e.py --phase zeroconf`, everything on loopback: the scratch HA does not load HA's
+  own zeroconf, which would browse the home network; `testha.py --zeroconf-probe` adds a scratch-only component
+  browsing `_mantel._tcp` on 127.0.0.1): **5/5**, one "Discovered: Mantel" flow keyed by the instance id, asking
+  for the code, a repeat announcement no second flow. Browser pane: the Discovered card with the icon, the form's
+  words. Not done here: the code exchange after a zeroconf discovery on a real HA needs Mantel's real https
+  address (covered by the pairing tests and the alone phase); a real Supervisor (covered by the fake; on the
+  house in 9.11).

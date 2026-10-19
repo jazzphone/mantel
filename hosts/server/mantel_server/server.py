@@ -32,7 +32,7 @@ from aiohttp import WSMsgType, web
 from . import frame_origins, music
 from . import accounts, alarm_pin, auth, connect_pairing, devices, gateway, health, ingress, live_tv, pins, proof2, rbac_store, readproxy, sessions, settings_store
 from . import (admin_page, atrest, backup, connections, features, linked, linked_house, linked_owners, linked_pairing,
-               login_page,
+               login_page, supervisor_discovery,
                service_accounts, talk_relay, user_files)
 from . import default_screens, direct, direct_tls, ha_dashboards, ma_page, media_proxy, proxy_check, proxy_trust, security_headers, tablet_links, user_data
 from .authz import Authz, Principal, resolve_door
@@ -613,6 +613,17 @@ def wire(app: web.Application, hub: Hub, token: str, connect_ha: bool) -> None:
     # Mantel Link's pairing codes (docs/phase9/MANTEL-LINK.md 9.4): an Owner's one-time code, traded once at
     # /linked/pair for a `linked` Service credential, both sides proving they know it
     linked_pairing.register(app)
+    # ...and how Home Assistant finds Mantel (9.5): the App's Supervisor announcement, or the zeroconf file
+    supervisor_discovery.register(app)
+    if getattr(cfg, "announce_file", None) is not None:
+        async def write_announcement(_app):
+            from . import announce
+            try:
+                body = announce.write(cfg.announce_file, _app["linked_owners"].instance_id(), cfg.public_url)
+                log.info("announce: wrote %s for the zeroconf announcer (%s)", cfg.announce_file, body["url"])
+            except (OSError, ValueError) as err:
+                log.warning("announce: not announcing Mantel by zeroconf: %s", err)
+        app.on_startup.append(write_announcement)
     # Phase 4: hk_core's features on Mantel (each off until an Owner enables it; house commands only
     # through the gateway as the `mantel:features` Service actor)
     features.register(app, hub, hooks)

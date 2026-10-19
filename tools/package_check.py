@@ -235,6 +235,16 @@ def _as_list(value) -> list:
     return value if isinstance(value, list) else ([] if value in (None, {}) else [value])
 
 
+def _announcer_ok(path: Path, sname: str, svc: dict) -> bool:
+    """Mantel's zeroconf announcer (announce.py) may use the host's network, because multicast never leaves
+    Docker's bridges: only in the opt-in compose.announce.yaml, only as `announce`, running as 10001, with no
+    secrets, ports, devices or capabilities, and nothing mounted but Mantel's data volume read-only."""
+    return (path.name == "compose.announce.yaml" and sname == "announce" and str(svc.get("user")) == "10001:10001"
+            and not svc.get("secrets") and not svc.get("ports") and not svc.get("devices") and not svc.get("cap_add")
+            and [str(v) for v in _as_list(svc.get("volumes"))] == ["mantel-data:/data:ro"]
+            and svc.get("pid") != "host" and svc.get("ipc") != "host")
+
+
 def check_compose(path: Path, release: bool = False) -> list[str]:
     problems: list[str] = []
     try:
@@ -259,7 +269,9 @@ def check_compose(path: Path, release: bool = False) -> list[str]:
             problems.append(f"{where}: no cpus limit")
         if svc.get("privileged") is True:
             problems.append(f"{where}: privileged")
-        if svc.get("network_mode") == "host" or svc.get("pid") == "host" or svc.get("ipc") == "host":
+        if svc.get("network_mode") == "host" and _announcer_ok(path, sname, svc):
+            pass        # the zeroconf announcer alone, opt-in, sealed (compose.announce.yaml)
+        elif svc.get("network_mode") == "host" or svc.get("pid") == "host" or svc.get("ipc") == "host":
             problems.append(f"{where}: shares a host namespace")
         added = [str(c).upper() for c in _as_list(svc.get("cap_add"))]
         if added and not (sname == "caddy" and added == ["NET_BIND_SERVICE"]):
@@ -479,9 +491,14 @@ def check_ha_app(path: Path) -> list[str]:
         problems.append("ha-app: cloudflare_token must be a password-type option (masked in HA's form)")
     if doc.get("homeassistant_api") is not True:
         problems.append("ha-app: homeassistant_api must be true (HA's built-in App credential)")
-    for extra in ("hassio_api", "auth_api", "hassio_role"):
+    for extra in ("auth_api", "hassio_role"):
         if doc.get(extra):
             problems.append(f"ha-app: {extra} is not needed and must not be set")
+    # Mantel Link's "Discovered: Mantel" (supervisor_discovery.py): the App announces itself to the Supervisor,
+    # which needs hassio_api (the default role, never more) and discovery: [mantel]; one without the other is wrong
+    if bool(doc.get("hassio_api")) != (doc.get("discovery") == ["mantel"]):
+        problems.append("ha-app: hassio_api is only for Mantel Link's discovery: set both hassio_api: true and "
+                        "discovery: [mantel], or neither")
     if (doc.get("options") or {}).get("commands_enabled") is not False:
         problems.append("ha-app: options.commands_enabled must default to false")
     if "image" in doc:
@@ -595,6 +612,12 @@ def run_all(release: bool = False, root: Path = ROOT) -> list[str]:
     problems += check_ha_app(pkg / "ha-app/config.yaml")
     problems += check_connect_app(pkg / "connect-app/config.yaml")
     problems += check_connect_compose(pkg / "compose/compose.connect.yaml")
+    announce = pkg / "compose/compose.announce.yaml"
+    if announce.is_file():
+        # the service rules (an overlay has none of the main file's networks to check)
+        problems += [p for p in check_compose(announce, release) if p.startswith("compose service ")]
+        if set((parse_yaml(announce.read_text()).get("services") or {})) != {"announce"}:
+            problems.append("compose.announce.yaml: only the announce service may appear")
     problems += check_no_committed_secrets(root)
     return problems
 

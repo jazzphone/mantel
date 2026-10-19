@@ -162,7 +162,19 @@ def install_mantel_link() -> None:
                     else MANTEL_LINK, dest, ignore=shutil.ignore_patterns("tests", "__pycache__"))
 
 
-def prepare(fresh: bool, sequential: bool = False, hk: bool = True) -> None:
+def install_zeroconf_probe() -> None:
+    """Mantel Link's zeroconf check (tools/e2e/mantel_link_e2e.py --phase zeroconf): a scratch-only component
+    that browses _mantel._tcp on loopback alone (HA's own zeroconf stays off: it would browse the home network)."""
+    dest = CONFIG / "custom_components/mantel_e2e_browse"
+    if dest.exists():
+        shutil.rmtree(inside_scratch(dest))
+    shutil.copytree(ROOT / "tools/testha/mantel_e2e_browse", dest, ignore=shutil.ignore_patterns("__pycache__"))
+    conf = CONFIG / "configuration.yaml"
+    if "mantel_e2e_browse:" not in conf.read_text():
+        conf.write_text(conf.read_text() + "mantel_e2e_browse:\n")
+
+
+def prepare(fresh: bool, sequential: bool = False, hk: bool = True, probe: bool = False) -> None:
     if not (VENV / "bin/hass").exists():
         raise SystemExit(f"no hass at {VENV}/bin/hass (set TESTHA_VENV)")
     if fresh and CONFIG.exists():
@@ -194,6 +206,8 @@ def prepare(fresh: bool, sequential: bool = False, hk: bool = True) -> None:
         store.write_text(json.dumps({"version": 4, "minor_version": 1, "key": "onboarding",
                                      "data": {"done": ["core_config", "analytics", "integration"]}}))
     (CONFIG / "configuration.yaml").write_text(CONFIGURATION.format(db=CONFIG / "home-assistant_v2.db"))
+    if probe:
+        install_zeroconf_probe()
 
 
 def start() -> None:
@@ -367,6 +381,8 @@ def main() -> None:
     ap.add_argument("--fresh", action="store_true", help="wipe the scratch config and credentials first")
     ap.add_argument("--no-hk", action="store_true",
                     help="no HK Frontend in the scratch HA (Mantel Link alone; it is always installed, not set up)")
+    ap.add_argument("--zeroconf-probe", action="store_true",
+                    help="add a scratch-only component that hands _mantel._tcp announcements on loopback to Mantel Link")
     ap.add_argument("--ordered-boot", action="store_true",
                     help="EXPERIMENT: scratch copy loads HK's dependency-free bootstrap modules as ONE ordered file (tests the load-order fix)")
     a = ap.parse_args()
@@ -380,7 +396,7 @@ def main() -> None:
     else:
         if pid():
             stop()
-        prepare(a.fresh, a.ordered_boot, hk=not a.no_hk)
+        prepare(a.fresh, a.ordered_boot, hk=not a.no_hk, probe=a.zeroconf_probe)
         start()
         asyncio.run(setup())
 

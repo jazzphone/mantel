@@ -17,6 +17,17 @@
           "url": "Mantel's address",
           "token": "Service credential"
         }
+      },
+      "hassio_confirm": {
+        "title": "Mantel",
+        "description": "Link Home Assistant to Mantel, found running as the {addon} App? Mantel's wall tablets and actions then show in Home Assistant."
+      },
+      "zeroconf_confirm": {
+        "title": "Mantel",
+        "description": "Mantel was found on your network at {url}. To link it, make a pairing code in Mantel Settings (Connections, Home Assistant Link, Make a Pairing Code) and enter it here.",
+        "data": {
+          "code": "Pairing code"
+        }
       }
     },
     "error": {
@@ -35,8 +46,11 @@
     "abort": {
       "already_configured": "This Mantel is already linked.",
       "single_instance_allowed": "Mantel Link is already set up.",
-      "reconfigure_successful": "Mantel Link was updated."
-    }
+      "reconfigure_successful": "Mantel Link was updated.",
+      "another_mantel_linked": "Home Assistant is already linked to another Mantel.",
+      "invalid_discovery": "That announcement didn't describe a Mantel."
+    },
+    "flow_title": "{name}"
   },
   "services": {
     "set_black_screen": {

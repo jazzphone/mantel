@@ -1,0 +1,37 @@
+# OPTIONAL: Mantel on the home network by zeroconf (_mantel._tcp; docs/phase9/MANTEL-LINK.md), so Home
+# Assistant's Mantel Link offers "Discovered: Mantel", confirmed with a pairing code from Mantel Settings.
+#
+#   docker compose -f compose.yaml -f compose.announce.yaml up -d
+#
+# Mantel writes what to announce, no secret, to its data volume (announce.json: its instance id and https
+# address; MANTEL_ANNOUNCE, on by default). This service reads that file and answers mDNS. It is the ONLY
+# service anywhere in Mantel's packaging on the host's network (package_check.py allows it here alone, and only
+# like this): multicast never leaves Docker's bridges. It runs as 10001 with no capabilities, a read-only root
+# and nothing but the data volume, read-only. Without it, add Mantel Link by hand (Mantel's address and a
+# pairing code), or let the host's own avahi announce Mantel: `docker compose exec mantel-server python -m
+# mantel_server.announce --avahi --file /data/announce.json` prints a service file for /etc/avahi/services/.
+services:
+  announce:
+    image: ${MANTEL_SERVER_IMAGE:-mantel-server:local}
+    container_name: mantel-announce
+    restart: unless-stopped
+    depends_on:
+      - mantel-server
+    entrypoint: ["python", "-m", "mantel_server.announce", "--file", "/data/announce.json"]
+    user: "10001:10001"
+    network_mode: host
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 64m
+    cpus: 0.25
+    pids_limit: 32
+    volumes:
+      - mantel-data:/data:ro
+    healthcheck:
+      test: ["CMD", "python", "-m", "mantel_server.announce", "--check", "--file", "/data/announce.json"]
+      interval: 60s
+      timeout: 10s
+      retries: 3

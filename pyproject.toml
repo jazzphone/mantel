@@ -8,7 +8,8 @@ version = "0.0.1"
 description = "Mantel: HK as its own platform (Mantel Server, shared core, hosts)"
 requires-python = ">=3.12"
 dependencies = ["aiohttp>=3.9", "argon2-cffi>=25.1", "cryptography>=50.0", "webauthn>=3.0",
-                "Pillow>=11.0"]   # Your files photos are re-encoded (user_files.py)
+                "Pillow>=11.0",   # Your files photos are re-encoded (user_files.py)
+                "zeroconf>=0.140"]   # Docker/LXC: Mantel announced as _mantel._tcp (announce.py; the App uses the Supervisor)
 
 [project.optional-dependencies]
 dev = ["pytest>=8", "pytest-aiohttp>=1.0"]

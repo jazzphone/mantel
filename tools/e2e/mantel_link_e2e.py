@@ -33,6 +33,13 @@ Phase ``handover`` (slice 9.3), a Home Assistant WITH HK Frontend, linked (``--p
   5. The Owner gives the bridge back: HK Frontend takes the same entries back.
   6. Removes Mantel Link's entry and unlinks HK Frontend; stops the scratch HA (unless --keep-up / --reuse).
 
+Phase ``zeroconf`` (slice 9.5): Mantel's real announcer (mantel_server/announce.py, run with the scratch HA's
+own python-zeroconf) announces a fictional Mantel as ``_mantel._tcp`` on LOOPBACK ONLY, and the scratch HA
+(``testha.py up --zeroconf-probe``: a scratch-only component browsing that one type on loopback, since HA's own
+zeroconf would browse the home network) hands it to Mantel Link: "Discovered: Mantel" waits for a pairing code,
+with Mantel's https address; a second announcement of the same Mantel makes no second flow. The code exchange
+itself needs Mantel's real https address and is covered by the pairing tests and the alone phase.
+
 SAFETY: refuses to run unless the HA URL is the scratch one; never reads ~/.config/mantel or touches
 /Volumes/config or the house's HA. Prints no credential. Commands stay disabled throughout.
 """
@@ -435,23 +442,76 @@ async def _state_is(ha: HA, eid: str, states: tuple[str, ...]):
     return st if st is not None and st["state"] in states else None
 
 
+# ------------------------------------------------------------------------------------- phase: zeroconf
+async def run_zeroconf(token: str) -> dict:
+    import os
+    import subprocess
+    out: dict = {}
+    instance = secrets.token_hex(16)
+    with tempfile.TemporaryDirectory(prefix="mantel-link-zc-") as folder:
+        from mantel_server import announce
+        f = Path(folder) / "announce.json"
+        announce.write(f, instance, "https://mantel.example.test:8443/")
+        py = Path(testha.VENV) / "bin/python"
+        env = {k: v for k, v in os.environ.items() if k != "PYTHONPATH"}
+        env["PYTHONPATH"] = str(ROOT / "hosts/server")
+        proc = subprocess.Popen([str(py), "-m", "mantel_server.announce", "--file", str(f), "--every", "1",
+                                 "--interface", "127.0.0.1"], env=env, stdout=subprocess.PIPE,
+                                stderr=subprocess.STDOUT, text=True)
+        try:
+            async with aiohttp.ClientSession() as http:
+                ha = HA(http, token)
+
+                async def flow():
+                    flows = await ha.ws(type="config_entries/flow/progress")
+                    mine = [x for x in (flows if isinstance(flows, list) else []) if x.get("handler") == "mantel"
+                            and (x.get("context") or {}).get("unique_id") == instance]
+                    return mine or None
+                got = await until(flow, timeout=60)
+                check(got is not None and len(got) == 1, "the announcement on loopback reached the real HA: one "
+                      "'Discovered: Mantel' flow, keyed by Mantel's instance id")
+                fl = got[0]
+                check(fl["context"].get("source") == "zeroconf" and fl.get("step_id") == "zeroconf_confirm",
+                      "it waits for a pairing code (zeroconf_confirm)")
+                st, form = await ha.get(f"/api/config/config_entries/flow/{fl['flow_id']}")
+                check(st == 200 and (form.get("description_placeholders") or {}).get("url")
+                      == "https://mantel.example.test:8443", "with Mantel's https address from the announcement")
+                check([k["name"] for k in form.get("data_schema") or []] == ["code"], "asking only for the code")
+                await asyncio.sleep(3)
+                again = await flow()
+                check(again is not None and len(again) == 1, "the same Mantel announced again: still one flow")
+                async with http.delete(f"{SCRATCH_URL}/api/config/config_entries/flow/{fl['flow_id']}",
+                                       headers=ha.h) as r:
+                    await r.read()
+                out["flow"] = {k: fl.get(k) for k in ("handler", "step_id")}
+        finally:
+            proc.terminate()
+            try:
+                logs = proc.communicate(timeout=10)[0]
+            except subprocess.TimeoutExpired:
+                proc.kill()
+                logs = proc.communicate()[0]
+            out["announcer"] = logs[-2000:]
+    return out
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--keep-up", action="store_true", help="leave the scratch HA running afterwards")
     ap.add_argument("--reuse", action="store_true", help="use the scratch HA this caller already started; leave it up")
-    ap.add_argument("--phase", choices=["alone", "handover"], default="alone",
+    ap.add_argument("--phase", choices=["alone", "handover", "zeroconf"], default="alone",
                     help="alone: no HK Frontend (9.2); handover: HK Frontend linked, the bridge handed over and back (9.3)")
     a = ap.parse_args()
     if not a.reuse:
         GE.wait_for_free_harness()
-        extra = ("--no-hk",) if a.phase == "alone" else ()
+        extra = {"alone": ("--no-hk",), "handover": (), "zeroconf": ("--no-hk", "--zeroconf-probe")}[a.phase]
         say(f"starting the scratch HA (testha.py up --fresh {' '.join(extra)}); this takes a few minutes")
         GE.harness("up", "--fresh", *extra)
     elif not testha.ready():
         raise SystemExit("--reuse: the scratch HA is not answering on 127.0.0.1:8124")
     try:
         token = asyncio.run(GE.token_for_scratch())
-        evidence = asyncio.run(run_alone(token) if a.phase == "alone" else run_handover(token))
+        evidence = asyncio.run({"alone": run_alone, "handover": run_handover, "zeroconf": run_zeroconf}[a.phase](token))
         del token
         out = Path(testha.SCRATCH) / f"mantel_link_e2e_{a.phase}.json"
         out.write_text(json.dumps({"checks": RESULTS, **evidence}, indent=1, default=str))
