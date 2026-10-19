@@ -23,7 +23,7 @@ sidebar: Home Assistant signs you in, and Mantel shows you what your Mantel role
 | `default_screen` | `dashboard-kitchen` | The HK dashboard the sidebar opens. |
 | `access` | `ingress` | How else Mantel can be reached: `ingress` (the sidebar only), `proxy` (your own reverse proxy) or `https` (Mantel's built-in HTTPS). See **Direct access** below. |
 | `public_url`, `trusted_proxies`, `ha_sign_in_url`, `cloudflare_token`, `acme_email`, `acme_staging` | empty | Direct access only (below). |
-| `ha_door_rules` | `trusted` | `trusted`: being signed in to Home Assistant is enough, as HK in Home Assistant always was. Cameras, locks and the alarm work in the sidebar and the Companion app without a Mantel code; each person's Mantel role still decides what they may do, and everything is audited. `lan`: the home network's rules (a code for locks and the alarm). `tunnel`: Mantel's remote-access rules (each role's remote switches, a recent code for live cameras and sensitive actions). |
+| `ha_door_rules` | `trusted` | `trusted`: being signed in to Home Assistant is enough, as HK in Home Assistant always was. Each person's Mantel role decides what they may do, and everything is audited. `lan`: the home network's rules. `tunnel`: Mantel's remote-access rules (each role's remote switches). On every setting only the alarm asks for a code, the house Alarm PIN. |
 
 ## Who can open it
 
@@ -114,6 +114,19 @@ Your proxy owns HTTPS and forwards to the App over plain HTTP.
    rules. (Mantel also refuses the home rules when the visitor's own address is an internet one, but do not
    rely on that alone.) For access from outside, use a separate proxy host that sends `tunnel`, or Home
    Assistant's sidebar.
+   **Cloudflare Tunnel into the same proxy host:** replace the `X-Mantel-Door lan` line with
+
+   ```nginx
+       set $mantel_door lan;
+       if ($http_cf_connecting_ip) { set $mantel_door tunnel; }
+       proxy_set_header X-Mantel-Door $mantel_door;
+   ```
+
+   so what came through Cloudflare is stamped `tunnel` (Mantel also gives any request carrying Cloudflare's
+   headers the remote rules). Point the tunnel at the proxy's HTTPS port with the origin server name set to
+   Mantel's name, allow cloudflared's address in the Access List, and keep a local DNS record that sends
+   home devices straight to the proxy, not out through Cloudflare (a tablet through the tunnel gets the
+   remote rules).
 5. Point the name at the proxy in your DNS (a local record is enough), then open
    `https://mantel.example.com/proxy-check` as the Owner (sign in there first). It says whether the
    request came through the trusted proxy, with the door and the key, and **which address it came
