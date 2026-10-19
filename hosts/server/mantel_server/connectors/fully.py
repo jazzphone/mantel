@@ -37,7 +37,6 @@ This module decides nothing and checks no roles: the caller (the command gateway
 from __future__ import annotations
 
 import asyncio
-import ipaddress
 import json
 import logging
 import re
@@ -47,13 +46,14 @@ from urllib.parse import urlparse
 
 import aiohttp
 
+from . import kiosk
+from .kiosk import KioskFailed
+
 log = logging.getLogger("mantel.fully")
 
 DEFAULT_PORT = 2323
 TIMEOUT = 10.0
-MAX_PASSWORD = 256
 MAX_URL = 2000
-HOST_RE = re.compile(r"^[A-Za-z0-9]([A-Za-z0-9-]{0,62})(\.[A-Za-z0-9]([A-Za-z0-9-]{0,62}))*$")
 
 # Mantel's verb -> (Fully's cmd, the fixed parameters it adds). The only commands that can be sent.
 COMMANDS: dict[str, tuple[str, dict[str, str]]] = {
@@ -73,50 +73,14 @@ INFO = {"deviceID": "id", "deviceName": "name", "deviceModel": "model", "appVers
         "kioskMode": "kiosk_mode", "ip4": "ip"}
 
 
-class KioskFailed(Exception):
-    """A call failed. ``code`` is stable; ``message`` is for people and never holds the password."""
-
-    def __init__(self, code: str, message: str) -> None:
-        super().__init__(message)
-        self.code = code
-        self.message = message
-
-
 def clean_address(raw: object) -> tuple[str, int]:
-    """The tablet's address as typed (its IP address, ``<ip>:2323``, ``kitchen-tablet.local``, ``http://kitchen-tablet:2323``),
-    checked: (host, port). Home network only: an IP literal must be private."""
-    if not isinstance(raw, str) or not raw.strip() or len(raw.strip()) > 300:
-        raise KioskFailed("address_invalid", "Type the tablet's IP address or name, as Fully's Remote Admin shows "
-                                             "it (port 2323 is assumed).")
-    text = raw.strip().rstrip("/")
-    p = urlparse(text if "://" in text else "http://" + text)
-    if p.scheme != "http" or not p.hostname or p.username or p.password or p.path or p.query or p.fragment:
-        raise KioskFailed("address_invalid", "That is not an address Mantel can use: the tablet's IP address or "
-                                             "name and, if it is not 2323, its port (http only, no path).")
-    try:
-        port = p.port or DEFAULT_PORT
-    except ValueError:
-        raise KioskFailed("address_invalid", "The port in that address is not a number from 1 to 65535.") from None
-    host = p.hostname
-    try:
-        ip = ipaddress.ip_address(host)
-    except ValueError:
-        if not HOST_RE.match(host):
-            raise KioskFailed("address_invalid", "That tablet name has characters an address cannot have.") from None
-        return host, port
-    if not (ip.is_private and not ip.is_loopback and not ip.is_link_local and not ip.is_unspecified):
-        raise KioskFailed("address_not_home", "That address is not on a home network. A tablet's address starts "
-                                              "with 192.168., 10. or 172.16-31.")
-    return (f"[{host}]" if ip.version == 6 else host), port
+    """The tablet's address as typed (its IP address, ``<ip>:2323``, ``kitchen-tablet.local``), checked:
+    (host, port). Home network only (kiosk.clean_address)."""
+    return kiosk.clean_address(raw, DEFAULT_PORT, "Fully's Remote Admin")
 
 
 def clean_password(raw: object) -> str:
-    if not isinstance(raw, str) or not raw:
-        raise KioskFailed("password_missing", "Type the tablet's Remote Admin password (Fully: Settings → "
-                                              "Remote Administration).")
-    if len(raw) > MAX_PASSWORD or any(ord(c) < 0x20 for c in raw):
-        raise KioskFailed("password_invalid", "That password has characters Fully cannot have.")
-    return raw
+    return kiosk.clean_password(raw, "Fully: Settings → Remote Administration")
 
 
 def _origin(url: str) -> str | None:
@@ -185,8 +149,9 @@ class FullyClient:
         status, body = 0, b""
         async with self._lock:
             try:
+                host, port = kiosk.route(self.host, self.port)
                 async with asyncio.timeout(self.timeout):
-                    async with self.http.get(f"http://{self.host}:{self.port}/", params=params,
+                    async with self.http.get(f"http://{host}:{port}/", params=params,
                                              headers={"Accept": "application/json"}, allow_redirects=False) as r:
                         status, body = r.status, await r.content.read(1 << 20)
             except TimeoutError:
@@ -219,12 +184,16 @@ class FullyClient:
         return data
 
     async def info(self) -> dict[str, Any]:
-        """The tablet's state, the keys Mantel uses only (INFO)."""
+        """The tablet's state, the keys Mantel uses only (INFO; brightness as a percent)."""
         data = await self._get("deviceInfo", {})
         if "deviceID" not in data:
             raise KioskFailed("not_fully", f"Something answered at {self.address}, but it is not Fully Kiosk "
                                            "Browser's Remote Admin. Check the address and port.")
-        return {name: data.get(key) for key, name in INFO.items()}
+        out = {name: data.get(key) for key, name in INFO.items()}
+        b = out.get("brightness")             # Fully's 0..255, as a whole percent (Kiosk Satellite's are too)
+        out["brightness"] = None if isinstance(b, bool) or not isinstance(b, (int, float)) else \
+            max(0, min(100, round(float(b) / 2.55)))
+        return out
 
     async def send(self, verb: str, **args: Any) -> None:
         """One of COMMANDS. ValueError (nothing sent) for an unknown verb or a bad value; KioskFailed when the

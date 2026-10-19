@@ -341,9 +341,13 @@ class Record:
 
 
 class SealedFiles:
-    def __init__(self, folder: Path, box: atrest.SecretBox) -> None:
+    """One sealed file per kind. ``record``: what a file holds (Record here; tablet_links.TabletRecord for a wall
+    tablet's direct connection, kind ``tablet-<id>``), a dataclass with ``kind`` and the secret in ``token``."""
+
+    def __init__(self, folder: Path, box: atrest.SecretBox, record: type = Record) -> None:
         self.folder = Path(folder).expanduser()
         self.box = box
+        self.record = record
 
     def path(self, kind: str) -> Path:
         return self.folder / FILE.format(kind=kind)
@@ -356,7 +360,7 @@ class SealedFiles:
         if data.get("format") != FORMAT or data.get("kind") != kind:
             raise ValueError("unknown connection file format")
         data.pop("format", None)
-        return Record(**data)
+        return self.record(**data)
 
     def save(self, rec: Record) -> None:
         atrest.ensure_dir(self.folder)

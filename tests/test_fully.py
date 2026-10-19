@@ -42,7 +42,7 @@ async def test_info_reads_the_tablet_and_keeps_only_what_mantel_uses(tablet):
     fake, client, *_ = tablet
     info = await client.info()
     assert info == {"id": "f0e1d2c3-fictional", "name": "Kitchen Tablet (fake)", "model": "Fake Tab 10",
-                    "version": "1.57.1", "screen_on": True, "brightness": 180, "screensaver": False,
+                    "version": "1.57.1", "screen_on": True, "brightness": 71, "screensaver": False,
                     "page": MANTEL + "/kitchen-home/home", "foreground": "de.ozerov.fully", "battery": 88,
                     "plugged": True, "kiosk_mode": True, "ip": "192.0.2.31"}
     assert "Mac" not in str(info) and "startUrl" not in str(info)

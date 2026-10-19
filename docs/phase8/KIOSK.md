@@ -1,9 +1,9 @@
 # Wall-tablet kiosk apps, direct: Kiosk Satellite and Fully Kiosk (design, 2026-10-19)
 
-**Status: design agreed with Avery (his answers, 2026-10-19, are in section 10); not built.** Branch `kiosk-direct`. The only code is a prototype of the Fully Kiosk
-client, `hosts/server/mantel_server/connectors/fully.py`, tested against a fake Fully (`tests/fully_fakes.py`,
-`tests/test_fully.py`, 55 tests). It is not wired into the server. Nothing was sent to a tablet and nothing was run
-on the house.
+**Status: design agreed with Avery (his answers, 2026-10-19, are in section 10). Slice 1 is built** (section 11):
+pairing and status for Kiosk Satellite and Fully, with no commands. It is on branch `kiosk-direct`, tested against
+fake tablets only, not merged and not in an App release. Nothing was sent to a real tablet, and the only thing run
+against the house was the read-only reach check in section 7.
 
 The ask: put Kiosk Satellite and Fully Kiosk Browser support into Mantel, added to Connections, so that Mantel
 talks to the tablets itself instead of through Home Assistant.
@@ -289,7 +289,7 @@ egress allow-list. That is the only firewall change.
 
 | # | What | Commands? |
 |---|---|---|
-| 1 | **Connections → Wall Tablets**: test, seal, status, live state; Kiosk Satellite pairing; the Fully client wired in; Setup Check "reachable"; backups. | none |
+| 1 | **Built (section 11).** Pairing on the tablet's page, the Wall Tablets list in Connections: test, seal, status, live state; Kiosk Satellite pairing; the Fully client wired in; Setup Check "reachable"; backups. | none |
 | 2 | Gateway kind `tablet` (migration 0015); **Mantel sends commands itself**; Owner/Admin buttons on the tablet's page; TabletWatch's restart direct. | yes, opt-in per tablet |
 | 3 | The Sleep engine on the direct path: kiosk part calls translated to verbs, and the tablet's pushed or polled state laid over the kiosk part entities. HA no longer needed for direct tablets. | yes |
 | 4 | Sleep Screen for Fully tablets (hk_core: a kiosk that is not Kiosk Satellite); the built-in Live TV Keep Awake; optional Kiosk Satellite HTTPS with a pinned certificate. | yes |
@@ -308,6 +308,80 @@ Avery there.
 4. **Kiosk Satellite's token: ten years** (`ttl_days: 3650`).
 5. Remote Administration is already on, at least on the Kitchen tablet. Its password is Avery's, typed once on the
    tablet's page when slice 1 is built.
+
+## 11. Slice 1, as built (2026-10-19)
+
+**Where it is**
+- On the tablet's own page in Mantel Settings (Wall Tablets → the tablet), after Setup, a **Direct Connection**
+  group shows:
+  - status, read live: "Connected", with the screen, brightness and battery;
+  - the address;
+  - **Paired As**: the tablet's own name, model and app version, when and by whom;
+  - when the token expires (Kiosk Satellite);
+  - the page it is showing.
+- Below it is **Pair <the tablet>**: Address and Password with Test and Pair, or **Pair Again…** and **Disconnect…** once
+  paired.
+- **Connections** gets a **Wall Tablets** group: every Kiosk Satellite or Fully tablet, read live, each row opening
+  that tablet's page.
+- Owners pair; Admins see. A wall tablet, Adults, Children and Guests get nothing.
+- The address is filled in from Kiosk Satellite's own `sensor.<kiosk>_ipv4_address` when HA has it.
+
+**How the shared panel draws it.** The shared panel gained one generic host hook, `extend(where, c, ctx, panel)`.
+It is documented at the top of `web/hk/panels/hk-settings.js`, and the panel calls it on a wall tablet's page with
+`where: 'tablet'`. Home Assistant has no host, so nothing is drawn, read or said there. If a host throws, HK's page
+is left whole (`test_settingshost.js`). Mantel's answer is in `web/shim/mantel-settings.js` (`drawDirect`,
+`drawWallTablets`).
+
+**Server**
+- `tablet_links.py` holds the routes (`/api/connections/tablets`, `…/{id}`, `…/{id}/test`, `…/{id}/live`) and the
+  sealed entries. They live in `<data_dir>/connections/tablet-<id>.connection`, sealed as connections.py seals HA's
+  and MA's, so they are inside every encrypted backup. Every save and disconnect is audited first
+  (`connection.tablet-<id>.saved|disconnected`).
+- `connectors/kiosk_satellite.py` is a reads-only client: login, `/api/info`, `/api/commands`, `/api/health`.
+  - It has no method that posts a command.
+  - Test makes a token that lapses in a day, and drops it.
+  - Pair makes the ten-year token.
+  - The tablet's brightness (0–1) is shown as a percent, and the token's expiry is read from the token itself.
+  - It says plainly when the password is wrong, when the tablet throttles (5 wrong passwords in 5 minutes), when
+    a token is no longer accepted, and when something other than Kiosk Satellite answers.
+- `connectors/fully.py` is wired in for Fully tablets. Its brightness (0–255) is now a percent; the first browser
+  pass showed "180%", which is how that bug was caught.
+- `connectors/kiosk.py` holds what both share: the home-network address check, the password check and
+  `KioskFailed`.
+- Setup Check gets a **Wall Tablets** line that reaches every paired tablet at once. For Kiosk Satellite it uses
+  `/api/health`, which needs no token. When no tablet is paired there is no line.
+
+**Tests**
+- `tests/test_kiosk_satellite.py` and `tests/test_tablet_links.py`, against `tests/kiosk_satellite_fakes.py`, a fake
+  built from the app's own server code. Among other things they pin:
+  - roles;
+  - test versus pair (the one-day versus the ten-year token);
+  - sealing: neither the password nor the token is in the file;
+  - no secret in any response, audit row or Mantel log line;
+  - audit first;
+  - a restart keeping the entry, and a damaged file reported;
+  - a token the tablet refuses;
+  - the Fully path;
+  - Setup Check;
+  - the address suggestion;
+  - **no command ever posted to the tablet**.
+- The one test seam is `connectors.kiosk.route`, which points a fictional address at a fake on loopback after the
+  address was checked.
+
+**Checked in a browser** on a local harness:
+- the setup: Mantel from this branch, a fake HA, a fake Kiosk Satellite and a fake Fully, fictional tablets;
+- pairing Kitchen with a wrong password, which was refused in plain words, then with the right one, which showed
+  Connected with the screen, brightness, battery, Paired As and Token Expires;
+- Connections → Wall Tablets showing it Connected;
+- pairing Den (Fully);
+- a phone-width pass, with no sideways scroll;
+- Disconnect, through its confirmation.
+
+No command reached either fake.
+
+**Not done (slice 2 on):** commands, the live WebSocket from Kiosk Satellite (status is read when a page asks), the
+App-side reach check on the house, and pairing a real tablet. Pairing a real tablet is Avery's to do: type the
+Remote Administration password once on the tablet's page.
 
 ## Prototype: `connectors/fully.py`
 
