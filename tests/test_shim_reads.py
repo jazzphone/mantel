@@ -65,6 +65,14 @@ def test_a_detail_sheets_hour_and_day_history_is_the_websocket_read(observed):
     assert bad_time is None and bad_id is None and extra is None and post is None
 
 
+def test_artwork_signing_is_answered_on_the_page_never_refused(observed):
+    """hk_frontend/art/sign (now-playing art) carries "sign" in its name, so it was refused as a write and the
+    Music page said "Commands are disabled" even with commands on (the house, 2026-10-18). It is answered on
+    the page as nothing signed: HK then uses the art's own address, as it already fell back to."""
+    assert observed["results"]["artSign"] == {"signed": {}}
+    assert observed["artSent"] == 0 and observed["artRefused"] == 0
+
+
 def test_the_music_queue_is_a_read(observed):
     frames = [m for m in observed["sent"] if m["type"] == "read" and m["msg"]["type"].startswith("hk_music/")]
     assert [f["msg"] for f in frames] == [{"type": "hk_music/queue", "entity_id": "media_player.kitchen", "limit": 40}]

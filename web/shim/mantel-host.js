@@ -53,6 +53,7 @@ export const USER_DATA_KEYS = new Set(['hk_music_focus']);
 // a camera the person may see (/api/notify/snap/<id>, no HA token), and the page's prefix goes in front
 // here, as it does for every address Mantel gives a page (HA App mode serves Mantel under Ingress).
 export const SNAP_SIGN = 'hk_notify/snap/sign';
+export const ART_SIGN = 'hk_frontend/art/sign';
 const SNAP_PATH = /^\/api\/notify\/snap\/[0-9a-f]{32}$/;     // notify_snaps.PATH, nothing else
 export function prefixSigned(result, base) {
   const signed = result && typeof result.signed === 'object' && result.signed ? result.signed : {};
@@ -325,6 +326,11 @@ export class Host {
       const base = (typeof window !== 'undefined' && window.__mantelBase) || '';
       return this.hub.read(msg).then((r) => prefixSigned(r, base));
     }
+    // ARTWORK SIGNING (hk-base.js artSign): in HA, HK asks for a signed proxy path for remote now-playing art.
+    // Mantel has no such proxy for it: answered "nothing signed", so HK uses the art's own address (what it
+    // already fell back to) -- a read, never refused as a write for the "sign" in its name ("Commands are
+    // disabled" on the Music page with commands on or off: the house, 2026-10-18).
+    if (msg.type === ART_SIGN) return Promise.resolve({ signed: {} });
     if (WRITE_WORDS.test(msg.type)) return this._refuse(msg.type);
     if (this.fixtures[msg.type] !== undefined) return Promise.resolve(this.fixtures[msg.type]);
     return this.hub.read(msg);

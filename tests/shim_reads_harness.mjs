@@ -65,6 +65,12 @@ out.historyParse = [historyRequest('GET', 'history/period/' + encodeURIComponent
                     historyRequest('GET', 'history/period/' + encodeURIComponent(start) + '?filter_entity_id=a.b&other=1'),
                     historyRequest('POST', 'history/period/' + encodeURIComponent(start) + '?filter_entity_id=a.b')];
 
+// now-playing artwork signing: answered on the page as "nothing signed" (no refusal, nothing sent)
+const sentBeforeArt = sent.length, refusedBeforeArt = host.refused.length;
+out.results.artSign = await host.hass.callWS({ type: 'hk_frontend/art/sign', urls: ['https://example.test/a.jpg'], size: 300 });
+out.artSent = sent.length - sentBeforeArt;
+out.artRefused = host.refused.length - refusedBeforeArt;
+
 // music (interim): the queue is a read; queue_play stays refused below
 const q = host.hass.callWS({ type: 'hk_music/queue', entity_id: 'media_player.kitchen', limit: 40 });
 reply({ type: 'read_result', id: sent[sent.length - 1].id, result: { ok: true, index: 0, items: [] } });
