@@ -612,6 +612,22 @@ slide's start). Also in main, HK-in-HA only (next HK install): the HA adapter ke
 reconnect (`ca96237`: the chips row lost after an HA restart under an open page; root cause found).
 - [x] The house serves the fixed hk-base.js (no `overflow:hidden` on filled choices). Avery to confirm by eye.
 
+### 0.1.14 and 0.1.15 on the house (2026-10-18 evening, commits `5c49130`, `ae33b46`)
+
+0.1.14: the Music page's false "Commands are disabled" (`hk_frontend/art/sign`, now-playing artwork, refused by the
+shim for the "sign" in its name) is answered on the page as nothing signed. Commands stayed on (Avery enabled
+them before this update). 0.1.15: merged `babb5c2` (HK Settings inside Mantel: `<base>/hk-settings`, Owner/Admin,
+menu entry, admin link, "This is Mantel's copy" notice) and `2a20980` (Energy/Power sections keep the room pages'
+spacing; shared HK code, also for HK in HA at the next install). Validation 129 JS, 723 HA Python, 2,406 Mantel,
+smoke ok.
+- [x] Log: COMMANDS ENABLED kept, HA and MA authenticated. Audit shows Avery's commands from Mantel (8:06–8:10 PM:
+      `homeassistant.toggle` ×2, `hk_frontend.music_play`, volume, `media_pause`), all allowed.
+- [x] HK Settings opens in Mantel (pane): back link, notice, 162 accessories, 2 pop-ups, 2 custom pages.
+      **Gaps:** "Screens" shows 0 (HA's dashboards list isn't served by Mantel yet); Setup Check stays "Checking…".
+- [x] Energy page spacing matches the room pages; HK Settings in the More sheet.
+- Seen once right after the App restart: a page loaded during the restart drew without Energy/Power (the feature
+  list not yet sent); a reload fixed it. Worth a later look (the page could re-plan when the feature list arrives).
+
 ### Removal
 
 Stop and uninstall **Mantel** (Settings → Apps → Mantel → Uninstall); this removes its image and `/data`
