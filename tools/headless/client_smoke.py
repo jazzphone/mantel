@@ -1165,9 +1165,127 @@ async def smoke(shot=None, shots=None):
             store.db.close()
 
 
+# SECTION RHYTHM (2026-10-18): Energy's and Power's sections sat 13 px closer than a room-style page's (their
+# tile grid paid back its last row's gap, their headings padded 18 above / 3-8 below). The pages are drawn from
+# the strategy with fictional rooms of lights and a fictional Energy plan (with a Power page), and every section
+# heading after the first must sit as far below the last card above it, and as far above its own first card, as
+# Lights' do; rows and columns of cards within a section the same too.
+RHYTHM_AREAS = (("office", "Office"), ("kitchen", "Kitchen"), ("den", "Den"))
+RHYTHM_JS = r"""(async () => {
+  for (let i = 0; i < 20; i++) await new Promise(r => requestAnimationFrame(r));
+  await new Promise(r => setTimeout(r, 600));
+  const deep = (root) => { const out = []; const walk = (n) => { for (const c of n.children || []) { out.push(c);
+    if (c.shadowRoot) walk(c.shadowRoot); walk(c); } }; walk(root); return out; };
+  const up = (n) => n.parentNode || (n.getRootNode && n.getRootNode().host);
+  const el = window.__mantelViewHost.current().element, all = deep(el.shadowRoot || el), sy = window.scrollY;
+  const box = (e) => { const r = e.getBoundingClientRect(); return { top: r.top + sy, bottom: r.bottom + sy, left: r.left, right: r.right, h: r.height }; };
+  const WRAP = /^(hk-grid-card|hk-heading-card|hk-vertical-stack-card|hk-frame-card|hk-back-card|hk-page-status-card|hk-chips-card)$/;
+  const isCard = (e) => /-card$/.test(e.localName) && !WRAP.test(e.localName);
+  const outer = (e) => { for (let n = up(e); n && n !== el; n = up(n)) if (n.nodeType === 1 && isCard(n)) return false; return true; };
+  const cards = all.filter(e => isCard(e) && outer(e)).map(box).filter(b => b.h > 0);
+  const heads = all.filter(e => e.localName === 'hk-heading-card').filter(e => {
+    for (let n = e; n; n = up(n)) if (n.config && n.config.page_header) return false; return true; }).map(e => {
+      const t = [...e.shadowRoot.querySelectorAll('*')].find(x => !x.children.length && (x.textContent || '').trim());
+      const rg = document.createRange(); rg.selectNodeContents(t); const tr = rg.getBoundingClientRect();
+      return { name: t.textContent.trim(), el: box(e), top: tr.top + sy, bottom: tr.bottom + sy };
+    }).filter(h => h.el.h > 0).sort((a, b) => a.el.top - b.el.top);
+  const r1 = (v) => Math.round(v * 10) / 10;
+  return heads.map((h, i) => {
+    const next = heads[i + 1] ? heads[i + 1].el.top : 1e9, mine = cards.filter(c => c.top >= h.el.bottom - 1 && c.top < next);
+    const above = cards.filter(c => c.bottom <= h.el.top + 1), tops = [...new Set(mine.map(c => Math.round(c.top)))].sort((a, b) => a - b);
+    const row0 = mine.filter(c => Math.round(c.top) === tops[0]).sort((a, b) => a.left - b.left);
+    const rowGap = tops.length > 1 ? r1(tops[1] - Math.max(...row0.map(c => c.bottom))) : null;
+    return { name: h.name, cards: mine.length, above: above.length ? r1(h.top - Math.max(...above.map(c => c.bottom))) : null,
+             below: mine.length ? r1(Math.min(...mine.map(c => c.top)) - h.bottom) : null, rowGap,
+             colGap: row0.length > 1 ? r1(row0[1].left - row0[0].right) : null };
+  });
+})()"""
+
+
+async def section_rhythm(shots=None):
+    watt = {"unit_of_measurement": "W", "device_class": "power"}
+    states, ents = {}, []
+    for area, name in RHYTHM_AREAS:
+        for n in range(8):
+            states[f"light.{area}_{n}"] = {"s": "on" if n % 2 else "off", "a": {
+                "friendly_name": f"{name} Lamp {n}", "supported_color_modes": ["brightness"]}, "lc": 1.0, "lu": 1.0}
+            ents.append({"entity_id": f"light.{area}_{n}", "platform": "demo", "area_id": area})
+    for k in ["home", "grid"] + [f"dev{n}" for n in range(24)]:
+        states[f"sensor.rhythm_{k}"] = {"s": "120", "a": {**watt, "friendly_name": k}, "lc": 1.0, "lu": 1.0}
+        ents.append({"entity_id": f"sensor.rhythm_{k}", "platform": "demo"})
+    sections = [{"id": nm.lower(), "name": nm, "items": [
+        {"kind": "device", "key": f"{nm}{n}", "name": f"{nm} {n}", "power": f"sensor.rhythm_dev{si * 8 + n}",
+         "icon": "mdi:flash", "color": "#ffa500"} for n in range(8)]} for si, nm in enumerate(("Rooms", "Appliances", "Charging"))]
+    plan = {"title": "Energy", "total": {"power": "sensor.rhythm_home"}, "sources": {}, "sections": sections,
+            "power": {"path": "power", "home": "sensor.rhythm_home", "grid": "sensor.rhythm_grid", "picture": False,
+                      "sections": sections}}
+    # (the Energy feature added, its plan this one: what the settings feed would carry)
+    trap = """(() => { const PLAN = %s; let v;
+      Object.defineProperty(window, 'hkSettings', { configurable: true, get() { return v; }, set(x) {
+        v = x; if (!x || x.__rhythm) return; const get = x.get.bind(x);
+        x.get = (k, d) => k === 'added' ? ['energy'] : k === 'energy' ? PLAN : get(k, d); x.__rhythm = true; } });
+    })();""" % json.dumps(plan)
+    with tempfile.TemporaryDirectory(prefix="mantel-rhythm-") as folder:
+        base = Path(folder)
+        cfg = Config(data_dir=base / "data", fixtures=base / "fixtures", hk_files=base / "user-files",
+                     default_screen="dashboard-proof")
+        store = Store(cfg.data_dir / "proof.db")
+        store.link("fictional-owner", "owner", "Offline Owner")
+        cookie = store.create_session("fictional-owner", 300)
+        app = build_app(cfg, "unused-offline-token", store=store, connect_ha=False)
+        hub = app["hub"]
+        app["ma"] = FictionalLibrary()
+        owner = Identity(User(store.get_link("fictional-owner")["user_id"], "Offline Owner", "owner", "ha_linked"), None, "lan")
+        settings = settings_store.register(app, hub, settings_store.SettingsHooks(
+            may_configure=settings_store.rbac_may_configure()), model=settings_store.ThinModel())
+
+        async def fictional_ha():
+            return json.loads(json.dumps(FICTIONAL_HA_SETTINGS))
+        await settings_store.import_settings(settings.store, fictional_ha, actor=settings_store.Actor(label="smoke"))
+        hub.readproxy = OfflineReads(app, owner)
+        stand_in_hk_feeds(app, hub.readproxy)
+        hub.store.apply_event({"a": states})
+        hub.registry.load([{"area_id": a, "name": n} for a, n in RHYTHM_AREAS], [], ents)
+        said = []
+        try:
+            async with TestServer(app) as server:
+                async with Browser(port=9337) as browser:
+                    origin = str(server.make_url("")).rstrip("/")
+                    await browser.restrict_origin(origin)
+                    await browser.send("Page.addScriptToEvaluateOnNewDocument", source=trap)
+                    for w, h in ((1366, 900), (1280, 800)):
+                        await browser.send("Emulation.setDeviceMetricsOverride", width=w, height=h, deviceScaleFactor=1, mobile=False)
+                        got = {}
+                        for page in ("lights", "energy", "power"):
+                            await browser.open(origin + f"/dashboard-proof/{page}?narrow=0", cookie)
+                            assert await browser.wait("window.__mantelReady === true", 25), browser.console[-10:]
+                            assert await browser.wait(f"window.__mantelViewHost.current().path === '{page}'", 10), page
+                            got[page] = await browser.eval(RHYTHM_JS)
+                            if shots:
+                                await browser.screenshot(str(Path(shots) / f"rhythm-{page}-{w}x{h}.png"), full=True)
+                        # the sections after the first: those with a section of cards above them
+                        between = {p: [s for s in got[p] if s["above"] is not None and s["cards"] >= 8][1:] for p in got}
+                        room = between["lights"]
+                        assert len(room) == 2 and len(between["energy"]) == 2 and len(between["power"]) == 2, got
+                        ref = room[0]
+                        assert all(abs(s[k] - ref[k]) <= 0.5 for s in room for k in ("above", "below")), room
+                        for p in ("energy", "power"):
+                            for s in between[p]:
+                                for k in ("above", "below", "rowGap", "colGap"):
+                                    assert s[k] is not None and abs(s[k] - ref[k]) <= 0.5, \
+                                        f"{w}x{h}: {p}'s section {s['name']!r} {k} {s[k]} px, Lights' {ref[k]} px: {got}"
+                        said.append(f"{w}x{h}: card to heading {ref['above']} px, heading to card {ref['below']} px, "
+                                    f"rows {ref['rowGap']}, columns {ref['colGap']} on Lights, Energy and Power")
+        finally:
+            store.db.close()
+    return "; ".join(said)
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--shot")
     parser.add_argument("--shots-dir", help="keep the long-page screenshots here")
     a = parser.parse_args()
-    print(json.dumps(asyncio.run(smoke(a.shot, a.shots_dir)), indent=2))
+    result = asyncio.run(smoke(a.shot, a.shots_dir))
+    result["section_rhythm"] = asyncio.run(section_rhythm(a.shots_dir))
+    print(json.dumps(result, indent=2))
