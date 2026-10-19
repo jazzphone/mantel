@@ -410,6 +410,22 @@
   function panel() {
     return window.hkShell.panel();
   }
+  // ...and where a host draws the dashboard with HK's own view host, no
+  // Lovelace (Mantel: the panel is the page, with no lovelace object), the
+  // shell hands the config over instead. Read as the panel's alone, the
+  // saver had no config at all there: no touches told, no black drawn or
+  // confirmed, no backlight lowered (every wall tablet on Mantel,
+  // 2026-10-19). shellConf: the config came from the shell, not a panel.
+  var shellConf = false;
+  function dashConf() {
+    var p = panel(), conf = p && p.lovelace && p.lovelace.config;
+    shellConf = false;
+    if (conf) return conf;
+    var SH = window.hkShell;
+    try { conf = SH && typeof SH.dashboardConfig === 'function' ? SH.dashboardConfig() : null; } catch (e) { conf = null; }
+    shellConf = !!conf && !(p && p.lovelace);
+    return conf || null;
+  }
   // the font the dashboard's view draws in (its theme is on the view)
   function viewFont() {
     try {
@@ -712,7 +728,7 @@
   }
   // this dashboard's Weather page, when it has one
   function weatherPage() {
-    var p = panel(), conf = p && p.lovelace && p.lovelace.config;
+    var conf = dashConf();
     var has = conf && Array.isArray(conf.views) && conf.views.some(function (v) { return v && v.path === 'weather'; });
     return has ? '/' + (String(location.pathname).split('/')[1] || '') + '/weather' : null;
   }
@@ -2307,7 +2323,7 @@
   }
   // this dashboard's Energy page, when it has one: a tap on Home Energy opens it
   function energyPage() {
-    var p = panel(), conf = p && p.lovelace && p.lovelace.config;
+    var conf = dashConf();
     var has = conf && Array.isArray(conf.views) && conf.views.some(function (v) { return v && v.path === 'energy'; });
     return has ? '/' + (String(location.pathname).split('/')[1] || '') + '/energy' : null;
   }
@@ -2877,7 +2893,7 @@
   }
   // this dashboard's Play Music page, when it has one (as weatherPage)
   function musicPage() {
-    var p = panel(), conf = p && p.lovelace && p.lovelace.config;
+    var conf = dashConf();
     var has = conf && Array.isArray(conf.views) && conf.views.some(function (v) { return v && v.path === 'playmusic'; });
     return has ? '/' + (String(location.pathname).split('/')[1] || '') + '/playmusic' : null;
   }
@@ -4221,10 +4237,15 @@
   // every time
   var lastRaw = '';
   function refresh() {
-    var p = panel();
-    var conf = p && p.lovelace && p.lovelace.config;
+    var conf = dashConf();
     var raw = conf && conf.hk_screensaver;
     if (conf && raw === undefined) raw = fromSettings(conf);
+    // A HOST WITH NO LOVELACE drew the screen from the strategy once, at its
+    // load: the block it made then names the tablet's switch only if that
+    // switch's state was already there (hk-strategy.js screensaverOf), and
+    // Mantel's own arrive a moment after its settings. The settings make the
+    // same block again, now -- else the one the strategy made.
+    else if (shellConf && raw && !raw.entity) raw = fromSettings(conf) || raw;
     if (previewOn && previewHouse) raw = houseBlock() || raw;
     var HS = window.hkSettings;
     if (HS && HS.lovelacePanel && HS.lovelacePanel() === false) raw = null;
@@ -4389,6 +4410,8 @@
     _: { darkUnderBlack: function (v) { DARK_UNDER_BLACK = !!v; }, clock: clock, beat: beat, justResumed: function () { return justResumed(); },
          // tests: as a page just loaded, for HK's black (its first decision)
          hkFresh: function () { hkFirst = true; },
+         // tests: the next touch is told at once (not held by the 10 s between reports)
+         touchFresh: function () { touchSent = 0; },
          readCfg: readCfg, gate: gate, wake: WAKE, zoneOf: zoneOf, fitOf: fitOf, layoutOf: layoutOf, backdropSmall: backdropSmall, nightNow: nightNow,
          ckFx: ckFx, MOSAIC_COLORS: MOSAIC_COLORS,
          mosaicPlan: mosaicPlan, mosaicAssign: mosaicAssign, coverRect: coverRect, MOSAICS: MOSAICS, shuffle: shuffle, Deck: Deck, isImage: isImage,
