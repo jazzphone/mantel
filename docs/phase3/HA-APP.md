@@ -819,6 +819,13 @@ page (it saw no Devices page before), and stores a room typed by name as its id 
 HA's areas name them, so the tablet finds its own screen and linked mode's tablet. Checked in the browser pane against a
 local Mantel with a test Wall Tablet account: enrolled, room `loft`, the account signed out.
 
+### 0.1.22 (2026-10-19)
+
+A Wall Tablet account sees no Mantel Settings from the dashboard (Avery: on purpose), so 0.1.21's Me → Make This
+Browser a Wall Tablet could not be reached on the tablet. Now `/home` takes a Wall Tablet account that is not a tablet
+yet, on the home network, straight to that page, with Name and Room filled in from the account's name. Checked in the
+browser pane against a local Mantel: sign-in → `/home` → the enrol page with Loft / Loft.
+
 ### Removal
 
 Stop and uninstall **Mantel** (Settings → Apps → Mantel → Uninstall); this removes its image and `/data`
