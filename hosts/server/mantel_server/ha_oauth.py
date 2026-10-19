@@ -37,9 +37,11 @@ class HaOAuth:
         self.client_id = client_id
         self.redirect_uri = redirect_uri
 
-    def authorize_url(self, state: str) -> str:
+    def authorize_url(self, state: str, via: str = "") -> str:
+        """HA's sign-in page; `via` is another of HA's own addresses (an operator's frame origin, checked by
+        the caller) when the browser is on that one: HA's page refuses frames from any other origin."""
         q = urlencode({"client_id": self.client_id, "redirect_uri": self.redirect_uri, "state": state})
-        return f"{self.browser_url or self.ha_url}/auth/authorize?{q}"
+        return f"{via.rstrip('/') or self.browser_url or self.ha_url}/auth/authorize?{q}"
 
     async def exchange_code(self, http: aiohttp.ClientSession, code: str) -> dict:
         data = {"grant_type": "authorization_code", "code": code, "client_id": self.client_id}

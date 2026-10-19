@@ -126,12 +126,14 @@ async def require_session(request: web.Request, handler):
 
 
 def _wants_document(request: web.Request) -> bool:
-    """A browser navigation (not an API call, a script or an image): worth a redirect to /login."""
+    """A browser navigation (not an API call, a script or an image): worth a redirect to /login. A frame's
+    navigation counts too: a Webpage dashboard in HA's sidebar showing a screen signed out (Sec-Fetch-Dest
+    iframe) gets the sign-in page in the frame, not a bare 401."""
     if request.path.startswith(("/api/", "/ws")):
         return False
     dest = request.headers.get("Sec-Fetch-Dest")
     if dest is not None:
-        return dest == "document"
+        return dest in ("document", "iframe")
     return "text/html" in request.headers.get("Accept", "")
 
 
@@ -153,13 +155,15 @@ async def login_ha(request: web.Request) -> web.StreamResponse:
     canonical = urlparse(oauth.client_id).netloc
     if request.host != canonical:  # the state cookie must be set on the host HA will send the browser back to
         query = f"?next={quote(next_path, safe='/')}" if next_path != DEFAULT_NEXT else ""
+        if _ha_via(request):
+            query += ("&" if query else "?") + f"via={quote(_ha_via(request), safe='')}"
         raise web.HTTPFound(f"{oauth.client_id.rstrip('/')}{HA_START}{query}")
     state = secrets.token_urlsafe(24)
     now = request.app["clock"]()
     _remember_state(request.app, state, now)
     from . import proxy_trust
     secure = proxy_trust.is_https(request)
-    resp = web.HTTPFound(oauth.authorize_url(state))
+    resp = web.HTTPFound(oauth.authorize_url(state, _ha_via(request)))
     resp.set_cookie(STATE_COOKIE, make_state_cookie(request.app["state_secret"], state, now),
                     max_age=STATE_TTL, httponly=True, samesite="Lax", path="/auth", secure=secure)
     if next_path != DEFAULT_NEXT:
@@ -168,6 +172,16 @@ async def login_ha(request: web.Request) -> web.StreamResponse:
     else:
         resp.del_cookie(NEXT_COOKIE, path="/auth")
     raise resp
+
+
+def _ha_via(request: web.Request) -> str:
+    """The Home Assistant address framing this sign-in (login.js sends the frame's top origin as `via`), when it
+    is one the operator named as HA's (frame-ancestors): a Webpage dashboard opened at HA's home address while
+    ha_sign_in_url names the away one. HA's sign-in page sends X-Frame-Options: SAMEORIGIN, so in a frame it
+    loads only from the address the dashboard is on. Anything else: the configured sign-in address."""
+    via = request.query.get("via", "").rstrip("/")
+    allowed = getattr(request.app.get("cfg"), "frame_ancestors", ()) or ()
+    return via if via and via in allowed and via.startswith(("https://", "http://")) else ""
 
 
 async def callback(request: web.Request) -> web.StreamResponse:
