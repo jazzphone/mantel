@@ -833,6 +833,12 @@ last showed (`/dashboard-loft/home`, no referrer) even with `/home` as its Custo
 never ran. Now every screen page sends a Wall Tablet account that is not a tablet yet (home network) to Me → Make This
 Browser a Wall Tablet, and the form fills Name and Room from the user name when the account has no name.
 
+### 0.1.24 (2026-10-19)
+
+The Loft could be pinched to zoom although Kiosk Satellite's pinch-to-zoom is off: at 1x Kiosk Satellite leaves the
+page's own viewport tag alone and relies on it saying `user-scalable=no`, as HA's pages do. Mantel's screen page now
+says the same (`width=device-width, user-scalable=no, viewport-fit=cover, initial-scale=1`, HA's own values).
+
 ### Removal
 
 Stop and uninstall **Mantel** (Settings → Apps → Mantel → Uninstall); this removes its image and `/data`

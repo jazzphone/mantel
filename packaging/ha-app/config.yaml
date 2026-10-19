@@ -2,7 +2,7 @@
 # this folder with Mantel's code into HA's local apps share, and the Supervisor builds the Dockerfile
 # next to this file (no `image:` key: a local build). docs/phase3/HA-APP.md has the install steps.
 name: Mantel
-version: "0.1.23"
+version: "0.1.24"
 slug: mantel
 description: HK's home screens, served by Mantel Server inside Home Assistant (sign-in through the sidebar)
 url: https://github.com/jazzphone/mantel
