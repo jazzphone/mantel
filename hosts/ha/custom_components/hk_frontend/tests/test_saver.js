@@ -1050,6 +1050,39 @@ S.preview(false); __runTimers();
 ok('...and stops with the preview', !S.running());
 delete window.hkSettings; delete window.hkStrategy;
 
+print('\n=== a host with no Lovelace (Mantel): the config from the shell ===');
+(function () {
+  var SH = window.hkShell, P = SH.panel, D = SH.dashboardConfig;
+  var block = Object.assign({}, LOVELACE.config.hk_screensaver, { entity: OWN }), shellCfg = { views: [], hk_screensaver: block };
+  var saved = lovelacePanel.lovelace;
+  lovelacePanel.lovelace = undefined;
+  SH.panel = function () { return document.body; };
+  SH.dashboardConfig = function () { return shellCfg; };
+  location.pathname = '/dashboard-kitchen/0'; location.search = '';
+  push(hassOwn('off')); dispatchEvent({ type: 'location-changed' }); __runTimers();
+  ok('the panel has no lovelace: the shell\'s config is read', S.config() && S.config().entity === OWN, S.config());
+  ws = []; U.touchFresh();
+  dispatchEvent({ type: 'pointerdown', clientX: 640, clientY: 400, pointerType: 'touch' });
+  ok('...and a touch on the dashboard is told', ws.some(function (m) { return m.type === 'hk_frontend/screensaver/touch'; }), ws);
+  // the strategy ran before the tablet's switch was there: the block names none; the settings make it again
+  var BOARD_M = { screensaver: true, tablet_user: 'Kitchen Tablet', screensaver_engine: 'hk' }, made = 0;
+  window.hkSettings = { get: function (p, f) { return p === 'boards' ? { 'dashboard-kitchen': BOARD_M } : f; },
+                        lovelacePanel: function () { return true; } };
+  window.hkStrategy = { saverBlock: function (h, b) { made++; return Object.assign({}, block, { entity: OWN, user: b.tablet_user }); } };
+  shellCfg = { views: [], hk_screensaver: Object.assign({}, block, { entity: null }) };
+  push(hassOwn('off')); dispatchEvent({ type: 'location-changed' }); __runTimers();
+  ok('...a block made with no switch: the settings make it again, with the switch', made > 0 && S.config() && S.config().entity === OWN, S.config());
+  // in Home Assistant the panel's own config is the authority, as before
+  SH.dashboardConfig = D; SH.panel = P;
+  lovelacePanel.lovelace = { config: { views: [], hk_screensaver: Object.assign({}, block, { entity: null }) } };
+  made = 0;
+  push(hassOwn('off')); dispatchEvent({ type: 'location-changed' }); __runTimers();
+  ok('...a Lovelace panel\'s block is read as written (never made again)', made === 0 && S.config() && S.config().entity === null, S.config());
+  lovelacePanel.lovelace = saved;
+  delete window.hkSettings; delete window.hkStrategy;
+  push(hassOwn('off')); dispatchEvent({ type: 'location-changed' }); __runTimers();
+})();
+
 
 // 2026-10-13: the clock's text over photos, and the mosaic's line colors
 (function () {

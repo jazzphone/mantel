@@ -869,6 +869,23 @@ Show in Home Assistant while HA is open at that address.
       Address (pane). `hasslocal` is not one of HA's own URLs, so it waits for Avery's Allow (the Kitchen dashboard
       `mantel-kitchen` exists).
 
+### 0.1.27 (2026-10-19)
+
+On Mantel the wall tablets' Sleep Screen was half there: Mantel's engine decided and turned the screensavers on and off,
+but no touch ever reached it (`binary_sensor.<tablet>_screen_in_use` never on, `last_touch` null), HK's black was never
+drawn or confirmed (`confirmed: false`), and the backlight was never lowered (the Loft stayed at 174). Cause: HK's
+screensaver (`hk-saver.js`) read its config only from Home Assistant's Lovelace panel (`panel.lovelace.config`). On
+Mantel the panel is the page, with no `lovelace`, so the screensaver had no config at all: no touch reports, no black
+curtain or acknowledgement, no `setBrightness`. Now it reads the shell's `dashboardConfig()` where the panel has none
+(as `hk-sky.js` already did), and on such a host the block is made again from the screen's settings when the one the
+strategy made at load names no switch (Mantel's own switch states arrive a moment after its settings). In Home
+Assistant nothing changes: the panel's config is read as before, and HK Frontend needs no install for this.
+Checked: on a local Mantel page (fictional server, headless Chrome) the screensaver's config was `null` before and is
+the screen's block after; `test_saver` covers the shell's config, a touch told from it, the block made again, and a
+Lovelace panel's block read as written.
+- [ ] On the house: each tablet's touch shows in `binary_sensor.<tablet>_screen_in_use`, black is `confirmed: true`,
+      the backlight goes to its lowest while dark and comes back on wake.
+
 ### Removal
 
 Stop and uninstall **Mantel** (Settings → Apps → Mantel → Uninstall); this removes its image and `/data`
