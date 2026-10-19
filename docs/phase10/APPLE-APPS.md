@@ -1,7 +1,9 @@
 # Phase 10 (plan): Mantel for iPhone, iPad and the Mac
 
-Status: **plan only** (2026-10-19). Nothing here is built. It supersedes PLAN §13's verdicts where they differ
-(§13 called Sign in with Apple "not worth it"; Avery now wants it, and the native app is what makes it cheap).
+Status (2026-10-19, evening): **slices 10.0-10.5 and 10.7-10.9 built on branch `claude/apple-apps-928197`**, not
+merged, nothing installed on the house; the apps run in the iOS 27 Simulator against a fictional Mantel. What was
+built, what was verified and what is left: §12 below. This plan supersedes PLAN §13's verdicts where they differ (§13
+called Sign in with Apple "not worth it"; Avery now wants it, and the native app is what makes it cheap).
 
 Avery's brief: an iOS app for Mantel. Secure sign-in through Mantel, passkeys, Home Assistant and Apple, with
 security in mind throughout. Notifications as real iOS notifications. Music as a first-class citizen, with
@@ -280,3 +282,26 @@ The original questions:
 - **M10-5 Sign in with Apple's weight.** Allowed as the only factor on the LAN door, and on the tunnel only
   together with the app's device-bound key (recommended), or never alone on the tunnel.
 - **M10-6 Apple Developer account** ($99/year). Needed from 10.4 on; 10.0–10.3 do not need it.
+
+## 12. What was built (2026-10-19)
+
+Branch `claude/apple-apps-928197`, one commit per slice, each with the repo's full validation green (JS suites, HA
+Python, Mantel pytest, smoke). Server code is in new modules (`app_shell.py` registers them all; server.py gained
+two lines); edits to shared files are small and listed in the commits.
+
+| Slice | Built | Verified | Left |
+|---|---|---|---|
+| 10.0 | Manifest, icons (original art, `tools/make_app_icons.py`), the `apple-mobile-web-app` tags (taken out through Ingress), a push-only service worker (no fetch handler), Web Push (RFC 8291/8292; VAPID key `<secrets>/vapid.pem`), push targets (migration 0015) limited to the known push services, sent only to people who may view the accessory; Settings → Me → Notifications | Encryption round-trips, VAPID header, 404/410 drops a target, recipients by `users` and RBAC (tests) | A real iPhone on the Home Screen receiving one (needs the house over https) |
+| 10.1 | Settings two columns from 700 px when ≥ 500 px tall; the panel padded by the safe areas, the list's and page's ends by the home indicator. Shared HK Settings code: HK in HA gets it too | Headless Chrome at 390×844, 844×390, 820×1180, 1180×820 with iPhone insets (`tools/headless/settings_viewports.py`, in the tests) | Split View / Stage Manager and the keyboard on a real iPad |
+| 10.2 | App sign-in (code + PKCE on `/login`, consent page with the session's CSRF), DPoP-bound credentials in the refresh-family tables (method `app`, 30 days on any door, never a cookie), pairing code + `mantel://pair` QR (`qr.py`, no new dependency), the house's identity key and signed `/api/app/hello`, `/api/app/web-session`, Me → Mantel App (list, sign out, pair) (migration 0016) | 25 tests: PKCE, proofs (key, method, path, iat, replay, ath), refresh rotation and reuse, pairing LAN-only, web session, revocation; the QR read back by macOS's own reader | Bonjour is Mantel Link's `_mantel._tcp` (phase 9), not duplicated here |
+| 10.3 | `/api/app/summary`, `/api/app/favorites` (user_data `favorites`), `/api/app/entities`, `/api/app/command` (one service call through the gateway as that person on that door), `/api/app/art`, `/api/app/snap` | Tests; and in the Simulator, commands from the app's web view and its Live Activity reached the gateway with audit rows | — |
+| 10.4 | `apple/`: MantelKit, the iOS app (setup, sign-in, Face ID, web view, local/remote switching), `make_project.py` → `Mantel.xcodeproj` | Paired, signed in, the screens drawn and controlled in the Simulator (apple/README.md) | Sign in through the web sheet with a real passkey; TestFlight (account) |
+| 10.5 | APNs without a relay (M10-2): registration with a notification key, sealed payloads (`apns.py`), the Notification Service Extension | A sealed `simctl push` opened by the app in the Simulator; payload carries no readable words | Real APNs: the account's key on the house and `httpx[http2]`; `simctl push` never starts the extension, so the extension itself is untested end to end; notification actions (Mute 1 Hour) not wired to the server yet |
+| 10.6 | Not built | — | Sign in with Apple (nonce, verification, linking; `apple_links` table exists): needs the account |
+| 10.7 | The music Live Activity in Apple Music's layout (cover from the house, tint from the cover, live progress and times, transport, volume −/+), Control Center play/pause, the Now Playing widget, music App Intents | Started from the app, paused from the Lock Screen through the gateway, the activity followed | Push-updated activities (account); the house starting one when music starts |
+| 10.8 | Favorites widget (interactive), Control Center favorite toggle, `AccessoryEntity` for Siri/Shortcuts, App Shortcuts phrases | Builds | Not placed and tried by hand in the Simulator |
+| 10.9 | The Mac menu bar app (now playing, favorites, Open Mantel) on MantelKit | Builds, launches, quits | Signed to run locally only (no shared Keychain/App Group until the account); media keys (§9) not tried |
+| 10.10 | — | — | The independent security review, then TestFlight |
+
+Merging notes: migrations 0015/0016 may collide with Mantel Link's; `features.Feed.taps`, `sessions.APP_METHOD`,
+`ingress.inject_base`'s Home Screen block and `user_data` `favorites` are the edits to shared files.
