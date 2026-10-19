@@ -826,6 +826,13 @@ Browser a Wall Tablet could not be reached on the tablet. Now `/home` takes a Wa
 yet, on the home network, straight to that page, with Name and Room filled in from the account's name. Checked in the
 browser pane against a local Mantel: sign-in → `/home` → the enrol page with Loft / Loft.
 
+### 0.1.23 (2026-10-19)
+
+The Loft, signed in as its Wall Tablet account `loft`, still showed its screen: Kiosk Satellite reopens the page it
+last showed (`/dashboard-loft/home`, no referrer) even with `/home` as its Custom Page, so 0.1.22's `/home` redirect
+never ran. Now every screen page sends a Wall Tablet account that is not a tablet yet (home network) to Me → Make This
+Browser a Wall Tablet, and the form fills Name and Room from the user name when the account has no name.
+
 ### Removal
 
 Stop and uninstall **Mantel** (Settings → Apps → Mantel → Uninstall); this removes its image and `/data`
