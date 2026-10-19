@@ -40,10 +40,22 @@ def _music_focus(value: Any) -> bool:
                  or (isinstance(value["at"], (int, float)) and not isinstance(value["at"], bool))))
 
 
+FAVORITES = "favorites"
+FAVORITES_MAX = 64
+
+
+def _favorites(value: Any) -> bool:
+    """A person's favorites (docs/phase10/APPLE-APPS.md §7): entity ids in order, for the apps' widgets, Control
+    Center, Siri and the Mac menu bar (app_api.py). No repeats, at most FAVORITES_MAX."""
+    return (isinstance(value, list) and len(value) <= FAVORITES_MAX and len(set(value)) == len(value)
+            and all(isinstance(v, str) and len(v) <= 128 and ENTITY.match(v) is not None for v in value))
+
+
 # key -> (largest JSON text in bytes, shape check). Add a key here only when HK's code uses it, and to
 # USER_DATA_KEYS in web/shim/mantel-client.js (a test pins the two lists together).
 KEYS: dict[str, tuple[int, Callable[[Any], bool]]] = {
     "hk_music_focus": (512, _music_focus),
+    FAVORITES: (FAVORITES_MAX * 132, _favorites),
 }
 
 

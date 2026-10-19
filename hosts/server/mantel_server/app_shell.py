@@ -13,13 +13,15 @@ Slice 10.0, the web app on the Home Screen:
 These few files are open without a session: a browser fetches a manifest and its icons without cookies, and
 they hold nothing about the house. Everything under ``/api/`` still needs a person.
 
-Later slices add the apps' server side here too (app_auth.py, app_api.py).
+Slices 10.2 and 10.3, the apps' server side: app_auth.py (sign-in with PKCE, DPoP-bound credentials, pairing,
+the house's identity, the web view's session, Me → Apps) and app_api.py (the REST door to the gateway, the
+summary, favorites).
 """
 from __future__ import annotations
 
 from aiohttp import web
 
-from . import push
+from . import app_api, app_auth, push
 
 APP_DIR = "app"                       # under cfg.web
 ICONS = ("apple-touch-icon.png", "mantel-192.png", "mantel-512.png", "mantel-maskable-512.png", "badge-96.png")
@@ -59,3 +61,5 @@ def register(app: web.Application, hub=None) -> None:
     app.router.add_get("/app/icons/{name}", icon)
     app.setdefault("public_paths", set()).update({MANIFEST, WORKER, TOUCH_ICON, *(f"/app/icons/{n}" for n in ICONS)})
     push.register(app, hub)
+    app_auth.register(app, hub)     # 10.2: app sign-in (PKCE, device-bound tokens), pairing, the web view's session
+    app_api.register(app, hub)      # 10.3: the REST door, the summary, favorites
