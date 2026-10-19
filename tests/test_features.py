@@ -605,6 +605,36 @@ async def test_without_hks_sources_the_plan_falls_back_to_the_sources_the_states
     assert items["sensor.office_utility"]["power"] is None
 
 
+async def _power_art(make_env, art):
+    env = await make_env(settings={"energy": {"enabled": True, "options": {"power": {"art": art}}}})
+    env.app["hub"].readproxy = FakeProxy(PREFS)
+    return env, (await env.host.energy_plan())["power"]["art"]
+
+
+async def test_a_picture_folder_mantel_does_not_serve_becomes_the_house_that_ships(make_env):
+    """The house (2026-10-19): Energy's Picture folder is /hk/art/power-v2/, a folder in HK's Your files inside
+    HA. Mantel's /hk/ has no art.json there (its Your files never carry one), so the Power page asked for it,
+    got 404 and drew no house on any screen. The plan Mantel hands its screens names the house that ships."""
+    from hk_core.energy.power import BUILT_IN_ART
+    env, art = await _power_art(make_env, "/hk/art/power-v2/")
+    assert art == BUILT_IN_ART == "/hk/power-house/"
+    from mantel_server.server import hk_path
+    assert hk_path(env.app, "art/power-v2/art.json") is None and hk_path(env.app, "power-house/art.json")
+    for elsewhere in ("/local/art/", "/hk/../secrets/"):
+        assert (await _power_art(make_env, elsewhere))[1] == BUILT_IN_ART
+    assert (await _power_art(make_env, BUILT_IN_ART))[1] == BUILT_IN_ART
+
+
+async def test_a_picture_folder_mantel_serves_is_kept(make_env, tmp_path, monkeypatch):
+    env = await make_env(settings={"energy": {"enabled": True, "options": {"power": {"art": "/hk/art/mine"}}}})
+    env.app["hub"].readproxy = FakeProxy(PREFS)
+    folder = tmp_path / "hk-files"
+    (folder / "art/mine").mkdir(parents=True)
+    (folder / "art/mine/art.json").write_text("{}")
+    monkeypatch.setattr(env.app["cfg"], "hk_files", folder)
+    assert (await env.host.energy_plan())["power"]["art"] == "/hk/art/mine"
+
+
 def test_hk_energy_sources_is_a_server_only_read_and_not_a_page_read():
     from mantel_server import readproxy as RP
     assert "hk_energy/sources" in RP.SERVER_ONLY_READS and RP.READ_ALLOWED["hk_energy/sources"] == frozenset()
