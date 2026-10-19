@@ -390,7 +390,7 @@ async def page(request: web.Request) -> web.StreamResponse:
             "<h1>Test my proxy</h1><p class=lead>Checks the reverse proxy in front of Mantel, from this browser. "
             "Open it the way the tablets do (your LAN address) and again the way you reach Mantel remotely.</p>"
             "<div id=results aria-live=polite><p>Checking...</p></div>"
-            f"<p><a href='{base}/admin'>Back to admin</a></p></main>"
+            f"<p><a href='{base}/settings#/mantel/connections/proxy'>Back to Mantel Settings</a></p></main>"
             f"<script type=module src='{base}{PAGE}/check.js'></script></body></html>")
     return web.Response(text=body, content_type="text/html",
                         headers={"Cache-Control": "no-store", "Content-Security-Policy": CSP.format(ws=wss),

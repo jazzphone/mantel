@@ -541,7 +541,7 @@
     var MORE_ICON = 'mdi:dots-horizontal', ROOMS_ICON = 'mdi:view-grid';
 
     var S = { host: null, root: null, on: false, mode: 'full', down: 0, up: 0, sheet: null, built: '', ha: [], haPrefs: undefined,
-              tabs: [], more: [], mantel: [], rooms: [], last: new WeakMap(), view: null, viewPad: null };
+              tabs: [], more: [], hostRows: [], rooms: [], last: new WeakMap(), view: null, viewPad: null };
 
     function haRoot() { return SH.overlayRoot(); }
     function esc(v) {
@@ -571,7 +571,7 @@
             '<div class="grid pages"></div><h3 class="ch" hidden>Categories</h3><div class="grid pages2" hidden></div>' +
             '<h3 class="hh" hidden>Home Assistant</h3><div class="grid hagrid" hidden></div>' +
             '<h3 class="rh" hidden>Rooms</h3><div class="grid roomgrid" hidden></div>' +
-            '<h3 class="mh" hidden>Mantel</h3><div class="grid mgrid" hidden></div></div></div></section>' +
+            '<h3 class="mh" hidden></h3><div class="grid mgrid" hidden></div></div></div></section>' +
           '<section class="sheet g" data-sheet="rooms" aria-label="Rooms"><h2>Rooms</h2><div class="hk-edge"><div class="body">' +
             '<div class="grid roomgrid"></div></div></div></section>' +
           '<div class="row">' +
@@ -673,13 +673,13 @@
       S.ha = b.ha_row ? H.haItems(H.sidebarSource(), S.haPrefs, { moreOpen: false, sidebarShown: false })
         .filter(function (it) { return it.kind !== 'more'; }) : [];
       if (b.ha_row && S.haPrefs === undefined) loadPrefs();
-      // THE HOST'S OWN PAGES (Mantel settings for an Owner/Admin; none in Home Assistant): the side
-      // menu's 'Mantel' section (hkMenu._.hostItems), at the end of More
-      S.mantel = H.hostItems ? H.hostItems() : [];
+      // THE HOST'S OWN PAGES (a host's settings; none in Home Assistant): the side menu's host section
+      // (hkMenu._.hostItems), at the end of More, under the host's own name for it
+      S.hostRows = H.hostItems ? H.hostItems() : [];
       var tabs = [m.home].concat(m.categories).filter(Boolean);
       var sz = b.tab_bar_size;
-      var f = rail ? railFit(tabs.length, m.top.length, railH(), rm === 'more' || S.ha.length > 0 || S.mantel.length > 0, b.tab_bar_tabs_rail, sz)
-                   : fit(tabs.length, m.top.length, width, roomsOn, rm === 'more' || S.ha.length > 0 || S.mantel.length > 0, b.tab_bar_tabs, sz, ph);
+      var f = rail ? railFit(tabs.length, m.top.length, railH(), rm === 'more' || S.ha.length > 0 || S.hostRows.length > 0, b.tab_bar_tabs_rail, sz)
+                   : fit(tabs.length, m.top.length, width, roomsOn, rm === 'more' || S.ha.length > 0 || S.hostRows.length > 0, b.tab_bar_tabs, sz, ph);
       S.pos = pos;
       if (S.posWas !== pos && S.mode !== 'full') setMode('full');
       S.posWas = pos;
@@ -750,8 +750,9 @@
       fill(hg, S.ha, 'h');
       hg.hidden = S.sheets.more.querySelector('.hh').hidden = !S.ha.length;
       var mg = S.sheets.more.querySelector('.mgrid'), mh = S.sheets.more.querySelector('.mh');
-      fill(mg, S.mantel, 'm');
-      mg.hidden = mh.hidden = !S.mantel.length;
+      fill(mg, S.hostRows, 'm');
+      mh.textContent = S.hostRows.length ? S.hostRows[0].section || 'More' : '';
+      mg.hidden = mh.hidden = !S.hostRows.length;
       // ...and the section where the screen puts it
       var body = S.sheets.more.querySelector('.body'), hh = S.sheets.more.querySelector('.hh');
       var rh = S.sheets.more.querySelector('.rh'), rg = S.sheets.more.querySelector('.roomgrid');
@@ -865,7 +866,7 @@
       else if (k === 'm') { if (it && it.href) { closeSheet(true); location.assign(it.href); } }
       else go(it);
     }
-    function listOf(k) { return k === 'r' ? S.rooms : k === 'h' ? S.ha : k === 'm' ? S.mantel : S.more; }
+    function listOf(k) { return k === 'r' ? S.rooms : k === 'h' ? S.ha : k === 'm' ? S.hostRows : S.more; }
     // A HOME ASSISTANT ROW does what the side menu's does (hk-menu.js onList):
     // Show Menu opens Home Assistant's own sidebar over the page,
     // Notifications its drawer, the rest open Home Assistant's page

@@ -57,7 +57,7 @@ neither; leave `access` at `ingress` and nothing below applies.
 
 At Mantel's own address Home Assistant's sidebar sign-in does not apply. People use **Sign in with Home
 Assistant** (set `ha_sign_in_url`), or a Mantel password or passkey; wall tablets are **enrolled** as Mantel
-devices (on the tablet, sign in once at Mantel's address as the Owner, open Mantel settings, *Make this
+devices (on the tablet, sign in once at Mantel's address as the Owner, open Mantel Settings, *Make this
 browser a wall tablet*, with its room; the person's sign-in ends there) and then open `/home` on their own
 HK screen. Home addresses get the LAN rules; anything else the
 remote (tunnel) rules. HA's identity headers are never believed on this port.
@@ -75,7 +75,7 @@ Your proxy owns HTTPS and forwards to the App over plain HTTP.
    Home Assistant App: it can reach `http://local-mantel:8100` on Home Assistant's internal network. Its
    address there is assigned by Home Assistant and can change when it restarts; check it on the Test my
    proxy page after updates.)
-3. **Restart** the App, open Mantel in the sidebar as the Owner: **Mantel settings → Connections → HTTPS
+3. **Restart** the App, open Mantel in the sidebar as the Owner: **Mantel Settings → Connections → HTTPS
    and your proxy**, *Rotate door key*, and copy the **door key** (shown once; *Test my proxy* there also
    shows the block below with the key filled in). The proxy sends it with every request; without it Mantel
    treats the proxy's requests as remote.

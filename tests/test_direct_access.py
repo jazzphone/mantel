@@ -242,7 +242,7 @@ async def _start(tmp_path, monkeypatch, *, mode="proxy", ingress_peers=("172.30.
     monkeypatch.setattr(direct_tls.CertManager, "check", no_acme)   # the ACME client is tested on its own below
     web_dir = tmp_path / "web"
     (web_dir / "hk").mkdir(parents=True)
-    for page in ("home.html", "hk-settings.html"):
+    for page in ("home.html", "settings.html"):
         (web_dir / page).write_text((ROOT / "web" / page).read_text())
     tls = mode == "https"
     cfg = Config(data_dir=tmp_path / "data", secrets_dir=tmp_path / "secrets", host="127.0.0.1", port=_free_port(),

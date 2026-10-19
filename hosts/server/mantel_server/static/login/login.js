@@ -240,7 +240,10 @@ export function start(doc = globalThis.document, win = globalThis.window) {
   function done() {
     say('Signed in.', true);
     els.pw.value = '';
-    win.location.replace(base + next);
+    // the page's own fragment, when the address signed out of had one (/settings#/screens/...): the
+    // server never sees it, so it rides on this page's address; only a settings route (#/...)
+    const frag = typeof win.location.hash === 'string' && /^#\/[\w%./~-]*$/.test(win.location.hash) && next.indexOf('#') < 0 ? win.location.hash : '';
+    win.location.replace(base + next + frag);
   }
   async function run(step) {
     if (busy) return;
@@ -324,7 +327,7 @@ export function start(doc = globalThis.document, win = globalThis.window) {
         if (r.kind === 'done') {
           pw.value = '';
           say('Owner created.', true);
-          win.location.replace(base + '/admin#connections');
+          win.location.replace(base + '/settings#/mantel/connections');
           return;
         }
         say(r.message);

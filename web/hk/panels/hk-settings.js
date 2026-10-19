@@ -24,6 +24,26 @@
 //
 // Words and the small decisions (what a list shows, what a change saves)
 // are hk-settings-model.js; the controls are hk-settings-kit.js.
+//
+// THE HOST'S SETTINGS (hkShell.settingsHost(), null on a host without any):
+// a host may put its own pages beside HK's, drawn with the same kit. The page
+// knows nothing of them but this shape:
+//   { title       the page's name in place of "HK Settings"
+//     house       false: the host's pages only (HK's own are not read)
+//     groups()    [{ header, place: 'top' | 'end', rows: [{ route, label,
+//                 sub, tile: [icon, color] }] }] -- sidebar groups, above
+//                 Overview ('top') or after System ('end')
+//     page(parts, panel)  the page for an address the host owns, or null
+//     forward(path)       an old address of the host's -> where it is now
+//     first()             where an empty address opens (null: Overview)
+//     search()            [{ label, route, where, words }]
+//     notes               { overview, screen_remove, add_screen }: the
+//                 host's words where HK's own page differs on it
+//     screenBase          the prefix of a screen's own address
+//     back                { label, href }: the way out, on a host with no
+//                 sidebar of its own }
+// Home Assistant has none, so nothing of another host's is drawn, read or
+// said there.
 (function () {
   'use strict';
   if (customElements.get('hk-settings-panel')) return;
@@ -216,6 +236,23 @@
     // up under it and it lay over them (2026-10-06)
     ':host(:not([xwide])) .page.split .pvcol{margin:0 0 30px;max-width:480px;position:static}',
     '.pvcol:empty{display:none}',
+    // PINNED (the bar's Preview): at the top of the page, over the settings
+    // as they scroll under it; the size and moment pickers stay
+    ':host .page.split .pvcol.pin,:host(:not([xwide])) .page.split .pvcol.pin{position:sticky;top:0;z-index:3;margin:0 -20px 18px;',
+    '  padding:8px 20px 8px;max-width:none;background:var(--hk-bg);box-shadow:0 .5px 0 var(--hk-sep)}',
+    ':host(:not([wide])) .page.split .pvcol.pin{margin:0 -16px 18px;padding:8px 16px 8px}',
+    '.pvcol.pin .gf,.pvcol.pin .pvhead{display:none}',
+    '.pvcol.pin .pvbox{margin:0 auto}',
+    '.pvcol.pin .seg{margin-top:8px}',
+    // the bar's Preview button: a glyph, as a navigation bar's buttons are
+    '.bar .pvtoggle{flex:none;width:36px;height:36px;margin-right:4px;padding:0;border:0;border-radius:18px;background:none;',
+    '  color:var(--hk-tint);display:flex;align-items:center;justify-content:center;cursor:pointer}',
+    '.bar .pvtoggle hk-icon{--mdc-icon-size:22px;width:22px;height:22px;display:flex}',
+    '.bar .pvtoggle[aria-pressed="true"]{background:var(--hk-fill)}',
+    // A HOST'S WAY OUT (settingsHost().back), over the sidebar's name
+    '.hostback{display:inline-flex;align-items:center;gap:3px;height:36px;margin:4px 0 -4px -6px;padding:0 8px 0 2px;color:var(--hk-tint);',
+    '  text-decoration:none;font-size:17px}',
+    '.hostback svg{width:12px;height:20px;flex:none}',
     '.code{margin:-14px 0 28px;padding:12px 16px;border-radius:10px;background:var(--hk-cell);color:var(--hk-label);',
     // YAML keeps its lines (wrapped, its indentation would lie): it scrolls
     // sideways, a size smaller on a phone so most lines fit
@@ -592,9 +629,19 @@
       }, { passive: true });
       new ResizeObserver(function () { self.measure(); }).observe(this);
       this.measure();
+      // THE HOST'S PAGES ONLY (someone who may not change the house's): HK's
+      // own settings are never read
+      var hx = this.host();
+      this.hostOnly = !!(hx && hx.house === false);
+      if (this.hostOnly) {
+        this.data = null;
+        this.ready = true;
+        this.onHash();
+        return;
+      }
       try { await this.reload(); } catch (e) {
         s.querySelector('.page').innerHTML = '';
-        this.pageEl.appendChild(h('div', { class: 'big' }, [h('h2', { text: 'HK Settings' }),
+        this.pageEl.appendChild(h('div', { class: 'big' }, [h('h2', { text: this.title() }),
           h('p', { text: String(e && e.message || e) })]));
         this.app.setAttribute('data-view', 'detail');
         return;
@@ -649,6 +696,27 @@
     parts() {
       return (location.hash || '').replace(/^#\/?/, '').split('?')[0].split('/').filter(Boolean).map(decodeURIComponent);
     }
+    // THE HOST'S SETTINGS (above), read once when the page starts
+    host() {
+      if (this._host === undefined) {
+        var o = null;
+        try { o = window.hkShell && window.hkShell.settingsHost ? window.hkShell.settingsHost() : null; } catch (e) { o = null; }
+        this._host = o && typeof o === 'object' ? o : null;
+      }
+      return this._host;
+    }
+    title() { var x = this.host(); return (x && x.title) || 'HK Settings'; }
+    hostScreenBase() { var x = this.host(); return (x && typeof x.screenBase === 'string') ? x.screenBase : ''; }
+    hostNote(key) { var x = this.host(); return (x && x.notes && x.notes[key]) || null; }
+    // the page an empty address shows: Overview, or the host's first
+    rootPage() {
+      var x = this.host();
+      if (x && typeof x.first === 'function') {
+        var f = x.first();
+        if (f) { var pg = x.page(String(f).split('/'), this); if (pg) return pg; }
+      }
+      return this.hostOnly ? { title: this.title(), top: true, body: function () {} } : this.p_overview();
+    }
     onClick(e) {
       if (e.defaultPrevented && !this._hashLink(e)) return;
       if (e.button || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
@@ -685,7 +753,7 @@
     backHref(hash) { hash = hashOf(hash); return this.from[hash] || this.staticBack(hash); }
     labelOf(hash) {
       var parts = hashOf(hash).replace(/^#\/?/, '').split('/').filter(Boolean).map(decodeURIComponent);
-      if (!parts.length) return 'HK Settings';
+      if (!parts.length) return this.title();
       try { var pg = this.resolve(parts); return (pg && (pg.backLabel || pg.title)) || 'Back'; } catch (e) { return 'Back'; }
     }
     _hashLink(e) {
@@ -698,8 +766,10 @@
       return null;
     }
     onHash() {
-      // an old address shows the new one (Pages, 2026-10-16: M.routeForward)
-      var fw = M.routeForward(this.parts().join('/'));
+      // an old address shows the new one (Pages, 2026-10-16: M.routeForward;
+      // the host's own: its forward)
+      var hx = this.host(), here = this.parts().join('/');
+      var fw = (hx && typeof hx.forward === 'function' && hx.forward(here)) || (this.hostOnly ? null : M.routeForward(here));
       if (fw) { try { history.replaceState(null, '', '#/' + fw.split('/').map(encodeURIComponent).join('/')); } catch (e) { /* no history */ } }
       var cur = location.hash || '#/';
       // hashchange, popstate and HA's location-changed can all say the same
@@ -870,7 +940,7 @@
                       a.closest && a.closest('.accwrap')));
     }
     render(background, navigated) {
-      if (!this.ready || !this.data) return;
+      if (!this.ready || (!this.data && !this.hostOnly)) return;
       // NOT UNDER A PRESS. A text field saves on blur, and the blur of a press
       // elsewhere comes between that press's pointerdown and its click: the
       // redraw replaced the very row being pressed, and the click was lost
@@ -892,7 +962,7 @@
       var root = !parts.length;
       this.app.setAttribute('data-view', root && !wide ? 'root' : 'detail');
       if (wide || root) this.paintSide(parts);
-      var pg = root ? this.p_overview() : this.resolve(parts);
+      var pg = root ? this.rootPage() : this.resolve(parts);
       this.pickers = this.pickers || {};
       this.paintPage(pg, parts);
       if (key === this._last) this.scrollEl.scrollTop = top;
@@ -1006,7 +1076,7 @@
       // THE BAR: Back to the page above (none beside the sidebar at the top)
       var lead = this.bar.querySelector('.lead');
       lead.innerHTML = '';
-      var back = pg.back || (parts.length && !wide ? ['HK Settings', '#/'] : null);
+      var back = pg.back || (parts.length && !wide ? [this.title(), '#/'] : null);
       var came = this.from[hashOf(location.hash || '#/')];
       if (came && (!back || hashOf(back[1]) !== came)) back = [this.labelOf(came), came];
       if (back && (!(wide && pg.top) || came)) {
@@ -1026,9 +1096,16 @@
         content.appendChild(K.group({ footer: 'This page couldn’t be drawn: ' + (e && e.message || e) }, []));
       }
       // beside the page (a wide window) it stays for the screen's sub-pages;
-      // above it (narrower) only the screen's own page has it
-      if (pg.preview && !this.hasAttribute('xwide') && !pg.previewTop) pg.preview = null;
-      var keepPv = pg.preview && this._pv && this._pv.path === pg.preview && this._pv.view === (pg.previewView || '0') && this.pageEl.querySelector('.pvcol');
+      // above it (narrower, phones too) only the screen's own page has it --
+      // unless it is PINNED (the bar's Preview button): then it stays at the
+      // top of every page that has one, the settings scrolling under it
+      var xwide = this.hasAttribute('xwide');
+      var pinned = !xwide && !!pg.preview && pinnedPreview();
+      this.previewButton(!xwide && !!pg.preview, pinned);
+      if (pg.preview && !xwide && !pg.previewTop && !pinned) pg.preview = null;
+      this._pvPinned = pinned;
+      var keepPv = pg.preview && this._pv && this._pv.path === pg.preview && this._pv.view === (pg.previewView || '0') &&
+        this._pv.pinned === pinned && this.pageEl.querySelector('.pvcol');
       if (keepPv) {
         this.pageEl.replaceChild(head, this.pageEl.querySelector('.ph'));
         this.pageEl.replaceChild(content, this.pageEl.querySelector('.pc'));
@@ -1037,8 +1114,10 @@
         this.pageEl.className = 'page' + (pg.preview ? ' split' : '');
         this.pageEl.appendChild(head);
         this._pv = null; this._fit = null;
-        if (pg.preview && (this.hasAttribute('xwide') || (pg.previewTop && wide))) {
-          this.pageEl.appendChild(this.previewCol(pg.preview, pg.previewView));
+        if (pg.preview) {
+          var pcol = this.previewCol(pg.preview, pg.previewView);
+          if (pinned) { pcol.classList.add('pin'); this._pv.pinned = true; this.pageEl.insertBefore(pcol, head); }
+          else this.pageEl.appendChild(pcol);
         }
         this.pageEl.appendChild(content);
       }
@@ -1053,6 +1132,25 @@
       this.saverPreview(!!(pg.preview && pg.saverPreview), !!pg.saverHouse);
     }
 
+    // THE PREVIEW BUTTON (narrower than a desk): the live preview pinned to
+    // the top of the page, or not; remembered in this browser
+    previewButton(show, pinned) {
+      var b = this.bar.querySelector('.pvtoggle'), self = this;
+      if (!show) { if (b) b.remove(); return; }
+      if (!b) {
+        b = h('button', { class: 'pvtoggle', type: 'button', 'data-fk': 'bar:preview' });
+        b.addEventListener('click', function () {
+          pinPreview(!pinnedPreview());
+          self.render();
+        });
+        this.bar.appendChild(b);
+      }
+      b.innerHTML = '';
+      b.appendChild(K.icon(pinned ? 'mdi:eye-off' : 'mdi:eye', ''));
+      b.setAttribute('aria-label', pinned ? 'Hide Preview' : 'Show Preview');
+      b.title = pinned ? 'Hide Preview' : 'Show Preview';
+      b.setAttribute('aria-pressed', pinned ? 'true' : 'false');
+    }
     // THE SCREENSAVER'S PREVIEW: on Screensaver Options the frame shows the
     // screensaver as that screen shows it (its window's hkSaver.preview) and
     // follows every change made here; any other page takes it away again.
@@ -1171,14 +1269,21 @@
       var top = h('div', { class: 'sidetop' });
       var head = h('div', { class: 'sidehead' });
       // A NARROW WINDOW: the host's own button that opens its sidebar (none
-      // on a host without one: Mantel)
+      // on a host without one)
       var mb = this._narrow ? window.hkShell.menuButton(this._menuBtn || null, { narrow: this._narrow, client: this.client }) : null;
       if (mb) {
         this._menuBtn = mb;
         head.appendChild(mb);
         head.classList.add('menubtn');
       }
-      head.appendChild(h('h1', { text: 'HK Settings' }));
+      // a host with no sidebar of its own: its way out, over the name
+      var hx = this.host();
+      if (hx && hx.back && hx.back.href) {
+        var out = h('a', { class: 'hostback', href: hx.back.href, 'data-fk': 'side:hostback' });
+        out.innerHTML = BACK + '<span>' + K.esc(hx.back.label || 'Back') + '</span>';
+        top.appendChild(out);
+      }
+      head.appendChild(h('h1', { text: this.title() }));
       top.appendChild(head);
       var sb = h('div', { class: 'search', role: 'search' });
       sb.appendChild(K.icon('mdi:magnify', 'mag'));
@@ -1195,6 +1300,17 @@
       if (focused) { inp.focus(); try { inp.setSelectionRange(selStart, selStart); } catch (e) { /* type=search */ } }
 
       if (this.q.trim()) { side.appendChild(this.searchResults()); return; }
+      var hostGroups = function (place) {
+        if (!hx || typeof hx.groups !== 'function') return;
+        (hx.groups() || []).filter(function (g) { return (g.place || 'end') === place; }).forEach(function (g) {
+          side.appendChild(K.group({ header: g.header || null }, (g.rows || []).map(function (r) {
+            return K.nav({ tile: r.tile || null, label: r.label, sub: r.sub || null, value: r.value, href: '#/' + r.route,
+                           current: wide && (at(r.route) || (!here && r.root)), fk: 'side:' + r.route });
+          })));
+        });
+      };
+      hostGroups('top');
+      if (this.hostOnly) { hostGroups('end'); return; }
       var items = d.dashboards.filter(function (x) { return x.item; });
       var nAcc = Object.keys((d.accessories && d.accessories.entities) || {}).length;
       side.appendChild(K.group({}, [K.nav({ tile: ['mdi:home-heart', C.orange], label: 'Overview',
@@ -1227,11 +1343,20 @@
       list('All Screens', HOUSE, 'house/');
       list('Library', LIBRARY);
       list('System', SYSTEM);
+      hostGroups('end');
     }
     searchResults() {
-      var d = this.data, self = this;
+      var d = this.data, self = this, hx = this.host();
+      var hostRows = hx && typeof hx.search === 'function' ? (hx.search() || []) : [];
+      if (this.hostOnly) {
+        var hres = M.search(this.q, [], hostRows).slice(0, 60);
+        if (!hres.length) return K.group({ footer: 'No settings match “' + this.q.trim() + '”.' }, []);
+        return K.group({ header: 'Results' }, hres.map(function (r, i) {
+          return K.nav({ label: r.label, sub: r.where || null, href: '#/' + r.route, fk: 'side:r:' + i });
+        }));
+      }
       var screens = d.dashboards.filter(function (x) { return x.item; });
-      var extra = [];
+      var extra = hostRows.slice();
       screens.forEach(function (x) { extra.push({ label: x.title, route: 'screens/' + x.path, where: 'Screen', words: x.path }); });
       d.popups.forEach(function (p) { extra.push({ label: p.name || p.hash, route: 'popups/' + p.hash, where: 'Pop-up', words: '#' + p.hash }); });
       (d.custom_pages || []).forEach(function (p) { extra.push({ label: p.title, route: 'pages/' + p.path, where: 'Custom Page', words: p.path }); });
@@ -1451,6 +1576,12 @@
     }
 
     resolve(parts) {
+      var hx = this.host();
+      if (hx && typeof hx.page === 'function') {
+        var hp = hx.page(parts, this);
+        if (hp) return hp;
+      }
+      if (this.hostOnly) return this.rootPage();
       var last = parts[parts.length - 1] || '';
       if (last[0] === '~') return this.pickerPage(parts);
       // AN ADDRESS THAT MOVED (Pages, 2026-10-16) opens where it is now
@@ -1507,6 +1638,8 @@
           K.nav({ label: 'Customized Accessories', value: String(Object.keys(d.accessories.entities || {}).length), href: '#/accessories' }),
           K.nav({ label: 'Pop-ups', value: String(d.popups.length), href: '#/popups' }),
           K.nav({ label: 'Custom Pages', value: String((d.custom_pages || []).length), href: '#/pages' })]));
+        var hn = self.hostNote('overview');
+        if (hn) c.appendChild(K.group({ footer: hn }, []));
         if (!check && !self._checking) {
           self._checking = true;
           self.client.callWS({ type: DOMAIN + '/setup/check' }).then(function (r) {
@@ -1523,8 +1656,8 @@
       var col = h('aside', { class: 'pvcol', 'aria-label': 'Preview' });
       var head = h('div', { class: 'pvhead' }, [h('span', { text: 'Preview' }),
         h('a', { href: '/' + path + '/' + view, target: '_blank', rel: 'noopener', text: 'Open Screen' })]);
-      // under Mantel's address prefix (HA App: Ingress) it is Mantel's own screen, never Home Assistant's
-      var mbase = window.__mantelBase || '';
+      // under the host's own address prefix, when it has one (hostScreenBase)
+      var mbase = this.hostScreenBase();
       head.lastChild.setAttribute('href', mbase + '/' + path + '/' + view);
       col.appendChild(head);
       var pv = h('div', { class: 'pvbox' });
@@ -1568,8 +1701,11 @@
       });
       var fit = function () {
         var z = sizes.filter(function (x) { return x.key === key; })[0] || sizes[0];
-        var maxH = Math.max(320, Math.min(620, (window.innerHeight || 900) - 300));
-        var f = M.previewFit(col.clientWidth, maxH, z);
+        var maxH = self._pvPinned ? Math.max(150, Math.round((window.innerHeight || 800) * 0.28))
+          : Math.max(320, Math.min(620, (window.innerHeight || 900) - 300));
+        // (the column's own padding is not room for the frame: a pinned preview has some)
+        var cs = getComputedStyle(col), cw = col.clientWidth - (parseFloat(cs.paddingLeft) || 0) - (parseFloat(cs.paddingRight) || 0);
+        var f = M.previewFit(cw, maxH, z);
         fr.style.width = z.w + 'px';
         fr.style.height = z.h + 'px';
         fr.style.transform = 'scale(' + f.scale + ')';
@@ -1609,7 +1745,7 @@
     }
     p_screen(path, sub) {
       var self = this, x = this.dash(path);
-      var home = ['HK Settings', '#/'];
+      var home = [this.title(), '#/'];
       if (!x) return { title: 'Screen', back: home, body: function (c) { c.appendChild(K.group({ footer: 'There’s no dashboard at /' + path + '.' }, [])); } };
       var base = '#/screens/' + encodeURIComponent(path);
       var b = this.data.boards[path];
@@ -2012,8 +2148,9 @@
       if (!gen) c.appendChild(K.group({ footer: 'What this dashboard’s own YAML can say beyond these settings: the live sky, HK cards, ' +
           'rooms in the menu, and more, ready to copy.' }, [K.nav({ label: 'YAML Reference', href: '#/advanced/yaml', sk: 'b:yaml-ref' })]));
       if (gen && x.mode === 'storage') { c.appendChild(this.deleteGroup(x)); return; }
-      if (this.data.source === 'mantel') {
-        c.appendChild(K.group({ footer: 'Mantel keeps its own copy of this screen’s settings. Removing a screen needs Home Assistant, so it isn’t offered here.' }, []));
+      // a host that can't remove a screen's settings says why instead
+      if (this.hostNote('screen_remove')) {
+        c.appendChild(K.group({ footer: this.hostNote('screen_remove') }, []));
         return;
       }
       c.appendChild(K.group({ footer: 'The dashboard itself stays. Its menu, Home page and appearance go back to the defaults.' }, [
@@ -4027,10 +4164,11 @@
     // ---------------------------------------------------------- add a screen
     p_add(sub) {
       var self = this, d = this.data;
-      if (d.source === 'mantel') {
-        return { title: 'Add Screen', back: ['HK Settings', '#/'], body: function (c) {
-          c.appendChild(K.group({ footer: 'A new screen is a new dashboard in Home Assistant, which Mantel doesn’t write to. ' +
-            'Add it in HK Settings inside Home Assistant; Mantel’s own screens are listed under Screens.' }, []));
+      // a host that can't make a screen says why instead
+      var addNote = this.hostNote('add_screen');
+      if (addNote) {
+        return { title: 'Add Screen', back: [this.title(), '#/'], body: function (c) {
+          c.appendChild(K.group({ footer: addNote }, []));
         } };
       }
       var others = d.dashboards.filter(function (x) { return !x.item; });
@@ -8725,7 +8863,7 @@
       step = Math.max(0, Math.min(STEPS.length - 1, step || 0));
       var next = function () { self.go('#/setup/' + (step + 1)); };
       return { title: step ? STEPS[step] : 'Set Up HK Frontend', backLabel: 'Setup',
-        back: step ? [STEPS[step - 1], '#/setup/' + (step - 1)] : ['HK Settings', '#/'],
+        back: step ? [STEPS[step - 1], '#/setup/' + (step - 1)] : [this.title(), '#/'],
         scope: step && step < STEPS.length - 1 ? 'Step ' + step + ' of ' + (STEPS.length - 2) + '. Everything here can be changed later.' : null,
         body: function (c) {
           if (step === 0) {
@@ -8765,6 +8903,9 @@
   }
   var SETUP_STEPS = ['Welcome', 'Security System', 'Weather', 'Appearance', 'Features', 'First Screen', 'Done'];
   var SETUP_FIRST = SETUP_STEPS.indexOf('First Screen');
+  var PIN_KEY = 'hk-preview-pinned';
+  function pinnedPreview() { try { return localStorage.getItem(PIN_KEY) === '1'; } catch (e) { return false; } }
+  function pinPreview(on) { try { if (on) localStorage.setItem(PIN_KEY, '1'); else localStorage.removeItem(PIN_KEY); } catch (e) { /* private */ } }
   function hashOf(h) { h = String(h || '#/').split('?')[0]; return h.charAt(0) === '#' ? h : '#' + h; }
   var FROM_KEY = 'hk-settings-from';
   function loadFrom() {

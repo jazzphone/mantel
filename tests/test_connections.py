@@ -603,7 +603,7 @@ async def test_oauth_flow_makes_a_long_lived_token_and_revokes_the_sign_in(envs)
         good = await env.client.session.get(env.client.make_url(f"/auth/connection/callback?state={q['state'][0]}&code=fictional-code"),
                                             )
         text = await good.text()
-        assert good.status == 200 and f"admin?connection={pid}#connections" in text
+        assert good.status == 200 and f"settings?connection={pid}#/mantel/connections" in text
         replay = await env.client.session.get(env.client.make_url(f"/auth/connection/callback?state={q['state'][0]}&code=fictional-code"))
         assert replay.status == 400                                   # single use
     status, body = await env.call("GET", f"/api/connections/pending/{pid}")
@@ -815,7 +815,7 @@ def test_the_login_page_offers_the_first_start_and_sends_the_owner_to_connection
                                                           "password": "a long enough password"}]
     html = (STATIC / "login/index.html").read_text()
     assert 'id="setup-form"' in html and "hidden" in html.split('id="setup-form"')[1].split(">")[0]
-    assert "admin#connections" in (STATIC / "login/login.js").read_text()
+    assert "settings#/mantel/connections" in (STATIC / "login/login.js").read_text()
 
 
 async def test_bootstrap_then_the_admin_page_starts_on_connections(envs):

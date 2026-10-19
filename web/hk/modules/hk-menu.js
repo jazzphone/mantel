@@ -382,13 +382,15 @@
     });
   }
 
-  // THE HOST'S OWN PAGES (hkShell.hostMenu): Mantel's settings page for an Owner/Admin, opened by a
-  // full page load (inside the same frame when Mantel runs as a Home Assistant App).
+  // THE HOST'S OWN PAGES (hkShell.hostMenu): a host's settings page, opened by a full page load (inside
+  // the same frame when the host runs in Home Assistant's sidebar). `section` names the host's section
+  // (the host's own word; Home Assistant has no such pages, so no section and no word).
   function hostItems() {
     var SH = window.hkShell, list = null;
     try { list = SH && SH.hostMenu ? SH.hostMenu() : null; } catch (e) { list = null; }
     return (Array.isArray(list) ? list : []).filter(function (x) { return x && x.title && x.href; })
-      .map(function (x) { return { title: String(x.title), icon: x.icon || 'mdi:cog', kind: 'hostlink', href: String(x.href), paths: [] }; });
+      .map(function (x) { return { title: String(x.title), icon: x.icon || 'mdi:cog', kind: 'hostlink', href: String(x.href),
+                                   section: String(x.section || ''), paths: [] }; });
   }
 
   function sidebarSource() {
@@ -1170,7 +1172,8 @@
       if (place === 'rooms') html += ha;
       html += section('rooms', 'Rooms', m.rooms);
       if (place === 'bottom') html += ha;
-      html += section('host', 'Mantel', hostItems());
+      var hostRows = hostItems();
+      html += section('host', hostRows.length ? hostRows[0].section || 'More' : '', hostRows);
       var keep = S.list.scrollTop;
       S.list.innerHTML = html;
       S.list.scrollTop = keep;
@@ -1313,7 +1316,7 @@
         markHere();
         return;
       }
-      // the host's own page (Mantel settings): a full page load
+      // the host's own page (its settings): a full page load
       if (it.kind === 'hostlink') {
         close(true);
         location.assign(it.href);

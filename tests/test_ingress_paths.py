@@ -22,11 +22,10 @@ PREFIX = "/api/hassio_ingress/Fict1onalToken"
 ASSET_LEFT = re.compile(r"""(["'`(])/(hk|web|static/mdi)/""")
 URL_ROOT = re.compile(r"""(["'`(])(?!""" + re.escape(PREFIX) + r""")/(api|hk|web|static|ws|auth|login|logout|dev|"""
                       r"""local|hacsfiles|frontend|hk-settings|dashboard)\b""")
-MANTEL_OWN = {"home.js", "shim/hk-settings-page.js", "shim/base.js", "shim/hub.js", "shim/mantel-client.js", "shim/mantel-host.js",
+MANTEL_OWN = {"home.js", "shim/settings-page.js", "shim/mantel-settings.js", "shim/base.js", "shim/hub.js", "shim/mantel-client.js", "shim/mantel-host.js",
               "shim/mantel-shell.js", "shim/ha-elements.js"}
 # file -> (a fragment of the line, why it is not a URL Mantel's page fetches from Mantel)
 NOT_MANTEL_URLS = [
-    ("shim/mantel-shell.js", "base + '/hk-settings'", "Mantel's own page, put under the prefix here (base = __mantelBase)"),
     ("hk/cards/hk-cameras.js", "'/api/hk_frontend/talk?", "an HA API path, sent through the action port (refused while commands are off)"),
     ("hk/panels/hk-settings.js", "actions.request('/api/' + path", "HA API paths for the action port (mantel-client)"),
     ("hk/panels/hk-settings.js", "request('/api/image/upload'", "an HA API path for the action port"),
@@ -34,9 +33,11 @@ NOT_MANTEL_URLS = [
     ("hk/panels/hk-settings.js", "DOMAIN + '/dashboard/titled'", "a WebSocket message type, not a path"),
     ("hk/panels/hk-settings-model.js", "'/dashboard-kitchen/0?hk_", "example text in a help string"),
     ("hk/cards/hk-detail.js", 'href="/hk-settings#', "a link: shim/base.js moves a clicked link under the prefix"),
+    ("shim/mantel-settings.js", "if (BASE) location.reload(); else location.assign('/login')", "only without a prefix (BASE: '')"),
+    ("shim/mantel-settings.js", "location.assign('/login?next='", "only without a prefix (signedOut: under Ingress Home Assistant signs people in)"),
     ("shim/mantel-client.js", "indexOf('/api/') === 0", "HA API paths for the action port (hub.command), never fetched"),
 ]
-WRAPPED = re.compile(r"(mantelUrl|api|post|wsUrl)\(\s*$")
+WRAPPED = re.compile(r"(mantelUrl|api|post|wsUrl)\(\s*$|\bapi\('[A-Z]+',\s*$")
 
 
 def served_files():

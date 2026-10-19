@@ -950,7 +950,7 @@ def rewrite(text: str, base: str) -> str:
 
 # Mantel's own static pages (admin, proxy-check) name their assets and the dashboard in href/src attributes;
 # their JS reads the prefix itself (<meta name="mantel-base">), so only the HTML needs this.
-OWN_ATTR = re.compile(r"""\b(href|src)=(["'])/(admin/|proxy-check/|hk-settings\2|home\2)""")
+OWN_ATTR = re.compile(r"""\b(href|src)=(["'])/(admin/|proxy-check/|hk-settings\2|settings\2|home\2)""")
 
 
 def own_page(text: str, base: str) -> str:
@@ -1066,7 +1066,8 @@ async def middleware(request: web.Request, handler):
             return web.json_response({"error": "not_linked", "message": "ask a Mantel Owner to link your "
                                       "Home Assistant account"}, status=401)
         if request.path in ("/", "/home") and is_ha_tablet(ident):
-            start = tablet_start(request.app, ident.device)      # the tablet's own HK screen
+            from . import default_screens                     # the tablet's own screen, else its HK tablet's
+            start = default_screens.start_for(request.app, ident)
             if start is not None:
                 raise web.HTTPFound(base + start)
         if request.path == "/":

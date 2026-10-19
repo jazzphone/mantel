@@ -33,7 +33,7 @@ from . import music
 from . import accounts, alarm_pin, auth, connect_pairing, devices, gateway, health, ingress, live_tv, pins, proof2, rbac_store, readproxy, sessions, settings_store
 from . import (admin_page, atrest, backup, connections, features, linked, linked_house, linked_owners, login_page,
                service_accounts, talk_relay, user_files)
-from . import direct, direct_tls, ma_page, media_proxy, proxy_check, proxy_trust, security_headers, user_data
+from . import default_screens, direct, direct_tls, ma_page, media_proxy, proxy_check, proxy_trust, security_headers, user_data
 from .authz import Authz, Principal, resolve_door
 from .config import Config
 from .connectors import REFUSE_ALL, Ctx, Hooks
@@ -386,11 +386,12 @@ def oauth_url(cfg: Config) -> str:
 
 
 async def home_redirect(request: web.Request) -> web.StreamResponse:
+    """/home: the screen this person or tablet opens on (default_screens.start_for: the tablet's at a wall
+    tablet, else the person's own), else the house's ``default_screen``."""
     ident = sessions.identity(request)
-    if ident.device is not None and ident.user is None and not request.get("mantel_base"):
-        start = ingress.tablet_start(request.app, ident.device)   # an enrolled wall tablet: its own HK screen
-        if start is not None:
-            raise web.HTTPFound(start)
+    start = default_screens.start_for(request.app, ident) if ident.authenticated else None
+    if start is not None:
+        raise web.HTTPFound(start)
     raise web.HTTPFound(f"/{request.app['cfg'].default_screen}/home" + (f"?{request.query_string}" if request.query_string else ""))
 
 
@@ -398,16 +399,24 @@ async def home_page(request: web.Request) -> web.StreamResponse:
     return ingress.file_response(request, request.app["cfg"].web / "home.html", NO_CACHE, page=True)
 
 
-async def hk_settings_page(request: web.Request) -> web.StreamResponse:
-    """/hk-settings: HK Settings (<hk-settings-panel>) in Mantel's own copy, for Owners and Admins only (the
-    people /admin is for). A wall tablet, even signed in as one of them, is refused; a signed-out browser
-    never gets here (the session middleware sends it to /login)."""
+async def settings_page(request: web.Request) -> web.StreamResponse:
+    """/settings: Mantel Settings, HK Settings' page (<hk-settings-panel>) with Mantel's own pages beside HK's
+    (web/shim/mantel-settings.js), for every signed-in person: Me for everyone, the house's pages (HK's
+    settings, People, Devices, Connections, ...) for the roles admin_page.sections_for allows. A wall tablet,
+    even signed in as a person, is refused; a signed-out browser never gets here (the session middleware
+    sends it to /login)."""
     ident = sessions.identity(request)
-    if ident.user is None or ident.device is not None or ident.user.role not in accounts.MANAGERS:
+    if ident.user is None or ident.device is not None:
         back = "" if request.get("mantel_base") else " <a href='/home'>Back to the dashboard</a>."
-        return auth.page("HK Settings", "<p>Only an Owner or an Admin can change Mantel's copy of HK's settings, "
-                         "and not from a wall tablet." + back + "</p>", 403)
-    return ingress.file_response(request, request.app["cfg"].web / "hk-settings.html", NO_CACHE, page=True)
+        return auth.page("Mantel Settings", "<p>This browser is a wall tablet. Sign in as a person to change "
+                         "Mantel's settings." + back + "</p>", 403)
+    return ingress.file_response(request, request.app["cfg"].web / "settings.html", NO_CACHE, page=True)
+
+
+async def hk_settings_redirect(request: web.Request) -> web.StreamResponse:
+    """/hk-settings, the old address of HK Settings in Mantel: now Mantel Settings. The browser keeps the
+    fragment (#/screens/...), so every link into HK's pages still lands where it pointed."""
+    raise web.HTTPFound("/settings" + (f"?{request.query_string}" if request.query_string else ""))
 
 
 async def api_registry(request: web.Request) -> web.Response:
@@ -466,7 +475,7 @@ def build_app(cfg: Config, token: str, store: Store | None = None, connect_ha: b
     accounts.register(app, hub)
     devices.register(app, hub)
     login_page.register(app, hub)     # /login (passkey, password + TOTP, Sign in with HA via /login/ha)
-    admin_page.register(app, hub)     # /admin (people, devices, roles, service accounts, audit, my PIN)
+    admin_page.register(app, hub)     # /admin -> /settings; /admin?plain=1 the plain fallback page; the overview
     pins.register(app, hub)
     alarm_pin.register(app, hub)      # HK's Alarm PIN: the keypad's code checked by Mantel (GATEWAY.md "The alarm")
     ingress.register(app, hub, token)                   # HA App mode / Connect (cfg.ingress); inert otherwise
@@ -477,7 +486,8 @@ def build_app(cfg: Config, token: str, store: Store | None = None, connect_ha: b
     app.router.add_get("/", root)
     app.router.add_get("/dev", dev_page)
     app.router.add_get("/home", home_redirect)
-    app.router.add_get("/hk-settings", hk_settings_page)    # HK Settings, Mantel's copy (Owner/Admin)
+    app.router.add_get("/settings", settings_page)          # Mantel Settings: HK's and Mantel's, one page
+    app.router.add_get("/hk-settings", hk_settings_redirect)  # its old address
     app.router.add_get("/hk/{path:.+}", hk_file)
     app.router.add_get("/web/{path:.+}", web_file)
     app.router.add_get("/static/mdi/{name}", mdi_file)
@@ -561,6 +571,7 @@ def wire(app: web.Application, hub: Hub, token: str, connect_ha: bool) -> None:
     hooks = Hooks(may_read=authz.may_read, may_view=authz.may_view, ma_gate=gw if gw is not None else REFUSE_ALL,
                   ha_token=conns.ha_token if connect_ha else None)
     readproxy.register(app, hub, hooks)
+    default_screens.register(app)    # the screen each person or tablet opens on (Mantel Settings)
     user_data.register(app, hub)     # HK's per-person frontend user data (the Music page's speaker), Mantel's own
     camera_connector.register(app, hub, hooks)
     camera_still.register(app, hub, authz, conns.ha_token)   # GET /api/camera/<entity>/still (RBAC, HA's token stays here)

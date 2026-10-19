@@ -23,20 +23,25 @@
     return path && SERVICE_PATH.test(path) ? (global.__mantelBase || '') + path : null;
   }
 
-  // Mantel's own settings page (/admin) in HK's menu, for an Owner or Admin only (the page and its APIs
-  // refuse everyone else anyway). Under the HA App the address is under the Ingress prefix, so the page
-  // opens inside the same frame.
+  // Mantel Settings (/settings: HK's settings and Mantel's own, one page) in HK's menu, for every person
+  // signed in (Me is everyone's; the house's pages are an Owner's or Admin's, and the page and its APIs
+  // decide that); a wall tablet has none. Under the HA App the address is under the Ingress prefix, so the
+  // page opens inside the same frame.
   let role = '';
+  const PEOPLE = ['owner', 'admin', 'adult', 'child', 'guest'];
   function hostMenu() {
-    if (role !== 'owner' && role !== 'admin') return [];
+    if (PEOPLE.indexOf(role) < 0) return [];
     const base = global.__mantelBase || '';
-    return [{ title: 'HK Settings', icon: 'mdi:tune-variant', href: base + '/hk-settings' },
-            { title: 'Mantel settings', icon: 'mdi:cog-outline', href: base + '/admin' }];
+    return [{ title: 'Mantel Settings', icon: 'mdi:cog-outline', href: base + '/settings', section: 'Mantel' }];
   }
+  // Mantel's pages in the settings panel (web/shim/mantel-settings.js), once settings-page.js has them
+  let settings = null;
+  function setSettings(host) { settings = host || null; }
 
   const MANTEL = {
     kind: 'mantel',
     hostMenu,
+    settingsHost: () => settings,
     // Mantel sends no writes at all (commands_disabled): nothing to hold back
     holdWrites: function () { return true; },
     // Mantel's page has no sidebar of its own for a button to open
@@ -94,5 +99,5 @@
   // home.js hands over the signed-in person's Mantel role (GET /api/me)
   function setRole(r) { role = typeof r === 'string' ? r : ''; }
 
-  global.hkMantelShell = { attach, install, setServices, setRole, hostMenu, serviceUrl, kind: 'mantel' };
+  global.hkMantelShell = { attach, install, setServices, setRole, setSettings, hostMenu, serviceUrl, kind: 'mantel' };
 })(globalThis);

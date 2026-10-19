@@ -34,7 +34,7 @@ HA's authorize page (``POST /api/connections/ha/oauth/start``), signs in there *
 act as** (a dedicated ``mantel-server`` administrator is recommended), and HA sends the browser back to
 ``/auth/connection/callback``. Mantel exchanges the code, tests the connection with that user's access token
 and keeps the result as a *pending* connection for ten minutes (server memory only), then sends the browser to
-``/admin?connection=<id>#connections``. Nothing is saved until the same Owner presses Save: Mantel then creates
+``/settings?connection=<id>#/mantel/connections`` (Mantel Settings, Connections). Nothing is saved until the same Owner presses Save: Mantel then creates
 a long-lived access token for that HA user (``auth/long_lived_access_token``, named ``Mantel Server (<date>)``),
 checks it, seals it, and revokes the short OAuth refresh token. A pending connection that is cancelled or
 expires has its refresh token revoked. Pasting a long-lived token instead works everywhere.
@@ -841,9 +841,9 @@ async def oauth_callback(request: web.Request) -> web.StreamResponse:
     p = next((x for x in conns.pending.values() if x.state and state and secrets.compare_digest(x.state, state)), None)
     if p is None:
         return _page("Connection not started here", "<p>This sign-in did not start on Mantel's Connections page, "
-                     "or took longer than ten minutes. <a href='/admin#connections'>Start again</a>.</p>", 400)
+                     "or took longer than ten minutes. <a href='/settings#/mantel/connections'>Start again</a>.</p>", 400)
     p.state = None                                         # single use
-    back = f"{app['cfg'].base_url}admin?connection={p.id}#connections"
+    back = f"{app['cfg'].base_url}settings?connection={p.id}#/mantel/connections"
     code = request.query.get("code")
     if request.query.get("error") or not code:
         conns.drop_pending(p.id, http)
