@@ -64,9 +64,12 @@ async def test_a_framed_sign_in_page_and_admin_page_follow_the_operators_frames(
         assert directives(r.headers["Content-Security-Policy"])["frame-ancestors"] == ["'self'", "https://ha.example.com"]
         await framed.user("owner", "owner")
         await framed.sign_in("owner")
-        r = await framed.client.get("/admin")
-        assert r.status == 200 and str(r.url).endswith("/admin")
+        r = await framed.client.get("/admin?plain=1")        # the plain fallback (/admin is Mantel Settings now)
+        assert r.status == 200 and str(r.url).endswith("/admin?plain=1")
         assert directives(r.headers["Content-Security-Policy"])["frame-ancestors"] == ["https://ha.example.com"]
+        r = await framed.client.get("/admin")                 # -> /settings, framed as the screens are
+        assert r.status == 200 and str(r.url).endswith("/settings")
+        assert directives(r.headers["Content-Security-Policy"])["frame-ancestors"] == ["'self'", "https://ha.example.com"]
     finally:
         await framed.client.close()
         framed.store.db.close()
