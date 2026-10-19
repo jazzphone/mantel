@@ -33,3 +33,26 @@ def test_mantel_link_suite(tmp_path):
     assert run.returncode == 0, tail
     last = run.stdout.strip().splitlines()[-1]
     assert " passed" in last and "skipped" not in last and "error" not in last, tail
+
+
+def test_mantel_link_s_public_repository_builds_clean(tmp_path):
+    """tools/publish/publish.py (local only): the published layout, scanned for private data, nothing of Mantel's
+    tests or tools inside what HACS installs, no HK Frontend name in its dependencies (hassfest knows core only)."""
+    import importlib.util
+    import json
+    path = ROOT / "hosts/ha/custom_components/mantel/tools/publish/publish.py"
+    spec = importlib.util.spec_from_file_location("ml_publish", path)
+    pub = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(pub)
+    pairs = pub.plan()
+    assert pub.hk_publisher().scan(pairs) == [], "nothing private"
+    dests = {d for _s, d in pairs}
+    assert {"README.md", "LICENSE", "hacs.json", "custom_components/mantel/manifest.json", "docs/Setup.md",
+            "tests/py/conftest.py", "custom_components/mantel/frontend/mantel-link.js",
+            "custom_components/mantel/brand/icon.png"} <= dests
+    assert not [d for d in dests if d.startswith("custom_components/mantel/") and
+                d.split("/")[2] in ("tests", "tools", "docs")]
+    assert not [d for d in dests if d.startswith("tools/")], "the builder stays in Mantel"
+    manifest = json.loads((ROOT / "hosts/ha/custom_components/mantel/manifest.json").read_text())
+    assert manifest["domain"] == "mantel" and manifest["name"] == "Mantel Link"
+    assert "hk_frontend" not in manifest.get("after_dependencies", []) + manifest.get("dependencies", [])

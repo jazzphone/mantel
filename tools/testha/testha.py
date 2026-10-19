@@ -154,12 +154,26 @@ MANTEL_LINK = ROOT / "hosts/ha/custom_components/mantel"
 
 def install_mantel_link() -> None:
     """Mantel Link (custom_components/mantel) beside HK, as HACS would install it (no tests). Not set up:
-    it does nothing until a test adds its entry."""
+    it does nothing until a test adds its entry. TESTHA_MANTEL_LINK_DIR: install a built public repository's
+    custom_components/mantel instead (tools/e2e/mantel_link_e2e.py --phase docs)."""
     dest = CONFIG / "custom_components/mantel"
     if dest.exists():
         shutil.rmtree(inside_scratch(dest))
-    shutil.copytree(REPO / "hosts/ha/custom_components/mantel" if (REPO / "hosts/ha/custom_components/mantel").is_dir()
-                    else MANTEL_LINK, dest, ignore=shutil.ignore_patterns("tests", "__pycache__"))
+    built = os.environ.get("TESTHA_MANTEL_LINK_DIR")
+    src = Path(built) if built else (REPO / "hosts/ha/custom_components/mantel"
+                                     if (REPO / "hosts/ha/custom_components/mantel").is_dir() else MANTEL_LINK)
+    shutil.copytree(src, dest, ignore=shutil.ignore_patterns("tests", "tools", "docs", "__pycache__"))
+
+
+def install_probe(name: str) -> None:
+    """A scratch-only component from tools/testha/<name> (the e2e's stand-ins), and its configuration.yaml key."""
+    dest = CONFIG / f"custom_components/{name}"
+    if dest.exists():
+        shutil.rmtree(inside_scratch(dest))
+    shutil.copytree(ROOT / f"tools/testha/{name}", dest, ignore=shutil.ignore_patterns("__pycache__"))
+    conf = CONFIG / "configuration.yaml"
+    if f"{name}:" not in conf.read_text():
+        conf.write_text(conf.read_text() + f"{name}:\n")
 
 
 def install_zeroconf_probe() -> None:
@@ -186,7 +200,8 @@ def install_phone_probe() -> None:
         conf.write_text(conf.read_text() + "mantel_e2e_phone:\n")
 
 
-def prepare(fresh: bool, sequential: bool = False, hk: bool = True, probe: bool = False, phone: bool = False) -> None:
+def prepare(fresh: bool, sequential: bool = False, hk: bool = True, probe: bool = False, phone: bool = False,
+            supervisor: bool = False) -> None:
     if not (VENV / "bin/hass").exists():
         raise SystemExit(f"no hass at {VENV}/bin/hass (set TESTHA_VENV)")
     if fresh and CONFIG.exists():
@@ -222,6 +237,8 @@ def prepare(fresh: bool, sequential: bool = False, hk: bool = True, probe: bool 
         install_zeroconf_probe()
     if phone:
         install_phone_probe()
+    if supervisor:
+        install_probe("mantel_e2e_supervisor")
 
 
 def start() -> None:
@@ -397,6 +414,8 @@ def main() -> None:
                     help="no HK Frontend in the scratch HA (Mantel Link alone; it is always installed, not set up)")
     ap.add_argument("--zeroconf-probe", action="store_true",
                     help="add a scratch-only component that hands _mantel._tcp announcements on loopback to Mantel Link")
+    ap.add_argument("--supervisor-probe", action="store_true",
+                    help="add a scratch-only stand-in for the Supervisor's discovery hand-off (POST /api/mantel_e2e/discovery)")
     ap.add_argument("--phone-probe", action="store_true",
                     help="add a scratch-only stand-in Companion-app phone (notify.mobile_app_e2e_phone)")
     ap.add_argument("--ordered-boot", action="store_true",
@@ -412,7 +431,8 @@ def main() -> None:
     else:
         if pid():
             stop()
-        prepare(a.fresh, a.ordered_boot, hk=not a.no_hk, probe=a.zeroconf_probe, phone=a.phone_probe)
+        prepare(a.fresh, a.ordered_boot, hk=not a.no_hk, probe=a.zeroconf_probe, phone=a.phone_probe,
+                supervisor=a.supervisor_probe)
         start()
         asyncio.run(setup())
 

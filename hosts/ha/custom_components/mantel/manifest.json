@@ -4,7 +4,6 @@
   "after_dependencies": [
     "frontend",
     "hassio",
-    "hk_frontend",
     "http",
     "mobile_app"
   ],

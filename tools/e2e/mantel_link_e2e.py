@@ -38,6 +38,12 @@ Phase ``phones`` (slice 9.7): a stand-in Companion-app phone in the scratch HA (
 reaches a Mantel screen and the phone (with Mantel's Dismiss); the Companion app's ``mobile_app_notification_action``
 for it reaches Mantel, which takes the banner down; another app's action does nothing.
 
+Phase ``docs`` (slice 9.9): Mantel Link installed from its BUILT public repository (tools/publish/publish.py), set
+up the two ways its Setup page says: App-like (the App's real announcer, supervisor_discovery.py, to a stand-in
+Supervisor that hands it to the scratch HA's hassio discovery: ``testha.py --supervisor-probe``; Discovered: Mantel,
+Add; the next start's new credential followed), then Docker-like by hand (the address and a pairing code); every
+action under both names.
+
 Phase ``actions`` (slice 9.8): HK Frontend's music, Clean Areas and automation-snooze actions from the scratch HA
 (no HK Frontend, so ``hk_frontend.*`` are Mantel Link's aliases) reach Mantel's own engines: with Mantel's commands
 off, a Clean Areas dry run answers its plan and the rest are refused in words (and audited), music without Mantel's
@@ -60,7 +66,10 @@ import argparse
 import asyncio
 import importlib.util
 import json
+import os
 import secrets
+import shutil
+import subprocess
 import sys
 import tempfile
 import time
@@ -71,6 +80,7 @@ sys.path.insert(0, str(ROOT / "hosts/server"))
 sys.path.insert(0, str(ROOT))
 
 import aiohttp  # noqa: E402
+import aiohttp.web  # noqa: E402
 from aiohttp.test_utils import TestServer  # noqa: E402
 
 _spec = importlib.util.spec_from_file_location("gateway_e2e", ROOT / "tools/e2e/gateway_e2e.py")
@@ -508,6 +518,114 @@ async def run_zeroconf(token: str) -> dict:
     return out
 
 
+# ------------------------------------------------------------------------------------- phase: docs
+async def run_docs(token: str) -> dict:
+    """Setup as Mantel Link's docs say (docs/Setup.md), on a scratch HA with Mantel Link installed from the BUILT
+    public repository: App-like (the App's real announcer -> a stand-in Supervisor -> HA's hassio discovery ->
+    Discovered: Mantel -> Add), its credential rotated at the next start; then Docker-like by hand (the address and
+    a pairing code)."""
+    import socket
+    out: dict = {}
+    with socket.socket() as sk:
+        sk.bind(("127.0.0.1", 0))
+        port = sk.getsockname()[1]
+    with tempfile.TemporaryDirectory(prefix="mantel-link-docs-") as folder:
+        app, store, cfg = mantel_app(token, Path(folder), port=port)
+        sup_token = Path(folder) / "supervisor_token"
+        sup_token.write_text("fictional-supervisor-credential")
+        async with aiohttp.ClientSession() as http:
+            ha = HA(http, token)
+            forwarded: list[dict] = []
+
+            async def sup_info(request):
+                return aiohttp.web.json_response({"data": {"hostname": "127.0.0.1"}})
+
+            async def sup_post(request):
+                body = await request.json()
+                forwarded.append({"service": body.get("service"), "url": body["config"].get("url")})
+                s2, _ = await ha.post("/api/mantel_e2e/discovery", {**body, "uuid": f"u{len(forwarded)}"})
+                return aiohttp.web.json_response({"result": "ok", "data": {"uuid": f"u{len(forwarded)}"}},
+                                                 status=200 if s2 == 200 else 500)
+
+            async def sup_delete(request):
+                return aiohttp.web.json_response({"result": "ok"})
+            sup = aiohttp.web.Application()
+            sup.router.add_get("/addons/self/info", sup_info)
+            sup.router.add_post("/discovery", sup_post)
+            sup.router.add_delete("/discovery/{uuid}", sup_delete)
+            async with TestServer(sup, host="127.0.0.1") as sup_server, \
+                    TestServer(app, host="127.0.0.1", port=port) as server:
+                base = str(server.make_url("")).rstrip("/")
+                await asyncio.wait_for(app["hub"].ha.ready.wait(), 60)
+                object.__setattr__(cfg, "supervisor_url", str(sup_server.make_url("")).rstrip("/"))
+                object.__setattr__(cfg, "token_file", sup_token)
+                owner = GE.Browser(base, "owner")
+                try:
+                    st, body = await owner.post("/api/bootstrap", {
+                        "token": app["accounts"].issue_bootstrap_token(), "username": "e2e-owner",
+                        "name": "Fictional Owner", "password": secrets.token_urlsafe(18)})
+                    assert st == 200, body
+                    await steps_docs(app, ha, owner, base, port, out)
+                finally:
+                    await owner.http.close()
+                    e = await ha.mantel_entry()
+                    if e:
+                        await ha.delete_entry(e["entry_id"])
+            out["forwarded"] = forwarded
+        store.db.close()
+    return out
+
+
+async def _discovered(ha: HA):
+    flows = await ha.ws(type="config_entries/flow/progress")
+    mine = [x for x in (flows if isinstance(flows, list) else []) if x.get("handler") == "mantel"
+            and (x.get("context") or {}).get("source") == "hassio"]
+    return mine or None
+
+
+async def steps_docs(app, ha: HA, owner, base: str, port: int, out: dict) -> None:
+    from mantel_server import supervisor_discovery as SD
+    st, manifest = await ha.get("/api/config/config_entries/flow_handlers")
+    check("mantel" in (manifest or []), "Mantel Link, installed from the built public repository, is offered by HA")
+    first = await SD.announce(app)
+    check(first is not None and first["url"] == f"http://127.0.0.1:{port}",
+          "the App announces Mantel to the Supervisor: its own address and a credential it made")
+    flows = await until(lambda: _discovered(ha), timeout=30)
+    check(flows is not None and len(flows) == 1 and flows[0]["step_id"] == "hassio_confirm",
+          "Settings, Devices & Services: Discovered: Mantel (Setup.md, from the App)")
+    st, done = await ha.post(f"/api/config/config_entries/flow/{flows[0]['flow_id']}", {})
+    check(st == 200 and done.get("type") == "create_entry", "Add: one click, tested and saved")
+    entry = done["result"]["entry_id"]
+    diag = await until(lambda: _diag(ha, entry, lambda d: d.get("connected")))
+    check(diag is not None and diag["instance"] == app["linked"].instance, "linked to this Mantel")
+    acct1 = first["account"]
+    second = await SD.announce(app)
+    accounts = app["service_accounts"]
+    check(second["account"] != acct1 and not accounts.live(acct1),
+          "the App's next start: a new credential, the previous one revoked")
+    clients = await until(lambda: asyncio.sleep(0, [c for c in app["linked"].registry.clients_of("mantel")
+                                                    if getattr(c.account, "id", None) == second["account"]]),
+                          timeout=60)
+    check(bool(clients), "...and Home Assistant's entry followed it: linked again with the new one, nothing typed")
+    flows = await _discovered(ha)
+    check(not flows, "no second 'Discovered' card for the same Mantel")
+    await ha.delete_entry(entry)
+    # -- Docker-like: by hand, Mantel's address and a pairing code (Setup.md, By hand) -------------------------
+    st, made = await owner.post("/api/linked/pair", {})
+    done = await ha.add_mantel_link(base, code=made["code"])
+    check(done.get("type") == "create_entry", "By hand: Mantel's address and a pairing code, tested and saved")
+    entry = done["result"]["entry_id"]
+    diag = await until(lambda: _diag(ha, entry, lambda d: d.get("connected")))
+    check(diag is not None and diag["state"] == "mirroring" and diag["hk_frontend"]["installed"] is False,
+          "linked; with no HK Frontend, Mantel Link shows Mantel's entities")
+    for svc in ("set_black_screen", "show_popup", "notify", "clean_areas", "music_play", "pause_automation"):
+        st, services = await ha.get("/api/services")
+        names = {d["domain"]: set(d["services"]) for d in services}
+        if svc not in names.get("hk_frontend", set()) or svc not in names.get("mantel", set()):
+            check(False, f"mantel.{svc} and hk_frontend.{svc} both offered")
+    check(True, "every action under both names (Actions.md)")
+
+
 # ------------------------------------------------------------------------------------- phase: actions
 VACUUM = "vacuum.demo_vacuum_2_second_floor"     # a demo robot that starts (no room map): cleans the area it is in
 
@@ -691,13 +809,22 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--keep-up", action="store_true", help="leave the scratch HA running afterwards")
     ap.add_argument("--reuse", action="store_true", help="use the scratch HA this caller already started; leave it up")
-    ap.add_argument("--phase", choices=["alone", "handover", "zeroconf", "phones", "actions"], default="alone",
+    ap.add_argument("--phase", choices=["alone", "handover", "zeroconf", "phones", "actions", "docs"], default="alone",
                     help="alone: no HK Frontend (9.2); handover: HK Frontend linked, the bridge handed over and back (9.3)")
     a = ap.parse_args()
     if not a.reuse:
         GE.wait_for_free_harness()
         extra = {"alone": ("--no-hk",), "handover": (), "zeroconf": ("--no-hk", "--zeroconf-probe"),
-                 "phones": ("--no-hk", "--phone-probe"), "actions": ("--no-hk",)}[a.phase]
+                 "phones": ("--no-hk", "--phone-probe"), "actions": ("--no-hk",),
+                 "docs": ("--no-hk", "--supervisor-probe")}[a.phase]
+        if a.phase == "docs":
+            # Mantel Link from the BUILT public repository (tools/publish/publish.py), as HACS would install it
+            built = Path(testha.SCRATCH) / "mantel-link-repo"
+            if built.exists():
+                shutil.rmtree(built)
+            subprocess.run([sys.executable, str(ROOT / "hosts/ha/custom_components/mantel/tools/publish/publish.py"),
+                            str(built), "--no-tests"], check=True, stdout=subprocess.DEVNULL)
+            os.environ["TESTHA_MANTEL_LINK_DIR"] = str(built / "custom_components/mantel")
         say(f"starting the scratch HA (testha.py up --fresh {' '.join(extra)}); this takes a few minutes")
         GE.harness("up", "--fresh", *extra)
     elif not testha.ready():
@@ -705,7 +832,7 @@ def main() -> int:
     try:
         token = asyncio.run(GE.token_for_scratch())
         evidence = asyncio.run({"alone": run_alone, "handover": run_handover, "zeroconf": run_zeroconf,
-                                "phones": run_phones, "actions": run_actions}[a.phase](token))
+                                "phones": run_phones, "actions": run_actions, "docs": run_docs}[a.phase](token))
         del token
         out = Path(testha.SCRATCH) / f"mantel_link_e2e_{a.phase}.json"
         out.write_text(json.dumps({"checks": RESULTS, **evidence}, indent=1, default=str))

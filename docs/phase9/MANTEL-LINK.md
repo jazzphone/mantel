@@ -1,7 +1,6 @@
 # Phase 9: Mantel Link replaces HK Frontend in Home Assistant (decision 28)
 
-**Status (2026-10-19): being built on branch `claude/mantel-link-b012d1`, one slice at a time. Done: 9.1, 9.2,
-9.3, 9.4, 9.5, 9.6, 9.7, 9.8 (see "Build record" at the end). Nothing is on the house; 9.11 waits for Avery, step by step.**
+**Status (2026-10-19): being built on branch `claude/mantel-link-b012d1`, one slice at a time. Done: 9.1–9.9 (see "Build record" at the end). Nothing is on the house; 9.11 waits for Avery, step by step.**
 
 ## The decision
 
@@ -450,3 +449,29 @@ Frontend). `test_e2e_mantel.py` links it to the real `mantel_server/linked.py`.
   plan through `hk_frontend.clean_areas`, Clean Areas, pause and music refused in words, every attempt audited as
   `mantel:linked`, the robot untouched; commands on (fictional demo devices): `mantel.clean_areas` starts the
   demo robot in the Kitchen through Mantel's gateway, audited allowed and sent.
+
+### 9.9 Packaging and docs: done (prepared locally; nothing published)
+
+- **Mantel Link's public repository** is built by `hosts/ha/custom_components/mantel/tools/publish/publish.py REPO_DIR
+  [--commit msg]`: `custom_components/mantel/` (what HACS installs), `tests/`, `docs/`, `README.md`, `LICENSE` (MIT,
+  jazzphone), `hacs.json` ("Mantel Link", Home Assistant 2026.9.0), `.github/` (tests and HACS/hassfest validation, as
+  HK Frontend's). Every file scanned with HK Frontend's private-data rules; the suite then runs in the built tree
+  (34 passed, 1 skipped: the shared-client check needs HK Frontend beside it). **It has no push**: creating
+  `jazzphone/mantel-link` and pushing is Avery's step. `tests/test_mantel_link.py` keeps the build clean.
+- **Mantel Link's docs** (published with it): README, `docs/Setup.md` (from the App, on the network, by hand),
+  `docs/Actions.md`, `docs/Moving-from-HK-Frontend.md` (**the move guide**), `docs/How-It-Works.md` (the link, the
+  bridge, what Mantel can make HA do, discovery).
+- **Mantel's docs:** LINKED-MODE.md now points to Mantel Link for the bridge; CUTOVER.md gains Step 9 (Mantel Link
+  replaces HK Frontend, five sub-steps in the log); `packaging/ha-app/DOCS.md` (Mantel Link, the announcement and what
+  `hassio_api` is for); `packaging/compose/README.md` (`compose.announce.yaml`, avahi, and that HA must trust Mantel's
+  certificate: Caddy's own CA is refused until trusted where HA runs).
+- **Deviation:** `hk_frontend` is no longer in Mantel Link's `after_dependencies` (hassfest knows core integrations
+  only); the aliases are checked once HA has started, after HK Frontend has set up, so nothing depended on it.
+- **Open, for Avery (not Mantel Link's to decide):** users who never ran Mantel can follow the move guide only once
+  Mantel itself is installable outside this house (the App's distribution decision in PLAN.md, "Decisions waiting").
+- **Checks:** a **fresh scratch HA set up from the docs** with Mantel Link installed from the **built repository**
+  (`mantel_link_e2e.py --phase docs`): **11/11**: App-like (Mantel's real announcer, a stand-in Supervisor handing
+  the announcement to HA's hassio discovery: Discovered: Mantel, Add, one click; the next start's new credential
+  followed by itself, the old one revoked, no second card) and Docker-like by hand (address + pairing code), every
+  action offered under both names. Browser pane: the by-hand form in HA (credential field masked).
+  `tools/check_links.py` and `tools/package_check.py` clean.

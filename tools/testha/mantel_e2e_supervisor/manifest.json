@@ -1,0 +1,9 @@
+{
+  "domain": "mantel_e2e_supervisor",
+  "name": "Mantel e2e: the Supervisor's discovery hand-off (scratch HA only)",
+  "codeowners": [],
+  "dependencies": ["http"],
+  "documentation": "https://github.com/jazzphone/mantel",
+  "iot_class": "local_push",
+  "version": "0.0.1"
+}
