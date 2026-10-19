@@ -92,8 +92,8 @@ through Apple's sandbox, with the team's key (`httpx[http2]` in the venv):
 ~/.venvs/mantel/bin/python tools/app_dev_server.py --data-dir /tmp/mantel-app-lan --send-push "Front Door|Unlocked"
 ```
 
-Verified 2026-10-19: installed, paired over the home network, registered for notifications, and APNs (sandbox)
-accepted a sealed push to the phone.
+Verified 2026-10-19: installed, paired over the home network, registered for notifications, and a real push through
+APNs (sandbox) was opened by the Notification Service Extension on the phone ("Front Door / Unlocked by Ann").
 
 ## What needs the Apple Developer account (M10-6)
 
