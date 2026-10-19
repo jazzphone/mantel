@@ -41,7 +41,10 @@
 //                 host's words where HK's own page differs on it
 //     screenBase          the prefix of a screen's own address
 //     back                { label, href }: the way out, on a host with no
-//                 sidebar of its own }
+//                 sidebar of its own
+//     extend(where, c, ctx, panel)  the host's own groups on one of HK's
+//                 pages, appended to c: where 'tablet' (a wall tablet's
+//                 page, after Setup; ctx { tablet, name, app }) }
 // Home Assistant has none, so nothing of another host's is drawn, read or
 // said there.
 (function () {
@@ -7556,6 +7559,11 @@
       c.appendChild(K.group({ header: 'Setup', footer: h('span', {}, [
         'Its start URL, for the kiosk app’s start page: ', h('span', { class: 'url', text: url }),
         '. It tells the page which tablet it is, even when two tablets share a user or a screen.']) }, setup));
+      // THE HOST'S OWN, for this tablet (extend, above): nothing in Home Assistant
+      var hx = this.host();
+      if (hx && typeof hx.extend === 'function') {
+        try { hx.extend('tablet', c, { tablet: tid, name: t.name, app: t.app }, this); } catch (e) { /* the host's own page */ }
+      }
       // SETUP CHECK, with Fix where HK can set it right
       var checks = M.tabletChecks(t, st);
       if (checks.length) {

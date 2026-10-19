@@ -10,6 +10,8 @@ Mantel, so Mantel answers with what *its* screens need, in the same shape the pa
 * SF Pro and the SF Symbols glyphs: uploaded in Mantel settings -> Your files (Apple's, never shipped).
 * House commands: on or off (the App's `commands_enabled`; off means read-only).
 * Screens: how many Mantel has (imported from HK in HA, or made here).
+* Wall Tablets: every tablet with a Direct Connection reached now, at once (tablet_links.setup_lines: Kiosk
+  Satellite's ``/api/health``, Fully's ``deviceInfo``; reads only). No line when none has one.
 
 Owner/Admin, like HK Settings' other reads (``configure`` on settings). Read only; nothing reaches HA.
 """

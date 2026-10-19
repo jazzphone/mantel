@@ -33,7 +33,7 @@ from . import music
 from . import accounts, alarm_pin, auth, connect_pairing, devices, gateway, health, ingress, live_tv, pins, proof2, rbac_store, readproxy, sessions, settings_store
 from . import (admin_page, atrest, backup, connections, features, linked, linked_house, linked_owners, login_page,
                service_accounts, talk_relay, user_files)
-from . import default_screens, direct, direct_tls, ma_page, media_proxy, proxy_check, proxy_trust, security_headers, user_data
+from . import default_screens, direct, direct_tls, ma_page, media_proxy, proxy_check, proxy_trust, security_headers, tablet_links, user_data
 from .authz import Authz, Principal, resolve_door
 from .config import Config
 from .connectors import REFUSE_ALL, Ctx, Hooks
@@ -459,6 +459,9 @@ def build_app(cfg: Config, token: str, store: Store | None = None, connect_ha: b
         cfg.ma_url = own_ma.url
     token = conns.ha_token()
     app["ma_token_source"] = conns.ma_token
+    # a wall tablet's Direct Connection (tablet_links.py; before connections' /{kind} routes, which would take
+    # /api/connections/tablets/test for a tablet named "test")
+    tablet_links.register(app, tablet_links.TabletLinks(cfg, conns.files.box, clock))
     connections.register(app, conns)
     app["oauth"] = HaOAuth(oauth_url(cfg), cfg.client_id, cfg.redirect_uri, browser_url=cfg.ha_browser_url)
     app["state_secret"] = secrets.token_bytes(32)

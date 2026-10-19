@@ -187,5 +187,29 @@ print('\n=== the Preview button ===');
   ok('a desk-wide window keeps it beside the page, with no button', SRC.indexOf("this.previewButton(!xwide && !!pg.preview, pinned);") > 0, true);
 })();
 
+print('\n=== a host\'s own groups on a wall tablet\'s page (extend) ===');
+(function () {
+  var TAB = { tablets: { living_room: { name: 'Living Room', screen: 'dashboard-kitchen', app: 'kiosk_satellite', sleep: {}, parts: {} } } };
+  function tabletPage(host) {
+    var pg = page(host, Object.assign(JSON.parse(JSON.stringify(DATA)), TAB));
+    var c = document.createElement('div');
+    pg.resolve(['house', 'tablets', 'living_room']).body(c);
+    return c;
+  }
+  var asked = [];
+  var x = example();
+  x.extend = function (where, c, ctx) {
+    asked.push([where, ctx]);
+    var g = document.createElement('section'); g._text = 'The host’s own group'; c.appendChild(g);
+  };
+  var c = tabletPage(x);
+  ok('the host is asked on a tablet\'s page, with the tablet', asked, [['tablet', { tablet: 'living_room', name: 'Living Room', app: 'kiosk_satellite' }]]);
+  ok('...and what it draws is on the page', texts(c).indexOf('The host’s own group') >= 0, true);
+  var y = example(); y.extend = function () { throw new Error('a host that fails'); };
+  ok('a host that throws leaves HK\'s page whole', texts(tabletPage(y)).indexOf('Setup') >= 0, true);
+  ok('a host without extend: HK\'s page alone', texts(tabletPage(example())).indexOf('Setup') >= 0, true);
+  ok('Home Assistant (no host): HK\'s page alone', texts(tabletPage(null)).indexOf('The host’s own group') < 0, true);
+})();
+
 print(fail ? 'FAIL ' + fail + ' SETTINGS HOST TESTS' : 'ALL ' + pass + ' SETTINGS HOST TESTS PASS');
 if (fail) throw new Error('settings host tests failed');

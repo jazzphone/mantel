@@ -849,6 +849,7 @@ function pConnections(sub) {
     const rows = [row('ha'), row('ma')];
     if (cs.ma && cs.ma.state === 'set') rows.push(nav('Music Assistant Page', 'connections/ma-page', { icon: 'mdi:music-box-multiple', sub: 'Signs HK’s Browse Music page in to Music Assistant' }));
     c.appendChild(group({ footer: !can ? 'Only an Owner can change connections.' : got.data.needs_fresh ? 'From outside the home network you will be asked to confirm it is you first.' : null }, rows));
+    drawWallTablets(c);
     if (['owner', 'admin'].includes(me.user.role)) c.appendChild(group({ footer: 'How browsers reach Mantel: Mantel’s Caddy, your own reverse proxy, the Home Assistant App or a Cloudflare tunnel.' },
       [nav('HTTPS and Your Proxy', 'connections/proxy', { icon: 'mdi:lock' })]));
   } };
@@ -956,6 +957,113 @@ function pConnection(kind) {
     if (set) c.appendChild(group({}, [button('Cancel', () => { clearDraft('conn-' + kind); delete shown['test:' + kind]; redraw(); }, { fk: 'mx:replace-cancel' })]));
   } };
 }
+// A WALL TABLET'S DIRECT CONNECTION (tablet_links.py; docs/phase8/KIOSK.md, slice 1): Mantel reading the tablet's
+// kiosk app itself. Paired on the tablet's own page (Wall Tablets → the tablet, drawn through the panel's
+// extend('tablet', ...)), listed here. Status only: Mantel sends a tablet no commands yet.
+const KIOSK_WHERE = { kiosk_satellite: 'Kiosk Satellite: Settings → Device → Remote Administration',
+                      fully: 'Fully Kiosk: Settings → Remote Administration (needs Fully PLUS)' };
+const tabletHref = (tid) => '#/house/tablets/' + encodeURIComponent(tid);
+function liveSays(live) {
+  if (!live) return null;
+  if (!live.ok) return live.error ? live.error.message : 'It did not answer.';
+  const i = live.info || {}, bits = [];
+  if (i.screen_on === true) bits.push('Screen on' + (typeof i.brightness === 'number' ? ' at ' + i.brightness + '%' : ''));
+  if (i.screen_on === false) bits.push('Screen off');
+  if (i.screensaver) bits.push('Screensaver showing');
+  if (typeof i.battery === 'number') bits.push('Battery ' + i.battery + '%' + (i.charging ? ', charging' : ''));
+  return bits.join(' · ') || 'Connected.';
+}
+function drawWallTablets(c) {
+  const got = load('tablets-live', () => api('GET', '/api/connections/tablets?live=1'));
+  if (!got) { pending(c, 'Reading the wall tablets…'); return; }
+  if (got.err) { failed(c, got.err); return; }
+  const ts = got.data.tablets.filter((t) => t.supported || t.state === 'set');
+  if (!ts.length) return;
+  c.appendChild(group({ header: 'Wall Tablets', footer: 'Mantel reads each tablet’s kiosk app itself, without Home Assistant. Pair a tablet on its own page. Status only for now: Mantel sends tablets no commands.' },
+    ts.map((t) => {
+      const live = t.live, value = t.state !== 'set' ? 'Not Set Up' : t.unreadable ? 'Pair Again' : !live ? '' : live.ok ? 'Connected' : 'Not Connected';
+      return K().nav({ label: t.name, sub: [t.app_label, t.url ? t.url.replace(/^http:\/\//, '') : null, t.state === 'set' ? liveSays(live) : null].filter(Boolean).join(' · '),
+                       value, href: tabletHref(t.id), icon: 'mdi:tablet', fk: 'mx:tablet:' + t.id });
+    })));
+}
+// The group on the tablet's own page
+function drawDirect(c, ctx) {
+  if (!can('connections')) return;
+  const tid = ctx.tablet, key = 'tablet:' + tid, form = 'direct-' + tid;
+  const got = load('tablets', () => api('GET', '/api/connections/tablets'));
+  if (!got) { pending(c, 'Reading its direct connection…'); return; }
+  if (got.err) { failed(c, got.err); return; }
+  const t = got.data.tablets.find((x) => x.id === tid);
+  if (!t) return;
+  const header = 'Direct Connection';
+  if (!t.supported) {
+    c.appendChild(group({ header, footer: 'Mantel can talk to Kiosk Satellite and Fully Kiosk directly. This tablet’s Kiosk App has no direct connection.' }, []));
+    return;
+  }
+  const can2 = got.data.can_edit, set = t.state === 'set', sv = t.saved || {};
+  const rows = [];
+  if (set) {
+    const live = load('tablet-live:' + tid, () => api('GET', '/api/connections/tablets/' + encodeURIComponent(tid) + '/live'));
+    const lv = live && live.data && live.data.live;
+    rows.push(info('Status', lv ? liveSays(lv) : 'Reading it now…', !lv ? '' : lv.ok ? 'Connected' : 'Not Connected', lv && !lv.ok ? 'warn' : ''));
+    rows.push(info('Address', null, t.url.replace(/^http:\/\//, '')));
+    const d = sv.device || {};
+    rows.push(info('Paired As', [d.model, d.version ? t.app_label + ' ' + d.version : null, 'since ' + fmt(sv.since),
+                                 sv.by_name ? 'by ' + sv.by_name : null].filter(Boolean).join(' · '), d.name || '—'));
+    if (sv.expires) rows.push(info('Token Expires', null, new Date(sv.expires * 1000).toLocaleDateString([], { dateStyle: 'medium' })));
+    if (lv && lv.ok && lv.info && lv.info.page) rows.push(info('Showing', lv.info.page));
+  } else {
+    rows.push(info('Status', null, t.unreadable ? 'Pair Again' : 'Not Set Up', t.unreadable ? 'warn' : ''));
+  }
+  const notes = [];
+  if (t.unreadable) notes.push('Mantel’s saved copy could not be opened (was the at-rest key changed?). Pair it again.');
+  if (sv.missing && sv.missing.length) notes.push('This ' + t.app_label + ' version lacks ' + sv.missing.join(', ') + ', which Mantel will need to send commands later. Update the app.');
+  notes.push('Mantel reads ' + t.app_label + ' on the tablet itself, without Home Assistant. Status only for now: Mantel sends it no commands.');
+  if (!can2) notes.push('Only an Owner can pair a tablet.');
+  c.appendChild(group({ header, footer: notes.join(' ') }, rows));
+  result(c, key);
+  if (!can2) return;
+  const d = draft(form);
+  if (set && !d.open) {
+    c.appendChild(group({}, [
+      button('Pair Again…', () => { d.open = true; redraw(); }, { fk: 'mx:direct-replace' }),
+      button('Disconnect…', async () => {
+        const why = t.app === 'kiosk_satellite' ? ' Kiosk Satellite’s tokens can’t be revoked from Mantel: the token Mantel had keeps working until it expires, unless the tablet’s remote administration is reset.' : '';
+        if (!(await ask({ title: 'Disconnect ' + t.name + '?', message: 'Mantel forgets how to reach this tablet directly. Home Assistant’s own connection to it is not affected.' + why, ok: 'Disconnect', destructive: true }))) return;
+        act(key, () => api('DELETE', '/api/connections/tablets/' + encodeURIComponent(tid)), t.name + ' disconnected.', 'tablets', 'tablets-live', 'tablet-live:' + tid);
+      }, { destructive: true, fk: 'mx:direct-disconnect' })]));
+    return;
+  }
+  const body = () => ({ address: (d.address || '').trim(), password: d.password || '' });
+  const out = shown['direct:' + tid];
+  const run = (save) => async () => {
+    shown['direct:' + tid] = { text: save ? 'Pairing…' : 'Testing…' }; redraw();
+    try {
+      const r = await api('POST', '/api/connections/tablets/' + encodeURIComponent(tid) + (save ? '' : '/test'), body());
+      const i = (r.result && r.result.info) || {}, miss = (r.result && r.result.missing) || [];
+      const says = 'It works: ' + [i.name, i.model, i.version ? t.app_label + ' ' + i.version : null].filter(Boolean).join(' · ') + '.' +
+        (miss.length ? ' This version lacks ' + miss.join(', ') + '.' : '');
+      if (save) {
+        clearDraft(form); delete shown['direct:' + tid];
+        flash = { key, text: t.name + ' paired. ' + says };
+        forget('tablets', 'tablets-live', 'tablet-live:' + tid);
+      } else shown['direct:' + tid] = { text: says };
+    } catch (e) { shown['direct:' + tid] = { text: e.message, err: true }; }
+    redraw();
+  };
+  const addr = t.url || t.suggested_url || '';
+  c.appendChild(group({ header: 'Pair ' + t.name, footer: (t.suggested_url && !t.url ? 'The address is the one ' + t.app_label + ' reports to Home Assistant. ' : '') +
+    (t.app === 'kiosk_satellite'
+      ? 'The password is the tablet’s Remote Administration password (' + KIOSK_WHERE.kiosk_satellite + '). Mantel uses it once, to have the tablet make a token, and does not keep it.'
+      : 'The password is Fully’s Remote Admin password (' + KIOSK_WHERE.fully + '). Fully has no tokens, so Mantel keeps it sealed.') +
+    ' Nothing is saved until it works.' }, [
+    field(form, 'address', 'Address', { value: addr.replace(/^http:\/\//, ''), placeholder: t.app === 'fully' ? 'tablet address, port 2323' : 'tablet address, port 2324', maxlength: 300, inputmode: 'url' }),
+    field(form, 'password', 'Password', { type: 'password', maxlength: 256 }),
+    button('Test', run(false), { fk: 'mx:direct-test' }), button(set ? 'Pair Again' : 'Pair', run(true), { fk: 'mx:direct-save' })]));
+  if (out) c.appendChild(hh('p', { class: 'mxflash' + (out.err ? ' err' : ''), role: out.err ? 'alert' : 'status', text: out.text }));
+  if (set) c.appendChild(group({}, [button('Cancel', () => { clearDraft(form); delete shown['direct:' + tid]; redraw(); }, { fk: 'mx:direct-cancel' })]));
+}
+
 // THE TOKEN FOR THE MUSIC ASSISTANT PAGE (ma_page.py): an ordinary MA user's, separate from Mantel's own
 function pMaPage() {
   return { title: 'Music Assistant Page', back: ['Connections', '#/' + ROUTE + '/connections'], body(c) {
@@ -1121,6 +1229,11 @@ export const host = {
     if (!me) return null;
     if (me.ha_set_up === false && can('connections')) return ROUTE + '/connections';
     return manages() ? null : ROUTE + '/me';
+  },
+  // Mantel's own groups on HK's pages: a wall tablet's Direct Connection
+  extend(where, c, ctx, p) {
+    if (p) { panel = p; ensureStyle(p.shadowRoot); }
+    if (where === 'tablet' && me && ctx && ctx.tablet) drawDirect(c, ctx);
   },
   search() {
     if (!me) return [];
