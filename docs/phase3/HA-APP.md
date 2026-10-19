@@ -839,6 +839,18 @@ The Loft could be pinched to zoom although Kiosk Satellite's pinch-to-zoom is of
 page's own viewport tag alone and relies on it saying `user-scalable=no`, as HA's pages do. Mantel's screen page now
 says the same (`width=device-width, user-scalable=no, viewport-fit=cover, initial-scale=1`, HA's own values).
 
+### 0.1.25 (2026-10-19, main `d81aa69`)
+
+- **Show in Home Assistant**, per screen (`ha-dashboards`, f028add): Mantel Settings → a screen → a switch that makes,
+  changes or removes an HA Webpage dashboard of the screen's own address (`mantel-<screen>`, title, icon, admins only
+  or everyone); HA is the only record. HTTPS and Your Proxy checks that the HA address the page is framed from is
+  allowed (`ha_frame_origins` / `ha_sign_in_url`).
+- **The product's name follows the host** (`product-name`, 7fc5341): in Mantel, HK's screens and settings say Mantel; in
+  HA they still say HK Frontend (that part reaches HK in HA only at the next HK install). The preview's eye is a Pin
+  button. Help links to HK Frontend's wiki are hidden in Mantel until its docs have a home.
+
+Validation 130 JS, 724 HA Python, 2,627 Mantel, smoke ok.
+
 ### Removal
 
 Stop and uninstall **Mantel** (Settings → Apps → Mantel → Uninstall); this removes its image and `/data`
