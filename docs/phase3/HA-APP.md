@@ -782,6 +782,17 @@ Validation 130 JS, 723 HA Python, 2,502 Mantel, smoke ok.
       Avery rotates and pastes the key into NPM himself).
 - [ ] Avery: rotate the door key, NPM Advanced block and Access List, then `/proxy-check` at home and over the tunnel.
 
+### 0.1.19 (2026-10-19, main `f53c702`)
+
+Carries:
+- The NPM block for the HA App forwards to `HA_MACHINE_ADDRESS:8100` and says what to fill in. Its `lan` block
+  stamps `tunnel` for Cloudflare's requests (`90cfec8`).
+- Wall tablets' Direct Connection, slice 1: Kiosk Satellite and Fully pairing and status, no commands
+  (docs/phase8/KIOSK.md, `d157f23`). Paired on the tablet's page in Mantel Settings, listed under Connections →
+  Wall Tablets, sealed and audited, with a Setup Check line.
+
+No migration. Validation 130 JS, 723 HA Python, 2,590 Mantel, smoke ok.
+
 ### Removal
 
 Stop and uninstall **Mantel** (Settings → Apps → Mantel → Uninstall); this removes its image and `/data`
