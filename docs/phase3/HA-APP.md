@@ -883,8 +883,13 @@ Assistant nothing changes: the panel's config is read as before, and HK Frontend
 Checked: on a local Mantel page (fictional server, headless Chrome) the screensaver's config was `null` before and is
 the screen's block after; `test_saver` covers the shell's config, a touch told from it, the block made again, and a
 Lovelace panel's block read as written.
-- [ ] On the house: each tablet's touch shows in `binary_sensor.<tablet>_screen_in_use`, black is `confirmed: true`,
-      the backlight goes to its lowest while dark and comes back on wake.
+- [x] On the house (build `0aa84393125dd04a`, 16:34; the tablets' pages reloaded 16:35): the Loft's black
+      `confirmed: true` at 16:35:07, backlight 0.0 (Kiosk Satellite `/api/health`) while dark, 0.68 again after the
+      wake at 16:35:41. Kiosk Satellite injects `window.kioskSatellite` (with `setBrightness`) into every page,
+      Custom Pages included (its docs/js-api.md).
+- [ ] A touch on the Loft shows in `binary_sensor.loft_screen_in_use`; a real night.
+- [ ] The other four tablets: still HA-owned (CUTOVER.md log), three of them open `/dashboard-kitchen/home` with no
+      `?hk_tablet=`. Each needs its own screen and `?hk_tablet=<id>` in Kiosk Satellite, then ownership moved.
 
 ### Removal
 
