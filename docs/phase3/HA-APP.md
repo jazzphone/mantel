@@ -743,6 +743,22 @@ smoke ok.
 - Seen once right after the App restart: a page loaded during the restart drew without Energy/Power (the feature
   list not yet sent); a reload fixed it. Worth a later look (the page could re-plan when the feature list arrives).
 
+### 0.1.16 refused, 0.1.17 on the house (2026-10-18 ~22:30, commit `4c890a6`, build `a93881d9e4c8bbdf`)
+
+HA backup `ac81b300` first. 0.1.16 carried decision 25 (only the Alarm PIN), HK Settings' screens list, Setup Check,
+Service accounts on the sidebar and direct access (security-reviewed: M1–M4 and L1–L8 fixed, `aaf4976`). **HA's
+Supervisor refused the update** ("expected an email address": `acme_email: "email?"` with an empty default), but
+recorded 0.1.16 and left the App **stopped in error** (Mantel down for a few minutes; HA's dashboards and tablets were
+unaffected). Fixed `2cd4883` (plain string; the entrypoint checks the address; package_check now refuses an empty
+default under a typed schema entry), restaged as 0.1.17 (HA kept 0.1.16's schema otherwise), updated, and started
+by hand (the App's boot is manual). Lesson: an options/schema change must pass package_check's typed-default rule,
+and a refused update can leave the App stopped.
+- [x] `/healthz` ok, HA connected; options kept (commands on, `access: ingress`).
+- [x] HK Settings in Mantel lists the 7 screens; Setup Check all ok (HA 2026.10.2, MA 2.10.7, SF Pro & glyphs,
+      house commands, screens); Service accounts shown in Mantel settings.
+- [ ] Direct access (`access: proxy` behind Avery's NPM on another LAN machine): next, with his NPM IP and hostname,
+      an NPM Access List if NPM's 443 is internet-facing (review M3), then `/proxy-check`.
+
 ### Removal
 
 Stop and uninstall **Mantel** (Settings → Apps → Mantel → Uninstall); this removes its image and `/data`
