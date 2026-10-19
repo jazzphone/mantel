@@ -106,6 +106,24 @@ for (const m of ['modules/hk-settings.js', 'iconset/hk-icons.js', 'modules/tesla
                  'modules/hk-header.js', 'modules/hk-loader.js', 'cards/hk-strategy.js']) await imp('/hk/' + m);
 await Promise.all(cards.map((c) => imp('/hk/cards/' + c)));
 mark('code');
+
+// THE HOUSE'S POP-UPS (hk-detail.js, `popup` through the same event): asked for on whatever page is up, the
+// sheet opens at once and needs the state of what it shows -- a doorbell's camera, the alarm, the accessories
+// of a group (those without a state are left out of the sheet), a card's entities. Nothing on the pages seen
+// need read them, so the narrowed page held none of it (a camera pop-up opened nothing, 2026-10-19). Unlike a
+// notification, nothing arrives ahead of it to keep them on: every one a pop-up names is kept from the start
+// (any string of a pop-up that is an entity of the house: its entity, entities, cards), and again when the
+// pop-ups change.
+function keepPopups() {
+  const S = window.hkSettings;
+  const walk = (v) => {
+    if (typeof v === 'string') keep(v);
+    else if (v && typeof v === 'object') Object.values(v).forEach(walk);
+  };
+  if (S) walk([S.get('popups', null) || [], S.get('security.alarm', null)]);
+}
+keepPopups();
+if (window.hkSettings && window.hkSettings.onChange) window.hkSettings.onChange(keepPopups);
 if (!(window.hkCards && window.hkCards.TILE)) {
   await new Promise((res) => window.addEventListener('hk-cards-ready', res, { once: true }));
 }
