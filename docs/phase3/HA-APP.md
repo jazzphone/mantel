@@ -807,6 +807,18 @@ JSON failed. Fixed with `kiosk.read_body` (every piece, capped), also in Fully's
 rewrite. Found with a wrong-password pairing through the App (it got "refused that password", so the App reached the
 tablet) and a fake tablet that answers in pieces, which gave the same message before the fix.
 
+### 0.1.21 (2026-10-19)
+
+"Sign in with Home Assistant" on the Loft tablet showed a blank page or Retry and never HA's sign-in page: HA's
+`trusted_networks` signs the tablet in as its own HA user at once, and HA then refuses Mantel the code exchange
+(`403 access_denied`: a trusted-networks sign-in is honoured only from the trusted address, and Mantel exchanges from
+the App's). It would have been the tablet's user anyway, not the Owner. The way in for such a tablet: a **Wall Tablet
+account** (People → Add a Mantel Account…, role Wall Tablet, a password), signed in on the tablet with its user name and
+password, which may make only its own tablet. 0.1.21 shows that account **Make This Browser a Wall Tablet** on its Me
+page (it saw no Devices page before), and stores a room typed by name as its id (`Loft` → `loft`), as HK's tablets and
+HA's areas name them, so the tablet finds its own screen and linked mode's tablet. Checked in the browser pane against a
+local Mantel with a test Wall Tablet account: enrolled, room `loft`, the account signed out.
+
 ### Removal
 
 Stop and uninstall **Mantel** (Settings → Apps → Mantel → Uninstall); this removes its image and `/data`
