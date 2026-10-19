@@ -32,6 +32,19 @@ function screenState(id, on, attributes) {
            last_changed: now, last_updated: now, context: { id: '', parent_id: null, user_id: null } };
 }
 
+// THE POWER PAGE'S PICTURE THROUGH HA'S SIDEBAR (2026-10-19): its folder comes in the settings feed (the
+// Energy plan's power.art, '/hk/power-house/'), data that ingress.py's rewrite of HK's files never sees, so
+// under the Ingress prefix the page asked Home Assistant's own /hk/ for art.json and the layers (drawn only
+// where HK in HA happened to have that folder). Moved under the prefix here (base.js's window.__mantelBase).
+const HK_ROOT = /^\/hk\//;
+export function withArtBase(p, base = (typeof window !== 'undefined' && window.__mantelBase) || '') {
+  const power = p && typeof p === 'object' && p.energy && typeof p.energy === 'object' ? p.energy.power : null;
+  const art = power && typeof power === 'object' ? power.art : null;
+  // (a pattern, not a '/hk/' string: ingress.py moves those under the prefix in the files it serves)
+  if (!base || typeof art !== 'string' || !HK_ROOT.test(art)) return p;
+  return Object.assign({}, p, { energy: Object.assign({}, p.energy, { power: Object.assign({}, power, { art: base + art }) }) });
+}
+
 // Writes are never sent. Reads go to the server, which has its own allowlist.
 const WRITE_WORDS = /(^|\/|_)(set|save|remove|delete|add|update|create|call_service|order|favorite|touch|black|seen|mute|test|sign|queue|play|transfer|talk|offer|candidate)(_|\/|$)/;
 
@@ -352,7 +365,7 @@ export class Host {
       });
     }
     // the settings feed names no HA switch for a tablet on Mantel: the screens' own are named here
-    if (msg.type === 'hk_frontend/settings/subscribe') { const raw = cb; cb = (p) => raw(this._withScreens(p)); }
+    if (msg.type === 'hk_frontend/settings/subscribe') { const raw = cb; cb = (p) => raw(withArtBase(this._withScreens(p))); }
     // HK's per-person user data (the Music page's speaker) is Mantel's own, per person or tablet (user_data.py):
     // the value first, then every change. Any other key, or a server without it, stays the stand-in (no value).
     if (msg.type === 'frontend/subscribe_user_data') {

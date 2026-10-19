@@ -48,6 +48,8 @@ Home Assistant App (add-on)      recognised by SUPERVISOR_TOKEN in the environme
                                             acme_staging optional
                                  ha_sign_in_url (HA's address for browsers) turns on "Sign in with Home
                                  Assistant" there; Mantel's own side of it goes to http://homeassistant:8123.
+                                 Its origin, and those in ha_frame_origins, may frame the direct address (a
+                                 "Webpage" dashboard in HA's sidebar; --frame-ancestors).
     Test-only overrides (never set by the Supervisor; for running App mode against a scratch HA):
     MANTEL_APP_OPTIONS, MANTEL_APP_TOKEN_FILE, MANTEL_SUPERVISOR_CORE_URL, MANTEL_SUPERVISOR_WS_URL,
     MANTEL_INGRESS_PEER, MANTEL_HA_CORE_PEER, MANTEL_LISTEN, MANTEL_PORT, MANTEL_DATA_DIR,
@@ -301,6 +303,8 @@ def direct_args(access: str, public: str, options: dict, env: dict[str, str]) ->
             raise ConfigError("ha_sign_in_url must be Home Assistant's address as browsers know it, for example "
                               "http://homeassistant.local:8123")
         args += ["--ha-browser-url", sign_in, "--ha-oauth-url", env.get("MANTEL_HA_OAUTH_URL", HA_OAUTH_URL)]
+    for origin in frame_origins(sign_in, options):
+        args += ["--frame-ancestors", origin]
     if access == "proxy":
         proxies = _list(str(options.get("trusted_proxies") or ""))
         if not proxies:
@@ -338,6 +342,29 @@ def direct_args(access: str, public: str, options: dict, env: dict[str, str]) ->
             except ValueError:
                 raise ConfigError(f"lan_networks must list networks such as 192.0.2.0/24, not {raw!r}") from None
     return args
+
+
+def frame_origins(sign_in: str, options: dict) -> list[str]:
+    """Home Assistant's addresses that may show Mantel's direct address in a frame: a "Webpage" dashboard in HA's
+    sidebar (security_headers.py adds them to frame-ancestors). ha_sign_in_url's origin, then ha_frame_origins
+    (HA's other addresses, e.g. the one used at home and the one used away). Each one a plain origin."""
+    from urllib.parse import urlsplit
+    out: list[str] = []
+    for raw in ([sign_in] if sign_in else []) + _list(str(options.get("ha_frame_origins") or "")):
+        u = urlsplit(raw.rstrip("/"))
+        try:
+            port = u.port
+        except ValueError:
+            port, u = None, urlsplit("")
+        host = (u.hostname or "").lower()
+        if u.scheme not in ("http", "https") or not re.fullmatch(r"[a-z0-9-]+(?:\.[a-z0-9-]+)*", host) or u.path \
+                or u.query or u.fragment or u.username or u.password:
+            raise ConfigError("ha_frame_origins must list Home Assistant's addresses as browsers know them, for "
+                              f"example https://ha.example.com or http://homeassistant.local:8123, not {raw!r}")
+        origin = f"{u.scheme}://{host}" + (f":{port}" if port else "")
+        if origin not in out:
+            out.append(origin)
+    return out
 
 
 def write_private(path: Path, text: str) -> None:

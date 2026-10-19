@@ -105,3 +105,39 @@ def test_base_js_accepts_only_an_ingress_prefix():
     text = (WEB / "shim/base.js").read_text()
     assert r"/^\/api\/hassio_ingress\/[A-Za-z0-9_-]{1,128}$/" in text
     assert ingress.PATH_RE.pattern == r"^/api/hassio_ingress/[A-Za-z0-9_-]{1,128}$"
+
+
+def test_the_power_pictures_folder_from_the_settings_feed_is_moved_under_the_prefix(tmp_path):
+    """The Power page's picture folder is data (the settings feed's energy.power.art), which the rewrite of
+    HK's files never sees: through Ingress the page asked Home Assistant's own /hk/ for the house. The host
+    adapter (shim/mantel-host.js, as Ingress serves it) moves it under the prefix; elsewhere it is untouched."""
+    import json
+    import shutil
+    import subprocess
+
+    import pytest
+    if shutil.which("node") is None:
+        pytest.skip("node not installed")
+    served = dict(served_files())["shim/mantel-host.js"]
+    assert "raw(withArtBase(this._withScreens(p)))" in served          # the settings feed goes through it
+    (tmp_path / "host.mjs").write_text(served)
+    (tmp_path / "run.mjs").write_text("""
+      import { withArtBase } from './host.mjs';
+      const feed = (art) => ({ added: ['energy'], energy: { sections: [], power: { art, home: 'sensor.home' } } });
+      const base = %s;
+      console.log(JSON.stringify({
+        moved: withArtBase(feed('/hk/power-house/'), base),
+        direct: withArtBase(feed('/hk/power-house/'), ''),
+        other: withArtBase(feed('/local/art/'), base),
+        none: withArtBase({ added: [] }, base),
+        global: (globalThis.window = { __mantelBase: base }, withArtBase(feed('/hk/power-house/')).energy.power.art),
+      }));""" % json.dumps(PREFIX))
+    out = subprocess.run(["node", str(tmp_path / "run.mjs")], capture_output=True, text=True, timeout=30)
+    assert out.returncode == 0, out.stderr
+    got = json.loads(out.stdout)
+    assert got["moved"]["energy"]["power"] == {"art": PREFIX + "/hk/power-house/", "home": "sensor.home"}
+    assert got["moved"]["energy"]["sections"] == [] and got["moved"]["added"] == ["energy"]
+    assert got["direct"]["energy"]["power"]["art"] == "/hk/power-house/"
+    assert got["other"]["energy"]["power"]["art"] == "/local/art/"
+    assert got["none"] == {"added": []}
+    assert got["global"] == PREFIX + "/hk/power-house/"

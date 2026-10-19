@@ -22,7 +22,7 @@ sidebar: Home Assistant signs you in, and Mantel shows you what your Mantel role
 | `log_level` | `info` | `debug`, `info`, `warning` or `error`. |
 | `default_screen` | `dashboard-kitchen` | The HK dashboard the sidebar opens. |
 | `access` | `ingress` | How else Mantel can be reached: `ingress` (the sidebar only), `proxy` (your own reverse proxy) or `https` (Mantel's built-in HTTPS). See **Direct access** below. |
-| `public_url`, `trusted_proxies`, `ha_sign_in_url`, `cloudflare_token`, `acme_email`, `acme_staging` | empty | Direct access only (below). |
+| `public_url`, `trusted_proxies`, `ha_sign_in_url`, `ha_frame_origins`, `cloudflare_token`, `acme_email`, `acme_staging` | empty | Direct access only (below). |
 | `ha_door_rules` | `trusted` | `trusted`: being signed in to Home Assistant is enough, as HK in Home Assistant always was. Each person's Mantel role decides what they may do, and everything is audited. `lan`: the home network's rules. `tunnel`: Mantel's remote-access rules (each role's remote switches). On every setting only the alarm asks for a code, the house Alarm PIN. |
 
 ## Who can open it
@@ -165,6 +165,25 @@ this port from the internet; for remote use keep Home Assistant's sidebar or the
 
 The certificate's key and the Let's Encrypt account key are kept in the App's data (`/data/tls`, readable
 only by Mantel, not encrypted) and so are inside Home Assistant's backups: protect those backups.
+
+### A screen in Home Assistant's sidebar (a Webpage dashboard)
+
+With direct access on, any Mantel screen can sit in Home Assistant's sidebar like any other web app: in Home
+Assistant, **Settings → Dashboards → Add dashboard → Webpage**, the screen's address (for example
+`https://mantel.example.com/dashboard-loft/home`), then a title and icon. Unlike the App's own "Mantel" entry,
+a Webpage dashboard can be your **default dashboard** (Profile → Dashboard), so the Companion app opens it.
+
+* Home Assistant may show Mantel in a frame only from the addresses Mantel knows: `ha_sign_in_url`'s, plus
+  any in `ha_frame_origins` (Home Assistant's other addresses, separated by commas, e.g. the one used at home
+  and the one used away). Everything else still may not frame Mantel.
+* Open Home Assistant by a name in the **same domain** as Mantel's (e.g. `ha.example.com` beside
+  `mantel.example.com`), in the Companion app too (internal and external URL). Mantel's sign-in cookies are
+  same-site only: from `http://homeassistant.local:8123` or an IP address the frame cannot stay signed in.
+* Sign-in in the frame: *Sign in with Home Assistant* or a password. Passkeys are not offered there (Home
+  Assistant's frame does not allow them). A browser already signed in to Mantel's address is signed in in the
+  frame too.
+* The screensaver never runs in a frame, and the frame gets the remote or home rules of Mantel's own
+  address, not the sidebar's. Wall tablets keep opening Mantel's address directly.
 
 ## Security notes
 

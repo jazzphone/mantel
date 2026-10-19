@@ -71,6 +71,27 @@ window.__mantel = host;
 let snapshotWaiters = [];
 let narrowed = false;                  // (narrowing: below) declared here, read by every snapshot
 const houseIds = new Set();            // every entity id of the house, from each whole-house snapshot
+const needed = new Set();              // the states the narrowed subscription keeps (narrowing: below)
+let missTimer = 0;
+// KEEP ONE MORE STATE: added to what the narrowed subscription keeps, and, once the page has narrowed,
+// the hub asked again (batched). Before that the whole house is here, and narrowing keeps `needed`.
+function keep(id) {
+  if (typeof id !== 'string' || needed.has(id) || !houseIds.has(id)) return;
+  needed.add(id);
+  if (!narrowed) return;
+  window.__mantelNarrow = needed.size;
+  clearTimeout(missTimer);
+  missTimer = setTimeout(() => { if (narrowed) hub.subscribe([...needed], [], false); }, 150);
+}
+// A NOTIFICATION'S SHEET (hk-notify.js): a tap on the banner opens its accessory's sheet -- for what a
+// camera sees, the camera's, live -- or its camera's from the picture. Often nothing on the pages seen
+// reads that entity (the alarm, a doorbell's camera, a door on another page), so the narrowed page has
+// no state for it: the sheet could not open, nor HK's generic one, and the tap only took the banner
+// away (2026-10-19). Kept as the notification arrives, so its state is here well before the tap.
+window.addEventListener('hk-house-event', (e) => {
+  const n = e && e.detail;
+  if (n && n.type === 'notification') [n.sheet, n.entity, n.camera].forEach(keep);
+});
 const nextSnapshot = () => new Promise((res) => snapshotWaiters.push(res));
 hub.onSnapshot = (m) => { if (!narrowed) for (const id of Object.keys(m.entities || {})) houseIds.add(id); host.applySnapshot(m.entities); const w = snapshotWaiters; snapshotWaiters = []; w.forEach((f) => f()); };
 const first = nextSnapshot();
@@ -97,19 +118,11 @@ mark('strategy');
 // shown again). The strategy needed the whole house to decide what to draw, the cards do not. A page
 // not seen yet widens the subscription again first, so it is drawn with the whole house.
 const narrowing = new URLSearchParams(location.search).get('narrow') !== '0';
-const needed = new Set();
 let narrowTimer = 0;
 // SELF-HEALING: every entity id the house has (from each whole-house snapshot). A card that reads one
 // after the page narrowed -- a timer, a later render, a path the recorded pass missed -- adds it, and the
 // hub is asked again (batched), so the card never stays "unknown" (seen on the Vacuums page, 2026-10-18).
-let missTimer = 0;
-host.onMiss = (id) => {
-  if (!narrowed || needed.has(id) || !houseIds.has(id)) return;
-  needed.add(id);
-  window.__mantelNarrow = needed.size;
-  clearTimeout(missTimer);
-  missTimer = setTimeout(() => { if (narrowed) hub.subscribe([...needed], [], false); }, 150);
-};
+host.onMiss = (id) => { if (narrowed) keep(id); };
 async function widen() {
   if (!narrowed) return;
   narrowed = false;

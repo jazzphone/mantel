@@ -1368,6 +1368,126 @@ async def section_rhythm(shots=None):
     return "; ".join(said)
 
 
+# A TAP ON A NOTIFICATION OPENS ITS SHEET (2026-10-19). The page narrows its states to what the pages seen
+# read (home.js), and a notification's accessory is often on none of them: the tap found no state, opened
+# nothing and took the banner away. Each kind of notification, built by hk_core's banner as Mantel's own
+# Notifier builds it and sent through Mantel's events feed, tapped with the mouse on the narrowed Lights
+# page: what it opens (an automation's own with nothing named opens nothing, and its banner stays).
+_S = lambda s, **a: {"s": s, "a": a, "lc": 1.0, "lu": 1.0}  # noqa: E731
+TAP_HOUSE = {
+    "light.proof": _S("off", friendly_name="Offline lamp", supported_color_modes=["brightness"]),
+    "camera.proof_front": _S("idle", friendly_name="Offline front", frontend_stream_type="web_rtc",
+                             entity_picture="/api/camera_proxy/camera.proof_front?token=fictional-camera-token",
+                             access_token="fictional-camera-token"),
+    "binary_sensor.proof_front_person_detected": _S("off", friendly_name="Offline person", device_class="occupancy"),
+    "event.proof_doorbell": _S("unknown", friendly_name="Offline doorbell", device_class="doorbell", event_types=["ring"]),
+    "binary_sensor.proof_back_door": _S("off", friendly_name="Offline back door", device_class="door"),
+    "lock.proof_front": _S("locked", friendly_name="Offline lock"),
+    "alarm_control_panel.proof_alarm": _S("disarmed", friendly_name="Offline alarm", code_format="number",
+                                          supported_features=3),
+    "person.proof_sam": _S("home", friendly_name="Offline Sam"),
+}
+TAP_DEVICE = ("camera.proof_front", "binary_sensor.proof_front_person_detected", "event.proof_doorbell")
+# kind: (the item, the accessory that went off, its new state, the sheet a tap opens: (kind, entity) or None)
+TAPS = {
+    "camera": ({"id": "cams", "category": "cameras", "snap": True}, "binary_sensor.proof_front_person_detected", "on",
+               ("camera", "camera.proof_front")),
+    "doorbell": ({"id": "bell", "entity": "event.proof_doorbell", "snap": True, "camera": "camera.proof_front"},
+                 "event.proof_doorbell", "2026-10-19T08:00:00+00:00", ("camera", "camera.proof_front")),
+    "door": ({"id": "door", "entity": "binary_sensor.proof_back_door"}, "binary_sensor.proof_back_door", "on",
+             ("binary", "binary_sensor.proof_back_door")),
+    "lock": ({"id": "lock", "entity": "lock.proof_front"}, "lock.proof_front", "unlocked", ("lock", "lock.proof_front")),
+    "alarm": ({"id": "alarm", "entity": "alarm_control_panel.proof_alarm", "important": True},
+              "alarm_control_panel.proof_alarm", "triggered", ("alarm", "alarm_control_panel.proof_alarm")),
+    "people": ({"id": "ppl", "entity": "person.proof_sam"}, "person.proof_sam", "not_home", ("person", "person.proof_sam")),
+    "automation, a camera named": ({"title": "Offline gate", "camera": "camera.proof_front"}, None, None,
+                                   ("camera", "camera.proof_front")),
+    "automation, nothing named": ({"title": "Offline reminder", "message": "Nothing to open"}, None, None, None),
+}
+TAP_JS = """(() => {
+  const D = window.hkDetail._.state(), p = D.panel, q = '.hkn-card,.hkn-col';
+  return { open: !!D.el, kind: D.kind || null, id: D.id || null, banners: window.hkNotify.shown().length,
+           note: !!(D.el && (D.el.querySelector(q) || (p && p.shadowRoot && p.shadowRoot.querySelector(q)))) };
+})()"""
+
+
+async def notification_taps():
+    from hk_core.house import State
+    from hk_core.notifications import banner as NB
+    with tempfile.TemporaryDirectory(prefix="mantel-taps-") as folder:
+        base = Path(folder)
+        cfg = Config(data_dir=base / "data", fixtures=base / "fixtures", hk_files=base / "user-files",
+                     default_screen="dashboard-proof")
+        store = Store(cfg.data_dir / "proof.db")
+        store.link("fictional-owner", "owner", "Offline Owner")
+        cookie = store.create_session("fictional-owner", 300)
+        app = build_app(cfg, "unused-offline-token", store=store, connect_ha=False)
+        hub = app["hub"]
+        app["ma"] = FictionalLibrary()
+        owner = Identity(User(store.get_link("fictional-owner")["user_id"], "Offline Owner", "owner", "ha_linked"), None, "lan")
+        settings = settings_store.register(app, hub, settings_store.SettingsHooks(
+            may_configure=settings_store.rbac_may_configure()), model=settings_store.ThinModel())
+
+        async def fictional_ha():
+            return json.loads(json.dumps(FICTIONAL_HA_SETTINGS))
+        await settings_store.import_settings(settings.store, fictional_ha, actor=settings_store.Actor(label="smoke"))
+        hub.readproxy = OfflineReads(app, owner)
+        stand_in_hk_feeds(app, hub.readproxy)
+        stand_in_cameras(app)
+        hub.store.apply_event({"a": TAP_HOUSE})
+        hub.registry.load([], [{"id": "proof-front", "name": "Offline front"}],
+                          [{"entity_id": e, "platform": "demo", "device_id": "proof-front" if e in TAP_DEVICE else None}
+                           for e in TAP_HOUSE])
+        host = app["features"]
+        said = []
+        try:
+            async with TestServer(app) as server:
+                async with Browser(port=9337) as browser:
+                    origin = str(server.make_url("")).rstrip("/")
+                    await browser.restrict_origin(origin)
+                    await browser.open(origin + "/dashboard-proof/lights", cookie)
+                    assert await browser.wait("window.__mantelReady === true", 25), browser.console[-10:]
+                    assert await browser.wait("!!window.__mantelMarks.narrowed && !!window.hkNotify", 20), "Lights did not narrow"
+                    held = await browser.eval("Object.keys(window.__mantel._states).sort()")
+                    # what the taps open is on no page seen: the narrowed page holds none of it (the bug's setting)
+                    assert not {"camera.proof_front", "lock.proof_front", "person.proof_sam"} & set(held), held
+                    for kind, (item, eid, new_state, opens) in TAPS.items():
+                        await browser.eval("window.hkDetail.close(true); window.hkNotify.clear()")
+                        await browser.wait("window.hkNotify.shown().length === 0 && !window.hkDetail._.state().el", 5)
+                        if eid is None:
+                            payload = NB.build_action(host.house, NB.options({}), item)
+                        else:
+                            st = host.house.state(eid)
+                            payload = NB.build(host.house, NB.options({}), {**item, "stay": 0},
+                                               State(eid, new_state, dict(st.attributes)), eid=eid)
+                        payload["stay"] = 0
+                        if payload.get("camera"):            # the snapshot, as the Notifier takes it
+                            payload["snap"] = host.snaps.put(proof_png(), "image/png", payload["camera"])
+                        assert host.feed.send(payload) == 1, kind
+                        assert await browser.wait("window.hkNotify.shown().length === 1", 5), f"{kind}: no banner"
+                        await browser.eval("new Promise(r => setTimeout(r, 900))")      # (the banner settles; a person reads it)
+                        at = await browser.eval("""(() => { const r = document.getElementById('hk-notify').shadowRoot
+                          .querySelector('.nb').getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; })()""")
+                        for t in ("mousePressed", "mouseReleased"):
+                            await browser.send("Input.dispatchMouseEvent", type=t, x=at[0], y=at[1], button="left", clickCount=1)
+                        if opens is None:
+                            await browser.eval("new Promise(r => setTimeout(r, 1200))")
+                            got = await browser.eval(TAP_JS)
+                            assert not got["open"] and got["banners"] == 1, f"{kind}: {got}"
+                            said.append(f"{kind}: nothing (the banner stays)")
+                            continue
+                        ok = await browser.wait(f"(() => {{ const g = {TAP_JS}; return g.open && g.kind === '{opens[0]}' && "
+                                                f"g.id === '{opens[1]}' && g.note && g.banners === 0; }})()", 8)
+                        assert ok, f"{kind}: the tap did not open the {opens[0]} sheet of {opens[1]}: " + \
+                            json.dumps({"got": await browser.eval(TAP_JS), "payload": {k: payload.get(k) for k in (
+                                "entity", "sheet", "camera", "tap")}, "console": browser.console[-5:]})
+                        said.append(f"{kind}: the {opens[0]} sheet of {opens[1]}")
+                    assert not [line for line in browser.console if line.startswith("EXCEPTION:")], browser.console
+        finally:
+            store.db.close()
+    return "on the narrowed Lights page, a tap opened " + "; ".join(said)
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--shot")
@@ -1375,4 +1495,5 @@ if __name__ == "__main__":
     a = parser.parse_args()
     result = asyncio.run(smoke(a.shot, a.shots_dir))
     result["section_rhythm"] = asyncio.run(section_rhythm(a.shots_dir))
+    result["notification_taps"] = asyncio.run(notification_taps())
     print(json.dumps(result, indent=2))

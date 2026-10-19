@@ -29,6 +29,9 @@ configuration:
   ha_sign_in_url:
     name: Home Assistant address for sign-in
     description: With proxy or https, Home Assistant's address as browsers at home know it, for example http://homeassistant.local:8123. It turns on Sign in with Home Assistant at Mantel's own address. Empty leaves only Mantel's own sign-in there (password, passkey, enrolled wall tablets).
+  ha_frame_origins:
+    name: Home Assistant addresses that may show Mantel
+    description: With proxy or https, Home Assistant's other addresses (separated by commas), for example https://ha.example.com, so a Webpage dashboard there can show a Mantel screen in Home Assistant's sidebar. The sign-in address above is always allowed. Only these Home Assistant pages may put Mantel in a frame.
   cloudflare_token:
     name: Cloudflare DNS token
     description: With https, a Cloudflare API token limited to Zone / Zone / Read and Zone / DNS / Edit on the zone holding Mantel's address, used only to prove the name to Let's Encrypt. Kept by the Supervisor as a masked option; Mantel reads it from a private file and never logs it.
