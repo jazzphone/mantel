@@ -31,7 +31,8 @@ from aiohttp import WSMsgType, web
 
 from . import frame_origins, music
 from . import accounts, alarm_pin, auth, connect_pairing, devices, gateway, health, ingress, live_tv, pins, proof2, rbac_store, readproxy, sessions, settings_store
-from . import (admin_page, atrest, backup, connections, features, linked, linked_house, linked_owners, login_page,
+from . import (admin_page, atrest, backup, connections, features, linked, linked_house, linked_owners, linked_pairing,
+               linked_actions, login_page, phones, supervisor_discovery,
                service_accounts, talk_relay, user_files)
 from . import default_screens, direct, direct_tls, ha_dashboards, ma_page, media_proxy, proxy_check, proxy_trust, security_headers, tablet_links, user_data
 from .authz import Authz, Principal, resolve_door
@@ -565,6 +566,16 @@ def _csrf_ok(request: web.Request) -> bool:
     return True
 
 
+def screen_origins(cfg: Config) -> list[str]:
+    """Where browsers open Mantel's screens (its own address; the HA App's direct access): what Mantel Link's script
+    in Home Assistant may believe a framed screen from. None for an Ingress-only App (nothing for HA to frame)."""
+    from urllib.parse import urlsplit
+    parts = urlsplit(cfg.public_url or "")
+    if parts.scheme not in ("https", "http") or not parts.hostname or parts.hostname.endswith(".invalid"):
+        return []
+    return [f"{parts.scheme}://{parts.netloc}"]
+
+
 def wire(app: web.Application, hub: Hub, token: str, connect_ha: bool) -> None:
     """Register P3.2 (RBAC), P3.3 (gateway), P3.4 (connectors) and P3.6 (health) with real hooks."""
     cfg: Config = app["cfg"]
@@ -609,6 +620,25 @@ def wire(app: web.Application, hub: Hub, token: str, connect_ha: bool) -> None:
     # linked mode's per-tablet ownership (CUTOVER §1 Option A): every tablet HA's until an Owner moves
     # it (PUT /api/linked/owners, audited); HA is told in the link's hello and `owners` frames
     linked_owners.register(app, hub)
+    # Mantel Link's pairing codes (docs/phase9/MANTEL-LINK.md 9.4): an Owner's one-time code, traded once at
+    # /linked/pair for a `linked` Service credential, both sides proving they know it
+    linked_pairing.register(app)
+    app["linked"].screen_origins = screen_origins(cfg)
+    # Mantel's notifications on people's phones, through Mantel Link and the Companion app (9.7)
+    phones.register(app)
+    # HK Frontend's music, Clean Areas and automation-snooze actions, forwarded by Mantel Link (9.8)
+    linked_actions.register(app)
+    # ...and how Home Assistant finds Mantel (9.5): the App's Supervisor announcement, or the zeroconf file
+    supervisor_discovery.register(app)
+    if getattr(cfg, "announce_file", None) is not None:
+        async def write_announcement(_app):
+            from . import announce
+            try:
+                body = announce.write(cfg.announce_file, _app["linked_owners"].instance_id(), cfg.public_url)
+                log.info("announce: wrote %s for the zeroconf announcer (%s)", cfg.announce_file, body["url"])
+            except (OSError, ValueError) as err:
+                log.warning("announce: not announcing Mantel by zeroconf: %s", err)
+        app.on_startup.append(write_announcement)
     # Phase 4: hk_core's features on Mantel (each off until an Owner enables it; house commands only
     # through the gateway as the `mantel:features` Service actor)
     features.register(app, hub, hooks)

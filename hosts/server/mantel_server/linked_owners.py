@@ -36,6 +36,11 @@ from aiohttp import web
 log = logging.getLogger("mantel.linked_owners")
 
 HOUSE = "house"
+# who mirrors Mantel's entities in Home Assistant (docs/phase9/MANTEL-LINK.md "Hand over the bridge"):
+# the row's owner 'ha' (or none) is HK Frontend, 'mantel' is Mantel Link. Not a tablet.
+BRIDGE = "bridge"
+UNITS_NOT_TABLETS = (HOUSE, BRIDGE)
+BRIDGES = ("hk_frontend", "mantel")
 OWNERS = ("ha", "mantel")
 MIGRATION = Path(__file__).with_name("migrations") / "0010_linked_owners.sql"
 
@@ -78,12 +83,30 @@ class LinkedOwners:
         return self.house() or self.owner(tid) == "mantel"
 
     def mantel_tablets(self) -> list[str]:
-        rows = self.db.execute("SELECT unit FROM linked_owners WHERE owner='mantel' AND unit<>?", (HOUSE,))
+        rows = self.db.execute("SELECT unit FROM linked_owners WHERE owner='mantel' AND unit NOT IN (?,?)",
+                               UNITS_NOT_TABLETS)
         return sorted(r["unit"] for r in rows)
 
+    def bridge(self) -> str:
+        """Who mirrors Mantel's entities in HA: ``hk_frontend`` (the default) or ``mantel`` (Mantel Link)."""
+        return "mantel" if self.owner(BRIDGE) == "mantel" else "hk_frontend"
+
     def snapshot(self) -> dict[str, Any]:
-        """The wire form HA is told: ``{"house": "ha"|"mantel", "tablets": [tablet ids Mantel owns]}``."""
-        return {"house": self.owner(HOUSE), "tablets": self.mantel_tablets()}
+        """The wire form HA is told: ``{"house": "ha"|"mantel", "tablets": [tablet ids Mantel owns],
+        "bridge": "hk_frontend"|"mantel"}``."""
+        return {"house": self.owner(HOUSE), "tablets": self.mantel_tablets(), "bridge": self.bridge()}
+
+    def instance_id(self) -> str:
+        """This Mantel's instance id: random, made once, never a secret. Mantel Link's config entry's
+        unique id (hello, the Supervisor discovery, zeroconf), so one Mantel is one entry in HA."""
+        got = self.remembered("instance") or {}
+        iid = got.get("id")
+        if isinstance(iid, str) and len(iid) == 32:
+            return iid
+        import secrets
+        iid = secrets.token_hex(16)
+        self.remember("instance", {"id": iid})
+        return iid
 
     def rows(self) -> dict[str, dict[str, Any]]:
         return {r["unit"]: dict(r) for r in self.db.execute("SELECT * FROM linked_owners ORDER BY unit")}
@@ -99,16 +122,18 @@ class LinkedOwners:
                     "changed_by": r.get("changed_by")}
         tablets = [one(tid, name) for tid, name in sorted(known.items())]
         # a moved tablet Mantel no longer knows (removed from its settings) is still listed
-        tablets += [one(u, None) for u in sorted(rows) if u != HOUSE and u not in known]
+        tablets += [one(u, None) for u in sorted(rows) if u not in UNITS_NOT_TABLETS and u not in known]
+        b = rows.get(BRIDGE) or {}
         return {"house": one(HOUSE, "The rest of the entry (Seasonal decorations, Alarm PIN, Live TV)"),
-                "tablets": tablets, "wire": self.snapshot()}
+                "tablets": tablets, "wire": self.snapshot(),
+                "bridge": {"holder": self.bridge(), "changed": b.get("changed"), "changed_by": b.get("changed_by")}}
 
     # -- changing ------------------------------------------------------------------------------------
     def set(self, unit: str, owner: str, *, by: str | None = None, role: str | None = None) -> bool:
         """Move one unit. True if it changed. OwnershipError for an unknown unit or a broken rule."""
         if owner not in OWNERS:
             raise OwnershipError("invalid", "owner: ha or mantel")
-        if not isinstance(unit, str) or not unit:
+        if not isinstance(unit, str) or not unit or unit == BRIDGE:
             raise OwnershipError("invalid", "unit: a tablet id or 'house'")
         known = self.tablets()
         if unit != HOUSE and unit not in known and unit not in self.rows():
@@ -137,6 +162,28 @@ class LinkedOwners:
                     else "Home Assistant", by or "?")
         return True
 
+    def set_bridge(self, holder: str, *, by: str | None = None, role: str | None = None) -> bool:
+        """Hand the bridge to Mantel Link (``mantel``) or give it back to HK Frontend (``hk_frontend``).
+        Audited first (``linked.bridge``). True if it changed. Whether the HA side can take it is
+        ``bridge_check``'s (the REST runs it first)."""
+        if holder not in BRIDGES:
+            raise OwnershipError("invalid", "bridge: hk_frontend or mantel")
+        before = self.bridge()
+        if before == holder:
+            return False
+        now = self.clock()
+        if self.audit is not None:
+            self.audit.config_event({"timestamp": now, "actor": by, "role": role, "action": "linked.bridge",
+                                     "detail": {"from": before, "to": holder}})
+        owner = "mantel" if holder == "mantel" else "ha"
+        with self.db:
+            self.db.execute("INSERT INTO linked_owners (unit, owner, changed, changed_by) VALUES (?,?,?,?) "
+                            "ON CONFLICT(unit) DO UPDATE SET owner=excluded.owner, changed=excluded.changed, "
+                            "changed_by=excluded.changed_by", (BRIDGE, owner, now, by))
+        log.warning("linked mode: the bridge in Home Assistant is now %s's (by %s)",
+                    "Mantel Link" if holder == "mantel" else "HK Frontend", by or "?")
+        return True
+
     # -- the house-level entities Mantel learned (linked_house.py) ------------------------------------
     def remembered(self, key: str) -> dict | None:
         row = self.db.execute("SELECT body FROM linked_house WHERE key=?", (key,)).fetchone()
@@ -154,6 +201,43 @@ class LinkedOwners:
         with self.db:
             self.db.execute("INSERT INTO linked_house (key, body, updated) VALUES (?,?,?) ON CONFLICT(key) DO "
                             "UPDATE SET body=excluded.body, updated=excluded.updated", (key, text, self.clock()))
+
+
+
+def bridge_check(app: web.Application, holder: str) -> None:
+    """Can Home Assistant's side take the bridge this way right now? OwnershipError if not.
+
+    * To Mantel Link: Mantel Link is connected (protocol 2); and HK Frontend, if its Home Assistant
+      has it (Mantel Link's report) or it is connected, is connected with the hand-over hooks
+      (feature ``bridge``, its 9.10 release), so it stops mirroring before Mantel Link takes over.
+    * Back to HK Frontend: HK Frontend is connected with those hooks (it takes the entries back)."""
+    lk = app.get("linked")
+    reg = lk.registry if lk is not None else None
+    links = reg.clients_of("mantel") if reg is not None else []
+    hks = reg.clients_of("hk_frontend") if reg is not None else []
+    ready = [c for c in hks if "bridge" in c.features]
+    if holder == "mantel":
+        if not any(c.protocol >= 2 for c in links):
+            raise OwnershipError("mantel_link_not_connected",
+                                 "Mantel Link isn't connected. Add it in Home Assistant (Settings, Devices & "
+                                 "Services) and wait until it says it is linked, then try again.")
+        if any("bridge" not in c.features for c in hks):
+            raise OwnershipError("hk_frontend_too_old",
+                                 "HK Frontend in Home Assistant is linked but can't hand over yet: update it to "
+                                 "its last release first (HACS), then try again.")
+        has_hk = any((c.report.get("hk_frontend") or {}).get("installed") for c in links)
+        if has_hk and not ready:
+            raise OwnershipError("hk_frontend_not_linked",
+                                 "Home Assistant still has HK Frontend, and it isn't linked to Mantel, so it can't "
+                                 "let go of the bridge. Turn on HK Frontend, Configure, Linked to Mantel, or remove "
+                                 "HK Frontend, then try again.")
+    elif holder == "hk_frontend":
+        if not ready:
+            raise OwnershipError("hk_frontend_not_linked",
+                                 "HK Frontend isn't linked to Mantel with its last release, so it can't take the "
+                                 "bridge back. Install HK Frontend's last release and link it first.")
+    else:
+        raise OwnershipError("invalid", "bridge: hk_frontend or mantel")
 
 
 async def changed(app: web.Application) -> None:
@@ -191,8 +275,10 @@ def _who(request: web.Request, owner_only: bool) -> Any:
 
 def _state(app: web.Application) -> dict[str, Any]:
     lk = app.get("linked")
+    clients = [c for c in lk.registry.clients if not c.ws.closed] if lk is not None else []
     return {**app["linked_owners"].report(),
-            "linked_clients": len(lk.registry.clients) if lk is not None else 0}
+            "linked_clients": len(clients),
+            "links": sorted((c.describe() for c in clients), key=lambda d: (d["domain"], d["since"] or 0))}
 
 
 async def api_get(request: web.Request) -> web.Response:
@@ -210,7 +296,14 @@ async def api_put(request: web.Request) -> web.Response:
         return web.json_response({"error": {"code": "invalid", "message": "{unit, owner}"}}, status=400)
     owners: LinkedOwners = request.app["linked_owners"]
     try:
-        moved = owners.set(body.get("unit"), body.get("owner"), by=ident.user.id, role=ident.user.role)
+        if body.get("unit") == BRIDGE:
+            # the bridge (Mantel Link or HK Frontend): {"unit": "bridge", "owner": "mantel"|"hk_frontend"}
+            holder = body.get("owner")
+            if holder != owners.bridge():
+                bridge_check(request.app, holder)
+            moved = owners.set_bridge(holder, by=ident.user.id, role=ident.user.role)
+        else:
+            moved = owners.set(body.get("unit"), body.get("owner"), by=ident.user.id, role=ident.user.role)
     except OwnershipError as exc:
         return web.json_response({"error": {"code": exc.code, "message": exc.message}}, status=400)
     if moved:
@@ -242,6 +335,7 @@ def register(app: web.Application, hub: Any = None) -> LinkedOwners:
     lk = app.get("linked")
     if lk is not None:
         lk.registry.owners = owners.snapshot()
+        lk.instance = owners.instance_id()
     app.router.add_get("/api/linked/owners", api_get)
     app.router.add_put("/api/linked/owners", api_put)
     return owners

@@ -540,7 +540,13 @@
   window.addEventListener('hk-house-event', function (ev) {
     var n = ev && ev.detail;
     if (n && n.type === 'notification') arrive(n);
+    // the house took it down elsewhere (a Dismiss on someone's phone): gone here too
+    else if (n && n.type === 'notification_dismiss' && n.id != null) dismissId(n.id);
   });
+  function dismissId(id) {
+    stack.slice().forEach(function (it) { if (it.n && String(it.n.id) === String(id)) dismiss(it); });
+    hidden = hidden.filter(function (h) { return String(h.id) !== String(id); });
+  }
   window.addEventListener('resize', function () { restyle(); layout(); });
   // "now" becomes "2m ago" on a banner that stays
   setInterval(function () {
@@ -557,6 +563,7 @@
     show: function (n) { return show(n); },
     shown: function () { return stack.map(function (it) { return it.n; }); },
     clear: clearAll,
+    dismissId: dismissId,
     _: { CSS: CSS, decide: decide, chimes: chimes, dndOn: dndOn, inWindow: inWindow, ago: ago, target: target, route: route,
          state: function () { return { stack: stack, fan: fan, black: black }; } }
   };

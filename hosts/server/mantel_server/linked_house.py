@@ -54,6 +54,10 @@ from hk_core.settings import model as SM
 
 from .linked import ALARM_COMMANDS, LinkedError
 
+# the integrations whose entity-registry entries are the linked house's: HK Frontend, and Mantel Link
+# (protocol 2: the same unique ids, moved by the bridge hand-over)
+LINK_PLATFORMS = ("hk_frontend", "mantel")
+
 log = logging.getLogger("mantel.linked_house")
 
 SEASONAL = "seasonal_decorations"
@@ -96,9 +100,11 @@ class LinkedHouse:
         reg = getattr(self.host.hub, "registry", None)
         out = []
         for e in getattr(reg, "entity_entries", None) or []:
-            if not isinstance(e, dict) or e.get("platform") != "hk_frontend" or not e.get("unique_id"):
+            if not isinstance(e, dict) or e.get("platform") not in LINK_PLATFORMS or not e.get("unique_id"):
                 continue
-            if e.get("config_entry_id") not in (None, entry):
+            # HK Frontend's are its house entry's; Mantel Link's (moved there by the bridge hand-over,
+            # docs/phase9/MANTEL-LINK.md) keep HK's unique ids under Mantel Link's own entry
+            if e.get("platform") == "hk_frontend" and e.get("config_entry_id") not in (None, entry):
                 continue
             out.append(e)
         return out
@@ -276,6 +282,7 @@ class LinkedHouse:
                                    "title": payload["title"], "message": payload["message"], "screens": screens,
                                    "woke": woke, "via": "linked"})
         self.calls.append({"at": time.time(), "service": "notify", "title": payload["title"], "screens": screens})
+        host.to_phones(payload)
         return {"id": payload["id"], "snap": False}
 
     async def entity_command(self, unique_id: str, command: str, data: dict[str, Any], ctx: Any) -> dict[str, Any]:
@@ -398,6 +405,13 @@ class LinkedHandler:
     async def call_service(self, service: str, data: dict[str, Any], targets: list[dict[str, str]], ctx: Any) -> Any:
         if service == "notify":
             return await self.house.notify(data, ctx)
+        from . import linked_actions
+        if service in linked_actions.SERVICES:
+            actions = self.house.app.get("linked_actions")
+            if actions is None:
+                from .linked import LinkedError
+                raise LinkedError("not_set_up", f"{service} isn't run by this Mantel")
+            return await actions.call(service, data, ctx)
         return await self.features.call_service(service, data, targets, ctx)
 
     async def entity_command(self, unique_id: str, command: str, data: dict[str, Any], ctx: Any) -> Any:

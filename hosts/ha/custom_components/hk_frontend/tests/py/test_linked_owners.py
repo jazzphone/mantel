@@ -19,8 +19,8 @@ import pytest
 
 DOMAIN = "hk_frontend"
 LINK, OWNERS = "mantel_link", "mantel_owners"
-HALL_MANTEL = {"house": "ha", "tablets": ["hall"]}
-ALL_HA = {"house": "ha", "tablets": []}
+HALL_MANTEL = {"house": "ha", "tablets": ["hall"], "bridge": "hk_frontend"}
+ALL_HA = {"house": "ha", "tablets": [], "bridge": "hk_frontend"}
 SCREEN = {"subentry_type": "dashboard", "unique_id": "dashboard-hall", "title": "Hall",
           "data": {"screensaver": True}}
 TABLET = {"subentry_type": "tablet", "unique_id": "hall", "title": "Hall",

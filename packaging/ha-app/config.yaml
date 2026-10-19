@@ -24,6 +24,12 @@ panel_title: Mantel
 panel_admin: false
 # HA's built-in App credential (SUPERVISOR_TOKEN, to ws://supervisor/core/websocket). No user token.
 homeassistant_api: true
+# Mantel Link's "Discovered: Mantel" (docs/phase9/MANTEL-LINK.md): at start the App announces Mantel to the
+# Supervisor (its own address on HA's App network and a rotated `linked` Service credential), which hands it to
+# Mantel Link in Home Assistant. hassio_api is for that announcement and the App's own hostname only.
+hassio_api: true
+discovery:
+  - mantel
 watchdog: "http://[HOST]:[PORT:8099]/healthz"
 # Direct access (decision 26, DOCS.md "Direct access"): Mantel's own address for tablets and devices at
 # home. Off unless the option `access` is proxy (plain HTTP here, for your own proxy) or https (Mantel serves

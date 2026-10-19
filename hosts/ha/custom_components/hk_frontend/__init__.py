@@ -237,6 +237,10 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     # schedule, worked out from the automations, which only an admin may read
     from . import page_headers
     page_headers.async_setup(hass)
+    # HK FRONTEND IS NOW MANTEL (retire.py): the final release's repair; nothing in any other release
+    from . import retire
+    retire.async_raise(hass)
+
     # an automation's Off Until Tomorrow (the automation sheet; snooze.py)
     from . import snooze
     await snooze.async_setup(hass)

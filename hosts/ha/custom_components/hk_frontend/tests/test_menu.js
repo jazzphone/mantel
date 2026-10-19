@@ -451,6 +451,14 @@ ok('...on a page change and on a tap, the tap before the new page is asked for',
   var got = hostItems();
   ok('a host\'s page: its title, address and its own section name', got.length === 1 && got[0].section === 'Example' &&
      got[0].kind === 'hostlink' && got[0].href === '/settings', JSON.stringify(got));
+  // a row may ask the host to do something instead of opening a page (its own `run`)
+  var ran = 0;
+  window.hkShell.hostMenu = function () { return [{ title: 'Back', icon: 'mdi:arrow-left', run: function () { ran++; }, section: 'Example' }]; };
+  got = hostItems();
+  ok('a host\'s action: kept, with its run and no address', got.length === 1 && typeof got[0].run === 'function' &&
+     got[0].href === '', JSON.stringify(got));
+  got[0].run();
+  ok('...and it is the host\'s own function', ran === 1, String(ran));
   window.hkShell.hostMenu = was;
   var src = read(root + '/frontend/modules/hk-menu.js') + read(root + '/frontend/modules/hk-tabbar.js');
   ok('neither the menu nor the tab bar names a host of its own', !/mantel/i.test(src));

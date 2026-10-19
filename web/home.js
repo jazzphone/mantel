@@ -106,6 +106,9 @@ for (const m of ['modules/hk-settings.js', 'iconset/hk-icons.js', 'modules/tesla
                  'modules/hk-header.js', 'modules/hk-loader.js', 'cards/hk-strategy.js']) await imp('/hk/' + m);
 await Promise.all(cards.map((c) => imp('/hk/cards/' + c)));
 mark('code');
+// shown inside Home Assistant (a Webpage dashboard): its header and sidebar as the screen says, and the way back
+// (ha-frame.js; Mantel Link's script listens on Home Assistant's side)
+import('./shim/ha-frame.js').then((m) => m.start()).catch((e) => console.error('[mantel] ha-frame', e));
 
 // THE HOUSE'S POP-UPS (hk-detail.js, `popup` through the same event): asked for on whatever page is up, the
 // sheet opens at once and needs the state of what it shows -- a doorbell's camera, the alarm, the accessories

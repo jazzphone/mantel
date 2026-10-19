@@ -1,0 +1,215 @@
+# Mantel Link's actions (services.py; set_black_screen is the switch platform's).
+# The same fields as HK Frontend's: the hk_frontend.* aliases take the same.
+set_black_screen:
+  target:
+    entity:
+      integration: mantel
+      domain: switch
+  fields:
+    black:
+      selector:
+        boolean:
+    brightness:
+      example: 174
+      selector:
+        number:
+          min: 0
+          max: 255
+show_popup:
+  fields:
+    popup:
+      required: true
+      example: doorbell
+      selector:
+        text:
+    dashboards:
+      example: dashboard-kitchen
+      selector:
+        text:
+          multiple: true
+    users:
+      selector:
+        text:
+          multiple: true
+close_popup:
+  fields:
+    popup:
+      required: true
+      example: alarm
+      selector:
+        text:
+    dashboards:
+      example: dashboard-kitchen
+      selector:
+        text:
+          multiple: true
+    users:
+      selector:
+        text:
+          multiple: true
+notify:
+  fields:
+    title:
+      required: true
+      example: Laundry
+      selector:
+        text:
+    message:
+      example: The washer is done.
+      selector:
+        text:
+    important:
+      default: false
+      selector:
+        boolean:
+    wake:
+      default: false
+      selector:
+        boolean:
+    stay:
+      example: 60
+      selector:
+        number:
+          min: 0
+          max: 3600
+          unit_of_measurement: s
+    icon:
+      example: mdi:washing-machine
+      selector:
+        icon:
+    entity:
+      selector:
+        entity:
+    camera:
+      selector:
+        entity:
+          domain: camera
+    tap:
+      selector:
+        select:
+          options:
+            - sheet
+            - camera
+            - page
+            - none
+    page:
+      example: kitchen
+      selector:
+        text:
+    dashboards:
+      example: dashboard-kitchen
+      selector:
+        text:
+          multiple: true
+    users:
+      selector:
+        text:
+          multiple: true
+music_play:
+  fields:
+    rooms:
+      required: true
+      selector:
+        entity:
+          domain: media_player
+          integration: music_assistant
+          multiple: true
+    playlist:
+      required: true
+      selector:
+        text:
+music_transfer:
+  fields:
+    rooms:
+      required: true
+      selector:
+        entity:
+          domain: media_player
+          integration: music_assistant
+          multiple: true
+    source:
+      required: true
+      selector:
+        entity:
+          domain: media_player
+          integration: music_assistant
+music_stop:
+  fields:
+    rooms:
+      required: false
+      selector:
+        entity:
+          domain: media_player
+          integration: music_assistant
+          multiple: true
+music_transport:
+  fields:
+    player:
+      required: true
+      selector:
+        entity:
+          domain: media_player
+          integration: music_assistant
+    command:
+      required: true
+      selector:
+        select:
+          options:
+            - play_pause
+            - next
+            - previous
+            - stop
+            - volume_up
+            - volume_down
+            - volume_set
+    level:
+      required: false
+      selector:
+        number:
+          min: 0
+          max: 1
+          step: 0.01
+music_play_media:
+  fields:
+    player:
+      required: true
+      selector:
+        entity:
+          domain: media_player
+          integration: music_assistant
+    media_content_id:
+      required: true
+      selector:
+        text:
+    media_content_type:
+      required: true
+      selector:
+        text:
+clean_areas:
+  fields:
+    areas:
+      required: true
+      selector:
+        area:
+          multiple: true
+    dry_run:
+      required: false
+      selector:
+        boolean:
+pause_automation:
+  fields:
+    entity_id:
+      required: true
+      selector:
+        entity:
+          domain: automation
+    until:
+      selector:
+        datetime:
+resume_automation:
+  fields:
+    entity_id:
+      required: true
+      selector:
+        entity:
+          domain: automation

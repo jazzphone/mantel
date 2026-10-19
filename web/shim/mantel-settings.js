@@ -438,6 +438,37 @@ function pPeople(sub) {
       linked.length ? linked.map((u) => info(u.name || u.id, 'Home Assistant user ' + u.ha_user_id, roleLabel(u.role))) : [info('No Home Assistant users are linked yet')]));
   } };
 }
+// THEIR PHONES (phones.py; docs/phase9/MANTEL-LINK.md 9.7): Mantel's notifications on the Home Assistant Companion
+// app, through Mantel Link: which of the phones Home Assistant has are theirs, and what goes there
+const SEND_LABEL = [['important', 'Important Only'], ['all', 'Every Notification'], ['off', 'Nothing']];
+function drawPhones(c, u, locked) {
+  const got = load('phones', () => api('GET', '/api/phones'));
+  if (!got || got.err) return;
+  const d = got.data, mine = (d.people || {})[u.id] || { services: [], send: 'important' };
+  const known = d.available || [];
+  const names = Object.fromEntries(known.map((p) => [p.service, p.name]));
+  const footer = !d.linked ? 'Mantel Link in Home Assistant brings Mantel’s notifications to phones with the Home Assistant Companion app. It isn’t linked yet.'
+    : !known.length ? 'Home Assistant has no phones with the Companion app yet.'
+    : 'Mantel’s notifications on their lock screen, through Home Assistant’s Companion app. Dismiss on the phone takes the banner down on every screen.';
+  const put = (services, send) => act('person', () => api('PUT', '/api/users/' + encodeURIComponent(u.id) + '/phones', { services, send }),
+                                      'Phones saved.', 'phones');
+  const rows = [];
+  if (locked) {
+    rows.push(info('Phones', null, mine.services.map((s) => names[s] || s).join(', ') || 'None'));
+  } else {
+    for (const p of known) {
+      rows.push(K().toggle({ label: p.name, on: mine.services.includes(p.service), fk: 'mx:phone:' + p.service,
+        onChange: (on) => put(on ? mine.services.concat([p.service]) : mine.services.filter((s) => s !== p.service), mine.send) }));
+    }
+    for (const s of mine.services.filter((x) => !names[x])) rows.push(info(s, 'Home Assistant no longer has this phone', 'Gone', 'warn'));
+    if (known.length || mine.services.length) {
+      rows.push(K().select({ label: 'Send', options: SEND_LABEL, value: mine.send, fk: 'mx:phone-send',
+                              onChange: (send) => put(mine.services, send) }));
+    }
+  }
+  c.appendChild(group({ header: 'Phones', footer }, rows));
+}
+
 function pPerson(id) {
   const back = ['People', '#/' + ROUTE + '/people'];
   const got = usersRead();
@@ -466,6 +497,7 @@ function pPerson(id) {
           : screenPicker('person', 'Opens On', null, cur, d.screens, none,
                          (v) => api('PUT', '/api/users/' + encodeURIComponent(u.id) + '/default-screen', { screen: v }))]));
     }
+    drawPhones(c, u, locked);
     if (locked) return;
     const rows = [];
     if (!self) rows.push(button(u.disabled ? 'Enable' : 'Disable…', async () => {
@@ -847,6 +879,7 @@ function pConnections(sub) {
   if (sub[0] === 'ha' || sub[0] === 'ma') return pConnection(sub[0]);
   if (sub[0] === 'ma-page') return pMaPage();
   if (sub[0] === 'proxy') return pProxy();
+  if (sub[0] === 'link') return pLink();
   return { title: 'Connections', top: true, scope: 'How Mantel reaches Home Assistant and Music Assistant. Each connection is tested before it is saved. Tokens are kept sealed in Mantel’s data, never shown again and never leave the server; a change applies at once.', body(c) {
     result(c, 'connections');
     const pid = new URLSearchParams(location.search).get('connection');
@@ -864,6 +897,8 @@ function pConnections(sub) {
     if (cs.ma && cs.ma.state === 'set') rows.push(nav('Music Assistant Page', 'connections/ma-page', { icon: 'mdi:music-box-multiple', sub: 'Signs HK’s Browse Music page in to Music Assistant' }));
     c.appendChild(group({ footer: !can ? 'Only an Owner can change connections.' : got.data.needs_fresh ? 'From outside the home network you will be asked to confirm it is you first.' : null }, rows));
     drawWallTablets(c);
+    if (['owner', 'admin'].includes(me.user.role)) c.appendChild(group({ footer: 'Mantel Link is Home Assistant’s side of Mantel: Mantel’s wall tablets and actions in Home Assistant.' },
+      [nav('Home Assistant Link', 'connections/link', { icon: 'mdi:link-variant' })]));
     if (['owner', 'admin'].includes(me.user.role)) c.appendChild(group({ footer: 'How browsers reach Mantel: Mantel’s Caddy, your own reverse proxy, the Home Assistant App or a Cloudflare tunnel.' },
       [nav('HTTPS and Your Proxy', 'connections/proxy', { icon: 'mdi:lock' })]));
   } };
@@ -1188,6 +1223,98 @@ function drawHaDashboard(c, ctx) {
 }
 
 // HTTPS and the reverse proxy (proxy_check.py): Owner and Admin read; Owner runs the test, rotates the key
+// HOME ASSISTANT LINK (docs/phase9/MANTEL-LINK.md): which integration in Home Assistant is linked (Mantel Link, or
+// HK Frontend while a house moves), who holds the bridge (who shows Mantel's entities in Home Assistant: an
+// Owner hands it to Mantel Link, or gives it back, audited), and who owns each wall tablet. GET/PUT
+// /api/linked/owners; the server says whether Home Assistant's side can take the bridge, in words.
+const LINK_NAME = { mantel: 'Mantel Link', hk_frontend: 'HK Frontend' };
+function linkSays(l) {
+  const hk = (l.report || {}).hk_frontend;
+  const bits = ['Protocol ' + l.protocol, l.since ? 'since ' + fmt(l.since) : null];
+  if (l.domain === 'mantel' && hk) bits.push(hk.installed ? 'HK Frontend is also in Home Assistant' + (hk.linked ? ', linked' : ', not linked') : 'No HK Frontend');
+  if (l.domain === 'hk_frontend') bits.push((l.features || []).includes('bridge') ? 'can hand over' : 'update it to hand over');
+  return bits.filter(Boolean).join(' · ');
+}
+function pLink() {
+  return { title: 'Home Assistant Link', back: ['Connections', '#/' + ROUTE + '/connections'], body(c) {
+    result(c, 'link');
+    const got = load('link', () => api('GET', '/api/linked/owners'));
+    if (!got) { pending(c); return; }
+    if (got.err) { failed(c, got.err); return; }
+    const d = got.data, owner = me.user.role === 'owner';
+    const links = d.links || [];
+    c.appendChild(group({ header: 'Linked Now', footer: links.length ? null : 'Nothing in Home Assistant is linked to Mantel. Add Mantel Link in Home Assistant: Settings, Devices & Services, Add Integration, Mantel Link.' },
+      links.map((l) => info(LINK_NAME[l.domain] || l.domain, linkSays(l), 'Connected'))));
+    if (owner) drawLinkPairing(c);
+    const holder = (d.bridge && d.bridge.holder) || 'hk_frontend', b = d.bridge || {};
+    // a Home Assistant without HK Frontend has no one else: Mantel Link shows them whoever holds the bridge
+    const ml = links.find((l) => l.domain === 'mantel'), hkThere = ml && ((ml.report || {}).hk_frontend || {}).installed;
+    const alone = holder !== 'mantel' && ml && hkThere === false && !links.some((l) => l.domain === 'hk_frontend');
+    const rows = [info('Shown By', alone ? 'Home Assistant has no HK Frontend' : b.changed ? 'since ' + fmt(b.changed) : null,
+                       alone ? 'Mantel Link' : LINK_NAME[holder])];
+    if (owner && holder !== 'mantel') rows.push(button('Hand the Bridge to Mantel Link…', async () => {
+      if (!(await ask({ title: 'Hand the bridge to Mantel Link?', message: 'Mantel Link then shows Mantel’s wall tablets and the house in Home Assistant, under the same entity ids, with their history. HK Frontend lets go of them first. You can give it back.', ok: 'Hand Over' }))) return;
+      await act('link', () => api('PUT', '/api/linked/owners', { unit: 'bridge', owner: 'mantel' }), 'Mantel Link holds the bridge.', 'link');
+      setTimeout(() => { forget('link'); redraw(); }, 4000);   // the links reconnect after their reload
+    }, { fk: 'mx:bridge-mantel' }));
+    if (owner && holder === 'mantel') rows.push(button('Give the Bridge Back to HK Frontend…', async () => {
+      if (!(await ask({ title: 'Give the bridge back to HK Frontend?', message: 'HK Frontend then shows Mantel’s entities in Home Assistant again, under the same entity ids. HK Frontend must be linked to Mantel with its last release.', ok: 'Give Back', destructive: true }))) return;
+      await act('link', () => api('PUT', '/api/linked/owners', { unit: 'bridge', owner: 'hk_frontend' }), 'HK Frontend holds the bridge.', 'link');
+      setTimeout(() => { forget('link'); redraw(); }, 4000);   // the links reconnect after their reload
+    }, { destructive: true, fk: 'mx:bridge-hk' }));
+    c.appendChild(group({ header: 'The Bridge', footer: 'One integration in Home Assistant shows Mantel’s entities: HK Frontend while a house moves, then Mantel Link. ' + (owner ? 'Each change is in the Audit Log.' : 'Only an Owner can change it.') }, rows));
+    const units = [d.house].concat(d.tablets || []).filter(Boolean);
+    c.appendChild(group({ header: 'Who Runs Each Wall Tablet', footer: 'A tablet Mantel runs has its Sleep Screen and black screen in Mantel; Home Assistant’s scripts still reach it by the same entity ids. Move the tablets first, then the rest of the house.' + (owner ? '' : ' Only an Owner can move them.') },
+      units.map((u) => {
+        const mine = u.owner === 'mantel', label = u.unit === 'house' ? 'The Rest of the House' : (u.name || u.unit);
+        if (!owner) return info(label, u.unit === 'house' ? u.name : null, mine ? 'Mantel' : 'Home Assistant');
+        return K().toggle({ label, sub: (mine ? 'Mantel' : 'Home Assistant') + (u.changed ? ' · since ' + fmt(u.changed) : ''), on: mine, fk: 'mx:owner:' + u.unit,
+          onChange: (on) => act('link', () => api('PUT', '/api/linked/owners', { unit: u.unit, owner: on ? 'mantel' : 'ha' }),
+                               label + (on ? ' is Mantel’s.' : ' is Home Assistant’s.'), 'link') });
+      })));
+  } };
+}
+
+// PAIR MANTEL LINK (linked_pairing.py): a one-time code, ten minutes, typed into Mantel Link's setup in Home
+// Assistant (by hand, or after it discovered Mantel); shown once, then only "spent" or "expired"
+let linkPairTimer = null;
+function drawLinkPairing(c) {
+  const code = shown.linkPair;
+  if (code) {
+    const left = code.expires - nowS();
+    c.appendChild(group({ header: 'Pairing Code', footer: 'Valid once, for ' + (left > 0 ? Math.ceil(left / 60) + ' min' : 'no longer: it expired') +
+      '. In Home Assistant: Settings, Devices & Services. Open Mantel (Discovered), or Add Integration, Mantel Link with this Mantel’s address, and enter the code.' },
+      [secretCell(code.code, 'link-pairing-code'), copyButton(code.code, 'Copy Code'),
+       button('Withdraw This Code', async () => { await act('link', () => api('DELETE', '/api/linked/pair')); delete shown.linkPair; redraw(); }, { destructive: true, fk: 'mx:link-withdraw' })]));
+    return;
+  }
+  c.appendChild(group({ header: 'Pair Mantel Link', footer: 'For Mantel Link in a Home Assistant that found Mantel on the network, or one you add by hand. You get a one-time code that works for ten minutes; Home Assistant trades it for its own credential (listed under Service Accounts).' }, [
+    button('Make a Pairing Code', async () => {
+      const r = await act('link', () => api('POST', '/api/linked/pair', {}));
+      if (!r) return;
+      shown.linkPair = r;
+      watchLinkPairing(r);
+      redraw();
+    }, { fk: 'mx:link-pair' })]));
+}
+function watchLinkPairing(r) {
+  clearInterval(linkPairTimer);
+  linkPairTimer = setInterval(async () => {
+    if (!shown.linkPair) { clearInterval(linkPairTimer); return; }
+    try {
+      const got = await api('GET', '/api/linked/pair');
+      if (!got.pending) {
+        clearInterval(linkPairTimer);
+        const paired = (got.paired || []).some((p) => p.at >= r.expires - got.ttl - 1);
+        delete shown.linkPair;
+        flash = { key: 'link', text: paired ? 'Mantel Link is paired. The code is spent.' : 'The code expired or was withdrawn.', err: !paired };
+        forget('link');
+        redraw();
+      }
+    } catch (e) { /* the next tick tries again */ }
+  }, 3000);
+}
+
 function pProxy() {
   return { title: 'HTTPS and Your Proxy', back: ['Connections', '#/' + ROUTE + '/connections'], body(c) {
     result(c, 'proxy');

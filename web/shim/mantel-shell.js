@@ -29,10 +29,14 @@
   // page opens inside the same frame.
   let role = '';
   const PEOPLE = ['owner', 'admin', 'adult', 'child', 'guest'];
+  // Shown inside Home Assistant (a Webpage dashboard; ha-frame.js): a row back to Home Assistant, the way out
+  // when HA's own sidebar is hidden around the screen (Mantel Link, docs/phase9/MANTEL-LINK.md 9.6).
   function hostMenu() {
-    if (PEOPLE.indexOf(role) < 0) return [];
+    const frame = global.__mantelHaFrame;
+    const out = frame ? [{ title: 'Home Assistant', icon: 'mdi:home-assistant', run: () => frame.back(), section: 'Mantel' }] : [];
+    if (PEOPLE.indexOf(role) < 0) return out;
     const base = global.__mantelBase || '';
-    return [{ title: 'Mantel Settings', icon: 'mdi:cog-outline', href: base + '/settings', section: 'Mantel' }];
+    return out.concat([{ title: 'Mantel Settings', icon: 'mdi:cog-outline', href: base + '/settings', section: 'Mantel' }]);
   }
   // Mantel's pages in the settings panel (web/shim/mantel-settings.js), once settings-page.js has them
   let settings = null;
