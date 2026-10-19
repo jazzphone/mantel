@@ -118,6 +118,17 @@ def page_policy(cfg=None, host: str | None = None, https: bool = False) -> str:
     return render(pol)
 
 
+def own_page_csp(csp: str, cfg=None, *, ingress: bool = False) -> str:
+    """A stricter page's policy (``/login``, ``/admin``: ``frame-ancestors 'none'``) with the frames it may sit
+    in: HA's own page through Ingress ('self'), and the operator's frame-ancestors (a Webpage dashboard in HA's
+    sidebar shows the direct address, and a signed-out frame lands on /login). Nothing else ever frames it."""
+    ancestors = tuple(s for s in getattr(cfg, "frame_ancestors", ()) or () if valid_source(s))
+    if "'none'" in ancestors:
+        return csp
+    allowed = (("'self'",) if ingress else ()) + tuple(a for a in ancestors if a != "'self'")
+    return csp.replace("frame-ancestors 'none'", "frame-ancestors " + " ".join(allowed)) if allowed else csp
+
+
 def ma_policy(cfg=None) -> str:
     pol = dict(MA_POLICY)
     ancestors = tuple(s for s in getattr(cfg, "frame_ancestors", ()) or () if valid_source(s) and s != "'none'")

@@ -48,6 +48,7 @@ options:
   public_url: ""
   trusted_proxies: ""
   ha_sign_in_url: ""
+  ha_frame_origins: ""
   cloudflare_token: ""
   acme_email: ""
   acme_staging: false
@@ -63,6 +64,7 @@ schema:
   public_url: "str?"
   trusted_proxies: "str?"
   ha_sign_in_url: "str?"
+  ha_frame_origins: "str?"
   cloudflare_token: "password?"
   acme_email: "str?"
   acme_staging: bool

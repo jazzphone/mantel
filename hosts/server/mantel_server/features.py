@@ -80,6 +80,7 @@ from hk_core import clean_areas as CA
 from hk_core import live_tv_guide as TV
 from hk_core.energy import plan as EP
 from hk_core.energy.const import CONF_BATTERIES, CONF_DEVICES, CONF_EXTRA, CONF_TOP, CONF_TOTAL, CONF_USAGES
+from hk_core.energy.power import BUILT_IN_ART
 from hk_core.house import State
 from hk_core.notifications import accessories as NA
 from hk_core.notifications import banner as NB
@@ -1162,6 +1163,7 @@ class FeatureHost:
         self.energy_error: str | None = None
         self._helper_sources: dict[str, str] = {}      # the last good hk_energy/sources answer
         self._helper_sources_warned = False
+        self._art_warned: set[str] = set()             # picture folders already said to be missing (servable_art)
         self._energy_at = float("-inf")
         self._client_sent: tuple | None = None
         # hk_clean_areas/subscribe: id -> [identity, on_event, last body sent]
@@ -1642,7 +1644,30 @@ class FeatureHost:
     # -- reads ---------------------------------------------------------------------------------------
     async def energy_plan(self) -> dict[str, Any]:
         _prefs, opts, ctx = await self.energy_inputs()
-        return EP.build(ctx, opts)
+        return self.servable_art(EP.build(ctx, opts))
+
+    def servable_art(self, plan: dict[str, Any]) -> dict[str, Any]:
+        """THE POWER PAGE'S PICTURE, one Mantel can draw (2026-10-19: the house's Power page had no house).
+        The feature's Picture folder (``art``) may be a folder of one's own in HK's Your files inside HA
+        (/hk/art/power-v2/, from before HK shipped its house): HA serves it, Mantel does not (its Your files
+        carry fonts, glyphs and images, never an art.json), so the page asked /hk/.../art.json, got 404 and
+        drew nothing. A folder whose art.json Mantel's /hk/ does not serve becomes the house that ships."""
+        power = plan.get("power") if isinstance(plan, dict) else None
+        art = power.get("art") if isinstance(power, dict) else None
+        if not isinstance(art, str) or art == BUILT_IN_ART:
+            return plan
+        from .server import hk_path
+        rel = art[len("/hk/"):].strip("/") + "/art.json" if art.startswith("/hk/") else ""
+        try:
+            served = bool(rel) and hk_path(self.app, rel) is not None
+        except Exception:  # noqa: BLE001 -- an app without the /hk/ route's parts: nothing to look in
+            served = False
+        if served:
+            return plan
+        if art not in self._art_warned:
+            self._art_warned.add(art)
+            log.info("the Power page's picture folder %s is not one Mantel serves; drawing the house that ships", art[:120])
+        return {**plan, "power": {**power, "art": BUILT_IN_ART}}
 
     async def energy_inputs(self) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
         """(HA's Energy settings, the feature's options, what the plan is worked out from)."""
