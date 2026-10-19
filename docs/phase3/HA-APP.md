@@ -856,6 +856,15 @@ Validation 130 JS, 724 HA Python, 2,627 Mantel, smoke ok.
       at `hasslocal`, the App option `ha_frame_origins` needs `https://hasslocal.example.com` (only `hassiot`,
       the sign-in address, is allowed now); the HTTPS page says so.
 
+### 0.1.26 (2026-10-19)
+
+The Kitchen screen added to HA (Show in Home Assistant) was a white page: HA was open at `hasslocal`, and only
+`ha_sign_in_url`'s `hassiot` might frame Mantel (console: "Framing … violates … frame-ancestors"). Avery: nothing may be
+specific to one setup. Now (`frame_origins.py`) the allowed addresses are HA's own internal and external URL (read from
+HA), the operator's (`ha_sign_in_url`, `ha_frame_origins`), and the ones an Owner allows in Mantel Settings →
+Connections → HTTPS and Your Proxy → Home Assistant's Frame (Allow / Remove, audited, no restart), or by turning on
+Show in Home Assistant while HA is open at that address.
+
 ### Removal
 
 Stop and uninstall **Mantel** (Settings → Apps → Mantel → Uninstall); this removes its image and `/data`
