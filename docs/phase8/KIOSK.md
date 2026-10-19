@@ -1,6 +1,6 @@
 # Wall-tablet kiosk apps, direct: Kiosk Satellite and Fully Kiosk (design, 2026-10-19)
 
-**Status: a proposal for Avery, not built.** Branch `kiosk-direct`. The only code is a prototype of the Fully Kiosk
+**Status: design agreed with Avery (his answers, 2026-10-19, are in section 10); not built.** Branch `kiosk-direct`. The only code is a prototype of the Fully Kiosk
 client, `hosts/server/mantel_server/connectors/fully.py`, tested against a fake Fully (`tests/fully_fakes.py`,
 `tests/test_fully.py`, 55 tests). It is not wired into the server. Nothing was sent to a tablet and nothing was run
 on the house.
@@ -10,14 +10,16 @@ talks to the tablets itself instead of through Home Assistant.
 
 ## 1. Recommendation, in short
 
-1. **Kiosk Satellite first.** The house's tablets run it, it is the only app Sleep Screen drives, and its
+1. **Kiosk Satellite first.** All five of the house's tablets run it, it is the only app Sleep Screen drives, and its
    remote API is a better fit than Fully's. It has a REST and WebSocket API on the tablet at `:2324`. Mantel
    trades the admin password once for a long-lived token, so no password is kept. Its WebSocket pushes the
    screen and screensaver state, so there is nothing to poll.
-2. **Fully next, on the same plumbing.** Fully's API is plain GET with the password in the query string, and its
-   state has to be polled. The client is prototyped here.
-3. **One entry per HK tablet, under Connections → Wall Tablets.** Each entry has the tablet's app, its address and
-   its secret. The secret is sealed like the Music Assistant token, tested before saving, never shown again and
+2. **Fully later, on the same plumbing, and only if needed.** Fully's API is plain GET with the password in the
+   query string, its state has to be polled, and it needs a **Fully PLUS** licence, which the house does not have.
+   The client is prototyped here.
+3. **One entry per HK tablet. It is set up on the tablet's own page (Mantel Settings → Wall Tablets → the
+   tablet → Direct Connection), and Connections → Wall Tablets lists every tablet's entry.** Each entry has the
+   tablet's app, its address and its secret. The secret is sealed like the Music Assistant token, tested before saving, never shown again and
    never logged. Saving a connection gives Mantel **status only**. Commands are a second, separate switch on the
    tablet: "Mantel sends commands itself".
 4. **Commands go through the command gateway as a new audit kind, `tablet`.** They are checked against roles,
@@ -94,8 +96,17 @@ In Mantel, `features.set_black` does the same for Mantel's screens, and linked m
 
 ## 3. Connections: one entry per tablet
 
-Mantel Settings → Connections gets a **Wall Tablets** group with one row per **HK tablet**: the tablet id from HK's
-settings, which the Sleep engine, `tablet_items` and `?hk_tablet=` already use. Each row also names the Mantel
+**Where the password goes (Avery: "either on the Wall Tablet screens or in the Connection screen").** It goes in
+both places, as one entry:
+- **The tablet's own page in Mantel Settings** (Wall Tablets → the tablet) gets a **Direct Connection** group with
+  the address, the password field and Test & Save. That is where the tablet's app, device, room and Sleep Screen
+  already are.
+- **Connections → Wall Tablets** lists every tablet's entry with its status, and each row opens that page.
+- The group shows only when Mantel hosts the shared panel. HK Settings inside Home Assistant never shows it
+  (decision 27: HK on its own shows nothing of Mantel's).
+
+The entry is keyed by the **HK tablet**: the tablet id from HK's settings, which the Sleep engine, `tablet_items`
+and `?hk_tablet=` already use. Each row also names the Mantel
 device that matches it (by Tablet User or room, as `ingress.tablet_start` does). Keying by Mantel device instead
 would break for a tablet that comes through HA's sidebar. Merging Devices with Wall Tablets is already an open
 Phase 8 item, and this row is where that merge would land.
@@ -112,10 +123,10 @@ Each row shows:
 |---|---|---|
 | Address | `http://<ip>:2324` (port configurable on the tablet) | `http://<ip>:2323` |
 | What the Owner types | the tablet's Remote Administration password, **once** | the Remote Admin password |
-| What Mantel keeps | a token from `POST /api/login {password, ttl_days: 365}`; the password is used for that one exchange, as MA's sign-in is | the password itself (Fully has no tokens) |
+| What Mantel keeps | a token from `POST /api/login {password, ttl_days: 3650}` (ten years, Avery's choice); the password is used for that one exchange, as MA's sign-in is | the password itself (Fully has no tokens) |
 | Test before saving | `GET /api/info` with the token, then `GET /api/commands` to check that every command Mantel needs exists in this app version | `cmd=deviceInfo` (`fully.test`) |
 | Sealed as | `<data_dir>/connections/tablet-<tid>.connection`, associated data `connection:tablet:<tid>`, in encrypted backups | same |
-| Expires | the token's date is shown, and Mantel offers to re-pair a month ahead (as for MA) | never |
+| Expires | in ten years; the date is shown, and a token the tablet refuses means re-pairing | never |
 
 The rules are those of `connections.py`, pinned the same way by tests:
 - The secret is accepted from the page once and tested live.
@@ -141,7 +152,9 @@ The rules are those of `connections.py`, pinned the same way by tests:
   bridge network, and multicast does not cross it. Turning on `host_network` for this would also change what
   Ingress and the port rules rely on, so it is not proposed.
 - **Mantel fills in the address from what it already knows:**
-  - Kiosk Satellite's own `sensor.<kiosk>_ipv4_address`, already in Mantel's state copy while HA is connected;
+  - Kiosk Satellite's own `sensor.<kiosk>_ipv4_address`, already in Mantel's state copy while HA is connected.
+    All five house tablets report one (`sensor.{kitchen,living_room,loft,master_bathroom,master_bedroom}_kiosk_ipv4_address`,
+    all on `192.0.2.x`, read 2026-10-19);
   - else the matching Mantel device's last source IP, when the tablet opens Mantel at the direct address (behind
     NPM this is the real tablet only if NPM passes the client address and is trusted);
   - else the Owner types it.
@@ -223,13 +236,21 @@ The house:
 - The App is not on the host network. Its traffic leaves through Docker's NAT on the HA host, so it should reach
   the tablets' `:2324` and `:2323` directly on that network, with no UniFi rule involved.
 
-**Not verified.** Checking it means touching the house, so it waits for Avery's OK. The check is read-only:
-- Kiosk Satellite: `GET http://<tablet>:2324/api/health`, the one endpoint that needs no token, which serves only
-  hardware facts.
-- Fully: a plain `GET http://<tablet>:2323/`, which answers the login page and runs no command.
-
-Either can run from HA's Terminal App, which sits on the same bridge network, or from a Setup Check line in Mantel
-("Wall tablets: reachable"). That line would run only for tablets with a saved connection.
+**Checked 2026-10-19, with Avery's OK, read-only, against one tablet.**
+- `switch.kitchen_kiosk_remote_management` is on in HA, so the Kitchen tablet's API is running.
+- `GET http://192.0.2.168:2324/api/health`, the one endpoint that needs no token and serves only hardware
+  facts, answered **HTTP 200 in 0.04 s**: "Kitchen Kiosk", a Google Pixel Tablet on Android 17, Kiosk Satellite
+  **2026.10.6**, on Wi-Fi, over plain HTTP. It reported the screen on and brightness 0.0 (a 0–1 fraction here),
+  which looks like HK's black was up.
+- **That request came from Avery's Mac on `192.168.2.x`, through the router**, not from the App. So it shows that
+  the tablet's API answers and that the house's firewall lets the Mac's network reach the tablets. It does not yet
+  show the App's own path.
+- **Still to check: the App's own path** (the HA host's NAT onto its own `192.0.2.x` network, so it should be
+  the easier path). Run the same read-only GET from HA's Terminal App, which sits on the same bridge network, or
+  build it into slice 1 as a Setup Check line ("Wall tablets: reachable"), run only for tablets with a saved
+  connection.
+- For Fully, the same check would be a plain `GET http://<tablet>:2323/`, which answers the login page and runs no
+  command.
 
 **LXC or compose installs on the planned DMZ VLAN (PLAN §7)** need `Mantel → tablets :2324/:2323` added to the
 egress allow-list. That is the only firewall change.
@@ -276,15 +297,17 @@ egress allow-list. That is the only firewall change.
 Each slice ships behind its own switch. Every one is tested against fake tablets, and on a real tablet only with
 Avery there.
 
-## 10. For Avery to decide
+## 10. Avery's answers (2026-10-19)
 
-1. Which tablets run which app? Is any on Fully, and does it have a PLUS licence?
-2. The plan as proposed: Kiosk Satellite first, one entry per HK tablet under Connections → Wall Tablets, and the
-   separate "Mantel sends commands itself" switch.
-3. May the read-only reach check (section 7) run against one tablet from the App?
-4. Kiosk Satellite's token lifetime: 365 days with a re-pair reminder, or the 10-year maximum?
-5. Turning on Remote Administration (with a password) on each Kiosk Satellite tablet is a tablet setting, so it is
-   Avery's to do.
+1. **Every tablet runs Kiosk Satellite.** Fully would need the PLUS licence. So Kiosk Satellite is the build, and
+   Fully stays a prototype until a Fully tablet appears.
+2. **The password can go "either on the Wall Tablet screens or in the Connection screen", and the plan makes
+   sense.** It goes on the tablet's page, and Connections lists every tablet's entry (section 3).
+3. **The read-only reach check: yes.** It was done against the Kitchen tablet (section 7). The App's own path is
+   still to check.
+4. **Kiosk Satellite's token: ten years** (`ttl_days: 3650`).
+5. Remote Administration is already on, at least on the Kitchen tablet. Its password is Avery's, typed once on the
+   tablet's page when slice 1 is built.
 
 ## Prototype: `connectors/fully.py`
 
