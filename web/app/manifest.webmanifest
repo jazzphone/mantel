@@ -1,0 +1,20 @@
+{
+  "name": "Mantel",
+  "short_name": "Mantel",
+  "description": "Your home's screens: rooms, music, cameras and more.",
+  "id": "/home",
+  "start_url": "/home?source=homescreen",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#05070e",
+  "theme_color": "#05070e",
+  "icons": [
+    {"src": "/app/icons/mantel-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any"},
+    {"src": "/app/icons/mantel-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any"},
+    {"src": "/app/icons/mantel-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"}
+  ],
+  "shortcuts": [
+    {"name": "Mantel Settings", "url": "/settings", "icons": [{"src": "/app/icons/mantel-192.png", "sizes": "192x192"}]}
+  ]
+}

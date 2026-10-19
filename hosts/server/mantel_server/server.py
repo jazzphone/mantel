@@ -34,6 +34,7 @@ from . import accounts, alarm_pin, auth, connect_pairing, devices, gateway, heal
 from . import (admin_page, atrest, backup, connections, features, linked, linked_house, linked_owners, login_page,
                service_accounts, talk_relay, user_files)
 from . import default_screens, direct, direct_tls, ha_dashboards, ma_page, media_proxy, proxy_check, proxy_trust, security_headers, tablet_links, user_data
+from . import app_shell
 from .authz import Authz, Principal, resolve_door
 from .config import Config
 from .connectors import REFUSE_ALL, Ctx, Hooks
@@ -630,6 +631,7 @@ def wire(app: web.Application, hub: Hub, token: str, connect_ha: bool) -> None:
     ma_page.register(app, hub)       # the token for the Music Assistant page (Connections; signs the /ma/ frame in)
     media_proxy.register(app, hub)
     proxy_check.register(app, hub)
+    app_shell.register(app, hub)     # phase 10: the web app on a Home Screen, push, and the iPhone/iPad/Mac apps
     if cfg.commands_enabled:
         log.warning("COMMANDS ARE ENABLED on this server: signed-in users may control Home Assistant within "
                     "their roles (an audit row for every command; the Alarm PIN for the alarm)")

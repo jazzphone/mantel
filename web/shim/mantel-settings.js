@@ -333,12 +333,51 @@ function pMe(sub) {
         : 'Devices can only be enrolled on the home network.' }, [me.door === 'lan' ? nav('Make This Browser a Wall Tablet…', 'me/enroll', { icon: 'mdi:tablet' })
         : info('Make This Browser a Wall Tablet', null, 'Home Network Only')]));
     }
+    drawNotifications(c);
     drawPasskeys(c);
     drawTotp(c);
     c.appendChild(group({ footer: 'Optional, and not used for now: the only PIN is the house Alarm PIN, for the alarm.' }, [nav('My PIN', 'me/pin')]));
     // through Home Assistant's Ingress Home Assistant holds the sign-in: nothing to sign out of here
     if (!BASE) c.appendChild(group({ footer: 'Ends this browser’s session.' }, [button('Sign Out', signOut, { destructive: true, center: true, fk: 'mx:signout' })]));
   } };
+}
+// NOTIFICATIONS (push.py; docs/phase10/APPLE-APPS.md slice 10.0): this browser's Web Push, and every device that gets
+// this person's notifications. On an iPhone or iPad only the web app on the Home Screen can (iOS 16.4+).
+function drawNotifications(c) {
+  if (BASE) {
+    c.appendChild(group({ header: 'Notifications', footer: 'Inside Home Assistant, its Companion app delivers notifications. Open Mantel at its own address to get them from Mantel.' }, []));
+    return;
+  }
+  const here = load('pushhere', async () => {
+    const m = await import(mantelUrl('/web/app/push.js'));
+    const sub = await m.current();
+    return { m, on: !!sub, endpoint: sub ? sub.endpoint : null, supported: m.supported(), homeScreen: m.appleMobile() && !m.standalone() };
+  });
+  const ts = load('pushtargets', () => api('GET', '/api/push/targets'));
+  if (!here || !ts) { pending(c); return; }
+  if (ts.err) { failed(c, ts.err); return; }
+  const rows = [];
+  if (here.err) rows.push(info('This Browser', null, 'Unavailable'));
+  else if (!here.data.supported) rows.push(info('This Browser', here.data.homeScreen ? 'Add Mantel to your Home Screen (Share → Add to Home Screen), then open it from there.' : 'This browser cannot receive notifications.', 'Off'));
+  else {
+    const d = here.data;
+    rows.push(K().toggle({ label: 'Notifications Here', on: d.on, fk: 'mx:push-here',
+      onChange: (on) => act('me', () => (on ? d.m.enable(api, shortUA(navigator.userAgent)) : d.m.disable(api)),
+                            on ? 'Notifications turned on here.' : 'Notifications turned off here.', 'pushhere', 'pushtargets') }));
+  }
+  const list = ts.data.targets;
+  for (const t of list) {
+    rows.push(info(t.name || (t.kind === 'apns' ? 'Mantel App' : 'A Browser'), (t.kind === 'apns' ? 'App' : 'Web') + ' · ' + (t.service || '') + ' · last sent ' + ago(t.last_ok)));
+  }
+  const acts = list.length ? [button('Send a Test Notification', () => act('me', () => api('POST', '/api/push/test', {}), 'Test sent.'), { fk: 'mx:push-test' })] : [];
+  for (const t of list) {
+    acts.push(button('Stop Sending to ' + (t.name || 'This Device') + '…', async () => {
+      if (!(await ask({ title: 'Stop notifications there?', message: 'That device will no longer get Mantel’s notifications.', ok: 'Stop', destructive: true }))) return;
+      await act('me', () => api('DELETE', '/api/push/targets/' + encodeURIComponent(t.id)), 'Removed.', 'pushtargets', 'pushhere');
+    }, { destructive: true, fk: 'mx:push-del:' + t.id }));
+  }
+  c.appendChild(group({ header: 'Notifications', footer: 'The house’s notifications on your phone or computer, as well as on the screens. Only what you may see.' }, rows));
+  if (acts.length) c.appendChild(group({}, acts));
 }
 function drawPasskeys(c) {
   const pk = load('passkeys', () => api('GET', '/api/auth/passkeys'));
