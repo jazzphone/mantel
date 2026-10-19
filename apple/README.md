@@ -43,7 +43,7 @@ A sealed test notification, after the app has registered for notifications:
 ```
 
 ```bash
-xcrun simctl push booted app.mantel.ios /tmp/mantel-app-dev/push.apns
+xcrun simctl push booted com.jazzphone.mantel.ios /tmp/mantel-app-dev/push.apns
 ```
 
 `simctl push` never starts a Notification Service Extension, so in the Simulator the app opens the sealed
@@ -66,6 +66,17 @@ The Mac app: `xcodebuild -project apple/Mantel.xcodeproj -scheme MantelMac -dest
 
 Not exercised: placing the widgets and Control Center controls by hand, Siri phrases, the QR camera (the Simulator
 has none: paste the link), Face ID itself (the Simulator without Face ID enrolled skips the lock; never its passcode).
+
+## The developer account (set up 2026-10-19)
+
+Team `TEAMID0000` and the prefix `com.jazzphone.mantel` (Avery's choice) are in `make_project.py`. The APNs key
+(Key ID `KEYID00000`, Sandbox & Production) is `~/.config/mantel/secrets/apns_key.p8` with `apns.json` beside it
+(both 0600; the house needs its own copy when Mantel sends from there). A device build needs at least one iPhone
+registered to the team first: connect it to this Mac once (or add its UDID on developer.apple.com), then
+
+```bash
+xcodebuild -project apple/Mantel.xcodeproj -scheme Mantel -destination 'generic/platform=iOS' -derivedDataPath /tmp/mantel-dd-device -allowProvisioningUpdates build
+```
 
 ## What needs the Apple Developer account (M10-6)
 

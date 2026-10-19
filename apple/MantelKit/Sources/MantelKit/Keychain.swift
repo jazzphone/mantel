@@ -65,8 +65,8 @@ public struct Keychain: Sendable {
 
 /// Names shared by the app and its extensions (the App Group and the Keychain group).
 public enum MantelConfig {
-    public static let appGroup = "group.app.mantel"
-    /// Set from the app's Info.plist ("MantelKeychainGroup": $(AppIdentifierPrefix)app.mantel.shared); nil uses the
+    public static let appGroup = "group.com.jazzphone.mantel"
+    /// Set from the app's Info.plist ("MantelKeychainGroup": $(AppIdentifierPrefix)com.jazzphone.mantel.shared); nil uses the
     /// app's default group.
     public static var keychainGroup: String? {
         Bundle.main.object(forInfoDictionaryKey: "MantelKeychainGroup") as? String

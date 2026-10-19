@@ -9,6 +9,6 @@
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>Mantel looks for your home's Mantel on this network.</string>
 	<key>MantelKeychainGroup</key>
-	<string>$(AppIdentifierPrefix)app.mantel.shared</string>
+	<string>$(AppIdentifierPrefix)com.jazzphone.mantel.shared</string>
 </dict>
 </plist>

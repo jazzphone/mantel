@@ -10,7 +10,7 @@ Run: ~/.venvs/mantel/bin/python tools/app_dev_server.py --data-dir /tmp/mantel-a
 * Signs in nobody by itself: it creates the fictional Owner "ann" (password printed once) and prints a pairing
   link to open in the Simulator (``xcrun simctl openurl booted '<link>'``), which signs the app in as ann.
 * ``--push "Title|Body"`` (with the server stopped or running) writes a sealed notification for the app's
-  registered notification key to <data-dir>/push.apns, for ``xcrun simctl push booted app.mantel.ios <file>``.
+  registered notification key to <data-dir>/push.apns, for ``xcrun simctl push booted com.jazzphone.mantel.ios <file>``.
 """
 from __future__ import annotations
 
@@ -163,7 +163,7 @@ def make_push(data: Path, text: str) -> Path:
     msg = push.Message(title=title, body=body, tag="sim", important=True, entity="lock.front_door", url="/home")
     payload = apns.build_payload(msg, push.app_crypto.unb64u(row["p256dh"]))
     out = data / "push.apns"
-    out.write_text(json.dumps({"Simulator Target Bundle": "app.mantel.ios", **payload}, indent=2))
+    out.write_text(json.dumps({"Simulator Target Bundle": "com.jazzphone.mantel.ios", **payload}, indent=2))
     print("wrote", out)
     return out
 

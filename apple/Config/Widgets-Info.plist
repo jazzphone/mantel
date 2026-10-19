@@ -8,6 +8,6 @@
 		<string>com.apple.widgetkit-extension</string>
 	</dict>
 	<key>MantelKeychainGroup</key>
-	<string>$(AppIdentifierPrefix)app.mantel.shared</string>
+	<string>$(AppIdentifierPrefix)com.jazzphone.mantel.shared</string>
 </dict>
 </plist>
