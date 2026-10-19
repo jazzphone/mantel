@@ -44,9 +44,14 @@ def _cfg(request: web.Request):
 
 
 def is_trusted(request: web.Request) -> bool:
-    """The socket peer is one of the configured ``--trusted-proxy`` addresses (exact match)."""
-    trusted = tuple(getattr(_cfg(request), "trusted_proxies", ()) or ())
-    return request.remote is not None and request.remote in trusted
+    """The socket peer is one of the configured ``--trusted-proxy`` addresses (exact match). In the HA App
+    with direct access (direct.py) only on the direct listener: the Ingress port has no proxy of the home's."""
+    cfg = _cfg(request)
+    trusted = tuple(getattr(cfg, "trusted_proxies", ()) or ())
+    if request.remote is None or request.remote not in trusted:
+        return False
+    from . import direct
+    return not direct.enabled(cfg) or direct.is_direct(request)
 
 
 def _is_loopback(peer: str | None) -> bool:

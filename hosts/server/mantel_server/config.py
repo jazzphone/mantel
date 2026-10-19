@@ -93,6 +93,27 @@ class Config:
     # Assistant's own Live TV stays the interim). `live_tv_hardware`: "vaapi" uses the QuickSync templates.
     go2rtc_url: str = ""
     live_tv_hardware: str = ""
+    # HA App direct access (decision 26, direct.py; docs/phase3/HA-APP.md "Direct access"): a second listener
+    # on `direct_port` (0 = off) for devices at home that go to Mantel's own address instead of HA's sidebar.
+    # Requests on it are never Ingress (no X-Remote-User-* is believed there, whoever the peer is), pass the
+    # Ingress-only gate, and must name one of `direct_hosts` (the public URL's host, plus --direct-host).
+    # `direct_tls` "": plain HTTP for the home's own proxy (trusted_proxies + the door key); "acme": Mantel
+    # serves HTTPS there itself with a Let's Encrypt certificate (DNS-01 through Cloudflare, direct_tls.py).
+    direct_port: int = 0
+    direct_tls: str = ""
+    direct_hosts: tuple[str, ...] = ()
+    acme_directory: str = ""                               # default: Let's Encrypt (direct_tls.LETSENCRYPT)
+    acme_email: str = ""
+    acme_dns_token_file: Path | None = None                # the Cloudflare DNS token (a file, never an argument)
+    # "Sign in with Home Assistant" where ha_url is not an address a browser can use (the App's is
+    # http://supervisor/core): the browser goes to `ha_browser_url`; Mantel's own calls go to `ha_oauth_url`
+    ha_browser_url: str = ""
+    ha_oauth_url: str = ""
+
+    @property
+    def tls_dir(self) -> Path:
+        """Built-in HTTPS: the ACME account key, the certificate and its key (0700 folder, 0600 files)."""
+        return Path(self.data_dir).expanduser() / "tls"
 
     @property
     def ws_url(self) -> str:
@@ -223,6 +244,25 @@ def parse_args(argv: list[str] | None = None) -> Config:
                         "served to pages under /go2rtc/ (media_proxy.py)")
     p.add_argument("--live-tv-hardware", choices=("none", "vaapi"), default="none",
                    help="Live TV's transcode: vaapi = QuickSync (needs /dev/dri in go2rtc: compose.gpu.yaml)")
+    p.add_argument("--direct-port", type=int, default=0, metavar="PORT",
+                   help="HA App mode: also listen on this port for Mantel's own address (direct access; requests "
+                        "there are never Ingress and pass --ingress-only). 0 = off")
+    p.add_argument("--direct-tls", choices=("none", "acme"), default="none",
+                   help="direct access: none = plain HTTP behind your own proxy; acme = Mantel serves HTTPS itself "
+                        "with a Let's Encrypt certificate (DNS-01 through Cloudflare)")
+    p.add_argument("--direct-host", action="append", default=[], metavar="NAME",
+                   help="direct access: another Host name accepted there besides --public-url's (repeatable)")
+    p.add_argument("--acme-directory", default="", metavar="URL",
+                   help="built-in HTTPS: the ACME directory (default Let's Encrypt; its staging one for trials)")
+    p.add_argument("--acme-email", default="", metavar="ADDRESS", help="built-in HTTPS: the ACME account's contact")
+    p.add_argument("--acme-dns-token-file", default=None, metavar="FILE",
+                   help="built-in HTTPS: a file holding the Cloudflare API token (Zone / DNS / Edit, one zone)")
+    p.add_argument("--ha-browser-url", default="", metavar="URL",
+                   help="'Sign in with Home Assistant': HA's address as browsers know it, when --ha-url is not one "
+                        "(HA App: http://supervisor/core)")
+    p.add_argument("--ha-oauth-url", default="", metavar="URL",
+                   help="'Sign in with Home Assistant': where Mantel itself exchanges the code (HA App: "
+                        "http://homeassistant:8123). Default: --ha-url")
     a = p.parse_args(argv)
     g2 = urlparse(a.go2rtc_url) if a.go2rtc_url else None
     if g2 is not None and (g2.scheme not in ("http", "https") or not g2.hostname or g2.path not in ("", "/")
@@ -235,6 +275,23 @@ def parse_args(argv: list[str] | None = None) -> Config:
                 "be combined with --connect (the Connect listener is the only other way in)")
     if (a.ingress_peer or a.ingress_only or a.ha_core_peer) and not a.ingress:
         p.error("--ingress-peer / --ingress-only / --ha-core-peer only apply together with --ingress")
+    if a.direct_port:
+        if not a.ingress or a.connect:
+            p.error("--direct-port is the HA App's direct access: it needs --ingress (and not --connect)")
+        if not 1 <= a.direct_port <= 65535 or a.direct_port == a.port:
+            p.error("--direct-port must be a TCP port other than --port")
+        if urlparse(a.public_url).scheme != "https" or not urlparse(a.public_url).hostname:
+            p.error("--direct-port needs --public-url https://<Mantel's own name>/ (what browsers type)")
+        if a.direct_tls == "acme" and not a.acme_dns_token_file:
+            p.error("--direct-tls acme needs --acme-dns-token-file (the Cloudflare DNS token)")
+    elif a.direct_tls != "none" or a.direct_host:
+        p.error("--direct-tls / --direct-host only apply together with --direct-port")
+    for flag, value in (("--ha-browser-url", a.ha_browser_url), ("--ha-oauth-url", a.ha_oauth_url),
+                        ("--acme-directory", a.acme_directory)):
+        u = urlparse(value) if value else None
+        if u is not None and (u.scheme not in ("http", "https") or not u.hostname or u.query or u.username
+                              or u.password or (flag != "--acme-directory" and u.path not in ("", "/"))):
+            p.error(f"{flag} must be an http(s):// address" + (" with no path" if flag != "--acme-directory" else ""))
     peers, core_peers = [], []
     for raw in a.ingress_peer:
         try:
@@ -309,6 +366,18 @@ def parse_args(argv: list[str] | None = None) -> Config:
                  ha_core_peers=tuple(core_peers),
                  ha_managed_by_app=bool(a.ha_managed_by_app),
                  log_level=a.log_level, go2rtc_url=a.go2rtc_url.rstrip("/"),
-                 live_tv_hardware="" if a.live_tv_hardware == "none" else a.live_tv_hardware)
+                 live_tv_hardware="" if a.live_tv_hardware == "none" else a.live_tv_hardware,
+                 direct_port=a.direct_port, direct_tls="" if a.direct_tls == "none" else a.direct_tls,
+                 direct_hosts=_direct_hosts(a) if a.direct_port else (),
+                 acme_directory=a.acme_directory, acme_email=a.acme_email.strip(),
+                 acme_dns_token_file=Path(a.acme_dns_token_file) if a.acme_dns_token_file else None,
+                 ha_browser_url=a.ha_browser_url.rstrip("/"), ha_oauth_url=a.ha_oauth_url.rstrip("/"))
     assert cfg.host in LOOPBACK or cfg.public_url, "Mantel listens beyond loopback only in container mode"
     return cfg
+
+
+def _direct_hosts(a) -> tuple[str, ...]:
+    """The Host names the direct listener answers: the public URL's (with and without its port), plus extras."""
+    u = urlparse(a.public_url)
+    names = [u.netloc.lower(), u.hostname.lower(), *(h.strip().lower() for h in a.direct_host if h.strip())]
+    return tuple(dict.fromkeys(names))

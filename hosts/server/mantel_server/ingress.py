@@ -111,6 +111,10 @@ def is_ingress(request: web.Request) -> bool:
     if cached is not None:
         return cached
     cfg = request.app.get("cfg")
+    from . import direct
+    if direct.is_direct(request):         # the App's direct listener (direct.py): never Ingress, whoever the peer
+        request["ingress"] = False
+        return False
     # Two ways to be the Ingress proxy: the Supervisor's socket address (HA App mode), or a paired Mantel
     # Connect App that connect_pairing.py has just authenticated by client certificate on its own listener
     # (Mantel outside HA). Nothing else, ever.
@@ -1026,6 +1030,11 @@ async def middleware(request: web.Request, handler):
     if not is_ingress(request):
         if any(h in request.headers for h in IDENTITY_HEADERS + (INGRESS_PATH,)):
             _warn_forged(request)
+        from . import direct
+        if direct.is_direct(request):
+            # the App's direct access (decision 26, direct.py): Mantel's own sign-in and doors decide; the
+            # Ingress-only gate lets exactly this listener through (HA Core's exception stays on the Ingress port)
+            return await handler(request)
         if request.path in CORE_PATHS and request.remote in tuple(getattr(cfg, "ha_core_peers", ()) or ()):
             # HA Core's linked-mode client (hk_frontend "Linked to Mantel Server"); linked.py still wants its
             # Service credential. authz.resolve_door treats this one request as the LAN door.

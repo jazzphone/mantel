@@ -283,14 +283,20 @@ MODES = {
     "ha_app": ("Home Assistant App (Ingress)", "Home Assistant terminates HTTPS and signs people in; Mantel sees only Ingress."),
     "caddy": ("Caddy (Mantel's own)", "Mantel's Caddy terminates HTTPS and stamps the door header itself."),
     "own": ("Your own reverse proxy", "Your proxy terminates HTTPS and must send the door header and this installation's door key."),
+    "builtin": ("Home Assistant App, built-in HTTPS", "On the App's direct port Mantel serves HTTPS itself with a "
+                "Let's Encrypt certificate; a home (private) address is the LAN door, any other the tunnel door."),
     "direct": ("No proxy", "Mantel listens on plain HTTP on this machine (Mantel itself does not terminate TLS): "
                            "fine on loopback, not for remote use."),
 }
 
 
-def mode_of(cfg) -> str:
+def mode_of(cfg, request: web.Request | None = None) -> str:
     if getattr(cfg, "ingress_only", False):
-        return "ha_app"
+        from . import direct
+        if request is None or not direct.is_direct(request):
+            return "ha_app"
+        # the App's direct access (direct.py), as this request reached it
+        return "builtin" if getattr(cfg, "direct_tls", "") == "acme" else "own"
     kind = getattr(cfg, "proxy_kind", "") or ""
     if kind in ("caddy", "own"):
         return kind
@@ -305,7 +311,7 @@ async def summary(request: web.Request) -> web.Response:
     if ident.user is None or ident.device is not None or ident.user.role not in ("owner", "admin"):
         raise web.HTTPForbidden(text="Owners and admins only")
     cfg = request.app.get("cfg")
-    mode = mode_of(cfg)
+    mode = mode_of(cfg, request)
     dk = door_key.of(request.app)
     need = door_key.required(cfg)
     return web.json_response({

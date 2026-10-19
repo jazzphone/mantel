@@ -33,7 +33,7 @@ from . import music
 from . import accounts, alarm_pin, auth, connect_pairing, devices, gateway, health, ingress, live_tv, pins, proof2, rbac_store, readproxy, sessions, settings_store
 from . import (admin_page, atrest, backup, connections, features, linked, linked_house, linked_owners, login_page,
                service_accounts, talk_relay, user_files)
-from . import ma_page, media_proxy, proxy_check, proxy_trust, security_headers, user_data
+from . import direct, direct_tls, ma_page, media_proxy, proxy_check, proxy_trust, security_headers, user_data
 from .authz import Authz, Principal, resolve_door
 from .config import Config
 from .connectors import REFUSE_ALL, Ctx, Hooks
@@ -232,6 +232,8 @@ async def loopback_only(request: web.Request, handler):
     hostname = request.host.rsplit(":", 1)[0] if not request.host.endswith("]") else request.host
     hub = request.app.get("hub")
     allowed = hub.cfg.host_allowed(hostname) if hub is not None else hostname in {"127.0.0.1", "localhost", "[::1]"}
+    if hub is not None and direct.is_direct(request):
+        allowed = direct.host_allowed(hub.cfg, hostname)    # the App's direct listener: Mantel's own names only
     # a paired Connect App reaches Mantel by whatever address it was given (mutual TLS is the defence
     # against rebinding there); the browser's own host rides in X-Forwarded-Host (ingress.origin_ok)
     allowed = allowed or request.get("connect_peer") is not None
@@ -260,7 +262,7 @@ async def ws_handler(request: web.Request) -> web.StreamResponse:
 
 
 async def root(request: web.Request) -> web.Response:
-    raise web.HTTPFound("/dev")
+    raise web.HTTPFound("/home" if direct.is_direct(request) else "/dev")
 
 
 async def dev_page(request: web.Request) -> web.Response:
@@ -371,7 +373,20 @@ async def mdi_file(request: web.Request) -> web.StreamResponse:
     return web.FileResponse(path, headers=NO_CACHE)
 
 
+def oauth_url(cfg: Config) -> str:
+    """Where "Sign in with Home Assistant" talks to HA. The HA App's own address for HA (the Supervisor's proxy)
+    serves no sign-in, so there it needs HA's address for browsers (direct access); without one: none."""
+    if cfg.ha_managed_by_app and not cfg.ha_browser_url:
+        return ""
+    return cfg.ha_oauth_url or cfg.ha_url
+
+
 async def home_redirect(request: web.Request) -> web.StreamResponse:
+    ident = sessions.identity(request)
+    if ident.device is not None and ident.user is None and not request.get("mantel_base"):
+        start = ingress.tablet_start(request.app, ident.device)   # an enrolled wall tablet: its own HK screen
+        if start is not None:
+            raise web.HTTPFound(start)
     raise web.HTTPFound(f"/{request.app['cfg'].default_screen}/home" + (f"?{request.query_string}" if request.query_string else ""))
 
 
@@ -432,7 +447,7 @@ def build_app(cfg: Config, token: str, store: Store | None = None, connect_ha: b
     token = conns.ha_token()
     app["ma_token_source"] = conns.ma_token
     connections.register(app, conns)
-    app["oauth"] = HaOAuth(cfg.ha_url, cfg.client_id, cfg.redirect_uri)
+    app["oauth"] = HaOAuth(oauth_url(cfg), cfg.client_id, cfg.redirect_uri, browser_url=cfg.ha_browser_url)
     app["state_secret"] = secrets.token_bytes(32)
     app["clock"] = clock
     auth.add_routes(app)
@@ -453,6 +468,7 @@ def build_app(cfg: Config, token: str, store: Store | None = None, connect_ha: b
     ingress.register(app, hub, token)                   # HA App mode / Connect (cfg.ingress); inert otherwise
     wire(app, hub, token, connect_ha)
     connect_pairing.register(app, hub)                  # Mantel Connect (cfg.connect): pairing + the mTLS listener
+    direct_tls.register(app)                            # the HA App's built-in HTTPS (cfg.direct_tls == "acme")
     app.router.add_get("/ws", ws_handler)
     app.router.add_get("/", root)
     app.router.add_get("/dev", dev_page)
