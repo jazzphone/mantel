@@ -117,3 +117,16 @@ async def test_a_tablet_opens_its_own_screen_whoever_is_signed_in(mantel):
     at_tablet = Identity(person, Device(device_id, "Loft tablet", "wall_tablet", "loft"), "lan")
     assert default_screens.start_for(m.app, at_tablet) == "/dashboard-loft/home"
     assert default_screens.start_for(m.app, Identity(person, None, "lan")) == "/dashboard-hall/home"
+
+
+async def test_a_wall_tablet_account_lands_on_enrolling_until_it_is_a_tablet(mantel):
+    """A Wall Tablet account exists only to make its tablet, and its dashboard shows no Mantel Settings: on the home
+    network /home takes it to Me → Make This Browser a Wall Tablet; once enrolled, the tablet's screen (2026-10-19)."""
+    m = mantel
+    boards(m, "dashboard-kitchen", "dashboard-loft")
+    await m.user("loft", "wall_tablet", name="Loft")
+    await m.sign_in("loft")
+    assert await home(m) == "/settings#/mantel/me/enroll"
+    r = await m.post("/api/devices/enroll", {"name": "Loft", "room": "Loft"})
+    assert r.status == 201
+    assert await home(m) != "/settings#/mantel/me/enroll"

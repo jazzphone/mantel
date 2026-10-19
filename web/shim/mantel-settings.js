@@ -501,7 +501,7 @@ function pAddPerson() {
 const devicesRead = () => load('devices', () => api('GET', '/api/devices'));
 function pDevices(sub) {
   if (sub[0] === 'enroll') return pEnroll();
-  return { title: 'Devices', top: true, scope: 'Wall tablets enrolled with Mantel: each keeps its own credential, for its room only. ' +
+  return { title: 'Devices', top: true, scope: 'Wall tablets enrolled with Mantel: each keeps its own credential, and does what its role allows (Roles & Grants). ' +
     'How each screen behaves is All Screens, Wall Tablets.', body(c) {
     result(c, 'devices');
     if (enrolled) { drawEnrolled(c); return; }
@@ -533,7 +533,13 @@ function pEnroll(back = ['Devices', '#/' + ROUTE + '/devices']) {
   return { title: 'Make This a Wall Tablet', back, body(c) {
     result(c, 'enroll');
     if (enrolled) { drawEnrolled(c); return; }
-    c.appendChild(group({ footer: 'The person is signed out of this browser at once, and it keeps its own credential, for this room only. Only on the home network.' }, [
+    const u = me.user || {};
+    if (u.role === 'wall_tablet') {               // a Wall Tablet account names its own tablet: start from its name
+      const d = draft('device');
+      if (d.name === undefined && u.name) d.name = u.name;
+      if (d.room === undefined && u.name) d.room = u.name;
+    }
+    c.appendChild(group({ footer: 'The person is signed out of this browser at once, and it keeps its own credential. What it may do is its role’s (Roles & Grants). Only on the home network.' }, [
       field('device', 'name', 'Name', { placeholder: 'Kitchen Tablet', maxlength: 64 }),
       field('device', 'room', 'Room', { placeholder: 'Kitchen (its HK tablet’s room, e.g. Master Bedroom)', maxlength: 64 }),
       choose('device', 'role', 'Role', me.device_roles.map((r) => [r, roleLabel(r)]), 'wall_tablet')]));

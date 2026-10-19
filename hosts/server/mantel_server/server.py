@@ -385,10 +385,18 @@ def oauth_url(cfg: Config) -> str:
     return cfg.ha_oauth_url or cfg.ha_url
 
 
+ENROLL_PAGE = "/settings#/mantel/me/enroll"   # mantel-settings.js: Me → Make This Browser a Wall Tablet
+
+
 async def home_redirect(request: web.Request) -> web.StreamResponse:
     """/home: the screen this person or tablet opens on (default_screens.start_for: the tablet's at a wall
     tablet, else the person's own), else the house's ``default_screen``."""
     ident = sessions.identity(request)
+    if (ident.user is not None and ident.device is None and ident.user.role == "wall_tablet"
+            and sessions.door_of(request) == "lan"):
+        # a Wall Tablet account exists only to make its tablet (devices.enroll), and sees no Mantel Settings from
+        # the dashboard: on the home network it lands on that one page (the house, 2026-10-19)
+        raise web.HTTPFound(ENROLL_PAGE)
     start = default_screens.start_for(request.app, ident) if ident.authenticated else None
     if start is not None:
         raise web.HTTPFound(start)
