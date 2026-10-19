@@ -42,7 +42,7 @@ It reads Home Assistant's token from `~/.config/mantel/ha_token` if that file ex
 | `--trusted-proxy ADDRESS` | none | A reverse proxy whose `X-Mantel-Door` and `X-Forwarded-For`/`-Proto`/`-Host` are believed (repeatable, exact IP address). With none, every request through a proxy counts as `tunnel` (fail closed: wall tablets are refused). A trusted proxy that sends no door header is `tunnel` too. HA identity headers are never believed from it. |
 | `--ma-web-url URL` | the host of `--ma-url` | Music Assistant's web app, served to pages under `/ma/` (section 2, "Music Assistant and go2rtc through Mantel"). |
 | `--go2rtc-url URL` | none | go2rtc's API; its viewing paths are served under `/go2rtc/`. |
-| `--frame-ancestors`, `--csp-connect-src`, `--csp-frame-src` | none | Extra CSP origins (repeatable). By default only Mantel's own pages may frame it. |
+| `--frame-ancestors`, `--csp-connect-src`, `--csp-frame-src` | none | Extra CSP origins (repeatable). By default only Mantel's own pages may frame it. Frame-ancestors also apply to `/login` and `/admin`, so a Home Assistant Webpage dashboard showing a screen can sign in inside the frame (phase3/HA-SIDEBAR-SCREENS.md). |
 | `--proxy-kind caddy\|own` | none | Which proxy owns TLS; tunes `/proxy-check`'s advice. |
 | `--connect` | off | Mantel Connect: a second TLS listener for the Connect App (client certificates only) and pairing. Implies Ingress identity from a **paired** App, trusting no socket address. Section 4a. |
 | `--connect-port`, `--connect-listen`, `--connect-address` | `8766`, `0.0.0.0`, none | The listener's port and address; the address `/admin` shows the Owner to type into the App. |

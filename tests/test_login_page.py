@@ -192,6 +192,9 @@ async def test_signed_out_pages_are_sent_to_login_with_next(mantel):
     assert await where("/admin") == (302, "/login?next=/admin")
     assert await where("/dashboard-kitchen/home", DOC) == (302, "/login?next=/dashboard-kitchen/home")
     assert await where("/dashboard-kitchen/lights?x=1", DOC) == (302, "/login?next=/dashboard-kitchen/lights?x%3D1")
+    # a screen in a frame (a Webpage dashboard in HA's sidebar): the sign-in page in the frame too
+    assert await where("/dashboard-loft/home", {"Sec-Fetch-Dest": "iframe", "Sec-Fetch-Mode": "navigate"}) == \
+        (302, "/login?next=/dashboard-loft/home")
     # not a page: a plain 401, never a redirect
     assert (await where("/api/me", DOC))[0] == 401
     assert (await where("/dashboard-kitchen/home", {"Accept": "*/*"}))[0] == 401
@@ -486,3 +489,31 @@ def test_module_constants_match_the_page():
     assert login_page.DEFAULT_NEXT == "/home"
     js = (LOGIN / "login.js").read_text()
     assert "export const DEFAULT_NEXT = '/home';" in js and f"NEXT_MAX = {login_page.NEXT_MAX};" in js
+
+
+@pytest.mark.skipif(NODE is None, reason="node is not installed")
+def test_js_knows_a_frame_of_another_site():
+    """A Webpage dashboard in HA's sidebar frames Mantel's address: another site's frame. HK Settings' preview
+    and Ingress frame Mantel from its own origin, and a page on its own is not framed at all."""
+    out = node_module("""
+      const own = { location: { origin: 'https://mantel.example' } };
+      own.self = own; own.top = own;
+      out.push(m.framedElsewhere(own));
+      const sameTop = { location: { origin: 'https://mantel.example' } };
+      out.push(m.framedElsewhere({ self: {}, top: sameTop, location: { origin: 'https://mantel.example' } }));
+      const foreignTop = {};
+      Object.defineProperty(foreignTop, 'location', { get() { throw new Error('SecurityError'); } });
+      out.push(m.framedElsewhere({ self: {}, top: foreignTop, location: { origin: 'https://mantel.example' } }));
+      out.push(m.framedElsewhere({ self: {}, top: { location: { origin: 'https://ha.example' } },
+                                   location: { origin: 'https://mantel.example' } }));
+      out.push(m.HA_MAIN_WINDOW);
+      const listed = (...o) => ({ location: { ancestorOrigins: o } });
+      out.push(m.topOrigin(listed('https://ha.example', 'https://mantel.example')));   // the last is the top
+      out.push(m.topOrigin(listed('https://mantel.example', 'https://ha.example:8123')));
+      out.push(m.topOrigin({ location: {} }), m.topOrigin(listed()), m.topOrigin(listed('null')),
+               m.topOrigin(listed('https://ha.example/x')));
+      out.push(m.withVia('login/ha?next=/x', 'https://ha.example:8123'), m.withVia('login/ha', 'https://h.example'));
+    """)
+    assert out == [False, False, True, True, "ha-main-window", "https://mantel.example", "https://ha.example:8123",
+                   "", "", "", "", "login/ha?next=/x&via=https%3A%2F%2Fha.example%3A8123",
+                   "login/ha?via=https%3A%2F%2Fh.example"]

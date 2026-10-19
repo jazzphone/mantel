@@ -158,6 +158,37 @@ function meta(doc, name) {
   return el ? el.getAttribute('content') || '' : '';
 }
 
+// In a frame of another site: a Webpage dashboard in Home Assistant's sidebar showing Mantel's own address.
+// Mantel's own pages framing Mantel (HK Settings' preview, Ingress) are the same origin and do not count.
+export function framedElsewhere(win) {
+  try {
+    if (win.top === win.self) return false;
+    return win.top.location.origin !== win.location.origin;   // a cross-origin top throws: elsewhere
+  } catch (e) {
+    return true;
+  }
+}
+
+// HA's sign-in page reads its query from HA's "main window": its own window when the window is named
+// 'ha-main-window', else its parent when that one is. In a Webpage dashboard the parent IS HA's main window,
+// so the page read the dashboard's address, found no redirect_uri and stopped ("Invalid redirect URI";
+// HA frontend 2026.9). Naming this frame so before it goes there makes HA read its own address. The name
+// is the frame's only; HA's page is the only reader.
+export const HA_MAIN_WINDOW = 'ha-main-window';
+
+// The page framing this one, as an origin (Chrome and Safari list it; Firefox does not: then '').
+export function topOrigin(win) {
+  const list = win.location && win.location.ancestorOrigins;
+  const top = list && list.length ? list[list.length - 1] : '';
+  return /^https?:\/\/[A-Za-z0-9.-]+(?::\d{1,5})?$/.test(top) ? top : '';
+}
+
+// login/ha?next=... plus that origin: the server uses it only when it is one of Home Assistant's own addresses
+// (its frame-ancestors), so HA's sign-in page loads from the address the dashboard is on.
+export function withVia(href, origin) {
+  return href + (href.indexOf('?') >= 0 ? '&' : '?') + 'via=' + encodeURIComponent(origin);
+}
+
 export function start(doc = globalThis.document, win = globalThis.window) {
   const $ = (id) => doc.getElementById(id);
   const base = baseFrom(meta(doc, 'mantel-base'));
@@ -171,7 +202,9 @@ export function start(doc = globalThis.document, win = globalThis.window) {
   };
   let pending = null;
   let busy = false;
-  const hasPasskeys = passkeysAvailable();
+  const elsewhere = framedElsewhere(win);
+  // HA's frame grants no WebAuthn (its iframe allows fullscreen only): a passkey can only fail there
+  const hasPasskeys = passkeysAvailable() && !elsewhere;
 
   function say(text, ok) {
     els.status.textContent = text || '';
@@ -223,6 +256,12 @@ export function start(doc = globalThis.document, win = globalThis.window) {
   if (meta(doc, 'mantel-door') === 'tunnel') els.doorNote.hidden = false;
   showPasswordStep();
   els.orHa.hidden = false;
+  const haLink = $('ha');
+  if (elsewhere && haLink) {
+    const via = topOrigin(win);
+    if (via) haLink.setAttribute('href', withVia(haLink.getAttribute('href'), via));
+    haLink.addEventListener('click', () => { win.name = HA_MAIN_WINDOW; });
+  }
 
   els.passkey.addEventListener('click', () => run(async () => {
     const r = await flow.passkey();

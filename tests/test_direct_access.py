@@ -86,6 +86,36 @@ def test_proxy_mode_publishes_the_direct_port_with_the_door_key_rules(tmp_path):
     assert cfg.ha_browser_url == ""                                     # no sign-in address: Mantel's own sign-in only
 
 
+def test_home_assistants_addresses_may_frame_the_direct_address(tmp_path):
+    """A Webpage dashboard in HA's sidebar shows a Mantel screen: HA's addresses join frame-ancestors (the sign-in
+    address always, ha_frame_origins besides), normalised to origins; nothing else may frame Mantel."""
+    from mantel_server.config import parse_args
+    base = {"access": "proxy", "public_url": PUBLIC, "trusted_proxies": "192.0.2.7"}
+    assert parse_args(_plan(tmp_path, base)[1][0]).frame_ancestors == ()
+    _, (args, _) = _plan(tmp_path, {**base, "ha_sign_in_url": "https://HA.home.example/",
+                                    "ha_frame_origins": "http://homeassistant.local:8123, https://ha.home.example,"
+                                                        " https://ha-away.example.net/"})
+    assert parse_args(args).frame_ancestors == ("https://ha.home.example", "http://homeassistant.local:8123",
+                                                "https://ha-away.example.net")
+    _, (args, _) = _plan(tmp_path, {"access": "https", "public_url": PUBLIC, "cloudflare_token": CF_TOKEN,
+                                    "ha_frame_origins": "https://ha.home.example:8443"})
+    assert parse_args(args).frame_ancestors == ("https://ha.home.example:8443",)
+    # the sidebar alone (ingress): HA's own page frames Mantel through Ingress, nothing to add
+    _, (args, _) = _plan(tmp_path, {"ha_sign_in_url": "https://ha.home.example", "ha_frame_origins": "https://x.example"})
+    assert parse_args(args).frame_ancestors == ()
+
+
+@pytest.mark.parametrize("origins", ["ha.home.example", "https://ha.home.example/lovelace", "*",
+                                     "https://*.home.example", "javascript:alert(1)", "https://user@ha.home.example",
+                                     "https://ha.home.example;script-src", "https://ha.home.example:99999",
+                                     "https://[2001:db8::1]:8123", "ftp://ha.home.example"])
+def test_bad_frame_origins_stop_the_app_with_a_reason(tmp_path, origins):
+    ep = _entrypoint()
+    with pytest.raises(ep.ConfigError, match="ha_frame_origins"):
+        _plan(tmp_path, {"access": "proxy", "public_url": PUBLIC, "trusted_proxies": "192.0.2.7",
+                         "ha_frame_origins": origins}, ep)
+
+
 @pytest.mark.parametrize("options, words", [
     ({"access": "proxy", "trusted_proxies": "192.0.2.7"}, "public_url"),
     ({"access": "proxy", "public_url": "http://mantel.home.example", "trusted_proxies": "192.0.2.7"}, "public_url"),
@@ -194,7 +224,7 @@ class Running:
 
 async def _start(tmp_path, monkeypatch, *, mode="proxy", ingress_peers=("172.30.32.2",), trusted=("127.0.0.1",),
                  browser_url="http://homeassistant.local:8123", tablets=None, cert_pending=False, lan_networks=(),
-                 public=()):
+                 public=(), frames=()):
     from mantel_server.config import Config
     from mantel_server.ha_client import HaClient
     from mantel_server.readproxy import ReadProxy
@@ -223,7 +253,8 @@ async def _start(tmp_path, monkeypatch, *, mode="proxy", ingress_peers=("172.30.
                  direct_port=_free_port() if mode != "ingress" else 0, direct_hosts=(NAME,),
                  direct_tls="acme" if tls else "", acme_dns_token_file=tmp_path / "cf" if tls else None,
                  trusted_proxies=tuple(trusted) if mode == "proxy" else (), proxy_kind="own" if mode == "proxy" else "",
-                 lan_networks=tuple(lan_networks), ha_browser_url=browser_url, ha_oauth_url="http://homeassistant:8123" if browser_url else "")
+                 lan_networks=tuple(lan_networks), ha_browser_url=browser_url, ha_oauth_url="http://homeassistant:8123" if browser_url else "",
+                 frame_ancestors=tuple(frames))
     store = Store(cfg.data_dir / "mantel.db")
     app = build_app(cfg, "unused-fictional-token", store=store, connect_ha=False)
     if tls:
@@ -499,6 +530,21 @@ async def test_sign_in_with_home_assistant_goes_to_has_address_for_browsers(star
     q = parse_qs(loc.query)
     assert q["client_id"] == [PUBLIC] and q["redirect_uri"] == [PUBLIC + "auth/callback"]
     assert r.app["oauth"].ha_url == "http://homeassistant:8123"          # the code exchange: HA's internal address
+
+
+async def test_in_home_assistants_frame_sign_in_goes_to_the_address_the_dashboard_is_on(started):
+    """A Webpage dashboard opened at HA's home address while ha_sign_in_url names another: HA's sign-in page
+    refuses frames from other origins (X-Frame-Options: SAMEORIGIN), so login.js names the frame's top origin
+    (`via`) and Mantel uses it, but only when it is one of HA's own addresses (frame-ancestors)."""
+    from urllib.parse import quote, urlsplit
+    r = await started(mode="proxy", frames=("http://homeassistant.local:8123", "https://ha-home.example"))
+    resp = await r.get("direct", "/login/ha?next=/dashboard-loft/home&via=" + quote("https://ha-home.example"), **PAGE)
+    loc = urlsplit(resp.headers["Location"])
+    assert resp.status == 302 and (loc.scheme, loc.netloc, loc.path) == ("https", "ha-home.example", "/auth/authorize")
+    assert r.app["oauth"].ha_url == "http://homeassistant:8123"          # the code still goes to HA's own address
+    for bad in ("https://evil.example", "https://ha-home.example.evil.example", "javascript:alert(1)", "'self'"):
+        resp = await r.get("direct", "/login/ha?via=" + quote(bad), **PAGE)
+        assert urlsplit(resp.headers["Location"]).netloc == "homeassistant.local:8123", bad
 
 
 async def test_a_sign_in_state_counts_once_and_callbacks_are_rate_limited(started, monkeypatch):

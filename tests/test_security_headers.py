@@ -42,6 +42,36 @@ def test_operator_sources_are_added_and_checked():
     assert "evil" not in sh.page_policy(None, "evil.example;script-src *", https=True)
 
 
+def test_stricter_pages_admit_only_the_operators_frames():
+    login = "default-src 'none'; form-action 'self'; frame-ancestors 'none'"
+    assert sh.own_page_csp(login) == login and sh.own_page_csp(login, Config()) == login
+    assert sh.own_page_csp(login, ingress=True).endswith("frame-ancestors 'self'")        # HA's page via Ingress
+    cfg = Config(frame_ancestors=("https://ha.example.com", "http://homeassistant.local:8123"))
+    assert sh.own_page_csp(login, cfg).endswith("frame-ancestors https://ha.example.com http://homeassistant.local:8123")
+    assert sh.own_page_csp(login, cfg, ingress=True).endswith(
+        "frame-ancestors 'self' https://ha.example.com http://homeassistant.local:8123")
+    assert sh.own_page_csp(login, Config(frame_ancestors=("'none'",)), ingress=True) == login   # 'none' wins
+    assert sh.own_page_csp(login, Config(frame_ancestors=("https://a.example; script-src *",))) == login
+
+
+async def test_a_framed_sign_in_page_and_admin_page_follow_the_operators_frames(tmp_path, monkeypatch):
+    framed = await make_mantel(tmp_path, monkeypatch, frame_ancestors=("https://ha.example.com",))
+    try:
+        for path in ("/login", "/admin"):
+            r = await framed.client.get(path)        # signed out: /admin redirects to /login
+            assert directives(r.headers["Content-Security-Policy"])["frame-ancestors"] == ["https://ha.example.com"]
+        r = await framed.client.get("/dashboard-kitchen/home", allow_redirects=False)
+        assert directives(r.headers["Content-Security-Policy"])["frame-ancestors"] == ["'self'", "https://ha.example.com"]
+        await framed.user("owner", "owner")
+        await framed.sign_in("owner")
+        r = await framed.client.get("/admin")
+        assert r.status == 200 and str(r.url).endswith("/admin")
+        assert directives(r.headers["Content-Security-Policy"])["frame-ancestors"] == ["https://ha.example.com"]
+    finally:
+        await framed.client.close()
+        framed.store.db.close()
+
+
 def test_hsts_rules():
     assert "Strict-Transport-Security" in sh.headers_for("/home", https=True)
     assert "Strict-Transport-Security" not in sh.headers_for("/home", https=False)
@@ -71,6 +101,7 @@ async def test_a_stricter_page_policy_is_kept(m):
     r = await m.client.get("/login")
     assert "style-src 'self';" in r.headers["Content-Security-Policy"]     # login_page's own, not the baseline
     assert r.headers.getall("Content-Security-Policy") == [r.headers["Content-Security-Policy"]]
+    assert "frame-ancestors 'none'" in r.headers["Content-Security-Policy"]   # no operator frames: never framed
 
 
 async def test_hsts_only_when_the_trusted_proxy_says_https(m):
