@@ -597,6 +597,14 @@ Discover shelves drew empty: Mantel's settings feed sent the Discover rows as st
 - Smoke note: one of six runs of `client_smoke.py` lost the page to a navigation during the Music page's fit step
   (before any new step); the other five passed. Flaky, to tidy.
 
+### 0.1.13 on the house (2026-10-18 evening, commit `bcc1f9a`, build `8ff1b662ed70fcae`)
+
+The segmented controls slide again (merged `098fe9a`, from Avery's recording: on the detail sheets the white
+highlight faded and grew instead of sliding; `segCss(fill)` gave each choice `overflow:hidden`, clipping the
+slide's start). Also in main, HK-in-HA only (next HK install): the HA adapter keeps HK's settings feed across a
+reconnect (`ca96237`: the chips row lost after an HA restart under an open page; root cause found).
+- [x] The house serves the fixed hk-base.js (no `overflow:hidden` on filled choices). Avery to confirm by eye.
+
 ### Removal
 
 Stop and uninstall **Mantel** (Settings → Apps → Mantel → Uninstall); this removes its image and `/data`
