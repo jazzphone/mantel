@@ -891,6 +891,24 @@ Lovelace panel's block read as written.
 - [ ] The other four tablets: still HA-owned (CUTOVER.md log), three of them open `/dashboard-kitchen/home` with no
       `?hk_tablet=`. Each needs its own screen and `?hk_tablet=<id>` in Kiosk Satellite, then ownership moved.
 
+### 0.1.28 (2026-10-19, main `1bd8295`)
+
+Mantel's side of Mantel Link (phase 9, slices 9.1–9.10; docs/phase9/MANTEL-LINK.md). Nothing changes for the house's
+HK Frontend (eabb70a): a link without the `X-Mantel-Link` header is protocol 1 and answered exactly as before.
+- **Linked protocol 2** for Mantel Link: Mantel's instance id in hello, the `bridge` owner, Mantel Link's report.
+- **Supervisor discovery:** config.yaml gains `hassio_api: true` and `discovery: [mantel]`; at start the App
+  announces `{service: "mantel", config: {url, token}}` to HA, so a Home Assistant with Mantel Link shows
+  "Discovered: Mantel". Without Mantel Link installed HA does nothing with it.
+- **Pairing codes** for Mantel Link (`POST /api/linked/pair`, Owner, memory only, audited).
+- **Mantel Settings → Connections → Home Assistant Link:** what is linked, the bridge (hand over / give back,
+  Owner, refused until HK Frontend's last feature release is installed), who runs each wall tablet.
+- Mantel Link itself (HACS) and HK Frontend 1.9.0 / 1.10.0 are not part of this update; installing them is 9.11,
+  step by step with Avery.
+- [x] On the house (build `271eb3b80fcb024a`, 18:48; backup `be9cdef6` first): the App started, migration 0015
+      applied, Supervisor discovery announced (Service account "Home Assistant - App discovery"), HK Frontend
+      reconnected as protocol 1 at 18:48:23, the Loft's switches live (black screen on).
+- [ ] The Loft still sleeps and wakes through the night; the Home Assistant Link page shows HK Frontend linked.
+
 ### Removal
 
 Stop and uninstall **Mantel** (Settings → Apps → Mantel → Uninstall); this removes its image and `/data`
