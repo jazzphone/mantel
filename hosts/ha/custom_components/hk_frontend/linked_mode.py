@@ -184,6 +184,20 @@ async def check_url(address: str) -> str | None:
     return bad
 
 
+APP_ADDRESS = "http://local-mantel:8099"   # the Mantel App installed locally, on HA's internal App network
+
+
+async def suggested_url() -> str:
+    """What Configure offers when nothing is saved yet: the Mantel App's own address, when that name resolves
+    inside Home Assistant's internal App network (the same check the form applies), else nothing. Avery
+    (2026-10-19): "Shouldn't this autopopulate if it's an HA App?" """
+    try:
+        bad, _ = await plain_target(APP_ADDRESS)
+    except Exception:  # noqa: BLE001 -- only a suggestion: whatever goes wrong, the form opens empty
+        return ""
+    return "" if bad else APP_ADDRESS
+
+
 def active(hass: HomeAssistant) -> "Linked | None":
     """The running link, while the house's entry is set up linked."""
     return hass.data.get(DOMAIN, {}).get(DATA)

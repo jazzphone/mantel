@@ -651,7 +651,7 @@ class HkOptionsFlow(OptionsFlow):
                 return self._menu()
         return self.async_show_form(step_id="linked", errors=errors, data_schema=vol.Schema({
             vol.Optional("enabled", default=now is not None): bool,
-            vol.Optional("url", default=(now or {}).get("url", "")): str,
+            vol.Optional("url", default=(now or {}).get("url") or await linked_mode.suggested_url()): str,
             vol.Optional("token", default=""): sel.TextSelector(
                 sel.TextSelectorConfig(type=sel.TextSelectorType.PASSWORD)),
         }), description_placeholders={"state": linked_mode.describe(entry)})

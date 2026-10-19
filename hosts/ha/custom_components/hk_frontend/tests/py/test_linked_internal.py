@@ -166,6 +166,33 @@ async def test_configure_refuses_a_name_outside(hass, frontend, resolve):
     assert "mantel_link" not in e.data
 
 
+def _url_default(form):
+    for key in form["data_schema"].schema:
+        if str(key) == "url":
+            return key.default()
+    raise AssertionError("no url field")
+
+
+async def test_configure_offers_the_mantel_apps_address_when_it_is_there(hass, frontend, resolve):
+    """Nothing saved yet: the form offers http://local-mantel:8099 when that name resolves inside HA's internal App
+    network, and nothing when it does not (no Mantel App, or a name that points elsewhere)."""
+    from conftest import entry
+    e = entry(hass)
+    flows = hass.config_entries.options
+    resolve["local-mantel"] = ["172.30.33.1"]
+    r = await flows.async_init(e.entry_id)
+    r = await flows.async_configure(r["flow_id"], {"next_step_id": "linked"})
+    assert _url_default(r) == "http://local-mantel:8099"
+    resolve["local-mantel"] = ["198.51.100.5"]
+    r = await flows.async_init(e.entry_id)
+    r = await flows.async_configure(r["flow_id"], {"next_step_id": "linked"})
+    assert _url_default(r) == ""
+    del resolve["local-mantel"]
+    r = await flows.async_init(e.entry_id)
+    r = await flows.async_configure(r["flow_id"], {"next_step_id": "linked"})
+    assert _url_default(r) == ""
+
+
 def test_translations_have_the_new_key():
     en = json.loads((pathlib.Path(linked_mode.__file__).parent / "translations" / "en.json").read_text())
     assert "mantel_url_not_internal" in en["options"]["error"]
