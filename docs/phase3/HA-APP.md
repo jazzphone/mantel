@@ -760,6 +760,21 @@ and a refused update can leave the App stopped.
 - [ ] Direct access (`access: proxy` behind Avery's NPM on another LAN machine): next, with his NPM IP and hostname,
       an NPM Access List if NPM's 443 is internet-facing (review M3), then `/proxy-check`.
 
+### 0.1.18 (2026-10-19, main `abb7cec`)
+
+HA backup `de1c24f9` first. Carries:
+- Mantel Settings: HK Settings and Mantel's settings on one page (decision 27). HK in HA shows HK Settings only
+  (its shared parts reach HK in HA at the next HK install).
+- Default screens per person and per tablet (landing only; migration 0014).
+- Rotate door key from HA's trusted sidebar without a fresh sign-in (it looped, `2814ca4`).
+- The docked menu at the window's left edge at the direct address (`c7cb43c`).
+- Notification and house pop-up taps open their sheets (`1a9549c`, `ca26c5d`).
+- The Power page's house picture (`998d8b0`).
+- `ha_frame_origins`: HA's Webpage dashboards may frame the direct address (`ac7161f`).
+- Option texts: only the alarm asks for a code (`e4ac65b`).
+
+Validation 130 JS, 723 HA Python, 2,502 Mantel, smoke ok.
+
 ### Removal
 
 Stop and uninstall **Mantel** (Settings → Apps → Mantel → Uninstall); this removes its image and `/data`
