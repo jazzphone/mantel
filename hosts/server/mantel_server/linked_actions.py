@@ -26,14 +26,16 @@ import asyncio
 import logging
 import re
 from datetime import datetime, timedelta, timezone
-from typing import Any, Mapping
+from typing import Any, Awaitable, Callable, Mapping
 
 from aiohttp import web
 
 log = logging.getLogger("mantel.linked_actions")
 
 MUSIC = ("music_play", "music_transfer", "music_stop", "music_transport", "music_play_media")
-SERVICES = MUSIC + ("clean_areas", "pause_automation", "resume_automation")
+DIRECT = ("clean_areas", "pause_automation", "resume_automation")      # a page's own, when the bridge is Mantel's
+SERVICES = MUSIC + DIRECT
+Caller = Callable[[str, str, Mapping[str, Any]], Awaitable[Any]]   # (domain, service, data) -> result, or LinkedError
 AUTOMATION = re.compile(r"^automation\.[a-z0-9_]+$")
 KEY = "automation_snoozes"
 TICK = 30.0
@@ -128,15 +130,75 @@ class LinkedActions:
                 raise _err("not_set_up", "Mantel's music isn't on (Music Assistant and the music settings, in "
                                          "Mantel); nothing was sent")
             return await self.command("hk_frontend", service, data, peer, return_response=True)
-        if service == "clean_areas":
-            return await self.clean(data, peer)
-        if service == "pause_automation":
-            return await self.pause(data, peer)
-        if service == "resume_automation":
-            return await self.resume(data, peer)
+        if service in DIRECT:
+            return await self.act(service, data, self.as_linked(peer))
         raise _err("unknown_service", f"{service} is not one of Mantel's")
 
-    async def clean(self, data: dict[str, Any], peer: str | None) -> dict[str, Any]:
+    def as_linked(self, peer: str | None) -> Caller:
+        """The engines' hands when Home Assistant forwarded the action: ``mantel:linked``'s gateway."""
+        async def call(domain: str, service: str, data: Mapping[str, Any]) -> Any:
+            return await self.command(domain, service, data, peer)
+        return call
+
+    async def act(self, service: str, data: dict[str, Any], call: Caller, may_view: Callable[[list[str]], None] | None
+                  = None) -> Any:
+        """Clean Areas / the snooze, with every household call made through ``call`` (whoever it acts as)."""
+        if service == "clean_areas":
+            return await self.clean(data, call, may_view)
+        if service == "pause_automation":
+            return await self.pause(data, call)
+        if service == "resume_automation":
+            return await self.resume(data, call)
+        raise _err("unknown_service", f"{service} is not one of Mantel's")
+
+    # -- a page's own, as the person who asked --------------------------------------------------------------
+    def direct_applies(self) -> bool:
+        """Only once Mantel Link holds the bridge. While HK Frontend does, ``hk_frontend.*`` is HK's in Home
+        Assistant, with its own Clean Areas settings and its own snooze store (which resumes at midnight with
+        Mantel down); running these here as well would split that state in two."""
+        owners = self.app.get("linked_owners")
+        return owners is not None and owners.bridge() == "mantel"
+
+    def direct_of(self, cmd: Any) -> tuple[str, dict[str, Any], bool] | None:
+        """``(service, data, return_response)`` when this classified gateway command is a page's own Clean Areas
+        or snooze and runs here; None sends it on as before."""
+        frame = getattr(cmd, "frame", None) or {}
+        if (getattr(cmd, "kind", None) not in ("service", "ws") or frame.get("type") != "call_service"
+                or frame.get("domain") != "hk_frontend" or frame.get("service") not in DIRECT
+                or frame.get("target") or not self.direct_applies()):
+            return None
+        data = frame.get("service_data")
+        return frame["service"], dict(data) if isinstance(data, Mapping) else {}, bool(frame.get("return_response"))
+
+    async def run_direct(self, gateway: Any, principal: Any, service: str, data: dict[str, Any]) -> Any:
+        """Run one of ``DIRECT`` for ``principal``: each vacuum and automation call goes through ``gateway`` as that
+        person (their grants, their audit row, the same refusals as pressing the button). A refusal reaches the
+        caller as a LinkedError carrying the gateway's own reply (``.reply``)."""
+        from .alarm_pin import linked_error
+
+        async def call(domain: str, svc: str, payload: Mapping[str, Any]) -> Any:
+            got: dict = {}
+
+            async def send(reply: dict) -> None:
+                got.update(reply)
+            await gateway.handle(principal, {"type": "command", "id": 1, "kind": "service", "domain": domain,
+                                             "service": svc, "data": dict(payload)}, send)
+            if "result" in got:
+                return got["result"]
+            exc = linked_error(got)
+            exc.reply = got                                # type: ignore[attr-defined]
+            raise exc
+
+        def may_view(vacuums: list[str]) -> None:
+            # a dry run touches nothing, so no command is there to refuse it: it shows only robots they may see
+            ctx = gateway.authz.context()
+            for eid in vacuums:
+                if not gateway.authz.decide(principal.subject, "view", eid, ctx=ctx).allowed:
+                    raise _err("forbidden", f"not allowed: view {eid}")
+        return await self.act(service, data, call, may_view)
+
+    async def clean(self, data: dict[str, Any], call: Caller, may_view: Callable[[list[str]], None] | None = None
+                    ) -> dict[str, Any]:
         from hk_core import clean_areas as CA
         host = self.app.get("features")
         if host is None or not host.on("clean_areas"):
@@ -146,22 +208,28 @@ class LinkedActions:
                 or not isinstance(dry, bool) or set(data) - {"areas", "dry_run"}):
             raise _err("invalid", "clean_areas: {areas: [area ids], dry_run?}")
         p = CA.plan(host.house, list(areas), host.settings["clean_areas"]["options"])
+        if dry and may_view is not None:
+            may_view(sorted({step["vacuum"] for step in p["plan"]}))
         if dry or not p["plan"]:
             return await CA.async_execute(host.house, p, dry_run=True) if p["plan"] else \
                 {"ok": False, **p, "message": "No vacuum can reach the selected areas."}
-        failed = []
+        failed, refused = [], []
         for step in p["plan"]:
             try:
                 if step["action"] == "clean_area":
-                    await self.command("vacuum", "clean_area", {"entity_id": step["vacuum"],
-                                                                "cleaning_area_id": step["areas"]}, peer)
+                    await call("vacuum", "clean_area", {"entity_id": step["vacuum"],
+                                                        "cleaning_area_id": step["areas"]})
                 else:
-                    await self.command("vacuum", "start", {"entity_id": step["vacuum"]}, peer)
+                    await call("vacuum", "start", {"entity_id": step["vacuum"]})
             except Exception as exc:  # noqa: BLE001 -- one robot failing never stops the rest
                 code = getattr(exc, "code", None)
-                if code in ("commands_disabled", "forbidden") and not failed:
+                if code == "commands_disabled" and not failed:
                     raise                                   # the same answer for every robot: say it once
+                if code == "forbidden":
+                    refused.append(exc)                     # a person may control one robot and not another
                 failed.append({"vacuum": step["vacuum"], "error": getattr(exc, "message", str(exc))})
+        if refused and len(refused) == len(p["plan"]):
+            raise refused[0]                                # every robot refused: the refusal itself, in words
         if failed:
             return {"ok": False, **p, "failed": failed,
                     "message": "Some vacuums did not start: " + ", ".join(f["vacuum"] for f in failed)}
@@ -190,7 +258,7 @@ class LinkedActions:
         now = host.house.local_time() if host is not None else datetime.now(timezone.utc)
         return (now + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
 
-    async def pause(self, data: dict[str, Any], peer: str | None) -> dict[str, Any]:
+    async def pause(self, data: dict[str, Any], call: Caller) -> dict[str, Any]:
         if set(data) - {"entity_id", "until"}:
             raise _err("invalid", "pause_automation: {entity_id, until?}")
         ids = self._ids(data)
@@ -206,19 +274,19 @@ class LinkedActions:
                 host = self.app.get("features")
                 at = at.replace(tzinfo=host.house.local_time().tzinfo if host is not None else timezone.utc)
         for eid in ids:
-            await self.command("automation", "turn_off", {"entity_id": eid}, peer)
+            await call("automation", "turn_off", {"entity_id": eid})
         snoozes = self._snoozes()
         for eid in ids:
             snoozes[eid] = at.astimezone(timezone.utc).isoformat()
         self._keep(snoozes)
         return {"until": {eid: snoozes[eid] for eid in ids}}
 
-    async def resume(self, data: dict[str, Any], peer: str | None) -> dict[str, Any]:
+    async def resume(self, data: dict[str, Any], call: Caller) -> dict[str, Any]:
         if set(data) - {"entity_id"}:
             raise _err("invalid", "resume_automation: {entity_id}")
         ids = self._ids(data)
         for eid in ids:
-            await self.command("automation", "turn_on", {"entity_id": eid}, peer)
+            await call("automation", "turn_on", {"entity_id": eid})
         snoozes = self._snoozes()
         for eid in ids:
             snoozes.pop(eid, None)

@@ -567,6 +567,9 @@ class Gateway:
             aid = self.audit.record(principal=principal, kind=cmd.kind, action=cmd.action, targets=cmd.targets,
                                     decision="denied", reason="invalid_step_up", result="not_sent")
             return await reply(fail("invalid_command", "commands take no step_up (Mantel asks for no PIN)", aid))
+        direct = self._direct(cmd)
+        if direct is not None:
+            return await self._run_direct(principal, direct, reply, fail)
         if cmd.alarm is not None:
             # EVERY alarm keypad command goes through the house Alarm PIN (_alarm), configured or not
             keypad = self.app.get("alarm_pin")
@@ -618,6 +621,31 @@ class Gateway:
         trusted = _not_remote(authz, ident)
         if ident.door in REMOTE_DOORS and sensitive in NOTIFY_KINDS and not trusted:
             await self.notify_owners(principal, cmd, aid)
+
+    def _direct(self, cmd: Command) -> Any:
+        """A page's own Clean Areas or automation snooze, run by Mantel's engines (linked_actions.py) as the person
+        who asked once Mantel Link holds the bridge; None sends it to Home Assistant's ``hk_frontend`` as before."""
+        la = self.app.get("linked_actions")
+        return la.direct_of(cmd) if la is not None else None
+
+    async def _run_direct(self, principal: Principal, direct: Any, reply, fail) -> None:
+        """The engines make the household calls through THIS gateway as ``principal``: RBAC, the audit row and the
+        refusals are each call's own (a vacuum or an automation, as if the person had pressed it). The top-level
+        request has no row of its own: a plan only, or the snooze's timer, changes nothing in the house."""
+        service, data, want = direct
+        try:
+            out = await self.app["linked_actions"].run_direct(self, principal, service, data)
+        except Exception as exc:  # noqa: BLE001 -- the gateway's answer, or the engine's own words
+            got = getattr(exc, "reply", None)
+            if got is not None:
+                return await reply(dict(got))               # the vacuum's or automation's own refusal, audited
+            code, message = getattr(exc, "code", None), getattr(exc, "message", None)
+            if code is None:
+                log.exception("%s for %s failed", service, _who(principal))
+                return await reply(fail("failed", f"hk_frontend.{service} failed; see the log"))
+            return await reply(fail({"invalid": "invalid_command", "not_set_up": "unavailable"}.get(code, code),
+                                    message or code))
+        await reply({"type": "command_result", "result": {"response": out} if want else {}})
 
     def _music_engine(self, cmd: Command) -> Any:
         """Mantel's music engine when it runs this command (music.py: on once Music Assistant and the

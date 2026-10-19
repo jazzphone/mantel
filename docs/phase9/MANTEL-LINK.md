@@ -440,11 +440,35 @@ Frontend). `test_e2e_mantel.py` links it to the real `mantel_server/linked.py`.
 - **Its grants** (computed, never stored): `control` on the vacuums Clean Areas uses, on `media_player` and the
   music feature, and `control` + `control.sensitive` on `automation` (turning one off or on is sensitive in
   Mantel's RBAC). An Owner's deny naming `mantel:linked` wins (tested).
-- **Finding, for later (not changed here):** a page's own `hk_frontend.clean_areas` / `pause_automation` (Mantel's
-  gateway, `service_command`) still goes to HA's `hk_frontend`. With HK Frontend there, that is HK's, as today;
-  once it is removed it reaches Mantel Link's alias and comes back to `linked_actions` (the right engines, one hop
-  longer). Moving those page calls straight onto Mantel's engines is a follow-up.
-- **Checks:** Mantel's `tests/test_linked_actions.py` (6); Mantel Link's `test_more_actions.py` (3). **Scratch HA**
+- **Finding, now done (below):** a page's own `hk_frontend.clean_areas` / `pause_automation` (Mantel's gateway,
+  `service_command`) went to HA's `hk_frontend`. With HK Frontend there, that is HK's, as it was; once it was removed
+  it reached Mantel Link's alias and came back to `linked_actions` (the right engines, one hop longer, and nothing
+  at all with the link down).
+- **A page's own Clean Areas and snooze run directly (follow-up, built):** the seam is the gateway, so the web
+  modules (`hk-home.js`, `hk-detail.js`, `hk-headers.js`, `hk-settings-features.js`) are unchanged. After the
+  gateway's classification, `Gateway._direct` asks `LinkedActions.direct_of(cmd)`; for `hk_frontend.clean_areas` /
+  `pause_automation` / `resume_automation` (as a service command or a `call_service` WebSocket message, no target)
+  it answers `(service, data, return_response)` and `LinkedActions.run_direct` runs the same engines
+  (`clean` / `pause` / `resume`, now taking the hands they call with) **with the page user's Principal**: each
+  `vacuum.clean_area` / `vacuum.start` / `automation.turn_off` / `turn_on` goes through the same gateway as that
+  person, so their grants decide it and the audit row is theirs (never `mantel:linked`); a refusal is that call's own
+  reply (`forbidden` with the target, audited `denied`). The request itself has no row (a plan, or the timer, changes
+  nothing); a dry run shows only robots the person may `view`. A person who may control one robot and not another
+  gets the rest started and the refused one in `failed`; refused on every robot, the refusal itself. The reply is
+  HA's shape (`{"response": ...}` when asked). The midnight turn-on is nobody's button: the tick still acts as
+  `mantel:linked`.
+- **When it applies: only once Mantel Link holds the bridge (`linked_owners.bridge()` == `mantel`).** Not always:
+  while HK Frontend holds it, `hk_frontend.*` is HK's in Home Assistant, with its own Clean Areas settings (a house
+  may not have set Clean Areas up in Mantel yet) and its own snooze store, which resumes at midnight with Mantel
+  down; a second engine here would split that state, and an automation HK paused would be resumed by Mantel without
+  clearing HK's record. Once the bridge is Mantel's the names are only Mantel Link's aliases, so the round trip is
+  pure cost, and "not set up" is the same answer in words either way. Commands off needs nothing: there is no
+  gateway, the page's command is refused as for any command. **Left for later:** the page's "paused until" display
+  reads `hk_frontend/snooze/subscribe`, which Mantel has no read route for (a fixture in dev only), so after HK Frontend
+  is gone the card shows no pause; Mantel should serve that feed from `linked_actions._snoozes()`.
+- **Checks:** Mantel's `tests/test_linked_actions.py` (6) and `tests/test_linked_actions_direct.py` (9: the bridge
+  HK Frontend's still goes to HA; the bridge Mantel's runs here as the person, with no link; their grants and audit;
+  refusals in words; commands off; the timer); Mantel Link's `test_more_actions.py` (3). **Scratch HA**
   (`mantel_link_e2e.py --phase actions`, no HK Frontend): **11/11**: commands off: a Clean Areas dry run answers its
   plan through `hk_frontend.clean_areas`, Clean Areas, pause and music refused in words, every attempt audited as
   `mantel:linked`, the robot untouched; commands on (fictional demo devices): `mantel.clean_areas` starts the
