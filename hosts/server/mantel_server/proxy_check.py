@@ -275,9 +275,14 @@ async def basics(request: web.Request) -> web.Response:
 
 async def rotate(request: web.Request) -> web.Response:
     """A new door key (Owner; CSRF by the session middleware; a fresh factor on the tunnel door). The proxy
-    must then send the new one: until it does, its requests are the tunnel door."""
+    must then send the new one: until it does, its requests are the tunnel door. HA's sidebar with the
+    trusted rules counts as home, as for Connections (connections.edit_rule): there HA's sign-in is the
+    check, and the sidebar has no Mantel sign-in to refresh, so asking for one looped (the house,
+    2026-10-19)."""
     ident = _owner(request)
-    if sessions.door_of(request) != "lan" and not ident.fresh_within(STEP_UP_WINDOW, request.app["clock"]()):
+    authz = request.app.get("authz")
+    home = sessions.door_of(request) == "lan" or (authz is not None and authz.ha_trusted(ident))
+    if not home and not ident.fresh_within(STEP_UP_WINDOW, request.app["clock"]()):
         return web.json_response({"error": "step_up_required"}, status=403)
     dk = door_key.of(request.app)
     if dk is None:

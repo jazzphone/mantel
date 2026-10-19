@@ -583,6 +583,24 @@ async def smoke(shot=None, shots=None):
                     })()""")
                     assert shell == {"kind": "mantel", "nav": "hk-navigate", "sky": True, "menu": True,
                                      "view": True, "config": True}, shell
+                    # Menu "Always open beside the page": the menu at the window's left edge and the view
+                    # pushed right by its width -- not the menu pushed along with the view (the panel was
+                    # the view slot: menu at 300 px, the page under it from 600; 2026-10-19).
+                    await settings.save(owner, {"type": "hk_frontend/board/set", "dashboard": "dashboard-proof",
+                                                "changes": {"menu": "open"}})
+                    assert await browser.wait("window.hkCards.menu.docked() && "
+                                              "document.getElementById('view').style.marginLeft !== ''", 5), \
+                        "the menu did not dock at 1280 px"
+                    await browser.eval("new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))")
+                    docked = await browser.eval("""(() => {
+                      const de = document.documentElement, v = document.getElementById('view');
+                      const root = document.querySelector('#hk-menu').shadowRoot.querySelector('.root');
+                      return { menu: root.style.getPropertyValue('--l'), view: v.getBoundingClientRect().left,
+                               margin: v.style.marginLeft, content: de.style.getPropertyValue('--hk-content-left'),
+                               page: de.style.getPropertyValue('--hk-page-left'), scroll: de.scrollWidth <= innerWidth };
+                    })()""")
+                    assert docked["menu"] == "0px" and docked["content"] == "0px" and docked["scroll"], docked
+                    assert docked["page"] == docked["margin"] == f"{docked['view']:g}px" and docked["view"] > 0, docked
                     await settings.save(owner, {"type": "hk_frontend/board/set", "dashboard": "dashboard-proof",
                                                 "changes": {"menu": "tabbar"}})
                     assert await browser.wait("!!document.querySelector('#hk-shell-root > #hk-tabbar')", 5), \

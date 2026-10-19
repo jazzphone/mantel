@@ -96,7 +96,7 @@ class App:
 
 
 async def make(tmp_path, monkeypatch, *, peers=("127.0.0.1",), ingress_on=True, only=False, rules="tunnel",
-               directory=None):
+               directory=None, **cfg_kw):
     from mantel_server.config import Config
     from mantel_server.ha_client import HaClient
     from mantel_server.readproxy import ReadProxy
@@ -120,7 +120,7 @@ async def make(tmp_path, monkeypatch, *, peers=("127.0.0.1",), ingress_on=True, 
     (web_dir / "hk/fonts/sf-pro.css").write_text('src: url("/hk/fonts/SF-Pro.woff2")')
     cfg = Config(data_dir=tmp_path / "data", secrets_dir=tmp_path / "secrets", port=0, web=web_dir,
                  hk_frontend=web_dir / "hk", hk_files=tmp_path / "none", fixtures=tmp_path / "none",
-                 ingress=ingress_on, ingress_peers=tuple(peers), ingress_only=only, ha_door_rules=rules)
+                 ingress=ingress_on, ingress_peers=tuple(peers), ingress_only=only, ha_door_rules=rules, **cfg_kw)
     store = Store(cfg.data_dir / "mantel.db")
     now = [1_000_000.0]
     app = build_app(cfg, "unused-fictional-token", store=store, connect_ha=False, clock=lambda: now[0])
@@ -842,3 +842,25 @@ async def test_an_owner_on_a_trusted_sidebar_sees_service_accounts_and_may_creat
     await m2.page()
     ov2 = await (await m2.request("GET", "/api/admin/overview", m2.ha())).json()
     assert "service" not in ov2["sections"]             # tunnel rules: still not from the sidebar
+
+
+async def test_an_owner_on_a_trusted_sidebar_may_rotate_the_door_key(mk, monkeypatch):
+    """Rotate door key asked HA's sidebar for a fresh Mantel sign-in, which the sidebar cannot give: "Confirm it
+    is you" again and again (the house, 2026-10-19). With the trusted rules the sidebar is home, as for
+    Connections; with the tunnel rules it still asks."""
+    from mantel_server import authz as authz_mod
+    # the house's Ingress peer is HA's Supervisor (172.30.32.2), never loopback: the request's door is the tunnel
+    monkeypatch.setattr(authz_mod, "_is_loopback", lambda peer: False)
+    m = await mk(rules="trusted", proxy_kind="own")
+    m.store.link(OWNER_HA, "owner")
+    await m.page()
+    r = await m.request("POST", "/api/admin/proxy-check/door-key", {**m.ha(), "X-CSRF-Token": m.jar["mantel_csrf"]})
+    assert r.status == 200, await r.text()
+    body = await r.json()
+    assert body["ok"] is True and len(body["door_key"]["value"]) >= 32
+    m2 = await mk(rules="tunnel", proxy_kind="own")
+    m2.store.link(OWNER_HA, "owner")
+    await m2.page()
+    m2.now[0] += 3600                                   # long after the sidebar session began
+    r2 = await m2.request("POST", "/api/admin/proxy-check/door-key", {**m2.ha(), "X-CSRF-Token": m2.jar["mantel_csrf"]})
+    assert r2.status == 403 and (await r2.json())["error"] == "step_up_required"
