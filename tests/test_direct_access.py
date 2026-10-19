@@ -192,7 +192,8 @@ class Running:
 
 
 async def _start(tmp_path, monkeypatch, *, mode="proxy", ingress_peers=("172.30.32.2",), trusted=("127.0.0.1",),
-                 browser_url="http://homeassistant.local:8123", tablets=None):
+                 browser_url="http://homeassistant.local:8123", tablets=None, cert_pending=False, lan_networks=(),
+                 public=()):
     from mantel_server.config import Config
     from mantel_server.ha_client import HaClient
     from mantel_server.readproxy import ReadProxy
@@ -221,9 +222,13 @@ async def _start(tmp_path, monkeypatch, *, mode="proxy", ingress_peers=("172.30.
                  direct_port=_free_port() if mode != "ingress" else 0, direct_hosts=(NAME,),
                  direct_tls="acme" if tls else "", acme_dns_token_file=tmp_path / "cf" if tls else None,
                  trusted_proxies=tuple(trusted) if mode == "proxy" else (), proxy_kind="own" if mode == "proxy" else "",
-                 ha_browser_url=browser_url, ha_oauth_url="http://homeassistant:8123" if browser_url else "")
+                 lan_networks=tuple(lan_networks), ha_browser_url=browser_url, ha_oauth_url="http://homeassistant:8123" if browser_url else "")
     store = Store(cfg.data_dir / "mantel.db")
     app = build_app(cfg, "unused-fictional-token", store=store, connect_ha=False)
+    if tls:
+        # as if Let's Encrypt's certificate had arrived (the placeholder still on the port); the pending
+        # state has its own test
+        app["direct_tls"].pending = cert_pending
 
     async def probe(request):
         from mantel_server import proxy_trust, sessions
@@ -231,7 +236,7 @@ async def _start(tmp_path, monkeypatch, *, mode="proxy", ingress_peers=("172.30.
                                           "direct": direct.is_direct(request), "trusted": proxy_trust.is_trusted(request),
                                           "client": sessions.client_ip(request), "https": proxy_trust.is_https(request)})
     app.router.add_get("/test/probe", probe)
-    app.setdefault("public_paths", set()).add("/test/probe")
+    app.setdefault("public_paths", set()).update({"/test/probe", *public})
     if tablets is not None:
         app["features"] = SimpleNamespace(tablets=tablets)
     stop = asyncio.Event()
@@ -345,12 +350,65 @@ async def test_proxy_mode_without_the_proxy_is_the_tunnel_door(started):
     assert got["door"] == "tunnel" and got["trusted"] is False and got["client"] == "127.0.0.1"
 
 
+async def test_the_listed_proxy_without_the_key_is_not_trusted_for_any_header(started):
+    # M2: on the App's direct port the proxy's address alone proves nothing (Docker may show everyone as
+    # 172.30.32.1): without the key, X-Forwarded-For/-Proto/-Host are dropped and the door is the tunnel
+    r = await started(mode="proxy")
+    fwd = {"X-Forwarded-For": "192.0.2.44", "X-Forwarded-Proto": "https", "X-Forwarded-Host": "evil.example"}
+    got = await (await r.get("direct", "/test/probe", **fwd, **{"X-Mantel-Door": "lan"})).json()
+    assert got["trusted"] is False and got["client"] == "127.0.0.1" and got["https"] is False and got["door"] == "tunnel"
+    got = await (await r.get("direct", "/test/probe", **fwd, **{"X-Mantel-Door-Key": "guess"})).json()
+    assert got["trusted"] is False and got["client"] == "127.0.0.1"
+    got = await (await r.get("direct", "/test/probe", **fwd, **{"X-Mantel-Door-Key": r.app["door_key"].value()})).json()
+    assert got["trusted"] is True and got["client"] == "192.0.2.44" and got["https"] is True
+
+
+def test_the_entrypoint_warns_when_the_proxy_is_a_relay_address(tmp_path, capsys):
+    from mantel_server.config import parse_args
+    for relay in ("172.30.32.1", "172.17.0.1"):
+        _, (args, _) = _plan(tmp_path, {"access": "proxy", "public_url": PUBLIC, "trusted_proxies": relay})
+        assert parse_args(args).trusted_proxies == (relay,)
+        assert "WARNING trusted_proxies holds " + relay in capsys.readouterr().err
+    _plan(tmp_path, {"access": "proxy", "public_url": PUBLIC, "trusted_proxies": "192.0.2.7"})
+    assert "WARNING" not in capsys.readouterr().err
+
+
+async def test_the_proxy_check_flags_a_relay_address_and_names_the_app_option(started, monkeypatch):
+    from mantel_server import proxy_check
+    monkeypatch.setattr(proxy_check, "_owner", lambda request: None)
+    r = await started(mode="proxy", trusted=("127.0.0.1", "172.30.32.1"), public=("/api/admin/proxy-check",))
+    rep = await (await r.get("direct", "/api/admin/proxy-check", **{"X-Mantel-Door": "lan",
+                                                                    "X-Mantel-Door-Key": r.app["door_key"].value()})).json()
+    ids = {c["id"]: c for c in rep["checks"]}
+    assert ids["trusted_proxy_relay"]["ok"] is False and "172.30.32.1" in ids["trusted_proxy_relay"]["detail"]
+    assert ids["door_key"]["ok"] is True
+    # the advice names the App's option in the App, the .env variable in the containers
+    assert "the App's option trusted_proxies to 192.0.2.7" in proxy_check._set_proxy(r.cfg, "192.0.2.7")
+    assert "MANTEL_TRUSTED_PROXY=192.0.2.7" in proxy_check._set_proxy(SimpleNamespace(), "192.0.2.7")
+    assert "the App's option trusted_proxies" in Path(proxy_check.__file__).read_text()
+    # the key the proxy sends wrongly is reported as wrong (not missing), so the fix is clear
+    rep = await (await r.get("direct", "/api/admin/proxy-check", **{"X-Mantel-Door": "lan", "X-Mantel-Door-Key": "x"})).json()
+    assert {c["id"]: c for c in rep["checks"]}["door_key"]["title"] == "Your proxy sends the wrong door key"
+
+
+async def test_a_keyed_lan_door_for_an_internet_client_is_the_tunnel(started):
+    # M3: the proxy host is reachable from outside (no access list): its lan claim for a global client fails closed
+    r = await started(mode="proxy")
+    key = r.app["door_key"].value()
+    for client, door in (("8.8.8.8", "tunnel"), ("2606:4700::1111", "tunnel"), ("192.168.20.9", "lan"),
+                         ("fd00::9", "lan")):
+        got = await (await r.get("direct", "/test/probe", **{"X-Mantel-Door": "lan", "X-Mantel-Door-Key": key,
+                                                             "X-Forwarded-For": client})).json()
+        assert got["door"] == door, client
+
+
 async def test_the_trusted_proxy_counts_only_on_the_direct_port(started):
     # /healthz is hidden from the trusted proxy (proxy_trust.HIDDEN_BEHIND_PROXY): on the direct port the
     # proxy gets 404, while the same peer on the Ingress port is not "the proxy" (the watchdog's 200)
     r = await started(mode="proxy")
-    assert (await r.get("direct", "/healthz")).status == 404
-    assert (await r.get("ingress", "/healthz")).status == 200
+    key = {"X-Mantel-Door-Key": r.app["door_key"].value()}
+    assert (await r.get("direct", "/healthz", **key)).status == 404
+    assert (await r.get("ingress", "/healthz", **key)).status == 200
 
 
 async def test_builtin_https_serves_tls_and_decides_the_door_by_the_peer(started, tmp_path):
@@ -370,17 +428,64 @@ async def test_builtin_https_serves_tls_and_decides_the_door_by_the_peer(started
     assert direct_tls.PLACEHOLDER_ISSUER in cert.issuer.rfc4514_string()
     assert NAME in cert.extensions.get_extension_for_class(x509.SubjectAlternativeName).value.get_values_for_type(x509.DNSName)
     assert stat.S_IMODE(os.stat(r.cfg.tls_dir).st_mode) == 0o700
-    assert stat.S_IMODE(os.stat(r.cfg.tls_dir / "cert.key").st_mode) == 0o600
+    assert stat.S_IMODE(os.stat(r.cfg.tls_dir / "placeholder.pem").st_mode) == 0o600
 
 
-def test_the_https_door_is_lan_only_for_home_addresses():
-    def req(peer):
-        return SimpleNamespace(remote=peer)
+def test_the_https_door_is_lan_only_for_the_homes_networks():
+    def req(peer, nets=()):
+        return SimpleNamespace(remote=peer, app={"cfg": SimpleNamespace(lan_networks=nets)})
     assert direct.https_door(req("192.168.1.20")) == "lan" and direct.https_door(req("10.0.0.5")) == "lan"
-    assert direct.https_door(req("172.30.32.1")) == "lan" and direct.https_door(req("fd00::5")) == "lan"
+    assert direct.https_door(req("fd00::5")) == "lan" and direct.https_door(req("::ffff:192.168.1.20")) == "lan"
+    # HA's hassio network (other Apps, HA Core, Docker's relays and hairpin: all 172.30.32.1) and Docker's
+    # bridge never count, even when a home network listed covers them
+    for relay in ("172.30.32.1", "172.30.33.7", "fd0c:ac1e:2100::1", "172.17.0.1", "::ffff:172.30.32.1"):
+        assert direct.https_door(req(relay)) == "tunnel", relay
+        assert direct.https_door(req(relay, ("172.16.0.0/12", "fd00::/8"))) == "tunnel", relay
     assert direct.https_door(req("100.64.0.9")) == "tunnel"               # carrier-grade NAT is not the home
     assert direct.https_door(req("8.8.8.8")) == "tunnel" and direct.https_door(req("2606:4700::1111")) == "tunnel"
     assert direct.https_door(req(None)) == "tunnel" and direct.https_door(req("nonsense")) == "tunnel"
+    # an explicit list replaces the private ranges
+    home = ("192.168.20.0/24",)
+    assert direct.https_door(req("192.168.20.9", home)) == "lan" and direct.https_door(req("192.168.1.20", home)) == "tunnel"
+    assert direct.https_door(req("10.0.0.5", home)) == "tunnel"
+
+
+def test_lan_networks_is_an_option_of_the_https_mode(tmp_path):
+    from mantel_server.config import parse_args
+    base = {"access": "https", "public_url": PUBLIC, "cloudflare_token": CF_TOKEN}
+    _, (args, _) = _plan(tmp_path, {**base, "lan_networks": "192.168.20.0/24, fd12:3456::/64"})
+    assert parse_args(args).lan_networks == ("192.168.20.0/24", "fd12:3456::/64")
+    _, (args, _) = _plan(tmp_path, base)
+    assert parse_args(args).lan_networks == ()                           # empty: direct.DEFAULT_LAN_NETWORKS
+    ep = _entrypoint()
+    with pytest.raises(ep.ConfigError, match="lan_networks"):
+        _plan(tmp_path, {**base, "lan_networks": "home"}, ep)
+    ok = ["--ingress", "--listen", "0.0.0.0", "--public-url", PUBLIC, "--direct-port", "8100"]
+    for bad in (ok + ["--lan-network", "nonsense"], ["--lan-network", "192.168.20.0/24"],
+                ok + ["--direct-tls", "acme", "--acme-dns-token-file", "/x", "--acme-directory", "http://acme.example/d"]):
+        with pytest.raises(SystemExit):
+            parse_args(bad)
+
+
+async def test_builtin_https_hassio_peers_get_the_tunnel_door(started):
+    # the test client is 127.0.0.1 (lan by default: the container itself); a home list without loopback
+    # makes the same peer the tunnel door
+    r = await started(mode="https", lan_networks=("192.168.20.0/24",))
+    assert (await (await r.get("direct", "/test/probe")).json())["door"] == "tunnel"
+
+
+async def test_while_the_certificate_is_pending_nobody_signs_in_there(started):
+    r = await started(mode="https", cert_pending=True)
+    for path in ("/login", "/login/ha", "/dashboard-kitchen/home", "/test/probe"):
+        resp = await r.get("direct", path, **PAGE)
+        assert resp.status == 503 and "certificate" in (await resp.text()), path
+    resp = await r.http.post(r.url("direct", "/api/auth/password"), json={"username": "x", "password": "y"},
+                             headers={"Host": NAME, "Origin": PUBLIC.rstrip("/")}, ssl=False)
+    assert resp.status == 503
+    assert (await r.get("direct", "/healthz")).status == 200
+    assert (await r.get("ingress", "/healthz")).status == 200            # the sidebar is not affected
+    r.app["direct_tls"].pending = False
+    assert (await r.get("direct", "/login", **PAGE)).status == 200
 
 
 async def test_sign_in_with_home_assistant_goes_to_has_address_for_browsers(started):
@@ -393,6 +498,28 @@ async def test_sign_in_with_home_assistant_goes_to_has_address_for_browsers(star
     q = parse_qs(loc.query)
     assert q["client_id"] == [PUBLIC] and q["redirect_uri"] == [PUBLIC + "auth/callback"]
     assert r.app["oauth"].ha_url == "http://homeassistant:8123"          # the code exchange: HA's internal address
+
+
+async def test_a_sign_in_state_counts_once_and_callbacks_are_rate_limited(started, monkeypatch):
+    from urllib.parse import parse_qs, urlsplit
+    from mantel_server import auth
+    from mantel_server.ha_oauth import HaOAuth, OAuthError
+
+    async def no_exchange(self, http, code):
+        raise OAuthError("fictional: HA is not here")
+    monkeypatch.setattr(HaOAuth, "exchange_code", no_exchange)
+    r = await started(mode="https")
+    resp = await r.get("direct", "/login/ha", **PAGE)
+    assert "secure" in resp.headers["Set-Cookie"].lower()                 # L6: the state cookie is Secure on https
+    state = parse_qs(urlsplit(resp.headers["Location"]).query)["state"][0]
+    cookie = resp.headers["Set-Cookie"].split(";", 1)[0]
+    first = await r.get("direct", f"/auth/callback?code=c&state={state}", Cookie=cookie, **PAGE)
+    assert first.status == 502                                            # got past the state check (HA is fake)
+    replay = await r.get("direct", f"/auth/callback?code=c&state={state}", Cookie=cookie, **PAGE)
+    assert replay.status == 400 and "did not start here" in await replay.text()
+    for _ in range(auth.CALLBACKS_PER_WINDOW):
+        await r.get("direct", "/auth/callback?code=c&state=x", **PAGE)
+    assert (await r.get("direct", "/auth/callback?code=c&state=x", **PAGE)).status == 429
 
 
 async def test_without_the_sign_in_address_the_page_says_which_option(started):
@@ -447,7 +574,7 @@ async def fakes():
     await acme_server.close()
 
 
-def _manager(tmp_path, fakes, token=CF_TOKEN, clock=None, name=NAME):
+def _manager(tmp_path, fakes, token=CF_TOKEN, clock=None, name=NAME, directory=None):
     tmp_path.mkdir(parents=True, exist_ok=True)
     (tmp_path / "cf").write_text(token + "\n")
 
@@ -459,7 +586,8 @@ def _manager(tmp_path, fakes, token=CF_TOKEN, clock=None, name=NAME):
             return value in fakes.cf.txt(record)
         return check
     import time
-    return direct_tls.CertManager(name, tmp_path / "tls", tmp_path / "cf", directory=fakes.acme.base + "/directory",
+    return direct_tls.CertManager(name, tmp_path / "tls", tmp_path / "cf",
+                                  directory=directory or fakes.acme.base + "/directory",
                                   email="owner@home.example", clock=clock or time.time,
                                   cloudflare_api=str(fakes.cf_server.make_url("/client/v4")), visible=visible,
                                   sleep=no_sleep, poll_every=0)
@@ -467,21 +595,25 @@ def _manager(tmp_path, fakes, token=CF_TOKEN, clock=None, name=NAME):
 
 async def test_a_certificate_is_obtained_with_dns01_and_installed_on_the_live_context(tmp_path, fakes):
     mgr = _manager(tmp_path, fakes)
-    assert mgr.status()["state"] == "placeholder" and mgr.needs_issuing()
+    assert mgr.status()["state"] == "placeholder" and mgr.needs_issuing() and mgr.pending
     fakes.acme.bad_nonce_once = True                                     # the client retries a stale nonce
     assert await mgr.check() == direct_tls.CHECK_EVERY
-    assert mgr.status()["state"] == "ok" and not mgr.needs_issuing() and mgr.last_error == ""
+    assert mgr.status()["state"] == "ok" and not mgr.needs_issuing() and mgr.last_error == "" and not mgr.pending
     issued = fakes.acme.issued[-1]
     from cryptography import x509
     assert issued.extensions.get_extension_for_class(x509.SubjectAlternativeName).value.get_values_for_type(x509.DNSName) == [NAME]
+    assert list(fakes.acme.csr_subjects[-1]) == []                       # no CN in the CSR (SAN only)
     assert direct_tls.cert_info(mgr.cert_path.read_bytes())[1] == {NAME}
     assert fakes.cf.records == {}                                        # the challenge's TXT record is gone again
     assert set(fakes.cf.seen_auth) == {f"Bearer {CF_TOKEN}"}
-    for f in ("account.key", "cert.key", "cert.pem"):
+    for f in ("account.key", "tls.pem", "state.json"):
         assert stat.S_IMODE(os.stat(tmp_path / "tls" / f).st_mode) == 0o600
+    assert not list((tmp_path / "tls").glob("*.new")) and not (tmp_path / "tls" / "pending.pem").exists()
+    assert json.loads((tmp_path / "tls" / "state.json").read_text())["directory"] == fakes.acme.base + "/directory"
+    assert mgr.ssl_ctx.options & getattr(ssl, "OP_NO_RENEGOTIATION", 0) == getattr(ssl, "OP_NO_RENEGOTIATION", 0)
     # a restart keeps the account and the certificate: nothing is issued again
     again = _manager(tmp_path, fakes)
-    assert again.status()["state"] == "ok" and not again.needs_issuing()
+    assert again.status()["state"] == "ok" and not again.needs_issuing() and not again.pending
     assert len(fakes.acme.accounts) == 1
 
 
@@ -497,17 +629,36 @@ async def test_renewal_is_due_30_days_before_expiry(tmp_path, fakes):
     assert len(fakes.acme.issued) == 2 and len(fakes.acme.accounts) == 1
     # another public name means a new certificate (the old one does not cover it)
     other = _manager(tmp_path, fakes, clock=lambda: now[0], name="tablets.home.example")
-    assert other.needs_issuing()
+    assert other.needs_issuing() and other.pending
 
 
-async def test_a_failed_attempt_is_logged_without_the_token_and_retried_later(tmp_path, fakes, caplog):
-    fakes.acme.fail_validation = True
+async def test_switching_between_staging_and_the_real_service_reissues(tmp_path, fakes):
     mgr = _manager(tmp_path, fakes)
+    await mgr.check()
+    assert not mgr.needs_issuing()
+    other = _manager(tmp_path, fakes, directory=fakes.acme.base + "/directory?staging")
+    assert other.pending and other.needs_issuing()                       # L2: a certificate from another directory
+
+
+async def test_a_failed_attempt_is_logged_without_the_token_and_the_backoff_survives_a_restart(tmp_path, fakes, caplog):
+    import time
+    now = [time.time()]
+    fakes.acme.fail_validation = True
+    mgr = _manager(tmp_path, fakes, clock=lambda: now[0])
+    waits = []
     with caplog.at_level(logging.DEBUG):
-        waits = [await mgr.check() for _ in range(5)]
+        for i in range(5):
+            if i:
+                now[0] += waits[-1]
+            waits.append(await mgr.check())
     assert waits == [3600, 3 * 3600, 12 * 3600, 24 * 3600, 24 * 3600]
     assert "validation failed" in mgr.last_error and mgr.status()["state"] == "placeholder"
     assert fakes.cf.records == {}                                        # cleaned up after a failure too
+    # L3: a restart inside the backoff asks Let's Encrypt nothing
+    orders = len(fakes.acme.orders)
+    now[0] += 60
+    again = _manager(tmp_path, fakes, clock=lambda: now[0])
+    assert again.failures == 5 and 0 < await again.check() < 24 * 3600 and len(fakes.acme.orders) == orders
     bad = _manager(tmp_path / "b", fakes, token="wrong-fictional-token")
     with caplog.at_level(logging.DEBUG):
         assert await bad.check() == 3600
@@ -518,10 +669,101 @@ async def test_a_failed_attempt_is_logged_without_the_token_and_retried_later(tm
     assert "token is empty" in empty.last_error
 
 
+async def test_an_issued_certificate_is_kept_until_it_is_installed(tmp_path, fakes, monkeypatch):
+    # L3: the bundle is on disk before it is loaded; a failure to install never asks Let's Encrypt again
+    mgr = _manager(tmp_path, fakes)
+    real = direct_tls.CertManager._adopt
+    monkeypatch.setattr(direct_tls.CertManager, "_adopt", lambda self, b: (_ for _ in ()).throw(OSError("disk")))
+    assert await mgr.check() == 3600
+    assert (tmp_path / "tls" / "pending.pem").is_file() and len(fakes.acme.issued) == 1
+    monkeypatch.setattr(direct_tls.CertManager, "_adopt", real)
+    again = _manager(tmp_path, fakes)
+    assert await again.check() == direct_tls.CHECK_EVERY
+    assert len(fakes.acme.issued) == 1 and not again.pending and not (tmp_path / "tls" / "pending.pem").exists()
+
+
+def _bundle(name=NAME, days=30, other_key=False):
+    import datetime as dt
+    from cryptography import x509
+    from cryptography.hazmat.primitives import hashes, serialization
+    from cryptography.hazmat.primitives.asymmetric import ec
+    from cryptography.x509.oid import NameOID
+    key, signer = ec.generate_private_key(ec.SECP256R1()), ec.generate_private_key(ec.SECP256R1())
+    now = dt.datetime.now(dt.timezone.utc)
+    cert = (x509.CertificateBuilder().subject_name(x509.Name([])).issuer_name(
+                x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "Fictional CA")]))
+            .public_key((ec.generate_private_key(ec.SECP256R1()) if other_key else key).public_key())
+            .serial_number(1).not_valid_before(now - dt.timedelta(days=2)).not_valid_after(now + dt.timedelta(days=days))
+            .add_extension(x509.SubjectAlternativeName([x509.DNSName(name)]), critical=False).sign(signer, hashes.SHA256()))
+    return direct_tls._key_pem(key) + cert.public_bytes(serialization.Encoding.PEM)
+
+
+def test_a_new_chain_is_checked_before_it_replaces_the_old_one(tmp_path, fakes):
+    import time
+    mgr = _manager(tmp_path, fakes)
+    good = _bundle()
+    assert direct_tls.check_bundle(good, NAME, time.time()) > time.time()
+    for bad, words in ((_bundle(other_key=True), "not for this key"), (_bundle(name="other.home.example"), "names"),
+                       (_bundle(days=-1), "expired"), (b"-----BEGIN NOTHING-----", "cannot be read")):
+        with pytest.raises(direct_tls.InvalidCertificate, match=words):
+            mgr._adopt(bad)
+        assert mgr.pending and not mgr.cert_path.exists()
+    mgr._adopt(good)
+    assert not mgr.pending and mgr.cert_path.read_bytes() == good
+
+
+def test_damaged_files_never_stop_the_app(tmp_path, fakes, caplog):
+    # M4: whatever is in /data/tls, the manager starts (on the placeholder) and build_app goes on
+    folder = tmp_path / "tls"
+    folder.mkdir(parents=True)
+    (folder / "tls.pem").write_bytes(b"garbage")
+    (folder / "state.json").write_text("{not json")
+    mgr = _manager(tmp_path, fakes)
+    assert mgr.pending and mgr.needs_issuing()
+    # L4: an unreadable account key is set aside and replaced, with a clear log line
+    (folder / "account.key").write_bytes(b"-----BEGIN PRIVATE KEY-----\nbroken\n-----END PRIVATE KEY-----\n")
+    with caplog.at_level(logging.ERROR):
+        account = mgr._account()
+    assert isinstance(account, direct_tls.AccountKey) and list(folder.glob("account.key.unreadable-*"))
+    assert "could not be read" in caplog.text
+
+
+async def test_the_client_proves_only_the_requested_name_on_the_servers_own_origin(tmp_path, fakes):
+    fakes.acme.identifier_override = "attacker.home.example"
+    mgr = _manager(tmp_path / "a", fakes)
+    await mgr.check()
+    assert "not requested" in mgr.last_error and fakes.cf.records == {}
+    fakes.acme.identifier_override = ""
+    fakes.acme.foreign_authz = "https://elsewhere.example/authz/1"
+    mgr = _manager(tmp_path / "b", fakes)
+    await mgr.check()
+    assert "outside its own" in mgr.last_error
+
+
+async def test_retry_after_is_honoured(tmp_path, fakes):
+    slept = []
+
+    async def record(seconds):
+        slept.append(seconds)
+    fakes.acme.slow_polls, fakes.acme.retry_after = 2, "3"
+    mgr = _manager(tmp_path, fakes)
+    mgr.sleep = record
+    assert await mgr.check() == direct_tls.CHECK_EVERY
+    assert slept.count(3.0) == 2
+    assert direct_tls.retry_after("600", 2.0) == 60.0 and direct_tls.retry_after("soon", 2.0) == 2.0
+
+
+async def test_a_txt_record_whose_answer_was_lost_is_removed_by_name(tmp_path, fakes):
+    fakes.cf.fail_after_create = True
+    mgr = _manager(tmp_path, fakes)
+    await mgr.check()
+    assert "Cloudflare answered 500" in mgr.last_error and fakes.cf.records == {}
+
+
 async def test_a_name_outside_the_tokens_zones_says_so(tmp_path, fakes):
     mgr = _manager(tmp_path, fakes, name="mantel.elsewhere.example")
     await mgr.check()
-    assert "no Cloudflare zone" in mgr.last_error
+    assert "no Cloudflare zone" in mgr.last_error and "Zone / Zone / Read" in mgr.last_error
 
 
 def test_the_jws_and_the_dns01_value_follow_rfc_8555():

@@ -51,6 +51,7 @@ options:
   cloudflare_token: ""
   acme_email: ""
   acme_staging: false
+  lan_networks: ""
 schema:
   commands_enabled: bool
   log_level: list(debug|info|warning|error)
@@ -65,3 +66,4 @@ schema:
   cloudflare_token: "password?"
   acme_email: "email?"
   acme_staging: bool
+  lan_networks: "str?"

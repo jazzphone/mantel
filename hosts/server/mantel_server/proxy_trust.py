@@ -43,7 +43,7 @@ def _cfg(request: web.Request):
     return request.app.get("cfg")
 
 
-def is_trusted(request: web.Request) -> bool:
+def listed(request: web.Request) -> bool:
     """The socket peer is one of the configured ``--trusted-proxy`` addresses (exact match). In the HA App
     with direct access (direct.py) only on the direct listener: the Ingress port has no proxy of the home's."""
     cfg = _cfg(request)
@@ -52,6 +52,19 @@ def is_trusted(request: web.Request) -> bool:
         return False
     from . import direct
     return not direct.enabled(cfg) or direct.is_direct(request)
+
+
+def is_trusted(request: web.Request) -> bool:
+    """A listed peer (above) whose forwarding and door headers count. On the HA App's direct port behind the
+    home's own proxy, also only with this installation's door key: Docker may show every client, HA Core and
+    other Apps as one address (172.30.32.1), so the address alone proves nothing there."""
+    if not listed(request):
+        return False
+    from . import direct, door_key
+    cfg = _cfg(request)
+    if direct.enabled(cfg) and door_key.required(cfg):
+        return door_key.status(request) == "ok"
+    return True
 
 
 def _is_loopback(peer: str | None) -> bool:
@@ -125,7 +138,7 @@ def to_remove(request: web.Request) -> list[str]:
         if ids:
             drop += ids
             ingress._warn_forged(request)        # "ignored HA identity headers (...) from <peer>", rate-limited
-    if not trusted and "X-Mantel-Door-Key" in h:
+    if not listed(request) and "X-Mantel-Door-Key" in h:
         drop.append("X-Mantel-Door-Key")      # door_key.py: only the trusted proxy may present it
     if not (trusted or through_ingress):
         fwd = [n for n in FORWARDING if n in h]

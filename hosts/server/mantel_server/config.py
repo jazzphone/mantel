@@ -102,6 +102,9 @@ class Config:
     direct_port: int = 0
     direct_tls: str = ""
     direct_hosts: tuple[str, ...] = ()
+    # built-in HTTPS: the home's networks (CIDRs), whose peers get the LAN door there (direct.https_door). Empty:
+    # direct.DEFAULT_LAN_NETWORKS. HA's hassio and Docker's bridge networks never count (direct.NEVER_LAN).
+    lan_networks: tuple[str, ...] = ()
     acme_directory: str = ""                               # default: Let's Encrypt (direct_tls.LETSENCRYPT)
     acme_email: str = ""
     acme_dns_token_file: Path | None = None                # the Cloudflare DNS token (a file, never an argument)
@@ -252,6 +255,9 @@ def parse_args(argv: list[str] | None = None) -> Config:
                         "with a Let's Encrypt certificate (DNS-01 through Cloudflare)")
     p.add_argument("--direct-host", action="append", default=[], metavar="NAME",
                    help="direct access: another Host name accepted there besides --public-url's (repeatable)")
+    p.add_argument("--lan-network", action="append", default=[], metavar="CIDR",
+                   help="built-in HTTPS: a home network whose addresses get the LAN door (repeatable; default the "
+                        "private ranges, never HA's hassio or Docker's bridge network)")
     p.add_argument("--acme-directory", default="", metavar="URL",
                    help="built-in HTTPS: the ACME directory (default Let's Encrypt; its staging one for trials)")
     p.add_argument("--acme-email", default="", metavar="ADDRESS", help="built-in HTTPS: the ACME account's contact")
@@ -284,8 +290,17 @@ def parse_args(argv: list[str] | None = None) -> Config:
             p.error("--direct-port needs --public-url https://<Mantel's own name>/ (what browsers type)")
         if a.direct_tls == "acme" and not a.acme_dns_token_file:
             p.error("--direct-tls acme needs --acme-dns-token-file (the Cloudflare DNS token)")
-    elif a.direct_tls != "none" or a.direct_host:
-        p.error("--direct-tls / --direct-host only apply together with --direct-port")
+    elif a.direct_tls != "none" or a.direct_host or a.lan_network:
+        p.error("--direct-tls / --direct-host / --lan-network only apply together with --direct-port")
+    from ipaddress import ip_network
+    lan_networks = []
+    for raw in a.lan_network:
+        try:
+            lan_networks.append(str(ip_network(raw.strip(), strict=False)))
+        except ValueError:
+            p.error(f"--lan-network must be a network such as 192.0.2.0/24, not {raw!r}")
+    if a.acme_directory and urlparse(a.acme_directory).scheme != "https":
+        p.error("--acme-directory must be an https:// address")
     for flag, value in (("--ha-browser-url", a.ha_browser_url), ("--ha-oauth-url", a.ha_oauth_url),
                         ("--acme-directory", a.acme_directory)):
         u = urlparse(value) if value else None
@@ -368,7 +383,7 @@ def parse_args(argv: list[str] | None = None) -> Config:
                  log_level=a.log_level, go2rtc_url=a.go2rtc_url.rstrip("/"),
                  live_tv_hardware="" if a.live_tv_hardware == "none" else a.live_tv_hardware,
                  direct_port=a.direct_port, direct_tls="" if a.direct_tls == "none" else a.direct_tls,
-                 direct_hosts=_direct_hosts(a) if a.direct_port else (),
+                 direct_hosts=_direct_hosts(a) if a.direct_port else (), lan_networks=tuple(lan_networks),
                  acme_directory=a.acme_directory, acme_email=a.acme_email.strip(),
                  acme_dns_token_file=Path(a.acme_dns_token_file) if a.acme_dns_token_file else None,
                  ha_browser_url=a.ha_browser_url.rstrip("/"), ha_oauth_url=a.ha_oauth_url.rstrip("/"))

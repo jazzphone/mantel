@@ -38,3 +38,6 @@ configuration:
   acme_staging:
     name: Test certificates
     description: With https, use Let's Encrypt's staging service (certificates browsers do not trust) while trying the setup out, so failed attempts do not count against the real service's limits.
+  lan_networks:
+    name: Home networks
+    description: With https, the networks (for example 192.0.2.0/24, separated by commas) whose devices get the home's rules at Mantel's own address; everything else gets the remote rules. Empty means the private ranges. Home Assistant's internal network never counts, so a device must reach this machine directly, not through the router's port forwarding.

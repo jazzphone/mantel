@@ -1034,6 +1034,8 @@ async def middleware(request: web.Request, handler):
         if direct.is_direct(request):
             # the App's direct access (decision 26, direct.py): Mantel's own sign-in and doors decide; the
             # Ingress-only gate lets exactly this listener through (HA Core's exception stays on the Ingress port)
+            if direct.certificate_pending(request) and request.path not in HEALTH_PATHS:
+                return direct.pending_response()     # no sign-in over the self-signed placeholder
             return await handler(request)
         if request.path in CORE_PATHS and request.remote in tuple(getattr(cfg, "ha_core_peers", ()) or ()):
             # HA Core's linked-mode client (hk_frontend "Linked to Mantel Server"); linked.py still wants its

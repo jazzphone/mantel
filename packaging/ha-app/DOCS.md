@@ -72,7 +72,9 @@ Your proxy owns HTTPS and forwards to the App over plain HTTP.
    type), `trusted_proxies`: your proxy's IP address as Mantel sees it, `ha_sign_in_url` (optional) your
    Home Assistant address as browsers know it, e.g. `http://homeassistant.local:8123`.
 2. App **Network**: give `8100/tcp` a host port, e.g. `8100`. (Leave it empty if your proxy is itself a
-   Home Assistant App: it can reach `http://local-mantel:8100` on Home Assistant's internal network.)
+   Home Assistant App: it can reach `http://local-mantel:8100` on Home Assistant's internal network. Its
+   address there is assigned by Home Assistant and can change when it restarts; check it on the Test my
+   proxy page after updates.)
 3. **Restart** the App, open Mantel in the sidebar as the Owner: **Mantel settings → Connections → HTTPS
    and your proxy**, *Rotate door key*, and copy the **door key** (shown once; *Test my proxy* there also
    shows the block below with the key filled in). The proxy sends it with every request; without it Mantel
@@ -104,13 +106,21 @@ Your proxy owns HTTPS and forwards to the App over plain HTTP.
    }
    ```
 
-   Replace `HA_MACHINE_ADDRESS` and `MANTEL_DOOR_KEY` (the key from step 3). Use `lan` only on a proxy
-   host that your home network alone can reach; one the internet can reach sends `tunnel`.
+   Replace `HA_MACHINE_ADDRESS` and `MANTEL_DOOR_KEY` (the key from step 3).
+   **Access tab: required.** Give this proxy host an NPM *Access List* that allows only your home's
+   networks (for example your LAN's `a.b.c.0/24`) and denies all, or run an NPM that the internet cannot
+   reach at all. The block above tells Mantel "this is the home network"; a certificate's name is public
+   (certificate transparency logs), so anyone who finds it and reaches NPM would otherwise get the home's
+   rules. (Mantel also refuses the home rules when the visitor's own address is an internet one, but do not
+   rely on that alone.) For access from outside, use a separate proxy host that sends `tunnel`, or Home
+   Assistant's sidebar.
 5. Point the name at the proxy in your DNS (a local record is enough), then open
    `https://mantel.example.com/proxy-check` as the Owner (sign in there first). It says whether the
    request came through the trusted proxy, with the door and the key, and **which address it came
    from**: if that is not the one in `trusted_proxies` (Docker can show your proxy as Home Assistant's
-   own internal bridge address), put the address it shows there and restart the App.
+   own internal bridge address), put the address it shows there and restart the App. Mantel believes
+   anything your proxy says only together with the door key, so keep the key secret; between NPM and this
+   machine it travels in plain HTTP, so keep that hop on your home network (or the same machine).
 
 ### `https`: Mantel's built-in HTTPS
 
@@ -122,17 +132,26 @@ from the internet and the name can stay inside your home.
    zone holding the name only.
 2. App **Configuration**: `access: https`, `public_url: https://mantel.example.com` (add `:port` when the
    host port below is not 443), `cloudflare_token` the token, `ha_sign_in_url` (optional), `acme_email`
-   (optional). While trying it out, `acme_staging: true` gets test certificates (a browser warning) so
-   mistakes do not count against Let's Encrypt's limits; turn it off afterwards.
+   (optional), `lan_networks` (optional: your home's networks, for example `a.b.c.0/24`; empty means the
+   private ranges). While trying it out, `acme_staging: true` gets test certificates (a browser warning) so
+   mistakes do not count against Let's Encrypt's limits; turn it off afterwards (Mantel then gets a real
+   one). Asking for a certificate accepts Let's Encrypt's subscriber agreement.
 3. App **Network**: give `8100/tcp` a host port, e.g. `443` if nothing else on the machine uses it, else
    `8443`.
 4. In your DNS point the name at the Home Assistant machine (a local record is enough).
-5. **Restart** the App. Its log says when the certificate is installed (until then the port serves a
-   temporary self-signed one). Renewal is automatic.
+5. **Restart** the App. Its log says when the certificate is installed. Until then the port serves a
+   temporary self-signed certificate and only a "certificate pending" page: nobody signs in there before
+   the real certificate is in. Renewal is automatic.
 
-Never forward this port from the internet: Mantel tells home from remote by the connecting address, and
-Docker can make every visitor look like a home address. For remote use keep Home Assistant's sidebar or
-the Companion app.
+Mantel tells home from remote by the connecting address: an address in `lan_networks` gets the home's
+rules, anything else the remote rules, and Home Assistant's internal network (`172.30.32.0/23`, where
+other Apps, Home Assistant itself and anything Docker relays come from) never counts as home. So tablets
+must reach this machine **directly** on your LAN; one that goes out to the router and back in (hairpin
+NAT, a port forward) arrives with the wrong address and gets the remote rules or nothing. Never forward
+this port from the internet; for remote use keep Home Assistant's sidebar or the Companion app.
+
+The certificate's key and the Let's Encrypt account key are kept in the App's data (`/data/tls`, readable
+only by Mantel, not encrypted) and so are inside Home Assistant's backups: protect those backups.
 
 ## Security notes
 

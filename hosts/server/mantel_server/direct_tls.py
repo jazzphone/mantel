@@ -12,10 +12,14 @@ unpinnable binary; and two processes in the App need a supervisor the App does n
 server). ACME with DNS-01 is a few HTTPS requests, and everything it needs (aiohttp, cryptography) is already
 in the image, pinned and tested.
 
-* **Keys and certificate** live in ``<data_dir>/tls`` (folder 0700, files 0600; inside HA's backups):
-  ``account.key`` (the ACME account), ``cert.pem`` + ``cert.key`` (a fresh key at each issuance).
+* **Keys and certificate** live in ``<data_dir>/tls`` (folder 0700, files 0600; NOT sealed with the at-rest key,
+  and inside HA's backups): ``account.key`` (the ACME account), ``tls.pem`` (a fresh key at each issuance and its
+  chain, in one file written atomically; ``CertManager`` lists the rest). A new chain is checked before use: the
+  leaf is for the generated key, names exactly the name, has not expired, and loads into a fresh context.
 * **Until a certificate exists** (first start, or Let's Encrypt unreachable) the listener serves a short-lived
-  self-signed one for the same name, so the port answers (with a browser warning) and the log says why.
+  self-signed one for the same name and nothing else: every page answers "certificate pending" (direct.py),
+  so no one signs in over a certificate a browser cannot check. A damaged stored file never stops the App.
+* Requesting a certificate accepts Let's Encrypt's subscriber agreement (``termsOfServiceAgreed``).
 * **Renewal** 30 days before expiry, checked twice a day; a failed attempt is retried after 1, 3, 12, then
   24 hours (Let's Encrypt limits failed validations). The live listener picks the new certificate up at once
   (``SSLContext.load_cert_chain`` on the same context: new handshakes use it).
@@ -117,13 +121,25 @@ class AcmeClient:
         self.dir: dict | None = None
         self.kid: str | None = None
         self._nonce: str | None = None
+        self.origin = _origin(directory_url)
+
+    def _same_origin(self, url: Any) -> str:
+        """Every URL the server hands out must be on the directory's own origin (scheme, host, port)."""
+        if not isinstance(url, str) or _origin(url) != self.origin:
+            raise AcmeError("the ACME server named an address outside its own")
+        return url
 
     async def directory(self) -> dict:
         if self.dir is None:
-            async with self.http.get(self.directory_url, timeout=TIMEOUT) as r:
+            async with self.http.get(self.directory_url, timeout=TIMEOUT, allow_redirects=False) as r:
                 if r.status != 200:
                     raise AcmeError(f"the ACME directory answered {r.status}")
-                self.dir = await r.json(content_type=None)
+                d = await r.json(content_type=None)
+            if not isinstance(d, dict):
+                raise AcmeError("the ACME directory is not a directory")
+            for key in ("newNonce", "newAccount", "newOrder"):
+                self._same_origin(d.get(key))
+            self.dir = d
         return self.dir
 
     async def nonce(self) -> str:
@@ -131,7 +147,7 @@ class AcmeClient:
             n, self._nonce = self._nonce, None
             return n
         url = (await self.directory())["newNonce"]
-        async with self.http.head(url, timeout=TIMEOUT) as r:
+        async with self.http.head(url, timeout=TIMEOUT, allow_redirects=False) as r:
             n = r.headers.get("Replay-Nonce")
         if not n:
             raise AcmeError("the ACME server gave no nonce")
@@ -139,6 +155,7 @@ class AcmeClient:
 
     async def post(self, url: str, payload: Any, accept: str | None = None) -> tuple[int, Any, Any]:
         """(status, headers, body: parsed JSON, or text for a certificate). Retries once on badNonce."""
+        self._same_origin(url)
         for attempt in (1, 2):
             protected = {"alg": "ES256", "nonce": await self.nonce(), "url": url}
             if self.kid:
@@ -149,7 +166,7 @@ class AcmeClient:
             if accept:
                 headers["Accept"] = accept
             async with self.http.post(url, data=json.dumps(self.account.sign(protected, payload)),
-                                      headers=headers, timeout=TIMEOUT) as r:
+                                      headers=headers, timeout=TIMEOUT, allow_redirects=False) as r:
                 self._nonce = r.headers.get("Replay-Nonce") or None
                 text = await r.text()
                 body: Any = text
@@ -179,13 +196,13 @@ class AcmeClient:
         kid = headers.get("Location")
         if not kid:
             raise AcmeError("the ACME server gave no account URL")
-        self.kid = kid
+        self.kid = self._same_origin(kid)
         return kid
 
     async def poll(self, url: str, done: tuple[str, ...], timeout: float = 180.0) -> dict:
         waited = 0.0
         while True:
-            _, _, body = await self.post(url, None)
+            _, headers, body = await self.post(url, None)
             state = body.get("status") if isinstance(body, dict) else None
             if state in done:
                 return body
@@ -195,8 +212,9 @@ class AcmeClient:
                 raise AcmeError("validation failed: " + "; ".join(p for p in problems if p))
             if waited >= timeout:
                 raise AcmeError(f"timed out waiting (still {state})")
-            await self.sleep(self.poll_every)
-            waited += self.poll_every
+            wait = retry_after(headers.get("Retry-After"), self.poll_every)
+            await self.sleep(wait)
+            waited += max(wait, 0.5)
 
     async def issue(self, name: str, dns: "CloudflareDns", cert_key: ec.EllipticCurvePrivateKey,
                     visible: Callable[[str, str], Awaitable[bool]]) -> str:
@@ -204,23 +222,28 @@ class AcmeClient:
         await self.register()
         d = await self.directory()
         _, headers, order = await self.post(d["newOrder"], {"identifiers": [{"type": "dns", "value": name}]})
-        order_url = headers.get("Location")
-        if not order_url:
-            raise AcmeError("the ACME server gave no order URL")
+        order_url = self._same_origin(headers.get("Location"))
         made: list[tuple[str, str]] = []
         try:
             pending = []
             for authz_url in order.get("authorizations", []):
-                _, _, authz = await self.post(authz_url, None)
+                _, _, authz = await self.post(self._same_origin(authz_url), None)
+                ident = (authz.get("identifier") or {}).get("value", "")
+                if str(ident).lower() != name.lower():
+                    raise AcmeError("the ACME server asked to prove a name that was not requested")
                 if authz.get("status") == "valid":
                     continue
                 chall = next((c for c in authz.get("challenges", []) if c.get("type") == "dns-01"), None)
                 if chall is None:
                     raise AcmeError("the ACME server offered no dns-01 challenge")
-                record = "_acme-challenge." + authz["identifier"]["value"]
+                record = "_acme-challenge." + name          # the requested name, never the server's word for it
                 value = dns01_value(chall["token"], self.account)
-                made.append(await dns.add_txt(record, value))
-                pending.append((authz_url, chall["url"], record, value))
+                try:
+                    made.append(await dns.add_txt(record, value))
+                except Exception:
+                    await dns.cleanup(record, value)     # Cloudflare may have made it before the answer failed
+                    raise
+                pending.append((authz_url, self._same_origin(chall.get("url")), record, value))
             for _, _, record, value in pending:
                 await wait_visible(visible, record, value, self.sleep)
             for authz_url, chall_url, _, _ in pending:
@@ -229,9 +252,10 @@ class AcmeClient:
             order = await self.poll(order_url, ("ready", "valid"))
             if order.get("status") == "ready":
                 csr = csr_der(name, cert_key)
-                await self.post(order["finalize"], {"csr": b64u(csr)})
+                await self.post(self._same_origin(order.get("finalize")), {"csr": b64u(csr)})
                 order = await self.poll(order_url, ("valid",))
-            _, _, pem = await self.post(order["certificate"], None, accept="application/pem-certificate-chain")
+            _, _, pem = await self.post(self._same_origin(order.get("certificate")), None,
+                                        accept="application/pem-certificate-chain")
             if not isinstance(pem, str) or "BEGIN CERTIFICATE" not in pem:
                 raise AcmeError("the ACME server sent no certificate")
             return pem
@@ -241,6 +265,20 @@ class AcmeClient:
                     await dns.remove(zone, record_id)
                 except Exception as exc:  # noqa: BLE001 -- a stale TXT record is harmless; say so
                     log.warning("could not remove the challenge's TXT record (%s)", exc)
+
+
+def _origin(url: str) -> tuple:
+    from urllib.parse import urlsplit
+    u = urlsplit(url)
+    return (u.scheme.lower(), (u.hostname or "").lower(), u.port or (443 if u.scheme == "https" else 80))
+
+
+def retry_after(value: str | None, default: float) -> float:
+    """Seconds from an ACME Retry-After header (whole seconds), kept between the default and a minute."""
+    try:
+        return min(max(float(int(value)), default), 60.0) if value else default
+    except ValueError:
+        return default
 
 
 async def wait_visible(visible: Callable[[str, str], Awaitable[bool]], record: str, value: str,
@@ -270,7 +308,7 @@ def doh_visible(http: aiohttp.ClientSession, doh: str = DOH) -> Callable[[str, s
 
 def csr_der(name: str, key: ec.EllipticCurvePrivateKey) -> bytes:
     csr = (x509.CertificateSigningRequestBuilder()
-           .subject_name(x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, name)]))
+           .subject_name(x509.Name([]))
            .add_extension(x509.SubjectAlternativeName([x509.DNSName(name)]), critical=False)
            .sign(key, hashes.SHA256()))
     return csr.public_bytes(serialization.Encoding.DER)
@@ -293,8 +331,12 @@ class CloudflareDns:
         return {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
 
     async def _call(self, method: str, path: str, **kw) -> Any:
-        async with self.http.request(method, self.api + path, headers=self._headers(), timeout=TIMEOUT, **kw) as r:
-            body = await r.json(content_type=None)
+        async with self.http.request(method, self.api + path, headers=self._headers(), timeout=TIMEOUT,
+                                     allow_redirects=False, **kw) as r:
+            try:
+                body = await r.json(content_type=None)
+            except ValueError:
+                body = None
         if r.status >= 400 or not isinstance(body, dict) or not body.get("success"):
             errors = body.get("errors") if isinstance(body, dict) else None
             first = errors[0] if isinstance(errors, list) and errors and isinstance(errors[0], dict) else {}
@@ -320,14 +362,38 @@ class CloudflareDns:
     async def remove(self, zone: str, record_id: str) -> None:
         await self._call("DELETE", f"/zones/{zone}/dns_records/{record_id}")
 
+    async def cleanup(self, record: str, value: str) -> None:
+        """Best effort: remove this challenge's TXT record found by name and value (an unanswered create)."""
+        try:
+            zone = await self.zone_for(record)
+            found = await self._call("GET", f"/zones/{zone}/dns_records", params={"type": "TXT", "name": record})
+            for r in found or []:
+                if str(r.get("content", "")).strip('"') == value:
+                    await self.remove(zone, r["id"])
+        except Exception as exc:  # noqa: BLE001 -- a stale TXT record is harmless; say so
+            log.warning("could not check for a leftover challenge TXT record (%s)", exc)
+
 
 # -- files ------------------------------------------------------------------------------------------------
 def _write_private(path: Path, data: bytes) -> None:
+    """Atomically: a 0600 temp file, flushed to disk, renamed over the target, the folder flushed too."""
     tmp = path.with_name(path.name + ".new")
     fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
     with os.fdopen(fd, "wb") as f:
         f.write(data)
+        f.flush()
+        os.fsync(f.fileno())
     os.replace(tmp, path)
+    try:
+        dfd = os.open(path.parent, os.O_RDONLY)
+    except OSError:
+        return
+    try:
+        os.fsync(dfd)
+    except OSError:
+        pass
+    finally:
+        os.close(dfd)
 
 
 def _key_pem(key: ec.EllipticCurvePrivateKey) -> bytes:
@@ -335,18 +401,17 @@ def _key_pem(key: ec.EllipticCurvePrivateKey) -> bytes:
                              serialization.NoEncryption())
 
 
-def self_signed(name: str, days: int = PLACEHOLDER_DAYS) -> tuple[bytes, bytes]:
-    """(cert PEM, key PEM): the placeholder served until Let's Encrypt's certificate arrives."""
+def self_signed(name: str, days: int = PLACEHOLDER_DAYS) -> bytes:
+    """The placeholder served until Let's Encrypt's certificate arrives: its key and certificate, one PEM."""
     key = ec.generate_private_key(ec.SECP256R1())
     now = dt.datetime.now(dt.timezone.utc)
-    subject = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, name)])
     issuer = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, PLACEHOLDER_ISSUER)])
-    cert = (x509.CertificateBuilder().subject_name(subject).issuer_name(issuer).public_key(key.public_key())
+    cert = (x509.CertificateBuilder().subject_name(issuer).issuer_name(issuer).public_key(key.public_key())
             .serial_number(x509.random_serial_number()).not_valid_before(now - dt.timedelta(minutes=5))
             .not_valid_after(now + dt.timedelta(days=days))
             .add_extension(x509.SubjectAlternativeName([x509.DNSName(name)]), critical=False)
             .sign(key, hashes.SHA256()))
-    return cert.public_bytes(serialization.Encoding.PEM), _key_pem(key)
+    return _key_pem(key) + cert.public_bytes(serialization.Encoding.PEM)
 
 
 def cert_info(pem: bytes) -> tuple[float, set[str], bool]:
@@ -360,9 +425,47 @@ def cert_info(pem: bytes) -> tuple[float, set[str], bool]:
     return cert.not_valid_after_utc.timestamp(), {n.lower() for n in names}, placeholder
 
 
+def new_context() -> ssl.SSLContext:
+    ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+    ctx.minimum_version = ssl.TLSVersion.TLSv1_2
+    ctx.options |= getattr(ssl, "OP_NO_RENEGOTIATION", 0)
+    return ctx
+
+
+class InvalidCertificate(AcmeError):
+    pass
+
+
+def check_bundle(pem: bytes, name: str, now: float) -> float:
+    """The combined key + chain is usable for ``name`` now: the leaf's key is this key, its names are exactly
+    ``name``, it has not expired. Returns its not_after. Raises InvalidCertificate otherwise."""
+    try:
+        key = serialization.load_pem_private_key(pem, None)
+        certs = x509.load_pem_x509_certificates(pem)
+    except (ValueError, TypeError) as exc:
+        raise InvalidCertificate(f"the certificate file cannot be read ({type(exc).__name__})") from None
+    leaf = certs[0]
+    spki = serialization.Encoding.DER, serialization.PublicFormat.SubjectPublicKeyInfo
+    if leaf.public_key().public_bytes(*spki) != key.public_key().public_bytes(*spki):
+        raise InvalidCertificate("the certificate is not for this key")
+    not_after, names, _ = cert_info(pem)
+    if names != {name}:
+        raise InvalidCertificate(f"the certificate names {', '.join(sorted(names)) or 'nothing'}, not {name}")
+    if not_after <= now:
+        raise InvalidCertificate("the certificate has expired")
+    return not_after
+
+
 # -- the manager ------------------------------------------------------------------------------------------
 class CertManager:
-    """Keeps a valid certificate for ``name`` in ``folder`` and on the live SSLContext."""
+    """Keeps a valid certificate for ``name`` in ``folder`` and on the live SSLContext.
+
+    Files (folder 0700, files 0600; plain, not sealed with the at-rest key, and in HA's backups):
+    ``tls.pem`` the key and chain in use (one file, so the pair is always replaced together),
+    ``pending.pem`` a freshly issued bundle not yet installed (kept across a restart, so an install problem
+    never asks Let's Encrypt again), ``placeholder.pem``, ``account.key``, ``state.json`` (the ACME directory
+    the certificate came from, failures and the next attempt).
+    """
 
     def __init__(self, name: str, folder: Path, token_file: Path | None, directory: str = LETSENCRYPT,
                  email: str = "", clock: Callable[[], float] = time.time,
@@ -381,61 +484,98 @@ class CertManager:
         self.visible = visible or doh_visible
         self.sleep = sleep
         self.poll_every = poll_every
-        self.failures = 0
-        self.last_error = ""
         self.folder.mkdir(parents=True, exist_ok=True)
         os.chmod(self.folder, 0o700)
-        self.ssl_ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
-        self.ssl_ctx.minimum_version = ssl.TLSVersion.TLSv1_2
-        if not self._usable():
+        self.state = self._load_state()
+        self.ssl_ctx = new_context()
+        self.pending = True                 # serving the placeholder (direct.py refuses sign-in meanwhile)
+        if self.usable():
+            try:
+                self.ssl_ctx.load_cert_chain(self.cert_path)
+                self.pending = False
+            except (OSError, ssl.SSLError) as exc:
+                log.error("built-in HTTPS: the stored certificate could not be loaded (%s); serving a temporary "
+                          "one", type(exc).__name__)
+        if self.pending:
             log.info("built-in HTTPS: no certificate for %s yet; serving a temporary self-signed one until "
                      "Let's Encrypt's arrives", self.name)
-            cert, key = self_signed(self.name)
-            self._install(cert, key)
-        else:
-            self.ssl_ctx.load_cert_chain(self.cert_path, self.key_path)
+            _write_private(self.placeholder_path, self_signed(self.name))
+            self.ssl_ctx.load_cert_chain(self.placeholder_path)
 
+    # paths and state
     @property
     def cert_path(self) -> Path:
-        return self.folder / "cert.pem"
+        return self.folder / "tls.pem"
 
     @property
-    def key_path(self) -> Path:
-        return self.folder / "cert.key"
+    def pending_path(self) -> Path:
+        return self.folder / "pending.pem"
 
-    def _usable(self) -> bool:
+    @property
+    def placeholder_path(self) -> Path:
+        return self.folder / "placeholder.pem"
+
+    @property
+    def state_path(self) -> Path:
+        return self.folder / "state.json"
+
+    def _load_state(self) -> dict:
         try:
-            not_after, names, _ = cert_info(self.cert_path.read_bytes())
-        except (OSError, ValueError, IndexError):
-            return False
-        return self.key_path.is_file() and self.name in names and not_after > self.clock()
+            st = json.loads(self.state_path.read_text())
+            return st if isinstance(st, dict) else {}
+        except (OSError, ValueError):
+            return {}
 
-    def _install(self, cert: bytes, key: bytes) -> None:
-        _write_private(self.key_path, key)
-        _write_private(self.cert_path, cert)
-        self.ssl_ctx.load_cert_chain(self.cert_path, self.key_path)
+    def _save_state(self, **changes) -> None:
+        self.state.update(changes)
+        _write_private(self.state_path, json.dumps(self.state, sort_keys=True).encode())
+
+    @property
+    def last_error(self) -> str:
+        return str(self.state.get("last_error") or "")
+
+    @property
+    def failures(self) -> int:
+        return int(self.state.get("failures") or 0)
+
+    def usable(self) -> bool:
+        """tls.pem holds a valid certificate for the name, from the directory configured now."""
+        try:
+            check_bundle(self.cert_path.read_bytes(), self.name, self.clock())
+        except (OSError, InvalidCertificate):
+            return False
+        return self.state.get("directory") == self.directory
 
     def status(self) -> dict:
+        out = {"name": self.name, "last_error": self.last_error, "next_attempt": self.state.get("next_attempt")}
+        if self.pending:
+            return {**out, "state": "placeholder"}
         try:
-            not_after, names, placeholder = cert_info(self.cert_path.read_bytes())
+            not_after, _, _ = cert_info(self.cert_path.read_bytes())
         except (OSError, ValueError, IndexError):
-            return {"name": self.name, "state": "none", "last_error": self.last_error}
-        state = "placeholder" if placeholder else ("ok" if not_after > self.clock() else "expired")
-        return {"name": self.name, "state": state, "not_after": not_after, "last_error": self.last_error}
+            return {**out, "state": "none"}
+        return {**out, "state": "ok" if not_after > self.clock() else "expired", "not_after": not_after}
 
     def needs_issuing(self) -> bool:
-        try:
-            not_after, names, placeholder = cert_info(self.cert_path.read_bytes())
-        except (OSError, ValueError, IndexError):
+        if self.pending or not self.usable():
             return True
-        return placeholder or self.name not in names or not_after - self.clock() < RENEW_BEFORE
+        not_after, _, _ = cert_info(self.cert_path.read_bytes())
+        return not_after - self.clock() < RENEW_BEFORE
 
+    # the account
     def _account(self) -> AccountKey:
         path = self.folder / "account.key"
         if path.is_file():
-            key = serialization.load_pem_private_key(path.read_bytes(), None)
-            if isinstance(key, ec.EllipticCurvePrivateKey):
-                return AccountKey(key)
+            try:
+                key = serialization.load_pem_private_key(path.read_bytes(), None)
+                if isinstance(key, ec.EllipticCurvePrivateKey):
+                    return AccountKey(key)
+                raise ValueError("not an EC key")
+            except (ValueError, TypeError):
+                aside = path.with_name(f"account.key.unreadable-{int(self.clock())}")
+                os.replace(path, aside)
+                log.error("built-in HTTPS: the ACME account key could not be read; it was moved to %s and a new "
+                          "account is made", aside.name)
         account = AccountKey.generate()
         _write_private(path, account.pem())
         return account
@@ -448,6 +588,27 @@ class CertManager:
         except OSError:
             return ""
 
+    # installing
+    def _adopt(self, bundle: bytes) -> float:
+        """Validate a key + chain, prove it loads in a fresh context, then make it the live certificate."""
+        not_after = check_bundle(bundle, self.name, self.clock())
+        trial = self.folder / "trial.pem"
+        _write_private(trial, bundle)
+        try:
+            new_context().load_cert_chain(trial)
+        except ssl.SSLError as exc:
+            raise InvalidCertificate(f"the certificate does not load ({exc.reason or type(exc).__name__})") from None
+        finally:
+            trial.unlink(missing_ok=True)
+        _write_private(self.cert_path, bundle)
+        self.ssl_ctx.load_cert_chain(self.cert_path)
+        self.pending = False
+        self.pending_path.unlink(missing_ok=True)
+        self._save_state(directory=self.directory, failures=0, next_attempt=0, last_error="")
+        log.info("built-in HTTPS: Let's Encrypt certificate for %s installed (valid until %s)", self.name,
+                 time.strftime("%Y-%m-%d", time.gmtime(not_after)))
+        return not_after
+
     async def issue(self) -> None:
         async with self.http_factory() as http:
             client = AcmeClient(http, self.directory, self._account(), self.email, sleep=self.sleep,
@@ -455,25 +616,38 @@ class CertManager:
             dns = CloudflareDns(http, self._token, self.cloudflare_api)
             key = ec.generate_private_key(ec.SECP256R1())
             pem = await client.issue(self.name, dns, key, self.visible(http))
-        self._install(pem.encode(), _key_pem(key))
+        bundle = _key_pem(key) + pem.encode()
+        _write_private(self.pending_path, bundle)       # kept until installed: never asked for twice
+        self._adopt(bundle)
+
+    def _failed(self, exc: Exception) -> float:
+        failures = self.failures + 1
+        error = str(exc) if isinstance(exc, AcmeError) else type(exc).__name__
+        wait = RETRY_AFTER[min(failures, len(RETRY_AFTER)) - 1]
+        self._save_state(failures=failures, last_error=error, next_attempt=self.clock() + wait)
+        log.error("built-in HTTPS: could not get a certificate for %s (%s); trying again in %d min",
+                  self.name, error, wait // 60)
+        return wait
 
     async def check(self) -> float:
-        """Issue or renew when due. Returns the seconds until the next check."""
+        """Install a kept bundle, else issue or renew when due (respecting the stored backoff). Returns the
+        seconds until the next check."""
+        if self.pending_path.is_file():
+            try:
+                self._adopt(self.pending_path.read_bytes())
+                return CHECK_EVERY
+            except Exception as exc:  # noqa: BLE001 -- an unusable bundle: set aside, count it, issue anew
+                self.pending_path.unlink(missing_ok=True)
+                return self._failed(exc)
         if not self.needs_issuing():
             return CHECK_EVERY
+        wait = float(self.state.get("next_attempt") or 0) - self.clock()
+        if wait > 0:
+            return wait
         try:
             await self.issue()
         except Exception as exc:  # noqa: BLE001 -- logged (never a secret) and retried later
-            self.failures += 1
-            self.last_error = str(exc) if isinstance(exc, AcmeError) else type(exc).__name__
-            wait = RETRY_AFTER[min(self.failures, len(RETRY_AFTER)) - 1]
-            log.error("built-in HTTPS: could not get a certificate for %s (%s); trying again in %d min",
-                      self.name, self.last_error, wait // 60)
-            return wait
-        self.failures, self.last_error = 0, ""
-        not_after, _, _ = cert_info(self.cert_path.read_bytes())
-        log.info("built-in HTTPS: Let's Encrypt certificate for %s installed (valid until %s)", self.name,
-                 time.strftime("%Y-%m-%d", time.gmtime(not_after)))
+            return self._failed(exc)
         return CHECK_EVERY
 
     async def run(self) -> None:

@@ -385,7 +385,15 @@ tablet) as the hassio bridge's gateway `172.30.32.1`, which is also HA Core's ad
 * The Host check (`server.loopback_only`): any Host on 8099 (HA's proxy forwards whatever it got, and linked
   mode uses `local-mantel:8099`), only `public_url`'s name on 8100 (`cfg.direct_hosts`): DNS rebinding.
 * `proxy` mode sets `--proxy-kind own`, so the door key is required (door_key.py); an untrusted peer on the
-  direct port is the tunnel door even from loopback.
+  direct port is the tunnel door even from loopback. After the security review the listed proxy counts **only
+  with the key** on this port, for every header (`proxy_trust.is_trusted` vs `listed`): its address alone may be
+  `172.30.32.1`, i.e. anyone Docker relays. The entrypoint and `/proxy-check` warn about a hassio/Docker-bridge
+  address in `trusted_proxies`. A keyed `lan` for a global client address is downgraded to `tunnel` (defence in
+  depth; DOCS.md requires an NPM Access List, since the name is public in CT logs). The key travels NPM → HA's
+  port in plain HTTP: a LAN hop. NPM as an HA App has a hassio address that can change on restart.
+* "Sign in with Home Assistant" (every mode, auth.py): the state is single use, kept server-side (512 at most,
+  10 minutes), the callback is limited to 20 per client address per 5 minutes (429), and the state cookie is
+  `Secure` on https.
 * "Sign in with Home Assistant" needs HA's address as browsers know it (`ha_sign_in_url` →
   `--ha-browser-url`); the code exchange, `auth/current_user` and the revoke go to `http://homeassistant:8123`
   on HA's internal network (`--ha-oauth-url`), since the Supervisor's `http://supervisor/core` proxies HA's
@@ -415,12 +423,28 @@ is what DNS-01 avoids (and Caddy in the compose stack uses DNS-01 too).
   no restart. Renewal 30 days before expiry, checked every 12 hours; failures retry after 1, 3, 12, then 24
   hours (Let's Encrypt's failed-validation limit), and `acme_staging` uses the staging directory.
 * Log lines carry Let's Encrypt's or Cloudflare's error code and message, never the token, a key or a header.
-* The door: no proxy stamps one, so the socket peer decides (`direct.https_door`): private/loopback → `lan`,
-  anything else → `tunnel`; a client's `X-Mantel-Door: tunnel` still tightens. **Never forward the port from
-  the internet**: through Docker's userland proxy every visitor can arrive as `172.30.32.1`. Remote use stays
-  HA's sidebar/Companion app (or the LXC with its tunnel door).
+* The door: no proxy stamps one, so the socket peer decides (`direct.https_door`): an address in
+  `lan_networks` (default RFC 1918, ULA, the container's loopback) → `lan`, anything else → `tunnel`; HA's
+  hassio network `172.30.32.0/23`, `fd0c:ac1e:2100::/48` and Docker's `172.17.0.0/16` are never `lan`, whatever
+  the list says (through Docker's userland proxy, a hairpin or a host relay every visitor arrives as
+  `172.30.32.1`). A client's `X-Mantel-Door: tunnel` still tightens. Tablets need a direct LAN path. **Never
+  forward the port from the internet.** Remote use stays HA's sidebar/Companion app (or the LXC's tunnel door).
+* While the placeholder is served (`CertManager.pending`), every request on the port but `/healthz` gets a
+  503 "certificate pending" page (ingress.middleware's direct branch): no sign-in over an unverifiable
+  certificate.
+* Hardening after the orchestrator's security review (2026-10-18): a new chain is checked (the leaf is for the
+  generated key, its names are exactly the name, not expired, loads into a fresh `SSLContext`) and written as
+  one key+chain file (`tls.pem`: temp, fsync, rename, folder fsync), so the pair is never half-replaced; a
+  damaged file at start falls back to the placeholder instead of stopping the App; the issued bundle is kept as
+  `pending.pem` until installed (no second issuance after a restart); `state.json` keeps the directory (a switch
+  between staging and the real service reissues), failures and the next attempt (the backoff survives restarts);
+  an unreadable `account.key` is moved aside and replaced; the TXT name is `_acme-challenge.<requested name>` and
+  an authorization for another name is refused; every URL must be on the directory's origin, no redirects are
+  followed, `Retry-After` is honoured (capped at a minute), `--acme-directory` must be https; the CSR has no
+  CN (SAN only); renegotiation is off; a TXT record whose create answer was lost is found by name and removed.
+  `/data/tls` is plain files (not sealed with the at-rest key) and inside HA's backups.
 
-**Tests** (`tests/test_direct_access.py`, 37): the options per mode (defaults, every refusal, the token file
+**Tests** (`tests/test_direct_access.py`, 52 after the review fixes): the options per mode (defaults, every refusal, the token file
 0600 and never in the arguments), the server flags' guards, `config.yaml`'s port and the package check; the real
 two-listener server on two loopback ports per mode: the gate (8099 still refuses non-Ingress, 8100 serves
 Mantel's sign-in), the Host check, Ingress headers believed on 8099 and not on 8100 from the same peer, the door

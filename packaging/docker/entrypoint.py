@@ -102,6 +102,8 @@ APP_PORT = "8099"
 DIRECT_PORT = "8100"                # direct access (config.yaml `ports`: 8100/tcp, mapped to a host port by the Owner)
 HA_OAUTH_URL = "http://homeassistant:8123"   # HA Core on the hassio network: "Sign in with HA"'s code exchange
 ACCESS_MODES = ("ingress", "proxy", "https")
+# HA's hassio network and Docker's default bridge (mantel_server/direct.py NEVER_LAN): relays, not a home's proxy
+RELAY_NETWORKS = ("172.30.32.0/23", "fd0c:ac1e:2100::/48", "172.17.0.0/16")
 LETSENCRYPT_STAGING = "https://acme-staging-v02.api.letsencrypt.org/directory"
 HA_CORE_PEER = "172.30.32.1"        # HA Core on the hassio network (the bridge's gateway; Core runs on the host)
 LOG_LEVELS = ("debug", "info", "warning", "error")
@@ -305,9 +307,15 @@ def direct_args(access: str, public: str, options: dict, env: dict[str, str]) ->
                               "(the Test my proxy page shows it)")
         for raw in proxies:
             try:
-                args += ["--trusted-proxy", str(ipaddress.ip_address(raw))]
+                ip = ipaddress.ip_address(raw)
             except ValueError:
-                raise ConfigError(f"trusted_proxies must list IP addresses, not {raw!r}")
+                raise ConfigError(f"trusted_proxies must list IP addresses, not {raw!r}") from None
+            if any(ip in ipaddress.ip_network(n) for n in RELAY_NETWORKS if ipaddress.ip_network(n).version == ip.version):
+                print(f"mantel entrypoint: WARNING trusted_proxies holds {ip}, an address of Home Assistant's internal "
+                      "or Docker's bridge network: anything relayed through it (other Apps, HA Core, Docker's port "
+                      "mapping) arrives from there. Mantel still wants the door key with every request, but a direct "
+                      "address for your proxy is safer (DOCS.md, Direct access)", file=sys.stderr)
+            args += ["--trusted-proxy", str(ip)]
         args += ["--proxy-kind", "own"]           # the door counts only with this installation's door key
     else:
         if not str(options.get("cloudflare_token") or "").strip():
@@ -320,6 +328,11 @@ def direct_args(access: str, public: str, options: dict, env: dict[str, str]) ->
             args += ["--acme-email", email]
         if options.get("acme_staging") is True:
             args += ["--acme-directory", LETSENCRYPT_STAGING]
+        for raw in _list(str(options.get("lan_networks") or "")):
+            try:
+                args += ["--lan-network", str(ipaddress.ip_network(raw, strict=False))]
+            except ValueError:
+                raise ConfigError(f"lan_networks must list networks such as 192.0.2.0/24, not {raw!r}") from None
     return args
 
 

@@ -45,6 +45,7 @@ class FakeCloudflare:
         self.records: dict[str, dict] = {}
         self.ids = itertools.count(1)
         self.seen_auth: list[str] = []
+        self.fail_after_create = False        # make the record, then answer 500 (the answer is lost)
 
     def _ok(self, request) -> bool:
         got = request.headers.get("Authorization", "")
@@ -66,7 +67,17 @@ class FakeCloudflare:
             body = await request.json()
             rid = f"rec{next(self.ids)}"
             self.records[rid] = {**body, "zone": request.match_info["zone"]}
+            if self.fail_after_create:
+                return web.Response(status=500, text="upstream timeout")
             return web.json_response({"success": True, "result": {"id": rid}})
+
+        async def listing(request):
+            if not self._ok(request):
+                return web.json_response({"success": False, "errors": []}, status=403)
+            q = request.query
+            return web.json_response({"success": True, "result": [
+                {"id": rid, **r} for rid, r in self.records.items()
+                if r["type"] == q.get("type") and r["name"] == q.get("name")]})
 
         async def delete(request):
             if not self._ok(request):
@@ -76,6 +87,7 @@ class FakeCloudflare:
 
         app.router.add_get("/client/v4/zones", zones)
         app.router.add_post("/client/v4/zones/{zone}/dns_records", add)
+        app.router.add_get("/client/v4/zones/{zone}/dns_records", listing)
         app.router.add_delete("/client/v4/zones/{zone}/dns_records/{rid}", delete)
         return app
 
@@ -98,6 +110,11 @@ class FakeAcme:
         self.authzs: dict[str, dict] = {}
         self.issued: list[x509.Certificate] = []
         self.bad_nonce_once = False
+        self.identifier_override = ""         # an authorization for a name nobody asked for
+        self.foreign_authz = ""               # an authorization URL on another origin
+        self.slow_polls = 0                   # answer this many authz polls "pending" with Retry-After first
+        self.retry_after = "3"
+        self.csr_subjects: list = []
         self.ca_key = ec.generate_private_key(ec.SECP256R1())
         self.ca_name = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "Fictional ACME CA")])
 
@@ -173,17 +190,22 @@ class FakeAcme:
             assert kid is not None
             name = payload["identifiers"][0]["value"]
             oid = str(next(self.counter))
-            self.authzs[oid] = {"status": "pending", "identifier": {"type": "dns", "value": name},
+            self.authzs[oid] = {"status": "pending", "identifier": {"type": "dns", "value": self.identifier_override or name},
                                 "kid": kid, "challenges": [
                                     {"type": "http-01", "url": f"{b()}/chall/{oid}/http", "token": "h" + oid, "status": "pending"},
                                     {"type": "dns-01", "url": f"{b()}/chall/{oid}/dns", "token": "tok" + oid, "status": "pending"}]}
             self.orders[oid] = {"status": "pending", "identifiers": payload["identifiers"],
-                                "authorizations": [f"{b()}/authz/{oid}"], "finalize": f"{b()}/finalize/{oid}"}
+                                "authorizations": [self.foreign_authz or f"{b()}/authz/{oid}"],
+                                "finalize": f"{b()}/finalize/{oid}"}
             return web.json_response(self.orders[oid], status=201, headers={"Location": f"{b()}/order/{oid}"})
 
         async def authz(request, protected, payload, kid):
             assert payload is None
-            return web.json_response(self.authzs[request.match_info["id"]])
+            a = self.authzs[request.match_info["id"]]
+            if a["status"] == "valid" and self.slow_polls > 0:
+                self.slow_polls -= 1
+                return web.json_response({**a, "status": "pending"}, headers={"Retry-After": self.retry_after})
+            return web.json_response(a)
 
         async def chall(request, protected, payload, kid):
             oid = request.match_info["id"]
@@ -210,6 +232,7 @@ class FakeAcme:
                 raise _Problem(403, "orderNotReady", "not ready")
             csr = x509.load_der_x509_csr(b64d(payload["csr"]))
             assert csr.is_signature_valid
+            self.csr_subjects.append(csr.subject)
             sans = csr.extensions.get_extension_for_class(x509.SubjectAlternativeName).value.get_values_for_type(x509.DNSName)
             assert sans == [i["value"] for i in o["identifiers"]]
             now = dt.datetime.now(dt.timezone.utc)
