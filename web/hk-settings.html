@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Mantel · HK Settings</title>
+<link rel="stylesheet" href="/hk/fonts/sf-pro.css">
+<link rel="stylesheet" href="/hk/css/hk-responsive.css">
+<style>
+  html, body { margin: 0; height: 100%; background: #05070e; color: #fff;
+               font-family: -apple-system, 'SF Pro Text', system-ui, sans-serif; }
+  /* a slim bar over HK Settings: the way back, and what this copy of the settings is */
+  #mantel-bar { position: fixed; top: 0; left: 0; right: 0; z-index: 2147483001; box-sizing: border-box;
+                padding: 8px 14px; background: #0d1220; border-bottom: 1px solid #ffffff1f; font-size: 13px; line-height: 1.4; }
+  #mantel-bar a { color: #8ab4ff; text-decoration: none; font-weight: 600; margin-right: 12px; }
+  #mantel-bar summary { cursor: pointer; display: inline; color: #ffffffb3; }
+  #mantel-bar p { margin: 6px 0 0; color: #ffffffb3; max-width: 62em; }
+  #mantel-bar details { display: inline; }
+  #mantel-bar details[open] { display: block; }
+  #mantel-bar details[open] summary { display: block; }
+  #proof-hk-settings { position: fixed; top: var(--mantel-bar-h, 40px); left: 0; right: 0; bottom: 0; }
+</style>
+</head>
+<body>
+<div id="hk-shell-root"></div>
+<header id="mantel-bar">
+  <a id="mantel-back" href="/home">‹ Back to the dashboard</a>
+  <details>
+    <summary>This is Mantel’s copy of HK’s settings.</summary>
+    <p>It was imported from Home Assistant once. Changes here affect Mantel’s screens only, not HK inside Home Assistant.</p>
+    <p>Mantel is read-only toward the house, so anything that needs Home Assistant to be written is read-only here:
+       tablets as Home Assistant devices, dashboards, accessory setup flows and the like. Saving one says why it was refused.</p>
+  </details>
+</header>
+<script type="module" src="/web/shim/hk-settings-page.js"></script>
+</body>
+</html>

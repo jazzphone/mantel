@@ -29,7 +29,9 @@
   let role = '';
   function hostMenu() {
     if (role !== 'owner' && role !== 'admin') return [];
-    return [{ title: 'Mantel settings', icon: 'mdi:cog-outline', href: (global.__mantelBase || '') + '/admin' }];
+    const base = global.__mantelBase || '';
+    return [{ title: 'HK Settings', icon: 'mdi:tune-variant', href: base + '/hk-settings' },
+            { title: 'Mantel settings', icon: 'mdi:cog-outline', href: base + '/admin' }];
   }
 
   const MANTEL = {

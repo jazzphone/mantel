@@ -946,7 +946,7 @@ def rewrite(text: str, base: str) -> str:
 
 # Mantel's own static pages (admin, proxy-check) name their assets and the dashboard in href/src attributes;
 # their JS reads the prefix itself (<meta name="mantel-base">), so only the HTML needs this.
-OWN_ATTR = re.compile(r"""\b(href|src)=(["'])/(admin/|proxy-check/|home\2)""")
+OWN_ATTR = re.compile(r"""\b(href|src)=(["'])/(admin/|proxy-check/|hk-settings\2|home\2)""")
 
 
 def own_page(text: str, base: str) -> str:

@@ -379,6 +379,18 @@ async def home_page(request: web.Request) -> web.StreamResponse:
     return ingress.file_response(request, request.app["cfg"].web / "home.html", NO_CACHE, page=True)
 
 
+async def hk_settings_page(request: web.Request) -> web.StreamResponse:
+    """/hk-settings: HK Settings (<hk-settings-panel>) in Mantel's own copy, for Owners and Admins only (the
+    people /admin is for). A wall tablet, even signed in as one of them, is refused; a signed-out browser
+    never gets here (the session middleware sends it to /login)."""
+    ident = sessions.identity(request)
+    if ident.user is None or ident.device is not None or ident.user.role not in accounts.MANAGERS:
+        back = "" if request.get("mantel_base") else " <a href='/home'>Back to the dashboard</a>."
+        return auth.page("HK Settings", "<p>Only an Owner or an Admin can change Mantel's copy of HK's settings, "
+                         "and not from a wall tablet." + back + "</p>", 403)
+    return ingress.file_response(request, request.app["cfg"].web / "hk-settings.html", NO_CACHE, page=True)
+
+
 async def api_registry(request: web.Request) -> web.Response:
     return web.json_response(filter_registry(request.app["hub"].registry.frontend_shapes(), request_gate(request)))
 
@@ -445,6 +457,7 @@ def build_app(cfg: Config, token: str, store: Store | None = None, connect_ha: b
     app.router.add_get("/", root)
     app.router.add_get("/dev", dev_page)
     app.router.add_get("/home", home_redirect)
+    app.router.add_get("/hk-settings", hk_settings_page)    # HK Settings, Mantel's copy (Owner/Admin)
     app.router.add_get("/hk/{path:.+}", hk_file)
     app.router.add_get("/web/{path:.+}", web_file)
     app.router.add_get("/static/mdi/{name}", mdi_file)
