@@ -850,6 +850,11 @@ says the same (`width=device-width, user-scalable=no, viewport-fit=cover, initia
   button. Help links to HK Frontend's wiki are hidden in Mantel until its docs have a home.
 
 Validation 130 JS, 724 HA Python, 2,627 Mantel, smoke ok.
+- [x] Updated and running (build `c7f117c2bac3df23`), HA connected. In Mantel Settings (pane, sidebar) the Loft
+      screen's page has Show in Home Assistant (address `https://mantel.example.com/dashboard-loft/home`), no
+      "HK Frontend" anywhere on it, and the preview's Pin button. Not switched on (Avery's call). For a dashboard opened
+      at `hasslocal`, the App option `ha_frame_origins` needs `https://hasslocal.example.com` (only `hassiot`,
+      the sign-in address, is allowed now); the HTTPS page says so.
 
 ### Removal
 
