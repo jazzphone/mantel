@@ -49,6 +49,25 @@ host section (it said "Mantel" in HK's own code, hidden in HA) now takes its nam
 `web/shim` is never in the HA build (`publish.py`'s plan), and the two Mantel footers and `window.__mantelBase`
 left the shared panel, so the panel HA ships has no Mantel tab, link, request or word.
 
+## Default screens (landing only)
+
+Avery, 2026-10-19: a way to assign screens to people. **Where they land, not what they may open**: which screens
+anyone may open, and what they see on them, stays with roles and grants (an entity a role may not see is not
+sent; a command it may not run is refused). `default_screens.py`, migration 0014 (`default_screens`: subject
+`u:<user>` / `d:<device>`, screen, set_by, updated), in Mantel's database only, so HK Frontend in HA is untouched.
+
+* `/` and `/home`: at an enrolled tablet (a person signed in there too) the tablet's own screen, else its HK
+  tablet's (`ingress.tablet_start`, as before); anywhere else the person's own; then the App option
+  `default_screen`. A screen that no longer exists is passed over; under Ingress the prefix is kept.
+* Pickers ("Opens On", the kit's select, Mantel's screens only): **Me** (anyone, their own); **People** → a
+  person (Owner/Admin; an Admin never an Owner's, shown read-only); **Devices** → "Default Screens", one per
+  enrolled tablet ("Its HK Tablet's Screen" when not set).
+* REST: `GET/PUT /api/default-screen` (mine), `GET /api/default-screens` (Owner/Admin), `PUT
+  /api/users/{id}/default-screen`, `PUT /api/devices/{id}/default-screen`.
+* Tests: `tests/test_default_screens.py` (the order, a person at a tablet, a gone screen, the guards, only
+  Mantel's screens). Browser pane: the Owner set the Adult's and their own; `/home` followed. The Devices picker
+  was not drawn there (no enrolled tablet in the local run).
+
 ## Mobile
 
 Before: a screen's live preview showed only at ≥1,320 px beside the page, and at 860–1,320 px on the screen's own

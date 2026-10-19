@@ -213,6 +213,15 @@ function copyButton(text, label = 'Copy') {
 }
 const pending = (c, what) => c.appendChild(group({ footer: what || 'Loading…' }, []));
 const failed = (c, err) => c.appendChild(group({ footer: hh('span', { class: 'mxerr', text: err instanceof ApiError ? err.message : String(err) }) }, []));
+// THE SCREEN ONE OPENS ON (default_screens.py): a picker of Mantel's screens, `none` the label for "not set"
+function screenOptions(list, none) {
+  return [['', none]].concat((list || []).map((x) => [x.path, x.title]));
+}
+const houseTitle = (d) => { const x = (d.screens || []).find((s) => s.path === d.house); return x ? x.title : d.house; };
+function screenPicker(key, label, sub, value, list, none, put) {
+  return K().select({ label, sub, options: screenOptions(list, none), value: value || '', fk: 'mx:screen:' + key,
+    onChange: (v) => act(key, () => put(v || null), 'Saved.', 'myscreen', 'dscreens') });
+}
 // the last action's result, on the page it was done from
 function result(c, key) {
   if (!flash || (flash.key !== key && flash.key !== '*')) return;
@@ -294,6 +303,13 @@ function pMe(sub) {
     c.appendChild(group({ header: 'Account' }, [info('Name', null, u.name || u.username || u.id), info('Role', null, roleLabel(u.role)),
       info('Signs In With', null, u.kind === 'ha_linked' ? 'Home Assistant' : 'User Name and Password'),
       info('Here From', null, me.door === 'lan' ? 'Home Network' : 'Outside the Home')]));
+    const ms = load('myscreen', () => api('GET', '/api/default-screen'));
+    if (ms && ms.data) {
+      const d = ms.data;
+      c.appendChild(group({ header: 'Default Screen', footer: 'Where Mantel opens for you.' + (d.at_tablet ? ' At a wall tablet it opens the tablet’s own screen.' : '') },
+        [screenPicker('me', 'Opens On', null, d.screen, d.screens, 'House Default (' + houseTitle(d) + ')',
+                      (v) => api('PUT', '/api/default-screen', { screen: v }))]));
+    }
     const ss = load('sessions', () => api('GET', '/api/sessions'));
     if (!ss) pending(c); else if (ss.err) failed(c, ss.err);
     else {
@@ -433,6 +449,15 @@ function pPerson(id) {
       info('User Name', null, u.username || 'None'),
       info('Signs In With', null, how.length ? how.join(', ') : 'Nothing Yet'),
       ...(u.ha_user_id ? [info('Home Assistant User', null, u.ha_user_id)] : [])]));
+    const ds = load('dscreens', () => api('GET', '/api/default-screens'));
+    if (ds && ds.data) {
+      const d = ds.data, cur = d.users[u.id] || '';
+      const none = 'House Default (' + houseTitle(d) + ')';
+      c.appendChild(group({ header: 'Default Screen', footer: 'Where Mantel opens for them, except at a wall tablet (the tablet’s own). Which screens they may open, and what they see, is their role’s.' },
+        [locked ? info('Opens On', null, cur ? (d.screens.find((x) => x.path === cur) || { title: cur }).title : none)
+          : screenPicker('person', 'Opens On', null, cur, d.screens, none,
+                         (v) => api('PUT', '/api/users/' + encodeURIComponent(u.id) + '/default-screen', { screen: v }))]));
+    }
     if (locked) return;
     const rows = [];
     if (!self) rows.push(button(u.disabled ? 'Enable' : 'Disable…', async () => {
@@ -479,6 +504,13 @@ function pDevices(sub) {
     const row = (d) => info(d.name, [d.room, roleLabel(d.role), 'last seen ' + ago(d.last_seen), d.source_ip || 'no address yet', 'enrolled ' + fmt(d.created)].filter(Boolean).join(' · '),
       d.revoked ? 'Revoked' + (d.revoked_reason ? ': ' + d.revoked_reason.replace(/_/g, ' ') : '') : undefined, d.revoked ? 'warn' : '');
     c.appendChild(group({ header: 'Wall Tablets' }, live.length ? live.map(row) : [info('No wall tablets are enrolled')]));
+    const ds = load('dscreens', () => api('GET', '/api/default-screens'));
+    if (live.length && ds && ds.data) {
+      const d = ds.data;
+      c.appendChild(group({ header: 'Default Screens', footer: 'Where each tablet opens, whoever is signed in at it. Not set: its HK tablet’s screen (All Screens, Wall Tablets), else the house default (' + houseTitle(d) + ').' },
+        live.map((x) => screenPicker('devices', x.name, x.room || null, d.devices[x.id], d.screens, 'Its HK Tablet’s Screen',
+                                     (v) => api('PUT', '/api/devices/' + encodeURIComponent(x.id) + '/default-screen', { screen: v })))));
+    }
     if (live.length) c.appendChild(group({}, live.map((d) => button('Revoke ' + d.name + '…', async () => {
       if (!(await ask({ title: 'Revoke ' + d.name + '?', message: 'The tablet is refused at once and has to be enrolled again.', ok: 'Revoke', destructive: true }))) return;
       act('devices', () => api('DELETE', '/api/devices/' + encodeURIComponent(d.id)), 'Device revoked.', 'devices');

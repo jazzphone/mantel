@@ -33,7 +33,7 @@ from . import music
 from . import accounts, alarm_pin, auth, connect_pairing, devices, gateway, health, ingress, live_tv, pins, proof2, rbac_store, readproxy, sessions, settings_store
 from . import (admin_page, atrest, backup, connections, features, linked, linked_house, linked_owners, login_page,
                service_accounts, talk_relay, user_files)
-from . import direct, direct_tls, ma_page, media_proxy, proxy_check, proxy_trust, security_headers, user_data
+from . import default_screens, direct, direct_tls, ma_page, media_proxy, proxy_check, proxy_trust, security_headers, user_data
 from .authz import Authz, Principal, resolve_door
 from .config import Config
 from .connectors import REFUSE_ALL, Ctx, Hooks
@@ -382,11 +382,12 @@ def oauth_url(cfg: Config) -> str:
 
 
 async def home_redirect(request: web.Request) -> web.StreamResponse:
+    """/home: the screen this person or tablet opens on (default_screens.start_for: the tablet's at a wall
+    tablet, else the person's own), else the house's ``default_screen``."""
     ident = sessions.identity(request)
-    if ident.device is not None and ident.user is None and not request.get("mantel_base"):
-        start = ingress.tablet_start(request.app, ident.device)   # an enrolled wall tablet: its own HK screen
-        if start is not None:
-            raise web.HTTPFound(start)
+    start = default_screens.start_for(request.app, ident) if ident.authenticated else None
+    if start is not None:
+        raise web.HTTPFound(start)
     raise web.HTTPFound(f"/{request.app['cfg'].default_screen}/home" + (f"?{request.query_string}" if request.query_string else ""))
 
 
@@ -566,6 +567,7 @@ def wire(app: web.Application, hub: Hub, token: str, connect_ha: bool) -> None:
     hooks = Hooks(may_read=authz.may_read, may_view=authz.may_view, ma_gate=gw if gw is not None else REFUSE_ALL,
                   ha_token=conns.ha_token if connect_ha else None)
     readproxy.register(app, hub, hooks)
+    default_screens.register(app)    # the screen each person or tablet opens on (Mantel Settings)
     user_data.register(app, hub)     # HK's per-person frontend user data (the Music page's speaker), Mantel's own
     camera_connector.register(app, hub, hooks)
     camera_still.register(app, hub, authz, conns.ha_token)   # GET /api/camera/<entity>/still (RBAC, HA's token stays here)
