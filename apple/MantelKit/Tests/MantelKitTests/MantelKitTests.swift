@@ -87,3 +87,16 @@ enum AnyCodableValue: Decodable {
     let light = EntityState(entity_id: "light.k", domain: "light", state: "on", name: "K", area: nil, attributes: nil)
     #expect(Command.toggle(light).service == "turn_off" && light.isOn)
 }
+
+@Test func plainHttpOnlyForLoopbackAndInDebugTheHomeNetwork() {
+    #expect(PairingLink.httpsURL("http://127.0.0.1:8766") != nil)
+    #expect(PairingLink.httpsURL("http://mantel.example.com") == nil)
+    #expect(PairingLink.httpsURL("http://8.8.8.8") == nil)
+    #if DEBUG
+    #expect(PairingLink.httpsURL("http://192.168.2.100:8766") != nil)
+    #expect(PairingLink.httpsURL("http://mantel.local:8766") != nil)
+    #expect(PairingLink.httpsURL("http://172.32.0.1") == nil)
+    #else
+    #expect(PairingLink.httpsURL("http://192.168.2.100:8766") == nil)
+    #endif
+}

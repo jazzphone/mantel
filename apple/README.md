@@ -79,6 +79,22 @@ push. A device build:
 xcodebuild -project apple/Mantel.xcodeproj -scheme Mantel -destination 'generic/platform=iOS' -derivedDataPath /tmp/mantel-dd-device -allowProvisioningUpdates -allowProvisioningDeviceRegistration build
 ```
 
+### On Avery's iPhone (Debug build)
+
+```bash
+~/.venvs/mantel/bin/python tools/app_dev_server.py --data-dir /tmp/mantel-app-lan --lan
+```
+
+prints the test house's home-network address and writes `pair.png` to scan with the iPhone's Camera. A REAL push
+through Apple's sandbox, with the team's key (`httpx[http2]` in the venv):
+
+```bash
+~/.venvs/mantel/bin/python tools/app_dev_server.py --data-dir /tmp/mantel-app-lan --send-push "Front Door|Unlocked"
+```
+
+Verified 2026-10-19: installed, paired over the home network, registered for notifications, and APNs (sandbox)
+accepted a sealed push to the phone.
+
 ## What needs the Apple Developer account (M10-6)
 
 - **Real pushes**: the APNs key on the house (`apns_key.p8`, `apns.json`) and `httpx[http2]` in the image; then the
