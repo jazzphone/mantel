@@ -189,5 +189,28 @@
       "name": "Resume an automation",
       "description": "Turns a paused automation on again now."
     }
+  },
+  "entity": {
+    "switch": {
+      "seasonal_decorations": {
+        "name": "Seasonal decorations"
+      },
+      "photo_screensaver": {
+        "name": "Photo screensaver"
+      },
+      "black_screen": {
+        "name": "Black screen"
+      }
+    },
+    "binary_sensor": {
+      "screen_in_use": {
+        "name": "Screen in use"
+      }
+    },
+    "sensor": {
+      "sleep_screen": {
+        "name": "Sleep screen"
+      }
+    }
   }
 }
