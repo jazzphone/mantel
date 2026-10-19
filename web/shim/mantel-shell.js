@@ -52,8 +52,11 @@
     root: () => byId('hk-shell-root'),
     overlayRoot: () => byId('hk-shell-root'),
     // the page itself stands for the dashboard panel (its rect: where the page starts); before the
-    // view host is attached there is no view and no config yet
-    panel: () => container(),
+    // view host is attached there is no view and no config yet. The BODY, not the view container: a
+    // docked menu pushes the view slot right by its width (hk-menu.js room) and draws itself at the
+    // panel's left, so a panel that is the slot moved the menu along with the page: menu at 300 px,
+    // the page under it from 600 (2026-10-19, the direct address at a desktop width)
+    panel: () => (global.document ? global.document.body : null),
     viewContainer: () => container(),
     viewSlot: () => container(),
     view: () => null,
@@ -63,12 +66,13 @@
   };
 
   // home.js, once HK's view host exists: its parts over Mantel's, now and after every view change
-  // (the view host tells its listeners before the new view is attached)
+  // (the view host tells its listeners before the new view is attached). The panel stays Mantel's
+  // own: the view host offers its container, which is also the view slot (see MANTEL.panel).
   function attach(viewHost) {
     const use = () => {
       const parts = viewHost.shellParts();
       const tags = Object.assign({}, MANTEL.tags, parts.tags || {});
-      S.use(Object.assign({}, MANTEL, parts, { tags }));
+      S.use(Object.assign({}, MANTEL, parts, { tags, panel: MANTEL.panel }));
     };
     viewHost.onView(use);
     use();
