@@ -864,6 +864,10 @@ specific to one setup. Now (`frame_origins.py`) the allowed addresses are HA's o
 HA), the operator's (`ha_sign_in_url`, `ha_frame_origins`), and the ones an Owner allows in Mantel Settings →
 Connections → HTTPS and Your Proxy → Home Assistant's Frame (Allow / Remove, audited, no restart), or by turning on
 Show in Home Assistant while HA is open at that address.
+- [x] On the house (build `bfccdcf00ff21444`): frame-ancestors now `hassiot` (option) and `hass.example.com`
+      (HA's own external URL, learned from HA); Home Assistant's Frame lists both with their sources and offers Allow an
+      Address (pane). `hasslocal` is not one of HA's own URLs, so it waits for Avery's Allow (the Kitchen dashboard
+      `mantel-kitchen` exists).
 
 ### Removal
 
