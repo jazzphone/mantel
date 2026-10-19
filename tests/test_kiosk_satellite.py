@@ -51,6 +51,17 @@ async def test_pairing_trades_the_password_for_a_ten_year_token_and_reads_the_ta
     assert fake.commands_posted == []
 
 
+async def test_a_reply_that_arrives_in_pieces_is_read_whole(tablet):
+    """Pairing a real Kiosk Satellite said "it is not Kiosk Satellite's remote administration": the reads took the
+    first piece of a reply that comes in several (one `read(1 MB)` returns what has arrived), so the JSON was cut
+    short (the house, 2026-10-19). Every piece is read now, up to the cap."""
+    fake, http, _ = tablet
+    fake.chunked = True
+    fake.commands = [f"command{i}" for i in range(300)] + list(fake.commands)
+    got = await KS.pair(http, ADDR, PASSWORD)
+    assert got["info"]["version"] == "2026.10.6" and got["missing"] == []
+
+
 def test_the_client_has_no_way_to_send_a_command():
     """Slice 1 is status only: no method posts a command or changes a setting."""
     for cls in (KS.KioskSatellite, KS._Http):
@@ -163,3 +174,21 @@ def test_the_default_port_is_kiosk_satellites(typed, expected):
 def test_addresses_off_the_home_network_are_refused(typed):
     with pytest.raises(KioskFailed):
         KS.clean_address(typed)
+
+
+async def test_read_body_takes_every_piece_and_stops_past_the_cap():
+    class Pieces:
+        def __init__(self, parts):
+            self.parts = list(parts)
+
+        async def read(self, n):        # as aiohttp's: at most n bytes, of what has arrived
+            if not self.parts:
+                return b""
+            part = self.parts.pop(0)
+            if len(part) > n:
+                self.parts.insert(0, part[n:])
+                part = part[:n]
+            return part
+    assert await kiosk.read_body(Pieces([b'{"a":', b' 1', b"}"]), 100) == b'{"a": 1}'
+    big = await kiosk.read_body(Pieces([b"x" * 60, b"y" * 60, b"z" * 60]), 100)
+    assert len(big) == 101          # cap + 1: the caller sees it is too large, nothing more is read

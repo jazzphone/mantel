@@ -48,6 +48,7 @@ import aiohttp
 from aiohttp import WSMsgType, web
 
 from . import proxy_trust, sessions
+from .connectors.kiosk import read_body     # the whole body, every piece (one read() is only the first)
 
 log = logging.getLogger("mantel.media_proxy")
 
@@ -443,7 +444,7 @@ class MediaProxy:
                 ctype = r.headers.get("Content-Type", "").split(";")[0].strip().lower()
                 if isinstance(up, MusicAssistant) and plan.rewrite and ctype in REWRITE_TYPES \
                         and request.method != "HEAD":
-                    raw = await r.content.read(MAX_REWRITE + 1)
+                    raw = await read_body(r.content, MAX_REWRITE)
                     if len(raw) > MAX_REWRITE:
                         stats["upstream_errors"] += 1
                         return _error(502, "upstream_answer_too_large", up.service)

@@ -54,6 +54,7 @@ log = logging.getLogger("mantel.fully")
 DEFAULT_PORT = 2323
 TIMEOUT = 10.0
 MAX_URL = 2000
+MAX_BODY = 1 << 20              # a reply larger than this is refused
 
 # Mantel's verb -> (Fully's cmd, the fixed parameters it adds). The only commands that can be sent.
 COMMANDS: dict[str, tuple[str, dict[str, str]]] = {
@@ -153,7 +154,7 @@ class FullyClient:
                 async with asyncio.timeout(self.timeout):
                     async with self.http.get(f"http://{host}:{port}/", params=params,
                                              headers={"Accept": "application/json"}, allow_redirects=False) as r:
-                        status, body = r.status, await r.content.read(1 << 20)
+                        status, body = r.status, await kiosk.read_body(r.content, MAX_BODY)
             except TimeoutError:
                 failure = ("timeout", f"The tablet at {self.address} did not answer within {int(self.timeout)} "
                                       "seconds. Check that it is on and that Mantel's network can reach it.")
@@ -166,6 +167,9 @@ class FullyClient:
         del params
         if failure is not None:
             raise KioskFailed(*failure)
+        if len(body) > MAX_BODY:
+            raise KioskFailed("too_large", f"The tablet at {self.address} answered with more than "
+                                           f"{MAX_BODY >> 20} MB, which Fully never does.")
         if status != 200:
             raise KioskFailed("failed", f"The tablet at {self.address} answered HTTP {status}.")
         try:

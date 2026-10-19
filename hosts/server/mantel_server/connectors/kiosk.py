@@ -67,3 +67,16 @@ def route(host: str, port: int) -> tuple[str, int]:
 def address_text(host: str, port: int) -> str:
     """The address as Mantel shows and stores it."""
     return f"http://{host}:{port}"
+
+
+async def read_body(content, cap: int) -> bytes:
+    """A reply's whole body, at most ``cap`` + 1 bytes (more than ``cap`` means too large). aiohttp's
+    ``content.read(n)`` returns what has arrived so far, not n bytes: one call took the first piece of Kiosk
+    Satellite's command list, and the cut JSON read as "not Kiosk Satellite" (the house, 2026-10-19)."""
+    buf = bytearray()
+    while len(buf) <= cap:
+        chunk = await content.read(cap + 1 - len(buf))
+        if not chunk:
+            break
+        buf += chunk
+    return bytes(buf)

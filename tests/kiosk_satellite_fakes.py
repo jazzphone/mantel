@@ -6,6 +6,7 @@ and ``/api/health`` with no token. A command posted to ``/api/commands/<name>`` 
 can assert that slice 1 never sends one. Every name, address and password is fictional; no real tablet is contacted."""
 from __future__ import annotations
 
+import asyncio
 import base64
 import hashlib
 import hmac
@@ -31,6 +32,7 @@ class FakeKioskSatellite:
         self.failures: list[float] = []
         self.commands = list(COMMANDS)
         self.health_only = False                      # remote admin off but the port answers something else
+        self.chunked = False                          # answer reads in pieces, as the real app's server does
         self.state = {"screenOn": True, "brightness": 0.62, "screensaverActive": False,
                       "currentUrl": "http://mantel.fake.test:8100/kitchen-home/home?hk_tablet=kitchen"}
 
@@ -89,6 +91,21 @@ class FakeKioskSatellite:
         return web.json_response({**self.device(), "brand": "fake", "screenOn": self.state["screenOn"],
                                   "brightness": self.state["brightness"]})
 
+    async def _answer(self, request: web.Request, data: dict) -> web.StreamResponse:
+        """JSON, whole or (``chunked``) in small pieces with pauses between them: the real app's command list runs to
+        tens of kilobytes and arrives over several reads (the house, 2026-10-19)."""
+        if not self.chunked:
+            return web.json_response(data)
+        body = json.dumps(data).encode()
+        resp = web.StreamResponse(headers={"Content-Type": "application/json"})
+        resp.enable_chunked_encoding()
+        await resp.prepare(request)
+        for i in range(0, len(body), 64):
+            await resp.write(body[i:i + 64])
+            await asyncio.sleep(0.002)
+        await resp.write_eof()
+        return resp
+
     async def authed(self, request: web.Request) -> web.Response:
         self.calls.append((request.method, request.path))
         auth = request.headers.get("Authorization", "")
@@ -96,10 +113,11 @@ class FakeKioskSatellite:
             return web.json_response({"error": "unauthorized"}, status=401)
         path = request.path
         if request.method == "GET" and path == "/api/info":
-            return web.json_response({**self.device(), **self.state, "cameraView": None, "nowPlayingShown": False,
-                                      "intercomShown": False})
+            return await self._answer(request, {**self.device(), **self.state, "cameraView": None,
+                                                "nowPlayingShown": False, "intercomShown": False})
         if request.method == "GET" and path == "/api/commands":
-            return web.json_response({"commands": [{"name": n, "description": "", "params": {}} for n in self.commands]})
+            return await self._answer(request, {"commands": [{"name": n, "description": "", "params": {}}
+                                                             for n in self.commands]})
         if request.method == "POST" and path.startswith("/api/commands/"):
             self.commands_posted.append(path.rsplit("/", 1)[1])
             return web.json_response({"ok": True})

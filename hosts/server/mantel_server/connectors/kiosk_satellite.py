@@ -48,6 +48,7 @@ TIMEOUT = 10.0
 TOKEN_DAYS = 3650             # Avery, 2026-10-19: the app's maximum, ten years
 TEST_TOKEN_DAYS = 1           # a test before saving makes a token that lapses tomorrow, and drops it
 MAX_TOKEN = 4096
+MAX_BODY = 1 << 20              # a reply larger than this is refused (the command list is tens of kilobytes)
 WHERE = "Kiosk Satellite: Settings → Device → Remote Administration"
 # The commands later slices will send (docs/phase8/KIOSK.md "Commands"): checked at pairing, so an app version
 # without one of them is said at once. Nothing here sends them.
@@ -117,7 +118,7 @@ class _Http:
                 async with asyncio.timeout(self.timeout):
                     async with self.http.request(method, f"http://{host}:{port}{path}", json=body,
                                                  headers=headers, allow_redirects=False) as r:
-                        status, raw = r.status, await r.content.read(1 << 20)
+                        status, raw = r.status, await kiosk.read_body(r.content, MAX_BODY)
             except TimeoutError:
                 failure = ("timeout", f"The tablet at {self.address} did not answer within {int(self.timeout)} "
                                       "seconds. Check that it is on and that Mantel's network can reach it.")
@@ -130,6 +131,9 @@ class _Http:
         del headers
         if failure is not None:
             raise KioskFailed(*failure)
+        if len(raw) > MAX_BODY:
+            raise KioskFailed("too_large", f"The tablet at {self.address} answered with more than "
+                                           f"{MAX_BODY >> 20} MB, which Kiosk Satellite never does.")
         try:
             data = json.loads(raw) if raw else None
         except (ValueError, UnicodeError):
