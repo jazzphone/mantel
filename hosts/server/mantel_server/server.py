@@ -33,7 +33,7 @@ from . import music
 from . import accounts, alarm_pin, auth, connect_pairing, devices, gateway, health, ingress, live_tv, pins, proof2, rbac_store, readproxy, sessions, settings_store
 from . import (admin_page, atrest, backup, connections, features, linked, linked_house, linked_owners, login_page,
                service_accounts, talk_relay, user_files)
-from . import default_screens, direct, direct_tls, ma_page, media_proxy, proxy_check, proxy_trust, security_headers, tablet_links, user_data
+from . import default_screens, direct, direct_tls, docs_pages, ma_page, media_proxy, proxy_check, proxy_trust, security_headers, tablet_links, user_data
 from .authz import Authz, Principal, resolve_door
 from .config import Config
 from .connectors import REFUSE_ALL, Ctx, Hooks
@@ -499,6 +499,7 @@ def build_app(cfg: Config, token: str, store: Store | None = None, connect_ha: b
     app.router.add_get("/home", home_redirect)
     app.router.add_get("/settings", settings_page)          # Mantel Settings: HK's and Mantel's, one page
     app.router.add_get("/hk-settings", hk_settings_redirect)  # its old address
+    docs_pages.add_routes(app, docs_pages.Docs(cfg.docs_hk, cfg.docs_mantel))   # /docs: Mantel's docs and HK's
     app.router.add_get("/hk/{path:.+}", hk_file)
     app.router.add_get("/web/{path:.+}", web_file)
     app.router.add_get("/static/mdi/{name}", mdi_file)

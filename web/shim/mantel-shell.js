@@ -58,9 +58,8 @@
     productName: () => 'Mantel',
     haPlace: (path) => 'Home Assistant → ' + path,
     haName: (name) => name + ' in Home Assistant',
-    // HK Frontend's wiki is about HK Frontend in Home Assistant: no link until Mantel's documentation has
-    // a home of its own
-    docsUrl: () => null,
+    // Mantel's own docs (/docs, docs_pages.py: HK's pages and Mantel's), under the page's prefix
+    docsUrl: (page, anchor) => (global.__mantelBase || '') + '/docs/' + encodeURIComponent(page) + (anchor ? '#' + encodeURIComponent(anchor) : ''),
     tags: { viewContainer: 'hk-view-container' },
     root: () => byId('hk-shell-root'),
     overlayRoot: () => byId('hk-shell-root'),

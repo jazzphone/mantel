@@ -11,6 +11,12 @@ LOOPBACK_DEFAULT = "127.0.0.1"
 REPO = Path(__file__).resolve().parents[3]
 
 
+def _docs(shipped: str, source: str) -> Path:
+    """Where /docs reads a page set: as an image carries it (help/), else its source in this repository."""
+    p = REPO / shipped
+    return p if p.exists() else REPO / source
+
+
 @dataclass
 class Config:
     ha_url: str = "http://192.0.2.53:8123"
@@ -26,6 +32,10 @@ class Config:
     hk_files: Path = REPO / "spikes/hk-snapshot/hk_local"
     fixtures: Path = REPO / "spikes/hk-snapshot/fixtures"      # captured HK feeds (personal data; git-ignored)
     web: Path = REPO / "web"
+    # /docs (docs_pages.py): HK's pages (HK Frontend's wiki, its source in this repository) and Mantel's own;
+    # the images carry them as help/ (Dockerfile, tools/stage_ha_app.py)
+    docs_hk: Path = field(default_factory=lambda: _docs("help/hk", "hosts/ha/custom_components/hk_frontend/docs"))
+    docs_mantel: Path = field(default_factory=lambda: _docs("help/Mantel.md", "packaging/ha-app/DOCS.md"))
     data_dir: Path = Path("~/.local/share/mantel")
     secrets_dir: Path = Path("~/.config/mantel/secrets")    # at-rest key file (created 0700/0600 on first use)
     session_hours: float = 12.0                              # session lifetime on the tunnel door

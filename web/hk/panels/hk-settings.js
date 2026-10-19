@@ -432,7 +432,8 @@
   function docsLink(page, anchor, o) {
     var url = window.hkShell.docsUrl(page, anchor);
     if (!url) return null;
-    var row = K.nav(Object.assign({ label: 'On the Wiki', icon: 'mdi:open-in-new', href: url }, o));
+    // HK Frontend's wiki on GitHub; a host's own docs (a path of its own) are its docs
+    var row = K.nav(Object.assign({ label: /^https?:/.test(url) ? 'On the Wiki' : 'In the Docs', icon: 'mdi:open-in-new', href: url }, o));
     var a = row.tagName === 'A' ? row : row.querySelector && row.querySelector('a');
     if (a) { a.setAttribute('target', '_blank'); a.setAttribute('rel', 'noopener'); }
     return row;

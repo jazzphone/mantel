@@ -28,6 +28,7 @@ tests
 packaging/compose
 packaging/lxc
 packaging/ha-app
+!packaging/ha-app/DOCS.md
 packaging/mantel-connect
 tools/headless
 tools/testha

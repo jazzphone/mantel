@@ -30,6 +30,8 @@ def test_the_plan_holds_the_app_and_its_code(pairs):
     assert len(dests) == len(pairs)                                     # no destination twice
     assert not [d for d in dests if "__pycache__" in d or d.endswith(".pyc")]
     assert not [d for d in dests if d.startswith(("app/tests", "app/docs", "app/spikes", "app/hosts/ha"))]
+    # /docs (docs_pages.py): HK's pages and Mantel's own, as config.py finds them in an image
+    assert "app/help/Mantel.md" in dests and "app/help/hk/Sleep-Screen.md" in dests
 
 
 def test_the_real_plan_scans_clean(pairs):
