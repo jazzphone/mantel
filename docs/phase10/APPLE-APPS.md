@@ -232,6 +232,38 @@ real devices, not to screens.
 
 ## 11. Decisions for Avery
 
+**Answered 2026-10-19:**
+
+- **M10-1: TestFlight** for the household for now.
+- **M10-2: no relay while the app is TestFlight-only.** Avery's own developer account holds the APNs key, so his
+  Mantel sends to Apple directly with it (a secret file, like the HA token). APNs costs nothing, and there is no
+  third party or Worker to pay for. A relay is needed only if other houses ever run the app (they must not hold
+  that key); a Cloudflare Worker fits then and the free tier (100,000 requests a day) covers a household many
+  times over. For comparison, HA's Companion app uses a free relay run by the HA project on Firebase, capped at
+  500 pushes per device per day, and its notification contents are not encrypted through Firebase. Optional
+  later: Local Push Connectivity (iOS's on-Wi-Fi push without Apple's servers) needs an entitlement Apple must
+  grant.
+- **M10-3: 30 days** for a device-bound app credential on the tunnel, with Face ID to open the app.
+- **M10-4: Access in front of the tunnel, with the app's API paths bypassing it.** Avery has Cloudflare Access
+  and Tunnels; Mantel is not an Access application yet, and the tunnel will reach Mantel through his proxy
+  (proxy mode: the door key, Cloudflare's headers make it the tunnel door). The shape when the tunnel is set up:
+  - one Access application for the Mantel hostname (the household's identities), so a stranger never reaches
+    Mantel at all from the internet;
+  - a second, more specific Access application for the path `/api/app/` with a **Bypass** policy: the native
+    app's REST calls (widgets, Siri, Control Center, notifications' snapshots), each of which needs the
+    device-bound credential, with Cloudflare's WAF and a rate limit on those paths;
+  - the app's web view (the screens) goes through Access like a browser: Access's sign-in once, then its cookie.
+    Set Access's session to 30 days so it matches M10-3.
+  Access's mutual-TLS option would avoid the web view's sign-in but appears to need an Enterprise plan
+  (unconfirmed), so it is not part of the plan.
+- **M10-5: Sign in with Apple alone is enough on the LAN; away from home it also needs the phone's own
+  device-bound key** (Avery, 2026-10-19).
+- **M10-6: the account comes later.** Build and test in the Simulator first: everything except real pushes to
+  a phone, Sign in with Apple and TestFlight works there (simulated pushes with `simctl push` test the
+  notification extension). Buy the account when the app is worth putting on phones.
+
+The original questions:
+
 - **M10-1 Distribution.** TestFlight for the household only (simplest, no public review, 90-day builds), or the
   App Store for anyone who runs Mantel (review, a privacy policy, support, and the relay serving other houses).
   Recommendation: TestFlight first; the design does not change for the App Store later.
