@@ -1226,6 +1226,8 @@ async function start() {
   state.skew = state.me.now - Date.now() / 1000;
   const u = state.me.user;
   $('#who').textContent = `${u.name || u.username} · ${roleLabel(u.role)} · ${state.me.door === 'lan' ? 'home network' : 'remote'}`;
+  // HK Settings (Mantel's copy) is for the people who manage the house: the page refuses everyone else
+  $('#hk-settings').hidden = !state.me.sections.includes('people');
   const nav = $('#nav');
   for (const s of state.me.sections) {
     nav.append(h('button', { type: 'button', 'data-section': s, onclick: () => { location.hash = s; } }, SECTION_LABEL[s]));

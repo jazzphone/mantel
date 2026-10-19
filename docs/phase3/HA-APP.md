@@ -300,8 +300,15 @@ its POST). A way in: the dashboard's menu has a **Mantel** section with **Mantel
 only (shell method `hkShell.hostMenu`, `web/shim/mantel-shell.js`; opens `<prefix>/admin` in the same frame by a
 full page load), and the admin page has a **Back to the dashboard** link. HA's `/app/local_mantel/admin` still
 does not pass a subpath to the iframe (the frame always opens the Ingress root), so the menu entry is the way in.
-Not done: HK Settings is not an entry of Mantel's menu in this build (no panel is mounted on Mantel's page; the
-Mantel admin folding into HK Settings is PLAN item 8). Tests: `tests/test_ingress_own_pages.py`.
+**HK Settings in Mantel (`<prefix>/hk-settings`).** Owners and Admins (never a wall tablet; a signed-out browser goes to
+`/login`) get `web/hk-settings.html` + `web/shim/hk-settings-page.js`: `<hk-settings-panel>` full-window on the Mantel host adapter's `hass`
+(the same one the dashboard builds), under a slim bar with **Back to the dashboard** and a notice: this is Mantel's copy, imported from
+HA once, so changes affect Mantel's screens only; whatever needs HA writes (tablets as HA devices, dashboards, setup flows) is
+read-only while Mantel is. Entries: **HK Settings** above **Mantel settings** in `hkShell.hostMenu` (side menu and the tab bar's
+More sheet) and a link on `/admin` (managers only). A refused save says why (`settings_store.REFUSALS` for `ha_write` /
+`not_yet`; the action port's refusals toast "Commands are disabled in Mantel (read-only)"). The energy sheet's "More energy
+settings" link is host-relative and now lands here. Folding Mantel settings into HK Settings stays PLAN item 8.
+Tests: `tests/test_ingress_own_pages.py`.
 
 ## The App
 

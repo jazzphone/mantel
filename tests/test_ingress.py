@@ -112,6 +112,7 @@ async def make(tmp_path, monkeypatch, *, peers=("127.0.0.1",), ingress_on=True, 
     (web_dir / "hk/modules").mkdir(parents=True)
     (web_dir / "hk/fonts").mkdir(parents=True)
     (web_dir / "home.html").write_text((ROOT / "web/home.html").read_text())
+    (web_dir / "hk-settings.html").write_text((ROOT / "web/hk-settings.html").read_text())
     (web_dir / "hk/modules/hk-probe.js").write_text(
         "var A = '/hk/modules/hk-x.js'; import('/hk/cards/y.js');\n"
         "var seg = String(location.pathname).split('/')[1];\nvar m = fetch(\"/static/mdi/icons.json\");\n"
