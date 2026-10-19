@@ -715,6 +715,40 @@ async def smoke(shot=None, shots=None):
                                ha_forms: [...el.shadowRoot.querySelectorAll('*')].filter(n => /^ha-(form|yaml-editor|selector)$/.test(n.localName)).length };
                     })()""")
                     assert hk_page == {"client": True, "notice": True, "back": "/home", "below_bar": True, "ha_forms": 0}, hk_page
+                    # Mantel's own screens are listed: Overview counts them, the Screens group has them, a screen's
+                    # page opens and its preview is Mantel's own screen (under the Ingress prefix, if any), and a
+                    # narrower window still has the preview above the settings
+                    screens = await browser.eval("""(() => {
+                      const el = window.__mantelHkSettings, sr = el.shadowRoot;
+                      return { n: el.data.dashboards.filter(d => d.item).length, source: el.data.source,
+                               overview: [...sr.querySelectorAll('.side .grp')].map(g => g.textContent).join(' ').match(/(\\d+) Screens/)?.[1] || null,
+                               rows: [...sr.querySelectorAll('.side a, .side [role=link], .side .nav')].map(n => n.textContent.trim())
+                                 .filter(t => /Proof/.test(t)).length };
+                    })()""")
+                    assert screens["n"] == 1 and screens["source"] == "mantel" and screens["overview"] == "1" and screens["rows"] >= 1, screens
+                    for width in (1400, 1000):
+                        await browser.send("Emulation.setDeviceMetricsOverride", width=width, height=900, deviceScaleFactor=1, mobile=False)
+                        await browser.eval("window.dispatchEvent(new Event('resize')); location.hash = '#/overview'")
+                        await browser.eval("location.hash = '#/screens/dashboard-proof'")
+                        assert await browser.wait("!!window.__mantelHkSettings.shadowRoot.querySelector('.pvcol iframe')", 15), \
+                            f"no screen preview at {width}px: " + json.dumps(browser.console[-10:])
+                        pv = await browser.eval("""(() => {
+                          const sr = window.__mantelHkSettings.shadowRoot, col = sr.querySelector('.pvcol'), fr = col.querySelector('iframe');
+                          const pc = sr.querySelector('.pc');
+                          return { src: fr.getAttribute('src'), open: col.querySelector('a').getAttribute('href'),
+                                   above: col.getBoundingClientRect().bottom <= pc.getBoundingClientRect().top + 1,
+                                   sideBySide: col.getBoundingClientRect().left >= pc.getBoundingClientRect().right - 1,
+                                   h1: sr.querySelector('h1.lt').textContent };
+                        })()""")
+                        assert pv["src"].startswith("/dashboard-proof/0?") and pv["open"] == "/dashboard-proof/0" \
+                            and pv["h1"] == "Proof" and (pv["above"] or pv["sideBySide"]), (width, pv)
+                        # the frame is Mantel's own screen, drawn (not a 404 or Home Assistant's page)
+                        assert await browser.wait("(() => { const f = window.__mantelHkSettings.shadowRoot.querySelector('.pvcol iframe');"
+                                                  " try { return f.contentWindow.__mantelReady === true && f.contentWindow.location.pathname === '/dashboard-proof/0'; }"
+                                                  " catch (e) { return false; } })()", 25), f"the preview did not draw at {width}px"
+                        if width == 1000:
+                            assert pv["above"], pv      # narrower than the wide layout: above the settings
+                    await browser.send("Emulation.clearDeviceMetricsOverride")
                     # its energy-sheet link ("More energy settings") is host-relative and lands on this page
                     assert 'href="/hk-settings#/features/energy/devices/' in (Path(__file__).resolve().parents[2] / "web/hk/cards/hk-detail.js").read_text()
                     # the way back, then the second row

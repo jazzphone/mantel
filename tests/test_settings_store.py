@@ -471,10 +471,23 @@ async def test_panel_get_shape_and_rights(svc):
         assert key in p, key
     assert p["settings"]["counts"] == {"lights": None} and p["setup_done"] is True
     assert p["custom_pages"][0]["used_on"] == ["dashboard-kitchen"] and p["tablets"]["kitchen"]["parts"] == {}
-    assert p["choices"] == {"themes": ["halloween"]} and p["users"] == [] and p["dashboards"] == []
+    assert p["choices"] == {"themes": ["halloween"]} and p["users"] == []
+    # the screens: one per board, in HA's panel/get shape, so Screens counts them and each opens
+    assert p["dashboards"] == [{"path": "dashboard-kitchen", "title": "Kitchen", "mode": "mantel", "id": None,
+                                "generated": True, "require_admin": False, "item": "dashboard-kitchen", "icon": None}]
     assert p["versions"]["house/settings"] == 1
     with pytest.raises(Forbidden):
         await svc.panel_get(ADULT, {"type": "hk_frontend/panel/get"})
+
+
+def test_screen_titles_from_boards(svc):
+    st = type(svc)
+    assert st.screen_title("dashboard-living-room", {}) == "Living Room"
+    assert st.screen_title("hk-front_door", {}) == "Front Door"
+    assert st.screen_title("dashboard-x", {"title": " Den "}) == "Den"
+    assert st.screen_title("plain", {}) == "Plain"
+    out = svc.dashboards({"dashboard-b": {}, "dashboard-a": {"title": "Zed", "icon": "mdi:sofa"}, "dashboard-c": {}})
+    assert [d["title"] for d in out] == ["B", "C", "Zed"] and out[2]["icon"] == "mdi:sofa" and out[2]["item"] == "dashboard-a"
 
 
 # ---------------------------------------------------------------------------- read-proxy allowlist

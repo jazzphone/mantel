@@ -1523,7 +1523,9 @@
       var col = h('aside', { class: 'pvcol', 'aria-label': 'Preview' });
       var head = h('div', { class: 'pvhead' }, [h('span', { text: 'Preview' }),
         h('a', { href: '/' + path + '/' + view, target: '_blank', rel: 'noopener', text: 'Open Screen' })]);
-      head.lastChild.setAttribute('href', '/' + path + '/' + view);
+      // under Mantel's address prefix (HA App: Ingress) it is Mantel's own screen, never Home Assistant's
+      var mbase = window.__mantelBase || '';
+      head.lastChild.setAttribute('href', mbase + '/' + path + '/' + view);
       col.appendChild(head);
       var pv = h('div', { class: 'pvbox' });
       var b = (this.data && this.data.boards && this.data.boards[path]) || null;
@@ -1531,7 +1533,7 @@
       // hk_kiosk=on (HK Frontend's) and kiosk (the Kiosk Mode plugin's): no
       // Home Assistant header or sidebar; wp_enabled=false: WallPanel never
       // runs in a preview (it would drive the real tablet's screensaver)
-      fr.src = '/' + path + '/' + view + '?hk_kiosk=on&kiosk&wp_enabled=false';
+      fr.src = mbase + '/' + path + '/' + view + '?hk_kiosk=on&kiosk&wp_enabled=false';
       fr.title = (x ? x.title : path) + ' preview';
       fr.setAttribute('tabindex', '-1');
       pv.appendChild(fr);
@@ -2010,6 +2012,10 @@
       if (!gen) c.appendChild(K.group({ footer: 'What this dashboard’s own YAML can say beyond these settings: the live sky, HK cards, ' +
           'rooms in the menu, and more, ready to copy.' }, [K.nav({ label: 'YAML Reference', href: '#/advanced/yaml', sk: 'b:yaml-ref' })]));
       if (gen && x.mode === 'storage') { c.appendChild(this.deleteGroup(x)); return; }
+      if (this.data.source === 'mantel') {
+        c.appendChild(K.group({ footer: 'Mantel keeps its own copy of this screen’s settings. Removing a screen needs Home Assistant, so it isn’t offered here.' }, []));
+        return;
+      }
       c.appendChild(K.group({ footer: 'The dashboard itself stays. Its menu, Home page and appearance go back to the defaults.' }, [
         K.button({ label: 'Remove HK Settings…', destructive: true, sk: 'b:remove', onClick: function () {
           K.confirm(self.shadowRoot, { title: 'Remove HK settings for ' + x.title + '?',
@@ -4021,6 +4027,12 @@
     // ---------------------------------------------------------- add a screen
     p_add(sub) {
       var self = this, d = this.data;
+      if (d.source === 'mantel') {
+        return { title: 'Add Screen', back: ['HK Settings', '#/'], body: function (c) {
+          c.appendChild(K.group({ footer: 'A new screen is a new dashboard in Home Assistant, which Mantel doesn’t write to. ' +
+            'Add it in HK Settings inside Home Assistant; Mantel’s own screens are listed under Screens.' }, []));
+        } };
+      }
       var others = d.dashboards.filter(function (x) { return !x.item; });
       this._new = this._new || { name: '', kind: 'wall_tablet', admin: false };
       var nw = this._new;

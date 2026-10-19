@@ -906,6 +906,26 @@ class SettingsService:
             log.exception("the features' part of the settings feed failed")
         return payload
 
+    @staticmethod
+    def screen_title(path: str, board: Mapping[str, Any]) -> str:
+        """A screen's name: the board's own ``title`` if it has one, else its address made readable
+        (``dashboard-kitchen`` -> ``Kitchen``). The import keeps no dashboard titles (HA's are Lovelace's)."""
+        t = board.get("title") if isinstance(board, Mapping) else None
+        if isinstance(t, str) and t.strip():
+            return t.strip()
+        words = re.sub(r"^(dashboard|hk)-", "", path).replace("-", " ").replace("_", " ").strip()
+        return words.title() if words else path
+
+    def dashboards(self, boards: Mapping[str, Mapping[str, Any]]) -> list[dict]:
+        """``dashboards`` of panel/get (panel.py ``_dashboards``' shape) from Mantel's boards: each board is
+        a screen HK draws itself (so ``generated``), kept here rather than in Lovelace (``mode`` is
+        ``mantel``: not renamable or deletable the way a stored HA dashboard is), and has its settings
+        (``item`` is the board's key)."""
+        out = [{"path": path, "title": self.screen_title(path, b), "mode": "mantel", "id": None,
+                "generated": True, "require_admin": False, "item": path, "icon": (b or {}).get("icon")}
+               for path, b in boards.items()]
+        return sorted(out, key=lambda d: d["title"].lower())
+
     def panel_payload(self) -> dict:
         """What ``hk_frontend/panel/get`` answers (panel.py ws_panel_get's shape). The parts HA works out
         at run time (its dashboards, entities per tablet, counts, third-party status, HA's users) are
@@ -927,7 +947,7 @@ class SettingsService:
             "boards": boards,
             "screensavers": {},
             "tablets": {k: {**d.body, "parts": {}} for k, d in self.store.docs("tablet").items()},
-            "kiosk_devices": [], "tablet_suggest": [], "dashboards": [],
+            "kiosk_devices": [], "tablet_suggest": [], "dashboards": self.dashboards(boards),
             "popups": self._items("popups"),
             "custom_pages": pages,
             "custom_chips": self._items("custom_chips"),

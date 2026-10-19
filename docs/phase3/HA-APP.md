@@ -663,3 +663,14 @@ else in HA was changed (the App creates no entities, no users, no tokens; HK Fro
    user as a wall tablet and follow CUTOVER.md.
 4. Front end: a *People* entry in Mantel's menu for Owners/Admins (→ `<prefix>/ingress/people`).
 5. Later: publish the image (packaging/docker `app` target, GHCR) and add `image:` for updates through HA.
+
+### HK Settings lists Mantel's screens (after 0.1.15)
+
+`settings_store.panel_payload()` now sends `dashboards` built from Mantel's boards (HA's `panel/get` shape:
+`path`, `title`, `mode: "mantel"`, `id: null`, `generated: true`, `require_admin: false`, `item` = the board key,
+`icon`), so Overview counts them and each screen's page opens. The title is the board's own `title` if it has one,
+else its address made readable (`dashboard-kitchen` -> Kitchen); the import keeps no dashboard titles. The
+preview and its "Open Screen" link go to Mantel's own `<base>/<path>/0` (`window.__mantelBase`), never HA's.
+Add Screen and Remove/Delete Screen need HA: the page says so in Mantel instead of offering them. Smoke opens
+HK Settings, sees the screen count, opens a screen and sees its preview draw at 1400 and 1000 px (above the settings
+at 1000).
