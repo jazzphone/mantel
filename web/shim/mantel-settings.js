@@ -535,9 +535,9 @@ function pEnroll(back = ['Devices', '#/' + ROUTE + '/devices']) {
     if (enrolled) { drawEnrolled(c); return; }
     const u = me.user || {};
     if (u.role === 'wall_tablet') {               // a Wall Tablet account names its own tablet: start from its name
-      const d = draft('device');
-      if (d.name === undefined && u.name) d.name = u.name;
-      if (d.room === undefined && u.name) d.room = u.name;
+      const d = draft('device'), label = u.name || (u.username || '').replace(/^./, (x) => x.toUpperCase());
+      if (d.name === undefined && label) d.name = label;     // an account made with no name: its user name (loft → Loft)
+      if (d.room === undefined && label) d.room = label;
     }
     c.appendChild(group({ footer: 'The person is signed out of this browser at once, and it keeps its own credential. What it may do is its role’s (Roles & Grants). Only on the home network.' }, [
       field('device', 'name', 'Name', { placeholder: 'Kitchen Tablet', maxlength: 64 }),
