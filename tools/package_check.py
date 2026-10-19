@@ -486,7 +486,23 @@ def check_ha_app(path: Path) -> list[str]:
         problems.append("ha-app: options.commands_enabled must default to false")
     if "image" in doc:
         problems.append("ha-app: no image: the App is built locally from its Dockerfile (tools/stage_ha_app.py)")
+    problems += _typed_defaults("ha-app", doc)
     return problems
+
+
+# HA's Supervisor checks each option's default against its schema type when the App is installed or updated:
+# an empty string under email / url / int / float / port / match is refused ("expected an email address"), and
+# the update fails (App 0.1.16 on the house, 2026-10-18). Optional typed options must have no empty default.
+_TYPED = re.compile(r"^(email|url|int|float|port|match)\b")
+
+
+def _typed_defaults(label: str, doc: dict) -> list[str]:
+    out = []
+    schema, options = doc.get("schema") or {}, doc.get("options") or {}
+    for key, kind in schema.items():
+        if isinstance(kind, str) and _TYPED.match(kind) and options.get(key) in ("", None) and key in options:
+            out.append(f"{label}: option {key} ({kind}) has an empty default, which HA's Supervisor refuses")
+    return out
 
 
 def check_connect_app(path: Path) -> list[str]:

@@ -97,6 +97,7 @@ def test_proxy_mode_publishes_the_direct_port_with_the_door_key_rules(tmp_path):
      "ha_sign_in_url"),
     ({"access": "https", "public_url": PUBLIC}, "cloudflare_token"),
     ({"access": "everything"}, "access"),
+    ({"access": "https", "public_url": PUBLIC, "cloudflare_token": "t", "acme_email": "not an address"}, "acme_email"),
 ])
 def test_bad_direct_options_stop_the_app_with_a_reason(tmp_path, options, words):
     ep = _entrypoint()

@@ -79,6 +79,7 @@ from __future__ import annotations
 import ipaddress
 import json
 import os
+import re
 import sys
 from pathlib import Path
 
@@ -325,6 +326,9 @@ def direct_args(access: str, public: str, options: dict, env: dict[str, str]) ->
         args += ["--direct-tls", "acme", "--acme-dns-token-file", cf_file]
         email = str(options.get("acme_email") or "").strip()
         if email:
+            # a plain string option (HA's `email?` type refuses the empty default, so the App would not update)
+            if not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", email) or len(email) > 254:
+                raise ConfigError("acme_email is not an email address (leave it empty for none)")
             args += ["--acme-email", email]
         if options.get("acme_staging") is True:
             args += ["--acme-directory", LETSENCRYPT_STAGING]

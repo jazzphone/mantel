@@ -64,6 +64,6 @@ schema:
   trusted_proxies: "str?"
   ha_sign_in_url: "str?"
   cloudflare_token: "password?"
-  acme_email: "email?"
+  acme_email: "str?"
   acme_staging: bool
   lan_networks: "str?"

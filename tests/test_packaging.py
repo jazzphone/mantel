@@ -343,6 +343,11 @@ def test_ha_app_config_is_checked(tmp_path):
     assert any("full_access" in m for m in pc.check_ha_app(p))
     p.write_text(good.replace("ingress: true", "ingress: false"))
     assert any("ingress" in m for m in pc.check_ha_app(p))
+    # an empty default under a typed schema entry: HA's Supervisor refused the 0.1.16 update with
+    # "expected an email address" for acme_email: "email?" defaulting to "" (the house, 2026-10-18)
+    assert not pc.check_ha_app(ROOT / "packaging/ha-app/config.yaml")
+    p.write_text(good.replace('acme_email: "str?"', 'acme_email: "email?"'))
+    assert any("acme_email" in m and "empty default" in m for m in pc.check_ha_app(p))
 
 
 def test_yaml_subset_reader():
