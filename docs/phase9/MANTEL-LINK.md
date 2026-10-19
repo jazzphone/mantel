@@ -475,3 +475,35 @@ Frontend). `test_e2e_mantel.py` links it to the real `mantel_server/linked.py`.
   followed by itself, the old one revoked, no second card) and Docker-like by hand (address + pairing code), every
   action offered under both names. Browser pane: the by-hand form in HA (credential field masked).
   `tools/check_links.py` and `tools/package_check.py` clean.
+
+### 9.10 HK Frontend's last feature release and its final release: done (prepared locally; nothing published)
+
+- **Last feature release, HK Frontend 1.9.0** (manifest bumped; built by HK's own `tools/publish/publish.py` as every
+  release): the hand-over hooks landed in 9.3 (`handover.py`, `bridge` in the owners, the platforms' guarded adders,
+  `features=("bridge",)` in its hello, the domain-level `set_black_screen` that follows the bridge); Configure's page
+  is now **"Linked to Mantel"** and says Mantel Link takes the bridge over; its address **fills itself in** from Mantel
+  Link's entry when this HA has one (A's discovery: the App's announcement or zeroconf), else the Mantel App's own
+  address as before (`linked_mode.suggested_url(hass)`; a plain address outside this machine or the App network is
+  never offered). HK's docs (HK-Settings.md "Linked to Mantel", with the move guide) and the form's errors say
+  "Mantel", not "Mantel Server".
+- **Final release, HK Frontend 1.10.0**: `publish.py REPO_DIR --final` builds it from the same tree: `retire.py`'s
+  `RETIRED` on (every other build leaves it off), `tools/publish/final/README.md` as the README ("HK Frontend is now
+  Mantel": what Mantel and Mantel Link are, the move guide link, security fixes only, to be archived), version
+  1.10.0. **The repair**: at setup, `retire.async_raise` creates one Repairs issue, "HK Frontend is now Mantel"
+  (warning, not fixable, learn-more link to Mantel Link's `docs/Moving-from-HK-Frontend.md`); everything else keeps
+  working until the house moves. The HACS description change is Avery's step on GitHub with the release.
+- **Order:** 1.9.0 must reach a house before its hand-over (9.11); 1.10.0 only once the house has moved and Mantel
+  Link's repository is public (the repair links into it).
+- **Release notes, for Avery** (nothing is published from here):
+  - *1.9.0:* "Getting ready for Mantel. Configure → Linked to Mantel (renamed from Linked to Mantel Server) now
+    fills Mantel's address in when the Mantel App or Mantel Link is installed, and HK Frontend can hand its wall
+    tablets' entities to Mantel Link, HK Frontend's successor, and take them back, keeping every entity id and its
+    history. Nothing changes for a house that hasn't linked to Mantel."
+  - *1.10.0:* "HK Frontend is now Mantel. This final release adds one repair pointing to the move guide; everything
+    else works as before. Security fixes only from here; the repository will be archived."
+- **Checks:** HK's `test_retire.py` (no repair in an ordinary release; the final one raises it with the guide; the
+  final build), `test_handover.py` (the address fill-in from Mantel Link's entry), the linked tests on both sides;
+  Mantel's `tests/test_mantel_link.py::test_hk_frontend_s_final_release_builds` (the whole HK build with `--final`,
+  scanned clean). **Scratch HA** with HK's final variant (`TESTHA_HK_FINAL=1 testha.py up --fresh`), in the browser
+  pane: Settings → Repairs lists "HK Frontend is now Mantel" and its dialog shows the text and the guide link; HK
+  Frontend 1.9.0's Configure → "Linked to Mantel" shows the new wording and the address field.

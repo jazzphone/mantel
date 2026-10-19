@@ -224,6 +224,11 @@ def prepare(fresh: bool, sequential: bool = False, hk: bool = True, probe: bool 
     if not hk:
         # a Home Assistant without HK Frontend (Mantel Link alone: docs/phase9/MANTEL-LINK.md 9.2)
         shutil.rmtree(inside_scratch(dest))
+    elif os.environ.get("TESTHA_HK_FINAL"):
+        # HK Frontend's FINAL release (9.10): its retirement repair on, as tools/publish/publish.py --final makes it
+        retire = dest / "retire.py"
+        retire.write_text(retire.read_text().replace("\nRETIRED = False\n", "\nRETIRED = True\n"))
+        say("HK Frontend as its final release (the 'HK Frontend is now Mantel' repair on)")
     install_mantel_link()
     # Onboarding's core_config step would add Met.no, Google Translate and Radio Browser (network services);
     # mark every step but the user's as done so only the user is created (by the REST call below).

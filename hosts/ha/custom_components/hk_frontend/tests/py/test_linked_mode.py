@@ -372,7 +372,7 @@ async def test_configure_links_and_unlinks(hass, frontend, mantel):
     assert r["errors"] == {"url": "mantel_url_insecure"}, "a credential never crosses the network in clear"
     assert LINK not in e.data
     r = await flows.async_configure(r["flow_id"], {"enabled": True, "url": mantel.url, "token": TOKEN})
-    assert r["type"] == "menu" and r["description_placeholders"]["saved"] == "Saved: Linked to Mantel Server."
+    assert r["type"] == "menu" and r["description_placeholders"]["saved"] == "Saved: Linked to Mantel."
     await hass.async_block_till_done()
     assert e.data[LINK] == {"url": mantel.url, "token": TOKEN}
     assert e.options.get(LINK) is None, "never in the options (the dashboard settings)"

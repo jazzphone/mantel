@@ -56,3 +56,24 @@ def test_mantel_link_s_public_repository_builds_clean(tmp_path):
     manifest = json.loads((ROOT / "hosts/ha/custom_components/mantel/manifest.json").read_text())
     assert manifest["domain"] == "mantel" and manifest["name"] == "Mantel Link"
     assert "hk_frontend" not in manifest.get("after_dependencies", []) + manifest.get("dependencies", [])
+
+
+def test_hk_frontend_s_final_release_builds(tmp_path):
+    """HK Frontend's final release (9.10), prepared, never published from here: the whole HK build with --final's
+    changes: the retirement repair on, the pointer README, version 1.10.0, still scanned clean."""
+    import importlib.util
+    import json
+    path = ROOT / "hosts/ha/custom_components/hk_frontend/tools/publish/publish.py"
+    spec = importlib.util.spec_from_file_location("hk_publish_final", path)
+    pub = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(pub)
+    pairs = [(s, d) for s, d in pub.plan() if not d.startswith("custom_components/hk_frontend/frontend/")]
+    assert pub.scan(pairs) == []
+    pub.build(str(tmp_path), pairs)
+    pub.make_final(str(tmp_path))
+    comp = tmp_path / "custom_components/hk_frontend"
+    assert "\nRETIRED = True\n" in (comp / "retire.py").read_text()
+    assert json.loads((comp / "manifest.json").read_text())["version"] == "1.10.0"
+    readme = (tmp_path / "README.md").read_text()
+    assert "HK Frontend is now Mantel" in readme and "Moving-from-HK-Frontend" in readme
+    assert pub.scan([(str(tmp_path / "README.md"), "README.md")]) == []

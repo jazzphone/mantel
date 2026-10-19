@@ -102,3 +102,21 @@ async def test_an_entity_mantel_link_holds_is_taken_back_with_its_id(hass, base,
     assert ent.id == held.id and ent.platform == DOMAIN and ent.config_entry_id == e.entry_id
     assert hass.states.get(BLACK) is None, "never a second entity beside it"
     assert await hass.config_entries.async_unload(e.entry_id)
+
+
+async def test_configure_fills_in_mantel_link_s_address(hass, frontend):
+    """HK Frontend's last release: Configure -> Linked to Mantel offers the address Mantel Link is linked to (it
+    found Mantel itself); a plain address that isn't this machine's or the App network's is never offered."""
+    from conftest import entry
+    e = entry(hass)
+    MockConfigEntry(domain="mantel", data={"url": "https://mantel.example.com", "token": "t"}).add_to_hass(hass)
+    r = await hass.config_entries.options.async_init(e.entry_id)
+    r = await hass.config_entries.options.async_configure(r["flow_id"], {"next_step_id": "linked"})
+    defaults = {str(k): k.default() for k in r["data_schema"].schema if hasattr(k, "default") and callable(k.default)}
+    assert r["step_id"] == "linked" and defaults["url"] == "https://mantel.example.com"
+    hass.config_entries.async_update_entry(hass.config_entries.async_entries("mantel")[0],
+                                           data={"url": "http://192.0.2.4:8099", "token": "t"})
+    r = await hass.config_entries.options.async_init(e.entry_id)
+    r = await hass.config_entries.options.async_configure(r["flow_id"], {"next_step_id": "linked"})
+    defaults = {str(k): k.default() for k in r["data_schema"].schema if hasattr(k, "default") and callable(k.default)}
+    assert defaults["url"] != "http://192.0.2.4:8099"
