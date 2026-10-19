@@ -85,7 +85,10 @@ is drawn. `?narrow=0` still turns narrowing off. A state read after narrowing (`
 notification's accessory and camera (its `sheet`, `entity` and `camera`, kept as the notification
 arrives) join the narrowed set: a tap on a banner opens a sheet whose entity is often on no page seen
 (2026-10-19: the tap found no state, opened nothing and took the banner away; pinned by the smoke's
-`notification_taps`).
+`notification_taps`). The same for the house's pop-ups (`popup`, hk-detail.js): nothing arrives
+ahead of one, so every entity the pop-ups name (entity, entities, cards, and Security's alarm) is
+kept from the start and when the pop-ups change; a camera pop-up opened nothing and an accessories
+one left out what it had no state for (pinned by `popup_sheets`).
 
 `web/shim/cards-bridge.js` is gone. Its pieces moved:
 
