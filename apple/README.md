@@ -71,11 +71,12 @@ has none: paste the link), Face ID itself (the Simulator without Face ID enrolle
 
 Team `TEAMID0000` and the prefix `com.jazzphone.mantel` (Avery's choice) are in `make_project.py`. The APNs key
 (Key ID `KEYID00000`, Sandbox & Production) is `~/.config/mantel/secrets/apns_key.p8` with `apns.json` beside it
-(both 0600; the house needs its own copy when Mantel sends from there). A device build needs at least one iPhone
-registered to the team first: connect it to this Mac once (or add its UDID on developer.apple.com), then
+(both 0600; the house needs its own copy when Mantel sends from there). Avery's iPhone is registered to the team
+(2026-10-19: Developer Mode on, paired with this Mac); the first device build registered the App IDs, the App Group and
+push. A device build:
 
 ```bash
-xcodebuild -project apple/Mantel.xcodeproj -scheme Mantel -destination 'generic/platform=iOS' -derivedDataPath /tmp/mantel-dd-device -allowProvisioningUpdates build
+xcodebuild -project apple/Mantel.xcodeproj -scheme Mantel -destination 'generic/platform=iOS' -derivedDataPath /tmp/mantel-dd-device -allowProvisioningUpdates -allowProvisioningDeviceRegistration build
 ```
 
 ## What needs the Apple Developer account (M10-6)
