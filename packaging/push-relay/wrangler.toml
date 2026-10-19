@@ -1,0 +1,17 @@
+# The Mantel push relay (docs/phase10/APPLE-APPS.md §13). Deploy: packaging/push-relay/README.md.
+name = "mantel-push"
+main = "worker.js"
+compatibility_date = "2026-10-01"
+workers_dev = true
+
+[vars]
+APNS_KEY_ID = "KEYID00000"
+APNS_TEAM_ID = "TEAMID0000"
+APNS_TOPIC = "com.jazzphone.mantel.ios"
+
+# APNS_KEY (the .p8, PEM) is a secret: `wrangler secret put APNS_KEY < apns_key.p8`; never in this file.
+
+[[d1_databases]]
+binding = "DB"
+database_name = "mantel-push"
+database_id = "REPLACE_AT_DEPLOY"

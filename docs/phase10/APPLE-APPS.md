@@ -246,6 +246,10 @@ real devices, not to screens.
   500 pushes per device per day, and its notification contents are not encrypted through Firebase. Optional
   later: Local Push Connectivity (iOS's on-Wi-Fi push without Apple's servers) needs an entitlement Apple must
   grant.
+- **M10-2, revised the same evening: a relay for everyone.** Avery wants the app to work for every Mantel house, not
+  only his, so the push key moves to a relay he runs (a Cloudflare Worker on a free `workers.dev` address). Design in
+  §13. His own house uses the relay too, so no house holds the key. Direct sending (the key on a house) stays only as a
+  developer's option.
 - **M10-3: 30 days** for a device-bound app credential on the tunnel, with Face ID to open the app.
 - **M10-4: Access in front of the tunnel, with the app's API paths bypassing it.** Avery has Cloudflare Access
   and Tunnels; Mantel is not an Access application yet, and the tunnel will reach Mantel through his proxy
@@ -306,3 +310,25 @@ two lines); edits to shared files are small and listed in the commits.
 
 Merging notes: migrations 0015/0016 may collide with Mantel Link's; `features.Feed.taps`, `sessions.APP_METHOD`,
 `ingress.inject_base`'s Home Screen block and `user_data` `favorites` are the edits to shared files.
+
+## 13. The push relay (decision M10-2 revised, 2026-10-19)
+
+A Cloudflare Worker (`packaging/push-relay/`) holds the APNs key as a Worker secret; houses never do. Free tier:
+100,000 requests a day.
+
+- **The phone registers with the relay**, not the house: `POST /v1/register` with its APNs device token, the
+  environment (sandbox / production) and the house it is for (the house's identity key and its fingerprint, as pinned
+  at pairing). The relay answers an opaque **handle** bound to that one house; the phone gives the house the handle
+  (`/api/app/push/register`), never the device token. A house can therefore reach only phones that paired with it, and
+  never learns Apple's token.
+- **The house sends through the relay**: `POST /v1/send` with the handle and the APNs payload, signed with the house's
+  identity key (ES256 over method, path, time, nonce and the body's hash; ±5 minutes; each nonce once). The relay
+  checks the signature against the key the handle was registered for, rate-limits per house and per handle, forwards
+  to APNs with the team key, and drops a handle Apple says is gone. `POST /v1/forget` (house-signed) ends a handle
+  when the app is signed out.
+- **End to end as before**: the payload is already sealed to the phone's notification key (§5); the relay and Apple
+  see ciphertext. The relay sees which house pushed to which handle, and when.
+- **Which way a house sends** is the house's choice, told to the app in `/api/app/hello` (`push`): through the relay
+  (the default) or directly with its own key (a developer's setup).
+- **Later hardening**: App Attest on `/v1/register` (only the genuine app may register), Live Activity push tokens
+  through the same path.

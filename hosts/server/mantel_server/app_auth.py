@@ -245,9 +245,10 @@ class AppAuth:
     def hello(self, request: web.Request, nonce: str | None = None) -> dict:
         key = self.key()
         fp = self.fingerprint()
+        from .apns import push_mode
         out = {"service": "mantel", "name": self.house_name(), "fingerprint": fp,
                "key": app_crypto.b64u(app_crypto.raw_public(key.public_key())), "door": door_of(request),
-               "addresses": self.addresses(request)}
+               "addresses": self.addresses(request), "push": push_mode(self.app)}
         if nonce is not None:
             out["nonce"] = nonce
             out["signature"] = app_crypto.b64u(app_crypto.es256_sign(key, hello_message(nonce, fp)))
@@ -257,7 +258,7 @@ class AppAuth:
         done = self.app["sessions"].revoke(cred_id, reason)
         pusher = self.app.get("pusher")
         if pusher is not None:
-            pusher.targets.remove_app(cred_id)
+            pusher.forget_app(cred_id)
         return done
 
     def credential(self, cred_id: str):
@@ -488,7 +489,7 @@ async def _refresh(request: web.Request, st: AppAuth, body: dict) -> web.Respons
     if status == "reuse":
         pusher = request.app.get("pusher")
         if pusher is not None:
-            pusher.targets.remove_app(cred["id"])
+            pusher.forget_app(cred["id"])
     return error(400, "invalid_grant", reason=status)
 
 

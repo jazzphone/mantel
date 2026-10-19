@@ -89,6 +89,13 @@ public struct Hello: Codable, Sendable {
     public let addresses: Addresses
     public let nonce: String?
     public let signature: String?
+    /// How this house sends notifications: through the push relay (its address) or directly with its own APNs key.
+    public let push: Push?
+
+    public struct Push: Codable, Sendable, Equatable {
+        public let relay: String?
+        public let direct: Bool?
+    }
 
     public enum PinError: Error, Equatable {
         case notMantel, badKey, wrongHouse, badSignature

@@ -114,9 +114,12 @@ class Targets:
             return self.db.execute("DELETE FROM push_targets WHERE endpoint = ? AND user_id = ?",
                                    (endpoint, user_id)).rowcount > 0
 
-    def remove_app(self, app_id: str) -> int:
+    def remove_app(self, app_id: str) -> list[dict]:
+        """Remove an app's targets; returns them (a relay handle is then forgotten at the relay too)."""
+        rows = [dict(r) for r in self.db.execute(f"SELECT {self.COLS} FROM push_targets WHERE app_id = ?", (app_id,))]
         with self.db:
-            return self.db.execute("DELETE FROM push_targets WHERE app_id = ?", (app_id,)).rowcount
+            self.db.execute("DELETE FROM push_targets WHERE app_id = ?", (app_id,))
+        return rows
 
     def of_user(self, user_id: str) -> list[dict]:
         return [dict(r) for r in self.db.execute(f"SELECT {self.COLS} FROM push_targets WHERE user_id = ? ORDER BY created",
@@ -273,6 +276,13 @@ class Pusher:
             counts[result] = counts.get(result, 0) + 1
         self.log = (self.log + [{"at": time.time(), "title": msg.title, **counts}])[-20:]
         return counts
+
+    def forget_app(self, app_id: str) -> None:
+        """An app was signed out or revoked: its targets go, and its relay handles are forgotten at the relay."""
+        for row in self.targets.remove_app(app_id):
+            relay = self.app.get("push_relay")
+            if row["kind"] == "apns" and row.get("env") == "relay" and relay is not None:
+                self.spawn(relay.forget(row["endpoint"]))
 
     # -- Web Push ---------------------------------------------------------------------------------
     async def send_web(self, row: dict, msg: Message) -> str:

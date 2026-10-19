@@ -117,3 +117,98 @@ class Apns:
             return "gone"
         log.warning("APNs answered %s (%s)", status, reason)
         return "failed"
+
+
+# -- the push relay (docs/phase10/APPLE-APPS.md §13, decision M10-2 revised) -----------------------
+# The relay Avery runs for every Mantel house (packaging/push-relay/): it holds the APNs key, so no house does. A house
+# reaches a phone by the opaque handle the phone got from the relay for this house, never by Apple's device token.
+# Requests are signed with the house's identity key (app_auth.py), the key the app pinned at pairing.
+DEFAULT_RELAY = ""          # set once the relay is deployed (its workers.dev address); an Owner may change it
+RELAY_SETTING = "push_relay"
+
+
+def relay_url(app) -> str | None:
+    st = app.get("app_auth")
+    url = (st.setting(RELAY_SETTING) if st is not None else None) or DEFAULT_RELAY
+    if not url:
+        return None
+    if url.startswith("https://") or url.startswith(("http://127.0.0.1:", "http://localhost:")):   # loopback: the tests
+        return url.rstrip("/")
+    return None
+
+
+def push_mode(app) -> dict:
+    """How this house sends to the apps, as /api/app/hello tells them: directly with its own APNs key (a developer's
+    setup: the key files exist), else through the relay, else not at all."""
+    sender = app.get("apns")
+    if sender is not None and sender.config() is not None:
+        return {"direct": True}
+    url = relay_url(app)
+    return {"relay": url} if url else {}
+
+
+def relay_signature(key, method: str, path: str, body: bytes, now: int, nonce: str) -> str:
+    import hashlib
+    digest = app_crypto.b64u(hashlib.sha256(body).digest())
+    msg = f"mantel-relay-v1\n{method}\n{path}\n{now}\n{nonce}\n{digest}".encode()
+    return app_crypto.b64u(app_crypto.es256_sign(key, msg))
+
+
+class Relay:
+    """Send through the relay (aiohttp: the relay speaks HTTP/1.1 and 2 alike; only Apple needs HTTP/2)."""
+
+    def __init__(self, app, clock: Callable[[], float] = time.time,
+                 transport: Callable[[str, dict, bytes], Awaitable[tuple[int, dict]]] | None = None):
+        self.app = app
+        self.clock = clock
+        self.transport = transport
+
+    async def _post(self, url: str, headers: dict, body: bytes) -> tuple[int, dict]:
+        if self.transport is not None:
+            return await self.transport(url, headers, body)
+        from aiohttp import ClientError, ClientTimeout
+        import aiohttp
+        http = self.app.get("http")
+        own = http is None                       # outside a running server (a tool): a session of its own
+        if own:
+            http = aiohttp.ClientSession()
+        try:
+            async with http.post(url, data=body, headers=headers, timeout=ClientTimeout(total=10)) as r:
+                try:
+                    return r.status, await r.json(content_type=None)
+                except ValueError:
+                    return r.status, {}
+        except (ClientError, OSError, TimeoutError) as exc:
+            log.warning("push relay unreachable: %s", type(exc).__name__)
+            return 0, {}
+        finally:
+            if own:
+                await http.close()
+
+    async def call(self, path: str, body: dict) -> tuple[int, dict]:
+        import secrets as _secrets
+        url = relay_url(self.app)
+        st = self.app.get("app_auth")
+        if url is None or st is None:
+            return 0, {"error": "no_relay"}
+        data = json.dumps(body, separators=(",", ":")).encode()
+        now, nonce = int(self.clock()), _secrets.token_urlsafe(18)
+        headers = {"Content-Type": "application/json", "X-Mantel-House": st.fingerprint(), "X-Mantel-Time": str(now),
+                   "X-Mantel-Nonce": nonce, "X-Mantel-Signature": relay_signature(st.key(), "POST", path, data, now, nonce)}
+        return await self._post(url + path, headers, data)
+
+    async def send(self, row: dict, msg: Any) -> str:
+        payload = build_payload(msg, app_crypto.unb64u(row["p256dh"]))
+        body: dict[str, Any] = {"handle": row["endpoint"], "payload": payload}
+        if msg.tag:
+            body["collapse_id"] = msg.tag[:64]
+        status, got = await self.call("/v1/send", body)
+        if status == 200:
+            return "ok"
+        if status in (404, 410) or (got or {}).get("gone"):
+            return "gone"
+        log.warning("push relay answered %s (%s)", status, (got or {}).get("error") or (got or {}).get("reason"))
+        return "failed"
+
+    async def forget(self, handle: str) -> None:
+        await self.call("/v1/forget", {"handle": handle})

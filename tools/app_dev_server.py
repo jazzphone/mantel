@@ -14,8 +14,11 @@ Run: ~/.venvs/mantel/bin/python tools/app_dev_server.py --data-dir /tmp/mantel-a
 * ``--lan``: also answer on this Mac's home-network address, over plain http, for a DEBUG build of the app on a real
   iPhone (Avery, 2026-10-19; Release builds refuse http beyond loopback). Requests from private addresses are the
   LAN door. Writes the pairing link as a QR code (<data-dir>/pair.png) to scan with the iPhone's camera.
-* ``--send-push "Title|Body"``: a REAL push through Apple's push service to the phone that registered last, with the
-  team's APNs key from ~/.config/mantel/secrets (apns_key.p8, apns.json; never printed). Needs httpx[http2].
+* ``--relay https://…workers.dev``: the house sends through the push relay (packaging/push-relay/); the app then
+  registers with the relay and gives this house only a handle.
+* ``--send-push "Title|Body"``: a REAL push to the phone that registered last: through the relay when the phone
+  registered a relay handle, else directly with the team's APNs key from ~/.config/mantel/secrets (apns_key.p8,
+  apns.json; never printed; needs httpx[http2]).
 """
 from __future__ import annotations
 
@@ -113,7 +116,7 @@ def private(ip: str | None) -> bool:
     return a.is_private or a.is_loopback
 
 
-async def serve(data: Path, port: int, lan: bool = False) -> None:
+async def serve(data: Path, port: int, lan: bool = False, relay: str | None = None) -> None:
     from mantel_server import app_auth
     from mantel_server.config import Config
     from mantel_server.server import build_app
@@ -170,6 +173,10 @@ async def serve(data: Path, port: int, lan: bool = False) -> None:
     st: app_auth.AppAuth = app["app_auth"]
     origin = f"http://{lan_ip or '127.0.0.1'}:{port}"
     st.set_setting("local_url", origin)
+    if relay:
+        from mantel_server import apns
+        st.set_setting(apns.RELAY_SETTING, relay)
+        print("Notifications go through the push relay at", relay)
     code = st.codes.make(3600, kind="pairing", user_id=uid)
     link = "mantel://pair?" + urlencode({"v": "1", "l": origin, "fp": st.fingerprint(), "c": code,
                                           "n": "The Example House"}, quote_via=quote)
@@ -205,6 +212,16 @@ async def send_push(data: Path, text: str) -> None:
         raise SystemExit("No app has registered for notifications yet.")
     title, _, body = text.partition("|")
     msg = push.Message(title=title, body=body, tag="real", important=True, entity="lock.front_door", url="/home")
+    if row["env"] == "relay":
+        from mantel_server.config import Config
+        from mantel_server.server import build_app
+        from mantel_server.store import Store
+        cfg = Config(data_dir=data / "data", secrets_dir=data / "secrets", ha_url="http://127.0.0.1:9")
+        store = Store(cfg.data_dir / "mantel.db")
+        app = build_app(cfg, "unused-fictional-token", store=store, connect_ha=False)
+        result = await app["push_relay"].send(dict(row), msg)
+        print(f"through the relay: {result}")
+        return
     sender = apns.Apns(Path("~/.config/mantel/secrets"))
     if sender.config() is None:
         raise SystemExit("No APNs key in ~/.config/mantel/secrets (apns_key.p8 + apns.json).")
@@ -246,6 +263,7 @@ def main() -> None:
     ap.add_argument("--push")
     ap.add_argument("--send-push")
     ap.add_argument("--lan", action="store_true")
+    ap.add_argument("--relay")
     a = ap.parse_args()
     a.data_dir.mkdir(parents=True, exist_ok=True)
     if a.push:
@@ -254,7 +272,7 @@ def main() -> None:
     if a.send_push:
         asyncio.run(send_push(a.data_dir, a.send_push))
         return
-    asyncio.run(serve(a.data_dir, a.port, a.lan))
+    asyncio.run(serve(a.data_dir, a.port, a.lan, a.relay))
 
 
 if __name__ == "__main__":
