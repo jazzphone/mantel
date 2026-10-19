@@ -1,6 +1,7 @@
 # Phase 9: Mantel Link replaces HK Frontend in Home Assistant (decision 28)
 
-**Status: plan, for Avery's sign-off (2026-10-19, revised the same day). Nothing here is built yet.**
+**Status (2026-10-19): being built on branch `claude/mantel-link-b012d1`, one slice at a time. Done: 9.1, 9.2,
+9.3 (see "Build record" at the end). Nothing is on the house; 9.11 waits for Avery, step by step.**
 
 ## The decision
 
@@ -191,3 +192,109 @@ From docs/phase4/FEATURE-PARITY.md, checked per house; anything unchecked keeps 
 - **Kiosk with the sidebar hidden:** the way back must work on a phone before it ships.
 - **Retiring a public project:** existing HACS users need a clear path. The final release's repair and the move guide
   are part of 9.10, not an afterthought.
+
+## Build record (kept as slices land)
+
+### Protocol 2 (built in 9.1)
+
+- **Who is calling.** The HA side says so on the upgrade request: `X-Mantel-Link: domain=mantel; protocol=2;
+  features=bridge`. No header (HK Frontend before its last release, e.g. the house's eabb70a) is HK Frontend,
+  protocol 1, no features, answered exactly as before (`linked.parse_link_header`). A newer protocol than Mantel's
+  is answered with Mantel's newest; the client then says "update Mantel" (`ProtocolMismatch`, config flow
+  `mantel_too_old`).
+- **hello** (protocol 2) adds `instance`: Mantel's instance id (32 hex, random, made once, kept in `linked_house`
+  under `instance`; `LinkedOwners.instance_id`). It is Mantel Link's config entry's unique id: one Mantel, one
+  entry. Never a secret.
+- **owners** gains `bridge`: `hk_frontend` (default) or `mantel` (Mantel Link). Kept as the `linked_owners` row
+  `bridge` (owner `ha` = HK Frontend, `mantel` = Mantel Link): no migration; not a tablet anywhere.
+- **report** (client → Mantel, protocol 2 only): `{"hk_frontend": {installed, loaded, linked}}`, sent on connect
+  and whenever HK Frontend's entry changes. Mantel keeps it on the client (Mantel Settings shows it; the
+  hand-over reads it). A protocol 1 client sending it gets `bad_request`.
+- Refusals name the action as the caller knows it (`mantel.x` / `hk_frontend.x`: `CallCtx.domain`).
+- **One link client, two integrations.** `mantel_link.py` is the same file in `hk_frontend/` and `mantel/`
+  (domain, protocol, features and extra frame types are arguments; the log names the package). Mantel Link's
+  `test_link_shared.py` fails if the copies differ. It gained `probe()` (connect once, read hello) for setup forms.
+
+### 9.1 Mantel Link skeleton: done
+
+`hosts/ha/custom_components/mantel/`: manifest (name "Mantel Link", domain `mantel`, `config_flow`,
+`single_config_entry`, `after_dependencies` hk_frontend / hassio / mobile_app), the manual flow (address +
+Service credential, tested with `probe` before saving; the address rules are linked mode's: https anywhere, plain
+http only to loopback or the App network by resolution), reconfigure (an empty credential keeps the saved one; a
+different Mantel is refused), diagnostics (no credential). Its own suite: `tests/py/` (run with `tests/py/run`;
+Mantel's `tests/test_mantel_link.py` runs it inside the full validation with `MANTEL_ROOT` and a staged HK
+Frontend). `test_e2e_mantel.py` links it to the real `mantel_server/linked.py`.
+
+### 9.2 Mirroring and actions: done
+
+- `bridge.py`: the listener (the same frames as HK's linked mode), entities (`entity.py`: the same classes, so a
+  mirrored entity behaves the same; devices "Mantel", model as Mantel says; the house device named "Mantel"),
+  forwarding, and **dormancy**: Mantel Link mirrors only while it holds the bridge, or while this Home Assistant
+  has no HK Frontend entry at all (`active_for`). A change of either reloads the entry.
+- `services.py`: `mantel.show_popup` / `close_popup` / `notify` (domain actions, HK's schemas; notify answers),
+  `mantel.set_black_screen` (entity action on Mantel Link's switches). The **aliases** `hk_frontend.*` are
+  registered only for names HK Frontend does not answer right now (checked at start, and whenever HK Frontend's
+  entry or services change); HK Frontend registering its own takes the name back. The alias
+  `hk_frontend.set_black_screen` targets Mantel Link's switches (unknown targets skipped, as HA skips them). The
+  aliases carry descriptions for HA's action editor.
+- **A house that never had HK Frontend:** Mantel's unique ids start with its instance id
+  (`features.entry_id` falls back to it) and suggested entity ids use `mantel_`, not `hk_frontend_`.
+- **Mantel's pages** see Mantel Link's registry entries as platform `hk_frontend` (`registry.frontend_shapes`), so
+  HK's Cameras page still leaves Live TV's channels out. (Decision 27's rule forbids the word in HK's build, so
+  this is Mantel's side, not `hk-strategy.js`.)
+- **Checks:** Mantel Link's suite (16, plus the e2e against the real endpoint); `tests/test_mantel_link_server.py`
+  (5); **scratch HA without HK Frontend** (`tools/testha/testha.py up --fresh --no-hk`, which now installs
+  Mantel Link beside HK, not set up; `tools/e2e/mantel_link_e2e.py`): **25/25**: added through HA's own flow,
+  the Hall tablet's four entities live and Mantel Link's, `mantel.set_black_screen` and
+  `hk_frontend.set_black_screen` each reach Mantel with the `confirmed` handshake, `show_popup` under both names
+  reaches a Mantel screen, an unknown pop-up is Mantel's validation error named `hk_frontend.show_popup`, the
+  Owner hands over the bridge (audited), no credential in diagnostics, no household service called.
+
+### 9.3 Hand-over and rollback: done
+
+**How it works (deviations from the plan above, and why):**
+- **The side that takes an entity moves it** (the plan had Mantel Link move entries both ways). Mantel Link moves
+  HK Frontend's entries to itself (`bridge.Bridge._place` / `take`), and HK Frontend's release moves Mantel Link's
+  back to itself (`hk_frontend/handover.py` `guarded`: every HK platform's adder takes back what Mantel Link holds
+  before adding). Each waits until the other has unloaded the entity (`entity_sources`), up to 120 s. Why: both
+  integrations hear the same `owners` frame and reload on their own; if Mantel Link moved entries back while HK
+  Frontend was already re-adding them, HK Frontend would mint `switch.hall_black_screen_2`. The taker waiting for
+  the giver has no such race, needs no journal, and finishes an interrupted move at the next start by itself.
+- **Devices.** HA 2026.9 keeps identifiers per config entry ("a device belongs to one integration"), so Mantel Link
+  cannot join HK Frontend's device (the plan's idea). It makes its own device per tablet and carries over what the
+  person set on HK Frontend's: area, the name they gave it, labels. The entity keeps its room. Back with HK
+  Frontend, the entity returns to HK Frontend's own device, which kept its area.
+- **HK Frontend must be its new release to hand over.** Mantel refuses the hand-over (`bridge_check`) unless Mantel
+  Link is connected, every HK Frontend link says feature `bridge`, and, if Mantel Link reports HK Frontend in its
+  Home Assistant, that HK Frontend is linked. Giving back needs HK Frontend linked with `bridge`. On the house
+  this makes HK Frontend's last feature release (9.10) a prerequisite of the hand-over (9.11).
+- **`hk_frontend.set_black_screen` while HK Frontend is loaded and Mantel Link holds the bridge:** HK Frontend
+  registers it as a domain action that runs its own switches as before and sends Mantel Link's to
+  `mantel.set_black_screen` (`hk_frontend/switch.py`). Without this, HA's entity action would silently skip a
+  switch now Mantel Link's.
+- **Removing Mantel Link** while it holds entities hands them back to HK Frontend's entry first
+  (`async_remove_entry` → `give_back`), so HA does not delete the house's entity ids with the entry.
+- **Mantel Settings → Connections → Home Assistant Link** (`pLink`): what is linked (HK Frontend / Mantel Link,
+  protocol, what Mantel Link reported), the bridge (Owner: Hand the Bridge to Mantel Link… / Give the Bridge Back
+  to HK Frontend…, confirmed; refusals in words), and who runs each wall tablet (Owner toggles over the existing
+  `PUT /api/linked/owners`; everyone else reads). Audited (`linked.bridge`, `linked.owner`).
+
+**Checks:**
+- Mantel Link's `test_handover_hk.py` with the real HK Frontend (4): hand over and back with the same registry
+  entries (ids), entity ids, unique ids, area and user name carried over, no `_2` anywhere; a sleep script waiting
+  on `confirmed` across the move ends well; `hk_frontend.set_black_screen` reaches the tablet through Mantel Link;
+  a half-done move completes at the next start, both directions; removing Mantel Link keeps the entity ids.
+- HK Frontend's `test_handover.py` (5); HK's linked suites updated for `bridge` in the owners (45 green).
+- Mantel: `tests/test_mantel_link_server.py` (6: the header, protocol 2's hello and report, the bridge rules, the
+  registry mapping, house entities held by Mantel Link, unique ids without HK Frontend);
+  `tests/test_mantel_link_settings.py` (4, the page drawn with the kit's stand-in).
+- **Scratch HA with HK Frontend linked** (`tools/e2e/mantel_link_e2e.py --phase handover`): **22/22**: HK mirrors the
+  Hall; Mantel Link added stays dormant; a sleep script (HA's own `execute_script`) turns the Hall black through
+  `hk_frontend.set_black_screen` and waits; the Owner hands the bridge over; the same four registry entries move
+  to Mantel Link, on its own device in the area HK's device had; the page's confirm ends the script's wait;
+  `hk_frontend.set_black_screen` still works; HA's history of the switch runs on across the move (`unavailable ->
+  off -> on -> unavailable -> on -> off`: the switch is unavailable for a moment while it moves); given back, HK
+  Frontend takes the same entries back; Mantel Link dormant again. HK's own `tools/e2e/linked_e2e.py`: 23/23.
+- **Browser pane** (a local Mantel against the scratch HA, signed in through the scratch HA's trusted network):
+  the Home Assistant Link page at desktop and phone width, the hand-over from its button. Found: the page showed
+  the pre-hand-over read until reloaded; it now reads again 4 s after a hand-over.

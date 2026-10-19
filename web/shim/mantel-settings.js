@@ -847,6 +847,7 @@ function pConnections(sub) {
   if (sub[0] === 'ha' || sub[0] === 'ma') return pConnection(sub[0]);
   if (sub[0] === 'ma-page') return pMaPage();
   if (sub[0] === 'proxy') return pProxy();
+  if (sub[0] === 'link') return pLink();
   return { title: 'Connections', top: true, scope: 'How Mantel reaches Home Assistant and Music Assistant. Each connection is tested before it is saved. Tokens are kept sealed in Mantel’s data, never shown again and never leave the server; a change applies at once.', body(c) {
     result(c, 'connections');
     const pid = new URLSearchParams(location.search).get('connection');
@@ -864,6 +865,8 @@ function pConnections(sub) {
     if (cs.ma && cs.ma.state === 'set') rows.push(nav('Music Assistant Page', 'connections/ma-page', { icon: 'mdi:music-box-multiple', sub: 'Signs HK’s Browse Music page in to Music Assistant' }));
     c.appendChild(group({ footer: !can ? 'Only an Owner can change connections.' : got.data.needs_fresh ? 'From outside the home network you will be asked to confirm it is you first.' : null }, rows));
     drawWallTablets(c);
+    if (['owner', 'admin'].includes(me.user.role)) c.appendChild(group({ footer: 'Mantel Link is Home Assistant’s side of Mantel: Mantel’s wall tablets and actions in Home Assistant.' },
+      [nav('Home Assistant Link', 'connections/link', { icon: 'mdi:link-variant' })]));
     if (['owner', 'admin'].includes(me.user.role)) c.appendChild(group({ footer: 'How browsers reach Mantel: Mantel’s Caddy, your own reverse proxy, the Home Assistant App or a Cloudflare tunnel.' },
       [nav('HTTPS and Your Proxy', 'connections/proxy', { icon: 'mdi:lock' })]));
   } };
@@ -1188,6 +1191,53 @@ function drawHaDashboard(c, ctx) {
 }
 
 // HTTPS and the reverse proxy (proxy_check.py): Owner and Admin read; Owner runs the test, rotates the key
+// HOME ASSISTANT LINK (docs/phase9/MANTEL-LINK.md): which integration in Home Assistant is linked (Mantel Link, or
+// HK Frontend while a house moves), who holds the bridge (who shows Mantel's entities in Home Assistant: an
+// Owner hands it to Mantel Link, or gives it back, audited), and who owns each wall tablet. GET/PUT
+// /api/linked/owners; the server says whether Home Assistant's side can take the bridge, in words.
+const LINK_NAME = { mantel: 'Mantel Link', hk_frontend: 'HK Frontend' };
+function linkSays(l) {
+  const hk = (l.report || {}).hk_frontend;
+  const bits = ['Protocol ' + l.protocol, l.since ? 'since ' + fmt(l.since) : null];
+  if (l.domain === 'mantel' && hk) bits.push(hk.installed ? 'HK Frontend is also in Home Assistant' + (hk.linked ? ', linked' : ', not linked') : 'No HK Frontend');
+  if (l.domain === 'hk_frontend') bits.push((l.features || []).includes('bridge') ? 'can hand over' : 'update it to hand over');
+  return bits.filter(Boolean).join(' · ');
+}
+function pLink() {
+  return { title: 'Home Assistant Link', back: ['Connections', '#/' + ROUTE + '/connections'], body(c) {
+    result(c, 'link');
+    const got = load('link', () => api('GET', '/api/linked/owners'));
+    if (!got) { pending(c); return; }
+    if (got.err) { failed(c, got.err); return; }
+    const d = got.data, owner = me.user.role === 'owner';
+    const links = d.links || [];
+    c.appendChild(group({ header: 'Linked Now', footer: links.length ? null : 'Nothing in Home Assistant is linked to Mantel. Add Mantel Link in Home Assistant: Settings, Devices & Services, Add Integration, Mantel Link.' },
+      links.map((l) => info(LINK_NAME[l.domain] || l.domain, linkSays(l), 'Connected'))));
+    const holder = (d.bridge && d.bridge.holder) || 'hk_frontend', b = d.bridge || {};
+    const rows = [info('Shown By', b.changed ? 'since ' + fmt(b.changed) : null, LINK_NAME[holder])];
+    if (owner && holder !== 'mantel') rows.push(button('Hand the Bridge to Mantel Link…', async () => {
+      if (!(await ask({ title: 'Hand the bridge to Mantel Link?', message: 'Mantel Link then shows Mantel’s wall tablets and the house in Home Assistant, under the same entity ids, with their history. HK Frontend lets go of them first. You can give it back.', ok: 'Hand Over' }))) return;
+      await act('link', () => api('PUT', '/api/linked/owners', { unit: 'bridge', owner: 'mantel' }), 'Mantel Link holds the bridge.', 'link');
+      setTimeout(() => { forget('link'); redraw(); }, 4000);   // the links reconnect after their reload
+    }, { fk: 'mx:bridge-mantel' }));
+    if (owner && holder === 'mantel') rows.push(button('Give the Bridge Back to HK Frontend…', async () => {
+      if (!(await ask({ title: 'Give the bridge back to HK Frontend?', message: 'HK Frontend then shows Mantel’s entities in Home Assistant again, under the same entity ids. HK Frontend must be linked to Mantel with its last release.', ok: 'Give Back', destructive: true }))) return;
+      await act('link', () => api('PUT', '/api/linked/owners', { unit: 'bridge', owner: 'hk_frontend' }), 'HK Frontend holds the bridge.', 'link');
+      setTimeout(() => { forget('link'); redraw(); }, 4000);   // the links reconnect after their reload
+    }, { destructive: true, fk: 'mx:bridge-hk' }));
+    c.appendChild(group({ header: 'The Bridge', footer: 'One integration in Home Assistant shows Mantel’s entities: HK Frontend while a house moves, then Mantel Link. ' + (owner ? 'Each change is in the Audit Log.' : 'Only an Owner can change it.') }, rows));
+    const units = [d.house].concat(d.tablets || []).filter(Boolean);
+    c.appendChild(group({ header: 'Who Runs Each Wall Tablet', footer: 'A tablet Mantel runs has its Sleep Screen and black screen in Mantel; Home Assistant’s scripts still reach it by the same entity ids. Move the tablets first, then the rest of the house.' + (owner ? '' : ' Only an Owner can move them.') },
+      units.map((u) => {
+        const mine = u.owner === 'mantel', label = u.unit === 'house' ? 'The Rest of the House' : (u.name || u.unit);
+        if (!owner) return info(label, u.unit === 'house' ? u.name : null, mine ? 'Mantel' : 'Home Assistant');
+        return K().toggle({ label, sub: (mine ? 'Mantel' : 'Home Assistant') + (u.changed ? ' · since ' + fmt(u.changed) : ''), on: mine, fk: 'mx:owner:' + u.unit,
+          onChange: (on) => act('link', () => api('PUT', '/api/linked/owners', { unit: u.unit, owner: on ? 'mantel' : 'ha' }),
+                               label + (on ? ' is Mantel’s.' : ' is Home Assistant’s.'), 'link') });
+      })));
+  } };
+}
+
 function pProxy() {
   return { title: 'HTTPS and Your Proxy', back: ['Connections', '#/' + ROUTE + '/connections'], body(c) {
     result(c, 'proxy');

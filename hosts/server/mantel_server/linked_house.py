@@ -54,6 +54,10 @@ from hk_core.settings import model as SM
 
 from .linked import ALARM_COMMANDS, LinkedError
 
+# the integrations whose entity-registry entries are the linked house's: HK Frontend, and Mantel Link
+# (protocol 2: the same unique ids, moved by the bridge hand-over)
+LINK_PLATFORMS = ("hk_frontend", "mantel")
+
 log = logging.getLogger("mantel.linked_house")
 
 SEASONAL = "seasonal_decorations"
@@ -96,9 +100,11 @@ class LinkedHouse:
         reg = getattr(self.host.hub, "registry", None)
         out = []
         for e in getattr(reg, "entity_entries", None) or []:
-            if not isinstance(e, dict) or e.get("platform") != "hk_frontend" or not e.get("unique_id"):
+            if not isinstance(e, dict) or e.get("platform") not in LINK_PLATFORMS or not e.get("unique_id"):
                 continue
-            if e.get("config_entry_id") not in (None, entry):
+            # HK Frontend's are its house entry's; Mantel Link's (moved there by the bridge hand-over,
+            # docs/phase9/MANTEL-LINK.md) keep HK's unique ids under Mantel Link's own entry
+            if e.get("platform") == "hk_frontend" and e.get("config_entry_id") not in (None, entry):
                 continue
             out.append(e)
         return out

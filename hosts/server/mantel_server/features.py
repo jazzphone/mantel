@@ -1228,13 +1228,19 @@ class FeatureHost:
 
     def entry_id(self) -> str | None:
         """HA's hk_frontend entry id the linked entities' unique ids start with: the settings, else the
-        settings import's source (``ha:<entry id>``)."""
+        settings import's source (``ha:<entry id>``), else (no HK Frontend ever) Mantel's instance id."""
         got = self.settings["linked"].get("entry_id")
         if got:
             return got
         rec = self.store.import_record() or {}
         src = str(rec.get("source") or "")
-        return src[3:] if src.startswith("ha:") and _ENTRY.match(src[3:]) else None
+        if src.startswith("ha:") and _ENTRY.match(src[3:]):
+            return src[3:]
+        # a house that never had HK Frontend (Mantel Link alone, docs/phase9/MANTEL-LINK.md): Mantel's own
+        # instance id, so its unique ids are still stable and its own
+        lk = self.app.get("linked")
+        inst = getattr(lk, "instance", None) if lk is not None else None
+        return inst if isinstance(inst, str) and _ENTRY.match(inst) else None
 
     # -- the tablets' own entities -------------------------------------------------------------------
     def screen(self, tid: str | None) -> ScreenState | None:

@@ -149,7 +149,20 @@ def ordered_boot(dest: Path) -> None:
     say(f"EXPERIMENT: {len(core)} core modules concatenated into hk-boot.js (scratch copy only), {len(rest)} imported after it")
 
 
-def prepare(fresh: bool, sequential: bool = False) -> None:
+MANTEL_LINK = ROOT / "hosts/ha/custom_components/mantel"
+
+
+def install_mantel_link() -> None:
+    """Mantel Link (custom_components/mantel) beside HK, as HACS would install it (no tests). Not set up:
+    it does nothing until a test adds its entry."""
+    dest = CONFIG / "custom_components/mantel"
+    if dest.exists():
+        shutil.rmtree(inside_scratch(dest))
+    shutil.copytree(REPO / "hosts/ha/custom_components/mantel" if (REPO / "hosts/ha/custom_components/mantel").is_dir()
+                    else MANTEL_LINK, dest, ignore=shutil.ignore_patterns("tests", "__pycache__"))
+
+
+def prepare(fresh: bool, sequential: bool = False, hk: bool = True) -> None:
     if not (VENV / "bin/hass").exists():
         raise SystemExit(f"no hass at {VENV}/bin/hass (set TESTHA_VENV)")
     if fresh and CONFIG.exists():
@@ -169,6 +182,10 @@ def prepare(fresh: bool, sequential: bool = False) -> None:
     shutil.copytree(BUILD / "ha/custom_components/hk_frontend", dest)
     if sequential:
         ordered_boot(dest)
+    if not hk:
+        # a Home Assistant without HK Frontend (Mantel Link alone: docs/phase9/MANTEL-LINK.md 9.2)
+        shutil.rmtree(inside_scratch(dest))
+    install_mantel_link()
     # Onboarding's core_config step would add Met.no, Google Translate and Radio Browser (network services);
     # mark every step but the user's as done so only the user is created (by the REST call below).
     store = CONFIG / ".storage/onboarding"
@@ -287,6 +304,9 @@ async def setup() -> None:
                 say("confirmed the http settings (127.0.0.1:8124) so they never revert")
             except RuntimeError:
                 pass
+            if not (CONFIG / "custom_components/hk_frontend").is_dir():
+                say("ready, without HK Frontend (Mantel Link installed, not set up)")
+                return
             entries = await ws.call(type="config_entries/get", domain="hk_frontend")
             if entries:
                 entry_id = entries[0]["entry_id"]
@@ -345,6 +365,8 @@ def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("cmd", choices=["up", "down", "status", "setup"])
     ap.add_argument("--fresh", action="store_true", help="wipe the scratch config and credentials first")
+    ap.add_argument("--no-hk", action="store_true",
+                    help="no HK Frontend in the scratch HA (Mantel Link alone; it is always installed, not set up)")
     ap.add_argument("--ordered-boot", action="store_true",
                     help="EXPERIMENT: scratch copy loads HK's dependency-free bootstrap modules as ONE ordered file (tests the load-order fix)")
     a = ap.parse_args()
@@ -358,7 +380,7 @@ def main() -> None:
     else:
         if pid():
             stop()
-        prepare(a.fresh, a.ordered_boot)
+        prepare(a.fresh, a.ordered_boot, hk=not a.no_hk)
         start()
         asyncio.run(setup())
 

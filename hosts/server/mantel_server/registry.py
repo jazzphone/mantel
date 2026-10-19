@@ -97,7 +97,10 @@ class Registry:
                 continue
             entities[e["entity_id"]] = {
                 "entity_id": e["entity_id"], "device_id": e.get("device_id"), "area_id": e.get("area_id"),
-                "platform": e.get("platform"), "entity_category": e.get("entity_category"),
+                # Mantel Link's entities (decision 28) are the ones HK Frontend had: HK's pages know them by
+                # HK Frontend's platform (its Cameras page leaves Live TV's channels out by it)
+                "platform": "hk_frontend" if e.get("platform") == "mantel" else e.get("platform"),
+                "entity_category": e.get("entity_category"),
                 "hidden": bool(e.get("hidden_by")), "labels": e.get("labels") or [],
                 "name": e.get("name"), "translation_key": e.get("translation_key"),
                 "display_precision": (e.get("options") or {}).get("sensor", {}).get("display_precision"),

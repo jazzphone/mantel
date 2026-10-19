@@ -20,31 +20,77 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from . import settings as S
+from .const import DOMAIN
 from .entity import HkEntity
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry,
                             async_add_entities: AddConfigEntryEntitiesCallback) -> None:
-    from . import linked_mode
+    from . import handover, linked_mode
+    # what Mantel Link holds is taken back before it is added here (handover.py)
+    async_add_entities = handover.guarded(hass, entry, async_add_entities)
     if linked_mode.attach(hass, entry, "switch", async_add_entities):
         # LINKED TO MANTEL SERVER: Mantel's switches, the same action, forwarded
-        _register_set_black_screen()
+        _register_set_black_screen(hass, entry)
         return
     async_add_entities([SeasonalDecorations(entry)])
     # each screen's photo screensaver and black screen switches (screensaver.py)
     from . import screensaver
     await screensaver.async_setup_platform(hass, entry, "switch", async_add_entities)
-    _register_set_black_screen()
+    _register_set_black_screen(hass, entry)
 
 
-def _register_set_black_screen() -> None:
+BLACK_SCREEN_SCHEMA = {
+    vol.Optional("black"): cv.boolean,
+    vol.Optional("brightness"): vol.All(vol.Coerce(int), vol.Range(min=0, max=255)),
+}
+
+
+def _register_set_black_screen(hass: HomeAssistant, entry: ConfigEntry) -> None:
     # hk_frontend.set_black_screen: black on or off, and the brightness it
     # comes back to, in one call (the house's sleep and wake scripts)
+    from . import handover
+    if handover.bridge_away(entry):
+        # Mantel Link holds the bridge (handover.py): a tablet's switch is this
+        # integration's or Mantel Link's; the same action reaches either
+        hass.services.async_register(DOMAIN, "set_black_screen", _black_screen_either(hass),
+                                     cv.make_entity_service_schema(BLACK_SCREEN_SCHEMA))
+        return
     entity_platform.async_get_current_platform().async_register_entity_service(
-        "set_black_screen",
-        {vol.Optional("black"): cv.boolean,
-         vol.Optional("brightness"): vol.All(vol.Coerce(int), vol.Range(min=0, max=255))},
-        "async_set_black_screen")
+        "set_black_screen", BLACK_SCREEN_SCHEMA, "async_set_black_screen")
+
+
+def _black_screen_either(hass: HomeAssistant):
+    """hk_frontend.set_black_screen while Mantel Link holds the bridge: this
+    integration's own switches as the entity action always did (available ones),
+    Mantel Link's through mantel.set_black_screen."""
+    import asyncio
+
+    from homeassistant.exceptions import HomeAssistantError
+    from homeassistant.helpers import entity_registry as er, service as ha_service
+
+    from .handover import MANTEL_LINK
+
+    async def handle(call) -> None:
+        wanted = await ha_service.async_extract_entity_ids(call)
+        own = {}
+        for platform in entity_platform.async_get_platforms(hass, DOMAIN):
+            if platform.domain == "switch":
+                own.update({eid: e for eid, e in platform.entities.items()
+                            if eid in wanted and hasattr(e, "async_set_black_screen")})
+        reg = er.async_get(hass)
+        theirs = sorted(eid for eid in wanted - set(own)
+                        if (r := reg.async_get(eid)) is not None and r.platform == MANTEL_LINK)
+        data = {k: call.data[k] for k in ("black", "brightness") if k in call.data}
+        jobs = [e.async_set_black_screen(**data) for e in own.values() if e.available]
+        if theirs:
+            if not hass.services.has_service(MANTEL_LINK, "set_black_screen"):
+                raise HomeAssistantError(f"hk_frontend.set_black_screen: {', '.join(theirs)} are Mantel Link's, and "
+                                         "Mantel Link isn't running")
+            jobs.append(hass.services.async_call(MANTEL_LINK, "set_black_screen", {"entity_id": theirs, **data},
+                                                 blocking=True, context=call.context))
+        await asyncio.gather(*jobs)
+    return handle
 
 
 class SeasonalDecorations(HkEntity, SwitchEntity):

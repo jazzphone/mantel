@@ -1,0 +1,107 @@
+# Mantel Link's actions (services.py; set_black_screen is the switch platform's).
+# The same fields as HK Frontend's: the hk_frontend.* aliases take the same.
+set_black_screen:
+  target:
+    entity:
+      integration: mantel
+      domain: switch
+  fields:
+    black:
+      selector:
+        boolean:
+    brightness:
+      example: 174
+      selector:
+        number:
+          min: 0
+          max: 255
+show_popup:
+  fields:
+    popup:
+      required: true
+      example: doorbell
+      selector:
+        text:
+    dashboards:
+      example: dashboard-kitchen
+      selector:
+        text:
+          multiple: true
+    users:
+      selector:
+        text:
+          multiple: true
+close_popup:
+  fields:
+    popup:
+      required: true
+      example: alarm
+      selector:
+        text:
+    dashboards:
+      example: dashboard-kitchen
+      selector:
+        text:
+          multiple: true
+    users:
+      selector:
+        text:
+          multiple: true
+notify:
+  fields:
+    title:
+      required: true
+      example: Laundry
+      selector:
+        text:
+    message:
+      example: The washer is done.
+      selector:
+        text:
+    important:
+      default: false
+      selector:
+        boolean:
+    wake:
+      default: false
+      selector:
+        boolean:
+    stay:
+      example: 60
+      selector:
+        number:
+          min: 0
+          max: 3600
+          unit_of_measurement: s
+    icon:
+      example: mdi:washing-machine
+      selector:
+        icon:
+    entity:
+      selector:
+        entity:
+    camera:
+      selector:
+        entity:
+          domain: camera
+    tap:
+      selector:
+        select:
+          options:
+            - sheet
+            - camera
+            - page
+            - none
+    page:
+      example: kitchen
+      selector:
+        text:
+    dashboards:
+      example: dashboard-kitchen
+      selector:
+        text:
+          multiple: true
+    users:
+      selector:
+        text:
+          multiple: true

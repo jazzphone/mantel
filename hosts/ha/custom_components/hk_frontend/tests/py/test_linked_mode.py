@@ -75,7 +75,7 @@ async def test_not_linked_is_the_default_and_nothing_changes(hass, frontend, mon
     from custom_components.hk_frontend.diagnostics import async_get_config_entry_diagnostics
     assert (await async_get_config_entry_diagnostics(hass, e))["linked"] == {
         "linked": False, "url": None, "connected": False, "entities": 0, "last_error": None,
-        "owners": {"house": "ha", "tablets": []}}
+        "owners": {"house": "ha", "tablets": [], "bridge": "hk_frontend"}}
 
 
 def test_a_half_filled_link_is_not_a_link():

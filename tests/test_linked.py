@@ -104,7 +104,7 @@ async def test_the_endpoint_is_public_to_sessions_and_checks_its_own_credential(
     ws, hello = await env.connect()
     assert hello["type"] == "hello" and hello["protocol"] == 1
     assert hello["services"] == ["set_black_screen", "show_popup", "close_popup", "notify"]
-    assert hello["owners"] == {"house": "ha", "tablets": []}, "every tablet HA's until an Owner moves one"
+    assert hello["owners"] == {"house": "ha", "tablets": [], "bridge": "hk_frontend"}, "every tablet HA's until an Owner moves one"
     assert {e["unique_id"] for e in hello["entities"]} == {d["unique_id"] for d in ENTITIES}
     black = next(e for e in hello["entities"] if e["unique_id"] == BLACK_UID)
     assert black["entity_id"] == "switch.hall_black_screen" and black["device"] == DEVICE
@@ -363,7 +363,7 @@ async def test_owners_are_told_at_once_and_a_withdrawn_entity_is_not_forgotten(e
     ws, hello = await env.connect()
     reg: LinkedRegistry = env.linked.registry
     await reg.set_owners({"house": "nonsense", "tablets": ["loft", "hall", "loft"]})
-    assert (await env.recv(ws)) == {"type": "owners", "owners": {"house": "ha", "tablets": ["hall", "loft"]}}
+    assert (await env.recv(ws)) == {"type": "owners", "owners": {"house": "ha", "tablets": ["hall", "loft"], "bridge": "hk_frontend"}}
     # only no longer Mantel's (its tablet moved back to HA): HA keeps its registry entry
     await reg.remove(PHOTOS_UID, forget=False)
     assert (await env.recv(ws)) == {"type": "removed", "unique_id": PHOTOS_UID, "forget": False}
