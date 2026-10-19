@@ -10,6 +10,6 @@
 		<string>$(PRODUCT_MODULE_NAME).NotificationService</string>
 	</dict>
 	<key>MantelKeychainGroup</key>
-	<string>$(AppIdentifierPrefix)app.mantel.shared</string>
+	<string>$(AppIdentifierPrefix)com.jazzphone.mantel.shared</string>
 </dict>
 </plist>

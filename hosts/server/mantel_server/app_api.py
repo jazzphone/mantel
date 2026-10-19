@@ -223,6 +223,7 @@ async def snapshot(request: web.Request) -> web.Response:
 
 
 APNS_TOKEN = re.compile(r"^[0-9a-f]{64,200}$")
+RELAY_HANDLE = re.compile(r"^[A-Za-z0-9_-]{43}$")
 
 
 @app_route
@@ -233,16 +234,23 @@ async def push_register(request: web.Request) -> web.Response:
         body = await request.json()
     except ValueError:
         return error(400, "invalid_json")
-    token, key, env = body.get("token"), body.get("key"), body.get("env", "production")
-    if not isinstance(token, str) or not APNS_TOKEN.match(token.lower()) or env not in ("sandbox", "production"):
+    token, handle, key, env = body.get("token"), body.get("handle"), body.get("key"), body.get("env", "production")
+    if isinstance(handle, str) and token is None:
+        # through the push relay (apns.Relay): the handle the phone got from the relay for this house
+        if not RELAY_HANDLE.match(handle):
+            return error(400, "invalid")
+        token, env = handle, "relay"
+    elif not isinstance(token, str) or not APNS_TOKEN.match(token.lower()) or env not in ("sandbox", "production"):
         return error(400, "invalid")
+    else:
+        token = token.lower()
     try:
         app_crypto.public_from_raw(app_crypto.unb64u(key))
     except (TypeError, ValueError):
         return error(400, "invalid", message="the notification key is a P-256 public key (x963)")
     ident = request["app_identity"]
     cred = request.app["app_auth"].credential(ident.session_id)
-    tid = request.app["pusher"].targets.add(ident.user.id, "apns", token.lower(), key, None, name=cred["name"],
+    tid = request.app["pusher"].targets.add(ident.user.id, "apns", token, key, None, name=cred["name"],
                                             app_id=ident.session_id, env=env)
     return ok({"id": tid}, status=201)
 
@@ -251,8 +259,13 @@ def register(app: web.Application, hub=None) -> None:
     pusher = app.get("pusher")
     if pusher is not None:
         sender = apns.Apns(app["cfg"].secrets_dir, lambda: app["clock"]())
+        relay = apns.Relay(app)            # the relay checks real time: never the app's (test) clock
         app["apns"] = sender
-        pusher.senders["apns"] = sender.send
+        app["push_relay"] = relay
+
+        async def send_apns(row: dict, msg) -> str:
+            return await (relay.send if row.get("env") == "relay" else sender.send)(row, msg)
+        pusher.senders["apns"] = send_apns
     app.router.add_post("/api/app/push/register", push_register)
     app.router.add_get("/api/app/snap", snapshot)
     app.router.add_get("/api/app/art", art)      # ?id=: the auth middleware's open paths are exact

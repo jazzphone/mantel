@@ -7,6 +7,8 @@ public actor MantelClient {
     public private(set) var house: House
     public private(set) var base: URL?
     public private(set) var door: Door?
+    /// What the house said in its last signed hello about notifications (relay or direct).
+    public private(set) var push: Hello.Push?
     private let keychain: Keychain
     private let session: URLSession
     private var refreshing: Task<Credential, Error>?
@@ -76,6 +78,7 @@ public actor MantelClient {
         let hello = try JSONDecoder().decode(Hello.self, from: data)
         let pub = try hello.verify(fingerprint: house.fingerprint, nonce: nonce)
         house.key = Base64URL.encode(pub.x963Representation)
+        push = hello.push
         return hello
     }
 
@@ -208,10 +211,29 @@ public actor MantelClient {
         return URL(string: got.url, relativeTo: try await requireBase())!.absoluteURL
     }
 
+    /// Register for the house's notifications. Through the relay (docs/phase10/APPLE-APPS.md §13): the device token goes
+    /// to the relay only, for this house's pinned key, and the house gets the relay's opaque handle. Directly (a house
+    /// with its own APNs key): the house gets the token.
     public func registerPush(token: Data, key: Data, sandbox: Bool) async throws {
-        let body = ["token": token.map { String(format: "%02x", $0) }.joined(), "key": Base64URL.encode(key),
-                    "env": sandbox ? "sandbox" : "production"]
-        _ = try await raw("POST", "/api/app/push/register", body: body)
+        let hexToken = token.map { String(format: "%02x", $0) }.joined()
+        let env = sandbox ? "sandbox" : "production"
+        if push?.relay == nil, push?.direct == nil { try await connect() }      // learn the house's push mode
+        if let relay = push?.relay, let relayURL = URL(string: relay), let houseKey = house.key {
+            var req = URLRequest(url: relayURL.appending(path: "v1/register"))
+            req.httpMethod = "POST"
+            req.timeoutInterval = 15
+            req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            req.httpBody = try JSONSerialization.data(withJSONObject: ["token": hexToken, "env": env, "house_key": houseKey])
+            let (data, resp) = try await session.data(for: req)
+            guard (resp as? HTTPURLResponse)?.statusCode == 201,
+                  let got = try? JSONDecoder().decode(RelayRegistration.self, from: data),
+                  got.house == house.fingerprint else { throw APIError(error: "relay_refused") }
+            _ = try await raw("POST", "/api/app/push/register", body: ["handle": got.handle, "key": Base64URL.encode(key)])
+        } else if push?.direct == true {
+            _ = try await raw("POST", "/api/app/push/register", body: ["token": hexToken, "key": Base64URL.encode(key), "env": env])
+        } else {
+            throw APIError(error: "no_push", message: "This Mantel does not send notifications to the app yet.")
+        }
     }
 
     public func signOut() async {
@@ -262,6 +284,7 @@ public struct CommandResult: Codable, Sendable {
 }
 
 struct FavoritesBody: Codable { let favorites: [String] }
+struct RelayRegistration: Codable { let handle: String; let house: String }
 struct EntitiesBody: Codable { let entities: [EntityChoice] }
 struct WebSessionBody: Codable { let url: String }
 

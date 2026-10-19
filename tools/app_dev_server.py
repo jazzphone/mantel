@@ -10,7 +10,15 @@ Run: ~/.venvs/mantel/bin/python tools/app_dev_server.py --data-dir /tmp/mantel-a
 * Signs in nobody by itself: it creates the fictional Owner "ann" (password printed once) and prints a pairing
   link to open in the Simulator (``xcrun simctl openurl booted '<link>'``), which signs the app in as ann.
 * ``--push "Title|Body"`` (with the server stopped or running) writes a sealed notification for the app's
-  registered notification key to <data-dir>/push.apns, for ``xcrun simctl push booted app.mantel.ios <file>``.
+  registered notification key to <data-dir>/push.apns, for ``xcrun simctl push booted com.jazzphone.mantel.ios <file>``.
+* ``--lan``: also answer on this Mac's home-network address, over plain http, for a DEBUG build of the app on a real
+  iPhone (Avery, 2026-10-19; Release builds refuse http beyond loopback). Requests from private addresses are the
+  LAN door. Writes the pairing link as a QR code (<data-dir>/pair.png) to scan with the iPhone's camera.
+* ``--relay https://…workers.dev``: the house sends through the push relay (packaging/push-relay/); the app then
+  registers with the relay and gives this house only a handle.
+* ``--send-push "Title|Body"``: a REAL push to the phone that registered last: through the relay when the phone
+  registered a relay handle, else directly with the team's APNs key from ~/.config/mantel/secrets (apns_key.p8,
+  apns.json; never printed; needs httpx[http2]).
 """
 from __future__ import annotations
 
@@ -22,6 +30,8 @@ import sqlite3
 import sys
 import time
 from pathlib import Path
+
+from aiohttp import web
 from urllib.parse import quote, urlencode
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -87,23 +97,52 @@ class FictionalCommander:
         pass
 
 
-async def serve(data: Path, port: int) -> None:
-    from aiohttp import web
+def lan_address() -> str:
+    import socket
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        s.connect(("192.0.2.1", 9))          # no packet is sent: this only picks the interface for the route
+        return s.getsockname()[0]
+    finally:
+        s.close()
+
+
+def private(ip: str | None) -> bool:
+    from ipaddress import ip_address
+    try:
+        a = ip_address(ip or "")
+    except ValueError:
+        return False
+    return a.is_private or a.is_loopback
+
+
+async def serve(data: Path, port: int, lan: bool = False, relay: str | None = None) -> None:
     from mantel_server import app_auth
     from mantel_server.config import Config
     from mantel_server.server import build_app
     from mantel_server.store import Store
 
+    lan_ip = lan_address() if lan else None
     cfg = Config(data_dir=data / "data", secrets_dir=data / "secrets", host="127.0.0.1", port=port,
-                 ha_url="http://127.0.0.1:9", commands_enabled=True, default_screen="dashboard-home")
+                 ha_url="http://127.0.0.1:9", commands_enabled=True, default_screen="dashboard-home",
+                 allowed_hosts=(lan_ip,) if lan_ip else ())
     store = Store(cfg.data_dir / "mantel.db")
     app = build_app(cfg, "unused-fictional-token", store=store, connect_ha=False)
+    if lan_ip:
+        # the home network is the LAN door here (no proxy stamps one), and cookies over plain http are not Secure
+        app["door_resolver"] = lambda request: "lan" if private(request.remote) else "tunnel"
+
+        @web.middleware
+        async def plain_http(request, handler):
+            request["cookie_secure"] = False
+            return await handler(request)
+        app.middlewares.insert(0, plain_http)
     hub = app["hub"]
     hub.registry.load(AREAS, [], ENTITIES)
     hub.store.apply_event({"a": {k: {"s": v["s"], "a": dict(v["a"]), "lc": time.time() - 3600} for k, v in STATES.items()}})
     # a fictional album cover, served by this server itself (a "remote" picture, as a provider's CDN would be)
     hub.store.apply_event({"c": {"media_player.living_room": {"+": {"a": {
-        "entity_picture": f"http://127.0.0.1:{port}/app/fictional-cover.png",
+        "entity_picture": f"http://{lan_ip or '127.0.0.1'}:{port}/app/fictional-cover.png",
         "media_position_updated_at": time.strftime("%Y-%m-%dT%H:%M:%S+00:00", time.gmtime())}}}}})
 
     async def cover(request):
@@ -129,16 +168,65 @@ async def serve(data: Path, port: int) -> None:
     runner = web.AppRunner(app)
     await runner.setup()
     await web.TCPSite(runner, "127.0.0.1", port).start()
+    if lan_ip:
+        await web.TCPSite(runner, lan_ip, port).start()
     st: app_auth.AppAuth = app["app_auth"]
-    origin = f"http://127.0.0.1:{port}"
+    origin = f"http://{lan_ip or '127.0.0.1'}:{port}"
     st.set_setting("local_url", origin)
+    if relay:
+        from mantel_server import apns
+        st.set_setting(apns.RELAY_SETTING, relay)
+        print("Notifications go through the push relay at", relay)
     code = st.codes.make(3600, kind="pairing", user_id=uid)
     link = "mantel://pair?" + urlencode({"v": "1", "l": origin, "fp": st.fingerprint(), "c": code,
                                           "n": "The Example House"}, quote_via=quote)
     (data / "pair.txt").write_text(link + "\n")
+    if lan_ip:
+        write_qr(link, data / "pair.png")
+        print("Pairing QR code:", data / "pair.png")
     print(f"Fictional Mantel at {origin} (six digits: {st.fingerprint() and __import__('mantel_server.app_crypto', fromlist=['x']).short_code(st.fingerprint())})")
     print("Pairing link (one hour, once):", link)
     await asyncio.Event().wait()
+
+
+def write_qr(text: str, path: Path) -> None:
+    from PIL import Image
+    from mantel_server import qr
+    m = qr.encode(text)
+    s, b = 10, 4
+    n = len(m) + 2 * b
+    img = Image.new("L", (n * s, n * s), 255)
+    for y, row in enumerate(m):
+        for x, v in enumerate(row):
+            if v:
+                img.paste(0, ((x + b) * s, (y + b) * s, (x + b + 1) * s, (y + b + 1) * s))
+    img.save(path)
+
+
+async def send_push(data: Path, text: str) -> None:
+    from mantel_server import apns, push
+    db = sqlite3.connect(data / "data" / "mantel.db")
+    db.row_factory = sqlite3.Row
+    row = db.execute("SELECT * FROM push_targets WHERE kind = 'apns' ORDER BY created DESC LIMIT 1").fetchone()
+    if row is None:
+        raise SystemExit("No app has registered for notifications yet.")
+    title, _, body = text.partition("|")
+    msg = push.Message(title=title, body=body, tag="real", important=True, entity="lock.front_door", url="/home")
+    if row["env"] == "relay":
+        from mantel_server.config import Config
+        from mantel_server.server import build_app
+        from mantel_server.store import Store
+        cfg = Config(data_dir=data / "data", secrets_dir=data / "secrets", ha_url="http://127.0.0.1:9")
+        store = Store(cfg.data_dir / "mantel.db")
+        app = build_app(cfg, "unused-fictional-token", store=store, connect_ha=False)
+        result = await app["push_relay"].send(dict(row), msg)
+        print(f"through the relay: {result}")
+        return
+    sender = apns.Apns(Path("~/.config/mantel/secrets"))
+    if sender.config() is None:
+        raise SystemExit("No APNs key in ~/.config/mantel/secrets (apns_key.p8 + apns.json).")
+    result = await sender.send(dict(row), msg)
+    print(f"APNs ({row['env']}): {result}")
 
 
 def make_cover(path: Path) -> None:
@@ -163,7 +251,7 @@ def make_push(data: Path, text: str) -> Path:
     msg = push.Message(title=title, body=body, tag="sim", important=True, entity="lock.front_door", url="/home")
     payload = apns.build_payload(msg, push.app_crypto.unb64u(row["p256dh"]))
     out = data / "push.apns"
-    out.write_text(json.dumps({"Simulator Target Bundle": "app.mantel.ios", **payload}, indent=2))
+    out.write_text(json.dumps({"Simulator Target Bundle": "com.jazzphone.mantel.ios", **payload}, indent=2))
     print("wrote", out)
     return out
 
@@ -173,12 +261,18 @@ def main() -> None:
     ap.add_argument("--data-dir", type=Path, required=True)
     ap.add_argument("--port", type=int, default=8766)
     ap.add_argument("--push")
+    ap.add_argument("--send-push")
+    ap.add_argument("--lan", action="store_true")
+    ap.add_argument("--relay")
     a = ap.parse_args()
     a.data_dir.mkdir(parents=True, exist_ok=True)
     if a.push:
         make_push(a.data_dir, a.push)
         return
-    asyncio.run(serve(a.data_dir, a.port))
+    if a.send_push:
+        asyncio.run(send_push(a.data_dir, a.send_push))
+        return
+    asyncio.run(serve(a.data_dir, a.port, a.lan, a.relay))
 
 
 if __name__ == "__main__":
