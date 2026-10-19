@@ -1,6 +1,6 @@
 # Phase 9: Mantel Link replaces HK Frontend in Home Assistant (decision 28)
 
-**Status (2026-10-19): being built on branch `claude/mantel-link-b012d1`, one slice at a time. Done: 9.1–9.9 (see "Build record" at the end). Nothing is on the house; 9.11 waits for Avery, step by step.**
+**Status (2026-10-19): 9.1–9.10 built and merged to main (see "Build record" at the end); nothing published. Nothing is on the house; 9.11 waits for Avery, step by step.**
 
 ## The decision
 
@@ -178,18 +178,18 @@ From docs/phase4/FEATURE-PARITY.md, checked per house; anything unchecked keeps 
   model "Wall Tablet". Entity ids unchanged. If Avery prefers the domain `mantel_link`, change it before 9.1; after,
   it is another migration.
 
-- **M5, announcing Mantel from Docker/LXC (open, 2026-10-19):** multicast never leaves Docker's bridge networks, so
+- **M5, announcing Mantel from Docker/LXC (settled, 2026-10-19: keep it opt-in, as built):** multicast never leaves Docker's bridge networks, so
   zeroconf needs either a process on the host's network or the host's own avahi. Built: Mantel writes a non-secret
   `announce.json`; the **opt-in** `compose.announce.yaml` runs the announcer (same image, user 10001, no
   capabilities, read-only, only the data volume read-only) on the host network, the one service anywhere that
   `package_check.py` lets do so; or `python -m mantel_server.announce --avahi` prints a service file for the
-  host's avahi. Without either, Mantel Link is added by hand (address + pairing code). Avery: keep the overlay
-  opt-in (recommended), make it default, or avahi only?
+  host's avahi. Without either, Mantel Link is added by hand (address + pairing code). Avery kept the overlay
+  opt-in, with `--avahi` as the alternative.
 
-- **M6, what goes to phones (open, 2026-10-19):** built as a per-person choice in Mantel Settings → People → Phones:
+- **M6, what goes to phones (settled, 2026-10-19: Important only by default, as built):** built as a per-person choice in Mantel Settings → People → Phones:
   **Important only** (the default), every notification, or nothing; a notification for some screens only
   (`dashboards`) never goes to a phone, one naming people (`users`) only to theirs. The only action is Dismiss
-  (it takes the banner down on every screen). Avery: keep Important only as the default?
+  (it takes the banner down on every screen). Avery kept Important only as the default.
 
 ## Risks
 
