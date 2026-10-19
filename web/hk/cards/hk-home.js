@@ -47,7 +47,8 @@
     }, function () { el._hkFeedWait = false; });
   }
 
-  var NO_HELPERS = 'Quick timers need HK Frontend\u2019s timer helpers (helpers/quick_timers.yaml).';
+  // (Home Assistant's own helpers, named as the host names them: hk-host-shell.js haName)
+  function NO_HELPERS() { return 'Quick timers need ' + window.hkShell.haName('HK Frontend\u2019s timer helpers') + ' (helpers/quick_timers.yaml).'; }
 
   // --------------------------------------------------------- hk-vacuum
   //
@@ -448,7 +449,7 @@
       // rather than an error from the action.
       if (!(window.hkCards && window.hkCards.added && window.hkCards.added('clean_areas'))) {
         this._end();
-        this._setStatus('failed', 'Add Clean Areas (HK Frontend → Add feature) to clean by area.');
+        this._setStatus('failed', 'Add Clean Areas (' + window.hkShell.haPlace('HK Frontend → Add feature') + ') to clean by area.');
         this._render();
         return;
       }
@@ -1411,7 +1412,7 @@
       // placed by hand on a dashboard of one's own). Say that, not "could not
       // reach Home Assistant", which sends someone checking the network.
       if (!this.client.states[parts.join('.')]) {
-        this._setStatus('failed', NO_HELPERS);
+        this._setStatus('failed', NO_HELPERS());
         this._paint();
         return;
       }
@@ -1764,7 +1765,7 @@
       var ent = this._config.quick_script || 'script.quick_timer_start';
       var parts = ent.indexOf('.') === -1 ? ['script', ent] : ent.split('.');
       if (!this.client.states[parts.join('.')]) {   // the helpers are not installed
-        this._setStatus('failed', NO_HELPERS);
+        this._setStatus('failed', NO_HELPERS());
         this._render();
         return;
       }

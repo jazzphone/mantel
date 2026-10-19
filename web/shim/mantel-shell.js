@@ -53,6 +53,14 @@
     openHostDetail: () => false,
     hostToast: () => false,
     serviceUrl,
+    // HK's screens and settings say Mantel where they speak of themselves; HK Frontend stays the name of
+    // the integration in Home Assistant, whose settings are Home Assistant's (haPlace)
+    productName: () => 'Mantel',
+    haPlace: (path) => 'Home Assistant → ' + path,
+    haName: (name) => name + ' in Home Assistant',
+    // HK Frontend's wiki is about HK Frontend in Home Assistant: no link until Mantel's documentation has
+    // a home of its own
+    docsUrl: () => null,
     tags: { viewContainer: 'hk-view-container' },
     root: () => byId('hk-shell-root'),
     overlayRoot: () => byId('hk-shell-root'),

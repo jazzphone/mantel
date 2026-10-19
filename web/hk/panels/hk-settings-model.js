@@ -16,6 +16,11 @@
   var root = typeof window !== 'undefined' ? window : globalThis;
   if (root.hkSettingsModel) return;
 
+  // the product's name, and Home Assistant's own things, as the host says
+  // them (web/client/hk-host-shell.js): HK Frontend in HA, the host's own elsewhere
+  function PN() { return root.hkShell.productName(); }
+  function haName(name) { return root.hkShell.haName(name); }
+
   // ------------------------------------------------------------------ words
   var CHIP_LABELS = {
     weather_alert: 'Weather Alerts', security: 'Security', doors_windows: 'Doors & Windows', climate: 'Climate',
@@ -131,7 +136,7 @@
     color: 'A still color, a little different by day and by night. No sun, moon, stars, weather or decorations.',
     photo: 'A photo of your own, still and sharp. No sun, moon, stars, weather or decorations. A bright photo is dimmed a little so the cards stay readable.',
     // (2026-10-14) HK Frontend's own photos, the screensaver clock's
-    landscapes: 'Fifty landscape photos that come with HK Frontend — mountains, lakes, coasts, forests, the northern lights — a new one each time the screen wakes, on a schedule, or the same one. No sun, moon, stars, weather or decorations.'
+    landscapes: 'Fifty landscape photos that come with ' + PN() + ' — mountains, lakes, coasts, forests, the northern lights — a new one each time the screen wakes, on a schedule, or the same one. No sun, moon, stars, weather or decorations.'
   };
   // WHICH LANDSCAPE, AND WHEN IT CHANGES (settings.py sky_landscape):
   // 'wake', 'every:<minutes>' (LANDSCAPE_EVERY) or a file name -- Stay the Same
@@ -1412,7 +1417,7 @@
     { header: 'Views', footer: 'Each view in views:. The menu lists them: the first view is Home.',
       items: [
         { id: 'view', title: 'A Page in the Menu', key: 'hk-grid-view', anchor: 'a-page-in-the-menu',
-          sub: 'HK Frontend’s grid view, placed in the menu. A view with area: is a room.',
+          sub: haName('HK Frontend’s grid view') + ', placed in the menu. A view with area: is a room.',
           yaml: '- title: Kitchen\n  path: kitchen\n  type: custom:hk-grid-view\n  area: kitchen       # a room, in the menu’s Rooms\n' +
                 '  menu: top           # right under Home (false: not listed)\n  cards: []' },
         { id: 'room', title: 'A Room Page, Built for You', key: 'hk-room', anchor: 'a-room-page-built-for-you',
@@ -1440,7 +1445,7 @@
           yaml: '- type: custom:hk-music-card   # the whole Music page\n# ...or just what is playing:\n' +
                 '# - type: custom:hk-now-playing-card\n#   music: true' },
         { id: 'media_bar', title: 'The Now Playing Bar', key: 'hk-popup-card', anchor: 'the-now-playing-bar',
-          sub: 'The player docked along the bottom while music plays, as on the screens HK Frontend builds. It shows on the views it is placed in: put it in each one. Needs the Music feature.',
+          sub: 'The player docked along the bottom while music plays, as on the screens ' + PN() + ' builds. It shows on the views it is placed in: put it in each one. Needs the Music feature.',
           yaml: '- type: custom:hk-popup-card\n  hash: \'#media\'\n  position: bottom\n  modal: false\n  dock: true\n' +
                 '  padding: \'0\'\n  radius: \'0\'\n  width: 100%\n  max_width: 100%\n  background: transparent\n' +
                 '  vars:\n    hk-np-height: calc(104px + env(safe-area-inset-bottom, 0px))\n' +
@@ -1462,7 +1467,7 @@
         { id: 'timers', title: 'Timers', key: 'hk-timers-page-card', anchor: 'timers',
           sub: 'Quick start, the running timers and the New Timer keypad, as one card.',
           yaml: '- type: custom:hk-timers-page-card' }] },
-    { header: 'Automations', footer: 'Actions of HK Frontend’s, for your automations and scripts.',
+    { header: 'Automations', footer: 'Actions of ' + haName('HK Frontend’s') + ', for your automations and scripts.',
       items: [
         { id: 'clean_action', title: 'Clean Some Rooms', key: 'hk_frontend.clean_areas', anchor: 'clean-some-rooms',
           sub: 'Each vacuum cleans the rooms on its own map.',
