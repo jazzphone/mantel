@@ -7,7 +7,9 @@ Mantel Link is everything Home Assistant needs of it, and nothing of its own:
   * Mantel's entities in Home Assistant, under the entity ids HK Frontend gave
     them (bridge.py: the bridge, and its hand-over from HK Frontend);
   * the actions automations call, mantel.* and, as permanent aliases,
-    hk_frontend.* (services.py).
+    hk_frontend.* (services.py);
+  * Mantel's screens in HA's sidebar: HA's header and sidebar hidden as each
+    screen says, and the way back (frontend.py).
 
 It replaces HK Frontend completely (decision 28, docs/phase9/MANTEL-LINK.md in
 the Mantel repository). One entry: one Mantel.
@@ -35,6 +37,12 @@ type MantelConfigEntry = ConfigEntry[Bridge]
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     from .services import async_setup_services
     await async_setup_services(hass)
+    # Mantel's screens in HA's sidebar: kiosk and the way back (frontend.py)
+    from .frontend import async_setup_frontend
+    try:
+        await async_setup_frontend(hass)
+    except Exception:  # noqa: BLE001 -- the link and the entities never depend on the script
+        _LOGGER.exception("%s: the script for Mantel's screens in HA's sidebar could not be added", NAME)
     return True
 
 

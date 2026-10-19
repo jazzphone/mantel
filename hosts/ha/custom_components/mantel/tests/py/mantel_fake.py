@@ -79,6 +79,7 @@ class FakeMantel:
         self.sockets: list[web.WebSocketResponse] = []
         self.reports: list[dict[str, Any]] = []
         self.by_domain: dict[str, list[dict[str, Any]]] = {}    # what each integration sent
+        self.screen_origins = ["https://mantel.example.com"]
         self.connects = 0
         self.answer = self.ok
         self.server: TestServer | None = None
@@ -132,6 +133,7 @@ class FakeMantel:
         self.connects += 1
         self.sockets.append(ws)
         hello = {"type": "hello", "protocol": self.protocol or asked, "instance": INSTANCE,
+                 "screen_origins": list(self.screen_origins),
                  "services": ["set_black_screen", "show_popup", "close_popup", "notify"], "entities": self.entities}
         if self.owners is not None:
             hello["owners"] = self.owners

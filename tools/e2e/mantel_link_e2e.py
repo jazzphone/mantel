@@ -126,19 +126,21 @@ class HA(LE.HA):
         return await self.ws(type="config/entity_registry/get", entity_id=eid)
 
 
-def mantel_app(token: str, folder: Path, entry_id: str | None = None, port: int = 0):
+def mantel_app(token: str, folder: Path, entry_id: str | None = None, port: int = 0, board: dict | None = None,
+               frame_ancestors: tuple[str, ...] = ()):
     from mantel_server import features
     from mantel_server.config import Config
     from mantel_server.server import build_app
     from mantel_server.settings_store import Actor
     from mantel_server.store import Store
     cfg = Config(data_dir=folder / "data", secrets_dir=folder / "secrets", port=port, ha_url=SCRATCH_URL,
+                 frame_ancestors=tuple(frame_ancestors),
                  ha_ws_url=SCRATCH_URL.replace("http", "ws") + "/api/websocket", commands_enabled=False)
     assert cfg.ha_url == SCRATCH_URL and "192.168." not in cfg.ha_url
     store = Store(cfg.data_dir / "mantel.db")
     app = build_app(cfg, token, store=store, connect_ha=True)
     app["settings"].store.write([
-        ("board", "hk-e2e", {}),
+        ("board", "hk-e2e", dict(board or {})),
         ("tablet", "hall", dict(TABLET)),
         ("house", "popups", {"items": [{"hash": "doorbell", "name": "Doorbell"}]}),
         ("house", features.FEATURES_DOC, features.check_settings(

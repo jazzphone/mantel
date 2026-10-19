@@ -474,6 +474,9 @@ class Linked:
         self.registry, self.handler, self.accounts = registry, handler, accounts
         self.timeout, self.recheck, self.heartbeat = timeout, recheck, heartbeat
         self.instance: str | None = None      # this Mantel's instance id (linked_owners.instance_id)
+        # where Mantel's screens are served to browsers (its https address): the only origins Mantel Link's
+        # script in HA believes a framed screen's messages from (docs/phase9/MANTEL-LINK.md 9.6)
+        self.screen_origins: list[str] = []
         self.listeners: list = []             # fn(client) after a client's report
 
     def verify(self, token: str, peer: str | None) -> Any:
@@ -650,6 +653,7 @@ async def ws_endpoint(request: web.Request) -> web.StreamResponse:
     if protocol >= 2:
         # Mantel Link: which Mantel this is (its config entry's unique id), never a secret
         hello["instance"] = linked.instance
+        hello["screen_origins"] = list(linked.screen_origins)
     log.info("linked: %s (%s) connected from %s as %s, protocol %s", getattr(account, "name", "?"),
              getattr(account, "id", "?"), peer, domain, protocol)
     tasks: set[asyncio.Task] = set()

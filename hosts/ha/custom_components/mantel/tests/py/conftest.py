@@ -74,9 +74,10 @@ async def unload_at_the_end(hass):
 async def hk_base(hass):
     """What HK Frontend needs to set up in the harness (as its own tests have it):
     http and frontend marked as set up, and its two calls into them stood in for."""
-    from unittest.mock import MagicMock, patch
+    from unittest.mock import AsyncMock, MagicMock, patch
     hass.config.components.update({"http", "frontend"})
     hass.http = MagicMock()
+    hass.http.async_register_static_paths = AsyncMock()
     with patch("homeassistant.components.frontend.add_extra_js_url"):
         yield hass
 

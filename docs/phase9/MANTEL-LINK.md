@@ -1,7 +1,7 @@
 # Phase 9: Mantel Link replaces HK Frontend in Home Assistant (decision 28)
 
 **Status (2026-10-19): being built on branch `claude/mantel-link-b012d1`, one slice at a time. Done: 9.1, 9.2,
-9.3, 9.4, 9.5 (see "Build record" at the end). Nothing is on the house; 9.11 waits for Avery, step by step.**
+9.3, 9.4, 9.5, 9.6 (see "Build record" at the end). Nothing is on the house; 9.11 waits for Avery, step by step.**
 
 ## The decision
 
@@ -368,3 +368,28 @@ Frontend). `test_e2e_mantel.py` links it to the real `mantel_server/linked.py`.
   words. Not done here: the code exchange after a zeroconf discovery on a real HA needs Mantel's real https
   address (covered by the pairing tests and the alone phase); a real Supervisor (covered by the fake; on the
   house in 9.11).
+
+### 9.6 Kiosk on Mantel's HA dashboards, and the way back: done
+
+- **Mantel's screen, framed by HA** (`web/shim/ha-frame.js`, started by `home.js`; never under the App's Ingress
+  sidebar, which has HA's own frame protocol, nor opened on its own): tells the page around it the screen's own
+  "Home Assistant Header & Sidebar" setting (`{source: 'mantel', type: 'mantel/kiosk', header, sidebar, admins}`,
+  HK's `fromBoard` rule), again on a settings change or when Mantel Link's script asks; its menu gains
+  **Mantel → Home Assistant** (`mantel-shell.js` hostMenu), which sends `mantel/back`. HK's menu learned a
+  generic host row that runs an action (`run`) instead of opening a link: no word of Mantel in HK's build.
+- **Mantel Link** (`frontend.py`, `frontend/mantel-link.js`, served at `/mantel_link/` and added to HA's pages):
+  believes a message only from one of Mantel's screen origins (Mantel says them in protocol 2's hello,
+  `screen_origins`: its https address; none for an Ingress-only App) AND from an iframe on the dashboard shown
+  now. It hides HA's header and sidebar the way HK's `hk-kiosk.js` did (one stylesheet per shadow root, applied
+  only while its attribute is on, so leaving the screen puts everything back), honours `admins: false`, and
+  `mantel/back` goes to `/` (HA's start page) and nowhere else. `mantel/frontend/config` (any signed-in user)
+  answers `{origins, version}`.
+- **Checks:** Mantel Link's `test_frontend.py` (2: served and added; the config names only Mantel's origins) and
+  `test_frontend_js.py` (2, node, a stand-in for HA's page: other origins, frames not on the page and messages
+  not Mantel's ignored; header only; admins; leaving; back only to `/`); Mantel's `test_ha_frame.py` (2) and HK's
+  `test_menu.js` (a host row's `run`). **Scratch HA + a local Mantel, browser pane:** a Webpage dashboard framing
+  the screen, whose setting hides both: desktop (1024 px: header and sidebar `display: none`, the frame
+  1024×768) and phone (375 px: header and the pull-out drawer hidden, the screen full-screen); Mantel's menu in
+  the frame shows Mantel → Home Assistant, and tapping it lands on HA's Overview with its header back; a forged
+  message from HA's own page changes nothing. Finding: the pane draws a cross-origin frame scaled into a corner at
+  desktop size (its capture only: the frame's rect and the page laid out at full size, as a direct load shows).

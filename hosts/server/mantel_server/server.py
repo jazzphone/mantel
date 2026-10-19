@@ -566,6 +566,16 @@ def _csrf_ok(request: web.Request) -> bool:
     return True
 
 
+def screen_origins(cfg: Config) -> list[str]:
+    """Where browsers open Mantel's screens (its own address; the HA App's direct access): what Mantel Link's script
+    in Home Assistant may believe a framed screen from. None for an Ingress-only App (nothing for HA to frame)."""
+    from urllib.parse import urlsplit
+    parts = urlsplit(cfg.public_url or "")
+    if parts.scheme not in ("https", "http") or not parts.hostname or parts.hostname.endswith(".invalid"):
+        return []
+    return [f"{parts.scheme}://{parts.netloc}"]
+
+
 def wire(app: web.Application, hub: Hub, token: str, connect_ha: bool) -> None:
     """Register P3.2 (RBAC), P3.3 (gateway), P3.4 (connectors) and P3.6 (health) with real hooks."""
     cfg: Config = app["cfg"]
@@ -613,6 +623,7 @@ def wire(app: web.Application, hub: Hub, token: str, connect_ha: bool) -> None:
     # Mantel Link's pairing codes (docs/phase9/MANTEL-LINK.md 9.4): an Owner's one-time code, traded once at
     # /linked/pair for a `linked` Service credential, both sides proving they know it
     linked_pairing.register(app)
+    app["linked"].screen_origins = screen_origins(cfg)
     # ...and how Home Assistant finds Mantel (9.5): the App's Supervisor announcement, or the zeroconf file
     supervisor_discovery.register(app)
     if getattr(cfg, "announce_file", None) is not None:

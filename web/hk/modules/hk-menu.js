@@ -388,9 +388,10 @@
   function hostItems() {
     var SH = window.hkShell, list = null;
     try { list = SH && SH.hostMenu ? SH.hostMenu() : null; } catch (e) { list = null; }
-    return (Array.isArray(list) ? list : []).filter(function (x) { return x && x.title && x.href; })
-      .map(function (x) { return { title: String(x.title), icon: x.icon || 'mdi:cog', kind: 'hostlink', href: String(x.href),
-                                   section: String(x.section || ''), paths: [] }; });
+    // a row either opens a page (href) or asks the host to do something (run: a function)
+    return (Array.isArray(list) ? list : []).filter(function (x) { return x && x.title && (x.href || typeof x.run === 'function'); })
+      .map(function (x) { return { title: String(x.title), icon: x.icon || 'mdi:cog', kind: 'hostlink', href: x.href ? String(x.href) : '',
+                                   run: typeof x.run === 'function' ? x.run : null, section: String(x.section || ''), paths: [] }; });
   }
 
   function sidebarSource() {
@@ -1319,7 +1320,7 @@
       // the host's own page (its settings): a full page load
       if (it.kind === 'hostlink') {
         close(true);
-        location.assign(it.href);
+        if (it.run) { try { it.run(); } catch (x) { /* the host's own */ } } else location.assign(it.href);
         return;
       }
       // Notifications: Home Assistant's own drawer, over the page
