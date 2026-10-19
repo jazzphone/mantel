@@ -55,12 +55,14 @@ replies = [{ type: 'command_result', result: { ok: true, bytes: clip.length }, a
 out.ok = await outcome(card(act, SPEAKER, new Blob([clip], { type: 'audio/webm;codecs=opus' })));
 out.okSent = sent.splice(0);
 
-// a step-up on the tunnel: the prompt answers, the same clip goes again
-addEventListener('hk-step-up-required', (e) => setTimeout(() => e.detail.done(), 0));
+// no step-up (decision 25): a step_up_required from an older server is a refusal -- no prompt, no resend
+let prompted = 0;
+addEventListener('hk-step-up-required', () => { prompted += 1; });
 replies = [{ type: 'step_up_required', reason: 'step_up_required', methods: ['totp'], window: 300, targets: [SPEAKER, 'feature:cameras'] },
            { type: 'command_result', result: { ok: true }, audit_id: 6 }];
 out.stepUp = await outcome(card(act, SPEAKER, new Blob([clip], { type: 'audio/mp4' })));
 out.stepUpSent = sent.splice(0);
+out.stepUpPrompted = prompted;
 
 // HA refused it (http_415 / forbidden)
 replies = [{ type: 'command_result', error: { code: 'http_415', message: '{"message":"not an audio clip"}' } }];

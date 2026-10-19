@@ -129,24 +129,18 @@ async def _tunnel_adult(gw):
     return seed
 
 
-async def test_on_the_tunnel_talk_back_needs_a_fresh_factor(gw):
+async def test_on_the_tunnel_talk_back_needs_no_fresh_factor(gw):
+    # decision 25: no step-up on any door; the role's tunnel switches decide (next test)
     add_speaker(gw)
-    seed = await _tunnel_adult(gw)
-    gw.now[0] += 301                                             # the sign-in factor is stale
+    await _tunnel_adult(gw)
+    gw.now[0] += 3600                                            # the sign-in factor is long stale
     ws = await gw.socket(tunnel=True)
-    first = await gw.command(ws, **talk())
-    assert first["type"] == "step_up_required" and first["reason"] == "step_up_required"
-    assert first["targets"] == [SPEAKER, "feature:cameras"] and first["methods"] == ["totp"]
-    assert gw.fake.sent == []
-    gw.now[0] += 30
-    r = await gw.m.post("/api/auth/totp/step-up", {"code": totp(seed, gw.now[0])}, tunnel=True)
-    assert r.status == 200
-    again = await gw.command(ws, id=2, **talk())
-    assert "result" in again and gw.fake.sent == ["POST /api/hk_frontend/talk"]
-    rows = gw.audit()
-    assert [(r["decision"], r["reason"], r["result"], r["door"]) for r in rows] == [
-        ("step_up", "step_up_required", "not_sent", "tunnel"), ("allowed", "granted", "ok", "tunnel")]
-    assert rows[1]["sensitive"] == "camera" and rows[1]["step_up"] == "totp"
+    reply = await gw.command(ws, **talk())
+    assert reply["type"] == "command_result" and "result" in reply, reply
+    assert gw.fake.sent == ["POST /api/hk_frontend/talk"]
+    (row,) = gw.audit()
+    assert (row["decision"], row["reason"], row["result"], row["door"], row["sensitive"], row["step_up"]) == \
+        ("allowed", "granted", "ok", "tunnel", "camera", None)
     await ws.close()
 
 

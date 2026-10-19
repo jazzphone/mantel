@@ -16,9 +16,8 @@ pop-ups and the photo / black switches. This module adds, behind the same hook p
     switch writing its options: no house command), versioned with the Service account as author.
   - the Alarm PIN panel (unique id = its item id): mirrors the alarm it protects (state, features,
     availability) from the hub; **arm and disarm take the one alarm path**, ``alarm_pin.linked_command``
-    (the same gateway code as a page's keypad: the house's Alarm PIN or a person's PIN, the keypad's
-    lockout, RBAC on the panel and the alarm, so a Child is refused; the audit row first, naming the
-    person whose PIN it was; the alarm's own HA code only from Mantel's store, never the typed code;
+    (the same gateway code as a page's keypad: RBAC on the panel and the alarm, the house's Alarm PIN
+    and the keypad's lockout; the audit row first, as the linked Service actor; the alarm's own HA code only from Mantel's store, never the typed code;
     nothing sent while commands are off: ``commands_disabled``).
     WHICH ALARM: Mantel's ``alarm_pins`` row for the panel is authoritative (what an Owner set or
     imported; it also holds the house code and the alarm's own code). HA's registry ``protects`` is
@@ -308,7 +307,7 @@ class LinkedHouse:
 
     async def _alarm(self, alarm: dict[str, Any], command: str, code: Any, ctx: Any) -> dict[str, Any]:
         """HA's forwarded arm/disarm takes THE alarm path, ``alarm_pin.linked_command``: the house's Alarm
-        PIN or a person's PIN, the keypad's lockout, RBAC on the panel and the alarm, the audit row first,
+        PIN, the keypad's lockout, RBAC on the panel and the alarm, the audit row first,
         the alarm's own HA code from Mantel's store (never the typed code), commands off: nothing sent.
         Its refusals are already HA's wire codes (``alarm_pin.linked_error``)."""
         from . import alarm_pin
@@ -329,8 +328,8 @@ class LinkedHouse:
         """The Alarm PIN row (alarm_pin.Entry) for the linked panel. Mantel's ``alarm_pins`` table is
         AUTHORITATIVE for which alarm a command goes to (module docstring); with no row yet, one is
         made from what HA's registry says the panel protects, as ``POST /api/alarm/pins/import`` would:
-        wall tablets NOT given it (``tablets`` off) and no house code (people's PINs only) until an Owner
-        sets them. Audited as a config row naming the panel and the alarm."""
+        wall tablets NOT given it (``tablets`` off) and no house code (so it refuses whatever needs a
+        code) until an Owner sets them. Audited as a config row naming the panel and the alarm."""
         from . import alarm_pin
         keypad, panel, protects = self.app.get("alarm_pin"), alarm.get("entity_id"), alarm.get("protects")
         if keypad is None or not isinstance(panel, str):

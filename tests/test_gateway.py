@@ -6,7 +6,7 @@ import sqlite3
 
 import pytest
 
-from gateway_fakes import gw, off, recv, service  # noqa: F401 -- fixtures
+from gateway_fakes import HOUSE_AREAS, HOUSE_ENTITIES, gw, off, recv, service  # noqa: F401 -- fixtures
 from mantel_server import gateway
 from mantel_server.accounts import totp
 from mantel_server.gateway import Refused, classify, load_writes
@@ -60,44 +60,40 @@ async def test_every_target_must_be_allowed(gw):
     await ws.close()
 
 
-# -- step-up -----------------------------------------------------------------------------------------
-async def test_adult_unlock_needs_step_up_then_succeeds_after_totp(gw):
+# -- no step-up (decision 25): locks and the garage go through on roles alone, on every door --------
+GARAGE = "cover.garage_door"
+
+
+def add_garage(env):
+    hub = env.app["hub"]
+    hub.registry.load(HOUSE_AREAS, [], HOUSE_ENTITIES + [{"entity_id": GARAGE, "area_id": "kitchen",
+                                                          "device_class": "garage"}])
+    hub.store.apply_event({"a": {GARAGE: {"s": "closed", "a": {"device_class": "garage"}, "lc": 1.0, "lu": 1.0}}})
+
+
+def sensitive_rows(env):
+    return [(r["decision"], r["reason"], r["action"], r["sensitive"], r["result"], r["door"], r["step_up"])
+            for r in env.audit()]
+
+
+async def test_adult_unlocks_and_opens_the_garage_with_no_pin_and_no_fresh_factor(gw):
+    add_garage(gw)
     await gw.login("jordan", "adult")
-    seed = await gw.enroll_totp()
-    gw.now[0] += 301                                          # the sign-in / enrolment factor is stale now
+    gw.now[0] += 86400                                        # long after the sign-in: nothing is "fresh"
     ws = await gw.socket()
-    first = await gw.command(ws, **service("lock", "unlock", "lock.front_door"))
-    assert first["type"] == "step_up_required" and first["reason"] == "step_up_required"
-    assert first["methods"] == ["totp"] and first["window"] == 300 and first["targets"] == ["lock.front_door"]
-    assert gw.fake.sent == []
-    r = await gw.m.post("/api/auth/totp/step-up", {"code": totp(seed, gw.now[0])})
-    assert r.status == 200
-    again = await gw.command(ws, id=2, **service("lock", "unlock", "lock.front_door"))
-    assert again["type"] == "command_result" and "result" in again
-    assert gw.fake.sent == ["lock.unlock"]
-    rows = gw.audit()
-    assert [(r["decision"], r["reason"], r["result"]) for r in rows] == [
-        ("step_up", "step_up_required", "not_sent"), ("allowed", "granted", "ok")]
-    assert rows[1]["sensitive"] == "lock" and rows[1]["step_up"] == "totp" and rows[1]["step_up_age"] == 0
+    unlock = await gw.command(ws, **service("lock", "unlock", "lock.front_door"))
+    assert unlock["type"] == "command_result" and "result" in unlock
+    garage = await gw.command(ws, id=2, **service("cover", "open_cover", GARAGE))
+    assert garage["type"] == "command_result" and "result" in garage
+    assert gw.fake.sent == ["lock.unlock", "cover.open_cover"]
+    assert sensitive_rows(gw) == [("allowed", "granted", "lock.unlock", "lock", "ok", "lan", None),
+                                  ("allowed", "granted", "cover.open_cover", "garage", "ok", "lan", None)]
+    assert [r["role"] for r in gw.audit()] == ["adult", "adult"]
     await ws.close()
 
 
-async def test_a_stale_step_up_asks_again(gw):
-    await gw.login("jordan", "adult")
-    seed = await gw.enroll_totp()
-    gw.now[0] += 400
-    await gw.m.post("/api/auth/totp/step-up", {"code": totp(seed, gw.now[0])})
-    ws = await gw.socket()
-    gw.now[0] += 299
-    assert "result" in await gw.command(ws, **service("lock", "unlock", "lock.front_door"))
-    gw.now[0] += 2                                            # 301 s after the factor
-    stale = await gw.command(ws, id=2, **service("lock", "unlock", "lock.front_door"))
-    assert stale["type"] == "step_up_required"
-    assert gw.fake.sent == ["lock.unlock"]
-    await ws.close()
-
-
-async def test_a_wall_tablet_alone_needs_a_person(gw):
+async def test_a_wall_tablet_alone_unlocks_and_opens_its_rooms_garage_with_no_pin(gw):
+    add_garage(gw)
     await gw.login("avery", "owner")
     r = await gw.m.post("/api/devices/enroll", {"name": "Kitchen tablet", "room": "kitchen"})
     assert r.status == 201
@@ -105,12 +101,95 @@ async def test_a_wall_tablet_alone_needs_a_person(gw):
     light = await gw.command(ws, **service("light", "turn_on", "light.kitchen"))
     assert "result" in light                                    # its room
     lock = await gw.command(ws, id=2, **service("lock", "unlock", "lock.kitchen_door"))
-    assert lock["type"] == "step_up_required" and lock["reason"] == "person_pin_required" and lock["methods"] == []
-    other = await gw.command(ws, id=3, **service("light", "turn_on", "light.cody"))
+    assert lock["type"] == "command_result" and "result" in lock    # no person's PIN (decision 25)
+    garage = await gw.command(ws, id=3, **service("cover", "open_cover", GARAGE))
+    assert garage["type"] == "command_result" and "result" in garage
+    # still only its room: the front door (porch) and Cody's light are refused by its role
+    other = await gw.command(ws, id=4, **service("lock", "unlock", "lock.front_door"))
+    assert other["error"]["code"] == "forbidden" and other["error"]["reason"] == "no_grant"
+    other = await gw.command(ws, id=5, **service("light", "turn_on", "light.cody"))
     assert other["error"]["reason"] == "no_grant"
     rows = gw.audit()
-    assert rows[0]["actor"] is None and rows[0]["device_role"] == "wall_tablet" and rows[0]["device"]
-    assert gw.fake.sent == ["light.turn_on"]
+    assert all(r["actor"] is None and r["device_role"] == "wall_tablet" and r["device"] for r in rows)
+    assert [(r["action"], r["decision"], r["sensitive"]) for r in rows] == [
+        ("light.turn_on", "allowed", None), ("lock.unlock", "allowed", "lock"),
+        ("cover.open_cover", "allowed", "garage"), ("lock.unlock", "denied", "lock"),
+        ("light.turn_on", "denied", None)]
+    assert gw.fake.sent == ["light.turn_on", "lock.unlock", "cover.open_cover"]
+    await ws.close()
+
+
+async def test_a_child_is_still_refused_the_lock_and_the_garage_by_role(gw):
+    add_garage(gw)
+    await gw.login("cody", "child")
+    ws = await gw.socket()
+    for i, body in enumerate((service("lock", "unlock", "lock.kitchen_door"),
+                              service("cover", "open_cover", GARAGE)), 1):
+        reply = await gw.command(ws, id=i, **body)
+        assert reply["error"]["code"] == "forbidden" and reply["error"]["reason"] == "explicit_deny"
+    assert gw.fake.sent == []
+    assert [(r["decision"], r["reason"], r["result"]) for r in gw.audit()] == [
+        ("denied", "explicit_deny", "not_sent")] * 2
+    await ws.close()
+
+
+async def test_an_owners_deny_grant_still_wins(gw):
+    from mantel_server.rbac import Grant
+    await gw.login("jordan", "adult")
+    gw.app["rbac"].add_grant(Grant(effect="deny", actions=("control.sensitive",), resource_kind="entity",
+                                   resource="lock.front_door", users={gw.app["store"].db.execute(
+                                       "SELECT id FROM users WHERE username = 'jordan'").fetchone()[0]}))
+    ws = await gw.socket()
+    reply = await gw.command(ws, **service("lock", "unlock", "lock.front_door"))
+    assert reply["error"]["reason"] == "explicit_deny" and gw.fake.sent == []
+    await ws.close()
+
+
+async def test_on_the_tunnel_an_adult_unlocks_with_no_step_up_and_the_owners_hear(gw):
+    add_garage(gw)
+    await gw.login("jordan", "adult")
+    seed = await gw.enroll_totp()
+    gw.m.forget_cookies()
+    gw.now[0] += 60                                           # a new TOTP window
+    r, body = await gw.m.sign_in("jordan", tunnel=True)
+    r = await gw.m.post("/api/auth/totp/verify", {"pending": body["pending"], "code": totp(seed, gw.now[0])},
+                        csrf=False, tunnel=True)
+    assert r.status == 200
+    gw.now[0] += 3600                                         # the sign-in factor is long stale
+    ws = await gw.socket(tunnel=True)
+    unlock = await gw.command(ws, **service("lock", "unlock", "lock.front_door"))
+    assert unlock["type"] == "command_result" and "result" in unlock
+    garage = await gw.command(ws, id=2, **service("cover", "open_cover", GARAGE))
+    assert garage["type"] == "command_result" and "result" in garage
+    # the remote unlock still notifies the Owners (kept: it never depended on the step-up)
+    assert gw.fake.sent == ["lock.unlock", "persistent_notification.create", "cover.open_cover"]
+    rows = [r for r in gw.audit() if r["kind"] != "system"]
+    assert [(r["action"], r["decision"], r["door"], r["step_up"]) for r in rows] == [
+        ("lock.unlock", "allowed", "tunnel", None), ("cover.open_cover", "allowed", "tunnel", None)]
+    # the role's tunnel switch still decides
+    gw.app["rbac"].set_override("adult", {"tunnel_sensitive": False})
+    reply = await gw.command(ws, id=3, **service("lock", "unlock", "lock.front_door"))
+    assert reply["error"]["reason"] == "tunnel_lan_only"
+    await ws.close()
+
+
+async def test_a_command_carrying_a_step_up_is_refused_and_nothing_is_forwarded(gw):
+    await gw.login("jordan", "adult")
+    ws = await gw.socket()
+    reply = await gw.command(ws, **service("lock", "unlock", "lock.front_door"),
+                             step_up={"method": "pin", "pin": "2580"})
+    assert reply["error"]["code"] == "invalid_command" and gw.fake.sent == []
+    (row,) = gw.audit()
+    assert (row["decision"], row["reason"], row["result"]) == ("denied", "invalid_step_up", "not_sent")
+    assert "2580" not in json.dumps(row)
+    await ws.close()
+
+
+async def test_capabilities_name_no_step_up_window(gw):
+    await gw.login("jordan", "adult")
+    ws = await gw.m.client.ws_connect("/ws")
+    caps = await recv(ws)
+    assert caps == {"type": "capabilities", "commands": True, "door": "lan"}
     await ws.close()
 
 

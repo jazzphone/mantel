@@ -22,7 +22,7 @@ once with a one-time code and reusing this page's identity rules unchanged: [CON
 | `mantel_server/server.py` | Middleware order `loopback_only → ingress → require_session`; Origin may match `X-Forwarded-Host` through Ingress; `/hk/`, `/web/` and the home page go through `ingress.file_response`; HA clients take `cfg.ha_ws_url`. |
 | `ha_client.py`, `readproxy.py`, `connectors/camera.py` | An explicit WebSocket URL (`ws://supervisor/core/websocket`). |
 | `__main__.py` | `--log-level`. |
-| `web/shim/base.js` (new), `web/home.js`, `web/shim/hub.js`, `mantel-stepup.js`, `mantel-host.js` | Mantel's own page code: prefix from `<meta name="mantel-base">`, REST and WebSocket through it, history writes/links kept under it. **No file of `web/hk`, `web/client`, `web/cards`, `hk_core` or `hosts/ha` changed: the HA build is byte-identical.** |
+| `web/shim/base.js` (new), `web/home.js`, `web/shim/hub.js`, `mantel-host.js` (and `mantel-stepup.js`, since deleted by decision 25) | Mantel's own page code: prefix from `<meta name="mantel-base">`, REST and WebSocket through it, history writes/links kept under it. **No file of `web/hk`, `web/client`, `web/cards`, `hk_core` or `hosts/ha` changed: the HA build is byte-identical.** |
 | `packaging/ha-app/` | `config.yaml`, `Dockerfile`, `requirements.txt`, `DOCS.md`, `README.md`, `translations/en.yaml`, `icon.png`. |
 | `packaging/docker/entrypoint.py` | App mode: `--ingress --ingress-only`, `--ha-ws-url ws://supervisor/core/websocket`, `--secrets-dir /data/secrets`, commands only if the option is exactly `true`, `log_level`, `ha_door_rules`; test-only env overrides for the scratch HA run. |
 | `tools/stage_ha_app.py` (new) | Assembles the App folder; `--dry-run`; private-content scan. |
@@ -58,11 +58,12 @@ Supervisor, which proxies it to the App's port 8099 and adds the signed-in HA us
   session's cookie presented anywhere but through Ingress is no one. A non-page request with no cookie
   yet is the user without a session (reads only: no CSRF token, no step-up). CSRF on state-changing
   `/api/` calls is unchanged.
-* **Not a fresh factor.** HA's sign-in may be days old; the session starts with `fresh_factor_at = NULL`,
-  so locks, alarms and other sensitive actions still need a PIN/TOTP step-up (P3.3).
+* **Not a fresh factor.** HA's sign-in may be days old; the session starts with `fresh_factor_at = NULL`.
+  Since decision 25 (2026-10-18, docs/PLAN.md) house commands no longer ask for any step-up, so this only
+  matters for account administration ("confirm it is you"); the alarm still needs the house Alarm PIN.
 * **Sign-in routes are refused through Ingress** (`/login`, `/auth/callback`, `/api/auth/password`,
   `/api/auth/totp/verify`, `/api/auth/passkey/*`, `/api/bootstrap`): HA already signed the person in.
-  TOTP and PIN step-up work; passkeys do not (their RP ID is Mantel's own hostname, not HA's).
+  The "confirm it is you" TOTP check works; passkeys do not (their RP ID is Mantel's own hostname, not HA's).
 * **Client IP** for the audit: the second-to-last `X-Forwarded-For` hop (HA Core appends its peer, the
   Supervisor then appends HA Core's address).
 
@@ -99,8 +100,9 @@ Requests through the sidebar come by a third door, **`ha`**. **Decision (Avery, 
 fully trusted**, as HK in Home Assistant and the Companion app always were:
 
 * **`ha_door_rules: trusted` (the App's default since 0.1.4).** The `ha` door gets the LAN's RBAC rules, and
-  the HA sign-in counts as a fresh factor (`authz.ha_trusted`), so nothing asks for a Mantel code: live
-  cameras, locks, garage and the alarm work in the sidebar and the Companion app, at home or away. Each
+  the HA sign-in counts as a person's sign-in (`authz.ha_trusted`), so nothing asks for a Mantel code: live
+  cameras, locks and the garage work in the sidebar and the Companion app, at home or away (the alarm still
+  needs the house Alarm PIN to disarm, as everywhere; decision 25). Each
   person's Mantel role still decides what they may do (a Child still cannot unlock a door or see cameras),
   every command is audited, and no "remote access" Owner notice is sent for the sidebar. Its security rests on
   HA's login (turn on HA's two-step verification for everyone).
@@ -155,12 +157,12 @@ Nothing else is installed on the tablets.
   `Identity(user=None, device=Device(…, ha_user_id, ha_name), door="ha", csrf=<the device's CSRF>)`. No
   Mantel session and no device secret exist for it: the HA user Ingress names on every request is the
   credential (the trust root is HA's own sign-in of the tablet, i.e. its `trusted_networks` entry). Its page
-  load sets the readable CSRF cookie at the prefix for the step-up code. Its `last_seen`/`source_ip` (the
+  load sets the readable CSRF cookie at the prefix for the page's own calls. Its `last_seen`/`source_ip` (the
   tablet's address as HA saw it) are kept on the device row.
 * **Rules.** With `ha_door_rules: trusted` (the App's default) or `lan`, the device gets the LAN door's
-  tablet rules: its room's entities, every camera (the doorbell pop-up), and for anything sensitive **a
-  person's PIN typed at the tablet**, decided as person ∩ device with the pad's lockout (PINS-AUDIT.md),
-  exactly as on the LAN; HA's sign-in of the tablet is *not* a factor (`ha_trusted` is for people only).
+  tablet rules: its room's entities, every camera (the doorbell pop-up), and sensitive
+  commands decided by the tablet's own grants, exactly as on the LAN. Since decision 25 (2026-10-18) no
+  person's PIN is typed at the tablet; PINS-AUDIT.md keeps the old design as history.
   The audit says door `ha`; no "remote access" notice is sent for a tablet.
 * **`ha_door_rules: tunnel` refuses linked tablets** (decision made here): RBAC never gives a device the
   tunnel's rules (PLAN §7: tablets are LAN-only), so rather than a page that loads and can do nothing, the
@@ -504,9 +506,9 @@ Checked in the sidebar as Avery, at desktop size (1366×900):
 - [x] **Music** page draws (playlists, library, "Plays on Downstairs") through the interim read bridge.
 - [x] No ERROR lines in the log.
 - **Live video is refused on the `ha` door** (by design: the sidebar uses the tunnel's rules, and live view
-  there needs a step-up), so the tiles stay on refreshed stills. The connector logged every retry; fixed in
+  there needs the role's `tunnel_cameras`; at the time it also needed a step-up, removed by decision 25), so the tiles stay on refreshed stills. The connector logged every retry; fixed in
   main (`mantel.camera` refusals once per camera per 5 minutes), ships with the next update. Avery may opt the
-  sidebar into the LAN's rules (`ha_door_rules: lan`), which makes live view work there without a step-up.
+  sidebar into the LAN's rules (`ha_door_rules: lan`), which makes live view work there.
 
 ### 0.1.5 on the house (2026-10-18 15:51, commit `f9be9cb`, build `8c1b08852dbc14d4`)
 
@@ -646,7 +648,7 @@ else in HA was changed (the App creates no entities, no users, no tokens; HK Fro
   HK Frontend's Configure accepts that address since the 2026-10-18 change ("Linked mode in the App"); not yet installed on the house.
 * No in-page UI link to the People page yet (the address is `<prefix>/ingress/people`; the setup
   confirmation links it). The HK Settings panel's own user management is P3.x front-end work.
-* Passkey step-up does not work through Ingress (RP ID); TOTP and PIN step-up do.
+* The passkey "confirm it is you" check does not work through Ingress (RP ID); the TOTP one does.
 * `/dev` diagnostics and HK Settings' photo URLs are not prefix-aware (above).
 * Requests that arrive before the page's first load set cookies run without a session (read-only);
   the policy tick cannot close such a socket on unlink (it closes it on the next reload).

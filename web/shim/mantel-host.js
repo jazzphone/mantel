@@ -201,12 +201,12 @@ export class Host {
       this.refused.push((e.detail && e.detail.what) || 'command');
       toast('Commands are disabled in Mantel (read-only)');
     });
-    // With the gateway on (P3.3): a command the server's roles refused, or a step-up nobody answered.
+    // With the gateway on (P3.3): a command the server's roles refused (no PIN is ever asked: decision 25).
     this.denied = [];
     window.addEventListener('hk-command-denied', (e) => {
       const d = e.detail || {};
       this.denied.push({ what: d.what, reason: d.reason });
-      toast(d.reason === 'person_pin_required' ? 'A person has to confirm this' : 'Not allowed');
+      toast(d.code === 'alarm_pin_not_set' ? 'No Alarm PIN is set in Mantel yet (HK Settings, Alarm PIN)' : 'Not allowed');
     });
     if (typeof window.hkMantelClient.useScreens === 'function') {
       window.hkMantelClient.useScreens({

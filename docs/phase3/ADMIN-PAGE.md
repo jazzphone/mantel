@@ -67,8 +67,9 @@ A person at a wall tablet (user + device) always gets just Me. Unknown or hidden
 * *Authenticator app (TOTP)*: `POST /api/auth/totp/enroll` (shows the secret and an `otpauth://` link; no QR
   library, so no third-party code), `…/enroll/confirm {code}`, `DELETE /api/auth/totp`.
 * *My PIN*: `GET/PUT/DELETE /api/account/pin`, 4 to 8 digits, typed twice (client check first; the server's
-  rules, lockouts and "nobody else can have this PIN" still decide).
-* **Step-up.** PIN set/remove, TOTP replace/remove and passkey removal need a factor within five minutes
+  rules, lockouts and "nobody else can have this PIN" still decide). A personal PIN is optional and nothing
+  requires or checks it (decision 25, docs/PLAN.md: the only PIN in Mantel is the house Alarm PIN).
+* **Step-up ("confirm it is you", for account changes only).** PIN set/remove, TOTP replace/remove and passkey removal need a factor within five minutes
   (`step_up_required`). The page catches that 403, asks "Confirm it is you" (TOTP code, or "Use a passkey" →
   `/api/auth/passkey/options` + `/verify`), then repeats the request once. With neither factor it tells the
   person to sign in again.
@@ -219,7 +220,7 @@ The packaged image needs `static/admin/*` (pyproject updated). Caddy needs no ch
 * No REST to link or unlink Home Assistant users (CLI shown instead).
 * Role overrides (`PUT /api/rbac/roles/{role}`) are viewable, not editable; a grant names one target at a time.
 * TOTP setup shows the secret and an `otpauth://` link, not a QR code.
-* Step-up supports TOTP and passkey (the server has no password re-check endpoint); PIN is a factor at a tablet,
-  not a step-up for these routes.
+* Step-up supports TOTP and passkey (the server has no password re-check endpoint); a PIN is not a factor for
+  these routes (and, since decision 25, not at a tablet either).
 * Changing one's own password, and listing other people's sessions (the API supports `?user_id=`), are not in
   the page.

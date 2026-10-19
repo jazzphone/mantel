@@ -241,7 +241,7 @@ async def test_ha_unreachable_is_a_502(env):
     assert r.status == 502 and (await r.json())["error"] == "camera_unavailable"
 
 
-def test_may_still_is_the_live_view_policy_minus_step_up():
+def test_may_still_is_the_live_view_policy():
     from mantel_server import sessions
     from mantel_server.authz import Authz, Principal
     from mantel_server.rbac import Policy, Subject
@@ -258,8 +258,10 @@ def test_may_still_is_the_live_view_policy_minus_step_up():
     a = Authz({"cfg": None}, Hub(), Store(), clock=lambda: 1000.0)
     ident = sessions.Identity(sessions.User("u", "U", "adult", "password"), None, "tunnel")
     p = Principal(ident, Subject(user_role="adult", user_id="u", door="tunnel"))
-    assert a.may_view(p, "camera.doorbell") is False                # live view: step-up on the tunnel
-    assert a.may_still(p, "camera.doorbell") is True                # a still: no step-up
+    assert a.may_view(p, "camera.doorbell") is True                 # live view: no step-up (decision 25)
+    assert a.may_still(p, "camera.doorbell") is True
+    off = Principal(ident, Subject(user_role="guest", user_id="g", door="tunnel"))
+    assert a.may_view(off, "camera.doorbell") is False and a.may_still(off, "camera.doorbell") is False
     assert a.may_still(p, "light.kitchen") is False and a.may_still(p, "camera.Bad") is False
     assert a.may_still("adult", "camera.doorbell") is False
     child = Principal(ident, Subject(user_role="child", user_id="c", door="lan"))

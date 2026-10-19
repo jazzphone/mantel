@@ -16,7 +16,7 @@ prefix (``X-Ingress-Path: /api/hassio_ingress/<token>``). This module turns that
   (trusted_networks in Kiosk Satellite). An Owner links such an HA user to a Mantel *device* instead
   (``ha_tablet_links``: wall_tablet role, its room): its requests are then that device with no user, on
   door ``ha``, and with the home rules (``ha_door_rules`` trusted or lan) the device gets the LAN door's
-  tablet rules -- a person's PIN at it for anything sensitive (person ∩ device), no remote-access notice.
+  tablet rules -- its role's grants decide, with no PIN (decision 25), and no remote-access notice.
   The trust root is the HA user Ingress vouches for; a device *credential* is still never accepted on
   ``ha``. With ``tunnel`` rules such a tablet is refused (devices are never allowed remote rules). Its page
   opens on its own HK screen (``/home`` → ``/<screen>/home?hk_tablet=<id>``) and asks HA's frontend to hide
@@ -31,7 +31,7 @@ prefix (``X-Ingress-Path: /api/hassio_ingress/<token>``). This module turns that
   action notifies the Owners as a remote one does. Decision and reasons: docs/phase3/HA-APP.md.
 * **Sessions.** The first page load through Ingress starts a Mantel session for the linked user (method
   ``ingress``, stored as door ``tunnel``), with its cookies scoped to the prefix. It is *not* a fresh
-  factor: sensitive actions still need a step-up (PIN or TOTP). A cookie of an Ingress session is good
+  sign-in for account administration (house commands ask for none: decision 25). A cookie of an Ingress session is good
   only through Ingress, and only for the HA user whose headers come with it.
 * **The prefix.** The page lives under ``/api/hassio_ingress/<token>/``. Every redirect Mantel sends is
   moved under it; the page's HTML gets ``<meta name="mantel-base">`` for Mantel's own code
@@ -236,7 +236,7 @@ def resolve(request: web.Request) -> Identity | None:
         log.info("Ingress: started a session for %s (HA user %s)", user.name or user.id, person["id"])
     if srow is None:
         # no session yet (a request before the page's first load set the cookies): the user, read-only
-        # in effect (no CSRF token, so no state-changing REST; no step-up can be stored)
+        # in effect (no CSRF token, so no state-changing REST)
         return Identity(user, None, "ha")
     mgr.touch(srow, now, sessions.client_ip(request))
     return Identity(user=user, device=None, door="ha", fresh_factor_at=srow["fresh_factor_at"],
@@ -279,7 +279,7 @@ def _tablet_identity(request: web.Request, person: dict, row) -> Identity:
     device = sessions.Device(id=row["id"], name=row["name"], role=row["role"], room=row["room"],
                              ha_user_id=person["id"], ha_name=person.get("display") or row["ha_name"] or row["name"])
     if wants_page(request) and request.cookies.get(sessions.CSRF_COOKIE) != row["csrf"]:
-        # the page's readable CSRF cookie (mantel-stepup.js), scoped to the prefix like every Ingress cookie
+        # the page's readable CSRF cookie (for its state-changing REST), scoped to the prefix like every Ingress cookie
         sessions.queue_cookie(request, sessions.CSRF_COOKIE, row["csrf"],
                               **sessions._cookie_opts(request, 400 * 86400, httponly=False))
     return Identity(user=None, device=device, door="ha", csrf=row["csrf"])
@@ -765,7 +765,7 @@ async def people_get(request: web.Request) -> web.Response:
     if owner:
         note = ("<p class=note>A wall tablet is its own Home Assistant user (Kiosk Satellite signed in by trusted_networks). "
                 "<i>Link as a wall tablet</i> makes that account a Mantel device in its room: nobody is signed in on it, "
-                "and anything sensitive asks for a person's PIN at it.</p>")
+                "and what it may do is its role's (no PIN; the alarm takes the house Alarm PIN).</p>")
         if not tablets_allowed(request.app):
             note += ("<p class=note><b>Wall tablets are refused on the sidebar now</b> (<code>ha_door_rules: tunnel</code>); "
                      "set it to <code>trusted</code> or <code>lan</code> for linked tablets to open.</p>")

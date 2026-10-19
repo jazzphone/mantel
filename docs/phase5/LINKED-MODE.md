@@ -295,7 +295,7 @@ command gateway (off on the house: `commands_disabled`, an audit row, nothing se
 | `notify` | `linked_house.LinkedHouse.notify` | hk_core's `banner.build_action` → the event feed; Wakes the Screen through Mantel's Sleep Screen engines (Do Not Disturb unless Important). Needs Mantel's `notifications` piece (`not_set_up` otherwise, as HA answers). No camera snapshot yet (`snap: false`). |
 | photo screensaver / black screen switch | `FeatureLinked` | Mantel's own screen state (`screen` frames), pushed back. |
 | Seasonal decorations | `LinkedHouse` | Its state is Mantel's house setting `sky.decorations`; a command saves it (settings store, versioned, author `linked:<service account>`; HK's own data, as HA's switch writes its options) and the settings feed is re-sent. |
-| Alarm PIN `alarm_*` | `LinkedHouse._alarm` → `alarm_pin.linked_command` | **The one alarm path** (docs/phase3/GATEWAY.md "The alarm"), the same gateway code as a page's keypad, as the Service actor `mantel:linked`. The code is **the house's Alarm PIN** for that panel (if an Owner set one) **or a person's Mantel PIN** (it names them, and they become the audit's actor). Wrong codes are counted at `keypad:mantel:linked`: 5 in a row lock it for 15 minutes (`code_locked`). RBAC runs on the panel and the alarm, so a Child is refused (`forbidden`). The audit row comes first. With commands off the answer is `commands_disabled` and nothing is sent. **The typed code is never sent to HA.** If the protected alarm reports a `code_format`, Mantel adds its own stored code for it (`ha_code`), or refuses with `alarm_ha_code_missing`. A missing code is `code_required`, a wrong one `invalid_code`. The code is never logged, audited or kept. |
+| Alarm PIN `alarm_*` | `LinkedHouse._alarm` → `alarm_pin.linked_command` | **The one alarm path** (docs/phase3/GATEWAY.md "The alarm"), the same gateway code as a page's keypad, as the Service actor `mantel:linked`. The code is **the house's Alarm PIN** for that panel and nothing else (decision 25, 2026-10-18, docs/PLAN.md: a person's own PIN is not accepted; the audit's actor is `mantel:linked`). With no Alarm PIN set, anything that needs a code is refused `alarm_pin_not_set` and nothing is sent. Wrong codes are counted at `keypad:mantel:linked`: 5 in a row lock it for 15 minutes (`code_locked`). RBAC runs on the panel and the alarm, so a Child is refused (`forbidden`). The audit row comes first. With commands off the answer is `commands_disabled` and nothing is sent. **The typed code is never sent to HA.** If the protected alarm reports a `code_format`, Mantel adds its own stored code for it (`ha_code`), or refuses with `alarm_ha_code_missing`. A missing code is `code_required`, a wrong one `invalid_code`. The code is never logged, audited or kept. |
 
 **What Mantel publishes** (`linked_house.py` for the rest of the entry, features.py for the tablets):
 
@@ -316,7 +316,7 @@ changes), registry reloads, settings saves, a move, and a minute's tick (now-on)
 the panel is authoritative.** An Owner sets it or imports it (`POST /api/alarm/pins/import`), and it
 also holds the house code and the alarm's own code. HA's registry `protects` is used only to create
 that row when none exists (`LinkedHouse.keypad_for`, on the first refresh while Mantel owns `house`).
-That row has `tablets` off and no house code, so only people's PINs work until an Owner sets one. It
+That row has `tablets` off and no house code, so anything that needs a code is refused (`alarm_pin_not_set`) until an Owner sets one. It
 gets a `config` audit row, `alarm_pin.linked`. After that, a disagreement is logged and the row wins
 for both the commands and the mirror, so the panel always shows the alarm its commands go to. A row
 that forwards to the panel itself is refused (`not_set_up`), because it would loop through HA.
@@ -436,8 +436,9 @@ Validation of per-tablet ownership and the real handlers (2026-10-18 afternoon, 
 2. **Not on Mantel yet**, so not answered or published truthfully by it:
    - notification camera snapshots (`snap` is false)
    - Live TV in the HA App (no go2rtc of Mantel's): the channel cameras are published unavailable, viewers 0 (Docker/LXC: served by Mantel, phase4/FEATURE-PARITY.md)
-   - the Alarm PIN takes the house's Mantel Alarm PIN or each person's Mantel PIN. HA's hash is never
-     imported, so the house code is set again in Mantel; until then only people's PINs work. Arming
+   - the Alarm PIN takes only the house's Mantel Alarm PIN (decision 25; people's own PINs are not
+     accepted). HA's hash is never imported, so the house code is set again in Mantel; until then
+     anything that needs a code is refused (`alarm_pin_not_set`). Arming
      without a PIN follows the row's `arm_required`, as at a tablet.
 3. **Later (§6 step 2):** retire the tablet plumbing into Mantel, room by room (Loft first). Linked
    mode then shrinks to the popups' actions and a few entities.

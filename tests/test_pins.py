@@ -1,6 +1,7 @@
-"""A person's PIN (pins.py) and the person-at-a-wall-tablet step-up through the gateway: set/change from
-the person's own session, hashed, unique, rate limited, locked after wrong PINs; at a tablet the PIN
-names the person and the command is decided as person ∩ tablet; the audit names that person."""
+"""A person's PIN (pins.py): set/change from the person's own session, hashed, unique, rate limited. Since
+decision 25 (Avery 2026-10-18) nothing asks for it or accepts it: a wall tablet and a person's own session
+unlock with no PIN at all, a PIN sent with a command is refused, and the alarm keypad's lockout
+(``Pins.keypad``) counts only the house Alarm PIN's wrong codes (tests/test_alarm_pin.py)."""
 import json
 
 import pytest
@@ -61,7 +62,8 @@ async def test_a_person_sets_their_pin_from_their_session_hashed(gw):
     # change it (still fresh), then remove it
     r = await gw.m.client.put("/api/account/pin", json={"pin": "3691"}, headers=gw.m.headers())
     assert r.status == 200
-    assert await gw.app["pins"].verify_user(uid(gw, "jordan"), "3691", ip=None) == ("ok", 0.0)
+    row = gw.app["store"].db.execute("SELECT pin_hash FROM user_pins").fetchone()
+    assert await gw.app["pins"]._verify(row["pin_hash"], "3691")
     r = await gw.m.client.delete("/api/account/pin", headers=gw.m.headers())
     assert (await r.json())["removed"] is True and not gw.app["pins"].has_pin(uid(gw, "jordan"))
 
@@ -109,95 +111,66 @@ async def test_an_owner_clears_a_pin_an_admin_not_an_owners(gw):
     assert gw.app["pins"].has_pin(uid(gw, "avery"))
 
 
-# -- a person's PIN at a wall tablet ----------------------------------------------------------------
-async def test_an_adults_pin_at_the_tablet_unlocks_and_the_audit_names_the_adult(gw):
+# -- nothing asks for a person's PIN (decision 25) ---------------------------------------------------
+async def test_a_tablet_unlocks_with_no_pin_even_when_people_have_one(gw):
     await set_pin(gw, "jordan", "adult", ADULT_PIN)
     device_id = await tablet(gw)
     ws = await gw.socket()
-    first = await gw.command(ws, **unlock())
-    assert first["type"] == "step_up_required" and first["reason"] == "person_pin_required"
-    assert first["methods"] == ["pin"]
-    assert gw.fake.sent == []
-    again = await gw.command(ws, id=2, **unlock(step_up={"method": "pin", "pin": ADULT_PIN}))
-    assert again["type"] == "command_result" and "result" in again, again
+    reply = await gw.command(ws, **unlock())
+    assert reply["type"] == "command_result" and "result" in reply, reply
     assert gw.fake.sent == ["lock.unlock"]
-    assert "step_up" not in json.dumps(gw.fake.frames)                                # never forwarded
-    row = gw.audit(id=again["audit_id"])[0]
-    assert (row["actor"], row["actor_name"], row["role"]) == (uid(gw, "jordan"), "Jordan", "adult")
-    assert (row["device"], row["device_role"]) == (device_id, "wall_tablet")
-    assert (row["decision"], row["sensitive"], row["step_up"], row["step_up_age"], row["result"]) == \
-        ("allowed", "lock", "pin", 0, "ok")
-    # for that one command only: the tablet alone still needs a person for the next one
-    third = await gw.command(ws, id=3, **unlock())
-    assert third["type"] == "step_up_required" and third["reason"] == "person_pin_required"
+    row = gw.audit(id=reply["audit_id"])[0]
+    assert (row["actor"], row["device"], row["device_role"], row["decision"], row["sensitive"], row["step_up"]) == \
+        (None, device_id, "wall_tablet", "allowed", "lock", None)
+    # the tablet's room still binds
+    other = await gw.command(ws, id=2, **service("light", "turn_on", "light.cody"))
+    assert other["error"]["reason"] == "no_grant" and gw.fake.sent == ["lock.unlock"]
+    await ws.close()
+
+
+async def test_a_pin_sent_with_a_command_is_refused_never_used(gw):
+    await set_pin(gw, "jordan", "adult", ADULT_PIN)
+    await tablet(gw)
+    ws = await gw.socket()
+    reply = await gw.command(ws, **unlock(step_up={"method": "pin", "pin": ADULT_PIN}))
+    assert reply["error"]["code"] == "invalid_command" and gw.fake.sent == []
+    row = gw.audit(id=reply["audit_id"])[0]
+    assert (row["actor"], row["reason"], row["result"]) == (None, "invalid_step_up", "not_sent")
     assert ADULT_PIN not in json.dumps(gw.audit())
     await ws.close()
 
 
-async def test_a_childs_pin_at_the_tablet_cannot_unlock(gw):
+async def test_a_person_unlocks_on_their_own_session_with_no_pin(gw):
     await set_pin(gw, "jordan", "adult", ADULT_PIN)
-    await set_pin(gw, "cody", "child", CHILD_PIN)
-    device_id = await tablet(gw)
+    gw.now[0] += 3600                                         # the session's factor is long stale
     ws = await gw.socket()
-    reply = await gw.command(ws, **unlock(step_up={"method": "pin", "pin": CHILD_PIN}))
-    assert reply["type"] == "command_result" and reply["error"]["code"] == "forbidden"
-    assert reply["error"]["reason"] == "explicit_deny"
-    assert gw.fake.sent == []
-    row = gw.audit(id=reply["audit_id"])[0]
-    assert (row["actor"], row["role"], row["device"], row["decision"], row["result"]) == \
-        (uid(gw, "cody"), "child", device_id, "denied", "not_sent")
-    # a correct-but-not-allowed PIN is not a wrong PIN: the pad is not counted toward a lockout
-    assert gw.app["store"].db.execute("SELECT COUNT(*) FROM pin_lockouts WHERE failed > 0").fetchone()[0] == 0
+    good = await gw.command(ws, **service("lock", "unlock", "lock.front_door"))
+    assert "result" in good and gw.fake.sent == ["lock.unlock"]
+    row = gw.audit(id=good["audit_id"])[0]
+    assert (row["actor"], row["device"], row["step_up"]) == (uid(gw, "jordan"), None, None)
     await ws.close()
 
 
-async def test_the_person_gets_only_what_the_tablet_also_may(gw):
-    await set_pin(gw, "jordan", "adult", ADULT_PIN)
-    await tablet(gw)
-    ws = await gw.socket()
-    other_room = await gw.command(ws, **service("light", "turn_on", "light.cody",
-                                               step_up={"method": "pin", "pin": ADULT_PIN}))
-    assert other_room["error"]["code"] == "forbidden" and other_room["error"]["reason"] == "no_grant"
-    row = gw.audit(id=other_room["audit_id"])[0]
-    assert row["actor"] == uid(gw, "jordan") and row["decision"] == "denied"
-    assert gw.fake.sent == []
-    await ws.close()
+async def test_the_keypad_lockout_is_stored_and_counts_only_wrong_codes(gw):
+    pins = gw.app["pins"]
 
-
-async def test_wrong_pins_lock_the_tablets_pad(gw):
-    await set_pin(gw, "jordan", "adult", ADULT_PIN)
-    device_id = await tablet(gw)
-    ws = await gw.socket()
-    for n in range(1, LOCK_AFTER):
-        reply = await gw.command(ws, id=n, **unlock(step_up={"method": "pin", "pin": "9999"}))
-        assert reply["type"] == "step_up_required" and reply["pin_error"] == "invalid_pin", reply
-        assert reply["methods"] == ["pin"] and reply["reason"] == "person_pin_required"
-    reply = await gw.command(ws, id=10, **unlock(step_up={"method": "pin", "pin": "8642"}))
-    assert reply["pin_error"] == "locked" and reply["retry_after"] == LOCK_SECONDS + 1
-    # locked: even the right PIN is refused, and nothing is sent
-    reply = await gw.command(ws, id=11, **unlock(step_up={"method": "pin", "pin": ADULT_PIN}))
-    assert reply["pin_error"] == "locked" and gw.fake.sent == []
-    rows = gw.audit()
-    assert {r["reason"] for r in rows if r["decision"] == "denied"} == {"pin_invalid", "pin_locked"}
-    assert all(r["device"] == device_id and r["actor"] is None for r in rows)
-    # the lockout is stored: another Pins over the same database sees it
+    async def house(code):
+        return code == "8642"
+    for _ in range(LOCK_AFTER - 1):
+        assert await pins.keypad("1357", place="device:t1", ip="198.51.100.9", house=house) == ("invalid", 0.0)
+    assert await pins.keypad("8642", place="device:t1", ip="198.51.100.9", house=house) == ("house", 0.0)
+    for _ in range(LOCK_AFTER - 1):
+        await pins.keypad("1357", place="device:t1", ip="198.51.100.9", house=house)
+    status, wait = await pins.keypad("1357", place="device:t1", ip="198.51.100.9", house=house)
+    assert (status, wait) == ("locked", float(LOCK_SECONDS))
+    # stored: another Pins over the same database sees it, even for the right code
     fresh = Pins(gw.app["store"].db, lambda: gw.now[0], hasher=lambda: gw.app["accounts"].hasher)
-    status, wait = await fresh.identify(ADULT_PIN, device_id=device_id, ip="198.51.100.9")
+    status, wait = await fresh.keypad("8642", place="device:t1", ip="203.0.113.7", house=house)
     assert status == "locked" and wait > 0
     gw.now[0] += LOCK_SECONDS + 1
-    reply = await gw.command(ws, id=12, **unlock(step_up={"method": "pin", "pin": ADULT_PIN}))
-    assert "result" in reply and gw.fake.sent == ["lock.unlock"]
-    await ws.close()
-
-
-async def test_nobody_with_a_pin_means_no_pin_pad(gw):
-    await tablet(gw)
-    ws = await gw.socket()
-    reply = await gw.command(ws, **unlock())
-    assert reply["reason"] == "person_pin_required" and reply["methods"] == []
-    reply = await gw.command(ws, id=2, **unlock(step_up={"method": "pin", "pin": ADULT_PIN}))
-    assert reply["pin_error"] == "invalid_pin" and gw.fake.sent == []
-    await ws.close()
+    assert await fresh.keypad("8642", place="device:t1", ip="203.0.113.7", house=house) == ("house", 0.0)
+    for gone in ("identify", "verify_user", "any_pin"):
+        assert not hasattr(pins, gone)
 
 
 async def test_a_malformed_step_up_is_refused(gw):
@@ -210,66 +183,6 @@ async def test_a_malformed_step_up_is_refused(gw):
         assert reply["error"]["code"] == "invalid_command", (step, reply)
     assert gw.fake.sent == []
     assert {r["reason"] for r in gw.audit()} == {"invalid_step_up"}
-    await ws.close()
-
-
-async def test_disabled_people_are_not_named_by_their_pin(gw):
-    await set_pin(gw, "jordan", "adult", ADULT_PIN)
-    with gw.app["store"].db:
-        gw.app["store"].db.execute("UPDATE users SET disabled = 1 WHERE username = 'jordan'")
-    await tablet(gw)
-    ws = await gw.socket()
-    reply = await gw.command(ws, **unlock(step_up={"method": "pin", "pin": ADULT_PIN}))
-    assert reply["pin_error"] == "invalid_pin" and gw.fake.sent == []
-    await ws.close()
-
-
-async def test_two_people_sharing_a_pin_are_refused_never_guessed(gw):
-    await set_pin(gw, "jordan", "adult", ADULT_PIN)
-    await set_pin(gw, "sam", "adult", "3691")
-    # forced into the database (the API refuses it): a PIN that names two people names nobody
-    h = gw.app["store"].db.execute("SELECT pin_hash FROM user_pins WHERE user_id = ?", (uid(gw, "jordan"),)).fetchone()[0]
-    with gw.app["store"].db:
-        gw.app["store"].db.execute("UPDATE user_pins SET pin_hash = ? WHERE user_id = ?", (h, uid(gw, "sam")))
-    await tablet(gw)
-    ws = await gw.socket()
-    reply = await gw.command(ws, **unlock(step_up={"method": "pin", "pin": ADULT_PIN}))
-    assert reply["pin_error"] == "ambiguous" and gw.fake.sent == []
-    await ws.close()
-
-
-# -- a person's PIN on their own session -----------------------------------------------------------
-async def test_a_pin_is_a_step_up_factor_on_a_persons_own_session(gw):
-    await set_pin(gw, "jordan", "adult", ADULT_PIN)
-    gw.now[0] += 301
-    ws = await gw.socket()
-    first = await gw.command(ws, **service("lock", "unlock", "lock.front_door"))
-    assert first["type"] == "step_up_required" and first["methods"] == ["pin"]
-    for n in range(2, 2 + LOCK_AFTER - 1):
-        bad = await gw.command(ws, id=n, **service("lock", "unlock", "lock.front_door",
-                                                  step_up={"method": "pin", "pin": "9999"}))
-        assert bad["pin_error"] == "invalid_pin" and bad["reason"] == "step_up_required"
-    good = await gw.command(ws, id=20, **service("lock", "unlock", "lock.front_door",
-                                                step_up={"method": "pin", "pin": ADULT_PIN}))
-    assert "result" in good and gw.fake.sent == ["lock.unlock"]
-    row = gw.audit(id=good["audit_id"])[0]
-    assert (row["actor"], row["device"], row["step_up"]) == (uid(gw, "jordan"), None, "pin")
-    # the session is fresh now: the next sensitive command needs no prompt
-    assert "result" in await gw.command(ws, id=21, **service("lock", "lock", "lock.front_door"))
-    await ws.close()
-
-
-async def test_a_persons_own_wrong_pins_lock_that_person(gw):
-    await set_pin(gw, "jordan", "adult", ADULT_PIN)
-    gw.now[0] += 301
-    ws = await gw.socket()
-    for n in range(LOCK_AFTER):
-        reply = await gw.command(ws, id=n + 1, **service("lock", "unlock", "lock.front_door",
-                                                        step_up={"method": "pin", "pin": "9999"}))
-    assert reply["pin_error"] == "locked"
-    reply = await gw.command(ws, id=10, **service("lock", "unlock", "lock.front_door",
-                                                 step_up={"method": "pin", "pin": ADULT_PIN}))
-    assert reply["pin_error"] == "locked" and gw.fake.sent == []
     await ws.close()
 
 

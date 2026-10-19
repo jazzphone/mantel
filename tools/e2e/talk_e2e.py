@@ -11,8 +11,8 @@ told to play HA's signed clip URL; fetching that URL from HA (as the speaker's f
 exactly the bytes sent, as audio; the audit row was written (allowed, sensitive camera, result ok); a
 Child is refused (cameras) and nothing is sent; a Kitchen wall tablet is refused the speaker until
 HK's doorbell pop-up names it (then talks, clip and live, with no PIN on the LAN), and an Owner's deny
-grant turns that off; an Adult on the tunnel with a stale factor is asked to step up and nothing is
-sent; a binary body to any other path is refused.
+grant turns that off; an Adult on the tunnel with a stale factor talks with no step-up (decision 25);
+a binary body to any other path is refused.
 
 LIVE TALK (talk_relay.py): the Owner's `talk_live` command is audited and answered with a one-time
 ticket; HK's own talk Worker (the exact TALK_WORKER source of hk-cameras.js, run in node by
@@ -293,8 +293,9 @@ async def run(token: str) -> dict:
             await adult.connect(tunnel=True)
             sent = list(app["commander"].sent)
             reply = await adult.command(**talk(speaker))
-            check(reply.get("type") == "step_up_required" and app["commander"].sent == sent,
-                  "an Adult on the tunnel with a stale factor is asked to step up; nothing is sent")
+            check(reply.get("type") == "command_result" and "result" in reply and len(app["commander"].sent) == len(sent) + 1,
+                  "an Adult on the tunnel with a stale factor talks with no step-up (decision 25; the role decides)")
+            sent = list(app["commander"].sent)
             reply = await adult.command(**talk(speaker, path="/api/config/core/update"))
             check(reply.get("error", {}).get("code") == "unsupported_body" and app["commander"].sent == sent,
                   "a binary body to any other path is refused (unsupported_body)")

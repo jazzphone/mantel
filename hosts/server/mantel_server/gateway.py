@@ -7,7 +7,7 @@ path in ``ha_client`` cannot be constructed, and every command answers ``command
 
 Client protocol (on the hub socket, /ws):
 
-  <- {"type": "capabilities", "commands": true, "step_up_window": 300, "door": "lan"}   (only when on)
+  <- {"type": "capabilities", "commands": true, "door": "lan"}   (only when on)
   -> {"type": "command", "id": 7, "kind": "service", "domain": "light", "service": "turn_on",
       "target": {"entity_id": "light.kitchen"}, "data": {...}, "return_response": false}
   -> {"type": "command", "id": 8, "kind": "ws", "msg": {"type": "config/entity_registry/update", ...}}
@@ -22,32 +22,28 @@ Client protocol (on the hub socket, /ws):
                                            the row's result is written when the stream ends)
   <- {"type": "command_result", "id": 7, "result": ..., "audit_id": 41}
   <- {"type": "command_result", "id": 7, "error": {"code": "forbidden", "reason": "no_grant"}, "audit_id": 42}
-  <- {"type": "step_up_required", "id": 7, "reason": "step_up_required", "methods": ["totp"],
-      "window": 300, "audit_id": 43}      -> the page proves a fresh factor (POST /api/auth/totp/step-up
-                                             or a passkey verify) and sends the same command again
-  <- {"type": "step_up_required", ..., "reason": "person_pin_required", "methods": ["pin"]}   (a wall tablet)
-  -> the same command plus "step_up": {"method": "pin", "pin": "2580"}: the PIN names the person
-     (pins.py) and the command is decided ONCE as person ∩ tablet; the audit row names that person.
-     A wrong PIN answers step_up_required with "pin_error": "invalid_pin" | "locked" (+ retry_after)
-     | "ambiguous". On a person's own session a PIN is their step-up factor (methods include "pin").
-     The PIN is never forwarded, stored or logged.
+
+NO STEP-UP (decision 25, Avery 2026-10-18): no command asks for a person's PIN or a fresh second factor,
+on any door. Who may do what is the roles and grants (rbac.py) alone, and every command has its audit
+row. The one code is the house Alarm PIN, for the alarm (below). A command that still carries a
+``step_up`` field is refused (``invalid_command``, audited) and its content is never forwarded.
 
 The audit can be read by Owners/Admins (GET /api/audit, filtered and paginated) and keeps a
 retention window (cfg.audit_retention_days, default 365): Audit.purge is the only path that deletes,
 only rows older than the window, and it logs what it deleted (migration 0007).
 
 Each command, in order: resolve the subject from the session (re-read from the database, so a
-step-up or a revocation counts at once) -> classify it (a service; a WebSocket write from
+role change or a revocation counts at once) -> classify it (a service; a WebSocket write from
 ``hkClient.WRITES``, exported to ``hk_writes.json``; an HTTP write; an MA command) -> ``Policy.decide``
-for every target -> step-up if needed -> the audit row FIRST (``action_audit``, migration 0004; if it
+for every target -> the audit row FIRST (``action_audit``, migration 0004; if it
 cannot be written the command is refused and nothing is sent) -> forward with a one-shot ticket bound
 to that row -> the result back to the client and into the row. A remote (tunnel) unlock or disarm
 also notifies the Owners (an HA persistent notification).
 
 THE ALARM KEYPAD (alarm_pin.py; docs/phase3/GATEWAY.md "The alarm"): an ``alarm_control_panel.alarm_*``
-command's ``code`` is taken out in ``service_command``, checked by Mantel (``Gateway._alarm``: the house's
-Alarm PIN or a person's PIN), and never audited, logged or forwarded; the alarm's own HA code, if its
-panel asks for one, comes from Mantel's store.
+command's ``code`` is taken out in ``service_command``, checked by Mantel (``Gateway._alarm``: the house
+Alarm PIN, the only PIN Mantel asks for), and never audited, logged or forwarded; the alarm's own HA
+code, if its panel asks for one, comes from Mantel's store. EVERY alarm_* command takes that path.
 """
 from __future__ import annotations
 
@@ -64,7 +60,7 @@ from typing import Any, Awaitable, Callable, Iterable
 
 from aiohttp import web
 
-from . import alarm_pin, rbac
+from . import alarm_pin
 from .authz import ENTITY_ID, Authz, Principal
 from .ha_client import (TALK_ENTITY, TALK_LIVE_TYPE, CommandBlocked, CommandTicket, HaCommandError, HaCommander,
                         HTTP_METHODS, UPLOAD_MAX_BYTES, UPLOAD_METHOD, UPLOAD_MIN_BYTES, UPLOAD_TYPES, _API_PATH,
@@ -247,10 +243,9 @@ def ws_rule(kind: str) -> tuple[str, str]:
 # speaker play it (media_player.play_media). Two checks, both must pass:
 #   * `media_player.play_media` on the speaker: what HA will do with it (RBAC `control` on that entity);
 #   * `camera.talk` on feature `cameras`: talking at the door is part of the doorbell, so it follows
-#     the camera rules: sensitive kind `camera`, so on the LAN door no step-up (as live view,
-#     authz.LAN_STEP_UP_EXEMPT) and wall tablets may (authz.HOUSE_GRANTS); on the tunnel (and the `ha`
-#     door under tunnel rules) the role's `tunnel_sensitive` and `tunnel_cameras` switches plus a
-#     fresh factor; a Child or Guest (cameras denied) never.
+#     the camera rules: sensitive kind `camera`, so wall tablets may (authz.HOUSE_GRANTS); on the tunnel
+#     (and the `ha` door under tunnel rules) the role's `tunnel_sensitive` and `tunnel_cameras`
+#     switches; a Child or Guest (cameras denied) never. No PIN or step-up on any door (decision 25).
 TALK_ACTION = "camera.talk"
 _B64 = re.compile(r"^[A-Za-z0-9+/]*={0,2}$")
 _B64_MAX = 4 * ((UPLOAD_MAX_BYTES + 2) // 3)
@@ -519,7 +514,6 @@ class Gateway:
 
     def capabilities(self, principal: Principal | None) -> dict:
         return {"type": "capabilities", "commands": bool(principal is not None and principal.valid),
-                "step_up_window": rbac.STEP_UP_WINDOW,
                 "door": principal.identity.door if principal is not None else None}
 
     # The Music Assistant command gate (connectors.Hooks.ma_gate): an MA command is allowed only
@@ -538,61 +532,6 @@ class Gateway:
                 del queue[i]
                 return True
         return False
-
-    def _methods(self, principal: Principal) -> list[str]:
-        u = principal.user
-        acc, pins = self.app.get("accounts"), self.app.get("pins")
-        if u is None:
-            # a device alone: a person's PIN typed at it (if anyone has one; else nobody here can answer)
-            return ["pin"] if principal.device is not None and pins is not None and pins.any_pin() else []
-        methods = []
-        if acc is not None and acc.has_totp(u.id):
-            methods.append("totp")
-        if acc is not None and acc.has_passkey(u.id):
-            methods.append("passkey")
-        if pins is not None and pins.has_pin(u.id):
-            methods.append("pin")
-        return methods
-
-    async def _step_up(self, principal: Principal, step: Any, cmd: Command, reply, fail) -> Principal | None:
-        """A PIN sent with the command (``"step_up": {"method": "pin", "pin": "..."}``). At a wall tablet
-        (a device alone) the PIN names the person and the command is decided as person ∩ tablet; on a
-        person's own session it is their step-up factor. None (already answered) when refused."""
-        pins = self.app.get("pins")
-        if (not isinstance(step, dict) or set(step) != {"method", "pin"} or step.get("method") != "pin"
-                or not isinstance(step.get("pin"), str) or pins is None):
-            aid = self.audit.record(principal=principal, kind=cmd.kind, action=cmd.action, targets=cmd.targets,
-                                    decision="denied", reason="invalid_step_up", result="not_sent")
-            await reply(fail("invalid_command", 'step_up is {"method": "pin", "pin": "<digits>"}', aid))
-            return None
-        pin = step["pin"]
-        if principal.user is None and principal.device is not None:
-            status, value = await pins.identify(pin, device_id=principal.device.id, ip=principal.source_ip)
-            if status == "ok":
-                person = self.authz.with_person(principal, value)  # type: ignore[arg-type]
-                log.info("%s confirmed %s by PIN", _who(person), cmd.action)
-                return person
-            reason = "person_pin_required"
-        elif principal.user is not None:
-            status, value = await pins.verify_user(principal.user.id, pin, ip=principal.source_ip)
-            if status == "ok":
-                mgr = self.app.get("sessions")
-                if mgr is not None and principal.identity.session_id is not None:
-                    mgr.mark_fresh(principal.identity.session_id, "pin")
-                    self.authz.refresh(principal)
-                return principal
-            reason = "step_up_required"
-        else:
-            status, value, reason = "invalid", 0.0, "no_subject"
-        code = {"invalid": "invalid_pin", "no_pin": "invalid_pin"}.get(status, status)
-        aid = self.audit.record(principal=principal, kind=cmd.kind, action=cmd.action, targets=cmd.targets,
-                                decision="denied", reason="pin_invalid" if code == "invalid_pin" else f"pin_{code}",
-                                result="not_sent")
-        await reply({"type": "step_up_required", "reason": reason, "pin_error": code,
-                     "retry_after": int(value) + 1 if code == "locked" else 0,  # type: ignore[arg-type]
-                     "action": cmd.action, "targets": cmd.targets, "methods": self._methods(principal),
-                     "window": self.authz.policy_for(principal.subject).step_up_window, "audit_id": aid})
-        return None
 
     async def handle(self, principal: Principal, msg: dict, send: Callable[[dict], Awaitable[None]]) -> None:
         """One `command` message, answered through `send`. Never raises for the client's mistakes."""
@@ -613,7 +552,7 @@ class Gateway:
 
     async def _handle(self, principal: Principal, msg: dict, reply, fail) -> None:
         msg = dict(msg)
-        step = msg.pop("step_up", None)          # a PIN for this one command; never forwarded or stored
+        stray = msg.pop("step_up", None) is not None   # no step-up any more (decision 25); never forwarded
         if not self.authz.refresh(principal):
             self.audit.record(principal=principal, kind=_kind(msg), action=None, targets=[], decision="denied",
                               reason="unauthenticated", result="not_sent")
@@ -624,26 +563,19 @@ class Gateway:
             aid = self.audit.record(principal=principal, kind=_kind(msg), action=_action(msg), targets=[],
                                     decision="denied", reason=exc.code, result="not_sent")
             return await reply(fail(exc.code, str(exc), aid))
-        if step is not None and cmd.live is not None:
-            # a ticket is bound to this connection's own identity; a PIN-named person is not it
+        if stray:
             aid = self.audit.record(principal=principal, kind=cmd.kind, action=cmd.action, targets=cmd.targets,
                                     decision="denied", reason="invalid_step_up", result="not_sent")
-            return await reply(fail("invalid_command", "live talk takes no step_up; the clip asks for one", aid))
-        if step is not None:
-            stepped = await self._step_up(principal, step, cmd, reply, fail)
-            if stepped is None:
-                return
-            principal = stepped
+            return await reply(fail("invalid_command", "commands take no step_up (Mantel asks for no PIN)", aid))
         if cmd.alarm is not None:
+            # EVERY alarm keypad command goes through the house Alarm PIN (_alarm), configured or not
             keypad = self.app.get("alarm_pin")
-            if keypad is not None and (cmd.code is not None or keypad.entry(cmd.alarm[1]) is not None):
+            if keypad is not None:
                 return await self._alarm(principal, cmd, keypad, reply, fail)
-            if cmd.code is not None:
-                # no keypad engine to check it: a page's code is never forwarded to Home Assistant
-                aid = self.audit.record(principal=principal, kind=cmd.kind, action=cmd.action, targets=cmd.targets,
-                                        decision="denied", reason="alarm_pin_unavailable", result="not_sent")
-                return await reply(fail("unavailable", "alarm_pin_unavailable", aid))
-            # an alarm Mantel guards no keypad for, and no code: the ordinary path below
+            # no keypad engine to check a code: refused, and a page's code is never forwarded
+            aid = self.audit.record(principal=principal, kind=cmd.kind, action=cmd.action, targets=cmd.targets,
+                                    decision="denied", reason="alarm_pin_unavailable", result="not_sent")
+            return await reply(fail("unavailable", "alarm_pin_unavailable", aid))
 
         subject = principal.subject
         engine = self._music_engine(cmd)
@@ -652,7 +584,7 @@ class Gateway:
         ctx = self.authz.context()
         decisions = [(c, (self.authz.decide_talk if c.talk else self.authz.decide)(
                           subject, c.action, c.entity_id, feature=c.feature, ctx=ctx)) for c in cmd.checks]
-        denied = next(((c, d) for c, d in decisions if not d.allowed and not d.needs_step_up), None)
+        denied = next(((c, d) for c, d in decisions if not d.allowed), None)
         sensitive = next((d.sensitive for _, d in decisions if d.sensitive), None)
         if denied is not None:
             c, d = denied
@@ -661,16 +593,8 @@ class Gateway:
             log.info("denied %s on %s for %s (%s)", cmd.action, c.target, _who(principal), d.reason)
             return await reply(fail("forbidden", f"not allowed: {cmd.action} on {c.target}", aid,
                                     reason=d.reason, target=c.target))
-        step = next((d for _, d in decisions if d.needs_step_up), None)
-        if step is not None:
-            aid = self.audit.record(principal=principal, kind=cmd.kind, action=cmd.action, targets=cmd.targets,
-                                    decision="step_up", reason=step.reason, sensitive=sensitive, result="not_sent")
-            return await reply({"type": "step_up_required", "reason": step.reason, "action": cmd.action,
-                                "targets": cmd.targets, "methods": self._methods(principal),
-                                "window": self.authz.policy_for(subject).step_up_window, "audit_id": aid})
 
         ident = principal.identity
-        fresh_age = (self.clock() - ident.fresh_factor_at) if (sensitive and ident.fresh_factor_at) else None
         unavailable = self._unavailable(cmd)
         if unavailable:
             aid = self.audit.record(principal=principal, kind=cmd.kind, action=cmd.action, targets=cmd.targets,
@@ -678,8 +602,7 @@ class Gateway:
             return await reply(fail("unavailable", unavailable, aid))
         # THE AUDIT ROW FIRST: if this raises, nothing below runs and nothing is sent.
         aid = self.audit.record(principal=principal, kind=cmd.kind, action=cmd.action, targets=cmd.targets,
-                                decision="allowed", reason="granted", sensitive=sensitive,
-                                step_up=ident.fresh_factor if sensitive else None, step_up_age=fresh_age)
+                                decision="allowed", reason="granted", sensitive=sensitive)
         try:
             result = await self._forward(principal, cmd, aid)
         except Exception as exc:  # noqa: BLE001 -- HA's error is the client's answer, and the row's result
@@ -705,24 +628,45 @@ class Gateway:
         return engine if engine is not None and engine.active else None
 
     async def _alarm(self, principal: Principal, cmd: Command, keypad: Any, reply, fail) -> None:
-        """THE ALARM KEYPAD (alarm_pin.py; GATEWAY.md "The alarm"). HK's Alarm PIN, decided by Mantel:
-        the code (already out of the command) is checked by alarm_pin/pins, RBAC decides with
-        ``control.sensitive`` on the keypad panel and the alarm it forwards to whenever a code is needed,
-        the audit row is written FIRST, and only then does the command go to Home Assistant -- to the
-        alarm itself, with the alarm's own HA code from Mantel's store when the panel asks for one."""
+        """THE ALARM KEYPAD (alarm_pin.py; GATEWAY.md "The alarm"). HK's Alarm PIN, decided by Mantel on
+        every door: RBAC first (``control.sensitive`` on the keypad panel and the alarm it forwards to
+        whenever a code is needed), then the code (already out of the command) must be the house Alarm
+        PIN, checked by alarm_pin/pins with its lockout. The audit row is written FIRST, and only then
+        does the command go to Home Assistant -- to the alarm itself, with the alarm's own HA code from
+        Mantel's store when the panel asks for one. A person's own PIN is not a code here (decision 25)."""
         service, named = cmd.alarm  # type: ignore[misc]
-        entry = keypad.entry_or_default(named)
+        entry = keypad.entry_for(named)
         code, action, targets = cmd.code, cmd.action, entry.targets()
         needed = entry.needs_code(service, code)
         sensitive = alarm_pin.SENSITIVE if needed else None
 
-        def record(decision: str, reason: str, who: Principal = principal, **kw) -> int:
-            return self.audit.record(principal=who, kind="service", action=action, targets=targets,
+        def record(decision: str, reason: str, **kw) -> int:
+            return self.audit.record(principal=principal, kind="service", action=action, targets=targets,
                                      decision=decision, reason=reason, sensitive=sensitive, **kw)
 
+        # who may: roles alone, before any code is looked at (a refused role learns nothing of the code)
+        subject = principal.subject
+        ctx = self.authz.context()
+        policy = keypad.keypad_policy(self.authz, subject)
+        checks = [Check(action, eid) for eid in targets]
+        if needed:
+            checks += [Check("control.sensitive", eid) for eid in targets]
+        decisions = [(c, policy.decide(subject, c.action, c.entity_id, ctx)) for c in checks]
+        denied = next(((c, d) for c, d in decisions if not d.allowed), None)
+        if denied is not None:
+            c, d = denied
+            aid = record("denied", d.reason, result="not_sent")
+            log.info("denied %s on %s for %s (%s)", action, c.target, _who(principal), d.reason)
+            return await reply(fail("forbidden", f"not allowed: {action} on {c.target}", aid,
+                                    reason=d.reason, target=c.target))
+        # the code: the house Alarm PIN, the only one
         if needed and code is None:
             aid = record("denied", "alarm_code_required", result="not_sent")
             return await reply(fail("code_required", "Enter the alarm code", aid))
+        if needed and not entry.house_code:
+            aid = record("denied", "alarm_pin_not_set", result="not_sent")
+            return await reply(fail("alarm_pin_not_set", "No Alarm PIN is set for this alarm (an Owner sets it in "
+                                    "HK Settings, Alarm PIN); nothing was sent", aid))
         verdict = alarm_pin.Verdict("none")
         if code is not None:
             verdict = await keypad.check(principal, entry, code, self.app.get("pins"))
@@ -734,46 +678,21 @@ class Gateway:
                     return await reply(fail("code_locked", f"Wrong code too many times; the keypad is locked for "
                                             f"{(wait + 59) // 60} min", aid, retry_after=wait))
                 return await reply(fail("invalid_code", "Wrong code", aid))
-        # a person's PIN names them: decided as that person (∩ the tablet), for this one command
-        acting = self.authz.with_person(principal, verdict.person) if verdict.status == "person" else principal
-        subject = acting.subject
-        ctx = self.authz.context()
-        policy = keypad.keypad_policy(self.authz, subject)
-        checks = [Check(action, eid) for eid in targets]
-        if needed:
-            checks += [Check("control.sensitive", eid) for eid in targets]
-        decisions = [(c, policy.decide(subject, c.action, c.entity_id, ctx)) for c in checks]
-        denied = next(((c, d) for c, d in decisions if not d.allowed and not d.needs_step_up), None)
-        if denied is not None:
-            c, d = denied
-            aid = record("denied", d.reason, acting, result="not_sent")
-            log.info("denied %s on %s for %s (%s)", action, c.target, _who(acting), d.reason)
-            return await reply(fail("forbidden", f"not allowed: {action} on {c.target}", aid,
-                                    reason=d.reason, target=c.target))
-        step = next((d for _, d in decisions if d.needs_step_up), None)
-        # the house code is the factor on the LAN rules door only (the tunnel still wants the person's own)
-        if step is not None and not (verdict.status == "house" and subject.door == "lan"):
-            aid = record("step_up", step.reason, acting, result="not_sent")
-            return await reply({"type": "step_up_required", "reason": step.reason, "action": action,
-                                "targets": targets, "methods": self._methods(principal),
-                                "window": self.authz.policy_for(subject).step_up_window, "audit_id": aid})
         # the alarm's OWN code, for a panel that asks for one: Mantel's, never the page's
         attrs = _attrs(self.app, entry.forward_to)
         ha_code = None
         if attrs.get("code_format"):
             ha_code = keypad.ha_code(entry.entity) if entry.configured else None
             if not ha_code:
-                aid = record("denied", "alarm_ha_code_missing", acting, result="not_sent")
+                aid = record("denied", "alarm_ha_code_missing", result="not_sent")
                 return await reply(fail("unavailable", "alarm_ha_code_missing", aid))
         if self.commander is None:
-            aid = record("denied", "commands_disabled", acting, result="not_sent")
+            aid = record("denied", "commands_disabled", result="not_sent")
             return await reply(fail("unavailable", "commands_disabled", aid))
-        ident = acting.identity
-        factor = {"house": "alarm_pin", "person": "pin"}.get(verdict.status, ident.fresh_factor if needed else None)
-        age = 0.0 if verdict.status in ("house", "person") else (
-            (self.clock() - ident.fresh_factor_at) if (needed and ident.fresh_factor_at) else None)
-        # THE AUDIT ROW FIRST: if this raises, nothing below runs and nothing is sent.
-        aid = record("allowed", "granted", acting, step_up=factor, step_up_age=age)
+        house = verdict.status == "house"
+        # THE AUDIT ROW FIRST: if this raises, nothing below runs and nothing is sent. The row's step_up
+        # column says the house Alarm PIN was given (never the PIN itself).
+        aid = record("allowed", "granted", step_up="alarm_pin" if house else None, step_up_age=0.0 if house else None)
         data: dict = {"entity_id": entry.forward_to}
         if ha_code:
             data["code"] = ha_code
@@ -783,16 +702,16 @@ class Gateway:
         except Exception as exc:  # noqa: BLE001 -- HA's error is the client's answer, and the row's result
             code_ = _error_code(exc)
             self._finish(aid, f"error:{code_}")
-            log.warning("%s for %s failed: %s", action, _who(acting), code_)
+            log.warning("%s for %s failed: %s", action, _who(principal), code_)
             return await reply(fail(code_, str(exc)[:300], aid))
         self._finish(aid, "ok")
-        log.info("%s on %s by %s (audit %d)", action, ",".join(targets), _who(acting), aid)
+        log.info("%s on %s by %s (audit %d)", action, ",".join(targets), _who(principal), aid)
         await reply({"type": "command_result", "result": result, "audit_id": aid})
         authz = self.app.get("authz")
         trusted = _not_remote(authz, principal.identity)
         if service == alarm_pin.DISARM and principal.identity.door in REMOTE_DOORS and not trusted:
             cmd.targets = targets
-            await self.notify_owners(acting, cmd, aid)
+            await self.notify_owners(principal, cmd, aid)
 
     def _unavailable(self, cmd: Command) -> str | None:
         if cmd.live is not None and (self.commander is None or self.app.get("talk") is None):
@@ -905,7 +824,7 @@ def _error_code(exc: BaseException) -> str:
 
 
 # -- the audit read API (PLAN §5: the Owner's "audit log"; Admins too) ----------------------------------
-AUDIT_DECISIONS = ("allowed", "denied", "step_up")
+AUDIT_DECISIONS = ("allowed", "denied", "step_up")   # step_up: rows from before decision 25 only
 AUDIT_KINDS = ("service", "ws", "http", "ma", "config", "system")
 AUDIT_PAGE, AUDIT_PAGE_MAX = 100, 500
 

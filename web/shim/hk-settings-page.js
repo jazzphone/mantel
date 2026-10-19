@@ -11,7 +11,6 @@ import '../client/hk-host-shell.js';
 import './mantel-shell.js';
 import '../cards/hk-metric.js';
 import './mantel-client.js';
-import './mantel-stepup.js';
 import './ha-elements.js';
 import '/hk/elements/hk-elements.js';
 import { Host } from './mantel-host.js';

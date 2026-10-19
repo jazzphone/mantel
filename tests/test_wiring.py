@@ -192,12 +192,16 @@ async def test_may_read_and_may_view_hooks(off):
                                           "sensor:external", "feature:nonsense", 3]) == \
         ["light.kitchen", "person.jamie", "feature:media", "feature:energy"]
     assert authz.may_read(p, "configure", ["light.kitchen"]) == [] and authz.may_read("adult", "view", ["light.kitchen"]) == []
-    assert authz.may_view(p, "camera.doorbell") is True                        # LAN: live view needs no step-up
+    assert authz.may_view(p, "camera.doorbell") is True                        # LAN: live view, no PIN
     await ws.close()
-    # on the tunnel the §7 rules are unchanged: a live view needs a fresh factor
+    # on the tunnel: no step-up either (decision 25); the role's tunnel_cameras switch decides
     p.identity = p.identity.__class__(**{**p.identity.__dict__, "door": "tunnel", "fresh_factor_at": None})
     p.subject = authz.subject_of(p.identity)
+    assert authz.may_view(p, "camera.doorbell") is True
+    off.app["rbac"].set_override("adult", {"tunnel_cameras": False})
+    p.subject = authz.subject_of(p.identity)
     assert authz.may_view(p, "camera.doorbell") is False
+    off.app["rbac"].clear_override("adult")
     await off.login("cody", "child")
     ws = await off.socket(expect_caps=False)
     assert authz.may_view(principal_of(off), "camera.doorbell") is False

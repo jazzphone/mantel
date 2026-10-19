@@ -23,7 +23,7 @@ ASSET_LEFT = re.compile(r"""(["'`(])/(hk|web|static/mdi)/""")
 URL_ROOT = re.compile(r"""(["'`(])(?!""" + re.escape(PREFIX) + r""")/(api|hk|web|static|ws|auth|login|logout|dev|"""
                       r"""local|hacsfiles|frontend|hk-settings|dashboard)\b""")
 MANTEL_OWN = {"home.js", "shim/hk-settings-page.js", "shim/base.js", "shim/hub.js", "shim/mantel-client.js", "shim/mantel-host.js",
-              "shim/mantel-shell.js", "shim/mantel-stepup.js", "shim/ha-elements.js"}
+              "shim/mantel-shell.js", "shim/ha-elements.js"}
 # file -> (a fragment of the line, why it is not a URL Mantel's page fetches from Mantel)
 NOT_MANTEL_URLS = [
     ("shim/mantel-shell.js", "base + '/hk-settings'", "Mantel's own page, put under the prefix here (base = __mantelBase)"),
@@ -79,8 +79,7 @@ def test_other_absolute_urls_are_mantels_own_through_base_js_or_listed():
 
 
 def test_mantels_own_code_builds_its_urls_through_base_js():
-    stepup = (WEB / "shim/mantel-stepup.js").read_text()
-    assert "fetch(api(path)" in stepup and "fetch(api('/api/session')" in stepup
+    assert not (WEB / "shim/mantel-stepup.js").exists()      # no step-up prompt (decision 25)
     hub = (WEB / "shim/hub.js").read_text()
     assert "new WebSocket(wsUrl('/ws'))" in hub and "from './base.js'" in hub
     host = (WEB / "shim/mantel-host.js").read_text()

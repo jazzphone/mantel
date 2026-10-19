@@ -80,8 +80,8 @@ All of it lives in Mantel's host adapter and server. The shared frontend (`web/h
     HA App mode and `''` elsewhere. `v` is a salted HMAC of HA's URL: it changes when HA rotates the
     camera token, so the card retries after a failure as it does in HA, and it reveals nothing.
   - `GET /api/camera/<entity>/still[?width&height]` decides with `Authz.may_still`: `view` the camera,
-    and `camera.live` either allowed or only waiting for a step-up. That is the live-view policy
-    minus step-up, so the tunnel and `ha` doors still need the role's `tunnel_cameras`. If allowed,
+    and `camera.live` allowed (it once also accepted "only waiting for a step-up"; there is no step-up since
+    decision 25, 2026-10-18, docs/PLAN.md). That is the live-view policy, so the tunnel and `ha` doors still need the role's `tunnel_cameras`. If allowed,
     it streams HA's `/api/camera_proxy/<entity>` using Mantel's own HA credential.
   - Responses: 403 when refused (checked before existence), 404 for an unknown entity or one that
     isn't a camera, 400 for a bad size or an unexpected query key, 502 when HA fails. Refusals are
@@ -182,7 +182,7 @@ Sources I relied on (read 2026-10-18):
 4. Send. `check_outgoing` passes a command frame only with its own unused ticket.
 
 `register` adds no client message for commands. P3.3's gateway calls `app["ma"].command(...)` itself,
-with its own step-up and audit, and is passed in as `hooks.ma_gate`.
+with its own RBAC check and audit (no step-up since decision 25), and is passed in as `hooks.ma_gate`.
 
 **Token.** `read_secret(cfg.ma_token_file)` runs at every connect, so a rotated secret file is
 picked up on the next connect. The value is never stored on the client or logged. A missing or
@@ -312,7 +312,7 @@ target navigated or closed").
    ha_token=lambda: token)`. Add the `Ctx` and handler dispatch to `ClientSession` as described in
    the wiring contract, and delete `ClientSession.read()`. Port `tests/test_connectors_wiring.py`'s
    harness assertions onto the real `ClientSession`.
-2. **P3.3:** make the gateway the `ma_gate` (`allow(identity, command, args)` after RBAC, step-up and
+2. **P3.3:** make the gateway the `ma_gate` (`allow(identity, command, args)` after RBAC and
    the audit row). Its MA path calls `app["ma"].command(identity, command, **args)`.
 3. **`web/` slice:** done for cameras (signaling, stills) and calendars, in the host adapter. What
    remains is moving HK's music reads to `ma/read` (media-player artwork: done).

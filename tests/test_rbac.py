@@ -1,5 +1,5 @@
 """P3.2 RBAC engine: every starting role across the house's domains and actions, deny precedence,
-user ∩ device, step-up freshness, the tunnel rules, schedules, and area/floor resolution."""
+user ∩ device, no step-up (decision 25), the tunnel rules, schedules, and area/floor resolution."""
 from __future__ import annotations
 
 from dataclasses import replace
@@ -15,8 +15,9 @@ from rbac_fixtures import (GPS, NOW, TZ, adult, admin, child, ctx, guest, owner,
                            tablet)
 
 # -- the matrix ----------------------------------------------------------------------------------
-# A = allowed, S = allowed once a fresh factor is given (step-up), P = a person's PIN at the device
-# is required, D = denied. Checked first with no fresh factor, then with one.
+# A = allowed, D = denied. There is no step-up (decision 25): the same answer with no fresh factor and
+# with one, and a wall tablet alone needs no person's PIN. (Before decision 25 an Owner's unlock was "S",
+# a tablet's balcony unlock "P"; both are now "A", decided by roles alone.)
 CASES = [
     ("view", "light.kitchen"),                                   # 0
     ("light.turn_on", "light.kitchen"),
@@ -58,12 +59,12 @@ CASES = [
     ("control.sensitive", "light.loft"),
 ]
 EXPECTED = {
-    "owner":   "AAAAA AAASS ASSAS AASAS AAASS ASAAA ASSAA SAS",
-    "admin":   "AAAAA AAASS ASSAS AASAS AAASS ASAAA ASSAA SAS",
-    "adult":   "AAAAA AAASS ASSAS AASAS AAASS ASDAA ASSAA SDS",
+    "owner":   "AAAAA AAAAA AAAAA AAAAA AAAAA AAAAA AAAAA AAA",
+    "admin":   "AAAAA AAAAA AAAAA AAAAA AAAAA AAAAA AAAAA AAA",
+    "adult":   "AAAAA AAAAA AAAAA AAAAA AAAAA AADAA AAAAA ADA",
     "child":   "DDAAA DDDDD DDDDD DDDDD DDDDD DDDDD DDDDD DDD",
     "guest":   "DDDDD DDDDD DDDDD DADDD DDDDD DDDDA DDDDD DDD",
-    "tablet":  "DDDDD DDDDD DDDDD ADDDD DDDDD DDDDD DDDAA PDP",
+    "tablet":  "DDDDD DDDDD DDDDD ADDDD DDDDD DDDDD DDDAA ADA",
     "service": "DDDDD DDDDD DDDDD DDDDD DDDDD DDDDD DDDDD DDD",
 }
 SUBJECTS = {"owner": owner, "admin": admin, "adult": adult, "child": child, "guest": guest, "tablet": tablet,
@@ -71,11 +72,7 @@ SUBJECTS = {"owner": owner, "admin": admin, "adult": adult, "child": child, "gue
 
 
 def code(d: Decision) -> str:
-    if d.allowed:
-        return "A"
-    if d.needs_step_up:
-        return "P" if d.reason == "person_pin_required" else "S"
-    return "D"
+    return "A" if d.allowed else "D"
 
 
 def matrix():
@@ -94,14 +91,15 @@ def test_role_matrix_without_a_fresh_factor(who, action, eid, want):
 
 @pytest.mark.parametrize("who,action,eid,want", list(matrix()))
 def test_role_matrix_with_a_fresh_factor(who, action, eid, want):
+    # a fresh factor changes nothing: there is no step-up
     d = decide(SUBJECTS[who](fresh_factor_at=NOW - 60), action, eid, ctx())
-    assert code(d) == {"S": "A"}.get(want, want), d
+    assert code(d) == want, d
 
 
 def test_every_case_is_covered_by_some_role_both_ways():
     cols = list(zip(*(r.replace(" ", "") for r in EXPECTED.values())))
     assert all("D" in c or "A" in c for c in cols)
-    assert {"A", "S", "P", "D"} <= set("".join(EXPECTED.values()))
+    assert {"A", "D"} == set("".join(EXPECTED.values()).replace(" ", ""))
 
 
 # -- reasons ---------------------------------------------------------------------------------------
@@ -114,8 +112,8 @@ def test_every_case_is_covered_by_some_role_both_ways():
     (guest, "view", "person.jamie", "explicit_deny", "user"),
     (guest, "history", "light.guest", "explicit_deny", "user"),
     (guest, "view", "camera.doorbell", "explicit_deny", "user"),
-    (adult, "lock.unlock", "lock.front_door", "step_up_required", "user"),
-    (tablet, "lock.unlock", "lock.balcony", "person_pin_required", "device"),
+    (adult, "lock.unlock", "lock.front_door", "granted", None),
+    (tablet, "lock.unlock", "lock.balcony", "granted", None),
     (tablet, "light.turn_on", "light.kitchen", "no_grant", "device"),
     (service, "view", "light.kitchen", "no_grant", "user"),
     (owner, "light.turn_on", "light.kitchen", "granted", None),
@@ -127,7 +125,8 @@ def test_reasons(subject, action, eid, reason, side):
 
 def test_decision_carries_the_classified_action():
     d = decide(owner(), "lock.unlock", "lock.front_door", ctx())
-    assert (d.action, d.sensitive, d.needs_step_up) == ("control.sensitive", "lock", True)
+    assert (d.allowed, d.action, d.sensitive) == (True, "control.sensitive", "lock")
+    assert not hasattr(d, "needs_step_up")
     assert decide(owner(), "light.turn_on", "light.kitchen", ctx()).action == "control"
 
 
@@ -141,7 +140,7 @@ def test_decision_carries_the_classified_action():
 ])
 def test_malformed_requests_are_refused(subject, action, eid, feature, reason):
     d = decide(subject(), action, eid, ctx(), feature=feature)
-    assert not d.allowed and not d.needs_step_up and d.reason == reason
+    assert not d.allowed and d.reason == reason
 
 
 # -- classification ----------------------------------------------------------------------------------
@@ -266,17 +265,19 @@ def test_user_and_device_intersection(subject, action, eid, allowed, side):
     assert (d.allowed, d.side) == (allowed, side)
 
 
-def test_sensitive_at_a_tablet_needs_a_person_with_a_fresh_pin():
+def test_sensitive_at_a_tablet_needs_no_person_and_no_pin():
+    # decision 25: a wall tablet alone acts on its role's grants (its room); nobody's PIN is asked
     at_tablet = dict(device_role="wall_tablet", device_id="loft_tablet", device_areas={"loft"})
-    assert decide(tablet(), "lock.unlock", "lock.balcony", ctx()).reason == "person_pin_required"
-    assert decide(tablet(fresh_factor_at=NOW), "lock.unlock", "lock.balcony", ctx()).reason == "person_pin_required"
-    assert decide(owner(**at_tablet), "lock.unlock", "lock.balcony", ctx()).reason == "step_up_required"
-    assert decide(owner(fresh_factor_at=NOW - 10, **at_tablet), "lock.unlock", "lock.balcony", ctx()).allowed
-    # the person's own rights still bind: a Child's fresh PIN does not unlock anything
-    d = decide(child(fresh_factor_at=NOW, **at_tablet), "lock.unlock", "lock.balcony", ctx())
-    assert (d.allowed, d.needs_step_up, d.reason) == (False, False, "explicit_deny")
-    # and the tablet's: the front door is not in the loft
-    d = decide(owner(fresh_factor_at=NOW, **at_tablet), "lock.unlock", "lock.front_door", ctx())
+    d = decide(tablet(), "lock.unlock", "lock.balcony", ctx())
+    assert (d.allowed, d.reason, d.sensitive) == (True, "granted", "lock")
+    assert decide(owner(**at_tablet), "lock.unlock", "lock.balcony", ctx()).allowed
+    # a person at the tablet is still person ∩ tablet: a Child is refused by their own role
+    d = decide(child(**at_tablet), "lock.unlock", "lock.balcony", ctx())
+    assert (d.allowed, d.reason, d.side) == (False, "explicit_deny", "user")
+    # and the tablet's room still binds: the front door is not in the loft
+    d = decide(tablet(), "lock.unlock", "lock.front_door", ctx())
+    assert (d.allowed, d.side) == (False, "device")
+    d = decide(owner(**at_tablet), "lock.unlock", "lock.front_door", ctx())
     assert (d.allowed, d.side) == (False, "device")
 
 
@@ -295,30 +296,36 @@ def test_user_grant_does_not_leak_to_the_device_side_and_back():
     assert not p.decide(tablet(), "light.turn_on", "light.kitchen", ctx()).allowed
 
 
-# -- step-up freshness ---------------------------------------------------------------------------------
-@pytest.mark.parametrize("fresh,allowed", [
-    (None, False), (NOW, True), (NOW - 299, True), (NOW - 300, True), (NOW - 301, False),
-    (NOW - 86400, False), (NOW + 5, False),
-])
-def test_step_up_freshness(fresh, allowed):
-    d = decide(adult(fresh_factor_at=fresh), "lock.unlock", "lock.front_door", ctx())
-    assert d.allowed is allowed
-    assert d.needs_step_up is (not allowed)
+# -- no step-up (decision 25) ----------------------------------------------------------------------
+@pytest.mark.parametrize("fresh", [None, NOW, NOW - 301, NOW - 86400, NOW + 5])
+def test_sensitive_actions_do_not_look_at_the_factor(fresh):
+    for action, eid in (("lock.unlock", "lock.front_door"), ("cover.open_cover", "cover.garage_door"),
+                        ("camera.live", "camera.doorbell"), ("valve.close_valve", "valve.water_main")):
+        d = decide(adult(fresh_factor_at=fresh), action, eid, ctx())
+        assert (d.allowed, d.reason) == (True, "granted"), (action, d)
 
 
-def test_step_up_window_and_exemptions_are_policy():
-    assert Policy(step_up_window=60).decide(adult(fresh_factor_at=NOW - 61), "lock.unlock", "lock.front_door",
-                                            ctx()).needs_step_up
-    p = Policy(step_up_exempt=frozenset({"camera"}))
-    assert p.decide(adult(), "camera.live", "camera.doorbell", ctx()).allowed
-    assert p.decide(adult(), "lock.unlock", "lock.front_door", ctx()).needs_step_up
+def test_the_policy_has_no_step_up_knobs():
+    for gone in ("step_up_window", "step_up_exempt"):
+        assert not hasattr(Policy(), gone)
+    assert not hasattr(rbac, "STEP_UP_WINDOW")
+    assert "sensitive_needs_person" not in rbac.Role.SWITCHES
+    # a stored override from before decision 25 that still carries the switch is accepted and ignored
+    r = DEFAULT_ROLES["wall_tablet"].overridden({"sensitive_needs_person": True})
+    assert r == DEFAULT_ROLES["wall_tablet"]
 
 
-def test_step_up_is_only_asked_when_it_would_help():
-    d = decide(child(fresh_factor_at=None), "lock.unlock", "lock.front_door", ctx())
-    assert not d.needs_step_up
-    d = decide(guest(door="tunnel"), "lock.unlock", "lock.front_door", ctx())
-    assert not d.needs_step_up
+def test_roles_and_deny_grants_still_refuse_sensitive_actions():
+    d = decide(child(), "lock.unlock", "lock.front_door", ctx())
+    assert (d.allowed, d.reason) == (False, "explicit_deny")
+    d = decide(child(), "cover.open_cover", "cover.garage_door", ctx())
+    assert (d.allowed, d.reason) == (False, "explicit_deny")
+    d = decide(guest(), "lock.unlock", "lock.front_door", ctx())
+    assert not d.allowed
+    p = Policy.build([Grant(effect="deny", actions="control.sensitive", resource_kind="entity",
+                            resource="lock.front_door", users={"ada"})])
+    d = p.decide(adult(fresh_factor_at=NOW), "lock.unlock", "lock.front_door", ctx())
+    assert (d.allowed, d.reason) == (False, "explicit_deny")
 
 
 # -- the tunnel (§7) -----------------------------------------------------------------------------------
@@ -330,9 +337,10 @@ def test_device_credentials_are_refused_on_the_tunnel(subject):
 
 
 @pytest.mark.parametrize("who", [owner, admin, adult])
-def test_sensitive_over_the_tunnel_for_owner_admin_adult_with_step_up(who):
-    assert decide(who(door="tunnel"), "lock.unlock", "lock.front_door", ctx()).reason == "step_up_required"
-    assert decide(who(door="tunnel", fresh_factor_at=NOW - 30), "lock.unlock", "lock.front_door", ctx()).allowed
+def test_sensitive_over_the_tunnel_for_owner_admin_adult_without_step_up(who):
+    # the role's tunnel_sensitive switch decides; no fresh factor is asked (decision 25)
+    assert decide(who(door="tunnel"), "lock.unlock", "lock.front_door", ctx()).allowed
+    assert decide(who(door="tunnel"), "cover.open_cover", "cover.garage_door", ctx()).allowed
     assert decide(who(door="tunnel"), "view", "camera.doorbell", ctx()).allowed
     assert decide(who(door="tunnel"), "history", "person.jamie", ctx()).allowed
 
@@ -343,7 +351,7 @@ def test_guest_sensitive_is_lan_only_unless_the_role_switch_is_on():
     p = Policy.build([g])
     assert p.decide(guest(fresh_factor_at=NOW), "lock.unlock", "lock.front_door", ctx()).allowed
     d = p.decide(guest(door="tunnel", fresh_factor_at=NOW), "lock.unlock", "lock.front_door", ctx())
-    assert (d.allowed, d.needs_step_up, d.reason) == (False, False, "tunnel_lan_only")
+    assert (d.allowed, d.reason) == (False, "tunnel_lan_only")
     p2 = Policy.build([g], overrides={"guest": {"tunnel_sensitive": True}})
     assert p2.decide(guest(door="tunnel", fresh_factor_at=NOW), "lock.unlock", "lock.front_door", ctx()).allowed
     # non-sensitive tunnel use is fine for a guest
@@ -583,7 +591,7 @@ def test_grant_round_trips_through_dicts():
 def test_default_roles_are_the_plan_table():
     assert rbac.ROLES == ("owner", "admin", "adult", "child", "guest", "wall_tablet", "service")
     assert all(not g.targets_anyone for r in DEFAULT_ROLES.values() for g in r.grants)
-    assert DEFAULT_ROLES["wall_tablet"].sensitive_needs_person
+    assert not hasattr(DEFAULT_ROLES["wall_tablet"], "sensitive_needs_person")
     assert [n for n, r in DEFAULT_ROLES.items() if r.tunnel_sensitive] == ["owner", "admin", "adult"]
     assert DEFAULT_ROLES["service"].grants == ()
 
