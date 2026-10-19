@@ -45,6 +45,7 @@ DOORS = ("lan", "tunnel")            # the doors a session row is stored with
 # stricter stored value; see docs/phase3/HA-APP.md) and only ever resolved through Ingress.
 REQUEST_DOORS = DOORS + ("ha",)
 INGRESS_METHOD = "ingress"
+APP_METHOD = "app"                   # the iPhone/iPad/Mac apps' credential (app_auth.py): never a cookie
 SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
 LOOPBACK_HOSTS = frozenset({"127.0.0.1", "localhost", "[::1]", "::1"})
 COOKIE_QUEUE = "mantel_cookie_queue"
@@ -222,7 +223,8 @@ class SessionManager:
         row = self.db.execute(self._ROW + "WHERE s.id = ?", (session_id,)).fetchone()
         return row if self._live(row, self._now(now), None) else None
 
-    def rotate(self, refresh_token: str | None, now: float | None = None, door: str | None = None):
+    def rotate(self, refresh_token: str | None, now: float | None = None, door: str | None = None,
+               allow_app: bool = False):
         """Use a refresh token. Returns (status, value):
 
         ``("ok", (Issued, row))`` new tokens; ``("grace", row)`` a parallel request just after a
@@ -239,6 +241,8 @@ class SessionManager:
         row = self.db.execute(self._ROW + "WHERE s.id = ?", (rt["session_id"],)).fetchone()
         if not self._live(row, now, door):
             return "invalid", None
+        if row["method"] == APP_METHOD and not allow_app:
+            return "invalid", None            # an app's family rotates only with its device key (app_auth.py)
         if rt["used"] is not None:
             if now - rt["used"] <= REFRESH_REUSE_GRACE:
                 return "grace", row
@@ -402,6 +406,10 @@ def identity(request: web.Request) -> Identity:
         else:
             for name in (ACCESS_COOKIE, REFRESH_COOKIE, CSRF_COOKIE):
                 queue_cookie(request, name, None)
+    if row is not None and row["method"] == APP_METHOD:
+        # an app's credential is DPoP-bound (app_auth.py) and only good with its device key: never as a cookie
+        log.warning("ignored an app credential presented as a cookie (from %s)", request.remote)
+        row = None
     if row is not None and row["method"] == INGRESS_METHOD:
         # an Ingress session is only good through Ingress (ingress.py resolves those): a copied cookie
         # presented anywhere else is no one

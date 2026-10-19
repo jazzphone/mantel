@@ -335,6 +335,7 @@ class Feed:
         self._subs: dict[int, tuple[Any, Callable[[dict], None]]] = {}
         self._n = 0
         self.sent: deque = deque(maxlen=LOG_KEEP)
+        self.taps: list[Callable[[dict], None]] = []   # every frame, besides the screens (push.py: phones)
 
     def subscribe(self, identity: Any, on_event: Callable[[dict], None]) -> Callable[[], None]:
         self._n += 1
@@ -357,6 +358,11 @@ class Feed:
                 n += 1
             except Exception:  # noqa: BLE001 -- one closed screen never stops the others
                 log.exception("a screen's event listener failed")
+        for tap in list(self.taps):
+            try:
+                tap(event)
+            except Exception:  # noqa: BLE001 -- a push failure never stops the screens'
+                log.exception("a feed tap failed")
         self.sent.append({"type": event.get("type"), "at": time.time(), "screens": n,
                           **{k: event.get(k) for k in ("popup", "tablet", "title", "item", "entity") if event.get(k)}})
         return n

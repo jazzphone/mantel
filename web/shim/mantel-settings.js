@@ -232,6 +232,7 @@ const STYLE = [
   '.mxflash.err{color:var(--hk-red)}',
   '.mxerr{color:var(--hk-red)}',
   '.cell.mxsecret{display:block;padding:12px 16px}',
+  '.cell.mxqr{display:flex;justify-content:center;padding:16px}.cell.mxqr img{width:min(280px,70vw);height:auto;border-radius:8px;background:#fff}',
   '.mxfile{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}',
   '.mxdlg .mxin{display:block;box-sizing:border-box;width:calc(100% - 32px);height:36px;margin:0 16px 16px;padding:0 10px;border:0;',
   '  border-radius:8px;background:var(--hk-fill);color:var(--hk-label);font:inherit;font-size:17px;text-align:center;letter-spacing:.2em;outline:none}',
@@ -333,12 +334,80 @@ function pMe(sub) {
         : 'Devices can only be enrolled on the home network.' }, [me.door === 'lan' ? nav('Make This Browser a Wall Tablet…', 'me/enroll', { icon: 'mdi:tablet' })
         : info('Make This Browser a Wall Tablet', null, 'Home Network Only')]));
     }
+    drawNotifications(c);
+    drawApps(c);
     drawPasskeys(c);
     drawTotp(c);
     c.appendChild(group({ footer: 'Optional, and not used for now: the only PIN is the house Alarm PIN, for the alarm.' }, [nav('My PIN', 'me/pin')]));
     // through Home Assistant's Ingress Home Assistant holds the sign-in: nothing to sign out of here
     if (!BASE) c.appendChild(group({ footer: 'Ends this browser’s session.' }, [button('Sign Out', signOut, { destructive: true, center: true, fk: 'mx:signout' })]));
   } };
+}
+// NOTIFICATIONS (push.py; docs/phase10/APPLE-APPS.md slice 10.0): this browser's Web Push, and every device that gets
+// this person's notifications. On an iPhone or iPad only the web app on the Home Screen can (iOS 16.4+).
+function drawNotifications(c) {
+  if (BASE) {
+    c.appendChild(group({ header: 'Notifications', footer: 'Inside Home Assistant, its Companion app delivers notifications. Open Mantel at its own address to get them from Mantel.' }, []));
+    return;
+  }
+  const here = load('pushhere', async () => {
+    const m = await import(mantelUrl('/web/app/push.js'));
+    const sub = await m.current();
+    return { m, on: !!sub, endpoint: sub ? sub.endpoint : null, supported: m.supported(), homeScreen: m.appleMobile() && !m.standalone() };
+  });
+  const ts = load('pushtargets', () => api('GET', '/api/push/targets'));
+  if (!here || !ts) { pending(c); return; }
+  if (ts.err) { failed(c, ts.err); return; }
+  const rows = [];
+  if (here.err) rows.push(info('This Browser', null, 'Unavailable'));
+  else if (!here.data.supported) rows.push(info('This Browser', here.data.homeScreen ? 'Add Mantel to your Home Screen (Share → Add to Home Screen), then open it from there.' : 'This browser cannot receive notifications.', 'Off'));
+  else {
+    const d = here.data;
+    rows.push(K().toggle({ label: 'Notifications Here', on: d.on, fk: 'mx:push-here',
+      onChange: (on) => act('me', () => (on ? d.m.enable(api, shortUA(navigator.userAgent)) : d.m.disable(api)),
+                            on ? 'Notifications turned on here.' : 'Notifications turned off here.', 'pushhere', 'pushtargets') }));
+  }
+  const list = ts.data.targets;
+  for (const t of list) {
+    rows.push(info(t.name || (t.kind === 'apns' ? 'Mantel App' : 'A Browser'), (t.kind === 'apns' ? 'App' : 'Web') + ' · ' + (t.service || '') + ' · last sent ' + ago(t.last_ok)));
+  }
+  const acts = list.length ? [button('Send a Test Notification', () => act('me', () => api('POST', '/api/push/test', {}), 'Test sent.'), { fk: 'mx:push-test' })] : [];
+  for (const t of list) {
+    acts.push(button('Stop Sending to ' + (t.name || 'This Device') + '…', async () => {
+      if (!(await ask({ title: 'Stop notifications there?', message: 'That device will no longer get Mantel’s notifications.', ok: 'Stop', destructive: true }))) return;
+      await act('me', () => api('DELETE', '/api/push/targets/' + encodeURIComponent(t.id)), 'Removed.', 'pushtargets', 'pushhere');
+    }, { destructive: true, fk: 'mx:push-del:' + t.id }));
+  }
+  c.appendChild(group({ header: 'Notifications', footer: 'The house’s notifications on your phone or computer, as well as on the screens. Only what you may see.' }, rows));
+  if (acts.length) c.appendChild(group({}, acts));
+}
+// APPS (app_auth.py; docs/phase10/APPLE-APPS.md §2): Mantel for iPhone, iPad and Mac signed in as this person, and
+// the pairing QR code (a one-time code, ten minutes, home network only) that signs a new one in without typing.
+function drawApps(c) {
+  const ap = load('apps', () => api('GET', '/api/app/devices'));
+  if (!ap) { pending(c); return; }
+  if (ap.err) { failed(c, ap.err); return; }
+  const list = ap.data.apps;
+  const rows = list.map((a) => info(a.name || 'Mantel App', [a.model, a.platform].filter(Boolean).join(' · ') +
+    (a.last_door ? ' · ' + (a.last_door === 'lan' ? 'home network' : 'away') : '') + ' · last seen ' + ago(a.last_seen) + ' · ends ' + fmt(a.expires)));
+  const pair = shown.pairing;
+  if (pair) {
+    rows.push(hh('div', { class: 'cell mxqr' }, [hh('img', { alt: 'Pairing code for the Mantel app', src: 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(pair.qr_svg) })]));
+    rows.push(info('Check Code', 'The app shows the same six digits.', pair.short_code));
+    rows.push(button('Done', () => { delete shown.pairing; redraw(); }, { fk: 'mx:pair-done' }));
+  } else {
+    rows.push(button(me.door === 'lan' ? 'Add iPhone, iPad or Mac…' : 'Add iPhone, iPad or Mac (Home Network Only)', () => act('me', async () => {
+      shown.pairing = await api('POST', '/api/app/pairing', {});
+    }), { fk: 'mx:pair', disabled: me.door !== 'lan' }));
+  }
+  c.appendChild(group({ header: 'Mantel App', footer: pair ? 'Scan this with the Mantel app (or the Camera) within ten minutes, on the home network. It works once.'
+    : 'The app signs in as you, on that device only, for 30 days.' }, rows.length ? rows : [info('No apps signed in')]));
+  if (list.length) {
+    c.appendChild(group({}, list.map((a) => button('Sign Out ' + (a.name || 'the App') + '…', async () => {
+      if (!(await ask({ title: 'Sign out this app?', message: 'It stops working at once, its widgets too.', ok: 'Sign Out', destructive: true }))) return;
+      await act('me', () => api('DELETE', '/api/app/devices/' + encodeURIComponent(a.id)), 'Signed out.', 'apps', 'pushtargets');
+    }, { destructive: true, fk: 'mx:app-out:' + a.id }))));
+  }
 }
 function drawPasskeys(c) {
   const pk = load('passkeys', () => api('GET', '/api/auth/passkeys'));

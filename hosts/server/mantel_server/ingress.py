@@ -961,9 +961,14 @@ def own_page(text: str, base: str) -> str:
     return inject_base(OWN_ATTR.sub(lambda m: f"{m.group(1)}={m.group(2)}{base}/{m.group(3)}", text), base)
 
 
+HOME_SCREEN_BLOCK = re.compile(r"<!-- home-screen:.*?<!-- /home-screen -->\n?", re.S)
+
+
 def inject_base(text: str, base: str, kiosk: bool = False) -> str:
     """The page's prefix for Mantel's own code (web/shim/base.js reads it); for a wall tablet that is its
     own HA user, also the kiosk mark (base.js then asks HA's frontend to hide its sidebar and header)."""
+    # the Home Screen tags (app_shell.py) are Mantel's own address's: through Ingress the page is HA's
+    text = HOME_SCREEN_BLOCK.sub("", text)
     meta = f'{REFERRER_META}\n<meta name="mantel-base" content="{html.escape(base)}">'
     if kiosk:
         meta += "\n" + KIOSK_META
