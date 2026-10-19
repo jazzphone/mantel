@@ -1,4 +1,4 @@
-"""Slice 10.0: the web app on the Home Screen and Web Push (app_shell.py, push.py, app_crypto.py, migration 0015).
+"""Slice 10.0: the web app on the Home Screen and Web Push (app_shell.py, push.py, app_crypto.py, migration 0016).
 
 No real push service is reached: the send goes to a fake HTTP session that decrypts the body with the
 fictional browser's key, as a browser would.
@@ -242,8 +242,8 @@ async def test_the_feed_taps_into_push(mantel):
     assert seen and seen[0]["title"] == "x"
 
 
-def test_migration_0015_makes_the_table():
-    sql = (ROOT / "hosts/server/mantel_server/migrations/0015_push.sql").read_text()
+def test_migration_0016_makes_the_table():
+    sql = (ROOT / "hosts/server/mantel_server/migrations/0016_push.sql").read_text()
     assert "CREATE TABLE push_targets" in sql and "endpoint  TEXT NOT NULL UNIQUE" in sql
 
 
