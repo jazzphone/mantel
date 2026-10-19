@@ -1,8 +1,8 @@
 """HK's screens and settings name the product after the host they run in (hkShell.productName, haPlace,
 haName, docsUrl: web/client/hk-host-shell.js). In Mantel they say Mantel; HK Frontend stays the name of
-the integration in Home Assistant, whose own places Mantel's text says are Home Assistant's; HK Frontend's
-wiki is not linked from Mantel. Home Assistant's answers (its text unchanged) are pinned by the HA build's
-tests/test_hostshell.js.
+the integration in Home Assistant, whose own places Mantel's text says are Home Assistant's; the docs
+links go to Mantel's own /docs (docs_pages.py). Home Assistant's answers (its text unchanged) are pinned by
+the HA build's tests/test_hostshell.js.
 
 Run in node with only the globals the files touch, and a source check that no shared label hard-codes the
 name again."""
@@ -63,8 +63,9 @@ def test_mantel_names_itself_and_says_home_assistants_places_are_home_assistants
     assert m["name"] == "HK Frontend device in Home Assistant"
 
 
-def test_mantel_links_no_hk_frontend_wiki(got):
-    assert got["mantel"]["docs"] is None and got["mantel"]["docsAnchor"] is None
+def test_mantel_links_its_own_docs_not_hk_frontends_wiki(got):
+    assert got["mantel"]["docs"] == "/docs/Sleep-Screen"
+    assert got["mantel"]["docsAnchor"] == "/docs/Your-Own-Dashboard#live-tv"
 
 
 def test_the_settings_words_follow_the_host(got):

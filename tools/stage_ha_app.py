@@ -94,6 +94,9 @@ def plan() -> list[tuple[Path, str]]:
     # the code is imported by every server, so it ships in every image, switched off
     pairs += _tree(ROOT / "hosts/server/mantel_connect", "app/hosts/server/mantel_connect")
     pairs += _tree(ROOT / "hk_core", "app/hk_core", keep=lambda p: p.suffix in (".py", ".md", ".json"))
+    # /docs (docs_pages.py): HK's pages and Mantel's own, where config.py looks for them
+    pairs += _tree(ROOT / "hosts/ha/custom_components/hk_frontend/docs", "app/help/hk")
+    pairs.append((ROOT / "packaging/ha-app/DOCS.md", "app/help/Mantel.md"))
     bs = _load_build_static()
     web = ROOT / "web"
     pairs += [(p, "app/web/" + p.relative_to(web).as_posix())
