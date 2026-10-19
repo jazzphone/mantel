@@ -1,5 +1,15 @@
 # Phase 3: tablet PINs, the audit API and retention, the trusted proxy, page settings saves (2026-10-18)
 
+> **Superseded by decision 25 (2026-10-18, docs/PLAN.md): the only PIN in Mantel is the house Alarm PIN
+> (set in HK Settings → Alarm PIN), and only for the alarm.** Everything below about a person's PIN at a
+> wall tablet, the PIN as a step-up factor, `step_up` inside a command, the PIN pad
+> (`web/shim/mantel-stepup.js`, deleted), `pins.identify` / `verify_user` / `any_pin`, `Authz.with_person`
+> and the gateway's `_step_up` / `_methods` is **history**: it was built and then removed. House commands
+> no longer ask for any PIN or fresh factor; roles and grants decide alone ([RBAC.md](RBAC.md)). What is
+> still current here: the audit read API, the retention window, the trusted proxy, the settings saves, the
+> optional personal PIN (`/api/account/pin`, "Me → My PIN", which nothing requires or checks) and the
+> alarm keypad section as rewritten below. A command carrying `step_up` is now refused `invalid_command`.
+
 Closes the Phase 3 items left open by P3.3 (`GATEWAY.md` "Not done") and P3.5 (`SETTINGS.md`
 "continuation"): **a person's PIN at a wall tablet** (PLAN §5: "sensitive actions require a person's
 PIN at the tablet"), the PIN as a step-up factor generally (§7), an **Owner/Admin audit read API** and the
@@ -13,15 +23,15 @@ House commands stay off by default and in every test except the scratch-HA e2e. 
 
 | File | What |
 |---|---|
-| `hosts/server/mantel_server/pins.py` | **New.** `Pins` (set/remove, `identify` at a tablet, `verify_user` on a person's own session, lockouts), `check_pin`, REST (`/api/account/pin`, `/api/users/{id}/pin`), `register` |
+| `hosts/server/mantel_server/pins.py` | **New.** `Pins` (set/remove, lockouts; `identify` / `verify_user` were removed by decision 25), `check_pin`, REST (`/api/account/pin`, `/api/users/{id}/pin`), `register` |
 | `hosts/server/mantel_server/migrations/0006_pins.sql` | **New.** `user_pins`, `pin_lockouts` |
 | `hosts/server/mantel_server/migrations/0007_audit_retention.sql` | **New.** `audit_purge` (the permit), `audit_maintenance` (append-only log), the new `action_audit_no_delete` trigger |
-| `hosts/server/mantel_server/gateway.py` | `step_up` (PIN) inside a command, `_methods` offers `pin`, `Audit.query` / `purge` / `maybe_purge`, `GET /api/audit` (`register_audit`) |
-| `hosts/server/mantel_server/authz.py` | `Authz.with_person` (person ∩ device for one command); `Principal.door` / `.fresh_factor_at` |
+| `hosts/server/mantel_server/gateway.py` | ~~`step_up` (PIN) inside a command, `_methods` offers `pin`~~ (removed by decision 25), `Audit.query` / `purge` / `maybe_purge`, `GET /api/audit` (`register_audit`) |
+| `hosts/server/mantel_server/authz.py` | ~~`Authz.with_person`~~ (removed by decision 25); `Principal.door` / `.fresh_factor_at` |
 | `hosts/server/mantel_server/server.py` | registers `pins` and the audit API; the policy tick applies the retention window (hourly) |
 | `hosts/server/mantel_server/config.py` | `audit_retention_days` (default 365, `--audit-retention-days`, at least 30) |
 | `packaging/docker/entrypoint.py`, `packaging/compose/compose.yaml`, `packaging/compose/caddy/Caddyfile` | `MANTEL_TRUSTED_PROXY` → `--trusted-proxy`; Caddy pinned at `172.31.251.2` on the backend network; Caddy proxies to the backend-only alias `mantel-backend` |
-| `web/shim/hub.js`, `web/shim/mantel-client.js`, `web/shim/mantel-stepup.js` | `hub.write` (settings saves), the client's save routing, the PIN pad and `detail.submit` |
+| `web/shim/hub.js`, `web/shim/mantel-client.js`, `web/shim/mantel-stepup.js` | `hub.write` (settings saves), the client's save routing, the PIN pad and `detail.submit` (the pad was removed by decision 25) |
 | `tests/test_pins.py` (24), `tests/test_audit_api.py` (24) | **New.** |
 | `tests/test_packaging.py` (+3), `tests/test_gateway_catalog.py` (+1), `tests/test_boundaries.py` (changed on purpose, below) | |
 | `tools/headless/client_smoke.py`, `tools/headless/gateway_page_check.py`, `tools/e2e/gateway_e2e.py` | extended (below) |
@@ -31,6 +41,9 @@ House commands stay off by default and in every test except the scratch-HA e2e. 
 applies each number not yet recorded, in order, so whichever lands first the others still apply.
 
 ## A person's PIN
+
+> Decision 25: a personal PIN is optional and unused for now. The REST and the admin page's "Me → My PIN"
+> stay; nothing requires or checks a personal PIN. The tablet and lockout rules below are history.
 
 * **Set from the person's own session**, with a fresh factor (signed in or stepped up within 5 min) and
   CSRF: `PUT /api/account/pin {"pin"}`, `DELETE /api/account/pin`, `GET /api/account/pin` (`{"pin": bool,
@@ -49,6 +62,9 @@ applies each number not yet recorded, in order, so whichever lands first the oth
   person** after 5. `pin_unavailable` answers are limited to **5 per person per 15 minutes** (429).
 
 ### At a wall tablet (the gateway)
+
+> **Removed by decision 25.** A wall tablet's sensitive command now goes straight to the roles and grants
+> (person-less: the tablet's own grants). No `step_up_required` reply, no PIN. History follows.
 
 ```
 -> {"type":"command","id":1,"kind":"service","domain":"lock","service":"unlock","target":{"entity_id":"lock.kitchen_door"}}
@@ -79,11 +95,16 @@ applies each number not yet recorded, in order, so whichever lands first the oth
 
 ### On a person's own session
 
+> **Removed by decision 25** (`verify_user`, the five-minute PIN freshness).
+
 `methods` includes `pin` when the person has one. The same `step_up` inside the command checks that
 person's PIN (`verify_user`), marks their session fresh (`fresh_factor = 'pin'`, so the next five
 minutes need no prompt, as with TOTP) and the command proceeds. Wrong PINs answer `pin_error`.
 
 ### The page (`web/shim/mantel-stepup.js`, `mantel-client.js`)
+
+> **Removed by decision 25.** `mantel-stepup.js` is deleted; `mantel-client.js` treats a
+> `step_up_required` reply (only an older server sends one) as a refusal, with no prompt.
 
 `hk-step-up-required` now carries `detail.submit(step)`: it sends the command again with the PIN and
 resolves `{ok: true}` (the command's answer settles the caller: result, or `forbidden` and the denied
@@ -95,19 +116,18 @@ N min.", "That PIN cannot be used here; ask an Owner." Checked in headless Chrom
 PIN kept it open with that message, the Child's PIN settled `forbidden` and closed it, the Adult's PIN
 unlocked and the audit row named "Offline Adult" at that tablet; 0 browser exceptions.
 
-### The alarm keypad (`Pins.keypad`, added 2026-10-18)
+### The alarm keypad (`Pins.keypad`, 2026-10-18; rewritten by decision 25)
 
 HK's alarm keypad sends the typed code inside the alarm command. The gateway takes the code out and
-`alarm_pin.py` asks `Pins.keypad` once, with GATEWAY.md "The alarm" giving the whole flow:
+`alarm_pin.py` checks it; GATEWAY.md "The alarm" gives the whole flow.
 
-* **What counts.** The house's Alarm PIN for that keypad (`alarm_pins.pin_hash`, Argon2id, set by an
-  Owner/Admin) or a person's PIN. At a tablet, or for linked mode, the PIN can name anyone; on a
-  session, only the signed-in person's own PIN. Both are always checked. A person beats the house code.
-  Two people with the same PIN, where it isn't the house code, are refused (`ambiguous`).
-* **Where wrong codes count.** Once per wrong code: at a tablet `device:<id>` (the same row as its PIN
-  pad, so the two share one lockout), on a session `keypad:user:<id>` (and the person's own PIN lock
-  also stops it), for linked mode `keypad:mantel:linked`, plus the per-IP limit. A right code resets the
-  place. A Child's correct PIN that RBAC then refuses doesn't count, as above.
+* **What counts.** Only the house's Alarm PIN for that keypad (`alarm_pins.pin_hash`, Argon2id, set by an
+  Owner/Admin). A person's own PIN is not accepted at the keypad (if it has the same digits as the Alarm
+  PIN, it is the Alarm PIN that matched). Linked mode takes only the house code too.
+* **Where wrong codes count.** Once per wrong code, at the place it was typed (a tablet `device:<id>`, a
+  session `keypad:user:<id>`, linked mode `keypad:mantel:linked`), plus the per-IP limit: 5 wrong in a row
+  lock that place for 15 minutes; 20 per IP per 15 minutes. A right code resets the place. RBAC is decided
+  first, so a Child's code that RBAC refuses is never looked at or counted.
 * **Never stored or shown.** The code isn't in the audit, the log, the reply or the frame sent to HA. The
   alarm's own HA code (`alarm_pins.ha_code`) is sealed with Mantel's key, and only the gateway opens it
   to build the frame.
@@ -118,7 +138,7 @@ HK's alarm keypad sends the typed code inside the alarm command. The gateway tak
 
 * newest first; `limit` 1–500 (default 100); `next` is the `before` (id cursor) of the next page, or
   null; `target` comes back as the JSON list; `retention_days` says the window;
-* filters: `actor` (user id), `device` (device id), `decision` (`allowed|denied|step_up`), `kind`
+* filters: `actor` (user id), `device` (device id), `decision` (`allowed|denied`; older rows may say `step_up`), `kind`
   (`service|ws|http|ma|config|system`), `since` / `until` (epoch seconds, `until` exclusive);
   anything else malformed is `400 {"error":"invalid_query","param":...}`;
 * **who**: a signed-in user whose subject may `configure` the feature `audit`, so with the default roles
@@ -169,6 +189,9 @@ commands on: never through the gateway); every house command is still refused or
 
 ## E2E against the scratch HA (`tools/e2e/gateway_e2e.py`)
 
+> History: this run (38/38) exercised the tablet PIN pad, which decision 25 removed. The e2e script has
+> since been changed to match; its checks and the audit rows below no longer describe current behaviour.
+
 Run 2026-10-18 on this branch: **38/38 checks passed** (the 24 of P3.3 plus 14 new). New checks:
 
 ```
@@ -210,6 +233,8 @@ lock.lock, lock.lock, lock.unlock, persistent_notification.create, lock.lock`. T
   `OfflineReads(app, identity)`; fixed here and extended with the PIN pad and the commands-on save).
 * `tools/e2e/gateway_e2e.py` → 38/38.
 
+(Counts and the tablet-PIN coverage below are as of the original slice; decision 25 removed the tablet and step-up cases from these tests.)
+
 Covered by `tests/test_pins.py`: PIN rules; set/change/remove from the person's session, hashed; needs a
 fresh factor, CSRF and a person (a tablet cannot); no shared PINs and the probing limit (429, then
 fine after the window); Owner/Admin clearing; Adult's PIN at a tablet unlocks, the audit names the
@@ -230,6 +255,8 @@ is the settings save through `hub.write`), and pins that the latter has no `call
 `liveSocket` or `hub.command`.
 
 ## Decisions (made here; Avery may revisit)
+
+> Decisions 1 to 5 concern the tablet PIN and were overtaken by decision 25. 6 to 8 still stand.
 
 1. **The PIN travels inside the command** (`step_up`), not through a separate REST step-up: the person
    is named and the command decided in one step, nothing about a "person at the tablet" is held
@@ -258,6 +285,5 @@ is the settings save through `hub.write`), and pins that the latter has no `call
 * **HA App mode**: requests arrive through Supervisor's Ingress proxy; the entrypoint passes no
   `--trusted-proxy` there yet (so every request is `tunnel`, fail closed). Decide how the App's doors
   map (Ingress has no wall-tablet door) before tablets use the App.
-* PIN management UI in HK Settings (the REST is there; nothing in the page sets a PIN yet).
-* An Owner notification for repeated PIN lockouts at a tablet (logged as a warning today).
+* Personal PINs: the REST and "Me → My PIN" exist; nothing uses them (decision 25).
 * The image build/run still waits for Docker.

@@ -39,7 +39,7 @@ REFUSED_WARN_EVERY = 300.0
 
 def _warn_refused(entity_id: str, now: Callable[[], float] | None = None) -> None:
     """A refused live view, logged once per camera every REFUSED_WARN_EVERY seconds: a page whose live
-    tiles are refused (the 'ha' door's tunnel rules without a step-up) asks again and again."""
+    tiles are refused (e.g. a role whose cameras are off on the tunnel) asks again and again."""
     t = (now or time.monotonic)()
     if t - _refused_at.get(entity_id, float("-inf")) >= REFUSED_WARN_EVERY:
         if len(_refused_at) > 256:

@@ -18,7 +18,7 @@ sidebar: Home Assistant signs you in, and Mantel shows you what your Mantel role
 
 | Option | Default | Meaning |
 |---|---|---|
-| `commands_enabled` | `false` | Read-only until you turn this on. When on, people may control the house through Mantel within their roles; locks and alarms need a step-up (PIN or code) and every command is audited. |
+| `commands_enabled` | `false` | Read-only until you turn this on. When on, people may control the house through Mantel within their roles; only the alarm needs a code (the house Alarm PIN, set in HK Settings) and every command is audited. |
 | `log_level` | `info` | `debug`, `info`, `warning` or `error`. |
 | `default_screen` | `dashboard-kitchen` | The HK dashboard the sidebar opens. |
 | `ha_door_rules` | `trusted` | `trusted`: being signed in to Home Assistant is enough, as HK in Home Assistant always was. Cameras, locks and the alarm work in the sidebar and the Companion app without a Mantel code; each person's Mantel role still decides what they may do, and everything is audited. `lan`: the home network's rules (a code for locks and the alarm). `tunnel`: Mantel's remote-access rules (each role's remote switches, a recent code for live cameras and sensitive actions). |
@@ -42,8 +42,9 @@ Each wall tablet is its own Home Assistant user, signed in by `trusted_networks`
    tablet uses today). Nothing else changes on the tablet.
 
 The tablet opens on its own HK screen, full screen (Mantel asks Home Assistant to hide its sidebar and
-header for tablets only). Nobody is signed in on it: anything sensitive asks for a person's PIN at the
-tablet. To go back, set the start URL back to the tablet's Home Assistant dashboard.
+header for tablets only). Nobody is signed in on it: it may do what its role allows (its room, the
+doorbell), with no PIN; only the alarm asks for a code, the house Alarm PIN.
+To go back, set the start URL back to the tablet's Home Assistant dashboard.
 
 ## Security notes
 

@@ -40,10 +40,10 @@ def test_the_clip_is_one_gateway_command_the_server_accepts(observed):
     assert observed["ok"] == {"status": 200, "ok": True, "body": json.dumps({"ok": True, "bytes": 70000}, separators=(",", ":"))}
 
 
-def test_a_step_up_resends_the_same_clip(observed):
-    first, again = observed["stepUpSent"]
-    assert first == again and first["content_type"] == "audio/mp4"
-    assert observed["stepUp"]["ok"] is True
+def test_a_step_up_reply_is_a_refusal_with_no_prompt_and_no_resend(observed):
+    (only,) = observed["stepUpSent"]                     # decision 25: nothing asks for a PIN or a factor
+    assert only["content_type"] == "audio/mp4"
+    assert observed["stepUp"] == {"error": "step_up_required"} and observed["stepUpPrompted"] == 0
 
 
 def test_refusals_answer_as_the_card_expects(observed):

@@ -4,7 +4,7 @@ How to run Mantel Server and look after it: first start, people and tablets, com
 
 **Status as of 2026-10-18.** Mantel Server is built and tested offline and against a scratch Home Assistant. It has not been deployed on the house, and the container images have never been built (Docker is not installed on the development Mac). Everything below that depends on Docker or Proxmox is written from the files and their static checks and is marked **(unverified)** where a first real run may change it. "Known gaps" at the end lists what is missing today. Pages that are **in progress** and not written yet: `HA-APP.md` (the App's Ingress mode), `ADMIN-PAGE.md` (managing people and tablets in the page) and `BACKUP-FILES.md` (backups and "your files").
 
-Contents: [1](#1-the-parts-and-the-two-doors) parts and doors · [2](#2-running-the-server) running · [3](#3-the-first-owner) first Owner · [4](#4-linking-home-assistant-users) linking HA users · [5](#5-wall-tablets-accounts-enrolment-pins) tablets and PINs · [6](#6-service-accounts-for-linked-mode) service accounts · [7](#7-importing-hks-settings-from-home-assistant) settings import · [8](#8-enabling-commands) enabling commands · [9](#9-reading-the-audit-log) audit · [10](#10-backups-and-restore) backups · [11](#11-updating-mantel) updating · [12](#12-installing-hk-builds-into-home-assistant) HK builds · [13](#13-the-scratch-home-assistant) scratch HA · [14](#14-troubleshooting) troubleshooting · [15](#15-known-gaps) gaps.
+Contents: [1](#1-the-parts-and-the-two-doors) parts and doors · [2](#2-running-the-server) running · [3](#3-the-first-owner) first Owner · [4](#4-linking-home-assistant-users) linking HA users · [5](#5-wall-tablets-accounts-enrolment-pins-optional) tablets · [6](#6-service-accounts-for-linked-mode) service accounts · [7](#7-importing-hks-settings-from-home-assistant) settings import · [8](#8-enabling-commands) enabling commands · [9](#9-reading-the-audit-log) audit · [10](#10-backups-and-restore) backups · [11](#11-updating-mantel) updating · [12](#12-installing-hk-builds-into-home-assistant) HK builds · [13](#13-the-scratch-home-assistant) scratch HA · [14](#14-troubleshooting) troubleshooting · [15](#15-known-gaps) gaps.
 
 ## 1. The parts and the two doors
 
@@ -291,7 +291,7 @@ docker compose exec mantel-server mantel connect revoke --id <id>
 * The connection test is the App's page `/__mantel_connect/status` (inside the sidebar). A plain page in place of
   Mantel says what is wrong. `mantel connect status` shows the server's side.
 
-## 5. Wall tablets: accounts, enrolment, PINs
+## 5. Wall tablets: accounts, enrolment, PINs (optional)
 
 A wall tablet is a **device** with its own role (`wall_tablet`, scoped to its room), not a person. The design (PLAN §7) replaces `trusted_networks` and `allow_bypass_login`:
 
@@ -307,17 +307,17 @@ When Mantel runs as the HA App, a tablet is **not enrolled**: it keeps its own H
 
 1. **Link** (Owner, in the sidebar): People → the tablet's HA user → **Link as a wall tablet**, *a new device* (or an existing wall-tablet device) and its room. REST: `POST /api/ingress/tablets {"ha_user_id": "...", "room": "loft"}` (`device_id` to reuse a device, `name` to name a new one); `GET /api/ingress/tablets`; `DELETE /api/ingress/tablets/<ha user id>`. Audited (`ingress.link_tablet` / `ingress.unlink_tablet`). A person link of the same HA user is replaced; the last Owner cannot be turned into a tablet.
 2. **Start URL** in Kiosk Satellite: `http://<HA's address, as today>:8123/app/local_mantel` (HA's own App panel; the same for every tablet). The tablet opens on its own HK screen (its Tablet User in HK's settings), and Mantel asks HA's frontend to hide the sidebar and header.
-3. **Rules:** with `ha_door_rules` `trusted` (default) or `lan` the tablet gets the LAN door's tablet rules: its room, every camera, and a **person's PIN at the tablet** for anything sensitive (below). With `tunnel` linked tablets are refused ("Wall tablets are off for the sidebar"). A device *credential* (the LAN enrolment's cookie) is never accepted through the sidebar.
+3. **Rules:** with `ha_door_rules` `trusted` (default) or `lan` the tablet gets the LAN door's tablet rules: its room, every camera, and sensitive commands decided by the tablet's own grants. No PIN is asked for them (decision 25, docs/PLAN.md; "A person's PIN" below). With `tunnel` linked tablets are refused ("Wall tablets are off for the sidebar"). A device *credential* (the LAN enrolment's cookie) is never accepted through the sidebar.
 4. **Unlink** ends it at once for new requests (open sockets at the next minute's check); a device made for the link is revoked. **Rollback** of a tablet is its start URL back to its HA dashboard (and its ownership back to HA in linked mode).
 
-### A person's PIN at a tablet
+### A person's PIN (optional, unused)
 
-At a wall tablet nobody is signed in, so a sensitive action (unlock, disarm, garage) asks for **a person's PIN**. The server finds which person it belongs to, decides that one command as *person ∩ tablet*, and writes the audit row with the person's name and the tablet.
+**Decision 25 (2026-10-18, docs/PLAN.md): the only PIN in Mantel is the house Alarm PIN, and only for the alarm.** A wall tablet no longer asks for a person's PIN for an unlock or the garage: roles and grants decide, and every command is audited first. Disarming still needs the house Alarm PIN (set in HK Settings → Alarm PIN); see the alarm notes in [phase3/GATEWAY.md](phase3/GATEWAY.md).
 
-- **Set** from the person's own session, with a fresh factor and CSRF: `api -X PUT "$B/api/account/pin" -d '{"pin":"2580"}'`. Remove: `DELETE /api/account/pin`. An Owner or Admin can clear someone's: `DELETE /api/users/<id>/pin`.
-- **Rules:** 4 to 8 digits, not a repeated digit, not a straight run; stored only as an Argon2id hash; a PIN names exactly one person, so a PIN already in use is refused (`pin_unavailable`).
-- **Lockouts:** 5 wrong PINs in a row lock **that tablet's pad** for 15 minutes (even the right PIN is refused; the lock survives a restart); each source IP may fail 20 times per 15 minutes. A child's correct PIN is refused by the child's own role and does not count against the tablet. A child can lock a pad for 15 minutes with five wrong PINs; adults can still use their phones.
-- The PIN pad appears only once at least one person has a PIN. Nothing in the page sets a PIN yet: it is REST only.
+A person may still set a personal PIN, but nothing requires or checks it:
+
+- **Set** from the person's own session, with a fresh factor and CSRF: `api -X PUT "$B/api/account/pin" -d '{"pin":"2580"}'` (also "Me → My PIN" on the admin page). Remove: `DELETE /api/account/pin`. An Owner or Admin can clear someone's: `DELETE /api/users/<id>/pin`.
+- **Rules:** 4 to 8 digits, not a repeated digit, not a straight run; stored only as an Argon2id hash; a PIN already in use is refused (`pin_unavailable`).
 
 Details: [phase3/PINS-AUDIT.md](phase3/PINS-AUDIT.md), [phase3/ACCOUNTS.md](phase3/ACCOUNTS.md).
 
@@ -403,11 +403,11 @@ When on, every command goes through the gateway (GATEWAY.md):
 
 1. **Who:** the session's person and/or the tablet's device. Effective permission is the **intersection** of the two.
 2. **RBAC:** deny by default, explicit deny wins, grants may carry time windows. Services that can reach many things (area, device or floor targets, `entity_id: all`) are refused; entity-less services other than notifications and scripts need `configure` on settings (Owner/Admin).
-3. **Step-up** for sensitive actions (locks, alarm disarm, garage, water valves, camera live view on the tunnel, and so on): a fresh factor within 5 minutes. Authenticator code or passkey for a person; a **person's PIN** at a wall tablet. A sign-in counts as fresh for five minutes. On the tunnel, Owner/Admin/Adult may do it, with an Owner notification on every remote lock or alarm action; Child and Guest are LAN-only by default.
+3. **No step-up** (decision 25, docs/PLAN.md). Sensitive actions (locks, garage, water valves, automations, scripts, camera live view, talk-back) ask for no PIN and no fresh factor, on any door; the roles and grants decide. On the tunnel the roles' tunnel switches still apply: Owner/Admin/Adult may do it, with an Owner notification on every remote lock or alarm action; Child and Guest are LAN-only by default. The alarm keeps its code: disarming (and arming, if "Require the PIN to arm" is on) needs the house Alarm PIN, the same on every door.
 4. **Audit before send:** the row is written first; if it cannot be written, the command is refused (`audit_unavailable`). Service data (which can carry an alarm code) is never stored.
 5. **Forward** with Mantel's own HA credential, one ticket per audit row, spent once.
 
-Decisions you may want to revisit are listed at the end of GATEWAY.md (camera live view needs no step-up on the LAN door; every wall tablet may view every camera, so the doorbell pop-up shows everywhere).
+Decisions you may want to revisit are listed at the end of GATEWAY.md (every wall tablet may view every camera, so the doorbell pop-up shows everywhere).
 
 ## 9. Reading the audit log
 
@@ -420,9 +420,9 @@ api "$B/api/audit?device=<device id>&kind=service"
 api "$B/api/audit?limit=100&before=<next from the last page>"   # paging
 ```
 
-Filters: `actor` (user id), `device`, `decision` (`allowed|denied|step_up`), `kind` (`service|ws|http|ma|config|system`), `since`, `until`, `before`, `limit` (1 to 500). Each row has the person (id, name, role at the time), the device, the action and target, the decision and reason, whether it was sensitive, the door, the source IP, the factor used and its age, and the `result` (`ok`, `error:<code>`, or `not_sent` for denials and step-up rows). Rows for `kind=config` are RBAC changes. `actor=mantel`, `kind=system` rows are the server's own (Owner notifications, the retention purge).
+Filters: `actor` (user id), `device`, `decision` (`allowed|denied`; rows from before decision 25 may say `step_up`), `kind` (`service|ws|http|ma|config|system`), `since`, `until`, `before`, `limit` (1 to 500). Each row has the person (id, name, role at the time), the device, the action and target, the decision and reason, whether it was sensitive, the door, the source IP, the factor used and its age, and the `result` (`ok`, `error:<code>`, or `not_sent` for denials). Rows for `kind=config` are RBAC changes. `actor=mantel`, `kind=system` rows are the server's own (Owner notifications, the retention purge).
 
-What to look for: a `denied` row with an unexpected person; `step_up` followed by no `allowed` (someone hit Cancel, or cannot answer); `pin_invalid` / `pin_locked` at a tablet; `tunnel` door rows for locks; `error:` results (HA refused). Rows are append-only: nothing can edit or delete one, except that the hourly retention step deletes rows older than the window (365 days by default, at least 30), and it records every purge in two places. The SQLite triggers do not protect against someone who can replace the whole file, so keep the file's permissions and backups tight.
+What to look for: a `denied` row with an unexpected person; repeated wrong Alarm PINs at a keypad (the keypad locks that place for 15 minutes); `tunnel` door rows for locks; `error:` results (HA refused). Rows are append-only: nothing can edit or delete one, except that the hourly retention step deletes rows older than the window (365 days by default, at least 30), and it records every purge in two places. The SQLite triggers do not protect against someone who can replace the whole file, so keep the file's permissions and backups tight.
 
 ## 10. Backups and restore
 
@@ -543,11 +543,11 @@ Then restart HA and reload the tablets. Or restore the backup from step 2.
 
 **Every wall tablet is refused, or every request counts as the tunnel.** The LAN door is believed only from a proxy listed with `--trusted-proxy`, and only when that proxy sends `X-Mantel-Door: lan`. Behind Caddy that is `MANTEL_TRUSTED_PROXY` (Caddy's fixed backend address); with it unset the entrypoint warns and fails closed. Behind your own proxy, `MANTEL_TRUSTED_PROXY` must be the proxy's address as Mantel sees it and the proxy must send the header: open `/proxy-check` as the Owner. Tablet device credentials, Service accounts and device enrolment are all refused on `tunnel` (`403 lan_only`).
 
-**A wall tablet's PIN pad says "try again in N min".** It is locked after 5 wrong PINs for 15 minutes; even the right PIN is refused until then. It survives a restart. Wait, or clear the lockout row in `pin_lockouts` with the server stopped.
+**An alarm keypad says "try again in N min".** After 5 wrong Alarm PINs in a row that place (a tablet, a session, linked mode) is locked for 15 minutes, and a source IP may fail 20 times per 15 minutes; even the right PIN is refused until then. It survives a restart. Wait, or clear the lockout row in `pin_lockouts` with the server stopped.
 
 **`commands_disabled` in the browser console.** Working as designed: the server is running without `--commands-enabled`, so the page's client sends nothing. Settings saves are the exception and still work. This is also what the scratch checks look for as proof that nothing leaks.
 
-**A command answers `forbidden`, or the step-up prompt keeps appearing.** The reason is in the answer (`no_grant`, `explicit_deny`, `tunnel_lan_only`, `person_pin_required`, ...) and in the audit row. A step-up is good for 5 minutes from the factor. A tablet alone needs a person's PIN, and nobody has a PIN until one is set.
+**A command answers `forbidden`.** The reason is in the answer (`no_grant`, `explicit_deny`, `tunnel_lan_only`, ...) and in the audit row. There is no step-up prompt for house commands (decision 25); a command that carries a `step_up` field is refused `invalid_command`. An alarm command that needs a code on an alarm with no Alarm PIN set answers `alarm_pin_not_set`: set it in HK Settings → Alarm PIN.
 
 **`/healthz` says `degraded`.** The link to Home Assistant is down: check `--ha-url`, the token file (a missing file stops the server at start with a message), that the HA user still exists and is an administrator, and the DMZ firewall rules from the Mantel container to HA's `:8123`.
 

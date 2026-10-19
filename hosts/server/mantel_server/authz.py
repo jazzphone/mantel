@@ -9,12 +9,10 @@ filter (view.py), the connectors (P3.4) and the command gateway (P3.3) decide wi
 * **The principal.** One per client connection (``Principal``): the session's Identity, the Subject
   built from it (roles, ids, door, ``fresh_factor_at``, the stored area scopes; a tablet with no
   stored scope gets its enrolled room), and the source IP. ``refresh`` re-reads the session and the
-  device from the database, so a step-up, a role change or a revocation counts at the next command
+  device from the database, so a role change or a revocation counts at the next command
   (and on the once-a-minute tick for what a socket may see).
-* **The house policy.** The stored policy (``RbacStore.policy()``) plus two house decisions, both
-  recorded in docs/phase3/GATEWAY.md:
-    - camera live view needs no step-up on the LAN door (the doorbell pop-up on the wall tablets
-      must open without a PIN); on the tunnel the rules are unchanged;
+* **The house policy.** The stored policy (``RbacStore.policy()``) plus the house grants recorded in
+  docs/phase3/GATEWAY.md (there is no step-up on any door, decision 25):
     - a wall tablet may view and live-view every camera (the doorbell pop-up shows on all tablets,
       whatever room the doorbell is in). Devices are refused on the tunnel door anyway.
 * **Hooks** for ``connectors.Hooks``: ``may_read(principal, kind, ids)``, ``may_view(principal, eid)``.
@@ -40,8 +38,6 @@ DOOR_HEADER = "X-Mantel-Door"
 ENTITY_ID = re.compile(r"^[a-z0-9_]+\.[a-z0-9_]+$")
 # P3.4's feature names that are not RBAC features: media browsing is decided as music.
 FEATURE_ALIASES = {"media": "music"}
-# Sensitive kinds that skip step-up on the LAN door only (decision recorded in GATEWAY.md).
-LAN_STEP_UP_EXEMPT = frozenset({"camera"})
 # House grants added to the stored policy (decision recorded in GATEWAY.md).
 HOUSE_GRANTS: tuple[Grant, ...] = (
     Grant(effect="allow", actions=("view", "control.sensitive"), resource_kind="feature", resource="cameras",
@@ -173,8 +169,7 @@ class Authz:
 
     def context(self) -> Context:
         """Registry lookups and the exact time. The lookups (which read the live registry) are built
-        once per zone and registry; the time is always now (a step-up must count at once: a factor
-        stamped later than a cached `now` would look like one from the future)."""
+        once per zone and registry; the time is always now (a schedule window must count at once)."""
         now = self.clock()
         key = (self.tz, id(self.hub.registry), id(self.hub.store))
         cached = self._ctx
@@ -189,8 +184,7 @@ class Authz:
         cached = self._derived.get(subject.door)
         if cached is not None and cached[0] is base:
             return cached[1]
-        exempt = base.step_up_exempt | (LAN_STEP_UP_EXEMPT if subject.door == "lan" else frozenset())
-        got = replace(base, grants=tuple(base.grants) + HOUSE_GRANTS, step_up_exempt=exempt)
+        got = replace(base, grants=tuple(base.grants) + HOUSE_GRANTS)
         self._derived[subject.door] = (base, got)
         return got
 
@@ -244,14 +238,15 @@ class Authz:
         return mode if mode in ("trusted", "lan", "tunnel") else "tunnel"
 
     def ha_trusted(self, ident: sessions.Identity) -> bool:
-        """A person through HA's sidebar when the sidebar is trusted: HA's own sign-in is the factor
-        (no Mantel step-up), as HK in HA never asked for one. Roles still decide what they may do."""
+        """A person through HA's sidebar when the sidebar is trusted: HA's own sign-in counts as a fresh
+        sign-in (for account administration) and the "remote access" notice is not sent, as HK in HA never
+        had either. Roles still decide what they may do."""
         return ident.door == "ha" and ident.user is not None and self.ha_door_mode() == "trusted"
 
     def ha_tablet(self, ident: sessions.Identity) -> bool:
         """A wall tablet that is its own HA user (ingress.py ``ha_tablet_links``), through HA's sidebar
         with the home rules (``trusted`` or ``lan``): the LAN door's tablet in every respect -- the same
-        RBAC rules, a person's PIN at it for anything sensitive, and no "remote access" notice to the
+        RBAC rules (its role's grants decide, with no PIN), and no "remote access" notice to the
         Owners. Its trust root is the HA user Ingress vouches for (HA's trusted_networks sign-in on the
         tablet), never a device credential. With ``tunnel`` rules ingress.py refuses such a tablet."""
         d = ident.device
@@ -288,15 +283,6 @@ class Authz:
         p = Principal(ident, self.subject_of(ident), sessions.client_ip(request))
         p.gate = rbac.Gate(lambda: self.policy_for(p.subject), p.subject, self.context)
         return p
-
-    def with_person(self, p: Principal, person: sessions.User, factor: str = "pin") -> Principal:
-        """A person who just proved themselves at this device (their PIN at a wall tablet), for ONE
-        command: the device's principal with that person as the user and a factor fresh now, so the
-        engine decides person ∩ device. Nothing is stored; the socket keeps its own principal."""
-        ident = replace(p.identity, user=person, fresh_factor_at=self.clock(), fresh_factor=factor,
-                        session_id=None, csrf=None)
-        return Principal(ident, self.subject_of(ident), p.source_ip, gate=None, valid=p.valid,
-                         extra={"person_at_device": True})
 
     def refresh(self, p: Principal) -> bool:
         """Re-read the session and device rows. False (and ``p.valid`` cleared) when either is gone."""
@@ -358,10 +344,9 @@ class Authz:
         return self.decide(principal.subject, "camera.live", entity_id).allowed is True
 
     def may_still(self, principal: Any, entity_id: str) -> bool:
-        """A camera still (``GET /api/camera/<entity>/still``): the live-view policy minus step-up.
-        The subject may ``view`` the camera, and ``camera.live`` is allowed or only waits for a fresh
-        factor; the door's camera rules (the tunnel's ``tunnel_cameras``) refuse as they do for live
-        view. Exactly True or False."""
+        """A camera still (``GET /api/camera/<entity>/still``): the live-view policy. The subject may
+        ``view`` the camera and ``camera.live`` is allowed; the door's camera rules (the tunnel's
+        ``tunnel_cameras``) refuse as they do for live view. Exactly True or False."""
         if not isinstance(principal, Principal) or not principal.valid or not isinstance(entity_id, str):
             return False
         if not ENTITY_ID.match(entity_id) or not entity_id.startswith("camera."):
@@ -370,7 +355,7 @@ class Authz:
         if not self.decide(principal.subject, "view", entity_id, ctx=ctx).allowed:
             return False
         live = self.decide(principal.subject, "camera.live", entity_id, ctx=ctx)
-        return bool(live.allowed or live.needs_step_up)
+        return live.allowed is True
 
     def may_see(self, principal: Any, entity_id: str) -> bool:
         """Plain ``view`` of one entity (no camera live-view rules, unlike ``may_view``) for a route that serves something of it (media artwork).

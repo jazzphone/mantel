@@ -5,8 +5,8 @@
 // Ingress path; '' everywhere else).
 // One WebSocket. Frames the page receives: snapshot / diff (states), read_result / read_event
 // (the server's filtered reads), settings_result (HK's own settings saves, `write`), error, and --
-// only on a server whose operator turned the command gateway on -- capabilities, command_result and
-// step_up_required. On a server with commands off
+// only on a server whose operator turned the command gateway on -- capabilities and command_result
+// (step_up_required only from an older server; refused by mantel-client.js). On a server with commands off
 // (the default) nothing the page sends can change anything: the server answers every command with
 // `commands_disabled`, never says `capabilities`, and the page offers no actions at all.
 import { wsUrl } from './base.js';
@@ -16,7 +16,7 @@ export class Hub {
     this.ws = null;
     this.nextId = 1;
     this.pending = new Map();      // id -> {resolve, reject, cb, command}
-    this.capabilities = null;      // the server's {commands, step_up_window, door}, when it sends one
+    this.capabilities = null;      // the server's {commands, door}, when it sends one
     this.onSnapshot = () => {};
     this.onDiff = () => {};
     this.onCapabilities = () => {};
@@ -136,8 +136,7 @@ export class Hub {
   // true only after this socket's server said so (capabilities); never assumed
   commandsEnabled() { return !!(this.capabilities && this.capabilities.commands === true); }
 
-  // one gateway command ({kind, ...}); resolves with the server's reply (command_result or
-  // step_up_required). Refused here, sending nothing, unless the server enabled commands.
+  // one gateway command ({kind, ...}); resolves with the server's reply (command_result). Refused here, sending nothing, unless the server enabled commands.
   command(body) {
     if (!this.commandsEnabled()) {
       return Promise.resolve({ type: 'command_result', error: { code: 'commands_disabled', message: 'commands are disabled' } });

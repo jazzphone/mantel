@@ -151,7 +151,7 @@ def test_mantel_host_has_no_action_transport():
     assert "port.refused" not in live and "stepUp(" not in live and "settle(" not in live
     assert body.count("liveSocket") == 1
     assert "talkUrl() { return wsUrl('/ws/talk'); }" in (ROOT / "web/shim/hub.js").read_text()
-    saves = code("function savesOn", "// STEP-UP")
+    saves = code("function savesOn", "// NO STEP-UP")
     assert "save(hub, msg)" in saves and "isSave(msg)" in saves and "commands_disabled" in saves
     assert "hub.command(" not in saves and "callService" not in saves and "request:" not in saves
     assert "liveSocket:" not in saves and "fetch(" not in saves and "WebSocket" not in saves

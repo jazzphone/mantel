@@ -290,25 +290,34 @@ async def test_the_tablet_gets_the_lan_tablet_rules_and_device_credentials_stay_
     subj = authz.subject_of(ident)
     assert subj.door == "lan" and subj.device_areas == frozenset({"kitchen"}) and subj.fresh_factor_at is None
     assert authz.ha_tablet(ident) and not authz.ha_trusted(ident)
-    # its room's light: yes; another room's: no; a lock: only with a person's PIN
+    # its room's light: yes; another room's: no; its room's lock: yes, with no PIN (decision 25)
     assert authz.decide(subj, "control", "light.kitchen").allowed is True
     assert authz.decide(subj, "control", "light.cody").allowed is not True
-    lock = authz.decide(subj, "control.sensitive", "lock.kitchen_door")
-    assert lock.allowed is not True
+    assert authz.decide(subj, "control.sensitive", "lock.kitchen_door").allowed is True
+    assert authz.decide(subj, "control.sensitive", "lock.front_door").allowed is not True
     # a device credential (a LAN tablet's cookie) is still never accepted on the 'ha' door
     dev_id, secret, _ = m.app["devices"].enroll("LAN tablet", "wall_tablet", "porch", None)
     r = await m.client.get("/api/me", headers={**m.ha(STRANGER_HA), "Cookie": f"mantel_device={secret}"})
     assert r.status == 401
 
 
-async def test_a_persons_pin_at_an_ingress_tablet_is_person_and_device(mk):
+GARAGE = "cover.garage_door"
+
+
+def add_garage(m):
+    hub = m.app["hub"]
+    hub.registry.load(GF.HOUSE_AREAS, [], GF.HOUSE_ENTITIES + [{"entity_id": GARAGE, "area_id": "kitchen",
+                                                                "device_class": "garage"}])
+    hub.store.apply_event({"a": {GARAGE: {"s": "closed", "a": {"device_class": "garage"}, "lc": 1.0, "lu": 1.0}}})
+
+
+async def test_an_ingress_tablet_unlocks_and_opens_the_garage_with_no_pin(mk):
+    """Decision 25: the wall tablet on HA's sidebar (the Loft tablet's cutover path) acts on its role's
+    grants alone -- no person's PIN, no PIN pad. Its room only; audited; no Owner notice."""
     m = await mk(commands=True)
     await owner_page(m)
     owner = owner_user(m)
-    adult_id = m.store.link(ADULT_HA, "adult", "Fictional Adult")
-    child_id = m.store.link(CHILD_HA, "child", "Fictional Child")
-    await m.app["pins"].set_pin(adult_id, ADULT_PIN)
-    await m.app["pins"].set_pin(child_id, CHILD_PIN)
+    add_garage(m)
     ingress.link_tablet(m.app, TABLET_HA, owner, room="kitchen", ha_name=TABLET_NAME)
     device_id = ingress.tablet_link(m.store.db, TABLET_HA)["id"]
     told = []
@@ -319,28 +328,71 @@ async def test_a_persons_pin_at_an_ingress_tablet_is_person_and_device(mk):
     ws = await m.client.ws_connect("/ws", headers={**tablet_headers(m), "Origin": HA_ORIGIN,
                                                    "X-Forwarded-Host": "ha.example:8123"})
     caps = await GF.recv(ws)
-    assert caps["type"] == "capabilities" and caps["commands"] is True
+    assert caps == {"type": "capabilities", "commands": True, "door": "ha"}
     env = GF.Env.__new__(GF.Env)
-    first = await env.command(ws, **GF.service("lock", "unlock", "lock.kitchen_door"))
-    assert first["type"] == "step_up_required" and first["reason"] == "person_pin_required"
-    assert first["methods"] == ["pin"] and m.fake.sent == []
-    child = await env.command(ws, id=2, **GF.service("lock", "unlock", "lock.kitchen_door",
-                                                     step_up={"method": "pin", "pin": CHILD_PIN}))
-    assert child["error"]["code"] == "forbidden" and m.fake.sent == []
-    ok = await env.command(ws, id=3, **GF.service("lock", "unlock", "lock.kitchen_door",
-                                                  step_up={"method": "pin", "pin": ADULT_PIN}))
-    assert ok["type"] == "command_result" and m.fake.sent == ["lock.unlock"], ok
-    row = m.app["audit"].rows(id=ok["audit_id"])[0]
-    assert (row["actor"], row["device"], row["device_role"], row["door"], row["step_up"]) == \
-        (adult_id, device_id, "wall_tablet", "ha", "pin")
-    # the adult may not use the tablet for another room (person ∩ device)
-    other = await env.command(ws, id=4, **GF.service("light", "turn_on", "light.cody",
-                                                     step_up={"method": "pin", "pin": ADULT_PIN}))
-    assert other["error"]["code"] == "forbidden"
+    unlock = await env.command(ws, **GF.service("lock", "unlock", "lock.kitchen_door"))
+    assert unlock["type"] == "command_result" and "result" in unlock, unlock
+    garage = await env.command(ws, id=2, **GF.service("cover", "open_cover", GARAGE))
+    assert garage["type"] == "command_result" and "result" in garage, garage
+    assert m.fake.sent == ["lock.unlock", "cover.open_cover"]
+    rows = [r for r in m.app["audit"].rows() if r["kind"] != "config"]
+    assert [(r["action"], r["decision"], r["sensitive"], r["actor"], r["device"], r["device_role"], r["door"],
+             r["step_up"]) for r in rows] == [
+        ("lock.unlock", "allowed", "lock", None, device_id, "wall_tablet", "ha", None),
+        ("cover.open_cover", "allowed", "garage", None, device_id, "wall_tablet", "ha", None)]
+    # another room's lock: refused by the tablet's role
+    other = await env.command(ws, id=3, **GF.service("lock", "unlock", "lock.front_door"))
+    assert other["error"]["code"] == "forbidden" and m.fake.sent == ["lock.unlock", "cover.open_cover"]
     # a tablet in the house is not "remote access": no Owner notice
     assert told == []
     await ws.close()
-    assert ADULT_PIN not in json.dumps(m.app["audit"].rows())
+
+
+@pytest.mark.parametrize("rules", ["trusted", "tunnel"])
+async def test_a_person_on_the_sidebar_unlocks_with_no_pin_and_a_child_is_refused(mk, rules):
+    """Decision 25 on HA's sidebar, trusted or not: an Adult unlocks and opens the garage with no PIN and no
+    fresh factor (tunnel rules: the role's tunnel switch decides, and the Owners hear of the unlock);
+    a Child is refused by role."""
+    m = await mk(rules=rules, commands=True)
+    await owner_page(m)
+    add_garage(m)
+    m.store.link(ADULT_HA, "adult", "Fictional Adult")
+    m.store.link(CHILD_HA, "child", "Fictional Child")
+    told = []
+
+    async def notify_owners(principal, cmd, aid):
+        told.append(cmd.action)
+    m.app["gateway"].notify_owners = notify_owners
+    env = GF.Env.__new__(GF.Env)
+
+    async def socket(ha_user, display):
+        m.jar.clear()
+        r = await m.page(**m.ha(ha_user, display=display))
+        assert r.status == 200
+        ws = await m.client.ws_connect("/ws", headers={**m.ha(ha_user, display=display), "Origin": HA_ORIGIN,
+                                                       "X-Forwarded-Host": "ha.example:8123",
+                                                       "Cookie": m._cookie_header()})
+        assert (await GF.recv(ws))["type"] == "capabilities"
+        return ws
+
+    m.now[0] += 86400                                     # nothing about the session is "fresh"
+    ws = await socket(ADULT_HA, "Fictional Adult")
+    unlock = await env.command(ws, **GF.service("lock", "unlock", "lock.front_door"))
+    assert unlock["type"] == "command_result" and "result" in unlock, unlock
+    garage = await env.command(ws, id=2, **GF.service("cover", "open_cover", GARAGE))
+    assert garage["type"] == "command_result" and "result" in garage, garage
+    await ws.close()
+    ws = await socket(CHILD_HA, "Fictional Child")
+    child = await env.command(ws, **GF.service("lock", "unlock", "lock.front_door"))
+    assert child["error"]["code"] == "forbidden" and child["error"]["reason"] == "explicit_deny"
+    await ws.close()
+    assert m.fake.sent == ["lock.unlock", "cover.open_cover"]
+    rows = [r for r in m.app["audit"].rows() if r["kind"] != "config"]
+    assert [(r["action"], r["decision"], r["role"], r["door"]) for r in rows] == [
+        ("lock.unlock", "allowed", "adult", "ha"), ("cover.open_cover", "allowed", "adult", "ha"),
+        ("lock.unlock", "denied", "child", "ha")]
+    # the remote-access notice: only when the sidebar is not trusted (kept from before decision 25)
+    assert told == ([] if rules == "trusted" else ["lock.unlock"])
 
 
 # -- the page, screens and ownership ------------------------------------------------------------------------

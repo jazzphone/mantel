@@ -9,7 +9,7 @@ Client protocol (JSON text frames, /ws):
 Anything that looks like a command gets {"type":"error","code":"commands_disabled"} -- unless the
 server's operator turned the command gateway on (cfg.commands_enabled), in which case the socket
 first receives {"type":"capabilities","commands":true,...} and {"type":"command",...} messages go
-to gateway.py (RBAC, step-up, audit, then Home Assistant).
+to gateway.py (RBAC, the Alarm PIN for the alarm, audit, then Home Assistant).
 
 P3.7 wiring (build_app): every slice's register(); one Principal per socket (authz.py: the session's
 user and device, the door, the fresh factor) whose RBAC gate filters the socket's view and whose
@@ -582,7 +582,7 @@ def wire(app: web.Application, hub: Hub, token: str, connect_ha: bool) -> None:
     proxy_check.register(app, hub)
     if cfg.commands_enabled:
         log.warning("COMMANDS ARE ENABLED on this server: signed-in users may control Home Assistant within "
-                    "their roles (step-up and an audit row for every command)")
+                    "their roles (an audit row for every command; the Alarm PIN for the alarm)")
 
 
 def _set(app: web.Application, key: str, value) -> None:

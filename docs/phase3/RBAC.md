@@ -1,5 +1,12 @@
 # Phase 3 P3.2: roles and grants, and read filtering (2026-10-18)
 
+> **Superseded by decision 25 (2026-10-18, docs/PLAN.md):** the only PIN in Mantel is the house Alarm PIN,
+> and only for the alarm. House commands (locks, garage, valves, automations, scripts, camera live view,
+> talk-back) no longer ask for a person's PIN or a fresh factor. The step-up rule, `needs_step_up`,
+> `step_up_window`, `step_up_exempt`, `step_up_required`, `person_pin_required` and the wall tablet's
+> `sensitive_needs_person` switch described below were removed. Roles, grants, the deny rules and the
+> tunnel switches decide alone. Passages about step-up are kept as history.
+
 PLAN.md §5 (roles, grants, step-up) and §7 ("Sensitive actions over the tunnel"), as a pure engine,
 a read filter for the state hub, and a storage adapter with Owner-only REST. No command reaches
 any device: this slice only *decides*. The command gateway (P3.3) and the read proxies (P3.4) call it.
@@ -46,12 +53,12 @@ the registry lookups and the time. `Context.from_registry(registry, now, tz, sta
 from `registry.Registry`; device_class comes from the registry entry, or failing that from the state
 attribute. An unknown `tz` raises at construction rather than guessing.
 
-**Policy** `Policy(roles, grants, step_up_window=300, step_up_exempt=frozenset())`.
+**Policy** `Policy(roles, grants)` (it once also took `step_up_window` and `step_up_exempt`; removed by decision 25).
 `Policy.build(grants, overrides)` applies stored role overrides: their `grants` replace the
 defaults, and their switches merge. A new role can also be defined by an override.
 
 **Decision** `Policy.decide(subject, action, entity_id, ctx, *, feature=None) -> Decision(allowed,
-needs_step_up, reason, action, sensitive, side)`. The module-level `decide(...)` uses the defaults
+reason, action, sensitive, side)` (`needs_step_up` was removed by decision 25). The module-level `decide(...)` uses the defaults
 unless you pass `policy=`. Rules are applied in this order:
 
 1. **Classify.**
@@ -73,7 +80,9 @@ unless you pass `policy=`. Rules are applied in this order:
    - Sensitive actions need the role's `tunnel_sensitive` switch, otherwise `tunnel_lan_only`.
    - Cameras need `tunnel_cameras` (`tunnel_cameras_off`).
    - Location history needs `tunnel_locations` (`tunnel_locations_off`).
-6. **Step-up.**
+6. **Step-up (removed by decision 25).** Rule 6 no longer exists: once rules 1 to 5 allow, the action is
+   allowed, whether or not a factor is fresh, and a device alone (a wall tablet) decides on its own grants.
+   What it used to say:
    - A sensitive action needs `fresh_factor_at` within `step_up_window` (300 s) of `ctx.now`, and
      not in the future. Otherwise the result is `needs_step_up=True`, reason `step_up_required`.
    - A device alone (a wall tablet with nobody at it) never has a factor: `needs_step_up=True`,
@@ -104,7 +113,7 @@ unless you pass `policy=`. Rules are applied in this order:
 | adult | allow view, control, control.sensitive, history on all; configure on `profile` | on / on / on |
 | child | allow view, control in `@subject` areas for light, media_player, remote, climate, fan; configure `profile`; view, control the `music` feature (the Music page; added 2026-10-18 at Avery's request; an Owner removes it with a deny grant per child or for the role); deny `*` on cameras, `lock`, `alarm_control_panel`, garage; deny configure on `vacuum` | off / off / off |
 | guest | allow view, control in `@subject` areas for light, switch, fan, climate, media_player, remote, cover, scene; deny `*` on cameras, locations, garage; deny `history` on all | off / off / off |
-| wall_tablet | allow view, control, control.sensitive, history in `@subject` (its room); `sensitive_needs_person` | n/a: devices are refused on the tunnel |
+| wall_tablet | allow view, control, control.sensitive, history in `@subject` (its room); (the `sensitive_needs_person` switch was removed by decision 25; a stored override still carrying it is accepted and ignored) | n/a: devices are refused on the tunnel |
 | service | none: give each endpoint as a feature grant | off / off / off |
 
 Owners always keep every permission: overriding the `owner` role is refused, both through REST and
@@ -113,17 +122,15 @@ in the store.
 ## Decisions, by example
 
 The fictional house is in `tests/rbac_fixtures.py`: Cody is a child with Cody's Room, Gwen is a
-guest with the Guest Room, and the loft tablet's room is the Loft. All requests below are on the LAN
-with no fresh factor unless the row says otherwise.
+guest with the Guest Room, and the loft tablet's room is the Loft. All requests below are on the LAN.
+Since decision 25 no row depends on a fresh factor; the rows that once said `needs_step_up` are allowed.
 
 | Subject | Request | Decision |
 |---|---|---|
 | Adult | `light.turn_on` light.kitchen | allowed |
-| Adult | `lock.unlock` lock.front_door | needs_step_up (`step_up_required`) |
-| Adult, PIN 60 s ago | `lock.unlock` lock.front_door | allowed |
-| Adult, PIN 301 s ago | `lock.unlock` lock.front_door | needs_step_up |
+| Adult | `lock.unlock` lock.front_door | allowed |
 | Adult | `configure` vacuum.downstairs | denied (`no_grant`) |
-| Owner | `homeassistant.toggle` lock.front_door | needs_step_up (classified `lock`) |
+| Owner | `homeassistant.toggle` lock.front_door | allowed (classified `lock`, so sensitive) |
 | Child | `media_player.turn_on` media_player.cody_tv | allowed |
 | Child | `light.turn_on` light.kitchen | denied (`no_grant`) |
 | Child | `lock.lock` lock.front_door | denied (`explicit_deny`) |
@@ -131,12 +138,12 @@ with no fresh factor unless the row says otherwise.
 | Guest | `view` person.jamie | denied (`explicit_deny`) |
 | Guest after `guest_until` | anything | denied (`explicit_deny`) |
 | Loft tablet alone | `light.turn_on` light.loft | allowed |
-| Loft tablet alone | `lock.unlock` lock.balcony | needs_step_up (`person_pin_required`) |
-| Owner at loft tablet, fresh PIN | `lock.unlock` lock.balcony | allowed |
+| Loft tablet alone | `lock.unlock` lock.balcony | allowed (its grants include `control.sensitive`) |
+| Owner at loft tablet | `lock.unlock` lock.balcony | allowed |
 | Owner at loft tablet | `light.turn_on` light.kitchen | denied, side `device` |
-| Child at loft tablet, fresh PIN | `lock.unlock` lock.balcony | denied (`explicit_deny`), no prompt |
+| Child at loft tablet | `lock.unlock` lock.balcony | denied (`explicit_deny`) |
 | Loft tablet on the tunnel | anything | denied (`device_on_tunnel`) |
-| Adult on the tunnel, fresh PIN | `lock.unlock` | allowed |
+| Adult on the tunnel | `lock.unlock` | allowed |
 | Guest with a lock grant, on the tunnel | `lock.unlock` | denied (`tunnel_lan_only`) |
 | Role with view+history but no tunnel switches, on the tunnel | `view` camera / `history` person | `tunnel_cameras_off` / `tunnel_locations_off`; `view` person (home/away) allowed |
 | Admin | `configure` feature `owners` | denied (`explicit_deny`) |
@@ -162,7 +169,7 @@ with no fresh factor unless the row says otherwise.
 - With no gate, `ClientView` behaves exactly as before. All existing tests and the smoke pass unchanged.
 
 **Deliberate reading of §5 on locations.** PLAN lists person/device_tracker locations as sensitive.
-A live state stream can't stop to ask for a PIN, so location reads aren't step-up gated. They are
+Location reads are not a command, so there was never a prompt for them. They are
 gated by the `history` action (Guest: explicit deny; Child: no grant) and by the tunnel `locations`
 switch. Requests to the history and logbook proxies for these entities go through the same check.
 
@@ -203,9 +210,9 @@ After each change, every session in `hub.sessions` runs `view.policy_changed()` 
 `~/.venvs/mantel/bin/python -m pytest -q`: **945 passed** (217 before this slice; 728 new).
 - `test_rbac.py` (693):
   - the role matrix: 7 subjects × 38 (action, entity) cases covering every domain and the sensitive
-    set, run both with and without a fresh factor
+    set (the factor variants were dropped by decision 25)
   - reasons, classification (29 cases), deny precedence, overrides, intersection (including the
-    person-at-the-tablet cases), step-up freshness boundaries
+    person-at-the-tablet cases), (step-up freshness boundaries, removed by decision 25)
   - tunnel rules for every role
   - schedules: midnight crossing, days, time zones, DST, guest time-box, absolute windows, validation
   - area and floor resolution through the registry (by id, name, device, glob, domains filter,
@@ -223,9 +230,9 @@ if another worktree runs the smoke at the same moment. Run it alone.
 
 ## Not done here (open questions for Avery)
 
-- **Camera live view and step-up.** §5 lists camera live view as sensitive, so by default it needs a
-  fresh factor, and on a wall tablet a person's PIN. That clashes with today's doorbell popup on the
-  tablets. `Policy.step_up_exempt={"camera"}` turns it off house-wide. Avery decides at P3.7.
+- **Camera live view and step-up.** Settled by decision 25: camera live view is still sensitive (the
+  role needs `control.sensitive`, and `tunnel_cameras` on the tunnel) but never asks for a PIN or a
+  fresh factor. `Policy.step_up_exempt` is gone.
 - **"Opt-in for other roles" on the tunnel** is read as: on for Owner and Admin (they include
   everything an Adult has), off for Child, Guest, Service and any new role.
 - **A wall tablet's scope** is its room's areas plus entity grants. Working it out from the room's
@@ -245,8 +252,7 @@ if another worktree runs the smoke at the same moment. Run it alone.
    - `house_tz` comes from HA's `get_config` `time_zone` (or a config key)
    - Add `"migrations/*.sql"` to `[tool.setuptools.package-data]` once P3.1 lands the migrations package
 2. **P3.3 gateway.** Call `policy.decide(subject, "<domain>.<service>", entity_id, ctx)` for each
-   target entity, plus `feature=` for entity-less services. On `needs_step_up`, prompt (PIN or
-   passkey; for `person_pin_required`, a person's PIN at the tablet), then decide again with
-   `fresh_factor_at` (and the person as the user). Audit every control and every denial.
+   target entity, plus `feature=` for entity-less services. (Originally: on `needs_step_up`, prompt and decide
+   again; removed by decision 25, the gateway simply allows or refuses.) Audit every control and every denial.
 3. **P3.4 read proxies.** Filter `entity_ids` in history, logbook and statistics with
    `decide(..., "history", eid)`. Camera signaling uses `decide(..., "camera.live", eid)`.

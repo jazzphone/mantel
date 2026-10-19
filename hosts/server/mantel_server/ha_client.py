@@ -306,7 +306,7 @@ class HaClient:
 
 
 # ------------------------------------------------------------------------------ P3.3: the command path
-# Everything below is reached only through gateway.py, after RBAC, step-up and the audit row.
+# Everything below is reached only through gateway.py, after RBAC (and the Alarm PIN for the alarm) and the audit row.
 CALL_SERVICE_KEYS = frozenset({"domain", "service", "service_data", "target", "return_response"})
 HTTP_METHODS = frozenset({"POST", "PUT", "PATCH", "DELETE"})
 _API_PATH = re.compile(r"^/api/[A-Za-z0-9_\-./]+(\?[A-Za-z0-9_\-.=&%:+,]*)?$")

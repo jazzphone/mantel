@@ -1,25 +1,19 @@
-"""A person's PIN (PLAN §5 "Wall Tablet: sensitive actions require a person's PIN at the tablet"; §7
-step-up: "a per-user PIN ... or a passkey on personal devices").
+"""A person's PIN, and the alarm keypad's lockout counters.
 
-* **Each person sets their own PIN** from their own signed-in session, with a fresh factor (signed in
-  or stepped up within five minutes): ``PUT /api/account/pin {"pin"}``, ``DELETE /api/account/pin``,
-  ``GET /api/account/pin`` (whether one is set). An Owner/Admin can clear someone's PIN
-  (``DELETE /api/users/{id}/pin``; an Admin not an Owner's). A wall tablet (a device alone) cannot.
-* **4 to 8 digits**, not one digit repeated, not a straight run (1234, 9876). Stored only as an
-  Argon2id hash (the accounts' hasher); never logged, never in the audit.
-* **A PIN names one person.** At a wall tablet nobody is signed in, so the server finds WHO by the PIN
-  (every person's hash is checked, always all of them). Two people may therefore not share a PIN: a
-  new PIN that is already someone's is refused (``pin_unavailable``). That answer says "somebody has
-  this PIN" (not who), so it is rate limited per person (5 per 15 minutes).
-* **Wrong PINs lock where they are typed.** A tablet's PIN pad locks for 15 minutes after 5 wrong PINs
-  in a row (stored, so a restart does not reset it); each source IP may fail 20 times per 15
-  minutes; a person's own-session PIN step-up locks that person after 5. Verifications run one at a
-  time, so parallel guesses cannot outrun the counters.
+DECISION 25 (Avery 2026-10-18): the only PIN Mantel asks for is the house Alarm PIN (alarm_pin.py), for
+the alarm only. A person's own PIN is no longer required or accepted anywhere: not at a wall tablet, not
+as a step-up (there is none), not at the alarm keypad. The REST below stays so a person may keep one for
+later; nothing checks it.
 
-The gateway (gateway.py) asks for the PIN in ``step_up_required`` (method ``pin``) and gets it back
-inside the command (``"step_up": {"method": "pin", "pin": "..."}``): at a tablet ``identify`` names the
-person and the command is decided once more as person ∩ tablet; on a person's own session
-``verify_user`` marks the session fresh (factor ``pin``).
+* **Each person may set their own PIN** from their own signed-in session, with a fresh sign-in:
+  ``PUT /api/account/pin {"pin"}``, ``DELETE /api/account/pin``, ``GET /api/account/pin`` (whether one
+  is set). An Owner/Admin can clear someone's PIN (``DELETE /api/users/{id}/pin``; an Admin not an
+  Owner's). 4 to 8 digits, not one digit repeated, not a straight run; stored only as an Argon2id hash,
+  never logged. Two people may not share one (``pin_unavailable``, rate limited per person).
+* **The alarm keypad's lockout** (``keypad``): wrong codes lock where they are typed. A place (a tablet,
+  a person's session, the linked HA) locks for 15 minutes after 5 wrong codes in a row (stored, so a
+  restart does not reset it); each source IP may fail 20 times per 15 minutes. Checks run one at a time,
+  so parallel guesses cannot outrun the counters.
 """
 from __future__ import annotations
 
@@ -34,14 +28,14 @@ from argon2 import PasswordHasher
 from argon2.exceptions import InvalidHashError, VerificationError, VerifyMismatchError
 
 from .accounts import AttemptLimiter, PolicyError, limited, read_json, require_fresh, require_manager, require_user
-from .sessions import User, _may_manage, error, ok
+from .sessions import _may_manage, error, ok
 
 log = logging.getLogger("mantel.pins")
 
 PIN = re.compile(r"^\d{4,8}$")
-LOCK_AFTER = 5                # wrong PINs in a row at one tablet (or on one person's session) ...
+LOCK_AFTER = 5                # wrong alarm codes in a row at one place (a tablet, a session) ...
 LOCK_SECONDS = 15 * 60        # ... lock it for this long
-IP_FAILURES = 20              # wrong PINs per source IP per window (in memory)
+IP_FAILURES = 20              # wrong alarm codes per source IP per window (in memory)
 SET_REFUSALS = 5              # `pin_unavailable` answers per person per window
 WINDOW = 15 * 60
 
@@ -77,11 +71,6 @@ class Pins:
     # -- reading ----------------------------------------------------------------------------------
     def has_pin(self, user_id: str) -> bool:
         return self.db.execute("SELECT 1 FROM user_pins WHERE user_id = ?", (user_id,)).fetchone() is not None
-
-    def any_pin(self) -> bool:
-        """Is there anyone a tablet's PIN pad could name?"""
-        return self.db.execute("SELECT 1 FROM user_pins p JOIN users u ON u.id = p.user_id "
-                               "WHERE u.disabled = 0 LIMIT 1").fetchone() is not None
 
     def status(self, user_id: str) -> dict:
         row = self.db.execute("SELECT created, updated, last_used FROM user_pins WHERE user_id = ?", (user_id,)).fetchone()
@@ -155,7 +144,7 @@ class Pins:
             cur = self.db.execute("UPDATE pin_lockouts SET locked_until = ?, failed = 0 WHERE place = ? AND failed >= ?",
                                   (now + LOCK_SECONDS, place, LOCK_AFTER))
         if cur.rowcount:
-            log.warning("PIN pad at %s locked for %d s after %d wrong PINs", place, LOCK_SECONDS, LOCK_AFTER)
+            log.warning("alarm keypad at %s locked for %d s after %d wrong codes", place, LOCK_SECONDS, LOCK_AFTER)
             return float(LOCK_SECONDS)
         return 0.0
 
@@ -164,111 +153,25 @@ class Pins:
             self.db.execute("UPDATE pin_lockouts SET failed = 0, locked_until = NULL, updated = ? WHERE place = ?",
                             (self.clock(), place))
 
-    def _used(self, user_id: str) -> None:
-        with self.db:
-            self.db.execute("UPDATE user_pins SET last_used = ?, failed = 0, locked_until = NULL WHERE user_id = ?",
-                            (self.clock(), user_id))
-
     # -- checking ---------------------------------------------------------------------------------
-    async def identify(self, pin: object, *, device_id: str, ip: str | None) -> tuple[str, object]:
-        """Who typed this PIN at this tablet? ``("ok", User)``, ``("invalid", 0.0)``, ``("locked",
-        seconds)``, or ``("ambiguous", 0.0)`` (two people share it: refused, never guessed)."""
-        place = f"device:{device_id}"
+    async def keypad(self, code: object, *, place: str, ip: str | None,
+                     house: Callable[[str], Awaitable[bool]]) -> tuple[str, float]:
+        """ONE code typed at an alarm keypad (alarm_pin.py): is it the house Alarm PIN (``house`` checks
+        it)? Answers ``("house", 0.0)``, ``("invalid", 0.0)`` or ``("locked", seconds)``.
+
+        A wrong code counts ONCE where it is typed (``place``) and per source IP; LOCK_AFTER in a row lock
+        the place for LOCK_SECONDS. One check at a time. The code is never logged."""
         async with self._lock():
             wait = max(self._place(place), self.by_ip.retry_after(f"ip:{ip}"))
-            if wait > 0:
-                return "locked", wait
-            matches = await self._matches(pin) if isinstance(pin, str) and PIN.match(pin) else []
-            if len(matches) == 1:
-                r = matches[0]
-                self._place_ok(place)
-                self._used(r["user_id"])
-                return "ok", User(id=r["user_id"], name=r["name"], role=r["role"], kind=r["kind"],
-                                  username=r["username"], ha_user_id=r["ha_user_id"])
-            if len(matches) > 1:
-                log.error("two people share a PIN (%s); refused at %s", ", ".join(m["user_id"] for m in matches), place)
-                return "ambiguous", 0.0
-            self.by_ip.fail(f"ip:{ip}")
-            locked = self._place_failed(place)
-            return ("locked", locked) if locked else ("invalid", 0.0)
-
-    async def verify_user(self, user_id: str, pin: object, *, ip: str | None) -> tuple[str, float]:
-        """A signed-in person's own PIN (their session's step-up): ``("ok"|"invalid"|"locked"|"no_pin",
-        seconds locked)``."""
-        async with self._lock():
-            row = self.db.execute("SELECT * FROM user_pins WHERE user_id = ?", (user_id,)).fetchone()
-            if row is None:
-                return "no_pin", 0.0
-            now = self.clock()
-            wait = max((row["locked_until"] - now) if row["locked_until"] and row["locked_until"] > now else 0.0,
-                       self.by_ip.retry_after(f"ip:{ip}"))
-            if wait > 0:
-                return "locked", wait
-            good = isinstance(pin, str) and bool(PIN.match(pin)) and await self._verify(row["pin_hash"], pin)
-            if good:
-                self._used(user_id)
-                return "ok", 0.0
-            self.by_ip.fail(f"ip:{ip}")
-            with self.db:
-                self.db.execute("UPDATE user_pins SET failed = failed + 1 WHERE user_id = ?", (user_id,))
-                cur = self.db.execute("UPDATE user_pins SET locked_until = ?, failed = 0 WHERE user_id = ? AND failed >= ?",
-                                      (now + LOCK_SECONDS, user_id, LOCK_AFTER))
-            return ("locked", float(LOCK_SECONDS)) if cur.rowcount else ("invalid", 0.0)
-
-    async def keypad(self, code: object, *, place: str, ip: str | None, person: str | None,
-                     house: Callable[[str], Awaitable[bool]] | None) -> tuple[str, object]:
-        """ONE code typed at an alarm keypad (alarm_pin.py; docs/phase3/PINS-AUDIT.md "The alarm keypad").
-
-        The code may be the house's own Alarm PIN for that keypad (``house``: alarm_pin checks it) or a
-        person's PIN: any live person's at a wall tablet or for linked mode (``person`` None: the PIN names
-        them), only the signed-in person's own on a session (``person`` = their id). Both are checked every
-        time, with no early exit; a person wins over the house code (it names someone). Answers
-        ``("person", User)``, ``("house", None)``, ``("invalid", 0.0)``, ``("locked", seconds)`` or
-        ``("ambiguous", 0.0)`` (two people share the PIN and it is not the house code).
-
-        A wrong code counts ONCE where it is typed (``place``: ``device:<id>`` is the tablet's own PIN pad,
-        so its lockout is shared with the person-PIN step-up) and per source IP; LOCK_AFTER in a row lock
-        the place for LOCK_SECONDS. A person's own lock (verify_user) also stops their session's keypad.
-        One check at a time (the same lock as identify/verify_user). The code is never logged."""
-        async with self._lock():
-            wait = max(self._place(place), self.by_ip.retry_after(f"ip:{ip}"))
-            own = None
-            if person is not None:
-                own = self.db.execute("SELECT * FROM user_pins WHERE user_id = ?", (person,)).fetchone()
-                now = self.clock()
-                if own is not None and own["locked_until"] and own["locked_until"] > now:
-                    wait = max(wait, own["locked_until"] - now)
             if wait > 0:
                 return "locked", wait
             typed = isinstance(code, str) and 0 < len(code) <= 64
-            house_ok = bool(await house(code)) if typed and house is not None else False  # type: ignore[arg-type]
-            people: list[sqlite3.Row] = []
-            if typed and PIN.match(code):  # type: ignore[arg-type]
-                if person is None:
-                    people = await self._matches(code)  # type: ignore[arg-type]
-                elif own is not None and await self._verify(own["pin_hash"], code):  # type: ignore[arg-type]
-                    people = [self.db.execute(
-                        "SELECT p.user_id, u.name, u.role, u.kind, u.username, h.ha_user_id FROM user_pins p "
-                        "JOIN users u ON u.id = p.user_id LEFT JOIN ha_links h ON h.user_id = u.id "
-                        "WHERE p.user_id = ? AND u.disabled = 0", (person,)).fetchone()]
-                    people = [r for r in people if r is not None]
-            if len(people) == 1:
-                r = people[0]
+            if typed and await house(code):  # type: ignore[arg-type]
                 self._place_ok(place)
-                self._used(r["user_id"])
-                return "person", User(id=r["user_id"], name=r["name"], role=r["role"], kind=r["kind"],
-                                      username=r["username"], ha_user_id=r["ha_user_id"])
-            if house_ok:
-                self._place_ok(place)
-                return "house", None
-            if len(people) > 1:
-                log.error("two people share a PIN (%s); refused at the alarm keypad %s",
-                          ", ".join(p["user_id"] for p in people), place)
-                return "ambiguous", 0.0
+                return "house", 0.0
             self.by_ip.fail(f"ip:{ip}")
             locked = self._place_failed(place)
             return ("locked", locked) if locked else ("invalid", 0.0)
-
 
 _DEFAULT_HASHER = PasswordHasher()
 

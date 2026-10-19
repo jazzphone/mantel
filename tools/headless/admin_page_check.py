@@ -45,6 +45,12 @@ def seed_of(secret: str) -> bytes:
     return base64.b32decode(secret.replace(" ", "") + "=" * (-len(secret.replace(" ", "")) % 8))
 
 
+async def pin_is(app, user_id: str, pin: str) -> bool:
+    """Is `pin` this person's stored PIN? (Nothing in Mantel checks a person's PIN since decision 25.)"""
+    row = app["store"].db.execute("SELECT pin_hash FROM user_pins WHERE user_id = ?", (user_id,)).fetchone()
+    return row is not None and await app["pins"]._verify(row["pin_hash"], pin)
+
+
 async def until(pred, what: str, timeout: float = 15.0):
     end = time.time() + timeout
     while time.time() < end:
@@ -262,12 +268,12 @@ async def check(shots: Path) -> dict:
                 await p.wait("!!document.querySelector('#dlg[open] [name=totp]')", "the confirm-it-is-you dialog")
                 out["stepup_title"] = await p.js("document.querySelector('#dlg h2').textContent")
                 assert out["stepup_title"] == "Confirm it is you"
-                assert (await app["pins"].verify_user(owner, "2580", ip=None))[0] == "ok"      # not changed yet
+                assert await pin_is(app, owner, "2580")                                       # not changed yet
                 out["shots"].append(await p.shot("admin-stepup", full=False))
                 await p.fill("#dlg [name=totp]", totp(seed, time.time()))
                 await p.submit("#dlg form")
                 await p.wait("document.querySelector('#status').textContent === 'PIN changed.'", "the PIN to change after the step-up")
-                assert (await app["pins"].verify_user(owner, "8642", ip=None))[0] == "ok"
+                assert await pin_is(app, owner, "8642")
                 out["pin_changed_after_stepup"] = True
 
                 await p.click("#p-passkeys [data-act=add-passkey]")                         # 127.0.0.1 cannot be a passkey RP

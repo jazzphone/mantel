@@ -409,16 +409,17 @@ async def test_a_child_and_a_guest_get_no_ticket(gw, ha):
     await hub.close()
 
 
-async def test_on_the_tunnel_a_stale_factor_gets_no_ticket(gw, ha):
+async def test_on_the_tunnel_a_stale_factor_still_gets_a_ticket(gw, ha):
+    # decision 25: no step-up on any door; the role's tunnel switches decide (test_gateway_talk.py)
     from test_gateway_talk import _tunnel_adult
     add_speaker(gw)
     await _tunnel_adult(gw)
-    gw.now[0] += 301
+    gw.now[0] += 3600
     hub = await gw.socket(tunnel=True)
     r = await ticket(gw, hub)
-    assert r["type"] == "step_up_required" and gw.app["talk"].tickets == {}
+    assert r["type"] == "command_result" and "ticket" in r["result"], r
     r = await ticket(gw, hub, id=2, step_up={"method": "pin", "pin": "1234"})
-    assert r["error"]["code"] == "invalid_command"            # live talk never takes a PIN; the clip does
+    assert r["error"]["code"] == "invalid_command"            # a command never takes a PIN
     await hub.close()
 
 

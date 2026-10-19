@@ -13,8 +13,8 @@ camera rules. So:
   with a per-process random salt: it changes whenever HA rotates the camera's token (so a card that
   remembers a failed URL asks again after a rotation, as it does in HA) and reveals nothing of it.
 * **The route** ``GET /api/camera/<entity>/still[?width=&height=]`` (``still``) decides with the
-  camera live-view policy minus step-up (``Authz.may_still``: `view` the camera, and ``camera.live``
-  allowed or only waiting for a step-up; the door's camera rules, i.e. the tunnel's
+  camera live-view policy (``Authz.may_still``: `view` the camera, and ``camera.live``
+  allowed; the door's camera rules, i.e. the tunnel's
   ``tunnel_cameras`` switch, apply as they do to live view), then streams HA's
   ``/api/camera_proxy/<entity>`` with Mantel's own HA credential. The credential never leaves the
   server, is never logged, and the browser never learns HA's address.

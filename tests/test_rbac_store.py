@@ -233,7 +233,7 @@ async def test_roles_and_scopes_routes(api):
     r = await client.get("/api/rbac/roles", headers=as_("owner"))
     roles = (await r.json())["roles"]
     assert set(roles) == {"owner", "admin", "adult", "child", "guest", "wall_tablet", "service"}
-    assert roles["wall_tablet"]["sensitive_needs_person"] and not roles["guest"]["overridden"]
+    assert "sensitive_needs_person" not in roles["wall_tablet"] and not roles["guest"]["overridden"]
     r = await client.put("/api/rbac/roles/guest", json={"tunnel_sensitive": True}, headers=as_("owner"))
     assert r.status == 200 and (await r.json())["role"]["tunnel_sensitive"]
     roles = (await (await client.get("/api/rbac/roles", headers=as_("owner"))).json())["roles"]

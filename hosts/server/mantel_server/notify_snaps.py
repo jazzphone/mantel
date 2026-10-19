@@ -16,7 +16,7 @@ its own pieces, and no HA token ever reaches a page:
   random, unguessable), as HA's payload carries its own id.
 * **Signed for a page** with HK's own read, ``hk_notify/snap/sign {snaps: [id]}`` (``read_routes``):
   ``{signed: {id: "/api/notify/snap/<id>"}}``, only for a picture of a camera the person may see as a
-  still (``Authz.may_still``: ``view`` the camera, camera live view allowed or only waiting for a step-up,
+  still (``Authz.may_still``: ``view`` the camera, camera live view allowed,
   the door's camera rules). The page's adapter puts its own prefix in front (HA App mode).
 * **Served** at ``GET /api/notify/snap/<id>`` to a signed-in person, decided again with the same rule.
   Unknown, run out and refused all answer 404 (one answer, nothing to probe).

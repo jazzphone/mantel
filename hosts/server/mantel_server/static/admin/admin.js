@@ -391,7 +391,7 @@ function pinPanel() {
     const pin = h('input', { name: 'pin', type: 'password', inputmode: 'numeric', pattern: '[0-9]*', autocomplete: 'new-password', maxlength: 8, required: true, 'aria-label': 'New PIN' });
     const again = h('input', { name: 'pin2', type: 'password', inputmode: 'numeric', pattern: '[0-9]*', autocomplete: 'new-password', maxlength: 8, required: true, 'aria-label': 'Repeat the PIN' });
     return [
-      note('A PIN of 4 to 8 digits confirms sensitive actions (like unlocking a door) at a wall tablet, and works as a quick confirmation here. Nobody else can have the same PIN.', ''),
+      note('Optional, and not used for now: Mantel asks for no personal PIN. The only PIN is the house Alarm PIN (HK Settings, Alarm PIN), for the alarm. A PIN is 4 to 8 digits; nobody else can have the same one.', ''),
       s.pin ? h('p', null, badge('set', 'cur'), ` last changed ${fmt(s.updated || s.created)}`, s.last_used ? ` · last used ${ago(s.last_used)}` : '') : note('No PIN yet.'),
       h('form', { class: 'grid', onsubmit: async (ev) => {
         ev.preventDefault();
@@ -403,7 +403,7 @@ function pinPanel() {
       } }, field(s.pin ? 'New PIN' : 'PIN', pin), field('Repeat', again),
       h('button', { class: 'btn primary', type: 'submit', 'data-act': 'set-pin' }, s.pin ? 'Change PIN' : 'Set PIN')),
       s.pin ? btn('Remove my PIN', async () => {
-        if (!(await confirmDialog('Remove your PIN?', 'You will not be able to confirm actions at a wall tablet.', 'Remove', true))) return;
+        if (!(await confirmDialog('Remove your PIN?', 'Nothing in Mantel uses it for now.', 'Remove', true))) return;
         if (await run(() => api('DELETE', '/api/account/pin'), 'PIN removed.')) reload();
       }, 'danger', 'remove-pin') : null,
     ];
@@ -554,7 +554,7 @@ function rolesPanel() {
   return live('p-roles', 'Roles', async () => {
     const { roles } = await api('GET', '/api/rbac/roles');
     const switches = { tunnel_sensitive: 'Sensitive actions from outside the house', tunnel_cameras: 'Cameras from outside the house',
-                       tunnel_locations: 'Location history from outside the house', sensitive_needs_person: 'Sensitive actions need a person\'s PIN' };
+                       tunnel_locations: 'Location history from outside the house' };
     return [note('What each role may do by default. Owners always keep every permission. The grants below add to, or take away from, these.', 'muted small'),
       Object.values(roles).map((r) => h('details', { class: 'item', 'data-role': r.name },
         h('summary', null, h('b', null, roleLabel(r.name)), ' ', r.overridden && badge('changed', 'bad')),

@@ -37,7 +37,7 @@ from hk_core.house import Device, Entity, Floor, State
 
 
 class HouseCommandRefused(Exception):
-    """A service call the gateway refused (``code``: forbidden, step_up_required, unavailable, ...)."""
+    """A service call the gateway refused (``code``: forbidden, unavailable, ...)."""
 
     def __init__(self, code: str, message: str = "", audit_id: int | None = None) -> None:
         super().__init__(message or code)

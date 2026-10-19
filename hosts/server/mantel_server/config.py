@@ -163,7 +163,7 @@ def parse_args(argv: list[str] | None = None) -> Config:
                    help="which reverse proxy owns TLS (Mantel's Caddy, or your own); tunes /proxy-check's advice")
     p.add_argument("--commands-enabled", action="store_true",
                    help="turn the command gateway on: signed-in users may control the house through Mantel, "
-                        "within their roles, with step-up and an audit row for every command. Off by default")
+                        "within their roles, with an audit row for every command (the Alarm PIN for the alarm). Off by default")
     p.add_argument("--house-tz", default=Config.house_tz,
                    help="house time zone for grant schedules when Home Assistant does not say (IANA name)")
     p.add_argument("--audit-retention-days", type=float, default=Config.audit_retention_days, metavar="DAYS",

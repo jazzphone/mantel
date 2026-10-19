@@ -486,7 +486,7 @@ Nothing else changes: every piece stays off until an Owner turns it on (`PUT /ap
    - ~~calendars' look-ahead~~ done; the `notify` action (in linked mode, later)
    - ~~Alarm PIN through the gateway~~ **done 2026-10-18** (`alarm_pin.py`; GATEWAY.md "The alarm"):
      Mantel checks the keypad's code (the house's Alarm PIN, set in Mantel or imported from HA's page
-     without its PIN, or a person's PIN), decides arm/disarm as sensitive, audits first and sends to the
+     without its PIN; since decision 25 a person's own PIN is no longer accepted), decides arm/disarm as sensitive, audits first and sends to the
      alarm with Mantel's own copy of the alarm's HA code. Left: linked mode's `alarm_*` handler calling
      `alarm_pin.linked_command` (linked.py, another slice)
    - ~~the music engine against MA~~ built ("Music" below); waits for Music Assistant's URL and token in Mantel

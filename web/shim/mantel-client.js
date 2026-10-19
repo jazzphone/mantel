@@ -47,48 +47,14 @@
       // no callService / request / liveSocket: hkClient refuses them (commands_disabled), sending nothing
     };
   }
-  // STEP-UP. The gateway answers a sensitive action without a fresh factor with step_up_required;
-  // the page proves one (HK's prompt, web/shim/mantel-stepup.js, hears `hk-step-up-required` and
-  // calls detail.done() once the server accepted an authenticator code or a passkey, or
-  // detail.cancel()), and the same command is sent once more. A PIN (method `pin`: a person's PIN at
-  // a wall tablet, or their own) goes back inside the command: detail.submit({method:'pin', pin})
-  // sends it again with the PIN; a refused PIN answers {error, retry_after} and the prompt stays,
-  // anything else ends it. With nobody to answer, it is refused (step_up_required).
-  function stepUp(reply, what, resend) {
-    return new Promise(function (resolve, reject) {
-      var settled = false;
-      var detail = {
-        reason: reply.reason, methods: reply.methods || [], window: reply.window, action: reply.action,
-        targets: reply.targets || [], what: what,
-        done: function () { if (!settled) { settled = true; resolve(null); } },
-        cancel: function () { if (!settled) { settled = true; reject(fail('step_up_cancelled', 'step-up cancelled')); } },
-        submit: function (step) {
-          if (settled) return Promise.resolve({ ok: true });
-          return resend(step).then(function (r) {
-            if (r && r.type === 'step_up_required' && r.pin_error) return { error: r.pin_error, retry_after: r.retry_after || 0 };
-            if (!settled) { settled = true; resolve(r); }
-            return { ok: true };
-          });
-        }
-      };
-      var heard = false;
-      try { heard = !global.dispatchEvent(new CustomEvent('hk-step-up-required', { detail: detail, cancelable: true })); } catch (e) { /* shell tests */ }
-      if (!heard) detail.cancel();
-    });
-  }
+  // NO STEP-UP (decision 25): the gateway asks for no PIN and no second factor, so no prompt is drawn
+  // here. A `step_up_required` reply (only an older server sends one) is refused like any other.
   var KEYPAD_CODES = ['invalid_code', 'code_locked', 'code_required'];
   function actionsOn(port, hub) {
-    function settle(body, what, reply, tries) {
+    function settle(body, what, reply) {
       if (reply && reply.type === 'step_up_required') {
-        if (tries >= 2 || !(reply.methods || []).length) {
-          emit('hk-command-denied', { what: what.what, reason: reply.reason });
-          return Promise.reject(fail('step_up_required', reply.reason, { reason: reply.reason }));
-        }
-        var resend = function (step) { return hub.command(Object.assign({}, body, { step_up: step })); };
-        return stepUp(reply, what, resend).then(function (answered) {
-          if (answered) return settle(body, what, answered, tries + 1);     // the PIN went with it
-          return hub.command(body).then(function (r) { return settle(body, what, r, tries + 1); });
-        });
+        emit('hk-command-denied', { what: what.what, reason: reply.reason });
+        return Promise.reject(fail('step_up_required', reply.reason, { reason: reply.reason }));
       }
       if (reply && reply.error) {
         var e = reply.error;
@@ -102,7 +68,7 @@
       return reply ? reply.result : undefined;
     }
     function run(body, what) {
-      return hub.command(body).then(function (reply) { return settle(body, what, reply, 0); });
+      return hub.command(body).then(function (reply) { return settle(body, what, reply); });
     }
     port.actions = {
       // HA's signature: (domain, service, serviceData, target, notifyOnError, returnResponse)
@@ -141,7 +107,7 @@
           return hub.command(cmd).then(function (reply) {
             var m = reply && reply.error && /^http_(\d{3})$/.exec(reply.error.code || '');
             if (m) return new Response(reply.error.message || '', { status: Number(m[1]) });
-            return Promise.resolve(settle(cmd, what, reply, 0)).then(function (result) {
+            return Promise.resolve(settle(cmd, what, reply)).then(function (result) {
               return new Response(JSON.stringify(result === undefined ? null : result),
                                   { status: 200, headers: { 'content-type': 'application/json' } });
             });
@@ -152,9 +118,9 @@
       // what this resolves ({url, token()}) and speaks HA's protocol on it. Here that socket is
       // Mantel's /ws/talk (hub.talkUrl(): under HA's Ingress prefix too), and the token a ONE-TIME
       // ticket the gateway issues for this speaker after deciding and auditing a `talk_live`
-      // command (the same rules as the clip). Anything but a ticket -- refused, a step-up wanted,
-      // commands off, no speaker -- is refused QUIETLY (`live_unavailable`, no toast, no prompt):
-      // the card then sends its recorded clip through `request`, which asks for any step-up itself.
+      // command (the same rules as the clip). Anything but a ticket -- refused, commands off, no
+      // speaker -- is refused QUIETLY (`live_unavailable`, no toast): the card then sends its
+      // recorded clip through `request`, which says any refusal itself.
       liveSocket: function (speaker) {
         if (typeof speaker !== 'string' || !SPEAKER.test(speaker) || typeof hub.talkUrl !== 'function') {
           return Promise.reject(fail('live_unavailable', 'live talk needs the doorbell speaker; the clip is sent instead'));

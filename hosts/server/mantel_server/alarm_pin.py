@@ -12,37 +12,36 @@ WHAT MANTEL DOES. HK's keypad card is unchanged: it calls ``alarm_control_panel.
 ``{entity_id, code}``. The gateway takes the code OUT of the command before anything is audited or sent
 (gateway.service_command) and asks this module:
 
+THE ONLY PIN IN MANTEL (decision 25, Avery 2026-10-18): the house Alarm PIN, for the alarm only. No
+other action asks for a PIN or a step-up, and a person's own PIN is not accepted here (if someone's PIN is
+the same digits as the Alarm PIN, fine: it is the Alarm PIN that is checked).
+
 * **The code** is checked here, never by Home Assistant and never sent back to a page: the house's own
-  Alarm PIN for that keypad (an Argon2id hash in ``alarm_pins``, set by an Owner/Admin in Mantel), or a
-  person's PIN (pins.py): any live person's at a wall tablet (the PIN names them and the command is decided
-  as person ∩ tablet, as for the person-PIN step-up), only the signed-in person's own on their session.
-  ``Pins.keypad`` checks both every time; a wrong code counts once where it was typed (a tablet's lockout
-  is its PIN pad's: 5 wrong in a row lock it for 15 minutes; per person on a session; 20 per IP per 15
-  minutes). Wrong, locked or ambiguous: a ``denied`` audit row, nothing sent, the card says "Wrong code".
-* **Who may**: RBAC as always, plus ``control.sensitive`` on the keypad panel AND the alarm it forwards to
-  whenever a code is needed (disarm; arm with ``arm_required``; any code given). A Child (deny on the alarm
-  domain) is refused whatever code they type; their PIN names them. Wall tablets may use a configured
-  keypad (``tablets``, default on, mirroring HA's keypads on every screen) through grants used ONLY for
-  keypad commands (``keypad_policy``); an Owner's deny grant still wins.
-* **Step-up per door**: a person's PIN is a fresh factor (it names them). The house code counts as the
-  factor on the LAN rules door only (the LAN, and HA's sidebar when trusted): on the tunnel (and the ``ha``
-  door under tunnel rules) the person still needs their own fresh factor (TOTP/passkey/PIN step-up), and
-  the code must still be right. The trusted ``ha`` door: HA's sign-in is the RBAC factor, but the alarm's
-  own PIN is still asked, as HK in HA always asked it.
+  Alarm PIN for that keypad (an Argon2id hash in ``alarm_pins``, set by an Owner/Admin in Mantel, HK
+  Settings -> Alarm PIN). The same rule on every door (wall tablet, HA's sidebar, LAN, tunnel). A wrong code
+  counts once where it was typed (``pins.Pins.keypad``: a tablet's place ``device:<id>``, a person's
+  session ``keypad:user:<id>``; 5 wrong in a row lock that place for 15 minutes; 20 per IP per 15
+  minutes). Wrong or locked: a ``denied`` audit row, nothing sent, the card says "Wrong code". No Alarm PIN
+  set while a code is needed: refused ``alarm_pin_not_set``, nothing sent.
+* **Which keypad**: the panel the command names, or the keypad that protects the alarm it names
+  (``entry_for``), so the house Alarm PIN guards the alarm both ways. An alarm no keypad covers has no
+  Alarm PIN: it is refused whenever a code is needed (Mantel never disarms it without one).
+* **Who may**: RBAC first, before the code is looked at, with ``control.sensitive`` on the keypad panel
+  AND the alarm it forwards to whenever a code is needed (disarm; arm with ``arm_required``; any code
+  given). A Child (deny on the alarm domain) is refused whatever code they type. Wall tablets may use a
+  configured keypad (``tablets``, default on, mirroring HA's keypads on every screen) through grants used
+  ONLY for keypad commands (``keypad_policy``); an Owner's deny grant still wins.
 * **The alarm's own HA code**: if the panel Mantel sends to reports a ``code_format``, Mantel adds the code
   it holds for it (``ha_code``, sealed with Mantel's secret key); none held: refused
   ``alarm_ha_code_missing`` before anything is sent. The page's code never goes to Home Assistant.
-
-An alarm Mantel has no row for keeps the ordinary path for a command WITHOUT a code (RBAC + step-up); a
-code typed for it is still checked here (as a person's PIN) and never forwarded.
 
 LINKED MODE (linked_house.LinkedHouse._alarm is the only caller): ``linked_command(app, entity=...,
 command=..., code=..., account=..., peer=...)`` runs HA's forwarded ``alarm_*`` entity command through the
 SAME gateway path as the Service actor ``mantel:linked`` (grants on the configured keypads only; wrong
 codes counted at ``keypad:mantel:linked``), raising ``linked.LinkedError`` (``linked_error``: one table
 from the gateway's refusals to the wire codes ``invalid_code``, ``code_locked``, ``code_required``,
-``forbidden``, ``commands_disabled``, ``alarm_ha_code_missing``, ...) for HA to show. The person whose
-PIN it was is the audit's actor. Which alarm the linked panel forwards to is this table's row
+``alarm_pin_not_set``, ``forbidden``, ``commands_disabled``, ``alarm_ha_code_missing``, ...) for HA to
+show. The audit's actor is the linked Service actor. Which alarm the linked panel forwards to is this table's row
 (linked_house makes one from HA's registry when there is none).
 
 REST (Owner/Admin, fresh factor; a PIN or code is never returned): ``GET /api/alarm/pins``, ``PUT
@@ -111,15 +110,14 @@ def unconfigured(entity: str) -> Entry:
 
 @dataclass(frozen=True)
 class Verdict:
-    """What the keypad's code turned out to be: ``house`` / ``person`` (with the User) / ``none`` (no code
-    was needed or given), or a refusal: ``invalid`` / ``locked`` (retry_after) / ``ambiguous``."""
+    """What the keypad's code turned out to be: ``house`` (the house Alarm PIN) / ``none`` (no code was
+    needed or given), or a refusal: ``invalid`` / ``locked`` (retry_after)."""
     status: str
-    person: Any = None
     retry_after: float = 0.0
 
     @property
     def ok(self) -> bool:
-        return self.status in ("house", "person", "none")
+        return self.status in ("house", "none")
 
 
 class AlarmPins:
@@ -147,6 +145,16 @@ class AlarmPins:
 
     def entry_or_default(self, entity: str) -> Entry:
         return self.entry(entity) or unconfigured(entity)
+
+    def entry_for(self, entity: str) -> Entry:
+        """The keypad for a command naming `entity`: its own row (a panel), else the keypad that protects
+        it (``forward_to``; the first by panel name if several do), else an unconfigured entry."""
+        got = self.entry(entity)
+        if got is not None:
+            return got
+        r = self.db.execute("SELECT * FROM alarm_pins WHERE forward_to = ? ORDER BY entity LIMIT 1",
+                            (entity,)).fetchone()
+        return self._entry(r) if r is not None else unconfigured(entity)
 
     def entries(self) -> list[Entry]:
         return [self._entry(r) for r in self.db.execute("SELECT * FROM alarm_pins ORDER BY entity")]
@@ -192,7 +200,7 @@ class AlarmPins:
                   arm_required: Any = _KEEP, tablets: Any = _KEEP, ha_code: Any = _KEEP,
                   source: str = "mantel") -> Entry:
         """Create or change a keypad. A new PIN is typed twice (HA's form); ``pin: None`` removes the house
-        code (people's PINs only); ``ha_code: None`` clears the alarm's own code. PolicyError by field."""
+        code (the keypad then refuses whatever needs a code); ``ha_code: None`` clears the alarm's own code. PolicyError by field."""
         import asyncio
         if not isinstance(entity, str) or not PANEL.match(entity):
             raise PolicyError("entity", "an alarm_control_panel entity")
@@ -242,7 +250,7 @@ class AlarmPins:
         """HA's ``hk_alarm_pin/settings/get`` page -> keypads: each Alarm PIN panel (``entity``) forwards
         to the alarm it protects (``forward_to``: that alarm takes no code of its own), with its arm rule.
         HA never gives out its PIN or hash: an existing Mantel house code is kept, a new keypad has none
-        (``need_pin``) until an Owner sets it; people's PINs work meanwhile."""
+        (``need_pin``) until an Owner sets it; until then it refuses whatever needs a code."""
         if not isinstance(page, Mapping) or not isinstance(page.get("alarms"), list):
             raise ValueError("Home Assistant's answer has no Alarm PIN page in it")
         done, need = [], []
@@ -260,24 +268,20 @@ class AlarmPins:
 
     # -- the keypad's code ----------------------------------------------------------------------------
     async def check(self, principal: Any, entry: Entry, code: str, pins: Any, *, place: str | None = None) -> Verdict:
-        """The code typed at `entry`'s keypad by `principal` (see the module docstring)."""
-        if pins is None:
+        """The code typed at `entry`'s keypad by `principal`: the house Alarm PIN or nothing (see the
+        module docstring). The lockout counters are pins.py's (``Pins.keypad``)."""
+        if pins is None or not entry.configured:
             return Verdict("invalid")
         u, d = principal.user, principal.device
         session_person = u is not None and getattr(u, "kind", None) != "service"
         if place is None:
             place = (f"keypad:user:{u.id}" if session_person else f"device:{d.id}" if d is not None
                      else f"keypad:{u.id if u is not None else 'anonymous'}")
-        house = (lambda c: self.house_matches(entry.entity, c)) if entry.configured else None
-        status, value = await pins.keypad(code, place=place, ip=principal.source_ip,
-                                          person=u.id if session_person else None, house=house)
-        if status == "person":
-            return Verdict("person", value)
-        if status == "house":
-            return Verdict("house")
+        status, wait = await pins.keypad(code, place=place, ip=principal.source_ip,
+                                         house=lambda c: self.house_matches(entry.entity, c))
         if status == "locked":
-            return Verdict("locked", retry_after=float(value))  # type: ignore[arg-type]
-        return Verdict(status)
+            return Verdict("locked", retry_after=wait)
+        return Verdict("house" if status == "house" else "invalid")
 
     # -- RBAC for keypad commands only ----------------------------------------------------------------
     def grants(self) -> tuple:
@@ -363,6 +367,8 @@ async def linked_command(app: web.Application, *, entity: str, command: str, cod
 LINKED_MESSAGES = {
     "invalid_code": "Wrong code",
     "code_required": "Enter the alarm code",
+    "alarm_pin_not_set": "No Alarm PIN is set for this alarm in Mantel (an Owner sets it in HK Settings, Alarm "
+                         "PIN); nothing was sent",
     "commands_disabled": "house commands are disabled on this Mantel Server; nothing was sent",
     "alarm_ha_code_missing": "Mantel holds no code for the alarm itself (an Owner sets it in Mantel's Alarm PIN "
                              "settings); nothing was sent",
@@ -372,12 +378,9 @@ LINKED_MESSAGES = {
 
 def linked_error(reply: Mapping[str, Any]) -> Any:
     """The gateway's reply (not a result) -> ``linked.LinkedError``: ``invalid_code``, ``code_locked``
-    (its message says how long), ``code_required`` (also for a step-up, which only a fresh code
-    answers here), ``forbidden``, ``commands_disabled``, ``alarm_ha_code_missing``, ... The typed code
+    (its message says how long), ``code_required``, ``alarm_pin_not_set``, ``forbidden``, ``commands_disabled``, ``alarm_ha_code_missing``, ... The typed code
     is never in a message."""
     from .linked import LinkedError
-    if reply.get("type") == "step_up_required":
-        return LinkedError("code_required", LINKED_MESSAGES["code_required"])
     err = reply.get("error") or {}
     c, msg = err.get("code") or "failed", err.get("message")
     if c == "unavailable" and msg in LINKED_MESSAGES:      # the gateway's reason rides in the message

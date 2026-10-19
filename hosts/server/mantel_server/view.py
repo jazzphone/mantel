@@ -162,7 +162,7 @@ class ClientView:
         self.selected = new
 
     def policy_changed(self) -> None:
-        """Grants, schedules or step-up changed: re-resolve, and re-check what was sent (a state may
+        """Grants or schedules changed: re-resolve, and re-check what was sent (a state may
         now be redacted differently). Call on grant edits and periodically for schedules."""
         new = self._resolve()
         self.dirty |= (new ^ self.selected) | (new & set(self.sent))

@@ -469,9 +469,6 @@ class FeatureCaller:
             entry["outcome"] = "sent"
             return got["result"]
         err = got.get("error") or {}
-        if got.get("type") == "step_up_required":
-            entry["outcome"], entry["code"] = "refused", "step_up_required"
-            raise HouseCommandRefused("step_up_required", "a fresh factor is needed", got.get("audit_id"))
         if err.get("code") == "unavailable" and err.get("message") == "commands_disabled":
             entry["outcome"] = "would"
             raise HouseCommandsDisabled(audit_id=got.get("audit_id"))

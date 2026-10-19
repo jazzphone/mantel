@@ -1,6 +1,7 @@
 """HK's Alarm PIN in Mantel (alarm_pin.py, gateway.Gateway._alarm, pins.Pins.keypad): the keypad card's
-code is taken out of the command, checked by Mantel (the house's Alarm PIN or a person's PIN), never
-forwarded or audited; arm/disarm are decided with `control.sensitive` on the keypad panel and the alarm;
+code is taken out of the command, checked by Mantel (the house Alarm PIN, the only PIN: decision 25), never
+forwarded or audited; arm/disarm are decided with `control.sensitive` on the keypad panel and the alarm,
+before the code is looked at; the same rule on every door;
 the audit row is written first; the alarm's own HA code comes from Mantel's store. Over the real hub
 socket of a full app with the fake command connection (it checks every frame and ticket like
 HaCommander and sends nothing anywhere). Nothing real is sent."""
@@ -177,7 +178,7 @@ async def test_the_alarms_own_ha_code_comes_from_mantel_never_the_page(gw):
 
 
 # -- lockout -------------------------------------------------------------------------------------------------
-async def test_wrong_codes_lock_the_tablets_keypad_shared_with_its_pin_pad(gw):
+async def test_wrong_codes_lock_the_tablets_keypad(gw):
     await keypad(gw)
     device_id = await tablet(gw, room="porch")
     ws = await gw.socket()
@@ -189,7 +190,7 @@ async def test_wrong_codes_lock_the_tablets_keypad_shared_with_its_pin_pad(gw):
     r = await gw.command(ws, id=51, **disarm(HOUSE_CODE))            # even the right code, for now
     assert r["error"]["code"] == "code_locked" and gw.fake.sent == []
     row = gw.app["store"].db.execute("SELECT * FROM pin_lockouts WHERE place = ?", (f"device:{device_id}",)).fetchone()
-    assert row["locked_until"] > gw.now[0]                         # the tablet's own PIN pad is locked too
+    assert row["locked_until"] > gw.now[0]                         # stored: a restart does not reset it
     gw.now[0] += LOCK_SECONDS + 1
     r = await gw.command(ws, id=52, **disarm(HOUSE_CODE))
     assert "result" in r and gw.fake.sent == ["alarm_control_panel.alarm_disarm"]
@@ -211,7 +212,7 @@ async def test_a_persons_session_keypad_locks_that_person(gw):
     await ws.close()
 
 
-# -- wall tablets and people's PINs ------------------------------------------------------------------------
+# -- wall tablets; people's own PINs are not alarm codes ------------------------------------------------------------------------
 async def test_a_wall_tablet_uses_the_house_code_and_the_audit_names_the_tablet(gw):
     await keypad(gw)                                   # tablets: on (HK's keypad on every screen)
     device_id = await tablet(gw)                       # the kitchen: the alarm is in the porch
@@ -240,19 +241,34 @@ async def test_an_owners_deny_grant_wins_over_the_keypad_grant(gw):
     await ws.close()
 
 
-async def test_an_adults_pin_at_the_tablet_disarms_as_the_adult(gw):
-    await keypad(gw, pin=None)                         # no house code: people's PINs only
+async def test_a_persons_own_pin_is_not_an_alarm_code(gw):
+    """Decision 25: only the house Alarm PIN disarms. A person's own PIN is refused as a wrong code, at a
+    tablet and on their own session; if someone's PIN is the same digits as the Alarm PIN, it works (it IS
+    the Alarm PIN) and the audit names whoever typed it, not the PIN's owner."""
+    await keypad(gw)
     await set_pin(gw, "jordan", "adult", ADULT_PIN)
-    device_id = await tablet(gw)
     ws = await gw.socket()
     r = await gw.command(ws, **disarm(ADULT_PIN))
+    assert r["error"]["code"] == "invalid_code" and gw.fake.sent == []
+    r = await gw.command(ws, id=2, **disarm(HOUSE_CODE))
+    assert "result" in r and gw.audit()[-1]["actor"] == uid(gw, "jordan")
+    await ws.close()
+    device_id = await tablet(gw)
+    ws = await gw.socket()
+    r = await gw.command(ws, id=3, **disarm(ADULT_PIN))
+    assert r["error"]["code"] == "invalid_code"
+    r = await gw.command(ws, id=4, **disarm(HOUSE_CODE))
     assert "result" in r
     row = gw.audit()[-1]
-    assert row["actor"] == uid(gw, "jordan") and row["role"] == "adult" and row["device"] == device_id
-    assert row["step_up"] == "pin"
-    r = await gw.command(ws, id=2, **disarm(HOUSE_CODE))            # no house code set: wrong
-    assert r["error"]["code"] == "invalid_code"
-    secrets_absent(gw, ADULT_PIN)
+    assert row["actor"] is None and row["device"] == device_id and row["step_up"] == "alarm_pin"
+    await ws.close()
+    # the same digits as the Alarm PIN: fine
+    await set_pin(gw, "kim", "adult", HOUSE_CODE)
+    ws = await gw.socket()
+    r = await gw.command(ws, id=5, **disarm(HOUSE_CODE))
+    assert "result" in r and gw.audit()[-1]["actor"] == uid(gw, "kim")
+    assert gw.fake.sent == ["alarm_control_panel.alarm_disarm"] * 3
+    secrets_absent(gw, ADULT_PIN, HOUSE_CODE)
     await ws.close()
 
 
@@ -260,46 +276,74 @@ async def test_a_child_is_refused_whatever_code_they_type(gw):
     await keypad(gw)
     await set_pin(gw, "cody", "child", CHILD_PIN)
     ws = await gw.socket()
-    for i, code in enumerate((HOUSE_CODE, CHILD_PIN)):              # the house code, their own PIN
+    for i, code in enumerate((HOUSE_CODE, CHILD_PIN, None)):          # the house code, their own PIN, none
         r = await gw.command(ws, id=i + 1, **disarm(code))
         assert r["error"]["code"] == "forbidden" and r["error"]["reason"] == "explicit_deny", r
-    await ws.close()
-    await tablet(gw)                                                 # at a tablet the PIN names the child
-    ws = await gw.socket()
-    r = await gw.command(ws, id=3, **disarm(CHILD_PIN))
-    assert r["error"]["code"] == "forbidden" and r["error"]["reason"] == "explicit_deny"
-    assert gw.audit()[-1]["actor"] == uid(gw, "cody")
+    # refused by role BEFORE the code is looked at: no wrong-code count, so no lockout to learn from
+    for i in range(LOCK_AFTER + 1):
+        r = await gw.command(ws, id=10 + i, **disarm("1357"))
+        assert r["error"]["reason"] == "explicit_deny"
+    assert gw.app["store"].db.execute("SELECT COUNT(*) FROM pin_lockouts").fetchone()[0] == 0
     assert gw.fake.sent == []
+    assert {r["reason"] for r in gw.audit() if r["kind"] == "service"} == {"explicit_deny"}
     await ws.close()
 
 
-async def test_an_alarm_mantel_does_not_guard_checks_the_code_as_a_persons_pin(gw):
-    add_panel(gw)
-    await set_pin(gw, "jordan", "adult", ADULT_PIN)
+async def test_the_protected_alarm_takes_the_same_alarm_pin(gw):
+    """A command naming the alarm itself (not HA's Alarm PIN panel) is guarded by the keypad that protects it."""
+    await keypad(gw)
+    await gw.login("jordan", "adult")
     ws = await gw.socket()
-    r = await gw.command(ws, **disarm(ADULT_PIN, entity=ALARM))
-    assert "result" in r and gw.fake.frames[-1]["service_data"] == {"entity_id": ALARM}   # never the code
+    r = await gw.command(ws, **disarm(None, entity=ALARM))
+    assert r["error"]["code"] == "code_required"
     r = await gw.command(ws, id=2, **disarm("1357", entity=ALARM))
     assert r["error"]["code"] == "invalid_code"
-    gw.now[0] += 3600                                                 # no code: the ordinary step-up path
-    r = await gw.command(ws, id=3, **disarm(None, entity=ALARM))
-    assert r["type"] == "step_up_required" and "pin" in r["methods"]
+    r = await gw.command(ws, id=3, **disarm(HOUSE_CODE, entity=ALARM))
+    assert "result" in r and gw.fake.frames[-1]["service_data"] == {"entity_id": ALARM}   # never the code
+    assert json.loads(gw.audit()[-1]["target"]) == [PANEL, ALARM]
     assert gw.fake.sent == ["alarm_control_panel.alarm_disarm"]
     await ws.close()
 
 
-async def test_without_the_keypad_engine_a_code_is_never_forwarded(gw):
+async def test_an_alarm_with_no_alarm_pin_is_never_disarmed(gw):
+    """Before decision 25 an alarm Mantel guarded no keypad for took the ordinary path (roles + step-up).
+    With no step-up, that path would disarm on roles alone: every alarm command now takes the keypad path,
+    and with no Alarm PIN set nothing that needs a code is sent."""
+    add_panel(gw)
+    await set_pin(gw, "jordan", "adult", ADULT_PIN)
+    gw.now[0] += 3600
+    ws = await gw.socket()
+    r = await gw.command(ws, **disarm(None, entity=ALARM))
+    assert r["error"]["code"] == "code_required"
+    for i, code in enumerate((ADULT_PIN, HOUSE_CODE, "1357")):
+        r = await gw.command(ws, id=2 + i, **disarm(code, entity=ALARM))
+        assert r["error"]["code"] == "alarm_pin_not_set", r
+    r = await gw.command(ws, id=9, **disarm(None, entity=ALARM, svc="alarm_arm_away"))
+    assert r["error"]["code"] == "code_required"                   # unguarded: arming needs it too
+    # a keypad row with no house code set: the same
+    await gw.app["alarm_pin"].set(PANEL, forward_to=ALARM)
+    r = await gw.command(ws, id=10, **disarm(HOUSE_CODE))
+    assert r["error"]["code"] == "alarm_pin_not_set"
+    assert gw.fake.sent == []
+    assert {r["reason"] for r in gw.audit() if r["kind"] == "service"} == {"alarm_code_required", "alarm_pin_not_set"}
+    secrets_absent(gw, ADULT_PIN, HOUSE_CODE)
+    await ws.close()
+
+
+async def test_without_the_keypad_engine_an_alarm_command_is_refused(gw):
     add_panel(gw)
     gw.app._state.pop("alarm_pin")
     await gw.login("jordan", "adult")
     ws = await gw.socket()
     r = await gw.command(ws, **disarm(HOUSE_CODE))
     assert r["error"] == {"code": "unavailable", "message": "alarm_pin_unavailable"} and gw.fake.sent == []
+    r = await gw.command(ws, id=2, **disarm(None))                 # no code: refused too, never the bare path
+    assert r["error"] == {"code": "unavailable", "message": "alarm_pin_unavailable"} and gw.fake.sent == []
     await ws.close()
 
 
 # -- doors -----------------------------------------------------------------------------------------------------
-async def test_on_the_tunnel_the_house_code_is_not_the_factor_and_the_owners_hear(gw):
+async def test_on_the_tunnel_the_house_code_disarms_with_no_step_up_and_the_owners_hear(gw):
     await keypad(gw)
     await gw.login("jordan", "adult")
     seed = await gw.enroll_totp()
@@ -309,14 +353,12 @@ async def test_on_the_tunnel_the_house_code_is_not_the_factor_and_the_owners_hea
     r = await gw.m.post("/api/auth/totp/verify", {"pending": body["pending"], "code": totp(seed, gw.now[0])},
                         csrf=False, tunnel=True)
     assert r.status == 200
-    gw.now[0] += 301                                                  # the sign-in factor is stale
+    gw.now[0] += 3600                                                 # the sign-in factor is long stale
     ws = await gw.socket(tunnel=True)
-    first = await gw.command(ws, **disarm(HOUSE_CODE))
-    assert first["type"] == "step_up_required" and first["reason"] == "step_up_required" and gw.fake.sent == []
-    r = await gw.m.post("/api/auth/totp/step-up", {"code": totp(seed, gw.now[0])}, tunnel=True)
-    assert r.status == 200
-    wrong = await gw.command(ws, id=2, **disarm("1357"))              # fresh, but the code must still be right
-    assert wrong["error"]["code"] == "invalid_code"
+    none = await gw.command(ws, **disarm(None))
+    assert none["error"]["code"] == "code_required"
+    wrong = await gw.command(ws, id=2, **disarm("1357"))
+    assert wrong["error"]["code"] == "invalid_code" and gw.fake.sent == []
     again = await gw.command(ws, id=3, **disarm(HOUSE_CODE))
     assert "result" in again
     await asyncio.sleep(0.05)
@@ -324,6 +366,8 @@ async def test_on_the_tunnel_the_house_code_is_not_the_factor_and_the_owners_hea
     note = gw.fake.frames[1]["service_data"]
     assert "alarm_control_panel.alarm_disarm" in note["message"] and "tunnel" in note["message"]
     assert HOUSE_CODE not in json.dumps(gw.fake.frames)
+    row = [r for r in gw.audit() if r["kind"] == "service"][-1]
+    assert (row["door"], row["step_up"], row["decision"]) == ("tunnel", "alarm_pin", "allowed")
     await ws.close()
 
 
@@ -371,15 +415,17 @@ async def test_trusted_ha_door_still_asks_the_alarms_pin_and_no_owner_notice(gw,
     assert gw.audit()[-1]["door"] == "ha"
 
 
-async def test_ha_door_under_tunnel_rules_wants_a_fresh_factor_then_notifies(gw, monkeypatch):
+async def test_ha_door_under_tunnel_rules_takes_the_house_code_then_notifies(gw, monkeypatch):
     await keypad(gw)
     await gw.login("kim", "adult")
     r = await gw.m.client.put("/api/account/pin", json={"pin": ADULT_PIN}, headers=gw.m.headers())
     assert r.status == 200
     run = await _ha_door(gw, "tunnel", monkeypatch)
-    r = await run(disarm(HOUSE_CODE))
-    assert r["type"] == "step_up_required" and gw.fake.sent == []
-    r = await run(disarm(ADULT_PIN))                        # their own PIN names them: a fresh factor
+    r = await run(disarm(None))
+    assert r["error"]["code"] == "code_required" and gw.fake.sent == []
+    r = await run(disarm(ADULT_PIN))                        # their own PIN is not the alarm's code
+    assert r["error"]["code"] == "invalid_code" and gw.fake.sent == []
+    r = await run(disarm(HOUSE_CODE))                       # no fresh factor needed (decision 25)
     assert "result" in r
     await asyncio.sleep(0.05)
     assert gw.fake.sent == ["alarm_control_panel.alarm_disarm", "persistent_notification.create"]
@@ -413,9 +459,10 @@ async def test_linked_mode_runs_the_same_path(gw):
     assert exc.value.code == "code_required"
     await A.linked_command(gw.app, entity=PANEL, command="alarm_disarm", code=HOUSE_CODE, peer="192.168.1.5")
     assert gw.audit()[-1]["actor"] == A.LINKED_ACTOR and gw.audit()[-1]["source_ip"] == "192.168.1.5"
-    await A.linked_command(gw.app, entity=PANEL, command="alarm_arm_away", code=ADULT_PIN)
-    assert gw.audit()[-1]["actor"] == uid(gw, "jordan")       # the person whose PIN it was
-    assert gw.fake.sent == ["alarm_control_panel.alarm_disarm", "alarm_control_panel.alarm_arm_away"]
+    with pytest.raises(LinkedError) as exc:                        # a person's own PIN is not the alarm's code
+        await A.linked_command(gw.app, entity=PANEL, command="alarm_arm_away", code=ADULT_PIN)
+    assert exc.value.code == "invalid_code"
+    assert gw.fake.sent == ["alarm_control_panel.alarm_disarm"]
     with pytest.raises(LinkedError) as exc:
         await A.linked_command(gw.app, entity=PANEL, command="turn_off", code=HOUSE_CODE)
     assert exc.value.code == "unknown_command"
@@ -435,7 +482,7 @@ async def test_linked_mode_with_commands_off_audits_and_sends_nothing(off):
 
 
 # -- the keypad check itself ---------------------------------------------------------------------------------
-async def test_both_codes_are_checked_every_time(gw, monkeypatch):
+async def test_only_the_house_code_is_checked(gw, monkeypatch):
     await keypad(gw)
     await set_pin(gw, "jordan", "adult", ADULT_PIN)
     calls = []
@@ -445,10 +492,16 @@ async def test_both_codes_are_checked_every_time(gw, monkeypatch):
         calls.append(entity)
         return await real(entity, code)
     monkeypatch.setattr(gw.app["alarm_pin"], "house_matches", spy)
+
+    async def never(*a, **kw):
+        raise AssertionError("people's PINs are not looked at")
+    monkeypatch.setattr(gw.app["pins"], "_matches", never)
     await tablet(gw)
     ws = await gw.socket()
-    assert "result" in await gw.command(ws, **disarm(ADULT_PIN))   # a person's PIN: the house code checked too
-    assert calls == [PANEL]
+    r = await gw.command(ws, **disarm(ADULT_PIN))
+    assert r["error"]["code"] == "invalid_code" and calls == [PANEL]
+    assert "result" in await gw.command(ws, id=2, **disarm(HOUSE_CODE))
+    assert calls == [PANEL, PANEL]
     await ws.close()
 
 
@@ -529,7 +582,9 @@ async def test_import_from_has_alarm_pin_page(gw):
 
 
 def test_the_gateway_s_refusals_become_linked_wire_codes_in_one_place():
-    cases = [({"type": "step_up_required"}, "code_required", "Enter the alarm code"),
+    cases = [({"error": {"code": "code_required", "message": "Enter the alarm code"}}, "code_required",
+              "Enter the alarm code"),
+             ({"error": {"code": "alarm_pin_not_set", "message": "x"}}, "alarm_pin_not_set", None),
              ({"error": {"code": "invalid_code", "message": "Wrong code"}}, "invalid_code", "Wrong code"),
              ({"error": {"code": "code_locked", "message": "Wrong code too many times; the keypad is locked for 15 min"}},
               "code_locked", "Wrong code too many times; the keypad is locked for 15 min"),

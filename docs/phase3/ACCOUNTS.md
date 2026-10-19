@@ -237,8 +237,8 @@ real home folder. Under Docker, mount it as a read-only secret. No secret, token
   closed). Today's server is loopback only, where a local process could claim `lan`.
 * **Login CSRF / cross-site**: Strict cookies, Origin checks, JSON-only public endpoints.
 * **Not yet**: Cloudflare Access JWT verification and the Host allowlist for real hostnames (P3.6);
-  HK notifications for new-device sign-ins and lockouts; rate limits shared across processes; PIN
-  step-up (P3.3); Sign in with Google/Apple (optional, later).
+  HK notifications for new-device sign-ins and lockouts; rate limits shared across processes;
+  Sign in with Google/Apple (optional, later).
 
 ## Tests
 
@@ -275,9 +275,10 @@ Validation: `pytest -q` 281 passed; `tools/build_ha.py` + `tests/run` all suites
 * **P3.2** builds on `identity(request)` → `(user, device)` and adds `0002_rbac.sql` (grants may
   reference `users(id)` / `devices(id)` with `ON DELETE CASCADE`); it replaces
   `accounts.require_manager` and `sessions._may_manage` with `configure` grants.
-* **P3.3** uses `ident.fresh_within(300, now)` and `ident.fresh_factor` for step-up (passkey via
-  `/api/auth/passkey/verify` while signed in, TOTP via `/api/auth/totp/step-up`; a PIN factor is its
-  to add), and its own audit migration (device and user ids instead of `device='unknown'`).
+* **P3.3** used `ident.fresh_within(300, now)` and `ident.fresh_factor` for house-command step-up
+  (passkey via `/api/auth/passkey/verify` while signed in, TOTP via `/api/auth/totp/step-up`; a PIN
+  factor was its to add). Decision 25 (2026-10-18, docs/PLAN.md) removed step-up for house commands;
+  the fresh factor remains only for account administration ("confirm it is you"), and its own audit migration (device and user ids instead of `device='unknown'`).
 * **P3.5** adds `0003_settings.sql`; per-user scope keys on `users.id`.
 * **P3.6** must: set `X-Mantel-Door` (overwriting) in Caddy for each door, list Caddy in
   `trusted_proxies`, widen the loopback Host/Origin allowlist to the real hostnames (cookies then

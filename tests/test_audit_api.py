@@ -15,7 +15,7 @@ DAY = 86400.0
 
 
 async def some_commands(gw):
-    """Owner allowed, Child denied twice, Adult step-up: four rows with different actors/decisions."""
+    """Owner allowed, Child denied twice, Adult unlock allowed (no step-up): four rows, different actors/decisions."""
     await gw.login("cody", "child")
     ws = await gw.socket()
     await gw.command(ws, **service("lock", "unlock", "lock.front_door"))
@@ -49,7 +49,7 @@ async def test_owner_reads_the_audit_newest_first_with_filters_and_pages(gw):
     st, body = await get(gw, f"?actor={cody}")
     assert [r["action"] for r in body["rows"]] == ["light.turn_on", "lock.unlock"]
     st, body = await get(gw, "?decision=step_up")
-    assert [(r["role"], r["reason"]) for r in body["rows"]] == [("adult", "step_up_required")]
+    assert st == 200 and body["rows"] == []           # no step-up since decision 25 (older rows keep theirs)
     st, body = await get(gw, "?decision=denied&kind=service")
     assert {r["role"] for r in body["rows"]} == {"child"}
     t = gw.audit()[2]["timestamp"]

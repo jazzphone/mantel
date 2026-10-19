@@ -14,11 +14,12 @@ Rules, in the order they are applied:
 4. Effective permission = user's ∩ device's. No user: the device alone; no device: the user alone.
 5. Tunnel rules (§7): sensitive actions only for roles whose `tunnel_sensitive` switch is on
    (Owner, Admin, Adult); cameras and locations only where `tunnel_cameras`/`tunnel_locations` is on.
-6. Step-up: a sensitive action needs a fresh factor (PIN or passkey within `step_up_window`). A
-   device alone (a wall tablet with nobody at it) never has one: a person's PIN is required.
 
-Only when everything else would allow does a decision say `needs_step_up`, so a prompt is shown
-only when a PIN would actually help.
+There is no step-up (decision 25, Avery 2026-10-18): a sensitive action asks for no PIN and no fresh
+second factor on any door. Who may do it is decided by the roles and grants above, and the gateway
+audits every command. The only code in Mantel is the house Alarm PIN, which the gateway checks for
+the alarm (alarm_pin.py), not this engine. "Sensitive" still marks what roles grant separately
+(`control.sensitive`), what the tunnel switch covers, and what the audit and remote notices flag.
 """
 from __future__ import annotations
 
@@ -35,7 +36,6 @@ RESOURCE_KINDS = ("entity", "domain", "area", "floor", "feature", "all")
 EFFECTS = ("allow", "deny")
 DOORS = ("lan", "tunnel")
 SIDES = ("user", "device")
-STEP_UP_WINDOW = 300.0            # seconds a PIN/passkey stays fresh (§7: "within ~5 minutes")
 SUBJECT_AREAS = "@subject"         # area resource meaning "this side's own areas" (see Subject)
 
 # Features (§5): named resources. Some contain entities (by domain, or garage covers by device
@@ -260,10 +260,12 @@ class Role:
     tunnel_sensitive: bool = False     # sensitive actions over the tunnel (§7)
     tunnel_cameras: bool = False       # cameras over the tunnel
     tunnel_locations: bool = False     # person/device_tracker locations over the tunnel
-    sensitive_needs_person: bool = False  # a device alone may not; a person's PIN at it is required
     label: str = ""
 
-    SWITCHES = ("tunnel_sensitive", "tunnel_cameras", "tunnel_locations", "sensitive_needs_person")
+    SWITCHES = ("tunnel_sensitive", "tunnel_cameras", "tunnel_locations")
+    # A switch that no longer exists (decision 25: no person's PIN at a wall tablet). A stored override
+    # may still carry it: accepted and ignored, never an error.
+    RETIRED_SWITCHES = ("sensitive_needs_person",)
 
     def to_dict(self) -> dict:
         return {"name": self.name, "label": self.label, "grants": [g.to_dict() for g in self.grants],
@@ -271,7 +273,7 @@ class Role:
 
     def overridden(self, body: Mapping) -> Role:
         """This role with a stored override applied: `grants` replaces the defaults; switches merge."""
-        extra = set(body) - {"grants", "label", *self.SWITCHES}
+        extra = set(body) - {"grants", "label", *self.SWITCHES, *self.RETIRED_SWITCHES}
         if extra:
             raise ValueError(f"unknown role override keys {sorted(extra)}")
         changes: dict = {}
@@ -302,7 +304,7 @@ class Subject:
     device_role: str | None = None
     device_id: str | None = None
     door: str = "lan"
-    fresh_factor_at: float | None = None
+    fresh_factor_at: float | None = None   # carried for callers; decides nothing (no step-up, decision 25)
     user_areas: frozenset[str] = frozenset()
     device_areas: frozenset[str] = frozenset()
 
@@ -372,7 +374,6 @@ class Classified:
 @dataclass(frozen=True)
 class Decision:
     allowed: bool
-    needs_step_up: bool
     reason: str
     action: str | None = None       # the classified action
     sensitive: str | None = None
@@ -449,7 +450,7 @@ DEFAULT_ROLES: dict[str, Role] = {r.name: r for r in (
     ), tunnel_sensitive=True, tunnel_cameras=True, tunnel_locations=True, label="Admin"),
     Role("adult", (
         _g("allow", ("view", "control", "control.sensitive", "history"), "all",
-           note="control the whole house; sensitive with step-up"),
+           note="control the whole house, sensitive actions included"),
         _g("allow", "configure", "feature", "profile", note="no settings beyond their own"),
     ), tunnel_sensitive=True, tunnel_cameras=True, tunnel_locations=True, label="Adult"),
     Role("child", (
@@ -475,7 +476,7 @@ DEFAULT_ROLES: dict[str, Role] = {r.name: r for r in (
     Role("wall_tablet", (
         _g("allow", ("view", "control", "control.sensitive", "history"), "area", SUBJECT_AREAS,
            note="what its room's dashboard shows; more by entity grants"),
-    ), sensitive_needs_person=True, label="Wall Tablet"),
+    ), label="Wall Tablet"),
     Role("service", (), label="Service"),
 )}
 ROLES = tuple(DEFAULT_ROLES)
@@ -486,8 +487,6 @@ ROLES = tuple(DEFAULT_ROLES)
 class Policy:
     roles: Mapping[str, Role] = field(default_factory=lambda: dict(DEFAULT_ROLES))
     grants: tuple[Grant, ...] = ()
-    step_up_window: float = STEP_UP_WINDOW
-    step_up_exempt: frozenset[str] = frozenset()   # sensitive kinds that skip step-up (none by default)
 
     @classmethod
     def build(cls, grants: Iterable[Grant] = (), overrides: Mapping[str, Mapping] | None = None,
@@ -521,16 +520,16 @@ class Policy:
                feature: str | None = None) -> Decision:
         cl = classify(action, entity_id, ctx)
         if cl is None:
-            return Decision(False, False, "unknown_action")
-        mk = lambda ok, step, reason, side=None: Decision(ok, step, reason, cl.action, cl.sensitive, side)  # noqa: E731
+            return Decision(False, "unknown_action")
+        mk = lambda ok, reason, side=None: Decision(ok, reason, cl.action, cl.sensitive, side)  # noqa: E731
         if entity_id is None and feature is None:
-            return mk(False, False, "no_target")
+            return mk(False, "no_target")
         if feature is not None and feature not in FEATURE_DOMAINS:
-            return mk(False, False, "unknown_feature")
+            return mk(False, "unknown_feature")
         if not subject.has_user and not subject.has_device:
-            return mk(False, False, "no_subject")
+            return mk(False, "no_subject")
         if subject.has_device and subject.door == "tunnel":
-            return mk(False, False, "device_on_tunnel", "device")
+            return mk(False, "device_on_tunnel", "device")
         results = []
         if subject.has_user:
             results.append(("user", self._side("user", subject.user_role, subject.user_id, subject.user_areas,
@@ -541,23 +540,17 @@ class Policy:
         refused = [(s, r) for s, r in results if r != "granted"]
         if refused:
             side, reason = next(((s, r) for s, r in refused if r == "explicit_deny"), refused[0])
-            return mk(False, False, reason, side)
+            return mk(False, reason, side)
         if subject.door == "tunnel":
             role = self.roles.get(subject.user_role) if subject.user_role else None
             tf = cl.tunnel_feature or (feature if feature in ("cameras", "locations") else None)
             if cl.sensitive and not (role and role.tunnel_sensitive):
-                return mk(False, False, "tunnel_lan_only", "user")
+                return mk(False, "tunnel_lan_only", "user")
             if tf == "cameras" and not (role and role.tunnel_cameras):
-                return mk(False, False, "tunnel_cameras_off", "user")
+                return mk(False, "tunnel_cameras_off", "user")
             if tf == "locations" and not (role and role.tunnel_locations):
-                return mk(False, False, "tunnel_locations_off", "user")
-        if cl.sensitive and cl.sensitive not in self.step_up_exempt:
-            if not subject.has_user:
-                return mk(False, True, "person_pin_required", "device")
-            t = subject.fresh_factor_at
-            if t is None or t > ctx.now or ctx.now - t > self.step_up_window:
-                return mk(False, True, "step_up_required", "user")
-        return mk(True, False, "granted")
+                return mk(False, "tunnel_locations_off", "user")
+        return mk(True, "granted")
 
     # -- the read filter ------------------------------------------------------------------------
     def visible(self, subject: Subject, entity_id: str, ctx: Context) -> bool:
