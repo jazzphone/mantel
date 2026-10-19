@@ -64,7 +64,7 @@ async def test_signed_out_is_sent_to_login_and_gets_nothing_else(admin):
 async def test_signed_in_gets_the_page(admin):
     await admin.user("avery", "owner")
     await admin.sign_in("avery")
-    r = await admin.client.get("/admin")
+    r = await admin.client.get("/admin?plain=1")         # the plain fallback; /admin is Mantel Settings now
     assert r.status == 200 and r.content_type == "text/html"
     html = await r.text()
     assert "<title>Mantel admin</title>" in html and 'src="/admin/admin.js"' in html
@@ -79,7 +79,7 @@ async def test_signed_in_gets_the_page(admin):
 async def test_csp_and_no_inline_script_handler_or_style(admin):
     await admin.user("avery", "owner")
     await admin.sign_in("avery")
-    r = await admin.client.get("/admin")
+    r = await admin.client.get("/admin?plain=1")
     csp = r.headers["Content-Security-Policy"]
     assert "script-src 'self'" in csp and "style-src 'self'" in csp and "default-src 'none'" in csp
     assert "unsafe-inline" not in csp and "unsafe-eval" not in csp and "frame-ancestors 'none'" in csp
@@ -113,6 +113,13 @@ def test_the_assets_ship_in_the_package():
     assert "static/admin/*" in data["tool"]["setuptools"]["package-data"]["mantel_server"]
     for name in ("index.html", "admin.js", "admin.css"):
         assert files("mantel_server").joinpath("static/admin/" + name).is_file()
+
+
+async def test_admin_sends_a_signed_in_person_to_mantel_settings(admin):
+    await admin.user("avery", "owner")
+    await admin.sign_in("avery")
+    r = await admin.client.get("/admin", allow_redirects=False)
+    assert r.status == 302 and r.headers["Location"] == "/settings"
 
 
 async def test_a_wall_tablet_alone_is_refused_the_page(admin):
@@ -182,7 +189,7 @@ async def test_a_person_at_a_wall_tablet_gets_only_me(admin):
     assert r.status == 200
     body = await (await admin.get("/api/admin/overview")).json()
     assert body["at_tablet"] is True and body["sections"] == ["me"]
-    assert (await admin.client.get("/admin")).status == 200         # a person may open it; it shows Me only
+    assert (await admin.client.get("/admin")).status == 200         # a person at a tablet keeps the plain page: Me only
     # an Owner at a tablet is held to the tablet's share too
     admin.forget_cookies()
     await admin.sign_in("avery")

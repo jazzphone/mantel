@@ -25,7 +25,7 @@ configuration:
     description: With proxy or https, the address tablets and browsers type, for example https://mantel.example.com (add :port when it is not 443). A name, not an IP address; your DNS must point it at your proxy (proxy) or at this Home Assistant machine (https).
   trusted_proxies:
     name: Your proxy's address
-    description: With proxy, the IP address (or several, separated by commas) your reverse proxy's requests come from, as Mantel sees them. Mantel's Test my proxy page shows it. Only this proxy may tell Mantel the LAN door, and only with this installation's door key (Mantel settings, HTTPS).
+    description: With proxy, the IP address (or several, separated by commas) your reverse proxy's requests come from, as Mantel sees them. Mantel's Test my proxy page shows it. Only this proxy may tell Mantel the LAN door, and only with this installation's door key (Mantel Settings, HTTPS).
   ha_sign_in_url:
     name: Home Assistant address for sign-in
     description: With proxy or https, Home Assistant's address as browsers at home know it, for example http://homeassistant.local:8123. It turns on Sign in with Home Assistant at Mantel's own address. Empty leaves only Mantel's own sign-in there (password, passkey, enrolled wall tablets).

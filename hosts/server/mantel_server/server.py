@@ -394,16 +394,24 @@ async def home_page(request: web.Request) -> web.StreamResponse:
     return ingress.file_response(request, request.app["cfg"].web / "home.html", NO_CACHE, page=True)
 
 
-async def hk_settings_page(request: web.Request) -> web.StreamResponse:
-    """/hk-settings: HK Settings (<hk-settings-panel>) in Mantel's own copy, for Owners and Admins only (the
-    people /admin is for). A wall tablet, even signed in as one of them, is refused; a signed-out browser
-    never gets here (the session middleware sends it to /login)."""
+async def settings_page(request: web.Request) -> web.StreamResponse:
+    """/settings: Mantel Settings, HK Settings' page (<hk-settings-panel>) with Mantel's own pages beside HK's
+    (web/shim/mantel-settings.js), for every signed-in person: Me for everyone, the house's pages (HK's
+    settings, People, Devices, Connections, ...) for the roles admin_page.sections_for allows. A wall tablet,
+    even signed in as a person, is refused; a signed-out browser never gets here (the session middleware
+    sends it to /login)."""
     ident = sessions.identity(request)
-    if ident.user is None or ident.device is not None or ident.user.role not in accounts.MANAGERS:
+    if ident.user is None or ident.device is not None:
         back = "" if request.get("mantel_base") else " <a href='/home'>Back to the dashboard</a>."
-        return auth.page("HK Settings", "<p>Only an Owner or an Admin can change Mantel's copy of HK's settings, "
-                         "and not from a wall tablet." + back + "</p>", 403)
-    return ingress.file_response(request, request.app["cfg"].web / "hk-settings.html", NO_CACHE, page=True)
+        return auth.page("Mantel Settings", "<p>This browser is a wall tablet. Sign in as a person to change "
+                         "Mantel's settings." + back + "</p>", 403)
+    return ingress.file_response(request, request.app["cfg"].web / "settings.html", NO_CACHE, page=True)
+
+
+async def hk_settings_redirect(request: web.Request) -> web.StreamResponse:
+    """/hk-settings, the old address of HK Settings in Mantel: now Mantel Settings. The browser keeps the
+    fragment (#/screens/...), so every link into HK's pages still lands where it pointed."""
+    raise web.HTTPFound("/settings" + (f"?{request.query_string}" if request.query_string else ""))
 
 
 async def api_registry(request: web.Request) -> web.Response:
@@ -462,7 +470,7 @@ def build_app(cfg: Config, token: str, store: Store | None = None, connect_ha: b
     accounts.register(app, hub)
     devices.register(app, hub)
     login_page.register(app, hub)     # /login (passkey, password + TOTP, Sign in with HA via /login/ha)
-    admin_page.register(app, hub)     # /admin (people, devices, roles, service accounts, audit, my PIN)
+    admin_page.register(app, hub)     # /admin -> /settings; /admin?plain=1 the plain fallback page; the overview
     pins.register(app, hub)
     alarm_pin.register(app, hub)      # HK's Alarm PIN: the keypad's code checked by Mantel (GATEWAY.md "The alarm")
     ingress.register(app, hub, token)                   # HA App mode / Connect (cfg.ingress); inert otherwise
@@ -473,7 +481,8 @@ def build_app(cfg: Config, token: str, store: Store | None = None, connect_ha: b
     app.router.add_get("/", root)
     app.router.add_get("/dev", dev_page)
     app.router.add_get("/home", home_redirect)
-    app.router.add_get("/hk-settings", hk_settings_page)    # HK Settings, Mantel's copy (Owner/Admin)
+    app.router.add_get("/settings", settings_page)          # Mantel Settings: HK's and Mantel's, one page
+    app.router.add_get("/hk-settings", hk_settings_redirect)  # its old address
     app.router.add_get("/hk/{path:.+}", hk_file)
     app.router.add_get("/web/{path:.+}", web_file)
     app.router.add_get("/static/mdi/{name}", mdi_file)

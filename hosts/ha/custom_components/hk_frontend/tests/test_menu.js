@@ -441,5 +441,20 @@ ok('...on a page change and on a tap, the tap before the new page is asked for',
   window.hkSettings = keepHS;
 })();
 
+// THE HOST'S OWN PAGES (hkShell.hostMenu): none in Home Assistant, so no section and no word; a host
+// names its own section (Mantel's shell says "Mantel": decision 27)
+(function () {
+  var hostItems = window.hkMenu._.hostItems;
+  ok('Home Assistant: no host pages', hostItems().length === 0, JSON.stringify(hostItems()));
+  var was = window.hkShell.hostMenu;
+  window.hkShell.hostMenu = function () { return [{ title: 'Example Settings', icon: 'mdi:cog', href: '/settings', section: 'Example' }, { title: 'no href' }]; };
+  var got = hostItems();
+  ok('a host\'s page: its title, address and its own section name', got.length === 1 && got[0].section === 'Example' &&
+     got[0].kind === 'hostlink' && got[0].href === '/settings', JSON.stringify(got));
+  window.hkShell.hostMenu = was;
+  var src = read(root + '/frontend/modules/hk-menu.js') + read(root + '/frontend/modules/hk-tabbar.js');
+  ok('neither the menu nor the tab bar names a host of its own', !/mantel/i.test(src));
+})();
+
 print('\n' + (fail ? fail + ' FAILED, ' + pass + ' passed' : 'ALL ' + pass + ' MENU TESTS PASS'));
 if (fail) throw new Error(fail + ' failed');

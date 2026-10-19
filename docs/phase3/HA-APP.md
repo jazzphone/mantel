@@ -310,7 +310,8 @@ read-only while Mantel is. Entries: **HK Settings** above **Mantel settings** in
 More sheet) and a link on `/admin` (managers only). A refused save says why (`settings_store.REFUSALS` for `ha_write` /
 `not_yet`; the action port's refusals toast "Commands are disabled in Mantel (read-only)"). The energy sheet's "More energy
 settings" link is host-relative and now lands here. Folding Mantel settings into HK Settings stays PLAN item 8.
-Tests: `tests/test_ingress_own_pages.py`.
+Tests: `tests/test_ingress_own_pages.py`. **Since decision 27 (2026-10-19) both are one page, Mantel Settings at
+`<prefix>/settings`**; `/hk-settings` and `/admin` send browsers there (docs/phase8/SETTINGS.md).
 
 ## The App
 

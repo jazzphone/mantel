@@ -112,7 +112,7 @@ async def make(tmp_path, monkeypatch, *, peers=("127.0.0.1",), ingress_on=True, 
     (web_dir / "hk/modules").mkdir(parents=True)
     (web_dir / "hk/fonts").mkdir(parents=True)
     (web_dir / "home.html").write_text((ROOT / "web/home.html").read_text())
-    (web_dir / "hk-settings.html").write_text((ROOT / "web/hk-settings.html").read_text())
+    (web_dir / "settings.html").write_text((ROOT / "web/settings.html").read_text())
     (web_dir / "hk/modules/hk-probe.js").write_text(
         "var A = '/hk/modules/hk-x.js'; import('/hk/cards/y.js');\n"
         "var seg = String(location.pathname).split('/')[1];\nvar m = fetch(\"/static/mdi/icons.json\");\n"
@@ -196,7 +196,7 @@ async def test_a_page_that_has_service_worker_fetches_starts_the_session_and_sav
     m.store.link(OWNER_HA, "owner")
     sw = {"Sec-Fetch-Dest": "empty", "Sec-Fetch-Mode": "navigate", "Sec-Fetch-Site": "same-origin",
           "Accept": "text/html,application/xhtml+xml"}
-    r = await m.request("GET", "/admin", {**m.ha(), **sw})
+    r = await m.request("GET", "/admin?plain=1", {**m.ha(), **sw})
     assert r.status == 200
     assert {"mantel_session", "mantel_refresh", "mantel_csrf"} <= set(m.jar)
     s = await (await m.request("GET", "/api/session", m.ha())).json()

@@ -667,10 +667,10 @@ async def smoke(shot=None, shots=None):
                     exceptions = [line for line in browser.console if line.startswith("EXCEPTION:")]
                     assert not exceptions, exceptions
                     assert not browser.blocked_requests, browser.blocked_requests
-                    # "HK Settings" and "Mantel settings" in the TAB BAR's More sheet (the side menu is off whenever
-                    # a bar shows): DRAWN, not read off the model -- non-zero boxes on screen for the Owner, none
-                    # for an Adult. A click on a row is a full page load: HK Settings (Mantel's copy of the panel,
-                    # with its notice and the way back), then /admin.
+                    # "Mantel Settings" in the TAB BAR's More sheet (the side menu is off whenever a bar shows):
+                    # DRAWN, not read off the model -- a non-zero box on screen for every person, none for a wall
+                    # tablet. A click is a full page load: Mantel Settings (HK Settings' panel with Mantel's own
+                    # pages, its way back in the sidebar).
                     more_row = """(() => {
                       const bar = document.querySelector('#hk-shell-root > #hk-tabbar'), sr = bar && bar.shadowRoot;
                       const rows = () => sr ? [...sr.querySelectorAll('.sheet[data-sheet="more"].open .it[data-k="m"]')] : [];
@@ -679,7 +679,7 @@ async def smoke(shot=None, shots=None):
                     })"""
                     await browser.eval("window.__moreProbe = " + more_row)
                     await browser.eval("window.__moreProbe().sr.querySelector('.tab[data-t=\"more\"]').click()")
-                    assert await browser.wait("window.__moreProbe().rows().length === 2", 5), "no Mantel rows in the open More sheet"
+                    assert await browser.wait("window.__moreProbe().rows().length === 1", 5), "no Mantel row in the open More sheet"
                     drawn = await browser.eval("""(async () => {
                       await new Promise(r => setTimeout(r, 900));        // the sheet's opening motion
                       const p = window.__moreProbe(), sheet = p.rows()[0].closest('.sheet').getBoundingClientRect();
@@ -690,36 +690,43 @@ async def smoke(shot=None, shots=None):
                                  hit: !!top && (top === el || el.contains(top)) };
                       });
                     })()""")
-                    assert [d["text"] for d in drawn] == ["HK Settings", "Mantel settings"] \
+                    assert [d["text"] for d in drawn] == ["Mantel Settings"] \
                         and all(d["box"][0] > 40 and d["box"][1] > 20 and d["inside"] and d["hit"] for d in drawn), drawn
+                    heading = await browser.eval("window.__moreProbe().sr.querySelector('.mh').textContent")
+                    assert heading == "Mantel", heading     # the host names its own section (hkShell.hostMenu()[0].section)
                     if os.environ.get("MANTEL_SHOT_MORE"):
                         await browser.screenshot(os.environ["MANTEL_SHOT_MORE"])
-                    # an Adult: the same sheet, no rows
+                    # an Adult: the same row (Me is everyone's); a wall tablet: none
                     await browser.eval("window.hkMantelShell.setRole('adult'); window.dispatchEvent(new Event('resize'));")
+                    assert await browser.wait("window.__moreProbe().rows().length === 1", 5), "an Adult has no Mantel Settings row"
+                    await browser.eval("window.hkMantelShell.setRole('wall_tablet'); window.dispatchEvent(new Event('resize'));")
                     assert await browser.wait("window.__moreProbe().rows().length === 0 && "
                                               "!window.__moreProbe().sr.querySelector('.mh:not([hidden])')", 5), \
-                        "an Adult still has the Mantel rows in More"
+                        "a wall tablet still has the Mantel row in More"
                     await browser.eval("window.hkMantelShell.setRole('owner'); window.dispatchEvent(new Event('resize'));")
-                    assert await browser.wait("window.__moreProbe().rows().length === 2", 5), "the Owner's rows did not return"
+                    assert await browser.wait("window.__moreProbe().rows().length === 1", 5), "the Owner's row did not return"
                     await browser.eval("window.__moreProbe().rows()[0].click()")
-                    assert await browser.wait("location.pathname === '/hk-settings'", 10), "the row did not open /hk-settings"
-                    if not await browser.wait("window.__mantelReady === true && !!window.__mantelHkSettings && "
-                                              "window.__mantelHkSettings.ready === true && "
-                                              "!!window.__mantelHkSettings.shadowRoot.querySelector('.side .grp')", 25):
-                        raise AssertionError("HK Settings page did not open: " + json.dumps(browser.console[-15:]))
+                    assert await browser.wait("location.pathname === '/settings'", 10), "the row did not open /settings"
+                    if not await browser.wait("window.__mantelReady === true && !!window.__mantelSettings && "
+                                              "window.__mantelSettings.ready === true && "
+                                              "!!window.__mantelSettings.shadowRoot.querySelector('.side .grp')", 25):
+                        raise AssertionError("Mantel Settings did not open: " + json.dumps(browser.console[-15:]))
                     hk_page = await browser.eval("""(() => {
-                      const el = window.__mantelHkSettings, bar = document.getElementById('mantel-bar'), r = el.getBoundingClientRect();
-                      return { client: el.client === window.__mantel.client, notice: bar.textContent.includes('Mantel’s copy of HK’s settings'),
-                               back: document.getElementById('mantel-back').getAttribute('href'),
-                               below_bar: Math.round(r.top) >= Math.round(bar.getBoundingClientRect().bottom) - 1 && r.height > 200,
-                               ha_forms: [...el.shadowRoot.querySelectorAll('*')].filter(n => /^ha-(form|yaml-editor|selector)$/.test(n.localName)).length };
+                      const el = window.__mantelSettings, sr = el.shadowRoot, r = el.getBoundingClientRect();
+                      const heads = [...sr.querySelectorAll('.side .grp .gh')].map(n => n.textContent);
+                      return { client: el.client === window.__mantel.client, title: sr.querySelector('.side h1').textContent,
+                               back: sr.querySelector('.side .hostback').getAttribute('href'), full: Math.round(r.top) === 0 && r.height > 200,
+                               me: sr.querySelector('.side a[href="#/mantel/me"]') !== null,
+                               mantel: heads.includes('People & Access') && heads.includes('Mantel'), hk: heads.includes('Screens'),
+                               ha_forms: [...sr.querySelectorAll('*')].filter(n => /^ha-(form|yaml-editor|selector)$/.test(n.localName)).length };
                     })()""")
-                    assert hk_page == {"client": True, "notice": True, "back": "/home", "below_bar": True, "ha_forms": 0}, hk_page
+                    assert hk_page == {"client": True, "title": "Mantel Settings", "back": "/home", "full": True, "me": True,
+                                       "mantel": True, "hk": True, "ha_forms": 0}, hk_page
                     # Mantel's own screens are listed: Overview counts them, the Screens group has them, a screen's
                     # page opens and its preview is Mantel's own screen (under the Ingress prefix, if any), and a
                     # narrower window still has the preview above the settings
                     screens = await browser.eval("""(() => {
-                      const el = window.__mantelHkSettings, sr = el.shadowRoot;
+                      const el = window.__mantelSettings, sr = el.shadowRoot;
                       return { n: el.data.dashboards.filter(d => d.item).length, source: el.data.source,
                                overview: [...sr.querySelectorAll('.side .grp')].map(g => g.textContent).join(' ').match(/(\\d+) Screens/)?.[1] || null,
                                rows: [...sr.querySelectorAll('.side a, .side [role=link], .side .nav')].map(n => n.textContent.trim())
@@ -730,10 +737,10 @@ async def smoke(shot=None, shots=None):
                         await browser.send("Emulation.setDeviceMetricsOverride", width=width, height=900, deviceScaleFactor=1, mobile=False)
                         await browser.eval("window.dispatchEvent(new Event('resize')); location.hash = '#/overview'")
                         await browser.eval("location.hash = '#/screens/dashboard-proof'")
-                        assert await browser.wait("!!window.__mantelHkSettings.shadowRoot.querySelector('.pvcol iframe')", 15), \
+                        assert await browser.wait("!!window.__mantelSettings.shadowRoot.querySelector('.pvcol iframe')", 15), \
                             f"no screen preview at {width}px: " + json.dumps(browser.console[-10:])
                         pv = await browser.eval("""(() => {
-                          const sr = window.__mantelHkSettings.shadowRoot, col = sr.querySelector('.pvcol'), fr = col.querySelector('iframe');
+                          const sr = window.__mantelSettings.shadowRoot, col = sr.querySelector('.pvcol'), fr = col.querySelector('iframe');
                           const pc = sr.querySelector('.pc');
                           return { src: fr.getAttribute('src'), open: col.querySelector('a').getAttribute('href'),
                                    above: col.getBoundingClientRect().bottom <= pc.getBoundingClientRect().top + 1,
@@ -743,7 +750,7 @@ async def smoke(shot=None, shots=None):
                         assert pv["src"].startswith("/dashboard-proof/0?") and pv["open"] == "/dashboard-proof/0" \
                             and pv["h1"] == "Proof" and (pv["above"] or pv["sideBySide"]), (width, pv)
                         # the frame is Mantel's own screen, drawn (not a 404 or Home Assistant's page)
-                        assert await browser.wait("(() => { const f = window.__mantelHkSettings.shadowRoot.querySelector('.pvcol iframe');"
+                        assert await browser.wait("(() => { const f = window.__mantelSettings.shadowRoot.querySelector('.pvcol iframe');"
                                                   " try { return f.contentWindow.__mantelReady === true && f.contentWindow.location.pathname === '/dashboard-proof/0'; }"
                                                   " catch (e) { return false; } })()", 25), f"the preview did not draw at {width}px"
                         if width == 1000:
@@ -752,16 +759,16 @@ async def smoke(shot=None, shots=None):
                     # its energy-sheet link ("More energy settings") is host-relative and lands on this page
                     assert 'href="/hk-settings#/features/energy/devices/' in (Path(__file__).resolve().parents[2] / "web/hk/cards/hk-detail.js").read_text()
                     # the way back, then the second row
-                    await browser.eval("document.getElementById('mantel-back').click()")
-                    assert await browser.wait("location.pathname.endsWith('/home')", 10), "the way back did not leave HK Settings"
+                    await browser.eval("window.__mantelSettings.shadowRoot.querySelector('.side .hostback').click()")
+                    assert await browser.wait("location.pathname.endsWith('/home')", 10), "the way back did not leave Mantel Settings"
                     if not await browser.wait("window.__mantelReady === true", 25):
                         raise AssertionError("the dashboard did not return: " + json.dumps(browser.console[-15:]))
                     await browser.eval("window.__moreProbe = " + more_row)
                     await browser.eval("window.__moreProbe().sr.querySelector('.tab[data-t=\"more\"]').click()")
-                    assert await browser.wait("window.__moreProbe().rows().length === 2", 5), "no Mantel rows after returning"
+                    assert await browser.wait("window.__moreProbe().rows().length === 1", 5), "no Mantel row after returning"
                     await browser.eval("new Promise(r => setTimeout(r, 900))")
-                    await browser.eval("window.__moreProbe().rows()[1].click()")
-                    assert await browser.wait("location.pathname === '/admin'", 10), "the row did not open /admin"
+                    await browser.eval("window.__moreProbe().rows()[0].click()")
+                    assert await browser.wait("location.pathname === '/settings'", 10), "the row did not open /settings again"
                     # A page opened by its own address is drawn first by the view host. With narrowing on (the
                     # page's default), the hub subscription narrows to what Lights reads; a page not seen yet
                     # (Home) widens it again first, then it narrows to both pages' reads.

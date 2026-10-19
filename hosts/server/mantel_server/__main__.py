@@ -135,7 +135,7 @@ def main(argv: list[str] | None = None) -> int:
     app = build_app(cfg, token)
     if not app["connections"].ha_token():
         print(f"mantel-server: Home Assistant is not connected yet. Sign in as the Owner and open "
-              f"{cfg.base_url}admin#connections to connect it.", flush=True)
+              f"{cfg.base_url}settings#/mantel/connections to connect it.", flush=True)
     mode = ("COMMANDS ENABLED (roles and an audit row for every command; the Alarm PIN for the alarm)" if cfg.commands_enabled
             else "read-only; commands disabled")
     print(f"mantel-server: {cfg.base_url}login  (listening on {cfg.host}:{cfg.port}; {mode})", flush=True)

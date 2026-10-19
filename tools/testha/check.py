@@ -373,6 +373,23 @@ async def check_tabs(r: Run):
     txt = await r.js("__text(__tag('hk-settings-panel')[0]).slice(0,300)")
     d = len(txt or "")
     r.record("6b", "HK Settings panel opens", d > 40, f"panel text: {txt[:150]!r}", [shot2])
+    # HK Frontend on its own shows HK Settings only (decision 27, docs/phase8/SETTINGS.md): no host's pages, no
+    # Mantel tab, link, request or word, on any page -- including Mantel's own addresses and /admin's old ones
+    seen = []
+    for frag in ("#/", "#/screens/hk-wall", "#/add-screen", "#/mantel/people", "#/connections"):
+        await r.js("location.hash = %s" % json.dumps(frag))
+        await asyncio.sleep(1.5)
+        seen.append(await r.js("(function(){var p=__tag('hk-settings-panel')[0]; var t=__text(p);"
+                               "var links=__deep(p,n=>n.localName==='a').map(a=>a.getAttribute('href')||'');"
+                               "return {frag: location.hash, title: (__deep(p,n=>n.localName==='h1')[0]||{}).textContent||'',"
+                               "mantel: /mantel/i.test(t) || links.some(h=>/mantel|\\/admin|\\/settings(?!\\w)/i.test(h))};})()"))
+    host = await r.js("JSON.stringify([window.hkShell.settingsHost(), window.hkShell.hostMenu()])")
+    reqs = [u for u in (ev.get("params", {}).get("request", {}).get("url", "") for ev in r.b.events
+                        if ev.get("method") == "Network.requestWillBeSent") if re.search(r"mantel|/api/admin|/settings\b", u, re.I)]
+    sent = [m.get("type", "") for m in r.frames()[0].values() if "mantel" in str(m.get("type", "")).lower()]
+    ok2 = not any(x["mantel"] for x in seen) and host == "[null,[]]" and not reqs and not sent
+    r.record("6c", "HK Settings in HA has no Mantel tab, link, request or word", ok2,
+             f"pages {[(x['frag'], x['title'], x['mantel']) for x in seen]}, host {host}, requests {reqs[:3]}, ws {sent[:3]}")
 
 
 async def check_saver(r: Run):

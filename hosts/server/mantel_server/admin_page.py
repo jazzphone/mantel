@@ -1,5 +1,11 @@
 """Mantel Server's admin page: ``/admin``, a UI over the management APIs that already exist.
 
+Since Mantel Settings (``/settings``: HK Settings' page with Mantel's own pages in it, web/shim/
+mantel-settings.js) ``/admin`` sends browsers there, keeping the query (``?connection=`` from Home
+Assistant's sign-in) and, in the browser, the fragment (``#connections``, which Mantel Settings maps to
+its own page). ``/admin?plain=1`` still serves this page as it was: the fallback when Mantel Settings
+can't load (its error links here), until Phase 7 retires it.
+
 The page is static (HTML, one JS module, one stylesheet in ``static/admin/``) and holds no secret. It
 is served only to a signed-in person: a signed-out browser is sent to ``/login``, a wall tablet on its
 own gets a short refusal. Every number and every action goes through the REST routes the other
@@ -18,6 +24,7 @@ no ``style`` attributes, also ``style-src 'self'``. No inline script, handler or
 """
 from __future__ import annotations
 
+import re
 from importlib.resources import files
 
 from aiohttp import web
@@ -31,6 +38,7 @@ from .sessions import Identity, identity
 from .store import ROLES
 
 PAGE = "/admin"
+_PENDING_ID = re.compile(r"[A-Za-z0-9_-]{1,128}")    # a pending connection's id (connections.py), carried over
 ASSET = PAGE + "/{name}"
 OVERVIEW = "/api/admin/overview"
 ASSETS = {"admin.js": "text/javascript", "admin.css": "text/css"}
@@ -89,6 +97,9 @@ async def page(request: web.Request) -> web.StreamResponse:
     ident = identity(request)
     if ident.user is None and ident.device is None:
         raise web.HTTPFound(login_url(PAGE))   # "/admin" is a public path so that this can be a redirect, not a 401
+    if request.query.get("plain") != "1" and ident.user is not None and ident.device is None:
+        pid = request.query.get("connection", "")
+        raise web.HTTPFound("/settings" + (f"?connection={pid}" if _PENDING_ID.fullmatch(pid) else ""))
     if ident.user is None:
         body = ("<!doctype html><html lang=en><meta charset=utf-8><meta name=viewport "
                 "content='width=device-width,initial-scale=1'><title>Mantel admin</title>"

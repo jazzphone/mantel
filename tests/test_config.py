@@ -26,7 +26,7 @@ def test_missing_token_starts_unconnected_and_points_at_the_connections_page(tmp
                      "--data-dir", str(tmp_path / "data"), "--secrets-dir", str(tmp_path / "secrets")])
     assert rc == 0 and len(started) == 1
     assert started[0]["hub"].ha._token == "" and started[0]["connections"].current("ha") is None
-    assert "admin#connections" in capsys.readouterr().out
+    assert "settings#/mantel/connections" in capsys.readouterr().out
     rc = entry.main(["--token-file", str(tmp_path / "missing"), "--port", "0", "--ha-managed-by-app",
                      "--data-dir", str(tmp_path / "data"), "--secrets-dir", str(tmp_path / "secrets")])
     assert rc == 2 and "App credential" in capsys.readouterr().err

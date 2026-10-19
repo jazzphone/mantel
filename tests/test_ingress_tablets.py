@@ -55,7 +55,7 @@ async def make(tmp_path, monkeypatch, *, rules="trusted", commands=False, core_p
     web_dir = tmp_path / "web"
     (web_dir / "hk").mkdir(parents=True)
     (web_dir / "home.html").write_text((ROOT / "web/home.html").read_text())
-    (web_dir / "hk-settings.html").write_text((ROOT / "web/hk-settings.html").read_text())
+    (web_dir / "settings.html").write_text((ROOT / "web/settings.html").read_text())
     cfg = Config(data_dir=tmp_path / "data", secrets_dir=tmp_path / "secrets", port=0, web=web_dir,
                  hk_frontend=web_dir / "hk", hk_files=tmp_path / "none", fixtures=tmp_path / "none",
                  ingress=True, ingress_peers=("127.0.0.1",), ha_door_rules=rules, commands_enabled=commands,
@@ -120,13 +120,15 @@ def tablet_get(m, path, **extra):
     return m.client.get(path, headers={**tablet_headers(m), **extra}, allow_redirects=False)
 
 
-async def test_a_wall_tablet_cannot_open_hk_settings(mk):
+async def test_a_wall_tablet_cannot_open_settings(mk):
     m = await mk()
     origin = await owner_page(m)
     assert (await link_by_form(m, origin)).status == 303
-    r = await tablet_get(m, "/hk-settings", **PAGE)
-    assert r.status == 403 and "Only an Owner or an Admin" in await r.text()
-    assert (await m.request("GET", "/hk-settings", {**m.ha(), **PAGE})).status == 200
+    r = await tablet_get(m, "/settings", **PAGE)
+    assert r.status == 403 and "This browser is a wall tablet" in await r.text() and "settings-page.js" not in await r.text()
+    assert (await m.request("GET", "/settings", {**m.ha(), **PAGE})).status == 200
+    # the old address only sends it on: the tablet still lands on the refusal
+    assert (await tablet_get(m, "/hk-settings", **PAGE)).status == 302
 
 
 # -- linking ----------------------------------------------------------------------------------------------
