@@ -1,7 +1,7 @@
 # Mantel screens in Home Assistant's sidebar (Webpage dashboards)
 
-Status 2026-10-19: **step 1 built** on branch `ha-frame-origins` (not merged, App not bumped). Steps 2-3 are
-facts and a proposal; nothing of step 3 is built.
+Status 2026-10-19: **step 1 built and merged** (App 0.1.18). **Step 3's switch built** on branch `ha-dashboards`
+(not merged, App not bumped; "Built", below). Step 2 is facts.
 
 Goal (Avery): each Mantel screen addable to HA's sidebar the way the Zigbee2MQTT UI is, mainly so the HA
 Companion app can open Mantel **by default**. Wall tablets stay on Mantel's own address, unframed.
@@ -78,7 +78,7 @@ session through reloads. On the house (separate names) this cannot happen.
    person's own sidebar edit. Mantel still decides what anyone sees inside: a person not signed in to
    Mantel gets Mantel's sign-in page in the frame.
 
-## Step 3: design (proposal, waiting for Avery)
+## Step 3: design (the switch is built: "Built", below)
 
 ### "Add to Home Assistant" on a screen's settings page
 
@@ -110,6 +110,44 @@ Server (Mantel, the App and Docker alike):
 Also worth having: a check on the Connections → HTTPS page that `ha_frame_origins`/`ha_sign_in_url` covers
 the address HA is opened at (the page can see its own `ancestorOrigins` when framed).
 
+### Built (branch `ha-dashboards`)
+
+| Piece | Where |
+|---|---|
+| `GET /api/admin/ha-dashboards`, `PUT /api/admin/screens/<key>/ha-dashboard` as designed above | `mantel_server/ha_dashboards.py` |
+| The row on a screen's page: Show in Home Assistant; when on Title, Icon, Who Sees It, the Profile → Dashboard line | `web/shim/mantel-settings.js` (`drawHaDashboard`) |
+| The panel's hook: the existing generic `settingsHost().extend(where, c, ctx, panel)` with `where` `'screen'` (ctx `{screen, title}`, after This Device), not a new `screenRows`: the same shape the tablet page's Direct Connection already uses; HA's shell sets no host, so HK in HA draws nothing | `web/hk/panels/hk-settings.js` |
+| HTTPS and Your Proxy → **Home Assistant's Frame**: the allowed origins (`frame_ancestors` in the summary), each of HA's own `internal_url`/`external_url` (`get_config`) and the page's own frame (`ancestorOrigins`) marked OK or Fix, and a field to check any address; the fix named (`ha_frame_origins`, or `--frame-ancestors` outside the App) | `mantel-settings.js` (`drawFrames`), `proxy_check.summary` |
+
+Decisions made while building:
+- **What the connection may send** is pinned by `ha_dashboards.check_frame` (its own short socket per request on
+  `cfg.ws_url` and the Connections credential, never the hub's or the command path): `auth/current_user`,
+  `get_config`, `get_panels`, `lovelace/dashboards/list`, `lovelace/config`; `create` only as `mantel-…`;
+  `config/save` only of an iframe strategy at `public_url` + a screen, and only for a dashboard it just created;
+  `update`/`delete` only of a dashboard read in the same connection whose config frames this Mantel.
+- **Ours** is any storage dashboard whose config is exactly that iframe, wherever it came from: one made by hand
+  in HA counts, and turning the switch off removes every dashboard of that screen.
+- `url_path` is checked against HA's dashboards **and** its panels (`get_panels`): HA refuses a path a panel has.
+- A failed `config/save` deletes the dashboard just created (no empty one left in the sidebar).
+- "Direct access on" is `public_url` set, not `ingress.invalid` (the App's Ingress-only placeholder), and in the
+  App also a direct port.
+- Changes are one at a time (a lock): a double tap makes one dashboard.
+- The page re-reads HA when a screen's page is drawn more than 30 s after the last read, so a rename in HA shows
+  on the next visit (or a reload).
+- The HTTPS check cannot see a refused frame: HA sends `Referrer-Policy: no-referrer` and the browser refuses
+  the frame after Mantel answered, so Mantel never learns which HA address tried. Hence HA's own URLs, the
+  page's own frame and a typed address. On the house that means hasslocal shows as Fix only if it is HA's
+  internal URL, or typed in.
+- Not built: the Owner's "start page for everyone" button (`frontend/set_system_data`), optional in the design.
+
+Verified in the browser pane against the scratch HA (`tools/testha`, 127.0.0.1:8124, 2026.9.4) and a local Mantel
+(127.0.0.1:8773, `public_url` its own address, `--frame-ancestors http://127.0.0.1:8124`): the switch made
+`mantel-hk-wall` (fireplace icon) and HA's sidebar showed it, the screen live in the frame after Mantel's
+sign-in; renamed in HA (`lovelace/dashboards/update` as HA's own dialog sends it) Mantel showed "In its sidebar
+as Living Room Wall"; Who Sees It saved `require_admin`; off (with its confirm) removed it from HA's sidebar;
+HTTPS page: HA's internal URL `localhost:8124` Fix, external `127.0.0.1:8124` OK, a typed address Fix. Not tried
+on a real Supervisor (the App's connection as HA's admin is from step 2's reading of HA's code).
+
 ### Alternative: a Lovelace dashboard through HK in HA (linked mode)
 
 HK Frontend in HA already draws HK screens as real Lovelace dashboards (`dashboard-loft`), which the
@@ -126,9 +164,11 @@ mode as the route to retire HK-in-HA, not as this feature.
 
 ## To ship (needs Avery's OK)
 
-1. Merge `ha-frame-origins`; bump the App (0.1.18 waits for the settings merge) and stage it.
+1. ~~Merge `ha-frame-origins`~~ (in 0.1.18). Merge `ha-dashboards`; bump the App and stage it.
 2. House App options: `ha_frame_origins: https://hasslocal.example.com` (hassiot comes from
-   `ha_sign_in_url`). Companion app: internal and external URL both `example.com` names.
-3. In HA: Settings → Dashboards → Webpage → `https://mantel.example.com/dashboard-loft/home`; then
-   Profile → Dashboard. Check on an iPhone (Safari and the Companion app) at home and away; away goes
+   `ha_sign_in_url`); HTTPS and Your Proxy → Home Assistant's Frame then shows both OK. Companion app: internal
+   and external URL both `example.com` names.
+3. In Mantel Settings → the Loft's page → Show in Home Assistant (or by hand in HA: Settings → Dashboards →
+   Webpage → `https://mantel.example.com/dashboard-loft/home`); then Profile → Dashboard. Check on an
+   iPhone (Safari and the Companion app) at home and away; away goes
    through the Cloudflare tunnel, so the tunnel rules apply in the frame.

@@ -371,6 +371,9 @@ async def summary(request: web.Request) -> web.Response:
                      "since": dk.since() if need and dk is not None else None, "header": door_key.HEADER},
         "can_rotate": ident.user.role == "owner" and need and dk is not None,
         "test_url": PAGE,
+        # the Home Assistant addresses that may show Mantel in a frame (a Webpage dashboard; security_headers.py)
+        "frame_ancestors": [a for a in (getattr(cfg, "frame_ancestors", ()) or ()) if a.startswith(("http://", "https://"))],
+        "frame_option": "ha_frame_origins" if getattr(cfg, "ha_managed_by_app", False) else "--frame-ancestors",
     }, headers={"Cache-Control": "no-store"})
 
 

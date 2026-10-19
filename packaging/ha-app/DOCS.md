@@ -164,14 +164,19 @@ only by Mantel, not encrypted) and so are inside Home Assistant's backups: prote
 
 ### A screen in Home Assistant's sidebar (a Webpage dashboard)
 
-With direct access on, any Mantel screen can sit in Home Assistant's sidebar like any other web app: in Home
-Assistant, **Settings → Dashboards → Add dashboard → Webpage**, the screen's address (for example
-`https://mantel.example.com/dashboard-loft/home`), then a title and icon. Unlike the App's own "Mantel" entry,
-a Webpage dashboard can be your **default dashboard** (Profile → Dashboard), so the Companion app opens it.
+With direct access on, any Mantel screen can sit in Home Assistant's sidebar like any other web app. In Mantel
+Settings, on the screen's own page, an Owner or Admin turns on **Show in Home Assistant** (Title, Icon, and
+Who Sees It: everyone or Home Assistant administrators only); Mantel then adds, changes or removes that
+Webpage dashboard in Home Assistant itself. Home Assistant keeps the only copy, so a dashboard renamed or
+removed there shows so in Mantel. By hand it is the same: in Home Assistant, **Settings → Dashboards → Add
+dashboard → Webpage**, the screen's address (for example `https://mantel.example.com/dashboard-loft/home`).
+Unlike the App's own "Mantel" entry, a Webpage dashboard can be your **default dashboard** (Profile →
+Dashboard), so the Companion app opens it.
 
 * Home Assistant may show Mantel in a frame only from the addresses Mantel knows: `ha_sign_in_url`'s, plus
   any in `ha_frame_origins` (Home Assistant's other addresses, separated by commas, e.g. the one used at home
-  and the one used away). Everything else still may not frame Mantel.
+  and the one used away). Everything else still may not frame Mantel. Connections → HTTPS and Your Proxy
+  checks Home Assistant's own internal and external URLs, and any address you type, against that list.
 * Open Home Assistant by a name in the **same domain** as Mantel's (e.g. `ha.example.com` beside
   `mantel.example.com`), in the Companion app too (internal and external URL). Mantel's sign-in cookies are
   same-site only: from `http://homeassistant.local:8123` or an IP address the frame cannot stay signed in.

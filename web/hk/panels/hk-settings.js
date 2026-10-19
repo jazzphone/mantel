@@ -44,7 +44,8 @@
 //                 sidebar of its own
 //     extend(where, c, ctx, panel)  the host's own groups on one of HK's
 //                 pages, appended to c: where 'tablet' (a wall tablet's
-//                 page, after Setup; ctx { tablet, name, app }) }
+//                 page, after Setup; ctx { tablet, name, app }) or 'screen'
+//                 (a screen's page, after This Device; ctx { screen, title }) }
 // Home Assistant has none, so nothing of another host's is drawn, read or
 // said there.
 (function () {
@@ -2145,6 +2146,12 @@
           'Custom takes a width of your own (Standard is ' + M.CAR_WIDTH.toLocaleString('en-US') + ' px).';
       }
       c.appendChild(K.group({ header: 'This Device', footer: carFoot }, carRows));
+
+      // THE HOST'S OWN, for this screen (extend, above): nothing in Home Assistant
+      var hx = this.host();
+      if (hx && typeof hx.extend === 'function') {
+        try { hx.extend('screen', c, { screen: path, title: x.title }, this); } catch (e) { /* the host's own page */ }
+      }
 
       c.appendChild(K.group({ footer: 'Another screen’s menu, Home page, appearance and more, onto this one — you choose which.' }, [
         K.nav({ label: 'Copy Settings From…', href: base + '/copy', sk: 'b:copy' })]));

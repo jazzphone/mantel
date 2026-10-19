@@ -1104,6 +1104,67 @@ function pMaPage() {
     }, { destructive: true, fk: 'mx:ma-page-remove' })]));
   } };
 }
+// A SCREEN IN HOME ASSISTANT'S SIDEBAR (ha_dashboards.py): a Webpage dashboard showing the screen's own address,
+// which HA (and its Companion app) can open on. Mantel makes, changes and removes it in HA; HA is the only record,
+// so one renamed or removed there shows so here. Owner and Admin, with direct access and HA connected.
+const MANAGER = (role) => role === 'owner' || role === 'admin';
+const HAD = 'ha-dashboards';
+let hadAt = 0;                                        // when HA was last read: a page drawn later than 30 s on reads it again
+function loadHad() {
+  if (cache[HAD] && !cache[HAD].loading && Date.now() - hadAt > 30000) forget(HAD);
+  return load(HAD, () => api('GET', '/api/admin/ha-dashboards').then((r) => { hadAt = Date.now(); return r; }));
+}
+const origin = (u) => { try { return new URL(u).origin; } catch (e) { return ''; } };
+// the HA page this one is shown in (a Webpage dashboard), else null; Firefox has no ancestorOrigins
+function framedBy() {
+  try { const a = location.ancestorOrigins; return a && a.length ? a[a.length - 1] : null; } catch (e) { return null; }
+}
+function drawHaDashboard(c, ctx) {
+  if (!me || !MANAGER(me.user.role)) return;
+  const key = 'ha-dash:' + ctx.screen;
+  const got = loadHad();
+  if (!got) return;                                   // drawn when HA has answered
+  if (got.err) { failed(c, got.err); return; }
+  const d = got.data, header = 'Home Assistant';
+  if (d.state === 'direct_access_off' || d.state === 'ha_not_connected') return;
+  if (d.state === 'not_ha_admin') { c.appendChild(group({ header, footer: d.message }, [])); return; }
+  const mine = d.dashboards.filter((x) => x.screen === ctx.screen), cur = mine[0] || null;
+  const scr = (d.screens || []).find((x) => x.path === ctx.screen);
+  const put = (body, okText) => act(key, async () => {
+    cache[HAD] = { data: await api('PUT', '/api/admin/screens/' + encodeURIComponent(ctx.screen) + '/ha-dashboard', body) };
+    hadAt = Date.now();
+  }, okText);
+  const rows = [K().toggle({ label: 'Show in Home Assistant', sub: cur ? 'In its sidebar as ' + cur.title : null, on: !!cur,
+    fk: 'mx:had:on', onChange: async (on) => {
+      if (on) { put({ on: true, title: ctx.title || undefined }, 'Added to Home Assistant.'); return; }
+      if (!(await ask({ title: 'Remove ' + cur.title + ' from Home Assistant?', message: 'The dashboard leaves Home Assistant’s sidebar for everyone. Anyone whose Home Assistant opens on it opens on Home Assistant’s default instead.', ok: 'Remove', destructive: true }))) { redraw(); return; }
+      put({ on: false }, 'Removed from Home Assistant.');
+    } })];
+  if (cur) {
+    rows.push(K().text({ label: 'Title', value: cur.title, maxlength: 60, fk: 'mx:had:title',
+      onCommit: (v) => put({ on: true, title: v.trim() || ctx.title }, 'Saved.') }));
+    rows.push(K().text({ label: 'Icon', value: cur.icon, placeholder: 'mdi:fireplace', maxlength: 90, fk: 'mx:had:icon',
+      onCommit: (v) => put({ on: true, icon: v.trim() || 'mdi:fireplace' }, 'Saved.') }));
+    rows.push(K().select({ label: 'Who Sees It', value: cur.require_admin ? 'admin' : 'all', fk: 'mx:had:who',
+      options: [['all', 'Everyone'], ['admin', 'Home Assistant Administrators Only']],
+      onChange: (v) => put({ on: true, require_admin: v === 'admin' }, 'Saved.') }));
+  }
+  const notes = [];
+  if (cur) {
+    const at = framedBy() || d.ha_url;
+    notes.push('Open it in Home Assistant at ' + (at ? at.replace(/^https?:\/\//, '') : '') + '/' + cur.url_path + '. To have Home Assistant and its ' +
+      'Companion app open on it, pick it in Home Assistant under your Profile → Dashboard; each person picks their own.');
+    if (!cur.show_in_sidebar) notes.push('It is hidden from the sidebar in Home Assistant (Settings → Dashboards).');
+    if (mine.length > 1) notes.push('Home Assistant has ' + mine.length + ' dashboards of this screen; turning it off removes them all.');
+    notes.push('Who sees what inside it is still Mantel’s: someone not signed in to Mantel gets Mantel’s sign-in page there.');
+  } else {
+    notes.push('Adds a Webpage dashboard to Home Assistant’s sidebar showing ' + (scr ? scr.url : 'this screen') +
+      ', so Home Assistant and its Companion app can open on this screen.');
+  }
+  c.appendChild(group({ header, footer: notes.join(' ') }, rows));
+  result(c, key);
+}
+
 // HTTPS and the reverse proxy (proxy_check.py): Owner and Admin read; Owner runs the test, rotates the key
 function pProxy() {
   return { title: 'HTTPS and Your Proxy', back: ['Connections', '#/' + ROUTE + '/connections'], body(c) {
@@ -1116,6 +1177,7 @@ function pProxy() {
       info('Trusted Proxies', null, s.trusted_proxies.length ? s.trusted_proxies.join(', ') : 'None')];
     if (s.door_key.required) rows.push(info('Door Key', s.door_key.header + (s.door_key.since ? ' · since ' + fmt(s.door_key.since) : ''), s.door_key.set ? 'Set' : 'Not Set', s.door_key.set ? '' : 'warn'));
     c.appendChild(group({ footer: s.door_key.required ? 'Your proxy must send this installation’s door key with the door header. The key is shown once after a change, and in Test My Proxy.' : 'No door key is needed in this mode.' }, rows));
+    drawFrames(c, s);
     const nk = shown.doorKey;
     if (nk) c.appendChild(group({ header: 'New Door Key', footer: 'Shown once: paste it into your proxy.' }, [secretCell(nk, 'proxy-newkey-value'), copyButton(nk), button('Done', () => { delete shown.doorKey; redraw(); })]));
     const acts = [];
@@ -1143,6 +1205,37 @@ function pProxy() {
       for (const x of pastes) c.appendChild(group({ header: x.title }, [secretCell(x.paste), copyButton(x.paste)]));
     }
   } };
+}
+
+// HOME ASSISTANT'S FRAME (security_headers.py frame-ancestors): a Webpage dashboard shows Mantel only from an HA address
+// listed there (ha_sign_in_url's and ha_frame_origins); the browser refuses any other, so each address HA is opened at
+// must be listed. HA sends no Referer, so Mantel can't see a refused one: HA's own addresses, this page's frame and
+// an address typed here are checked instead.
+function drawFrames(c, s) {
+  const got = loadHad();
+  if (!got || got.err || got.data.state === 'direct_access_off') return;
+  const allowed = (s.frame_ancestors || []).map(origin).filter(Boolean);
+  const okAt = (o) => allowed.includes(o);
+  const plain = (o) => o.replace(/^https?:\/\//, '');
+  const rows = [info('Allowed to Show Mantel', null, allowed.length ? allowed.map(plain).join(', ') : 'None', allowed.length ? '' : 'warn')];
+  const seen = new Set();
+  const check = (label, o, sub) => {
+    if (!o || seen.has(label + o)) return;
+    seen.add(label + o);
+    rows.push(info(label, plain(o) + (sub ? ' · ' + sub : ''), okAt(o) ? 'OK' : 'Fix', okAt(o) ? '' : 'warn'));
+  };
+  for (const a of got.data.ha_addresses || []) check(a.kind === 'internal' ? 'Home Assistant at Home' : 'Home Assistant Away', origin(a.url), 'its ' + a.kind + ' URL');
+  const top = framedBy();
+  if (top) check('This Page', top, 'shown inside it now');
+  const typed = draft('frames').addr;
+  if (typed) check('Checked', origin(/^https?:\/\//.test(typed) ? typed : 'https://' + typed));
+  rows.push(K().text({ label: 'Check an Address', value: typed || '', placeholder: 'https://homeassistant.example.com', maxlength: 300, inputmode: 'url',
+    fk: 'mx:frames:addr', onCommit: (v) => { draft('frames').addr = v.trim(); redraw(); } }));
+  const opt = s.frame_option === 'ha_frame_origins'
+    ? 'add the missing ones to the App option ha_frame_origins (comma separated; ha_sign_in_url’s is always allowed), then restart the App'
+    : 'add the missing ones with --frame-ancestors (MANTEL_FRAME_ANCESTORS in the container), then restart Mantel';
+  c.appendChild(group({ header: 'Home Assistant’s Frame', footer: 'A screen in Home Assistant’s sidebar loads only when Home Assistant was opened at an ' +
+    'allowed address; at any other the browser refuses it. Every address you open Home Assistant at, at home and away, needs to be allowed: ' + opt + '.' }, rows));
 }
 
 // ============================================================================================ Audit
@@ -1244,10 +1337,11 @@ export const host = {
     if (me.ha_set_up === false && can('connections')) return ROUTE + '/connections';
     return manages() ? null : ROUTE + '/me';
   },
-  // Mantel's own groups on HK's pages: a wall tablet's Direct Connection
+  // Mantel's own groups on HK's pages: a wall tablet's Direct Connection, a screen in Home Assistant's sidebar
   extend(where, c, ctx, p) {
     if (p) { panel = p; ensureStyle(p.shadowRoot); }
     if (where === 'tablet' && me && ctx && ctx.tablet) drawDirect(c, ctx);
+    if (where === 'screen' && me && ctx && ctx.screen) drawHaDashboard(c, ctx);
   },
   search() {
     if (!me) return [];
