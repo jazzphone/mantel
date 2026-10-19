@@ -248,10 +248,11 @@
     '.pvcol.pin .gf,.pvcol.pin .pvhead{display:none}',
     '.pvcol.pin .pvbox{margin:0 auto}',
     '.pvcol.pin .seg{margin-top:8px}',
-    // the bar's Preview button: a glyph, as a navigation bar's buttons are
-    '.bar .pvtoggle{flex:none;width:36px;height:36px;margin-right:4px;padding:0;border:0;border-radius:18px;background:none;',
-    '  color:var(--hk-tint);display:flex;align-items:center;justify-content:center;cursor:pointer}',
-    '.bar .pvtoggle hk-icon{--mdc-icon-size:22px;width:22px;height:22px;display:flex}',
+    // the bar's Preview button: a pin and a word (Pin, Pinned), as a
+    // navigation bar's text buttons are; filled while the preview is pinned
+    '.bar .pvtoggle{flex:none;height:32px;margin-right:4px;padding:0 10px 0 7px;border:0;border-radius:16px;background:none;',
+    '  color:var(--hk-tint);display:flex;align-items:center;gap:3px;cursor:pointer;font:inherit;font-size:15px;white-space:nowrap}',
+    '.bar .pvtoggle hk-icon{--mdc-icon-size:18px;width:18px;height:18px;display:flex}',
     '.bar .pvtoggle[aria-pressed="true"]{background:var(--hk-fill)}',
     // A HOST'S WAY OUT (settingsHost().back), over the sidebar's name
     '.hostback{display:inline-flex;align-items:center;gap:3px;height:36px;margin:4px 0 -4px -6px;padding:0 8px 0 2px;color:var(--hk-tint);',
@@ -420,8 +421,23 @@
   var LIBRARY = [['accessories', 'Accessories', 'mdi:lightbulb-group', C.yellow], ['popups', 'Pop-ups', 'mdi:bell-ring', C.red],
                  ['pages', 'Custom Pages', 'mdi:file-document-multiple', C.teal], ['chips', 'Custom Chips', 'mdi:label-variant', C.orange]];
   var SYSTEM = [['advanced', 'Advanced', 'mdi:cog', C.gray], ['check', 'Setup Check', 'mdi:clipboard-check', C.green]];
-  // the documentation (manifest.json's), where a page links to it
-  var WIKI = 'https://github.com/jazzphone/hk-frontend/wiki/';
+  // THE PRODUCT'S NAME, Home Assistant's own things and places, and the
+  // documentation, as the host says them (web/client/hk-host-shell.js): HK
+  // Frontend and its wiki in Home Assistant, the host's own elsewhere.
+  // Labels only.
+  function PN() { return window.hkShell.productName(); }
+  function haName(name) { return window.hkShell.haName(name); }
+  function haPlace(path) { return window.hkShell.haPlace(path); }
+  // a link to a page of the documentation, opened beside these settings, or
+  // null where the host has no such page
+  function docsLink(page, anchor, o) {
+    var url = window.hkShell.docsUrl(page, anchor);
+    if (!url) return null;
+    var row = K.nav(Object.assign({ label: 'On the Wiki', icon: 'mdi:open-in-new', href: url }, o));
+    var a = row.tagName === 'A' ? row : row.querySelector && row.querySelector('a');
+    if (a) { a.setAttribute('target', '_blank'); a.setAttribute('rel', 'noopener'); }
+    return row;
+  }
   // SLEEP SCREEN'S LISTS (sleep_rules.py): each a page of entities, as many
   // as the house has. `quiet`: its own may also work in quiet hours.
   var SLEEP_LISTS = {
@@ -1137,7 +1153,8 @@
     }
 
     // THE PREVIEW BUTTON (narrower than a desk): the live preview pinned to
-    // the top of the page, or not; remembered in this browser
+    // the top of the page, or not; remembered in this browser. A pin and a
+    // word, Pin or Pinned: an eye alone did not say what it does.
     previewButton(show, pinned) {
       var b = this.bar.querySelector('.pvtoggle'), self = this;
       if (!show) { if (b) b.remove(); return; }
@@ -1150,9 +1167,10 @@
         this.bar.appendChild(b);
       }
       b.innerHTML = '';
-      b.appendChild(K.icon(pinned ? 'mdi:eye-off' : 'mdi:eye', ''));
-      b.setAttribute('aria-label', pinned ? 'Hide Preview' : 'Show Preview');
-      b.title = pinned ? 'Hide Preview' : 'Show Preview';
+      b.appendChild(K.icon('mdi:pin', ''));
+      b.appendChild(h('span', { text: pinned ? 'Pinned' : 'Pin' }));
+      b.setAttribute('aria-label', 'Pin Preview');
+      b.title = pinned ? 'Unpin the preview from the top' : 'Pin the preview to the top while you scroll';
       b.setAttribute('aria-pressed', pinned ? 'true' : 'false');
     }
     // THE SCREENSAVER'S PREVIEW: on Screensaver Options the frame shows the
@@ -1621,7 +1639,7 @@
     // ---------------------------------------------------------- overview
     p_overview() {
       var self = this, d = this.data;
-      return { title: 'Overview', top: true, scope: 'Settings for the HK Frontend dashboards in this home.', body: function (c) {
+      return { title: 'Overview', top: true, scope: 'Settings for the ' + PN() + ' dashboards in this home.', body: function (c) {
         c.appendChild(K.group({ header: 'Where Settings Live' }, [
           K.info({ tile: ['mdi:tablet-dashboard', C.blue], label: 'Screens',
                    sub: 'Each screen’s own menu, Home page, pages, appearance and behavior.' }),
@@ -2972,11 +2990,10 @@
       }
       c.appendChild(K.group({ header: '1. The Dropdown’s Options', footer: sel
           ? (missing ? 'The dropdown has no option for ' + (missing === 1 ? 'one camera' : missing + ' cameras') + ' in this ' +
-              'screen’s strip. Add ' + (missing === 1 ? 'it' : 'them') + ', spelled as shown, in Settings → Devices & Services → ' +
-              'Helpers; until then the automation leaves ' + (missing === 1 ? 'it' : 'them') + ' out.'
+              'screen’s strip. Add ' + (missing === 1 ? 'it' : 'them') + ', spelled as shown, in ' + haPlace('Settings → Devices & Services → Helpers') + '; until then the automation leaves ' + (missing === 1 ? 'it' : 'them') + ' out.'
             : 'The dropdown has an option for every camera in this screen’s strip.')
           : 'Create the Dropdown makes a dropdown helper called Live Camera with these options, and chooses it above. ' +
-            'Or make your own in Settings → Devices & Services → Helpers → Create Helper → Dropdown.' }, rows));
+            'Or make your own in ' + haPlace('Settings → Devices & Services → Helpers → Create Helper → Dropdown') + '.' }, rows));
 
       var yaml = M.liveYaml(plan, sel || 'input_select.live_camera');
       if (!yaml) {
@@ -3131,23 +3148,23 @@
       var choices = (this.data.choices || {}).sleep || {};
       var mins = function (m) { return m < 60 ? m + ' min' : (m / 60) + (m === 60 ? ' hour' : ' hours'); };
       var secs = function (v) { return v === 0 ? 'None' : v < 60 ? v + ' s' : mins(v / 60); };
-      c.appendChild(K.group({ header: 'Going Dark', footer: 'Drawn By: Kiosk Satellite puts its own Black screensaver up; HK Frontend draws the black on this page and turns the backlight down itself, then fades back in with it (Kiosk Satellite’s is its fallback). ' +
+      c.appendChild(K.group({ header: 'Going Dark', footer: 'Drawn By: Kiosk Satellite puts its own Black screensaver up; ' + PN() + ' draws the black on this page and turns the backlight down itself, then fades back in with it (Kiosk Satellite’s is its fallback). ' +
           'While Dark: a display that is off has no glow at all, but a tap cannot wake it — the power button, the doorbell or somebody walking in can.' }, [
         K.seg({ label: 'Drawn By', sk: 'b:black_screen', stack: !wide, value: b.black_screen || 'kiosk',
-                options: [['kiosk', 'Kiosk Satellite'], ['hk', 'HK Frontend']], onChange: function (v) { ctx.set({ black_screen: v }); } }),
+                options: [['kiosk', 'Kiosk Satellite'], ['hk', PN()]], onChange: function (v) { ctx.set({ black_screen: v }); } }),
         K.seg({ label: 'While Dark', sk: 'b:sleep.dark_display', stack: !wide, value: sl.dark_display || 'lowest',
                 options: [['lowest', 'Lowest Backlight'], ['off', 'Display Off'], ['off_quiet', 'Off in Quiet Hours']],
                 onChange: function (v) { put({ dark_display: v }); } })]));
       var sw = b.black_switch || ids.black, sens = ids.sleep;
       c.appendChild(K.group({ header: 'Decided By', footer: sl.decided_by === 'shadow'
-          ? 'Trying it out: HK Frontend decides by the rules below but does not act yet' + (sens ? ' — ' + sens + ' shows what it would do, and why.' : '.') + ' Choose HK Frontend to let it.'
-          : hk ? 'HK Frontend sleeps and wakes this tablet itself, by the rules below' + (sens ? ' — ' + sens + ' says what it decides, and why.' : '.')
+          ? 'Trying it out: ' + PN() + ' decides by the rules below but does not act yet' + (sens ? ' — ' + sens + ' shows what it would do, and why.' : '.') + ' Choose ' + PN() + ' to let it.'
+          : hk ? PN() + ' sleeps and wakes this tablet itself, by the rules below' + (sens ? ' — ' + sens + ' says what it decides, and why.' : '.')
           : 'An automation of yours decides: it turns ' + (sw || 'the tablet’s black screen switch') + ' on to sleep and off to wake — the Set black screen action also takes the brightness to wake to. Nothing here makes the tablet sleep by itself.' }, [
         K.seg({ label: 'Decided By', sk: 'b:sleep.decided_by', stack: !wide, value: hk ? 'hk' : 'automation',
-                options: [['automation', 'An Automation'], ['hk', 'HK Frontend']], onChange: function (v) { put({ decided_by: v }); } })]));
+                options: [['automation', 'An Automation'], ['hk', PN()]], onChange: function (v) { put({ decided_by: v }); } })]));
       if (hk) {
         var ks = (this.data.choices || {}).kiosks || [];
-        var kfoot = 'The tablet’s Kiosk Satellite: how HK Frontend powers its display, sets its brightness, brings the dashboard back in front, and knows another app is in front (it then leaves the tablet alone).';
+        var kfoot = 'The tablet’s Kiosk Satellite: how ' + PN() + ' powers its display, sets its brightness, brings the dashboard back in front, and knows another app is in front (it then leaves the tablet alone).';
         if (x.tablet) {
           // the tablet's own Kiosk App and Device (its page's Setup)
           var kd = ks.filter(function (k) { return k.id === sl.kiosk; })[0];
@@ -3194,8 +3211,8 @@
         var pct = function (v) { return Math.max(1, Math.round((v || 0) / 2.55)); };
         var raw = function (p) { return Math.max(1, Math.min(255, Math.round(p * 2.55))); };
         c.appendChild(K.group({ header: 'Brightness', footer: bm === 'leave'
-            ? 'HK Frontend never changes the screen’s brightness. (The tablet’s own adaptive brightness, if it is on, still does.)'
-            : 'The screen’s brightness while awake, and what it wakes to — set on the screen itself, as Fully Kiosk did, and checked again at every sleep and wake. Under HK Frontend’s black the backlight stays at its lowest until the wake. Turn the tablet’s own adaptive brightness off, or the two will fight.' }, [
+            ? PN() + ' never changes the screen’s brightness. (The tablet’s own adaptive brightness, if it is on, still does.)'
+            : 'The screen’s brightness while awake, and what it wakes to — set on the screen itself, as Fully Kiosk did, and checked again at every sleep and wake. Under ' + PN() + '’s black the backlight stays at its lowest until the wake. Turn the tablet’s own adaptive brightness off, or the two will fight.' }, [
           K.seg({ label: 'Brightness', sk: 'b:sleep.brightness', stack: !wide, value: bm, options: bOpts,
                   onChange: function (v) { put({ brightness: v }); } })].concat(bm === 'fixed' ? [
           K.toggle({ label: 'Day and Night by the Clock', sk: 'b:sleep.bright_clock', on: !!sl.bright_clock,
@@ -3218,10 +3235,8 @@
             K.nav({ label: 'Night While', href: base + '/night', sk: 'b:sleep.night_while', value: self.sleepCount(sl.night_while) })])));
         }
       }
-      var wk = K.nav({ label: 'On the Wiki', sub: 'Sleep Screen', icon: 'mdi:open-in-new', href: WIKI + 'Sleep-Screen', sk: 'b:sleep:wiki' });
-      c.appendChild(K.group({ footer: 'How Sleep Screen works, and ready-made automations for deciding it yourself.' }, [wk]));
-      var a = wk.querySelector ? (wk.tagName === 'A' ? wk : wk.querySelector('a')) : null;
-      if (a) { a.setAttribute('target', '_blank'); a.setAttribute('rel', 'noopener'); }
+      var wk = docsLink('Sleep-Screen', '', { sub: 'Sleep Screen', sk: 'b:sleep:wiki' });
+      if (wk) c.appendChild(K.group({ footer: 'How Sleep Screen works, and ready-made automations for deciding it yourself.' }, [wk]));
     }
     sleepCount(list) { var n = (list || []).length; return n ? n + (n === 1 ? ' Entity' : ' Entities') : 'None'; }
     // ONE OF SLEEP SCREEN'S LISTS: as many entities as the house has; Hold
@@ -4028,7 +4043,7 @@
     saverEntities(b, path) {
       var self = this, mine = (b.tablets || []).filter(function (tid) { return self.tabs()[tid]; });
       if (!mine.length) {
-        return K.group({ header: 'For Automations', footer: 'Add the wall tablet that shows this screen (Wall Tablets) and HK Frontend adds its screensaver switch and In Use sensor.' }, []);
+        return K.group({ header: 'For Automations', footer: 'Add the wall tablet that shows this screen (Wall Tablets) and ' + haName('HK Frontend') + ' adds its screensaver switch and In Use sensor.' }, []);
       }
       var row = function (label, id, sub) {
         if (!id) return K.info({ label: label, sub: sub, value: 'Being added…' });
@@ -4086,9 +4101,9 @@
       if (plugin) rows.push(K.nav({ label: 'Kiosk Mode Options', href: base + '/kiosk-mode', sk: 'b:kiosk_options',
                                     value: Object.keys(b.kiosk_options || {}).length ? 'Custom' : 'Default' }));
       c.appendChild(K.group({ header: 'Kiosk Mode Plugin', footer: plugin
-        ? 'The Kiosk Mode plugin (HACS) hides them on this screen, with its own options. Off: HK Frontend does it.' +
+        ? 'The Kiosk Mode plugin (HACS) hides them on this screen, with its own options. Off: ' + PN() + ' does it.' +
           (tp.state !== 'ready' && tp.note ? ' ' + tp.note : '')
-        : 'HK Frontend hides them itself. The Kiosk Mode plugin (HACS) can do it instead, for its own options.' }, rows));
+        : PN() + ' hides them itself. The Kiosk Mode plugin (HACS) can do it instead, for its own options.' }, rows));
     }
     // WALLPANEL INSTEAD: only where WallPanel (HACS) is installed, for a screen
     // that prefers it; its own options page then takes over.
@@ -4097,8 +4112,8 @@
       var wp = b.screensaver_engine === 'wallpanel';
       if (!wp && (!tp.state || tp.state === 'missing')) return;
       c.appendChild(K.group({ header: 'WallPanel', footer: wp
-        ? 'WallPanel (HACS) draws this screen’s screensaver, with the options below. Off: HK Frontend’s own.'
-        : 'Draw this screen’s screensaver with WallPanel (HACS) instead of HK Frontend’s own.' }, [
+        ? 'WallPanel (HACS) draws this screen’s screensaver, with the options below. Off: ' + PN() + '’s own.'
+        : 'Draw this screen’s screensaver with WallPanel (HACS) instead of ' + PN() + '’s own.' }, [
         K.toggle({ label: 'Use WallPanel Instead', on: wp, sk: 'b:screensaver_engine', onChange: function (on) {
           self.setB(path, { screensaver_engine: on ? 'wallpanel' : 'hk' }).then(function () {
             self.go('#/screens/' + encodeURIComponent(path) + (on ? '/wallpanel' : '/screensaver'));
@@ -5542,7 +5557,7 @@
         });
       }
       var gate = sky.seasonal ? ' They also need ' + this.name(sky.seasonal) + ' to be on (Advanced).' : '';
-      c.appendChild(K.group({ header: 'Seasonal Decorations', footer: 'What the live sky dresses up for. This is the same switch as Seasonal Decorations on the HK Frontend device.' + gate }, rows));
+      c.appendChild(K.group({ header: 'Seasonal Decorations', footer: 'What the live sky dresses up for. This is the same switch as Seasonal Decorations on the ' + haName('HK Frontend device') + '.' + gate }, rows));
       // LIVELINESS (2026-10-09): one preset for every holiday, occasion,
       // season and the Night Sky, or Custom -- each its own (Each Occasion)
       if (this.livelyMoves()) {
@@ -5635,7 +5650,7 @@
                           on: kind(own) === 'stay', fk: o.fk + ':stay', onClick: function () { if (kind(own) !== 'stay' && file) o.onSet(file); } }));
       rows.push(K.nav({ label: 'Choose a Landscape', href: o.href, sk: o.sk }));
       c.appendChild(this.withError(K.group({ header: 'Landscape', footer: (o.footer ? o.footer + ' ' : '') +
-        'Fifty photos that come with HK Frontend, all public domain or CC0, from Wikimedia Commons.' }, rows), o.sk));
+        'Fifty photos that come with ' + PN() + ', all public domain or CC0, from Wikimedia Commons.' }, rows), o.sk));
     }
     // CHOOSE A LANDSCAPE: every one, small, the one it stays on ticked; a
     // tap picks it, and it stays (Stay the Same).
@@ -6228,7 +6243,7 @@
                           tile: ['mdi:palette', C.purple], onClick: function () { if (!isColor) pick(startColor); } }));
       rows.push(K.check({ label: 'Photo', sub: photos[r.key] ? 'Its own photo' : 'A photo, still', on: cur === 'photo', fk: 'pbd:' + r.key + ':photo',
                           tile: ['mdi:image', C.orange], onClick: function () { pick('photo'); } }));
-      rows.push(K.check({ label: 'Landscapes', sub: 'HK Frontend’s own photos, as ' + (b ? 'the screen' : 'All Screens') + ' has them', on: cur === 'landscapes',
+      rows.push(K.check({ label: 'Landscapes', sub: PN() + '’s own photos, as ' + (b ? 'the screen' : 'All Screens') + ' has them', on: cur === 'landscapes',
                           fk: 'pbd:' + r.key + ':landscapes', tile: ['mdi:image-filter-hdr', C.teal], onClick: function () { pick('landscapes'); } }));
       c.appendChild(K.group({ header: alone === false ? r.label : null, footer: (alone ? r.label + ' is this screen’s only page, so its background is the screen’s. ' : '') +
         'Page Color, Color, Photo and Landscapes are still: no sun, moon, stars, weather or decorations.' }, rows));
@@ -6555,7 +6570,7 @@
       if (own) bgRows.push(K.button({ label: 'Reset to All Screens (' + M.BG_LABELS[hMode] + ')', sk: 'b:sky_flat_background:reset',
                                       onClick: function () { put({ sky_flat_background: null }); } }));
       var says = { color: 'A solid color behind the cards.', photo: 'A photo of your own, still, faded behind the cards.',
-                   landscapes: 'One of HK Frontend’s landscape photos, still, faded behind the cards.' };
+                   landscapes: 'One of ' + PN() + '’s landscape photos, still, faded behind the cards.' };
       c.appendChild(K.group({ footer: says[mode] + ' Flat shows no Live Sky: its sun, weather and decorations come back with the other looks, as you left them. ' +
         (b ? 'Each page can choose its own below.' : 'Each screen, and each page, can choose its own.') }, bgRows));
       if (mode === 'color') {
@@ -6629,7 +6644,7 @@
                           tile: ['mdi:palette', C.purple], onClick: function () { if (!isColor) pick((b && b.sky_flat_color && b.sky_flat_color !== 'auto' && b.sky_flat_color) || (sky.flat_color !== 'auto' && sky.flat_color) || 'stone'); } }));
       rows.push(K.check({ label: 'Photo', sub: photos[r.key] ? 'Its own photo' : 'A photo, still', on: cur === 'photo', fk: 'fpbd:' + r.key + ':photo',
                           tile: ['mdi:image', C.orange], onClick: function () { pick('photo'); } }));
-      rows.push(K.check({ label: 'Landscapes', sub: 'HK Frontend’s own photos, as ' + (b ? 'the screen' : 'All Screens') + ' has them', on: cur === 'landscapes',
+      rows.push(K.check({ label: 'Landscapes', sub: PN() + '’s own photos, as ' + (b ? 'the screen' : 'All Screens') + ' has them', on: cur === 'landscapes',
                           fk: 'fpbd:' + r.key + ':landscapes', tile: ['mdi:image-filter-hdr', C.teal], onClick: function () { pick('landscapes'); } }));
       c.appendChild(K.group({ footer: 'While Flat is on. A photo here fades as ' + (b ? 'the screen’s' : 'All Screens’') + ' Fade says.' }, rows));
       // ITS FLAT COLORS, beside its background (the same page key)
@@ -7299,7 +7314,7 @@
         K.text({ label: 'Browse Page', sk: 'look.browse_view', value: look.browse_view, placeholder: 'None', error: this.err('look.browse_view'),
                  onCommit: function (v) { self.setH({ 'look.browse_view': v }); } })]));
       if (F.stateOf(this.data.features, 'hk_music') === 'added') {
-        c.appendChild(K.group({}, [K.nav({ label: 'Music', sub: 'In Devices & Services', href: F.integrationHref('hk_music'),
+        c.appendChild(K.group({}, [K.nav({ label: 'Music', sub: 'In ' + haPlace('Devices & Services'), href: F.integrationHref('hk_music'),
                                            icon: 'mdi:open-in-new', fk: 'feat:open:hk_music' })]));
       }
     }
@@ -7449,7 +7464,7 @@
       }
       c.appendChild(K.group({ header: 'Upkeep', footer: 'Every tablet whose kiosk app can restart (Restart Tablet needs Kiosk Satellite as the device owner, else its app restarts). If your own automation already does this, leave it off.' }, rs));
       var withReload = ids.filter(function (tid) { return (tabs[tid].parts || {}).reload; });
-      c.appendChild(K.group({ header: 'All at Once', footer: 'After updating HK Frontend, Clear Cache & Reload: a plain reload keeps the old HK files.' }, [
+      c.appendChild(K.group({ header: 'All at Once', footer: 'After updating ' + PN() + ', Clear Cache & Reload: a plain reload keeps the old HK files.' }, [
         K.button({ label: 'Reload All', fk: 'tablets:reload', disabled: !withReload.length, onClick: function () {
           var p = withReload.map(function (tid) { return tabs[tid].parts.reload; });
           self.press(p).then(function () { self.announce('Reloading ' + p.length + (p.length === 1 ? ' tablet' : ' tablets')); });
@@ -7511,7 +7526,7 @@
         tl.warn ? h('div', { class: 'tlwarn', text: 'Home comes after the screensaver starts, so the screensaver can come up over another page and it goes Home behind it. An Idle Time shorter than ' + M.idleLabel(so.starts_after).toLowerCase() + ' puts Home first.' }) : null]);
       c.appendChild(K.group({ header: 'When It’s Left Alone', footer: 'Home: Idle Time, below. The screensaver: its screen’s Screensaver Options → Starts After. Dark: Sleep Screen.' }, [tlEl,
         K.nav({ label: 'Sleep Screen', sub: 'When it goes dark, who counts as there, its brightness.', href: base + '/sleep', sk: 't:sleep',
-                value: acting ? 'HK Frontend Decides' : sl.decided_by === 'shadow' ? 'Trying It Out' : 'An Automation Decides' })]));
+                value: acting ? PN() + ' Decides' : sl.decided_by === 'shadow' ? 'Trying It Out' : 'An Automation Decides' })]));
       // WHEN IDLE: its own, or All Tablets'
       var ownRet = t.idle_return_own, ownIt = t.idle_time_own;
       var hRet = house.idle_return !== false ? 'On' : 'Off', hIt = M.idleLabel(typeof house.idle_time === 'number' ? house.idle_time : 50);
@@ -8746,7 +8761,7 @@
           self.entityRow({ label: 'Date Sensor', sk: 'clock.date', value: self.hs('clock.date'), none: 'Each Screen’s Own Clock', filter: { domains: ['sensor'] }, onPick: set('clock.date') })]));
         // (the Clean-Areas Script and the Wrong-Code Indicator are the
         // Vacuums and Security pages' since 2026-10-16)
-        c.appendChild(K.group({ header: 'HK Settings', footer: 'Off: HK Settings leaves the sidebar for everyone. It’s still in Settings → Devices & Services → HK Frontend → Configure.' }, [
+        c.appendChild(K.group({ header: 'HK Settings', footer: 'Off: HK Settings leaves the sidebar for everyone. It’s still in ' + haPlace('Settings → Devices & Services → HK Frontend → Configure') + '.' }, [
           K.toggle({ label: 'Show in Sidebar', sk: 'sidebar', on: I.sidebar !== false, onChange: function (on) { self.setH({ sidebar: on }); } })]));
         var fnd = function (v) { return v ? 'Found' : 'Missing'; };
         c.appendChild(K.group({ header: 'Your Files', footer: 'Apple’s SF Pro font and the SF Symbols glyphs can’t ship with the integration. Put the font at fonts/SF-Pro.woff2 and the glyphs at iconset/hk-glyphs.js in this folder, under /config.' }, [
@@ -8766,18 +8781,17 @@
     // the wiki (docs/Your-Own-Dashboard.md holds the same text).
     p_yamlRef(id) {
       var self = this, list = ['Your Own Dashboards', '#/advanced/yaml'];
+      // its place in the documentation, where the host has it ([] where not)
       var wiki = function (anchor) {
-        var a = K.nav({ label: 'On the Wiki', sub: 'Your Own Dashboard', icon: 'mdi:open-in-new', fk: 'yaml:wiki',
-                        href: WIKI + 'Your-Own-Dashboard' + (anchor ? '#' + anchor : '') });
-        a.setAttribute('target', '_blank'); a.setAttribute('rel', 'noopener');
-        return a;
+        var a = docsLink('Your-Own-Dashboard', anchor, { sub: 'Your Own Dashboard', fk: 'yaml:wiki' });
+        return a ? [a] : [];
       };
       var item = id ? M.yamlRefItem(decodeURIComponent(id)) : null;
       if (!item) {
         return { title: 'Your Own Dashboards', back: ['Advanced', '#/advanced'],
           scope: 'What a dashboard you write yourself can use. Open one, copy it, and paste it into the dashboard’s YAML.', body: function (c) {
             c.appendChild(K.group({ footer: 'Easier still: HK Settings → Screens → Add Screen → Existing Dashboards gives a dashboard ' +
-                'its menu, its screensaver and Hide Home Assistant Header & Sidebar, with nothing written.' }, [wiki('')]));
+                'its menu, its screensaver and Hide Home Assistant Header & Sidebar, with nothing written.' }, wiki('')));
             M.YAML_REF.forEach(function (g) {
               c.appendChild(K.group({ header: g.header, footer: g.footer }, g.items.map(function (it) {
                 return K.nav({ label: it.title, value: it.key, href: '#/advanced/yaml/' + encodeURIComponent(it.id), fk: 'yaml:' + it.id });
@@ -8804,7 +8818,7 @@
             else fallback();
           } })]));
         c.appendChild(pre);
-        c.appendChild(K.group({}, [wiki(item.anchor)]));
+        if (wiki(item.anchor).length) c.appendChild(K.group({}, wiki(item.anchor)));
       } };
     }
     p_check() {
@@ -8869,7 +8883,7 @@
         }
         if (st === 'missing') missing.push(name);
       });
-      c.appendChild(K.group({ footer: 'Each is optional, added from HK Frontend’s Add feature. Its settings are on its page under Pages (Notifications: All Screens).' +
+      c.appendChild(K.group({ footer: 'Each is optional, added from ' + haName('HK Frontend’s Add feature') + '. Its settings are on its page under Pages (Notifications: All Screens).' +
           (missing.length ? ' Not available here: ' + missing.join(', ') + '.' : '') }, rows));
     }
     p_setup(step) {
@@ -8877,7 +8891,7 @@
       var STEPS = SETUP_STEPS;
       step = Math.max(0, Math.min(STEPS.length - 1, step || 0));
       var next = function () { self.go('#/setup/' + (step + 1)); };
-      return { title: step ? STEPS[step] : 'Set Up HK Frontend', backLabel: 'Setup',
+      return { title: step ? STEPS[step] : 'Set Up ' + PN(), backLabel: 'Setup',
         back: step ? [STEPS[step - 1], '#/setup/' + (step - 1)] : [this.title(), '#/'],
         scope: step && step < STEPS.length - 1 ? 'Step ' + step + ' of ' + (STEPS.length - 2) + '. Everything here can be changed later.' : null,
         body: function (c) {

@@ -1680,8 +1680,8 @@
       // then a switch for each place it can be hidden from -- asked of the
       // server, which knows its kinds -- and, on a dashboard, Favorite
       html += '<div class="sec where"><div class="cap">Where it shows</div><div class="grp">' +
-        '<div class="row wall"><span class="k">Show in HK Frontend<small class="wwhy" hidden></small></span>' +
-        '<input class="tg shown" type="checkbox" role="switch" aria-label="Show in HK Frontend" disabled></div>' +
+        '<div class="row wall"><span class="k">Show in ' + window.hkShell.productName() + '<small class="wwhy" hidden></small></span>' +
+        '<input class="tg shown" type="checkbox" role="switch" aria-label="Show in ' + window.hkShell.productName() + '" disabled></div>' +
         (board ? '<div class="row"><span class="k">Favorite on this dashboard</span><input class="tg fav" type="checkbox" role="switch" aria-label="Favorite on this dashboard"></div>' : '') +
         '</div><div class="note">' + (opts.panel
           ? 'Anything off here is listed in <a href="#/accessories/hidden">Hidden Accessories</a>, with where.'

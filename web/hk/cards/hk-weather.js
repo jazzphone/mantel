@@ -2622,7 +2622,7 @@
     if (C.editor) {
       var stag = C.editor('hk-weather-strip-card', [
         { name: 'entity', selector: { entity: { filter: { domain: 'weather' } } },
-          helper: 'Default: the weather entity chosen in HK Frontend -> Configure -> Weather.' },
+          helper: 'Default: the weather entity chosen in ' + window.hkShell.haPlace('HK Frontend -> Configure -> Weather') + '.' },
         C.section('Appearance', [
           { type: 'grid', name: '', schema: [
             { name: 'main_size', selector: { text: {} } },

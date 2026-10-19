@@ -49,7 +49,8 @@
   // until hk_music/subscribe answers, and the settings feed's `added` is a
   // stored copy until it is live -- so a house WITH Music never sees it while
   // a page loads. (The same rule as hk-media.js's.)
-  var NO_MUSIC = 'Add the Music feature to play music here (Settings → Devices & services → HK Frontend → Add feature).';
+  // (a place in Home Assistant's settings, as the host says it: hk-host-shell.js haPlace)
+  function NO_MUSIC() { return 'Add the Music feature to play music here (' + window.hkShell.haPlace('Settings → Devices & services → HK Frontend → Add feature') + ').'; }
   function musicMissing() {
     var Mu = window.hkMusic, HS = window.hkSettings;
     if (!Mu || !Mu.configured || Mu.configured()) return false;
@@ -62,7 +63,7 @@
     el.style.cssText = 'display:block;padding:24px;box-sizing:border-box;border-radius:' + M.radius + ';' +
       M.glass + ';border:' + M.border + ';text-align:center;font-size:15px;line-height:1.4;' +
       'color:' + window.hkCards.v('ink-2') + '';
-    el.textContent = NO_MUSIC;
+    el.textContent = NO_MUSIC();
     card._root.appendChild(el);
     card._built = false;
   }

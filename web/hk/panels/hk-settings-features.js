@@ -18,6 +18,10 @@
 (function () {
   'use strict';
   var root = typeof window !== 'undefined' ? window : globalThis;
+  // the product's name, and Home Assistant's own places, as the host says
+  // them (web/client/hk-host-shell.js): HK Frontend in HA, the host's own elsewhere
+  function PN() { return root.hkShell.productName(); }
+  function haPlace(path) { return root.hkShell.haPlace(path); }
   if (root.hkSettingsFeatures) return;
 
   // [route, id (the feature's websocket prefix and its key in panel/get
@@ -212,7 +216,7 @@
   function waiting(c, st, name, domain) {
     if (st && st.error) {
       c.appendChild(K.group({ footer: name + ' didn’t answer: ' + st.error + '. It may be restarting; this page tries again when you come back.' }, [
-        K.nav({ label: name, sub: 'In Devices & Services', href: integrationHref(domain), icon: 'mdi:open-in-new' })]));
+        K.nav({ label: name, sub: 'In ' + haPlace('Devices & Services'), href: integrationHref(domain), icon: 'mdi:open-in-new' })]));
       return;
     }
     c.appendChild(K.group({}, [K.info({ label: 'Loading…' })]));
@@ -220,11 +224,11 @@
   // not added yet: what it does and the way to add it
   function notAdded(c, name, what, domain) {
     c.appendChild(K.group({ footer: what }, [
-      K.nav({ label: 'Add ' + name, sub: 'Devices & Services → HK Frontend → Add feature', href: addHref(domain),
+      K.nav({ label: 'Add ' + name, sub: haPlace('Devices & Services → HK Frontend → Add feature'), href: addHref(domain),
               icon: 'mdi:plus-circle-outline', fk: 'feat:add:' + domain })]));
   }
   function openIn(c, name, domain, sub) {
-    c.appendChild(K.group({}, [K.nav({ label: name, sub: sub || 'In Devices & Services', href: integrationHref(domain),
+    c.appendChild(K.group({}, [K.nav({ label: name, sub: sub || 'In ' + haPlace('Devices & Services'), href: integrationHref(domain),
                                        icon: 'mdi:open-in-new', fk: 'feat:open:' + domain })]));
   }
 
@@ -1195,7 +1199,7 @@
       K.text({ label: 'Title', sk: 'f:' + EN + ':power:title', value: o.title || '', placeholder: 'Power', maxlength: 40,
                onCommit: function (v) { powerSet(P, d, { title: v.trim() || null }); } }),
       K.text({ label: 'Picture Folder', sk: 'f:' + EN + ':power:art', value: o.art || '', placeholder: 'Built In',
-               sub: 'Your own house: a folder of your files with art.json and its layers, e.g. /hk/art/my-house/. Empty: the house that comes with HK Frontend', error: P.err('f:' + EN + ':power:art'),
+               sub: 'Your own house: a folder of your files with art.json and its layers, e.g. /hk/art/my-house/. Empty: the house that comes with ' + PN(), error: P.err('f:' + EN + ':power:art'),
                onCommit: function (v) { v = v.trim(); if (v && v.charAt(0) !== '/') v = '/' + v; if (v && v.slice(-1) !== '/') v += '/'; powerSet(P, d, { art: v || null }); } })]
       .concat([K.select({ label: 'Picture', sk: 'f:' + EN + ':power:picture', value: o.picture || 'house',
                  options: [['house', 'The House'], ['chart', 'A Flow Chart']], onChange: function (v) { powerSet(P, d, { picture: v === 'house' ? null : v }); } })])

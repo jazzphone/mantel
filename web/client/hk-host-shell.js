@@ -18,6 +18,8 @@
   if (global.hkShell) return;
 
   function win() { return global.window || global; }
+  // HK Frontend's documentation (Home Assistant's): its GitHub wiki
+  var WIKI = 'https://github.com/jazzphone/hk-frontend/wiki/';
   function nil() { return null; }
 
   // Elements the shell can name. `tags` are the element names, for the few
@@ -103,6 +105,24 @@
     // null when the host does not (HK then uses the service's own address,
     // as in Home Assistant, where Music Assistant keeps its own port).
     serviceUrl: nil,
+    // THE PRODUCT'S NAME where HK's screens and settings speak of themselves
+    // ("Drawn By: … | HK Frontend", "the photos that come with HK Frontend"):
+    // HK Frontend in Home Assistant, the host's own name elsewhere (Mantel).
+    // Labels only: no saved value or key ever carries it.
+    productName: function () { return 'HK Frontend'; },
+    // A PLACE IN HOME ASSISTANT'S OWN SETTINGS, as HK's texts give it (HK
+    // Frontend's integration: 'Devices & Services → HK Frontend → Add
+    // feature'): Home Assistant says it as it is; a host outside it says the
+    // place is Home Assistant's ('Home Assistant → Devices & Services → …').
+    haPlace: function (path) { return path; },
+    // A THING OF HOME ASSISTANT'S OWN (HK Frontend's integration, its device,
+    // its actions), named as this host's text names it: as it is in Home
+    // Assistant, 'HK Frontend in Home Assistant' elsewhere.
+    haName: function (name) { return name; },
+    // HK'S DOCUMENTATION: the address of one of its pages (`page` a wiki page
+    // such as 'Sleep-Screen', `anchor` a heading on it), or null for a host
+    // with no such page (HK then leaves the link out).
+    docsUrl: function (page, anchor) { return WIKI + page + (anchor ? '#' + anchor : ''); },
     // where HK's own dialogs (the confirm and choose sheets) and its toast
     // layer mount: the overlay root, else the document's body
     dialogRoot: function () {
@@ -114,6 +134,8 @@
 
   // the capabilities a throwing host answers no to (not null)
   var FALSE = { hostDetail: 1, openHostDetail: 1, hostToast: 1 };
+  // and the words a throwing host leaves as HK's own (the defaults')
+  var WORDS = { productName: 1, haPlace: 1, haName: 1 };
   var impl = NONE, tags = Object.assign({}, NONE.tags), events = Object.assign({}, NONE.events);
   function get(name) { return impl[name] !== undefined ? impl[name] : NONE[name]; }
 
@@ -146,9 +168,11 @@
   ['root', 'overlayRoot', 'main', 'mainRoot', 'drawer', 'sidebar', 'resolver', 'panel', 'dashboard',
    'dashboardRoot', 'viewContainer', 'viewSlot', 'view', 'viewBackground', 'toolbar', 'dashboardConfig', 'onDashboard', 'isDashboard',
    'defined', 'showNotifications', 'keepAwake', 'sidebarData', 'hostMenu', 'settingsHost', 'holdWrites', 'menuButton',
-   'hostDetail', 'openHostDetail', 'hostToast', 'dialogRoot', 'serviceUrl'].forEach(function (name) {
+   'hostDetail', 'openHostDetail', 'hostToast', 'dialogRoot', 'serviceUrl', 'productName', 'haPlace', 'haName', 'docsUrl'].forEach(function (name) {
     shell[name] = function () {
-      try { return get(name).apply(shell, arguments); } catch (e) { return name === 'onDashboard' ? true : FALSE[name] ? false : null; }
+      try { return get(name).apply(shell, arguments); } catch (e) {
+        return name === 'onDashboard' ? true : FALSE[name] ? false : WORDS[name] ? NONE[name].apply(shell, arguments) : null;
+      }
     };
   });
 

@@ -267,6 +267,26 @@ ok('a host\'s omissions keep the defaults; a throwing lookup is null', S.kind ==
 S.use(window.hkHAShell);
 ok('the HA shell back', S.kind === 'ha' && S.panel() === panel);
 
+// ---------------------------------------- the product's name, HA's places, the docs
+// Home Assistant's text is HK Frontend's, unchanged: its name, HA's own places
+// as they are, and its wiki. (Mantel's answers: tests/test_mantel_product_name.py)
+function same(name, got, want) { ok(name, JSON.stringify(got) === JSON.stringify(want), got); }
+same('in HA the product is HK Frontend', S.productName(), 'HK Frontend');
+same('...a place in HA\'s settings is said as it is', S.haPlace('Devices & Services → HK Frontend → Add feature'),
+     'Devices & Services → HK Frontend → Add feature');
+same('...and a thing of HA\'s own as it is', S.haName('HK Frontend device'), 'HK Frontend device');
+same('...the docs are HK Frontend\'s wiki', [S.docsUrl('Sleep-Screen'), S.docsUrl('Your-Own-Dashboard', 'live-tv')],
+     ['https://github.com/jazzphone/hk-frontend/wiki/Sleep-Screen', 'https://github.com/jazzphone/hk-frontend/wiki/Your-Own-Dashboard#live-tv']);
+S.use({ kind: 'test', productName: function () { return 'Elsewhere'; }, haPlace: function (p) { return 'Home Assistant → ' + p; },
+        haName: function (n) { return n + ' in Home Assistant'; }, docsUrl: function () { return null; } });
+same('a host names the product its own way', [S.productName(), S.haPlace('A → B'), S.haName('X'), S.docsUrl('Sleep-Screen')],
+     ['Elsewhere', 'Home Assistant → A → B', 'X in Home Assistant', null]);
+S.use({ kind: 'test', productName: function () { throw new Error('boom'); }, haPlace: function () { throw new Error('boom'); },
+        haName: function () { throw new Error('boom'); }, docsUrl: function () { throw new Error('boom'); } });
+same('a throwing host leaves HK\'s own words, and no docs link', [S.productName(), S.haPlace('A → B'), S.haName('X'), S.docsUrl('Sleep-Screen')],
+     ['HK Frontend', 'A → B', 'X', null]);
+S.use(window.hkHAShell);
+
 print('');
 if (fail) { print('  FAIL ' + fail + ' HOST SHELL TESTS'); throw new Error('host shell tests failed'); }
 print('  ALL ' + pass + ' HOST SHELL TESTS PASS');
