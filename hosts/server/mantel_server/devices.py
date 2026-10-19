@@ -19,6 +19,7 @@ uses the pair.
 from __future__ import annotations
 
 import logging
+import re
 import secrets
 import sqlite3
 
@@ -137,6 +138,16 @@ def device_cookie_opts(request: web.Request) -> dict:
 
 
 # -- REST -----------------------------------------------------------------------------------------
+def room_id(room: str | None) -> str | None:
+    """A room as typed on the tablet ("Loft", "Master Bedroom") as the id HK's tablets and HA's areas use ("loft",
+    "master_bedroom"): every comparison with a device's room (its HK tablet, its screen, linked mode's tablet, its
+    RBAC area) is by id, so a typed name found none of them (the house, 2026-10-19)."""
+    if room is None:
+        return None
+    rid = re.sub(r"[^a-z0-9]+", "_", room.strip().lower()).strip("_")
+    return rid[:64] or None
+
+
 async def enroll(request: web.Request) -> web.Response:
     ident = require_user(request)
     if ident.door != "lan":
@@ -155,7 +166,7 @@ async def enroll(request: web.Request) -> web.Response:
     if role not in DEVICE_ROLES or not isinstance(name, str) or not (room is None or isinstance(room, str)):
         return error(400, "invalid", roles=list(DEVICE_ROLES))
     mgr: DeviceManager = request.app["devices"]
-    device_id, secret, csrf = mgr.enroll(name[:64], role, room[:64] if room else None, user.id, client_ip(request))
+    device_id, secret, csrf = mgr.enroll(name[:64], role, room_id(room), user.id, client_ip(request))
     row = mgr.get(device_id)
     resp = ok({"device": device_json(Device(row["id"], row["name"], row["role"], row["room"])), "csrf": csrf},
               status=201)

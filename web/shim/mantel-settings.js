@@ -296,6 +296,7 @@ async function signOut() {
 function pMe(sub) {
   const u = me.user;
   if (sub[0] === 'pin') return pMyPin();
+  if (sub[0] === 'enroll') return pEnroll(['Me', '#/' + ROUTE + '/me']);
   return { title: u.name || u.username || 'Me', top: true, scope: roleLabel(u.role) + ' · ' +
     (u.kind === 'ha_linked' ? 'Signed in with Home Assistant' : 'Mantel account') + (u.username ? ' · ' + u.username : ''),
   body(c) {
@@ -324,6 +325,13 @@ function pMe(sub) {
       }, { destructive: true, fk: 'mx:revoke-session:' + s.id }));
       c.appendChild(group({ header: 'My Sessions', footer: 'Every browser signed in as you.' }, rows.length ? rows : [info('No active sessions')]));
       if (acts.length) c.appendChild(group({}, acts));
+    }
+    if (u.role === 'wall_tablet') {
+      // a Wall Tablet account sees only this page, and may make its own tablet (devices.enroll): the way in for a
+      // tablet that cannot use Sign in with Home Assistant (trusted_networks signs it in as itself; 2026-10-19)
+      c.appendChild(group({ footer: me.door === 'lan' ? 'On the tablet itself: this browser becomes the wall tablet, and this account is signed out here.'
+        : 'Devices can only be enrolled on the home network.' }, [me.door === 'lan' ? nav('Make This Browser a Wall Tablet…', 'me/enroll', { icon: 'mdi:tablet' })
+        : info('Make This Browser a Wall Tablet', null, 'Home Network Only')]));
     }
     drawPasskeys(c);
     drawTotp(c);
@@ -521,13 +529,13 @@ function pDevices(sub) {
       : info('Make This Browser a Wall Tablet', null, 'Home Network Only')]));
   } };
 }
-function pEnroll() {
-  return { title: 'Make This a Wall Tablet', back: ['Devices', '#/' + ROUTE + '/devices'], body(c) {
+function pEnroll(back = ['Devices', '#/' + ROUTE + '/devices']) {
+  return { title: 'Make This a Wall Tablet', back, body(c) {
     result(c, 'enroll');
     if (enrolled) { drawEnrolled(c); return; }
     c.appendChild(group({ footer: 'The person is signed out of this browser at once, and it keeps its own credential, for this room only. Only on the home network.' }, [
       field('device', 'name', 'Name', { placeholder: 'Kitchen Tablet', maxlength: 64 }),
-      field('device', 'room', 'Room', { placeholder: 'Kitchen', maxlength: 64 }),
+      field('device', 'room', 'Room', { placeholder: 'Kitchen (its HK tablet’s room, e.g. Master Bedroom)', maxlength: 64 }),
       choose('device', 'role', 'Role', me.device_roles.map((r) => [r, roleLabel(r)]), 'wall_tablet')]));
     c.appendChild(group({}, [button('Make This a Wall Tablet', async () => {
       const d = draft('device');

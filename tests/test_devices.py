@@ -74,6 +74,18 @@ async def test_who_may_enrol_and_which_roles(mantel):
     assert r.status == 201 and body["device"]["role"] == "wall_tablet"
 
 
+async def test_a_room_typed_by_name_is_stored_as_its_id(mantel):
+    """HK's tablets and HA's areas name rooms by id (loft, master_bedroom); a tablet enrolled with the room typed as
+    "Master Bedroom" found neither its HK tablet nor its screen (the house, 2026-10-19)."""
+    from mantel_server.devices import room_id
+    assert room_id("Master Bedroom") == "master_bedroom" and room_id(" Loft ") == "loft"
+    assert room_id("living_room") == "living_room" and room_id("") is None and room_id(None) is None
+    await mantel.user("loft", "wall_tablet")
+    await mantel.sign_in("loft")
+    r, body = await enroll(mantel, name="Loft", room="Master Bedroom")
+    assert r.status == 201 and body["device"]["room"] == "master_bedroom"
+
+
 async def test_rotation_keeps_the_old_secret_until_the_new_one_returns(mantel):
     await mantel.user("avery", "owner")
     await mantel.sign_in("avery")
