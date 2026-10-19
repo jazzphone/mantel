@@ -127,6 +127,10 @@ async def test_a_wall_tablet_account_lands_on_enrolling_until_it_is_a_tablet(man
     await m.user("loft", "wall_tablet", name="Loft")
     await m.sign_in("loft")
     assert await home(m) == "/settings#/mantel/me/enroll"
+    # a kiosk app that reopens the screen it last showed lands there too
+    r = await m.client.get("/dashboard-loft/home", allow_redirects=False)
+    assert r.status == 302 and r.headers["Location"] == "/settings#/mantel/me/enroll"
     r = await m.post("/api/devices/enroll", {"name": "Loft", "room": "Loft"})
     assert r.status == 201
     assert await home(m) != "/settings#/mantel/me/enroll"
+    assert (await m.client.get("/dashboard-loft/home", allow_redirects=False)).status == 200
