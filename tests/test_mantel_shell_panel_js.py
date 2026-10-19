@@ -47,3 +47,11 @@ def test_the_panel_is_the_page_not_the_view_slot_the_menu_pushes():
     assert got["before"] == {"panel": "body", "slot": "view"}
     want = {"panel": "body", "slot": "view", "container": "view", "view": True}
     assert got["attached"] == want and got["changed"] == want
+
+
+def test_the_screen_page_says_no_pinch_zoom_as_has_does():
+    """Kiosk Satellite's "pinch to zoom off" leaves the page's own viewport tag alone at 1x and relies on it saying
+    user-scalable=no, as HA's pages do; Mantel's screens did not, so the Loft could be pinched (2026-10-19)."""
+    from pathlib import Path
+    html = (Path(__file__).resolve().parents[1] / "web/home.html").read_text()
+    assert 'content="width=device-width, user-scalable=no, viewport-fit=cover, initial-scale=1"' in html
