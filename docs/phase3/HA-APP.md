@@ -792,6 +792,12 @@ Carries:
   Wall Tablets, sealed and audited, with a Setup Check line.
 
 No migration. Validation 130 JS, 723 HA Python, 2,590 Mantel, smoke ok.
+- [x] Updated and running (build `841f581d58ec0ab7`), HA connected; the direct address answers through NPM.
+- [x] Mantel Settings → Connections lists Wall Tablets (pane): Kitchen, Living Room, Loft, Master Bathroom and
+      Master Bedroom, all Kiosk Satellite, "Not Set Up". Pairing each one (its Remote Administration password,
+      typed by Avery on the tablet's page) is next; Mantel sends tablets no commands yet.
+- Seen: after the App restart a Settings page opened straight at its Ingress address got HA's own
+  "401: Unauthorized" until Mantel was opened once from HA's sidebar (HA's Ingress session had lapsed, not Mantel).
 
 ### Removal
 
