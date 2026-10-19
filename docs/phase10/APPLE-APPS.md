@@ -330,5 +330,9 @@ A Cloudflare Worker (`packaging/push-relay/`) holds the APNs key as a Worker sec
   see ciphertext. The relay sees which house pushed to which handle, and when.
 - **Which way a house sends** is the house's choice, told to the app in `/api/app/hello` (`push`): through the relay
   (the default) or directly with its own key (a developer's setup).
+- **Deployed 2026-10-19** at `https://mantel-push.jazzphone.workers.dev` (Avery's Cloudflare account; D1 `mantel-push`;
+  the APNs key a Worker secret), every house's default (`apns.DEFAULT_RELAY`). Verified on Avery's iPhone: the app
+  registered through the relay (the house got a handle, not the token) and a sealed push went house → relay → Apple
+  → phone.
 - **Later hardening**: App Attest on `/v1/register` (only the genuine app may register), Live Activity push tokens
   through the same path.

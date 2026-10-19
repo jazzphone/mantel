@@ -19,6 +19,7 @@ final class PushRegistrar {
 
     func requestAndRegister() async {
         let ok = (try? await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge])) ?? false
+        print("Mantel push: notifications allowed: \(ok)")
         guard ok else { return }
         UIApplication.shared.registerForRemoteNotifications()
     }
@@ -33,10 +34,15 @@ final class PushRegistrar {
         do {
             try await client.registerPush(token: token, key: NotificationKey.publicKey(), sandbox: sandbox)
             lastError = nil
+            print("Mantel push: registered with the house")
         } catch {
             lastError = error.localizedDescription
+            print("Mantel push: registration failed: \(error)")
         }
     }
 
-    func didFail(_ error: Error) async { lastError = error.localizedDescription }
+    func didFail(_ error: Error) async {
+        lastError = error.localizedDescription
+        print("Mantel push: APNs registration failed: \(error)")
+    }
 }

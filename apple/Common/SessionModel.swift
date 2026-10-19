@@ -50,6 +50,7 @@ final class SessionModel: NSObject, ObservableObject {
             user = await client.credential?.user
             phase = .ready
             await reconnect()
+            await PushRegistrar.shared.register(client: client)   // Apple's token may change; the house's mode too
         } else {
             phase = .signIn
         }

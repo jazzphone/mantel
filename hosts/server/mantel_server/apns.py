@@ -123,7 +123,7 @@ class Apns:
 # The relay Avery runs for every Mantel house (packaging/push-relay/): it holds the APNs key, so no house does. A house
 # reaches a phone by the opaque handle the phone got from the relay for this house, never by Apple's device token.
 # Requests are signed with the house's identity key (app_auth.py), the key the app pinned at pairing.
-DEFAULT_RELAY = ""          # set once the relay is deployed (its workers.dev address); an Owner may change it
+DEFAULT_RELAY = "https://mantel-push.jazzphone.workers.dev"   # Avery's relay (2026-10-19); per house: app_settings push_relay
 RELAY_SETTING = "push_relay"
 
 
