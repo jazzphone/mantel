@@ -70,6 +70,25 @@ async def async_setup_entry(hass: HomeAssistant, entry: MantelConfigEntry) -> bo
             hass.config_entries.async_schedule_reload(entry.entry_id)
 
     entry.async_on_unload(async_dispatcher_connect(hass, SIGNAL_CONFIG_ENTRY_CHANGED, hk_changed))
+
+    # the Companion app's phones (phones.py): Mantel hears of new ones, and of a Dismiss tapped on one
+    from homeassistant.const import EVENT_SERVICE_REGISTERED, EVENT_SERVICE_REMOVED
+    from .phones import ACTION, EVENT
+
+    @callback
+    def phones_changed(event) -> None:
+        if event.data.get("domain") == "notify" and str(event.data.get("service", "")).startswith("mobile_app_"):
+            hass.async_create_task(bridge.report(), f"{NAME}: report")
+
+    @callback
+    def phone_action(event) -> None:
+        action = event.data.get("action")
+        if isinstance(action, str) and ACTION.match(action):
+            hass.async_create_task(bridge.phone_action(action), f"{NAME}: phone action")
+
+    for ev in (EVENT_SERVICE_REGISTERED, EVENT_SERVICE_REMOVED):
+        entry.async_on_unload(hass.bus.async_listen(ev, phones_changed))
+    entry.async_on_unload(hass.bus.async_listen(EVENT, phone_action))
     bridge.start()
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     _LOGGER.info("%s: linked to Mantel at %s (%s)", NAME, bridge.link.url, bridge.state)

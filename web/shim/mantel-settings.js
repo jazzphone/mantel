@@ -438,6 +438,37 @@ function pPeople(sub) {
       linked.length ? linked.map((u) => info(u.name || u.id, 'Home Assistant user ' + u.ha_user_id, roleLabel(u.role))) : [info('No Home Assistant users are linked yet')]));
   } };
 }
+// THEIR PHONES (phones.py; docs/phase9/MANTEL-LINK.md 9.7): Mantel's notifications on the Home Assistant Companion
+// app, through Mantel Link: which of the phones Home Assistant has are theirs, and what goes there
+const SEND_LABEL = [['important', 'Important Only'], ['all', 'Every Notification'], ['off', 'Nothing']];
+function drawPhones(c, u, locked) {
+  const got = load('phones', () => api('GET', '/api/phones'));
+  if (!got || got.err) return;
+  const d = got.data, mine = (d.people || {})[u.id] || { services: [], send: 'important' };
+  const known = d.available || [];
+  const names = Object.fromEntries(known.map((p) => [p.service, p.name]));
+  const footer = !d.linked ? 'Mantel Link in Home Assistant brings Mantel’s notifications to phones with the Home Assistant Companion app. It isn’t linked yet.'
+    : !known.length ? 'Home Assistant has no phones with the Companion app yet.'
+    : 'Mantel’s notifications on their lock screen, through Home Assistant’s Companion app. Dismiss on the phone takes the banner down on every screen.';
+  const put = (services, send) => act('person', () => api('PUT', '/api/users/' + encodeURIComponent(u.id) + '/phones', { services, send }),
+                                      'Phones saved.', 'phones');
+  const rows = [];
+  if (locked) {
+    rows.push(info('Phones', null, mine.services.map((s) => names[s] || s).join(', ') || 'None'));
+  } else {
+    for (const p of known) {
+      rows.push(K().toggle({ label: p.name, on: mine.services.includes(p.service), fk: 'mx:phone:' + p.service,
+        onChange: (on) => put(on ? mine.services.concat([p.service]) : mine.services.filter((s) => s !== p.service), mine.send) }));
+    }
+    for (const s of mine.services.filter((x) => !names[x])) rows.push(info(s, 'Home Assistant no longer has this phone', 'Gone', 'warn'));
+    if (known.length || mine.services.length) {
+      rows.push(K().select({ label: 'Send', options: SEND_LABEL, value: mine.send, fk: 'mx:phone-send',
+                              onChange: (send) => put(mine.services, send) }));
+    }
+  }
+  c.appendChild(group({ header: 'Phones', footer }, rows));
+}
+
 function pPerson(id) {
   const back = ['People', '#/' + ROUTE + '/people'];
   const got = usersRead();
@@ -466,6 +497,7 @@ function pPerson(id) {
           : screenPicker('person', 'Opens On', null, cur, d.screens, none,
                          (v) => api('PUT', '/api/users/' + encodeURIComponent(u.id) + '/default-screen', { screen: v }))]));
     }
+    drawPhones(c, u, locked);
     if (locked) return;
     const rows = [];
     if (!self) rows.push(button(u.disabled ? 'Enable' : 'Disable…', async () => {

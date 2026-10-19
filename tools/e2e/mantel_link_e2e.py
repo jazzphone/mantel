@@ -33,6 +33,11 @@ Phase ``handover`` (slice 9.3), a Home Assistant WITH HK Frontend, linked (``--p
   5. The Owner gives the bridge back: HK Frontend takes the same entries back.
   6. Removes Mantel Link's entry and unlinks HK Frontend; stops the scratch HA (unless --keep-up / --reuse).
 
+Phase ``phones`` (slice 9.7): a stand-in Companion-app phone in the scratch HA (``testha.py up --phone-probe``:
+``notify.mobile_app_e2e_phone`` records what it gets as an event); an Owner picks it for themself; ``mantel.notify``
+reaches a Mantel screen and the phone (with Mantel's Dismiss); the Companion app's ``mobile_app_notification_action``
+for it reaches Mantel, which takes the banner down; another app's action does nothing.
+
 Phase ``zeroconf`` (slice 9.5): Mantel's real announcer (mantel_server/announce.py, run with the scratch HA's
 own python-zeroconf) announces a fictional Mantel as ``_mantel._tcp`` on LOOPBACK ONLY, and the scratch HA
 (``testha.py up --zeroconf-probe``: a scratch-only component browsing that one type on loopback, since HA's own
@@ -497,23 +502,115 @@ async def run_zeroconf(token: str) -> dict:
     return out
 
 
+# ------------------------------------------------------------------------------------- phase: phones
+async def run_phones(token: str) -> dict:
+    out: dict = {}
+    with tempfile.TemporaryDirectory(prefix="mantel-link-phones-") as folder:
+        app, store, cfg = mantel_app(token, Path(folder))
+        from mantel_server import features
+        from mantel_server.settings_store import Actor
+        app["settings"].store.write([("house", features.FEATURES_DOC, features.check_settings(
+            {"linked": {"enabled": True}, "notifications": {"enabled": True}}))], actor=Actor(label="e2e"))
+        hub = app["hub"]
+        async with aiohttp.ClientSession() as http, TestServer(app, host="127.0.0.1") as server:
+            ha = HA(http, token)
+            base = str(server.make_url("")).rstrip("/")
+            await asyncio.wait_for(hub.ha.ready.wait(), 60)
+            owner = GE.Browser(base, "owner")
+            try:
+                st, body = await owner.post("/api/bootstrap", {
+                    "token": app["accounts"].issue_bootstrap_token(), "username": "e2e-owner",
+                    "name": "Fictional Owner", "password": secrets.token_urlsafe(18)})
+                assert st == 200, body
+                st, made = await owner.post("/api/linked/pair", {})
+                done = await ha.add_mantel_link(base, code=made["code"])
+                check(done.get("type") == "create_entry", "Mantel Link added with a pairing code")
+                try:
+                    await steps_phones(app, ha, owner, base, out)
+                finally:
+                    e = await ha.mantel_entry()
+                    if e:
+                        await ha.delete_entry(e["entry_id"])
+            finally:
+                await owner.http.close()
+        store.db.close()
+    return out
+
+
+async def steps_phones(app, ha: HA, owner, base: str, out: dict) -> None:
+    st, got = await owner.post("/api/phones", method="GET")
+    phones = await until(lambda: _phones(owner), timeout=30)
+    check(phones is not None and {"service": "mobile_app_e2e_phone", "name": "E2E Phone"} in phones,
+          "Mantel Link reported the Companion-app phone (notify.mobile_app_e2e_phone), and nothing else")
+    me = app["accounts"].db.execute("SELECT id FROM users WHERE username='e2e-owner'").fetchone()[0]
+    st, body = await owner.post(f"/api/users/{me}/phones", {"services": ["mobile_app_e2e_phone"], "send": "all"},
+                                method="PUT")
+    check(st == 200, "an Owner picks the phone for a person (People, Phones), audited")
+    owner.ws = await owner.http.ws_connect(base + "/ws")
+    await owner.ws.send_json({"type": "read_subscribe", "id": 7, "msg": {"type": "hk_frontend/events/subscribe"}})
+    while (await owner.recv()).get("id") != 7:
+        pass
+    async with ha.http.ws_connect(SCRATCH_URL.replace("http", "ws") + "/api/websocket") as ws:
+        await ws.receive_json()
+        await ws.send_json({"type": "auth", "access_token": ha.h["Authorization"].split(" ", 1)[1]})
+        assert (await ws.receive_json())["type"] == "auth_ok"
+        await ws.send_json({"id": 1, "type": "subscribe_events", "event_type": "mantel_e2e_phone_notified"})
+        assert (await ws.receive_json())["success"]
+        s, resp = await ha.post("/api/services/mantel/notify?return_response",
+                                {"title": "Laundry", "message": "The washer is done."})
+        check(s == 200, "mantel.notify called in HA")
+        nid = ((resp or {}).get("service_response") or {}).get("id")
+        ev = await _event(owner, "notification")
+        check(ev is not None and ev["title"] == "Laundry", "the banner reaches a Mantel screen")
+        got = None
+        t0 = time.time()
+        while time.time() - t0 < 15:
+            m = await asyncio.wait_for(ws.receive_json(), 15)
+            if m.get("type") == "event":
+                got = m["event"]["data"]
+                break
+        check(got is not None and got["title"] == "Laundry" and got["message"] == "The washer is done.",
+              "...and the phone gets it through Mantel Link (notify.mobile_app_e2e_phone)")
+        acts = (got or {}).get("data", {}).get("actions") or []
+        check(acts == [{"action": f"MANTEL_DISMISS_{nid}", "title": "Dismiss"}] and got["data"]["tag"] == f"mantel-{nid}",
+              "with Mantel's Dismiss action and its tag")
+        out["phone"] = got
+    # the phone's Dismiss (the Companion app fires mobile_app_notification_action)
+    s, _ = await ha.post("/api/events/mobile_app_notification_action", {"action": f"MANTEL_DISMISS_{nid}"})
+    ev = await _event(owner, "notification_dismiss")
+    check(ev is not None and ev.get("id") == nid, "a Dismiss on the phone reaches Mantel and takes the banner down")
+    check(any(a["id"] == nid for a in app["phones"].actions), "Mantel noted it")
+    s, _ = await ha.post("/api/events/mobile_app_notification_action", {"action": "SCRIPT_SOMETHING_ELSE"})
+    await asyncio.sleep(1)
+    check(len(app["phones"].actions) == 1, "another app's action is not Mantel's")
+    check(app["audit"].rows(kind="service") == [], "no household service was called")
+    await owner.ws.close()
+
+
+async def _phones(owner):
+    st, got = await owner.post("/api/phones", method="GET")
+    return got.get("available") if st == 200 and got.get("available") else None
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--keep-up", action="store_true", help="leave the scratch HA running afterwards")
     ap.add_argument("--reuse", action="store_true", help="use the scratch HA this caller already started; leave it up")
-    ap.add_argument("--phase", choices=["alone", "handover", "zeroconf"], default="alone",
+    ap.add_argument("--phase", choices=["alone", "handover", "zeroconf", "phones"], default="alone",
                     help="alone: no HK Frontend (9.2); handover: HK Frontend linked, the bridge handed over and back (9.3)")
     a = ap.parse_args()
     if not a.reuse:
         GE.wait_for_free_harness()
-        extra = {"alone": ("--no-hk",), "handover": (), "zeroconf": ("--no-hk", "--zeroconf-probe")}[a.phase]
+        extra = {"alone": ("--no-hk",), "handover": (), "zeroconf": ("--no-hk", "--zeroconf-probe"),
+                 "phones": ("--no-hk", "--phone-probe")}[a.phase]
         say(f"starting the scratch HA (testha.py up --fresh {' '.join(extra)}); this takes a few minutes")
         GE.harness("up", "--fresh", *extra)
     elif not testha.ready():
         raise SystemExit("--reuse: the scratch HA is not answering on 127.0.0.1:8124")
     try:
         token = asyncio.run(GE.token_for_scratch())
-        evidence = asyncio.run({"alone": run_alone, "handover": run_handover, "zeroconf": run_zeroconf}[a.phase](token))
+        evidence = asyncio.run({"alone": run_alone, "handover": run_handover, "zeroconf": run_zeroconf,
+                                "phones": run_phones}[a.phase](token))
         del token
         out = Path(testha.SCRATCH) / f"mantel_link_e2e_{a.phase}.json"
         out.write_text(json.dumps({"checks": RESULTS, **evidence}, indent=1, default=str))

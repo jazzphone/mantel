@@ -155,8 +155,36 @@ class Bridge:
         self.waiting: set[str] = set()                       # entities HK Frontend has not let go of yet
 
     def frames(self) -> dict[str, Any]:
-        """Server frame types beyond protocol 1's that this side handles (none yet)."""
-        return {}
+        """Server frame types beyond protocol 1's that this side handles: a notification for a phone (9.7)."""
+        return {"phone_notify": self.on_phone_notify}
+
+    # ---- the Companion app's phones (docs/phase9/MANTEL-LINK.md 9.7)
+    @callback
+    def on_phone_notify(self, msg: dict[str, Any]) -> None:
+        """The ONE thing Mantel may ask of Home Assistant: a notification to a Companion-app phone. Only a
+        notify.mobile_app_* service this Home Assistant has, only these fields; anything else is dropped."""
+        from .phones import phone_call
+        call = phone_call(self.hass, msg)
+        if call is None:
+            _LOGGER.warning("%s: ignored a phone notification Mantel described badly", NAME)
+            return
+        service, data = call
+        self.hass.async_create_task(self._notify(service, data), f"{NAME}: notify.{service}")
+
+    async def _notify(self, service: str, data: dict[str, Any]) -> None:
+        try:
+            await self.hass.services.async_call("notify", service, data, blocking=True)
+        except Exception as err:  # noqa: BLE001 -- one phone that fails never stops the link
+            _LOGGER.warning("%s: notify.%s failed: %s", NAME, service, err)
+
+    async def phone_action(self, action: str) -> None:
+        """A phone's answer to one of Mantel's notifications (its Dismiss), back to Mantel."""
+        if not self.link.connected:
+            return
+        try:
+            await self.link.request("phone_action", {"action": action})
+        except LinkError as err:
+            _LOGGER.debug("%s: Mantel did not take the phone's %s: %s", NAME, action, err.message)
 
     @property
     def connected(self) -> bool:
@@ -288,7 +316,9 @@ class Bridge:
         if not self.link.connected:
             return
         try:
-            await self.link.request("report", {"report": {"hk_frontend": hk_report(self.hass)}})
+            from .phones import phones
+            await self.link.request("report", {"report": {"hk_frontend": hk_report(self.hass),
+                                                          "phones": phones(self.hass)}})
         except LinkError as err:
             _LOGGER.debug("%s: Mantel did not take the report: %s", NAME, err.message)
 

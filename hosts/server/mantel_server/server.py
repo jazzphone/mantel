@@ -32,7 +32,7 @@ from aiohttp import WSMsgType, web
 from . import frame_origins, music
 from . import accounts, alarm_pin, auth, connect_pairing, devices, gateway, health, ingress, live_tv, pins, proof2, rbac_store, readproxy, sessions, settings_store
 from . import (admin_page, atrest, backup, connections, features, linked, linked_house, linked_owners, linked_pairing,
-               login_page, supervisor_discovery,
+               login_page, phones, supervisor_discovery,
                service_accounts, talk_relay, user_files)
 from . import default_screens, direct, direct_tls, ha_dashboards, ma_page, media_proxy, proxy_check, proxy_trust, security_headers, tablet_links, user_data
 from .authz import Authz, Principal, resolve_door
@@ -624,6 +624,8 @@ def wire(app: web.Application, hub: Hub, token: str, connect_ha: bool) -> None:
     # /linked/pair for a `linked` Service credential, both sides proving they know it
     linked_pairing.register(app)
     app["linked"].screen_origins = screen_origins(cfg)
+    # Mantel's notifications on people's phones, through Mantel Link and the Companion app (9.7)
+    phones.register(app)
     # ...and how Home Assistant finds Mantel (9.5): the App's Supervisor announcement, or the zeroconf file
     supervisor_discovery.register(app)
     if getattr(cfg, "announce_file", None) is not None:

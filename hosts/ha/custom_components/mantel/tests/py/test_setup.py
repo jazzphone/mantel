@@ -35,7 +35,7 @@ async def test_set_up_by_hand_tested_first_one_entry_per_mantel(hass, mantel):
     assert h["Authorization"] == f"Bearer {TOKEN}" and "Origin" not in h
     # and tells Mantel this Home Assistant has no HK Frontend
     await until(hass, lambda: mantel.reports)
-    assert mantel.reports[-1] == {"hk_frontend": {"installed": False, "loaded": False, "linked": False}}
+    assert mantel.reports[-1] == {"hk_frontend": {"installed": False, "loaded": False, "linked": False}, "phones": []}
     # a second add of the same Mantel is refused (one entry)
     r = await hass.config_entries.flow.async_init(DOMAIN, context={"source": config_entries.SOURCE_USER})
     assert r["type"] is FlowResultType.ABORT and r["reason"] == "single_instance_allowed"

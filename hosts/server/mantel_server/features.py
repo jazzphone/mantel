@@ -809,6 +809,7 @@ class Notifier:
         self.sent.append({"at": time.time(), "item": item_id, "entity": eid, "title": payload["title"],
                           "message": payload["message"], "screens": screens, "woke": woke,
                           "snap": payload.get("snap")})
+        self.host.to_phones(payload)
 
     def set_mute(self, key: str, seconds: int, actor: Any = None) -> float | None:
         until = NB.set_mute(self.mutes, key, seconds, self.host.epoch())
@@ -1213,6 +1214,13 @@ class FeatureHost:
         from .settings_store import Actor, actor_of
         actor = actor_of(identity) if identity is not None else Actor(label="mantel-features")
         self.store.write([("house", key, body)], actor=actor, message=message)
+
+    def to_phones(self, payload: dict[str, Any]) -> None:
+        """The same notification to the phones of the people it is for (phones.py; Mantel Link and the
+        Companion app), in the background: the screens never wait for it."""
+        ph = self.app.get("phones")
+        if ph is not None:
+            self.spawn(ph.deliver(dict(payload)))
 
     def on(self, piece: str) -> bool:
         return bool(self.settings.get(piece, {}).get("enabled"))

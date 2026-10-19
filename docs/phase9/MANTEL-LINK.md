@@ -1,7 +1,7 @@
 # Phase 9: Mantel Link replaces HK Frontend in Home Assistant (decision 28)
 
 **Status (2026-10-19): being built on branch `claude/mantel-link-b012d1`, one slice at a time. Done: 9.1, 9.2,
-9.3, 9.4, 9.5, 9.6 (see "Build record" at the end). Nothing is on the house; 9.11 waits for Avery, step by step.**
+9.3, 9.4, 9.5, 9.6, 9.7 (see "Build record" at the end). Nothing is on the house; 9.11 waits for Avery, step by step.**
 
 ## The decision
 
@@ -186,6 +186,11 @@ From docs/phase4/FEATURE-PARITY.md, checked per house; anything unchecked keeps 
   `package_check.py` lets do so; or `python -m mantel_server.announce --avahi` prints a service file for the
   host's avahi. Without either, Mantel Link is added by hand (address + pairing code). Avery: keep the overlay
   opt-in (recommended), make it default, or avahi only?
+
+- **M6, what goes to phones (open, 2026-10-19):** built as a per-person choice in Mantel Settings → People → Phones:
+  **Important only** (the default), every notification, or nothing; a notification for some screens only
+  (`dashboards`) never goes to a phone, one naming people (`users`) only to theirs. The only action is Dismiss
+  (it takes the banner down on every screen). Avery: keep Important only as the default?
 
 ## Risks
 
@@ -393,3 +398,30 @@ Frontend). `test_e2e_mantel.py` links it to the real `mantel_server/linked.py`.
   the frame shows Mantel → Home Assistant, and tapping it lands on HA's Overview with its header back; a forged
   message from HA's own page changes nothing. Finding: the pane draws a cross-origin frame scaled into a corner at
   desktop size (its capture only: the frame's rect and the page laid out at full size, as a direct load shows).
+
+### 9.7 Companion-app notifications: done
+
+- **Mantel Link** (`phones.py`): reports the phones this Home Assistant can notify (the Companion app's
+  `notify.mobile_app_*` services, named from their mobile_app entries; again whenever one comes or goes); carries
+  out Mantel's `phone_notify` only for such a service HA has, with the title, the message and known fields
+  (`tag`, `group`, an https or relative `url`/`clickAction`, up to three `MANTEL_*` actions, iOS
+  interruption-level up to time-sensitive, Android priority and `ttl: 0`; anything else dropped); sends a
+  `MANTEL_*` action from `mobile_app_notification_action` back as `phone_action`.
+- **Deviation (the plan implied it, the protocol said never):** `phone_notify` is the one server frame by which
+  Mantel asks Home Assistant to do something. It is pinned (`linked.SERVER_TYPES_2`), protocol 2 only, and
+  bounded on HA's side as above; `tests` prove a `call_service`-shaped frame still does nothing.
+- **Mantel** (`mantel_server/phones.py`, migration `0015_person_phones.sql`): each person's phones and what goes
+  there (Owner or Admin, an Admin never an Owner's, audited `phones.set` first); every notification Mantel shows
+  (rules, calendars, `notify` forwarded) also goes to the phones of the people it is for, in the background;
+  a phone's Dismiss sends `notification_dismiss` to the screens. HK's banners learned that event
+  (`hk-notify.js` `dismissId`; generic, HK in HA never sends it). **Migration 0015**: renumber if another branch
+  took it before this merges.
+- **Mantel Settings → People → a person → Phones:** a switch per phone HA has, a "Gone" row for one HA no longer
+  has, and Send (Important Only / Every Notification / Nothing); says when Mantel Link isn't linked or HA has no
+  Companion-app phone.
+- **Checks:** Mantel Link's `test_phones.py` (3); Mantel's `tests/test_phones.py` (5) and the page in node (2);
+  HK's `test_notify.js`. **Scratch HA** (`mantel_link_e2e.py --phase phones`, a stand-in phone
+  `notify.mobile_app_e2e_phone` from `testha.py --phone-probe`): **11/11**: reported, picked by the Owner,
+  `mantel.notify` reaches a Mantel screen and the phone with Mantel's Dismiss and tag, the phone's Dismiss takes
+  the banner down, another app's action does nothing, no household service called. Browser pane: the Phones
+  group, a switch saved.

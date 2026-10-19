@@ -113,3 +113,44 @@ def test_without_hk_frontend_mantel_link_shows_them(tmp_path):
     got = groups(run(tmp_path, d)["owner"])
     shown = got["The Bridge"]["rows"][0]
     assert shown["value"] == "Mantel Link" and shown["sub"] == "Home Assistant has no HK Frontend"
+
+
+# -- People -> a person -> Phones (phones.py; 9.7) -------------------------------------------------------------------
+PERSON_SCRIPT = SCRIPT.replace(
+    "m.host.page(['mantel', 'connections', 'link'], panel).body(c)",
+    "m.host.page(['mantel', 'people', 'u2'], panel).body(c)")
+
+
+def person(tmp_path, phones):
+    if shutil.which("node") is None:
+        pytest.skip("node not installed")
+    reads = {"/api/users": {"users": [{"id": "u2", "name": "Fictional Adult", "username": "adult", "role": "adult",
+                                       "has_password": True}]},
+             "/api/default-screens": {"users": {}, "devices": {}, "screens": [], "house": "dashboard-kitchen"},
+             "/api/phones": phones}
+    (tmp_path / "base.mjs").write_text((WEB / "shim/base.js").read_text(encoding="utf-8"))
+    (tmp_path / "m.mjs").write_text((WEB / "shim/mantel-settings.js").read_text(encoding="utf-8")
+                                    .replace("from './base.js'", "from './base.mjs'"))
+    (tmp_path / "s.mjs").write_text(PERSON_SCRIPT)
+    (tmp_path / "reads.json").write_text(json.dumps(reads))
+    got = subprocess.run(["node", str(tmp_path / "s.mjs"), str(tmp_path / "m.mjs"), str(tmp_path / "reads.json"),
+                          json.dumps(overview("owner", ALL)), json.dumps(overview("admin", ["me", "people"]))],
+                         capture_output=True, text=True, timeout=60)
+    assert got.returncode == 0, got.stderr
+    return groups(json.loads(got.stdout)["owner"])
+
+
+def test_a_person_s_phones_are_picked_on_their_page(tmp_path):
+    got = person(tmp_path, {"linked": True, "available": [{"service": "mobile_app_pixel", "name": "Pixel"},
+                                                          {"service": "mobile_app_ipad", "name": "iPad"}],
+                            "people": {"u2": {"services": ["mobile_app_pixel", "mobile_app_old"], "send": "all"}}})
+    rows = got["Phones"]["rows"]
+    assert [(r["kind"], r["label"], r.get("on")) for r in rows[:2]] == [("toggle", "Pixel", True), ("toggle", "iPad", False)]
+    assert rows[2]["label"] == "mobile_app_old" and rows[2]["value"] == "Gone"
+    assert rows[3]["label"] == "Send" and rows[3]["value"] == "all"
+    assert "Companion app" in got["Phones"]["footer"]
+
+
+def test_without_mantel_link_it_says_so(tmp_path):
+    got = person(tmp_path, {"linked": False, "available": [], "people": {}})
+    assert got["Phones"]["rows"] == [] and "It isn’t linked yet" in got["Phones"]["footer"]

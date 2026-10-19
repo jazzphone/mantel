@@ -67,8 +67,11 @@ COMMANDS: dict[str, frozenset[str]] = {"switch": frozenset({"turn_on", "turn_off
                                        "alarm_control_panel": ALARM_COMMANDS}
 CLIENT_TYPES = frozenset({"call_service", "entity_command", "ping"})
 # protocol 2 adds `report`: what Mantel Link tells about its Home Assistant (is HK Frontend there?)
-CLIENT_TYPES_2 = CLIENT_TYPES | {"report"}
+CLIENT_TYPES_2 = CLIENT_TYPES | {"report", "phone_action"}
 SERVER_TYPES = frozenset({"hello", "result", "entity", "state", "removed", "owners"})
+# protocol 2 adds ONE thing Mantel may ask Home Assistant to do: a notification to a Companion-app phone
+# (phones.py; Mantel Link calls notify.mobile_app_<phone> and nothing else)
+SERVER_TYPES_2 = SERVER_TYPES | {"phone_notify"}
 HANDLER_TIMEOUT = 8.0          # under HA's 10 s, so HA's call gets Mantel's own "timeout" first
 RECHECK_S = 60.0               # how often an idle socket re-checks that its credential is live
 HEARTBEAT_S = 30.0             # pings that find a linked HA gone without a goodbye
@@ -78,9 +81,11 @@ MAX_TARGETS = 50
 _KEYS = {"call_service": {"id", "type", "service", "data", "targets"},
          "entity_command": {"id", "type", "unique_id", "command", "data"},
          "ping": {"id", "type"},
-         "report": {"id", "type", "report"}}
+         "report": {"id", "type", "report"},
+         "phone_action": {"id", "type", "action", "service"}}
 # a report's parts (protocol 2), each checked by its own key
-_REPORT_KEYS = frozenset({"hk_frontend"})
+_REPORT_KEYS = frozenset({"hk_frontend", "phones"})
+_PHONE = re.compile(r"^mobile_app_[a-z0-9_]{1,80}$")
 _POPUP_KEYS = frozenset({"popup", "dashboards", "users"})
 _BLACK_KEYS = frozenset({"black", "brightness"})
 # hk_frontend.notify, as HA's NOTIFY_SCHEMA validated it (features/notifications)
@@ -478,6 +483,7 @@ class Linked:
         # script in HA believes a framed screen's messages from (docs/phase9/MANTEL-LINK.md 9.6)
         self.screen_origins: list[str] = []
         self.listeners: list = []             # fn(client) after a client's report
+        self.phone_action = None              # phones.Phones.on_action (protocol 2's phone_action)
 
     def verify(self, token: str, peer: str | None) -> Any:
         return self.accounts.verify(token, SCOPE, source_ip=peer)
@@ -493,6 +499,14 @@ class Linked:
                     isinstance(v, bool) for v in hk.values()):
                 raise LinkedError("invalid", "report.hk_frontend: {installed, loaded, linked} booleans")
             client.report["hk_frontend"] = {k: bool(hk.get(k, False)) for k in ("installed", "loaded", "linked")}
+        phones = report.get("phones")
+        if phones is not None:
+            if (not isinstance(phones, list) or len(phones) > 50 or not all(
+                    isinstance(p, Mapping) and set(p) == {"service", "name"} and isinstance(p["service"], str)
+                    and _PHONE.match(p["service"]) and isinstance(p["name"], str) and 0 < len(p["name"]) <= 80
+                    for p in phones)):
+                raise LinkedError("invalid", "report.phones: [{service: mobile_app_..., name}]")
+            client.report["phones"] = [{"service": p["service"], "name": p["name"]} for p in phones]
         for fn in list(self.listeners):
             try:
                 fn(client)
@@ -581,6 +595,10 @@ async def _answer(linked: Linked, client: LinkedClient, msg: dict[str, Any]) -> 
             result: Any = {"pong": True}
         elif t == "report":
             result = linked.take_report(client, msg.get("report"))
+        elif t == "phone_action":
+            if linked.phone_action is None:
+                raise LinkedError("not_set_up", "Mantel takes no phone actions here")
+            result = linked.phone_action(client, {k: msg[k] for k in ("action", "service") if k in msg})
         elif t == "call_service":
             result = await linked.call_service(msg, ctx)
         else:

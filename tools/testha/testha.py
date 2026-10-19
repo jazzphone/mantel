@@ -174,7 +174,19 @@ def install_zeroconf_probe() -> None:
         conf.write_text(conf.read_text() + "mantel_e2e_browse:\n")
 
 
-def prepare(fresh: bool, sequential: bool = False, hk: bool = True, probe: bool = False) -> None:
+def install_phone_probe() -> None:
+    """Mantel Link's phone relay check (mantel_link_e2e.py --phase phones): a scratch-only stand-in phone,
+    notify.mobile_app_e2e_phone, that records what it gets as an event."""
+    dest = CONFIG / "custom_components/mantel_e2e_phone"
+    if dest.exists():
+        shutil.rmtree(inside_scratch(dest))
+    shutil.copytree(ROOT / "tools/testha/mantel_e2e_phone", dest, ignore=shutil.ignore_patterns("__pycache__"))
+    conf = CONFIG / "configuration.yaml"
+    if "mantel_e2e_phone:" not in conf.read_text():
+        conf.write_text(conf.read_text() + "mantel_e2e_phone:\n")
+
+
+def prepare(fresh: bool, sequential: bool = False, hk: bool = True, probe: bool = False, phone: bool = False) -> None:
     if not (VENV / "bin/hass").exists():
         raise SystemExit(f"no hass at {VENV}/bin/hass (set TESTHA_VENV)")
     if fresh and CONFIG.exists():
@@ -208,6 +220,8 @@ def prepare(fresh: bool, sequential: bool = False, hk: bool = True, probe: bool 
     (CONFIG / "configuration.yaml").write_text(CONFIGURATION.format(db=CONFIG / "home-assistant_v2.db"))
     if probe:
         install_zeroconf_probe()
+    if phone:
+        install_phone_probe()
 
 
 def start() -> None:
@@ -383,6 +397,8 @@ def main() -> None:
                     help="no HK Frontend in the scratch HA (Mantel Link alone; it is always installed, not set up)")
     ap.add_argument("--zeroconf-probe", action="store_true",
                     help="add a scratch-only component that hands _mantel._tcp announcements on loopback to Mantel Link")
+    ap.add_argument("--phone-probe", action="store_true",
+                    help="add a scratch-only stand-in Companion-app phone (notify.mobile_app_e2e_phone)")
     ap.add_argument("--ordered-boot", action="store_true",
                     help="EXPERIMENT: scratch copy loads HK's dependency-free bootstrap modules as ONE ordered file (tests the load-order fix)")
     a = ap.parse_args()
@@ -396,7 +412,7 @@ def main() -> None:
     else:
         if pid():
             stop()
-        prepare(a.fresh, a.ordered_boot, hk=not a.no_hk, probe=a.zeroconf_probe)
+        prepare(a.fresh, a.ordered_boot, hk=not a.no_hk, probe=a.zeroconf_probe, phone=a.phone_probe)
         start()
         asyncio.run(setup())
 

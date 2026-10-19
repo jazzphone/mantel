@@ -282,6 +282,7 @@ class LinkedHouse:
                                    "title": payload["title"], "message": payload["message"], "screens": screens,
                                    "woke": woke, "via": "linked"})
         self.calls.append({"at": time.time(), "service": "notify", "title": payload["title"], "screens": screens})
+        host.to_phones(payload)
         return {"id": payload["id"], "snap": False}
 
     async def entity_command(self, unique_id: str, command: str, data: dict[str, Any], ctx: Any) -> dict[str, Any]:
