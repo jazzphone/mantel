@@ -98,7 +98,7 @@ def test_manifest_is_standalone_with_its_icons():
     for icon in m["icons"]:
         name = icon["src"].rsplit("/", 1)[1]
         assert name in __import__("mantel_server.app_shell", fromlist=["ICONS"]).ICONS
-        assert (WEB / "app/icons" / name).is_file()
+        assert (WEB / "app/art" / name).is_file()
 
 
 async def test_manifest_worker_and_icons_need_no_session(mantel):
@@ -107,11 +107,11 @@ async def test_manifest_worker_and_icons_need_no_session(mantel):
     assert r.status == 200 and r.headers["Content-Type"].startswith("application/manifest+json")
     r = await m.client.get("/sw.js")
     assert r.status == 200 and r.headers["Service-Worker-Allowed"] == "/"
-    for path in ("/apple-touch-icon.png", "/app/icons/mantel-192.png"):
+    for path in ("/apple-touch-icon.png", "/app/art/mantel-192.png"):
         r = await m.client.get(path)
         assert r.status == 200 and (await r.read())[:4] == b"\x89PNG"
-    assert (await m.client.get("/app/icons/..%2F..%2Fmantel.db")).status in (401, 404)
-    assert (await m.client.get("/app/icons/other.png")).status in (401, 404)
+    assert (await m.client.get("/app/art/..%2F..%2Fmantel.db")).status in (401, 404)
+    assert (await m.client.get("/app/art/other.png")).status in (401, 404)
     assert (await m.client.get("/api/push/web/key")).status == 401      # the API still needs a person
 
 
