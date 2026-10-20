@@ -501,7 +501,14 @@ function renderDevices(root) {
             gone.length ? [h('h3', null, 'Revoked'), h('ul', { class: 'list' }, gone.map(row))] : null];
   });
   const name = h('input', { name: 'device-name', required: true, maxlength: 64, placeholder: 'Kitchen tablet', autocomplete: 'off' });
-  const room = h('input', { name: 'device-room', maxlength: 64, placeholder: 'Kitchen', autocomplete: 'off' });
+  // its room: one of HK's wall tablets (t:<id>) or, with none, one of HA's areas (r:<id>); never typed (devices.py)
+  const room = select('device-room', [['', 'Loading…']]);
+  api('GET', '/api/devices/rooms').then(({ tablets, areas }) => {
+    const ts = Object.entries(tablets).filter(([, t]) => t.room).sort((a, b) => a[1].name.localeCompare(b[1].name));
+    room.replaceChildren(...select('x', [['', 'Choose…']]
+      .concat(ts.map(([id, t]) => ['t:' + id, 'HK tablet: ' + t.name + (t.served_by.length ? ' (in use)' : '')]))
+      .concat(areas.map((a) => ['r:' + a.id, 'No HK tablet, in ' + a.name]))).children);
+  }, () => room.replaceChildren(...select('x', [['', 'No rooms known']]).children));
   const roles = state.me.device_roles;
   const roleSel = select('device-role', roles.map((r) => [r, roleLabel(r)]), 'wall_tablet');
   const enroll = h('section', { class: 'panel', id: 'p-enroll' }, h('h3', null, 'Make this browser a wall tablet'),
@@ -511,7 +518,8 @@ function renderDevices(root) {
         ev.preventDefault();
         if (!(await confirmDialog('Make this browser a wall tablet?', 'You will be signed out here. From now on this browser acts as the tablet "' + name.value.trim() + '".', 'Make it a tablet'))) return;
         const r = await run(() => api('POST', '/api/devices/enroll',
-          { name: name.value.trim(), room: room.value.trim() || undefined, role: roleSel.value }));
+          { name: name.value.trim(), role: roleSel.value, ...(room.value.startsWith('t:') ? { tablet: room.value.slice(2) }
+            : room.value.startsWith('r:') ? { room: room.value.slice(2) } : {}) }));
         if (!r) return;
         state.enrolled = true;
         $('#nav').replaceChildren();
