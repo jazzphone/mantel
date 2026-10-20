@@ -1,8 +1,8 @@
 // THE ENERGY PAGE'S SUMS (hk-energy.js, window.hkEnergyPage.__calc), driven
-// with ONE HOUSE'S REAL NUMBERS: its plan (the settings feed's `energy`), its
+// with A SAMPLE HOUSE'S REAL NUMBERS: its plan (the settings feed's `energy`), its
 // Home Assistant Energy settings (energy/get_prefs, energy/info), and 49 hours
 // and 61 days of its statistics, captured 2026-10-12 14:53 EDT and aligned the
-// way hk-stats aligns them (tests/fixtures/energy_house.json).
+// way hk-stats aligns them (tests/fixtures/sample_energy.json).
 //
 // THE EXPECTED FIGURES ARE NOT THE CODE'S OWN. Today's were read off Home
 // Assistant's Energy dashboard at that moment (grid 33.03 kWh, $4.61, battery
@@ -22,7 +22,7 @@ var pass = 0, fail = 0;
 function ok(n, c, d) { if (c) { pass++; print('  PASS  ' + n); } else { fail++; print('  FAIL  ' + n + (d !== undefined ? '   got ' + JSON.stringify(d) : '')); } }
 function near(a, b, tol) { return typeof a === 'number' && Math.abs(a - b) <= (tol || 0.01); }
 
-var F = JSON.parse(read(HK_ROOT + '/tests/fixtures/energy_house.json'));
+var F = JSON.parse(read(HK_ROOT + '/tests/fixtures/sample_energy.json'));
 var EP = window.hkEnergyPage;
 function aligned(map, axis) {
   var out = {};

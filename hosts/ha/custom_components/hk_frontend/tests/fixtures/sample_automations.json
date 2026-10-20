@@ -1,0 +1,916 @@
+{
+ "automation.climate_home_set_bedtime_temp": {
+  "actions": [
+   {
+    "alias": "Stop while emergency mode is active",
+    "if": [
+     {
+      "condition": "state",
+      "entity_id": "binary_sensor.home_emergency_active",
+      "state": "on"
+     }
+    ],
+    "then": [
+     {
+      "alias": "Stop because emergency mode owns home state",
+      "stop": "Emergency mode is active; normal automation control is paused."
+     }
+    ]
+   },
+   {
+    "alias": "Set thermostats in parallel",
+    "parallel": [
+     {
+      "action": "climate.set_temperature",
+      "alias": "Set thermostat temperature - Downstairs Ecobee Thermostat",
+      "data": {
+       "hvac_mode": "heat_cool",
+       "target_temp_high": 73,
+       "target_temp_low": 67
+      },
+      "target": {
+       "entity_id": [
+        "climate.downstairs_ecobee_thermostat"
+       ]
+      }
+     },
+     {
+      "action": "climate.set_temperature",
+      "alias": "Set thermostat temperature - Upstairs Ecobee Thermostat",
+      "data": {
+       "hvac_mode": "heat_cool",
+       "target_temp_high": 74,
+       "target_temp_low": 67
+      },
+      "target": {
+       "entity_id": [
+        "climate.upstairs_ecobee_thermostat"
+       ]
+      }
+     }
+    ]
+   }
+  ],
+  "alias": "Climate - Home - Set Bedtime Temp",
+  "conditions": [
+   {
+    "condition": "or",
+    "conditions": [
+     {
+      "condition": "state",
+      "entity_id": "person.alex",
+      "state": "home"
+     },
+     {
+      "condition": "state",
+      "entity_id": "person.sam",
+      "state": "home"
+     }
+    ]
+   },
+   {
+    "condition": "state",
+    "entity_id": "input_boolean.manual_ac",
+    "state": [
+     "off"
+    ]
+   }
+  ],
+  "description": "Sets both Ecobee thermostats to bedtime heat/cool targets at 9:30 PM when Mark or Anna is home and Manual AC is off. This is a scheduled comfort adjustment separate from Good Night, Leaving, Arriving, and Alarm climate actions. Both thermostat service calls run in parallel.",
+  "id": "1751933269418",
+  "mode": "single",
+  "triggers": [
+   {
+    "alias": "Trigger - Time reaches 21:30:00",
+    "at": "21:30:00",
+    "id": "time_reaches_21_30_00",
+    "trigger": "time"
+   }
+  ]
+ },
+ "automation.lighting_front_yard_holiday_schedule": {
+  "actions": [
+   {
+    "alias": "Choose the matching automation branch",
+    "choose": [
+     {
+      "alias": "Branch - Trigger is holiday_on",
+      "conditions": [
+       {
+        "condition": "trigger",
+        "id": "holiday_on"
+       }
+      ],
+      "sequence": [
+       {
+        "alias": "Christmas",
+        "if": [
+         {
+          "condition": "state",
+          "entity_id": "sensor.us_holidays",
+          "state": "Christmas"
+         }
+        ],
+        "then": [
+         {
+          "action": "select.select_option",
+          "alias": "Select option - 2 entities",
+          "data": {
+           "option": "Christmas"
+          },
+          "target": {
+           "entity_id": [
+            "select.outdoor_permanent_lights_playlist",
+            "select.path_lights_playlist"
+           ]
+          }
+         },
+         {
+          "action": "script.turn_on",
+          "alias": "Turn script on - Christmas Lights",
+          "data": {},
+          "target": {
+           "entity_id": "script.christmas_lights"
+          }
+         }
+        ]
+       },
+       {
+        "alias": "Halloween",
+        "if": [
+         {
+          "condition": "state",
+          "entity_id": "sensor.us_holidays",
+          "state": "Halloween"
+         }
+        ],
+        "then": [
+         {
+          "action": "select.select_option",
+          "alias": "Select option - 2 entities",
+          "data": {
+           "option": "Halloween"
+          },
+          "target": {
+           "entity_id": [
+            "select.outdoor_permanent_lights_playlist",
+            "select.path_lights_playlist"
+           ]
+          }
+         },
+         {
+          "action": "script.turn_on",
+          "alias": "Turn script on - Halloween Lights",
+          "data": {},
+          "target": {
+           "entity_id": [
+            "script.halloween_lights"
+           ]
+          }
+         }
+        ]
+       },
+       {
+        "alias": "July 4th",
+        "if": [
+         {
+          "condition": "state",
+          "entity_id": "sensor.us_holidays",
+          "state": "Independence Day"
+         }
+        ],
+        "then": [
+         {
+          "action": "select.select_option",
+          "alias": "Select option - Outdoor Permanent Lights Playlist",
+          "data": {
+           "option": "July 4th"
+          },
+          "target": {
+           "entity_id": "select.outdoor_permanent_lights_playlist"
+          }
+         },
+         {
+          "action": "select.select_option",
+          "alias": "Select option - Path Lights Playlist",
+          "data": {
+           "option": "July 4th"
+          },
+          "target": {
+           "entity_id": "select.path_lights_playlist"
+          }
+         },
+         {
+          "action": "script.turn_on",
+          "alias": "Turn script on - July 4Th",
+          "data": {},
+          "target": {
+           "entity_id": "script.july_4th"
+          }
+         }
+        ]
+       }
+      ]
+     },
+     {
+      "alias": "Branch - Trigger is holiday_off",
+      "conditions": [
+       {
+        "condition": "trigger",
+        "id": "holiday_off"
+       },
+       {
+        "condition": "state",
+        "entity_id": "sensor.us_holidays",
+        "state": [
+         "Christmas",
+         "Halloween",
+         "Independence Day"
+        ]
+       }
+      ],
+      "sequence": [
+       {
+        "action": "script.turn_off",
+        "alias": "Turn script off - 3 entities",
+        "data": {},
+        "metadata": {},
+        "target": {
+         "entity_id": [
+          "script.christmas_lights",
+          "script.halloween_lights",
+          "script.july_4th"
+         ]
+        }
+       },
+       {
+        "action": "select.select_option",
+        "alias": "Select option - 2 entities",
+        "data": {
+         "option": "Year Round"
+        },
+        "target": {
+         "entity_id": [
+          "select.outdoor_permanent_lights_preset",
+          "select.path_lights_preset"
+         ]
+        }
+       }
+      ]
+     }
+    ]
+   }
+  ],
+  "alias": "Lighting - Front Yard - Holiday Schedule",
+  "conditions": [],
+  "description": "Starts holiday-specific outdoor lighting before sunset and stops/resets holiday lighting at 9:59 PM when a supported holiday is active.",
+  "id": "merged_front_yard_holiday_lighting_schedule",
+  "mode": "single",
+  "triggers": [
+   {
+    "alias": "Trigger - Holiday On",
+    "event": "sunset",
+    "id": "holiday_on",
+    "offset": "-00:14:00",
+    "trigger": "sun"
+   },
+   {
+    "alias": "Trigger - Holiday Off",
+    "at": "21:59:00",
+    "id": "holiday_off",
+    "trigger": "time"
+   }
+  ]
+ },
+ "automation.lighting_front_yard_scheduled_exterior_lights": {
+  "actions": [
+   {
+    "alias": "Choose the matching automation branch",
+    "choose": [
+     {
+      "alias": "Branch - Trigger is sunset_on",
+      "conditions": [
+       {
+        "condition": "trigger",
+        "id": "sunset_on"
+       }
+      ],
+      "sequence": [
+       {
+        "alias": "Run grouped actions in parallel",
+        "parallel": [
+         {
+          "action": "light.turn_on",
+          "alias": "Turn light on - 3 entities",
+          "data": {
+           "brightness_pct": 100,
+           "color_temp_kelvin": 3521
+          },
+          "target": {
+           "entity_id": [
+            "light.flower_bed_lights",
+            "light.front_yard_driveway_lights",
+            "light.front_yard_pendant_lights"
+           ]
+          }
+         },
+         {
+          "action": "switch.turn_on",
+          "alias": "Turn switch on - Small Flower Bed Outlet Top",
+          "data": {},
+          "target": {
+           "entity_id": [
+            "switch.small_flower_bed_outlet_top"
+           ]
+          }
+         },
+         {
+          "action": "light.turn_on",
+          "alias": "Turn light on - Outdoor Permanent Lights Second",
+          "data": {},
+          "target": {
+           "entity_id": [
+            "light.outdoor_permanent_lights_second"
+           ]
+          }
+         },
+         {
+          "action": "select.select_option",
+          "alias": "Select option - 2 entities",
+          "data": {
+           "option": "Year Round"
+          },
+          "target": {
+           "entity_id": [
+            "select.outdoor_permanent_lights_preset",
+            "select.path_lights_preset"
+           ]
+          }
+         }
+        ]
+       }
+      ]
+     },
+     {
+      "alias": "Branch - Trigger is sunset_off",
+      "conditions": [
+       {
+        "condition": "trigger",
+        "id": "sunset_off"
+       }
+      ],
+      "sequence": [
+       {
+        "alias": "Run grouped actions in parallel",
+        "parallel": [
+         {
+          "action": "light.turn_off",
+          "alias": "Turn light off - Scheduled exterior non-deck lights",
+          "data": {},
+          "target": {
+           "entity_id": [
+            "light.front_yard_driveway_lights",
+            "light.front_yard_pendant_lights",
+            "light.flower_bed_lights",
+            "light.outdoor_permanent_lights",
+            "light.path_lights",
+            "light.outdoor_permanent_lights_second"
+           ]
+          }
+         },
+         {
+          "action": "switch.turn_off",
+          "alias": "Turn switch off - Small Flower Bed Outlet Top",
+          "data": {},
+          "target": {
+           "entity_id": [
+            "switch.small_flower_bed_outlet_top"
+           ]
+          }
+         }
+        ]
+       },
+       {
+        "action": "select.select_option",
+        "alias": "Select option - Scheduled exterior non-deck presets",
+        "data": {
+         "option": "Start Up"
+        },
+        "target": {
+         "entity_id": [
+          "select.outdoor_permanent_lights_preset",
+          "select.outdoor_permanent_lights_second_preset",
+          "select.path_lights_preset"
+         ]
+        }
+       },
+       {
+        "alias": "Wait before next step",
+        "delay": {
+         "hours": 0,
+         "milliseconds": 0,
+         "minutes": 0,
+         "seconds": 1
+        }
+       },
+       {
+        "action": "light.turn_off",
+        "alias": "Turn light off - Exterior scheduled non-deck lights",
+        "data": {},
+        "target": {
+         "entity_id": [
+          "light.outdoor_permanent_lights",
+          "light.path_lights",
+          "light.outdoor_permanent_lights_second"
+         ]
+        }
+       },
+       {
+        "alias": "Reset and turn off Deck Permanent Lights only when back door is locked",
+        "if": [
+         {
+          "condition": "state",
+          "entity_id": "lock.back_door_lock",
+          "state": "locked"
+         }
+        ],
+        "then": [
+         {
+          "action": "select.select_option",
+          "alias": "Select default preset - Deck Permanent Lights",
+          "data": {
+           "option": "Start Up"
+          },
+          "target": {
+           "entity_id": "select.deck_permanent_lights_preset"
+          }
+         },
+         {
+          "alias": "Wait before turning off deck permanent lights",
+          "delay": {
+           "hours": 0,
+           "milliseconds": 0,
+           "minutes": 0,
+           "seconds": 1
+          }
+         },
+         {
+          "action": "light.turn_off",
+          "alias": "Turn off Deck Permanent Lights",
+          "data": {},
+          "target": {
+           "entity_id": "light.deck_permanent_lights"
+          }
+         }
+        ]
+       }
+      ]
+     },
+     {
+      "alias": "Branch - Trigger is sunrise_on",
+      "conditions": [
+       {
+        "condition": "trigger",
+        "id": "sunrise_on"
+       }
+      ],
+      "sequence": [
+       {
+        "alias": "Run grouped actions in parallel",
+        "parallel": [
+         {
+          "action": "light.turn_on",
+          "alias": "Turn light on - Front Yard Driveway Lights",
+          "data": {
+           "brightness_pct": 100
+          },
+          "target": {
+           "entity_id": "light.front_yard_driveway_lights"
+          }
+         },
+         {
+          "action": "light.turn_on",
+          "alias": "Turn light on - Front Yard Pendant Lights",
+          "data": {
+           "brightness_pct": 100
+          },
+          "target": {
+           "entity_id": "light.front_yard_pendant_lights"
+          }
+         },
+         {
+          "alias": "Turn on Flower Bed Lights when Guest Mode is off",
+          "if": [
+           {
+            "condition": "state",
+            "entity_id": "input_boolean.guest_mode_guest_bedroom",
+            "state": "off"
+           }
+          ],
+          "then": [
+           {
+            "action": "light.turn_on",
+            "alias": "Turn light on - Flower Bed Lights",
+            "data": {
+             "brightness_pct": 100,
+             "color_temp_kelvin": 3521
+            },
+            "target": {
+             "entity_id": "light.flower_bed_lights"
+            }
+           }
+          ]
+         },
+         {
+          "action": "select.select_option",
+          "alias": "Select option - 2 entities",
+          "data": {
+           "option": "Year Round"
+          },
+          "target": {
+           "entity_id": [
+            "select.path_lights_preset",
+            "select.outdoor_permanent_lights_preset"
+           ]
+          }
+         },
+         {
+          "action": "light.turn_on",
+          "alias": "Turn light on - Outdoor Permanent Lights Second",
+          "data": {
+           "brightness_pct": 100
+          },
+          "target": {
+           "entity_id": [
+            "light.outdoor_permanent_lights_second"
+           ]
+          }
+         }
+        ]
+       }
+      ]
+     },
+     {
+      "alias": "Branch - Trigger is sunrise_off",
+      "conditions": [
+       {
+        "condition": "trigger",
+        "id": "sunrise_off"
+       }
+      ],
+      "sequence": [
+       {
+        "action": "light.turn_off",
+        "alias": "Turn light off - Exterior scheduled non-deck lights",
+        "data": {},
+        "target": {
+         "entity_id": [
+          "light.flower_bed_lights",
+          "light.front_yard_pendant_lights",
+          "light.front_yard_driveway_lights",
+          "light.path_lights",
+          "light.outdoor_permanent_lights",
+          "light.outdoor_permanent_lights_second"
+         ]
+        }
+       },
+       {
+        "action": "select.select_option",
+        "alias": "Select option - Scheduled exterior non-deck presets",
+        "data": {
+         "option": "Start Up"
+        },
+        "target": {
+         "entity_id": [
+          "select.outdoor_permanent_lights_preset",
+          "select.outdoor_permanent_lights_second_preset",
+          "select.path_lights_preset"
+         ]
+        }
+       },
+       {
+        "alias": "Wait before next step",
+        "delay": {
+         "hours": 0,
+         "milliseconds": 0,
+         "minutes": 0,
+         "seconds": 1
+        }
+       },
+       {
+        "action": "light.turn_off",
+        "alias": "Turn light off - Exterior scheduled non-deck lights",
+        "data": {},
+        "target": {
+         "entity_id": [
+          "light.outdoor_permanent_lights",
+          "light.path_lights",
+          "light.outdoor_permanent_lights_second"
+         ]
+        }
+       },
+       {
+        "alias": "Reset and turn off Deck Permanent Lights only when back door is locked",
+        "if": [
+         {
+          "condition": "state",
+          "entity_id": "lock.back_door_lock",
+          "state": "locked"
+         }
+        ],
+        "then": [
+         {
+          "action": "select.select_option",
+          "alias": "Select default preset - Deck Permanent Lights",
+          "data": {
+           "option": "Start Up"
+          },
+          "target": {
+           "entity_id": "select.deck_permanent_lights_preset"
+          }
+         },
+         {
+          "alias": "Wait before turning off deck permanent lights",
+          "delay": {
+           "hours": 0,
+           "milliseconds": 0,
+           "minutes": 0,
+           "seconds": 1
+          }
+         },
+         {
+          "action": "light.turn_off",
+          "alias": "Turn off Deck Permanent Lights",
+          "data": {},
+          "target": {
+           "entity_id": "light.deck_permanent_lights"
+          }
+         }
+        ]
+       }
+      ]
+     }
+    ]
+   }
+  ],
+  "alias": "Lighting - Front Yard - Scheduled Exterior Lights",
+  "conditions": [],
+  "description": "Owns the front-yard scheduled exterior lighting windows: sunset on, 10 PM off/reset, pre-sunrise on, and post-sunrise off/reset. Deck Permanent Lights are reset/off only when the back door is locked so the Deck automation can own them during active deck use.",
+  "id": "merged_front_yard_scheduled_exterior_lights",
+  "mode": "single",
+  "triggers": [
+   {
+    "alias": "Trigger - Sunset On",
+    "event": "sunset",
+    "id": "sunset_on",
+    "offset": "-00:15:00",
+    "trigger": "sun"
+   },
+   {
+    "alias": "Trigger - Sunset Off",
+    "at": "22:00:00",
+    "id": "sunset_off",
+    "trigger": "time"
+   },
+   {
+    "alias": "Trigger - Sunrise On",
+    "enabled": true,
+    "event": "sunrise",
+    "id": "sunrise_on",
+    "offset": "-01:00:00",
+    "trigger": "sun"
+   },
+   {
+    "alias": "Trigger - Sunrise Off",
+    "event": "sunrise",
+    "id": "sunrise_off",
+    "offset": "+00:30:00",
+    "trigger": "sun"
+   }
+  ]
+ },
+ "automation.lighting_home_interior_sunset_lights": {
+  "actions": [
+   {
+    "alias": "Stop while emergency mode is active",
+    "if": [
+     {
+      "condition": "state",
+      "entity_id": "binary_sensor.home_emergency_active",
+      "state": "on"
+     }
+    ],
+    "then": [
+     {
+      "alias": "Stop because emergency mode owns home state",
+      "stop": "Emergency mode is active; normal automation control is paused."
+     }
+    ]
+   },
+   {
+    "alias": "Wait briefly after Home Assistant startup",
+    "if": [
+     {
+      "condition": "trigger",
+      "id": "ha_start"
+     }
+    ],
+    "then": [
+     {
+      "alias": "Wait 60 seconds",
+      "delay": {
+       "minutes": 1
+      }
+     }
+    ]
+   },
+   {
+    "alias": "Run grouped actions in parallel",
+    "parallel": [
+     {
+      "alias": "Shared arrival lights - only when an arrival routine is not doing it",
+      "if": [
+       {
+        "alias": "Not triggered by an arrival button",
+        "condition": "not",
+        "conditions": [
+         {
+          "condition": "trigger",
+          "id": "arrival_helper"
+         }
+        ]
+       }
+      ],
+      "then": [
+       {
+        "action": "light.turn_on",
+        "alias": "Turn light on - Cabinet Lights at 100%",
+        "data": {
+         "brightness_pct": 100
+        },
+        "target": {
+         "entity_id": [
+          "light.cabinet_lights"
+         ]
+        }
+       },
+       {
+        "action": "light.turn_on",
+        "alias": "Turn light on - Living Room Lamp Light",
+        "data": {
+         "brightness_pct": 100
+        },
+        "target": {
+         "entity_id": "light.living_room_lamp_light"
+        }
+       },
+       {
+        "action": "light.turn_on",
+        "alias": "Turn light on - Loft Lamp",
+        "data": {
+         "brightness_pct": 50
+        },
+        "target": {
+         "entity_id": [
+          "light.loft_lamp"
+         ]
+        }
+       }
+      ]
+     },
+     {
+      "action": "light.turn_on",
+      "alias": "Turn light on - Foyer Chandelier",
+      "data": {},
+      "target": {
+       "entity_id": [
+        "light.foyer_chandelier"
+       ]
+      }
+     },
+     {
+      "action": "light.turn_on",
+      "alias": "Turn light on - Living Room Light at 100%",
+      "data": {
+       "brightness_pct": 100
+      },
+      "target": {
+       "entity_id": [
+        "light.living_room_light"
+       ]
+      }
+     }
+    ]
+   }
+  ],
+  "alias": "Lighting - Home - Interior Sunset Lights",
+  "conditions": [
+   {
+    "condition": "state",
+    "entity_id": "input_boolean.disable_automation",
+    "state": "off"
+   },
+   {
+    "alias": "Condition - Someone is home or guest mode is on",
+    "condition": "or",
+    "conditions": [
+     {
+      "condition": "state",
+      "entity_id": "person.alex",
+      "state": "home"
+     },
+     {
+      "condition": "state",
+      "entity_id": "person.sam",
+      "state": "home"
+     },
+     {
+      "condition": "state",
+      "entity_id": "person.emma",
+      "state": "home"
+     },
+     {
+      "condition": "state",
+      "entity_id": "input_boolean.guest_mode",
+      "state": "on"
+     }
+    ]
+   },
+   {
+    "after": "sunset",
+    "after_offset": "-01:00:00",
+    "alias": "Condition - Evening window has started",
+    "condition": "sun"
+   },
+   {
+    "alias": "Condition - Before 10 PM",
+    "before": "22:00:00",
+    "condition": "time"
+   },
+   {
+    "alias": "Condition - Night timer is idle",
+    "condition": "state",
+    "entity_id": "timer.night_timer",
+    "state": "idle"
+   }
+  ],
+  "description": "Turns on the configured interior evening lights one hour before sunset when someone is home, and catches up when someone arrives after the sunset-offset trigger has already passed. The Living Room overhead light is intentionally included so the Living Room no-motion timer can hold the evening scene. Catch-up triggers are limited to before 10 PM so late-night arrivals do not turn on the evening lights.",
+  "id": "1750613892564",
+  "mode": "restart",
+  "triggers": [
+   {
+    "alias": "Trigger - One hour before sunset",
+    "event": "sunset",
+    "id": "sunset_offset",
+    "offset": "-01:00:00",
+    "trigger": "sun"
+   },
+   {
+    "alias": "Trigger - Mark arrives home",
+    "entity_id": "person.alex",
+    "id": "arrival",
+    "to": "home",
+    "trigger": "state"
+   },
+   {
+    "alias": "Trigger - Anna arrives home",
+    "entity_id": "person.sam",
+    "id": "arrival",
+    "to": "home",
+    "trigger": "state"
+   },
+   {
+    "alias": "Trigger - Emma arrives home",
+    "entity_id": "person.emma",
+    "id": "arrival",
+    "to": "home",
+    "trigger": "state"
+   },
+   {
+    "alias": "Trigger - Guest mode turns on",
+    "entity_id": "input_boolean.guest_mode",
+    "id": "guest_mode_on",
+    "to": "on",
+    "trigger": "state"
+   },
+   {
+    "alias": "Trigger - Arriving helper pressed",
+    "entity_id": "input_button.arriving",
+    "id": "arrival_helper",
+    "trigger": "state"
+   },
+   {
+    "alias": "Trigger - Arriving Front Door helper pressed",
+    "entity_id": "input_button.arriving_front_door",
+    "id": "arrival_helper",
+    "trigger": "state"
+   },
+   {
+    "alias": "Trigger - Home Assistant started",
+    "event": "start",
+    "id": "ha_start",
+    "trigger": "homeassistant"
+   }
+  ]
+ }
+}

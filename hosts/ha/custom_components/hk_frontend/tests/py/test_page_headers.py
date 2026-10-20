@@ -1,6 +1,6 @@
 """The page headers' server side (page_headers.py): Tonight's lighting
-schedule, read from this house's own automations (fixtures/
-automations_house.json, saved 2026-10-15: four of its sun and time
+schedule, read from a sample house's automations (fixtures/
+sample_automations.json, four real-world sun and time
 automations -- the front yard's schedule, its holiday schedule, the bedtime
 thermostat and the interior sunset lights) -- the triggers, the branch each runs, what it switches, and whether
 its conditions hold now."""
@@ -15,7 +15,7 @@ from homeassistant.core import HomeAssistant
 
 from custom_components.hk_frontend import page_headers as P
 
-HOUSE = json.loads((Path(__file__).parents[1] / "fixtures" / "automations_house.json").read_text())
+HOUSE = json.loads((Path(__file__).parents[1] / "fixtures" / "sample_automations.json").read_text())
 
 
 def test_offsets() -> None:
@@ -106,7 +106,7 @@ async def test_plan_and_conditions(hass: HomeAssistant, monkeypatch: pytest.Monk
     """The whole pass on the house's automations: rows only for lights, and a
     row whose condition fails now is ready False until it holds."""
     monkeypatch.setattr(P, "_automations", lambda h: sorted(HOUSE.items()))
-    hass.states.async_set("person.mark", "not_home")
+    hass.states.async_set("person.alex", "not_home")
     entries = P.plan(hass)
     autos = {e["automation"] for e in entries}
     assert "automation.lighting_front_yard_scheduled_exterior_lights" in autos
