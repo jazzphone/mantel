@@ -92,6 +92,25 @@ async def test_registry_burst_reloads_only_what_changed_once():
     assert reg.entity_area["light.x"] == "a"                     # the other registries kept as they were
 
 
+async def test_the_first_registries_at_a_connect_are_told_too():
+    # 0.1.29's start: the Sleep engines were made before HA's registries arrived, and the connect's own
+    # load told nobody, so every tablet kept an empty kiosk until some later registry event or settings save
+    reg = Registry()
+    c = HaClient("http://x", "t", StateStore(), reg, lambda s: None)
+    asked: list[str] = []
+    seen: list[int] = []
+
+    async def fake_request(type_):
+        asked.append(type_)
+        return [{"entity_id": "light.loft_kiosk_screen", "device_id": "dev"}] if "entity" in type_ else []
+
+    c._request = fake_request
+    c.on_registry = lambda: seen.append(len(reg.entity_entries))
+    await c._first_registries()
+    assert sorted(asked) == sorted(REGISTRY_EVENTS.values())     # every registry
+    assert seen == [1]                                            # told once, after they are in
+
+
 def test_missing_token_file_is_reported(tmp_path: Path):
     with pytest.raises(TokenMissing) as e:
         read_token(tmp_path / "nope")
