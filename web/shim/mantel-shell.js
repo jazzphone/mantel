@@ -158,6 +158,13 @@
     // Mantel's own docs (/docs, docs_pages.py: HK's pages and Mantel's), under the page's prefix
     docsUrl: (page, anchor) => (global.__mantelBase || '') + '/docs/' + encodeURIComponent(page) + (anchor ? '#' + encodeURIComponent(anchor) : ''),
     tags: { viewContainer: 'hk-view-container' },
+    // THE VIEW KINDS HK's view host puts in the container: the strategies' hk-grid-view, and its fallback
+    // for a view of any other type. Read once as HK's modules load (hk-glass.js, hk-frosttint.js), so
+    // declared here and not by the view host. Without them the shared blur's view layer went into the
+    // container itself, before the sky (fixed, z-index -1, the same stacking context): the sky painted over
+    // it, and only the sideways rows' pills were frosted -- Shared Layer and Pre-rendered left every pill
+    // on the page clear (2026-10-20). In the view, the layer comes after the sky, as in Home Assistant's.
+    viewTags: ['hk-grid-view', 'hk-view-fallback'],
     root: () => byId('hk-shell-root'),
     overlayRoot: () => byId('hk-shell-root'),
     // the page itself stands for the dashboard panel (its rect: where the page starts); before the
