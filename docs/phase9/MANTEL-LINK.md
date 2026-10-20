@@ -463,6 +463,20 @@ sends `mantel/back`). **Scratch HA with Mantel Link 0.1.0's script** (the house'
 kiosk on and the Home Assistant Section on, signed in late: the menu shows no Home Assistant section and the
 Mantel → Home Assistant row, which lands on HA's Overview with its header and sidebar back.
 
+**Fix (2026-10-20), Show Menu, Mantel Link 0.1.2** (script version 3), Avery: "the Show Menu option sometimes gets
+the menu to appear briefly but it goes away quickly." Why: `mantel/menu` forced HA's drawer into its pop-over mode
+behind HA's back (HK Frontend's old trick: `type = 'modal'`, `open = true`). In HA 2026.9 that pop-over is a
+`wa-drawer` light-dismiss dialog whose open state HA's own `home-assistant-main` doesn't know (its `_drawerOpen` stays
+false), so it could close again at once. Now Mantel Link asks HA, as HA's own menu button does: where HA draws its
+sidebar as a drawer (`ha-drawer` type `modal`: a narrow window, a sidebar set to always hidden, HA's kiosk mode) it
+sends `hass-toggle-menu` `{open: true}` to `home-assistant-main`, lifts the screen's hiding, and puts it back on HA's
+`hass-drawer-closed` (or a page change); beside the page (a wide window) the docked sidebar simply comes back as the
+person has it, until a page is chosen or Show Menu is used again. Checks: Mantel Link `test_frontend_js.py` (the wide
+toggle, HA asked to open its drawer, the hiding back when HA says it closed). **Scratch HA** (127.0.0.1:8125: another
+session's scratch HA held 8124) with Mantel Link 0.1.2: desktop, the docked sidebar back and still there 5 s later;
+phone, HA's drawer open and still there 5 s later, and closing it by a tap outside puts the screen's hiding back.
+**Mantel Link file changed:** reaches the house only by a hand copy (Avery's approval).
+
 ### 9.7 Companion-app notifications: done
 
 - **Mantel Link** (`phones.py`): reports the phones this Home Assistant can notify (the Companion app's
