@@ -982,6 +982,17 @@ Everything on main since 0.1.28 (validation green: JS 130, HA py 732, Mantel 283
       named their kiosk at the start.
 - [ ] Avery: the Alarm PIN entered once more on HK Settings' Alarm PIN page, then a disarm at a tablet.
 
+### 0.1.33 (2026-10-20), with Mantel Link 0.1.2
+
+- **Mantel without HK Frontend** (docs/phase9/NO-HK-FRONTEND.md): the house's entities (Seasonal decorations, the
+  Alarm PIN keypad, Live TV) can be handed to Mantel Link like the tablets; the Alarm PIN keypad and page are
+  Mantel's own once the house is; HK's remaining settings saves (accessories, hidden, favorites, music) are kept in
+  Mantel. Nothing moves by itself: `house` stays HA's until the hand-over in Mantel Settings.
+- **Mantel Link 0.1.2:** the house's entities and the keypad, the doorbell talk view, Energy's sources, the Lights
+  page's Tonight list, and Show Menu opening HA's own sidebar inside HA.
+- Navigation inside HA; the Mac app's favorites search.
+- No HA backup (Avery).
+
 ### Removal
 
 Stop and uninstall **Mantel** (Settings → Apps → Mantel → Uninstall); this removes its image and `/data`
