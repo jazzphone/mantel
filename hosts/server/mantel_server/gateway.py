@@ -450,7 +450,10 @@ class Audit:
                 "reason, door, source_ip) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
                 (event.get("timestamp") or self.clock(), event.get("actor"), event.get("role"), event.get("device"),
                  event.get("device_role"), "config", str(event.get("action"))[:200],
-                 json.dumps(event.get("detail"), default=str)[:2000], "allowed", "owner",
+                 json.dumps(event.get("detail"), default=str)[:2000], "allowed",
+                 # why it was allowed: the caller's reason, else the role that may make the change (an Admin's
+                 # change was written as "owner" before)
+                 event.get("reason") or event.get("role") or "owner",
                  door if door in ("lan", "tunnel", "ha") else None, (event.get("source_ip") or None)))
 
     def rows(self, **where) -> list[dict]:

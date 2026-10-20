@@ -462,3 +462,13 @@ async def test_music_commands_are_unavailable_without_music_assistant(gw):
     assert reply["error"]["code"] == "unavailable"
     assert gw.audit()[0]["reason"] == "music_assistant_off"
     await ws.close()
+
+
+def test_a_settings_row_s_reason_is_the_role_that_made_the_change(tmp_path):
+    from mantel_server.store import Store
+    db = Store(tmp_path / "m.db").db
+    audit = gateway.Audit(db, lambda: 1.0)
+    audit.config_event({"actor": "u1", "role": "admin", "action": "account.role", "detail": {"user": "u2"}})
+    audit.config_event({"actor": "u0", "role": "owner", "action": "grant.add", "detail": {}})
+    audit.config_event({"actor": "u0", "action": "grant.add", "detail": {}, "reason": "bootstrap"})
+    assert [r["reason"] for r in audit.rows(kind="config")] == ["admin", "owner", "bootstrap"]
