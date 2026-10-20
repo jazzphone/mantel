@@ -16,6 +16,8 @@ Run: ~/.venvs/mantel/bin/python tools/app_dev_server.py --data-dir /tmp/mantel-a
   and Mantel's own music engine runs, so the page's commands go through the gateway (audit rows) to that fake.
 * ``--slow MS``: a slow connection: every script and stylesheet under /hk/ and /web/, and every message on the
   page's live socket, is MS milliseconds late (a page change that waits on the house shows what it does meanwhile).
+* ``--busy``: a house that is never still, as a real one is (power readings, players): the kitchen light's
+  brightness moves a little twice a second, so the page gets a state change about every 500 ms.
 * ``--lan``: also answer on this Mac's home-network address, over plain http, for a DEBUG build of the app on a real
   iPhone (Avery, 2026-10-19; Release builds refuse http beyond loopback). Requests from private addresses are the
   LAN door. Writes the pairing link as a QR code (<data-dir>/pair.png) to scan with the iPhone's camera.
@@ -135,7 +137,7 @@ async def fictional_ma() -> tuple[object, str]:
 
 
 async def serve(data: Path, port: int, lan: bool = False, relay: str | None = None, music: bool = False,
-                slow: int = 0) -> None:
+                slow: int = 0, busy: bool = False) -> None:
     from mantel_server import app_auth
     from mantel_server.config import Config
     from mantel_server.server import build_app
@@ -221,6 +223,16 @@ async def serve(data: Path, port: int, lan: bool = False, relay: str | None = No
         return unsubscribe
     if not music:          # (--music: Mantel's own music engine answers it, with the fictional Music Assistant)
         app["read_routes"]["hk_music/subscribe"] = Route(request=music_request, subscribe=music_subscribe)
+    if busy:
+        async def churn():
+            n = 0
+            while True:
+                await asyncio.sleep(0.5)
+                n += 1
+                hub.store.apply_event({"c": {"light.kitchen": {"+": {"a": {"brightness": 170 + n % 10}}}}})
+        async def start_churn(_app):
+            _app["churn"] = asyncio.ensure_future(churn())
+        app.on_startup.append(start_churn)
     acc = app["accounts"]
     row = store.db.execute("SELECT id FROM users WHERE username = 'ann'").fetchone()
     if row is None:
@@ -338,6 +350,7 @@ def main() -> None:
     ap.add_argument("--relay")
     ap.add_argument("--music", action="store_true")
     ap.add_argument("--slow", type=int, default=0)
+    ap.add_argument("--busy", action="store_true")
     a = ap.parse_args()
     a.data_dir.mkdir(parents=True, exist_ok=True)
     if a.push:
@@ -346,7 +359,7 @@ def main() -> None:
     if a.send_push:
         asyncio.run(send_push(a.data_dir, a.send_push))
         return
-    asyncio.run(serve(a.data_dir, a.port, a.lan, a.relay, a.music, a.slow))
+    asyncio.run(serve(a.data_dir, a.port, a.lan, a.relay, a.music, a.slow, a.busy))
 
 
 if __name__ == "__main__":
