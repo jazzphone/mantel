@@ -735,3 +735,14 @@ async def test_hk_settings_lists_the_kiosk_devices_for_a_tablets_device_picker(m
     env = await make_env()
     got = env.app["settings"].panel_payload()["kiosk_devices"]
     assert got == [{"id": KIOSK, "name": "Hall Kiosk", "app": "kiosk_satellite"}]
+
+
+async def test_every_ha_connect_tells_the_features_never_the_pages(make_env, monkeypatch):
+    env = await make_env()
+    ha = env.app["hub"].ha
+    told: list[int] = []
+    monkeypatch.setattr(env.host, "on_registry", lambda: told.append(1))
+    pages: list[int] = []
+    monkeypatch.setattr(env.app["hub"], "on_registry", lambda: pages.append(1))
+    ha.on_registries_loaded()
+    assert told == [1] and pages == []

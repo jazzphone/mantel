@@ -108,6 +108,7 @@ class HaClient:
         self.registry = registry
         self.on_change = on_change
         self.on_registry = on_registry
+        self.on_registries_loaded: Callable[[], None] | None = None   # every connect's first load (features.py)
         self.registry_debounce = registry_debounce
         self._reg_subs: dict[int, str] = {}  # subscription id -> registry event type
         self._reg_dirty: set[str] = set()
@@ -232,12 +233,13 @@ class HaClient:
                 self._ws = None
 
     async def _first_registries(self) -> None:
-        """Every registry at a (re)connect, told like any later reload: what was built before HA answered
+        """Every registry at a (re)connect, told to ``on_registries_loaded``: what was built before HA answered
         (the Sleep engines' kiosks, made at the App's start) follows them now, not at the next registry
-        event or settings save (none came after 0.1.29's start, so no tablet had a kiosk that night)."""
+        event or settings save (none came after 0.1.29's start, so no tablet had a kiosk that night).
+        Not ``on_registry``: that one tells every open page too, and a page redraws on it."""
         await self._load_registries()
-        if self.on_registry:
-            self.on_registry()
+        if self.on_registries_loaded:
+            self.on_registries_loaded()
 
     async def _load_registries(self, only: set[str] | None = None) -> None:
         """Load the registries named by event type in `only` (all when None)."""

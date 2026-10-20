@@ -105,10 +105,13 @@ async def test_the_first_registries_at_a_connect_are_told_too():
         return [{"entity_id": "light.loft_kiosk_screen", "device_id": "dev"}] if "entity" in type_ else []
 
     c._request = fake_request
-    c.on_registry = lambda: seen.append(len(reg.entity_entries))
+    pages: list[int] = []
+    c.on_registries_loaded = lambda: seen.append(len(reg.entity_entries))
+    c.on_registry = lambda: pages.append(1)
     await c._first_registries()
     assert sorted(asked) == sorted(REGISTRY_EVENTS.values())     # every registry
     assert seen == [1]                                            # told once, after they are in
+    assert pages == []                                            # never the pages (they redraw on it)
 
 
 def test_missing_token_file_is_reported(tmp_path: Path):

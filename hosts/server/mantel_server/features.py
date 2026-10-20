@@ -1982,6 +1982,13 @@ def register(app: web.Application, hub: Any, hooks: Any = None) -> FeatureHost:
                 first_registry()
             host.on_registry()
         ha.on_change, ha.on_registry = on_change, on_registry
+        first_loaded = getattr(ha, "on_registries_loaded", None)
+
+        def on_registries_loaded() -> None:
+            if first_loaded is not None:
+                first_loaded()
+            host.on_registry()
+        ha.on_registries_loaded = on_registries_loaded
 
     # linked mode's hook point: the real handler replaces the in-memory one
     if app.get("linked") is not None:
