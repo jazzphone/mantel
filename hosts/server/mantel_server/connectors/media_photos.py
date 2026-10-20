@@ -7,13 +7,17 @@ read itself:
 
 * **The read** ``media_source/resolve_media {media_content_id}``: ``feature:media`` (as the folder walk), only for
   ``media-source://media_source/…`` (HA's media folders; never a camera, never another source). Mantel asks HA
-  itself (a server-only read: a page can never get HA's answer) and keeps only the photo's path under ``/media/``
-  and its type, which must be an image. The page gets ``{url: "/api/photo/<id>", mime_type}``; the id is random
-  (128 bits), kept in memory for TTL_S, at most MAX_KEPT (the oldest go first). The page's adapter puts its
-  prefix in front (mantel-host.js), as for notification snapshots.
-* **The route** ``GET /api/photo/<id>`` streams the photo from HA with Mantel's own credential (HA's signature
-  is dropped; the credential never reaches the page), to a signed-in person or wall tablet who may use
-  ``feature:media``, decided again. Unknown, expired and refused answer 404 (one answer, nothing to probe).
+  itself (a server-only read: a page can never get HA's answer), with HA's signature valid for TTL_S, and keeps
+  only the photo's path under ``/media/`` with that signature, and its type, which must be an image. The page
+  gets ``{url: "/api/photo/<id>", mime_type}``; the id is random (128 bits), kept in memory for TTL_S, at most
+  MAX_KEPT (the oldest go first). The page's adapter puts its prefix in front (mantel-host.js), as for
+  notification snapshots.
+* **The route** ``GET /api/photo/<id>`` streams the photo from HA Core to a signed-in person or wall tablet who
+  may use ``feature:media``, decided again. Unknown, expired and refused answer 404 (one answer, nothing to probe).
+  **HA's own signature is the authorisation; no credential is sent.** HA serves ``/media/`` from Core itself,
+  which in the HA App is not behind the Supervisor's proxy (``http://supervisor/core`` forwards ``/api/`` and the
+  WebSocket only, and the App's token is good there alone), so the photo is fetched from Core's own address
+  (``ha_oauth_url``, ``http://homeassistant:8123`` in the App; ``ha_url`` everywhere else).
 """
 from __future__ import annotations
 
@@ -23,7 +27,7 @@ import secrets
 import time
 from collections import OrderedDict
 from typing import Any, Callable
-from urllib.parse import unquote, urlsplit
+from urllib.parse import parse_qs, unquote, urlencode, urlsplit
 
 from aiohttp import web
 
@@ -39,14 +43,25 @@ PHOTO_ID = re.compile(r"^[0-9a-f]{32}$")
 TTL_S = 30 * 60
 MAX_KEPT = 4000
 MAX_ID = 1000
+SUPERVISOR_CORE = "http://supervisor/core"
+APP_CORE = "http://homeassistant:8123"
 
 
 def photo_path(photo_id: str) -> str:
     return f"/api/photo/{photo_id}"
 
 
+def core_url(cfg: Any) -> str:
+    """HA Core's own address for ``/media/`` (never the Supervisor's proxy, which does not forward it)."""
+    own = (getattr(cfg, "ha_oauth_url", "") or "").rstrip("/")
+    if own:
+        return own
+    ha = (getattr(cfg, "ha_url", "") or "").rstrip("/")
+    return APP_CORE if ha == SUPERVISOR_CORE else ha
+
+
 class Photos:
-    """``app["media_photos"]``: the photo ids handed out, each to one HA media path."""
+    """``app["media_photos"]``: the photo ids handed out, each to one signed HA media address."""
 
     def __init__(self, clock: Callable[[], float] = time.monotonic) -> None:
         self.clock = clock
@@ -71,8 +86,9 @@ class Photos:
 
 
 def ha_media_path(url: object) -> str | None:
-    """HA's resolved address -> its path under ``/media/`` (no query, no host), or None."""
-    if not isinstance(url, str) or len(url) > 2048:
+    """HA's resolved address -> its path under ``/media/`` with HA's signature (``authSig``, nothing else), or
+    None for anything else (another host, another path, no signature)."""
+    if not isinstance(url, str) or len(url) > 4096:
         return None
     u = urlsplit(url)
     if u.scheme or u.netloc or u.fragment:
@@ -82,12 +98,16 @@ def ha_media_path(url: object) -> str | None:
         return None
     if any(seg in ("", ".", "..") for seg in unquote(path).split("/")[1:]):
         return None
-    return path
+    query = parse_qs(u.query, keep_blank_values=True)
+    sig = query.get("authSig")
+    if set(query) != {"authSig"} or len(sig) != 1 or not re.fullmatch(r"[A-Za-z0-9._-]{1,2048}", sig[0]):
+        return None
+    return f"{path}?{urlencode({'authSig': sig[0]})}"
 
 
-def register(app: web.Application, token: Callable[[], str] | str) -> None:
-    """The ``media_source/resolve_media`` read (``app["read_routes"]``) and ``GET /api/photo/<id>``."""
-    get_token = token if callable(token) else (lambda: token)
+def register(app: web.Application, token: Callable[[], str] | str | None = None) -> None:
+    """The ``media_source/resolve_media`` read (``app["read_routes"]``) and ``GET /api/photo/<id>``.
+    (``token`` is unused: HA's signature authorises the photo; kept so the call reads like its siblings.)"""
     photos = app.get("media_photos") or Photos()
     app["media_photos"] = photos
     from ..readproxy import ReadBlocked
@@ -104,7 +124,8 @@ def register(app: web.Application, token: Callable[[], str] | str) -> None:
         if not await may_feature(reads.hooks, ctx.identity, "media"):
             photos.stats["refused"] += 1
             raise Forbidden("may not use media")
-        res = await reads._proxy().request({"type": RESOLVE, "media_content_id": cid}, server_read=True)
+        res = await reads._proxy().request({"type": RESOLVE, "media_content_id": cid, "expires": TTL_S},
+                                           server_read=True)
         mime = res.get("mime_type") if isinstance(res, dict) else None
         path = ha_media_path(res.get("url") if isinstance(res, dict) else None)
         if not isinstance(mime, str) or not mime.lower().startswith("image/") or path is None:
@@ -123,8 +144,8 @@ def register(app: web.Application, token: Callable[[], str] | str) -> None:
         if principal is None or "feature:media" not in (authz.may_read(principal, "view", ["feature:media"]) or []):
             photos.stats["refused"] += 1
             return nothing
-        url = f"{request.app['cfg'].ha_url.rstrip('/')}{path}"
-        resp = await camera_still.proxy_image(request, url, {}, get_token(), "a screensaver photo",
+        url = f"{core_url(request.app['cfg'])}{path}"
+        resp = await camera_still.proxy_image(request, url, {}, None, "a screensaver photo",
                                               "photo_unavailable", not_found="not_found")
         if resp.status == 200:
             photos.stats["served"] += 1

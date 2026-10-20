@@ -18,16 +18,32 @@ JPEG = b"\xff\xd8\xff\xe0fictional-photo\xff\xd9"
 CID = "media-source://media_source/local/screensaver/beach.jpg"
 
 
+SIG = "eyJhbGciOiJIUzI1NiJ9.fictional.sig-0_1"
+
+
 @pytest.mark.parametrize("url, want", [
-    ("/media/local/screensaver/beach.jpg?authSig=abc", "/media/local/screensaver/beach.jpg"),
-    ("/media/local/a%20b.jpg", "/media/local/a%20b.jpg"),
-    ("https://ha.home.example/media/local/x.jpg", None),          # never another host
-    ("//evil.example/media/local/x.jpg", None),
-    ("/api/states", None), ("/media/../api/states", None), ("/media/local/%2e%2e/x", None),
-    ("/media//x", None), ("/media/local/x.jpg#f", None), (None, None), (42, None),
+    (f"/media/local/screensaver/beach.jpg?authSig={SIG}", f"/media/local/screensaver/beach.jpg?authSig={SIG}"),
+    (f"/media/local/a%20b.jpg?authSig={SIG}", f"/media/local/a%20b.jpg?authSig={SIG}"),
+    ("/media/local/x.jpg", None),                                  # HA's signature is the authorisation
+    (f"/media/local/x.jpg?authSig={SIG}&other=1", None),
+    ("/media/local/x.jpg?authSig=a b", None),
+    (f"https://ha.home.example/media/local/x.jpg?authSig={SIG}", None),          # never another host
+    (f"//evil.example/media/local/x.jpg?authSig={SIG}", None),
+    (f"/api/states?authSig={SIG}", None), (f"/media/../api/states?authSig={SIG}", None),
+    (f"/media/local/%2e%2e/x?authSig={SIG}", None), (f"/media//x?authSig={SIG}", None),
+    (f"/media/local/x.jpg?authSig={SIG}#f", None), (None, None), (42, None),
 ])
-def test_only_a_path_under_media_is_kept(url, want):
+def test_only_a_signed_path_under_media_is_kept(url, want):
     assert MP.ha_media_path(url) == want
+
+
+@pytest.mark.parametrize("cfg, want", [
+    ({"ha_url": "http://supervisor/core", "ha_oauth_url": "http://homeassistant:8123"}, "http://homeassistant:8123"),
+    ({"ha_url": "http://supervisor/core", "ha_oauth_url": ""}, "http://homeassistant:8123"),   # the App, no sign-in
+    ({"ha_url": "http://ha.home.example:8123/", "ha_oauth_url": ""}, "http://ha.home.example:8123"),
+])
+def test_photos_come_from_core_never_the_supervisors_proxy(cfg, want):
+    assert MP.core_url(type("Cfg", (), cfg)()) == want
 
 
 def test_ids_expire_and_the_oldest_go_first(monkeypatch):
@@ -94,9 +110,9 @@ async def env():
     fha = FakeHa()
     async with TestServer(fha.app()) as ha:
         app = web.Application()
-        app["cfg"] = type("Cfg", (), {"ha_url": str(ha.make_url("")).rstrip("/")})()
+        app["cfg"] = type("Cfg", (), {"ha_url": "http://supervisor/core", "ha_oauth_url": str(ha.make_url("")).rstrip("/")})()
         app["authz"] = FakeAuthz()
-        proxy = FakeProxy({"url": "/media/local/screensaver/beach.jpg?authSig=ha-signed", "mime_type": "image/jpeg"})
+        proxy = FakeProxy({"url": f"/media/local/screensaver/beach.jpg?authSig={SIG}", "mime_type": "image/jpeg"})
         app["filtered_reads"] = FakeReads(proxy, lambda who: who == "adult")
         MP.register(app, TOKEN)
         async with TestClient(TestServer(app)) as client:
@@ -114,11 +130,12 @@ async def test_a_photo_is_resolved_to_mantels_route_and_streamed_with_mantels_cr
     got = await env.resolve(ctx("adult"), {"type": MP.RESOLVE, "id": 3, "media_content_id": CID})
     assert set(got) == {"url", "mime_type"} and got["mime_type"] == "image/jpeg"
     assert got["url"].startswith("/api/photo/") and "authSig" not in got["url"] and "media/local" not in got["url"]
-    assert env.proxy.asked == [({"type": MP.RESOLVE, "media_content_id": CID}, True)]      # Mantel's own read of HA
+    assert env.proxy.asked == [({"type": MP.RESOLVE, "media_content_id": CID, "expires": MP.TTL_S}, True)]  # Mantel's own
     r = await env.client.get(got["url"], headers={"X-Who": "adult"})
     assert r.status == 200 and await r.read() == JPEG and r.headers["Content-Type"] == "image/jpeg"
-    assert env.fha.asked == [{"path": "/media/local/screensaver/beach.jpg", "auth": f"Bearer {TOKEN}", "query": {}}]
-    assert TOKEN not in str(dict(r.headers))
+    # from Core's own address, with HA's signature and no credential of Mantel's
+    assert env.fha.asked == [{"path": "/media/local/screensaver/beach.jpg", "auth": None, "query": {"authSig": SIG}}]
+    assert SIG not in str(dict(r.headers)) and SIG not in got["url"]
     for _ in range(50):                                            # counted once the handler returns
         if env.app["media_photos"].stats["served"]:
             break
