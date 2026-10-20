@@ -60,6 +60,10 @@ enum ArtCache {
 
     static func url(_ name: String) -> URL? { folder?.appendingPathComponent(name) }
 
+    static func clear() {
+        if let dir = folder { try? FileManager.default.removeItem(at: dir) }
+    }
+
     /// Fetch (once per cover), shrink to 300 px and remember; returns the file's name and a tint.
     static func store(_ ref: String, using client: MantelClient) async -> (String, String)? {
         guard let dir = folder else { return nil }
