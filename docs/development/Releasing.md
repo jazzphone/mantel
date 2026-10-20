@@ -126,10 +126,10 @@ After the **first** release (the packages only exist once something has been pus
    `mantel-caddy` → **Package settings** → **Change visibility** → **Public**. While there, check that each is
    linked to `jazzphone/mantel` (the images' `org.opencontainers.image.source` label does that) so this
    repository's workflow keeps write access.
-3. **Let the workflow push.** **Settings** → **Actions** → **General** → **Workflow permissions** must allow
-   read and write (the workflow asks for `contents: write` and `packages: write`; a read-only default caps it).
-   A branch ruleset or protection rule that covers `ha-apps` must allow force pushes by GitHub Actions; leave
-   `main` protected as it is: the workflow never pushes there.
+3. **Let the workflow push.** The workflow asks for `contents: write` and `packages: write` itself, which a
+   repository's read-only default (**Settings** → **Actions** → **General** → **Workflow permissions**) doesn't
+   cap; only an organization's policy could. A branch ruleset or protection rule that covers `ha-apps` must
+   allow force pushes by GitHub Actions; leave `main` protected as it is: the workflow never pushes there.
 4. **Check it from Home Assistant** once: add `https://github.com/jazzphone/mantel#ha-apps`, install Mantel, and
    at the next release confirm that it offers **Update**.
 
