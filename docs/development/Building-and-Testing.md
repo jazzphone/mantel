@@ -12,7 +12,7 @@ python3.12 -m venv .venv
 .venv/bin/pip install -e '.[dev]'
 ```
 
-This installs Mantel Server, `hk_core` and the test tools (`pytest`, `pytest-aiohttp`), and puts the
+This installs Mantel Server, `hk_core` and the test tools (`pytest`, `pytest-aiohttp`, `pyyaml` for the workflow test), and puts the
 `mantel-server` command in `.venv/bin/`.
 
 Optional tools that some checks use:
