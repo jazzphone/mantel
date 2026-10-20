@@ -14,7 +14,7 @@ Full description, findings and the exact commands to verify it: `docs/phase3/PAC
 | `secrets/README.md` | The secret files (`/etc/hk/secrets/...`), their owner/mode and how to create them. |
 | `caddy/Caddyfile`, `tls-dns01.caddy`, `tls-internal.caddy` | LAN door with TLS (DNS-01 or Caddy's own CA), tunnel door, headers, CSP. |
 | `go2rtc/go2rtc.yaml` | go2rtc settings; streams are added at run time by Mantel Server. |
-| `update.sh` | Pull, restart, wait for healthy, roll back to the previous images on failure. |
+| `update.sh` | Pull, restart, wait for healthy, roll back to the previous images on failure. It pulls every image `.env` names from a registry (`MANTEL_SERVER_IMAGE`, `MANTEL_TRANSCODE_IMAGE`, `MANTEL_CADDY_IMAGE`), although each Mantel service also has a `build:` section; the `:local` defaults are built here and never pulled (update those with `git pull && docker compose build --pull && docker compose up -d --wait`). |
 
 ```bash
 cp .env.example .env            # edit MANTEL_HOSTNAME, MANTEL_LAN_IP, MANTEL_HA_URL

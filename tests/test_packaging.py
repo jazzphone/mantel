@@ -103,6 +103,68 @@ def test_shell_scripts_parse(script):
     assert subprocess.run(["bash", "-n", str(ROOT / script)], capture_output=True).returncode == 0
 
 
+FAKE_DOCKER = """#!/usr/bin/env bash
+# a stand-in for docker: logs each call; answers the few questions update.sh asks
+echo "$*" >> "$FAKE_LOG"
+case "$*" in
+  "compose ps -q "*) echo "cid-${4}" ;;
+  "inspect "*) echo "sha256:running" ;;
+  "compose config --images") printf '%s\\n' $FAKE_IMAGES ;;
+  "pull "*) [ "$2" != "$FAKE_PULL_FAILS" ] ;;
+  "compose up -d --wait --wait-timeout 180") [ -z "$FAKE_UP_FAILS" ] ;;
+esac
+"""
+
+
+def _run_update(tmp_path, images, pull_fails="", up_fails=""):
+    work = tmp_path / "compose"
+    work.mkdir(parents=True)
+    shutil.copy(ROOT / "packaging/compose/update.sh", work / "update.sh")
+    bindir = tmp_path / "bin"
+    bindir.mkdir()
+    (bindir / "docker").write_text(FAKE_DOCKER)
+    (bindir / "docker").chmod(0o755)
+    log = tmp_path / "docker.log"
+    env = {"PATH": f"{bindir}:/usr/bin:/bin", "FAKE_LOG": str(log), "FAKE_IMAGES": " ".join(images),
+           "FAKE_PULL_FAILS": pull_fails, "FAKE_UP_FAILS": up_fails}
+    r = subprocess.run(["bash", str(work / "update.sh")], env=env, capture_output=True, text=True)
+    return r, log.read_text().splitlines()
+
+
+@pytest.mark.skipif(shutil.which("bash") is None, reason="no bash")
+def test_update_pulls_published_images_although_the_services_can_be_built(tmp_path):
+    """Every Mantel service in compose.yaml has a build: section, so `docker compose pull --ignore-buildable`
+    skipped all three and an update restarted the old images. update.sh now pulls each registry image the
+    stack names, and only those: the :local images are built on this host."""
+    doc = pc.parse_yaml((ROOT / "packaging/compose/compose.yaml").read_text())
+    assert all("build" in doc["services"][s] for s in ("mantel-server", "go2rtc", "caddy"))
+    assert "--ignore-buildable" not in "\n".join(
+        line for line in (ROOT / "packaging/compose/update.sh").read_text().splitlines() if not line.lstrip().startswith("#"))
+    server = "ghcr.io/jazzphone/mantel-server@sha256:" + "a" * 64
+    r, calls = _run_update(tmp_path, [server, "ghcr.io/jazzphone/mantel-transcode:stable", "mantel-caddy:local"])
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert [c for c in calls if c.startswith("pull ")] == [f"pull {server}", "pull ghcr.io/jazzphone/mantel-transcode:stable"]
+    assert "not pulling mantel-caddy:local" in r.stdout
+    assert calls.index(f"pull {server}") < calls.index("compose up -d --wait --wait-timeout 180")
+    # the running images are kept for the rollback first, Caddy's too
+    assert calls.index("tag sha256:running mantel-rollback/caddy:previous") < calls.index(f"pull {server}")
+
+
+@pytest.mark.skipif(shutil.which("bash") is None, reason="no bash")
+def test_update_stops_before_restarting_when_a_pull_fails_and_rolls_back_when_unhealthy(tmp_path):
+    server = "ghcr.io/jazzphone/mantel-server:stable"
+    r, calls = _run_update(tmp_path / "1", [server], pull_fails=server)
+    assert r.returncode == 1 and "could not pull" in r.stdout
+    assert not any(c.startswith("compose up") for c in calls)
+    r, calls = _run_update(tmp_path / "2", [server], up_fails="1")
+    assert r.returncode == 1 and "rolling back" in r.stdout
+    assert calls[-1] == "compose up -d --wait --wait-timeout 180 --pull never"
+    # all local: nothing pulled, and the update says how a build from source is updated
+    r, calls = _run_update(tmp_path / "3", ["mantel-server:local", "mantel-transcode:local", "mantel-caddy:local"])
+    assert r.returncode == 0 and not any(c.startswith("pull ") for c in calls)
+    assert "no image comes from a registry" in r.stdout
+
+
 @pytest.mark.skipif(shutil.which("caddy") is None, reason="caddy not installed")
 def test_caddyfile_validates(tmp_path):
     (tmp_path / "tls.caddy").write_text((ROOT / "packaging/compose/caddy/tls-internal.caddy").read_text())
