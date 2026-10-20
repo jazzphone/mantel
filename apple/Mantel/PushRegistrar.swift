@@ -11,13 +11,16 @@ final class PushRegistrar {
     static let shared = PushRegistrar()
     private var client: MantelClient?
     private(set) var lastError: String?
+    /// The person chose Turn On Notifications: register even if they stopped this app in Mantel Settings.
+    private var resume = false
 
     func register(client: MantelClient) async {
         self.client = client
         await requestAndRegister()
     }
 
-    func requestAndRegister() async {
+    func requestAndRegister(resume: Bool = false) async {
+        if resume { self.resume = true }
         let ok = (try? await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge])) ?? false
         print("Mantel push: notifications allowed: \(ok)")
         guard ok else { return }
@@ -32,9 +35,11 @@ final class PushRegistrar {
         let sandbox = false
         #endif
         do {
-            try await client.registerPush(token: token, key: NotificationKey.publicKey(), sandbox: sandbox)
+            let done = try await client.registerPush(token: token, key: NotificationKey.publicKey(), sandbox: sandbox,
+                                                     resume: resume)
+            resume = false
             lastError = nil
-            print("Mantel push: registered with the house")
+            print(done ? "Mantel push: registered with the house" : "Mantel push: stopped in Mantel Settings; not registering")
         } catch {
             lastError = error.localizedDescription
             print("Mantel push: registration failed: \(error)")

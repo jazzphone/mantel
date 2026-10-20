@@ -264,6 +264,15 @@ class AppAuth:
     def credential(self, cred_id: str):
         return self.db.execute("SELECT * FROM app_credentials WHERE id = ?", (cred_id,)).fetchone()
 
+    # an app's notifications stopped from Mantel Settings (push.delete_target; migration 0020)
+    def push_off(self, cred_id: str) -> bool:
+        row = self.db.execute("SELECT push_off FROM app_credentials WHERE id = ?", (cred_id,)).fetchone()
+        return bool(row and row["push_off"])
+
+    def set_push_off(self, cred_id: str, off: bool) -> None:
+        with self.db:
+            self.db.execute("UPDATE app_credentials SET push_off = ? WHERE id = ?", (1 if off else 0, cred_id))
+
 
 def hello_message(nonce: str, fp: str) -> bytes:
     return f"mantel-hello\n{nonce}\n{fp}".encode()
@@ -639,7 +648,7 @@ async def me(request: web.Request) -> web.Response:
     gw = request.app.get("gateway")
     return ok({"user": {"id": u.id, "username": u.username, "name": u.name, "role": u.role},
                "door": ident.door, "commands": gw is not None, "house": st.hello(request),
-               "credential_id": ident.session_id})
+               "credential_id": ident.session_id, "push_off": st.push_off(ident.session_id)})
 
 
 def register(app: web.Application, hub=None) -> AppAuth:
