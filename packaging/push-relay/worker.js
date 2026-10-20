@@ -6,6 +6,8 @@
 //       (P-256, x963, base64url) as the app pinned it. The handle works for that house only.
 //   POST /v1/send      (a house, signed) {handle, payload, priority?, collapse_id?, push_type?}
 //       payload: the APNs JSON, already sealed to the phone's own key by the house (the relay never sees the words).
+//       collapse_id: opaque, a keyed hash of the notification's tag made by the house (apns.collapse_id), passed to
+//       Apple as apns-collapse-id so a newer notification replaces an older one; the tag itself never comes here.
 //   POST /v1/forget    (a house, signed) {handle}
 //   GET  /v1/health
 //

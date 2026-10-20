@@ -12,7 +12,9 @@ the server exactly as the screens' socket is:
   GET  /api/app/entities?q=      what the person may view, to choose favorites from (name, domain, area)
   GET  /api/app/art?entity=      a player's artwork (media_art.py's rule: view on the player)
   GET  /api/app/snap?id=         a notification's snapshot (notify_snaps.py's rule), for the notification extension
-  POST /api/app/push/register    the app's APNs token and notification key (apns.py)
+  POST /api/app/push/register    the app's APNs token and notification key (apns.py); refused (409 push_off) once
+                                 the person stopped this app in Mantel Settings, until the app asks again
+                                 (``resume: true``: the person chose Turn On Notifications in the app)
   POST /api/app/command          {domain, service, entity_id, data?}: ONE service call through the command
                                  gateway (gateway.py): RBAC on the target, the audit row first, the music engine for
                                  media players, the tunnel's switches. Off (503 commands_disabled) unless the server's
@@ -252,7 +254,18 @@ async def push_register(request: web.Request) -> web.Response:
     except (TypeError, ValueError):
         return error(400, "invalid", message="the notification key is a P-256 public key (x963)")
     ident = request["app_identity"]
-    cred = request.app["app_auth"].credential(ident.session_id)
+    st = request.app["app_auth"]
+    if body.get("resume") is True:
+        st.set_push_off(ident.session_id, False)
+    elif st.push_off(ident.session_id):
+        # stopped in Mantel Settings (push.delete_target): an app that registers on its own at start is refused, and
+        # the handle it just got from the relay is forgotten there
+        relay = request.app.get("push_relay")
+        if env == "relay" and relay is not None:
+            request.app["pusher"].spawn(relay.forget(token))
+        return error(409, "push_off", message="Notifications to this app were stopped in Mantel Settings. "
+                                              "Turn them on again in the app.")
+    cred = st.credential(ident.session_id)
     tid = request.app["pusher"].targets.add(ident.user.id, "apns", token, key, None, name=cred["name"],
                                             app_id=ident.session_id, env=env)
     return ok({"id": tid}, status=201)
@@ -261,7 +274,8 @@ async def push_register(request: web.Request) -> web.Response:
 def register(app: web.Application, hub=None) -> None:
     pusher = app.get("pusher")
     if pusher is not None:
-        sender = apns.Apns(app["cfg"].secrets_dir, lambda: app["clock"]())
+        sender = apns.Apns(app["cfg"].secrets_dir, lambda: app["clock"](),
+                           secret=lambda: apns.collapse_secret(app["app_auth"].key()))
         relay = apns.Relay(app)            # the relay checks real time: never the app's (test) clock
         app["apns"] = sender
         app["push_relay"] = relay
@@ -269,7 +283,13 @@ def register(app: web.Application, hub=None) -> None:
         async def send_apns(row: dict, msg) -> str:
             return await (relay.send if row.get("env") == "relay" else sender.send)(row, msg)
         pusher.senders["apns"] = send_apns
+
+        async def check(_app: web.Application) -> None:
+            apns.check_direct(app)
+        app.on_startup.append(check)
     app.router.add_post("/api/app/push/register", push_register)
+    app.router.add_get("/api/app/push-relay", apns.api_get_relay)       # Mantel Settings (a session, not the app)
+    app.router.add_put("/api/app/push-relay", apns.api_put_relay)
     app.router.add_get("/api/app/snap", snapshot)
     app.router.add_get("/api/app/art", art)      # ?id=: the auth middleware's open paths are exact
     app.router.add_get("/api/app/summary", summary)

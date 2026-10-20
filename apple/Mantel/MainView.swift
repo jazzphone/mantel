@@ -135,7 +135,7 @@ struct AppMenu: View {
                 } footer: { Text("Your favorites show in the widgets, Control Center, Siri and on the Mac.") }
                 Section {
                     Toggle("Face ID to Open", isOn: $faceID).onChange(of: faceID) { _, v in SharedStore.shared.requireFaceID = v }
-                    Button("Turn On Notifications") { Task { await PushRegistrar.shared.requestAndRegister() } }
+                    Button("Turn On Notifications") { Task { await PushRegistrar.shared.requestAndRegister(resume: true) } }
                 }
                 Section {
                     Button(cleared ? "Cache Cleared" : "Clear Cache") { clearCache() }.disabled(cleared)

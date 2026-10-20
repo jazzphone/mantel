@@ -377,7 +377,9 @@ function drawNotifications(c) {
   const acts = list.length ? [button('Send a Test Notification', () => act('me', () => api('POST', '/api/push/test', {}), 'Test sent.'), { fk: 'mx:push-test' })] : [];
   for (const t of list) {
     acts.push(button('Stop Sending to ' + (t.name || 'This Device') + '…', async () => {
-      if (!(await ask({ title: 'Stop notifications there?', message: 'That device will no longer get Mantel’s notifications.', ok: 'Stop', destructive: true }))) return;
+      if (!(await ask({ title: 'Stop notifications there?', message: t.kind === 'apns'
+        ? 'That device will no longer get Mantel’s notifications. To have them again, choose Turn On Notifications in its Mantel app.'
+        : 'That device will no longer get Mantel’s notifications.', ok: 'Stop', destructive: true }))) return;
       await act('me', () => api('DELETE', '/api/push/targets/' + encodeURIComponent(t.id)), 'Removed.', 'pushtargets', 'pushhere');
     }, { destructive: true, fk: 'mx:push-del:' + t.id }));
   }
@@ -1055,6 +1057,7 @@ function pConnections(sub) {
   if (sub[0] === 'ma-page') return pMaPage();
   if (sub[0] === 'proxy') return pProxy();
   if (sub[0] === 'link') return pLink();
+  if (sub[0] === 'push') return pPushRelay();
   return { title: 'Connections', top: true, scope: 'How Mantel reaches Home Assistant and Music Assistant. Each connection is tested before it is saved. Tokens are kept sealed in Mantel’s data, never shown again and never leave the server; a change applies at once.', body(c) {
     result(c, 'connections');
     const pid = new URLSearchParams(location.search).get('connection');
@@ -1076,6 +1079,42 @@ function pConnections(sub) {
       [nav('Home Assistant Link', 'connections/link', { icon: 'mdi:link-variant' })]));
     if (['owner', 'admin'].includes(me.user.role)) c.appendChild(group({ footer: 'How browsers reach Mantel: Mantel’s Caddy, your own reverse proxy, the Home Assistant App or a Cloudflare tunnel.' },
       [nav('HTTPS and Your Proxy', 'connections/proxy', { icon: 'mdi:lock' })]));
+    if (['owner', 'admin'].includes(me.user.role)) c.appendChild(group({ footer: 'How Mantel’s notifications reach the Mantel app on iPhone and iPad: the push relay, your own, or none.' },
+      [nav('Notifications to the App', 'connections/push', { icon: 'mdi:bell' })]));
+  } };
+}
+// NOTIFICATIONS TO THE APP (apns.py, docs/guide/Push-Notifications.md "Use another relay"): which push relay the house
+// tells its apps to register with, an Owner's choice: the default relay, the Owner's own (https://), or none.
+const RELAY_MODES = [['default', 'Default Relay'], ['custom', 'Your Own Relay'], ['off', 'Off']];
+const RELAY_SAYS = { default: 'Default Relay', custom: 'Your Own Relay', off: 'Off', invalid: 'Not Valid' };
+function pPushRelay() {
+  return { title: 'Notifications to the App', back: ['Connections', '#/' + ROUTE + '/connections'], body(c) {
+    result(c, 'pushrelay');
+    const got = load('pushrelay', () => api('GET', '/api/app/push-relay'));
+    if (!got) { pending(c); return; }
+    if (got.err) { failed(c, got.err); return; }
+    const s = got.data, d = draft('pushrelay');
+    if (d.mode === undefined) d.mode = s.mode === 'invalid' ? 'custom' : s.mode;
+    if (d.url === undefined) d.url = s.url || '';
+    const where = s.mode === 'default' ? s.default.replace(/^https:\/\//, '') : s.mode === 'custom' ? (s.url || '').replace(/^https?:\/\//, '') : null;
+    const rows = [info('Relay', where, RELAY_SAYS[s.mode] || s.mode, s.mode === 'invalid' ? 'warn' : ''),
+      info('Phones Registered', null, String(s.phones))];
+    if (s.direct) rows.push(info('Sends Directly', s.direct_missing ? 'Needs ' + s.direct_missing + ' (mantel[apns-direct]) to reach Apple' : 'This Mantel has its own APNs key', s.direct_missing ? 'Not Working' : 'On', s.direct_missing ? 'warn' : ''));
+    c.appendChild(group({ footer: s.direct ? 'With its own APNs key, Mantel sends to Apple itself and the relay is not used.'
+      : 'The relay holds the app publisher’s APNs key and passes on notifications sealed to each phone; it can’t read them.' }, rows));
+    if (!s.can_edit) { c.appendChild(group({ footer: 'Only an Owner can change the relay.' }, [])); return; }
+    const edit = [K().select({ label: 'Send Through', options: RELAY_MODES, value: d.mode, fk: 'mx:pushrelay:mode', onChange: (v) => { d.mode = v; redraw(); } })];
+    if (d.mode === 'custom') edit.push(K().text({ label: 'Address', value: d.url, placeholder: 'https://push.example.com', maxlength: 256, inputmode: 'url',
+                                                  fk: 'mx:pushrelay:url', onCommit: (v) => { d.url = v.trim(); } }));
+    edit.push(button('Save', async () => {
+      const changed = d.mode !== s.mode || (d.mode === 'custom' && d.url !== (s.url || ''));
+      if (changed && s.phones && !(await ask({ title: 'Change the relay?', message: 'The phones registered now are dropped, and their relay forgets them. ' +
+        (d.mode === 'off' ? 'The apps get no notifications until you turn the relay on again.' : 'Each app registers again with the new relay when it next opens.'), ok: 'Change', destructive: true }))) return;
+      const body = d.mode === 'custom' ? { mode: 'custom', url: d.url } : { mode: d.mode };
+      if (await act('pushrelay', () => api('PUT', '/api/app/push-relay', body), 'Saved.', 'pushrelay')) clearDraft('pushrelay');
+    }, { fk: 'mx:pushrelay:save' }));
+    c.appendChild(group({ footer: ['Your own relay is the Worker in packaging/push-relay, deployed with your own APNs key, for an app built under your own Apple account.',
+      s.needs_fresh ? 'From outside the home network you will be asked to confirm it is you first.' : null].filter(Boolean).join(' ') }, edit));
   } };
 }
 function drawPending(c, pid) {

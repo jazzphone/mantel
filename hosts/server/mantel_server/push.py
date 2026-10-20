@@ -23,7 +23,8 @@ REST (a signed-in person, for their own targets; CSRF as every /api/ write):
   POST   /api/push/web/subscribe            {subscription: {endpoint, keys: {p256dh, auth}}, name?}
   POST   /api/push/web/unsubscribe          {endpoint}
   GET    /api/push/targets                  this person's targets (no secrets)
-  DELETE /api/push/targets/{id}             remove one
+  DELETE /api/push/targets/{id}             remove one; an app's is also forgotten at the relay, and that app does
+                                            not register again until the person turns notifications on in it
   POST   /api/push/test                     a test notification to this person's targets
 """
 from __future__ import annotations
@@ -120,6 +121,11 @@ class Targets:
         with self.db:
             self.db.execute("DELETE FROM push_targets WHERE app_id = ?", (app_id,))
         return rows
+
+    def get(self, target_id: str, user_id: str) -> dict | None:
+        row = self.db.execute(f"SELECT {self.COLS} FROM push_targets WHERE id = ? AND user_id = ?",
+                              (target_id, user_id)).fetchone()
+        return dict(row) if row is not None else None
 
     def of_user(self, user_id: str) -> list[dict]:
         return [dict(r) for r in self.db.execute(f"SELECT {self.COLS} FROM push_targets WHERE user_id = ? ORDER BY created",
@@ -280,9 +286,24 @@ class Pusher:
     def forget_app(self, app_id: str) -> None:
         """An app was signed out or revoked: its targets go, and its relay handles are forgotten at the relay."""
         for row in self.targets.remove_app(app_id):
-            relay = self.app.get("push_relay")
-            if row["kind"] == "apns" and row.get("env") == "relay" and relay is not None:
-                self.spawn(relay.forget(row["endpoint"]))
+            self.forget_handle(row)
+
+    def forget_handle(self, row: dict) -> None:
+        relay = self.app.get("push_relay")
+        if row["kind"] == "apns" and row.get("env") == "relay" and relay is not None:
+            self.spawn(relay.forget(row["endpoint"]))
+
+    def stop(self, row: dict) -> None:
+        """A person stopped one of their targets (Stop Sending to…). An app's handle is forgotten at the relay, and the
+        app is marked off so it does not register again by itself at its next start (app_api.push_register)."""
+        if not self.targets.remove(row["id"], row["user_id"]):
+            return
+        if row["kind"] != "apns":
+            return
+        self.forget_handle(row)
+        st = self.app.get("app_auth")
+        if row.get("app_id") and st is not None:
+            st.set_push_off(row["app_id"], True)
 
     # -- Web Push ---------------------------------------------------------------------------------
     async def send_web(self, row: dict, msg: Message) -> str:
@@ -362,8 +383,11 @@ async def list_targets(request: web.Request) -> web.Response:
 
 async def delete_target(request: web.Request) -> web.Response:
     ident = require_user(request)
-    if not pusher_of(request).targets.remove(request.match_info["id"], ident.user.id):
+    p = pusher_of(request)
+    row = p.targets.get(request.match_info["id"], ident.user.id)
+    if row is None:
         return error(404, "not_found")
+    p.stop(row)
     return ok()
 
 

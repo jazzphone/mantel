@@ -66,6 +66,7 @@ async function makeHouse() {
 }
 
 const TOKEN = 'ab'.repeat(32);
+const COLLAPSE = 'q3YVb0Zr8m1xJk2Lw9PcTn4HsD7eUa6G';   // the house's keyed hash of a tag (apns.collapse_id): never the tag
 const payload = { aps: { alert: { title: 'Mantel', body: 'New notification' }, 'mutable-content': 1 }, m: { v: '1', epk: 'x', box: 'y' } };
 let ok = 0;
 const test = async (name, fn) => { await fn(); ok++; console.log('ok -', name); };
@@ -95,12 +96,12 @@ await test('a phone registers for one house and gets a handle', async () => {
 });
 
 await test('the house sends through the relay; Apple gets the payload with the team token', async () => {
-  const r = await signedCall(house, '/v1/send', { handle, payload, collapse_id: 'door' });
+  const r = await signedCall(house, '/v1/send', { handle, payload, collapse_id: COLLAPSE });
   assert.equal(r.status, 200, await r.clone().text());
   const { url, init } = sent.at(-1);
   assert.equal(url, `https://api.sandbox.push.apple.com/3/device/${TOKEN}`);
   assert.equal(init.headers['apns-topic'], 'com.example.mantel.ios');
-  assert.equal(init.headers['apns-collapse-id'], 'door');
+  assert.equal(init.headers['apns-collapse-id'], COLLAPSE);             // opaque, passed on as it came
   assert.deepEqual(JSON.parse(init.body), payload);
   const [h, c, s] = init.headers.authorization.slice(7).split('.');
   assert.deepEqual(JSON.parse(Buffer.from(unb64u(h)).toString()), { alg: 'ES256', kid: 'KEYID12345' });
@@ -153,6 +154,18 @@ await test('re-registering replaces; the house can forget a handle', async () =>
   assert.equal(sent.at(-1).url.startsWith('https://api.push.apple.com/'), true);
   assert.equal((await signedCall(house, '/v1/forget', { handle: b.handle })).status, 200);
   assert.equal(env.DB.raw.prepare('SELECT COUNT(*) AS n FROM handles').get().n, 0);
+});
+
+await test('the relay keeps nothing of a notification: no payload, no collapse id', async () => {
+  now += 120;
+  const reg = await (await call('/v1/register', { token: TOKEN, env: 'sandbox', house_key: house.key })).json();
+  assert.equal((await signedCall(house, '/v1/send', { handle: reg.handle, payload, collapse_id: COLLAPSE })).status, 200);
+  const stored = JSON.stringify(['handles', 'nonces', 'counts'].map((t) => env.DB.raw.prepare(`SELECT * FROM ${t}`).all()));
+  assert.ok(!stored.includes(COLLAPSE) && !stored.includes('New notification') && !stored.includes('"box"'));
+  // the house's Stop Sending to… forgets the handle: nothing more reaches that phone
+  assert.equal((await signedCall(house, '/v1/forget', { handle: reg.handle })).status, 200);
+  assert.equal((await signedCall(house, '/v1/send', { handle: reg.handle, payload })).status, 404);
+  assert.equal((await signedCall(house, '/v1/forget', { handle: reg.handle })).status, 404);
 });
 
 resetProviderToken();

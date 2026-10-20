@@ -7,21 +7,29 @@ slice 10.5; decision M10-2: no relay while the app is TestFlight-only, the house
 * **End-to-end**: the notification's words, the accessory and the snapshot's id are sealed to that key
   (app_crypto.seal_for_device: ECDH + HKDF-SHA256 + AES-256-GCM) under ``"m"``; the visible alert Apple carries
   says only "Mantel" / "New notification". The Notification Service Extension opens ``"m"`` on the phone and shows
-  the real words (``mutable-content: 1``). Apple sees a device token and ciphertext.
+  the real words (``mutable-content: 1``), and groups them by the sealed tag (``threadIdentifier``). Apple sees a
+  device token and ciphertext.
+* **The tag** (the notification's mute key, e.g. which accessory) never leaves sealed: no ``thread-id``, and the
+  ``apns-collapse-id`` (a newer notification replaces an older one) is a keyed hash of it (``collapse_id``), keyed by
+  a secret only the house has and different for each phone. The relay and Apple see only that two notifications to
+  one phone share a tag, not which.
 * **Interruption levels**: Important notifications are ``time-sensitive`` (through Focus; no Apple approval needed).
   Critical alerts need Apple's entitlement and are not used.
 * **The key** (the app publisher's developer account): ``<secrets_dir>/apns_key.p8`` (the .p8 Apple gives) and
   ``<secrets_dir>/apns.json`` ``{"key_id", "team_id", "topic"}`` (topic: the app's bundle id). Secret files,
   never the database, a log or an env var. Without them nothing is sent (the target stays; ``not_configured``).
-* **Transport**: APNs speaks only HTTP/2. aiohttp does not, so sending needs ``httpx[http2]`` (not yet a Mantel
-  dependency: add it when the developer account exists). Until then ``send`` answers ``failed`` with a log line
-  saying so, and the tests use an injected transport.
+* **Transport**: APNs speaks only HTTP/2. aiohttp does not, so sending directly needs ``httpx[http2]``, the optional
+  extra ``mantel[apns-direct]`` (not in Mantel's images: direct sending is a developer's setup; the relay needs
+  none of it). With the key files present and the extra missing, the server says so at startup (``check_direct``)
+  and ``send`` answers ``failed``; the tests use an injected transport.
 
 UNVERIFIED until the Apple Developer account exists (M10-6): the provider token and request shape follow Apple's
 documentation; the app's side is tested in the Simulator with ``xcrun simctl push`` (apple/README.md).
 """
 from __future__ import annotations
 
+import hashlib
+import hmac
 import json
 import logging
 import time
@@ -39,28 +47,54 @@ TOKEN_EVERY = 50 * 60                   # Apple wants a new provider token at mo
 GONE_REASONS = {"BadDeviceToken", "Unregistered", "DeviceTokenNotForTopic"}
 
 Transport = Callable[[str, dict, bytes], Awaitable[tuple[int, dict]]]   # (url, headers, body) -> (status, json)
+EXTRA = "mantel[apns-direct]"
+
+
+def collapse_secret(identity_key) -> bytes:
+    """The key of the collapse ids: derived from the house's identity key (a secret file), so nothing new to keep."""
+    raw = identity_key.private_numbers().private_value.to_bytes(32, "big")
+    return hmac.new(raw, b"mantel-collapse-v1", hashlib.sha256).digest()
+
+
+def collapse_id(secret: bytes, device_key: bytes, tag: str) -> str:
+    """The tag as the relay and Apple see it (``apns-collapse-id``): the same for the same tag to the same phone, so a
+    newer notification still replaces an older one; without the house's secret it says nothing of the tag, and two
+    phones get different ids for one tag."""
+    mac = hmac.new(secret, device_key + b"\n" + tag.encode(), hashlib.sha256).digest()
+    return app_crypto.b64u(mac[:24])           # 32 characters; Apple allows 64
+
+
+def http2_missing() -> str | None:
+    """What direct sending lacks to speak HTTP/2 (``httpx`` and ``h2``), or None."""
+    for name in ("httpx", "h2"):
+        try:
+            __import__(name)
+        except ImportError:
+            return name
+    return None
 
 
 def build_payload(msg: Any, device_key: bytes) -> dict:
-    """The APNs payload for one notification: a generic visible alert, the real one sealed to the phone."""
+    """The APNs payload for one notification: a generic visible alert, the real one sealed to the phone. The tag is
+    sealed too: the extension groups by it (threadIdentifier), so ``aps`` has no ``thread-id``."""
     inner = {"title": msg.title, "body": msg.body, "entity": msg.entity, "snap": msg.snap, "camera": msg.camera,
              "tag": msg.tag, "url": msg.url, "important": msg.important, "id": msg.id}
     sealed = app_crypto.seal_for_device(json.dumps({k: v for k, v in inner.items() if v is not None},
                                                    separators=(",", ":")).encode(), device_key)
     aps: dict[str, Any] = {"alert": {"title": "Mantel", "body": "New notification"}, "mutable-content": 1,
                            "sound": "default", "interruption-level": "time-sensitive" if msg.important else "active"}
-    if msg.tag:
-        aps["thread-id"] = msg.tag
     if msg.entity:
         aps["category"] = "MANTEL_ACCESSORY"
     return {"aps": aps, "m": sealed}
 
 
 class Apns:
-    def __init__(self, secrets_dir: Path, clock: Callable[[], float] = time.time, transport: Transport | None = None):
+    def __init__(self, secrets_dir: Path, clock: Callable[[], float] = time.time, transport: Transport | None = None,
+                 secret: Callable[[], bytes] | None = None):
         self.secrets_dir = Path(secrets_dir).expanduser()
         self.clock = clock
         self.transport = transport
+        self.secret = secret                   # the collapse ids' key (collapse_secret); without it, none is sent
         self._token: tuple[float, str] | None = None
 
     def config(self) -> dict | None:
@@ -84,11 +118,11 @@ class Apns:
         return tok
 
     async def _default_transport(self, url: str, headers: dict, body: bytes) -> tuple[int, dict]:
-        try:
-            import httpx  # type: ignore[import-not-found]
-        except ImportError:
-            log.warning("APNs needs HTTP/2 (httpx[http2]); not installed, nothing sent")
+        missing = http2_missing()
+        if missing is not None:
+            log.warning("APNs needs HTTP/2: %s is not installed (pip install '%s'); nothing sent", missing, EXTRA)
             return 0, {"reason": "transport_missing"}
+        import httpx  # type: ignore[import-not-found]
         async with httpx.AsyncClient(http2=True, timeout=10.0) as client:
             r = await client.post(url, headers=headers, content=body)
             try:
@@ -101,13 +135,14 @@ class Apns:
         if conf is None:
             log.info("APNs is not configured (no %s / %s); the app's notification was not sent", KEY_FILE, CONF_FILE)
             return "skipped"
-        payload = build_payload(msg, app_crypto.unb64u(row["p256dh"]))
+        device_key = app_crypto.unb64u(row["p256dh"])
+        payload = build_payload(msg, device_key)
         host = HOSTS["sandbox" if row.get("env") == "sandbox" else "production"]
         headers = {"authorization": "bearer " + self.provider_token(conf), "apns-topic": conf["topic"],
                    "apns-push-type": "alert", "apns-priority": "10" if msg.important else "5",
                    "content-type": "application/json"}
-        if msg.tag:
-            headers["apns-collapse-id"] = msg.tag[:64]
+        if msg.tag and self.secret is not None:
+            headers["apns-collapse-id"] = collapse_id(self.secret(), device_key, msg.tag)
         status, body = await (self.transport or self._default_transport)(
             f"{host}/3/device/{row['endpoint']}", headers, json.dumps(payload, separators=(",", ":")).encode())
         if status == 200:
@@ -125,16 +160,44 @@ class Apns:
 # Requests are signed with the house's identity key (app_auth.py), the key the app pinned at pairing.
 DEFAULT_RELAY = "https://mantel-push.jazzphone.workers.dev"   # the publisher's relay; per house: app_settings push_relay
 RELAY_SETTING = "push_relay"
+RELAY_OFF = "off"
+URL_MAX = 256
+# The house's relay, as an Owner sets it (Mantel Settings → Connections → Notifications to the App, PUT
+# /api/app/push-relay): no row (or an empty one) is the default relay, "off" sends through none, an https:// address
+# is the Owner's own relay. Any other value sends through none, and says so (mode "invalid").
+
+
+def clean_relay_url(value: Any) -> str | None:
+    """An Owner's own relay: https://name[:port][/path], nothing after it; None if it is not one."""
+    from urllib.parse import urlsplit
+    if not isinstance(value, str) or not value.strip() or len(value.strip()) > URL_MAX:
+        return None
+    p = urlsplit(value.strip())
+    if p.scheme != "https" or not p.hostname or p.username or p.password or p.query or p.fragment:
+        return None
+    try:
+        p.port
+    except ValueError:
+        return None
+    return f"https://{p.netloc}{p.path}".rstrip("/")
+
+
+def relay_choice(app) -> dict:
+    """{"mode": "default" | "custom" | "off" | "invalid", "url": the address sent to, or None}."""
+    st = app.get("app_auth")
+    raw = (st.setting(RELAY_SETTING) if st is not None else None) or ""
+    if not raw.strip():
+        return {"mode": "default", "url": DEFAULT_RELAY}
+    if raw == RELAY_OFF:
+        return {"mode": "off", "url": None}
+    if raw.startswith(("http://127.0.0.1:", "http://localhost:")):   # loopback: the tests and tools/app_dev_server.py
+        return {"mode": "custom", "url": raw.rstrip("/")}
+    url = clean_relay_url(raw)
+    return {"mode": "custom", "url": url} if url else {"mode": "invalid", "url": None}
 
 
 def relay_url(app) -> str | None:
-    st = app.get("app_auth")
-    url = (st.setting(RELAY_SETTING) if st is not None else None) or DEFAULT_RELAY
-    if not url:
-        return None
-    if url.startswith("https://") or url.startswith(("http://127.0.0.1:", "http://localhost:")):   # loopback: the tests
-        return url.rstrip("/")
-    return None
+    return relay_choice(app)["url"]
 
 
 def push_mode(app) -> dict:
@@ -185,9 +248,10 @@ class Relay:
             if own:
                 await http.close()
 
-    async def call(self, path: str, body: dict) -> tuple[int, dict]:
+    async def call(self, path: str, body: dict, url: str | None = None) -> tuple[int, dict]:
+        """A signed request to the house's relay (or to ``url``: the one a changed setting left behind)."""
         import secrets as _secrets
-        url = relay_url(self.app)
+        url = url or relay_url(self.app)
         st = self.app.get("app_auth")
         if url is None or st is None:
             return 0, {"error": "no_relay"}
@@ -198,10 +262,13 @@ class Relay:
         return await self._post(url + path, headers, data)
 
     async def send(self, row: dict, msg: Any) -> str:
-        payload = build_payload(msg, app_crypto.unb64u(row["p256dh"]))
-        body: dict[str, Any] = {"handle": row["endpoint"], "payload": payload}
+        st = self.app.get("app_auth")
+        if relay_url(self.app) is None or st is None:
+            return "skipped"                   # the relay is off here: the phone stays, nothing is sent
+        device_key = app_crypto.unb64u(row["p256dh"])
+        body: dict[str, Any] = {"handle": row["endpoint"], "payload": build_payload(msg, device_key)}
         if msg.tag:
-            body["collapse_id"] = msg.tag[:64]
+            body["collapse_id"] = collapse_id(collapse_secret(st.key()), device_key, msg.tag)
         status, got = await self.call("/v1/send", body)
         if status == 200:
             return "ok"
@@ -210,5 +277,86 @@ class Relay:
         log.warning("push relay answered %s (%s)", status, (got or {}).get("error") or (got or {}).get("reason"))
         return "failed"
 
-    async def forget(self, handle: str) -> None:
-        await self.call("/v1/forget", {"handle": handle})
+    async def forget(self, handle: str, url: str | None = None) -> None:
+        await self.call("/v1/forget", {"handle": handle}, url)
+
+
+# -- the setting (Mantel Settings → Connections → Notifications to the App) -------------------------
+# GET /api/app/push-relay  (an Owner or Admin)  {mode, url, default, direct, direct_missing, phones, can_edit, needs_fresh}
+# PUT /api/app/push-relay  (an Owner; from away, a fresh factor)  {mode: "default" | "custom" | "off", url?}
+# Changing the relay drops the phones registered with the old one (each handle forgotten there): each app registers
+# again with the new relay when it next starts, or not at all while the relay is off.
+def _relay_targets(app) -> list[dict]:
+    pusher = app.get("pusher")
+    if pusher is None:
+        return []
+    return [r for r in pusher.targets.everyone() if r["kind"] == "apns" and r.get("env") == "relay"]
+
+
+def _setting_json(request) -> dict:
+    from . import connections as C
+    app = request.app
+    ident = C._viewer(request)
+    rule = C.edit_rule(request, ident)
+    choice = relay_choice(app)
+    sender = app.get("apns")
+    direct = sender is not None and sender.config() is not None
+    stored = app["app_auth"].setting(RELAY_SETTING) if choice["mode"] in ("custom", "invalid") else None
+    return {"mode": choice["mode"], "url": stored, "default": DEFAULT_RELAY, "direct": direct,
+            "direct_missing": http2_missing() if direct else None, "phones": len(_relay_targets(app)),
+            "can_edit": rule != "owner_only", "needs_fresh": rule == "fresh"}
+
+
+async def api_get_relay(request):
+    from .sessions import ok
+    return ok(_setting_json(request))
+
+
+async def api_put_relay(request):
+    from . import connections as C
+    from .accounts import read_json
+    from .sessions import error, ok
+    ident = C._editor(request)
+    app = request.app
+    body = await read_json(request)
+    mode = body.get("mode")
+    if mode == "default":
+        value = None
+    elif mode == "off":
+        value = RELAY_OFF
+    elif mode == "custom":
+        value = clean_relay_url(body.get("url"))
+        if value is None:
+            return error(400, "invalid", message="A relay's address is https://name[:port][/path], nothing after it.")
+    else:
+        return error(400, "invalid", message='mode is "default", "custom" or "off".')
+    old = relay_url(app)
+    refused = C._audit(request, ident, "push_relay.set", {"mode": mode, "url": value if mode == "custom" else None})
+    if refused is not None:
+        return refused
+    st = app["app_auth"]
+    st.set_setting(RELAY_SETTING, value)
+    new = relay_url(app)
+    if new != old:
+        pusher, relay = app.get("pusher"), app.get("push_relay")
+        for row in _relay_targets(app):
+            pusher.targets.remove(row["id"])
+            if old is not None and relay is not None:
+                pusher.spawn(relay.forget(row["endpoint"], old))
+        log.info("push relay set to %s (%s)", mode, new or "none")
+    return ok(_setting_json(request))
+
+
+def check_direct(app) -> None:
+    """At startup: say plainly when the APNs key files are there but direct sending can't speak HTTP/2, and when the
+    relay setting is not one Mantel understands."""
+    sender = app.get("apns")
+    if sender is not None and sender.config() is not None:
+        missing = http2_missing()
+        if missing is not None:
+            log.error("APNs key files are present (%s, %s), so the apps are told to register directly, but %s is not "
+                      "installed: nothing will reach the apps. Install '%s', or remove the key files to use the relay.",
+                      KEY_FILE, CONF_FILE, missing, EXTRA)
+    elif relay_choice(app)["mode"] == "invalid":
+        log.warning("the push relay setting is not an https:// address; the apps get no notifications. "
+                    "Set it again in Mantel Settings → Connections → Notifications to the App.")

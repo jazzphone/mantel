@@ -16,7 +16,7 @@ const der = Buffer.from(await crypto.subtle.exportKey('pkcs8', key.privateKey)).
 const sent = [];
 const env = { DB: D1, APNS_KEY: `-----BEGIN PRIVATE KEY-----\n${der}\n-----END PRIVATE KEY-----`, APNS_KEY_ID: 'KEYID12345',
               APNS_TEAM_ID: 'TEAM123456', APNS_TOPIC: 'com.example.mantel.ios',
-              __fetch: async (url, init) => { sent.push({ url, body: JSON.parse(init.body) }); return new Response('', { status: 200 }); } };
+              __fetch: async (url, init) => { sent.push({ url, headers: init.headers, body: JSON.parse(init.body) }); return new Response('', { status: 200 }); } };
 http.createServer(async (req, res) => {
   if (req.url === '/__sent') { res.end(JSON.stringify(sent)); return; }
   const chunks = [];

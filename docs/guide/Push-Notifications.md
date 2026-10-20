@@ -58,11 +58,13 @@ Visible to the relay and Apple:
 - the words "Mantel" and "New notification" (what the phone shows if the
   extension can't run),
 - that it is **time-sensitive** (an Important notification) or ordinary,
-- the notification's **tag**, used to group notifications and to let a newer
-  one replace an older one, and whether it is about an accessory,
+  and whether it is about an accessory,
+- a **collapse id**, so a newer notification replaces an older one: a keyed
+  hash of the notification's tag, made with a secret only your Mantel has and
+  different for each phone. It shows that two notifications to one phone are
+  about the same thing, not what that is. The tag itself (which accessory or
+  rule) is sealed; the app groups notifications by it on the phone,
 - which Mantel sent to which handle, and when.
-
-<!-- CHECK: apns.build_payload puts msg.tag in the clear as aps.thread-id, and Relay.send passes it as collapse_id; msg.tag is the notification's mute key (push.py). The text above says so; if tags should not be visible, the code must change. -->
 
 Critical alerts (sound even when the phone is muted) are not used.
 
@@ -70,7 +72,7 @@ Critical alerts (sound even when the phone is muted) are not used.
 
 | Kept | For how long |
 |---|---|
-| For each phone and Mantel: Apple's device token, sandbox or production, the Mantel's public identity key and its fingerprint, a hash of the handle (not the handle), when it was made and when it last sent | Until the phone signs out of that Mantel, or Apple says the phone is gone |
+| For each phone and Mantel: Apple's device token, sandbox or production, the Mantel's public identity key and its fingerprint, a hash of the handle (not the handle), when it was made and when it last sent | Until the phone signs out of that Mantel or is stopped there, the Mantel changes its relay, or Apple says the phone is gone |
 | Each signed request's random nonce | Ten minutes, so a request can't be replayed |
 | Per-minute counters for the rate limits (the registration counter is keyed by the phone's IP address) | About two minutes |
 
@@ -105,15 +107,30 @@ address, as it would for any website.
 - **Sign out** of the app (or **Forget This Mantel**). Your Mantel removes the
   phone and asks the relay to forget its handle.
 - **Stop one device** from Mantel: **Mantel Settings → Me → Notifications →
-  Stop Sending to** *device*…. <!-- CHECK: this removes the house's push target only (push.py DELETE /api/push/targets/<id>); it does not ask the relay to forget the handle, and the app registers again at its next sign-in or start while iOS allows notifications. Only signing out (forget_app) forgets the handle at the relay. -->
+  Stop Sending to** *device*…. Your Mantel removes the phone and asks the
+  relay to forget its handle. The app stays signed in but doesn't register
+  again by itself; to have notifications there again, choose **Mantel App →
+  Turn On Notifications** on that phone.
 - **Turn notifications off in iOS** (**Settings → Mantel → Notifications**) to
   stop them on that phone.
 
 ### Use another relay
 
-Each Mantel has a `push_relay` setting: the `https://` address of the relay it
-tells its apps to use. Empty means the default relay.
-<!-- CHECK: push_relay is stored in app_settings and read by apns.relay_url, but there is no Mantel Settings page or REST call to set it (only tools/app_dev_server.py sets it). An empty value falls back to the default relay, so the setting cannot turn the relay off; an invalid (non-https) value makes push_mode empty and the app then says "This Mantel does not send notifications to the app yet." -->
+An Owner chooses the relay in **Mantel Settings → Connections →
+Notifications to the App → Send Through**:
+
+| Choice | What your Mantel tells its apps |
+|---|---|
+| **Default Relay** (the default) | Register with the app publisher's relay |
+| **Your Own Relay** | Register with the `https://` address you give |
+| **Off** | There is nothing to register with: the app says this Mantel doesn't send notifications to it |
+
+Admins can see the choice; only an Owner changes it, and from outside the home
+network Mantel asks you to confirm it's you first. Each change is in the audit
+log. When the relay changes, the phones registered with the old one are
+dropped and that relay is asked to forget them; each app registers again with
+the new relay when it next opens. The page also says how many phones are
+registered now.
 
 ### Run your own
 
@@ -129,7 +146,8 @@ developer. You have two choices:
 3. Deploy the Worker to your Cloudflare account. `tools/deploy_push_relay.sh`
    creates its D1 database and tables, stores the APNs key as a Worker secret
    (read from a file, never printed), deploys, and checks `/v1/health`.
-4. Point your Mantel's `push_relay` setting at your relay's address.
+4. In **Mantel Settings → Connections → Notifications to the App**, choose
+   **Your Own Relay** and enter your relay's address.
 
 **Directly from your Mantel** (one home, a developer's setup): put your APNs key
 in Mantel's secrets folder as `apns_key.p8`, with `apns.json` beside it:
@@ -141,7 +159,13 @@ in Mantel's secrets folder as `apns_key.p8`, with `apns.json` beside it:
 Both are secret files: never in the database, a log or an environment
 variable. With them present, your Mantel tells its apps to register with it
 directly and sends to Apple itself. Without them, nothing is sent.
-<!-- CHECK: direct sending needs httpx[http2], which is not in Mantel's requirements or images; apns.py logs "APNs needs HTTP/2 (httpx[http2]); not installed, nothing sent" until it is added. -->
+
+Apple accepts only HTTP/2, so sending directly needs Mantel's optional
+`apns-direct` extra (`pip install 'mantel[apns-direct]'`, which adds
+`httpx[http2]`). Mantel's images don't include it: build your own image with
+it, or use your own relay. If the key files are there and the extra isn't,
+Mantel says so in its log when it starts, and **Notifications to the App**
+shows **Sends Directly: Not Working**.
 
 ## In a web browser
 
