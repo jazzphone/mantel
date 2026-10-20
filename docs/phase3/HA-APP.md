@@ -997,6 +997,13 @@ Everything on main since 0.1.28 (validation green: JS 130, HA py 732, Mantel 283
       named their kiosk.
 - [ ] The house hand-over, the Alarm PIN entered in Mantel Settings, then HK Frontend removed (NO-HK-FRONTEND.md).
 
+### 0.1.34 (2026-10-20)
+
+- **Mantel Settings -> About**: the version (from `RELEASE.json`, written at staging), commit and build, how
+  Mantel runs, Home Assistant's, Music Assistant's and the links' versions, and a word on the project.
+- **The House** has its own group on Home Assistant Link, apart from Who Runs Each Wall Tablet.
+- No HA backup (Avery).
+
 ### Removal
 
 Stop and uninstall **Mantel** (Settings → Apps → Mantel → Uninstall); this removes its image and `/data`
