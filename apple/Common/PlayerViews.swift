@@ -24,6 +24,12 @@ enum PlayerPane: String, CaseIterable, Identifiable {
     case speakers, upNext, browse
     var id: String { rawValue }
     var title: String { switch self { case .speakers: "Speakers"; case .upNext: "Up Next"; case .browse: "Browse" } }
+    /// The row's buttons: a pointer's on the Mac, a finger's on the iPhone.
+    #if os(iOS)
+    static let rowHeight: CGFloat = 44
+    #else
+    static let rowHeight: CGFloat = 30
+    #endif
     var symbol: String {
         switch self { case .speakers: "hifispeaker.2.fill"; case .upNext: "list.bullet"; case .browse: "square.grid.2x2.fill" }
     }
@@ -36,13 +42,13 @@ struct ArtImage: View {
     @EnvironmentObject private var music: MusicModel
     let ref: String?
     var placeholder = "music.note"
-    @State private var image: NSImage?
+    @State private var image: PlatformImage?
     @State private var loaded: String?
 
     var body: some View {
         ZStack {
             if let image = image ?? music.cached(ref) {
-                Image(nsImage: image).resizable().aspectRatio(contentMode: .fill)
+                Image(platformImage: image).resizable().aspectRatio(contentMode: .fill)
                     .transition(.opacity)
             } else {
                 LinearGradient(colors: [Color.white.opacity(0.16), Color.white.opacity(0.05)],
@@ -141,7 +147,7 @@ struct NowPlayingView: View {
                     ForEach(PlayerPane.allCases) { p in
                         Button { open(p) } label: {
                             Image(systemName: p.symbol).font(.system(size: 15, weight: .semibold))
-                                .frame(maxWidth: .infinity, minHeight: 30)
+                                .frame(maxWidth: .infinity, minHeight: PlayerPane.rowHeight)
                                 .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)

@@ -24,9 +24,15 @@ struct RootView: View {
 }
 
 /// Face ID before the app opens (decision M10-3: a 30-day device-bound credential, with Face ID to open the app).
+///
+/// Asked by itself whenever the app comes to the front locked. Not before: the lock goes on as the app goes to the
+/// background, and a prompt asked then is refused by iOS (the app is not active), which left only the Unlock button
+/// on return (Avery's iPhone, 2026-10-20).
 struct LockView: View {
     @Binding var unlocked: Bool
+    @Environment(\.scenePhase) private var scenePhase
     @State private var failed = false
+    @State private var asking = false
 
     var body: some View {
         VStack(spacing: 20) {
@@ -35,10 +41,12 @@ struct LockView: View {
             Button("Unlock") { unlock() }.buttonStyle(.borderedProminent)
             if failed { Text("Try again, or use your passcode.").foregroundStyle(.secondary) }
         }
-        .task { unlock() }
+        .onAppear { if scenePhase == .active { unlock() } }
+        .onChange(of: scenePhase) { _, phase in if phase == .active { unlock() } }
     }
 
     private func unlock() {
+        guard !asking, !unlocked else { return }
         let ctx = LAContext()
         var err: NSError?
         #if targetEnvironment(simulator)
@@ -52,10 +60,14 @@ struct LockView: View {
             unlocked = true           // no passcode set at all (a fresh Simulator): nothing to ask
             return
         }
-        ctx.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: "Open Mantel") { ok, _ in
+        asking = true
+        ctx.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: "Open Mantel") { ok, error in
             DispatchQueue.main.async {
+                asking = false
                 unlocked = ok
-                failed = !ok
+                // the system or the app called it off (the app left the front): not a failure, asked again on return
+                let code = (error as? LAError)?.code
+                failed = !ok && code != .systemCancel && code != .appCancel
             }
         }
     }

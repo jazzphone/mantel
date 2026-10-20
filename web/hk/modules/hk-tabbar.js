@@ -863,7 +863,11 @@
       if (!el) return;
       var k = el.getAttribute('data-k'), it = listOf(k)[+el.getAttribute('data-i')];
       if (k === 'h') haGo(it);
-      else if (k === 'm') { if (it && it.href) { closeSheet(true); location.assign(it.href); } }
+      // (a host row opens a page, or asks the host to do something: hk-menu.js hostItems)
+      else if (k === 'm') {
+        if (it && it.run) { closeSheet(true); try { it.run(); } catch (x) { /* the host's own */ } }
+        else if (it && it.href) { closeSheet(true); location.assign(it.href); }
+      }
       else go(it);
     }
     function listOf(k) { return k === 'r' ? S.rooms : k === 'h' ? S.ha : k === 'm' ? S.hostRows : S.more; }

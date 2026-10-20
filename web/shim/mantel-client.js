@@ -77,6 +77,8 @@
       return reply ? reply.result : undefined;
     }
     function run(body, what) {
+      // (the iPhone app's haptics listen: shim/mantel-native.js; nothing else does)
+      emit('mantel-command', { kind: what.kind, what: what.what });
       return hub.command(body).then(function (reply) { return settle(body, what, reply); });
     }
     port.actions = {

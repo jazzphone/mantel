@@ -1,8 +1,17 @@
-import AppKit
 import MantelKit
 import SwiftUI
+#if canImport(UIKit)
+import UIKit
+/// A picture from the house, as the platform draws it.
+typealias PlatformImage = UIImage
+extension Image { init(platformImage i: PlatformImage) { self.init(uiImage: i) } }
+#else
+import AppKit
+typealias PlatformImage = NSImage
+extension Image { init(platformImage i: PlatformImage) { self.init(nsImage: i) } }
+#endif
 
-/// The house's music for the Mac's native player (server: app_music.py; docs/phase10/APPLE-APPS.md §12).
+/// The house's music for the native players, the Mac's and the iPhone's (server: app_music.py; docs/phase10/APPLE-APPS.md §12).
 ///
 /// Everything is the house's: what plays and where (`/api/app/music`), and every button is the Music page's own request
 /// through the gateway (play/pause, transfer, play, play_media, stop, volume, the queue). This keeps the latest answer,
@@ -25,7 +34,7 @@ final class MusicModel: ObservableObject {
     private weak var session: SessionModel?
     private var loop: Task<Void, Never>?
     private var watchers = 0
-    private var art = ArtCache()
+    private var art = MusicArtCache()
 
     func attach(_ session: SessionModel) {
         self.session = session
@@ -199,7 +208,7 @@ final class MusicModel: ObservableObject {
         }
     }
 
-    func image(_ ref: String?) async -> NSImage? {
+    func image(_ ref: String?) async -> PlatformImage? {
         guard let ref, let client else { return nil }
         if let i = images[ref] { return i }
         let got = await art.image(ref) { try await client.musicImage(ref) }
@@ -208,18 +217,18 @@ final class MusicModel: ObservableObject {
     }
 
     /// A picture already here (drawn at once when a view comes back).
-    func cached(_ ref: String?) -> NSImage? { ref.flatMap { images[$0] } }
-    private var images: [String: NSImage] = [:]
+    func cached(_ ref: String?) -> PlatformImage? { ref.flatMap { images[$0] } }
+    private var images: [String: PlatformImage] = [:]
 }
 
 /// Artwork by its address, kept while the app runs (a few dozen).
-actor ArtCache {
-    private var images: [String: NSImage] = [:]
+actor MusicArtCache {
+    private var images: [String: PlatformImage] = [:]
     private var order: [String] = []
 
-    func image(_ ref: String, load: () async throws -> Data) async -> NSImage? {
+    func image(_ ref: String, load: () async throws -> Data) async -> PlatformImage? {
         if let i = images[ref] { return i }
-        guard let data = try? await load(), let img = NSImage(data: data) else { return nil }
+        guard let data = try? await load(), let img = PlatformImage(data: data) else { return nil }
         images[ref] = img
         order.append(ref)
         if order.count > 80 { images[order.removeFirst()] = nil }
