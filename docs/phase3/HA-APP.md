@@ -1007,6 +1007,13 @@ Everything on main since 0.1.28 (validation green: JS 130, HA py 732, Mantel 283
       `/api/about` refuses a signed-out request (401).
 - [ ] Avery: Settings -> About shows 0.1.34; HK Frontend removed (a full HA backup first).
 
+### 0.1.35 (2026-10-20)
+
+- **The iPhone app feels native** (merge 5e59402): `web/shim/mantel-native.js` (inert without the app's bridge),
+  a "Mantel App" row in the menu (app only), the More sheet runs a host row's action, a guarded `hkHostPlayer`
+  hook on the music cards for the app's own player, haptics. Web only; no migration.
+- No HA backup (Avery).
+
 ### Removal
 
 Stop and uninstall **Mantel** (Settings → Apps → Mantel → Uninstall); this removes its image and `/data`
