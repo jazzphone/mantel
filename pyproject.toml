@@ -8,11 +8,13 @@ version = "0.0.1"
 description = "Mantel: HK as its own platform (Mantel Server, shared core, hosts)"
 requires-python = ">=3.12"
 dependencies = ["aiohttp>=3.9", "argon2-cffi>=25.1", "cryptography>=50.0", "webauthn>=3.0",
-                "Pillow>=11.0"]   # Your files photos are re-encoded (user_files.py)
+                "Pillow>=11.0",   # Your files photos and Mantel Photos are re-encoded (user_files.py, photos.py)
+                "pillow-heif>=0.18",   # iPhone HEIC/HEIF photos (re-encoded to JPEG)
+                "zeroconf>=0.140"]   # Docker/LXC: Mantel announced as _mantel._tcp (announce.py; the App uses the Supervisor)
 
 [project.optional-dependencies]
 dev = ["pytest>=8", "pytest-aiohttp>=1.0"]
-heic = ["pillow-heif>=0.18"]   # accept iPhone HEIC photos in Your files (re-encoded to JPEG)
+heic = ["pillow-heif>=0.18"]   # kept for old install commands: pillow-heif is now a dependency
 
 [project.scripts]
 mantel-server = "mantel_server.__main__:main"

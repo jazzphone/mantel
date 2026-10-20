@@ -63,8 +63,10 @@ async def test_each_command_is_the_one_fully_call_and_lands(tablet):
     assert fake.state["currentPage"] == MANTEL + "/kitchen-photos/home?hk_tablet=kitchen"
     await client.send("load_start_url")
     await client.send("to_front")
+    await client.send("clear_cache")
+    assert fake.state["cache_cleared"] == 1
     assert fake.cmds() == ["screenOff", "screenOn", "setStringSetting", "startScreensaver", "stopScreensaver",
-                           "loadUrl", "loadStartUrl", "toForeground"]
+                           "loadUrl", "loadStartUrl", "toForeground", "clearCache"]
     assert fake.calls[2] == {"cmd": "setStringSetting", "key": "screenBrightness", "value": "40",
                              "password": True, "type": "json"}
     assert all(c["password"] is True and c["type"] == "json" for c in fake.calls)
@@ -74,7 +76,7 @@ def test_the_command_list_is_closed():
     """Nothing that runs code, changes another setting, opens another app, takes a picture or reboots."""
     sent = {cmd for cmd, _fixed in COMMANDS.values()}
     assert sent == {"screenOn", "screenOff", "setStringSetting", "startScreensaver", "stopScreensaver", "loadUrl",
-                    "loadStartUrl", "toForeground"}
+                    "loadStartUrl", "toForeground", "clearCache"}
     assert COMMANDS["brightness"] == ("setStringSetting", {"key": "screenBrightness"})
 
 

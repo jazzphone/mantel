@@ -106,6 +106,9 @@ COPY --from=deps /opt/venv /opt/venv
 COPY --chmod=0755 hosts/server/mantel_server /app/hosts/server/mantel_server
 COPY --chmod=0755 hosts/server/mantel_connect /app/hosts/server/mantel_connect
 COPY --chmod=0755 hk_core /app/hk_core
+# /docs (docs_pages.py): HK's pages (HK Frontend's wiki source) and Mantel's own, where config.py looks
+COPY --chmod=0755 hosts/ha/custom_components/hk_frontend/docs /app/help/hk
+COPY --chmod=0755 packaging/ha-app/DOCS.md /app/help/Mantel.md
 COPY --chmod=0755 --from=static /out/web /app/web
 COPY --chmod=0755 --from=static /out/BUILD_ID /app/BUILD_ID
 COPY --chmod=0755 --from=static /out/static-manifest.json /app/static-manifest.json

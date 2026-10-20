@@ -169,37 +169,44 @@ HK Settings, plus two things you may need before it works:
 | HK Settings page | (a link) | — | Opens HK Settings. |
 | HK Settings page | Show HK Settings in the sidebar | On | The same as [Advanced → Show in Sidebar](#advanced). |
 | Your files | Folder (under /config) | `hk_local` | The same as Advanced → Your Files. It is served without sign-in, like `/local/`, so use a folder that holds nothing else. A folder containing Home Assistant’s own files is refused. |
-| Linked to Mantel Server | Linked to Mantel Server, address, Service credential | Off | Only for a house that has moved HK to Mantel Server. See below. |
+| Linked to Mantel | Linked to Mantel, address, Service credential | Off | Only for a house that is moving to Mantel. See below. |
 | Setup check | — | — | The same report as [Setup Check](Troubleshooting.md#setup-check). Submitting it goes back. |
 
-### Linked to Mantel Server
+### Linked to Mantel
 
 Off unless you switch it on, and nothing changes while it is off. Linked, HK
-Frontend hands the house over one wall tablet at a time: Mantel Server’s Owner
-moves each tablet to Mantel (and, last, the rest of the integration), and this
-page says which tablets are Mantel’s. A tablet still Home Assistant’s runs
-exactly as before. For a tablet Mantel owns, and once everything is Mantel’s,
-HK Frontend keeps the same actions (`hk_frontend.set_black_screen`,
-`show_popup`, `close_popup`, `notify`) and the same entities with the same
-entity ids, so automations, scripts and history keep working, but they are
-Mantel Server’s: each action is
-sent to it over one WebSocket, answered within 10 seconds or failed with an
-error that says why, and it sends every entity’s state. The black screen
-switch’s `confirmed` attribute still turns on when the tablet’s page has gone
-black. While Mantel Server can’t be reached the entities are unavailable and
-the actions fail; the link retries on its own. Pop-ups and notifications
-reach Home Assistant’s screens and Mantel Server’s while some tablets are
-Mantel’s. Once everything is Mantel’s, the features, the wall tablets’ Sleep
-Screen and HK Settings don’t run in Home Assistant.
+Frontend hands the house over one wall tablet at a time: Mantel’s Owner moves
+each tablet to Mantel (and, last, the rest of the integration), and this page
+says which tablets are Mantel’s. A tablet still Home Assistant’s runs exactly as
+before. For a tablet Mantel owns, and once everything is Mantel’s, HK Frontend
+keeps the same actions (`hk_frontend.set_black_screen`, `show_popup`,
+`close_popup`, `notify`) and the same entities with the same entity ids, so
+automations, scripts and history keep working, but they are Mantel’s: each
+action is sent to it over one WebSocket, answered within 10 seconds or failed
+with an error that says why, and it sends every entity’s state. The black
+screen switch’s `confirmed` attribute still turns on when the tablet’s page has
+gone black. While Mantel can’t be reached the entities are unavailable and the
+actions fail; the link retries on its own. Pop-ups and notifications reach Home
+Assistant’s screens and Mantel’s while some tablets are Mantel’s. Once
+everything is Mantel’s, the features, the wall tablets’ Sleep Screen and HK
+Settings don’t run in Home Assistant.
 
-The address is Mantel Server’s LAN address, with `https://` (plain `http://`
-only to this machine, so the credential never crosses the network in clear);
-Mantel Server refuses this link through its tunnel. The credential is a Mantel Server Service account’s, with the
-`linked` scope. Home Assistant keeps it in its own storage on disk
-(`.storage/core.config_entries`), as it does every integration’s token, and
-it is never shown again or put in diagnostics; revoke it on Mantel Server if a
-backup with it leaks. Saving reloads the integration; switching it off brings
-back everything above as it was.
+**Mantel Link**, HK Frontend’s successor (HACS), then takes the bridge over
+(Mantel Settings → Connections → Home Assistant Link): it shows Mantel’s
+entities and actions under the same entity ids and action names, and HK
+Frontend lets go of them. Handing back is the same button. The move, step by
+step: [Moving from HK Frontend](https://github.com/jazzphone/mantel-link/blob/main/docs/Moving-from-HK-Frontend.md).
+
+The address is Mantel’s LAN address, with `https://` (plain `http://` only to
+this machine or the Mantel App on Home Assistant’s internal App network, so the
+credential never crosses the network in clear); Mantel refuses this link
+through its tunnel. It fills itself in when the Mantel App or Mantel Link is
+installed. The credential is a Mantel Service account’s, with the `linked`
+scope. Home Assistant keeps it in its own storage on disk
+(`.storage/core.config_entries`), as it does every integration’s token, and it
+is never shown again or put in diagnostics; revoke it in Mantel if a backup
+with it leaks. Saving reloads the integration; switching it off brings back
+everything above as it was.
 
 The integration’s page also lists each screen, pop-up, custom page and custom
 chip as an item. A screen’s gear links to its page in HK Settings.

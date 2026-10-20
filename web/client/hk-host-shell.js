@@ -68,6 +68,19 @@
     // localize(key) } (its pages, their titles and icons), or null for a host
     // with no sidebar of its own
     sidebarData: nil,
+    // HOME ASSISTANT IN HK'S MENU AND TAB BAR (a screen's Home Assistant
+    // Section), by where the page is: 'own' -- the host IS Home Assistant, and
+    // the section is its sidebar (sidebarData) as always; { link, top } -- Home
+    // Assistant is elsewhere, and the section is one row opening `link` (in the
+    // top window when `top`); null -- nothing of Home Assistant's to offer here.
+    haNav: function () { return 'own'; },
+    // open one of Home Assistant's own pages ('/config/dashboard'): in Home
+    // Assistant, a navigation of its own; a host that shows its page inside
+    // Home Assistant asks Home Assistant's window to go there
+    haNavigate: function (path) { return this.navigate(path); },
+    // Home Assistant's own sidebar over the page, when the host opens it
+    // itself (true); false: HK opens it in the page (hk-menu.js openHaSidebar)
+    openHaMenu: function () { return false; },
     // the host's own pages to list in HK's menu, as [{ title, icon, href }] (a full page load to `href`):
     // the host's settings page for those who may use it. Empty for a host with none (Home Assistant has its own).
     hostMenu: function () { return []; },
@@ -105,6 +118,14 @@
     // null when the host does not (HK then uses the service's own address,
     // as in Home Assistant, where Music Assistant keeps its own port).
     serviceUrl: nil,
+    // THE HOST'S OWN PHOTOS for the screensaver (hk-saver.js). photoSource(
+    // source): the source this page's screensaver shows instead of the
+    // house's `source` (a host may give a screen a photo album of its own),
+    // or null to keep it. listPhotos(source): a promise of [{ id, title,
+    // url }] for a source the host serves itself, or null for one it does
+    // not (HK then walks it as a media folder). Home Assistant: null, both.
+    photoSource: nil,
+    listPhotos: nil,
     // THE PRODUCT'S NAME where HK's screens and settings speak of themselves
     // ("Drawn By: … | HK Frontend", "the photos that come with HK Frontend"):
     // HK Frontend in Home Assistant, the host's own name elsewhere (Mantel).
@@ -133,7 +154,7 @@
   KINDS.forEach(function (k) { NONE.tags[k] = null; });
 
   // the capabilities a throwing host answers no to (not null)
-  var FALSE = { hostDetail: 1, openHostDetail: 1, hostToast: 1 };
+  var FALSE = { hostDetail: 1, openHostDetail: 1, hostToast: 1, openHaMenu: 1 };
   // and the words a throwing host leaves as HK's own (the defaults')
   var WORDS = { productName: 1, haPlace: 1, haName: 1 };
   var impl = NONE, tags = Object.assign({}, NONE.tags), events = Object.assign({}, NONE.events);
@@ -167,8 +188,9 @@
 
   ['root', 'overlayRoot', 'main', 'mainRoot', 'drawer', 'sidebar', 'resolver', 'panel', 'dashboard',
    'dashboardRoot', 'viewContainer', 'viewSlot', 'view', 'viewBackground', 'toolbar', 'dashboardConfig', 'onDashboard', 'isDashboard',
-   'defined', 'showNotifications', 'keepAwake', 'sidebarData', 'hostMenu', 'settingsHost', 'holdWrites', 'menuButton',
-   'hostDetail', 'openHostDetail', 'hostToast', 'dialogRoot', 'serviceUrl', 'productName', 'haPlace', 'haName', 'docsUrl'].forEach(function (name) {
+   'defined', 'showNotifications', 'keepAwake', 'sidebarData', 'haNav', 'haNavigate', 'openHaMenu', 'hostMenu', 'settingsHost', 'holdWrites', 'menuButton',
+   'hostDetail', 'openHostDetail', 'hostToast', 'dialogRoot', 'serviceUrl', 'photoSource', 'listPhotos', 'productName', 'haPlace',
+   'haName', 'docsUrl'].forEach(function (name) {
     shell[name] = function () {
       try { return get(name).apply(shell, arguments); } catch (e) {
         return name === 'onDashboard' ? true : FALSE[name] ? false : WORDS[name] ? NONE[name].apply(shell, arguments) : null;

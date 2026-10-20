@@ -19,7 +19,7 @@ EXPECTED_HANDLERS = {"read", "read_subscribe", "read_unsubscribe", "read_api", "
 
 
 def hooks():
-    views = {"camera.porch", "light.kitchen", "feature:music"}
+    views = {"camera.porch", "light.kitchen", "feature:music", "calendar.chores", "calendar.school"}
     return Hooks(may_read=lambda who, kind, ids: [i for i in ids if who == "adult" and i in views],
                  may_view=lambda who, eid: who == "adult" and eid == "camera.porch",
                  ha_token=lambda: HA_TOKEN)
@@ -156,6 +156,28 @@ async def test_filtered_reads_and_calendar_over_the_socket(env):
     assert (await recv(ws))["error"]["code"] == "forbidden"     # adult may not view this calendar here
     await ws.close()
     assert env.fha.rest == []
+
+
+async def test_a_calendar_ha_cannot_read_fails_alone_and_is_logged(env, caplog):
+    """The house, 2026-10-20: HA's CalDAV account was signed out, both calendars unavailable, HA answering
+    each events read with 500; the page said "couldn't be read" and Mantel's log nothing. Now the read fails
+    with HA's answer and the calendar's name, a readable calendar beside it still reads, and the log says so."""
+    from mantel_server import readproxy as rp
+    rp._refused_at.clear()
+    env.fha.broken_calendars.add("calendar.school")
+    ws = await env.client.ws_connect("/ws?who=adult")
+    span = "start=2026-10-18T00%3A00%3A00-04%3A00&end=2026-11-01T00%3A00%3A00-04%3A00"   # HK's own dates
+    with caplog.at_level("WARNING", logger="mantel.readproxy"):
+        await ws.send_json({"type": "read_api", "id": 1, "method": "GET", "path": f"calendars/calendar.school?{span}"})
+        failed = await recv(ws)
+        await ws.send_json({"type": "read_api", "id": 2, "method": "GET", "path": f"calendars/calendar.chores?{span}"})
+        ok = await recv(ws)
+    await ws.close()
+    assert failed["error"] == {"code": "failed", "message": "Home Assistant answered 500 for calendar.school"}
+    assert ok["result"][0]["summary"] == "Fictional event on calendar.chores"
+    assert [r.getMessage() for r in caplog.records if r.getMessage().startswith("a read failed")] == \
+        ["a read failed: RuntimeError: Home Assistant answered 500 for calendar.school (repeats are logged every 300 s)"]
+    rp._refused_at.clear()
 
 
 async def test_ma_reads_over_the_socket(env):

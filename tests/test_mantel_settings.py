@@ -22,9 +22,18 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 WEB = ROOT / "web"
 MODULE = (WEB / "shim/mantel-settings.js").read_text(encoding="utf-8")
+PHOTOS = (WEB / "shim/mantel-photos.js").read_text(encoding="utf-8")
 
-ALL = ["me", "connections", "people", "devices", "files", "roles", "service", "connect", "audit"]
-ADMIN = ["me", "connections", "people", "devices", "files", "audit"]
+
+def node_modules(d):
+    """The page's modules as ES modules node can load (web/ has no package.json saying so)."""
+    (d / "base.mjs").write_text((WEB / "shim/base.js").read_text(encoding="utf-8"))
+    (d / "mantel-photos.mjs").write_text(PHOTOS)
+    (d / "mantel-settings.mjs").write_text(MODULE.replace("from './base.js'", "from './base.mjs'")
+                                           .replace("from './mantel-photos.js'", "from './mantel-photos.mjs'"))
+
+ALL = ["me", "connections", "people", "devices", "files", "photos", "roles", "service", "connect", "audit"]
+ADMIN = ["me", "connections", "people", "devices", "files", "photos", "audit"]
 
 
 def overview(role, sections, ha_set_up=True):
@@ -75,9 +84,7 @@ def run(tmp_path_factory):
     if shutil.which("node") is None:
         pytest.skip("node not installed")
     d = tmp_path_factory.mktemp("mantel-settings")
-    # the two modules as ES modules node can load (web/ has no package.json saying so)
-    (d / "base.mjs").write_text((WEB / "shim/base.js").read_text(encoding="utf-8"))
-    (d / "mantel-settings.mjs").write_text(MODULE.replace("from './base.js'", "from './base.mjs'"))
+    node_modules(d)
     (d / "script.mjs").write_text(SCRIPT)
     (d / "cases.json").write_text(json.dumps(CASES))
     got = subprocess.run(["node", str(d / "script.mjs"), str(d / "mantel-settings.mjs"), str(d / "cases.json")],
@@ -144,7 +151,7 @@ def test_the_page_hands_mantels_pages_to_the_shell_and_the_panel_draws_with_the_
 
 def test_every_glyph_mantels_pages_draw_is_served():
     names = set(json.loads((WEB / "mdi/icons.json").read_text()))
-    used = set(re.findall(r"mdi:([a-z0-9-]+)", MODULE))
+    used = set(re.findall(r"mdi:([a-z0-9-]+)", MODULE + PHOTOS))
     assert used and used <= names, sorted(used - names)
 
 
@@ -246,8 +253,7 @@ def had_run(tmp_path, dashboards, state="ok", message=None, framed=()):
                                            "door_key": {"required": False}, "frame_ancestors": ["https://ha.example.com"],
                                            "frame_option": "ha_frame_origins"},
     }
-    (tmp_path / "base.mjs").write_text((WEB / "shim/base.js").read_text(encoding="utf-8"))
-    (tmp_path / "mantel-settings.mjs").write_text(MODULE.replace("from './base.js'", "from './base.mjs'"))
+    node_modules(tmp_path)
     (tmp_path / "script.mjs").write_text(HAD_SCRIPT)
     (tmp_path / "reads.json").write_text(json.dumps(reads))
     got = subprocess.run(["node", str(tmp_path / "script.mjs"), str(tmp_path / "mantel-settings.mjs"),
@@ -308,3 +314,53 @@ def test_turned_on_inside_ha_at_an_address_not_allowed_it_says_so_and_offers_to_
     [g] = got["owner"]
     labels = [r["label"] for r in g["rows"]]
     assert "Allow ha-lan.example.com to Show Mantel" in labels
+
+
+PRESS_SCRIPT = r"""
+globalThis.window = globalThis;
+globalThis.document = { querySelector: () => null, cookie: 'mantel_csrf=fictional' };
+globalThis.location = { hostname: 'mantel.example', hash: '', search: '', pathname: '/settings' };
+const sent = [];
+let refuse = {};
+globalThis.fetch = async (u, init) => {
+  const body = init && init.body ? JSON.parse(init.body) : null;
+  sent.push({ method: init && init.method, path: String(u), body });
+  const tid = String(u).split('/')[4];
+  if (refuse[tid]) return { ok: false, status: refuse[tid][0], json: async () => ({ error: refuse[tid][1], message: refuse[tid][2] }) };
+  return { ok: true, status: 200, json: async () => ({ ok: true, result: { tablet: tid, verb: body.verb }, audit_id: 7 }) };
+};
+const m = await import(process.argv[2]);
+const out = {};
+const panel = { tabs: () => ({ kitchen: { name: 'Kitchen' }, loft: { name: 'Loft' } }), render() {} };
+m._reset(JSON.parse(process.argv[3]));
+out.notMine = m.host.press(['button.kitchen_kiosk_reload_page'], panel);
+await m.host.press(['mantel-tablet:kitchen:reload', 'mantel-tablet:loft:clear_cache', 'mantel-tablet:x:evalJs'], panel);
+out.sent = sent.splice(0);
+refuse = { loft: [503, 'commands_disabled', 'Commands are off on this Mantel, so nothing was sent to the tablet.'] };
+try { await m.host.press(['mantel-tablet:loft:reload'], panel); out.one = null; } catch (e) { out.one = e.message; }
+try { await m.host.press(['mantel-tablet:kitchen:reload', 'mantel-tablet:loft:reload'], panel); out.some = null; } catch (e) { out.some = e.message; }
+out.sentAfter = sent.length;
+m._reset(null);
+out.signedOut = m.host.press(['mantel-tablet:kitchen:reload'], panel);
+process.stdout.write(JSON.stringify(out));
+"""
+
+
+def test_the_host_presses_a_paired_tablets_reload_through_the_gateway(tmp_path):
+    """HK Settings' Reload buttons (hk-settings.js press -> host.press): each mantel-tablet part is a POST to the
+    tablet's command route (the gateway decides and audits); anything else is HA's; a refusal is said, by tablet."""
+    if shutil.which("node") is None:
+        pytest.skip("node not installed")
+    node_modules(tmp_path)
+    (tmp_path / "press.mjs").write_text(PRESS_SCRIPT)
+    got = subprocess.run(["node", str(tmp_path / "press.mjs"), str(tmp_path / "mantel-settings.mjs"),
+                          json.dumps(overview("owner", ALL))], capture_output=True, text=True, timeout=60)
+    assert got.returncode == 0, got.stderr
+    out = json.loads(got.stdout)
+    assert out["notMine"] is None and out["signedOut"] is None
+    assert [(s["method"], s["path"], s["body"]) for s in out["sent"]] == [
+        ("POST", "/api/connections/tablets/kitchen/command", {"verb": "reload"}),
+        ("POST", "/api/connections/tablets/loft/command", {"verb": "clear_cache"})]       # never another verb
+    assert out["one"] == "Commands are off on this Mantel, so nothing was sent to the tablet."
+    assert out["some"] == "Loft: Commands are off on this Mantel, so nothing was sent to the tablet."
+    assert out["sentAfter"] == 3

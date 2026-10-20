@@ -168,7 +168,7 @@ async def steps(app, ha: HA, owner, entry: str, base: str, svc: str, out: dict) 
     check(done.get("type") == "menu", "Configure -> Linked to Mantel Server saved (loopback http allowed)")
     check(await until(lambda: asyncio.sleep(0, bool(lk.registry.clients))), "HA's link says hello to Mantel")
     diag = await until(lambda: _diag_connected(ha, entry))
-    check(diag and diag["linked"]["owners"] == {"house": "ha", "tablets": []} and diag["linked"]["connected"],
+    check(diag and diag["linked"]["owners"] == {"house": "ha", "tablets": [], "bridge": "hk_frontend"} and diag["linked"]["connected"],
           "HA's diagnostics: linked, connected, everything still Home Assistant's")
     check(svc not in json.dumps(diag), "the credential is not in HA's diagnostics")
     check(lk.registry.entities == {}, "Mantel publishes nothing while it owns nothing")
@@ -176,7 +176,7 @@ async def steps(app, ha: HA, owner, entry: str, base: str, svc: str, out: dict) 
     check(st["state"] == before["state"] and st["state"] != "unavailable", "Seasonal decorations is still HA's own")
     # -- an Owner moves the rest of the entry to Mantel ---------------------------------------------------
     st_code, body = await owner.post("/api/linked/owners", {"unit": "house", "owner": "mantel"}, method="PUT")
-    check(st_code == 200 and body["wire"] == {"house": "mantel", "tablets": []}, "the Owner moves `house` to Mantel")
+    check(st_code == 200 and body["wire"] == {"house": "mantel", "tablets": [], "bridge": "hk_frontend"}, "the Owner moves `house` to Mantel")
     rows = app["audit"].rows(kind="config")
     check(rows and rows[-1]["action"] == "linked.owner", "the move is audited (linked.owner)")
     diag = await until(lambda: _diag_owned(ha, entry))

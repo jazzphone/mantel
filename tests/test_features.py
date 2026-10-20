@@ -406,6 +406,45 @@ def fast(monkeypatch):
 SLEEPING = {**TABLET, "sleep": {**TABLET["sleep"], "decided_by": "hk"}}
 
 
+async def test_an_engine_made_before_the_registries_finds_its_kiosk_when_they_load(make_env, fast, monkeypatch):
+    # an App start (0.1.29, 2026-10-19): the engines were made a moment before HA's registries arrived, kept
+    # an empty kiosk, and so never turned a display off nor raised the kiosk's Black screensaver
+    real = F.MantelSleep.options
+    reg = {"loaded": True}
+
+    def options(self, board):
+        if reg["loaded"]:
+            real(self, board)
+        else:
+            real(self, board)
+            self.kiosk = {}                                    # as if HA's registries had not arrived yet
+    monkeypatch.setattr(F.MantelSleep, "options", options)
+    reg["loaded"] = False
+    env = await make_env(settings={"sleep": {"enabled": True}, "linked": {"enabled": True, "entry_id": ENTRY}},
+                         tablet=SLEEPING)
+    eng = env.host.engines["hall"]
+    assert eng.kiosk == {}
+    reg["loaded"] = True
+    hub = env.m.app["hub"]
+    hub.registry.load(AREAS, DEVICES, ENTITIES)                # the registries arrive
+    env.host.on_registry()
+    assert await until(lambda: env.host.engines["hall"].kiosk == KP)
+    assert env.host.engines["hall"] is eng                     # the same engine, now with its kiosk
+
+
+def test_the_house_index_follows_every_registry_load():
+    from mantel_server.house import MantelHouse
+    from mantel_server.registry import Registry
+    from mantel_server.state import StateStore
+    reg = Registry()
+    house = MantelHouse(StateStore(), reg)
+    assert house.device_entities(KIOSK) == []
+    reg.load(AREAS, DEVICES, ENTITIES)
+    assert {e.entity_id for e in house.device_entities(KIOSK)} == set(KP.values())
+    reg.load(AREAS, [], [])
+    assert house.device_entities(KIOSK) == []
+
+
 async def test_the_sleep_screen_with_commands_off_records_what_it_would_do(make_env, fast):
     env = await make_env(settings={"sleep": {"enabled": True}, "linked": {"enabled": True, "entry_id": ENTRY}},
                          tablet=SLEEPING)
@@ -689,3 +728,21 @@ def test_energy_context_reads_the_house_through_the_port():
     ctx = F.energy_context(mantel_house_of(Fake()), {}, {})
     assert ctx["vehicles"] == ["sensor.car_battery"] and ctx["entities"]["sensor.car_battery"]["range"] == "sensor.car_range"
     assert ctx["areas"] == {"garage": {"name": "Garage", "icon": None}}
+
+
+async def test_hk_settings_lists_the_kiosk_devices_for_a_tablets_device_picker(make_env):
+    # Setup -> Device offered only "None" in Mantel: panel/get's kiosk_devices was always empty (2026-10-20)
+    env = await make_env()
+    got = env.app["settings"].panel_payload()["kiosk_devices"]
+    assert got == [{"id": KIOSK, "name": "Hall Kiosk", "app": "kiosk_satellite"}]
+
+
+async def test_every_ha_connect_tells_the_features_never_the_pages(make_env, monkeypatch):
+    env = await make_env()
+    ha = env.app["hub"].ha
+    told: list[int] = []
+    monkeypatch.setattr(env.host, "on_registry", lambda: told.append(1))
+    pages: list[int] = []
+    monkeypatch.setattr(env.app["hub"], "on_registry", lambda: pages.append(1))
+    ha.on_registries_loaded()
+    assert told == [1] and pages == []

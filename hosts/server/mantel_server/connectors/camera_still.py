@@ -102,17 +102,18 @@ def _side(value: str | None) -> int | None:
     return int(value)
 
 
-async def proxy_image(request: web.Request, url: str, params: dict, token: str, what: str, unavailable: str,
+async def proxy_image(request: web.Request, url: str, params: dict, token: str | None, what: str, unavailable: str,
                       not_found: str) -> web.StreamResponse:
     """Stream one image from HA with Mantel's credential (never logged, never sent on). Shared by the
-    camera stills here and media artwork (media_art.py). Non-image answers become ``unavailable``."""
+    camera stills here, media artwork (media_art.py) and the screensaver's photos (media_photos.py, which
+    sends no credential: HA's own signature is in its URL). Non-image answers become ``unavailable``."""
     http = request.app.get("http")
     own = http is None
     resp: web.StreamResponse | None = None
     if own:
         http = aiohttp.ClientSession()
     try:
-        async with http.get(url, params=params, headers={"Authorization": f"Bearer {token}"},
+        async with http.get(url, params=params, headers={"Authorization": f"Bearer {token}"} if token else {},
                             timeout=aiohttp.ClientTimeout(total=TIMEOUT), allow_redirects=False) as r:
             if r.status == 404:
                 return _error(404, not_found)

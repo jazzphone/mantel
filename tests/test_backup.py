@@ -476,6 +476,8 @@ def test_cli_backup_and_restore(tmp_path, capsys, target):
     assert len(files) == 1
     assert cli_main(["backup", "--data-dir", str(data), "--secrets-dir", str(secrets), "--target", str(target)]) == 0
     assert "created a new" not in capsys.readouterr().err
+    # the newest backup: when the two land in different seconds, rotation keeps only the second of the day
+    files = sorted(target.glob("*.mbk"))[-1:]
     # a test restore first: nothing changes
     fresh = tmp_path / "fresh"
     assert cli_main(["restore", str(files[0]), "--data-dir", str(fresh), "--secrets-dir", str(secrets),

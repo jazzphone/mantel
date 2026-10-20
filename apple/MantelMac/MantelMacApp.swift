@@ -2,121 +2,128 @@ import AppKit
 import MantelKit
 import SwiftUI
 
-/// Mantel in the Mac's menu bar (docs/phase10/APPLE-APPS.md §9): music on the person's speaker, their favorites as
-/// toggles, and "Open Mantel". It shares MantelKit (sign-in, the device key, the API) with the iPhone app.
+/// Mantel in the Mac's menu bar (docs/phase10/APPLE-APPS.md §9 and §12): a music player of its own (the house's music,
+/// with Speakers / Volume / Up Next / Browse) in the menu, Play Music in a window, the person's favorites as toggles (chosen here
+/// too), and the keyboard's play/pause key for the house's speaker. It shares MantelKit (sign-in, the device key, the
+/// API) and SessionModel with the iPhone app.
 @main
 struct MantelMacApp: App {
-    @StateObject private var model = SessionModel()
+    @NSApplicationDelegateAdaptor(AppDelegate.self) private var delegate
 
     var body: some Scene {
         MenuBarExtra {
-            MenuContent().environmentObject(model).frame(width: 320)
+            MenuPanel().environmentObject(delegate.model).environmentObject(delegate.app)
         } label: {
-            Image(systemName: model.summary?.now_playing?.state == "playing" ? "music.note.house.fill" : "house.fill")
+            MenuLabel(model: delegate.model, app: delegate.app)
         }
         .menuBarExtraStyle(.window)
+
+        Window("Music", id: "music") {
+            MusicWindow().environmentObject(delegate.model).environmentObject(delegate.app)
+        }
+        .defaultSize(width: 1100, height: 760)       // Play Music's wide layout: what plays beside Browse
+        .windowStyle(.hiddenTitleBar)                 // no gray bar: the window's buttons float on the page
+        .windowBackgroundDragBehavior(.enabled)
+
+        Window("Favorites", id: "favorites") {
+            NavigationStack { FavoritesEditor() }.environmentObject(delegate.model).frame(minWidth: 380, minHeight: 480)
+        }
+        .defaultSize(width: 420, height: 620)
+
+        Window("Set Up Mantel", id: "setup") {
+            SetupWindow().environmentObject(delegate.model)
+        }
+        .windowResizability(.contentSize)
     }
 }
 
-struct MenuContent: View {
-    @EnvironmentObject private var model: SessionModel
-    @State private var link = ""
-    @State private var address = ""
+/// What lives as long as the app: the house's pages (the menu's two and the window's), the media keys.
+@MainActor
+final class MacApp: ObservableObject {
+    /// The menu's: the player, the favorites (both under the panel's floating controls); the window's: Play Music.
+    let menuPage = HousePage(query: "pane=player", topInset: MenuPanel.band, probe: "!!window.__mantelPlayer")
+    let favoritesPage = HousePage(query: "pane=favorites", topInset: MenuPanel.band, zoom: 0.75,
+                                  probe: "!!(window.hkStrategy && window.hkStrategy.favoritesView)")
+    let windowPage = HousePage(view: "playmusic", query: "bare=1", topInset: 28)
+    var pages: [HousePage] { [menuPage, favoritesPage, windowPage] }
+    let keys = NowPlayingKeys()
+    /// A window to open, asked for by a `mantel://music` (or `favorites`, `setup`) link; the menu bar icon opens it.
+    @Published var openRequest: String?
+    @Published var mediaKeys: Bool {
+        didSet { UserDefaults.standard.set(mediaKeys, forKey: NowPlayingKeys.enabledKey) }
+    }
+
+    init() { mediaKeys = UserDefaults.standard.bool(forKey: NowPlayingKeys.enabledKey) }
+
+    /// A window opened from the menu bar comes to the front: the app has no Dock icon, so macOS may leave it behind.
+    static func front(_ id: String) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+            NSApp.activate(ignoringOtherApps: true)
+            for w in NSApp.windows where w.identifier?.rawValue.contains(id) == true && w.isVisible {
+                w.makeKeyAndOrderFront(nil)
+                w.orderFrontRegardless()
+            }
+        }
+    }
+}
+
+@MainActor
+final class AppDelegate: NSObject, NSApplicationDelegate {
+    let model = SessionModel()
+    let app = MacApp()
+    private var timer: Timer?
+
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        app.keys.attach(model)
+        MusicActivityController.shared.keys = app.keys
+        // the speaker's song and state for the media keys and the menu's icon: the summary, every 20 seconds
+        timer = Timer.scheduledTimer(withTimeInterval: 20, repeats: true) { [weak self] _ in
+            Task { @MainActor in
+                guard let self, self.model.phase == .ready else { return }
+                await self.model.refresh()
+            }
+        }
+    }
+
+    /// A `mantel://pair` link clicked in Mantel Settings (or anywhere): pair with that house. `mantel://music`,
+    /// `mantel://favorites` and `mantel://setup` open those windows.
+    func application(_ application: NSApplication, open urls: [URL]) {
+        for url in urls {
+            if let link = PairingLink(url: url) {
+                Task { await model.pair(link) }
+            } else if url.scheme == MantelConfig.urlScheme, let host = url.host, ["music", "favorites", "setup"].contains(host) {
+                app.openRequest = host
+            } else {
+                #if DEBUG
+                DebugHook.handle(url, app: app, model: model)
+                #endif
+            }
+        }
+    }
+}
+
+struct MenuLabel: View {
+    @ObservedObject var model: SessionModel
+    @ObservedObject var app: MacApp
+    @Environment(\.openWindow) private var openWindow
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Text(model.house?.name ?? "Mantel").font(.headline)
-                Spacer()
-                if model.door == .tunnel { Label("Away", systemImage: "globe").font(.caption).foregroundStyle(.secondary) }
+        Image(systemName: model.summary?.now_playing?.state == "playing" ? "music.note.house.fill" : "house.fill")
+            .onChange(of: app.openRequest) { _, id in
+                guard let id else { return }
+                app.openRequest = nil
+                openWindow(id: id)
+                MacApp.front(id)
             }
-            switch model.phase {
-            case .setup: setup
-            case .signIn:
-                Button("Sign In…") { Task { await model.signIn() } }.disabled(model.busy)
-            case .ready: ready
-            }
-            if let p = model.problem { Text(p).font(.caption).foregroundStyle(.red) }
-            Divider()
-            HStack {
-                if model.phase == .ready {
-                    Button("Open Mantel") { Task { if let u = await model.webSessionURL() { NSWorkspace.shared.open(u) } } }
-                    Button("Sign Out") { Task { await model.signOut() } }
-                }
-                Spacer()
-                Button("Quit") { NSApp.terminate(nil) }
-            }
-        }
-        .padding(14)
-        .task { await model.refresh() }
-    }
-
-    private var setup: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Paste the pairing link from Mantel Settings → Me → Mantel App, or type Mantel’s address.")
-                .font(.caption).foregroundStyle(.secondary)
-            TextField("mantel://pair?…", text: $link).onSubmit {
-                if let u = URL(string: link), let l = PairingLink(url: u) { Task { await model.pair(l) } }
-            }
-            TextField("https://mantel.example.com", text: $address).onSubmit { Task { await model.lookUp(address) } }
-            if let h = model.pending {
-                Text("“\(h.name)” shows \(model.pendingCode ?? ""). Same six digits in Mantel Settings?").font(.caption)
-                Button("Yes, Sign In") { model.confirmPending(); Task { await model.signIn() } }
-            }
-        }
-    }
-
-    @ViewBuilder private var ready: some View {
-        if let p = model.summary?.now_playing {
-            VStack(alignment: .leading, spacing: 4) {
-                Label(p.name, systemImage: "hifispeaker.fill").font(.caption).foregroundStyle(.secondary)
-                Text(p.attributes?.media_title ?? "Nothing playing").font(.body.weight(.semibold)).lineLimit(1)
-                Text(p.attributes?.media_artist ?? "").font(.caption).foregroundStyle(.secondary)
-                HStack(spacing: 16) {
-                    control("backward.fill", "media_previous_track", p)
-                    control(p.state == "playing" ? "pause.fill" : "play.fill", "media_play_pause", p)
-                    control("forward.fill", "media_next_track", p)
-                    Slider(value: Binding(get: { p.attributes?.volume_level ?? 0 }, set: { v in
-                        Task { await model.run(Command(domain: "media_player", service: "volume_set", entity_id: p.entity_id,
-                                                       data: ["volume_level": .number(v)])) }
-                    }), in: 0...1)
-                }
-                .buttonStyle(.plain)
-            }
-            Divider()
-        }
-        let favs = model.summary?.favorites ?? []
-        if favs.isEmpty {
-            Text("Choose favorites in the Mantel app on your iPhone, or in Mantel Settings.").font(.caption).foregroundStyle(.secondary)
-        }
-        ForEach(favs) { e in
-            HStack {
-                VStack(alignment: .leading) {
-                    Text(e.name)
-                    Text(e.detail).font(.caption).foregroundStyle(.secondary)
-                }
-                Spacer()
-                if e.isToggleable {
-                    Toggle("", isOn: Binding(get: { e.isOn }, set: { _ in Task { await model.toggle(e) } })).toggleStyle(.switch).labelsHidden()
-                } else if e.isAction {
-                    Button("Run") { Task { await model.toggle(e) } }
-                }
-            }
-        }
-    }
-
-    private func control(_ symbol: String, _ service: String, _ p: EntityState) -> some View {
-        Button { Task { await model.run(Command(domain: "media_player", service: service, entity_id: p.entity_id)) } } label: {
-            Image(systemName: symbol).font(.title3)
-        }
     }
 }
 
-/// The Mac has no Live Activity; its music is the menu above.
+/// The Mac has no Live Activity: the speaker's song goes to the media keys (NowPlayingKeys) instead.
 @MainActor final class MusicActivityController {
     static let shared = MusicActivityController()
-    func follow(_ playing: EntityState?, house: House) async {}
-    func end() async {}
+    var keys: NowPlayingKeys?
+    func follow(_ playing: EntityState?, house: House) async { keys?.follow(playing) }
+    func end() async { keys?.follow(nil) }
 }
 
 /// Notifications on the Mac are optional (§9) and not wired yet.

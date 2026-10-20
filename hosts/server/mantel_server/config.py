@@ -11,6 +11,12 @@ LOOPBACK_DEFAULT = "127.0.0.1"
 REPO = Path(__file__).resolve().parents[3]
 
 
+def _docs(shipped: str, source: str) -> Path:
+    """Where /docs reads a page set: as an image carries it (help/), else its source in this repository."""
+    p = REPO / shipped
+    return p if p.exists() else REPO / source
+
+
 @dataclass
 class Config:
     ha_url: str = "http://192.0.2.53:8123"
@@ -26,6 +32,10 @@ class Config:
     hk_files: Path = REPO / "spikes/hk-snapshot/hk_local"
     fixtures: Path = REPO / "spikes/hk-snapshot/fixtures"      # captured HK feeds (personal data; git-ignored)
     web: Path = REPO / "web"
+    # /docs (docs_pages.py): HK's pages (HK Frontend's wiki, its source in this repository) and Mantel's own;
+    # the images carry them as help/ (Dockerfile, tools/stage_ha_app.py)
+    docs_hk: Path = field(default_factory=lambda: _docs("help/hk", "hosts/ha/custom_components/hk_frontend/docs"))
+    docs_mantel: Path = field(default_factory=lambda: _docs("help/Mantel.md", "packaging/ha-app/DOCS.md"))
     data_dir: Path = Path("~/.local/share/mantel")
     secrets_dir: Path = Path("~/.config/mantel/secrets")    # at-rest key file (created 0700/0600 on first use)
     session_hours: float = 12.0                              # session lifetime on the tunnel door
@@ -80,6 +90,11 @@ class Config:
     # HA App mode: Home Assistant is reached with the Supervisor's own App credential, so the Connections
     # page shows HA as "Provided by Home Assistant (App)" and never edits it (connections.py)
     ha_managed_by_app: bool = False
+    # Mantel Link's discovery (docs/phase9/MANTEL-LINK.md 9.5): the HA App announces Mantel to the Supervisor
+    # (supervisor_discovery.py; with the App's Supervisor credential, the token file); Docker/LXC write what the
+    # host-network announcer advertises by zeroconf (announce.py)
+    supervisor_url: str = ""
+    announce_file: Path | None = None
     # Mantel Connect (connect_pairing.py): Mantel Server OUTSIDE HA, reached by the Connect App in HA's sidebar
     # over mutual TLS on its own port. Implies ingress mode (identity from the paired App's X-Remote-User-*
     # headers), but trusts no socket peer: `ingress_peers` stays empty unless --ingress is also given.
@@ -233,6 +248,12 @@ def parse_args(argv: list[str] | None = None) -> Config:
     p.add_argument("--ha-managed-by-app", action="store_true",
                    help="HA App mode: the Home Assistant credential is the Supervisor's (the Connections page "
                         "shows it as provided by Home Assistant and does not edit it)")
+    p.add_argument("--supervisor-url", default="", metavar="URL",
+                   help="HA App mode: announce Mantel to Home Assistant through this Supervisor (http://supervisor), "
+                        "with a rotated `linked` Service credential (Mantel Link's 'Discovered: Mantel')")
+    p.add_argument("--announce-file", default="", metavar="PATH",
+                   help="Docker/LXC: write what to announce by zeroconf (_mantel._tcp, no secret) here, for the "
+                        "host-network announcer (python -m mantel_server.announce)")
     p.add_argument("--connect", action="store_true",
                    help="Mantel Connect: also listen (TLS, client certificates) for the Connect App in Home Assistant's "
                         "sidebar, and offer pairing (mantel connect pair; /admin). Off by default")
@@ -380,6 +401,8 @@ def parse_args(argv: list[str] | None = None) -> Config:
                  ingress_only=bool(a.ingress_only), ha_door_rules=a.ha_door_rules, ha_ws_url=a.ha_ws_url,
                  ha_core_peers=tuple(core_peers),
                  ha_managed_by_app=bool(a.ha_managed_by_app),
+                 supervisor_url=a.supervisor_url.rstrip("/"),
+                 announce_file=Path(a.announce_file) if a.announce_file else None,
                  log_level=a.log_level, go2rtc_url=a.go2rtc_url.rstrip("/"),
                  live_tv_hardware="" if a.live_tv_hardware == "none" else a.live_tv_hardware,
                  direct_port=a.direct_port, direct_tls="" if a.direct_tls == "none" else a.direct_tls,

@@ -388,6 +388,48 @@ def linked_error(reply: Mapping[str, Any]) -> Any:
     return LinkedError(c, LINKED_MESSAGES.get(c) or msg or c)
 
 
+# -- HK Settings' Alarm PIN page ----------------------------------------------------------------------------
+PAGE_SAVES = frozenset({"hk_alarm_pin/settings/set", "hk_alarm_pin/add"})
+
+
+async def follow_page_save(app: Any, frame: Mapping[str, Any], result: Any) -> str | None:
+    """HK Settings' Alarm PIN page still saves in Home Assistant (its checks: the length, typed twice; the
+    gateway forwards it). Mantel's keypads check Mantel's own table, so what HA accepted is stored here too:
+    the PIN (typed twice), the arm rule, and which alarm the panel stands in front of. Without it a PIN set
+    in HK Settings was "not set" at every tablet (the house, 2026-10-20). Called after HA's success only, with
+    HA's answer (its page). The panel it stored, or None; never raises, never logs a PIN."""
+    pins = app.get("alarm_pin") if hasattr(app, "get") else None
+    if pins is None or not isinstance(result, Mapping) or frame.get("type") not in PAGE_SAVES:
+        return None
+    alarms = [a for a in result.get("alarms") or [] if isinstance(a, Mapping)]
+    if frame.get("type") == "hk_alarm_pin/settings/set":
+        row = next((a for a in alarms if a.get("entry_id") == frame.get("entry_id")), None)
+        changes = frame.get("changes") if isinstance(frame.get("changes"), Mapping) else {}
+    else:
+        row = next((a for a in alarms if a.get("alarm") == frame.get("alarm")), None)
+        changes = {k: frame[k] for k in ("pin", "pin_again", "arm_required") if k in frame}
+    panel = row.get("panel") if row is not None else None
+    if not isinstance(panel, str) or not PANEL.match(panel):
+        return None
+    kw: dict[str, Any] = {}
+    alarm = row.get("alarm")
+    if isinstance(alarm, str) and PANEL.match(alarm):
+        kw["forward_to"] = alarm
+    if isinstance(changes.get("pin"), str) and changes.get("pin"):
+        kw["pin"], kw["pin_again"] = changes["pin"], changes.get("pin_again")
+    if isinstance(changes.get("arm_required"), bool):
+        kw["arm_required"] = changes["arm_required"]
+    elif pins.entry(panel) is None and isinstance(row.get("arm_required"), bool):
+        kw["arm_required"] = row["arm_required"]           # a new row takes HA's arm rule
+    try:
+        await pins.set(panel, source="hk_settings", **kw)
+    except Exception as exc:  # noqa: BLE001 -- HA's save stands; the page shows Mantel's own state
+        log.warning("Alarm PIN for %s: HA took the page's save, Mantel's copy failed (%s)", panel, type(exc).__name__)
+        return None
+    log.info("Alarm PIN for %s: HK Settings' save stored in Mantel too (%s)", panel, ", ".join(sorted(kw)))
+    return panel
+
+
 # -- REST ------------------------------------------------------------------------------------------------
 def alarm_pins_of(request: web.Request) -> AlarmPins:
     return request.app["alarm_pin"]

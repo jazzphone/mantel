@@ -79,6 +79,15 @@ def test_the_music_queue_is_a_read(observed):
     assert observed["results"]["queue"] == {"ok": True, "index": 0, "items": []}
 
 
+def test_the_screensavers_photo_is_a_read_on_mantels_own_route(observed):
+    frames = [m for m in observed["sent"] if m["type"] == "read" and m["msg"]["type"] == "media_source/resolve_media"]
+    assert [f["msg"]["media_content_id"] for f in frames] == ["media-source://media_source/local/p/a.jpg",
+                                                              "media-source://media_source/local/p/b.jpg"]
+    assert observed["results"]["photo"] == {"url": "/api/hassio_ingress/Fict1onal/api/photo/" + "0123456789abcdef" * 2,
+                                            "mime_type": "image/jpeg"}
+    assert observed["results"]["photoBad"] == "not_found"          # never HA's own signed address
+
+
 def test_everything_else_stays_refused_and_sends_nothing(observed):
     assert observed["refused"] == ["commands_disabled"] * 4
     assert observed["sentAfterRefusals"] == 0

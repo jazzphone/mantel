@@ -73,7 +73,8 @@ REWRITE_TYPES = ("text/html", "text/css", "text/javascript", "application/javasc
 # Ingress), its WebSocket API, its image proxy and its own sign-in pages. Never its JSON-RPC HTTP API.
 MA_STATIC = re.compile(r"^(?:|index\.html|[A-Za-z0-9._-]+\.(?:js|mjs|css|png|svg|ico|webmanifest|json|woff2?|ttf|"
                        r"map|txt|webp|jpg|jpeg|gif)|(?:assets|img|images|icons|fonts|static)/[A-Za-z0-9._/@-]+)$")
-MA_GET_EXTRA = re.compile(r"^(?:imageproxy|info|login|auth/[A-Za-z0-9._/-]+)$")
+# (imageproxy/<proxy_id> is Music Assistant 2.10's image proxy: a 64-hex id it hands out; the bare form is older MA's)
+MA_GET_EXTRA = re.compile(r"^(?:imageproxy|imageproxy/[0-9a-f]{64}|info|login|auth/[A-Za-z0-9._/-]+)$")
 MA_POST = re.compile(r"^(?:login|auth/[A-Za-z0-9._/-]+)$")
 MA_WS = frozenset({"ws"})
 MA_DENY = re.compile(r"^(?:api|api-docs|jsonrpc)(?:/|$)")

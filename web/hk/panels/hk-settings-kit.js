@@ -682,21 +682,24 @@
   // ------------------------------------------------------------ the alert
   // confirm(shadowRoot, {title, message, ok, cancel, destructive}) -> Promise<bool>.
   // Cancel is where focus starts; Escape cancels; focus stays in the alert.
+  // an iOS alert: Cancel and OK, or (cancel: false) OK alone, to say something
   function confirm(rootEl, o) {
     return new Promise(function (resolve) {
       var tid = id('dt'), mid = id('dm');
       var prev = rootEl.activeElement || document.activeElement;
-      var cancel = h('button', { type: 'button', class: 'cx' + (o.destructive ? ' bold' : ''), text: o.cancel || 'Cancel' });
       var ok = h('button', { type: 'button', class: o.destructive ? 'red' : 'bold', text: o.ok || 'OK' });
+      var cancel = o.cancel === false ? ok
+        : h('button', { type: 'button', class: 'cx' + (o.destructive ? ' bold' : ''), text: o.cancel || 'Cancel' });
       var dlg = h('div', { class: 'dlg', role: 'alertdialog', 'aria-modal': 'true', 'aria-labelledby': tid, 'aria-describedby': mid }, [
-        h('h2', { id: tid, text: o.title }), h('p', { id: mid, text: o.message || '' }), h('div', { class: 'db' }, [cancel, ok])]);
+        h('h2', { id: tid, text: o.title }), h('p', { id: mid, text: o.message || '' }),
+        h('div', { class: 'db' }, cancel === ok ? [ok] : [cancel, ok])]);
       var bd = h('div', { class: 'dlgbd' }, dlg);
       var close = function (v) {
         bd.remove();
         if (prev && prev.focus) { try { prev.focus(); } catch (e) { /* gone */ } }
         resolve(v);
       };
-      cancel.addEventListener('click', function () { close(false); });
+      if (cancel !== ok) cancel.addEventListener('click', function () { close(false); });
       ok.addEventListener('click', function () { close(true); });
       bd.addEventListener('keydown', function (e) {
         if (e.key === 'Escape') { e.preventDefault(); close(false); }

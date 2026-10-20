@@ -1,0 +1,31 @@
+name: Validate
+
+on:
+  push:
+  pull_request:
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+jobs:
+  hacs:
+    name: HACS
+    runs-on: ubuntu-latest
+    steps:
+      # HACS reads hacs.json and the manifest as raw files, which a private
+      # repository does not serve: the check can only pass once it is public
+      - id: repo
+        run: echo "private=$(gh api repos/${{ github.repository }} --jq .private)" >> "$GITHUB_OUTPUT"
+        env:
+          GH_TOKEN: ${{ github.token }}
+      - if: steps.repo.outputs.private == 'false'
+        uses: hacs/action@main
+        with:
+          category: integration
+
+  hassfest:
+    name: Hassfest
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: home-assistant/actions/hassfest@master

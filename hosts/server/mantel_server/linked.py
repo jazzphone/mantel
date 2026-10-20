@@ -53,17 +53,28 @@ from aiohttp import WSCloseCode, WSMsgType, web
 
 log = logging.getLogger("mantel.linked")
 
-PROTOCOL = 1
+PROTOCOL = 1                   # what a client that does not say (HK Frontend before 9.10) is answered
+PROTOCOLS = (1, 2)             # 2: Mantel Link (docs/phase9/MANTEL-LINK.md "Protocol 2")
+DOMAINS = ("hk_frontend", "mantel")   # the HA integration on the other end: HK Frontend or Mantel Link
+LINK_HEADER = "X-Mantel-Link"  # "domain=mantel; protocol=2; features=a,b" on the upgrade request
 PATH = "/linked/ws"
 SCOPE = "linked"
 SERVICES = ("set_black_screen", "show_popup", "close_popup", "notify")
+# protocol 2 also forwards HK Frontend's other actions, run by Mantel's own engines (linked_actions.py)
+SERVICES_2 = SERVICES + ("music_play", "music_transfer", "music_stop", "music_transport", "music_play_media",
+                         "clean_areas", "pause_automation", "resume_automation")
 PLATFORMS = ("switch", "sensor", "binary_sensor", "camera", "alarm_control_panel")
 ALARM_COMMANDS = frozenset({"alarm_disarm", "alarm_arm_home", "alarm_arm_away", "alarm_arm_night",
                             "alarm_arm_vacation", "alarm_arm_custom_bypass", "alarm_trigger"})
 COMMANDS: dict[str, frozenset[str]] = {"switch": frozenset({"turn_on", "turn_off", "toggle"}),
                                        "alarm_control_panel": ALARM_COMMANDS}
 CLIENT_TYPES = frozenset({"call_service", "entity_command", "ping"})
+# protocol 2 adds `report`: what Mantel Link tells about its Home Assistant (is HK Frontend there?)
+CLIENT_TYPES_2 = CLIENT_TYPES | {"report", "phone_action"}
 SERVER_TYPES = frozenset({"hello", "result", "entity", "state", "removed", "owners"})
+# protocol 2 adds ONE thing Mantel may ask Home Assistant to do: a notification to a Companion-app phone
+# (phones.py; Mantel Link calls notify.mobile_app_<phone> and nothing else)
+SERVER_TYPES_2 = SERVER_TYPES | {"phone_notify"}
 HANDLER_TIMEOUT = 8.0          # under HA's 10 s, so HA's call gets Mantel's own "timeout" first
 RECHECK_S = 60.0               # how often an idle socket re-checks that its credential is live
 HEARTBEAT_S = 30.0             # pings that find a linked HA gone without a goodbye
@@ -72,7 +83,12 @@ MAX_TARGETS = 50
 
 _KEYS = {"call_service": {"id", "type", "service", "data", "targets"},
          "entity_command": {"id", "type", "unique_id", "command", "data"},
-         "ping": {"id", "type"}}
+         "ping": {"id", "type"},
+         "report": {"id", "type", "report"},
+         "phone_action": {"id", "type", "action", "service"}}
+# a report's parts (protocol 2), each checked by its own key
+_REPORT_KEYS = frozenset({"hk_frontend", "phones"})
+_PHONE = re.compile(r"^mobile_app_[a-z0-9_]{1,80}$")
 _POPUP_KEYS = frozenset({"popup", "dashboards", "users"})
 _BLACK_KEYS = frozenset({"black", "brightness"})
 # hk_frontend.notify, as HA's NOTIFY_SCHEMA validated it (features/notifications)
@@ -82,7 +98,8 @@ _NOTIFY_TAPS = frozenset({"sheet", "camera", "page", "none"})
 _ICON = re.compile(r"^(hk|mdi):[a-z0-9-]+$")
 _EID = re.compile(r"^[a-z0-9_]+\.[a-z0-9_]+$")
 _PAGE = re.compile(r"^[a-z0-9][a-z0-9_-]{0,63}$")         # hk_core.notifications.const.PAGE_RE
-NO_OWNERS = {"house": "ha", "tablets": []}
+NO_OWNERS = {"house": "ha", "tablets": [], "bridge": "hk_frontend"}
+BRIDGES = ("hk_frontend", "mantel")     # who mirrors Mantel's entities in HA: HK Frontend or Mantel Link
 _SLUG = re.compile(r"^[a-z0-9_]+$")
 _KEEP = object()
 
@@ -188,6 +205,33 @@ def _copy(d: Any) -> Any:
     return json.loads(json.dumps(d))
 
 
+def wire_owners(owners: Mapping[str, Any] | None) -> dict[str, Any]:
+    """Who owns what, as every linked HA is told: ``house``, ``tablets`` (the ones Mantel owns) and
+    ``bridge`` (who mirrors them in HA: ``hk_frontend``, the default, or ``mantel``, Mantel Link).
+    HK Frontend before its 9.10 release reads only the first two."""
+    owners = owners or {}
+    return {"house": "mantel" if owners.get("house") == "mantel" else "ha",
+            "tablets": sorted({str(t) for t in owners.get("tablets") or []}),
+            "bridge": "mantel" if owners.get("bridge") == "mantel" else "hk_frontend"}
+
+
+def parse_link_header(value: str | None) -> tuple[str, int, frozenset[str]]:
+    """The client's ``X-Mantel-Link`` header: (domain, protocol, features). No header (HK Frontend
+    before 9.10): ``hk_frontend``, protocol 1, no features. A protocol above Mantel's own is answered
+    with Mantel's newest (the client then says it is too old for it)."""
+    domain, protocol, features = "hk_frontend", 1, frozenset()
+    for part in (value or "").split(";"):
+        key, _, val = part.strip().partition("=")
+        key, val = key.strip().lower(), val.strip()
+        if key == "domain" and val in DOMAINS:
+            domain = val
+        elif key == "protocol" and val.isdigit():
+            protocol = max(PROTOCOLS[0], min(int(val), PROTOCOLS[-1]))
+        elif key == "features":
+            features = frozenset(f.strip() for f in val.split(",") if re.fullmatch(r"[a-z0-9_]{1,32}", f.strip()))
+    return domain, protocol, features
+
+
 class LinkedRegistry:
     """The entities Mantel publishes to linked HA instances, and their state. Every change is
     pushed to every connected linked client at once."""
@@ -244,9 +288,12 @@ class LinkedRegistry:
     async def set_owners(self, owners: Mapping[str, Any]) -> None:
         """Who owns which unit changed: every linked HA is told at once (``owners``), before any
         entity of a moved unit is published or withdrawn."""
-        self.owners = {"house": "mantel" if owners.get("house") == "mantel" else "ha",
-                       "tablets": sorted({str(t) for t in owners.get("tablets") or []})}
+        self.owners = wire_owners(owners)
         await self._push({"type": "owners", "owners": _copy(self.owners)})
+
+    def clients_of(self, domain: str) -> list["LinkedClient"]:
+        """The connected clients of one integration (``hk_frontend`` or ``mantel``)."""
+        return [c for c in self.clients if c.domain == domain and not c.ws.closed]
 
     async def _push(self, msg: dict[str, Any]) -> None:
         text = json.dumps(msg)
@@ -258,9 +305,19 @@ class LinkedRegistry:
 class LinkedClient:
     """One linked HA instance's socket. Sends are serialised, so a push and a result never interleave."""
 
-    def __init__(self, ws: web.WebSocketResponse, account: Any, peer: str | None) -> None:
+    def __init__(self, ws: web.WebSocketResponse, account: Any, peer: str | None, domain: str = "hk_frontend",
+                 protocol: int = 1, features: frozenset[str] = frozenset()) -> None:
         self.ws, self.account, self.peer = ws, account, peer
+        self.domain, self.protocol, self.features = domain, protocol, frozenset(features)
+        self.report: dict[str, Any] = {}       # protocol 2: the last `report` (HK Frontend there or not)
+        self.since: float | None = None
         self.lock = asyncio.Lock()
+
+    def describe(self) -> dict[str, Any]:
+        """For Mantel Settings: which integration, how it speaks, what it reported (never a credential)."""
+        return {"domain": self.domain, "protocol": self.protocol, "features": sorted(self.features),
+                "account": getattr(self.account, "name", None), "peer": self.peer, "since": self.since,
+                "report": _copy(self.report)}
 
     async def send(self, msg: dict[str, Any]) -> bool:
         return await self.send_text(json.dumps(msg))
@@ -278,9 +335,12 @@ class LinkedClient:
 
 @dataclass(frozen=True)
 class CallCtx:
-    """Who forwarded a call: the Service account and its address (for the handler's audit)."""
+    """Who forwarded a call: the Service account and its address (for the handler's audit), and which
+    integration (``hk_frontend`` or ``mantel``: the action's name in messages)."""
     account: Any
     peer: str | None
+    domain: str = "hk_frontend"
+    protocol: int = 1
 
 
 # -- where forwarded calls go ------------------------------------------------------------------------
@@ -422,9 +482,41 @@ class Linked:
                  recheck: float = RECHECK_S, heartbeat: float | None = HEARTBEAT_S) -> None:
         self.registry, self.handler, self.accounts = registry, handler, accounts
         self.timeout, self.recheck, self.heartbeat = timeout, recheck, heartbeat
+        self.instance: str | None = None      # this Mantel's instance id (linked_owners.instance_id)
+        # where Mantel's screens are served to browsers (its https address): the only origins Mantel Link's
+        # script in HA believes a framed screen's messages from (docs/phase9/MANTEL-LINK.md 9.6)
+        self.screen_origins: list[str] = []
+        self.listeners: list = []             # fn(client) after a client's report
+        self.phone_action = None              # phones.Phones.on_action (protocol 2's phone_action)
 
     def verify(self, token: str, peer: str | None) -> Any:
         return self.accounts.verify(token, SCOPE, source_ip=peer)
+
+    def take_report(self, client: "LinkedClient", report: Any) -> dict[str, Any]:
+        """Protocol 2's ``report``: what Mantel Link says about its Home Assistant. Only known parts,
+        each checked; kept on the client (Mantel Settings shows it, the bridge hand-over reads it)."""
+        if not isinstance(report, Mapping) or set(report) - _REPORT_KEYS:
+            raise LinkedError("invalid", f"report: an object of {sorted(_REPORT_KEYS)}")
+        hk = report.get("hk_frontend")
+        if hk is not None:
+            if not isinstance(hk, Mapping) or set(hk) - {"installed", "loaded", "linked"} or not all(
+                    isinstance(v, bool) for v in hk.values()):
+                raise LinkedError("invalid", "report.hk_frontend: {installed, loaded, linked} booleans")
+            client.report["hk_frontend"] = {k: bool(hk.get(k, False)) for k in ("installed", "loaded", "linked")}
+        phones = report.get("phones")
+        if phones is not None:
+            if (not isinstance(phones, list) or len(phones) > 50 or not all(
+                    isinstance(p, Mapping) and set(p) == {"service", "name"} and isinstance(p["service"], str)
+                    and _PHONE.match(p["service"]) and isinstance(p["name"], str) and 0 < len(p["name"]) <= 80
+                    for p in phones)):
+                raise LinkedError("invalid", "report.phones: [{service: mobile_app_..., name}]")
+            client.report["phones"] = [{"service": p["service"], "name": p["name"]} for p in phones]
+        for fn in list(self.listeners):
+            try:
+                fn(client)
+            except Exception:  # noqa: BLE001 -- a listener never breaks the link
+                log.exception("linked: a report listener failed")
+        return {"ok": True}
 
     def live(self, account: Any) -> bool:
         check = getattr(self.accounts, "live", None)
@@ -446,14 +538,20 @@ class Linked:
 
     async def call_service(self, msg: Mapping[str, Any], ctx: CallCtx) -> Any:
         service = msg.get("service")
-        if service not in SERVICES:
-            raise LinkedError("unknown_service", f"hk_frontend.{service} is not forwarded to Mantel Server")
+        if service not in (SERVICES_2 if getattr(ctx, "protocol", 1) >= 2 else SERVICES):
+            raise LinkedError("unknown_service", f"{ctx.domain}.{service} is not forwarded to Mantel Server")
         data = msg.get("data") or {}
         if not isinstance(data, Mapping):
             raise LinkedError("invalid", "data: an object")
         data = dict(data)
         targets = self._targets(msg)
-        if service == "notify":
+        if service not in SERVICES:
+            # music, Clean Areas, automation snooze: checked by linked_actions.py and the command gateway
+            if targets:
+                raise LinkedError("invalid", f"{service} takes no target")
+            if not _json_value(data):
+                raise LinkedError("invalid", "data: JSON values")
+        elif service == "notify":
             _check_notify(data)
             if targets:
                 raise LinkedError("invalid", "notify takes no target")
@@ -500,11 +598,17 @@ class Linked:
 
 async def _answer(linked: Linked, client: LinkedClient, msg: dict[str, Any]) -> None:
     mid = msg["id"]
-    ctx = CallCtx(client.account, client.peer)
+    ctx = CallCtx(client.account, client.peer, client.domain, client.protocol)
     try:
         t = msg["type"]
         if t == "ping":
             result: Any = {"pong": True}
+        elif t == "report":
+            result = linked.take_report(client, msg.get("report"))
+        elif t == "phone_action":
+            if linked.phone_action is None:
+                raise LinkedError("not_set_up", "Mantel takes no phone actions here")
+            result = linked.phone_action(client, {k: msg[k] for k in ("action", "service") if k in msg})
         elif t == "call_service":
             result = await linked.call_service(msg, ctx)
         else:
@@ -524,8 +628,8 @@ async def _answer(linked: Linked, client: LinkedClient, msg: dict[str, Any]) -> 
     await client.send(reply)
 
 
-def _parse(text: str) -> tuple[dict[str, Any] | None, str | None]:
-    """The message, or why not."""
+def _parse(text: str, protocol: int = 1) -> tuple[dict[str, Any] | None, str | None]:
+    """The message, or why not (a protocol 1 client may not send protocol 2's types)."""
     try:
         msg = json.loads(text)
     except ValueError:
@@ -536,7 +640,7 @@ def _parse(text: str) -> tuple[dict[str, Any] | None, str | None]:
     if isinstance(mid, bool) or not isinstance(mid, int):
         return None, "id: an integer"
     t = msg.get("type")
-    if t not in CLIENT_TYPES:
+    if t not in (CLIENT_TYPES_2 if protocol >= 2 else CLIENT_TYPES):
         return msg, f"unknown type {t!r}"
     extra = set(msg) - _KEYS[t]
     if extra:
@@ -562,17 +666,25 @@ async def ws_endpoint(request: web.Request) -> web.StreamResponse:
         log.warning("linked: refused a credential from %s", peer)
         raise web.HTTPUnauthorized(text="credential refused")
 
+    domain, protocol, features = parse_link_header(request.headers.get(LINK_HEADER))
     ws = web.WebSocketResponse(heartbeat=linked.heartbeat, max_msg_size=MAX_MSG)
     await ws.prepare(request)
-    client = LinkedClient(ws, account, peer)
+    client = LinkedClient(ws, account, peer, domain, protocol, features)
+    client.since = request.app["clock"]() if "clock" in request.app else None
     registry = linked.registry
     registry.clients.add(client)          # added and snapshotted with no await between: no gap
     owners = request.app.get("linked_owners")
     if owners is not None:
-        registry.owners = owners.snapshot()          # the rows, read now: safe across a restart
-    hello = {"type": "hello", "protocol": PROTOCOL, "services": list(SERVICES), "entities": registry.snapshot(),
+        registry.owners = wire_owners(owners.snapshot())     # the rows, read now: safe across a restart
+    hello = {"type": "hello", "protocol": protocol, "services": list(SERVICES_2 if protocol >= 2 else SERVICES),
+             "entities": registry.snapshot(),
              "owners": _copy(registry.owners)}
-    log.info("linked: %s (%s) connected from %s", getattr(account, "name", "?"), getattr(account, "id", "?"), peer)
+    if protocol >= 2:
+        # Mantel Link: which Mantel this is (its config entry's unique id), never a secret
+        hello["instance"] = linked.instance
+        hello["screen_origins"] = list(linked.screen_origins)
+    log.info("linked: %s (%s) connected from %s as %s, protocol %s", getattr(account, "name", "?"),
+             getattr(account, "id", "?"), peer, domain, protocol)
     tasks: set[asyncio.Task] = set()
 
     async def recheck() -> None:
@@ -592,7 +704,7 @@ async def ws_endpoint(request: web.Request) -> web.StreamResponse:
             if not linked.live(account):
                 await ws.close(code=WSCloseCode.POLICY_VIOLATION, message=b"credential revoked")
                 break
-            msg, problem = _parse(frame.data)
+            msg, problem = _parse(frame.data, client.protocol)
             if problem:
                 await client.send({"id": msg.get("id") if msg and not isinstance(msg.get("id"), bool) else None,
                                    "type": "result", "success": False,

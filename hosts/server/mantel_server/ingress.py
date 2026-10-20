@@ -87,7 +87,7 @@ NAME_MAX = 64
 # HA Core, seen from inside the App (the hassio network's gateway; HA Core runs on the host network). It
 # may reach exactly one path when the App's ingress_only is on: linked mode's endpoint (linked.py), which
 # wants its own Service credential besides (docs/phase3/HA-APP.md "Linked mode in the App").
-CORE_PATHS = frozenset({"/linked/ws"})
+CORE_PATHS = frozenset({"/linked/ws", "/linked/pair"})   # HA Core: the link, and Mantel Link pairing by code
 KIOSK_META = '<meta name="mantel-kiosk" content="tablet">'
 
 # The prefix rewrite of HK's files (see the module docstring). Absolute references to Mantel's own

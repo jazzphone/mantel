@@ -14,6 +14,7 @@ class Registry:
         self.entries: dict[str, dict] = {}  # entity_id -> its registry entry (device_class lookups)
         self.area_floor: dict[str, str | None] = {}  # area_id -> floor_id
         self.floors: dict[str, str] = {}  # floor_id -> name
+        self.loads = 0  # +1 at every load: what an index built from these lists keys on (house.py)
 
     def update(self, areas: list[dict] | None = None, devices: list[dict] | None = None,
                entities: list[dict] | None = None, floors: list[dict] | None = None) -> None:
@@ -26,6 +27,7 @@ class Registry:
     def load(self, areas: list[dict], devices: list[dict], entities: list[dict],
              floors: list[dict] | None = None) -> None:
         self._areas, self._devices, self._entities = areas, devices, entities
+        self.loads += 1
         self._floors = floors or []
         self.areas = {a["area_id"]: a.get("name") or a["area_id"] for a in areas}
         self.area_floor = {a["area_id"]: a.get("floor_id") for a in areas}
@@ -97,7 +99,10 @@ class Registry:
                 continue
             entities[e["entity_id"]] = {
                 "entity_id": e["entity_id"], "device_id": e.get("device_id"), "area_id": e.get("area_id"),
-                "platform": e.get("platform"), "entity_category": e.get("entity_category"),
+                # Mantel Link's entities (decision 28) are the ones HK Frontend had: HK's pages know them by
+                # HK Frontend's platform (its Cameras page leaves Live TV's channels out by it)
+                "platform": "hk_frontend" if e.get("platform") == "mantel" else e.get("platform"),
+                "entity_category": e.get("entity_category"),
                 "hidden": bool(e.get("hidden_by")), "labels": e.get("labels") or [],
                 "name": e.get("name"), "translation_key": e.get("translation_key"),
                 "display_precision": (e.get("options") or {}).get("sensor", {}).get("display_precision"),

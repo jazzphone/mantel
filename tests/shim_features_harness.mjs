@@ -257,7 +257,8 @@ async function run(label, commandsOn) {
   reply({ type: 'read_result', id: res.libFrame.id, result: { items: [
     { media_type: 'album', uri: 'library://album/1', name: 'A', version: '', image: '/ma/imageproxy?path=a&provider=p&size=256',
       artists: [{ media_type: 'artist', uri: 'library://artist/2', name: 'B', version: '', image: null }] },
-    { media_type: 'album', uri: 'library://album/2', name: 'C', version: '', image: 'https://img.example/c.jpg' }] } });
+    { media_type: 'album', uri: 'library://album/2', name: 'C', version: '', image: 'https://img.example/c.jpg' },
+    { media_type: 'album', uri: 'library://album/3', name: 'D', version: '', image: '/ma/imageproxy/' + 'ab'.repeat(32) + '?size=256' }] } });
   res.lib = await lq;
   res.libSent = sent.length - lb0;
   res.libRefusedEvents = events.filter((e) => e === 'hk-command-refused').length - lbRefused;

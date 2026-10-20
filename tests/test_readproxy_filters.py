@@ -171,6 +171,30 @@ def test_read_api_parses_hks_calendar_path():
         == ("calendar.family", "2026-10-18T00:00:00", "2026-10-25T00:00:00")
 
 
+@pytest.mark.parametrize("start,end", [
+    ("2026-10-18T00:00:00-04:00", "2026-11-01T00:00:00-04:00"),     # HK's isoLocal west of UTC (Safari's too)
+    ("2026-10-18T00:00:00+05:30", "2026-11-01T00:00:00+05:30"),     # east of UTC: the + is sent as %2B
+])
+async def test_hks_own_dates_reach_ha_unchanged(env, start, end):
+    """What hk-calendar.js sends (encodeURIComponent(isoLocal(d))) passes check_calendar and reaches HA as
+    the same moment: the house's "couldn't be read" (2026-10-20) was not the dates."""
+    from urllib.parse import quote
+    entity, s, e = parse_api_path("GET", f"calendars/calendar.family?start={quote(start, safe='')}&end={quote(end, safe='')}")
+    assert (entity, s, e) == ("calendar.family", start, end)
+    await env.reads.calendar_events("adult", entity, s, e)
+    assert env.fake.rest[-1] == ("GET", "/api/calendars/calendar.family", {"start": start, "end": end})
+
+
+async def test_a_calendar_ha_cannot_read_is_a_failed_read(env):
+    """A calendar whose account HA can no longer sign in to is unavailable and HA answers its events read
+    with 500 (the house, 2026-10-20): a failed read naming it (test_connectors_wiring: over the socket)."""
+    from mantel_server.readproxy import _error_code
+    env.fake.broken_calendars.add("calendar.family")
+    with pytest.raises(RuntimeError, match="answered 500 for calendar.family") as err:
+        await env.reads.calendar_events("adult", "calendar.family", "2026-10-18T00:00:00-04:00", "2026-10-25T00:00:00-04:00")
+    assert _error_code(err.value) == "failed"
+
+
 async def test_a_hook_cannot_widen_a_read(env):
     got = await env.reads.request("adult", {"type": "history/history_during_period", "entity_ids": ["light.kitchen"]})
     assert set(got) == {"light.kitchen"}                  # "sensor.not_asked_for" from the hook is ignored

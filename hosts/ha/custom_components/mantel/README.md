@@ -1,0 +1,47 @@
+<h1 align="center">Mantel Link</h1>
+
+<p align="center">
+Home Assistant's side of <b>Mantel</b>: your wall tablets, screens and actions, linked to Home Assistant.<br>
+Installed from HACS on every Home Assistant (OS, Supervised, Container, Core).
+</p>
+
+**Mantel** draws your home's screens (the wall tablets, the phones, the sidebar) and runs their features: the Sleep
+Screen, pop-ups, notifications, music, Clean Areas. It runs as a Home Assistant App, or in Docker or an LXC next to
+Home Assistant. **Mantel Link** is everything Home Assistant needs of it, and nothing of its own:
+
+- **The link.** One authenticated connection to Mantel. Found by itself: "Discovered: Mantel".
+- **Your tablets as entities.** Each wall tablet's black screen, photo screensaver, screen in use and Sleep Screen,
+  plus Seasonal decorations, the Alarm PIN panel and Live TV, under the entity ids they already have.
+- **Your actions.** `mantel.set_black_screen`, `show_popup`, `close_popup`, `notify`, the music, Clean Areas and
+  automation-snooze actions, and the same actions under their **HK Frontend names** (`hk_frontend.*`), so existing
+  automations and scripts keep working.
+- **Mantel's screens in Home Assistant's sidebar**, with Home Assistant's header and sidebar hidden as each screen
+  says, a way back from Mantel's menu, and your Home Assistant sidebar in the screen's menu and tab bar.
+- **Notifications on your phone** through the Home Assistant Companion app, with Dismiss.
+
+Mantel Link replaces **HK Frontend**. Moving from it keeps every entity id and its history:
+[Moving from HK Frontend](docs/Moving-from-HK-Frontend.md).
+
+## Install
+
+1. Mantel itself first: the Mantel App (Home Assistant OS or Supervised), or Mantel in Docker or the LXC.
+2. HACS → ⋮ → Custom repositories → this repository, category Integration → download **Mantel Link** → restart
+   Home Assistant.
+3. Settings → Devices & Services: **Discovered: Mantel** → Add. [Setup](docs/Setup.md) has every way.
+
+Home Assistant 2026.9 or newer.
+
+## Documentation
+
+- [Setup](docs/Setup.md): discovered from the App, discovered on the network, or by hand.
+- [Actions](docs/Actions.md): every action, its fields and what it answers.
+- [Moving from HK Frontend](docs/Moving-from-HK-Frontend.md): one house, step by step, reversible.
+- [How it works](docs/How-It-Works.md): the link, what it mirrors, the hand-over, security.
+
+## Privacy and security
+
+Mantel Link talks only to your Mantel. Its credential is a Mantel Service credential limited to the link; it is never
+logged or shown in diagnostics, and an Owner revokes it in Mantel Settings → Service Accounts. Mantel can't make Home
+Assistant do anything over the link except send its own notifications to a Companion-app phone.
+
+MIT License.

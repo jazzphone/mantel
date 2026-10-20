@@ -941,13 +941,23 @@ class SettingsService:
                 features = self.features.panel_features()
             except Exception:  # noqa: BLE001 -- HK Settings still opens
                 log.exception("panel/get's features failed")
+        # the kiosk apps' devices in HA (a tablet's Setup -> Device), as HK Frontend lists them; it was always
+        # empty here, so no tablet could be given its device in Mantel (the house, 2026-10-20)
+        kiosk_devices: list = []
+        house = getattr(self.features, "house", None)
+        if house is not None:
+            try:
+                from hk_core.tablets import kiosk as KT
+                kiosk_devices = KT.devices(house)
+            except Exception:  # noqa: BLE001 -- HK Settings still opens
+                log.exception("panel/get's kiosk devices failed")
         return {
             "entry_id": "mantel", "source": "mantel",
             "settings": self.house_settings(),
             "boards": boards,
             "screensavers": {},
             "tablets": {k: {**d.body, "parts": {}} for k, d in self.store.docs("tablet").items()},
-            "kiosk_devices": [], "tablet_suggest": [], "dashboards": self.dashboards(boards),
+            "kiosk_devices": kiosk_devices, "tablet_suggest": [], "dashboards": self.dashboards(boards),
             "popups": self._items("popups"),
             "custom_pages": pages,
             "custom_chips": self._items("custom_chips"),
@@ -1250,6 +1260,13 @@ def register(app: web.Application, hub: Any, hooks: Any = None, *, store: Settin
 
     async def panel_get(ctx: Ctx, msg: dict):
         payload = await service.panel_get(ctx.identity, msg)
+        # a paired tablet's Reload and Clear Cache (tablet_links.panel_parts): HK Settings' Wall Tablets buttons,
+        # pressed through Mantel's host and the command gateway (HA works these out from the tablet's entities)
+        from . import tablet_links
+        parts = tablet_links.panel_parts(app)
+        if parts:
+            payload = {**payload, "tablets": {k: {**t, "parts": {**(t.get("parts") or {}), **parts.get(k, {})}}
+                                              for k, t in (payload.get("tablets") or {}).items()}}
         # Hidden Accessories (HA: hiding.snapshot in panel.py), worked out from Mantel's own states and
         # registries (hidden.py, installed by readproxy.register) and cut down to what the person may view
         hiding, reads = app.get("hiding"), app.get("filtered_reads")

@@ -23,17 +23,101 @@
     return path && SERVICE_PATH.test(path) ? (global.__mantelBase || '') + path : null;
   }
 
+  // MANTEL PHOTOS (photos.py) for HK's screensaver (hk-saver.js, the contract's photoSource/listPhotos): a
+  // screen may show one of Mantel's albums instead of the house's Screensaver Photos (GET /api/photos/screens,
+  // read once and again every few minutes, or at once when Mantel Settings says it changed), and an album
+  // (mantel-photos://<id>, the house's photos or a screen's) is listed by Mantel with its screen-sized photos.
+  const ALBUM = /^mantel-photos:\/\/([0-9a-f]{16})$/;
+  const PHOTO_URL = /^\/api\/photos\/[0-9a-f]{32}\/screen$/;
+  const SCREENS_TTL = 5 * 60 * 1000;
+  const CHANGED_KEY = 'mantel-photos-changed';       // mantel-photos.js sets it after a change (the storage event)
+  let photoScreens = null, screensAt = 0, screensReading = null;
+  const mantelUrl = (path) => (global.__mantelBase || '') + path;      // base.js's, for this classic script
+  function screenNow() {
+    const base = global.__mantelBase || '';
+    const path = String((global.location && global.location.pathname) || '');
+    return (path.startsWith(base) ? path.slice(base.length) : path).split('/')[1] || '';
+  }
+  function photosChanged() {
+    try { if (global.hkSaver && global.hkSaver.photosChanged) global.hkSaver.photosChanged(); } catch (e) { /* no saver here */ }
+  }
+  function readScreens(always) {
+    if (screensReading || typeof global.fetch !== 'function') return;
+    screensAt = Date.now();
+    screensReading = global.fetch(mantelUrl('/api/photos/screens'), { credentials: 'same-origin', cache: 'no-cache' })
+      .then((r) => (r.ok ? r.json() : { screens: {} }))
+      .then((j) => {
+        const next = j && j.screens && typeof j.screens === 'object' ? j.screens : {};
+        const changed = JSON.stringify(next) !== JSON.stringify(photoScreens || {});
+        photoScreens = next;
+        if (changed || always) photosChanged();
+      }, () => { photoScreens = photoScreens || {}; })
+      .then(() => { screensReading = null; });
+  }
+  function photoSource() {
+    if (photoScreens === null || Date.now() - screensAt > SCREENS_TTL) readScreens();
+    const album = photoScreens && photoScreens[screenNow()];
+    return typeof album === 'string' && /^[0-9a-f]{16}$/.test(album) ? 'mantel-photos://' + album : null;
+  }
+  function listPhotos(source) {
+    const m = ALBUM.exec(String(source || ''));
+    if (!m || typeof global.fetch !== 'function') return null;
+    const base = global.__mantelBase || '';
+    return global.fetch(mantelUrl('/api/photos/albums/' + m[1] + '/show'), { credentials: 'same-origin', cache: 'no-cache' })
+      .then((r) => { if (!r.ok) throw new Error('album ' + r.status); return r.json(); })
+      .then((j) => ((j && j.photos) || []).filter((p) => p && typeof p.url === 'string' && PHOTO_URL.test(p.url))
+        .map((p) => ({ id: String(p.id), title: typeof p.title === 'string' ? p.title : '', url: base + p.url })));
+  }
+  if (global.addEventListener) {
+    global.addEventListener('storage', (e) => {
+      if (e && e.key === CHANGED_KEY) readScreens(true);
+    });
+  }
+
   // Mantel Settings (/settings: HK's settings and Mantel's own, one page) in HK's menu, for every person
   // signed in (Me is everyone's; the house's pages are an Owner's or Admin's, and the page and its APIs
   // decide that); a wall tablet has none. Under the HA App the address is under the Ingress prefix, so the
   // page opens inside the same frame.
   let role = '';
   const PEOPLE = ['owner', 'admin', 'adult', 'child', 'guest'];
+  // Shown inside Home Assistant (a Webpage dashboard; ha-frame.js): a row back to Home Assistant, the way out
+  // when HA's own sidebar is hidden around the screen (Mantel Link, docs/phase9/MANTEL-LINK.md 9.6).
   function hostMenu() {
-    if (PEOPLE.indexOf(role) < 0) return [];
+    const frame = global.__mantelHaFrame;
+    // (Mantel Link takes it there: nothing in a Webpage dashboard's sandbox may move Home Assistant's window)
+    const out = frame && frame.kind === 'dashboard'
+      ? [{ title: 'Home Assistant', icon: 'mdi:home-assistant', run: () => frame.back(), section: 'Mantel' }] : [];
+    if (PEOPLE.indexOf(role) < 0) return out;
     const base = global.__mantelBase || '';
-    return [{ title: 'Mantel Settings', icon: 'mdi:cog-outline', href: base + '/settings', section: 'Mantel' }];
+    return out.concat([{ title: 'Mantel Settings', icon: 'mdi:cog-outline', href: base + '/settings', section: 'Mantel' }]);
   }
+  // HOME ASSISTANT IN HK'S MENU AND TAB BAR (the screen's Menu -> Home Assistant Section), by where the page is.
+  // Inside Home Assistant (a Webpage dashboard with Mantel Link, or the App's sidebar panel; ha-frame.js): this
+  // person's Home Assistant sidebar, each row opening that page in Home Assistant's own window. Opened at Mantel's
+  // own address: one row opening Home Assistant's address (GET /api/me `ha_address`: HA's external URL, else its
+  // internal one; none for a wall tablet, which then has no Home Assistant row at all). This decides only which
+  // rows are drawn: what a person may do stays the server's.
+  let haAddress = '';
+  function setHaAddress(u) {
+    const next = typeof u === 'string' && /^https?:\/\/[^/?#\s]+\/?$/.test(u) ? u : '';
+    if (next === haAddress) return;
+    haAddress = next;
+    try { global.dispatchEvent(new global.CustomEvent('hk-ha-nav-changed')); } catch (e) { /* no window */ }
+  }
+  const frameSide = () => { const f = global.__mantelHaFrame; return f && f.sidebar ? f.sidebar() : null; };
+  function haNav() {
+    const f = global.__mantelHaFrame;
+    if (f) {
+      if (frameSide()) return 'own';
+      // a Webpage dashboard whose Mantel Link has not said the sidebar (or never will: 0.1.0): HA's sandbox forbids
+      // this page to move HA's window, so no row (the Mantel -> Home Assistant row is the way back); the App's panel
+      // whose HA page cannot be read: its start page (that frame has no sandbox)
+      const home = f.homeUrl && f.homeUrl();
+      return home ? { link: home, top: true } : null;
+    }
+    return haAddress ? { link: haAddress, top: false } : null;
+  }
+
   // Mantel's pages in the settings panel (web/shim/mantel-settings.js), once settings-page.js has them
   let settings = null;
   function setSettings(host) { settings = host || null; }
@@ -46,6 +130,11 @@
     holdWrites: function () { return true; },
     // Mantel's page has no sidebar of its own for a button to open
     menuButton: () => null,
+    haNav,
+    sidebarData: frameSide,
+    haNavigate: (path) => { const f = global.__mantelHaFrame; return f && frameSide() ? f.navigate(path) : false; },
+    openHaMenu: () => { const f = global.__mantelHaFrame; return !!(f && f.menu()); },
+    showNotifications: () => { const f = global.__mantelHaFrame; if (f && frameSide()) f.notifications(); },
     // no detail dialog and no toasts of its own (Phase 2 P2.5): HK's generic sheet takes what HK has
     // no dedicated sheet for, HK's toast layer (web/hk/shell/hk-overlays.js) draws the toasts, and HK's
     // dialogs mount in the overlay root (the contract's dialogRoot)
@@ -53,14 +142,15 @@
     openHostDetail: () => false,
     hostToast: () => false,
     serviceUrl,
+    photoSource,
+    listPhotos,
     // HK's screens and settings say Mantel where they speak of themselves; HK Frontend stays the name of
     // the integration in Home Assistant, whose settings are Home Assistant's (haPlace)
     productName: () => 'Mantel',
     haPlace: (path) => 'Home Assistant → ' + path,
     haName: (name) => name + ' in Home Assistant',
-    // HK Frontend's wiki is about HK Frontend in Home Assistant: no link until Mantel's documentation has
-    // a home of its own
-    docsUrl: () => null,
+    // Mantel's own docs (/docs, docs_pages.py: HK's pages and Mantel's), under the page's prefix
+    docsUrl: (page, anchor) => (global.__mantelBase || '') + '/docs/' + encodeURIComponent(page) + (anchor ? '#' + encodeURIComponent(anchor) : ''),
     tags: { viewContainer: 'hk-view-container' },
     root: () => byId('hk-shell-root'),
     overlayRoot: () => byId('hk-shell-root'),
@@ -107,5 +197,5 @@
   // home.js hands over the signed-in person's Mantel role (GET /api/me)
   function setRole(r) { role = typeof r === 'string' ? r : ''; }
 
-  global.hkMantelShell = { attach, install, setServices, setRole, setSettings, hostMenu, serviceUrl, kind: 'mantel' };
+  global.hkMantelShell = { attach, install, setServices, setRole, setSettings, setHaAddress, hostMenu, haNav, serviceUrl, kind: 'mantel' };
 })(globalThis);

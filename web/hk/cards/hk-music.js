@@ -398,7 +398,13 @@
     '.mini .rb{width:44px;height:44px;border-radius:50%;background:' + window.hkCards.v('key') + ';display:flex;align-items:center;justify-content:center;flex:none;cursor:pointer}',
     '.mini .rb hk-icon{--mdc-icon-size:22px;width:22px;height:22px;color:var(--hk-glyph,#fff);display:flex}',
 
-    '.toast{position:absolute;left:50%;bottom:20px;transform:translate(-50%,10px);background:rgba(255,255,255,.96);color:#111;font-weight:600;',
+    // THE TOAST IS IN THE WINDOW, ABOVE THE TAB BAR. At the frame's foot it
+    // was drawn behind a bar along the bottom (the frame runs on under the
+    // bar) and below the window on a phone, whose page scrolls: "Starting
+    // <playlist>…" was never seen (house, 2026-10-20). Fixed, on the bar's
+    // top edge (hk-tabbar.js --hk-tabbar-top, its gap included), else 20 px
+    // over the window's foot.
+    '.toast{position:fixed;left:50%;bottom:var(--hk-tabbar-top,calc(20px + env(safe-area-inset-bottom, 0px)));transform:translate(-50%,10px);background:rgba(255,255,255,.96);color:#111;font-weight:600;',
     '  font-size:14px;padding:10px 18px;border-radius:99px;opacity:0;transition:opacity .25s,transform .25s;pointer-events:none;z-index:30;',
     '  white-space:nowrap;max-width:90%;overflow:hidden;text-overflow:ellipsis;box-shadow:0 8px 24px rgba(0,0,0,.35)}',
     '.toast.on{opacity:1;transform:translate(-50%,0)}',

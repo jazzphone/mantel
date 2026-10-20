@@ -2,7 +2,7 @@
 //
 // The panel (web/hk/panels/hk-settings.js) asks its host for pages of its own (hkShell.settingsHost(),
 // "THE HOST'S SETTINGS" there); this is Mantel's answer: Me, People, Devices, Roles & Grants, Service
-// Accounts, Audit Log, Connections, Mantel Connect and Your Files, every one drawn with HK Settings' own kit
+// Accounts, Audit Log, Connections, Mantel Connect and Your Files (with Photos, mantel-photos.js), every one drawn with HK Settings' own kit
 // (hk-settings-kit.js: iOS Settings, docs/DESIGN.md "HK Settings stays iOS Settings"). Only Mantel loads
 // this file; Home Assistant's build never ships web/shim, so none of it exists in HK Frontend inside HA.
 //
@@ -11,6 +11,7 @@
 // routes behind them). A credential shown once (a service account's, a pairing code) lives only in this
 // module until it is dismissed or the page is left; nothing is stored.
 import { mantelUrl, base as BASE } from './base.js';
+import * as photos from './mantel-photos.js';
 
 const ROUTE = 'mantel';
 const C = { blue: '#007aff', green: '#34c759', indigo: '#5856d6', orange: '#ff9500', pink: '#ff2d55', purple: '#af52de',
@@ -31,6 +32,7 @@ const PAGES = [
   ['connect', 'Mantel Connect', 'mdi:link-variant', C.orange, 'end', 'Mantel'],
   ['files', 'Your Files', 'mdi:folder', C.purple, 'end', 'Mantel'],
 ];
+// Photos is inside Your Files (#/mantel/files/photos; Avery, 2026-10-19): its old addresses forward there
 const ERRORS = {
   invalid_credentials: 'That did not match.', invalid_code: 'That code was not accepted.',
   too_many_attempts: 'Too many tries. Wait a little and try again.', username_taken: 'That user name is already taken.',
@@ -238,7 +240,7 @@ const STYLE = [
   '  border-radius:8px;background:var(--hk-fill);color:var(--hk-label);font:inherit;font-size:17px;text-align:center;letter-spacing:.2em;outline:none}',
   '.mxdlg .mxin:focus{box-shadow:0 0 0 2px var(--hk-tint)}',
   '.mxdlg .mxe{margin:-6px 16px 12px;padding:0;font-size:13px;color:var(--hk-red);min-height:0}',
-].join('\n');
+].join('\n') + '\n' + photos.STYLE;
 function ensureStyle(root) {
   if (!root || root.querySelector('style[data-mx]')) return;
   const s = document.createElement('style');
@@ -507,6 +509,37 @@ function pPeople(sub) {
       linked.length ? linked.map((u) => info(u.name || u.id, 'Home Assistant user ' + u.ha_user_id, roleLabel(u.role))) : [info('No Home Assistant users are linked yet')]));
   } };
 }
+// THEIR PHONES (phones.py; docs/phase9/MANTEL-LINK.md 9.7): Mantel's notifications on the Home Assistant Companion
+// app, through Mantel Link: which of the phones Home Assistant has are theirs, and what goes there
+const SEND_LABEL = [['important', 'Important Only'], ['all', 'Every Notification'], ['off', 'Nothing']];
+function drawPhones(c, u, locked) {
+  const got = load('phones', () => api('GET', '/api/phones'));
+  if (!got || got.err) return;
+  const d = got.data, mine = (d.people || {})[u.id] || { services: [], send: 'important' };
+  const known = d.available || [];
+  const names = Object.fromEntries(known.map((p) => [p.service, p.name]));
+  const footer = !d.linked ? 'Mantel Link in Home Assistant brings Mantel’s notifications to phones with the Home Assistant Companion app. It isn’t linked yet.'
+    : !known.length ? 'Home Assistant has no phones with the Companion app yet.'
+    : 'Mantel’s notifications on their lock screen, through Home Assistant’s Companion app. Dismiss on the phone takes the banner down on every screen.';
+  const put = (services, send) => act('person', () => api('PUT', '/api/users/' + encodeURIComponent(u.id) + '/phones', { services, send }),
+                                      'Phones saved.', 'phones');
+  const rows = [];
+  if (locked) {
+    rows.push(info('Phones', null, mine.services.map((s) => names[s] || s).join(', ') || 'None'));
+  } else {
+    for (const p of known) {
+      rows.push(K().toggle({ label: p.name, on: mine.services.includes(p.service), fk: 'mx:phone:' + p.service,
+        onChange: (on) => put(on ? mine.services.concat([p.service]) : mine.services.filter((s) => s !== p.service), mine.send) }));
+    }
+    for (const s of mine.services.filter((x) => !names[x])) rows.push(info(s, 'Home Assistant no longer has this phone', 'Gone', 'warn'));
+    if (known.length || mine.services.length) {
+      rows.push(K().select({ label: 'Send', options: SEND_LABEL, value: mine.send, fk: 'mx:phone-send',
+                              onChange: (send) => put(mine.services, send) }));
+    }
+  }
+  c.appendChild(group({ header: 'Phones', footer }, rows));
+}
+
 function pPerson(id) {
   const back = ['People', '#/' + ROUTE + '/people'];
   const got = usersRead();
@@ -535,6 +568,7 @@ function pPerson(id) {
           : screenPicker('person', 'Opens On', null, cur, d.screens, none,
                          (v) => api('PUT', '/api/users/' + encodeURIComponent(u.id) + '/default-screen', { screen: v }))]));
     }
+    drawPhones(c, u, locked);
     if (locked) return;
     const rows = [];
     if (!self) rows.push(button(u.disabled ? 'Enable' : 'Disable…', async () => {
@@ -568,8 +602,54 @@ function pAddPerson() {
 
 // ============================================================================================ Devices
 const devicesRead = () => load('devices', () => api('GET', '/api/devices'));
+// HK's wall tablets and HA's areas (GET /api/devices/rooms): a device's room is one of them, never typed. A wall
+// tablet device reports its touches and black screen only for the HK tablet in its own room (features.may_speak_for),
+// so a room typed as "Livingroom" for HK's living_room cut three tablets off (the house, 2026-10-19).
+const roomsRead = () => load('devrooms', () => api('GET', '/api/devices/rooms'));
+const titleCase = (id) => String(id).replace(/_/g, ' ').replace(/\b\w/g, (x) => x.toUpperCase());
+function roomName(rooms, rid) {
+  if (!rid) return '';
+  const a = (rooms && rooms.areas || []).find((x) => x.id === rid);
+  return a ? a.name : titleCase(rid);
+}
+const tabletList = (rooms) => Object.entries((rooms && rooms.tablets) || {}).filter(([, t]) => t && t.room)
+  .sort((a, b) => String(a[1].name).localeCompare(String(b[1].name)));
+// a wall tablet device in a room no HK tablet has: its touches and black screen reach nothing
+const lostTablet = (d, tablets) => !d.revoked && d.role === 'wall_tablet' && Object.keys(tablets || {}).length > 0 && !(d.hk_tablets || []).length;
+// THE ROOM PICKER: one of HK's wall tablets (the device takes its room), else Not One of These and one of HA's
+// areas. `self` is the device being moved (its own tablet isn't "in use"); onTablet(t) when a tablet is picked.
+function roomChoice(form, rooms, self, onTablet) {
+  const d = draft(form);
+  const tablets = tabletList(rooms);
+  const rows = tablets.map(([tid, t]) => {
+    const others = (t.served_by || []).filter((x) => x.id !== self).map((x) => '“' + x.name + '”');
+    return K().check({ label: t.name, sub: [roomName(rooms, t.room), t.screen_title || (t.screen ? titleCase(t.screen.split('-').slice(1).join(' ')) + ' Screen' : null),
+                                            others.length ? 'Already ' + others.join(', ') : null].filter(Boolean).join(' · '),
+                       value: others.length ? 'In Use' : undefined, on: d.tablet === tid, fk: 'mx:' + form + ':tablet:' + tid,
+                       onClick: () => { d.tablet = tid; d.other = false; if (onTablet) onTablet(t); redraw(); } });
+  });
+  rows.push(K().check({ label: 'Not One of These', sub: 'A room with no HK wall tablet', on: !!d.other, fk: 'mx:' + form + ':other',
+                        onClick: () => { d.tablet = ''; d.other = true; redraw(); } }));
+  const out = [group({ header: 'Which HK Tablet', footer: tablets.length ? 'Its touches and black screen reach Mantel as this HK tablet’s (All Screens, Wall Tablets). “In Use”: an enrolled device is already in its room.'
+    : 'HK has no wall tablets in Mantel’s settings yet (All Screens, Wall Tablets).' }, rows)];
+  if (d.other) {
+    const areas = (rooms && rooms.areas) || [];
+    if (d.room && !areas.some((a) => a.id === d.room)) d.room = '';
+    out.push(group({ footer: areas.length ? 'With no HK tablet in its room, its touches and black screen won’t reach Mantel.' : 'Home Assistant has not told Mantel about any areas yet.' },
+      areas.length ? [choose(form, 'room', 'Room', [['', 'Choose…']].concat(areas.map((a) => [a.id, a.name])), '')] : []));
+  }
+  return out;
+}
+// what the server is asked for: {tablet} or {room}; null when nothing is chosen
+function roomBody(form) {
+  const d = draft(form);
+  if (d.tablet) return { tablet: d.tablet };
+  if (d.other && d.room) return { room: d.room };
+  return null;
+}
 function pDevices(sub) {
   if (sub[0] === 'enroll') return pEnroll();
+  if (sub[0]) return pDevice(sub[0]);
   return { title: 'Devices', top: true, scope: 'Wall tablets enrolled with Mantel: each keeps its own credential, and does what its role allows (Roles & Grants). ' +
     'How each screen behaves is All Screens, Wall Tablets.', body(c) {
     result(c, 'devices');
@@ -578,9 +658,16 @@ function pDevices(sub) {
     if (!got) { pending(c); return; }
     if (got.err) { failed(c, got.err); return; }
     const all = got.data.devices, live = all.filter((d) => !d.revoked), gone = all.filter((d) => d.revoked);
-    const row = (d) => info(d.name, [d.room, roleLabel(d.role), 'last seen ' + ago(d.last_seen), d.source_ip || 'no address yet', 'enrolled ' + fmt(d.created)].filter(Boolean).join(' · '),
+    const tablets = got.data.tablets || {};
+    const about = (d) => [d.room, roleLabel(d.role), 'last seen ' + ago(d.last_seen), d.source_ip || 'no address yet', 'enrolled ' + fmt(d.created)].filter(Boolean).join(' · ');
+    const row = (d) => info(d.name, about(d),
       d.revoked ? 'Revoked' + (d.revoked_reason ? ': ' + d.revoked_reason.replace(/_/g, ' ') : '') : undefined, d.revoked ? 'warn' : '');
-    c.appendChild(group({ header: 'Wall Tablets' }, live.length ? live.map(row) : [info('No wall tablets are enrolled')]));
+    const lost = live.filter((d) => lostTablet(d, tablets));
+    const tabletName = (d) => ((d.hk_tablets || []).map((t) => (tablets[t] || {}).name || t)[0]) || (lostTablet(d, tablets) ? 'No HK Tablet' : undefined);
+    c.appendChild(group({ header: 'Wall Tablets', footer: lost.length ? hh('span', { class: 'mxerr', text: lost.map((d) => '“' + d.name + '”').join(', ') +
+        (lost.length > 1 ? ' are in rooms' : ' is in a room') + ' with no HK wall tablet: ' + (lost.length > 1 ? 'their' : 'its') +
+        ' touches and black screen won’t reach Mantel. Open ' + (lost.length > 1 ? 'each' : 'it') + ' to choose its HK tablet.' }) : null },
+      live.length ? live.map((d) => nav(d.name, 'devices/' + encodeURIComponent(d.id), { sub: about(d), value: tabletName(d) })) : [info('No wall tablets are enrolled')]));
     const ds = load('dscreens', () => api('GET', '/api/default-screens'));
     if (live.length && ds && ds.data) {
       const d = ds.data;
@@ -590,7 +677,7 @@ function pDevices(sub) {
     }
     if (live.length) c.appendChild(group({}, live.map((d) => button('Revoke ' + d.name + '…', async () => {
       if (!(await ask({ title: 'Revoke ' + d.name + '?', message: 'The tablet is refused at once and has to be enrolled again.', ok: 'Revoke', destructive: true }))) return;
-      act('devices', () => api('DELETE', '/api/devices/' + encodeURIComponent(d.id)), 'Device revoked.', 'devices');
+      act('devices', () => api('DELETE', '/api/devices/' + encodeURIComponent(d.id)), 'Device revoked.', 'devices', 'devrooms');
     }, { destructive: true, fk: 'mx:revoke-device:' + d.id }))));
     if (gone.length) c.appendChild(group({ header: 'Revoked' }, gone.map(row)));
     c.appendChild(group({ footer: me.door === 'lan' ? 'Open Mantel Settings on the tablet itself, signed in as an Owner or Admin, and do it there.'
@@ -598,33 +685,77 @@ function pDevices(sub) {
       : info('Make This Browser a Wall Tablet', null, 'Home Network Only')]));
   } };
 }
+// ONE DEVICE: its HK tablet or room, changed in place (PATCH /api/devices/{id}; it keeps its credential)
+function pDevice(id) {
+  const known = cache.devices && cache.devices.data && cache.devices.data.devices.find((x) => x.id === id);
+  return { title: known ? known.name : 'Wall Tablet', back: ['Devices', '#/' + ROUTE + '/devices'], body(c) {
+    const key = 'device:' + id;
+    result(c, key);
+    const got = devicesRead(), rr = roomsRead();
+    if (!got || !rr) { pending(c); return; }
+    if (got.err || rr.err) { failed(c, got.err || rr.err); return; }
+    const dev = got.data.devices.find((x) => x.id === id && !x.revoked);
+    if (!dev) { failed(c, ERRORS.not_found); return; }
+    const rooms = rr.data, form = 'move:' + id, d = draft(form);
+    if (d.tablet === undefined) {                 // start from where it is
+      d.tablet = (dev.hk_tablets || []).find((t) => rooms.tablets[t]) || '';
+      d.other = !d.tablet && !!dev.room && rooms.areas.some((a) => a.id === dev.room);
+      d.room = d.other ? dev.room : '';
+    }
+    const lost = lostTablet(dev, got.data.tablets);
+    c.appendChild(group({ header: 'Now', footer: lost ? hh('span', { class: 'mxerr', text: (dev.room ? 'No HK wall tablet is in ' + roomName(rooms, dev.room) : 'It has no room') +
+        ': its touches and black screen won’t reach Mantel. Choose its HK tablet below.' }) : null },
+      [info('Room', null, dev.room ? roomName(rooms, dev.room) : 'None', lost ? 'warn' : ''), info('Role', null, roleLabel(dev.role))]));
+    for (const g of roomChoice(form, rooms, dev.id)) c.appendChild(g);
+    const body = roomBody(form);
+    c.appendChild(group({ footer: 'It keeps its credential: nothing to do at the tablet. Its open screens follow within a minute.' }, [button('Save', async () => {
+      const r = await act(key, () => api('PATCH', '/api/devices/' + encodeURIComponent(id), body), 'Saved.', 'devices', 'devrooms');
+      if (r) clearDraft(form);
+    }, { center: true, disabled: !body, fk: 'mx:move-device:' + id })]));
+  } };
+}
 function pEnroll(back = ['Devices', '#/' + ROUTE + '/devices']) {
   return { title: 'Make This a Wall Tablet', back, body(c) {
     result(c, 'enroll');
     if (enrolled) { drawEnrolled(c); return; }
-    const u = me.user || {};
+    const rr = roomsRead();
+    if (!rr) { pending(c); return; }
+    if (rr.err) { failed(c, rr.err); return; }
+    const rooms = rr.data, tablets = tabletList(rooms);
+    const u = me.user || {}, d = draft('device');
     if (u.role === 'wall_tablet') {               // a Wall Tablet account names its own tablet: start from its name
-      const d = draft('device'), label = u.name || (u.username || '').replace(/^./, (x) => x.toUpperCase());
+      const label = u.name || (u.username || '').replace(/^./, (x) => x.toUpperCase());
       if (d.name === undefined && label) d.name = label;     // an account made with no name: its user name (loft → Loft)
-      if (d.room === undefined && label) d.room = label;
+      if (d.tablet === undefined && label) {                 // and its HK tablet, by that name or that room
+        const rid = label.trim().toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+        const hit = tablets.find(([, t]) => String(t.name).toLowerCase() === label.toLowerCase()) || tablets.find(([, t]) => t.room === rid);
+        d.tablet = hit ? hit[0] : '';
+      }
+    }
+    const nothing = !tablets.length && !(rooms.areas || []).length;
+    if (nothing) c.appendChild(group({ header: 'Which HK Tablet', footer: 'Mantel knows no rooms yet: no HK wall tablets in its settings, no Home Assistant areas. Enrol it now, and choose its room under Devices once they are here.' }, []));
+    else {
+      for (const g of roomChoice('device', rooms, null, (t) => {   // the name follows the tablet picked, until it is typed
+        if (!d.name || d.name === d.auto) { d.name = t.name; d.auto = t.name; }
+      })) c.appendChild(g);
     }
     c.appendChild(group({ footer: 'The person is signed out of this browser at once, and it keeps its own credential. What it may do is its role’s (Roles & Grants). Only on the home network.' }, [
       field('device', 'name', 'Name', { placeholder: 'Kitchen Tablet', maxlength: 64 }),
-      field('device', 'room', 'Room', { placeholder: 'Kitchen (its HK tablet’s room, e.g. Master Bedroom)', maxlength: 64 }),
       choose('device', 'role', 'Role', me.device_roles.map((r) => [r, roleLabel(r)]), 'wall_tablet')]));
     c.appendChild(group({}, [button('Make This a Wall Tablet', async () => {
-      const d = draft('device');
       const name = (d.name || '').trim();
+      const where = roomBody('device');
+      if (!where && !nothing) { flash = { key: 'enroll', text: d.other ? 'Choose its room.' : 'Choose its HK tablet, or Not One of These and its room.', err: true }; redraw(); return; }
       if (!name) { flash = { key: 'enroll', text: 'Give the tablet a name.', err: true }; redraw(); return; }
       if (!(await ask({ title: 'Make this browser a wall tablet?', message: 'You will be signed out here. From now on this browser acts as the tablet “' + name + '”.', ok: 'Make It a Tablet' }))) return;
-      const r = await act('enroll', () => api('POST', '/api/devices/enroll', { name, room: (d.room || '').trim() || undefined, role: d.role }));
+      const r = await act('enroll', () => api('POST', '/api/devices/enroll', { name, role: d.role, ...(where || {}) }));
       if (r) { enrolled = r.device; clearDraft('device'); redraw(); }
     }, { center: true, fk: 'mx:enroll-device' })]));
   } };
 }
 function drawEnrolled(c) {
   const d = enrolled;
-  c.appendChild(group({ header: 'This Browser Is Now a Wall Tablet', footer: `“${d.name}”${d.room ? ' in ' + d.room : ''} is enrolled as a ${roleLabel(d.role)}. You have been signed out of this browser.` },
+  c.appendChild(group({ header: 'This Browser Is Now a Wall Tablet', footer: `“${d.name}”${d.room ? ' in ' + titleCase(d.room) : ''} is enrolled as a ${roleLabel(d.role)}. You have been signed out of this browser.` },
     [K().nav({ label: 'Open the Dashboard', href: mantelUrl('/home'), fk: 'mx:open-home' })]));
 }
 
@@ -774,16 +905,21 @@ const ASSET_SLOTS = [
   { id: 'ttf', label: 'SF Pro (ttf)', hint: 'SF-Pro.ttf, only needed if you have no woff2.', accept: '.ttf', kind: 'font', name: 'SF-Pro.ttf' },
   { id: 'glyphs', label: 'HK Glyphs', hint: 'hk-glyphs.js, the SF Symbols icon set.', accept: '.js,.json', kind: 'glyphs', name: 'hk-glyphs.js' },
 ];
-function pFiles() {
-  return { title: 'Your Files', top: true, scope: 'SF Pro and the SF Symbols glyph set are Apple’s, so they can’t ship with Mantel: each home adds its own copy once.', body(c) {
+function pFiles(sub) {
+  if (sub[0] === 'photos' && can('photos')) return photos.page(sub.slice(1), photoTools);
+  return { title: 'Your Files', top: true, scope: 'Your home’s own files, kept in Mantel’s data and its encrypted backups: the screensavers’ photos, and Apple’s font and glyphs.', body(c) {
     result(c, 'files');
+    if (can('photos')) {
+      c.appendChild(group({ header: 'Photos', footer: 'Albums of photos for the screensavers: upload them here, then pick an album on a screen’s Screensaver Options, or for every screen on All Screens → Screensaver.' },
+        [photos.filesRow(photoTools)]));
+    }
     const got = load('files', () => api('GET', '/api/user-files'));
     if (!got) { pending(c); return; }
     if (got.err) { failed(c, got.err); return; }
     const inf = got.data;
     const have = { woff2: inf.fonts.find((f) => f.name === 'SF-Pro.woff2'), ttf: inf.fonts.find((f) => f.name === 'SF-Pro.ttf'),
                    glyphs: inf.glyphs.present ? { size: inf.glyphs.size } : null };
-    for (const slot of ASSET_SLOTS) {
+    ASSET_SLOTS.forEach((slot, i) => {
       const cur = have[slot.id];
       const input = hh('input', { type: 'file', accept: slot.accept, class: 'mxfile', 'aria-label': 'Choose ' + slot.label, 'data-fk': 'mx:file-' + slot.id });
       input.addEventListener('change', () => {
@@ -799,11 +935,12 @@ function pFiles() {
         if (!(await ask({ title: 'Remove ' + slot.label + '?', message: 'Screens fall back to the system font or plain icons until you add it again.', ok: 'Remove', destructive: true }))) return;
         act('files', () => api('DELETE', '/api/user-files/' + slot.kind + '/' + slot.name), slot.label + ' removed.', 'files');
       }, { destructive: true, fk: 'mx:remove-' + slot.id }));
-      const g = group({}, rows);
+      const g = group(i ? {} : { header: 'Font and Glyphs' }, rows);
       g.appendChild(input);
       c.appendChild(g);
-    }
-    c.appendChild(group({ footer: `Used ${kb(inf.usage)} of ${kb(inf.quota)}. They are kept in Mantel’s data, included in its encrypted backups, and nothing here is ever run as code. ` +
+    });
+    c.appendChild(group({ footer: 'SF Pro and the SF Symbols glyph set are Apple’s, so they can’t ship with Mantel: each home adds its own copy once. ' +
+      `Used ${kb(inf.usage)} of ${kb(inf.quota)}. They are kept in Mantel’s data, included in its encrypted backups, and nothing here is ever run as code. ` +
       'On a Home Assistant install they are under /config/www/hk (fonts/ and iconset/). From the command line: mantel files import-assets <folder>.' }, []));
   } };
 }
@@ -916,6 +1053,7 @@ function pConnections(sub) {
   if (sub[0] === 'ha' || sub[0] === 'ma') return pConnection(sub[0]);
   if (sub[0] === 'ma-page') return pMaPage();
   if (sub[0] === 'proxy') return pProxy();
+  if (sub[0] === 'link') return pLink();
   return { title: 'Connections', top: true, scope: 'How Mantel reaches Home Assistant and Music Assistant. Each connection is tested before it is saved. Tokens are kept sealed in Mantel’s data, never shown again and never leave the server; a change applies at once.', body(c) {
     result(c, 'connections');
     const pid = new URLSearchParams(location.search).get('connection');
@@ -933,6 +1071,8 @@ function pConnections(sub) {
     if (cs.ma && cs.ma.state === 'set') rows.push(nav('Music Assistant Page', 'connections/ma-page', { icon: 'mdi:music-box-multiple', sub: 'Signs HK’s Browse Music page in to Music Assistant' }));
     c.appendChild(group({ footer: !can ? 'Only an Owner can change connections.' : got.data.needs_fresh ? 'From outside the home network you will be asked to confirm it is you first.' : null }, rows));
     drawWallTablets(c);
+    if (['owner', 'admin'].includes(me.user.role)) c.appendChild(group({ footer: 'Mantel Link is Home Assistant’s side of Mantel: Mantel’s wall tablets and actions in Home Assistant.' },
+      [nav('Home Assistant Link', 'connections/link', { icon: 'mdi:link-variant' })]));
     if (['owner', 'admin'].includes(me.user.role)) c.appendChild(group({ footer: 'How browsers reach Mantel: Mantel’s Caddy, your own reverse proxy, the Home Assistant App or a Cloudflare tunnel.' },
       [nav('HTTPS and Your Proxy', 'connections/proxy', { icon: 'mdi:lock' })]));
   } };
@@ -1070,6 +1210,32 @@ function drawWallTablets(c) {
     })));
 }
 // The group on the tablet's own page
+// HK Settings' own data again (panel/get): a tablet paired or disconnected gains or loses its Reload parts
+function reloadPanel() {
+  const p = panel;
+  if (p && typeof p.reload === 'function') Promise.resolve(p.reload()).then(() => p.render()).catch(() => {});
+}
+// A PAIRED TABLET'S RELOAD AND CLEAR CACHE (host.press): HK Settings' parts "mantel-tablet:<id>:<verb>"
+// (tablet_links.panel_parts), each sent through the command gateway (POST .../command: RBAC, the audit row; refused
+// with commands off). Every one is sent; a failure says which tablets.
+const TABLET_PART = /^mantel-tablet:([a-z0-9_]{1,64}):(reload|clear_cache)$/;
+function pressTablets(ids, p) {
+  const mine = ids.map((id) => TABLET_PART.exec(String(id))).filter(Boolean);
+  if (!mine.length) return null;
+  const names = (p && p.tabs && p.tabs()) || {};
+  return Promise.all(mine.map(([, tid, verb]) =>
+    api('POST', '/api/connections/tablets/' + encodeURIComponent(tid) + '/command', { verb }).then(() => null, (e) => ({ tid, e }))))
+    .then((got) => {
+      const bad = got.filter(Boolean);
+      if (!bad.length) return;
+      const say = (b) => ((names[b.tid] && names[b.tid].name) || b.tid);
+      const same = bad.every((b) => b.e.message === bad[0].e.message);
+      if (mine.length === 1) throw new Error(bad[0].e.message);
+      throw new Error(bad.map(say).join(', ') + (bad.length === 1 ? ': ' : ' — ') +
+        (same ? bad[0].e.message : bad.map((b) => say(b) + ': ' + b.e.message).join(' ')));
+    });
+}
+
 function drawDirect(c, ctx) {
   if (!can('connections')) return;
   const tid = ctx.tablet, key = 'tablet:' + tid, form = 'direct-' + tid;
@@ -1100,8 +1266,9 @@ function drawDirect(c, ctx) {
   }
   const notes = [];
   if (t.unreadable) notes.push('Mantel’s saved copy could not be opened (was the at-rest key changed?). Pair it again.');
-  if (sv.missing && sv.missing.length) notes.push('This ' + t.app_label + ' version lacks ' + sv.missing.join(', ') + ', which Mantel will need to send commands later. Update the app.');
-  notes.push('Mantel reads ' + t.app_label + ' on the tablet itself, without Home Assistant. Status only for now: Mantel sends it no commands.');
+  if (sv.missing && sv.missing.length) notes.push('This ' + t.app_label + ' version lacks ' + sv.missing.join(', ') + ', which Mantel needs for its commands. Update the app.');
+  notes.push('Mantel reads ' + t.app_label + ' on the tablet itself, without Home Assistant. The only commands it sends are Reload and ' +
+             'Clear Cache & Reload (Actions, below, and All at Once on Wall Tablets), while commands are on; each is in the Audit Log.');
   if (!can2) notes.push('Only an Owner can pair a tablet.');
   c.appendChild(group({ header, footer: notes.join(' ') }, rows));
   result(c, key);
@@ -1113,7 +1280,7 @@ function drawDirect(c, ctx) {
       button('Disconnect…', async () => {
         const why = t.app === 'kiosk_satellite' ? ' Kiosk Satellite’s tokens can’t be revoked from Mantel: the token Mantel had keeps working until it expires, unless the tablet’s remote administration is reset.' : '';
         if (!(await ask({ title: 'Disconnect ' + t.name + '?', message: 'Mantel forgets how to reach this tablet directly. Home Assistant’s own connection to it is not affected.' + why, ok: 'Disconnect', destructive: true }))) return;
-        act(key, () => api('DELETE', '/api/connections/tablets/' + encodeURIComponent(tid)), t.name + ' disconnected.', 'tablets', 'tablets-live', 'tablet-live:' + tid);
+        if (await act(key, () => api('DELETE', '/api/connections/tablets/' + encodeURIComponent(tid)), t.name + ' disconnected.', 'tablets', 'tablets-live', 'tablet-live:' + tid)) reloadPanel();
       }, { destructive: true, fk: 'mx:direct-disconnect' })]));
     return;
   }
@@ -1130,6 +1297,7 @@ function drawDirect(c, ctx) {
         clearDraft(form); delete shown['direct:' + tid];
         flash = { key, text: t.name + ' paired. ' + says };
         forget('tablets', 'tablets-live', 'tablet-live:' + tid);
+        reloadPanel();
       } else shown['direct:' + tid] = { text: says };
     } catch (e) { shown['direct:' + tid] = { text: e.message, err: true }; }
     redraw();
@@ -1257,6 +1425,98 @@ function drawHaDashboard(c, ctx) {
 }
 
 // HTTPS and the reverse proxy (proxy_check.py): Owner and Admin read; Owner runs the test, rotates the key
+// HOME ASSISTANT LINK (docs/phase9/MANTEL-LINK.md): which integration in Home Assistant is linked (Mantel Link, or
+// HK Frontend while a house moves), who holds the bridge (who shows Mantel's entities in Home Assistant: an
+// Owner hands it to Mantel Link, or gives it back, audited), and who owns each wall tablet. GET/PUT
+// /api/linked/owners; the server says whether Home Assistant's side can take the bridge, in words.
+const LINK_NAME = { mantel: 'Mantel Link', hk_frontend: 'HK Frontend' };
+function linkSays(l) {
+  const hk = (l.report || {}).hk_frontend;
+  const bits = ['Protocol ' + l.protocol, l.since ? 'since ' + fmt(l.since) : null];
+  if (l.domain === 'mantel' && hk) bits.push(hk.installed ? 'HK Frontend is also in Home Assistant' + (hk.linked ? ', linked' : ', not linked') : 'No HK Frontend');
+  if (l.domain === 'hk_frontend') bits.push((l.features || []).includes('bridge') ? 'can hand over' : 'update it to hand over');
+  return bits.filter(Boolean).join(' · ');
+}
+function pLink() {
+  return { title: 'Home Assistant Link', back: ['Connections', '#/' + ROUTE + '/connections'], body(c) {
+    result(c, 'link');
+    const got = load('link', () => api('GET', '/api/linked/owners'));
+    if (!got) { pending(c); return; }
+    if (got.err) { failed(c, got.err); return; }
+    const d = got.data, owner = me.user.role === 'owner';
+    const links = d.links || [];
+    c.appendChild(group({ header: 'Linked Now', footer: links.length ? null : 'Nothing in Home Assistant is linked to Mantel. Add Mantel Link in Home Assistant: Settings, Devices & Services, Add Integration, Mantel Link.' },
+      links.map((l) => info(LINK_NAME[l.domain] || l.domain, linkSays(l), 'Connected'))));
+    if (owner) drawLinkPairing(c);
+    const holder = (d.bridge && d.bridge.holder) || 'hk_frontend', b = d.bridge || {};
+    // a Home Assistant without HK Frontend has no one else: Mantel Link shows them whoever holds the bridge
+    const ml = links.find((l) => l.domain === 'mantel'), hkThere = ml && ((ml.report || {}).hk_frontend || {}).installed;
+    const alone = holder !== 'mantel' && ml && hkThere === false && !links.some((l) => l.domain === 'hk_frontend');
+    const rows = [info('Shown By', alone ? 'Home Assistant has no HK Frontend' : b.changed ? 'since ' + fmt(b.changed) : null,
+                       alone ? 'Mantel Link' : LINK_NAME[holder])];
+    if (owner && holder !== 'mantel') rows.push(button('Hand the Bridge to Mantel Link…', async () => {
+      if (!(await ask({ title: 'Hand the bridge to Mantel Link?', message: 'Mantel Link then shows Mantel’s wall tablets and the house in Home Assistant, under the same entity ids, with their history. HK Frontend lets go of them first. You can give it back.', ok: 'Hand Over' }))) return;
+      await act('link', () => api('PUT', '/api/linked/owners', { unit: 'bridge', owner: 'mantel' }), 'Mantel Link holds the bridge.', 'link');
+      setTimeout(() => { forget('link'); redraw(); }, 4000);   // the links reconnect after their reload
+    }, { fk: 'mx:bridge-mantel' }));
+    if (owner && holder === 'mantel') rows.push(button('Give the Bridge Back to HK Frontend…', async () => {
+      if (!(await ask({ title: 'Give the bridge back to HK Frontend?', message: 'HK Frontend then shows Mantel’s entities in Home Assistant again, under the same entity ids. HK Frontend must be linked to Mantel with its last release.', ok: 'Give Back', destructive: true }))) return;
+      await act('link', () => api('PUT', '/api/linked/owners', { unit: 'bridge', owner: 'hk_frontend' }), 'HK Frontend holds the bridge.', 'link');
+      setTimeout(() => { forget('link'); redraw(); }, 4000);   // the links reconnect after their reload
+    }, { destructive: true, fk: 'mx:bridge-hk' }));
+    c.appendChild(group({ header: 'The Bridge', footer: 'One integration in Home Assistant shows Mantel’s entities: HK Frontend while a house moves, then Mantel Link. ' + (owner ? 'Each change is in the Audit Log.' : 'Only an Owner can change it.') }, rows));
+    const units = [d.house].concat(d.tablets || []).filter(Boolean);
+    c.appendChild(group({ header: 'Who Runs Each Wall Tablet', footer: 'A tablet Mantel runs has its Sleep Screen and black screen in Mantel; Home Assistant’s scripts still reach it by the same entity ids. Move the tablets first, then the rest of the house.' + (owner ? '' : ' Only an Owner can move them.') },
+      units.map((u) => {
+        const mine = u.owner === 'mantel', label = u.unit === 'house' ? 'The Rest of the House' : (u.name || u.unit);
+        if (!owner) return info(label, u.unit === 'house' ? u.name : null, mine ? 'Mantel' : 'Home Assistant');
+        return K().toggle({ label, sub: (mine ? 'Mantel' : 'Home Assistant') + (u.changed ? ' · since ' + fmt(u.changed) : ''), on: mine, fk: 'mx:owner:' + u.unit,
+          onChange: (on) => act('link', () => api('PUT', '/api/linked/owners', { unit: u.unit, owner: on ? 'mantel' : 'ha' }),
+                               label + (on ? ' is Mantel’s.' : ' is Home Assistant’s.'), 'link') });
+      })));
+  } };
+}
+
+// PAIR MANTEL LINK (linked_pairing.py): a one-time code, ten minutes, typed into Mantel Link's setup in Home
+// Assistant (by hand, or after it discovered Mantel); shown once, then only "spent" or "expired"
+let linkPairTimer = null;
+function drawLinkPairing(c) {
+  const code = shown.linkPair;
+  if (code) {
+    const left = code.expires - nowS();
+    c.appendChild(group({ header: 'Pairing Code', footer: 'Valid once, for ' + (left > 0 ? Math.ceil(left / 60) + ' min' : 'no longer: it expired') +
+      '. In Home Assistant: Settings, Devices & Services. Open Mantel (Discovered), or Add Integration, Mantel Link with this Mantel’s address, and enter the code.' },
+      [secretCell(code.code, 'link-pairing-code'), copyButton(code.code, 'Copy Code'),
+       button('Withdraw This Code', async () => { await act('link', () => api('DELETE', '/api/linked/pair')); delete shown.linkPair; redraw(); }, { destructive: true, fk: 'mx:link-withdraw' })]));
+    return;
+  }
+  c.appendChild(group({ header: 'Pair Mantel Link', footer: 'For Mantel Link in a Home Assistant that found Mantel on the network, or one you add by hand. You get a one-time code that works for ten minutes; Home Assistant trades it for its own credential (listed under Service Accounts).' }, [
+    button('Make a Pairing Code', async () => {
+      const r = await act('link', () => api('POST', '/api/linked/pair', {}));
+      if (!r) return;
+      shown.linkPair = r;
+      watchLinkPairing(r);
+      redraw();
+    }, { fk: 'mx:link-pair' })]));
+}
+function watchLinkPairing(r) {
+  clearInterval(linkPairTimer);
+  linkPairTimer = setInterval(async () => {
+    if (!shown.linkPair) { clearInterval(linkPairTimer); return; }
+    try {
+      const got = await api('GET', '/api/linked/pair');
+      if (!got.pending) {
+        clearInterval(linkPairTimer);
+        const paired = (got.paired || []).some((p) => p.at >= r.expires - got.ttl - 1);
+        delete shown.linkPair;
+        flash = { key: 'link', text: paired ? 'Mantel Link is paired. The code is spent.' : 'The code expired or was withdrawn.', err: !paired };
+        forget('link');
+        redraw();
+      }
+    } catch (e) { /* the next tick tries again */ }
+  }, 3000);
+}
+
 function pProxy() {
   return { title: 'HTTPS and Your Proxy', back: ['Connections', '#/' + ROUTE + '/connections'], body(c) {
     result(c, 'proxy');
@@ -1365,7 +1625,7 @@ function pAudit() {
       users ? K().select({ label: 'Who', options: [['', 'Anyone']].concat(users.map((u) => [u.id, `${u.name || u.username} (${roleLabel(u.role)})`])), value: f.actor || '', fk: 'mx:audit:actor', onChange: set('actor') }) : null,
       devices ? K().select({ label: 'Tablet', options: [['', 'Any Tablet']].concat(devices.map((d) => [d.id, d.name + (d.revoked ? ' (revoked)' : '')])), value: f.device || '', fk: 'mx:audit:device', onChange: set('device') }) : null,
       K().select({ label: 'Decision', options: [['', 'Any'], ['allowed', 'Allowed'], ['denied', 'Denied'], ['step_up', 'Needed Confirmation']], value: f.decision || '', fk: 'mx:audit:decision', onChange: set('decision') }),
-      K().select({ label: 'Kind', options: [['', 'Any'], ['service', 'Service Calls'], ['ws', 'Home Assistant Writes'], ['http', 'HTTP'], ['ma', 'Music'], ['config', 'Settings and Roles'], ['system', 'System']], value: f.kind || '', fk: 'mx:audit:kind', onChange: set('kind') }),
+      K().select({ label: 'Kind', options: [['', 'Any'], ['service', 'Service Calls'], ['ws', 'Home Assistant Writes'], ['http', 'HTTP'], ['ma', 'Music'], ['config', 'Settings and Roles'], ['tablet', 'Wall Tablets'], ['system', 'System']], value: f.kind || '', fk: 'mx:audit:kind', onChange: set('kind') }),
       dt('since', 'From'), dt('until', 'To'),
       K().select({ label: 'Rows per Page', options: [['25', '25'], ['50', '50'], ['100', '100']], value: f.limit || '25', fk: 'mx:audit:limit', onChange: set('limit') })]));
     const q = new URLSearchParams();
@@ -1398,6 +1658,12 @@ function pAudit() {
 }
 
 // ============================================================================================ the host
+// Photos (mantel-photos.js) draws with this page's own helpers
+const photoTools = {
+  K, hh, api, act, load, forget, redraw, ask, group, info, button, nav, result, pending, failed, field, choose, draft,
+  mantelUrl, csrfNow, refreshMe, ROUTE, panel: () => panel,
+  setFlash: (key, text, err) => { flash = { key, text, err: !!err }; },
+};
 const BUILD = { me: pMe, people: pPeople, devices: pDevices, roles: pRoles, files: pFiles, service: pService,
                 connect: pConnect, connections: pConnections, audit: pAudit };
 const can = (s) => !!me && me.sections.includes(s);
@@ -1436,6 +1702,9 @@ export const host = {
   // /admin's addresses (#connections, #people ...) and the page's own first-run choice
   forward(path) {
     if (PAGES.some(([s]) => s === path)) return ROUTE + '/' + path;
+    // Photos had its own row until it moved into Your Files: #/photos (/admin's) and #/mantel/photos[/<album>]
+    const m = /^(?:mantel\/)?photos(\/.*)?$/.exec(path);
+    if (m) return ROUTE + '/' + photos.SECTION + (m[1] || '');
     return null;
   },
   first() {
@@ -1444,14 +1713,22 @@ export const host = {
     return manages() ? null : ROUTE + '/me';
   },
   // Mantel's own groups on HK's pages: a wall tablet's Direct Connection, a screen in Home Assistant's sidebar
+  // a paired tablet's Reload and Clear Cache (HK Settings' Wall Tablets buttons): through the command gateway
+  press(ids, p) {
+    if (p) panel = p;
+    return me ? pressTablets(ids, p) : null;
+  },
   extend(where, c, ctx, p) {
     if (p) { panel = p; ensureStyle(p.shadowRoot); }
     if (where === 'tablet' && me && ctx && ctx.tablet) drawDirect(c, ctx);
     if (where === 'screen' && me && ctx && ctx.screen) drawHaDashboard(c, ctx);
+    if ((where === 'saver' || where === 'house-saver') && me && can('photos')) photos.extend(where, c, ctx || {}, photoTools);
   },
   search() {
     if (!me) return [];
-    return PAGES.filter(([s]) => can(s)).map(([s, title]) => ({ label: title, route: ROUTE + '/' + s, where: 'Mantel', words: s }));
+    const out = PAGES.filter(([s]) => can(s)).map(([s, title]) => ({ label: title, route: ROUTE + '/' + s, where: 'Mantel', words: s }));
+    if (can('photos')) out.push({ label: 'Photos', route: ROUTE + '/' + photos.SECTION, where: 'Mantel → Your Files', words: 'photos albums upload screensaver pictures' });
+    return out;
   },
 };
 
@@ -1462,4 +1739,4 @@ export async function start() {
 }
 export function overview() { return me; }
 // tests: the module's state between cases
-export function _reset(next) { me = next || null; panel = null; enrolled = false; flash = null; for (const o of [cache, drafts, shown]) for (const k of Object.keys(o)) delete o[k]; }
+export function _reset(next) { me = next || null; panel = null; enrolled = false; flash = null; photos._reset(); for (const o of [cache, drafts, shown]) for (const k of Object.keys(o)) delete o[k]; }

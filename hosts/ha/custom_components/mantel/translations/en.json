@@ -1,0 +1,216 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Mantel Link",
+        "description": "Link Home Assistant to Mantel. Mantel's address is https://, or http:// only for the Mantel App on this machine (http://local-mantel:8099). Then a pairing code from Mantel Settings, Connections, Home Assistant Link, or a Mantel Service credential (Mantel Settings, Service Accounts).",
+        "data": {
+          "url": "Mantel's address",
+          "code": "Pairing code",
+          "token": "Or a Service credential"
+        }
+      },
+      "reconfigure": {
+        "title": "Mantel Link",
+        "description": "A new address or credential. Leave the credential empty to keep the saved one.",
+        "data": {
+          "url": "Mantel's address",
+          "token": "Service credential"
+        }
+      },
+      "hassio_confirm": {
+        "title": "Mantel",
+        "description": "Link Home Assistant to Mantel, found running as the {addon} App? Mantel's wall tablets and actions then show in Home Assistant."
+      },
+      "zeroconf_confirm": {
+        "title": "Mantel",
+        "description": "Mantel was found on your network at {url}. To link it, make a pairing code in Mantel Settings (Connections, Home Assistant Link, Make a Pairing Code) and enter it here.",
+        "data": {
+          "code": "Pairing code"
+        }
+      }
+    },
+    "error": {
+      "url_invalid": "Enter an address like https://mantel.example.com",
+      "url_insecure": "Use https://. Plain http:// is only for Mantel on this machine (the Mantel App).",
+      "url_not_internal": "That name doesn't lead to this machine's App network, so http:// isn't allowed. Use https://.",
+      "invalid_auth": "Mantel refused that credential.",
+      "cannot_connect": "Couldn't reach Mantel at that address.",
+      "mantel_too_old": "That Mantel is older than Mantel Link. Update Mantel first.",
+      "another_mantel": "That address is a different Mantel. Remove Mantel Link and add it again to change Mantel.",
+      "code_or_token": "Enter a pairing code (or a Service credential).",
+      "invalid_code": "Mantel did not accept that pairing code. Make a new one in Mantel Settings.",
+      "rate_limited": "Too many tries. Wait a few minutes and try again.",
+      "not_mantel": "That address answered, but it couldn't prove it is the Mantel that made the code."
+    },
+    "abort": {
+      "already_configured": "This Mantel is already linked.",
+      "single_instance_allowed": "Mantel Link is already set up.",
+      "reconfigure_successful": "Mantel Link was updated.",
+      "another_mantel_linked": "Home Assistant is already linked to another Mantel.",
+      "invalid_discovery": "That announcement didn't describe a Mantel."
+    },
+    "flow_title": "{name}"
+  },
+  "services": {
+    "set_black_screen": {
+      "name": "Set black screen",
+      "description": "Turns a wall tablet's black screen on or off and sets the brightness it comes back to.",
+      "fields": {
+        "black": {
+          "name": "Black",
+          "description": "On or off."
+        },
+        "brightness": {
+          "name": "Brightness",
+          "description": "The brightness to come back to (0-255)."
+        }
+      }
+    },
+    "show_popup": {
+      "name": "Show pop-up",
+      "description": "Opens one of Mantel's pop-ups on its screens.",
+      "fields": {
+        "popup": {
+          "name": "Pop-up",
+          "description": "The pop-up's name (its #hash)."
+        },
+        "dashboards": {
+          "name": "Screens",
+          "description": "Only these screens."
+        },
+        "users": {
+          "name": "People",
+          "description": "Only screens these people are signed in to."
+        }
+      }
+    },
+    "close_popup": {
+      "name": "Close pop-up",
+      "description": "Closes one of Mantel's pop-ups on its screens.",
+      "fields": {
+        "popup": {
+          "name": "Pop-up",
+          "description": "The pop-up's name (its #hash)."
+        },
+        "dashboards": {
+          "name": "Screens",
+          "description": "Only these screens."
+        },
+        "users": {
+          "name": "People",
+          "description": "Only screens these people are signed in to."
+        }
+      }
+    },
+    "notify": {
+      "name": "Notify",
+      "description": "Shows a banner on Mantel's screens.",
+      "fields": {
+        "title": {
+          "name": "Title",
+          "description": "Up to 40 characters."
+        },
+        "message": {
+          "name": "Message",
+          "description": "Up to 120 characters."
+        },
+        "important": {
+          "name": "Important",
+          "description": "Shown even in Do Not Disturb."
+        },
+        "wake": {
+          "name": "Wake the screen",
+          "description": "Wakes a sleeping screen."
+        },
+        "stay": {
+          "name": "Stays on screen",
+          "description": "Seconds; 0 until dismissed."
+        },
+        "icon": {
+          "name": "Icon",
+          "description": "mdi: or hk: icon."
+        },
+        "entity": {
+          "name": "Entity",
+          "description": "What a tap opens."
+        },
+        "camera": {
+          "name": "Camera",
+          "description": "A camera to show."
+        },
+        "tap": {
+          "name": "Tap opens",
+          "description": "What a tap opens."
+        },
+        "page": {
+          "name": "Page",
+          "description": "The page a tap opens."
+        },
+        "dashboards": {
+          "name": "Screens",
+          "description": "Only these screens."
+        },
+        "users": {
+          "name": "People",
+          "description": "Only screens these people are signed in to."
+        }
+      }
+    },
+    "music_play": {
+      "name": "Play music",
+      "description": "Plays a playlist in the rooms named (Mantel's music)."
+    },
+    "music_transfer": {
+      "name": "Move music",
+      "description": "Moves what one player plays to the rooms named."
+    },
+    "music_stop": {
+      "name": "Stop music",
+      "description": "Stops the music in the rooms named, or everywhere."
+    },
+    "music_transport": {
+      "name": "Music controls",
+      "description": "Play/pause, next, previous, stop or volume on one player."
+    },
+    "music_play_media": {
+      "name": "Play this",
+      "description": "Plays one item on one player."
+    },
+    "clean_areas": {
+      "name": "Clean areas",
+      "description": "Sends the vacuums that reach them to clean the areas named (Mantel's Clean Areas)."
+    },
+    "pause_automation": {
+      "name": "Pause an automation",
+      "description": "Turns an automation off until a time (default: midnight), then on again."
+    },
+    "resume_automation": {
+      "name": "Resume an automation",
+      "description": "Turns a paused automation on again now."
+    }
+  },
+  "entity": {
+    "switch": {
+      "seasonal_decorations": {
+        "name": "Seasonal decorations"
+      },
+      "photo_screensaver": {
+        "name": "Photo screensaver"
+      },
+      "black_screen": {
+        "name": "Black screen"
+      }
+    },
+    "binary_sensor": {
+      "screen_in_use": {
+        "name": "Screen in use"
+      }
+    },
+    "sensor": {
+      "sleep_screen": {
+        "name": "Sleep screen"
+      }
+    }
+  }
+}

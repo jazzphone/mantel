@@ -287,6 +287,17 @@ same('a throwing host leaves HK\'s own words, and no docs link', [S.productName(
      ['HK Frontend', 'A → B', 'X', null]);
 S.use(window.hkHAShell);
 
+// HOME ASSISTANT IN HK'S MENU (haNav, haNavigate, openHaMenu): in Home Assistant the section is its own sidebar and a
+// row is a navigation of its own, as always; a throwing host offers no rows and opens nothing
+pushed.length = 0;
+ok('Home Assistant: the section is its own sidebar', S.haNav() === 'own');
+S.haNavigate('/config/dashboard');
+ok('...a row is Home Assistant\'s own navigation', pushed.length === 1 && pushed[0][1] === '/config/dashboard', pushed);
+ok('...and HK opens its sidebar itself (openHaMenu: false)', S.openHaMenu() === false);
+S.use({ kind: 'test', haNav: function () { throw new Error('boom'); }, openHaMenu: function () { throw new Error('boom'); } });
+ok('a throwing host: no Home Assistant rows, nothing opened', S.haNav() === null && S.openHaMenu() === false);
+S.use(window.hkHAShell);
+
 print('');
 if (fail) { print('  FAIL ' + fail + ' HOST SHELL TESTS'); throw new Error('host shell tests failed'); }
 print('  ALL ' + pass + ' HOST SHELL TESTS PASS');

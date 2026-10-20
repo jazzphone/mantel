@@ -62,11 +62,46 @@ async def test_a_reply_that_arrives_in_pieces_is_read_whole(tablet):
     assert got["info"]["version"] == "2026.10.6" and got["missing"] == []
 
 
-def test_the_client_has_no_way_to_send_a_command():
-    """Slice 1 is status only: no method posts a command or changes a setting."""
+def test_the_client_sends_only_its_closed_list():
+    """Reload and Clear Cache are the only commands: no other method posts one or changes a setting."""
+    assert KS.COMMANDS == {"reload": "reload", "clear_cache": "clearWebCache"}
     for cls in (KS.KioskSatellite, KS._Http):
         names = {n for n in dir(cls) if not n.startswith("__")}
-        assert not names & {"send", "command", "run", "post", "patch", "settings", "set"}, names
+        assert not names & {"command", "run", "post", "patch", "settings", "set"}, names
+
+
+async def test_reload_and_clear_cache_post_exactly_those_commands(tablet):
+    fake, http, _ = tablet
+    client, token = await KS.login(http, ADDR, PASSWORD)
+    await client.send("reload")
+    await client.send("clear_cache")
+    assert fake.commands_posted == ["reload", "clearWebCache"]
+    assert fake.calls[-2:] == [("POST", "/api/commands/reload"), ("POST", "/api/commands/clearWebCache")]
+
+
+@pytest.mark.parametrize("verb", ["restart_app", "rebootDevice", "reload ", "evalJs", "clearWebCache", ""])
+async def test_any_other_verb_is_refused_before_sending(tablet, verb):
+    fake, http, _ = tablet
+    client, _token = await KS.login(http, ADDR, PASSWORD)
+    before = list(fake.calls)
+    with pytest.raises(ValueError):
+        await client.send(verb)
+    assert fake.calls == before and fake.commands_posted == []
+
+
+async def test_a_failed_command_and_a_refused_token_are_said_plainly(tablet, caplog):
+    fake, http, _ = tablet
+    client, token = await KS.login(http, ADDR, PASSWORD)
+    fake.fail_commands = True
+    with pytest.raises(KioskFailed) as e:
+        await client.send("reload")
+    assert e.value.code == "refused" and "reload failed (fake)" in e.value.message
+    fake.fail_commands = False
+    fake.rotate_secret()
+    with pytest.raises(KioskFailed) as e:
+        await client.send("clear_cache")
+    assert e.value.code == "token_refused" and token not in e.value.message
+    assert token not in _mantel_log(caplog) and PASSWORD not in _mantel_log(caplog)
 
 
 async def test_an_app_version_without_a_needed_command_is_said(tablet):

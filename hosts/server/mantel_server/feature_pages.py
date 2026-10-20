@@ -144,15 +144,25 @@ def music_page(res: Any) -> dict[str, Any]:
     }
 
 
-def alarm_pin_page(res: Any) -> dict[str, Any]:
+def _mantel_pin_set(pins: Any, a: Mapping[str, Any]) -> bool:
+    panel = a.get("panel")
+    try:
+        e = pins.entry(panel) if isinstance(panel, str) else None
+    except Exception:  # noqa: BLE001 -- the page still opens
+        return False
+    return bool(e is not None and e.house_code)
+
+
+def alarm_pin_page(res: Any, pins: Any = None) -> dict[str, Any]:
     """HA's hk_alarm_pin/settings/get answer rebuilt (alarm_pin/settings_ws.py page): never a PIN or
-    its hash, only whether one is set."""
+    its hash, only whether one is set -- in Mantel (``pins``, alarm_pin.AlarmPins), whose keypads check it;
+    HA's own says nothing about what a tablet will accept."""
     if not isinstance(res, Mapping):
         return {"configured": False, "alarms": [], "choices": []}
     alarms = [{"entry_id": _s(a.get("entry_id"), 64), "title": _s(a.get("title"), 80), "state": _s(a.get("state"), 40),
                "alarm": _s(a.get("alarm"), 255), "alarm_name": _s(a.get("alarm_name")), "panel": _s(a.get("panel"), 255),
                "panel_name": _s(a.get("panel_name")), "arm_required": bool(a.get("arm_required")),
-               "pin_set": bool(a.get("pin_set"))}
+               "pin_set": _mantel_pin_set(pins, a) if pins is not None else bool(a.get("pin_set"))}
               for a in res.get("alarms") or [] if isinstance(a, Mapping)]
     choices = [{"entity_id": _s(c.get("entity_id"), 255), "name": _s(c.get("name")), "entry": _s(c.get("entry"), 64)}
                for c in res.get("choices") or [] if isinstance(c, Mapping)]
@@ -212,7 +222,7 @@ class FeaturePages:
             if read is None:
                 raise PageError("unavailable", "no connection to Home Assistant, where this feature still runs")
             res = await read({"type": HA_PAGES[piece]})
-            return music_page(res) if piece == "music" else alarm_pin_page(res)
+            return music_page(res) if piece == "music" else alarm_pin_page(res, h.app.get("alarm_pin"))
         raise PageError("unknown_type", piece)
 
     def clean_page(self) -> dict[str, Any]:

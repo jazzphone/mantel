@@ -2,7 +2,7 @@
 # this folder with Mantel's code into HA's local apps share, and the Supervisor builds the Dockerfile
 # next to this file (no `image:` key: a local build). docs/phase3/HA-APP.md has the install steps.
 name: Mantel
-version: "0.1.27"
+version: "0.1.31"
 slug: mantel
 description: HK's home screens, served by Mantel Server inside Home Assistant (sign-in through the sidebar)
 url: https://github.com/jazzphone/mantel
@@ -24,6 +24,12 @@ panel_title: Mantel
 panel_admin: false
 # HA's built-in App credential (SUPERVISOR_TOKEN, to ws://supervisor/core/websocket). No user token.
 homeassistant_api: true
+# Mantel Link's "Discovered: Mantel" (docs/phase9/MANTEL-LINK.md): at start the App announces Mantel to the
+# Supervisor (its own address on HA's App network and a rotated `linked` Service credential), which hands it to
+# Mantel Link in Home Assistant. hassio_api is for that announcement and the App's own hostname only.
+hassio_api: true
+discovery:
+  - mantel
 watchdog: "http://[HOST]:[PORT:8099]/healthz"
 # Direct access (decision 26, DOCS.md "Direct access"): Mantel's own address for tablets and devices at
 # home. Off unless the option `access` is proxy (plain HTTP here, for your own proxy) or https (Mantel serves

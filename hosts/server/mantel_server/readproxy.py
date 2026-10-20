@@ -52,6 +52,9 @@ READ_ALLOWED: dict[str, frozenset[str]] = {
     "media_player/search_media": frozenset({"entity_id", "search_query", "media_content_id", "media_content_type",
                                             "media_filter_classes"}),
     "media_source/browse_media": frozenset({"media_content_id"}),
+    # The screensaver's photo, resolved by Mantel itself (connectors/media_photos.py): HA's answer is a signed
+    # address on HA's own origin, so a page never sees it; the page gets Mantel's short-lived photo route.
+    "media_source/resolve_media": frozenset({"media_content_id", "expires"}),
     # P3.5: HK's settings, read ONCE by Mantel itself for the one-time settings import
     # (settings_store.import_settings). Never for a page: SERVER_ONLY_READS below.
     "hk_frontend/panel/get": frozenset(),
@@ -99,7 +102,7 @@ READ_ALLOWED: dict[str, frozenset[str]] = {
 # for Music and Alarm PIN, still HA's, HA's page read here by Mantel itself and rebuilt).
 SERVER_ONLY_READS = frozenset({"hk_frontend/panel/get", "hk_notify/settings/get", "hk_clean_areas/settings/get",
                                "hk_energy/settings/get", "hk_energy/sources", "hk_tv/settings/get", "hk_music/settings/get",
-                               "hk_alarm_pin/settings/get"})
+                               "hk_alarm_pin/settings/get", "media_source/resolve_media"})
 SUBSCRIBE_TYPES = frozenset({"weather/subscribe_forecast", "persistent_notification/subscribe", "hk_music/subscribe"})
 # housekeeping the proxy itself sends to end a subscription it started
 INTERNAL = {"unsubscribe_events"}
@@ -266,7 +269,7 @@ class ReadProxy:
                                   headers={"Authorization": f"Bearer {self._token}"},
                                   timeout=aiohttp.ClientTimeout(total=30)) as r:
             if r.status != 200:
-                raise RuntimeError(f"Home Assistant answered {r.status}")
+                raise RuntimeError(f"Home Assistant answered {r.status} for {entity_id}")
             return await r.json()
 
     async def close(self) -> None:
@@ -291,6 +294,7 @@ RULES: dict[str, str] = {
     "media_player/browse_media": "view the media player",
     "media_player/search_media": "view the media player",
     "media_source/browse_media": "feature:media; camera sources refused and pruned",
+    "media_source/resolve_media": "server-only: Mantel's photo route answers it (connectors/media_photos.py), feature:media",
     "hk_frontend/panel/get": "never for a page (SERVER_ONLY_READS): the settings import's own read; pages get "
                              "Mantel's settings store",
     "hk_music/subscribe": "feature:music; every event pruned to the players the subject may view (speakers, "
@@ -705,15 +709,16 @@ _refused_at: dict[str, float] = {}
 REFUSED_WARN_EVERY = 300.0
 
 
-def _warn_refused(text: str, now: Callable[[], float] = time.monotonic) -> None:
+def _warn_refused(text: str, now: Callable[[], float] = time.monotonic, what: str = "refused a read") -> None:
     """A refused read, logged once per distinct refusal every REFUSED_WARN_EVERY seconds: a page's
-    feed that is not served yet (or not to this person) retries with backoff for ever."""
+    feed that is not served yet (or not to this person) retries with backoff for ever. A read that
+    failed upstream (`what` "a read failed": HA answering a calendar read with 500) the same way."""
     t = now()
     if t - _refused_at.get(text, float("-inf")) >= REFUSED_WARN_EVERY:
         if len(_refused_at) > 256:
             _refused_at.clear()
         _refused_at[text] = t
-        log.warning("refused a read: %s (repeats are logged every %d s)", text, REFUSED_WARN_EVERY)
+        log.warning("%s: %s (repeats are logged every %d s)", what, text, REFUSED_WARN_EVERY)
 
 
 def register(app, hub, hooks) -> FilteredReads:
@@ -777,6 +782,10 @@ def register(app, hub, hooks) -> FilteredReads:
             code = _error_code(exc)
             if code in ("not_allowed", "forbidden"):
                 _warn_refused(str(exc))
+            elif code == "failed":
+                # (a calendar its account no longer reads answers 500 at every load: the house, 2026-10-20,
+                # when Mantel's log said nothing and the page only "couldn't be read")
+                _warn_refused(f"{type(exc).__name__}: {exc}", what="a read failed")
             await ctx.send({"type": "read_result", "id": rid, "error": {"code": code, "message": str(exc)}})
             return
         await ctx.send({"type": "read_result", "id": rid, "result": result})

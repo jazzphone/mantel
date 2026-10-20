@@ -815,6 +815,7 @@ class Notifier:
         self.sent.append({"at": time.time(), "item": item_id, "entity": eid, "title": payload["title"],
                           "message": payload["message"], "screens": screens, "woke": woke,
                           "snap": payload.get("snap")})
+        self.host.to_phones(payload)
 
     def set_mute(self, key: str, seconds: int, actor: Any = None) -> float | None:
         until = NB.set_mute(self.mutes, key, seconds, self.host.epoch())
@@ -1220,6 +1221,13 @@ class FeatureHost:
         actor = actor_of(identity) if identity is not None else Actor(label="mantel-features")
         self.store.write([("house", key, body)], actor=actor, message=message)
 
+    def to_phones(self, payload: dict[str, Any]) -> None:
+        """The same notification to the phones of the people it is for (phones.py; Mantel Link and the
+        Companion app), in the background: the screens never wait for it."""
+        ph = self.app.get("phones")
+        if ph is not None:
+            self.spawn(ph.deliver(dict(payload)))
+
     def on(self, piece: str) -> bool:
         return bool(self.settings.get(piece, {}).get("enabled"))
 
@@ -1234,13 +1242,19 @@ class FeatureHost:
 
     def entry_id(self) -> str | None:
         """HA's hk_frontend entry id the linked entities' unique ids start with: the settings, else the
-        settings import's source (``ha:<entry id>``)."""
+        settings import's source (``ha:<entry id>``), else (no HK Frontend ever) Mantel's instance id."""
         got = self.settings["linked"].get("entry_id")
         if got:
             return got
         rec = self.store.import_record() or {}
         src = str(rec.get("source") or "")
-        return src[3:] if src.startswith("ha:") and _ENTRY.match(src[3:]) else None
+        if src.startswith("ha:") and _ENTRY.match(src[3:]):
+            return src[3:]
+        # a house that never had HK Frontend (Mantel Link alone, docs/phase9/MANTEL-LINK.md): Mantel's own
+        # instance id, so its unique ids are still stable and its own
+        lk = self.app.get("linked")
+        inst = getattr(lk, "instance", None) if lk is not None else None
+        return inst if isinstance(inst, str) and _ENTRY.match(inst) else None
 
     # -- the tablets' own entities -------------------------------------------------------------------
     def screen(self, tid: str | None) -> ScreenState | None:
@@ -1341,6 +1355,13 @@ class FeatureHost:
             key = SS.engine_key(self.boards[tid], self.own_ids(tid))
             eng = self.engines.get(tid)
             if eng is not None and getattr(eng, "_key", None) == key:
+                # the kiosk's entities come from HA's registries, which can arrive after the engine was made
+                # (an App start): follow them, or the engine never finds the display to turn off or the
+                # kiosk's Black screensaver (every tablet after 0.1.29's start, 2026-10-19)
+                parts = SE.kiosk_parts(self.house, eng.o.get("kiosk") or "")
+                if parts != eng.kiosk:
+                    log.info("Sleep Screen %s: its kiosk's entities now %s", tid, ", ".join(sorted(parts.values())) or "none")
+                    eng.kiosk = parts
                 continue
             if eng is not None:
                 eng.unload()
@@ -1961,6 +1982,13 @@ def register(app: web.Application, hub: Any, hooks: Any = None) -> FeatureHost:
                 first_registry()
             host.on_registry()
         ha.on_change, ha.on_registry = on_change, on_registry
+        first_loaded = getattr(ha, "on_registries_loaded", None)
+
+        def on_registries_loaded() -> None:
+            if first_loaded is not None:
+                first_loaded()
+            host.on_registry()
+        ha.on_registries_loaded = on_registries_loaded
 
     # linked mode's hook point: the real handler replaces the in-memory one
     if app.get("linked") is not None:

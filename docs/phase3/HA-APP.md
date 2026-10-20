@@ -891,6 +891,81 @@ Lovelace panel's block read as written.
 - [ ] The other four tablets: still HA-owned (CUTOVER.md log), three of them open `/dashboard-kitchen/home` with no
       `?hk_tablet=`. Each needs its own screen and `?hk_tablet=<id>` in Kiosk Satellite, then ownership moved.
 
+### 0.1.28 (2026-10-19, main `1bd8295`)
+
+Mantel's side of Mantel Link (phase 9, slices 9.1–9.10; docs/phase9/MANTEL-LINK.md). Nothing changes for the house's
+HK Frontend (eabb70a): a link without the `X-Mantel-Link` header is protocol 1 and answered exactly as before.
+- **Linked protocol 2** for Mantel Link: Mantel's instance id in hello, the `bridge` owner, Mantel Link's report.
+- **Supervisor discovery:** config.yaml gains `hassio_api: true` and `discovery: [mantel]`; at start the App
+  announces `{service: "mantel", config: {url, token}}` to HA, so a Home Assistant with Mantel Link shows
+  "Discovered: Mantel". Without Mantel Link installed HA does nothing with it.
+- **Pairing codes** for Mantel Link (`POST /api/linked/pair`, Owner, memory only, audited).
+- **Mantel Settings → Connections → Home Assistant Link:** what is linked, the bridge (hand over / give back,
+  Owner, refused until HK Frontend's last feature release is installed), who runs each wall tablet.
+- Mantel Link itself (HACS) and HK Frontend 1.9.0 / 1.10.0 are not part of this update; installing them is 9.11,
+  step by step with Avery.
+- [x] On the house (build `271eb3b80fcb024a`, 18:48; backup `be9cdef6` first): the App started, migration 0015
+      applied, Supervisor discovery announced (Service account "Home Assistant - App discovery"), HK Frontend
+      reconnected as protocol 1 at 18:48:23, the Loft's switches live (black screen on).
+- [ ] The Loft still sleeps and wakes through the night; the Home Assistant Link page shows HK Frontend linked.
+
+### 0.1.29 (2026-10-19, main `0dd379b`)
+
+Everything on main since 0.1.28 (validation green: JS 130, HA py 732, Mantel 2837, smoke):
+- **The screensavers' photos load again.** HK's screensaver asks `media_source/resolve_media` for each photo; Mantel
+  refused it, so no photo ever showed. Mantel now answers it itself (connectors/media_photos.py): `feature:media`, HA
+  media folders only, images only, with a short-lived `/api/photo/<id>` that it streams from HA Core's own address
+  (`http://homeassistant:8123` in the App) with HA's signature and no credential.
+- **Mantel Photos:** Mantel Settings → Photos (since moved into Your Files → Photos), the screensavers' own library (albums, bulk upload with HEIC and
+  no location, a grid preview, delete, import from an HA media folder; migration 0018). New in the image: Pillow
+  13.0.0 and pillow-heif 1.8.1.
+- **A screen's Home Assistant section by where it is shown:** HA's sidebar inside HA, one "Open Home Assistant"
+  row at Mantel's own address, none on wall tablets.
+- **The wall tablet's room is picked, never typed**; a device's room can be changed without re-enrolling.
+- **Phase 10, server side:** Mantel Settings on iPhone and iPad (safe areas, the iPad breakpoint), Home Screen web
+  app with Web Push, the apps' sign-in (PKCE, device-bound credentials, pairing QR), the REST door, and push
+  through the relay at `mantel-push.jazzphone.workers.dev` (no APNs key on the house; migrations 0016, 0017).
+  Unused until a phone pairs.
+- **Clean Areas and automation snooze** run on Mantel's engines as the person who asked, once Mantel Link holds
+  the bridge; **Mantel's docs at `/docs`**.
+- **Staging fix:** the web app's icons moved from `web/app/icons` to `web/app/art` (`/app/art/<name>`): HA's Samba
+  add-on refuses to create a folder named `icons`, so staging failed (guard: `test_stage_ha_app.py`).
+- [x] On the house (backup `d59597af` first; build `ec45740d508e3193`, 21:17): migrations 0016, 0017, 0018 applied;
+      Mantel Link (protocol 2, the discovery account rotated) and HK Frontend reconnected; no errors; the manifest
+      and icons answer 200. The Living Room's screensaver showed a photo through `/api/photo/<id>` (200, 618 KB,
+      21:18:48), the first since the tablets moved to Mantel.
+- [ ] The five tablets through a night on 0.1.29; Mantel Photos used for real.
+
+### 0.1.30 (2026-10-20)
+
+- **The tablets' displays turn off at night again.** Each tablet's Sleep Screen engine looked up its kiosk's
+  entities (the display, the Black screensaver) once, when made; at 0.1.29's start the engines were made a moment
+  before HA's registries arrived and every tablet kept an empty kiosk. Mantel went dark at Good Night (black,
+  backlight to the target) but never turned the Master Bedroom's display off in quiet hours ("Display Off"), and
+  the kiosk's Black screensaver fallback was gone too. Engines now follow their kiosk when the registries load;
+  the house's registry index rebuilds on every load.
+- **The app's sign-in** ("bad Origin" adding a house by hand): the consent page is same-origin, not no-referrer.
+- **Photos inside Your Files**; **New Album… / Add Photos** in a screen's screensaver photo picker.
+- **Reload / Clear Cache & Reload (and All at Once) work on Mantel**: each tablet's Kiosk Satellite API password is
+  kept by Mantel (at rest encrypted, audited; migration 0019), typed by an Owner.
+- **No flicker on the Energy and Weather screens**: their layers are kept, not made and dropped on each turn.
+- [ ] On the house: every tablet's Sleep Screen names its kiosk again (`sensor.<tablet>_sleep_screen` attribute
+      `kiosk`), the Master Bedroom's display goes off at Good Night.
+
+### 0.1.31 (2026-10-20)
+
+- **Every tablet's kiosk is found at once after a restart:** each HA connect's first registry load is told to the
+  features (`on_registries_loaded`), so the Sleep engines pick up their kiosk without waiting for a settings save.
+  Never told to the pages: that redrew every open page.
+- **A tablet's Setup -> Device lists the kiosk apps' devices** (Kiosk Satellite, Fully Kiosk); it offered only None.
+- **The home page clears the status bar and the Dynamic Island** (iPhone app, Home Screen web app); the iOS app's
+  menu has Mantel Settings and Clear Cache. Mantel for Mac (menu-bar player, favorites, Play Music) uses the
+  existing pages.
+- [x] On the house (backup `2455d36d` first; build `deb296c6376e4174`, 07:14): Mantel Link and HK Frontend
+      reconnected; all five `sensor.<tablet>_sleep_screen` named their kiosk at 07:14:48–49, at the start, with no
+      settings save.
+- [ ] The Device picker lists the five Kiosk Satellites (Avery, in Mantel Settings); a night with the displays off.
+
 ### Removal
 
 Stop and uninstall **Mantel** (Settings → Apps → Mantel → Uninstall); this removes its image and `/data`

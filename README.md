@@ -13,6 +13,7 @@ The master plan, with the reasons behind every decision, is [docs/PLAN.md](docs/
 | House commands through Mantel | **Off.** A server only sends a command to the house when its operator starts it with `--commands-enabled`. The house stays off until Avery approves it at cutover. |
 | `hk_core` | Every feature's decisions (Clean Areas, Live TV guide, Energy, notifications, music, screensaver, tablets, settings, Sleep Screen) live here, shared by both hosts. |
 | Linked mode (`hk_frontend` linked to Mantel) | Built on both sides and wired, off by default: per-tablet ownership (an Owner moves one tablet at a time, audited), Mantel's real handlers (black screen, pop-ups, notify, Alarm PIN through the gateway) and all 31 entities published. Checked on the scratch HA, not yet on the house. |
+| Mantel Photos | **Built and tested, not on the house.** The screensavers' own photo library: albums, bulk upload (HEIC included, location removed), a grid with a preview, delete and move, an import from a Home Assistant media folder, an album per screen, in Mantel's backups ([docs/phase4/PHOTOS.md](docs/phase4/PHOTOS.md)). |
 | Packaging | Written and statically checked. **The images have never been built or run: that needs Docker, which Avery has to install.** |
 
 ## The three ways to run Mantel Server

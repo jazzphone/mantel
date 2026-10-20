@@ -1,0 +1,40 @@
+# Moving from HK Frontend
+
+Mantel Link replaces HK Frontend. A house moves one step at a time, and every step but the last can be undone. Every
+entity keeps its entity id, its history and its customisations (Home Assistant moves the same registry entry).
+
+## If you never used Mantel
+
+1. Install Mantel: the Mantel App (Home Assistant OS or Supervised), or Mantel in Docker or the LXC (Container, Core).
+2. Import HK Frontend's settings into Mantel once, as its Owner: under the Mantel App, its People page in Home
+   Assistant's sidebar has **Import HK's settings from Home Assistant (once)**; anywhere, `mantel-server
+   import-settings`. Your screens, tablets, pop-ups and chips come across; nothing changes in Home Assistant.
+3. Continue below.
+
+## The steps
+
+1. **Update HK Frontend to its last release** and turn on HK Frontend → Configure → **Linked to Mantel**. (The
+   address fills itself in when the Mantel App is installed.)
+2. **Install Mantel Link** and add it ([Setup](Setup.md)). It starts **dormant**: linked, its actions work, but it
+   shows none of Mantel's entities, because HK Frontend still does.
+3. **Hand over the bridge.** Mantel Settings → Connections → Home Assistant Link → **Hand the Bridge to Mantel Link**
+   (an Owner; it is in the Audit Log). HK Frontend lets go of Mantel's entities; Mantel Link takes the same ones over.
+   `hk_frontend.set_black_screen` keeps reaching every tablet throughout.
+4. **Move the tablets to Mantel**, one at a time, on the same page (Who Runs Each Wall Tablet), then the rest of the
+   house. Each tablet's entities go to Mantel Link as it moves.
+5. **Remove HK Frontend** once every tablet and the rest of the house are Mantel's, and everything you used in HK
+   Frontend works in Mantel. Make a backup first. Mantel Link then answers the `hk_frontend.*` actions itself.
+
+## Going back
+
+- Before step 5: Home Assistant Link → **Give the Bridge Back to HK Frontend**. HK Frontend takes the same entities
+  back; Mantel Link goes dormant.
+- After step 5: reinstall HK Frontend's last release, link it, and give the bridge back. Your settings are still in
+  Mantel.
+- Removing Mantel Link hands its entities back to HK Frontend if HK Frontend is still installed.
+
+## What goes away with HK Frontend
+
+HK Frontend's own dashboards inside Home Assistant (a screen in Home Assistant is Mantel's now: Mantel Settings → the
+screen → Show in Home Assistant), the HK Settings panel (it is Mantel Settings), and HK Frontend's engines in Home
+Assistant (Mantel has its own).

@@ -40,9 +40,9 @@ async def test_every_tablet_is_home_assistant_s_until_an_owner_moves_it(make_env
     env = await make_env(settings={**LINKED_ON, "sleep": {"enabled": True}}, owned=(),
                          tablet={**TABLET, "sleep": {**TABLET["sleep"], "decided_by": "hk"}})
     owners = env.app["linked_owners"]
-    assert owners.snapshot() == {"house": "ha", "tablets": []} and not owners.owns("hall")
+    assert owners.snapshot() == {"house": "ha", "tablets": [], "bridge": "hk_frontend"} and not owners.owns("hall")
     lk, hello = await linked_ws(env)
-    assert hello["owners"] == {"house": "ha", "tablets": []}
+    assert hello["owners"] == {"house": "ha", "tablets": [], "bridge": "hk_frontend"}
     assert hello["entities"] == [], "nothing published for a tablet HA owns"
     assert env.host.engines == {}, "and Mantel's Sleep Screen never drives a kiosk HA's engine drives"
     # the forwarding decision on Mantel's side: a tablet HA owns is not Mantel's to answer for
@@ -74,7 +74,7 @@ async def test_an_owner_moves_a_tablet_audited_and_linked_ha_is_told_first(make_
     await env.login("owner1", "owner")              # the tunnel request ended that session
     r = await put(env, "hall", "mantel")
     body = await r.json()
-    assert r.status == 200 and body["changed"] is True and body["wire"] == {"house": "ha", "tablets": ["hall"]}
+    assert r.status == 200 and body["changed"] is True and body["wire"] == {"house": "ha", "tablets": ["hall"], "bridge": "hk_frontend"}
     assert [t for t in body["tablets"] if t["unit"] == "hall"][0]["owner"] == "mantel"
     # audited: a config row naming the Owner, the unit, from and to
     row = env.audit(kind="config")[-1]
@@ -82,7 +82,7 @@ async def test_an_owner_moves_a_tablet_audited_and_linked_ha_is_told_first(make_
     assert json.loads(row["target"]) == {"unit": "hall", "from": "ha", "to": "mantel"}
     # linked HA hears `owners` first, then the tablet's four entities
     got = await frames_until(lk, lambda f: f["type"] == "entity" and f["entity"]["unique_id"] == UID["sleep_screen"])
-    assert got[0] == {"type": "owners", "owners": {"house": "ha", "tablets": ["hall"]}}
+    assert got[0] == {"type": "owners", "owners": {"house": "ha", "tablets": ["hall"], "bridge": "hk_frontend"}}
     assert {f["entity"]["unique_id"] for f in got if f["type"] == "entity"} == set(UID.values())
     assert all(f["entity"]["tablet"] == "hall" for f in got if f["type"] == "entity")
     # and now Mantel answers for it
@@ -97,7 +97,7 @@ async def test_an_owner_moves_a_tablet_audited_and_linked_ha_is_told_first(make_
     r = await put(env, "hall", "ha")
     assert r.status == 200
     got = await frames_until(lk, lambda f: f["type"] == "removed" and f["unique_id"] == UID["sleep_screen"])
-    assert got[0] == {"type": "owners", "owners": {"house": "ha", "tablets": []}}
+    assert got[0] == {"type": "owners", "owners": {"house": "ha", "tablets": [], "bridge": "hk_frontend"}}
     assert all(f.get("forget") is False for f in got if f["type"] == "removed")
     res, _ = await lk.call(2, type="call_service", service="set_black_screen", data={"black": False}, targets=TARGET)
     assert res["error"]["code"] == "unknown_target"
@@ -116,7 +116,7 @@ async def test_the_rules_keep_the_entry_whole(make_env):
     r = await put(env, "hall", "ha")
     assert r.status == 400 and (await r.json())["error"]["code"] == "house_first"
     owners = env.app["linked_owners"]
-    assert owners.house() and owners.owns("hall") and owners.snapshot() == {"house": "mantel", "tablets": ["hall"]}
+    assert owners.house() and owners.owns("hall") and owners.snapshot() == {"house": "mantel", "tablets": ["hall"], "bridge": "hk_frontend"}
     assert [json.loads(r["target"]) for r in env.audit(kind="config")] == [
         {"unit": "hall", "from": "ha", "to": "mantel"}, {"unit": "house", "from": "ha", "to": "mantel"}]
 
@@ -159,7 +159,7 @@ async def test_ownership_survives_a_restart(tmp_path, monkeypatch, make_env):
         _acct, token = app2["service_accounts"].create("home-assistant-2", ["linked"])
         ws = await client.ws_connect("/linked/ws", headers={"Authorization": f"Bearer {token}"})
         hello = await ws.receive_json(timeout=5)
-        assert hello["owners"] == {"house": "ha", "tablets": ["hall"]}
+        assert hello["owners"] == {"house": "ha", "tablets": ["hall"], "bridge": "hk_frontend"}
         assert {e["unique_id"] for e in hello["entities"]} == set(UID.values())
         await ws.close()
     store2.db.close()

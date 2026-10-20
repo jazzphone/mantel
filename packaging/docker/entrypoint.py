@@ -24,6 +24,10 @@ Docker / Proxmox LXC (compose)   settings from MANTEL_* environment variables (n
                                       pairing (`mantel connect pair`; /admin -> Connect), and the 'ha' door's rules
                                       (MANTEL_HA_DOOR_RULES, default trusted). MANTEL_CONNECT_ADDRESS is only
                                       what /admin shows the Owner to type into the App. docs/phase3/CONNECT.md.
+    MANTEL_ANNOUNCE        optional   default on: write <data>/announce.json (no secret) for compose's `announce`
+                                      service, which advertises Mantel by zeroconf (_mantel._tcp) so Home
+                                      Assistant's Mantel Link offers "Discovered: Mantel"; 0/no turns it off.
+                                      docs/phase9/MANTEL-LINK.md.
 
 Home Assistant App (add-on)      recognised by SUPERVISOR_TOKEN in the environment plus /data/options.json.
                                  The built-in App credential is HA's own SUPERVISOR_TOKEN: it is moved into a
@@ -50,10 +54,12 @@ Home Assistant App (add-on)      recognised by SUPERVISOR_TOKEN in the environme
                                  Assistant" there; Mantel's own side of it goes to http://homeassistant:8123.
                                  Its origin, and those in ha_frame_origins, may frame the direct address (a
                                  "Webpage" dashboard in HA's sidebar; --frame-ancestors).
+                                 Mantel Link's discovery: the App announces Mantel to the Supervisor
+                                 (--supervisor-url http://supervisor; config.yaml discovery + hassio_api).
     Test-only overrides (never set by the Supervisor; for running App mode against a scratch HA):
     MANTEL_APP_OPTIONS, MANTEL_APP_TOKEN_FILE, MANTEL_SUPERVISOR_CORE_URL, MANTEL_SUPERVISOR_WS_URL,
     MANTEL_INGRESS_PEER, MANTEL_HA_CORE_PEER, MANTEL_LISTEN, MANTEL_PORT, MANTEL_DATA_DIR,
-    MANTEL_DIRECT_PORT, MANTEL_HA_OAUTH_URL, MANTEL_APP_CF_TOKEN_FILE
+    MANTEL_DIRECT_PORT, MANTEL_HA_OAUTH_URL, MANTEL_APP_CF_TOKEN_FILE, MANTEL_SUPERVISOR_URL
 
 Admin commands pass straight through and default to the /data volume (and, for import-settings, backup
 and restore, to the container's HA address, token and secrets):
@@ -168,6 +174,8 @@ def container_args(env: dict[str, str]) -> list[str]:
     if env.get("MANTEL_SESSION_HOURS"):
         args += ["--session-hours", env["MANTEL_SESSION_HOURS"]]
     args += connect_args(env)
+    if env.get("MANTEL_ANNOUNCE", "1").strip().lower() not in ("0", "no", "false", "off"):
+        args += ["--announce-file", f"{env.get('MANTEL_DATA_DIR', '/data')}/announce.json"]
     return args
 
 
@@ -237,7 +245,9 @@ def app_args(options: dict, token_file: Path, env: dict[str, str] | None = None)
     if listen not in ("127.0.0.1", "::1"):
         # '*' is checked on the Ingress port only; the direct port answers only to public_url's name (direct.py)
         args += ["--public-url", public or "https://ingress.invalid/", "--allow-host", "*"]
-    args += ["--ingress", "--ingress-only", "--ha-managed-by-app"]
+    args += ["--ingress", "--ingress-only", "--ha-managed-by-app",
+             # Mantel Link's "Discovered: Mantel" (supervisor_discovery.py; config.yaml discovery, hassio_api)
+             "--supervisor-url", env.get("MANTEL_SUPERVISOR_URL", "http://supervisor")]
     if access != "ingress":
         args += direct_args(access, public, options, env)   # HA is the App's credential (connections.py)
     for peer in filter(None, (p.strip() for p in env.get("MANTEL_INGRESS_PEER", "").split(","))):

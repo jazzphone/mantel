@@ -117,20 +117,23 @@ def _owners(raw: Any) -> dict[str, Any]:
     raw = raw if isinstance(raw, Mapping) else {}
     tablets = raw.get("tablets")
     tablets = frozenset(str(t) for t in tablets if isinstance(t, str) and t) if isinstance(tablets, list) else frozenset()
-    return {"house": raw.get("house") == "mantel", "tablets": tablets}
+    # who mirrors Mantel's entities in HA (handover.py): this integration, or Mantel Link
+    return {"house": raw.get("house") == "mantel", "tablets": tablets,
+            "bridge": "mantel" if raw.get("bridge") == "mantel" else "hk_frontend"}
 
 
 def owners_of(entry: ConfigEntry | None) -> dict[str, Any]:
     """Who owns what, as Mantel last said: {"house": bool (the rest of the
-    entry is Mantel's), "tablets": frozenset of the tablet ids Mantel owns}.
-    Nothing said: everything Home Assistant's."""
+    entry is Mantel's), "tablets": frozenset of the tablet ids Mantel owns,
+    "bridge": "hk_frontend"|"mantel" (who mirrors them: handover.py)}.
+    Nothing said: everything Home Assistant's, the bridge this integration's."""
     return _owners(entry.data.get(CONF_MANTEL_OWNERS) if entry is not None else None)
 
 
 def wire_owners(owners: Mapping[str, Any]) -> dict[str, Any]:
     """Mantel's `owners` as kept in the entry's data (normalised)."""
     o = _owners(owners)
-    return {"house": "mantel" if o["house"] else "ha", "tablets": sorted(o["tablets"])}
+    return {"house": "mantel" if o["house"] else "ha", "tablets": sorted(o["tablets"]), "bridge": o["bridge"]}
 
 
 def full(entry: ConfigEntry | None) -> bool:
@@ -145,7 +148,7 @@ def setup_key(entry: ConfigEntry | None) -> Any:
     if link is None:
         return None
     o = owners_of(entry)
-    return (link["url"], link["token"], o["house"], tuple(sorted(o["tablets"])))
+    return (link["url"], link["token"], o["house"], tuple(sorted(o["tablets"])), o["bridge"])
 
 
 def mantel_tablets(hass: HomeAssistant, entry: ConfigEntry | None) -> frozenset[str]:
@@ -160,6 +163,9 @@ def describe(entry: ConfigEntry | None) -> str:
     if not configured(entry):
         return "not linked"
     o = owners_of(entry)
+    if o["bridge"] == "mantel":
+        from .handover import describe as bridge_words
+        return "linked; " + str(bridge_words(entry))
     if o["house"]:
         return "linked; the whole entry is Mantel Server's"
     if o["tablets"]:
@@ -187,10 +193,17 @@ async def check_url(address: str) -> str | None:
 APP_ADDRESS = "http://local-mantel:8099"   # the Mantel App installed locally, on HA's internal App network
 
 
-async def suggested_url() -> str:
-    """What Configure offers when nothing is saved yet: the Mantel App's own address, when that name resolves
-    inside Home Assistant's internal App network (the same check the form applies), else nothing. Avery
-    (2026-10-19): "Shouldn't this autopopulate if it's an HA App?" """
+async def suggested_url(hass: HomeAssistant | None = None) -> str:
+    """What Configure offers when nothing is saved yet: the address Mantel Link (HK Frontend's successor, domain
+    `mantel`) is linked to, when this Home Assistant has it (it found Mantel by itself: the App's announcement or
+    zeroconf); else the Mantel App's own address, when that name resolves inside Home Assistant's internal App
+    network (the same check the form applies); else nothing. Avery (2026-10-19): "Shouldn't this autopopulate if
+    it's an HA App?" """
+    if hass is not None:
+        for e in hass.config_entries.async_entries("mantel"):
+            url = e.data.get("url")
+            if isinstance(url, str) and url.strip() and await check_url(url) is None:
+                return url.strip()
     try:
         bad, _ = await plain_target(APP_ADDRESS)
     except Exception:  # noqa: BLE001 -- only a suggestion: whatever goes wrong, the form opens empty
@@ -233,8 +246,9 @@ class Linked:
         link = link_of(entry)
         assert link is not None
         self.hass, self.entry = hass, entry
+        # `bridge`: this release can hand the bridge to Mantel Link (handover.py)
         self.link = MantelLink(async_get_clientsession(hass), link["url"], link["token"], self,
-                               **({"timeout": timeout} if timeout is not None else {}))
+                               features=("bridge",), **({"timeout": timeout} if timeout is not None else {}))
         self.descs: dict[str, dict[str, Any]] = {}          # unique id -> Mantel's descriptor
         self.entities: dict[str, LinkedEntity] = {}         # unique id -> the entity added
         self.adders: dict[str, Any] = {}                    # platform -> async_add_entities
@@ -242,6 +256,8 @@ class Linked:
         o = owners_of(entry)
         self.full: bool = bool(o["house"])
         self.tablets: frozenset[str] = frozenset(o["tablets"])
+        # Mantel Link holds the bridge: it mirrors Mantel's entities, not this side
+        self.bridge_away: bool = o["bridge"] == "mantel"
         self._pending_owners: dict[str, Any] | None = None
         self._unwait: Any = None
 
@@ -268,7 +284,9 @@ class Linked:
     # ---- the listener (mantel_link.Listener): Mantel's entities, nothing else
     def mine(self, d: Mapping[str, Any]) -> bool:
         """Is this entity's unit Mantel's? A tablet's: that tablet moved; the
-        rest: the whole entry moved."""
+        rest: the whole entry moved. Never while Mantel Link holds the bridge."""
+        if self.bridge_away:
+            return False
         if self.full:
             return True
         tablet = d.get("tablet")
@@ -291,6 +309,12 @@ class Linked:
         # own entity still holds its unique id)
         o = _owners(new)
         self.full, self.tablets = self.full and bool(o["house"]), self.tablets & frozenset(o["tablets"])
+        if o["bridge"] == "mantel" and not self.bridge_away:
+            # the bridge goes to Mantel Link: let go of Mantel's entities now
+            # (registry kept), so Mantel Link can take them over
+            self.bridge_away = True
+            for uid in list(self.entities):
+                self._drop(uid, registry=False)
         self._pending_owners = new
         if self.entry.state is ConfigEntryState.LOADED:
             self._apply_owners()

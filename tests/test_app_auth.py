@@ -1,4 +1,4 @@
-"""Slices 10.2 and 10.3: the apps' sign-in and REST door (app_auth.py, app_api.py, qr.py, migration 0016).
+"""Slices 10.2 and 10.3: the apps' sign-in and REST door (app_auth.py, app_api.py, qr.py, migration 0017).
 
 The "app" here is this file: a P-256 key standing in for the Secure Enclave's, DPoP proofs signed with it, and
 the PKCE dance an ASWebAuthenticationSession would do. Fictional people and entities only.
@@ -446,8 +446,8 @@ def test_qr_reads_back_with_the_macs_own_reader(tmp_path):
     assert out == link
 
 
-def test_migration_0016_makes_the_tables():
-    sql = (ROOT / "hosts/server/mantel_server/migrations/0016_app.sql").read_text()
+def test_migration_0017_makes_the_tables():
+    sql = (ROOT / "hosts/server/mantel_server/migrations/0017_app.sql").read_text()
     for t in ("app_credentials", "apple_links", "app_settings"):
         assert f"CREATE TABLE {t}" in sql
 

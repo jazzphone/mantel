@@ -44,8 +44,15 @@
 //                 sidebar of its own
 //     extend(where, c, ctx, panel)  the host's own groups on one of HK's
 //                 pages, appended to c: where 'tablet' (a wall tablet's
-//                 page, after Setup; ctx { tablet, name, app }) or 'screen'
-//                 (a screen's page, after This Device; ctx { screen, title }) }
+//                 page, after Setup; ctx { tablet, name, app }), 'screen'
+//                 (a screen's page, after This Device; ctx { screen, title }),
+//                 'saver' (a screen's Screensaver Options, first; ctx { screen,
+//                 title }) or 'house-saver' (All Screens' Screensaver, after
+//                 Photos; ctx { photos, set(source) })
+//     press(ids, panel)  a tablet's own parts that are the host's, not HA
+//                 buttons (Reload, Clear Cache: tablets[].parts), pressed:
+//                 a promise (rejected with a message to show), or null to
+//                 leave them to HA's button.press }
 // Home Assistant has none, so nothing of another host's is drawn, read or
 // said there.
 (function () {
@@ -441,7 +448,8 @@
   function docsLink(page, anchor, o) {
     var url = window.hkShell.docsUrl(page, anchor);
     if (!url) return null;
-    var row = K.nav(Object.assign({ label: 'On the Wiki', icon: 'mdi:open-in-new', href: url }, o));
+    // HK Frontend's wiki on GitHub; a host's own docs (a path of its own) are its docs
+    var row = K.nav(Object.assign({ label: /^https?:/.test(url) ? 'On the Wiki' : 'In the Docs', icon: 'mdi:open-in-new', href: url }, o));
     var a = row.tagName === 'A' ? row : row.querySelector && row.querySelector('a');
     if (a) { a.setAttribute('target', '_blank'); a.setAttribute('rel', 'noopener'); }
     return row;
@@ -3557,6 +3565,11 @@
           self.setB(path, { screensaver_options: on ? null : self.saverOut(cur) });
         } })].concat(house ? [K.nav({ label: 'Screensaver for All Screens', value: M.saverSummary(cur),
                                       href: '#/house/screensaver', sk: 'saver:house-page' })] : [])));
+      // THE HOST'S OWN, for this screen's screensaver (extend): nothing in Home Assistant
+      var hx = this.host();
+      if (hx && typeof hx.extend === 'function') {
+        try { hx.extend('saver', c, { screen: path, title: x.title }, this); } catch (e) { /* the host's own group */ }
+      }
       if (!house) {
         this.saverGroups(c, cur, function (k, v) {
           var o = M.saverOptions(cur); if (k && typeof k === 'object') Object.assign(o, k); else o[k] = v;
@@ -4029,6 +4042,11 @@
       c.appendChild(K.group({ header: 'Photos', footer: 'A media folder (media-source://…) of the photos every screen’s Photo Screensaver shows.' }, [
         K.text({ label: 'Screensaver Photos', sk: 'look.photos', value: this.hs('look.photos'), placeholder: 'media-source://…', error: this.err('look.photos'),
                  onCommit: function (v) { self.setH({ 'look.photos': v }); } })]));
+      // THE HOST'S OWN beside the photos (extend): nothing in Home Assistant
+      var hx = this.host();
+      if (hx && typeof hx.extend === 'function') {
+        try { hx.extend('house-saver', c, { photos: this.hs('look.photos'), set: function (v) { return self.setH({ 'look.photos': v }); } }, this); } catch (e) { /* the host's own group */ }
+      }
       this.saverGroups(c, cur, function (k, v) {
         var o = M.saverOptions(cur); if (k && typeof k === 'object') Object.assign(o, k); else o[k] = v;
         return self.setH({ 'look.saver': self.saverOut(o) });
@@ -7387,11 +7405,22 @@
     }
     screenTitle(path) { var x = path && this.dash(path); return x ? x.title : (path || 'No Screen'); }
     tabTile(st) { return { off: C.red, dark: C.gray, photos: C.purple, awake: C.green }[st] || C.blue; }
-    // press a kiosk app's buttons (the tablets' own Reload, Clear Cache ...)
-    press(ids) {
+    // press a kiosk app's buttons (the tablets' own Reload, Clear Cache ...):
+    // HA's buttons, or the host's own parts (its press). Resolves true, or
+    // false once a failure has been said (`what`: "Couldn't Reload")
+    press(ids, what) {
+      var self = this;
       ids = (ids || []).filter(Boolean);
-      if (!ids.length) return Promise.resolve();
-      return this.actions().callService('button', 'press', { entity_id: ids });
+      if (!ids.length) return Promise.resolve(true);
+      var hx = this.host(), go = null;
+      if (hx && typeof hx.press === 'function') { try { go = hx.press(ids, this); } catch (e) { go = Promise.reject(e); } }
+      if (!go) go = this.actions().callService('button', 'press', { entity_id: ids });
+      return Promise.resolve(go).then(function () { return true; }, function (e) {
+        var msg = (e && e.message) || String(e || 'It failed.');
+        self.announce('Couldn’t: ' + msg);
+        K.confirm(self.shadowRoot, { title: 'Couldn’t ' + (what || 'Do That'), message: msg, ok: 'OK', cancel: false });
+        return false;
+      });
     }
     // THE ACTION PORT (HKClient) of this panel's client: every save, service
     // call, config flow and upload goes through it. A host that cannot act
@@ -7405,9 +7434,12 @@
     clearAndReload(tids) {
       var self = this, tabs = this.tabs();
       var parts = tids.map(function (t) { return (tabs[t] || {}).parts || {}; });
-      return this.press(parts.map(function (p) { return p.clear_cache; })).then(function () {
-        return new Promise(function (r) { setTimeout(r, 5000); });
-      }).then(function () { return self.press(parts.map(function (p) { return p.reload; })); });
+      return this.press(parts.map(function (p) { return p.clear_cache; }), 'Clear the Cache').then(function (ok) {
+        if (!ok) return false;
+        return new Promise(function (r) { setTimeout(r, 5000); }).then(function () {
+          return self.press(parts.map(function (p) { return p.reload; }), 'Reload');
+        });
+      });
     }
     h_tablets(c) {
       var self = this, tabs = this.tabs(), ids = this.tabIds(), st = this.client.states;
@@ -7480,7 +7512,7 @@
       c.appendChild(K.group({ header: 'All at Once', footer: 'After updating ' + PN() + ', Clear Cache & Reload: a plain reload keeps the old HK files.' }, [
         K.button({ label: 'Reload All', fk: 'tablets:reload', disabled: !withReload.length, onClick: function () {
           var p = withReload.map(function (tid) { return tabs[tid].parts.reload; });
-          self.press(p).then(function () { self.announce('Reloading ' + p.length + (p.length === 1 ? ' tablet' : ' tablets')); });
+          self.press(p, 'Reload').then(function (ok) { if (ok) self.announce('Reloading ' + p.length + (p.length === 1 ? ' tablet' : ' tablets')); });
         } }),
         K.button({ label: 'Clear Cache & Reload All', fk: 'tablets:clear', disabled: !withReload.length, onClick: function () {
           self.announce('Clearing the cache, then reloading. Each takes up to a minute.');
@@ -7629,14 +7661,14 @@
         act.push(K.button({ label: 'Wake Now', fk: 't:wake', onClick: function () { ask('wake'); } }));
         act.push(K.button({ label: 'Sleep Now', fk: 't:sleepnow', onClick: function () { ask('sleep'); } }));
       }
-      if (p.reload) act.push(K.button({ label: 'Reload', fk: 't:reload', onClick: function () { self.press([p.reload]).then(function () { self.announce('Reloading ' + t.name); }); } }));
+      if (p.reload) act.push(K.button({ label: 'Reload', fk: 't:reload', onClick: function () { self.press([p.reload], 'Reload').then(function (ok) { if (ok) self.announce('Reloading ' + t.name); }); } }));
       if (p.reload && p.clear_cache) act.push(K.button({ label: 'Clear Cache & Reload', fk: 't:clear', onClick: function () { self.announce('Clearing the cache, then reloading'); self.clearAndReload([tid]); } }));
-      if (p.restart_app) act.push(K.button({ label: 'Restart App', fk: 't:restartapp', onClick: function () { self.press([p.restart_app]).then(function () { self.announce('Restarting the app'); }); } }));
+      if (p.restart_app) act.push(K.button({ label: 'Restart App', fk: 't:restartapp', onClick: function () { self.press([p.restart_app], 'Restart the App').then(function (ok) { if (ok) self.announce('Restarting the app'); }); } }));
       if (p.restart_device) {
         act.push(K.button({ label: 'Restart Tablet…', destructive: true, fk: 't:restart', onClick: function () {
           K.confirm(self.shadowRoot, { title: 'Restart ' + t.name + '?', message: 'The tablet restarts and comes back to its screen in about a minute.',
                                        ok: 'Restart', destructive: true }).then(function (yes) {
-            if (yes) self.press([p.restart_device]).then(function () { self.announce('Restarting ' + t.name); });
+            if (yes) self.press([p.restart_device], 'Restart the Tablet').then(function (ok) { if (ok) self.announce('Restarting ' + t.name); });
           });
         } }));
       }

@@ -133,6 +133,7 @@ def ma_app(up: Upstream) -> web.Application:
     app.router.add_get("/index.html", index)
     app.router.add_get("/assets/{name}", asset)
     app.router.add_get("/imageproxy", image)
+    app.router.add_get("/imageproxy/{image_id}", image)
     app.router.add_get("/info", info)
     app.router.add_route("*", "/api", api)
     app.router.add_route("*", "/login", login)

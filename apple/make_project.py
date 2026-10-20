@@ -7,7 +7,7 @@ are derived from names, so the output is the same every run (a clean diff).
 
 Targets: Mantel (iPhone/iPad app), MantelWidgets (widgets, the music Live Activity, Control Center controls),
 MantelNotificationService (opens sealed notifications), MantelMac (the menu bar app). All link MantelKit (a local
-Swift package). Signing: automatic with Avery's team (DEVELOPMENT_TEAM); the Mac app still signs to run locally.
+Swift package). Signing: automatic with Avery's team (DEVELOPMENT_TEAM); the Mac app with the team once MAC_TEAM_SIGNING is on.
 """
 from __future__ import annotations
 
@@ -49,6 +49,10 @@ IOS = {"SDKROOT": "iphoneos", "IPHONEOS_DEPLOYMENT_TARGET": "18.0", "TARGETED_DE
 EXT = {"SKIP_INSTALL": "YES", "APPLICATION_EXTENSION_API_ONLY": "YES",
        "LD_RUNPATH_SEARCH_PATHS": "$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks",
        "CODE_SIGN_ENTITLEMENTS": "Config/Extension.entitlements"}
+# The Mac app with the team (Config/MacTeam.entitlements: the shared Keychain group, and the App Group named with the
+# team's prefix, which macOS allows without a profile or a prompt; Xcode's Mac profile is the team's wildcard one, which
+# cannot carry a group.* App Group. Avery's Mac Studio registered 2026-10-19). False signs it to run locally (Config/Mac.entitlements: sandbox and network only, the login keychain).
+MAC_TEAM_SIGNING = True
 PREFIX = "com.jazzphone.mantel"     # Avery's choice, 2026-10-19 (no surname); the App Group is group.<PREFIX>
 
 TARGETS = [
@@ -70,12 +74,11 @@ TARGETS = [
     {"name": "MantelMac", "type": "com.apple.product-type.application", "product": "MantelMac.app",
      "folders": ["MantelMac", "Common"],
      "settings": {"SDKROOT": "macosx", "MACOSX_DEPLOYMENT_TARGET": "15.0", "PRODUCT_BUNDLE_IDENTIFIER": f"{PREFIX}.mac",
-                  "INFOPLIST_FILE": "Config/Mac-Info.plist", "CODE_SIGN_ENTITLEMENTS": "Config/Mac.entitlements",
+                  "INFOPLIST_FILE": "Config/Mac-Info.plist",
                   "PRODUCT_NAME": "Mantel", "LD_RUNPATH_SEARCH_PATHS": "$(inherited) @executable_path/../Frameworks",
                   "ENABLE_HARDENED_RUNTIME": "YES", "COMBINE_HIDPI_IMAGES": "YES",
-                  # signed to run locally until the developer account (M10-6): sandbox and network only; with a team,
-                  # add the App Group and the shared Keychain group (Config/Mac.entitlements) as the iOS app has them
-                  "CODE_SIGN_IDENTITY": "-"}},
+                  **({"CODE_SIGN_ENTITLEMENTS": "Config/MacTeam.entitlements"} if MAC_TEAM_SIGNING else
+                     {"CODE_SIGN_ENTITLEMENTS": "Config/Mac.entitlements", "CODE_SIGN_IDENTITY": "-"})}},
 ]
 
 

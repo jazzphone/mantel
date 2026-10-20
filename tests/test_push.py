@@ -1,4 +1,4 @@
-"""Slice 10.0: the web app on the Home Screen and Web Push (app_shell.py, push.py, app_crypto.py, migration 0015).
+"""Slice 10.0: the web app on the Home Screen and Web Push (app_shell.py, push.py, app_crypto.py, migration 0016).
 
 No real push service is reached: the send goes to a fake HTTP session that decrypts the body with the
 fictional browser's key, as a browser would.
@@ -98,7 +98,7 @@ def test_manifest_is_standalone_with_its_icons():
     for icon in m["icons"]:
         name = icon["src"].rsplit("/", 1)[1]
         assert name in __import__("mantel_server.app_shell", fromlist=["ICONS"]).ICONS
-        assert (WEB / "app/icons" / name).is_file()
+        assert (WEB / "app/art" / name).is_file()
 
 
 async def test_manifest_worker_and_icons_need_no_session(mantel):
@@ -107,11 +107,11 @@ async def test_manifest_worker_and_icons_need_no_session(mantel):
     assert r.status == 200 and r.headers["Content-Type"].startswith("application/manifest+json")
     r = await m.client.get("/sw.js")
     assert r.status == 200 and r.headers["Service-Worker-Allowed"] == "/"
-    for path in ("/apple-touch-icon.png", "/app/icons/mantel-192.png"):
+    for path in ("/apple-touch-icon.png", "/app/art/mantel-192.png"):
         r = await m.client.get(path)
         assert r.status == 200 and (await r.read())[:4] == b"\x89PNG"
-    assert (await m.client.get("/app/icons/..%2F..%2Fmantel.db")).status in (401, 404)
-    assert (await m.client.get("/app/icons/other.png")).status in (401, 404)
+    assert (await m.client.get("/app/art/..%2F..%2Fmantel.db")).status in (401, 404)
+    assert (await m.client.get("/app/art/other.png")).status in (401, 404)
     assert (await m.client.get("/api/push/web/key")).status == 401      # the API still needs a person
 
 
@@ -242,8 +242,8 @@ async def test_the_feed_taps_into_push(mantel):
     assert seen and seen[0]["title"] == "x"
 
 
-def test_migration_0015_makes_the_table():
-    sql = (ROOT / "hosts/server/mantel_server/migrations/0015_push.sql").read_text()
+def test_migration_0016_makes_the_table():
+    sql = (ROOT / "hosts/server/mantel_server/migrations/0016_push.sql").read_text()
     assert "CREATE TABLE push_targets" in sql and "endpoint  TEXT NOT NULL UNIQUE" in sql
 
 

@@ -188,6 +188,36 @@ Dashboard), so the Companion app opens it.
 * The screensaver never runs in a frame, and the frame gets the remote or home rules of Mantel's own
   address, not the sidebar's. Wall tablets keep opening Mantel's address directly.
 
+### Home Assistant in a screen's menu
+
+A screen's **Menu → Home Assistant Section** (HK Settings, the screen) puts Home Assistant in its menu and tab bar.
+What it offers depends on where the screen is open, so that every row does something:
+
+* **Inside Home Assistant** (a Webpage dashboard with Mantel Link installed, or the App's own *Mantel* entry in the
+  sidebar): your Home Assistant sidebar, as the menu had inside Home Assistant before. Integrations, Automations
+  and Settings (administrators), Notifications, More (your other pages, in your sidebar's order), Show Menu and
+  Profile. Each opens that page in Home Assistant's own window. This needs Mantel Link 0.1.1 or later: Home Assistant
+  does not let a Webpage dashboard move its window, so with an older Mantel Link the section is left out; the
+  menu's Mantel → Home Assistant row (Mantel Link takes you back) is always there.
+* **At Mantel's own address** (a browser): one row, *Open Home Assistant*, which opens
+  Home Assistant's external URL (else its internal URL, HA → Settings → System → Network) in the same window.
+  A wall tablet gets no Home Assistant row at all.
+
+This only decides which rows are shown. What anyone may do stays Mantel's and Home Assistant's to decide.
+
+## Mantel Link (Home Assistant's side of Mantel)
+
+Mantel Link, from HACS, puts Mantel's wall tablets, actions and notifications in Home Assistant (it replaces HK
+Frontend; [its documentation](https://github.com/jazzphone/mantel-link)). The App announces Mantel to Home
+Assistant by itself: after installing Mantel Link, **Settings → Devices & Services → Discovered: Mantel → Add**, one
+click. At every start the App makes a new credential for it (a Service account "Home Assistant - App discovery",
+scope `linked` only, the previous one revoked) and Home Assistant's entry follows it. The address it gives is the
+App's own on Home Assistant's App network (`http://local-mantel:8099` installed locally), which never leaves the
+machine. This is what the App's `hassio_api` permission is for (and its own hostname); nothing else.
+
+Moving a house from HK Frontend keeps every entity id: Mantel Settings → Connections → **Home Assistant Link** (the
+bridge, each tablet, pairing codes for a Home Assistant elsewhere).
+
 ## Security notes
 
 * Through the sidebar, Mantel believes who you are only from Home Assistant's Ingress proxy (the

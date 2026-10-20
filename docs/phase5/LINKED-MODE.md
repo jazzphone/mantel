@@ -1,5 +1,12 @@
 # Phase 5: linked mode — `hk_frontend` "Linked to Mantel Server" (2026-10-18)
 
+> **Superseded for the bridge by Mantel Link (decision 28, 2026-10-19).** HA's side of Mantel is now its own
+> integration, Mantel Link (domain `mantel`, `hosts/ha/custom_components/mantel`), speaking protocol 2 of the same
+> link; HK Frontend's linked mode stays until each house has handed the bridge over and removed HK Frontend.
+> Design, protocol 2, the hand-over and their checks: [../phase9/MANTEL-LINK.md](../phase9/MANTEL-LINK.md); for
+> any house: Mantel Link's docs (`hosts/ha/custom_components/mantel/docs/`). Protocol 1 below is unchanged and
+> still what HK Frontend speaks (its last release adds `features=bridge` and the `bridge` owner, MANTEL-LINK.md 9.3).
+
 PLAN.md §6 (what stays in Home Assistant), §5 ("Service" role), §7 (identity, secrets, doors). The
 house's automations, scripts and history depend on things HK puts into HA: three actions (four with
 `notify`) and 31 entities. Linked mode keeps all of them, with the same domain, unique ids and entity ids, after HK

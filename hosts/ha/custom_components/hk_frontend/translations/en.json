@@ -18,7 +18,7 @@
         "menu_options": {
           "panel": "HK Settings page (every setting; show it in the sidebar)",
           "files": "Your files (font and icons)",
-          "linked": "Linked to Mantel Server (when the house has moved to it)",
+          "linked": "Linked to Mantel (when the house moves to Mantel)",
           "check": "Setup check (what is ready, what to fix)",
           "done": "Done"
         },
@@ -45,16 +45,16 @@
         }
       },
       "linked": {
-        "title": "Linked to Mantel Server",
-        "description": "Now: {state}.\n\nOnly for a house that has moved HK to Mantel Server. Linked, this integration keeps the same actions (hk_frontend.set_black_screen, show_popup, close_popup, notify) and the same entities, with the same entity ids, and hands over one wall tablet at a time: Mantel Server's Owner moves each tablet to Mantel, and then that tablet's entities and actions are Mantel Server's while everything else still runs here as before. Once every tablet and the rest of the entry are Mantel's, nothing here runs locally any more (the features, the wall tablets' Sleep Screen, the HK Settings page). Off, everything works as it always has.\n\nThe credential is a Mantel Server Service account's (scope `linked`). Home Assistant keeps it in its own storage on disk (.storage/core.config_entries), as it does every integration's token; anyone who can read that file or a backup of it can use it, so revoke it on Mantel Server if a backup leaks. Saving reloads the integration.",
+        "title": "Linked to Mantel",
+        "description": "Now: {state}.\n\nOnly for a house that is moving to Mantel. Linked, this integration keeps the same actions (hk_frontend.set_black_screen, show_popup, close_popup, notify) and the same entities, with the same entity ids, while Mantel's Owner moves one wall tablet at a time to Mantel. Mantel Link, HK Frontend's successor, then takes over the bridge (Mantel Settings, Connections, Home Assistant Link): it shows Mantel's entities under the same entity ids, and this integration lets go of them. Off, everything works as it always has.\n\nThe address fills itself in when the Mantel App or Mantel Link is installed. The credential is a Mantel Service account's (scope `linked`). Home Assistant keeps it in its own storage on disk (.storage/core.config_entries), as it does every integration's token; anyone who can read that file or a backup of it can use it, so revoke it in Mantel if a backup leaks. Saving reloads the integration.",
         "data": {
-          "enabled": "Linked to Mantel Server",
-          "url": "Mantel Server's address",
+          "enabled": "Linked to Mantel",
+          "url": "Mantel's address",
           "token": "Service credential"
         },
         "data_description": {
           "enabled": "Off is the default, and how every house that has not moved runs.",
-          "url": "For example https://mantel.example.lan (the LAN address: Mantel Server refuses this link through the tunnel).",
+          "url": "For example https://mantel.example.lan, or http://local-mantel:8099 for the Mantel App on this machine.",
           "token": "Paste it once; it is never shown again. Leave empty to keep the one already saved."
         }
       },
@@ -68,8 +68,8 @@
       "folder_outside_config": "The folder must be inside /config.",
       "folder_is_config": "Choose a folder inside /config, not /config itself.",
       "folder_not_dedicated": "That folder holds Home Assistant's own files. Everything in it would be readable without signing in; choose a dedicated folder.",
-      "mantel_url_invalid": "Enter Mantel Server's address, starting with https:// (or http://, ws://, wss://), with no user name or query.",
-      "mantel_token_required": "Paste the Service credential Mantel Server gave you.",
+      "mantel_url_invalid": "Enter Mantel's address, starting with https:// (or http://, ws://, wss://), with no user name or query.",
+      "mantel_token_required": "Paste the Service credential Mantel gave you.",
       "mantel_url_insecure": "Use https:// (or wss://) for an address on the network: over plain http the credential would cross it in clear. Plain http is accepted only for this machine (127.0.0.1) or an App on Home Assistant's internal network (http://local-mantel:8099).",
       "mantel_url_not_internal": "That App name does not resolve to Home Assistant's internal App network (172.30.32.0/23), so plain http is refused: the credential would leave this machine in clear. Check the App's hostname, or use https://."
     }
@@ -90,6 +90,10 @@
     "theme_missing": {
       "title": "HK Kiosk theme not loaded",
       "description": "The HK pages draw their colors, font and glass from the HK Kiosk theme. HK Frontend loads it itself, and this time it could not (the log says why). You can load it from configuration.yaml instead:\n\n1. In configuration.yaml, under `frontend:`, add `themes: !include_dir_merge_named themes` (skip this if you already load themes from a folder).\n2. Create `/config/themes/hk_kiosk.yaml` containing the single line `!include ../custom_components/hk_frontend/theme/hk_kiosk_theme.yaml`\n3. Developer tools → YAML → **Themes** (or restart).\n\nThis message clears itself once the theme loads."
+    },
+    "now_mantel": {
+      "title": "HK Frontend is now Mantel",
+      "description": "HK Frontend is replaced by Mantel, which draws your screens outside Home Assistant (as a Home Assistant App, or in Docker), and Mantel Link, Home Assistant's side of it (HACS). Your screens, tablets, pop-ups and chips move across, and every entity keeps its entity id and history. HK Frontend keeps working until you have moved; it gets security fixes only. The move, step by step: {guide}"
     }
   },
   "selector": {

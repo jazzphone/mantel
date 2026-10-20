@@ -24,7 +24,7 @@ INUSE = "binary_sensor.hall_screen_in_use"
 VIEWERS = "sensor.tv_viewers"
 CAMERA = "camera.tv_channel_nine"
 ALARM = "alarm_control_panel.house_alarm_pin"
-FULL = {"house": "mantel", "tablets": ["hall"]}        # Mantel owns the whole entry
+FULL = {"house": "mantel", "tablets": ["hall"], "bridge": "hk_frontend"}        # Mantel owns the whole entry
 DEVICE = {"identifier": f"{ENTRY}_hall", "name": "Hall", "manufacturer": "HK Frontend", "model": "Wall Tablet"}
 
 

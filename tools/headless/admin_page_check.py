@@ -175,7 +175,7 @@ async def check(shots: Path) -> dict:
             async with Browser(width=390, height=844, port=9347) as browser:
                 await browser.restrict_origin(origin)
                 p = Page(browser, shots)
-                await browser.open(origin + "/admin", mine.access)
+                await browser.open(origin + "/admin?plain=1", mine.access)
                 await p.wait("window.__adminReady === true", "the page to start")
                 out["nav"] = await p.js("[...document.querySelectorAll('#nav button')].map(b => b.textContent)")
                 assert out["nav"] == SECTIONS, out["nav"]
@@ -212,7 +212,7 @@ async def check(shots: Path) -> dict:
                 async with aiohttp.ClientSession() as http:
                     r = await http.get(f"{origin}/auth/connection/callback", params={"state": state, "code": "fictional-code"})
                     assert r.status == 200 and f"connection={start['pending']}" in await r.text()
-                await browser.open(origin + f"/admin?connection={start['pending']}#connections", mine.access)
+                await browser.open(origin + f"/admin?plain=1&connection={start['pending']}#connections", mine.access)
                 await p.wait("!!document.querySelector('#p-conn-pending [data-act=ha-oauth-save]')", "the pending sign-in")
                 assert "mantel-server" in await p.js("document.querySelector('#p-conn-pending').textContent")
                 out["shots"].append(await p.shot("admin-connections-oauth", full=False))
@@ -401,19 +401,20 @@ async def check(shots: Path) -> dict:
                 await p.no_overflow("Devices")
                 out["shots"].append(await p.shot("admin-devices"))
                 await p.fill("#p-enroll [name=device-name]", "Kitchen tablet")
-                await p.fill("#p-enroll [name=device-room]", "Kitchen")
+                await p.wait("!!document.querySelector('#p-enroll option[value=\"r:kitchen\"]')", "the rooms")
+                await p.choose("#p-enroll [name=device-room]", "r:kitchen")
                 await p.submit("#p-enroll form")
                 await p.confirm()
                 await p.wait("!!document.querySelector('#p-enrolled')", "the enrolled message")
                 devices = [d for d in app["devices"].list() if not d["revoked"]]
-                assert [(d["name"], d["room"], d["role"]) for d in devices] == [("Kitchen tablet", "Kitchen", "wall_tablet")], devices
+                assert [(d["name"], d["room"], d["role"]) for d in devices] == [("Kitchen tablet", "kitchen", "wall_tablet")], devices
                 assert sessions.get(mine.session_id) is None                          # the Owner was signed out here
                 out["enrolled"] = devices[0]["name"]
 
                 # ---- revoke that tablet from the Owner's page again (a fresh Owner session on this browser)
                 again = sessions.create(owner, "lan", "password")
                 await browser.send("Network.deleteCookies", name="mantel_device", domain="127.0.0.1")
-                await browser.open(origin + "/admin?again=1#devices", again.access)
+                await browser.open(origin + "/admin?plain=1&again=1#devices", again.access)
                 await p.wait("window.__adminReady === true && !!document.querySelector('#section-devices')", "the Devices section again")
                 await p.act_in_item("p-devices", "Kitchen tablet", "revoke-device")
                 await p.confirm()
@@ -439,7 +440,7 @@ async def check(shots: Path) -> dict:
             async with Browser(width=390, height=844, port=9348) as browser:
                 await browser.restrict_origin(origin)
                 p = Page(browser, shots)
-                await browser.open(origin + "/admin#people", adult_session.access)             # asks for People: gets Me
+                await browser.open(origin + "/admin?plain=1#people", adult_session.access)             # asks for People: gets Me
                 await p.wait("window.__adminReady === true", "the page to start (Adult)")
                 out["adult_nav"] = await p.js("[...document.querySelectorAll('#nav button')].map(b => b.textContent)")
                 assert out["adult_nav"] == ["Me"], out["adult_nav"]

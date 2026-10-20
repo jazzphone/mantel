@@ -75,7 +75,7 @@ async def test_not_linked_is_the_default_and_nothing_changes(hass, frontend, mon
     from custom_components.hk_frontend.diagnostics import async_get_config_entry_diagnostics
     assert (await async_get_config_entry_diagnostics(hass, e))["linked"] == {
         "linked": False, "url": None, "connected": False, "entities": 0, "last_error": None,
-        "owners": {"house": "ha", "tablets": []}}
+        "owners": {"house": "ha", "tablets": [], "bridge": "hk_frontend"}}
 
 
 def test_a_half_filled_link_is_not_a_link():
@@ -372,7 +372,7 @@ async def test_configure_links_and_unlinks(hass, frontend, mantel):
     assert r["errors"] == {"url": "mantel_url_insecure"}, "a credential never crosses the network in clear"
     assert LINK not in e.data
     r = await flows.async_configure(r["flow_id"], {"enabled": True, "url": mantel.url, "token": TOKEN})
-    assert r["type"] == "menu" and r["description_placeholders"]["saved"] == "Saved: Linked to Mantel Server."
+    assert r["type"] == "menu" and r["description_placeholders"]["saved"] == "Saved: Linked to Mantel."
     await hass.async_block_till_done()
     assert e.data[LINK] == {"url": mantel.url, "token": TOKEN}
     assert e.options.get(LINK) is None, "never in the options (the dashboard settings)"

@@ -30,6 +30,16 @@ def test_the_plan_holds_the_app_and_its_code(pairs):
     assert len(dests) == len(pairs)                                     # no destination twice
     assert not [d for d in dests if "__pycache__" in d or d.endswith(".pyc")]
     assert not [d for d in dests if d.startswith(("app/tests", "app/docs", "app/spikes", "app/hosts/ha"))]
+    # /docs (docs_pages.py): HK's pages and Mantel's own, as config.py finds them in an image
+    assert "app/help/Mantel.md" in dests and "app/help/hk/Sleep-Screen.md" in dests
+
+
+def test_no_folder_the_ha_samba_add_on_refuses(pairs):
+    # HA's Samba add-on (the share the App is staged into) refuses to create a folder named "icons", any case:
+    # web/app/icons made 0.1.29's staging fail until it became web/app/art (2026-10-19)
+    folders = {part.lower() for _, d in pairs for part in d.split("/")[:-1]}
+    assert "icons" not in folders
+    assert "app/web/app/art/mantel-192.png" in {d for _, d in pairs}
 
 
 def test_the_real_plan_scans_clean(pairs):

@@ -116,5 +116,16 @@ ok('a search for quiet hours finds it', F.search({ hk_notify: { installed: true 
      /'\.layer,\.layer \*\{[^']*-webkit-tap-highlight-color:transparent\}'/.test(src));
 })();
 
+// TAKEN DOWN ELSEWHERE: a `notification_dismiss` house event ({id}) takes that banner down on this screen
+// (the house heard a Dismiss somewhere else, e.g. a phone); nothing to take down is no error
+(function () {
+  var threw = null;
+  try { window.hkNotify.dismissId('n1'); } catch (e) { threw = e; }
+  ok('dismissId: there, and harmless with nothing shown', typeof window.hkNotify.dismissId === 'function' && !threw, String(threw));
+  var src = readFile(HK_ROOT + '/frontend/modules/hk-notify.js');
+  ok('...the house event takes the banner with that id down', /n\.type === 'notification_dismiss' && n\.id != null\) dismissId\(n\.id\)/.test(src) &&
+     /String\(it\.n\.id\) === String\(id\)\) dismiss\(it\)/.test(src));
+})();
+
 print('\n' + (fail ? fail + ' FAILED, ' + pass + ' passed' : 'ALL ' + pass + ' NOTIFICATION TESTS PASS'));
 if (fail) throw new Error(fail + ' failed');

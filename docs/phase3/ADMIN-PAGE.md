@@ -133,8 +133,8 @@ how to link: there is **no REST to link an HA user**, so the page shows the CLI
 sign-in page shows their HA user id. (An endpoint would be the natural follow-up; none was added, per the brief.)
 
 **Devices** (Owner/Admin): `GET /api/devices` (name, room, role, last seen, address, enrolled, revoked and why),
-revoke `DELETE /api/devices/{id}`. *Make this browser a wall tablet* `POST /api/devices/enroll`: name, room,
-role; confirms first, LAN only (hidden on the tunnel); the person is signed out of that browser by the server
+revoke `DELETE /api/devices/{id}`. *Make this browser a wall tablet* `POST /api/devices/enroll`: name, its HK
+tablet or an HA area (a select, `GET /api/devices/rooms`; never typed), role; confirms first, LAN only (hidden on the tunnel); the person is signed out of that browser by the server
 in the same response, so the page then shows "This browser is now a wall tablet" with a link to `/home` and
 stops calling the API.
 

@@ -165,6 +165,52 @@ H.run('CALENDAR', [
   },
 
   function () {
+    H.section('calendars that could not be read');
+    var hs = H.house({ 'calendar.chores': ['off', { friendly_name: 'Chores', supported_features: 0 }],
+                       'calendar.school': ['off', { friendly_name: 'School', supported_features: 0 }] });
+    var card = H.make('hk-calendar-card');
+    card.setConfig({ type: 'custom:hk-calendar-card' });
+    card.hass = hs.hass();
+    var measured = 0, measure = card._measure;
+    card._measure = function () { measured++; return measure.apply(this, arguments); };
+    function ask(id) { return hs.api.filter(function (r) { return r.path.indexOf(id + '?') >= 0; }).pop(); }
+    // the second calendar's failure comes back first
+    ask('calendar.school').reject({ code: 'failed', message: 'Home Assistant answered 500' });
+    return H.tick(2).then(function () {
+      ask('calendar.chores').reject({ code: 'failed', message: 'Home Assistant answered 500' });
+      return H.tick(8);
+    }).then(function () {
+      H.ok('the line names them in the calendars’ order, whichever failed first',
+           lastHtml(card).indexOf('Chores, School couldn’t be read.') >= 0, lastHtml(card).match(/class="warn">[^<]*/));
+      H.eq('...and the panels are measured again as it comes (their bottom edge stays put)', measured, 1);
+      card.hass = hs.hass();
+      H.eq('...not again while it stays', measured, 1);
+      H.eq('a calendar Home Assistant has as unavailable says so',
+           U.failedLine({ states: { 'calendar.chores': { state: 'unavailable', attributes: { friendly_name: 'Chores' } } } }, ['calendar.chores']),
+           'Chores is unavailable in Home Assistant.');
+      var both = { states: { 'calendar.chores': { state: 'unavailable', attributes: { friendly_name: 'Chores' } },
+                             'calendar.school': { state: 'unavailable', attributes: { friendly_name: 'School' } } } };
+      H.eq('...two of them', U.failedLine(both, ['calendar.chores', 'calendar.school']), 'Chores, School are unavailable in Home Assistant.');
+      both.states['calendar.school'].state = 'on';
+      H.eq('...one that is on but failed: "couldn’t be read"', U.failedLine(both, ['calendar.chores', 'calendar.school']), 'Chores, School couldn’t be read.');
+      // DRAWN BEFORE IT WAS PLACED: it guessed wide; placed in a narrow
+      // column it takes the width and is drawn and measured before a frame
+      var placed = H.make('hk-calendar-card');
+      placed.setConfig({ type: 'custom:hk-calendar-card' });
+      placed.hass = hs.hass();
+      H.ok('drawn unplaced: the wide page (its width unknown)', lastHtml(placed).indexOf('class="wide"') >= 0);
+      var m2 = 0, mf = placed._measure;
+      placed._measure = function () { m2++; return mf.apply(this, arguments); };
+      placed.clientWidth = 700;
+      H.attach(placed);
+      H.eq('placed: its width taken at once', placed._w, 700);
+      H.ok('...drawn again for it (narrow) before the first frame', lastHtml(placed).indexOf('class="narrow"') >= 0, lastHtml(placed).slice(0, 40));
+      H.ok('...and measured then too', m2 >= 1, m2);
+      H.detach(placed);
+    });
+  },
+
+  function () {
     H.section('adding, changing, deleting');
     var hs = house(), h = hs.hass(), page = H.make('hk-calendar-card');
     page.setConfig({ type: 'custom:hk-calendar-card' });

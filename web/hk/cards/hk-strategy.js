@@ -1613,6 +1613,17 @@
     return { type: 'grid', columns: 1, square: false, view_layout: COL2, cards: [heading('Favorites'),
       { type: 'custom:hk-grid-card', layout: pillGrid(17, true), cards: tiles }] };
   }
+  // THE FAVORITES ALONE: a page of just these favorites (entity ids, in this
+  // order), Home's favorites grid without its heading or the sky -- the Mac
+  // app's favorites (web/home.js ?pane=favorites). The same tiles as Home's.
+  function favoritesView(client, ids) {
+    var tiles = (ids || []).filter(function (id) { return client.states[id]; }).map(function (id) {
+      return favTile(client, id);
+    });
+    return { type: 'custom:hk-grid-view', layout: VIEW_LAYOUT, background: '#05070e', path: 'favorites',
+             cards: [{ type: 'grid', columns: 1, square: false, view_layout: COL2, cards: [
+               { type: 'custom:hk-grid-card', layout: pillGrid(17, true), cards: tiles }] }] };
+  }
 
   // ONE PAGE THAT CANNOT BE BUILT IS ONE PAGE, NOT THE DASHBOARD. Home
   // Assistant replaces EVERY view with one "Error loading the dashboard
@@ -3103,6 +3114,7 @@
   window.hkStrategy = { generate: HkDashboardStrategy.generate, tile: TILE, shortName: shortName,
                         lateError: lateError, recoverLate: recoverLate, defineHere: defineHere,
                         tileFor: viaClient(tileFor), roomCards: viaClient(roomCards),
+                        favoritesView: viaClient(favoritesView),
                         climateMembers: viaClient(climateMembers), pageMembers: viaClient(pageMembers),
                         batteryOf: viaClient(function (client, id) { return sibling(client, id, 'battery'); }),
                         groupOf: viaClient(groupOf), ownChange: ownChange,

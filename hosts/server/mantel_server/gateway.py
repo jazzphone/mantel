@@ -20,6 +20,9 @@ Client protocol (on the hub socket, /ws):
   <- {"type": "command_result", "id": 12, "result": {"ticket": "<one-time>", "expires_in": 10}, "audit_id": 44}
                                           (LIVE TALK: the ticket opens ONE stream on /ws/talk, talk_relay.py;
                                            the row's result is written when the stream ends)
+  -> {"type": "command", "id": 13, "kind": "tablet", "tablet": "kitchen", "verb": "reload"}
+                                          (A WALL TABLET'S KIOSK APP, directly: tablet_links.py; the verbs are
+                                           TABLET_VERBS only, `configure` on `settings`, audit kind 'tablet')
   <- {"type": "command_result", "id": 7, "result": ..., "audit_id": 41}
   <- {"type": "command_result", "id": 7, "error": {"code": "forbidden", "reason": "no_grant"}, "audit_id": 42}
 
@@ -68,13 +71,14 @@ from .ha_client import (TALK_ENTITY, TALK_LIVE_TYPE, CommandBlocked, CommandTick
 
 log = logging.getLogger("mantel.gateway")
 
-KINDS = ("service", "ws", "http", "ma", "talk_live")
+KINDS = ("service", "ws", "http", "ma", "talk_live", "tablet")
 KEYS = {
     "service": frozenset({"type", "id", "kind", "domain", "service", "data", "target", "return_response"}),
     "ws": frozenset({"type", "id", "kind", "msg"}),
     "http": frozenset({"type", "id", "kind", "method", "path", "body", "content_type", "body_b64"}),
     "ma": frozenset({"type", "id", "kind", "command", "args"}),
     "talk_live": frozenset({"type", "id", "kind", "speaker"}),
+    "tablet": frozenset({"type", "id", "kind", "tablet", "verb"}),
 }
 # the audit's kind for each client kind (live talk is a Home Assistant WebSocket subscription)
 AUDIT_KIND = {"talk_live": "ws"}
@@ -147,6 +151,7 @@ class Command:
     # Mantel's music engine (Music Assistant directly) when it is on; otherwise `frame` goes to HA as before.
     music: dict | None = None
     alarm: tuple[str, str] | None = None    # an alarm keypad command: (service, the panel it names)
+    tablet: tuple[str, str] | None = None   # a wall tablet's kiosk app: (HK's tablet id, one of TABLET_VERBS)
     code: str | None = field(default=None, repr=False)  # the keypad's code: checked by Mantel, never sent
 
 
@@ -292,6 +297,25 @@ def talk_command(method: Any, path: str, msg: dict) -> Command:
                    targets=[c.target for c in checks])
 
 
+# A WALL TABLET'S KIOSK APP, DIRECTLY (docs/phase8/KIOSK.md "Commands"; tablet_links.py): Mantel sends the command
+# to the tablet's Kiosk Satellite or Fully itself, with the secret paired on the tablet's page. A closed list of
+# verbs, each one HK Settings' own button (Wall Tablets: Reload, Clear Cache & Reload, and All at Once). They are
+# HK Settings' actions, so `configure` on `settings` (Owner/Admin by default; a wall tablet never); audit kind
+# 'tablet' (migration 0019), target "tablet:<id>".
+TABLET_VERBS = ("reload", "clear_cache")
+_TABLET_ID = re.compile(r"^[a-z0-9_]{1,64}$")
+
+
+def tablet_command(msg: dict) -> Command:
+    tid, verb = msg.get("tablet"), msg.get("verb")
+    if not isinstance(tid, str) or not _TABLET_ID.match(tid):
+        raise Refused("invalid_command", "tablet is one of HK's tablet ids")
+    if verb not in TABLET_VERBS:
+        raise Refused("invalid_command", f"verb is one of {TABLET_VERBS}")
+    return Command("tablet", f"tablet.{verb}", [Check("configure", feature="settings")], tablet=(tid, verb),
+                   targets=[f"tablet:{tid}"])
+
+
 def classify(msg: dict, writes: frozenset[str]) -> Command:
     """A client `command` message -> Command, or Refused. Pure: no I/O."""
     kind = msg.get("kind")
@@ -301,6 +325,8 @@ def classify(msg: dict, writes: frozenset[str]) -> Command:
         raise Refused("invalid_command", f"a {kind} command carries {sorted(KEYS[kind])} only")
     if kind == "talk_live":
         return talk_live_command(msg)
+    if kind == "tablet":
+        return tablet_command(msg)
     from . import music      # HK's music actions and writes (hk_frontend.music_*, hk_music/*): music.py's checks
     if kind == "service":
         got = music.classify_service(msg.get("domain"), msg.get("service"), msg.get("data"), msg.get("target"),
@@ -567,6 +593,9 @@ class Gateway:
             aid = self.audit.record(principal=principal, kind=cmd.kind, action=cmd.action, targets=cmd.targets,
                                     decision="denied", reason="invalid_step_up", result="not_sent")
             return await reply(fail("invalid_command", "commands take no step_up (Mantel asks for no PIN)", aid))
+        direct = self._direct(cmd)
+        if direct is not None:
+            return await self._run_direct(principal, direct, reply, fail)
         if cmd.alarm is not None:
             # EVERY alarm keypad command goes through the house Alarm PIN (_alarm), configured or not
             keypad = self.app.get("alarm_pin")
@@ -618,6 +647,31 @@ class Gateway:
         trusted = _not_remote(authz, ident)
         if ident.door in REMOTE_DOORS and sensitive in NOTIFY_KINDS and not trusted:
             await self.notify_owners(principal, cmd, aid)
+
+    def _direct(self, cmd: Command) -> Any:
+        """A page's own Clean Areas or automation snooze, run by Mantel's engines (linked_actions.py) as the person
+        who asked once Mantel Link holds the bridge; None sends it to Home Assistant's ``hk_frontend`` as before."""
+        la = self.app.get("linked_actions")
+        return la.direct_of(cmd) if la is not None else None
+
+    async def _run_direct(self, principal: Principal, direct: Any, reply, fail) -> None:
+        """The engines make the household calls through THIS gateway as ``principal``: RBAC, the audit row and the
+        refusals are each call's own (a vacuum or an automation, as if the person had pressed it). The top-level
+        request has no row of its own: a plan only, or the snooze's timer, changes nothing in the house."""
+        service, data, want = direct
+        try:
+            out = await self.app["linked_actions"].run_direct(self, principal, service, data)
+        except Exception as exc:  # noqa: BLE001 -- the gateway's answer, or the engine's own words
+            got = getattr(exc, "reply", None)
+            if got is not None:
+                return await reply(dict(got))               # the vacuum's or automation's own refusal, audited
+            code, message = getattr(exc, "code", None), getattr(exc, "message", None)
+            if code is None:
+                log.exception("%s for %s failed", service, _who(principal))
+                return await reply(fail("failed", f"hk_frontend.{service} failed; see the log"))
+            return await reply(fail({"invalid": "invalid_command", "not_set_up": "unavailable"}.get(code, code),
+                                    message or code))
+        await reply({"type": "command_result", "result": {"response": out} if want else {}})
 
     def _music_engine(self, cmd: Command) -> Any:
         """Mantel's music engine when it runs this command (music.py: on once Music Assistant and the
@@ -714,6 +768,11 @@ class Gateway:
             await self.notify_owners(principal, cmd, aid)
 
     def _unavailable(self, cmd: Command) -> str | None:
+        if cmd.tablet is not None:
+            links = self.app.get("tablet_links")
+            if links is None or links.get(cmd.tablet[0]) is None:
+                return "tablet_not_paired"
+            return None if self.commander is not None else "commands_disabled"
         if cmd.live is not None and (self.commander is None or self.app.get("talk") is None):
             return "commands_disabled"
         if self._music_engine(cmd) is not None:
@@ -729,13 +788,20 @@ class Gateway:
             log.exception("could not write the result of audit row %d (the command itself ran)", aid)
 
     async def _forward(self, principal: Principal, cmd: Command, aid: int) -> Any:
+        if cmd.tablet is not None:
+            from . import tablet_links
+            return await tablet_links.send(self.app, *cmd.tablet)
         if cmd.live is not None:
             return self.app["talk"].issue(principal, cmd.live, aid)
         engine = self._music_engine(cmd)
         if engine is not None:
             return await engine.run(principal, cmd.music, aid)
         if cmd.kind in ("service", "ws"):
-            return await self.commander.call(dict(cmd.frame or {}), CommandTicket(aid, "ws"))  # type: ignore[union-attr]
+            res = await self.commander.call(dict(cmd.frame or {}), CommandTicket(aid, "ws"))  # type: ignore[union-attr]
+            if cmd.kind == "ws" and (cmd.frame or {}).get("type") in alarm_pin.PAGE_SAVES:
+                # HK Settings' Alarm PIN page: what HA accepted is Mantel's keypads' PIN too (alarm_pin.py)
+                await alarm_pin.follow_page_save(self.app, cmd.frame or {}, res)
+            return res
         if cmd.upload is not None:
             path, ctype, data = cmd.upload
             return await self.commander.upload(path, ctype, data, CommandTicket(aid, "upload"))  # type: ignore[union-attr]
@@ -793,6 +859,8 @@ def _action(msg: dict) -> str | None:
         return msg["command"][:200]
     if k == "talk_live":
         return TALK_LIVE_TYPE
+    if k == "tablet" and isinstance(msg.get("verb"), str):
+        return f"tablet.{msg['verb']}"[:200]
     return None
 
 
@@ -820,12 +888,14 @@ def _error_code(exc: BaseException) -> str:
     if isinstance(exc, (ConnectionError, asyncio.TimeoutError, OSError)):
         return "unavailable"
     name = type(exc).__name__
+    if name == "KioskFailed":                       # a wall tablet's kiosk app (tablet_links.send): its own code
+        return f"tablet_{exc.code}"                 # type: ignore[attr-defined]
     return "refused" if name == "CommandRefused" else "failed"
 
 
 # -- the audit read API (PLAN §5: the Owner's "audit log"; Admins too) ----------------------------------
 AUDIT_DECISIONS = ("allowed", "denied", "step_up")   # step_up: rows from before decision 25 only
-AUDIT_KINDS = ("service", "ws", "http", "ma", "config", "system")
+AUDIT_KINDS = ("service", "ws", "http", "ma", "config", "system", "tablet")
 AUDIT_PAGE, AUDIT_PAGE_MAX = 100, 500
 
 
