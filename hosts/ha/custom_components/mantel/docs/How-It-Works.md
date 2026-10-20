@@ -31,7 +31,12 @@ on the link only changes the entities Mantel Link shows.
 
 A small script on Home Assistant's pages listens to a Mantel screen shown in a Webpage dashboard. It believes a message
 only from Mantel's own address and only from a frame on the page shown, and it can only hide Home Assistant's header
-and sidebar around that frame, or go to Home Assistant's start page.
+and sidebar around that frame, go to Home Assistant's start page or to one of its own pages that you have, open its
+notifications, or open its sidebar over the screen. It never runs a command.
+
+So that the screen's menu (with the screen's **Home Assistant Section** on) offers your Home Assistant sidebar, the
+script tells that frame, at Mantel's address only, your sidebar's pages: their names, icons and your order and hidden
+pages. Choosing one opens it in Home Assistant, as the menu did when the screen ran inside Home Assistant itself.
 
 ## Discovery
 

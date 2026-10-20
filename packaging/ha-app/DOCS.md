@@ -188,6 +188,22 @@ Dashboard), so the Companion app opens it.
 * The screensaver never runs in a frame, and the frame gets the remote or home rules of Mantel's own
   address, not the sidebar's. Wall tablets keep opening Mantel's address directly.
 
+### Home Assistant in a screen's menu
+
+A screen's **Menu → Home Assistant Section** (HK Settings, the screen) puts Home Assistant in its menu and tab bar.
+What it offers depends on where the screen is open, so that every row does something:
+
+* **Inside Home Assistant** (a Webpage dashboard with Mantel Link installed, or the App's own *Mantel* entry in the
+  sidebar): your Home Assistant sidebar, as the menu had inside Home Assistant before. Integrations, Automations
+  and Settings (administrators), Notifications, More (your other pages, in your sidebar's order), Show Menu and
+  Profile. Each opens that page in Home Assistant's own window. A Webpage dashboard without Mantel Link gets one
+  row, *Open Home Assistant*.
+* **At Mantel's own address** (a browser): one row, *Open Home Assistant*, which opens
+  Home Assistant's external URL (else its internal URL, HA → Settings → System → Network) in the same window.
+  A wall tablet gets no Home Assistant row at all.
+
+This only decides which rows are shown. What anyone may do stays Mantel's and Home Assistant's to decide.
+
 ## Mantel Link (Home Assistant's side of Mantel)
 
 Mantel Link, from HACS, puts Mantel's wall tablets, actions and notifications in Home Assistant (it replaces HK

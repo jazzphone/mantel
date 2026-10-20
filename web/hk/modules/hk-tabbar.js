@@ -647,7 +647,7 @@
     function listKey(width) {
       var h = C.client(), side = H.sidebarSource(), b = M.board();
       return [M.dash(), cfgId(M.config()), width, railH(), b.ha_place, b.tab_bar_pos, b.tab_bar_rooms, b.tab_bar_rooms_phone, phoneAt(), phoneSet(), b.tab_bar_more, b.tab_bar_more_phone, b.tab_bar_size, b.tab_bar_tabs, b.tab_bar_tabs_rail, b.ha_row, JSON.stringify(S.haPrefs || null),
-              h && h.user && h.user.is_admin, H.hostItems().map(function (x) { return x.title + x.href; }).join(','), side && side.panels ? Object.keys(side.panels).join(',') : '', b.menu_rooms, JSON.stringify(b.room_order),
+              h && h.user && h.user.is_admin, H.hostItems().map(function (x) { return x.title + x.href; }).join(','), side && side.panels ? Object.keys(side.panels).join(',') : '', H.haKey ? H.haKey() : '', b.menu_rooms, JSON.stringify(b.room_order),
               JSON.stringify(b.categories), JSON.stringify(b.menu_top || []), JSON.stringify(b.pages || []),
               JSON.stringify(b.chips || []), b.chips_row, h && h.user && h.user.id,
               JSON.stringify(h && h.areas ? Object.keys(h.areas).map(function (k) {
@@ -670,7 +670,7 @@
       // folded: Integrations, Automations, Settings, Notifications, Show
       // Menu (Home Assistant's whole sidebar, for the rest) and Profile
       // the host's sidebar (hkShell.sidebarData(), through hkMenu._.sidebarSource)
-      S.ha = b.ha_row ? H.haItems(H.sidebarSource(), S.haPrefs, { moreOpen: false, sidebarShown: false })
+      S.ha = b.ha_row ? (H.haList ? H.haList(S.haPrefs, { moreOpen: false, sidebarShown: false }) : [])
         .filter(function (it) { return it.kind !== 'more'; }) : [];
       if (b.ha_row && S.haPrefs === undefined) loadPrefs();
       // THE HOST'S OWN PAGES (a host's settings; none in Home Assistant): the side menu's host section
@@ -873,11 +873,12 @@
     function haGo(it) {
       if (!it) return;
       closeSheet(true);
-      if (it.kind === 'ha') { if (window.hkMenu && window.hkMenu.openHaSidebar) window.hkMenu.openHaSidebar(); return; }
+      if (it.kind === 'ha') { if (!SH.openHaMenu() && window.hkMenu && window.hkMenu.openHaSidebar) window.hkMenu.openHaSidebar(); return; }
       if (it.kind === 'notif') { SH.showNotifications(); return; }
+      if (it.kind === 'halink') { H.haOpen(it); return; }
       if (!it.path) return;
       try { sessionStorage.setItem('hk-ha-row-used', '1'); } catch (e) { /* private mode */ }
-      SH.navigate(it.path);
+      SH.haNavigate(it.path);
     }
     // this user's Home Assistant sidebar order and hidden pages (More's Home
     // Assistant section follows them, as the side menu's does): read once
@@ -1223,6 +1224,8 @@
     window.addEventListener('hk-dock', function () { sync(); });
     window.addEventListener('hk-pane', function () { sync(); });
     window.addEventListener('hk-module-ready', function () { S.built = ''; sync(); });
+    // the host's Home Assistant rows changed (hkShell.haNav: it learned where the page is)
+    window.addEventListener('hk-ha-nav-changed', function () { S.built = ''; sync(); });
     // the window's scroll, and <body>'s on a phone (scroll events do not
     // bubble: captured at the document, as hk-menu.js does)
     document.addEventListener('scroll', onScroll, { capture: true, passive: true });

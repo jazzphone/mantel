@@ -398,6 +398,54 @@ Frontend). `test_e2e_mantel.py` links it to the real `mantel_server/linked.py`.
   message from HA's own page changes nothing. Finding: the pane draws a cross-origin frame scaled into a corner at
   desktop size (its capture only: the frame's rect and the page laid out at full size, as a direct load shows).
 
+### 9.6b The screen's Home Assistant section, by where the screen is: done (2026-10-19)
+
+Avery: "if there is a Home Assistant hotlink (accessing just through Mantel) or if the dashboard is being accessed
+through Home Assistant to show the full Home Assistant Sidebar/tab-nav bar options"; then "it has to detect if it's
+inside HA or not, or else the menu items don't do anything... which is the case today!" (a screen's Menu → Home
+Assistant Section, `ha_row`, drew HA's Notifications, Show Menu and Profile on Mantel's page, none of which did
+anything). His answers: the hotlink opens HA in the same window, a wall tablet gets none; the section still follows
+the screen's setting.
+
+- **HK's contract** (`web/client/hk-host-shell.js`): `haNav()` says what the section is: `'own'` (HA's sidebar,
+  `sidebarData`; the default, so HK in HA is unchanged), `{link, top}` (one row, *Open Home Assistant*), or null
+  (no section); `haNavigate(path)` opens an HA page (default: HK's own navigate); `openHaMenu()` opens HA's sidebar
+  when the host can (default false: HK's `openHaSidebar`). `hk-menu.js` (`haList`, `haOpen`, `haKey`) and
+  `hk-tabbar.js` use them; both redraw on `hk-ha-nav-changed`. No word of Mantel in HK's build.
+- **Mantel** (`web/shim/mantel-shell.js`, `web/shim/ha-frame.js`): in a **Webpage dashboard**, Mantel Link's
+  `mantel-link/sidebar` (believed only from `window.parent` at its own origin; only plain keys, titles and icons
+  kept) makes the section HA's sidebar; a row sends `mantel/navigate` (a plain path), Notifications
+  `mantel/notifications`, Show Menu `mantel/menu`. Until Mantel Link answers, or without it, one row opens HA's page
+  in the top window, and the Mantel → Home Assistant row does the same. Under the App's **Ingress** panel the
+  sidebar is read from HA's own page around the frame (same origin, `home-assistant` `.hass`; the user's
+  `frontend/get_user_data` sidebar), and a row uses HA's own frame protocol (`home-assistant/navigate`,
+  `home-assistant/toggle-menu`, to this origin only); no Mantel → Home Assistant row there (HA's sidebar is there).
+  **Opened at Mantel's address**: `GET /api/me` now carries `ha_address` (`frame_origins.ha_address`: HA's
+  external URL, else internal, else `ha_browser_url`, else Mantel's own HA address when a browser can use it;
+  **None for a wall tablet**), and the section is that one row. `web/mdi/icons.json` gained the icons of HA's built-in
+  panels it lacked (`format-list-bulleted-type`, `chart-box`, `play-box-multiple`, `clipboard-list`, `puzzle`,
+  `view-dashboard`, `tooltip-account`, from HA's own MDI data).
+- **Mantel Link 0.1.1** (`frontend/mantel-link.js`, script version 2): answers a screen's `mantel/kiosk` with
+  `mantel-link/sidebar` to that frame at its own origin (HA's panels with localized titles, icons, `require_admin`;
+  the user's sidebar order and hidden pages; whether HA's sidebar is beside the frame), again on resize;
+  `mantel/navigate` only to a plain path whose first part is a panel this user has; `mantel/notifications` opens
+  HA's drawer; `mantel/menu` opens HA's sidebar over the page as HK's Show Menu did (drawer made modal, the screen's
+  hiding lifted while it is open; closed or the page changed, all as it was). Still never a command.
+- **Checks:** Mantel `test_ha_frame.py` (5, node: a dashboard frame with and without Mantel Link, forged
+  sidebars, only plain paths; Ingress through HA's page and protocol; opened alone with and without an address),
+  `test_frame_origins.py` (+2: `ha_address`'s order, a wall tablet gets none, never the Supervisor's address), the
+  `/api/me` shape in `test_auth`, `test_devices`, `test_sessions`, `test_ingress_tablets`; HK `test_menu.js` (+6:
+  `haList` by `haNav`, a host's prefs, `haOpen`), `test_hostshell.js` (+5: the defaults); Mantel Link
+  `test_frontend_js.py` (+1: the sidebar told to Mantel's frame only, navigate's refusals, notifications, Show Menu
+  and its undo). **Scratch HA + a local Mantel, browser pane:** a Webpage dashboard (kiosk on, `ha_row` on) at
+  desktop and phone width, side menu and tab bar: HA's whole sidebar listed (admin), Map and Automations open in
+  HA with its chrome back, Notifications opens HA's drawer, Show Menu opens HA's sidebar over the screen and a
+  page chosen there puts everything back; Mantel at its own address, desktop and phone, side menu and tab bar: one
+  *Open Home Assistant* row, which opens the scratch HA. **Not checked in a real HA:** the Ingress panel (the
+  scratch HA has no Supervisor); it is covered in node against HA 2026.9's `ha-panel-app` protocol, read from the
+  frontend's own code. Mantel's client still refuses the menu's repairs count (`repairs/list_issues`) inside HA, so
+  Settings shows no repairs badge there (notifications' count works).
+
 ### 9.7 Companion-app notifications: done
 
 - **Mantel Link** (`phones.py`): reports the phones this Home Assistant can notify (the Companion app's

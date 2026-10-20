@@ -24,7 +24,7 @@ async def test_owner_turns_the_browser_into_a_wall_tablet(mantel):
     me = await (await mantel.get("/api/session")).json()
     assert me["user"] is None and me["device"]["name"] == "Kitchen tablet" and me["csrf"]
     assert await (await mantel.get("/api/me")).json() == {"ha_user_id": None, "name": "Kitchen tablet",
-                                                          "role": "wall_tablet"}
+                                                          "role": "wall_tablet", "ha_address": None}
     # the old person session cannot come back through its refresh token
     mantel.set_cookies(mantel_refresh=person_refresh)
     assert (await (await mantel.get("/api/session")).json())["user"] is None
