@@ -43,7 +43,7 @@ ASSET = PAGE + "/{name}"
 OVERVIEW = "/api/admin/overview"
 ASSETS = {"admin.js": "text/javascript", "admin.css": "text/css"}
 # admin.js imports ../webauthn.js (the passkey helpers shared with /login), served by login_page.py
-SECTIONS = ("me", "connections", "people", "devices", "files", "roles", "service", "connect", "audit")
+SECTIONS = ("me", "connections", "people", "devices", "files", "photos", "roles", "service", "connect", "audit")
 
 CSP = ("default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; "
        "base-uri 'none'; form-action 'self'; frame-ancestors 'none'")
@@ -73,7 +73,7 @@ def sections_for(request: web.Request, ident: Identity) -> list[str]:
         return out
     role = ident.user.role
     if role in MANAGERS:                   # accounts.require_manager guards /api/users and /api/devices
-        out += ["people", "devices", "files"]   # files: user_files' REST, also require_manager
+        out += ["people", "devices", "files", "photos"]   # files, photos: their REST is also require_manager
         out.append("connections")          # connections.py: Owner/Admin read; only an Owner changes
     authz = request.app.get("authz")
     if role == "owner":                    # rbac_store's REST is Owner-only

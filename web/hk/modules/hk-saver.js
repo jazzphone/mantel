@@ -1570,6 +1570,20 @@
     if (!act) return Promise.reject(new Error('no connection'));
     return act.callWS(msg);
   }
+  // THE HOST'S OWN PHOTOS (hkShell.photoSource / listPhotos): a host with a
+  // photo library of its own may give this screen one of its albums, and
+  // lists the photos of a source it serves itself (each with its address).
+  // Home Assistant has neither: the folder below, as always.
+  function hostPhotoSource(src) {
+    var SH = window.hkShell;
+    var own = SH && typeof SH.photoSource === 'function' ? SH.photoSource(src) : null;
+    return typeof own === 'string' && own ? own : null;
+  }
+  function hostPhotoList(src) {
+    var SH = window.hkShell;
+    var got = SH && typeof SH.listPhotos === 'function' ? SH.listPhotos(src) : null;
+    return got && typeof got.then === 'function' ? got : null;
+  }
   // Every image under the folder (sub-folders to LIST_DEPTH), at most LIST_MAX.
   function listPhotos() {
     var land = landscapes();
@@ -1590,10 +1604,19 @@
         return sub.reduce(function (p, s) { return p.then(function () { return walk(s, depth + 1); }); }, Promise.resolve());
       });
     }
+    var hostList = land ? null : hostPhotoList(cfg.photos);
     var source = land
       ? fetch(LANDSCAPES + 'index.json', { cache: 'no-cache' }).then(function (r) { return r.json(); }).then(function (j) {
           ((j && j.photos) || []).forEach(function (p) {
             if (p && typeof p.file === 'string' && /^[\w.-]+\.(webp|jpe?g|png)$/i.test(p.file)) out.push({ id: 'hk-landscape/' + p.file, title: p.title || '', url: LANDSCAPES + p.file });
+          });
+        })
+      // the host's own: a plain address each, as a landscape's (load)
+      : hostList ? hostList.then(function (items) {
+          (Array.isArray(items) ? items : []).forEach(function (p) {
+            if (out.length < LIST_MAX && p && typeof p.id === 'string' && typeof p.url === 'string' && p.url) {
+              out.push({ id: 'host/' + p.id, title: typeof p.title === 'string' ? p.title : '', url: p.url });
+            }
           });
         })
       : walk(cfg.photos, 0);
@@ -4249,6 +4272,10 @@
     if (previewOn && previewHouse) raw = houseBlock() || raw;
     var HS = window.hkSettings;
     if (HS && HS.lovelacePanel && HS.lovelacePanel() === false) raw = null;
+    // the host's own album for this screen, in place of the house's photos
+    // (hostPhotoSource; none in Home Assistant)
+    var ownPhotos = raw ? hostPhotoSource(raw.photos) : null;
+    if (ownPhotos && ownPhotos !== raw.photos) raw = Object.assign({}, raw, { photos: ownPhotos });
     // Derive effective options without changing any saved screensaver choice.
     if (raw && isFlat()) raw = Object.assign({}, raw, {
       zoom: false, photo_layout: 'single', portrait_blur: 0, landscape_blur: 0,
@@ -4388,6 +4415,9 @@
     next: nextPhoto,
     previous: previousPhoto,
     force: function (v) { force = !!v; refresh(); return force; },
+    // THE HOST'S PHOTOS CHANGED (a screen's album, an album's photos): listed
+    // again at the next photo, and the source asked again now
+    photosChanged: function () { listKey = ''; refresh(); },
     config: function () { return cfg; },
     // what plays for the dashboard's Now Playing pane (hk-popup.js): there
     // (playing or paused), and playing

@@ -22,9 +22,18 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 WEB = ROOT / "web"
 MODULE = (WEB / "shim/mantel-settings.js").read_text(encoding="utf-8")
+PHOTOS = (WEB / "shim/mantel-photos.js").read_text(encoding="utf-8")
 
-ALL = ["me", "connections", "people", "devices", "files", "roles", "service", "connect", "audit"]
-ADMIN = ["me", "connections", "people", "devices", "files", "audit"]
+
+def node_modules(d):
+    """The page's modules as ES modules node can load (web/ has no package.json saying so)."""
+    (d / "base.mjs").write_text((WEB / "shim/base.js").read_text(encoding="utf-8"))
+    (d / "mantel-photos.mjs").write_text(PHOTOS)
+    (d / "mantel-settings.mjs").write_text(MODULE.replace("from './base.js'", "from './base.mjs'")
+                                           .replace("from './mantel-photos.js'", "from './mantel-photos.mjs'"))
+
+ALL = ["me", "connections", "people", "devices", "files", "photos", "roles", "service", "connect", "audit"]
+ADMIN = ["me", "connections", "people", "devices", "files", "photos", "audit"]
 
 
 def overview(role, sections, ha_set_up=True):
@@ -75,9 +84,7 @@ def run(tmp_path_factory):
     if shutil.which("node") is None:
         pytest.skip("node not installed")
     d = tmp_path_factory.mktemp("mantel-settings")
-    # the two modules as ES modules node can load (web/ has no package.json saying so)
-    (d / "base.mjs").write_text((WEB / "shim/base.js").read_text(encoding="utf-8"))
-    (d / "mantel-settings.mjs").write_text(MODULE.replace("from './base.js'", "from './base.mjs'"))
+    node_modules(d)
     (d / "script.mjs").write_text(SCRIPT)
     (d / "cases.json").write_text(json.dumps(CASES))
     got = subprocess.run(["node", str(d / "script.mjs"), str(d / "mantel-settings.mjs"), str(d / "cases.json")],
@@ -95,7 +102,7 @@ def test_an_owner_gets_the_house_and_every_mantel_page(run):
     assert o["title"] == "Mantel Settings" and o["house"] is True and o["first"] is None
     assert o["groups"][0] == {"place": "top", "header": None, "routes": ["mantel/me"]}
     assert routes(o)[1:] == ["mantel/people", "mantel/devices", "mantel/roles", "mantel/service", "mantel/audit",
-                             "mantel/connections", "mantel/connect", "mantel/files"]
+                             "mantel/connections", "mantel/connect", "mantel/files", "mantel/photos"]
     assert [g["header"] for g in o["groups"][1:]] == ["People & Access", "Mantel"]
     assert all(g["place"] == "end" for g in o["groups"][1:])
     assert o["pages"]["roles"] == "Roles & Grants" and o["pages"]["service"] == "Service Accounts"
@@ -104,7 +111,8 @@ def test_an_owner_gets_the_house_and_every_mantel_page(run):
 def test_an_admin_gets_the_house_without_roles_or_service_accounts(run):
     a = run["admin"]
     assert a["house"] is True
-    assert routes(a) == ["mantel/me", "mantel/people", "mantel/devices", "mantel/audit", "mantel/connections", "mantel/files"]
+    assert routes(a) == ["mantel/me", "mantel/people", "mantel/devices", "mantel/audit", "mantel/connections", "mantel/files",
+                         "mantel/photos"]
     # an address of a page the role may not use opens Me instead
     assert a["pages"]["roles"] == a["pages"]["me"] == "Fictional admin"
     assert a["pages"]["service"] == "Fictional admin" and a["pages"]["connect"] == "Fictional admin"
@@ -144,7 +152,7 @@ def test_the_page_hands_mantels_pages_to_the_shell_and_the_panel_draws_with_the_
 
 def test_every_glyph_mantels_pages_draw_is_served():
     names = set(json.loads((WEB / "mdi/icons.json").read_text()))
-    used = set(re.findall(r"mdi:([a-z0-9-]+)", MODULE))
+    used = set(re.findall(r"mdi:([a-z0-9-]+)", MODULE + PHOTOS))
     assert used and used <= names, sorted(used - names)
 
 
@@ -246,8 +254,7 @@ def had_run(tmp_path, dashboards, state="ok", message=None, framed=()):
                                            "door_key": {"required": False}, "frame_ancestors": ["https://ha.example.com"],
                                            "frame_option": "ha_frame_origins"},
     }
-    (tmp_path / "base.mjs").write_text((WEB / "shim/base.js").read_text(encoding="utf-8"))
-    (tmp_path / "mantel-settings.mjs").write_text(MODULE.replace("from './base.js'", "from './base.mjs'"))
+    node_modules(tmp_path)
     (tmp_path / "script.mjs").write_text(HAD_SCRIPT)
     (tmp_path / "reads.json").write_text(json.dumps(reads))
     got = subprocess.run(["node", str(tmp_path / "script.mjs"), str(tmp_path / "mantel-settings.mjs"),

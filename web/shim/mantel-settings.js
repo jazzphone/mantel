@@ -2,7 +2,7 @@
 //
 // The panel (web/hk/panels/hk-settings.js) asks its host for pages of its own (hkShell.settingsHost(),
 // "THE HOST'S SETTINGS" there); this is Mantel's answer: Me, People, Devices, Roles & Grants, Service
-// Accounts, Audit Log, Connections, Mantel Connect and Your Files, every one drawn with HK Settings' own kit
+// Accounts, Audit Log, Connections, Mantel Connect, Your Files and Photos (mantel-photos.js), every one drawn with HK Settings' own kit
 // (hk-settings-kit.js: iOS Settings, docs/DESIGN.md "HK Settings stays iOS Settings"). Only Mantel loads
 // this file; Home Assistant's build never ships web/shim, so none of it exists in HK Frontend inside HA.
 //
@@ -11,6 +11,7 @@
 // routes behind them). A credential shown once (a service account's, a pairing code) lives only in this
 // module until it is dismissed or the page is left; nothing is stored.
 import { mantelUrl, base as BASE } from './base.js';
+import * as photos from './mantel-photos.js';
 
 const ROUTE = 'mantel';
 const C = { blue: '#007aff', green: '#34c759', indigo: '#5856d6', orange: '#ff9500', pink: '#ff2d55', purple: '#af52de',
@@ -30,6 +31,7 @@ const PAGES = [
   ['connections', 'Connections', 'mdi:lan', C.green, 'end', 'Mantel'],
   ['connect', 'Mantel Connect', 'mdi:link-variant', C.orange, 'end', 'Mantel'],
   ['files', 'Your Files', 'mdi:folder', C.purple, 'end', 'Mantel'],
+  ['photos', 'Photos', 'mdi:image-multiple', C.pink, 'end', 'Mantel'],
 ];
 const ERRORS = {
   invalid_credentials: 'That did not match.', invalid_code: 'That code was not accepted.',
@@ -238,7 +240,7 @@ const STYLE = [
   '  border-radius:8px;background:var(--hk-fill);color:var(--hk-label);font:inherit;font-size:17px;text-align:center;letter-spacing:.2em;outline:none}',
   '.mxdlg .mxin:focus{box-shadow:0 0 0 2px var(--hk-tint)}',
   '.mxdlg .mxe{margin:-6px 16px 12px;padding:0;font-size:13px;color:var(--hk-red);min-height:0}',
-].join('\n');
+].join('\n') + '\n' + photos.STYLE;
 function ensureStyle(root) {
   if (!root || root.querySelector('style[data-mx]')) return;
   const s = document.createElement('style');
@@ -1525,7 +1527,14 @@ function pAudit() {
 }
 
 // ============================================================================================ the host
-const BUILD = { me: pMe, people: pPeople, devices: pDevices, roles: pRoles, files: pFiles, service: pService,
+// Photos (mantel-photos.js) draws with this page's own helpers
+const photoTools = {
+  K, hh, api, act, load, forget, redraw, ask, group, info, button, nav, result, pending, failed, field, choose, draft,
+  mantelUrl, csrfNow, refreshMe, ROUTE, panel: () => panel,
+  setFlash: (key, text, err) => { flash = { key, text, err: !!err }; },
+};
+const pPhotos = (sub) => photos.page(sub, photoTools);
+const BUILD = { me: pMe, people: pPeople, devices: pDevices, roles: pRoles, files: pFiles, photos: pPhotos, service: pService,
                 connect: pConnect, connections: pConnections, audit: pAudit };
 const can = (s) => !!me && me.sections.includes(s);
 // the house's own settings: for the people who manage it, from a browser that isn't a tablet, once Mantel
@@ -1575,6 +1584,7 @@ export const host = {
     if (p) { panel = p; ensureStyle(p.shadowRoot); }
     if (where === 'tablet' && me && ctx && ctx.tablet) drawDirect(c, ctx);
     if (where === 'screen' && me && ctx && ctx.screen) drawHaDashboard(c, ctx);
+    if ((where === 'saver' || where === 'house-saver') && me && can('photos')) photos.extend(where, c, ctx || {}, photoTools);
   },
   search() {
     if (!me) return [];
@@ -1589,4 +1599,4 @@ export async function start() {
 }
 export function overview() { return me; }
 // tests: the module's state between cases
-export function _reset(next) { me = next || null; panel = null; enrolled = false; flash = null; for (const o of [cache, drafts, shown]) for (const k of Object.keys(o)) delete o[k]; }
+export function _reset(next) { me = next || null; panel = null; enrolled = false; flash = null; photos._reset(); for (const o of [cache, drafts, shown]) for (const k of Object.keys(o)) delete o[k]; }
