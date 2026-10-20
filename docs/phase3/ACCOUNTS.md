@@ -198,10 +198,11 @@ bootstrap_closed`. `GET /api/bootstrap` → `{"open": bool}`.
 | POST | `/api/auth/passkey/options`, `/verify` | public | sign-in or step-up |
 | POST | `/api/auth/passkey/register/options`, `/register/verify` | user | |
 | GET / DELETE | `/api/auth/passkeys`, `/api/auth/passkeys/{id}` | user (delete: fresh) | |
-| POST | `/api/account/password {current, new}` | user | revokes the user's other sessions |
+| POST | `/api/account/password {current, new}` | user (no password yet: fresh) | revokes the user's other sessions; audited (`account.password.change`) |
 | GET / POST | `/api/bootstrap` | public | |
 | GET / POST | `/api/users` | Owner/Admin | create HK users (Admins cannot create Owners) |
 | PATCH | `/api/users/{id} {role?, disabled?, name?}` | Owner/Admin | never the last enabled Owner |
+| POST | `/api/users/{id}/password {password}` | Owner/Admin, fresh | not an Owner's for an Admin, not your own, not a Home Assistant user's; revokes all their sessions; audited (`account.password.reset`) |
 | POST | `/api/devices/enroll` | Owner/Admin/Wall Tablet account, LAN | |
 | GET | `/api/devices` | Owner/Admin | |
 | GET | `/api/devices/rooms` | Owner/Admin/Wall Tablet account | |

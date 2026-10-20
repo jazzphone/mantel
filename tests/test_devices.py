@@ -303,3 +303,50 @@ async def test_the_enrol_dialog_reads_hks_tablets_and_has_areas(mantel):
     mantel.forget_cookies()
     await mantel.sign_in("al")
     assert (await mantel.get("/api/devices/rooms")).status == 403
+
+
+# -- the audit: enrolling and revoking are recorded first, as moving one is ------------------------------
+def device_rows(mantel):
+    return [(x["action"], x["actor"], x["role"], x["device"], json.loads(x["target"]))
+            for x in mantel.app["audit"].rows(kind="config") if x["action"].startswith("device.")]
+
+
+async def test_enrolling_and_revoking_a_tablet_are_audited(mantel):
+    house_tablets(mantel)
+    device, cookie = await enrolled_tablet(mantel, room=None, tablet="living")
+    owner = mantel.store.db.execute("SELECT id FROM users WHERE username = 'avery'").fetchone()[0]
+    assert device_rows(mantel) == [("device.enroll", owner, "owner", None,
+                                    {"device": device["id"], "name": "Kitchen tablet", "role": "wall_tablet",
+                                     "room": "living_room", "tablet": "living"})]
+    r = await mantel.client.delete(f"/api/devices/{device['id']}", headers=mantel.headers())
+    assert r.status == 200
+    assert device_rows(mantel)[-1] == ("device.revoke", owner, "owner", None,
+                                       {"device": device["id"], "name": "Kitchen tablet", "role": "wall_tablet",
+                                        "room": "living_room", "by_self": False})
+    # revoking it again is a 404, and no second row
+    assert (await mantel.client.delete(f"/api/devices/{device['id']}", headers=mantel.headers())).status == 404
+    assert len(device_rows(mantel)) == 2
+
+
+async def test_a_tablet_revoking_itself_is_audited_as_the_tablet(mantel):
+    device, cookie = await enrolled_tablet(mantel, room="kitchen")
+    mantel.forget_cookies()
+    mantel.set_cookies(mantel_device=cookie)
+    await mantel.get("/api/session")                                          # the tablet's CSRF cookie
+    r = await mantel.client.delete(f"/api/devices/{device['id']}", headers=mantel.headers())
+    assert r.status == 200
+    action, actor, role, by_device, detail = device_rows(mantel)[-1]
+    assert (action, actor, role, by_device, detail["by_self"]) == ("device.revoke", None, None, device["id"], True)
+
+
+async def test_no_audit_row_no_tablet(mantel, monkeypatch):
+    await mantel.user("avery", "owner")
+    await mantel.sign_in("avery")
+
+    def broken(event):
+        raise OSError("disk full")
+    monkeypatch.setattr(mantel.app["audit"], "config_event", broken)
+    r, got = await enroll(mantel)
+    assert r.status == 503 and got["error"] == "audit_unavailable" and "mantel_device" not in r.cookies
+    assert mantel.store.db.execute("SELECT COUNT(*) FROM devices").fetchone()[0] == 0
+    assert (await mantel.get("/api/session")).status == 200                  # still the Owner here

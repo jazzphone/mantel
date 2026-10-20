@@ -109,7 +109,8 @@ async def test_a_wall_tablet_alone_unlocks_and_opens_its_rooms_garage_with_no_pi
     assert other["error"]["code"] == "forbidden" and other["error"]["reason"] == "no_grant"
     other = await gw.command(ws, id=5, **service("light", "turn_on", "light.cody"))
     assert other["error"]["reason"] == "no_grant"
-    rows = gw.audit()
+    enrolled, *rows = gw.audit()                                # the enrolment (by the Owner), then the commands
+    assert (enrolled["kind"], enrolled["action"], enrolled["role"]) == ("config", "device.enroll", "owner")
     assert all(r["actor"] is None and r["device_role"] == "wall_tablet" and r["device"] for r in rows)
     assert [(r["action"], r["decision"], r["sensitive"]) for r in rows] == [
         ("light.turn_on", "allowed", None), ("lock.unlock", "allowed", "lock"),

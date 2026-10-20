@@ -69,7 +69,7 @@ The alarm works as with HK Frontend's Alarm PIN: disarming always needs the code
 
 ![Mantel Settings → Audit Log](../images/settings-audit.webp)
 
-**Mantel Settings** → **Audit Log** (Owners and Admins) lists every house command and every refused one, newest first.
+**Mantel Settings** → **Audit Log** (Owners and Admins) lists every house command and every refused one, and every change to Mantel's settings, people and wall tablets, newest first.
 
 Use **Show** to narrow it:
 
@@ -92,7 +92,7 @@ Each entry shows the action and what it acted on, then the time, who (with their
 | **Home Assistant Writes** | Other changes HK sends to Home Assistant, such as calendar events |
 | **HTTP** | Home Assistant's REST writes, such as the doorbell talk-back clip |
 | **Music** | Music Assistant commands |
-| **Settings and Roles** | Changes to grants, roles and rooms, a tablet's room, connections, the Alarm PIN's settings, and other Mantel settings. They name what changed, never a secret or a code. |
+| **Settings and Accounts** | Changes to people (adding someone, a new role or name, disabling or enabling them, a password changed or set by an Owner or Admin), wall tablets (enrolled, revoked, moved to another room), grants, roles and rooms, connections, the Alarm PIN's settings, and other Mantel settings. They name who did it and what changed, never a password, secret or code. |
 | **Wall Tablets** | Reload and Clear Cache sent to a tablet's kiosk app |
 | **System** | Mantel's own: Owner notifications, removing old entries |
 
@@ -104,9 +104,9 @@ Entries made before an update may show **Confirm** (**Needed Confirmation**): th
 
 The data sent with a command (it can carry an alarm code), passwords, PINs, codes and tokens are never in the audit log.
 
-Some account events aren't in it today: sign-ins (**Me** → **My Sessions** shows each person's current ones), adding a person, changing someone's role or disabling them, and enrolling or revoking a wall tablet. Moving a tablet to another room is.
+Sign-ins aren't recorded, successful or not. Entries can't be deleted for a year, and anyone who can reach the sign-in page can fail to sign in, so recording failures would let a stranger fill the log. Instead, **Me** → **My Sessions** shows each sign-in that is still active (browser, home or away, how, and from which address), and wrong passwords are limited and lock the account ([Signing In](Signing-In.md#passwords)).
 
-<!-- CHECK: accounts.users_create/users_update and devices.enroll/revoke write no audit row (only devices.update does, as device.room). If that is meant to change before release, update this paragraph. -->
+A change that can't be recorded isn't made: Mantel answers **The audit log is unavailable, so nothing was changed**.
 
 ### Keeping it
 

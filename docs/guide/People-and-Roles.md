@@ -53,7 +53,21 @@ Give them the password in person. They can then add an authenticator app and pas
 
 An Admin can't create an Owner.
 
-<!-- CHECK: there is no way in Mantel Settings, the CLI or the REST API for an Owner or Admin to set or reset someone else's password, and no "change my password" row in Me (POST /api/account/password exists but nothing in the UI calls it). A person who forgets their password has to be given a new account, or sign in another way. -->
+### Set a new password for someone
+
+When someone with a Mantel account forgets their password:
+
+1. Open **Mantel Settings** → **People** and select the person.
+2. Select **Set a New Password…**.
+3. Type the **New Password** twice (**Repeat**), with the same rules as a new account's, and select **Set Password**, then confirm.
+
+It asks you to [confirm it is you](Signing-In.md#confirm-it-is-you) if you signed in more than five minutes ago. Their old password stops working, every browser signed in as them is signed out at once, and a lockout from wrong passwords is lifted. Give them the new password in person; they can change it themselves in **Me** → **Change Password…** ([Signing In](Signing-In.md#change-your-password)).
+
+Some limits:
+
+- An Admin can't set an Owner's password. Only an Owner can.
+- It isn't offered for yourself: change your own in **Me**, which asks for your current one.
+- It isn't offered for a Home Assistant user: their password is Home Assistant's.
 
 ### A Home Assistant user
 
@@ -87,6 +101,8 @@ Some limits:
 - Mantel never lets you demote or disable the last enabled Owner.
 - You can't disable yourself.
 - There is no delete. Disable a person instead.
+
+Adding a person, changing a role or a name, disabling and enabling someone, and setting a password are each recorded in the [audit log](Commands-and-Audit.md#the-audit-log): who did it, to whom, and what changed. A password is never in it.
 
 A person's page also has their **Default Screen** (**Opens On**), where Mantel opens for them. It sets only where they land, not what they may open. A wall tablet always opens on its own screen, whoever is signed in at it.
 

@@ -439,14 +439,19 @@ class Audit:
                             (result[:200], self.clock(), audit_id))
 
     def config_event(self, event: dict) -> None:
-        """rbac_store's audit hook: grant/role/scope changes (before they are applied)."""
+        """rbac_store's audit hook: grant/role/scope changes (before they are applied), and every other
+        settings or account change the same way (accounts.audit_change: people, roles, passwords, tablets).
+        ``door``, ``source_ip`` and ``device`` are optional: where the change came from, when the caller
+        knows (a door outside the table's CHECK is dropped rather than losing the row)."""
+        door = event.get("door")
         with self.db:
             self.db.execute(
-                "INSERT INTO action_audit (timestamp, actor, role, kind, action, target, decision, reason) "
-                "VALUES (?,?,?,?,?,?,?,?)",
-                (event.get("timestamp") or self.clock(), event.get("actor"), event.get("role"), "config",
-                 str(event.get("action"))[:200], json.dumps(event.get("detail"), default=str)[:2000],
-                 "allowed", "owner"))
+                "INSERT INTO action_audit (timestamp, actor, role, device, device_role, kind, action, target, decision, "
+                "reason, door, source_ip) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+                (event.get("timestamp") or self.clock(), event.get("actor"), event.get("role"), event.get("device"),
+                 event.get("device_role"), "config", str(event.get("action"))[:200],
+                 json.dumps(event.get("detail"), default=str)[:2000], "allowed", "owner",
+                 door if door in ("lan", "tunnel", "ha") else None, (event.get("source_ip") or None)))
 
     def rows(self, **where) -> list[dict]:
         sql = "SELECT * FROM action_audit"

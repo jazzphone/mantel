@@ -136,7 +136,7 @@ Be aware of these:
 - **A person signed in at a tablet** stays signed in for 30 days unless they sign out.
 - **The home network is trusted more.** Anyone who reaches Mantel from your home network can sign in with a password alone (if they have one), and wall tablet credentials work there. Keep the network private, and make sure your proxy sends the door correctly.
 - **The audit log is protected inside the database file.** Someone with access to the server's files can replace the whole file. Keep the data folder and backups private.
-- **Some account events aren't recorded** in the audit log, such as role changes and enrolling a tablet ([Commands and Audit](Commands-and-Audit.md#what-isnt-recorded)).
+- **Sign-ins aren't recorded** in the audit log, though account changes (people, roles, passwords, wall tablets) are. Active sign-ins are in each person's **My Sessions** ([Commands and Audit](Commands-and-Audit.md#what-isnt-recorded)).
 - **Lockouts can be triggered by anyone** who knows a user name, for 15 minutes.
 - **Fully Kiosk Browser's** remote administration password travels in plain text on your home network. That's Fully's design.
 - **Inline styles are allowed** on HK's pages, so the page policy doesn't block style injection.

@@ -12,6 +12,9 @@ uses the pair.
   tablet. Once the new one is seen the old one is retired; if the retired secret is presented again
   (after a short grace for requests already in flight) somebody copied it, and the device is revoked.
 * **Revocable** in one call (``DELETE /api/devices/{id}``); a revoked device is refused at once.
+* **Audited**: enrolling (``device.enroll``) and revoking (``device.revoke``, by a manager or by the tablet itself)
+  each write their ``config`` row before the change (``accounts.audit_change``), as moving one does
+  (``device.room``). A revocation the server makes itself (idle, a copied credential) is in its log.
 * **Its room is one of the house's**: HK's wall tablets (``tablet`` names one, and the device takes its room) or
   HA's areas, never a room typed by hand. ``features.may_speak_for`` lets a wall tablet device report a touch or
   its black screen only for the HK tablet in its own room, so a room that matches none (three tablets enrolled as
@@ -31,7 +34,7 @@ import sqlite3
 from aiohttp import web
 
 from . import default_screens
-from .accounts import read_json, require_manager, require_user
+from .accounts import audit_change, read_json, require_manager, require_user
 from .sessions import (CSRF_COOKIE, Device, client_ip, cookie_secure, device_json, end_session, error, identity, ok,
                        queue_cookie, token_hash)
 from .store import ROLES
@@ -55,12 +58,13 @@ class DeviceManager:
         self.rotate_every = rotate_every
 
     def enroll(self, name: str, role: str, room: str | None, enrolled_by: str | None,
-               source_ip: str | None = None) -> tuple[str, str, str]:
-        """Returns (device id, secret, csrf token)."""
+               source_ip: str | None = None, device_id: str | None = None) -> tuple[str, str, str]:
+        """Returns (device id, secret, csrf token). ``device_id`` when the caller chose it first (its audit row)."""
         if role not in DEVICE_ROLES:
             raise ValueError(f"device roles are {', '.join(DEVICE_ROLES)}")
         now = self.clock()
-        device_id, secret, csrf = secrets.token_hex(16), secrets.token_urlsafe(32), secrets.token_urlsafe(32)
+        device_id = device_id or secrets.token_hex(16)
+        secret, csrf = secrets.token_urlsafe(32), secrets.token_urlsafe(32)
         with self.db:
             self.db.execute("INSERT INTO devices (id, name, role, room, enrolled_by, secret_hash, rotated_at, csrf, "
                             "created, last_seen, source_ip) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
@@ -230,7 +234,12 @@ async def enroll(request: web.Request) -> web.Response:
     except RoomError as exc:
         return error(400, str(exc), message=ROOM_MESSAGES.get(str(exc)))
     mgr: DeviceManager = request.app["devices"]
-    device_id, secret, csrf = mgr.enroll(name[:64], role, room, user.id, client_ip(request))
+    device_id = secrets.token_hex(16)
+    refused = audit_change(request, ident, "device.enroll", {"device": device_id, "name": name[:64], "role": role,
+                                                             "room": room, "tablet": body.get("tablet")})
+    if refused:
+        return refused
+    device_id, secret, csrf = mgr.enroll(name[:64], role, room, user.id, client_ip(request), device_id=device_id)
     row = mgr.get(device_id)
     resp = ok({"device": device_json(Device(row["id"], row["name"], row["role"], row["room"])), "csrf": csrf},
               status=201)
@@ -303,6 +312,15 @@ async def revoke(request: web.Request) -> web.Response:
     is_self = ident.device is not None and ident.device.id == device_id
     if not is_self:
         require_manager(request)
+    row = mgr.get(device_id)
+    if row is None or row["revoked"] is not None:
+        return error(404, "not_found")
+    # the audit row first: by a manager (who), or by the tablet itself (the row's device, no person)
+    refused = audit_change(request, ident, "device.revoke", {"device": row["id"], "name": row["name"],
+                                                             "role": row["role"], "room": row["room"],
+                                                             "by_self": is_self})
+    if refused:
+        return refused
     if not mgr.revoke(device_id, "revoked_by_self" if is_self else "revoked"):
         return error(404, "not_found")
     resp = ok()
