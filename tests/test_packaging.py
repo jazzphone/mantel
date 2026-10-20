@@ -394,6 +394,38 @@ def test_entrypoint_passes_caddys_address_as_the_trusted_proxy(tmp_path, capsys)
     assert "--trusted-proxy" not in args and "MANTEL_TRUSTED_PROXY is not set" in capsys.readouterr().err
 
 
+def test_entrypoint_gives_passkeys_the_public_urls_name(tmp_path):
+    """Docker / LXC: the passkeys' RP ID is MANTEL_PUBLIC_URL's host name, so a passkey added at
+    https://mantel.example.com is accepted there (it was "localhost", and every passkey failed with
+    origin_not_allowed_for_passkeys). An IP address cannot be an RP ID: no flag then."""
+    from types import SimpleNamespace
+
+    from aiohttp import web as aioweb
+
+    from mantel_server.accounts import passkey_origin
+    from mantel_server.config import parse_args
+    none = tmp_path / "none"
+    args, _ = entrypoint.plan([], {"MANTEL_PUBLIC_URL": "https://Mantel.Example.com:8443/"}, options_path=none)
+    assert args[args.index("--rp-id") + 1] == "mantel.example.com"
+    cfg = parse_args(args)
+    assert cfg.webauthn_rp_id == "mantel.example.com"
+
+    def check(origin):
+        acc = SimpleNamespace(rp_id=cfg.webauthn_rp_id)
+        return passkey_origin(SimpleNamespace(headers={"Origin": origin}), acc)
+    assert check("https://mantel.example.com:8443") == "https://mantel.example.com:8443"
+    with pytest.raises(aioweb.HTTPBadRequest):
+        check("https://evil.example")
+    # an IP address: no RP ID from it (the server keeps its default; passkeys need a name)
+    for public in ("https://192.0.2.10/", "https://[2001:db8::1]:8443/"):
+        args, _ = entrypoint.plan([], {"MANTEL_PUBLIC_URL": public}, options_path=none)
+        assert "--rp-id" not in args
+    # the operator's own --rp-id (the old compose.local.yaml workaround) comes later and still wins
+    args, _ = entrypoint.plan(["--rp-id", "other.example.com"], {"MANTEL_PUBLIC_URL": "https://m.example.com/"},
+                              options_path=none)
+    assert parse_args(args).webauthn_rp_id == "other.example.com"
+
+
 def test_compose_makes_caddy_the_trusted_proxy_on_the_backend_network():
     """Static: the address the entrypoint is given is Caddy's fixed backend address, inside the backend
     subnet, and Caddy reaches Mantel only by its backend-only alias, so Caddy's connections to Mantel

@@ -10,7 +10,8 @@ Docker / Proxmox LXC (compose)   settings from MANTEL_* environment variables (n
                                  installation (default /run/secrets/ha_token) still works and is shown as
                                  "set by the installation"; an empty file counts as none.
     MANTEL_HA_URL          optional   http://homeassistant.local:8123 (with the ha_token file); else the page
-    MANTEL_PUBLIC_URL      required   https://mantel.example.com/   (what browsers type; Caddy serves it)
+    MANTEL_PUBLIC_URL      required   https://mantel.example.com/   (what browsers type; Caddy serves it);
+                                      its host name is also the passkeys' RP ID (--rp-id; not for an IP)
     MANTEL_ALLOW_HOSTS     optional   comma list of further Host names, e.g. the LAN IP
     MANTEL_LISTEN          optional   default 0.0.0.0 (the container interface, behind Caddy only)
     MANTEL_PORT            optional   default 8765
@@ -145,6 +146,24 @@ def trusted_proxy_args(env: dict[str, str]) -> list[str]:
     return out
 
 
+def rp_id_args(public_url: str) -> list[str]:
+    """``--rp-id`` for passkeys: MANTEL_PUBLIC_URL's host name, the name browsers type. Without it the
+    server's default RP ID is "localhost", and every passkey at the real name is refused
+    (origin_not_allowed_for_passkeys: accounts.passkey_origin wants the page's host to be the RP ID or a
+    name under it). WebAuthn needs nothing else from here: the expected origin is the page's own Origin,
+    checked against this RP ID. An IP address can never be an RP ID (browsers refuse it), so then no flag
+    and passkeys stay off, as they would anyway at an IP. An --rp-id in the container's own command (the
+    old compose.local.yaml workaround) still wins: it comes after these arguments."""
+    from urllib.parse import urlsplit
+    try:
+        host = (urlsplit(public_url.strip()).hostname or "").lower().rstrip(".")
+    except ValueError:
+        return []           # the server's own --public-url check reports the bad address
+    if not host or _is_ip(host):
+        return []
+    return ["--rp-id", host]
+
+
 def container_args(env: dict[str, str]) -> list[str]:
     missing = [k for k in ("MANTEL_PUBLIC_URL",) if not env.get(k)]
     if missing:
@@ -159,6 +178,7 @@ def container_args(env: dict[str, str]) -> list[str]:
             "--public-url", env["MANTEL_PUBLIC_URL"]]
     for host in filter(None, (h.strip() for h in env.get("MANTEL_ALLOW_HOSTS", "").split(","))):
         args += ["--allow-host", host]
+    args += rp_id_args(env["MANTEL_PUBLIC_URL"])
     args += trusted_proxy_args(env)
     # Docker secrets (compose): at_rest.key and backup.key are read from here
     args += ["--secrets-dir", env.get("MANTEL_SECRETS_DIR", "/run/secrets")]

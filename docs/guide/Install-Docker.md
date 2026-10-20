@@ -162,7 +162,7 @@ Run Mantel's admin commands with `docker compose exec mantel-server mantel <comm
 
 ## Your own additions
 
-Two things are set on Mantel Server's command line rather than in `.env`: house commands, and the name for passkeys. Keep them in a file of your own, `compose.local.yaml`, in `packaging/compose`, and add it to the `COMPOSE_FILE` line in `.env`, for example:
+House commands are turned on with Mantel Server's command line rather than in `.env`. Keep that in a file of your own, `compose.local.yaml`, in `packaging/compose`, and add it to the `COMPOSE_FILE` line in `.env`, for example:
 
 ```bash
 COMPOSE_FILE=compose.yaml:compose.local.yaml
@@ -184,17 +184,9 @@ After `docker compose up -d --wait`, the log line says `COMMANDS ENABLED`. To tu
 
 ### Passkeys
 
-Passkeys are tied to a name. The stack doesn't pass Mantel's name to the passkey setting yet, so add it to the same list, with your `MANTEL_HOSTNAME`:
+Passkeys are tied to a name. Mantel uses the name in `MANTEL_HOSTNAME` (the host name of the address browsers type) for them, so there is nothing to add. Choose that name **before** anyone adds a passkey: a passkey made for one name doesn't work at another. Passkeys never work at an IP address.
 
-```yaml
-services:
-  mantel-server:
-    command: ["--rp-id", "mantel.example.com"]
-```
-
-With commands on as well: `command: ["--commands-enabled", "--rp-id", "mantel.example.com"]`. Set it **before** anyone adds a passkey: a passkey made for another name stops working.
-
-<!-- CHECK: packaging/docker/entrypoint.py passes no --rp-id in container mode, so Mantel's passkey RP ID stays "localhost" and passkeys at https://<MANTEL_HOSTNAME> fail with origin_not_allowed_for_passkeys. This workaround follows from the code (the container's extra arguments are appended after the entrypoint's). Consider deriving --rp-id from MANTEL_PUBLIC_URL in the entrypoint and dropping this section. -->
+An earlier version needed `"--rp-id", "mantel.example.com"` in `compose.local.yaml`. You can take it out; while it's there it still wins, so it must stay the same name as `MANTEL_HOSTNAME`.
 
 ## Your own reverse proxy
 

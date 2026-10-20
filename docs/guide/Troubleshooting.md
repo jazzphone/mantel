@@ -97,7 +97,7 @@ On purpose. From outside your home network, Mantel asks for a passkey, or a pass
 
 Passkeys need Mantel's **name**, never an IP address. Open Mantel at `https://mantel.example.com`, not by its address.
 
-With Docker or the LXC, Mantel also needs that name on its command line, or every passkey is refused (`origin_not_allowed_for_passkeys`): see [Install with Docker → Passkeys](Install-Docker.md#passkeys). In the App, passkeys work only at Mantel's own address (direct access), not in Home Assistant's sidebar.
+If the browser shows `origin_not_allowed_for_passkeys`, the name you opened isn't Mantel's own: with Docker or the LXC that is `MANTEL_HOSTNAME` ([Install with Docker → Passkeys](Install-Docker.md#passkeys)), and in the App `public_url`'s name. A passkey made before that name changed doesn't work any more: remove it and add it again. In the App, passkeys work only at Mantel's own address (direct access), not in Home Assistant's sidebar.
 
 ## Tablets and the home network
 
