@@ -222,7 +222,7 @@ row is too narrow. I have not looked at it on a phone or iPad this session, so t
 | 10.6 | Sign in with Apple: nonce, verification, linking under Me | 10.4 |
 | 10.7 | Music: Live Activity (push-updated), Control Center, Now Playing widget, music App Intents | 10.5 |
 | 10.8 | Widgets, Control Center favorites, Siri/Shortcuts entities | 10.3 |
-| 10.9 | Mac menu bar app (MantelKit shared) | 10.2, 10.3 |
+| 10.9 | The Mac menu bar app on MantelKit. Revised the same evening (branch `claude/quizzical-raman-999555`): the house's own Music page (`/<screen>/playmusic`: browse, speakers, volume, queue) in the menu at a phone's size, edge to edge, its few controls floating over it (Away, Music \| Favorites, the window, the app's menu); the same page in a resizable Music window without a title bar (its buttons float on the page); favorites as toggles and chosen on the Mac (the iPhone's editor, now shared: `apple/Common/FavoritesEditor.swift`); setup in its own window (paste the `mantel://pair` link or click it, Bonjour, a typed address and the six digits, then sign-in in `ASWebAuthenticationSession`); the menu's own controls when the page cannot open; team signing | Against the fictional Mantel with music (`tools/app_dev_server.py --music`): paired by link in the sandboxed, team-signed app; both pages land on `playmusic` signed in through `/app/web-session`; the page's Play/Pause and Next from the app's window → `hk_frontend.music_transport` on the fictional Den speaker, audit rows `allowed`/`ok`; signed in again after relaunching, with no Keychain prompt | The play/pause key (below); the menu panel, Favorites and Setup windows not looked at by eye (nothing here could see them); sign-in through the web sheet and Bonjour not run on the Mac |
 | 10.10 | Security review (independent pass over 10.2 to 10.9), App Store or TestFlight-only release | M10-1 |
 
 Slices 10.0 and 10.1 can start any time and help the web app on phones whatever is decided below. 10.2 and
@@ -307,6 +307,18 @@ two lines); edits to shared files are small and listed in the commits.
 | 10.8 | Favorites widget (interactive), Control Center favorite toggle, `AccessoryEntity` for Siri/Shortcuts, App Shortcuts phrases | Builds | Not placed and tried by hand in the Simulator |
 | 10.9 | The Mac menu bar app (now playing, favorites, Open Mantel) on MantelKit | Builds, launches, quits | Signed to run locally only (no shared Keychain/App Group until the account); media keys (§9) not tried |
 | 10.10 | — | — | The independent security review, then TestFlight |
+
+**The Mac app, 2026-10-19 (evening).** Signing: Avery's Mac Studio is registered to the team (Avery's yes; Xcode
+registered it with `-allowProvisioningDeviceRegistration`). Xcode's Mac profile is the team's wildcard one, which cannot
+carry a `group.*` App Group, and macOS then asks at every launch whether Mantel may "access data from other apps"; so the
+Mac's App Group is the team-prefixed `TEAMID0000.com.jazzphone.mantel` (allowed on macOS without a profile; the Mac
+has no extensions to share with). Its Keychain items are in the data-protection keychain under the shared group
+(`kSecUseDataProtectionKeychain`), so rebuilt apps no longer ask for the login keychain. `MAC_TEAM_SIGNING` in
+`make_project.py` switches back to local signing. **The play/pause key** (`NowPlayingKeys`: `MPNowPlayingInfoCenter`'s
+state and song from the person's speaker, `MPRemoteCommandCenter`'s commands as gateway commands, no audio) is built
+but **not seen working**: nothing here could press a media key (no Accessibility for scripts, none in computer use) and
+MediaRemote's own answer is closed to other apps since macOS 15.4. It is off by default; the menu's "Play/Pause Key
+Controls the House (Try It)" turns it on for Avery to press once: kept if the speaker answers, taken out if not.
 
 Merging notes: migrations renumbered 0016 (push) and 0017 (app) at the merge, after Mantel Link's 0015; `features.Feed.taps`, `sessions.APP_METHOD`,
 `ingress.inject_base`'s Home Screen block and `user_data` `favorites` are the edits to shared files.

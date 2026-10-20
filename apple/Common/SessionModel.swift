@@ -228,7 +228,7 @@ final class SessionModel: NSObject, ObservableObject {
     func webSessionURL(next: String = "/home") async -> URL? {
         guard let client else { return nil }
         do { return try await client.webSessionURL(next: next) } catch {
-            problem = error.localizedDescription
+            if !Task.isCancelled && (error as? URLError)?.code != .cancelled { problem = error.localizedDescription }
             return nil
         }
     }
