@@ -966,6 +966,19 @@ Everything on main since 0.1.28 (validation green: JS 130, HA py 732, Mantel 283
       settings save.
 - [ ] The Device picker lists the five Kiosk Satellites (Avery, in Mantel Settings); a night with the displays off.
 
+### 0.1.32 (2026-10-20)
+
+- **Alarm PIN:** a PIN, arm rule or alarm saved on HK Settings' Alarm PIN page (still saved in HA) is stored in
+  Mantel too, whose keypads check it; the page says whether Mantel holds one. Enter the PIN once more after this
+  update.
+- **Music:** saved playlists and their artwork load; the "Starting <playlist>…" toast shows again.
+- **Calendar:** the Month card keeps its bottom edge in Safari; a calendar HA can't read is named once.
+- **Inside HA:** no dead "Open Home Assistant" row; the bottom Home Assistant row always works.
+- **Notifications** are centred on the whole screen with the screensaver's music pane up.
+- **Apps:** the iPhone music player is not covered by the tab bar and is solid in the Flat look; the Mac app's
+  player and pages.
+- No HA backup taken (Avery: the App touches nothing in HA).
+
 ### Removal
 
 Stop and uninstall **Mantel** (Settings → Apps → Mantel → Uninstall); this removes its image and `/data`
