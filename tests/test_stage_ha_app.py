@@ -99,6 +99,8 @@ def test_write_stages_a_complete_folder_and_replaces_only_its_own(tmp_path, monk
     assert (target / "config.yaml").is_file() and (target / "Dockerfile").is_file()
     assert (target / "app/entrypoint.py").is_file() and (target / "app/web/shim/base.js").is_file()
     assert (target / "app/BUILD_ID").read_text().strip() == info["build"]
+    rel = json.loads((target / "app/RELEASE.json").read_text())         # Mantel Settings -> About (about.py)
+    assert rel["version"] == stage._app_version() and rel["build"] == info["build"] and rel["commit"] == info["commit"]
     marker = json.loads((target / stage.MARKER).read_text())
     assert marker["files"] == info["files"] and marker["tool"] == "tools/stage_ha_app.py"
     assert sorted(p.name for p in target.parent.iterdir()) == ["mantel"]  # no temp folder left behind

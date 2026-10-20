@@ -135,9 +135,9 @@ async def test_a_wall_tablet_alone_is_refused_the_page(admin):
 
 # -- the overview ------------------------------------------------------------------------------------
 @pytest.mark.parametrize("role, expected", [
-    ("owner", ["me", "connections", "people", "devices", "files", "photos", "roles", "service", "audit"]),
-    ("admin", ["me", "connections", "people", "devices", "files", "photos", "audit"]),
-    ("adult", ["me"]), ("child", ["me"]), ("guest", ["me"]), ("wall_tablet", ["me"]),
+    ("owner", ["me", "connections", "people", "devices", "files", "photos", "roles", "service", "audit", "about"]),
+    ("admin", ["me", "connections", "people", "devices", "files", "photos", "audit", "about"]),
+    ("adult", ["me", "about"]), ("child", ["me", "about"]), ("guest", ["me", "about"]), ("wall_tablet", ["me", "about"]),
 ])
 async def test_sections_by_role(admin, role, expected):
     await admin.user("someone", role)
@@ -165,7 +165,7 @@ async def test_the_tunnel_door_loses_service_accounts(admin):
     issued = admin.app["sessions"].create(uid, "tunnel", "passkey")
     admin.client.session.cookie_jar.update_cookies({"mantel_session": issued.access, "mantel_csrf": issued.csrf})
     got = await sections(admin, tunnel=True)
-    assert got == ["me", "connections", "people", "devices", "files", "photos", "roles", "audit"]
+    assert got == ["me", "connections", "people", "devices", "files", "photos", "roles", "audit", "about"]
 
 
 async def test_the_audit_section_follows_the_configure_grant(admin):
@@ -175,7 +175,7 @@ async def test_the_audit_section_follows_the_configure_grant(admin):
     admin.app["rbac"].add_grant(Grant(effect="allow", actions={"configure"}, resource_kind="feature",
                                       resource="audit", roles={"adult"}))
     got = await sections(admin)
-    assert got == ["me", "audit"]
+    assert got == ["me", "audit", "about"]
     assert (await admin.get("/api/audit")).status == 200            # and the API agrees with the page
     assert (await admin.get("/api/users")).status == 403            # people stays hidden: its API is Owner/Admin
 

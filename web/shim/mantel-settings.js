@@ -31,6 +31,7 @@ const PAGES = [
   ['connections', 'Connections', 'mdi:lan', C.green, 'end', 'Mantel'],
   ['connect', 'Mantel Connect', 'mdi:link-variant', C.orange, 'end', 'Mantel'],
   ['files', 'Your Files', 'mdi:folder', C.purple, 'end', 'Mantel'],
+  ['about', 'About', 'mdi:information-outline', C.gray, 'end', 'Mantel'],
 ];
 // Photos is inside Your Files (#/mantel/files/photos; Avery, 2026-10-19): its old addresses forward there
 const ERRORS = {
@@ -1668,7 +1669,31 @@ const photoTools = {
   mantelUrl, csrfNow, refreshMe, ROUTE, panel: () => panel,
   setFlash: (key, text, err) => { flash = { key, text, err: !!err }; },
 };
-const BUILD = { me: pMe, people: pPeople, devices: pDevices, roles: pRoles, files: pFiles, service: pService,
+// ABOUT (about.py): which Mantel this is and what it talks to; for anyone signed in, nothing secret
+function pAbout() {
+  return { title: 'About', top: true, scope: 'This Mantel, and what it is connected to.', body(c) {
+    const got = load('about', () => api('GET', '/api/about'));
+    if (!got) { pending(c); return; }
+    if (got.err) { failed(c, got.err); return; }
+    const a = got.data, ha = a.home_assistant || {}, ma = a.music_assistant || {};
+    const ver = a.version ? (a.commit && a.commit !== 'dev' ? a.version + ' (' + a.commit + ')' : a.version) : 'Unknown';
+    c.appendChild(group({ header: 'Mantel', footer: 'Build ' + (a.build || 'dev') + (a.staged ? ', staged ' + fmt(a.staged) : '') + '.' }, [
+      info('Version', null, ver),
+      info('Installed As', null, a.install),
+      info('Running Since', null, fmt(a.started)),
+      info('House Commands', a.commands ? 'Signed-in people control the house within their roles; every command is in the Audit Log.' : 'Read-only: nothing is sent to the house.', a.commands ? 'On' : 'Off'),
+    ]));
+    const links = (a.linked || []).map((l) => info(l.name, 'Protocol ' + l.protocol + (l.since ? ' · since ' + fmt(l.since) : ''), 'Linked'));
+    c.appendChild(group({ header: 'Connected To' }, [
+      info('Home Assistant', null, ha.connected ? (ha.version || 'Connected') : 'Not connected'),
+      info('Music Assistant', null, !ma.configured ? 'Not set up' : (ma.version || 'Not connected')),
+    ].concat(links.length ? links : [info('In Home Assistant', null, 'Nothing linked')])));
+    c.appendChild(group({ header: 'About the Project', footer: 'Mantel serves HK’s home screens from a server of its own beside Home Assistant. Wall tablets, phones and browsers sign in to Mantel, and every change to the house passes its roles and its audit log. Mantel Link is its side inside Home Assistant: the tablets’ and the house’s entities, and the actions automations call. It grew out of HK Frontend, which drew the same screens inside Home Assistant. Apple’s SF Pro and SF Symbols are supplied by each home (Your Files); Mantel ships none.' }, [
+      button('Documentation', () => { window.open(mantelUrl(a.docs || '/docs'), '_blank', 'noopener'); }, { fk: 'mx:about-docs' }),
+    ]));
+  } };
+}
+const BUILD = { me: pMe, people: pPeople, devices: pDevices, roles: pRoles, files: pFiles, service: pService, about: pAbout,
                 connect: pConnect, connections: pConnections, audit: pAudit };
 const can = (s) => !!me && me.sections.includes(s);
 // the house's own settings: for the people who manage it, from a browser that isn't a tablet, once Mantel

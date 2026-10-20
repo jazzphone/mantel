@@ -29,7 +29,7 @@ from urllib.parse import urlparse
 import aiohttp
 from aiohttp import WSMsgType, web
 
-from . import frame_origins, music
+from . import about, frame_origins, music
 from . import accounts, alarm_pin, auth, connect_pairing, devices, gateway, health, ingress, live_tv, pins, proof2, rbac_store, readproxy, sessions, settings_store
 from . import (admin_page, atrest, backup, connections, features, linked, linked_house, linked_owners, linked_pairing,
                linked_actions, login_page, phones, supervisor_discovery,
@@ -612,6 +612,7 @@ def wire(app: web.Application, hub: Hub, token: str, connect_ha: bool) -> None:
     ma_connector.register(app, hub, hooks)
     conns.appliers.append(lambda kind, cur: apply_connection(app, hub, connect_ha, kind, cur))
     health.register(app, hub)
+    about.register(app)               # Mantel Settings -> About: the version and what Mantel talks to
     # P3.5: HK's settings from Mantel's own store (reads + settings_write saves). HK's own data, not a
     # house command, so saves work while commands are off; each save asks RBAC `configure`.
     settings_store.register(app, hub, settings_store.SettingsHooks(

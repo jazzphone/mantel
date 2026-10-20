@@ -29,6 +29,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -155,6 +156,12 @@ def _commit() -> str:
         return "unknown"
 
 
+def _app_version() -> str | None:
+    import re
+    m = re.search(r'^version:\s*"?([0-9A-Za-z.+-]{1,32})"?\s*$', (ROOT / "packaging/ha-app/config.yaml").read_text(), re.M)
+    return m.group(1) if m else None
+
+
 def write(target: Path, pairs: list[tuple[Path, str]], web_src: Path = ROOT / "web") -> dict:
     """Copy into a new sibling temp folder, stamp it, then move it into place."""
     bs = _load_build_static()
@@ -174,6 +181,9 @@ def write(target: Path, pairs: list[tuple[Path, str]], web_src: Path = ROOT / "w
             shutil.copytree(stamp / "web", tmp / "app/web")
             shutil.copyfile(stamp / "BUILD_ID", tmp / "app/BUILD_ID")
             shutil.copyfile(stamp / "static-manifest.json", tmp / "app/static-manifest.json")
+            # Mantel Settings -> About (about.py): the App's version, the commit and the build, in the image
+            (tmp / "app/RELEASE.json").write_text(json.dumps({"version": _app_version(), "commit": _commit(),
+                                                              "build": build_id, "staged": int(time.time())}) + "\n")
         finally:
             shutil.rmtree(stamp.parent, ignore_errors=True)
         digest = hashlib.sha256()
