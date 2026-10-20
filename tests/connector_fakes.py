@@ -78,6 +78,7 @@ class FakeHa:
         self.frames: list[dict] = []          # every WebSocket frame Mantel sent (auth included)
         self.rest: list[tuple[str, str, dict]] = []   # (method, path, query) of every REST request
         self.unexpected: list[str] = []
+        self.broken_calendars: set[str] = set()   # calendars HA cannot read (an account signed out): HA answers 500
         self.sockets: list[web.WebSocketResponse] = []
         self.sessions = 0
 
@@ -96,6 +97,8 @@ class FakeHa:
             return web.json_response({"message": "unauthorized"}, status=401)
         if request.method == "GET" and request.path.startswith("/api/calendars/"):
             eid = request.path.rsplit("/", 1)[1]
+            if eid in self.broken_calendars:
+                return web.Response(status=500, text="500 Internal Server Error")
             return web.json_response([{"summary": f"Fictional event on {eid}",
                                        "start": {"dateTime": request.query.get("start")},
                                        "end": {"dateTime": request.query.get("end")}}])

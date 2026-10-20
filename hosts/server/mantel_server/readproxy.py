@@ -269,7 +269,7 @@ class ReadProxy:
                                   headers={"Authorization": f"Bearer {self._token}"},
                                   timeout=aiohttp.ClientTimeout(total=30)) as r:
             if r.status != 200:
-                raise RuntimeError(f"Home Assistant answered {r.status}")
+                raise RuntimeError(f"Home Assistant answered {r.status} for {entity_id}")
             return await r.json()
 
     async def close(self) -> None:
@@ -709,15 +709,16 @@ _refused_at: dict[str, float] = {}
 REFUSED_WARN_EVERY = 300.0
 
 
-def _warn_refused(text: str, now: Callable[[], float] = time.monotonic) -> None:
+def _warn_refused(text: str, now: Callable[[], float] = time.monotonic, what: str = "refused a read") -> None:
     """A refused read, logged once per distinct refusal every REFUSED_WARN_EVERY seconds: a page's
-    feed that is not served yet (or not to this person) retries with backoff for ever."""
+    feed that is not served yet (or not to this person) retries with backoff for ever. A read that
+    failed upstream (`what` "a read failed": HA answering a calendar read with 500) the same way."""
     t = now()
     if t - _refused_at.get(text, float("-inf")) >= REFUSED_WARN_EVERY:
         if len(_refused_at) > 256:
             _refused_at.clear()
         _refused_at[text] = t
-        log.warning("refused a read: %s (repeats are logged every %d s)", text, REFUSED_WARN_EVERY)
+        log.warning("%s: %s (repeats are logged every %d s)", what, text, REFUSED_WARN_EVERY)
 
 
 def register(app, hub, hooks) -> FilteredReads:
@@ -781,6 +782,10 @@ def register(app, hub, hooks) -> FilteredReads:
             code = _error_code(exc)
             if code in ("not_allowed", "forbidden"):
                 _warn_refused(str(exc))
+            elif code == "failed":
+                # (a calendar its account no longer reads answers 500 at every load: the house, 2026-10-20,
+                # when Mantel's log said nothing and the page only "couldn't be read")
+                _warn_refused(f"{type(exc).__name__}: {exc}", what="a read failed")
             await ctx.send({"type": "read_result", "id": rid, "error": {"code": code, "message": str(exc)}})
             return
         await ctx.send({"type": "read_result", "id": rid, "result": result})
