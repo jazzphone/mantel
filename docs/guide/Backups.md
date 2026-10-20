@@ -46,7 +46,7 @@ The nightly backup is off until you give it a folder. Ideally that folder is on 
    `MANTEL_BACKUP_DIR` is the folder on the host; Mantel sees it as `/backups`. Setting `MANTEL_BACKUP_TARGET` is what turns the nightly backup on.
 3. `docker compose up -d --wait`.
 
-If there is no backup from the last 25 hours, Mantel makes one a minute after it starts. After that it runs every night at **03:15**, in the time zone given with `--house-tz` (UTC unless you set it; see the flags below). Each backup, and each failure, is written to the [audit log](Commands-and-Audit.md); a failure is retried an hour later.
+If there is no backup from the last 25 hours, Mantel makes one a minute after it starts. After that it runs every night at **03:15**, in your house's time zone: the one Home Assistant is set to (**Settings** → **System** → **General**), once Mantel has reached Home Assistant. Until then, or without Home Assistant, it uses `--house-tz` (UTC unless you set it; see the flags below). Each backup, and each failure, is written to the [audit log](Commands-and-Audit.md); a failure is retried an hour later.
 
 The folder **must exist**: if your NAS isn't mounted, the backup fails with `target_missing` instead of quietly filling the local disk.
 
@@ -69,7 +69,7 @@ To change the time, its time zone or how many are kept, add flags to the `comman
 | Flag | Default |
 |---|---|
 | `--backup-time HH:MM` | `03:15` |
-| `--house-tz ZONE` | `UTC`. Your time zone's name, for example `Europe/London`, so the backup time is your local time. |
+| `--house-tz ZONE` | `UTC`. Used only until Mantel has Home Assistant's time zone, or without Home Assistant. Your time zone's name, for example `Europe/London`. |
 | `--backup-keep-daily N` | `7` |
 | `--backup-keep-weekly N` | `4` |
 | `--backup-no-files` | Your files and photos are included |

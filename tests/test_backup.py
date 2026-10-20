@@ -537,8 +537,8 @@ async def test_the_job_is_disabled_without_a_target_and_catches_up_then_runs_nig
         sleeps.append(round(s))
         if len(sleeps) == 1:
             return                                                         # the catch-up wait
-        if len(sleeps) == 2:
-            clock[0] += s                                                  # night comes
+        if len(jobs.list()) < 2:
+            clock[0] += s                                                  # night comes, a step at a time
             return
         raise asyncio.CancelledError
 
@@ -546,13 +546,64 @@ async def test_the_job_is_disabled_without_a_target_and_catches_up_then_runs_nig
     with pytest.raises(asyncio.CancelledError):
         await jobs.run_forever()
     assert sleeps[0] == 60                                                 # nothing on the NAS yet: one soon
-    assert sleeps[1] == (15 * 60 + 3 * 3600 + 12 * 3600)                   # noon -> 03:15 next day
+    night = sleeps[1:-1]                                                   # the wait, in RECHECK steps
+    assert sum(night) == (15 * 60 + 3 * 3600 + 12 * 3600)                  # noon -> 03:15 next day
+    assert max(night) <= bk.Backups.RECHECK
     assert len(jobs.list()) == 2 and jobs.status["last_error"] is None and jobs.status["last_ok"]
     assert jobs.list()[0].created.astimezone(UTC).strftime("%H:%M") == "08:15"      # 03:15 CDT is 08:15 UTC
     # a failing target is reported, not raised
     shutil.rmtree(target)
     result = await jobs.run_once()
     assert result["ok"] is False and jobs.status["last_error_code"] == "target_missing"
+
+
+def test_the_nightly_time_is_in_home_assistants_zone_once_known(tmp_path):
+    """03:15 is the house's 03:15: Home Assistant's zone (Authz.tz, from get_config) once read; --house-tz
+    (cfg.house_tz, default UTC) until then. It was always cfg.house_tz, so a house that never set
+    --house-tz was backed up at 03:15 UTC."""
+    from types import SimpleNamespace
+
+    from aiohttp import web as aioweb
+
+    from mantel_server.config import Config
+    noon_utc = datetime(2026, 7, 1, 12, 0, tzinfo=UTC).timestamp()
+    app = aioweb.Application()
+    app["cfg"] = Config(data_dir=tmp_path / "data", secrets_dir=tmp_path / "s", backup_target=tmp_path, port=0)
+    app["clock"] = lambda: noon_utc
+    bk.register(app)
+    jobs = app["backups"]
+    assert jobs.now().utcoffset() == timedelta(0)                          # nothing from HA yet: the UTC default
+    app["authz"] = SimpleNamespace(tz="America/Los_Angeles")               # what server.house_tz sets from HA
+    assert jobs.now().utcoffset() == timedelta(hours=-7)                   # PDT
+    run = bk.next_run(jobs.now(), app["cfg"].backup_time)
+    assert run.astimezone(UTC).strftime("%H:%M") == "10:15"                # 03:15 in the house, not in UTC
+    # an unknown zone falls back to UTC rather than stopping the job
+    app["authz"] = SimpleNamespace(tz="Nowhere/Atlantis")
+    assert jobs.now().utcoffset() == timedelta(0)
+
+
+async def test_a_zone_learned_during_the_wait_moves_the_nightly_run(tmp_path, monkeypatch, target, key):
+    """The wait is worked out again every RECHECK: HA's zone arriving after it began still counts."""
+    data = make_home(tmp_path)
+    clock = [datetime(2026, 7, 1, 12, 0, tzinfo=UTC).timestamp()]
+    bk.create_backup(data, target, key, now=datetime.fromtimestamp(clock[0], UTC) - timedelta(hours=1))
+    zone_now = ["UTC"]
+    jobs = bk.Backups(_cfg(tmp_path, target), clock=lambda: clock[0], tz=lambda: zone_now[0])
+    runs = []
+
+    async def fake_run_once():
+        runs.append(datetime.fromtimestamp(clock[0], UTC))
+        raise asyncio.CancelledError
+
+    async def fake_sleep(s):
+        clock[0] += s
+        zone_now[0] = "America/New_York"                                   # HA's get_config answered
+
+    monkeypatch.setattr(jobs, "run_once", fake_run_once)
+    monkeypatch.setattr(bk.asyncio, "sleep", fake_sleep)
+    with pytest.raises(asyncio.CancelledError):
+        await jobs.run_forever()
+    assert runs == [datetime(2026, 7, 2, 7, 15, tzinfo=UTC)]               # 03:15 EDT, not 03:15 UTC
 
 
 async def test_catch_up_is_skipped_when_a_recent_backup_exists(tmp_path, monkeypatch, target, key):

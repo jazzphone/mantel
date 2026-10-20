@@ -596,16 +596,26 @@ def zone(name: str):
 
 
 class Backups:
-    """The server's nightly job. Disabled (``enabled`` False) unless a target is configured."""
+    """The server's nightly job. Disabled (``enabled`` False) unless a target is configured.
+
+    ``backup_time`` is wall-clock time in the house's time zone: ``tz`` says which, asked afresh each time.
+    The server passes Home Assistant's own zone once ``get_config`` has given it (``Authz.tz``, the zone grant
+    schedules use), and ``cfg.house_tz`` (--house-tz, default UTC) until then or without Home Assistant.
+    Without that, a house that never set --house-tz was backed up at 03:15 UTC, the middle of the
+    evening in America."""
 
     CATCH_UP_AFTER = 25 * 3600       # no backup newer than this at startup -> one soon
     CATCH_UP_DELAY = 60.0
     RETRY_AFTER = 3600.0
+    # the wait for the nightly run is slept in steps of at most this long, each time worked out again, so
+    # a zone learned (or changed) after the wait began still moves the run to the house's own backup_time
+    RECHECK = 900.0
 
-    def __init__(self, cfg, *, clock=time.time, audit=None) -> None:
+    def __init__(self, cfg, *, clock=time.time, audit=None, tz=None) -> None:
         self.cfg = cfg
         self.clock = clock
         self.audit = audit
+        self.tz = tz or (lambda: cfg.house_tz)
         self.status: dict = {"last_ok": None, "last_error": None, "last_file": None, "last_attempt": None}
         self._lock: asyncio.Lock | None = None
         self.task: asyncio.Task | None = None
@@ -619,7 +629,7 @@ class Backups:
         return Path(self.cfg.backup_key_file or (Path(self.cfg.secrets_dir) / KEY_FILE)).expanduser()
 
     def now(self) -> datetime:
-        return datetime.fromtimestamp(self.clock(), tz=zone(self.cfg.house_tz))
+        return datetime.fromtimestamp(self.clock(), tz=zone(self.tz() or self.cfg.house_tz or "UTC"))
 
     def list(self) -> list[BackupInfo]:
         return list_backups(self.cfg.backup_target) if self.enabled else []
@@ -664,7 +674,12 @@ class Backups:
             if not result["ok"]:
                 await asyncio.sleep(self.RETRY_AFTER)
         while True:
-            wait = (next_run(self.now(), self.cfg.backup_time) - self.now()).total_seconds()
+            while True:
+                now = self.now()
+                wait = (next_run(now, self.cfg.backup_time) - now).total_seconds()
+                if wait <= self.RECHECK:
+                    break
+                await asyncio.sleep(self.RECHECK)
             await asyncio.sleep(max(wait, 1.0))
             result = await self.run_once()
             if not result["ok"]:
@@ -708,7 +723,13 @@ def register(app: web.Application, hub=None) -> None:
     """Add the backup job and its REST status. Disabled unless ``cfg.backup_target`` is set."""
     cfg = app["cfg"]
     audit = app.get("audit")
-    backups = Backups(cfg, clock=lambda: app["clock"](), audit=audit.config_event if audit is not None else None)
+    def house_zone() -> str:
+        # Home Assistant's zone once read (server.house_tz -> Authz.set_tz), else --house-tz
+        authz = app.get("authz")
+        return getattr(authz, "tz", None) or cfg.house_tz or "UTC"
+
+    backups = Backups(cfg, clock=lambda: app["clock"](), audit=audit.config_event if audit is not None else None,
+                      tz=house_zone)
     app["backups"] = backups
     app.router.add_get("/api/backup", api_status)
     app.router.add_post("/api/backup/run", api_run)
