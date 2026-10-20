@@ -5,6 +5,7 @@ compatibility_date = "2026-10-01"
 workers_dev = true
 
 [vars]
+# Your own Apple developer account's APNs key id and team id (not secrets), and your app's bundle id.
 APNS_KEY_ID = "KEYID00000"
 APNS_TEAM_ID = "TEAMID0000"
 APNS_TOPIC = "com.jazzphone.mantel.ios"

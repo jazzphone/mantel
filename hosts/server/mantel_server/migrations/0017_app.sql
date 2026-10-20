@@ -6,7 +6,7 @@
 --
 --   id         = sessions.id of the app's refresh family (revoking either ends both)
 --   client_id  'mantel-ios' or 'mantel-mac'
---   name/model/platform  what the app says it is ("Avery's iPhone", "iPhone17,1", "iOS 27.0"), for Me → Devices
+--   name/model/platform  what the app says it is ("Sam's iPhone", "iPhone17,1", "iOS 27.0"), for Me → Devices
 --   jkt        the device key's JWK thumbprint (RFC 7638); jwk its public JWK
 --   last_door  'lan' or 'tunnel', where it was last seen
 CREATE TABLE app_credentials (

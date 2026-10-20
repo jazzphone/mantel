@@ -100,7 +100,7 @@ async def test_a_tablet_opens_its_own_screen_whoever_is_signed_in(mantel):
     assert r.status == 201
     device_id = (await r.json())["device"]["id"]
     tablet = m.client.session.cookie_jar.filter_cookies(m.client.make_url("/"))
-    assert await home(m) == "/dashboard-kitchen/home"           # no HK tablet, nothing chosen: the house's
+    assert await home(m) == "/dashboard-hall/home"              # no HK tablet, nothing chosen: the house's (the first screen)
     # the Owner, on another browser, chooses the tablet's screen
     m.forget_cookies()
     await m.sign_in("jo")

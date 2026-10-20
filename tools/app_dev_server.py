@@ -19,7 +19,7 @@ Run: ~/.venvs/mantel/bin/python tools/app_dev_server.py --data-dir /tmp/mantel-a
 * ``--busy``: a house that is never still, as a real one is (power readings, players): the kitchen light's
   brightness moves a little twice a second, so the page gets a state change about every 500 ms.
 * ``--lan``: also answer on this Mac's home-network address, over plain http, for a DEBUG build of the app on a real
-  iPhone (Avery, 2026-10-19; Release builds refuse http beyond loopback). Requests from private addresses are the
+  iPhone (Release builds refuse http beyond loopback). Requests from private addresses are the
   LAN door. Writes the pairing link as a QR code (<data-dir>/pair.png) to scan with the iPhone's camera.
 * ``--relay https://…workers.dev``: the house sends through the push relay (packaging/push-relay/); the app then
   registers with the relay and gives this house only a handle.

@@ -261,7 +261,7 @@ async def me(request: web.Request) -> web.Response:
     from .frame_origins import ha_address
     u = request["user"]
     # Home Assistant's address for the dashboard's "Open Home Assistant" row: a person's, never a wall tablet's
-    # (nothing to get stuck in; Avery, 2026-10-19)
+    # (nothing to get stuck in)
     ha = None if u.get("device_id") else ha_address(request.app)
     return web.json_response({"ha_user_id": u["ha_user_id"], "name": u["name"], "role": u["role"], "ha_address": ha})
 

@@ -586,7 +586,7 @@ async def test_redirects_stay_under_the_prefix(mk):
     r = await m.request("GET", "/", {**m.ha(), **PAGE})
     assert r.status == 302 and r.headers["Location"] == PREFIX + "/home"
     r = await m.request("GET", "/home", {**m.ha(), **PAGE})
-    assert r.status == 302 and r.headers["Location"] == PREFIX + "/dashboard-kitchen/home"
+    assert r.status == 302 and r.headers["Location"] == PREFIX + "/settings"     # no screen yet: Mantel Settings
 
 
 async def test_hk_files_are_served_for_the_prefix(mk):

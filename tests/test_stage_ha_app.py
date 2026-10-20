@@ -60,7 +60,7 @@ def test_the_scan_refuses_private_content(tmp_path):
         (f("f.db"), "app/mantel.db"),
         (f("g.js", "var t = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxIn0';"), "app/web/x.js"),
         (f("h.py", 'URL = "http://192.168.1.20:8123"'), "app/hosts/server/mantel_server/x.py"),
-        (f("i.py", 'URL = "http://192.0.2.53:8123"'), "app/hosts/server/mantel_server/elsewhere.py"),
+        (f("i.py", 'nets = ("192.168.0.0",)'), "app/hosts/server/mantel_server/elsewhere.py"),
         (f("j.md", "-----BEGIN PRIVATE KEY-----"), "DOCS.md"),
         (f("k.png", b"\x89PNG"), "app/web/hk-glyphs/a.png"),
         (f("o.js", "window.hkGlyphs = {};"), "app/web/hk/iconset/hk-glyphs.js"),
@@ -71,7 +71,7 @@ def test_the_scan_refuses_private_content(tmp_path):
         assert any(h.startswith(dest) for h in hits), dest
     assert not any("192.168" in h or "eyJ" in h for h in hits)           # findings never echo the value
     fine = [(f("l.py", 'peers = ("172.30.32.2",)'), "app/hosts/server/mantel_server/config.py"),
-            (f("m.py", 'ha_url = "http://192.0.2.53:8123"'), "app/hosts/server/mantel_server/config.py"),
+            (f("m.py", 'ha_url = "http://homeassistant.local:8123"'), "app/hosts/server/mantel_server/config.py"),
             (f("n.css", 'src: url("/hk/fonts/SF-Pro.woff2")'), "app/web/hk/fonts/sf-pro.css")]
     assert stage.scan(fine) == []
 

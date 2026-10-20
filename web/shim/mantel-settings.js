@@ -33,7 +33,7 @@ const PAGES = [
   ['files', 'Your Files', 'mdi:folder', C.purple, 'end', 'Mantel'],
   ['about', 'About', 'mdi:information-outline', C.gray, 'end', 'Mantel'],
 ];
-// Photos is inside Your Files (#/mantel/files/photos; Avery, 2026-10-19): its old addresses forward there
+// Photos is inside Your Files (#/mantel/files/photos): its old addresses forward there
 const ERRORS = {
   invalid_credentials: 'That did not match.', invalid_code: 'That code was not accepted.',
   too_many_attempts: 'Too many tries. Wait a little and try again.', username_taken: 'That user name is already taken.',

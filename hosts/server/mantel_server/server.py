@@ -401,13 +401,16 @@ def to_enroll(request: web.Request, ident) -> None:
 
 async def home_redirect(request: web.Request) -> web.StreamResponse:
     """/home: the screen this person or tablet opens on (default_screens.start_for: the tablet's at a wall
-    tablet, else the person's own), else the house's ``default_screen``."""
+    tablet, else the person's own), else the house's (``default_screens.house``)."""
     ident = sessions.identity(request)
     to_enroll(request, ident)
     start = default_screens.start_for(request.app, ident) if ident.authenticated else None
     if start is not None:
         raise web.HTTPFound(start)
-    raise web.HTTPFound(f"/{request.app['cfg'].default_screen}/home" + (f"?{request.query_string}" if request.query_string else ""))
+    screen = default_screens.house(request.app)
+    if screen is None:                                   # no screen yet: Mantel Settings, where screens are added
+        raise web.HTTPFound("/settings")
+    raise web.HTTPFound(f"/{screen}/home" + (f"?{request.query_string}" if request.query_string else ""))
 
 
 async def home_page(request: web.Request) -> web.StreamResponse:

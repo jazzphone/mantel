@@ -1,6 +1,6 @@
 """THE DOCKER MODE, END TO END: the compose stack (Caddy, Mantel Server, go2rtc) against the scratch HA.
 
-Needs Docker (Docker Desktop on Avery's Mac) and the images built (`mantel-server:local`,
+Needs Docker (e.g. Docker Desktop) and the images built (`mantel-server:local`,
 `mantel-caddy:local`, `mantel-transcode:local`; docs/phase3/PACKAGING.md). Uses only the scratch HA
 (tools/testha/, 127.0.0.1:8124, demo devices) -- never the house -- and throwaway secrets in a temp
 folder. Commands stay off. The stack runs under its own compose project and is torn down at the end.

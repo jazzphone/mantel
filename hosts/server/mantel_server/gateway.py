@@ -26,7 +26,7 @@ Client protocol (on the hub socket, /ws):
   <- {"type": "command_result", "id": 7, "result": ..., "audit_id": 41}
   <- {"type": "command_result", "id": 7, "error": {"code": "forbidden", "reason": "no_grant"}, "audit_id": 42}
 
-NO STEP-UP (decision 25, Avery 2026-10-18): no command asks for a person's PIN or a fresh second factor,
+NO STEP-UP (decision 25): no command asks for a person's PIN or a fresh second factor,
 on any door. Who may do what is the roles and grants (rbac.py) alone, and every command has its audit
 row. The one code is the house Alarm PIN, for the alarm (below). A command that still carries a
 ``step_up`` field is refused (``invalid_command``, audited) and its content is never forwarded.

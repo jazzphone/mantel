@@ -8,7 +8,7 @@ Direct Connection) and listed under Connections → Wall Tablets; both draw thes
 
 **What is kept** (``<data_dir>/connections/tablet-<id>.connection``, sealed exactly as connections.py seals HA's
 and MA's, associated data ``connection:tablet-<id>``, inside every encrypted backup): the address, and for Kiosk
-Satellite a token the tablet made from its admin password (``ttl_days`` 3650, Avery 2026-10-19; the password is used
+Satellite a token the tablet made from its admin password (``ttl_days`` 3650; the password is used
 for that one login and kept nowhere), for Fully the Remote Admin password itself (Fully has no tokens). The secret
 is accepted from the page once, tested live, and from then on only used: never in a response, a log line, an audit
 row or an exception's text.

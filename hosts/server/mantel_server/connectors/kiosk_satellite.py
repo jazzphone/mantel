@@ -51,7 +51,7 @@ log = logging.getLogger("mantel.kiosk_satellite")
 
 DEFAULT_PORT = 2324
 TIMEOUT = 10.0
-TOKEN_DAYS = 3650             # Avery, 2026-10-19: the app's maximum, ten years
+TOKEN_DAYS = 3650             # the app's maximum, ten years
 TEST_TOKEN_DAYS = 1           # a test before saving makes a token that lapses tomorrow, and drops it
 MAX_TOKEN = 4096
 MAX_BODY = 1 << 20              # a reply larger than this is refused (the command list is tens of kilobytes)

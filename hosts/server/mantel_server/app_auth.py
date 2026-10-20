@@ -378,7 +378,7 @@ def _page(title: str, body: str, status: int = 200) -> web.Response:
                         headers={"Cache-Control": "no-store", "Content-Security-Policy": PAGE_CSP,
                                  "Referrer-Policy": "same-origin", "X-Frame-Options": "DENY"})
 # same-origin, never no-referrer: under no-referrer a browser sends `Origin: null` with the page's own Allow form, and
-# Mantel's Origin check (server.loopback_only) refuses it as "bad Origin" (Avery, 2026-10-20, adding a house by hand)
+# Mantel's Origin check (server.loopback_only) refuses it as "bad Origin" (seen adding a house by hand)
 
 
 def _back_to_app(state: str | None, **query: str) -> web.StreamResponse:

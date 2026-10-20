@@ -42,7 +42,7 @@ FEATURE_ALIASES = {"media": "music"}
 HOUSE_GRANTS: tuple[Grant, ...] = (
     Grant(effect="allow", actions=("view", "control.sensitive"), resource_kind="feature", resource="cameras",
           roles={"wall_tablet"}, note="the doorbell pop-up on every wall tablet (LAN only: devices never on the tunnel)"),
-    # Phase 4 music (docs/phase4/MANTEL-FEATURES.md "Music"; recorded for Avery's review): HK's Music page on every
+    # Phase 4 music (docs/phase4/MANTEL-FEATURES.md "Music"): HK's Music page on every
     # wall tablet, as in HA (each tablet is an HA user who may use it). Which speakers it shows and plays stays
     # its room's (the role's area grants); an Owner adjusts it with an ordinary deny grant.
     Grant(effect="allow", actions=("view", "control"), resource_kind="feature", resource="music",
@@ -256,7 +256,7 @@ class Authz:
     # -- identity -> subject ----------------------------------------------------------------------
     def rules_door(self, door: str) -> str:
         """The door whose RBAC rules apply. 'ha' (HA's sidebar through Ingress, HA App mode) follows
-        cfg.ha_door_rules: "trusted" (the App's default, Avery 2026-10-18: the sidebar and the Companion
+        cfg.ha_door_rules: "trusted" (the App's default: the sidebar and the Companion
         app are trusted as HK in HA always was) and "lan" get the LAN's rules, "tunnel" the tunnel's
         (docs/phase3/HA-APP.md). Unknown: tunnel (fail closed)."""
         if door == "ha":

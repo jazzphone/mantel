@@ -54,7 +54,7 @@ public struct PairingLink: Equatable, Sendable {
         self.code = code
     }
 
-    /// Only https. A loopback http address is allowed for a developer's own Mantel, and in DEBUG builds only (Avery,
+    /// Only https. A loopback http address is allowed for a developer's own Mantel, and in DEBUG builds only (
     /// 2026-10-19: testing on his iPhone against a test Mantel on the Mac) an http address on the home network: a
     /// private IPv4 address or a `.local` name. Release and TestFlight builds never accept http beyond loopback.
     public static func httpsURL(_ s: String) -> URL? {

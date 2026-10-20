@@ -10,7 +10,7 @@ slice 10.5; decision M10-2: no relay while the app is TestFlight-only, the house
   the real words (``mutable-content: 1``). Apple sees a device token and ciphertext.
 * **Interruption levels**: Important notifications are ``time-sensitive`` (through Focus; no Apple approval needed).
   Critical alerts need Apple's entitlement and are not used.
-* **The key** (Avery's developer account): ``<secrets_dir>/apns_key.p8`` (the .p8 Apple gives) and
+* **The key** (the app publisher's developer account): ``<secrets_dir>/apns_key.p8`` (the .p8 Apple gives) and
   ``<secrets_dir>/apns.json`` ``{"key_id", "team_id", "topic"}`` (topic: the app's bundle id). Secret files,
   never the database, a log or an env var. Without them nothing is sent (the target stays; ``not_configured``).
 * **Transport**: APNs speaks only HTTP/2. aiohttp does not, so sending needs ``httpx[http2]`` (not yet a Mantel
@@ -120,10 +120,10 @@ class Apns:
 
 
 # -- the push relay (docs/phase10/APPLE-APPS.md §13, decision M10-2 revised) -----------------------
-# The relay Avery runs for every Mantel house (packaging/push-relay/): it holds the APNs key, so no house does. A house
+# The relay the app's publisher runs for every Mantel house (packaging/push-relay/): it holds the APNs key, so no house does. A house
 # reaches a phone by the opaque handle the phone got from the relay for this house, never by Apple's device token.
 # Requests are signed with the house's identity key (app_auth.py), the key the app pinned at pairing.
-DEFAULT_RELAY = "https://mantel-push.jazzphone.workers.dev"   # Avery's relay (2026-10-19); per house: app_settings push_relay
+DEFAULT_RELAY = "https://mantel-push.jazzphone.workers.dev"   # the publisher's relay; per house: app_settings push_relay
 RELAY_SETTING = "push_relay"
 
 

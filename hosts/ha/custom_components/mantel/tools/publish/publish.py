@@ -1,6 +1,6 @@
 """BUILD MANTEL LINK'S PUBLIC REPOSITORY from this component (decision M1: a public HACS repository, built from the
 Mantel repository the way HK Frontend's is). LOCAL ONLY: it writes a folder and, with --commit, commits there. It
-never creates a GitHub repository and never pushes: publishing is Avery's step (docs/phase9/MANTEL-LINK.md 9.9).
+never creates a GitHub repository and never pushes: publishing is the maintainer's step (docs/phase9/MANTEL-LINK.md 9.9).
 
     custom_components/mantel/   what HACS installs (no tests, tools, docs)
     tests/  docs/               beside it
@@ -94,7 +94,7 @@ def main() -> int:
         hk.stage(a.repo)
         if hk.run(["git", *hk.AS_PUBLISHER, "commit", "-q", "-m", a.commit], a.repo) != 0:
             return 1
-    print("Not pushed: creating and pushing the public repository is Avery's step.")
+    print("Not pushed: creating and pushing the public repository is the maintainer's step.")
     return 0
 
 

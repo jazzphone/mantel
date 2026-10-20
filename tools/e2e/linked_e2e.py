@@ -5,7 +5,7 @@ in-process, per-tablet ownership and the rest of the entry (docs/phase5/LINKED-M
 2. Runs Mantel in-process on 127.0.0.1 against it, read-only (commands DISABLED: nothing it does may
    call a household service), with the ``linked`` and ``notifications`` pieces on, and a Service
    account for HA.
-3. Through the scratch HA's own REST (as Avery would in its UI): Configure -> Linked to Mantel Server
+3. Through the scratch HA's own REST (as a person would in its UI): Configure -> Linked to Mantel Server
    with Mantel's loopback address and the credential. Then checks, on the real HA:
    - linked with nothing moved: HA's own Seasonal decorations stays HA's, the link says hello, HA's
      diagnostics name the owners (everything HA's) and never the credential;

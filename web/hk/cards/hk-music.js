@@ -706,7 +706,7 @@
         mu.setAttribute('cols', String(cols));
         // FLAT ON A PHONE: Now Playing is a sheet over Browse, and Flat takes
         // every blur -- its veil let the page show through, and a light theme
-        // made its plates light (Avery's iPhone, 2026-10-20). A dark Flat
+        // made its plates light (seen on an iPhone). A dark Flat
         // surface of its own, as the screensaver's music is; beside Browse
         // (two or three columns) it is the page's again.
         if (this._e.left && C.flatSurface) C.flatSurface(this._e.left, cols === 1 ? 'music' : 'page');

@@ -3,7 +3,7 @@
 -- People, and what to send there.
 --
 --   user_id   the Mantel person
---   services  JSON list of notify service names ("mobile_app_averys_iphone")
+--   services  JSON list of notify service names ("mobile_app_sams_iphone")
 --   send      'important' (the default: only Important notifications), 'all', or 'off'
 CREATE TABLE IF NOT EXISTS person_phones (
     user_id    TEXT PRIMARY KEY,

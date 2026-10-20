@@ -1,4 +1,4 @@
-"""The per-install door key for "bring your own reverse proxy" (Avery's decision, 2026-10-18).
+"""The per-install door key for "bring your own reverse proxy".
 
 The trusted proxy's address alone is not enough there: a proxy host set up without Mantel's headers (Nginx
 Proxy Manager's defaults) passes a browser's own ``X-Mantel-Door: lan`` through, and Mantel would believe it.

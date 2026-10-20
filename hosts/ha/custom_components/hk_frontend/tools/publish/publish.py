@@ -49,7 +49,7 @@ PRIVATE = [
     r"\b192\.168\.\d{1,3}\.\d{1,3}\b", r"\b10\.\d{1,3}\.\d{1,3}\.\d{1,3}\b",
     # 172.16.0.0/12, except 172.30.32.0/23: Home Assistant's internal "hassio"
     # network (the same on every HA OS install, not a home's own data), which
-    # linked mode names to reach Mantel's App (Avery, decision 24, 2026-10-18)
+    # linked mode names to reach Mantel's App (decision 24)
     r"\b172\.(?:(?:1[6-9]|2\d|31)\.\d{1,3}|30\.(?!3[23]\b)\d{1,3})\.\d{1,3}\b",
     r"eyJ[A-Za-z0-9_-]{20,}",                      # a JWT (a Home Assistant token)
     r"gh[pousr]_[A-Za-z0-9]{20,}", r"AKIA[0-9A-Z]{16}", r"-----BEGIN [A-Z ]*PRIVATE KEY-----",

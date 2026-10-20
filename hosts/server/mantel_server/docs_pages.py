@@ -1,4 +1,4 @@
-"""/docs: Mantel's documentation, served by Mantel itself (Avery, 2026-10-19): Mantel's own page (the HA
+"""/docs: Mantel's documentation, served by Mantel itself: Mantel's own page (the HA
 App's DOCS.md) and HK's pages (HK Frontend's wiki, whose source is in this repository:
 hosts/ha/custom_components/hk_frontend/docs). HK's screens and settings link here from Mantel
 (hkShell.docsUrl in web/shim/mantel-shell.js); in Home Assistant they keep linking HK Frontend's wiki.

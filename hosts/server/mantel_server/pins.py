@@ -1,6 +1,6 @@
 """A person's PIN, and the alarm keypad's lockout counters.
 
-DECISION 25 (Avery 2026-10-18): the only PIN Mantel asks for is the house Alarm PIN (alarm_pin.py), for
+DECISION 25: the only PIN Mantel asks for is the house Alarm PIN (alarm_pin.py), for
 the alarm only. A person's own PIN is no longer required or accepted anywhere: not at a wall tablet, not
 as a step-up (there is none), not at the alarm keypad. The REST below stays so a person may keep one for
 later; nothing checks it.

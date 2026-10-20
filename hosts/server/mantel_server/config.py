@@ -19,13 +19,13 @@ def _docs(shipped: str, source: str) -> Path:
 
 @dataclass
 class Config:
-    ha_url: str = "http://192.0.2.53:8123"
+    ha_url: str = "http://homeassistant.local:8123"
     token_file: Path = Path("~/.config/mantel/ha_token")
     host: str = "127.0.0.1"
     port: int = 8765
     default_interval: float = 0.0
     overrides: list[tuple[str, float]] = field(default_factory=list)
-    default_screen: str = "dashboard-kitchen"           # /home goes to /<this>/home
+    default_screen: str = ""           # /home goes to /<this>/home; empty: the first screen (default_screens.house)
     hk_frontend: Path = REPO / "web/hk"   # current shared HK source; the proof snapshot is reference-only
     # "Your files" served after the uploaded ones (user_files.py: <data_dir>/user-files, which wins): a dev folder
     # with SF Pro + glyphs (Apple's; never committed). --hk-files points it elsewhere, e.g. a bind-mounted folder.
@@ -183,7 +183,7 @@ def parse_args(argv: list[str] | None = None) -> Config:
     p.add_argument("--override", action="append", default=[], metavar="GLOB=SECONDS",
                    help="per-entity interval, e.g. 'sensor.*_distance=1' (repeatable)")
     p.add_argument("--data-dir", default=str(Config.data_dir), help="where mantel.db lives (outside git)")
-    p.add_argument("--screen", default=Config.default_screen, help="dashboard /home opens (HK board key)")
+    p.add_argument("--screen", default=Config.default_screen, help="dashboard /home opens (HK board key; default: the first screen)")
     p.add_argument("--secrets-dir", default=str(Config.secrets_dir), help="folder of secret files (at-rest key)")
     p.add_argument("--session-hours", type=float, default=Config.session_hours, help="tunnel-door session lifetime")
     p.add_argument("--lan-session-days", type=float, default=Config.lan_session_days)

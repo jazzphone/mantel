@@ -27,7 +27,7 @@ struct RootView: View {
 ///
 /// Asked by itself whenever the app comes to the front locked. Not before: the lock goes on as the app goes to the
 /// background, and a prompt asked then is refused by iOS (the app is not active), which left only the Unlock button
-/// on return (Avery's iPhone, 2026-10-20).
+/// on return.
 struct LockView: View {
     @Binding var unlocked: Bool
     @Environment(\.scenePhase) private var scenePhase

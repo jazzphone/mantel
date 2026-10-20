@@ -4,7 +4,7 @@ FAKE tuner that sends real MPEG-2 video and AC-3 audio, as an HDHomeRun does (do
 
     ~/.venvs/mantel/bin/python tools/e2e/live_tv_e2e.py
 
-Needs Docker (Docker Desktop on Avery's Mac) and the image `mantel-transcode:local` (PACKAGING.md); without
+Needs Docker (e.g. Docker Desktop) and the image `mantel-transcode:local` (PACKAGING.md); without
 them it says SKIP and exits 0. Mantel Server runs in this process from the checkout (no Home Assistant: its
 connection is not started), with the packaged go2rtc.yaml mounted into the go2rtc container exactly as
 compose mounts it. The tuner is tools/e2e/fake_tuner.py on 127.0.0.1, reached by go2rtc as

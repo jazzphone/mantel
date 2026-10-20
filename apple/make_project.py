@@ -7,11 +7,12 @@ are derived from names, so the output is the same every run (a clean diff).
 
 Targets: Mantel (iPhone/iPad app), MantelWidgets (widgets, the music Live Activity, Control Center controls),
 MantelNotificationService (opens sealed notifications), MantelMac (the menu bar app). All link MantelKit (a local
-Swift package). Signing: automatic with Avery's team (DEVELOPMENT_TEAM); the Mac app with the team once MAC_TEAM_SIGNING is on.
+Swift package). Signing: automatic with your team (DEVELOPMENT_TEAM, from MANTEL_TEAM_ID); the Mac app with the team once MAC_TEAM_SIGNING is on.
 """
 from __future__ import annotations
 
 import hashlib
+import os
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -41,7 +42,7 @@ def value(v, ind=3) -> str:
 
 COMMON = {
     "SWIFT_VERSION": "5.0", "CURRENT_PROJECT_VERSION": "1", "MARKETING_VERSION": "0.1.0", "GENERATE_INFOPLIST_FILE": "YES",
-    "CODE_SIGN_STYLE": "Automatic", "DEVELOPMENT_TEAM": "TEAMID0000",   # the team's id (not a secret) "ENABLE_USER_SCRIPT_SANDBOXING": "YES",
+    "CODE_SIGN_STYLE": "Automatic", "DEVELOPMENT_TEAM": os.environ.get("MANTEL_TEAM_ID", ""),   # your Apple team id (not a secret) "ENABLE_USER_SCRIPT_SANDBOXING": "YES",
     "SWIFT_EMIT_LOC_STRINGS": "YES", "INFOPLIST_KEY_CFBundleDisplayName": "Mantel",
 }
 IOS = {"SDKROOT": "iphoneos", "IPHONEOS_DEPLOYMENT_TARGET": "18.0", "TARGETED_DEVICE_FAMILY": "1,2",
@@ -51,9 +52,9 @@ EXT = {"SKIP_INSTALL": "YES", "APPLICATION_EXTENSION_API_ONLY": "YES",
        "CODE_SIGN_ENTITLEMENTS": "Config/Extension.entitlements"}
 # The Mac app with the team (Config/MacTeam.entitlements: the shared Keychain group, and the App Group named with the
 # team's prefix, which macOS allows without a profile or a prompt; Xcode's Mac profile is the team's wildcard one, which
-# cannot carry a group.* App Group. Avery's Mac Studio registered 2026-10-19). False signs it to run locally (Config/Mac.entitlements: sandbox and network only, the login keychain).
+# cannot carry a group.* App Group.). False signs it to run locally (Config/Mac.entitlements: sandbox and network only, the login keychain).
 MAC_TEAM_SIGNING = True
-PREFIX = "com.jazzphone.mantel"     # Avery's choice, 2026-10-19 (no surname); the App Group is group.<PREFIX>
+PREFIX = "com.jazzphone.mantel"     # the App Group is group.<PREFIX>
 
 TARGETS = [
     {"name": "Mantel", "type": "com.apple.product-type.application", "product": "Mantel.app",

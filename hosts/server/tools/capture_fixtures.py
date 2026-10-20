@@ -5,12 +5,13 @@ feeds), after `auth`. Anything else raises before it is sent. The list is pinned
 tests/test_proof1_guards.py: nothing that writes, ever (set, save, remove, delete, add, update,
 order, favorite, touch, black, seen, mute, test, sign, queue, play, transfer ...).
 
-    python hosts/server/tools/capture_fixtures.py
+    HA_URL=http://homeassistant.local:8123 python hosts/server/tools/capture_fixtures.py
 """
 from __future__ import annotations
 
 import asyncio
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -44,8 +45,9 @@ def check_capture(message: dict) -> None:
 
 async def main() -> None:
     token = read_token(Path("~/.config/mantel/ha_token"))
+    ws_url = os.environ.get("HA_URL", "http://homeassistant.local:8123").rstrip("/").replace("http", "ws", 1)
     OUT.mkdir(parents=True, exist_ok=True)
-    async with aiohttp.ClientSession() as s, s.ws_connect("ws://192.0.2.53:8123/api/websocket", max_msg_size=0) as ws:
+    async with aiohttp.ClientSession() as s, s.ws_connect(f"{ws_url}/api/websocket", max_msg_size=0) as ws:
         await ws.receive_json()
         auth = {"type": "auth", "access_token": token}
         check_capture(auth)

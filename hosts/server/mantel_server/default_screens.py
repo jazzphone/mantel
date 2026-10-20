@@ -6,10 +6,10 @@ tablet's screen). Now, in this order:
 1. at an enrolled wall tablet (a person signed in there too): the tablet's own default screen, else its HK
    tablet's (``ingress.tablet_start``), so a tablet keeps showing its room whoever is signed in;
 2. anywhere else, the person's own default screen;
-3. ``default_screen``.
+3. the house's: ``default_screen`` when set and known, else the first screen Mantel draws (``house``).
 
 A screen that no longer exists is passed over. **Landing only**: which screens anyone may open, and what they
-see on them, stays with roles and grants (Avery, 2026-10-19).
+see on them, stays with roles and grants.
 
 REST (Mantel Settings: Me, People, Devices):
 
@@ -46,6 +46,16 @@ def screens(app: web.Application) -> list[dict]:
 
 def _known(app: web.Application) -> set[str]:
     return {s["path"] for s in screens(app)}
+
+
+def house(app: web.Application) -> str | None:
+    """The house's screen: ``default_screen`` when set (a screen that no longer exists is passed over while
+    others exist), else the first screen Mantel draws; None when there is none to open."""
+    chosen = app["cfg"].default_screen
+    known = [s["path"] for s in screens(app)]
+    if chosen and (chosen in known or not known):
+        return chosen
+    return known[0] if known else None
 
 
 def get(app: web.Application, subject: str) -> str | None:
@@ -107,7 +117,7 @@ def _screen_of(app: web.Application, body: Any) -> str | None:
 async def mine_get(request: web.Request) -> web.Response:
     ident = require_user(request)
     app = request.app
-    return ok({"screen": get(app, f"u:{ident.user.id}"), "screens": screens(app), "house": app["cfg"].default_screen,
+    return ok({"screen": get(app, f"u:{ident.user.id}"), "screens": screens(app), "house": house(app),
                "at_tablet": ident.device is not None})
 
 
@@ -125,7 +135,7 @@ async def all_get(request: web.Request) -> web.Response:
     require_manager(request)
     app = request.app
     return ok({"users": all_of(app, "u"), "devices": all_of(app, "d"), "screens": screens(app),
-               "house": app["cfg"].default_screen})
+               "house": house(app)})
 
 
 async def user_put(request: web.Request) -> web.Response:

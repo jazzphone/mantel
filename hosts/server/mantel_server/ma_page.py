@@ -1,4 +1,4 @@
-"""The token for the Music Assistant page: signs HK's ``/ma/`` frame in to MA, server-side (Avery, 2026-10-18).
+"""The token for the Music Assistant page: signs HK's ``/ma/`` frame in to MA, server-side.
 
 Separate from the MA connection Mantel's music engine uses (connections.py, usually an MA administrator): an
 optional, **non-administrator** MA user's long-lived token, entered on the Connections page's Music Assistant

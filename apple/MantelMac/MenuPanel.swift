@@ -2,7 +2,7 @@ import AppKit
 import MantelKit
 import SwiftUI
 
-/// The menu bar panel, native throughout (Avery, 2026-10-20: "the Swift UI version ... like an Apple designer is
+/// The menu bar panel, native throughout (the brief: "the Swift UI version ... like an Apple designer is
 /// making it"): the music player over its cover's colors -- Speakers, Up Next and Browse slide in over it -- or the
 /// person's favorites, under one slim bar (the house, Away, Music | Favorites, the window, the app's menu). Before the
 /// house is set up or signed in, the way to do that.

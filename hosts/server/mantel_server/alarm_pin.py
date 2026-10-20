@@ -12,7 +12,7 @@ WHAT MANTEL DOES. HK's keypad card is unchanged: it calls ``alarm_control_panel.
 ``{entity_id, code}``. The gateway takes the code OUT of the command before anything is audited or sent
 (gateway.service_command) and asks this module:
 
-THE ONLY PIN IN MANTEL (decision 25, Avery 2026-10-18): the house Alarm PIN, for the alarm only. No
+THE ONLY PIN IN MANTEL (decision 25): the house Alarm PIN, for the alarm only. No
 other action asks for a PIN or a step-up, and a person's own PIN is not accepted here (if someone's PIN is
 the same digits as the Alarm PIN, fine: it is the Alarm PIN that is checked).
 

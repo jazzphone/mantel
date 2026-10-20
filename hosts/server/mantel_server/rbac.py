@@ -15,7 +15,7 @@ Rules, in the order they are applied:
 5. Tunnel rules (§7): sensitive actions only for roles whose `tunnel_sensitive` switch is on
    (Owner, Admin, Adult); cameras and locations only where `tunnel_cameras`/`tunnel_locations` is on.
 
-There is no step-up (decision 25, Avery 2026-10-18): a sensitive action asks for no PIN and no fresh
+There is no step-up (decision 25): a sensitive action asks for no PIN and no fresh
 second factor on any door. Who may do it is decided by the roles and grants above, and the gateway
 audits every command. The only code in Mantel is the house Alarm PIN, which the gateway checks for
 the alarm (alarm_pin.py), not this engine. "Sensitive" still marks what roles grant separately
@@ -458,7 +458,7 @@ DEFAULT_ROLES: dict[str, Role] = {r.name: r for r in (
            note="lights, media, climate in allowed areas"),
         _g("allow", "configure", "feature", "profile", note="their own settings"),
         _g("allow", ("view", "control"), "feature", "music",
-           note="the Music page (Avery 2026-10-18); its speakers still only in their rooms; an Owner may deny it"),
+           note="the Music page; its speakers still only in their rooms; an Owner may deny it"),
         _g("deny", "*", "feature", "cameras", note="cameras off"),
         _g("deny", "*", "domain", "lock", note="no locks"),
         _g("deny", "*", "domain", "alarm_control_panel", note="no alarm"),

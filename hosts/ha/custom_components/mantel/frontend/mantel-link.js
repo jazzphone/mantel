@@ -122,7 +122,7 @@
   // our hiding is lifted while it is up. Beside the page (a wide window) the docked sidebar simply comes back, as this
   // person has it, until a page is chosen or Show Menu is used again. (First built as HK Frontend's hk-menu.js did it,
   // HA's drawer forced into its pop-over mode behind HA's back: in HA 2026.9 that pop-over is a light-dismiss dialog HA
-  // knows nothing of, and it often closed again at once -- Avery, 2026-10-20.)
+  // knows nothing of, and it often closed again at once.)
   var lift = null;
   function shown() {
     var d = drawer(), s = sidebarEl();

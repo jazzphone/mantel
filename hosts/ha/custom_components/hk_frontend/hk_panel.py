@@ -15,7 +15,7 @@ command, like the HK Settings page's own `sidebar` switch):
   sidebar  in the sidebar (default: yes); the address works either way
 
 The Lovelace dashboards stay exactly as they are: the panel is one more page, at
-/hk-panel/<view>, until Avery switches.
+/hk-panel/<view>, until the owner switches it on.
 
 THE PANEL is frontend/modules/hk-ha-panel.js (hosts/ha/frontend/ in Mantel), registered
 as panel_custom does it (a "custom" panel naming the element and its module), directly,

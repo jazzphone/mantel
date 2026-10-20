@@ -191,7 +191,7 @@ def wants_page(request: web.Request) -> bool:
         return False
     # A page load that HA's service worker fetches for the sidebar frame arrives as Sec-Fetch-Dest: empty,
     # Sec-Fetch-Mode: navigate; reading only the destination, no session (and no CSRF token) was ever
-    # started in browsers where that worker runs (Avery's Chrome and Safari, the house, 2026-10-18).
+    # started in browsers where that worker runs (seen in Chrome and Safari).
     if request.headers.get("Sec-Fetch-Mode") == "navigate":
         return True
     dest = request.headers.get("Sec-Fetch-Dest")
