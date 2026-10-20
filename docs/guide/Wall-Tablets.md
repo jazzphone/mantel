@@ -157,13 +157,12 @@ It's refused at once. To use it again, enroll it again. Revoked tablets stay lis
 
 ## Tablets inside Home Assistant
 
-With the Mantel App, a tablet can also show Mantel through Home Assistant's own panel, signed in to Home Assistant as its own Home Assistant user (as HK Frontend's tablets usually are). Such a tablet isn't enrolled. Instead, an Owner links its Home Assistant user to a Mantel device with **Link as a wall tablet** on Mantel's **People** page in the sidebar ([First Run](First-Run.md#link-the-household)), choosing a new device and a room. The tablet then gets the Wall Tablet role in that room, as an enrolled one does.
+With the Mantel App, a tablet can also show Mantel through Home Assistant's own panel, signed in to Home Assistant as its own Home Assistant user (as HK Frontend's tablets usually are). Such a tablet isn't enrolled. Instead, an Owner links its Home Assistant user to a Mantel device with **Link as a wall tablet** on Mantel's **People** page in the sidebar (**Mantel Settings** → **People** → **Link Home Assistant Users…**; [First Run](First-Run.md#link-the-household)), choosing a new device and a room. The tablet then gets the Wall Tablet role in that room, as an enrolled one does.
 
 - It works only while the sidebar has the home rules (`ha_door_rules` `trusted` or `lan`; see [Signing In](Signing-In.md#inside-home-assistant)).
 - **Unlink** ends it. A device made for the link is revoked too.
 - An enrolled tablet's credential is never accepted through Home Assistant's sidebar.
 
-<!-- CHECK: the Ingress People page (ingress.py people_get) is linked only from the first-Owner page; confirm how an Owner reaches it later. -->
 
 The simpler setup for most homes is the one above: enroll the tablet at Mantel's own address.
 

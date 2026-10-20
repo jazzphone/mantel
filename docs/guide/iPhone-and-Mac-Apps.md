@@ -135,7 +135,7 @@ You need a Mac with Xcode and an Apple developer account. Everything is in
 Under your own Apple account, the app's identifiers must be yours too. The
 bundle prefix (`PREFIX` in `apple/make_project.py`) and the App Group and
 Keychain group in `apple/Config/*.entitlements` name the publisher's prefix;
-change them to a prefix your team owns. <!-- CHECK: PREFIX and the entitlements' group names are hard-coded (com.jazzphone.mantel); only the team id comes from MANTEL_TEAM_ID. A self-builder must edit them by hand. -->
+change them to a prefix your team owns (they are written in those files, not read from a setting).
 
 **Notifications from your own build.** Apple gives each app's developer one
 push key, so the publisher's push relay can't deliver to an app you build

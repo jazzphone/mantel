@@ -83,9 +83,8 @@ In Docker, run the same commands inside the server, for example `docker compose 
 
 The Home Assistant user id is on the person's **Not linked yet** page. It is also the `user_id` attribute of their `person.*` entity in Home Assistant.
 
-When Mantel runs inside Home Assistant (the [Mantel App](Install.md), or [Mantel Connect](Mantel-Connect.md)), an Owner or Admin can also link people from Mantel's own **People** page in the sidebar, which **Link the rest of the household** on the first-Owner page opens ([First Run](First-Run.md#link-the-household)). It lists Home Assistant's users: choose a role and select **Link**, or **Unlink**.
+When Mantel runs inside Home Assistant (the [Mantel App](Install.md), or [Mantel Connect](Mantel-Connect.md)), an Owner or Admin can also link people from Mantel's own **People** page in the sidebar, which **Link the rest of the household** on the first-Owner page opens ([First Run](First-Run.md#link-the-household)). Later, **Mantel Settings** → **People** → **Link Home Assistant Users…** opens it again. It lists Home Assistant's users: choose a role and select **Link**, or **Unlink**.
 
-<!-- CHECK: that Ingress page (<sidebar>/ingress/people, ingress.py people_get) is linked only from the first-Owner page; Mantel Settings → People has no link to it. Confirm how an Owner gets back to it later. -->
 
 **People** lists linked users under **Home Assistant Users**.
 
