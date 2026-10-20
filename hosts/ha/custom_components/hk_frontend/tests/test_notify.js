@@ -127,5 +127,43 @@ ok('a search for quiet hours finds it', F.search({ hk_notify: { installed: true 
      /String\(it\.n\.id\) === String\(id\)\) dismiss\(it\)/.test(src));
 })();
 
+// OVER THE SCREENSAVER THE WHOLE SCREEN, whenever it came (2026-10-20): the
+// layer spans the screen (`.sv`) while the screensaver runs. It was set only
+// as a banner showed, so one shown the moment the black ended (one that wakes
+// the screen; the screensaver is back ~2.5 s later) or any still up as the
+// screensaver started kept short of the dashboard's Now Playing pane:
+// centered over the photo, not the screen (a vacuum's, on a wall tablet)
+(function () {
+  var saverUp = false, threw = null, before = null, after = null, gone = null;
+  // (the shim's <div> has no shadow root: the layer's host is given one)
+  var noShadow = !El.prototype.attachShadow;
+  if (noShadow) El.prototype.attachShadow = HTMLElement.prototype.attachShadow;
+  // (...nor a page: a <body> for the layer, an <html> for the look)
+  var noBody = !document.body, noRoot = !document.documentElement;
+  if (noBody) document.body = new El('body');
+  if (noRoot) document.documentElement = new El('html');
+  window.hkSaver = { running: function () { return saverUp; }, black: function () { return false; } };
+  try {
+    window.hkNotify.show({ id: 'vac', title: 'Offline Robot', message: 'Finished cleaning', entity: 'vacuum.proof_robot', stay: 0, wake: true });
+    var L = window.hkNotify._.state().layer;
+    before = L && L.className;
+    saverUp = true;
+    window.dispatchEvent(new CustomEvent('hk-saver', { detail: { on: true } }));
+    after = L && L.className;
+    saverUp = false;
+    window.dispatchEvent(new CustomEvent('hk-saver', { detail: { on: false } }));
+    gone = L && L.className;
+  } catch (e) { threw = e; }
+  var sv = function (c) { return / sv(\s|$)/.test(String(c)); };
+  ok('a banner shown before the screensaver: the page\'s width', !threw && before != null && !sv(before), String(threw) + ' ' + before);
+  ok('...the screensaver comes up under it: the whole screen', sv(after), after);
+  ok('...and goes: the page\'s again', gone != null && !sv(gone), gone);
+  try { window.hkNotify.clear(); } catch (e) { /* none */ }
+  if (noShadow) delete El.prototype.attachShadow;
+  if (noBody) delete document.body;
+  if (noRoot) delete document.documentElement;
+  delete window.hkSaver;
+})();
+
 print('\n' + (fail ? fail + ' FAILED, ' + pass + ' passed' : 'ALL ' + pass + ' NOTIFICATION TESTS PASS'));
 if (fail) throw new Error(fail + ' failed');

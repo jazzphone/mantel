@@ -548,6 +548,15 @@
     hidden = hidden.filter(function (h) { return String(h.id) !== String(id); });
   }
   window.addEventListener('resize', function () { restyle(); layout(); });
+  // THE SCREENSAVER CAME OR WENT UNDER A BANNER: the layer follows it at once
+  // (2026-10-20, the user: a vacuum's banner over the screensaver centered on
+  // the photo, short of the music pane). `.sv` was only set as a banner
+  // showed, and one that wakes the screen shows the moment the black ends --
+  // the screensaver comes back ~2.5 s later (hk-saver.js LIGHT_WAIT) -- so it
+  // stayed short of the dashboard's Now Playing pane over the photos. Any
+  // banner still up as the screensaver starts did the same; a test, sent
+  // with the screensaver already up, never did.
+  window.addEventListener('hk-saver', function () { restyle(); });
   // "now" becomes "2m ago" on a banner that stays
   setInterval(function () {
     stack.forEach(function (it) { var w = it.el.querySelector('.when'); if (w) w.textContent = ago(it.n._at); });
@@ -565,7 +574,7 @@
     clear: clearAll,
     dismissId: dismissId,
     _: { CSS: CSS, decide: decide, chimes: chimes, dndOn: dndOn, inWindow: inWindow, ago: ago, target: target, route: route,
-         state: function () { return { stack: stack, fan: fan, black: black }; } }
+         state: function () { return { stack: stack, fan: fan, black: black, layer: layer }; } }
   };
   try { window.dispatchEvent(new CustomEvent('hk-module-ready', { detail: { module: 'notify' } })); } catch (e) { /* none */ }
 })();
