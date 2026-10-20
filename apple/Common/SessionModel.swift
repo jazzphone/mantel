@@ -202,6 +202,20 @@ final class SessionModel: NSObject, ObservableObject {
         reloadWidgets()
     }
 
+    /// The houses this device has paired with (each keeps its own credential), and switching between them.
+    var houses: [House] { store.houses }
+
+    func switchTo(_ h: House) async {
+        guard h.id != house?.id else { return }
+        summary = nil
+        user = nil
+        door = nil
+        problem = nil
+        store.save(h)                 // the one in use
+        use(h)
+        await resume()
+    }
+
     func forgetHouse() async {
         await signOut()
         if let h = house { store.remove(h) }

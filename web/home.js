@@ -103,28 +103,8 @@ mark('states');
 
 // HA's frontend keeps /<dashboard>/<view>; so does this page (HK reads the first segment).
 const imp = (u) => import(u).catch((e) => console.error('[mantel] could not load', u, e));
-// THE MAC APP'S PAGES (?bare=1, ?pane=..., below) ARE NOT A SCREEN: no menu (its docked sidebar, tab, tab bar) and no
-// notification banners (the house's banners showed in the menu bar's player, 2026-10-20). This screen's board says
-// `menu: off` and `notify: false` to these pages alone, from before the menu and the banners' module are made (Avery's
-// Play Music window showed his docked sidebar). Nothing saved changes.
-const bare = new URLSearchParams(location.search).get('bare') === '1';
-const macPage = bare || !!new URLSearchParams(location.search).get('pane');
-function notAScreen() {
-  const HS = window.hkSettings, get = HS && HS.get;
-  if (!get) return;
-  let seen = null, off = null;
-  HS.get = function (path, fallback) {
-    const v = get.call(HS, path, fallback);
-    if (path !== 'boards' || !v || typeof v !== 'object' || !v[seg]) return v;
-    if (v !== seen) { seen = v; off = Object.assign({}, v, { [seg]: Object.assign({}, v[seg], { menu: 'off', menu_phone: 'off', notify: false }) }); }
-    return off;
-  };
-}
 for (const m of ['modules/hk-settings.js', 'iconset/hk-icons.js', 'modules/tesla-viewport.js', 'modules/hk-tap.js',
-                 'modules/hk-header.js', 'modules/hk-loader.js', 'cards/hk-strategy.js']) {
-  await imp('/hk/' + m);
-  if (macPage && m === 'modules/hk-settings.js') notAScreen();
-}
+                 'modules/hk-header.js', 'modules/hk-loader.js', 'cards/hk-strategy.js']) await imp('/hk/' + m);
 await Promise.all(cards.map((c) => imp('/hk/cards/' + c)));
 mark('code');
 // shown inside Home Assistant (a Webpage dashboard): its header and sidebar as the screen says, and the way back
@@ -153,13 +133,6 @@ if (!(window.hkCards && window.hkCards.TILE)) {
 }
 
 const cfg = await window.hkStrategy.generate({}, host.client);
-// BARE PAGES (?bare=1): the page's own cards without its title bar (the back button and the heading), for a page
-// shown alone, where there is no dashboard to go back to: the Mac app's Play Music window
-// (apple/MantelMac/HousePage.swift). Everything else on the page, and the page itself, is the same.
-// (and without the screen's menu: notAScreen, above)
-if (bare) {
-  for (const v of cfg.views || []) if (Array.isArray(v.cards)) v.cards = v.cards.filter((c) => !(c && c.page_header === true));
-}
 mark('strategy');
 
 // NARROWING: after a page is first drawn, note which states the screen really reads and narrow the hub
@@ -199,37 +172,21 @@ function narrowSoon() {
   }), 1500);
 }
 
-// THE PLAYER ALONE (?pane=player): the Mac app's music player (cards/mantel-player.js), filling the window, and no
-// dashboard under it -- the menu bar's music and its window (apple/MantelMac/HousePage.swift).
-// THE FAVORITES ALONE (?pane=favorites&ids=light.a,lock.b): Home's favorites grid of just those, in that order, and
-// nothing else (hkStrategy.favoritesView): the Mac app's favorites, the same pills as the dashboard's.
-const pane = new URLSearchParams(location.search).get('pane');
-let viewHost = null;
-if (pane === 'favorites') {
-  const ids = (new URLSearchParams(location.search).get('ids') || '').split(',').filter(Boolean);
-  cfg.views = [window.hkStrategy.favoritesView(host.client, ids)];
-}
-if (pane === 'player') {
-  await import('./cards/mantel-player.js');
-  document.getElementById('view').remove();
-  window.__mantelPlayer = document.body.appendChild(document.createElement('mantel-player'));
-} else {
-  viewHost = window.hkViewHost.create({
-    container: document.getElementById('view'),
-    config: cfg,
-    client: host.client,
-    base: '/' + seg,
-    willShow: (view, firstVisit) => (firstVisit ? widen() : null),
-  });
-  window.__mantelViewHost = viewHost;
-  // the host shell knows the view host: the sky and the tab bar find the view, the menu the config
-  window.hkMantelShell.attach(viewHost);
-  viewHost.onView((el, view, config, info) => {
-    window.__mantelView = view;
-    if (info.first) narrowSoon();
-  });
-  await viewHost.start();
-}
+const viewHost = window.hkViewHost.create({
+  container: document.getElementById('view'),
+  config: cfg,
+  client: host.client,
+  base: '/' + seg,
+  willShow: (view, firstVisit) => (firstVisit ? widen() : null),
+});
+window.__mantelViewHost = viewHost;
+// the host shell knows the view host: the sky and the tab bar find the view, the menu the config
+window.hkMantelShell.attach(viewHost);
+viewHost.onView((el, view, config, info) => {
+  window.__mantelView = view;
+  if (info.first) narrowSoon();
+});
+await viewHost.start();
 mark('rendered');
 
 // the house's changes reach the view host as client updates (hkHostClient.current()); the smoke and
