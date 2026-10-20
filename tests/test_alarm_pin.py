@@ -595,3 +595,75 @@ def test_the_gateway_s_refusals_become_linked_wire_codes_in_one_place():
         err = A.linked_error(reply)
         assert isinstance(err, LinkedError) and err.code == code
         assert err.message == (message or A.LINKED_MESSAGES[code])
+
+
+# -- HK Settings' Alarm PIN page: what HA took is Mantel's keypads' PIN too (2026-10-20) ------------------
+def ha_page(arm_required=True):
+    return {"configured": True, "alarms": [{"entry_id": "e1", "alarm": ALARM, "panel": PANEL,
+                                            "arm_required": arm_required, "pin_set": True}], "choices": []}
+
+
+async def test_a_pin_set_in_hk_settings_is_the_tablets_pin(gw):
+    # set in HK Settings (saved in HA), and a tablet still said "no PIN set": Mantel's own table was empty
+    add_panel(gw)
+    frame = {"type": "hk_alarm_pin/settings/set", "entry_id": "e1",
+             "changes": {"pin": HOUSE_CODE, "pin_again": HOUSE_CODE}}
+    assert await A.follow_page_save(gw.app, frame, ha_page()) == PANEL
+    e = gw.app["alarm_pin"].entry(PANEL)
+    assert e.house_code and e.forward_to == ALARM and e.arm_required
+    await tablet(gw)
+    ws = await gw.socket()
+    r = await gw.command(ws, **disarm(HOUSE_CODE))
+    assert "result" in r and gw.fake.sent == ["alarm_control_panel.alarm_disarm"]
+    await ws.close()
+    secrets_absent(gw, HOUSE_CODE)
+
+
+async def test_the_arm_rule_and_an_added_alarm_follow_too_and_nothing_else_is_taken(gw):
+    add_panel(gw)
+    await A.follow_page_save(gw.app, {"type": "hk_alarm_pin/add", "alarm": ALARM, "pin": HOUSE_CODE,
+                                      "pin_again": HOUSE_CODE, "arm_required": False}, ha_page(False))
+    e = gw.app["alarm_pin"].entry(PANEL)
+    assert e.house_code and not e.arm_required
+    await A.follow_page_save(gw.app, {"type": "hk_alarm_pin/settings/set", "entry_id": "e1",
+                                      "changes": {"arm_required": True}}, ha_page(True))
+    assert gw.app["alarm_pin"].entry(PANEL).arm_required and gw.app["alarm_pin"].entry(PANEL).house_code
+    # another save, an unknown entry, or HA's failure (no page): nothing
+    assert await A.follow_page_save(gw.app, {"type": "hk_music/settings/set"}, ha_page()) is None
+    assert await A.follow_page_save(gw.app, {"type": "hk_alarm_pin/settings/set", "entry_id": "zz",
+                                             "changes": {"pin": "1111", "pin_again": "1111"}}, ha_page()) is None
+    assert await A.follow_page_save(gw.app, {"type": "hk_alarm_pin/settings/set", "entry_id": "e1",
+                                             "changes": {"pin": "1111", "pin_again": "1111"}}, None) is None
+
+
+def test_the_page_says_what_mantel_holds():
+    from mantel_server.feature_pages import alarm_pin_page
+
+    class Pins:
+        def __init__(self, held):
+            self.held = held
+
+        def entry(self, panel):
+            return A.Entry(panel, ALARM, arm_required=True, tablets=True, house_code=True) if self.held else None
+    assert alarm_pin_page(ha_page(), Pins(False))["alarms"][0]["pin_set"] is False   # HA has one, Mantel not
+    assert alarm_pin_page(ha_page(), Pins(True))["alarms"][0]["pin_set"] is True
+
+
+async def test_the_pages_save_through_the_gateway_reaches_mantels_table(gw, monkeypatch):
+    add_panel(gw)
+    page = ha_page()
+    real = gw.fake.call
+
+    async def call(frame, ticket):
+        await real(frame, ticket)
+        return page if frame.get("type") == "hk_alarm_pin/settings/set" else {}
+    monkeypatch.setattr(gw.fake, "call", call)
+    await gw.login("avery", "owner")
+    ws = await gw.socket()
+    r = await gw.command(ws, kind="ws", msg={"type": "hk_alarm_pin/settings/set", "entry_id": "e1",
+                                             "changes": {"pin": HOUSE_CODE, "pin_again": HOUSE_CODE}})
+    assert "result" in r, r
+    assert gw.fake.sent == ["hk_alarm_pin/settings/set"]        # HA still saves its own copy
+    assert gw.app["alarm_pin"].entry(PANEL).house_code          # and Mantel's keypads have it
+    await ws.close()
+    secrets_absent(gw, HOUSE_CODE)

@@ -797,7 +797,11 @@ class Gateway:
         if engine is not None:
             return await engine.run(principal, cmd.music, aid)
         if cmd.kind in ("service", "ws"):
-            return await self.commander.call(dict(cmd.frame or {}), CommandTicket(aid, "ws"))  # type: ignore[union-attr]
+            res = await self.commander.call(dict(cmd.frame or {}), CommandTicket(aid, "ws"))  # type: ignore[union-attr]
+            if cmd.kind == "ws" and (cmd.frame or {}).get("type") in alarm_pin.PAGE_SAVES:
+                # HK Settings' Alarm PIN page: what HA accepted is Mantel's keypads' PIN too (alarm_pin.py)
+                await alarm_pin.follow_page_save(self.app, cmd.frame or {}, res)
+            return res
         if cmd.upload is not None:
             path, ctype, data = cmd.upload
             return await self.commander.upload(path, ctype, data, CommandTicket(aid, "upload"))  # type: ignore[union-attr]

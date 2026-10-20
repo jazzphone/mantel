@@ -206,7 +206,8 @@ async def test_music_and_alarm_pin_pages_are_hass_rebuilt(make_env):
     assert music["speakers"] == [{"entity": "media_player.kitchen", "name": "Kitchen", "floor": "Main", "player": "K"}]
     assert music["homes"] == {"u1": "media_player.kitchen", "u2": None} and "ma_token" not in music
     alarm = (await read(ws, 2, {"type": "hk_alarm_pin/settings/get"}))["result"]
-    assert alarm["alarms"][0]["pin_set"] is True and "hash" not in json.dumps(alarm) and "1234" not in json.dumps(alarm)
+    # pin_set is Mantel's (its keypads check it), not HA's: none is held in Mantel here
+    assert alarm["alarms"][0]["pin_set"] is False and "hash" not in json.dumps(alarm) and "1234" not in json.dumps(alarm)
     assert proxy.asked == ["hk_music/settings/get", "hk_alarm_pin/settings/get"]
     await ws.close()
     ws = await owner_socket(env, ("adult1", "adult"))
