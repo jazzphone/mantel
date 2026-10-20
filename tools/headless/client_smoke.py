@@ -971,6 +971,39 @@ async def smoke(shot=None, shots=None):
                         assert fit["frame"] > fit["card"] + 16, fit      # the frame still runs on under the bar
                         assert fit["scroll"] <= fit["inner"], fit        # ...and the page that fits does not scroll
                         fits.append(f"{w}x{h} {fit['scroll']}/{fit['inner']}")
+                    # THE MUSIC PAGE'S TOAST IS SEEN (house, 2026-10-20): "Starting <playlist>…" and the library's
+                    # messages are the page's own toast. At the frame's foot it was drawn behind the tab bar (the
+                    # frame runs on under it) and, on a phone, below the window. It must be in the window, clear of
+                    # the bar, and what is on top at its middle: on a tablet and on a phone.
+                    toast_js = f"""(() => {{
+                      const m = {music_js}; m._toast('Starting Offline Mix…');
+                      const el = m.shadowRoot.querySelector('.toast');
+                      el.style.transition = 'none'; el.style.pointerEvents = 'auto';      // (hit-testable, settled)
+                      const t = el.getBoundingClientRect();
+                      const tb = document.getElementById('hk-tabbar');
+                      const navs = tb ? [...tb.querySelectorAll('nav'), ...(tb.shadowRoot ? tb.shadowRoot.querySelectorAll('nav') : [])] : [];
+                      const shown = navs.map(n => n.getBoundingClientRect()).filter(r => r.height > 0);
+                      let top = document.elementFromPoint(t.left + t.width / 2, t.top + t.height / 2);
+                      while (top && top.shadowRoot) {{
+                        const deeper = top.shadowRoot.elementFromPoint(t.left + t.width / 2, t.top + t.height / 2);
+                        if (!deeper || deeper === top) break;
+                        top = deeper;
+                      }}
+                      const on = top === el || el.contains(top);
+                      el.style.transition = ''; el.style.pointerEvents = '';
+                      return {{ top: Math.round(t.top), bottom: Math.round(t.bottom), inner: innerHeight,
+                               barTop: shown.length ? Math.round(Math.min(...shown.map(r => r.top))) : null, onTop: on,
+                               over: on ? null : (top && (top.localName + '.' + top.className)) }};
+                    }})()"""
+                    toasts = []
+                    for w, h, mobile in ((1280, 800, False), (390, 844, True), (1280, 800, False)):
+                        await browser.send("Emulation.setDeviceMetricsOverride", width=w, height=h, deviceScaleFactor=1,
+                                           mobile=mobile)
+                        await browser.eval(fit_js)
+                        seen = await browser.eval(toast_js)
+                        assert 0 <= seen["top"] and seen["bottom"] <= seen["inner"] and seen["onTop"], (w, seen)
+                        assert seen["barTop"] is None or seen["bottom"] <= seen["barTop"], (w, seen)
+                        toasts.append(f"{w}x{h} {seen['bottom']}<{seen['barTop']}")
                     # THE MUSIC PAGE'S SPEAKER IS MANTEL'S (house, 2026-10-18 night): the person's chosen speaker
                     # ("Plays on") lives in HA's per-user data; on Mantel it said "No speaker selected." where
                     # Discovery belongs, and a pick said "Commands are disabled". Now Mantel keeps it per person
@@ -1243,6 +1276,8 @@ async def smoke(shot=None, shots=None):
                                              "Music Assistant as Mantel's reads, no command sent",
                             "music_fit": "the Music page (two columns, tab bar along the bottom, the frame running on "
                                          "under it) ends at the window: scrollHeight/innerHeight " + ", ".join(fits),
+                            "music_toast": "the Music page's toast (\"Starting <playlist>…\") is in the window, clear of the "
+                                           "tab bar and on top, tablet and phone: bottom<bar " + ", ".join(toasts),
                             "where_card": "the Energy where-card, from a plan built by Mantel's energy_context (Utility Meter, no source "
                                           "attribute -> Integral -> power sensor: HK's hk_energy/sources, then the Integral's "
                                           "`source`), drew " + where_says,
