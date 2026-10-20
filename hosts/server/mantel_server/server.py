@@ -620,6 +620,9 @@ def wire(app: web.Application, hub: Hub, token: str, connect_ha: bool) -> None:
     # house command, so saves work while commands are off; each save asks RBAC `configure`.
     settings_store.register(app, hub, settings_store.SettingsHooks(
         may_configure=settings_store.rbac_may_configure(rbac_store=store, clock=lambda: app["clock"]())))
+    # no screens and no import yet (a Home Assistant without HK Frontend): a generated Home screen, which the
+    # import replaces while it is untouched
+    settings_store.seed_home_screen(app["settings"].store)
     # Phase 5: Service accounts (Owner-only REST) and the linked hk_frontend's endpoint (/linked/ws,
     # LAN door + a Service credential with the `linked` scope; Mantel can't call HA through it).
     service_accounts.register(app, hub)

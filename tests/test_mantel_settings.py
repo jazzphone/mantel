@@ -469,7 +469,7 @@ def test_connections_offers_an_owner_the_one_time_import_and_shows_its_record(tm
     assert [(r["kind"], r["label"], r.get("value"), r["disabled"]) for r in g["rows"]] == [
         ("info", "HK’s Settings", "Not Imported", False), ("button", "Import HK’s Settings from Home Assistant", None, False)]
     assert "once" in g["footer"] and "Nothing is written to Home Assistant" in g["footer"]
-    assert "Running it again changes nothing" in g["footer"]
+    assert "Running it again changes nothing" in g["footer"] and "generated Home screen" in g["footer"]
     assert out["owner"]["sent"] == [{"method": "POST", "path": "/api/settings/import", "csrf": "fictional-csrf"}]
     assert out["owner"]["reloaded"] is True                           # HK's own pages read the imported settings
     after = import_group(out["owner"]["after"])
@@ -483,3 +483,6 @@ def test_connections_offers_an_owner_the_one_time_import_and_shows_its_record(tm
     done = import_group(out["admin_done"]["groups"])
     assert done["rows"][0]["value"].startswith("Imported ") and "Running it again changes nothing" in done["footer"]
 
+
+def test_add_screen_says_where_mantels_screens_come_from():
+    assert "generated Home screen" in MODULE and "Import from HK Frontend" in MODULE

@@ -36,6 +36,8 @@ What is here:
   version 1 with the source recorded. Idempotent: a second run changes nothing and says when the
   first one ran. It never writes to HA. CLI ``mantel-server import-settings``; REST
   ``POST /api/settings/import`` (Owner only; Mantel Settings -> Connections offers it).
+* ``seed_home_screen``: a Mantel with no screens and no import gets a generated Home screen
+  (``board/dashboard-home``), which an import replaces while it is untouched.
 * ``register(app, hub, hooks)``: fills ``app["read_routes"]``, ``app["ws_handlers"]`` and the REST
   routes, like P3.4's connectors. server.py is not touched here; P3.7 wires it.
 """
@@ -278,15 +280,18 @@ class SettingsStore:
         cur = self.get(scope, key)
         if cur is None:
             return False
-        now = float(self.clock())
         with self.conn:
-            self.conn.execute(
-                "INSERT INTO settings_history (scope, key, version, body, diff, action, message, actor, actor_role,"
-                " device, source, created) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
-                (scope, key, cur.version + 1, "{}", _stored(diff(cur.body, {})), "set", message or "removed", actor.id,
-                 actor.role, actor.device_id, None, now))
-            self.conn.execute("DELETE FROM settings_docs WHERE scope=? AND key=?", (scope, key))
+            self._remove_one(cur, actor=actor, message=message, now=float(self.clock()))
         return True
+
+    def _remove_one(self, cur: Doc, *, actor: Actor, message: str | None, now: float) -> None:
+        """remove()'s two statements, inside the caller's transaction."""
+        self.conn.execute(
+            "INSERT INTO settings_history (scope, key, version, body, diff, action, message, actor, actor_role,"
+            " device, source, created) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+            (cur.scope, cur.key, cur.version + 1, "{}", _stored(diff(cur.body, {})), "set", message or "removed",
+             actor.id, actor.role, actor.device_id, None, now))
+        self.conn.execute("DELETE FROM settings_docs WHERE scope=? AND key=?", (cur.scope, cur.key))
 
     def write(self, changes: Iterable[tuple[str, str, dict]], *, actor: Actor, action: str = "set",
               message: str | None = None, source: str | None = None,
@@ -701,6 +706,45 @@ def docs_from_panel(payload: Any) -> list[tuple[str, str, dict]]:
     return out
 
 
+# A Mantel with no screens (a fresh one whose Home Assistant has no HK Frontend, or one not imported yet) gets
+# one: a Home screen HK's strategy builds from the house's rooms and devices (its pages empty), as a screen
+# Add Screen makes for phones and computers (hk_core new_board). Written once, as version 1 from
+# GENERATED, only while there is no board and no import; the import replaces it while it is untouched.
+HOME_SCREEN = "dashboard-home"
+GENERATED = "mantel:generated"
+
+
+def seed_home_screen(store: SettingsStore) -> bool:
+    """Give a Mantel without screens its generated Home screen. False (and nothing written) when it has a
+    screen or has imported HK's settings (an imported house keeps exactly what came over)."""
+    if store.docs("board") or store.import_record() is not None:
+        return False
+    house = store.body("house", "settings")
+    body = SM.new_board("personal", {SM.CONF_DASHBOARD: house} if house else None)
+    try:
+        with store.conn:
+            if store.conn.execute("SELECT 1 FROM settings_docs WHERE scope='board' LIMIT 1").fetchone() or \
+                    store.conn.execute("SELECT 1 FROM settings_import WHERE id=1").fetchone():
+                return False
+            store._write_one("board", HOME_SCREEN, body, actor=Actor(label="mantel"), action="set",
+                             message="a generated Home screen: Mantel had no screens", source=GENERATED,
+                             now=float(store.clock()))
+    except sqlite3.Error as exc:     # never fatal: /home then opens Mantel Settings, as before
+        log.warning("the generated Home screen was not written (%s)", type(exc).__name__)
+        return False
+    log.info("Mantel had no screens: it has a generated Home screen (/%s/home)", HOME_SCREEN)
+    return True
+
+
+def _untouched_seed(store: SettingsStore) -> Doc | None:
+    """The generated Home screen, while nobody has changed it (its only version is the one written)."""
+    cur = store.get("board", HOME_SCREEN)
+    if cur is None or cur.version != 1:
+        return None
+    first = store.history("board", HOME_SCREEN, limit=1)
+    return cur if first and first[0]["source"] == GENERATED else None
+
+
 async def import_settings(store: SettingsStore, fetch: Callable[[], Awaitable[Any]], *, actor: Actor,
                           model: ThinModel | None = None,
                           read_features: Callable[[dict], Awaitable[Any]] | None = None) -> dict:
@@ -708,6 +752,10 @@ async def import_settings(store: SettingsStore, fetch: Callable[[], Awaitable[An
     document that does not exist yet as version 1 (``action='import'``, ``source='ha:<entry>'``),
     leaves any that exist alone, and records the import. A second run reads nothing and changes
     nothing: it answers ``{"imported": False, "already": <the first import>}``.
+
+    The generated Home screen (seed_home_screen) gives way when HA's answer has screens and nobody has
+    changed it: it is removed in the same transaction (``replaced``), so an imported house has exactly
+    HA's screens. Once changed, it is the house's own and is left alone like any other document.
 
     ``read_features`` (a server-only read, ``{"type": ...}`` -> HA's answer): the feature items too
     (features.import_features: which HK features HA has added, and the settings of Notifications, Clean
@@ -743,11 +791,15 @@ async def import_settings(store: SettingsStore, fetch: Callable[[], Awaitable[An
         model.check_document(scope, key, body)
     checksum = hashlib.sha256(_canon(payload).encode()).hexdigest()
     now = float(store.clock())
-    written, skipped = [], []
+    written, skipped, replaced = [], [], []
     try:
         with store.conn:
             if store.conn.execute("SELECT 1 FROM settings_import WHERE id=1").fetchone():
                 raise sqlite3.IntegrityError("already imported")
+            seed = _untouched_seed(store) if any(scope == "board" for scope, _, _ in docs) else None
+            if seed is not None:
+                store._remove_one(seed, actor=actor, message="replaced by the import", now=now)
+                replaced.append(f"board/{HOME_SCREEN}")
             for scope, key, body in docs:
                 if store.get(scope, key) is not None:
                     skipped.append(f"{scope}/{key}")
@@ -764,6 +816,8 @@ async def import_settings(store: SettingsStore, fetch: Callable[[], Awaitable[An
     log.info("imported HK settings from %s: %d documents written, %d left as they were", source, len(written), len(skipped))
     out = {"imported": True, "source": source, "read": IMPORT_READ, "checksum": checksum,
            "written": written, "skipped": skipped}
+    if replaced:
+        out["replaced"] = replaced
     if read_features is not None:
         out["features_error"] = features_error
     return out
@@ -1572,6 +1626,8 @@ async def import_cli(data_dir, ha_url: str, token: str, out=print, ws_url: str |
     if got["imported"]:
         out(f"imported HK settings from {got['source']}: {len(got['written'])} documents written as version 1"
             + (f", {len(got['skipped'])} already in Mantel left as they were" if got["skipped"] else ""))
+        if got.get("replaced"):
+            out("Mantel's generated Home screen, never changed, gave way to HK's screens")
         if got.get("features_error"):
             out(f"the feature items were not read ({got['features_error']}); POST /api/features/import reads them again")
     else:

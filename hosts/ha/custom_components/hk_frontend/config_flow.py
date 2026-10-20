@@ -255,8 +255,8 @@ class DashboardSubentryFlow(ConfigSubentryFlow):
         otherwise: a dashboard with no item has no menu either, and an item is
         often added only for its Home or Appearance settings."""
         if user_input is not None:
-            preset = dict(S.SCREEN_PRESETS.get(user_input.get("kind")) or {})
-            data = S.preset_menu(S.board(preset), preset, self._get_entry().options)
+            preset = S.SCREEN_PRESETS.get(user_input.get("kind")) or {}
+            data = S.new_board(user_input.get("kind"), self._get_entry().options)
             if "menu" not in preset and self._path not in await _strategy_dashboards(self.hass):
                 data["menu"] = "off"
             return self.async_create_entry(title=await _dashboard_title(self.hass, self._path),

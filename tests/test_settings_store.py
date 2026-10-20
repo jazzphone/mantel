@@ -581,6 +581,67 @@ async def test_the_import_leaves_existing_documents_alone(store):
     assert store.get("board", "dashboard-kitchen").body == {"menu": "open"}
 
 
+# -------------------------------------------------------------- the generated Home screen (no screens yet)
+def test_a_mantel_without_screens_gets_a_generated_home_screen_once(store):
+    """A fresh Mantel whose Home Assistant has no HK Frontend: one screen HK's strategy builds from the rooms and
+    devices (its pages empty), as Add Screen starts a phones-and-computers screen (hk_core new_board)."""
+    from hk_core.settings import model as SM
+    assert S.seed_home_screen(store) is True
+    doc = store.get("board", "dashboard-home")
+    assert doc.version == 1 and doc.body == SM.new_board("personal", None)
+    assert doc.body["pages"] == [] and doc.body["home_page"] is True and doc.body["menu"] == "auto"
+    [h] = store.history("board", "dashboard-home")
+    assert (h["action"], h["source"]) == ("set", "mantel:generated")
+    assert S.SettingsService.screen_title("dashboard-home", doc.body) == "Home"
+    assert S.seed_home_screen(store) is False and store.get("board", "dashboard-home").version == 1
+
+
+async def test_no_generated_screen_where_there_are_screens_or_an_import(store):
+    store.write([("board", "dashboard-kitchen", {"menu": "open"})], actor=S.Actor(label="t"))
+    assert S.seed_home_screen(store) is False and list(store.docs("board")) == ["dashboard-kitchen"]
+
+    async def fetch():
+        return {**PANEL, "boards": {}}            # HK Frontend with no screens: the import makes none either
+    other = S.SettingsStore(store.conn)
+    with other.conn:
+        other.conn.execute("DELETE FROM settings_docs")
+    await S.import_settings(other, fetch, actor=S.Actor(label="t"))
+    assert S.seed_home_screen(other) is False and other.docs("board") == {}     # imported: exactly what came over
+
+
+async def test_the_import_replaces_the_untouched_generated_screen(store):
+    S.seed_home_screen(store)
+
+    async def fetch():
+        return PANEL
+    got = await S.import_settings(store, fetch, actor=S.Actor(label="t"))
+    assert got["replaced"] == ["board/dashboard-home"] and got["skipped"] == []
+    assert list(store.docs("board")) == ["dashboard-kitchen"]          # exactly HA's screens
+    assert store.history("board", "dashboard-home")[0]["message"] == "replaced by the import"
+    assert store.get("board", "dashboard-kitchen").version == 1
+
+
+async def test_the_import_keeps_a_generated_screen_someone_changed_or_when_ha_has_none(store):
+    S.seed_home_screen(store)
+    store.write([("board", "dashboard-home", {**store.body("board", "dashboard-home"), "accent": "blue"})],
+                actor=S.Actor(user_id="owner-id"))
+
+    async def fetch():
+        return PANEL
+    got = await S.import_settings(store, fetch, actor=S.Actor(label="t"))
+    assert "replaced" not in got and sorted(store.docs("board")) == ["dashboard-home", "dashboard-kitchen"]
+    assert store.body("board", "dashboard-home")["accent"] == "blue"
+
+
+async def test_an_hk_frontend_without_screens_keeps_the_generated_one(store):
+    S.seed_home_screen(store)
+
+    async def fetch():
+        return {**PANEL, "boards": {}}
+    got = await S.import_settings(store, fetch, actor=S.Actor(label="t"))
+    assert "replaced" not in got and list(store.docs("board")) == ["dashboard-home"]
+
+
 @pytest.mark.parametrize("payload", [None, [], {"entry_id": "x"}, {"settings": "nope"}])
 async def test_the_import_refuses_what_is_not_hk_settings(store, payload):
     async def fetch():
@@ -818,7 +879,9 @@ async def test_rest_import_is_owner_only_and_idempotent(mantel_app):
     m = mantel_app
     h = await _sign_in(m, "fictional-admin", "admin")
     assert (await m.client.post("/api/settings/import", headers=h)).status == 403
-    assert (await (await m.client.get("/api/settings/import")).json()) == {"import": None, "empty": True}
+    # not imported; the store holds only the generated Home screen (server.wire: seed_home_screen)
+    assert (await (await m.client.get("/api/settings/import")).json()) == {"import": None, "empty": False}
+    assert list(m.service.store.docs("board")) == [S.HOME_SCREEN]
     h = await _sign_in(m, "fictional-adult", "adult")
     assert (await m.client.get("/api/settings/import")).status == 403
     h = await _sign_in(m, "fictional-owner", "owner")
@@ -826,6 +889,7 @@ async def test_rest_import_is_owner_only_and_idempotent(mantel_app):
     r = await m.client.post("/api/settings/import", headers=h)
     body = await r.json()
     assert r.status == 200 and body["imported"] is True and body["source"] == "ha:fictional-entry"
+    assert body["replaced"] == ["board/dashboard-home"] and list(m.service.store.docs("board")) == ["dashboard-kitchen"]
     r = await m.client.post("/api/settings/import", headers=h)
     assert (await r.json())["imported"] is False and m.fetched == [1]
     status = await (await m.client.get("/api/settings/import")).json()

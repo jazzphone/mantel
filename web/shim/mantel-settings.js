@@ -53,8 +53,9 @@ const NOTES = {
     'screens only, not HK inside Home Assistant. Anything that needs Home Assistant to be written (tablets as Home ' +
     'Assistant devices, dashboards, accessory setup flows) is read-only here; saving one says why it was refused.',
   screen_remove: 'Mantel keeps its own copy of this screen’s settings. Removing a screen needs Home Assistant, so it isn’t offered here.',
-  add_screen: 'A new screen is a new dashboard in Home Assistant, which Mantel doesn’t write to. Add it in HK Settings ' +
-    'inside Home Assistant; Mantel’s own screens are listed under Screens.',
+  add_screen: 'Mantel can’t add a screen yet: a new screen is a new dashboard in Home Assistant, which Mantel doesn’t write to. ' +
+    'Mantel’s screens are HK Frontend’s, imported once (Connections → Import from HK Frontend), or, without HK Frontend, ' +
+    'its generated Home screen, which builds itself from your rooms and devices. They are listed under Screens.',
 };
 
 // ---------------------------------------------------------------------------------------- state
@@ -1107,7 +1108,8 @@ function drawImport(c, haSet) {
     ? 'Imported once. Running it again changes nothing; a change made in HK Settings inside Home Assistant doesn’t reach Mantel.'
     : 'Copies HK Frontend’s settings from Home Assistant once: ' + what + '. Nothing is written to Home Assistant. ' +
       'Running it again changes nothing, and anything already changed in Mantel is left alone. ' +
-      (!owner ? 'Only an Owner can import them.' : !haSet ? 'Connect Home Assistant first.' : '');
+      (!owner ? 'Only an Owner can import them. ' : !haSet ? 'Connect Home Assistant first. ' : '') +
+      'No HK Frontend in Home Assistant? Nothing to import: Mantel’s generated Home screen builds itself from your rooms and devices.';
   c.appendChild(group({ header: 'Import from HK Frontend', footer }, rows));
 }
 function drawPending(c, pid) {

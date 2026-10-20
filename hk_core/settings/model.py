@@ -2449,6 +2449,15 @@ def preset_menu(data: Mapping[str, Any], preset: Mapping[str, Any],
     return {**data, "menu_custom": any(json.dumps(data[k]) != json.dumps(house[k]) for k in keys)}
 
 
+def new_board(kind: str, options: Mapping[str, Any] | None) -> dict[str, Any]:
+    """A new screen's settings, as Add Screen's "Shown On" starts it: the
+    preset over the defaults, following All Screens' menu (preset_menu). An
+    unknown kind starts from the defaults ("custom"). Its pages are empty, so
+    the strategy builds it from the house's rooms and devices."""
+    preset = dict(SCREEN_PRESETS.get(kind) or {})
+    return preset_menu(board(preset), preset, options)
+
+
 def phone_menu(b: Mapping[str, Any]) -> str:
     """A screen's menu on a phone: its own menu_phone, else what a phone
     showed before there was one -- the screen's Menu when that is off or the
