@@ -1003,6 +1003,9 @@ Everything on main since 0.1.28 (validation green: JS 130, HA py 732, Mantel 283
   Mantel runs, Home Assistant's, Music Assistant's and the links' versions, and a word on the project.
 - **The House** has its own group on Home Assistant Link, apart from Who Runs Each Wall Tablet.
 - No HA backup (Avery).
+- [x] On the house (build `8661f15c2a105169`, RELEASE.json 0.1.34 / af4c3d7, 14:00): both links reconnected,
+      `/api/about` refuses a signed-out request (401).
+- [ ] Avery: Settings -> About shows 0.1.34; HK Frontend removed (a full HA backup first).
 
 ### Removal
 
