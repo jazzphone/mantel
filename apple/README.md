@@ -7,11 +7,11 @@ code only where the system needs it. The house decides everything; the apps ask.
 |---|---|
 | `MantelKit/` | Swift package shared by every target: the house and its pin, PKCE, the Secure Enclave device key and DPoP proofs, the Keychain, the API client, Bonjour discovery, sealed notifications, the App Group store. `swift test` runs its tests, which use fixtures made by the server's own crypto (`Tests/make_fixtures.py`) |
 | `Mantel/` | The iPhone and iPad app: setup (QR, a `mantel://pair` link, Bonjour, a typed address), sign-in in `ASWebAuthenticationSession` on Mantel's own `/login`, Face ID to open, the screens and Settings in a `WKWebView`, favorites, push registration, the music Live Activity |
-| `Common/` | `SessionModel`, shared by the iPhone app and the Mac app |
+| `Common/` | `SessionModel` and the favorites editor, shared by the iPhone app and the Mac app |
 | `Shared/` | App Intents (Siri, Shortcuts, widget and Live Activity buttons) and the Live Activity's attributes and artwork cache, shared by the app and the widget extension |
 | `MantelWidgets/` | Favorites and Now Playing widgets, the music Live Activity (Apple Music's layout), Control Center controls |
 | `MantelNotificationService/` | Opens the house's sealed notifications and attaches the snapshot |
-| `MantelMac/` | The menu bar app: now playing, favorites, Open Mantel |
+| `MantelMac/` | The menu bar app: the house's own pages in the menu with its controls floating over them (a music player of its own, `?pane=player`, web/cards/mantel-player.js; the favorites as Home's pills at three-quarter size, `?pane=favorites`), Play Music in a resizable window without a title bar (`?bare=1`), favorites as toggles and chosen on the Mac, setup in its own window, the play/pause key (off until tried) |
 | `Config/` | Info.plists and entitlements |
 | `make_project.py` | Writes `Mantel.xcodeproj` (folders, not files: add a `.swift` file and it is in) |
 
@@ -50,7 +50,37 @@ xcrun simctl push booted com.jazzphone.mantel.ios /tmp/mantel-app-dev/push.apns
 notification itself when it arrives while the app is open (`AppDelegate.willPresent`). With the app in the
 background the Simulator shows Apple's generic "Mantel / New notification": that is the extension's job on a phone.
 
-The Mac app: `xcodebuild -project apple/Mantel.xcodeproj -scheme MantelMac -destination 'platform=macOS' -derivedDataPath /tmp/mantel-dd-mac build`.
+### The Mac app
+
+Team-signed (this Mac is registered to the team), so `-allowProvisioningUpdates`:
+
+```bash
+xcodebuild -project apple/Mantel.xcodeproj -scheme MantelMac -destination 'platform=macOS' -derivedDataPath /tmp/mantel-dd-mac -allowProvisioningUpdates build
+```
+
+A fictional Mantel with music (a fictional Music Assistant from `tests/music_fakes.py` on another loopback
+port; the page's commands go through the gateway to it, with audit rows):
+
+```bash
+~/.venvs/mantel/bin/python tools/app_dev_server.py --data-dir /tmp/mantel-mac-dev --port 8777 --music
+```
+
+Pair by opening its link with the app (the app takes `mantel://pair`; the link works once, for an hour):
+
+```bash
+open -a /tmp/mantel-dd-mac/Build/Products/Debug/Mantel.app "$(cat /tmp/mantel-mac-dev/pair.txt)"
+```
+
+`mantel://music`, `mantel://favorites` and `mantel://setup` open those windows. A Mantel from before these pages
+ignores `?pane=` and draws its dashboard; the app notices (a probe once the page is ready) and shows its own controls
+in the menu with "Update your Mantel to see the full player here" (seen on Avery's house, 2026-10-20). Browse's album and artist pages and
+search read through Home Assistant, which the fictional Mantel does not have ("Could not open that: unavailable"),
+and Browse's album pages need it too. In a browser: `/<screen>/home?pane=player`, `/<screen>/home?pane=favorites&ids=light.kitchen,lock.front_door`,
+`/<screen>/playmusic?bare=1`.
+Debug builds take `mantel://debug/load` (every page, shown or not), `mantel://debug/snapshot?to=http://127.0.0.1:<port>/` and
+`mantel://debug/js?page=menu|favorites|window&code=…&to=…`,
+which PUT the pages' snapshots, the app's state or a line of JavaScript's answer to a receiver on loopback: the app's
+container is closed to other apps, and screenshots here cannot see the menu bar panel.
 
 ## Verified in the Simulator (iOS 27, Xcode 27.1, 2026-10-19)
 
@@ -62,7 +92,12 @@ The Mac app: `xcodebuild -project apple/Mantel.xcodeproj -scheme MantelMac -dest
   ("Front Door / Unlocked by Ann", Time Sensitive), with nothing readable in the payload Apple would carry.
 - The music Live Activity on the Lock Screen in Apple Music's layout (cover, tint, progress, transport); its pause
   button ran `MusicControlIntent` → `/api/app/command` → the gateway (audit row) and the activity followed.
-- The Mac menu bar app builds, launches and quits.
+- The Mac menu bar app (2026-10-19, evening; macOS 27): paired by link in the sandbox, team-signed; the new music player
+  and the favorites (Home's pills) in the menu, Play Music in the window, signed in
+  through `/app/web-session`; Play and Pause from the player went through the gateway (`hk_frontend.music_transport`,
+  audit rows `ok`); signed in again after relaunching, no Keychain
+  prompt. Not seen or clicked by eye: the menu panel and its buttons, the Favorites and Setup windows. Not tried: the play/pause key (off by
+  default, "Try It" in the menu), sign-in through the web sheet and Bonjour on the Mac.
 
 Not exercised: placing the widgets and Control Center controls by hand, Siri phrases, the QR camera (the Simulator
 has none: paste the link), Face ID itself (the Simulator without Face ID enrolled skips the lock; never its passcode).
@@ -101,6 +136,7 @@ APNs (sandbox) was opened by the Notification Service Extension on the phone ("F
   Notification Service Extension runs for real, and the Live Activity can be updated by push.
 - **Sign in with Apple**: the capability, and the server's verification (§3; not built yet).
 - **TestFlight** (M10-1): a team, a bundle prefix of Avery's (`PREFIX` in `make_project.py`), distribution signing.
-- **The shared Keychain group and App Group on a device**, and on the Mac (signed to run locally for now, with only
-  the sandbox and network entitlements).
+- **The shared Keychain group and App Group on a device.** The Mac is team-signed since 2026-10-19 (this Mac
+  registered); its App Group is the team-prefixed one (`TEAMID0000.com.jazzphone.mantel`), as the team's wildcard Mac
+  profile cannot carry `group.com.jazzphone.mantel` (APPLE-APPS.md §12).
 - **Critical alerts** need Apple's separate entitlement; not used.

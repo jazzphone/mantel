@@ -11,6 +11,9 @@ Run: ~/.venvs/mantel/bin/python tools/app_dev_server.py --data-dir /tmp/mantel-a
   link to open in the Simulator (``xcrun simctl openurl booted '<link>'``), which signs the app in as ann.
 * ``--push "Title|Body"`` (with the server stopped or running) writes a sealed notification for the app's
   registered notification key to <data-dir>/push.apns, for ``xcrun simctl push booted com.jazzphone.mantel.ios <file>``.
+* ``--music``: the house's Music page too (the screens' playmusic: browse, speakers, volume, queue). A fictional
+  Music Assistant (tests/music_fakes.py's HouseMa) answers on another loopback port; its speakers join the house
+  and Mantel's own music engine runs, so the page's commands go through the gateway (audit rows) to that fake.
 * ``--lan``: also answer on this Mac's home-network address, over plain http, for a DEBUG build of the app on a real
   iPhone (Avery, 2026-10-19; Release builds refuse http beyond loopback). Requests from private addresses are the
   LAN door. Writes the pairing link as a QR code (<data-dir>/pair.png) to scan with the iPhone's camera.
@@ -116,16 +119,37 @@ def private(ip: str | None) -> bool:
     return a.is_private or a.is_loopback
 
 
-async def serve(data: Path, port: int, lan: bool = False, relay: str | None = None) -> None:
+async def fictional_ma() -> tuple[object, str]:
+    """tests/music_fakes.py's fictional Music Assistant on a loopback port: (the fake, its WebSocket address)."""
+    sys.path.insert(0, str(ROOT / "tests"))
+    import music_fakes as MF
+    fake = MF.HouseMa()
+    runner = web.AppRunner(fake.app())
+    await runner.setup()
+    site = web.TCPSite(runner, "127.0.0.1", 0)
+    await site.start()
+    port = site._server.sockets[0].getsockname()[1]
+    return fake, f"http://127.0.0.1:{port}/ws"
+
+
+async def serve(data: Path, port: int, lan: bool = False, relay: str | None = None, music: bool = False) -> None:
     from mantel_server import app_auth
     from mantel_server.config import Config
     from mantel_server.server import build_app
     from mantel_server.store import Store
 
     lan_ip = lan_address() if lan else None
+    ma_fake, ma = None, {}
+    if music:
+        ma_fake, ma_url = await fictional_ma()
+        from connector_fakes import MA_TOKEN
+        token = data / "secrets" / "ma_token"
+        token.parent.mkdir(parents=True, exist_ok=True)
+        token.write_text(MA_TOKEN)           # the fake's fictional token
+        ma = {"ma_url": ma_url, "ma_token_file": token}
     cfg = Config(data_dir=data / "data", secrets_dir=data / "secrets", host="127.0.0.1", port=port,
                  ha_url="http://127.0.0.1:9", commands_enabled=True, default_screen="dashboard-home",
-                 allowed_hosts=(lan_ip,) if lan_ip else ())
+                 allowed_hosts=(lan_ip,) if lan_ip else (), **ma)
     store = Store(cfg.data_dir / "mantel.db")
     app = build_app(cfg, "unused-fictional-token", store=store, connect_ha=False)
     if lan_ip:
@@ -140,6 +164,19 @@ async def serve(data: Path, port: int, lan: bool = False, relay: str | None = No
     hub = app["hub"]
     hub.registry.load(AREAS, [], ENTITIES)
     hub.store.apply_event({"a": {k: {"s": v["s"], "a": dict(v["a"]), "lc": time.time() - 3600} for k, v in STATES.items()}})
+    if ma_fake is not None:
+        import music_fakes as MF
+        from mantel_server import music as M
+        from mantel_server.settings_store import Actor
+        known = {a["area_id"] for a in AREAS}
+        hub.registry.load(AREAS + [a for a in MF.AREAS if a["area_id"] not in known], [], ENTITIES + MF.ENTITIES, MF.FLOORS)
+        hub.store.apply_event({"a": MF.states(media_player__den_ma={"s": "playing", "a": {
+            "media_title": "Blue in Green", "media_artist": "The Fictional Trio", "media_album_name": "Kind of Fictional",
+            "media_duration": 337.0, "media_position": 40.0, "volume_level": 0.25,
+            "media_position_updated_at": time.strftime("%Y-%m-%dT%H:%M:%S+00:00", time.gmtime()),
+            "entity_picture": f"http://{lan_ip or '127.0.0.1'}:{port}/app/fictional-cover.png"}})})
+        ma_fake.hub = hub
+        app["settings"].store.write([("house", M.MUSIC_DOC, json.loads(json.dumps(MF.DOC)))], actor=Actor(label="app_dev_server"))
     # a fictional album cover, served by this server itself (a "remote" picture, as a provider's CDN would be)
     hub.store.apply_event({"c": {"media_player.living_room": {"+": {"a": {
         "entity_picture": f"http://{lan_ip or '127.0.0.1'}:{port}/app/fictional-cover.png",
@@ -165,6 +202,8 @@ async def serve(data: Path, port: int, lan: bool = False, relay: str | None = No
         app["user_data"].set(f"u:{uid}", "hk_music_focus", {"key": "media_player.living_room"})
     else:
         uid = row["id"]
+    if music:
+        app["user_data"].set(f"u:{uid}", "hk_music_focus", {"key": "media_player.den_ma"})
     runner = web.AppRunner(app)
     await runner.setup()
     await web.TCPSite(runner, "127.0.0.1", port).start()
@@ -264,6 +303,7 @@ def main() -> None:
     ap.add_argument("--send-push")
     ap.add_argument("--lan", action="store_true")
     ap.add_argument("--relay")
+    ap.add_argument("--music", action="store_true")
     a = ap.parse_args()
     a.data_dir.mkdir(parents=True, exist_ok=True)
     if a.push:
@@ -272,7 +312,7 @@ def main() -> None:
     if a.send_push:
         asyncio.run(send_push(a.data_dir, a.send_push))
         return
-    asyncio.run(serve(a.data_dir, a.port, a.lan, a.relay))
+    asyncio.run(serve(a.data_dir, a.port, a.lan, a.relay, a.music))
 
 
 if __name__ == "__main__":

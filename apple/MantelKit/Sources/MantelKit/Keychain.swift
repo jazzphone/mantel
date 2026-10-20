@@ -18,7 +18,14 @@ public struct Keychain: Sendable {
                                 kSecAttrService as String: service,
                                 kSecAttrAccount as String: account,
                                 kSecAttrSynchronizable as String: false]
-        if let group = accessGroup { q[kSecAttrAccessGroup as String] = group }
+        if let group = accessGroup {
+            q[kSecAttrAccessGroup as String] = group
+            #if os(macOS)
+            // the Mac: the iOS-style keychain (access groups, no per-build "allow access" prompts); a build without the
+            // group (signed to run locally) falls back to the login keychain below
+            q[kSecUseDataProtectionKeychain as String] = true
+            #endif
+        }
         return q
     }
 
@@ -65,7 +72,17 @@ public struct Keychain: Sendable {
 
 /// Names shared by the app and its extensions (the App Group and the Keychain group).
 public enum MantelConfig {
-    public static let appGroup = "group.com.jazzphone.mantel"
+    /// The iPhone app and its extensions: `group.com.jazzphone.mantel`. The Mac (no extensions): the app's Info.plist
+    /// "MantelAppGroup", its team-prefixed group, which macOS allows without a profile; a Mac build signed to run
+    /// locally has none and keeps its own defaults.
+    public static var appGroup: String {
+        #if os(macOS)
+        let g = Bundle.main.object(forInfoDictionaryKey: "MantelAppGroup") as? String
+        return g.flatMap { $0.hasPrefix("com.") ? nil : $0 } ?? ""
+        #else
+        return "group.com.jazzphone.mantel"
+        #endif
+    }
     /// Set from the app's Info.plist ("MantelKeychainGroup": $(AppIdentifierPrefix)com.jazzphone.mantel.shared); nil uses the
     /// app's default group.
     public static var keychainGroup: String? {

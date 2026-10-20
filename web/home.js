@@ -133,6 +133,12 @@ if (!(window.hkCards && window.hkCards.TILE)) {
 }
 
 const cfg = await window.hkStrategy.generate({}, host.client);
+// BARE PAGES (?bare=1): the page's own cards without its title bar (the back button and the heading), for a page
+// shown alone, where there is no dashboard to go back to: the Mac app's Play Music window
+// (apple/MantelMac/HousePage.swift). Everything else on the page, and the page itself, is the same.
+if (new URLSearchParams(location.search).get('bare') === '1') {
+  for (const v of cfg.views || []) if (Array.isArray(v.cards)) v.cards = v.cards.filter((c) => !(c && c.page_header === true));
+}
 mark('strategy');
 
 // NARROWING: after a page is first drawn, note which states the screen really reads and narrow the hub
@@ -172,21 +178,37 @@ function narrowSoon() {
   }), 1500);
 }
 
-const viewHost = window.hkViewHost.create({
-  container: document.getElementById('view'),
-  config: cfg,
-  client: host.client,
-  base: '/' + seg,
-  willShow: (view, firstVisit) => (firstVisit ? widen() : null),
-});
-window.__mantelViewHost = viewHost;
-// the host shell knows the view host: the sky and the tab bar find the view, the menu the config
-window.hkMantelShell.attach(viewHost);
-viewHost.onView((el, view, config, info) => {
-  window.__mantelView = view;
-  if (info.first) narrowSoon();
-});
-await viewHost.start();
+// THE PLAYER ALONE (?pane=player): the Mac app's music player (cards/mantel-player.js), filling the window, and no
+// dashboard under it -- the menu bar's music and its window (apple/MantelMac/HousePage.swift).
+// THE FAVORITES ALONE (?pane=favorites&ids=light.a,lock.b): Home's favorites grid of just those, in that order, and
+// nothing else (hkStrategy.favoritesView): the Mac app's favorites, the same pills as the dashboard's.
+const pane = new URLSearchParams(location.search).get('pane');
+let viewHost = null;
+if (pane === 'favorites') {
+  const ids = (new URLSearchParams(location.search).get('ids') || '').split(',').filter(Boolean);
+  cfg.views = [window.hkStrategy.favoritesView(host.client, ids)];
+}
+if (pane === 'player') {
+  await import('./cards/mantel-player.js');
+  document.getElementById('view').remove();
+  window.__mantelPlayer = document.body.appendChild(document.createElement('mantel-player'));
+} else {
+  viewHost = window.hkViewHost.create({
+    container: document.getElementById('view'),
+    config: cfg,
+    client: host.client,
+    base: '/' + seg,
+    willShow: (view, firstVisit) => (firstVisit ? widen() : null),
+  });
+  window.__mantelViewHost = viewHost;
+  // the host shell knows the view host: the sky and the tab bar find the view, the menu the config
+  window.hkMantelShell.attach(viewHost);
+  viewHost.onView((el, view, config, info) => {
+    window.__mantelView = view;
+    if (info.first) narrowSoon();
+  });
+  await viewHost.start();
+}
 mark('rendered');
 
 // the house's changes reach the view host as client updates (hkHostClient.current()); the smoke and

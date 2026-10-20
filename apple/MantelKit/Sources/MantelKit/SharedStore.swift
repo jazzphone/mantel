@@ -8,7 +8,8 @@ public final class SharedStore: @unchecked Sendable {
     private let defaults: UserDefaults
 
     public init(defaults: UserDefaults? = nil) {
-        self.defaults = defaults ?? UserDefaults(suiteName: MantelConfig.appGroup) ?? .standard
+        let group = MantelConfig.appGroup
+        self.defaults = defaults ?? (group.isEmpty ? nil : UserDefaults(suiteName: group)) ?? .standard
     }
 
     public var houses: [House] {

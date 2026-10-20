@@ -82,6 +82,12 @@
 			path = Mac-Info.plist;
 			sourceTree = "<group>";
 		};
+		2B83598D7C07F824848D7A04 = {
+			isa = PBXFileReference;
+			lastKnownFileType = text.plist.entitlements;
+			path = MacTeam.entitlements;
+			sourceTree = "<group>";
+		};
 		391CF619CDF99E42D29CDDB9 = {
 			isa = PBXFileReference;
 			explicitFileType = wrapper.app-extension;
@@ -248,6 +254,7 @@
 				"4BC5467A6F70ABEE0AA656CC",
 				"038C5C30035114F8BE5F82BC",
 				E045AE1E4FFB04C86F55B351,
+				"2B83598D7C07F824848D7A04",
 				C13DC35249442A9641F00545,
 				"7B335BEFF41273BE6C9ACC44",
 				"398FDE9E3EE6E02D0FD8F83C",
@@ -489,8 +496,7 @@
 		1A73B19277E803973B6CC80D = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CODE_SIGN_ENTITLEMENTS = Config/Mac.entitlements;
-				CODE_SIGN_IDENTITY = -;
+				CODE_SIGN_ENTITLEMENTS = Config/MacTeam.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
@@ -559,8 +565,7 @@
 		AB95E60D5607841572A0943D = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CODE_SIGN_ENTITLEMENTS = Config/Mac.entitlements;
-				CODE_SIGN_IDENTITY = -;
+				CODE_SIGN_ENTITLEMENTS = Config/MacTeam.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
