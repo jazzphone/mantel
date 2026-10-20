@@ -306,6 +306,20 @@ class Pusher:
             st.set_push_off(row["app_id"], True)
 
     # -- Web Push ---------------------------------------------------------------------------------
+    def web_topic(self, row: dict, tag: str | None) -> str | None:
+        """The ``Topic`` header (a newer message with the same topic replaces an older one waiting at the push
+        service). The browser's push service reads it, so it is never the tag itself: the same keyed hash the
+        app's collapse ids are (apns.collapse_id, 32 URL-safe characters, as Topic requires), keyed per browser
+        by its own p256dh. Without the house's key there is no topic, rather than a readable one."""
+        st = self.app.get("app_auth")
+        if not tag or st is None or not row.get("p256dh"):
+            return None
+        from . import apns
+        try:
+            return apns.collapse_id(apns.collapse_secret(st.key()), app_crypto.unb64u(row["p256dh"]), tag)
+        except Exception:  # noqa: BLE001 -- no key yet: send without a topic
+            return None
+
     async def send_web(self, row: dict, msg: Message) -> str:
         endpoint = row["endpoint"]
         if not endpoint_ok(endpoint):
@@ -315,8 +329,9 @@ class Pusher:
         headers = {"Authorization": app_crypto.vapid_header(self.vapid(), _origin(endpoint), self.vapid_subject()),
                    "Content-Encoding": "aes128gcm", "Content-Type": "application/octet-stream", "TTL": str(TTL),
                    "Urgency": "high" if msg.important else "normal"}
-        if msg.tag:
-            headers["Topic"] = "".join(c for c in msg.tag if c.isalnum() or c in "-_")[:32] or "mantel"
+        topic = self.web_topic(row, msg.tag)
+        if topic:
+            headers["Topic"] = topic
         http = self.http or self.app.get("http")
         if http is None:
             return "failed"

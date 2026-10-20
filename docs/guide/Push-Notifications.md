@@ -183,7 +183,9 @@ What is sent: the title, the message, the tag, where a tap goes, and whether
 it is Important. Never a snapshot, a token or an accessory's details. Each
 notification is encrypted to the browser's own key, so the browser's push
 service (Apple's, Google's, Mozilla's or Microsoft's) can't read it; your
-Mantel signs it with its own key. Only those four push services are accepted.
+Mantel signs it with its own key. The push service sees only whether it is
+Important and an opaque topic (a keyed hash of the tag, so a newer notification
+about the same thing replaces one still waiting). Only those four push services are accepted.
 A notification older than an hour is dropped.
 
 To stop: turn **Notifications Here** off, or **Stop Sending to** that browser.

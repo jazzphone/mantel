@@ -201,6 +201,12 @@ async def test_a_notification_reaches_the_browser_encrypted_and_signed(mantel):
     t, k = re.match(r"vapid t=([^,]+), k=(.+)$", headers["Authorization"]).groups()
     claims = app_crypto.verify_es256_jwt(t, app_crypto.public_from_raw(app_crypto.unb64u(k)))
     assert claims["aud"] == "https://web.push.apple.com" and claims["sub"].startswith(("mailto:", "https://"))
+    # the Topic the push service reads is a keyed hash, never the tag; the same tag keeps the same topic
+    topic = headers["Topic"]
+    assert "door" not in topic and len(topic) == 32 and re.fullmatch(r"[A-Za-z0-9_-]+", topic)
+    await p.deliver(rows, push.Message(title="Front Door", body="Closed", tag="door"))
+    await p.deliver(rows, push.Message(title="Garage", body="Open", tag="garage"))
+    assert fake.posts[1][2]["Topic"] == topic and fake.posts[2][2]["Topic"] != topic
 
 
 async def test_a_dropped_subscription_is_removed(mantel):
