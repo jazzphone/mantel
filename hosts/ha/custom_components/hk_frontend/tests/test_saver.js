@@ -1084,6 +1084,36 @@ print('\n=== a host with no Lovelace (Mantel): the config from the shell ===');
 })();
 
 
+print('\n=== a host with photos of its own: photoSource and listPhotos ===');
+(function () {
+  var SH = window.hkShell, PS = SH.photoSource, LP = SH.listPhotos;
+  ok('this host has no photos of its own (both null)', SH.photoSource('media-source://x') === null && SH.listPhotos('media-source://x') === null);
+  var asked = [], resolved = [];
+  SH.photoSource = function () { return 'host-album://one'; };
+  SH.listPhotos = function (src) {
+    asked.push(src);
+    return src === 'host-album://one' ? Promise.resolve([{ id: 'p1', title: 'One', url: '/photos/p1.jpg' }, { id: 'p2', url: '/photos/p2.jpg' }, { id: 'bad' }]) : null;
+  };
+  LOVELACE.config.hk_screensaver = Object.assign({}, LOVELACE.config.hk_screensaver, { show: 'photos' });
+  lovelacePanel.lovelace = { config: { views: [], hk_screensaver: LOVELACE.config.hk_screensaver } };
+  var hp = hassOwn('off');
+  hp.callWS = function (m) { ws.push(m); if (m.type === 'media_source/resolve_media') resolved.push(m); return Promise.resolve({ children: [] }); };
+  ws = [];
+  push(hp); S.photosChanged(); dispatchEvent({ type: 'location-changed' }); __runTimers();
+  ok('the host\'s album for this screen is its source', S.config() && S.config().photos === 'host-album://one', S.config());
+  S.start(); drainMicrotasks(); drainMicrotasks(); drainMicrotasks(); __runTimersUnder(1);
+  ok('...listed by the host, never walked as a media folder', asked.indexOf('host-album://one') >= 0 &&
+     !ws.some(function (m) { return m.type === 'media_source/browse_media'; }), [asked, ws]);
+  ok('...its photos with an address (the one without skipped)', S.stats().photos === 2, S.stats());
+  var shownImg = topPhotos()[0] && topPhotos()[0].querySelector('img.fg');
+  ok('...shown from their own address, never resolved', /^host\/p[12]$/.test(S.stats().last || '') && shownImg &&
+     /^\/photos\/p[12]\.jpg$/.test(shownImg.src) && resolved.length === 0, [S.stats().last, shownImg && shownImg.src, resolved]);
+  S.stop(); woke();
+  SH.photoSource = PS; SH.listPhotos = LP;
+  S.photosChanged(); push(hassOwn('off')); dispatchEvent({ type: 'location-changed' }); __runTimers();
+  ok('without it: the house\'s folder again', S.config() && S.config().photos === 'media-source://media_source/local/photos', S.config());
+})();
+
 // 2026-10-13: the clock's text over photos, and the mosaic's line colors
 (function () {
   var I = window.hkSaver && window.hkSaver._ || null;

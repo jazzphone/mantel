@@ -141,6 +141,37 @@ ok('no sidebar order saved: the pages A to Z', titles(haItems(hassFor(true), nul
    .filter(function (x) { return x.kind === 'sub'; })) === 'Activity,Areas,HACS,Hall,Map');
 ok('none of it is ever "here"', open.every(function (x) { return isHere(x, '/dashboard-hall/0') === false; }));
 
+// WHERE HOME ASSISTANT IS (hkShell.haNav; a host outside Home Assistant, 2026-10-19): its sidebar when the
+// host is Home Assistant or shows the page inside it; one row opening it when it is elsewhere; nothing when there
+// is none to open. A row that could do nothing is never listed.
+(function () {
+  var H = window.hkMenu._, SH = window.hkShell;
+  var was = { nav: SH.haNav, side: SH.sidebarData };
+  ok('Home Assistant itself: its sidebar, as always', H.haNav() === 'own' &&
+     titles(H.haList(PREFS, {})) === titles(haItems(SH.sidebarData(), PREFS, {})));
+  SH.sidebarData = function () { var s = hassFor(false); s.prefs = { panelOrder: ['map'], hiddenPanels: ['logbook'] }; s.shown = true; return s; };
+  var own = H.haList(PREFS, { moreOpen: true });
+  ok('...a host\'s own sidebar order wins over the one read here', titles(own.filter(function (x) { return x.kind === 'sub'; })) === 'Map,Areas,Hall', titles(own));
+  SH.haNav = function () { return { link: 'https://ha.home.example', top: true }; };
+  var one = H.haList(PREFS, { moreOpen: true });
+  ok('Home Assistant elsewhere: one row, opening its address', one.length === 1 && one[0].kind === 'halink' &&
+     one[0].href === 'https://ha.home.example' && one[0].top === true && one[0].title === 'Open Home Assistant', JSON.stringify(one));
+  var keyLink = H.haKey();
+  SH.haNav = function () { return { link: 'javascript:alert(1)' }; };
+  ok('...only an http(s) address', H.haList(PREFS, {}).length === 0 && H.haNav() === null);
+  SH.haNav = function () { return null; };
+  ok('nowhere to open it (a wall tablet): no rows', H.haList(PREFS, {}).length === 0 && H.haKey() === 'none' && keyLink !== 'none');
+  var opened = [], assigned = [], wo = window.open, la = location.assign;
+  window.open = function (u, t) { opened.push([u, t]); };
+  location.assign = function (u) { assigned.push(u); };
+  H.haOpen({ href: 'https://ha.home.example', top: true });
+  H.haOpen({ href: 'https://ha.home.example', top: false });
+  ok('the row opens it in the top window (a framed page) or this one', opened.length === 1 && opened[0][1] === '_top' &&
+     assigned.length === 1 && assigned[0] === 'https://ha.home.example', JSON.stringify([opened, assigned]));
+  window.open = wo; location.assign = la;
+  SH.haNav = was.nav; SH.sidebarData = was.side;
+})();
+
 print('\n=== categories: the chips\' pages, or the ones chosen ===');
 var chip = function (path, extra) {
   return Object.assign({ type: 'custom:hk-status-chip-card', tap_action: { action: 'navigate', navigation_path: path } }, extra || {});

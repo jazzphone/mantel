@@ -517,7 +517,8 @@ def test_panel_get_is_on_the_allowlist_as_a_server_only_read():
     assert READ_ALLOWED["hk_frontend/panel/get"] == frozenset()
     assert SERVER_ONLY_READS == {"hk_frontend/panel/get", "hk_notify/settings/get", "hk_clean_areas/settings/get",
                                  "hk_energy/settings/get", "hk_energy/sources", "hk_tv/settings/get",
-                                 "hk_music/settings/get", "hk_alarm_pin/settings/get"} and "hk_frontend/panel/get" in RULES
+                                 "hk_music/settings/get", "hk_alarm_pin/settings/get",
+                                 "media_source/resolve_media"} and "hk_frontend/panel/get" in RULES
     readproxy.check_read({"type": "hk_frontend/panel/get"})
     with pytest.raises(ReadBlocked):
         readproxy.check_read({"type": "hk_frontend/panel/get", "entry_id": "x"})

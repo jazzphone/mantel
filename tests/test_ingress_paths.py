@@ -23,7 +23,7 @@ ASSET_LEFT = re.compile(r"""(["'`(])/(hk|web|static/mdi)/""")
 URL_ROOT = re.compile(r"""(["'`(])(?!""" + re.escape(PREFIX) + r""")/(api|hk|web|static|ws|auth|login|logout|dev|"""
                       r"""local|hacsfiles|frontend|hk-settings|dashboard)\b""")
 MANTEL_OWN = {"home.js", "shim/settings-page.js", "shim/mantel-settings.js", "shim/base.js", "shim/hub.js", "shim/mantel-client.js", "shim/mantel-host.js",
-              "shim/mantel-shell.js", "shim/ha-elements.js",
+              "shim/mantel-shell.js", "shim/ha-elements.js", "shim/mantel-photos.js",
               "app/push.js"}   # Web Push (slice 10.0): its calls go through the settings page's api(); never under Ingress
 # file -> (a fragment of the line, why it is not a URL Mantel's page fetches from Mantel)
 NOT_MANTEL_URLS = [

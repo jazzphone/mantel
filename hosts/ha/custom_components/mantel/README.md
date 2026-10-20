@@ -16,7 +16,7 @@ Home Assistant. **Mantel Link** is everything Home Assistant needs of it, and no
   automation-snooze actions, and the same actions under their **HK Frontend names** (`hk_frontend.*`), so existing
   automations and scripts keep working.
 - **Mantel's screens in Home Assistant's sidebar**, with Home Assistant's header and sidebar hidden as each screen
-  says, and a way back from Mantel's menu.
+  says, a way back from Mantel's menu, and your Home Assistant sidebar in the screen's menu and tab bar.
 - **Notifications on your phone** through the Home Assistant Companion app, with Dismiss.
 
 Mantel Link replaces **HK Frontend**. Moving from it keeps every entity id and its history:

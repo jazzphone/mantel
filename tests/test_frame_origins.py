@@ -100,3 +100,33 @@ async def test_the_operators_none_still_wins(mantel):
     assert (await m.client.post(API, json={"origin": HA_HOME}, headers=m.headers())).status == 200
     m.app["cfg"].frame_ancestors = ("'none'",)
     assert HA_HOME not in frames_of(await m.get("/login"))
+
+
+async def test_a_person_gets_home_assistants_address_for_the_open_home_assistant_row(mantel):
+    """GET /api/me `ha_address` (the dashboard's one Home Assistant row, opened at Mantel's own address): HA's
+    external URL, else its internal one, else Mantel's own address for HA; a wall tablet gets none (Avery,
+    2026-10-19: nothing to get stuck in)."""
+    from mantel_server.frame_origins import ha_address
+    m = mantel
+    await owner(m)
+    fallback = ha_address(m.app)
+    assert fallback == origin_of(m.app["cfg"].ha_url)
+    assert (await (await m.get("/api/me")).json())["ha_address"] == fallback
+    m.app["frame_origins"].learn({"internal_url": HA_HOME + "/", "external_url": None})
+    assert ha_address(m.app) == HA_HOME
+    m.app["frame_origins"].learn({"internal_url": HA_HOME, "external_url": "https://ha.away.example/"})
+    assert (await (await m.get("/api/me")).json())["ha_address"] == "https://ha.away.example"
+    r = await m.post("/api/devices/enroll", {"name": "Hall tablet", "room": "hall"})
+    assert r.status == 201
+    me = await (await m.get("/api/me")).json()
+    assert me["ha_address"] is None, "a wall tablet has no Home Assistant row"
+
+
+def test_the_apps_supervisor_address_is_never_a_browsers(tmp_path):
+    from types import SimpleNamespace
+    from mantel_server.frame_origins import FrameOrigins, ha_address
+    app = {"cfg": SimpleNamespace(ha_url="http://supervisor/core", ha_browser_url="", ha_managed_by_app=True)}
+    app["frame_origins"] = FrameOrigins(app)
+    assert ha_address(app) is None
+    app["cfg"].ha_browser_url = "https://ha.home.example/"
+    assert ha_address(app) == "https://ha.home.example"

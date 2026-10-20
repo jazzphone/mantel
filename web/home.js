@@ -50,6 +50,7 @@ const [registry, user, fixtures, cards, , services] = await Promise.all([
 ]);
 window.hkMantelShell.setServices(services);
 window.hkMantelShell.setRole(user.role);
+window.hkMantelShell.setHaAddress(user.ha_address);
 mark('inputs');
 
 const [config, themes] = await Promise.all([

@@ -106,3 +106,99 @@ def test_a_mantel_screen_hides_ha_s_chrome_as_it_says(tmp_path):
 def test_an_admin_keeps_them_when_the_screen_says_so(tmp_path):
     got = run(tmp_path, True)
     assert got["adminsFalse"] == NONE and got["both"] == ALL
+
+
+# The screen's Home Assistant section (HK's menu inside HA): Mantel Link says this person's sidebar to the frame that
+# spoke, at its own address only; opens one of HA's own pages (a panel this person has), HA's notification drawer,
+# and HA's sidebar over the page (HK's Show Menu), lifting the screen's hiding only while that is open.
+NAV = r"""
+const listeners = {};
+class El {
+  constructor(name, kids, shadow) { this.localName = name; this.children = kids || []; this.attrs = {}; this.fired = [];
+    this.shadowRoot = shadow ? { children: shadow, styles: [], appendChild(s) { this.styles.push(s); } } : null;
+    if (this.shadowRoot) this.shadowRoot.querySelector = (q) => (q === 'style#mantel-kiosk' ? (this.shadowRoot.styles[0] || null) : find(shadow, q)); }
+  hasAttribute(a) { return a in this.attrs; } setAttribute(a, v) { this.attrs[a] = v; } removeAttribute(a) { delete this.attrs[a]; }
+  getAttribute(a) { return this.attrs[a] === undefined ? null : this.attrs[a]; }
+  querySelector(q) { return find(this.children, q); }
+  dispatchEvent(e) { this.fired.push(e.type); }
+  getBoundingClientRect() { return { width: this.width || 0 }; }
+}
+function find(list, q) { for (const k of list) { if (k.localName === q) return k; const d = find(k.children || [], q); if (d) return d; } return null; }
+const mantelWin = { posted: [], postMessage(m, o) { this.posted.push([m, o]); } };
+const frame = new El('iframe'); frame.contentWindow = mantelWin; frame.attrs.src = 'https://mantel.example.com/dashboard-hall/home';
+const huiRoot = new El('hui-root', [], [new El('hui-iframe-card', [], [frame])]);
+const panel = new El('ha-panel-lovelace', [], [huiRoot]);
+const drawer = new El('ha-drawer', [], [new El('div')]); drawer.type = '';
+const sidebar = new El('ha-sidebar'); sidebar.width = 256;
+const main = new El('home-assistant-main', [], [drawer, sidebar, new El('partial-panel-resolver', [panel])]);
+const ha = new El('home-assistant', [], [main]);
+const asked = [];
+ha.hass = { user: { is_admin: false },
+  panels: { lovelace: { title: null }, map: { title: 'map', icon: 'mdi:map' }, config: { title: 'config', icon: 'mdi:cog', require_admin: true },
+            profile: { title: null }, 'dashboard-hall': { title: 'Hall', icon: 'mdi:home' } },
+  localize: (k) => ({ 'panel.map': 'Map', 'panel.config': 'Settings' }[k] || ''),
+  connection: { sendMessagePromise: async (m) => { asked.push(m.type);
+    return m.type === 'frontend/get_user_data' ? { value: { panelOrder: ['dashboard-hall'], hiddenPanels: ['map'] } }
+                                               : { origins: ['https://mantel.example.com'] }; } } };
+globalThis.window = globalThis;
+globalThis.document = { querySelector: (q) => (q === 'home-assistant' ? ha : null), createElement: (t) => ({ localName: t, id: '' }) };
+globalThis.location = { pathname: '/mantel-hall', href: 'https://ha.example.com/mantel-hall' };
+const pushed = [];
+globalThis.history = { pushState: (s, t, u) => { pushed.push(u); location.pathname = u; } };
+globalThis.CustomEvent = class { constructor(t, o) { this.type = t; this.detail = o && o.detail; } };
+globalThis.addEventListener = (t, fn) => { (listeners[t] = listeners[t] || []).push(fn); };
+globalThis.dispatchEvent = (e) => { (listeners[e.type] || []).forEach((f) => f(e)); };
+globalThis.setInterval = () => 0; globalThis.clearInterval = () => {};
+globalThis.requestAnimationFrame = (f) => f();
+globalThis.getComputedStyle = () => ({ display: 'flex' });
+await import(process.argv[2]);
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+await wait(20);
+const send = (data, origin, source) => (listeners.message || []).forEach((f) => f({ data, origin, source }));
+const out = {};
+mantelWin.posted.length = 0;
+send({ source: 'mantel', type: 'mantel/kiosk', header: true, sidebar: true, admins: true }, 'https://mantel.example.com', mantelWin);
+await wait(120);
+out.told = mantelWin.posted.filter(([m]) => m.type === 'mantel-link/sidebar');
+out.asked = asked.slice();
+for (const p of ['/config/dashboard', '/profile/general', '/nowhere', '//evil.example.com/x', 'https://evil.example.com/', '/map?x=1', '/../config'])
+  send({ source: 'mantel', type: 'mantel/navigate', path: p }, 'https://mantel.example.com', mantelWin);
+send({ source: 'mantel', type: 'mantel/navigate', path: '/map' }, 'https://evil.example.com', mantelWin);
+out.pushed = pushed.splice(0);
+location.pathname = '/mantel-hall';
+send({ source: 'mantel', type: 'mantel/kiosk', header: true, sidebar: true, admins: true }, 'https://mantel.example.com', mantelWin);
+send({ source: 'mantel', type: 'mantel/notifications' }, 'https://mantel.example.com', mantelWin);
+out.drawerEvents = main.fired.slice();
+out.hiddenBefore = 'mantel-kiosk-sidebar' in main.attrs;
+send({ source: 'mantel', type: 'mantel/menu' }, 'https://mantel.example.com', mantelWin);
+out.menu = { open: drawer.open, type: drawer.type, expand: sidebar.alwaysExpand, hidden: 'mantel-kiosk-sidebar' in main.attrs,
+             header: 'mantel-kiosk-header' in huiRoot.attrs };
+dispatchEvent(new CustomEvent('location-changed'));      // a page chosen in HA's sidebar: all as it was
+await wait(350);
+out.after = { open: drawer.open, type: drawer.type, expand: sidebar.alwaysExpand, lifted: window.__mantelLink._.lift() };
+process.stdout.write(JSON.stringify(out));
+"""
+
+
+def test_the_screen_s_home_assistant_section(tmp_path):
+    if shutil.which("node") is None:
+        pytest.skip("node not installed")
+    (tmp_path / "n.mjs").write_text(NAV)
+    got = subprocess.run(["node", str(tmp_path / "n.mjs"), os.path.join(COMPONENT, "frontend", "mantel-link.js")],
+                         capture_output=True, text=True, timeout=60)
+    assert got.returncode == 0, got.stderr
+    out = json.loads(got.stdout)
+    assert len(out["told"]) == 1
+    msg, origin = out["told"][0]
+    assert origin == "https://mantel.example.com", "said to Mantel's frame at its own address only"
+    assert msg["panels"] == {"map": {"title": "Map", "icon": "mdi:map", "require_admin": False},
+                             "config": {"title": "Settings", "icon": "mdi:cog", "require_admin": True},
+                             "dashboard-hall": {"title": "Hall", "icon": "mdi:home", "require_admin": False}}
+    assert msg["admin"] is False and msg["shown"] is False, "HA's sidebar is hidden around this screen"
+    assert msg["prefs"] == {"panelOrder": ["dashboard-hall"], "hiddenPanels": ["map"]}
+    assert "frontend/get_user_data" in out["asked"]
+    assert out["pushed"] == ["/config/dashboard", "/profile/general"], "only a plain path to a panel this person has"
+    assert out["drawerEvents"] == ["hass-show-notifications"]
+    assert out["hiddenBefore"] is True
+    assert out["menu"] == {"open": True, "type": "modal", "expand": True, "hidden": False, "header": True}
+    assert out["after"] == {"open": False, "type": "", "expand": False, "lifted": None}

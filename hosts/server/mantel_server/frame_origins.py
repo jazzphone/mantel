@@ -63,6 +63,7 @@ class FrameOrigins:
     def __init__(self, app: web.Application) -> None:
         self.app = app
         self.ha: tuple[str, ...] = ()
+        self.ha_by_kind: dict[str, str] = {}          # {"internal_url": origin, "external_url": origin}
 
     # -- the three sources ------------------------------------------------------------------------------
     def operator(self) -> tuple[str, ...]:
@@ -81,7 +82,8 @@ class FrameOrigins:
         """HA's own addresses from its ``get_config`` (internal_url, external_url)."""
         if not isinstance(ha_config, dict):
             return
-        found = tuple(dict.fromkeys(o for o in (origin_of(ha_config.get(k)) for k in ("internal_url", "external_url")) if o))
+        self.ha_by_kind = {k: o for k in ("internal_url", "external_url") if (o := origin_of(ha_config.get(k)))}
+        found = tuple(dict.fromkeys(self.ha_by_kind.values()))
         if found != self.ha:
             self.ha = found
             log.info("Home Assistant's own addresses may show Mantel: %s", ", ".join(found) or "none set in HA")
@@ -107,6 +109,23 @@ class FrameOrigins:
         from .settings_store import actor_of
         self.app["settings"].store.write([("house", DOC, {"origins": list(origins)})], actor=actor_of(ident),
                                          message="frame origins")
+
+
+def ha_address(app: web.Application) -> str | None:
+    """Home Assistant's address for a browser (the dashboard's "Open Home Assistant" row, opened at Mantel's own
+    address): HA's external URL, else its internal one (HA → Settings → System → Network), else the address the
+    operator gave for browsers (the App's ``ha_browser_url``), else Mantel's own address for HA where a browser can
+    use it (never the App's ``http://supervisor/core``). None when there is none."""
+    fo = app.get("frame_origins")
+    known = fo.ha_by_kind if fo is not None else {}
+    if known.get("external_url") or known.get("internal_url"):
+        return known.get("external_url") or known.get("internal_url")
+    cfg = app.get("cfg")
+    for raw in (getattr(cfg, "ha_browser_url", ""), "" if getattr(cfg, "ha_managed_by_app", False) else getattr(cfg, "ha_url", "")):
+        o = origin_of(raw)
+        if o and urlsplit(o).hostname != "supervisor":
+            return o
+    return None
 
 
 def of(app: web.Application) -> FrameOrigins | None:

@@ -58,8 +58,10 @@ def run(tmp_path, data):
     if shutil.which("node") is None:
         pytest.skip("node not installed")
     (tmp_path / "base.mjs").write_text((WEB / "shim/base.js").read_text(encoding="utf-8"))
+    (tmp_path / "mantel-photos.mjs").write_text((WEB / "shim/mantel-photos.js").read_text(encoding="utf-8"))
     (tmp_path / "m.mjs").write_text((WEB / "shim/mantel-settings.js").read_text(encoding="utf-8")
-                                    .replace("from './base.js'", "from './base.mjs'"))
+                                    .replace("from './base.js'", "from './base.mjs'")
+                                    .replace("from './mantel-photos.js'", "from './mantel-photos.mjs'"))
     (tmp_path / "s.mjs").write_text(SCRIPT)
     (tmp_path / "reads.json").write_text(json.dumps({"/api/linked/owners": data}))
     got = subprocess.run(["node", str(tmp_path / "s.mjs"), str(tmp_path / "m.mjs"), str(tmp_path / "reads.json"),
@@ -129,8 +131,10 @@ def person(tmp_path, phones):
              "/api/default-screens": {"users": {}, "devices": {}, "screens": [], "house": "dashboard-kitchen"},
              "/api/phones": phones}
     (tmp_path / "base.mjs").write_text((WEB / "shim/base.js").read_text(encoding="utf-8"))
+    (tmp_path / "mantel-photos.mjs").write_text((WEB / "shim/mantel-photos.js").read_text(encoding="utf-8"))
     (tmp_path / "m.mjs").write_text((WEB / "shim/mantel-settings.js").read_text(encoding="utf-8")
-                                    .replace("from './base.js'", "from './base.mjs'"))
+                                    .replace("from './base.js'", "from './base.mjs'")
+                                    .replace("from './mantel-photos.js'", "from './mantel-photos.mjs'"))
     (tmp_path / "s.mjs").write_text(PERSON_SCRIPT)
     (tmp_path / "reads.json").write_text(json.dumps(reads))
     got = subprocess.run(["node", str(tmp_path / "s.mjs"), str(tmp_path / "m.mjs"), str(tmp_path / "reads.json"),

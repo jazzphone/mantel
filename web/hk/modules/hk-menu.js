@@ -399,8 +399,44 @@
     return SH && SH.sidebarData ? SH.sidebarData() : null;
   }
 
+  // WHAT THE HOME ASSISTANT SECTION IS HERE (hkShell.haNav): Home Assistant's
+  // sidebar where the host is Home Assistant or shows the page inside it
+  // ('own'); one row opening Home Assistant where it is elsewhere ({ link });
+  // nothing where there is no Home Assistant to open (null). A row that
+  // could do nothing is never listed.
+  function haNav() {
+    var SH = window.hkShell;
+    if (!SH || !SH.haNav) return 'own';
+    var n = SH.haNav();
+    if (n === 'own') return n;
+    return n && typeof n.link === 'string' && /^https?:\/\//.test(n.link) ? { link: n.link, top: !!n.top } : null;
+  }
+  // The section's rows, by haNav: `prefs` is this user's sidebar order and
+  // hidden pages (the host's own when its sidebar data carries them)
+  function haList(prefs, o) {
+    var nav = haNav();
+    if (!nav) return [];
+    if (nav !== 'own') return [{ title: 'Open Home Assistant', icon: 'mdi:open-in-new', kind: 'halink', href: nav.link, top: nav.top, paths: [] }];
+    var side = sidebarSource();
+    return haItems(side, (side && side.prefs) || prefs, o);
+  }
+  // the one row's way out: this window, or the top one (a page framed by someone else)
+  function haOpen(it) {
+    if (!it || !it.href) return;
+    if (it.top) { try { window.open(it.href, '_top'); } catch (e) { /* refused */ } return; }
+    location.assign(it.href);
+  }
+  // what the section looks like, for the lists' keys: a change redraws them
+  function haKey() {
+    var nav = haNav(), side = nav === 'own' ? sidebarSource() : null;
+    return nav === 'own' ? 'own:' + (side && side.panels ? Object.keys(side.panels).join(',') : '') +
+                           ':' + JSON.stringify((side && side.prefs) || null) + ':' + !!(side && side.shown)
+                         : nav ? 'link:' + nav.link + ':' + nav.top : 'none';
+  }
+
   window.hkMenu = { version: '1.1.0', _: { model: model, isHere: isHere, glyph: glyph, chipPaths: chipPaths, pagePaths: pagePaths,
                                            haItems: haItems, hostItems: hostItems, sidebarSource: sidebarSource,
+                                           haNav: haNav, haList: haList, haOpen: haOpen, haKey: haKey,
                                            tabCentre: tabCentre, kinds: { ORDER: KIND_ORDER, PAGES: KIND_PAGES } } };
 
   whenBase(function (C) {
@@ -1114,7 +1150,7 @@
               // the Home Assistant section: More folded or not, this user's
               // sidebar order, and the panels there are
               !!S.shut.ha_more, JSON.stringify(S.haPrefs || null), !!(h && h.user && h.user.is_admin),
-              side && side.panels ? Object.keys(side.panels).join(',') : '',
+              side && side.panels ? Object.keys(side.panels).join(',') : '', haKey(),
               hostItems().map(function (x) { return x.title + x.href; }).join(','),
               cfg ? (cfg.views || []).length : 0,
               JSON.stringify(h && h.areas ? Object.keys(h.areas).map(function (k) {
@@ -1162,8 +1198,7 @@
       var ha = '';
       if (m.ha) {
         haUpdates(h, true);
-        ha = section('ha', 'Home Assistant', haItems(sidebarSource(), S.haPrefs, { moreOpen: !!S.shut.ha_more,
-                                                                     sidebarShown: haSidebarShown() }));
+        ha = section('ha', 'Home Assistant', haList(S.haPrefs, { moreOpen: !!S.shut.ha_more, sidebarShown: haSidebarShown() }));
       }
       var place = b.ha_place || 'rooms';
       if (place === 'top') html += ha;
@@ -1309,7 +1344,9 @@
       if (!r || !S.items) return;
       var it = S.items[+r.getAttribute('data-i')];
       if (!it) return;
-      if (it.kind === 'ha') { close(true); openHaSidebar(); return; }
+      if (it.kind === 'ha') { close(true); if (!SH.openHaMenu()) openHaSidebar(); return; }
+      // Home Assistant elsewhere: its address
+      if (it.kind === 'halink') { close(true); haOpen(it); return; }
       if (it.kind === 'more') {
         S.shut.ha_more = !S.shut.ha_more;
         try { localStorage.setItem('hk-menu-shut', JSON.stringify(S.shut)); } catch (x) { /* private */ }
@@ -1335,7 +1372,7 @@
         try { sessionStorage.setItem(ESCAPE_KEY, '1'); } catch (x) { /* private mode */ }
         HA.used = true;
         close(true);
-        SH.navigate(it.path);
+        SH.haNavigate(it.path);
         return;
       }
       // The selection moves at once, so the tap is answered before the page is.
@@ -1371,6 +1408,9 @@
     // mode, a wide window): Show Menu would open what is there.
     function haSidebarShown() {
       if (HA.active) return false;
+      // a host that shows the page inside Home Assistant says (its sidebar data)
+      var side = sidebarSource();
+      if (side && typeof side.shown === 'boolean') return side.shown;
       var p = haParts();
       if (!p.sidebar || !p.drawer || p.drawer.type === 'modal') return false;
       try {
@@ -1801,6 +1841,8 @@
     document.addEventListener('visibilitychange', function () { if (document.hidden && S.open) close(true); });
     window.addEventListener('resize', function () { sync(); });
     window.addEventListener('hk-module-ready', function () { S.built = ''; sync(); });
+    // the host's Home Assistant rows changed (hkShell.haNav: it learned where the page is)
+    window.addEventListener('hk-ha-nav-changed', function () { S.built = ''; sync(); });
     // the Now Playing pane coming, going or changing sides (hk-popup.js)
     window.addEventListener('hk-pane', function () { sync(); });
     window.addEventListener('hk-menu-date', function () { place(); });
