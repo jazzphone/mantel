@@ -102,7 +102,7 @@ and an album. Mantel, with its own HA connection:
 2. resolves each picture with `media_source/resolve_media` (a server-only read; a page can never ask it);
 3. reads it from **HA Core directly** with HA's own short-lived signature (`?authSig=…`), never with Mantel's
    token. Under the HA App, Mantel's `ha_url` is the Supervisor's proxy, which only passes `/api/…`, so the
-   picture is read from `ha_oauth_url` (`http://homeassistant:8123`); elsewhere from `ha_url`;
+   picture is read from HA Core's own address (`media_photos.core_url`, as main's screensaver fix: `ha_oauth_url`, else `http://homeassistant:8123` under the App); elsewhere from `ha_url`;
 4. adds it like an upload (same checks, same limits; a duplicate by hash is skipped).
 
 One import at a time, in the background; the page shows its progress and can stop it; the last result stays

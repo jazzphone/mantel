@@ -381,6 +381,13 @@ async def test_an_import_says_when_home_assistant_is_not_connected(mantel):
     assert r.status == 503 and body["error"] == "ha_unavailable"
 
 
+def test_under_the_app_pictures_are_read_from_ha_core_not_the_supervisor():
+    from types import SimpleNamespace
+    from mantel_server.connectors.media_photos import core_url
+    assert core_url(SimpleNamespace(ha_url="http://supervisor/core", ha_oauth_url="")) == "http://homeassistant:8123"
+    assert core_url(SimpleNamespace(ha_url="http://ha.example:8123", ha_oauth_url="")) == "http://ha.example:8123"
+
+
 def test_a_resolved_address_must_be_a_media_path():
     assert photos.signed_media_path("/media/local/a%20b.jpg?authSig=x") == "/media/local/a%20b.jpg?authSig=x"
     for bad in ("http://evil/media/local/a.jpg", "//evil/media/a.jpg", "/api/states", "/media/../api/x",

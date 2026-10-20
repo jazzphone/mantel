@@ -555,10 +555,10 @@ class Importer:
         path = signed_media_path(res.get("url") if isinstance(res, dict) else None)
         if path is None or not isinstance(mime, str) or not mime.lower().startswith("image/"):
             raise PhotoError("not_a_photo", "Home Assistant didn’t give a picture for it.")
-        cfg = self.app["cfg"]
-        # HA Core itself: under the App, ha_url is the Supervisor's proxy, which only passes /api/…; HA's signature
-        # in the query is the credential (no token is sent)
-        base = (getattr(cfg, "ha_oauth_url", "") or cfg.ha_url).rstrip("/")
+        # HA Core itself (media_photos.core_url: under the App, ha_url is the Supervisor's proxy, which only passes
+        # /api/…); HA's signature in the query is the credential (no token is sent)
+        from .connectors.media_photos import core_url
+        base = core_url(self.app["cfg"])
         http = self.app.get("http")
         if http is None:
             raise PhotoError("ha_unavailable", "Mantel isn’t connected to Home Assistant.", 503)
