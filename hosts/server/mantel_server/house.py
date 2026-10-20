@@ -110,7 +110,8 @@ class MantelHouse:
     # -- the registries' indexes, rebuilt only when a registry was reloaded (its list replaced) -----
     def _index(self) -> None:
         reg = self._registry
-        key = (id(reg.device_entries), id(reg.entity_entries), id(reg.floor_entries))
+        # every load counts (Registry.loads): the lists' ids alone can repeat once a replaced list is freed
+        key = (getattr(reg, "loads", None), id(reg.device_entries), id(reg.entity_entries), id(reg.floor_entries))
         if key == self._index_key:
             return
         self._devices = {d["id"]: d for d in reg.device_entries if isinstance(d, Mapping) and d.get("id")}
