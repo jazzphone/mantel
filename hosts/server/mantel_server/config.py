@@ -127,6 +127,11 @@ class Config:
     # http://supervisor/core): the browser goes to `ha_browser_url`; Mantel's own calls go to `ha_oauth_url`
     ha_browser_url: str = ""
     ha_oauth_url: str = ""
+    # Cloudflare Access in front of the tunnel (cf_access.py): with a team (its domain, myteam.cloudflareaccess.com)
+    # and the Access application's AUD tag(s), every tunnel-door request must carry a valid Access assertion.
+    # Both empty (the default): not checked, as before. Neither is a secret (Cloudflare puts both in every token).
+    cf_access_team: str = ""
+    cf_access_aud: tuple[str, ...] = ()
 
     @property
     def tls_dir(self) -> Path:
@@ -290,6 +295,12 @@ def parse_args(argv: list[str] | None = None) -> Config:
     p.add_argument("--ha-oauth-url", default="", metavar="URL",
                    help="'Sign in with Home Assistant': where Mantel itself exchanges the code (HA App: "
                         "http://homeassistant:8123). Default: --ha-url")
+    p.add_argument("--cf-access-team", default="", metavar="TEAM",
+                   help="Cloudflare Access in front of the tunnel: your Zero Trust team name (myteam, or "
+                        "myteam.cloudflareaccess.com). With --cf-access-aud, every tunnel-door request must carry a "
+                        "valid Cf-Access-Jwt-Assertion; off when absent")
+    p.add_argument("--cf-access-aud", action="append", default=[], metavar="TAG",
+                   help="the Access application's AUD tag (repeatable, or a comma list), for --cf-access-team")
     a = p.parse_args(argv)
     g2 = urlparse(a.go2rtc_url) if a.go2rtc_url else None
     if g2 is not None and (g2.scheme not in ("http", "https") or not g2.hostname or g2.path not in ("", "/")
@@ -328,6 +339,17 @@ def parse_args(argv: list[str] | None = None) -> Config:
         if u is not None and (u.scheme not in ("http", "https") or not u.hostname or u.query or u.username
                               or u.password or (flag != "--acme-directory" and u.path not in ("", "/"))):
             p.error(f"{flag} must be an http(s):// address" + (" with no path" if flag != "--acme-directory" else ""))
+    from . import cf_access
+    cf_team, cf_auds = "", ()
+    try:
+        cf_auds = cf_access.parse_auds(a.cf_access_aud)
+        if a.cf_access_team.strip():
+            cf_team = cf_access.normalize_team(a.cf_access_team)
+    except ValueError as exc:
+        p.error(f"--cf-access-team / --cf-access-aud: {exc}")
+    if bool(cf_team) != bool(cf_auds):
+        p.error("--cf-access-team and --cf-access-aud go together (the team's keys sign, the AUD tag says for which "
+                "Access application)")
     peers, core_peers = [], []
     for raw in a.ingress_peer:
         try:
@@ -409,7 +431,8 @@ def parse_args(argv: list[str] | None = None) -> Config:
                  direct_hosts=_direct_hosts(a) if a.direct_port else (), lan_networks=tuple(lan_networks),
                  acme_directory=a.acme_directory, acme_email=a.acme_email.strip(),
                  acme_dns_token_file=Path(a.acme_dns_token_file) if a.acme_dns_token_file else None,
-                 ha_browser_url=a.ha_browser_url.rstrip("/"), ha_oauth_url=a.ha_oauth_url.rstrip("/"))
+                 ha_browser_url=a.ha_browser_url.rstrip("/"), ha_oauth_url=a.ha_oauth_url.rstrip("/"),
+                 cf_access_team=cf_team, cf_access_aud=cf_auds)
     assert cfg.host in LOOPBACK or cfg.public_url, "Mantel listens beyond loopback only in container mode"
     return cfg
 

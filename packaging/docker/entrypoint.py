@@ -55,6 +55,8 @@ Home Assistant App (add-on)      recognised by SUPERVISOR_TOKEN in the environme
                                  Assistant" there; Mantel's own side of it goes to http://homeassistant:8123.
                                  Its origin, and those in ha_frame_origins, may frame the direct address (a
                                  "Webpage" dashboard in HA's sidebar; --frame-ancestors).
+                                 cf_access_team and cf_access_aud: Cloudflare Access in front of a tunnel to
+                                 the direct port (Mantel then checks Access's assertion on the tunnel door).
                                  Mantel Link's discovery: the App announces Mantel to the Supervisor
                                  (--supervisor-url http://supervisor; config.yaml discovery + hassio_api).
     Test-only overrides (never set by the Supervisor; for running App mode against a scratch HA):
@@ -83,6 +85,11 @@ connection saved on Mantel Settings -> Connections when there is one, as the ser
     MANTEL_FRAME_ANCESTORS optional   origins (besides Mantel itself) that may frame Mantel's pages
     MANTEL_CONNECT_SRC, MANTEL_FRAME_SRC   optional   extra CSP origins for HK's pages
     MANTEL_PROXY_KIND      compose    caddy | own (bring your own proxy): tunes /proxy-check's advice
+    MANTEL_CF_ACCESS_TEAM, MANTEL_CF_ACCESS_AUD   optional   Cloudflare Access in front of the tunnel: the Zero
+                                      Trust team name (myteam) and the Access application's AUD tag(s), comma
+                                      list. Set both and every tunnel-door request must carry a valid Access
+                                      assertion (mantel_server/cf_access.py); the HA App's options
+                                      cf_access_team / cf_access_aud do the same there. Neither is a secret.
 """
 from __future__ import annotations
 
@@ -197,6 +204,8 @@ def container_args(env: dict[str, str]) -> list[str]:
     if env.get("MANTEL_SESSION_HOURS"):
         args += ["--session-hours", env["MANTEL_SESSION_HOURS"]]
     args += connect_args(env)
+    args += cf_access_args(env.get("MANTEL_CF_ACCESS_TEAM", ""), env.get("MANTEL_CF_ACCESS_AUD", ""),
+                           "MANTEL_CF_ACCESS_TEAM", "MANTEL_CF_ACCESS_AUD")
     if env.get("MANTEL_ANNOUNCE", "1").strip().lower() not in ("0", "no", "false", "off"):
         args += ["--announce-file", f"{env.get('MANTEL_DATA_DIR', '/data')}/announce.json"]
     return args
@@ -222,6 +231,22 @@ def media_and_header_args(env: dict[str, str]) -> list[str]:
         if kind not in ("caddy", "own"):
             raise ConfigError(f"MANTEL_PROXY_KIND must be caddy or own, not {kind!r}")
         args += ["--proxy-kind", kind]
+    return args
+
+
+def cf_access_args(team: str, aud: str, team_name: str, aud_name: str) -> list[str]:
+    """Cloudflare Access verification (mantel_server/cf_access.py): --cf-access-team and one --cf-access-aud per
+    tag, or nothing when both are empty. One without the other is refused here, with the setting's own name (the
+    server checks the values themselves)."""
+    team, tags = str(team or "").strip(), _list(str(aud or ""))
+    if not team and not tags:
+        return []
+    if not team or not tags:
+        raise ConfigError(f"{team_name} and {aud_name} go together: the Zero Trust team name and the Access "
+                          "application's AUD tag (Cloudflare Zero Trust -> Access -> Applications -> the app)")
+    args = ["--cf-access-team", team]
+    for tag in tags:
+        args += ["--cf-access-aud", tag]
     return args
 
 
@@ -298,6 +323,10 @@ def app_args(options: dict, token_file: Path, env: dict[str, str] | None = None)
     ma_file = Path(env.get("MANTEL_APP_MA_TOKEN_FILE") or APP_MA_TOKEN_FILE)
     if ma_url and str(options.get("ma_token") or "").strip():
         args += ["--ma-url", ma_url, "--ma-token-file", str(ma_file)]
+    # Cloudflare Access in front of a tunnel to the direct port (a cloudflared App, or your proxy's tunnel):
+    # the sidebar (Ingress, the 'ha' door) is never asked for it; with access ingress nothing else reaches Mantel
+    args += cf_access_args(options.get("cf_access_team"), options.get("cf_access_aud"), "cf_access_team",
+                           "cf_access_aud")
     return args
 
 

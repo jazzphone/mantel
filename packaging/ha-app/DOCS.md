@@ -23,6 +23,7 @@ sidebar: Home Assistant signs you in, and Mantel shows you what your Mantel role
 | `default_screen` | empty | The HK dashboard the sidebar opens (its address, e.g. `dashboard-kitchen`). Empty: the first one. |
 | `access` | `ingress` | How else Mantel can be reached: `ingress` (the sidebar only), `proxy` (your own reverse proxy) or `https` (Mantel's built-in HTTPS). See **Direct access** below. |
 | `public_url`, `trusted_proxies`, `ha_sign_in_url`, `ha_frame_origins`, `cloudflare_token`, `acme_email`, `acme_staging` | empty | Direct access only (below). |
+| `cf_access_team`, `cf_access_aud` | empty | Cloudflare Access in front of a tunnel to the direct port (below). Both set: Mantel refuses every request through the tunnel without a valid Access token. |
 | `ha_door_rules` | `trusted` | `trusted`: being signed in to Home Assistant is enough, as HK in Home Assistant always was. Each person's Mantel role decides what they may do, and everything is audited. `lan`: the home network's rules. `tunnel`: Mantel's remote-access rules (each role's remote switches). On every setting only the alarm asks for a code, the house Alarm PIN. |
 
 ## Who can open it
@@ -157,10 +158,32 @@ rules, anything else the remote rules, and Home Assistant's internal network (`1
 other Apps, Home Assistant itself and anything Docker relays come from) never counts as home. So tablets
 must reach this machine **directly** on your LAN; one that goes out to the router and back in (hairpin
 NAT, a port forward) arrives with the wrong address and gets the remote rules or nothing. Never forward
-this port from the internet; for remote use keep Home Assistant's sidebar or the Companion app.
+this port from the internet; for remote use see the next section, or Home Assistant's sidebar or the Companion app.
 
 The certificate's key and the Let's Encrypt account key are kept in the App's data (`/data/tls`, readable
 only by Mantel, not encrypted) and so are inside Home Assistant's backups: protect those backups.
+
+### From away: a Cloudflare Tunnel, and Cloudflare Access (optional)
+
+The recommended way to reach Mantel's own address from away is a Cloudflare Tunnel (for example the
+cloudflared App, or a tunnel into your proxy as above): nothing on your router is opened, and everything
+through it gets Mantel's remote rules. Opening a port on your router instead works, at your own risk
+(Mantel's sign-in page is then open to the whole internet; never forward the `https` port, see above).
+
+Cloudflare Access in front of the tunnel is optional and recommended: Cloudflare asks for its own sign-in
+before anything reaches Mantel. To have Mantel check Access's signed token too:
+
+1. In Cloudflare Zero Trust, **Access** → **Applications**, add a **Self-hosted** application for Mantel's name.
+2. `cf_access_team`: your team name, from Zero Trust → **Settings** → **Team name and domain**
+   (`myteam` of `myteam.cloudflareaccess.com`).
+3. `cf_access_aud`: the application's **Application Audience (AUD) Tag**, from its overview under
+   **Access** → **Applications** (several separated by commas).
+4. **Restart** the App. Its log says `Cloudflare Access: every tunnel-door request must carry a valid assertion`.
+
+Then a request on the remote door without a valid token gets `403` (`access_required` / `access_invalid`).
+The sidebar and requests from home are not affected. Every path must go through Access (a *Bypass* rule
+does not work while Mantel checks the token). Mantel reads your team's public keys from Cloudflare; if it
+cannot, remote requests are refused until it can.
 
 ### A screen in Home Assistant's sidebar (a Webpage dashboard)
 

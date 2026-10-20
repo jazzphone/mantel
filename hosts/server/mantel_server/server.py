@@ -35,7 +35,7 @@ from . import (admin_page, atrest, backup, connections, features, linked, linked
                linked_actions, login_page, phones, supervisor_discovery,
                photos, service_accounts, talk_relay, user_files)
 from . import default_screens, direct, direct_tls, docs_pages, ha_dashboards, ma_page, media_proxy, proxy_check, proxy_trust, security_headers, tablet_links, user_data
-from . import app_shell
+from . import app_shell, cf_access
 from .authz import Authz, Principal, resolve_door
 from .config import Config
 from .connectors import REFUSE_ALL, Ctx, Hooks
@@ -461,9 +461,11 @@ async def api_hk_cards(request: web.Request) -> web.Response:
 def build_app(cfg: Config, token: str, store: Store | None = None, connect_ha: bool = True,
               clock=time.time) -> web.Application:
     # proxy_trust first after Connect's peer check: forwarding, door and identity headers from anyone who
-    # may not send them are gone before any other code reads a header
+    # may not send them are gone before any other code reads a header. cf_access (inert unless the installation
+    # names a Cloudflare Access team) after Ingress, which marks HA Core's linked-mode exception, and before any
+    # session handling: a tunnel-door request without a valid Access assertion never reaches a cookie
     app = web.Application(middlewares=[connect_pairing.middleware, proxy_trust.middleware, loopback_only,
-                                       ingress.middleware, auth.require_session])
+                                       ingress.middleware, cf_access.middleware, auth.require_session])
     security_headers.register(app)    # Mantel's own CSP/HSTS/nosniff/..., behind any proxy or none
     hub = Hub(cfg)
     app["store"] = store or Store(cfg.data_dir / "mantel.db")
@@ -490,6 +492,7 @@ def build_app(cfg: Config, token: str, store: Store | None = None, connect_ha: b
     hub.ha = HaClient(cfg.ha_url, token, hub.store, hub.registry, hub.on_change, hub.on_registry,
                       ws_url=cfg.ha_ws_url or None)
     app["cfg"] = cfg
+    cf_access.register(app)          # Cloudflare Access's assertion on the tunnel door (--cf-access-team/-aud)
     manifest = cfg.web / "shared-assets.json"
     app["shared_assets"] = json.loads(manifest.read_text()) if manifest.is_file() else {}
     app["hub"] = hub
