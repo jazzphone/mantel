@@ -21,6 +21,7 @@ import shutil
 import signal
 import subprocess
 import sys
+import tempfile
 import time
 import urllib.error
 import urllib.request
@@ -30,9 +31,7 @@ import aiohttp
 
 ROOT = Path(__file__).resolve().parents[2]
 REPO = Path(os.environ.get("TESTHA_REPO", ROOT))     # the tree to build HK from (default: this checkout)
-SCRATCH = Path(os.environ.get(
-    "TESTHA_DIR",
-    "/private/tmp/claude-501/-Volumes-data-mantel/97f5b33d-8378-4f3a-82f6-9938003f5053/scratchpad/testha"))
+SCRATCH = Path(os.environ.get("TESTHA_DIR", Path(tempfile.gettempdir()) / "mantel-testha"))   # throwaway, outside the repo
 VENV = Path(os.environ.get("TESTHA_VENV", SCRATCH / "venv"))
 PORT = 8124
 BASE = f"http://127.0.0.1:{PORT}"

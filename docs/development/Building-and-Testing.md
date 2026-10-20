@@ -140,8 +140,8 @@ python3.14 -m venv ~/testha-venv
 ~/testha-venv/bin/pip install homeassistant
 ```
 
-Then point the scripts at a scratch folder and that venv. **Always set `TESTHA_DIR`**: its built-in default is a
-path on the original author's machine.
+Then point the scripts at that venv. `TESTHA_DIR` (the scratch folder) defaults to `mantel-testha` in your system's
+temporary folder; set it to keep the scratch Home Assistant somewhere else.
 
 ```bash
 export TESTHA_DIR=$HOME/testha-scratch TESTHA_VENV=$HOME/testha-venv

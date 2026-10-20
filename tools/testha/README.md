@@ -51,7 +51,7 @@ may reload. Results: `<scratch>/shots-restart/restart.json`.
 | Variable | Default | Meaning |
 |---|---|---|
 | `TESTHA_VENV` | `<TESTHA_DIR>/venv` | venv with `hass` and the HA frontend (`bin/hass`) |
-| `TESTHA_DIR` | the session scratchpad's `testha/` | holds `config/`, `build/`, `shots/`, `hass.log`, `hass.pid`, `testha.json` |
+| `TESTHA_DIR` | `mantel-testha` in the system's temporary folder | holds `config/`, `build/`, `shots/`, `hass.log`, `hass.pid`, `testha.json` |
 
 The venv needs HA's `demo` and `camera` requirements: `av`, `numpy`, `PyTurboJPEG` (HA
 installs them itself at first start; if the first start fails on numpy, install them with
