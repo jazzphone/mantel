@@ -39,10 +39,16 @@
   var PARTS = ['rain', 'wind', 'hours', 'days'];
 
   var CSS = [
-    '.wx{position:absolute;inset:0;z-index:3;opacity:0;visibility:hidden;pointer-events:none;overflow:hidden;background:#0b1830;',
+    // ONE LAYER FOR GOOD, hidden by its opacity alone (2026-10-19), as Home
+    // Energy's (.en): with visibility:hidden after each fade out the layer
+    // and its whole sky (70 layers at 1920 x 1200, headless) were dropped
+    // once it had gone and made again as it came back -- on a wall tablet's
+    // WebView each is a re-raster of what sits above: the flicker in and out.
+    // Its sky is held still meanwhile (leave), so nothing in it repaints.
+    '.wx{position:absolute;inset:0;z-index:3;opacity:0;pointer-events:none;overflow:hidden;background:#0b1830;will-change:opacity;',
     '  font-family:' + FONT + ';color:#fff;text-shadow:0 1px 10px rgba(0,0,0,.28);',
-    '  transition:opacity var(--hk-wx-fade,3000ms) ease,visibility 0s linear var(--hk-wx-fade,3000ms)}',
-    '.wx.on{opacity:1;visibility:visible;transition:opacity var(--hk-wx-fade,3000ms) ease,visibility 0s}',
+    '  transition:opacity var(--hk-wx-fade,3000ms) ease}',
+    '.wx.on{opacity:1}',
     '.wx .wxsky{position:absolute;inset:0}',
     // where the text is, the sky darkened a little -- never a box behind it
     '.wx .wxwash{position:absolute;inset:0;background:linear-gradient(90deg,rgba(4,10,24,.42),rgba(4,10,24,.18) 55%,rgba(4,10,24,.24)),',
@@ -85,7 +91,11 @@
     '.wx .wxin .st{display:grid;grid-column:1/-1;grid-template-columns:12px auto minmax(24px,1fr) auto;column-gap:12px;align-items:center}',
     '.wx .wxin .st i{width:12px;height:12px;border-radius:50%}',
     '.wx .wxin .st .k{font-size:15px;font-weight:600;letter-spacing:.4px;text-transform:uppercase;opacity:.8}',
-    '.wx .wxin .st .ln{grid-column:3;height:2px;border-radius:1px;margin:0 8px;min-width:24px;transform-origin:left center}',
+    // (drawn out by its background's width, painted, not by a transform:
+    // the compositor's scaleX made the line a layer only while it drew,
+    // and the readings beside it with it -- made and dropped at every
+    // turn, 2026-10-19)
+    '.wx .wxin .st .ln{grid-column:3;height:2px;border-radius:1px;margin:0 8px;min-width:24px;background-repeat:no-repeat}',
     '.wx .wxin .st .v{grid-column:4;grid-row:1;font-size:40px;font-weight:700;letter-spacing:-1px;line-height:1;white-space:nowrap;font-variant-numeric:tabular-nums}',
     '.wx .wxin .st .v u{text-decoration:none;font-size:20px;font-weight:600;margin-left:6px;opacity:.8;letter-spacing:0}',
     '.wx .wxin .st .of{grid-column:1/-1;grid-row:2;text-align:right;font-size:15px;opacity:.72;margin-top:5px;white-space:nowrap}',
@@ -451,12 +461,18 @@
       freshness();
       if (v.t == null) return false;
       drawnAt = Date.now();
-      var key = JSON.stringify(v);
-      if (key === sig && !fresh) return true;
-      sig = key;
-      if (v.night) el.setAttribute('night', ''); else el.removeAttribute('night');
       // the symbol holds still with the sky's Animations off
       var HSk = window.hkSettings, moves = !(HSk && HSk.skyLook && HSk.skyLook().animations === false);
+      // (Configure -> Weather's place label, as the forecast band shows it)
+      var place = window.hkSettings && window.hkSettings.get ? window.hkSettings.get('weather.place', null) : null;
+      // WHAT IS ALREADY DRAWN STAYS (2026-10-19): drawn again at every turn,
+      // the symbol and the number were new elements, their layers made and
+      // dropped as the screen came in. Only the lines and the bar go back
+      // to nothing, to draw as it arrives.
+      var key = JSON.stringify([v, moves, place]);
+      if (key === sig) { if (fresh) hold(true); return true; }
+      sig = key;
+      if (v.night) el.setAttribute('night', ''); else el.removeAttribute('night');
       if (moves) el.removeAttribute('still'); else el.setAttribute('still', '');
       var span = v.hi != null && v.lo != null ? Math.max(1, v.hi - v.lo) : 0;
       var glowy = /^(sunny|clear-night|partlycloudy)$/.test(v.cond);
@@ -464,11 +480,9 @@
         '<div class="bd">' + glyph(v.cond, '1em', v.night, true) + '</div><div class="tp">' + Math.round(v.t) + '°</div>' +
         '<div class="hl">' + esc(condName(v.cond)) + (span ? ' · H ' + Math.round(v.hi) + '° L ' + Math.round(v.lo) + '°' : '') + '</div>' +
         (span ? '<div class="bar"><i></i><b style="left:' + (100 * (v.t - v.lo) / span).toFixed(2) + '%"></b></div>' : '') + '</div></div>';
-      // (Configure -> Weather's place label, as the forecast band shows it)
-      var place = window.hkSettings && window.hkSettings.get ? window.hkSettings.get('weather.place', null) : null;
       var stats = v.stats.map(function (s) {
         return '<div class="st"><i style="background:' + COL[s[0]] + '"></i><span class="k">' + esc(s[1]) + '</span>' +
-          '<span class="ln" style="background:linear-gradient(90deg,' + COL[s[0]] + ',' + COL[s[0]] + '40)"></span>' +
+          '<span class="ln" style="background-image:linear-gradient(90deg,' + COL[s[0]] + ',' + COL[s[0]] + '40)"></span>' +
           '<span class="v">' + s[2] + '</span><span class="of">' + s[3] + '</span></div>';
       }).join('');
       inn.querySelector('.wxbody').innerHTML = hero + '<div class="read"><div class="eye">' + (place ? esc(place) : 'Weather') + '</div>' +
@@ -532,7 +546,7 @@
     // BEFORE IT HAS ARRIVED: the lines and the bar's dot at nothing (Reduce Motion: finished)
     function hold(on) {
       if (reduced()) return;
-      inn.querySelectorAll('.st .ln').forEach(function (l) { if (on) l.style.transform = 'scaleX(0)'; else l.style.removeProperty('transform'); });
+      inn.querySelectorAll('.st .ln').forEach(function (l) { if (on) l.style.backgroundSize = '0% 100%'; else l.style.removeProperty('background-size'); });
       inn.querySelectorAll('.bar b').forEach(function (b) { if (on) b.style.opacity = '0'; else b.style.removeProperty('opacity'); });
     }
     function arrived() {
@@ -542,7 +556,7 @@
       var D = window.hkCards && window.hkCards.DUR, Ez = window.hkCards && window.hkCards.EASE;
       var dur = (D && parseFloat(D.ring) * 1000) || 850, ease = (Ez && Ez.build) || 'cubic-bezier(.22,.8,.25,1)';
       inn.querySelectorAll('.st .ln').forEach(function (l) {
-        if (l.animate) l.animate([{ transform: 'scaleX(0)' }, { transform: 'scaleX(1)' }], { duration: dur, easing: ease, fill: 'backwards' });
+        if (l.animate) l.animate([{ backgroundSize: '0% 100%' }, { backgroundSize: '100% 100%' }], { duration: dur, easing: ease, fill: 'backwards' });
       });
       inn.querySelectorAll('.bar b').forEach(function (b) {
         if (b.animate) b.animate([{ left: '0px', opacity: 0 }, { left: b.style.left, opacity: 1 }], { duration: dur, easing: ease, fill: 'backwards' });
@@ -608,12 +622,17 @@
       var meta = banner.querySelector('.ar');
       if (meta) banner.style.setProperty('--alert-meta-width', (meta.getBoundingClientRect().width / z + 8).toFixed(1) + 'px');
     }
+    // ITS SKY is set to the weather as soon as it is built, held still and
+    // unseen (2026-10-19): first set as the screen came in, it let go of
+    // what the weather has no use for (its rain, snow, fog, glow, stars) in
+    // the seconds after -- layers dropped during and after the first turn
     function sky(run) {
+      var built = false;
       if (!scene && window.hkSky && window.hkSky.scene) {
-        try { scene = window.hkSky.scene(el.querySelector('.wxsky'), { skyOnly: true }); } catch (e) { scene = null; }
+        try { scene = window.hkSky.scene(el.querySelector('.wxsky'), { skyOnly: true }); built = true; } catch (e) { scene = null; }
       }
       if (!scene) return;
-      if (run && client) { try { scene.update(client); } catch (e) { /* the next update */ } }
+      if ((run || built) && client) { try { scene.update(client); } catch (e) { /* the next update */ } }
       try { scene.pause(!run); } catch (e) { /* gone */ }
     }
     return {
@@ -625,6 +644,10 @@
         if (!w || num((w.attributes || {}).temperature) == null) return false;
         forecast('hourly'); forecast('daily');
         sky(false);
+        // ...and its words and symbol drawn once, unseen: drawn first as it
+        // came in, their layers (the moving symbol's) were made then
+        // (2026-10-19). Kept up to date only while it shows.
+        if (!sig && !showing) paint(false);
         return true;
       },
       draw: function (h) {
@@ -633,7 +656,6 @@
         sky(true);
         tick();
         if (!clockT) clockT = setInterval(function () { if (alive && showing) tick(); }, 10000);
-        sig = '';
         return paint(true);
       },
       arrived: arrived,

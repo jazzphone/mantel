@@ -1250,6 +1250,13 @@ def register(app: web.Application, hub: Any, hooks: Any = None, *, store: Settin
 
     async def panel_get(ctx: Ctx, msg: dict):
         payload = await service.panel_get(ctx.identity, msg)
+        # a paired tablet's Reload and Clear Cache (tablet_links.panel_parts): HK Settings' Wall Tablets buttons,
+        # pressed through Mantel's host and the command gateway (HA works these out from the tablet's entities)
+        from . import tablet_links
+        parts = tablet_links.panel_parts(app)
+        if parts:
+            payload = {**payload, "tablets": {k: {**t, "parts": {**(t.get("parts") or {}), **parts.get(k, {})}}
+                                              for k, t in (payload.get("tablets") or {}).items()}}
         # Hidden Accessories (HA: hiding.snapshot in panel.py), worked out from Mantel's own states and
         # registries (hidden.py, installed by readproxy.register) and cut down to what the person may view
         hiding, reads = app.get("hiding"), app.get("filtered_reads")

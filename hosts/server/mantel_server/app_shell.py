@@ -7,7 +7,7 @@ Slice 10.0, the web app on the Home Screen:
   Mantel on an iPhone or iPad, full screen with its own icon.
 * ``/sw.js``: the service worker, for Web Push only (no fetch handler: requests go to the network as before).
   Served at the root so its scope is the whole site.
-* ``/app/icons/<name>`` and ``/apple-touch-icon.png``: the icon (tools/make_app_icons.py, original artwork).
+* ``/app/art/<name>`` (not ``icons``: the HA Samba add-on refuses a folder by that name, so the App could not be staged) and ``/apple-touch-icon.png``: the icon (tools/make_app_icons.py, original artwork).
 * push.py: Web Push (the VAPID key a secret file), the targets' REST, and the Notifier's feed tap.
 
 These few files are open without a session: a browser fetches a manifest and its icons without cookies, and
@@ -51,15 +51,15 @@ async def icon(request: web.Request) -> web.StreamResponse:
     name = request.match_info.get("name") or "apple-touch-icon.png"
     if name not in ICONS:
         raise web.HTTPNotFound()
-    return web.FileResponse(_file(request, "icons", name), headers=ICON_CACHE)
+    return web.FileResponse(_file(request, "art", name), headers=ICON_CACHE)
 
 
 def register(app: web.Application, hub=None) -> None:
     app.router.add_get(MANIFEST, manifest)
     app.router.add_get(WORKER, worker)
     app.router.add_get(TOUCH_ICON, icon)
-    app.router.add_get("/app/icons/{name}", icon)
-    app.setdefault("public_paths", set()).update({MANIFEST, WORKER, TOUCH_ICON, *(f"/app/icons/{n}" for n in ICONS)})
+    app.router.add_get("/app/art/{name}", icon)
+    app.setdefault("public_paths", set()).update({MANIFEST, WORKER, TOUCH_ICON, *(f"/app/art/{n}" for n in ICONS)})
     push.register(app, hub)
     app_auth.register(app, hub)     # 10.2: app sign-in (PKCE, device-bound tokens), pairing, the web view's session
     app_api.register(app, hub)      # 10.3: the REST door, the summary, favorites

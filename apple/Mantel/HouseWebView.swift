@@ -18,6 +18,12 @@ struct HouseWebView: UIViewRepresentable {
 
     private static var stores: [String: WKWebsiteDataStore] = [:]
 
+    /// Clear Cache: the next web view for this house starts with empty website data (and a new web session).
+    static func forgetData(for house: House) {
+        stores[house.id]?.removeData(ofTypes: WKWebsiteDataStore.allWebsiteDataTypes(), modifiedSince: .distantPast) {}
+        stores[house.id] = nil
+    }
+
     func makeCoordinator() -> Coordinator { Coordinator(self) }
 
     func makeUIView(context: Context) -> WKWebView {

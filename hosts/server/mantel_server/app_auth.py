@@ -376,7 +376,9 @@ def _page(title: str, body: str, status: int = 200) -> web.Response:
            f"<h1>{html.escape(title)}</h1>{body}</html>")
     return web.Response(text=doc, status=status, content_type="text/html",
                         headers={"Cache-Control": "no-store", "Content-Security-Policy": PAGE_CSP,
-                                 "Referrer-Policy": "no-referrer", "X-Frame-Options": "DENY"})
+                                 "Referrer-Policy": "same-origin", "X-Frame-Options": "DENY"})
+# same-origin, never no-referrer: under no-referrer a browser sends `Origin: null` with the page's own Allow form, and
+# Mantel's Origin check (server.loopback_only) refuses it as "bad Origin" (Avery, 2026-10-20, adding a house by hand)
 
 
 def _back_to_app(state: str | None, **query: str) -> web.StreamResponse:

@@ -170,7 +170,7 @@ signing in a sensitive action needs no second prompt.
 | `id`, `timestamp` | |
 | `actor`, `actor_name`, `role` | the user (id, name, role at the time); `mantel` for the server's own notifications; NULL for a device alone |
 | `device`, `device_role` | the wall tablet, if any |
-| `kind` | `service`, `ws`, `http`, `ma`, `config` (RBAC REST changes), `system` |
+| `kind` | `service`, `ws`, `http`, `ma`, `config` (RBAC REST changes), `system`, `tablet` (a wall tablet's Reload or Clear Cache sent to its kiosk app directly: docs/phase8/KIOSK.md section 12; migration 0019) |
 | `action`, `target` | `lock.unlock` / a WS type / `POST /api/x` / an MA command; JSON list of entity ids or `feature:<name>` |
 | `decision`, `reason`, `sensitive` | `allowed` / `denied` (`step_up` only on rows from before decision 25); the engine's or gateway's reason; the sensitive kind |
 | `door`, `source_ip` | `lan` / `tunnel`; the client IP (X-Forwarded-For only from trusted proxies) |

@@ -26,8 +26,8 @@ self.addEventListener('push', (event) => {
     tag: typeof data.tag === 'string' && data.tag ? data.tag : undefined,
     renotify: !!data.tag,
     requireInteraction: !!data.important,
-    icon: '/app/icons/mantel-192.png',
-    badge: '/app/icons/badge-96.png',
+    icon: '/app/art/mantel-192.png',
+    badge: '/app/art/badge-96.png',
     data: { url: sameOrigin(data.url) },
   };
   event.waitUntil(self.registration.showNotification(title, options));

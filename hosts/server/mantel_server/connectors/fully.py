@@ -1,4 +1,4 @@
-"""Fully Kiosk Browser, through its own REST API (docs/phase8/KIOSK.md; PROTOTYPE, not wired into server.py).
+"""Fully Kiosk Browser, through its own REST API (docs/phase8/KIOSK.md; wired in by tablet_links.py).
 
 Today HK reaches a Fully tablet through HA's ``fully_kiosk`` integration (its ``switch.*_screen``,
 ``number.*_screen_brightness``, ``switch.*_screensaver``, ``fully_kiosk.load_url``). Fully's Remote Admin
@@ -18,7 +18,7 @@ HA's integration uses, ``python-fullykiosk``, sends it):
 SAFETY, each pinned by tests/test_fully.py against a fake Fully (tests/fully_fakes.py):
 
 * **A closed list of commands** (COMMANDS): the screen, its brightness, the screensaver, loading a page,
-  coming to the front. Nothing else can be sent: no ``injectJavascript``, no ``setStringSetting`` with
+  coming to the front, clearing the browser's cache. Nothing else can be sent: no ``injectJavascript``, no ``setStringSetting`` with
   another key, no ``startApplication``, no camera or screenshot, no reboot. An unknown verb or a bad value
   is refused before anything leaves Mantel.
 * **The password is only ever used.** Fully takes it in the query string (plain HTTP on the home network,
@@ -66,6 +66,7 @@ COMMANDS: dict[str, tuple[str, dict[str, str]]] = {
     "load_url": ("loadUrl", {}),                                           # + url, Mantel's own
     "load_start_url": ("loadStartUrl", {}),
     "to_front": ("toForeground", {}),
+    "clear_cache": ("clearCache", {}),                                    # the browser's cache (Clear Cache & Reload)
 }
 # deviceInfo key -> the name Mantel reports it under (everything else Fully says is dropped)
 INFO = {"deviceID": "id", "deviceName": "name", "deviceModel": "model", "appVersionName": "version",

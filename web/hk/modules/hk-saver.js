@@ -847,7 +847,9 @@
     ':host([wxslide]) .info > hk-screensaver-now-card,:host([wxslide]) .info > hk-timer-strip-card{opacity:0}',
     // ...and the corner clock and weather: Home Energy tells the time itself,
     // smaller, so its rings keep their size (the user, 2026-10-14)
-    '.info > hk-clock-card{transition:opacity ' + CROSSFADE_MS + 'ms ease}',
+    // ...on a layer of its own for good, as the weather line's and what
+    // plays: the fade alone made it one only while fading (2026-10-19)
+    '.info > hk-clock-card{transition:opacity ' + CROSSFADE_MS + 'ms ease;will-change:opacity}',
     ':host([enslide]) .info > hk-clock-card,:host([enslide]) .info > hk-weather-strip-card,',
     ':host([wxslide]) .info > hk-clock-card,:host([wxslide]) .info > hk-weather-strip-card{opacity:0}',
     // ...and the corner clock tells the time in its place (Show: Clock or a
@@ -2269,8 +2271,12 @@
     if (!cfg || !cfg.energy_slide) return;
     energyModule().then(function (X) { return X ? X.ready().then(function () { return X; }) : null; }).then(function (X) {
       if (!X || run !== enRun || !on || !root || !cfg || !cfg.energy_slide) return;
-      if (!enCtl) enCtl = X.create({ hide: cfg.energy_hide, h24: cfg.clock_24 });
-      else enCtl.setHide(cfg.energy_hide);
+      // in its place at the start, as the weather's: put in at its first
+      // turn, its layer was made as it came in (2026-10-19)
+      if (!enCtl) {
+        enCtl = X.create({ hide: cfg.energy_hide, h24: cfg.clock_24 });
+        root.insertBefore(enCtl.el, root.querySelector('.info'));
+      } else enCtl.setHide(cfg.energy_hide);
       enCtl.ready(clientNow());
       if (!hold) return;
       var tries = 0, show = function () {
@@ -2302,12 +2308,25 @@
     if (!enCtl || !root || !host) return;
     enCtl.layout((window.innerWidth || 0) - (paneUp ? paneW : 0), window.innerHeight || 0);
   }
+  // HOME ENERGY'S OR THE WEATHER'S LAYER, just under the corner cards: only
+  // the other of the two between them (they never show at once). Moved only
+  // when something else is -- a node moved is drawn again, its layers and
+  // the whole sky in it made again (2026-10-19: the weather's moved under
+  // Home Energy's at every other turn, and Home Energy's under the weather's)
+  function underCards(el, info) {
+    if (!info || el.parentNode !== root) return false;
+    for (var n = el.nextSibling; n; n = n.nextSibling) {
+      if (n === info) return true;
+      if (!n.classList || !(n.classList.contains('en') || n.classList.contains('wx'))) return false;
+    }
+    return false;
+  }
   function showEnergySlide(first) {
     if (!on || !root || !host || enShowing || !enCtl) return false;
     var h = clientNow(), info = root.querySelector('.info');
     if (!enCtl.ready(h)) return false;
     // above whatever came after it (a clock mounted again), under the corner cards
-    if (enCtl.el.parentNode !== root || enCtl.el.nextSibling !== info) root.insertBefore(enCtl.el, info);
+    if (!underCards(enCtl.el, info)) root.insertBefore(enCtl.el, info);
     var look = energyLook(), img = look === 'photo' ? curImg() : null;
     if (!enCtl.draw(h, look, img ? function (c) { drawBackdrop(c, img, BACKDROP_SMALL); } : null)) return false;
     enShowing = true; sinceFc = 0; lastSlide = 'energy';
@@ -2376,6 +2395,8 @@
         wxCtl = X.create({ hide: cfg.weather_hide, h24: cfg.clock_24 });
         root.insertBefore(wxCtl.el, root.querySelector('.info'));
       } else wxCtl.setHide(cfg.weather_hide);
+      // (its room known before it is first drawn, unseen: ready)
+      weatherLayout();
       wxCtl.ready(clientNow());
       if (!hold) return;
       var tries = 0, show = function () {
@@ -2395,7 +2416,7 @@
     if (!on || !root || !host || wxShowing || !wxCtl) return false;
     var h = clientNow(), info = root.querySelector('.info');
     if (!wxCtl.ready(h)) return false;
-    if (wxCtl.el.parentNode !== root || wxCtl.el.nextSibling !== info) root.insertBefore(wxCtl.el, info);
+    if (!underCards(wxCtl.el, info)) root.insertBefore(wxCtl.el, info);
     weatherLayout();
     if (!wxCtl.draw(h)) { wxCtl.leave(); return false; }
     wxShowing = true; sinceFc = 0; lastSlide = 'weather';

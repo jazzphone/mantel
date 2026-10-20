@@ -34,6 +34,14 @@ def test_the_plan_holds_the_app_and_its_code(pairs):
     assert "app/help/Mantel.md" in dests and "app/help/hk/Sleep-Screen.md" in dests
 
 
+def test_no_folder_the_ha_samba_add_on_refuses(pairs):
+    # HA's Samba add-on (the share the App is staged into) refuses to create a folder named "icons", any case:
+    # web/app/icons made 0.1.29's staging fail until it became web/app/art (2026-10-19)
+    folders = {part.lower() for _, d in pairs for part in d.split("/")[:-1]}
+    assert "icons" not in folders
+    assert "app/web/app/art/mantel-192.png" in {d for _, d in pairs}
+
+
 def test_the_real_plan_scans_clean(pairs):
     assert stage.scan(pairs) == []
 

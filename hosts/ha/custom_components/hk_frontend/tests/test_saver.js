@@ -1106,7 +1106,8 @@ print('\n=== a host with photos of its own: photoSource and listPhotos ===');
      !ws.some(function (m) { return m.type === 'media_source/browse_media'; }), [asked, ws]);
   ok('...its photos with an address (the one without skipped)', S.stats().photos === 2, S.stats());
   var shownImg = topPhotos()[0] && topPhotos()[0].querySelector('img.fg');
-  ok('...shown from their own address, never resolved', /^host\/p[12]$/.test(S.stats().last || '') && shownImg &&
+  // (stats().last is the photo's title, else its id; the deck is shuffled, so either photo may come first)
+  ok('...shown from their own address, never resolved', /^(One|host\/p2)$/.test(S.stats().last || '') && shownImg &&
      /^\/photos\/p[12]\.jpg$/.test(shownImg.src) && resolved.length === 0, [S.stats().last, shownImg && shownImg.src, resolved]);
   S.stop(); woke();
   SH.photoSource = PS; SH.listPhotos = LP;

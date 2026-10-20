@@ -1355,6 +1355,13 @@ class FeatureHost:
             key = SS.engine_key(self.boards[tid], self.own_ids(tid))
             eng = self.engines.get(tid)
             if eng is not None and getattr(eng, "_key", None) == key:
+                # the kiosk's entities come from HA's registries, which can arrive after the engine was made
+                # (an App start): follow them, or the engine never finds the display to turn off or the
+                # kiosk's Black screensaver (every tablet after 0.1.29's start, 2026-10-19)
+                parts = SE.kiosk_parts(self.house, eng.o.get("kiosk") or "")
+                if parts != eng.kiosk:
+                    log.info("Sleep Screen %s: its kiosk's entities now %s", tid, ", ".join(sorted(parts.values())) or "none")
+                    eng.kiosk = parts
                 continue
             if eng is not None:
                 eng.unload()

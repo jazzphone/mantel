@@ -1,9 +1,10 @@
 # Wall-tablet kiosk apps, direct: Kiosk Satellite and Fully Kiosk (design, 2026-10-19)
 
 **Status: design agreed with Avery (his answers, 2026-10-19, are in section 10). Slice 1 is built** (section 11):
-pairing and status for Kiosk Satellite and Fully, with no commands. It is on branch `kiosk-direct`, tested against
-fake tablets only, not merged and not in an App release. Nothing was sent to a real tablet, and the only thing run
-against the house was the read-only reach check in section 7.
+pairing and status for Kiosk Satellite and Fully; it is on main and in App 0.1.29. **The first commands are built**
+(section 12): Reload and Clear Cache & Reload, from HK Settings' Wall Tablets pages, through the gateway. Tested
+against fake tablets only. Nothing was sent to a real tablet, and the only thing run against the house was the
+read-only reach check in section 7.
 
 The ask: put Kiosk Satellite and Fully Kiosk Browser support into Mantel, added to Connections, so that Mantel
 talks to the tablets itself instead of through Home Assistant.
@@ -382,6 +383,53 @@ No command reached either fake.
 **Not done (slice 2 on):** commands, the live WebSocket from Kiosk Satellite (status is read when a page asks), the
 App-side reach check on the house, and pairing a real tablet. Pairing a real tablet is Avery's to do: type the
 Remote Administration password once on the tablet's page.
+
+## 12. Reload and Clear Cache & Reload (2026-10-19)
+
+Avery: Wall Tablets → All at Once → Reload All and Clear Cache & Reload All were grayed out on Mantel. HK Settings
+enables them for a tablet whose `parts.reload` exists; in Home Assistant those are the kiosk app's ESPHome or
+`fully_kiosk` buttons, found on the tablet's HA device. Mantel's `panel/get` had `parts: {}` for every tablet, so
+nothing was ever enabled.
+
+**What changed**
+- A paired tablet (section 11) now has parts on Mantel: `tablet_links.panel_parts` gives it `reload` and
+  `clear_cache` as `mantel-tablet:<id>:<verb>`, added to `panel/get`'s tablets. So Reload All, Clear Cache &
+  Reload All, and the tablet's own Reload and Clear Cache & Reload (its Actions group) are enabled exactly for the
+  paired tablets. Pairing or disconnecting refreshes the page's data at once.
+- The shared panel gained one host hook, `press(ids, panel)` (documented at the top of `hk-settings.js`): a host's
+  own parts go to the host; anything else is still HA's `button.press`. Home Assistant has no host, so nothing
+  changes there. A failed press now says so in an alert with OK alone (`K.confirm` with `cancel: false`), on
+  either host, instead of failing silently.
+- Mantel's host sends each part to `POST /api/connections/tablets/<id>/command {verb}`, which hands it to the
+  command gateway as the person asking. The gateway has a new kind, `tablet` (`gateway.TABLET_VERBS`: `reload`,
+  `clear_cache`, nothing else): RBAC `configure` on `settings` (Owner and Admin by default; Adults, Children,
+  Guests and wall tablets are refused), `commands_enabled` required, the audit row first (kind `tablet`, action
+  `tablet.<verb>`, target `tablet:<id>`, migration `0019_tablet_audit.sql` rebuilding `action_audit` as 0008 did),
+  then the call, then its result once. With commands off the route answers `commands_disabled` and nothing is sent
+  or recorded; an unpaired tablet is refused (`tablet_not_paired`, audited).
+- What each app is sent: Kiosk Satellite `reload` and `clearWebCache` (`POST /api/commands/<name>`; `clearWebCache`
+  is what its ESPHome `button.*_clear_cache` presses: it drops the HTTP cache, Cache Storage and the service worker,
+  keeps localStorage and cookies, and reloads). Fully `loadStartUrl` and `clearCache` (HK's own Fully parts are
+  Load Start URL and Clear Browser Cache). `kiosk_satellite.COMMANDS` is the client's closed list;
+  `clearWebCache` joined `WANTED`, so pairing says when an app version lacks it.
+- The Audit Log's Kind filter has Wall Tablets.
+
+**Passwords.** Mantel already keeps each tablet's secret from slice 1 (the tablet's page → Direct Connection →
+Pair): Kiosk Satellite's ten-year token, made from the Remote Administration password, which is used once and
+kept nowhere; Fully's Remote Admin password, sealed. **Nothing to carry over from HK:** HK Frontend in Home
+Assistant never stored a kiosk API password. It drives the tablets through HA's ESPHome and `fully_kiosk`
+entities, and those integrations keep their own credentials in HA's config entries, which HK never reads. So the
+settings import has nothing to bring, and each tablet is paired once on Mantel.
+
+**Not done:** Restart App and Restart Tablet stay HA-only (they are not in the verb list; the tablet's page draws
+them only when HA's parts exist, which on Mantel they do not). Sleep Screen still drives the tablets through HA
+(slice 3). The App-side reach check and pairing the real tablets are Avery's.
+
+**Tests:** `tests/test_tablet_links.py` (through the gateway against both fakes: each verb's exact app command, the
+audit rows, roles, commands off, unpaired, a bad verb, a refused token, `panel/get`'s parts, no secret anywhere),
+`tests/test_kiosk_satellite.py` and `tests/test_fully.py` (the closed lists), `tests/test_mantel_settings.py`
+(the host's `press`), `hosts/ha/.../tests/test_settingshost.js` (the panel's `press` hook with and without a host,
+and the alert).
 
 ## Prototype: `connectors/fully.py`
 

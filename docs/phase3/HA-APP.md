@@ -909,6 +909,49 @@ HK Frontend (eabb70a): a link without the `X-Mantel-Link` header is protocol 1 a
       reconnected as protocol 1 at 18:48:23, the Loft's switches live (black screen on).
 - [ ] The Loft still sleeps and wakes through the night; the Home Assistant Link page shows HK Frontend linked.
 
+### 0.1.29 (2026-10-19, main `0dd379b`)
+
+Everything on main since 0.1.28 (validation green: JS 130, HA py 732, Mantel 2837, smoke):
+- **The screensavers' photos load again.** HK's screensaver asks `media_source/resolve_media` for each photo; Mantel
+  refused it, so no photo ever showed. Mantel now answers it itself (connectors/media_photos.py): `feature:media`, HA
+  media folders only, images only, with a short-lived `/api/photo/<id>` that it streams from HA Core's own address
+  (`http://homeassistant:8123` in the App) with HA's signature and no credential.
+- **Mantel Photos:** Mantel Settings → Photos (since moved into Your Files → Photos), the screensavers' own library (albums, bulk upload with HEIC and
+  no location, a grid preview, delete, import from an HA media folder; migration 0018). New in the image: Pillow
+  13.0.0 and pillow-heif 1.8.1.
+- **A screen's Home Assistant section by where it is shown:** HA's sidebar inside HA, one "Open Home Assistant"
+  row at Mantel's own address, none on wall tablets.
+- **The wall tablet's room is picked, never typed**; a device's room can be changed without re-enrolling.
+- **Phase 10, server side:** Mantel Settings on iPhone and iPad (safe areas, the iPad breakpoint), Home Screen web
+  app with Web Push, the apps' sign-in (PKCE, device-bound credentials, pairing QR), the REST door, and push
+  through the relay at `mantel-push.jazzphone.workers.dev` (no APNs key on the house; migrations 0016, 0017).
+  Unused until a phone pairs.
+- **Clean Areas and automation snooze** run on Mantel's engines as the person who asked, once Mantel Link holds
+  the bridge; **Mantel's docs at `/docs`**.
+- **Staging fix:** the web app's icons moved from `web/app/icons` to `web/app/art` (`/app/art/<name>`): HA's Samba
+  add-on refuses to create a folder named `icons`, so staging failed (guard: `test_stage_ha_app.py`).
+- [x] On the house (backup `d59597af` first; build `ec45740d508e3193`, 21:17): migrations 0016, 0017, 0018 applied;
+      Mantel Link (protocol 2, the discovery account rotated) and HK Frontend reconnected; no errors; the manifest
+      and icons answer 200. The Living Room's screensaver showed a photo through `/api/photo/<id>` (200, 618 KB,
+      21:18:48), the first since the tablets moved to Mantel.
+- [ ] The five tablets through a night on 0.1.29; Mantel Photos used for real.
+
+### 0.1.30 (2026-10-20)
+
+- **The tablets' displays turn off at night again.** Each tablet's Sleep Screen engine looked up its kiosk's
+  entities (the display, the Black screensaver) once, when made; at 0.1.29's start the engines were made a moment
+  before HA's registries arrived and every tablet kept an empty kiosk. Mantel went dark at Good Night (black,
+  backlight to the target) but never turned the Master Bedroom's display off in quiet hours ("Display Off"), and
+  the kiosk's Black screensaver fallback was gone too. Engines now follow their kiosk when the registries load;
+  the house's registry index rebuilds on every load.
+- **The app's sign-in** ("bad Origin" adding a house by hand): the consent page is same-origin, not no-referrer.
+- **Photos inside Your Files**; **New Album… / Add Photos** in a screen's screensaver photo picker.
+- **Reload / Clear Cache & Reload (and All at Once) work on Mantel**: each tablet's Kiosk Satellite API password is
+  kept by Mantel (at rest encrypted, audited; migration 0019), typed by an Owner.
+- **No flicker on the Energy and Weather screens**: their layers are kept, not made and dropped on each turn.
+- [ ] On the house: every tablet's Sleep Screen names its kiosk again (`sensor.<tablet>_sleep_screen` attribute
+      `kiosk`), the Master Bedroom's display goes off at Good Night.
+
 ### Removal
 
 Stop and uninstall **Mantel** (Settings → Apps → Mantel → Uninstall); this removes its image and `/data`

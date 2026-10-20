@@ -1,9 +1,10 @@
-// mantel-photos.js -- Mantel Settings → Photos: the screensavers' own photo library (photos.py,
+// mantel-photos.js -- Mantel Settings → Your Files → Photos: the screensavers' own photo library (photos.py,
 // docs/phase4/PHOTOS.md), drawn with HK Settings' kit like every Mantel page (iOS Settings, with an iOS
 // Photos grid). Owners and Admins: albums, a grid of thumbnails with a preview, select to delete or move,
 // uploads (many files, or dropped on the page) with each file's progress; an Owner also sets the limits and
-// copies a Home Assistant media folder in. A screen picks an album on its Screensaver Options page, All
-// Screens on its Screensaver page (extend). Only Mantel loads this file (web/shim).
+// copies a Home Assistant media folder in. It lives under Your Files (SECTION; the old #/mantel/photos forwards
+// there). A screen picks an album on its Screensaver Options page, All Screens on its Screensaver page (extend),
+// and either can make a New Album and Add Photos to it right there. Only Mantel loads this file (web/shim).
 //
 // mantel-settings.js hands each call its toolkit `T` (the kit, the REST helper, the page's cache and
 // flash), so this module keeps only the photos' own state: the selection, the uploads, the import's poll.
@@ -89,7 +90,9 @@ function changed() {
   try { window.localStorage.setItem(CHANGED_KEY, String(Date.now())); } catch (e) { /* private mode */ }
 }
 function overview() { return T.load('photos', () => T.api('GET', '/api/photos')); }
-const albumPath = (id) => '#/' + T.ROUTE + '/photos/' + id;
+export const SECTION = 'files/photos';              // under Your Files (mantel-settings.js pFiles)
+const home = () => '#/' + T.ROUTE + '/' + SECTION;
+const albumPath = (id) => home() + '/' + id;
 
 // A NAME, asked in HK Settings' own alert (the kit's .dlg) with a field
 function askName(o) {
@@ -119,7 +122,7 @@ export function page(sub, tools) {
   wireDrop();
   if (ALBUM_ID.test(sub[0] || '')) return albumPage(sub[0]);
   dropAlbum = null;
-  return { title: 'Photos', top: true,
+  return { title: 'Photos', back: ['Your Files', '#/' + T.ROUTE + '/files'],
     scope: 'The screensavers’ own photos. Put them in albums here; each screen shows the album you pick on its Screensaver Options.',
     body(c) {
       T.result(c, 'photos');
@@ -151,12 +154,17 @@ function drawAlbums(c, d) {
     : 'Make an album, then add photos to it.' }, rows));
 }
 
-async function newAlbum() {
+// a new album, named in an alert: the album, or null (cancelled or refused: the page says why)
+async function createAlbum(key) {
   const name = await askName({ title: 'New Album', message: 'A name for it, such as Family or Summer 2026.', ok: 'Create' });
   if (!name) return null;
-  const r = await T.act('photos', () => T.api('POST', '/api/photos/albums', { name }), null, 'photos');
-  if (r && r.album) T.panel().go(albumPath(r.album.id));
-  return r && r.album;
+  const r = await T.act(key || 'photos', () => T.api('POST', '/api/photos/albums', { name }), null, 'photos');
+  return (r && r.album) || null;
+}
+async function newAlbum() {
+  const album = await createAlbum('photos');
+  if (album) T.panel().go(albumPath(album.id));
+  return album;
 }
 
 function drawStorage(c, d) {
@@ -199,7 +207,7 @@ function pollImport() {
   if (importTimer) return;
   importTimer = setTimeout(async () => {
     importTimer = null;
-    if (!String(location.hash).startsWith('#/' + T.ROUTE + '/photos')) return;     // left the page: stop asking
+    if (!String(location.hash).startsWith(home())) return;     // left the page: stop asking
     try { importJob = (await T.api('GET', '/api/photos/import')).importing; } catch (e) { /* asked again below */ }
     if (importJob && !['listing', 'copying'].includes(importJob.state)) { T.forget('photos'); changed(); }
     T.redraw();
@@ -259,7 +267,7 @@ function albumPage(aid) {
   if (selAlbum !== aid) { selected.clear(); selecting = false; selAlbum = aid; }
   const ov = overview();
   const known = ov && ov.data ? ov.data.albums.find((a) => a.id === aid) : null;
-  return { title: known ? known.name : 'Album', back: ['Photos', '#/' + T.ROUTE + '/photos'], body(c) {
+  return { title: known ? known.name : 'Album', back: ['Photos', home()], body(c) {
     T.result(c, 'album');
     const o = overview();
     const got = T.load('album:' + aid, () => T.api('GET', '/api/photos/albums/' + aid + '/photos'));
@@ -297,7 +305,7 @@ function drawActions(c, d, aid, list) {
     if (!(await T.ask({ title: 'Delete “' + album.name + '”?', message: msg, ok: 'Delete Album', destructive: true }))) return;
     if (await T.act('photos', () => T.api('DELETE', '/api/photos/albums/' + aid), 'Album deleted.', 'photos', 'album:' + aid)) {
       changed();
-      T.panel().go('#/' + T.ROUTE + '/photos');
+      T.panel().go(home());
     }
   }, { destructive: true, fk: 'mx:photos-delete-album' }));
   const g = T.group({ footer: 'JPEG, PNG, WebP or HEIC (iPhone photos), up to ' + mb(d.limits.file_mb) + ' each. Choose many at once, or drop them on this page.' }, rows);
@@ -488,7 +496,7 @@ let dropWired = false;
 function wireDrop() {
   if (dropWired || typeof document === 'undefined') return;
   dropWired = true;
-  const onAlbum = () => dropAlbum && String(location.hash).startsWith('#/' + T.ROUTE + '/photos/' + dropAlbum);
+  const onAlbum = () => dropAlbum && String(location.hash).startsWith(albumPath(dropAlbum));
   const zone = () => T && T.panel() && T.panel().shadowRoot && T.panel().shadowRoot.querySelector('.mxdrop');
   const hasFiles = (e) => e.dataTransfer && [...(e.dataTransfer.types || [])].includes('Files');
   document.addEventListener('dragover', (e) => {
@@ -577,8 +585,19 @@ function paintViewer() {
 }
 
 // ============================================================================================ on HK's pages
+// Your Files' Photos row (mantel-settings.js pFiles): the library, with how much is in it
+export function filesRow(tools) {
+  T = tools;
+  const got = overview();
+  const d = got && got.data;
+  return T.K().nav({ label: 'Photos', tile: ['mdi:image-multiple', '#ff2d55'],
+    value: d ? plural(d.albums.length, 'album') + ' · ' + plural(d.photos, 'photo') : '', href: home(), fk: 'mx:files-photos' });
+}
+
 // A screen's Screensaver Options ('saver'): which album it shows. All Screens' Screensaver ('house-saver'):
-// an album for every screen, in place of the Home Assistant folder.
+// an album for every screen, in place of the Home Assistant folder. Either picker ends with New Album…, which
+// makes one and picks it; an album picked has Add Photos… right there, its uploads shown below it.
+const NEW = 'new';                    // the pickers' New Album… choice (an album id is 16 hex digits)
 export function extend(where, c, ctx, tools) {
   T = tools;
   wireDrop();
@@ -586,27 +605,63 @@ export function extend(where, c, ctx, tools) {
   const got = overview();
   if (!got || got.err) return;
   const d = got.data;
+  const named = (id) => d.albums.find((a) => a.id === id);
+  const key = where === 'saver' ? 'saver:' + ctx.screen : 'house-saver';
+  // New Album…: made, then picked (pick); a cancelled name draws the picker back as it was
+  const pickNew = async (pick) => {
+    const album = await createAlbum(key);
+    if (!album) { T.redraw(); return; }
+    if (await pick(album.id)) T.setFlash(key, '“' + album.name + '” made and picked. Add photos to it below.');
+    T.forget('photos');
+    changed();
+    T.redraw();
+  };
+  // Add Photos… for the album picked: the same bulk upload as the album's page, its progress below the picker
+  const adder = (aid) => {
+    const a = named(aid);
+    if (!a) return null;
+    const input = fileInput(aid);
+    return { input, button: T.button('Add Photos to ' + a.name + '…', () => input.click(), { fk: 'mx:saver-add' }) };
+  };
   if (where === 'saver') {
     const cur = (d.screens || {})[ctx.screen] || '';
-    const opts = [['', 'Screensaver Photos (All Screens)']].concat(d.albums.map((a) => [a.id, a.name + ' · ' + plural(a.count, 'photo')]));
-    c.appendChild(T.group({ header: 'Photos', footer: d.albums.length
-      ? 'An album from Mantel Photos for this screen, or the photos All Screens → Screensaver names.'
-      : 'Make an album in Mantel Photos to show it on this screen.' }, [
-      K().select({ label: 'Show', fk: 'mx:saver-album', options: opts, value: cur, disabled: !d.albums.length && !cur,
+    const add = adder(cur);
+    const pick = (v) => T.act(key, () => T.api('PUT', '/api/photos/screens/' + encodeURIComponent(ctx.screen), { album: v || null }), null, 'photos');
+    const opts = [['', 'Screensaver Photos (All Screens)']].concat(d.albums.map((a) => [a.id, a.name + ' · ' + plural(a.count, 'photo')]),
+      [[NEW, 'New Album…']]);
+    T.result(c, key);
+    const g = T.group({ header: 'Photos', footer: (d.albums.length
+      ? 'An album from Mantel Photos (Your Files → Photos) for this screen, or the photos All Screens → Screensaver names.'
+      : 'Make an album with New Album…, then add photos to it, to show it on this screen.') +
+      (named(cur) && !named(cur).count ? ' This album has no photos yet: the screen shows All Screens’ photos until it has some.' : '') }, [
+      K().select({ label: 'Show', fk: 'mx:saver-album', options: opts, value: cur,
         onChange: async (v) => {
-          if (await T.act('photos', () => T.api('PUT', '/api/photos/screens/' + encodeURIComponent(ctx.screen), { album: v || null }), null, 'photos')) changed();
+          if (v === NEW) { pickNew(pick); return; }
+          if (await pick(v)) changed();
         } }),
-      T.nav('Mantel Photos', 'photos', { value: plural(d.photos, 'photo') })]));
+      add && add.button,
+      T.nav('Mantel Photos', SECTION, { value: plural(d.photos, 'photo') })].filter(Boolean));
+    if (add) g.appendChild(add.input);
+    c.appendChild(g);
+    if (named(cur)) drawUploads(c, cur);
     return;
   }
   const m = /^mantel-photos:\/\/([0-9a-f]{16})$/.exec(String(ctx.photos || ''));
+  const cur = m ? m[1] : '';
   const opts = [['', 'The Home Assistant Folder (Above)']].concat(d.albums.map((a) => [a.id, a.name]));
-  if (m && !d.albums.some((a) => a.id === m[1])) opts.push([m[1], 'An Album That Was Deleted']);
-  c.appendChild(T.group({ footer: 'An album from Mantel Photos for every screen, in place of a Home Assistant folder. A screen can still pick its own on its Screensaver Options.' }, [
-    K().select({ label: 'Mantel Photos Album', fk: 'mx:house-album', options: opts, value: m ? m[1] : '',
-      onChange: async (v) => { await ctx.set(v ? 'mantel-photos://' + v : 'media-source://media_source/local/photos'); changed(); } })]));
+  if (m && !named(m[1])) opts.push([m[1], 'An Album That Was Deleted']);
+  opts.push([NEW, 'New Album…']);
+  const add = adder(cur);
+  const pickHouse = async (v) => { await ctx.set(v ? 'mantel-photos://' + v : 'media-source://media_source/local/photos'); changed(); return true; };
+  T.result(c, key);
+  const g = T.group({ footer: 'An album from Mantel Photos (Your Files → Photos) for every screen, in place of a Home Assistant folder. A screen can still pick its own on its Screensaver Options.' }, [
+    K().select({ label: 'Mantel Photos Album', fk: 'mx:house-album', options: opts, value: cur,
+      onChange: (v) => (v === NEW ? pickNew(pickHouse) : pickHouse(v)) }),
+    add && add.button].filter(Boolean));
+  if (add) g.appendChild(add.input);
+  c.appendChild(g);
+  if (named(cur)) drawUploads(c, cur);
 }
-
 export function _reset() {
   selecting = false; selected.clear(); selAlbum = null; uploads.length = 0; active = 0; importJob = undefined;
   if (importTimer) clearTimeout(importTimer);

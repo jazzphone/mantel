@@ -24,8 +24,11 @@
      view's parent. */
   /* border-box: the tab bar's room is INSIDE the window's height, so a page that fits does not scroll
      (content-box made every page 100vh + --hk-tabbar-h tall: a 96 px scroll for nothing) */
+  /* clear of the status bar and the Dynamic Island (the iPhone app and a Home Screen web app draw edge to
+     edge): Home Assistant's header, or hk-kiosk.js's --safe-area-inset-top, does this there. Zero on a wall
+     tablet or a desktop browser; a tab bar at the top sets its own padding-top inline (hk-tabbar.js). */
   hk-view-container { display: block; position: relative; isolation: isolate; min-height: 100vh;
-                      box-sizing: border-box; }
+                      box-sizing: border-box; padding-top: env(safe-area-inset-top, 0px); }
 </style>
 </head>
 <body>
