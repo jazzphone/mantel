@@ -961,8 +961,10 @@ Everything on main since 0.1.28 (validation green: JS 130, HA py 732, Mantel 283
 - **The home page clears the status bar and the Dynamic Island** (iPhone app, Home Screen web app); the iOS app's
   menu has Mantel Settings and Clear Cache. Mantel for Mac (menu-bar player, favorites, Play Music) uses the
   existing pages.
-- [ ] On the house: the App starts; `sensor.<tablet>_sleep_screen` names its kiosk on all five within a minute,
-      with no settings save; the Device picker lists the five Kiosk Satellites.
+- [x] On the house (backup `2455d36d` first; build `deb296c6376e4174`, 07:14): Mantel Link and HK Frontend
+      reconnected; all five `sensor.<tablet>_sleep_screen` named their kiosk at 07:14:48–49, at the start, with no
+      settings save.
+- [ ] The Device picker lists the five Kiosk Satellites (Avery, in Mantel Settings); a night with the displays off.
 
 ### Removal
 
