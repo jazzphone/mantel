@@ -936,6 +936,22 @@ Everything on main since 0.1.28 (validation green: JS 130, HA py 732, Mantel 283
       21:18:48), the first since the tablets moved to Mantel.
 - [ ] The five tablets through a night on 0.1.29; Mantel Photos used for real.
 
+### 0.1.30 (2026-10-20)
+
+- **The tablets' displays turn off at night again.** Each tablet's Sleep Screen engine looked up its kiosk's
+  entities (the display, the Black screensaver) once, when made; at 0.1.29's start the engines were made a moment
+  before HA's registries arrived and every tablet kept an empty kiosk. Mantel went dark at Good Night (black,
+  backlight to the target) but never turned the Master Bedroom's display off in quiet hours ("Display Off"), and
+  the kiosk's Black screensaver fallback was gone too. Engines now follow their kiosk when the registries load;
+  the house's registry index rebuilds on every load.
+- **The app's sign-in** ("bad Origin" adding a house by hand): the consent page is same-origin, not no-referrer.
+- **Photos inside Your Files**; **New Album… / Add Photos** in a screen's screensaver photo picker.
+- **Reload / Clear Cache & Reload (and All at Once) work on Mantel**: each tablet's Kiosk Satellite API password is
+  kept by Mantel (at rest encrypted, audited; migration 0019), typed by an Owner.
+- **No flicker on the Energy and Weather screens**: their layers are kept, not made and dropped on each turn.
+- [ ] On the house: every tablet's Sleep Screen names its kiosk again (`sensor.<tablet>_sleep_screen` attribute
+      `kiosk`), the Master Bedroom's display goes off at Good Night.
+
 ### Removal
 
 Stop and uninstall **Mantel** (Settings → Apps → Mantel → Uninstall); this removes its image and `/data`
