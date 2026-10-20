@@ -415,8 +415,8 @@ the screen's setting.
 - **Mantel** (`web/shim/mantel-shell.js`, `web/shim/ha-frame.js`): in a **Webpage dashboard**, Mantel Link's
   `mantel-link/sidebar` (believed only from `window.parent` at its own origin; only plain keys, titles and icons
   kept) makes the section HA's sidebar; a row sends `mantel/navigate` (a plain path), Notifications
-  `mantel/notifications`, Show Menu `mantel/menu`. Until Mantel Link answers, or without it, one row opens HA's page
-  in the top window, and the Mantel → Home Assistant row does the same. Under the App's **Ingress** panel the
+  `mantel/notifications`, Show Menu `mantel/menu`. Until Mantel Link says the sidebar there is no section (see the fix
+  below: first built as a top-window link, which HA's sandbox blocks). Under the App's **Ingress** panel the
   sidebar is read from HA's own page around the frame (same origin, `home-assistant` `.hass`; the user's
   `frontend/get_user_data` sidebar), and a row uses HA's own frame protocol (`home-assistant/navigate`,
   `home-assistant/toggle-menu`, to this origin only); no Mantel → Home Assistant row there (HA's sidebar is there).
@@ -445,6 +445,23 @@ the screen's setting.
   scratch HA has no Supervisor); it is covered in node against HA 2026.9's `ha-panel-app` protocol, read from the
   frontend's own code. Mantel's client still refuses the menu's repairs count (`repairs/list_issues`) inside HA, so
   Settings shows no repairs badge there (notifications' count works).
+
+**Fix (2026-10-20), Avery:** "The Open In Home Assistant button in the side menu when looking at a dashboard in
+Home Assistant does not work... although the Home Assistant button at the bottom, next to Mantel Settings, does work."
+Why: HA frames a Webpage dashboard in a sandbox without top navigation (HA 2026.9's iframe card:
+`allow-forms allow-popups allow-pointer-lock allow-same-origin allow-scripts allow-modals allow-downloads`;
+`allow-top-navigation-by-user-activation` only with the card's `allow_open_top_navigation`, which a Webpage
+dashboard doesn't set), so the frame's `window.open(…, '_top')` did nothing. The house runs Mantel Link 0.1.0, which
+never says the sidebar, so the section was that one dead row; the bottom row works because it asks Mantel Link
+(`mantel/back`). Now, in a Webpage dashboard, the frame never moves HA's window itself: no Home Assistant section
+until Mantel Link (0.1.1 and later) says the sidebar, and the Mantel → Home Assistant row always asks Mantel Link
+(`mantel/back`), never the top window. It does not wait for Mantel Link's hello: 0.1.0 says hello only for three
+seconds after HA's page loads, and a frame that signs in later never hears it (seen on the scratch HA). The App's
+Ingress panel (no sandbox) keeps its fallback. No Mantel Link file changed. Checks: `test_ha_frame.py` (6: before
+Mantel Link answers, no section and the bottom row asks Mantel Link; Mantel Link 0.1.0, no section, the bottom row
+sends `mantel/back`). **Scratch HA with Mantel Link 0.1.0's script** (the house's, from 792de50), a framed screen with
+kiosk on and the Home Assistant Section on, signed in late: the menu shows no Home Assistant section and the
+Mantel → Home Assistant row, which lands on HA's Overview with its header and sidebar back.
 
 ### 9.7 Companion-app notifications: done
 

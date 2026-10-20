@@ -10,8 +10,13 @@
 //   * from HK's Home Assistant section (the screen's Menu -> Home Assistant Section): "open this page of Home
 //     Assistant's" (`mantel/navigate`), its notifications (`mantel/notifications`) and its sidebar (`mantel/menu`).
 // and hears from it, only from the page around this one, the entries of this person's Home Assistant sidebar
-// (`mantel-link/sidebar`), which only decide the rows HK's menu shows. Without Mantel Link (nobody answers) the
-// rows are one link to Home Assistant's page, opened in the top window.
+// (`mantel-link/sidebar`), which only decide the rows HK's menu shows. HA frames a Webpage dashboard in a SANDBOX
+// WITHOUT TOP NAVIGATION (HA 2026.9's iframe card: forms, popups, pointer-lock, same-origin, scripts, modals,
+// downloads), so this page can never move HA's window itself: only Mantel Link can. Until it says the sidebar (or
+// with a Mantel Link that never does: 0.1.0), there is no Home Assistant section; the menu's Mantel -> Home
+// Assistant row asks Mantel Link (`mantel/back`, which every Mantel Link knows). It is not told only after a hello:
+// 0.1.0 says hello for three seconds after HA's page loads, and a frame that signs in later never hears it. A
+// top-window link from here did nothing (the house, 2026-10-20).
 //
 // THE HA APP'S SIDEBAR PANEL (Ingress, base.js): the page around this one is Home Assistant's own, on this very
 // origin. Its sidebar entries are read from that page; a page of Home Assistant's is opened by HA's own frame
@@ -133,24 +138,22 @@ export function menu() {
   if (inIngress) return toHa({ type: 'home-assistant/toggle-menu' });
   return linked ? post({ type: 'mantel/menu' }) : false;
 }
-// Home Assistant's own page, for the one row a framed screen shows when nobody answers
+// Home Assistant's start page, for the one row the App's panel shows when HA's page cannot be read (that frame has no
+// sandbox: the top window may be moved). None in a Webpage dashboard: its sandbox forbids it.
 export function homeUrl() {
-  if (inIngress) return location.origin + '/';
-  const o = parentOrigin();
-  return o && o !== '*' && /^https?:\/\//.test(o) ? o + '/' : '';
+  return inIngress ? location.origin + '/' : '';
 }
+// back to Home Assistant's start page: Mantel Link's to do (nothing here may move HA's window)
 export function back() {
-  if (linked) return post({ type: 'mantel/back' });
-  const u = homeUrl();
-  if (!u) return false;
-  try { window.open(u, '_top'); return true; } catch (e) { return false; }
+  return post({ type: 'mantel/back' });
 }
 
 let started = false;
 export function start() {
   if (!(inHa || inIngress) || started) return false;
   started = true;
-  window.__mantelHaFrame = { kind: inIngress ? 'ingress' : 'dashboard', back, sidebar, navigate, notifications, menu, homeUrl };
+  window.__mantelHaFrame = { kind: inIngress ? 'ingress' : 'dashboard', back, sidebar, navigate, notifications, menu, homeUrl,
+                             linked: () => linked };
   changed();
   if (inIngress) return true;
   tellKiosk();

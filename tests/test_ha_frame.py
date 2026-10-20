@@ -64,14 +64,18 @@ if (mode === 'framed') {
   boards['dashboard-hall'].kiosk = false;
   if (onChange) onChange();
   out.afterChange = posted.splice(0);
-  out.beforeLink = { nav: shown(), menu: impl.openHaMenu(), posted: posted.splice(0) };
-  window.hkMantelShell.hostMenu().find((x) => x.title === 'Home Assistant').run();
-  out.beforeLink.back = opened.splice(0);
+  out.beforeLink = { nav: shown(), menu: impl.openHaMenu(), back: m.back(), hostMenu: window.hkMantelShell.hostMenu().map((x) => x.title),
+                     posted: posted.splice(0), opened: opened.splice(0) };
   send({ type: 'mantel-link/hello' }, 'https://evil.example.com', parent);
   send({ type: 'mantel-link/hello' }, 'https://ha.example.com', {});
   out.strangers = { linked: m._.linked(), posted: posted.splice(0) };
   send({ type: 'mantel-link/hello' }, 'https://ha.example.com', parent);
   out.asked = posted.splice(0).map((p) => p[0].type);
+  // Mantel Link 0.1.0 (the house, 2026-10-20): it says hello and hears mantel/back, but never the sidebar
+  out.oldLink = { nav: shown(), hostMenu: window.hkMantelShell.hostMenu().map((x) => x.title) };
+  window.hkMantelShell.hostMenu().find((x) => x.title === 'Home Assistant').run();
+  out.oldLink.back = posted.splice(0);
+  out.oldLink.opened = opened.splice(0);
   const SIDEBAR = { type: 'mantel-link/sidebar', admin: false, shown: false,
     panels: { map: { title: 'Map', icon: 'mdi:map' }, 'bad key': { title: 'x' }, logbook: { title: 'Activity', icon: 'mdi:<b onclick=x>' },
               hacs: { title: 'HACS', icon: 'hacs:hacs', require_admin: true }, empty: { title: '' } },
@@ -147,16 +151,27 @@ def test_in_a_webpage_dashboard_it_says_the_screen_s_setting_and_offers_the_way_
     assert got["hostMenu"] == [["Home Assistant", "function", None], ["Mantel Settings", "undefined", "/settings"]]
 
 
-def test_without_mantel_link_one_row_opens_home_assistant_in_the_top_window(tmp_path):
+def test_before_mantel_link_answers_no_row_that_cannot_work(tmp_path):
+    # HA frames a Webpage dashboard in a sandbox without top navigation: a link to HA's window from inside did
+    # nothing (Avery, 2026-10-20), so until Mantel Link says the sidebar there is no Home Assistant section
     got = run(tmp_path, "framed")["beforeLink"]
-    assert got["nav"] == {"link": HA + "/", "top": True}
-    assert got["menu"] is False and got["posted"] == [], "nothing is asked of a page that does not answer"
-    assert got["back"] == [[HA + "/", "_top"]], "the way back still goes somewhere"
+    assert got["nav"] is None
+    assert got["menu"] is False
+    # the way back is always Mantel Link's to do (0.1.0's hello can come before this page is up)
+    assert got["hostMenu"] == ["Home Assistant", "Mantel Settings"] and got["back"] is True
+    assert got["posted"] == [[{"source": "mantel", "type": "mantel/back"}, HA]] and got["opened"] == []
+
+
+def test_with_mantel_link_0_1_0_only_the_way_back_through_it(tmp_path):
+    got = run(tmp_path, "framed")["oldLink"]
+    assert got["nav"] is None, "no sidebar from Mantel Link: no Home Assistant section"
+    assert got["hostMenu"] == ["Home Assistant", "Mantel Settings"]
+    assert got["back"] == [[{"source": "mantel", "type": "mantel/back"}, HA]] and got["opened"] == []
 
 
 def test_with_mantel_link_the_menu_is_this_person_s_home_assistant_sidebar(tmp_path):
     got = run(tmp_path, "framed")
-    assert got["forged"] == {"link": HA + "/", "top": True}, "a sidebar from another address is not believed"
+    assert got["forged"] is None, "a sidebar from another address is not believed"
     assert got["redraw"] == 1 and got["nav"] == "own"
     assert got["side"] == {
         "user": {"is_admin": False},

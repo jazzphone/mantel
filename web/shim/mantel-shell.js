@@ -84,6 +84,7 @@
   // when HA's own sidebar is hidden around the screen (Mantel Link, docs/phase9/MANTEL-LINK.md 9.6).
   function hostMenu() {
     const frame = global.__mantelHaFrame;
+    // (Mantel Link takes it there: nothing in a Webpage dashboard's sandbox may move Home Assistant's window)
     const out = frame && frame.kind === 'dashboard'
       ? [{ title: 'Home Assistant', icon: 'mdi:home-assistant', run: () => frame.back(), section: 'Mantel' }] : [];
     if (PEOPLE.indexOf(role) < 0) return out;
@@ -108,7 +109,10 @@
     const f = global.__mantelHaFrame;
     if (f) {
       if (frameSide()) return 'own';
-      const home = (f.homeUrl && f.homeUrl()) || haAddress;
+      // a Webpage dashboard whose Mantel Link has not said the sidebar (or never will: 0.1.0): HA's sandbox forbids
+      // this page to move HA's window, so no row (the Mantel -> Home Assistant row is the way back); the App's panel
+      // whose HA page cannot be read: its start page (that frame has no sandbox)
+      const home = f.homeUrl && f.homeUrl();
       return home ? { link: home, top: true } : null;
     }
     return haAddress ? { link: haAddress, top: false } : null;
