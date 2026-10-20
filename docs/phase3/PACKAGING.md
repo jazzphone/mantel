@@ -206,7 +206,7 @@ Unverified-in-this-slice assumptions that step 1-4 will confirm: the go2rtc bina
 
 ## What needs Proxmox (Avery, on proxmox1)
 
-The full step-by-step runbook is [LXC-PROXMOX1.md](LXC-PROXMOX1.md); the block below is the short form.
+The full step-by-step runbook is LXC-PROXMOX1.md; the block below is the short form.
 
 ```bash
 # read first; then, from a checkout of this branch copied to the Proxmox host, as root:

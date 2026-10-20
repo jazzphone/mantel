@@ -17,7 +17,7 @@ def test_the_repository_docs_have_no_broken_relative_links():
 
 def test_the_expected_documents_are_covered():
     names = {p.relative_to(ROOT).as_posix() for p in check_links.doc_files(ROOT)}
-    assert {"README.md", "docs/PLAN.md", "docs/OPERATIONS.md", "docs/phase6/CUTOVER.md"} <= names
+    assert {"README.md", "docs/OPERATIONS.md", "docs/phase3/HA-APP.md", "docs/guide/Install.md"} <= names
 
 
 # -- the checker itself, on a tiny tree ---------------------------------------------------------------

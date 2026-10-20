@@ -1,6 +1,6 @@
 # Operating Mantel
 
-How to run Mantel Server and look after it: first start, people and tablets, commands and their safeguards, the audit log, backups, updates, installing HK builds into Home Assistant, and what to do when something looks wrong. For the design behind it see [PLAN.md](PLAN.md); for moving the house over see [phase6/CUTOVER.md](phase6/CUTOVER.md).
+How to run Mantel Server and look after it: first start, people and tablets, commands and their safeguards, the audit log, backups, updates, installing HK builds into Home Assistant, and what to do when something looks wrong. For the design behind it see PLAN.md; for moving the house over see phase6/CUTOVER.md.
 
 **Status as of 2026-10-18.** Mantel Server is built and tested offline and against a scratch Home Assistant. It has not been deployed on the house, and the container images have never been built (Docker is not installed on the development Mac). Everything below that depends on Docker or Proxmox is written from the files and their static checks and is marked **(unverified)** where a first real run may change it. "Known gaps" at the end lists what is missing today. Pages that are **in progress** and not written yet: `HA-APP.md` (the App's Ingress mode), `ADMIN-PAGE.md` (managing people and tablets in the page) and `BACKUP-FILES.md` (backups and "your files").
 
@@ -316,7 +316,7 @@ A wall tablet is a **device** with its own role (`wall_tablet`, scoped to its ro
 
 ### Wall tablets in the HA App (this house; decision 21)
 
-When Mantel runs as the HA App and the tablet opens HA's panel, a tablet is **not enrolled**: it keeps its own HA user (signed in by `trusted_networks` in Kiosk Satellite) and the Owner links that HA user to a Mantel device. Design: [phase3/HA-APP.md](phase3/HA-APP.md) "Wall tablets through the App"; the move, tablet by tablet: [phase6/CUTOVER.md](phase6/CUTOVER.md).
+When Mantel runs as the HA App and the tablet opens HA's panel, a tablet is **not enrolled**: it keeps its own HA user (signed in by `trusted_networks` in Kiosk Satellite) and the Owner links that HA user to a Mantel device. Design: [phase3/HA-APP.md](phase3/HA-APP.md) "Wall tablets through the App"; the move, tablet by tablet: phase6/CUTOVER.md.
 
 1. **Link** (Owner, in the sidebar): People → the tablet's HA user → **Link as a wall tablet**, *a new device* (or an existing wall-tablet device) and its room. REST: `POST /api/ingress/tablets {"ha_user_id": "...", "room": "loft"}` (`device_id` to reuse a device, `name` to name a new one); `GET /api/ingress/tablets`; `DELETE /api/ingress/tablets/<ha user id>`. Audited (`ingress.link_tablet` / `ingress.unlink_tablet`). A person link of the same HA user is replaced; the last Owner cannot be turned into a tablet.
 2. **Start URL** in Kiosk Satellite: `http://<HA's address, as today>:8123/app/local_mantel` (HA's own App panel; the same for every tablet). The tablet opens on its own HK screen (its Tablet User in HK's settings), and Mantel asks HA's frontend to hide the sidebar and header.
@@ -347,7 +347,7 @@ mantel-server service-account revoke --id <id>
 
 (Or `GET`/`POST /api/service-accounts`, `DELETE /api/service-accounts/<id>`, from an Owner's own session on the LAN door, or in the HA App from the Owner's sidebar when `ha_door_rules` is `trusted` or `lan`.) **In the HA App** HK Frontend's address is `http://local-mantel:8099` (the App's hostname on HA's internal network): the App lets HA Core (`172.30.32.1`) reach `/linked/ws` and nothing else (HA-APP.md "Linked mode in the App"; to be confirmed on the house; **HK's Configure refuses that plain-http address today**, a decision for Avery listed there). The credential looks like `msvc_<id>_<secret>`; only its hash is stored. Paste it into **Settings, Devices & services, HK Frontend, Configure, Linked to Mantel Server** along with Mantel's `https://` address. Home Assistant stores it in plain text in `.storage/core.config_entries`, as it does every integration's token; it is never logged and is revoked on Mantel's side in one step. Linked mode works only on the LAN door, never from a browser (a request with an `Origin` is refused), and Mantel can change only the entities it mirrors: it cannot call a service in HA. Turn the option off and today's integration comes straight back.
 
-**Which tablets are Mantel's** (the cutover, one tablet at a time): every tablet, and the rest of the entry (`house`), is Home Assistant's until an Owner moves it: `PUT /api/linked/owners {"unit": "<tablet id>" or "house", "owner": "mantel" or "ha"}` from an Owner's own session on the LAN door, or the Owner's sidebar in the HA App with `trusted`/`lan` rules (audited first; `house` only after every tablet). `GET /api/linked/owners` (Owner/Admin) lists who owns what. HA is told over the link and keeps it; Configure, Linked to Mantel Server shows it. See [phase5/LINKED-MODE.md](phase5/LINKED-MODE.md) "Per-tablet ownership" and [phase6/CUTOVER.md](phase6/CUTOVER.md).
+**Which tablets are Mantel's** (the cutover, one tablet at a time): every tablet, and the rest of the entry (`house`), is Home Assistant's until an Owner moves it: `PUT /api/linked/owners {"unit": "<tablet id>" or "house", "owner": "mantel" or "ha"}` from an Owner's own session on the LAN door, or the Owner's sidebar in the HA App with `trusted`/`lan` rules (audited first; `house` only after every tablet). `GET /api/linked/owners` (Owner/Admin) lists who owns what. HA is told over the link and keeps it; Configure, Linked to Mantel Server shows it. See [phase5/LINKED-MODE.md](phase5/LINKED-MODE.md) "Per-tablet ownership" and phase6/CUTOVER.md.
 
 The linked endpoint, the Service accounts and the frames are built and tested. The handlers that do the real work (black screen, pop-ups, Alarm PIN) and the publishing of the 31 entities are **not wired yet**; enabling it before then would answer with the in-memory stand-in. See the cutover runbook.
 
@@ -500,7 +500,7 @@ Open screens can notice a new build: `GET /api/version` returns the build id, an
 
 ## 12. Installing HK builds into Home Assistant
 
-This is the process that has put three builds on the house (the first on 2026-10-18 at about 02:45, then 03:19, then 07:19). It changes only `custom_components/hk_frontend/` on the house and **needs Avery's approval for each install**. The long version with the click-through checklist is [phase1/LIVE-INSTALL.md](phase1/LIVE-INSTALL.md).
+This is the process that has put three builds on the house (the first on 2026-10-18 at about 02:45, then 03:19, then 07:19). It changes only `custom_components/hk_frontend/` on the house and **needs Avery's approval for each install**. The long version with the click-through checklist is phase1/LIVE-INSTALL.md.
 
 **Before**
 
@@ -584,7 +584,7 @@ Then restart HA and reload the tablets. Or restore the backup from step 2.
 
 ## 15. Known gaps
 
-Collected from the phase documents; check [PLAN.md](PLAN.md) section 0 for the current state.
+Collected from the phase documents; check PLAN.md section 0 for the current state.
 
 | Gap | Effect | Where |
 |---|---|---|

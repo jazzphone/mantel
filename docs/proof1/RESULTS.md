@@ -2,7 +2,7 @@
 
 **Result: it renders.** `http://127.0.0.1:8765/home` (behind sign-in) redirects to `/dashboard-kitchen/home` and draws the Kitchen tablet's Home page with HK's own, unmodified card code, fed live by the state hub: header, chips, scenes, favorites and a section per room, with SF Pro and the SF Symbols from "Your files". No Lovelace, no HA frontend JS, no `hui-*` / `ha-panel-*` / `home-assistant` element.
 
-Screenshots (headless Chrome, 1280x800 = the Kitchen tablet's CSS size): [kitchen-home-1280x800.png](kitchen-home-1280x800.png), full page [kitchen-home-1280x800-full.png](kitchen-home-1280x800-full.png). The camera mosaic is an empty placeholder, so no camera image is in them. The "commands disabled" toast visible in earlier captures came from the test that proves callService refuses; the committed shots are taken before it.
+Screenshots (headless Chrome, 1280x800 = the Kitchen tablet's CSS size): kitchen-home-1280x800.png, full page kitchen-home-1280x800-full.png. The camera mosaic is an empty placeholder, so no camera image is in them. The "commands disabled" toast visible in earlier captures came from the test that proves callService refuses; the committed shots are taken before it.
 
 ## Criteria
 | criterion | result |
