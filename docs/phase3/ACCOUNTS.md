@@ -243,7 +243,7 @@ real home folder. Under Docker, mount it as a read-only secret. No secret, token
   every request and overwrite; any Cloudflare header, or an unknown value, means `tunnel` (fail
   closed). Today's server is loopback only, where a local process could claim `lan`.
 * **Login CSRF / cross-site**: Strict cookies, Origin checks, JSON-only public endpoints.
-* **Not yet**: Cloudflare Access JWT verification and the Host allowlist for real hostnames (P3.6);
+* **Not yet**: Cloudflare Access JWT verification *(update: built, optional: `cf_access.py`, `--cf-access-team`/`--cf-access-aud`)* and the Host allowlist for real hostnames (P3.6);
   HK notifications for new-device sign-ins and lockouts; rate limits shared across processes;
   Sign in with Google/Apple (optional, later).
 

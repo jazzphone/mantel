@@ -103,6 +103,7 @@ Next: open **Mantel** in the sidebar and become its Owner. [First Run](First-Run
 | **Music Assistant address** (`ma_url`), **Music Assistant token** (`ma_token`) | empty | Optional. You can also set Music Assistant up on Mantel's **Connections** page, which wins over these. |
 | **Direct access** (`access`) | `ingress` | `ingress`: the sidebar only. `proxy` or `https`: Mantel also has its own address. See [Direct access](#direct-access-optional). |
 | `public_url`, `trusted_proxies`, `ha_sign_in_url`, `ha_frame_origins`, `cloudflare_token`, `acme_email`, `acme_staging`, `lan_networks` | empty | Direct access only. |
+| `cf_access_team`, `cf_access_aud` | empty | Direct access only: Cloudflare Access in front of a tunnel. See [Cloudflare Access](#cloudflare-access-optional). |
 
 Restart the App after you change an option.
 
@@ -147,6 +148,21 @@ Keep direct access on your home network:
 - The certificate's key is kept in the App's data, so it is inside Home Assistant's backups. Protect those backups.
 
 The App's own documentation tab has the full Nginx Proxy Manager steps.
+
+### From away: a Cloudflare Tunnel
+
+To reach Mantel's own address from away, a Cloudflare Tunnel is the recommended way: for example the cloudflared App pointed at your proxy (`proxy`) or at the App's port (`https`). Nothing on your router is opened, and everything through it gets Mantel's away rules. Opening a port on your router instead works, but at your own risk: Mantel's sign-in page is then open to the whole internet (and with `https` a forwarded port can make the internet look like home; never do that). Home Assistant's sidebar keeps working either way.
+
+### Cloudflare Access (optional)
+
+Cloudflare Access asks for a sign-in of its own before a request reaches the tunnel, so strangers never see Mantel. It is optional, and recommended. To have Mantel check Access's signed token on every request through the tunnel:
+
+1. In Cloudflare Zero Trust, **Access** → **Applications**, add a **Self-hosted** application for Mantel's name, with a policy that allows your household.
+2. Set `cf_access_team` to your **team name**: Zero Trust → **Settings** → **Team name and domain** shows `<team>.cloudflareaccess.com`; use the part before `.cloudflareaccess.com`.
+3. Set `cf_access_aud` to the application's **Application Audience (AUD) Tag**, shown in its overview under **Access** → **Applications** (64 letters and digits; several separated by commas).
+4. Restart the App. The log says `Cloudflare Access: every tunnel-door request must carry a valid assertion`.
+
+From then on, an away request without a valid token gets `403` (`access_required` or `access_invalid`); requests from home and the sidebar are not affected. Every path must go through Access: a *Bypass* rule for some paths doesn't work while Mantel checks the token. Mantel reads your team's public keys from Cloudflare; if it can't, away requests are refused until it can. Empty both options to turn the check off. See the [Security Model](Security-Model.md#reaching-mantel-from-away).
 
 ## Turn on house commands
 

@@ -73,7 +73,7 @@ Mantel needs HTTPS for its sign-in cookies, passkeys, the doorbell's talk-back, 
 
 For DNS hosts other than Cloudflare, Caddy needs that provider's module: change it in `packaging/docker/caddy.Dockerfile` and in `caddy/tls-dns01.caddy`.
 
-> **Remote access through a Cloudflare tunnel.** The stack has an optional `cloudflared` service (`--profile tunnel`). Mantel doesn't check Cloudflare Access's sign-in token yet, so **don't publish a tunnel hostname** for now. Use [Mantel Connect](Mantel-Connect.md) and the Home Assistant Companion app to reach Mantel from away.
+> **Reaching Mantel from away.** The recommended way is a Cloudflare Tunnel, with Cloudflare Access in front of it: see [Remote access through a Cloudflare Tunnel](#remote-access-through-a-cloudflare-tunnel). It works beside any of the three choices above.
 
 ## 4. Create the secret files
 
@@ -228,6 +228,35 @@ Then give the proxy host an **Access List** that allows only your home's network
 Open `https://mantel.example.com/proxy-check` as the Owner. It checks HTTPS, the door header and key, the forwarded address, the security headers and WebSockets, and says what to change. It also shows the address your proxy's requests arrive from: that is what `MANTEL_TRUSTED_PROXY` must say.
 
 Keep port 8765 off the internet, and if you can, reachable only from your proxy (`MANTEL_HTTP_BIND`, or a firewall rule).
+
+## Remote access through a Cloudflare Tunnel
+
+A Cloudflare Tunnel is the recommended way to reach Mantel from away: the stack's `cloudflared` service connects out to Cloudflare, so nothing on your router is opened. Everything through it gets Mantel's away rules ([Security Model](Security-Model.md#reaching-mantel-from-away)).
+
+1. In Cloudflare Zero Trust, **Networks** → **Tunnels**, create a tunnel of type **Cloudflared** and copy its token into the `cloudflared_token` secret file (step 4).
+2. Give the tunnel a **public hostname**, `mantel.example.com` (the same name as `MANTEL_HOSTNAME`, so passkeys work both ways), with the service `http://172.31.250.2:8080`: Caddy's tunnel door, which only `cloudflared` can reach. With your own reverse proxy instead of Caddy, see [OPERATIONS.md](../OPERATIONS.md) for where the tunnel goes.
+3. Start it: `docker compose --profile tunnel up -d --wait`.
+
+Opening a port on your router to Mantel or its proxy instead works too, but it's at your own risk: Mantel's sign-in page is then open to the whole internet.
+
+### Cloudflare Access (optional)
+
+Cloudflare Access asks for a sign-in of its own (your email address, or your identity provider) before a request reaches the tunnel, so strangers never see Mantel at all. It is optional, and recommended. Set it up in Cloudflare, then tell Mantel, and Mantel checks Cloudflare's signed token on every request through the tunnel and refuses any that lacks a valid one.
+
+1. In Cloudflare Zero Trust, **Access** → **Applications**, add a **Self-hosted** application for `mantel.example.com`, with a policy that allows your household.
+2. Find the **team name**: Zero Trust → **Settings** → **Team name and domain** shows `<team>.cloudflareaccess.com`. The part before `.cloudflareaccess.com` is the team name.
+3. Find the **AUD tag**: open the application under **Access** → **Applications**; its overview shows the **Application Audience (AUD) Tag**, 64 letters and digits.
+4. In `.env`:
+
+   ```bash
+   MANTEL_CF_ACCESS_TEAM=myteam
+   MANTEL_CF_ACCESS_AUD=<the AUD tag>
+   ```
+
+   Several AUD tags (for several Access applications in front of Mantel) are separated by commas. Neither value is a secret.
+5. `docker compose up -d --wait`. Mantel's log says `Cloudflare Access: every tunnel-door request must carry a valid assertion`.
+
+From then on, a request through the tunnel without a valid token gets `403` (`access_required` or `access_invalid`), and the log says why without the token. Mantel fetches your team's public keys from Cloudflare (`https://<team>.cloudflareaccess.com/cdn-cgi/access/certs`); if it can't, tunnel requests are refused until it can. Home and Mantel Connect are not affected. Every path must go through Access: a *Bypass* rule for some paths doesn't work while Mantel checks the token. To turn the check off, empty both settings.
 
 ## Extra parts
 
