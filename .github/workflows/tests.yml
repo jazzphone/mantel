@@ -67,6 +67,8 @@ jobs:
   javascript:
     # HK's card suites run on JavaScriptCore, which every macOS runner has
     name: HK Frontend cards (JavaScriptCore)
+    # macOS minutes count ten times on a private repository: there, run it by hand (workflow_dispatch)
+    if: ${{ !github.event.repository.private || github.event_name == 'workflow_dispatch' }}
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
