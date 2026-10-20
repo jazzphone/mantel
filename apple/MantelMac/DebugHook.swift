@@ -64,7 +64,7 @@ enum DebugHook {
             let size = which == "window" ? CGSize(width: 1080, height: 680) : MenuPanel.size
             let view = ZStack {
                 PlayerBackdrop(ref: which == "favorites" ? nil : music.leader?.art)
-                content(which)
+                content(which, music)
             }
             .frame(width: size.width, height: size.height)
             .environment(\.colorScheme, .dark)
@@ -79,7 +79,7 @@ enum DebugHook {
         }
     }
 
-    @ViewBuilder static func content(_ which: String) -> some View {
+    @ViewBuilder static func content(_ which: String, _ music: MusicModel) -> some View {
         switch which {
         case "window":
             HStack(spacing: 0) {
@@ -99,6 +99,11 @@ enum DebugHook {
                 if which == "speakers" { SpeakersPane() } else if which == "upnext" { UpNextPane() } else { BrowsePane(columns: 3) }
             }
             .padding(.horizontal, 18).padding(.top, 46).padding(.bottom, 16)
+        case "playlists":           // the house's playlists alone (Browse runs past the panel's height)
+            LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 10) {
+                ForEach(music.state?.playlists ?? []) { HousePlaylistTile(playlist: $0) }
+            }
+            .padding(.horizontal, 18).padding(.top, 46).frame(maxHeight: .infinity, alignment: .top)
         case "favorites":
             FavoritesGrid {}.padding(.horizontal, 18).padding(.top, 46).padding(.bottom, 16)
         default:
