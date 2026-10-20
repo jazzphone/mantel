@@ -1015,6 +1015,14 @@ Everything on main since 0.1.28 (validation green: JS 130, HA py 732, Mantel 283
 - No HA backup (Avery).
 - [x] On the house (build `a8e831663b66a21a`, 02fe44b, 15:02): both links reconnected; the tablets' kiosks named.
 
+### 0.1.36 (2026-10-20)
+
+- **The pills frost again with Blur's Shared Layer and Pre-Rendered** (merge c134f82): Mantel's shell now names its
+  view's element types, so the shared blur layer sits above the sky, under the cards.
+- **A page change moves together** (190fa6c): the address, the page, its Highlight Color and its Flat ground change
+  once the next page's states are in; on a slow link Home no longer turned the next page's color first.
+- No HA backup (Avery).
+
 ### Removal
 
 Stop and uninstall **Mantel** (Settings → Apps → Mantel → Uninstall); this removes its image and `/data`
