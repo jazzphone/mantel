@@ -239,7 +239,7 @@
       var fix = function (v) {
         if (!v || typeof v !== 'object') return v;
         var out = Object.assign({}, v);
-        if (typeof out.image === 'string' && out.image.indexOf('/ma/imageproxy?') === 0) out.image = base + out.image;
+        if (typeof out.image === 'string' && /^\/ma\/imageproxy[?/]/.test(out.image)) out.image = base + out.image;
         if (Array.isArray(out.artists)) out.artists = out.artists.map(fix);
         if (out.album) out.album = fix(out.album);
         return out;

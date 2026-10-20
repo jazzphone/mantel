@@ -33,6 +33,9 @@ LIBRARY = [{"uri": "library://playlist/1", "name": "Morning Mix", "item_id": "1"
             "provider_mappings": [{"provider_domain": "apple_music"}]},
            {"uri": "library://playlist/2", "name": "Evening", "item_id": "2",
             "provider_mappings": [{"provider_domain": "builtin"}]}]
+PROXY_ID = "ab" * 32       # Music Assistant 2.10's image id: 64 hex (fictional)
+
+
 def _art(n: int, remote: bool = False) -> dict:
     return {"type": "thumb", "path": f"https://img.example/{n}.jpg" if remote else f"/data/art/{n}.jpg",
             "provider": "library", "remotely_accessible": remote}
@@ -48,7 +51,8 @@ BAND, SOLOIST = _artist(7, "Band"), _artist(8, "Soloist")
 ALBUMS = [{"item_id": str(i), "provider": "library", "media_type": "album", "uri": f"library://album/{i}",
            "name": f"Album {chr(64 + i)}", "version": "Deluxe" if i == 2 else "", "album_type": t,
            "favorite": i in (2, 4), "last_played": 100 - i, "artists": [BAND if i % 2 else SOLOIST],
-           "metadata": {"images": [{"type": "fanart", "path": "/x/fan.jpg", "provider": "library"}, _art(i)]}}
+           "metadata": {"images": [{"type": "fanart", "path": "/x/fan.jpg", "provider": "library"},
+                                   dict(_art(i), proxy_id=PROXY_ID) if i == 3 else _art(i)]}}
           for i, t in ((1, "album"), (2, "album"), (3, "single"), (4, "compilation"), (5, "album"))]
 TRACKS = [{"item_id": str(i), "provider": "library", "media_type": "track", "uri": f"library://track/{i}",
            "name": f"Song {i}", "version": "", "favorite": i == 3, "artists": [BAND], "album": ALBUMS[0],
@@ -126,6 +130,8 @@ class HouseMa(FakeMa):
         super().__init__()
         self.hub = hub
         self.react = True
+        # (provider, item id) of playlists whose songs MA cannot read: the streaming service refused its sign-in
+        self.signed_out: set[tuple[str, str]] = set()
 
     def sent(self, *, commands_only: bool = True) -> list[tuple[str, dict]]:
         out = []
@@ -159,6 +165,9 @@ class HouseMa(FakeMa):
         if cmd == "player_queues/items":
             return await ok(QUEUE_ITEMS[: args.get("limit", 10)])
         if cmd == "music/playlists/playlist_tracks":
+            if (args.get("provider_instance_id_or_domain"), args.get("item_id")) in self.signed_out:
+                return await ws.send_json({"message_id": mid, "error_code": 6,          # LoginFailed
+                                           "details": "Login failed. Please check your credentials and try again."})
             return await ok([{"item_id": "t"}] * 3)
         if cmd == "music/recently_played_items":
             return await ok([{"item_id": "1", "provider": "library", "media_type": "playlist"}])

@@ -52,6 +52,13 @@ async def test_music_assistant_is_served_same_origin_with_nothing_of_the_upstrea
     r = await m.client.get("/ma/imageproxy?path=x&size=200")
     assert r.status == 200 and await r.read() == b"\x89PNG fictional"
     assert ma.hits[-1][1] == "/imageproxy?path=x&size=200"
+    # Music Assistant 2.10's form: /imageproxy/<proxy_id>, a 64-hex id; nothing else under imageproxy/
+    pid = "0f" * 32
+    r = await m.client.get(f"/ma/imageproxy/{pid}?size=256")
+    assert r.status == 200 and ma.hits[-1][1] == f"/imageproxy/{pid}?size=256"
+    for bad in ("/ma/imageproxy/abc", f"/ma/imageproxy/{pid}/x", f"/ma/imageproxy/{pid.upper()}",
+                "/ma/imageproxy/" + "g" * 64):
+        assert (await m.client.get(bad)).status == 404, bad
     # the bare prefix goes to the app
     r = await m.client.get("/ma", allow_redirects=False)
     assert r.status == 302 and r.headers["Location"] == "/ma/"

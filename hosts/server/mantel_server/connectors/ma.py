@@ -130,6 +130,15 @@ class MaUnavailable(ConnectionError):
     pass
 
 
+class MaError(RuntimeError):
+    """Music Assistant answered a call with an error: its ``error_code`` (music_assistant_models.errors, e.g. 6 =
+    LoginFailed: a streaming service's sign-in was refused) and ``details``."""
+
+    def __init__(self, error_code: Any, details: Any) -> None:
+        super().__init__(f"Music Assistant error {error_code}: {details}")
+        self.error_code, self.details = error_code, details
+
+
 def read_secret(path: Path) -> str:
     """The long-lived token, from a secret file (Docker secret). Its value is never logged."""
     try:
@@ -331,7 +340,7 @@ class MaClient:
             self._pending.pop(mid, None)
             self._partial.pop(mid, None)
             if not fut.done():
-                fut.set_exception(RuntimeError(f"Music Assistant error {data.get('error_code')}: {data.get('details')}"))
+                fut.set_exception(MaError(data.get("error_code"), data.get("details")))
             return
         if data.get("partial"):
             self._partial.setdefault(mid, []).extend(data.get("result") or [])

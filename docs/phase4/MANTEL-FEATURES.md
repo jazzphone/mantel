@@ -245,10 +245,15 @@ one-time settings import and with `POST /api/features/import`.
   response) are Mantel's reads when Music Assistant is given to Mantel: the page's shim sends that one service as the
   read `music_assistant/get_library`, Mantel checks its fields against HA's action, needs `view` on the music feature,
   and answers `{items}` in HA's shape from Music Assistant's library commands, on every server (commands off too;
-  nothing audited, nothing to HA). A picture that is not a web address goes by Music Assistant's `/imageproxy` under
-  Mantel's `/ma` (that route needs `control` on music and `--ma-web-url`). Without Music Assistant in Mantel the call
-  goes the old way (the gateway: HA's, or refused with commands off). The tree reads (`media_player/browse_media`,
-  `search_media`: an album's tracks, an artist's albums, a search) still go through HA.
+  nothing audited, nothing to HA). A picture that is not a web address goes by Music Assistant's
+  `/imageproxy/<proxy_id>` under Mantel's `/ma` (MA 2.10 answers its older `?path=&provider=` form 400; that form is
+  kept only for an MA that sends no `proxy_id`; the route needs `control` on music and `--ma-web-url`). Without Music
+  Assistant in Mantel the call goes the old way (the gateway: HA's, or refused with commands off). The tree reads
+  (`media_player/browse_media`, `search_media`: an album's tracks, an artist's albums, a search) still go through
+  HA. When HA fails to open a playlist (its bare `unknown_error`), Mantel asks Music Assistant once for the same
+  songs: a refused sign-in (MA's LoginFailed: Apple Music's user token expired, so the account's own saved
+  playlists cannot be read while catalog playlists from a search still open) is answered `login_failed` with what to
+  do, and Keep Playlists Ready's note says the same.
 - **Not run against a real Music Assistant** (none for testing; the house's is never contacted): the message
   shapes follow HA's integration and the official client, and are pinned against a fake. `ma_players` relies on
   HA's `music_assistant` entities' `unique_id` being the MA player id, and the queue id being the player id.

@@ -114,6 +114,9 @@ ROUTE_RULES: dict[str, str] = {
     "music_assistant/get_library": "feature:music (view; no player); HA's music_assistant.get_library fields only; "
                                    "Music Assistant's library items as {items: [...]}. Needs Music Assistant in Mantel "
                                    "(else ma_not_configured), not the music settings",
+    "media_player/browse_media": "readproxy's (view the media player; HA answers it). When HA fails to open a "
+                                 "playlist uri, Music Assistant is asked once for its songs (a read); a refused "
+                                 "sign-in (LoginFailed) is answered login_failed with what to do, else HA's error",
 }
 
 # measured timings (hk_core/music/const.py), read at call time so tests can shorten them
@@ -128,6 +131,21 @@ RUN: ContextVar["MusicRun | None"] = ContextVar("mantel_music_run", default=None
 class MaNotConfigured(ConnectionError):
     """Answered to a library read when Music Assistant is not given to Mantel (readproxy._error_code: `read_code`)."""
     read_code = "ma_not_configured"
+
+
+class SignInRefused(RuntimeError):
+    """A playlist HA could not open because the streaming service refused Music Assistant's sign-in
+    (``MusicHost.why_not_opened``): the page reads ``login_failed`` and this message, not HA's ``unknown_error``."""
+    read_code = "login_failed"
+
+
+# music_assistant_models.errors.LoginFailed.error_code: MA could not sign in to a streaming service (Apple Music's
+# user token expired), so it cannot read that account's own library -- its saved playlists. A catalog playlist (a
+# search result's apple_music://playlist/pl.…) needs no account and still opens.
+MA_LOGIN_FAILED = 6
+SIGN_IN_AGAIN = ("Music Assistant's sign-in to your music service was refused, so your saved playlists cannot "
+                 "be read. Sign in to it again in Music Assistant (Settings, then Providers).")
+MEDIA_URI = re.compile(r"^([a-z0-9_]+(?:--[A-Za-z0-9]+)?)://(playlist)/([^/?#]{1,200})$")
 
 
 class MusicRefusal(HaCommandError):
@@ -419,10 +437,18 @@ def check_get_library(data: Any) -> dict[str, Any]:
     return {"media_type": LIBRARY_COMMAND[kind], "args": args}
 
 
+PROXY_ID = re.compile(r"^[0-9a-f]{64}$")
+
+
 def _library_image(v: Any) -> str | None:
     """A library item's picture as a page can load it: the artwork's own address when it is a web one without a
     token, else Music Assistant's image proxy under Mantel's ``/ma`` (media_proxy.py: the page's prefix goes in
-    front in the shim). None when there is none."""
+    front in the shim). None when there is none.
+
+    MUSIC ASSISTANT 2.10 SERVES ``/imageproxy/<proxy_id>`` ONLY: the ``proxy_id`` it puts on every image it
+    sends. Its old ``/imageproxy?path=…&provider=…`` answers 400, which is every playlist's and album's artwork
+    that is not a web address (a collage, a playlist's own picture, Apple Music's). The old form is kept only
+    for a Music Assistant that sends no ``proxy_id``."""
     from urllib.parse import quote
     from .readproxy import _safe_image
     if isinstance(v, str):
@@ -432,6 +458,9 @@ def _library_image(v: Any) -> str | None:
     path, provider = v["path"], v.get("provider")
     if v.get("remotely_accessible") is True or path.startswith(("http://", "https://")):
         return _safe_image(path)
+    pid = v.get("proxy_id")
+    if isinstance(pid, str) and PROXY_ID.match(pid.lower()):
+        return f"/ma/imageproxy/{pid.lower()}?size={IMAGE_SIZE}"
     if not isinstance(provider, str):
         return None
     return f"/ma/imageproxy?path={quote(path, safe='')}&provider={quote(provider, safe='')}&size={IMAGE_SIZE}"
@@ -1194,6 +1223,25 @@ class MusicHost:
             got = got.get("items")
         return {"items": [library_item(i) for i in got or [] if isinstance(i, Mapping)]}
 
+    async def why_not_opened(self, content_id: Any) -> str | None:
+        """HA could not open a playlist (``media_player/browse_media``: its ``unknown_error`` says nothing): Music
+        Assistant's own answer for the same songs, asked once, through Mantel's client. Only a refused sign-in is
+        named (``SIGN_IN_AGAIN``); anything else, or no Music Assistant here, is None and HA's error stands."""
+        m = MEDIA_URI.match(content_id) if isinstance(content_id, str) else None
+        if m is None or self.ma is None:
+            return None
+        from .connectors.ma import MaError
+        try:
+            await self.ma.playlist_tracks(m.group(3), m.group(1))
+        except MaError as err:
+            if err.error_code == MA_LOGIN_FAILED:
+                log.warning("music: Music Assistant's sign-in to %s was refused; saved playlists cannot be read "
+                            "until it is signed in again", m.group(1))
+                return SIGN_IN_AGAIN
+        except Exception as err:  # noqa: BLE001 -- HA's error stands
+            log.debug("music: asking Music Assistant about a playlist failed: %s", type(err).__name__)
+        return None
+
     async def library(self) -> list[dict[str, str]]:
         try:
             lib = await self.library_playlists(order=True)
@@ -1535,7 +1583,21 @@ def register(app: Any, hub: Any, hooks: Any = None) -> MusicHost:
             raise Forbidden("may not use music")
         return await host.get_library(query)
 
+    async def browse_media(ctx: Ctx, msg: dict):
+        # HA answers it (readproxy: view on the player); when HA fails to open a playlist, Music Assistant is
+        # asked why (a refused sign-in reads as HA's bare unknown_error otherwise)
+        try:
+            return await bridge().request(ctx.identity, msg)
+        except (ReadBlocked, Forbidden, NotFound, MaNotConfigured):
+            raise
+        except Exception as err:
+            why = await host.why_not_opened(msg.get("media_content_id"))
+            if why is not None:
+                raise SignInRefused(why) from None
+            raise err
+
     read_routes(app).update({
+        "media_player/browse_media": Route(request=browse_media),
         "hk_music/subscribe": Route(subscribe=subscribe),
         "hk_music/queue": Route(request=queue),
         "hk_music/settings/library": Route(request=library),

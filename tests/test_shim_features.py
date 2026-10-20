@@ -213,7 +213,8 @@ def test_browses_library_is_a_music_read_never_a_command(observed, mode):
         "order_by": "last_played_desc", "limit": 12}}
     # answered as HA's WebSocket answers a service call with a response; the proxy picture carries the page's prefix
     assert [i["image"] for i in r["lib"]["response"]["items"]] == ["/ing/ma/imageproxy?path=a&provider=p&size=256",
-                                                                    "https://img.example/c.jpg"]
+                                                                    "https://img.example/c.jpg",
+                                                                    f"/ing/ma/imageproxy/{'ab' * 32}?size=256"]
     assert r["lib"]["response"]["items"][0]["artists"][0]["name"] == "B"
     assert (r["libSent"], r["libRefusedEvents"]) == (1, 0)
     # no Music Assistant in Mantel: the old way (the gateway's command, or refused with commands off)

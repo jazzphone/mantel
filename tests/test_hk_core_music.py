@@ -335,10 +335,16 @@ def test_a_playlist_save_goes_last_or_keeps_its_place():
 
 
 # ------------------------------------------------------------- Keep Playlists Ready
+class LoginFailed(Exception):
+    """music_assistant_models.errors.LoginFailed, as both hosts' clients raise it: its error_code."""
+    error_code = 6
+
+
 class Mass:
-    def __init__(self, clock, songs=None, took=None, recent=(), builtin=()):
+    def __init__(self, clock, songs=None, took=None, recent=(), builtin=(), signed_out=()):
         self.clock, self.sent = clock, []
         self.songs, self.took, self.recent, self.builtin = songs or {}, took or {}, list(recent), set(builtin)
+        self.signed_out = set(signed_out)
 
     async def send_command(self, command, **kw):
         self.sent.append((command, kw))
@@ -349,6 +355,8 @@ class Mass:
             return [{"item_id": i, "provider_mappings": [
                 {"provider_domain": "builtin" if i in self.builtin else "apple_music"}]} for i in ids]
         if command == "music/playlists/playlist_tracks":
+            if kw["item_id"] in self.signed_out:
+                raise LoginFailed("Login failed. Please check your credentials and try again.")
             self.clock.t += self.took.get(kw["item_id"], 1.5)
             return [{}] * self.songs.get(kw["item_id"], 25)
         raise AssertionError(command)
@@ -398,6 +406,21 @@ def test_apple_refusing_cuts_a_round_short_and_the_next_picks_up():
     mass.took = {}
     assert asyncio.run(w.round()) == WARM_EVERY
     assert _refreshed(mass) == ["1", "2", "3"]
+
+
+def test_a_refused_sign_in_is_named_and_the_round_goes_on():
+    # Apple Music's user token expired: the account's own playlists are refused (MA's LoginFailed), a catalog
+    # playlist saved to the library still refreshes; the settings page says to sign in again
+    clock = Clock()
+    mass = Mass(clock, songs={"1": 25, "2": 25, "3": 25}, signed_out={"1", "3"})
+    w = _warmer(mass, clock, [f"library://playlist/{i}" for i in "123"])
+    assert asyncio.run(w.round()) == WARM_EVERY
+    assert _refreshed(mass) == ["1", "2", "3"]
+    assert w.status()["ready"] == 1 and "sign in to it again" in w.status()["note"].lower()
+    mass.signed_out = set()                                   # signed in again: the next round is clean
+    clock.t += WARM_EVERY
+    asyncio.run(w.round())
+    assert w.status()["ready"] == 3 and w.status()["note"] is None
 
 
 def test_without_music_assistant_a_round_says_so():

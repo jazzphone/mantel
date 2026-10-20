@@ -26,6 +26,11 @@ wait behind this one:
   * nothing new while someone is using the Music page (a browse, a search, a
     play in the last WARM_QUIET -- `used()`), since their request would queue
     behind this one at Apple;
+  * a playlist refused because the service refused Music Assistant's sign-in
+    (MA's LoginFailed: Apple Music's user token expired, so none of that
+    account's own playlists can be read) is not counted as ready, and the
+    round's note says to sign in again. The round goes on: a catalog playlist
+    saved to the library needs no account and still refreshes;
   * a round ends early when Apple is refusing: a page that took WARM_SLOW_PAGE
     or more was refused at least four times in a row. One to three refusals
     are routine (the first round, 2026-10-14, stopped on three at a quiet
@@ -59,6 +64,9 @@ from .const import (
 _LOGGER = logging.getLogger(__name__)
 
 LIBRARY = "library://playlist/"
+# music_assistant_models.errors.LoginFailed.error_code (HA's client raises LoginFailed; Mantel's, MaError with it)
+LOGIN_FAILED = 6
+SIGN_IN_NOTE = "Music Assistant’s sign-in to your music service was refused. Sign in to it again in Music Assistant."
 
 
 class MusicServer(Protocol):
@@ -113,6 +121,7 @@ class Warmer:
         ids = await self._wanted(mass)
         todo = [i for i in ids if self.clock() - self._fresh.get(i, -math.inf) >= WARM_FRESH]
         t0 = self.clock()
+        signed_out = 0
         for n, item_id in enumerate(todo):
             if n:
                 await self.sleep(WARM_GAP)
@@ -126,6 +135,8 @@ class Warmer:
             except asyncio.CancelledError:
                 raise
             except Exception as err:  # noqa: BLE001 -- reported, the round goes on
+                if getattr(err, "error_code", None) == LOGIN_FAILED:
+                    signed_out += 1
                 _LOGGER.debug("music: playlist %s not refreshed: %s", item_id, err)
                 continue
             self._fresh[item_id] = self.clock()
@@ -135,7 +146,10 @@ class Warmer:
                 _LOGGER.debug("music: %d of %d playlists ready; Apple is refusing, "
                               "the rest in %ds", self.last["ready"], len(ids), WARM_RETRY)
                 return WARM_RETRY
-        self._done(ids, None)
+        self._done(ids, SIGN_IN_NOTE if signed_out else None)
+        if signed_out:
+            _LOGGER.warning("music: %d playlists could not be kept ready: Music Assistant's sign-in to the "
+                            "music service was refused", signed_out)
         _LOGGER.debug("music: %d of %d playlists ready (%.0fs)",
                       self.last["ready"], len(ids), self.clock() - t0)
         return WARM_EVERY

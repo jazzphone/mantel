@@ -690,7 +690,7 @@ async def test_status_is_owner_or_admin(off):
 
 def test_every_music_read_route_has_one_rule():
     assert set(M.ROUTE_RULES) == {"hk_music/subscribe", "hk_music/queue", "hk_music/settings/library",
-                                  "music_assistant/get_library"}
+                                  "music_assistant/get_library", "media_player/browse_media"}
     from mantel_server import feature_pages as FP
     assert FP.PAGE_READS["hk_music/settings/get"] == "music"        # one path: feature_pages, MusicHost.page when on
     assert M.MUSIC_WS <= set(json.loads(open(
@@ -764,6 +764,108 @@ async def test_favorites_and_category_pages_and_search(off):
     assert [i["name"] for i in one] == ["Band"] and one[0]["image"].startswith("/ma/imageproxy?")
     pl = (await off.read(ws, lib(media_type="playlist"), rid=83))["result"]["items"]
     assert [i["uri"] for i in pl] == ["library://playlist/1", "library://playlist/2"]
+    await ws.close()
+
+
+async def test_artwork_goes_by_music_assistants_proxy_id(off):
+    # Music Assistant 2.10 serves /imageproxy/<proxy_id> only; its old ?path=&provider= form answers 400
+    await off.connected()
+    await off.login("jamie", "adult")
+    ws = await off.socket(expect_caps=False)
+    items = (await off.read(ws, lib(media_type="album", order_by="name")))["result"]["items"]
+    assert items[2]["name"] == "Album C" and items[2]["image"] == f"/ma/imageproxy/{MF.PROXY_ID}?size=256"
+    assert items[0]["image"].startswith("/ma/imageproxy?path="), "an older Music Assistant (no proxy_id): as before"
+    await ws.close()
+
+
+def test_a_proxy_id_that_is_not_one_is_not_used():
+    art = {"path": "/data/x.jpg", "provider": "library"}
+    assert M._library_image(dict(art, proxy_id="../../etc")).startswith("/ma/imageproxy?path=")
+    assert M._library_image(dict(art, proxy_id="AB" * 32)) == f"/ma/imageproxy/{'ab' * 32}?size=256"
+
+
+# ------------------------------------------------------------------------------- Browse: a playlist HA cannot open
+def browse(cid, ctype="music"):
+    return {"type": "media_player/browse_media", "entity_id": "media_player.kitchen_ma",
+            "media_content_id": cid, "media_content_type": ctype}
+
+
+def ha_browse(env, answer):
+    """HA's side of media_player/browse_media (readproxy, which these tests never let reach HA)."""
+    asked = []
+
+    async def request(identity, msg):
+        asked.append(msg)
+        if isinstance(answer, BaseException):
+            raise answer
+        return answer
+    env.app["filtered_reads"].request = request
+    return asked
+
+
+def tracks_reads(env):
+    return [f["args"] for f in env.ma.frames if f["command"] == "music/playlists/playlist_tracks"]
+
+
+async def test_a_saved_playlist_refused_for_sign_in_says_so_not_unknown_error(off):
+    # HA's music_assistant browse raises MA's LoginFailed as a bare unknown_error; Mantel asks MA once, and the
+    # page reads what to do. (Apple Music refuses the account's own playlists when its user token has expired.)
+    await off.connected()
+    await off.login("jamie", "adult")
+    ws = await off.socket(expect_caps=False)
+    off.ma.signed_out.add(("library", "1"))
+    asked = ha_browse(off, RuntimeError("unknown_error"))
+    got = await off.read(ws, browse("library://playlist/1"))
+    assert got["error"] == {"code": "login_failed", "message": M.SIGN_IN_AGAIN}
+    assert len(asked) == 1 and asked[0]["media_content_id"] == "library://playlist/1"
+    assert tracks_reads(off) == [{"item_id": "1", "provider_instance_id_or_domain": "library"}], "a read, never forced"
+    assert off.ma.sent() == [] and off.audit() == []
+    await ws.close()
+
+
+async def test_a_search_results_playlist_opens_through_ha_and_music_assistant_is_not_asked(off):
+    await off.connected()
+    await off.login("jamie", "adult")
+    ws = await off.socket(expect_caps=False)
+    tree = {"title": "Fictional Mix", "media_content_id": "apple_music://playlist/pl.fictional", "children": []}
+    ha_browse(off, tree)
+    got = await off.read(ws, browse("apple_music://playlist/pl.fictional", "playlist"))
+    assert got["result"] == tree and tracks_reads(off) == []
+    await ws.close()
+
+
+@pytest.mark.parametrize("cid", ["library://playlist/2", "library://album/1", "library://playlist/1/../x"])
+async def test_other_browse_failures_keep_has_error(off, cid):
+    await off.connected()
+    await off.login("jamie", "adult")
+    ws = await off.socket(expect_caps=False)
+    ha_browse(off, RuntimeError("unknown_error"))
+    got = await off.read(ws, browse(cid))
+    assert got["error"] == {"code": "failed", "message": "unknown_error"}
+    # MA asked only about a playlist uri, and it read the songs fine: HA's error stands
+    assert tracks_reads(off) == ([{"item_id": "2", "provider_instance_id_or_domain": "library"}]
+                                 if cid == "library://playlist/2" else [])
+    await ws.close()
+
+
+async def test_a_refused_browse_is_not_diagnosed(off):
+    from mantel_server.connectors import Forbidden
+    await off.connected()
+    await off.login("jamie", "adult")
+    ws = await off.socket(expect_caps=False)
+    off.ma.signed_out.add(("library", "1"))
+    ha_browse(off, Forbidden("may not view media_player.kitchen_ma"))
+    got = await off.read(ws, browse("library://playlist/1"))
+    assert got["error"]["code"] == "forbidden" and tracks_reads(off) == []
+    await ws.close()
+
+
+async def test_without_music_assistant_in_mantel_has_browse_error_stands(bridge):
+    await bridge.login("jamie", "adult")
+    ws = await bridge.socket()
+    ha_browse(bridge, RuntimeError("unknown_error"))
+    got = await bridge.read(ws, browse("library://playlist/1"))
+    assert got["error"] == {"code": "failed", "message": "unknown_error"} and bridge.fake.frames == []
     await ws.close()
 
 
