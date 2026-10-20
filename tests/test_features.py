@@ -728,3 +728,10 @@ def test_energy_context_reads_the_house_through_the_port():
     ctx = F.energy_context(mantel_house_of(Fake()), {}, {})
     assert ctx["vehicles"] == ["sensor.car_battery"] and ctx["entities"]["sensor.car_battery"]["range"] == "sensor.car_range"
     assert ctx["areas"] == {"garage": {"name": "Garage", "icon": None}}
+
+
+async def test_hk_settings_lists_the_kiosk_devices_for_a_tablets_device_picker(make_env):
+    # Setup -> Device offered only "None" in Mantel: panel/get's kiosk_devices was always empty (2026-10-20)
+    env = await make_env()
+    got = env.app["settings"].panel_payload()["kiosk_devices"]
+    assert got == [{"id": KIOSK, "name": "Hall Kiosk", "app": "kiosk_satellite"}]
