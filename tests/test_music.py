@@ -396,8 +396,8 @@ async def test_without_music_assistant_the_reads_go_to_the_bridge(bridge):
 
 
 async def test_the_settings_page_is_one_path_mantels_when_on_has_otherwise(on, monkeypatch):
-    """HK Settings' Music page is feature_pages.py's route: Mantel's settings while the engine is on, the interim
-    rebuilt HA read when it is off. Never two handlers."""
+    """HK Settings' Music page is feature_pages.py's route, and always Mantel's own settings (house/music), the
+    engine on or off: HA's page is never read once Mantel holds them (HK Frontend can leave HA). Never two handlers."""
     from mantel_server import feature_pages as FP
     from mantel_server.connectors import read_routes
     asked = []
@@ -420,7 +420,7 @@ async def test_the_settings_page_is_one_path_mantels_when_on_has_otherwise(on, m
     assert got["volume"] == 0.3 and [p["id"] for p in got["presets"]] == ["pre1"] and asked == []   # Mantel's
     monkeypatch.setattr(type(on.app["music"]), "active", property(lambda self: False))
     got = (await on.read(ws, {"type": "hk_music/settings/get"}, rid=51))["result"]
-    assert got["volume"] == 0.1 and asked == ["hk_music/settings/get"]                             # HA's, interim
+    assert got["volume"] == 0.3 and asked == []                                       # still Mantel's, never HA's
     await ws.close()
 
 

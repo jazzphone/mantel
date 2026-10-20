@@ -2,27 +2,27 @@ import AppKit
 import MantelKit
 import SwiftUI
 
-/// Mantel in the Mac's menu bar (docs/phase10/APPLE-APPS.md §9 and §12): a music player of its own (the house's music,
-/// with Speakers / Volume / Up Next / Browse) in the menu, Play Music in a window, the person's favorites as toggles (chosen here
-/// too), and the keyboard's play/pause key for the house's speaker. It shares MantelKit (sign-in, the device key, the
-/// API) and SessionModel with the iPhone app.
+/// Mantel in the Mac's menu bar (docs/phase10/APPLE-APPS.md §9 and §12): a native music player for the house's music
+/// (Now Playing, Speakers, Up Next, Browse: the apps' music door, app_music.py) in the menu and, wide, in a window; the
+/// person's favorites as tiles (chosen here too); and the keyboard's play/pause key for the house's speaker. It shares
+/// MantelKit (sign-in, the device key, the API) and SessionModel with the iPhone app.
 @main
 struct MantelMacApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var delegate
 
     var body: some Scene {
         MenuBarExtra {
-            MenuPanel().environmentObject(delegate.model).environmentObject(delegate.app)
+            MenuPanel().environmentObject(delegate.model).environmentObject(delegate.app).environmentObject(delegate.music)
         } label: {
             MenuLabel(model: delegate.model, app: delegate.app)
         }
         .menuBarExtraStyle(.window)
 
         Window("Music", id: "music") {
-            MusicWindow().environmentObject(delegate.model).environmentObject(delegate.app)
+            MusicWindow().environmentObject(delegate.model).environmentObject(delegate.app).environmentObject(delegate.music)
         }
-        .defaultSize(width: 1100, height: 760)       // Play Music's wide layout: what plays beside Browse
-        .windowStyle(.hiddenTitleBar)                 // no gray bar: the window's buttons float on the page
+        .defaultSize(width: 1080, height: 680)       // the player beside Browse
+        .windowStyle(.hiddenTitleBar)                 // no gray bar: the window's buttons float over the colors
         .windowBackgroundDragBehavior(.enabled)
 
         Window("Favorites", id: "favorites") {
@@ -37,15 +37,9 @@ struct MantelMacApp: App {
     }
 }
 
-/// What lives as long as the app: the house's pages (the menu's two and the window's), the media keys.
+/// What lives as long as the app besides the house and its music: the media keys, the windows asked for.
 @MainActor
 final class MacApp: ObservableObject {
-    /// The menu's: the player, the favorites (both under the panel's floating controls); the window's: Play Music.
-    let menuPage = HousePage(query: "pane=player", topInset: MenuPanel.band, probe: "!!window.__mantelPlayer")
-    let favoritesPage = HousePage(query: "pane=favorites", topInset: MenuPanel.band, zoom: 0.75,
-                                  probe: "!!(window.hkStrategy && window.hkStrategy.favoritesView)")
-    let windowPage = HousePage(view: "playmusic", query: "bare=1", topInset: 28)
-    var pages: [HousePage] { [menuPage, favoritesPage, windowPage] }
     let keys = NowPlayingKeys()
     /// A window to open, asked for by a `mantel://music` (or `favorites`, `setup`) link; the menu bar icon opens it.
     @Published var openRequest: String?
@@ -71,10 +65,12 @@ final class MacApp: ObservableObject {
 final class AppDelegate: NSObject, NSApplicationDelegate {
     let model = SessionModel()
     let app = MacApp()
+    let music = MusicModel()
     private var timer: Timer?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         app.keys.attach(model)
+        music.attach(model)
         MusicActivityController.shared.keys = app.keys
         // the speaker's song and state for the media keys and the menu's icon: the summary, every 20 seconds
         timer = Timer.scheduledTimer(withTimeInterval: 20, repeats: true) { [weak self] _ in
@@ -95,7 +91,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 app.openRequest = host
             } else {
                 #if DEBUG
-                DebugHook.handle(url, app: app, model: model)
+                DebugHook.handle(url, model: model, music: music)
                 #endif
             }
         }

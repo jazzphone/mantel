@@ -581,15 +581,16 @@ async def test_a_feature_call_without_a_gateway_is_refused_clearly():
 
 
 class SourcesProxy(FakeProxy):
-    """HA's answers: the Energy settings, and HK's hk_energy/sources through the server-only read."""
-    def __init__(self, prefs, sources=None, error=None):
+    """HA's answers: the Energy settings, and the helpers' sources through the server-only read: Mantel Link's
+    mantel/energy/sources, or (``answers``) HK Frontend's hk_energy/sources."""
+    def __init__(self, prefs, sources=None, error=None, answers=("mantel/energy/sources",)):
         super().__init__(prefs)
-        self.sources, self.error, self.server_asked = sources, error, []
+        self.sources, self.error, self.server_asked, self.answers = sources, error, [], answers
 
     async def read_server(self, msg):
         self.server_asked.append(msg)
-        if self.error:
-            raise RuntimeError(self.error)
+        if self.error or msg["type"] not in self.answers:
+            raise RuntimeError(self.error or "unknown_command")
         return {"sources": self.sources}
 
 
@@ -630,9 +631,17 @@ async def test_the_energy_plan_asks_hk_for_the_utility_meters_sources(make_env):
     (server-only read)."""
     proxy = SourcesProxy(UTILITY_PREFS, UTILITY_SOURCES)
     items = await _utility_plan(make_env, proxy)
-    assert {"type": "hk_energy/sources"} in proxy.server_asked
+    assert proxy.server_asked[0] == {"type": "mantel/energy/sources"}, "Mantel Link's: no HK Frontend needed"
+    assert {"type": "hk_energy/sources"} not in proxy.server_asked
     assert items["sensor.office_utility"]["power"] == "sensor.office_live"
     assert items["sensor.downstairs_ac_utility"]["power"] == "sensor.downstairs_ac_live"
+
+
+async def test_a_house_with_only_hk_frontend_still_gets_the_sources(make_env):
+    proxy = SourcesProxy(UTILITY_PREFS, UTILITY_SOURCES, answers=("hk_energy/sources",))
+    items = await _utility_plan(make_env, proxy)
+    assert proxy.server_asked[:2] == [{"type": "mantel/energy/sources"}, {"type": "hk_energy/sources"}]
+    assert items["sensor.office_utility"]["power"] == "sensor.office_live"
 
 
 async def test_without_hks_sources_the_plan_falls_back_to_the_sources_the_states_carry(make_env):

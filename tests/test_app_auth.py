@@ -336,6 +336,7 @@ async def test_the_app_signs_itself_out(mantel):
 
 # -- the REST door (10.3) -----------------------------------------------------------------------------
 STATES = {
+    "binary_sensor.back_door": {"s": "off", "a": {"friendly_name": "Back Door"}, "lc": 1.0, "lu": 1.0},
     "light.kitchen": {"s": "on", "a": {"friendly_name": "Kitchen", "brightness": 200}, "lc": 1.0, "lu": 1.0},
     "lock.front_door": {"s": "locked", "a": {"friendly_name": "Front Door"}, "lc": 1.0, "lu": 1.0},
     "media_player.loft": {"s": "playing", "a": {"friendly_name": "Loft", "media_title": "So What",
@@ -373,6 +374,8 @@ async def test_favorites_and_summary_show_only_what_one_may_see(mantel):
     assert "lock.front_door" not in [e["entity_id"] for e in got["entities"]]
     r, got = await phone.call("GET", "/api/app/entities", )
     assert {"light.kitchen", "lock.front_door"} <= {e["entity_id"] for e in got["entities"]}
+    reading = [e["domain"] in ("sensor", "binary_sensor", "camera") for e in got["entities"]]
+    assert any(reading) and reading == sorted(reading)      # what one switches before the readings (the cap's 500)
 
 
 async def test_commands_are_off_unless_the_operator_turned_them_on(mantel):

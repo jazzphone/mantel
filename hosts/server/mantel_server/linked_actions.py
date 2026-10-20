@@ -19,6 +19,10 @@ refusal is in words in Home Assistant). Its grants are computed, not stored, and
 act on, as HK Frontend could in Home Assistant: ``control`` on the vacuums Clean Areas uses, on media players and
 the music feature, and ``control`` + ``control.sensitive`` on automations (turning one off or on is sensitive). An
 Owner's deny grant naming ``mantel:linked`` still wins.
+
+THE PAGE'S "PAUSED UNTIL" (``hk_frontend/snooze/subscribe``, hk-headers.js): answered here from the same snooze
+record, ``{until: {automation: ISO time}}`` now and on every change, cut down to the automations the person may
+view (HK Frontend's said it to every user). Never forwarded to Home Assistant.
 """
 from __future__ import annotations
 
@@ -50,6 +54,8 @@ class LinkedActions:
     def __init__(self, app: web.Application) -> None:
         self.app = app
         self.task: asyncio.Task | None = None
+        self.listeners: dict[int, Callable[[], None]] = {}
+        self._lid = 0
 
     # -- who it acts as, through which gateway ------------------------------------------------------------
     def principal(self, peer: str | None = None) -> Any:
@@ -244,7 +250,14 @@ class LinkedActions:
     def _keep(self, snoozes: dict[str, str]) -> None:
         owners = self.app.get("linked_owners")
         if owners is not None:
+            before = self._snoozes()
             owners.remember(KEY, dict(sorted(snoozes.items())))
+            if before != self._snoozes():
+                for cb in list(self.listeners.values()):
+                    try:
+                        cb()
+                    except Exception:  # noqa: BLE001 -- one bad listener never stops the others
+                        log.exception("linked actions: a snooze listener failed")
 
     def _ids(self, data: Mapping[str, Any]) -> list[str]:
         raw = data.get("entity_id")
@@ -331,10 +344,40 @@ class LinkedActions:
                 log.exception("linked actions: the snooze tick failed")
 
 
+SNOOZE_FEED = "hk_frontend/snooze/subscribe"
+ROUTE_RULES = {SNOOZE_FEED: "signed in; {until: {automation: ISO}} from Mantel's snooze record, only the automations "
+                            "the subject may view; carries nothing"}
+
+
 def register(app: web.Application) -> LinkedActions:
     if "linked_actions" in app:
         return app["linked_actions"]
     la = app["linked_actions"] = LinkedActions(app)
+    from .connectors import Ctx, Forbidden, Route, allowed_ids, read_routes
+
+    async def snooze_feed(ctx: Ctx, msg: dict, on_event: Callable[[dict], None]):
+        from .readproxy import ReadBlocked
+        if set(msg) - {"type", "id"}:
+            raise ReadBlocked(f"{SNOOZE_FEED} carries nothing")
+        ident = ctx.identity
+        if getattr(ident, "user", None) is None and getattr(ident, "device", None) is None:
+            raise Forbidden("sign in to see paused automations")
+        reads = app.get("filtered_reads")
+
+        async def send() -> None:
+            snoozes = la._snoozes()
+            seen = set(await allowed_ids(reads.hooks, ident, "view", sorted(snoozes))) if reads is not None and snoozes \
+                else set()
+            on_event({"until": {k: v for k, v in snoozes.items() if k in seen}})
+        la._lid += 1
+        lid = la._lid
+        la.listeners[lid] = lambda: asyncio.get_running_loop().create_task(send())
+        await send()
+
+        async def unsubscribe() -> None:
+            la.listeners.pop(lid, None)
+        return unsubscribe
+    read_routes(app)[SNOOZE_FEED] = Route(subscribe=snooze_feed)
 
     async def started(_app: web.Application) -> None:
         la.task = asyncio.create_task(la.run())

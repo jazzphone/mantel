@@ -40,6 +40,7 @@ FAVORITES_MAX = UD.FAVORITES_MAX
 FAVORITE_DOMAINS = frozenset({"light", "switch", "fan", "cover", "lock", "climate", "media_player", "scene", "script",
                               "input_boolean", "button", "input_button", "valve", "vacuum", "alarm_control_panel",
                               "sensor", "binary_sensor", "camera", "humidifier", "water_heater"})
+READINGS = frozenset({"sensor", "binary_sensor", "camera"})
 ATTRS = ("friendly_name", "unit_of_measurement", "device_class", "brightness", "color_mode", "current_position",
          "temperature", "current_temperature", "hvac_action", "target_temp_high", "target_temp_low", "media_title",
          "media_artist", "media_album_name", "volume_level", "is_volume_muted", "media_duration", "media_position",
@@ -157,8 +158,10 @@ async def entities(request: web.Request) -> web.Response:
     hub = request.app["hub"]
     q = (request.query.get("q") or "").strip().lower()[:64]
     ids = [e for e in hub.store.states if e.split(".", 1)[0] in FAVORITE_DOMAINS]
+    # the things one switches first, the readings after: a house's hundreds of sensors would fill the 500 otherwise
+    ids.sort(key=lambda e: (e.split(".", 1)[0] in READINGS, e))
     out = []
-    for eid in _visible(request, sorted(ids)):
+    for eid in _visible(request, ids):
         e = _entity_json(request.app, eid)
         if e is None or (q and q not in e["name"].lower() and q not in eid):
             continue

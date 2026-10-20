@@ -110,17 +110,20 @@ def test_an_admin_keeps_them_when_the_screen_says_so(tmp_path):
 
 # The screen's Home Assistant section (HK's menu inside HA): Mantel Link says this person's sidebar to the frame that
 # spoke, at its own address only; opens one of HA's own pages (a panel this person has), HA's notification drawer,
-# and HA's sidebar over the page (HK's Show Menu), lifting the screen's hiding only while that is open.
+# and HA's sidebar for HK's Show Menu (HA's own drawer toggle, or the docked sidebar back), lifting the screen's
+# hiding only while that is open.
 NAV = r"""
 const listeners = {};
 class El {
-  constructor(name, kids, shadow) { this.localName = name; this.children = kids || []; this.attrs = {}; this.fired = [];
+  constructor(name, kids, shadow) { this.localName = name; this.children = kids || []; this.attrs = {}; this.fired = []; this.on = {};
     this.shadowRoot = shadow ? { children: shadow, styles: [], appendChild(s) { this.styles.push(s); } } : null;
     if (this.shadowRoot) this.shadowRoot.querySelector = (q) => (q === 'style#mantel-kiosk' ? (this.shadowRoot.styles[0] || null) : find(shadow, q)); }
   hasAttribute(a) { return a in this.attrs; } setAttribute(a, v) { this.attrs[a] = v; } removeAttribute(a) { delete this.attrs[a]; }
   getAttribute(a) { return this.attrs[a] === undefined ? null : this.attrs[a]; }
   querySelector(q) { return find(this.children, q); }
-  dispatchEvent(e) { this.fired.push(e.type); }
+  dispatchEvent(e) { this.fired.push(e.type + (e.detail && e.detail.open ? ':open' : '')); (this.on[e.type] || []).slice().forEach((f) => f(e)); }
+  addEventListener(t, f) { (this.on[t] = this.on[t] || []).push(f); }
+  removeEventListener(t, f) { this.on[t] = (this.on[t] || []).filter((x) => x !== f); }
   getBoundingClientRect() { return { width: this.width || 0 }; }
 }
 function find(list, q) { for (const k of list) { if (k.localName === q) return k; const d = find(k.children || [], q); if (d) return d; } return null; }
@@ -170,12 +173,23 @@ send({ source: 'mantel', type: 'mantel/kiosk', header: true, sidebar: true, admi
 send({ source: 'mantel', type: 'mantel/notifications' }, 'https://mantel.example.com', mantelWin);
 out.drawerEvents = main.fired.slice();
 out.hiddenBefore = 'mantel-kiosk-sidebar' in main.attrs;
+const look = () => ({ type: drawer.type, hidden: 'mantel-kiosk-sidebar' in main.attrs, header: 'mantel-kiosk-header' in huiRoot.attrs,
+                     asked: main.fired.filter((t) => t.startsWith('hass-toggle-menu')), lifted: !!window.__mantelLink._.lift() });
+main.fired.length = 0;
+// a wide window: HA's docked sidebar comes back as it is, and goes again on Show Menu's second tap; HA is asked nothing
 send({ source: 'mantel', type: 'mantel/menu' }, 'https://mantel.example.com', mantelWin);
-out.menu = { open: drawer.open, type: drawer.type, expand: sidebar.alwaysExpand, hidden: 'mantel-kiosk-sidebar' in main.attrs,
-             header: 'mantel-kiosk-header' in huiRoot.attrs };
-dispatchEvent(new CustomEvent('location-changed'));      // a page chosen in HA's sidebar: all as it was
-await wait(350);
-out.after = { open: drawer.open, type: drawer.type, expand: sidebar.alwaysExpand, lifted: window.__mantelLink._.lift() };
+out.wide = look();
+send({ source: 'mantel', type: 'mantel/menu' }, 'https://mantel.example.com', mantelWin);
+out.wideAgain = look();
+// HA draws its sidebar as a drawer (a phone): HA is asked to open it; our hiding is off until HA says it closed
+drawer.type = 'modal';
+send({ source: 'mantel', type: 'mantel/menu' }, 'https://mantel.example.com', mantelWin);
+out.drawer = look();
+drawer.dispatchEvent(new CustomEvent('hass-drawer-closed'));
+out.closed = look();
+send({ source: 'mantel', type: 'mantel/menu' }, 'https://mantel.example.com', mantelWin);
+dispatchEvent(new CustomEvent('location-changed'));      // a page chosen in HA's drawer: all as it was
+out.after = look();
 process.stdout.write(JSON.stringify(out));
 """
 
@@ -200,5 +214,10 @@ def test_the_screen_s_home_assistant_section(tmp_path):
     assert out["pushed"] == ["/config/dashboard", "/profile/general"], "only a plain path to a panel this person has"
     assert out["drawerEvents"] == ["hass-show-notifications"]
     assert out["hiddenBefore"] is True
-    assert out["menu"] == {"open": True, "type": "modal", "expand": True, "hidden": False, "header": True}
-    assert out["after"] == {"open": False, "type": "", "expand": False, "lifted": None}
+    assert out["wide"] == {"type": "", "hidden": False, "header": True, "asked": [], "lifted": True}, \
+        "beside the page: the docked sidebar back, HA's own drawer left alone"
+    assert out["wideAgain"] == {"type": "", "hidden": True, "header": True, "asked": [], "lifted": False}
+    assert out["drawer"] == {"type": "modal", "hidden": False, "header": True, "asked": ["hass-toggle-menu:open"],
+                             "lifted": True}, "HA opens its own drawer (what its menu button sends)"
+    assert out["closed"]["hidden"] is True and out["closed"]["lifted"] is False, "HA closed it: the screen's hiding is back"
+    assert out["after"]["lifted"] is False

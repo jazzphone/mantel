@@ -21,7 +21,7 @@ from __future__ import annotations
 
 from aiohttp import web
 
-from . import app_api, app_auth, push
+from . import app_api, app_auth, app_music, push
 
 APP_DIR = "app"                       # under cfg.web
 ICONS = ("apple-touch-icon.png", "mantel-192.png", "mantel-512.png", "mantel-maskable-512.png", "badge-96.png")
@@ -63,3 +63,4 @@ def register(app: web.Application, hub=None) -> None:
     push.register(app, hub)
     app_auth.register(app, hub)     # 10.2: app sign-in (PKCE, device-bound tokens), pairing, the web view's session
     app_api.register(app, hub)      # 10.3: the REST door, the summary, favorites
+    app_music.register(app, hub)    # the apps' music: the Mac's native player (state, commands, queue, library)

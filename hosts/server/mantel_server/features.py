@@ -1717,16 +1717,20 @@ class FeatureHost:
                                            sources=await self.helper_sources(proxy))
 
     async def helper_sources(self, proxy: Any) -> dict[str, str]:
-        """{helper sensor: the sensor it counts}, from HK's own read in HA (``hk_energy/sources``, read only,
-        by Mantel itself): a Utility Meter publishes no `source` attribute, so the chain meter -> Integral ->
+        """{helper sensor: the sensor it counts}, from Mantel Link's read in HA (``mantel/energy/sources``, read
+        only, by Mantel itself; HK Frontend's ``hk_energy/sources`` while a house still has only that): a Utility Meter publishes no `source` attribute, so the chain meter -> Integral ->
         power sensor is only in HA's objects. Kept from the last good answer: an HK that predates the read, or
         a failed call, leaves the plan on the sources the states carry (energy_context falls back to them)."""
         read = getattr(proxy, "read_server", None)
         if read is None:
             return self._helper_sources
         try:
-            got = await read({"type": "hk_energy/sources"})
-        except Exception as exc:  # noqa: BLE001 -- older HK ("unknown_command"), HA away: the last answer, or none
+            # Mantel Link's (energy.py) first; HK Frontend's own while a house still has it
+            try:
+                got = await read({"type": "mantel/energy/sources"})
+            except Exception:  # noqa: BLE001 -- no Mantel Link (or an older one): HK Frontend's
+                got = await read({"type": "hk_energy/sources"})
+        except Exception as exc:  # noqa: BLE001 -- neither answers, HA away: the last answer, or none
             if not self._helper_sources_warned:
                 self._helper_sources_warned = True
                 log.info("HK's hk_energy/sources is not answering (%s); the Energy plan follows the sources the states carry",
@@ -2124,8 +2128,45 @@ def register(app: web.Application, hub: Any, hooks: Any = None) -> FeatureHost:
         await ctx.send({"type": "tablets_restart_result", "id": rid,
                         "result": {"restarted": done, "presses": last.get("presses", [])}})
 
+    # Wall Tablets' Wake Now, Sleep Now and the kiosk screensaver's Fix (HK's hk_frontend/tablet/act, which HK
+    # Frontend ran in Home Assistant): Mantel's own Sleep Screen engine for the tablet, and the kiosk app's two
+    # settings through the gateway as the person who pressed it (refused and audited while commands are off)
+    async def tablet_act(ctx: Ctx, msg: dict) -> None:
+        rid, tid, act = msg.get("id"), msg.get("tablet"), msg.get("act")
+
+        async def answer(**kw: Any) -> None:
+            await ctx.send({"type": "tablet_act_result", "id": rid, **kw})
+        if set(msg) - {"type", "id", "tablet", "act"} or act not in ("wake", "sleep", "kiosk_saver") \
+                or not isinstance(tid, str):
+            return await answer(error={"code": "invalid", "message": "{tablet, act: wake|sleep|kiosk_saver}"})
+        if host.pages is None or not host.pages.may_configure(ctx.identity, "tablets"):
+            return await answer(error={"code": "forbidden", "message": "Wall Tablets need configure (Owner or Admin)"})
+        t = host.tablets.get(tid)
+        if t is None:
+            return await answer(error={"code": "no_tablet", "message": "There is no such tablet"})
+        if act == "kiosk_saver":
+            from hk_core.tablets.kiosk import kiosk_saver_calls, parts
+            calls = kiosk_saver_calls(parts(host.house, str(t.get("app") or ""), str(t.get("device") or "")))
+            try:
+                for domain, service, data in calls:
+                    await host.caller(domain, service, data, ctx.identity)
+            except HouseCommandsDisabled:
+                return await answer(error={"code": "commands_disabled", "message": "house commands are disabled"})
+            except HouseCommandRefused as exc:
+                return await answer(error={"code": "forbidden", "message": str(exc)})
+            return await answer(result={"ok": True})
+        eng = host.engines.get(tid)
+        if eng is None or not eng.acting:
+            return await answer(error={"code": "not_deciding", "message": "Mantel doesn't decide when this tablet sleeps"})
+        if act == "wake":
+            host.touched(tid)
+        else:
+            await eng.sleep(eng.power_off_wanted())
+        await answer(result={"ok": True})
+
     ws_handlers(app).update({"screen_report": screen_report, "notify_mute": notify_mute,
-                             "clean_areas_run": clean_run, "tablets_restart": tablets_restart})
+                             "clean_areas_run": clean_run, "tablets_restart": tablets_restart,
+                             "tablet_act": tablet_act})
     # notification snapshots (GET /api/notify/snap/<id>, hk_notify/snap/sign) and HK Settings' feature pages
     notify_snaps.register(app, host.snaps)
     host.pages = feature_pages.register(app, host)

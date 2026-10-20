@@ -38,7 +38,9 @@ def test_every_page_read_has_exactly_one_rule_and_every_save_a_piece():
     assert set(FP.PAGE_RULES) == set(FP.PAGE_READS)
     from mantel_server.settings_store import FEATURE_SAVES
     assert set(FP.SAVES) == set(FEATURE_SAVES)
-    assert {FP.HA_PAGES[p] for p in FP.HA_PAGES} <= SERVER_ONLY_READS, "HA's own pages: read by Mantel only"
+    # HA's own Music and Alarm PIN pages: read by Mantel only (the one-time music import; the Alarm PIN page
+    # only while HK Frontend still runs the keypads)
+    assert {"hk_music/settings/get", "hk_alarm_pin/settings/get"} <= SERVER_ONLY_READS
 
 
 async def test_the_pages_are_answered_by_mantel_and_never_forwarded(make_env):
@@ -112,9 +114,9 @@ async def test_a_feature_that_is_off_refuses_its_saves(make_env):
     env = await make_env()
     ws = await owner_socket(env)
     assert (await save(ws, 1, {"type": "hk_notify/settings/set", "changes": {"stay": 60}}))["error"]["code"] == "not_set_up"
-    # Music's and Alarm PIN's settings are still HA's
-    for t in ("hk_music/settings/set", "hk_alarm_pin/settings/set"):
-        assert (await save(ws, 2, {"type": t, "changes": {}}))["error"]["code"] == "not_yet"
+    # Music with no settings in Mantel yet: nothing to change (Music Assistant isn't in Mantel here)
+    assert (await save(ws, 2, {"type": "hk_music/preset/save", "name": "x", "group": "media_player.x",
+                               "members": []}))["error"]["code"] == "not_set_up"
     await ws.close()
 
 
@@ -171,7 +173,10 @@ async def test_live_tv_page_and_save(make_env):
     got = await save(ws, 4, {"type": "hk_tv/settings/set", "changes": {"channels": ["9.1"]}})
     assert json.loads(got["error"]["message"]) == {"channels": FP.TV_MSG["no_lineup"]}
     got = await save(ws, 5, {"type": "hk_tv/settings/set", "changes": {"quality": "1080"}})
-    assert "quality" in json.loads(got["error"]["message"])
+    assert got["result"]["quality"] == "1080" and env.host.settings["live_tv"]["quality"] == "1080", \
+        "Mantel's transcode's picture: kept in Mantel (live_tv.py reads it)"
+    got = await save(ws, 7, {"type": "hk_tv/settings/set", "changes": {"quality": "4k"}})
+    assert json.loads(got["error"]["message"]) == {"quality": FP.TV_MSG["quality"]}
     got = await save(ws, 6, {"type": "hk_tv/settings/set", "changes": {"guide_url": "file:///etc/passwd"}})
     assert json.loads(got["error"]["message"]) == {"guide_url": FP.TV_MSG["guide_url"]}
     await ws.close()
@@ -197,30 +202,47 @@ class HaPages:
         pass
 
 
-async def test_music_and_alarm_pin_pages_are_hass_rebuilt(make_env):
+async def test_music_page_is_mantels_and_imports_hks_once(make_env):
+    """With no house/music yet and HK Frontend's Music in HA: imported ONCE (a server-only read), then answered
+    from Mantel's own document, never HA's again; its saves are Mantel's, versioned."""
     env = await make_env()
     env.app["hub"].readproxy = proxy = HaPages()
     ws = await owner_socket(env)
     music = (await read(ws, 1, {"type": "hk_music/settings/get"}))["result"]
-    assert music["volume"] == 0.4 and music["users"] == [{"id": "u1", "name": "Jamie"}]
-    assert music["speakers"] == [{"entity": "media_player.kitchen", "name": "Kitchen", "floor": "Main", "player": "K"}]
-    assert music["homes"] == {"u1": "media_player.kitchen", "u2": None} and "ma_token" not in music
-    alarm = (await read(ws, 2, {"type": "hk_alarm_pin/settings/get"}))["result"]
-    # pin_set is Mantel's (its keypads check it), not HA's: none is held in Mantel here
-    assert alarm["alarms"][0]["pin_set"] is False and "hash" not in json.dumps(alarm) and "1234" not in json.dumps(alarm)
-    assert proxy.asked == ["hk_music/settings/get", "hk_alarm_pin/settings/get"]
+    assert music["configured"] is True and music["volume"] == 0.4 and "ma_token" not in json.dumps(music)
+    assert [s["entity"] for s in music["speakers"]] == ["media_player.kitchen"]
+    assert proxy.asked == ["hk_music/settings/get"]
+    doc = env.app["settings"].store.get("house", "music")
+    assert doc is not None and doc.version == 1
+    again = (await read(ws, 2, {"type": "hk_music/settings/get"}))["result"]
+    assert again["volume"] == 0.4 and proxy.asked == ["hk_music/settings/get"], "imported once, then Mantel's"
+    got = await save(ws, 3, {"type": "hk_music/settings/set", "changes": {"volume": 0.25}})
+    assert got["result"]["volume"] == 0.25
+    assert env.app["settings"].store.get("house", "music").version == 2
+    got = await save(ws, 4, {"type": "hk_music/settings/set", "changes": {"volume": 7}})
+    assert "volume" in json.loads(got["error"]["message"]), "refused by field, as HA's page was"
+    # a playlist: without Music Assistant in Mantel its songs aren't checked against the library (HA's form, too)
+    got = await save(ws, 5, {"type": "hk_music/playlist/save", "name": "Dinner", "items": ["library://playlist/7"]})
+    assert "result" in got, got
+    assert [p["name"] for p in got["result"]["playlists"]] == ["Dinner"]
+    pid = got["result"]["playlists"][0]["id"]
+    got = await save(ws, 6, {"type": "hk_music/item/remove", "item": pid})
+    assert got["result"]["playlists"] == []
+    assert set(json.loads((await save(ws, 9, {"type": "hk_music/item/remove", "item": pid}))["error"]["message"])) \
+        == {"item"}, "a gone item is refused by field"
+    assert proxy.asked == ["hk_music/settings/get"], "no save went to Home Assistant"
     await ws.close()
     ws = await owner_socket(env, ("adult1", "adult"))
-    assert (await read(ws, 3, {"type": "hk_music/settings/get"}))["error"]["code"] == "forbidden"
-    assert proxy.asked == ["hk_music/settings/get", "hk_alarm_pin/settings/get"], "refused before HA is asked"
+    assert (await read(ws, 7, {"type": "hk_music/settings/get"}))["error"]["code"] == "forbidden"
+    assert (await save(ws, 8, {"type": "hk_music/settings/set", "changes": {"volume": 0.1}}))["error"]["code"] == "forbidden"
     await ws.close()
 
 
-async def test_a_page_read_needs_a_connection_for_has_features(make_env):
+async def test_music_page_without_hk_or_music_assistant_is_not_added(make_env):
     env = await make_env()
     env.app["hub"].readproxy = None
     ws = await owner_socket(env)
-    assert (await read(ws, 1, {"type": "hk_alarm_pin/settings/get"}))["error"]["code"] == "unavailable"
+    assert (await read(ws, 1, {"type": "hk_music/settings/get"}))["result"] == {"configured": False}
     await ws.close()
 
 

@@ -631,6 +631,9 @@ def wire(app: web.Application, hub: Hub, token: str, connect_ha: bool) -> None:
     phones.register(app)
     # HK Frontend's music, Clean Areas and automation-snooze actions, forwarded by Mantel Link (9.8)
     linked_actions.register(app)
+    # the Lights page's "Tonight" list, from Mantel Link (docs/phase9/NO-HK-FRONTEND.md)
+    from . import page_headers
+    page_headers.register(app, hub)
     # ...and how Home Assistant finds Mantel (9.5): the App's Supervisor announcement, or the zeroconf file
     supervisor_discovery.register(app)
     if getattr(cfg, "announce_file", None) is not None:

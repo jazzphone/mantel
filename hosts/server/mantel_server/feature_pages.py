@@ -11,14 +11,13 @@ page failed to load. Here Mantel answers them itself:
   Mantel's own feature settings (``house/mantel_features``) and its House (MantelHouse), in exactly HA's
   page shapes, worked out by the same shared rules (``hk_core.notifications.settings.page``,
   ``hk_core.clean_areas``, ``hk_core.energy.plan``). Music: Mantel's own music settings (music.py's
-  ``MusicHost.page``) once Mantel's music engine is on (Music Assistant and the music settings in Mantel);
-  until then, and for Alarm PIN, an INTERIM filtered read of HA's own page (a server-only read, rebuilt key
-  by key, nothing else passed on).
+  ``MusicHost.page``, Music Assistant or not; HK Frontend's imported ONCE when Mantel has none). Alarm PIN:
+  Mantel's keypad table (alarm_pin.py ``settings_page``; HA's page only while HK Frontend still runs the keypads).
 * **Saves** (the page's ``settings_write``, through ``settings_store.SettingsService``): checked by the same
   shared checks HA uses (``hk_core.notifications.settings``, ``hk_core.energy.settings``, Clean Areas' and
   Live TV's field checks), written to Mantel's settings store as a new version of ``house/mantel_features``
-  (who, which device, the diff: audited), never to Home Assistant. Music's and Alarm PIN's saves stay
-  refused (``not_yet``): their settings are still HA's.
+  (who, which device, the diff: audited), never to Home Assistant. Music's go to ``house/music``; Alarm PIN's
+  to Mantel's keypad table (alarm_pin.py ``settings_save``: HA first only while HK Frontend runs the keypads).
 * **Who**: Owners and Admins. Each read and save asks RBAC ``configure`` on the ``settings`` feature, and on
   the feature itself where RBAC has one (``notifications``, ``energy``, ``music``). HA's are admin-only.
   No HA token or credential is in any answer; entity ids are the house's own.
@@ -63,11 +62,10 @@ PAGE_RULES: dict[str, str] = {
                               "Mantel itself, the plan over MantelHouse; carries fresh only",
     "hk_tv/settings/get": "configure on settings; Mantel's live_tv piece and its own lineup copy (no tuner read); "
                           "carries fresh only",
-    "hk_music/settings/get": "configure on settings and music; with Mantel's music engine on (music.py), Mantel's own "
-                             "music settings in HA's page shape; otherwise INTERIM: HA's page (a server-only read) "
-                             "rebuilt key by key",
-    "hk_alarm_pin/settings/get": "configure on settings; INTERIM: HA's page (a server-only read) rebuilt key by key "
-                                 "(no PIN, only pin_set), until Alarm PIN's settings move",
+    "hk_music/settings/get": "configure on settings and music; Mantel's own music settings (house/music) in HA's page "
+                             "shape; HK Frontend's imported once (a server-only read) when Mantel has none",
+    "hk_alarm_pin/settings/get": "configure on settings; Mantel's keypad table (no PIN, only pin_set); while HK Frontend "
+                                 "runs the keypads, HA's page (a server-only read) rebuilt key by key",
 }
 # the page's saves Mantel takes (settings_store.FEATURE_SAVES, mantel-client.js FEATURE_SAVES): type ->
 # (piece, required keys, optional keys)
@@ -81,12 +79,21 @@ SAVES: dict[str, tuple[str, frozenset, frozenset]] = {
     "hk_energy/device/set": ("energy", frozenset({"key", "changes"}), frozenset()),
     "hk_energy/device/section": ("energy", frozenset({"key", "section"}), frozenset()),
     "hk_tv/settings/set": ("live_tv", frozenset({"changes"}), frozenset()),
+    # Music's settings: house/music (music.py MusicHost.settings_write), Music Assistant or not
+    "hk_music/settings/set": ("music", frozenset({"changes"}), frozenset()),
+    "hk_music/preset/save": ("music", frozenset({"name", "group", "members"}), frozenset({"item"})),
+    "hk_music/playlist/save": ("music", frozenset({"name", "items"}), frozenset({"item", "icon", "chooser", "order"})),
+    "hk_music/playlists/order": ("music", frozenset({"ids"}), frozenset()),
+    "hk_music/item/remove": ("music", frozenset({"item"}), frozenset()),
+    # the Alarm PIN: Mantel's keypad table (alarm_pin.py "HK Settings' Alarm PIN page")
+    "hk_alarm_pin/settings/set": ("alarm_pin", frozenset({"entry_id", "changes"}), frozenset()),
+    "hk_alarm_pin/add": ("alarm_pin", frozenset({"alarm"}), frozenset({"pin", "pin_again", "arm_required"})),
+    "hk_alarm_pin/remove": ("alarm_pin", frozenset({"entry_id"}), frozenset()),
 }
 # RBAC features (rbac.FEATURE_DOMAINS) a page also needs `configure` on, besides `settings`
 RBAC_FEATURE = {"notifications": "notifications", "energy": "energy", "music": "music"}
-# the interim HA reads (readproxy.SERVER_ONLY_READS)
-HA_PAGES = {"music": "hk_music/settings/get", "alarm_pin": "hk_alarm_pin/settings/get"}
-TITLES = {"notifications": "Notifications", "clean_areas": "Clean Areas", "energy": "Energy", "live_tv": "Live TV"}
+TITLES = {"notifications": "Notifications", "clean_areas": "Clean Areas", "energy": "Energy", "live_tv": "Live TV",
+          "music": "Music", "alarm_pin": "Alarm PIN"}
 
 ENTITY = re.compile(r"^[a-z0-9_]+\.[a-z0-9_]+$")
 CHANNEL = re.compile(r"^\d{1,4}(\.\d{1,4})?$")
@@ -97,7 +104,7 @@ TV_MSG = {"guide_url": "Enter an address starting with http:// or https://, or l
           "pick_one": "Choose at least one channel.", "not_a_channel": "That isn’t a channel this tuner has.",
           "name": "Give it a name (up to 40 characters).", "name_taken": "Another channel has that name.",
           "host": "Enter the tuner’s address.", "unknown": "That setting doesn’t exist.",
-          "quality": "Mantel doesn’t keep Live TV’s picture quality yet: it is still set in Home Assistant.",
+          "quality": "Choose 720p or 1080p.",
           "no_lineup": "Mantel hasn’t read this tuner’s lineup, so only channels already chosen can be kept."}
 
 
@@ -212,18 +219,43 @@ class FeaturePages:
         if piece == "live_tv":
             return self.tv_page()
         if piece == "music":
-            music = h.app.get("music")
-            if music is not None and music.active:
-                # Mantel's music engine runs (music.py): its own settings, in HA's page shape
-                return music.page()
-        if piece in HA_PAGES:
-            proxy = getattr(h.hub, "readproxy", None)
-            read = getattr(proxy, "read_server", None)
-            if read is None:
-                raise PageError("unavailable", "no connection to Home Assistant, where this feature still runs")
-            res = await read({"type": HA_PAGES[piece]})
-            return music_page(res) if piece == "music" else alarm_pin_page(res, h.app.get("alarm_pin"))
+            return await self.music_page()
+        if piece == "alarm_pin":
+            from . import alarm_pin
+            return await alarm_pin.settings_page(h.app)
         raise PageError("unknown_type", piece)
+
+    async def music_page(self) -> dict[str, Any]:
+        """Music's page from Mantel's own ``house/music`` (music.py), never HA's. A house that still has HK
+        Frontend's Music and no ``house/music`` yet gets it imported ONCE here (HA's page, a server-only read,
+        the import's own ``music.import_page``); with Music Assistant in Mantel and nothing to import, Music is
+        added in Mantel (the first save makes the document)."""
+        h = self.host
+        music = h.app.get("music")
+        if music is None:
+            return {"configured": False}
+        if music.doc() is None:
+            await self._import_music(music)
+        return music.page(start=music.ma is not None)
+
+    async def _import_music(self, music: Any) -> None:
+        from . import music as M
+        from .settings_store import Actor
+        proxy = getattr(self.host.hub, "readproxy", None)
+        read = getattr(proxy, "read_server", None)
+        if read is None or music.store is None:
+            return
+        try:
+            body = M.import_page(await read({"type": M.IMPORT_READ}), "ha")
+        except Exception as exc:  # noqa: BLE001 -- no HK Frontend (or no HA): nothing to import
+            log.info("music: no HK Frontend music settings to import (%s)", type(exc).__name__)
+            return
+        if body is None or music.store.get("house", M.MUSIC_DOC) is not None:
+            return
+        music.store.write([("house", M.MUSIC_DOC, body)], actor=Actor(label="import"), action="import",
+                          message=M.IMPORT_READ, source="ha")
+        music.changed()
+        log.info("music: HK Frontend's music settings imported into Mantel (once)")
 
     def clean_page(self) -> dict[str, Any]:
         """Clean Areas' page (clean_areas/settings_ws.py page) over MantelHouse."""
@@ -288,7 +320,7 @@ class FeaturePages:
         return {
             "configured": True, "state": "loaded" if h.on("live_tv") else "not_loaded",
             "title": "Live TV", "host": cfg["tuner"], "guide_url": cfg["guide_url"],
-            "quality": None,                  # Live TV's transcode (and its quality) is still HA's
+            "quality": cfg["quality"],        # Mantel's transcode (live_tv.py go2rtc_source)
             "channels": [{"number": n, "name": cfg["names"].get(n) or (lineup.get(n) or {}).get("name") or n}
                          for n in cfg["channels"]],
             "lineup": [{"number": c["number"], "station": c.get("name") or c["number"], "network": networks.get(c["number"])}
@@ -309,6 +341,11 @@ class FeaturePages:
             raise PageError("not_set_up", f"{TITLES[piece]} is off in Mantel's feature settings")
         if t == "hk_notify/test":
             return await self.notify_test(msg)
+        if piece == "music":
+            return await self.music_save(identity, t, msg)
+        if piece == "alarm_pin":
+            from . import alarm_pin
+            return await alarm_pin.settings_save(self.host.app, identity, msg)
         settings = copy.deepcopy(self.host.settings)
         if not isinstance(msg.get("changes", {}), Mapping):
             raise PageError("invalid_format", fields={"changes": "invalid"})
@@ -327,6 +364,25 @@ class FeaturePages:
             self.host.write_doc(FEATURES_DOC, body, identity, t)
             await self.host.reload()
         return {**await self.page(piece), **extra_answer}
+
+    async def music_save(self, identity: Any, t: str, msg: dict[str, Any]) -> dict[str, Any]:
+        """HK Settings' music saves on Mantel's ``house/music`` (music.py), refused by field as HA's were."""
+        import json as _json
+        from .music import MusicRefusal
+        music = self.host.app.get("music")
+        if music is None or music.store is None:
+            raise PageError("not_set_up", "Music isn’t run by this Mantel")
+        try:
+            await music.settings_write(identity, t, {k: v for k, v in msg.items() if k not in ("type", "id")})
+        except MusicRefusal as exc:
+            fields = None
+            if exc.code == "invalid_format":
+                try:
+                    fields = _json.loads(exc.message or "{}")
+                except ValueError:
+                    fields = None
+            raise PageError(exc.code, str(exc), fields) from None
+        return music.page()
 
     def _notify(self, piece: dict[str, Any], t: str, msg: dict[str, Any]) -> dict[str, Any]:
         """notifications/settings_ws.py's three saves, on Mantel's piece ({options, items})."""
@@ -441,7 +497,10 @@ class FeaturePages:
             if k not in ("host", "guide_url", "channels", "names", "quality"):
                 errors[k] = TV_MSG["unknown"]
         if "quality" in changes:
-            errors["quality"] = TV_MSG["quality"]
+            if str(changes["quality"]) not in ("720", "1080"):
+                errors["quality"] = TV_MSG["quality"]
+            else:
+                piece["quality"] = str(changes["quality"])
         if errors:
             raise PageError("invalid_format", fields=errors)
         if "host" in changes:

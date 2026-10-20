@@ -18,7 +18,9 @@ same schema HK Frontend had; Mantel checks it all again and answers.
 
 THE ALIASES. Registered only for a name HK Frontend does not have right now:
 if HK Frontend (still installed) sets up later, its own registration replaces
-the alias, and Mantel Link notices. HK Frontend's last release itself sends
+the alias, and Mantel Link notices. Once HK Frontend's entry is removed, every
+name is Mantel Link's at once, even before Home Assistant restarts (HK Frontend's
+own handlers linger until then, with nothing behind them). HK Frontend's last release itself sends
 `hk_frontend.set_black_screen` for Mantel Link's switches to
 `mantel.set_black_screen`, so a sleep script never has a gap.
 """
@@ -190,8 +192,12 @@ class Aliases:
     def check(self, *_: Any) -> None:
         if self.hk_running():
             return
+        # HK Frontend REMOVED (no entry of it at all) but Home Assistant not restarted yet: the actions it
+        # registered when it was set up are still there with nothing behind them ("No pop-up #doorbell"), so
+        # this side takes the names over. HK Frontend merely not loaded (an entry still there) keeps its own.
+        removed = not hk_entries(self.hass)
         for service in ALIASES:
-            if service in self.ours or self.hass.services.has_service(HK_DOMAIN, service):
+            if service in self.ours or (self.hass.services.has_service(HK_DOMAIN, service) and not removed):
                 continue
             self._registering = True
             try:

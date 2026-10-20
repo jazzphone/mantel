@@ -24,7 +24,8 @@ struct FavoritesEditor: View {
                 }
             }
             Section("Accessories") {
-                ForEach(all.filter { query.isEmpty || $0.name.localizedCaseInsensitiveContains(query) }) { e in
+                ForEach(all.filter { query.isEmpty || $0.name.localizedCaseInsensitiveContains(query)
+                                       || $0.entity_id.localizedCaseInsensitiveContains(query) }) { e in
                     Button {
                         if let i = chosen.firstIndex(of: e.entity_id) { chosen.remove(at: i) } else { chosen.append(e.entity_id) }
                         save()
@@ -57,6 +58,14 @@ struct FavoritesEditor: View {
                 async let f = client.favorites()
                 (all, chosen) = try await (a, f)
             } catch { self.error = error.localizedDescription }
+        }
+        .task(id: query) {
+            // The house sends at most 500 of the list unsearched, so a search asks it, not just what came
+            guard !query.isEmpty, let client = model.client else { return }
+            try? await Task.sleep(for: .milliseconds(250))
+            guard !Task.isCancelled, let found = try? await client.entities(matching: query) else { return }
+            let known = Set(all.map(\.entity_id))
+            all += found.filter { !known.contains($0.entity_id) }
         }
     }
 

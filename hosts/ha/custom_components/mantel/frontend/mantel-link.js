@@ -23,7 +23,7 @@
 (function () {
   'use strict';
   if (window.__mantelLink) return;
-  window.__mantelLink = { version: '2' };
+  window.__mantelLink = { version: '3' };
 
   var SIDEBAR = 'mantel-kiosk-sidebar', HEADER = 'mantel-kiosk-header';
   var CSS = {
@@ -116,8 +116,13 @@
     if (m) m.dispatchEvent(new CustomEvent('hass-show-notifications', { bubbles: true, composed: true }));
   }
 
-  // ---- HA's sidebar over the page (HK's Show Menu, as HK Frontend's hk-menu.js did it): HA's drawer made modal
-  // and opened, our hiding lifted while it is up; closed (or the page changed), everything as it was
+  // ---- HA's sidebar for the screen's Show Menu, HA's own way. Where HA draws its sidebar as a drawer over the page
+  // (a narrow window, a sidebar set to "always hidden", HA's kiosk mode) HA is asked to open it (`hass-toggle-menu`,
+  // what HA's own menu button sends), so HA keeps it open, closes it when a page is chosen, and says when it has closed;
+  // our hiding is lifted while it is up. Beside the page (a wide window) the docked sidebar simply comes back, as this
+  // person has it, until a page is chosen or Show Menu is used again. (First built as HK Frontend's hk-menu.js did it,
+  // HA's drawer forced into its pop-over mode behind HA's back: in HA 2026.9 that pop-over is a light-dismiss dialog HA
+  // knows nothing of, and it often closed again at once -- Avery, 2026-10-20.)
   var lift = null;
   function shown() {
     var d = drawer(), s = sidebarEl();
@@ -126,30 +131,22 @@
     try { return getComputedStyle(s).display !== 'none' && s.getBoundingClientRect().width > 0; } catch (e) { return false; }
   }
   function menu() {
-    var d = drawer(), s = sidebarEl();
-    if (!d || !s || lift) return;
-    lift = { d: d, s: s, type: d.type, expand: s.alwaysExpand };
+    var m = main(), d = drawer();
+    if (!m || !d) return;
+    if (lift) { unlift(); return; }
+    lift = { d: d, drawer: d.type === 'modal' };
     apply();
-    d.type = 'modal';
-    s.alwaysExpand = true;
-    requestAnimationFrame(function () { requestAnimationFrame(function () { d.open = true; }); });
-    var seen = false;
-    lift.poll = setInterval(function () {
-      if (d.open) { seen = true; return; }
-      if (seen) unlift();
-    }, 250);
+    if (!lift.drawer) return;
+    lift.closed = function () { unlift(); };
+    d.addEventListener('hass-drawer-closed', lift.closed);
+    m.dispatchEvent(new CustomEvent('hass-toggle-menu', { detail: { open: true }, bubbles: true, composed: true }));
   }
   function unlift() {
     if (!lift) return;
     var l = lift;
     lift = null;
-    clearInterval(l.poll);
-    if (l.d.open) l.d.open = false;
-    // after the drawer's own close animation, so it does not snap shut
-    setTimeout(function () {
-      try { l.d.type = l.type || ''; l.s.alwaysExpand = !!l.expand; } catch (e) { /* gone */ }
-      apply();
-    }, 300);
+    if (l.closed) l.d.removeEventListener('hass-drawer-closed', l.closed);
+    apply();
   }
 
   // ---- this person's HA sidebar, for the frame that spoke (its rows in the screen's menu)

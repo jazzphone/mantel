@@ -85,7 +85,8 @@ recorder:
   db_url: "sqlite:///{db}"
 energy:
 image_upload:
-automation:
+automation: !include automations.yaml
+script: !include scripts.yaml
 camera:
 demo:
 """
@@ -238,6 +239,10 @@ def prepare(fresh: bool, sequential: bool = False, hk: bool = True, probe: bool 
         store.write_text(json.dumps({"version": 4, "minor_version": 1, "key": "onboarding",
                                      "data": {"done": ["core_config", "analytics", "integration"]}}))
     (CONFIG / "configuration.yaml").write_text(CONFIGURATION.format(db=CONFIG / "home-assistant_v2.db"))
+    # the automation and script editors' files (an e2e saves a fictional automation and script through HA's API)
+    for name in ("automations.yaml", "scripts.yaml"):
+        if not (CONFIG / name).exists():
+            (CONFIG / name).write_text("[]\n" if name == "automations.yaml" else "{}\n")
     if probe:
         install_zeroconf_probe()
     if phone:
