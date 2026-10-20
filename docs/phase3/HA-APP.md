@@ -978,6 +978,9 @@ Everything on main since 0.1.28 (validation green: JS 130, HA py 732, Mantel 283
 - **Apps:** the iPhone music player is not covered by the tab bar and is solid in the Flat look; the Mac app's
   player and pages.
 - No HA backup taken (Avery: the App touches nothing in HA).
+- [x] On the house (build `113bd4f7a18a90b5`, 10:23): Mantel Link and HK Frontend reconnected; all five tablets
+      named their kiosk at the start.
+- [ ] Avery: the Alarm PIN entered once more on HK Settings' Alarm PIN page, then a disarm at a tablet.
 
 ### Removal
 
