@@ -308,4 +308,26 @@ async def test_ha_commander_posts_the_raw_clip_to_the_talk_view():
             await commander.close()
     assert result == {"ok": True, "bytes": len(CLIP)}
     assert got == [{"path": PATH, "type": "audio/webm", "auth": "Bearer fictional-token", "body": CLIP}]
-    assert commander.sent == ["POST /api/hk_frontend/talk"]
+    # Mantel Link's view first (404 here: a Home Assistant with only HK Frontend), then HK Frontend's
+    assert commander.sent == ["POST /api/mantel/talk", "POST /api/hk_frontend/talk"]
+
+
+async def test_the_clip_goes_to_mantel_links_talk_view_when_ha_has_it():
+    """With Mantel Link's talk view (its talk.py) the clip goes there, once: HK Frontend is not needed."""
+    from mantel_server.config import Config
+    got = []
+
+    async def talk_view(request):
+        got.append(request.path_qs)
+        return web.json_response({"ok": True})
+    ha = web.Application()
+    ha.router.add_post("/api/mantel/talk", talk_view)
+    async with TestServer(ha, host="127.0.0.1") as server:
+        commander = HaCommander(Config(commands_enabled=True, ha_url=str(server.make_url("")).rstrip("/")),
+                                "fictional-token", WRITES)
+        try:
+            assert await commander.upload(PATH, "audio/webm", CLIP, CommandTicket(11, "upload")) == {"ok": True}
+        finally:
+            await commander.close()
+    assert got == [PATH.replace("/api/hk_frontend/", "/api/mantel/")]
+    assert commander.sent == ["POST /api/mantel/talk"]

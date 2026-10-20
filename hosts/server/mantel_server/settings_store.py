@@ -252,7 +252,7 @@ class SettingsStore:
         d = diff(old, body)
         if cur is not None and _empty(d):
             return None                                        # nothing changed: no new version
-        version = (cur.version if cur else 0) + 1
+        version = (cur.version if cur else self._last_version(scope, key)) + 1
         self.conn.execute(
             "INSERT INTO settings_history (scope, key, version, body, diff, action, message, actor, actor_role, device,"
             " source, created) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
@@ -263,6 +263,29 @@ class SettingsStore:
             "updated=excluded.updated, updated_by=excluded.updated_by",
             (scope, key, version, text, now, actor.id))
         return Doc(scope, key, version, json.loads(text), now, actor.id)
+
+    def _last_version(self, scope: str, key: str) -> int:
+        """The last version a document had, also when it was removed (its history stays; a new one goes on)."""
+        row = self.conn.execute("SELECT MAX(version) AS v FROM settings_history WHERE scope=? AND key=?",
+                                (scope, key)).fetchone()
+        return int(row["v"] or 0) if row is not None else 0
+
+    def remove(self, scope: str, key: str, *, actor: Actor, message: str | None = None) -> bool:
+        """Remove a document (a tablet taken off Wall Tablets). Its history stays, with a last version saying it
+        was removed (an empty body; the message says why: the history's actions are set, restore and import), so
+        ``restore`` can bring any earlier version back."""
+        cur = self.get(scope, key)
+        if cur is None:
+            return False
+        now = float(self.clock())
+        with self.conn:
+            self.conn.execute(
+                "INSERT INTO settings_history (scope, key, version, body, diff, action, message, actor, actor_role,"
+                " device, source, created) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+                (scope, key, cur.version + 1, "{}", _stored(diff(cur.body, {})), "set", message or "removed", actor.id,
+                 actor.role, actor.device_id, None, now))
+            self.conn.execute("DELETE FROM settings_docs WHERE scope=? AND key=?", (scope, key))
+        return True
 
     def write(self, changes: Iterable[tuple[str, str, dict]], *, actor: Actor, action: str = "set",
               message: str | None = None, source: str | None = None,
@@ -756,6 +779,8 @@ SETTINGS_SAVES = frozenset({
     "hk_frontend/accessory/into", "hk_frontend/accessory/order", "hk_frontend/accessory/page_order",
     "hk_frontend/accessory/room_scenes", "hk_frontend/accessory/set", "hk_frontend/board/favorite",
     "hk_frontend/hidden/also", "hk_frontend/hidden/set",
+    # Wall Tablets' Add and Remove (a tablet is Mantel's document), and a screen's title (Mantel's screens)
+    "hk_frontend/tablet/add", "hk_frontend/tablet/remove", "hk_frontend/dashboard/titled",
 })
 MANTEL_SAVES = frozenset({"mantel/settings/user/set", "mantel/settings/restore"})
 HA_WRITES = frozenset({
@@ -763,13 +788,12 @@ HA_WRITES = frozenset({
     "config/entity_registry/update", "config_entries/subentries/delete", "frontend/set_user_data", "image/delete",
     "input_select/create", "lovelace/config/save", "lovelace/dashboards/create", "lovelace/dashboards/delete",
     "lovelace/dashboards/update",
-    "hk_frontend/tablet/add",        # an HA config-entry item and the tablet's HA device
-    "hk_frontend/tablet/remove",     # the same, removed
-    "hk_frontend/tablet/act",        # wakes / sleeps / restarts a tablet: a house command
+    # the page never sends these to HA on Mantel: mantel-client.js answers them with Mantel's own frames
+    # (tablet_act, tablets_restart, screen_report) or locally (tablet/seen: Mantel enrols tablets itself)
+    "hk_frontend/tablet/act",        # wakes / sleeps / restarts a tablet, fixes its kiosk's screensaver
     "hk_frontend/screensaver/black", "hk_frontend/screensaver/touch",   # a tablet's switches
-    "hk_frontend/talk/live",         # doorbell talk-back
-    "hk_frontend/dashboard/titled",  # follows an HA dashboard's title
     "hk_frontend/tablet/seen",       # a tablet reports itself to HA's tablets engine
+    "hk_frontend/talk/live",         # doorbell talk-back
     "hk_music/queue_play", "hk_tv/watching", "hk_music/used",
 })
 # HK Settings -> Features saves Mantel takes (feature_pages.SAVES): checked by the shared checks and stored
@@ -814,6 +838,9 @@ WRITE_KEYS = {  # what each save may carry besides "type" (and the page's "id"),
     "hk_frontend/board/favorite": ({"dashboard", "entity_id", "favorite"}, set()),
     "hk_frontend/hidden/set": ({"entity_ids", "everywhere"}, {"places"}),
     "hk_frontend/hidden/also": ({"entity_ids", "kinds"}, set()),
+    "hk_frontend/tablet/add": ({"tablet"}, set()),
+    "hk_frontend/tablet/remove": ({"tablet"}, set()),
+    "hk_frontend/dashboard/titled": ({"dashboard"}, set()),
 }
 READS = ("hk_frontend/settings/subscribe", "hk_frontend/panel/get", "mantel/settings/get", "mantel/settings/history")
 
@@ -1228,6 +1255,42 @@ class SettingsService:
         return {"scope": scope.kind, "key": scope.key, "version": d.version if d else 0, "restored_from": version,
                 "changed": got is not None}
 
+
+    # -- Wall Tablets' Add and Remove, a screen's title (HK Frontend's panel.py, now Mantel's) ------------------
+    async def _tablet_add(self, identity, actor, msg):
+        """A new tablet (Add Tablet): its settings checked as any change, its id from its name."""
+        given = msg["tablet"]
+        if not isinstance(given, dict):
+            raise SettingsError("invalid_format", fields={"tablet": "object"})
+        tid = SM.tablet_id(str(given.get("name") or ""), set(self.store.docs("tablet")))
+        if not KEY_RE["tablet"].match(tid):
+            raise SettingsError("invalid_format", fields={"name": "name_needed"})
+        await self.need(identity, Scope("tablet", tid))
+        new, errors = self.model.apply_tablet({}, {"name": "", **given}, tid)
+        if errors:
+            raise SettingsError("invalid_format", fields=errors)
+        new["uid"] = f"tablet_{tid}"
+        self._store([("tablet", tid, new)], actor, msg)
+        return {"id": tid, "tablet": self.store.body("tablet", tid)}
+
+    async def _tablet_remove(self, identity, actor, msg):
+        """A tablet gone: its document (its history stays); its screen and its kiosk app stay."""
+        tid = msg["tablet"]
+        if not isinstance(tid, str) or not KEY_RE["tablet"].match(tid) or self.store.get("tablet", tid) is None:
+            raise SettingsError("no_tablet", "There is no such tablet")
+        await self.need(identity, Scope("tablet", tid))
+        self.store.remove("tablet", tid, actor=actor, message=msg["type"])
+        self.publish()
+        return {"removed": tid}
+
+    async def _dashboard_titled(self, identity, actor, msg):
+        """HK Settings asks this after renaming a screen: on Mantel a screen's title is its board's own, so this
+        only answers it (HK Frontend followed an HA dashboard's title here)."""
+        path = msg["dashboard"]
+        if not isinstance(path, str) or not KEY_RE["board"].match(path) or self.store.get("board", path) is None:
+            raise SettingsError("no_dashboard", "There's no dashboard at that address")
+        await self.need(identity, Scope("board", path))
+        return {"title": self.screen_title(path, self.store.body("board", path))}
 
     # -- accessories, favorites, Hidden Accessories (HK Frontend's accessories.py and hiding.py, now Mantel's) ---
     def _accessories(self) -> dict:

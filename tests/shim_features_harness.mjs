@@ -134,14 +134,13 @@ async function run(label, commandsOn) {
   // All Tablets' "Restart all now": Mantel's tablets_restart, answered as HA answers
   p = a.callWS({ type: 'hk_frontend/tablet/act', tablet: '*', act: 'restart_all' });
   res.restartFrame = last(); answer('tablets_restart_result', { restarted: ['hall'], presses: [] }); res.restart = await p;
-  // any other tablet act is not Mantel's: the gateway with commands on, refused with them off
-  const ta = sent.length;
-  try {
-    const q = a.callWS({ type: 'hk_frontend/tablet/act', tablet: 'hall', act: 'wake' });
-    if (commandsOn) { res.wakeActFrame = last(); answer('command_result', { ok: true }); }
-    await q; res.wakeAct = 'ok';
-  } catch (e) { res.wakeAct = e.code; }
-  res.wakeActSent = sent.length - ta;
+  // Wake Now (and Sleep Now, the kiosk screensaver's Fix): Mantel's own tablet_act, commands on or off
+  p = a.callWS({ type: 'hk_frontend/tablet/act', tablet: 'hall', act: 'wake' });
+  res.wakeActFrame = last(); answer('tablet_act_result', { ok: true }); res.wakeAct = await p;
+  // a page that looks like a tablet's: nothing sent (Mantel enrols tablets itself)
+  const ts = sent.length;
+  res.seen = await a.callWS({ type: 'hk_frontend/tablet/seen', screen: 'x', app: 'browser' });
+  res.seenSent = sent.length - ts;
 
   // HK Settings -> Features: Mantel's feature saves go to the store, like HK's own settings saves
   p = a.callWS({ type: 'hk_notify/settings/set', changes: { stay: 60 } });
@@ -184,7 +183,7 @@ async function run(label, commandsOn) {
   res.hiddenFrame = last(); reply({ type: 'settings_result', id: last().id, result: { can: {} } }); res.hidden = await p;
   // an unrelated write still goes the way it did
   const w = sent.length;
-  try { const q = a.callWS({ type: 'hk_frontend/tablet/add', name: 'x' }); if (commandsOn) { res.otherFrame = last(); answer('command_result', []); } await q; res.other = 'ok'; } catch (e) { res.other = e.code; }
+  try { const q = a.callWS({ type: 'input_select/create', name: 'x' }); if (commandsOn) { res.otherFrame = last(); answer('command_result', []); } await q; res.other = 'ok'; } catch (e) { res.other = e.code; }
   res.otherSent = sent.length - w;
   // Live TV's viewer heartbeat: always Mantel's `tv_watching` (counted there, never a command). Where Mantel
   // serves Live TV (ha: false) that is all; where HA's Live TV is the interim (ha: true) it ALSO goes to HA

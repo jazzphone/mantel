@@ -22,7 +22,9 @@
                         // accessories, favorites and Hidden Accessories: the store too (accessories.py, hidden.py)
                         'hk_frontend/accessory/into', 'hk_frontend/accessory/order', 'hk_frontend/accessory/page_order',
                         'hk_frontend/accessory/room_scenes', 'hk_frontend/accessory/set', 'hk_frontend/board/favorite',
-                        'hk_frontend/hidden/also', 'hk_frontend/hidden/set'];
+                        'hk_frontend/hidden/also', 'hk_frontend/hidden/set',
+                        // Wall Tablets: Add and Remove, and a screen title: the store too (a tablet is a document)
+                        'hk_frontend/tablet/add', 'hk_frontend/tablet/remove', 'hk_frontend/dashboard/titled'];
   // HK SETTINGS -> FEATURES saves (docs/phase4/MANTEL-FEATURES.md "HK Settings -> Features"): the same
   // way, to Mantel's feature settings (settings_store.FEATURE_SAVES, a test pins the two lists together;
   // RBAC `configure` on the server). Music's settings (house/music) and the Alarm PIN's (Mantel's keypad table)
@@ -231,6 +233,10 @@
     if (typeof hub.ask !== 'function') return Promise.reject(fail('commands_disabled', 'commands disabled'));
     return hub.ask('tablets_restart', {}).then(function (r) { return { restarted: (r && r.restarted) || [] }; });
   }
+  function tabletAct(hub, msg) {
+    if (typeof hub.ask !== 'function') return Promise.reject(fail('commands_disabled', 'commands disabled'));
+    return hub.ask('tablet_act', { tablet: String(msg.tablet), act: String(msg.act) });
+  }
   var LIBRARY_KEYS = ['type', 'domain', 'service', 'service_data', 'return_response'];
   function isLibraryRead(msg) {
     return !!msg && msg.type === 'call_service' && msg.domain === 'music_assistant' && msg.service === 'get_library' &&
@@ -266,6 +272,10 @@
         return hub.ask('user_data_set', { key: msg.key, value: msg.value === undefined ? null : msg.value }).then(function () { return null; });
       }
       if (t === 'hk_frontend/tablet/act' && msg.act === 'restart_all') return tabletsRestart(hub);
+      // Wake Now, Sleep Now, the kiosk screensaver's Fix: Mantel's own (features.py tablet_act), never HA's
+      if (t === 'hk_frontend/tablet/act') return tabletAct(hub, msg);
+      // a page that looks like a wall tablet's: HK Frontend kept it as a suggestion; Mantel enrols tablets itself
+      if (t === 'hk_frontend/tablet/seen') return Promise.resolve({});
       // LIVE TV'S VIEWER HEARTBEAT (hk-tv-guide-card, on opening a channel and every 60 s while it plays):
       // counted by Mantel (tv_watching; live_tv.py), never a command, on every server, commands on or off.
       // Where Mantel serves Live TV it publishes sensor.tv_viewers itself. Where Home Assistant's Live TV is

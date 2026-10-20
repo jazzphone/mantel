@@ -45,7 +45,8 @@ Phase ``house`` (HK Frontend removed, docs/phase9/NO-HK-FRONTEND.md), a Home Ass
   4. ``house`` back to Home Assistant: HK Frontend takes the same entries back; then to Mantel again.
   5. HK Frontend's entry is REMOVED: every entity stays (same ids, Mantel Link's, live), Mantel Link registers the
      ``hk_frontend.*`` aliases, and an AUTOMATION and a SCRIPT calling ``hk_frontend.show_popup`` /
-     ``hk_frontend.set_black_screen`` still reach Mantel; HA's history of the Seasonal switch runs on across it all.
+     ``hk_frontend.set_black_screen`` still reach Mantel; Mantel Link's talk view plays a clip on a demo speaker,
+     ``mantel/talk/live`` and ``mantel/energy/sources`` answer; HA's history of the Seasonal switch runs on.
   6. With HK Frontend gone, moving ``house`` back to Home Assistant is refused in words.
 
 Phase ``phones`` (slice 9.7): a stand-in Companion-app phone in the scratch HA (``testha.py up --phone-probe``:
@@ -312,6 +313,11 @@ async def _all_live(ha: HA):
 async def _attr_is(ha: HA, eid: str, key: str, value):
     st = await ha.state(eid)
     return st if st is not None and st["attributes"].get(key) == value else None
+
+
+async def _attr_is_like(ha: HA, eid: str, key: str, part: str):
+    st = await ha.state(eid)
+    return st if st is not None and part in str(st["attributes"].get(key) or "") else None
 
 
 async def _diag(ha: HA, entry: str, ok):
@@ -676,6 +682,23 @@ async def steps_house(app, ha: HA, owner, base: str, hk_entry: str, svc_hk: str,
     st = await until(lambda: _state_is(ha, BLACK, ("on",)))
     check(s == 200 and st is not None, "a script's hk_frontend.set_black_screen turns the Hall black through Mantel")
     await ha.post("/api/services/mantel/set_black_screen", {"entity_id": BLACK, "black": False})
+    # -- what only code inside HA can do, now Mantel Link's: talk-back and the Energy plan's helper sources -------
+    speakers = [x["entity_id"] for x in (await ha.get("/api/states"))[1]
+                if x["entity_id"].startswith("media_player.")
+                and int(x["attributes"].get("supported_features") or 0) & 512]          # PLAY_MEDIA
+    check(bool(speakers), f"the scratch HA has a demo speaker that plays media ({speakers[:1]})")
+    clip = b"\x1aE\xdf\xa3" + bytes(400)                                      # a fictional, silent "clip"
+    async with ha.http.post(f"{SCRATCH_URL}/api/mantel/talk?entity_id={speakers[0]}", data=clip,
+                            headers={**ha.h, "Content-Type": "audio/webm"}) as r:
+        st, body = r.status, await r.json(content_type=None)
+    played = await until(lambda: _attr_is_like(ha, speakers[0], "media_content_id", "/api/mantel/talk/"))
+    check(st == 200 and body.get("ok") and played is not None,
+          "Mantel Link's talk view (HK Frontend's, ported): the clip is played on the speaker from a signed URL")
+    got = await ha.ws(type="mantel/talk/live", entity_id=speakers[0], rate=48000)
+    check(isinstance(got, dict) and (got.get("error") or {}).get("code") == "not_supported",
+          "mantel/talk/live is there (a demo speaker isn't a UniFi Protect doorbell: refused, the card sends the clip)")
+    got = await ha.ws(type="mantel/energy/sources")
+    check(isinstance(got, dict) and isinstance(got.get("sources"), dict), "mantel/energy/sources answers (read only)")
     # -- no going back without HK Frontend ------------------------------------------------------------------------
     st_code, body = await owner.post("/api/linked/owners", {"unit": "house", "owner": "ha"}, method="PUT")
     check(st_code == 400 and body["error"]["code"] == "no_hk_frontend" and app["linked_owners"].house(),

@@ -105,10 +105,11 @@ def test_restart_all_now_is_mantels_tablets_restart(observed, mode):
     r = observed[mode]
     assert {k: v for k, v in r["restartFrame"].items() if k != "id"} == {"type": "tablets_restart"}
     assert r["restart"] == {"restarted": ["hall"]}
-    if mode == "off":
-        assert (r["wakeAct"], r["wakeActSent"]) == ("commands_disabled", 0)
-    else:
-        assert r["wakeActFrame"]["type"] == "command" and r["wakeActFrame"]["msg"]["act"] == "wake"
+    # Wake Now is Mantel's own tablet_act (its Sleep Screen engine), never a command to HA, commands on or off
+    assert {k: v for k, v in r["wakeActFrame"].items() if k != "id"} == {"type": "tablet_act", "tablet": "hall",
+                                                                          "act": "wake"}
+    assert r["wakeAct"] == {"ok": True}
+    assert (r["seen"], r["seenSent"]) == ({}, 0), "tablet/seen: answered by the page, nothing sent"
 
 
 @pytest.mark.parametrize("mode", ["off", "on"])
@@ -159,7 +160,7 @@ def test_no_house_command_is_made_of_any_of_this(observed):
         for mode in ("off", "on"):
             assert observed[mode][key]["type"] in ("screen_report", "notify_mute")
     assert set(observed["kinds"]) <= {"read_subscribe", "read_unsubscribe", "screen_report", "notify_mute",
-                                      "tv_watching", "command", "settings_write", "tablets_restart", "read", "music_used",
+                                      "tv_watching", "command", "settings_write", "tablets_restart", "tablet_act", "read", "music_used",
                                       "user_data_set"}
 
 
