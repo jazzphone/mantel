@@ -584,9 +584,15 @@ function pPeople(sub) {
     c.appendChild(group({ footer: 'For someone who signs in with their own user name and password. They can add an authenticator app and passkeys themselves.' },
       [nav('Add a Mantel Account…', 'people/add', { icon: 'mdi:plus' })]));
     const linked = users.filter((u) => u.ha_user_id);
+    const rows = linked.length ? linked.map((u) => info(u.name || u.id, 'Home Assistant user ' + u.ha_user_id, roleLabel(u.role)))
+      : [info('No Home Assistant users are linked yet')];
+    // Inside Home Assistant (the App's sidebar page, BASE set): the household's linking page (ingress.py people_get),
+    // which reads Home Assistant's own user list; elsewhere linking is the server's command
+    if (BASE) rows.push(button('Link Home Assistant Users…', () => location.assign(BASE + '/ingress/people'), { fk: 'mx:ha-people' }));
     c.appendChild(group({ header: 'Home Assistant Users',
-      footer: 'A person who signs in with Home Assistant only gets in once they are linked to a role. When they try and are not linked, their sign-in page shows their Home Assistant user id. To link them, run on the Mantel Server: mantel-server link --ha-user-id <id> --role adult --name "Their name". To end a link: mantel-server unlink --ha-user-id <id>.' },
-      linked.length ? linked.map((u) => info(u.name || u.id, 'Home Assistant user ' + u.ha_user_id, roleLabel(u.role))) : [info('No Home Assistant users are linked yet')]));
+      footer: BASE ? 'A person who signs in with Home Assistant only gets in once they are linked to a role. Link Home Assistant Users lists everyone in Home Assistant, to give each a role or a wall tablet.'
+        : 'A person who signs in with Home Assistant only gets in once they are linked to a role. When they try and are not linked, their sign-in page shows their Home Assistant user id. To link them, run on the Mantel Server: mantel-server link --ha-user-id <id> --role adult --name "Their name". To end a link: mantel-server unlink --ha-user-id <id>.' },
+      rows));
   } };
 }
 // THEIR PHONES (phones.py; docs/phase9/MANTEL-LINK.md 9.7): Mantel's notifications on the Home Assistant Companion
