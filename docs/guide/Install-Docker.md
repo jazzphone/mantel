@@ -10,7 +10,7 @@ You need:
 
 | | |
 |---|---|
-| **A Docker host** | Linux with Docker Engine and the Docker Compose v2 plugin (`docker compose`). An x86-64 (`amd64`) machine. <!-- CHECK: the transcode image installs Intel's intel-media-va-driver-non-free, which Debian ships for amd64 only, so the stack likely does not build on arm64. Confirm, and confirm the minimum Compose version (update.sh uses `up --wait --wait-timeout` and `config --images`). --> |
+| **A Docker host** | Linux with Docker Engine and the Docker Compose v2 plugin (`docker compose`). An x86-64 (`amd64`) machine is tested; on `arm64` the images build too, and Live TV transcodes in software (Intel's QuickSync driver is amd64-only).<!-- CHECK: no build on arm64 has been run yet; also the minimum Compose v2 version (update.sh uses `docker compose config --images` and `--wait-timeout`). --> |
 | **git** | To get the files. |
 | **A name for Mantel** | What browsers will type, for example `mantel.example.com`, and a DNS record that points it at this host. A record in your home's own DNS is enough. |
 | **A way to get HTTPS** | Your own domain on Cloudflare DNS (the default), or Caddy's own certificate authority, or a reverse proxy you already run. See [step 3](#3-choose-how-browsers-get-https). |

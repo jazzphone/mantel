@@ -96,9 +96,9 @@ Mantel once. Only an Owner can start an import.
 3. **Into Album**: pick an album.
 4. Select **Copy Photos Into Album**.
 
-Mantel walks the folder and its subfolders, at most 5,000 pictures, and adds
-each one exactly like an upload: the same checks, the same limits, and
-duplicates skipped. <!-- CHECK: photos.py walks IMPORT_DEPTH = 4 levels of subfolders below the folder; docs/phase4/PHOTOS.md says "three folders deep". The text above avoids a number. -->
+Mantel walks the folder and its subfolders (up to four levels down), at most
+5,000 pictures, and adds each one exactly like an upload: the same checks, the
+same limits, and duplicates skipped.
 The page shows the progress, and **Stop Import** stops it. When it ends, the
 page lists any pictures that could not be copied, and why.
 
