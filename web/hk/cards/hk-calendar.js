@@ -219,6 +219,13 @@
     store.live[key] = p;
     return p;
   }
+  // the line over the page when calendars could not be read: a calendar
+  // Home Assistant has as unavailable (its account signed out, say) says so
+  function failedLine(h, ids) {
+    var names = ids.map(function (id) { return calName(h, id); }).join(', ');
+    var off = ids.every(function (id) { var s = h && h.states && h.states[id]; return s && s.state === 'unavailable'; });
+    return names + (off ? (ids.length > 1 ? ' are' : ' is') + ' unavailable in Home Assistant.' : ' couldn’t be read.');
+  }
   // every chosen calendar's events from `from` to `to`; a calendar that
   // fails is left out (and said so), the rest still show
   function load(client, ids, from, to) {
@@ -231,6 +238,9 @@
         return [];
       });
     })).then(function (lists) {
+      // (in the calendars' own order, not the order the failures came back:
+      // the line read "Work, Family" on one load and "Family, Work" on the next)
+      failed = ids.filter(function (id) { return failed.indexOf(id) >= 0; });
       return { evs: [].concat.apply([], lists).sort(byStart), failed: failed };
     });
   }
@@ -852,7 +862,16 @@
       }
       // every five minutes the events again (a calendar changed elsewhere)
       this._tick = setInterval(function () { self._have = ''; self._fetch(); }, 300000);
-      // (again once the panels are drawn: measured from the body itself)
+      // DRAWN BEFORE IT WAS PLACED, the page guessed its width (wide) and
+      // its height (the 620 px default), and a cold load could show that
+      // frame before the ResizeObserver and the measure below put it right
+      // (2026-10-20, Safari on Mantel: the panels drew short, then grew).
+      // So the width is taken now, the page drawn again for it, and the
+      // panels measured, before the first frame -- and again once they are
+      // drawn: measured from the body itself.
+      var w0 = this.clientWidth || 0;
+      if (w0 && Math.abs(w0 - this._w) >= 2) { this._w = w0; if (this.client && this._config) this.redraw(); }
+      this._measure();
       this._m0 = setTimeout(function () { self._m0 = null; self._measure(); setTimeout(function () { if (self.isConnected) self._measure(); }, 400); }, 0);
     }
     disconnectedCallback() {
@@ -1030,7 +1049,7 @@
       var bar = this._bar(h, wide), html = '';
       if (!calIds(h).length) html += '<div class="panel" style="padding:22px"><div class="empty">No calendars. Add one to Home Assistant (Settings → Devices &amp; Services → Add Integration → Local Calendar) and it shows here.</div></div>';
       else {
-        if (this._failed.length) html += '<div class="warn">' + esc(this._failed.map(function (id) { return calName(h, id); }).join(', ')) + ' couldn’t be read.</div>';
+        if (this._failed.length) html += '<div class="warn">' + esc(failedLine(h, this._failed)) + '</div>';
         html += this._view === 'week' ? this._week(h, wide) : this._view === 'day' ? this._dayView(h, wide) : this._month(h, wide);
       }
       // THE BAR IS WRITTEN ONLY WHEN IT CHANGES (2026-10-10). The page is
@@ -1043,8 +1062,9 @@
       // fits the window too ('fit'): its list scrolls in its panel, under a
       // page that stays put -- a phone's page scrolls as a phone's does
       var fit = !wide && this._view === 'week' && (window.innerWidth || 0) >= 640 && (window.innerHeight || 0) >= 500;
-      var cls = (wide ? 'wide' : 'narrow') + (fit ? ' fit' : ''), wrap = this._wrap;
+      var cls = (wide ? 'wide' : 'narrow') + (fit ? ' fit' : ''), wrap = this._wrap, fresh = false;
       if (!wrap || wrap.parentNode !== this._root || wrap.className !== cls) {
+        fresh = true;
         // (a new layout: its panels measured again once drawn)
         var selfM = this;
         requestAnimationFrame(function () { if (selfM.isConnected) selfM._measure(); });
@@ -1066,6 +1086,16 @@
         if (nowSeg) slideSeg(nowSeg, segFrom);
       }
       if (wrap) wrap.children[1].innerHTML = html;
+      // MEASURED BEFORE THE FIRST PAINT (2026-10-20, Safari on Mantel): a
+      // new layout's panels were measured a frame later, so on some loads
+      // their first frame was the 620 px default and then they grew.
+      // THE WARNING LINE COMES LATE: it sits above the panels and arrives
+      // with the events' answer, often after the panels were measured --
+      // they were pushed down by its height and ran past the window's
+      // gutter, on some loads and not others. Measured again in the same
+      // frame it comes or goes, so the panels' bottom edge stays put.
+      var warned = this._failed.length > 0;
+      if (fresh || warned !== !!this._warned) { this._warned = warned; this._measure(); }
       var tl2 = this._root.querySelector && this._root.querySelector('.tl');
       if (tl2 && tl2.setAttribute) {
         tl2.setAttribute('data-k', this._view + (+this._day));
@@ -1847,7 +1877,7 @@
     ids: calIds, load: load, create: create, update: update, remove: remove, changed: changed,
     show: show, edit: edit_, newAt: newAt, close: closeSheet, askDelete: askDelete, fromAny: fromAny,
     // tests
-    _: { bigTime: bigTime, longDay: longDay, norm: norm, onDay: onDay, ownDay: ownDay, lanes: lanes, bars: bars, payload: payload, isoLocal: isoLocal, ymd: ymd,
+    _: { failedLine: failedLine, bigTime: bigTime, longDay: longDay, norm: norm, onDay: onDay, ownDay: ownDay, lanes: lanes, bars: bars, payload: payload, isoLocal: isoLocal, ymd: ymd,
          weekStart: weekStart, setWeekStart: setWeekStart, dows: dows, addMonths: addMonths, span: span, soon: soon, tshort: tshort, store: store }
   };
   });
