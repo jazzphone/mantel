@@ -232,4 +232,6 @@ bridge, each tablet, pairing codes for a Home Assistant elsewhere).
 ## Backups and removal
 
 Mantel keeps its data (people, roles, settings, the audit log) in the App's `/data`, which Home
-Assistant's backups include. Uninstalling the App removes it; nothing else in Home Assistant changes.
+Assistant's backups include. Home Assistant stops Mantel while it backs the App up and starts it again
+straight after, so the copy of Mantel's database is exact (Mantel is away for that time). Uninstalling
+the App removes it; nothing else in Home Assistant changes.

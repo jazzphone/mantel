@@ -19,9 +19,8 @@ The App keeps its data in its own `/data` folder, and **Home Assistant's backups
 
 - Make sure your Home Assistant backups run (**Settings** → **System** → **Backups**), and keep a copy off the machine.
 - Protect them. A Home Assistant backup holds Mantel's at-rest key next to its database, plus password hashes and the audit log. Keep backups encrypted, and the encryption key somewhere safe.
+- While Home Assistant backs the App up, it stops Mantel and starts it again straight after, so the copy of Mantel's database is exact. Mantel is away for that time (longer with many photos); the sidebar page and wall tablets come back when it does.
 - To get Mantel back, restore the App from a Home Assistant backup (all of it, or just the **Mantel** App).
-
-<!-- CHECK: the App's config.yaml sets no `backup:` mode (so Home Assistant makes a hot backup while Mantel runs) and no pre-backup step; Mantel's database is SQLite in WAL mode. Confirm that a hot Home Assistant backup of /data restores a consistent mantel.db, or set `backup: cold` / add a snapshot step. -->
 
 ## With Docker or the LXC
 

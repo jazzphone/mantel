@@ -503,6 +503,10 @@ def check_ha_app(path: Path) -> list[str]:
         problems.append("ha-app: options.commands_enabled must default to false")
     if "image" in doc:
         problems.append("ha-app: no image: the App is built locally from its Dockerfile (tools/stage_ha_app.py)")
+    # HA's backups of /data: a hot copy of a live SQLite WAL database (mantel.db + -wal, copied file by file
+    # while Mantel writes) can restore damaged. The Supervisor stops the App for a cold one.
+    if doc.get("backup") != "cold":
+        problems.append("ha-app: backup must be cold (Home Assistant's backups copy a live SQLite database otherwise)")
     problems += _typed_defaults("ha-app", doc)
     return problems
 

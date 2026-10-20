@@ -410,6 +410,11 @@ def test_ha_app_config_is_checked(tmp_path):
     assert not pc.check_ha_app(ROOT / "packaging/ha-app/config.yaml")
     p.write_text(good.replace('acme_email: "str?"', 'acme_email: "email?"'))
     assert any("acme_email" in m and "empty default" in m for m in pc.check_ha_app(p))
+    # HA's backups stop the App first: a hot copy of the live WAL database could restore damaged
+    assert pc.parse_yaml(good)["backup"] == "cold"
+    for edit in (good.replace("backup: cold\n", ""), good.replace("backup: cold", "backup: hot")):
+        p.write_text(edit)
+        assert any("backup must be cold" in m for m in pc.check_ha_app(p))
 
 
 def test_yaml_subset_reader():
