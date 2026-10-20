@@ -40,7 +40,7 @@ from .authz import Authz, Principal, resolve_door
 from .config import Config
 from .connectors import REFUSE_ALL, Ctx, Hooks
 from .connectors import camera as camera_connector
-from .connectors import camera_still, media_art
+from .connectors import camera_still, media_art, media_photos
 from .connectors import ma as ma_connector
 from .ha_oauth import HaOAuth
 from .readproxy import ReadProxy
@@ -608,6 +608,7 @@ def wire(app: web.Application, hub: Hub, token: str, connect_ha: bool) -> None:
     camera_connector.register(app, hub, hooks)
     camera_still.register(app, hub, authz, conns.ha_token)   # GET /api/camera/<entity>/still (RBAC, HA's token stays here)
     media_art.register(app, hub, authz, conns.ha_token)      # GET /api/media/<entity>/art (view the player)
+    media_photos.register(app, conns.ha_token)                # the screensaver's photos: resolve_media, GET /api/photo/<id>
     ma_connector.register(app, hub, hooks)
     conns.appliers.append(lambda kind, cur: apply_connection(app, hub, connect_ha, kind, cur))
     health.register(app, hub)

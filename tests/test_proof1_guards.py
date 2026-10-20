@@ -64,6 +64,8 @@ def test_readproxy_allowlist_is_pinned_and_has_no_writes():
                                  "energy/info",
                                  # P3.4: media browsing (RBAC-filtered in readproxy.FilteredReads)
                                  "media_player/browse_media", "media_player/search_media", "media_source/browse_media",
+                                 # the screensaver's photo: answered by Mantel (server-only; tests/test_media_photos.py)
+                                 "media_source/resolve_media",
                                  # P3.5: the settings import's one read (server-only; tests/test_settings_store.py)
                                  "hk_frontend/panel/get",
                                  # interim, until Phase 4: HK's Music page from HA's hk_frontend (RBAC-filtered)

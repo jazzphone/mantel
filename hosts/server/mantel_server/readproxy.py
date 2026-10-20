@@ -294,6 +294,7 @@ RULES: dict[str, str] = {
     "media_player/browse_media": "view the media player",
     "media_player/search_media": "view the media player",
     "media_source/browse_media": "feature:media; camera sources refused and pruned",
+    "media_source/resolve_media": "server-only: Mantel's photo route answers it (connectors/media_photos.py), feature:media",
     "hk_frontend/panel/get": "never for a page (SERVER_ONLY_READS): the settings import's own read; pages get "
                              "Mantel's settings store",
     "hk_music/subscribe": "feature:music; every event pruned to the players the subject may view (speakers, "
