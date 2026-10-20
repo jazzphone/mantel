@@ -478,6 +478,7 @@
       if (this._musicOff) { this._musicOff(); this._musicOff = null; }
       if (this._onBar) { window.removeEventListener('hk-music-bar', this._onBar); this._onBar = null; }
       this._sheet(false);
+      this._sheetFlag(false);
       this._closePick();
       if (this._ro) { this._ro.disconnect(); this._ro = null; }
       if (this._onWin) { window.removeEventListener('resize', this._onWin); window.removeEventListener('hk-saver-panel', this._onWin); this._onWin = null; }
@@ -706,6 +707,8 @@
         this._closePanel(false);
         this._closePick();
         if (this._e.left) this._e.left.classList.remove('sheetup');
+        this._sheetUp = false;
+        this._sheetFlag(false);
         this._hkSig = null;
       }
       this._miniFlag(cols === 1, !this._flagSaid);
@@ -946,7 +949,16 @@
       if (on && !this._ctx()) return;
       e.left.classList.toggle('sheetup', !!on);
       this._sheetUp = !!on;
+      this._sheetFlag(!!on);
       if (on) { this._artWidth(); this._fitLines(); }
+    }
+    // ...and <html> says so (`hk-music-sheet`) while it is up: a host whose
+    // view is a stacking context of its own lifts the view over its tab bar
+    // and pop-ups then, and holds the page behind still (the sheet's
+    // z-index alone cannot leave that context)
+    _sheetFlag(on) {
+      var de = document.documentElement;
+      if (de && de.hasAttribute('hk-music-sheet') !== !!on) de.toggleAttribute('hk-music-sheet', !!on);
     }
     // THE MINI PLAYER (a phone): the dashboard's own docked bar is it when
     // there is one (it covers the foot: --hk-bar-h); else this page's own
