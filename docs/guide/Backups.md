@@ -59,8 +59,9 @@ One file per backup, named `mantel-YYYYmmdd-HHMMSS.mbk` (the time in UTC), encry
 | The database | A consistent snapshot, safe to make while Mantel runs, checked before it is packed |
 | Your files and Mantel Photos | Apple's font and glyphs you uploaded, and the screensavers' photos |
 | The saved connections | Home Assistant's and Music Assistant's, still sealed with `at_rest.key` |
+| [Mantel Connect](Mantel-Connect.md)'s certificates | Its own certificate authority and keys, so a paired Connect App keeps working after a restore |
 
-Not inside: the secret files in `/etc/hk/secrets` (keep your own copy of the two keys), `.env`, Caddy's certificates (Caddy gets new ones), and [Mantel Connect](Mantel-Connect.md)'s pairing (pair it again after a restore).
+Not inside: the secret files in `/etc/hk/secrets` (keep your own copy of the two keys), `.env`, and Caddy's certificates (Caddy gets new ones).
 
 Mantel keeps the newest backup of each of the last **7 days** and of each of the last **4 weeks**, and deletes older ones in that folder. It touches no other file there.
 

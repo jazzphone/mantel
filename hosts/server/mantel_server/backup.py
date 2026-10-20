@@ -11,7 +11,13 @@ with AES-256-GCM, is a gzip-compressed tar holding
 * ``user-files/...`` the "Your files" tree (user_files.py), unless switched off;
 * ``photos/...``     Mantel Photos (photos.py: originals, screen-sized copies, thumbnails), with "Your files";
 * ``connections/...`` Mantel's own HA/MA credentials from the Connections page (connections.py), as the sealed
-                     files they are (sealed with the at-rest key, so a restore needs that key too).
+                     files they are (sealed with the at-rest key, so a restore needs that key too);
+* ``connect/...``    Mantel Connect's certificate authority and listener certificate (connect_pairing.py
+                     ``Pki``: ca.key, ca.crt, server.key, server.crt). The pairings themselves are rows in the
+                     database, and the paired Apps hold certificates signed by this CA, so without it a
+                     restored Mantel makes a new CA and every Connect App must be paired again. The private
+                     keys are plain PEM files on the data volume, so here they are protected only by the
+                     backup's own encryption: like everything else, they never leave this file unsealed.
 
 **The key.** ``<secrets_dir>/backup.key`` (base64url of 32 random bytes, 0600; created on the first backup,
 with a loud notice, if it is missing). It is *separate from* the at-rest key (``at_rest.key``): the backups
@@ -96,6 +102,7 @@ DB_NAME = "mantel.db"
 FILES_DIR = "user-files"
 CONNECTIONS_DIR = "connections"     # connections.py: <data_dir>/connections, sealed files
 PHOTOS_DIR = "photos"               # photos.py: <data_dir>/photos (the rows are in the database)
+CONNECT_DIR = "connect"             # connect_pairing.py: <data_dir>/connect, the Connect CA (private keys)
 DEFAULT_TIME = "03:15"
 
 
@@ -329,6 +336,9 @@ def create_backup(data_dir: Path, target: Path, key: bytes, *, now: datetime | N
             conn_root = data_dir / CONNECTIONS_DIR
             if conn_root.is_dir():
                 manifest["connections"] = _add_tree(tar, conn_root, CONNECTIONS_DIR)
+            connect_root = data_dir / CONNECT_DIR
+            if connect_root.is_dir():
+                manifest["connect"] = _add_tree(tar, connect_root, CONNECT_DIR)
             blob = json.dumps(manifest, indent=1, sort_keys=True).encode()
             member = tarfile.TarInfo("manifest.json")
             member.size, member.mtime = len(blob), int(now.timestamp())
@@ -403,7 +413,7 @@ def _safe_member(name: str) -> str | None:
 
 
 def _unpack(payload: Path, out: Path) -> tuple[dict, int]:
-    """Extract the tar by hand: only regular files and folders under the three known names."""
+    """Extract the tar by hand: only regular files and folders under the known names."""
     out.mkdir()
     total = files = 0
     manifest = None
@@ -415,10 +425,9 @@ def _unpack(payload: Path, out: Path) -> tuple[dict, int]:
         try:
             for m in tar:
                 name = _safe_member(m.name)
-                if name is None or not (name in (DB_NAME, "manifest.json") or name in (FILES_DIR, CONNECTIONS_DIR, PHOTOS_DIR)
-                                        or name.startswith(FILES_DIR + "/")
-                                        or name.startswith(PHOTOS_DIR + "/")
-                                        or name.startswith(CONNECTIONS_DIR + "/")):
+                trees = (FILES_DIR, CONNECTIONS_DIR, PHOTOS_DIR, CONNECT_DIR)
+                if name is None or not (name in (DB_NAME, "manifest.json") or name in trees
+                                        or any(name.startswith(tree + "/") for tree in trees)):
                     raise BackupError("corrupt", f"the backup contains an unexpected entry {m.name!r}")
                 if m.isdir():
                     (out / name).mkdir(parents=True, exist_ok=True)
@@ -533,8 +542,12 @@ def restore(backup: Path, key: bytes, data_dir: Path, *, replace: bool = False, 
         try:
             conn_tree = stage / "unpacked" / CONNECTIONS_DIR
             photos_tree = stage / "unpacked" / PHOTOS_DIR
+            # a backup made before the Connect CA was included has none: then the CA here stays (it may
+            # still be the one the paired Apps know), as connections/ does
+            connect_tree = stage / "unpacked" / CONNECT_DIR
             for p in [live, *sidecars, data_dir / FILES_DIR, data_dir / PHOTOS_DIR] + \
-                    ([data_dir / CONNECTIONS_DIR] if conn_tree.is_dir() else []):
+                    ([data_dir / CONNECTIONS_DIR] if conn_tree.is_dir() else []) + \
+                    ([data_dir / CONNECT_DIR] if connect_tree.is_dir() else []):
                 if p.exists() or p.is_symlink():
                     aside = p.with_name(p.name + suffix)
                     n = 1
@@ -558,6 +571,12 @@ def restore(backup: Path, key: bytes, data_dir: Path, *, replace: bool = False, 
                 os.chmod(data_dir / CONNECTIONS_DIR, 0o700)
                 for f in (data_dir / CONNECTIONS_DIR).iterdir():
                     os.chmod(f, 0o600)
+            if connect_tree.is_dir():
+                os.replace(connect_tree, data_dir / CONNECT_DIR)
+                os.chmod(data_dir / CONNECT_DIR, 0o700)       # private keys: as Pki.ensure keeps them
+                for f in (data_dir / CONNECT_DIR).iterdir():
+                    if f.is_file():
+                        os.chmod(f, 0o600)
         except OSError as exc:
             for original, aside in reversed(moved):                  # put the old data back
                 with contextlib.suppress(OSError):

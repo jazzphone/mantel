@@ -153,6 +153,47 @@ def test_no_files_switch_and_a_backup_without_a_files_tree(tmp_path, key, target
     assert bk.restore(out, key, tmp_path / "fresh2").files == 0
 
 
+def test_the_connect_ca_travels_inside_the_encrypted_part_and_is_restored(tmp_path, key, target):
+    """Mantel Connect's CA (<data>/connect: ca.key, ca.crt, server.key, server.crt) is in the backup, so a
+    restored Mantel still trusts the paired Apps' certificates (their pairings are database rows) and they
+    still trust it: no pairing again. Its private keys are plain PEM on disk, so they must appear only
+    inside the sealed archive, never in the file's clear bytes; restored 0600 in a 0700 folder."""
+    import stat
+
+    from mantel_server.connect_pairing import Pki
+    data = make_home(tmp_path)
+    pki = Pki(data / "connect")
+    pki.ensure()
+    ca_before = (data / "connect" / "ca.crt").read_bytes()
+    out = bk.create_backup(data, target, key, now=NOW)
+    raw = out.read_bytes()
+    assert b"PRIVATE KEY" not in raw and b"CERTIFICATE" not in raw and b"Mantel Connect" not in raw
+    fresh = tmp_path / "fresh"
+    bk.restore(out, key, fresh)
+    for name in ("ca.key", "ca.crt", "server.key", "server.crt"):
+        restored = fresh / "connect" / name
+        assert restored.read_bytes() == (data / "connect" / name).read_bytes()
+        assert stat.S_IMODE(restored.stat().st_mode) == 0o600
+    assert stat.S_IMODE((fresh / "connect").stat().st_mode) == 0o700
+    again = Pki(fresh / "connect")
+    assert again.ensure() is False                       # the same CA and listener certificate: nothing new made
+    assert again.ca_file.read_bytes() == ca_before
+    # --replace over a Mantel that made a CA of its own since: the restored one wins, the other is set aside
+    other = make_home(tmp_path, "other")
+    Pki(other / "connect").ensure()
+    report = bk.restore(out, key, other, replace=True)
+    assert (other / "connect" / "ca.crt").read_bytes() == ca_before
+    assert any(Path(r).name.startswith("connect.before-restore-") for r in report.replaced)
+    # a backup without a connect folder (no Connect, or made before it was included) leaves the CA here alone
+    plain = make_home(tmp_path, "plain")
+    out2 = bk.create_backup(plain, target, key, now=NOW + timedelta(days=1))
+    keep = make_home(tmp_path, "keep")
+    Pki(keep / "connect").ensure()
+    kept = (keep / "connect" / "ca.crt").read_bytes()
+    bk.restore(out2, key, keep, replace=True)
+    assert (keep / "connect" / "ca.crt").read_bytes() == kept
+
+
 def test_a_snapshot_is_consistent_while_the_server_writes_in_wal_mode(tmp_path, key, target):
     data = make_home(tmp_path)
     live = dbmod.connect(data / "mantel.db")                             # the server's own kind of connection
