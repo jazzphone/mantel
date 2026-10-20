@@ -196,8 +196,9 @@ What it offers depends on where the screen is open, so that every row does somet
 * **Inside Home Assistant** (a Webpage dashboard with Mantel Link installed, or the App's own *Mantel* entry in the
   sidebar): your Home Assistant sidebar, as the menu had inside Home Assistant before. Integrations, Automations
   and Settings (administrators), Notifications, More (your other pages, in your sidebar's order), Show Menu and
-  Profile. Each opens that page in Home Assistant's own window. A Webpage dashboard without Mantel Link gets one
-  row, *Open Home Assistant*.
+  Profile. Each opens that page in Home Assistant's own window. This needs Mantel Link 0.1.1 or later: Home Assistant
+  does not let a Webpage dashboard move its window, so with an older Mantel Link the section is left out; the
+  menu's Mantel → Home Assistant row (Mantel Link takes you back) is always there.
 * **At Mantel's own address** (a browser): one row, *Open Home Assistant*, which opens
   Home Assistant's external URL (else its internal URL, HA → Settings → System → Network) in the same window.
   A wall tablet gets no Home Assistant row at all.
