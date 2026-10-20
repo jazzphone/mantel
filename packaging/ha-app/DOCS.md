@@ -20,7 +20,7 @@ sidebar: Home Assistant signs you in, and Mantel shows you what your Mantel role
 |---|---|---|
 | `commands_enabled` | `false` | Read-only until you turn this on. When on, people may control the house through Mantel within their roles; only the alarm needs a code (the house Alarm PIN, set in HK Settings) and every command is audited. |
 | `log_level` | `info` | `debug`, `info`, `warning` or `error`. |
-| `default_screen` | `dashboard-kitchen` | The HK dashboard the sidebar opens. |
+| `default_screen` | empty | The HK dashboard the sidebar opens (its address, e.g. `dashboard-kitchen`). Empty: the first one. |
 | `access` | `ingress` | How else Mantel can be reached: `ingress` (the sidebar only), `proxy` (your own reverse proxy) or `https` (Mantel's built-in HTTPS). See **Direct access** below. |
 | `public_url`, `trusted_proxies`, `ha_sign_in_url`, `ha_frame_origins`, `cloudflare_token`, `acme_email`, `acme_staging` | empty | Direct access only (below). |
 | `ha_door_rules` | `trusted` | `trusted`: being signed in to Home Assistant is enough, as HK in Home Assistant always was. Each person's Mantel role decides what they may do, and everything is audited. `lan`: the home network's rules. `tunnel`: Mantel's remote-access rules (each role's remote switches). On every setting only the alarm asks for a code, the house Alarm PIN. |

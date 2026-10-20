@@ -2,7 +2,7 @@
 
 How to run Mantel Server and look after it: first start, people and tablets, commands and their safeguards, the audit log, backups, updates, installing HK builds into Home Assistant, and what to do when something looks wrong. For the design behind it see PLAN.md; for moving the house over see phase6/CUTOVER.md.
 
-**Status as of 2026-10-18.** Mantel Server is built and tested offline and against a scratch Home Assistant. It has not been deployed on the house, and the container images have never been built (Docker is not installed on the development Mac). Everything below that depends on Docker or Proxmox is written from the files and their static checks and is marked **(unverified)** where a first real run may change it. "Known gaps" at the end lists what is missing today. Pages that are **in progress** and not written yet: `HA-APP.md` (the App's Ingress mode), `ADMIN-PAGE.md` (managing people and tablets in the page) and `BACKUP-FILES.md` (backups and "your files").
+**This is the operator reference written while Mantel was built**, kept with the [design notes](development/Design-Notes.md). For installing and running Mantel, the [user guide](guide/Home.md) is current; where the two differ, the guide is right. The flag tables below still hold for `mantel-server --help`.
 
 Contents: [1](#1-the-parts-and-the-two-doors) parts and doors · [2](#2-running-the-server) running · [3](#3-the-first-owner) first Owner · [4](#4-linking-home-assistant-users) linking HA users · [5](#5-wall-tablets-accounts-enrolment-pins-optional) tablets · [6](#6-service-accounts-for-linked-mode) service accounts · [7](#7-importing-hks-settings-from-home-assistant) settings import · [8](#8-enabling-commands) enabling commands · [9](#9-reading-the-audit-log) audit · [10](#10-backups-and-restore) backups · [11](#11-updating-mantel) updating · [12](#12-installing-hk-builds-into-home-assistant) HK builds · [13](#13-the-scratch-home-assistant) scratch HA · [14](#14-troubleshooting) troubleshooting · [15](#15-known-gaps) gaps.
 
@@ -24,7 +24,7 @@ Every request arrives by a **door**. `lan` is the house network, served straight
 
 ```bash
 ~/.venvs/mantel/bin/mantel-server                       # http://127.0.0.1:8765/login
-~/.venvs/mantel/bin/mantel-server --ha-url http://192.0.2.53:8123 --commands-enabled   # do not, see section 8
+mantel-server --ha-url http://homeassistant.local:8123 --commands-enabled   # do not, see section 8
 ```
 
 It reads Home Assistant's token from `~/.config/mantel/ha_token` if that file exists. Without it the server starts anyway, not connected, and says where to fix that: sign in as the Owner and open `/admin` → **Connections** (section 2a). A connection saved there wins over the file. The startup line says what mode it is in: `read-only; commands disabled`, or `COMMANDS ENABLED (...)`. Open `/login` (passkey, user name + password with the authenticator code when one is set up, or "Sign in with Home Assistant"; see [phase3/LOGIN-PAGE.md](phase3/LOGIN-PAGE.md)); it then goes on to `/home` (the default screen), or back to the page that sent you there.
@@ -33,7 +33,7 @@ It reads Home Assistant's token from `~/.config/mantel/ha_token` if that file ex
 
 | Flag | Default | Meaning |
 |---|---|---|
-| `--ha-url` | `http://192.0.2.53:8123` | Home Assistant's address. |
+| `--ha-url` | `http://homeassistant.local:8123` | Home Assistant's address. |
 | `--token-file` | `~/.config/mantel/ha_token` | Optional: the installation's HA token, read at startup and never printed; shown on the Connections page as "set by the installation". The HA user should be an administrator (HK Settings' read needs one, and the command path uses it). Normally HA is set up on the page instead (section 2a). |
 | `--port` | `8765` | Listening port. |
 | `--listen ADDRESS` | loopback only | Container mode. Needs `--public-url`. Without `--listen` the server binds `127.0.0.1` and nothing else is possible. |
@@ -55,7 +55,7 @@ It reads Home Assistant's token from `~/.config/mantel/ha_token` if that file ex
 | `--audit-retention-days` | `365` | Audit rows older than this are purged hourly. Must be at least 30. |
 | `--lan-session-days`, `--session-hours` | `30`, `12` | Session lifetimes on the `lan` and `tunnel` doors. |
 | `--rp-id` | `localhost` | Passkey relying-party id: a **hostname**, never an IP. Set it to the real name before anyone registers a passkey. |
-| `--screen` | `dashboard-kitchen` | The screen `/home` opens. |
+| `--screen` | the first screen | The screen `/home` opens (a board key, e.g. `dashboard-home`). |
 | `--default-interval`, `--override GLOB=SECONDS` | 0 | Coalescing of fast sensors (for example `'sensor.*_distance=1'`). |
 | `--go2rtc-url URL` | none | Live TV served by Mantel through its own go2rtc's API (`http://go2rtc:1984` in the stack). Without it, HA's Live TV stays the interim (section 7a). |
 | `--live-tv-hardware` | `none` | `vaapi`: Live TV's transcode on QuickSync (go2rtc needs `/dev/dri`: `compose.gpu.yaml`). |
@@ -356,7 +356,7 @@ The linked endpoint, the Service accounts and the frames are built and tested. T
 One time, to move the house's HK Settings (looks, rooms, screens, tablets, pop-ups, custom pages, chips, accessories) into Mantel's database. It reads `hk_frontend/panel/get` from HA once and writes nothing to HA. It needs Mantel's HA token to belong to an administrator.
 
 ```bash
-mantel-server import-settings --ha-url http://192.0.2.53:8123 --token-file ~/.config/mantel/ha_token
+mantel-server import-settings --ha-url http://homeassistant.local:8123 --token-file ~/.config/mantel/ha_token
 ```
 
 Or, as the Owner, `POST /api/settings/import` (`GET` shows whether it ran and whether the settings are still empty). It is idempotent: a second run reports when the first ran and changes nothing; a document you already edited in Mantel is left alone and listed as skipped. Every imported document is version 1 in an append-only history; any version can be read back or restored (`mantel/settings/history`, `mantel/settings/restore`). In the container stacks use the `mantel` helper from section 3 with `--token-file /run/secrets/ha_token`.
@@ -408,7 +408,7 @@ house grant) who may view that channel's camera. Details: [phase4/FEATURE-PARITY
 
 By default Mantel Server **cannot** send a command to the house. This is the most important switch in the system, and it is deliberate and per server:
 
-- It is the flag `--commands-enabled` (or `Config.commands_enabled` built by code), set by whoever starts the server. There is no environment variable, setting, REST call or client message that turns it on, and the packaging does not pass it. In the compose stack it means editing the service's `command:` by hand, which is intended friction.
+- It is the flag `--commands-enabled` (or `Config.commands_enabled` built by code), set by whoever starts the server. No REST call, client message or setting in Mantel's own pages turns it on. In the Home Assistant App it is the operator's **Allow house commands** option (`commands_enabled`), which passes the flag; in the compose stack it means adding it to the service's `command:` by hand, which is intended friction.
 - While off, the command path cannot even be constructed: no `Gateway`, the HA command connection raises `CommandsDisabled`, the page's client has no actions, and every command-shaped message gets `commands_disabled` and nothing is audited or sent.
 - The state connection to HA (the one that reads everything) can never send a service call, in either mode. The startup line says `read-only; commands disabled` or `COMMANDS ENABLED`, and a warning is logged when on.
 - **For the house, switching it on is Avery's decision at cutover**, at the step marked in the runbook, and not before. Re-run `tools/e2e/gateway_e2e.py` on the exact commit being deployed first.
