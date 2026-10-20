@@ -181,6 +181,24 @@ const viewHost = window.hkViewHost.create({
   willShow: (view, firstVisit) => (firstVisit ? widen() : null),
 });
 window.__mantelViewHost = viewHost;
+// A PAGE NOT SEEN YET, ONCE THE PAGE HAS NARROWED: the house's states first, then the address. The view host
+// waits for them anyway (willShow -> widen), but the address changed at the tap, and everything that reads it
+// -- each page's own Highlight Color and its Flat ground -- took the next page's while this one was still up:
+// on a slow link, every update from the house redrew Home's cards in Energy's green and its ground went green
+// before Energy appeared (Avery's iPhone, 2026-10-20). So the address waits too, and the page, its color and
+// its ground change together. The last tap wins; a page already seen, or nothing narrowed, goes at once.
+{
+  const S = window.hkShell, go = S.navigate;
+  let latest = 0;
+  S.navigate = function (path, init, opts) {
+    const parts = String(path || '').split(/[?#]/)[0].split('/');
+    const unseen = narrowed && parts[1] === seg && viewHost.cached().indexOf(parts[2] || '') < 0;
+    const mine = ++latest;
+    if (!unseen) return go.call(S, path, init, opts);
+    widen().then(() => { if (mine === latest) go.call(S, path, init, opts); });
+    return null;
+  };
+}
 // the host shell knows the view host: the sky and the tab bar find the view, the menu the config
 window.hkMantelShell.attach(viewHost);
 viewHost.onView((el, view, config, info) => {
