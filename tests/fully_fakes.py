@@ -64,6 +64,8 @@ class FakeFully:
             s["currentPage"] = "http://mantel.fake.test:8100/"
         elif cmd == "toForeground":
             s["foreground"] = "de.ozerov.fully"
+        elif cmd == "clearCache":
+            s["cache_cleared"] = s.get("cache_cleared", 0) + 1
         else:
             return web.json_response({"status": "Error", "statustext": f"Unknown command {cmd}"})
         return web.json_response({"status": "OK", "statustext": f"{cmd} done"})

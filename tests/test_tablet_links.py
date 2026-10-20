@@ -256,3 +256,122 @@ async def test_setup_check_reaches_every_paired_tablet(envs, tablets):  # noqa: 
     lines = await TL.setup_lines(env.app)
     assert lines[0]["ok"] is False and lines[0]["detail"].startswith("1 of 2 reachable directly. Kitchen: ")
     assert ks.commands_posted == []
+
+
+# -- Reload and Clear Cache, through the command gateway -----------------------------------------------------------
+async def commanding(envs, *, commands=True):  # noqa: F811
+    env = await envs(commands=commands, connect_ha=False)
+    env.app["settings"].store.write(TABLETS, actor=Actor(label="test"))
+    return env
+
+
+def tablet_rows(env):
+    return env.app["audit"].rows(kind="tablet")
+
+
+async def test_reload_and_clear_cache_reach_each_app_through_the_gateway(envs, tablets, caplog):  # noqa: F811
+    ks, fu, _ = tablets
+    caplog.set_level(logging.DEBUG)
+    env = await commanding(envs)
+    await owner(env)
+    assert (await env.call("POST", API + "/kitchen", {"address": KS_ADDR, "password": KS_PASSWORD}))[0] == 200
+    assert (await env.call("POST", API + "/den", {"address": FULLY_ADDR, "password": fully_fakes.PASSWORD}))[0] == 200
+    for tid, verb in (("kitchen", "reload"), ("kitchen", "clear_cache"), ("den", "reload"), ("den", "clear_cache")):
+        status, body = await env.call("POST", API + f"/{tid}/command", {"verb": verb})
+        assert status == 200 and body["result"] == {"tablet": tid, "verb": verb}, body
+        assert isinstance(body["audit_id"], int)
+    assert ks.commands_posted == ["reload", "clearWebCache"]
+    assert fu.cmds()[-2:] == ["loadStartUrl", "clearCache"]
+    rows = tablet_rows(env)
+    assert [(r["action"], r["target"], r["decision"], r["result"]) for r in rows] == [
+        ("tablet.reload", '["tablet:kitchen"]', "allowed", "ok"), ("tablet.clear_cache", '["tablet:kitchen"]', "allowed", "ok"),
+        ("tablet.reload", '["tablet:den"]', "allowed", "ok"), ("tablet.clear_cache", '["tablet:den"]', "allowed", "ok")]
+    assert all(r["actor_name"] == "Avery" and r["role"] == "owner" for r in rows)
+    token = env.app["tablet_links"].get("kitchen").token
+    assert secrets_in(env, token) == []
+    assert token not in _mantel_log(caplog) and KS_PASSWORD not in _mantel_log(caplog)
+    assert fully_fakes.PASSWORD not in _mantel_log(caplog)
+
+
+async def test_commands_off_refuse_cleanly_and_send_nothing(envs, tablets):  # noqa: F811
+    ks, *_ = tablets
+    env = await commanding(envs, commands=False)
+    await owner(env)
+    assert (await env.call("POST", API + "/kitchen", {"address": KS_ADDR, "password": KS_PASSWORD}))[0] == 200
+    status, body = await env.call("POST", API + "/kitchen/command", {"verb": "reload"})
+    assert status == 503 and body["error"] == "commands_disabled" and "Commands are off" in body["message"]
+    assert ks.commands_posted == [] and tablet_rows(env) == []
+
+
+async def test_who_may_reload(envs, tablets):  # noqa: F811
+    ks, *_ = tablets
+    env = await commanding(envs)
+    await owner(env)
+    assert (await env.call("POST", API + "/kitchen", {"address": KS_ADDR, "password": KS_PASSWORD}))[0] == 200
+    for name, role in (("kid", "child"), ("mom", "adult"), ("boss", "admin")):
+        await env.user(name, role)
+    for name in ("kid", "mom"):
+        await env.sign_in(name)
+        status, body = await env.call("POST", API + "/kitchen/command", {"verb": "reload"})
+        assert status == 403 and body["error"] == "forbidden" and "Owner or an Admin" in body["message"], body
+    assert ks.commands_posted == []
+    denied = tablet_rows(env)
+    assert [(r["role"], r["decision"], r["result"]) for r in denied] == [("child", "denied", "not_sent"),
+                                                                         ("adult", "denied", "not_sent")]
+    await env.sign_in("boss")
+    assert (await env.call("POST", API + "/kitchen/command", {"verb": "reload"}))[0] == 200
+    assert ks.commands_posted == ["reload"]
+    # signed out: nothing
+    env.client.session.cookie_jar.clear()
+    status, body = await env.call("POST", API + "/kitchen/command", {"verb": "reload"})
+    assert status in (401, 403) and ks.commands_posted == ["reload"]
+
+
+async def test_a_wall_tablet_cannot_reload(envs, tablets):  # noqa: F811
+    ks, *_ = tablets
+    env = await commanding(envs)
+    await owner(env)
+    assert (await env.call("POST", API + "/kitchen", {"address": KS_ADDR, "password": KS_PASSWORD}))[0] == 200
+    assert (await env.call("POST", "/api/devices/enroll", {"name": "Kitchen tablet", "room": "kitchen"}))[0] == 201
+    status, body = await env.call("POST", API + "/kitchen/command", {"verb": "reload"})
+    assert (status, body["error"]) in ((401, "unauthenticated"), (403, "forbidden"))     # the browser is the tablet now
+    assert ks.commands_posted == [] and tablet_rows(env) == []
+
+
+async def test_an_unpaired_tablet_a_bad_verb_and_a_refusing_tablet(envs, tablets):  # noqa: F811
+    ks, *_ = tablets
+    env = await commanding(envs)
+    await owner(env)
+    for tid in ("kitchen", "hall"):
+        status, body = await env.call("POST", API + f"/{tid}/command", {"verb": "reload"})
+        assert status == 409 and body["error"] == "tablet_not_paired" and "pairs it on its page" in body["message"]
+    assert [(r["decision"], r["reason"]) for r in tablet_rows(env)] == [("denied", "tablet_not_paired")] * 2
+    assert (await env.call("POST", API + "/kitchen", {"address": KS_ADDR, "password": KS_PASSWORD}))[0] == 200
+    for payload in ({"verb": "restart_app"}, {"verb": "reload", "extra": 1}, {}, {"verb": "evalJs"}):
+        status, body = await env.call("POST", API + "/kitchen/command", payload)
+        assert status == 400 and body["error"] == "invalid_command", payload
+    assert (await env.call("POST", API + "/Bad!/command", {"verb": "reload"}))[0] == 404
+    assert ks.commands_posted == []
+    ks.rotate_secret()                                     # the app's reset: Mantel's token is no longer taken
+    status, body = await env.call("POST", API + "/kitchen/command", {"verb": "reload"})
+    assert status == 502 and body["error"] == "tablet_token_refused" and "Pair it again" in body["message"]
+    assert tablet_rows(env)[-1]["result"] == "error:tablet_token_refused"
+
+
+async def test_hk_settings_finds_a_paired_tablets_reload_parts(envs, tablets):  # noqa: F811
+    env = await commanding(envs)
+    await owner(env)
+    assert TL.panel_parts(env.app) == {}
+    assert (await env.call("POST", API + "/kitchen", {"address": KS_ADDR, "password": KS_PASSWORD}))[0] == 200
+    assert TL.panel_parts(env.app) == {"kitchen": {"reload": "mantel-tablet:kitchen:reload",
+                                                   "clear_cache": "mantel-tablet:kitchen:clear_cache"}}
+    ws = await env.client.ws_connect("/ws")
+    await ws.send_json({"type": "read", "id": 3, "msg": {"type": "hk_frontend/panel/get"}})
+    while True:
+        msg = await ws.receive_json(timeout=5)
+        if msg.get("id") == 3:
+            break
+    tabs = msg["result"]["tablets"]
+    assert tabs["kitchen"]["parts"] == TL.panel_parts(env.app)["kitchen"]
+    assert tabs["den"]["parts"] == {} and tabs["hall"]["parts"] == {}
+    await ws.close()

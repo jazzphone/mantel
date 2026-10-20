@@ -228,10 +228,11 @@ class Env:
 
 
 async def make_env(tmp_path, *, token="", ha_url="", connect_ha=True, token_file=None, ma_url="", ma_token_file=None,
-                   app_mode=False, sub="one"):
+                   app_mode=False, sub="one", commands=False):
     cfg = Config(data_dir=tmp_path / sub / "data", secrets_dir=tmp_path / sub / "secrets", port=0, ha_url=ha_url,
                  token_file=token_file or (tmp_path / "no-such-ha-token"), ma_url=ma_url,
-                 ma_token_file=ma_token_file or (tmp_path / "no-such-ma-token"), ha_managed_by_app=app_mode)
+                 ma_token_file=ma_token_file or (tmp_path / "no-such-ma-token"), ha_managed_by_app=app_mode,
+                 commands_enabled=commands)
     store = Store(cfg.data_dir / "mantel.db")
     now = [1_000_000.0]
     app = build_app(cfg, token, store=store, connect_ha=connect_ha, clock=lambda: now[0])

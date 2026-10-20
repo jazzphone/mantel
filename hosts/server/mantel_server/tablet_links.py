@@ -1,5 +1,5 @@
-"""A wall tablet's Direct Connection: Mantel talking to the tablet's kiosk app itself (docs/phase8/KIOSK.md, slice 1:
-pairing and status, NO commands).
+"""A wall tablet's Direct Connection: Mantel talking to the tablet's kiosk app itself (docs/phase8/KIOSK.md: pairing
+and status, and the two commands HK Settings' Wall Tablets pages press, Reload and Clear Cache).
 
 One entry per **HK tablet** (the tablet id in HK's settings, as the Sleep engine, ``tablet_items`` and
 ``?hk_tablet=`` know it), for a tablet whose Kiosk App is Kiosk Satellite (connectors/kiosk_satellite.py) or Fully
@@ -18,9 +18,14 @@ replaces or disconnects, with connections.py's rule for the door (``edit_rule``)
 applies (kind ``config``, ``connection.tablet-<id>.saved|disconnected``, with the address, the app and the tablet's
 own name, never the secret); if the audit cannot be written nothing changes.
 
-**Nothing is sent to a tablet but reads**: Kiosk Satellite's login, ``/api/info``, ``/api/commands`` and
-``/api/health``; Fully's ``deviceInfo``. House commands (``commands_enabled``) play no part yet: slice 2 adds them
-through the gateway, behind a per-tablet switch.
+**Reads, and two commands.** Pairing and status send only reads: Kiosk Satellite's login, ``/api/info``,
+``/api/commands`` and ``/api/health``; Fully's ``deviceInfo``. The only commands are VERBS (Reload, Clear Cache),
+and only through the command gateway (kind ``tablet``, gateway.TABLET_VERBS): they need ``commands_enabled``, RBAC
+``configure`` on ``settings`` (Owner/Admin; never a wall tablet), and the audit row is written first (kind
+``tablet``, action ``tablet.<verb>``, target ``tablet:<id>``; the result once). ``send`` is the gateway's call; the
+route below only hands the request to the gateway. With commands off the route answers ``commands_disabled`` and
+nothing is sent or recorded. HK Settings' Reload, Clear Cache & Reload and All at Once (hk-settings.js) find these
+as the tablet's ``parts`` (``panel_parts``) and press them through Mantel's host (mantel-settings.js ``press``).
 
 Routes (``API`` = /api/connections/tablets):
 
@@ -31,6 +36,7 @@ Routes (``API`` = /api/connections/tablets):
 * ``POST API/{id}``            ``{address, password}``: paired, checked with the new secret, sealed
 * ``DELETE API/{id}``          Mantel's copy forgotten (a Kiosk Satellite token stays valid until it lapses: the
                                app's tokens are stateless; its own reset cuts them off)
+* ``POST API/{id}/command``    ``{verb}``: one of VERBS, through the gateway as the person asking
 """
 from __future__ import annotations
 
@@ -51,7 +57,7 @@ from . import connections as C
 from .accounts import read_json
 from .connectors import fully, kiosk_satellite as KS
 from .connectors.kiosk import KioskFailed, address_text
-from .sessions import Identity, error, ok
+from .sessions import Identity, error, identity, ok
 
 log = logging.getLogger("mantel.tablet_links")
 
@@ -60,6 +66,12 @@ APPS = {"kiosk_satellite": "Kiosk Satellite", "fully": "Fully Kiosk"}
 TID_RE = re.compile(r"^[a-z0-9_]{1,64}$")
 LIVE_TIMEOUT = 5.0
 REACH_TIMEOUT = 4.0
+COMMAND_TIMEOUT = 15.0
+# Mantel's verb -> each app's (the gateway's TABLET_VERBS): Kiosk Satellite's commands (kiosk_satellite.COMMANDS),
+# Fully's verbs (fully.COMMANDS). Fully's Reload is Load Start URL, as HK's own Fully parts are (hk_core.tablets).
+VERBS = {"reload": {"kiosk_satellite": "reload", "fully": "load_start_url"},
+         "clear_cache": {"kiosk_satellite": "clear_cache", "fully": "clear_cache"}}
+PART_PREFIX = "mantel-tablet:"     # a part HK Settings presses through Mantel's host, never an HA entity id
 
 
 @dataclass
@@ -205,6 +217,80 @@ async def setup_lines(app: web.Application) -> list[dict[str, Any]]:
     return [{"ok": False, "title": "Wall Tablets",
              "detail": f"{total - len(bad)} of {total} reachable directly. " +
                        " ".join(f"{n}: {g.get('message')}" for n, g in bad)}]
+
+
+# -- commands (the gateway's) -----------------------------------------------------------------------------------
+async def send(app: web.Application, tid: str, verb: str) -> dict[str, Any]:
+    """One of VERBS to a paired tablet. ONLY the gateway calls this, after RBAC and the audit row (gateway._forward);
+    KioskFailed (its message safe to show) when the tablet could not be reached or refused it."""
+    links: TabletLinks | None = app.get("tablet_links")
+    rec = links.get(tid) if links is not None else None
+    if rec is None or verb not in VERBS:
+        raise KioskFailed("not_set_up", "This tablet has no direct connection. Pair it on its page first.")
+    http: aiohttp.ClientSession = app["http"]
+    if rec.app == "kiosk_satellite":
+        await KS.KioskSatellite.of(http, rec.url, rec.token).send(VERBS[verb]["kiosk_satellite"])
+    else:
+        await fully.FullyClient.of(http, rec.url, rec.token).send(VERBS[verb]["fully"])
+    log.info("tablet_links: %s sent to tablet %s", verb, tid)
+    return {"tablet": tid, "verb": verb}
+
+
+def panel_parts(app: web.Application) -> dict[str, dict[str, str]]:
+    """{tablet id: {"reload", "clear_cache"}} for every paired tablet: HK Settings' parts (its Reload buttons), as
+    ``mantel-tablet:<id>:<verb>``, which Mantel's settings host presses through the command gateway."""
+    links: TabletLinks | None = app.get("tablet_links")
+    if links is None:
+        return {}
+    return {tid: {verb: f"{PART_PREFIX}{tid}:{verb}" for verb in VERBS} for tid in links.own}
+
+
+COMMAND_STATUS = {"forbidden": 403, "unauthenticated": 401, "invalid_command": 400, "audit_unavailable": 503,
+                  "unavailable": 409}
+COMMAND_WORDS = {
+    "tablet_not_paired": "This tablet has no direct connection. An Owner pairs it on its page (Direct Connection).",
+    "commands_disabled": "Commands are off on this Mantel, so nothing was sent to the tablet.",
+}
+
+
+async def api_command(request: web.Request) -> web.Response:
+    """Reload or Clear Cache, from HK Settings' Wall Tablets pages: handed to the command gateway as the person
+    asking (its RBAC, its audit row, its refusals). Commands off: refused here, nothing sent or recorded."""
+    ident = identity(request)
+    if ident.user is None:
+        return error(401, "unauthenticated")
+    if ident.device is not None:                 # a wall tablet sends no tablet commands (it drives its own page)
+        return error(403, "forbidden", message="A wall tablet cannot reload tablets.")
+    tid = _tid(request)
+    body = await read_json(request)
+    verb = body.get("verb")
+    if set(body) - {"verb"} or verb not in VERBS:
+        return error(400, "invalid_command", message="verb is reload or clear_cache")
+    gw = request.app.get("gateway")
+    if gw is None:
+        return error(503, "commands_disabled", message=COMMAND_WORDS["commands_disabled"])
+    authz = request.app.get("authz")
+    principal = authz.principal(request)
+    replies: list[dict] = []
+
+    async def reply(msg: dict) -> None:
+        replies.append(msg)
+    try:
+        await asyncio.wait_for(gw.handle(principal, {"type": "command", "id": 1, "kind": "tablet", "tablet": tid,
+                                                     "verb": verb}, reply), COMMAND_TIMEOUT)
+    except TimeoutError:
+        return error(504, "timeout", message="The tablet did not answer in time.")
+    got = replies[-1] if replies else {"error": {"code": "unavailable"}}
+    if "error" in got:
+        e = got["error"]
+        code, why = e.get("code") or "failed", e.get("message") or ""
+        if code == "unavailable" and why in COMMAND_WORDS:
+            return error(409 if why == "tablet_not_paired" else 503, why, message=COMMAND_WORDS[why],
+                         audit_id=got.get("audit_id"))
+        if code == "forbidden":
+            why = "Only an Owner or an Admin can reload a tablet."
+        return error(COMMAND_STATUS.get(code, 502), code, message=why or code, audit_id=got.get("audit_id"))
+    return ok({"result": got.get("result"), "audit_id": got.get("audit_id")})
 
 
 # -- REST ----------------------------------------------------------------------------------------------------
@@ -370,5 +456,6 @@ def register(app: web.Application, links: TabletLinks) -> None:
     r.add_get(API, api_list)
     r.add_get(API + "/{tid}/live", api_live)
     r.add_post(API + "/{tid}/test", api_test)
+    r.add_post(API + "/{tid}/command", api_command)
     r.add_post(API + "/{tid}", api_save)
     r.add_delete(API + "/{tid}", api_disconnect)

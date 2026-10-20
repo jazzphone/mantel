@@ -1,4 +1,4 @@
-"""Kiosk Satellite, through its own remote API (docs/phase8/KIOSK.md, slice 1: pairing and status, NO commands).
+"""Kiosk Satellite, through its own remote API (docs/phase8/KIOSK.md: pairing and status; Reload and Clear Cache).
 
 Today HK reaches a Kiosk Satellite tablet through Home Assistant's ESPHome entities. The app also serves a remote
 API on the tablet itself, ``http://<tablet>:2324`` (on while Remote Administration has a password); Mantel talks to
@@ -18,11 +18,17 @@ remote_manager.dart`` and ``auth.dart``, read 2026-10-19 at app version 2026.10.
 * ``GET /api/commands`` -> ``{"commands": [{"name", "description", "params"}]}``.
 * ``GET /api/health``, the one read with no token: hardware facts (``name``, ``model``, ``appVersion``, ``ip``,
   ``screenOn``, ``brightness``, ...), for monitoring.
+* ``POST /api/commands/<name>`` with a JSON body of the command's params -> 200 ``{"ok": true, ...}``, or 400
+  ``{"ok": false, "error": ...}`` when the command failed or is unknown. ``reload`` reloads the page;
+  ``clearWebCache`` (``browser_manager.dart``) drops the HTTP cache, Cache Storage and the service worker, keeps
+  localStorage and cookies, and reloads: what the ESPHome ``button.*_clear_cache`` presses.
 
 SAFETY (tests/test_kiosk_satellite.py, against tests/kiosk_satellite_fakes.py):
 
-* **Reads only.** This client can log in and read ``/api/info``, ``/api/commands`` and ``/api/health``; there is no
-  method that posts a command, changes a setting or touches files. Commands are slice 2, through the gateway.
+* **Reads, and a closed list of commands.** This client logs in and reads ``/api/info``, ``/api/commands`` and
+  ``/api/health``; the only commands it can post are COMMANDS (Reload, Clear Cache), and only ``send`` posts them.
+  It changes no setting and touches no file. It decides nothing and checks no roles: the command gateway (kind
+  ``tablet``) has already decided the command may be sent and written its audit row (tablet_links.send).
 * **The password is used once**, for the login, and kept nowhere; the token is only ever used: never in a log
   line, a ``repr``, an exception's text or an exception's chain (none is raised from or chained to aiohttp's).
 * **Home network only** (kiosk.clean_address); one call at a time per tablet, each with its own timeout.
@@ -50,10 +56,12 @@ TEST_TOKEN_DAYS = 1           # a test before saving makes a token that lapses t
 MAX_TOKEN = 4096
 MAX_BODY = 1 << 20              # a reply larger than this is refused (the command list is tens of kilobytes)
 WHERE = "Kiosk Satellite: Settings → Device → Remote Administration"
-# The commands later slices will send (docs/phase8/KIOSK.md "Commands"): checked at pairing, so an app version
-# without one of them is said at once. Nothing here sends them.
+# The commands Mantel sends or later slices will (docs/phase8/KIOSK.md "Commands"): checked at pairing, so an app
+# version without one of them is said at once. Only COMMANDS are ever sent.
 WANTED = ("screenOn", "screenOff", "setBrightness", "startScreensaver", "stopScreensaver", "bringToFront",
-          "loadUrl", "reload", "restartApp")
+          "loadUrl", "reload", "clearWebCache", "restartApp")
+# Mantel's verb -> the app's command: the only commands this client can send (each takes no params)
+COMMANDS = {"reload": "reload", "clear_cache": "clearWebCache"}
 # /api/info key -> the name Mantel reports it under (everything else the app says is dropped)
 INFO = {"name": "name", "model": "model", "appVersion": "version", "osVersion": "os", "ip": "ip",
         "battery": "battery", "charging": "charging", "screenOn": "screen_on", "screensaverActive": "screensaver",
@@ -208,6 +216,29 @@ class KioskSatellite:
         if "appVersion" not in data and "screenOn" not in data:
             raise self._http().not_ks()
         return trim_info(data)
+
+    async def send(self, verb: str) -> None:
+        """One of COMMANDS. ValueError (nothing sent) for any other verb; KioskFailed when the tablet could not be
+        reached, no longer takes Mantel's token, or says the command failed."""
+        if verb not in COMMANDS:
+            raise ValueError(f"not a tablet command: {verb!r}")
+        name = COMMANDS[verb]
+        h = self._http()
+        status, data = await h.call("POST", f"/api/commands/{name}", token=self.token, body={})
+        if status == 401:
+            raise KioskFailed("token_refused", f"The tablet at {h.address} no longer accepts Mantel's token (it "
+                                               "was reset, or the tablet was replaced). Pair it again.")
+        if status == 200 and isinstance(data, dict) and data.get("ok") is not False:
+            return
+        said = data.get("error") if isinstance(data, dict) else None
+        said = " ".join(str(said).split())[:160] if said else ""
+        if status in (400, 404) and isinstance(data, dict):
+            raise KioskFailed("refused", f"The tablet at {h.address} refused {name}"
+                              + (f": {said}" if said else ". Its Kiosk Satellite may be too old; update it."))
+        if status == 403:
+            raise KioskFailed("refused", f"The tablet at {h.address} only runs {name} on its own screen.")
+        raise h.not_ks() if not isinstance(data, dict) else \
+            KioskFailed("failed", f"The tablet at {h.address} answered HTTP {status}.")
 
     async def commands(self) -> set[str]:
         """The names of the commands this app version has (to check WANTED; nothing is sent)."""

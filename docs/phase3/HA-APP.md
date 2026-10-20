@@ -916,7 +916,7 @@ Everything on main since 0.1.28 (validation green: JS 130, HA py 732, Mantel 283
   refused it, so no photo ever showed. Mantel now answers it itself (connectors/media_photos.py): `feature:media`, HA
   media folders only, images only, with a short-lived `/api/photo/<id>` that it streams from HA Core's own address
   (`http://homeassistant:8123` in the App) with HA's signature and no credential.
-- **Mantel Photos:** Mantel Settings → Photos, the screensavers' own library (albums, bulk upload with HEIC and
+- **Mantel Photos:** Mantel Settings → Photos (since moved into Your Files → Photos), the screensavers' own library (albums, bulk upload with HEIC and
   no location, a grid preview, delete, import from an HA media folder; migration 0018). New in the image: Pillow
   13.0.0 and pillow-heif 1.8.1.
 - **A screen's Home Assistant section by where it is shown:** HA's sidebar inside HA, one "Open Home Assistant"

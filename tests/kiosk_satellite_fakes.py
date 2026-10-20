@@ -3,7 +3,8 @@ way the app's server does (app/lib/managers/remote/remote_manager.dart and auth.
 with its per-address throttle (5 failures in 5 minutes), stateless signed tokens carrying their own expiry
 (``ttl_days`` clamped to 3650), the bearer check on everything else under /api/, ``/api/info``, ``/api/commands``,
 and ``/api/health`` with no token. A command posted to ``/api/commands/<name>`` is answered and RECORDED, so tests
-can assert that slice 1 never sends one. Every name, address and password is fictional; no real tablet is contacted."""
+can assert which were sent (pairing and status never send one). ``fail_commands`` answers 400 the way a failed
+command does. Every name, address and password is fictional; no real tablet is contacted."""
 from __future__ import annotations
 
 import asyncio
@@ -18,7 +19,7 @@ from aiohttp import web
 PASSWORD = "fictional-ks-admin-password"
 COMMANDS = ("screenOn", "screenOff", "isScreenOn", "setBrightness", "getBrightness", "startScreensaver",
             "stopScreensaver", "isScreensaverActive", "bringToFront", "loadUrl", "loadDashboard", "loadStartUrl",
-            "reload", "restartApp", "rebootDevice", "launchApp", "tts", "showNotification", "getDeviceInfo")
+            "reload", "clearWebCache", "restartApp", "rebootDevice", "launchApp", "tts", "showNotification", "getDeviceInfo")
 
 
 class FakeKioskSatellite:
@@ -28,7 +29,8 @@ class FakeKioskSatellite:
         self.name = name
         self.calls: list[tuple[str, str]] = []        # (method, path) of every request
         self.logins: list[dict] = []                  # {"ok": bool, "ttl_days": ...}: never the password
-        self.commands_posted: list[str] = []          # a command Mantel must never send in slice 1
+        self.commands_posted: list[str] = []          # every command Mantel posted, in order
+        self.fail_commands = False
         self.failures: list[float] = []
         self.commands = list(COMMANDS)
         self.health_only = False                      # remote admin off but the port answers something else
@@ -119,6 +121,9 @@ class FakeKioskSatellite:
             return await self._answer(request, {"commands": [{"name": n, "description": "", "params": {}}
                                                              for n in self.commands]})
         if request.method == "POST" and path.startswith("/api/commands/"):
-            self.commands_posted.append(path.rsplit("/", 1)[1])
+            name = path.rsplit("/", 1)[1]
+            self.commands_posted.append(name)
+            if self.fail_commands or name not in self.commands:
+                return web.json_response({"ok": False, "error": f"{name} failed (fake)"}, status=400)
             return web.json_response({"ok": True})
         return web.json_response({"error": "not found"}, status=404)

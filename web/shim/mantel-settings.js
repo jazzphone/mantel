@@ -2,7 +2,7 @@
 //
 // The panel (web/hk/panels/hk-settings.js) asks its host for pages of its own (hkShell.settingsHost(),
 // "THE HOST'S SETTINGS" there); this is Mantel's answer: Me, People, Devices, Roles & Grants, Service
-// Accounts, Audit Log, Connections, Mantel Connect, Your Files and Photos (mantel-photos.js), every one drawn with HK Settings' own kit
+// Accounts, Audit Log, Connections, Mantel Connect and Your Files (with Photos, mantel-photos.js), every one drawn with HK Settings' own kit
 // (hk-settings-kit.js: iOS Settings, docs/DESIGN.md "HK Settings stays iOS Settings"). Only Mantel loads
 // this file; Home Assistant's build never ships web/shim, so none of it exists in HK Frontend inside HA.
 //
@@ -31,8 +31,8 @@ const PAGES = [
   ['connections', 'Connections', 'mdi:lan', C.green, 'end', 'Mantel'],
   ['connect', 'Mantel Connect', 'mdi:link-variant', C.orange, 'end', 'Mantel'],
   ['files', 'Your Files', 'mdi:folder', C.purple, 'end', 'Mantel'],
-  ['photos', 'Photos', 'mdi:image-multiple', C.pink, 'end', 'Mantel'],
 ];
+// Photos is inside Your Files (#/mantel/files/photos; Avery, 2026-10-19): its old addresses forward there
 const ERRORS = {
   invalid_credentials: 'That did not match.', invalid_code: 'That code was not accepted.',
   too_many_attempts: 'Too many tries. Wait a little and try again.', username_taken: 'That user name is already taken.',
@@ -905,16 +905,21 @@ const ASSET_SLOTS = [
   { id: 'ttf', label: 'SF Pro (ttf)', hint: 'SF-Pro.ttf, only needed if you have no woff2.', accept: '.ttf', kind: 'font', name: 'SF-Pro.ttf' },
   { id: 'glyphs', label: 'HK Glyphs', hint: 'hk-glyphs.js, the SF Symbols icon set.', accept: '.js,.json', kind: 'glyphs', name: 'hk-glyphs.js' },
 ];
-function pFiles() {
-  return { title: 'Your Files', top: true, scope: 'SF Pro and the SF Symbols glyph set are Apple’s, so they can’t ship with Mantel: each home adds its own copy once.', body(c) {
+function pFiles(sub) {
+  if (sub[0] === 'photos' && can('photos')) return photos.page(sub.slice(1), photoTools);
+  return { title: 'Your Files', top: true, scope: 'Your home’s own files, kept in Mantel’s data and its encrypted backups: the screensavers’ photos, and Apple’s font and glyphs.', body(c) {
     result(c, 'files');
+    if (can('photos')) {
+      c.appendChild(group({ header: 'Photos', footer: 'Albums of photos for the screensavers: upload them here, then pick an album on a screen’s Screensaver Options, or for every screen on All Screens → Screensaver.' },
+        [photos.filesRow(photoTools)]));
+    }
     const got = load('files', () => api('GET', '/api/user-files'));
     if (!got) { pending(c); return; }
     if (got.err) { failed(c, got.err); return; }
     const inf = got.data;
     const have = { woff2: inf.fonts.find((f) => f.name === 'SF-Pro.woff2'), ttf: inf.fonts.find((f) => f.name === 'SF-Pro.ttf'),
                    glyphs: inf.glyphs.present ? { size: inf.glyphs.size } : null };
-    for (const slot of ASSET_SLOTS) {
+    ASSET_SLOTS.forEach((slot, i) => {
       const cur = have[slot.id];
       const input = hh('input', { type: 'file', accept: slot.accept, class: 'mxfile', 'aria-label': 'Choose ' + slot.label, 'data-fk': 'mx:file-' + slot.id });
       input.addEventListener('change', () => {
@@ -930,11 +935,12 @@ function pFiles() {
         if (!(await ask({ title: 'Remove ' + slot.label + '?', message: 'Screens fall back to the system font or plain icons until you add it again.', ok: 'Remove', destructive: true }))) return;
         act('files', () => api('DELETE', '/api/user-files/' + slot.kind + '/' + slot.name), slot.label + ' removed.', 'files');
       }, { destructive: true, fk: 'mx:remove-' + slot.id }));
-      const g = group({}, rows);
+      const g = group(i ? {} : { header: 'Font and Glyphs' }, rows);
       g.appendChild(input);
       c.appendChild(g);
-    }
-    c.appendChild(group({ footer: `Used ${kb(inf.usage)} of ${kb(inf.quota)}. They are kept in Mantel’s data, included in its encrypted backups, and nothing here is ever run as code. ` +
+    });
+    c.appendChild(group({ footer: 'SF Pro and the SF Symbols glyph set are Apple’s, so they can’t ship with Mantel: each home adds its own copy once. ' +
+      `Used ${kb(inf.usage)} of ${kb(inf.quota)}. They are kept in Mantel’s data, included in its encrypted backups, and nothing here is ever run as code. ` +
       'On a Home Assistant install they are under /config/www/hk (fonts/ and iconset/). From the command line: mantel files import-assets <folder>.' }, []));
   } };
 }
@@ -1204,6 +1210,32 @@ function drawWallTablets(c) {
     })));
 }
 // The group on the tablet's own page
+// HK Settings' own data again (panel/get): a tablet paired or disconnected gains or loses its Reload parts
+function reloadPanel() {
+  const p = panel;
+  if (p && typeof p.reload === 'function') Promise.resolve(p.reload()).then(() => p.render()).catch(() => {});
+}
+// A PAIRED TABLET'S RELOAD AND CLEAR CACHE (host.press): HK Settings' parts "mantel-tablet:<id>:<verb>"
+// (tablet_links.panel_parts), each sent through the command gateway (POST .../command: RBAC, the audit row; refused
+// with commands off). Every one is sent; a failure says which tablets.
+const TABLET_PART = /^mantel-tablet:([a-z0-9_]{1,64}):(reload|clear_cache)$/;
+function pressTablets(ids, p) {
+  const mine = ids.map((id) => TABLET_PART.exec(String(id))).filter(Boolean);
+  if (!mine.length) return null;
+  const names = (p && p.tabs && p.tabs()) || {};
+  return Promise.all(mine.map(([, tid, verb]) =>
+    api('POST', '/api/connections/tablets/' + encodeURIComponent(tid) + '/command', { verb }).then(() => null, (e) => ({ tid, e }))))
+    .then((got) => {
+      const bad = got.filter(Boolean);
+      if (!bad.length) return;
+      const say = (b) => ((names[b.tid] && names[b.tid].name) || b.tid);
+      const same = bad.every((b) => b.e.message === bad[0].e.message);
+      if (mine.length === 1) throw new Error(bad[0].e.message);
+      throw new Error(bad.map(say).join(', ') + (bad.length === 1 ? ': ' : ' — ') +
+        (same ? bad[0].e.message : bad.map((b) => say(b) + ': ' + b.e.message).join(' ')));
+    });
+}
+
 function drawDirect(c, ctx) {
   if (!can('connections')) return;
   const tid = ctx.tablet, key = 'tablet:' + tid, form = 'direct-' + tid;
@@ -1234,8 +1266,9 @@ function drawDirect(c, ctx) {
   }
   const notes = [];
   if (t.unreadable) notes.push('Mantel’s saved copy could not be opened (was the at-rest key changed?). Pair it again.');
-  if (sv.missing && sv.missing.length) notes.push('This ' + t.app_label + ' version lacks ' + sv.missing.join(', ') + ', which Mantel will need to send commands later. Update the app.');
-  notes.push('Mantel reads ' + t.app_label + ' on the tablet itself, without Home Assistant. Status only for now: Mantel sends it no commands.');
+  if (sv.missing && sv.missing.length) notes.push('This ' + t.app_label + ' version lacks ' + sv.missing.join(', ') + ', which Mantel needs for its commands. Update the app.');
+  notes.push('Mantel reads ' + t.app_label + ' on the tablet itself, without Home Assistant. The only commands it sends are Reload and ' +
+             'Clear Cache & Reload (Actions, below, and All at Once on Wall Tablets), while commands are on; each is in the Audit Log.');
   if (!can2) notes.push('Only an Owner can pair a tablet.');
   c.appendChild(group({ header, footer: notes.join(' ') }, rows));
   result(c, key);
@@ -1247,7 +1280,7 @@ function drawDirect(c, ctx) {
       button('Disconnect…', async () => {
         const why = t.app === 'kiosk_satellite' ? ' Kiosk Satellite’s tokens can’t be revoked from Mantel: the token Mantel had keeps working until it expires, unless the tablet’s remote administration is reset.' : '';
         if (!(await ask({ title: 'Disconnect ' + t.name + '?', message: 'Mantel forgets how to reach this tablet directly. Home Assistant’s own connection to it is not affected.' + why, ok: 'Disconnect', destructive: true }))) return;
-        act(key, () => api('DELETE', '/api/connections/tablets/' + encodeURIComponent(tid)), t.name + ' disconnected.', 'tablets', 'tablets-live', 'tablet-live:' + tid);
+        if (await act(key, () => api('DELETE', '/api/connections/tablets/' + encodeURIComponent(tid)), t.name + ' disconnected.', 'tablets', 'tablets-live', 'tablet-live:' + tid)) reloadPanel();
       }, { destructive: true, fk: 'mx:direct-disconnect' })]));
     return;
   }
@@ -1264,6 +1297,7 @@ function drawDirect(c, ctx) {
         clearDraft(form); delete shown['direct:' + tid];
         flash = { key, text: t.name + ' paired. ' + says };
         forget('tablets', 'tablets-live', 'tablet-live:' + tid);
+        reloadPanel();
       } else shown['direct:' + tid] = { text: says };
     } catch (e) { shown['direct:' + tid] = { text: e.message, err: true }; }
     redraw();
@@ -1591,7 +1625,7 @@ function pAudit() {
       users ? K().select({ label: 'Who', options: [['', 'Anyone']].concat(users.map((u) => [u.id, `${u.name || u.username} (${roleLabel(u.role)})`])), value: f.actor || '', fk: 'mx:audit:actor', onChange: set('actor') }) : null,
       devices ? K().select({ label: 'Tablet', options: [['', 'Any Tablet']].concat(devices.map((d) => [d.id, d.name + (d.revoked ? ' (revoked)' : '')])), value: f.device || '', fk: 'mx:audit:device', onChange: set('device') }) : null,
       K().select({ label: 'Decision', options: [['', 'Any'], ['allowed', 'Allowed'], ['denied', 'Denied'], ['step_up', 'Needed Confirmation']], value: f.decision || '', fk: 'mx:audit:decision', onChange: set('decision') }),
-      K().select({ label: 'Kind', options: [['', 'Any'], ['service', 'Service Calls'], ['ws', 'Home Assistant Writes'], ['http', 'HTTP'], ['ma', 'Music'], ['config', 'Settings and Roles'], ['system', 'System']], value: f.kind || '', fk: 'mx:audit:kind', onChange: set('kind') }),
+      K().select({ label: 'Kind', options: [['', 'Any'], ['service', 'Service Calls'], ['ws', 'Home Assistant Writes'], ['http', 'HTTP'], ['ma', 'Music'], ['config', 'Settings and Roles'], ['tablet', 'Wall Tablets'], ['system', 'System']], value: f.kind || '', fk: 'mx:audit:kind', onChange: set('kind') }),
       dt('since', 'From'), dt('until', 'To'),
       K().select({ label: 'Rows per Page', options: [['25', '25'], ['50', '50'], ['100', '100']], value: f.limit || '25', fk: 'mx:audit:limit', onChange: set('limit') })]));
     const q = new URLSearchParams();
@@ -1630,8 +1664,7 @@ const photoTools = {
   mantelUrl, csrfNow, refreshMe, ROUTE, panel: () => panel,
   setFlash: (key, text, err) => { flash = { key, text, err: !!err }; },
 };
-const pPhotos = (sub) => photos.page(sub, photoTools);
-const BUILD = { me: pMe, people: pPeople, devices: pDevices, roles: pRoles, files: pFiles, photos: pPhotos, service: pService,
+const BUILD = { me: pMe, people: pPeople, devices: pDevices, roles: pRoles, files: pFiles, service: pService,
                 connect: pConnect, connections: pConnections, audit: pAudit };
 const can = (s) => !!me && me.sections.includes(s);
 // the house's own settings: for the people who manage it, from a browser that isn't a tablet, once Mantel
@@ -1669,6 +1702,9 @@ export const host = {
   // /admin's addresses (#connections, #people ...) and the page's own first-run choice
   forward(path) {
     if (PAGES.some(([s]) => s === path)) return ROUTE + '/' + path;
+    // Photos had its own row until it moved into Your Files: #/photos (/admin's) and #/mantel/photos[/<album>]
+    const m = /^(?:mantel\/)?photos(\/.*)?$/.exec(path);
+    if (m) return ROUTE + '/' + photos.SECTION + (m[1] || '');
     return null;
   },
   first() {
@@ -1677,6 +1713,11 @@ export const host = {
     return manages() ? null : ROUTE + '/me';
   },
   // Mantel's own groups on HK's pages: a wall tablet's Direct Connection, a screen in Home Assistant's sidebar
+  // a paired tablet's Reload and Clear Cache (HK Settings' Wall Tablets buttons): through the command gateway
+  press(ids, p) {
+    if (p) panel = p;
+    return me ? pressTablets(ids, p) : null;
+  },
   extend(where, c, ctx, p) {
     if (p) { panel = p; ensureStyle(p.shadowRoot); }
     if (where === 'tablet' && me && ctx && ctx.tablet) drawDirect(c, ctx);
@@ -1685,7 +1726,9 @@ export const host = {
   },
   search() {
     if (!me) return [];
-    return PAGES.filter(([s]) => can(s)).map(([s, title]) => ({ label: title, route: ROUTE + '/' + s, where: 'Mantel', words: s }));
+    const out = PAGES.filter(([s]) => can(s)).map(([s, title]) => ({ label: title, route: ROUTE + '/' + s, where: 'Mantel', words: s }));
+    if (can('photos')) out.push({ label: 'Photos', route: ROUTE + '/' + photos.SECTION, where: 'Mantel → Your Files', words: 'photos albums upload screensaver pictures' });
+    return out;
   },
 };
 

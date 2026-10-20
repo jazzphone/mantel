@@ -102,7 +102,7 @@ def test_an_owner_gets_the_house_and_every_mantel_page(run):
     assert o["title"] == "Mantel Settings" and o["house"] is True and o["first"] is None
     assert o["groups"][0] == {"place": "top", "header": None, "routes": ["mantel/me"]}
     assert routes(o)[1:] == ["mantel/people", "mantel/devices", "mantel/roles", "mantel/service", "mantel/audit",
-                             "mantel/connections", "mantel/connect", "mantel/files", "mantel/photos"]
+                             "mantel/connections", "mantel/connect", "mantel/files"]
     assert [g["header"] for g in o["groups"][1:]] == ["People & Access", "Mantel"]
     assert all(g["place"] == "end" for g in o["groups"][1:])
     assert o["pages"]["roles"] == "Roles & Grants" and o["pages"]["service"] == "Service Accounts"
@@ -111,8 +111,7 @@ def test_an_owner_gets_the_house_and_every_mantel_page(run):
 def test_an_admin_gets_the_house_without_roles_or_service_accounts(run):
     a = run["admin"]
     assert a["house"] is True
-    assert routes(a) == ["mantel/me", "mantel/people", "mantel/devices", "mantel/audit", "mantel/connections", "mantel/files",
-                         "mantel/photos"]
+    assert routes(a) == ["mantel/me", "mantel/people", "mantel/devices", "mantel/audit", "mantel/connections", "mantel/files"]
     # an address of a page the role may not use opens Me instead
     assert a["pages"]["roles"] == a["pages"]["me"] == "Fictional admin"
     assert a["pages"]["service"] == "Fictional admin" and a["pages"]["connect"] == "Fictional admin"
@@ -315,3 +314,53 @@ def test_turned_on_inside_ha_at_an_address_not_allowed_it_says_so_and_offers_to_
     [g] = got["owner"]
     labels = [r["label"] for r in g["rows"]]
     assert "Allow ha-lan.example.com to Show Mantel" in labels
+
+
+PRESS_SCRIPT = r"""
+globalThis.window = globalThis;
+globalThis.document = { querySelector: () => null, cookie: 'mantel_csrf=fictional' };
+globalThis.location = { hostname: 'mantel.example', hash: '', search: '', pathname: '/settings' };
+const sent = [];
+let refuse = {};
+globalThis.fetch = async (u, init) => {
+  const body = init && init.body ? JSON.parse(init.body) : null;
+  sent.push({ method: init && init.method, path: String(u), body });
+  const tid = String(u).split('/')[4];
+  if (refuse[tid]) return { ok: false, status: refuse[tid][0], json: async () => ({ error: refuse[tid][1], message: refuse[tid][2] }) };
+  return { ok: true, status: 200, json: async () => ({ ok: true, result: { tablet: tid, verb: body.verb }, audit_id: 7 }) };
+};
+const m = await import(process.argv[2]);
+const out = {};
+const panel = { tabs: () => ({ kitchen: { name: 'Kitchen' }, loft: { name: 'Loft' } }), render() {} };
+m._reset(JSON.parse(process.argv[3]));
+out.notMine = m.host.press(['button.kitchen_kiosk_reload_page'], panel);
+await m.host.press(['mantel-tablet:kitchen:reload', 'mantel-tablet:loft:clear_cache', 'mantel-tablet:x:evalJs'], panel);
+out.sent = sent.splice(0);
+refuse = { loft: [503, 'commands_disabled', 'Commands are off on this Mantel, so nothing was sent to the tablet.'] };
+try { await m.host.press(['mantel-tablet:loft:reload'], panel); out.one = null; } catch (e) { out.one = e.message; }
+try { await m.host.press(['mantel-tablet:kitchen:reload', 'mantel-tablet:loft:reload'], panel); out.some = null; } catch (e) { out.some = e.message; }
+out.sentAfter = sent.length;
+m._reset(null);
+out.signedOut = m.host.press(['mantel-tablet:kitchen:reload'], panel);
+process.stdout.write(JSON.stringify(out));
+"""
+
+
+def test_the_host_presses_a_paired_tablets_reload_through_the_gateway(tmp_path):
+    """HK Settings' Reload buttons (hk-settings.js press -> host.press): each mantel-tablet part is a POST to the
+    tablet's command route (the gateway decides and audits); anything else is HA's; a refusal is said, by tablet."""
+    if shutil.which("node") is None:
+        pytest.skip("node not installed")
+    node_modules(tmp_path)
+    (tmp_path / "press.mjs").write_text(PRESS_SCRIPT)
+    got = subprocess.run(["node", str(tmp_path / "press.mjs"), str(tmp_path / "mantel-settings.mjs"),
+                          json.dumps(overview("owner", ALL))], capture_output=True, text=True, timeout=60)
+    assert got.returncode == 0, got.stderr
+    out = json.loads(got.stdout)
+    assert out["notMine"] is None and out["signedOut"] is None
+    assert [(s["method"], s["path"], s["body"]) for s in out["sent"]] == [
+        ("POST", "/api/connections/tablets/kitchen/command", {"verb": "reload"}),
+        ("POST", "/api/connections/tablets/loft/command", {"verb": "clear_cache"})]       # never another verb
+    assert out["one"] == "Commands are off on this Mantel, so nothing was sent to the tablet."
+    assert out["some"] == "Loft: Commands are off on this Mantel, so nothing was sent to the tablet."
+    assert out["sentAfter"] == 3

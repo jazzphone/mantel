@@ -451,7 +451,7 @@ What to look for: a `denied` row with an unexpected person; repeated wrong Alarm
 | `/etc/hk/secrets/` (`ha_token`, `ma_token`, tunnel and DNS tokens) | Or recreate them: tokens can be reissued, `at_rest.key` cannot. |
 | `packaging/compose/.env` | The settings. |
 | "Your files" (SF Pro and the SF Symbols glyphs, Apple's, never in the repo) | Kept in `/data/user-files` and inside the encrypted backup (`backup`, unless `--no-files`). To supply them once: /admin, Your files, "HK fonts and glyphs", or `docker compose exec mantel-server mantel files import-assets <folder>` on a copy of HA's `/config/www/hk` (needs `fonts/SF-Pro.woff2` and `iconset/hk-glyphs.js`; see [BACKUP-FILES.md](phase3/BACKUP-FILES.md)). |
-| Mantel Photos (the screensavers' albums) | Kept in `/data/photos` and inside the encrypted backup with "Your files" (unless `--no-files`); the records are in `mantel.db`. Settings → Photos shows the size. See [phase4/PHOTOS.md](phase4/PHOTOS.md). |
+| Mantel Photos (the screensavers' albums) | Kept in `/data/photos` and inside the encrypted backup with "Your files" (unless `--no-files`); the records are in `mantel.db`. Mantel Settings → Your Files → Photos shows the size. See [phase4/PHOTOS.md](phase4/PHOTOS.md). |
 
 A consistent online copy of the database (do not copy `mantel.db` alone while the server runs; WAL mode keeps recent writes in `mantel.db-wal`):
 

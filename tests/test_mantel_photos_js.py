@@ -1,4 +1,4 @@
-"""Mantel Settings → Photos (web/shim/mantel-photos.js) and the screensaver's side in Mantel's shell
+"""Mantel Settings → Your Files → Photos (web/shim/mantel-photos.js) and the screensaver's side in Mantel's shell
 (web/shim/mantel-shell.js photoSource / listPhotos). Run in node with a recording stand-in for HK Settings' kit
 and the few browser objects the page touches (fetch, XMLHttpRequest, localStorage): no DOM, no network, no photo.
 
@@ -7,7 +7,9 @@ and the few browser objects the page touches (fetch, XMLHttpRequest, localStorag
 * An album: the grid, the preview's address, selecting, deleting and moving many at once (what is sent).
 * Uploads: twenty files at once, at most three in flight, each file's state in words; what isn't a photo, or is
   too big, refused before it is sent.
-* A screen's Screensaver Options and All Screens' Screensaver: the album pickers and what they save.
+* A screen's Screensaver Options and All Screens' Screensaver: the album pickers and what they save, New Album…
+  (named, made and picked) and Add Photos… right there.
+* Where it is: a Photos row in Your Files, no row of its own in the sidebar, the old #/mantel/photos forwarded.
 * The shell: a screen's album as its source, an album's photos as same-origin addresses under the prefix.
 """
 from __future__ import annotations
@@ -27,7 +29,7 @@ import { readFileSync } from 'node:fs';
 globalThis.window = globalThis;
 const stored = {};
 globalThis.localStorage = { setItem(k, v) { stored[k] = v; } };
-globalThis.location = { hash: '#/mantel/photos', pathname: '/settings' };
+globalThis.location = { hash: '#/mantel/files/photos', pathname: '/settings' };
 globalThis.document = { addEventListener() {}, querySelector: () => null, cookie: '' };
 class El {
   constructor(tag, attrs, kids) {
@@ -36,7 +38,9 @@ class El {
     this.classList = { add: (...c) => c.forEach((x) => this.cls.add(x)), remove: (...c) => c.forEach((x) => this.cls.delete(x)) };
     for (const k of [].concat(kids || [])) if (k) this.kids.push(k);
   }
-  appendChild(k) { this.kids.push(k); return k; }
+  appendChild(k) { this.kids.push(k); k.parent = this; return k; }
+  remove() { if (this.parent) this.parent.kids = this.parent.kids.filter((k) => k !== this); }
+  focus() {} select() {}
   insertBefore(k) { this.kids.unshift(k); return k; }
   get firstChild() { return this.kids[0]; }
   setAttribute(k, v) { this.attrs[k] = v; }
@@ -68,7 +72,9 @@ globalThis.fetch = async (u, init) => {
   const method = (init && init.method) || 'GET', path = String(u);
   if (method !== 'GET') {
     sent.push({ method, path, body: init.body ? JSON.parse(init.body) : null });
-    return { ok: true, status: 200, json: async () => (path.endsWith('/move') ? { ok: true, moved: ['p2'], skipped: [] } : { ok: true }) };
+    const answer = path.endsWith('/move') ? { ok: true, moved: ['p2'], skipped: [] }
+      : path === '/api/photos/albums' ? { ok: true, album: { id: 'c3c3c3c3c3c3c3c3', name: JSON.parse(init.body).name, count: 0 } } : { ok: true };
+    return { ok: true, status: 201, json: async () => answer };
   }
   if (!(path in reads)) throw new Error('unexpected ' + path);
   return { ok: true, status: 200, json: async () => reads[path] };
@@ -114,34 +120,34 @@ const groups = (c) => c.kids.filter((k) => k.tag === 'group' || k.tag === 'secti
 const out = {};
 
 // -- the library
-out.ownerLib = groups((await draw(owner, ['mantel', 'photos'])).c);
+out.ownerLib = groups((await draw(owner, ['mantel', 'files', 'photos'])).c);
 const ownerRead = reads['/api/photos'];
 reads['/api/photos'] = Object.assign({}, ownerRead, { owner: false });
-out.adminLib = groups((await draw(admin, ['mantel', 'photos'])).c);
+out.adminLib = groups((await draw(admin, ['mantel', 'files', 'photos'])).c);
 reads['/api/photos'] = ownerRead;
 
 // -- an album: grid, select, delete, move
 const AID = 'a1a1a1a1a1a1a1a1';
-let { c, panel } = await draw(owner, ['mantel', 'photos', AID]);
+let { c, panel } = await draw(owner, ['mantel', 'files', 'photos', AID]);
 out.albumGroups = groups(c);
 const tiles = c.all().filter((e) => e.cls.has('mxph'));
 out.tiles = tiles.map((t) => [t.attrs['data-id'], t.kids[0].attrs.src]);
 c.find((e) => e.attrs['data-fk'] === 'mx:photos-select').click();
-c = await redraw(owner, ['mantel', 'photos', AID]);
+c = await redraw(owner, ['mantel', 'files', 'photos', AID]);
 for (const t of c.all().filter((e) => e.cls.has('mxph')).slice(0, 2)) t.click();
 out.selected = [...m._photos._state.selected];
-c = await redraw(owner, ['mantel', 'photos', AID]);
+c = await redraw(owner, ['mantel', 'files', 'photos', AID]);
 out.selection = groups(c).find((g) => g.header === 'Selection');
 await c.find((e) => e.attrs['data-fk'] === 'mx:photos-move').attrs.onChange('b2b2b2b2b2b2b2b2');
 await tick();
-for (const t of (await redraw(owner, ['mantel', 'photos', AID])).all().filter((e) => e.cls.has('mxph')).slice(2, 3)) t.click();
-c = await redraw(owner, ['mantel', 'photos', AID]);
+for (const t of (await redraw(owner, ['mantel', 'files', 'photos', AID])).all().filter((e) => e.cls.has('mxph')).slice(2, 3)) t.click();
+c = await redraw(owner, ['mantel', 'files', 'photos', AID]);
 await c.find((e) => e.attrs['data-fk'] === 'mx:photos-delete').click();
 await tick(); await tick();
 out.sent = sent.splice(0);
 
 // -- twenty uploads at once
-({ c } = await draw(owner, ['mantel', 'photos', AID]));
+({ c } = await draw(owner, ['mantel', 'files', 'photos', AID]));
 const input = c.find((e) => e.attrs['data-fk'] === 'mx:photos-files');
 const file = (name, size, type) => ({ name, size, type });
 input.files = Array.from({ length: 20 }, (_, i) => file('IMG_' + i + '.HEIC', 3 << 20, ''))
@@ -149,7 +155,7 @@ input.files = Array.from({ length: 20 }, (_, i) => file('IMG_' + i + '.HEIC', 3 
 input.on.change();
 out.inFlight = xhrs.filter((x) => x.sent && !x.done).length;
 out.firstUpload = { url: xhrs[0].url, csrf: 'X-CSRF-Token' in xhrs[0].headers, parts: xhrs[0].fd.parts };
-let early = groups(await redraw(owner, ['mantel', 'photos', AID])).find((g) => (g.header || '').startsWith('Uploading'));
+let early = groups(await redraw(owner, ['mantel', 'files', 'photos', AID])).find((g) => (g.header || '').startsWith('Uploading'));
 out.refused = early.rows.filter((r) => r.err).map((r) => r.label);
 let n = 0, maxInFlight = 0;
 while (true) {
@@ -163,7 +169,7 @@ while (true) {
   await tick();
 }
 out.maxInFlight = maxInFlight;
-out.uploaded = groups(await redraw(owner, ['mantel', 'photos', AID])).find((g) => g.header === 'Uploaded');
+out.uploaded = groups(await redraw(owner, ['mantel', 'files', 'photos', AID])).find((g) => g.header === 'Uploaded');
 out.changedSignal = 'mantel-photos-changed' in stored;
 
 // -- the screensaver pickers on HK's pages
@@ -176,8 +182,57 @@ const set = [];
 s = await draw(owner, null, 'house-saver', { photos: 'mantel-photos://' + AID, set: (v) => { set.push(v); return Promise.resolve(); } });
 out.house = groups(s.c);
 await s.c.find((e) => e.attrs['data-fk'] === 'mx:house-album').attrs.onChange('');
-out.houseSet = set;
+out.houseSet = set.slice();
 out.adultSaver = groups((await draw(JSON.parse(process.argv[6]), null, 'saver', { screen: 'x', title: 'X' })).c);
+
+// -- New Album… from the pickers: named in the alert, made, picked
+const nameIt = async (panel, name) => {
+  await tick();
+  const dlg = panel.shadowRoot.find((e) => e.cls.has('mxdlg'));
+  dlg.find((e) => e.tag === 'input').value = name;
+  dlg.find((e) => e.tag === 'button' && e.text === 'Create').on.click();
+  for (let i = 0; i < 6; i++) await tick();
+};
+s = await draw(owner, null, 'saver', { screen: 'dashboard-kitchen', title: 'Kitchen' });
+let picker = s.c.find((e) => e.attrs['data-fk'] === 'mx:saver-album');
+picker.attrs.onChange('new');
+await nameIt(s.panel, 'Garden');
+out.saverNew = sent.splice(0);
+s = await draw(owner, null, 'house-saver', { photos: '', set: (v) => { set.push(v); return Promise.resolve(); } });
+out.houseEmpty = groups(s.c);
+set.length = 0;
+s.c.find((e) => e.attrs['data-fk'] === 'mx:house-album').attrs.onChange('new');
+await nameIt(s.panel, 'Porch');
+out.houseNew = { sent: sent.splice(0), set: set.slice() };
+// a cancelled name makes nothing
+s = await draw(owner, null, 'saver', { screen: 'dashboard-kitchen', title: 'Kitchen' });
+s.c.find((e) => e.attrs['data-fk'] === 'mx:saver-album').attrs.onChange('new');
+await tick();
+s.panel.shadowRoot.find((e) => e.cls.has('mxdlg')).find((e) => e.tag === 'button' && e.text === 'Cancel').on.click();
+for (let i = 0; i < 4; i++) await tick();
+out.cancelled = sent.splice(0);
+// Add Photos… on a screen's picker: the album's own upload, its progress under the picker
+s = await draw(owner, null, 'saver', { screen: 'dashboard-kitchen', title: 'Kitchen' });
+const before = xhrs.length;
+const pin = s.c.find((e) => e.attrs['data-fk'] === 'mx:photos-files');
+pin.files = [file('IMG_A.jpg', 1 << 20, 'image/jpeg'), file('IMG_B.jpg', 1 << 20, 'image/jpeg')];
+pin.on.change();
+out.saverUploads = xhrs.slice(before).map((x) => x.url);
+{
+  const c2 = new El('page');
+  m.host.extend('saver', c2, { screen: 'dashboard-kitchen', title: 'Kitchen' }, s.panel);     // drawn again, uploads kept
+  out.saverUploading = groups(c2);
+}
+for (const x of xhrs.slice(before)) { x.answer(201, { ok: true, photo: {} }); await tick(); }
+
+// -- where it is: Your Files' Photos row, the sidebar, the old address, search
+reads['/api/user-files'] = { fonts: [], glyphs: { present: false }, usage: 0, quota: 1 << 20 };
+out.files = groups((await draw(owner, ['mantel', 'files'])).c);
+out.sidebar = m.host.groups().map((g) => g.rows.map((r) => r.route));
+out.forward = ['photos', 'mantel/photos', 'mantel/photos/' + AID, 'mantel/files', 'mantel/photosx'].map((p) => m.host.forward(p));
+out.search = m.host.search().filter((x) => /photo/i.test(x.label));
+m._reset(JSON.parse(process.argv[6]));
+out.adultForward = m.host.forward('mantel/photos');
 process.stdout.write(JSON.stringify(out));
 """
 
@@ -292,12 +347,51 @@ def test_the_screensaver_pickers_save_a_screens_album_and_the_houses():
     g = by_header(out["saver"], "Photos")
     pick = g["rows"][0]
     assert pick["value"] == A and [o[1] for o in pick["options"]] == ["Screensaver Photos (All Screens)", "Family · 800 photos",
-                                                                      "Beach · 12 photos"]
+                                                                      "Beach · 12 photos", "New Album…"]
+    assert [r["label"] for r in g["rows"] if r["kind"] != "input"][1:] == ["Add Photos to Family…", "Mantel Photos"]
+    assert g["rows"][2]["fk"] == "mx:files/photos"
     assert out["saverSent"] == [{"method": "PUT", "path": "/api/photos/screens/dashboard-kitchen", "body": {"album": A}}]
     house = out["house"][0]["rows"][0]
     assert house["value"] == A and house["options"][0][1] == "The Home Assistant Folder (Above)"
     assert out["houseSet"] == ["media-source://media_source/local/photos"]
     assert out["adultSaver"] == []                                  # no Photos section: nothing drawn
+
+
+def test_new_album_from_a_screens_picker_makes_it_and_picks_it():
+    out = run_page()
+    assert out["saverNew"] == [{"method": "POST", "path": "/api/photos/albums", "body": {"name": "Garden"}},
+                               {"method": "PUT", "path": "/api/photos/screens/dashboard-kitchen",
+                                "body": {"album": "c3c3c3c3c3c3c3c3"}}]
+    assert out["cancelled"] == []                                   # a cancelled name makes nothing
+
+
+def test_new_album_from_all_screens_makes_it_and_sets_every_screens_photos():
+    out = run_page()
+    house = out["houseEmpty"][0]["rows"]
+    assert house[0]["value"] == "" and house[0]["options"][-1] == ["new", "New Album…"]
+    assert len(house) == 1                                          # no album picked: nothing to add photos to
+    assert out["houseNew"]["sent"] == [{"method": "POST", "path": "/api/photos/albums", "body": {"name": "Porch"}}]
+    assert out["houseNew"]["set"] == ["mantel-photos://c3c3c3c3c3c3c3c3"]
+
+
+def test_add_photos_on_a_screens_picker_uploads_into_its_album_and_shows_progress_there():
+    out = run_page()
+    assert out["saverUploads"] == [f"/api/photos/albums/{A}/upload"] * 2
+    up = next(g for g in out["saverUploading"] if (g["header"] or "").startswith("Uploading"))
+    assert [r["label"] for r in up["rows"]] == ["IMG_A.jpg", "IMG_B.jpg"]
+
+
+def test_photos_is_inside_your_files_and_its_old_address_forwards_there():
+    out = run_page()
+    ph = by_header(out["files"], "Photos")
+    row = ph["rows"][0]
+    assert row["label"] == "Photos" and row["fk"] == "mx:files-photos" and row["value"] == "2 albums · 812 photos"
+    assert "Screensaver Options" in ph["footer"]
+    assert by_header(out["files"], "Font and Glyphs")["rows"][0]["label"] == "SF Pro (woff2)"
+    assert not any("mantel/photos" in r for g in out["sidebar"] for r in g)
+    assert out["forward"] == ["mantel/files/photos", "mantel/files/photos", f"mantel/files/photos/{A}", None, None]
+    assert out["search"] == [{"label": "Photos", "route": "mantel/files/photos", "where": "Mantel → Your Files",
+                              "words": "photos albums upload screensaver pictures"}]
 
 
 SHELL_SCRIPT = r"""
