@@ -75,15 +75,15 @@ Mantel has no Owner yet, and the person opening it isn't a Home Assistant admini
 
 ### The App says it could not ask Home Assistant
 
-Mantel couldn't check with Home Assistant whether you are an administrator, so it makes nobody the Owner. Look in the App's log for `could not read Home Assistant's users`, fix what it names, and reload.
+Mantel couldn't check with Home Assistant whether you are an administrator, so it makes nobody the Owner. Look in the App's log (**Settings** → **Apps** → **Mantel** → **Log**) for `could not read Home Assistant's users`, fix what it names, and reload.
 
 If it persists, you can link the first Owner by hand from a terminal on the Home Assistant machine that can run `docker` (for example the **Advanced SSH & Web Terminal** App with protection mode off). Find your Home Assistant user id (**Settings** → **People** → **Users**, with *Advanced mode* on in your profile), then:
 
 ```bash
-docker exec -u 10001 addon_local_mantel python /app/entrypoint.py link --ha-user-id <your id> --role owner --name "Sam"
+docker exec -u 10001 "$(docker ps -q -f name=_mantel$)" python /app/entrypoint.py link --ha-user-id <your id> --role owner --name "Sam"
 ```
 
-<!-- CHECK: the container name addon_local_mantel holds for an App built from source (slug local_mantel). An App installed from the published repository has another slug prefix; confirm the name to use there. -->
+`docker ps -f name=_mantel$` finds the App's container whichever way it was installed: its name ends in `_mantel` (Home Assistant puts a prefix for the App's repository in front). Then reload Mantel, and check the App's **Log** tab for the link.
 
 ### "Setup code is wrong, used or expired"
 

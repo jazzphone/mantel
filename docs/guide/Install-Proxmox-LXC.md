@@ -39,7 +39,7 @@ It touches no other container or VM, changes no host setting, edits no firewall 
    cd mantel
    ```
 
-   <!-- RELEASE: once tagged releases exist, add "git checkout <release tag>" here, so the script that runs as root is one you can pin and read. -->
+   To pin the script that runs as root to a release you can read, check out its tag: `git checkout v0.1.36` (each release's tag; see [CHANGELOG.md](https://github.com/jazzphone/mantel/blob/main/CHANGELOG.md)).
 
 2. Read the two scripts:
 
@@ -83,7 +83,7 @@ You can answer every question ahead of time with `var_` settings in the environm
 | `var_proxy_ip` | asked with `own` | Your proxy's IP address |
 | `var_tunnel` | asked | `yes` or `no` |
 | `var_connect` | `no` | `yes` also turns on [Mantel Connect](Mantel-Connect.md)'s port 8766 |
-| `var_install_mode` | `build` | `build`: build the images in the container. `pull`: use published images. <!-- RELEASE: `pull` needs the ghcr.io/jazzphone/mantel-* images published; until then keep `build`. --> |
+| `var_install_mode` | `build` | `build`: build the images in the container. `pull`: use published images. With `pull`, name the images in `.env` (`MANTEL_SERVER_IMAGE` and the others; [Install with Docker → Get the images](Install-Docker.md#5-get-the-images)). |
 
 The container is always unprivileged and Debian 13; the script refuses anything else.
 

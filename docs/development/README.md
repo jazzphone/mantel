@@ -9,6 +9,7 @@ logic, the Home Assistant integrations, the packaging or the Apple apps. If you 
 | [Architecture](Architecture.md) | understand the pieces, how they talk, and the boundaries the tests enforce |
 | [Building and testing](Building-and-Testing.md) | set up a virtualenv, run the test suites and checks, run Mantel Server by hand |
 | [Rules](Rules.md) | know the project rules every change has to follow |
+| [Releasing](Releasing.md) | publish a version: the images, the Home Assistant add-on repository, and what to check |
 | [Screenshots](Screenshots.md) | regenerate or add the screenshots in `docs/images/` |
 | [Design notes](Design-Notes.md) | find the detailed design note or build record behind a part of the code |
 
