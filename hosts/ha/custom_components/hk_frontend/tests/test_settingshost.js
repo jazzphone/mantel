@@ -235,5 +235,44 @@ print('\n=== a host\'s own groups on a screen\'s page (extend) ===');
   ok('Home Assistant (no host): HK\'s page alone', texts(screenPage(null)).indexOf('The host’s own group') < 0, true);
 })();
 
+print('\n=== a tablet\'s Reload, Clear Cache ... (press): HA\'s buttons, or the host\'s own parts ===');
+(function () {
+  function drain() { for (var i = 0; i < 8; i++) drainMicrotasks(); }
+  var calls = [], alerts = [], said = [];
+  var K = window.hkSettingsKit, hold = K.confirm;
+  K.confirm = function (root, o) { alerts.push([o.title, o.message, o.cancel]); return Promise.resolve(true); };
+  function pg0(host, answer) {
+    var pg = page(host);
+    pg.announce = function (t) { said.push(t); };
+    pg.client.actions = { callService: function (d, s, data) { calls.push([d, s, data]); return answer || Promise.resolve(); } };
+    return pg;
+  }
+  var got = [];
+  pg0(null).press(['button.kitchen_kiosk_reload_page', null], 'Reload').then(function (v) { got.push(v); });
+  drain();
+  ok('Home Assistant (no host): the kiosk app\'s buttons, pressed', [calls, got], [[['button', 'press', { entity_id: ['button.kitchen_kiosk_reload_page'] }]], [true]]);
+  var asked = [], x = example();
+  x.press = function (ids, panel) { asked.push([ids, !!panel]); return Promise.resolve(); };
+  calls = []; got = [];
+  pg0(x).press(['example:kitchen:reload'], 'Reload').then(function (v) { got.push(v); });
+  drain();
+  ok('a host\'s own parts go to the host, not to Home Assistant', [asked, calls, got], [[[['example:kitchen:reload'], true]], [], [true]]);
+  var y = example(); y.press = function () { return null; };
+  calls = [];
+  pg0(y).press(['button.x_reload_page']);
+  drain();
+  ok('a host that answers null leaves them to Home Assistant', calls.length, 1);
+  var z = example(); z.press = function () { return Promise.reject(new Error('Commands are off here.')); };
+  got = []; said = [];
+  pg0(z).press(['example:kitchen:reload'], 'Reload').then(function (v) { got.push(v); });
+  drain();
+  ok('a refusal is said, in an alert with OK alone', [got, alerts, said], [[false], [['Couldn’t Reload', 'Commands are off here.', false]], ['Couldn’t: Commands are off here.']]);
+  alerts = []; got = [];
+  pg0(null, Promise.reject({ message: 'Home Assistant refused it.' })).press(['button.x'], 'Restart the App').then(function (v) { got.push(v); });
+  drain();
+  ok('...and Home Assistant\'s too', [got, alerts], [[false], [['Couldn’t Restart the App', 'Home Assistant refused it.', false]]]);
+  K.confirm = hold;
+})();
+
 print(fail ? 'FAIL ' + fail + ' SETTINGS HOST TESTS' : 'ALL ' + pass + ' SETTINGS HOST TESTS PASS');
 if (fail) throw new Error('settings host tests failed');

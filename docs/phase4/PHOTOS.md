@@ -8,8 +8,12 @@ in Mantel. This is the longer-term answer Avery asked for: *"move all of this to
 photos into bulk, and even have a list/preview/way to delete them"*. Confirmed: bulk upload, a grid with a
 preview, delete, albums, and an import from Home Assistant.
 
-Built and tested offline and against a local Mantel with fictional photos. **Not on the house.** Nothing changes
+Built and tested offline and against a local Mantel with fictional photos. Shipped in App 0.1.29. Nothing changes
 in HK Frontend inside Home Assistant.
+
+**Where it is (Avery, 2026-10-19: "It isn't under Your Files, which is probably where it should be").** Photos is
+inside Your Files (Mantel Settings → Your Files → Photos), not a sidebar row of its own; and a screen's Screensaver
+pickers make an album and add photos to it in place (below).
 
 ## What it is
 
@@ -17,7 +21,7 @@ in HK Frontend inside Home Assistant.
 |---|---|
 | Storage, processing, REST, the HA import | `hosts/server/mantel_server/photos.py` |
 | The records | migration `0018_photos.sql`: `photo_albums`, `photos`, `photo_screens`, `photo_settings` |
-| Mantel Settings → Photos | `web/shim/mantel-photos.js` (wired in `mantel-settings.js`; Owner and Admin) |
+| Mantel Settings → Your Files → Photos | `web/shim/mantel-photos.js` (wired in `mantel-settings.js` `pFiles`; Owner and Admin). Its address is `#/mantel/files/photos`; the old `#/mantel/photos` (and `/admin`'s `#photos`) forward there |
 | The screensaver's side | `web/hk/modules/hk-saver.js` asks the host (`hkShell.photoSource` / `listPhotos`, `web/client/hk-host-shell.js`); Mantel's answers are in `web/shim/mantel-shell.js` |
 | The pickers on HK's pages | `web/hk/panels/hk-settings.js` calls the host's `extend('saver', …)` (a screen's Screensaver Options) and `extend('house-saver', …)` (All Screens → Screensaver) |
 | Backups | `backup.py` packs and restores `<data_dir>/photos` with "Your files" |
@@ -30,9 +34,12 @@ Assistant media folder (`media-source://…`, as before), HK's landscapes (Behin
 before), or an album, named `mantel-photos://<album id>`.
 
 * **A screen's own album.** Its Screensaver Options page gets a Photos group: *Show: Screensaver Photos (All
-  Screens) / an album*. Mantel keeps that choice (`photo_screens`), not HK's settings, so HK's settings model and
+  Screens) / an album / New Album…*. New Album… asks for a name, makes the album and picks it; with an album
+  picked, *Add Photos to <album>…* is right there (the album page's own bulk upload, its progress listed under
+  the picker), so a screen's photos are set up without leaving its settings. Mantel keeps that choice (`photo_screens`), not HK's settings, so HK's settings model and
   Home Assistant's copy never see it. Deleting the album takes the screen back to the house's photos.
-* **Every screen's album.** All Screens → Screensaver gets *Mantel Photos Album* under Screensaver Photos. It
+* **Every screen's album.** All Screens → Screensaver gets *Mantel Photos Album* under Screensaver Photos, with the
+  same New Album… and Add Photos…. It
   writes `mantel-photos://<id>` into `look.photos` (Mantel's copy of HK's settings only); choosing the Home
   Assistant folder again writes `media-source://media_source/local/photos`.
 
@@ -77,7 +84,7 @@ The SHA-256 of the bytes as they came in is kept: the same picture twice in one 
 | Pixels | 100 megapixels | fixed | |
 | Albums / photos per album | 200 / 20,000 | fixed | |
 
-Settings → Photos → Storage shows the space used against the limit.
+Your Files → Photos → Storage shows the space used against the limit.
 
 ### Who may do what
 
