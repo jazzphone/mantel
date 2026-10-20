@@ -61,7 +61,7 @@ Mantel works, but it can't import HK's settings or list Home Assistant's users. 
 
 ### Mantel has no screens
 
-Setup Check says **Screens: None yet**, and `/home` opens Mantel Settings. Mantel's screens come from HK Frontend's settings in Home Assistant, imported once by the Owner. See [First Run → Bring your screens in](First-Run.md#bring-your-screens-in) and [Moving from HK Frontend](Moving-from-HK-Frontend.md).
+A new Mantel starts with a generated **Home** screen, built from your rooms and devices, until HK Frontend's settings are imported. If Setup Check says **Screens: None yet** and `/home` opens Mantel Settings, the import brought in an HK Frontend with no screens (or the screens were removed). The import runs once and Mantel keeps its own copy afterwards, so a screen added in Home Assistant later doesn't come across, and Mantel can't add one itself yet. If you're stuck here, [open an issue](https://github.com/jazzphone/mantel/issues). See [First Run → Bring your screens in](First-Run.md#bring-your-screens-in) and [Moving from HK Frontend](Moving-from-HK-Frontend.md).
 
 ## Signing in
 
