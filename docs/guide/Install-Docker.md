@@ -1,0 +1,260 @@
+# Install with Docker
+
+Run Mantel Server with Docker Compose on any Linux host that has Docker. The stack is Mantel Server, Caddy for HTTPS, and go2rtc for Live TV, each locked down (no extra privileges, read-only file systems, secrets as files). You give Mantel a name such as `mantel.example.com`, start the stack, and finish the setup in your browser. It takes about half an hour, most of it building the images. When it is running, go on to [First Run](First-Run.md).
+
+Prefer Mantel inside Home Assistant? Use the [Home Assistant App](Install.md#install-the-home-assistant-app) instead. Have a Proxmox server? The [Proxmox LXC script](Install-Proxmox-LXC.md) does most of this page for you.
+
+## Before you start
+
+You need:
+
+| | |
+|---|---|
+| **A Docker host** | Linux with Docker Engine and the Docker Compose v2 plugin (`docker compose`). An x86-64 (`amd64`) machine. <!-- CHECK: the transcode image installs Intel's intel-media-va-driver-non-free, which Debian ships for amd64 only, so the stack likely does not build on arm64. Confirm, and confirm the minimum Compose version (update.sh uses `up --wait --wait-timeout` and `pull --ignore-buildable`). --> |
+| **git** | To get the files. |
+| **A name for Mantel** | What browsers will type, for example `mantel.example.com`, and a DNS record that points it at this host. A record in your home's own DNS is enough. |
+| **A way to get HTTPS** | Your own domain on Cloudflare DNS (the default), or Caddy's own certificate authority, or a reverse proxy you already run. See [step 3](#3-choose-how-browsers-get-https). |
+| **A Home Assistant user for Mantel** | A dedicated administrator user, for example `mantel-server` (**Settings** → **People** → **Add person**, *Can log in*, *Administrator*). You sign in as this user once, on Mantel's Connections page. |
+
+The stack publishes these ports on the host:
+
+| Port | For |
+|---|---|
+| `443` | Browsers and tablets, through Caddy (change it with `MANTEL_HTTPS_PORT`) |
+| `8555` TCP and UDP | Live TV's video (WebRTC) to your screens |
+| `8765` | Only with your own reverse proxy, for the proxy to reach Mantel |
+| `8766` | Only with [Mantel Connect](Mantel-Connect.md) |
+
+## 1. Get the files
+
+```bash
+git clone https://github.com/jazzphone/mantel.git
+cd mantel/packaging/compose
+```
+
+<!-- RELEASE: once tagged releases exist, add "git checkout <release tag>" here and say where the release notes are. -->
+
+Everything below runs in this `packaging/compose` folder.
+
+## 2. Write the settings file
+
+```bash
+cp .env.example .env
+```
+
+Edit `.env`. It holds **settings only, never a secret**; tokens and keys are files (step 4).
+
+| Setting | Example | What it is |
+|---|---|---|
+| `MANTEL_HOSTNAME` | `mantel.example.com` | The name browsers type. Required. |
+| `MANTEL_LAN_IP` | `192.0.2.10` | This host's address on your home network, which tablets reach for Live TV's video. Required. |
+| `MANTEL_ALLOW_HOSTS` | `192.0.2.10` | Other names to accept besides `MANTEL_HOSTNAME`, separated by commas. Optional. |
+| `MANTEL_TLS_SNIPPET` | `./caddy/tls-dns01.caddy` | How Caddy gets its certificate (step 3). |
+| `MANTEL_SECRETS_DIR` | `/etc/hk/secrets` | Where the secret files are on this host. |
+| `MANTEL_HA_URL`, `MANTEL_MA_URL` | empty | Leave empty: you connect Home Assistant and Music Assistant in the browser after the first start. |
+| `MANTEL_BACKUP_DIR`, `MANTEL_BACKUP_TARGET` | `./backups`, empty | Mantel's nightly encrypted backups, off until you set the target. See [Backups](Backups.md). |
+| `COMPOSE_FILE` | `compose.yaml:compose.gpu.yaml` | The extra parts you turn on (below), joined with `:`. |
+
+`.env` may hold **only one** `COMPOSE_FILE` line. `.env.example` shows several, commented out, one for each extra part. To use more than one, join them on one line, for example:
+
+```bash
+COMPOSE_FILE=compose.yaml:compose.gpu.yaml:compose.connect.yaml
+```
+
+## 3. Choose how browsers get HTTPS
+
+Mantel needs HTTPS for its sign-in cookies, passkeys, the doorbell's talk-back, and Music Assistant's and Live TV's frames. Pick one:
+
+| You have | Do this | Notes |
+|---|---|---|
+| **A domain on Cloudflare DNS** (the default) | Keep `MANTEL_TLS_SNIPPET=./caddy/tls-dns01.caddy`. Put a Cloudflare API token in the `cloudflare_dns_token` secret file (step 4), limited to **Zone / DNS / Edit** for that one zone. | Caddy gets a real certificate through DNS. Nothing has to be reachable from the internet. |
+| **No domain** | Set `MANTEL_TLS_SNIPPET=./caddy/tls-internal.caddy` and `MANTEL_CADDY_IMAGE=caddy:2`. | Caddy makes its own certificate authority. Browsers warn until you trust its root certificate on each device (it is in the `caddy-data` volume, `pki/authorities/local/root.crt`). |
+| **Your own reverse proxy** (Nginx Proxy Manager, Traefik, ...) | Add `compose.byo-proxy.yaml` to `COMPOSE_FILE`, and set `MANTEL_TRUSTED_PROXY` to your proxy's IP address as Mantel sees it. Optionally `MANTEL_HTTP_BIND` to this host's address. | Caddy doesn't start. Mantel publishes plain HTTP on port 8765 for your proxy. See [Your own reverse proxy](#your-own-reverse-proxy). |
+
+For DNS hosts other than Cloudflare, Caddy needs that provider's module: change it in `packaging/docker/caddy.Dockerfile` and in `caddy/tls-dns01.caddy`.
+
+> **Remote access through a Cloudflare tunnel.** The stack has an optional `cloudflared` service (`--profile tunnel`). Mantel doesn't check Cloudflare Access's sign-in token yet, so **don't publish a tunnel hostname** for now. Use [Mantel Connect](Mantel-Connect.md) and the Home Assistant Companion app to reach Mantel from away.
+
+## 4. Create the secret files
+
+Mantel reads every secret from a **file**, never from an environment variable, `.env`, the image or the repository. The files live in `/etc/hk/secrets` on the host (or `MANTEL_SECRETS_DIR`), and are mounted read-only into the containers.
+
+Run this as root on the host. It creates the folder, two random keys, and empty placeholders for the tokens:
+
+```bash
+umask 077
+install -d -m 0750 -o root -g 10001 /etc/hk/secrets
+cd /etc/hk/secrets
+head -c 32 /dev/urandom | base64 > at_rest.key
+head -c 32 /dev/urandom | base64 > backup.key
+: > ha_token; : > ma_token; : > cloudflare_dns_token; : > cloudflared_token
+chown root:10001 * && chmod 0440 *
+```
+
+| File | What | Needed |
+|---|---|---|
+| `at_rest.key` | Seals the sign-in authenticator secrets, device keys and saved connections in Mantel's database. | Yes. **Keep a copy somewhere that is not this machine.** |
+| `backup.key` | Encrypts Mantel's backups. | Yes. **Keep a copy somewhere that is not this machine.** |
+| `cloudflare_dns_token` | The Cloudflare token for Caddy's certificate. | Only with DNS-01 (the default). |
+| `ha_token`, `ma_token` | Leave empty. Home Assistant and Music Assistant are connected in the browser. | No |
+| `cloudflared_token` | The tunnel's token. | Only with `--profile tunnel` |
+
+Every file must exist, even empty, or Compose won't start. To put a token in a file without it landing in your shell history:
+
+```bash
+read -rs -p 'Token: ' T && printf '%s' "$T" > /etc/hk/secrets/cloudflare_dns_token; unset T; echo
+chown root:10001 /etc/hk/secrets/cloudflare_dns_token && chmod 0440 /etc/hk/secrets/cloudflare_dns_token
+```
+
+Losing `at_rest.key` makes every enrolled authenticator app unreadable, and without `backup.key` a backup can't be opened. Put both in your password manager now.
+
+## 5. Get the images
+
+**Build them from the source** (works today). From `packaging/compose`:
+
+```bash
+docker compose build
+```
+
+This builds Mantel Server, the Live TV transcode and Caddy with its Cloudflare module. It takes several minutes.
+
+**Or use the published images.**
+
+<!-- RELEASE: needs ghcr.io/jazzphone/mantel-server, ghcr.io/jazzphone/mantel-transcode and ghcr.io/jazzphone/mantel-caddy published (with digests to pin). Until then, build from source as above. -->
+
+Set the image references in `.env`, ideally pinned by digest:
+
+```bash
+MANTEL_SERVER_IMAGE=ghcr.io/jazzphone/mantel-server:stable
+MANTEL_TRANSCODE_IMAGE=ghcr.io/jazzphone/mantel-transcode:stable
+MANTEL_CADDY_IMAGE=ghcr.io/jazzphone/mantel-caddy:stable
+```
+
+Then `docker compose pull`.
+
+## 6. Start Mantel
+
+```bash
+docker compose up -d --wait
+```
+
+`--wait` returns when every service is healthy. Check with `docker compose ps`. Mantel starts without Home Assistant: you connect it in the browser next.
+
+Mantel's log ends with a line like `mantel-server: https://mantel.example.com/login (listening on 0.0.0.0:8765; read-only; commands disabled)`. See it with `docker compose logs mantel-server`.
+
+## 7. Point the name at this host
+
+In your home's DNS, point `mantel.example.com` at this host's address. Then open `https://mantel.example.com/login`.
+
+With your own reverse proxy, point the name at the proxy instead, and set the proxy up first ([below](#your-own-reverse-proxy)).
+
+## 8. Make the first Owner
+
+Get a one-time setup code:
+
+```bash
+docker compose exec mantel-server mantel bootstrap
+```
+
+Then follow [First Run](First-Run.md#with-docker-or-the-lxc): the setup code, your user name and password, then Home Assistant on the **Connections** page.
+
+Run Mantel's admin commands with `docker compose exec mantel-server mantel <command>`. Don't use `docker compose run` while Mantel is running: it would start a second server.
+
+## Your own additions
+
+Two things are set on Mantel Server's command line rather than in `.env`: house commands, and the name for passkeys. Keep them in a file of your own, `compose.local.yaml`, in `packaging/compose`, and add it to the `COMPOSE_FILE` line in `.env`, for example:
+
+```bash
+COMPOSE_FILE=compose.yaml:compose.local.yaml
+```
+
+Compose replaces a service's `command:` instead of adding to it, so keep **every** flag in one list in this one file. After each change, run `docker compose up -d --wait`.
+
+### Turn on house commands
+
+Mantel starts read-only and sends no command to Home Assistant until you turn commands on. On purpose, there is **no** setting in `.env` and nothing in the page that does it: you add the flag yourself. Read [Install → Turn on house commands](Install.md#turn-on-house-commands) first.
+
+```yaml
+services:
+  mantel-server:
+    command: ["--commands-enabled"]
+```
+
+After `docker compose up -d --wait`, the log line says `COMMANDS ENABLED`. To turn them off, take `"--commands-enabled"` out of the list (or the file out of `COMPOSE_FILE`) and run `docker compose up -d --wait` again.
+
+### Passkeys
+
+Passkeys are tied to a name. The stack doesn't pass Mantel's name to the passkey setting yet, so add it to the same list, with your `MANTEL_HOSTNAME`:
+
+```yaml
+services:
+  mantel-server:
+    command: ["--rp-id", "mantel.example.com"]
+```
+
+With commands on as well: `command: ["--commands-enabled", "--rp-id", "mantel.example.com"]`. Set it **before** anyone adds a passkey: a passkey made for another name stops working.
+
+<!-- CHECK: packaging/docker/entrypoint.py passes no --rp-id in container mode, so Mantel's passkey RP ID stays "localhost" and passkeys at https://<MANTEL_HOSTNAME> fail with origin_not_allowed_for_passkeys. This workaround follows from the code (the container's extra arguments are appended after the entrypoint's). Consider deriving --rp-id from MANTEL_PUBLIC_URL in the entrypoint and dropping this section. -->
+
+## Your own reverse proxy
+
+With `compose.byo-proxy.yaml`, your proxy owns HTTPS and forwards to Mantel at `http://<this host>:8765`. Mantel then needs to know which requests come from your home network. Your proxy tells it with two headers, and Mantel believes them only from `MANTEL_TRUSTED_PROXY`:
+
+- `X-Mantel-Door: lan` for a proxy host that only your home network reaches (`tunnel` for one the internet reaches).
+- `X-Mantel-Door-Key`: this installation's **door key**. Get it with `docker compose exec mantel-server mantel door-key`, or on `https://mantel.example.com/proxy-check` as the Owner. Keep it secret.
+
+Without both, Mantel treats every request as remote, and wall tablets are refused. That is the safe way to fail.
+
+**Nginx Proxy Manager.** Add a **Proxy Host**: your name, scheme `http`, forward to this host, port `8765`, **Websockets Support** on, **Block Common Exploits** on. On the **SSL** tab, a certificate for the name, **Force SSL** and **HTTP/2** (leave HSTS off: Mantel sends it). On the **Advanced** tab, paste this, with your host's address and your door key:
+
+```nginx
+location / {
+    proxy_pass http://MANTEL_ADDRESS:8765;
+    proxy_http_version 1.1;
+    proxy_set_header Host $http_host;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection $http_connection;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header X-Forwarded-Host $http_host;
+    set $mantel_door lan;
+    if ($http_cf_connecting_ip) { set $mantel_door tunnel; }
+    proxy_set_header X-Mantel-Door $mantel_door;
+    proxy_set_header X-Mantel-Door-Key MANTEL_DOOR_KEY;
+    proxy_set_header X-Remote-User-Id "";
+    proxy_set_header X-Remote-User-Name "";
+    proxy_set_header X-Remote-User-Display-Name "";
+    proxy_set_header X-Ingress-Path "";
+    proxy_read_timeout 1h;
+    proxy_buffering off;
+    client_max_body_size 12m;
+}
+```
+
+Then give the proxy host an **Access List** that allows only your home's networks, or run a proxy the internet can't reach. Don't add a Content-Security-Policy in the proxy: Mantel sets its own.
+
+Open `https://mantel.example.com/proxy-check` as the Owner. It checks HTTPS, the door header and key, the forwarded address, the security headers and WebSockets, and says what to change. It also shows the address your proxy's requests arrive from: that is what `MANTEL_TRUSTED_PROXY` must say.
+
+Keep port 8765 off the internet, and if you can, reachable only from your proxy (`MANTEL_HTTP_BIND`, or a firewall rule).
+
+## Extra parts
+
+Each is a file you add to `COMPOSE_FILE` in `.env`, then `docker compose up -d --wait`.
+
+| File | Adds |
+|---|---|
+| `compose.gpu.yaml` | The Intel iGPU (QuickSync) for Live TV's transcode. Also set `MANTEL_RENDER_GID` to the `render` group's id: `getent group render \| cut -d: -f3`. |
+| `compose.connect.yaml` | [Mantel Connect](Mantel-Connect.md): Mantel in Home Assistant's sidebar and the Companion app. |
+| `compose.announce.yaml` | Announces Mantel on your network, so [Mantel Link](Mantel-Link.md) in Home Assistant offers **Discovered: Mantel**. |
+| `compose.byo-proxy.yaml` | Your own reverse proxy instead of Caddy ([above](#your-own-reverse-proxy)). |
+
+Music Assistant and Live TV are set up in Mantel itself: see [Music and Cameras](Music-and-Cameras.md).
+
+## Removing Mantel
+
+From `packaging/compose`:
+
+- `docker compose down` stops and removes the containers. Mantel's data stays in the `mantel-data` volume.
+- `docker compose down -v` also deletes the volumes: every person, role, setting and audit row. Make a [backup](Backups.md) first if you might want them back.
+
+Then delete `/etc/hk/secrets` if nothing else uses it, and the DNS record.

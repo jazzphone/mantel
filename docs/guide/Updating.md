@@ -1,0 +1,110 @@
+# Updating
+
+Each way of running Mantel updates its own way: the Home Assistant App through Home Assistant, Docker with `./update.sh`, and the Proxmox LXC with `mantel-update`. The Docker and LXC updates check that the new version starts healthy and go back to the previous images by themselves if it doesn't. Whichever you use, **make a backup first**: Mantel updates its database when a new version starts, and the database only moves forward.
+
+## Before every update
+
+1. **Make a backup.** In the App, a Home Assistant backup (the update dialog can make it for you). With Docker or the LXC, a Mantel backup: `docker compose exec mantel-server mantel backup --target /backups`. See [Backups](Backups.md).
+2. **Read the release notes** for anything you need to do. <!-- RELEASE: link the GitHub releases page and CHANGELOG.md once releases are published. -->
+3. **Pick a quiet moment.** Open screens reconnect by themselves after the restart, which takes up to a minute or so.
+
+You can see which version you run on **Mantel Settings** → **About**.
+
+## Home Assistant App
+
+<!-- RELEASE: updates through Home Assistant need the App published with an image (config.yaml `image:`) in the App repository. Until then, use "Built from source" below. -->
+
+1. Home Assistant shows an update for **Mantel** under **Settings** → **Updates** (and on the App's page).
+2. Open it. Leave **Create backup** on, then select **Update**.
+3. Open the App's **Log** tab and check that it ends with the `read-only; commands disabled` line (or `COMMANDS ENABLED`, if you turned commands on) and no error.
+
+### Built from source
+
+If you [built the App from source](Install.md#build-the-app-from-source):
+
+1. Make a Home Assistant backup (**Settings** → **System** → **Backups**).
+2. Get the new source, and copy it over the App you staged before:
+
+   ```bash
+   cd mantel
+   git pull
+   python3 tools/stage_ha_app.py /path/to/addons/mantel --replace
+   ```
+
+   `--replace` only replaces a folder the tool staged itself.
+3. In Home Assistant, **Settings** → **Apps** → **App store** → **⋮** → **Check for updates**.
+4. Open **Mantel** and select **Update** (or **Rebuild** if no update is offered). The Supervisor builds the new version, which takes a few minutes.
+
+<!-- CHECK: confirm on a real Supervisor whether a restaged local App with a bumped config.yaml version offers "Update", and when "Rebuild" is needed instead. -->
+
+## Docker
+
+### Published images
+
+<!-- RELEASE: needs the ghcr.io/jazzphone/mantel-* images published and referenced in .env (MANTEL_SERVER_IMAGE etc., ideally pinned by digest). -->
+
+From `packaging/compose`:
+
+```bash
+./update.sh
+```
+
+It:
+
+1. remembers the images that run now (tagged `mantel-rollback/<service>:previous`),
+2. pulls the new ones,
+3. starts them and waits until every service is healthy,
+4. and if one doesn't become healthy, starts the remembered images again.
+
+With images pinned by digest, put the new digests in `.env` first. After a rollback, fix the image references in `.env` before the next update; `docker compose logs --tail 100` says what went wrong.
+
+<!-- CHECK: update.sh runs `docker compose pull --ignore-buildable`. Every Mantel service in compose.yaml also has a `build:` section, so this may skip pulling mantel-server, go2rtc and caddy altogether. Test with published images before relying on this page. -->
+
+### Built from source
+
+From the repository:
+
+```bash
+git pull
+cd packaging/compose
+docker compose build --pull
+docker compose up -d --wait
+```
+
+`up --wait` fails if a service doesn't become healthy. To go back, check out the previous version (`git checkout <previous commit or tag>`), build and start again, and restore the backup you made if the new version had already updated the database ([Backups → Restore](Backups.md#restore-with-docker-or-the-lxc)).
+
+### Roll back by hand
+
+`update.sh` keeps the previous images. To start them again without pulling:
+
+```bash
+MANTEL_SERVER_IMAGE=mantel-rollback/mantel-server:previous \
+MANTEL_TRANSCODE_IMAGE=mantel-rollback/go2rtc:previous \
+docker compose up -d --wait --pull never
+```
+
+An older Mantel can't open a database a newer one has already updated. If the new version ran for a while, restore the backup you made before the update too.
+
+## Proxmox LXC
+
+Inside the container (`pct enter <id>`):
+
+```bash
+mantel-update
+```
+
+With published images in `.env`, it runs `./update.sh` (above). In **build mode** (the default), the new source comes from the Proxmox host. On the host, from an updated copy of the repository you have read:
+
+```bash
+cd mantel
+git pull
+bash packaging/lxc/mantel.sh push <id>
+```
+
+This copies the new source into the container, then runs `mantel-update` there: it keeps the running images for rollback, rebuilds, starts the new version and waits until it is healthy, and goes back to the previous images if it isn't. A push never overwrites your `.env` or your secret files.
+
+## After an update
+
+- **Screens.** Reload open screens and wall tablets. Mantel's pages check for new files every time they load, so one reload is enough.
+- **Check it.** Open **Mantel Settings** → **About** for the new version, and the Setup Check for Home Assistant's connection.
+- **HK Frontend** in Home Assistant is a separate thing with its own updates (HACS). Updating Mantel doesn't change it.

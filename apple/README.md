@@ -103,19 +103,19 @@ closed to other apps, and screenshots here cannot see the menu bar panel.
 Not exercised: placing the widgets and Control Center controls by hand, Siri phrases, the QR camera (the Simulator
 has none: paste the link), Face ID itself (the Simulator without Face ID enrolled skips the lock; never its passcode).
 
-## The developer account (set up 2026-10-19)
+## Your developer account
 
-Team `TEAMID0000` and the prefix `com.jazzphone.mantel` (Avery's choice) are in `make_project.py`. The APNs key
-(Key ID `KEYID00000`, Sandbox & Production) is `~/.config/mantel/secrets/apns_key.p8` with `apns.json` beside it
-(both 0600; the house needs its own copy when Mantel sends from there). Avery's iPhone is registered to the team
-(2026-10-19: Developer Mode on, paired with this Mac); the first device build registered the App IDs, the App Group and
-push. A device build:
+Your Apple team id comes from `MANTEL_TEAM_ID` when you run `make_project.py`; the bundle prefix `com.jazzphone.mantel`
+is `PREFIX` there, and the App Group and Keychain group names in `Config/*.entitlements` follow it, so building under
+your own account means changing those to yours. An APNs key for direct sending is `~/.config/mantel/secrets/apns_key.p8`
+with `apns.json` beside it (both 0600). Register your iPhone with the team (Developer Mode on, paired with your Mac);
+the first device build registers the App IDs, the App Group and push. A device build:
 
 ```bash
 xcodebuild -project apple/Mantel.xcodeproj -scheme Mantel -destination 'generic/platform=iOS' -derivedDataPath /tmp/mantel-dd-device -allowProvisioningUpdates -allowProvisioningDeviceRegistration build
 ```
 
-### On Avery's iPhone (Debug build)
+### On your iPhone (Debug build)
 
 ```bash
 ~/.venvs/mantel/bin/python tools/app_dev_server.py --data-dir /tmp/mantel-app-lan --lan
@@ -128,16 +128,16 @@ through Apple's sandbox, with the team's key (`httpx[http2]` in the venv):
 ~/.venvs/mantel/bin/python tools/app_dev_server.py --data-dir /tmp/mantel-app-lan --send-push "Front Door|Unlocked"
 ```
 
-Verified 2026-10-19: installed, paired over the home network, registered for notifications, and a real push through
-APNs (sandbox) was opened by the Notification Service Extension on the phone ("Front Door / Unlocked by Ann").
+The app installs, pairs over the home network, registers for notifications, and the Notification Service Extension
+opens the push on the phone ("Front Door / Unlocked by Ann").
 
 ## What needs the Apple Developer account (M10-6)
 
 - **Real pushes**: the APNs key on the house (`apns_key.p8`, `apns.json`) and `httpx[http2]` in the image; then the
   Notification Service Extension runs for real, and the Live Activity can be updated by push.
 - **Sign in with Apple**: the capability, and the server's verification (§3; not built yet).
-- **TestFlight** (M10-1): a team, a bundle prefix of Avery's (`PREFIX` in `make_project.py`), distribution signing.
-- **The shared Keychain group and App Group on a device.** The Mac is team-signed since 2026-10-19 (this Mac
-  registered); its App Group is the team-prefixed one (`TEAMID0000.com.jazzphone.mantel`), as the team's wildcard Mac
+- **TestFlight** (M10-1): a team, the publisher's bundle prefix (`PREFIX` in `make_project.py`), distribution signing.
+- **The shared Keychain group and App Group on a device.** The Mac app is team-signed; its App Group is the
+  team-prefixed one (`<TEAM>.com.jazzphone.mantel`), as the team's wildcard Mac
   profile cannot carry `group.com.jazzphone.mantel` (APPLE-APPS.md §12).
 - **Critical alerts** need Apple's separate entitlement; not used.

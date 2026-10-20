@@ -40,7 +40,10 @@ part.
    - In the Mantel App: open **Mantel** in Home Assistant's sidebar, go to its
      **People** page, and select **Import HK's settings from Home Assistant
      (once)**.
-   - In Docker: `docker compose exec mantel-server mantel import-settings`.
+   - In Docker or the LXC: `docker compose exec mantel-server mantel import-settings`. This reads Home
+     Assistant's token from Mantel's `ha_token` secret file, so it works only when that file holds the token.
+     <!-- CHECK: when Home Assistant was connected on the Connections page instead, ha_token is empty and only
+     POST /api/settings/import (as the Owner) imports; there is no button outside the App. Needs a fix or a UI path. -->
 
    Your looks, rooms, screens, tablets, pop-ups, custom pages, chips and
    accessories come across, along with the settings of HK's features
