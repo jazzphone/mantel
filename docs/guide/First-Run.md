@@ -79,7 +79,7 @@ On **Mantel Settings** → **People**, add a Mantel account for each person, wit
 
 ### Protect the Owner
 
-Your Owner account can do everything, so give it more than a password. On **Mantel Settings** → **Me**, add an **authenticator app** and a **passkey**. From away from home, Mantel never accepts a password on its own. See [Signing In](Signing-In.md). (With Docker or the LXC, passkeys need Mantel's name set first: [Install with Docker → Passkeys](Install-Docker.md#passkeys).)
+Your Owner account can do everything, so give it more than a password. On **Mantel Settings** → **Me**, add an **authenticator app** and a **passkey**. From away from home, Mantel never accepts a password on its own. See [Signing In](Signing-In.md). Passkeys work at the name in `MANTEL_PUBLIC_URL` (Docker and the LXC) or the App's own HTTPS name; not at an IP address ([Passkeys](Install-Docker.md#passkeys)).
 
 ## What you see first
 
