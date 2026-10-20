@@ -43,7 +43,7 @@ ASSET = PAGE + "/{name}"
 OVERVIEW = "/api/admin/overview"
 ASSETS = {"admin.js": "text/javascript", "admin.css": "text/css"}
 # admin.js imports ../webauthn.js (the passkey helpers shared with /login), served by login_page.py
-SECTIONS = ("me", "connections", "people", "devices", "files", "photos", "roles", "service", "connect", "audit")
+SECTIONS = ("me", "connections", "people", "devices", "files", "photos", "roles", "service", "connect", "audit", "about")
 
 CSP = ("default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; "
        "base-uri 'none'; form-action 'self'; frame-ancestors 'none'")
@@ -71,6 +71,7 @@ def sections_for(request: web.Request, ident: Identity) -> list[str]:
     out = ["me"]
     if ident.device is not None:           # a person at a wall tablet gets the tablet's share: none of these
         return out
+    out.append("about")                    # about.py: anyone signed in, away from a wall tablet
     role = ident.user.role
     if role in MANAGERS:                   # accounts.require_manager guards /api/users and /api/devices
         out += ["people", "devices", "files", "photos"]   # files, photos: their REST is also require_manager

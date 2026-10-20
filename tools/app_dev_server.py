@@ -188,8 +188,8 @@ async def serve(data: Path, port: int, lan: bool = False, relay: str | None = No
     app.router.add_get("/app/fictional-cover.png", cover)
     app.setdefault("public_paths", set()).add("/app/fictional-cover.png")
     app["gateway"].commander = FictionalCommander(hub, app["gateway"].writes)
-    # Music "set up" with the fictional speaker, as HK's music feed answers on a house with Music Assistant, so
-    # the Music page (Play, the full player on a phone) is there to try; its library stays empty
+    # Without --music: Music "set up" with the fictional speaker, as HK's music feed answers on a house with Music
+    # Assistant, so the Music page (Play, the full player on a phone) is there to try; its library stays empty
     from mantel_server.connectors import Route
 
     async def music_request(ctx, msg):
@@ -202,7 +202,8 @@ async def serve(data: Path, port: int, lan: bool = False, relay: str | None = No
         async def unsubscribe():
             return None
         return unsubscribe
-    app["read_routes"]["hk_music/subscribe"] = Route(request=music_request, subscribe=music_subscribe)
+    if not music:          # (--music: Mantel's own music engine answers it, with the fictional Music Assistant)
+        app["read_routes"]["hk_music/subscribe"] = Route(request=music_request, subscribe=music_subscribe)
     acc = app["accounts"]
     row = store.db.execute("SELECT id FROM users WHERE username = 'ann'").fetchone()
     if row is None:

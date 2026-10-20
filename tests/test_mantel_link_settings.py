@@ -84,9 +84,12 @@ def test_an_owner_sees_both_links_and_hands_the_bridge_over(tmp_path):
     bridge = got["The Bridge"]["rows"]
     assert bridge[0]["value"] == "HK Frontend"
     assert [r["label"] for r in bridge[1:]] == ["Hand the Bridge to Mantel Link…"]
+    # the house has its own group (it is not a tablet), then each wall tablet
+    house = got["The House"]["rows"]
+    assert [(r["kind"], r["label"], r["on"]) for r in house] == [("toggle", "Run by Mantel", False)]
+    assert "Alarm PIN keypad" in got["The House"]["footer"]
     tablets = got["Who Runs Each Wall Tablet"]["rows"]
-    assert [(r["kind"], r["label"], r["on"]) for r in tablets] == [
-        ("toggle", "The Rest of the House", False), ("toggle", "Loft", True), ("toggle", "Hall", False)]
+    assert [(r["kind"], r["label"], r["on"]) for r in tablets] == [("toggle", "Loft", True), ("toggle", "Hall", False)]
 
 
 def test_with_mantel_link_holding_it_the_owner_can_give_it_back(tmp_path):
@@ -99,7 +102,7 @@ def test_an_admin_reads_and_changes_nothing(tmp_path):
     got = groups(run(tmp_path, owners())["admin"])
     assert "Pair Mantel Link" not in got
     assert [r["kind"] for r in got["The Bridge"]["rows"]] == ["info"]
-    assert all(r["kind"] == "info" for r in got["Who Runs Each Wall Tablet"]["rows"])
+    assert all(r["kind"] == "info" for r in got["Who Runs Each Wall Tablet"]["rows"] + got["The House"]["rows"])
     assert "Only an Owner" in got["The Bridge"]["footer"]
 
 

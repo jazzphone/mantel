@@ -9,7 +9,11 @@ Mantel Link is everything Home Assistant needs of it, and nothing of its own:
   * the actions automations call, mantel.* and, as permanent aliases,
     hk_frontend.* (services.py);
   * Mantel's screens in HA's sidebar: HA's header and sidebar hidden as each
-    screen says, and the way back (frontend.py).
+    screen says, and the way back (frontend.py);
+  * the few things only code inside Home Assistant can do for Mantel, which HK
+    Frontend did: the doorbell's talk-back (talk.py, talk_live.py), the
+    Energy plan's helper sources (energy.py) and the Lights page's "Tonight"
+    list (page_headers.py).
 
 It replaces HK Frontend completely (decision 28, docs/phase9/MANTEL-LINK.md in
 the Mantel repository). One entry: one Mantel.
@@ -43,6 +47,18 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
         await async_setup_frontend(hass)
     except Exception:  # noqa: BLE001 -- the link and the entities never depend on the script
         _LOGGER.exception("%s: the script for Mantel's screens in HA's sidebar could not be added", NAME)
+    # the one read Mantel's Energy plan needs from inside HA (energy.py; HK Frontend's hk_energy/sources)
+    from .energy import async_setup_energy
+    async_setup_energy(hass)
+    # the Lights page's "Tonight" list, worked out from the automations (page_headers.py; HK Frontend's)
+    from .page_headers import async_setup_page_headers
+    async_setup_page_headers(hass)
+    # the doorbell's talk-back: a hold-to-talk clip played on a speaker (talk.py) and live talk to a UniFi
+    # Protect doorbell (talk_live.py), as HK Frontend had them; Mantel's gateway asks here first
+    from . import talk, talk_live
+    talk_live.async_register(hass)
+    if getattr(hass, "http", None) is not None:
+        talk.async_register(hass)
     return True
 
 

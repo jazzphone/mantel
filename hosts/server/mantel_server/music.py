@@ -26,8 +26,9 @@ HA's engine. This module runs the same engine inside Mantel Server:
   tablet's room: Mantel knows both (``home_for``).
 * **The configuration** (speakers, house volume, home rooms, presets, playlists, Keep Playlists Ready,
   Ignore Announcements) is Mantel's settings document ``house/music``, imported from HA's music feature
-  (``import_page``: HA's ``hk_music/settings/get``, a server-only read) with the feature import, and saved
-  by HK Settings' music page (through the gateway, ``configure`` on settings).
+  (``import_page``: HA's ``hk_music/settings/get``, a server-only read) with the feature import (or once by
+  HK Settings' music page when Mantel has none), and saved by HK Settings' music page (a settings write through
+  feature_pages.py, ``configure`` on settings and music; Music Assistant not needed).
 
 THE SWITCH (``MusicHost.active``): Mantel answers only when BOTH Music Assistant is configured in Mantel
 (``cfg.ma_url`` and its token file) AND the music settings are in Mantel's store. Otherwise every read goes
@@ -1270,10 +1271,13 @@ class MusicHost:
         chosen = set(doc["options"][CONF_SPEAKERS]) | set(groups)
         return sorted(ma | chosen, key=lambda x: self._name(x).casefold())
 
-    def page(self) -> dict[str, Any]:
+    def page(self, start: bool = False) -> dict[str, Any]:
         """HA's settings_ws.page shape, from Mantel: the people are Mantel's (a person linked to an HA user
-        shows that HA user's imported home room until one is chosen here)."""
+        shows that HA user's imported home room until one is chosen here). ``start``: with no ``house/music``
+        yet, the empty settings (Music is added in Mantel: the first save makes the document)."""
         doc = self.doc()
+        if doc is None and start:
+            doc = empty_doc()
         if doc is None:
             return {"configured": False}
         cfg = self.config()
@@ -1314,7 +1318,13 @@ class MusicHost:
         self.changed()
 
     async def settings_write(self, principal: Any, t: str, a: dict) -> dict[str, Any]:
+        """One of HK Settings' music saves (SETTINGS_WRITES) on ``house/music``: checked by the shared checks
+        (hk_core.music.settings), a new version of the document (who, why), never Home Assistant. Needs only the
+        document, not Music Assistant: settings_store.FEATURE_SAVES brings them here through feature_pages.py,
+        commands on or off. A house with no ``house/music`` yet starts one with ``hk_music/settings/set``."""
         doc = self.doc()
+        if doc is None and t == "hk_music/settings/set":
+            doc = empty_doc()
         if doc is None:
             raise MusicRefusal("not_set_up", "Music is not added")
         doc = copy.deepcopy(doc)
@@ -1360,8 +1370,12 @@ class MusicHost:
                 raise self._refused({"items": S.MSG["list"]})
             name, chooser = S.text(a["name"]), S.text(a.get("chooser"))
             uris = [i for i in dict.fromkeys(a["items"]) if i]
-            lib = await self.library()
-            errors = S.check_playlist(name, chooser, uris, {i["uri"] for i in lib})
+            # the library is Music Assistant's: without it here (or not connected) the songs aren't checked against
+            # it, as HA's form takes them when its library can't be read; the screens then say what is missing
+            known = None
+            if self.ma is not None and self.ma.connected.is_set():
+                known = {i["uri"] for i in await self.library()}
+            errors = S.check_playlist(name, chooser, uris, known)
             if errors:
                 raise self._refused(errors)
             title, data = S.playlist_save(name, chooser, uris, a.get("icon"), a.get("order"), it["data"] if it else None,

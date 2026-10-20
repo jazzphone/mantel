@@ -1231,6 +1231,9 @@
         // the Play Music view's `path:`.
         if (cfg.bar) {
           var goPage = function () {
+            // A HOST WITH A PLAYER OF ITS OWN (a phone app sets window.hkHostPlayer): that one, here
+            var nat = window.hkHostPlayer;
+            if (typeof nat === 'function') { nat(); return; }
             // ON THE MUSIC PAGE ITSELF (2026-10-11): the bar is its mini
             // player -- a tap opens its Now Playing (a phone's sheet)
             if (onMusicPage()) { window.dispatchEvent(new CustomEvent('hk-music-bar', { detail: { what: 'now' } })); return; }

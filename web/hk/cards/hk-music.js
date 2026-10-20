@@ -955,6 +955,9 @@
       var e = this._e;
       if (!e || this._cols !== 1) return;
       if (on && !this._ctx()) return;
+      // A HOST WITH A PLAYER OF ITS OWN (a phone app sets window.hkHostPlayer) shows that one instead
+      var nat = window.hkHostPlayer;
+      if (on && typeof nat === 'function') { nat(); return; }
       e.left.classList.toggle('sheetup', !!on);
       this._sheetUp = !!on;
       this._sheetFlag(!!on);

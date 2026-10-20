@@ -170,6 +170,29 @@ async def test_hk_frontend_removed_mantel_link_mirrors(hass, mantel):
     assert e.runtime_data.state == "mirroring"
 
 
+async def test_hk_frontends_leftover_actions_are_taken_over_when_it_is_removed(hass, mantel):
+    """HK Frontend registers show_popup and friends once, when Home Assistant loads it, and they stay until a
+    restart. Removing its entry leaves them with nothing behind them, so Mantel Link takes the names at once;
+    while an entry is still there (merely not loaded) they stay HK Frontend's."""
+    hk = _hk_entry(hass)
+    stale = []
+
+    async def leftover(call):
+        stale.append(call.service)
+        raise HomeAssistantError("No pop-up #doorbell (HK Frontend has no entry)")
+    for service in ("show_popup", "close_popup"):
+        hass.services.async_register("hk_frontend", service, leftover)
+    mantel.owners = FULL
+    await linked(hass, mantel)
+    await hass.async_block_till_done()
+    with pytest.raises(HomeAssistantError, match="HK Frontend has no entry"):
+        await hass.services.async_call("hk_frontend", "show_popup", {"popup": "doorbell"}, blocking=True)
+    await hass.config_entries.async_remove(hk.entry_id)
+    await hass.async_block_till_done()
+    await hass.services.async_call("hk_frontend", "show_popup", {"popup": "doorbell"}, blocking=True)
+    assert mantel.calls()[-1]["service"] == "show_popup" and stale == ["show_popup"]
+
+
 async def test_only_the_units_mantel_owns(hass, mantel):
     mantel.owners = {"house": "ha", "tablets": ["hall"], "bridge": "mantel"}
     await linked(hass, mantel)

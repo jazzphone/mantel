@@ -326,8 +326,11 @@ _API_PATH = re.compile(r"^/api/[A-Za-z0-9_\-./]+(\?[A-Za-z0-9_\-.=&%:+,]*)?$")
 # body. Exactly this path (one media_player entity in the query, nothing else), POST only, an audio
 # type from talk.py's AUDIO_TYPES, and a size the hub socket can carry. Every other HTTP write stays
 # JSON; no other path may ever carry bytes.
+# The page names HK Frontend's path; Mantel sends the clip to Mantel Link's (its talk.py, the same view) first and
+# to HK Frontend's only when Home Assistant has no such view (404: an older Mantel Link, or HK Frontend alone).
 UPLOAD_METHOD = "POST"
-TALK_PATH = re.compile(r"^/api/hk_frontend/talk\?entity_id=(media_player\.[a-z0-9_]+)$")
+TALK_PATH = re.compile(r"^/api/(?:hk_frontend|mantel)/talk\?entity_id=(media_player\.[a-z0-9_]+)$")
+TALK_PATHS = ("/api/mantel/talk", "/api/hk_frontend/talk")       # in the order they are tried
 UPLOAD_TYPES = frozenset({"audio/webm", "audio/ogg", "audio/mp4", "audio/mpeg", "audio/aac", "audio/wav",
                           "audio/x-wav"})
 UPLOAD_MIN_BYTES = 200          # talk.py answers "clip empty" below this
@@ -352,7 +355,7 @@ def talk_target(path: object) -> str | None:
 def check_upload(method: object, path: object, content_type: object, body: object, ticket: object) -> None:
     """The talk-back clip, checked again at the command connection (the gateway checked it first)."""
     if method != UPLOAD_METHOD or talk_target(path) is None:
-        raise CommandBlocked("the only binary upload is POST /api/hk_frontend/talk?entity_id=media_player.<name>")
+        raise CommandBlocked("the only binary upload is POST /api/(mantel|hk_frontend)/talk?entity_id=media_player.<name>")
     if not isinstance(content_type, str) or upload_type(content_type) != content_type:
         raise CommandBlocked(f"an upload is one of {sorted(UPLOAD_TYPES)} (the bare type)")
     if not isinstance(body, bytes) or not UPLOAD_MIN_BYTES <= len(body) <= UPLOAD_MAX_BYTES:
@@ -366,6 +369,8 @@ def check_upload(method: object, path: object, content_type: object, body: objec
 # frames [HA's handler id][s16le PCM], and the one unsubscribe_events that ends that subscription.
 # It is never sent on the command connection (check_command refuses the type there).
 TALK_LIVE_TYPE = "hk_frontend/talk/live"
+# Mantel Link's (its talk_live.py, the same subscription) first; HK Frontend's when HA has no such command
+TALK_LIVE_TYPES = ("mantel/talk/live", TALK_LIVE_TYPE)
 TALK_RATES = (8000, 16000, 22050, 24000, 32000, 44100, 48000, 88200, 96000)   # talk_live.py RATES
 TALK_ENTITY = re.compile(r"^media_player\.[a-z0-9_]+$")
 TALK_FRAME_MS = 100             # the longest frame accepted (the card sends 40 ms)
@@ -388,12 +393,15 @@ def check_talk(entity_id: object, rate: object, ticket: object) -> None:
 class HaTalkLink:
     """Mantel's own Home Assistant socket for ONE live talk (made only by ``HaCommander.talk_link``,
     after the gateway's audit row, with a one-shot ``talk`` ticket). What it can send is fixed when it
-    is made: the auth frame; ``{"id": 1, "type": "hk_frontend/talk/live", "entity_id": <that speaker>,
-    "rate": <that rate>}``; binary frames ``[HA's handler id][PCM]`` of even length up to
-    ``talk_frame_max(rate)``; and ``{"id": 2, "type": "unsubscribe_events", "subscription": 1}``.
-    Nothing else, whatever it is asked. The credential never leaves this object."""
+    is made: the auth frame; ``{"id": 1, "type": "mantel/talk/live", "entity_id": <that speaker>, "rate":
+    <that rate>}`` and, only if Home Assistant has no such command (Mantel Link absent or older), the same
+    with ``"id": 3, "type": "hk_frontend/talk/live"``; binary frames ``[HA's handler id][PCM]`` of even
+    length up to ``talk_frame_max(rate)``; and ``{"id": 2, "type": "unsubscribe_events", "subscription":
+    <the subscription HA took>}``. Nothing else, whatever it is asked. The credential never leaves this
+    object."""
 
     SUB_ID = 1
+    SUB_IDS = (1, 3)                 # one per TALK_LIVE_TYPES entry (2 is the unsubscribe)
 
     def __init__(self, ws_url: str, token: str, entity_id: str, rate: int, timeout: float = 10.0) -> None:
         self.ws_url = ws_url
@@ -409,6 +417,7 @@ class HaTalkLink:
         self._opened = False
         self._stopped = False
         self._early: dict | None = None             # an event HA sent before its result
+        self.sub_id = self.SUB_ID                   # the subscription HA took (Mantel Link's, or HK Frontend's)
 
     def __repr__(self) -> str:  # never the token
         return f"HaTalkLink({self.entity_id!r}, rate={self.rate}, frames={self.frames})"
@@ -433,20 +442,24 @@ class HaTalkLink:
             await ws.send_json({"type": "auth", "access_token": self._token})
             if (await asyncio.wait_for(ws.receive_json(), self.timeout)).get("type") != "auth_ok":
                 raise HaCommandError("unavailable", "Home Assistant rejected Mantel's credential")
-            await ws.send_json({"id": self.SUB_ID, "type": TALK_LIVE_TYPE, "entity_id": self.entity_id,
-                                "rate": self.rate})
-            while True:
-                m = await asyncio.wait_for(ws.receive_json(), self.timeout)
-                if m.get("id") != self.SUB_ID:
-                    continue
-                if m.get("type") == "result":
-                    if m.get("success"):
+            for n, (sub, kind) in enumerate(zip(self.SUB_IDS, TALK_LIVE_TYPES)):
+                self.sub_id = sub
+                await ws.send_json({"id": sub, "type": kind, "entity_id": self.entity_id, "rate": self.rate})
+                while True:
+                    m = await asyncio.wait_for(ws.receive_json(), self.timeout)
+                    if m.get("id") != sub:
+                        continue
+                    if m.get("type") == "result":
+                        if m.get("success"):
+                            return
+                        err = m.get("error") or {}
+                        code = str(err.get("code") or "error")
+                        if code == "unknown_command" and n + 1 < len(TALK_LIVE_TYPES):
+                            break                  # no Mantel Link here (or an older one): HK Frontend's
+                        raise HaCommandError(code, str(err.get("message") or "")[:200])
+                    if m.get("type") == "event":   # an event before the result: keep it for recv()
+                        self._early = m.get("event")
                         return
-                    err = m.get("error") or {}
-                    raise HaCommandError(str(err.get("code") or "error"), str(err.get("message") or "")[:200])
-                if m.get("type") == "event":       # an event before the result: keep it for recv()
-                    self._early = m.get("event")
-                    return
         except BaseException:
             await self.close()
             raise
@@ -467,7 +480,7 @@ class HaTalkLink:
                 data = json.loads(m.data)
             except ValueError:
                 continue
-            if data.get("type") == "event" and data.get("id") == self.SUB_ID and isinstance(data.get("event"), dict):
+            if data.get("type") == "event" and data.get("id") == self.sub_id and isinstance(data.get("event"), dict):
                 return self._note(data["event"])
         return None
 
@@ -496,7 +509,7 @@ class HaTalkLink:
         self._stopped = True
         if self._opened and not self.closed:
             try:
-                await self._ws.send_json({"id": 2, "type": "unsubscribe_events", "subscription": self.SUB_ID})  # type: ignore[union-attr]
+                await self._ws.send_json({"id": 2, "type": "unsubscribe_events", "subscription": self.sub_id})  # type: ignore[union-attr]
             except (ConnectionError, RuntimeError):
                 pass
 
@@ -676,17 +689,22 @@ class HaCommander:
         """The talk-back clip (``check_upload``: one path, audio, bounded), POSTed as the raw body."""
         check_upload(UPLOAD_METHOD, path, content_type, body, ticket)
         self._http = self._http or aiohttp.ClientSession()
-        self.sent.append(f"{UPLOAD_METHOD} {path.split('?', 1)[0]}")
-        async with self._http.post(self.base_url + path, data=body,
-                                   headers={"Authorization": f"Bearer {self._token}", "Content-Type": content_type},
-                                   timeout=aiohttp.ClientTimeout(total=self.timeout)) as r:
-            text = await r.text()
-            if r.status >= 400:
-                raise HaCommandError(f"http_{r.status}", text[:200])
-            try:
-                return json.loads(text) if text else None
-            except ValueError:
-                return text[:2000]
+        query = path.split("?", 1)[1]
+        for n, base in enumerate(TALK_PATHS):       # Mantel Link's view first; HK Frontend's if HA has none
+            self.sent.append(f"{UPLOAD_METHOD} {base}")
+            async with self._http.post(f"{self.base_url}{base}?{query}", data=body,
+                                       headers={"Authorization": f"Bearer {self._token}", "Content-Type": content_type},
+                                       timeout=aiohttp.ClientTimeout(total=self.timeout)) as r:
+                text = await r.text()
+                if r.status == 404 and n + 1 < len(TALK_PATHS):
+                    continue
+                if r.status >= 400:
+                    raise HaCommandError(f"http_{r.status}", text[:200])
+                try:
+                    return json.loads(text) if text else None
+                except ValueError:
+                    return text[:2000]
+        return None
 
     def talk_link(self, entity_id: str, rate: int, ticket: CommandTicket) -> HaTalkLink:
         """Live talk's own Home Assistant socket (``check_talk``: one speaker, a known rate, a ticket

@@ -982,6 +982,31 @@ Everything on main since 0.1.28 (validation green: JS 130, HA py 732, Mantel 283
       named their kiosk at the start.
 - [ ] Avery: the Alarm PIN entered once more on HK Settings' Alarm PIN page, then a disarm at a tablet.
 
+### 0.1.33 (2026-10-20), with Mantel Link 0.1.2
+
+- **Mantel without HK Frontend** (docs/phase9/NO-HK-FRONTEND.md): the house's entities (Seasonal decorations, the
+  Alarm PIN keypad, Live TV) can be handed to Mantel Link like the tablets; the Alarm PIN keypad and page are
+  Mantel's own once the house is; HK's remaining settings saves (accessories, hidden, favorites, music) are kept in
+  Mantel. Nothing moves by itself: `house` stays HA's until the hand-over in Mantel Settings.
+- **Mantel Link 0.1.2:** the house's entities and the keypad, the doorbell talk view, Energy's sources, the Lights
+  page's Tonight list, and Show Menu opening HA's own sidebar inside HA.
+- Navigation inside HA; the Mac app's favorites search.
+- No HA backup (Avery).
+- [x] On the house: App build `445d866c8673aa06` (13:26); Mantel Link 0.1.2 copied (publish build, suite 54 passed,
+      `diff -rq` empty), HA restarted; both links reconnected at 13:27, no Mantel errors in HA, all five tablets
+      named their kiosk.
+- [ ] The house hand-over, the Alarm PIN entered in Mantel Settings, then HK Frontend removed (NO-HK-FRONTEND.md).
+
+### 0.1.34 (2026-10-20)
+
+- **Mantel Settings -> About**: the version (from `RELEASE.json`, written at staging), commit and build, how
+  Mantel runs, Home Assistant's, Music Assistant's and the links' versions, and a word on the project.
+- **The House** has its own group on Home Assistant Link, apart from Who Runs Each Wall Tablet.
+- No HA backup (Avery).
+- [x] On the house (build `8661f15c2a105169`, RELEASE.json 0.1.34 / af4c3d7, 14:00): both links reconnected,
+      `/api/about` refuses a signed-out request (401).
+- [ ] Avery: Settings -> About shows 0.1.34; HK Frontend removed (a full HA backup first).
+
 ### Removal
 
 Stop and uninstall **Mantel** (Settings → Apps → Mantel → Uninstall); this removes its image and `/data`

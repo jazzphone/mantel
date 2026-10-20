@@ -13,6 +13,7 @@ struct MusicLiveActivity: Widget {
             LockScreenPlayer(attributes: ctx.attributes, state: ctx.state)
                 .activityBackgroundTint(Color(playerTint: ctx.state.tint))
                 .activitySystemActionForegroundColor(.white)
+                .widgetURL(URL(string: "mantel://player"))         // a tap: the app's own player
         } dynamicIsland: { ctx in
             DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
@@ -43,6 +44,7 @@ struct MusicLiveActivity: Widget {
             } minimal: {
                 Cover(file: ctx.state.artFile, size: 22)
             }
+            .widgetURL(URL(string: "mantel://player"))
         }
     }
 }

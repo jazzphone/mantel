@@ -10,13 +10,16 @@ import UserNotifications
 struct MantelApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) private var delegate
     @StateObject private var model = SessionModel()
+    @StateObject private var music = MusicModel()
 
     var body: some Scene {
         WindowGroup {
             RootView()
                 .environmentObject(model)
+                .environmentObject(music)
                 .onOpenURL { url in
                     if let link = PairingLink(url: url) { Task { await model.pair(link) } }
+                    else if url.scheme == "mantel", url.host == "player" { NotificationRouter.shared.player = true }
                 }
         }
     }
@@ -78,6 +81,8 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
 final class NotificationRouter: ObservableObject {
     static let shared = NotificationRouter()
     @Published var open: String?
+    /// The app's own music player, asked for from outside the page (the Live Activity, a widget).
+    @Published var player = false
 }
 
 struct MantelShortcuts: AppShortcutsProvider {
