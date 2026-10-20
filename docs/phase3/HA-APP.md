@@ -952,6 +952,18 @@ Everything on main since 0.1.28 (validation green: JS 130, HA py 732, Mantel 283
 - [ ] On the house: every tablet's Sleep Screen names its kiosk again (`sensor.<tablet>_sleep_screen` attribute
       `kiosk`), the Master Bedroom's display goes off at Good Night.
 
+### 0.1.31 (2026-10-20)
+
+- **Every tablet's kiosk is found at once after a restart:** each HA connect's first registry load is told to the
+  features (`on_registries_loaded`), so the Sleep engines pick up their kiosk without waiting for a settings save.
+  Never told to the pages: that redrew every open page.
+- **A tablet's Setup -> Device lists the kiosk apps' devices** (Kiosk Satellite, Fully Kiosk); it offered only None.
+- **The home page clears the status bar and the Dynamic Island** (iPhone app, Home Screen web app); the iOS app's
+  menu has Mantel Settings and Clear Cache. Mantel for Mac (menu-bar player, favorites, Play Music) uses the
+  existing pages.
+- [ ] On the house: the App starts; `sensor.<tablet>_sleep_screen` names its kiosk on all five within a minute,
+      with no settings save; the Device picker lists the five Kiosk Satellites.
+
 ### Removal
 
 Stop and uninstall **Mantel** (Settings → Apps → Mantel → Uninstall); this removes its image and `/data`
