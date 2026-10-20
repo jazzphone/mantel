@@ -76,6 +76,16 @@ const q = host.hass.callWS({ type: 'hk_music/queue', entity_id: 'media_player.ki
 reply({ type: 'read_result', id: sent[sent.length - 1].id, result: { ok: true, index: 0, items: [] } });
 out.results.queue = await q;
 
+// the screensaver's photo: a read; Mantel's photo route gets the page's prefix, anything else is refused
+globalThis.__mantelBase = '/api/hassio_ingress/Fict1onal';
+const ph = host.hass.callWS({ type: 'media_source/resolve_media', media_content_id: 'media-source://media_source/local/p/a.jpg' });
+reply({ type: 'read_result', id: sent[sent.length - 1].id, result: { url: '/api/photo/' + '0123456789abcdef'.repeat(2), mime_type: 'image/jpeg' } });
+out.results.photo = await ph;
+const bad = host.hass.callWS({ type: 'media_source/resolve_media', media_content_id: 'media-source://media_source/local/p/b.jpg' });
+reply({ type: 'read_result', id: sent[sent.length - 1].id, result: { url: '/media/local/p/b.jpg?authSig=x', mime_type: 'image/jpeg' } });
+try { await bad; out.results.photoBad = 'NOT REFUSED'; } catch (e) { out.results.photoBad = e.code; }
+globalThis.__mantelBase = '';
+
 // still refused, sending nothing: other REST calls, writes, other webrtc-looking writes
 const before = sent.length;
 for (const p of [host.hass.callApi('GET', 'history/period/x'), host.hass.callApi('POST', 'calendars/calendar.family?start=a&end=b'),

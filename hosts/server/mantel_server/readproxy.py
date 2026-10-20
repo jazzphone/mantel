@@ -52,6 +52,9 @@ READ_ALLOWED: dict[str, frozenset[str]] = {
     "media_player/search_media": frozenset({"entity_id", "search_query", "media_content_id", "media_content_type",
                                             "media_filter_classes"}),
     "media_source/browse_media": frozenset({"media_content_id"}),
+    # The screensaver's photo, resolved by Mantel itself (connectors/media_photos.py): HA's answer is a signed
+    # address on HA's own origin, so a page never sees it; the page gets Mantel's short-lived photo route.
+    "media_source/resolve_media": frozenset({"media_content_id", "expires"}),
     # P3.5: HK's settings, read ONCE by Mantel itself for the one-time settings import
     # (settings_store.import_settings). Never for a page: SERVER_ONLY_READS below.
     "hk_frontend/panel/get": frozenset(),
@@ -99,7 +102,7 @@ READ_ALLOWED: dict[str, frozenset[str]] = {
 # for Music and Alarm PIN, still HA's, HA's page read here by Mantel itself and rebuilt).
 SERVER_ONLY_READS = frozenset({"hk_frontend/panel/get", "hk_notify/settings/get", "hk_clean_areas/settings/get",
                                "hk_energy/settings/get", "hk_energy/sources", "hk_tv/settings/get", "hk_music/settings/get",
-                               "hk_alarm_pin/settings/get"})
+                               "hk_alarm_pin/settings/get", "media_source/resolve_media"})
 SUBSCRIBE_TYPES = frozenset({"weather/subscribe_forecast", "persistent_notification/subscribe", "hk_music/subscribe"})
 # housekeeping the proxy itself sends to end a subscription it started
 INTERNAL = {"unsubscribe_events"}
@@ -291,6 +294,7 @@ RULES: dict[str, str] = {
     "media_player/browse_media": "view the media player",
     "media_player/search_media": "view the media player",
     "media_source/browse_media": "feature:media; camera sources refused and pruned",
+    "media_source/resolve_media": "server-only: Mantel's photo route answers it (connectors/media_photos.py), feature:media",
     "hk_frontend/panel/get": "never for a page (SERVER_ONLY_READS): the settings import's own read; pages get "
                              "Mantel's settings store",
     "hk_music/subscribe": "feature:music; every event pruned to the players the subject may view (speakers, "

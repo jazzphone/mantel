@@ -68,6 +68,16 @@ export const USER_DATA_KEYS = new Set(['hk_music_focus', 'favorites']);
 export const SNAP_SIGN = 'hk_notify/snap/sign';
 export const ART_SIGN = 'hk_frontend/art/sign';
 const SNAP_PATH = /^\/api\/notify\/snap\/[0-9a-f]{32}$/;     // notify_snaps.PATH, nothing else
+// THE SCREENSAVER'S PHOTOS (hk-saver.js load): media_source/resolve_media is answered by Mantel itself
+// (connectors/media_photos.py) with its own short-lived photo route, never HA's signed address; the page's
+// prefix goes in front here. Anything else in the answer is dropped.
+export const PHOTO_RESOLVE = 'media_source/resolve_media';
+const PHOTO_PATH = /^\/api\/photo\/[0-9a-f]{32}$/;          // media_photos.PATH, nothing else
+export function prefixPhoto(result, base) {
+  const url = result && typeof result.url === 'string' && PHOTO_PATH.test(result.url) ? (base || '') + result.url : null;
+  if (!url) throw Object.assign(new Error('not a photo'), { code: 'not_found' });
+  return { url, mime_type: typeof result.mime_type === 'string' ? result.mime_type : 'image/jpeg' };
+}
 export function prefixSigned(result, base) {
   const signed = result && typeof result.signed === 'object' && result.signed ? result.signed : {};
   const out = {};
@@ -338,6 +348,10 @@ export class Host {
     if (msg.type === SNAP_SIGN) {
       const base = (typeof window !== 'undefined' && window.__mantelBase) || '';
       return this.hub.read(msg).then((r) => prefixSigned(r, base));
+    }
+    if (msg.type === PHOTO_RESOLVE) {
+      const base = (typeof window !== 'undefined' && window.__mantelBase) || '';
+      return this.hub.read(msg).then((r) => prefixPhoto(r, base));
     }
     // ARTWORK SIGNING (hk-base.js artSign): in HA, HK asks for a signed proxy path for remote now-playing art.
     // Mantel has no such proxy for it: answered "nothing signed", so HK uses the art's own address (what it
