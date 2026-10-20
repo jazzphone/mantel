@@ -377,6 +377,8 @@
     // back to nothing inside it (`initial` is no value, so each var() takes
     // today's literal) and its own white to inherit. Light pages only: HK's
     // own screens set some of the glass ones themselves (Frosted, Blur).
+    // (Flat: no blur, so no veil -- the sheet's own ground, solid)
+    ':host([hk-flat]) .mu[cols="1"] .left{background:#140d1e}',
     ':host([data-hk-light]) .mu[cols="1"] .left{color:#fff;' + Object.keys(C.LIGHT || {}).map(function (k) { return k + ':initial'; }).join(';') + '}',
     '.mu[cols="1"] .grab{display:block;flex:none;width:100%;height:26px;margin:-4px 0 6px;cursor:pointer;touch-action:none;position:relative}',
     '.mu[cols="1"] .grab::before{content:"";position:absolute;left:50%;top:8px;width:42px;height:5px;margin-left:-21px;border-radius:3px;background:rgba(255,255,255,.5)}',
@@ -702,6 +704,12 @@
         var mu = this._e.mu;
         mu.classList.add('relay');
         mu.setAttribute('cols', String(cols));
+        // FLAT ON A PHONE: Now Playing is a sheet over Browse, and Flat takes
+        // every blur -- its veil let the page show through, and a light theme
+        // made its plates light (Avery's iPhone, 2026-10-20). A dark Flat
+        // surface of its own, as the screensaver's music is; beside Browse
+        // (two or three columns) it is the page's again.
+        if (this._e.left && C.flatSurface) C.flatSurface(this._e.left, cols === 1 ? 'music' : 'page');
         if (this._e.left) void getComputedStyle(this._e.left).transform;
         requestAnimationFrame(function () { mu.classList.remove('relay'); });
         this._closePanel(false);
