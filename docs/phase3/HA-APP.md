@@ -992,6 +992,10 @@ Everything on main since 0.1.28 (validation green: JS 130, HA py 732, Mantel 283
   page's Tonight list, and Show Menu opening HA's own sidebar inside HA.
 - Navigation inside HA; the Mac app's favorites search.
 - No HA backup (Avery).
+- [x] On the house: App build `445d866c8673aa06` (13:26); Mantel Link 0.1.2 copied (publish build, suite 54 passed,
+      `diff -rq` empty), HA restarted; both links reconnected at 13:27, no Mantel errors in HA, all five tablets
+      named their kiosk.
+- [ ] The house hand-over, the Alarm PIN entered in Mantel Settings, then HK Frontend removed (NO-HK-FRONTEND.md).
 
 ### Removal
 
