@@ -1,0 +1,74 @@
+name: Tests
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    name: Docs links, packaging, private words
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python tools/check_links.py
+      - run: python tools/package_check.py --release
+      # the words are a repository secret (one regular expression), never a file in the repository
+      - run: python tools/check_private.py
+        env:
+          HK_PRIVATE: ${{ secrets.HK_PRIVATE }}
+      - if: github.event_name == 'pull_request'
+        run: python tools/check_private.py --messages "${{ github.event.pull_request.base.sha }}..HEAD"
+        env:
+          HK_PRIVATE: ${{ secrets.HK_PRIVATE }}
+
+  server:
+    name: Mantel Server and shared Python (${{ matrix.python }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python: ["3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: pip install -e '.[dev]'
+      - run: python -m pytest -q -p no:cacheprovider
+
+  home-assistant:
+    name: HK Frontend and Mantel Link (Home Assistant test harness)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+      # the harness release the suites were last run with (Home Assistant 2026.9.3)
+      - run: pip install pytest-homeassistant-custom-component==0.13.366
+      - run: python tools/build_ha.py build/ha
+      - run: cd build/ha/tests/py && pytest -q -p no:cacheprovider
+      - run: cd hosts/ha/custom_components/mantel/tests/py && pytest -q -p no:cacheprovider
+        env:
+          HK_FRONTEND_COMPONENT: ${{ github.workspace }}/build/ha/custom_components/hk_frontend
+          MANTEL_ROOT: ${{ github.workspace }}
+
+  javascript:
+    # HK's card suites run on JavaScriptCore, which every macOS runner has
+    name: HK Frontend cards (JavaScriptCore)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 tools/build_ha.py build/ha
+      - run: sh build/ha/tests/run

@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Report a security problem
+    url: https://github.com/jazzphone/mantel/security/advisories/new
+    about: Privately, please. See SECURITY.md.
+  - name: HK Frontend (the dashboards inside Home Assistant)
+    url: https://github.com/jazzphone/hk-frontend/issues
+    about: Problems with HK Frontend itself belong there.
