@@ -121,40 +121,54 @@ page as it changes.
 
 **Check:** light Flat and a dark page in the Simulator.
 
-### 7. A native music player (4–6 sessions: server, then app)
+### 7. A native music player (2–3 sessions, app only: the Mac app's server side and client are reused)
 
 **What:**
-- A SwiftUI Now Playing screen in place of the web sheet on the iPhone, in the layout of the Live Activity and the
-  Mac player: the cover over its own blurred copy, the song, the progress, previous, play/pause and next, the volume,
-  and Speakers / Queue / Browse.
+- A SwiftUI Now Playing screen in place of the web sheet on the iPhone: the cover over its own blurred copy, the song,
+  the progress, previous, play/pause and next, the volume, and Speakers / Up Next / Browse.
 - Opened by the page's mini player and the dashboard's playing bar (the bridge intercepts the tap on the `ios`
   host), by the Live Activity, and by the widget.
 - Real blur, swipe down to close, haptics, and VoiceOver.
 - The iPad keeps the web page's two-column Music page.
 
-**Needs on the server (new module, no shared-file edits beyond registration):**
-- `GET /api/app/music`: the person's music context as the Music page reads it (`hkMusic`'s answer: what plays and
-  where, position, volume, the speakers and presets, Up Next).
-- `GET /api/app/events`: a live feed for the app, as Server-Sent Events with the same DPoP proofs as every app call.
-  It carries summary and music changes for this person only, filtered by RBAC like every read.
-  - It also lets the widgets and the Live Activity stop polling. Today the Live Activity updates only when the app
-    is open, or by push.
-- Commands go through the existing `/api/app/command`:
-  - `hk_frontend.music_transport` for previous, play/pause and next;
-  - `media_player.volume_set` for the volume, the group's members together, as `mantel-player.js` does;
-  - `music_play` and `music_transfer` for Speakers.
+**Already built for the Mac app, and on the house since App 0.1.33:**
+- **Server (`app_music.py`):** the apps' music over REST, DPoP-bound to the app's credential:
+  - `GET /api/app/music`: what plays and where, the speakers, presets and playlists;
+  - `POST /api/app/music/command`: transport, transfer, play, play_media and stop through the gateway, with the
+    audit row;
+  - `POST /api/app/music/volume`;
+  - `PUT /api/app/music/focus`;
+  - the queue and queue play, the library, and library images.
+  Nothing server-side is needed for the iPhone.
+- **`MantelKit/Music.swift`:** the models and the client calls, shared by every target already.
+- **`MantelMac/MusicModel.swift`:** the player's state, refreshed every 2 s while a player is on screen (15 s
+  otherwise), presses drawn at once, held volume while dragging, and an image cache.
+- **`MantelMac/PlayerViews.swift` and `MusicPanes.swift`:** the player and its Speakers / Up Next / Browse panes, in
+  SwiftUI.
 
-**App:**
-- `MantelKit`: the music model and the SSE client (reconnects, and backs off when the server is gone).
-- `Mantel/NowPlayingView.swift`.
-- Speakers and Queue as native sheets.
-- Browse stays the web page's Browse, opened behind the player: the library, search and playlists are large, and
-  they already work.
+**What the iPhone needs:**
+- **Move `MusicModel` to `Common/`:** its 7 AppKit uses are `NSImage` in the image cache. A small `PlatformImage`
+  alias (`UIImage` / `NSImage`) makes it shared, and the Mac keeps working unchanged.
+- **Move the parts of `PlayerViews` and `MusicPanes` that aren't Mac-specific to `Common/`:** the cover, the
+  transport, the volume, and the Speakers / Up Next / Browse lists. Keep the menu bar layout in `MantelMac/`.
+- **`Mantel/NowPlayingView.swift`:** the iPhone layout, presented as a full-height sheet with swipe down to close.
+  Browse as a pushed list, as in Apple Music.
+- **The bridge:** on the `ios` host, a tap on the Music page's mini player or the dashboard's playing bar posts
+  `{type: 'player'}` instead of opening the web sheet. These are small guarded hooks in `hk-music.js` and
+  `hk-media.js`, the same pattern as items 3–6.
+- **The Live Activity's tap** opens the native player (a `mantel://player` link).
+- **The Live Activity and widgets** can read the same `MusicModel` while the app is open, so they follow it closely.
+
+**Not needed after all:** the live event feed (`/api/app/events`) in the first version of this plan. The Mac
+player's 2-second refresh while it is on screen is enough, and it can be added later if the Live Activity should
+follow the house with the app closed.
 
 **Check:**
-- Server tests for both endpoints (RBAC, audit rows for every command, the feed ending on sign-out).
-- The fictional house in `tools/app_dev_server.py` gets a fictional music context and queue.
-- Simulator: play, pause, skip, volume and speakers each send a command with its audit row, and the screen follows.
+- The fictional house (`tools/app_dev_server.py`) answers `/api/app/music` from its fictional speaker. It needs
+  Mantel's music engine on, as the Mac session's own checks did.
+- Simulator: play, pause, skip, volume, speakers and queue each send their command with its audit row, and the
+  screen follows.
+- The Mac app still builds and its player is unchanged.
 
 ## Order
 
@@ -162,24 +176,24 @@ page as it changes.
 |---|---|---|---|
 | A | 1, 2, 6 | 2 | App build only |
 | B | 3, 4, 5 | 3 | App build plus an App update (the shared web hooks) |
-| C | 7 (server) | 2 | App update (new endpoints; older apps ignore them) |
-| D | 7 (app) | 2–4 | App build |
+| C | 7 | 2–3 | App build plus an App update (the two small player hooks); the server side is already on the house |
 
-In total, about 9–11 sessions. Slices A and B can run at the same time in separate sessions (A is app-only; B
-touches the web code). C must land on the house before D can be tried on the phone.
+In total, about 7–8 sessions. A and C can start at once in separate sessions: A is app-only, and C's web hooks touch
+`hk-music.js` and `hk-media.js`, which A does not. B and C both add bridge hooks to the web code, so they go one after
+the other, or in separate files with care.
 
 ## What needs Avery
 
 - Nothing to start A.
 - For B and C, his usual go-ahead to merge and ship an App update (backup first).
-- One design check for D: a screenshot of the native player in the Simulator before it replaces the web sheet.
+- One design check for C: a screenshot of the native player in the Simulator before it replaces the web sheet.
 - TestFlight is not needed for any of this: Debug builds on his iPhone, as now.
 
 ## Risks
 
 - **Shared HK code (3, 4, 5, 6):** every hook is behind `window.mantelNative`, so the wall tablets and Home Assistant
   are unaffected. The frontend suites and the CSS snapshot hold that.
-- **A second music UI to keep in step (7):** the native player reads the same `hkMusic` answer and sends the same
-  commands as the web page, so the house stays the single source. Browse stays web on purpose.
-- **SSE through the tunnel (7):** Cloudflare passes Server-Sent Events, but idle streams are cut at about 100 s. The
-  feed sends a comment every 30 s, and the client reconnects with its last event id.
+- **A second music UI to keep in step (7):** the native player reads the same answer through `app_music.py` and
+  sends the same commands as the web page, so the house stays the single source.
+- **Two players sharing code (7):** the Mac and the iPhone share `MusicModel` and the panes once they move to
+  `Common/`. A change for one is checked on both (the Mac build is part of the check).
