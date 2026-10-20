@@ -55,11 +55,13 @@ struct MainView: View {
     }
 }
 
-/// The app's own settings: favorites for the widgets and Control Center, Face ID, notifications, signing out.
+/// The app's own settings: Mantel Settings, favorites for the widgets and Control Center, Face ID, notifications,
+/// clearing the cache, signing out.
 struct AppMenu: View {
     @EnvironmentObject private var model: SessionModel
     @Environment(\.dismiss) private var dismiss
     @State private var faceID = SharedStore.shared.requireFaceID
+    @State private var cleared = false
 
     var body: some View {
         NavigationStack {
@@ -70,12 +72,20 @@ struct AppMenu: View {
                     LabeledContent("Connected", value: model.door == .lan ? "Home Network" : model.door == .tunnel ? "Away" : "Not Connected")
                 }
                 Section {
+                    Button { dismiss(); NotificationRouter.shared.open = "/settings" } label: {
+                        Label("Mantel Settings", systemImage: "gearshape")
+                    }
+                } footer: { Text("Users, screens, wall tablets and everything else about this Mantel.") }
+                Section {
                     NavigationLink("Favorites") { FavoritesEditor() }
                 } footer: { Text("Your favorites show in the widgets, Control Center, Siri and on the Mac.") }
                 Section {
                     Toggle("Face ID to Open", isOn: $faceID).onChange(of: faceID) { _, v in SharedStore.shared.requireFaceID = v }
                     Button("Turn On Notifications") { Task { await PushRegistrar.shared.requestAndRegister() } }
                 }
+                Section {
+                    Button(cleared ? "Cache Cleared" : "Clear Cache") { clearCache() }.disabled(cleared)
+                } footer: { Text("Reloads the pages and album art from the house. You stay signed in.") }
                 Section {
                     Button("Sign Out", role: .destructive) { dismiss(); Task { await model.signOut() } }
                     Button("Forget This Mantel", role: .destructive) { dismiss(); Task { await model.forgetHouse() } }
@@ -84,6 +94,17 @@ struct AppMenu: View {
             .navigationTitle("Mantel App")
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
         }
+    }
+
+    /// The web view's data (its next page gets a new web session), saved covers, URL caches; then fresh widgets.
+    /// Never the house, its pin, the device key or the sign-in: those are the Keychain's, not a cache.
+    private func clearCache() {
+        if let house = model.house { HouseWebView.forgetData(for: house) }
+        ArtCache.clear()
+        URLCache.shared.removeAllCachedResponses()
+        cleared = true
+        NotificationRouter.shared.open = "/home"
+        Task { await model.refresh() }
     }
 }
 
