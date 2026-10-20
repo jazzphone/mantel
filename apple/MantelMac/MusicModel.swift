@@ -58,6 +58,11 @@ final class MusicModel: ObservableObject {
             heldVolume = heldVolume.filter { $0.value.until > Date() }
         } catch let e as APIError where e.status == 404 {
             state = MusicState(configured: false)        // a Mantel from before the apps' music
+        } catch let e as APIError where e.status == 401 {
+            // A Mantel from before the apps' music answers an unknown path with its sign-in check's 401, while
+            // the app's own doors still let it in: not set up here, not signed out.
+            if (try? await client.summary()) != nil { state = MusicState(configured: false) }
+            else { problem = e.localizedDescription }
         } catch {
             problem = error.localizedDescription
         }
