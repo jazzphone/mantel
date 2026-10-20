@@ -24,7 +24,10 @@ enum DebugHook {
             let windows = NSApp.windows.map { "\($0.title.isEmpty ? String(describing: type(of: $0)) : $0.title) visible=\($0.isVisible) \(Int($0.frame.width))x\(Int($0.frame.height))" }
             let state = "phase=\(model.phase) door=\(String(describing: model.door)) house=\(model.house?.name ?? "-") " +
                 "problem=\(model.problem ?? "-") playing=\(model.summary?.now_playing?.state ?? "-")\n" + windows.joined(separator: "\n")
-            send("state.txt", Data(state.utf8))
+            let pages = [("menu", app.menuPage), ("favorites", app.favoritesPage), ("window", app.windowPage)].map {
+                "\($0.0): loaded=\($0.1.webView != nil) failed=\($0.1.failed) unsupported=\($0.1.unsupported)"
+            }
+            send("state.txt", Data((state + "\n" + pages.joined(separator: "\n")).utf8))
             for (name, page) in [("menu", app.menuPage), ("favorites", app.favoritesPage), ("window", app.windowPage)] {
                 guard let web = page.webView else {
                     send("\(name).txt", Data("no page".utf8))

@@ -71,7 +71,9 @@ Pair by opening its link with the app (the app takes `mantel://pair`; the link w
 open -a /tmp/mantel-dd-mac/Build/Products/Debug/Mantel.app "$(cat /tmp/mantel-mac-dev/pair.txt)"
 ```
 
-`mantel://music`, `mantel://favorites` and `mantel://setup` open those windows. Browse's album and artist pages and
+`mantel://music`, `mantel://favorites` and `mantel://setup` open those windows. A Mantel from before these pages
+ignores `?pane=` and draws its dashboard; the app notices (a probe once the page is ready) and shows its own controls
+in the menu with "Update your Mantel to see the full player here" (seen on Avery's house, 2026-10-20). Browse's album and artist pages and
 search read through Home Assistant, which the fictional Mantel does not have ("Could not open that: unavailable"),
 and Browse's album pages need it too. In a browser: `/<screen>/home?pane=player`, `/<screen>/home?pane=favorites&ids=light.kitchen,lock.front_door`,
 `/<screen>/playmusic?bare=1`.

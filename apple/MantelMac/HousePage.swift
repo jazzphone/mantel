@@ -25,6 +25,11 @@ final class HousePage: NSObject, ObservableObject {
     let topInset: CGFloat
     /// The page's scale (WebKit's page zoom): the favorites' pills a quarter smaller in the menu.
     let zoom: CGFloat
+    /// A line of JavaScript, true once the page is the one asked for. A Mantel from before these pages ignores the
+    /// query and draws its dashboard instead (Avery's house, 2026-10-20): then the menu's own controls stand in.
+    let probe: String?
+    /// This Mantel has no such page yet (it needs updating).
+    @Published private(set) var unsupported = false
     @Published private(set) var webView: WKWebView?
     /// The page could not be opened (no web session, the house unreachable): the menu shows its own controls.
     @Published private(set) var failed = false
@@ -35,8 +40,9 @@ final class HousePage: NSObject, ObservableObject {
 
     private static var stores: [String: WKWebsiteDataStore] = [:]
 
-    init(view: String = "home", query: String, topInset: CGFloat = 0, zoom: CGFloat = 1) {
+    init(view: String = "home", query: String, topInset: CGFloat = 0, zoom: CGFloat = 1, probe: String? = nil) {
         self.zoom = zoom
+        self.probe = probe
         self.view = view
         self.query = query
         self.topInset = topInset
@@ -76,6 +82,7 @@ final class HousePage: NSObject, ObservableObject {
             return
         }
         failed = false
+        unsupported = false
         loadedDoor = model.door
         wantsQuery = next == "/home"
         let web = (house?.id == h.id ? webView : nil) ?? make(for: h)
@@ -145,6 +152,27 @@ extension HousePage: WKNavigationDelegate, WKUIDelegate {
     }
 
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) { noteFailure(error) }
+
+    // THE PAGE ASKED FOR, OR THIS MANTEL'S DASHBOARD? Once the page says it is ready (home.js: __mantelReady), the
+    // probe says which; a page that never gets ready decides nothing.
+    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        guard let probe, !wantsQuery, let url = webView.url, url.path != "/login",
+              query.isEmpty || url.query?.contains(query.components(separatedBy: "&")[0]) == true else { return }
+        let js = "(function(){return window.__mantelReady ? ((" + probe + ") ? 'yes' : 'no') : 'wait';})()"
+        Task { @MainActor in
+            for _ in 0..<60 {
+                guard webView === self.webView else { return }
+                let got = try? await webView.evaluateJavaScript(js) as? String
+                if got == "yes" { unsupported = false; return }
+                if got == "no" {
+                    unsupported = true
+                    failed = true
+                    return
+                }
+                try? await Task.sleep(for: .milliseconds(500))
+            }
+        }
+    }
 
     func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
         noteFailure(error)

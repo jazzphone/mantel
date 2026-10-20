@@ -161,7 +161,11 @@ struct PageView<Fallback: View>: View {
             } else if page.failed {
                 VStack(alignment: .leading, spacing: 12) {
                     fallback()
-                    Button("Try Again") { Task { await page.reload() } }
+                    if page.unsupported {
+                        Text("Update your Mantel to see the full player here.").font(.caption).foregroundStyle(.secondary)
+                    } else {
+                        Button("Try Again") { Task { await page.reload() } }
+                    }
                 }
                 .padding(14).padding(.top, page.topInset)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)

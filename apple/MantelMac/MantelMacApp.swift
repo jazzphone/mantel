@@ -41,8 +41,9 @@ struct MantelMacApp: App {
 @MainActor
 final class MacApp: ObservableObject {
     /// The menu's: the player, the favorites (both under the panel's floating controls); the window's: Play Music.
-    let menuPage = HousePage(query: "pane=player", topInset: MenuPanel.band)
-    let favoritesPage = HousePage(query: "pane=favorites", topInset: MenuPanel.band, zoom: 0.75)
+    let menuPage = HousePage(query: "pane=player", topInset: MenuPanel.band, probe: "!!window.__mantelPlayer")
+    let favoritesPage = HousePage(query: "pane=favorites", topInset: MenuPanel.band, zoom: 0.75,
+                                  probe: "!!(window.hkStrategy && window.hkStrategy.favoritesView)")
     let windowPage = HousePage(view: "playmusic", query: "bare=1", topInset: 28)
     var pages: [HousePage] { [menuPage, favoritesPage, windowPage] }
     let keys = NowPlayingKeys()
