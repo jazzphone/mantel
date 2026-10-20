@@ -46,7 +46,8 @@ Phase ``house`` (HK Frontend removed, docs/phase9/NO-HK-FRONTEND.md), a Home Ass
   5. HK Frontend's entry is REMOVED: every entity stays (same ids, Mantel Link's, live), Mantel Link registers the
      ``hk_frontend.*`` aliases, and an AUTOMATION and a SCRIPT calling ``hk_frontend.show_popup`` /
      ``hk_frontend.set_black_screen`` still reach Mantel; Mantel Link's talk view plays a clip on a demo speaker,
-     ``mantel/talk/live`` and ``mantel/energy/sources`` answer; HA's history of the Seasonal switch runs on.
+     ``mantel/talk/live`` and ``mantel/energy/sources`` answer, a fictional sunset automation reaches a Mantel screen
+     as the Lights page's Tonight list; HA's history of the Seasonal switch runs on.
   6. With HK Frontend gone, moving ``house`` back to Home Assistant is refused in words.
 
 Phase ``phones`` (slice 9.7): a stand-in Companion-app phone in the scratch HA (``testha.py up --phone-probe``:
@@ -699,6 +700,27 @@ async def steps_house(app, ha: HA, owner, base: str, hk_entry: str, svc_hk: str,
           "mantel/talk/live is there (a demo speaker isn't a UniFi Protect doorbell: refused, the card sends the clip)")
     got = await ha.ws(type="mantel/energy/sources")
     check(isinstance(got, dict) and isinstance(got.get("sources"), dict), "mantel/energy/sources answers (read only)")
+    # -- the Lights page's "Tonight" list: Mantel Link works it out, Mantel's screen gets it -----------------------
+    s, _ = await ha.post("/api/config/automation/config/mantel_e2e_dusk", {
+        "alias": "Lighting - E2E Bedroom - Dusk (fictional)", "mode": "single",
+        "triggers": [{"trigger": "sun", "event": "sunset", "offset": "-00:10:00", "id": "dusk"}],
+        "actions": [{"action": "light.turn_on", "target": {"entity_id": "light.bed_light"}}]})
+    check(s == 200, "a fictional sunset automation for a demo light saved in the scratch HA")
+    await asyncio.sleep(2)
+    await owner.ws.send_json({"type": "read_subscribe", "id": 8, "msg": {"type": "hk_frontend/page_headers/subscribe"}})
+
+    async def tonight():
+        for _ in range(40):
+            m = await owner.recv(20)
+            if m.get("id") == 8 and m.get("type") == "read_event":
+                rows = [e for e in m["event"]["lights"]["schedule"] if e.get("automation") == "automation.lighting_e2e_bedroom_dusk_fictional"]
+                if rows:
+                    return rows[0]
+        return None
+    row = await tonight()
+    check(row is not None and (row["kind"], row["event"], row["offset_s"], row["effect"], row["entities"], row["area"],
+                               row["ready"]) == ("sun", "sunset", -600, "on", ["light.bed_light"], "E2E Bedroom", True),
+          "the Lights page's Tonight list reaches a Mantel screen from Mantel Link (sunset -10 min, Bedroom light on)")
     # -- no going back without HK Frontend ------------------------------------------------------------------------
     st_code, body = await owner.post("/api/linked/owners", {"unit": "house", "owner": "ha"}, method="PUT")
     check(st_code == 400 and body["error"]["code"] == "no_hk_frontend" and app["linked_owners"].house(),
