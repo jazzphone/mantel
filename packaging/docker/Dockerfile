@@ -21,8 +21,8 @@
 # network; ffmpeg runs inside go2rtc, in the transcode container. PLAN §8 says "the image carries
 # intel-media-va-driver-non-free": that is the transcode image, built from this same file.
 #
-# PINNING. Every FROM below is pinned by digest. The all-zero digests are PLACEHOLDERS that make a
-# build fail loudly until you pin them (tools/package_check.py --release refuses them too):
+# PINNING. Every FROM below is pinned by digest (tools/package_check.py --release refuses an all-zero
+# placeholder digest). To move one to a newer image:
 #
 #   docker buildx imagetools inspect python:3.12-slim-trixie --format '{{.Manifest.Digest}}'
 #
@@ -64,10 +64,13 @@ RUN python -m venv /opt/venv \
 FROM ${GO2RTC_IMAGE} AS go2rtc-bin
 
 FROM ${DEBIAN_IMAGE} AS transcode
-# Intel's iHD driver is in Debian's non-free component (the same recipe as packaging/lxc/proof4).
+# Intel's iHD driver is in Debian's non-free component, and for amd64 only: on another architecture (an
+# arm64 host) the image builds without it and ffmpeg transcodes in software.
+ARG TARGETARCH
 RUN sed -i -E '/^Components:/{/non-free/!s/$/ non-free non-free-firmware/}' /etc/apt/sources.list.d/debian.sources \
  && apt-get update \
- && apt-get install -y --no-install-recommends ffmpeg intel-media-va-driver-non-free vainfo ca-certificates curl \
+ && apt-get install -y --no-install-recommends ffmpeg vainfo ca-certificates curl \
+      $([ "${TARGETARCH:-amd64}" = "amd64" ] && echo intel-media-va-driver-non-free) \
  && rm -rf /var/lib/apt/lists/*
 # The official go2rtc image keeps its binary here (verify after bumping GO2RTC_IMAGE).
 COPY --from=go2rtc-bin /usr/local/bin/go2rtc /usr/local/bin/go2rtc
