@@ -114,10 +114,16 @@ class LinkedHouse:
         return keypad.entry(panel) if keypad is not None else None
 
     def learn(self, entry: str) -> dict[str, Any]:
-        """What the house has: {"seasonal": entity id, "alarm": {...} | None, "live_tv": {...}}, from HA's
+        """What the house has: {"seasonal": entity id, "keypads": {panel: {...}}, "live_tv": {...}}, from HA's
         registry and states, over what was remembered."""
         owners = self.owners
-        alarm = dict(owners.remembered("alarm_pin") or {})
+        keypads: dict[str, dict[str, Any]] = {}
+        old = owners.remembered("alarm_pin") or {}               # before Mantel's own keypads: one panel
+        if old.get("entity_id") and old.get("unique_id"):
+            keypads[old["entity_id"]] = dict(old)
+        for eid, k in ((owners.remembered("keypads") or {}).get("panels") or {}).items():
+            if isinstance(k, dict) and k.get("unique_id"):
+                keypads[eid] = dict(k)
         tv = dict(owners.remembered("live_tv") or {})
         tv.setdefault("now", {})
         tv.setdefault("cameras", {})
@@ -130,6 +136,7 @@ class LinkedHouse:
             if uid == f"{entry}_{SEASONAL}":
                 seasonal_eid = eid
             elif domain == "alarm_control_panel":
+                alarm = keypads.get(eid) or {}
                 st = house.state(eid)
                 protects = (st.attributes.get("protects") if st is not None else None) or alarm.get("protects")
                 attrs = st.attributes if st is not None and st.state not in _GONE else {}
@@ -141,20 +148,48 @@ class LinkedHouse:
                         log.warning("linked house: HA says %s protects %s, Mantel's Alarm PIN settings say %s; "
                                     "Mantel's settings win", eid, protects, row.forward_to)
                     protects, arm = row.forward_to, row.arm_required
-                alarm = {"unique_id": uid, "entity_id": eid, "protects": protects,
-                         "name": name or alarm.get("name"), "code_arm_required": arm}
+                keypads[eid] = {"unique_id": uid, "entity_id": eid, "protects": protects,
+                                "name": name or alarm.get("name"), "code_arm_required": arm}
             elif domain == "sensor" and uid.endswith("_viewers"):
                 tv["viewers"] = {"unique_id": uid, "entity_id": eid}
             elif domain == "sensor" and (m := _NOW.match(uid)):
                 tv["now"][m["n"]] = {"unique_id": uid, "entity_id": eid, "name": name}
             elif domain == "camera" and (m := _CAMERA.match(uid)):
                 tv["cameras"][m["n"]] = {"unique_id": uid, "entity_id": eid, "name": name}
-        if alarm.get("unique_id") and alarm.get("protects"):
-            owners.remember("alarm_pin", alarm)
+        if keypads:
+            owners.remember("keypads", {"panels": keypads})
         if tv.get("viewers") or tv["now"] or tv["cameras"]:
             owners.remember("live_tv", tv)
-        return {"seasonal": seasonal_eid, "alarm": alarm if alarm.get("unique_id") and alarm.get("protects") else None,
-                "live_tv": tv}
+        return {"seasonal": seasonal_eid, "keypads": keypads, "live_tv": tv}
+
+    def keypads(self, entry: str, learned: dict[str, dict[str, Any]]) -> list[dict[str, Any]]:
+        """THE ALARM PIN PANELS MANTEL PUBLISHES: one per keypad in Mantel's own table (alarm_pin.py; a row whose
+        panel is not the alarm itself), whichever way it got there (HK Settings' Alarm PIN page, the REST, or made
+        from HA's registry by ``keypad_for``). A panel HK Frontend had keeps its unique id (so its entity id and
+        history move with the registry hand-over); a keypad Mantel made has ``<entry>_alarm_pin_<object id>`` and
+        its entity id suggested. A panel another integration has in HA is never published over it."""
+        keypad = self.app.get("alarm_pin")
+        if keypad is None:
+            return []
+        reg = {e.get("entity_id"): e for e in getattr(getattr(self.host.hub, "registry", None), "entity_entries", None)
+               or [] if isinstance(e, dict)}
+        out = []
+        for row in keypad.entries():
+            if row.forward_to == row.entity:
+                continue
+            other = reg.get(row.entity)
+            if other is not None and other.get("platform") not in LINK_PLATFORMS:
+                continue
+            k = learned.get(row.entity) or {}
+            uid = k.get("unique_id") or (other or {}).get("unique_id") or f"{entry}_alarm_pin_{row.entity.split('.', 1)[1]}"
+            name = k.get("name") or f"{self._friendly(row.forward_to)} PIN"
+            out.append({"unique_id": uid, "entity_id": row.entity, "protects": row.forward_to, "name": name,
+                        "code_arm_required": row.arm_required})
+        return out
+
+    def _friendly(self, eid: str) -> str:
+        st = self.host.house.state(eid)
+        return str(st.attributes.get("friendly_name") or eid) if st is not None else eid
 
     # -- the descriptors -------------------------------------------------------------------------------
     def _decorations_on(self) -> bool:
@@ -170,8 +205,7 @@ class LinkedHouse:
                      "translation_key": SEASONAL, "has_entity_name": True,
                      "device": {"identifier": entry, "name": "HK Frontend"},
                      "state": "on" if self._decorations_on() else "off", "attributes": {}}, ("seasonal", None))
-        alarm = got["alarm"]
-        if alarm:
+        for alarm in self.keypads(entry, got["keypads"]):
             st = self.host.house.state(alarm["protects"])
             up = st is not None and st.state not in _GONE
             out[alarm["unique_id"]] = ({
@@ -232,10 +266,22 @@ class LinkedHouse:
             return
         async with self._lock:
             entry = self.wanted()
+            if entry is None:
+                self.observe()
+            if entry:
+                # a panel learned from HA's registry gets its row ONCE; after that the table is authoritative,
+                # so a PIN removed in HK Settings stays removed although HA still has the panel's registry entry
+                seen = set((self.owners.remembered("keypads_seen") or {}).get("panels") or [])
+                before = set(seen)
+                for detail in self.learn(entry)["keypads"].values():
+                    panel = detail["entity_id"]
+                    if self._keypad_row(panel) is None and panel not in seen and detail.get("protects"):
+                        await self.keypad_for(detail)
+                    if self._keypad_row(panel) is not None:
+                        seen.add(panel)
+                if seen != before:
+                    self.owners.remember("keypads_seen", {"panels": sorted(seen)})
             want = self.descriptors(entry) if entry else {}
-            for _desc, (kind, detail) in want.values():
-                if kind == "alarm" and self._keypad_row(detail["entity_id"]) is None:
-                    await self.keypad_for(detail)      # the table is authoritative from now on
             for uid in [u for u in self.descs if u not in want]:
                 await reg.remove(uid, forget=False)
                 self.descs.pop(uid, None)
@@ -254,8 +300,26 @@ class LinkedHouse:
                 self.descs[uid] = desc
                 self.kinds[uid] = kind
 
+    def observe(self) -> None:
+        """While Home Assistant (HK Frontend) still runs the house: only LEARN what it has (read-only, nothing
+        published). HK Frontend's Alarm PIN panel says which alarm it protects only while HK Frontend shows it;
+        once ``house`` is Mantel's, HK Frontend unloads it and the attribute is gone, so it is remembered now."""
+        owners, host = self.owners, self.host
+        if owners is None or not host.on("linked"):
+            return
+        entry = host.entry_id()
+        if entry:
+            try:
+                self.learn(entry)
+            except Exception:  # noqa: BLE001 -- only learning; the next change tries again
+                log.exception("linked house: learning the house's entities failed")
+
     def watching(self) -> set[str]:
-        return {k[1]["protects"] for k in self.kinds.values() if k[0] == "alarm"}
+        out = {k[1]["protects"] for k in self.kinds.values() if k[0] == "alarm"}
+        if not self.kinds and self.owners is not None:
+            # observing: HK Frontend's own panels, to remember what each protects while it still says so
+            out |= set(((self.owners.remembered("keypads") or {}).get("panels") or {}))
+        return out
 
     # -- the handlers ----------------------------------------------------------------------------------
     def _need_on(self) -> None:

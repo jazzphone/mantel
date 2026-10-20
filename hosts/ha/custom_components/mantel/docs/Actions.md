@@ -1,7 +1,7 @@
 # Actions
 
-Every action is also available under its HK Frontend name (`hk_frontend.<action>`) while HK Frontend isn't installed,
-so automations and scripts written for HK Frontend keep working. Mantel checks every call and answers; a refusal is
+Every action is also available under its HK Frontend name (`hk_frontend.<action>`) while HK Frontend isn't installed
+(from the moment its entry is deleted), so automations and scripts written for HK Frontend keep working. Mantel checks every call and answers; a refusal is
 the action's error, in words.
 
 | Action | Fields | What it does |

@@ -105,10 +105,11 @@ def test_restart_all_now_is_mantels_tablets_restart(observed, mode):
     r = observed[mode]
     assert {k: v for k, v in r["restartFrame"].items() if k != "id"} == {"type": "tablets_restart"}
     assert r["restart"] == {"restarted": ["hall"]}
-    if mode == "off":
-        assert (r["wakeAct"], r["wakeActSent"]) == ("commands_disabled", 0)
-    else:
-        assert r["wakeActFrame"]["type"] == "command" and r["wakeActFrame"]["msg"]["act"] == "wake"
+    # Wake Now is Mantel's own tablet_act (its Sleep Screen engine), never a command to HA, commands on or off
+    assert {k: v for k, v in r["wakeActFrame"].items() if k != "id"} == {"type": "tablet_act", "tablet": "hall",
+                                                                          "act": "wake"}
+    assert r["wakeAct"] == {"ok": True}
+    assert (r["seen"], r["seenSent"]) == ({}, 0), "tablet/seen: answered by the page, nothing sent"
 
 
 @pytest.mark.parametrize("mode", ["off", "on"])
@@ -118,11 +119,11 @@ def test_feature_settings_saves_go_to_mantels_store(observed, mode):
                                 "msg": {"type": "hk_notify/settings/set", "changes": {"stay": 60}}}
     assert r["featureSaved"] == {"configured": True}
     assert r["energySave"]["type"] == "settings_write" and r["energyRefused"] == "forbidden"
-    # Music's settings are still HA's: a gateway write (refused, nothing sent, while commands are off)
-    if mode == "off":
-        assert (r["music"], r["musicSent"]) == ("commands_disabled", 0)
-    else:
-        assert r["musicFrame"]["type"] == "command"
+    # Music's and the Alarm PIN's settings are Mantel's too (HK Frontend can leave HA): settings writes either way
+    assert r["musicFrame"] == {"type": "settings_write", "id": r["musicFrame"]["id"],
+                               "msg": {"type": "hk_music/settings/set", "changes": {}}} and r["music"] == {"configured": True}
+    assert r["alarmFrame"]["type"] == "settings_write" and r["alarmFrame"]["msg"]["type"] == "hk_alarm_pin/remove"
+    assert r["hiddenFrame"]["type"] == "settings_write" and r["hiddenFrame"]["msg"]["type"] == "hk_frontend/hidden/set"
 
 
 def test_the_feature_saves_are_exactly_the_stores():
@@ -148,18 +149,18 @@ def test_no_house_command_is_made_of_any_of_this(observed):
     # commands off: a service call or another write is refused as before, sending nothing
     assert off["service"] == "commands_disabled" and off["serviceSent"] == 0 and off["refusedEvents"] == 1
     assert off["real"] == "commands_disabled" and off["realSent"] == 0
-    assert off["hidden"] == "commands_disabled" and off["hiddenSent"] == 0
+    assert off["other"] == "commands_disabled" and off["otherSent"] == 0
     assert off["settingsSave"] == "settings_write"                 # HK's own saves still reach the store
     # commands on: those go to the gateway exactly as they did, as `command` frames
     on = observed["on"]
     assert on["serviceFrame"]["type"] == "command" and on["serviceFrame"]["kind"] == "service"
-    assert on["realFrame"]["type"] == "command" and on["hiddenFrame"]["type"] == "command"
+    assert on["realFrame"]["type"] == "command" and on["otherFrame"]["type"] == "command"
     # and no report, mute or switch of Mantel's own is ever a command or a settings write
     for key in ("touchFrame", "saverFrame", "blackFrame", "wakeFrame", "muteFrame", "unmuteFrame"):
         for mode in ("off", "on"):
             assert observed[mode][key]["type"] in ("screen_report", "notify_mute")
     assert set(observed["kinds"]) <= {"read_subscribe", "read_unsubscribe", "screen_report", "notify_mute",
-                                      "tv_watching", "command", "settings_write", "tablets_restart", "read", "music_used",
+                                      "tv_watching", "command", "settings_write", "tablets_restart", "tablet_act", "read", "music_used",
                                       "user_data_set"}
 
 

@@ -16,7 +16,7 @@ from gateway_fakes import gw, off, recv  # noqa: F401 -- fixtures
 from mantel_server import talk_relay
 from mantel_server.config import Config
 from mantel_server.gateway import Refused, classify, load_writes
-from mantel_server.ha_client import (CommandBlocked, CommandTicket, HaCommander, HaTalkLink, check_command,
+from mantel_server.ha_client import (CommandBlocked, CommandTicket, HaCommandError, HaCommander, HaTalkLink, check_command,
                                      check_talk, talk_frame_max)
 from mantel_server.server import COMMANDS_DISABLED, tick_once
 from mantel_server.settings_store import Actor
@@ -36,6 +36,9 @@ class FakeHa:
         self.refuse: dict[str, str] = {}             # entity -> HA's error message (not_supported)
         self.fail_after: int | None = None           # send {"error"} after this many frames
         self.server = None
+        # the subscriptions this Home Assistant has: Mantel Link's (talk_live.py) and HK Frontend's; any other
+        # type is HA's own unknown_command, as a real HA answers
+        self.kinds = {"mantel/talk/live", "hk_frontend/talk/live"}
 
     async def handler(self, request):
         ws = web.WebSocketResponse()
@@ -55,7 +58,10 @@ class FakeHa:
             if m.type == WSMsgType.TEXT:
                 msg = json.loads(m.data)
                 seen.append(msg)
-                if msg.get("type") == "hk_frontend/talk/live":
+                if msg.get("type", "").endswith("/talk/live") and msg["type"] not in self.kinds:
+                    await ws.send_json({"id": msg["id"], "type": "result", "success": False,
+                                        "error": {"code": "unknown_command", "message": "Unknown command."}})
+                elif msg.get("type") in self.kinds:
                     if msg["entity_id"] in self.refuse:
                         await ws.send_json({"id": msg["id"], "type": "result", "success": False,
                                             "error": {"code": "not_supported", "message": self.refuse[msg["entity_id"]]}})
@@ -171,7 +177,7 @@ async def test_owner_live_talk_is_audited_first_then_relayed_exactly(gw, ha, mon
     await closed(ws)
     (conn,) = ha.conns
     assert conn[0] == {"type": "auth", "access_token": HA_TOKEN}
-    assert conn[1] == {"id": 1, "type": "hk_frontend/talk/live", "entity_id": SPEAKER, "rate": 48000}
+    assert conn[1] == {"id": 1, "type": "mantel/talk/live", "entity_id": SPEAKER, "rate": 48000}   # Mantel Link's
     assert conn[2:5] == [bytes([HA_HID]) + p for p in pcm]
     assert conn[5:] == [{"id": 2, "type": "unsubscribe_events", "subscription": 1}]
     assert HA_TOKEN not in json.dumps(got) and HA_TOKEN not in json.dumps(gw.audit())
@@ -545,9 +551,41 @@ async def test_the_link_sends_nothing_but_its_frames(gw, ha):
     await commander.close()
     assert await until(lambda: len(ha.conns[-1]) == 4)
     assert ha.conns[-1] == [{"type": "auth", "access_token": HA_TOKEN},
-                            {"id": 1, "type": "hk_frontend/talk/live", "entity_id": SPEAKER, "rate": 16000},
+                            {"id": 1, "type": "mantel/talk/live", "entity_id": SPEAKER, "rate": 16000},
                             bytes([HA_HID]) + bytes(640), {"id": 2, "type": "unsubscribe_events", "subscription": 1}]
     assert commander.sent == [f"hk_frontend/talk/live {SPEAKER}"]
+
+
+async def test_without_mantel_link_the_link_asks_hk_frontend(gw, ha):
+    """A Home Assistant with only HK Frontend: Mantel Link's subscription is unknown there, so the same speaker
+    and rate go to HK Frontend's, once; the unsubscribe names the subscription HA took."""
+    ha.kinds = {"hk_frontend/talk/live"}
+    cfg = Config(commands_enabled=True, ha_url=str(ha.server.make_url("")).rstrip("/"))
+    commander = HaCommander(cfg, HA_TOKEN, WRITES)
+    link = commander.talk_link(SPEAKER, 16000, CommandTicket(4, "talk"))
+    await link.open()
+    assert (await link.recv())["handler_id"] == HA_HID
+    assert await link.send_audio(bytes(640)) is True
+    await link.stop()
+    await link.close()
+    await commander.close()
+    assert await until(lambda: len(ha.conns[-1]) == 5)
+    assert ha.conns[-1] == [{"type": "auth", "access_token": HA_TOKEN},
+                            {"id": 1, "type": "mantel/talk/live", "entity_id": SPEAKER, "rate": 16000},
+                            {"id": 3, "type": "hk_frontend/talk/live", "entity_id": SPEAKER, "rate": 16000},
+                            bytes([HA_HID]) + bytes(640), {"id": 2, "type": "unsubscribe_events", "subscription": 3}]
+
+
+async def test_a_refusal_other_than_unknown_is_final(gw, ha):
+    ha.refuse[SPEAKER] = "not a UniFi Protect speaker"
+    cfg = Config(commands_enabled=True, ha_url=str(ha.server.make_url("")).rstrip("/"))
+    commander = HaCommander(cfg, HA_TOKEN, WRITES)
+    link = commander.talk_link(SPEAKER, 16000, CommandTicket(5, "talk"))
+    with pytest.raises(HaCommandError) as e:
+        await link.open()
+    assert e.value.code == "not_supported"
+    await commander.close()
+    assert [m.get("type") for m in ha.conns[-1] if isinstance(m, dict)] == ["auth", "mantel/talk/live"]
 
 
 # -- HK's own Worker, unchanged, against /ws/talk --------------------------------------------------------

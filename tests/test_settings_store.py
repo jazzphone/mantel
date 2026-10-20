@@ -410,9 +410,9 @@ def test_every_frontend_write_is_classified():
 
 
 @pytest.mark.parametrize("t, code", [
-    ("hk_frontend/tablet/add", "ha_write"), ("input_select/create", "ha_write"), ("lovelace/dashboards/create", "ha_write"),
+    ("hk_frontend/talk/live", "ha_write"), ("input_select/create", "ha_write"), ("lovelace/dashboards/create", "ha_write"),
     ("call_service", "ha_write"), ("hk_frontend/tablet/act", "ha_write"), ("image/delete", "ha_write"),
-    ("hk_music/settings/set", "not_yet"), ("hk_notify/settings/set", "not_yet"), ("hk_frontend/accessory/set", "not_yet"),
+    ("hk_notify/mute", "not_yet"),
     ("get_states", "unknown_type"), ("hk_frontend/panel/get", "unknown_type"),
 ])
 async def test_saves_that_touch_ha_or_are_not_here_are_refused(svc, t, code):
@@ -516,7 +516,7 @@ async def ha():
 def test_panel_get_is_on_the_allowlist_as_a_server_only_read():
     assert READ_ALLOWED["hk_frontend/panel/get"] == frozenset()
     assert SERVER_ONLY_READS == {"hk_frontend/panel/get", "hk_notify/settings/get", "hk_clean_areas/settings/get",
-                                 "hk_energy/settings/get", "hk_energy/sources", "hk_tv/settings/get",
+                                 "hk_energy/settings/get", "hk_energy/sources", "mantel/energy/sources", "hk_tv/settings/get",
                                  "hk_music/settings/get", "hk_alarm_pin/settings/get",
                                  "media_source/resolve_media"} and "hk_frontend/panel/get" in RULES
     readproxy.check_read({"type": "hk_frontend/panel/get"})
@@ -689,7 +689,7 @@ async def test_the_pages_reads_and_saves_go_to_the_store_never_ha(wired):
     await h["settings_write"](adult.ctx, {"type": "settings_write", "id": 4, "msg": {
         "type": "hk_frontend/settings/set", "changes": {"weather.place": "Adult Town"}}})
     assert adult.of("settings_result", 4)[0]["error"]["code"] == "forbidden"
-    await h["settings_write"](owner.ctx, {"type": "settings_write", "id": 5, "msg": {"type": "hk_frontend/tablet/add", "tablet": {}}})
+    await h["settings_write"](owner.ctx, {"type": "settings_write", "id": 5, "msg": {"type": "input_select/create", "name": "x"}})
     assert owner.of("settings_result", 5)[0]["error"]["code"] == "ha_write"
     await h["settings_write"](owner.ctx, {"type": "settings_write", "id": 6, "service": "lock.unlock", "msg": {}})
     assert owner.of("settings_result", 6)[0]["error"]["code"] == "invalid_format"

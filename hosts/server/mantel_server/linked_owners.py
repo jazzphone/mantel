@@ -240,6 +240,22 @@ def bridge_check(app: web.Application, holder: str) -> None:
         raise OwnershipError("invalid", "bridge: hk_frontend or mantel")
 
 
+def back_to_ha_check(app: web.Application) -> None:
+    """Can a unit (a tablet, or ``house``) go back to Home Assistant? Only while HK Frontend is there to run it:
+    once Mantel Link is connected and reports no HK Frontend in its Home Assistant (and no HK Frontend is linked),
+    nothing would run the unit's engines or publish its entities, so the move is refused (install HK Frontend's
+    last release again first). OwnershipError if not."""
+    lk = app.get("linked")
+    reg = lk.registry if lk is not None else None
+    if reg is None or reg.clients_of("hk_frontend"):
+        return
+    links = [c for c in reg.clients_of("mantel") if c.protocol >= 2 and "hk_frontend" in c.report]
+    if links and not any((c.report.get("hk_frontend") or {}).get("installed") for c in links):
+        raise OwnershipError("no_hk_frontend",
+                             "Home Assistant has no HK Frontend any more, so nothing there would run it. Mantel keeps "
+                             "it. (To go back, install HK Frontend's last release and link it first.)")
+
+
 async def changed(app: web.Application) -> None:
     """After a move: tell linked HA at once (an ``owners`` frame, BEFORE any entity changes, so HA
     never reads an entity going away as the tablet being deleted), then bring Mantel's published
@@ -303,6 +319,8 @@ async def api_put(request: web.Request) -> web.Response:
                 bridge_check(request.app, holder)
             moved = owners.set_bridge(holder, by=ident.user.id, role=ident.user.role)
         else:
+            if body.get("owner") == "ha" and owners.owner(str(body.get("unit"))) != "ha":
+                back_to_ha_check(request.app)
             moved = owners.set(body.get("unit"), body.get("owner"), by=ident.user.id, role=ident.user.role)
     except OwnershipError as exc:
         return web.json_response({"error": {"code": exc.code, "message": exc.message}}, status=400)

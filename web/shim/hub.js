@@ -57,7 +57,7 @@ export class Hub {
           else p.resolve(m.result);
         } else if (m.type === 'screen_result' || m.type === 'notify_mute_result' || m.type === 'tablets_restart_result'
                    || m.type === 'music_used_result' || m.type === 'tv_watching_result'
-                   || m.type === 'user_data_set_result') {
+                   || m.type === 'user_data_set_result' || m.type === 'tablet_act_result') {
           // the feature host's answers to screen_report / notify_mute / tablets_restart / tv_watching, the music
           // host's to music_used (see ask())
           const p = this.pending.get(m.id);
