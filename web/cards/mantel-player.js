@@ -122,11 +122,20 @@
     '@media (prefers-reduced-motion:reduce){.art,.mpanel.mp,.bg img,.art img{transition:none}}'
   ].join('\n');
 
+  // THE PLAYER IS ALWAYS DARK. A light theme sets HK's light palette (--hk-ink and the rest, hk-base.js LIGHT) above
+  // this card, and the panel's words took it: dark on dark (Avery's house, 2026-10-20). Here every one of them is
+  // reset, so HK's dark fallbacks apply, as the Music page does for its own dark column.
+  function darkCss() {
+    var L = (window.hkCards && window.hkCards.LIGHT) || {};
+    var keys = Object.keys(L).concat(['--primary-text-color', '--secondary-text-color']);
+    return ':host{' + keys.map(function (k) { return k + ':initial'; }).join(';') + '}';
+  }
+
   class MantelPlayer extends HTMLElement {
     constructor() {
       super();
       this._root = this.attachShadow({ mode: 'open' });
-      this._root.innerHTML = '<style>' + CSS + '</style>' +
+      this._root.innerHTML = '<style>' + CSS + '\n' + darkCss() + '</style>' +
         '<div class="bg"><img alt=""></div><div class="veil"></div>' +
         '<div class="col">' +
         '<div class="stage"><div class="art"><div class="ph">' + svg(ICON.note) + '</div><img alt=""></div></div>' +
@@ -170,6 +179,9 @@
 
     connectedCallback() {
       var self = this;
+      // ...and in the Flat look: a dark surface of its own, as the screensaver's music is (hk-saver.js), whatever the
+      // page's Flat theme -- its tokens on this element, so the panel inside it takes them
+      if (window.hkCards && window.hkCards.flatSurface) window.hkCards.flatSurface(this, 'music');
       this._kick = function () { self._soon(); };
       window.addEventListener('hk-client-update', this._kick);
       window.addEventListener('hk-saver-panel', this._kick);
