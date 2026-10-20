@@ -27,6 +27,17 @@ Nothing, except one thing: send one of its notifications to a Home Assistant Com
 that Home Assistant has; a title, a message, Mantel's Dismiss and a few display fields, nothing else). Everything else
 on the link only changes the entities Mantel Link shows.
 
+## What only Home Assistant can do for Mantel
+
+Three things need code inside Home Assistant, which HK Frontend used to have; Mantel Link has them now:
+
+- **The doorbell's talk-back.** A hold-to-talk clip from a screen is played on the speaker you chose
+  (`POST /api/mantel/talk`, kept in memory for two minutes, fetched by the speaker from a signed address), and on a
+  UniFi Protect doorbell the voice is streamed live as it is spoken (`mantel/talk/live`). Mantel sends both only
+  after its own checks and audit, with its house commands on.
+- **Energy's helper sensors.** A Utility Meter or Integral sensor keeps the sensor it counts out of its state, so
+  `mantel/energy/sources` (administrators only, read only) tells Mantel's Energy page the chain.
+
 ## Mantel's screens in the sidebar
 
 A small script on Home Assistant's pages listens to a Mantel screen shown in a Webpage dashboard. It believes a message

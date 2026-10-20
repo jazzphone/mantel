@@ -26,8 +26,9 @@ HA's engine. This module runs the same engine inside Mantel Server:
   tablet's room: Mantel knows both (``home_for``).
 * **The configuration** (speakers, house volume, home rooms, presets, playlists, Keep Playlists Ready,
   Ignore Announcements) is Mantel's settings document ``house/music``, imported from HA's music feature
-  (``import_page``: HA's ``hk_music/settings/get``, a server-only read) with the feature import, and saved
-  by HK Settings' music page (through the gateway, ``configure`` on settings).
+  (``import_page``: HA's ``hk_music/settings/get``, a server-only read) with the feature import (or once by
+  HK Settings' music page when Mantel has none), and saved by HK Settings' music page (a settings write through
+  feature_pages.py, ``configure`` on settings and music; Music Assistant not needed).
 
 THE SWITCH (``MusicHost.active``): Mantel answers only when BOTH Music Assistant is configured in Mantel
 (``cfg.ma_url`` and its token file) AND the music settings are in Mantel's store. Otherwise every read goes

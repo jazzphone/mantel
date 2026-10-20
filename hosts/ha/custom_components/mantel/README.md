@@ -18,6 +18,8 @@ Home Assistant. **Mantel Link** is everything Home Assistant needs of it, and no
 - **Mantel's screens in Home Assistant's sidebar**, with Home Assistant's header and sidebar hidden as each screen
   says, a way back from Mantel's menu, and your Home Assistant sidebar in the screen's menu and tab bar.
 - **Notifications on your phone** through the Home Assistant Companion app, with Dismiss.
+- **The doorbell's talk-back** (a hold-to-talk clip on a speaker, live talk to a UniFi Protect doorbell) and the
+  helper-sensor read Mantel's Energy page needs.
 
 Mantel Link replaces **HK Frontend**. Moving from it keeps every entity id and its history:
 [Moving from HK Frontend](docs/Moving-from-HK-Frontend.md).
@@ -42,6 +44,7 @@ Home Assistant 2026.9 or newer.
 
 Mantel Link talks only to your Mantel. Its credential is a Mantel Service credential limited to the link; it is never
 logged or shown in diagnostics, and an Owner revokes it in Mantel Settings → Service Accounts. Mantel can't make Home
-Assistant do anything over the link except send its own notifications to a Companion-app phone.
+Assistant do anything over the link except send its own notifications to a Companion-app phone. Talk-back plays a
+clip only on a speaker Mantel names after its own checks, with your Mantel credential, as any Home Assistant client.
 
 MIT License.

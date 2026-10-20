@@ -312,11 +312,10 @@ RULES: dict[str, str] = {
     "hk_tv/settings/get": "never for a page (SERVER_ONLY_READS): the feature import's own read",
     "hk_energy/sources": "never for a page (SERVER_ONLY_READS): the Energy plan's own read of the helpers' sources",
     "mantel/energy/sources": "never for a page (SERVER_ONLY_READS): the same read, answered by Mantel Link",
-    "hk_music/settings/get": "never for a page (SERVER_ONLY_READS): the music import's own read, and HK Settings' "
-                             "Music page while Mantel's music engine is off (feature_pages.py, Owner/Admin, rebuilt "
-                             "key by key); with it on, Mantel's own settings (music.py)",
-    "hk_alarm_pin/settings/get": "never for a page (SERVER_ONLY_READS): the Alarm PIN import's own read and HK "
-                                 "Settings' Alarm PIN page (feature_pages.py, Owner/Admin, rebuilt; no PIN)",
+    "hk_music/settings/get": "never for a page (SERVER_ONLY_READS): the music import's own read (once; HK Settings' "
+                             "Music page is Mantel's own settings, music.py)",
+    "hk_alarm_pin/settings/get": "never for a page (SERVER_ONLY_READS): the Alarm PIN import's own read, and HK "
+                                 "Settings' Alarm PIN page only while HK Frontend runs the keypads (alarm_pin.py)",
 }
 
 

@@ -25,10 +25,11 @@ What is here:
   tablet scopes are the ``settings`` feature, a person's own user scope is ``profile``).
   **Settings saves are HK's own data, not house commands**: they are allowed while house commands
   are disabled (``commands.enabled = false``), because nothing here sends anything to Home Assistant
-  or to any device. Saves that would change Home Assistant (a tablet added as an HA item, an HA
+  or to any device. Saves that would change Home Assistant (an HA
   helper or dashboard created, an image deleted, a service called ...) are refused (``ha_write``);
-  HK data Mantel does not hold yet (feature settings that still run in HA, accessories, hidden
-  accessories ...) is refused as ``not_yet``. ``SAVE_KINDS`` classifies every type in
+  HK data Mantel does not hold yet is refused as ``not_yet`` (only Mute 1 Hour now, which the page sends as
+  Mantel's own frame: accessories, Hidden Accessories, Music and the Alarm PIN are Mantel's,
+  docs/phase9/NO-HK-FRONTEND.md). ``SAVE_KINDS`` classifies every type in
   ``hkClient.WRITES`` (pinned by a test).
 * ``import_settings``: the one-time import of HK's current settings from HA's config entry, over the
   read path only (``hk_frontend/panel/get``, the one read HK Settings itself makes), written as

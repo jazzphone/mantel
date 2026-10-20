@@ -17,8 +17,9 @@ a binary body to any other path is refused.
 LIVE TALK (talk_relay.py): the Owner's `talk_live` command is audited and answered with a one-time
 ticket; HK's own talk Worker (the exact TALK_WORKER source of hk-cameras.js, run in node by
 tests/talk_worker_harness.mjs with the page's cookies and Origin) opens Mantel's /ws/talk with it, and
-Mantel subscribes the scratch HA's REAL `hk_frontend/talk/live` (the built talk_live.py) on a socket of
-its own. The demo has no UniFi Protect speaker, so HA's real handler refuses (`not_supported`): that
+Mantel asks for Mantel Link's `mantel/talk/live` first; this scratch HA has no Mantel Link set up, so it
+answers unknown_command and Mantel subscribes the scratch HA's REAL `hk_frontend/talk/live` (the built
+talk_live.py) on the same socket of its own. The demo has no UniFi Protect speaker, so HA's real handler refuses (`not_supported`): that
 proves HA's own schema took Mantel's subscription, the refusal reaches the Worker (the card then sends
 the clip, checked again) and the row records it. The STREAMING itself (binary frames, handler ids,
 letting go) cannot run on a demo player, so it is checked against a loopback stand-in for HA's side of
@@ -99,7 +100,7 @@ class StandInTalkLive:
             msg = json.loads(m.data)
             self.frames.append(msg)
             await ws.send_json({"id": msg["id"], "type": "result", "success": True, "result": None})
-            if msg.get("type") == "hk_frontend/talk/live":
+            if msg.get("type") in ("mantel/talk/live", "hk_frontend/talk/live"):     # Mantel Link's or HK's
                 await ws.send_json({"id": msg["id"], "type": "event",
                                     "event": {"handler_id": self.HID, "rate": 24000, "codec": "opus"}})
         return ws
@@ -173,7 +174,10 @@ async def run(token: str) -> dict:
                   ("http", "POST /api/hk_frontend/talk", "allowed", "camera", "ok")
                   and json.loads(row["target"]) == [speaker, "feature:cameras"],
                   "its audit row: http POST /api/hk_frontend/talk, allowed, sensitive camera, result ok")
-            check(app["commander"].sent == ["POST /api/hk_frontend/talk"], "exactly one upload was sent to HA")
+            # this scratch HA has HK Frontend and no Mantel Link set up: Mantel Link's view answers 404 (nothing
+            # played), then HK Frontend's takes the clip, once
+            check(app["commander"].sent == ["POST /api/mantel/talk", "POST /api/hk_frontend/talk"],
+                  "the clip was played once: Mantel Link's view first (none here), then HK Frontend's")
             url = None
             for _ in range(40):
                 st_ = await ha_get(ha_http, token, f"/api/states/{speaker}")
@@ -232,7 +236,7 @@ async def run(token: str) -> dict:
                 check(got["said"] == [{"id": 1, "live": True}] and got["sent"] == 10 and len(bins) == 10
                       and all(b_[0] == StandInTalkLive.HID and len(b_) == 1 + 1920 * 2 for b_ in bins)
                       and texts == [{"type": "auth", "access_token": StandInTalkLive.TOKEN},
-                                    {"id": 1, "type": "hk_frontend/talk/live", "entity_id": speaker, "rate": 48000},
+                                    {"id": 1, "type": "mantel/talk/live", "entity_id": speaker, "rate": 48000},
                                     {"id": 2, "type": "unsubscribe_events", "subscription": 1}],
                       "streaming (HA's side stood in): the Worker went live, 10 frames of 40 ms PCM reached HA "
                       "with HA's own handler id, then one unsubscribe; nothing else was sent")
@@ -293,7 +297,8 @@ async def run(token: str) -> dict:
             await adult.connect(tunnel=True)
             sent = list(app["commander"].sent)
             reply = await adult.command(**talk(speaker))
-            check(reply.get("type") == "command_result" and "result" in reply and len(app["commander"].sent) == len(sent) + 1,
+            check(reply.get("type") == "command_result" and "result" in reply
+                  and app["commander"].sent[len(sent):] == ["POST /api/mantel/talk", "POST /api/hk_frontend/talk"],
                   "an Adult on the tunnel with a stale factor talks with no step-up (decision 25; the role decides)")
             sent = list(app["commander"].sent)
             reply = await adult.command(**talk(speaker, path="/api/config/core/update"))

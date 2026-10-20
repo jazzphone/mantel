@@ -1,6 +1,8 @@
 # Phase 9: Mantel Link replaces HK Frontend in Home Assistant (decision 28)
 
-**Status (2026-10-19): 9.1–9.10 built and merged to main (see "Build record" at the end); nothing published. Nothing is on the house; 9.11 waits for Avery, step by step.**
+**Status (2026-10-20): 9.1–9.10 built and merged to main; Mantel Link 0.1.1 on the house and holding the bridge.
+9.12 (nothing left that needs HK Frontend, NO-HK-FRONTEND.md) built on a branch, not merged. The rest of 9.11 waits
+for Avery, step by step.**
 
 ## The decision
 
@@ -143,6 +145,9 @@ From docs/phase4/FEATURE-PARITY.md, checked per house; anything unchecked keeps 
 - Automation snooze (`pause_automation` / `resume_automation`): through the gateway.
 - The tablets watch (offline / charging alerts, scheduled restart): Mantel's `tablets` piece, and Kiosk Satellite
   direct (phase 8).
+- **Every wire to HK Frontend, not just the features** (settings saves, the Alarm PIN page, the house's own
+  entities, talk-back, the Energy plan's helper read, the Wall Tablets buttons): the checklist in
+  [NO-HK-FRONTEND.md](NO-HK-FRONTEND.md), each row with its test (built 2026-10-20, 9.12 below).
 
 ## Build order (one plan, landed in slices, each tested end to end)
 
@@ -159,6 +164,7 @@ From docs/phase4/FEATURE-PARITY.md, checked per house; anything unchecked keeps 
 | 9.9 | Packaging and docs: Mantel Link's own public repository for HACS (decision M1), the App and Docker docs, the move guide, LINKED-MODE.md → MANTEL-LINK.md, CUTOVER.md step for the move | A fresh scratch HA set up from the docs alone, both an App-like and a Docker-like path |
 | 9.10 | HK Frontend's last feature release (hand-over hooks) and, once the house is moved, its final pointer release | Its tests green; the repair shows in a scratch HA |
 | 9.11 | The house: install Mantel Link, discovery, hand-over, the rest of the cutover, then removing HK Frontend (approval for each, a backup before each) | The Loft and then every tablet sleeps and wakes across it; a night each; Avery signs off |
+| 9.12 | Nothing left that needs HK Frontend: the house's entities on Mantel Link, Mantel's own Alarm PIN keypad, HK's remaining settings in Mantel, talk-back and the Energy read in Mantel Link | Every row of NO-HK-FRONTEND.md ticked with its test; the scratch HA with HK Frontend removed (`--phase house`) |
 
 **Tests that stay green throughout:**
 - HK's `test_linked_*` and Mantel's `test_linked*`;
@@ -596,3 +602,18 @@ Mantel → Home Assistant row, which lands on HA's Overview with its header and 
   scanned clean). **Scratch HA** with HK's final variant (`TESTHA_HK_FINAL=1 testha.py up --fresh`), in the browser
   pane: Settings → Repairs lists "HK Frontend is now Mantel" and its dialog shows the text and the guide link; HK
   Frontend 1.9.0's Configure → "Linked to Mantel" shows the new wording and the address field.
+
+### 9.12 Nothing left that needs HK Frontend: built on a branch (2026-10-20)
+
+Avery: "We shouldn't be relying on anything from HK Frontend with Mantel." The whole record, the checklist of every
+wire with its test, and the house's steps: [NO-HK-FRONTEND.md](NO-HK-FRONTEND.md). In short:
+- **The house's own entities** move to Mantel Link with `house` (Mantel learns them read-only while HA still runs
+  them; reversible while HK Frontend is there; refused back once it is gone). Mantel Link takes the `hk_frontend.*`
+  names the moment HK Frontend's entry is deleted.
+- **The Alarm PIN keypad is Mantel's**: one panel per keypad in Mantel's table, HK's unique id kept; HK Settings' Alarm
+  PIN page reads and saves only Mantel's table once `house` is Mantel's (8d48e95's way until then).
+- **HK's remaining settings are Mantel's**: accessories, favorites, Hidden Accessories, Music, Live TV's quality, Wall
+  Tablets' Add/Remove/Wake/Sleep/Fix; the snooze feed.
+- **Mantel Link 0.1.2** gains HK Frontend's talk view, live talk and the Energy plan's helper read; Mantel asks it first.
+- **Checks:** the full validation; the scratch HA's `--phase house` 43/43 with HK Frontend removed; alone 27/27,
+  handover 22/22, actions 11/11, HK's linked e2e 23/23.

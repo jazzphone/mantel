@@ -11,14 +11,13 @@ page failed to load. Here Mantel answers them itself:
   Mantel's own feature settings (``house/mantel_features``) and its House (MantelHouse), in exactly HA's
   page shapes, worked out by the same shared rules (``hk_core.notifications.settings.page``,
   ``hk_core.clean_areas``, ``hk_core.energy.plan``). Music: Mantel's own music settings (music.py's
-  ``MusicHost.page``) once Mantel's music engine is on (Music Assistant and the music settings in Mantel);
-  until then, and for Alarm PIN, an INTERIM filtered read of HA's own page (a server-only read, rebuilt key
-  by key, nothing else passed on).
+  ``MusicHost.page``, Music Assistant or not; HK Frontend's imported ONCE when Mantel has none). Alarm PIN:
+  Mantel's keypad table (alarm_pin.py ``settings_page``; HA's page only while HK Frontend still runs the keypads).
 * **Saves** (the page's ``settings_write``, through ``settings_store.SettingsService``): checked by the same
   shared checks HA uses (``hk_core.notifications.settings``, ``hk_core.energy.settings``, Clean Areas' and
   Live TV's field checks), written to Mantel's settings store as a new version of ``house/mantel_features``
-  (who, which device, the diff: audited), never to Home Assistant. Music's and Alarm PIN's saves stay
-  refused (``not_yet``): their settings are still HA's.
+  (who, which device, the diff: audited), never to Home Assistant. Music's go to ``house/music``; Alarm PIN's
+  to Mantel's keypad table (alarm_pin.py ``settings_save``: HA first only while HK Frontend runs the keypads).
 * **Who**: Owners and Admins. Each read and save asks RBAC ``configure`` on the ``settings`` feature, and on
   the feature itself where RBAC has one (``notifications``, ``energy``, ``music``). HA's are admin-only.
   No HA token or credential is in any answer; entity ids are the house's own.
@@ -63,11 +62,10 @@ PAGE_RULES: dict[str, str] = {
                               "Mantel itself, the plan over MantelHouse; carries fresh only",
     "hk_tv/settings/get": "configure on settings; Mantel's live_tv piece and its own lineup copy (no tuner read); "
                           "carries fresh only",
-    "hk_music/settings/get": "configure on settings and music; with Mantel's music engine on (music.py), Mantel's own "
-                             "music settings in HA's page shape; otherwise INTERIM: HA's page (a server-only read) "
-                             "rebuilt key by key",
-    "hk_alarm_pin/settings/get": "configure on settings; INTERIM: HA's page (a server-only read) rebuilt key by key "
-                                 "(no PIN, only pin_set), until Alarm PIN's settings move",
+    "hk_music/settings/get": "configure on settings and music; Mantel's own music settings (house/music) in HA's page "
+                             "shape; HK Frontend's imported once (a server-only read) when Mantel has none",
+    "hk_alarm_pin/settings/get": "configure on settings; Mantel's keypad table (no PIN, only pin_set); while HK Frontend "
+                                 "runs the keypads, HA's page (a server-only read) rebuilt key by key",
 }
 # the page's saves Mantel takes (settings_store.FEATURE_SAVES, mantel-client.js FEATURE_SAVES): type ->
 # (piece, required keys, optional keys)
