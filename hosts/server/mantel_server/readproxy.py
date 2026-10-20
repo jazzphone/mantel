@@ -88,6 +88,9 @@ READ_ALLOWED: dict[str, frozenset[str]] = {
     "hk_energy/sources": frozenset(),
     # the same read from Mantel Link (its energy.py), so the plan needs no HK Frontend. Never a page's.
     "mantel/energy/sources": frozenset(),
+    # the Lights page's "Tonight" list from Mantel Link (its page_headers.py), read by Mantel itself and sent to
+    # the screens filtered (page_headers.py). Never a page's.
+    "mantel/page_headers/get": frozenset(),
     # Music's HK Settings page, read by Mantel itself: for the music import (music.import_doc, with the feature
     # import) and, while Mantel's music engine is off, for HK Settings' Music page (feature_pages.py, rebuilt
     # key by key; with the engine on, music.py answers from Mantel's own settings). Never sent by a page.
@@ -103,7 +106,8 @@ READ_ALLOWED: dict[str, frozenset[str]] = {
 # (app["read_routes"]), and so is each feature's settings page (feature_pages.py: Mantel's own answer, or
 # for Music and Alarm PIN, still HA's, HA's page read here by Mantel itself and rebuilt).
 SERVER_ONLY_READS = frozenset({"hk_frontend/panel/get", "hk_notify/settings/get", "hk_clean_areas/settings/get",
-                               "hk_energy/settings/get", "hk_energy/sources", "mantel/energy/sources", "hk_tv/settings/get", "hk_music/settings/get",
+                               "hk_energy/settings/get", "hk_energy/sources", "mantel/energy/sources", "mantel/page_headers/get",
+                               "hk_tv/settings/get", "hk_music/settings/get",
                                "hk_alarm_pin/settings/get", "media_source/resolve_media"})
 SUBSCRIBE_TYPES = frozenset({"weather/subscribe_forecast", "persistent_notification/subscribe", "hk_music/subscribe"})
 # housekeeping the proxy itself sends to end a subscription it started
@@ -312,6 +316,8 @@ RULES: dict[str, str] = {
     "hk_tv/settings/get": "never for a page (SERVER_ONLY_READS): the feature import's own read",
     "hk_energy/sources": "never for a page (SERVER_ONLY_READS): the Energy plan's own read of the helpers' sources",
     "mantel/energy/sources": "never for a page (SERVER_ONLY_READS): the same read, answered by Mantel Link",
+    "mantel/page_headers/get": "never for a page (SERVER_ONLY_READS): the Lights page's Tonight list, read by Mantel "
+                               "and sent to the screens filtered (page_headers.py)",
     "hk_music/settings/get": "never for a page (SERVER_ONLY_READS): the music import's own read (once; HK Settings' "
                              "Music page is Mantel's own settings, music.py)",
     "hk_alarm_pin/settings/get": "never for a page (SERVER_ONLY_READS): the Alarm PIN import's own read, and HK "

@@ -43,7 +43,8 @@ only `hk_notify/mute` (the page sends it as Mantel's own `notify_mute`). The one
 house that has HK Frontend (it is the only thing that reads HK Frontend's settings).
 
 **Also found and built** (the audit of every wire, beyond the brief): the doorbell's talk-back and the Energy plan's
-helper read (now in Mantel Link), the Wall Tablets buttons, and the page's "paused until" feed.
+helper read (now in Mantel Link), the Wall Tablets buttons, the page's "paused until" feed, and the Lights page's
+"Tonight" list (which Mantel's screens never had: Mantel Link works it out now).
 
 ## The checklist
 
@@ -77,6 +78,7 @@ Legend: ✅ Mantel or Mantel Link answers it, tested. ⚠️ answered only when 
 | ✅ | Live talk `hk_frontend/talk/live` | HK's talk_live.py | Mantel Link's `mantel/talk/live` (ported); HK's only on `unknown_command` | Mantel Link 0.1.2; commands on | Mantel Link `test_talk_live.py`; `test_talk_live.py` (+2); the scratch HA |
 | ✅ | Energy plan's helper sources `hk_energy/sources` | HK's read | Mantel Link's `mantel/energy/sources`; HK's as the fallback | Mantel Link 0.1.2 | Mantel Link `test_energy.py`; `test_features.py` (+1) |
 | ✅ | "Paused until" feed `hk_frontend/snooze/subscribe` | never served (a dev fixture) | Mantel's snooze record, only automations the person may view | – | `test_house_without_hk.py` |
+| ✅ | The Lights page's "Tonight" list `hk_frontend/page_headers/subscribe` | never served on Mantel (HK Frontend worked it out in HA) | Mantel Link's `mantel/page_headers/get` (page_headers.py, ported), read by Mantel and sent to each screen with only the lights that person may view; read again every minute and when an automation switches | Mantel Link 0.1.2 | Mantel Link `test_page_headers.py`; `test_page_headers.py`; the scratch HA (a fictional sunset automation) |
 | ⚠️ | `hk_frontend.clean_areas`, `pause_automation`, `resume_automation` from a page | HA's `hk_frontend` | Mantel's engines directly (linked_actions, 9.8) | Mantel Link holds the bridge (the house: yes) | `test_linked_actions_direct.py` |
 | ⚠️ | `hk_frontend.music_*` from a page; `hk_music/subscribe`, `/queue`, `/settings/library`, `queue_play` | HA's engine and reads | Mantel's music engine (music.py) | Music Assistant configured in Mantel (the house: yes) | `test_music.py` |
 | ⚠️ | `hk_tv/channels`; `hk_tv/watching` | HA's Live TV | Mantel's Live TV (live_tv.py) | Mantel serves Live TV (the house: yes) | `test_live_tv.py` |
@@ -99,17 +101,14 @@ Legend: ✅ Mantel or Mantel Link answers it, tested. ⚠️ answered only when 
   error and change nothing.
 - The **8d48e95 path** for the Alarm PIN page while HK Frontend runs the keypads.
 
-### Not a dependency, a gap (noted, not built here)
+### Goes with HK Frontend, on purpose
 
-- ➖ `hk_frontend/page_headers/subscribe` (the Lights page header's "Tonight" schedule, worked out by HK Frontend from
-  the automations' configurations) has never been served by Mantel: its pages show no Tonight list, with or without
-  HK Frontend. A follow-up: Mantel Link (which can read automation configurations) or Mantel itself.
-- ➖ HK Frontend's own Lovelace dashboards and its HK Settings panel inside HA go with it (decision 28).
+- ➖ HK Frontend's own Lovelace dashboards and its HK Settings panel inside HA (decision 28).
 
 ## Proof on the scratch HA
 
 `tools/e2e/mantel_link_e2e.py --phase house` (HK Frontend's build from this tree, Mantel Link, a fictional Mantel in
-process with commands off; `testha.py` now loads the automation and script editors' files): **43/43**. HK Frontend's
+process with commands off; `testha.py` now loads the automation and script editors' files): **45/45**. HK Frontend's
 Alarm PIN keypad in front of the demo alarm (a random fictional PIN); the bridge handed over; `house` moved to Mantel:
 the Seasonal switch and the keypad are Mantel Link's with the same registry entries, entity ids and unique ids;
 Mantel's table got the keypad row; the page set the PIN in Mantel only; HA's keypad panel refuses a wrong code with
@@ -117,7 +116,8 @@ Mantel's "Wrong code" and passes the right one to Mantel's gateway, which sends 
 Mantel's setting; `house` back to HK Frontend (the same entries) and to Mantel again; **HK Frontend's entry deleted**:
 every entity lives on, Mantel Link answers `hk_frontend.*`, an automation's `hk_frontend.show_popup` and a script's
 `hk_frontend.set_black_screen` reach Mantel, Mantel Link's talk view plays a clip on a demo speaker,
-`mantel/talk/live` and `mantel/energy/sources` answer; moving `house` back is refused; HA's history of the Seasonal
+`mantel/talk/live` and `mantel/energy/sources` answer, a fictional sunset automation reaches a Mantel screen as the
+Lights page's Tonight list; moving `house` back is refused; HA's history of the Seasonal
 switch runs on across every move. The other phases still pass: alone 27/27, handover 22/22, actions 11/11; HK's
 `linked_e2e.py` 23/23.
 

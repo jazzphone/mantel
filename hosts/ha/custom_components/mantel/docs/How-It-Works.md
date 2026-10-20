@@ -29,7 +29,7 @@ on the link only changes the entities Mantel Link shows.
 
 ## What only Home Assistant can do for Mantel
 
-Three things need code inside Home Assistant, which HK Frontend used to have; Mantel Link has them now:
+A few things need code inside Home Assistant, which HK Frontend used to have; Mantel Link has them now:
 
 - **The doorbell's talk-back.** A hold-to-talk clip from a screen is played on the speaker you chose
   (`POST /api/mantel/talk`, kept in memory for two minutes, fetched by the speaker from a signed address), and on a
@@ -37,6 +37,9 @@ Three things need code inside Home Assistant, which HK Frontend used to have; Ma
   after its own checks and audit, with its house commands on.
 - **Energy's helper sensors.** A Utility Meter or Integral sensor keeps the sensor it counts out of its state, so
   `mantel/energy/sources` (administrators only, read only) tells Mantel's Energy page the chain.
+- **The Lights page's "Tonight" list.** What your lighting automations will do next is worked out from their own
+  configurations and conditions (`mantel/page_headers/get`, administrators only, read only); Mantel shows each person
+  only the lights they may see. It never sends an automation's configuration.
 
 ## Mantel's screens in the sidebar
 

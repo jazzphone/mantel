@@ -628,6 +628,7 @@ wire with its test, and the house's steps: [NO-HK-FRONTEND.md](NO-HK-FRONTEND.md
   PIN page reads and saves only Mantel's table once `house` is Mantel's (8d48e95's way until then).
 - **HK's remaining settings are Mantel's**: accessories, favorites, Hidden Accessories, Music, Live TV's quality, Wall
   Tablets' Add/Remove/Wake/Sleep/Fix; the snooze feed.
-- **Mantel Link 0.1.2** gains HK Frontend's talk view, live talk and the Energy plan's helper read; Mantel asks it first.
-- **Checks:** the full validation; the scratch HA's `--phase house` 43/43 with HK Frontend removed; alone 27/27,
+- **Mantel Link 0.1.2** gains HK Frontend's talk view, live talk, the Energy plan's helper read and the Lights page's
+  "Tonight" list (which Mantel's screens never had); Mantel asks it first.
+- **Checks:** the full validation; the scratch HA's `--phase house` 45/45 with HK Frontend removed; alone 27/27,
   handover 22/22, actions 11/11, HK's linked e2e 23/23.
