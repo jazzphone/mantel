@@ -1013,6 +1013,7 @@ Everything on main since 0.1.28 (validation green: JS 130, HA py 732, Mantel 283
   a "Mantel App" row in the menu (app only), the More sheet runs a host row's action, a guarded `hkHostPlayer`
   hook on the music cards for the app's own player, haptics. Web only; no migration.
 - No HA backup (Avery).
+- [x] On the house (build `a8e831663b66a21a`, 02fe44b, 15:02): both links reconnected; the tablets' kiosks named.
 
 ### Removal
 
