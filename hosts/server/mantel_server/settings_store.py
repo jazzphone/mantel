@@ -941,13 +941,23 @@ class SettingsService:
                 features = self.features.panel_features()
             except Exception:  # noqa: BLE001 -- HK Settings still opens
                 log.exception("panel/get's features failed")
+        # the kiosk apps' devices in HA (a tablet's Setup -> Device), as HK Frontend lists them; it was always
+        # empty here, so no tablet could be given its device in Mantel (the house, 2026-10-20)
+        kiosk_devices: list = []
+        house = getattr(self.features, "house", None)
+        if house is not None:
+            try:
+                from hk_core.tablets import kiosk as KT
+                kiosk_devices = KT.devices(house)
+            except Exception:  # noqa: BLE001 -- HK Settings still opens
+                log.exception("panel/get's kiosk devices failed")
         return {
             "entry_id": "mantel", "source": "mantel",
             "settings": self.house_settings(),
             "boards": boards,
             "screensavers": {},
             "tablets": {k: {**d.body, "parts": {}} for k, d in self.store.docs("tablet").items()},
-            "kiosk_devices": [], "tablet_suggest": [], "dashboards": self.dashboards(boards),
+            "kiosk_devices": kiosk_devices, "tablet_suggest": [], "dashboards": self.dashboards(boards),
             "popups": self._items("popups"),
             "custom_pages": pages,
             "custom_chips": self._items("custom_chips"),
