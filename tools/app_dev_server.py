@@ -14,6 +14,8 @@ Run: ~/.venvs/mantel/bin/python tools/app_dev_server.py --data-dir /tmp/mantel-a
 * ``--music``: the house's Music page too (the screens' playmusic: browse, speakers, volume, queue). A fictional
   Music Assistant (tests/music_fakes.py's HouseMa) answers on another loopback port; its speakers join the house
   and Mantel's own music engine runs, so the page's commands go through the gateway (audit rows) to that fake.
+* ``--slow MS``: a slow connection: every script and stylesheet under /hk/ and /web/, and every message on the
+  page's live socket, is MS milliseconds late (a page change that waits on the house shows what it does meanwhile).
 * ``--lan``: also answer on this Mac's home-network address, over plain http, for a DEBUG build of the app on a real
   iPhone (Avery, 2026-10-19; Release builds refuse http beyond loopback). Requests from private addresses are the
   LAN door. Writes the pairing link as a QR code (<data-dir>/pair.png) to scan with the iPhone's camera.
@@ -132,7 +134,8 @@ async def fictional_ma() -> tuple[object, str]:
     return fake, f"http://127.0.0.1:{port}/ws"
 
 
-async def serve(data: Path, port: int, lan: bool = False, relay: str | None = None, music: bool = False) -> None:
+async def serve(data: Path, port: int, lan: bool = False, relay: str | None = None, music: bool = False,
+                slow: int = 0) -> None:
     from mantel_server import app_auth
     from mantel_server.config import Config
     from mantel_server.server import build_app
@@ -161,6 +164,20 @@ async def serve(data: Path, port: int, lan: bool = False, relay: str | None = No
             request["cookie_secure"] = False
             return await handler(request)
         app.middlewares.insert(0, plain_http)
+    if slow > 0:
+        @web.middleware
+        async def slow_code(request, handler):
+            if request.path.startswith(("/hk/", "/web/")) and request.path.endswith((".js", ".css")):
+                await asyncio.sleep(slow / 1000)
+            return await handler(request)
+        app.middlewares.insert(0, slow_code)
+        # ...and the house's live messages (the page's states: a first visit to a page waits for a snapshot)
+        _send = web.WebSocketResponse.send_str
+
+        async def slow_send(self, data, *args, **kw):
+            await asyncio.sleep(slow / 1000)
+            return await _send(self, data, *args, **kw)
+        web.WebSocketResponse.send_str = slow_send
     hub = app["hub"]
     hub.registry.load(AREAS, [], ENTITIES)
     hub.store.apply_event({"a": {k: {"s": v["s"], "a": dict(v["a"]), "lc": time.time() - 3600} for k, v in STATES.items()}})
@@ -320,6 +337,7 @@ def main() -> None:
     ap.add_argument("--lan", action="store_true")
     ap.add_argument("--relay")
     ap.add_argument("--music", action="store_true")
+    ap.add_argument("--slow", type=int, default=0)
     a = ap.parse_args()
     a.data_dir.mkdir(parents=True, exist_ok=True)
     if a.push:
@@ -328,7 +346,7 @@ def main() -> None:
     if a.send_push:
         asyncio.run(send_push(a.data_dir, a.send_push))
         return
-    asyncio.run(serve(a.data_dir, a.port, a.lan, a.relay, a.music))
+    asyncio.run(serve(a.data_dir, a.port, a.lan, a.relay, a.music, a.slow))
 
 
 if __name__ == "__main__":
