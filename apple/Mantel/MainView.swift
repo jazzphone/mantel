@@ -1,50 +1,95 @@
 import MantelKit
 import SwiftUI
 
-/// The house's own screens and Mantel Settings, in a web view (§1), with a small mark when away from home (§4).
+/// The house's own screens and Mantel Settings, in a web view (§1), as a native app (docs/phase10/NATIVE-FEEL.md):
+///
+/// * one menu: the page's own (HK's menu, the tab bar's More), with "Mantel App" opening the app's settings;
+/// * the music's Now Playing is the app's own player (`NowPlayingSheet`), from the page's mini player, the playing
+///   bar, the Live Activity (`mantel://player`) and the widgets;
+/// * nothing white on open: the last page's still, then the page once it has drawn;
+/// * the status bar's ink follows the page's ground.
 struct MainView: View {
     @EnvironmentObject private var model: SessionModel
+    @EnvironmentObject private var music: MusicModel
     @ObservedObject private var router = NotificationRouter.shared
+    @Environment(\.scenePhase) private var scenePhase
     @State private var start: URL?
     @State private var showMenu = false
+    @State private var showPlayer = false
     @State private var loadedDoor: Door?
+    @State private var ready = false
+    @State private var lightPage = false
+    /// The page has the app's hooks (web/shim/mantel-native.js says its tone as it starts): its menu holds "Mantel App".
+    /// A Mantel from before them gets the app's own ⋯ button instead.
+    @State private var pageHooks = false
+    @State private var still: UIImage? = HouseWebView.stillFile.flatMap { UIImage(contentsOfFile: $0.path) }
 
     var body: some View {
-        ZStack(alignment: .topTrailing) {
-            if let start {
-                HouseWebView(start: start, house: model.house!) { next in
-                    Task { await load(next) }       // the web session ended: hand the web view a new one
+        ZStack {
+            Color(red: 0.02, green: 0.03, blue: 0.055).ignoresSafeArea()      // the page's own ground (#05070e)
+            if !ready {
+                if let still {
+                    Image(uiImage: still).resizable().scaledToFill().ignoresSafeArea()
+                } else {
+                    ProgressView().tint(.white).controlSize(.large)
                 }
+            }
+            if let start {
+                HouseWebView(start: start, house: model.house!, onSessionEnded: { next in
+                    Task { await load(next) }       // the web session ended: hand the web view a new one
+                }, onEvent: handle)
                 .ignoresSafeArea()
                 .id(start)
-            } else {
-                ProgressView("Connecting to \(model.house?.name ?? "Mantel")…")
+                .opacity(ready ? 1 : 0)
             }
-            HStack(spacing: 8) {
-                if model.door == .tunnel {
-                    Label("Away", systemImage: "globe").font(.caption.weight(.semibold))
-                        .padding(.horizontal, 8).padding(.vertical, 4).background(.ultraThinMaterial, in: Capsule())
-                }
+        }
+        .overlay(alignment: .topTrailing) {
+            if ready, !pageHooks {
                 Button { showMenu = true } label: {
                     Image(systemName: "ellipsis.circle.fill").font(.title2).symbolRenderingMode(.hierarchical)
                 }
                 .accessibilityLabel("Mantel App Settings")
+                .padding(.trailing, 12).padding(.top, 4)
             }
-            .padding(.trailing, 12).padding(.top, 4)
         }
+        .preferredColorScheme(lightPage ? .light : .dark)
         .sheet(isPresented: $showMenu) { AppMenu() }
-        .task { await load(Self.firstPage) }
+        .sheet(isPresented: $showPlayer) { NowPlayingSheet() }
+        .task {
+            if router.player { router.player = false; openPlayer() }       // opened by the Live Activity, cold
+            await load(Self.firstPage)
+        }
         .onChange(of: model.door) { _, door in
             if door != nil, door != loadedDoor { Task { await load("/home") } }     // reload only when the door changes
         }
         .onChange(of: router.open) { _, url in
             if let url { router.open = nil; Task { await load(url) } }
         }
+        .onChange(of: router.player) { _, on in
+            if on { router.player = false; openPlayer() }
+        }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .background, ready { HouseWebView.saveStill() }
+        }
         .overlay(alignment: .bottom) {
             if let p = model.problem, start == nil {
                 Text(p).padding().background(.thinMaterial, in: RoundedRectangle(cornerRadius: 12)).padding()
             }
         }
+    }
+
+    private func handle(_ e: HouseWebView.WebEvent) {
+        switch e {
+        case .ready: withAnimation(.easeOut(duration: 0.2)) { ready = true }
+        case .menu: showMenu = true
+        case .player: openPlayer()
+        case .tone(let light): lightPage = light; pageHooks = true
+        }
+    }
+
+    private func openPlayer() {
+        music.attach(model)
+        showPlayer = true
     }
 
     /// Debug builds may start on another page: `simctl launch booted com.jazzphone.mantel.ios -MantelStartPage /x`.
@@ -58,6 +103,7 @@ struct MainView: View {
     private func load(_ next: String) async {
         if let url = await model.webSessionURL(next: next) {
             loadedDoor = model.door
+            if url != start { ready = false }
             start = url
         }
     }
@@ -95,8 +141,8 @@ struct AppMenu: View {
                     Button(cleared ? "Cache Cleared" : "Clear Cache") { clearCache() }.disabled(cleared)
                 } footer: { Text("Reloads the pages and album art from the house. You stay signed in.") }
                 Section {
-                    Button("Sign Out", role: .destructive) { dismiss(); Task { await model.signOut() } }
-                    Button("Forget This Mantel", role: .destructive) { dismiss(); Task { await model.forgetHouse() } }
+                    Button("Sign Out", role: .destructive) { HouseWebView.forgetStill(); dismiss(); Task { await model.signOut() } }
+                    Button("Forget This Mantel", role: .destructive) { HouseWebView.forgetStill(); dismiss(); Task { await model.forgetHouse() } }
                 }
             }
             .navigationTitle("Mantel App")

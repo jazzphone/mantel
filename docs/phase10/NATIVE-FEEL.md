@@ -5,7 +5,22 @@ He chose all seven items below. This is the plan: what each is, how it is built,
 and the order. Nothing here changes what the house decides: the app still asks, the gateway still decides, and every
 command still leaves an audit row.
 
-## Where the app is today
+## Status (2026-10-20): built
+
+All seven items are built on `claude/apple-apps-928197` and checked in the iPhone Simulator against the fictional house
+(`tools/app_dev_server.py --music`, a phone tab bar, then light Flat):
+
+| Item | How it was built | Checked |
+|---|---|---|
+| 1 Web gestures | `HouseWebView`: a user script (no callout or selection outside fields, `touch-action: manipulation`, `maximum-scale=1`), no link previews, pinch off. The rubber-band bounce is kept: it is iOS's own, and the page's ground is dark under it | build |
+| 2 No white flash | a dark launch screen (`LaunchBackground`); the web view hidden until its first `didFinish`; the last page's still (`last-page.jpg` in the app's caches, cleared by Clear Cache, Sign Out and Forget) drawn under it | Simulator |
+| 3 Haptics | Mantel's own code only: `mantel-client.js` says `mantel-command` as each command leaves; `shim/mantel-native.js` taps (light), and a refusal is a warning. Reads (`get_queue`, `get_library`) give none. The native player taps on play/pause and pane changes | haptics can't be felt in the Simulator |
+| 4 One menu | the app's ⋯ button is gone; "Mantel App" in the page's menu and More (`mantel-shell.js` hostMenu, only with the bridge) opens the app's settings. HK's tab bar now runs a host row's `run` (it opened only `href` rows: Mantel's own "Home Assistant" row inside Home Assistant had the same gap) | Simulator |
+| 5 Edge swipe back | WebKit's own back-and-forward swipe (`allowsBackForwardNavigationGestures`): HK's pages push history, so it works as is; it never goes back into `/app/` (the spent handover) | Simulator: Den → Home |
+| 6 Status bar | `mantel-native.js` reads the look once a second (light Flat, not while the Music page's dark sheet is up) and posts `tone`; `MainView` sets the color scheme | Simulator: light Flat |
+| 7 Native player | the Mac's `MusicModel`, `PlayerViews` and `MusicPanes` moved to `Common/` (`PlatformImage` for `NSImage`/`UIImage`; the cache renamed `MusicArtCache`); `Mantel/NowPlayingSheet.swift` presents it full height. The page's mini player and the playing bar call `window.hkHostPlayer` (HK's own name; `mantel-native.js` sets it to the app's player, iPhone only, so the iPad keeps the web sheet); the Live Activity opens `mantel://player` | Simulator: open, pause (audit row), Speakers, Browse, swipe down; the Mac still builds |
+
+## Where the app was before this plan
 
 - `apple/Mantel/` is a SwiftUI shell around Mantel's own pages in a `WKWebView` (`HouseWebView.swift`), entered
   through a one-time web session (`/app/web-session`).

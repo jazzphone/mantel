@@ -17,6 +17,7 @@ import './client/hk-host-shell.js';
 import './shim/mantel-shell.js';
 import './cards/hk-metric.js';
 import './shim/mantel-client.js';
+import './shim/mantel-native.js';     // the iPhone and iPad app's hooks (nothing without its bridge)
 import './shim/ha-elements.js';
 import '/hk/elements/hk-elements.js';
 import { Host, toast } from './shim/mantel-host.js';

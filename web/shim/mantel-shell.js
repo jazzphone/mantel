@@ -87,6 +87,12 @@
     // (Mantel Link takes it there: nothing in a Webpage dashboard's sandbox may move Home Assistant's window)
     const out = frame && frame.kind === 'dashboard'
       ? [{ title: 'Home Assistant', icon: 'mdi:home-assistant', run: () => frame.back(), section: 'Mantel' }] : [];
+    // the iPhone and iPad app's own settings (favorites, Face ID, notifications, Clear Cache, Sign Out): a native
+    // sheet, the app's only menu (shim/mantel-native.js)
+    const N = global.mantelNative;
+    if (N && N.platform === 'ios' && typeof N.menu === 'function') {
+      out.push({ title: 'Mantel App', icon: 'mdi:cellphone', run: () => N.menu('app'), section: 'Mantel' });
+    }
     if (PEOPLE.indexOf(role) < 0) return out;
     const base = global.__mantelBase || '';
     return out.concat([{ title: 'Mantel Settings', icon: 'mdi:cog-outline', href: base + '/settings', section: 'Mantel' }]);
