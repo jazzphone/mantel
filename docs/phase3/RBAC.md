@@ -72,7 +72,8 @@ unless you pass `policy=`. Rules are applied in this order:
 2. **Device credentials on the tunnel door** are refused: `device_on_tunnel`.
 3. **Each side** (user, device) is evaluated on its own: its role's grants, plus stored grants that
    name its role or its id. Deny by default, grants are additive, and an explicit deny wins:
-   `explicit_deny` beats `granted`, which beats `no_grant`.
+   `explicit_deny` beats `granted`, which beats `no_grant`. A user side whose role is `owner` skips
+   every stored deny (Owners always keep every permission; see below).
 4. **Intersection.** The effective result is the user's ∩ the device's. With no user, the device
    alone decides; with no device, the user alone; with neither, `no_subject`. `side` says which side
    refused.
@@ -117,7 +118,11 @@ unless you pass `policy=`. Rules are applied in this order:
 | service | none: give each endpoint as a feature grant | off / off / off |
 
 Owners always keep every permission: overriding the `owner` role is refused, both through REST and
-in the store.
+in the store, and so is a deny grant that names the `owner` role or a user who is an Owner
+(`RbacStore.check_grant`). The engine ignores every stored deny on an Owner's user side
+(`Policy._side`), so a deny saved before that check, or one naming a person later promoted to Owner,
+cannot lock an Owner out. The device side is unchanged: an Owner at a wall tablet still gets only the
+tablet's share.
 
 ## Decisions, by example
 

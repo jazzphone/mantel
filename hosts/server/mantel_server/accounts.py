@@ -12,6 +12,10 @@
   with an expiry. User verification is required.
 * **Bootstrap**: ``mantel-server bootstrap`` prints a one-time setup token, only while no Owner
   exists; ``POST /api/bootstrap`` redeems it once to create the first Owner.
+* **Audit**: adding a person, changing their role or name, disabling or enabling them, changing your own
+  password and resetting someone else's each write a ``config`` row (``audit_change``) BEFORE the change, as
+  rbac_store does for grants: who, what, which person, from where. Never a password. No row, no change (503).
+  Sign-ins are not audited: see ``audit_change``.
 """
 from __future__ import annotations
 
@@ -202,7 +206,8 @@ class Accounts:
         return await asyncio.get_running_loop().run_in_executor(None, run)
 
     async def create_user(self, username: str, name: str | None, role: str, password: str | None,
-                          kind: str = "hk") -> str:
+                          kind: str = "hk", user_id: str | None = None) -> str:
+        """The new user's id (``user_id`` when the caller chose it first, so its audit row can name it)."""
         username = check_username(username)
         if role not in ROLES:
             raise PolicyError("role_invalid", f"roles are {', '.join(ROLES)}")
@@ -211,7 +216,7 @@ class Accounts:
             check_password_policy(password, username, name)
             hashed = await self.hash_password(password)
         now = self.clock()
-        user_id = secrets.token_hex(16)
+        user_id = user_id or secrets.token_hex(16)
         try:
             with self.db:
                 self.db.execute("INSERT INTO users (id, username, name, role, kind, password_hash, password_changed, "
@@ -580,6 +585,45 @@ def limited(wait: float) -> web.Response:
     return error(429, "too_many_attempts", retry_after=int(wait) + 1)
 
 
+def may_manage(actor_role: str, target_role: str) -> bool:
+    """Owners manage everyone; Admins everyone but Owners (as sessions._may_manage and users_update)."""
+    return actor_role == "owner" or (actor_role == "admin" and target_role != "owner")
+
+
+def audit_change(request: web.Request, ident: Identity | None, action: str, detail: dict) -> web.Response | None:
+    """Write an account change's audit row BEFORE making it (the gateway's ``Audit.config_event``, kind
+    ``config``, the same as rbac_store's grant rows and devices' ``device.room``): who (``ident``: the person, or
+    a device revoking itself), what (``action``), which person or tablet and what changed (``detail``), and the
+    door and address it came from. ``detail`` never holds a password, a hash or a token. If the row cannot be
+    written the change is refused (503 ``audit_unavailable``), as rbac_store refuses a grant. An app with no
+    audit wired (a bare test app) records nothing.
+
+    Sign-ins are deliberately not audited. Every row is kept for the retention window (a year by default) and
+    cannot be deleted, and a failed sign-in needs no account: anyone who can reach the sign-in page could fill
+    the log with rows of their own wording. The table's kinds and decisions are for commands and settings, and
+    a sign-in is neither. A successful sign-in is its session instead (Me → My Sessions: browser, door, method,
+    address, last seen); failures are counted by the rate limits and the stored lockout."""
+    audit = request.app.get("audit")
+    if audit is None:
+        return None
+    user = ident.user if ident is not None else None
+    device = ident.device if ident is not None else None
+    try:
+        audit.config_event({"timestamp": request.app["clock"](), "actor": user.id if user else None,
+                            "role": user.role if user else None, "device": device.id if device else None,
+                            "device_role": device.role if device else None, "action": action, "detail": detail,
+                            "door": ident.door if ident is not None else None, "source_ip": client_ip(request)})
+    except Exception:  # noqa: BLE001 -- no audit, no change
+        log.exception("could not audit %s; change refused", action)
+        return error(503, "audit_unavailable")
+    return None
+
+
+def who(row) -> dict:
+    """The person an audit row is about: id, user name and name (never anything secret)."""
+    return {"user": row["id"], "username": row["username"], "name": row["name"]}
+
+
 # -- sign-in --------------------------------------------------------------------------------------
 async def password_sign_in(request: web.Request) -> web.Response:
     require_origin(request)
@@ -753,22 +797,34 @@ async def passkey_delete(request: web.Request) -> web.Response:
 
 
 async def change_password(request: web.Request) -> web.Response:
+    """``POST /api/account/password {current, new}`` (Me → Change Password): your own password. The current one
+    is checked like a sign-in (the same rate limits and lockout). With no password yet (an account that never
+    had one) there is nothing to check, so the session must be fresh instead: a stolen cookie alone cannot give
+    itself a lasting password. The new one follows the account-creation rules; your other sessions end."""
     ident = require_user(request)
     body = await read_json(request)
     acc = accounts_of(request)
     row = acc.get_user(ident.user.id)
     if row["password_hash"]:
-        status, value = await acc.check_password(row["username"], body.get("current") or "", client_ip(request))
+        current = body.get("current")
+        status, value = await acc.check_password(row["username"], current if isinstance(current, str) else "",
+                                                 client_ip(request))
         if status == "limited":
             return limited(value)
         if status != "ok":
             return error(401, "invalid_credentials")
     elif not row["username"]:
         return error(400, "username_required")
+    else:
+        require_fresh(request, ident)
     try:
-        await acc.set_password(ident.user.id, body.get("new"))
+        check_password_policy(body.get("new"), row["username"], row["name"])
     except PolicyError as exc:
         return error(400, exc.code, message=str(exc))
+    refused = audit_change(request, ident, "account.password.change", who(row))
+    if refused:
+        return refused
+    await acc.set_password(ident.user.id, body.get("new"))
     request.app["sessions"].revoke_user(ident.user.id, "password_changed", keep=ident.session_id)
     return ok()
 
@@ -812,9 +868,23 @@ async def users_create(request: web.Request) -> web.Response:
     acc = accounts_of(request)
     if not isinstance(body.get("password"), str):
         return error(400, "password_required")
+    name = body.get("name") if isinstance(body.get("name"), str) else None
+    try:  # everything create_user would refuse, refused before the audit row (which then names the new id)
+        username = check_username(body.get("username"))
+        if role not in ROLES:
+            raise PolicyError("role_invalid", f"roles are {', '.join(ROLES)}")
+        check_password_policy(body.get("password"), username, name)
+        if acc.find_username(username) is not None:
+            raise PolicyError("username_taken", "that user name is taken")
+    except PolicyError as exc:
+        return error(409 if exc.code == "username_taken" else 400, exc.code, message=str(exc))
+    user_id = secrets.token_hex(16)
+    refused = audit_change(request, ident, "account.add",
+                           {"user": user_id, "username": username, "name": name, "role": role})
+    if refused:
+        return refused
     try:
-        user_id = await acc.create_user(body.get("username"), body.get("name") if isinstance(body.get("name"), str) else None,
-                                        role, body.get("password"))
+        await acc.create_user(username, name, role, body.get("password"), user_id=user_id)
     except PolicyError as exc:
         return error(409 if exc.code == "username_taken" else 400, exc.code, message=str(exc))
     return ok({"user": acc.describe(acc.get_user(user_id))}, status=201)
@@ -837,12 +907,59 @@ async def users_update(request: web.Request) -> web.Response:
     losing_owner = row["role"] == "owner" and not row["disabled"] and (new_role != "owner" or disabled)
     if losing_owner and acc.db.execute("SELECT COUNT(*) FROM users WHERE role = 'owner' AND disabled = 0").fetchone()[0] <= 1:
         return error(409, "last_owner")
+    # one audit row per thing that changes, all before the change; nothing changing writes none
+    changes = []
+    if new_role != row["role"]:
+        changes.append(("account.role", {"from": row["role"], "to": new_role}))
+    if disabled != bool(row["disabled"]):
+        changes.append(("account.disable" if disabled else "account.enable", {"role": row["role"]}))
+    if name != row["name"]:
+        changes.append(("account.rename", {"from": row["name"], "to": name}))
+    for action, detail in changes:
+        refused = audit_change(request, ident, action, {**who(row), **detail})
+        if refused:
+            return refused
     with acc.db:
         acc.db.execute("UPDATE users SET role = ?, disabled = ?, name = ?, updated = ? WHERE id = ?",
                        (new_role, int(disabled), name, acc.clock(), row["id"]))
     if disabled and not row["disabled"]:
         request.app["sessions"].revoke_user(row["id"], "disabled")
     return ok({"user": acc.describe(acc.get_user(row["id"]))})
+
+
+async def users_set_password(request: web.Request) -> web.Response:
+    """``POST /api/users/{id}/password {password}`` (People → a person → Set a New Password): an Owner or Admin
+    gives someone a new password, as users_update changes their role: an Admin never for an Owner. Not for
+    yourself (Me → Change Password asks for the current one, which this would skip) and only for a Mantel account
+    with a user name (a Home Assistant user signs in through Home Assistant). It is the strongest thing a manager
+    can do to another account, so it needs a fresh confirmation (within ~5 minutes, as removing a passkey does).
+    The same rules as a new account's password; the audit row first (never the password); then every session the
+    person has ends, so whoever knew the old password, or holds one of their cookies, is out at once. A lockout
+    is lifted (set_password), so they can sign in with the new one straight away."""
+    ident = require_manager(request)
+    acc = accounts_of(request)
+    row = acc.get_user(request.match_info["id"])
+    if row is None:
+        return error(404, "not_found")
+    if not may_manage(ident.user.role, row["role"]):
+        return error(403, "forbidden")
+    if row["id"] == ident.user.id:
+        return error(409, "own_password", message="Change your own password in Me, with your current one.")
+    if row["kind"] != "hk" or not row["username"]:
+        return error(409, "no_mantel_password", message="This person signs in with Home Assistant, not a Mantel password.")
+    require_fresh(request, ident)
+    body = await read_json(request)
+    try:
+        check_password_policy(body.get("password"), row["username"], row["name"])
+    except PolicyError as exc:
+        return error(400, exc.code, message=str(exc))
+    refused = audit_change(request, ident, "account.password.reset", {**who(row), "role": row["role"]})
+    if refused:
+        return refused
+    await acc.set_password(row["id"], body.get("password"))
+    ended = request.app["sessions"].revoke_user(row["id"], "password_reset")
+    log.info("password reset for %s by %s (%d sessions ended)", row["id"], ident.user.id, ended)
+    return ok({"user": acc.describe(acc.get_user(row["id"])), "sessions_ended": ended})
 
 
 PUBLIC = ("/api/auth/password", "/api/auth/totp/verify", "/api/auth/passkey/options", "/api/auth/passkey/verify",
@@ -874,3 +991,4 @@ def register(app: web.Application, hub=None) -> None:
     r.add_get("/api/users", users_list)
     r.add_post("/api/users", users_create)
     r.add_patch("/api/users/{id}", users_update)
+    r.add_post("/api/users/{id}/password", users_set_password)

@@ -290,6 +290,38 @@ def test_device_specific_deny_binds_even_an_owner_at_it():
     assert p.decide(s, "view", "media_player.loft_tv", ctx()).allowed
 
 
+@pytest.mark.parametrize("deny", [
+    Grant(effect="deny", actions="*", resource_kind="all", roles={"owner"}),          # an old row naming the role
+    Grant(effect="deny", actions="*", resource_kind="all", users={"olive"}),          # ... or naming the person
+    Grant(effect="deny", actions="configure", resource_kind="feature", resource="roles", users={"olive"}),
+    guest_until("olive", NOW - 60),                                                   # promoted to Owner later
+])
+def test_owners_always_keep_every_permission_whatever_deny_is_stored(deny):
+    """RBAC.md "Owners always keep every permission": rbac_store refuses such a deny, and one that is stored
+    anyway (from before, or about someone made an Owner later) never reaches an Owner's own side."""
+    p = Policy.build([deny])
+    for action, target in (("lock.unlock", "lock.front_door"), ("camera.live", "camera.doorbell"),
+                           ("view", "light.kitchen")):
+        assert p.decide(owner(), action, target, ctx()).allowed, (action, target)
+    assert p.decide(owner(), "configure", None, ctx(), feature="roles").allowed
+    assert p.decide(owner(door="tunnel"), "lock.unlock", "lock.front_door", ctx()).allowed
+    # a deny naming the person still binds them once they are no longer an Owner
+    if deny.users:
+        assert not p.decide(replace(owner(), user_role="admin"), "configure", None, ctx(), feature="roles").allowed
+
+
+def test_an_owners_allow_grants_and_the_device_side_are_unchanged():
+    p = Policy.build([Grant(effect="deny", actions="*", resource_kind="all", devices={"loft_tablet"}),
+                      Grant(effect="deny", actions="*", resource_kind="all", roles={"owner", "adult"})])
+    # a deny on the tablet still binds an Owner at it (a person never does more at a tablet than the tablet)
+    s = owner(device_role="wall_tablet", device_id="loft_tablet", device_areas={"loft"})
+    d = p.decide(s, "light.turn_on", "light.loft", ctx())
+    assert (d.allowed, d.reason, d.side) == (False, "explicit_deny", "device")
+    # the role-wide deny still binds the other role it names
+    assert not p.decide(adult(), "light.turn_on", "light.kitchen", ctx()).allowed
+    assert p.decide(owner(), "light.turn_on", "light.kitchen", ctx()).allowed
+
+
 def test_user_grant_does_not_leak_to_the_device_side_and_back():
     p = Policy.build([Grant(effect="allow", actions="control", resource_kind="entity", resource="light.kitchen",
                             users={"loft_tablet"})])   # an id that happens to equal the device's

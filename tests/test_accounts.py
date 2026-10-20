@@ -1,7 +1,9 @@
 """P3.1 accounts: password policy, Argon2id, lockout and rate limits, TOTP (RFC 6238), secrets at rest,
 the first-Owner bootstrap and user management. Fictional users, temp databases, no HA."""
 import base64
+import json
 import os
+import sqlite3
 import stat
 
 import pytest
@@ -302,3 +304,198 @@ async def test_change_password_revokes_other_sessions(mantel):
     assert (await mantel.get("/api/session")).status == 200                 # this one stays
     mantel.forget_cookies()
     assert (await mantel.sign_in("jordan", new))[0].status == 200
+
+
+# -- passwords: your own (Me → Change Password) and someone else's (People → Set a New Password) ---------
+def audit_rows(mantel, prefix="account."):
+    return [r for r in mantel.app["audit"].rows(kind="config") if r["action"].startswith(prefix)]
+
+
+async def test_change_password_checks_the_current_one_and_the_rules_and_is_audited(mantel):
+    uid = await mantel.user("jordan", "adult")
+    await mantel.sign_in("jordan")
+    r = await mantel.post("/api/account/password", {"current": "not the password!", "new": "an even better passphrase"})
+    assert r.status == 401 and (await r.json())["error"] == "invalid_credentials"
+    r = await mantel.post("/api/account/password", {"current": PASSWORD, "new": "short"})
+    assert r.status == 400 and (await r.json())["error"] == "password_too_short"
+    r = await mantel.post("/api/account/password", {"current": PASSWORD, "new": "jordan's new passphrase"})
+    assert r.status == 400 and (await r.json())["error"] == "password_contains_name"
+    r = await mantel.post("/api/account/password", {"current": PASSWORD, "new": "an even better passphrase"}, csrf=False)
+    assert r.status == 403                                                  # CSRF, as every change
+    assert audit_rows(mantel) == []                                         # nothing refused is recorded as done
+    r = await mantel.post("/api/account/password", {"current": PASSWORD, "new": "an even better passphrase"})
+    assert r.status == 200
+    [row] = audit_rows(mantel)
+    assert (row["action"], row["actor"], row["role"], row["decision"], row["door"]) == \
+        ("account.password.change", uid, "adult", "allowed", "lan")
+    assert json.loads(row["target"]) == {"user": uid, "username": "jordan", "name": "Jordan"}
+    assert row["source_ip"]
+    dump = json.dumps(mantel.app["audit"].rows())
+    assert PASSWORD not in dump and "an even better passphrase" not in dump and "argon2" not in dump
+
+
+async def test_wrong_current_passwords_count_toward_the_lockout(mantel):
+    await mantel.user("jordan", "adult")
+    await mantel.sign_in("jordan")
+    for _ in range(ACCOUNT_FAILURES):
+        await mantel.post("/api/account/password", {"current": "not the password!", "new": "an even better passphrase"})
+    r = await mantel.post("/api/account/password", {"current": PASSWORD, "new": "an even better passphrase"})
+    assert r.status == 429
+
+
+async def test_setting_a_first_password_needs_a_fresh_session(mantel):
+    """No password to check (an account made without one): a stolen cookie alone can't give itself one."""
+    uid = await mantel.app["accounts"].create_user("sam", "Sam", "adult", None)
+    issued = mantel.app["sessions"].create(uid, "lan", "cli")
+    mantel.set_cookies(mantel_session=issued.access, mantel_csrf=issued.csrf)
+    mantel.now[0] += 600
+    r = await mantel.post("/api/account/password", {"new": "a first good passphrase"})
+    assert r.status == 403 and (await r.json())["error"] == "step_up_required"
+    mantel.app["sessions"].mark_fresh(issued.session_id, "totp")
+    r = await mantel.post("/api/account/password", {"new": "a first good passphrase"})
+    assert r.status == 200
+    mantel.forget_cookies()
+    assert (await mantel.sign_in("sam", "a first good passphrase"))[0].status == 200
+
+
+async def reset(mantel, uid, password="a brand new passphrase"):
+    return await mantel.post(f"/api/users/{uid}/password", {"password": password})
+
+
+async def test_an_owner_or_admin_sets_a_new_password_and_their_sessions_end(mantel):
+    owner = await mantel.user("avery", "owner")
+    jordan = await mantel.user("jordan", "adult")
+    phone = mantel.app["sessions"].create(jordan, "lan", "password")
+    laptop = mantel.app["sessions"].create(jordan, "tunnel", "passkey")
+    for _ in range(5):                                                      # Jordan locked themselves out
+        mantel.app["accounts"].record_failure("198.51.100.4", None, jordan)
+    await mantel.sign_in("avery")
+    r = await reset(mantel, jordan, "short")
+    assert r.status == 400 and (await r.json())["error"] == "password_too_short"
+    r = await reset(mantel, jordan)
+    assert r.status == 200
+    got = await r.json()
+    assert got["sessions_ended"] == 2 and got["user"]["id"] == jordan
+    assert mantel.app["sessions"].get(phone.session_id) is None and mantel.app["sessions"].get(laptop.session_id) is None
+    assert (await mantel.get("/api/session")).status == 200                 # the Owner's own session stays
+    [row] = audit_rows(mantel)
+    assert (row["action"], row["actor"], row["role"]) == ("account.password.reset", owner, "owner")
+    assert json.loads(row["target"]) == {"user": jordan, "username": "jordan", "name": "Jordan", "role": "adult"}
+    assert "a brand new passphrase" not in json.dumps(mantel.app["audit"].rows())
+    mantel.forget_cookies()
+    assert (await mantel.sign_in("jordan"))[0].status == 401                # the old one is gone
+    assert (await mantel.sign_in("jordan", "a brand new passphrase"))[0].status == 200   # and the lock lifted
+
+
+async def test_an_admin_never_sets_an_owners_password_nor_anyone_their_own(mantel):
+    owner = await mantel.user("avery", "owner")
+    admin = await mantel.user("ada", "admin")
+    other_admin = await mantel.user("abe", "admin")
+    await mantel.user("kid", "child")
+    await mantel.sign_in("ada")
+    r = await reset(mantel, owner)
+    assert r.status == 403 and (await r.json())["error"] == "forbidden"
+    r = await reset(mantel, admin)
+    assert r.status == 409 and (await r.json())["error"] == "own_password"  # yours: Me, with the current one
+    assert (await reset(mantel, other_admin)).status == 200                  # an Admin may for another Admin
+    assert (await reset(mantel, "no-such-person")).status == 404
+    ha = mantel.store.link("ha-user-1", "adult", "Hollis")
+    r = await reset(mantel, ha)
+    assert r.status == 409 and (await r.json())["error"] == "no_mantel_password"
+    mantel.forget_cookies()
+    await mantel.sign_in("kid")
+    assert (await reset(mantel, other_admin)).status == 403                 # only Owners and Admins
+    mantel.forget_cookies()
+    await mantel.sign_in("avery")
+    assert (await reset(mantel, admin)).status == 200                       # an Owner for anyone else
+    assert [r["actor"] for r in audit_rows(mantel)] == [admin, owner]
+
+
+async def test_setting_someones_password_needs_a_fresh_confirmation(mantel):
+    await mantel.user("avery", "owner")
+    jordan = await mantel.user("jordan", "adult")
+    await mantel.sign_in("avery")
+    mantel.now[0] += 301                                                    # signed in more than 5 minutes ago
+    r = await reset(mantel, jordan)
+    assert r.status == 403 and (await r.json())["error"] == "step_up_required"
+    assert audit_rows(mantel) == []
+    mantel.forget_cookies()
+    await mantel.sign_in("avery")                                           # a new sign-in is fresh
+    assert (await reset(mantel, jordan)).status == 200
+
+
+async def test_no_audit_row_no_change(mantel, monkeypatch):
+    """The row comes first: when it can't be written, the password, the person and their role stay as they were."""
+    await mantel.user("avery", "owner")
+    jordan = await mantel.user("jordan", "adult")
+    await mantel.sign_in("avery")
+
+    def broken(event):
+        raise sqlite3.OperationalError("disk I/O error")
+    monkeypatch.setattr(mantel.app["audit"], "config_event", broken)
+    r = await reset(mantel, jordan)
+    assert r.status == 503 and (await r.json())["error"] == "audit_unavailable"
+    r = await mantel.client.patch(f"/api/users/{jordan}", json={"role": "admin", "disabled": True}, headers=mantel.headers())
+    assert r.status == 503
+    r = await mantel.post("/api/users", {"username": "riley", "role": "child", "password": PASSWORD})
+    assert r.status == 503
+    r = await mantel.post("/api/account/password", {"current": PASSWORD, "new": "an even better passphrase"})
+    assert r.status == 503
+    row = mantel.app["accounts"].get_user(jordan)
+    assert (row["role"], row["disabled"]) == ("adult", 0)
+    assert mantel.app["accounts"].find_username("riley") is None
+    monkeypatch.undo()
+    mantel.forget_cookies()
+    assert (await mantel.sign_in("jordan"))[0].status == 200                # Jordan's password unchanged
+    assert (await mantel.sign_in("avery"))[0].status == 200                 # and the Owner's
+
+
+# -- the audit of account changes --------------------------------------------------------------------
+async def test_adding_changing_disabling_and_enabling_people_is_audited_first(mantel):
+    owner = await mantel.user("avery", "owner")
+    await mantel.sign_in("avery")
+    r = await mantel.post("/api/users", {"username": "Riley", "name": "Riley", "role": "child", "password": PASSWORD})
+    riley = (await r.json())["user"]["id"]
+    assert (await mantel.post("/api/users", {"username": "riley", "role": "child", "password": PASSWORD})).status == 409
+    assert (await mantel.post("/api/users", {"username": "sam", "role": "child", "password": "short"})).status == 400
+    patch = lambda body: mantel.client.patch(f"/api/users/{riley}", json=body, headers=mantel.headers())  # noqa: E731
+    assert (await patch({"role": "adult"})).status == 200
+    assert (await patch({"disabled": True})).status == 200
+    assert (await patch({"disabled": True})).status == 200                  # no change, no row
+    assert (await patch({"disabled": False, "name": "Riley R."})).status == 200
+    rows = audit_rows(mantel)
+    assert all((r["actor"], r["role"], r["kind"], r["door"]) == (owner, "owner", "config", "lan") for r in rows)
+    assert [(r["action"], json.loads(r["target"])) for r in rows] == [
+        ("account.add", {"user": riley, "username": "riley", "name": "Riley", "role": "child"}),
+        ("account.role", {"user": riley, "username": "riley", "name": "Riley", "from": "child", "to": "adult"}),
+        ("account.disable", {"user": riley, "username": "riley", "name": "Riley", "role": "adult"}),
+        ("account.enable", {"user": riley, "username": "riley", "name": "Riley", "role": "adult"}),
+        ("account.rename", {"user": riley, "username": "riley", "name": "Riley", "from": "Riley", "to": "Riley R."}),
+    ]
+    assert PASSWORD not in json.dumps(mantel.app["audit"].rows())
+    # the Audit Log's Kind filter finds them (GET /api/audit?kind=config)
+    got = await (await mantel.get("/api/audit?kind=config")).json()
+    assert [r["action"] for r in got["rows"]][:5] == ["account.rename", "account.enable", "account.disable",
+                                                     "account.role", "account.add"]
+
+
+async def test_a_refused_change_writes_no_row(mantel):
+    owner = await mantel.user("avery", "owner")
+    await mantel.user("ada", "admin")
+    await mantel.sign_in("ada")
+    assert (await mantel.client.patch(f"/api/users/{owner}", json={"disabled": True}, headers=mantel.headers())).status == 403
+    assert (await mantel.post("/api/users", {"username": "o2", "role": "owner", "password": PASSWORD})).status == 403
+    mantel.forget_cookies()
+    await mantel.sign_in("avery")
+    r = await mantel.client.patch(f"/api/users/{owner}", json={"role": "adult"}, headers=mantel.headers())
+    assert r.status == 409                                                  # the last Owner
+    assert audit_rows(mantel) == []
+
+
+async def test_sign_ins_are_not_audited(mantel):
+    """By design (accounts.audit_change): the audit is append-only for a year and a failed sign-in needs no
+    account. A sign-in is its session; failures are the rate limits and the lockout."""
+    await mantel.user("jordan", "adult")
+    await mantel.sign_in("jordan", "not the password!")
+    await mantel.sign_in("jordan")
+    assert mantel.app["audit"].rows() == []

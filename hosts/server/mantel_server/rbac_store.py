@@ -29,7 +29,7 @@ from typing import Any, Callable, Mapping
 
 from aiohttp import web
 
-from .rbac import DEFAULT_ROLES, Grant, Policy, Role, Schedule, Subject
+from .rbac import DEFAULT_ROLES, OWNER, Grant, Policy, Role, Schedule, Subject
 
 log = logging.getLogger("mantel.rbac")
 
@@ -76,9 +76,28 @@ class RbacStore:
                                      devices=_safe_list(devices), id=gid, note="unreadable deny"))
         return out
 
-    def add_grant(self, grant: Grant, by: str | None = None) -> Grant:
+    def owner_ids(self) -> frozenset[str]:
+        """The people whose role is Owner now (accounts' ``users`` table; none on a bare RBAC database)."""
+        try:
+            return frozenset(r[0] for r in self.conn.execute("SELECT id FROM users WHERE role = 'owner'"))
+        except sqlite3.OperationalError:     # tests and tools that keep only the RBAC tables
+            return frozenset()
+
+    def check_grant(self, grant: Grant) -> Grant:
+        """A grant fit to store, or ValueError. Owners always keep every permission, so a deny that names the
+        Owner role or a person who is an Owner is refused here, before it is saved (the engine ignores one that
+        got in anyway: rbac.Policy._side)."""
         if not grant.targets_anyone:
             raise ValueError("a grant must name at least one role, user or device")
+        if grant.effect == "deny":
+            if OWNER in grant.roles:
+                raise ValueError("Owners always keep every permission: a deny cannot name the owner role")
+            if grant.users & self.owner_ids():
+                raise ValueError("Owners always keep every permission: a deny cannot name a person who is an Owner")
+        return grant
+
+    def add_grant(self, grant: Grant, by: str | None = None) -> Grant:
+        self.check_grant(grant)
         with self.conn:
             cur = self.conn.execute(
                 "INSERT INTO rbac_grants (effect, actions, resource_kind, resource, domains, roles, users, devices, "
@@ -256,9 +275,7 @@ def register(app: web.Application, hub: Any, *, identity: Callable[[web.Request]
         try:
             if isinstance(data, dict) and data.get("id") is not None:
                 raise ValueError("a new grant has no id")
-            grant = Grant.from_dict(data)
-            if not grant.targets_anyone:
-                raise ValueError("a grant must name at least one role, user or device")
+            grant = store.check_grant(Grant.from_dict(data))
         except (ValueError, TypeError) as exc:
             return bad(exc)
         refused = record(who, "rbac.grant.add", grant.to_dict())

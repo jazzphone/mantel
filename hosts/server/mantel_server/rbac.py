@@ -10,7 +10,8 @@ Rules, in the order they are applied:
 2. Device credentials are refused on the tunnel door (§7: tablets are LAN-only).
 3. Each side (user, device) is evaluated on its own: its role's grants plus the stored grants that
    name its role or id. Deny by default; grants are additive; an explicit deny wins. A grant with a
-   schedule only counts while its window is open.
+   schedule only counts while its window is open. A person whose role is Owner ignores every stored
+   deny (Owners always keep every permission); the device they sit at does not.
 4. Effective permission = user's ∩ device's. No user: the device alone; no device: the user alone.
 5. Tunnel rules (§7): sensitive actions only for roles whose `tunnel_sensitive` switch is on
    (Owner, Admin, Adult); cameras and locations only where `tunnel_cameras`/`tunnel_locations` is on.
@@ -37,6 +38,7 @@ EFFECTS = ("allow", "deny")
 DOORS = ("lan", "tunnel")
 SIDES = ("user", "device")
 SUBJECT_AREAS = "@subject"         # area resource meaning "this side's own areas" (see Subject)
+OWNER = "owner"                    # the role no grant can take anything from (Policy._side)
 
 # Features (§5): named resources. Some contain entities (by domain, or garage covers by device
 # class); the others are non-entity endpoints (music library, energy, settings, ...).
@@ -502,7 +504,12 @@ class Policy:
               entity_id: str | None, feature: str | None, ctx: Context) -> str:
         r = self.roles.get(role) if role is not None else None
         grants = list(r.grants) if r else []
-        grants += [g for g in self.grants if g.applies_to(side, role, sid)]
+        # Owners always keep every permission (RBAC.md): a stored deny never reaches an Owner's own side.
+        # rbac_store refuses to save one that names the Owner role or a person who is an Owner, but a row
+        # saved before that, or a person promoted to Owner after a deny named them, must not lock an Owner
+        # out either. The device side is untouched: an Owner at a wall tablet still gets only the tablet's share.
+        owner = side == "user" and role == OWNER
+        grants += [g for g in self.grants if g.applies_to(side, role, sid) and not (owner and g.effect == "deny")]
         allowed = False
         for g in grants:
             if not g.covers(cl.action):

@@ -182,7 +182,8 @@ async def test_a_malformed_step_up_is_refused(gw):
         reply = await gw.command(ws, id=n, **unlock(step_up=step))
         assert reply["error"]["code"] == "invalid_command", (step, reply)
     assert gw.fake.sent == []
-    assert {r["reason"] for r in gw.audit()} == {"invalid_step_up"}
+    # the tablet's enrolment is a settings row (device.enroll); every command row is the refusal
+    assert {r["reason"] for r in gw.audit() if r["kind"] != "config"} == {"invalid_step_up"}
     await ws.close()
 
 
@@ -193,5 +194,5 @@ async def test_with_commands_off_a_pin_changes_nothing(off):
     await ws.send_json({"type": "command", "id": 1, **unlock(step_up={"method": "pin", "pin": ADULT_PIN})})
     reply = await ws.receive_json()
     assert reply["code"] == "commands_disabled" and reply["id"] == 1
-    assert off.audit() == []
+    assert [r["action"] for r in off.audit()] == ["device.enroll"]          # the tablet's enrolment, no command
     await ws.close()

@@ -288,3 +288,61 @@ def test_a_child_has_the_music_page_and_an_owner_can_take_it_away(store):
     assert not store.policy().decide(s, "view", None, ctx(), feature="music").allowed
     store.remove_grant(g.id)
     assert store.policy().decide(s, "view", None, ctx(), feature="music").allowed
+
+
+# -- Owners always keep every permission ------------------------------------------------------------
+OWNER_DENY = {"effect": "deny", "actions": ["*"], "resource_kind": "all", "roles": ["owner"], "note": "lock them out"}
+
+
+def with_users(conn, **people):
+    """A users table as accounts keeps it (just the columns the store reads), with these people's roles."""
+    conn.execute("CREATE TABLE IF NOT EXISTS users (id TEXT PRIMARY KEY, role TEXT NOT NULL)")
+    conn.executemany("INSERT INTO users (id, role) VALUES (?, ?)", list(people.items()))
+    conn.commit()
+
+
+@pytest.mark.parametrize("body", [
+    OWNER_DENY,
+    {**OWNER_DENY, "roles": ["adult", "owner"]},                      # the Owner role among others
+    {**OWNER_DENY, "roles": [], "users": ["olive"]},                   # a person who is an Owner
+    {**OWNER_DENY, "roles": [], "users": ["cody", "olive"], "resource_kind": "feature", "resource": "audit"},
+])
+async def test_a_deny_that_names_an_owner_is_refused_before_anything_is_stored(api, conn, body):
+    client, store, hub, events, flags = api
+    with_users(conn, olive="owner", cody="child")
+    r = await client.post("/api/rbac/grants", json=body, headers=as_("owner"))
+    assert r.status == 400
+    got = await r.json()
+    assert got["error"] == "invalid" and "Owners always keep every permission" in got["message"]
+    assert events == [] and store.grants() == []                      # not audited, not stored
+    with pytest.raises(ValueError, match="Owners always keep"):
+        store.add_grant(Grant.from_dict(body))                        # nor through the store itself
+    assert store.grants() == []
+
+
+async def test_allows_for_owners_and_denies_for_everyone_else_still_save(api, conn):
+    client, store, hub, events, flags = api
+    with_users(conn, olive="owner", cody="child")
+    for body in ({**OWNER_DENY, "effect": "allow"}, {**OWNER_DENY, "effect": "allow", "roles": [], "users": ["olive"]},
+                 {**OWNER_DENY, "roles": ["child"]}, {**OWNER_DENY, "roles": [], "users": ["cody"]}):
+        r = await client.post("/api/rbac/grants", json=body, headers=as_("owner"))
+        assert r.status == 201, body
+    assert len(store.grants()) == 4
+
+
+def test_a_stored_owner_deny_from_before_never_reaches_the_owner(store, conn):
+    """A row saved before the store refused them (written straight to the table here) is read, and ignored
+    for Owners by the engine; a person promoted to Owner after a deny named them is not locked out either."""
+    conn.execute("INSERT INTO rbac_grants (effect, actions, resource_kind, resource, domains, roles, users, devices, "
+                 "created_at) VALUES ('deny', '[\"*\"]', 'all', '', '[]', '[\"owner\"]', '[]', '[]', 0)")
+    conn.commit()
+    store.add_grant(Grant(effect="deny", actions="*", resource_kind="all", users={"cody"}))   # Cody, a child today
+    store.invalidate()
+    policy = store.policy()
+    assert len(policy.grants) == 2
+    olive = store.subject(user_role="owner", user_id="olive")
+    assert policy.decide(olive, "lock.unlock", "lock.front_door", ctx()).allowed
+    cody = store.subject(user_role="child", user_id="cody")
+    assert not policy.decide(cody, "light.turn_on", "light.cody", ctx()).allowed
+    cody_promoted = store.subject(user_role="owner", user_id="cody")
+    assert policy.decide(cody_promoted, "light.turn_on", "light.cody", ctx()).allowed

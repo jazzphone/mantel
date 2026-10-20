@@ -52,7 +52,18 @@ Anyone who knows a user name can lock that account for 15 minutes this way. That
 
 Passwords are stored only as Argon2id hashes.
 
-<!-- CHECK: there is no "change password" row in Mantel Settings → Me (POST /api/account/password exists, and revokes your other sessions, but no page calls it), and no way for an Owner to reset someone else's password. -->
+### Change your password
+
+1. Open **Mantel Settings** → **Me**.
+2. Select **Change Password…**.
+3. Type your **Current Password**, then the **New Password** twice (**Repeat**). The same rules apply as above.
+4. Select **Change Password**.
+
+A wrong current password counts toward the lockout like a wrong sign-in. Once it's changed, every other browser signed in as you is signed out; this one stays. The change is recorded in the [audit log](Commands-and-Audit.md#the-audit-log), without the password.
+
+**Change Password…** is only for a Mantel account. A Home Assistant user's password is Home Assistant's.
+
+If you've forgotten your password, ask an Owner or Admin to set a new one for you ([People and Roles](People-and-Roles.md#set-a-new-password-for-someone)).
 
 ## Authenticator app (two-step sign-in)
 
@@ -96,7 +107,7 @@ From outside the home, Mantel accepts Home Assistant's sign-in as it is: it does
 
 ## Confirm it is you
 
-A few account changes ask for a recent sign-in, within the last five minutes: replacing or removing your authenticator app, removing a passkey, setting a PIN, changing the Alarm PIN's settings, and changing connections from outside the home. Mantel shows **Confirm It Is You**: type your authenticator code, or select **Use Passkey**. With neither set up, sign out, sign in again and make the change within five minutes.
+A few account changes ask for a recent sign-in, within the last five minutes: replacing or removing your authenticator app, removing a passkey, setting a PIN, setting a new password for someone else, changing the Alarm PIN's settings, and changing connections from outside the home. Mantel shows **Confirm It Is You**: type your authenticator code, or select **Use Passkey**. With neither set up, sign out, sign in again and make the change within five minutes.
 
 House commands never ask for this. See [Commands and Audit](Commands-and-Audit.md).
 
@@ -120,7 +131,7 @@ Then you sign in again. A session belongs to the door it started on: a session f
 - **Sign Out Here** ends this browser's session. So does **Sign Out** at the bottom of **Me**.
 - **Revoke** next to another browser signs it out at once. Use it for a lost phone.
 
-Your sessions also end at once when an Owner or Admin disables you, or when your Home Assistant link is removed.
+Your sessions also end at once when an Owner or Admin disables you or sets a new password for you, or when your Home Assistant link is removed. Changing your own password ends all your sessions except the one you changed it from.
 
 The iPhone, iPad and Mac apps have their own sign-in; see [iPhone and Mac Apps](iPhone-and-Mac-Apps.md).
 

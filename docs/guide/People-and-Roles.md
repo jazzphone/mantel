@@ -21,7 +21,7 @@ A few more details:
 - **Children** never get cameras, locks, the alarm or the garage, even in their own rooms. They can't change vacuum schedules.
 - **Guests** never see cameras, the garage, people's locations, or any history.
 - **Sensitive actions** are unlocking, opening the garage, disarming the alarm, water valves, automations, stopping a script, and camera live view. A role needs a separate permission for them (`control.sensitive`). Adults, Owners, Admins and wall tablets have it by default; Children and Guests don't.
-- **The Owner role can't be changed.** Its own grants are fixed at "everything". A deny grant that names an Owner (or the Owner role) still applies, so be careful with those, and an Owner at a wall tablet is still limited to what the tablet may do.<!-- CHECK: Mantel Settings → Roles & Grants says "Owners always keep every permission", but rbac.Grant.applies_to does not exempt the owner role from stored deny grants, and add_grant does not refuse them. -->
+- **The Owner role can't be changed, and Owners can't be denied.** Its own grants are fixed at "everything". Mantel refuses a deny grant that names the Owner role or a person who is an Owner, and a deny that already names someone stops applying while they are an Owner (it applies again if they stop being one). An Owner at a wall tablet is still limited to what the tablet may do.
 - **Service** is for machine accounts, such as the one [Mantel Link](Mantel-Link.md) uses. You can't give a person this role. See [Service accounts](#service-accounts).
 
 The last column is the role's **From Outside the Home** switches: Sensitive Actions, Cameras and Location History. See [Signing In](Signing-In.md#home-and-away) for what "outside the home" means.
@@ -53,7 +53,21 @@ Give them the password in person. They can then add an authenticator app and pas
 
 An Admin can't create an Owner.
 
-<!-- CHECK: there is no way in Mantel Settings, the CLI or the REST API for an Owner or Admin to set or reset someone else's password, and no "change my password" row in Me (POST /api/account/password exists but nothing in the UI calls it). A person who forgets their password has to be given a new account, or sign in another way. -->
+### Set a new password for someone
+
+When someone with a Mantel account forgets their password:
+
+1. Open **Mantel Settings** → **People** and select the person.
+2. Select **Set a New Password…**.
+3. Type the **New Password** twice (**Repeat**), with the same rules as a new account's, and select **Set Password**, then confirm.
+
+It asks you to [confirm it is you](Signing-In.md#confirm-it-is-you) if you signed in more than five minutes ago. Their old password stops working, every browser signed in as them is signed out at once, and a lockout from wrong passwords is lifted. Give them the new password in person; they can change it themselves in **Me** → **Change Password…** ([Signing In](Signing-In.md#change-your-password)).
+
+Some limits:
+
+- An Admin can't set an Owner's password. Only an Owner can.
+- It isn't offered for yourself: change your own in **Me**, which asks for your current one.
+- It isn't offered for a Home Assistant user: their password is Home Assistant's.
 
 ### A Home Assistant user
 
@@ -88,6 +102,8 @@ Some limits:
 - You can't disable yourself.
 - There is no delete. Disable a person instead.
 
+Adding a person, changing a role or a name, disabling and enabling someone, and setting a password are each recorded in the [audit log](Commands-and-Audit.md#the-audit-log): who did it, to whom, and what changed. A password is never in it.
+
 A person's page also has their **Default Screen** (**Opens On**), where Mantel opens for them. It sets only where they land, not what they may open. A wall tablet always opens on its own screen, whoever is signed in at it.
 
 ## Rooms for a person or tablet
@@ -114,7 +130,7 @@ A **grant** allows or denies some actions on some things, for a role, a person o
 
 - Nothing is allowed unless a grant allows it.
 - Grants add up: a person has their role's grants plus any that name them.
-- **A deny always wins** over an allow.
+- **A deny always wins** over an allow, except for Owners: no deny applies to them.
 - At a wall tablet with a person signed in, both must allow it. A person can never do more at a tablet than the tablet can.
 
 ### Add a grant

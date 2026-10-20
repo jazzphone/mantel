@@ -45,6 +45,8 @@ const ERRORS = {
   origin_not_allowed_for_passkeys: 'Passkeys need the name you use to reach Mantel, not an IP address.',
   csrf: 'The page lost its session token. Reload and try again.',
   audit_unavailable: 'The audit log is unavailable, so nothing was changed.',
+  own_password: 'Change your own password in Me, with your current one.',
+  no_mantel_password: 'This person signs in with Home Assistant, not a Mantel password.',
 };
 
 // The words Mantel puts on HK's own pages where Mantel differs (the panel's host notes)
@@ -300,6 +302,7 @@ async function signOut() {
 function pMe(sub) {
   const u = me.user;
   if (sub[0] === 'pin') return pMyPin();
+  if (sub[0] === 'password' && hasMantelPassword(u)) return pMyPassword();
   if (sub[0] === 'enroll') return pEnroll(['Me', '#/' + ROUTE + '/me']);
   return { title: u.name || u.username || 'Me', top: true, scope: roleLabel(u.role) + ' · ' +
     (u.kind === 'ha_linked' ? 'Signed in with Home Assistant' : 'Mantel account') + (u.username ? ' · ' + u.username : ''),
@@ -308,6 +311,11 @@ function pMe(sub) {
     c.appendChild(group({ header: 'Account' }, [info('Name', null, u.name || u.username || u.id), info('Role', null, roleLabel(u.role)),
       info('Signs In With', null, u.kind === 'ha_linked' ? 'Home Assistant' : 'User Name and Password'),
       info('Here From', null, me.door === 'lan' ? 'Home Network' : 'Outside the Home')]));
+    // a Mantel account's own password (accounts.change_password); a Home Assistant user's is Home Assistant's
+    if (hasMantelPassword(u)) {
+      c.appendChild(group({ footer: 'Every other browser signed in as you is signed out when it changes.' },
+        [nav(u.has_password ? 'Change Password…' : 'Set a Password…', 'me/password')]));
+    }
     const ms = load('myscreen', () => api('GET', '/api/default-screen'));
     if (ms && ms.data) {
       const d = ms.data;
@@ -489,11 +497,79 @@ function pMyPin() {
   } };
 }
 
+// PASSWORDS: the same rules as a new account's (accounts.check_password_policy); the server checks them all again
+// (four different characters, not the user name) and says which one failed. A password typed here lives only in
+// this page's draft, cleared as soon as it is sent.
+const hasMantelPassword = (u) => !!u && u.kind !== 'ha_linked' && !!u.username;
+const PASSWORD_RULES = 'Passwords are 12 characters or more, with at least four different characters, and can’t contain the user name.';
+function passwordProblem(d) {
+  if ((d.new || '').length < 12) return 'Passwords are 12 characters or more.';
+  if (d.new.length > 1024) return 'Passwords are at most 1024 characters.';
+  if (d.new !== d.again) return 'The two passwords do not match.';
+  return null;
+}
+const pwField = (form, name, label, auto) => field(form, name, label, { type: 'password', maxlength: 1024, autocomplete: auto });
+function pMyPassword() {
+  const has = !!me.user.has_password;
+  return { title: has ? 'Change Password' : 'Set a Password', back: ['Me', '#/' + ROUTE + '/me'], body(c) {
+    result(c, 'password');
+    c.appendChild(group({ footer: PASSWORD_RULES + ' Every other browser signed in as you is signed out; this one stays.' },
+      [has ? pwField('password', 'current', 'Current Password', 'current-password') : null,
+       pwField('password', 'new', 'New Password', 'new-password'), pwField('password', 'again', 'Repeat', 'new-password')].filter(Boolean)));
+    c.appendChild(group({}, [button(has ? 'Change Password' : 'Set Password', async () => {
+      const d = draft('password');
+      const bad = passwordProblem(d);
+      if (bad) { flash = { key: 'password', text: bad, err: true }; redraw(); return; }
+      const body = has ? { current: d.current || '', new: d.new } : { new: d.new };
+      clearDraft('password');
+      if (!(await act('password', () => api('POST', '/api/account/password', body), null, 'sessions'))) return;
+      try { await refreshMe(); } catch (e) { /* the page still says it worked */ }
+      flash = { key: 'me', text: (has ? 'Password changed.' : 'Password set.') + ' Your other sessions have ended.' };
+      panel.go('#/' + ROUTE + '/me');
+    }, { center: true, fk: 'mx:change-password' })]));
+  } };
+}
+// SOMEONE ELSE'S PASSWORD (accounts.users_set_password): an Owner or Admin sets a new one (an Admin never an Owner's),
+// after a fresh confirmation; every session that person has ends, and the audit log records who did it
+function pPersonPassword(id) {
+  const got = usersRead();
+  const u = got && got.data && got.data.users.find((x) => x.id === id);
+  const back = [u ? u.name || u.username || 'Person' : 'Person', '#/' + ROUTE + '/people/' + encodeURIComponent(id)];
+  return { title: 'Set a New Password', back, body(c) {
+    result(c, 'resetpw');
+    if (!got) { pending(c); return; }
+    if (got.err) { failed(c, got.err); return; }
+    if (!u) { c.appendChild(group({ footer: 'That person no longer exists.' }, [])); return; }
+    if (me.user.role !== 'owner' && u.role === 'owner') { c.appendChild(group({ footer: 'Only an Owner can change an Owner.' }, [])); return; }
+    if (u.id === me.user.id || !hasMantelPassword(u)) {
+      c.appendChild(group({ footer: u.id === me.user.id ? ERRORS.own_password : ERRORS.no_mantel_password }, []));
+      return;
+    }
+    c.appendChild(group({ footer: PASSWORD_RULES + ' They are signed out everywhere at once. Give them the new password in person; they can change it in Me.' },
+      [info('For', null, (u.name || u.username) + (u.username ? ' (' + u.username + ')' : '')),
+       pwField('resetpw', 'new', 'New Password', 'new-password'), pwField('resetpw', 'again', 'Repeat', 'new-password')]));
+    c.appendChild(group({}, [button('Set Password', async () => {
+      const d = draft('resetpw');
+      const bad = passwordProblem(d);
+      if (bad) { flash = { key: 'resetpw', text: bad, err: true }; redraw(); return; }
+      if (!(await ask({ title: 'Set a new password for ' + (u.name || u.username) + '?', message: 'Their old password stops working and every browser signed in as them is signed out now.',
+        ok: 'Set Password', destructive: true }))) return;
+      const value = d.new;
+      clearDraft('resetpw');
+      const r = await act('resetpw', () => api('POST', '/api/users/' + encodeURIComponent(u.id) + '/password', { password: value }), null, 'users');
+      if (!r) return;
+      flash = { key: 'person', text: 'New password set.' + (r.sessions_ended ? ' ' + r.sessions_ended + ' session' + (r.sessions_ended > 1 ? 's' : '') + ' ended.' : '') };
+      panel.go(back[1]);
+    }, { center: true, destructive: true, fk: 'mx:reset-password' })]));
+  } };
+}
+
 // ============================================================================================ People
 const usersRead = () => load('users', () => api('GET', '/api/users'));
 const assignable = () => me.roles.filter((r) => me.user.role === 'owner' || r !== 'owner');
 function pPeople(sub) {
   if (sub[0] === 'add') return pAddPerson();
+  if (sub[0] && sub[1] === 'password') return pPersonPassword(sub[0]);
   if (sub[0]) return pPerson(sub[0]);
   return { title: 'People', top: true, scope: 'Everyone who can sign in to Mantel, and their roles.', body(c) {
     result(c, 'people');
@@ -578,12 +654,14 @@ function pPerson(id) {
       if (!u.disabled && !(await ask({ title: 'Disable ' + (u.name || u.username) + '?', message: 'Their sessions end now and they cannot sign in.', ok: 'Disable', destructive: true }))) return;
       act('person', () => api('PATCH', '/api/users/' + encodeURIComponent(u.id), { disabled: !u.disabled }), u.disabled ? 'Enabled.' : 'Disabled.', 'users');
     }, { destructive: !u.disabled, fk: 'mx:toggle-user' }));
+    if (!self && hasMantelPassword(u)) rows.push(nav('Set a New Password…', 'people/' + encodeURIComponent(u.id) + '/password'));
     rows.push(button('Clear Their PIN…', async () => {
       if (!(await ask({ title: 'Clear their PIN?', message: 'They will have to set a new one.', ok: 'Clear', destructive: true }))) return;
       const r = await act('person', () => api('DELETE', '/api/users/' + encodeURIComponent(u.id) + '/pin'));
       if (r) { flash = { key: 'person', text: r.removed ? 'PIN cleared.' : 'They had no PIN.' }; redraw(); }
     }, { fk: 'mx:clear-pin' }));
-    c.appendChild(group({ footer: self ? 'You can’t disable yourself.' : 'A disabled person is signed out everywhere and can’t sign in.' }, rows));
+    c.appendChild(group({ footer: self ? 'You can’t disable yourself. Change your own password in Me.'
+      : 'A disabled person is signed out everywhere and can’t sign in. A new password signs them out everywhere too.' }, rows));
   } };
 }
 function pAddPerson() {
@@ -1650,8 +1728,28 @@ function drawFrames(c, s) {
 
 // ============================================================================================ Audit
 const auditState = { stack: [null], filters: { limit: '25' } };
+// the account and tablet changes (accounts.audit_change, devices; kind `config`), in words: their target is what
+// changed (never a password). Anything else keeps its action and targets as they are.
+const auditName = (t) => t.name || t.username || String(t.user || t.device || '').slice(0, 6);
+const AUDIT_SAYS = {
+  'account.add': (t) => 'Added ' + auditName(t) + ' as ' + roleLabel(t.role),
+  'account.role': (t) => auditName(t) + ': ' + roleLabel(t.from) + ' → ' + roleLabel(t.to),
+  'account.disable': (t) => 'Disabled ' + auditName(t),
+  'account.enable': (t) => 'Enabled ' + auditName(t),
+  'account.rename': (t) => 'Renamed ' + (t.from || t.username || 'someone') + ' to ' + (t.to || t.username || 'no name'),
+  'account.password.change': () => 'Changed their own password',
+  'account.password.reset': (t) => 'Set a new password for ' + auditName(t),
+  'device.enroll': (t) => 'Enrolled the tablet ' + auditName(t) + (t.room ? ' (' + titleCase(t.room) + ')' : ''),
+  'device.revoke': (t) => (t.by_self ? 'The tablet ' + auditName(t) + ' revoked itself' : 'Revoked the tablet ' + auditName(t)),
+  'device.room': (t) => 'Moved the tablet ' + auditName(t) + ' to ' + (t.to ? titleCase(t.to) : 'no room'),
+};
+function auditSays(r) {
+  const t = r.target, say = AUDIT_SAYS[r.action];
+  if (r.kind !== 'config' || !say || !t || typeof t !== 'object' || Array.isArray(t)) return null;
+  try { return say(t); } catch (e) { return null; }
+}
 function pAudit() {
-  return { title: 'Audit Log', top: true, scope: 'Every house command and every refused request, newest first: who, at which tablet, what, and the result.', body(c) {
+  return { title: 'Audit Log', top: true, scope: 'Every house command and every refused request, and every change to settings, people and tablets, newest first: who, at which tablet, what, and the result.', body(c) {
     result(c, 'audit');
     const names = load('audit-names', async () => {
       let users = null, devices = null;
@@ -1668,8 +1766,8 @@ function pAudit() {
     c.appendChild(group({ header: 'Show' }, [
       users ? K().select({ label: 'Who', options: [['', 'Anyone']].concat(users.map((u) => [u.id, `${u.name || u.username} (${roleLabel(u.role)})`])), value: f.actor || '', fk: 'mx:audit:actor', onChange: set('actor') }) : null,
       devices ? K().select({ label: 'Tablet', options: [['', 'Any Tablet']].concat(devices.map((d) => [d.id, d.name + (d.revoked ? ' (revoked)' : '')])), value: f.device || '', fk: 'mx:audit:device', onChange: set('device') }) : null,
-      K().select({ label: 'Decision', options: [['', 'Any'], ['allowed', 'Allowed'], ['denied', 'Denied'], ['step_up', 'Needed Confirmation']], value: f.decision || '', fk: 'mx:audit:decision', onChange: set('decision') }),
-      K().select({ label: 'Kind', options: [['', 'Any'], ['service', 'Service Calls'], ['ws', 'Home Assistant Writes'], ['http', 'HTTP'], ['ma', 'Music'], ['config', 'Settings and Roles'], ['tablet', 'Wall Tablets'], ['system', 'System']], value: f.kind || '', fk: 'mx:audit:kind', onChange: set('kind') }),
+      K().select({ label: 'Decision', options: [['', 'Any'], ['allowed', 'Allowed'], ['denied', 'Denied'], ['step_up', 'Needed Confirmation (Older Entries)']], value: f.decision || '', fk: 'mx:audit:decision', onChange: set('decision') }),
+      K().select({ label: 'Kind', options: [['', 'Any'], ['service', 'Service Calls'], ['ws', 'Home Assistant Writes'], ['http', 'HTTP'], ['ma', 'Music'], ['config', 'Settings and Accounts'], ['tablet', 'Wall Tablets'], ['system', 'System']], value: f.kind || '', fk: 'mx:audit:kind', onChange: set('kind') }),
       dt('since', 'From'), dt('until', 'To'),
       K().select({ label: 'Rows per Page', options: [['25', '25'], ['50', '50'], ['100', '100']], value: f.limit || '25', fk: 'mx:audit:limit', onChange: set('limit') })]));
     const q = new URLSearchParams();
@@ -1687,7 +1785,8 @@ function pAudit() {
     const target = (t) => (Array.isArray(t) ? t.join(', ') : t && typeof t === 'object' ? JSON.stringify(t) : t || '');
     c.appendChild(group({ header: 'Page ' + st.stack.length, footer: data.retention_days ? `Entries older than ${data.retention_days} days are removed.` : null },
       data.rows.length ? data.rows.map((r) => {
-        const cell = info([r.action, target(r.target)].filter(Boolean).join(' · '),
+        const says = auditSays(r);
+        const cell = info([r.action, says || target(r.target)].filter(Boolean).join(' · '),
           [fmtFull(r.timestamp), who(r), r.device ? 'at ' + (dname[r.device] || r.device_role || String(r.device).slice(0, 6)) : null,
            (r.reason || '').replace(/_/g, ' ') || null, r.step_up ? 'confirmed by ' + r.step_up : null, r.result || null,
            [r.door, r.source_ip].filter(Boolean).join(' ') || null].filter(Boolean).join(' · '),
