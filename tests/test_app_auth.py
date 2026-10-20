@@ -527,3 +527,17 @@ async def test_the_summary_gives_a_players_artwork_without_has_token(mantel):
     assert arts["media_player.den"] == "https://cdn.example/cover.jpg"
     assert arts["media_player.loft"].startswith("/api/app/art?entity=media_player.loft&v=")
     assert "SECRET" not in str(s)                      # HA's artwork token never leaves Mantel
+
+
+async def test_the_consent_page_lets_its_own_form_carry_its_origin(mantel):
+    """Under Referrer-Policy no-referrer a browser POSTs with Origin: null, which Mantel refuses ("bad Origin")."""
+    m = mantel
+    await m.user("ann", "adult")
+    await m.sign_in("ann")
+    _, challenge = pkce()
+    r, q = await authorize(m, challenge)
+    assert r.status == 200 and r.headers["Referrer-Policy"] == "same-origin"
+    # and what a no-referrer page would have sent is indeed refused
+    r = await m.client.post("/app/authorize", data={**q, "csrf": m.cookie("mantel_csrf"), "decision": "allow"},
+                            headers={"Origin": "null"}, allow_redirects=False)
+    assert r.status == 403 and "bad Origin" in await r.text()
