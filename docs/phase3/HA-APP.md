@@ -1022,6 +1022,7 @@ Everything on main since 0.1.28 (validation green: JS 130, HA py 732, Mantel 283
 - **A page change moves together** (190fa6c): the address, the page, its Highlight Color and its Flat ground change
   once the next page's states are in; on a slow link Home no longer turned the next page's color first.
 - No HA backup (Avery).
+- [x] On the house (build `1222925a4a8375c0`, 289a637, 16:28): both links reconnected; the tablets' kiosks named.
 
 ### Removal
 
