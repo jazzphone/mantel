@@ -581,6 +581,67 @@ async def test_the_import_leaves_existing_documents_alone(store):
     assert store.get("board", "dashboard-kitchen").body == {"menu": "open"}
 
 
+# -------------------------------------------------------------- the generated Home screen (no screens yet)
+def test_a_mantel_without_screens_gets_a_generated_home_screen_once(store):
+    """A fresh Mantel whose Home Assistant has no HK Frontend: one screen HK's strategy builds from the rooms and
+    devices (its pages empty), as Add Screen starts a phones-and-computers screen (hk_core new_board)."""
+    from hk_core.settings import model as SM
+    assert S.seed_home_screen(store) is True
+    doc = store.get("board", "dashboard-home")
+    assert doc.version == 1 and doc.body == SM.new_board("personal", None)
+    assert doc.body["pages"] == [] and doc.body["home_page"] is True and doc.body["menu"] == "auto"
+    [h] = store.history("board", "dashboard-home")
+    assert (h["action"], h["source"]) == ("set", "mantel:generated")
+    assert S.SettingsService.screen_title("dashboard-home", doc.body) == "Home"
+    assert S.seed_home_screen(store) is False and store.get("board", "dashboard-home").version == 1
+
+
+async def test_no_generated_screen_where_there_are_screens_or_an_import(store):
+    store.write([("board", "dashboard-kitchen", {"menu": "open"})], actor=S.Actor(label="t"))
+    assert S.seed_home_screen(store) is False and list(store.docs("board")) == ["dashboard-kitchen"]
+
+    async def fetch():
+        return {**PANEL, "boards": {}}            # HK Frontend with no screens: the import makes none either
+    other = S.SettingsStore(store.conn)
+    with other.conn:
+        other.conn.execute("DELETE FROM settings_docs")
+    await S.import_settings(other, fetch, actor=S.Actor(label="t"))
+    assert S.seed_home_screen(other) is False and other.docs("board") == {}     # imported: exactly what came over
+
+
+async def test_the_import_replaces_the_untouched_generated_screen(store):
+    S.seed_home_screen(store)
+
+    async def fetch():
+        return PANEL
+    got = await S.import_settings(store, fetch, actor=S.Actor(label="t"))
+    assert got["replaced"] == ["board/dashboard-home"] and got["skipped"] == []
+    assert list(store.docs("board")) == ["dashboard-kitchen"]          # exactly HA's screens
+    assert store.history("board", "dashboard-home")[0]["message"] == "replaced by the import"
+    assert store.get("board", "dashboard-kitchen").version == 1
+
+
+async def test_the_import_keeps_a_generated_screen_someone_changed_or_when_ha_has_none(store):
+    S.seed_home_screen(store)
+    store.write([("board", "dashboard-home", {**store.body("board", "dashboard-home"), "accent": "blue"})],
+                actor=S.Actor(user_id="owner-id"))
+
+    async def fetch():
+        return PANEL
+    got = await S.import_settings(store, fetch, actor=S.Actor(label="t"))
+    assert "replaced" not in got and sorted(store.docs("board")) == ["dashboard-home", "dashboard-kitchen"]
+    assert store.body("board", "dashboard-home")["accent"] == "blue"
+
+
+async def test_an_hk_frontend_without_screens_keeps_the_generated_one(store):
+    S.seed_home_screen(store)
+
+    async def fetch():
+        return {**PANEL, "boards": {}}
+    got = await S.import_settings(store, fetch, actor=S.Actor(label="t"))
+    assert "replaced" not in got and list(store.docs("board")) == ["dashboard-home"]
+
+
 @pytest.mark.parametrize("payload", [None, [], {"entry_id": "x"}, {"settings": "nope"}])
 async def test_the_import_refuses_what_is_not_hk_settings(store, payload):
     async def fetch():
@@ -634,6 +695,66 @@ def test_the_cli_imports_once_from_ha(tmp_path, capsys):
     d = Database(tmp_path / "data" / "mantel.db")
     assert d.conn.execute("SELECT COUNT(*) FROM settings_docs").fetchone()[0] == 10      # + house/mantel_features (no features added in HA)
     d.close()
+
+
+class ServedHa:
+    """A fake HA served on a real port from a thread of its own (the CLI runs its own event loop)."""
+
+    def __enter__(self):
+        self.fake = SettingsHa()
+        self.loop = asyncio.new_event_loop()
+        self.runner = web.AppRunner(self.fake.app())
+        self.loop.run_until_complete(self.runner.setup())
+        site = web.TCPSite(self.runner, "127.0.0.1", 0)
+        self.loop.run_until_complete(site.start())
+        self.url = f"http://127.0.0.1:{site._server.sockets[0].getsockname()[1]}"
+        self.thread = threading.Thread(target=self.loop.run_forever, daemon=True)
+        self.thread.start()
+        return self
+
+    def __exit__(self, *exc):
+        asyncio.run_coroutine_threadsafe(self.runner.cleanup(), self.loop).result(5)
+        self.loop.call_soon_threadsafe(self.loop.stop)
+        self.thread.join(5)
+
+
+def save_connection(tmp_path, url, token=HA_TOKEN, key_dir="secrets"):
+    """Home Assistant connected the normal way: on Mantel Settings -> Connections, sealed in the data folder."""
+    from mantel_server import atrest, connections
+    files = connections.SealedFiles(tmp_path / "data" / "connections",
+                                    atrest.SecretBox(tmp_path / key_dir / atrest.KEY_FILE))
+    files.save(connections.Record(kind="ha", url=url, token=token, method="oauth", since=1.0))
+
+
+def test_the_cli_imports_with_the_connection_saved_on_connections(tmp_path, capsys):
+    """The usual Docker/LXC install: ha_token is an empty placeholder and HA was connected on the Connections page.
+    The command reaches HA as the server does (connections.ha_in_effect): the saved connection's address and token."""
+    from mantel_server.__main__ import main
+    empty = tmp_path / "ha_token"
+    empty.write_text("")
+    with ServedHa() as ha:
+        save_connection(tmp_path, ha.url)
+        args = ["import-settings", "--data-dir", str(tmp_path / "data"), "--token-file", str(empty),
+                "--secrets-dir", str(tmp_path / "secrets")]          # no --ha-url: the saved connection has it
+        assert main(args) == 0
+        assert "imported HK settings from ha:fictional-entry" in capsys.readouterr().out
+        assert main(args) == 0
+        assert "already imported" in capsys.readouterr().out
+        assert ha.fake.sent_types() == ["auth", "hk_frontend/panel/get"]
+
+
+def test_the_cli_says_how_to_connect_when_nothing_is_connected(tmp_path, capsys):
+    from mantel_server.__main__ import main
+    empty = tmp_path / "ha_token"
+    empty.write_text("")
+    base = ["import-settings", "--data-dir", str(tmp_path / "data"), "--secrets-dir", str(tmp_path / "secrets")]
+    assert main(base + ["--token-file", str(empty)]) == 2
+    assert "Mantel Settings -> Connections" in capsys.readouterr().err
+    assert not (tmp_path / "secrets").exists()               # nothing to open: no at-rest key made for it
+    save_connection(tmp_path, "http://127.0.0.1:9", key_dir="other-secrets")   # sealed with another key
+    assert main(base + ["--token-file", str(empty)]) == 2
+    err = capsys.readouterr().err
+    assert "could not be opened" in err and HA_TOKEN not in err
 
 
 # ------------------------------------------------------------- the client API, wired as P3.7 will
@@ -758,7 +879,9 @@ async def test_rest_import_is_owner_only_and_idempotent(mantel_app):
     m = mantel_app
     h = await _sign_in(m, "fictional-admin", "admin")
     assert (await m.client.post("/api/settings/import", headers=h)).status == 403
-    assert (await (await m.client.get("/api/settings/import")).json()) == {"import": None, "empty": True}
+    # not imported; the store holds only the generated Home screen (server.wire: seed_home_screen)
+    assert (await (await m.client.get("/api/settings/import")).json()) == {"import": None, "empty": False}
+    assert list(m.service.store.docs("board")) == [S.HOME_SCREEN]
     h = await _sign_in(m, "fictional-adult", "adult")
     assert (await m.client.get("/api/settings/import")).status == 403
     h = await _sign_in(m, "fictional-owner", "owner")
@@ -766,6 +889,7 @@ async def test_rest_import_is_owner_only_and_idempotent(mantel_app):
     r = await m.client.post("/api/settings/import", headers=h)
     body = await r.json()
     assert r.status == 200 and body["imported"] is True and body["source"] == "ha:fictional-entry"
+    assert body["replaced"] == ["board/dashboard-home"] and list(m.service.store.docs("board")) == ["dashboard-kitchen"]
     r = await m.client.post("/api/settings/import", headers=h)
     assert (await r.json())["imported"] is False and m.fetched == [1]
     status = await (await m.client.get("/api/settings/import")).json()

@@ -19,7 +19,9 @@ MIGRATIONS = ROOT / "hosts/server/mantel_server/migrations"
 
 
 def boards(m, *paths):
+    """A house with these screens, as an import leaves it: the generated Home screen gives way to them."""
     svc = m.app["settings"]
+    svc.store.remove("board", settings_store.HOME_SCREEN, actor=settings_store.Actor(label="test"))
     svc.store.write([("board", p, {"title": p.split("-", 1)[1].title()}) for p in paths],
                     actor=settings_store.Actor(label="test"))
 

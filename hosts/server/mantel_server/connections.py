@@ -517,6 +517,18 @@ class Connections:
         return p
 
 
+def ha_in_effect(cfg) -> Current | None:
+    """The Home Assistant connection the server would use with ``cfg`` (build_app's Connections): Mantel's own,
+    saved on the Connections page, else the installation's URL and token file. For the commands that reach
+    HA outside the running server (``mantel-server import-settings``). ConnectionFailed when Mantel's saved
+    connection is there but does not open (another at-rest key)."""
+    conns = Connections(cfg, atrest.SecretBox(Path(cfg.secrets_dir).expanduser() / atrest.KEY_FILE))
+    if "ha" in conns.unreadable:
+        raise ConnectionFailed("unreadable", "Mantel's saved Home Assistant connection could not be opened "
+                               f"({conns.unreadable['ha']}); is --secrets-dir the folder with the server's at_rest.key?")
+    return conns.current("ha")
+
+
 async def _revoke_quietly(http: aiohttp.ClientSession, url: str, refresh: str) -> None:
     """Revoke an OAuth refresh token Mantel no longer needs (HA's /auth/token action=revoke)."""
     try:

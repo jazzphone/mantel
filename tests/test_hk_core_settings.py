@@ -200,3 +200,14 @@ def test_a_screens_and_a_tablets_changes():
     t, err = C.apply_tablet({}, {"sleep": {"decided_by": "hk", "linger": 120}}, "hall")
     assert err == {} and t["sleep"]["decided_by"] == "hk" and t["sleep"]["linger"] == 120
     assert C.apply_tablet({}, {"sleep": {"decided_by": "nobody"}}, "hall")[1] == {"sleep": "sleep"}
+
+
+def test_a_new_screen_starts_from_its_preset_and_all_screens_menu():
+    """new_board: what Add Screen's Shown On starts a screen with (HA's dashboard flow), and what Mantel gives a house
+    with no screens (settings_store.seed_home_screen): the preset over the defaults, pages empty (generated)."""
+    phone = M.new_board("personal", None)
+    assert phone["menu"] == "auto" and phone["time_weather"] == "page" and phone["pages"] == [] and phone["home_page"] is True
+    assert phone == M.preset_menu(M.board(M.SCREEN_PRESETS["personal"]), M.SCREEN_PRESETS["personal"], None)
+    assert M.new_board("nonsense", None) == M.board({})
+    assert M.new_board("wall_tablet", {})["menu_custom"] is True
+    assert M.new_board("wall_tablet", {"dashboard": {"menu": {"time_weather_at": "menu"}}})["menu_custom"] is False

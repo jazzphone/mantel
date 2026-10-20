@@ -69,9 +69,9 @@ On **Connections** → **Music Assistant**: its address (for example `http://mus
 
 ### Bring your screens in
 
-Mantel's screens come from HK Frontend's settings in Home Assistant, copied once. As the Owner, see [Moving from HK Frontend](Moving-from-HK-Frontend.md) for how to run the import.
+If your Home Assistant runs HK Frontend, Mantel's screens come from its settings, copied once. As the Owner, on **Connections**, select **Import HK's Settings from Home Assistant** (under **Import from HK Frontend**). It uses the Home Assistant connection you just made, writes nothing to Home Assistant, and running it again changes nothing. You can also run `docker compose exec mantel-server mantel import-settings`. See [Moving from HK Frontend](Moving-from-HK-Frontend.md) for what comes across.
 
-<!-- CHECK: outside the App there is no button for the one-time settings import: the App's People page has one (ingress.py), but Docker/LXC have only `POST /api/settings/import` as the Owner, and `mantel import-settings` reads the ha_token FILE, which is empty when Home Assistant was connected on the Connections page. Also, a Mantel whose Home Assistant has no HK Frontend has no screens at all ("Add Screen" is not offered on Mantel; mantel-settings.js NOTES.add_screen). Confirm the intended first-run path for both cases and update this section. -->
+Without HK Frontend there is nothing to import: Mantel starts with a generated **Home** screen that builds itself from your Home Assistant areas and devices. If you import later, the import replaces that Home screen with HK Frontend's screens, as long as you haven't changed it.
 
 ### Add the household
 

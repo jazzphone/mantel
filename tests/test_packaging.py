@@ -592,6 +592,14 @@ def test_entrypoint_admin_commands_default_to_the_data_volume(tmp_path):
     assert args.count("--data-dir") == 1
 
 
+def test_entrypoint_import_settings_gets_the_secrets_folder_for_the_saved_connection(tmp_path):
+    """import-settings reaches HA as the server does: the connection saved on Connections opens with the at-rest
+    key in the container's secrets folder, so the command gets that folder too (connections.ha_in_effect)."""
+    args, _ = entrypoint.plan(["import-settings"], {"MANTEL_SECRETS_DIR": "/run/secrets"}, options_path=tmp_path / "none")
+    assert args == ["import-settings", "--data-dir", "/data", "--token-file", "/run/secrets/ha_token",
+                    "--secrets-dir", "/run/secrets"]                     # no MANTEL_HA_URL: the saved connection's
+
+
 def test_entrypoint_drops_root_only_through_the_helper(monkeypatch, tmp_path):
     calls = []
     monkeypatch.setattr(entrypoint.os, "chown", lambda p, u, g: calls.append(("chown", str(p), u, g)))
