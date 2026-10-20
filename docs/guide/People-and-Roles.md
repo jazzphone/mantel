@@ -21,7 +21,7 @@ A few more details:
 - **Children** never get cameras, locks, the alarm or the garage, even in their own rooms. They can't change vacuum schedules.
 - **Guests** never see cameras, the garage, people's locations, or any history.
 - **Sensitive actions** are unlocking, opening the garage, disarming the alarm, water valves, automations, stopping a script, and camera live view. A role needs a separate permission for them (`control.sensitive`). Adults, Owners, Admins and wall tablets have it by default; Children and Guests don't.
-- **The Owner role can't be changed.** Its own grants are fixed at "everything". A deny grant that names an Owner (or the Owner role) still applies, so be careful with those, and an Owner at a wall tablet is still limited to what the tablet may do.<!-- CHECK: Mantel Settings → Roles & Grants says "Owners always keep every permission", but rbac.Grant.applies_to does not exempt the owner role from stored deny grants, and add_grant does not refuse them. -->
+- **The Owner role can't be changed, and Owners can't be denied.** Its own grants are fixed at "everything". Mantel refuses a deny grant that names the Owner role or a person who is an Owner, and a deny that already names someone stops applying while they are an Owner (it applies again if they stop being one). An Owner at a wall tablet is still limited to what the tablet may do.
 - **Service** is for machine accounts, such as the one [Mantel Link](Mantel-Link.md) uses. You can't give a person this role. See [Service accounts](#service-accounts).
 
 The last column is the role's **From Outside the Home** switches: Sensitive Actions, Cameras and Location History. See [Signing In](Signing-In.md#home-and-away) for what "outside the home" means.
@@ -114,7 +114,7 @@ A **grant** allows or denies some actions on some things, for a role, a person o
 
 - Nothing is allowed unless a grant allows it.
 - Grants add up: a person has their role's grants plus any that name them.
-- **A deny always wins** over an allow.
+- **A deny always wins** over an allow, except for Owners: no deny applies to them.
 - At a wall tablet with a person signed in, both must allow it. A person can never do more at a tablet than the tablet can.
 
 ### Add a grant
