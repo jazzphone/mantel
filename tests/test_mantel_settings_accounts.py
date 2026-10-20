@@ -271,11 +271,11 @@ def test_the_audit_log_names_account_and_tablet_changes(got):
     assert "passphrase" not in json.dumps(page)
 
 
-def test_the_audit_filters_find_the_new_rows(got):
+def test_the_audit_filters_find_the_new_rows_and_mark_the_old_decision(got):
     selects = {r["label"]: r["options"] for r in rows(got["audit"]) if r["kind"] == "select"}
     assert ["config", "Settings and Accounts"] in selects["Kind"]
     assert selects["Decision"] == [["", "Any"], ["allowed", "Allowed"], ["denied", "Denied"],
-                                   ["step_up", "Needed Confirmation"]]
+                                   ["step_up", "Needed Confirmation (Older Entries)"]]
     from mantel_server.gateway import AUDIT_DECISIONS, AUDIT_KINDS
     assert {v for v, _ in selects["Kind"] if v} == set(AUDIT_KINDS)
     assert {v for v, _ in selects["Decision"] if v} == set(AUDIT_DECISIONS)

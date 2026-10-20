@@ -98,7 +98,7 @@ Each entry shows the action and what it acted on, then the time, who (with their
 
 What to look out for: a **Denied** entry for someone you didn't expect, wrong Alarm PINs at a keypad, unlocks from the away door, and `error:` results.
 
-Entries made before an update may show **Confirm** (**Needed Confirmation**): those are from an earlier version that asked for one.
+Entries made before an update may show **Confirm**: those are from an earlier version that asked for a confirmation. The **Decision** filter keeps **Needed Confirmation (Older Entries)** to find them; nothing new is recorded that way.
 
 ### What isn't recorded
 
