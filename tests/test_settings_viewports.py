@@ -29,8 +29,14 @@ def test_the_panel_keeps_clear_of_the_safe_areas():
     assert PANEL.count("env(safe-area-inset-bottom,0px)") >= 4      # the list's and the page's ends, both layouts
 
 
-@pytest.mark.skipif(not os.path.exists("/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"),
-                    reason="needs Google Chrome for the headless check")
+def _chrome() -> str:
+    spec = importlib.util.spec_from_file_location("cdp", ROOT / "tools/headless/cdp.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod.CHROME
+
+
+@pytest.mark.skipif(not os.path.exists(_chrome()), reason="needs Chrome or Chromium (CHROME) for the headless check")
 def test_iphone_and_ipad_sizes_in_a_browser():
     sys.path.insert(0, str(ROOT / "tools/headless"))
     spec = importlib.util.spec_from_file_location("settings_viewports", ROOT / "tools/headless/settings_viewports.py")

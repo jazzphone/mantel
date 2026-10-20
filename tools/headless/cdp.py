@@ -18,7 +18,24 @@ from urllib.parse import urlsplit
 
 import aiohttp
 
-CHROME = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+MAC_CHROME = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+
+
+def find_chrome() -> str:
+    """Chrome or Chromium: $CHROME, else macOS's Google Chrome, else the first one on PATH (Linux, CI)."""
+    if os.environ.get("CHROME"):
+        return os.environ["CHROME"]
+    if os.path.exists(MAC_CHROME):
+        return MAC_CHROME
+    for name in ("google-chrome", "google-chrome-stable", "chromium", "chromium-browser"):
+        if found := shutil.which(name):
+            return found
+    return MAC_CHROME                                    # none: the launch fails and says so
+
+
+CHROME = find_chrome()
+# Chrome refuses its sandbox as root (a container or a CI runner); the pages are Mantel's own, on loopback
+ROOT_FLAGS = ["--no-sandbox"] if hasattr(os, "geteuid") and os.geteuid() == 0 else []
 
 
 class Browser:
@@ -33,7 +50,7 @@ class Browser:
 
     async def __aenter__(self):
         self.proc = subprocess.Popen(
-            [CHROME, "--headless=new", f"--remote-debugging-port={self.port}", f"--user-data-dir={self.profile}",
+            [CHROME, *ROOT_FLAGS, "--headless=new", f"--remote-debugging-port={self.port}", f"--user-data-dir={self.profile}",
              f"--window-size={self.width},{self.height}", "--no-first-run", "--no-default-browser-check",
              "--disable-background-timer-throttling", "--hide-scrollbars", "about:blank"],
             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
@@ -47,6 +64,8 @@ class Browser:
             except aiohttp.ClientError:
                 pass
             await asyncio.sleep(0.2)
+        else:
+            raise RuntimeError(f"Chrome did not start ({CHROME}); set CHROME to a Chrome or Chromium binary")
         self.ws = await self.http.ws_connect(tabs[0]["webSocketDebuggerUrl"], max_msg_size=0)
         self._reader = asyncio.create_task(self._read())
         await self.send("Page.enable")

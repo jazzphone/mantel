@@ -1215,7 +1215,7 @@ const RENDER = { me: renderMe, connections: renderConnections, people: renderPeo
 function renderSection(name) {
   if (state.enrolled) return;
   const sections = state.me.sections;
-  if (!sections.includes(name)) name = 'me';
+  if (!sections.includes(name) || !RENDER[name]) name = 'me';
   state.section = name;
   for (const b of document.querySelectorAll('#nav button')) b.setAttribute('aria-current', b.dataset.section === name ? 'page' : 'false');
   const root = h('div', { id: 'section-' + name, 'data-section': name });
@@ -1237,7 +1237,8 @@ async function start() {
   // HK Settings (Mantel's copy) is for the people who manage the house: the page refuses everyone else
   $('#hk-settings').hidden = !state.me.sections.includes('people');
   const nav = $('#nav');
-  for (const s of state.me.sections) {
+  // only what this page draws: Photos and About are Mantel Settings' own (web/shim/mantel-settings.js)
+  for (const s of state.me.sections.filter((x) => RENDER[x])) {
     nav.append(h('button', { type: 'button', 'data-section': s, onclick: () => { location.hash = s; } }, SECTION_LABEL[s]));
   }
   window.addEventListener('hashchange', () => renderSection(location.hash.slice(1)));
