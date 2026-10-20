@@ -194,6 +194,30 @@ def test_the_connect_ca_travels_inside_the_encrypted_part_and_is_restored(tmp_pa
     assert (keep / "connect" / "ca.crt").read_bytes() == kept
 
 
+def test_verify_only_stages_in_the_data_folder_not_the_small_tmp(tmp_path, key, target, monkeypatch):
+    """--verify-only unpacked into the system temp folder, which in the container is a 64 MB tmpfs: a
+    backup with many photos did not fit. It stages in the data folder (the volume) like a restore, in a
+    hidden folder it removes, and changes nothing there."""
+    data = make_home(tmp_path, big=300_000)
+    out = bk.create_backup(data, target, key, now=NOW)
+    before = sorted(p.name for p in data.iterdir())
+    db_bytes = (data / "mantel.db").read_bytes()
+    made = []
+    real = bk.tempfile.mkdtemp
+
+    def spy(*args, **kw):
+        made.append(kw.get("dir"))
+        return real(*args, **kw)
+    monkeypatch.setattr(bk.tempfile, "mkdtemp", spy)
+    report = bk.restore(out, key, data, verify_only=True)
+    assert report.verified_only and made == [data]
+    assert sorted(p.name for p in data.iterdir()) == before and (data / "mantel.db").read_bytes() == db_bytes
+    # a data folder that is not there is not made for a check: the temp folder then
+    made.clear()
+    bk.restore(out, key, tmp_path / "absent", verify_only=True)
+    assert made == [None] and not (tmp_path / "absent").exists()
+
+
 def test_a_snapshot_is_consistent_while_the_server_writes_in_wal_mode(tmp_path, key, target):
     data = make_home(tmp_path)
     live = dbmod.connect(data / "mantel.db")                             # the server's own kind of connection

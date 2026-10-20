@@ -91,9 +91,7 @@ Decrypt and check a backup without changing anything:
 docker compose exec mantel-server mantel restore /backups/mantel-20261018-031500.mbk --verify-only
 ```
 
-It checks the key, every part of the file, and that this version of Mantel can open the database. It ends with `verify-only: nothing was changed`. Do it once after you set backups up, and now and then afterwards.
-
-<!-- CHECK: --verify-only unpacks into the container's /tmp, which compose.yaml limits to 64 MB; a backup with many photos may not fit. Confirm, or give the verify step a bigger scratch folder. -->
+It checks the key, every part of the file, and that this version of Mantel can open the database. It ends with `verify-only: nothing was changed`. It unpacks the backup into a hidden folder in Mantel's data volume and removes it afterwards, so it needs free space there of about twice the backup's size while it runs. Do it once after you set backups up, and now and then afterwards.
 
 ### Restore with Docker or the LXC
 

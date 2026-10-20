@@ -52,7 +52,8 @@ opens the restored database and checks it (integrity_check, foreign_key_check, s
 build, row counts as the manifest says, and that this build's migrations run on it), and only then moves it
 into place. A data dir that already holds a database is refused unless ``--replace``, which moves the old
 files aside (``*.before-restore-<time>``), never deletes them. ``--verify-only`` does everything except the
-move: that is the "is this backup any good" test.
+move: that is the "is this backup any good" test. It stages in the data dir as well (not the container's
+small tmpfs /tmp), in a hidden folder it removes again.
 """
 from __future__ import annotations
 
@@ -511,7 +512,12 @@ def restore(backup: Path, key: bytes, data_dir: Path, *, replace: bool = False, 
         raise BackupError("data_dir_not_fresh", f"{data_dir} already has a Mantel database; restore into a fresh "
                                                 "folder, or pass --replace (the old files are moved aside)")
     if verify_only:
-        stage_parent = None
+        # Staged under the data folder too, never the system's temp folder: in the container /tmp is a
+        # small tmpfs (64 MB in compose.yaml), and a backup with many photos unpacks to far more than that.
+        # The data volume has the room the data itself needs. Only a hidden 0700 .restore-* folder appears
+        # there, removed when the check ends; the live files are not touched. A data folder that does not
+        # exist is not made for a mere check: then the system's temp folder it is.
+        stage_parent = data_dir if data_dir.is_dir() else None
     else:
         data_dir.mkdir(parents=True, exist_ok=True)
         os.chmod(data_dir, 0o700)
