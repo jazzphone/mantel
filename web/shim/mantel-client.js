@@ -18,14 +18,21 @@
   // lists together); every other write still goes to the gateway, or is refused when commands are off.
   var SETTINGS_SAVES = ['hk_frontend/settings/set', 'hk_frontend/board/set', 'hk_frontend/tablet/set',
                         'hk_frontend/setup/done', 'hk_frontend/calendar/color', 'hk_frontend/chip/save',
-                        'hk_frontend/chip/remove'];
+                        'hk_frontend/chip/remove',
+                        // accessories, favorites and Hidden Accessories: the store too (accessories.py, hidden.py)
+                        'hk_frontend/accessory/into', 'hk_frontend/accessory/order', 'hk_frontend/accessory/page_order',
+                        'hk_frontend/accessory/room_scenes', 'hk_frontend/accessory/set', 'hk_frontend/board/favorite',
+                        'hk_frontend/hidden/also', 'hk_frontend/hidden/set'];
   // HK SETTINGS -> FEATURES saves (docs/phase4/MANTEL-FEATURES.md "HK Settings -> Features"): the same
   // way, to Mantel's feature settings (settings_store.FEATURE_SAVES, a test pins the two lists together;
-  // RBAC `configure` on the server). Music's and Alarm PIN's saves are not here: their settings are still
-  // Home Assistant's, so they stay gateway writes (refused while commands are off).
+  // RBAC `configure` on the server). Music's settings (house/music) and the Alarm PIN's (Mantel's keypad table)
+  // are Mantel's too, so HK Frontend can leave Home Assistant (docs/phase9/MANTEL-LINK.md "Parity").
   var FEATURE_SAVES = ['hk_notify/settings/set', 'hk_notify/item/save', 'hk_notify/item/remove', 'hk_notify/test',
                        'hk_clean_areas/settings/set', 'hk_energy/settings/set', 'hk_energy/device/set',
-                       'hk_energy/device/section', 'hk_tv/settings/set'];
+                       'hk_energy/device/section', 'hk_tv/settings/set',
+                       'hk_music/settings/set', 'hk_music/item/remove', 'hk_music/playlist/save',
+                       'hk_music/playlists/order', 'hk_music/preset/save',
+                       'hk_alarm_pin/settings/set', 'hk_alarm_pin/add', 'hk_alarm_pin/remove'];
   function isSave(msg) {
     return !!(msg && typeof msg.type === 'string' && (SETTINGS_SAVES.indexOf(msg.type) >= 0 || FEATURE_SAVES.indexOf(msg.type) >= 0));
   }

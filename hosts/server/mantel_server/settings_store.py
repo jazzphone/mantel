@@ -57,6 +57,7 @@ from aiohttp import web
 
 from hk_core.settings import model as SM
 
+from . import accessories as ACC
 from .connectors import Ctx, Forbidden, Route, read_routes, ws_handlers
 
 log = logging.getLogger("mantel.settings")
@@ -751,6 +752,10 @@ async def import_settings(store: SettingsStore, fetch: Callable[[], Awaitable[An
 SETTINGS_SAVES = frozenset({
     "hk_frontend/settings/set", "hk_frontend/board/set", "hk_frontend/tablet/set", "hk_frontend/setup/done",
     "hk_frontend/calendar/color", "hk_frontend/chip/save", "hk_frontend/chip/remove",
+    # accessories, favorites and Hidden Accessories (accessories.py, hidden.py): Mantel's since HK Frontend can go
+    "hk_frontend/accessory/into", "hk_frontend/accessory/order", "hk_frontend/accessory/page_order",
+    "hk_frontend/accessory/room_scenes", "hk_frontend/accessory/set", "hk_frontend/board/favorite",
+    "hk_frontend/hidden/also", "hk_frontend/hidden/set",
 })
 MANTEL_SAVES = frozenset({"mantel/settings/user/set", "mantel/settings/restore"})
 HA_WRITES = frozenset({
@@ -765,7 +770,6 @@ HA_WRITES = frozenset({
     "hk_frontend/talk/live",         # doorbell talk-back
     "hk_frontend/dashboard/titled",  # follows an HA dashboard's title
     "hk_frontend/tablet/seen",       # a tablet reports itself to HA's tablets engine
-    "hk_alarm_pin/add", "hk_alarm_pin/remove",     # alarm PINs live with HA's alarm feature
     "hk_music/queue_play", "hk_tv/watching", "hk_music/used",
 })
 # HK Settings -> Features saves Mantel takes (feature_pages.SAVES): checked by the shared checks and stored
@@ -775,14 +779,12 @@ FEATURE_SAVES = frozenset({
     "hk_notify/settings/set", "hk_notify/item/save", "hk_notify/item/remove", "hk_notify/test",
     "hk_clean_areas/settings/set", "hk_energy/settings/set", "hk_energy/device/set", "hk_energy/device/section",
     "hk_tv/settings/set",
+    # Music's settings (house/music, music.py) and the Alarm PIN's (alarm_pin.py's table): Mantel's own
+    "hk_music/settings/set", "hk_music/item/remove", "hk_music/playlist/save", "hk_music/playlists/order",
+    "hk_music/preset/save",
+    "hk_alarm_pin/settings/set", "hk_alarm_pin/add", "hk_alarm_pin/remove",
 })
 NOT_YET = frozenset({
-    "hk_frontend/accessory/into", "hk_frontend/accessory/order", "hk_frontend/accessory/page_order",
-    "hk_frontend/accessory/room_scenes", "hk_frontend/accessory/set", "hk_frontend/board/favorite",
-    "hk_frontend/hidden/also", "hk_frontend/hidden/set",
-    # feature settings whose features still run inside Home Assistant (Music, Alarm PIN: their ports later)
-    "hk_alarm_pin/settings/set", "hk_music/item/remove", "hk_music/playlist/save", "hk_music/playlists/order",
-    "hk_music/preset/save", "hk_music/settings/set",
     # Mute 1 Hour: the page sends it as Mantel's own notify_mute (mantel-client.js), never as a save
     "hk_notify/mute",
 })
@@ -804,6 +806,14 @@ WRITE_KEYS = {  # what each save may carry besides "type" (and the page's "id"),
     "hk_frontend/chip/remove": ({"key"}, set()),
     "mantel/settings/user/set": ({"changes"}, {"user_id"}),
     "mantel/settings/restore": ({"scope", "key", "version"}, set()),
+    "hk_frontend/accessory/set": ({"entity_id"}, set(ACC.FIELDS) | {"screen"}),
+    "hk_frontend/accessory/order": ({"area_id", "entities"}, set()),
+    "hk_frontend/accessory/into": ({"area_id", "into"}, set()),
+    "hk_frontend/accessory/page_order": ({"page", "entities"}, set()),
+    "hk_frontend/accessory/room_scenes": ({"area_id", "entities"}, set()),
+    "hk_frontend/board/favorite": ({"dashboard", "entity_id", "favorite"}, set()),
+    "hk_frontend/hidden/set": ({"entity_ids", "everywhere"}, {"places"}),
+    "hk_frontend/hidden/also": ({"entity_ids", "kinds"}, set()),
 }
 READS = ("hk_frontend/settings/subscribe", "hk_frontend/panel/get", "mantel/settings/get", "mantel/settings/history")
 
@@ -825,6 +835,8 @@ class SettingsService:
         # the feature host (features.register sets it): the feed's `added` / `energy` per subject
         # (``client_part(identity)``) and panel/get's `features` (``panel_features()``), as HA adds them
         self.features: Any = None
+        # Hidden Accessories' house copy (hidden.Hiding, readproxy.register puts it in app["hiding"]): a getter
+        self.hiding: Any = None
 
     # -- RBAC -----------------------------------------------------------------------------------
     async def allowed(self, identity: Any, scope: Scope) -> bool:
@@ -1217,6 +1229,116 @@ class SettingsService:
                 "changed": got is not None}
 
 
+    # -- accessories, favorites, Hidden Accessories (HK Frontend's accessories.py and hiding.py, now Mantel's) ---
+    def _accessories(self) -> dict:
+        return ACC.clean(self.store.body("house", "accessories"))
+
+    async def _acc_change(self, identity, actor, msg, work):
+        await self.need(identity, Scope("house", "accessories"))
+        try:
+            doc, answer = work(self._accessories())
+        except ACC.Refused as exc:
+            raise SettingsError("invalid_format", fields=exc.fields) from None
+        self._store([("house", "accessories", doc)], actor, msg)
+        return answer
+
+    async def _accessory_set(self, identity, actor, msg):
+        changes = {k: msg[k] for k in ACC.FIELDS if k in msg}
+        return await self._acc_change(identity, actor, msg,
+                                      lambda d: ACC.set_one(d, msg["entity_id"], changes, msg.get("screen")))
+
+    async def _accessory_order(self, identity, actor, msg):
+        return await self._acc_change(identity, actor, msg, lambda d: ACC.order(d, msg["area_id"], msg["entities"]))
+
+    async def _accessory_into(self, identity, actor, msg):
+        return await self._acc_change(identity, actor, msg, lambda d: ACC.into(d, msg["area_id"], msg["into"]))
+
+    async def _accessory_page_order(self, identity, actor, msg):
+        return await self._acc_change(identity, actor, msg, lambda d: ACC.page_order(d, msg["page"], msg["entities"]))
+
+    async def _accessory_room_scenes(self, identity, actor, msg):
+        def work(d):
+            doc, scenes = ACC.room_scenes(d, msg["area_id"], msg["entities"])
+            return doc, {"scenes": scenes}
+        return await self._acc_change(identity, actor, msg, work)
+
+    async def _board_favorite(self, identity, actor, msg):
+        """An accessory added to (or taken off) one screen's Favorites, at the end (HK's board/favorite)."""
+        dash, eid, on = msg["dashboard"], msg["entity_id"], msg["favorite"]
+        if not isinstance(dash, str) or not KEY_RE["board"].match(dash):
+            raise SettingsError("invalid_format", fields={"dashboard": "invalid"})
+        if not isinstance(eid, str) or not ACC.ENTITY.match(eid):
+            raise SettingsError("invalid_format", fields={"entity_id": "invalid"})
+        if not isinstance(on, bool):
+            raise SettingsError("invalid_format", fields={"favorite": "bool"})
+        await self.need(identity, Scope("board", dash))
+        cur = self.store.get("board", dash)
+        if cur is None:
+            raise SettingsError("no_item", "This dashboard has no item yet")
+        favs = [f for f in (cur.body.get("favorites") or []) if f != eid]
+        if on:
+            favs.append(eid)
+        self._store([("board", dash, {**cur.body, "favorites": favs})], actor, msg, expect={("board", dash): cur.version})
+        return {"favorites": favs}
+
+    def _hiding(self):
+        hiding = self.hiding() if callable(self.hiding) else None
+        if hiding is None or not hiding.ready:
+            raise SettingsError("unavailable", "Mantel has no copy of the house to work Hidden Accessories out from")
+        return hiding
+
+    def _hide_settings(self) -> dict:
+        return {**self.house_settings(), "accessories": self._accessories()}
+
+    @staticmethod
+    def _hide_ids(msg) -> list[str]:
+        ids = msg["entity_ids"]
+        if not isinstance(ids, list) or not 1 <= len(ids) <= ACC.IDS_MAX or \
+                not all(isinstance(i, str) and ACC.ENTITY.match(i) for i in ids):
+            raise SettingsError("invalid_format", fields={"entity_ids": "invalid"})
+        return list(dict.fromkeys(ids))
+
+    async def _hide_write(self, identity, actor, msg, changes: dict, acc_changes: dict) -> None:
+        writes: list[tuple[str, str, dict]] = []
+        if changes:
+            await self.need(identity, Scope("house", "settings"))
+            new, errors = self.model.apply_house(self.house_settings(), changes)
+            if errors:
+                raise SettingsError("invalid_format", fields=errors)
+            writes.append(("house", "settings", new))
+        if acc_changes:
+            await self.need(identity, Scope("house", "accessories"))
+            writes.append(("house", "accessories", ACC.set_many(self._accessories(), acc_changes)))
+        if writes:
+            self._store(writes, actor, msg)                     # one transaction, as HA's one save
+
+    async def _hidden_set(self, identity, actor, msg):
+        """Hide these accessories everywhere, or from exactly the places given (HK's hidden/set)."""
+        from .hidden import ORDER
+        await self.need(identity, Scope("house", "settings"))
+        ids, places = self._hide_ids(msg), msg.get("places", {})
+        if not isinstance(msg["everywhere"], bool):
+            raise SettingsError("invalid_format", fields={"everywhere": "bool"})
+        if not isinstance(places, dict) or not all(k in ORDER and isinstance(v, bool) for k, v in places.items()):
+            raise SettingsError("invalid_format", fields={"places": "invalid"})
+        hiding = self._hiding()
+        changes, acc_changes = hiding.plan(self._hide_settings(), ids, msg["everywhere"], places)
+        await self._hide_write(identity, actor, msg, changes, acc_changes)
+        return hiding.snapshot(self._hide_settings(), ids)
+
+    async def _hidden_also(self, identity, actor, msg):
+        """Also count these accessories in (or no longer in) the kinds given (HK's hidden/also)."""
+        from hk_core.settings.kinds import KINDS
+        await self.need(identity, Scope("house", "settings"))
+        ids, kinds = self._hide_ids(msg), msg["kinds"]
+        if not isinstance(kinds, dict) or not all(k in KINDS and isinstance(v, bool) for k, v in kinds.items()):
+            raise SettingsError("invalid_format", fields={"kinds": "invalid"})
+        hiding = self._hiding()
+        changes = hiding.also_plan(self._hide_settings(), ids, kinds)
+        await self._hide_write(identity, actor, msg, changes, {})
+        return hiding.snapshot(self._hide_settings(), ids)
+
+
 # ------------------------------------------------------------------------------------- register
 def _error(exc: BaseException) -> dict:
     if isinstance(exc, SettingsError):
@@ -1248,6 +1370,7 @@ def register(app: web.Application, hub: Any, hooks: Any = None, *, store: Settin
             raise ValueError("settings_store.register needs a store, a connection, or app['store']")
         store = SettingsStore(conn, app.get("clock", time.time) if hasattr(app, "get") else time.time)
     service = SettingsService(store, hooks, model)
+    service.hiding = lambda: app.get("hiding") if hasattr(app, "get") else None
     app["settings"] = service
 
     async def feed(ctx: Ctx, msg: dict, on_event: Callable[[dict], None]):

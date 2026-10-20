@@ -149,14 +149,11 @@ async function run(label, commandsOn) {
   p = a.callWS({ type: 'hk_energy/device/section', key: 'k', section: 's' });
   res.energySave = last(); reply({ type: 'settings_result', id: last().id, error: { code: 'forbidden', message: 'no' } });
   try { await p; res.energyRefused = 'NOT REJECTED'; } catch (e) { res.energyRefused = e.code; }
-  // Music's and Alarm PIN's settings are still HA's: never a settings write
-  const ms = sent.length;
-  try {
-    const q = a.callWS({ type: 'hk_music/settings/set', changes: {} });
-    if (commandsOn) { res.musicFrame = last(); answer('command_result', {}); }
-    await q; res.music = 'ok';
-  } catch (e) { res.music = e.code; }
-  res.musicSent = sent.length - ms;
+  // Music's and Alarm PIN's settings are Mantel's too now: settings writes, commands on or off
+  p = a.callWS({ type: 'hk_music/settings/set', changes: {} });
+  res.musicFrame = last(); reply({ type: 'settings_result', id: last().id, result: { configured: true } }); res.music = await p;
+  p = a.callWS({ type: 'hk_alarm_pin/remove', entry_id: 'alarm_control_panel.x' });
+  res.alarmFrame = last(); reply({ type: 'settings_result', id: last().id, result: { configured: true } }); res.alarm = await p;
 
   // notification snapshots: HK's sign read, answered with Mantel's route under the page's prefix
   globalThis.__mantelBase = '/api/hassio_ingress/tok';
@@ -182,10 +179,13 @@ async function run(label, commandsOn) {
   const r = sent.length;
   try { const q = a.callService('switch', 'turn_on', { entity_id: 'switch.real_one' }); if (commandsOn) { res.realFrame = last(); answer('command_result', []); } await q; res.real = 'ok'; } catch (e) { res.real = e.code; }
   res.realSent = sent.length - r;
+  // Hidden Accessories is a settings write now (Mantel's store)
+  p = a.callWS({ type: 'hk_frontend/hidden/set', entity_ids: ['light.x'], everywhere: true });
+  res.hiddenFrame = last(); reply({ type: 'settings_result', id: last().id, result: { can: {} } }); res.hidden = await p;
   // an unrelated write still goes the way it did
   const w = sent.length;
-  try { const q = a.callWS({ type: 'hk_frontend/hidden/set' }); if (commandsOn) { res.hiddenFrame = last(); answer('command_result', []); } await q; res.hidden = 'ok'; } catch (e) { res.hidden = e.code; }
-  res.hiddenSent = sent.length - w;
+  try { const q = a.callWS({ type: 'hk_frontend/tablet/add', name: 'x' }); if (commandsOn) { res.otherFrame = last(); answer('command_result', []); } await q; res.other = 'ok'; } catch (e) { res.other = e.code; }
+  res.otherSent = sent.length - w;
   // Live TV's viewer heartbeat: always Mantel's `tv_watching` (counted there, never a command). Where Mantel
   // serves Live TV (ha: false) that is all; where HA's Live TV is the interim (ha: true) it ALSO goes to HA
   // through the gateway, only with commands on.

@@ -430,6 +430,255 @@ async def follow_page_save(app: Any, frame: Mapping[str, Any], result: Any) -> s
     return panel
 
 
+# -- HK Settings' Alarm PIN page, answered by Mantel ---------------------------------------------------------
+# The page (web/hk/panels/hk-settings-features.js) reads ``hk_alarm_pin/settings/get`` and saves with
+# ``hk_alarm_pin/settings/set`` {entry_id, changes}, ``/add`` {alarm, pin, pin_again, arm_required} and ``/remove``
+# {entry_id} (settings_store.FEATURE_SAVES, through feature_pages.py: ``configure`` on settings, commands on or off).
+# Mantel answers them from THIS table: a row is a keypad (``entry_id`` is its panel's entity id), its alarm is
+# ``forward_to``, ``pin_set`` is whether the house Alarm PIN is set here. Mantel Link publishes each keypad panel
+# (linked_house.py), keeping the entity id HK Frontend gave it through the registry hand-over.
+#
+# WHILE HK FRONTEND STILL RUNS THE HOUSE'S KEYPADS (``hk_runs_keypads``: Mantel doesn't own ``house`` and HK Frontend
+# is there), its own panel in Home Assistant checks its own PIN, so the page keeps 8d48e95's way: the save goes to HA
+# first (through the gateway, as the person, commands on), and what HA took is copied here (``follow_page_save``);
+# the page is HA's, with ``pin_set`` saying whether Mantel holds one. Once ``house`` is Mantel's, or there is no
+# HK Frontend, nothing about the PIN goes to Home Assistant.
+PAGE_MSG = {
+    "no_entry": "That alarm has no PIN anymore.",
+    "not_alarm": "That isn’t an alarm panel in this house.",
+    "own_panel": "That is one of Alarm PIN’s own panels. Choose the alarm it should protect.",
+    "taken": "That alarm already has a PIN.",
+    "arm_required": "Choose on or off.",
+    "unknown": "That setting doesn’t exist.",
+    "pin_needed": "Type the PIN in both fields.",
+}
+PIN_MIN = 4
+
+
+def hk_runs_keypads(app: Any) -> bool:
+    """Does HK Frontend in Home Assistant still run the house's Alarm PIN panels? Not once Mantel owns ``house``
+    (linked_owners.py). Otherwise: HK Frontend is linked to Mantel, or Mantel Link reports it installed; with no
+    link at all, whether the one-time feature import found HK's Alarm PIN added."""
+    owners = app.get("linked_owners")
+    if owners is not None and owners.house():
+        return False
+    lk = app.get("linked")
+    reg = getattr(lk, "registry", None)
+    if reg is not None:
+        if reg.clients_of("hk_frontend"):
+            return True
+        links = reg.clients_of("mantel")
+        if links:
+            return any((c.report.get("hk_frontend") or {}).get("installed") for c in links)
+    svc = app.get("settings")
+    try:
+        from .features import FEATURES_DOC
+        ha = (svc.store.body("house", FEATURES_DOC) or {}).get("ha") or {} if svc is not None else {}
+        return "alarm_pin" in (ha.get("added") or [])
+    except (AttributeError, TypeError):
+        return False
+
+
+def _states(app: Any) -> dict:
+    hub = app.get("hub")
+    return getattr(getattr(hub, "store", None), "states", None) or {}
+
+
+def _registry(app: Any) -> dict:
+    hub = app.get("hub")
+    return getattr(getattr(hub, "registry", None), "entries", None) or {}
+
+
+def _friendly(app: Any, eid: str | None) -> str | None:
+    if not eid:
+        return None
+    st = _states(app).get(eid) or {}
+    name = (st.get("a") or {}).get("friendly_name")
+    if isinstance(name, str) and name:
+        return name
+    e = _registry(app).get(eid) or {}
+    return e.get("name") or e.get("original_name") or eid
+
+
+def _keypads(pins: AlarmPins) -> list[Entry]:
+    return [e for e in pins.entries() if e.forward_to != e.entity]
+
+
+def settings_page_mantel(app: Any) -> dict:
+    """HA's page shape (alarm_pin/settings_ws.py page) from Mantel's table: never a PIN or its hash."""
+    pins: AlarmPins | None = app.get("alarm_pin")
+    if pins is None:
+        return {"configured": False, "alarms": [], "choices": []}
+    rows = pins.entries()
+    panels = {e.entity for e in _keypads(pins)}
+    covers: dict[str, str] = {}
+    for e in rows:
+        covers.setdefault(e.forward_to, e.entity)
+    alarms = sorted(eid for eid in _states(app) if PANEL.match(eid) and eid not in panels)
+    return {
+        "configured": True, "min_length": PIN_MIN,
+        "alarms": [{"entry_id": e.entity, "title": f"{_friendly(app, e.forward_to)} PIN", "state": "loaded",
+                    "alarm": e.forward_to, "alarm_name": _friendly(app, e.forward_to), "panel": e.entity,
+                    "panel_name": _friendly(app, e.entity), "arm_required": e.arm_required, "pin_set": e.house_code}
+                   for e in rows],
+        "choices": [{"entity_id": a, "name": _friendly(app, a), "entry": covers.get(a)} for a in alarms],
+    }
+
+
+async def settings_page(app: Any) -> dict:
+    """``hk_alarm_pin/settings/get``: Mantel's table; while HK Frontend runs the keypads, HA's page (a server-only
+    read, rebuilt key by key; ``pin_set`` is Mantel's)."""
+    if not hk_runs_keypads(app):
+        return settings_page_mantel(app)
+    from .feature_pages import PageError, alarm_pin_page
+    proxy = getattr(app.get("hub"), "readproxy", None)
+    read = getattr(proxy, "read_server", None)
+    if read is None:
+        raise PageError("unavailable", "no connection to Home Assistant, where HK Frontend still runs the keypads")
+    return alarm_pin_page(await read({"type": "hk_alarm_pin/settings/get"}), app.get("alarm_pin"))
+
+
+def _page_error(code: str, fields: Mapping[str, str] | None = None, message: str = "") -> Exception:
+    from .feature_pages import PageError
+    return PageError(code, message or code, fields)
+
+
+def _alarm_choice(app: Any, pins: AlarmPins, alarm: Any, entry: str | None) -> str | None:
+    """Why ``alarm`` can't be protected by the keypad ``entry`` (None: a new one), or None."""
+    if not isinstance(alarm, str) or not PANEL.match(alarm) or (alarm not in _states(app) and alarm not in _registry(app)):
+        return PAGE_MSG["not_alarm"]
+    if alarm in {e.entity for e in _keypads(pins)}:
+        return PAGE_MSG["own_panel"]
+    if any(e.forward_to == alarm and e.entity != entry for e in pins.entries()):
+        return PAGE_MSG["taken"]
+    return None
+
+
+def new_panel(app: Any, pins: AlarmPins, alarm: str) -> str:
+    """The entity id a new keypad gets: ``alarm_control_panel.<the alarm's name>_pin``, never one Home Assistant
+    or this table already has."""
+    base = re.sub(r"[^a-z0-9]+", "_", str(_friendly(app, alarm) or alarm.split(".", 1)[1]).lower()).strip("_") or "alarm"
+    taken = set(_states(app)) | set(_registry(app)) | {e.entity for e in pins.entries()}
+    panel, n = f"{DOMAIN}.{base}_pin", 2
+    while panel in taken:
+        panel, n = f"{DOMAIN}.{base}_pin_{n}", n + 1
+    return panel
+
+
+def _audit(app: Any, identity: Any, action: str, detail: dict) -> None:
+    audit = app.get("audit")
+    user = getattr(identity, "user", None)
+    if audit is not None:
+        audit.config_event({"actor": getattr(user, "id", None), "role": getattr(user, "role", None),
+                            "action": action, "detail": detail})
+
+
+async def settings_save(app: Any, identity: Any, msg: Mapping[str, Any]) -> dict:
+    """One of the page's three saves. Refused by field (``PageError`` invalid_format), as HA's were."""
+    if hk_runs_keypads(app):
+        return await _save_through_ha(app, identity, msg)
+    pins: AlarmPins | None = app.get("alarm_pin")
+    if pins is None:
+        raise _page_error("not_set_up", message="this Mantel has no Alarm PIN engine")
+    t = msg.get("type")
+    if t == "hk_alarm_pin/remove":
+        entity = msg.get("entry_id")
+        if not isinstance(entity, str) or pins.entry(entity) is None:
+            raise _page_error("invalid_format", {"entry_id": PAGE_MSG["no_entry"]})
+        _audit(app, identity, "alarm_pin.remove", {"entity": entity, "from": "hk_settings"})
+        pins.remove(entity)
+    elif t == "hk_alarm_pin/add":
+        alarm = msg.get("alarm")
+        errors: dict[str, str] = {}
+        if (err := _alarm_choice(app, pins, alarm, None)) is not None:
+            errors["alarm"] = err
+        if not msg.get("pin") and not msg.get("pin_again"):
+            errors["pin"] = PAGE_MSG["pin_needed"]
+        arm = msg.get("arm_required", True)
+        if not isinstance(arm, bool):
+            errors["arm_required"] = PAGE_MSG["arm_required"]
+        if errors:
+            raise _page_error("invalid_format", errors)
+        panel = new_panel(app, pins, alarm)
+        try:
+            await pins.set(panel, forward_to=alarm, pin=msg.get("pin"), pin_again=msg.get("pin_again"),
+                           arm_required=arm, tablets=True, source="hk_settings")
+        except PolicyError as exc:
+            pins.remove(panel)
+            raise _page_error("invalid_format", {exc.code: str(exc)}) from None
+        _audit(app, identity, "alarm_pin.add", {"entity": panel, "forward_to": alarm, "from": "hk_settings"})
+    elif t == "hk_alarm_pin/settings/set":
+        entity, changes = msg.get("entry_id"), msg.get("changes")
+        cur = pins.entry(entity) if isinstance(entity, str) else None
+        if cur is None:
+            raise _page_error("invalid_format", {"entry_id": PAGE_MSG["no_entry"]})
+        if not isinstance(changes, Mapping) or not changes:
+            raise _page_error("invalid_format", {"changes": PAGE_MSG["unknown"]})
+        errors = {k: PAGE_MSG["unknown"] for k in changes if k not in ("pin", "pin_again", "arm_required", "alarm")}
+        kw: dict[str, Any] = {}
+        if "arm_required" in changes:
+            if not isinstance(changes["arm_required"], bool):
+                errors["arm_required"] = PAGE_MSG["arm_required"]
+            kw["arm_required"] = changes["arm_required"]
+        if "alarm" in changes:
+            if (err := _alarm_choice(app, pins, changes["alarm"], entity)) is not None:
+                errors["alarm"] = err
+            kw["forward_to"] = changes["alarm"]
+        if "pin" in changes or "pin_again" in changes:
+            if not changes.get("pin") and not changes.get("pin_again"):
+                errors["pin"] = PAGE_MSG["pin_needed"]
+            kw["pin"], kw["pin_again"] = changes.get("pin"), changes.get("pin_again")
+        if errors:
+            raise _page_error("invalid_format", errors)
+        try:
+            await pins.set(entity, source="hk_settings", **kw)
+        except PolicyError as exc:
+            raise _page_error("invalid_format", {exc.code: str(exc)}) from None
+        # the audit says WHAT changed, never a PIN
+        _audit(app, identity, "alarm_pin.set", {"entity": entity, "changed": sorted(changes), "from": "hk_settings"})
+    else:
+        raise _page_error("unknown_type", message=str(t))
+    house = app.get("linked_house")
+    if house is not None:
+        await house.refresh()             # Mantel Link's keypad panels follow the table
+    return settings_page_mantel(app)
+
+
+async def _save_through_ha(app: Any, identity: Any, msg: Mapping[str, Any]) -> dict:
+    """8d48e95's way, while HK Frontend runs the keypads: HA first (the gateway, as this person: their grants,
+    their audit row; commands on), then what HA took is stored here too. HA's refusals by field come back as the
+    page's."""
+    import json as _json
+
+    from .authz import Principal
+    from .feature_pages import alarm_pin_page
+    gw, authz = app.get("gateway"), app.get("authz")
+    if gw is None or authz is None:
+        raise _page_error("commands_disabled", message="HK Frontend in Home Assistant still runs the Alarm PIN, and "
+                          "Mantel's house commands are off, so the PIN can't be saved there. Move the house to Mantel "
+                          "(Mantel Settings, Home Assistant Link) to keep the PIN in Mantel only.")
+    frame = {k: v for k, v in msg.items() if k != "id"}
+    got: dict = {}
+
+    async def send(reply: dict) -> None:
+        got.update(reply)
+    # the page's socket already carries the person's Principal (authz.py); a bare Identity is made one
+    principal = identity if isinstance(identity, Principal) else Principal(identity, authz.subject_of(identity))
+    await gw.handle(principal, {"type": "command", "id": 1, "kind": "ws", "msg": frame}, send)
+    if "result" not in got:
+        err = got.get("error") or {}
+        fields = None
+        if err.get("code") == "invalid_format":
+            try:
+                fields = _json.loads(err.get("message") or "{}")
+            except ValueError:
+                fields = None
+        raise _page_error(err.get("code") or "failed", fields if isinstance(fields, dict) else None,
+                          err.get("message") or "Home Assistant refused it")
+    # (the gateway itself stored what HA took here too: follow_page_save)
+    return alarm_pin_page(got["result"], app.get("alarm_pin"))
+
+
 # -- REST ------------------------------------------------------------------------------------------------
 def alarm_pins_of(request: web.Request) -> AlarmPins:
     return request.app["alarm_pin"]

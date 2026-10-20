@@ -246,7 +246,7 @@ async def test_the_rest_of_the_entry_is_published_only_while_mantel_owns_it(make
     from test_features import until
     assert await until(lambda: reg.get(ALARM_ITEM)["state"] == "disarmed")
     # what was learned is remembered (a restart while HA mirrors them still knows the protected alarm)
-    assert env.app["linked_owners"].remembered("alarm_pin")["protects"] == "alarm_control_panel.house"
+    assert env.app["linked_owners"].remembered("keypads")["panels"][ALARM_PANEL]["protects"] == "alarm_control_panel.house"
     # house back to HA: withdrawn, not forgotten
     assert (await put(env, "house", "ha")).status == 200
     assert reg.get(ALARM_ITEM) is None and reg.get(f"{ENTRY}_seasonal_decorations") is None

@@ -412,7 +412,7 @@ def test_every_frontend_write_is_classified():
 @pytest.mark.parametrize("t, code", [
     ("hk_frontend/tablet/add", "ha_write"), ("input_select/create", "ha_write"), ("lovelace/dashboards/create", "ha_write"),
     ("call_service", "ha_write"), ("hk_frontend/tablet/act", "ha_write"), ("image/delete", "ha_write"),
-    ("hk_music/settings/set", "not_yet"), ("hk_notify/settings/set", "not_yet"), ("hk_frontend/accessory/set", "not_yet"),
+    ("hk_notify/mute", "not_yet"),
     ("get_states", "unknown_type"), ("hk_frontend/panel/get", "unknown_type"),
 ])
 async def test_saves_that_touch_ha_or_are_not_here_are_refused(svc, t, code):

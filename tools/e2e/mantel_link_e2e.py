@@ -33,6 +33,21 @@ Phase ``handover`` (slice 9.3), a Home Assistant WITH HK Frontend, linked (``--p
   5. The Owner gives the bridge back: HK Frontend takes the same entries back.
   6. Removes Mantel Link's entry and unlinks HK Frontend; stops the scratch HA (unless --keep-up / --reuse).
 
+Phase ``house`` (HK Frontend removed, docs/phase9/NO-HK-FRONTEND.md), a Home Assistant WITH HK Frontend at first:
+  1. HK Frontend (the scratch build) gets an Alarm PIN keypad in front of the demo alarm (its own page's
+     ``hk_alarm_pin/add``, a random fictional PIN) and has its Seasonal decorations switch; HK Frontend is linked,
+     the Hall tablet is Mantel's, Mantel Link is added and an Owner hands it the bridge (as ``handover``).
+  2. The Owner moves ``house`` to Mantel: the Seasonal decorations switch and the Alarm PIN panel move to Mantel
+     Link: the same registry entries, entity ids and unique ids, live. Mantel's keypad table got its row.
+  3. HK Settings' Alarm PIN page on Mantel sets the PIN in Mantel only (nothing to HA). HA's keypad panel then
+     checks Mantel's PIN: a wrong code is "Wrong code", the right one reaches Mantel's gateway, which sends
+     nothing (commands off); the demo alarm is untouched. Seasonal decorations turned off in HA is Mantel's setting.
+  4. ``house`` back to Home Assistant: HK Frontend takes the same entries back; then to Mantel again.
+  5. HK Frontend's entry is REMOVED: every entity stays (same ids, Mantel Link's, live), Mantel Link registers the
+     ``hk_frontend.*`` aliases, and an AUTOMATION and a SCRIPT calling ``hk_frontend.show_popup`` /
+     ``hk_frontend.set_black_screen`` still reach Mantel; HA's history of the Seasonal switch runs on across it all.
+  6. With HK Frontend gone, moving ``house`` back to Home Assistant is refused in words.
+
 Phase ``phones`` (slice 9.7): a stand-in Companion-app phone in the scratch HA (``testha.py up --phone-probe``:
 ``notify.mobile_app_e2e_phone`` records what it gets as an event); an Owner picks it for themself; ``mantel.notify``
 reaches a Mantel screen and the phone (with Mantel's Dismiss); the Companion app's ``mobile_app_notification_action``
@@ -465,6 +480,220 @@ async def _state_is(ha: HA, eid: str, states: tuple[str, ...]):
     return st if st is not None and st["state"] in states else None
 
 
+# ------------------------------------------------------------------------------------- phase: house
+DEMO_ALARM = "alarm_control_panel.security"           # HA's demo integration's (fictional) manual alarm
+
+
+async def _entries_by_uid(ha: HA, uids: set[str]) -> dict[str, dict]:
+    regs = await ha.ws(type="config/entity_registry/list")
+    return {r["unique_id"]: r for r in regs if r.get("unique_id") in uids}
+
+
+async def _house_on(ha: HA, uids: set[str], platform: str):
+    got = await _entries_by_uid(ha, uids)
+    if len(got) != len(uids) or not all(r["platform"] == platform for r in got.values()):
+        return None
+    for r in got.values():
+        st = await ha.state(r["entity_id"])
+        if st is None or st["state"] in ("unavailable", "unknown"):
+            return None
+    return got
+
+
+def _log_count(words: str) -> int:
+    return (Path(testha.SCRATCH) / "hass.log").read_text(errors="replace").count(words)
+
+
+async def run_house(token: str) -> dict:
+    out: dict = {}
+    with tempfile.TemporaryDirectory(prefix="mantel-link-e2e-") as folder:
+        async with aiohttp.ClientSession() as http:
+            ha = HA(http, token)
+            hk_entry = await ha.entry_id()
+            app, store, cfg = mantel_app(token, Path(folder), entry_id=hk_entry)
+            hub = app["hub"]
+            async with TestServer(app, host="127.0.0.1") as server:
+                base = str(server.make_url("")).rstrip("/")
+                await asyncio.wait_for(hub.ha.ready.wait(), 60)
+                check(not cfg.commands_enabled and app.get("gateway") is None,
+                      "Mantel runs with house commands DISABLED (no gateway, no command connection)")
+                owner = GE.Browser(base, "owner")
+                try:
+                    st, body = await owner.post("/api/bootstrap", {
+                        "token": app["accounts"].issue_bootstrap_token(), "username": "e2e-owner",
+                        "name": "Fictional Owner", "password": secrets.token_urlsafe(18)})
+                    assert st == 200, body
+                    st, body = await owner.post("/api/linked/owners", {"unit": "hall", "owner": "mantel"}, method="PUT")
+                    check(st == 200, "an Owner moves the Hall tablet to Mantel")
+                    _a, svc_hk = app["service_accounts"].create("scratch-hk-frontend", ["linked"])
+                    _b, svc_ml = app["service_accounts"].create("scratch-mantel-link", ["linked"])
+                    try:
+                        await steps_house(app, ha, owner, base, hk_entry, svc_hk, svc_ml, out)
+                    finally:
+                        e = await ha.mantel_entry()
+                        if e:
+                            await ha.delete_entry(e["entry_id"])
+                            say("removed Mantel Link's entry from the scratch HA")
+                finally:
+                    if owner.ws is not None:
+                        await owner.ws.close()
+                    await owner.http.close()
+                out["audit"] = [{k: r[k] for k in ("actor", "role", "kind", "action", "target", "decision")}
+                                for r in app["audit"].rows()]
+            store.db.close()
+    return out
+
+
+async def steps_house(app, ha: HA, owner, base: str, hk_entry: str, svc_hk: str, svc_ml: str, out: dict) -> None:
+    lk = app["linked"]
+    t0 = time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime(time.time() - 5)) + "+00:00"
+    pin = "".join(secrets.choice("123456789") for _ in range(6))        # fictional, this run only, never printed
+    # -- HK Frontend's own house: an Alarm PIN keypad in front of the demo alarm, its Seasonal switch ----------
+    page = await ha.ws(type="hk_alarm_pin/add", alarm=DEMO_ALARM, pin=pin, pin_again=pin, arm_required=True)
+    keypad = next((a["panel"] for a in (page or {}).get("alarms") or [] if a.get("alarm") == DEMO_ALARM), None)
+    check(keypad is not None and keypad.startswith("alarm_control_panel."),
+          f"HK Frontend has an Alarm PIN keypad in front of the demo alarm ({keypad})")
+    alarm_before = (await ha.state(DEMO_ALARM))["state"]
+    seasonal_uid = f"{hk_entry}_seasonal_decorations"
+    keypad_reg = await ha.registry(keypad)
+    uids = {seasonal_uid, keypad_reg["unique_id"]}
+    hk_regs = await until(lambda: _house_on(ha, uids, "hk_frontend"), timeout=60)
+    check(hk_regs is not None, "HK Frontend's Seasonal decorations switch and its Alarm PIN panel are live, HK's")
+    reg_ids = {u: r["id"] for u, r in hk_regs.items()}
+    eids = {u: r["entity_id"] for u, r in hk_regs.items()}
+    seasonal = eids[seasonal_uid]
+    # -- linked, the Hall Mantel's, Mantel Link holding the bridge (as phase handover) ----------------------------
+    done = await ha.configure_link(hk_entry, enabled=True, url=base, token=svc_hk)
+    check(done.get("type") == "menu", "HK Frontend: Configure -> Linked to Mantel saved")
+    check(await until(lambda: _all_on(ha, "hk_frontend"), timeout=60) is not None, "HK Frontend mirrors the Hall")
+    done = await ha.add_mantel_link(base, svc_ml)
+    check(done.get("type") == "create_entry", "Mantel Link added through HA's own flow")
+    ml_entry = done["result"]["entry_id"]
+    check(await until(lambda: _diag(ha, ml_entry, lambda d: d.get("connected"))) is not None, "Mantel Link connected")
+    await until(lambda: asyncio.sleep(0, (lk.registry.clients_of("mantel") or [None])[0]
+                                      and lk.registry.clients_of("mantel")[0].report.get("hk_frontend")))
+    st_code, body = await owner.post("/api/linked/owners", {"unit": "bridge", "owner": "mantel"}, method="PUT")
+    check(st_code == 200 and body["wire"]["bridge"] == "mantel", "an Owner hands the bridge to Mantel Link")
+    check(await until(lambda: _all_on(ha, "mantel"), timeout=90) is not None, "the Hall's four are Mantel Link's")
+    check(await _house_on(ha, uids, "hk_frontend") is not None, "the house's own entities are still HK Frontend's")
+    learned = await until(lambda: asyncio.sleep(0, ((app["linked_owners"].remembered("keypads") or {}).get(
+        "panels") or {}).get(keypad, {}).get("protects")), timeout=90)
+    check(learned == DEMO_ALARM, "Mantel learned (read-only) which alarm HK Frontend's keypad protects, while HK runs it")
+    # -- the house hand-over ------------------------------------------------------------------------------------
+    st_code, body = await owner.post("/api/linked/owners", {"unit": "house", "owner": "mantel"}, method="PUT")
+    check(st_code == 200 and body["wire"]["house"] == "mantel", "the Owner moves `house` to Mantel (audited)")
+    moves = [r for r in app["audit"].rows(kind="config") if r["action"] == "linked.owner"]
+    check(bool(moves), "audited (linked.owner)")
+    regs = await until(lambda: _house_on(ha, uids, "mantel"), timeout=120)
+    if regs is None:
+        now = await _entries_by_uid(ha, uids)
+        say("published by Mantel:", sorted(app["linked_house"].descs), "rows:",
+            [e.entity for e in app["alarm_pin"].entries()], "remembered:", app["linked_owners"].remembered("keypads"))
+        for u, r in now.items():
+            st = await ha.state(r["entity_id"])
+            say("  ", r["entity_id"], r["platform"], (st or {}).get("state"))
+    check(regs is not None, "Seasonal decorations and the Alarm PIN panel are Mantel Link's now, live")
+    check({u: r["id"] for u, r in regs.items()} == reg_ids and {u: r["entity_id"] for u, r in regs.items()} == eids,
+          "the same registry entries, entity ids and unique ids")
+    check(all(r["config_entry_id"] == ml_entry for r in regs.values()), "on Mantel Link's entry")
+    row = app["alarm_pin"].entry(keypad)
+    check(row is not None and row.forward_to == DEMO_ALARM and not row.house_code,
+          "Mantel's keypad table has the panel, in front of the demo alarm (no PIN yet: HA never gives its PIN out)")
+    # -- HK Settings' Alarm PIN page: Mantel's table only ---------------------------------------------------------
+    owner.ws = await owner.http.ws_connect(base + "/ws")
+    got = await owner.read({"type": "hk_alarm_pin/settings/get"})
+    mine = [a for a in got["result"]["alarms"] if a["panel"] == keypad]
+    check(mine and mine[0]["pin_set"] is False and mine[0]["alarm"] == DEMO_ALARM,
+          "HK Settings' Alarm PIN page is Mantel's table (the panel, its alarm, no PIN set in Mantel yet)")
+    got = await owner.save({"type": "hk_alarm_pin/settings/set", "entry_id": keypad,
+                            "changes": {"pin": pin, "pin_again": pin}})
+    check("result" in got and [a for a in got["result"]["alarms"] if a["panel"] == keypad][0]["pin_set"] is True,
+          "the page sets the Alarm PIN in Mantel (commands off: a settings save, nothing sent to HA)")
+    check(app["audit"].rows(kind="service") == [] and app["audit"].rows(kind="ws") == [],
+          "no command and no HA write for it")
+    # HA's keypad panel checks MANTEL's PIN now
+    seen = _log_count("Wrong code")
+    s, _ = await ha.post("/api/services/alarm_control_panel/alarm_disarm", {"entity_id": keypad, "code": "0000"})
+    check(s >= 400 and _log_count("Wrong code") > seen, f"a wrong code at HA's keypad panel: Mantel's \"Wrong code\" (HTTP {s})")
+    sent_none, wrong = _log_count("nothing was sent"), _log_count("Wrong code")
+    s, _ = await ha.post("/api/services/alarm_control_panel/alarm_arm_away", {"entity_id": keypad, "code": pin})
+    # past the PIN, the gateway still sends nothing: the demo alarm wants a code of its own that Mantel doesn't hold
+    # (alarm_ha_code_missing), and with commands off nothing would be sent anyway
+    check(s >= 400 and _log_count("Wrong code") == wrong and _log_count("nothing was sent") > sent_none,
+          f"the right code passes Mantel's PIN check; its gateway then sends nothing (HTTP {s})")
+    check((await ha.state(DEMO_ALARM))["state"] == alarm_before, "the demo alarm is untouched")
+    # Seasonal decorations: Mantel's own setting
+    s, _ = await ha.post("/api/services/switch/turn_off", {"entity_id": seasonal})
+    sky = app["settings"].store.body("house", "settings").get("sky") or {}
+    st = await until(lambda: _state_is(ha, seasonal, ("off",)))
+    check(s == 200 and sky.get("decorations") is False and st is not None,
+          "Seasonal decorations turned off in HA is Mantel's house setting")
+    # -- house back to Home Assistant (HK Frontend is there) and to Mantel again ----------------------------------
+    st_code, body = await owner.post("/api/linked/owners", {"unit": "house", "owner": "ha"}, method="PUT")
+    check(st_code == 200 and body["wire"]["house"] == "ha", "the Owner moves `house` back to Home Assistant")
+    back = await until(lambda: _house_on(ha, uids, "hk_frontend"), timeout=120)
+    check(back is not None and {u: r["id"] for u, r in back.items()} == reg_ids,
+          "HK Frontend takes the same registry entries back, live (reversible)")
+    st_code, body = await owner.post("/api/linked/owners", {"unit": "house", "owner": "mantel"}, method="PUT")
+    check(st_code == 200 and await until(lambda: _house_on(ha, uids, "mantel"), timeout=120) is not None,
+          "and to Mantel again")
+    # -- HK Frontend removed ---------------------------------------------------------------------------------------
+    await ha.delete_entry(hk_entry)
+    st, left = await ha.get("/api/config/config_entries/entry?domain=hk_frontend")
+    check(st == 200 and not left, "HK Frontend's entry is removed from the scratch HA")
+    diag = await until(lambda: _diag(ha, ml_entry, lambda d: d.get("connected") and d.get("hk_frontend", {}).get(
+        "installed") is False), timeout=60)
+    check(diag is not None and diag["state"] == "mirroring", "Mantel Link: connected, mirroring, no HK Frontend")
+    regs = await until(lambda: _house_on(ha, uids, "mantel"), timeout=60)
+    check(regs is not None and {u: r["id"] for u, r in regs.items()} == reg_ids,
+          "the house's entities live on: the same registry entries and entity ids")
+    hall = await until(lambda: _all_on(ha, "mantel"), timeout=60)
+    check(hall is not None, "and the Hall tablet's four")
+    st, services = await ha.get("/api/services")
+    hk = next((d["services"] for d in services if d["domain"] == "hk_frontend"), {})
+    check({"set_black_screen", "show_popup", "close_popup", "notify", "clean_areas", "pause_automation",
+           "music_play"} <= set(hk), "Mantel Link answers the hk_frontend.* actions now (aliases)")
+    # an automation and a script written for HK Frontend still work
+    await owner.ws.send_json({"type": "read_subscribe", "id": 7, "msg": {"type": "hk_frontend/events/subscribe"}})
+    while True:
+        m = await owner.recv()
+        if m.get("type") == "read_result" and m.get("id") == 7:
+            break
+    s, _ = await ha.post("/api/config/automation/config/mantel_e2e_ring", {
+        "alias": "E2E ring (fictional)", "triggers": [{"trigger": "event", "event_type": "mantel_e2e_ring"}],
+        "actions": [{"action": "hk_frontend.show_popup", "data": {"popup": "doorbell"}}], "mode": "single"})
+    check(s == 200, "an automation calling hk_frontend.show_popup saved in the scratch HA")
+    await asyncio.sleep(2)
+    await ha.post("/api/events/mantel_e2e_ring", {})
+    ev = await _event(owner, "popup", timeout=20)
+    check(ev is not None and ev.get("popup") == "doorbell",
+          "the automation's hk_frontend.show_popup reaches a Mantel screen with HK Frontend gone")
+    s, _ = await ha.post("/api/config/script/config/mantel_e2e_black", {
+        "alias": "E2E black (fictional)", "sequence": [
+            {"action": "hk_frontend.set_black_screen", "target": {"entity_id": BLACK}, "data": {"black": True}}]})
+    await asyncio.sleep(2)
+    s, _ = await ha.post("/api/services/script/mantel_e2e_black", {})
+    st = await until(lambda: _state_is(ha, BLACK, ("on",)))
+    check(s == 200 and st is not None, "a script's hk_frontend.set_black_screen turns the Hall black through Mantel")
+    await ha.post("/api/services/mantel/set_black_screen", {"entity_id": BLACK, "black": False})
+    # -- no going back without HK Frontend ------------------------------------------------------------------------
+    st_code, body = await owner.post("/api/linked/owners", {"unit": "house", "owner": "ha"}, method="PUT")
+    check(st_code == 400 and body["error"]["code"] == "no_hk_frontend" and app["linked_owners"].house(),
+          "with HK Frontend gone, moving `house` back to Home Assistant is refused in words")
+
+    async def history():
+        st, hist = await ha.get(f"/api/history/period/{t0}?filter_entity_id={seasonal}&minimal_response&no_attributes")
+        got = [x["state"] for x in (hist[0] if st == 200 and hist else [])]
+        return got if "off" in got and got[-1] in ("on", "off") else None
+    states = await until(history, timeout=30) or []
+    check(states[:1] == ["on"] and "off" in states,
+          f"HA's history of {seasonal} runs on across every move ({' -> '.join(states)})")
+    out.update(history=states, keypad=keypad, entities=sorted(eids.values()))
+    tried = app["audit"].rows(kind="service")
+    check(tried and all(r["action"].startswith("alarm_control_panel.") and r["decision"] != "allowed" for r in tried),
+          f"no household service was called: only the {len(tried)} keypad attempts, each refused and audited")
+
+
 # ------------------------------------------------------------------------------------- phase: zeroconf
 async def run_zeroconf(token: str) -> dict:
     import os
@@ -809,12 +1038,13 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--keep-up", action="store_true", help="leave the scratch HA running afterwards")
     ap.add_argument("--reuse", action="store_true", help="use the scratch HA this caller already started; leave it up")
-    ap.add_argument("--phase", choices=["alone", "handover", "zeroconf", "phones", "actions", "docs"], default="alone",
+    ap.add_argument("--phase", choices=["alone", "handover", "house", "zeroconf", "phones", "actions", "docs"],
+                    default="alone",
                     help="alone: no HK Frontend (9.2); handover: HK Frontend linked, the bridge handed over and back (9.3)")
     a = ap.parse_args()
     if not a.reuse:
         GE.wait_for_free_harness()
-        extra = {"alone": ("--no-hk",), "handover": (), "zeroconf": ("--no-hk", "--zeroconf-probe"),
+        extra = {"alone": ("--no-hk",), "handover": (), "house": (), "zeroconf": ("--no-hk", "--zeroconf-probe"),
                  "phones": ("--no-hk", "--phone-probe"), "actions": ("--no-hk",),
                  "docs": ("--no-hk", "--supervisor-probe")}[a.phase]
         if a.phase == "docs":
@@ -831,7 +1061,7 @@ def main() -> int:
         raise SystemExit("--reuse: the scratch HA is not answering on 127.0.0.1:8124")
     try:
         token = asyncio.run(GE.token_for_scratch())
-        evidence = asyncio.run({"alone": run_alone, "handover": run_handover, "zeroconf": run_zeroconf,
+        evidence = asyncio.run({"alone": run_alone, "handover": run_handover, "house": run_house, "zeroconf": run_zeroconf,
                                 "phones": run_phones, "actions": run_actions, "docs": run_docs}[a.phase](token))
         del token
         out = Path(testha.SCRATCH) / f"mantel_link_e2e_{a.phase}.json"

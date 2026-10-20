@@ -21,7 +21,8 @@ inputs, so the same answer. Ported line for line from HA's ``kinds.py`` and ``hi
 kinds themselves (``KINDS``, ``LEGACY``, ``clean``) are hk_core's, shared with HA.
 
 Pure: no RBAC here (readproxy.register filters what a person may see), nothing written, nothing
-sent to Home Assistant.
+sent to Home Assistant. ``plan`` / ``also_plan`` (hidden/set and hidden/also) work out what to change;
+settings_store.SettingsService writes it (audited, versioned), never Home Assistant.
 """
 from __future__ import annotations
 
@@ -274,6 +275,68 @@ class Hiding:
             "devices": [d for d in gen.get("exclude_devices") or [] if isinstance(d, str)],
             "areas": [a for a in gen.get("exclude_areas") or [] if isinstance(a, str)],
         }
+
+    # -- the saves (hiding.plan / also_plan): what to write, worked out here; settings_store writes it ----------
+    def plan(self, settings: Mapping[str, Any], ids: list[str], everywhere: bool,
+             places: Mapping[str, bool]) -> tuple[dict[str, Any], dict[str, dict[str, Any]]]:
+        """hiding.plan: the house settings changes (settings/set paths) and the accessory changes that set
+        ``ids`` to Everywhere, or to exactly the ``places`` that are True (each only where it can be).
+        Everywhere clears the places, so showing it again shows it in every one."""
+        can = self.snapshot(settings)["can"]
+        gen = settings.get("generated") or {}
+        changes: dict[str, Any] = {}
+        old_ex = [e for e in gen.get("exclude_entities") or [] if isinstance(e, str)]
+        ex = [e for e in old_ex if everywhere or e not in ids] + [e for e in ids if everywhere and e not in old_ex]
+        if ex != old_ex:
+            changes["generated.exclude_entities"] = ex
+        offer = suggest(self.candidates(), settings)
+        for k in KINDS:
+            cur = list(offer[k]["exclude"])
+            new = list(cur)
+            for eid in ids:
+                if k not in can.get(eid, []):
+                    continue
+                want = not everywhere and bool(places.get(k))
+                if want and eid not in new:
+                    new.append(eid)
+                elif not want and eid in new:
+                    new.remove(eid)
+            if new != cur:
+                changes[f"counts.{k}"] = {"exclude": new, "include": list(offer[k]["include"])}
+        acc = (settings.get("accessories") or {}).get("entities") or {}
+        acc_changes: dict[str, dict[str, Any]] = {}
+        for eid in ids:
+            a = acc.get(eid) or {}
+            mine = can.get(eid, [])
+            want = {"home": False if not everywhere and "home" in mine and places.get("home") else None,
+                    "room": False if not everywhere and "room" in mine and places.get("room") else None,
+                    "status": None}                    # Include in Status off is now its kinds' places
+            have = {k: (False if a.get(k) is False else None) for k in want}
+            if want != have:
+                acc_changes[eid] = want
+        return changes, acc_changes
+
+    def also_plan(self, settings: Mapping[str, Any], ids: list[str], wanted: Mapping[str, bool]) -> dict[str, Any]:
+        """hiding.also_plan: the settings changes that count ``ids`` in (True) or no longer in (False) each kind
+        named, only where it could be, or is already added. Counted in again, it is no longer left out there."""
+        cands = self.candidates()
+        auto = automatic(cands, None)
+        offer = suggest(cands, settings)
+        possible = _also(cands, auto, set(ids))
+        changes: dict[str, Any] = {}
+        for k, on in wanted.items():
+            inc, ex = list(offer[k]["include"]), list(offer[k]["exclude"])
+            for eid in ids:
+                if on and k in possible.get(eid, []):
+                    if eid not in inc:
+                        inc.append(eid)
+                    if eid in ex:
+                        ex.remove(eid)
+                elif not on and eid in inc:
+                    inc.remove(eid)
+            if inc != offer[k]["include"] or ex != offer[k]["exclude"]:
+                changes[f"counts.{k}"] = {"exclude": ex, "include": inc}
+        return changes
 
     # -- what a person may see of it --------------------------------------------------------------
     def entity_ids_in(self, snap: Mapping[str, Any]) -> set[str]:
