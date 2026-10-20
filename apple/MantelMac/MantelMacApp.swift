@@ -2,8 +2,8 @@ import AppKit
 import MantelKit
 import SwiftUI
 
-/// Mantel in the Mac's menu bar (docs/phase10/APPLE-APPS.md §9 and §12): the house's own Music page (browse, speakers,
-/// volume, queue) in the menu, the same page in a resizable window, the person's favorites as toggles (chosen here
+/// Mantel in the Mac's menu bar (docs/phase10/APPLE-APPS.md §9 and §12): a music player of its own (the house's music,
+/// with Speakers / Volume / Up Next / Browse) in the menu, Play Music in a window, the person's favorites as toggles (chosen here
 /// too), and the keyboard's play/pause key for the house's speaker. It shares MantelKit (sign-in, the device key, the
 /// API) and SessionModel with the iPhone app.
 @main
@@ -21,7 +21,7 @@ struct MantelMacApp: App {
         Window("Music", id: "music") {
             MusicWindow().environmentObject(delegate.model).environmentObject(delegate.app)
         }
-        .defaultSize(width: 1100, height: 760)
+        .defaultSize(width: 1100, height: 760)       // Play Music's wide layout: what plays beside Browse
         .windowStyle(.hiddenTitleBar)                 // no gray bar: the window's buttons float on the page
         .windowBackgroundDragBehavior(.enabled)
 
@@ -37,11 +37,14 @@ struct MantelMacApp: App {
     }
 }
 
-/// What lives as long as the app: the house, the two Music pages (the menu's and the window's), the media keys.
+/// What lives as long as the app: the house's pages (the menu's two and the window's), the media keys.
 @MainActor
 final class MacApp: ObservableObject {
-    let menuPage = HousePage(view: HousePage.music)
-    let windowPage = HousePage(view: HousePage.music, topInset: 28)
+    /// The menu's: the player, the favorites (both under the panel's floating controls); the window's: Play Music.
+    let menuPage = HousePage(query: "pane=player", topInset: MenuPanel.band)
+    let favoritesPage = HousePage(query: "pane=favorites", topInset: MenuPanel.band, zoom: 0.75)
+    let windowPage = HousePage(view: "playmusic", query: "bare=1", topInset: 28)
+    var pages: [HousePage] { [menuPage, favoritesPage, windowPage] }
     let keys = NowPlayingKeys()
     /// A window to open, asked for by a `mantel://music` (or `favorites`, `setup`) link; the menu bar icon opens it.
     @Published var openRequest: String?
@@ -50,6 +53,17 @@ final class MacApp: ObservableObject {
     }
 
     init() { mediaKeys = UserDefaults.standard.bool(forKey: NowPlayingKeys.enabledKey) }
+
+    /// A window opened from the menu bar comes to the front: the app has no Dock icon, so macOS may leave it behind.
+    static func front(_ id: String) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+            NSApp.activate(ignoringOtherApps: true)
+            for w in NSApp.windows where w.identifier?.rawValue.contains(id) == true && w.isVisible {
+                w.makeKeyAndOrderFront(nil)
+                w.orderFrontRegardless()
+            }
+        }
+    }
 }
 
 @MainActor
@@ -98,7 +112,7 @@ struct MenuLabel: View {
                 guard let id else { return }
                 app.openRequest = nil
                 openWindow(id: id)
-                NSApp.activate()
+                MacApp.front(id)
             }
     }
 }

@@ -3,8 +3,10 @@ import MantelKit
 import SwiftUI
 import WebKit
 
-/// One of the house's pages in a web view on the Mac (the Music page: browse, speakers, volume, queue), kept alive
-/// between openings of the menu so the music stays live. As the iPhone's HouseWebView (§1):
+/// One of the house's pages in a web view on the Mac, kept alive between openings of the menu so it stays live: the
+/// Mac's music player (`?pane=player`, web/cards/mantel-player.js), the person's favorites as Home's pills
+/// (`?pane=favorites&ids=…`, at three-quarter size), and Play Music without its title bar (`/playmusic?bare=1`). As
+/// the iPhone's HouseWebView (§1):
 ///
 /// * Its own, non-persistent website data per house, shared by the menu's page and the Music window: the page's
 ///   Mantel session (handed over by a one-time code, `/app/web-session`) lives only as long as the app; the page
@@ -13,27 +15,30 @@ import WebKit
 /// * A page that falls back to `/login` (its session ended) is caught: the page gets a new session.
 ///
 /// The screens' pages live at `/<screen>/<view>`; the app does not know the person's screen, so it asks for `/home`
-/// (the house sends the person to their own screen) and turns the first landing on `/<screen>/home` into
-/// `/<screen>/<view>` (HK calls the Music page `playmusic`).
+/// (the house sends the person to their own screen, and its redirect keeps no query) and turns the first landing on
+/// `/<screen>/home` into `/<screen>/<view>?<query>`.
 @MainActor
 final class HousePage: NSObject, ObservableObject {
-    static let music = "playmusic"
-
     let view: String
+    private(set) var query: String
     /// Room at the top for what floats over the page (the Music window's buttons, which have no title bar under them).
     let topInset: CGFloat
+    /// The page's scale (WebKit's page zoom): the favorites' pills a quarter smaller in the menu.
+    let zoom: CGFloat
     @Published private(set) var webView: WKWebView?
     /// The page could not be opened (no web session, the house unreachable): the menu shows its own controls.
     @Published private(set) var failed = false
     private var house: House?
     private var loadedDoor: Door?
-    private var wantsView = false
+    private var wantsQuery = false
     private weak var model: SessionModel?
 
     private static var stores: [String: WKWebsiteDataStore] = [:]
 
-    init(view: String, topInset: CGFloat = 0) {
+    init(view: String = "home", query: String, topInset: CGFloat = 0, zoom: CGFloat = 1) {
+        self.zoom = zoom
         self.view = view
+        self.query = query
         self.topInset = topInset
     }
 
@@ -48,6 +53,13 @@ final class HousePage: NSObject, ObservableObject {
     func reload() async {
         guard let model, let h = model.house else { return }
         await load("/home", model: model, house: h)
+    }
+
+    /// A new query (the favorites changed): the page again, if it is up.
+    func setQuery(_ q: String) async {
+        guard q != query else { return }
+        query = q
+        if webView != nil { await reload() }
     }
 
     /// The person signed out or forgot the house: the page and its session go.
@@ -65,7 +77,7 @@ final class HousePage: NSObject, ObservableObject {
         }
         failed = false
         loadedDoor = model.door
-        wantsView = next == "/home" && view != "home"
+        wantsQuery = next == "/home"
         let web = (house?.id == h.id ? webView : nil) ?? make(for: h)
         house = h
         webView = web
@@ -85,6 +97,7 @@ final class HousePage: NSObject, ObservableObject {
         web.uiDelegate = self
         web.allowsBackForwardNavigationGestures = false
         web.underPageBackgroundColor = .black
+        web.pageZoom = zoom
         if #available(macOS 26.0, *), topInset > 0 {
             web.obscuredContentInsets = NSEdgeInsets(top: topInset, left: 0, bottom: 0, right: 0)
         }
@@ -120,10 +133,11 @@ extension HousePage: WKNavigationDelegate, WKUIDelegate {
             return .cancel
         }
         let parts = url.path.split(separator: "/")
-        if wantsView, parts.count == 2, parts[1] == "home", parts[0].contains("-") {
-            wantsView = false      // the person's own screen: its Music page instead of its Home
+        if wantsQuery, parts.count == 2, parts[1] == "home", parts[0].contains("-") {
+            wantsQuery = false     // the person's own screen: this view of it, with the query
             var c = URLComponents(url: url, resolvingAgainstBaseURL: false)
             c?.path = "/\(parts[0])/\(view)"
+            c?.percentEncodedQuery = query.isEmpty ? nil : query
             if let to = c?.url { webView.load(URLRequest(url: to)) }
             return .cancel
         }

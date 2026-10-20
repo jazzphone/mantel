@@ -172,7 +172,9 @@ async def serve(data: Path, port: int, lan: bool = False, relay: str | None = No
         hub.registry.load(AREAS + [a for a in MF.AREAS if a["area_id"] not in known], [], ENTITIES + MF.ENTITIES, MF.FLOORS)
         hub.store.apply_event({"a": MF.states(media_player__den_ma={"s": "playing", "a": {
             "media_title": "Blue in Green", "media_artist": "The Fictional Trio", "media_album_name": "Kind of Fictional",
-            "media_duration": 337.0, "media_position": 40.0, "volume_level": 0.25}})})
+            "media_duration": 337.0, "media_position": 40.0, "volume_level": 0.25,
+            "media_position_updated_at": time.strftime("%Y-%m-%dT%H:%M:%S+00:00", time.gmtime()),
+            "entity_picture": f"http://{lan_ip or '127.0.0.1'}:{port}/app/fictional-cover.png"}})})
         ma_fake.hub = hub
         app["settings"].store.write([("house", M.MUSIC_DOC, json.loads(json.dumps(MF.DOC)))], actor=Actor(label="app_dev_server"))
     # a fictional album cover, served by this server itself (a "remote" picture, as a provider's CDN would be)

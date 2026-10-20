@@ -11,7 +11,7 @@ code only where the system needs it. The house decides everything; the apps ask.
 | `Shared/` | App Intents (Siri, Shortcuts, widget and Live Activity buttons) and the Live Activity's attributes and artwork cache, shared by the app and the widget extension |
 | `MantelWidgets/` | Favorites and Now Playing widgets, the music Live Activity (Apple Music's layout), Control Center controls |
 | `MantelNotificationService/` | Opens the house's sealed notifications and attaches the snapshot |
-| `MantelMac/` | The menu bar app: the house's Music page in the menu (controls floating over it) and in a resizable window without a title bar, favorites as toggles and chosen on the Mac, setup in its own window, the play/pause key (off until tried) |
+| `MantelMac/` | The menu bar app: the house's own pages in the menu with its controls floating over them (a music player of its own, `?pane=player`, web/cards/mantel-player.js; the favorites as Home's pills at three-quarter size, `?pane=favorites`), Play Music in a resizable window without a title bar (`?bare=1`), favorites as toggles and chosen on the Mac, setup in its own window, the play/pause key (off until tried) |
 | `Config/` | Info.plists and entitlements |
 | `make_project.py` | Writes `Mantel.xcodeproj` (folders, not files: add a `.swift` file and it is in) |
 
@@ -58,7 +58,7 @@ Team-signed (this Mac is registered to the team), so `-allowProvisioningUpdates`
 xcodebuild -project apple/Mantel.xcodeproj -scheme MantelMac -destination 'platform=macOS' -derivedDataPath /tmp/mantel-dd-mac -allowProvisioningUpdates build
 ```
 
-A fictional Mantel with the Music page (a fictional Music Assistant from `tests/music_fakes.py` on another loopback
+A fictional Mantel with music (a fictional Music Assistant from `tests/music_fakes.py` on another loopback
 port; the page's commands go through the gateway to it, with audit rows):
 
 ```bash
@@ -72,8 +72,11 @@ open -a /tmp/mantel-dd-mac/Build/Products/Debug/Mantel.app "$(cat /tmp/mantel-ma
 ```
 
 `mantel://music`, `mantel://favorites` and `mantel://setup` open those windows. Browse's album and artist pages and
-search read through Home Assistant, which the fictional Mantel does not have ("Could not open that: unavailable").
-Debug builds take `mantel://debug/snapshot?to=http://127.0.0.1:<port>/` and `mantel://debug/js?page=window&code=…&to=…`,
+search read through Home Assistant, which the fictional Mantel does not have ("Could not open that: unavailable"),
+and Browse's album pages need it too. In a browser: `/<screen>/home?pane=player`, `/<screen>/home?pane=favorites&ids=light.kitchen,lock.front_door`,
+`/<screen>/playmusic?bare=1`.
+Debug builds take `mantel://debug/load` (every page, shown or not), `mantel://debug/snapshot?to=http://127.0.0.1:<port>/` and
+`mantel://debug/js?page=menu|favorites|window&code=…&to=…`,
 which PUT the pages' snapshots, the app's state or a line of JavaScript's answer to a receiver on loopback: the app's
 container is closed to other apps, and screenshots here cannot see the menu bar panel.
 
@@ -87,10 +90,11 @@ container is closed to other apps, and screenshots here cannot see the menu bar 
   ("Front Door / Unlocked by Ann", Time Sensitive), with nothing readable in the payload Apple would carry.
 - The music Live Activity on the Lock Screen in Apple Music's layout (cover, tint, progress, transport); its pause
   button ran `MusicControlIntent` → `/api/app/command` → the gateway (audit row) and the activity followed.
-- The Mac menu bar app (2026-10-19, evening; macOS 27): paired by link in the sandbox, team-signed; the Music page
-  in the menu and the window, signed in through `/app/web-session`; the page's Play/Pause and Next from the app went
-  through the gateway (`hk_frontend.music_transport`, audit rows `ok`); signed in again after relaunching, no Keychain
-  prompt. Not seen by eye: the menu panel, the Favorites and Setup windows. Not tried: the play/pause key (off by
+- The Mac menu bar app (2026-10-19, evening; macOS 27): paired by link in the sandbox, team-signed; the new music player
+  and the favorites (Home's pills) in the menu, Play Music in the window, signed in
+  through `/app/web-session`; Play and Pause from the player went through the gateway (`hk_frontend.music_transport`,
+  audit rows `ok`); signed in again after relaunching, no Keychain
+  prompt. Not seen or clicked by eye: the menu panel and its buttons, the Favorites and Setup windows. Not tried: the play/pause key (off by
   default, "Try It" in the menu), sign-in through the web sheet and Bonjour on the Mac.
 
 Not exercised: placing the widgets and Control Center controls by hand, Siri phrases, the QR camera (the Simulator

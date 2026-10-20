@@ -2,10 +2,10 @@ import AppKit
 import MantelKit
 import SwiftUI
 
-/// The menu bar panel: the house's Music page at about a phone's size, edge to edge, with the panel's few controls
-/// floating over its top right corner (Away, Music | Favorites, the Music window, the app's menu: Avery, 2026-10-19, no
-/// bar above the page); or the person's favorites under a compact header with the house's name. Before the house is set
-/// up or signed in, and whenever the page cannot be opened, the menu's own controls.
+/// The menu bar panel: the house's own pages at about a phone's size, edge to edge, with the panel's few controls
+/// floating in a band over their top (Away, Music | Favorites, the window, the app's menu: Avery, 2026-10-19, no bar
+/// above the page): the music player (web/cards/mantel-player.js) or the person's favorites as Home's pills. Before
+/// the house is set up or signed in, and whenever a page cannot be opened, the menu's own controls.
 struct MenuPanel: View {
     @EnvironmentObject private var model: SessionModel
     @EnvironmentObject private var app: MacApp
@@ -13,17 +13,31 @@ struct MenuPanel: View {
     @AppStorage("panelTab") private var tab = Tab.music
 
     enum Tab: String { case music, favorites }
+    /// The band over the page that its floating controls sit in (the page laid out below it, its background under it).
+    static let band: CGFloat = 40
+    /// The page under it (Avery, 2026-10-19: a quarter shorter than a phone's).
+    static let height: CGFloat = 470
 
     var body: some View {
         Group {
-            if model.phase == .ready, tab == .music {
+            if model.phase == .ready {
                 ZStack(alignment: .topTrailing) {
-                    MusicPageView(page: app.menuPage).frame(height: 680)
+                    Group {
+                        if tab == .music {
+                            PageView(page: app.menuPage) { NowPlayingControls() }
+                        } else if favoriteIDs.isEmpty {
+                            noFavorites.padding(.top, Self.band)
+                        } else {
+                            PageView(page: app.favoritesPage) { FavoritesList() }
+                        }
+                    }
+                    .frame(height: Self.height + Self.band)
+                    .background(Color(red: 0.02, green: 0.027, blue: 0.055))     // the pages' own #05070e
                     controls
-                        .padding(.horizontal, 10).padding(.vertical, 5)
+                        .padding(.horizontal, 10).padding(.vertical, 4)
                         .background(.ultraThinMaterial, in: Capsule())
-                        .environment(\.colorScheme, .dark)          // the page is dark: so are its floating controls
-                        .padding(.top, 14).padding(.trailing, 12)
+                        .environment(\.colorScheme, .dark)          // the pages are dark: so are their floating controls
+                        .padding(.top, 8).padding(.trailing, 12)
                 }
             } else {
                 VStack(spacing: 0) {
@@ -34,7 +48,7 @@ struct MenuPanel: View {
                     }
                     .padding(.horizontal, 12).padding(.vertical, 8)
                     Divider()
-                    if model.phase == .ready { FavoritesList().padding(14) } else { notSignedIn }
+                    notSignedIn
                     if let p = model.problem {
                         Text(p).font(.caption).foregroundStyle(.red).padding(.horizontal, 12).padding(.bottom, 8)
                             .frame(maxWidth: .infinity, alignment: .leading)
@@ -44,6 +58,25 @@ struct MenuPanel: View {
         }
         .frame(width: 390)
         .task { await model.refresh() }
+        .task(id: favoriteIDs) { await app.favoritesPage.setQuery(Self.favoritesQuery(favoriteIDs)) }
+    }
+
+    /// The person's favorites, in their order (the house's summary: only those that still exist).
+    private var favoriteIDs: [String] { (model.summary?.favorites ?? []).map(\.entity_id) }
+
+    static func favoritesQuery(_ ids: [String]) -> String {
+        "pane=favorites&ids=" + ids.map { $0.addingPercentEncoding(withAllowedCharacters: .alphanumerics.union(["_", "."])) ?? $0 }
+            .joined(separator: ",")
+    }
+
+    private var noFavorites: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("No favorites yet. Add the accessories you use most: they show here as the dashboard's buttons, and in the widgets, Control Center and Siri.")
+                .font(.callout).foregroundStyle(.secondary)
+            Button("Add Favorites…") { open("favorites") }
+        }
+        .environment(\.colorScheme, .dark)
+        .padding(16).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 
     private var controls: some View {
@@ -53,18 +86,22 @@ struct MenuPanel: View {
                     .help("Away from home: through the house's remote address")
             }
             if model.phase == .ready {
+                if tab == .favorites {
+                    Button { open("favorites") } label: { Image(systemName: "square.and.pencil") }
+                        .buttonStyle(.borderless).help("Edit Favorites")
+                }
                 Picker("", selection: $tab) {
                     Image(systemName: "music.note").help("Music").tag(Tab.music)
                     Image(systemName: "star").help("Favorites").tag(Tab.favorites)
                 }
                 .pickerStyle(.segmented).labelsHidden().frame(width: 84)
                 Button { open("music") } label: { Image(systemName: "macwindow") }
-                    .buttonStyle(.borderless).help("Open Music in a window")
+                    .buttonStyle(.borderless).help("Open Play Music in a window")
             }
             Menu {
                 if let h = model.house { Text(h.name) }
                 if model.phase == .ready {
-                    Button("Open Music") { open("music") }
+                    Button("Open Play Music") { open("music") }
                     Button("Edit Favorites…") { open("favorites") }
                     Button("Open Mantel") {
                         Task { if let u = await model.webSessionURL() { NSWorkspace.shared.open(u) } }
@@ -74,11 +111,11 @@ struct MenuPanel: View {
                         app.keys.follow(model.summary?.now_playing)
                     }))
                     Divider()
-                    Button("Sign Out") { app.menuPage.close(); app.windowPage.close(); Task { await model.signOut() } }
+                    Button("Sign Out") { app.pages.forEach { $0.close() }; Task { await model.signOut() } }
                 }
                 if model.house != nil {
                     Button("Forget This Mantel…") {
-                        app.menuPage.close(); app.windowPage.close()
+                        app.pages.forEach { $0.close() }
                         Task { await model.forgetHouse() }
                     }
                 }
@@ -107,14 +144,15 @@ struct MenuPanel: View {
 
     private func open(_ id: String) {
         openWindow(id: id)
-        NSApp.activate()
+        MacApp.front(id)
     }
 }
 
-/// The Music page (the menu's or the window's), or the menu's own controls while it cannot be opened.
-struct MusicPageView: View {
+/// One of the house's pages, or the menu's own controls (`fallback`) while it cannot be opened.
+struct PageView<Fallback: View>: View {
     @EnvironmentObject private var model: SessionModel
     @ObservedObject var page: HousePage
+    @ViewBuilder var fallback: () -> Fallback
 
     var body: some View {
         Group {
@@ -122,10 +160,12 @@ struct MusicPageView: View {
                 HousePageView(web: web)
             } else if page.failed {
                 VStack(alignment: .leading, spacing: 12) {
-                    NowPlayingControls()
-                    Button("Try the Music Page Again") { Task { await page.reload() } }
+                    fallback()
+                    Button("Try Again") { Task { await page.reload() } }
                 }
-                .padding(14).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                .padding(14).padding(.top, page.topInset)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                .environment(\.colorScheme, .dark)
             } else {
                 ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
             }
@@ -159,7 +199,7 @@ struct NowPlayingControls: View {
                 .buttonStyle(.plain)
             }
         } else {
-            Text("No speaker yet: choose one on the Music page.").font(.callout).foregroundStyle(.secondary)
+            Text("No speaker yet: choose one with Speakers.").font(.callout).foregroundStyle(.secondary)
         }
     }
 
@@ -170,51 +210,34 @@ struct NowPlayingControls: View {
     }
 }
 
-/// The person's favorites as toggles, and the way to choose them.
+/// The person's favorites as the menu's own toggles: while their page cannot be opened.
 struct FavoritesList: View {
     @EnvironmentObject private var model: SessionModel
-    @Environment(\.openWindow) private var openWindow
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            let favs = model.summary?.favorites ?? []
-            if favs.isEmpty {
-                Text("No favorites yet. Add the accessories you use most: they show here, in the widgets, Control Center and Siri.")
-                    .font(.callout).foregroundStyle(.secondary)
-            }
-            ScrollView {
-                VStack(spacing: 8) {
-                    ForEach(favs) { e in
-                        HStack {
-                            VStack(alignment: .leading) {
-                                Text(e.name)
-                                Text(e.detail).font(.caption).foregroundStyle(.secondary)
-                            }
-                            Spacer()
-                            if e.isToggleable {
-                                Toggle("", isOn: Binding(get: { e.isOn }, set: { _ in Task { await model.toggle(e) } }))
-                                    .toggleStyle(.switch).labelsHidden()
-                            } else if e.isAction {
-                                Button("Run") { Task { await model.toggle(e) } }
-                            }
+        ScrollView {
+            VStack(spacing: 8) {
+                ForEach(model.summary?.favorites ?? []) { e in
+                    HStack {
+                        VStack(alignment: .leading) {
+                            Text(e.name)
+                            Text(e.detail).font(.caption).foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        if e.isToggleable {
+                            Toggle("", isOn: Binding(get: { e.isOn }, set: { _ in Task { await model.toggle(e) } }))
+                                .toggleStyle(.switch).labelsHidden()
+                        } else if e.isAction {
+                            Button("Run") { Task { await model.toggle(e) } }
                         }
                     }
                 }
-            }
-            .frame(maxHeight: 520)
-            HStack {
-                Button { openWindow(id: "favorites"); NSApp.activate() } label: {
-                    Label(favs.isEmpty ? "Add Favorites…" : "Edit Favorites…", systemImage: "star")
-                }
-                Spacer()
-                Button { Task { await model.refresh() } } label: { Image(systemName: "arrow.clockwise") }
-                    .buttonStyle(.borderless).help("Refresh")
             }
         }
     }
 }
 
-/// The Music page in a resizable window: its wider layout (what plays and where beside Browse) when there is room.
+/// Play Music in a resizable window, without its title bar: what plays and where beside Browse when there is room.
 struct MusicWindow: View {
     @EnvironmentObject private var model: SessionModel
     @EnvironmentObject private var app: MacApp
@@ -222,14 +245,14 @@ struct MusicWindow: View {
     var body: some View {
         Group {
             if model.phase == .ready {
-                MusicPageView(page: app.windowPage)
+                PageView(page: app.windowPage) { NowPlayingControls() }
             } else {
                 ContentUnavailableView("Not Signed In", systemImage: "house",
                                        description: Text("Set up Mantel from the menu bar first."))
             }
         }
-        .frame(minWidth: 380, minHeight: 520)
+        .frame(minWidth: 340, minHeight: 560)
         .ignoresSafeArea()          // no title bar: the page to the window's edges, the window's buttons over it
-        .navigationTitle(model.house.map { "Music · \($0.name)" } ?? "Music")
+        .navigationTitle(model.house.map { "Play Music · \($0.name)" } ?? "Play Music")
     }
 }
