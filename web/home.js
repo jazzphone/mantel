@@ -103,25 +103,27 @@ mark('states');
 
 // HA's frontend keeps /<dashboard>/<view>; so does this page (HK reads the first segment).
 const imp = (u) => import(u).catch((e) => console.error('[mantel] could not load', u, e));
-// A BARE PAGE (?bare=1, below) WITHOUT THE SCREEN'S MENU (its docked sidebar, tab, tab bar): this screen's board says
-// `menu: off` to this page alone, from before the menu is made (Avery's Play Music window showed his docked sidebar,
-// 2026-10-20). Nothing saved changes.
+// THE MAC APP'S PAGES (?bare=1, ?pane=..., below) ARE NOT A SCREEN: no menu (its docked sidebar, tab, tab bar) and no
+// notification banners (the house's banners showed in the menu bar's player, 2026-10-20). This screen's board says
+// `menu: off` and `notify: false` to these pages alone, from before the menu and the banners' module are made (Avery's
+// Play Music window showed his docked sidebar). Nothing saved changes.
 const bare = new URLSearchParams(location.search).get('bare') === '1';
-function menuOffHere() {
+const macPage = bare || !!new URLSearchParams(location.search).get('pane');
+function notAScreen() {
   const HS = window.hkSettings, get = HS && HS.get;
   if (!get) return;
   let seen = null, off = null;
   HS.get = function (path, fallback) {
     const v = get.call(HS, path, fallback);
     if (path !== 'boards' || !v || typeof v !== 'object' || !v[seg]) return v;
-    if (v !== seen) { seen = v; off = Object.assign({}, v, { [seg]: Object.assign({}, v[seg], { menu: 'off', menu_phone: 'off' }) }); }
+    if (v !== seen) { seen = v; off = Object.assign({}, v, { [seg]: Object.assign({}, v[seg], { menu: 'off', menu_phone: 'off', notify: false }) }); }
     return off;
   };
 }
 for (const m of ['modules/hk-settings.js', 'iconset/hk-icons.js', 'modules/tesla-viewport.js', 'modules/hk-tap.js',
                  'modules/hk-header.js', 'modules/hk-loader.js', 'cards/hk-strategy.js']) {
   await imp('/hk/' + m);
-  if (bare && m === 'modules/hk-settings.js') menuOffHere();
+  if (macPage && m === 'modules/hk-settings.js') notAScreen();
 }
 await Promise.all(cards.map((c) => imp('/hk/cards/' + c)));
 mark('code');
@@ -154,7 +156,7 @@ const cfg = await window.hkStrategy.generate({}, host.client);
 // BARE PAGES (?bare=1): the page's own cards without its title bar (the back button and the heading), for a page
 // shown alone, where there is no dashboard to go back to: the Mac app's Play Music window
 // (apple/MantelMac/HousePage.swift). Everything else on the page, and the page itself, is the same.
-// (and without the screen's menu: menuOffHere, above)
+// (and without the screen's menu: notAScreen, above)
 if (bare) {
   for (const v of cfg.views || []) if (Array.isArray(v.cards)) v.cards = v.cards.filter((c) => !(c && c.page_header === true));
 }
