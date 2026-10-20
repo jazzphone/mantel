@@ -1071,12 +1071,44 @@ function pConnections(sub) {
     const rows = [row('ha'), row('ma')];
     if (cs.ma && cs.ma.state === 'set') rows.push(nav('Music Assistant Page', 'connections/ma-page', { icon: 'mdi:music-box-multiple', sub: 'Signs HK’s Browse Music page in to Music Assistant' }));
     c.appendChild(group({ footer: !can ? 'Only an Owner can change connections.' : got.data.needs_fresh ? 'From outside the home network you will be asked to confirm it is you first.' : null }, rows));
+    if (['owner', 'admin'].includes(me.user.role)) drawImport(c, cs.ha && cs.ha.state === 'set');
     drawWallTablets(c);
     if (['owner', 'admin'].includes(me.user.role)) c.appendChild(group({ footer: 'Mantel Link is Home Assistant’s side of Mantel: Mantel’s wall tablets and actions in Home Assistant.' },
       [nav('Home Assistant Link', 'connections/link', { icon: 'mdi:link-variant' })]));
     if (['owner', 'admin'].includes(me.user.role)) c.appendChild(group({ footer: 'How browsers reach Mantel: Mantel’s Caddy, your own reverse proxy, the Home Assistant App or a Cloudflare tunnel.' },
       [nav('HTTPS and Your Proxy', 'connections/proxy', { icon: 'mdi:lock' })]));
   } };
+}
+// HK'S SETTINGS FROM HOME ASSISTANT (settings_store.import_settings): the one-time import, as the App's People page
+// has it. Its record for Owners and Admins (GET /api/settings/import); running it is an Owner's (POST, CSRF).
+function drawImport(c, haSet) {
+  const got = load('settings-import', () => api('GET', '/api/settings/import'));
+  if (!got) { pending(c, 'Reading whether HK’s settings were imported…'); return; }
+  if (got.err) { failed(c, got.err); return; }
+  const rec = got.data.import, owner = me.user.role === 'owner';
+  const copied = (r) => r.written.length + (r.written.length === 1 ? ' item' : ' items') + ' copied' +
+    (r.skipped.length ? ', ' + r.skipped.length + ' already in Mantel kept' : '');
+  const rows = [info('HK’s Settings', rec ? 'From ' + rec.source + ' · ' + copied(rec) : null,
+                     rec ? 'Imported ' + fmt(rec.created) : 'Not Imported')];
+  if (!rec && owner) {
+    rows.push(button('Import HK’s Settings from Home Assistant', async () => {
+      if (!(await ask({ title: 'Import HK’s settings?', message: 'Mantel copies HK Frontend’s settings from Home Assistant once. ' +
+                        'Nothing is written to Home Assistant.', ok: 'Import' }))) return;
+      const out = await act('connections', () => api('POST', '/api/settings/import'), null, 'settings-import');
+      if (!out || out === true) return;
+      flash = { key: 'connections', text: out.imported ? 'Imported HK’s settings: ' + copied(out) + '.'
+        : 'Already imported ' + fmt(out.already && out.already.created) + '; nothing changed.' };
+      reloadPanel();
+      redraw();
+    }, { disabled: !haSet, fk: 'mx:settings-import' }));
+  }
+  const what = 'your looks, rooms, screens, tablets, pop-ups, custom pages, chips and accessories, and the settings of HK’s features';
+  const footer = rec
+    ? 'Imported once. Running it again changes nothing; a change made in HK Settings inside Home Assistant doesn’t reach Mantel.'
+    : 'Copies HK Frontend’s settings from Home Assistant once: ' + what + '. Nothing is written to Home Assistant. ' +
+      'Running it again changes nothing, and anything already changed in Mantel is left alone. ' +
+      (!owner ? 'Only an Owner can import them.' : !haSet ? 'Connect Home Assistant first.' : '');
+  c.appendChild(group({ header: 'Import from HK Frontend', footer }, rows));
 }
 function drawPending(c, pid) {
   const key = 'pending:' + pid;

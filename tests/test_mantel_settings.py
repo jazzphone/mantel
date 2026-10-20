@@ -364,3 +364,122 @@ def test_the_host_presses_a_paired_tablets_reload_through_the_gateway(tmp_path):
     assert out["one"] == "Commands are off on this Mantel, so nothing was sent to the tablet."
     assert out["some"] == "Loft: Commands are off on this Mantel, so nothing was sent to the tablet."
     assert out["sentAfter"] == 3
+
+
+# -- Connections: the one-time import of HK's settings outside the App (settings_store.import_settings) ----------
+IMPORT_SCRIPT = r"""
+import { readFileSync } from 'node:fs';
+globalThis.window = globalThis;
+globalThis.document = { querySelector: () => null, cookie: 'mantel_csrf=fictional-csrf' };
+globalThis.location = { hostname: 'mantel.example', hash: '', search: '', pathname: '/settings' };
+const plain = (o) => (o == null ? o : typeof o === 'object' ? (o._text !== undefined ? o._text : JSON.stringify(o)) : o);
+const row = (kind) => (o) => ({ kind, label: o.label, sub: plain(o.sub), value: o.value, disabled: !!o.disabled,
+                                onClick: o.onClick, fk: o.fk });
+window.hkSettingsKit = {
+  group: (o, rows) => ({ kind: 'group', header: o.header || null, footer: plain(o.footer), rows: rows.filter(Boolean) }),
+  info: row('info'), nav: row('nav'), button: row('button'), confirm: async () => true,
+  h: (tag, attrs) => ({ _text: (attrs && attrs.text) || '' }),
+};
+const [, , mod, readsFile, casesFile] = process.argv;
+const reads = JSON.parse(readFileSync(readsFile, 'utf8'));
+const cases = JSON.parse(readFileSync(casesFile, 'utf8'));
+let state = {};
+const sent = [];
+globalThis.fetch = async (u, init) => {
+  const path = String(u), method = (init && init.method) || 'GET';
+  if (method !== 'GET') {
+    sent.push({ method, path, csrf: init.headers['X-CSRF-Token'] });
+    state['/api/settings/import'] = { import: reads.record, empty: false };
+    return { ok: true, status: 200, json: async () => reads.imported };
+  }
+  if (!(path in state)) throw new Error('unexpected ' + path);
+  return { ok: true, status: 200, json: async () => state[path] };
+};
+const m = await import(mod);
+const tick = () => new Promise((r) => setTimeout(r, 0));
+const panel = { render() {}, status() {}, shadowRoot: null, reload() { panel.reloaded = true; } };
+async function draw() {
+  const c = { kids: [], appendChild(k) { this.kids.push(k); return k; } };
+  for (let i = 0; i < 3; i++) { c.kids = []; m.host.page(['mantel', 'connections'], panel).body(c); await tick(); await tick(); }
+  return c.kids;
+}
+const strip = (kids) => kids.map((g) => ({ ...g, rows: (g.rows || []).map(({ onClick, ...r }) => r) }));
+const out = {};
+for (const [name, cs] of Object.entries(cases)) {
+  m._reset(cs.me);
+  state = { '/api/connections': cs.connections, '/api/connections/tablets?live=1': { tablets: [] },
+            '/api/settings/import': cs.status };
+  const kids = await draw();
+  out[name] = { groups: strip(kids) };
+  if (cs.press) {
+    const g = kids.find((k) => k.header === 'Import from HK Frontend');
+    await g.rows.find((r) => r.kind === 'button').onClick();
+    await tick(); await tick();
+    out[name].sent = sent.splice(0);
+    out[name].after = strip(await draw());
+    out[name].reloaded = !!panel.reloaded;
+  }
+}
+process.stdout.write(JSON.stringify(out));
+"""
+
+
+def connections(ha_state):
+    ha = {"label": "Home Assistant", "state": ha_state, "url": "http://ha.example:8123" if ha_state == "set" else None,
+          "live": {"connected": ha_state == "set"}}
+    return {"can_edit": True, "needs_fresh": False,
+            "connections": {"ha": ha, "ma": {"label": "Music Assistant", "state": "unset", "url": None, "live": {}}}}
+
+
+RECORD = {"source": "ha:fictional-entry", "read": "hk_frontend/panel/get", "checksum": "0" * 64,
+          "written": ["house/settings", "board/dashboard-kitchen"], "skipped": [], "actor": "u1", "created": 1_700_000_000}
+
+
+def import_run(tmp_path, cases):
+    if shutil.which("node") is None:
+        pytest.skip("node not installed")
+    node_modules(tmp_path)
+    (tmp_path / "import.mjs").write_text(IMPORT_SCRIPT)
+    (tmp_path / "reads.json").write_text(json.dumps({"record": RECORD, "imported": {
+        "imported": True, "source": "ha:fictional-entry", "written": RECORD["written"], "skipped": [],
+        "replaced": ["board/dashboard-home"]}}))
+    (tmp_path / "cases.json").write_text(json.dumps(cases))
+    got = subprocess.run(["node", str(tmp_path / "import.mjs"), str(tmp_path / "mantel-settings.mjs"),
+                          str(tmp_path / "reads.json"), str(tmp_path / "cases.json")], capture_output=True, text=True, timeout=60)
+    assert got.returncode == 0, got.stderr
+    return json.loads(got.stdout)
+
+
+def import_group(groups):
+    [g] = [g for g in groups if g.get("header") == "Import from HK Frontend"]
+    return g
+
+
+def test_connections_offers_an_owner_the_one_time_import_and_shows_its_record(tmp_path):
+    """Outside the App there was no button for the import (only POST /api/settings/import): Connections has it, an
+    Owner's, sent with the session's CSRF token; afterwards it shows the import's record and offers it no more."""
+    out = import_run(tmp_path, {
+        "owner": {"me": overview("owner", ALL), "connections": connections("set"),
+                  "status": {"import": None, "empty": False}, "press": True},
+        "owner_no_ha": {"me": overview("owner", ALL), "connections": connections("unset"), "status": {"import": None, "empty": False}},
+        "admin": {"me": overview("admin", ADMIN), "connections": connections("set"), "status": {"import": None, "empty": False}},
+        "admin_done": {"me": overview("admin", ADMIN), "connections": connections("set"), "status": {"import": RECORD, "empty": False}},
+    })
+    g = import_group(out["owner"]["groups"])
+    assert [(r["kind"], r["label"], r.get("value"), r["disabled"]) for r in g["rows"]] == [
+        ("info", "HK’s Settings", "Not Imported", False), ("button", "Import HK’s Settings from Home Assistant", None, False)]
+    assert "once" in g["footer"] and "Nothing is written to Home Assistant" in g["footer"]
+    assert "Running it again changes nothing" in g["footer"]
+    assert out["owner"]["sent"] == [{"method": "POST", "path": "/api/settings/import", "csrf": "fictional-csrf"}]
+    assert out["owner"]["reloaded"] is True                           # HK's own pages read the imported settings
+    after = import_group(out["owner"]["after"])
+    assert [r["kind"] for r in after["rows"]] == ["info"] and after["rows"][0]["value"].startswith("Imported ")
+    assert after["rows"][0]["sub"] == "From ha:fictional-entry · 2 items copied"
+    assert out["owner"]["after"][0]["_text"] == "Imported HK’s settings: 2 items copied."     # the page's flash line
+    no_ha = import_group(out["owner_no_ha"]["groups"])
+    assert no_ha["rows"][1]["disabled"] is True and "Connect Home Assistant first" in no_ha["footer"]
+    admin = import_group(out["admin"]["groups"])
+    assert [r["kind"] for r in admin["rows"]] == ["info"] and "Only an Owner" in admin["footer"]
+    done = import_group(out["admin_done"]["groups"])
+    assert done["rows"][0]["value"].startswith("Imported ") and "Running it again changes nothing" in done["footer"]
+

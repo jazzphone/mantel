@@ -35,7 +35,7 @@ What is here:
   read path only (``hk_frontend/panel/get``, the one read HK Settings itself makes), written as
   version 1 with the source recorded. Idempotent: a second run changes nothing and says when the
   first one ran. It never writes to HA. CLI ``mantel-server import-settings``; REST
-  ``POST /api/settings/import`` (Owner only).
+  ``POST /api/settings/import`` (Owner only; Mantel Settings -> Connections offers it).
 * ``register(app, hub, hooks)``: fills ``app["read_routes"]``, ``app["ws_handlers"]`` and the REST
   routes, like P3.4's connectors. server.py is not touched here; P3.7 wires it.
 """
@@ -1548,7 +1548,7 @@ def register(app: web.Application, hub: Any, hooks: Any = None, *, store: Settin
 
 
 # ------------------------------------------------------------------------------------------ CLI
-async def import_cli(data_dir, ha_url: str, token: str, out=print) -> int:
+async def import_cli(data_dir, ha_url: str, token: str, out=print, ws_url: str | None = None) -> int:
     """``mantel-server import-settings``: read HK's settings from HA once (the read path only) and
     write them as version 1. Exit 0 when imported or already imported."""
     from pathlib import Path
@@ -1556,7 +1556,7 @@ async def import_cli(data_dir, ha_url: str, token: str, out=print) -> int:
     from .readproxy import ReadProxy
     from .store import Store
     st = Store(Path(data_dir).expanduser() / "mantel.db")
-    proxy = ReadProxy(ha_url, token)
+    proxy = ReadProxy(ha_url, token, ws_url=ws_url)
     try:
         got = await import_settings(SettingsStore(st.db), proxy.read_hk_settings, actor=Actor(label="cli"),
                                     read_features=proxy.read_server)

@@ -200,8 +200,10 @@ dict). Each history row records the user, their role and the device.
 
 Ways to run it:
 
-* CLI: `mantel-server import-settings [--data-dir …] [--ha-url …] [--token-file …]` (prints what it
-  wrote; a second run says when the first one ran and changes nothing).
+* CLI: `mantel-server import-settings [--data-dir …] [--ha-url …] [--token-file …] [--secrets-dir …]` (prints
+  what it wrote; a second run says when the first one ran and changes nothing). It reaches HA as the server
+  does (`connections.ha_in_effect`): the connection saved on Connections, else `--ha-url` and `--token-file`.
+* Mantel Settings → Connections → Import from HK Frontend: the import's record, and the Owner's button.
 * REST: `POST /api/settings/import` (Owner only; CSRF as every state-changing `/api/` call); `GET
   /api/settings/import` (Owner/Admin) returns `{"import": <row or null>, "empty": bool}`. After an
   import every connected feed gets the new payload.

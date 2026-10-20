@@ -636,6 +636,66 @@ def test_the_cli_imports_once_from_ha(tmp_path, capsys):
     d.close()
 
 
+class ServedHa:
+    """A fake HA served on a real port from a thread of its own (the CLI runs its own event loop)."""
+
+    def __enter__(self):
+        self.fake = SettingsHa()
+        self.loop = asyncio.new_event_loop()
+        self.runner = web.AppRunner(self.fake.app())
+        self.loop.run_until_complete(self.runner.setup())
+        site = web.TCPSite(self.runner, "127.0.0.1", 0)
+        self.loop.run_until_complete(site.start())
+        self.url = f"http://127.0.0.1:{site._server.sockets[0].getsockname()[1]}"
+        self.thread = threading.Thread(target=self.loop.run_forever, daemon=True)
+        self.thread.start()
+        return self
+
+    def __exit__(self, *exc):
+        asyncio.run_coroutine_threadsafe(self.runner.cleanup(), self.loop).result(5)
+        self.loop.call_soon_threadsafe(self.loop.stop)
+        self.thread.join(5)
+
+
+def save_connection(tmp_path, url, token=HA_TOKEN, key_dir="secrets"):
+    """Home Assistant connected the normal way: on Mantel Settings -> Connections, sealed in the data folder."""
+    from mantel_server import atrest, connections
+    files = connections.SealedFiles(tmp_path / "data" / "connections",
+                                    atrest.SecretBox(tmp_path / key_dir / atrest.KEY_FILE))
+    files.save(connections.Record(kind="ha", url=url, token=token, method="oauth", since=1.0))
+
+
+def test_the_cli_imports_with_the_connection_saved_on_connections(tmp_path, capsys):
+    """The usual Docker/LXC install: ha_token is an empty placeholder and HA was connected on the Connections page.
+    The command reaches HA as the server does (connections.ha_in_effect): the saved connection's address and token."""
+    from mantel_server.__main__ import main
+    empty = tmp_path / "ha_token"
+    empty.write_text("")
+    with ServedHa() as ha:
+        save_connection(tmp_path, ha.url)
+        args = ["import-settings", "--data-dir", str(tmp_path / "data"), "--token-file", str(empty),
+                "--secrets-dir", str(tmp_path / "secrets")]          # no --ha-url: the saved connection has it
+        assert main(args) == 0
+        assert "imported HK settings from ha:fictional-entry" in capsys.readouterr().out
+        assert main(args) == 0
+        assert "already imported" in capsys.readouterr().out
+        assert ha.fake.sent_types() == ["auth", "hk_frontend/panel/get"]
+
+
+def test_the_cli_says_how_to_connect_when_nothing_is_connected(tmp_path, capsys):
+    from mantel_server.__main__ import main
+    empty = tmp_path / "ha_token"
+    empty.write_text("")
+    base = ["import-settings", "--data-dir", str(tmp_path / "data"), "--secrets-dir", str(tmp_path / "secrets")]
+    assert main(base + ["--token-file", str(empty)]) == 2
+    assert "Mantel Settings -> Connections" in capsys.readouterr().err
+    assert not (tmp_path / "secrets").exists()               # nothing to open: no at-rest key made for it
+    save_connection(tmp_path, "http://127.0.0.1:9", key_dir="other-secrets")   # sealed with another key
+    assert main(base + ["--token-file", str(empty)]) == 2
+    err = capsys.readouterr().err
+    assert "could not be opened" in err and HA_TOKEN not in err
+
+
 # ------------------------------------------------------------- the client API, wired as P3.7 will
 class Page:
     """One client connection: a Ctx whose sends are collected."""

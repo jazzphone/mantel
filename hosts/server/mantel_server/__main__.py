@@ -74,22 +74,34 @@ def admin(argv: list[str]) -> int:
 
 def import_settings(argv: list[str]) -> int:
     """`mantel-server import-settings`: the one-time import of HK's settings from Home Assistant (P3.5).
-    Reads `hk_frontend/panel/get` once over the read path; writes nothing to Home Assistant."""
+    Reads `hk_frontend/panel/get` once over the read path; writes nothing to Home Assistant. It reaches HA
+    as the server does (connections.ha_in_effect): the connection saved on Mantel Settings -> Connections,
+    else --ha-url and the token in --token-file."""
     import asyncio
 
+    from .connections import ConnectionFailed, ha_in_effect
     from .settings_store import import_cli
     p = argparse.ArgumentParser(prog="mantel-server import-settings")
     p.add_argument("--data-dir", default=str(Config.data_dir))
     p.add_argument("--ha-url", default=Config.ha_url)
+    p.add_argument("--ha-ws-url", default="", help="Home Assistant's WebSocket API, when not derived from --ha-url")
     p.add_argument("--token-file", default=str(Config.token_file),
                    help="Mantel's HA token (an HA admin user's: HK Settings' read needs admin)")
+    p.add_argument("--secrets-dir", default=str(Config.secrets_dir),
+                   help="the server's secrets folder: its at_rest.key opens the connection saved on Connections")
     a = p.parse_args(argv)
+    cfg = Config(ha_url=a.ha_url, ha_ws_url=a.ha_ws_url, token_file=Path(a.token_file), data_dir=Path(a.data_dir),
+                 secrets_dir=Path(a.secrets_dir))
     try:
-        token = read_token(Path(a.token_file))
-    except TokenMissing as exc:
-        print(f"mantel-server: {exc}", file=sys.stderr)
+        cur = ha_in_effect(cfg)
+    except ConnectionFailed as exc:
+        print(f"mantel-server: {exc.message}", file=sys.stderr)
         return 2
-    return asyncio.run(import_cli(a.data_dir, a.ha_url, token))
+    if cur is None or not cur.token:
+        print(f"mantel-server: Home Assistant is not connected: connect it on Mantel Settings -> Connections, "
+              f"or put Mantel's Home Assistant token in {a.token_file}", file=sys.stderr)
+        return 2
+    return asyncio.run(import_cli(a.data_dir, cur.url, cur.token, ws_url=cfg.ha_ws_url or None))
 
 
 def main(argv: list[str] | None = None) -> int:

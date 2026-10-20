@@ -62,7 +62,8 @@ Home Assistant App (add-on)      recognised by SUPERVISOR_TOKEN in the environme
     MANTEL_DIRECT_PORT, MANTEL_HA_OAUTH_URL, MANTEL_APP_CF_TOKEN_FILE, MANTEL_SUPERVISOR_URL
 
 Admin commands pass straight through and default to the /data volume (and, for import-settings, backup
-and restore, to the container's HA address, token and secrets):
+and restore, to the container's HA address, token and secrets; import-settings uses the Home Assistant
+connection saved on Mantel Settings -> Connections when there is one, as the server does):
     docker compose exec mantel-server mantel links          (inside the running server: `mantel` is this
     docker compose exec mantel-server mantel bootstrap       entrypoint; `run` would start a second server
     docker compose exec mantel-server mantel import-settings on the same fixed backend address)
@@ -96,7 +97,9 @@ ADMIN_COMMANDS = {"link", "unlink", "links", "session", "connect-proof", "connec
 # what each admin command takes besides --data-dir, filled from the container's own settings when absent
 ADMIN_EXTRAS = {
     "import-settings": lambda env: ["--ha-url", env.get("MANTEL_HA_URL", ""),
-                                    "--token-file", env.get("MANTEL_HA_TOKEN_FILE", "/run/secrets/ha_token")],
+                                    "--token-file", env.get("MANTEL_HA_TOKEN_FILE", "/run/secrets/ha_token"),
+                                    # the at-rest key that opens the connection saved on Mantel Settings -> Connections
+                                    "--secrets-dir", env.get("MANTEL_SECRETS_DIR", "/run/secrets")],
     "backup": lambda env: ["--secrets-dir", env.get("MANTEL_SECRETS_DIR", "/run/secrets")],
     "restore": lambda env: ["--secrets-dir", env.get("MANTEL_SECRETS_DIR", "/run/secrets")],
     "door-key": lambda env: ["--secrets-dir", env.get("MANTEL_SECRETS_DIR", "/run/secrets")],
