@@ -150,6 +150,6 @@ A refused or missing album or photo for the saver's routes answers one 404 (noth
   more wheels (both have manylinux amd64/aarch64 wheels).
 * A tablet sees an album's new photos at its next listing (up to 30 minutes), or at once in the browser that
   made the change.
-* Mantel's own quick fix for the HA folder (main) fetches `ha_url + /media/…` with a bearer token; under the HA
-  App that is the Supervisor's proxy, which does not pass `/media/`. Worth checking on the house (this import
-  avoids it, see step 3 above).
+* The browser check ran against a local Mantel with fictional photos and a fictional HA folder (never the house):
+  twenty files dropped at once (HEIC among them, a duplicate and a text file reported in words), the preview,
+  selecting and deleting three, an import, an album on a screen and that screen's screensaver showing it.

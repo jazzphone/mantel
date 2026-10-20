@@ -44,7 +44,7 @@ export const STYLE = [
   '.cell.mxup{flex-wrap:wrap;row-gap:6px}',
   '.cell.mxup .lbl small.err{color:var(--hk-red)}',
   '.cell.mxup .mxbar{height:4px}',
-  '.mxview{position:fixed;inset:0;z-index:20;background:rgba(0,0,0,.94);display:flex;flex-direction:column;color:#fff}',
+  '.mxview{position:fixed;inset:0;z-index:20;background:#000;display:flex;flex-direction:column;color:#fff}',
   '.mxview .top,.mxview .bot{flex:none;display:flex;align-items:center;gap:8px;padding:10px 12px;font-size:15px}',
   '.mxview .top .t{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:center}',
   '.mxview .bot{justify-content:space-between;color:rgba(255,255,255,.7);font-size:13px}',
