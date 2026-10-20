@@ -55,7 +55,7 @@ class Browser:
              "--disable-background-timer-throttling", "--hide-scrollbars", "about:blank"],
             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         self.http = aiohttp.ClientSession()
-        for _ in range(50):
+        for _ in range(150):                             # up to 30 s: a cold Chrome on a busy CI runner is slow
             try:
                 async with self.http.get(f"http://127.0.0.1:{self.port}/json") as r:
                     tabs = [t for t in await r.json() if t["type"] == "page"]
