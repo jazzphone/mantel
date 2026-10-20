@@ -41,6 +41,14 @@ struct HouseWebView: UIViewRepresentable {
         });
         """
         config.userContentController.addUserScript(WKUserScript(source: bridge, injectionTime: .atDocumentStart, forMainFrameOnly: true))
+        #if DEBUG
+        // -MantelDebugJS '<script>': run on every page of a Debug build; it may report with mantelDebug(...) to the
+        // device log ("[web]" lines: xcrun simctl launch --console-pty ...)
+        if let js = UserDefaults.standard.string(forKey: "MantelDebugJS") {
+            let debug = "window.mantelDebug = (...a) => window.webkit.messageHandlers.mantel.postMessage({ type: 'log', text: a.map(String).join(' ') });\n" + js
+            config.userContentController.addUserScript(WKUserScript(source: debug, injectionTime: .atDocumentEnd, forMainFrameOnly: true))
+        }
+        #endif
         config.userContentController.add(context.coordinator, name: "mantel")
         let view = WKWebView(frame: .zero, configuration: config)
         view.navigationDelegate = context.coordinator
@@ -107,6 +115,9 @@ struct HouseWebView: UIViewRepresentable {
                 guard let s = body["url"] as? String, let url = URL(string: s) else { return }
                 let vc = UIActivityViewController(activityItems: [url], applicationActivities: nil)
                 message.webView?.window?.rootViewController?.present(vc, animated: true)
+            #if DEBUG
+            case "log": print("[web]", body["text"] as? String ?? "")
+            #endif
             default: break
             }
         }

@@ -29,6 +29,12 @@
      tablet or a desktop browser; a tab bar at the top sets its own padding-top inline (hk-tabbar.js). */
   hk-view-container { display: block; position: relative; isolation: isolate; min-height: 100vh;
                       box-sizing: border-box; padding-top: env(safe-area-inset-top, 0px); }
+  /* the Music page's Now Playing sheet on a phone (hk-music.js, `hk-music-sheet` while it is up): its z-index
+     cannot leave this isolated container, so the tab bar (6) and the playing bar (7) in #hk-shell-root drew over
+     it and took its taps. While it is up the container stands at 7, after the shell root: over both, under the
+     detail sheets (8) and the menu (9); and the page behind it does not scroll (Avery's iPhone, 2026-10-20). */
+  html[hk-music-sheet] hk-view-container { z-index: 7; }
+  html[hk-music-sheet], html[hk-music-sheet] body { overflow: hidden; }
 </style>
 </head>
 <body>
