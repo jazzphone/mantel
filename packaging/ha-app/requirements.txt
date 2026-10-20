@@ -20,3 +20,6 @@ cbor2==6.1.5
 pyOpenSSL==26.4.0
 pyasn1==0.6.4
 pyasn1_modules==0.4.2
+# Mantel Photos and Your files: pictures decoded and re-encoded (photos.py, user_files.py); HEIC from iPhones
+pillow==13.0.0
+pillow_heif==1.8.1

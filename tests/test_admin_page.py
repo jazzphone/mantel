@@ -135,8 +135,8 @@ async def test_a_wall_tablet_alone_is_refused_the_page(admin):
 
 # -- the overview ------------------------------------------------------------------------------------
 @pytest.mark.parametrize("role, expected", [
-    ("owner", ["me", "connections", "people", "devices", "files", "roles", "service", "audit"]),
-    ("admin", ["me", "connections", "people", "devices", "files", "audit"]),
+    ("owner", ["me", "connections", "people", "devices", "files", "photos", "roles", "service", "audit"]),
+    ("admin", ["me", "connections", "people", "devices", "files", "photos", "audit"]),
     ("adult", ["me"]), ("child", ["me"]), ("guest", ["me"]), ("wall_tablet", ["me"]),
 ])
 async def test_sections_by_role(admin, role, expected):
@@ -165,7 +165,7 @@ async def test_the_tunnel_door_loses_service_accounts(admin):
     issued = admin.app["sessions"].create(uid, "tunnel", "passkey")
     admin.client.session.cookie_jar.update_cookies({"mantel_session": issued.access, "mantel_csrf": issued.csrf})
     got = await sections(admin, tunnel=True)
-    assert got == ["me", "connections", "people", "devices", "files", "roles", "audit"]
+    assert got == ["me", "connections", "people", "devices", "files", "photos", "roles", "audit"]
 
 
 async def test_the_audit_section_follows_the_configure_grant(admin):

@@ -9,6 +9,7 @@ with AES-256-GCM, is a gzip-compressed tar holding
                      writes, WAL included), checked with ``PRAGMA integrity_check`` before it is packed;
 * ``manifest.json``  schema version, row counts per table, when, and what else is inside;
 * ``user-files/...`` the "Your files" tree (user_files.py), unless switched off;
+* ``photos/...``     Mantel Photos (photos.py: originals, screen-sized copies, thumbnails), with "Your files";
 * ``connections/...`` Mantel's own HA/MA credentials from the Connections page (connections.py), as the sealed
                      files they are (sealed with the at-rest key, so a restore needs that key too).
 
@@ -94,6 +95,7 @@ MAX_UNPACKED = 16 << 30            # a decompression-bomb guard on restore (16 G
 DB_NAME = "mantel.db"
 FILES_DIR = "user-files"
 CONNECTIONS_DIR = "connections"     # connections.py: <data_dir>/connections, sealed files
+PHOTOS_DIR = "photos"               # photos.py: <data_dir>/photos (the rows are in the database)
 DEFAULT_TIME = "03:15"
 
 
@@ -321,6 +323,9 @@ def create_backup(data_dir: Path, target: Path, key: bytes, *, now: datetime | N
             tar.add(work / DB_NAME, arcname=DB_NAME, recursive=False)
             if with_files:
                 manifest["file_count"] = _add_tree(tar, files_root, FILES_DIR)
+            photos_root = data_dir / PHOTOS_DIR
+            if include_files and photos_root.is_dir():
+                manifest["photos"] = _add_tree(tar, photos_root, PHOTOS_DIR)
             conn_root = data_dir / CONNECTIONS_DIR
             if conn_root.is_dir():
                 manifest["connections"] = _add_tree(tar, conn_root, CONNECTIONS_DIR)
@@ -410,8 +415,9 @@ def _unpack(payload: Path, out: Path) -> tuple[dict, int]:
         try:
             for m in tar:
                 name = _safe_member(m.name)
-                if name is None or not (name in (DB_NAME, "manifest.json") or name in (FILES_DIR, CONNECTIONS_DIR)
+                if name is None or not (name in (DB_NAME, "manifest.json") or name in (FILES_DIR, CONNECTIONS_DIR, PHOTOS_DIR)
                                         or name.startswith(FILES_DIR + "/")
+                                        or name.startswith(PHOTOS_DIR + "/")
                                         or name.startswith(CONNECTIONS_DIR + "/")):
                     raise BackupError("corrupt", f"the backup contains an unexpected entry {m.name!r}")
                 if m.isdir():
@@ -526,7 +532,9 @@ def restore(backup: Path, key: bytes, data_dir: Path, *, replace: bool = False, 
         moved: list[tuple[Path, Path]] = []
         try:
             conn_tree = stage / "unpacked" / CONNECTIONS_DIR
-            for p in [live, *sidecars, data_dir / FILES_DIR] + ([data_dir / CONNECTIONS_DIR] if conn_tree.is_dir() else []):
+            photos_tree = stage / "unpacked" / PHOTOS_DIR
+            for p in [live, *sidecars, data_dir / FILES_DIR, data_dir / PHOTOS_DIR] + \
+                    ([data_dir / CONNECTIONS_DIR] if conn_tree.is_dir() else []):
                 if p.exists() or p.is_symlink():
                     aside = p.with_name(p.name + suffix)
                     n = 1
@@ -539,6 +547,12 @@ def restore(backup: Path, key: bytes, data_dir: Path, *, replace: bool = False, 
             os.chmod(live, 0o600)
             if files_tree.is_dir():
                 os.replace(files_tree, data_dir / FILES_DIR)
+            if photos_tree.is_dir():
+                os.replace(photos_tree, data_dir / PHOTOS_DIR)
+                for base, dirs, names in os.walk(data_dir / PHOTOS_DIR):
+                    os.chmod(base, 0o700)
+                    for n in names:
+                        os.chmod(Path(base) / n, 0o600)
             if conn_tree.is_dir():
                 os.replace(conn_tree, data_dir / CONNECTIONS_DIR)
                 os.chmod(data_dir / CONNECTIONS_DIR, 0o700)
@@ -731,7 +745,7 @@ def cli_backup(argv: list[str]) -> int:
     p.add_argument("--create", action="store_true", help="create the target folder if it does not exist")
     p.add_argument("--keep-daily", type=int, default=7)
     p.add_argument("--keep-weekly", type=int, default=4)
-    p.add_argument("--no-files", action="store_true", help="the database only, not the Your files tree")
+    p.add_argument("--no-files", action="store_true", help="the database only, not the Your files tree or Mantel Photos")
     a = p.parse_args(argv)
     key_file = Path(a.key_file or Path(a.secrets_dir) / KEY_FILE)
     try:

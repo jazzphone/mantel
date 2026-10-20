@@ -1,0 +1,897 @@
+"""MANTEL PHOTOS: the house's own photo library for the screensavers (docs/phase4/PHOTOS.md).
+
+HK's screensaver shows the photos of a Home Assistant media folder (``look.photos``, ``media-source://…``). Mantel
+keeps its own library beside that, so a home can put its photos in Mantel and choose them per screen:
+
+* **Albums.** A named set of photos; every photo is in exactly one. A screen's screensaver shows an album when
+  its source is ``mantel-photos://<album id>`` -- the house's Screensaver Photos may say that, and each screen may
+  choose its own album (``photo_screens``; Mantel Settings, the screen's page). Nothing changes in HK Frontend
+  inside Home Assistant: the source and the screen choice exist only in Mantel.
+* **Storage.** ``<data_dir>/photos/{originals,screen,thumbs}/<id>.<ext>``, 0700 folders, 0600 files. Every
+  picture is decoded and re-encoded on the way in: JPEG, PNG, WebP and HEIC/HEIF (iPhone photos) are accepted by
+  their bytes, the orientation is applied, every bit of metadata (EXIF, GPS location, XMP) is dropped, wide-gamut
+  colour goes to sRGB, and three files are written -- the original (full size up to 8192 px on the long side,
+  JPEG), the screen-sized one the screensavers show (2560 px, JPEG) and a thumbnail (480 px, WebP).
+* **Limits.** One upload at most ``file_mb`` (default 40 MB) and 100 megapixels; all photos together at most
+  ``quota_mb`` (default 4 GB). Both are an Owner's to change.
+* **Duplicates.** The SHA-256 of the bytes as they came in: the same picture again in the same album is skipped.
+* **Who.** An Owner or Admin manages the library (albums, uploads, delete, move, a screen's album; CSRF on every
+  change; every change audited as a ``config`` row). Only an Owner changes the limits and imports from Home
+  Assistant. The screensavers read an album's list and its screen-sized photos and thumbnails as anyone who may
+  use ``feature:media`` (a signed-in person or a wall tablet); the originals are for managers only.
+* **Import from Home Assistant.** An Owner copies the pictures under one of HA's media folders
+  (``media-source://media_source/…``) into an album. Mantel walks the folder with ``media_source/browse_media``,
+  asks ``media_source/resolve_media`` for each picture (a server-only read) and reads it from HA Core with HA's
+  own short-lived signature, through Mantel's own connection. One import at a time, in the background, with its
+  progress; nothing in Home Assistant is ever written or deleted.
+* **Backups.** The folder goes into Mantel's encrypted backups (backup.py) with "Your files", and with ``/data``
+  into Home Assistant's backups of the App.
+"""
+from __future__ import annotations
+
+import asyncio
+import contextlib
+import hashlib
+import io
+import logging
+import os
+import re
+import secrets
+import time
+import unicodedata
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Callable
+from urllib.parse import unquote, urlsplit
+
+from aiohttp import web
+
+log = logging.getLogger("mantel.photos")
+
+SCHEME = "mantel-photos://"
+HA_SOURCE = "media-source://media_source/"
+PHOTO_ID = re.compile(r"^[0-9a-f]{32}$")
+ALBUM_ID = re.compile(r"^[0-9a-f]{16}$")
+SCREEN = re.compile(r"^[A-Za-z0-9_][A-Za-z0-9_-]{0,79}$")
+NAME_MAX = 60
+FILE_NAME_MAX = 120
+PIXELS_MAX = 100_000_000
+ORIGINAL_EDGE = 8192
+SCREEN_EDGE = 2560
+THUMB_EDGE = 480
+# folder, file extension, content type -- per size
+SIZES = {"original": ("originals", ".jpg", "image/jpeg"),
+         "screen": ("screen", ".jpg", "image/jpeg"),
+         "thumb": ("thumbs", ".webp", "image/webp")}
+LIMITS = {"quota_mb": (100, 1_048_576, 4096), "file_mb": (1, 200, 40)}      # (lowest, highest, default)
+ALBUM_MAX = 200
+ALBUM_PHOTOS_MAX = 20_000
+BATCH_MAX = 2000
+IMPORT_MAX = 5000
+IMPORT_DEPTH = 4
+IMPORT_ERRORS_KEPT = 30
+MANAGERS = ("owner", "admin")
+# the screen-sized photos and thumbnails never change under one id (a photo is never edited, only added or
+# removed), so a browser keeps them; the lists are asked again each time
+IMMUTABLE = {"Cache-Control": "private, max-age=31536000, immutable", "X-Content-Type-Options": "nosniff"}
+NO_STORE = {"Cache-Control": "no-store"}
+
+
+class PhotoError(Exception):
+    """A refused request. ``code`` is stable (the page words it); ``status`` is the HTTP answer."""
+
+    def __init__(self, code: str, message: str, status: int = 400) -> None:
+        super().__init__(message)
+        self.code, self.status = code, status
+
+
+# -- pictures -------------------------------------------------------------------------------------------
+@dataclass
+class Processed:
+    original: bytes
+    screen: bytes
+    thumb: bytes
+    width: int
+    height: int
+
+    @property
+    def size(self) -> int:
+        return len(self.original) + len(self.screen) + len(self.thumb)
+
+
+def sniff(data: bytes) -> str | None:
+    """"jpeg" | "png" | "webp" | "heic" from the bytes, else None (the name and the browser's word are ignored)."""
+    if data[:3] == b"\xff\xd8\xff":
+        return "jpeg"
+    if data[:8] == b"\x89PNG\r\n\x1a\n":
+        return "png"
+    if data[:4] == b"RIFF" and data[8:12] == b"WEBP":
+        return "webp"
+    if data[4:8] == b"ftyp" and data[8:12] in (b"heic", b"heix", b"hevc", b"hevx", b"heim", b"heis", b"mif1", b"msf1"):
+        return "heic"
+    return None
+
+
+def process(data: bytes) -> Processed:
+    """Decode a picture and make its three stored files (see the module docstring). PhotoError otherwise."""
+    kind = sniff(data)
+    if kind is None:
+        raise PhotoError("photo_invalid", "That isn’t a JPEG, PNG, WebP or HEIC picture.", 415)
+    try:
+        from PIL import Image, ImageOps
+    except ImportError as exc:                                  # pragma: no cover -- Pillow is a dependency
+        raise PhotoError("images_unavailable", "This server was built without image support.", 503) from exc
+    if kind == "heic":
+        try:
+            import pillow_heif
+            pillow_heif.register_heif_opener()
+        except ImportError as exc:
+            raise PhotoError("heic_unsupported", "This server can’t read HEIC photos. Export the photo as JPEG.",
+                             415) from exc
+    Image.MAX_IMAGE_PIXELS = PIXELS_MAX * 2
+    try:
+        img = Image.open(io.BytesIO(data))
+        if img.width * img.height > PIXELS_MAX:
+            raise PhotoError("photo_too_large", "That picture has too many pixels (100 megapixels at most).", 413)
+        shown = {"JPEG": "jpeg", "MPO": "jpeg", "PNG": "png", "WEBP": "webp", "HEIF": "heic"}.get(img.format or "")
+        if shown != kind:
+            raise PhotoError("photo_invalid", "The picture doesn’t match its own format.", 415)
+        img.seek(0)
+        img.load()
+        icc = img.info.get("icc_profile")
+        img = ImageOps.exif_transpose(img)                       # upright, then the EXIF is never written again
+        if img.mode in ("RGBA", "LA", "PA") or (img.mode == "P" and "transparency" in img.info):
+            rgba = img.convert("RGBA")
+            flat = Image.new("RGB", rgba.size, (0, 0, 0))        # a screensaver's ground is black
+            flat.paste(rgba, mask=rgba.getchannel("A"))
+            img = flat
+        else:
+            img = img.convert("RGB")
+        if icc:
+            with contextlib.suppress(Exception):                # best effort: wide gamut (Display P3) -> sRGB
+                from PIL import ImageCms
+                src = ImageCms.ImageCmsProfile(io.BytesIO(icc))
+                img = ImageCms.profileToProfile(img, src, ImageCms.createProfile("sRGB"), outputMode="RGB")
+        img.thumbnail((ORIGINAL_EDGE, ORIGINAL_EDGE), Image.LANCZOS)
+        width, height = img.size
+
+        def jpeg(im, quality: int) -> bytes:
+            buf = io.BytesIO()
+            im.save(buf, "JPEG", quality=quality, optimize=True, progressive=True)
+            return buf.getvalue()
+
+        original = jpeg(img, 90)
+        screen = img.copy()
+        screen.thumbnail((SCREEN_EDGE, SCREEN_EDGE), Image.LANCZOS)
+        screen_bytes = jpeg(screen, 85)
+        thumb = screen.copy()
+        thumb.thumbnail((THUMB_EDGE, THUMB_EDGE), Image.LANCZOS)
+        buf = io.BytesIO()
+        thumb.save(buf, "WEBP", quality=78, method=4)
+        return Processed(original, screen_bytes, buf.getvalue(), width, height)
+    except PhotoError:
+        raise
+    except Image.DecompressionBombError as exc:
+        raise PhotoError("photo_too_large", "That picture has too many pixels (100 megapixels at most).", 413) from exc
+    except Exception as exc:  # noqa: BLE001 -- any decoder failure is "not a usable picture"
+        raise PhotoError("photo_invalid", "That picture couldn’t be read.", 415) from exc
+
+
+def clean_name(raw: object, limit: int = NAME_MAX, *, what: str = "album") -> str:
+    """A name for people: NFKC, printable, spaces collapsed, 1..limit characters."""
+    if not isinstance(raw, str):
+        raise PhotoError("name_required", f"The {what} needs a name.")
+    name = " ".join("".join(ch for ch in unicodedata.normalize("NFKC", raw) if ch.isprintable()).split())
+    if not name:
+        raise PhotoError("name_required", f"The {what} needs a name.")
+    if len(name) > limit:
+        raise PhotoError("name_too_long", f"Names are at most {limit} characters.")
+    return name
+
+
+def file_label(raw: object) -> str:
+    """The file name a photo came with, kept for people only: the last path part, printable, at most 120."""
+    if not isinstance(raw, str):
+        return ""
+    name = unicodedata.normalize("NFKC", raw).replace("\\", "/").rsplit("/", 1)[-1]
+    return "".join(ch for ch in name if ch.isprintable()).strip()[:FILE_NAME_MAX]
+
+
+def album_of(source: object) -> str | None:
+    """``mantel-photos://<album id>`` -> the album id, else None."""
+    if isinstance(source, str) and source.startswith(SCHEME) and ALBUM_ID.match(source[len(SCHEME):]):
+        return source[len(SCHEME):]
+    return None
+
+
+# -- the library ------------------------------------------------------------------------------------------
+def _write(dest: Path, data: bytes) -> None:
+    tmp = dest.with_name(f".{dest.name}.{secrets.token_hex(4)}.tmp")
+    try:
+        fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        with os.fdopen(fd, "wb") as f:
+            f.write(data)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp, dest)
+    finally:
+        with contextlib.suppress(OSError):
+            tmp.unlink()
+
+
+class PhotoLibrary:
+    """The rows (``db``, used on the event loop only) and the files (``root``; written in a worker thread)."""
+
+    def __init__(self, root: Path, db, clock: Callable[[], float] = time.time) -> None:
+        self.root = Path(root).expanduser()
+        self.db = db
+        self.clock = clock
+        self.lock = asyncio.Lock()                  # a quota check and the write it allows are one step
+
+    # -- folders and files ------------------------------------------------------------------------
+    def ensure(self) -> None:
+        for d in (self.root, *(self.root / f for f, _, _ in SIZES.values())):
+            d.mkdir(parents=True, exist_ok=True)
+            with contextlib.suppress(OSError):
+                os.chmod(d, 0o700)
+
+    def path(self, photo_id: str, size: str) -> Path | None:
+        if size not in SIZES or not PHOTO_ID.match(photo_id or ""):
+            return None
+        folder, ext, _ = SIZES[size]
+        p = self.root / folder / f"{photo_id}{ext}"
+        return p if p.is_file() and not p.is_symlink() else None
+
+    def _write_files(self, photo_id: str, got: Processed) -> None:
+        self.ensure()
+        for size, data in (("original", got.original), ("screen", got.screen), ("thumb", got.thumb)):
+            folder, ext, _ = SIZES[size]
+            _write(self.root / folder / f"{photo_id}{ext}", data)
+
+    def _remove_files(self, photo_id: str) -> None:
+        for folder, ext, _ in SIZES.values():
+            with contextlib.suppress(OSError):
+                (self.root / folder / f"{photo_id}{ext}").unlink()
+
+    # -- settings ---------------------------------------------------------------------------------
+    def limits(self) -> dict:
+        out = {k: d for k, (_, _, d) in LIMITS.items()}
+        for row in self.db.execute("SELECT key, value FROM photo_settings"):
+            lo, hi, _ = LIMITS.get(row["key"], (None, None, None))
+            with contextlib.suppress(TypeError, ValueError):
+                if lo is not None and lo <= int(row["value"]) <= hi:
+                    out[row["key"]] = int(row["value"])
+        return out
+
+    def set_limits(self, changes: dict) -> dict:
+        if not isinstance(changes, dict) or not changes or set(changes) - set(LIMITS):
+            raise PhotoError("bad_limits", "Send quota_mb and/or file_mb.")
+        for k, v in changes.items():
+            lo, hi, _ = LIMITS[k]
+            if isinstance(v, bool) or not isinstance(v, int) or not lo <= v <= hi:
+                raise PhotoError("bad_limits", f"{k} must be a whole number from {lo} to {hi}.")
+        now = self.clock()
+        with self.db:
+            for k, v in changes.items():
+                self.db.execute("INSERT INTO photo_settings (key, value, updated) VALUES (?,?,?) "
+                                "ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated=excluded.updated",
+                                (k, str(v), now))
+        return self.limits()
+
+    def usage(self) -> int:
+        return int(self.db.execute("SELECT COALESCE(SUM(bytes), 0) FROM photos").fetchone()[0])
+
+    def count(self) -> int:
+        return int(self.db.execute("SELECT COUNT(*) FROM photos").fetchone()[0])
+
+    # -- albums -----------------------------------------------------------------------------------
+    def albums(self) -> list[dict]:
+        rows = self.db.execute(
+            "SELECT a.id, a.name, a.position, a.created, a.updated, COUNT(p.id) AS count, "
+            "COALESCE(SUM(p.bytes), 0) AS bytes, "
+            "(SELECT id FROM photos q WHERE q.album_id = a.id ORDER BY q.created DESC, q.id LIMIT 1) AS cover "
+            "FROM photo_albums a LEFT JOIN photos p ON p.album_id = a.id GROUP BY a.id ORDER BY a.position, a.created")
+        return [dict(r) for r in rows]
+
+    def album(self, album_id: object) -> dict:
+        row = None
+        if isinstance(album_id, str) and ALBUM_ID.match(album_id):
+            row = self.db.execute("SELECT id, name FROM photo_albums WHERE id=?", (album_id,)).fetchone()
+        if row is None:
+            raise PhotoError("album_not_found", "That album no longer exists.", 404)
+        return dict(row)
+
+    def _name_free(self, name: str, but: str | None = None) -> None:
+        for row in self.db.execute("SELECT id, name FROM photo_albums"):
+            if row["id"] != but and row["name"].casefold() == name.casefold():
+                raise PhotoError("name_taken", "There is already an album with that name.", 409)
+
+    def create_album(self, name: object) -> dict:
+        name = clean_name(name)
+        self._name_free(name)
+        if self.db.execute("SELECT COUNT(*) FROM photo_albums").fetchone()[0] >= ALBUM_MAX:
+            raise PhotoError("too_many_albums", f"At most {ALBUM_MAX} albums.", 409)
+        aid, now = secrets.token_hex(8), self.clock()
+        pos = self.db.execute("SELECT COALESCE(MAX(position), 0) + 1 FROM photo_albums").fetchone()[0]
+        with self.db:
+            self.db.execute("INSERT INTO photo_albums (id, name, position, created, updated) VALUES (?,?,?,?,?)",
+                            (aid, name, pos, now, now))
+        return {"id": aid, "name": name}
+
+    def rename_album(self, album_id: str, name: object) -> dict:
+        old = self.album(album_id)
+        name = clean_name(name)
+        self._name_free(name, but=old["id"])
+        with self.db:
+            self.db.execute("UPDATE photo_albums SET name=?, updated=? WHERE id=?", (name, self.clock(), old["id"]))
+        return {"id": old["id"], "name": name, "was": old["name"]}
+
+    async def delete_album(self, album_id: str) -> dict:
+        album = self.album(album_id)
+        async with self.lock:
+            ids = [r["id"] for r in self.db.execute("SELECT id FROM photos WHERE album_id=?", (album["id"],))]
+            screens = [r["screen"] for r in self.db.execute("SELECT screen FROM photo_screens WHERE album_id=?",
+                                                            (album["id"],))]
+            with self.db:
+                self.db.execute("DELETE FROM photos WHERE album_id=?", (album["id"],))
+                self.db.execute("DELETE FROM photo_screens WHERE album_id=?", (album["id"],))
+                self.db.execute("DELETE FROM photo_albums WHERE id=?", (album["id"],))
+            await asyncio.to_thread(lambda: [self._remove_files(i) for i in ids])
+        return {"id": album["id"], "name": album["name"], "photos": len(ids), "screens": screens}
+
+    # -- photos -----------------------------------------------------------------------------------
+    _COLS = "id, album_id, name, width, height, bytes, source, created"
+
+    def photos(self, album_id: str) -> list[dict]:
+        album = self.album(album_id)
+        return [dict(r) for r in self.db.execute(f"SELECT {self._COLS} FROM photos WHERE album_id=? "
+                                                 "ORDER BY created DESC, id", (album["id"],))]
+
+    def photo(self, photo_id: str) -> dict | None:
+        row = self.db.execute(f"SELECT {self._COLS} FROM photos WHERE id=?", (photo_id,)).fetchone() \
+            if PHOTO_ID.match(photo_id or "") else None
+        return dict(row) if row else None
+
+    def find(self, album_id: str, sha: str) -> dict | None:
+        row = self.db.execute(f"SELECT {self._COLS} FROM photos WHERE album_id=? AND sha256=?", (album_id, sha)).fetchone()
+        return dict(row) if row else None
+
+    async def add(self, album_id: str, data: bytes, name: object = "", *, source: str = "upload",
+                  user: str | None = None) -> tuple[dict, bool]:
+        """Store one picture in an album: (the photo, False), or (the photo already there, True) for a duplicate."""
+        album = self.album(album_id)
+        lim = self.limits()
+        if len(data) > lim["file_mb"] << 20:
+            raise PhotoError("too_large", f"That file is bigger than the {lim['file_mb']} MB limit.", 413)
+        sha = hashlib.sha256(data).hexdigest()
+        same = self.find(album["id"], sha)
+        if same is not None:
+            return same, True
+        if self.db.execute("SELECT COUNT(*) FROM photos WHERE album_id=?", (album["id"],)).fetchone()[0] >= ALBUM_PHOTOS_MAX:
+            raise PhotoError("album_full", f"An album holds at most {ALBUM_PHOTOS_MAX:,} photos.", 409)
+        got = await asyncio.to_thread(process, data)
+        async with self.lock:
+            same = self.find(album["id"], sha)                  # the same picture, sent twice at once
+            if same is not None:
+                return same, True
+            self.album(album["id"])                             # still there (not deleted meanwhile)
+            if self.usage() + got.size > lim["quota_mb"] << 20:
+                raise PhotoError("quota_exceeded", "Mantel Photos is full. Delete some photos, or an Owner can "
+                                                   "raise the limit.", 413)
+            pid = secrets.token_hex(16)
+            await asyncio.to_thread(self._write_files, pid, got)
+            row = {"id": pid, "album_id": album["id"], "name": file_label(name), "width": got.width,
+                   "height": got.height, "bytes": got.size, "source": source, "created": self.clock()}
+            try:
+                with self.db:
+                    self.db.execute("INSERT INTO photos (id, album_id, sha256, name, width, height, bytes, source, "
+                                    "created, created_by) VALUES (?,?,?,?,?,?,?,?,?,?)",
+                                    (pid, album["id"], sha, row["name"], got.width, got.height, got.size, source,
+                                     row["created"], user))
+            except Exception:
+                self._remove_files(pid)
+                raise
+        return row, False
+
+    @staticmethod
+    def _ids(ids: object) -> list[str]:
+        if not isinstance(ids, list) or not ids or len(ids) > BATCH_MAX or \
+                not all(isinstance(i, str) and PHOTO_ID.match(i) for i in ids):
+            raise PhotoError("bad_ids", f"Send 1 to {BATCH_MAX} photo ids.")
+        return list(dict.fromkeys(ids))
+
+    async def delete(self, ids: object) -> list[str]:
+        ids = self._ids(ids)
+        async with self.lock:
+            marks = ",".join("?" * len(ids))
+            found = [r["id"] for r in self.db.execute(f"SELECT id FROM photos WHERE id IN ({marks})", ids)]
+            with self.db:
+                self.db.execute(f"DELETE FROM photos WHERE id IN ({marks})", ids)
+            await asyncio.to_thread(lambda: [self._remove_files(i) for i in found])
+        return found
+
+    async def move(self, ids: object, album_id: str) -> tuple[list[str], list[str]]:
+        """(moved, skipped): a photo already in the target album (the same picture) stays where it is."""
+        ids = self._ids(ids)
+        target = self.album(album_id)
+        moved, skipped = [], []
+        async with self.lock:
+            with self.db:
+                for pid in ids:
+                    row = self.db.execute("SELECT album_id, sha256 FROM photos WHERE id=?", (pid,)).fetchone()
+                    if row is None or row["album_id"] == target["id"]:
+                        continue
+                    if self.find(target["id"], row["sha256"]) is not None:
+                        skipped.append(pid)
+                        continue
+                    self.db.execute("UPDATE photos SET album_id=? WHERE id=?", (target["id"], pid))
+                    moved.append(pid)
+        return moved, skipped
+
+    # -- screens ----------------------------------------------------------------------------------
+    def screens(self) -> dict[str, str]:
+        return {r["screen"]: r["album_id"] for r in self.db.execute("SELECT screen, album_id FROM photo_screens")}
+
+    def set_screen(self, screen: str, album_id: object) -> str | None:
+        if not SCREEN.match(screen or ""):
+            raise PhotoError("bad_screen", "That is not a screen's address.")
+        with self.db:
+            if album_id in (None, ""):
+                self.db.execute("DELETE FROM photo_screens WHERE screen=?", (screen,))
+                return None
+            album = self.album(album_id)
+            self.db.execute("INSERT INTO photo_screens (screen, album_id, updated) VALUES (?,?,?) "
+                            "ON CONFLICT(screen) DO UPDATE SET album_id=excluded.album_id, updated=excluded.updated",
+                            (screen, album["id"], self.clock()))
+        return album["id"]
+
+
+# -- importing from Home Assistant ------------------------------------------------------------------------
+def is_image(item: dict) -> bool:
+    ctype = item.get("media_content_type")
+    return item.get("media_class") == "image" or (isinstance(ctype, str) and ctype.lower().startswith("image/"))
+
+
+def signed_media_path(url: object) -> str | None:
+    """HA's resolved address -> its path and query (HA's signature) under ``/media/``, or None. Never a host."""
+    if not isinstance(url, str) or len(url) > 4096:
+        return None
+    u = urlsplit(url)
+    if u.scheme or u.netloc or u.fragment or not u.path.startswith("/media/") or "\\" in u.path:
+        return None
+    if any(ord(c) < 32 for c in url) or any(seg in ("", ".", "..") for seg in unquote(u.path).split("/")[1:]):
+        return None
+    return u.path + (f"?{u.query}" if u.query else "")
+
+
+@dataclass
+class ImportJob:
+    source: str
+    album: str
+    album_name: str
+    actor: str
+    started: float
+    state: str = "listing"           # listing -> copying -> done | failed | cancelled
+    found: int = 0
+    done: int = 0
+    imported: int = 0
+    skipped: int = 0
+    failed: int = 0
+    errors: list = field(default_factory=list)
+    finished: float | None = None
+    message: str = ""
+
+    def as_dict(self) -> dict:
+        return {k: v for k, v in self.__dict__.items()}
+
+    def error(self, name: str, why: str) -> None:
+        self.failed += 1
+        if len(self.errors) < IMPORT_ERRORS_KEPT:
+            self.errors.append({"name": name[:120], "why": why[:200]})
+
+
+class Importer:
+    """One import at a time (``app["photos_import"]``)."""
+
+    def __init__(self, app: web.Application) -> None:
+        self.app = app
+        self.job: ImportJob | None = None
+        self.task: asyncio.Task | None = None
+
+    @property
+    def running(self) -> bool:
+        return self.task is not None and not self.task.done()
+
+    def _proxy(self):
+        hub = self.app.get("hub")
+        proxy = hub.readproxy if hub is not None else None
+        if proxy is None:
+            raise PhotoError("ha_unavailable", "Mantel isn’t connected to Home Assistant.", 503)
+        return proxy
+
+    def start(self, source: object, album_id: str, ident) -> ImportJob:
+        if self.running:
+            raise PhotoError("import_running", "An import is already running.", 409)
+        if not isinstance(source, str) or not source.startswith(HA_SOURCE) or len(source) > 1000 or \
+                any(ord(c) < 32 for c in source):
+            raise PhotoError("bad_source", f"Give a Home Assistant media folder ({HA_SOURCE}…).")
+        album = self.app["photos"].album(album_id)
+        self._proxy()
+        self.job = ImportJob(source=source, album=album["id"], album_name=album["name"], actor=ident.user.id,
+                             started=self.app["photos"].clock())
+        self.task = asyncio.get_running_loop().create_task(self._run(self.job, ident))
+        return self.job
+
+    def cancel(self) -> bool:
+        if not self.running:
+            return False
+        self.task.cancel()
+        return True
+
+    async def _walk(self, job: ImportJob, cid: str, depth: int, out: list) -> None:
+        res = await self._proxy().request({"type": "media_source/browse_media", "media_content_id": cid})
+        subs = []
+        for k in (res or {}).get("children") or [] if isinstance(res, dict) else []:
+            if len(out) >= IMPORT_MAX:
+                return
+            if not isinstance(k, dict) or not isinstance(k.get("media_content_id"), str):
+                continue
+            if not k["media_content_id"].startswith(HA_SOURCE):
+                continue                                            # only HA's media folders, never another source
+            if k.get("can_expand"):
+                if depth < IMPORT_DEPTH:
+                    subs.append(k["media_content_id"])
+            elif is_image(k):
+                out.append((k["media_content_id"], str(k.get("title") or "")))
+                job.found = len(out)
+        for s in subs:
+            await self._walk(job, s, depth + 1, out)
+
+    async def fetch(self, cid: str, cap: int) -> bytes:
+        """One picture's bytes from Home Assistant: resolved by Mantel (HA's signed path), read from HA Core."""
+        res = await self._proxy().request({"type": "media_source/resolve_media", "media_content_id": cid},
+                                          server_read=True)
+        mime = res.get("mime_type") if isinstance(res, dict) else None
+        path = signed_media_path(res.get("url") if isinstance(res, dict) else None)
+        if path is None or not isinstance(mime, str) or not mime.lower().startswith("image/"):
+            raise PhotoError("not_a_photo", "Home Assistant didn’t give a picture for it.")
+        # HA Core itself (media_photos.core_url: under the App, ha_url is the Supervisor's proxy, which only passes
+        # /api/…); HA's signature in the query is the credential (no token is sent)
+        from .connectors.media_photos import core_url
+        base = core_url(self.app["cfg"])
+        http = self.app.get("http")
+        if http is None:
+            raise PhotoError("ha_unavailable", "Mantel isn’t connected to Home Assistant.", 503)
+        async with http.get(base + path, allow_redirects=False, timeout=60) as r:
+            if r.status != 200:
+                raise PhotoError("ha_refused", f"Home Assistant answered {r.status}.")
+            if r.content_length is not None and r.content_length > cap:
+                raise PhotoError("too_large", f"It is bigger than the {cap >> 20} MB limit.", 413)
+            buf = bytearray()
+            async for chunk in r.content.iter_chunked(1 << 16):
+                buf += chunk
+                if len(buf) > cap:
+                    raise PhotoError("too_large", f"It is bigger than the {cap >> 20} MB limit.", 413)
+        return bytes(buf)
+
+    async def _run(self, job: ImportJob, ident) -> None:
+        lib: PhotoLibrary = self.app["photos"]
+        try:
+            items: list[tuple[str, str]] = []
+            await self._walk(job, job.source, 0, items)
+            job.state = "copying"
+            for cid, title in items:
+                name = title or unquote(cid.rsplit("/", 1)[-1])
+                try:
+                    data = await self.fetch(cid, lib.limits()["file_mb"] << 20)
+                    _, dup = await lib.add(job.album, data, name, source="ha", user=job.actor)
+                    if dup:
+                        job.skipped += 1
+                    else:
+                        job.imported += 1
+                except PhotoError as exc:
+                    if exc.code in ("quota_exceeded", "album_not_found", "album_full"):
+                        job.error(name, str(exc))
+                        job.state, job.message = "failed", str(exc)
+                        break
+                    job.error(name, str(exc))
+                except asyncio.CancelledError:
+                    raise
+                except Exception as exc:  # noqa: BLE001 -- one picture's trouble is that picture's
+                    job.error(name, f"{type(exc).__name__}: {exc}"[:200])
+                job.done += 1
+            if job.state != "failed":
+                job.state = "done"
+        except asyncio.CancelledError:
+            job.state, job.message = "cancelled", "Stopped."
+        except PhotoError as exc:
+            job.state, job.message = "failed", str(exc)
+        except Exception as exc:  # noqa: BLE001 -- the folder couldn't be read
+            job.state = "failed"
+            job.message = ("Home Assistant couldn’t list that folder: " + str(exc))[:300]
+        finally:
+            job.finished = lib.clock()
+            audit(self.app, ident, "photos.import.finish", {
+                "source": job.source, "album": job.album, "state": job.state, "found": job.found,
+                "imported": job.imported, "skipped": job.skipped, "failed": job.failed})
+
+
+# -- REST --------------------------------------------------------------------------------------------------
+def _json(status: int, **body) -> web.Response:
+    return web.json_response(body, status=status, headers=NO_STORE)
+
+
+def _fail(exc: PhotoError) -> web.Response:
+    return _json(exc.status, error=exc.code, message=str(exc))
+
+
+def _manager(request: web.Request, *, owner: bool = False):
+    from . import sessions
+    from .accounts import require_manager
+    ident = require_manager(request)                     # a signed-in Owner or Admin (a tablet alone is refused)
+    if ident.device is not None:
+        raise web.HTTPForbidden(text='{"error":"forbidden"}', content_type="application/json")
+    if owner and ident.user.role != "owner":
+        raise web.HTTPForbidden(text='{"error":"owner_only"}', content_type="application/json")
+    if request.method not in sessions.SAFE_METHODS:
+        sessions.check_csrf(request, ident)              # CSRF on every change, whatever middleware is in front
+    return ident
+
+
+def may_view(request: web.Request) -> bool:
+    """A manager, or anyone (person or wall tablet) who may use ``feature:media`` -- as the HA folder's photos."""
+    from . import sessions
+    ident = sessions.identity(request)
+    if ident.user is not None and ident.device is None and ident.user.role in MANAGERS:
+        return True
+    authz = request.app.get("authz")
+    if authz is None:
+        return False
+    principal = authz.principal(request)
+    return principal is not None and "feature:media" in (authz.may_read(principal, "view", ["feature:media"]) or [])
+
+
+def audit(app: web.Application, ident, action: str, detail: dict) -> None:
+    """A ``config`` row, as every settings write (written after the change; a failure is logged)."""
+    rec = app.get("audit")
+    if rec is None:
+        return
+    try:
+        rec.config_event({"action": action, "detail": detail, "actor": ident.user.id, "role": ident.user.role})
+    except Exception:  # noqa: BLE001
+        log.exception("could not audit %s", action)
+
+
+async def _body(request: web.Request) -> dict:
+    try:
+        body = await request.json()
+    except Exception:  # noqa: BLE001
+        raise PhotoError("bad_json", "Send a JSON object.")
+    if not isinstance(body, dict):
+        raise PhotoError("bad_json", "Send a JSON object.")
+    return body
+
+
+def _lib(request: web.Request) -> PhotoLibrary:
+    return request.app["photos"]
+
+
+def backup_info(app: web.Application) -> dict:
+    cfg = app["cfg"]
+    return {"mantel": bool(getattr(cfg, "backup_include_files", True)),
+            "nightly": getattr(cfg, "backup_target", None) is not None,
+            "home_assistant": bool(getattr(cfg, "ha_managed_by_app", False))}
+
+
+async def api_overview(request: web.Request) -> web.Response:
+    ident = _manager(request)
+    lib = _lib(request)
+    imp: Importer = request.app["photos_import"]
+    return _json(200, ok=True, albums=lib.albums(), usage=lib.usage(), photos=lib.count(), limits=lib.limits(),
+                 screens=lib.screens(), backup=backup_info(request.app), owner=ident.user.role == "owner",
+                 importing=imp.job.as_dict() if imp.job is not None else None)
+
+
+async def api_album_create(request: web.Request) -> web.Response:
+    ident = _manager(request)
+    try:
+        album = _lib(request).create_album((await _body(request)).get("name"))
+    except PhotoError as exc:
+        return _fail(exc)
+    audit(request.app, ident, "photos.album.create", album)
+    return _json(201, ok=True, album=album)
+
+
+async def api_album_rename(request: web.Request) -> web.Response:
+    ident = _manager(request)
+    try:
+        got = _lib(request).rename_album(request.match_info["album"], (await _body(request)).get("name"))
+    except PhotoError as exc:
+        return _fail(exc)
+    audit(request.app, ident, "photos.album.rename", got)
+    return _json(200, ok=True, album={"id": got["id"], "name": got["name"]})
+
+
+async def api_album_delete(request: web.Request) -> web.Response:
+    ident = _manager(request)
+    try:
+        got = await _lib(request).delete_album(request.match_info["album"])
+    except PhotoError as exc:
+        return _fail(exc)
+    audit(request.app, ident, "photos.album.delete", got)
+    return _json(200, ok=True, **got)
+
+
+async def api_album_photos(request: web.Request) -> web.Response:
+    _manager(request)
+    try:
+        lib = _lib(request)
+        album = lib.album(request.match_info["album"])
+        return _json(200, ok=True, album=album, photos=lib.photos(album["id"]))
+    except PhotoError as exc:
+        return _fail(exc)
+
+
+async def api_upload(request: web.Request) -> web.Response:
+    ident = _manager(request)
+    from .user_files import FileError, read_upload
+    lib = _lib(request)
+    try:
+        album = lib.album(request.match_info["album"])
+        cap = lib.limits()["file_mb"] << 20
+        try:
+            data, filename, _ = await read_upload(request, cap)
+        except FileError as exc:
+            raise PhotoError(exc.code, str(exc), exc.status) from exc
+        photo, dup = await lib.add(album["id"], data, filename or "", user=ident.user.id)
+    except PhotoError as exc:
+        return _fail(exc)
+    if dup:
+        return _json(200, ok=True, duplicate=True, photo=photo)
+    audit(request.app, ident, "photos.upload", {"album": album["id"], "id": photo["id"], "name": photo["name"],
+                                                "bytes": photo["bytes"]})
+    return _json(201, ok=True, duplicate=False, photo=photo, usage=lib.usage())
+
+
+async def api_delete(request: web.Request) -> web.Response:
+    ident = _manager(request)
+    try:
+        gone = await _lib(request).delete((await _body(request)).get("ids"))
+    except PhotoError as exc:
+        return _fail(exc)
+    if gone:
+        audit(request.app, ident, "photos.delete", {"ids": gone, "count": len(gone)})
+    return _json(200, ok=True, deleted=gone)
+
+
+async def api_move(request: web.Request) -> web.Response:
+    ident = _manager(request)
+    try:
+        body = await _body(request)
+        moved, skipped = await _lib(request).move(body.get("ids"), body.get("album"))
+    except PhotoError as exc:
+        return _fail(exc)
+    if moved:
+        audit(request.app, ident, "photos.move", {"ids": moved, "album": body.get("album"), "count": len(moved)})
+    return _json(200, ok=True, moved=moved, skipped=skipped)
+
+
+async def api_limits(request: web.Request) -> web.Response:
+    ident = _manager(request, owner=True)
+    try:
+        before = _lib(request).limits()
+        after = _lib(request).set_limits(await _body(request))
+    except PhotoError as exc:
+        return _fail(exc)
+    audit(request.app, ident, "photos.limits", {"before": before, "after": after})
+    return _json(200, ok=True, limits=after)
+
+
+async def api_set_screen(request: web.Request) -> web.Response:
+    ident = _manager(request)
+    screen = request.match_info["screen"]
+    try:
+        album = _lib(request).set_screen(screen, (await _body(request)).get("album"))
+    except PhotoError as exc:
+        return _fail(exc)
+    audit(request.app, ident, "photos.screen", {"screen": screen, "album": album})
+    return _json(200, ok=True, screen=screen, album=album)
+
+
+async def api_import_start(request: web.Request) -> web.Response:
+    ident = _manager(request, owner=True)
+    try:
+        body = await _body(request)
+        job = request.app["photos_import"].start(body.get("source"), body.get("album"), ident)
+    except PhotoError as exc:
+        return _fail(exc)
+    audit(request.app, ident, "photos.import.start", {"source": job.source, "album": job.album})
+    return _json(202, ok=True, importing=job.as_dict())
+
+
+async def api_import_status(request: web.Request) -> web.Response:
+    _manager(request)
+    job = request.app["photos_import"].job
+    return _json(200, ok=True, importing=job.as_dict() if job is not None else None)
+
+
+async def api_import_cancel(request: web.Request) -> web.Response:
+    ident = _manager(request, owner=True)
+    if not request.app["photos_import"].cancel():
+        return _json(409, error="not_running", message="No import is running.")
+    audit(request.app, ident, "photos.import.cancel", {})
+    return _json(200, ok=True)
+
+
+# -- what the screensavers read ------------------------------------------------------------------------------
+def _nothing() -> web.Response:
+    return web.json_response({"error": "not_found"}, status=404, headers=NO_STORE)
+
+
+async def api_screens(request: web.Request) -> web.Response:
+    """Which screens show an album (the page's host asks once and after a change)."""
+    if not may_view(request):
+        return _nothing()
+    return web.json_response({"screens": _lib(request).screens()}, headers={"Cache-Control": "no-cache"})
+
+
+async def api_show(request: web.Request) -> web.Response:
+    """An album as a screensaver shows it: its screen-sized photos' addresses (without the page's prefix)."""
+    if not may_view(request):
+        return _nothing()
+    lib = _lib(request)
+    try:
+        album = lib.album(request.match_info["album"])
+    except PhotoError:
+        return _nothing()
+    rows = lib.db.execute("SELECT id, name, width, height FROM photos WHERE album_id=? ORDER BY created, id",
+                          (album["id"],))
+    return web.json_response({"album": album, "photos": [
+        {"id": r["id"], "title": r["name"], "w": r["width"], "h": r["height"], "url": f"/api/photos/{r['id']}/screen"}
+        for r in rows]}, headers={"Cache-Control": "no-cache"})
+
+
+async def serve(request: web.Request) -> web.StreamResponse:
+    size, pid = request.match_info["size"], request.match_info["photo"]
+    if size == "original":
+        from . import sessions
+        ident = sessions.identity(request)
+        allowed = ident.user is not None and ident.device is None and ident.user.role in MANAGERS
+    else:
+        allowed = may_view(request)
+    path = _lib(request).path(pid, size) if allowed else None
+    if path is None:
+        return _nothing()
+    resp = web.FileResponse(path, headers=IMMUTABLE)
+    resp.content_type = SIZES[size][2]
+    return resp
+
+
+def register(app: web.Application, hub=None) -> None:
+    """The library (``app["photos"]``), its import (``app["photos_import"]``) and the routes."""
+    cfg = app["cfg"]
+    lib = PhotoLibrary(Path(cfg.data_dir).expanduser() / "photos", app["store"].db, lambda: app["clock"]())
+    app["photos"] = lib
+    app["photos_import"] = Importer(app)
+    r = app.router
+    r.add_get("/api/photos", api_overview)
+    r.add_post("/api/photos/albums", api_album_create)
+    r.add_patch(r"/api/photos/albums/{album:[0-9a-f]{16}}", api_album_rename)
+    r.add_delete(r"/api/photos/albums/{album:[0-9a-f]{16}}", api_album_delete)
+    r.add_get(r"/api/photos/albums/{album:[0-9a-f]{16}}/photos", api_album_photos)
+    r.add_post(r"/api/photos/albums/{album:[0-9a-f]{16}}/upload", api_upload)
+    r.add_get(r"/api/photos/albums/{album:[0-9a-f]{16}}/show", api_show)
+    r.add_post("/api/photos/delete", api_delete)
+    r.add_post("/api/photos/move", api_move)
+    r.add_put("/api/photos/limits", api_limits)
+    r.add_get("/api/photos/screens", api_screens)
+    r.add_put(r"/api/photos/screens/{screen}", api_set_screen)
+    r.add_get("/api/photos/import", api_import_status)
+    r.add_post("/api/photos/import", api_import_start)
+    r.add_delete("/api/photos/import", api_import_cancel)
+    r.add_get(r"/api/photos/{photo:[0-9a-f]{32}}/{size:original|screen|thumb}", serve)
+
+    async def stop(_app: web.Application) -> None:
+        _app["photos_import"].cancel()
+
+    app.on_cleanup.append(stop)

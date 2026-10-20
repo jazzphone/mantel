@@ -23,6 +23,57 @@
     return path && SERVICE_PATH.test(path) ? (global.__mantelBase || '') + path : null;
   }
 
+  // MANTEL PHOTOS (photos.py) for HK's screensaver (hk-saver.js, the contract's photoSource/listPhotos): a
+  // screen may show one of Mantel's albums instead of the house's Screensaver Photos (GET /api/photos/screens,
+  // read once and again every few minutes, or at once when Mantel Settings says it changed), and an album
+  // (mantel-photos://<id>, the house's photos or a screen's) is listed by Mantel with its screen-sized photos.
+  const ALBUM = /^mantel-photos:\/\/([0-9a-f]{16})$/;
+  const PHOTO_URL = /^\/api\/photos\/[0-9a-f]{32}\/screen$/;
+  const SCREENS_TTL = 5 * 60 * 1000;
+  const CHANGED_KEY = 'mantel-photos-changed';       // mantel-photos.js sets it after a change (the storage event)
+  let photoScreens = null, screensAt = 0, screensReading = null;
+  const mantelUrl = (path) => (global.__mantelBase || '') + path;      // base.js's, for this classic script
+  function screenNow() {
+    const base = global.__mantelBase || '';
+    const path = String((global.location && global.location.pathname) || '');
+    return (path.startsWith(base) ? path.slice(base.length) : path).split('/')[1] || '';
+  }
+  function photosChanged() {
+    try { if (global.hkSaver && global.hkSaver.photosChanged) global.hkSaver.photosChanged(); } catch (e) { /* no saver here */ }
+  }
+  function readScreens(always) {
+    if (screensReading || typeof global.fetch !== 'function') return;
+    screensAt = Date.now();
+    screensReading = global.fetch(mantelUrl('/api/photos/screens'), { credentials: 'same-origin', cache: 'no-cache' })
+      .then((r) => (r.ok ? r.json() : { screens: {} }))
+      .then((j) => {
+        const next = j && j.screens && typeof j.screens === 'object' ? j.screens : {};
+        const changed = JSON.stringify(next) !== JSON.stringify(photoScreens || {});
+        photoScreens = next;
+        if (changed || always) photosChanged();
+      }, () => { photoScreens = photoScreens || {}; })
+      .then(() => { screensReading = null; });
+  }
+  function photoSource() {
+    if (photoScreens === null || Date.now() - screensAt > SCREENS_TTL) readScreens();
+    const album = photoScreens && photoScreens[screenNow()];
+    return typeof album === 'string' && /^[0-9a-f]{16}$/.test(album) ? 'mantel-photos://' + album : null;
+  }
+  function listPhotos(source) {
+    const m = ALBUM.exec(String(source || ''));
+    if (!m || typeof global.fetch !== 'function') return null;
+    const base = global.__mantelBase || '';
+    return global.fetch(mantelUrl('/api/photos/albums/' + m[1] + '/show'), { credentials: 'same-origin', cache: 'no-cache' })
+      .then((r) => { if (!r.ok) throw new Error('album ' + r.status); return r.json(); })
+      .then((j) => ((j && j.photos) || []).filter((p) => p && typeof p.url === 'string' && PHOTO_URL.test(p.url))
+        .map((p) => ({ id: String(p.id), title: typeof p.title === 'string' ? p.title : '', url: base + p.url })));
+  }
+  if (global.addEventListener) {
+    global.addEventListener('storage', (e) => {
+      if (e && e.key === CHANGED_KEY) readScreens(true);
+    });
+  }
+
   // Mantel Settings (/settings: HK's settings and Mantel's own, one page) in HK's menu, for every person
   // signed in (Me is everyone's; the house's pages are an Owner's or Admin's, and the page and its APIs
   // decide that); a wall tablet has none. Under the HA App the address is under the Ingress prefix, so the
@@ -87,6 +138,8 @@
     openHostDetail: () => false,
     hostToast: () => false,
     serviceUrl,
+    photoSource,
+    listPhotos,
     // HK's screens and settings say Mantel where they speak of themselves; HK Frontend stays the name of
     // the integration in Home Assistant, whose settings are Home Assistant's (haPlace)
     productName: () => 'Mantel',

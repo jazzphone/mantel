@@ -44,8 +44,11 @@
 //                 sidebar of its own
 //     extend(where, c, ctx, panel)  the host's own groups on one of HK's
 //                 pages, appended to c: where 'tablet' (a wall tablet's
-//                 page, after Setup; ctx { tablet, name, app }) or 'screen'
-//                 (a screen's page, after This Device; ctx { screen, title }) }
+//                 page, after Setup; ctx { tablet, name, app }), 'screen'
+//                 (a screen's page, after This Device; ctx { screen, title }),
+//                 'saver' (a screen's Screensaver Options, first; ctx { screen,
+//                 title }) or 'house-saver' (All Screens' Screensaver, after
+//                 Photos; ctx { photos, set(source) }) }
 // Home Assistant has none, so nothing of another host's is drawn, read or
 // said there.
 (function () {
@@ -3558,6 +3561,11 @@
           self.setB(path, { screensaver_options: on ? null : self.saverOut(cur) });
         } })].concat(house ? [K.nav({ label: 'Screensaver for All Screens', value: M.saverSummary(cur),
                                       href: '#/house/screensaver', sk: 'saver:house-page' })] : [])));
+      // THE HOST'S OWN, for this screen's screensaver (extend): nothing in Home Assistant
+      var hx = this.host();
+      if (hx && typeof hx.extend === 'function') {
+        try { hx.extend('saver', c, { screen: path, title: x.title }, this); } catch (e) { /* the host's own group */ }
+      }
       if (!house) {
         this.saverGroups(c, cur, function (k, v) {
           var o = M.saverOptions(cur); if (k && typeof k === 'object') Object.assign(o, k); else o[k] = v;
@@ -4030,6 +4038,11 @@
       c.appendChild(K.group({ header: 'Photos', footer: 'A media folder (media-source://…) of the photos every screen’s Photo Screensaver shows.' }, [
         K.text({ label: 'Screensaver Photos', sk: 'look.photos', value: this.hs('look.photos'), placeholder: 'media-source://…', error: this.err('look.photos'),
                  onCommit: function (v) { self.setH({ 'look.photos': v }); } })]));
+      // THE HOST'S OWN beside the photos (extend): nothing in Home Assistant
+      var hx = this.host();
+      if (hx && typeof hx.extend === 'function') {
+        try { hx.extend('house-saver', c, { photos: this.hs('look.photos'), set: function (v) { return self.setH({ 'look.photos': v }); } }, this); } catch (e) { /* the host's own group */ }
+      }
       this.saverGroups(c, cur, function (k, v) {
         var o = M.saverOptions(cur); if (k && typeof k === 'object') Object.assign(o, k); else o[k] = v;
         return self.setH({ 'look.saver': self.saverOut(o) });

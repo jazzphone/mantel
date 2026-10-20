@@ -118,6 +118,14 @@
     // null when the host does not (HK then uses the service's own address,
     // as in Home Assistant, where Music Assistant keeps its own port).
     serviceUrl: nil,
+    // THE HOST'S OWN PHOTOS for the screensaver (hk-saver.js). photoSource(
+    // source): the source this page's screensaver shows instead of the
+    // house's `source` (a host may give a screen a photo album of its own),
+    // or null to keep it. listPhotos(source): a promise of [{ id, title,
+    // url }] for a source the host serves itself, or null for one it does
+    // not (HK then walks it as a media folder). Home Assistant: null, both.
+    photoSource: nil,
+    listPhotos: nil,
     // THE PRODUCT'S NAME where HK's screens and settings speak of themselves
     // ("Drawn By: … | HK Frontend", "the photos that come with HK Frontend"):
     // HK Frontend in Home Assistant, the host's own name elsewhere (Mantel).
@@ -181,7 +189,8 @@
   ['root', 'overlayRoot', 'main', 'mainRoot', 'drawer', 'sidebar', 'resolver', 'panel', 'dashboard',
    'dashboardRoot', 'viewContainer', 'viewSlot', 'view', 'viewBackground', 'toolbar', 'dashboardConfig', 'onDashboard', 'isDashboard',
    'defined', 'showNotifications', 'keepAwake', 'sidebarData', 'haNav', 'haNavigate', 'openHaMenu', 'hostMenu', 'settingsHost', 'holdWrites', 'menuButton',
-   'hostDetail', 'openHostDetail', 'hostToast', 'dialogRoot', 'serviceUrl', 'productName', 'haPlace', 'haName', 'docsUrl'].forEach(function (name) {
+   'hostDetail', 'openHostDetail', 'hostToast', 'dialogRoot', 'serviceUrl', 'photoSource', 'listPhotos', 'productName', 'haPlace',
+   'haName', 'docsUrl'].forEach(function (name) {
     shell[name] = function () {
       try { return get(name).apply(shell, arguments); } catch (e) {
         return name === 'onDashboard' ? true : FALSE[name] ? false : WORDS[name] ? NONE[name].apply(shell, arguments) : null;
