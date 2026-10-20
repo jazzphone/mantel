@@ -214,7 +214,7 @@ class HaClient:
             reader = asyncio.create_task(self._read(ws))
             watcher = None
             try:
-                await self._load_registries()
+                await self._first_registries()
                 for event_type in REGISTRY_EVENTS:
                     self._next_id += 1
                     self._reg_subs[self._next_id] = event_type
@@ -230,6 +230,14 @@ class HaClient:
                     watcher.cancel()
                 self._reg_subs.clear()
                 self._ws = None
+
+    async def _first_registries(self) -> None:
+        """Every registry at a (re)connect, told like any later reload: what was built before HA answered
+        (the Sleep engines' kiosks, made at the App's start) follows them now, not at the next registry
+        event or settings save (none came after 0.1.29's start, so no tablet had a kiosk that night)."""
+        await self._load_registries()
+        if self.on_registry:
+            self.on_registry()
 
     async def _load_registries(self, only: set[str] | None = None) -> None:
         """Load the registries named by event type in `only` (all when None)."""
