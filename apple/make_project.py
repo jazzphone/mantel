@@ -42,7 +42,8 @@ def value(v, ind=3) -> str:
 
 COMMON = {
     "SWIFT_VERSION": "5.0", "CURRENT_PROJECT_VERSION": "1", "MARKETING_VERSION": "0.1.0", "GENERATE_INFOPLIST_FILE": "YES",
-    "CODE_SIGN_STYLE": "Automatic", "DEVELOPMENT_TEAM": os.environ.get("MANTEL_TEAM_ID", ""),   # your Apple team id (not a secret) "ENABLE_USER_SCRIPT_SANDBOXING": "YES",
+    "CODE_SIGN_STYLE": "Automatic", "ENABLE_USER_SCRIPT_SANDBOXING": "YES",
+    "DEVELOPMENT_TEAM": os.environ.get("MANTEL_TEAM_ID", ""),   # your Apple team id (not a secret)
     "SWIFT_EMIT_LOC_STRINGS": "YES", "INFOPLIST_KEY_CFBundleDisplayName": "Mantel",
 }
 IOS = {"SDKROOT": "iphoneos", "IPHONEOS_DEPLOYMENT_TARGET": "18.0", "TARGETED_DEVICE_FAMILY": "1,2",
