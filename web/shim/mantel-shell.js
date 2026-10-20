@@ -33,11 +33,36 @@
   // when HA's own sidebar is hidden around the screen (Mantel Link, docs/phase9/MANTEL-LINK.md 9.6).
   function hostMenu() {
     const frame = global.__mantelHaFrame;
-    const out = frame ? [{ title: 'Home Assistant', icon: 'mdi:home-assistant', run: () => frame.back(), section: 'Mantel' }] : [];
+    const out = frame && frame.kind === 'dashboard'
+      ? [{ title: 'Home Assistant', icon: 'mdi:home-assistant', run: () => frame.back(), section: 'Mantel' }] : [];
     if (PEOPLE.indexOf(role) < 0) return out;
     const base = global.__mantelBase || '';
     return out.concat([{ title: 'Mantel Settings', icon: 'mdi:cog-outline', href: base + '/settings', section: 'Mantel' }]);
   }
+  // HOME ASSISTANT IN HK'S MENU AND TAB BAR (the screen's Menu -> Home Assistant Section), by where the page is.
+  // Inside Home Assistant (a Webpage dashboard with Mantel Link, or the App's sidebar panel; ha-frame.js): this
+  // person's Home Assistant sidebar, each row opening that page in Home Assistant's own window. Opened at Mantel's
+  // own address: one row opening Home Assistant's address (GET /api/me `ha_address`: HA's external URL, else its
+  // internal one; none for a wall tablet, which then has no Home Assistant row at all). This decides only which
+  // rows are drawn: what a person may do stays the server's.
+  let haAddress = '';
+  function setHaAddress(u) {
+    const next = typeof u === 'string' && /^https?:\/\/[^/?#\s]+\/?$/.test(u) ? u : '';
+    if (next === haAddress) return;
+    haAddress = next;
+    try { global.dispatchEvent(new global.CustomEvent('hk-ha-nav-changed')); } catch (e) { /* no window */ }
+  }
+  const frameSide = () => { const f = global.__mantelHaFrame; return f && f.sidebar ? f.sidebar() : null; };
+  function haNav() {
+    const f = global.__mantelHaFrame;
+    if (f) {
+      if (frameSide()) return 'own';
+      const home = (f.homeUrl && f.homeUrl()) || haAddress;
+      return home ? { link: home, top: true } : null;
+    }
+    return haAddress ? { link: haAddress, top: false } : null;
+  }
+
   // Mantel's pages in the settings panel (web/shim/mantel-settings.js), once settings-page.js has them
   let settings = null;
   function setSettings(host) { settings = host || null; }
@@ -50,6 +75,11 @@
     holdWrites: function () { return true; },
     // Mantel's page has no sidebar of its own for a button to open
     menuButton: () => null,
+    haNav,
+    sidebarData: frameSide,
+    haNavigate: (path) => { const f = global.__mantelHaFrame; return f && frameSide() ? f.navigate(path) : false; },
+    openHaMenu: () => { const f = global.__mantelHaFrame; return !!(f && f.menu()); },
+    showNotifications: () => { const f = global.__mantelHaFrame; if (f && frameSide()) f.notifications(); },
     // no detail dialog and no toasts of its own (Phase 2 P2.5): HK's generic sheet takes what HK has
     // no dedicated sheet for, HK's toast layer (web/hk/shell/hk-overlays.js) draws the toasts, and HK's
     // dialogs mount in the overlay root (the contract's dialogRoot)
@@ -110,5 +140,5 @@
   // home.js hands over the signed-in person's Mantel role (GET /api/me)
   function setRole(r) { role = typeof r === 'string' ? r : ''; }
 
-  global.hkMantelShell = { attach, install, setServices, setRole, setSettings, hostMenu, serviceUrl, kind: 'mantel' };
+  global.hkMantelShell = { attach, install, setServices, setRole, setSettings, setHaAddress, hostMenu, haNav, serviceUrl, kind: 'mantel' };
 })(globalThis);

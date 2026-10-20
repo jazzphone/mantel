@@ -147,7 +147,9 @@ async def test_linked_user_signs_in_and_the_users_token_is_revoked(env):
         assert r.cookies[name]["samesite"].lower() == "strict"
     assert r.cookies["mantel_refresh"]["httponly"] and not r.cookies["mantel_csrf"]["httponly"]
     me = await (await env.client.get("/api/me")).json()
-    assert me == {"ha_user_id": "u-avery", "name": "Avery", "role": "owner"}
+    # and Home Assistant's address for the dashboard's "Open Home Assistant" row (a person's; Mantel's own for HA
+    # here, as HA has said no internal or external URL)
+    assert me == {"ha_user_id": "u-avery", "name": "Avery", "role": "owner", "ha_address": env.app["cfg"].ha_url}
     row = env.store.db.execute("SELECT s.method, s.door, u.kind FROM sessions s JOIN users u ON u.id = s.user_id").fetchone()
     assert tuple(row) == ("ha", "lan", "ha_linked")                # landed in a P3.1 session of the linked user
 

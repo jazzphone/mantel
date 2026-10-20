@@ -4,17 +4,26 @@
 // web/shim/ha-frame.js) tells the page around it:
 //   {source: 'mantel', type: 'mantel/kiosk', header, sidebar, admins}   its "Home Assistant Header & Sidebar"
 //   {source: 'mantel', type: 'mantel/back'}                             its menu's Home Assistant row
+//   {source: 'mantel', type: 'mantel/navigate', path}                   a row of its Home Assistant section
+//   {source: 'mantel', type: 'mantel/notifications'}                    ... Notifications
+//   {source: 'mantel', type: 'mantel/menu'}                             ... Show Menu
 // and this script answers by hiding HA's header and sidebar around that frame (as HK Frontend's hk-kiosk.js did:
 // one stylesheet in each of three shadow roots, applied only while an attribute of ours is on the element, so
-// leaving the screen puts everything back at once), or by going to HA's own start page.
+// leaving the screen puts everything back at once), by going to HA's own start page or to one of HA's own pages
+// (a panel this person has), by opening HA's notification drawer, or HA's sidebar over the page (HK's Show Menu).
+// To the frame that spoke it says, at its own address only, this person's HA sidebar -- the panels' keys, titles
+// and icons, their sidebar order and hidden ones, whether HA's sidebar is beside the frame -- so the screen's menu
+// offers HA's pages as HK in HA did:
+//   {type: 'mantel-link/sidebar', panels: {key: {title, icon, require_admin}}, admin, prefs, shown}
 //
 // WHO IS BELIEVED: a message from one of Mantel's own addresses (Mantel Link's `mantel/frontend/config`, from
 // the link's hello) AND from an iframe on the dashboard shown right now. Nothing else; and a message can only
-// hide the chrome around its own frame or go to "/". `admins: false` leaves an admin's header and sidebar.
+// hide the chrome around its own frame, open HA's own pages, drawer or sidebar. Never a command.
+// `admins: false` leaves an admin's header and sidebar.
 (function () {
   'use strict';
   if (window.__mantelLink) return;
-  window.__mantelLink = { version: '1' };
+  window.__mantelLink = { version: '2' };
 
   var SIDEBAR = 'mantel-kiosk-sidebar', HEADER = 'mantel-kiosk-header';
   var CSS = {
@@ -41,6 +50,7 @@
     return p || null;
   }
   function root() { var p = sr(panel()); return (p && p.querySelector('hui-root')) || null; }
+  function sidebarEl() { var m = sr(main()); return (m && m.querySelector('ha-sidebar')) || null; }
   // every iframe under an element, through shadow roots (a dashboard is a few levels deep)
   function frames(node, out, depth) {
     if (!node || depth > 14) return out;
@@ -81,16 +91,92 @@
   function apply() {
     var w = said && said.path === location.pathname && frameOf(said.frame && said.frame.contentWindow) ? said : null;
     if (w && isAdmin() && !w.admins) w = null;
-    mark(main(), SIDEBAR, !!(w && w.sidebar), CSS.main);
-    mark(drawer(), SIDEBAR, !!(w && w.sidebar), CSS.drawer);
+    mark(main(), SIDEBAR, !!(w && w.sidebar && !lift), CSS.main);
+    mark(drawer(), SIDEBAR, !!(w && w.sidebar && !lift), CSS.drawer);
     mark(root(), HEADER, !!(w && w.header), CSS.root);
     return w;
   }
-  function back() {
+  function go(path) {
     said = null;
     apply();
-    history.pushState(null, '', '/');
+    history.pushState(null, '', path);
     window.dispatchEvent(new CustomEvent('location-changed', { detail: { replace: false } }));
+  }
+  function back() { go('/'); }
+  // one of HA's own pages: a plain path whose first part is a panel this person has ('/config/dashboard',
+  // '/profile/general', '/map'), nothing else
+  var PATH = /^\/[A-Za-z0-9_-]{1,64}(?:\/[A-Za-z0-9_.-]{1,64}){0,4}$/;
+  function mayGo(path) {
+    var h = ha() && ha().hass;
+    if (typeof path !== 'string' || !PATH.test(path) || !h || !h.panels) return false;
+    return Object.prototype.hasOwnProperty.call(h.panels, path.split('/')[1]);
+  }
+  function notifications() {
+    var m = main();
+    if (m) m.dispatchEvent(new CustomEvent('hass-show-notifications', { bubbles: true, composed: true }));
+  }
+
+  // ---- HA's sidebar over the page (HK's Show Menu, as HK Frontend's hk-menu.js did it): HA's drawer made modal
+  // and opened, our hiding lifted while it is up; closed (or the page changed), everything as it was
+  var lift = null;
+  function shown() {
+    var d = drawer(), s = sidebarEl();
+    var m = main();
+    if (lift || !d || !s || d.type === 'modal' || (m && m.hasAttribute(SIDEBAR))) return false;
+    try { return getComputedStyle(s).display !== 'none' && s.getBoundingClientRect().width > 0; } catch (e) { return false; }
+  }
+  function menu() {
+    var d = drawer(), s = sidebarEl();
+    if (!d || !s || lift) return;
+    lift = { d: d, s: s, type: d.type, expand: s.alwaysExpand };
+    apply();
+    d.type = 'modal';
+    s.alwaysExpand = true;
+    requestAnimationFrame(function () { requestAnimationFrame(function () { d.open = true; }); });
+    var seen = false;
+    lift.poll = setInterval(function () {
+      if (d.open) { seen = true; return; }
+      if (seen) unlift();
+    }, 250);
+  }
+  function unlift() {
+    if (!lift) return;
+    var l = lift;
+    lift = null;
+    clearInterval(l.poll);
+    if (l.d.open) l.d.open = false;
+    // after the drawer's own close animation, so it does not snap shut
+    setTimeout(function () {
+      try { l.d.type = l.type || ''; l.s.alwaysExpand = !!l.expand; } catch (e) { /* gone */ }
+      apply();
+    }, 300);
+  }
+
+  // ---- this person's HA sidebar, for the frame that spoke (its rows in the screen's menu)
+  function originOf(f) {
+    try { return new URL(f.getAttribute('src') || '', location.href).origin; } catch (e) { return ''; }
+  }
+  function tellSidebar(f) {
+    var h = ha() && ha().hass, o = f && originOf(f);
+    if (!h || !h.panels || !o || origins.indexOf(o) < 0 || !f.contentWindow) return;
+    var panels = {};
+    Object.keys(h.panels).forEach(function (k) {
+      var p = h.panels[k];
+      if (!p || !p.title) return;
+      var t = '';
+      try { t = typeof h.localize === 'function' ? h.localize('panel.' + p.title) : ''; } catch (e) { t = ''; }
+      panels[k] = { title: t || p.title, icon: p.icon || null, require_admin: !!p.require_admin };
+    });
+    var send = function (prefs) {
+      try {
+        f.contentWindow.postMessage({ type: 'mantel-link/sidebar', panels: panels, admin: isAdmin(), shown: shown(),
+                                      prefs: prefs ? { panelOrder: prefs.panelOrder || [], hiddenPanels: prefs.hiddenPanels || [] } : null }, o);
+      } catch (e) { /* gone */ }
+    };
+    var c = h.connection;
+    if (!c || typeof c.sendMessagePromise !== 'function') { send(null); return; }
+    c.sendMessagePromise({ type: 'frontend/get_user_data', key: 'sidebar' })
+      .then(function (r) { send(r && r.value); }, function () { send(null); });
   }
   // ask the frames from Mantel's addresses to say it again (they may have spoken before this listened)
   function hello() {
@@ -110,9 +196,23 @@
     if (d.type === 'mantel/kiosk') {
       said = { frame: f, path: location.pathname, header: !!d.header, sidebar: !!d.sidebar, admins: d.admins !== false };
       apply();
+      // after HA has laid the page out without (or with) its sidebar
+      setTimeout(function () { tellSidebar(f); }, 50);
     } else if (d.type === 'mantel/back') {
       back();
+    } else if (d.type === 'mantel/navigate') {
+      if (mayGo(d.path)) go(d.path);
+    } else if (d.type === 'mantel/notifications') {
+      notifications();
+    } else if (d.type === 'mantel/menu') {
+      menu();
     }
+  });
+  // a narrower or wider window: HA's sidebar beside the frame or not (the screen's Show Menu row)
+  var resized = null;
+  window.addEventListener('resize', function () {
+    clearTimeout(resized);
+    resized = setTimeout(function () { if (said && said.frame) tellSidebar(said.frame); }, 400);
   });
 
   var timers = [];
@@ -120,7 +220,7 @@
     timers.forEach(clearTimeout);
     timers = [0, 150, 500, 1200, 3000].map(function (t) { return setTimeout(function () { apply(); hello(); }, t); });
   }
-  window.addEventListener('location-changed', soon);
+  window.addEventListener('location-changed', function () { unlift(); soon(); });
   window.addEventListener('popstate', soon);
   // HA redraws its header when the dashboard changes: keep the marks on while a screen asks
   setInterval(function () { if (said) apply(); }, 2000);
@@ -138,6 +238,6 @@
   load();
 
   // for tests
-  window.__mantelLink._ = { apply: apply, back: back, frames: frames, frameOf: frameOf,
+  window.__mantelLink._ = { apply: apply, back: back, frames: frames, frameOf: frameOf, mayGo: mayGo, menu: menu, lift: function () { return lift; },
                             setOrigins: function (o) { origins = o.slice(); }, said: function () { return said; } };
 })();
