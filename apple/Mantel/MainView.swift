@@ -33,7 +33,7 @@ struct MainView: View {
             .padding(.trailing, 12).padding(.top, 4)
         }
         .sheet(isPresented: $showMenu) { AppMenu() }
-        .task { await load("/home") }
+        .task { await load(Self.firstPage) }
         .onChange(of: model.door) { _, door in
             if door != nil, door != loadedDoor { Task { await load("/home") } }     // reload only when the door changes
         }
@@ -45,6 +45,14 @@ struct MainView: View {
                 Text(p).padding().background(.thinMaterial, in: RoundedRectangle(cornerRadius: 12)).padding()
             }
         }
+    }
+
+    /// Debug builds may start on another page: `simctl launch booted com.jazzphone.mantel.ios -MantelStartPage /x`.
+    private static var firstPage: String {
+        #if DEBUG
+        if let p = UserDefaults.standard.string(forKey: "MantelStartPage"), p.hasPrefix("/") { return p }
+        #endif
+        return "/home"
     }
 
     private func load(_ next: String) async {
