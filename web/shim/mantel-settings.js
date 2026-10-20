@@ -602,8 +602,54 @@ function pAddPerson() {
 
 // ============================================================================================ Devices
 const devicesRead = () => load('devices', () => api('GET', '/api/devices'));
+// HK's wall tablets and HA's areas (GET /api/devices/rooms): a device's room is one of them, never typed. A wall
+// tablet device reports its touches and black screen only for the HK tablet in its own room (features.may_speak_for),
+// so a room typed as "Livingroom" for HK's living_room cut three tablets off (the house, 2026-10-19).
+const roomsRead = () => load('devrooms', () => api('GET', '/api/devices/rooms'));
+const titleCase = (id) => String(id).replace(/_/g, ' ').replace(/\b\w/g, (x) => x.toUpperCase());
+function roomName(rooms, rid) {
+  if (!rid) return '';
+  const a = (rooms && rooms.areas || []).find((x) => x.id === rid);
+  return a ? a.name : titleCase(rid);
+}
+const tabletList = (rooms) => Object.entries((rooms && rooms.tablets) || {}).filter(([, t]) => t && t.room)
+  .sort((a, b) => String(a[1].name).localeCompare(String(b[1].name)));
+// a wall tablet device in a room no HK tablet has: its touches and black screen reach nothing
+const lostTablet = (d, tablets) => !d.revoked && d.role === 'wall_tablet' && Object.keys(tablets || {}).length > 0 && !(d.hk_tablets || []).length;
+// THE ROOM PICKER: one of HK's wall tablets (the device takes its room), else Not One of These and one of HA's
+// areas. `self` is the device being moved (its own tablet isn't "in use"); onTablet(t) when a tablet is picked.
+function roomChoice(form, rooms, self, onTablet) {
+  const d = draft(form);
+  const tablets = tabletList(rooms);
+  const rows = tablets.map(([tid, t]) => {
+    const others = (t.served_by || []).filter((x) => x.id !== self).map((x) => '“' + x.name + '”');
+    return K().check({ label: t.name, sub: [roomName(rooms, t.room), t.screen_title || (t.screen ? titleCase(t.screen.split('-').slice(1).join(' ')) + ' Screen' : null),
+                                            others.length ? 'Already ' + others.join(', ') : null].filter(Boolean).join(' · '),
+                       value: others.length ? 'In Use' : undefined, on: d.tablet === tid, fk: 'mx:' + form + ':tablet:' + tid,
+                       onClick: () => { d.tablet = tid; d.other = false; if (onTablet) onTablet(t); redraw(); } });
+  });
+  rows.push(K().check({ label: 'Not One of These', sub: 'A room with no HK wall tablet', on: !!d.other, fk: 'mx:' + form + ':other',
+                        onClick: () => { d.tablet = ''; d.other = true; redraw(); } }));
+  const out = [group({ header: 'Which HK Tablet', footer: tablets.length ? 'Its touches and black screen reach Mantel as this HK tablet’s (All Screens, Wall Tablets). “In Use”: an enrolled device is already in its room.'
+    : 'HK has no wall tablets in Mantel’s settings yet (All Screens, Wall Tablets).' }, rows)];
+  if (d.other) {
+    const areas = (rooms && rooms.areas) || [];
+    if (d.room && !areas.some((a) => a.id === d.room)) d.room = '';
+    out.push(group({ footer: areas.length ? 'With no HK tablet in its room, its touches and black screen won’t reach Mantel.' : 'Home Assistant has not told Mantel about any areas yet.' },
+      areas.length ? [choose(form, 'room', 'Room', [['', 'Choose…']].concat(areas.map((a) => [a.id, a.name])), '')] : []));
+  }
+  return out;
+}
+// what the server is asked for: {tablet} or {room}; null when nothing is chosen
+function roomBody(form) {
+  const d = draft(form);
+  if (d.tablet) return { tablet: d.tablet };
+  if (d.other && d.room) return { room: d.room };
+  return null;
+}
 function pDevices(sub) {
   if (sub[0] === 'enroll') return pEnroll();
+  if (sub[0]) return pDevice(sub[0]);
   return { title: 'Devices', top: true, scope: 'Wall tablets enrolled with Mantel: each keeps its own credential, and does what its role allows (Roles & Grants). ' +
     'How each screen behaves is All Screens, Wall Tablets.', body(c) {
     result(c, 'devices');
@@ -612,9 +658,16 @@ function pDevices(sub) {
     if (!got) { pending(c); return; }
     if (got.err) { failed(c, got.err); return; }
     const all = got.data.devices, live = all.filter((d) => !d.revoked), gone = all.filter((d) => d.revoked);
-    const row = (d) => info(d.name, [d.room, roleLabel(d.role), 'last seen ' + ago(d.last_seen), d.source_ip || 'no address yet', 'enrolled ' + fmt(d.created)].filter(Boolean).join(' · '),
+    const tablets = got.data.tablets || {};
+    const about = (d) => [d.room, roleLabel(d.role), 'last seen ' + ago(d.last_seen), d.source_ip || 'no address yet', 'enrolled ' + fmt(d.created)].filter(Boolean).join(' · ');
+    const row = (d) => info(d.name, about(d),
       d.revoked ? 'Revoked' + (d.revoked_reason ? ': ' + d.revoked_reason.replace(/_/g, ' ') : '') : undefined, d.revoked ? 'warn' : '');
-    c.appendChild(group({ header: 'Wall Tablets' }, live.length ? live.map(row) : [info('No wall tablets are enrolled')]));
+    const lost = live.filter((d) => lostTablet(d, tablets));
+    const tabletName = (d) => ((d.hk_tablets || []).map((t) => (tablets[t] || {}).name || t)[0]) || (lostTablet(d, tablets) ? 'No HK Tablet' : undefined);
+    c.appendChild(group({ header: 'Wall Tablets', footer: lost.length ? hh('span', { class: 'mxerr', text: lost.map((d) => '“' + d.name + '”').join(', ') +
+        (lost.length > 1 ? ' are in rooms' : ' is in a room') + ' with no HK wall tablet: ' + (lost.length > 1 ? 'their' : 'its') +
+        ' touches and black screen won’t reach Mantel. Open ' + (lost.length > 1 ? 'each' : 'it') + ' to choose its HK tablet.' }) : null },
+      live.length ? live.map((d) => nav(d.name, 'devices/' + encodeURIComponent(d.id), { sub: about(d), value: tabletName(d) })) : [info('No wall tablets are enrolled')]));
     const ds = load('dscreens', () => api('GET', '/api/default-screens'));
     if (live.length && ds && ds.data) {
       const d = ds.data;
@@ -624,7 +677,7 @@ function pDevices(sub) {
     }
     if (live.length) c.appendChild(group({}, live.map((d) => button('Revoke ' + d.name + '…', async () => {
       if (!(await ask({ title: 'Revoke ' + d.name + '?', message: 'The tablet is refused at once and has to be enrolled again.', ok: 'Revoke', destructive: true }))) return;
-      act('devices', () => api('DELETE', '/api/devices/' + encodeURIComponent(d.id)), 'Device revoked.', 'devices');
+      act('devices', () => api('DELETE', '/api/devices/' + encodeURIComponent(d.id)), 'Device revoked.', 'devices', 'devrooms');
     }, { destructive: true, fk: 'mx:revoke-device:' + d.id }))));
     if (gone.length) c.appendChild(group({ header: 'Revoked' }, gone.map(row)));
     c.appendChild(group({ footer: me.door === 'lan' ? 'Open Mantel Settings on the tablet itself, signed in as an Owner or Admin, and do it there.'
@@ -632,33 +685,77 @@ function pDevices(sub) {
       : info('Make This Browser a Wall Tablet', null, 'Home Network Only')]));
   } };
 }
+// ONE DEVICE: its HK tablet or room, changed in place (PATCH /api/devices/{id}; it keeps its credential)
+function pDevice(id) {
+  const known = cache.devices && cache.devices.data && cache.devices.data.devices.find((x) => x.id === id);
+  return { title: known ? known.name : 'Wall Tablet', back: ['Devices', '#/' + ROUTE + '/devices'], body(c) {
+    const key = 'device:' + id;
+    result(c, key);
+    const got = devicesRead(), rr = roomsRead();
+    if (!got || !rr) { pending(c); return; }
+    if (got.err || rr.err) { failed(c, got.err || rr.err); return; }
+    const dev = got.data.devices.find((x) => x.id === id && !x.revoked);
+    if (!dev) { failed(c, ERRORS.not_found); return; }
+    const rooms = rr.data, form = 'move:' + id, d = draft(form);
+    if (d.tablet === undefined) {                 // start from where it is
+      d.tablet = (dev.hk_tablets || []).find((t) => rooms.tablets[t]) || '';
+      d.other = !d.tablet && !!dev.room && rooms.areas.some((a) => a.id === dev.room);
+      d.room = d.other ? dev.room : '';
+    }
+    const lost = lostTablet(dev, got.data.tablets);
+    c.appendChild(group({ header: 'Now', footer: lost ? hh('span', { class: 'mxerr', text: (dev.room ? 'No HK wall tablet is in ' + roomName(rooms, dev.room) : 'It has no room') +
+        ': its touches and black screen won’t reach Mantel. Choose its HK tablet below.' }) : null },
+      [info('Room', null, dev.room ? roomName(rooms, dev.room) : 'None', lost ? 'warn' : ''), info('Role', null, roleLabel(dev.role))]));
+    for (const g of roomChoice(form, rooms, dev.id)) c.appendChild(g);
+    const body = roomBody(form);
+    c.appendChild(group({ footer: 'It keeps its credential: nothing to do at the tablet. Its open screens follow within a minute.' }, [button('Save', async () => {
+      const r = await act(key, () => api('PATCH', '/api/devices/' + encodeURIComponent(id), body), 'Saved.', 'devices', 'devrooms');
+      if (r) clearDraft(form);
+    }, { center: true, disabled: !body, fk: 'mx:move-device:' + id })]));
+  } };
+}
 function pEnroll(back = ['Devices', '#/' + ROUTE + '/devices']) {
   return { title: 'Make This a Wall Tablet', back, body(c) {
     result(c, 'enroll');
     if (enrolled) { drawEnrolled(c); return; }
-    const u = me.user || {};
+    const rr = roomsRead();
+    if (!rr) { pending(c); return; }
+    if (rr.err) { failed(c, rr.err); return; }
+    const rooms = rr.data, tablets = tabletList(rooms);
+    const u = me.user || {}, d = draft('device');
     if (u.role === 'wall_tablet') {               // a Wall Tablet account names its own tablet: start from its name
-      const d = draft('device'), label = u.name || (u.username || '').replace(/^./, (x) => x.toUpperCase());
+      const label = u.name || (u.username || '').replace(/^./, (x) => x.toUpperCase());
       if (d.name === undefined && label) d.name = label;     // an account made with no name: its user name (loft → Loft)
-      if (d.room === undefined && label) d.room = label;
+      if (d.tablet === undefined && label) {                 // and its HK tablet, by that name or that room
+        const rid = label.trim().toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+        const hit = tablets.find(([, t]) => String(t.name).toLowerCase() === label.toLowerCase()) || tablets.find(([, t]) => t.room === rid);
+        d.tablet = hit ? hit[0] : '';
+      }
+    }
+    const nothing = !tablets.length && !(rooms.areas || []).length;
+    if (nothing) c.appendChild(group({ header: 'Which HK Tablet', footer: 'Mantel knows no rooms yet: no HK wall tablets in its settings, no Home Assistant areas. Enrol it now, and choose its room under Devices once they are here.' }, []));
+    else {
+      for (const g of roomChoice('device', rooms, null, (t) => {   // the name follows the tablet picked, until it is typed
+        if (!d.name || d.name === d.auto) { d.name = t.name; d.auto = t.name; }
+      })) c.appendChild(g);
     }
     c.appendChild(group({ footer: 'The person is signed out of this browser at once, and it keeps its own credential. What it may do is its role’s (Roles & Grants). Only on the home network.' }, [
       field('device', 'name', 'Name', { placeholder: 'Kitchen Tablet', maxlength: 64 }),
-      field('device', 'room', 'Room', { placeholder: 'Kitchen (its HK tablet’s room, e.g. Master Bedroom)', maxlength: 64 }),
       choose('device', 'role', 'Role', me.device_roles.map((r) => [r, roleLabel(r)]), 'wall_tablet')]));
     c.appendChild(group({}, [button('Make This a Wall Tablet', async () => {
-      const d = draft('device');
       const name = (d.name || '').trim();
+      const where = roomBody('device');
+      if (!where && !nothing) { flash = { key: 'enroll', text: d.other ? 'Choose its room.' : 'Choose its HK tablet, or Not One of These and its room.', err: true }; redraw(); return; }
       if (!name) { flash = { key: 'enroll', text: 'Give the tablet a name.', err: true }; redraw(); return; }
       if (!(await ask({ title: 'Make this browser a wall tablet?', message: 'You will be signed out here. From now on this browser acts as the tablet “' + name + '”.', ok: 'Make It a Tablet' }))) return;
-      const r = await act('enroll', () => api('POST', '/api/devices/enroll', { name, room: (d.room || '').trim() || undefined, role: d.role }));
+      const r = await act('enroll', () => api('POST', '/api/devices/enroll', { name, role: d.role, ...(where || {}) }));
       if (r) { enrolled = r.device; clearDraft('device'); redraw(); }
     }, { center: true, fk: 'mx:enroll-device' })]));
   } };
 }
 function drawEnrolled(c) {
   const d = enrolled;
-  c.appendChild(group({ header: 'This Browser Is Now a Wall Tablet', footer: `“${d.name}”${d.room ? ' in ' + d.room : ''} is enrolled as a ${roleLabel(d.role)}. You have been signed out of this browser.` },
+  c.appendChild(group({ header: 'This Browser Is Now a Wall Tablet', footer: `“${d.name}”${d.room ? ' in ' + titleCase(d.room) : ''} is enrolled as a ${roleLabel(d.role)}. You have been signed out of this browser.` },
     [K().nav({ label: 'Open the Dashboard', href: mantelUrl('/home'), fk: 'mx:open-home' })]));
 }
 

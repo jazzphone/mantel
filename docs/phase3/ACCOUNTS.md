@@ -145,7 +145,7 @@ the linked user (`method: ha`) on the request's door and answers with a small pa
 `/dev` (`<meta refresh>`), not a 302: Strict cookies set during a navigation that began on HA's site
 are not sent on a redirect in the same chain. A disabled linked user is refused.
 
-**Wall tablets** (`POST /api/devices/enroll {name, room, role?}`): an Owner/Admin (any role except
+**Wall tablets** (`POST /api/devices/enroll {name, tablet | room, role?}`): an Owner/Admin (any role except
 Owner/Admin, default `wall_tablet`), or a Wall Tablet account for itself (always `wall_tablet`),
 turns the current browser into a device. Refused on the tunnel door (`403 lan_only`). The person's
 session on that browser is revoked in the same response and `mantel_device` (`HttpOnly;
@@ -154,7 +154,11 @@ rotates every 24 h: a new one is issued but the old stays valid until the new on
 response never strands a tablet; re-issued after 60 s if unseen); then the old one is retired, and a
 retired secret seen more than 60 s later revokes the device (`credential_reuse`). Unused for 90 days
 → refused. A device cookie on the tunnel door is ignored and logged. `DELETE /api/devices/{id}`
-(Owner/Admin, or the device itself) revokes at once; `GET /api/devices` lists (never hashes).
+(Owner/Admin, or the device itself) revokes at once; `GET /api/devices` lists (never hashes), each
+with `hk_tablets` (the HK tablets in its room). The room is one of HK's wall tablets' (`tablet`: its id)
+or an HA area, never free text (`400 unknown_room` / `unknown_tablet`; `GET /api/devices/rooms` lists both
+for the enrol dialog); `PATCH /api/devices/{id} {tablet | room}` (Owner/Admin) moves a device in place,
+audited (`device.room`), its cookie kept. See [../OPERATIONS.md](../OPERATIONS.md) section 5.
 
 **Wall tablets in the HA App** (decision 21, 2026-10-18; [HA-APP.md](HA-APP.md) "Wall tablets through the
 App"): each house tablet is already its own HA user (trusted_networks in Kiosk Satellite). An Owner links
@@ -200,6 +204,8 @@ bootstrap_closed`. `GET /api/bootstrap` → `{"open": bool}`.
 | PATCH | `/api/users/{id} {role?, disabled?, name?}` | Owner/Admin | never the last enabled Owner |
 | POST | `/api/devices/enroll` | Owner/Admin/Wall Tablet account, LAN | |
 | GET | `/api/devices` | Owner/Admin | |
+| GET | `/api/devices/rooms` | Owner/Admin/Wall Tablet account | |
+| PATCH | `/api/devices/{id}` | Owner/Admin | audited |
 | DELETE | `/api/devices/{id}` | Owner/Admin or the device | |
 
 Phase 0 routes are unchanged except `/login`: `/auth/callback`, `/logout` (POST; now revokes the family),

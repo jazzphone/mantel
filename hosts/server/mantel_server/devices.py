@@ -12,6 +12,11 @@ uses the pair.
   tablet. Once the new one is seen the old one is retired; if the retired secret is presented again
   (after a short grace for requests already in flight) somebody copied it, and the device is revoked.
 * **Revocable** in one call (``DELETE /api/devices/{id}``); a revoked device is refused at once.
+* **Its room is one of the house's**: HK's wall tablets (``tablet`` names one, and the device takes its room) or
+  HA's areas, never a room typed by hand. ``features.may_speak_for`` lets a wall tablet device report a touch or
+  its black screen only for the HK tablet in its own room, so a room that matches none (three tablets enrolled as
+  "Livingroom", "Masterbathroom", "Masterbedroom": the house, 2026-10-19) silently cut them off. An Owner or Admin
+  moves a device to another room or tablet in place (``PATCH /api/devices/{id}``, audited), keeping its cookie.
 * **LAN only**: enrolment is refused on the tunnel door, and a device cookie presented on the tunnel
   door is ignored (logged), so a stolen tablet credential is useless off-site.
 * A credential unused for 90 days stops working.
@@ -25,6 +30,7 @@ import sqlite3
 
 from aiohttp import web
 
+from . import default_screens
 from .accounts import read_json, require_manager, require_user
 from .sessions import (CSRF_COOKIE, Device, client_ip, cookie_secure, device_json, end_session, error, identity, ok,
                        queue_cookie, token_hash)
@@ -69,6 +75,11 @@ class DeviceManager:
 
     def get(self, device_id: str):
         return self.db.execute("SELECT * FROM devices WHERE id = ?", (device_id,)).fetchone()
+
+    def set_room(self, device_id: str, room: str | None) -> bool:
+        with self.db:
+            return self.db.execute("UPDATE devices SET room = ? WHERE id = ? AND revoked IS NULL",
+                                   (room, device_id)).rowcount > 0
 
     def list(self) -> list[dict]:
         cols = "id, name, role, room, enrolled_by, created, last_seen, rotated_at, source_ip, revoked, revoked_reason"
@@ -148,6 +159,56 @@ def room_id(room: str | None) -> str | None:
     return rid[:64] or None
 
 
+def hk_tablets(app: web.Application) -> dict[str, dict]:
+    """HK's wall tablets as Mantel's settings have them (features.FeatureHost.tablets, the ones ``may_speak_for``
+    compares a device's room with): {tid: {name, room, screen}}."""
+    host = app.get("features")
+    tablets = getattr(host, "tablets", None) or {}
+    return {tid: {"name": t.get("name") or tid, "room": t.get("room") or None, "screen": t.get("screen") or None}
+            for tid, t in tablets.items() if isinstance(t, dict)}
+
+
+def ha_areas(app: web.Application) -> dict[str, str]:
+    hub = app.get("hub")
+    reg = getattr(hub, "registry", None)
+    return dict(getattr(reg, "areas", None) or {})
+
+
+class RoomError(ValueError):
+    pass
+
+
+def chosen_room(app: web.Application, body: dict, *, strict: bool) -> str | None:
+    """The room a request asks for: ``tablet`` (an HK tablet's id: its room) or ``room`` (an HK tablet's room or an
+    HA area, by id; a name is taken as its id). Anything else is a RoomError. With nothing known yet (no HK
+    settings, HA not read), ``strict=False`` takes the room as given (enrolment on a first run)."""
+    tablets = hk_tablets(app)
+    if body.get("tablet") is not None:
+        t = tablets.get(body["tablet"]) if isinstance(body["tablet"], str) else None
+        if t is None or not t["room"]:
+            raise RoomError("unknown_tablet")
+        return t["room"]
+    room = body.get("room")
+    if room is None:
+        return None
+    if not isinstance(room, str):
+        raise RoomError("invalid")
+    rid = room_id(room)
+    known = {t["room"] for t in tablets.values() if t["room"]} | set(ha_areas(app))
+    if rid is None or (rid not in known and (strict or known)):
+        raise RoomError("unknown_room")
+    return rid
+
+
+def tablets_in(app: web.Application, room: str | None) -> list[str]:
+    """The HK tablets a device in ``room`` speaks for (``features.may_speak_for``'s room rule)."""
+    return sorted(tid for tid, t in hk_tablets(app).items() if room and t["room"] == room)
+
+
+ROOM_MESSAGES = {"unknown_tablet": "That isn’t one of HK’s wall tablets.",
+                 "unknown_room": "That isn’t a room in this house: pick one of HK’s wall tablets or a Home Assistant area."}
+
+
 async def enroll(request: web.Request) -> web.Response:
     ident = require_user(request)
     if ident.door != "lan":
@@ -162,11 +223,14 @@ async def enroll(request: web.Request) -> web.Response:
     elif user.role not in ("owner", "admin"):
         return error(403, "forbidden")
     name = body.get("name") or user.name or "Wall tablet"
-    room = body.get("room")
-    if role not in DEVICE_ROLES or not isinstance(name, str) or not (room is None or isinstance(room, str)):
+    if role not in DEVICE_ROLES or not isinstance(name, str):
         return error(400, "invalid", roles=list(DEVICE_ROLES))
+    try:
+        room = chosen_room(request.app, body, strict=False)
+    except RoomError as exc:
+        return error(400, str(exc), message=ROOM_MESSAGES.get(str(exc)))
     mgr: DeviceManager = request.app["devices"]
-    device_id, secret, csrf = mgr.enroll(name[:64], role, room_id(room), user.id, client_ip(request))
+    device_id, secret, csrf = mgr.enroll(name[:64], role, room, user.id, client_ip(request))
     row = mgr.get(device_id)
     resp = ok({"device": device_json(Device(row["id"], row["name"], row["role"], row["room"])), "csrf": csrf},
               status=201)
@@ -178,7 +242,58 @@ async def enroll(request: web.Request) -> web.Response:
 
 async def list_devices(request: web.Request) -> web.Response:
     require_manager(request)
-    return ok({"devices": request.app["devices"].list()})
+    app = request.app
+    devices = [{**d, "hk_tablets": tablets_in(app, d["room"])} for d in app["devices"].list()]
+    return ok({"devices": devices, "tablets": hk_tablets(app)})
+
+
+async def rooms(request: web.Request) -> web.Response:
+    """``GET /api/devices/rooms``: what "Make This Browser a Wall Tablet" offers, for whoever may enrol (an Owner, an
+    Admin, a Wall Tablet account): HK's wall tablets (Mantel's copy of the settings the feed's ``tablet_items`` come
+    from; a Wall Tablet account's settings page has no house connection to read the feed) with the active devices
+    already in each one's room, and HA's areas for a device that is none of them."""
+    ident = require_user(request)
+    if ident.user.role not in ("owner", "admin", "wall_tablet"):
+        return error(403, "forbidden")
+    app = request.app
+    titles = {x["path"]: x["title"] for x in default_screens.screens(app)}
+    live = [d for d in app["devices"].list() if d["revoked"] is None]
+    tablets = {tid: {**t, "screen_title": titles.get(t["screen"]),
+                     "served_by": [{"id": d["id"], "name": d["name"]} for d in live if t["room"] and d["room"] == t["room"]]}
+               for tid, t in hk_tablets(app).items()}
+    areas = [{"id": a, "name": n} for a, n in sorted(ha_areas(app).items(), key=lambda kv: kv[1].lower())]
+    return ok({"tablets": tablets, "areas": areas})
+
+
+async def update(request: web.Request) -> web.Response:
+    """``PATCH /api/devices/{id}`` ``{tablet}`` or ``{room}`` (Owner/Admin): the device's room, in place. Its
+    credential is untouched; its open screens take the new room at the next policy tick (a minute at most)."""
+    ident = require_manager(request)
+    app = request.app
+    mgr: DeviceManager = app["devices"]
+    row = mgr.get(request.match_info["id"])
+    if row is None or row["revoked"] is not None:
+        return error(404, "not_found")
+    body = await read_json(request)
+    if not isinstance(body, dict) or not ({"tablet", "room"} & set(body)):
+        return error(400, "invalid")
+    try:
+        room = chosen_room(app, body, strict=True)
+    except RoomError as exc:
+        return error(400, str(exc), message=ROOM_MESSAGES.get(str(exc)))
+    audit = app.get("audit")
+    if audit is not None:                   # the audit row first, as every config change
+        audit.config_event({"timestamp": app["clock"](), "actor": ident.user.id, "role": ident.user.role,
+                            "action": "device.room", "detail": {"device": row["id"], "name": row["name"],
+                                                                "from": row["room"], "to": room,
+                                                                "tablet": body.get("tablet")}})
+    if not mgr.set_room(row["id"], room):
+        return error(404, "not_found")
+    log.info("device %s moved from %s to %s by %s", row["id"], row["room"] or "no room", room or "no room",
+             ident.user.id)
+    out = mgr.get(row["id"])
+    return ok({"device": {**device_json(Device(out["id"], out["name"], out["role"], out["room"])),
+                          "hk_tablets": tablets_in(app, out["room"])}})
 
 
 async def revoke(request: web.Request) -> web.Response:
@@ -202,4 +317,6 @@ def register(app: web.Application, hub=None) -> None:
                                    rotate_every=getattr(cfg, "device_rotate_hours", 24) * 3600)
     app.router.add_post("/api/devices/enroll", enroll)
     app.router.add_get("/api/devices", list_devices)
+    app.router.add_get("/api/devices/rooms", rooms)
+    app.router.add_patch("/api/devices/{id}", update)
     app.router.add_delete("/api/devices/{id}", revoke)
