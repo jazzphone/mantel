@@ -31,6 +31,13 @@ hassio_api: true
 discovery:
   - mantel
 watchdog: "http://[HOST]:[PORT:8099]/healthz"
+# Home Assistant's backups stop the App, copy /data and start it again ("cold"). Mantel's database is SQLite
+# in WAL mode: a hot copy of mantel.db and mantel.db-wal taken file by file while Mantel writes (and
+# checkpoints) can restore as a damaged or inconsistent database. Stopped, the files are at rest and the copy
+# is exact, photos and keys included. The cost is Mantel being away for the length of the App's part of the
+# backup. A backup_pre snapshot would keep it running but needs a restore-time step to put the snapshot in
+# place; cold needs nothing and cannot go wrong.
+backup: cold
 # Direct access (decision 26, DOCS.md "Direct access"): Mantel's own address for tablets and devices at
 # home. Off unless the option `access` is proxy (plain HTTP here, for your own proxy) or https (Mantel serves
 # HTTPS here with its own certificate), AND a host port is set for it in the App's Network section (null:

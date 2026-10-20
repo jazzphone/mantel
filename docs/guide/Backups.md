@@ -19,9 +19,8 @@ The App keeps its data in its own `/data` folder, and **Home Assistant's backups
 
 - Make sure your Home Assistant backups run (**Settings** → **System** → **Backups**), and keep a copy off the machine.
 - Protect them. A Home Assistant backup holds Mantel's at-rest key next to its database, plus password hashes and the audit log. Keep backups encrypted, and the encryption key somewhere safe.
+- While Home Assistant backs the App up, it stops Mantel and starts it again straight after, so the copy of Mantel's database is exact. Mantel is away for that time (longer with many photos); the sidebar page and wall tablets come back when it does.
 - To get Mantel back, restore the App from a Home Assistant backup (all of it, or just the **Mantel** App).
-
-<!-- CHECK: the App's config.yaml sets no `backup:` mode (so Home Assistant makes a hot backup while Mantel runs) and no pre-backup step; Mantel's database is SQLite in WAL mode. Confirm that a hot Home Assistant backup of /data restores a consistent mantel.db, or set `backup: cold` / add a snapshot step. -->
 
 ## With Docker or the LXC
 
@@ -46,7 +45,7 @@ The nightly backup is off until you give it a folder. Ideally that folder is on 
    `MANTEL_BACKUP_DIR` is the folder on the host; Mantel sees it as `/backups`. Setting `MANTEL_BACKUP_TARGET` is what turns the nightly backup on.
 3. `docker compose up -d --wait`.
 
-If there is no backup from the last 25 hours, Mantel makes one a minute after it starts. After that it runs every night at **03:15**, in the time zone given with `--house-tz` (UTC unless you set it; see the flags below). Each backup, and each failure, is written to the [audit log](Commands-and-Audit.md); a failure is retried an hour later.
+If there is no backup from the last 25 hours, Mantel makes one a minute after it starts. After that it runs every night at **03:15**, in your house's time zone: the one Home Assistant is set to (**Settings** → **System** → **General**), once Mantel has reached Home Assistant. Until then, or without Home Assistant, it uses `--house-tz` (UTC unless you set it; see the flags below). Each backup, and each failure, is written to the [audit log](Commands-and-Audit.md); a failure is retried an hour later.
 
 The folder **must exist**: if your NAS isn't mounted, the backup fails with `target_missing` instead of quietly filling the local disk.
 
@@ -59,8 +58,9 @@ One file per backup, named `mantel-YYYYmmdd-HHMMSS.mbk` (the time in UTC), encry
 | The database | A consistent snapshot, safe to make while Mantel runs, checked before it is packed |
 | Your files and Mantel Photos | Apple's font and glyphs you uploaded, and the screensavers' photos |
 | The saved connections | Home Assistant's and Music Assistant's, still sealed with `at_rest.key` |
+| [Mantel Connect](Mantel-Connect.md)'s certificates | Its own certificate authority and keys, so a paired Connect App keeps working after a restore |
 
-Not inside: the secret files in `/etc/hk/secrets` (keep your own copy of the two keys), `.env`, Caddy's certificates (Caddy gets new ones), and [Mantel Connect](Mantel-Connect.md)'s pairing (pair it again after a restore).
+Not inside: the secret files in `/etc/hk/secrets` (keep your own copy of the two keys), `.env`, and Caddy's certificates (Caddy gets new ones).
 
 Mantel keeps the newest backup of each of the last **7 days** and of each of the last **4 weeks**, and deletes older ones in that folder. It touches no other file there.
 
@@ -69,7 +69,7 @@ To change the time, its time zone or how many are kept, add flags to the `comman
 | Flag | Default |
 |---|---|
 | `--backup-time HH:MM` | `03:15` |
-| `--house-tz ZONE` | `UTC`. Your time zone's name, for example `Europe/London`, so the backup time is your local time. |
+| `--house-tz ZONE` | `UTC`. Used only until Mantel has Home Assistant's time zone, or without Home Assistant. Your time zone's name, for example `Europe/London`. |
 | `--backup-keep-daily N` | `7` |
 | `--backup-keep-weekly N` | `4` |
 | `--backup-no-files` | Your files and photos are included |
@@ -90,9 +90,7 @@ Decrypt and check a backup without changing anything:
 docker compose exec mantel-server mantel restore /backups/mantel-20261018-031500.mbk --verify-only
 ```
 
-It checks the key, every part of the file, and that this version of Mantel can open the database. It ends with `verify-only: nothing was changed`. Do it once after you set backups up, and now and then afterwards.
-
-<!-- CHECK: --verify-only unpacks into the container's /tmp, which compose.yaml limits to 64 MB; a backup with many photos may not fit. Confirm, or give the verify step a bigger scratch folder. -->
+It checks the key, every part of the file, and that this version of Mantel can open the database. It ends with `verify-only: nothing was changed`. It unpacks the backup into a hidden folder in Mantel's data volume and removes it afterwards, so it needs free space there of about twice the backup's size while it runs. Do it once after you set backups up, and now and then afterwards.
 
 ### Restore with Docker or the LXC
 

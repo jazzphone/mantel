@@ -11,7 +11,13 @@ with AES-256-GCM, is a gzip-compressed tar holding
 * ``user-files/...`` the "Your files" tree (user_files.py), unless switched off;
 * ``photos/...``     Mantel Photos (photos.py: originals, screen-sized copies, thumbnails), with "Your files";
 * ``connections/...`` Mantel's own HA/MA credentials from the Connections page (connections.py), as the sealed
-                     files they are (sealed with the at-rest key, so a restore needs that key too).
+                     files they are (sealed with the at-rest key, so a restore needs that key too);
+* ``connect/...``    Mantel Connect's certificate authority and listener certificate (connect_pairing.py
+                     ``Pki``: ca.key, ca.crt, server.key, server.crt). The pairings themselves are rows in the
+                     database, and the paired Apps hold certificates signed by this CA, so without it a
+                     restored Mantel makes a new CA and every Connect App must be paired again. The private
+                     keys are plain PEM files on the data volume, so here they are protected only by the
+                     backup's own encryption: like everything else, they never leave this file unsealed.
 
 **The key.** ``<secrets_dir>/backup.key`` (base64url of 32 random bytes, 0600; created on the first backup,
 with a loud notice, if it is missing). It is *separate from* the at-rest key (``at_rest.key``): the backups
@@ -46,7 +52,8 @@ opens the restored database and checks it (integrity_check, foreign_key_check, s
 build, row counts as the manifest says, and that this build's migrations run on it), and only then moves it
 into place. A data dir that already holds a database is refused unless ``--replace``, which moves the old
 files aside (``*.before-restore-<time>``), never deletes them. ``--verify-only`` does everything except the
-move: that is the "is this backup any good" test.
+move: that is the "is this backup any good" test. It stages in the data dir as well (not the container's
+small tmpfs /tmp), in a hidden folder it removes again.
 """
 from __future__ import annotations
 
@@ -96,6 +103,7 @@ DB_NAME = "mantel.db"
 FILES_DIR = "user-files"
 CONNECTIONS_DIR = "connections"     # connections.py: <data_dir>/connections, sealed files
 PHOTOS_DIR = "photos"               # photos.py: <data_dir>/photos (the rows are in the database)
+CONNECT_DIR = "connect"             # connect_pairing.py: <data_dir>/connect, the Connect CA (private keys)
 DEFAULT_TIME = "03:15"
 
 
@@ -329,6 +337,9 @@ def create_backup(data_dir: Path, target: Path, key: bytes, *, now: datetime | N
             conn_root = data_dir / CONNECTIONS_DIR
             if conn_root.is_dir():
                 manifest["connections"] = _add_tree(tar, conn_root, CONNECTIONS_DIR)
+            connect_root = data_dir / CONNECT_DIR
+            if connect_root.is_dir():
+                manifest["connect"] = _add_tree(tar, connect_root, CONNECT_DIR)
             blob = json.dumps(manifest, indent=1, sort_keys=True).encode()
             member = tarfile.TarInfo("manifest.json")
             member.size, member.mtime = len(blob), int(now.timestamp())
@@ -403,7 +414,7 @@ def _safe_member(name: str) -> str | None:
 
 
 def _unpack(payload: Path, out: Path) -> tuple[dict, int]:
-    """Extract the tar by hand: only regular files and folders under the three known names."""
+    """Extract the tar by hand: only regular files and folders under the known names."""
     out.mkdir()
     total = files = 0
     manifest = None
@@ -415,10 +426,9 @@ def _unpack(payload: Path, out: Path) -> tuple[dict, int]:
         try:
             for m in tar:
                 name = _safe_member(m.name)
-                if name is None or not (name in (DB_NAME, "manifest.json") or name in (FILES_DIR, CONNECTIONS_DIR, PHOTOS_DIR)
-                                        or name.startswith(FILES_DIR + "/")
-                                        or name.startswith(PHOTOS_DIR + "/")
-                                        or name.startswith(CONNECTIONS_DIR + "/")):
+                trees = (FILES_DIR, CONNECTIONS_DIR, PHOTOS_DIR, CONNECT_DIR)
+                if name is None or not (name in (DB_NAME, "manifest.json") or name in trees
+                                        or any(name.startswith(tree + "/") for tree in trees)):
                     raise BackupError("corrupt", f"the backup contains an unexpected entry {m.name!r}")
                 if m.isdir():
                     (out / name).mkdir(parents=True, exist_ok=True)
@@ -502,7 +512,12 @@ def restore(backup: Path, key: bytes, data_dir: Path, *, replace: bool = False, 
         raise BackupError("data_dir_not_fresh", f"{data_dir} already has a Mantel database; restore into a fresh "
                                                 "folder, or pass --replace (the old files are moved aside)")
     if verify_only:
-        stage_parent = None
+        # Staged under the data folder too, never the system's temp folder: in the container /tmp is a
+        # small tmpfs (64 MB in compose.yaml), and a backup with many photos unpacks to far more than that.
+        # The data volume has the room the data itself needs. Only a hidden 0700 .restore-* folder appears
+        # there, removed when the check ends; the live files are not touched. A data folder that does not
+        # exist is not made for a mere check: then the system's temp folder it is.
+        stage_parent = data_dir if data_dir.is_dir() else None
     else:
         data_dir.mkdir(parents=True, exist_ok=True)
         os.chmod(data_dir, 0o700)
@@ -533,8 +548,12 @@ def restore(backup: Path, key: bytes, data_dir: Path, *, replace: bool = False, 
         try:
             conn_tree = stage / "unpacked" / CONNECTIONS_DIR
             photos_tree = stage / "unpacked" / PHOTOS_DIR
+            # a backup made before the Connect CA was included has none: then the CA here stays (it may
+            # still be the one the paired Apps know), as connections/ does
+            connect_tree = stage / "unpacked" / CONNECT_DIR
             for p in [live, *sidecars, data_dir / FILES_DIR, data_dir / PHOTOS_DIR] + \
-                    ([data_dir / CONNECTIONS_DIR] if conn_tree.is_dir() else []):
+                    ([data_dir / CONNECTIONS_DIR] if conn_tree.is_dir() else []) + \
+                    ([data_dir / CONNECT_DIR] if connect_tree.is_dir() else []):
                 if p.exists() or p.is_symlink():
                     aside = p.with_name(p.name + suffix)
                     n = 1
@@ -558,6 +577,12 @@ def restore(backup: Path, key: bytes, data_dir: Path, *, replace: bool = False, 
                 os.chmod(data_dir / CONNECTIONS_DIR, 0o700)
                 for f in (data_dir / CONNECTIONS_DIR).iterdir():
                     os.chmod(f, 0o600)
+            if connect_tree.is_dir():
+                os.replace(connect_tree, data_dir / CONNECT_DIR)
+                os.chmod(data_dir / CONNECT_DIR, 0o700)       # private keys: as Pki.ensure keeps them
+                for f in (data_dir / CONNECT_DIR).iterdir():
+                    if f.is_file():
+                        os.chmod(f, 0o600)
         except OSError as exc:
             for original, aside in reversed(moved):                  # put the old data back
                 with contextlib.suppress(OSError):
@@ -596,16 +621,26 @@ def zone(name: str):
 
 
 class Backups:
-    """The server's nightly job. Disabled (``enabled`` False) unless a target is configured."""
+    """The server's nightly job. Disabled (``enabled`` False) unless a target is configured.
+
+    ``backup_time`` is wall-clock time in the house's time zone: ``tz`` says which, asked afresh each time.
+    The server passes Home Assistant's own zone once ``get_config`` has given it (``Authz.tz``, the zone grant
+    schedules use), and ``cfg.house_tz`` (--house-tz, default UTC) until then or without Home Assistant.
+    Without that, a house that never set --house-tz was backed up at 03:15 UTC, the middle of the
+    evening in America."""
 
     CATCH_UP_AFTER = 25 * 3600       # no backup newer than this at startup -> one soon
     CATCH_UP_DELAY = 60.0
     RETRY_AFTER = 3600.0
+    # the wait for the nightly run is slept in steps of at most this long, each time worked out again, so
+    # a zone learned (or changed) after the wait began still moves the run to the house's own backup_time
+    RECHECK = 900.0
 
-    def __init__(self, cfg, *, clock=time.time, audit=None) -> None:
+    def __init__(self, cfg, *, clock=time.time, audit=None, tz=None) -> None:
         self.cfg = cfg
         self.clock = clock
         self.audit = audit
+        self.tz = tz or (lambda: cfg.house_tz)
         self.status: dict = {"last_ok": None, "last_error": None, "last_file": None, "last_attempt": None}
         self._lock: asyncio.Lock | None = None
         self.task: asyncio.Task | None = None
@@ -619,7 +654,7 @@ class Backups:
         return Path(self.cfg.backup_key_file or (Path(self.cfg.secrets_dir) / KEY_FILE)).expanduser()
 
     def now(self) -> datetime:
-        return datetime.fromtimestamp(self.clock(), tz=zone(self.cfg.house_tz))
+        return datetime.fromtimestamp(self.clock(), tz=zone(self.tz() or self.cfg.house_tz or "UTC"))
 
     def list(self) -> list[BackupInfo]:
         return list_backups(self.cfg.backup_target) if self.enabled else []
@@ -664,7 +699,12 @@ class Backups:
             if not result["ok"]:
                 await asyncio.sleep(self.RETRY_AFTER)
         while True:
-            wait = (next_run(self.now(), self.cfg.backup_time) - self.now()).total_seconds()
+            while True:
+                now = self.now()
+                wait = (next_run(now, self.cfg.backup_time) - now).total_seconds()
+                if wait <= self.RECHECK:
+                    break
+                await asyncio.sleep(self.RECHECK)
             await asyncio.sleep(max(wait, 1.0))
             result = await self.run_once()
             if not result["ok"]:
@@ -708,7 +748,13 @@ def register(app: web.Application, hub=None) -> None:
     """Add the backup job and its REST status. Disabled unless ``cfg.backup_target`` is set."""
     cfg = app["cfg"]
     audit = app.get("audit")
-    backups = Backups(cfg, clock=lambda: app["clock"](), audit=audit.config_event if audit is not None else None)
+    def house_zone() -> str:
+        # Home Assistant's zone once read (server.house_tz -> Authz.set_tz), else --house-tz
+        authz = app.get("authz")
+        return getattr(authz, "tz", None) or cfg.house_tz or "UTC"
+
+    backups = Backups(cfg, clock=lambda: app["clock"](), audit=audit.config_event if audit is not None else None,
+                      tz=house_zone)
     app["backups"] = backups
     app.router.add_get("/api/backup", api_status)
     app.router.add_post("/api/backup/run", api_run)

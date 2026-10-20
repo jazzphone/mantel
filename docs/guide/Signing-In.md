@@ -80,9 +80,7 @@ A passkey that syncs (for example through iCloud Keychain or Google Password Man
 Passkeys need two things:
 
 - You open Mantel by its **name** (`https://mantel.example.com`), not an IP address.
-- Mantel knows that name. In the Mantel App with direct access it's set for you. With Docker or the LXC, set it yourself: [Install with Docker → Passkeys](Install-Docker.md#passkeys). Set it before anyone adds a passkey: a passkey made for one name doesn't work at another.
-
-<!-- CHECK: the Docker/LXC entrypoint (packaging/docker/entrypoint.py container_args) never passes --rp-id, so passkeys stay bound to "localhost" unless the operator appends --rp-id to the server's command (Install-Docker.md documents the workaround). -->
+- Mantel knows that name. It's set for you: in the Mantel App with direct access it's `public_url`'s name, and with Docker or the LXC it's `MANTEL_HOSTNAME` ([Install with Docker → Passkeys](Install-Docker.md#passkeys)). Keep that name: a passkey made for one name doesn't work at another.
 
 Mantel keeps only each passkey's public key.
 

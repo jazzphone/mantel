@@ -67,7 +67,7 @@ class Config:
     # Backups (backup.py): off unless a target folder (the NAS mount) is set.
     backup_target: Path | None = None
     backup_key_file: Path | None = None                      # default <secrets_dir>/backup.key (not the at-rest key)
-    backup_time: str = "03:15"                               # nightly, in house_tz
+    backup_time: str = "03:15"                               # nightly, in the house's zone (HA's; house_tz until known)
     backup_keep_daily: int = 7
     backup_keep_weekly: int = 4
     backup_include_files: bool = True                        # the "Your files" tree goes in the backup too
@@ -204,7 +204,7 @@ def parse_args(argv: list[str] | None = None) -> Config:
                    help="turn the command gateway on: signed-in users may control the house through Mantel, "
                         "within their roles, with an audit row for every command (the Alarm PIN for the alarm). Off by default")
     p.add_argument("--house-tz", default=Config.house_tz,
-                   help="house time zone for grant schedules when Home Assistant does not say (IANA name)")
+                   help="house time zone (grant schedules, the nightly backup) until or unless Home Assistant says (IANA name)")
     p.add_argument("--audit-retention-days", type=float, default=Config.audit_retention_days, metavar="DAYS",
                    help="keep audit rows this many days (at least 30); older ones are deleted by the hourly "
                         "maintenance step, which logs what it deleted")

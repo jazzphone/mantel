@@ -10,7 +10,7 @@ You need:
 
 | | |
 |---|---|
-| **A Docker host** | Linux with Docker Engine and the Docker Compose v2 plugin (`docker compose`). An x86-64 (`amd64`) machine. <!-- CHECK: the transcode image installs Intel's intel-media-va-driver-non-free, which Debian ships for amd64 only, so the stack likely does not build on arm64. Confirm, and confirm the minimum Compose version (update.sh uses `up --wait --wait-timeout` and `pull --ignore-buildable`). --> |
+| **A Docker host** | Linux with Docker Engine and the Docker Compose v2 plugin (`docker compose`). An x86-64 (`amd64`) machine. <!-- CHECK: the transcode image installs Intel's intel-media-va-driver-non-free, which Debian ships for amd64 only, so the stack likely does not build on arm64. Confirm, and confirm the minimum Compose version (update.sh uses `up --wait --wait-timeout` and `config --images`). --> |
 | **git** | To get the files. |
 | **A name for Mantel** | What browsers will type, for example `mantel.example.com`, and a DNS record that points it at this host. A record in your home's own DNS is enough. |
 | **A way to get HTTPS** | Your own domain on Cloudflare DNS (the default), or Caddy's own certificate authority, or a reverse proxy you already run. See [step 3](#3-choose-how-browsers-get-https). |
@@ -162,7 +162,7 @@ Run Mantel's admin commands with `docker compose exec mantel-server mantel <comm
 
 ## Your own additions
 
-Two things are set on Mantel Server's command line rather than in `.env`: house commands, and the name for passkeys. Keep them in a file of your own, `compose.local.yaml`, in `packaging/compose`, and add it to the `COMPOSE_FILE` line in `.env`, for example:
+House commands are turned on with Mantel Server's command line rather than in `.env`. Keep that in a file of your own, `compose.local.yaml`, in `packaging/compose`, and add it to the `COMPOSE_FILE` line in `.env`, for example:
 
 ```bash
 COMPOSE_FILE=compose.yaml:compose.local.yaml
@@ -184,17 +184,9 @@ After `docker compose up -d --wait`, the log line says `COMMANDS ENABLED`. To tu
 
 ### Passkeys
 
-Passkeys are tied to a name. The stack doesn't pass Mantel's name to the passkey setting yet, so add it to the same list, with your `MANTEL_HOSTNAME`:
+Passkeys are tied to a name. Mantel uses the name in `MANTEL_HOSTNAME` (the host name of the address browsers type) for them, so there is nothing to add. Choose that name **before** anyone adds a passkey: a passkey made for one name doesn't work at another. Passkeys never work at an IP address.
 
-```yaml
-services:
-  mantel-server:
-    command: ["--rp-id", "mantel.example.com"]
-```
-
-With commands on as well: `command: ["--commands-enabled", "--rp-id", "mantel.example.com"]`. Set it **before** anyone adds a passkey: a passkey made for another name stops working.
-
-<!-- CHECK: packaging/docker/entrypoint.py passes no --rp-id in container mode, so Mantel's passkey RP ID stays "localhost" and passkeys at https://<MANTEL_HOSTNAME> fail with origin_not_allowed_for_passkeys. This workaround follows from the code (the container's extra arguments are appended after the entrypoint's). Consider deriving --rp-id from MANTEL_PUBLIC_URL in the entrypoint and dropping this section. -->
+An earlier version needed `"--rp-id", "mantel.example.com"` in `compose.local.yaml`. You can take it out; while it's there it still wins, so it must stay the same name as `MANTEL_HOSTNAME`.
 
 ## Your own reverse proxy
 

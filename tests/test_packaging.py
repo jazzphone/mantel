@@ -103,6 +103,68 @@ def test_shell_scripts_parse(script):
     assert subprocess.run(["bash", "-n", str(ROOT / script)], capture_output=True).returncode == 0
 
 
+FAKE_DOCKER = """#!/usr/bin/env bash
+# a stand-in for docker: logs each call; answers the few questions update.sh asks
+echo "$*" >> "$FAKE_LOG"
+case "$*" in
+  "compose ps -q "*) echo "cid-${4}" ;;
+  "inspect "*) echo "sha256:running" ;;
+  "compose config --images") printf '%s\\n' $FAKE_IMAGES ;;
+  "pull "*) [ "$2" != "$FAKE_PULL_FAILS" ] ;;
+  "compose up -d --wait --wait-timeout 180") [ -z "$FAKE_UP_FAILS" ] ;;
+esac
+"""
+
+
+def _run_update(tmp_path, images, pull_fails="", up_fails=""):
+    work = tmp_path / "compose"
+    work.mkdir(parents=True)
+    shutil.copy(ROOT / "packaging/compose/update.sh", work / "update.sh")
+    bindir = tmp_path / "bin"
+    bindir.mkdir()
+    (bindir / "docker").write_text(FAKE_DOCKER)
+    (bindir / "docker").chmod(0o755)
+    log = tmp_path / "docker.log"
+    env = {"PATH": f"{bindir}:/usr/bin:/bin", "FAKE_LOG": str(log), "FAKE_IMAGES": " ".join(images),
+           "FAKE_PULL_FAILS": pull_fails, "FAKE_UP_FAILS": up_fails}
+    r = subprocess.run(["bash", str(work / "update.sh")], env=env, capture_output=True, text=True)
+    return r, log.read_text().splitlines()
+
+
+@pytest.mark.skipif(shutil.which("bash") is None, reason="no bash")
+def test_update_pulls_published_images_although_the_services_can_be_built(tmp_path):
+    """Every Mantel service in compose.yaml has a build: section, so `docker compose pull --ignore-buildable`
+    skipped all three and an update restarted the old images. update.sh now pulls each registry image the
+    stack names, and only those: the :local images are built on this host."""
+    doc = pc.parse_yaml((ROOT / "packaging/compose/compose.yaml").read_text())
+    assert all("build" in doc["services"][s] for s in ("mantel-server", "go2rtc", "caddy"))
+    assert "--ignore-buildable" not in "\n".join(
+        line for line in (ROOT / "packaging/compose/update.sh").read_text().splitlines() if not line.lstrip().startswith("#"))
+    server = "ghcr.io/jazzphone/mantel-server@sha256:" + "a" * 64
+    r, calls = _run_update(tmp_path, [server, "ghcr.io/jazzphone/mantel-transcode:stable", "mantel-caddy:local"])
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert [c for c in calls if c.startswith("pull ")] == [f"pull {server}", "pull ghcr.io/jazzphone/mantel-transcode:stable"]
+    assert "not pulling mantel-caddy:local" in r.stdout
+    assert calls.index(f"pull {server}") < calls.index("compose up -d --wait --wait-timeout 180")
+    # the running images are kept for the rollback first, Caddy's too
+    assert calls.index("tag sha256:running mantel-rollback/caddy:previous") < calls.index(f"pull {server}")
+
+
+@pytest.mark.skipif(shutil.which("bash") is None, reason="no bash")
+def test_update_stops_before_restarting_when_a_pull_fails_and_rolls_back_when_unhealthy(tmp_path):
+    server = "ghcr.io/jazzphone/mantel-server:stable"
+    r, calls = _run_update(tmp_path / "1", [server], pull_fails=server)
+    assert r.returncode == 1 and "could not pull" in r.stdout
+    assert not any(c.startswith("compose up") for c in calls)
+    r, calls = _run_update(tmp_path / "2", [server], up_fails="1")
+    assert r.returncode == 1 and "rolling back" in r.stdout
+    assert calls[-1] == "compose up -d --wait --wait-timeout 180 --pull never"
+    # all local: nothing pulled, and the update says how a build from source is updated
+    r, calls = _run_update(tmp_path / "3", ["mantel-server:local", "mantel-transcode:local", "mantel-caddy:local"])
+    assert r.returncode == 0 and not any(c.startswith("pull ") for c in calls)
+    assert "no image comes from a registry" in r.stdout
+
+
 @pytest.mark.skipif(shutil.which("caddy") is None, reason="caddy not installed")
 def test_caddyfile_validates(tmp_path):
     (tmp_path / "tls.caddy").write_text((ROOT / "packaging/compose/caddy/tls-internal.caddy").read_text())
@@ -348,6 +410,11 @@ def test_ha_app_config_is_checked(tmp_path):
     assert not pc.check_ha_app(ROOT / "packaging/ha-app/config.yaml")
     p.write_text(good.replace('acme_email: "str?"', 'acme_email: "email?"'))
     assert any("acme_email" in m and "empty default" in m for m in pc.check_ha_app(p))
+    # HA's backups stop the App first: a hot copy of the live WAL database could restore damaged
+    assert pc.parse_yaml(good)["backup"] == "cold"
+    for edit in (good.replace("backup: cold\n", ""), good.replace("backup: cold", "backup: hot")):
+        p.write_text(edit)
+        assert any("backup must be cold" in m for m in pc.check_ha_app(p))
 
 
 def test_yaml_subset_reader():
@@ -392,6 +459,38 @@ def test_entrypoint_passes_caddys_address_as_the_trusted_proxy(tmp_path, capsys)
     args, _ = entrypoint.plan([], {k: v for k, v in env.items() if k != "MANTEL_TRUSTED_PROXY"},
                               options_path=tmp_path / "none")
     assert "--trusted-proxy" not in args and "MANTEL_TRUSTED_PROXY is not set" in capsys.readouterr().err
+
+
+def test_entrypoint_gives_passkeys_the_public_urls_name(tmp_path):
+    """Docker / LXC: the passkeys' RP ID is MANTEL_PUBLIC_URL's host name, so a passkey added at
+    https://mantel.example.com is accepted there (it was "localhost", and every passkey failed with
+    origin_not_allowed_for_passkeys). An IP address cannot be an RP ID: no flag then."""
+    from types import SimpleNamespace
+
+    from aiohttp import web as aioweb
+
+    from mantel_server.accounts import passkey_origin
+    from mantel_server.config import parse_args
+    none = tmp_path / "none"
+    args, _ = entrypoint.plan([], {"MANTEL_PUBLIC_URL": "https://Mantel.Example.com:8443/"}, options_path=none)
+    assert args[args.index("--rp-id") + 1] == "mantel.example.com"
+    cfg = parse_args(args)
+    assert cfg.webauthn_rp_id == "mantel.example.com"
+
+    def check(origin):
+        acc = SimpleNamespace(rp_id=cfg.webauthn_rp_id)
+        return passkey_origin(SimpleNamespace(headers={"Origin": origin}), acc)
+    assert check("https://mantel.example.com:8443") == "https://mantel.example.com:8443"
+    with pytest.raises(aioweb.HTTPBadRequest):
+        check("https://evil.example")
+    # an IP address: no RP ID from it (the server keeps its default; passkeys need a name)
+    for public in ("https://192.0.2.10/", "https://[2001:db8::1]:8443/"):
+        args, _ = entrypoint.plan([], {"MANTEL_PUBLIC_URL": public}, options_path=none)
+        assert "--rp-id" not in args
+    # the operator's own --rp-id (the old compose.local.yaml workaround) comes later and still wins
+    args, _ = entrypoint.plan(["--rp-id", "other.example.com"], {"MANTEL_PUBLIC_URL": "https://m.example.com/"},
+                              options_path=none)
+    assert parse_args(args).webauthn_rp_id == "other.example.com"
 
 
 def test_compose_makes_caddy_the_trusted_proxy_on_the_backend_network():

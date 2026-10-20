@@ -153,6 +153,71 @@ def test_no_files_switch_and_a_backup_without_a_files_tree(tmp_path, key, target
     assert bk.restore(out, key, tmp_path / "fresh2").files == 0
 
 
+def test_the_connect_ca_travels_inside_the_encrypted_part_and_is_restored(tmp_path, key, target):
+    """Mantel Connect's CA (<data>/connect: ca.key, ca.crt, server.key, server.crt) is in the backup, so a
+    restored Mantel still trusts the paired Apps' certificates (their pairings are database rows) and they
+    still trust it: no pairing again. Its private keys are plain PEM on disk, so they must appear only
+    inside the sealed archive, never in the file's clear bytes; restored 0600 in a 0700 folder."""
+    import stat
+
+    from mantel_server.connect_pairing import Pki
+    data = make_home(tmp_path)
+    pki = Pki(data / "connect")
+    pki.ensure()
+    ca_before = (data / "connect" / "ca.crt").read_bytes()
+    out = bk.create_backup(data, target, key, now=NOW)
+    raw = out.read_bytes()
+    assert b"PRIVATE KEY" not in raw and b"CERTIFICATE" not in raw and b"Mantel Connect" not in raw
+    fresh = tmp_path / "fresh"
+    bk.restore(out, key, fresh)
+    for name in ("ca.key", "ca.crt", "server.key", "server.crt"):
+        restored = fresh / "connect" / name
+        assert restored.read_bytes() == (data / "connect" / name).read_bytes()
+        assert stat.S_IMODE(restored.stat().st_mode) == 0o600
+    assert stat.S_IMODE((fresh / "connect").stat().st_mode) == 0o700
+    again = Pki(fresh / "connect")
+    assert again.ensure() is False                       # the same CA and listener certificate: nothing new made
+    assert again.ca_file.read_bytes() == ca_before
+    # --replace over a Mantel that made a CA of its own since: the restored one wins, the other is set aside
+    other = make_home(tmp_path, "other")
+    Pki(other / "connect").ensure()
+    report = bk.restore(out, key, other, replace=True)
+    assert (other / "connect" / "ca.crt").read_bytes() == ca_before
+    assert any(Path(r).name.startswith("connect.before-restore-") for r in report.replaced)
+    # a backup without a connect folder (no Connect, or made before it was included) leaves the CA here alone
+    plain = make_home(tmp_path, "plain")
+    out2 = bk.create_backup(plain, target, key, now=NOW + timedelta(days=1))
+    keep = make_home(tmp_path, "keep")
+    Pki(keep / "connect").ensure()
+    kept = (keep / "connect" / "ca.crt").read_bytes()
+    bk.restore(out2, key, keep, replace=True)
+    assert (keep / "connect" / "ca.crt").read_bytes() == kept
+
+
+def test_verify_only_stages_in_the_data_folder_not_the_small_tmp(tmp_path, key, target, monkeypatch):
+    """--verify-only unpacked into the system temp folder, which in the container is a 64 MB tmpfs: a
+    backup with many photos did not fit. It stages in the data folder (the volume) like a restore, in a
+    hidden folder it removes, and changes nothing there."""
+    data = make_home(tmp_path, big=300_000)
+    out = bk.create_backup(data, target, key, now=NOW)
+    before = sorted(p.name for p in data.iterdir())
+    db_bytes = (data / "mantel.db").read_bytes()
+    made = []
+    real = bk.tempfile.mkdtemp
+
+    def spy(*args, **kw):
+        made.append(kw.get("dir"))
+        return real(*args, **kw)
+    monkeypatch.setattr(bk.tempfile, "mkdtemp", spy)
+    report = bk.restore(out, key, data, verify_only=True)
+    assert report.verified_only and made == [data]
+    assert sorted(p.name for p in data.iterdir()) == before and (data / "mantel.db").read_bytes() == db_bytes
+    # a data folder that is not there is not made for a check: the temp folder then
+    made.clear()
+    bk.restore(out, key, tmp_path / "absent", verify_only=True)
+    assert made == [None] and not (tmp_path / "absent").exists()
+
+
 def test_a_snapshot_is_consistent_while_the_server_writes_in_wal_mode(tmp_path, key, target):
     data = make_home(tmp_path)
     live = dbmod.connect(data / "mantel.db")                             # the server's own kind of connection
@@ -537,8 +602,8 @@ async def test_the_job_is_disabled_without_a_target_and_catches_up_then_runs_nig
         sleeps.append(round(s))
         if len(sleeps) == 1:
             return                                                         # the catch-up wait
-        if len(sleeps) == 2:
-            clock[0] += s                                                  # night comes
+        if len(jobs.list()) < 2:
+            clock[0] += s                                                  # night comes, a step at a time
             return
         raise asyncio.CancelledError
 
@@ -546,13 +611,64 @@ async def test_the_job_is_disabled_without_a_target_and_catches_up_then_runs_nig
     with pytest.raises(asyncio.CancelledError):
         await jobs.run_forever()
     assert sleeps[0] == 60                                                 # nothing on the NAS yet: one soon
-    assert sleeps[1] == (15 * 60 + 3 * 3600 + 12 * 3600)                   # noon -> 03:15 next day
+    night = sleeps[1:-1]                                                   # the wait, in RECHECK steps
+    assert sum(night) == (15 * 60 + 3 * 3600 + 12 * 3600)                  # noon -> 03:15 next day
+    assert max(night) <= bk.Backups.RECHECK
     assert len(jobs.list()) == 2 and jobs.status["last_error"] is None and jobs.status["last_ok"]
     assert jobs.list()[0].created.astimezone(UTC).strftime("%H:%M") == "08:15"      # 03:15 CDT is 08:15 UTC
     # a failing target is reported, not raised
     shutil.rmtree(target)
     result = await jobs.run_once()
     assert result["ok"] is False and jobs.status["last_error_code"] == "target_missing"
+
+
+def test_the_nightly_time_is_in_home_assistants_zone_once_known(tmp_path):
+    """03:15 is the house's 03:15: Home Assistant's zone (Authz.tz, from get_config) once read; --house-tz
+    (cfg.house_tz, default UTC) until then. It was always cfg.house_tz, so a house that never set
+    --house-tz was backed up at 03:15 UTC."""
+    from types import SimpleNamespace
+
+    from aiohttp import web as aioweb
+
+    from mantel_server.config import Config
+    noon_utc = datetime(2026, 7, 1, 12, 0, tzinfo=UTC).timestamp()
+    app = aioweb.Application()
+    app["cfg"] = Config(data_dir=tmp_path / "data", secrets_dir=tmp_path / "s", backup_target=tmp_path, port=0)
+    app["clock"] = lambda: noon_utc
+    bk.register(app)
+    jobs = app["backups"]
+    assert jobs.now().utcoffset() == timedelta(0)                          # nothing from HA yet: the UTC default
+    app["authz"] = SimpleNamespace(tz="America/Los_Angeles")               # what server.house_tz sets from HA
+    assert jobs.now().utcoffset() == timedelta(hours=-7)                   # PDT
+    run = bk.next_run(jobs.now(), app["cfg"].backup_time)
+    assert run.astimezone(UTC).strftime("%H:%M") == "10:15"                # 03:15 in the house, not in UTC
+    # an unknown zone falls back to UTC rather than stopping the job
+    app["authz"] = SimpleNamespace(tz="Nowhere/Atlantis")
+    assert jobs.now().utcoffset() == timedelta(0)
+
+
+async def test_a_zone_learned_during_the_wait_moves_the_nightly_run(tmp_path, monkeypatch, target, key):
+    """The wait is worked out again every RECHECK: HA's zone arriving after it began still counts."""
+    data = make_home(tmp_path)
+    clock = [datetime(2026, 7, 1, 12, 0, tzinfo=UTC).timestamp()]
+    bk.create_backup(data, target, key, now=datetime.fromtimestamp(clock[0], UTC) - timedelta(hours=1))
+    zone_now = ["UTC"]
+    jobs = bk.Backups(_cfg(tmp_path, target), clock=lambda: clock[0], tz=lambda: zone_now[0])
+    runs = []
+
+    async def fake_run_once():
+        runs.append(datetime.fromtimestamp(clock[0], UTC))
+        raise asyncio.CancelledError
+
+    async def fake_sleep(s):
+        clock[0] += s
+        zone_now[0] = "America/New_York"                                   # HA's get_config answered
+
+    monkeypatch.setattr(jobs, "run_once", fake_run_once)
+    monkeypatch.setattr(bk.asyncio, "sleep", fake_sleep)
+    with pytest.raises(asyncio.CancelledError):
+        await jobs.run_forever()
+    assert runs == [datetime(2026, 7, 2, 7, 15, tzinfo=UTC)]               # 03:15 EDT, not 03:15 UTC
 
 
 async def test_catch_up_is_skipped_when_a_recent_backup_exists(tmp_path, monkeypatch, target, key):

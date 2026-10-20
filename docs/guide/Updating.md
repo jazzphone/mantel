@@ -52,13 +52,11 @@ From `packaging/compose`:
 It:
 
 1. remembers the images that run now (tagged `mantel-rollback/<service>:previous`),
-2. pulls the new ones,
+2. pulls the new ones: every image `.env` names from a registry (`MANTEL_SERVER_IMAGE`, `MANTEL_TRANSCODE_IMAGE`, `MANTEL_CADDY_IMAGE`). Images left at their `:local` defaults are built on this machine and aren't pulled ([Built from source](#built-from-source)). If an image can't be pulled, it stops there and changes nothing,
 3. starts them and waits until every service is healthy,
 4. and if one doesn't become healthy, starts the remembered images again.
 
 With images pinned by digest, put the new digests in `.env` first. After a rollback, fix the image references in `.env` before the next update; `docker compose logs --tail 100` says what went wrong.
-
-<!-- CHECK: update.sh runs `docker compose pull --ignore-buildable`. Every Mantel service in compose.yaml also has a `build:` section, so this may skip pulling mantel-server, go2rtc and caddy altogether. Test with published images before relying on this page. -->
 
 ### Built from source
 
