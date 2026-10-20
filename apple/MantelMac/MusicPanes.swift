@@ -322,27 +322,26 @@ struct HousePlaylistTile: View {
     @EnvironmentObject private var music: MusicModel
     let playlist: MusicState.Playlist
     @State private var hover = false
+    @State private var choosing = false
 
     var body: some View {
-        Group {
-            if let options = playlist.options, !options.isEmpty {
-                Menu {
-                    ForEach(options) { o in Button(o.name) { music.play(playlist: o.key) } }
-                } label: { tile }
-                .menuStyle(.borderlessButton).menuIndicator(.hidden)
-            } else {
-                Button { music.play(playlist: playlist.key) } label: { tile }.buttonStyle(PressScale())
-            }
-        }
+        Button {
+            if let options = playlist.options, !options.isEmpty { choosing = true } else { music.play(playlist: playlist.key) }
+        } label: { tile }
+        .buttonStyle(PressScale())
         .onHover { hover = $0 }
+        .popover(isPresented: $choosing, arrowEdge: .bottom) { choices }
     }
 
     private var tile: some View {
         HStack(spacing: 10) {
-            Image(systemName: Self.symbol(playlist.icon)).font(.system(size: 14, weight: .semibold))
+            HouseGlyph(icon: playlist.icon).font(.system(size: 14, weight: .semibold))
                 .frame(width: 30, height: 30).background(.white.opacity(0.16), in: Circle())
             Text(playlist.name).font(.system(size: 13, weight: .semibold)).lineLimit(1)
             Spacer(minLength: 0)
+            if playlist.options?.isEmpty == false {
+                Image(systemName: "chevron.down").font(.system(size: 10, weight: .bold)).foregroundStyle(.white.opacity(0.5))
+            }
         }
         .padding(8)
         .background(.white.opacity(hover ? 0.18 : 0.1), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
@@ -350,20 +349,35 @@ struct HousePlaylistTile: View {
         .contentShape(Rectangle())
     }
 
-    /// The house's playlist icon (Material Design names) as the nearest SF Symbol.
-    static func symbol(_ mdi: String?) -> String {
-        let n = (mdi ?? "").replacingOccurrences(of: "mdi:", with: "")
-        let map: [String: String] = ["coffee": "cup.and.saucer.fill", "star": "star.fill", "heart": "heart.fill",
-                                     "creation": "sparkles", "auto-fix": "sparkles", "cross": "cross.fill",
-                                     "pine-tree": "tree.fill", "string-lights": "sparkles", "guitar-acoustic": "guitar",
-                                     "timer-sand": "hourglass", "baby-face-outline": "face.smiling", "party-popper": "party.popper.fill",
-                                     "weather-night": "moon.stars.fill", "sleep": "moon.zzz.fill", "run": "figure.run",
-                                     "dumbbell": "dumbbell.fill", "music": "music.note", "radio": "radio.fill",
-                                     "piano": "pianokeys", "headphones": "headphones", "fire": "flame.fill"]
-        if let s = map[n] { return s }
-        if n.contains("christmas") || n.contains("tree") { return "tree.fill" }
-        if n.contains("guitar") { return "guitar" }
-        return "music.note.list"
+    /// A playlist with a choice (the decades): its options, each plays.
+    private var choices: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            ForEach(playlist.options ?? []) { o in
+                Button {
+                    choosing = false
+                    music.play(playlist: o.key)
+                } label: {
+                    Text(o.name).font(.system(size: 13, weight: .medium))
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 10).padding(.vertical, 6)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(ChoiceRow())
+            }
+        }
+        .padding(6)
+        .frame(minWidth: 160)
+    }
+}
+
+/// A row in a little list of choices: lit under the pointer, as a menu's.
+private struct ChoiceRow: ButtonStyle {
+    @State private var hover = false
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .background(Color.accentColor.opacity(hover || configuration.isPressed ? 0.85 : 0), in: RoundedRectangle(cornerRadius: 6))
+            .foregroundStyle(hover ? Color.white : Color.primary)
+            .onHover { hover = $0 }
     }
 }
 
