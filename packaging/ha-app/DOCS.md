@@ -200,7 +200,9 @@ What it offers depends on where the screen is open, so that every row does somet
   does not let a Webpage dashboard move its window, so with an older Mantel Link the section is left out; the
   menu's Mantel → Home Assistant row (Mantel Link takes you back) is always there.
 * **At Mantel's own address** (a browser): one row, *Open Home Assistant*, which opens
-  Home Assistant's external URL (else its internal URL, HA → Settings → System → Network) in the same window.
+  Home Assistant's external URL (else its internal URL, HA → Settings → System → Network; else the App's
+  `ha_sign_in_url`) in the same window. Mantel reads HA's URLs when it starts, so after changing them there,
+  restart the App.
   A wall tablet gets no Home Assistant row at all.
 
 This only decides which rows are shown. What anyone may do stays Mantel's and Home Assistant's to decide.
