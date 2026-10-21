@@ -151,7 +151,7 @@ When every tablet is Mantel's, move the rest: Seasonal decorations, the Alarm
 PIN panel, and Live TV's sensors and cameras.
 
 1. Make a Home Assistant backup.
-2. **Mantel Settings → Connections → Home Assistant Link**: move the rest of the
+2. **Mantel Settings → Connections → Mantel in Home Assistant**: move the rest of the
    house to Mantel. Each entity moves with its entity id and history.
 3. **Set the Alarm PIN again**: **Mantel Settings → Alarm PIN → Change PIN**.
    Home Assistant never gives its PIN out, so the PIN HK Frontend kept can't
@@ -189,6 +189,6 @@ nothing in Home Assistant would run it. Your settings are still in Mantel.
 |---|---|
 | A tablet shows Mantel's sign-in page | Sign it in as a wall tablet again ([Wall Tablets](Wall-Tablets.md)) |
 | Buttons do nothing, the console says `commands_disabled` | House commands are off (step 3) |
-| An automation's `hk_frontend.set_black_screen` doesn't reach a tablet | Check who runs that tablet and who holds the bridge (**Home Assistant Link**) |
+| An automation's `hk_frontend.set_black_screen` doesn't reach a tablet | Check who runs that tablet and who holds the bridge (**Mantel in Home Assistant**) |
 | Entities are unavailable | The link to Mantel is down; Mantel Link's diagnostics say why |
 | Anything else | Roll that step back, then see [Troubleshooting](Troubleshooting.md) |

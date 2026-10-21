@@ -138,7 +138,7 @@ class LinkPairing:
                     self._code = None
                 self._audit(c["by"], "owner", "linked.pair_failed", {"ip": ip, "wrong": c["attempts"], "burned": burned})
             raise PairError(403, "invalid_code", "That pairing code was not accepted. Make a new one in Mantel "
-                            "Settings, Connections, Home Assistant Link.")
+                            "Settings, Connections, Mantel in Home Assistant.")
         self._code = None                                     # spent, before anything else can use it
         account, token = self.accounts.create(body["name"], ["linked"], by=c["by"])
         instance = self.instance() or ""

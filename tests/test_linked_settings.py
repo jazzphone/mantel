@@ -156,7 +156,7 @@ async def test_without_the_scope_saves_are_off(make_env):
     ws, acct = await connect_saving(env, saves=False)
     got = await write(ws, HA_OWNER, SAVE)
     assert not got["success"] and got["error"]["code"] == "saves_off"
-    assert "Saves from Home Assistant" in got["error"]["message"]
+    assert "Changes from Home Assistant" in got["error"]["message"]
     await ws.close()
 
 
@@ -223,15 +223,16 @@ async def test_setup_turns_saves_on_and_links_home_assistant_people(make_env):
     assert "linked_saves" in next(a for a in env.app["service_accounts"].list() if a["id"] == acct.id)["scopes"]
     told = settings_frames(await frames(ws, 0.4))
     assert told and told[-1]["setup"] == {"saves": True, "unlinked_admins": 1}, "HK Frontend is told: one admin can't save"
-    # the save works once Avery is linked
-    r = await put_saves(env, {"ha_user": HA_OWNER, "role": "admin"})
-    assert r.status == 200
-    assert next(p for p in (await r.json())["people"] if p["id"] == HA_OWNER)["person"]["role"] == "admin"
+    # the save works once Avery's HA user is linked to a person (People: people_ha.py)
+    admin_id = env.app["store"].db.execute("SELECT id FROM users WHERE username = 'admin1'").fetchone()[0]
+    r = await env.m.client.put("/api/people/ha", json={"ha_user": HA_OWNER, "user_id": admin_id}, headers=env.m.headers())
+    assert r.status == 200, await r.text()
     told = settings_frames(await frames(ws, 0.4))
     assert told[-1]["setup"]["unlinked_admins"] == 0
     assert (await write(ws, HA_OWNER, SAVE))["success"]
     # and unlinked again
-    assert (await put_saves(env, {"ha_user": HA_OWNER, "role": None})).status == 200
+    r = await env.m.client.put("/api/people/ha", json={"ha_user": HA_OWNER, "user_id": None}, headers=env.m.headers())
+    assert r.status == 200
     assert (await write(ws, HA_OWNER, SAVE, 2))["error"]["code"] == "not_linked"
     audit = [r["action"] for r in env.audit()] if hasattr(env, "audit") else []
     assert "linked.saves" in json.dumps(audit) or not audit
@@ -243,8 +244,7 @@ async def test_setup_refuses_what_it_should(make_env):
     env.app["linked_settings"].directory = FakeDirectory([ha_user(HA_OWNER, "Avery", True)])
     await env.login("owner1", "owner")
     assert (await put_saves(env, {"on": True})).status == 409, "no HK Frontend linked"
-    assert (await put_saves(env, {"ha_user": "nope", "role": "admin"})).status == 400
-    assert (await put_saves(env, {"ha_user": HA_OWNER, "role": "superuser"})).status == 400
+    assert (await put_saves(env, {"ha_user": HA_OWNER, "role": "admin"})).status == 400, "linking is People's now"
     assert (await put_saves(env, {"whatever": 1})).status == 400
 
 

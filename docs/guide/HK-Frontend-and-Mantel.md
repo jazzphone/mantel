@@ -27,7 +27,7 @@ feature usually lands in both, and you can run either one or both.
 
 Install HK Frontend and Mantel Link in Home Assistant and link HK Frontend to
 Mantel (HK Frontend's Configure → Linked to Mantel). Then, in Mantel Settings →
-Connections → [Home Assistant Link](Mantel-Link.md):
+Connections → [Mantel in Home Assistant](Mantel-Link.md):
 
 - **The Bridge:** one of the two shows Mantel's entities in Home Assistant.
   Mantel Link is recommended. Entity ids and history stay the same whichever
@@ -44,14 +44,24 @@ run by Mantel, HK's settings are Mantel's: HK Frontend's dashboards in Home
 Assistant draw with them (and keep drawing with the last ones while Mantel
 restarts), and a change made on those dashboards, such as a favorite or a
 calendar's color, is saved in Mantel as the person linked to your Home
-Assistant user. An Owner turns that on under Home Assistant Link → **Saves
-from Home Assistant**, and links each Home Assistant person there. Settings
+Assistant user. An Owner turns that on under Mantel in Home Assistant → HK Frontend →
+**Changes from Home Assistant**, and links each Home Assistant user to a
+person on **People**. Settings
 pages stay in Mantel Settings. Move The House back to Home Assistant, or
 unlink, and HK Frontend keeps Mantel's last settings as its own.
 
 While The House is Home Assistant's, each keeps its own: Mantel can import
 HK Frontend's settings once, and after that a change on one side does not
 reach the other.
+
+## Each screen, in one place
+
+Every screen is drawn either by Mantel or by HK Frontend in Home Assistant, and
+its page in Mantel Settings says which (**Where**). **Add Screen** asks where
+first; for Home Assistant, Mantel makes the dashboard there for you. A screen
+both have at the same address (an old HK Frontend dashboard Mantel imported)
+is marked, and its page offers to keep it Mantel's (and remove Home
+Assistant's), make it Home Assistant's, or split it in two.
 
 ## Moving everything to Mantel
 

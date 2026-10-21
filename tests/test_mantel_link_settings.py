@@ -1,7 +1,7 @@
-"""Mantel Settings, Connections -> Home Assistant Link (web/shim/mantel-settings.js `pLink`; docs/phase9/MANTEL-LINK.md):
-which integration is linked and what it reported, who holds the bridge (an Owner hands it over or gives it back),
-and who runs each wall tablet (an Owner's toggles; everyone else reads). Drawn with a recording stand-in for HK
-Settings' kit, as test_mantel_settings.py draws its pages."""
+"""Mantel Settings, Connections -> Mantel in Home Assistant (web/shim/mantel-settings.js `pLink`; docs/phase9/
+MANTEL-LINK.md, decision 29): by product -- Mantel Link, HK Frontend beside it -- and who runs each wall tablet (an
+Owner's toggles; everyone else reads); Advanced holds the bridge (an Owner hands it over or gives it back) and The
+House. Drawn with a recording stand-in for HK Settings' kit, as test_mantel_settings.py draws its pages."""
 from __future__ import annotations
 
 import json
@@ -32,14 +32,16 @@ globalThis.fetch = async (u) => {
 };
 const m = await import(process.argv[2]);
 const tick = () => new Promise((r) => setTimeout(r, 0));
-async function draw(me) {
+async function draw(me, parts) {
   m._reset(me);
   const panel = { render() {}, status() {}, shadowRoot: null };
   const c = { kids: [], appendChild(k) { this.kids.push(k); return k; } };
-  for (let i = 0; i < 3; i++) { c.kids = []; m.host.page(['mantel', 'connections', 'link'], panel).body(c); await tick(); await tick(); }
+  for (let i = 0; i < 3; i++) { c.kids = []; m.host.page(parts || ['mantel', 'connections', 'link'], panel).body(c); await tick(); await tick(); }
   return c.kids;
 }
-process.stdout.write(JSON.stringify({ owner: await draw(JSON.parse(process.argv[4])), admin: await draw(JSON.parse(process.argv[5])) }));
+const adv = ['mantel', 'connections', 'link', 'advanced'];
+const O = JSON.parse(process.argv[4]), A = JSON.parse(process.argv[5]);
+process.stdout.write(JSON.stringify({ owner: await draw(O), admin: await draw(A), ownerAdv: await draw(O, adv), adminAdv: await draw(A, adv) }));
 """
 
 
@@ -75,54 +77,58 @@ def groups(page):
     return {g["header"]: g for g in page}
 
 
-def test_an_owner_sees_both_links_and_hands_the_bridge_over(tmp_path):
-    got = groups(run(tmp_path, owners())["owner"])
-    links = got["Linked Now"]["rows"]
-    assert [r["label"] for r in links] == ["HK Frontend", "Mantel Link"]
-    assert "can hand over" in links[0]["sub"] and "HK Frontend is also in Home Assistant, linked" in links[1]["sub"]
-    assert [r["label"] for r in got["Pair Mantel Link"]["rows"]] == ["Make a Pairing Code"]
-    bridge = got["The Bridge"]["rows"]
-    assert bridge[0]["value"] == "HK Frontend"
-    assert [r["label"] for r in bridge[1:]] == ["Hand the Bridge to Mantel Link…"]
-    # the house has its own group (it is not a tablet), then each wall tablet
-    house = got["The House"]["rows"]
-    assert [(r["kind"], r["label"], r["on"]) for r in house] == [("toggle", "Run by Mantel", False)]
-    assert "Alarm PIN keypad" in got["The House"]["footer"]
-    tablets = got["Who Runs Each Wall Tablet"]["rows"]
+def test_an_owner_sees_each_product_and_who_runs_each_tablet(tmp_path):
+    got = run(tmp_path, owners())
+    page = groups(got["owner"])
+    assert [r["label"] for r in page["Mantel Link"]["rows"]] == ["Mantel Link"] and page["Mantel Link"]["rows"][0]["value"] == "Connected"
+    assert [r["label"] for r in page["Pair Mantel Link"]["rows"]] == ["Make a Pairing Code"]
+    hk = page["HK Frontend"]["rows"]
+    assert (hk[0]["label"], hk[0]["value"]) == ("HK Frontend", "Connected")
+    assert (hk[1]["label"], hk[1]["value"]) == ("Its Settings", "Its Own"), "HK Frontend runs the house here: its own settings"
+    tablets = page["Wall Tablets"]["rows"]
     assert [(r["kind"], r["label"], r["on"]) for r in tablets] == [("toggle", "Loft", True), ("toggle", "Hall", False)]
+    assert got["owner"][-1]["rows"][0]["label"] == "Advanced", "the bridge and The House are Advanced"
+    assert "The Bridge" not in page and "The House" not in page
+    adv = groups(got["ownerAdv"])
+    bridge = adv["The Bridge"]["rows"]
+    assert bridge[0]["value"] == "HK Frontend" and [r["label"] for r in bridge[1:]] == ["Hand the Bridge to Mantel Link…"]
+    house = adv["The House"]["rows"]
+    assert [(r["kind"], r["label"], r["on"]) for r in house] == [("toggle", "The House", False)]
+    assert "Alarm PIN keypad" in adv["The House"]["footer"]
 
 
 def test_with_mantel_link_holding_it_the_owner_can_give_it_back(tmp_path):
-    got = groups(run(tmp_path, owners("mantel"))["owner"])
-    assert got["The Bridge"]["rows"][0]["value"] == "Mantel Link"
-    assert [r["label"] for r in got["The Bridge"]["rows"][1:]] == ["Give the Bridge to HK Frontend…"]
+    adv = groups(run(tmp_path, owners("mantel"))["ownerAdv"])
+    assert adv["The Bridge"]["rows"][0]["value"] == "Mantel Link"
+    assert [r["label"] for r in adv["The Bridge"]["rows"][1:]] == ["Give the Bridge to HK Frontend…"]
 
 
 def test_an_admin_reads_and_changes_nothing(tmp_path):
-    got = groups(run(tmp_path, owners())["admin"])
-    assert "Pair Mantel Link" not in got
-    assert [r["kind"] for r in got["The Bridge"]["rows"]] == ["info"]
-    assert all(r["kind"] == "info" for r in got["Who Runs Each Wall Tablet"]["rows"] + got["The House"]["rows"])
-    assert "Only an Owner" in got["The Bridge"]["footer"]
+    got = run(tmp_path, owners())
+    page, adv = groups(got["admin"]), groups(got["adminAdv"])
+    assert "Pair Mantel Link" not in page
+    assert all(r["kind"] == "info" for r in page["Wall Tablets"]["rows"] + adv["The House"]["rows"] + adv["The Bridge"]["rows"])
+    assert "Only an Owner" in adv["The Bridge"]["footer"]
 
 
 def test_nothing_linked_says_how_to_add_mantel_link(tmp_path):
-    got = groups(run(tmp_path, {**owners(), "links": []})["owner"])
-    assert got["Linked Now"]["rows"] == [] and "Add Integration, Mantel Link" in got["Linked Now"]["footer"]
+    page = groups(run(tmp_path, {**owners(), "links": []})["owner"])
+    assert page["Mantel Link"]["rows"][0]["value"] == "Not Linked"
+    assert "Add Integration, Mantel Link" in page["Mantel Link"]["footer"]
+    assert "HK Frontend" not in page, "no HK Frontend in Home Assistant: no group for it"
 
 
 def test_without_hk_frontend_mantel_link_shows_them(tmp_path):
     d = owners()
     d["links"] = [{"domain": "mantel", "protocol": 2, "features": ["bridge"], "since": 1,
                    "report": {"hk_frontend": {"installed": False, "loaded": False, "linked": False}}}]
-    got = groups(run(tmp_path, d)["owner"])
-    shown = got["The Bridge"]["rows"][0]
+    shown = groups(run(tmp_path, d)["ownerAdv"])["The Bridge"]["rows"][0]
     assert shown["value"] == "Mantel Link" and shown["sub"] == "Home Assistant has no HK Frontend"
 
 
 # -- People -> a person -> Phones (phones.py; 9.7) -------------------------------------------------------------------
 PERSON_SCRIPT = SCRIPT.replace(
-    "m.host.page(['mantel', 'connections', 'link'], panel).body(c)",
+    "m.host.page(parts || ['mantel', 'connections', 'link'], panel).body(c)",
     "m.host.page(['mantel', 'people', 'u2'], panel).body(c)")
 
 

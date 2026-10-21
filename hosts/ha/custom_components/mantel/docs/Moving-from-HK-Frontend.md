@@ -17,7 +17,7 @@ entity keeps its entity id, its history and its customisations (Home Assistant m
    address fills itself in when the Mantel App is installed.)
 2. **Install Mantel Link** and add it ([Setup](Setup.md)). It starts **dormant**: linked, its actions work, but it
    shows none of Mantel's entities, because HK Frontend still does.
-3. **Hand over the bridge.** Mantel Settings → Connections → Home Assistant Link → **Hand the Bridge to Mantel Link**
+3. **Hand over the bridge.** Mantel Settings → Connections → Mantel in Home Assistant → **Hand the Bridge to Mantel Link**
    (an Owner; it is in the Audit Log). HK Frontend lets go of Mantel's entities; Mantel Link takes the same ones over.
    `hk_frontend.set_black_screen` keeps reaching every tablet throughout.
 4. **Move the tablets to Mantel**, one at a time, on the same page (Who Runs Each Wall Tablet), then the rest of the
@@ -32,7 +32,7 @@ entity keeps its entity id, its history and its customisations (Home Assistant m
 
 ## Going back
 
-- Before step 6: Home Assistant Link → move the rest of the house (then each tablet) back to Home Assistant, and
+- Before step 6: Mantel in Home Assistant → move the rest of the house (then each tablet) back to Home Assistant, and
   **Give the Bridge to HK Frontend**. HK Frontend takes the same entities back; Mantel Link goes dormant.
 - After step 6: reinstall HK Frontend's last release and link it first; until then Mantel refuses to move anything
   back (nothing in Home Assistant would run it). Your settings are still in Mantel.

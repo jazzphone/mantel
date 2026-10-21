@@ -238,7 +238,7 @@ async def steps_alone(app, ha: HA, owner, base: str, out: dict) -> None:
     lk = app["linked"]
     instance = lk.instance
     st, made = await owner.post("/api/linked/pair", {})
-    check(st == 200 and made.get("code"), "the Owner makes a pairing code (Mantel Settings, Home Assistant Link)")
+    check(st == 200 and made.get("code"), "the Owner makes a pairing code (Mantel Settings, Mantel in Home Assistant)")
     done = await ha.add_mantel_link(base, code=made["code"])
     check(done.get("type") == "create_entry", "Settings, Devices & Services, Add, Mantel Link: the address and the "
                                                "code, traded for a credential, tested and saved")

@@ -46,7 +46,7 @@
       },
       "linked": {
         "title": "Linked to Mantel",
-        "description": "Now: {state}.\n\nFor a house that also runs Mantel, HK's screens as their own server. Linked, this integration keeps the same actions (hk_frontend.set_black_screen, show_popup, close_popup, notify) and the same entities, with the same entity ids, and Mantel's Owner picks who runs each wall tablet: Mantel, or HK Frontend (Mantel Settings, Connections, Home Assistant Link). With Mantel Link also installed, Mantel Link usually shows Mantel's entities (the bridge) and this integration lets go of them; HK Frontend's dashboards and HK Settings here keep working either way. HK Frontend and Mantel each keep their own HK settings. Off, everything works as it always has.\n\nThe address fills itself in when the Mantel App or Mantel Link is installed. The credential is a Mantel Service account's (scope `linked`). Home Assistant keeps it in its own storage on disk (.storage/core.config_entries), as it does every integration's token; anyone who can read that file or a backup of it can use it, so revoke it in Mantel if a backup leaks. Saving reloads the integration.",
+        "description": "Now: {state}.\n\nFor a house that also runs Mantel, HK's screens as their own server. Linked, this integration keeps the same actions (hk_frontend.set_black_screen, show_popup, close_popup, notify) and the same entities, with the same entity ids, and Mantel's Owner picks who runs each wall tablet: Mantel, or HK Frontend (Mantel Settings, Connections, Mantel in Home Assistant). With Mantel Link also installed, Mantel Link usually shows Mantel's entities (the bridge) and this integration lets go of them; HK Frontend's dashboards and HK Settings here keep working either way. HK Frontend and Mantel each keep their own HK settings. Off, everything works as it always has.\n\nThe address fills itself in when the Mantel App or Mantel Link is installed. The credential is a Mantel Service account's (scope `linked`). Home Assistant keeps it in its own storage on disk (.storage/core.config_entries), as it does every integration's token; anyone who can read that file or a backup of it can use it, so revoke it in Mantel if a backup leaks. Saving reloads the integration.",
         "data": {
           "enabled": "Linked to Mantel",
           "url": "Mantel's address",
@@ -89,7 +89,7 @@
     },
     "mantel_admins_unlinked": {
       "title": "Some Home Assistant admins can't save HK settings",
-      "description": "HK's settings are Mantel's while HK Frontend is linked and Mantel runs the house. {count} Home Assistant admin account(s) aren't linked to a person in Mantel, so a change they make on HK's dashboards is refused. An Owner links them in Mantel Settings: Connections, Home Assistant Link, Who Saves from Home Assistant. This message clears itself once they are linked."
+      "description": "HK's settings are Mantel's while HK Frontend is linked and Mantel runs the house. {count} Home Assistant admin account(s) aren't linked to a person in Mantel, so a change they make on HK's dashboards is refused. An Owner links them in Mantel Settings: Connections, Mantel in Home Assistant, People, Home Assistant Users. This message clears itself once they are linked."
     },
     "theme_missing": {
       "title": "HK Kiosk theme not loaded",

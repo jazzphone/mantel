@@ -16,7 +16,7 @@ in-process, per-tablet ownership and the rest of the entry (docs/phase5/LINKED-M
      unknown pop-up is Mantel's validation error in HA;
    - HK's settings are Mantel's while it runs the house (decision 29, docs/phase9/TWO-PRODUCTS.md): HA's
      dashboards' settings feed is Mantel's and follows a change made in Mantel; a save made in HA is refused
-     while Saves from Home Assistant is off, and made in Mantel as the linked person once it is on;
+     while Changes from Home Assistant is off, and made in Mantel as the linked person once it is on;
    - the Owner moves ``house`` back: HA's own switch again, same entity id, and HA keeps Mantel's last
      settings as its own; unlinking forgets it.
 4. Stops the scratch HA (unless --keep-up / --reuse).
@@ -227,9 +227,9 @@ async def settings_steps(app, ha: HA, ws: "HaWs", owner) -> None:
     me = await ws.call({"type": "auth/current_user"})
     got = await ws.call(save)
     check(not got["success"] and got["error"]["code"] == "saves_off",
-          "a save made in HA is refused while Saves from Home Assistant is off (in words)")
+          "a save made in HA is refused while Changes from Home Assistant is off (in words)")
     st, body = await owner.post("/api/linked/ha-saves", {"on": True}, method="PUT")
-    check(st == 200 and body["saves"] is True, "the Owner turns Saves from Home Assistant on")
+    check(st == 200 and body["saves"] is True, "the Owner turns Changes from Home Assistant on")
     got = await ws.call(save)
     check(not got["success"] and got["error"]["code"] == "not_linked",
           "an HA user linked to nobody in Mantel can't save (told to link it)")
@@ -240,6 +240,19 @@ async def settings_steps(app, ha: HA, ws: "HaWs", owner) -> None:
     seen = await ws.feed(lambda e: ((e.get("calendar") or {}).get("event_colors") or {}).get("uid:e2e") == "teal")
     check(seen is not None, "...and HA's dashboards see it (Mantel's new settings come back over the link)")
     hist = service.store.history("house", "settings", 1)[0]
+    # -- a screen Home Assistant draws (screens.py): HK's generated dashboard is made there, then removed --------
+    st, body = await owner.post("/api/screens", {"title": "E2E HA Screen", "where": "ha"})
+    check(st == 200 and body.get("key") == "e2e-ha-screen", f"the Owner adds a screen Home Assistant draws ({st})")
+    got = await ws.call({"type": "lovelace/config", "url_path": "e2e-ha-screen"})
+    check(got.get("success") and got["result"] == {"strategy": {"type": "custom:hk-dashboard"}},
+          "Home Assistant has HK's generated dashboard at its address, and nothing else in its config")
+    seen = await ws.feed(lambda e: ((e.get("boards") or {}).get("e2e-ha-screen") or {}).get("where") == "ha")
+    check(seen is not None, "HK Frontend's dashboards get it with Mantel's settings, marked Home Assistant's")
+    st, body = await owner.post("/api/screens/e2e-ha-screen", {"remove_ha": True}, method="PUT")
+    got = await ws.call({"type": "lovelace/config", "url_path": "e2e-ha-screen"})
+    check(st == 200 and not got.get("success"), "...and Mantel removes Home Assistant's generated dashboard again")
+    st, _ = await owner.post("/api/screens/e2e-ha-screen", {}, method="DELETE")
+    check(st == 200 and service.store.get("board", "e2e-ha-screen") is None, "the screen is removed from Mantel")
     check(hist["source"] == "Home Assistant" and hist["actor_role"] == "admin",
           "Mantel's settings history says who, from Home Assistant")
 

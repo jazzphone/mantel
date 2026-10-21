@@ -1,6 +1,6 @@
 """Pairing by code (Mantel's linked_pairing.py is the other half; docs/phase9/MANTEL-LINK.md 9.4).
 
-An Owner makes a one-time pairing code in Mantel Settings (Connections -> Home Assistant Link). Mantel Link
+An Owner makes a one-time pairing code in Mantel Settings (Connections -> Mantel in Home Assistant). Mantel Link
 trades it once, at Mantel's /linked/pair over https (plain http only inside this machine), for a Service
 credential. Both sides prove they know the code (HMACs keyed from it), and Mantel Link believes the answer
 only after checking Mantel's proof: a look-alike answering in Mantel's place cannot hand over a credential.

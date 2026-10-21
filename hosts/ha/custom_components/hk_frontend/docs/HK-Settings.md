@@ -192,14 +192,14 @@ everything is Mantel’s, the features, the wall tablets’ Sleep Screen and HK
 Settings don’t run in Home Assistant.
 
 With **Mantel Link** (HACS, Mantel’s own integration) also installed, it usually takes the bridge over
-(Mantel Settings → Connections → Home Assistant Link): it shows Mantel’s
+(Mantel Settings → Connections → Mantel in Home Assistant): it shows Mantel’s
 entities and actions under the same entity ids and action names, and HK
 Frontend lets go of them. Handing back is the same button. The move, step by
 step: [Moving from HK Frontend](https://github.com/jazzphone/mantel-link/blob/main/docs/Moving-from-HK-Frontend.md).
 HK Frontend and Mantel are two products that can run together: [HK Frontend and Mantel](HK-Frontend-and-Mantel.md).
 While Mantel runs the house, HK's settings are Mantel's: the dashboards draw with the last ones Mantel sent, a
 change made on them is saved in Mantel as the person linked to your Home Assistant user (when an Owner has turned
-on Saves from Home Assistant), and Repairs says so while a Home Assistant admin isn't linked. Moving the house
+on Changes from Home Assistant), and Repairs says so while a Home Assistant admin isn't linked. Moving the house
 back, or unlinking, keeps Mantel's last settings here.
 
 The address is Mantel’s LAN address, with `https://` (plain `http://` only to

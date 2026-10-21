@@ -20,7 +20,7 @@ async def test_the_script_is_served_and_added_to_ha_s_pages(hass):
         await hass.async_block_till_done()
     paths = hass.http.async_register_static_paths.call_args[0][0]
     assert paths[0].url_path == "/mantel_link" and paths[0].path.endswith("/mantel/frontend")
-    assert add.call_args[0][1] == "/mantel_link/mantel-link.js?v=0.1.4"
+    assert add.call_args[0][1] == "/mantel_link/mantel-link.js?v=0.1.5"
 
 
 async def test_the_config_names_mantel_s_screen_addresses_only(hass, hass_ws_client, mantel):

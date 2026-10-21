@@ -17,7 +17,7 @@ itself. The credential is listed in Mantel Settings → Service Accounts as "Hom
 Mantel announces itself on the home network (`_mantel._tcp`) with its https address, but no credential: you confirm
 with a pairing code.
 
-1. In Mantel: Mantel Settings → Connections → **Home Assistant Link** → **Make a Pairing Code**. It works once, for ten
+1. In Mantel: Mantel Settings → Connections → **Mantel in Home Assistant** → **Make a Pairing Code**. It works once, for ten
    minutes.
 2. In Home Assistant: Settings → Devices & Services → **Discovered: Mantel** → **Add**, and enter the code.
 

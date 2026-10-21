@@ -186,7 +186,7 @@ Where the build differs from the proposal, the build is what holds:
     dashboards; moving The House back keeps Mantel's last settings in HK Frontend.
 
 
-## Proposed: one place per screen, a clearer Home Assistant page, people in one list (for Avery's OK, 2026-10-21)
+## One place per screen, a clearer Home Assistant page, people in one list (approved by Avery, 2026-10-21)
 
 **Why.** Avery, looking at the result: the Screens list shows one row per screen, "Mantel, and HK Frontend in Home
 Assistant", where two dashboards were expected; the Home Assistant Link page mixes switches that are always the
@@ -262,8 +262,31 @@ Renamed **Home Assistant** (was Home Assistant Link), grouped by product:
 4. The reference house, step by step with approval: split Home (Home-Mantel), Tesla to HA, remove the old tablet
    dashboards.
 
-### Questions for Avery
+### Avery's answers (2026-10-21)
 
-- Does Mantel keep a Tesla screen too, or is Tesla only HA's?
-- Master Bedroom's HA dashboard (`hk-master-bedroom`) is a tablet page: removed with the others?
-- After the split, HA's Home starts as a copy of Mantel's Home: right, or start it from the defaults?
+- Tesla is only Home Assistant's: no Mantel Tesla screen.
+- Master Bedroom's HA dashboard (`hk-master-bedroom`) is removed with the other tablet pages.
+- HA's Home starts as a copy of Mantel's Home.
+
+### As built (parts 1-3, 2026-10-21)
+
+- **Screens** (`hosts/server/mantel_server/screens.py`): a board's `where` and `title` live in the shared model
+  (`BOARD_OWN`: never set by a screen's page or Copy Settings). Mantel can now add screens (it couldn't before:
+  its Add Screen only explained why), say who draws one, split one (Mantel's copy at a new address, with what
+  pointed at it; the old address Home Assistant's and redirected, `house/screen_moves`), and remove one. Mantel
+  serves only its own; one Home Assistant draws shows a short page saying so. `ha_dashboards.py`'s pinned
+  connection may also make HK's generated dashboard at a screen's address (config exactly `HK_CONFIG`), re-point
+  our Webpage dashboards, and remove a dashboard only when its config is HK's generated one.
+- **The page is named "Mantel in Home Assistant"**, not "Home Assistant" as proposed: Connections already has a
+  row called Home Assistant (the connection itself), and two rows of one name would be worse. It is grouped Mantel
+  Link, HK Frontend (its settings, and Changes from Home Assistant), Wall Tablets, and Advanced (the bridge and The
+  House, on a page of their own).
+- **People** (`hosts/server/mantel_server/people_ha.py`): `GET/PUT /api/people/ha` links an HA user to an existing
+  person; an account made for one by role is merged into the person (`POST /api/users/{id}/merge`, or by picking
+  the person for its HA user); `PUT /api/devices/{id}/ha-user` sets a wall tablet's HA user, listed on Devices.
+  The old role-only link left Mantel's saves API.
+- **Tests:** `tests/test_screens.py`, `tests/test_people_ha.py`, the page tests (`test_mantel_settings.py`,
+  `test_mantel_link_settings.py`, `test_mantel_settings_people_link.py`), and the linked e2e on the scratch HA
+  (a Home Assistant screen made and removed in a real HA).
+- **Mantel Link** changed only in words (the page's new name in its pairing text): 0.1.5.
+

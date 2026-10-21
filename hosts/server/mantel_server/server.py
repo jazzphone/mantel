@@ -32,7 +32,7 @@ from aiohttp import WSMsgType, web
 from . import about, frame_origins, music
 from . import accounts, alarm_pin, auth, connect_pairing, devices, gateway, health, ingress, live_tv, pins, rbac_store, readproxy, sessions, settings_store
 from . import (admin_page, atrest, backup, connections, features, linked, linked_house, linked_owners, linked_pairing,
-               linked_settings, screens,
+               linked_settings, people_ha, screens,
                linked_actions, login_page, phones, supervisor_discovery,
                photos, service_accounts, talk_relay, user_files)
 from . import default_screens, direct, direct_tls, docs_pages, ha_dashboards, ma_page, media_proxy, proxy_check, proxy_trust, security_headers, tablet_links, user_data
@@ -623,6 +623,7 @@ def wire(app: web.Application, hub: Hub, token: str, connect_ha: bool) -> None:
     default_screens.register(app)    # the screen each person or tablet opens on (Mantel Settings)
     ha_dashboards.register(app)      # a screen as a Webpage dashboard in HA's sidebar (a screen's page; HA is the record)
     screens.register(app)            # add, move, split and remove screens (decision 29: one place per screen)
+    people_ha.register(app)          # Home Assistant's users, each once: a person, a wall tablet, or neither
     frame_origins.register(app)      # which HA addresses may show Mantel in a frame (HA's own, an Owner's approved ones)
     user_data.register(app, hub)     # HK's per-person frontend user data (the Music page's speaker), Mantel's own
     camera_connector.register(app, hub, hooks)

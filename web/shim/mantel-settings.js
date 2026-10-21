@@ -584,9 +584,42 @@ function pPersonPassword(id) {
 
 // ============================================================================================ People
 const usersRead = () => load('users', () => api('GET', '/api/users'));
+// HOME ASSISTANT'S USERS, each once (people_ha.py; decision 29): a person (linked to an existing one here), a wall
+// tablet (Devices), or neither (Other Home Assistant Users). GET/PUT /api/people/ha
+const haPeopleRead = () => load('hapeople', () => api('GET', '/api/people/ha'));
+function drawHaUsers(c, others) {
+  const got = haPeopleRead();
+  if (!got) { if (!others) pending(c); return; }
+  if (got.err) { failed(c, got.err); return; }
+  const d = got.data, all = d.users || [];
+  if (d.error && !all.length) {
+    c.appendChild(group({ header: 'Home Assistant Users', footer: d.error + ' Elsewhere, link one on the Mantel Server: mantel-server link --ha-user-id <id> --role adult --name "Their name".' }, []));
+    return;
+  }
+  const mine = all.filter((u) => !u.tablet && (u.person || u.admin));
+  const rest = all.filter((u) => !u.tablet && !u.person && !u.admin);
+  const people = (d.people || []).filter((p) => p.kind !== 'ha_linked');
+  const pick = (u) => {
+    const cur = u.person ? u.person.id : '';
+    const opts = [['', 'Not Linked'], ...people.map((p) => [p.id, p.name + ' · ' + roleLabel(p.role)])];
+    if (u.person && u.person.kind === 'ha_linked') opts.push([u.person.id, (u.person.name || u.name) + ' · ' + roleLabel(u.person.role) + ' (made for Home Assistant)']);
+    const sub = (u.admin ? 'Home Assistant admin' : 'Home Assistant user') + (u.person && u.person.kind === 'ha_linked' ? ' · its own account: choose the person to merge it into' : '');
+    return K().select({ label: u.name, sub, options: opts, value: cur, fk: 'mx:ha-user:' + u.id,
+      onChange: (v) => act('people', () => api('PUT', '/api/people/ha', { ha_user: u.id, user_id: v || null }),
+                           v ? u.name + ' is linked.' : u.name + ' is no longer linked.', 'hapeople', 'users', 'hasaves') });
+  };
+  if (others) {
+    c.appendChild(group({ footer: rest.length ? null : 'There are none.' }, rest.map(pick)));
+    return;
+  }
+  c.appendChild(group({ header: 'Home Assistant Users', footer: 'Each Home Assistant user who is a person here, linked to their Mantel account: they sign in with Home Assistant, and a change they make on HK Frontend’s dashboards is saved as them. A Home Assistant admin not linked can’t save, and Home Assistant shows a repair until they are.' },
+    (mine.length ? mine.map(pick) : [info('No Home Assistant users are linked yet')]).concat(
+      [nav('Other Home Assistant Users', 'people/ha-others', { value: String(rest.length) })])));
+}
 const assignable = () => me.roles.filter((r) => me.user.role === 'owner' || r !== 'owner');
 function pPeople(sub) {
   if (sub[0] === 'add') return pAddPerson();
+  if (sub[0] === 'ha-others') return { title: 'Other Home Assistant Users', back: ['People', '#/' + ROUTE + '/people'], scope: 'Home Assistant users that are neither a person here nor a wall tablet: service users (such as an MQTT broker’s), and users made for tablets that now sign in to Mantel themselves. Link one to a person if it is someone’s; a wall tablet’s is set on Devices.', body(c) { result(c, 'people'); drawHaUsers(c, true); } };
   if (sub[0] && sub[1] === 'password') return pPersonPassword(sub[0]);
   if (sub[0]) return pPerson(sub[0]);
   return { title: 'People', top: true, scope: 'Everyone who can sign in to Mantel, and their roles.', body(c) {
@@ -600,16 +633,7 @@ function pPeople(sub) {
       icon: u.kind === 'ha_linked' ? 'mdi:home-assistant' : 'mdi:account' }))));
     c.appendChild(group({ footer: 'For someone who signs in with their own user name and password. They can add an authenticator app and passkeys themselves.' },
       [nav('Add a Mantel Account…', 'people/add', { icon: 'mdi:plus' })]));
-    const linked = users.filter((u) => u.ha_user_id);
-    const rows = linked.length ? linked.map((u) => info(u.name || u.id, 'Home Assistant user ' + u.ha_user_id, roleLabel(u.role)))
-      : [info('No Home Assistant users are linked yet')];
-    // Inside Home Assistant (the App's sidebar page, BASE set): the household's linking page (ingress.py people_get),
-    // which reads Home Assistant's own user list; elsewhere linking is the server's command
-    if (BASE) rows.push(button('Link Home Assistant Users…', () => location.assign(BASE + '/ingress/people'), { fk: 'mx:ha-people' }));
-    c.appendChild(group({ header: 'Home Assistant Users',
-      footer: BASE ? 'A person who signs in with Home Assistant only gets in once they are linked to a role. Link Home Assistant Users lists everyone in Home Assistant, to give each a role or a wall tablet.'
-        : 'A person who signs in with Home Assistant only gets in once they are linked to a role. When they try and are not linked, their sign-in page shows their Home Assistant user id. To link them, run on the Mantel Server: mantel-server link --ha-user-id <id> --role adult --name "Their name". To end a link: mantel-server unlink --ha-user-id <id>.' },
-      rows));
+    drawHaUsers(c, false);
   } };
 }
 // THEIR PHONES (phones.py; docs/phase9/MANTEL-LINK.md 9.7): Mantel's notifications on the Home Assistant Companion
@@ -643,6 +667,21 @@ function drawPhones(c, u, locked) {
   c.appendChild(group({ header: 'Phones', footer }, rows));
 }
 
+// MERGE (people_ha.py): an account made for a Home Assistant user, into the person it is
+function drawMerge(c, u, users) {
+  const into = users.filter((x) => x.id !== u.id && x.kind !== 'ha_linked' && !x.ha_user_id);
+  if (!into.length) return;
+  const d = draft('merge:' + u.id);
+  c.appendChild(group({ header: 'Merge', footer: 'This account was made for a Home Assistant user. Merged into a person, their Home Assistant sign-in, Default Screen, own settings, phones and rooms go to that person (where they have none of their own), and this account is removed.' }, [
+    K().select({ label: 'Into', options: [['', 'Choose a Person'], ...into.map((x) => [x.id, (x.name || x.username) + ' · ' + roleLabel(x.role)])], value: d.into || '', fk: 'mx:merge:' + u.id, onChange: (v) => { d.into = v || null; redraw(); } }),
+    button('Merge…', async () => {
+      if (!d.into) return;
+      const to = into.find((x) => x.id === d.into);
+      if (!(await ask({ title: 'Merge into ' + (to.name || to.username) + '?', message: (u.name || 'This account') + ' is removed; its Home Assistant sign-in and what it had go to ' + (to.name || to.username) + '.', ok: 'Merge', destructive: true }))) return;
+      const r = await act('person', () => api('POST', '/api/users/' + encodeURIComponent(u.id) + '/merge', { into: d.into }), null, 'users', 'hapeople');
+      if (r) { flash = { key: 'people', text: 'Merged into ' + (to.name || to.username) + '.' }; panel.go('#/' + ROUTE + '/people/' + encodeURIComponent(d.into)); }
+    }, { destructive: true, disabled: !d.into, fk: 'mx:merge:go:' + u.id })]));
+}
 function pPerson(id) {
   const back = ['People', '#/' + ROUTE + '/people'];
   const got = usersRead();
@@ -653,6 +692,7 @@ function pPerson(id) {
     if (got.err) { failed(c, got.err); return; }
     if (!u) { c.appendChild(group({ footer: 'That person no longer exists.' }, [])); return; }
     const how = [u.has_password && 'Password', u.totp && 'Authenticator App', u.passkeys && u.passkeys + ' Passkey' + (u.passkeys > 1 ? 's' : ''), u.ha_user_id && 'Home Assistant'].filter(Boolean);
+    if (u.kind === 'ha_linked' && me.user.role === 'owner') drawMerge(c, u, got.data.users);
     const locked = me.user.role !== 'owner' && u.role === 'owner';      // an Admin never manages Owners
     const self = u.id === me.user.id;
     const roles = assignable().includes(u.role) ? assignable() : [u.role, ...assignable()];
@@ -754,6 +794,23 @@ function roomBody(form) {
   if (d.other && d.room) return { room: d.room };
   return null;
 }
+// A WALL TABLET'S HOME ASSISTANT USER (people_ha.py; the tablet link): only needed if the tablet also opens Home
+// Assistant; one HA user per tablet, listed here rather than with the people
+function drawTabletHaUsers(c, live) {
+  const got = haPeopleRead();
+  if (!live.length || !got || !got.data || (got.data.error && !(got.data.users || []).length)) return;
+  const users = got.data.users || [], owner = me.user.role === 'owner';
+  const free = users.filter((u) => !u.person && !u.admin);
+  c.appendChild(group({ header: 'Home Assistant Users', footer: 'The Home Assistant user each tablet is, if it also opens Home Assistant. Mantel’s tablets sign in to Mantel with their own credential, so most need none; a Home Assistant user no tablet uses can be deleted in Home Assistant.' + (owner ? '' : ' Only an Owner can change it.') },
+    live.map((dv) => {
+      const cur = users.find((u) => u.tablet && u.tablet.device_id === dv.id);
+      if (!owner) return info(dv.name, null, cur ? cur.name : 'None');
+      const opts = [['', 'None'], ...free.filter((u) => !u.tablet || u === cur).map((u) => [u.id, u.name])];
+      return K().select({ label: dv.name, options: opts, value: cur ? cur.id : '', fk: 'mx:dev-ha:' + dv.id,
+        onChange: (v) => act('devices', () => api('PUT', '/api/devices/' + encodeURIComponent(dv.id) + '/ha-user', { ha_user: v || null }),
+                             v ? dv.name + ' is linked.' : dv.name + ' has no Home Assistant user.', 'hapeople', 'devices') });
+    })));
+}
 function pDevices(sub) {
   if (sub[0] === 'enroll') return pEnroll();
   if (sub[0]) return pDevice(sub[0]);
@@ -775,6 +832,7 @@ function pDevices(sub) {
         (lost.length > 1 ? ' are in rooms' : ' is in a room') + ' with no HK wall tablet: ' + (lost.length > 1 ? 'their' : 'its') +
         ' touches and black screen won’t reach Mantel. Open ' + (lost.length > 1 ? 'each' : 'it') + ' to choose its HK tablet.' }) : null },
       live.length ? live.map((d) => nav(d.name, 'devices/' + encodeURIComponent(d.id), { sub: about(d), value: tabletName(d) })) : [info('No wall tablets are enrolled')]));
+    drawTabletHaUsers(c, live);
     const ds = load('dscreens', () => api('GET', '/api/default-screens'));
     if (live.length && ds && ds.data) {
       const d = ds.data;
@@ -1163,7 +1221,7 @@ function pConnections(sub) {
   if (sub[0] === 'ha' || sub[0] === 'ma') return pConnection(sub[0]);
   if (sub[0] === 'ma-page') return pMaPage();
   if (sub[0] === 'proxy') return pProxy();
-  if (sub[0] === 'link') return pLink();
+  if (sub[0] === 'link') return pLink(sub.slice(1));
   if (sub[0] === 'push') return pPushRelay();
   return { title: 'Connections', top: true, scope: 'How Mantel reaches Home Assistant and Music Assistant. Each connection is tested before it is saved. Tokens are kept sealed in Mantel’s data, never shown again and never leave the server; a change applies at once.', body(c) {
     result(c, 'connections');
@@ -1183,8 +1241,8 @@ function pConnections(sub) {
     c.appendChild(group({ footer: !can ? 'Only an Owner can change connections.' : got.data.needs_fresh ? 'From outside the home network you will be asked to confirm it is you first.' : null }, rows));
     if (['owner', 'admin'].includes(me.user.role)) drawImport(c, cs.ha && cs.ha.state === 'set');
     drawWallTablets(c);
-    if (['owner', 'admin'].includes(me.user.role)) c.appendChild(group({ footer: 'Mantel Link is Home Assistant’s side of Mantel: Mantel’s wall tablets and actions in Home Assistant.' },
-      [nav('Home Assistant Link', 'connections/link', { icon: 'mdi:link-variant' })]));
+    if (['owner', 'admin'].includes(me.user.role)) c.appendChild(group({ footer: 'Mantel Link, Mantel’s integration in Home Assistant, and HK Frontend beside it; who runs each wall tablet.' },
+      [nav(LINK_TITLE, 'connections/link', { icon: 'mdi:link-variant' })]));
     if (['owner', 'admin'].includes(me.user.role)) c.appendChild(group({ footer: 'How browsers reach Mantel: Mantel’s Caddy, your own reverse proxy, the Home Assistant App or a Cloudflare tunnel.' },
       [nav('HTTPS and Your Proxy', 'connections/proxy', { icon: 'mdi:lock' })]));
     if (['owner', 'admin'].includes(me.user.role)) c.appendChild(group({ footer: 'How Mantel’s notifications reach the Mantel app on iPhone and iPad: the push relay, your own, or none.' },
@@ -1674,33 +1732,85 @@ function drawWhere(c, ctx) {
 }
 
 // HTTPS and the reverse proxy (proxy_check.py): Owner and Admin read; Owner runs the test, rotates the key
-// HOME ASSISTANT LINK (docs/phase9/MANTEL-LINK.md, decision 29 in docs/phase9/TWO-PRODUCTS.md): which integrations
-// in Home Assistant are linked (Mantel Link, HK Frontend, or both: two products that can run together), who holds the bridge (who shows Mantel's entities in Home Assistant: an
-// Owner hands it to Mantel Link, or gives it back, audited), and who owns each wall tablet. GET/PUT
-// /api/linked/owners; the server says whether Home Assistant's side can take the bridge, in words.
+// MANTEL IN HOME ASSISTANT (docs/phase9/MANTEL-LINK.md; decision 29, docs/phase9/TWO-PRODUCTS.md): the two
+// integrations Home Assistant can have for Mantel, by product -- Mantel Link (Mantel's own) and HK Frontend (HK in
+// Home Assistant, a product of its own that can run beside it) -- and who runs each wall tablet. The bridge (who
+// shows Mantel's entities) and The House are Advanced: they change only while a house moves between the two.
+// GET/PUT /api/linked/owners and /api/linked/ha-saves; the server says in words what can't be done.
 const LINK_NAME = { mantel: 'Mantel Link', hk_frontend: 'HK Frontend' };
+const LINK_TITLE = 'Mantel in Home Assistant';
 function linkSays(l) {
-  const hk = (l.report || {}).hk_frontend;
-  const bits = ['Protocol ' + l.protocol, l.since ? 'since ' + fmt(l.since) : null];
-  if (l.domain === 'mantel' && hk) bits.push(hk.installed ? 'HK Frontend is also in Home Assistant' + (hk.linked ? ', linked' : ', not linked') : 'No HK Frontend');
-  if (l.domain === 'hk_frontend') bits.push((l.features || []).includes('bridge') ? 'can hand over' : 'update it to hand over');
-  return bits.filter(Boolean).join(' · ');
+  const bits = [l.since ? 'Linked since ' + fmt(l.since) : null,
+                l.domain === 'hk_frontend' && !(l.features || []).includes('bridge') ? 'update it' : null];
+  return bits.filter(Boolean).join(' · ') || null;
 }
-function pLink() {
-  return { title: 'Home Assistant Link', back: ['Connections', '#/' + ROUTE + '/connections'], body(c) {
+const linkBack = ['Connections', '#/' + ROUTE + '/connections'];
+function linkState() {
+  const got = load('link', () => api('GET', '/api/linked/owners'));
+  if (!got || got.err) return got;
+  const d = got.data, links = d.links || [];
+  const ml = links.filter((l) => l.domain === 'mantel'), hk = links.filter((l) => l.domain === 'hk_frontend');
+  const hkThere = hk.length > 0 || ml.some((l) => ((l.report || {}).hk_frontend || {}).installed);
+  return { data: { ...d, ml, hk, hkThere, owner: me.user.role === 'owner' } };
+}
+function pLink(sub) {
+  if (sub && sub[0] === 'advanced') return pLinkAdvanced();
+  return { title: LINK_TITLE, back: linkBack, scope: 'What Home Assistant has of Mantel: Mantel Link, Mantel’s own integration, and HK Frontend if you also use HK inside Home Assistant.', body(c) {
     result(c, 'link');
-    const got = load('link', () => api('GET', '/api/linked/owners'));
+    const got = linkState();
     if (!got) { pending(c); return; }
     if (got.err) { failed(c, got.err); return; }
-    const d = got.data, owner = me.user.role === 'owner';
-    const links = d.links || [];
-    c.appendChild(group({ header: 'Linked Now', footer: links.length ? null : 'Nothing in Home Assistant is linked to Mantel. Add Mantel Link in Home Assistant: Settings, Devices & Services, Add Integration, Mantel Link.' },
-      links.map((l) => info(LINK_NAME[l.domain] || l.domain, linkSays(l), 'Connected'))));
+    const d = got.data, owner = d.owner;
+    c.appendChild(group({ header: 'Mantel Link', footer: d.ml.length ? 'Home Assistant’s side of Mantel: the wall tablets and the house as entities, Mantel’s actions for automations, its screens in the sidebar, and notifications on phones.' : 'Not in Home Assistant yet: Settings, Devices & Services, Add Integration, Mantel Link. Home Assistant asks for a pairing code, made below.' },
+      d.ml.length ? d.ml.map((l) => info('Mantel Link', linkSays(l), 'Connected')) : [info('Mantel Link', null, 'Not Linked')]));
     if (owner) drawLinkPairing(c);
-    const holder = (d.bridge && d.bridge.holder) || 'hk_frontend', b = d.bridge || {};
+    if (d.hkThere) drawHkFrontend(c, d);
+    const tabs = (d.tablets || []).filter(Boolean);
+    if (tabs.length) c.appendChild(group({ header: 'Wall Tablets', footer: 'Each tablet has one engine. Mantel runs a tablet on Mantel’s screens: its Sleep Screen and black screen. Off, HK Frontend runs it, for a tablet showing HK Frontend’s dashboards in Home Assistant. Home Assistant’s scripts reach it by the same entity ids either way.' + (owner ? '' : ' Only an Owner can change it.') },
+      tabs.map((u) => ownerRow(u, u.name || u.unit, owner))));
+    c.appendChild(group({ footer: 'Which integration shows Mantel’s entities, and who runs the house’s Seasonal Decorations, Alarm PIN keypad and Live TV. These change only while moving a house between HK Frontend and Mantel.' },
+      [nav('Advanced', 'connections/link/advanced', { icon: 'mdi:tune-variant' })]));
+  } };
+}
+const ownerRow = (u, label, owner) => {
+  const mine = u.owner === 'mantel';
+  if (!owner) return info(label, null, mine ? 'Mantel' : 'HK Frontend');
+  return K().toggle({ label, sub: (mine ? 'Run by Mantel' : 'Run by HK Frontend') + (u.changed ? ' · since ' + fmt(u.changed) : ''), on: mine, fk: 'mx:owner:' + u.unit,
+    onChange: (on) => act('link', () => api('PUT', '/api/linked/owners', { unit: u.unit, owner: on ? 'mantel' : 'ha' }),
+                         label + (on ? ' is run by Mantel.' : ' is run by HK Frontend.'), 'link', 'hasaves') });
+};
+// HK FRONTEND, beside Mantel (linked_settings.py): linked or not, whose settings its dashboards draw with, and
+// whether a change made on them is saved (the Service account's linked_saves: Changes from Home Assistant)
+function drawHkFrontend(c, d) {
+  const owner = d.owner, linked = d.hk.length > 0, mantelHouse = d.house && d.house.owner === 'mantel';
+  const rows = [info('HK Frontend', linked ? linkSays(d.hk[0]) : 'In Home Assistant, not linked to Mantel', linked ? 'Connected' : 'Not Linked')];
+  let footer = linked ? null : 'To share Mantel’s settings, link it: in Home Assistant, HK Frontend, Configure, Linked to Mantel.';
+  if (linked && mantelHouse) {
+    rows.push(info('Its Settings', 'Its dashboards in Home Assistant draw with Mantel’s', 'Mantel’s'));
+    const got = load('hasaves', () => api('GET', '/api/linked/ha-saves'));
+    const saves = got && got.data ? !!got.data.saves : null;
+    if (saves !== null) {
+      rows.push(owner ? K().toggle({ label: 'Changes from Home Assistant', sub: saves ? 'Saved in Mantel, as the person' : 'Refused', on: saves, fk: 'mx:ha-saves',
+                                     onChange: (on) => act('link', () => api('PUT', '/api/linked/ha-saves', { on }),
+                                                           on ? 'Changes made in Home Assistant are saved.' : 'Changes made in Home Assistant are refused.', 'hasaves') })
+                      : info('Changes from Home Assistant', null, saves ? 'Saved' : 'Refused'));
+    }
+    footer = 'A change made on HK Frontend’s dashboards (a favorite, a calendar’s color, an accessory) is saved in Mantel as the person linked to that Home Assistant user, checked by their role. People links each Home Assistant user to a person.';
+  } else if (linked) {
+    rows.push(info('Its Settings', 'HK Frontend runs the house (Advanced), so it keeps its own', 'Its Own'));
+  }
+  c.appendChild(group({ header: 'HK Frontend', footer }, rows));
+}
+function pLinkAdvanced() {
+  return { title: 'Advanced', back: [LINK_TITLE, '#/' + ROUTE + '/connections/link'], scope: 'Only while moving a house between HK Frontend and Mantel. Each change is in the Audit Log.', body(c) {
+    result(c, 'link');
+    const got = linkState();
+    if (!got) { pending(c); return; }
+    if (got.err) { failed(c, got.err); return; }
+    const d = got.data, owner = d.owner, b = d.bridge || {};
+    const holder = b.holder || 'hk_frontend';
     // a Home Assistant without HK Frontend has no one else: Mantel Link shows them whoever holds the bridge
-    const ml = links.find((l) => l.domain === 'mantel'), hkThere = ml && ((ml.report || {}).hk_frontend || {}).installed;
-    const alone = holder !== 'mantel' && ml && hkThere === false && !links.some((l) => l.domain === 'hk_frontend');
+    const alone = holder !== 'mantel' && d.ml.length && !d.hkThere;
     const rows = [info('Shown By', alone ? 'Home Assistant has no HK Frontend' : b.changed ? 'since ' + fmt(b.changed) : null,
                        alone ? 'Mantel Link' : LINK_NAME[holder])];
     if (owner && holder !== 'mantel') rows.push(button('Hand the Bridge to Mantel Link…', async () => {
@@ -1708,56 +1818,15 @@ function pLink() {
       await act('link', () => api('PUT', '/api/linked/owners', { unit: 'bridge', owner: 'mantel' }), 'Mantel Link holds the bridge.', 'link');
       setTimeout(() => { forget('link'); redraw(); }, 4000);   // the links reconnect after their reload
     }, { fk: 'mx:bridge-mantel' }));
-    if (owner && holder === 'mantel') rows.push(button('Give the Bridge to HK Frontend…', async () => {
-      if (!(await ask({ title: 'Give the bridge back to HK Frontend?', message: 'HK Frontend then shows Mantel’s entities in Home Assistant, under the same entity ids. HK Frontend must be linked to Mantel, version 1.9.0 or newer.', ok: 'Give Back', destructive: true }))) return;
+    if (owner && holder === 'mantel' && d.hkThere) rows.push(button('Give the Bridge to HK Frontend…', async () => {
+      if (!(await ask({ title: 'Give the bridge to HK Frontend?', message: 'HK Frontend then shows Mantel’s entities in Home Assistant, under the same entity ids. HK Frontend must be linked to Mantel, version 1.9.0 or newer.', ok: 'Give It', destructive: true }))) return;
       await act('link', () => api('PUT', '/api/linked/owners', { unit: 'bridge', owner: 'hk_frontend' }), 'HK Frontend holds the bridge.', 'link');
-      setTimeout(() => { forget('link'); redraw(); }, 4000);   // the links reconnect after their reload
+      setTimeout(() => { forget('link'); redraw(); }, 4000);
     }, { destructive: true, fk: 'mx:bridge-hk' }));
-    c.appendChild(group({ header: 'The Bridge', footer: 'One integration in Home Assistant shows Mantel’s entities, never both: Mantel Link (recommended), or HK Frontend when it is linked. They keep their entity ids either way. ' + (owner ? 'Each change is in the Audit Log.' : 'Only an Owner can change it.') }, rows));
-    // who runs what: the house's own entities (its own group: not a tablet) and each wall tablet
-    const ownerRow = (u, label, sub) => {
-      const mine = u.owner === 'mantel';
-      if (!owner) return info(label, sub || null, mine ? 'Mantel' : 'Home Assistant');
-      return K().toggle({ label, sub: (mine ? 'Mantel' : 'Home Assistant') + (u.changed ? ' · since ' + fmt(u.changed) : ''), on: mine, fk: 'mx:owner:' + u.unit,
-        onChange: (on) => act('link', () => api('PUT', '/api/linked/owners', { unit: u.unit, owner: on ? 'mantel' : 'ha' }),
-                             label + (on ? ' is Mantel’s.' : ' is Home Assistant’s.'), 'link') });
-    };
-    if (d.house) c.appendChild(group({ header: 'The House', footer: 'What belongs to the house, not a tablet: Seasonal Decorations, the Alarm PIN keypad and Live TV’s sensors and channels. Run by Mantel, they keep their entity ids and history in Home Assistant; off, HK Frontend runs them. Without HK Frontend in Home Assistant, Mantel runs them.' + (owner ? '' : ' Only an Owner can move it.') },
-      [ownerRow(d.house, 'Run by Mantel')]));
-    const tabs = (d.tablets || []).filter(Boolean);
-    if (tabs.length) c.appendChild(group({ header: 'Who Runs Each Wall Tablet', footer: 'Each tablet has one engine. A tablet Mantel runs has its Sleep Screen and black screen in Mantel; off, HK Frontend’s own run it, for a tablet showing HK Frontend’s dashboards in Home Assistant. Home Assistant’s scripts reach it by the same entity ids either way.' + (owner ? '' : ' Only an Owner can move them.') },
-      tabs.map((u) => ownerRow(u, u.name || u.unit))));
-    if (links.some((l) => l.domain === 'hk_frontend')) drawHaSaves(c, owner);
+    c.appendChild(group({ header: 'The Bridge', footer: 'One integration in Home Assistant shows Mantel’s entities, never both: Mantel Link (recommended), or HK Frontend. They keep their entity ids either way.' + (owner ? '' : ' Only an Owner can change it.') }, rows));
+    if (d.house) c.appendChild(group({ header: 'The House', footer: 'Seasonal Decorations, the Alarm PIN keypad and Live TV’s sensors and channels. Run by Mantel, they keep their entity ids and history in Home Assistant, and HK Frontend’s dashboards use Mantel’s settings; run by HK Frontend, it runs them and keeps its own settings. Without HK Frontend, Mantel runs them.' + (owner ? '' : ' Only an Owner can change it.') },
+      [ownerRow(d.house, 'The House', owner)]));
   } };
-}
-
-// SAVES FROM HOME ASSISTANT (linked_settings.py; decision 29): while HK Frontend is linked and Mantel runs the house,
-// HK's settings are Mantel's, and a change made on HK Frontend's dashboards is saved here as the person linked to the
-// Home Assistant user who made it. GET/PUT /api/linked/ha-saves: whether that is on, and who each HA person is.
-const HA_ROLE = { '': 'Not Linked', owner: 'Owner', admin: 'Admin', adult: 'Adult', child: 'Child', guest: 'Guest' };
-function drawHaSaves(c, owner) {
-  const got = load('hasaves', () => api('GET', '/api/linked/ha-saves'));
-  if (!got || got.err) return;
-  const d = got.data;
-  const rows = [owner && d.hk_frontends
-    ? K().toggle({ label: 'Saves from Home Assistant', on: !!d.saves, fk: 'mx:ha-saves',
-                   onChange: (on) => act('link', () => api('PUT', '/api/linked/ha-saves', { on }),
-                                         on ? 'Changes made in Home Assistant are saved.' : 'Changes made in Home Assistant are refused.', 'hasaves') })
-    : info('Saves from Home Assistant', null, d.saves ? 'On' : 'Off')];
-  c.appendChild(group({ header: 'Saves from Home Assistant', footer: 'While Mantel runs the house, HK Frontend’s dashboards in Home Assistant draw with Mantel’s settings. On, a change made there (a favorite, a calendar’s color, an accessory) is saved in Mantel as the person below, checked by their role and kept in the settings’ history. Off, it is refused.' + (owner ? '' : ' Only an Owner can change it.') }, rows));
-  const people = d.people || [];
-  if (!people.length && !d.error) return;
-  const roles = [['', HA_ROLE['']], ...(d.roles || []).map((r) => [r, HA_ROLE[r] || r])];
-  c.appendChild(group({ header: 'Who Saves from Home Assistant', footer: d.error || 'Each Home Assistant person, and the role they save with. Admins come first: one not linked can’t save, and Home Assistant shows a repair until they are.' },
-    people.map((p) => {
-      const sub = (p.admin ? 'Home Assistant admin' : 'Home Assistant user') + (p.person && p.person.disabled ? ' · turned off in Mantel' : '');
-      if (p.tablet) return info(p.name, sub, 'Wall Tablet');
-      const now = p.person ? p.person.role : '';
-      if (!owner) return info(p.name, sub, HA_ROLE[now] || now);
-      return K().select({ label: p.name, sub, options: roles, value: now, fk: 'mx:ha-user:' + p.id,
-                          onChange: (v) => act('link', () => api('PUT', '/api/linked/ha-saves', { ha_user: p.id, role: v || null }),
-                                               v ? p.name + ' saves as ' + HA_ROLE[v] + '.' : p.name + ' is no longer linked.', 'hasaves') });
-    })));
 }
 
 // PAIR MANTEL LINK (linked_pairing.py): a one-time code, ten minutes, typed into Mantel Link's setup in Home

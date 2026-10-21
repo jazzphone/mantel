@@ -663,7 +663,7 @@ async def _save_through_ha(app: Any, identity: Any, msg: Mapping[str, Any]) -> d
     if gw is None or authz is None:
         raise _page_error("commands_disabled", message="HK Frontend in Home Assistant still runs the Alarm PIN, and "
                           "Mantel's house commands are off, so the PIN can't be saved there. Move the house to Mantel "
-                          "(Mantel Settings, Home Assistant Link) to keep the PIN in Mantel only.")
+                          "(Mantel Settings, Mantel in Home Assistant) to keep the PIN in Mantel only.")
     frame = {k: v for k, v in msg.items() if k != "id"}
     got: dict = {}
 

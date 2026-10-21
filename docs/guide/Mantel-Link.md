@@ -42,7 +42,7 @@ You need Mantel itself first ([Install](Install.md)) and Home Assistant
 | Mantel runs as | How Home Assistant finds it | What you do |
 |---|---|---|
 | The Home Assistant App | The App tells Home Assistant, with a credential made for Mantel Link | **Discovered: Mantel → Add**, confirm |
-| Docker or the Proxmox container | Mantel announces itself on your network (`_mantel._tcp`) with no credential | In Mantel: **Mantel Settings → Connections → Home Assistant Link → Make a Pairing Code**. In Home Assistant: **Discovered: Mantel → Add**, and enter the code |
+| Docker or the Proxmox container | Mantel announces itself on your network (`_mantel._tcp`) with no credential | In Mantel: **Mantel Settings → Connections → Mantel in Home Assistant → Make a Pairing Code**. In Home Assistant: **Discovered: Mantel → Add**, and enter the code |
 | Anything | By hand | **Add Integration → Mantel Link**: Mantel's `https://` address, and a pairing code or a Service credential |
 
 A pairing code works once, for ten minutes. Both sides prove they know it, so
@@ -122,7 +122,7 @@ Exactly one of them shows Mantel's entities at a time; this is **the bridge**.
   the entities Mantel sends. Mantel Link, installed beside it, stays
   **dormant**: linked, its actions work, but it shows nothing.
 - **Mantel Link takes it** when an Owner selects **Hand the Bridge to Mantel
-  Link** (**Mantel Settings → Connections → Home Assistant Link**). HK
+  Link** (**Mantel Settings → Connections → Mantel in Home Assistant**). HK
   Frontend lets go of each entity, and Mantel Link takes over the same registry
   entry: the same entity id, unique id, history, area and name.
 - **Give the Bridge to HK Frontend** reverses it, the same way.
@@ -183,6 +183,6 @@ Frontend's last release and link it first.
 Mantel, what it shows, and what HK Frontend is doing. It never includes the
 credential.
 
-**Mantel Settings → Connections → Home Assistant Link** shows the same from
+**Mantel Settings → Connections → Mantel in Home Assistant** shows the same from
 Mantel's side: what is linked, which protocol, who holds the bridge, and who
 runs each tablet.

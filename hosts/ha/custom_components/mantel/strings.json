@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "Mantel Link",
-        "description": "Link Home Assistant to Mantel. Mantel's address is https://, or http:// only for the Mantel App on this machine (http://local-mantel:8099). Then a pairing code from Mantel Settings, Connections, Home Assistant Link, or a Mantel Service credential (Mantel Settings, Service Accounts).",
+        "description": "Link Home Assistant to Mantel. Mantel's address is https://, or http:// only for the Mantel App on this machine (http://local-mantel:8099). Then a pairing code from Mantel Settings, Connections, Mantel in Home Assistant, or a Mantel Service credential (Mantel Settings, Service Accounts).",
         "data": {
           "url": "Mantel's address",
           "code": "Pairing code",
@@ -24,7 +24,7 @@
       },
       "zeroconf_confirm": {
         "title": "Mantel",
-        "description": "Mantel was found on your network at {url}. To link it, make a pairing code in Mantel Settings (Connections, Home Assistant Link, Make a Pairing Code) and enter it here.",
+        "description": "Mantel was found on your network at {url}. To link it, make a pairing code in Mantel Settings (Connections, Mantel in Home Assistant, Make a Pairing Code) and enter it here.",
         "data": {
           "code": "Pairing code"
         }

@@ -19,16 +19,15 @@ it was sent (its mirror) and answers its dashboards from it, also while Mantel c
   settings, ...), exactly as the page sends it (``msg``), made AS THE PERSON linked to the Home Assistant user who
   made it (``ha_user``; the ``ha_links`` table, as Ingress and "Sign in with Home Assistant" use). Mantel's RBAC
   decides (``configure``), and the settings history says the person, from Home Assistant.
-* Only with the Service account's ``linked_saves`` scope (Mantel Settings -> Home Assistant Link -> Saves from Home
-  Assistant): it lets the credential say which Home Assistant user is acting, as the Supervisor does for Ingress.
+* Only with the Service account's ``linked_saves`` scope (Mantel Settings -> Mantel in Home Assistant -> HK Frontend -> Changes
+  from Home Assistant): it lets the credential say which Home Assistant user is acting, as the Supervisor does for Ingress.
 * Refused in words: the scope off, an unlinked or disabled user, or the save itself (RBAC, a bad value).
 
-SETUP (Mantel Settings -> Connections -> Home Assistant Link), Owner and Admin read, Owner changes, each audited:
+SETUP (Mantel Settings -> Connections -> Mantel in Home Assistant), Owner and Admin read, Owner changes, each audited:
 
-    GET /api/linked/ha-saves     whether saves are on, and Home Assistant's people: who each is linked to
+    GET /api/linked/ha-saves     whether saves are on (Changes from Home Assistant), and Home Assistant's people
     PUT /api/linked/ha-saves     {"on": bool}                    the linked HK Frontends' linked_saves scope
-                                 {"ha_user": id, "role": r|null} link an HA user with a role, or unlink it
-                                                                 (as the Ingress People page does)
+    (an HA user is linked to a person on People: people_ha.py)
 
 Each ``settings`` frame also carries ``setup``: ``{"saves": bool, "unlinked_admins": n}``, so HK Frontend raises a
 Repairs issue while Home Assistant admins can't save. Home Assistant's users are read by Mantel's own connection to
@@ -54,10 +53,10 @@ SAVES = "linked_saves"                  # the Service account's scope for settin
 LABEL = "Home Assistant"                # where a forwarded save came from, in the settings history
 DEBOUNCE_S = 0.25
 _HA_USER = re.compile(r"^[0-9a-f]{32}$")
-OFF = ("Saving HK settings from Home Assistant is off. An Owner turns it on in Mantel Settings, Connections, "
-       "Home Assistant Link, Saves from Home Assistant.")
-UNLINKED = ("Link your Home Assistant user to a person in Mantel to save settings (Mantel Settings, Connections, "
-            "Home Assistant Link).")
+OFF = ("Changes made in Home Assistant aren't saved. An Owner turns them on in Mantel Settings: Connections, "
+       "Mantel in Home Assistant, HK Frontend, Changes from Home Assistant.")
+UNLINKED = ("Link your Home Assistant user to your person in Mantel to save settings (Mantel Settings, People, "
+            "Home Assistant Users).")
 
 
 def version_of(payload: Any) -> str:
@@ -228,33 +227,7 @@ async def api_put(request: web.Request) -> web.Response:
         _audit(app, ident.user.id, ident.user.role, "linked.saves", {"on": body["on"], "accounts": changed})
         await ls.resend()
         return web.json_response({"saves": ls.saves_on()})
-    if isinstance(body, dict) and set(body) == {"ha_user", "role"}:
-        target, role = body["ha_user"], body["role"]
-        if not isinstance(target, str) or not _HA_USER.match(target) or (role is not None and role not in _link_roles()):
-            return bad("invalid", "{ha_user, role: a role or null}")
-        db, store = app["store"].db, app["store"]
-        if tablet_link(db, target) is not None:
-            return bad("tablet", "That Home Assistant user is a wall tablet; change it on the People page.", 409)
-        current = linked_user(db, target)
-        if current is not None and current["role"] == "owner" and role != "owner":
-            others = db.execute("SELECT COUNT(*) FROM users WHERE role = 'owner' AND disabled = 0 AND id != ?",
-                                (current["id"],)).fetchone()[0]
-            if not others:
-                return bad("last_owner", "Mantel always keeps at least one Owner.", 409)
-        if current is not None:
-            store.unlink(target)
-        if role is not None:
-            name = None
-            try:
-                d = ls._directory()
-                name = ((await d.user(target)) or {}).get("name") if d is not None else None
-            except Exception:  # noqa: BLE001 -- the name is a convenience
-                pass
-            store.link(target, role, name)
-        _audit(app, ident.user.id, ident.user.role, "linked.ha_user", {"ha_user_id": target, "role": role})
-        await ls.resend()
-        return web.json_response({"people": await ls.people()})
-    return bad("invalid", '{"on": bool} or {"ha_user", "role"}')
+    return bad("invalid", '{"on": bool} (a Home Assistant user is linked to a person on People: /api/people/ha)')
 
 
 def place_of(app: web.Application) -> Any:

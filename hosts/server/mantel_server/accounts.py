@@ -624,7 +624,7 @@ def require_user(request: web.Request) -> Identity:
 
 def require_manager(request: web.Request) -> Identity:
     """Owner or Admin, as a person: signed in at a wall tablet they get Me only (People-and-Roles.md), as
-    Connections, Service accounts and Home Assistant Link already refused. A forgotten Owner sign-in on the
+    Connections, Service accounts and Mantel in Home Assistant already refused. A forgotten Owner sign-in on the
     kitchen tablet could otherwise move tablets between rooms, revoke them, or manage people. A stand-in for
     P3.2's `configure` grant on users and devices."""
     ident = require_user(request)
