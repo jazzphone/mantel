@@ -1033,6 +1033,16 @@ Everything on main since 0.1.28 (validation green: JS 130, HA py 732, Mantel 283
 - Mantel Link 0.1.3 copied by hand (`rsync --inplace`, no `--delete`, diff checked, HA restarted).
 - No HA backup (Avery).
 
+### 0.1.38 (2026-10-21)
+
+- **HK's black stays HK's black** (features.py `MantelSleep.sleep`): the page's confirmation is read from Mantel's own
+  copy, not only from Home Assistant's mirror of the black switch, and a tablet whose page is connected never gets
+  Kiosk Satellite's own screensaver put under it. At 05:40 a slow round trip through HA (its nightly backup finishing)
+  timed every tablet out at once; each fell back to the kiosk's screensaver, which ends by itself 2.6-2.8 s after
+  another tablet sleeps or wakes (reproduced on the house). The Master Bedroom lit at 05:18 and 05:59. Only a tablet
+  whose page is not connected still falls back to the kiosk's.
+- No HA backup (Avery).
+
 ### Removal
 
 Stop and uninstall **Mantel** (Settings → Apps → Mantel → Uninstall); this removes its image and `/data`
