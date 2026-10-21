@@ -235,7 +235,7 @@ function result(c, key) {
   c.appendChild(hh('p', { class: 'mxflash' + (flash.err ? ' err' : ''), role: flash.err ? 'alert' : 'status', text: flash.text }));
 }
 const STYLE = [
-  '.mxflash{margin:-8px 0 22px;padding:10px 16px;border-radius:10px;background:var(--hk-cell);font-size:15px;line-height:20px;color:var(--hk-label)}',
+  '.mxflash{margin:8px 0 22px;padding:10px 16px;border-radius:10px;background:var(--hk-cell);font-size:15px;line-height:20px;color:var(--hk-label)}',
   '.mxflash.err{color:var(--hk-red)}',
   '.mxerr{color:var(--hk-red)}',
   '.cell.mxsecret{display:block;padding:12px 16px}',
