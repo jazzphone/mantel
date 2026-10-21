@@ -13,7 +13,7 @@ You need:
 | **A Docker host** | Linux with Docker Engine and the Docker Compose v2 plugin (`docker compose`). An x86-64 (`amd64`) or `arm64` machine: every image is built for both. On `arm64`, Live TV transcodes in software (Intel's QuickSync driver is amd64-only).<!-- CHECK: the minimum Compose v2 version (update.sh uses `docker compose config --images` and `--wait-timeout`). --> |
 | **git** | To get the files. |
 | **A name for Mantel** | What browsers will type, for example `mantel.example.com`, and a DNS record that points it at this host. A record in your home's own DNS is enough. |
-| **A way to get HTTPS** | Your own domain on Cloudflare DNS (the default), or Caddy's own certificate authority, or a reverse proxy you already run. See [step 3](#3-choose-how-browsers-get-https). |
+| **A way to get HTTPS** | Nothing to prepare for the default, Caddy's own certificate authority (you trust it once on each device). Or your own domain at Cloudflare, Duck DNS, Porkbun, Route 53, DigitalOcean or deSEC, with an API token from that DNS host; or a reverse proxy you already run. See [step 3](#3-choose-how-browsers-get-https). |
 | **A Home Assistant user for Mantel** | A dedicated administrator user, for example `mantel-server` (**Settings** → **People** → **Add person**, *Can log in*, *Administrator*). You sign in as this user once, on Mantel's Connections page. |
 
 The stack publishes these ports on the host:
@@ -49,7 +49,7 @@ Edit `.env`. It holds **settings only, never a secret**; tokens and keys are fil
 | `MANTEL_HOSTNAME` | `mantel.example.com` | The name browsers type. Required. |
 | `MANTEL_LAN_IP` | `192.0.2.10` | This host's address on your home network, which tablets reach for Live TV's video. Required. |
 | `MANTEL_ALLOW_HOSTS` | `192.0.2.10` | Other names to accept besides `MANTEL_HOSTNAME`, separated by commas. Optional. |
-| `MANTEL_TLS_SNIPPET` | `./caddy/tls-dns01.caddy` | How Caddy gets its certificate (step 3). |
+| `MANTEL_TLS_SNIPPET` | `./caddy/tls-internal.caddy` | How Caddy gets its certificate (step 3). |
 | `MANTEL_SECRETS_DIR` | `/etc/hk/secrets` | Where the secret files are on this host. |
 | `MANTEL_HA_URL`, `MANTEL_MA_URL` | empty | Leave empty: you connect Home Assistant and Music Assistant in the browser after the first start. |
 | `MANTEL_BACKUP_DIR`, `MANTEL_BACKUP_TARGET` | `./backups`, empty | Mantel's nightly encrypted backups, off until you set the target. See [Backups](Backups.md). |
@@ -67,11 +67,12 @@ Mantel needs HTTPS for its sign-in cookies, passkeys, the doorbell's talk-back, 
 
 | You have | Do this | Notes |
 |---|---|---|
-| **A domain on Cloudflare DNS** (the default) | Keep `MANTEL_TLS_SNIPPET=./caddy/tls-dns01.caddy`. Put a Cloudflare API token in the `cloudflare_dns_token` secret file (step 4), limited to **Zone / DNS / Edit** for that one zone. | Caddy gets a real certificate through DNS. Nothing has to be reachable from the internet. |
-| **No domain** | Set `MANTEL_TLS_SNIPPET=./caddy/tls-internal.caddy` and `MANTEL_CADDY_IMAGE=caddy:2`. | Caddy makes its own certificate authority. Browsers warn until you trust its root certificate on each device (it is in the `caddy-data` volume, `pki/authorities/local/root.crt`). |
+| **No domain** (the default) | Keep `MANTEL_TLS_SNIPPET=./caddy/tls-internal.caddy`. | Caddy makes its own certificate authority. Browsers warn until you trust its root certificate on each device: [OPERATIONS.md](../OPERATIONS.md#https-four-ways) "Trusting Caddy's own CA" says how. |
+| **Your own domain at Cloudflare** | Set `MANTEL_TLS_SNIPPET=./caddy/tls-dns01-cloudflare.caddy`. Put a Cloudflare API token in the `cloudflare_dns_token` secret file (step 4), limited to **Zone / DNS / Edit** for that one zone. | Caddy gets a real certificate through DNS. Nothing has to be reachable from the internet. |
+| **Your own domain at Duck DNS, Porkbun, Route 53, DigitalOcean or deSEC** | Add that DNS host's file to `COMPOSE_FILE`, for example `compose.yaml:compose.dns-porkbun.yaml`, and put its credential in its secret file(s) (step 4). | The same, through that DNS host's API. The table in [OPERATIONS.md](../OPERATIONS.md#https-four-ways) lists each host's file, secret files and what the credential needs. With Duck DNS, `MANTEL_HOSTNAME` is your `<name>.duckdns.org`. |
 | **Your own reverse proxy** (Nginx Proxy Manager, Traefik, ...) | Add `compose.byo-proxy.yaml` to `COMPOSE_FILE`, and set `MANTEL_TRUSTED_PROXY` to your proxy's IP address as Mantel sees it. Optionally `MANTEL_HTTP_BIND` to this host's address. | Caddy doesn't start. Mantel publishes plain HTTP on port 8765 for your proxy. See [Your own reverse proxy](#your-own-reverse-proxy). |
 
-For DNS hosts other than Cloudflare, Caddy needs that provider's module: change it in `packaging/docker/caddy.Dockerfile` and in `caddy/tls-dns01.caddy`.
+`.env.example` lays the same choices out. Another DNS host needs its module built into Caddy: see `packaging/docker/caddy.Dockerfile`.
 
 > **Reaching Mantel from away.** The recommended way is a Cloudflare Tunnel, with Cloudflare Access in front of it: see [Remote access through a Cloudflare Tunnel](#remote-access-through-a-cloudflare-tunnel). It works beside any of the three choices above.
 
@@ -95,7 +96,8 @@ chown root:10001 * && chmod 0440 *
 |---|---|---|
 | `at_rest.key` | Seals the sign-in authenticator secrets, device keys and saved connections in Mantel's database. | Yes. **Keep a copy somewhere that is not this machine.** |
 | `backup.key` | Encrypts Mantel's backups. | Yes. **Keep a copy somewhere that is not this machine.** |
-| `cloudflare_dns_token` | The Cloudflare token for Caddy's certificate. | Only with DNS-01 (the default). |
+| `cloudflare_dns_token` | The Cloudflare token for Caddy's certificate. | Only with your domain at Cloudflare; otherwise it stays empty. |
+| Your DNS host's file(s) | For example `porkbun_api_key` and `porkbun_secret_api_key`: create them (`umask 077` and `printf`, as below) only when you use that DNS host. | Only with that host's `compose.dns-<host>.yaml` |
 | `ha_token`, `ma_token` | Leave empty. Home Assistant and Music Assistant are connected in the browser. | No |
 | `cloudflared_token` | The tunnel's token. | Only with `--profile tunnel` |
 
@@ -116,7 +118,7 @@ Losing `at_rest.key` makes every enrolled authenticator app unreadable, and with
 |---|---|
 | `ghcr.io/jazzphone/mantel-server` | Mantel Server |
 | `ghcr.io/jazzphone/mantel-transcode` | Live TV's go2rtc and ffmpeg (with Intel's QuickSync driver on `amd64`) |
-| `ghcr.io/jazzphone/mantel-caddy` | Caddy with its Cloudflare DNS module |
+| `ghcr.io/jazzphone/mantel-caddy` | Caddy with its DNS modules (Cloudflare, Duck DNS, Porkbun, Route 53, DigitalOcean, deSEC) |
 
 Each is tagged with the release's version (for example `:0.1.36`, the same number as the Home Assistant App's) and `:latest`, which follows the newest release. Name them in `.env`, pinned to a version so an update happens only when you change it ([Updating](Updating.md#published-images)):
 
@@ -134,7 +136,7 @@ Then `docker compose pull`. To pin even tighter, use a digest (`ghcr.io/jazzphon
 docker compose build
 ```
 
-This builds Mantel Server, the Live TV transcode and Caddy with its Cloudflare module from the files you cloned. It takes several minutes.
+This builds Mantel Server, the Live TV transcode and Caddy with its DNS modules from the files you cloned. It takes several minutes.
 
 ## 6. Start Mantel
 
@@ -154,13 +156,13 @@ With your own reverse proxy, point the name at the proxy instead, and set the pr
 
 ## 8. Make the first Owner
 
-Get a one-time setup code:
+While Mantel has no Owner, its log shows a one-time setup code in a banner (valid one hour; a new one is logged when it expires):
 
 ```bash
-docker compose exec mantel-server mantel bootstrap
+docker compose logs mantel-server
 ```
 
-Then follow [First Run](First-Run.md#with-docker-or-the-lxc): the setup code, your user name and password, then Home Assistant on the **Connections** page.
+To make a new one at once (it replaces the logged one): `docker compose exec mantel-server mantel bootstrap`. Then follow [First Run](First-Run.md#with-docker-or-the-lxc): the setup code, your user name and password, then Home Assistant on the **Connections** page.
 
 Run Mantel's admin commands with `docker compose exec mantel-server mantel <command>`. Don't use `docker compose run` while Mantel is running: it would start a second server.
 

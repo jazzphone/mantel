@@ -35,13 +35,13 @@ Wall tablets have their own Home Assistant users. On **People**, link each as a 
 
 ### Become the Owner
 
-1. On the server, make a one-time **setup code**. It is valid for one hour; making a new one replaces it.
+1. Find the one-time **setup code** in Mantel's log. While Mantel has no Owner, it prints one in a banner when it starts, valid for one hour, and a new one each time the last expires:
 
    ```bash
-   docker compose exec mantel-server mantel bootstrap
+   docker compose logs mantel-server
    ```
 
-   Run it in `packaging/compose` (in the LXC, `/opt/mantel/packaging/compose`).
+   Run it in `packaging/compose` (in the LXC, `/opt/mantel/packaging/compose`; or from the Proxmox host, `pct exec <id> -- docker logs mantel-server`). Use the newest code in the log. To make a new one at once, which replaces the logged one: `docker compose exec mantel-server mantel bootstrap`.
 2. Open `https://mantel.example.com/login`. While Mantel has no Owner, the page shows **First start**.
 
    ![Mantel's sign-in page](../images/login.webp)
