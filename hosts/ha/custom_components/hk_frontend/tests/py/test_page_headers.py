@@ -1,8 +1,8 @@
 """The page headers' server side (page_headers.py): Tonight's lighting
 schedule, read from a sample house's automations (fixtures/
-sample_automations.json, four real-world sun and time
-automations -- the front yard's schedule, its holiday schedule, the bedtime
-thermostat and the interior sunset lights) -- the triggers, the branch each runs, what it switches, and whether
+sample_automations.json, four sun and time
+automations -- the back garden's schedule, its seasonal schedule, the overnight
+thermostat and the interior evening lights) -- the triggers, the branch each runs, what it switches, and whether
 its conditions hold now."""
 from __future__ import annotations
 
@@ -40,7 +40,7 @@ def test_trigger_times() -> None:
 
 
 def test_label() -> None:
-    assert P.label_of("Lighting - Front Yard - Scheduled Exterior Lights") == "Front Yard"
+    assert P.label_of("Lighting - Back Garden - Evening Lights") == "Back Garden"
     assert P.label_of("Porch lights at dusk") == ""
 
 
@@ -59,22 +59,22 @@ def _rows(eid: str) -> list[tuple[str | None, str, list[str]]]:
     return out
 
 
-def test_front_yard_branches() -> None:
-    """Four triggers, each its own choose option: on at sunset, off at ten,
+def test_garden_branches() -> None:
+    """Four triggers, each its own choose option: on at sunset, off at eleven,
     on before sunrise, off after -- read from the branch, not the whole list."""
-    rows = {r[0]: r for r in _rows("automation.lighting_front_yard_scheduled_exterior_lights")}
-    assert rows["sunset_on"][1] == "on" and "light.front_yard_driveway_lights" in rows["sunset_on"][2]
-    assert rows["sunset_off"][1] == "off" and "light.deck_permanent_lights" in rows["sunset_off"][2]
+    rows = {r[0]: r for r in _rows("automation.lighting_back_garden_evening_lights")}
+    assert rows["sunset_on"][1] == "on" and "light.garden_path_lights" in rows["sunset_on"][2]
+    assert rows["sunset_off"][1] == "off" and "light.pergola_string_lights" in rows["sunset_off"][2]
     assert rows["sunrise_on"][1] == "on"
     assert rows["sunrise_off"][1] == "off"
 
 
 def test_no_light_actions_no_row() -> None:
-    """The holiday schedule picks playlists and runs scripts: nothing it does
+    """The seasonal schedule picks playlists and runs scripts: nothing it does
     turns a light on or off by name, so it is not on the schedule."""
-    assert all(r[1] == "-" for r in _rows("automation.lighting_front_yard_holiday_schedule"))
-    # nor is a thermostat's bedtime
-    assert all(r[1] == "-" for r in _rows("automation.climate_home_set_bedtime_temp"))
+    assert all(r[1] == "-" for r in _rows("automation.lighting_back_garden_seasonal_schedule"))
+    # nor is a thermostat's overnight setting
+    assert all(r[1] == "-" for r in _rows("automation.climate_home_set_sleep_temp"))
 
 
 def test_effects_targets() -> None:
@@ -103,18 +103,18 @@ def test_branch_or_trigger_condition() -> None:
 
 
 async def test_plan_and_conditions(hass: HomeAssistant, monkeypatch: pytest.MonkeyPatch) -> None:
-    """The whole pass on the house's automations: rows only for lights, and a
+    """The whole pass on the sample house's automations: rows only for lights, and a
     row whose condition fails now is ready False until it holds."""
     monkeypatch.setattr(P, "_automations", lambda h: sorted(HOUSE.items()))
     hass.states.async_set("person.alex", "not_home")
     entries = P.plan(hass)
     autos = {e["automation"] for e in entries}
-    assert "automation.lighting_front_yard_scheduled_exterior_lights" in autos
-    assert "automation.lighting_front_yard_holiday_schedule" not in autos
-    fy = [e for e in entries if e["automation"].endswith("front_yard_scheduled_exterior_lights")]
+    assert "automation.lighting_back_garden_evening_lights" in autos
+    assert "automation.lighting_back_garden_seasonal_schedule" not in autos
+    fy = [e for e in entries if e["automation"].endswith("back_garden_evening_lights")]
     assert {(e.get("event") or e.get("at"), e["effect"]) for e in fy} == \
-        {("sunset", "on"), ("22:00", "off"), ("sunrise", "on"), ("sunrise", "off")}
-    assert all(e["area"] == "Front Yard" for e in fy)
+        {("sunset", "on"), ("23:00", "off"), ("sunrise", "on"), ("sunrise", "off")}
+    assert all(e["area"] == "Back Garden" for e in fy)
 
     sched = P.Schedule(hass)
     out = await sched.ensure()

@@ -1,6 +1,6 @@
 """Offline page check for the command gateway's web side: commands ON, a fake command connection.
 
-Run: ~/.venvs/mantel/bin/python tools/headless/gateway_page_check.py
+Run: .venv/bin/python tools/headless/gateway_page_check.py
 No Home Assistant: the server runs with commands_enabled=True, but its command connection is replaced by
 a recorder that checks every frame and ticket (as ha_client.HaCommander does) and sends nothing anywhere.
 Checks, in an isolated headless Chrome: the socket's capabilities turn the client's actions on; a

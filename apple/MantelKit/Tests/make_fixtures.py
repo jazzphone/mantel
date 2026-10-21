@@ -1,5 +1,5 @@
 """Make MantelKit's cross-language fixtures from the server's own crypto (app_crypto.py), so the Swift tests prove
-the two sides agree. Fictional, test-only keys. Run: ~/.venvs/mantel/bin/python apple/MantelKit/Tests/make_fixtures.py"""
+the two sides agree. Fictional, test-only keys. Run: .venv/bin/python apple/MantelKit/Tests/make_fixtures.py"""
 import hashlib
 import json
 import sys

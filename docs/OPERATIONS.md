@@ -1,6 +1,6 @@
 # Operating Mantel
 
-How to run Mantel Server and look after it: first start, people and tablets, commands and their safeguards, the audit log, backups, updates, installing HK builds into Home Assistant, and what to do when something looks wrong. For the design behind it see PLAN.md; for moving the house over see phase6/CUTOVER.md.
+How to run Mantel Server and look after it: first start, people and tablets, commands and their safeguards, the audit log, backups, updates, installing HK builds into Home Assistant, and what to do when something looks wrong. The design notes are in the `phase*/` folders beside this file.
 
 **This is the operator reference written while Mantel was built**, kept with the [design notes](development/Design-Notes.md). For installing and running Mantel, the [user guide](guide/Home.md) is current; where the two differ, the guide is right. The flag tables below still hold for `mantel-server --help`.
 
@@ -23,7 +23,7 @@ Every request arrives by a **door**. `lan` is the house network, served straight
 ### By hand (development, loopback only)
 
 ```bash
-~/.venvs/mantel/bin/mantel-server                       # http://127.0.0.1:8765/login
+.venv/bin/mantel-server                       # http://127.0.0.1:8765/login
 mantel-server --ha-url http://homeassistant.local:8123 --commands-enabled   # do not, see section 8
 ```
 
@@ -283,7 +283,7 @@ Only for Docker and the LXC; the Mantel App needs none of this. Design and secur
 # turn Connect on (compose: COMPOSE_FILE=compose.yaml:compose.connect.yaml in .env; the LXC script: var_connect=yes)
 docker compose up -d --wait
 # on the Mac: stage the App into HA's local apps share, then install "Mantel Connect" in HA
-~/.venvs/mantel/bin/python tools/stage_connect_app.py <local apps share>/mantel_connect
+.venv/bin/python tools/stage_connect_app.py <local apps share>/mantel_connect
 # pair (an Owner; or /admin, Connect, Start pairing)
 docker compose exec mantel-server mantel connect pair --address <this host>:8766
 # HA: Settings, Apps, Mantel Connect, Configuration: the address and the code, Save, Restart
@@ -308,15 +308,15 @@ A wall tablet is a **device** with its own role (`wall_tablet`, scoped to its ro
 
 1. **Create a Wall Tablet account** for the tablet (an Owner or Admin): `POST /api/users` with `{"username":"loft","name":"Loft tablet","role":"wall_tablet","password":"..."}`.
 2. **Sign in on the tablet itself** with that account, then **make it a wall tablet**: Mantel Settings → *Make This Browser a Wall Tablet…*, or `POST /api/devices/enroll` with `{"name":"Loft","tablet":"loft"}`. The server swaps that browser's password session for a **device credential**: an `HttpOnly` cookie bound to that browser, rotated every 24 hours, revocable in one call, refused on the tunnel door, and unused for 90 days it expires. The password is not kept on the tablet. A reboot or a Kiosk Satellite restart does not ask again.
-3. **Enrolment must be done from the tablet's own browser**, because the credential is a cookie in that browser. That is the part with no screen yet: the login page and the "Make this a wall tablet" button are the work in progress (`ADMIN-PAGE.md`). Until they exist a tablet cannot be enrolled without driving the two REST calls from inside its WebView, which is why the cutover runbook lists the page as a prerequisite.
-4. **The room is chosen, never typed.** The dialog lists HK's wall tablets (`GET /api/devices/rooms`: their name, room and screen, and the enrolled devices already in each one's room, marked *In Use*); picking one gives the device that tablet's room and, by default, its name. *Not One of These* offers Home Assistant's areas. The server refuses a room that is neither an HK tablet's room nor an HA area (`unknown_room`; `unknown_tablet` for a tablet id it does not have); only while Mantel knows no rooms at all (no HK settings, HA not read yet) does it take the room as given. It matters because a wall tablet device reports its touches and black screen only for the HK tablet in its own room, and `/home` opens that tablet's screen: a room typed as "Livingroom" for HK's `living_room` silently cut the tablet off (the house, 2026-10-19).
+3. **Enrolment must be done from the tablet's own browser**, because the credential is a cookie in that browser. That is the part with no screen yet: the login page and the "Make this a wall tablet" button are the work in progress (`ADMIN-PAGE.md`). Until they exist a tablet cannot be enrolled without driving the two REST calls from inside its WebView.
+4. **The room is chosen, never typed.** The dialog lists HK's wall tablets (`GET /api/devices/rooms`: their name, room and screen, and the enrolled devices already in each one's room, marked *In Use*); picking one gives the device that tablet's room and, by default, its name. *Not One of These* offers Home Assistant's areas. The server refuses a room that is neither an HK tablet's room nor an HA area (`unknown_room`; `unknown_tablet` for a tablet id it does not have); only while Mantel knows no rooms at all (no HK settings, HA not read yet) does it take the room as given. It matters because a wall tablet device reports its touches and black screen only for the HK tablet in its own room, and `/home` opens that tablet's screen: a room typed as "Livingroom" for HK's `living_room` would silently cut the tablet off.
    **Moving a device** (Owner or Admin): Mantel Settings → Devices → the device → its HK tablet or room → *Save*, or `PATCH /api/devices/<id>` with `{"tablet":"living"}` or `{"room":"garage"}` (`{"room":null}` clears it). The same validation; an audit row (`device.room`, from and to) first; the device keeps its cookie, and its open screens take the new room at the next minute's check. Devices warns on any wall tablet device whose room has no HK tablet ("its touches and black screen won't reach Mantel"); `GET /api/devices` gives each device's `hk_tablets`.
    For permissions, a tablet with no stored area scope is scoped to its room. An Owner can widen or narrow that: `PUT /api/rbac/scopes/device/<device id>`.
 5. **Revoke** at any time: `DELETE /api/devices/<id>` (Owner or Admin, or the tablet itself); `GET /api/devices` lists them (never any secret). A retired secret presented again more than 60 seconds later revokes the device (`credential_reuse`), which is how a copied credential is caught.
 
-### Wall tablets in the HA App (this house; decision 21)
+### Wall tablets in the HA App (decision 21)
 
-When Mantel runs as the HA App and the tablet opens HA's panel, a tablet is **not enrolled**: it keeps its own HA user (signed in by `trusted_networks` in Kiosk Satellite) and the Owner links that HA user to a Mantel device. Design: [phase3/HA-APP.md](phase3/HA-APP.md) "Wall tablets through the App"; the move, tablet by tablet: phase6/CUTOVER.md.
+When Mantel runs as the HA App and the tablet opens HA's panel, a tablet is **not enrolled**: it keeps its own HA user (signed in by `trusted_networks` in Kiosk Satellite) and the Owner links that HA user to a Mantel device. Design: [phase3/HA-APP.md](phase3/HA-APP.md) "Wall tablets through the App".
 
 1. **Link** (Owner, in the sidebar): People → the tablet's HA user → **Link as a wall tablet**, *a new device* (or an existing wall-tablet device) and its room. REST: `POST /api/ingress/tablets {"ha_user_id": "...", "room": "loft"}` (`device_id` to reuse a device, `name` to name a new one); `GET /api/ingress/tablets`; `DELETE /api/ingress/tablets/<ha user id>`. Audited (`ingress.link_tablet` / `ingress.unlink_tablet`). A person link of the same HA user is replaced; the last Owner cannot be turned into a tablet.
 2. **Start URL** in Kiosk Satellite: `http://<HA's address, as today>:8123/app/local_mantel` (HA's own App panel; the same for every tablet). The tablet opens on its own HK screen (its Tablet User in HK's settings), and Mantel asks HA's frontend to hide the sidebar and header.
@@ -345,9 +345,9 @@ mantel-server service-account list
 mantel-server service-account revoke --id <id>
 ```
 
-(Or `GET`/`POST /api/service-accounts`, `DELETE /api/service-accounts/<id>`, from an Owner's own session on the LAN door, or in the HA App from the Owner's sidebar when `ha_door_rules` is `trusted` or `lan`.) **In the HA App** HK Frontend's address is `http://local-mantel:8099` (the App's hostname on HA's internal network): the App lets HA Core (`172.30.32.1`) reach `/linked/ws` and nothing else (HA-APP.md "Linked mode in the App"; to be confirmed on the house; **HK's Configure refuses that plain-http address today**, a decision for Avery listed there). The credential looks like `msvc_<id>_<secret>`; only its hash is stored. Paste it into **Settings, Devices & services, HK Frontend, Configure, Linked to Mantel Server** along with Mantel's `https://` address. Home Assistant stores it in plain text in `.storage/core.config_entries`, as it does every integration's token; it is never logged and is revoked on Mantel's side in one step. Linked mode works only on the LAN door, never from a browser (a request with an `Origin` is refused), and Mantel can change only the entities it mirrors: it cannot call a service in HA. Turn the option off and today's integration comes straight back.
+(Or `GET`/`POST /api/service-accounts`, `DELETE /api/service-accounts/<id>`, from an Owner's own session on the LAN door, or in the HA App from the Owner's sidebar when `ha_door_rules` is `trusted` or `lan`.) **In the HA App** HK Frontend's address is `http://local-mantel:8099` (the App's hostname on HA's internal network): the App lets HA Core (`172.30.32.1`) reach `/linked/ws` and nothing else (HA-APP.md "Linked mode in the App"; to be confirmed on a real install; **HK's Configure refuses that plain-http address today**, an open decision listed there). The credential looks like `msvc_<id>_<secret>`; only its hash is stored. Paste it into **Settings, Devices & services, HK Frontend, Configure, Linked to Mantel Server** along with Mantel's `https://` address. Home Assistant stores it in plain text in `.storage/core.config_entries`, as it does every integration's token; it is never logged and is revoked on Mantel's side in one step. Linked mode works only on the LAN door, never from a browser (a request with an `Origin` is refused), and Mantel can change only the entities it mirrors: it cannot call a service in HA. Turn the option off and today's integration comes straight back.
 
-**Which tablets are Mantel's** (the cutover, one tablet at a time): every tablet, and the rest of the entry (`house`), is Home Assistant's until an Owner moves it: `PUT /api/linked/owners {"unit": "<tablet id>" or "house", "owner": "mantel" or "ha"}` from an Owner's own session on the LAN door, or the Owner's sidebar in the HA App with `trusted`/`lan` rules (audited first; `house` only after every tablet). `GET /api/linked/owners` (Owner/Admin) lists who owns what. HA is told over the link and keeps it; Configure, Linked to Mantel Server shows it. See [phase5/LINKED-MODE.md](phase5/LINKED-MODE.md) "Per-tablet ownership" and phase6/CUTOVER.md.
+**Which tablets are Mantel's** (the cutover, one tablet at a time): every tablet, and the rest of the entry (`house`), is Home Assistant's until an Owner moves it: `PUT /api/linked/owners {"unit": "<tablet id>" or "house", "owner": "mantel" or "ha"}` from an Owner's own session on the LAN door, or the Owner's sidebar in the HA App with `trusted`/`lan` rules (audited first; `house` only after every tablet). `GET /api/linked/owners` (Owner/Admin) lists who owns what. HA is told over the link and keeps it; Configure, Linked to Mantel Server shows it. See [phase5/LINKED-MODE.md](phase5/LINKED-MODE.md) "Per-tablet ownership".
 
 The linked endpoint, the Service accounts and the frames are built and tested. The handlers that do the real work (black screen, pop-ups, Alarm PIN) and the publishing of the 31 entities are **not wired yet**; enabling it before then would answer with the in-memory stand-in. See the cutover runbook.
 
@@ -372,10 +372,10 @@ Mantel can run HK's whole-home music itself, talking to Music Assistant's own We
 1. **Music Assistant's address and a token for Mantel.** Make a long-lived token in Music Assistant for Mantel alone (its web UI, under your user profile; never reuse one HA or a person holds). The token is a **file**, never an environment variable, a command-line value or a log line; Mantel reads it at every connect (rotation = replace the file, restart) and never stores or logs its value.
    - *Compose / LXC:* `mantel-secret ma_token` (or write `/etc/hk/secrets/ma_token`, `root:10001`, `0440`), set `MANTEL_MA_URL=http://<music assistant>:8095` in `packaging/compose/.env`, and `docker compose up -d`. The token is mounted at `/run/secrets/ma_token`.
    - *By hand:* `--ma-url http://<music assistant>:8095 --ma-token-file <secrets-dir>/ma_token` (a 0600 file).
-   - *HA App (the house today):* the App's Configuration tab: **Music Assistant address** (`ma_url`) and **Music Assistant token** (`ma_token`, a masked password field). The entrypoint moves the token into a private 0600 file (`/tmp/ma_token`) before the server starts and passes only its path; it is never on the command line, in the environment or in the log. Clearing either option turns Mantel's engine off again at the next start.
+   - *HA App:* the App's Configuration tab: **Music Assistant address** (`ma_url`) and **Music Assistant token** (`ma_token`, a masked password field). The entrypoint moves the token into a private 0600 file (`/tmp/ma_token`) before the server starts and passes only its path; it is never on the command line, in the environment or in the log. Clearing either option turns Mantel's engine off again at the next start.
 2. **The music settings in Mantel.** The feature import brings them (HA's `hk_music/settings/get`, read once; nothing is written to HA): as the Owner, `POST /api/features/import` or the Ingress people page's import button. A new install's one-time import brings them too.
 
-Check with `GET /api/music/status` (Owner/Admin): `music_assistant`, `connected`, `settings` and `active` (Mantel answers the Music page) plus the last requests and failure notes. **House commands stay off**: with them off every music action is refused before anything reaches Music Assistant (reads and the feed work). When Avery turns commands on at cutover, the Music page's actions run through the gateway (RBAC on the rooms, an audit row each) and Mantel's engine sends them to Music Assistant. To go back to HA's engine, clear `ma_url` (or remove the token file) and restart.
+Check with `GET /api/music/status` (Owner/Admin): `music_assistant`, `connected`, `settings` and `active` (Mantel answers the Music page) plus the last requests and failure notes. **House commands stay off**: with them off every music action is refused before anything reaches Music Assistant (reads and the feed work). When the operator turns commands on, the Music page's actions run through the gateway (RBAC on the rooms, an audit row each) and Mantel's engine sends them to Music Assistant. To go back to HA's engine, clear `ma_url` (or remove the token file) and restart.
 
 ### 7a. Live TV
 
@@ -386,7 +386,7 @@ Mantel now counts the viewer heartbeat itself. With commands on, the heartbeat a
 **Docker / LXC:** Mantel serves Live TV through the stack's own go2rtc (`compose.yaml` already sets
 `MANTEL_GO2RTC_URL`). To turn it on:
 
-1. In `.env`, set `MANTEL_LAN_IP` (go2rtc's WebRTC address). On a host with QuickSync (proxmox1), also set
+1. In `.env`, set `MANTEL_LAN_IP` (go2rtc's WebRTC address). On a host with Intel QuickSync, also set
    `COMPOSE_FILE=compose.yaml:compose.gpu.yaml` and `MANTEL_RENDER_GID` (`getent group render | cut -d: -f3`).
 2. Firewall: the container must reach the tuner (`:80` lineup, `:5004` streams), and the tablets must reach
    `MANTEL_LAN_IP:8555` tcp+udp.
@@ -411,7 +411,7 @@ By default Mantel Server **cannot** send a command to the house. This is the mos
 - It is the flag `--commands-enabled` (or `Config.commands_enabled` built by code), set by whoever starts the server. No REST call, client message or setting in Mantel's own pages turns it on. In the Home Assistant App it is the operator's **Allow house commands** option (`commands_enabled`), which passes the flag; in the compose stack it means adding it to the service's `command:` by hand, which is intended friction.
 - While off, the command path cannot even be constructed: no `Gateway`, the HA command connection raises `CommandsDisabled`, the page's client has no actions, and every command-shaped message gets `commands_disabled` and nothing is audited or sent.
 - The state connection to HA (the one that reads everything) can never send a service call, in either mode. The startup line says `read-only; commands disabled` or `COMMANDS ENABLED`, and a warning is logged when on.
-- **For the house, switching it on is Avery's decision at cutover**, at the step marked in the runbook, and not before. Re-run `tools/e2e/gateway_e2e.py` on the exact commit being deployed first.
+- **Switching it on is the Owner's decision**, made deliberately, per server, and not before the setup is checked. Re-run `tools/e2e/gateway_e2e.py` on the exact commit being deployed first.
 
 When on, every command goes through the gateway (GATEWAY.md):
 
@@ -487,46 +487,46 @@ Open screens can notice a new build: `GET /api/version` returns the build id, an
 
 ## 12. Installing HK builds into Home Assistant
 
-This is the process that has put three builds on the house (the first on 2026-10-18 at about 02:45, then 03:19, then 07:19). It changes only `custom_components/hk_frontend/` on the house and **needs Avery's approval for each install**. The long version with the click-through checklist is phase1/LIVE-INSTALL.md.
+This is for a Home Assistant that runs HK Frontend from a source build rather than from HACS (a development or testing install). It changes only `custom_components/hk_frontend/` in your Home Assistant's config folder. Most people install HK Frontend from HACS (see the user guide); use this only if you build it yourself. `<ha-config>` below is your Home Assistant's config folder (a mounted share, or a path on the HA machine); install into a production Home Assistant only with the owner's approval.
 
 **Before**
 
 1. Validate the commit you will install: the Node suites and HA Python suites in a fresh build, the Mantel suite, the offline smoke, and `tools/testha/run.sh` on the scratch HA (section 13) including the open-screen upgrade check. Install exactly the commit you built.
 2. Make an HA backup (Settings, System, Backups, Create backup).
-3. Note the rollback point: `git -C /Volumes/config log --oneline -1 -- custom_components/hk_frontend` (it was `38d841bf`). `/Volumes/config` has uncommitted changes of its own; leave them alone.
+3. Note the rollback point. If `<ha-config>` is a git repository: `git -C <ha-config> log --oneline -1 -- custom_components/hk_frontend`. Otherwise the backup from step 2 is your rollback. Leave any other uncommitted changes there alone.
 
 **Install**
 
 ```bash
-cd /Volumes/data/mantel && git pull
-build=$(mktemp -d) && ~/.venvs/mantel/bin/python tools/build_ha.py "$build/ha"
-rsync -a --inplace --exclude __pycache__ "$build/ha/custom_components/hk_frontend/" /Volumes/config/custom_components/hk_frontend/
-diff -rq -x __pycache__ "$build/ha/custom_components/hk_frontend" /Volumes/config/custom_components/hk_frontend | grep -v "^Only in /Volumes/config"   # must print nothing
+cd <your mantel checkout> && git pull
+build=$(mktemp -d) && python3 tools/build_ha.py "$build/ha"
+rsync -a --inplace --exclude __pycache__ "$build/ha/custom_components/hk_frontend/" <ha-config>/custom_components/hk_frontend/
+diff -rq -x __pycache__ "$build/ha/custom_components/hk_frontend" <ha-config>/custom_components/hk_frontend | grep -v "^Only in <ha-config>"   # must print nothing
 ```
 
-- **`--inplace` is required.** Without it rsync writes each file to a temporary `.<name>.XXXX` first; for `__init__.py` that name starts with `._`, which the HA Samba add-on refuses. The first install half-failed exactly that way: every `__init__.py` and all of `hk_core/` were missing, and the old bootstrap ran against new card files. Always run the `diff` check before restarting.
-- **No `--delete`.** The live folder holds git-ignored files the build does not ship, mainly `frontend/sky/scenes/` (5.7 MB of seasonal sky scenes), `tools/sky/src/` and `tools/sf_symbols/.sfcache/`.
-- **Restart Home Assistant** (it is part of the install: the new frontend only works once the new `__init__.py` has loaded). Then check HA's log shows the integration loaded with nothing beyond the custom-integration warning, and that the page loads only `/hk/modules/hk-boot.js` (200, `no-cache`).
-- **Reload every open screen** with the cache cleared, starting with one tablet (the Loft). An open page survives the swap (scratch-tested), but a browser that stayed open can hold an old cached module next to a new one (section 14). The Master Bedroom tablet is the one nobody wants to touch; the upgrade-with-an-open-screen check exists for it.
-- The version number in `manifest.json` stays `1.8.3` unless bumped; bump it first if HACS or the tablets should notice.
+- **Use `--inplace`.** Without it rsync writes each file to a temporary `.<name>.XXXX` first; for `__init__.py` that name starts with `._`, which some network shares (the Home Assistant Samba add-on, for one) refuse. The result is a half-copied folder: every `__init__.py` missing, and the old bootstrap running against new card files. Always run the `diff` check before restarting.
+- **No `--delete`.** The live folder may hold git-ignored files the build does not ship, such as `frontend/sky/scenes/` (the seasonal sky scenes), `tools/sky/src/` and `tools/sf_symbols/.sfcache/`.
+- **Restart Home Assistant.** The new frontend only works once the new `__init__.py` has loaded. Then check HA's log shows the integration loaded with nothing beyond the custom-integration warning, and that the page loads only `/hk/modules/hk-boot.js` (200, `no-cache`).
+- **Reload every open screen** with the cache cleared, starting with one tablet. An open page survives the swap (scratch-tested), but a browser that stayed open can hold an old cached module next to a new one (section 14).
+- The version number in `manifest.json` stays as it is unless bumped; bump it first if HACS or the tablets should notice.
 
 **Roll back**
 
 ```bash
-git -C /Volumes/config checkout 38d841bf -- custom_components/hk_frontend
-git -C /Volumes/config clean -fd -- custom_components/hk_frontend    # removes files the build added; without -x it keeps ignored ones
+git -C <ha-config> checkout <rollback commit> -- custom_components/hk_frontend
+git -C <ha-config> clean -fd -- custom_components/hk_frontend    # removes files the build added; without -x it keeps ignored ones
 ```
 
 Then restart HA and reload the tablets. Or restore the backup from step 2.
 
 ## 13. The scratch Home Assistant
 
-`tools/testha/` runs a throwaway Home Assistant on this Mac at `127.0.0.1:8124` with Home Assistant's `demo` integration (invented devices only), loaded with the built `hk_frontend` exactly as HACS would install it. It checks what the Node suites cannot: that the HA build works in a real HA frontend. It never touches `/Volumes/config` or the house, and reads nothing from `~/.config/mantel`.
+`tools/testha/` runs a throwaway Home Assistant on this Mac at `127.0.0.1:8124` with Home Assistant's `demo` integration (invented devices only), loaded with the built `hk_frontend` exactly as HACS would install it. It checks what the Node suites cannot: that the HA build works in a real HA frontend. It never touches your real Home Assistant, and reads nothing from `~/.config/mantel`.
 
 ```bash
-~/.venvs/mantel/bin/python tools/testha/testha.py up --fresh    # build, write config, start, onboard, add HK, make 3 dashboards
-~/.venvs/mantel/bin/python tools/testha/check.py                # click through it in headless Chrome: PASS/FAIL per item
-~/.venvs/mantel/bin/python tools/testha/testha.py down          # always stop it when done
+.venv/bin/python tools/testha/testha.py up --fresh    # build, write config, start, onboard, add HK, make 3 dashboards
+.venv/bin/python tools/testha/check.py                # click through it in headless Chrome: PASS/FAIL per item
+.venv/bin/python tools/testha/testha.py down          # always stop it when done
 ```
 
 `tools/testha/run.sh` does the three in one go (about 8 minutes). `restart_check.py --new <tree>` swaps HK under an open `/hk-wall` page and restarts HA, which is the test for a tablet nobody may reload. `tools/e2e/gateway_e2e.py` uses the same scratch HA for Mantel's command gateway. Two traps are already handled by `up`: HA 2026.9 reverts a `server_port` trial to port 8123 on all interfaces after five minutes unless it is confirmed, and onboarding would add network integrations. Details: [../tools/testha/README.md](../tools/testha/README.md) and [phase1/TESTHA.md](phase1/TESTHA.md).
@@ -575,10 +575,10 @@ Collected from the phase documents; check PLAN.md section 0 for the current stat
 
 | Gap | Effect | Where |
 |---|---|---|
-| **Images built and run on Docker Desktop (2026-10-18)**; the LXC and the App on the house are not yet run | The server image runs healthy under the production restrictions; base images are pinned. The full compose stack against the scratch HA and the LXC on proxmox1 are the next checks. | [phase3/PACKAGING.md](phase3/PACKAGING.md) |
-| **Login page: built, not yet used on the house** | `/login` offers passkey, password + authenticator code, and Sign in with HA, and returns to the page that sent you. Not built: passkeys offered in the user-name autofill; no headless check of `/login` yet. | [phase3/LOGIN-PAGE.md](phase3/LOGIN-PAGE.md) |
+| **Images built and run on Docker Desktop (2026-10-18)**; the LXC and the App on a real Home Assistant are not yet run | The server image runs healthy under the production restrictions; base images are pinned. The full compose stack against the scratch HA and the LXC on a Proxmox host are the next checks. | [phase3/PACKAGING.md](phase3/PACKAGING.md) |
+| **Login page: built, not yet used on a real install** | `/login` offers passkey, password + authenticator code, and Sign in with HA, and returns to the page that sent you. Not built: passkeys offered in the user-name autofill; no headless check of `/login` yet. | [phase3/LOGIN-PAGE.md](phase3/LOGIN-PAGE.md) |
 | **HA App: Ingress identity and prefix-relative URLs** | The App starts and is healthy, but sign-in through Ingress does not work yet. The entrypoint passes no `--trusted-proxy` there, so every request counts as `tunnel`. | `HA-APP.md` (in progress), PACKAGING.md |
-| **Mantel Connect: built and verified here, not yet installed on the house (2026-10-18)** | Guided pairing, the mutual-TLS listener, revocation, renewal, `/admin` Connect, the staged App and the compose/LXC switch are built and tested, including real Docker images. Not done: installing the App in the real HA (the real Supervisor Ingress path through Connect, the Companion app over cellular); a QR code for the pairing string. | [phase3/CONNECT.md](phase3/CONNECT.md) "Not done" |
+| **Mantel Connect: built and verified here, not yet installed on a real Home Assistant (2026-10-18)** | Guided pairing, the mutual-TLS listener, revocation, renewal, `/admin` Connect, the staged App and the compose/LXC switch are built and tested, including real Docker images. Not done: installing the App in the real HA (the real Supervisor Ingress path through Connect, the Companion app over cellular); a QR code for the pairing string. | [phase3/CONNECT.md](phase3/CONNECT.md) "Not done" |
 | **Linked mode's remaining gaps** | Per-tablet ownership, the real handlers and the 31 entities are built and wired (off by default). Not truthful yet: Live TV's channel cameras (published unavailable unless Mantel serves Live TV through its own go2rtc, section 7a; never with a stream source), notification snapshots; the Alarm PIN takes each person's Mantel PIN, not HA's one Alarm PIN. No `/admin` control for ownership (REST only). | LINKED-MODE.md "What's left" |
 | **Read side for tablets** | With the default roles a wall tablet has no `notifications` or `media` feature grant (`music`: a house grant since Phase 4, its speakers still its room's); add them when the tablets move. Camera stills, camera live view and calendar events now go through Mantel's connectors with RBAC: stills use `/api/camera/<entity>/still`, and pages never get an HA camera token. Media-player artwork goes through `/api/media/<entity>/art` the same way; no HA token reaches a page, in states or history answers. Live TV's transcode is not moved. | GATEWAY.md, CONNECTORS.md "What the page needs" |
 | **Music: Mantel's engine built, off until Music Assistant is given to Mantel (Phase 4)** | With `ma_url` + the token and the imported music settings (section 7a), Mantel answers the Music page (per-person and per-tablet home room) and runs its actions against Music Assistant directly. Until then the interim bridge to HA stays (`home: null`). Not on Mantel: announcements (always empty), HA's failure notifications (logged, in `/api/music/status`), and Browse's library reads (`music_assistant.get_library` through HA). Not yet run against a real Music Assistant. | [phase4/MANTEL-FEATURES.md](phase4/MANTEL-FEATURES.md) "Music" |

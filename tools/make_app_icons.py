@@ -1,6 +1,6 @@
 """Draw Mantel's app icon (a mantelpiece with a warm hearth) at every size the web app and the Apple apps use.
 
-Run: ~/.venvs/mantel/bin/python tools/make_app_icons.py
+Run: .venv/bin/python tools/make_app_icons.py
 Writes web/app/art/*.png (the Home Screen web app) and the AppIcon set in apple/ (the iPhone/iPad/Mac apps).
 Original artwork drawn here with Pillow: no Apple glyph or font is used, so the files are safe to commit.
 """

@@ -55,7 +55,7 @@ The hub now reloads a registry only when HA sends `area_registry_updated`, `devi
 ## Reproduce
 
 ```bash
-~/.venvs/mantel/bin/mantel-server &
-~/.venvs/mantel/bin/python hosts/server/tools/measure.py --minutes 5 --interval 5          # areas
-~/.venvs/mantel/bin/python hosts/server/tools/measure.py --minutes 3 --chatty 10 --interval 5   # coalescing at work
+.venv/bin/mantel-server &
+.venv/bin/python hosts/server/tools/measure.py --minutes 5 --interval 5          # areas
+.venv/bin/python hosts/server/tools/measure.py --minutes 3 --chatty 10 --interval 5   # coalescing at work
 ```

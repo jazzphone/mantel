@@ -28,7 +28,7 @@ Mantel Link's own documentation has every detail:
 ## Install
 
 You need Mantel itself first ([Install](Install.md)) and Home Assistant
-2026.9 or newer.
+2026.9 or newer (Mantel Server and HK Frontend alone need only 2026.8; see [Install](Install.md#before-you-start)).
 
 1. In HACS, **⋮ → Custom repositories**, add
    `https://github.com/jazzphone/mantel-link`, category **Integration**.

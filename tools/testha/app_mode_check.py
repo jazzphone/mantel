@@ -2,9 +2,9 @@
 (packaging/docker/entrypoint.py) with a simulated SUPERVISOR_TOKEN and the Supervisor's core URL pointed
 at the scratch HA. docs/phase3/HA-APP.md.
 
-    TESTHA_DIR=<dir> ~/.venvs/mantel/bin/python tools/testha/testha.py up --fresh
-    TESTHA_DIR=<dir> ~/.venvs/mantel/bin/python tools/testha/app_mode_check.py
-    TESTHA_DIR=<dir> ~/.venvs/mantel/bin/python tools/testha/testha.py down
+    TESTHA_DIR=<dir> .venv/bin/python tools/testha/testha.py up --fresh
+    TESTHA_DIR=<dir> .venv/bin/python tools/testha/app_mode_check.py
+    TESTHA_DIR=<dir> .venv/bin/python tools/testha/testha.py down
 
 What stands in for what: the scratch user's access token is the "SUPERVISOR_TOKEN" (HA's App credential);
 MANTEL_SUPERVISOR_CORE_URL / MANTEL_SUPERVISOR_WS_URL point "the Supervisor" at 127.0.0.1:8124; the Ingress
@@ -20,7 +20,7 @@ A wall tablet (decision 21): the Owner links a fictional tablet HA user to a new
 HA's areas (REST); that HA user is then the device on door 'ha' (ha_door_rules trusted), its page carries the
 kiosk mark, its socket sees only what its room and the tablet grants allow, its command is refused (commands
 off), and after the unlink it gets 401.
-Never touches /Volumes/config, the house, or ~/.config/mantel.
+Never touches a real Home Assistant or ~/.config/mantel.
 """
 from __future__ import annotations
 

@@ -1,6 +1,6 @@
 """Offline current-Home/client smoke: fictional state, real local WebSocket, isolated Chrome.
 
-Run: ~/.venvs/mantel/bin/python tools/headless/client_smoke.py [--shot /tmp/metric.png]
+Run: .venv/bin/python tools/headless/client_smoke.py [--shot /tmp/metric.png]
 No production token, DB, HA connection, fonts or captured personal fixtures are used.
 """
 from __future__ import annotations

@@ -8,9 +8,9 @@ that the HA build still works inside a real HA frontend.
 ## Use
 
 ```
-~/.venvs/mantel/bin/python tools/testha/testha.py up --fresh   # build, wipe + write config, start, onboard, add HK, make 3 dashboards
-~/.venvs/mantel/bin/python tools/testha/check.py               # click through it in headless Chrome; PASS/FAIL per item
-~/.venvs/mantel/bin/python tools/testha/testha.py down         # stop HA (always do this when done)
+.venv/bin/python tools/testha/testha.py up --fresh   # build, wipe + write config, start, onboard, add HK, make 3 dashboards
+.venv/bin/python tools/testha/check.py               # click through it in headless Chrome; PASS/FAIL per item
+.venv/bin/python tools/testha/testha.py down         # stop HA (always do this when done)
 ```
 
 `up` without `--fresh` rebuilds HK into the existing scratch config and restarts HA (state, user
@@ -59,7 +59,7 @@ installs them itself at first start; if the first start fails on numpy, install 
 
 ## Safety constraints (do not loosen)
 
-- **Never** points at `/Volumes/config` or the house's HA; nothing reads `~/.config/mantel`. All
+- **Never** points at a real Home Assistant; nothing reads `~/.config/mantel`. All
   writes go under `TESTHA_DIR` (the script refuses to delete anything outside it).
 - HA binds `127.0.0.1:8124` only. HA 2026.9 keeps the `http:` block as a "pending" trial and
   reverts it after five minutes to its default (port 8123, **all interfaces**) unless confirmed.

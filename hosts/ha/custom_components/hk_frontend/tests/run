@@ -60,7 +60,11 @@ for f in "$DIR"/test_*.js; do
   name=$(basename "$f" .js)
   case "$name" in *"$1"*) ;; *) [ -n "$1" ] && continue ;; esac
   ran=$((ran + 1))
-  out=$("$JSC" "$PRELUDE" "$f" 2>&1)
+  # The energy fixture is a Denver house: its day axis starts at Denver's
+  # midnights, and the page buckets by the process's own time zone.
+  tz=""
+  case "$name" in test_energysums) tz=America/Denver ;; esac
+  out=$(env ${tz:+TZ=$tz} "$JSC" "$PRELUDE" "$f" 2>&1)
   # THE EXIT STATUS IS CHECKED, not only the last line of output: a suite
   # that dies before printing its summary -- or exits nonzero after printing
   # one -- must not be counted as a pass.

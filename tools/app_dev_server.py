@@ -1,6 +1,6 @@
 """A fictional Mantel on this Mac for the iPhone/iPad/Mac apps in the Simulator (docs/phase10/APPLE-APPS.md, apple/README.md).
 
-Run: ~/.venvs/mantel/bin/python tools/app_dev_server.py --data-dir /tmp/mantel-app-dev [--port 8766]
+Run: .venv/bin/python tools/app_dev_server.py --data-dir /tmp/mantel-app-dev [--port 8766]
 
 * Listens on 127.0.0.1 only, over plain http (the apps accept http for a loopback address only). The Simulator
   shares the Mac's network, so the app reaches it at http://127.0.0.1:<port>.
