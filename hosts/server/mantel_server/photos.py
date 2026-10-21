@@ -379,17 +379,23 @@ class PhotoLibrary:
                 raise PhotoError("quota_exceeded", "Mantel Photos is full. Delete some photos, or an Owner can "
                                                    "raise the limit.", 413)
             pid = secrets.token_hex(16)
-            await asyncio.to_thread(self._write_files, pid, got)
             row = {"id": pid, "album_id": album["id"], "name": file_label(name), "width": got.width,
                    "height": got.height, "bytes": got.size, "source": source, "created": self.clock()}
             try:
+                # the files and the row together: a write that fails partway (a full disk) took its files with
+                # it no more, and left pictures no row counts toward the quota and nothing ever deletes
+                try:
+                    await asyncio.to_thread(self._write_files, pid, got)
+                except OSError as exc:
+                    log.warning("could not store a photo: %s", exc)
+                    raise PhotoError("storage_failed", "Mantel couldn't store the photo (is the disk full?).", 507) from exc
                 with self.db:
                     self.db.execute("INSERT INTO photos (id, album_id, sha256, name, width, height, bytes, source, "
                                     "created, created_by) VALUES (?,?,?,?,?,?,?,?,?,?)",
                                     (pid, album["id"], sha, row["name"], got.width, got.height, got.size, source,
                                      row["created"], user))
-            except Exception:
-                self._remove_files(pid)
+            except BaseException:
+                await asyncio.to_thread(self._remove_files, pid)
                 raise
         return row, False
 
