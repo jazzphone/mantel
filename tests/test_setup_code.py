@@ -103,29 +103,42 @@ async def test_mantel_bootstrap_replaces_the_logged_code_and_the_tick_leaves_it(
     assert await redeem(mantel, printed) == 200
 
 
-async def test_never_in_ingress_mode(tmp_path, caplog):
+async def _started(tmp_path, **cfg_args):
+    """A whole app started and stopped with this Config; returns its data folder and its tick's result."""
     from mantel_server.config import Config
-    from mantel_server.ha_client import HaClient
     from mantel_server.server import build_app
     from mantel_server.store import Store
 
-    cfg = Config(data_dir=tmp_path / "data", secrets_dir=tmp_path / "secrets", port=0, ingress=True)
+    cfg = Config(data_dir=tmp_path / "data", secrets_dir=tmp_path / "secrets", port=0, **cfg_args)
     store = Store(cfg.data_dir / "mantel.db")
     now = [1_000_000.0]
     app = build_app(cfg, "unused-fictional-token", store=store, connect_ha=False, clock=lambda: now[0])
     app["accounts"].hasher = PasswordHasher(time_cost=1, memory_cost=8, parallelism=1)
     try:
         async with TestClient(TestServer(app)):
-            assert announce_setup_code(app, startup=True) is None
+            again = announce_setup_code(app, startup=True)
             now[0] += BOOTSTRAP_TTL + 1
             await tick_once(app, app["hub"])
     finally:
         store.db.close()
-    assert codes(caplog.records) == []
-    assert not any(r.name == SETUP_LOGGER for r in caplog.records)
     db = sqlite3.connect(cfg.data_dir / "mantel.db")
     try:
-        assert db.execute("SELECT COUNT(*) FROM bootstrap_tokens").fetchone()[0] == 0
+        stored = db.execute("SELECT COUNT(*) FROM bootstrap_tokens").fetchone()[0]
     finally:
         db.close()
-    assert HaClient  # imported for parity with the shared fixture (no upstream is reached: connect_ha=False)
+    return again, stored
+
+
+async def test_never_in_the_ha_apps_ingress_mode(tmp_path, caplog):
+    again, stored = await _started(tmp_path, ingress=True)             # the HA App: its administrator becomes the Owner
+    assert again is None and stored == 0
+    assert codes(caplog.records) == []
+    assert not any(r.name == SETUP_LOGGER for r in caplog.records)
+
+
+async def test_a_docker_install_with_mantel_connect_still_logs_one(tmp_path, caplog):
+    """--connect implies ingress-style identity for the paired App's requests, but the install is Docker or the
+    LXC: its first Owner still signs up at /login with a code from the log."""
+    again, stored = await _started(tmp_path, connect=True, ingress=True, ingress_peers=())
+    assert again and stored == 1
+    assert len(codes(caplog.records)) == 3                               # start, the second issue, after expiry

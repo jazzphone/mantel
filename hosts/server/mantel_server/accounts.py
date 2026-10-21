@@ -11,8 +11,8 @@
 * **Passkeys**: WebAuthn via the ``webauthn`` package; challenges are stored server-side, single use,
   with an expiry. User verification is required.
 * **Bootstrap**: while no Owner exists, the server logs a one-time setup code at start and a new one each
-  time the last one expired (:func:`announce_setup_code`; never in Ingress mode, where the HA administrator
-  becomes the Owner: ingress.py). ``mantel-server bootstrap`` prints one too, replacing the current one.
+  time the last one expired (:func:`announce_setup_code`; never in the HA App's Ingress mode, where the HA
+  administrator becomes the Owner: ingress.py). ``mantel-server bootstrap`` prints one too, replacing the current one.
   Only the code's hash is stored, it is never audited, and no page shows it. ``POST /api/bootstrap``
   redeems it once to create the first Owner.
 * **Audit**: adding a person, changing their role or name, disabling or enabling them, changing your own
@@ -573,10 +573,11 @@ def setup_banner(code: str, login_url: str, ttl: float = BOOTSTRAP_TTL) -> str:
 def announce_setup_code(app: web.Application, *, startup: bool = False) -> str | None:
     """Log the first Owner's one-time setup code: at start (a new one: only its hash is stored, so an older
     one cannot be shown again), and later only when no valid code is left (the last one expired; one that
-    ``mantel bootstrap`` printed is left alone). Never in Ingress mode, never once an Owner exists. The
+    ``mantel bootstrap`` printed is left alone). Never in the HA App's Ingress mode (Mantel Connect's, on a
+    Docker or LXC install, does log one), never once an Owner exists. The
     code goes to the log alone: not the audit, not a page. Returns it (for tests), or None."""
     cfg = app["cfg"]
-    if cfg.ingress:
+    if cfg.ingress and not cfg.connect:     # the HA App (Mantel Connect is a Docker or LXC install: it logs one)
         return None
     acc: Accounts = app["accounts"]
     if acc.owner_exists() or (not startup and acc.bootstrap_token_live()):
