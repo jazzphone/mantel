@@ -233,10 +233,10 @@ def build(repo: str, pairs) -> None:
         os.makedirs(os.path.dirname(target), exist_ok=True)
         shutil.copy2(src, target)
         # a script (tests/run, tests/py/run) is run by name in the docs; the
-        # share it is developed on does not keep the executable bit
+        # disk it is developed on keeps no modes of its own (a share, or an
+        # external disk that reports 700 on every file), so they are set here
         with open(target, "rb") as f:
-            if f.read(2) == b"#!":
-                os.chmod(target, 0o755)
+            os.chmod(target, 0o755 if f.read(2) == b"#!" else 0o644)
 
 
 def stage(cwd) -> int:
