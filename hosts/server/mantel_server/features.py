@@ -347,10 +347,6 @@ class Feed:
     def listeners(self) -> int:
         return len(self._subs)
 
-    def identities(self) -> list[Any]:
-        """Who is listening now (a page's socket each)."""
-        return [identity for identity, _cb in list(self._subs.values())]
-
     def send(self, event: dict) -> int:
         users = event.get("users") or []
         n = 0
@@ -509,7 +505,7 @@ class MantelSleep(SE.Sleep):
     ``MantelHouse.call_service`` (the gateway). Each action and each call's outcome is kept."""
 
     CONFIRM_S = 4.0          # the page's answer to HK's black
-    CONFIRM_LONG_S = 20.0    # ...more time for a page that is connected, before giving up (no kiosk fallback)
+    CONFIRM_LONG_S = 20.0    # ...more time (reconnecting after a restart), then the backlight at its minimum
     KIOSK_WAIT_S = 2.0       # the kiosk reporting its screensaver up / down
     SETTLE_S = 0.9           # a wake's settle
     BACKSTOP_S = 2.0         # the backlight back up
@@ -667,24 +663,26 @@ class MantelSleep(SE.Sleep):
         own, k, t = self._own(), self.kiosk, self.target()
         if own.get("photos"):
             await self._call("switch", "turn_on", {"entity_id": own["photos"]})
-        confirmed = False
+        confirmed = dimmed = False
         hk_black = self.board.get("black_screen") == "hk"
-        kiosk_ok = not hk_black                  # the kiosk's screensaver: a kiosk-black tablet's own black
         if hk_black:
+            # HK'S BLACK, NEVER THE KIOSK'S UNDER IT: Kiosk Satellite's own screensaver ends by itself when
+            # another tablet sleeps or wakes (measured on the house 2026-10-21: 2.6-2.8 s later, every time),
+            # which lit the Master Bedroom at 05:18 and 05:59. A page slow to confirm (reconnecting after a
+            # restart, or HA's mirror lagging) gets more time; one that still has not answered gets its
+            # backlight at the minimum instead, so the screen is dark either way.
             await self.host.set_black(self.tid, black=True, brightness=t, why="sleep")
             confirmed = await self._until(self._black_confirmed, self.CONFIRM_S)
-            # HK'S BLACK ONLY, WHILE ITS PAGE IS THERE: a page that is connected confirms when it can (its
-            # `screen` frame is on its way), and Kiosk Satellite's own screensaver is never put under it --
-            # a kiosk screensaver ends by itself when another tablet sleeps or wakes (measured 2026-10-21:
-            # 2.6-2.8 s later, every time). Only a tablet whose page is not connected (a crashed or unloaded
-            # page, which would show the dashboard all night) still falls back to the kiosk's.
-            if not confirmed and self.host.page_connected(self.tid):
+            if not confirmed:
                 confirmed = await self._until(self._black_confirmed, self.CONFIRM_LONG_S)
-                if not confirmed:
-                    log.warning("Sleep Screen %s: the page has not confirmed HK's black yet; "
-                                "not putting the kiosk's screensaver under it", self.tid)
-            else:
-                kiosk_ok = not confirmed
+            if not confirmed:
+                scr = self._st(k.get("screen"))
+                if scr is not None and scr.state == "on":
+                    await self._call("light", "turn_on", {"entity_id": k["screen"], "brightness": 1})
+                    dimmed = True
+                log.warning("Sleep Screen %s: the page has not confirmed HK's black; the backlight is at its "
+                            "minimum instead (never the kiosk's screensaver under it)", self.tid)
+        kiosk_ok = not hk_black                  # the kiosk's screensaver: a kiosk-black tablet's own black
         if kiosk_ok and not confirmed and k.get("active"):
             if k.get("mode") and getattr(self._st(k["mode"]), "state", None) != "Black":
                 await self._call("select", "select_option", {"entity_id": k["mode"], "option": "Black"})
@@ -697,7 +695,7 @@ class MantelSleep(SE.Sleep):
             up = await self._until(lambda: getattr(self._st(k["active"]), "state", None) == "on", self.KIOSK_WAIT_S)
             if not up and self.want == "dark" and not self.app_front():
                 await self._call("switch", "turn_on", {"entity_id": [k[p] for p in ("armed", "active") if k.get(p)]})
-        black_up = confirmed or getattr(self._st(k.get("active")), "state", None) == "on"
+        black_up = confirmed or dimmed or getattr(self._st(k.get("active")), "state", None) == "on"
         scr = self._st(k.get("screen"))
         if power_off and black_up and scr is not None and scr.state == "on":
             if own.get("photos"):
@@ -1158,9 +1156,6 @@ class FeatureHooks:
                    ha_token=getattr(hooks, "ha_token", None))
 
 
-PAGES_BACK_S = 60.0        # after a start, the pages' time to reconnect (no kiosk fallback meanwhile)
-
-
 class FeatureHost:
     """hk_core's features on Mantel (see the module docstring). ``app["features"]``."""
 
@@ -1195,7 +1190,6 @@ class FeatureHost:
         self._reload_lock = asyncio.Lock()
         self._feed_unsub: Callable[[], None] | None = None
         self.started = False
-        self.started_mono = float("-inf")       # start() sets it: PAGES_BACK_S counts from there
         # what the screens are told (the settings feed's `added` and `energy`): the Energy page's plan as
         # last worked out, and the pair last published
         self.energy_cache: dict[str, Any] | None = None
@@ -1293,17 +1287,6 @@ class FeatureHost:
         if tid is None or tid not in self.tablets:
             return None
         return self.screens.setdefault(tid, ScreenState(tid))
-
-    def page_connected(self, tid: str) -> bool:
-        """A page that may speak for this tablet (may_speak_for) is listening to the screens' feed now -- or
-        Mantel started less than PAGES_BACK_S ago, while every page is still reconnecting (the restart at
-        06:53, 2026-10-21, put the kiosk's screensaver under four black tablets in its first seconds)."""
-        if time.monotonic() - self.started_mono < PAGES_BACK_S:
-            return True
-        try:
-            return any(may_speak_for(self, identity, tid) for identity in self.feed.identities())
-        except Exception:  # noqa: BLE001 -- not known: the old fallback stays
-            return False
 
     def own_ids(self, tid: str) -> dict[str, str]:
         t = self.tablets.get(tid)
@@ -1631,7 +1614,6 @@ class FeatureHost:
 
     # -- running -------------------------------------------------------------------------------------
     async def start(self) -> None:
-        self.started_mono = time.monotonic()
         await self.reload()
         svc = self.app.get("settings")
         if svc is not None:

@@ -1054,6 +1054,15 @@ Everything on main since 0.1.28 (validation green: JS 130, HA py 732, Mantel 283
 - A test fix: the alarm PIN check ignored numbers, since the clock itself read ...2580... today.
 - No HA backup (Avery).
 
+### 0.1.40 (2026-10-21)
+
+- **HK's black never has the kiosk's screensaver put under it** (features.py `MantelSleep.sleep`). 0.1.39 still fell
+  back for a page it did not count as connected, and right after its own restart the pages did not confirm, so the
+  Living Room and Loft got the kiosk's screensaver again (07:09). Now a page that does not confirm gets more time and
+  then its backlight at the minimum (`light.turn_on` brightness 1); the quiet hours' display off still follows. The
+  connection check and the 60 s grace are gone (unused).
+- No HA backup (Avery).
+
 ### Removal
 
 Stop and uninstall **Mantel** (Settings → Apps → Mantel → Uninstall); this removes its image and `/data`

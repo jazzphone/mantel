@@ -401,10 +401,10 @@ async def test_the_linked_backlight_with_commands_on_goes_through_the_gateway(ma
 def fast(monkeypatch):
     for k in ("CONFIRM_S", "CONFIRM_LONG_S", "KIOSK_WAIT_S", "SETTLE_S", "BACKSTOP_S"):
         monkeypatch.setattr(F.MantelSleep, k, 0.05)
-    monkeypatch.setattr(F, "PAGES_BACK_S", 0.0)          # no page is reconnecting in these tests
 
 
 SLEEPING = {**TABLET, "sleep": {**TABLET["sleep"], "decided_by": "hk"}}
+KIOSK_BLACK = {**SLEEPING, "black_screen": "kiosk"}     # Black Screen: Kiosk Satellite's (its own screensaver)
 
 
 async def test_an_engine_made_before_the_registries_finds_its_kiosk_when_they_load(make_env, fast, monkeypatch):
@@ -456,14 +456,14 @@ async def test_the_sleep_screen_with_commands_off_records_what_it_would_do(make_
     assert act["what"] == "sleep" and act["reason"] == "nobody here"
     calls = [(c["call"], c["data"].get("entity_id"), c["outcome"]) for c in act["calls"]]
     assert calls[0] == ("switch.turn_on", "switch.hall_photo_screensaver", "mantel"), "Mantel's own photos"
-    assert ("switch.turn_on", KP["armed"], "would") in calls and ("switch.turn_on", KP["active"], "would") in calls
+    assert not [c for c in calls if c[1] in (KP["armed"], KP["active"])], "HK's black: never the kiosk's under it"
     assert all(o in ("mantel", "would") for *_, o in calls)
     scr = env.host.screens["hall"]
     assert scr.black.on and not scr.black.confirmed, "Mantel's own black: its state, not a house command"
     assert eng.want == "dark" and eng.actual == "dark" and eng.action() is None, "no loop"
     st = env.host.status()
     assert st["sleep"]["hall"]["actions"][0]["calls"] == act["calls"]
-    assert {w["action"] for w in st["would"]} == {"switch.turn_on"}
+    assert {w["action"] for w in st["would"]} == {"light.turn_on"}, "the backlight down: the page did not confirm"
     assert all(r["decision"] == "denied" and r["reason"] == "commands_disabled" and r["actor"] == F.FEATURE_ACTOR
                for r in env.audit())
     # its sensor, published to linked HA
@@ -476,7 +476,7 @@ async def test_the_sleep_screen_with_commands_off_records_what_it_would_do(make_
 
 
 async def test_the_sleep_screen_with_commands_on_drives_the_kiosk_through_the_gateway(make_env, fast):
-    env = await make_env(commands=True, settings={"sleep": {"enabled": True}}, tablet=SLEEPING)
+    env = await make_env(commands=True, settings={"sleep": {"enabled": True}}, tablet=KIOSK_BLACK)
     eng = env.host.engines["hall"]
     assert await until(lambda: eng.actions and eng._task is None and eng.actions[0]["calls"])
     assert "switch.turn_on" in env.fake.sent
@@ -510,7 +510,6 @@ async def test_hks_black_is_confirmed_by_the_page_through_mantel_not_has_mirror(
     """The page's confirmation is Mantel's own: HA's mirror of the black switch (a round trip through Home
     Assistant) lagging -- HA finishing its backup -- no longer reads as unconfirmed."""
     env, eng = await _quiet_engine(make_env, monkeypatch)
-    monkeypatch.setattr(env.host, "page_connected", lambda tid: True)
     task = asyncio.get_running_loop().create_task(eng.sleep(False))
     assert await until(lambda: env.host.screens["hall"].black.on)
     await env.host.page_says("hall", True)                 # the page: black now (to Mantel, not HA)
@@ -518,23 +517,17 @@ async def test_hks_black_is_confirmed_by_the_page_through_mantel_not_has_mirror(
     assert env.host.screens["hall"].black.confirmed and _kiosk_calls(eng) == [], "no kiosk screensaver under it"
 
 
-async def test_a_connected_page_that_is_slow_to_confirm_never_gets_the_kiosks_screensaver(make_env, fast, monkeypatch):
+async def test_a_page_that_never_confirms_gets_the_backlight_down_never_the_kiosks_screensaver(make_env, fast, monkeypatch):
+    """Kiosk Satellite's own screensaver ends by itself when another tablet sleeps or wakes, so HK's black
+    never has it put under it: a page that does not answer (reconnecting, crashed) gets its backlight at the
+    minimum instead, and the quiet hours' display off still happens."""
     env, eng = await _quiet_engine(make_env, monkeypatch)
-    monkeypatch.setattr(env.host, "page_connected", lambda tid: True)
-    await eng.sleep(False)
-    assert env.host.screens["hall"].black.on and _kiosk_calls(eng) == [], \
-        "a kiosk screensaver ends by itself when another tablet sleeps or wakes"
-
-
-async def test_a_tablet_whose_page_is_not_connected_still_falls_back_to_the_kiosk(make_env, fast, monkeypatch):
-    env, eng = await _quiet_engine(make_env, monkeypatch)
-    monkeypatch.setattr(F, "PAGES_BACK_S", 60.0)
-    assert env.host.page_connected("hall") is True, "just after a start every page is still reconnecting"
-    monkeypatch.setattr(F, "PAGES_BACK_S", 0.0)
-    assert env.host.page_connected("hall") is False
-    await eng.sleep(False)
-    assert {c["data"]["entity_id"] for c in _kiosk_calls(eng)} == {KP["armed"], KP["active"]}, \
-        "a crashed or unloaded page would leave the dashboard lit all night"
+    change(env.app, KP["screen"], "on", brightness=120)
+    await eng.sleep(True)
+    calls = [(c["call"], c["data"].get("entity_id"), c["data"].get("brightness")) for a in eng.actions for c in a["calls"]]
+    assert _kiosk_calls(eng) == [], calls
+    assert ("light.turn_on", KP["screen"], 1) in calls, "the backlight at its minimum"
+    assert ("light.turn_off", KP["screen"], None) in calls, "power off still follows (the bedroom's quiet hours)"
 
 
 async def test_the_screens_are_told_when_a_black_is_confirmed(make_env, fast, monkeypatch):
@@ -550,18 +543,6 @@ async def test_the_screens_are_told_when_a_black_is_confirmed(make_env, fast, mo
     n = len(frames)
     await env.host.page_says("hall", True)                 # said again: nothing new to tell
     assert len(frames) == n
-
-
-async def test_a_page_listening_to_the_screens_feed_is_connected(make_env, monkeypatch):
-    monkeypatch.setattr(F, "PAGES_BACK_S", 0.0)
-    env = await make_env(settings={"sleep": {"enabled": True}}, tablet=HK_BLACK)
-    assert env.host.page_connected("hall") is False
-    await env.login("owner1", "owner")
-    ws = await env.socket(expect_caps=False)
-    await ws.send_json({"type": "read_subscribe", "id": 1, "msg": {"type": "hk_frontend/events/subscribe"}})
-    assert await until(lambda: env.host.page_connected("hall"))
-    await ws.close()
-    assert await until(lambda: not env.host.page_connected("hall"))
 
 
 # ---------------------------------------------------------------------- clean areas, energy, live TV
