@@ -270,3 +270,18 @@ async def test_hk_settings_says_where_each_screen_is_drawn(make_env):
         pass
     assert not f["success"] and f["error"]["code"] == "invalid"
     await ws.close()
+
+
+async def test_a_removed_home_assistant_dashboard_stops_marking_the_address_shared(make_env):
+    from mantel_server import screens as SC
+    env = await make_env()
+    ws = await connect(env)
+    await ws.receive_json(timeout=5)
+    await ws.send_json({"id": 5, "type": "report", "report": {"hk_dashboards": [{"path": "dashboard-hall", "title": "Hall"}]}})
+    while (await ws.receive_json(timeout=5)).get("id") != 5:
+        pass
+    place = env.app["settings"].place
+    assert place("dashboard-hall").get("conflict") is True
+    SC._forget_reported(env.app, "dashboard-hall")
+    assert place("dashboard-hall") == {"text": "Mantel", "icon": "mdi:fireplace", "where": "mantel"}
+    await ws.close()

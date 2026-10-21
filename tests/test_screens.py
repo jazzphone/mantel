@@ -121,6 +121,7 @@ async def test_remove_ha_only_removes_hk_s_generated_dashboard(mantel, ha):
     ha.configs["dashboard-loft"] = {"views": [{"cards": []}]}            # hand-built: never touched
     st, body = await call(mantel, "PUT", "/api/screens/dashboard-kitchen", {"remove_ha": True})
     assert st == 200 and body["removed"] == 1 and "dashboard_kitchen" not in ha.dashboards
+    # (a linked HK Frontend's report of its dashboards no longer lists it: tested in test_linked_settings' place tests)
     st, body = await call(mantel, "PUT", "/api/screens/dashboard-loft", {"remove_ha": True})
     assert st == 404 and "dashboard_loft" in ha.dashboards
     assert store(mantel).get("board", "dashboard-kitchen") is not None, "Mantel's screen stays"

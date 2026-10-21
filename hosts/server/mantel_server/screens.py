@@ -204,6 +204,8 @@ async def api_put(request: web.Request) -> web.Response:
         if not gone:
             return error(404, "no_ha_dashboard", message="Home Assistant has no generated HK dashboard at this "
                                                          "address (a hand-built one is never removed from here).")
+        _forget_reported(app, key)
+        svc.publish()
         return ok({"key": key, "removed": gone})
     else:
         return error(400, "invalid", message='{"where": "mantel"|"ha"}, {"title"}, or {"remove_ha": true}')
@@ -214,6 +216,16 @@ async def api_put(request: web.Request) -> web.Response:
                     expect={("board", key): cur.version})
     svc.publish()
     return ok({"key": key, "where": board.get("where", "mantel"), "title": board.get("title", "")})
+
+
+def _forget_reported(app: web.Application, key: str) -> None:
+    """HK Frontend reports its dashboards when its link connects; one Mantel just removed is gone from that list
+    now, so Screens stops marking the address as shared without waiting for the next connect."""
+    lk = app.get("linked")
+    for c in (lk.registry.clients if lk is not None else ()):
+        boards = c.report.get("hk_dashboards")
+        if isinstance(boards, list):
+            c.report["hk_dashboards"] = [b for b in boards if b.get("path") != key]
 
 
 def _tablets_on(svc: Any, key: str) -> list[str]:
