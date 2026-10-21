@@ -29,6 +29,7 @@ Results and screenshots go to `<scratch>/shots/` (`results.json`, `*.png`): neve
 
 | Command | What it does |
 |---|---|
+| `testha.py up --fresh --no-hk --rooms --region metric` | no HK Frontend, the demo devices in rooms anyway (`--rooms`), a metric de/DE Sydney house (`--region us` is the default): `tools/e2e/home_screen_e2e.py` |
 | `testha.py up --fresh` | wipe the scratch config and credentials, then start clean |
 | `testha.py up --ordered-boot` | **experiment, scratch copy only**: HA's frontend `import()`s HK's bootstrap modules in parallel, so they run in arrival order, not list order (see `docs/phase1/TESTHA.md`). This concatenates the dependency-free core into one ordered `hk-boot.js` and imports the rest after it, to prove order is the cause and that one ordered file fixes it. The repo is never touched. |
 | `check.py --only home,light,weather,cameras,menu,tabs,saver,race,sim` | run some checks (8 and 8b always run) |

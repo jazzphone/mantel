@@ -50,17 +50,28 @@ ROOMS = {
 }
 MAIN_SCREEN, WALL_SCREEN, PHONE_SCREEN = "hk-scratch", "hk-wall", "hk-phone"
 
+# The house's place and units (testha.py up --region): the default is a US house in the northern hemisphere; "metric"
+# is a metric, 24-hour, German-language one in the southern hemisphere (tools/e2e/home_screen_e2e.py runs both)
+REGIONS = {
+    "us": dict(lat=40.0, lon=-75.0, units="us_customary", tz="America/New_York", currency="USD", country="US",
+               language="en"),
+    "metric": dict(lat=-33.87, lon=151.21, units="metric", tz="Australia/Sydney", currency="EUR", country="DE",
+                   language="de"),
+}
+REGION = "us"
+
 # Only these; no default_config, no zeroconf/ssdp/dhcp/bluetooth/homekit/cast/sonos/unifi/go2rtc.
 CONFIGURATION = """\
 homeassistant:
   name: HK Scratch
-  latitude: 40.0
-  longitude: -75.0
+  latitude: {lat}
+  longitude: {lon}
   elevation: 10
-  unit_system: us_customary
-  time_zone: America/New_York
-  currency: USD
-  country: US
+  unit_system: {units}
+  time_zone: {tz}
+  currency: {currency}
+  country: {country}
+  language: {language}
   auth_providers:
     - type: trusted_networks
       trusted_networks:
@@ -237,7 +248,7 @@ def prepare(fresh: bool, sequential: bool = False, hk: bool = True, probe: bool 
         store.parent.mkdir(parents=True, exist_ok=True)
         store.write_text(json.dumps({"version": 4, "minor_version": 1, "key": "onboarding",
                                      "data": {"done": ["core_config", "analytics", "integration"]}}))
-    (CONFIG / "configuration.yaml").write_text(CONFIGURATION.format(db=CONFIG / "home-assistant_v2.db"))
+    (CONFIG / "configuration.yaml").write_text(CONFIGURATION.format(db=CONFIG / "home-assistant_v2.db", **REGIONS[REGION]))
     # the automation and script editors' files (an e2e saves a fictional automation and script through HA's API)
     for name in ("automations.yaml", "scripts.yaml"):
         if not (CONFIG / name).exists():
@@ -341,7 +352,20 @@ class WS:
                 return m.get("result")
 
 
-async def setup() -> None:
+async def add_rooms(ws: "WS") -> None:
+    """Rooms for the invented devices, so the Home page has room sections with tiles."""
+    areas = {a["name"]: a["area_id"] for a in await ws.call(type="config/area_registry/list")}
+    for name, ents in ROOMS.items():
+        if name not in areas:
+            areas[name] = (await ws.call(type="config/area_registry/create", name=name))["area_id"]
+        for e in ents:
+            try:
+                await ws.call(type="config/entity_registry/update", entity_id=e, area_id=areas[name])
+            except RuntimeError:
+                pass                     # a demo entity this HA version does not have
+
+
+async def setup(rooms: bool = False) -> None:
     async with aiohttp.ClientSession() as http:
         token = await access_token(http)
         h = {"Authorization": "Bearer " + token}
@@ -364,6 +388,8 @@ async def setup() -> None:
             except RuntimeError:
                 pass
             if not (CONFIG / "custom_components/hk_frontend").is_dir():
+                if rooms:
+                    await add_rooms(ws)
                 say("ready, without HK Frontend (Mantel Link installed, not set up)")
                 return
             entries = await ws.call(type="config_entries/get", domain="hk_frontend")
@@ -380,16 +406,7 @@ async def setup() -> None:
                     raise SystemExit(f"hk_frontend flow: {flow}")
                 entry_id = flow["result"]["entry_id"]
                 say("added the hk_frontend config entry")
-            # rooms for the invented devices, so the Home page has room sections with tiles
-            areas = {a["name"]: a["area_id"] for a in await ws.call(type="config/area_registry/list")}
-            for name, ents in ROOMS.items():
-                if name not in areas:
-                    areas[name] = (await ws.call(type="config/area_registry/create", name=name))["area_id"]
-                for e in ents:
-                    try:
-                        await ws.call(type="config/entity_registry/update", entity_id=e, area_id=areas[name])
-                    except RuntimeError:
-                        pass                     # a demo entity this HA version does not have
+            await add_rooms(ws)
             have = {d["url_path"] for d in await ws.call(type="lovelace/dashboards/list")}
             for path, title, kind in ((MAIN_SCREEN, "HK Scratch", "computer"), (WALL_SCREEN, "HK Wall", "wall_tablet"),
                                     (PHONE_SCREEN, "HK Phone", "personal")):
@@ -426,31 +443,37 @@ def main() -> None:
     ap.add_argument("--fresh", action="store_true", help="wipe the scratch config and credentials first")
     ap.add_argument("--no-hk", action="store_true",
                     help="no HK Frontend in the scratch HA (Mantel Link alone; it is always installed, not set up)")
+    ap.add_argument("--rooms", action="store_true",
+                    help="with --no-hk: still put the invented devices in rooms (HK's setup does it otherwise)")
     ap.add_argument("--zeroconf-probe", action="store_true",
                     help="add a scratch-only component that hands _mantel._tcp announcements on loopback to Mantel Link")
     ap.add_argument("--supervisor-probe", action="store_true",
                     help="add a scratch-only stand-in for the Supervisor's discovery hand-off (POST /api/mantel_e2e/discovery)")
     ap.add_argument("--phone-probe", action="store_true",
                     help="add a scratch-only stand-in Companion-app phone (notify.mobile_app_e2e_phone)")
+    ap.add_argument("--region", choices=sorted(REGIONS), default="us",
+                    help="the scratch house's units, language and place (default us; metric: metric, de/DE, Sydney)")
     ap.add_argument("--stream", action="store_true",
                     help="add HA's own stream player (HLS) for Live TV's channel cameras; go2rtc stays off")
     ap.add_argument("--ordered-boot", action="store_true",
                     help="EXPERIMENT: scratch copy loads HK's dependency-free bootstrap modules as ONE ordered file (tests the load-order fix)")
     a = ap.parse_args()
+    global REGION
+    REGION = a.region
     SCRATCH.mkdir(parents=True, exist_ok=True)
     if a.cmd == "down":
         stop()
     elif a.cmd == "status":
         say("pid", pid(), "answering", ready())
     elif a.cmd == "setup":
-        asyncio.run(setup())
+        asyncio.run(setup(a.rooms))
     else:
         if pid():
             stop()
         prepare(a.fresh, a.ordered_boot, hk=not a.no_hk, probe=a.zeroconf_probe, phone=a.phone_probe,
                 supervisor=a.supervisor_probe, stream=a.stream)
         start()
-        asyncio.run(setup())
+        asyncio.run(setup(a.rooms))
 
 
 if __name__ == "__main__":

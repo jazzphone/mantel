@@ -179,6 +179,19 @@ others cover linked mode (`linked_e2e.py`), Mantel Link (`mantel_link_e2e.py --p
 (`features_e2e.py`, `feature_parity_e2e.py`) and talk-back (`talk_e2e.py`). `music_e2e.py` uses a fake Music
 Assistant; `compose_e2e.py` and `live_tv_e2e.py` need Docker.
 
+`home_screen_e2e.py` is the first-run check for a Home Assistant **without** HK Frontend. A new Mantel (no screens, no
+people) gets its Owner through the bootstrap API and connects the scratch HA through Connections; then headless
+Chrome opens `/home` and checks that it lands on the generated Home screen (`/dashboard-home/home`), that the demo's
+rooms and tiles are drawn, that a room page, Lights, Climate and Security open, and that no page logs a console error
+or makes a failed request. It runs twice, against the `us` scratch house and a `metric` one (metric units,
+`de`/`DE`, Sydney: `testha.py up --region metric`), about 40 seconds in all and no Docker. It starts HA with
+`--no-hk --rooms`. The only requests it lets fail are the licensed font and glyph files Mantel asks for until the
+owner supplies them (Mantel Settings, Your files).
+
+```bash
+.venv/bin/python tools/e2e/home_screen_e2e.py [--region us|metric]
+```
+
 ## Static checks
 
 ### Packaging
