@@ -449,7 +449,7 @@
   var displayLayer = null, fadeDone = null, photoRun = 0;
   // the screensaver's fade in, waiting for its first photo (start)
   var entrance = null, ENTRANCE_MAX = 1500;
-  var coverT = null, coveredPage = null, pageVisibility = null;
+  var coverT = null, coveredPage = null, pageVisibility = null, coveredView = [];
   // THE FORECAST (1.3): the live sky over the season's land (hkSky.scene),
   // with the forecast band -- when a screen asks for it, or has no photos
   var mode = 'photos', fscene = null, fband = null, fTick = null, fSig = '';
@@ -1528,6 +1528,11 @@
     try { window.dispatchEvent(new CustomEvent('hk-saver', { detail: { on: on } })); } catch (e) { /* ignore */ }
   }
 
+  // `el` inside `root`, across shadow roots
+  function within(root, el) {
+    for (var n = el; n; n = n.parentNode || n.host) if (n === root) return true;
+    return false;
+  }
   // visibility preserves layout, scroll position and the connected HA data
   // subscription. Restore it before the screensaver fades out, and preserve
   // any visibility style that was already set by the page.
@@ -1539,7 +1544,10 @@
         if (pageVisibility.value) st.setProperty('visibility', pageVisibility.value, pageVisibility.priority);
         else st.removeProperty('visibility');
       }
-      coveredPage = null; pageVisibility = null;
+      coveredView.forEach(function (c) {
+        if (c.value) c.el.style.setProperty('visibility', c.value, c.priority); else c.el.style.removeProperty('visibility');
+      });
+      coveredPage = null; pageVisibility = null; coveredView = [];
       return;
     }
     if (coveredPage) return;
@@ -1548,6 +1556,17 @@
     coveredPage = page;
     pageVisibility = { value: page.style.getPropertyValue('visibility'), priority: page.style.getPropertyPriority('visibility') };
     page.style.setProperty('visibility', 'hidden', 'important');
+    // THE VIEW, WHERE THE HOST KEEPS IT OUTSIDE ITS ROOT (Mantel: #view
+    // beside #hk-shell-root, 2026-10-21). Left showing under the photos, the
+    // whole dashboard -- its sky, its cards, the shared blur's layers -- kept
+    // its compositing layers through the screensaver (~7 screens of them at
+    // 1920 x 1200, headless), and Return to Home made a new page's ~120 under
+    // it mid-turn. Hidden with the root, as Home Assistant's whole page is.
+    var view = window.hkShell.viewContainer ? window.hkShell.viewContainer() : null;
+    if (view && view.style && !within(page, view)) {
+      coveredView.push({ el: view, value: view.style.getPropertyValue('visibility'), priority: view.style.getPropertyPriority('visibility') });
+      view.style.setProperty('visibility', 'hidden', 'important');
+    }
     // BACK TO THE TOP, UNSEEN (2026-10-04). The house's sleep script used to
     // do this with a Fully `javascript:` load_url -- which stole the
     // foreground from a running app (TABLET-INVARIANTS section 2) and which
