@@ -11,12 +11,25 @@
 // `commands_disabled`, never says `capabilities`, and the page offers no actions at all.
 import { wsUrl } from './base.js';
 
+// A SOCKET THAT DROPS (a Wi-Fi blip, Mantel restarting, a tablet waking): the server streams states only
+// after `subscribe`, and a feed only after its `read_subscribe`, per socket. So the hub keeps what the page
+// asked for and asks again on the new socket: the last subscription (its snapshot replaces what the page
+// holds), and every live feed under its own id (its unsubscribe keeps working). A WebRTC offer is answered
+// for one peer connection only: it is ended with an error event instead, and the card starts again. Retries
+// back off from 2 to 30 seconds, with jitter, so a house of tablets doesn't come back at the same instant.
+const ONE_SHOT = new Set(['camera/webrtc/offer']);
+const RETRY_MIN = 2000;
+const RETRY_MAX = 30000;
+const lost = () => Object.assign(new Error('connection lost'), { code: 'unavailable', message: 'connection lost' });
+
 export class Hub {
   constructor() {
     this.ws = null;
     this.nextId = 1;
     this.pending = new Map();      // id -> {resolve, reject, cb, command}
     this.capabilities = null;      // the server's {commands, door}, when it sends one
+    this.wanted = null;            // the last subscribe frame, sent again on each new socket
+    this.retry = RETRY_MIN;
     this.onSnapshot = () => {};
     this.onDiff = () => {};
     this.onCapabilities = () => {};
@@ -26,11 +39,23 @@ export class Hub {
   connect() {
     return new Promise((resolve, reject) => {
       const ws = (this.ws = new WebSocket(wsUrl('/ws')));
-      ws.onopen = () => resolve();
+      const again = this.connected;
+      ws.onopen = () => {
+        this.connected = true;
+        this.retry = RETRY_MIN;
+        if (again) this._resume();
+        resolve();
+      };
       ws.onerror = () => reject(new Error('hub connection failed'));
       ws.onclose = () => {
+        if (this.ws !== ws) return;
         this._dropCommands();
-        if (!this.closing) setTimeout(() => this.connect().then(() => this.onReconnect && this.onReconnect()), 2000);
+        if (this.closing) return;
+        const wait = this.retry * (0.75 + Math.random() / 2);
+        this.retry = Math.min(this.retry * 2, RETRY_MAX);
+        setTimeout(() => {
+          this.connect().then(() => { if (this.onReconnect) this.onReconnect(); }, () => { /* its own close retries */ });
+        }, wait);
       };
       ws.onmessage = (ev) => {
         this.msgs++; this.bytes += ev.data.length;
@@ -77,17 +102,38 @@ export class Hub {
     });
   }
 
-  // a socket that closed answers no command or save: each waiting one is told, none is re-sent
+  // a socket that closed answers no command, save or read: each waiting one is told, none is re-sent. A
+  // feed (read_subscribe) stays, to be asked for again on the next socket (_resume), unless it is one-shot.
   _dropCommands() {
     for (const [id, p] of this.pending) {
       if (p.command) {
         this.pending.delete(id);
         p.resolve({ type: 'command_result', error: { code: 'unavailable', message: 'connection lost' } });
-      } else if (p.save || p.ask) {
+      } else if (p.cb && ONE_SHOT.has(p.msg && p.msg.type)) {
         this.pending.delete(id);
-        p.reject(Object.assign(new Error('connection lost'), { code: 'unavailable', message: 'connection lost' }));
+        p.reject(lost());
+        try { p.cb({ type: 'error', code: 'unavailable', message: 'connection lost' }); } catch (e) { console.error('[hub]', e); }
+      } else if (!p.cb) {
+        this.pending.delete(id);
+        p.reject(lost());
       }
     }
+  }
+
+  // a new socket after a dropped one: the subscription and the live feeds again
+  _resume() {
+    if (this.wanted) this._send(this.wanted);
+    for (const [id, p] of this.pending) {
+      if (p.cb && p.msg) this._send({ type: 'read_subscribe', id, msg: p.msg });
+    }
+  }
+
+  _open() { return !!this.ws && this.ws.readyState === 1; }
+
+  _send(frame) {
+    if (!this._open()) return false;
+    this.ws.send(JSON.stringify(frame));
+    return true;
   }
 
   // HK's own settings saves (P3.5): `msg` exactly as the page sends it to HA (hk_frontend/settings/set,
@@ -148,11 +194,14 @@ export class Hub {
     });
   }
 
+  // kept, and sent at once when the socket is open (else on the next one: _resume)
   subscribe(entityIds, areas, all) {
-    this.ws.send(JSON.stringify({ type: 'subscribe', entity_ids: entityIds || [], areas: areas || [], all: !!all }));
+    this.wanted = { type: 'subscribe', entity_ids: entityIds || [], areas: areas || [], all: !!all };
+    this._send(this.wanted);
   }
 
   read(msg) {
+    if (!this._open()) return Promise.reject(lost());
     const id = this.nextId++;
     return new Promise((resolve, reject) => {
       this.pending.set(id, { resolve, reject });
@@ -163,6 +212,7 @@ export class Hub {
   // the one REST read Mantel offers (readproxy.REST_READS: GET calendars/<entity>?start&end), as
   // {type: 'read_api', id, method, path}; answered by read_result like read()
   readApi(method, path) {
+    if (!this._open()) return Promise.reject(lost());
     const id = this.nextId++;
     return new Promise((resolve, reject) => {
       this.pending.set(id, { resolve, reject });
@@ -170,11 +220,13 @@ export class Hub {
     });
   }
 
+  // a feed: kept until unsubscribed, and asked for again on each new socket (_resume) under the same id
   readSubscribe(msg, cb) {
+    if (ONE_SHOT.has(msg && msg.type) && !this._open()) return Promise.reject(lost());
     const id = this.nextId++;
     return new Promise((resolve, reject) => {
-      this.pending.set(id, { resolve: () => resolve(() => { this.pending.delete(id); this.ws.send(JSON.stringify({ type: 'read_unsubscribe', id })); }), reject, cb });
-      this.ws.send(JSON.stringify({ type: 'read_subscribe', id, msg }));
+      this.pending.set(id, { resolve: () => resolve(() => { this.pending.delete(id); this._send({ type: 'read_unsubscribe', id }); }), reject, cb, msg });
+      this._send({ type: 'read_subscribe', id, msg });
     });
   }
 }
