@@ -1122,6 +1122,14 @@ Everything on main since 0.1.28 (validation green: JS 130, HA py 732, Mantel 283
 - With it, **HK Frontend 1.10.2** (a screen's where and title kept through its saves) and **Mantel Link 0.1.5**
   (the page's new name in its pairing text), both copied by hand. No HA backup (Avery).
 
+### 0.1.46 (2026-10-21)
+
+- **While Mantel runs the house, HK Frontend steps aside** (docs/phase9/TWO-PRODUCTS.md): its features' actions
+  (`hk_frontend.music_*`, `clean_areas`, pausing an automation) are forwarded to Mantel and run by it, and Add
+  feature, Configure and every item on HK Frontend's page in HA point to Mantel Settings.
+- Screens: removing Home Assistant's dashboard clears the shared-address mark at once.
+- With it, **HK Frontend 1.10.3**, copied by hand. Mantel Link unchanged (0.1.5). No HA backup (Avery).
+
 ### Removal
 
 Stop and uninstall **Mantel** (Settings → Apps → Mantel → Uninstall); this removes its image and `/data`
