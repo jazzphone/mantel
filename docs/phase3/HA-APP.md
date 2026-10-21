@@ -1096,6 +1096,18 @@ Everything on main since 0.1.28 (validation green: JS 130, HA py 732, Mantel 283
 - Music on a Home Assistant without HK Frontend says "not set up" once instead of retrying.
 - Mantel Link unchanged (0.1.4).
 
+### 0.1.44 (2026-10-21)
+
+- **A linked HK Frontend uses Mantel's settings** while Mantel runs the house (docs/phase9/TWO-PRODUCTS.md "One
+  copy of the settings when linked"): Mantel sends them over the link and HK Frontend's dashboards in HA draw with
+  them; their saves go to Mantel as the person linked to the HA user, once an Owner turns on Home Assistant Link
+  -> Saves from Home Assistant (the Service account's new `linked_saves` scope). Home Assistant Link lists HA's
+  people with the role each saves as; HK Settings' screens say where each is drawn.
+- With it, **HK Frontend 1.10.1** (copied by hand): the mirror, the forwarded saves, the Repairs issue for unlinked
+  admins, its dashboards reported, and Mantel's last settings kept when the house moves back.
+- A new database opened by several processes at once no longer fails on the WAL switch.
+- Mantel Link unchanged (0.1.4). No HA backup (Avery).
+
 ### Removal
 
 Stop and uninstall **Mantel** (Settings → Apps → Mantel → Uninstall); this removes its image and `/data`
