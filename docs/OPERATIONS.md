@@ -440,33 +440,20 @@ What to look for: a `denied` row with an unexpected person; repeated wrong Alarm
 
 ## 10. Backups and restore
 
-`BACKUP-FILES.md` (the full design, nightly encrypted backups, "your files") is in progress. Until it lands, this is the minimum, and **a restore has not been rehearsed yet**; the cutover runbook makes that a prerequisite.
+Mantel makes its own **encrypted backups** (`backup.py`); the user guide's [Backups](guide/Backups.md) is the full
+procedure. In short:
 
-**What to back up**
-
-| Item | Why |
+| What | How |
 |---|---|
-| `mantel.db` (a consistent copy, not the live file) | Everything Mantel owns. |
-| `at_rest.key` | Without it every TOTP seed in the copy is unreadable. |
-| `/etc/hk/secrets/` (`ha_token`, `ma_token`, tunnel and DNS tokens) | Or recreate them: tokens can be reissued, `at_rest.key` cannot. |
-| `packaging/compose/.env` | The settings. |
-| "Your files" (SF Pro and the SF Symbols glyphs, Apple's, never in the repo) | Kept in `/data/user-files` and inside the encrypted backup (`backup`, unless `--no-files`). To supply them once: /admin, Your files, "HK fonts and glyphs", or `docker compose exec mantel-server mantel files import-assets <folder>` on a copy of HA's `/config/www/hk` (needs `fonts/SF-Pro.woff2` and `iconset/hk-glyphs.js`; see [BACKUP-FILES.md](phase3/BACKUP-FILES.md)). |
-| Mantel Photos (the screensavers' albums) | Kept in `/data/photos` and inside the encrypted backup with "Your files" (unless `--no-files`); the records are in `mantel.db`. Mantel Settings → Your Files → Photos shows the size. See [phase4/PHOTOS.md](phase4/PHOTOS.md). |
+| Nightly backups | `--backup-target DIR` (Docker/LXC: `MANTEL_BACKUP_TARGET`, the mounted folder) turns them on; `--backup-time`, `--backup-keep-daily`, `--backup-keep-weekly`, `--backup-no-files`. The time is Home Assistant's time zone once known. The HA App uses Home Assistant's own backups instead (`backup: cold`). |
+| One now | `docker compose exec mantel-server mantel backup --target /backups`. It deletes no older backup unless given `--keep-daily` / `--keep-weekly`. Take one before every update (section 11). |
+| What is inside | A consistent snapshot of `mantel.db` (checked before it is packed), Your Files and Mantel Photos (unless `--no-files`), the saved connections, Mantel Connect's CA, and the keys Mantel makes (`keys/`: push, the apps' identity). Sealed with `backup.key`. |
+| What is not | `at_rest.key` and `backup.key` (keep your own copies, away from the backups), the other secret files, `.env`. |
+| Check one | `mantel restore FILE --verify-only`: decrypts and checks everything, changes nothing. |
+| Restore | `mantel restore FILE --data-dir /data` into a fresh data folder, or `--replace` (the old files are moved aside as `*.before-restore-<time>`, never deleted). A backup from a newer Mantel is refused, and so is a database a newer Mantel migrated. |
 
-A consistent online copy of the database (do not copy `mantel.db` alone while the server runs; WAL mode keeps recent writes in `mantel.db-wal`):
-
-```bash
-docker compose exec mantel-server python - <<'PY'
-import sqlite3, time
-src = sqlite3.connect("/data/mantel.db")
-dst = sqlite3.connect(f"/data/backup-{time.strftime('%Y%m%d-%H%M%S')}.db")
-src.backup(dst); dst.close(); src.close()
-PY
-```
-
-Then move that file, `at_rest.key` and the secrets to the NAS; the Proxmox backup of the container is a second copy. Keep backups encrypted or on storage only you can read: they contain password hashes and the audit log.
-
-**Restore.** Stop the server; put the backup in place as `mantel.db` and **delete any stale `mantel.db-wal` and `mantel.db-shm`**; restore `at_rest.key`; start the server. Migrations bring an older copy forward. Check `/healthz`, sign in as the Owner, and `GET /api/audit?limit=5` to see the last rows. Take a backup **before every update** (section 11), because migrations only go forward and restoring the pre-update copy is the safe rollback if an update goes wrong.
+Keep the backup folder on storage only you can read: a backup holds password hashes and the audit log, sealed
+with `backup.key`.
 
 ## 11. Updating Mantel
 

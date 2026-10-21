@@ -211,7 +211,8 @@ async def ws_preset_save(hass: HomeAssistant, connection, msg: dict[str, Any]) -
     vol.Optional("icon"): vol.Any(None, str),
     vol.Required("items"): [str],
     vol.Optional("chooser"): vol.Any(None, str),
-    vol.Optional("order"): vol.Any(None, vol.Coerce(float)),
+    # a finite number: "nan" or "inf" coerce to floats that sort unpredictably and are stored as null
+    vol.Optional("order"): vol.Any(None, vol.All(vol.Coerce(float), vol.Range(min=-1e6, max=1e6))),
 })
 @websocket_api.require_admin
 @websocket_api.async_response

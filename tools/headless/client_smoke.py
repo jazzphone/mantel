@@ -322,6 +322,18 @@ async def smoke(shot=None, shots=None):
                     hub.on_change({"sensor.proof"})
                     assert await browser.wait(text + " === '22.8 °C'", 5), "WebSocket update did not reach metric"
                     assert await browser.eval("window.__proofClientUpdates === 1 && window.hkCards.client() === window.__mantel.client")
+                    # A DROPPED SOCKET (Mantel restarting, a Wi-Fi blip): the page's hub reconnects and asks for its
+                    # states again (hub.js _resume), so a change made while it was away, and the next one, both show.
+                    for s in list(hub.sessions):
+                        await s.ws.close()
+                    await asyncio.sleep(0.2)
+                    hub.store.apply_event({"c": {"sensor.proof": {"+": {"s": "22.1", "lu": 2.5}}}})
+                    hub.on_change({"sensor.proof"})
+                    assert await browser.wait(text + " === '22.1 °C'", 10), "the page did not catch up after a reconnect"
+                    hub.store.apply_event({"c": {"sensor.proof": {"+": {"s": "22.8", "lu": 2.6}}}})
+                    hub.on_change({"sensor.proof"})
+                    assert await browser.wait(text + " === '22.8 °C'", 5), "the page stopped following after a reconnect"
+                    await browser.eval("window.__proofClientUpdates = 1")
                     # a real save through Mantel's settings store reaches the page's settings feed
                     await settings.save(owner, {"type": "hk_frontend/settings/set", "changes": {"weather.place": "Offline after"}})
                     assert await browser.wait("window.hkSettings.get('weather.place') === 'Offline after'", 5), "settings update did not reach shared module"

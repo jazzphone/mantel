@@ -455,7 +455,14 @@ async def test_the_music_assistant_gate_is_the_gateway(gw):
     assert REFUSE_ALL.allow(who, "player_queues/play", {}) is False
 
 
+MA_SPEAKERS = [{"entity_id": "media_player.kitchen_ma", "platform": "music_assistant", "unique_id": "q",
+                "area_id": "kitchen"},
+               {"entity_id": "media_player.cody_ma", "platform": "music_assistant", "unique_id": "cody",
+                "area_id": "cody_room"}]
+
+
 async def test_music_commands_are_unavailable_without_music_assistant(gw):
+    gw.app["hub"].registry.load(HOUSE_AREAS, [], HOUSE_ENTITIES + MA_SPEAKERS)
     await gw.login("avery", "owner")
     ws = await gw.socket()
     reply = await gw.command(ws, kind="ma", command="player_queues/play", args={"queue_id": "q"})
@@ -472,3 +479,141 @@ def test_a_settings_row_s_reason_is_the_role_that_made_the_change(tmp_path):
     audit.config_event({"actor": "u0", "role": "owner", "action": "grant.add", "detail": {}})
     audit.config_event({"actor": "u0", "action": "grant.add", "detail": {}, "reason": "bootstrap"})
     assert [r["reason"] for r in audit.rows(kind="config")] == ["admin", "owner", "bootstrap"]
+
+
+async def test_a_room_moved_in_home_assistant_counts_at_once_not_at_the_next_restart(gw):
+    """The decisions' registry lookups read the registry's current tables: a reload replaces them, and the
+    kitchen tablet must lose a lock the Owner moves to the porch without Mantel restarting."""
+    await gw.login("avery", "owner")
+    r = await gw.m.post("/api/devices/enroll", {"name": "Kitchen tablet", "room": "kitchen"})
+    assert r.status == 201
+    ws = await gw.socket()
+    gw.app["authz"].context()                                    # some decision built the lookups already
+    moved = [dict(e, area_id="porch") if e["entity_id"] == "lock.kitchen_door" else e for e in HOUSE_ENTITIES]
+    gw.app["hub"].registry.load(HOUSE_AREAS, [], moved)
+    assert gw.app["authz"].context().area_of("lock.kitchen_door") == "porch"
+    rep = await gw.command(ws, id=9, **service("lock", "unlock", "lock.kitchen_door"))
+    assert "result" not in rep and rep["error"]["code"] == "forbidden", rep
+    assert gw.fake.sent == []
+    await ws.close()
+
+
+async def test_a_garage_that_appears_after_a_reconnect_is_still_a_garage(gw):
+    """The state store replaces its dict on every reconnect (state.replace_all); device_class must come from
+    the current one, or a Guest could open a garage door Home Assistant first reports after a restart."""
+    from gateway_fakes import STATES
+    from mantel_server.rbac import Subject
+    authz, hub = gw.app["authz"], gw.app["hub"]
+    authz.context()
+    hub.registry.load(HOUSE_AREAS, [], HOUSE_ENTITIES + [{"entity_id": "cover.garage_2", "area_id": "kitchen"}])
+    hub.store.replace_all({"a": {**{k: dict(v) for k, v in STATES.items()},
+                                 "cover.garage_2": {"s": "closed", "a": {"device_class": "garage"}, "lc": 2, "lu": 2}}})
+    assert authz.context().device_class_of("cover.garage_2") == "garage"
+    guest = Subject(user_role="guest", user_id="g1", user_areas={"kitchen"})
+    assert authz.decide(guest, "cover.open_cover", "cover.garage_2").allowed is False
+
+
+def _uid(env, name):
+    return env.app["store"].db.execute("SELECT id FROM users WHERE username = ?", (name,)).fetchone()[0]
+
+
+async def test_entities_named_in_a_services_data_are_decided_too(gw):
+    """Only target/entity_id was decided: a Child refused the kitchen speaker's volume could join it to their own
+    player (group_members), and cast any camera to their TV (media-source://camera/...)."""
+    hub = gw.app["hub"]
+    hub.registry.load(HOUSE_AREAS, [], HOUSE_ENTITIES + [{"entity_id": "media_player.cody", "area_id": "cody_room"},
+                                                         {"entity_id": "media_player.kitchen", "area_id": "kitchen"}])
+    await gw.login("cody", "child")
+    gw.app["rbac"].set_scopes("user", _uid(gw, "cody"), ["cody_room"])
+    ws = await gw.socket()
+    join = await gw.command(ws, id=1, **service("media_player", "join", "media_player.cody",
+                                                data={"group_members": ["media_player.kitchen"]}))
+    cast = await gw.command(ws, id=2, **service("media_player", "play_media", "media_player.cody",
+                                                data={"media_content_id": "media-source://camera/camera.doorbell",
+                                                      "media_content_type": "application/vnd.apple.mpegurl"}))
+    music = await gw.command(ws, id=3, **service("media_player", "play_media", "media_player.cody",
+                                                 data={"media_content_id": "media-source://radio/x",
+                                                       "media_content_type": "music"}))
+    clip = await gw.command(ws, id=4, **service("media_player", "play_media", "media_player.cody",
+                                                data={"media_content_id": "media-source://frigate/frigate/event/x",
+                                                      "media_content_type": "video"}))
+    assert join["error"]["code"] == "forbidden" and cast["error"]["code"] == "forbidden", (join, cast)
+    assert clip["error"]["code"] == "forbidden", clip
+    assert "result" in music and gw.fake.sent == ["media_player.play_media"]
+    await ws.close()
+
+
+async def test_a_wall_tablet_may_watch_the_doorbell_but_not_switch_off_or_record_cameras(gw):
+    """HOUSE_GRANTS gave tablets control.sensitive on every camera, for the doorbell pop-up's live view and
+    talk-back; that is every camera service. Live view and talk keep it (authz.DOORBELL_GRANTS), nothing else."""
+    await gw.login("avery", "owner")
+    assert (await gw.m.post("/api/devices/enroll", {"name": "Kitchen tablet", "room": "kitchen"})).status == 201
+    ws = await gw.socket()
+    for i, (svc, data) in enumerate([("turn_off", {}), ("disable_motion_detection", {}),
+                                     ("record", {"filename": "/config/www/x.mp4"}),
+                                     ("play_stream", {"media_player": "media_player.anything"})], 1):
+        rep = await gw.command(ws, id=i, **service("camera", svc, "camera.doorbell", data=data))
+        assert rep.get("error", {}).get("code") == "forbidden", (svc, rep)
+    assert gw.fake.sent == []
+    (s,) = list(gw.app["hub"].sessions)
+    assert gw.app["authz"].may_view(s.principal, "camera.doorbell") is True
+    await ws.close()
+
+
+
+async def test_a_raw_music_assistant_command_is_decided_on_each_player_it_names(gw):
+    """kind "ma" was decided on the music feature alone: a Child with music control drove every speaker, and had
+    Music Assistant fetch any address with an announcement."""
+    class Ma:
+        def __init__(self):
+            self.sent = []
+
+        async def command(self, identity, command, **args):
+            assert gw.app["gateway"].allow(identity, command, dict(args)) is True
+            self.sent.append(command)
+            return {"ok": True}
+
+        async def close(self):
+            pass
+    gw.app["ma"] = ma = Ma()
+    gw.app["hub"].registry.load(HOUSE_AREAS, [], HOUSE_ENTITIES + MA_SPEAKERS)
+    await gw.login("cody", "child")
+    gw.app["rbac"].set_scopes("user", _uid(gw, "cody"), ["cody_room"])
+    ws = await gw.socket()
+    other = await gw.command(ws, id=1, kind="ma", command="players/cmd/power", args={"player_id": "q", "powered": False})
+    group = await gw.command(ws, id=2, kind="ma", command="players/cmd/group_many",
+                             args={"target_player": "cody", "child_player_ids": ["q"]})
+    unknown = await gw.command(ws, id=3, kind="ma", command="players/cmd/play", args={"player_id": "nowhere"})
+    say = await gw.command(ws, id=4, kind="ma", command="players/cmd/play_announcement",
+                           args={"player_id": "cody", "url": "http://198.51.100.7/x.mp3"})
+    mine = await gw.command(ws, id=5, kind="ma", command="players/cmd/play", args={"player_id": "cody"})
+    assert [r.get("error", {}).get("code") for r in (other, group, unknown, say)] == \
+        ["forbidden", "forbidden", "unsupported_target", "forbidden"]
+    assert "result" in mine and ma.sent == ["players/cmd/play"]
+    await ws.close()
+
+
+async def test_the_person_who_unlocked_from_away_cannot_dismiss_the_owners_notice(gw):
+    """The Owners' "remote access" notice is mantel_remote_<audit id>, and the client is told the audit id: the
+    Adult who unlocked from away could dismiss the notice about it. Mantel's own notices, and dismissing every
+    notice at once, are settings-level."""
+    import asyncio
+    await gw.login("jordan", "adult")
+    seed = await gw.enroll_totp()
+    gw.m.forget_cookies()
+    gw.now[0] += 60
+    r, body = await gw.m.sign_in("jordan", tunnel=True)
+    r = await gw.m.post("/api/auth/totp/verify", {"pending": body["pending"], "code": totp(seed, gw.now[0])},
+                        csrf=False, tunnel=True)
+    ws = await gw.socket(tunnel=True)
+    rep = await gw.command(ws, **service("lock", "unlock", "lock.front_door"))
+    await asyncio.sleep(0.05)
+    mine = await gw.command(ws, id=2, kind="service", domain="persistent_notification", service="dismiss",
+                            data={"notification_id": f"mantel_remote_{rep['audit_id']}"})
+    every = await gw.command(ws, id=3, kind="service", domain="persistent_notification", service="dismiss_all")
+    other = await gw.command(ws, id=4, kind="service", domain="persistent_notification", service="dismiss",
+                             data={"notification_id": "washer_done"})
+    assert mine["error"]["code"] == "forbidden" and every["error"]["code"] == "forbidden"
+    assert "result" in other
+    assert gw.fake.sent == ["lock.unlock", "persistent_notification.create", "persistent_notification.dismiss"]
+    await ws.close()

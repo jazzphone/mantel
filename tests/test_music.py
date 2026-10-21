@@ -944,3 +944,24 @@ async def test_the_library_needs_music_assistant_not_the_music_settings(no_doc):
     got = await no_doc.read(ws, lib(media_type="playlist"))
     assert len(got["result"]["items"]) == 2
     await ws.close()
+
+
+async def test_keep_playlists_ready_starts_when_music_assistant_is_connected_later(monkeypatch):
+    """warmer.follow ran only at start and on a settings save: with Music Assistant added (or re-added) on the
+    Connections page later, Keep Playlists Ready showed on and no round ever ran."""
+    from types import SimpleNamespace
+
+    from mantel_server import music as M
+    from mantel_server.registry import Registry
+    from mantel_server.state import StateStore
+    app = {}
+    host = M.MusicHost(app, SimpleNamespace(store=StateStore(), registry=Registry()), None)
+    doc = {"options": {M.CONF_KEEP_READY: True}, "items": []}
+    monkeypatch.setattr(host, "doc", lambda: doc)
+    await host.start()
+    assert host.warmer._task is None
+    app["ma"] = SimpleNamespace(connected=asyncio.Event())
+    host.connection_changed()
+    await asyncio.sleep(0)
+    assert host.warmer.on and host.warmer._task is not None
+    await host.stop()

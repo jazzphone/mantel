@@ -275,6 +275,26 @@ class MusicAssistant(Upstream):
             return False
         return authz.decide(principal.subject, "control", None, feature="music").allowed is True
 
+    # what a signed-in page can do: everything the page token's MA user can, on every player, straight to MA
+    SIGNED_ACTIONS = ("media_player.play_media", "media_player.join", "media_player.volume_set")
+
+    def may_sign(self, app, principal) -> bool:
+        """Whether this socket may be signed in with the page token (ma_page.py). A signed page sends Music
+        Assistant's own commands past the gateway, so it is given only to someone the gateway would let do
+        all of it: house commands on, and every speaker Mantel knows (Music Assistant's players in Home
+        Assistant) theirs to play, group and turn up. Anyone else (a Child kept to their rooms, a wall
+        tablet) gets the page unsigned: Music Assistant's own sign-in, its own accounts."""
+        from .music import ma_players
+        authz, hub = app.get("authz"), app.get("hub")
+        if app.get("gateway") is None or authz is None or hub is None or principal is None or not principal.valid:
+            return False
+        speakers = ma_players(hub.registry)
+        if not speakers:
+            return False
+        ctx = authz.context()
+        return all(authz.decide(principal.subject, action, eid, ctx=ctx).allowed
+                   for eid in speakers for action in self.SIGNED_ACTIONS)
+
     def rewriter(self, public_base: str) -> Callable[[str], str]:
         olds = sorted({self.origin, self.base, *self.announced}, key=len, reverse=True)
         olds = [o.rstrip("/") for o in olds if o]
@@ -536,8 +556,10 @@ class MediaProxy:
         base = public_base(request, up.prefix)
         rewrite = up.rewriter(base) if isinstance(up, MusicAssistant) else None
         signed_in = False
-        if plan.signed and isinstance(up, MusicAssistant):
+        if plan.signed and isinstance(up, MusicAssistant) and up.may_sign(request.app, principal):
             signed_in = await self.sign_in(request, up, upstream, ws, rewrite)
+            if signed_in:
+                _audit_signed_page(request.app, principal)
 
         async def down() -> None:            # upstream -> page
             nonlocal rewrite
@@ -591,6 +613,20 @@ class MediaProxy:
             await ws.close()
             self.sockets.discard(ws)
         return ws
+
+
+def _audit_signed_page(app, principal) -> None:
+    """A signed Music Assistant page is written down when it opens: what it sends after that goes to Music
+    Assistant directly (MusicAssistant.may_sign says who may have one)."""
+    audit = app.get("audit")
+    if audit is None:
+        return
+    ident = principal.identity
+    user, device = ident.user, ident.device
+    audit.config_event({"actor": user.id if user else None, "role": user.role if user else None,
+                        "device": device.id if device else None, "device_role": device.role if device else None,
+                        "action": "music.page_signed_in", "detail": {"page": "music_assistant"},
+                        "reason": "every_speaker", "door": ident.door, "source_ip": principal.source_ip})
 
 
 def _blocked_command(text: str, blocked: frozenset) -> str | None:

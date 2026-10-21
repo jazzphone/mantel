@@ -354,3 +354,29 @@ async def test_a_notification_about_the_alarm_opens_the_keypad(hass, alarms, fro
     assert q["sheet"] == OTHER
     r = N.build_action(hass, opts, {"title": "Alarm!", "entity": ALARM})
     assert r["sheet"] == panel
+
+
+async def test_wrong_pins_lock_the_keypad_for_a_while(hass, alarms, frontend):
+    """Five wrong PINs in a row lock the PIN panel for 15 minutes -- even the
+    right PIN is refused then -- and a right PIN before that starts the count
+    again. A 4-digit PIN can't be walked through from a wall tablet."""
+    from custom_components.hk_frontend.features.alarm_pin import alarm_control_panel as panel
+    await add(hass, ALARM)
+    gate = panel_of(hass, pins(hass)[0])
+    for _ in range(4):
+        with pytest.raises(ServiceValidationError):
+            await call(hass, "alarm_arm_away", gate, "0000")
+    await call(hass, "alarm_arm_away", gate, "4321")
+    assert hass.states.get(ALARM).state == "armed_away", "a right PIN after four misses"
+    for _ in range(5):
+        with pytest.raises(ServiceValidationError) as err:
+            await call(hass, "alarm_disarm", gate, "1111")
+    assert err.value.translation_key == "alarm_pin_invalid_code"
+    with pytest.raises(ServiceValidationError) as err:
+        await call(hass, "alarm_disarm", gate, "4321")
+    assert err.value.translation_key == "alarm_pin_locked"
+    assert hass.states.get(ALARM).state == "armed_away", "locked: the right PIN is refused too"
+    later = panel.monotonic() + 15 * 60 + 1
+    with patch.object(panel, "monotonic", return_value=later):
+        await call(hass, "alarm_disarm", gate, "4321")
+    assert hass.states.get(ALARM).state == "disarmed"

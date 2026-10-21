@@ -199,7 +199,8 @@ function confirmDialog(title, text, label = 'Confirm', danger = false) {
 async function passkeyStepUp() {
   const opt = await api('POST', '/api/auth/passkey/options', { username: state.me.user.username || undefined }, { retry: false });
   const cred = await navigator.credentials.get({ publicKey: toRequest(opt.options) });
-  await api('POST', '/api/auth/passkey/verify', { challenge_id: opt.challenge_id, credential: credentialJSON(cred) }, { retry: false });
+  const got = await api('POST', '/api/auth/passkey/verify', { challenge_id: opt.challenge_id, credential: credentialJSON(cred), step_up: true }, { retry: false });
+  if (!got || got.step_up !== true) throw new Error('That passkey is someone else’s. Use your own.');
 }
 
 // "Confirm it is you": TOTP or passkey, then the refused request is sent once more.

@@ -558,8 +558,13 @@
       inn.querySelectorAll('.st .ln').forEach(function (l) {
         if (l.animate) l.animate([{ backgroundSize: '0% 100%' }, { backgroundSize: '100% 100%' }], { duration: dur, easing: ease, fill: 'backwards' });
       });
+      // (the marker comes in by its colors, painted, not its opacity: an
+      // opacity animation is the compositor's, and made the marker a layer
+      // only while it ran -- made and dropped at every Weather turn, 2026-10-21)
       inn.querySelectorAll('.bar b').forEach(function (b) {
-        if (b.animate) b.animate([{ left: '0px', opacity: 0 }, { left: b.style.left, opacity: 1 }], { duration: dur, easing: ease, fill: 'backwards' });
+        if (b.animate) b.animate([{ left: '0px', backgroundColor: 'rgba(255,255,255,0)', boxShadow: '0 0 0 3px rgba(0,0,0,0)' },
+                                  { left: b.style.left, backgroundColor: 'rgb(255,255,255)', boxShadow: '0 0 0 3px rgba(0,0,0,.25)' }],
+                                 { duration: dur, easing: ease, fill: 'backwards' });
       });
     }
     function layout(w, h) {

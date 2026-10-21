@@ -7,6 +7,7 @@ from aiohttp import web
 from aiohttp.test_utils import TestServer
 
 from connector_fakes import HA_TOKEN, ICE, FakeHa, wait_for
+from gateway_fakes import off  # noqa: F401 -- fixture
 from mantel_server.config import Config
 from mantel_server.connectors import Ctx, Forbidden, Hooks
 from mantel_server.connectors import camera
@@ -167,3 +168,82 @@ async def test_register_without_a_token_is_unavailable():
     with pytest.raises(ConnectionError):
         await app["read_routes"]["camera/webrtc/get_client_config"].request(
             ctx_for("adult"), {"type": "camera/webrtc/get_client_config", "entity_id": "camera.porch"})
+
+
+# -- the full app: who may watch, and for how long (the 2026-10 audit) ------------------------------------
+class RecordingProxy:
+    """Stands in for the signaling connection to HA: what would reach HA, and what is still live there."""
+
+    def __init__(self, delay=0.0):
+        self.subscribed, self.unsubscribed, self.live, self.delay, self._n = [], [], {}, delay, 0
+
+    async def subscribe(self, msg, on_event):
+        self._n += 1
+        mid = self._n
+        await asyncio.sleep(self.delay)                  # a round trip to HA
+        self.subscribed.append(mid)
+        self.live[mid] = on_event
+        on_event({"type": "session", "session_id": f"s{mid}"})
+        return mid
+
+    async def unsubscribe(self, mid):
+        self.unsubscribed.append(mid)
+        self.live.pop(mid, None)
+
+    async def request(self, msg):
+        return None
+
+    async def close(self):
+        pass
+
+
+def _offer(rid, cam="camera.doorbell"):
+    return {"type": "read_subscribe", "id": rid,
+            "msg": {"type": "camera/webrtc/offer", "entity_id": cam, "offer": "v=0"}}
+
+
+async def test_the_same_subscription_id_twice_never_leaks_a_session_at_ha(off):
+    rec = RecordingProxy(delay=0.05)
+    off.app["camera_signaling_holder"]["proxy"] = rec
+    await off.login("alex", "adult")
+    ws = await off.socket(expect_caps=False)
+    await ws.send_json(_offer(5))
+    await ws.send_json(_offer(5))                        # the same id, before the first answer
+    await asyncio.sleep(0.3)
+    await ws.close()
+    await asyncio.sleep(0.3)
+    assert rec.subscribed == [1] and rec.live == {}
+
+
+async def test_a_camera_hidden_by_a_deny_on_view_cannot_be_watched_either(off):
+    from gateway_fakes import recv
+    from mantel_server.rbac import Grant
+    rec = RecordingProxy()
+    off.app["camera_signaling_holder"]["proxy"] = rec
+    await off.login("alex", "adult")
+    off.app["rbac"].add_grant(Grant(effect="deny", actions=("view",), resource_kind="entity",
+                                        resource="camera.doorbell", roles={"adult"}))
+    ws = await off.socket(expect_caps=False)
+    await ws.send_json(_offer(2))
+    got = await recv(ws)
+    while got.get("id") != 2:
+        got = await recv(ws)
+    assert got.get("error", {}).get("code") in ("forbidden", "not_allowed") and rec.subscribed == []
+    await ws.close()
+
+
+async def test_losing_a_camera_ends_its_live_stream_at_the_next_tick(off):
+    from mantel_server import server
+    from mantel_server.rbac import Grant
+    rec = RecordingProxy()
+    off.app["camera_signaling_holder"]["proxy"] = rec
+    await off.login("alex", "adult")
+    ws = await off.socket(expect_caps=False)
+    await ws.send_json(_offer(1))
+    await asyncio.sleep(0.2)
+    assert list(rec.live) == [1]
+    off.app["rbac"].add_grant(Grant(effect="deny", actions=("*",), resource_kind="entity",
+                                        resource="camera.doorbell", roles={"adult"}))
+    await server.tick_once(off.app, off.app["hub"])
+    assert rec.unsubscribed == [1] and rec.live == {}
+    await ws.close()

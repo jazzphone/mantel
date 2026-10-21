@@ -13,9 +13,12 @@
 
 {
 	admin off
-	# Only cloudflared (fixed address on the tunnel network) may tell us a client's real address.
+	# Only cloudflared (fixed address on the tunnel network) may tell us a client's real address, and it
+	# says it in Cf-Connecting-Ip (set by Cloudflare's edge; a browser can't). From anyone else the client
+	# is the socket's peer.
 	servers {
 		trusted_proxies static {$MANTEL_CLOUDFLARED_IP:172.31.250.3}
+		client_ip_headers Cf-Connecting-Ip
 	}
 	log {
 		output stdout
@@ -78,7 +81,11 @@ http://:8080 {
 	bind {$MANTEL_CADDY_TUNNEL_IP:172.31.250.2}
 	import common
 	request_header X-Mantel-Door tunnel
-	reverse_proxy mantel-backend:8765
+	# Mantel takes the LAST X-Forwarded-For hop from Caddy. Appended to, that was cloudflared's own address
+	# for every remote visitor (one sign-in limit shared by the whole internet); it is the client's alone.
+	reverse_proxy mantel-backend:8765 {
+		header_up X-Forwarded-For {client_ip}
+	}
 }
 
 # ---- Caddy's own healthcheck (loopback inside the Caddy container) ----------------------------------

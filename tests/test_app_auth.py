@@ -244,7 +244,7 @@ async def test_hello_proves_the_houses_key(mantel):
     key = app_crypto.public_from_raw(app_crypto.unb64u(got["key"]))
     assert app_crypto.fingerprint(key) == got["fingerprint"]
     assert app_crypto.es256_verify(key, app_auth.hello_message(nonce, got["fingerprint"]), app_crypto.unb64u(got["signature"]))
-    assert (m.app["cfg"].secrets_dir / app_auth.IDENTITY_FILE).is_file()
+    assert (m.app["cfg"].data_dir / "keys" / app_auth.IDENTITY_FILE).is_file()   # a key file, not the database
     assert (await m.client.get("/api/app/hello", params={"nonce": "x"})).status == 400
 
 
@@ -472,6 +472,7 @@ async def test_an_apps_notification_is_sealed_to_the_phone(mantel, tmp_path):
         sent.append((url, headers, data))
         return 200, {}
     secrets_dir = m.app["cfg"].secrets_dir
+    secrets_dir.mkdir(parents=True, exist_ok=True)            # the operator's folder, where Apple's key goes
     sender = m.app["apns"]
     sender.transport = transport
     p = m.app["pusher"]
@@ -544,3 +545,42 @@ async def test_the_consent_page_lets_its_own_form_carry_its_origin(mantel):
     r = await m.client.post("/app/authorize", data={**q, "csrf": m.cookie("mantel_csrf"), "decision": "allow"},
                             headers={"Origin": "null"}, allow_redirects=False)
     assert r.status == 403 and "bad Origin" in await r.text()
+
+
+async def test_a_pairing_code_goes_with_the_session_that_made_it(mantel):
+    """A code made before a password reset still minted a 30-day app credential after it: the reset ends the
+    person's sessions, and now the codes they made too."""
+    m = mantel
+    await m.user("avery", "owner")
+    victim = await m.user("casey", "adult")
+    await m.sign_in("casey")
+    link = (await (await m.post("/api/app/pairing")).json())["link"]
+    code = parse_qs(urlsplit(link).query)["c"][0]
+    m.forget_cookies()
+    await m.sign_in("avery")
+    r = await m.post(f"/api/users/{victim}/password", {"password": "brand new passphrase"})
+    assert r.status == 200
+    m.forget_cookies()
+    r, tok = await FakeApp(m).token({"grant_type": "pairing_code", "code": code, "client_id": "mantel-ios"})
+    assert r.status == 400 and tok["error"] == "invalid_grant"
+
+
+async def test_the_apps_web_view_is_not_a_sign_in_made_just_now(mantel):
+    """Every web view the app opened counted as a fresh sign-in for the credential's 30 days: step-up-gated
+    changes from away with nothing typed. It must Confirm It Is You like any other session."""
+    m = mantel
+    await m.user("avery", "owner")
+    victim = await m.user("casey", "adult")
+    phone, _ = await sign_in_app(m, "avery", role=None)
+    m.now[0] += 20 * 86400
+    r, got = await phone.token({"grant_type": "refresh_token", "refresh_token": phone.refresh})
+    assert r.status == 200, got
+    m.forget_cookies()
+    r, got = await phone.call("POST", "/api/app/web-session", {"next": "/settings"}, tunnel=True)
+    r = await m.client.get(got["url"], allow_redirects=False, headers={"X-Mantel-Door": "tunnel"})
+    assert r.status == 302
+    s = await (await m.client.get("/api/session", headers={"X-Mantel-Door": "tunnel"})).json()
+    assert s["door"] == "tunnel" and s["fresh_factor_at"] is None
+    r = await m.client.post(f"/api/users/{victim}/password", json={"password": "brand new passphrase"},
+                            headers={"X-Mantel-Door": "tunnel", "X-CSRF-Token": s["csrf"]})
+    assert r.status == 403 and (await r.json())["error"] == "step_up_required"

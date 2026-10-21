@@ -205,12 +205,21 @@ async def test_an_allowing_gate_sends_catalog_commands_only(fake_ma, token_file)
 
 # ------------------------------------------------------------------------- register (client messages)
 def music_hooks(allowed: bool):
-    return Hooks(may_read=lambda who, kind, ids: [i for i in ids if allowed and i == "feature:music"])
+    # the music feature, and the den's speaker (not the kitchen's): ma/read and ma/subscribe answer per player
+    return Hooks(may_read=lambda who, kind, ids: [i for i in ids if allowed and i in ("feature:music", "media_player.den")])
+
+
+def speakers_registry():
+    from types import SimpleNamespace
+    return SimpleNamespace(registry=SimpleNamespace(entity_entries=[
+        {"entity_id": "media_player.den", "platform": "music_assistant", "unique_id": "fake-den"},
+        {"entity_id": "media_player.kitchen", "platform": "music_assistant", "unique_id": "fake-kitchen"}]))
 
 
 async def make_registered(fake_ma, token_file, hooks):
     app = web.Application()
     app["cfg"] = Config(ma_url=fake_ma.url, ma_token_file=token_file)
+    app["hub"] = speakers_registry()
     client = ma.register(app, None, hooks)
     client.request_timeout = 3
     client.start()
@@ -230,14 +239,18 @@ async def test_register_offers_reads_and_events_only(fake_ma, token_file):
     await h["ma/read"](ctx, {"id": 1, "command": "players/all"})
     await h["ma/read"](ctx, {"id": 2, "command": "player_queues/play_media", "args": {"queue_id": "q", "media": "x"}})
     await h["ma/subscribe"](ctx, {"id": 3, "events": ["player_updated"]})
+    await fake_ma.push({"event": "player_updated", "object_id": "fake-kitchen", "data": {}})   # not theirs
     await fake_ma.push({"event": "player_updated", "object_id": "fake-den", "data": {}})
     await wait_for(lambda: any(m["type"] == "ma_event" for m in out))
+    await h["ma/read"](ctx, {"id": 4, "command": "player_queues/items", "args": {"queue_id": "fake-kitchen"}})
     await ctx.close()
     assert out[0] == {"type": "ma_result", "id": 1, "result": [{"player_id": "fake-den", "display_name": "Den",
                                                                 "state": "idle"}]}
     assert out[1]["error"]["code"] == "not_allowed"
     assert out[2] == {"type": "ma_result", "id": 3, "result": None}
-    assert out[3]["event"]["event"] == "player_updated" and ctx.subs == {}
+    assert out[3]["event"]["event"] == "player_updated" and out[3]["event"]["object_id"] == "fake-den"
+    assert [m["event"]["object_id"] for m in out if m["type"] == "ma_event"] == ["fake-den"] and ctx.subs == {}
+    assert out[-1] == {"type": "ma_result", "id": 4, "error": {"code": "not_found", "message": "no such player"}}
     assert "player_queues/play_media" not in fake_ma.commands()
     await client.close()
 

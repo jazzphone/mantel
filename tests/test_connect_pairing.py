@@ -666,3 +666,20 @@ def test_the_app_options_file_is_read_as_a_file(tmp_path):
     assert connect_app.read_options(tmp_path / "missing.json") == {}
     p.write_text("not json")
     assert connect_app.read_options(p) == {}
+
+
+def test_asking_for_the_pending_code_leaves_no_transaction_open(tmp_path):
+    """pending() ran its DELETE outside a transaction block, leaving a write transaction open on the server's one
+    connection: any other writer then failed with "database is locked" until an unrelated commit."""
+    import sqlite3
+
+    from mantel_server.connect_pairing import Connect
+    from mantel_server.store import Store
+    store = Store(tmp_path / "mantel.db")
+    pairing = Connect(store.db, tmp_path / "connect", clock=lambda: 1_000_000.0)
+    pairing.pending()
+    assert not store.db.in_transaction
+    other = sqlite3.connect(tmp_path / "mantel.db", timeout=0.1)
+    other.execute("CREATE TABLE IF NOT EXISTS t (x)")
+    other.commit()
+    other.close()

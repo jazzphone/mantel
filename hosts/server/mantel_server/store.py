@@ -4,7 +4,8 @@ Lives outside git (default ~/.local/share/mantel/mantel.db, folder mode 0700). W
 *link* (an HA user with a role) is now an HA-linked Mantel user plus its ``ha_links`` row; what it
 called a *session* is a session whose id is an access token. Only SHA-256 hashes of tokens are
 stored, so a copy of the database cannot be replayed as a cookie. The dry-run ``command_audit``
-table (proof 2) is unchanged and append-only.
+table (proof 2) is kept, append-only, for its old rows; nothing writes it since the command gateway's
+``action_audit`` replaced it.
 """
 from __future__ import annotations
 
@@ -25,16 +26,6 @@ class Store:
         self.database = Database(path)
         self.db = self.database.conn
         self.sessions = SessionManager(self.db, time.time)
-
-    def audit_command(self, *, timestamp, actor, role, action, target, decision, reason, source_ip) -> int:
-        """Commit a minimal decision record; a failure must propagate to the caller."""
-        with self.db:
-            row = self.db.execute(
-                "INSERT INTO command_audit "
-                "(timestamp, actor, role, device, action, target, decision, reason, dry_run, source_ip) "
-                "VALUES (?, ?, ?, 'unknown', ?, ?, ?, ?, 1, ?)",
-                (timestamp, actor, role, action, target, decision, reason, source_ip))
-        return row.lastrowid
 
     # -- links (HA accounts linked to Mantel users) -------------------------------------------------
     def link(self, ha_user_id: str, role: str, name: str | None = None, now: float | None = None) -> str:

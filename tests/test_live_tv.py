@@ -664,3 +664,49 @@ async def test_live_tv_without_a_tuner_is_off_through_mantel_link(rig, monkeypat
     await r.app["features"].reload()
     await _house_moved(r, monkeypatch)
     assert not r.tv.piece_on() and r.tv.mode() == "ha"
+
+
+def _offer(rid, cam="camera.tv_nbc"):
+    return {"type": "read_subscribe", "id": rid, "msg": {"type": "camera/webrtc/offer", "entity_id": cam,
+                                                         "offer": OFFER_SDP}}
+
+
+async def test_offers_sent_together_still_meet_the_caps(rig):
+    """The caps were checked before the go2rtc round trips and counted after: ten offers sent at once all passed
+    the per-socket limit of four."""
+    r = await rig()
+    ws = await r.env.login("adult1", "adult") and await r.env.socket(expect_caps=False)
+    for rid in range(1, 11):
+        await ws.send_json(_offer(rid))
+    await asyncio.sleep(0.5)
+    assert len(r.tv.sessions) == L.MAX_SESSIONS_PER_SOCKET and r.tv.starting == 0
+    await ws.close()
+
+
+async def test_the_same_id_twice_never_leaks_a_session(rig):
+    """A second read_subscribe with the same id overwrote the first's unsubscribe, which then never ran: its
+    session and go2rtc stream outlived the socket, and 32 of them locked Live TV for everyone."""
+    r = await rig()
+    ws = await r.env.login("adult1", "adult") and await r.env.socket(expect_caps=False)
+    await ws.send_json(_offer(7))
+    await ws.send_json(_offer(7))
+    await asyncio.sleep(0.3)
+    await ws.close()
+    await asyncio.sleep(0.5)
+    await r.tv.tick()
+    assert r.tv.sessions == {}
+
+
+async def test_a_channel_no_longer_allowed_ends_at_the_next_tick(rig):
+    from mantel_server import server
+    from mantel_server.rbac import Grant
+    r = await rig()
+    ws = await r.env.login("adult1", "adult") and await r.env.socket(expect_caps=False)
+    await ws.send_json(_offer(1))
+    await asyncio.sleep(0.3)
+    assert len(r.tv.sessions) == 1
+    r.env.app["rbac"].add_grant(Grant(effect="deny", actions=("*",), resource_kind="feature", resource="live_tv",
+                                      roles={"adult"}))
+    await server.tick_once(r.env.app, r.env.app["hub"])
+    assert r.tv.sessions == {}
+    await ws.close()

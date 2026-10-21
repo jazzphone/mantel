@@ -133,6 +133,15 @@ class CameraSignaling:
             for s in mine:
                 sessions.pop(s, None)
             await proxy.unsubscribe(mid)           # HA ends the WebRTC session
+
+        async def recheck() -> bool:
+            """The policy tick's question (server.tick_once): may this connection still watch? A deny, a
+            schedule's end or Cameras from Outside switched off ends the stream, not only the next one."""
+            if await resolve(self.hooks.may_view(ctx.identity, entity_id)) is True:
+                return True
+            on_event({"type": "error", "code": "forbidden", "message": f"may no longer view {entity_id}"})
+            return False
+        unsubscribe.recheck = recheck              # type: ignore[attr-defined]
         return unsubscribe
 
 

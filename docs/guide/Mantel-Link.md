@@ -46,7 +46,15 @@ You need Mantel itself first ([Install](Install.md)) and Home Assistant
 | Anything | By hand | **Add Integration → Mantel Link**: Mantel's `https://` address, and a pairing code or a Service credential |
 
 A pairing code works once, for ten minutes. Both sides prove they know it, so
-a look-alike on your network can't hand Home Assistant a credential.
+a look-alike on your network can't hand Home Assistant a credential. Check the
+address Home Assistant shows before you enter the code: the proof doesn't name
+the address, so a device that passed the exchange on to the real Mantel would
+see the credential go by.
+
+Home Assistant keeps the address it was linked with. If Mantel moves to a new
+address, give it the new one with **Settings → Devices & services → Mantel
+Link → ⋮ → Reconfigure**: an announcement on the network never changes it,
+since anyone can announce Mantel's name.
 
 In Docker, multicast doesn't leave Docker's own networks, so the announcement
 needs the `announce` service (`compose.announce.yaml`) or the host's own

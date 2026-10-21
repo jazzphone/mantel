@@ -57,7 +57,14 @@ TARGETS_PER_USER = 20
 SEND_TIMEOUT = 10.0
 TTL = 3600                     # a notification older than an hour is not worth showing
 TITLE_MAX, BODY_MAX = 120, 400
-FAILURES_DROP = 5              # repeated failures (not 404/410) also drop a target
+FAILURES_DROP = 5              # repeated refusals of one target (not 404/410) also drop it
+
+
+def outcome(status: int) -> str:
+    """A push service's or relay's answer that is not ok or gone: "unreachable" when it says nothing about the
+    target (no answer, 429, a 5xx: an outage), which never counts against it; else "failed", which does. Counting
+    an outage, five notifications while the internet was down deleted every phone and browser."""
+    return "unreachable" if status == 0 or status == 429 or status >= 500 else "failed"
 
 
 def endpoint_ok(url: Any) -> bool:
@@ -132,9 +139,13 @@ class Targets:
                                                  (user_id,))]
 
     def everyone(self) -> list[dict]:
-        rows = self.db.execute(f"SELECT t.{self.COLS.replace(', ', ', t.')}, u.role, u.username, u.disabled, h.ha_user_id "
+        """Every target, with its person, and for an app's whether its credential is still signed in
+        (``app_live``: the app's session neither revoked nor expired)."""
+        rows = self.db.execute(f"SELECT t.{self.COLS.replace(', ', ', t.')}, u.role, u.username, u.disabled, h.ha_user_id, "
+                               "(s.id IS NOT NULL AND s.revoked IS NULL AND s.expires > ?) AS app_live "
                                "FROM push_targets t JOIN users u ON u.id = t.user_id "
-                               "LEFT JOIN ha_links h ON h.user_id = u.id")
+                               "LEFT JOIN ha_links h ON h.user_id = u.id "
+                               "LEFT JOIN sessions s ON s.id = t.app_id", (self.clock(),))
         return [dict(r) for r in rows]
 
     def sent(self, target_id: str) -> None:
@@ -204,11 +215,10 @@ class Pusher:
         self.log: list[dict] = []          # the last few deliveries
         self.http = None                   # the HTTP session to send with (default: the app's)
 
-    # -- the VAPID key (a secret file) ------------------------------------------------------------
+    # -- the VAPID key (app_crypto.made_key_path) ------------------------------------------------------------
     def vapid(self):
         if self._vapid is None:
-            cfg = self.app["cfg"]
-            self._vapid = app_crypto.load_or_create_ec_key(cfg.secrets_dir.expanduser() / VAPID_FILE)
+            self._vapid = app_crypto.load_or_create_ec_key(app_crypto.made_key_path(self.app["cfg"], VAPID_FILE))
         return self._vapid
 
     def vapid_public(self) -> str:
@@ -239,6 +249,11 @@ class Pusher:
         out = []
         for row in self.targets.everyone():
             if row.get("disabled"):
+                continue
+            if row.get("app_id") and not row.get("app_live"):
+                # the app was signed out (Me → Sessions, a password change or reset, expiry): only AppAuth.revoke
+                # forgot its targets, so a lost phone kept receiving notifications it could still open
+                self.forget_app(row["app_id"])
                 continue
             if users and not (_keys_of(row) & users):
                 continue
@@ -279,6 +294,7 @@ class Pusher:
                 self.targets.sent(row["id"])
             elif result in ("gone", "failed"):
                 self.targets.failed(row["id"], gone=result == "gone")
+            # "unreachable" (an outage) and "skipped" leave the target as it was
             counts[result] = counts.get(result, 0) + 1
         self.log = (self.log + [{"at": time.time(), "title": msg.title, **counts}])[-20:]
         return counts
@@ -343,10 +359,10 @@ class Pusher:
                 if resp.status in (404, 410):
                     return "gone"
                 log.warning("web push to %s answered %s", urlsplit(endpoint).hostname, resp.status)
-                return "failed"
+                return outcome(resp.status)
         except (ClientError, asyncio.TimeoutError) as exc:
             log.warning("web push to %s failed: %s", urlsplit(endpoint).hostname, type(exc).__name__)
-            return "failed"
+            return "unreachable"
 
 
 # -- REST -----------------------------------------------------------------------------------------

@@ -254,6 +254,22 @@ function ensureStyle(root) {
 }
 
 // "CONFIRM IT IS YOU": the authenticator code or a passkey, then the refused request once more.
+// A MODAL'S FOCUS (WCAG 2.4.3): Tab and Shift-Tab go round the dialog's own controls, never into the page behind
+// it, and closing gives focus back to what opened it, as the kit's own confirm does. Returns the give-back.
+function holdFocus(root, bd, dlg) {
+  const prev = root.activeElement || document.activeElement;
+  bd.addEventListener('keydown', (e) => {
+    if (e.key !== 'Tab') return;
+    const items = [...dlg.querySelectorAll('button, input, select, textarea, [tabindex]:not([tabindex="-1"])')]
+      .filter((x) => !x.disabled && x.offsetParent !== null);
+    if (!items.length) return;
+    e.preventDefault();
+    const i = items.indexOf(root.activeElement);
+    items[(i + (e.shiftKey ? items.length - 1 : 1)) % items.length].focus();
+  });
+  return () => { if (prev && prev.focus) { try { prev.focus(); } catch (e) { /* gone */ } } };
+}
+
 // An alert in HK Settings' own look (the kit's .dlg), with a field for the code.
 function stepUp() {
   const u = me && me.user;
@@ -272,7 +288,8 @@ function stepUp() {
     const dlg = hh('div', { class: 'dlg mxdlg', role: 'alertdialog', 'aria-modal': 'true', 'aria-label': 'Confirm It Is You' },
       [hh('h2', { text: 'Confirm It Is You' }), hh('p', { text: msg }), code, err, hh('div', { class: 'db' + (buttons.length > 2 ? ' stack' : '') }, buttons)]);
     const bd = hh('div', { class: 'dlgbd' }, dlg);
-    const close = (v) => { bd.remove(); resolve(v); };
+    const giveBack = holdFocus(root, bd, dlg);
+    const close = (v) => { bd.remove(); giveBack(); resolve(v); };
     buttons[0].addEventListener('click', () => close(false));
     const totp = async () => {
       try { await api('POST', '/api/auth/totp/step-up', { code: code.value.trim() }, { retry: false }); close(true); } catch (e) { err.textContent = e.message; }
@@ -282,7 +299,8 @@ function stepUp() {
         const w = await import(mantelUrl('/webauthn.js'));
         const opt = await api('POST', '/api/auth/passkey/options', { username: u.username || undefined }, { retry: false });
         const cred = await navigator.credentials.get({ publicKey: w.toRequest(opt.options) });
-        await api('POST', '/api/auth/passkey/verify', { challenge_id: opt.challenge_id, credential: w.credentialJSON(cred) }, { retry: false });
+        const got = await api('POST', '/api/auth/passkey/verify', { challenge_id: opt.challenge_id, credential: w.credentialJSON(cred), step_up: true }, { retry: false });
+        if (!got || got.step_up !== true) throw new Error('That passkey is someone else’s. Use your own.');
         close(true);
       } catch (e) { err.textContent = e.message || 'The passkey was not accepted.'; }
     };
@@ -1844,7 +1862,7 @@ function pAudit() {
 // Photos (mantel-photos.js) draws with this page's own helpers
 const photoTools = {
   K, hh, api, act, load, forget, redraw, ask, group, info, button, nav, result, pending, failed, field, choose, draft,
-  mantelUrl, csrfNow, refreshMe, ROUTE, panel: () => panel,
+  mantelUrl, csrfNow, refreshMe, ROUTE, panel: () => panel, holdFocus,
   setFlash: (key, text, err) => { flash = { key, text, err: !!err }; },
 };
 // ABOUT (about.py): which Mantel this is and what it talks to; for anyone signed in, nothing secret
@@ -1924,6 +1942,10 @@ export const host = {
   press(ids, p) {
     if (p) panel = p;
     return me ? pressTablets(ids, p) : null;
+  },
+  // a socket save refused with step_up_required (mantel-client.js): the same Confirm It Is You as the REST pages
+  stepUp() {
+    return panel && me ? stepUp() : Promise.resolve(false);
   },
   extend(where, c, ctx, p) {
     if (p) { panel = p; ensureStyle(p.shadowRoot); }

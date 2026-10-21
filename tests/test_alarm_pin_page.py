@@ -172,3 +172,27 @@ async def test_while_hk_frontend_runs_the_keypads_commands_off_say_so(off):
     got = await save(ws, 1, {"type": "hk_alarm_pin/settings/set", "entry_id": "e1", "changes": {"arm_required": True}})
     assert got["error"]["code"] == "commands_disabled" and "Move the house to Mantel" in got["error"]["message"]
     await ws.close()
+
+
+async def test_the_page_s_saves_need_a_fresh_sign_in_as_the_rest_routes_do(off):
+    """Signing-In.md: changing the Alarm PIN's settings needs a sign-in within five minutes. The socket save was
+    the way round the REST routes' require_fresh: a days-old Owner session could set the PIN that disarms."""
+    only_alarm(off)
+    off.app["hub"].readproxy = NoHa()
+    await off.login("avery", "owner")
+    ws = await off.socket(expect_caps=False)
+    got = await save(ws, 1, {"type": "hk_alarm_pin/add", "alarm": ALARM, "pin": HOUSE_CODE, "pin_again": HOUSE_CODE})
+    panel = got["result"]["alarms"][0]["panel"]
+    await ws.close()
+    off.now[0] += 3 * 86400                                     # days later: not fresh
+    ws = await off.socket(expect_caps=False)
+    for rid, msg in enumerate([{"type": "hk_alarm_pin/settings/set", "entry_id": panel,
+                                "changes": {"pin": "13579", "pin_again": "13579"}},
+                               {"type": "hk_alarm_pin/remove", "entry_id": panel},
+                               {"type": "hk_alarm_pin/add", "alarm": ALARM, "pin": "2468", "pin_again": "2468"}], 2):
+        got = await save(ws, rid, msg)
+        assert got["error"]["code"] == "step_up_required", got
+    await ws.close()
+    pins = off.app["alarm_pin"]
+    assert await pins.house_matches(panel, HOUSE_CODE) and not await pins.house_matches(panel, "13579")
+    assert [e.entity for e in pins.entries()] == [panel]

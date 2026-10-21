@@ -38,8 +38,21 @@
   function isSave(msg) {
     return !!(msg && typeof msg.type === 'string' && (SETTINGS_SAVES.indexOf(msg.type) >= 0 || FEATURE_SAVES.indexOf(msg.type) >= 0));
   }
+  // A save that needs a fresh sign-in (the Alarm PIN's, alarm_pin.py settings_save) asks Mantel Settings'
+  // own Confirm It Is You (settingsHost().stepUp), then is sent once more.
+  function confirmed(e) {
+    var host = null;
+    try { host = window.hkShell && window.hkShell.settingsHost ? window.hkShell.settingsHost() : null; } catch (x) { host = null; }
+    if (!e || e.code !== 'step_up_required' || !host || typeof host.stepUp !== 'function') return Promise.resolve(false);
+    return Promise.resolve(host.stepUp()).catch(function () { return false; });
+  }
   function save(hub, msg) {
     return hub.write(msg).catch(function (e) {
+      return confirmed(e).then(function (yes) {
+        if (!yes) throw e;
+        return hub.write(msg);
+      });
+    }).catch(function (e) {
       if (e && e.code === 'forbidden') emit('hk-command-denied', { what: String(msg.type), reason: 'forbidden', code: 'forbidden' });
       throw fail((e && e.code) || 'failed', (e && e.message) || 'the save failed');
     });

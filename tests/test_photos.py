@@ -422,3 +422,22 @@ async def test_the_photos_are_in_mantels_backup_and_come_back(mantel, tmp_path):
     fresh2 = tmp_path / "restored2"
     backup.restore(path2, key, fresh2)
     assert not (fresh2 / "photos").exists()
+
+
+async def test_a_photo_whose_files_cannot_all_be_written_leaves_none(mantel, monkeypatch):
+    """The three files were written outside the clean-up, which covered only the row: a full disk on the thumbnail
+    left the original and the screen copy, counted by no quota and deleted by nothing, and answered a bare 500."""
+    await owner(mantel)
+    aid = await album(mantel)
+    real = photos._write
+
+    def full(dest, data):
+        if dest.suffix == ".webp":
+            raise OSError(28, "No space left on device")
+        real(dest, data)
+    monkeypatch.setattr(photos, "_write", full)
+    r, body = await upload(mantel, aid, picture())
+    assert r.status == 507 and body["error"] == "storage_failed", body
+    lib = mantel.app["photos"]
+    assert lib.count() == 0
+    assert [f for d in ("originals", "screen", "thumbs") for f in os.listdir(lib.root / d)] == []

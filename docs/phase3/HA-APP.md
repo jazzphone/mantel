@@ -1065,11 +1065,13 @@ Everything on main since 0.1.28 (validation green: JS 130, HA py 732, Mantel 283
 
 ### 0.1.41 (2026-10-21)
 
-- **A page asks again for what it had open after a reconnect** (web/shim/hub.js `_resubscribe`): the states
-  subscription and every read subscription (the screens' feed: black, pop-ups, notifications; the settings feed),
-  under their own ids. Until now a page lost them at every Mantel restart until it was reloaded, so after this
-  morning's updates no tablet heard its black (06:53 on). The tablets need one reload to get it (HA's
-  script.tablets_reload_screen, run after the update).
+- **The October 2026 engineering audit** (merge 063cbf1, its own commits in CHANGELOG.md), with the screensaver fix on
+  Mantel and **a page asking again for what it had open after a reconnect** (web/shim/hub.js `_resume`: the states
+  subscription and every live read subscription, under their own ids, with a 2-30 s backoff and jitter). Until now a
+  page lost its screens' feed (black, pop-ups, notifications) and its settings feed at every Mantel restart until it
+  was reloaded, so after this morning's updates (06:53 on) no tablet heard its black. The tablets need one reload to
+  get it (HA's script.tablets_reload_screen, run after the update).
+- tests/test_shim_reconnect.py: the reconnect against the real hub.js in node.
 - No HA backup (Avery).
 
 ### Removal

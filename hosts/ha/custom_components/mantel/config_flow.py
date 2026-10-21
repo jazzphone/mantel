@@ -27,7 +27,7 @@ from urllib.parse import urlsplit, urlunsplit
 
 import voluptuous as vol
 
-from homeassistant.config_entries import SOURCE_HASSIO, SOURCE_ZEROCONF, ConfigFlow, ConfigFlowResult
+from homeassistant.config_entries import SOURCE_HASSIO, ConfigFlow, ConfigFlowResult
 from homeassistant.helpers.service_info.hassio import HassioServiceInfo
 from homeassistant.helpers.service_info.zeroconf import ZeroconfServiceInfo
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
@@ -178,9 +178,9 @@ class MantelFlow(ConfigFlow, domain=DOMAIN):
                 and url.startswith("https://")):
             return self.async_abort(reason="invalid_discovery")
         await self.async_set_unique_id(instance)
-        known = self.hass.config_entries.async_entry_for_domain_unique_id(DOMAIN, instance)
-        if known is not None and known.source == SOURCE_ZEROCONF:
-            self._abort_if_unique_id_configured(updates={CONF_URL: url})     # Mantel moved: follow its address
+        # An announcement is unauthenticated, and the instance id in it is no secret (anyone on the network
+        # hears it): an entry never follows an announced address, or a look-alike would be handed the link's
+        # credential at the next reload. A Mantel that moved is given its new address with Reconfigure.
         self._abort_if_unique_id_configured()
         if (other := self._one_mantel(instance)) is not None:
             return other

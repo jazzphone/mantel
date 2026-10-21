@@ -107,7 +107,7 @@ From outside the home, Mantel accepts Home Assistant's sign-in as it is: it does
 
 ## Confirm it is you
 
-A few account changes ask for a recent sign-in, within the last five minutes: replacing or removing your authenticator app, removing a passkey, setting a PIN, setting a new password for someone else, changing the Alarm PIN's settings, and changing connections from outside the home. Mantel shows **Confirm It Is You**: type your authenticator code, or select **Use Passkey**. With neither set up, sign out, sign in again and make the change within five minutes.
+A few account changes ask for a recent sign-in, within the last five minutes: adding, replacing or removing your authenticator app, adding or removing a passkey, setting a PIN, setting a new password for someone else, changing the Alarm PIN's settings, and changing connections from outside the home. Mantel shows **Confirm It Is You**: type your authenticator code, or select **Use Passkey**. With neither set up, sign out, sign in again and make the change within five minutes.
 
 House commands never ask for this. See [Commands and Audit](Commands-and-Audit.md).
 

@@ -50,6 +50,9 @@
     "alarm_pin_invalid_code": {
       "message": "Wrong code. The alarm code is not correct."
     },
+    "alarm_pin_locked": {
+      "message": "Too many wrong codes. The keypad is locked for 15 minutes."
+    },
     "alarm_pin_unavailable": {
       "message": "The alarm ({entity}) isn’t available right now."
     }

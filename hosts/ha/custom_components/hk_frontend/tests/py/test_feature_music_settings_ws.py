@@ -172,3 +172,17 @@ async def test_before_it_is_added_the_page_says_so(hass, frontend):
     assert (await _call(hass, conn, "get"))["result"] == {"configured": False}
     r = await _call(hass, conn, "set", changes={"volume": 0.5})
     assert not r["success"] and r["error"] == "not_set_up" and r["message"] == "Music is not added"
+
+
+def test_a_playlist_order_is_a_finite_number():
+    """"nan" and "inf" coerce to floats that sort unpredictably and store as
+    null; the schema refuses them by field."""
+    import voluptuous as vol
+    from custom_components.hk_frontend.features.music import settings_ws as W
+    schema = W.ws_playlist_save._ws_schema
+    base = {"id": 1, "type": "hk_music/playlist/save", "name": "Road", "items": ["x"]}
+    assert schema({**base, "order": "20"})["order"] == 20.0
+    assert schema({**base, "order": None})["order"] is None
+    for bad in ("nan", "inf", "-inf", float("nan"), 1e9):
+        with pytest.raises(vol.Invalid):
+            schema({**base, "order": bad})

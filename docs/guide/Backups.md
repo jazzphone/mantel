@@ -59,6 +59,7 @@ One file per backup, named `mantel-YYYYmmdd-HHMMSS.mbk` (the time in UTC), encry
 | Your files and Mantel Photos | Apple's font and glyphs you uploaded, and the screensavers' photos |
 | The saved connections | Home Assistant's and Music Assistant's, still sealed with `at_rest.key` |
 | [Mantel Connect](Mantel-Connect.md)'s certificates | Its own certificate authority and keys, so a paired Connect App keeps working after a restore |
+| The keys Mantel makes | The push key and the apps' identity key (`keys/`), so browsers keep their notifications and the iPhone and Mac apps their pairing after a restore |
 
 Not inside: the secret files in `/etc/hk/secrets` (keep your own copy of the two keys), `.env`, and Caddy's certificates (Caddy gets new ones).
 
@@ -80,7 +81,9 @@ To change the time, its time zone or how many are kept, add flags to the `comman
 docker compose exec mantel-server mantel backup --target /backups
 ```
 
-Run it in `packaging/compose`. Do this before every [update](Updating.md). It works even if the nightly backup is off, as long as the folder is mounted.
+Run it in `packaging/compose`. Do this before every [update](Updating.md). It works even if the nightly backup is off, as long as the folder is mounted. It deletes no older backup; the nightly backup thins the folder as you set it. To thin it now as well, add `--keep-daily N` and `--keep-weekly N`.
+
+A backup or restore that was stopped partway (the container killed, out of memory) can leave a hidden `.backup-work-*` or `.restore-*` folder in the data volume, holding an unencrypted copy of the database. The next backup or restore removes any older than six hours.
 
 ### Check a backup
 

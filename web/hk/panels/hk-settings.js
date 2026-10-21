@@ -4110,7 +4110,7 @@
       var set = function (o) { return self.setB(path, o); };
       var plugin = x.generated && b.kiosk_engine === 'kiosk_mode';
       // ON OR OFF first; what is hidden, and how, only while on
-      c.appendChild(K.group({ footer: b.kiosk ? null : 'Home Assistant’s own header and sidebar show around this screen.' }, [
+      c.appendChild(K.group({ footer: b.kiosk ? null : 'When this screen is shown in Home Assistant, Home Assistant’s own header and sidebar show around it.' }, [
         K.toggle({ label: 'Hide Header & Sidebar', sk: 'b:kiosk', on: b.kiosk, onChange: function (on) { set({ kiosk: on }); } })]));
       if (!b.kiosk) return;
       if (!plugin) {

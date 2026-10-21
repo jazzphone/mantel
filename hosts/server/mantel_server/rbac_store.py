@@ -210,8 +210,14 @@ def _safe_list(raw: str | None) -> list[str]:
 
 # -- REST ------------------------------------------------------------------------------------------
 def notify_sessions(hub: Any) -> None:
-    """Every connected session re-checks what it may see now that the policy changed."""
+    """Every connected session re-checks what it may see now that the policy changed. Its principal is read again
+    first: a room scope is part of the subject (Authz.subject_of), so re-filtering with the old one showed a room
+    edit only at the next minute's tick."""
     for s in list(getattr(hub, "sessions", ()) or ()):
+        app, principal = getattr(s, "app", None), getattr(s, "principal", None)
+        authz = app.get("authz") if app is not None else None
+        if authz is not None and principal is not None:
+            authz.refresh(principal)              # (one that ended is closed by the tick, as before)
         view = getattr(s, "view", None)
         if view is not None and hasattr(view, "policy_changed"):
             view.policy_changed()

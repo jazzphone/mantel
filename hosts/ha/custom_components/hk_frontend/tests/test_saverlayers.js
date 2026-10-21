@@ -114,6 +114,9 @@ wx.arrived();
 var lines = animations.filter(function (a) { return a.sel === '.st .ln'; });
 ok('...arrived: the lines draw by their background\'s size, never a transform',
    lines.length === 2 && lines.every(function (a) { return a.frames[0].backgroundSize === '0% 100%' && a.frames[1].backgroundSize === '100% 100%' && !('transform' in a.frames[0]); }), lines);
+var marks = animations.filter(function (a) { return a.sel === '.bar b'; });
+ok('...and the bar\'s marker comes in by its colors, not its opacity (which made it a layer at every Weather turn)',
+   marks.length === 2 && marks.every(function (a) { return a.frames.every(function (f) { return 'backgroundColor' in f && !('opacity' in f); }); }), marks);
 wx.leave();
 weatherState.attributes.temperature = 21;
 wx.draw(client);
@@ -181,6 +184,51 @@ if (m) {
   chain([I, E]);
   ok('...above the corner cards: moved', underCards(E, I) === false);
   ok('...not in this root: put in', underCards(node('en'), I) === false);
+}
+
+print('\n=== hk-saver.js: the dashboard hidden under the screensaver, wherever its host keeps the view ===');
+// THE VIEW OUTSIDE THE ROOT (2026-10-21): Mantel's page keeps its view
+// (<hk-view-container id="view">) beside #hk-shell-root, so hiding the root
+// left the whole dashboard -- sky, cards, the shared blur -- composited under
+// the photos (~7 screens of layers, headless), and Return to Home made a new
+// page's ~120 under it mid-turn. coverDashboard itself, run: its own text.
+var cm = /  function within\(root, el\) \{[\s\S]*?\n  function coverDashboard\(covered\) \{[\s\S]*?\n  \}\n/.exec(src);
+ok('coverDashboard is there', !!cm);
+if (cm) {
+  var cover = new Function('window', 'var coverT = null, coveredPage = null, pageVisibility = null, coveredView = [];' +
+                           cm[0] + '; return coverDashboard;');
+  function styled(tag) {
+    var e = new El(tag);
+    // (dom.js's Style methods are read-only: these are the element's own, with a priority kept beside)
+    var pri = {}, set = e.style.setProperty;
+    Object.defineProperty(e.style, 'setProperty', { value: function (k, v, p) { set.call(this, k, v); pri[k] = p || ''; } });
+    Object.defineProperty(e.style, 'getPropertyPriority', { value: function (k) { return pri[k] || ''; } });
+    return e;
+  }
+  function page(viewInside) {
+    var root = styled('div'), view = styled('hk-view-container');
+    view.parentNode = viewInside ? root : null;
+    var win = { hkShell: { root: function () { return root; }, viewContainer: function () { return view; } },
+                dispatchEvent: function () {} };
+    return { root: root, view: view, cover: cover(win) };
+  }
+  var mantel = page(false);
+  mantel.view.style.setProperty('visibility', 'visible');
+  mantel.cover(true);
+  ok('Mantel: the root and the view beside it are both hidden',
+     mantel.root.style.getPropertyValue('visibility') === 'hidden' && mantel.view.style.getPropertyValue('visibility') === 'hidden' &&
+     mantel.view.style.getPropertyPriority('visibility') === 'important', [mantel.root.style, mantel.view.style]);
+  mantel.cover(true);
+  mantel.cover(false);
+  ok('...and both given back as they were at the wake (the view\'s own visibility kept)',
+     mantel.root.style.getPropertyValue('visibility') === '' && mantel.view.style.getPropertyValue('visibility') === 'visible',
+     [mantel.root.style, mantel.view.style]);
+  var ha = page(true);
+  ha.cover(true);
+  ok('Home Assistant: the view is inside the root, hidden with it, left alone',
+     ha.root.style.getPropertyValue('visibility') === 'hidden' && ha.view.style.getPropertyValue('visibility') === '', ha.view.style);
+  ha.cover(false);
+  ok('...and the root given back', ha.root.style.getPropertyValue('visibility') === '');
 }
 
 print(fail ? 'FAIL ' + fail + ' SAVER LAYER TESTS' : 'ALL ' + pass + ' SAVER LAYER TESTS PASS');

@@ -105,10 +105,11 @@ async def test_discovered_on_the_network_confirmed_with_a_code(hass, monkeypatch
     assert seen["link"] == ("https://mantel.example.com", TOKEN)
     e = hass.config_entries.async_entries("mantel")[0]
     assert e.unique_id == INSTANCE and e.source == config_entries.SOURCE_ZEROCONF
-    # the same Mantel announced at a new address: its zeroconf entry follows; no second entry
+    # the same instance id announced at another address: anyone can announce it, so the entry keeps the address
+    # it was paired with (the credential is never sent to the announcer); no second entry
     r = await hass.config_entries.flow.async_init("mantel", context={"source": config_entries.SOURCE_ZEROCONF},
                                                   data=zeroconf("https://mantel2.example.com"))
-    assert r["reason"] == "already_configured" and e.data["url"] == "https://mantel2.example.com"
+    assert r["reason"] == "already_configured" and e.data["url"] == "https://mantel.example.com"
     assert len(hass.config_entries.async_entries("mantel")) == 1
 
 

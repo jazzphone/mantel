@@ -118,7 +118,10 @@ REST_READS: dict[str, frozenset[str]] = {"calendars": frozenset({"start", "end"}
 CALENDAR_ID = re.compile(r"^calendar\.[a-z0-9_]+$")
 WHEN = re.compile(r"^[0-9][0-9T:.+\-Z ]{9,39}$")       # an ISO date or date-time, nothing else
 LOCATION_KEYS = frozenset({"latitude", "longitude", "elevation", "radius"})
-CAMERA_MEDIA = "media-source://camera"                   # camera snapshots: the camera connector's, not here
+# What cameras saw, as media: camera snapshots (the camera connector's, not here), and the recordings and events of
+# Home Assistant's camera and NVR integrations. Media browsing is decided as music, so none of it is offered there.
+CAMERA_MEDIA = tuple(f"media-source://{p}" for p in ("camera", "frigate", "unifiprotect", "reolink", "nest",
+                                                       "motioneye", "netatmo"))
 
 
 class ReadBlocked(Exception):
@@ -585,7 +588,10 @@ class FilteredReads:
                 if not isinstance(e, dict) or e.get("entity_id") not in ids:
                     continue
                 if e.get("context_entity_id") and e["context_entity_id"] not in ids:
-                    e = {k: v for k, v in e.items() if not k.startswith("context_entity_id")}
+                    # what caused it is an entity the reader may not see: nothing of it stays (its name, its
+                    # state -- "unlocked" --, the message naming it, the service and domain), only that there was
+                    # a cause (context_id)
+                    e = {k: v for k, v in e.items() if not k.startswith("context_") or k == "context_id"}
                 out.append(e)
             return out
         if t == "recorder/statistics_during_period":
@@ -821,21 +827,26 @@ def register(app, hub, hooks) -> FilteredReads:
         rid = msg.get("id")
 
         async def work():
-            if not isinstance(rid, int) or ("read", rid) in ctx.subs:
+            key = ("read", rid)
+            if not isinstance(rid, int) or not ctx.reserve(key):         # (taken before any await: Ctx.reserve)
                 raise ReadBlocked("invalid id")
-            inner = inner_of(msg)
+            try:
+                inner = inner_of(msg)
 
-            def on_event(ev: dict) -> None:
-                ctx.emit({"type": "read_event", "id": rid, "event": ev})
+                def on_event(ev: dict) -> None:
+                    ctx.emit({"type": "read_event", "id": rid, "event": ev})
 
-            route = routes.get(inner.get("type"))
-            if route is not None:
-                if route.subscribe is None:
-                    raise ReadBlocked(f"{inner.get('type')!r} is not a subscription")
-                unsub = await route.subscribe(ctx, inner, on_event)
-            else:
-                unsub = await reads.subscribe(ctx.identity, inner, on_event)
-            ctx.subs[("read", rid)] = unsub
+                route = routes.get(inner.get("type"))
+                if route is not None:
+                    if route.subscribe is None:
+                        raise ReadBlocked(f"{inner.get('type')!r} is not a subscription")
+                    unsub = await route.subscribe(ctx, inner, on_event)
+                else:
+                    unsub = await reads.subscribe(ctx.identity, inner, on_event)
+            except BaseException:
+                ctx.unreserve(key)
+                raise
+            await ctx.keep(key, unsub)
             return None
         await answer(ctx, rid, work())
 

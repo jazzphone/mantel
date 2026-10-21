@@ -73,14 +73,14 @@ If you'd rather not type an Owner's password on a tablet:
 2. On the tablet, sign in as that account. In **Mantel Settings** it sees only **Me** and **About**.
 3. In **Me**, select **Make This Browser a Wall Tablet…**. It starts from the HK tablet whose name matches the account's. Then follow steps 4 to 6.
 
-A Wall Tablet account can only make its own tablet, always with the Wall Tablet role.
+A Wall Tablet account can only make its own tablet, always with the Wall Tablet role, and one at a time: enrolling again (after the tablet was reset, say) replaces the tablet it made before, and the Audit Log says so. Anyone who knows the account's password can choose the tablet's room, so keep it as private as an Owner's.
 
 ## What a tablet may do
 
 A tablet on its own (nobody signed in at it) has the **Wall Tablet** role:
 
 - The devices **in its room**: see, control, sensitive actions included (it can unlock its room's door), and their history.
-- **Every camera**, including live view, so the doorbell pop-up shows on every tablet.
+- **Every camera**, its picture and live view, so the doorbell pop-up shows on every tablet. Only those: switching a camera off, recording or sending it to a speaker or TV follow the tablet's room, like any other device.
 - The **Music** page (its speakers are still its room's) and **Live TV**.
 - **Talk-back** on the doorbell pop-up's speaker.
 - The alarm keypad, with the home's **Alarm PIN** (below).
