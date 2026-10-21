@@ -679,6 +679,38 @@ def rbac_may_configure(policy: Any = None, *, rbac_store: Any = None,
 IMPORT_READ = "hk_frontend/panel/get"
 
 
+# HA's panel/get answers each screen and tablet AS READ (hk_core resolved(): All Screens' screensaver, menu,
+# rooms and cameras filled in; All Tablets' Idle settings filled in, the own ones beside them), and the import
+# copies that answer. Kept that way, a screen that followed All Screens' screensaver held a frozen copy of it
+# (and a tablet All Tablets' Idle). As stored, it follows again: what the screen or tablet says itself.
+_READ_ONLY_BOARD = ("screensaver_house", "rooms_house", "cameras_house", "menu_house", "tablets", "idle_room")
+
+
+def as_stored(scope: str, body: Mapping[str, Any]) -> dict:
+    """A screen's or tablet's document as its own settings, whether it came from HA's resolved answer or not."""
+    b = dict(body)
+    if scope == "board":
+        follows = b.get("screensaver_house") is True
+        for k in _READ_ONLY_BOARD:
+            b.pop(k, None)
+        if follows:
+            b["screensaver_options"] = None
+    elif scope == "tablet":
+        for k in ("idle_return", "idle_time"):
+            if k + "_own" in b:
+                b[k] = b.pop(k + "_own")
+        b.pop("item", None)
+    return b
+
+
+def stored_of(store: "SettingsStore") -> SM.Stored:
+    """Mantel's settings documents as hk_core's model reads HA's entry (SM.Stored), for SM.boards / SM.tablets:
+    the screens and tablets AS READ, which is what HA's feed and panel/get hand a screen and HK Settings."""
+    items = [SM.Item(SM.SUBENTRY_DASHBOARD, k, as_stored("board", d.body)) for k, d in store.docs("board").items()]
+    items += [SM.Item(SM.SUBENTRY_TABLET, k, as_stored("tablet", d.body)) for k, d in store.docs("tablet").items()]
+    return SM.Stored({SM.CONF_DASHBOARD: store.body("house", "settings")}, tuple(items))
+
+
 def docs_from_panel(payload: Any) -> list[tuple[str, str, dict]]:
     """HA's ``hk_frontend/panel/get`` answer -> the documents Mantel keeps. What HA works out at run
     time (its dashboards, the kiosk devices, counts, third-party status, the users of HA, each
@@ -700,10 +732,10 @@ def docs_from_panel(payload: Any) -> list[tuple[str, str, dict]]:
         out.append(("house", "catalog", catalog))
     for path, board in sorted((payload.get("boards") or {}).items()):
         if isinstance(board, dict) and KEY_RE["board"].match(str(path)):
-            out.append(("board", str(path), board))
+            out.append(("board", str(path), as_stored("board", board)))
     for tid, tablet in sorted((payload.get("tablets") or {}).items()):
         if isinstance(tablet, dict) and KEY_RE["tablet"].match(str(tid)):
-            out.append(("tablet", str(tid), {k: v for k, v in tablet.items() if k != "parts"}))
+            out.append(("tablet", str(tid), as_stored("tablet", {k: v for k, v in tablet.items() if k != "parts"})))
     return out
 
 
@@ -958,16 +990,20 @@ class SettingsService:
         disc = (sections.get("browse") or {}).get("discover")
         if isinstance(disc, list) and all(isinstance(k, str) for k in disc):
             sections["browse"]["discover"] = SM.discover_rows(disc)
-        tablets = {k: d.body for k, d in self.store.docs("tablet").items()}
+        # the screens and tablets AS READ (stored_of), as HA's feed sends them: a screen following All Screens'
+        # menu, tab bar, screensaver, rooms or cameras gets All Screens'; a tablet following All Tablets' Idle
+        # gets it (sent raw, every screen kept the defaults, and no tablet returned Home when idle)
+        stored = stored_of(self.store)
+        tablets = SM.tablets(stored)
         acc = self.store.body("house", "accessories") or {"entities": {}, "rooms": {}, "into": {}, "pages": {}}
         return {
             "configured": not self.store.empty(),
             **sections,
-            "boards": {k: d.body for k, d in self.store.docs("board").items()},
+            "boards": SM.boards(stored),
             "tablet_items": {tid: {
-                "name": t.get("name"), "screen": t.get("screen"), "room": t.get("room"), "user": t.get("user"),
-                "app": t.get("app"), "idle_return": t.get("idle_return"), "idle_time": t.get("idle_time"),
-                "black_screen": t.get("black_screen"),
+                "name": t["name"], "screen": t["screen"], "room": t["room"], "user": t["user"],
+                "app": t["app"], "idle_return": t["idle_return"], "idle_time": t["idle_time"],
+                "black_screen": t["black_screen"],
                 # a tablet's own HA switches: HA run-time entities, not settings (linked mode, later)
                 "screensaver_switch": None, "black_switch": None,
             } for tid, t in tablets.items()},
@@ -1081,7 +1117,8 @@ class SettingsService:
         at run time (its dashboards, entities per tablet, third-party status, HA's users) are empty here;
         Hidden Accessories and Status & Chips' ``counts`` and ``kinds`` are added by register's panel_get,
         from Mantel's copy of the house, for what the person may view."""
-        boards = {k: d.body for k, d in self.store.docs("board").items()}
+        stored = stored_of(self.store)
+        boards = SM.boards(stored)                     # as read, as HA's panel/get (S.boards)
         pages = [{**p, "used_on": [path for path, b in boards.items()
                                    if p.get("path") in (b.get("custom_pages") or [])]}
                  for p in self._items("custom_pages")]
@@ -1107,7 +1144,7 @@ class SettingsService:
             "settings": self.house_settings(),
             "boards": boards,
             "screensavers": {},
-            "tablets": {k: {**d.body, "parts": {}} for k, d in self.store.docs("tablet").items()},
+            "tablets": {k: {**t, "parts": {}} for k, t in SM.tablets(stored).items()},   # with idle_*_own
             "kiosk_devices": kiosk_devices, "tablet_suggest": [], "dashboards": self.dashboards(boards),
             "popups": self._items("popups"),
             "custom_pages": pages,

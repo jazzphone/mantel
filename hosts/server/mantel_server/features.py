@@ -1271,10 +1271,8 @@ class FeatureHost:
         return bool(self.settings.get(piece, {}).get("enabled"))
 
     def stored(self) -> SM.Stored:
-        st = self.store
-        items = [SM.Item(SM.SUBENTRY_DASHBOARD, k, d.body) for k, d in st.docs("board").items()]
-        items += [SM.Item(SM.SUBENTRY_TABLET, k, d.body) for k, d in st.docs("tablet").items()]
-        return SM.Stored({SM.CONF_DASHBOARD: st.body("house", "settings")}, tuple(items))
+        from .settings_store import stored_of
+        return stored_of(self.store)
 
     def popup_hashes(self) -> set[str]:
         return {str(p.get("hash")) for p in self.doc("popups").get("items") or [] if isinstance(p, dict) and p.get("hash")}
