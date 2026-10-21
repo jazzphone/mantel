@@ -101,6 +101,9 @@ refuses `publish` from a branch.
 gh workflow run release.yml --ref main -f publish=false
 ```
 
+or push any commit to the branch `release-dry-run` (`git push -f origin HEAD:release-dry-run`), which runs the same
+dry run from that commit, with no publishing possible, before the workflow is even on `main`.
+
 That dry run does everything but push: the version and private-content checks, the main suite, the App staging,
 every image for both architectures, and the add-on repository, which it keeps as the run's `ha-apps-X.Y.Z`
 artifact so you can read exactly what would be published. It takes `CHANGELOG.md`'s `Unreleased` section when

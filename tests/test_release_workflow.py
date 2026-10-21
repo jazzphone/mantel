@@ -28,7 +28,7 @@ def wf():
 
 def test_it_parses_and_runs_on_tags_and_by_hand(wf):
     on = wf[True] if True in wf else wf["on"]  # YAML 1.1 reads the bare key `on` as true
-    assert on["push"] == {"tags": ["v*"]}
+    assert on["push"] == {"tags": ["v*"], "branches": ["release-dry-run"]}
     publish = on["workflow_dispatch"]["inputs"]["publish"]
     assert publish["type"] == "boolean" and publish["default"] is False
     assert wf["permissions"] == {"contents": "write", "packages": "write"}

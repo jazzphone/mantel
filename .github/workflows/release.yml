@@ -8,7 +8,8 @@
 #      branch (tools/publish_ha_apps.py). Home Assistant users add https://github.com/jazzphone/mantel#ha-apps
 #      and are offered Update when that branch's config.yaml version goes up. Never main.
 #
-# Run by hand (Actions -> Release -> Run workflow) with `publish` off it is a dry run: the same checks, the same
+# Run by hand (Actions -> Release -> Run workflow) with `publish` off, or pushed to the branch release-dry-run, it is
+# a dry run: the same checks, the same
 # staging and private-content scans, every image built for both architectures, the add-on repository written
 # and kept as a workflow artifact; nothing is pushed anywhere. `publish` on does the real thing, and only from
 # a tag ("Use workflow from" -> the tag), so a branch can never publish a version.
@@ -21,6 +22,8 @@ name: Release
 on:
   push:
     tags: ["v*"]
+    # a build-only dry run without the Actions page: push any commit to this branch (it never publishes)
+    branches: ["release-dry-run"]
   workflow_dispatch:
     inputs:
       publish:
@@ -70,7 +73,7 @@ jobs:
             version="$(python tools/check_version.py --print)"
           fi
           publish=false
-          if [ "$EVENT" = push ] || [ "$PUBLISH_INPUT" = true ]; then
+          if { [ "$EVENT" = push ] && [ "$REF_TYPE" = tag ]; } || [ "$PUBLISH_INPUT" = true ]; then
             if [ "$REF_TYPE" != tag ]; then
               echo "::error::publishing needs a release tag: run the workflow from the tag v$version, or leave publish off"
               exit 1
