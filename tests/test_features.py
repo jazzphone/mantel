@@ -755,3 +755,60 @@ async def test_every_ha_connect_tells_the_features_never_the_pages(make_env, mon
     monkeypatch.setattr(env.app["hub"], "on_registry", lambda: pages.append(1))
     ha.on_registries_loaded()
     assert told == [1] and pages == []
+
+
+async def test_category_notifications_work_after_a_start_whose_states_come_after_the_registries(tmp_path, monkeypatch):
+    """HaClient reads the registries (a reload) before subscribe_entities' first states, and a category's members
+    depend on states (a door is a door by its device_class). Worked out only then, Doors stayed empty after every
+    restart until some settings save or registry change: a door opening at night notified nobody."""
+    doors = {"id": "n_doors", "category": "doors", "when": "on", "title": "", "message": ""}
+    app, store, now, fake = await GF.make(tmp_path, monkeypatch, commands=False)
+    hub = app["hub"]
+    app["settings"].store.write(
+        [("board", "dashboard-hall", {}), ("tablet", "hall", dict(TABLET)),
+         ("house", F.FEATURES_DOC, F.check_settings({"notifications": {"enabled": True, "items": [doors]}}))],
+        actor=Actor(label="test"))
+    host = F.register(app, hub, {"may_read": app["authz"].may_read, "tick": 3600.0})
+    await host.start()
+    try:
+        hub.registry.load(AREAS, DEVICES, ENTITIES)
+        hub.ha.on_registries_loaded()
+        await asyncio.sleep(0.05)
+        assert host.notifier.watched == {"n_doors": []}           # no states yet: nothing is a door
+        hub.ha.on_change(hub.store.replace_all({"a": {k: dict(v) for k, v in STATES.items()}}))
+        await asyncio.sleep(0.05)
+        assert DOOR in host.notifier.watched["n_doors"]
+        assert not host.notifier.sent                              # first states are not changes
+        change(app, DOOR, "on")
+        await asyncio.sleep(0.05)
+        assert [s["entity"] for s in host.notifier.sent] == [DOOR]
+    finally:
+        await host.stop()
+        store.db.close()
+
+
+async def test_a_notification_its_consumers_cant_use_is_refused_and_a_stored_one_is_left_out(make_env):
+    """check_settings took any item with an id. One with exclude=5 was saved, then failed every reload, and Mantel
+    would not start; one with stay="long" failed every change of its entity, and the Sleep Screen engines in the
+    same callback stopped hearing states. Items are checked with HK Settings' own checks now."""
+    from mantel_server.settings_store import Actor
+    env = await make_env(settings={"sleep": {"enabled": True}},
+                         tablet={**TABLET, "sleep": {**TABLET["sleep"], "decided_by": "shadow"}})
+    await env.login("owner1", "owner")
+    for bad in ({"id": "x", "category": "doors", "exclude": 5}, {"id": "y", "entity": DOOR, "when": "on", "stay": "long"},
+                {"id": "z", "category": "not_a_category"}):
+        with pytest.raises(ValueError):
+            F.check_settings({"notifications": {"enabled": True, "items": [bad]}})
+        r = await env.m.client.put("/api/features/settings", json={"notifications": {"enabled": True, "items": [bad]}},
+                                   headers=env.m.headers())
+        assert r.status == 400, await r.text()
+    assert env.app["settings"].store.body("house", F.FEATURES_DOC).get("notifications", {}).get("items") in (None, [])
+    # one saved before the check existed: left out, the rest of the features still on, and Mantel starts
+    stored = {"sleep": {"enabled": True}, "notifications": {"enabled": True, "items": [
+        {"id": "x", "category": "doors", "exclude": 5}, dict(DOOR_ITEM)]}}
+    env.app["settings"].store.write([("house", F.FEATURES_DOC, stored)], actor=Actor(label="test"))
+    await env.host.reload()
+    assert env.host.settings_error is None and env.host.on("sleep")
+    assert [i["id"] for i in env.host.settings["notifications"]["items"]] == ["n_door"]
+    change(env.app, DOOR, "on")
+    assert await until(lambda: [s["item"] for s in env.host.notifier.sent] == ["n_door"])

@@ -85,6 +85,8 @@ from hk_core.house import State
 from hk_core.notifications import accessories as NA
 from hk_core.notifications import banner as NB
 from hk_core.notifications import dnd as ND
+from hk_core.notifications import rules as NR
+from hk_core.notifications import settings as NS
 from hk_core.screensaver import rules as SS
 from hk_core.screensaver.black import Black
 from hk_core.settings import model as SM
@@ -161,6 +163,26 @@ MAX_FETCH = 60_000_000
 
 
 # ------------------------------------------------------------------------------------- settings
+def bad_item(item: Any) -> str | None:
+    """Why one stored notification can't be used, or None. Its fields are checked with the checks HK Settings
+    saves with (``hk_core.notifications.settings.FIELDS``): the engine (``banner.build``, ``accessories.members``)
+    takes their shapes as given, so a bad one would fail on every change, or stop Mantel starting."""
+    if not isinstance(item, Mapping) or not isinstance(item.get("id"), str) or not item["id"]:
+        return "each with an id"
+    cat = item.get("category")
+    if cat is not None and NR.category(cat) is None:
+        return f"{item['id']}: category {cat!r} is not one of HK's"
+    for k, v in item.items():
+        check = NS.FIELDS.get(k)
+        if check is None or (k == "entity" and v in (None, "") and cat is not None):
+            continue
+        try:
+            check(v)
+        except NS.Bad as err:
+            return f"{item['id']}.{k}: {err.code}"
+    return None
+
+
 def check_settings(body: Any) -> dict[str, dict[str, Any]]:
     """Mantel's feature settings over DEFAULTS, each value checked (ValueError otherwise)."""
     if body is None:
@@ -183,9 +205,11 @@ def check_settings(body: Any) -> dict[str, dict[str, Any]]:
     n = out["notifications"]
     if not isinstance(n["options"], Mapping):
         raise ValueError("notifications.options: an object")
-    if not isinstance(n["items"], list) or not all(isinstance(i, Mapping) and isinstance(i.get("id"), str) and i["id"]
-                                                    for i in n["items"]):
+    if not isinstance(n["items"], list):
         raise ValueError("notifications.items: a list of notifications, each with an id")
+    for item in n["items"]:
+        if (why := bad_item(item)) is not None:
+            raise ValueError(f"notifications.items: {why}")
     lk = out["linked"]
     if lk["entry_id"] is not None and (not isinstance(lk["entry_id"], str) or not _ENTRY.match(lk["entry_id"])):
         raise ValueError("linked.entry_id: HA's hk_frontend entry id (letters, digits, _)")
@@ -760,6 +784,7 @@ class Notifier:
         self.last: dict[str, float] = {}
         self.mutes: dict[str, float] = {}
         self.sent: deque = deque(maxlen=LOG_KEEP)
+        self.known: set[str] = set()
 
     def configure(self, cfg: Mapping[str, Any]) -> None:
         self.opts = NB.options({**dict(cfg.get("options") or {}), "items": list(cfg.get("items") or [])})
@@ -773,11 +798,25 @@ class Notifier:
         self.watched = {str(it["id"]): list(NA.members(h, it)) for it in self.items if it.get("id")}
         ids = set().union(*self.watched.values()) if self.watched else set()
         self.cache = {eid: h.state(eid) for eid in ids}
+        # what the categories were worked out from: a state for anything else (the first states after a start
+        # or a reconnect, which come after the registries; a new device) works them out again (on_change)
+        self.known = set(self.host.hub.store.states)
 
     def on_change(self, changed: set[str]) -> None:
         if not self.host.on("notifications"):
             return
         h = self.host.house
+        states = self.host.hub.store.states
+        if any(eid in states and eid not in self.known for eid in changed):
+            # A category's members depend on states (a door sensor is a door by its device_class), and Mantel
+            # reads the registries before the first states: worked out then, Doors, Leaks and Smoke stayed
+            # empty after every restart. A state just seen is a first state, not a change: nothing fires; one
+            # already watched keeps its old state, so its change in the same batch still does.
+            before = self.cache
+            self.refresh()
+            for eid, st in before.items():
+                if eid in self.cache:
+                    self.cache[eid] = st
         for eid in sorted(changed & set(self.cache)):
             old, new = self.cache.get(eid), h.state(eid)
             self.cache[eid] = new
@@ -1321,7 +1360,7 @@ class FeatureHost:
         """Read the feature settings and the tablets again, and bring every piece in line."""
         async with self._reload_lock:
             try:
-                self.settings, self.settings_error = check_settings(self.doc(FEATURES_DOC)), None
+                self.settings, self.settings_error = check_settings(self._usable(self.doc(FEATURES_DOC))), None
             except ValueError as exc:
                 self.settings, self.settings_error = copy.deepcopy(DEFAULTS), str(exc)
                 log.error("Mantel's feature settings are unreadable (%s); every feature is off", exc)
@@ -1344,6 +1383,23 @@ class FeatureHost:
             self._sync_client()
             self.spawn(self.refresh_energy())
             self.spawn(self.push_areas())
+
+    @staticmethod
+    def _usable(doc: Any) -> Any:
+        """The stored document without a notification it can't use (one saved before the items were checked):
+        that one is left out, with an error in the log, rather than every feature turned off."""
+        n = doc.get("notifications") if isinstance(doc, Mapping) else None
+        items = n.get("items") if isinstance(n, Mapping) else None
+        if not isinstance(items, list):
+            return doc
+        keep = []
+        for item in items:
+            why = bad_item(item)
+            if why is None:
+                keep.append(item)
+            else:
+                log.error("notifications: one is left out until it is saved again (%s)", why)
+        return doc if len(keep) == len(items) else {**doc, "notifications": {**n, "items": keep}}
 
     def _sleep_engines(self) -> None:
         want = {tid for tid, b in self.boards.items()
@@ -1381,6 +1437,9 @@ class FeatureHost:
         """The hub's StateStore changed (chained after HaClient's own callback)."""
         try:
             self.notifier.on_change(changed)
+        except Exception:  # noqa: BLE001 -- notifications' bug never keeps the Sleep Screen from hearing states
+            log.exception("features: notifications failed on a state change")
+        try:
             for eng in list(self.engines.values()):
                 hit = [e for e in eng.listens() if e in changed and e in self._followed]
                 for eid in hit:
