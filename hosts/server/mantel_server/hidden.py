@@ -142,6 +142,56 @@ def suggest(cands: list[Candidate], settings: Mapping[str, Any]) -> dict[str, di
     return out
 
 
+def resolve(cands: list[Candidate], settings: Mapping[str, Any]) -> dict[str, list[str]]:
+    """kinds.resolve: every kind's entities, automatic, adjusted by what was saved (Leave out / Also count) or,
+    for a kind with nothing saved, its older list (LEGACY) where there is one; then what each accessory says."""
+    present = {c.entity_id for c in cands}
+    auto = automatic(cands, settings.get("generated"))
+    counts = settings.get("counts") or {}
+    out: dict[str, list[str]] = {}
+    for name in KINDS:
+        saved = clean(counts.get(name))
+        if saved is None:
+            old = legacy(settings, name)
+            out[name] = [e for e in old if e in present] if old else auto[name]
+            continue
+        drop = set(saved["exclude"])
+        ids = [e for e in auto[name] if e not in drop]
+        seen = set(ids)
+        ids += sorted(e for e in saved["include"] if e in present and e not in seen and e not in drop)
+        out[name] = ids
+    return accessories_over(out, present, settings.get("accessories"))
+
+
+# kinds.SHOW_AS_KIND: "Show as" a light or a fan counts it there; a switch or an outlet takes it out of both
+SHOW_AS_KIND = {"light": "lights", "fan": "fans"}
+
+
+def accessories_over(out: dict[str, list[str]], present: set[str],
+                     acc: Mapping[str, Any] | None) -> dict[str, list[str]]:
+    """kinds.accessories_over: "Include in status" off takes an accessory out of every kind; "Show as" moves it."""
+    ents = (acc or {}).get("entities") or {}
+    if not ents:
+        return out
+    res = {k: list(v) for k, v in out.items()}
+    for eid, a in ents.items():
+        if not isinstance(a, Mapping):
+            continue
+        if a.get("status") is False:
+            for k in res:
+                res[k] = [e for e in res[k] if e != eid]
+            continue
+        show = a.get("show_as")
+        if show in ("switch", "outlet", "light", "fan"):
+            for k in ("lights", "fans"):
+                if k != SHOW_AS_KIND.get(show):
+                    res[k] = [e for e in res[k] if e != eid]
+            k = SHOW_AS_KIND.get(show)
+            if k and eid in present and eid not in res[k]:
+                res[k] = res[k] + [eid]
+    return res
+
+
 def _also(cands: list[Candidate], auto: Mapping[str, list[str]], want: set[str]) -> dict[str, list[str]]:
     out: dict[str, list[str]] = {}
     for c in cands:
@@ -224,6 +274,24 @@ class Hiding:
             if area:
                 out.add(eid)
         return out
+
+    def found(self, settings: Mapping[str, Any]) -> dict[str, list[str]]:
+        """kinds.resolve over the house: what each kind counts now (the chips, the pages' status rows)."""
+        return resolve(self.candidates(), settings)
+
+    def counts(self, settings: Mapping[str, Any]) -> dict[str, dict[str, Any]]:
+        """panel._counts: Status & Chips kind by kind -- what it finds by itself (``auto``), what it counts now
+        (``found``), the saved Leave out / Also count (or the older list turned into them), whether anything
+        is saved, and the domains Also count may add."""
+        cands = self.candidates()
+        auto = automatic(cands, settings.get("generated"))
+        found = resolve(cands, settings)
+        offer = suggest(cands, settings)
+        saved = settings.get("counts") or {}
+        return {k: {"auto": auto[k], "found": found[k], "exclude": offer[k]["exclude"],
+                    "include": offer[k]["include"], "saved": saved.get(k) is not None,
+                    "domains": list(KINDS[k].domains), "also": list(KINDS[k].also)}
+                for k in KINDS}
 
     def snapshot(self, settings: Mapping[str, Any], only: Iterable[str] | None = None) -> dict[str, Any]:
         """hiding.snapshot: ``settings`` is the house's (house/settings) with ``accessories``

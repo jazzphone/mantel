@@ -43,6 +43,7 @@ What is here:
 """
 from __future__ import annotations
 
+import asyncio
 import copy
 import hashlib
 import importlib
@@ -919,6 +920,10 @@ class SettingsService:
         self.features: Any = None
         # Hidden Accessories' house copy (hidden.Hiding, readproxy.register puts it in app["hiding"]): a getter
         self.hiding: Any = None
+        # whether Mantel has the house's states yet (register: Home Assistant's first full state): until then
+        # Status & Chips' lists are not sent, and the screens find them themselves (hk-chip.js FIND)
+        self.house_ready: Callable[[], bool] = lambda: False
+        self.kinds_sent: dict[str, list[str]] | None = None      # the lists the screens were last sent
 
     # -- RBAC -----------------------------------------------------------------------------------
     async def allowed(self, identity: Any, scope: Scope) -> bool:
@@ -987,7 +992,58 @@ class SettingsService:
     def feed_payload(self, identity: Any) -> dict:
         """What ``hk_frontend/settings/subscribe`` sends this subject: the same shape HA's feed sends
         (settings.as_client), with the person's own values over the house's (``personal`` says which)."""
-        return self._with_features(self._personalise(self._base_feed(), self.personal(identity)), identity)
+        found = self.kind_lists()
+        self.kinds_sent = found
+        return self._with_kinds(self._with_features(self._personalise(self._base_feed(), self.personal(identity)),
+                                                    identity), identity, found)
+
+    # -- Status & Chips: what each kind counts (HA: kinds.Tracker, settings.as_client's `kinds`) ----------
+    def kind_lists(self) -> dict[str, list[str]] | None:
+        """What each kind counts now (hidden.resolve over Mantel's copy of the house), or None before Mantel
+        has the house's states (the screens then find them themselves, as from a server without them)."""
+        hiding = self.hiding() if callable(self.hiding) else None
+        if hiding is None or not hiding.ready or not self.house_ready():
+            return None
+        try:
+            return hiding.found(self._hide_settings())
+        except Exception:  # noqa: BLE001 -- the feed still goes out; the screens find the kinds themselves
+            log.exception("Status & Chips' kinds failed")
+            return None
+
+    def _visible(self, identity: Any, ids: Iterable[str]) -> set[str] | None:
+        """The ids this subject may view, asked synchronously (the feed is built in a callback); None when
+        that cannot be asked (fail closed: no lists at all)."""
+        host = self.features
+        check = getattr(getattr(host, "hooks", None), "may_read", None)
+        if check is None or identity is None:
+            return None
+        try:
+            got = check(identity, "view", sorted(set(ids)))
+        except Exception:  # noqa: BLE001 -- a failing hook refuses
+            log.exception("Status & Chips' kinds: the read hook failed")
+            return None
+        if inspect.isawaitable(got):
+            if hasattr(got, "close"):
+                got.close()
+            return None
+        return set(got or ())
+
+    def _with_kinds(self, payload: dict, identity: Any, found: Mapping[str, list[str]] | None) -> dict:
+        """HA's as_client: ``kinds`` (each kind's entities) and the older lists that are a kind's
+        (kinds.LEGACY: security's locks, doors, windows and garage; features' thermostats) set to it. Each list
+        holds only what this subject may view, so a chip counts what its screen can show."""
+        if not found:
+            return payload
+        ok = self._visible(identity, (e for v in found.values() for e in v))
+        if ok is None:
+            return payload
+        from hk_core.settings.kinds import LEGACY
+        kinds = {k: [e for e in v if e in ok] for k, v in found.items()}
+        payload["kinds"] = kinds
+        for kind, (section, key) in LEGACY.items():
+            if isinstance(payload.get(section), dict) and kind in kinds:
+                payload[section] = {**payload[section], key: list(kinds[kind])}
+        return payload
 
     def _with_features(self, payload: dict, identity: Any) -> dict:
         """HA's feed adds which features are added (`added`) and the Energy page's plan (`energy`); so
@@ -1022,8 +1078,9 @@ class SettingsService:
 
     def panel_payload(self) -> dict:
         """What ``hk_frontend/panel/get`` answers (panel.py ws_panel_get's shape). The parts HA works out
-        at run time (its dashboards, entities per tablet, counts, third-party status, HA's users) are
-        empty here until Mantel has them."""
+        at run time (its dashboards, entities per tablet, third-party status, HA's users) are empty here;
+        Hidden Accessories and Status & Chips' ``counts`` and ``kinds`` are added by register's panel_get,
+        from Mantel's copy of the house, for what the person may view."""
         boards = {k: d.body for k, d in self.store.docs("board").items()}
         pages = [{**p, "used_on": [path for path, b in boards.items()
                                    if p.get("path") in (b.get("custom_pages") or [])]}
@@ -1078,14 +1135,19 @@ class SettingsService:
     def publish(self, user_only: str | None = None) -> int:
         """Send the feed again to every subscriber (or only to one person's, after a personal save)."""
         base = None
+        found: Any = ()
         sent = 0
         for identity, cb in list(self._feeds.values()):
             uid = _sides(identity)[0]
             if user_only is not None and uid != user_only:
                 continue
             base = base if base is not None else self._base_feed()
+            if found == ():
+                found = self.kind_lists()            # once per publish, not per screen
+                self.kinds_sent = found
             try:
-                cb(self._with_features(self._personalise(base, self.personal(identity)), identity))
+                cb(self._with_kinds(self._with_features(self._personalise(base, self.personal(identity)), identity),
+                                    identity, found))
                 sent += 1
             except Exception:  # noqa: BLE001 -- one bad listener never stops the others
                 log.exception("settings feed listener failed")
@@ -1518,6 +1580,15 @@ def register(app: web.Application, hub: Any, hooks: Any = None, *, store: Settin
             snap = hiding.snapshot(settings)
             visible = await allowed_ids(reads.hooks, ctx.identity, "view", sorted(hiding.entity_ids_in(snap)))
             payload = {**payload, "hidden": hiding.only_visible(snap, set(visible), None)}
+            # Status & Chips kind by kind (HA: panel._counts) and how many each counts (HA's `kinds`): what a
+            # chip's What It Counts and Accessories' types show, cut down to what the person may view
+            if service.house_ready():
+                counts = hiding.counts(settings)
+                ids = {e for c in counts.values() for k in ("auto", "found", "exclude", "include") for e in c[k]}
+                ok = set(await allowed_ids(reads.hooks, ctx.identity, "view", sorted(ids)))
+                counts = {k: {**c, **{f: [e for e in c[f] if e in ok] for f in ("auto", "found", "exclude", "include")}}
+                          for k, c in counts.items()}
+                payload = {**payload, "counts": counts, "kinds": {k: len(c["found"]) for k, c in counts.items()}}
         return payload
 
     async def setup_check(ctx: Ctx, msg: dict):
@@ -1598,7 +1669,73 @@ def register(app: web.Application, hub: Any, hooks: Any = None, *, store: Settin
 
     app.router.add_get("/api/settings/import", import_status)
     app.router.add_post("/api/settings/import", run_import)
+    _watch_kinds(service, hub)
     return service
+
+
+# ------------------------------------------------------------------------------------- Status & Chips, kept current
+KINDS_COOLDOWN_S = 1.0
+
+
+def _watch_kinds(service: SettingsService, hub: Any) -> None:
+    """HA's kinds.Tracker: the screens are sent the feed again (at most once a second) when what a kind counts
+    changed -- an entity appeared or went, its device class or group members changed, a thermostat gained or
+    lost a reading, a registry changed -- and only when a list really changed. Chained after HaClient's own
+    callbacks, as features.py's are."""
+    ha = getattr(hub, "ha", None)
+    if ha is None:
+        return
+    service.house_ready = lambda: ha.ready.is_set() and getattr(hub, "registry", None) is not None
+    from hk_core.settings.kinds import KINDS
+    wanted = {d for k in KINDS.values() for d in k.domains + k.also}
+    seen: dict[str, tuple] = {}
+    timer: list[asyncio.TimerHandle | None] = [None]
+
+    def check() -> None:
+        timer[0] = None
+        if service.kind_lists() != service.kinds_sent:
+            service.publish()
+
+    def poke() -> None:
+        if timer[0] is not None:
+            return
+        try:
+            timer[0] = asyncio.get_running_loop().call_later(KINDS_COOLDOWN_S, check)
+        except RuntimeError:                     # no loop (a test without one): nothing to keep current
+            pass
+
+    def what(eid: str) -> tuple | None:
+        st = hub.store.states.get(eid)
+        if st is None:
+            return None
+        a = st.get("a") or {}
+        live = st.get("s") not in ("unavailable", "unknown")
+        return (a.get("device_class"), isinstance(a.get("entity_id"), list), isinstance(a.get("group_entities"), list),
+                live and "current_temperature" in a, live and "current_humidity" in a)
+
+    first_change, first_registry = ha.on_change, ha.on_registry
+
+    def on_change(changed: set[str]) -> None:
+        first_change(changed)
+        try:
+            moved = False
+            for eid in changed:
+                if eid.split(".", 1)[0] not in wanted:
+                    continue
+                now = what(eid)
+                if seen.get(eid, ()) != now:
+                    seen[eid] = now
+                    moved = True
+            if moved:
+                poke()
+        except Exception:  # noqa: BLE001 -- never break the hub's own callback
+            log.exception("Status & Chips' kinds: a state change failed")
+
+    def on_registry() -> None:
+        if first_registry is not None:
+            first_registry()
+        poke()
+    ha.on_change, ha.on_registry = on_change, on_registry
 
 
 # ------------------------------------------------------------------------------------------ CLI

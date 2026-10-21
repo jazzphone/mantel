@@ -318,3 +318,95 @@ async def test_setup_check_is_answered_by_mantel_with_its_own_needs(env):
 @pytest.mark.parametrize("who", [ADULT, CHILD, None])
 async def test_setup_check_needs_configure_on_settings(env, who):
     assert (await read(env, who, {"type": "hk_frontend/setup/check"}))["error"]["code"] == "forbidden"
+
+
+# ------------------------------------------------------------------- Status & Chips: what each kind counts
+def test_resolve_is_has_automatic_adjusted_by_leave_out_also_count_and_the_accessories():
+    """hosts/ha .../kinds.py resolve, through Mantel's copies."""
+    from mantel_server.hidden import resolve
+    hub = FakeHub()
+    h = Hiding(hub.store, hub.registry)
+    got = resolve(h.candidates(), {**SETTINGS, "accessories": ACCESSORIES})
+    assert got["thermostats"] == ["climate.downstairs"], "Leave out: the water heater"
+    assert got["lights"] == [], "the lamp: Include in Status off; the primary light: hidden everywhere"
+    got = resolve(h.candidates(), {"counts": {"lights": {"exclude": [], "include": ["switch.coffee"]}}})
+    assert got["lights"] == ["light.lamp", "light.primary", "switch.coffee"], "Also count adds an outlet"
+    got = resolve(h.candidates(), {"accessories": {"entities": {"switch.coffee": {"show_as": "light"}}}})
+    assert "switch.coffee" in got["lights"], "Show as a light counts it there"
+    got = resolve(h.candidates(), {"accessories": {"entities": {"light.lamp": {"show_as": "outlet"}}}})
+    assert "light.lamp" not in got["lights"], "Show as an outlet takes it out"
+    assert "binary_sensor.motion_kitchen" not in got["motion"], "a group helper never counts by itself"
+
+
+def _ready(env):
+    import types
+    env.service.house_ready = lambda: True
+    env.service.features = types.SimpleNamespace(hooks=types.SimpleNamespace(may_read=may_read),
+                                                 client_part=lambda identity: {})
+
+
+async def test_the_panels_counts_are_what_each_kind_counts_for_what_the_person_may_view(env):
+    before = (await read(env, OWNER, {"type": "hk_frontend/panel/get"}))["result"]
+    assert before["counts"] == {} and before["kinds"] == {}, "before Mantel has the house's states: nothing yet"
+    _ready(env)
+    got = (await read(env, OWNER, {"type": "hk_frontend/panel/get"}))["result"]
+    th = got["counts"]["thermostats"]
+    assert th["found"] == ["climate.downstairs"] and th["exclude"] == ["climate.water_heater"] and th["saved"]
+    assert th["domains"] == ["climate"]
+    assert got["counts"]["lights"]["auto"] == ["light.lamp"] and got["counts"]["lights"]["found"] == []
+    assert got["kinds"]["thermostats"] == 1 and got["kinds"]["lights"] == 0
+    env.service.store.write([("house", "settings", {**SETTINGS, "generated": {}}),
+                             ("house", "accessories", {"entities": {}, "rooms": {}})], actor=S.Actor(label="test"))
+    owner = (await read(env, OWNER, {"type": "hk_frontend/panel/get"}))["result"]["counts"]["lights"]
+    admin = (await read(env, ADMIN, {"type": "hk_frontend/panel/get"}))["result"]["counts"]["lights"]
+    assert owner["found"] == ["light.lamp", "light.primary"]
+    assert admin["found"] == ["light.lamp"], "an accessory the admin may not view is never listed"
+    assert "light.widened" not in json.dumps(admin)
+
+
+def test_the_feed_sends_each_kind_only_what_the_screen_may_view(env):
+    got: list = []
+    env.service.store.write([("house", "settings", {**SETTINGS, "generated": {}, "features": {"thermostats": ["x.old"]}}),
+                             ("house", "accessories", {"entities": {}, "rooms": {}})], actor=S.Actor(label="test"))
+    end = env.service.subscribe_feed(ADULT, got.append)
+    assert got[-1]["kinds"] == {}, "before Mantel has the house's states: the screens find them themselves"
+    _ready(env)
+    env.service.publish()
+    kinds = got[-1]["kinds"]
+    assert kinds["lights"] == ["light.lamp"] and kinds["thermostats"] == ["climate.downstairs"]
+    assert got[-1]["features"]["thermostats"] == ["climate.downstairs"], "the older list is the kind's (LEGACY)"
+    assert "light.primary" not in json.dumps(got[-1]["kinds"])
+    end()
+    child: list = []
+    env.service.subscribe_feed(CHILD, child.append)
+    assert child[-1]["kinds"]["lights"] == ["light.lamp"] and child[-1]["kinds"]["thermostats"] == []
+
+
+async def test_the_screens_are_told_when_what_a_kind_counts_changes(tmp_path, monkeypatch):
+    import asyncio
+    import types
+    monkeypatch.setattr(S, "KINDS_COOLDOWN_S", 0.01)
+    db = Database(tmp_path / "mantel.db")
+    app, hub = web.Application(), FakeHub()
+    hub.ha = types.SimpleNamespace(ready=asyncio.Event(), on_change=lambda changed: None, on_registry=None)
+    readproxy.register(app, hub, Hooks(may_read=may_read))
+    service = S.register(app, hub, S.SettingsHooks(), conn=db.conn)
+    service.features = types.SimpleNamespace(hooks=types.SimpleNamespace(may_read=lambda i, k, ids: list(ids)),
+                                             client_part=lambda identity: {})
+    got: list = []
+    service.subscribe_feed(OWNER, got.append)
+    assert got[-1]["kinds"] == {}
+    hub.ha.ready.set()
+    hub.ha.on_change(set(STATES))                     # the first full state
+    await asyncio.sleep(0.1)
+    assert got[-1]["kinds"]["lights"] == ["light.lamp", "light.primary"], "sent once the house is there"
+    n = len(got)
+    hub.store.states["light.lamp"] = {"s": "off", "a": {}, "lc": 2, "lu": 2}
+    hub.ha.on_change({"light.lamp"})                  # a light turned off: nothing a kind counts changed
+    await asyncio.sleep(0.1)
+    assert len(got) == n, "a state change alone sends nothing"
+    hub.store.states["light.porch"] = {"s": "on", "a": {}, "lc": 2, "lu": 2}
+    hub.ha.on_change({"light.porch"})                 # a new light
+    await asyncio.sleep(0.1)
+    assert len(got) == n + 1 and "light.porch" in got[-1]["kinds"]["lights"]
+    db.close()
