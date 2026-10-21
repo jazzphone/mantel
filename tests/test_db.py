@@ -175,3 +175,35 @@ def test_changed_applied_migration_is_logged_not_rerun(tmp_path, caplog):
     assert db.migrate(conn, folder) == []
     assert "changed after it was applied" in caplog.text
     conn.close()
+
+
+def test_a_database_a_newer_mantel_migrated_is_refused(tmp_path):
+    """migrate() skipped applied versions it didn't know, so a rolled-back update ran the old code on the new
+    schema with no warning. It is refused, as a restore refuses a newer backup."""
+    folder = tmp_path / "migrations"
+    shutil.copytree(db.MIGRATIONS, folder)
+    newest = max(m.version for m in db.discover(folder))
+    (folder / f"{newest + 1:04d}_later.sql").write_text("CREATE TABLE later_thing (x INTEGER);")
+    db.Database(tmp_path / "m.db", folder).close()
+    with pytest.raises(db.MigrationError, match="schema_too_new"):
+        db.Database(tmp_path / "m.db")
+
+
+def test_processes_opening_a_new_database_at_once_all_succeed(tmp_path):
+    """Two processes migrating at once both saw the same versions pending; the second crashed re-running the
+    first's (the server after an update, while a `mantel …` command ran). One migrates; the others wait."""
+    import subprocess
+    import sys
+    from pathlib import Path
+    target = tmp_path / "mantel.db"
+    code = f"from mantel_server import db; db.Database({str(target)!r}).close(); print('ok')"
+    root = Path(__file__).resolve().parents[1]
+    env = {**os.environ, "PYTHONPATH": os.pathsep.join([str(root / "hosts/server"), str(root)])}
+    procs = [subprocess.Popen([sys.executable, "-c", code], stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                              text=True, env=env) for _ in range(4)]
+    outs = [p.communicate(timeout=60) for p in procs]
+    assert [o.strip() for o, _ in outs] == ["ok"] * 4, [e[-300:] for _, e in outs]
+    conn = sqlite3.connect(target)
+    versions = [r[0] for r in conn.execute("SELECT version FROM schema_version ORDER BY version")]
+    conn.close()
+    assert versions == sorted(set(versions)) and versions[-1] == max(m.version for m in db.discover(db.MIGRATIONS))
