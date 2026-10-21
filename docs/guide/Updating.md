@@ -35,9 +35,8 @@ If you [built the App from source](Install.md#build-the-app-from-source):
 
    `--replace` only replaces a folder the tool staged itself.
 3. In Home Assistant, **Settings** → **Apps** → **App store** → **⋮** → **Check for updates**.
-4. Open **Mantel** and select **Update** (or **Rebuild** if no update is offered). The Supervisor builds the new version, which takes a few minutes.
+4. Open **Mantel** and select **Update**: a restaged App with a newer version is offered as an update once the store is checked. The Supervisor builds the new version, which takes a few minutes. (**Rebuild** is only for a restaged App whose version didn't change.)
 
-<!-- CHECK: confirm on a real Supervisor whether a restaged local App with a bumped config.yaml version offers "Update", and when "Rebuild" is needed instead. -->
 
 ## Docker
 
