@@ -12,7 +12,7 @@ Mantel Server runs beside your Home Assistant and serves HK's home screens from 
 | **Who signs people in** | Home Assistant. Mantel's roles decide what each person gets. | Mantel itself: password, passkey or *Sign in with Home Assistant* | The same as Docker |
 | **Connecting to Home Assistant** | Automatic (the App's own credential) | On the **Connections** page after the first start | The same as Docker |
 | **HTTPS** | Home Assistant's own | Included (Caddy), or your own reverse proxy | The same as Docker |
-| **Live TV** | Home Assistant's own Live TV keeps playing | Served by Mantel through its own go2rtc | The same, with QuickSync on the iGPU |
+| **Live TV** | Played by Home Assistant's go2rtc, through Mantel Link | Served by Mantel through its own go2rtc | The same, with QuickSync on the iGPU |
 | **Updates** | Through Home Assistant | `./update.sh` | `mantel-update` |
 | **Backups** | Inside Home Assistant's backups | Mantel's own nightly encrypted backups | The same as Docker |
 | **Install guide** | [below](#install-the-home-assistant-app) | [Install with Docker](Install-Docker.md) | [Install in a Proxmox LXC](Install-Proxmox-LXC.md) |

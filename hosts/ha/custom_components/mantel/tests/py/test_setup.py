@@ -31,7 +31,7 @@ async def test_set_up_by_hand_tested_first_one_entry_per_mantel(hass, mantel):
     await until(hass, lambda: e.runtime_data.connected)
     # the link says who it is: Mantel Link, protocol 2, can take the bridge
     h = mantel.headers[-1]
-    assert h["X-Mantel-Link"] == "domain=mantel; protocol=2; features=bridge"
+    assert h["X-Mantel-Link"] == "domain=mantel; protocol=2; features=bridge,live_tv"
     assert h["Authorization"] == f"Bearer {TOKEN}" and "Origin" not in h
     # and tells Mantel this Home Assistant has no HK Frontend
     await until(hass, lambda: mantel.reports)

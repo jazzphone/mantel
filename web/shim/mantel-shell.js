@@ -155,6 +155,8 @@
     productName: () => 'Mantel',
     haPlace: (path) => 'Home Assistant → ' + path,
     haName: (name) => name + ' in Home Assistant',
+    // Mantel Link's cameras are Live TV's channels (once the house's Live TV is Mantel's): not the house's
+    notHouseCameraPlatforms: () => ['mantel'],
     // Mantel's own docs (/docs, docs_pages.py: HK's pages and Mantel's), under the page's prefix
     docsUrl: (page, anchor) => (global.__mantelBase || '') + '/docs/' + encodeURIComponent(page) + (anchor ? '#' + encodeURIComponent(anchor) : ''),
     tags: { viewContainer: 'hk-view-container' },

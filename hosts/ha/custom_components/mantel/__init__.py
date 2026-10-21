@@ -59,6 +59,9 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     talk_live.async_register(hass)
     if getattr(hass, "http", None) is not None:
         talk.async_register(hass)
+        # Live TV's transcode (tv.py; HK Frontend's live_tv/stream.py): the channel cameras stream from it
+        from . import tv
+        tv.async_register(hass)
     return True
 
 

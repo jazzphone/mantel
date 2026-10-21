@@ -126,6 +126,12 @@
     // not (HK then walks it as a media folder). Home Assistant: null, both.
     photoSource: nil,
     listPhotos: nil,
+    // THE HOST'S OWN CAMERAS THAT ARE NOT THE HOUSE'S: the integration
+    // platforms whose cameras HK's Cameras page and settings leave out, as
+    // they do a wall tablet's and Live TV's channels (hk-strategy.js
+    // notHouseCamera). The host's own Live TV channels, once its integration
+    // holds them. Home Assistant: none beyond HK's own.
+    notHouseCameraPlatforms: function () { return []; },
     // THE PRODUCT'S NAME where HK's screens and settings speak of themselves
     // ("Drawn By: … | HK Frontend", "the photos that come with HK Frontend"):
     // HK Frontend in Home Assistant, the host's own name elsewhere (Mantel).
@@ -190,7 +196,7 @@
    'dashboardRoot', 'viewContainer', 'viewSlot', 'view', 'viewBackground', 'toolbar', 'dashboardConfig', 'onDashboard', 'isDashboard',
    'defined', 'showNotifications', 'keepAwake', 'sidebarData', 'haNav', 'haNavigate', 'openHaMenu', 'hostMenu', 'settingsHost', 'holdWrites', 'menuButton',
    'hostDetail', 'openHostDetail', 'hostToast', 'dialogRoot', 'serviceUrl', 'photoSource', 'listPhotos', 'productName', 'haPlace',
-   'haName', 'docsUrl'].forEach(function (name) {
+   'haName', 'docsUrl', 'notHouseCameraPlatforms'].forEach(function (name) {
     shell[name] = function () {
       try { return get(name).apply(shell, arguments); } catch (e) {
         return name === 'onDashboard' ? true : FALSE[name] ? false : WORDS[name] ? NONE[name].apply(shell, arguments) : null;

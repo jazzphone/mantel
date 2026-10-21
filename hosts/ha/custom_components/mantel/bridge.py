@@ -136,8 +136,9 @@ class Bridge:
         link = link_of(entry)
         assert link is not None
         self.hass, self.entry = hass, entry
+        # live_tv: this side has Live TV's transcode (tv.py), so Mantel may play its channels here
         self.link = MantelLink(async_get_clientsession(hass), link["url"], link["token"], self,
-                               domain=DOMAIN, protocol=PROTOCOL, features=("bridge",),
+                               domain=DOMAIN, protocol=PROTOCOL, features=("bridge", "live_tv"),
                                frames=self.frames(),
                                **({"timeout": timeout} if timeout is not None else {}))
         self.descs: dict[str, dict[str, Any]] = {}          # unique id -> Mantel's descriptor (all of them)

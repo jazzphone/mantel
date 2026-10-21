@@ -2897,12 +2897,14 @@
       }
       c.appendChild(K.group({ header: 'What It Counts', footer: (src.kinds || []).length ? 'Tap a type to change what this chip counts: Add… counts something more (an outlet with a lamp, a group helper); open an accessory to hide it from the chip. The same on every screen.' : 'The same on every screen.' }, rows));
     }
-    // NOT THE HOUSE'S CAMERAS (hk-strategy.js notHouseCamera, the same rule):
+    // NOT THE HOUSE'S CAMERAS (hk-strategy.js notHouseCamera: its rule, when it is loaded):
     // a wall tablet's own -- Fully Kiosk's, or Kiosk Satellite's, which comes
     // through ESPHome and is told apart by its device's manufacturer -- and
     // Live TV's channels.
     notHouseCamera(id) {
       var hs = this.client || {}, e = (hs.entities || {})[id] || {};
+      var S = window.hkStrategy;
+      if (S && typeof S.notHouseCamera === 'function') return S.notHouseCamera(hs, e);
       if ({ fully_kiosk: 1, hk_frontend: 1, hk_tv: 1 }[e.platform]) return true;
       var d = e.device_id && (hs.devices || {})[e.device_id];
       return !!d && d.manufacturer === 'kiosk_satellite';

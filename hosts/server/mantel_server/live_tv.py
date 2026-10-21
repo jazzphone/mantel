@@ -33,8 +33,19 @@ it reads the same things it reads from Home Assistant's Live TV feature, answere
   expiring after VIEWER_TTL_S without a heartbeat, as HA's does; published as ``sensor.tv_viewers``
   (state = how many, ``users`` = their names, ``channels``, ``screens``) where Mantel runs Live TV.
 
-WHERE MANTEL DOES NOT RUN IT (the HA App: no ``--go2rtc-url``; decision in FEATURE-PARITY.md), nothing
-here changes the interim: ``hk_tv/channels`` is the filtered read to HA, the video is HA's own
+THROUGH MANTEL LINK (the HA App with no HK Frontend: no ``--go2rtc-url``; ``mode() == "link"``). Once the house
+is Mantel's (linked_owners ``house``), nothing in Home Assistant runs Live TV any more, so where Mantel Link says it
+has Live TV's transcode (``live_tv`` in its link features; Mantel Link's tv.py, HK Frontend's stream.py ported) and
+the piece applies (turned on, or imported from HA with a tuner: ``piece_on``), Mantel serves the channel list itself
+from its own Live TV piece (it reads the tuner's lineup and the guide), and linked_house.py publishes each channel
+camera with ``features.tv`` = the tuner's stream URL, the quality and the programme's artwork. Mantel Link's camera
+streams from its own view on Home Assistant's port, which runs ffmpeg on that tuner URL alone; Home Assistant's
+go2rtc plays it, so the page's ``camera/webrtc/*`` for a channel camera go to the camera connector (Home Assistant),
+as before. The entities are Home Assistant's (Mantel Link's), not Mantel's overlay; the heartbeat is counted here and
+published as ``sensor.tv_viewers``, and answered ``{viewers, ha: false}``.
+
+WHERE MANTEL DOES NOT RUN IT (the HA App with HK Frontend's Live TV, or a Mantel Link without the transcode;
+decision in FEATURE-PARITY.md), nothing here changes the interim: ``hk_tv/channels`` is the filtered read to HA, the video is HA's own
 transcode through HA's go2rtc, and the heartbeat is counted here and answered ``{viewers, ha: true}``
 so the page also sends it to HA when the operator turned commands on (HA keeps ``sensor.tv_viewers``).
 
@@ -353,17 +364,54 @@ class MantelLiveTv:
         h = self.host
         return self.go2rtc is not None and h is not None and h.on("live_tv") and bool(self.settings().get("tuner"))
 
+    def piece_on(self) -> bool:
+        """The Live TV piece applies: turned on, or the house's own Live TV (HA had it added and a tuner was
+        imported) moved to Mantel with the house (linked_owners ``house``), so nothing in HA runs it."""
+        h = self.host
+        if h is None or not self.settings().get("tuner"):
+            return False
+        if h.on("live_tv"):
+            return True
+        owners = self.app.get("linked_owners")
+        return "live_tv" in h.settings["ha"]["added"] and owners is not None and bool(owners.house())
+
+    def link(self) -> Any:
+        """A connected Mantel Link that has Live TV's transcode (``live_tv`` in its link features), or None."""
+        lk = self.app.get("linked")
+        reg = getattr(lk, "registry", None)
+        for c in (reg.clients_of("mantel") if reg is not None else []):
+            if c.protocol >= 2 and "live_tv" in c.features:
+                return c
+        return None
+
+    def links(self) -> bool:
+        """LIVE TV THROUGH MANTEL LINK (the HA App: no go2rtc of Mantel's own). Mantel holds the house's
+        entities (linked_house), the piece applies, and Mantel Link can transcode: Mantel answers the
+        channel list from its own Live TV piece and publishes each channel camera with the tuner's
+        stream for Mantel Link's transcode, and Home Assistant's go2rtc plays it, as it did HK Frontend's."""
+        if self.go2rtc is not None or not self.piece_on():
+            return False
+        lh = self.app.get("linked_house")
+        return lh is not None and lh.wanted() is not None and self.link() is not None
+
+    def serves(self) -> bool:
+        """Mantel answers the channel list itself: its own go2rtc, or through Mantel Link."""
+        return self.runs() or self.links()
+
     def mode(self) -> str:
-        """``mantel`` (served here), ``ha`` (the interim: Home Assistant's Live TV), or ``off``."""
+        """``mantel`` (served here), ``link`` (through Mantel Link), ``ha`` (the interim: Home Assistant's
+        Live TV), or ``off``."""
         if self.runs():
             return "mantel"
+        if self.links():
+            return "link"
         h = self.host
         return "ha" if h is not None and "live_tv" in h.settings["ha"]["added"] else "off"
 
     def channels(self) -> list[dict[str, Any]]:
         """Every channel Mantel serves, in order: number, name, entity ids, guide (now/next), stream URL."""
         h = self.host
-        if h is None or not self.runs():
+        if h is None or not self.serves():
             return []
         cfg = self.settings()
         lineup = {c.get("number"): c for c in h.tv.lineup}
@@ -385,7 +433,21 @@ class MantelLiveTv:
             if names.count(c["name"]) > 1:
                 c["name"] = f"{c['name']} {c['number']}"
                 c.update(entity_ids(c["name"]))
+        if not self.runs():
+            # through Mantel Link the entities are Home Assistant's: the ids it already has for a channel win
+            learned = self.learned()
+            for c in out:
+                for kind in ("camera", "now"):
+                    eid = ((learned.get("cameras" if kind == "camera" else "now") or {}).get(c["number"]) or {}).get("entity_id")
+                    if isinstance(eid, str) and _ENTITY.match(eid):
+                        c[kind] = eid
         return out
+
+    def learned(self) -> dict[str, Any]:
+        """The house's Live TV entities linked_house learned from HA's registry ({viewers, now, cameras})."""
+        owners = self.app.get("linked_owners")
+        got = owners.remembered("live_tv") if owners is not None else None
+        return got if isinstance(got, dict) else {}
 
     def by_camera(self) -> dict[str, dict[str, Any]]:
         return {c["camera"]: c for c in self.channels()}
@@ -467,7 +529,7 @@ class MantelLiveTv:
         lh = self.app.get("linked_house")
         if lh is None:
             return
-        sig = (self.runs(), tuple(c["number"] for c in self.channels()), repr(self.viewers_state()))
+        sig = (self.mode(), repr(self.linked_channels()), repr(self.viewers_state()))
         if sig == self._linked_sig:
             return
         self._linked_sig = sig
@@ -475,6 +537,18 @@ class MantelLiveTv:
             await lh.refresh()
         except Exception:  # noqa: BLE001 -- linked HA's trouble never breaks Live TV
             log.exception("Live TV: the linked entities were not refreshed")
+
+    def linked_channels(self) -> list[dict[str, Any]]:
+        """What linked_house publishes for each channel served (the camera's stream through Mantel Link
+        when it plays them, and the artwork its still shows)."""
+        q = self.settings().get("quality") if self.settings().get("quality") in QUALITIES else "720"
+        out = []
+        for c in self.channels():
+            image = (c.get("programme") or {}).get("image") or c.get("logo")
+            out.append({"number": c["number"], "name": c["name"], "camera": c["camera"], "now": c["now"],
+                        "tv": {"channel": c["number"], "source": c["url"], "quality": q,
+                               "image": image if isinstance(image, str) else None} if self.links() else None})
+        return out
 
     async def sync(self) -> None:
         """Bring the overlay, the registry and the linked entities in line with the settings and guide."""
@@ -489,7 +563,7 @@ class MantelLiveTv:
         if who is None:
             raise Forbidden("sign in to watch")
         mode = self.mode()
-        if channel is not None and mode == "mantel":
+        if channel is not None and mode in ("mantel", "link"):
             ch = next((c for c in self.channels() if c["number"] == channel), None)
             if ch is None:
                 raise LookupError("not a channel Mantel serves")
@@ -499,20 +573,21 @@ class MantelLiveTv:
         self.heartbeats += 1
         now = self.monotonic()
         changed = self.viewers.set(who[0], who[1], channel, now)
-        if changed and mode == "mantel":
+        if changed and mode in ("mantel", "link"):
             want = self.wanted()
             hit = self.local.put_all(want)
             if hit:
                 self.hub.on_change(hit)
             await self.sync_linked()
-        return {"viewers": self.viewers.names(now), "ha": mode != "mantel"}
+        # ha: the page also tells Home Assistant's own Live TV (served here or through Mantel Link, there is none)
+        return {"viewers": self.viewers.names(now), "ha": mode not in ("mantel", "link")}
 
     # -- the channel list -------------------------------------------------------------------------------
     async def channel_list(self, ctx: Ctx, msg: dict) -> dict[str, Any]:
         from .readproxy import ReadBlocked
         if set(msg) - {"type", "id"}:
             raise ReadBlocked("hk_tv/channels carries nothing")
-        if not self.runs():
+        if not self.serves():
             reads = self.app.get("filtered_reads")
             if reads is None:
                 raise ConnectionError("unavailable")
@@ -724,7 +799,7 @@ class MantelLiveTv:
         now = self.monotonic()
         self.viewers.prune(now)
         h = self.host
-        if self.runs() and h is not None:
+        if self.serves() and h is not None:
             # the guide: features' own loop fetches it when Live TV was on at start; otherwise here
             if self.guide_age() >= GUIDE_STALE_S and now - self._guide_tried >= GUIDE_RETRY_S:
                 self._guide_tried = now

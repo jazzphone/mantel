@@ -201,7 +201,7 @@ def install_phone_probe() -> None:
 
 
 def prepare(fresh: bool, sequential: bool = False, hk: bool = True, probe: bool = False, phone: bool = False,
-            supervisor: bool = False) -> None:
+            supervisor: bool = False, stream: bool = False) -> None:
     if not (VENV / "bin/hass").exists():
         raise SystemExit(f"no hass at {VENV}/bin/hass (set TESTHA_VENV)")
     if fresh and CONFIG.exists():
@@ -248,6 +248,11 @@ def prepare(fresh: bool, sequential: bool = False, hk: bool = True, probe: bool 
         install_phone_probe()
     if supervisor:
         install_probe("mantel_e2e_supervisor")
+    if stream:
+        # HA's own stream player (HLS, PyAV: the demo's requirement), for Live TV's channel cameras
+        # (mantel_link_e2e.py --phase livetv); go2rtc stays off
+        conf = CONFIG / "configuration.yaml"
+        conf.write_text(conf.read_text() + "stream:\n")
 
 
 def start() -> None:
@@ -427,6 +432,8 @@ def main() -> None:
                     help="add a scratch-only stand-in for the Supervisor's discovery hand-off (POST /api/mantel_e2e/discovery)")
     ap.add_argument("--phone-probe", action="store_true",
                     help="add a scratch-only stand-in Companion-app phone (notify.mobile_app_e2e_phone)")
+    ap.add_argument("--stream", action="store_true",
+                    help="add HA's own stream player (HLS) for Live TV's channel cameras; go2rtc stays off")
     ap.add_argument("--ordered-boot", action="store_true",
                     help="EXPERIMENT: scratch copy loads HK's dependency-free bootstrap modules as ONE ordered file (tests the load-order fix)")
     a = ap.parse_args()
@@ -441,7 +448,7 @@ def main() -> None:
         if pid():
             stop()
         prepare(a.fresh, a.ordered_boot, hk=not a.no_hk, probe=a.zeroconf_probe, phone=a.phone_probe,
-                supervisor=a.supervisor_probe)
+                supervisor=a.supervisor_probe, stream=a.stream)
         start()
         asyncio.run(setup())
 

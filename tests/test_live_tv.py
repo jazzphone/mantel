@@ -556,3 +556,111 @@ async def test_the_app_mode_has_no_channel_gate_and_no_go2rtc_route(rig):
     await r.env.login("owner1", "owner")
     # no go2rtc configured: /go2rtc/ is not configured at all (nothing of an HA transcode is exposed here)
     assert (await m.client.get("/go2rtc/api/frame.jpeg?src=mantel_tv_4_1")).status == 404
+
+
+# ------------------------------------------------------------------------------------- through Mantel Link
+LINK_ENTRY = "e2e0entry0id"
+
+
+def _house_live_tv(hub):
+    """What HK Frontend's Live TV left in HA's registry (now Mantel Link's, after the bridge hand-over)."""
+    hub.registry.update(entities=list(hub.registry.entity_entries) + [
+        {"entity_id": "sensor.tv_viewers", "platform": "mantel", "unique_id": f"{ITEM}_viewers",
+         "config_entry_id": "mantellinkentry", "original_name": "TV viewers"},
+        {"entity_id": "sensor.tv_nbc_now", "platform": "mantel", "unique_id": f"{ITEM}_4.1_now",
+         "config_entry_id": "mantellinkentry", "original_name": "TV NBC now"},
+        {"entity_id": "camera.tv_nbc", "platform": "mantel", "unique_id": f"{ITEM}_4.1_camera",
+         "config_entry_id": "mantellinkentry", "original_name": "TV NBC"}])
+
+
+def _mantel_link(r, monkeypatch, features=("bridge", "live_tv")):
+    import types
+    link = types.SimpleNamespace(domain="mantel", protocol=2, report={}, features=frozenset(features),
+                                 ws=types.SimpleNamespace(closed=False))
+    reg = r.app["linked"].registry
+    monkeypatch.setattr(reg, "clients_of", lambda d: [link] if d == "mantel" else [])
+    return link
+
+
+async def _house_moved(r, monkeypatch, features=("bridge", "live_tv"), enabled=False):
+    """The HA App's house: no go2rtc of Mantel's, Live TV imported from HK Frontend (so left off), the house
+    moved to Mantel, Mantel Link connected."""
+    _house_live_tv(r.app["hub"])
+    _mantel_link(r, monkeypatch, features)
+    await r.env.login("owner1", "owner")
+    resp = await r.env.m.client.put("/api/linked/owners", json={"unit": "house", "owner": "mantel"},
+                                    headers=r.env.m.headers())
+    assert resp.status == 200
+    await r.tv.tick()
+
+
+async def test_the_ha_app_plays_live_tv_through_mantel_link(rig, monkeypatch):
+    """HK Frontend gone, the house Mantel's: Mantel answers the channel list from its own Live TV piece (the
+    piece an import left off, since HA ran it then) and publishes each channel camera with the tuner's stream
+    for Mantel Link's transcode; HA's go2rtc plays it, so the video goes to HA's camera as before."""
+    r = await rig(go2rtc=False, linked=True)
+    body = {**r.app["features"].settings}
+    body["live_tv"] = {**body["live_tv"], "enabled": False}
+    r.app["settings"].store.write([("house", F.FEATURES_DOC, F.check_settings(body))], actor=Actor(label="test"))
+    await r.app["features"].reload()
+    assert r.tv.mode() == "ha", "the house still HA's: the interim"
+    await _house_moved(r, monkeypatch)
+    assert r.tv.mode() == "link" and r.tv.piece_on() and not r.tv.runs()
+    assert r.app["features"].tv.fetched_at, "Mantel reads the tuner and the guide itself now"
+
+    ws = await r.env.socket(expect_caps=False)
+    got = (await r.ask(ws, 1, {"type": "hk_tv/channels"}))["result"]
+    assert got == {"configured": True, "channels": [
+        {"number": "4.1", "name": "NBC", "camera": "camera.tv_nbc", "now": "sensor.tv_nbc_now"},
+        {"number": "7.1", "name": "WFAK-DT", "camera": "camera.tv_wfak_dt", "now": "sensor.tv_wfak_dt_now"}]}
+    assert r.tuner_addr not in json.dumps(got), "the page never learns the tuner's address"
+
+    reg = r.app["linked"].registry
+    cam = reg.get(f"{ITEM}_4.1_camera")
+    assert cam["entity_id"] == "camera.tv_nbc" and cam["available"] is True
+    assert cam["features"] == {"tv": {"channel": "4.1", "source": f"http://{r.tuner_addr}/auto/v4.1",
+                                      "quality": "720", "image": "https://img.example.invalid/nbc.png"}}
+    # a channel HK Frontend never had gets entities of its own, under this entry
+    new = reg.get(f"{LINK_ENTRY}_7.1_camera")
+    assert new["entity_id"] == "camera.tv_wfak_dt" and new["features"]["tv"]["source"].endswith("/auto/v7.1")
+    assert reg.get(f"{LINK_ENTRY}_7.1_now")["entity_id"] == "sensor.tv_wfak_dt_now"
+    assert reg.get(f"{ITEM}_4.1_now")["state"] == "The Fictional Hour"
+    # the entities are Home Assistant's (Mantel Link's), not an overlay of Mantel's own
+    assert r.state("camera.tv_nbc") is None and r.state(L.VIEWERS_ID) is None
+
+    # the heartbeat is counted here and published as sensor.tv_viewers; there is no HA Live TV to tell
+    await ws.send_json({"type": "tv_watching", "id": 2, "channel": "4.1"})
+    assert (await GF.recv(ws))["result"] == {"viewers": ["Owner1"], "ha": False}
+    v = reg.get(f"{ITEM}_viewers")
+    assert v["state"] == 1 and v["attributes"]["users"] == ["Owner1"]
+    await ws.send_json({"type": "tv_watching", "id": 3, "channel": "9.9"})
+    assert (await GF.recv(ws))["error"] == {"code": "not_found"}
+
+    # a channel camera's offer is the camera connector's (to HA), never Mantel's own WebRTC
+    assert not r.tv.ours({"entity_id": "camera.tv_nbc"})
+    # the 1080 picture is the transcode's, named to Mantel Link
+    body = {**r.app["features"].settings}
+    body["live_tv"] = {**body["live_tv"], "quality": "1080"}
+    r.app["settings"].store.write([("house", F.FEATURES_DOC, F.check_settings(body))], actor=Actor(label="test"))
+    await r.app["features"].reload()
+    await r.tv.sync()
+    assert reg.get(f"{ITEM}_4.1_camera")["features"]["tv"]["quality"] == "1080"
+    await ws.close()
+
+
+async def test_a_mantel_link_without_the_transcode_keeps_the_interim(rig, monkeypatch):
+    r = await rig(go2rtc=False, linked=True)
+    await _house_moved(r, monkeypatch, features=("bridge",))
+    assert r.tv.mode() == "ha" and not r.tv.serves()
+    cam = r.app["linked"].registry.get(f"{ITEM}_4.1_camera")
+    assert cam["available"] is False and cam["features"] == {}, "never a camera nothing can play"
+
+
+async def test_live_tv_without_a_tuner_is_off_through_mantel_link(rig, monkeypatch):
+    r = await rig(go2rtc=False, linked=True)
+    body = {**r.app["features"].settings}
+    body["live_tv"] = {**body["live_tv"], "enabled": False, "tuner": ""}
+    r.app["settings"].store.write([("house", F.FEATURES_DOC, F.check_settings(body))], actor=Actor(label="test"))
+    await r.app["features"].reload()
+    await _house_moved(r, monkeypatch)
+    assert not r.tv.piece_on() and r.tv.mode() == "ha"

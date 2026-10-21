@@ -19,7 +19,8 @@ Home Assistant. **Mantel Link** is everything Home Assistant needs of it, and no
   says, a way back from Mantel's menu, and your Home Assistant sidebar in the screen's menu and tab bar.
 - **Notifications on your phone** through the Home Assistant Companion app, with Dismiss.
 - **The doorbell's talk-back** (a hold-to-talk clip on a speaker, live talk to a UniFi Protect doorbell), the
-  helper-sensor read Mantel's Energy page needs, and the Lights page's "Tonight" list.
+  helper-sensor read Mantel's Energy page needs, the Lights page's "Tonight" list, and **Live TV's transcode**
+  (the channel cameras Home Assistant's go2rtc plays, where Mantel runs as the Home Assistant App).
 
 Mantel Link replaces **HK Frontend**. Moving from it keeps every entity id and its history:
 [Moving from HK Frontend](docs/Moving-from-HK-Frontend.md).

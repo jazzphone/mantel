@@ -37,6 +37,10 @@ A few things need code inside Home Assistant, which HK Frontend used to have; Ma
   after its own checks and audit, with its house commands on.
 - **Energy's helper sensors.** A Utility Meter or Integral sensor keeps the sensor it counts out of its state, so
   `mantel/energy/sources` (administrators only, read only) tells Mantel's Energy page the chain.
+- **Live TV's transcode.** Where Mantel has no go2rtc of its own (the Mantel App), each channel camera Mantel
+  describes streams from `GET /api/mantel/tv/stream/<channel>`, which answers only this machine (Home Assistant's
+  go2rtc) and runs ffmpeg on the tuner's own stream for that channel (an HDHomeRun's MPEG-2 to H.264 and AAC), only
+  for a channel Mantel named and only while someone watches. The camera's picture is the programme's artwork.
 - **The Lights page's "Tonight" list.** What your lighting automations will do next is worked out from their own
   configurations and conditions (`mantel/page_headers/get`, administrators only, read only); Mantel shows each person
   only the lights they may see. It never sends an automation's configuration.

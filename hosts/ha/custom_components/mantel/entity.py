@@ -146,27 +146,54 @@ class LinkedBinarySensor(LinkedEntity, BinarySensorEntity):
 
 
 class LinkedCamera(LinkedEntity, Camera):
-    """Live TV's channels: the stream Mantel names, no still of its own."""
+    """Live TV's channels. A channel Mantel names in `features.tv` streams
+    through Mantel Link's own transcode (tv.py, this machine) and its still
+    is the programme's artwork (never a frame: that would take a tuner);
+    otherwise the stream Mantel names, no still of its own."""
 
     linked_platform = "camera"
 
     def __init__(self, linked: Any, desc: dict[str, Any]) -> None:
         Camera.__init__(self)
         LinkedEntity.__init__(self, linked, desc)
+        self._art_url: str | None = None
+        self._art: bytes | None = None
 
     @property
     def supported_features(self) -> CameraEntityFeature:
-        return CameraEntityFeature.STREAM if self._source() else CameraEntityFeature(0)
+        return CameraEntityFeature.STREAM if self._tv() or self._source() else CameraEntityFeature(0)
+
+    def _tv(self) -> dict[str, Any] | None:
+        from .tv import channel_of
+        return channel_of(self._features)
 
     def _source(self) -> str | None:
         src = self._features.get("stream_source")
         return src if isinstance(src, str) and src.split("://", 1)[0] in ("http", "https", "rtsp", "rtsps") else None
 
     async def stream_source(self) -> str | None:
+        tv = self._tv()
+        if tv is not None:
+            from .tv import stream_url
+            return stream_url(self.hass, tv["channel"])
         return self._source()
 
     async def async_camera_image(self, width: int | None = None, height: int | None = None) -> bytes | None:
-        return None
+        tv = self._tv()
+        url = tv["image"] if tv else None
+        if not url:
+            return None
+        if url != self._art_url:
+            from homeassistant.helpers.aiohttp_client import async_get_clientsession
+            try:
+                async with async_get_clientsession(self.hass).get(url, timeout=10) as r:
+                    if r.status != 200 or not (r.content_type or "").startswith("image/"):
+                        return None
+                    body = await r.content.read(4_000_000)
+                self._art, self._art_url = body, url
+            except Exception:  # noqa: BLE001 -- no artwork: no picture
+                return None
+        return self._art
 
 
 class LinkedAlarmPanel(LinkedEntity, AlarmControlPanelEntity):

@@ -74,6 +74,16 @@ zeroconf would browse the home network) hands it to Mantel Link: "Discovered: Ma
 with Mantel's https address; a second announcement of the same Mantel makes no second flow. The code exchange
 itself needs Mantel's real https address and is covered by the pairing tests and the alone phase.
 
+Phase ``livetv`` (HK Frontend removed, the HA App's Live TV): the scratch HA without HK Frontend, with HA's own stream
+player (``testha.py up --fresh --no-hk --stream``; go2rtc stays off); a FAKE tuner on 127.0.0.1 sending real MPEG-2
+video and AC-3 audio (tools/e2e/fake_tuner.py, made with ffmpeg's test sources); Mantel with no go2rtc of its own and
+Live TV as an import from HK Frontend leaves it (set up, not turned on). The house moved to Mantel and Mantel Link
+holding the bridge, Mantel serves Live TV through Mantel Link: Mantel sees Mantel Link's ``live_tv`` feature; the
+channel camera is live in HA (Mantel Link's, streaming) with its now-on sensor and ``sensor.tv_viewers``; the page's
+``hk_tv/channels`` is Mantel's (no tuner address in it); HA's own player plays the camera (HLS: H.264 and AAC, pulled
+from Mantel Link's transcode, which pulls the tuner); a viewer heartbeat reaches ``sensor.tv_viewers`` in HA; the
+transcode refuses a channel Mantel did not name.
+
 SAFETY: refuses to run unless the HA URL is the scratch one; never reads ~/.config/mantel or touches
 /Volumes/config or the house's HA. Prints no credential. Commands stay disabled throughout.
 """
@@ -95,6 +105,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "hosts/server"))
 sys.path.insert(0, str(ROOT))
+sys.path.insert(0, str(ROOT / "tools/e2e"))
 
 import aiohttp  # noqa: E402
 import aiohttp.web  # noqa: E402
@@ -337,6 +348,162 @@ async def _event(owner, kind: str, timeout: float = 15.0):
         if m.get("type") == "read_event" and m.get("id") == 7 and m["event"].get("type") == kind:
             return m["event"]
     return None
+
+
+# ------------------------------------------------------------------------------------- phase: livetv
+LIVE_XMLTV = b"""<?xml version="1.0"?><tv>
+<channel id="c1"><display-name>4.1</display-name><display-name>FICTIONAL TEST NETWORK</display-name></channel>
+<programme channel="c1" start="20200101000000 +0000" stop="20991231000000 +0000"><title>The Endless Test Pattern</title></programme>
+</tv>"""
+TV_CAMERA, TV_NOW, TV_VIEWERS = "camera.tv_wtst_hd", "sensor.tv_wtst_hd_now", "sensor.tv_viewers"
+
+
+def _ffprobe(data: bytes) -> list[str]:
+    """The codecs in an MPEG-TS segment (ffprobe on this machine)."""
+    with tempfile.NamedTemporaryFile(suffix=".ts") as f:
+        f.write(data)
+        f.flush()
+        got = subprocess.run(["ffprobe", "-v", "error", "-show_entries", "stream=codec_name", "-of", "csv=p=0", f.name],
+                             capture_output=True, text=True)
+    return sorted(x.strip() for x in got.stdout.split() if x.strip())
+
+
+async def run_livetv(token: str) -> dict:
+    import fake_tuner
+    from mantel_server import features
+    from mantel_server.settings_store import Actor
+    _spec3 = importlib.util.spec_from_file_location("live_tv_e2e", ROOT / "tools/e2e/live_tv_e2e.py")
+    LT = importlib.util.module_from_spec(_spec3)
+    _spec3.loader.exec_module(LT)
+    out: dict = {}
+    with tempfile.TemporaryDirectory(prefix="mantel-link-e2e-tv-") as folder:
+        ts = LT.make_ts(Path(folder))
+        t_app = fake_tuner.make_app(ts, guide=LIVE_XMLTV)
+        async with TestServer(t_app, host="127.0.0.1") as tuner_srv:
+            tuner = f"127.0.0.1:{tuner_srv.port}"
+            app, store, cfg = mantel_app(token, Path(folder))
+            check(not cfg.go2rtc_url, "Mantel runs as the HA App does: no go2rtc of its own")
+            # Live TV as the import from HK Frontend leaves it: set up, not turned on (HA ran it then)
+            body = features.check_settings({
+                "linked": {"enabled": True},
+                "live_tv": {"enabled": False, "tuner": tuner, "guide_url": f"http://{tuner}/xmltv.xml",
+                            "channels": ["4.1"], "quality": "720"},
+                "ha": {"added": ["live_tv"], "items": {}, "source": "e2e"}})
+            app["settings"].store.write([("house", features.FEATURES_DOC, body)], actor=Actor(label="e2e"))
+            hub = app["hub"]
+            async with aiohttp.ClientSession() as http, TestServer(app, host="127.0.0.1") as server:
+                ha = HA(http, token)
+                base = str(server.make_url("")).rstrip("/")
+                await asyncio.wait_for(hub.ha.ready.wait(), 60)
+                await app["features"].reload()
+                st, _ = await ha.get("/api/config/config_entries/entry?domain=hk_frontend")
+                check(st == 200 and not _, "the scratch HA has no HK Frontend")
+                owner = GE.Browser(base, "owner")
+                try:
+                    st, b = await owner.post("/api/bootstrap", {
+                        "token": app["accounts"].issue_bootstrap_token(), "username": "e2e-owner",
+                        "name": "Fictional Owner", "password": secrets.token_urlsafe(18)})
+                    assert st == 200, b
+                    try:
+                        await steps_livetv(app, ha, owner, base, t_app, tuner, out)
+                    finally:
+                        e = await ha.mantel_entry()
+                        if e:
+                            await ha.delete_entry(e["entry_id"])
+                            say("removed Mantel Link's entry from the scratch HA")
+                finally:
+                    await owner.http.close()
+                out["audit"] = [{k: r[k] for k in ("actor", "role", "kind", "action", "target", "decision")}
+                                for r in app["audit"].rows()]
+            store.db.close()
+    return out
+
+
+async def steps_livetv(app, ha: HA, owner, base: str, t_app, tuner: str, out: dict) -> None:
+    lk, tv = app["linked"], app["live_tv"]
+    check(tv.mode() == "ha", "before the house moves: the interim (HA's Live TV)")
+    st, made = await owner.post("/api/linked/pair", {})
+    done = await ha.add_mantel_link(base, code=made["code"])
+    check(done.get("type") == "create_entry", "Mantel Link added to the scratch HA (the address and a pairing code)")
+    clients = await until(lambda: asyncio.sleep(0, lk.registry.clients_of("mantel")))
+    check(bool(clients) and "live_tv" in clients[0].features, "Mantel sees Mantel Link with Live TV's transcode")
+    st, body = await owner.post("/api/linked/owners", {"unit": "bridge", "owner": "mantel"}, method="PUT")
+    check(st == 200, "an Owner hands the bridge to Mantel Link")
+    st, body = await owner.post("/api/linked/owners", {"unit": "hall", "owner": "mantel"}, method="PUT")
+    check(st == 200, "an Owner moves the Hall tablet to Mantel (the tablets first)")
+    st, body = await owner.post("/api/linked/owners", {"unit": "house", "owner": "mantel"}, method="PUT")
+    check(st == 200 and body["wire"]["house"] == "mantel", f"an Owner moves the house to Mantel {'' if st == 200 else body}")
+    await tv.tick()
+    check(tv.mode() == "link" and app["features"].tv.lineup, "Mantel serves Live TV through Mantel Link "
+                                                            "(it read the tuner's lineup and the guide itself)")
+    cam = await until(lambda: _state_is(ha, TV_CAMERA, ("idle", "streaming")))
+    check(cam is not None and cam["attributes"].get("supported_features", 0) & 2,
+          f"{TV_CAMERA} is live in HA and streams (CameraEntityFeature.STREAM)")
+    reg = await ha.registry(TV_CAMERA)
+    check(reg.get("platform") == "mantel", "...Mantel Link's")
+    now = await until(lambda: _state_is(ha, TV_NOW, ("The Endless Test Pattern",)))
+    check(now is not None, f"{TV_NOW}: what is on, from Mantel's own guide")
+    v = await until(lambda: _state_is(ha, TV_VIEWERS, ("0",)))
+    check(v is not None, f"{TV_VIEWERS} is 0")
+    owner.ws = await owner.http.ws_connect(base + "/ws")
+    await owner.ws.send_json({"type": "read", "id": 5, "msg": {"type": "hk_tv/channels"}})
+    while True:
+        m = await owner.recv()
+        if m.get("id") == 5:
+            break
+    got = m.get("result") or {}
+    check(got.get("configured") and [c["camera"] for c in got.get("channels", [])] == [TV_CAMERA],
+          "the page's hk_tv/channels is Mantel's: channel 4.1 on " + TV_CAMERA)
+    check(tuner not in json.dumps(m), "...and never names the tuner")
+    # HA's own player: the camera's stream comes from Mantel Link's transcode, which pulls the tuner
+    res = await ha.ws(type="camera/stream", entity_id=TV_CAMERA, format="hls")
+    check(isinstance(res, dict) and res.get("url"), "HA opens the channel camera's stream (camera/stream, HLS)")
+    playlist = None
+    segment = b""
+    t0 = time.time()
+    async with aiohttp.ClientSession() as plain:
+        while time.time() - t0 < 60 and not segment:
+            async with plain.get(SCRATCH_URL + res["url"]) as r:
+                text = await r.text() if r.status == 200 else ""
+            media = next((ln for ln in text.splitlines() if ln and not ln.startswith("#")), None)
+            if media:
+                async with plain.get(SCRATCH_URL + res["url"].rsplit("/", 1)[0] + "/" + media) as r:
+                    playlist = await r.text() if r.status == 200 else None
+                seg = next((ln for ln in (playlist or "").splitlines() if ln and not ln.startswith("#")
+                            and "segment" in ln), None)
+                if seg:
+                    base_url = SCRATCH_URL + res["url"].rsplit("/", 1)[0] + "/"
+                    init = next((ln.split('URI="', 1)[1].split('"', 1)[0] for ln in playlist.splitlines()
+                                 if ln.startswith("#EXT-X-MAP")), None)
+                    head = b""
+                    if init:
+                        async with plain.get(base_url + init) as r:
+                            head = await r.read()
+                    async with plain.get(base_url + seg) as r:
+                        segment = head + await r.read() if r.status == 200 else b""
+            if not segment:
+                await asyncio.sleep(1)
+    check(bool(segment), "HA's player has a segment of the channel")
+    codecs = _ffprobe(segment)
+    check("h264" in codecs and "aac" in codecs,
+          f"...transcoded from the tuner's MPEG-2 and AC-3 by Mantel Link: {', '.join(codecs)}")
+    check("4.1" in t_app["stats"]["streams"] or t_app["stats"]["served"] >= 1,
+          "Mantel Link's transcode pulled channel 4.1 from the tuner")
+    out["codecs"] = codecs
+    # a viewer's heartbeat: counted by Mantel, published to HA as sensor.tv_viewers
+    await owner.ws.send_json({"type": "tv_watching", "id": 6, "channel": "4.1"})
+    while True:
+        m = await owner.recv()
+        if m.get("id") == 6:
+            break
+    check(m.get("result", {}).get("ha") is False, "the heartbeat is Mantel's alone (no HA Live TV to tell)")
+    v = await until(lambda: _state_is(ha, TV_VIEWERS, ("1",)))
+    check(v is not None and v["attributes"].get("users") == ["Fictional Owner"], f"{TV_VIEWERS} in HA: 1, the Owner")
+    await owner.ws.close()
+    async with aiohttp.ClientSession() as plain:
+        async with plain.get(SCRATCH_URL + "/api/mantel/tv/stream/9.9") as r:
+            check(r.status == 404, "the transcode refuses a channel Mantel did not name")
+    check(app["audit"].rows(kind="service") == [], "no household service was called (commands disabled)")
 
 
 # ------------------------------------------------------------------------------------- phase: handover
@@ -1083,7 +1250,7 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--keep-up", action="store_true", help="leave the scratch HA running afterwards")
     ap.add_argument("--reuse", action="store_true", help="use the scratch HA this caller already started; leave it up")
-    ap.add_argument("--phase", choices=["alone", "handover", "house", "zeroconf", "phones", "actions", "docs"],
+    ap.add_argument("--phase", choices=["alone", "handover", "house", "zeroconf", "phones", "actions", "docs", "livetv"],
                     default="alone",
                     help="alone: no HK Frontend (9.2); handover: HK Frontend linked, the bridge handed over and back (9.3)")
     a = ap.parse_args()
@@ -1091,7 +1258,7 @@ def main() -> int:
         GE.wait_for_free_harness()
         extra = {"alone": ("--no-hk",), "handover": (), "house": (), "zeroconf": ("--no-hk", "--zeroconf-probe"),
                  "phones": ("--no-hk", "--phone-probe"), "actions": ("--no-hk",),
-                 "docs": ("--no-hk", "--supervisor-probe")}[a.phase]
+                 "docs": ("--no-hk", "--supervisor-probe"), "livetv": ("--no-hk", "--stream")}[a.phase]
         if a.phase == "docs":
             # Mantel Link from the BUILT public repository (tools/publish/publish.py), as HACS would install it
             built = Path(testha.SCRATCH) / "mantel-link-repo"
@@ -1107,7 +1274,8 @@ def main() -> int:
     try:
         token = asyncio.run(GE.token_for_scratch())
         evidence = asyncio.run({"alone": run_alone, "handover": run_handover, "house": run_house, "zeroconf": run_zeroconf,
-                                "phones": run_phones, "actions": run_actions, "docs": run_docs}[a.phase](token))
+                                "phones": run_phones, "actions": run_actions, "docs": run_docs,
+                                "livetv": run_livetv}[a.phase](token))
         del token
         out = Path(testha.SCRATCH) / f"mantel_link_e2e_{a.phase}.json"
         out.write_text(json.dumps({"checks": RESULTS, **evidence}, indent=1, default=str))

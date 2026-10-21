@@ -2021,7 +2021,8 @@ def register(app: web.Application, hub: Any, hooks: Any = None) -> FeatureHost:
     async def tv_guide(ctx: Ctx, msg: dict):
         if not _principal_ok(ctx.identity):
             raise Forbidden("sign in to read the guide")
-        if not host.on("live_tv"):
+        tv = host.app.get("live_tv")
+        if not (tv.piece_on() if tv is not None else host.on("live_tv")):
             return {"configured": False, "channels": []}
         return host.tv.channels()
 
