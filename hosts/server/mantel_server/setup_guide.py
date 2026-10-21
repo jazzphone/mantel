@@ -135,15 +135,31 @@ def _count_people(app: web.Application) -> tuple[int, int]:
     return len(users) - owners, owners
 
 
-def _alarms(app: web.Application) -> tuple[list[str], list[str]]:
-    """(the house's alarm panels, the ones with no house Alarm PIN yet)."""
+def _alarms(app: web.Application) -> tuple[list[str], list[str], list[str]]:
+    """(the house's alarm panels, the ones the house Alarm PIN covers, the rest). A keypad with the house Alarm
+    PIN covers itself and the alarm it forwards to (Mantel's own Alarm PIN keypad and its alarm count once); a
+    panel nothing covers -- a second alarm, a keypad of another integration's -- is only named, never a To Do."""
     hub = app.get("hub")
     states = getattr(getattr(hub, "store", None), "states", None) or {}
     panels = sorted(e for e in states if e.startswith("alarm_control_panel."))
     pins = app.get("alarm_pin")
     if pins is None:
-        return panels, panels
-    return panels, [e for e in panels if not pins.entry_or_default(e).house_code]
+        return panels, [], panels
+    covered: set[str] = set()
+    for e in pins.entries():
+        if e.house_code and e.configured:
+            covered |= {e.entity, e.forward_to}
+    return panels, [p for p in panels if p in covered], [p for p in panels if p not in covered]
+
+
+def _names(app: web.Application, ids: list[str]) -> str:
+    hub = app.get("hub")
+    states = getattr(getattr(hub, "store", None), "states", None) or {}
+    def name(e: str) -> str:
+        st = states.get(e)
+        attrs = ((st.get("a") or st.get("attributes")) if isinstance(st, dict) else None) or {}
+        return str(attrs.get("friendly_name") or e.split(".", 1)[1].replace("_", " ").title())
+    return ", ".join(name(e) for e in ids)
 
 
 def _status(app: web.Application, kind: str) -> dict:
@@ -226,8 +242,10 @@ async def steps(app: web.Application, me: dict) -> dict:
              "Set up a passkey or an authenticator app" + (" (both is best)." if not factors else "; add the other too.") +
              " From away from home Mantel never accepts a password on its own.", "#/mantel/me")
 
-    panels, unset = _alarms(app)
-    step("alarm", bool(panels) and not unset, "The alarm asks for the house Alarm PIN." if not unset else
+    panels, covered, rest = _alarms(app)
+    others = f" {_names(app, rest)} {'has' if len(rest) == 1 else 'have'} none; leave {'it' if len(rest) == 1 else 'them'} " \
+             "if no screen arms with it." if covered and rest else ""
+    step("alarm", bool(covered), "The alarm asks for the house Alarm PIN." + others if covered else
          "Set the house Alarm PIN: it is the one code Mantel asks for, and only for the alarm.", "#/features/alarm",
          shown=bool(panels))
 

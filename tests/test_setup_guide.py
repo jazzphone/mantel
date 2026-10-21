@@ -144,6 +144,21 @@ async def test_an_alarm_panel_adds_the_alarm_pin_step(mantel):
     assert steps["alarm"]["state"] == "todo" and steps["alarm"]["route"] == "#/features/alarm"
 
 
+async def test_a_pin_keypad_covers_its_alarm_and_other_panels_are_only_named(mantel):
+    """The house Alarm PIN on a keypad that forwards to the alarm (Mantel's own Alarm PIN keypad) is the step done:
+    the keypad and its alarm count once; a second alarm or another integration's keypad is named, not a To Do."""
+    await owner(mantel)
+    st = mantel.app["hub"].store.states
+    for eid, name in (("alarm_control_panel.house", "House Alarm"), ("alarm_control_panel.house_pin", "House Alarm PIN"),
+                      ("alarm_control_panel.lyric", "Lyric Alarm")):
+        st[eid] = {"state": "disarmed", "attributes": {"friendly_name": name}}
+    await mantel.app["alarm_pin"].set("alarm_control_panel.house_pin", forward_to="alarm_control_panel.house",
+                                      pin="482915", pin_again="482915")
+    step = by_id(await (await mantel.get("/api/setup")).json())["alarm"]
+    assert step["state"] == "done", step
+    assert "Lyric Alarm has none" in step["detail"] and "House Alarm" not in step["detail"].split("asks")[1]
+
+
 def test_setup_check_says_how_commands_turn_on_where_mantel_runs():
     class App(dict):
         pass
