@@ -329,6 +329,16 @@ class Authz:
                 return False
             user = sessions.user_from_row(row)
             fresh_at, fresh = row["fresh_factor_at"], row["fresh_factor"]
+        elif user is not None and ident.door == "ha" and user.ha_user_id:
+            # Home Assistant's sidebar before the page set Mantel's cookies (ingress.resolve: the user, no
+            # session). No session row to re-read, so the link itself is: unlinked, disabled or re-linked to
+            # someone else ends it, and a role change counts, as for a session.
+            from .ingress import linked_user
+            row = linked_user(self.app["store"].db, user.ha_user_id)
+            if row is None or row["disabled"] or row["id"] != user.id:
+                p.valid = False
+                return False
+            user = replace(user, name=row["name"], role=row["role"], kind=row["kind"], username=row["username"])
         device = ident.device
         if device is not None:
             mgr = self.app.get("devices")

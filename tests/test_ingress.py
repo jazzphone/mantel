@@ -864,3 +864,40 @@ async def test_an_owner_on_a_trusted_sidebar_may_rotate_the_door_key(mk, monkeyp
     m2.now[0] += 3600                                   # long after the sidebar session began
     r2 = await m2.request("POST", "/api/admin/proxy-check/door-key", {**m2.ha(), "X-CSRF-Token": m2.jar["mantel_csrf"]})
     assert r2.status == 403 and (await r2.json())["error"] == "step_up_required"
+
+
+async def test_a_sidebar_socket_without_mantel_s_cookies_is_still_re_checked(mk):
+    """ingress.resolve gives a socket opened with no Mantel cookies the user and no session. Authz.refresh re-read
+    only session rows, so a person disabled or demoted kept their old role on that socket until it dropped."""
+    import asyncio
+
+    from gateway_fakes import FakeCommander
+    from mantel_server.server import tick_once
+    m = await mk(rules="trusted", commands_enabled=True)
+    fake = FakeCommander(m.app["gateway"].writes)
+    m.app["gateway"].commander = fake
+    m.store.link(ADULT_HA, "adult")
+    uid = m.store.db.execute("SELECT user_id FROM ha_links WHERE ha_user_id = ?", (ADULT_HA,)).fetchone()[0]
+    headers = {**m.ha(ADULT_HA, "Fictional Adult"), "Origin": "http://ha.example:8123",
+               "X-Forwarded-Host": "ha.example:8123"}
+    ws = await m.client.ws_connect("/ws", headers=headers)
+    assert (await ws.receive_json())["commands"] is True
+
+    async def unlock(i):
+        await ws.send_json({"type": "command", "id": i, "kind": "service", "domain": "lock", "service": "unlock",
+                            "target": {"entity_id": "lock.front_door"}})
+        while True:
+            got = await asyncio.wait_for(ws.receive_json(), 3)
+            if got.get("type") == "close" or got.get("id") == i:
+                return got
+    assert "result" in await unlock(1)
+    with m.store.db:
+        m.store.db.execute("UPDATE users SET role = 'guest' WHERE id = ?", (uid,))
+    got = await unlock(2)                                      # the demotion counts at the next command
+    assert "result" not in got and got["error"]["code"] == "forbidden", got
+    with m.store.db:
+        m.store.db.execute("UPDATE users SET disabled = 1 WHERE id = ?", (uid,))
+    await tick_once(m.app, m.app["hub"])
+    assert fake.sent == ["lock.unlock"]
+    msg = await asyncio.wait_for(ws.receive(), 3)              # disabled: the tick closes the socket
+    assert msg.type in (aiohttp.WSMsgType.CLOSE, aiohttp.WSMsgType.CLOSED, aiohttp.WSMsgType.CLOSING), msg
