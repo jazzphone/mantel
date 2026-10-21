@@ -204,7 +204,7 @@ const row = (kind) => (o) => ({ kind, label: o.label, sub: plain(o.sub), value: 
 window.hkSettingsKit = {
   group: (o, rows) => ({ kind: 'group', header: o.header || null, footer: plain(o.footer), rows: rows.filter(Boolean) }),
   info: row('info'), toggle: row('toggle'), text: row('text'), select: row('select'), nav: row('nav'), button: row('button'),
-  h: (tag, attrs) => ({ _text: (attrs && attrs.text) || '' }),
+  check: row('check'), h: (tag, attrs) => ({ _text: (attrs && attrs.text) || '' }),
 };
 const reads = JSON.parse(readFileSync(process.argv[3], 'utf8'));
 globalThis.fetch = async (u) => {
@@ -229,7 +229,16 @@ async function draw(me, fn) {
 const owner = JSON.parse(process.argv[5]), adult = JSON.parse(process.argv[6]);
 const screen = (me) => draw(me, (p, c) => m.host.extend('screen', c, { screen: 'dashboard-loft', title: 'Loft' }, p));
 out.adult = await screen(adult);
-out.owner = await screen(owner);
+// the screen's Where (screens.py) is drawn first; these tests are about Home Assistant's sidebar dashboard
+const all = await screen(owner);
+out.where = all.filter((g) => g.header === 'Where');
+out.owner = all.filter((g) => g.header !== 'Where');
+out.conflict = (await draw(owner, (p, c) => m.host.extend('screen', c, { screen: 'dashboard-loft', title: 'Loft',
+  where: { where: 'mantel', text: 'Mantel, and Home Assistant has a dashboard at the same address', conflict: true } }, p)))
+  .filter((g) => g.header === 'Where');
+out.haScreen = (await draw(owner, (p, c) => m.host.extend('screen', c, { screen: 'dashboard-loft', title: 'Loft',
+  where: { where: 'ha', text: 'Home Assistant · HK Frontend', also: true } }, p)));
+out.add = await draw(owner, (p, c) => { m.host.page(['mantel', 'add-screen'], p).body(c); });
 const proxy = await draw(owner, (p, c) => { m.host.page(['mantel', 'connections', 'proxy'], p).body(c); });
 out.frames = proxy.filter((g) => g.header === 'Home Assistant’s Frame');
 process.stdout.write(JSON.stringify(out));
@@ -271,6 +280,9 @@ LOFT = {"id": "mantel_loft", "url_path": "mantel-loft", "title": "Upstairs", "ic
 def test_a_screens_page_offers_show_in_home_assistant_to_owners_and_admins_only(tmp_path):
     got = had_run(tmp_path, [])
     assert got["adult"] == []
+    [w] = got["where"]
+    assert w["rows"][0]["label"] == "Where" and w["rows"][0]["value"] == "Mantel", "a screen says where it is drawn"
+    assert [r["label"] for r in w["rows"][1:]] == ["Remove Screen…"]
     [g] = got["owner"]
     assert g["header"] == "Home Assistant"
     assert [(r["kind"], r["label"], r["on"]) for r in g["rows"]] == [("toggle", "Show in Home Assistant", False)]
@@ -486,3 +498,20 @@ def test_connections_offers_an_owner_the_one_time_import_and_shows_its_record(tm
 
 def test_add_screen_says_where_mantels_screens_come_from():
     assert "generated Home screen" in MODULE and "Import from HK Frontend" in MODULE
+
+
+def test_a_screen_both_have_offers_one_place_and_add_screen_asks_where(tmp_path):
+    """decision 29, one place per screen: a Mantel screen Home Assistant also has at its address offers to keep it
+    Mantel's, make it Home Assistant's, or split it; one Home Assistant draws offers to draw it in Mantel instead and
+    has no sidebar dashboard of Mantel's; Add Screen asks where first."""
+    got = had_run(tmp_path, [])
+    [w] = got["conflict"]
+    assert [r["label"] for r in w["rows"][1:]] == ["Keep It Mantel’s, Remove Home Assistant’s…", "Make It Home Assistant’s…",
+                                                  "Split It in Two…", "Remove Screen…"]
+    assert "Each screen should be drawn in one place" in w["footer"]
+    assert [g["header"] for g in got["haScreen"]] == ["Where"], "no 'Show in Home Assistant' for a screen HA draws"
+    assert [r["label"] for r in got["haScreen"][0]["rows"][1:]] == ["Draw It in Mantel Instead…", "Remove Screen…"]
+    headers = [g["header"] for g in got["add"]]
+    assert headers[:3] == ["Name", "Where", "Start From"]
+    assert [r["label"] for r in got["add"][1]["rows"]] == ["Mantel", "Home Assistant"]
+

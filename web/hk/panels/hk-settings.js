@@ -2195,7 +2195,7 @@
       // THE HOST'S OWN, for this screen (extend, above): nothing in Home Assistant
       var hx = this.host();
       if (hx && typeof hx.extend === 'function') {
-        try { hx.extend('screen', c, { screen: path, title: x.title }, this); } catch (e) { /* the host's own page */ }
+        try { hx.extend('screen', c, { screen: path, title: x.title, where: x.where || null }, this); } catch (e) { /* the host's own page */ }
       }
 
       c.appendChild(K.group({ footer: 'Another screen’s menu, Home page, appearance and more, onto this one — you choose which.' }, [

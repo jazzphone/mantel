@@ -32,7 +32,7 @@ from aiohttp import WSMsgType, web
 from . import about, frame_origins, music
 from . import accounts, alarm_pin, auth, connect_pairing, devices, gateway, health, ingress, live_tv, pins, rbac_store, readproxy, sessions, settings_store
 from . import (admin_page, atrest, backup, connections, features, linked, linked_house, linked_owners, linked_pairing,
-               linked_settings,
+               linked_settings, screens,
                linked_actions, login_page, phones, supervisor_discovery,
                photos, service_accounts, talk_relay, user_files)
 from . import default_screens, direct, direct_tls, docs_pages, ha_dashboards, ma_page, media_proxy, proxy_check, proxy_trust, security_headers, tablet_links, user_data
@@ -416,6 +416,16 @@ async def home_redirect(request: web.Request) -> web.StreamResponse:
 
 
 async def home_page(request: web.Request) -> web.StreamResponse:
+    seg = request.path.split("/")[1] if request.path.count("/") >= 1 else ""
+    # a screen split in two (screens.py): its old address is Home Assistant's now; Mantel's is the new one
+    to = screens.moved_to(request.app, seg)
+    if to:
+        rest = request.path[len("/" + seg):]
+        raise web.HTTPFound(request.get("mantel_base", "") + "/" + to + rest
+                            + (("?" + request.query_string) if request.query_string else ""))
+    if screens.where_of(request.app, seg) == "ha":
+        return auth.page("Drawn in Home Assistant", "<p>This screen is drawn by HK Frontend in Home Assistant, not "
+                         "by Mantel. Open it in Home Assistant, or choose another screen in Mantel Settings.</p>")
     to_enroll(request, sessions.identity(request))
     return ingress.file_response(request, request.app["cfg"].web / "home.html", NO_CACHE, page=True)
 
@@ -612,6 +622,7 @@ def wire(app: web.Application, hub: Hub, token: str, connect_ha: bool) -> None:
     readproxy.register(app, hub, hooks)
     default_screens.register(app)    # the screen each person or tablet opens on (Mantel Settings)
     ha_dashboards.register(app)      # a screen as a Webpage dashboard in HA's sidebar (a screen's page; HA is the record)
+    screens.register(app)            # add, move, split and remove screens (decision 29: one place per screen)
     frame_origins.register(app)      # which HA addresses may show Mantel in a frame (HA's own, an Owner's approved ones)
     user_data.register(app, hub)     # HK's per-person frontend user data (the Music page's speaker), Mantel's own
     camera_connector.register(app, hub, hooks)

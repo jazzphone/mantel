@@ -258,19 +258,27 @@ async def api_put(request: web.Request) -> web.Response:
 
 
 def place_of(app: web.Application) -> Any:
-    """Where each screen is drawn, for HK Settings' list of screens (decision 29: a screen can be drawn by Mantel, by
-    HK Frontend's dashboard of the same address in Home Assistant, or both; and Mantel's can be in HA's sidebar)."""
-    def place(path: str) -> dict[str, str] | None:
+    """Where each screen is drawn, for HK Settings' list of screens (decision 29: each screen in one place). A
+    screen is Mantel's or Home Assistant's (its ``where``); a Mantel screen whose address HK Frontend also has a
+    dashboard at is flagged (``conflict``), and its page offers to keep it Mantel's, make it Home Assistant's, or
+    split it (screens.py)."""
+    def place(path: str) -> dict[str, Any] | None:
+        svc = app.get("settings")
+        doc = svc.store.get("board", path) if svc is not None else None
+        where = "ha" if doc is not None and (doc.body or {}).get("where") == "ha" else "mantel"
         lk = app.get("linked")
         hk = any(b.get("path") == path for c in (lk.registry.clients if lk is not None else ())
                  if c.domain == "hk_frontend" and not c.ws.closed for b in c.report.get("hk_dashboards") or [])
         sidebar = path in (app.get("ha_sidebar_screens") or {})
+        if where == "ha":
+            return {"text": "Home Assistant" + (" · HK Frontend" if hk else " · no dashboard there yet"),
+                    "icon": "mdi:home-assistant", "also": True, "where": "ha"}
         if hk:
-            return {"text": "Mantel, and HK Frontend in Home Assistant" + (" · in its sidebar too" if sidebar else ""),
-                    "icon": "mdi:home-assistant", "also": True}
+            return {"text": "Mantel, and Home Assistant has a dashboard at the same address",
+                    "icon": "mdi:alert-circle-outline", "conflict": True, "where": "mantel"}
         if sidebar:
-            return {"text": "Mantel · in Home Assistant’s sidebar", "icon": "mdi:fireplace"}
-        return {"text": "Mantel", "icon": "mdi:fireplace"}
+            return {"text": "Mantel · in Home Assistant’s sidebar", "icon": "mdi:fireplace", "where": "mantel"}
+        return {"text": "Mantel", "icon": "mdi:fireplace", "where": "mantel"}
     return place
 
 

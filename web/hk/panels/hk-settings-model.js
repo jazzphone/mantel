@@ -1824,7 +1824,8 @@
   ];
   // never copied (1.14: a tablet's own -- its user, room, idle, Sleep Screen
   // and Black Screen -- are the tablet's, not the screen's)
-  var COPY_NEVER = [];
+  // a screen's own where and title (settings.py BOARD_OWN) are never copied onto another
+  var COPY_NEVER = ['where', 'title'];
   function copyDefaults() { return COPY_GROUPS.filter(function (g) { return g[3]; }).map(function (g) { return g[0]; }); }
   // the changes that copy `groups` of the screen `src` (its settings as read)
   function copyChanges(src, groups) {

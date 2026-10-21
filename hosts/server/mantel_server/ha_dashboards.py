@@ -27,6 +27,12 @@ short connection per request, never the hub's read-only one or the command path,
 it may send: the reads it needs, ``create`` only under ``mantel-``, ``config/save`` only of an iframe strategy
 at this Mantel's address + a screen, and ``update``/``delete`` only of a dashboard read in the same connection
 whose config frames this Mantel. Nothing else of HA's can be changed through it.
+
+**HK's own dashboards** (screens.py, decision 29: a screen Home Assistant draws): the same connection may also
+create a dashboard at a screen's own address, save it ONLY the generated config ``{"strategy": {"type":
+"custom:hk-dashboard"}}`` (``HK_CONFIG``), re-point a Webpage dashboard of ours to another screen, and update or
+delete a dashboard read in the same connection whose config is exactly that generated one (``hk_ours``). A
+hand-built dashboard is never touched.
 """
 from __future__ import annotations
 
@@ -55,6 +61,14 @@ DEFAULT_ICON = "mdi:fireplace"
 TITLE_MAX = 60
 ICON = re.compile(r"^[a-z0-9_-]{1,32}:[a-z0-9_-]{1,64}$")
 TIMEOUT = 15.0
+HK_STRATEGY = "custom:hk-dashboard"
+HK_CONFIG = {"strategy": {"type": HK_STRATEGY}}
+
+
+def is_hk_config(config: Any) -> bool:
+    """A dashboard HK generates from the house (``strategy: custom:hk-dashboard``, nothing else)."""
+    return (isinstance(config, dict) and set(config) == {"strategy"} and isinstance(config["strategy"], dict)
+            and config["strategy"].get("type") == HK_STRATEGY)
 
 # the frames this connection may send (besides auth), and the keys each may carry
 ALLOWED: dict[str, frozenset[str]] = {
@@ -132,9 +146,12 @@ def screen_of(config: Any, base: str) -> str | None:
     return seg if SCREEN.match(seg) else None
 
 
-def check_frame(frame: dict, base: str, ours: set[str], created: set[str]) -> None:
+def check_frame(frame: dict, base: str, ours: set[str], created: set[str], hk: Any = None) -> None:
     """What this connection may send. ``ours``: dashboard ids read in this connection whose config frames this
-    Mantel; ``created``: url_paths this connection created."""
+    Mantel; ``created``: url_paths this connection created; ``hk``: the session's HK dashboards (see above)."""
+    hk_allowed = getattr(hk, "hk_allowed", set())
+    hk_ours = getattr(hk, "hk_ours", set())
+    ours_paths = getattr(hk, "ours_paths", set())
     kind = frame.get("type")
     if kind not in ALLOWED:
         raise Blocked(f"refusing to send {kind!r} to Home Assistant (ha_dashboards.ALLOWED)")
@@ -143,14 +160,19 @@ def check_frame(frame: dict, base: str, ours: set[str], created: set[str]) -> No
         raise Blocked(f"{kind!r} may not carry {sorted(extra)}")
     if kind == "lovelace/dashboards/create":
         path = frame.get("url_path")
-        if not isinstance(path, str) or not re.fullmatch(r"mantel-[a-z0-9-]{1,60}", path):
-            raise Blocked("a dashboard Mantel creates is named mantel-...")
-    if kind in ("lovelace/dashboards/update", "lovelace/dashboards/delete") and frame.get("dashboard_id") not in ours:
-        raise Blocked("only a dashboard that frames this Mantel may be changed")
+        if not isinstance(path, str) or not (re.fullmatch(r"mantel-[a-z0-9-]{1,60}", path) or path in hk_allowed):
+            raise Blocked("a dashboard Mantel creates is named mantel-..., or is an HK screen's own")
+    if kind in ("lovelace/dashboards/update", "lovelace/dashboards/delete") and frame.get("dashboard_id") not in (ours | hk_ours):
+        raise Blocked("only a dashboard that frames this Mantel, or HK's generated one, may be changed")
     if kind == "lovelace/config/save":
-        if frame.get("url_path") not in created:
-            raise Blocked("only a dashboard this connection created gets a config")
-        if screen_of(frame.get("config"), base) is None:
+        path, config = frame.get("url_path"), frame.get("config")
+        if path in hk_allowed and path in created:
+            if config != HK_CONFIG:
+                raise Blocked("an HK screen's dashboard gets HK's generated config, nothing else")
+            return
+        if path not in created and path not in ours_paths:
+            raise Blocked("only a dashboard this connection created, or one of ours read here, gets a config")
+        if screen_of(config, base) is None:
             raise Blocked("a dashboard's config frames this Mantel's address and a screen, nothing else")
 
 
@@ -162,12 +184,17 @@ class HaSession:
         self.ws, self.base = ws, base
         self.ours: set[str] = set()
         self.created: set[str] = set()
+        # HK's own dashboards (screens.py): addresses this connection may create, ids read here whose config is
+        # HK's generated one, and our Webpage dashboards' url_paths read here (a re-point saves their config)
+        self.hk_allowed: set[str] = set()
+        self.hk_ours: set[str] = set()
+        self.ours_paths: set[str] = set()
         self._next = 0
 
     async def call(self, kind: str, **kw) -> Any:
         self._next += 1
         frame = {"id": self._next, "type": kind, **kw}
-        check_frame(frame, self.base, self.ours, self.created)
+        check_frame(frame, self.base, self.ours, self.created, self)
         await self.ws.send_str(json.dumps(frame))
         while True:
             m = await self.ws.receive()
@@ -240,10 +267,15 @@ async def _read(sess: HaSession, app: web.Application) -> dict:
             config = await sess.call("lovelace/config", url_path=d["url_path"])
         except HaError:
             continue                                     # a dashboard with no config yet: not a Webpage one
+        if is_hk_config(config):
+            sess.hk_ours.add(d.get("id"))
+            out.setdefault("hk_dashboards", []).append({"id": d.get("id"), "url_path": d["url_path"],
+                                                        "title": d.get("title") or ""})
         screen = screen_of(config, sess.base)
         if screen is None:
             continue
         sess.ours.add(d.get("id"))
+        sess.ours_paths.add(d["url_path"])
         out["dashboards"].append({"id": d.get("id"), "url_path": d["url_path"], "title": d.get("title") or "",
                                   "icon": d.get("icon") or "", "require_admin": bool(d.get("require_admin")),
                                   "show_in_sidebar": d.get("show_in_sidebar") is not False, "screen": screen,

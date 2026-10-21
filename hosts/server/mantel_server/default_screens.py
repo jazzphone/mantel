@@ -38,7 +38,8 @@ def screens(app: web.Application) -> list[dict]:
     if svc is None:
         return []
     try:
-        boards = {k: d.body for k, d in svc.store.docs("board").items()}
+        # the screens Mantel draws: not those Home Assistant draws (decision 29: one place per screen)
+        boards = {k: d.body for k, d in svc.store.docs("board").items() if (d.body or {}).get("where") != "ha"}
         return [{"path": d["path"], "title": d["title"]} for d in svc.dashboards(boards) if SCREEN.match(d["path"])]
     except Exception:  # noqa: BLE001 -- no list: nobody's choice is lost, the house default still opens
         return []

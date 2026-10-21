@@ -52,13 +52,11 @@ const ERRORS = {
 
 // The words Mantel puts on HK's own pages where Mantel differs (the panel's host notes)
 const NOTES = {
-  overview: 'This is Mantel’s copy of HK’s settings, imported from Home Assistant once. Changes here affect Mantel’s ' +
-    'screens only, not HK inside Home Assistant. Anything that needs Home Assistant to be written (tablets as Home ' +
-    'Assistant devices, dashboards, accessory setup flows) is read-only here; saving one says why it was refused.',
-  screen_remove: 'Mantel keeps its own copy of this screen’s settings. Removing a screen needs Home Assistant, so it isn’t offered here.',
-  add_screen: 'Mantel can’t add a screen yet: a new screen is a new dashboard in Home Assistant, which Mantel doesn’t write to. ' +
-    'Mantel’s screens are HK Frontend’s, imported once (Connections → Import from HK Frontend), or, without HK Frontend, ' +
-    'its generated Home screen, which builds itself from your rooms and devices. They are listed under Screens.',
+  overview: 'These are HK’s settings, kept by Mantel. Each screen is drawn in one place: by Mantel, or by HK Frontend ' +
+    'in Home Assistant (its Where says which), and while Mantel runs the house HK Frontend’s dashboards use these ' +
+    'settings too. Anything else that needs Home Assistant to be written (tablets as Home Assistant devices, accessory ' +
+    'setup flows) is read-only here; saving one says why it was refused.',
+  screen_remove: 'A screen is removed from its Where, below.',
 };
 
 // ---------------------------------------------------------------------------------------- state
@@ -1606,6 +1604,75 @@ function drawHaDashboard(c, ctx) {
   result(c, key);
 }
 
+// SCREENS: WHERE EACH IS DRAWN (screens.py; decision 29, one place per screen). Add Screen asks where first; a
+// screen's page says where it is drawn and, for a screen both Mantel and Home Assistant have at the same address,
+// offers to keep it Mantel's, make it Home Assistant's, or split it in two.
+const WHERE_LABEL = { mantel: 'Mantel', ha: 'Home Assistant' };
+const screenList = () => ((panel && panel.data && panel.data.dashboards) || []).filter((x) => x.item);
+async function afterScreens(to) {
+  try { if (panel && panel.reload) await panel.reload(); } catch (e) { /* the feed redraws it anyway */ }
+  if (to && panel) panel.go(to); else redraw();
+}
+function pAddScreen() {
+  return { title: 'Add Screen', back: ['Screens', '#/'], scope: 'A new screen, drawn in one place: by Mantel (its own page, a wall tablet, a browser), or by HK Frontend in Home Assistant (a dashboard in its sidebar, made for you).', body(c) {
+    result(c, 'addscreen');
+    const d = draft('addscreen');
+    if (!d.where) d.where = 'mantel';
+    c.appendChild(group({ header: 'Name' }, [field('addscreen', 'title', 'Name', { placeholder: 'Den', maxlength: 60 })]));
+    c.appendChild(group({ header: 'Where', footer: d.where === 'ha' ? 'Home Assistant gets a new dashboard in its sidebar that HK Frontend draws with these settings. HK Frontend must be linked, with Mantel running the house.' : 'Mantel serves it at its own address; a wall tablet or a browser opens it.' },
+      ['mantel', 'ha'].map((w) => K().check({ label: WHERE_LABEL[w], on: d.where === w, fk: 'mx:addscreen:where:' + w,
+                                              onClick: () => { d.where = w; redraw(); } }))));
+    const from = screenList();
+    c.appendChild(group({ header: 'Start From' }, [K().select({ label: 'Settings', options: [['', 'A New Screen’s'], ...from.map((x) => [x.path, x.title])],
+      value: d.from || '', fk: 'mx:addscreen:from', onChange: (v) => { d.from = v || null; } })]));
+    c.appendChild(group({}, [button('Add Screen', async () => {
+      const title = (d.title || '').trim();
+      if (!title) { flash = { key: 'addscreen', text: 'Give the screen a name.', err: true }; redraw(); return; }
+      const r = await act('addscreen', () => api('POST', '/api/screens', { title, where: d.where, ...(d.from ? { from: d.from } : {}) }), null);
+      if (r && r.key) { clearDraft('addscreen'); flash = { key: '*', text: title + ' added.' }; await afterScreens('#/screens/' + encodeURIComponent(r.key)); }
+    }, { center: true, fk: 'mx:addscreen:go' })]));
+  } };
+}
+function drawWhere(c, ctx) {
+  if (!me || !MANAGER(me.user.role)) return;
+  const w = ctx.where || { where: 'mantel', text: 'Mantel' }, key = ctx.screen;
+  const rows = [info('Where', w.text, WHERE_LABEL[w.where] || 'Mantel')];
+  const put = (body, okText) => act('where', () => api('PUT', '/api/screens/' + encodeURIComponent(key), body), okText);
+  if (w.conflict) {
+    rows.push(button('Keep It Mantel’s, Remove Home Assistant’s…', async () => {
+      if (!(await ask({ title: 'Remove Home Assistant’s dashboard?', message: 'HK Frontend’s dashboard at /' + key + ' is removed from Home Assistant. Mantel’s screen and its settings stay as they are.', ok: 'Remove', destructive: true }))) return;
+      if (await put({ remove_ha: true }, 'Home Assistant’s dashboard is removed.')) await afterScreens();
+    }, { fk: 'mx:where:keep' }));
+    rows.push(button('Make It Home Assistant’s…', async () => {
+      if (!(await ask({ title: 'Make it Home Assistant’s?', message: 'HK Frontend draws it in Home Assistant with these settings, and Mantel stops serving it.', ok: 'Make It Home Assistant’s' }))) return;
+      if (await put({ where: 'ha' }, 'It’s Home Assistant’s now.')) await afterScreens();
+    }, { fk: 'mx:where:ha' }));
+    rows.push(button('Split It in Two…', () => { shown.split = key; redraw(); }, { fk: 'mx:where:split' }));
+  } else if (w.where === 'ha') {
+    rows.push(button('Draw It in Mantel Instead…', async () => {
+      if (!(await ask({ title: 'Draw it in Mantel?', message: 'Mantel serves it again. Home Assistant’s dashboard at the same address stays until you remove it.', ok: 'Draw in Mantel' }))) return;
+      if (await put({ where: 'mantel' }, 'It’s Mantel’s now.')) await afterScreens();
+    }, { fk: 'mx:where:mantel' }));
+  }
+  rows.push(button('Remove Screen…', async () => {
+    if (!(await ask({ title: 'Remove ' + (ctx.title || 'this screen') + '?', message: 'It’s removed from Mantel (its history is kept). A screen wall tablets open can’t be removed: move them first.', ok: 'Remove', destructive: true }))) return;
+    const r = await act('where', () => api('DELETE', '/api/screens/' + encodeURIComponent(key)), null);
+    if (r) { flash = { key: '*', text: (ctx.title || 'The screen') + ' is removed.' }; await afterScreens('#/'); }
+  }, { destructive: true, fk: 'mx:where:remove' }));
+  c.appendChild(group({ header: 'Where', footer: w.conflict ? 'Mantel and Home Assistant both have a screen at this address, so they share these settings. Each screen should be drawn in one place.' : null }, rows));
+  if (shown.split === key) {
+    const d = draft('split:' + key);
+    c.appendChild(group({ header: 'Split It in Two', footer: 'Mantel’s copy gets the new name and a new address, and keeps the wall tablets, Default Screens and Home Assistant sidebar dashboards that open it. This address becomes Home Assistant’s, starting with the same settings. Old links to Mantel’s still open it.' }, [
+      field('split:' + key, 'title', 'Mantel’s New Name', { placeholder: (ctx.title || 'Home') + '-Mantel', maxlength: 60 }),
+      button('Split', async () => {
+        const title = (d.title || '').trim() || (ctx.title || 'Home') + '-Mantel';
+        const r = await act('where', () => api('POST', '/api/screens/' + encodeURIComponent(key) + '/split', { title }), null);
+        if (r && r.key) { shown.split = null; clearDraft('split:' + key); flash = { key: '*', text: 'Split: Mantel’s is ' + title + '.' }; await afterScreens('#/screens/' + encodeURIComponent(r.key)); }
+      }, { center: true, fk: 'mx:where:split:go' })]));
+  }
+  result(c, 'where');
+}
+
 // HTTPS and the reverse proxy (proxy_check.py): Owner and Admin read; Owner runs the test, rotates the key
 // HOME ASSISTANT LINK (docs/phase9/MANTEL-LINK.md, decision 29 in docs/phase9/TWO-PRODUCTS.md): which integrations
 // in Home Assistant are linked (Mantel Link, HK Frontend, or both: two products that can run together), who holds the bridge (who shows Mantel's entities in Home Assistant: an
@@ -2048,12 +2115,15 @@ export const host = {
     ensureStyle(p && p.shadowRoot);
     if (parts[0] !== ROUTE || !me) return null;
     const s = parts[1] || 'me';
+    if (s === 'add-screen' && manages()) return pAddScreen();
     if (!BUILD[s] || !can(s)) return pMe([]);
     return BUILD[s](parts.slice(2));
   },
   // /admin's addresses (#connections, #people ...) and the page's own first-run choice
   forward(path) {
     if (PAGES.some(([s]) => s === path)) return ROUTE + '/' + path;
+    // Add Screen is Mantel's own: where the new screen is drawn comes first (screens.py)
+    if (path === 'add-screen' && manages()) return ROUTE + '/add-screen';
     // Photos had its own row until it moved into Your Files: #/photos (/admin's) and #/mantel/photos[/<album>]
     const m = /^(?:mantel\/)?photos(\/.*)?$/.exec(path);
     if (m) return ROUTE + '/' + photos.SECTION + (m[1] || '');
@@ -2078,7 +2148,7 @@ export const host = {
   extend(where, c, ctx, p) {
     if (p) { panel = p; ensureStyle(p.shadowRoot); }
     if (where === 'tablet' && me && ctx && ctx.tablet) drawDirect(c, ctx);
-    if (where === 'screen' && me && ctx && ctx.screen) drawHaDashboard(c, ctx);
+    if (where === 'screen' && me && ctx && ctx.screen) { drawWhere(c, ctx); if (!ctx.where || ctx.where.where !== 'ha') drawHaDashboard(c, ctx); }
     if ((where === 'saver' || where === 'house-saver') && me && can('photos')) photos.extend(where, c, ctx || {}, photoTools);
   },
   search() {

@@ -30,7 +30,9 @@ async def _admin(hass):
 # ------------------------------------------------------------ what it covers
 def test_every_screen_setting_can_be_written():
     from custom_components.hk_frontend import settings as S, settings_api as A
-    assert set(A.BOARD) == set(S.BOARD_DEFAULTS), set(A.BOARD) ^ set(S.BOARD_DEFAULTS)
+    # (a screen's where and title are the host's to set: Mantel's screens, never a screen's page)
+    want = set(S.BOARD_DEFAULTS) - set(S.BOARD_OWN)
+    assert set(A.BOARD) == want, set(A.BOARD) ^ want
 
 
 def test_every_house_setting_a_person_can_change_can_be_written():
@@ -617,7 +619,7 @@ def test_copy_settings_covers_every_screen_setting_and_round_trips():
                     "scenes": ["scene.movie"], "favorites": ["light.lamp"], "glass": "frosted", "frost": 70,
                     "screensaver": True, "screensaver_options": {"show": "both"}})
     read = S.resolved(busy, None)
-    copy = {k: read[k] for k in S.BOARD_DEFAULTS}
+    copy = {k: read[k] for k in S.BOARD_DEFAULTS if k not in S.BOARD_OWN}
     copy["screensaver_options"] = None if read["screensaver_house"] else read["screensaver_options"]
     got, err = apply_board(S.board({}), copy)
     assert err == {}, err

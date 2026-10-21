@@ -1751,7 +1751,17 @@ def tab_bar_rooms(v: Any) -> str:
         return "off"
     return v if v in TAB_BAR_ROOMS else "more"
 VIEW_PATH = re.compile(r"^[A-Za-z0-9_.-]{1,60}$")
+# WHERE A SCREEN IS DRAWN (decision 29, Mantel's docs/phase9/TWO-PRODUCTS.md "one place per screen"): by Mantel,
+# or by HK Frontend's dashboard of the same address in Home Assistant. HK in Home Assistant alone never reads it.
+BOARD_WHERE = ("mantel", "ha")
+TITLE_MAX = 60
+# a screen's own identity, set by the host's screens (add, move, split), never by a screen's page or Copy Settings
+BOARD_OWN = ("where", "title")
+
 BOARD_DEFAULTS: dict[str, Any] = {
+    # where it is drawn, and its own name (empty: the dashboard's, or its address made readable). Neither is a
+    # setting a screen's page changes: Mantel's screens (add, move, split) set them
+    "where": "mantel", "title": "",
     # the menu
     "menu": "auto", "dock_min": 1000, "time_weather": "page", "ha_row": False, "ha_place": "rooms",
     "categories": [], "tab_position": "", "tab_size": "large", "tab_size_phone": "standard", "room_order": [],
@@ -1963,6 +1973,8 @@ def board(data: Mapping[str, Any] | None) -> dict[str, Any]:
     out = copy.deepcopy(BOARD_DEFAULTS)
     d = dict(data or {})
     pick = lambda k, allowed: d[k] if d.get(k) in allowed else out[k]  # noqa: E731
+    out["where"] = pick("where", BOARD_WHERE)
+    out["title"] = str(d.get("title") or "").strip()[:TITLE_MAX] if isinstance(d.get("title"), str) else ""
     out["menu"] = pick("menu", BOARD_MENUS)
     out["time_weather"] = pick("time_weather", BOARD_TIME)
     out["menu_rooms"] = pick("menu_rooms", BOARD_MENU_ROOMS)

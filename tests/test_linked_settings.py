@@ -253,7 +253,7 @@ async def test_hk_settings_says_where_each_screen_is_drawn(make_env):
     env = await make_env()
     service = env.app["settings"]
     where = lambda: {d["path"]: d.get("where") for d in service.panel_payload()["dashboards"]}  # noqa: E731
-    assert where()["dashboard-hall"] == {"text": "Mantel", "icon": "mdi:fireplace"}
+    assert where()["dashboard-hall"] == {"text": "Mantel", "icon": "mdi:fireplace", "where": "mantel"}
     env.app["ha_sidebar_screens"]["dashboard-hall"] = "Hall"          # as ha_dashboards last read HA
     assert where()["dashboard-hall"]["text"] == "Mantel · in Home Assistant’s sidebar"
     ws = await connect(env)
@@ -263,7 +263,8 @@ async def test_hk_settings_says_where_each_screen_is_drawn(make_env):
         pass
     assert f["success"], f
     got = where()["dashboard-hall"]
-    assert got["icon"] == "mdi:home-assistant" and got["text"].startswith("Mantel, and HK Frontend in Home Assistant")
+    assert got["conflict"] is True and got["text"] == "Mantel, and Home Assistant has a dashboard at the same address", \
+        "a Mantel screen at an address HK Frontend also draws is flagged: each screen is drawn in one place"
     await ws.send_json({"id": 6, "type": "report", "report": {"hk_dashboards": [{"path": "Bad Path", "title": "x"}]}})
     while (f := await ws.receive_json(timeout=5)).get("id") != 6:
         pass

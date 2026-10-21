@@ -228,7 +228,7 @@ print('\n=== a host\'s own groups on a screen\'s page (extend) ===');
     var g = document.createElement('section'); g._text = 'The host’s own group'; c.appendChild(g);
   };
   var c = screenPage(x), t = texts(c);
-  ok('the host is asked on a screen\'s page, with the screen', asked, [['screen', { screen: 'dashboard-kitchen', title: 'Kitchen' }]]);
+  ok('the host is asked on a screen\'s page, with the screen', asked, [['screen', { screen: 'dashboard-kitchen', title: 'Kitchen', where: null }]]);
   ok('...and what it draws follows This Device', t.indexOf('The host’s own group') > t.indexOf('This Device'), true);
   var y = example(); y.extend = function () { throw new Error('a host that fails'); };
   ok('a host that throws leaves HK\'s page whole', texts(screenPage(y)).indexOf('Copy Settings From…') >= 0, true);
