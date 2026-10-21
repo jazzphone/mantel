@@ -30,7 +30,7 @@ export class Hub {
       ws.onerror = () => reject(new Error('hub connection failed'));
       ws.onclose = () => {
         this._dropCommands();
-        if (!this.closing) setTimeout(() => this.connect().then(() => this.onReconnect && this.onReconnect()), 2000);
+        if (!this.closing) setTimeout(() => this.connect().then(() => { this._resubscribe(); if (this.onReconnect) this.onReconnect(); }), 2000);
       };
       ws.onmessage = (ev) => {
         this.msgs++; this.bytes += ev.data.length;
@@ -149,7 +149,19 @@ export class Hub {
   }
 
   subscribe(entityIds, areas, all) {
-    this.ws.send(JSON.stringify({ type: 'subscribe', entity_ids: entityIds || [], areas: areas || [], all: !!all }));
+    this._sub = { type: 'subscribe', entity_ids: entityIds || [], areas: areas || [], all: !!all };
+    this.ws.send(JSON.stringify(this._sub));
+  }
+
+  // AFTER A RECONNECT (the server restarted, 2026-10-21): the new socket knows nothing of this page, so the
+  // states subscription and every read subscription still open are asked again, under their own ids. Until
+  // this, a page lost its screens' feed (black, pop-ups, notifications) and its settings feed at every Mantel
+  // restart until it was reloaded: the house's tablets stopped going black after the 06:53 update.
+  _resubscribe() {
+    if (this._sub) this.ws.send(JSON.stringify(this._sub));
+    for (const [id, p] of this.pending) {
+      if (p.cb && p.msg) this.ws.send(JSON.stringify({ type: 'read_subscribe', id, msg: p.msg }));
+    }
   }
 
   read(msg) {
@@ -173,7 +185,7 @@ export class Hub {
   readSubscribe(msg, cb) {
     const id = this.nextId++;
     return new Promise((resolve, reject) => {
-      this.pending.set(id, { resolve: () => resolve(() => { this.pending.delete(id); this.ws.send(JSON.stringify({ type: 'read_unsubscribe', id })); }), reject, cb });
+      this.pending.set(id, { resolve: () => resolve(() => { this.pending.delete(id); this.ws.send(JSON.stringify({ type: 'read_unsubscribe', id })); }), reject, cb, msg });
       this.ws.send(JSON.stringify({ type: 'read_subscribe', id, msg }));
     });
   }

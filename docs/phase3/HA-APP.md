@@ -1063,6 +1063,15 @@ Everything on main since 0.1.28 (validation green: JS 130, HA py 732, Mantel 283
   connection check and the 60 s grace are gone (unused).
 - No HA backup (Avery).
 
+### 0.1.41 (2026-10-21)
+
+- **A page asks again for what it had open after a reconnect** (web/shim/hub.js `_resubscribe`): the states
+  subscription and every read subscription (the screens' feed: black, pop-ups, notifications; the settings feed),
+  under their own ids. Until now a page lost them at every Mantel restart until it was reloaded, so after this
+  morning's updates no tablet heard its black (06:53 on). The tablets need one reload to get it (HA's
+  script.tablets_reload_screen, run after the update).
+- No HA backup (Avery).
+
 ### Removal
 
 Stop and uninstall **Mantel** (Settings → Apps → Mantel → Uninstall); this removes its image and `/data`
