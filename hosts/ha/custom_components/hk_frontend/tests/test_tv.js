@@ -158,6 +158,8 @@ ok('in Fully it sets the tablet\'s media volume; elsewhere the video\'s, remembe
    /fk\.setAudioVolume\(Math\.round\(x \* 100\), FULLY_MUSIC\)/.test(cam) && /localStorage\.setItem\(VOL_KEY/.test(cam));
 ok('raising the volume turns the sound on', /x > 0 && !self\._audible\(\)/.test(cam));
 ok('a still that fails leaves no broken-image glyph', /img\.classList\.add\('dead'\)/.test(cam));
+ok('...and a still not loaded yet is hidden too (Safari outlines an empty <img>: a white frame round the TV player)',
+   /img\.className = 'dead';/.test(cam) && /img\.classList\.remove\('dead'\)/.test(cam) && /'\.db>img\.dead\{visibility:hidden\}'/.test(cam));
 ok('the still hides once the video moves, and returns on a reconnect',
    /'\.db\.moving>img\{visibility:hidden\}'/.test(cam) && /db\.classList\.add\('moving'\)/.test(cam) &&
    /box\.classList\.remove\('moving'\)/.test(cam));

@@ -2368,6 +2368,11 @@
       };
       var img = document.createElement('img');
       img.alt = '';
+      // HIDDEN UNTIL IT HAS A PICTURE: Safari draws a light-gray outline around
+      // an <img> with no picture yet, and this one fills the box -- a Live TV
+      // channel has no still, so a thin white frame ran round the player's
+      // edges until the video moved (filmed, 2026-10-21).
+      img.className = 'dead';
       img.addEventListener('error', function () { img.classList.add('dead'); });
       img.addEventListener('load', function () { img.classList.remove('dead'); shape(img.naturalWidth, img.naturalHeight); });
       var v = document.createElement('video');
