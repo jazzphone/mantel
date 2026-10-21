@@ -1024,6 +1024,15 @@ Everything on main since 0.1.28 (validation green: JS 130, HA py 732, Mantel 283
 - No HA backup (Avery).
 - [x] On the house (build `1222925a4a8375c0`, 289a637, 16:28): both links reconnected; the tablets' kiosks named.
 
+### 0.1.37 (2026-10-20)
+
+- **Live TV without HK Frontend** (merge b0a0bc3): Mantel serves the channels and Mantel Link 0.1.3 transcodes them
+  inside Home Assistant, whose go2rtc plays them (`live_tv.py` link mode, Mantel Link's `tv.py`).
+- **Status & Chips count on Mantel** (merge b6d57f9): HK Settings' What It Counts lists each kind's accessories, and
+  the screens are sent each kind's list (Leave out, Also count, Include in Status), kept current.
+- Mantel Link 0.1.3 copied by hand (`rsync --inplace`, no `--delete`, diff checked, HA restarted).
+- No HA backup (Avery).
+
 ### Removal
 
 Stop and uninstall **Mantel** (Settings → Apps → Mantel → Uninstall); this removes its image and `/data`
