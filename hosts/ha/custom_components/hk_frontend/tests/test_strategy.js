@@ -123,7 +123,10 @@ window.hkStrategy.generate({}, hass).then(function (cfg) {
     .forEach(function (id) { chHass.entities[id] = { device_id: 'd2', platform: 'unifiprotect' }; });
   chHass.entities['camera.yard_tablet'] = { device_id: 'tab', platform: 'fully_kiosk' };
   chHass.entities['camera.tv_abc'] = { platform: 'hk_frontend', area_id: 'yard' };   // a Live TV channel
+  chHass.entities['camera.tv_xyz'] = { platform: 'livetv_host', area_id: 'yard' };    // ...and one the host names
   Object.keys(chHass.entities).forEach(function (id) { chHass.states[id] = { entity_id: id, state: 'idle', attributes: {} }; });
+  var shellWas = window.hkShell, base = shellWas || {};
+  window.hkShell = Object.assign(Object.create(base), { notHouseCameraPlatforms: function () { return ['livetv_host']; } });
   ok('one tile per camera, its low-resolution channel, never a tablet\'s camera or a TV channel',
      JSON.stringify(camIds(chHass, ['yard'])) === '["camera.drive_low_resolution_channel","camera.porch_low_resolution_channel"]',
      JSON.stringify(camIds(chHass, ['yard'])));
@@ -131,6 +134,9 @@ window.hkStrategy.generate({}, hass).then(function (cfg) {
      JSON.stringify(camIds(chHass, ['yard'], { board: { cameras: ['camera.porch_high_resolution_channel', 'camera.drive_medium_resolution_channel'] } })) ===
      '["camera.porch_high_resolution_channel","camera.drive_medium_resolution_channel"]',
      JSON.stringify(camIds(chHass, ['yard'], { board: { cameras: ['camera.porch_high_resolution_channel', 'camera.drive_medium_resolution_channel'] } })));
+  window.hkShell = shellWas;
+  ok('...a camera of a platform the host does not name stays a house camera',
+     camIds(chHass, ['yard']).indexOf('camera.tv_xyz') >= 0, true);
   // AN hk: ICON SET IN HOME ASSISTANT beats the guess.
   var icHass = { states: { 'switch.coffee': { entity_id: 'switch.coffee', state: 'off', attributes: {} },
                            'light.tree': { entity_id: 'light.tree', state: 'on', attributes: {} },

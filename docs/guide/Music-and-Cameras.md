@@ -181,8 +181,10 @@ ends its session.
 
 ### Live TV
 
-In Docker or the Proxmox container, Mantel can serve Live TV through its own
-go2rtc instead of Home Assistant's. Its streams are then reachable only through
+In the Home Assistant App, Mantel serves the channels and Mantel Link
+transcodes them inside Home Assistant, whose go2rtc plays them (Mantel Link
+0.1.3 or later, with the rest of the house moved to Mantel). In Docker or the
+Proxmox container, Mantel can serve Live TV through its own go2rtc instead. Its streams are then reachable only through
 Mantel (`/go2rtc/`), for people with the Live TV feature who may view that
 channel's camera. See HK Frontend's
 [Live TV](https://github.com/jazzphone/hk-frontend/wiki/Live-TV) for the page

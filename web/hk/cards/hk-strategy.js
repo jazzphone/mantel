@@ -664,7 +664,8 @@
   // faster from it), then A to Z. The
   // screen's own list also sets the order; the rest follow A to Z.
   // not the house's cameras: a wall tablet's own, and Live TV's channels
-  // (HK Frontend's only cameras; hk_tv before 1.0)
+  // (HK Frontend's only cameras; hk_tv before 1.0), and those the host names
+  // (hkShell.notHouseCameraPlatforms: its own integration's Live TV channels)
   var NOT_HOUSE_CAMERAS = { fully_kiosk: 1, hk_frontend: 1, hk_tv: 1 };
   // A KIOSK SATELLITE TABLET'S CAMERAS come through ESPHome, the platform an
   // ESP32 camera on the porch uses too -- so it is the DEVICE that tells them
@@ -672,6 +673,8 @@
   // `kiosk_satellite`. Never the platform alone.
   function notHouseCamera(client, e) {
     if (NOT_HOUSE_CAMERAS[e.platform]) return true;
+    var sh = window.hkShell, more = sh && typeof sh.notHouseCameraPlatforms === 'function' && sh.notHouseCameraPlatforms();
+    if (e.platform && Array.isArray(more) && more.indexOf(e.platform) >= 0) return true;
     var d = e.device_id && (client.devices || {})[e.device_id];
     return !!d && d.manufacturer === 'kiosk_satellite';
   }
@@ -3101,6 +3104,7 @@
     };
   }
   window.hkStrategy = { generate: HkDashboardStrategy.generate, tile: TILE, shortName: shortName,
+    notHouseCamera: notHouseCamera,
                         lateError: lateError, recoverLate: recoverLate, defineHere: defineHere,
                         tileFor: viaClient(tileFor), roomCards: viaClient(roomCards),
                         climateMembers: viaClient(climateMembers), pageMembers: viaClient(pageMembers),

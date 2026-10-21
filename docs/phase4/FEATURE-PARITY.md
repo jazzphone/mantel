@@ -122,6 +122,31 @@ The App container could run go2rtc itself. It doesn't, on purpose:
 So in App mode the entrypoint never passes `--go2rtc-url` (pinned by `tests/test_live_tv.py`), `live_tv.py`
 stays in its `ha` mode, and the only change is that Mantel now counts the heartbeat.
 
+## Live TV through Mantel Link (the HA App without HK Frontend, 2026-10-20)
+
+The interim above needs HK Frontend: its Live TV owned the channel list (`hk_tv/channels`), the channel cameras, the
+guide and the transcode (`live_tv/stream.py`). With HK Frontend removed, the HA App had none of it, and the page said
+"Add Live TV". Now, once the house is Mantel's and Mantel Link says it has Live TV's transcode (`live_tv` in its link
+features, Mantel Link 0.1.3), `live_tv.py` is in `link` mode:
+
+- **The channel list** is Mantel's, from its own Live TV piece. The piece applies when it is on, or when it was
+  imported from HA with a tuner (the import leaves it off, since HA ran it then). Mantel reads the tuner's lineup and
+  the guide itself. Each channel keeps the entity ids HA already has (learned by `linked_house.py`); a new channel gets
+  HK's ids, under this entry.
+- **The cameras** are Mantel Link's, published by `linked_house.py` with `features.tv` = {channel, the tuner's stream
+  URL, the quality, the programme's artwork}. Mantel Link's camera streams from its own view
+  (`/api/mantel/tv/stream/<n>`, this machine only), which runs HK's ffmpeg command on that tuner URL alone (a plain
+  `http://<tuner>[:port]/auto/v<n>`). Home Assistant's go2rtc plays it, as it played HK Frontend's, so the page's
+  `camera/webrtc/*` for a channel camera go to the camera connector, unchanged. The still is the programme's
+  artwork, never a frame.
+- **The heartbeat** is counted by Mantel and published as `sensor.tv_viewers`; the page is told `ha: false` (there is
+  no HA Live TV to tell).
+- **The Cameras page** leaves Mantel Link's cameras out (platform `mantel`), as it does HK Frontend's.
+- A Mantel Link without the transcode keeps the interim (the cameras unavailable, never a wrong picture).
+
+Proved on the scratch HA (`tools/e2e/mantel_link_e2e.py --phase livetv`: a fake tuner sending MPEG-2 and AC-3, HA's
+own HLS player in place of go2rtc).
+
 ## Live TV served by Mantel (Docker / Proxmox LXC, 2026-10-18)
 
 Where Mantel runs the compose stack, its own go2rtc (the `transcode` image, service `go2rtc` on the backend
