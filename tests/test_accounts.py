@@ -9,6 +9,7 @@ import stat
 import pytest
 
 from conftest import PASSWORD
+from gateway_fakes import off  # noqa: F401 -- fixture
 from mantel_server import __main__ as entry
 from mantel_server.accounts import (ACCOUNT_FAILURES, IP_FAILURES, AttemptLimiter, PolicyError, check_password_policy,
                                     hotp, otpauth_uri, totp, totp_match)
@@ -499,3 +500,99 @@ async def test_sign_ins_are_not_audited(mantel):
     await mantel.sign_in("jordan", "not the password!")
     await mantel.sign_in("jordan")
     assert mantel.app["audit"].rows() == []
+
+
+# -- the second factor's own doors (the 2026-10 audit) -------------------------------------------------
+def _wrong_codes(seed, now, n):
+    from mantel_server.accounts import TOTP_STEP, hotp
+    valid = {hotp(seed, int(now // TOTP_STEP) + d) for d in (-1, 0, 1)}
+    return [c for c in (f"{i:06d}" for i in range(n + 3)) if c not in valid][:n]
+
+
+async def test_confirming_an_enrolment_is_no_way_round_the_step_up(off):
+    """enroll/confirm accepted the CONFIRMED seed too, with no limit, and made the session fresh: an unlimited
+    step-up for whoever held a session cookie."""
+    from gateway_fakes import seed_of  # noqa: F401
+    from mantel_server.accounts import totp
+    m = off.m
+    await off.login("avery", "owner")
+    seed = await off.enroll_totp()
+    off.now[0] += 3600                                            # no longer fresh
+    statuses = [(await m.post("/api/auth/totp/enroll/confirm", {"code": c})).status
+                for c in _wrong_codes(seed, off.now[0], 8)]
+    assert statuses[:5] == [400] * 5 and statuses[-1] == 429       # limited like the step-up
+    r = await m.post("/api/auth/totp/enroll/confirm", {"code": totp(seed, off.now[0] + 30)})
+    assert r.status in (400, 429)                                 # the confirmed seed is not "confirmed" again
+    assert (await (await m.get("/api/session")).json())["fresh_factor_at"] != off.now[0]
+
+
+async def test_a_stale_session_cannot_add_a_first_factor_and_then_confirm_it_is_you_with_it(off):
+    m = off.m
+    await off.login("avery", "owner")
+    off.now[0] += 3600
+    r = await m.post("/api/auth/totp/enroll")
+    assert r.status == 403 and (await r.json())["error"] == "step_up_required"
+    r = await m.post("/api/auth/passkey/register/options")
+    assert r.status in (400, 403)                                  # (no passkey origin here: refused either way)
+    off.now[0] += 1
+    await off.login("avery", "owner")                              # signing in again is what makes it fresh
+    assert (await m.post("/api/auth/totp/enroll")).status == 200
+
+
+async def test_a_right_password_does_not_reset_the_count_of_wrong_codes(off):
+    """Each right password cleared the per-name limit and the stored lockout before the code was asked: the
+    code could be guessed forever, four at a time."""
+    from mantel_server.accounts import totp
+    m = off.m
+    await off.login("avery", "owner")
+    seed = await off.enroll_totp()
+    m.forget_cookies()
+    wrong = iter(_wrong_codes(seed, off.now[0], 40))
+    refused = False
+    for _ in range(4):
+        r, body = await m.sign_in("avery")
+        if r.status == 429:
+            refused = True
+            break
+        for _ in range(4):
+            r = await m.post("/api/auth/totp/verify", {"pending": body["pending"], "code": next(wrong)}, csrf=False)
+            if r.status == 429:
+                refused = True
+    assert refused
+    assert m.app["accounts"].find_username("avery")["locked_until"] is not None
+    off.now[0] += 16 * 60                                          # after the lockout, the right code works
+    r, body = await m.sign_in("avery")
+    r = await m.post("/api/auth/totp/verify", {"pending": body["pending"], "code": totp(seed, off.now[0])}, csrf=False)
+    assert r.status == 200
+
+
+async def test_replacing_the_authenticator_keeps_the_old_one_until_the_new_one_is_confirmed(off):
+    from gateway_fakes import seed_of
+    from mantel_server.accounts import totp
+    m = off.m
+    await off.login("avery", "owner")
+    old = await off.enroll_totp()
+    r = await m.post("/api/auth/totp/enroll")                      # Replace…, then abandoned
+    new = seed_of((await r.json())["secret"])
+    m.forget_cookies()
+    r, body = await m.sign_in("avery")
+    assert body.get("next") == "totp"                              # two-step sign-in still on
+    off.now[0] += 30
+    r = await m.post("/api/auth/totp/verify", {"pending": body["pending"], "code": totp(new, off.now[0])}, csrf=False)
+    assert r.status == 401                                         # the unconfirmed one isn't in force
+    r, body = await m.sign_in("avery")
+    r = await m.post("/api/auth/totp/verify", {"pending": body["pending"], "code": totp(old, off.now[0])}, csrf=False)
+    assert r.status == 200
+    r = await m.post("/api/auth/totp/enroll")                      # fresh again: replace for real
+    new = seed_of((await r.json())["secret"])
+    off.now[0] += 30
+    assert (await m.post("/api/auth/totp/enroll/confirm", {"code": totp(new, off.now[0])})).status == 200
+    acc = m.app["accounts"]
+    uid = acc.find_username("avery")["id"]
+    off.now[0] += 30
+    assert not acc.totp_check(uid, totp(old, off.now[0])) and acc.totp_check(uid, totp(new, off.now[0]))
+
+
+def test_a_code_in_other_scripts_digits_is_just_wrong():
+    from mantel_server.accounts import totp_match
+    assert totp_match(b"0" * 20, "١٢٣٤٥٦", 1_000_000.0) is None    # Arabic-Indic digits: no TypeError

@@ -30,7 +30,7 @@ import aiohttp
 from aiohttp import WSMsgType, web
 
 from . import about, frame_origins, music
-from . import accounts, alarm_pin, auth, connect_pairing, devices, gateway, health, ingress, live_tv, pins, proof2, rbac_store, readproxy, sessions, settings_store
+from . import accounts, alarm_pin, auth, connect_pairing, devices, gateway, health, ingress, live_tv, pins, rbac_store, readproxy, sessions, settings_store
 from . import (admin_page, atrest, backup, connections, features, linked, linked_house, linked_owners, linked_pairing,
                linked_actions, login_page, phones, supervisor_discovery,
                photos, service_accounts, talk_relay, user_files)
@@ -488,7 +488,6 @@ def build_app(cfg: Config, token: str, store: Store | None = None, connect_ha: b
     app["state_secret"] = secrets.token_bytes(32)
     app["clock"] = clock
     auth.add_routes(app)
-    app.router.add_post(proof2.PATH, proof2.command)
     hub.ha = HaClient(cfg.ha_url, token, hub.store, hub.registry, hub.on_change, hub.on_registry,
                       ws_url=cfg.ha_ws_url or None)
     app["cfg"] = cfg

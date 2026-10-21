@@ -1,13 +1,17 @@
 # hosts/server/
 
-Mantel Server. Today it holds the Phase 0 state hub prototype (`mantel_server/`): one read-only upstream `subscribe_entities` connection to Home Assistant, an in-memory copy of every state, and a loopback client WebSocket that serves filtered, coalesced diffs. Live commands are disabled. The isolated Proof 2 HTTP endpoint evaluates one fictional light command in dry-run mode and records its decision; see `docs/proof2/RESULTS.md` for the offline demo and limits. See the top of `mantel_server/server.py` for the client protocol and the repo README for how to run it.
+Mantel Server: the `mantel_server` package (an aiohttp service, run as `mantel-server`) and `mantel_connect`
+(the Mantel Connect App's side of the sidebar link). What the pieces are and how they talk is in
+[docs/development/Architecture.md](../../docs/development/Architecture.md); how to run the suites and the server
+by hand is in [Building and testing](../../docs/development/Building-and-Testing.md).
 
-- `mantel_server/state.py` store + HA compressed-diff handling
-- `mantel_server/registry.py` area/device/entity registry index
-- `mantel_server/view.py` per-client selection, diffing and coalescing (the part with the tests)
-- `mantel_server/ha_client.py` the HA connection (can only send read messages)
-- `tools/measure.py` upstream-vs-downstream traffic measurement
+A few starting points in `mantel_server/`:
 
-Mantel Connect has a separate TLS identity-only proof receiver (`mantel-server connect-proof`), which takes no HA token and never exposes the state hub. Its HA App and deployment steps are in `packaging/mantel-connect/README.md`; live installation remains pending.
-
-New Mantel Server processes serve current frontend code from `web/hk` plus `web/shared-assets.json`; only user files and captured feeds remain in the local proof directory. Home uses Mantel's client port. Restart an already-running prototype to load these backend changes; no production HA deployment is involved. See `docs/phase1/STATE-CLIENT.md`.
+- `server.py`: the app, its middlewares, the hub socket (`/ws`) and its client protocol (at the top).
+- `state.py`, `registry.py`, `view.py`: the copy of Home Assistant's states and registries, and each client's
+  filtered, coalesced diffs.
+- `ha_client.py`: the read connection to Home Assistant (it cannot call a service) and `HaCommander`, the
+  separate command connection made only with `--commands-enabled`.
+- `gateway.py`, `rbac.py`, `authz.py`: the command gateway, roles and grants.
+- `settings_store.py`, `features.py`, `house.py`: HK's settings and the features, through `hk_core`.
+- `tools/measure.py`: upstream-vs-downstream traffic measurement.

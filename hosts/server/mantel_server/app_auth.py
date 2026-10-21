@@ -430,7 +430,7 @@ async def authorize_post(request: web.Request) -> web.StreamResponse:
     if form.get("decision") != "allow":
         _back_to_app(p["state"], error="access_denied")
     code = state_of(request).codes.make(CODE_TTL, kind="code", user_id=ident.user.id, client_id=p["client_id"],
-                                        challenge=p["code_challenge"], name=p["device_name"])
+                                        challenge=p["code_challenge"], name=p["device_name"], by=ident.session_id)
     _back_to_app(p["state"], code=code)
 
 
@@ -476,6 +476,10 @@ async def token(request: web.Request) -> web.Response:
             return error(403, "lan_only", message="Pairing codes work on the home network only.")
     user = request.app["store"].db.execute("SELECT disabled FROM users WHERE id = ?", (got["user_id"],)).fetchone()
     if user is None or user["disabled"]:
+        return error(400, "invalid_grant")
+    # a code is only as good as the session that made it: signed out, or ended by a password change or reset
+    # (sessions.revoke_user), its codes go with it, as the docs promise for the person's cookies
+    if got.get("by") is not None and request.app["sessions"].get(got["by"], st.clock()) is None:
         return error(400, "invalid_grant")
     return web.json_response(st.issue(request, got["user_id"], client_id, proof, device),
                              headers={"Cache-Control": "no-store"})
@@ -553,7 +557,7 @@ async def pairing(request: web.Request) -> web.Response:
     if ident.device is not None:
         return error(403, "user_required")
     st = state_of(request)
-    code = st.codes.make(PAIRING_TTL, kind="pairing", user_id=ident.user.id)
+    code = st.codes.make(PAIRING_TTL, kind="pairing", user_id=ident.user.id, by=ident.session_id)
     addr = st.addresses(request)
     fp = st.fingerprint()
     link = "mantel://pair?" + urlencode({"v": "1", **({"l": addr["local"]} if addr["local"] else {}),
@@ -586,7 +590,9 @@ async def web_session(request: web.Request) -> web.StreamResponse:
     door = door_of(request)
     if door not in ("lan", "tunnel"):
         return _page("Can’t Open Mantel", "<p>Not through Home Assistant.</p>", 403)
-    issued = mgr.create(got["user_id"], door, WEB_METHOD, user_agent=request.headers.get("User-Agent"),
+    # not a sign-in made just now (fresh=False): the app's credential lives 30 days, and its web view must
+    # still Confirm It Is You for what asks for that, as any other session does
+    issued = mgr.create(got["user_id"], door, WEB_METHOD, fresh=False, user_agent=request.headers.get("User-Agent"),
                         source_ip=request.remote)
     resp = web.HTTPFound(got["next"], headers={"Cache-Control": "no-store", "Referrer-Policy": "no-referrer"})
     set_session_cookies(request, resp, issued)

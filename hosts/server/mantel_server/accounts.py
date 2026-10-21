@@ -134,7 +134,7 @@ def totp(secret: bytes, t: float, step: int = TOTP_STEP, digits: int = TOTP_DIGI
 def totp_match(secret: bytes, code: object, now: float, last_counter: int = -1,
                window: int = TOTP_WINDOW) -> int | None:
     """The time step ``code`` belongs to (within ±window, newer than last_counter), or None."""
-    if not isinstance(code, str) or not code.isdigit() or len(code) != TOTP_DIGITS:
+    if not isinstance(code, str) or not code.isascii() or not code.isdigit() or len(code) != TOTP_DIGITS:
         return None
     current = int(now // TOTP_STEP)
     found = None
@@ -274,7 +274,9 @@ class Accounts:
             self.record_failure(ip, username if isinstance(username, str) else None,
                                 row["id"] if row is not None else None)
             return "invalid", None
-        self.record_success(username, row["id"])
+        # NOT record_success here: a right password is only the first step when a second factor is owed, and
+        # clearing the count now let "password, 4 wrong codes, password, ..." guess the code forever. The
+        # caller clears it once the whole sign-in (or the password change) succeeds.
         if self.hasher.check_needs_rehash(row["password_hash"]):
             hashed = await self.hash_password(password)
             with self.db:
@@ -320,27 +322,59 @@ class Accounts:
         return self.db.execute("SELECT 1 FROM passkeys WHERE user_id = ? LIMIT 1", (user_id,)).fetchone() is not None
 
     def totp_begin(self, user_id: str, account: str) -> tuple[str, str]:
-        """A new (unconfirmed) seed; replaces an unconfirmed one. Returns (base32 secret, otpauth URI)."""
+        """A new seed, to be confirmed by its first code. With none confirmed yet it replaces any unconfirmed one;
+        beside a confirmed one it waits (``pending_enc``) and the working one stays in force until it is
+        confirmed. Returns (base32 secret, otpauth URI)."""
         seed = secrets.token_bytes(20)
         sealed = self.box.seal(seed, f"totp:{user_id}")
         with self.db:
             self.db.execute("INSERT INTO totp_credentials (user_id, seed_enc, created) VALUES (?,?,?) "
-                            "ON CONFLICT(user_id) DO UPDATE SET seed_enc = excluded.seed_enc, confirmed = NULL, "
-                            "last_counter = -1, created = excluded.created", (user_id, sealed, self.clock()))
+                            "ON CONFLICT(user_id) DO UPDATE SET "
+                            "pending_enc = CASE WHEN confirmed IS NULL THEN NULL ELSE excluded.seed_enc END, "
+                            "seed_enc = CASE WHEN confirmed IS NULL THEN excluded.seed_enc ELSE seed_enc END, "
+                            "created = CASE WHEN confirmed IS NULL THEN excluded.created ELSE created END",
+                            (user_id, sealed, self.clock()))
         return b32(seed), otpauth_uri(seed, account)
 
     def totp_check(self, user_id: str, code: object, confirm: bool = False) -> bool:
-        """Verify a code (consuming its time step). ``confirm`` accepts an unconfirmed seed and confirms it."""
+        """Verify a code (consuming its time step) against the confirmed seed. ``confirm``: against the seed
+        waiting to be confirmed instead (a first one, or a replacement), which it confirms; never the confirmed
+        one, so confirming is no way round the step-up's limits."""
         row = self._totp_row(user_id)
-        if row is None or (row["confirmed"] is None and not confirm):
+        if row is None:
+            return False
+        now = self.clock()
+        if not confirm:
+            if row["confirmed"] is None:
+                return False
+            seed = self.box.open(row["seed_enc"], f"totp:{user_id}")
+            counter = totp_match(seed, code, now, row["last_counter"])
+            if counter is None:
+                return False
+            with self.db:
+                cur = self.db.execute("UPDATE totp_credentials SET last_counter = ? WHERE user_id = ? AND last_counter < ?",
+                                      (counter, user_id, counter))
+            return cur.rowcount == 1
+        if row["pending_enc"] is not None:                      # a replacement: it takes the working one's place
+            seed = self.box.open(row["pending_enc"], f"totp:{user_id}")
+            counter = totp_match(seed, code, now)
+            if counter is None:
+                return False
+            with self.db:
+                cur = self.db.execute("UPDATE totp_credentials SET seed_enc = pending_enc, pending_enc = NULL, "
+                                      "confirmed = ?, last_counter = ?, created = ? WHERE user_id = ? "
+                                      "AND pending_enc IS NOT NULL", (now, counter, now, user_id))
+            return cur.rowcount == 1
+        if row["confirmed"] is not None:
             return False
         seed = self.box.open(row["seed_enc"], f"totp:{user_id}")
-        counter = totp_match(seed, code, self.clock(), row["last_counter"])
+        counter = totp_match(seed, code, now, row["last_counter"])
         if counter is None:
             return False
         with self.db:
-            cur = self.db.execute("UPDATE totp_credentials SET last_counter = ?, confirmed = COALESCE(confirmed, ?) "
-                                  "WHERE user_id = ? AND last_counter < ?", (counter, self.clock(), user_id, counter))
+            cur = self.db.execute("UPDATE totp_credentials SET last_counter = ?, confirmed = ? "
+                                  "WHERE user_id = ? AND confirmed IS NULL AND last_counter < ?",
+                                  (counter, now, user_id, counter))
         return cur.rowcount == 1
 
     def totp_remove(self, user_id: str) -> bool:
@@ -645,6 +679,7 @@ async def password_sign_in(request: web.Request) -> web.Response:
     if door == "tunnel":  # PLAN §7: on the tunnel a password alone is never enough
         methods = ["passkey"] if acc.has_passkey(row["id"]) else []
         return error(403, "second_factor_required", methods=methods)
+    acc.record_success(username, row["id"])
     return signed_in(request, row, "password")
 
 
@@ -717,22 +752,38 @@ async def passkey_verify(request: web.Request) -> web.Response:
 
 
 # -- enrolment (signed in) ------------------------------------------------------------------------
+def require_fresh_to_add_factor(request: web.Request, ident: Identity) -> None:
+    """Adding an authenticator app or a passkey needs a sign-in within the last five minutes, the first one
+    too: a factor added by whoever holds a stolen cookie would let them confirm it is them from then on.
+    Home Assistant's sidebar, where HA itself vouches for the person (authz.ha_trusted), counts as fresh, as
+    it does for Connections (connections.edit_rule)."""
+    authz = request.app.get("authz")
+    if ident.door == "ha" and authz is not None and authz.ha_trusted(ident):
+        return
+    require_fresh(request, ident)
+
+
 async def totp_enroll(request: web.Request) -> web.Response:
     ident = require_user(request)
     acc = accounts_of(request)
-    if acc.has_totp(ident.user.id):
-        require_fresh(request, ident)  # replacing a working TOTP needs a fresh factor
+    require_fresh_to_add_factor(request, ident)
     secret, uri = acc.totp_begin(ident.user.id, ident.user.username or ident.user.name or ident.user.id)
     return ok({"secret": secret, "uri": uri})
 
 
 async def totp_enroll_confirm(request: web.Request) -> web.Response:
+    """The new app's first code confirms it. Limited like the step-up, and it does not make the session fresh
+    (enrolling is no way of confirming it is you: totp_enroll asked for that already)."""
     ident = require_user(request)
     body = await read_json(request)
     acc = accounts_of(request)
+    ip = client_ip(request)
+    wait = acc.retry_after(ip, ident.user.username)
+    if wait > 0:
+        return limited(wait)
     if not acc.totp_check(ident.user.id, body.get("code"), confirm=True):
+        acc.record_failure(ip, ident.user.username)
         return error(400, "invalid_code")
-    request.app["sessions"].mark_fresh(ident.session_id, "totp")
     return ok({"totp": True})
 
 
@@ -761,6 +812,7 @@ async def passkey_register_options(request: web.Request) -> web.Response:
     ident = require_user(request)
     acc = accounts_of(request)
     passkey_origin(request, acc)
+    require_fresh_to_add_factor(request, ident)
     cid, options = acc.passkey_register_options(ident.user.id)
     return ok({"challenge_id": cid, "options": options})
 
@@ -768,7 +820,7 @@ async def passkey_register_options(request: web.Request) -> web.Response:
 async def passkey_register_verify(request: web.Request) -> web.Response:
     ident = require_user(request)
     acc = accounts_of(request)
-    origin = passkey_origin(request, acc)
+    origin = passkey_origin(request, acc)            # (fresh was needed for the challenge: register_options)
     body = await read_json(request)
     try:
         cred_id = acc.passkey_register_verify(ident.user.id, body.get("challenge_id"), body.get("credential"), origin,
@@ -813,6 +865,7 @@ async def change_password(request: web.Request) -> web.Response:
             return limited(value)
         if status != "ok":
             return error(401, "invalid_credentials")
+        acc.record_success(row["username"], row["id"])
     elif not row["username"]:
         return error(400, "username_required")
     else:
