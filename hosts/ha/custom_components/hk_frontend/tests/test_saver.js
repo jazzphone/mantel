@@ -836,6 +836,19 @@ drawAgain(); woke(); __timers.length = 0;
      sent.some(function (m) { return m.type === 'hk_frontend/screensaver/black' && m.black === true && m.dashboard === SEG; }), sent);
   ok('...the sky and the camera strip told to rest (hk-black, on)', said[said.length - 1] === true, said);
 
+  // THE HOUSE RESTARTED UNDER THE BLACK (2026-10-21): the black comes again, unconfirmed, while this page is
+  // already black -- it says so again (else the house falls back to the kiosk's own screensaver), and
+  // touches nothing else
+  var acks = function () { return sent.filter(function (m) { return m.type === 'hk_frontend/screensaver/black' && m.black === true; }).length; };
+  var acked = acks(), lit0 = lights.length;
+  var hu = hassBlack('on', 174); hu.states[BLK].attributes.confirmed = false;
+  push(hu); settle(); T0 += 3100; push(hu); settle();
+  ok('the black again, unconfirmed, while already black: the page says it is black again', acks() > acked, sent);
+  ok('...and the backlight is not touched for it', lights.length === lit0, lights);
+  var hc = hassBlack('on', 174); hc.states[BLK].attributes.confirmed = true;
+  var acked2 = acks(); push(hc); settle(); T0 += 3100; push(hc); settle();
+  ok('...once confirmed, it is not said again', acks() === acked2, sent);
+
   lights = []; push(hassBlack('off', 200)); settle();
   ok('the switch off: the curtain stays a moment (CURTAIN_HOLD_HK) ...', curtainEl() && curtainEl().style.opacity === '1');
   __runTimersUnder(61); settle();

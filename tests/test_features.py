@@ -329,7 +329,7 @@ async def test_a_page_that_opens_under_a_black_screen_is_told_so(make_env):
             answered = True
         else:
             frames.append(m["event"])
-    assert frames ==[{"type": "screen", "tablet": "hall", "black": True, "brightness": 174, "dashboards": [], "users": []},
+    assert frames ==[{"type": "screen", "tablet": "hall", "black": True, "brightness": 174, "confirmed": False, "dashboards": [], "users": []},
                       {"type": "screen", "tablet": "hall", "photos": True, "dashboards": [], "users": []}]
     assert env.audit() == []
     await ws.close()
@@ -399,8 +399,9 @@ async def test_the_linked_backlight_with_commands_on_goes_through_the_gateway(ma
 # ------------------------------------------------------------------------------------ Sleep Screen
 @pytest.fixture
 def fast(monkeypatch):
-    for k in ("CONFIRM_S", "KIOSK_WAIT_S", "SETTLE_S", "BACKSTOP_S"):
+    for k in ("CONFIRM_S", "CONFIRM_LONG_S", "KIOSK_WAIT_S", "SETTLE_S", "BACKSTOP_S"):
         monkeypatch.setattr(F.MantelSleep, k, 0.05)
+    monkeypatch.setattr(F, "PAGES_BACK_S", 0.0)          # no page is reconnecting in these tests
 
 
 SLEEPING = {**TABLET, "sleep": {**TABLET["sleep"], "decided_by": "hk"}}
@@ -527,13 +528,32 @@ async def test_a_connected_page_that_is_slow_to_confirm_never_gets_the_kiosks_sc
 
 async def test_a_tablet_whose_page_is_not_connected_still_falls_back_to_the_kiosk(make_env, fast, monkeypatch):
     env, eng = await _quiet_engine(make_env, monkeypatch)
+    monkeypatch.setattr(F, "PAGES_BACK_S", 60.0)
+    assert env.host.page_connected("hall") is True, "just after a start every page is still reconnecting"
+    monkeypatch.setattr(F, "PAGES_BACK_S", 0.0)
     assert env.host.page_connected("hall") is False
     await eng.sleep(False)
     assert {c["data"]["entity_id"] for c in _kiosk_calls(eng)} == {KP["armed"], KP["active"]}, \
         "a crashed or unloaded page would leave the dashboard lit all night"
 
 
-async def test_a_page_listening_to_the_screens_feed_is_connected(make_env):
+async def test_the_screens_are_told_when_a_black_is_confirmed(make_env, fast, monkeypatch):
+    """A page already black when the house came back says so again while its switch reads unconfirmed
+    (hk-saver hkUnheard); once Mantel hears it, the screens' copy says confirmed, and the page stops."""
+    env, eng = await _quiet_engine(make_env, monkeypatch)
+    frames: list = []
+    env.host.feed.taps.append(lambda e: frames.append(e) if e.get("type") == "screen" else None)
+    await env.host.set_black("hall", black=True, why="sleep")
+    assert frames[-1]["black"] is True and frames[-1]["confirmed"] is False
+    await env.host.page_says("hall", True)
+    assert frames[-1]["black"] is True and frames[-1]["confirmed"] is True
+    n = len(frames)
+    await env.host.page_says("hall", True)                 # said again: nothing new to tell
+    assert len(frames) == n
+
+
+async def test_a_page_listening_to_the_screens_feed_is_connected(make_env, monkeypatch):
+    monkeypatch.setattr(F, "PAGES_BACK_S", 0.0)
     env = await make_env(settings={"sleep": {"enabled": True}}, tablet=HK_BLACK)
     assert env.host.page_connected("hall") is False
     await env.login("owner1", "owner")

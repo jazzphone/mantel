@@ -5,6 +5,7 @@ or withdrawn in line), the rules, a restart, the forwarding decision both ways, 
 decorations, the Alarm PIN through the gateway (the house Alarm PIN only, decision 25; commands off:
 nothing sent), and Live TV's entities. A FICTIONAL house; fakes only."""
 import json
+import re
 
 import pytest
 
@@ -316,8 +317,11 @@ async def test_the_alarm_needs_a_code_and_commands_off_send_nothing(make_env):
         ("mantel:linked", "denied", "commands_disabled", "not_sent"), "audited, nothing sent"
     assert json.loads(row["target"]) == [ALARM_PANEL, PROTECTED]
     assert env.app["commander"] is None
+    # numbers (timestamps, ids) taken out first: the clock itself can read ...2580... (2026-10-21)
+    def words(v):
+        return re.sub(r"\d+(\.\d+)?(?=[,}\]])", "#", json.dumps(v))
     for secret in ("2580", HOUSE_CODE):
-        assert secret not in json.dumps(env.audit()) and secret not in json.dumps(env.app["linked_house"].status())
+        assert secret not in words(env.audit()) and secret not in words(env.app["linked_house"].status())
     await lk.ws.close()
 
 

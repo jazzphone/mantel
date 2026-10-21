@@ -1043,6 +1043,17 @@ Everything on main since 0.1.28 (validation green: JS 130, HA py 732, Mantel 283
   whose page is not connected still falls back to the kiosk's.
 - No HA backup (Avery).
 
+### 0.1.39 (2026-10-21)
+
+- **A page already black says so again** (hk-saver.js `hkUnheard`): after Mantel restarts, the black comes again
+  unconfirmed while the page is already black, and the page only ever confirmed a black it had just drawn. Mantel's
+  `screen` frames now carry `confirmed`, the page re-confirms while its switch reads unconfirmed, and Mantel tells
+  the screens once it is heard. (0.1.38's restart, 06:53, put the kiosk's screensaver under four black tablets.)
+- **The pages' time to reconnect** (`PAGES_BACK_S`, 60 s): just after a start every page counts as connected, so
+  no tablet gets the kiosk's screensaver while its page is still coming back.
+- A test fix: the alarm PIN check ignored numbers, since the clock itself read ...2580... today.
+- No HA backup (Avery).
+
 ### Removal
 
 Stop and uninstall **Mantel** (Settings → Apps → Mantel → Uninstall); this removes its image and `/data`

@@ -427,6 +427,8 @@ export class Host {
     if (typeof ev.black === 'boolean') {
       const id = screenEntity(tid, 'black');
       const attrs = typeof ev.brightness === 'number' ? { brightness: ev.brightness } : {};
+      // whether the page's black was heard (Mantel's own copy): a page already black says so again (hk-saver)
+      if (typeof ev.confirmed === 'boolean') attrs.confirmed = ev.confirmed;
       this._overlay[id] = screenState(id, ev.black, attrs);
     }
     if (typeof ev.photos === 'boolean') {
