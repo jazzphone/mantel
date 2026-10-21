@@ -1,6 +1,6 @@
 """Offline check of the admin page (/admin) in an isolated headless Chrome, on a fictional house.
 
-Run: ~/.venvs/mantel/bin/python tools/headless/admin_page_check.py [--shots DIR]
+Run: .venv/bin/python tools/headless/admin_page_check.py [--shots DIR]
 No Home Assistant, no real database, no fonts or fixtures from the house: the server runs on a temp folder
 with fictional Owner/Adult accounts and every request the browser makes must stay on that server (any
 other host is blocked and counted). Signs in as the Owner on a phone-sized screen and drives the page like a

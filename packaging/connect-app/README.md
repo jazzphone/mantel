@@ -16,8 +16,8 @@ certificate transfer; start at `packaging/mantel-connect/README.md` and `docs/ph
 The icon is `packaging/ha-app/icon.png` (staged as `icon.png`).
 
 ```bash
-~/.venvs/mantel/bin/python tools/stage_connect_app.py --dry-run         # list + private-content scan, writes nothing
-~/.venvs/mantel/bin/python tools/stage_connect_app.py /path/to/local_apps/mantel_connect
+.venv/bin/python tools/stage_connect_app.py --dry-run         # list + private-content scan, writes nothing
+.venv/bin/python tools/stage_connect_app.py /path/to/local_apps/mantel_connect
 ```
 
 The staged folder holds `app/mantel_connect/` (`__main__`, `app`, `pairing`, `pki`, `protocol`): the App's

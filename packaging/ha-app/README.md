@@ -15,8 +15,8 @@ a **local App**: the Supervisor builds `Dockerfile` from a folder that `tools/st
 Stage it (never by hand):
 
 ```bash
-~/.venvs/mantel/bin/python tools/stage_ha_app.py --dry-run          # list + private-content scan, writes nothing
-~/.venvs/mantel/bin/python tools/stage_ha_app.py /path/to/local_apps/mantel
+.venv/bin/python tools/stage_ha_app.py --dry-run          # list + private-content scan, writes nothing
+.venv/bin/python tools/stage_ha_app.py /path/to/local_apps/mantel
 ```
 
 The staged folder holds `app/entrypoint.py` (packaging/docker/entrypoint.py), `app/hosts/server/mantel_server`,

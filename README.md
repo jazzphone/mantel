@@ -7,7 +7,7 @@ Real accounts and roles, wall tablets that sign themselves in, and an audit log 
 
 <p align="center">
 <a href="LICENSE"><img alt="MIT license" src="https://img.shields.io/badge/license-MIT-8e8e93?style=flat-square"></a>
-<img alt="Home Assistant 2026.8 or newer" src="https://img.shields.io/badge/Home%20Assistant-2026.8%2B-18BCF2?style=flat-square">
+<img alt="Home Assistant 2026.8 or newer (Mantel Link: 2026.9)" src="https://img.shields.io/badge/Home%20Assistant-2026.8%2B-18BCF2?style=flat-square">
 <img alt="Python 3.12 or newer" src="https://img.shields.io/badge/Python-3.12%2B-3776AB?style=flat-square">
 </p>
 

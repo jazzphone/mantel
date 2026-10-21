@@ -1,7 +1,7 @@
 """Offline smoke of Mantel's page as an HA App: under a fake Ingress prefix, behind a local stand-in for the
 Supervisor's Ingress proxy, in an isolated headless Chrome. docs/phase3/HA-APP.md.
 
-Run: ~/.venvs/mantel/bin/python tools/headless/ingress_smoke.py [--shot /tmp/ingress.png]
+Run: .venv/bin/python tools/headless/ingress_smoke.py [--shot /tmp/ingress.png]
 
     Chrome --> 127.0.0.1:<proxy>/api/hassio_ingress/<token>/...   (the stand-in for HA + the Supervisor)
                  strips the prefix, adds X-Ingress-Path and X-Remote-User-* (the fictional Owner),

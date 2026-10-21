@@ -12,8 +12,8 @@ and Home Assistant restarts under it, without anyone reloading it:
      errors or failed modules since the swap, the cards still drawn, and a state change still
      reaching a tile.
 
-    TESTHA_REPO=<old> ~/.venvs/mantel/bin/python tools/testha/testha.py up --fresh
-    ~/.venvs/mantel/bin/python tools/testha/restart_check.py --new <new tree>
+    TESTHA_REPO=<old> .venv/bin/python tools/testha/testha.py up --fresh
+    .venv/bin/python tools/testha/restart_check.py --new <new tree>
 """
 from __future__ import annotations
 

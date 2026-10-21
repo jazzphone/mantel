@@ -27,7 +27,7 @@ A fictional Mantel for the app to talk to, on this Mac only (no Home Assistant; 
 to a fake connection that only changes fictional states):
 
 ```bash
-~/.venvs/mantel/bin/python tools/app_dev_server.py --data-dir /tmp/mantel-app-dev
+.venv/bin/python tools/app_dev_server.py --data-dir /tmp/mantel-app-dev
 ```
 
 Install the app, then open the pairing link it prints (`/tmp/mantel-app-dev/pair.txt`) in the Simulator:
@@ -39,7 +39,7 @@ xcrun simctl openurl booted "$(cat /tmp/mantel-app-dev/pair.txt)"
 A sealed test notification, after the app has registered for notifications:
 
 ```bash
-~/.venvs/mantel/bin/python tools/app_dev_server.py --data-dir /tmp/mantel-app-dev --push "Front Door|Unlocked by Ann"
+.venv/bin/python tools/app_dev_server.py --data-dir /tmp/mantel-app-dev --push "Front Door|Unlocked by Ann"
 ```
 
 ```bash
@@ -62,7 +62,7 @@ A fictional Mantel with music (a fictional Music Assistant from `tests/music_fak
 port; the page's commands go through the gateway to it, with audit rows):
 
 ```bash
-~/.venvs/mantel/bin/python tools/app_dev_server.py --data-dir /tmp/mantel-mac-dev --port 8777 --music
+.venv/bin/python tools/app_dev_server.py --data-dir /tmp/mantel-mac-dev --port 8777 --music
 ```
 
 Pair by opening its link with the app (the app takes `mantel://pair`; the link works once, for an hour):
@@ -118,14 +118,14 @@ xcodebuild -project apple/Mantel.xcodeproj -scheme Mantel -destination 'generic/
 ### On your iPhone (Debug build)
 
 ```bash
-~/.venvs/mantel/bin/python tools/app_dev_server.py --data-dir /tmp/mantel-app-lan --lan
+.venv/bin/python tools/app_dev_server.py --data-dir /tmp/mantel-app-lan --lan
 ```
 
 prints the test house's home-network address and writes `pair.png` to scan with the iPhone's Camera. A REAL push
 through Apple's sandbox, with the team's key (`httpx[http2]` in the venv):
 
 ```bash
-~/.venvs/mantel/bin/python tools/app_dev_server.py --data-dir /tmp/mantel-app-lan --send-push "Front Door|Unlocked"
+.venv/bin/python tools/app_dev_server.py --data-dir /tmp/mantel-app-lan --send-push "Front Door|Unlocked"
 ```
 
 The app installs, pairs over the home network, registers for notifications, and the Notification Service Extension

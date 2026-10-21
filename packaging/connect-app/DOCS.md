@@ -4,6 +4,8 @@ Mantel Connect puts a **Mantel Server that runs outside Home Assistant** (Docker
 Home Assistant's sidebar and the Companion app. Open **Mantel** in the sidebar: Home Assistant signs you
 in, and Mantel shows you what your Mantel role allows.
 
+It needs Home Assistant **2026.8 or newer** (Mantel Link, the optional integration, needs 2026.9).
+
 Do not install this if you run the **Mantel** App: that one needs no Connect.
 
 ## Pair it once (about two minutes)

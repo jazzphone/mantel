@@ -1,13 +1,13 @@
 """A SCRATCH Home Assistant with FICTIONAL devices, for checking the HACS build of HK Frontend.
 
-    ~/.venvs/mantel/bin/python tools/testha/testha.py up      # build, configure, start, onboard, add HK
-    ~/.venvs/mantel/bin/python tools/testha/testha.py down    # stop HA
-    ~/.venvs/mantel/bin/python tools/testha/testha.py status
-    ~/.venvs/mantel/bin/python tools/testha/testha.py up --fresh   # wipe the scratch config first
+    .venv/bin/python tools/testha/testha.py up      # build, configure, start, onboard, add HK
+    .venv/bin/python tools/testha/testha.py down    # stop HA
+    .venv/bin/python tools/testha/testha.py status
+    .venv/bin/python tools/testha/testha.py up --fresh   # wipe the scratch config first
 
 Safety (see README.md): binds 127.0.0.1:8124 only, no default_config, no discovery or network
 integrations, only the `demo` integration's invented devices. Nothing here reads or writes
-/Volumes/config, ~/.config/mantel or any real Home Assistant. Credentials are generated here,
+~/.config/mantel or any real Home Assistant. Credentials are generated here,
 live only in <scratch>/testha.json, and are never printed.
 """
 from __future__ import annotations

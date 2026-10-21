@@ -1,6 +1,6 @@
 """Fail on broken relative links in README.md and docs/**/*.md.
 
-    ~/.venvs/mantel/bin/python tools/check_links.py [--root DIR] [--no-anchors]
+    .venv/bin/python tools/check_links.py [--root DIR] [--no-anchors]
 
 Checks, for every Markdown link `[text](target)` and reference definition `[label]: target`:
   * a relative target (no scheme, not `#only`) must exist, resolved from the linking file's folder

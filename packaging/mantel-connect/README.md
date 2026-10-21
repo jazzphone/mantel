@@ -25,8 +25,8 @@ There is nothing to copy by hand, look up or keep open in a terminal.
 docker compose up -d --wait
 
 # 2. The Connect App in HA (on the Mac; the target is HA's local apps share, never a path inside the repo):
-~/.venvs/mantel/bin/python tools/stage_connect_app.py --dry-run
-~/.venvs/mantel/bin/python tools/stage_connect_app.py <local apps share>/mantel_connect
+.venv/bin/python tools/stage_connect_app.py --dry-run
+.venv/bin/python tools/stage_connect_app.py <local apps share>/mantel_connect
 #    then in HA: refresh the App store, install "Mantel Connect" from Local apps (protection mode stays on).
 
 # 3. Pair: /admin, Connect, Start pairing   (or:)
@@ -42,7 +42,7 @@ certificates is automatic (90-day certificates, renewed 30 days ahead, on both s
 shows a plain page instead of Mantel, it says why (wrong or expired code, Mantel not reachable, revoked);
 the App's `/healthz` is its watchdog. `mantel connect status|list|cancel` show and withdraw state.
 
-Tests: `~/.venvs/mantel/bin/python -m pytest tests/test_connect_pairing.py tests/test_stage_connect_app.py -q`.
+Tests: `.venv/bin/python -m pytest tests/test_connect_pairing.py tests/test_stage_connect_app.py -q`.
 
 ---
 
@@ -59,7 +59,7 @@ with a separate proof database; it needs no HA/MA token.
 
 ## Build the portable directories (on the Mac)
 
-From `/Volumes/data/mantel`, choose new destination directories outside the repository:
+From the repository root, choose new destination directories outside the repository:
 
 ```bash
 python3 packaging/mantel-connect/stage.py /tmp/mantel_connect_proof
@@ -76,7 +76,7 @@ image build is part of live validation. The pinned aiohttp version matches local
 Find your existing Owner's HA user id on the Mac (this lists linked identities, not tokens):
 
 ```bash
-~/.venvs/mantel/bin/mantel-server links
+.venv/bin/mantel-server links
 ```
 
 Transfer the staged receiver directory to Proxmox, then into LXC 103. For example,
@@ -184,7 +184,7 @@ restart; signatures are accepted within 30 seconds of their timestamp. Keep cloc
 synchronized. Production multi-worker/distributed replay protection is later work.
 
 ```bash
-~/.venvs/mantel/bin/python -m pytest tests/test_connect.py -q
+.venv/bin/python -m pytest tests/test_connect.py -q
 ```
 
 19 local tests pass, including an actual TLS proxy→receiver round trip with simulated

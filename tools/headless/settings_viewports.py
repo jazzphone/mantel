@@ -1,6 +1,6 @@
 """Mantel Settings on iPhone and iPad sizes (docs/phase10/APPLE-APPS.md §8, slice 10.1), in an isolated headless Chrome.
 
-Run: ~/.venvs/mantel/bin/python tools/headless/settings_viewports.py [--shots DIR]
+Run: .venv/bin/python tools/headless/settings_viewports.py [--shots DIR]
 A fictional Owner on a temp database, no Home Assistant. For each size (an iPhone upright and on its side, an
 11" iPad upright and on its side) the page is drawn as a touch device with the iPhone's safe areas, and checked:
 

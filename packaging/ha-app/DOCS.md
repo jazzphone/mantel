@@ -2,6 +2,8 @@
 
 Mantel serves HK's home screens from its own server, inside Home Assistant. Open **Mantel** in the
 sidebar: Home Assistant signs you in, and Mantel shows you what your Mantel role allows.
+It needs Home Assistant **2026.8 or newer**; the optional Mantel Link integration needs **2026.9**
+(see the [Install guide](https://github.com/jazzphone/mantel/blob/main/docs/guide/Install.md#before-you-start)).
 
 ## First start: becoming the Owner
 

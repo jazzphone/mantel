@@ -1,6 +1,6 @@
 """Click through the HACS build of HK Frontend in the scratch Home Assistant (see README.md).
 
-    ~/.venvs/mantel/bin/python tools/testha/check.py [--shots DIR] [--only 1,2,3]
+    .venv/bin/python tools/testha/check.py [--shots DIR] [--only 1,2,3]
 
 Needs `testha.py up` to have run. Drives an isolated headless Chrome that can reach
 127.0.0.1 ONLY (its DNS is blocked for everything else; attempts are listed). Everything it taps is a demo
