@@ -27,9 +27,9 @@
 #   docker buildx imagetools inspect python:3.12-slim-trixie --format '{{.Manifest.Digest}}'
 #
 # Paste the sha256:... into the ARG default (or pass --build-arg PYTHON_IMAGE=python:3.12-slim-trixie@sha256:...).
-# Renovate/Dependabot keeps the digests current (PLAN §7). For Python dependencies, generate
-# packaging/docker/requirements.lock with hashes (pip-compile --generate-hashes) and the build
-# installs from it with --require-hashes; without it the build installs pyproject's ranges.
+# Renovate/Dependabot keeps the digests current (PLAN §7). Python dependencies come from
+# packaging/docker/requirements.lock, installed with --require-hashes (regenerate it as Releasing.md
+# says; tools/package_check.py --release requires it). Without it the build installs pyproject's ranges.
 #
 # NO SECRETS ARE BAKED IN OR PASSED AS ENV. Tokens are files mounted at /run/secrets/ at run time.
 

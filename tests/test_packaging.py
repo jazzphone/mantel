@@ -778,3 +778,18 @@ def test_every_file_the_dockerfile_copies_is_in_the_build_context():
     for src in sources:
         if (ROOT / src).exists():
             assert not _docker_ignored(src, patterns), f"{src} is copied by the Dockerfile but left out by .dockerignore"
+
+
+def test_the_image_installs_a_hashed_lock_and_a_release_needs_one(tmp_path):
+    """Without packaging/docker/requirements.lock the image installed pyproject's open ranges, whatever PyPI served
+    on build day, and two builds of one tag could differ. The lock is checked: present for a release, every runtime
+    dependency pinned, every pin hashed."""
+    assert pc.check_requirements_lock(ROOT, release=True) == []
+    (tmp_path / "packaging/docker").mkdir(parents=True)
+    (tmp_path / "pyproject.toml").write_text('[project]\nname = "x"\ndependencies = ["aiohttp>=3.9", "Pillow>=11"]\n')
+    assert pc.check_requirements_lock(tmp_path, release=True)[0].startswith("packaging/docker/requirements.lock: missing")
+    assert pc.check_requirements_lock(tmp_path, release=False) == []
+    (tmp_path / "packaging/docker/requirements.lock").write_text(
+        "aiohttp==3.14.5 \\\n    --hash=sha256:" + "a" * 64 + "\nyarl==1.0\n")
+    got = pc.check_requirements_lock(tmp_path)
+    assert any("pillow" in g and "not pinned" in g for g in got) and any("yarl has no hash" in g for g in got)

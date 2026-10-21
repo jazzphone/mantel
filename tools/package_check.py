@@ -603,6 +603,30 @@ def check_no_committed_secrets(root: Path = ROOT) -> list[str]:
     return problems
 
 
+def _dep_name(spec: str) -> str:
+    return re.split(r"[\s<>=!~;\[]", spec.strip(), maxsplit=1)[0].lower().replace("_", "-")
+
+
+def check_requirements_lock(root: Path = ROOT, release: bool = False) -> list[str]:
+    """packaging/docker/requirements.lock: the image installs it with --require-hashes (Dockerfile, deps stage),
+    else pyproject's open ranges, whatever PyPI serves that day. A release must have it, and it must pin every
+    runtime dependency pyproject names (one added there and not locked would make the image's pip refuse)."""
+    import tomllib
+    lock = root / "packaging/docker/requirements.lock"
+    if not lock.is_file():
+        return ["packaging/docker/requirements.lock: missing (pip-compile --generate-hashes; see the Dockerfile)"] \
+            if release else []
+    deps = tomllib.loads((root / "pyproject.toml").read_text())["project"]["dependencies"]
+    text = lock.read_text()
+    pinned = {m.group(1).lower().replace("_", "-") for m in re.finditer(r"^([A-Za-z0-9_.-]+)==\S+", text, re.M)}
+    problems = [f"requirements.lock: {name} (a pyproject dependency) is not pinned; run pip-compile again"
+                for name in sorted({_dep_name(d) for d in deps} - pinned)]
+    for m in re.finditer(r"^([A-Za-z0-9_.-]+)==\S+((?:\s*\\\n\s*--hash=sha256:[0-9a-f]{64})*)", text, re.M):
+        if "--hash=sha256:" not in m.group(2):
+            problems.append(f"requirements.lock: {m.group(1)} has no hash")
+    return problems
+
+
 def run_all(release: bool = False, root: Path = ROOT) -> list[str]:
     pkg = root / "packaging"
     problems: list[str] = []
@@ -622,6 +646,7 @@ def run_all(release: bool = False, root: Path = ROOT) -> list[str]:
         problems += [p for p in check_compose(announce, release) if p.startswith("compose service ")]
         if set((parse_yaml(announce.read_text()).get("services") or {})) != {"announce"}:
             problems.append("compose.announce.yaml: only the announce service may appear")
+    problems += check_requirements_lock(root, release)
     problems += check_no_committed_secrets(root)
     return problems
 
