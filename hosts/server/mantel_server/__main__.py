@@ -29,8 +29,9 @@ def bootstrap(store: Store, port: int) -> int:
         print(f"mantel-server: {exc}", file=sys.stderr)
         return 1
     base = f"http://127.0.0.1:{port}"
-    print(f"One-time setup code (valid {BOOTSTRAP_TTL // 60} minutes; replaces any earlier one, the logged one too):"
-          f"\n\n    {token}\n")
+    # the first line's wording is what tools/e2e/compose_e2e.py (owner_token) reads the code after: keep "token ... :"
+    print(f"One-time setup token (valid {BOOTSTRAP_TTL // 60} minutes; replaces any earlier one):\n\n    {token}\n")
+    print("It replaces the setup code in the server's log.")
     print("Enter it on the sign-in page's \"First start\" (/login), or create the first Owner with POST /api/bootstrap:\n"
           f"  curl -X POST {base}/api/bootstrap -H 'Origin: {base}' -H 'Content-Type: application/json' \\\n"
           """       -d '{"token": "<token>", "username": "<name>", "name": "<display name>", "password": "<12+ chars>"}'""")
