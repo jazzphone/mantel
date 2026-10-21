@@ -603,6 +603,41 @@ def test_cli_backup_and_restore(tmp_path, capsys, target):
     assert "key_missing" in capsys.readouterr().err and not (tmp_path / "none").exists()
 
 
+def test_a_backup_made_by_hand_deletes_none_unless_asked(tmp_path, capsys, target):
+    """The CLI thinned with its own 7 daily / 4 weekly whatever the server kept (--backup-keep-*): following the
+    guide's "back up before you update" deleted backups a house had chosen to keep."""
+    data = make_home(tmp_path)
+    secrets = tmp_path / "secrets"
+    for day in range(30):
+        (target / bk.backup_name(NOW - timedelta(days=day + 1))).write_bytes(b"old")
+    assert cli_main(["backup", "--data-dir", str(data), "--secrets-dir", str(secrets), "--target", str(target)]) == 0
+    assert len(list(target.glob("*.mbk"))) == 31
+    assert cli_main(["backup", "--data-dir", str(data), "--secrets-dir", str(secrets), "--target", str(target),
+                     "--keep-daily", "10"]) == 0
+    assert len(list(target.glob("*.mbk"))) < 31
+
+
+def test_what_a_killed_backup_left_is_removed_by_the_next_but_a_running_one_is_not(tmp_path, key, target):
+    """A backup or restore killed partway (SIGKILL, out of memory) left the plaintext database and archive in
+    .backup-work-* / .restore-*, and a half-written .tmp on the target, forever."""
+    import time as _time
+    data = make_home(tmp_path)
+    old = [data / ".backup-work-abc", data / ".restore-def"]
+    for d in old:
+        d.mkdir()
+        (d / "mantel.db").write_bytes(b"plaintext copy")
+    stale_tmp = target / ".mantel-20261001-031500.mbk.tmp"
+    stale_tmp.write_bytes(b"half")
+    running = data / ".backup-work-now"
+    running.mkdir()
+    hours_ago = _time.time() - 7 * 3600
+    for p in old + [stale_tmp]:
+        os.utime(p, (hours_ago, hours_ago))
+    bk.create_backup(data, target, key, now=NOW)
+    assert not any(p.exists() for p in old + [stale_tmp])
+    assert running.is_dir()                                   # another backup's, still being made
+
+
 def test_cli_backup_target_must_exist_unless_create(tmp_path, capsys):
     data = make_home(tmp_path)
     args = ["backup", "--data-dir", str(data), "--secrets-dir", str(tmp_path / "s"), "--target", str(tmp_path / "nas2")]

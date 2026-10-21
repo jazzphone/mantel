@@ -303,6 +303,35 @@ def _add_tree(tar: tarfile.TarFile, root: Path, arc: str) -> int:
     return n
 
 
+LEFTOVER_AGE = 6 * 3600             # a work folder this old belongs to no backup or restore still running
+
+
+def sweep_leftovers(data_dir: Path, target: Path | None = None, now: float | None = None) -> list[Path]:
+    """Remove what a backup or restore that was killed (SIGKILL, out of memory, a stop that timed out) left: the
+    plaintext ``.backup-work-*`` and ``.restore-*`` folders in the data folder (a copy of the database, and of
+    the files), and the half-written ``.mantel-*.mbk.tmp`` in the target. Only ones older than LEFTOVER_AGE, so
+    a backup another process is making right now is never touched."""
+    now = time.time() if now is None else now
+    found: list[Path] = []
+    for folder, patterns in ((Path(data_dir).expanduser(), (".backup-work-*", ".restore-*")),
+                             (Path(target).expanduser() if target else None, (".mantel-*.mbk.tmp",))):
+        if folder is None or not folder.is_dir():
+            continue
+        for pattern in patterns:
+            for p in folder.glob(pattern):
+                try:
+                    if now - p.lstat().st_mtime < LEFTOVER_AGE:
+                        continue
+                    shutil.rmtree(p) if p.is_dir() and not p.is_symlink() else p.unlink()
+                    found.append(p)
+                except OSError as exc:
+                    log.warning("could not remove the leftover %s: %s", p, exc)
+    if found:
+        log.warning("removed %d leftover(s) of an interrupted backup or restore: %s", len(found),
+                    ", ".join(p.name for p in found))
+    return found
+
+
 def create_backup(data_dir: Path, target: Path, key: bytes, *, now: datetime | None = None,
                   include_files: bool = True, keep_daily: int = 7, keep_weekly: int = 4,
                   rotate_after: bool = True) -> Path:
@@ -314,6 +343,7 @@ def create_backup(data_dir: Path, target: Path, key: bytes, *, now: datetime | N
     if not (data_dir / DB_NAME).is_file():
         raise BackupError("no_database", f"there is no database at {data_dir / DB_NAME}")
     now = now or datetime.now(timezone.utc)
+    sweep_leftovers(data_dir, target)
     dest = target / backup_name(now)
     tmp = target / f".{dest.name}.tmp"
     # The plaintext snapshot and archive live in a 0700 folder on the LOCAL disk, never on the target:
@@ -524,6 +554,8 @@ def restore(backup: Path, key: bytes, data_dir: Path, *, replace: bool = False, 
         data_dir.mkdir(parents=True, exist_ok=True)
         os.chmod(data_dir, 0o700)
         stage_parent = data_dir
+    if stage_parent is not None:
+        sweep_leftovers(stage_parent)
     stage = Path(tempfile.mkdtemp(prefix=".restore-", dir=stage_parent))
     try:
         os.chmod(stage, 0o700)
@@ -798,8 +830,10 @@ def cli_backup(argv: list[str]) -> int:
     _common(p)
     p.add_argument("--target", required=True, help="folder to write to (the NAS mount); must exist")
     p.add_argument("--create", action="store_true", help="create the target folder if it does not exist")
-    p.add_argument("--keep-daily", type=int, default=7)
-    p.add_argument("--keep-weekly", type=int, default=4)
+    # a backup made by hand deletes nothing unless asked: the server's --backup-keep-* (in the compose file)
+    # are not known here, and thinning with 7/4 took away backups a house had chosen to keep before an update
+    p.add_argument("--keep-daily", type=int, default=None, help="also thin the folder: the days to keep (7 if only --keep-weekly)")
+    p.add_argument("--keep-weekly", type=int, default=None, help="also thin the folder: the weeks to keep (4 if only --keep-daily)")
     p.add_argument("--no-files", action="store_true", help="the database only, not the Your files tree or Mantel Photos")
     a = p.parse_args(argv)
     key_file = Path(a.key_file or Path(a.secrets_dir) / KEY_FILE)
@@ -811,8 +845,10 @@ def cli_backup(argv: list[str]) -> int:
             print(f"mantel-server: created a new backup key at {key_file}.\n"
                   "  COPY IT somewhere that is not this machine (and copy at_rest.key too): without it these "
                   "backups cannot be restored.", file=sys.stderr)
+        thin = a.keep_daily is not None or a.keep_weekly is not None
         path = create_backup(Path(a.data_dir), Path(a.target), key, include_files=not a.no_files,
-                             keep_daily=a.keep_daily, keep_weekly=a.keep_weekly)
+                             keep_daily=7 if a.keep_daily is None else a.keep_daily,
+                             keep_weekly=4 if a.keep_weekly is None else a.keep_weekly, rotate_after=thin)
     except BackupError as exc:
         print(f"mantel-server: backup failed: {exc}", file=sys.stderr)
         return 1

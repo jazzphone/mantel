@@ -285,7 +285,10 @@ class Connect:
 
     def pending(self) -> dict | None:
         now = self.clock()
-        self.db.execute("DELETE FROM connect_codes WHERE expires < ?", (now,))
+        # in its own transaction: a bare DELETE left one open on the shared connection, and every other writer
+        # (a `mantel …` command beside the server) got "database is locked" until something else committed
+        with self.db:
+            self.db.execute("DELETE FROM connect_codes WHERE expires < ?", (now,))
         row = self.db.execute("SELECT created, expires, created_by, attempts FROM connect_codes "
                               "ORDER BY created DESC LIMIT 1").fetchone()
         return dict(row) if row is not None else None
