@@ -1,0 +1,18 @@
+# HTTPS with your own domain through Duck DNS (DNS-01): Caddy's DNS snippet and its secret file(s).
+#
+#   COMPOSE_FILE=compose.yaml:compose.dns-duckdns.yaml        (in .env; add others with ':' as usual)
+#
+# This mounts caddy/tls-dns01-duckdns.caddy as Caddy's TLS snippet (MANTEL_TLS_SNIPPET is not used then) and
+# gives Caddy, and only Caddy, the secret file(s) duckdns_token from the secret folder
+# (secrets/README.md). Same plain YAML subset as compose.yaml (tools/package_check.py reads it).
+
+services:
+  caddy:
+    volumes:
+      - ./caddy/tls-dns01-duckdns.caddy:/etc/caddy/tls.caddy:ro
+    secrets:
+      - duckdns_token
+
+secrets:
+  duckdns_token:
+    file: ${MANTEL_SECRETS_DIR:-/etc/hk/secrets}/duckdns_token

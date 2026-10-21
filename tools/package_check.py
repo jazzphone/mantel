@@ -450,6 +450,10 @@ def check_lxc_script(path: Path) -> list[str]:
         problems.append("mantel.sh: no 'set -euo pipefail'")
     if 'var_tls="${var_tls:-}"' not in text or 'MANTEL_TLS="$var_tls"' not in text:
         problems.append("mantel.sh: must ask for the HTTPS choice (var_tls) and pass it to mantel-install.sh")
+    if 'var_dns="${var_dns:-}"' not in text or 'MANTEL_DNS=' not in text:
+        problems.append("mantel.sh: must ask for dns01's DNS host (var_dns) and pass it to mantel-install.sh")
+    if not re.search(r'^var_install_mode="\$\{var_install_mode:-auto\}"', text, re.M):
+        problems.append("mantel.sh: var_install_mode must default to auto (published images, else a build)")
     for name in ("variables", "update_script", "build_container", "description"):
         if not re.search(rf"^{name}\(\)", text, re.M):
             problems.append(f"mantel.sh: community-scripts layout needs {name}()")
@@ -487,8 +491,9 @@ def check_ha_app(path: Path) -> list[str]:
         problems.append("ha-app: describe the direct-access port in ports_description")
     if (doc.get("options") or {}).get("access", "ingress") != "ingress":
         problems.append("ha-app: options.access must default to ingress (the sidebar only)")
-    if (doc.get("schema") or {}).get("cloudflare_token", "password?") != "password?":
-        problems.append("ha-app: cloudflare_token must be a password-type option (masked in HA's form)")
+    for token in ("cloudflare_token", "duckdns_token", "ma_token"):
+        if (doc.get("schema") or {}).get(token, "password?") != "password?":
+            problems.append(f"ha-app: {token} must be a password-type option (masked in HA's form)")
     if doc.get("homeassistant_api") is not True:
         problems.append("ha-app: homeassistant_api must be true (HA's built-in App credential)")
     for extra in ("auth_api", "hassio_role"):
@@ -572,6 +577,119 @@ def check_connect_compose(path: Path) -> list[str]:
     return problems
 
 
+DNS_WITH = re.compile(r"--with\s+(\S+)")
+DNS_VALUE = re.compile(r"^\{file\./run/secrets/([a-z0-9_]+)\}$")
+
+
+def _snippet_secrets(name: str, text: str, provider: str) -> tuple[list[str], list[str]]:
+    """The secret files a tls-dns01 snippet's `dns <provider>` reads, and what is wrong with it: each value
+    must be a {file./run/secrets/<name>} placeholder (never a literal credential, never {env.*})."""
+    code = [line.split("#", 1)[0].strip() for line in text.splitlines()]
+    code = [c for c in code if c]
+    problems: list[str] = []
+    start = next((i for i, c in enumerate(code) if c.split()[:2] == ["dns", provider]), None)
+    if start is None:
+        return [], [f"{name}: no `dns {provider}` line"]
+    values = code[start].split()[2:]
+    if values and values[-1] == "{":
+        values = values[:-1]
+        for c in code[start + 1:]:
+            if c == "}":
+                break
+            values += c.split()[1:]
+    if not values:
+        problems.append(f"{name}: `dns {provider}` reads no credential")
+    secrets = []
+    for v in values:
+        m = DNS_VALUE.match(v)
+        if not m:
+            problems.append(f"{name}: {v[:24]!r} is not a secret file placeholder ({{file./run/secrets/<name>}})")
+        else:
+            secrets.append(m.group(1))
+    return secrets, problems
+
+
+def check_dns_providers(root: Path = ROOT) -> list[str]:
+    """The DNS-01 providers: every caddy-dns module in caddy.Dockerfile is pinned (module@version) and has its
+    snippet (caddy/tls-dns01-<provider>.caddy) reading its credentials from secret files only; each provider but
+    Cloudflare (whose secret compose.yaml itself carries) has compose.dns-<provider>.yaml, which may only mount
+    that snippet and give Caddy exactly those secret files. No snippet or override without a module, and every
+    secret file can be written with the LXC's mantel-secret and is listed in secrets/README.md."""
+    pkg = root / "packaging"
+    compose_dir = pkg / "compose"
+    problems: list[str] = []
+    modules = DNS_WITH.findall((pkg / "docker/caddy.Dockerfile").read_text())
+    providers = []
+    for mod in modules:
+        path, _, version = mod.partition("@")
+        if not re.match(r"^v\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$", version):
+            problems.append(f"caddy.Dockerfile: {path} is not pinned to a version (--with module@vX.Y.Z)")
+        m = re.match(r"^github\.com/caddy-dns/([a-z0-9]+)$", path)
+        if m:
+            providers.append(m.group(1))
+    if "cloudflare" not in providers:
+        problems.append("caddy.Dockerfile: the Cloudflare module must stay (tls-dns01.caddy, existing installs)")
+    base = parse_yaml((compose_dir / "compose.yaml").read_text())
+    base_caddy = [str(x) for x in _as_list(((base.get("services") or {}).get("caddy") or {}).get("secrets"))]
+    install = (pkg / "lxc/mantel-install.sh").read_text()
+    m = re.search(r'^DNS_SECRETS="([^"]*)"', install, re.M)
+    install_secrets = set(m.group(1).split()) if m else set()
+    if "__DNS_SECRETS__" not in install:
+        problems.append("mantel-install.sh: mantel-secret must accept the DNS hosts' secret files (__DNS_SECRETS__)")
+    readme = (compose_dir / "secrets/README.md").read_text()
+    snippets = {p.name for p in (compose_dir / "caddy").glob("tls-dns01-*.caddy")}
+    overrides = {p.name for p in compose_dir.glob("compose.dns-*.yaml")}
+    for prov in providers:
+        sname = f"tls-dns01-{prov}.caddy"
+        snippet = compose_dir / "caddy" / sname
+        if not snippet.is_file():
+            problems.append(f"caddy.Dockerfile builds {prov} but caddy/{sname} is missing")
+            continue
+        secrets, found = _snippet_secrets(sname, snippet.read_text(), prov)
+        problems += found
+        for sec in secrets:
+            if sec not in install_secrets:
+                problems.append(f"mantel-install.sh: does not prepare the secret file {sec} (DNS_SECRETS; mantel-secret takes those)")
+            if f"`{sec}`" not in readme:
+                problems.append(f"secrets/README.md: does not list {sec}")
+        oname = f"compose.dns-{prov}.yaml"
+        if prov == "cloudflare":
+            missing = [sec for sec in secrets if sec not in base_caddy]
+            if missing:
+                problems.append(f"compose.yaml: caddy lacks the secret(s) {missing} that {sname} reads")
+            continue
+        override = compose_dir / oname
+        if not override.is_file():
+            problems.append(f"{oname} is missing (it gives Caddy {sname} and its secret files)")
+            continue
+        try:
+            doc = parse_yaml(override.read_text())
+        except YamlSubsetError as exc:
+            problems.append(f"{oname}: outside the supported YAML subset ({exc})")
+            continue
+        services = doc.get("services") or {}
+        caddy = services.get("caddy") or {}
+        if set(services) != {"caddy"} or set(caddy) != {"volumes", "secrets"}:
+            problems.append(f"{oname}: may only add volumes and secrets to caddy")
+        if [str(v) for v in _as_list(caddy.get("volumes"))] != [f"./caddy/{sname}:/etc/caddy/tls.caddy:ro"]:
+            problems.append(f"{oname}: must mount ./caddy/{sname} read-only as /etc/caddy/tls.caddy, and nothing else")
+        if sorted(str(x) for x in _as_list(caddy.get("secrets"))) != sorted(secrets):
+            problems.append(f"{oname}: caddy's secrets must be exactly what {sname} reads ({sorted(secrets)})")
+        top = doc.get("secrets") or {}
+        for sec in secrets:
+            entry = top.get(sec)
+            if not isinstance(entry, dict) or set(entry) != {"file"} or \
+                    str(entry["file"]) != f"${{MANTEL_SECRETS_DIR:-/etc/hk/secrets}}/{sec}":
+                problems.append(f"{oname}: secret {sec} must be the file ${{MANTEL_SECRETS_DIR:-/etc/hk/secrets}}/{sec}")
+        if set(top) - set(secrets):
+            problems.append(f"{oname}: declares secrets nothing reads: {sorted(set(top) - set(secrets))}")
+    for name in sorted(snippets - {f"tls-dns01-{p}.caddy" for p in providers}):
+        problems.append(f"caddy/{name}: no caddy-dns module for it in caddy.Dockerfile")
+    for name in sorted(overrides - {f"compose.dns-{p}.yaml" for p in providers if p != "cloudflare"}):
+        problems.append(f"{name}: no caddy-dns module for it in caddy.Dockerfile")
+    return problems
+
+
 def check_no_committed_secrets(root: Path = ROOT) -> list[str]:
     """No real .env, no secret files in packaging/, no token-shaped text in the packaging tree."""
     problems = []
@@ -640,6 +758,7 @@ def run_all(release: bool = False, root: Path = ROOT) -> list[str]:
     problems += check_ha_app(pkg / "ha-app/config.yaml")
     problems += check_connect_app(pkg / "connect-app/config.yaml")
     problems += check_connect_compose(pkg / "compose/compose.connect.yaml")
+    problems += check_dns_providers(root)
     announce = pkg / "compose/compose.announce.yaml"
     if announce.is_file():
         # the service rules (an overlay has none of the main file's networks to check)

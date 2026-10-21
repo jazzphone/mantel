@@ -21,7 +21,8 @@
 #   4. with var_gpu=yes and /dev/dri/renderD128 present: shares that render node in (the iGPU stays
 #      shared with the host, not taken away) and tells the container its render group id
 #   5. pushes packaging/ + the app source into /opt/mantel, then runs mantel-install.sh inside
-#      (Docker, Compose, secret folder, .env, image build, unattended security upgrades; it does NOT start Mantel)
+#      (Docker, Compose, secret folder, .env, this version's published images or an image build, unattended
+#      security upgrades; it does NOT start Mantel)
 # It touches no other container or VM, changes no host setting, edits no firewall, opens no port.
 #
 # Why this is not "source build.func": community-scripts' build_container downloads the in-container
@@ -33,15 +34,18 @@
 # Settings (all optional; each var_x may be set in the environment to skip its question):
 #   var_cpu=4 var_ram=6144 var_disk=32 var_os=debian var_version=13 var_unprivileged=1 var_gpu=yes
 #   var_ctid=<id> var_hostname=mantel var_brg=<bridge> var_vlan=<tag|none> var_storage=<rootdir storage>
-#   var_template_storage=<vztmpl storage> var_install_mode=build|pull
+#   var_template_storage=<vztmpl storage> var_install_mode=auto|pull|build
 #   var_connect=no|yes   (yes: also publish Mantel Connect's port 8766, so the Connect App in Home Assistant's
 #   sidebar can be paired: docs/phase3/CONNECT.md. Default no)
-#   var_tls=dns01|internal|own   HTTPS (docs/OPERATIONS.md "HTTPS: four ways"): Mantel's Caddy with your domain
-#       (DNS-01, Cloudflare DNS token), Mantel's Caddy with its own CA (no domain), or your own reverse proxy
-#       (Nginx Proxy Manager, Traefik, ...; then var_proxy_ip= its address as Mantel sees it)
+#   var_tls=internal|dns01|own   HTTPS (docs/OPERATIONS.md "HTTPS: four ways"): Mantel's Caddy with its own CA
+#       (no domain), Mantel's Caddy with your domain (DNS-01 through your DNS host's API), or your own reverse
+#       proxy (Nginx Proxy Manager, Traefik, ...; then var_proxy_ip= its address as Mantel sees it). Asked when
+#       unset and there is a terminal; without one (no answer) it is internal.
+#   var_dns=cloudflare|duckdns|porkbun|route53|digitalocean|desec   dns01's DNS host (asked; default cloudflare)
 #   var_domain=<the name browsers use, e.g. mantel.example.com>   var_tunnel=no|yes (Cloudflare tunnel too)
-#   (tokens are never asked here: after the install, mantel-secret cloudflare_dns_token / cloudflared_token)
-#   (build = build the images in the container from the pushed source; pull = pull published images)
+#   (tokens are never asked here: after the install, mantel-secret <name>, which the install's last words list)
+#   (auto = pull this version's published images from ghcr.io/jazzphone when they exist, else build them;
+#    pull = only pull; build = build the images in the container from the pushed source)
 set -euo pipefail
 
 APP="Mantel"
@@ -55,11 +59,12 @@ var_unprivileged="${var_unprivileged:-1}"
 var_gpu="${var_gpu:-yes}"
 var_connect="${var_connect:-no}"
 var_tls="${var_tls:-}"
+var_dns="${var_dns:-}"
 var_domain="${var_domain:-}"
 var_proxy_ip="${var_proxy_ip:-}"
 var_tunnel="${var_tunnel:-}"
 var_hostname="${var_hostname:-mantel}"
-var_install_mode="${var_install_mode:-build}"
+var_install_mode="${var_install_mode:-auto}"
 var_ctid="${var_ctid:-}"
 var_brg="${var_brg:-}"
 var_vlan="${var_vlan:-}"
@@ -79,39 +84,85 @@ variables() {
   [ "$var_os" = "debian" ] && [ "$var_version" = "13" ] || msg_error "only Debian 13 is supported (var_os=debian var_version=13)"
   case "$var_gpu" in yes|no) ;; *) msg_error "var_gpu must be yes or no" ;; esac
   case "$var_connect" in yes|no) ;; *) msg_error "var_connect must be yes or no" ;; esac
-  case "$var_install_mode" in build|pull) ;; *) msg_error "var_install_mode must be build or pull" ;; esac
-  case "$var_tls" in ""|dns01|internal|own) ;; *) msg_error "var_tls must be dns01, internal or own" ;; esac
+  case "$var_install_mode" in auto|pull|build) ;; *) msg_error "var_install_mode must be auto, pull or build" ;; esac
+  case "$var_tls" in ""|dns01|internal|own) ;; *) msg_error "var_tls must be internal, dns01 or own" ;; esac
+  case "$var_dns" in ""|cloudflare|duckdns|porkbun|route53|digitalocean|desec) ;;
+    *) msg_error "var_dns must be cloudflare, duckdns, porkbun, route53, digitalocean or desec" ;; esac
   case "$var_tunnel" in ""|yes|no) ;; *) msg_error "var_tunnel must be yes or no" ;; esac
 }
 
+interactive() { [ -t 0 ]; }   # a person at a terminal answers; otherwise the defaults below hold
+
 ask_tls() {  # the HTTPS choice (docs/OPERATIONS.md "HTTPS: four ways"); every answer can be preset as var_*
   if [ -z "$var_tls" ]; then
-    choose var_tls "How should browsers reach Mantel over HTTPS?" \
-      "dns01     Mantel's Caddy with your own domain (a Cloudflare DNS token; real certificate)" \
-      "internal  Mantel's Caddy with its own certificate authority (no domain; trust it on each device)" \
-      "own       My own reverse proxy owns HTTPS (Nginx Proxy Manager, Traefik, ...)"
+    if interactive; then
+      choose var_tls "How should browsers reach Mantel over HTTPS?" \
+        "internal  Mantel's Caddy with its own certificate authority (no domain needed; trust it once on each device)" \
+        "dns01     Mantel's Caddy with your own domain and a real certificate (your DNS host's API; no open port)" \
+        "own       My own reverse proxy owns HTTPS (Nginx Proxy Manager, Traefik, ...)"
+    else
+      var_tls=internal
+      echo "No terminal to ask: HTTPS with Caddy's own certificate authority (preset var_tls= to choose another)."
+    fi
   fi
+  if [ "$var_tls" = "dns01" ] && [ -z "$var_dns" ]; then
+    if interactive; then
+      choose var_dns "Which DNS host serves your domain? (Caddy proves the name there; the token comes after the install)" \
+        "cloudflare    Cloudflare (an API token: Zone / DNS / Edit for that zone)" \
+        "duckdns       Duck DNS (a <name>.duckdns.org name; your Duck DNS token)" \
+        "porkbun       Porkbun (an API key and secret, API access on for the domain)" \
+        "route53       Amazon Route 53 (an IAM access key limited to the hosted zone)" \
+        "digitalocean  DigitalOcean (an API token with the domain scopes)" \
+        "desec         deSEC (a deSEC token)"
+    else
+      var_dns=cloudflare
+    fi
+  fi
+  [ "$var_tls" = "dns01" ] || var_dns=""
   if [ -z "$var_domain" ]; then
-    read -r -p $'\nThe name browsers will use (e.g. mantel.example.com; Enter for mantel.home.arpa): ' var_domain
-    var_domain="${var_domain:-mantel.home.arpa}"
+    local hint="mantel.example.com" fallback="mantel.home.arpa"
+    [ "$var_dns" = "duckdns" ] && hint="<name>.duckdns.org"
+    [ "$var_tls" = "dns01" ] && fallback=""          # a certificate needs your real domain
+    if interactive; then
+      read -r -p $'\nThe name browsers will use (e.g. '"$hint"${fallback:+$'; Enter for '"$fallback"}'): ' var_domain
+    fi
+    var_domain="${var_domain:-$fallback}"
+    [ -n "$var_domain" ] || msg_error "your own domain needs its name: set var_domain= (e.g. $hint)"
   fi
   [[ "$var_domain" =~ ^[A-Za-z0-9]([A-Za-z0-9.-]{0,251}[A-Za-z0-9])?$ ]] || msg_error "not a host name: $var_domain"
-  if [ "$var_tls" = "own" ] && [ -z "$var_proxy_ip" ]; then
+  if [ "$var_dns" = "duckdns" ] && [[ ! "${var_domain,,}" =~ \.duckdns\.org$ ]]; then
+    msg_error "with Duck DNS the name must be your <name>.duckdns.org, not $var_domain"
+  fi
+  if [ "$var_tls" = "own" ] && [ -z "$var_proxy_ip" ] && interactive; then
     read -r -p $'\nYour proxy\'s IP address, as Mantel will see it (Enter if you do not know yet): ' var_proxy_ip
   fi
   [ -z "$var_proxy_ip" ] || [[ "$var_proxy_ip" =~ ^[0-9A-Fa-f:.]+$ ]] || msg_error "var_proxy_ip must be an IP address"
   if [ -z "$var_tunnel" ]; then
-    read -r -p $'\nAlso reach Mantel from outside through a Cloudflare tunnel? [y/N] ' var_tunnel
+    if interactive; then read -r -p $'\nAlso reach Mantel from outside through a Cloudflare tunnel? [y/N] ' var_tunnel; fi
     case "${var_tunnel,,}" in y|yes) var_tunnel=yes ;; *) var_tunnel=no ;; esac
   fi
 }
 
 # --- update: runs INSIDE the container -------------------------------------------------------------------
+source_version() {  # source_version CONFIG_YAML: the version the published images of this source are tagged with
+  sed -n 's/^version: *"\{0,1\}\([0-9][0-9A-Za-z.+-]*\)"\{0,1\} *$/\1/p' "$1" | head -1
+}
+follow_source_version() {  # follow_source_version ENV_FILE CONFIG_YAML
+  # Images pinned to a version (the install's auto/pull mode) follow the source's version, which a push from
+  # a newer checkout just brought, so the compose files and the images stay one release. :latest, a digest
+  # or another registry's image is left as it is.
+  local version
+  version="$(source_version "$2")"
+  [ -n "$version" ] || return 0
+  sed -i -E "s#^(MANTEL_(SERVER|TRANSCODE|CADDY)_IMAGE=ghcr\.io/jazzphone/mantel-[a-z]+):[0-9]+\.[0-9]+\.[0-9]+[0-9A-Za-z.+-]*\$#\1:${version}#" "$1"
+}
+
 update_script() {
   [ -d "$INSTALL_DIR/packaging/compose" ] || msg_error "no Mantel installation found in $INSTALL_DIR"
   msg_info "Updating Mantel (the previous images stay tagged for automatic rollback)"
   cd "$INSTALL_DIR/packaging/compose"
   if [ "$(grep -c '^MANTEL_SERVER_IMAGE=ghcr' .env 2>/dev/null || true)" -gt 0 ]; then
+    follow_source_version .env "$INSTALL_DIR/packaging/ha-app/config.yaml"
     bash ./update.sh                       # registry images: pull, up --wait, roll back on failure
   else
     # build mode: new source arrives from the Proxmox host (bash packaging/lxc/mantel.sh push <ctid>),
@@ -213,8 +264,8 @@ $APP will create ONE new container:
   id ${var_ctid}, hostname ${var_hostname}, UNPRIVILEGED, Debian ${var_version}, nesting+keyctl (Docker)
   ${var_cpu} cores, ${var_ram} MB, ${var_disk} GB on ${var_storage}, network ${NET}
   GPU: $([ "$var_gpu" = yes ] && echo "/dev/dri/renderD128 shared in" || echo "none (CPU transcode)")
-  Install mode: ${var_install_mode}   Source: ${REPO_ROOT}
-  HTTPS: ${var_tls} for ${var_domain}$([ "$var_tls" = own ] && echo " (your proxy: ${var_proxy_ip:-to be set in .env})")$([ "$var_tunnel" = yes ] && echo ", plus a Cloudflare tunnel")
+  Install mode: ${var_install_mode}$([ "$var_install_mode" = auto ] && echo " (this version's published images if they exist, else built in the container)")   Source: ${REPO_ROOT}
+  HTTPS: ${var_tls}$([ -n "$var_dns" ] && echo " through ${var_dns}") for ${var_domain}$([ "$var_tls" = own ] && echo " (your proxy: ${var_proxy_ip:-to be set in .env})")$([ "$var_tunnel" = yes ] && echo ", plus a Cloudflare tunnel")
   Then it installs Docker and prepares Mantel Server$([ "$var_tls" = own ] && echo " for your proxy" || echo " behind Caddy"). Nothing else on this host changes.
 EOF
   read -r -p "Proceed? [y/N] " ok; [ "${ok,,}" = "y" ] || msg_error "cancelled"
@@ -264,7 +315,7 @@ EOF
 
   msg_info "Installing inside the container (Docker, Compose, secret folder, first start; a few minutes)"
   pct exec "$var_ctid" -- env MANTEL_INSTALL_MODE="$var_install_mode" MANTEL_GPU="$var_gpu" MANTEL_CONNECT="$var_connect" \
-    MANTEL_TLS="$var_tls" MANTEL_DOMAIN="$var_domain" MANTEL_PROXY_IP="$var_proxy_ip" MANTEL_TUNNEL="$var_tunnel" \
+    MANTEL_TLS="$var_tls" MANTEL_DNS="${var_dns:-cloudflare}" MANTEL_DOMAIN="$var_domain" MANTEL_PROXY_IP="$var_proxy_ip" MANTEL_TUNNEL="$var_tunnel" \
     bash "${INSTALL_DIR}/packaging/lxc/mantel-install.sh"
 }
 
@@ -276,19 +327,22 @@ description() {
 Next steps (details: docs/phase3/PACKAGING.md):
   1. pct enter ${var_ctid}
   2. edit ${INSTALL_DIR}/packaging/compose/.env (hostname, HTTPS) if the guess was wrong
-     $([ "$var_tls" = dns01 ] && echo "mantel-secret cloudflare_dns_token   # Zone / DNS / Edit, for that one zone")$([ "$var_tunnel" = yes ] && echo "
+     $([ "$var_tls" = dns01 ] && echo "mantel-secret <the DNS host's secret file(s), as the install listed them>   # ${var_dns}")$([ "$var_tunnel" = yes ] && echo "
      mantel-secret cloudflared_token")
      then:  cd ${INSTALL_DIR}/packaging/compose && docker compose up -d --wait
-  3. docker compose exec mantel-server mantel bootstrap     # a one-time setup code for the first Owner
+  3. docker compose logs mantel-server     # a one-time setup code for the first Owner, in a banner
+     (or from this host: pct exec ${var_ctid} -- docker logs mantel-server)
   4. $([ "$var_tls" = own ] && echo "point your proxy at http://${ip:-the container}:8765 (docs/OPERATIONS.md: the NPM block), open https://${var_domain}/login" || echo "point ${var_domain} at ${ip:-the container} in your LAN DNS, open https://${var_domain}/login") ("First start"), then
      /admin -> Connections -> "Connect to Home Assistant" (no token file to handle)$([ "$var_tls" = own ] && echo "; and /proxy-check")
 Remove it any time:  pct stop ${var_ctid} && pct destroy ${var_ctid} --purge
 EOF
 }
 
+if [[ "${BASH_SOURCE[0]}" != "$0" ]]; then return 0; fi   # sourced (the tests): the functions only
 variables
 start
-if [ "${1:-}" = "push" ]; then  # host side of an update in build mode: send this checkout, then update inside
+if [ "${1:-}" = "push" ]; then  # host side of an update: send this checkout, then update inside (build mode
+                                # rebuilds it; version-pinned images move to its version)
   [ -n "${2:-}" ] || msg_error "usage: bash packaging/lxc/mantel.sh push <ctid>"
   pct status "$2" >/dev/null 2>&1 || msg_error "no container $2"
   push_source "$2"

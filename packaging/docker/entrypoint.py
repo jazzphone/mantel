@@ -48,9 +48,10 @@ Home Assistant App (add-on)      recognised by SUPERVISOR_TOKEN in the environme
                                    proxy    plain HTTP on 8100 for the home's own proxy: public_url, the
                                             proxy's address(es) in trusted_proxies, and the door key
                                    https    HTTPS on 8100 with Mantel's own Let's Encrypt certificate (DNS-01
-                                            through Cloudflare): public_url and cloudflare_token (a masked
-                                            option, moved into a 0600 file like the others); acme_email,
-                                            acme_staging optional
+                                            through dns_provider: cloudflare, the default, or duckdns):
+                                            public_url and cloudflare_token or duckdns_token (masked options;
+                                            only the chosen one is moved into a 0600 file like the others);
+                                            acme_email, acme_staging optional
                                  ha_sign_in_url (HA's address for browsers) turns on "Sign in with Home
                                  Assistant" there; Mantel's own side of it goes to http://homeassistant:8123.
                                  Its origin, and those in ha_frame_origins, may frame the direct address (a
@@ -116,6 +117,7 @@ APP_OPTIONS = Path("/data/options.json")
 APP_TOKEN_FILE = Path("/tmp/ha_token")
 APP_MA_TOKEN_FILE = Path("/tmp/ma_token")       # the App's Music Assistant token (its masked option), 0600
 APP_CF_TOKEN_FILE = Path("/tmp/cloudflare_token")   # built-in HTTPS: the Cloudflare DNS token (masked), 0600
+APP_DUCKDNS_TOKEN_FILE = Path("/tmp/duckdns_token")  # built-in HTTPS through Duck DNS: its token (masked), 0600
 SUPERVISOR_CORE_URL = "http://supervisor/core"
 SUPERVISOR_WS_URL = "ws://supervisor/core/websocket"
 APP_PORT = "8099"
@@ -385,11 +387,22 @@ def direct_args(access: str, public: str, options: dict, env: dict[str, str]) ->
             args += ["--trusted-proxy", str(ip)]
         args += ["--proxy-kind", "own"]           # the door counts only with this installation's door key
     else:
-        if not str(options.get("cloudflare_token") or "").strip():
-            raise ConfigError("access https needs cloudflare_token: a Cloudflare API token with Zone / Zone / "
-                              "Read and Zone / DNS / Edit on public_url's zone")
-        cf_file = env.get("MANTEL_APP_CF_TOKEN_FILE") or str(APP_CF_TOKEN_FILE)
-        args += ["--direct-tls", "acme", "--acme-dns-token-file", cf_file]
+        provider = str(options.get("dns_provider") or "cloudflare").strip()
+        if provider == "duckdns":
+            host = (urlsplit(public).hostname or "").lower()
+            if not (host.endswith(".duckdns.org") and host.count(".") >= 2):
+                raise ConfigError("dns_provider duckdns needs public_url https://<name>.duckdns.org (your Duck DNS name)")
+            if not str(options.get("duckdns_token") or "").strip():
+                raise ConfigError("access https through Duck DNS needs duckdns_token: the token on duckdns.org's page")
+            token_file = env.get("MANTEL_APP_DUCKDNS_TOKEN_FILE") or str(APP_DUCKDNS_TOKEN_FILE)
+        elif provider == "cloudflare":
+            if not str(options.get("cloudflare_token") or "").strip():
+                raise ConfigError("access https needs cloudflare_token: a Cloudflare API token with Zone / Zone / "
+                                  "Read and Zone / DNS / Edit on public_url's zone")
+            token_file = env.get("MANTEL_APP_CF_TOKEN_FILE") or str(APP_CF_TOKEN_FILE)
+        else:
+            raise ConfigError(f"dns_provider must be cloudflare or duckdns, not {provider!r}")
+        args += ["--direct-tls", "acme", "--acme-dns-provider", provider, "--acme-dns-token-file", token_file]
         email = str(options.get("acme_email") or "").strip()
         if email:
             # a plain string option (HA's `email?` type refuses the empty default, so the App would not update)
@@ -456,9 +469,13 @@ def plan(argv: list[str], env: dict[str, str], options_path: Path = APP_OPTIONS,
         if ma_token and str(options.get("ma_url") or "").strip():
             write_private(ma_file, ma_token)       # out of the options' way: the server only sees a file path
         args = app_args(options, token_file, env)
-        cf_token = str(options.get("cloudflare_token") or "").strip()
-        if "--direct-tls" in args and cf_token:
-            write_private(Path(env.get("MANTEL_APP_CF_TOKEN_FILE") or APP_CF_TOKEN_FILE), cf_token)
+        if "--direct-tls" in args:      # only the chosen DNS host's token leaves the options (direct_args checked it)
+            if args[args.index("--acme-dns-provider") + 1] == "duckdns":
+                write_private(Path(env.get("MANTEL_APP_DUCKDNS_TOKEN_FILE") or APP_DUCKDNS_TOKEN_FILE),
+                              str(options.get("duckdns_token") or "").strip())
+            else:
+                write_private(Path(env.get("MANTEL_APP_CF_TOKEN_FILE") or APP_CF_TOKEN_FILE),
+                              str(options.get("cloudflare_token") or "").strip())
         return args + argv, env
     return container_args(env) + argv, env
 
@@ -485,7 +502,7 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     if os.getuid() == 0:
         drop_privileges([Path(env.get("MANTEL_DATA_DIR", "/data"))]
-                        + [f for f in (APP_TOKEN_FILE, APP_MA_TOKEN_FILE, APP_CF_TOKEN_FILE) if f.exists()])
+                        + [f for f in (APP_TOKEN_FILE, APP_MA_TOKEN_FILE, APP_CF_TOKEN_FILE, APP_DUCKDNS_TOKEN_FILE) if f.exists()])
     os.execve(sys.executable, [sys.executable, "-m", "mantel_server", *args], env)
     return 0  # not reached
 

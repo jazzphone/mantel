@@ -1,0 +1,9 @@
+# LAN TLS with a real certificate via the ACME DNS-01 challenge through Duck DNS (no inbound internet port needed).
+# Needs the mantel-caddy image (packaging/docker/caddy.Dockerfile builds this provider in) and the secret file
+# secrets/duckdns_token: the token at the top of duckdns.org's page once signed in. MANTEL_HOSTNAME must be
+# your Duck DNS name (<name>.duckdns.org). Chosen with COMPOSE_FILE=compose.yaml:compose.dns-duckdns.yaml,
+# which mounts this file and that secret.
+tls {
+	dns duckdns {file./run/secrets/duckdns_token}
+	resolvers 1.1.1.1
+}

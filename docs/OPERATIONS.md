@@ -87,12 +87,27 @@ Mantel needs HTTPS for its sign-in cookies, passkeys and talk-back, and so that 
 
 | | You have | Do this | The door header |
 |---|---|---|---|
-| **1. Mantel's Caddy, your domain** | a domain on Cloudflare DNS | the default: `MANTEL_TLS_SNIPPET=./caddy/tls-dns01.caddy`, `mantel-secret cloudflare_dns_token` (a token limited to Zone, DNS, Edit for that one zone), `MANTEL_HOSTNAME=mantel.<your domain>`, a LAN DNS record pointing that name at the host | Caddy stamps it |
-| **2. Mantel's Caddy, its own CA** | no domain | `MANTEL_TLS_SNIPPET=./caddy/tls-internal.caddy`; trust Caddy's root (`caddy-data` volume, `pki/authorities/local/root.crt`) on every device, or accept the warning once per device | Caddy stamps it |
+| **1. Mantel's Caddy, its own CA** | no domain | the default: `MANTEL_TLS_SNIPPET=./caddy/tls-internal.caddy`; trust Caddy's root on every device (below), or accept the warning once per device | Caddy stamps it |
+| **2. Mantel's Caddy, your domain** | a domain whose DNS host has an API: Cloudflare, Duck DNS, Porkbun, Route 53, DigitalOcean or deSEC | a real certificate through DNS-01 (no port opened to the internet). Cloudflare: `MANTEL_TLS_SNIPPET=./caddy/tls-dns01-cloudflare.caddy` and the secret `cloudflare_dns_token` (a token limited to Zone, DNS, Edit for that one zone); the others: `COMPOSE_FILE=compose.yaml:compose.dns-<host>.yaml` and that host's secret file(s) (table below). Then `MANTEL_HOSTNAME=mantel.<your domain>` and a LAN DNS record pointing that name at the host | Caddy stamps it |
 | **3. Your own reverse proxy** | Nginx Proxy Manager, Traefik, ... already owning TLS | add `compose.byo-proxy.yaml` to `COMPOSE_FILE`, set `MANTEL_TRUSTED_PROXY` to the proxy's address **as Mantel sees it**, point the proxy at `http://<this host>:8765` with WebSockets on, and make it send the door header (below) | your proxy must |
 | **4. Cloudflare tunnel** | remote access, beside 1, 2 or 3 | `mantel-secret cloudflared_token`, `docker compose --profile tunnel up -d`; Cloudflare Access in front is recommended; set `MANTEL_CF_ACCESS_TEAM` and `MANTEL_CF_ACCESS_AUD` and Mantel verifies Access's JWT on every tunnel request (guide/Install-Docker.md "Cloudflare Access (optional)"). The service URL is Caddy's tunnel door `http://172.31.250.2:8080` (1, 2) or Mantel itself `http://172.31.250.2:8765` (3) | always `tunnel` |
 
-The LXC installer (`packaging/lxc/mantel.sh`) asks which of the four you want and writes `.env` to match.
+The LXC installer (`packaging/lxc/mantel.sh`) asks at a terminal: Caddy's own CA (Enter), your own domain (then which DNS host serves it), or your own proxy, and whether to add the tunnel; it writes `.env` to match. Without a terminal and with nothing preset (`var_tls=`, `var_dns=`), it takes Caddy's own CA. Existing installations with `MANTEL_TLS_SNIPPET=./caddy/tls-dns01.caddy` keep working: that file is the Cloudflare snippet under its older name.
+
+**Your domain's DNS host** (way 2). Mantel's Caddy image (`packaging/docker/caddy.Dockerfile`, and the published `mantel-caddy`) has these built in, each pinned; the token is a secret file (in the LXC, `mantel-secret <file>`; with Docker, `packaging/compose/secrets/README.md`), and the snippet reads it from there:
+
+| DNS host | `.env` | Secret file(s) | What the credential needs |
+|---|---|---|---|
+| Cloudflare | `MANTEL_TLS_SNIPPET=./caddy/tls-dns01-cloudflare.caddy` | `cloudflare_dns_token` | an API token, Zone / DNS / Edit for that one zone |
+| Duck DNS | `COMPOSE_FILE=compose.yaml:compose.dns-duckdns.yaml` | `duckdns_token` | the account token; `MANTEL_HOSTNAME` is your `<name>.duckdns.org` |
+| Porkbun | `COMPOSE_FILE=compose.yaml:compose.dns-porkbun.yaml` | `porkbun_api_key`, `porkbun_secret_api_key` | an API key pair, with API access turned on for the domain |
+| Amazon Route 53 | `COMPOSE_FILE=compose.yaml:compose.dns-route53.yaml` | `route53_access_key_id`, `route53_secret_access_key` | an IAM user's key limited to the hosted zone (the policy is in libdns/route53's README) |
+| DigitalOcean | `COMPOSE_FILE=compose.yaml:compose.dns-digitalocean.yaml` | `digitalocean_token` | an API token with the domain read and write scopes |
+| deSEC | `COMPOSE_FILE=compose.yaml:compose.dns-desec.yaml` | `desec_token` | a token, best limited to the domain by a token policy |
+
+Add other compose files to `COMPOSE_FILE` with `:` as usual. Another DNS host means building Caddy with its `caddy-dns` module (the Dockerfile says how) and a snippet beside the others.
+
+**Trusting Caddy's own CA** (way 1). Copy its root out once: `docker compose cp caddy:/data/caddy/pki/authorities/local/root.crt mantel-root.crt` (it lives in the `caddy-data` volume and stays the same across restarts and updates), then install it as a trusted root on each device: iOS and iPadOS, open the file, install the profile in Settings, then turn it on under General → About → Certificate Trust Settings; Android, Settings → Security → Encryption & credentials → Install a certificate → CA certificate; macOS, Keychain Access, System keychain, set it to Always Trust; Windows, `certutil -addstore Root mantel-root.crt` as administrator. Home Assistant reaching Mantel (Mantel Link) needs it trusted where Home Assistant runs too.
 
 **Bring your own proxy: the rules Mantel enforces itself.** The door header `X-Mantel-Door: lan|tunnel` is believed only from `MANTEL_TRUSTED_PROXY`, and only together with **this installation's door key** in `X-Mantel-Door-Key`; from there, **no header (or no right key) means `tunnel`** (fail closed), so a proxy host that forgets it gives wall tablets nothing rather than giving the internet the LAN door. `X-Forwarded-For`/`-Proto`/`-Host` count only from the trusted proxy; HA identity headers (`X-Remote-User-*`, `X-Ingress-Path`) are removed from everyone except HA's Ingress, the trusted proxy included. Mantel sets its own CSP, HSTS (when the proxy says https), `nosniff`, `Referrer-Policy` and `frame-ancestors`, so don't add a CSP in the proxy (browsers enforce both). Keep Mantel's published port off the internet and reachable only by the proxy if you can (`MANTEL_HTTP_BIND`, a firewall rule): a browser that goes around the proxy is the tunnel door over plain HTTP.
 
@@ -233,23 +248,38 @@ Never put a password or token on a command line that is kept in shell history. A
 
 ## 3. The first Owner
 
-There is no Owner on a new database, and nothing creates one for you. Two ways; either is an explicit administrator step.
+There is no Owner on a new database. In the HA App the Home Assistant administrator who opens Mantel first becomes it ([phase3/HA-APP.md](phase3/HA-APP.md)). Elsewhere, two ways; either is an explicit administrator step.
 
-**A. Link an HA account as Owner** (what Proof 1 used). Find the HA user id (the "Not linked yet" page after "Sign in with Home Assistant" prints it, `mantel-server links` lists linked ones, and a `person.*` entity's `user_id` attribute has it), then:
+**A. A Mantel account with a password** (the usual first start in Docker or the LXC, where nothing is linked to HA yet). While no enabled Owner exists, Mantel prints a **one-time setup code** in its log at every start, in a banner:
+
+```text
+========================================================================
+  Mantel has no Owner yet. One-time setup code (valid 60 minutes):
+
+    <the code>
+
+  Open https://mantel.example.com/login, "First start", and create the Owner with it.
+  When it expires a new one is logged here; `mantel bootstrap` makes one now.
+========================================================================
+```
+
+Find it with `docker compose logs mantel-server` (Docker, in the compose folder), `pct exec <id> -- docker logs mantel-server` from the Proxmox host (the LXC), or in the output of a server run by hand. It is valid one hour; when it expires and there is still no Owner, a new one is logged. Each new code replaces the last. Only its hash is stored; it is not in the audit log and no page shows it. Never in the HA App's Ingress mode, and never again once an Owner exists.
+
+Open `/login`: while no Owner exists it shows **First start** with fields for the setup code, user name, name and password; it creates the Owner, signs them in and opens `/admin` → Connections. A new code at once, replacing the logged one: `mantel-server bootstrap` (in the containers `docker compose exec mantel-server mantel bootstrap`). The same by REST:
+
+```bash
+mantel-server bootstrap            # prints a one-time code, valid one hour; it replaces the logged one
+curl -X POST "$B/api/bootstrap" -H "Origin: $B" -H 'Content-Type: application/json' \
+  -d '{"token":"<code>","username":"avery","name":"Avery","password":"<12+ characters>"}'
+```
+
+It spends the code, creates the Owner in one step and signs them in. Afterwards `/api/bootstrap` answers `410 bootstrap_closed` and no code is logged again. Then enrol a TOTP authenticator and a passkey for the Owner (`/api/auth/totp/enroll` and `/enroll/confirm`; `/api/auth/passkey/register/*`). Passkeys need `--rp-id` set to the real hostname first. On the tunnel door a password alone is never accepted, so TOTP or a passkey is mandatory for remote use.
+
+**B. Link an HA account as Owner** (what Proof 1 used). Find the HA user id (the "Not linked yet" page after "Sign in with Home Assistant" prints it, `mantel-server links` lists linked ones, and a `person.*` entity's `user_id` attribute has it), then:
 
 ```bash
 mantel-server link --ha-user-id <id> --role owner --name "Avery"
 ```
-
-**B. A Mantel account with a password** (the usual first start in Docker or the LXC, where nothing is linked to HA yet). Only while no enabled Owner exists. Make a one-time setup code on the server, then open `/login`: while no Owner exists it shows **First start** with fields for the setup code, user name, name and password; it creates the Owner, signs them in and opens `/admin` → Connections. The same by REST:
-
-```bash
-mantel-server bootstrap            # prints a one-time token, valid one hour; a new run replaces it
-curl -X POST "$B/api/bootstrap" -H "Origin: $B" -H 'Content-Type: application/json' \
-  -d '{"token":"<token>","username":"avery","name":"Avery","password":"<12+ characters>"}'
-```
-
-It spends the token, creates the Owner in one step and signs them in. Afterwards `/api/bootstrap` answers `410 bootstrap_closed`. Then enrol a TOTP authenticator and a passkey for the Owner (`/api/auth/totp/enroll` and `/enroll/confirm`; `/api/auth/passkey/register/*`). Passkeys need `--rp-id` set to the real hostname first. On the tunnel door a password alone is never accepted, so TOTP or a passkey is mandatory for remote use.
 
 **In the container stacks** run admin commands inside the running server with `mantel`, which goes through the entrypoint so the container's data folder, HA address, token and secrets are filled in:
 

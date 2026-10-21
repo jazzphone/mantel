@@ -1,0 +1,12 @@
+# LAN TLS with a real certificate via the ACME DNS-01 challenge through Porkbun (no inbound internet port needed).
+# Needs the mantel-caddy image (packaging/docker/caddy.Dockerfile builds this provider in) and two secret files
+# secrets/porkbun_api_key and secrets/porkbun_secret_api_key: an API key pair from porkbun.com (Account ->
+# API Access), with "API Access" turned on for the domain. Chosen with
+# COMPOSE_FILE=compose.yaml:compose.dns-porkbun.yaml, which mounts this file and those secrets.
+tls {
+	dns porkbun {
+		api_key {file./run/secrets/porkbun_api_key}
+		api_secret_key {file./run/secrets/porkbun_secret_api_key}
+	}
+	resolvers 1.1.1.1
+}

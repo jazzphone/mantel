@@ -1,7 +1,8 @@
-"""A fictional ACME server (RFC 8555, the parts Let's Encrypt uses for DNS-01) and a fictional Cloudflare DNS API,
-for the built-in HTTPS tests (test_direct_access.py). Both check what the real ones check: the ACME side every
-JWS signature (ES256, jwk then kid), nonce and url, and the TXT record against the account's key; the Cloudflare
-side the bearer token. Nothing here reaches the network."""
+"""A fictional ACME server (RFC 8555, the parts Let's Encrypt uses for DNS-01), a fictional Cloudflare DNS API and a
+fictional Duck DNS update API, for the built-in HTTPS tests (test_direct_access.py). Each checks what the real one
+checks: the ACME side every JWS signature (ES256, jwk then kid), nonce and url, and the TXT record against the
+account's key; the Cloudflare side the bearer token; Duck DNS the token in the query and the domain. Nothing here
+reaches the network."""
 from __future__ import annotations
 
 import base64
@@ -95,10 +96,46 @@ class FakeCloudflare:
         return [r["content"] for r in self.records.values() if r["type"] == "TXT" and r["name"] == name]
 
 
+class FakeDuckDns:
+    """Duck DNS's update API: GET /update?domains=<name>&token=<token>&txt=<value>[&clear=true][&verbose=true]. One
+    TXT value per Duck DNS name, served for the name and every name under it. Answers "OK" or "KO" (HTTP 200)."""
+
+    def __init__(self, token: str, domains=("sam-home",)) -> None:
+        self.token = token
+        self.domains = set(domains)
+        self.values: dict[str, str] = {}
+        self.calls: list[dict] = []
+
+    def app(self) -> web.Application:
+        app = web.Application()
+
+        async def update(request):
+            q = dict(request.query)
+            self.calls.append(q)
+            domain = q.get("domains", "")
+            if q.get("token") != self.token or domain not in self.domains or "txt" not in q:
+                return web.Response(text="KO")
+            if q.get("clear") == "true":
+                self.values.pop(domain, None)
+            else:
+                self.values[domain] = q["txt"]
+            return web.Response(text="OK\n\n\nUPDATED" if q.get("verbose") == "true" else "OK")
+
+        app.router.add_get("/update", update)
+        return app
+
+    def txt(self, name: str) -> list[str]:
+        labels = name.lower().split(".")
+        if labels[-2:] != ["duckdns", "org"] or len(labels) < 3:
+            return []
+        value = self.values.get(labels[-3])
+        return [value] if value is not None else []
+
+
 class FakeAcme:
     """Let's Encrypt, in miniature. ``base`` is set once the test server runs (urls are absolute)."""
 
-    def __init__(self, dns: FakeCloudflare, days: int = 90, fail_validation: bool = False) -> None:
+    def __init__(self, dns: FakeCloudflare | FakeDuckDns, days: int = 90, fail_validation: bool = False) -> None:
         self.dns = dns
         self.days = days
         self.fail_validation = fail_validation

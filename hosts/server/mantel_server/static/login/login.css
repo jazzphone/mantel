@@ -75,4 +75,7 @@ input:focus-visible, .btn:focus-visible { outline: 3px solid var(--acc); outline
 @media (prefers-reduced-motion: no-preference) {
   .btn { transition: opacity .15s; }
 }
+.note p { margin: 0 0 6px; }
+.note p:last-child { margin-bottom: 0; }
+.note .where { margin: 0 0 6px; padding-left: 18px; }
 .note code { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12px; overflow-wrap: anywhere; }

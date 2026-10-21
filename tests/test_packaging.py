@@ -3,6 +3,7 @@ plus the code that ships with them (health endpoint, entrypoint, listen-address 
 
 No Docker, no network. Build/run verification is listed in docs/phase3/PACKAGING.md.
 """
+import os
 import re
 import importlib.util
 import json
@@ -354,6 +355,112 @@ def test_caddy_violations_are_found(tmp_path):
         p = tmp_path / "Caddyfile"
         p.write_text(edit(good))
         assert any(expect in m for m in pc.check_caddyfile(p)), expect
+
+
+DNS_PROVIDERS = ("cloudflare", "duckdns", "porkbun", "route53", "digitalocean", "desec")
+
+
+def test_the_dns_providers_are_pinned_and_each_has_its_snippet_and_secrets():
+    assert pc.check_dns_providers() == []
+    modules = pc.DNS_WITH.findall((ROOT / "packaging/docker/caddy.Dockerfile").read_text())
+    assert sorted(m.split("@")[0].rsplit("/", 1)[1] for m in modules) == sorted(DNS_PROVIDERS)
+    assert all("@v" in m for m in modules)
+    # tls-dns01.caddy (existing installs) is still the Cloudflare snippet, and the base stack keeps its secret
+    old = (ROOT / "packaging/compose/caddy/tls-dns01.caddy").read_text()
+    assert "dns cloudflare {file./run/secrets/cloudflare_dns_token}" in old
+    assert "dns cloudflare {file./run/secrets/cloudflare_dns_token}" in \
+        (ROOT / "packaging/compose/caddy/tls-dns01-cloudflare.caddy").read_text()
+    doc = pc.parse_yaml((ROOT / "packaging/compose/compose.yaml").read_text())
+    assert "cloudflare_dns_token" in doc["services"]["caddy"]["secrets"]
+    # a new installation (.env.example) gets Caddy's own CA unless it chooses otherwise
+    env = (ROOT / "packaging/compose/.env.example").read_text()
+    assert re.findall(r"^MANTEL_TLS_SNIPPET=(.*)$", env, re.M) == ["./caddy/tls-internal.caddy"]
+    for prov in DNS_PROVIDERS[1:]:
+        assert f"compose.dns-{prov}.yaml" in env
+
+
+def _dns_tree(tmp_path) -> Path:
+    root = tmp_path / "repo"
+    shutil.copytree(ROOT / "packaging", root / "packaging",
+                    ignore=shutil.ignore_patterns("proof4", "mantel-connect", "__pycache__"))
+    return root
+
+
+@pytest.mark.parametrize("path, edit, expect", [
+    ("packaging/docker/caddy.Dockerfile", lambda t: t.replace("porkbun@v0.3.1", "porkbun"), "porkbun is not pinned"),
+    ("packaging/docker/caddy.Dockerfile", lambda t: t.replace("desec@v1.1.0", "desec@master"), "desec is not pinned"),
+    ("packaging/docker/caddy.Dockerfile", lambda t: t.replace(" \\\n    --with github.com/caddy-dns/cloudflare@v0.2.4", ""),
+     "Cloudflare module must stay"),
+    ("packaging/compose/caddy/tls-dns01-duckdns.caddy",
+     lambda t: t.replace("{file./run/secrets/duckdns_token}", "fictional-literal-token"), "not a secret file placeholder"),
+    ("packaging/compose/caddy/tls-dns01-desec.caddy",
+     lambda t: t.replace("{file./run/secrets/desec_token}", "{env.DESEC_TOKEN}"), "not a secret file placeholder"),
+    ("packaging/compose/caddy/tls-dns01-route53.caddy", lambda t: t.replace("dns route53", "dns cloudflare"),
+     "no `dns route53` line"),
+    ("packaging/compose/compose.dns-porkbun.yaml",
+     lambda t: t.replace("./caddy/tls-dns01-porkbun.caddy:/etc/caddy/tls.caddy:ro", "/etc:/etc/caddy/tls.caddy:ro"),
+     "must mount ./caddy/tls-dns01-porkbun.caddy"),
+    ("packaging/compose/compose.dns-porkbun.yaml", lambda t: t.replace("      - porkbun_secret_api_key\n", ""),
+     "caddy's secrets must be exactly"),
+    ("packaging/compose/compose.dns-digitalocean.yaml", lambda t: t.replace("    secrets:", "    ports:\n      - \"80:80\"\n    secrets:"),
+     "may only add volumes and secrets"),
+    ("packaging/compose/compose.dns-desec.yaml",
+     lambda t: t.replace("file: ${MANTEL_SECRETS_DIR:-/etc/hk/secrets}/desec_token", "environment: DESEC_TOKEN"),
+     "secret desec_token must be the file"),
+    ("packaging/lxc/mantel-install.sh", lambda t: t.replace(" digitalocean_token desec_token\"", " desec_token\""),
+     "does not prepare the secret file digitalocean_token"),
+    ("packaging/compose/secrets/README.md", lambda t: t.replace("`duckdns_token`", "duckdns"), "does not list duckdns_token"),
+])
+def test_dns_provider_violations_are_found(tmp_path, path, edit, expect):
+    root = _dns_tree(tmp_path)
+    target = root / path
+    target.write_text(edit(target.read_text()))
+    problems = pc.check_dns_providers(root)
+    assert any(expect in p for p in problems), (expect, problems)
+
+
+def test_a_dns_snippet_or_override_without_its_module_is_found(tmp_path):
+    root = _dns_tree(tmp_path)
+    (root / "packaging/compose/caddy/tls-dns01-namecheap.caddy").write_text("tls {\n\tdns namecheap x\n}\n")
+    (root / "packaging/compose/compose.dns-gandi.yaml").write_text("services:\n  caddy:\n    secrets:\n      - x\n")
+    (root / "packaging/compose/compose.dns-porkbun.yaml").unlink()
+    problems = pc.check_dns_providers(root)
+    for expect in ("caddy/tls-dns01-namecheap.caddy: no caddy-dns module", "compose.dns-gandi.yaml: no caddy-dns module",
+                   "compose.dns-porkbun.yaml is missing"):
+        assert any(expect in p for p in problems), (expect, problems)
+
+
+def _image_ok(image: str) -> bool:
+    if shutil.which("docker") is None:
+        return False
+    return subprocess.run(["docker", "image", "inspect", image], capture_output=True).returncode == 0
+
+
+# opt-in (a local mantel-caddy:local may predate the providers): MANTEL_CADDY_TEST_IMAGE=mantel-caddy:local after
+# `docker compose build caddy`, or any image built from packaging/docker/caddy.Dockerfile
+CADDY_TEST_IMAGE = os.environ.get("MANTEL_CADDY_TEST_IMAGE", "")
+
+
+@pytest.mark.skipif(not CADDY_TEST_IMAGE or not _image_ok(CADDY_TEST_IMAGE),
+                    reason="set MANTEL_CADDY_TEST_IMAGE to an image built from caddy.Dockerfile")
+@pytest.mark.parametrize("snippet", ["tls-internal.caddy", "tls-dns01.caddy",
+                                     *(f"tls-dns01-{p}.caddy" for p in DNS_PROVIDERS)])
+def test_each_tls_snippet_validates_in_the_caddy_image(tmp_path, snippet):
+    """The real mantel-caddy image (its DNS modules) provisions the Caddyfile with each snippet, reading
+    fictional credentials from secret files: the module exists in the image and the snippet's syntax is its."""
+    secrets = tmp_path / "secrets"
+    secrets.mkdir()
+    for name in ("duckdns_token", "porkbun_api_key", "porkbun_secret_api_key", "route53_access_key_id",
+                 "route53_secret_access_key", "digitalocean_token", "desec_token"):
+        (secrets / name).write_text(f"fictional-{name}")
+    (secrets / "cloudflare_dns_token").write_text("Fictional" + "0" * 31)    # the module checks a token's shape
+    caddy = ROOT / "packaging/compose/caddy"
+    r = subprocess.run(["docker", "run", "--rm", "-e", "MANTEL_HOSTNAME=mantel.example.com",
+                        "-v", f"{caddy / 'Caddyfile'}:/etc/caddy/Caddyfile:ro",
+                        "-v", f"{caddy / snippet}:/etc/caddy/tls.caddy:ro", "-v", f"{secrets}:/run/secrets:ro",
+                        CADDY_TEST_IMAGE, "caddy", "validate", "--config", "/etc/caddy/Caddyfile", "--adapter", "caddyfile"],
+                       capture_output=True, text=True, timeout=120)
+    assert r.returncode == 0, r.stderr[-800:]
 
 
 def test_mantels_own_security_headers_are_checked(tmp_path):

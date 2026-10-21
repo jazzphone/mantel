@@ -3,16 +3,20 @@
 `mantel.sh`: Proxmox LXC installer in the community-scripts layout (unprivileged, `var_gpu=yes`,
 Debian 13, Docker + the compose stack from `packaging/compose/`). PLAN §7, §8.
 `mantel-install.sh` is its in-container half (Docker, secret folder, `.env`, `mantel-secret`,
-`mantel-update`, unattended security upgrades). `proof4/` is the Phase 0 QuickSync proof it grew from.
+`mantel-update`, unattended security upgrades; this version's published images, else a build). The HTTPS
+choice is asked at a terminal (Caddy's own CA, your domain through one of six DNS hosts, or your own proxy) and
+is Caddy's own CA without one. `proof4/` is the Phase 0 QuickSync proof it grew from.
 
 **Read the scripts before running them as root on the Proxmox host.**
 
 ```bash
 bash packaging/lxc/mantel.sh              # on the Proxmox host, as root, from a checkout you have read
 pct enter <id>                            # then: cd /opt/mantel/packaging/compose && docker compose up -d --wait
-                                          # browser: /login "First start" (code: mantel bootstrap), /admin -> Connections
+                                          # docker compose logs mantel-server: the first Owner's setup code
+                                          # browser: /login "First start" (that code), /admin -> Connections
 mantel-update                             # inside: update with automatic rollback (registry images)
-bash packaging/lxc/mantel.sh push <id>    # on the host: send a newer checkout and update (build mode)
+bash packaging/lxc/mantel.sh push <id>    # on the host: send a newer checkout and update (a build, or that
+                                          # version's published images)
 ```
 
 Step-by-step runbook for proxmox1 (inputs, GPU, DNS-01 HTTPS, Connections, Connect, Live TV check, backups, removal):

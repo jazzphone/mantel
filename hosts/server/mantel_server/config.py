@@ -113,7 +113,7 @@ class Config:
     # Requests on it are never Ingress (no X-Remote-User-* is believed there, whoever the peer is), pass the
     # Ingress-only gate, and must name one of `direct_hosts` (the public URL's host, plus --direct-host).
     # `direct_tls` "": plain HTTP for the home's own proxy (trusted_proxies + the door key); "acme": Mantel
-    # serves HTTPS there itself with a Let's Encrypt certificate (DNS-01 through Cloudflare, direct_tls.py).
+    # serves HTTPS there itself with a Let's Encrypt certificate (DNS-01 through Cloudflare or Duck DNS, direct_tls.py).
     direct_port: int = 0
     direct_tls: str = ""
     direct_hosts: tuple[str, ...] = ()
@@ -122,7 +122,8 @@ class Config:
     lan_networks: tuple[str, ...] = ()
     acme_directory: str = ""                               # default: Let's Encrypt (direct_tls.LETSENCRYPT)
     acme_email: str = ""
-    acme_dns_token_file: Path | None = None                # the Cloudflare DNS token (a file, never an argument)
+    acme_dns_token_file: Path | None = None                # the DNS host's token (a file, never an argument)
+    acme_dns_provider: str = "cloudflare"                  # cloudflare | duckdns (direct_tls.DNS_PROVIDERS)
     # "Sign in with Home Assistant" where ha_url is not an address a browser can use (the App's is
     # http://supervisor/core): the browser goes to `ha_browser_url`; Mantel's own calls go to `ha_oauth_url`
     ha_browser_url: str = ""
@@ -278,7 +279,7 @@ def parse_args(argv: list[str] | None = None) -> Config:
                         "there are never Ingress and pass --ingress-only). 0 = off")
     p.add_argument("--direct-tls", choices=("none", "acme"), default="none",
                    help="direct access: none = plain HTTP behind your own proxy; acme = Mantel serves HTTPS itself "
-                        "with a Let's Encrypt certificate (DNS-01 through Cloudflare)")
+                        "with a Let's Encrypt certificate (DNS-01 through Cloudflare or Duck DNS)")
     p.add_argument("--direct-host", action="append", default=[], metavar="NAME",
                    help="direct access: another Host name accepted there besides --public-url's (repeatable)")
     p.add_argument("--lan-network", action="append", default=[], metavar="CIDR",
@@ -288,7 +289,11 @@ def parse_args(argv: list[str] | None = None) -> Config:
                    help="built-in HTTPS: the ACME directory (default Let's Encrypt; its staging one for trials)")
     p.add_argument("--acme-email", default="", metavar="ADDRESS", help="built-in HTTPS: the ACME account's contact")
     p.add_argument("--acme-dns-token-file", default=None, metavar="FILE",
-                   help="built-in HTTPS: a file holding the Cloudflare API token (Zone / DNS / Edit, one zone)")
+                   help="built-in HTTPS: a file holding the DNS host's token (Cloudflare: an API token, Zone / DNS / "
+                        "Edit for one zone; Duck DNS: the account's token)")
+    p.add_argument("--acme-dns-provider", choices=("cloudflare", "duckdns"), default="cloudflare",
+                   help="built-in HTTPS: the DNS host that proves the name (duckdns: --public-url must be "
+                        "<name>.duckdns.org)")
     p.add_argument("--ha-browser-url", default="", metavar="URL",
                    help="'Sign in with Home Assistant': HA's address as browsers know it, when --ha-url is not one "
                         "(HA App: http://supervisor/core)")
@@ -321,7 +326,10 @@ def parse_args(argv: list[str] | None = None) -> Config:
         if urlparse(a.public_url).scheme != "https" or not urlparse(a.public_url).hostname:
             p.error("--direct-port needs --public-url https://<Mantel's own name>/ (what browsers type)")
         if a.direct_tls == "acme" and not a.acme_dns_token_file:
-            p.error("--direct-tls acme needs --acme-dns-token-file (the Cloudflare DNS token)")
+            p.error("--direct-tls acme needs --acme-dns-token-file (the DNS host's token)")
+        host = (urlparse(a.public_url).hostname or "").lower()
+        if a.acme_dns_provider == "duckdns" and not (host.endswith(".duckdns.org") and host.count(".") >= 2):
+            p.error("--acme-dns-provider duckdns needs --public-url https://<name>.duckdns.org/")
     elif a.direct_tls != "none" or a.direct_host or a.lan_network:
         p.error("--direct-tls / --direct-host / --lan-network only apply together with --direct-port")
     from ipaddress import ip_network
@@ -431,6 +439,7 @@ def parse_args(argv: list[str] | None = None) -> Config:
                  direct_hosts=_direct_hosts(a) if a.direct_port else (), lan_networks=tuple(lan_networks),
                  acme_directory=a.acme_directory, acme_email=a.acme_email.strip(),
                  acme_dns_token_file=Path(a.acme_dns_token_file) if a.acme_dns_token_file else None,
+                 acme_dns_provider=a.acme_dns_provider,
                  ha_browser_url=a.ha_browser_url.rstrip("/"), ha_oauth_url=a.ha_oauth_url.rstrip("/"),
                  cf_access_team=cf_team, cf_access_aud=cf_auds)
     assert cfg.host in LOOPBACK or cfg.public_url, "Mantel listens beyond loopback only in container mode"

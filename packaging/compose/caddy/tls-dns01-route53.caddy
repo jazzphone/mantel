@@ -1,0 +1,13 @@
+# LAN TLS with a real certificate via the ACME DNS-01 challenge through Amazon Route 53 (no inbound internet port needed).
+# Needs the mantel-caddy image (packaging/docker/caddy.Dockerfile builds this provider in) and two secret files
+# secrets/route53_access_key_id and secrets/route53_secret_access_key: an IAM user's access key limited to
+# the hosted zone (route53:ListHostedZonesByName, ListHostedZones, ListResourceRecordSets, GetChange,
+# ChangeResourceRecordSets; the policy example is in github.com/libdns/route53). Chosen with
+# COMPOSE_FILE=compose.yaml:compose.dns-route53.yaml, which mounts this file and those secrets.
+tls {
+	dns route53 {
+		access_key_id {file./run/secrets/route53_access_key_id}
+		secret_access_key {file./run/secrets/route53_secret_access_key}
+	}
+	resolvers 1.1.1.1
+}

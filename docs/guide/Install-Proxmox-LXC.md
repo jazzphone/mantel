@@ -23,7 +23,7 @@ On the Proxmox host, and nothing else:
 2. Downloads the Debian 13 container template if it is missing.
 3. Creates **one** container: unprivileged, with nesting and keyctl turned on for Docker, tagged `mantel`, **not** started at boot.
 4. With an iGPU, shares its render node into the container. The host keeps using the GPU too.
-5. Copies Mantel's source into `/opt/mantel` in the container, then installs Docker, the secret folder, the settings file, the images and automatic security updates inside it.
+5. Copies Mantel's source into `/opt/mantel` in the container, then installs Docker, the secret folder, the settings file, the images and automatic security updates inside it. The images are this release's published ones (`ghcr.io/jazzphone/mantel-*`, tagged with the version you checked out) when they exist; otherwise the script builds them in the container from the source.
 
 It touches no other container or VM, changes no host setting, edits no firewall rule and opens no port. It does **not** start Mantel.
 
@@ -61,14 +61,15 @@ It touches no other container or VM, changes no host setting, edits no firewall 
    | Where the Debian 13 template is kept | A storage that holds templates |
    | Which bridge | The bridge that reaches Home Assistant, the tuner and your tablets |
    | VLAN tag | Your VLAN's number, or **Enter** for none |
-   | How browsers reach Mantel over HTTPS | `dns01` (your domain on Cloudflare DNS), `internal` (Caddy's own certificate authority) or `own` (your own reverse proxy) |
-   | The name browsers use | For example `mantel.example.com` |
+   | How browsers reach Mantel over HTTPS | `internal` (**Enter**: Caddy's own certificate authority, no domain needed; you trust it once on each device), `dns01` (your own domain, with a real certificate) or `own` (your own reverse proxy) |
+   | Which DNS host serves your domain | Only with `dns01`: `cloudflare`, `duckdns`, `porkbun`, `route53`, `digitalocean` or `desec`. Its token is put in after the install. |
+   | The name browsers use | For example `mantel.example.com` (with Duck DNS, your `<name>.duckdns.org`); **Enter** for `mantel.home.arpa`, except with `dns01` |
    | Your proxy's address | Only with `own`: its IP address as Mantel will see it, or **Enter** to set it later in `.env` |
    | Also a Cloudflare tunnel? | `yes` to reach Mantel from away (recommended over opening a port). Then follow [Remote access through a Cloudflare Tunnel](Install-Docker.md#remote-access-through-a-cloudflare-tunnel), Cloudflare Access included. |
 
-5. Check the summary and answer `y`. The install takes several minutes, most of it building the images. It ends with **Installed. Mantel is NOT running yet.**
+5. Check the summary and answer `y`. The install takes a few minutes with published images, several more when it builds them. It ends with **Installed. Mantel is NOT running yet.**
 
-You can answer every question ahead of time with `var_` settings in the environment, for example `var_ctid=120 var_brg=vmbr0 var_tls=dns01 var_domain=mantel.example.com bash packaging/lxc/mantel.sh`:
+You can answer every question ahead of time with `var_` settings in the environment, for example `var_ctid=120 var_brg=vmbr0 var_tls=dns01 var_dns=cloudflare var_domain=mantel.example.com bash packaging/lxc/mantel.sh`. When the script has no terminal to ask at, an HTTPS choice you didn't preset is `internal`:
 
 | Setting | Default | Meaning |
 |---|---|---|
@@ -78,12 +79,13 @@ You can answer every question ahead of time with `var_` settings in the environm
 | `var_storage`, `var_template_storage` | asked | Proxmox storages for the disk and the template |
 | `var_brg`, `var_vlan` | asked | The bridge, and a VLAN tag (`none` for none) |
 | `var_gpu` | `yes` | Share the iGPU's render node in (skipped by itself when the host has none) |
-| `var_tls` | asked | `dns01`, `internal` or `own` |
+| `var_tls` | asked; `internal` without a terminal | `internal`, `dns01` or `own` |
+| `var_dns` | asked with `dns01`; `cloudflare` without a terminal | `cloudflare`, `duckdns`, `porkbun`, `route53`, `digitalocean` or `desec` |
 | `var_domain` | asked | The name browsers use |
 | `var_proxy_ip` | asked with `own` | Your proxy's IP address |
 | `var_tunnel` | asked | `yes` or `no` |
 | `var_connect` | `no` | `yes` also turns on [Mantel Connect](Mantel-Connect.md)'s port 8766 |
-| `var_install_mode` | `build` | `build`: build the images in the container. `pull`: use published images. With `pull`, name the images in `.env` (`MANTEL_SERVER_IMAGE` and the others; [Install with Docker → Get the images](Install-Docker.md#5-get-the-images)). |
+| `var_install_mode` | `auto` | `auto`: pull this version's published images, and build them in the container when they aren't published. `pull`: only pull (the install stops if they aren't there). `build`: always build from the source. Pulled images are named in `.env` with the version (`MANTEL_SERVER_IMAGE` and the others; [Install with Docker → Get the images](Install-Docker.md#5-get-the-images)), and `mantel.sh push` moves them to the newer checkout's version. |
 
 The container is always unprivileged and Debian 13; the script refuses anything else.
 
@@ -105,8 +107,10 @@ The container is always unprivileged and Debian 13; the script refuses anything 
 3. Put in the tokens your HTTPS choice needs. `mantel-secret` reads a secret from the keyboard (nothing is echoed or kept in your history) and saves it with the right owner and permissions:
 
    ```bash
-   mantel-secret cloudflare_dns_token     # only with dns01: a Cloudflare token with Zone / DNS / Edit for that one zone
+   mantel-secret cloudflare_dns_token     # only with dns01 at Cloudflare: a token with Zone / DNS / Edit for that one zone
    ```
+
+   With another DNS host, the install's last lines name its secret files, for example `mantel-secret porkbun_api_key` and `mantel-secret porkbun_secret_api_key` (what each needs: [OPERATIONS.md](../OPERATIONS.md#https-four-ways)). With `internal` there is no token: trust Caddy's root on each device instead ([OPERATIONS.md](../OPERATIONS.md#https-four-ways), "Trusting Caddy's own CA").
 
    The script already made `at_rest.key` and `backup.key` in `/etc/hk/secrets`. **Copy both somewhere that is not this machine**, for example your password manager: a restore needs them.
 4. Start Mantel:
@@ -116,11 +120,13 @@ The container is always unprivileged and Debian 13; the script refuses anything 
    ```
 
 5. In your home's DNS, point the name at the container's address (with `own`, point it at your proxy, and point the proxy at `http://<container address>:8765`; see [Your own reverse proxy](Install-Docker.md#your-own-reverse-proxy)).
-6. Get a one-time setup code for the first Owner:
+6. Find the first Owner's one-time setup code in Mantel's log, in a banner (valid one hour; a new one is logged when it expires):
 
    ```bash
-   docker compose exec mantel-server mantel bootstrap
+   docker compose logs mantel-server
    ```
+
+   From the Proxmox host, without entering the container: `pct exec <id> -- docker logs mantel-server`. A new code at once (it replaces the logged one): `docker compose exec mantel-server mantel bootstrap`.
 
 7. Open `https://mantel.example.com/login` and follow [First Run](First-Run.md#with-docker-or-the-lxc).
 
