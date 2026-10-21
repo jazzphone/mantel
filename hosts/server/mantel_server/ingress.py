@@ -507,7 +507,8 @@ async def bootstrap_post(request: web.Request) -> web.Response:
     _audit(app, row["id"], "owner", "ingress.bootstrap_owner", {"ha_user_id": person["id"], "name": name})
     log.warning("Ingress bootstrap: HA administrator %s (HA user %s) is now Mantel's first Owner", name, person["id"])
     return _page("You are Mantel's Owner", f"<p>Welcome, <b>{html.escape(name or '')}</b>.</p>"
-                 f"<p><a href='{html.escape(base)}/home'>Open Mantel</a> · "
+                 f"<p><a href='{html.escape(base)}/settings#/mantel/setup'>Set up Mantel</a> · "
+                 f"<a href='{html.escape(base)}/home'>Open Mantel</a> · "
                  f"<a href='{html.escape(base)}/ingress/people'>Link the rest of the household</a></p>")
 
 

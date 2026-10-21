@@ -233,12 +233,26 @@ async def enroll(request: web.Request) -> web.Response:
         room = chosen_room(request.app, body, strict=False)
     except RoomError as exc:
         return error(400, str(exc), message=ROOM_MESSAGES.get(str(exc)))
+    # ONE STEP FOR A NEW TABLET: an Owner or Admin enrolling into a room no HK tablet has may ask for that HK tablet
+    # to be made too (``new_tablet``), so its touches, idle return and black screen reach it without a visit to
+    # All Screens first. Only for a Home Assistant area; a room an HK tablet already has keeps that tablet.
+    service = request.app.get("settings")
+    make_tablet = (bool(body.get("new_tablet")) and body.get("tablet") is None and room is not None
+                   and user.role in ("owner", "admin") and service is not None
+                   and room in ha_areas(request.app) and not tablets_in(request.app, room))
     mgr: DeviceManager = request.app["devices"]
     device_id = secrets.token_hex(16)
     refused = audit_change(request, ident, "device.enroll", {"device": device_id, "name": name[:64], "role": role,
-                                                             "room": room, "tablet": body.get("tablet")})
+                                                             "room": room, "tablet": body.get("tablet"),
+                                                             **({"new_tablet": True} if make_tablet else {})})
     if refused:
         return refused
+    if make_tablet:
+        from .settings_store import SettingsError, actor_of
+        try:
+            service.add_tablet({"name": name[:40], "room": room}, actor_of(ident), "device.enroll")
+        except SettingsError as exc:
+            return error(400, "tablet_not_made", message=f"The HK tablet could not be made ({exc.code}).")
     device_id, secret, csrf = mgr.enroll(name[:64], role, room, user.id, client_ip(request), device_id=device_id)
     if user.role == "wall_tablet":
         # "A Wall Tablet account can only make its own tablet" (Wall-Tablets.md): one at a time. Enrolling again

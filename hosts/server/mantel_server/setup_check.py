@@ -19,7 +19,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from . import connections
+from . import connections, setup_guide
 
 
 def _line(ok: bool | None, title: str, detail: str) -> dict[str, Any]:
@@ -67,7 +67,10 @@ def lines(app: Any, boards: int) -> list[dict[str, Any]]:
         out.append(_line(True, "House Commands", "On: people may control the house within their roles; every "
                                                   "command is audited."))
     else:
-        out.append(_line(None, "House Commands", "Off: Mantel is read-only. The App's Configuration turns them on."))
+        out.append(_line(None, "House Commands", "Off: Mantel is read-only. " +
+                         setup_guide.COMMANDS_HOW[setup_guide.install(cfg)]))
     out.append(_line(True if boards else False, "Screens",
-                     f"{boards} in Mantel." if boards else "None yet: import HK's settings from Home Assistant."))
+                     f"{boards} in Mantel." if boards else
+                     "None yet. Once Home Assistant is connected Mantel builds a Home screen from your rooms; "
+                     "with HK Frontend in Home Assistant, import its screens on Connections instead."))
     return out

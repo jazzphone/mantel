@@ -13,6 +13,9 @@ The first public release.
 - **Music Assistant and cameras** through Mantel, **Mantel Photos** for the screensaver, and **backups**.
 - **Mantel Link**: the Home Assistant integration that links Home Assistant to Mantel.
 - **Three ways to run it**: the Home Assistant App, Docker Compose, or a Proxmox LXC.
+- **Set Up Mantel**: a first-run checklist in Mantel Settings, each step worked out from the house (Home Assistant, screens, the household, the Owner's sign-in, the Alarm PIN, house commands) and opening the page that does it.
+- **One step for a new wall tablet**: enrolling into a room with no HK tablet adds that HK tablet too.
+- Importing HK's settings from a Home Assistant without HK Frontend says there is nothing to import; Setup Check says how house commands are turned on where Mantel runs.
 
 ### Fixed before release (engineering audit, October 2026)
 

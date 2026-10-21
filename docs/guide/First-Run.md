@@ -4,13 +4,31 @@ A new Mantel has no people, no Owner and no screens. This page takes you from a 
 
 The **Owner** can do everything in Mantel: manage people, roles and tablets, read the audit log, and change the connections. Nothing creates an Owner for you: the first one is always an explicit step on the server or in Home Assistant, and only the first one is made this way. After that, the page that made it says it is closed.
 
+## Set Up Mantel
+
+Once you are the Owner, Mantel Settings opens on **Set Up Mantel**: a checklist of what Mantel still needs, each step with a button to the page that does it. A step is done when the house says so (Home Assistant answers, someone besides you can sign in, commands are on), not when you tick it.
+
+| Step | What it asks |
+|---|---|
+| **Connect Home Assistant** | Docker and the LXC only; the App is connected already. |
+| **Your Home** | HK's Setup Assistant: the alarm panel, the weather, how the glass looks, which features you use. Units, clock and time zone come from Home Assistant. |
+| **Screens** | Import HK Frontend's screens, or open the generated Home screen and say whether it looks right. |
+| **The Household** | Link people's Home Assistant users, or add Mantel accounts, each with a role. |
+| **Protect the Owner** | A passkey and an authenticator app (Docker and the LXC; in the App, Home Assistant signs you in). |
+| **Alarm PIN** | Only if the house has an alarm panel. |
+| **House Commands** | How to turn them on where your Mantel runs, once the roles look right. |
+
+Wall tablets, Music Assistant, Mantel Link and Apple's font and glyphs are optional steps. Choose **Later** for any step you want to leave for now. Select **Close the Guide** when you're done: the checklist stays under **Mantel Settings** → **Set Up Mantel**.
+
+The sections below walk through the same steps by hand.
+
 ## In the Home Assistant App
 
 ### Become the Owner
 
 1. Open **Mantel** in Home Assistant's sidebar (or **Open Web UI** on the App's **Info** tab), signed in to Home Assistant as an **administrator**.
 2. Mantel shows **Set up Mantel**, with your Home Assistant name. Select **Make me Mantel's Owner**. Nothing happens until you do.
-3. You see **You are Mantel's Owner**, with two links: **Open Mantel** and **Link the rest of the household**.
+3. You see **You are Mantel's Owner**, with three links: **Set up Mantel** (the checklist above), **Open Mantel** and **Link the rest of the household**.
 
 If you aren't a Home Assistant administrator, Mantel says **Mantel is not set up yet**: an administrator needs to open it first. If it says it **could not ask Home Assistant** whether you are an administrator, see [Troubleshooting](Troubleshooting.md#the-app-says-it-could-not-ask-home-assistant).
 

@@ -1,0 +1,352 @@
+"""Set Up Mantel: the first run's guide, as a list of steps worked out from the house as it is now.
+
+A fresh Mantel needs a few things before anyone else uses it: Home Assistant connected, its screens (imported from
+HK Frontend or the generated Home screen), the household linked, the Owner's sign-in protected, and a decision on
+house commands. Mantel Settings shows them as one checklist (web/shim/mantel-settings.js, "Set Up Mantel"); each
+step opens the page that does it. Nothing here does a step itself: the pages behind them already exist and keep
+their own checks.
+
+A step's state comes from the house, never from a box someone ticked: Home Assistant is connected or it isn't, the
+Owner has a second factor or doesn't. Only three things are kept (``app_settings`` ``setup_guide``, JSON):
+``confirmed`` (steps whose answer is a person's judgement: "Your Home" and "Screens" look right), ``skipped``
+(optional steps, and the ones a home may leave for later), and ``dismissed`` (the Owner closed the guide; it stays
+under Mantel Settings, it no longer opens first).
+
+REST:
+
+* ``GET /api/setup``: the steps, what Mantel found in Home Assistant, and whether the guide is complete and
+  dismissed. Owner or Admin (the people who manage the house).
+* ``PUT /api/setup/steps/{id}`` ``{"state": "confirmed" | "skipped" | null}``: Owner.
+* ``PUT /api/setup`` ``{"dismissed": bool}``: Owner.
+"""
+from __future__ import annotations
+
+import asyncio
+import json
+import logging
+import time
+from typing import Any
+
+from aiohttp import web
+
+from . import connections, sessions
+from .accounts import MANAGERS, require_user
+from .sessions import error, ok
+
+log = logging.getLogger(__name__)
+
+KEY = "setup_guide"
+CONFIG_TTL = 60.0              # seconds Home Assistant's get_config answer is reused
+# id, title, optional: an optional step never holds the guide open
+STEPS = (
+    ("ha", "Connect Home Assistant", False),
+    ("home", "Your Home", False),
+    ("screens", "Screens", False),
+    ("people", "The Household", False),
+    ("protect", "Protect the Owner", False),
+    ("alarm", "Alarm PIN", False),
+    ("tablets", "Wall Tablets", True),
+    ("music", "Music Assistant", True),
+    ("link", "Mantel Link", True),
+    ("files", "Apple’s Font & Glyphs", True),
+    ("commands", "House Commands", False),
+)
+IDS = {s[0] for s in STEPS}
+CONFIRMABLE = {"home", "screens"}
+# every step may be left for later except the ones Mantel can't work without
+SKIPPABLE = IDS - {"ha", "screens"}
+
+
+# ---------------------------------------------------------------------------------------------- kept state
+def kept(app: web.Application) -> dict:
+    row = app["store"].db.execute("SELECT value FROM app_settings WHERE key = ?", (KEY,)).fetchone()
+    try:
+        got = json.loads(row["value"]) if row else {}
+    except (TypeError, ValueError):
+        got = {}
+    got = got if isinstance(got, dict) else {}
+    return {"confirmed": sorted(set(x for x in got.get("confirmed") or [] if x in CONFIRMABLE)),
+            "skipped": sorted(set(x for x in got.get("skipped") or [] if x in SKIPPABLE)),
+            "dismissed": bool(got.get("dismissed"))}
+
+
+def _keep(app: web.Application, value: dict) -> None:
+    db = app["store"].db
+    with db:
+        db.execute("INSERT INTO app_settings (key, value, updated) VALUES (?,?,?) ON CONFLICT(key) DO UPDATE "
+                   "SET value = excluded.value, updated = excluded.updated",
+                   (KEY, json.dumps(value, separators=(",", ":")), app["clock"]()))
+
+
+# ---------------------------------------------------------------------------------------------- the house
+def install(cfg: Any) -> str:
+    """``app`` (the Home Assistant App), ``container`` (Docker or the LXC), or ``dev`` (by hand, on loopback)."""
+    if getattr(cfg, "ha_managed_by_app", False) or getattr(cfg, "supervisor_url", "") or \
+            str(getattr(cfg, "ha_url", "")).startswith("http://supervisor/"):
+        return "app"
+    return "container" if getattr(cfg, "public_url", "") else "dev"
+
+
+# how house commands are turned on, for each way of running Mantel (docs/guide/Install*.md)
+COMMANDS_HOW = {
+    "app": "In Home Assistant: Settings → Apps → Mantel → Configuration, turn on Allow house commands, Save, then "
+           "restart the App.",
+    "container": "On the server, in packaging/compose (in the LXC, /opt/mantel/packaging/compose): add "
+                 "\"--commands-enabled\" to mantel-server's command in your compose.local.yaml, then "
+                 "docker compose up -d --wait (Install with Docker → Turn on house commands).",
+    "dev": "Start mantel-server with --commands-enabled.",
+}
+
+
+async def house_config(app: web.Application) -> dict | None:
+    """Home Assistant's get_config, asked at most once a minute: its name, units, zone, country, language and which
+    integrations it runs (whether HK Frontend and Mantel Link are there). None while it can't be read."""
+    now = time.monotonic()
+    cache = app.get("setup_guide_cache")
+    cached = cache.get("config") if cache is not None else None
+    if cached and now - cached[0] < CONFIG_TTL:
+        return cached[1]
+    proxy = getattr(app.get("hub"), "readproxy", None)
+    if proxy is None:
+        return None
+    try:
+        got = await asyncio.wait_for(proxy.request({"type": "get_config"}), 5)
+    except asyncio.CancelledError:
+        raise
+    except Exception as exc:  # noqa: BLE001 -- not connected yet: the guide says so
+        log.debug("setup guide: get_config not read (%s)", type(exc).__name__)
+        return None
+    if not isinstance(got, dict):
+        return None
+    comps = got.get("components") or []
+    out = {"name": got.get("location_name"), "version": got.get("version"), "time_zone": got.get("time_zone"),
+           "country": got.get("country"), "language": got.get("language"), "currency": got.get("currency"),
+           "unit_system": got.get("unit_system") or {},
+           "hk_frontend": "hk_frontend" in comps, "mantel_link": "mantel" in comps}
+    if cache is not None:
+        cache["config"] = (now, out)
+    return out
+
+
+def _count_people(app: web.Application) -> tuple[int, int]:
+    """(people besides Owners, Owners): accounts a person signs in with, not tablets or services."""
+    users = [u for u in app["accounts"].list_users() if not u["disabled"] and u["role"] not in ("wall_tablet", "service")]
+    owners = sum(1 for u in users if u["role"] == "owner")
+    return len(users) - owners, owners
+
+
+def _alarms(app: web.Application) -> tuple[list[str], list[str]]:
+    """(the house's alarm panels, the ones with no house Alarm PIN yet)."""
+    hub = app.get("hub")
+    states = getattr(getattr(hub, "store", None), "states", None) or {}
+    panels = sorted(e for e in states if e.startswith("alarm_control_panel."))
+    pins = app.get("alarm_pin")
+    if pins is None:
+        return panels, panels
+    return panels, [e for e in panels if not pins.entry_or_default(e).house_code]
+
+
+def _status(app: web.Application, kind: str) -> dict:
+    try:
+        return connections.status(app, kind) or {}
+    except Exception:  # noqa: BLE001 -- a status that can't be read is "not set up"
+        return {}
+
+
+async def steps(app: web.Application, me: dict) -> dict:
+    """Every step as it stands, for the person asking (``me``: accounts.describe)."""
+    cfg = app["cfg"]
+    how = install(cfg)
+    k = kept(app)
+    house = await house_config(app)
+    hub = app.get("hub")
+    reg = getattr(hub, "registry", None)
+    areas = len(getattr(reg, "areas", None) or {})
+    entities = len(getattr(getattr(hub, "store", None), "states", None) or {})
+    out: list[dict] = []
+
+    def step(sid: str, done: bool, detail: str, route: str | None, *, shown: bool = True, **extra: Any) -> None:
+        if not shown:
+            return
+        title, optional = next((t, o) for i, t, o in STEPS if i == sid)
+        state = "done" if done else "skipped" if sid in k["skipped"] else "todo"
+        out.append({"id": sid, "title": title, "optional": optional, "state": state, "detail": detail,
+                    "route": route, "can_skip": sid in SKIPPABLE and not done, "can_confirm": sid in CONFIRMABLE,
+                    **extra})
+
+    ha = _status(app, "ha")
+    ha_on = bool((ha.get("live") or {}).get("connected"))
+    if how == "app":
+        step("ha", ha_on, "Mantel reaches Home Assistant with the App’s own access." if ha_on else
+             "Mantel is waiting for Home Assistant. Restart the App if this doesn’t change.", None)
+    else:
+        step("ha", ha_on, f"Connected: {entities} entities in {areas} areas." if ha_on else
+             "Tell Mantel where Home Assistant is and which user it acts as.", "#/mantel/connections/ha")
+
+    if house:
+        units = house["unit_system"]
+        bits = [house.get("name"), units.get("temperature"), house.get("time_zone"), house.get("country"),
+                house.get("language")]
+        home_detail = ("From Home Assistant: " + " · ".join(str(b) for b in bits if b) +
+                       ". Screens use these; change them in Home Assistant (Settings → System → General).")
+    else:
+        home_detail = "Connect Home Assistant first: the screens take their units, clock and time zone from it."
+    store = getattr(app.get("settings"), "store", None)
+    hk_done = bool(store is not None and (store.body("house", "setup") or {}).get("setup_done"))
+    step("home", hk_done or "home" in k["confirmed"],
+         home_detail + (" HK’s Setup Assistant has been through the alarm, weather, appearance and features."
+                        if hk_done else " HK’s Setup Assistant asks about the alarm, weather, appearance and "
+                        "features."), "#/setup")
+
+    boards = len(store.docs("board")) if store is not None else 0
+    imported = store.import_record() if store is not None else None
+    if imported:
+        screens_detail = f"{boards} screens, imported from HK Frontend."
+    elif boards:
+        screens_detail = ("Mantel built a Home screen from your rooms and devices. Open it, and say whether it looks "
+                          "right." + (" HK Frontend is in Home Assistant: you can import its screens instead."
+                                      if house and house["hk_frontend"] else ""))
+    else:
+        screens_detail = "No screens yet. Connect Home Assistant and Mantel builds a Home screen from your rooms."
+    step("screens", bool(boards) and (bool(imported) or "screens" in k["confirmed"]), screens_detail, "#/mantel/setup/screens",
+         hk_frontend=bool(house and house["hk_frontend"]), imported=bool(imported))
+
+    others, _owners = _count_people(app)
+    step("people", others > 0, f"{others} people besides the Owner." if others else
+         "Add a Mantel account for each person, or link their Home Assistant users, each with a role.", "#/mantel/people")
+
+    direct = bool(getattr(cfg, "direct_port", 0))
+    if how == "app" and not direct:
+        step("protect", True, "Home Assistant signs you in. Protect your Home Assistant account with its own "
+             "multi-factor authentication.", "#/mantel/me")
+    else:
+        factors = bool(me.get("totp")) or (me.get("passkeys") or 0) > 0
+        both = bool(me.get("totp")) and (me.get("passkeys") or 0) > 0
+        step("protect", factors, "A passkey and an authenticator app are set up." if both else
+             "Set up a passkey or an authenticator app" + (" (both is best)." if not factors else "; add the other too.") +
+             " From away from home Mantel never accepts a password on its own.", "#/mantel/me")
+
+    panels, unset = _alarms(app)
+    step("alarm", bool(panels) and not unset, "The alarm asks for the house Alarm PIN." if not unset else
+         "Set the house Alarm PIN: it is the one code Mantel asks for, and only for the alarm.", "#/features/alarm",
+         shown=bool(panels))
+
+    devices = [d for d in app["devices"].list() if d["revoked"] is None] if "devices" in app else []
+    step("tablets", bool(devices), f"{len(devices)} enrolled." if devices else
+         "Optional. On each tablet, sign in and choose Make This a Wall Tablet.", "#/mantel/devices/enroll" if not devices
+         else "#/mantel/devices")
+
+    ma = _status(app, "ma")
+    step("music", bool((ma.get("live") or {}).get("connected")),
+         "Connected." if (ma.get("live") or {}).get("connected") else
+         "Optional: Music Assistant for whole-home music and the Music page’s library.", "#/mantel/connections/ma")
+
+    linked = app.get("linked")
+    link_on = any(getattr(c, "domain", None) == "mantel" and not getattr(getattr(c, "ws", None), "closed", True)
+                  for c in (getattr(getattr(linked, "registry", None), "clients", None) or []))
+    step("link", link_on, "Mantel Link is connected." if link_on else
+         ("Mantel Link is installed in Home Assistant but not linked yet." if house and house["mantel_link"] else
+          "Optional: install Mantel Link in Home Assistant for tablet entities, automations’ actions, "
+          "doorbell talk-back and notifications on Companion-app phones."), "#/mantel/connections/link")
+
+    files = app.get("user_files")
+    try:
+        fstat = files.listing().get("status") or {} if files is not None else {}
+    except Exception:  # noqa: BLE001
+        fstat = {}
+    step("files", bool(fstat.get("font") and fstat.get("glyphs")),
+         "Uploaded." if fstat.get("font") and fstat.get("glyphs") else
+         "Optional: Apple’s SF Pro and SF Symbols, which each home supplies itself. Fallback fonts and icons work "
+         "without them.", "#/mantel/files")
+
+    on = bool(getattr(cfg, "commands_enabled", False))
+    step("commands", on, "On: people control the house within their roles, and every command is in the Audit Log."
+         if on else "Off: Mantel is read-only. When the roles look right, " + COMMANDS_HOW[how][0].lower() +
+         COMMANDS_HOW[how][1:], None, how=COMMANDS_HOW[how])
+
+    complete = all(s["state"] != "todo" for s in out if not s["optional"])
+    return {"steps": out, "complete": complete, "dismissed": k["dismissed"], "install": how, "house": house,
+            "done": sum(1 for s in out if s["state"] == "done"), "total": len(out)}
+
+
+# ---------------------------------------------------------------------------------------------- REST
+def _manager(request: web.Request):
+    ident = require_user(request)
+    if ident.device is not None or ident.user.role not in MANAGERS:
+        raise web.HTTPForbidden(text='{"error":"forbidden"}', content_type="application/json")
+    return ident
+
+
+def _owner(request: web.Request):
+    ident = _manager(request)
+    if ident.user.role != "owner":
+        raise web.HTTPForbidden(text='{"error":"owner_only"}', content_type="application/json")
+    sessions.check_csrf(request, ident)
+    return ident
+
+
+async def get_setup(request: web.Request) -> web.Response:
+    ident = _manager(request)
+    row = request.app["accounts"].get_user(ident.user.id)
+    me = request.app["accounts"].describe(row) if row is not None else {}
+    got = await steps(request.app, me)
+    return ok({**got, "can_edit": ident.user.role == "owner"})
+
+
+async def put_step(request: web.Request) -> web.Response:
+    _owner(request)
+    sid = request.match_info["id"]
+    if sid not in IDS:
+        return error(404, "not_found")
+    try:
+        body = await request.json()
+    except ValueError:
+        body = None
+    state = body.get("state") if isinstance(body, dict) else "?"
+    if state not in ("confirmed", "skipped", None):
+        return error(400, "invalid")
+    if state == "confirmed" and sid not in CONFIRMABLE or state == "skipped" and sid not in SKIPPABLE:
+        return error(400, "invalid", message="That step can’t be " + state + ".")
+    k = kept(request.app)
+    for name in ("confirmed", "skipped"):
+        have = set(k[name])
+        (have.add if state == name else have.discard)(sid)
+        k[name] = sorted(have)
+    _keep(request.app, k)
+    return ok({"id": sid, "state": state})
+
+
+async def put_setup(request: web.Request) -> web.Response:
+    _owner(request)
+    try:
+        body = await request.json()
+    except ValueError:
+        body = None
+    if not isinstance(body, dict) or not isinstance(body.get("dismissed"), bool):
+        return error(400, "invalid")
+    k = kept(request.app)
+    k["dismissed"] = body["dismissed"]
+    _keep(request.app, k)
+    return ok({"dismissed": k["dismissed"]})
+
+
+def summary(app: web.Application) -> dict:
+    """What the overview carries for the page's first choice, without asking Home Assistant: dismissed, and whether
+    the steps that need no judgement still hold it open (the page reads GET /api/setup for the rest)."""
+    k = kept(app)
+    ha = _status(app, "ha")
+    return {"dismissed": k["dismissed"],
+            "open": not k["dismissed"] and (not (ha.get("live") or {}).get("connected") or
+                                            not {"home", "screens"} <= set(k["confirmed"]) | _imported(app))}
+
+
+def _imported(app: web.Application) -> set[str]:
+    store = getattr(app.get("settings"), "store", None)
+    return {"screens"} if store is not None and store.import_record() else set()
+
+
+def register(app: web.Application) -> None:
+    app["setup_guide_cache"] = {}             # Home Assistant's get_config, reused for CONFIG_TTL
+    app.router.add_get("/api/setup", get_setup)
+    app.router.add_put("/api/setup", put_setup)
+    app.router.add_put("/api/setup/steps/{id}", put_step)

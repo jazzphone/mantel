@@ -745,6 +745,8 @@ def docs_from_panel(payload: Any) -> list[tuple[str, str, dict]]:
 # GENERATED, only while there is no board and no import; the import replaces it while it is untouched.
 HOME_SCREEN = "dashboard-home"
 GENERATED = "mantel:generated"
+NO_HK_FRONTEND = ("Home Assistant doesn't run HK Frontend, so there is nothing to import. Mantel's generated Home "
+                  "screen builds itself from your rooms and devices.")
 
 
 def seed_home_screen(store: SettingsStore) -> bool:
@@ -1420,11 +1422,19 @@ class SettingsService:
         if not KEY_RE["tablet"].match(tid):
             raise SettingsError("invalid_format", fields={"name": "name_needed"})
         await self.need(identity, Scope("tablet", tid))
+        return self.add_tablet(given, actor, msg["type"], tid=tid)
+
+    def add_tablet(self, given: dict, actor: Actor, message: str, *, tid: str | None = None) -> dict:
+        """Write a new HK tablet (its settings checked by the model) and publish it. The caller has decided who may:
+        the socket's Add Tablet through RBAC (``_tablet_add``), enrolment as an Owner or Admin (devices.enroll)."""
+        tid = tid or SM.tablet_id(str(given.get("name") or ""), set(self.store.docs("tablet")))
+        if not KEY_RE["tablet"].match(tid):
+            raise SettingsError("invalid_format", fields={"name": "name_needed"})
         new, errors = self.model.apply_tablet({}, {"name": "", **given}, tid)
         if errors:
             raise SettingsError("invalid_format", fields=errors)
         new["uid"] = f"tablet_{tid}"
-        self._store([("tablet", tid, new)], actor, msg)
+        self._store([("tablet", tid, new)], actor, {"type": message})
         return {"id": tid, "tablet": self.store.body("tablet", tid)}
 
     async def _tablet_remove(self, identity, actor, msg):
@@ -1672,7 +1682,12 @@ def register(app: web.Application, hub: Any, hooks: Any = None, *, store: Settin
         proxy = getattr(hub, "readproxy", None)
         if proxy is None or not hasattr(proxy, "read_hk_settings"):
             raise SettingsError("unavailable", "no connection to Home Assistant to import from")
-        return await proxy.read_hk_settings()
+        try:
+            return await proxy.read_hk_settings()
+        except RuntimeError as exc:
+            if str(exc) == "unknown_command":       # HA answered: it doesn't know hk_frontend/panel/get
+                raise SettingsError("no_hk_frontend", NO_HK_FRONTEND) from None
+            raise
 
     def who(request: web.Request) -> Any:
         from .sessions import identity
@@ -1696,7 +1711,8 @@ def register(app: web.Application, hub: Any, hooks: Any = None, *, store: Settin
                                         actor=actor_of(ident), model=service.model,
                                         read_features=service.hooks.feature_reader(getattr(hub, "readproxy", None)))
         except SettingsError as exc:
-            return web.json_response({"error": exc.code, "message": str(exc)}, status=400 if exc.code != "unavailable" else 503)
+            status = {"unavailable": 503, "no_hk_frontend": 409}.get(exc.code, 400)
+            return web.json_response({"error": exc.code, "message": str(exc)}, status=status)
         except Exception as exc:  # noqa: BLE001 -- HA unreachable or refused
             log.warning("settings import failed: %s", exc)
             return web.json_response({"error": "import_failed", "message": str(exc)}, status=502)

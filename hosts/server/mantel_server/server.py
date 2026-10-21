@@ -35,7 +35,7 @@ from . import (admin_page, atrest, backup, connections, features, linked, linked
                linked_actions, login_page, phones, supervisor_discovery,
                photos, service_accounts, talk_relay, user_files)
 from . import default_screens, direct, direct_tls, docs_pages, ha_dashboards, ma_page, media_proxy, proxy_check, proxy_trust, security_headers, tablet_links, user_data
-from . import app_shell, cf_access
+from . import app_shell, cf_access, setup_guide
 from .authz import Authz, Principal, resolve_door
 from .config import Config
 from .connectors import REFUSE_ALL, Ctx, Hooks
@@ -500,6 +500,7 @@ def build_app(cfg: Config, token: str, store: Store | None = None, connect_ha: b
     devices.register(app, hub)
     login_page.register(app, hub)     # /login (passkey, password + TOTP, Sign in with HA via /login/ha)
     admin_page.register(app, hub)     # /admin -> /settings; /admin?plain=1 the plain fallback page; the overview
+    setup_guide.register(app)         # Set Up Mantel: the first run's checklist (GET /api/setup)
     pins.register(app, hub)
     alarm_pin.register(app, hub)      # HK's Alarm PIN: the keypad's code checked by Mantel (GATEWAY.md "The alarm")
     ingress.register(app, hub, token)                   # HA App mode / Connect (cfg.ingress); inert otherwise

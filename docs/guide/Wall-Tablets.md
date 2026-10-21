@@ -19,7 +19,7 @@ Enrolling a browser links the two by room: you pick one of HK's tablets, and the
 
 ## Before you start
 
-- Add the tablet in **Mantel Settings** → **All Screens** → **Wall Tablets** first, with its screen and room. (You can enroll a tablet with only a Home Assistant area, but HK's idle and screensaver features then don't reach it.)
+- Nothing to add first. When you enroll, pick one of HK's wall tablets, or **A New Tablet** and its Home Assistant area: Mantel adds that HK tablet for you (Owners and Admins), so its idle return, screensaver and black screen work at once. Its screen and behaviour are in **Mantel Settings** → **All Screens** → **Wall Tablets** afterwards.
 - The tablet must be **on your home network**. Enrolling from outside the home is refused, and a tablet's credential never works from outside.
 - You need someone who can enroll: an **Owner** or **Admin**, or a **Wall Tablet** account made for this tablet ([below](#with-a-wall-tablet-account)).
 - A kiosk app on the tablet, such as **Fully Kiosk Browser** or **Kiosk Satellite**, or any browser.
@@ -59,7 +59,7 @@ Do this **on the tablet itself**, in the kiosk app's own browser. The credential
 1. On the tablet, sign in to Mantel as an Owner or Admin. Use a passkey or a password; you're signed out again in step 6.
 2. Open **Mantel Settings** → **Devices**.
 3. Select **Make This Browser a Wall Tablet…**.
-4. Under **Which HK Tablet**, pick the tablet. **In Use** means another enrolled device is already in its room. For a room with no HK tablet, choose **Not One of These**, then the **Room** (one of your Home Assistant areas).
+4. Under **Which HK Tablet**, pick the tablet. **In Use** means another enrolled device is already in its room. For a room with no HK tablet, choose **A New Tablet**, then the **Room** (one of your Home Assistant areas): Mantel adds the HK tablet, named as the device. (A Wall Tablet account sees **Not One of These** instead and adds no HK tablet.)
 5. Check the **Name** (it follows the HK tablet you picked) and leave **Role** on **Wall Tablet**.
 6. Select **Make This a Wall Tablet**, then **Make It a Tablet**.
 

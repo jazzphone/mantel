@@ -5,7 +5,7 @@ Three of the house's wall tablets were enrolled with rooms typed as "Livingroom"
 (features.may_speak_for) and /home sent them to the Kitchen (the house, 2026-10-19). Now:
 
 * "Make This Browser a Wall Tablet…" lists HK's wall tablets (GET /api/devices/rooms), marks the ones an enrolled device
-  already serves, and picking one names the device after it; "Not One of These" offers HA's areas, never free text.
+  already serves, and picking one names the device after it; "A New Tablet" ("Not One of These" where the person can't add HK tablets) offers HA's areas, never free text, and makes that room's HK tablet with the device.
 * Devices warns on a wall tablet device whose room has no HK tablet, and its own page moves it in place
   (PATCH /api/devices/{id}).
 
@@ -80,7 +80,7 @@ await find(g, 'Make This a Wall Tablet').onClick();
 g = await open(JSON.parse(process.argv[4]), ['mantel', 'devices', 'enroll']);
 await find(g, 'Make This a Wall Tablet').onClick();        // nothing chosen: refused on the page, nothing sent
 out.unchosen = await draw();
-find(out.unchosen, 'Not One of These').onClick(true);
+find(out.unchosen, 'A New Tablet').onClick(true);
 g = await draw();
 out.other = g;
 find(g, 'Room').onChange('garage');
@@ -159,7 +159,7 @@ def row(groups, label):
 def test_the_dialog_lists_hks_tablets_and_marks_the_ones_in_use(got):
     [pick] = [g for g in got["owner_first"] if g.get("header") == "Which HK Tablet"]
     assert [(r["kind"], r["label"]) for r in pick["rows"]] == [
-        ("check", "Kitchen"), ("check", "Living Room"), ("check", "Master Bedroom"), ("check", "Not One of These")]
+        ("check", "Kitchen"), ("check", "Living Room"), ("check", "Master Bedroom"), ("check", "A New Tablet")]
     kitchen = row(got["owner_first"], "Kitchen")
     assert kitchen["value"] == "In Use" and "Already “Kitchen Tablet”" in kitchen["sub"]
     assert row(got["owner_first"], "Master Bedroom")["sub"] == "Master Bedroom · Bedroom"        # its room · its screen
@@ -177,13 +177,15 @@ def test_picking_a_tablet_names_the_device_and_enrols_it_with_that_tablet(got):
                         "body": {"name": "Living Room", "role": "wall_tablet", "tablet": "living"}}
 
 
-def test_nothing_chosen_sends_nothing_and_not_one_of_these_offers_has_areas(got):
-    assert {"_text": "Choose its HK tablet, or Not One of These and its room."} in got["unchosen"]
+def test_nothing_chosen_sends_nothing_and_a_new_tablet_offers_has_areas(got):
+    assert {"_text": "Choose its HK tablet, or A New Tablet and its room."} in got["unchosen"]
     room = row(got["other"], "Room")
     assert room["kind"] == "select" and [o[0] for o in room["options"]] == ["", "garage", "kitchen", "living_room", "master_bedroom"]
     enrol = [s for s in got["sent"] if s["path"].endswith("/api/devices/enroll")]
     assert len(enrol) == 2                                       # the unchosen press sent nothing
-    assert enrol[1]["body"] == {"name": "Garage Tablet", "role": "wall_tablet", "room": "garage"}
+    # an Owner's new room gets its HK tablet made with the device (devices.enroll new_tablet)
+    assert enrol[1]["body"] == {"name": "Garage Tablet", "role": "wall_tablet", "room": "garage", "new_tablet": True}
+    assert "Mantel adds an HK wall tablet in this room" in next(g for g in got["other"] if g.get("rows") and g["rows"][0]["label"] == "Room")["footer"]
 
 
 def test_a_wall_tablet_account_starts_from_its_own_hk_tablet(got):

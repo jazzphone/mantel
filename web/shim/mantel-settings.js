@@ -31,6 +31,7 @@ const PAGES = [
   ['connections', 'Connections', 'mdi:lan', C.green, 'end', 'Mantel'],
   ['connect', 'Mantel Connect', 'mdi:link-variant', C.orange, 'end', 'Mantel'],
   ['files', 'Your Files', 'mdi:folder', C.purple, 'end', 'Mantel'],
+  ['setup', 'Set Up Mantel', 'mdi:clipboard-check', C.green, 'end', 'Mantel'],
   ['about', 'About', 'mdi:information-outline', C.gray, 'end', 'Mantel'],
 ];
 // Photos is inside Your Files (#/mantel/files/photos): its old addresses forward there
@@ -724,7 +725,7 @@ const tabletList = (rooms) => Object.entries((rooms && rooms.tablets) || {}).fil
 const lostTablet = (d, tablets) => !d.revoked && d.role === 'wall_tablet' && Object.keys(tablets || {}).length > 0 && !(d.hk_tablets || []).length;
 // THE ROOM PICKER: one of HK's wall tablets (the device takes its room), else Not One of These and one of HA's
 // areas. `self` is the device being moved (its own tablet isn't "in use"); onTablet(t) when a tablet is picked.
-function roomChoice(form, rooms, self, onTablet) {
+function roomChoice(form, rooms, self, onTablet, makes = false) {
   const d = draft(form);
   const tablets = tabletList(rooms);
   const rows = tablets.map(([tid, t]) => {
@@ -734,14 +735,16 @@ function roomChoice(form, rooms, self, onTablet) {
                        value: others.length ? 'In Use' : undefined, on: d.tablet === tid, fk: 'mx:' + form + ':tablet:' + tid,
                        onClick: () => { d.tablet = tid; d.other = false; if (onTablet) onTablet(t); redraw(); } });
   });
-  rows.push(K().check({ label: 'Not One of These', sub: 'A room with no HK wall tablet', on: !!d.other, fk: 'mx:' + form + ':other',
+  rows.push(K().check({ label: makes ? 'A New Tablet' : 'Not One of These', sub: makes ? 'In a room with no HK wall tablet yet: Mantel adds one' : 'A room with no HK wall tablet', on: !!d.other, fk: 'mx:' + form + ':other',
                         onClick: () => { d.tablet = ''; d.other = true; redraw(); } }));
   const out = [group({ header: 'Which HK Tablet', footer: tablets.length ? 'Its touches and black screen reach Mantel as this HK tablet’s (All Screens, Wall Tablets). “In Use”: an enrolled device is already in its room.'
-    : 'HK has no wall tablets in Mantel’s settings yet (All Screens, Wall Tablets).' }, rows)];
+    : makes ? 'HK has no wall tablets in Mantel’s settings yet: choose A New Tablet and its room.' : 'HK has no wall tablets in Mantel’s settings yet (All Screens, Wall Tablets).' }, rows)];
   if (d.other) {
     const areas = (rooms && rooms.areas) || [];
     if (d.room && !areas.some((a) => a.id === d.room)) d.room = '';
-    out.push(group({ footer: areas.length ? 'With no HK tablet in its room, its touches and black screen won’t reach Mantel.' : 'Home Assistant has not told Mantel about any areas yet.' },
+    out.push(group({ footer: !areas.length ? 'Home Assistant has not told Mantel about any areas yet.'
+      : makes ? 'Mantel adds an HK wall tablet in this room, named as below, so its idle return, screensaver and black screen work at once. Change them later in All Screens, Wall Tablets.'
+      : 'With no HK tablet in its room, its touches and black screen won’t reach Mantel.' },
       areas.length ? [choose(form, 'room', 'Room', [['', 'Choose…']].concat(areas.map((a) => [a.id, a.name])), '')] : []));
   }
   return out;
@@ -843,7 +846,7 @@ function pEnroll(back = ['Devices', '#/' + ROUTE + '/devices']) {
     else {
       for (const g of roomChoice('device', rooms, null, (t) => {   // the name follows the tablet picked, until it is typed
         if (!d.name || d.name === d.auto) { d.name = t.name; d.auto = t.name; }
-      })) c.appendChild(g);
+      }, ['owner', 'admin'].includes(u.role))) c.appendChild(g);
     }
     c.appendChild(group({ footer: 'The person is signed out of this browser at once, and it keeps its own credential. What it may do is its role’s (Roles & Grants). Only on the home network.' }, [
       field('device', 'name', 'Name', { placeholder: 'Kitchen Tablet', maxlength: 64 }),
@@ -851,10 +854,13 @@ function pEnroll(back = ['Devices', '#/' + ROUTE + '/devices']) {
     c.appendChild(group({}, [button('Make This a Wall Tablet', async () => {
       const name = (d.name || '').trim();
       const where = roomBody('device');
-      if (!where && !nothing) { flash = { key: 'enroll', text: d.other ? 'Choose its room.' : 'Choose its HK tablet, or Not One of These and its room.', err: true }; redraw(); return; }
+      const makes = ['owner', 'admin'].includes(u.role);
+      if (!where && !nothing) { flash = { key: 'enroll', text: d.other ? 'Choose its room.' : 'Choose its HK tablet, or ' + (makes ? 'A New Tablet' : 'Not One of These') + ' and its room.', err: true }; redraw(); return; }
       if (!name) { flash = { key: 'enroll', text: 'Give the tablet a name.', err: true }; redraw(); return; }
       if (!(await ask({ title: 'Make this browser a wall tablet?', message: 'You will be signed out here. From now on this browser acts as the tablet “' + name + '”.', ok: 'Make It a Tablet' }))) return;
-      const r = await act('enroll', () => api('POST', '/api/devices/enroll', { name, role: d.role, ...(where || {}) }));
+      // a room with no HK tablet: an Owner or Admin gets that HK tablet made too, so nothing waits on All Screens
+      const make = d.other && where && makes ? { new_tablet: true } : {};
+      const r = await act('enroll', () => api('POST', '/api/devices/enroll', { name, role: d.role, ...(where || {}), ...make }));
       if (r) { enrolled = r.device; clearDraft('device'); redraw(); }
     }, { center: true, fk: 'mx:enroll-device' })]));
   } };
@@ -1858,6 +1864,93 @@ function pAudit() {
   } };
 }
 
+// ============================================================================================ Set Up Mantel
+// THE FIRST RUN'S CHECKLIST (setup_guide.py): each step as the house has it now, and the page that does it. A step
+// is done when the house says so; "Later" (skipped) and "Looks Right" (confirmed) are the only things kept.
+const STEP_ICON = { ha: ['mdi:home-assistant', C.blue], home: ['mdi:home', C.orange], screens: ['mdi:monitor-dashboard', C.teal],
+                    people: ['mdi:account', C.blue], protect: ['mdi:shield-key', C.indigo], alarm: ['mdi:shield-lock', C.red],
+                    tablets: ['mdi:tablet', C.teal], music: ['mdi:music', C.pink], link: ['mdi:link-variant', C.orange],
+                    files: ['mdi:folder', C.purple], commands: ['mdi:lightning-bolt', C.green] };
+const STEP_SAYS = { done: 'Done', todo: 'To Do', skipped: 'Later' };
+const setupOpen = () => !!(me && me.setup && me.setup.open);
+const setupRead = () => load('setup', () => api('GET', '/api/setup'));
+function stepRow(s) {
+  return K().nav({ label: s.title, sub: s.state === 'done' ? null : s.detail, value: STEP_SAYS[s.state], tile: STEP_ICON[s.id],
+                   href: '#/' + ROUTE + '/setup/step/' + s.id, fk: 'mx:setup:' + s.id });
+}
+function setStep(id, state, okText) {
+  return act('setup', () => api('PUT', '/api/setup/steps/' + id, { state }), okText, 'setup')
+    .then(async (r) => { if (r) { try { await refreshMe(); } catch (e) { /* the page still shows the step */ } redraw(); } return r; });
+}
+function pSetup(sub) {
+  if (sub[0] === 'screens') return pSetupScreens();
+  if (sub[0] === 'step' && sub[1]) return pSetupStep(sub[1]);
+  return { title: 'Set Up Mantel', top: true, scope: 'What Mantel needs before the household uses it. Each step opens the page that does it, and is done when the house says so.', body(c) {
+    result(c, 'setup');
+    const got = setupRead();
+    if (!got) { pending(c, 'Looking at the house…'); return; }
+    if (got.err) { failed(c, got.err); return; }
+    const s = got.data;
+    const needed = s.steps.filter((x) => !x.optional), optional = s.steps.filter((x) => x.optional);
+    const left = needed.filter((x) => x.state === 'todo').length;
+    c.appendChild(group({ header: 'Needed', footer: s.complete ? 'Mantel is set up. The optional steps can be done whenever you like.'
+      : left + (left === 1 ? ' step needs' : ' steps need') + ' doing. You can leave the ones marked Later.' }, needed.map(stepRow)));
+    c.appendChild(group({ header: 'Optional' }, optional.map(stepRow)));
+    if (!s.can_edit) { c.appendChild(group({ footer: 'Only an Owner can mark steps for later.' }, [])); return; }
+    c.appendChild(group({ footer: s.dismissed ? 'Mantel Settings opens on its usual page. This list stays here, under Mantel.'
+      : 'Close the guide and Mantel Settings opens on its usual page; this list stays here, under Mantel.' }, [
+      button(s.dismissed ? 'Open This Guide First Again' : 'Close the Guide', async () => {
+        if (await act('setup', () => api('PUT', '/api/setup', { dismissed: !s.dismissed }), s.dismissed ? 'The guide opens first again.' : 'Closed.', 'setup')) {
+          try { await refreshMe(); } catch (e) { /* drawn from the cache */ }
+          redraw();
+        }
+      }, { fk: 'mx:setup:dismiss' })]));
+  } };
+}
+function pSetupStep(id) {
+  const back = ['Set Up Mantel', '#/' + ROUTE + '/setup'];
+  const got = setupRead();
+  const s = got && got.data && got.data.steps.find((x) => x.id === id);
+  return { title: s ? s.title : 'Step', back, body(c) {
+    result(c, 'setup');
+    if (!got) { pending(c); return; }
+    if (got.err) { failed(c, got.err); return; }
+    if (!s) { failed(c, 'That step isn’t part of this Mantel’s setup.'); return; }
+    c.appendChild(group({ footer: s.detail }, [info('Status', s.optional ? 'Optional' : null, STEP_SAYS[s.state], s.state === 'todo' ? 'warn' : '')]));
+    if (s.how && s.state !== 'done') c.appendChild(group({ header: 'How', footer: 'Turned on where Mantel runs, never from a page: no setting, app or message can switch house commands on.' }, [secretCell(s.how, 'mx-setup-how')]));
+    const rows = [];
+    if (s.route) rows.push(K().nav({ label: s.state === 'done' ? 'Open' : 'Do It Now', href: s.route, fk: 'mx:setup:go:' + id }));
+    const edit = got.data.can_edit;
+    if (edit && s.can_confirm && s.state !== 'done') rows.push(button('Looks Right', () => setStep(id, 'confirmed', 'Marked done.'), { fk: 'mx:setup:ok:' + id }));
+    if (edit && s.can_confirm && s.state === 'done' && id !== 'screens') rows.push(button('Not Done Yet', () => setStep(id, null, 'Back on the list.'), { fk: 'mx:setup:undo:' + id }));
+    if (edit && s.can_skip && s.state === 'todo') rows.push(button('Later', () => setStep(id, 'skipped', 'Left for later.'), { fk: 'mx:setup:skip:' + id }));
+    if (edit && s.state === 'skipped') rows.push(button('Put Back on the List', () => setStep(id, null, 'Back on the list.'), { fk: 'mx:setup:unskip:' + id }));
+    if (rows.length) c.appendChild(group({}, rows));
+  } };
+}
+// SCREENS: HK Frontend's, imported once, or the generated Home screen, opened and judged
+function pSetupScreens() {
+  const back = ['Set Up Mantel', '#/' + ROUTE + '/setup'];
+  return { title: 'Screens', back, body(c) {
+    result(c, 'setup');
+    const got = setupRead();
+    if (!got) { pending(c); return; }
+    if (got.err) { failed(c, got.err); return; }
+    const s = got.data.steps.find((x) => x.id === 'screens') || {};
+    const edit = got.data.can_edit;
+    c.appendChild(group({ footer: s.detail }, [info('Status', null, STEP_SAYS[s.state] || '', s.state === 'todo' ? 'warn' : '')]));
+    if (s.imported) {
+      c.appendChild(group({}, [K().nav({ label: 'Open the Home Screen', href: mantelUrl('/home'), icon: 'mdi:open-in-new', fk: 'mx:setup:home' })]));
+      return;
+    }
+    const rows = [K().nav({ label: 'Open the Home Screen', sub: 'In this browser; come back here afterwards', href: mantelUrl('/home'), icon: 'mdi:open-in-new', fk: 'mx:setup:home' })];
+    if (edit && s.state !== 'done') rows.push(button('It Looks Right', () => setStep('screens', 'confirmed', 'Marked done.'), { fk: 'mx:setup:ok:screens' }));
+    c.appendChild(group({ header: 'The Generated Home Screen', footer: 'It builds itself from Home Assistant’s areas and devices, and follows them as they change. ' +
+      'Rooms with nothing in them stay off it. Name and arrange your areas in Home Assistant, or fine-tune the screen in its own settings under Screens.' }, rows));
+    if (s.hk_frontend && ['owner', 'admin'].includes(me.user.role)) drawImport(c, true);
+  } };
+}
+
 // ============================================================================================ the host
 // Photos (mantel-photos.js) draws with this page's own helpers
 const photoTools = {
@@ -1890,8 +1983,9 @@ function pAbout() {
   } };
 }
 const BUILD = { me: pMe, people: pPeople, devices: pDevices, roles: pRoles, files: pFiles, service: pService, about: pAbout,
-                connect: pConnect, connections: pConnections, audit: pAudit };
-const can = (s) => !!me && me.sections.includes(s);
+                connect: pConnect, connections: pConnections, audit: pAudit, setup: pSetup };
+// Set Up Mantel has no section of its own: the overview carries `setup` for the people who manage the house
+const can = (s) => !!me && (s === 'setup' ? !!me.setup : me.sections.includes(s));
 // the house's own settings: for the people who manage it, from a browser that isn't a tablet, once Mantel
 // can read Home Assistant (the first run opens Connections without them)
 export const manages = () => !!me && can('people') && me.ha_set_up !== false;
@@ -1908,6 +2002,9 @@ export const host = {
     const u = me.user;
     out.push({ place: 'top', rows: [{ route: ROUTE + '/me', label: u.name || u.username || 'Me', sub: roleLabel(u.role) + ' · Sign-In, Passkeys, Sessions',
                                       tile: ['mdi:account-circle', C.gray], root: !manages() }] });
+    // while setup is open it leads the list too, with how far it has got
+    if (setupOpen()) out.push({ place: 'top', rows: [{ route: ROUTE + '/setup', label: 'Set Up Mantel', sub: 'What Mantel still needs',
+                                                       tile: ['mdi:clipboard-check', C.green] }] });
     const heads = {};
     for (const [s, title, icon, color, place, header] of PAGES) {
       if (place !== 'end' || !can(s)) continue;
@@ -1934,6 +2031,7 @@ export const host = {
   },
   first() {
     if (!me) return null;
+    if (setupOpen()) return ROUTE + '/setup';
     if (me.ha_set_up === false && can('connections')) return ROUTE + '/connections';
     return manages() ? null : ROUTE + '/me';
   },

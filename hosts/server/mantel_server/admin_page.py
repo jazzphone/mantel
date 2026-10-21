@@ -29,7 +29,7 @@ from importlib.resources import files
 
 from aiohttp import web
 
-from . import frame_origins, ingress, rbac, security_headers
+from . import frame_origins, ingress, rbac, security_headers, setup_guide
 from .accounts import MANAGERS
 from .devices import DEVICE_ROLES
 from .login_page import login_url
@@ -143,6 +143,9 @@ async def overview(request: web.Request) -> web.Response:
         "connect_port": getattr(request.app["cfg"], "connect_port", None),
         # first run: the page opens Connections while Home Assistant is not set up (connections.py)
         "ha_set_up": (request.app["connections"].current("ha") is not None) if "connections" in request.app else True,
+        # Set Up Mantel (setup_guide.py): whether it opens first, for the people who manage the house
+        "setup": setup_guide.summary(request.app) if ident.device is None and ident.user.role in MANAGERS
+        and "accounts" in request.app and "store" in request.app else None,
     }, headers=HEADERS)
 
 
