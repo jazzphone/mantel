@@ -12,19 +12,20 @@ Full description, findings and the exact commands to verify it: `docs/phase3/PAC
 | `compose.announce.yaml` | Optional: announces Mantel on the home network (`_mantel._tcp`), so Home Assistant's **Mantel Link** offers "Discovered: Mantel" (confirmed with a pairing code from Mantel Settings → Connections → Home Assistant Link). The one service on the host's network (multicast never leaves Docker's), sealed by `tools/package_check.py`. Enable with `COMPOSE_FILE=compose.yaml:compose.announce.yaml`; or let the host's avahi announce it: `docker compose exec mantel-server python -m mantel_server.announce --avahi --file /data/announce.json`. Without either, add Mantel Link by hand with Mantel's address and a pairing code. |
 | `.env.example` | Settings only, **no secrets**. Copy to `.env` (git-ignored). |
 | `secrets/README.md` | The secret files (`/etc/hk/secrets/...`), their owner/mode and how to create them. |
-| `caddy/Caddyfile`, `tls-dns01.caddy`, `tls-internal.caddy` | LAN door with TLS (DNS-01 or Caddy's own CA), tunnel door, headers, CSP. |
+| `caddy/Caddyfile`, `tls-internal.caddy`, `tls-dns01-<host>.caddy` | LAN door with TLS (Caddy's own CA, the default; or DNS-01 through Cloudflare, Duck DNS, Porkbun, Route 53, DigitalOcean or deSEC), tunnel door, headers. `tls-dns01.caddy` is the Cloudflare one's older name. |
+| `compose.dns-<host>.yaml` | Your own domain through a DNS host other than Cloudflare: mounts its `tls-dns01-<host>.caddy` and gives Caddy its secret files. Enable with `COMPOSE_FILE=compose.yaml:compose.dns-<host>.yaml` (`.env.example`, HTTPS "B"). |
 | `go2rtc/go2rtc.yaml` | go2rtc settings; streams are added at run time by Mantel Server. |
 | `update.sh` | Pull, restart, wait for healthy, roll back to the previous images on failure. It pulls every image `.env` names from a registry (`MANTEL_SERVER_IMAGE`, `MANTEL_TRANSCODE_IMAGE`, `MANTEL_CADDY_IMAGE`), although each Mantel service also has a `build:` section; the `:local` defaults are built here and never pulled (update those with `git pull && docker compose build --pull && docker compose up -d --wait`). |
 
 ```bash
-cp .env.example .env            # edit MANTEL_HOSTNAME, MANTEL_LAN_IP, MANTEL_HA_URL
+cp .env.example .env            # edit MANTEL_HOSTNAME, MANTEL_LAN_IP; HTTPS: Caddy's own CA unless you choose a domain
 # create the secret files: secrets/README.md
 docker compose up -d --wait
-docker compose run --rm mantel-server links     # list/link people (first Owner is an explicit admin step)
+docker compose logs mantel-server               # the first Owner's one-time setup code, for /login "First start"
 ```
 
-No home domain? Set `MANTEL_TLS_SNIPPET=./caddy/tls-internal.caddy` and `MANTEL_CADDY_IMAGE=caddy:2` (the
-stock image is enough); browsers will warn until Caddy's local CA root is trusted.
+With Caddy's own CA (the default) browsers warn until its root is trusted on each device; with your own domain
+(DNS-01) the certificate is a real one.
 
 ## Mantel Link (Home Assistant's side)
 

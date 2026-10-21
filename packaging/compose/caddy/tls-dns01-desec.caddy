@@ -1,0 +1,11 @@
+# LAN TLS with a real certificate via the ACME DNS-01 challenge through deSEC (no inbound internet port needed).
+# Needs the mantel-caddy image (packaging/docker/caddy.Dockerfile builds this provider in) and the secret file
+# secrets/desec_token: a deSEC token (desec.io -> Token Management), best limited to the domain with a
+# token policy. Chosen with COMPOSE_FILE=compose.yaml:compose.dns-desec.yaml, which mounts this file and
+# that secret.
+tls {
+	dns desec {
+		token {file./run/secrets/desec_token}
+	}
+	resolvers 1.1.1.1
+}
