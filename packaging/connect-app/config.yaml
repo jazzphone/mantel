@@ -3,7 +3,7 @@
 # `image:` key). Use it ONLY when Mantel Server runs outside Home Assistant (Docker, an LXC); when Mantel
 # runs as the Mantel App it does all of this itself. docs/phase3/CONNECT.md, packaging/mantel-connect/README.md.
 name: Mantel Connect
-version: "0.1.42"
+version: "0.1.43"
 slug: mantel_connect
 description: Puts a Mantel Server that runs outside Home Assistant (Docker, an LXC) in the sidebar and the Companion app
 url: https://github.com/jazzphone/mantel

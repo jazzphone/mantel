@@ -1086,6 +1086,16 @@ Everything on main since 0.1.28 (validation green: JS 130, HA py 732, Mantel 283
   address; a Mantel that moved is given its new address with Reconfigure). The house had 0.1.3 without it.
 - No HA backup (Avery).
 
+### 0.1.43 (2026-10-21)
+
+- **Set Up Mantel**: a first-run checklist in Mantel Settings; enrolling a tablet into a room with no HK tablet adds it.
+- Screens follow Home Assistant's locale, time zone, units and country (24-hour clocks, local dates, metric
+  fallbacks); the hemisphere follows HA's latitude and the US-only themes stay off outside the US.
+- Docker/LXC: the first Owner's setup code in the log, HTTPS chosen at install, six pinned DNS hosts. The App:
+  Duck DNS beside Cloudflare for built-in HTTPS (`dns_provider`).
+- Music on a Home Assistant without HK Frontend says "not set up" once instead of retrying.
+- Mantel Link unchanged (0.1.4).
+
 ### Removal
 
 Stop and uninstall **Mantel** (Settings → Apps → Mantel → Uninstall); this removes its image and `/data`
