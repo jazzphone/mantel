@@ -212,5 +212,17 @@ window.hkStrategy.generate({ music: false }, hass).then(function (cfg) {
      cfg.views.filter(function (v) { return v.path === 'room-kitchen'; })[0].sky_room === 'room-kitchen', cfg.views.map(function (v) { return v.sky_page; }));
   ok('Room Pages listed: every room\'s page after the others', paths[0] === 'lights' && paths.indexOf('room-kitchen') > 0 && paths.indexOf('home') < 0, paths);
 }).then(function () {
+  // TRACKING, TWO TO A LINE (2026-10-21): a card of 700-1000 px showed one
+  // column with half its width empty (two only from 1100 px, the bars drawn
+  // to a guess). Two cells from BP.cardSide, the bars to the cell's width,
+  // drawn again when the card's width changes.
+  var src = read(HK_ROOT + '/frontend/cards/hk-energy.js');
+  var tk = src.slice(src.indexOf('class HkEnergyTrackingCard'), src.indexOf("register('hk-energy-tracking-card'"));
+  ok('Tracking: two cells to a line from a card of BP.cardSide, decided by the card, not a container query',
+     /twoCol = full >= window\.hkCards\.BP\.cardSide/.test(tk) && /'<div class="tl' \+ \(twoCol \? ' two' : ''\)/.test(tk) && !/@container/.test(tk));
+  ok('...each cell its name and figure over bars the cell\'s whole width', /grid-template-areas:"n v" "c c"/.test(tk) &&
+     /var avail = Math\.max\(140, twoCol \? \(cw - 40\) \/ 2 : cw\)/.test(tk));
+  ok('...drawn again when the card\'s width changes', /new ResizeObserver/.test(tk) && /this\._fitWidth\(full\)/.test(tk));
+}).then(function () {
   print(fail ? 'FAIL ' + fail + ' ENERGY PAGE TESTS' : 'ALL ' + pass + ' ENERGY PAGE TESTS PASS');
 }).catch(function (e) { print('Exception: ' + e + ' ' + (e.stack || '')); });

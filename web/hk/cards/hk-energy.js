@@ -2651,12 +2651,21 @@
       return MINI_CSS + [
         // (4 px in, on the page's edges as the cards beside it: DESIGN.md "Page edges")
         'hk-plate.ep.track{height:auto;padding:6px 22px;margin-left:4px;margin-right:4px;width:auto}',
-        // TWO COLUMNS OF ROWS on a wide screen: half the height
+        // TWO TO A LINE (the user's ask, 2026-10-21): each followed meter is a
+        // cell -- its name and comparison over its figure, its bars the cell's
+        // whole width beneath -- two side by side down to a card of
+        // BP.cardSide (between an iPad mini held upright and a phone), one
+        // below that. The card decides (.two, from its own width, the width
+        // the bars are drawn to), not a container query that could disagree.
+        // Before: two columns only from 1100 px, a name / figure / bars row
+        // whose bars were drawn to a guess -- a card of 700-1000 px showed
+        // one column with half its width empty.
         '.tl{display:grid;grid-template-columns:minmax(0,1fr);column-gap:40px}',
-        '@container (min-width:' + window.hkCards.BP.cardRows + 'px){.tl{grid-template-columns:repeat(2,minmax(0,1fr))}.tl .tr:nth-child(2){border-top:0}}',
-        '.tr{display:grid;grid-template-columns:minmax(140px,210px) 110px minmax(0,1fr);column-gap:20px;align-items:center;',
-        '  padding:12px 0;border-top:1px solid ' + window.hkCards.v('line') + '}',
+        '.tl.two{grid-template-columns:repeat(2,minmax(0,1fr))}.tl.two .tr:nth-child(2){border-top:0}',
+        '.tr{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"n v" "c c";column-gap:16px;row-gap:10px;',
+        '  align-items:center;padding:14px 0;border-top:1px solid ' + window.hkCards.v('line') + '}',
         '.tr:first-child{border-top:0}',
+        '.tn{grid-area:n;min-width:0}.tv{grid-area:v;text-align:right}.tc{grid-area:c}',
         '.tn b{display:flex;align-items:center;gap:8px;font-size:15px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
         '.tn b i{width:10px;height:10px;border-radius:50%;flex:none}',
         '.tn span{display:block;margin-top:4px;padding-left:18px;font-size:13px;color:' + window.hkCards.v('ink-2') + ';white-space:nowrap}',
@@ -2665,12 +2674,24 @@
         '.tv u{text-decoration:none;font-size:13px;font-weight:600;margin-left:3px;color:' + window.hkCards.v('ink-2') + '}',
         '.tc{min-width:0;display:flex;justify-content:flex-start}',
         '.tc .bc{align-items:flex-start}',
-        '@media (max-width:' + window.hkCards.BP.phone + 'px){.tr{grid-template-columns:minmax(0,1fr) auto;row-gap:10px}.tc{grid-column:1/-1}}',
-        // compact: no bars, two columns of rows
-        '.compact .tr{grid-template-columns:minmax(0,1fr) auto}.compact .tc{display:none}'
+        // compact: no bars, just each meter's name and figure
+        '.compact .tr{grid-template-areas:"n v";row-gap:0}.compact .tc{display:none}'
       ].join('');
     }
     getCardSize() { return 6; }
+    // DRAWN AGAIN AT A NEW WIDTH (a window resized, a tablet turned, the side
+    // menu opened): the bars are sized in px to the width they were drawn at,
+    // and nothing else redraws this card when only its width changes
+    _fitWidth(w) {
+      var self = this;
+      this._drawnW = w;
+      if (this._fitRO || typeof ResizeObserver !== 'function' || !this._card) return;
+      this._fitRO = new ResizeObserver(function () {
+        var now = self._card ? self._card.clientWidth : 0;
+        if (now && Math.abs(now - (self._drawnW || 0)) >= 8) self._later();
+      });
+      this._fitRO.observe(this._card);
+    }
     _render() {
       this._shell('track');
       var x = this._data(), p = period(), h = this.client, S = window.hkStats;
@@ -2685,10 +2706,12 @@
       var rh = rt.length ? S.hourly(h, rt, HOURS, this, { type: 'max' }) : {}, rd = rt.length ? S.dailyPeak(h, rt, nDays, this) : {};
       if (!eh || !ed || !rh || !rd) return this._paint('<div class="wait">Loading…</div>');
       var day = p === 'now' || p === 'day', nd = R.ax.d.length, typ = M.typical;
-      var cw = (this._card.clientWidth || 1100) - 44, narrow = cw < 600, twoCol = cw >= 1100;
-      var colW = twoCol ? (cw - 40) / 2 : cw;
-      var avail = narrow ? cw : Math.max(140, colW - 210 - 110 - 40);
+      // the bars are drawn to the cell's width: the card's, less its padding
+      // (22 a side), halved with the gap between two cells
+      var full = this._card.clientWidth || 1100, cw = full - 44, twoCol = full >= window.hkCards.BP.cardSide;
+      var avail = Math.max(140, twoCol ? (cw - 40) / 2 : cw);
       if (!this._card.clientWidth) this._later();
+      this._fitWidth(full);
       var val = function (a, i) { var q = a && a[i]; return q && typeof q.v === 'number' && isFinite(q.v) ? q.v : 0; };
       var rowTips = [];
       var rows = list.map(function (u, ui) {
@@ -2742,7 +2765,7 @@
           barChart({ bars: bars, avail: avail, H: 44, id: 'tk' + ui, usual: day || isRt ? 0 : usualDay }) + '</div></div>';
       });
       this._card.classList.toggle('compact', !!(this._config && this._config.compact));
-      this._paint('<div class="tl">' + rows.join('') + '</div>');
+      this._paint('<div class="tl' + (twoCol ? ' two' : '') + '">' + rows.join('') + '</div>');
       // each row reads out in its own comparison line
       var self = this;
       this._card.querySelectorAll('.tr').forEach(function (row, ri) {
