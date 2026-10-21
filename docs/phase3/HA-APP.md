@@ -404,7 +404,7 @@ tablet) as the hassio bridge's gateway `172.30.32.1`, which is also HA Core's ad
 * Connections → "HTTPS and your proxy" names the mode of the port the page was opened on (`own`, or the new
   `builtin`); through the sidebar it stays "Home Assistant App (Ingress)", and the door key is rotated there.
 
-**Built-in HTTPS: why Mantel's own ACME client, not Caddy in the App** (`mantel_server/direct_tls.py`). The
+**Built-in HTTPS: why Mantel's own ACME client, not Caddy in the App** (`mantel_server/direct_tls.py`). *(Update, October 2026: Duck DNS was added beside Cloudflare, chosen with the App option `dns_provider`; the compose stack's Caddy has six pinned DNS modules.)* The
 compose stack's Caddy (xcaddy + the Cloudflare DNS module) is proven, but in the App it would mean either
 compiling Caddy on the house's HA machine at every App build (the Supervisor builds local Apps there: a Go
 toolchain, minutes of CPU and about a gigabyte of memory, on a box that may be a Raspberry Pi) or downloading

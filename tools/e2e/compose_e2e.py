@@ -443,8 +443,9 @@ def owner_token(base, env) -> str:
 
 
 async def ma_page_checks(b: "Browser", label: str, ma: Upstream, port: int) -> None:
-    """Connections: Music Assistant (the engine's connection), then the token for the Music Assistant page;
-    the frame's socket is then signed in by Mantel and the page never sees the token."""
+    """Connections: Music Assistant (the engine's connection), then the token for the Music Assistant page. With
+    commands off (this run) Mantel never signs the frame's socket in, and the page never sees the token; the signed
+    case, commands on, is tests/test_ma_page.py's."""
     ma_addr = ma.url
     status, _, body = await b.post("/api/connections/ma", {"url": ma_addr, "token": "admin-token"})
     check(status == 200, f"{label}: Music Assistant set up on the Connections page (HTTP {status} {loads(body).get('error', '')})")
@@ -464,10 +465,13 @@ async def ma_page_checks(b: "Browser", label: str, ma: Upstream, port: int) -> N
             me = json.loads((await ws.receive(timeout=10)).data)
             await ws.send_str(json.dumps({"message_id": "m2", "command": "auth/logout"}))
             no = json.loads((await ws.receive(timeout=10)).data)
-        check(info.get("homeassistant_addon") is True and (me.get("result") or {}).get("username") == "listener"
-              and no.get("error_code") == 403 and "page-token-user" not in json.dumps([info, me, no]),
-              f"{label}: the /ma/ frame's socket is signed in by Mantel (auth/me: {(me.get('result') or {}).get('username')}), "
-              "sign-out refused, no token in the page")
+        # Commands are off in this run, so there is no gateway: media_proxy.may_sign gives the signed page only to
+        # someone the gateway would let play every speaker (the audit's fix, CHANGELOG "Fixed before release"). The
+        # frame stays on Music Assistant's own sign-in, and the page token never reaches the page.
+        check(info.get("homeassistant_addon") is not True and not (me.get("result") or {}).get("username")
+              and "page-token-user" not in json.dumps([info, me, no]),
+              f"{label}: with commands off the /ma/ frame's socket is NOT signed in by Mantel "
+              f"(auth/me: {(me.get('result') or {}).get('username')}), and no token is in the page")
     except Exception as exc:  # noqa: BLE001
         check(False, f"{label}: the signed-in /ma/ socket ({type(exc).__name__}: {exc})")
 

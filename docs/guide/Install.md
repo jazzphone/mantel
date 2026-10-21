@@ -106,12 +106,13 @@ Next: open **Mantel** in the sidebar and become its Owner. [First Run](First-Run
 | **Sidebar access rules** (`ha_door_rules`) | `trusted` | `trusted`: being signed in to Home Assistant is enough, as with HK Frontend. `lan`: the home network's rules. `tunnel`: Mantel's remote-access rules. Each person's role still decides what they may do. |
 | **Music Assistant address** (`ma_url`), **Music Assistant token** (`ma_token`) | empty | Optional. You can also set Music Assistant up on Mantel's **Connections** page, which wins over these. |
 | **Direct access** (`access`) | `ingress` | `ingress`: the sidebar only. `proxy` or `https`: Mantel also has its own address. See [Direct access](#direct-access-optional). |
-| `public_url`, `trusted_proxies`, `ha_sign_in_url`, `ha_frame_origins`, `cloudflare_token`, `acme_email`, `acme_staging`, `lan_networks` | empty | Direct access only. |
+| `public_url`, `trusted_proxies`, `ha_sign_in_url`, `ha_frame_origins`, `cloudflare_token`, `duckdns_token`, `acme_email`, `acme_staging`, `lan_networks` | empty | Direct access only. |
+| `dns_provider` | `cloudflare` | Built-in HTTPS only: `cloudflare` or `duckdns`. |
 | `cf_access_team`, `cf_access_aud` | empty | Direct access only: Cloudflare Access in front of a tunnel. See [Cloudflare Access](#cloudflare-access-optional). |
 
 Restart the App after you change an option.
 
-The two tokens (`ma_token`, `cloudflare_token`) are masked options. Mantel moves each into a private file before it starts and never logs it. You never create a Home Assistant token for the App: it uses the App's own built-in credential.
+The tokens (`ma_token`, `cloudflare_token`, `duckdns_token`) are masked options. Mantel moves each into a private file before it starts and never logs it. You never create a Home Assistant token for the App: it uses the App's own built-in credential.
 
 ### Who can open it
 
@@ -134,7 +135,7 @@ Pick **one** of the two ways:
 | `access` | Who serves HTTPS | You set |
 |---|---|---|
 | `proxy` | Your own reverse proxy (Nginx Proxy Manager, Traefik, ...) in front of the App's plain-HTTP port | `public_url`, `trusted_proxies` (your proxy's address as Mantel sees it), and the **door key** in your proxy |
-| `https` | Mantel itself, with a free Let's Encrypt certificate it gets and renews. The name is proved through Cloudflare DNS, so nothing has to be reachable from the internet. | `public_url`, `cloudflare_token` (a Cloudflare API token with **Zone / Zone / Read** and **Zone / DNS / Edit**, for that one zone), optionally `lan_networks` and `acme_staging` while you try it out |
+| `https` | Mantel itself, with a free Let's Encrypt certificate it gets and renews. The name is proved through Cloudflare or Duck DNS, so nothing has to be reachable from the internet. | `public_url` and, by `dns_provider`: `cloudflare_token` (a Cloudflare API token with **Zone / Zone / Read** and **Zone / DNS / Edit**, for that one zone), or `duckdns_token` with a `https://<name>.duckdns.org` address; optionally `lan_networks` and `acme_staging` while you try it out |
 
 Either way:
 

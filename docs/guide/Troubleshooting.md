@@ -87,7 +87,7 @@ docker exec -u 10001 "$(docker ps -q -f name=_mantel$)" python /app/entrypoint.p
 
 ### "Setup code is wrong, used or expired"
 
-A setup code works once, for one hour, and making a new one replaces the old one. Make a fresh one with `docker compose exec mantel-server mantel bootstrap` and use it straight away. Once an Owner exists, **First start** is gone for good.
+A setup code works once, for one hour, and a new one replaces the old one. While Mantel has no Owner it prints a fresh code in its log each time the last one expires: use the newest one in `docker compose logs mantel-server` (in the LXC, run that in `/opt/mantel/packaging/compose`). Or make one with `docker compose exec mantel-server mantel bootstrap` and use it straight away. Once an Owner exists, **First start** is gone for good.
 
 ### Away from home, a password isn't enough
 

@@ -9,7 +9,7 @@ has been built or run, because Docker is not installed on this Mac and no Proxmo
 | Path | What it is |
 |---|---|
 | `packaging/docker/Dockerfile` | Multi-stage. Targets: **`server`** (default, last stage; Python slim, non-root uid 10001, no ffmpeg, no devices), **`app`** (same layers for the HA App; starts as root only to chown `/data`, then `entrypoint.py` drops to 10001), **`transcode`** (go2rtc + ffmpeg + `intel-media-va-driver-non-free` + vainfo + curl, uid 10002). Base images pinned `@sha256:`; the all-zero digests are **placeholders** that fail the build until pinned. |
-| `packaging/docker/caddy.Dockerfile` | Stock Caddy plus the Cloudflare DNS module (xcaddy) for ACME DNS-01. Skip it (use `tls-internal.caddy` and stock Caddy) for a home with no domain. |
+| `packaging/docker/caddy.Dockerfile` | Stock Caddy plus pinned DNS modules (xcaddy) for ACME DNS-01: Cloudflare, Duck DNS, Porkbun, Route 53, DigitalOcean, deSEC, each with its `caddy/tls-dns01-<provider>.caddy` snippet and, except Cloudflare, a `compose.dns-<provider>.yaml` declaring its secret files. A home with no domain uses `tls-internal.caddy`, now the default. |
 | `packaging/docker/entrypoint.py` | The "small startup step" of PLAN §8: detects HA App (`SUPERVISOR_TOKEN` + `/data/options.json`) vs container, builds the `mantel_server` command line from `MANTEL_*` variables (no secret among them), moves the Supervisor token into a 0600 file and out of the environment, and passes admin commands (`links`, `link`, ...) straight through with `--data-dir /data`. |
 | `.dockerignore` | The build context is the repo root; this keeps `.git`, docs, tests, secrets, `spikes/` and Apple fonts out. |
 | `hosts/server/mantel_server/health.py` | `register(app, hub)` adds `GET /healthz` (liveness + HA link status, no secrets, 200 unless `?strict=1`) and `GET /api/version` (build id). `python -m mantel_server.health` is the HEALTHCHECK probe. |
@@ -79,8 +79,8 @@ Other directives and why:
 
 | | TLS by | Compose | Door header stamped by |
 |---|---|---|---|
-| 1. Your domain | Mantel's Caddy, ACME DNS-01 (Cloudflare token as a secret file) | `compose.yaml`, `MANTEL_TLS_SNIPPET=./caddy/tls-dns01.caddy` | Caddy |
-| 2. No domain | Mantel's Caddy, its internal CA (trust the root per device) | `compose.yaml`, `tls-internal.caddy` | Caddy |
+| 1. Your domain | Mantel's Caddy, ACME DNS-01 (the DNS host's token as secret files) | `compose.yaml` (+ `compose.dns-<provider>.yaml`), `MANTEL_TLS_SNIPPET=./caddy/tls-dns01[-<provider>].caddy` | Caddy |
+| 2. No domain (the default) | Mantel's Caddy, its internal CA (trust the root per device) | `compose.yaml`, `tls-internal.caddy` | Caddy |
 | 3. Bring your own proxy | the home's Nginx Proxy Manager / Traefik / ... | `compose.yaml:compose.byo-proxy.yaml`, `MANTEL_TRUSTED_PROXY=<proxy IP>` | the home's proxy (Mantel believes it from that IP only) |
 | 4. Remote access | Cloudflare (tunnel), beside 1-3 | `--profile tunnel` | nobody needs to: cloudflared is never trusted, so always `tunnel` |
 
@@ -218,7 +218,7 @@ bash packaging/lxc/mantel.sh        # asks for storage/bridge/VLAN and confirms 
 pct enter <id>
   docker info | head -3 ; ls -l /dev/dri ; docker compose version   # Docker works inside the unprivileged LXC; the Debian compose package name may need a tweak in mantel-install.sh
   cd /opt/mantel/packaging/compose && docker compose up -d --wait    # starts without HA; then in a browser:
-  #   https://<hostname>/login  (First start: the code from `docker compose exec mantel-server mantel bootstrap`)
+  #   https://<hostname>/login  (First start: the code in `docker compose logs mantel-server`, or from `mantel bootstrap`)
   #   /admin -> Connections -> Connect to Home Assistant (sign in as the dedicated mantel-server user)
   mantel-update                                                      # exercises the update path
 ```

@@ -29,7 +29,7 @@ it is the number Home Assistant compares to offer **Update**. Two more files car
 | The Mantel Connect App's image, likewise | `ghcr.io/jazzphone/mantel-connect-app-amd64:X.Y.Z`, `...-aarch64:X.Y.Z` | Home Assistant, beside a Mantel that runs elsewhere |
 | Mantel Server (multi-arch: amd64, arm64) | `ghcr.io/jazzphone/mantel-server:X.Y.Z` and `:latest` | Docker Compose and the LXC (`MANTEL_SERVER_IMAGE`) |
 | The Live TV transcode | `ghcr.io/jazzphone/mantel-transcode:X.Y.Z` and `:latest` | `MANTEL_TRANSCODE_IMAGE` |
-| Caddy with the Cloudflare DNS module | `ghcr.io/jazzphone/mantel-caddy:X.Y.Z` and `:latest` | `MANTEL_CADDY_IMAGE` |
+| Caddy with the pinned DNS modules (Cloudflare, Duck DNS, Porkbun, Route 53, DigitalOcean, deSEC) | `ghcr.io/jazzphone/mantel-caddy:X.Y.Z` and `:latest` | `MANTEL_CADDY_IMAGE` |
 | The add-on repository | the `ha-apps` branch of this repository, one commit, replaced each release | Home Assistant users, who add `https://github.com/jazzphone/mantel#ha-apps` |
 
 The App images are built from exactly the folder `tools/stage_ha_app.py` (and `tools/stage_connect_app.py`)

@@ -395,6 +395,23 @@ async def test_without_music_assistant_the_reads_go_to_the_bridge(bridge):
     await ws.close()
 
 
+async def test_without_hk_frontend_in_ha_the_feed_says_not_set_up_once(bridge):
+    """A Home Assistant without HK Frontend answers hk_music/subscribe with unknown_command. With Mantel's own engine
+    off too, the page gets one "not set up" event and an open subscription, never an error to retry forever."""
+    asked = []
+
+    async def unknown(identity, msg, on_event):
+        asked.append(msg["type"])
+        raise RuntimeError("unknown_command")
+
+    bridge.app["filtered_reads"].subscribe = unknown
+    await bridge.login("jamie", "adult")
+    ws = await bridge.socket()
+    res, ev = await bridge.subscribe(ws, {"type": "hk_music/subscribe"})
+    assert "error" not in res and ev == {"configured": False} and asked == ["hk_music/subscribe"]
+    await ws.close()
+
+
 async def test_the_settings_page_is_one_path_mantels_when_on_has_otherwise(on, monkeypatch):
     """HK Settings' Music page is feature_pages.py's route, and always Mantel's own settings (house/music), the
     engine on or off: HA's page is never read once Mantel holds them (HK Frontend can leave HA). Never two handlers."""

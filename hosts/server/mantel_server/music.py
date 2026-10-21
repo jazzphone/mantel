@@ -1562,7 +1562,19 @@ def register(app: Any, hub: Any, hooks: Any = None) -> MusicHost:
 
     async def subscribe(ctx: Ctx, msg: dict, on_event: Callable[[dict], None]):
         if not host.active:
-            return await bridge().subscribe(ctx.identity, msg, on_event)
+            try:
+                return await bridge().subscribe(ctx.identity, msg, on_event)
+            except RuntimeError as exc:
+                if str(exc) != "unknown_command":
+                    raise
+            # A HOME ASSISTANT WITHOUT HK FRONTEND has no hk_music feed, and Mantel's own engine is off (no Music
+            # Assistant in Mantel): music isn't set up. Say so once, as the engine says it with no settings, and
+            # keep the subscription open, so the page draws "not set up" instead of asking again and again.
+            on_event({"configured": False})
+
+            async def nothing() -> None:
+                return None
+            return nothing
         if set(msg) - {"type", "id"}:
             raise ReadBlocked("hk_music/subscribe carries nothing")
         return await host.subscribe(ctx, on_event)
