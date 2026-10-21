@@ -25,7 +25,7 @@ You need:
 
 | For | You need |
 |---|---|
-| All three | A **Home Assistant** that Mantel can reach over the network. <!-- CHECK: no minimum Home Assistant version is stated anywhere for Mantel Server or the App; HK Frontend needs 2026.8. Confirm and add it here. --> |
+| All three | A **Home Assistant**, **2026.8 or newer**, that Mantel can reach over the network. |
 | All three | An **administrator account** in Home Assistant. In the App, the first Home Assistant administrator to open Mantel can become its Owner. |
 | The App | **Home Assistant OS** or a **Supervised** install (the ones with Apps). An `amd64` or `aarch64` machine. |
 | Docker and the LXC | A **dedicated Home Assistant user** for Mantel, for example `mantel-server`, made an administrator. Mantel acts as this user. Don't use a person's own account. |
