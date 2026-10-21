@@ -347,6 +347,12 @@ class CallCtx:
     peer: str | None
     domain: str = "hk_frontend"
     protocol: int = 1
+    features: frozenset = frozenset()
+
+    def more_services(self) -> bool:
+        """Protocol 2 (Mantel Link), or a linked HK Frontend whose house is Mantel's that forwards its own
+        music, Clean Areas and automation-snooze actions (feature ``actions``; decision 29)."""
+        return self.protocol >= 2 or "actions" in self.features
 
 
 # -- where forwarded calls go ------------------------------------------------------------------------
@@ -555,7 +561,8 @@ class Linked:
 
     async def call_service(self, msg: Mapping[str, Any], ctx: CallCtx) -> Any:
         service = msg.get("service")
-        if service not in (SERVICES_2 if getattr(ctx, "protocol", 1) >= 2 else SERVICES):
+        more = ctx.more_services() if hasattr(ctx, "more_services") else getattr(ctx, "protocol", 1) >= 2
+        if service not in (SERVICES_2 if more else SERVICES):
             raise LinkedError("unknown_service", f"{ctx.domain}.{service} is not forwarded to Mantel Server")
         data = msg.get("data") or {}
         if not isinstance(data, Mapping):
@@ -615,7 +622,7 @@ class Linked:
 
 async def _answer(linked: Linked, client: LinkedClient, msg: dict[str, Any]) -> None:
     mid = msg["id"]
-    ctx = CallCtx(client.account, client.peer, client.domain, client.protocol)
+    ctx = CallCtx(client.account, client.peer, client.domain, client.protocol, client.features)
     try:
         t = msg["type"]
         if t == "ping":

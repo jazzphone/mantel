@@ -103,6 +103,10 @@ MIRROR = "mantel_settings"
 MIRROR_STORE = "hk_frontend.mantel_settings"
 MIRROR_VERSION = 1
 ISSUE_UNLINKED = "mantel_admins_unlinked"   # Repairs: Home Assistant admins who can't save HK's settings
+# the features' actions: while Mantel runs the house, Mantel's engines run them (its linked_actions.py), so
+# they are forwarded under the same names (feature `actions`); otherwise HA's own run them, as always
+FORWARDED = ("music_play", "music_transfer", "music_stop", "music_transport", "music_play_media", "clean_areas",
+             "pause_automation", "resume_automation")
 # the settings saves HK's pages make, as Mantel takes them (its settings_store SETTINGS_SAVES and FEATURE_SAVES;
 # Mantel's tests keep the two lists the same). While the settings are Mantel's, each goes to Mantel.
 SAVES = frozenset({
@@ -263,6 +267,45 @@ def mirrored(hass: HomeAssistant) -> dict[str, Any] | None:
     return dict(got["payload"]) if isinstance(got, Mapping) and isinstance(got.get("payload"), Mapping) else None
 
 
+def _plain(v: Any) -> Any:
+    """An action's data as JSON: a date or time as ISO text (pause_automation's until)."""
+    if isinstance(v, Mapping):
+        return {str(k): _plain(x) for k, x in v.items()}
+    if isinstance(v, (list, tuple, set)):
+        return [_plain(x) for x in v]
+    if hasattr(v, "isoformat"):
+        return v.isoformat()
+    return v
+
+
+def forward_actions(hass: HomeAssistant) -> int:
+    """Once the features' actions are registered (async_setup): each runs in
+    Mantel while it runs the house, here otherwise. How many were wrapped."""
+    from homeassistant.core import SupportsResponse
+    mine = hass.services.async_services_internal().get(DOMAIN, {})
+    n = 0
+    for name in FORWARDED:
+        svc = mine.get(name)
+        if svc is None or getattr(svc.job.target, "_hk_forwards", False):
+            continue
+        original = svc.job.target
+
+        async def handler(call: Any, _name: str = name, _original: Any = original) -> Any:
+            linked = active(hass)
+            if linked is not None and linked.full:
+                got = await linked.forward(_name, _plain(dict(call.data)))
+                return got if call.return_response and isinstance(got, dict) else None
+            out = _original(call)
+            if hasattr(out, "__await__"):
+                out = await out
+            return out
+        handler._hk_forwards = True     # type: ignore[attr-defined]
+        hass.services.async_register(DOMAIN, name, handler, schema=svc.schema,
+                                     supports_response=svc.supports_response or SupportsResponse.NONE)
+        n += 1
+    return n
+
+
 def forward_saves(hass: HomeAssistant) -> int:
     """Once every command is registered (async_setup): each settings save
     HK's pages make goes to Mantel while the settings are Mantel's, and runs
@@ -324,7 +367,7 @@ class Linked:
         # `bridge`: this release can hand the bridge to Mantel Link (handover.py)
         # `settings`: this release keeps Mantel's settings for its dashboards (on_settings)
         self.link = MantelLink(async_get_clientsession(hass), link["url"], link["token"], self,
-                               features=("bridge", "settings"), frames={"settings": self.on_settings},
+                               features=("bridge", "settings", "actions"), frames={"settings": self.on_settings},
                                **({"timeout": timeout} if timeout is not None else {}))
         self._store: Store = mirror_store(hass)
         self._last: dict[str, Any] | None = None        # the mirror as the Store keeps it

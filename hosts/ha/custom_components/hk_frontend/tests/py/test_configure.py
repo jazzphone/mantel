@@ -37,7 +37,8 @@ async def test_configure_is_the_way_to_the_page(hass, frontend):
     # the house's own Configure pages (a feature's are its own, `<kind>_…`)
     from custom_components.hk_frontend.features import KINDS
     own = {k for k in TR["options"]["step"] if not k.startswith(KINDS)}
-    assert own == {"init", "panel", "files", "linked", "check"}, "no page left behind"
+    # (init_mantel: the same menu while Mantel runs the house -- linked, check, done; decision 29)
+    assert own == {"init", "init_mantel", "panel", "files", "linked", "check"}, "no page left behind"
 
 
 @pytest.fixture

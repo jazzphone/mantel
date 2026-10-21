@@ -171,10 +171,29 @@ class HkFrontendConfigFlow(ConfigFlow, domain=DOMAIN):
         dashboards' items, then Music's."""
         if F.kind_of(config_entry) != F.FRONTEND:
             return {}                    # a pre-release feature entry, folded at start
+        from . import linked_mode
+        if linked_mode.full(config_entry):
+            # MANTEL RUNS THE HOUSE (decision 29): its settings and features are Mantel's; every item here --
+            # Add feature, a feature's gear, a screen's, a tablet's -- says so instead (MantelRunsIt)
+            return {k: MantelRunsIt for k in (F.SUBENTRY_FEATURE, S.SUBENTRY_DASHBOARD, S.SUBENTRY_POPUP,
+                                               S.SUBENTRY_PAGE, S.SUBENTRY_CHIP, S.SUBENTRY_TABLET, SUB_PRESET,
+                                               SUB_PLAYLIST)}
         return {F.SUBENTRY_FEATURE: FeatureFlow, S.SUBENTRY_DASHBOARD: DashboardSubentryFlow,
                 S.SUBENTRY_POPUP: PopupSubentryFlow, S.SUBENTRY_PAGE: PageSubentryFlow,
                 S.SUBENTRY_CHIP: ChipSubentryFlow, S.SUBENTRY_TABLET: TabletSubentryFlow,
                 SUB_PRESET: PresetFlow, SUB_PLAYLIST: PlaylistFlow}
+
+
+class MantelRunsIt(ConfigSubentryFlow):
+    """WHILE MANTEL RUNS THE HOUSE (linked_mode.full; decision 29 in Mantel's docs/phase9/TWO-PRODUCTS.md): HK's
+    settings and features are Mantel's, set in Mantel Settings, and every item on this integration's page is
+    kept only for the day the house is handed back. Adding one, or opening one's gear, says so."""
+
+    async def async_step_user(self, user_input: dict[str, Any] | None = None) -> SubentryFlowResult:
+        return self.async_abort(reason="mantel_runs_it")
+
+    async def async_step_reconfigure(self, user_input: dict[str, Any] | None = None) -> SubentryFlowResult:
+        return self.async_abort(reason="mantel_runs_it")
 
 
 class FeatureFlow(music.AddSteps, music.ReconfigureSteps, live_tv.AddSteps, live_tv.ReconfigureSteps,
@@ -575,13 +594,22 @@ class HkOptionsFlow(OptionsFlow):
 
     def _menu(self) -> ConfigFlowResult:
         from .panel import URL_PATH
+        from . import linked_mode
         saved = f"Saved: {self._saved}." if self._saved else ""
+        if linked_mode.full(self.config_entry):
+            # Mantel runs the house: HK Settings and Your files are Mantel's; only the link and the check here
+            return self.async_show_menu(step_id="init_mantel", menu_options=["linked", "check", "done"],
+                                        description_placeholders={"saved": saved})
         return self.async_show_menu(
             step_id="init", menu_options=["panel", "files", "linked", "check", "done"],
             description_placeholders={"saved": saved, "url": f"/{URL_PATH}"})
 
     async def async_step_init(self, user_input: dict[str, Any] | None = None
                               ) -> ConfigFlowResult:
+        return self._menu()
+
+    async def async_step_init_mantel(self, user_input: dict[str, Any] | None = None
+                                     ) -> ConfigFlowResult:
         return self._menu()
 
     async def async_step_done(self, user_input: dict[str, Any] | None = None

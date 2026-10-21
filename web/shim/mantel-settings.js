@@ -1795,7 +1795,7 @@ function drawHkFrontend(c, d) {
                                                            on ? 'Changes made in Home Assistant are saved.' : 'Changes made in Home Assistant are refused.', 'hasaves') })
                       : info('Changes from Home Assistant', null, saves ? 'Saved' : 'Refused'));
     }
-    footer = 'A change made on HK Frontend’s dashboards (a favorite, a calendar’s color, an accessory) is saved in Mantel as the person linked to that Home Assistant user, checked by their role. People links each Home Assistant user to a person.';
+    footer = 'A change made on HK Frontend’s dashboards (a favorite, a calendar’s color, an accessory) is saved in Mantel as the person linked to that Home Assistant user, checked by their role. People links each Home Assistant user to a person. Its features’ actions run in Mantel, and its items in Home Assistant point here.';
   } else if (linked) {
     rows.push(info('Its Settings', 'HK Frontend runs the house (Advanced), so it keeps its own', 'Its Own'));
   }

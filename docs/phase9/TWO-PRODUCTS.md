@@ -290,3 +290,23 @@ Renamed **Home Assistant** (was Home Assistant Link), grouped by product:
   (a Home Assistant screen made and removed in a real HA).
 - **Mantel Link** changed only in words (the page's new name in its pairing text): 0.1.5.
 
+## While Mantel runs the house, HK Frontend steps aside (Avery, 2026-10-21; built)
+
+Avery: "Should all the Services/Features be removed from HK Frontend when it links to Mantel? This may be
+confusing for the user as well." Found with it: HK Frontend kept `hk_frontend.music_*`, `clean_areas` and the
+automation-snooze actions under its name, so Mantel Link stood back, yet HK Frontend's own engines don't run in
+full linked mode, so a call failed ("Music isn't set up"). Built, only while Mantel runs the house
+(`linked_mode.full`); an HK Frontend on its own is unchanged:
+
+1. **Actions follow the owner** (`linked_mode.forward_actions`): the features' actions keep their names and are
+   forwarded to Mantel (feature `actions` in the link header; Mantel's `linked.CallCtx.more_services` lets such a
+   client reach `linked_actions.py`, as Mantel Link always could). Mantel's refusals reach Home Assistant in words.
+2. **Items point to Mantel Settings** (`config_flow.MantelRunsIt`): Add feature, and every item's gear (features,
+   screens, tablets, pop-ups, pages, chips, presets, playlists), says that the settings and features are Mantel's
+   and the items are kept only for a hand-back. Home Assistant can't hide an integration's items; this is the note.
+3. **Configure is shorter** (`init_mantel`): Linked to Mantel, Setup check, Done, with the same explanation.
+
+Tests: HK Frontend's `test_linked_settings.py` (forwarded actions, HA's own when the house is HA's, the item flows
+and Configure), Mantel's `test_linked_settings.py` (the `actions` gate), and the linked e2e (`hk_frontend.music_stop`
+refused by Mantel in words; Add feature pointing to Mantel Settings).
+

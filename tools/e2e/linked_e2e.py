@@ -321,6 +321,15 @@ async def steps(app, ha: HA, owner, entry: str, base: str, svc: str, out: dict) 
     check(s >= 400 and now > seen, f"an unknown pop-up is Mantel's validation error in HA (HTTP {s}; "
           "'Mantel Server refused hk_frontend.show_popup: No pop-up #no-such-popup' in HA's log)")
     await owner.ws.close()
+    # -- the features' actions run in Mantel; HK's items point to Mantel Settings (decision 29) -----------------
+    seen = log.read_text(errors="replace").count("Mantel Server refused hk_frontend.music_stop")
+    s, _ = await ha.post("/api/services/hk_frontend/music_stop", {"rooms": ["media_player.e2e_nowhere"]})
+    now = log.read_text(errors="replace").count("Mantel Server refused hk_frontend.music_stop")
+    check(s >= 400 and now > seen, "hk_frontend.music_stop called in HA is Mantel's to run (refused by Mantel in "
+          "words: its music is off here), not HA's own engine")
+    s, flow = await ha.post("/api/config/config_entries/subentries/flow", {"handler": [entry, "feature"]})
+    check(s == 200 and flow.get("type") == "abort" and flow.get("reason") == "mantel_runs_it",
+          f"Add feature in HA says features are set in Mantel Settings ({flow.get('reason') if isinstance(flow, dict) else flow})")
     # -- back to HA ---------------------------------------------------------------------------------------
     st_code, body = await owner.post("/api/linked/owners", {"unit": "house", "owner": "ha"}, method="PUT")
     check(st_code == 200 and body["wire"]["house"] == "ha", "the Owner moves `house` back to Home Assistant")

@@ -285,3 +285,18 @@ async def test_a_removed_home_assistant_dashboard_stops_marking_the_address_shar
     SC._forget_reported(env.app, "dashboard-hall")
     assert place("dashboard-hall") == {"text": "Mantel", "icon": "mdi:fireplace", "where": "mantel"}
     await ws.close()
+
+
+async def test_a_linked_hk_frontend_with_actions_reaches_mantel_s_engines(make_env):
+    """decision 29: while Mantel runs the house, HK Frontend forwards its features' actions (feature `actions`);
+    one without the feature is refused as before."""
+    env = await make_env()
+    for header, reached in ((HK + ",actions", True), (HK, False)):
+        ws = await connect(env, header)
+        await ws.send_json({"id": 1, "type": "call_service", "service": "music_stop",
+                            "data": {"rooms": ["media_player.hall"]}})
+        while (f := await ws.receive_json(timeout=5)).get("id") != 1:
+            pass
+        code = (f.get("error") or {}).get("code")
+        assert (code != "unknown_service") is reached, (header, f)
+        await ws.close()

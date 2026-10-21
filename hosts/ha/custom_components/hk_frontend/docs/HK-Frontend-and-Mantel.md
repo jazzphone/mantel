@@ -56,6 +56,12 @@ While The House is Home Assistant's, each keeps its own: Mantel can import
 HK Frontend's settings once, and after that a change on one side does not
 reach the other.
 
+While Mantel runs the house, HK Frontend steps aside: its features' actions
+(`hk_frontend.music_play`, `clean_areas`, pausing an automation, ...) are run
+by Mantel under the same names, and Add feature, Configure and every item on
+HK Frontend's page in Home Assistant point to Mantel Settings. The items stay
+listed only for the day the house is handed back.
+
 ## Each screen, in one place
 
 Every screen is drawn either by Mantel or by HK Frontend in Home Assistant, and

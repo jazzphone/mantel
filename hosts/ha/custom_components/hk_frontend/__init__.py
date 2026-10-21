@@ -335,6 +335,8 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     # LINKED, the settings Mantel's: the pages' settings saves go to Mantel
     # (linked_mode.forward_saves; decision 29), after everything registered
     linked_mode.forward_saves(hass)
+    # ...and the features' actions go to Mantel while it runs the house (linked_mode.forward_actions)
+    linked_mode.forward_actions(hass)
     return True
 
 

@@ -281,3 +281,36 @@ async def test_the_mirror_is_on_disk_once_the_link_stops(hass, base, mantel, has
     await _unload(hass, e)                       # well within the delayed write's second
     assert hass_storage[linked_mode.MIRROR_STORE]["data"]["version"] == "v8"
     assert hass_storage[linked_mode.MIRROR_STORE]["data"]["owned"] is True
+
+
+# ------------------------------------------------------------ while Mantel runs the house: actions and items
+async def test_the_features_actions_run_in_mantel(hass, base, mantel):
+    e = await _linked(hass, mantel)
+    await hass.services.async_call("hk_frontend", "music_stop", {"rooms": ["media_player.hall"]}, blocking=True)
+    sent = mantel.calls("call_service")[-1]
+    assert sent["service"] == "music_stop" and sent["data"] == {"rooms": ["media_player.hall"]}, \
+        "Mantel's music engine runs it; HA's isn't running"
+    assert "actions" in mantel.headers[-1]["X-Mantel-Link"]
+    await _unload(hass, e)
+
+
+async def test_while_the_house_is_home_assistant_s_its_own_actions_run(hass, base, mantel):
+    owners = {**FULL, "house": "ha"}
+    mantel.owners = owners
+    e = await _linked(hass, mantel, owners=owners, wait=False)
+    from homeassistant.exceptions import ServiceValidationError
+    with pytest.raises(ServiceValidationError):
+        await hass.services.async_call("hk_frontend", "music_stop", {"rooms": ["media_player.hall"]}, blocking=True)
+    assert mantel.calls("call_service") == [], "HA's own music (not set up here) answered, nothing went to Mantel"
+    await _unload(hass, e)
+
+
+async def test_items_and_configure_point_to_mantel_settings(hass, base, mantel):
+    e = await _linked(hass, mantel)
+    flows = hass.config_entries.subentries
+    for kind in ("feature", "dashboard", "tablet"):
+        r = await flows.async_init((e.entry_id, kind), context={"source": "user"})
+        assert r["type"] == "abort" and r["reason"] == "mantel_runs_it", (kind, r)
+    r = await hass.config_entries.options.async_init(e.entry_id)
+    assert r["type"] == "menu" and r["step_id"] == "init_mantel" and r["menu_options"] == ["linked", "check", "done"]
+    await _unload(hass, e)

@@ -61,6 +61,15 @@
       "check": {
         "title": "Setup check",
         "description": "What these pages need from this Home Assistant, and how to fix what is missing. Nothing here changes anything; submit to go back.\n\n{report}"
+      },
+      "init_mantel": {
+        "title": "Configure",
+        "menu_options": {
+          "linked": "Linked to Mantel",
+          "check": "Setup check (what is ready, what to fix)",
+          "done": "Done"
+        },
+        "description": "Mantel runs this house, so HK's settings, screens, wall tablets and features are set in Mantel Settings, and HK Frontend's dashboards here draw with them. The items listed on this integration's page are kept only for the day the house is handed back. {saved}"
       }
     },
     "error": {
@@ -303,7 +312,8 @@
         "already_configured": "That feature is already added.",
         "reconfigure_successful": "Saved.",
         "alarm_pin_already_configured": "That alarm already has a PIN. Change it with that PIN’s gear.",
-        "live_tv_cannot_connect": "Could not reach the HDHomeRun. Check that it is on and at the same address."
+        "live_tv_cannot_connect": "Could not reach the HDHomeRun. Check that it is on and at the same address.",
+        "mantel_runs_it": "While Mantel runs the house, HK's settings and features are Mantel's: change this in Mantel Settings (Screens, Wall Tablets, Features). This item is kept here only for the day the house is handed back to HK Frontend (Mantel Settings, Connections, Mantel in Home Assistant, Advanced)."
       },
       "error": {
         "alarm_pin_own_panel": "That is one of Alarm PIN’s own panels. Choose the alarm it should protect.",
@@ -345,7 +355,8 @@
       "abort": {
         "already_configured": "That dashboard already has an item.",
         "no_dashboards": "Every dashboard already has an item.",
-        "use_panel": "The settings for {dashboard} are on the HK Settings page: **[open {dashboard}]({url})**."
+        "use_panel": "The settings for {dashboard} are on the HK Settings page: **[open {dashboard}]({url})**.",
+        "mantel_runs_it": "While Mantel runs the house, HK's settings and features are Mantel's: change this in Mantel Settings (Screens, Wall Tablets, Features). This item is kept here only for the day the house is handed back to HK Frontend (Mantel Settings, Connections, Mantel in Home Assistant, Advanced)."
       }
     },
     "popup": {
@@ -428,7 +439,8 @@
       },
       "abort": {
         "reconfigure_successful": "Saved.",
-        "already_configured": "Another item already has that name or address. Choose another."
+        "already_configured": "Another item already has that name or address. Choose another.",
+        "mantel_runs_it": "While Mantel runs the house, HK's settings and features are Mantel's: change this in Mantel Settings (Screens, Wall Tablets, Features). This item is kept here only for the day the house is handed back to HK Frontend (Mantel Settings, Connections, Mantel in Home Assistant, Advanced)."
       }
     },
     "page": {
@@ -485,7 +497,8 @@
       },
       "abort": {
         "reconfigure_successful": "Saved.",
-        "already_configured": "Another item already has that name or address. Choose another."
+        "already_configured": "Another item already has that name or address. Choose another.",
+        "mantel_runs_it": "While Mantel runs the house, HK's settings and features are Mantel's: change this in Mantel Settings (Screens, Wall Tablets, Features). This item is kept here only for the day the house is handed back to HK Frontend (Mantel Settings, Connections, Mantel in Home Assistant, Advanced)."
       }
     },
     "chip": {
@@ -529,7 +542,8 @@
       },
       "abort": {
         "reconfigure_successful": "Saved.",
-        "already_configured": "Another item already has that name or address. Choose another."
+        "already_configured": "Another item already has that name or address. Choose another.",
+        "mantel_runs_it": "While Mantel runs the house, HK's settings and features are Mantel's: change this in Mantel Settings (Screens, Wall Tablets, Features). This item is kept here only for the day the house is handed back to HK Frontend (Mantel Settings, Connections, Mantel in Home Assistant, Advanced)."
       }
     },
     "tablet": {
@@ -544,7 +558,8 @@
         }
       },
       "abort": {
-        "use_panel": "Wall tablets are set up on the HK Settings page: **[open {tablet}]({url})**."
+        "use_panel": "Wall tablets are set up on the HK Settings page: **[open {tablet}]({url})**.",
+        "mantel_runs_it": "While Mantel runs the house, HK's settings and features are Mantel's: change this in Mantel Settings (Screens, Wall Tablets, Features). This item is kept here only for the day the house is handed back to HK Frontend (Mantel Settings, Connections, Mantel in Home Assistant, Advanced)."
       }
     },
     "preset": {
@@ -580,7 +595,8 @@
       },
       "abort": {
         "reconfigure_successful": "Saved.",
-        "music_not_added": "Add Music first: Add feature → Music."
+        "music_not_added": "Add Music first: Add feature → Music.",
+        "mantel_runs_it": "While Mantel runs the house, HK's settings and features are Mantel's: change this in Mantel Settings (Screens, Wall Tablets, Features). This item is kept here only for the day the house is handed back to HK Frontend (Mantel Settings, Connections, Mantel in Home Assistant, Advanced)."
       }
     },
     "playlist": {
@@ -627,7 +643,8 @@
       },
       "abort": {
         "reconfigure_successful": "Saved.",
-        "music_not_added": "Add Music first: Add feature → Music."
+        "music_not_added": "Add Music first: Add feature → Music.",
+        "mantel_runs_it": "While Mantel runs the house, HK's settings and features are Mantel's: change this in Mantel Settings (Screens, Wall Tablets, Features). This item is kept here only for the day the house is handed back to HK Frontend (Mantel Settings, Connections, Mantel in Home Assistant, Advanced)."
       }
     }
   },
