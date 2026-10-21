@@ -231,5 +231,29 @@ if (cm) {
   ok('...and the root given back', ha.root.style.getPropertyValue('visibility') === '');
 }
 
+print('\n=== hk-saver.js: a tap counts only on music that is on screen ===');
+// THE PANE DOWN (2026-10-21): with Music in the pane set up and nothing
+// playing, the pane stays laid out at opacity 0 and its music hidden -- its
+// art's box over the clock's right side took a tap meant to wake the screen
+// and closed it onto Play Music.
+var sm = /  function seen\(el\) \{[\s\S]*?\n  \}\n/.exec(src);
+ok('seen() is there, and musicHit skips a view not seen', !!sm && /\(v\.kind === 'slide' && !muShowing\) \|\| !seen\(v\.el\)\) continue;/.test(src));
+if (sm) {
+  var styles = new Map();
+  var gcs = function (el) { return Object.assign({ display: 'block', visibility: 'visible', opacity: '1' }, styles.get(el) || {}); };
+  var hostEl = new El('hk-saver'), pane = new El('div'), pm = new El('div');
+  hostEl.nodeType = pane.nodeType = pm.nodeType = 1;          // (dom.js's El has none; a real element is 1)
+  var shadow = { nodeType: 11, host: hostEl };
+  pane.parentNode = shadow; pm.parentNode = pane;
+  var seenFn = new Function('getComputedStyle', 'host', sm[0] + '; return seen;')(gcs, hostEl);
+  ok('...the pane up, its music shown: seen', seenFn(pm) === true);
+  styles.set(pane, { opacity: '0' });
+  ok('...the pane down (opacity 0): not seen, its art takes no tap', seenFn(pm) === false);
+  styles.set(pane, {}); styles.set(pm, { visibility: 'hidden' });
+  ok('...its music hidden (nothing playing): not seen', seenFn(pm) === false);
+  styles.set(pm, {}); styles.set(hostEl, { opacity: '0.004' });
+  ok('...the screensaver itself still getting ready: not seen', seenFn(pm) === false);
+}
+
 print(fail ? 'FAIL ' + fail + ' SAVER LAYER TESTS' : 'ALL ' + pass + ' SAVER LAYER TESTS PASS');
 if (fail) throw new Error(fail + ' failed');

@@ -2934,12 +2934,25 @@
       }).catch(function () { /* no search: the note stays */ });
   }
   // A BUTTON, where it is drawn (the views take no pointer events)
+  // ON SCREEN: not hidden, and not faded out with anything it sits in. The
+  // pane stays laid out at opacity 0 when it is down (.pane, :host([pane])),
+  // its music with it: its art kept its box over the clock's right side, and
+  // a tap on the clock opened Play Music instead of waking to the dashboard
+  // (2026-10-21).
+  function seen(el) {
+    for (var n = el; n && n.nodeType === 1; n = n.parentNode && n.parentNode.nodeType === 11 ? n.parentNode.host : n.parentNode) {
+      var cs = getComputedStyle(n);
+      if (cs.display === 'none' || cs.visibility === 'hidden' || Number(cs.opacity) < 0.05) return false;
+      if (n === host) break;
+    }
+    return true;
+  }
   function musicHit(x, y) {
     if (x == null || y == null) return null;
     for (var i = 0; i < mus.views.length; i++) {
       var v = mus.views[i];
       // (the dashboard's pane takes its own taps -- and lies under this)
-      if (v.kind === 'dash' || !v.el.isConnected || (v.kind === 'slide' && !muShowing)) continue;
+      if (v.kind === 'dash' || !v.el.isConnected || (v.kind === 'slide' && !muShowing) || !seen(v.el)) continue;
       if (!v.el.hasAttribute('novol')) {
         var tr = v.vt.getBoundingClientRect();
         if (tr.width && x >= tr.left - MU_SLOP && x <= tr.right + MU_SLOP && y >= tr.top - 2 * MU_SLOP && y <= tr.bottom + 2 * MU_SLOP) return { vol: true, view: v };
