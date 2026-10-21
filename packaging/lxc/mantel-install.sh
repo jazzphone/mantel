@@ -116,6 +116,7 @@ if [ ! -f "$COMPOSE_DIR/.env" ]; then
                 sed -i "s|^MANTEL_TLS_SNIPPET=.*|MANTEL_TLS_SNIPPET=./caddy/tls-dns01-cloudflare.caddy|" "$COMPOSE_DIR/.env"
               else
                 add_compose_file "compose.dns-${DNS}.yaml"     # its snippet and secret files
+                sed -i "s|^MANTEL_TLS_SNIPPET=.*|#MANTEL_TLS_SNIPPET= (not used: compose.dns-${DNS}.yaml mounts tls-dns01-${DNS}.caddy)|" "$COMPOSE_DIR/.env"
               fi
               msg_ok "HTTPS: Caddy with your domain through ${DNS} (DNS-01); needs: $(for f in $(dns_secrets "$DNS"); do printf 'mantel-secret %s; ' "$f"; done)" ;;
     own)      add_compose_file compose.byo-proxy.yaml
