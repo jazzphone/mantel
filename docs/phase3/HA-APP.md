@@ -1074,6 +1074,18 @@ Everything on main since 0.1.28 (validation green: JS 130, HA py 732, Mantel 283
 - tests/test_shim_reconnect.py: the reconnect against the real hub.js in node.
 - No HA backup (Avery).
 
+### 0.1.42 (2026-10-21)
+
+- Live TV keeps its own tablet awake (no Sleep Screen dark and no screensaver over the player) and tunes without a
+  white frame round the player.
+- Cameras rest while another window has the focus (a setting), and always behind the screensaver.
+- Screensaver: a tap on the clock wakes to the dashboard, not Play Music.
+- Climate: the house's temperature through the day and each thermostat's now. Energy: Tracking fits two graphs to a
+  line, one only on a phone.
+- **Mantel Link 0.1.4**, copied by hand with it: the audit's discovery fix (an entry never follows an announced
+  address; a Mantel that moved is given its new address with Reconfigure). The house had 0.1.3 without it.
+- No HA backup (Avery).
+
 ### Removal
 
 Stop and uninstall **Mantel** (Settings → Apps → Mantel → Uninstall); this removes its image and `/data`
