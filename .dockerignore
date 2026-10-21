@@ -33,4 +33,6 @@ packaging/mantel-connect
 tools/headless
 tools/testha
 hosts/ha
+# ...except HK Frontend's guide pages, which Mantel serves at /docs (the Dockerfile copies them to /app/help/hk)
+!hosts/ha/custom_components/hk_frontend/docs
 hosts/server/tools

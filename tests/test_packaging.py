@@ -742,3 +742,39 @@ def test_every_backend_service_has_a_fixed_address():
             continue
         after = "\n".join(l for l in nets[1].split("backend", 1)[1].splitlines()[:8] if not l.strip().startswith("#"))
         assert "ipv4_address: 172.31.251." in after, f"{name} is on backend without a fixed address"
+
+
+def _docker_ignored(path: str, patterns: list[str]) -> bool:
+    """Docker's .dockerignore rule, enough for these paths: the last pattern matching the path or one of its parent
+    folders decides; `!` re-includes."""
+    import fnmatch
+    parts = path.strip("/").split("/")
+    prefixes = ["/".join(parts[:i]) for i in range(1, len(parts) + 1)]
+    ignored = False
+    for raw in patterns:
+        neg = raw.startswith("!")
+        pat = raw[1:] if neg else raw
+        pat = pat.strip("/")
+        if any(fnmatch.fnmatchcase(p, pat) or (pat.startswith("**/") and fnmatch.fnmatchcase(p.split("/")[-1], pat[3:]))
+               for p in prefixes):
+            ignored = not neg
+    return ignored
+
+
+def test_every_file_the_dockerfile_copies_is_in_the_build_context():
+    """A COPY from the build context of something .dockerignore leaves out fails only when the image is built
+    (hk_frontend/docs was left out by `hosts/ha` until the first release build); this catches it without Docker."""
+    import re
+    patterns = [ln.strip() for ln in (ROOT / ".dockerignore").read_text().splitlines()
+                if ln.strip() and not ln.strip().startswith("#")]
+    sources = []
+    for line in (ROOT / "packaging/docker/Dockerfile").read_text().splitlines():
+        m = re.match(r"\s*COPY\s+(.*)", line)
+        if not m or "--from=" in m.group(1):
+            continue
+        args = [a for a in m.group(1).split() if not a.startswith("--")]
+        sources += [s.replace("[k]", "k") for s in args[:-1]]
+    assert sources and "hosts/ha/custom_components/hk_frontend/docs" in sources
+    for src in sources:
+        if (ROOT / src).exists():
+            assert not _docker_ignored(src, patterns), f"{src} is copied by the Dockerfile but left out by .dockerignore"
