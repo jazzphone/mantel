@@ -13,10 +13,20 @@ from https_fakes import ma_app, make_mantel, start_upstream
 PAGE = "/api/connections/ma/page"
 
 
+def speakers(m):
+    """The house's two Music Assistant speakers, as Home Assistant's registry lists them."""
+    m.app["hub"].registry.load(
+        [{"area_id": "den", "name": "Den"}, {"area_id": "kids_room", "name": "Kids' Room"}], [],
+        [{"entity_id": "media_player.den", "platform": "music_assistant", "unique_id": "fake-den", "area_id": "den"},
+         {"entity_id": "media_player.kids", "platform": "music_assistant", "unique_id": "fake-kids",
+          "area_id": "kids_room"}])
+
+
 @pytest.fixture
 async def env(tmp_path, monkeypatch):
     ma = await start_upstream(ma_app)
-    m = await make_mantel(tmp_path, monkeypatch)
+    m = await make_mantel(tmp_path, monkeypatch, commands_enabled=True)
+    speakers(m)
     conns = m.app["connections"]
     rec = C.Record(kind="ma", url=ma.url, token="engine-admin-token", method="token", since=1.0)
     conns.files.save(rec)
@@ -110,3 +120,45 @@ async def test_only_an_owner_sets_it(env, tmp_path):
     assert (await m.client.post(PAGE, json={"token": "page-token-user"}, headers=m.csrf())).status == 403
     await m.as_role("adult")
     assert (await m.client.get(PAGE)).status == 403
+
+
+async def signed(m) -> bool:
+    async with m.client.ws_connect("/ma/hassio_ingress/mantel/ws") as ws:
+        return json.loads((await ws.receive(timeout=5)).data)["homeassistant_addon"] is True
+
+
+async def test_only_someone_who_may_play_every_speaker_gets_the_signed_page(env):
+    """A signed page sends Music Assistant's commands past the gateway (no rooms, no audit per command), so it is
+    given only to someone the gateway would let do all of it. A Child kept to their room, with music control,
+    gets Music Assistant's own sign-in, as without a token; the Owner's signed page is in the audit log."""
+    m, ma = env
+    assert (await m.client.post(PAGE, json={"token": "page-token-user"}, headers=m.csrf())).status == 200
+    assert await signed(m)
+    rows = [dict(r) for r in m.store.db.execute("SELECT * FROM action_audit WHERE action = 'music.page_signed_in'")]
+    assert len(rows) == 1 and rows[0]["role"] == "owner"
+    await m.as_role("child", "cody")
+    uid = m.store.db.execute("SELECT id FROM users WHERE username = 'cody'").fetchone()[0]
+    m.app["rbac"].set_scopes("user", uid, ["kids_room"])
+    ma.commands.clear()
+    assert not await signed(m)
+    assert "auth" not in ma.commands
+
+
+async def test_with_house_commands_off_the_page_is_never_signed_in(tmp_path, monkeypatch):
+    ma = await start_upstream(ma_app)
+    m = await make_mantel(tmp_path, monkeypatch)
+    try:
+        speakers(m)
+        conns = m.app["connections"]
+        rec = C.Record(kind="ma", url=ma.url, token="engine-admin-token", method="token", since=1.0)
+        conns.files.save(rec)
+        conns.own["ma"] = rec
+        await m.as_role("owner")
+        assert (await m.client.post(PAGE, json={"token": "page-token-user"}, headers=m.csrf())).status == 200
+        ma.commands.clear()                                   # (saving it checked the token with MA)
+        assert not await signed(m)
+        assert "auth" not in ma.commands
+    finally:
+        await m.client.close()
+        await ma.server.close()
+        m.store.db.close()

@@ -113,6 +113,13 @@ An administrator's token is refused. The token stays in Mantel; the page
 never sees it. If Music Assistant later refuses it, the page shows Music
 Assistant's own sign-in again.
 
+What the signed-in page sends goes to Music Assistant directly, not through
+Mantel's checks, so Mantel signs it in only when house commands are on and
+for someone who may play, group and set the volume of **every** speaker:
+usually Owners, Admins and Adults. Everyone else, a Child kept to their rooms
+or a wall tablet, sees Music Assistant's own sign-in on that page, as without a
+token. Each signed-in page is written to the Audit Log when it opens.
+
 ### What is different from HK Frontend
 
 - **Announcements** are not spotted. During a spoken announcement on a speaker,
