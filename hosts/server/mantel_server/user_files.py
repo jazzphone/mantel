@@ -283,7 +283,8 @@ def reencode_photo(data: bytes, *, expect: str | None = None) -> tuple[bytes, st
         img = Image.open(io.BytesIO(data))
         if img.width * img.height > PHOTO_PIXELS_MAX:
             raise FileError("photo_too_large", "that picture has too many pixels", 413)
-        shown = {"JPEG": "jpeg", "PNG": "png", "WEBP": "webp", "HEIF": "heic"}.get(img.format or "")
+        # MPO: the multi-picture JPEG many phones and cameras write (a JPEG to everything else; photos.py takes it too)
+        shown = {"JPEG": "jpeg", "MPO": "jpeg", "PNG": "png", "WEBP": "webp", "HEIF": "heic"}.get(img.format or "")
         if shown != kind:
             raise FileError("photo_invalid", "the picture does not match its own format", 415)
         img.seek(0)

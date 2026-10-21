@@ -238,7 +238,7 @@ Keep port 8765 off the internet, and if you can, reachable only from your proxy 
 A Cloudflare Tunnel is the recommended way to reach Mantel from away: the stack's `cloudflared` service connects out to Cloudflare, so nothing on your router is opened. Everything through it gets Mantel's away rules ([Security Model](Security-Model.md#reaching-mantel-from-away)).
 
 1. In Cloudflare Zero Trust, **Networks** → **Tunnels**, create a tunnel of type **Cloudflared** and copy its token into the `cloudflared_token` secret file (step 4).
-2. Give the tunnel a **public hostname**, `mantel.example.com` (the same name as `MANTEL_HOSTNAME`, so passkeys work both ways), with the service `http://172.31.250.2:8080`: Caddy's tunnel door, which only `cloudflared` can reach. With your own reverse proxy instead of Caddy, see [OPERATIONS.md](../OPERATIONS.md) for where the tunnel goes.
+2. Give the tunnel a **public hostname**, `mantel.example.com` (the same name as `MANTEL_HOSTNAME`, so passkeys work both ways), with the service `http://172.31.250.2:8080`: Caddy's tunnel door, which only `cloudflared` can reach. With your own reverse proxy instead of Caddy, see [OPERATIONS.md](../OPERATIONS.md) for where the tunnel goes. There `cloudflared` reaches Mantel directly, so Mantel sees every visitor from away at `cloudflared`'s address: the sign-in limit per address is then shared by everyone outside, and the sessions and the Audit Log show that address. Cloudflare Access (below) keeps strangers from reaching the sign-in at all.
 3. Start it: `docker compose --profile tunnel up -d --wait`.
 
 Opening a port on your router to Mantel or its proxy instead works too, but it's at your own risk: Mantel's sign-in page is then open to the whole internet.

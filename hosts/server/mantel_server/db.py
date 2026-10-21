@@ -13,6 +13,7 @@ forward with a new number.
 """
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import logging
 import os
@@ -99,10 +100,18 @@ def schema_version(conn: sqlite3.Connection) -> int:
 
 
 def migrate(conn: sqlite3.Connection, folder: Path = MIGRATIONS, clock=time.time) -> list[int]:
-    """Apply pending migrations; returns the numbers applied now."""
+    """Apply pending migrations; returns the numbers applied now. A database a newer Mantel has migrated is
+    refused (``schema_too_new``), as a restore refuses its backup: this build does not know those tables, and
+    running on them (an update rolled back after its migrations committed) could fail or write wrongly."""
     done = applied(conn)
+    found = discover(folder)
+    newer = sorted(set(done) - {m.version for m in found})
+    if newer:
+        raise MigrationError(f"schema_too_new: this database has migrations this Mantel doesn't know "
+                             f"({', '.join(f'{v:04d}' for v in newer)}); run the Mantel that made them, or restore "
+                             f"the backup made before the update")
     ran = []
-    for m in discover(folder):
+    for m in found:
         if m.version in done:
             if done[m.version]["checksum"] != m.checksum:
                 log.warning("migration %04d_%s changed after it was applied; it is not re-run", m.version, m.name)
@@ -125,13 +134,32 @@ def migrate(conn: sqlite3.Connection, folder: Path = MIGRATIONS, clock=time.time
     return ran
 
 
+@contextlib.contextmanager
+def migration_lock(path: Path):
+    """One process migrates at a time (``<db>.lock``, flock): the server starting after an update while a
+    ``mantel …`` command opens the database both saw the same versions pending, and the second crashed
+    re-running the first's migrations. The second now waits and finds nothing left to do."""
+    try:
+        import fcntl
+    except ImportError:                       # not POSIX: no other Mantel process opens the file at once
+        yield
+        return
+    fd = os.open(f"{path}.lock", os.O_RDWR | os.O_CREAT, 0o600)
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX)
+        yield
+    finally:
+        os.close(fd)                          # (closing releases the lock)
+
+
 class Database:
     """The connection plus its migrations. Every module shares the one connection (``.conn``)."""
 
     def __init__(self, path: Path, folder: Path = MIGRATIONS) -> None:
         self.path = Path(path).expanduser()
         self.conn = connect(self.path)
-        migrate(self.conn, folder)
+        with migration_lock(self.path):
+            migrate(self.conn, folder)
 
     def close(self) -> None:
         self.conn.close()

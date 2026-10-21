@@ -107,9 +107,6 @@ def page(title: str, body: str, status: int = 200) -> web.Response:
 # -- middleware -------------------------------------------------------------------------------------
 @web.middleware
 async def require_session(request: web.Request, handler):
-    # This isolated proof resolves its own session so it can audit authentication denials.
-    if request.path == "/api/proof2/command" and request.method == "POST":
-        return await handler(request)
     if request.path in PUBLIC_PATHS or request.path in request.app.get("public_paths", ()):
         return await handler(request)
     ident = sessions.identity(request)

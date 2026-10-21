@@ -105,7 +105,8 @@ function askName(o) {
     const dlg = hh('div', { class: 'dlg mxdlg', role: 'alertdialog', 'aria-modal': 'true', 'aria-label': o.title },
       [hh('h2', { text: o.title }), o.message ? hh('p', { text: o.message }) : null, input, hh('div', { class: 'db' }, [cancel, ok])]);
     const bd = hh('div', { class: 'dlgbd' }, dlg);
-    const close = (v) => { bd.remove(); resolve(v); };
+    const giveBack = T.holdFocus(root, bd, dlg);
+    const close = (v) => { bd.remove(); giveBack(); resolve(v); };
     cancel.addEventListener('click', () => close(null));
     ok.addEventListener('click', () => close(input.value.trim() || null));
     input.addEventListener('keydown', (e) => { if (e.key === 'Enter') close(input.value.trim() || null); });
@@ -318,9 +319,11 @@ function drawGrid(c, aid, list) {
   if (!list.length) {
     zone.appendChild(hh('div', { class: 'mxempty', text: 'No photos yet. Drop photos here, or use Add Photos.' }));
   } else {
-    const grid = hh('div', { class: 'mxgrid' + (selecting ? ' sel' : ''), role: 'list' });
+    // buttons in a group, not list items: role="listitem" on a <button> took its button role away, and with it
+    // what a screen reader says it does and whether it is selected (aria-pressed)
+    const grid = hh('div', { class: 'mxgrid' + (selecting ? ' sel' : ''), role: 'group', 'aria-label': 'Photos' });
     list.forEach((p, i) => {
-      const b = hh('button', { type: 'button', class: 'mxph', role: 'listitem', 'data-id': p.id, 'data-fk': 'mx:ph:' + p.id,
+      const b = hh('button', { type: 'button', class: 'mxph', 'data-id': p.id, 'data-fk': 'mx:ph:' + p.id,
         'aria-pressed': selecting ? String(selected.has(p.id)) : null,
         'aria-label': (p.name || 'Photo') + ', ' + p.width + ' by ' + p.height }, [
         hh('img', { src: thumb(p.id), alt: '', loading: 'lazy', decoding: 'async', draggable: 'false' }), hh('span', { class: 'ck', 'aria-hidden': 'true' })]);
@@ -523,6 +526,7 @@ function openViewer(list, i, aid) {
   const root = T.panel().shadowRoot;
   const el = hh('div', { class: 'mxview', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Photo', tabindex: '-1' });
   viewer = { el, list, i, album: aid, prev: root.activeElement };
+  T.holdFocus(root, el, el);                       // (closeViewer gives focus back itself)
   el.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') { e.preventDefault(); closeViewer(); }
     else if (e.key === 'ArrowLeft') { e.preventDefault(); step(-1); }

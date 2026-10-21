@@ -896,3 +896,41 @@ async def test_rest_import_is_owner_only_and_idempotent(mantel_app):
     assert status["import"]["source"] == "ha:fictional-entry" and status["empty"] is False
     owner_id = m.service.store.get("house", "settings").updated_by
     assert owner_id and owner_id != "system"
+
+
+async def test_screens_and_tablets_are_sent_as_read_following_all_screens_and_all_tablets(store):
+    """HA's feed and panel/get hand each screen and tablet AS READ (hk_core boards()/tablets()). Mantel sent the
+    stored documents: a screen following All Screens' menu, tab bar or screensaver kept the defaults, and a
+    tablet following All Tablets' Idle never returned Home (null read as off). The import, which copies HA's
+    resolved answer, kept frozen copies of All Screens' screensaver and All Tablets' Idle; it keeps the screen's
+    and the tablet's own settings now."""
+    async def fetch():
+        panel = json.loads(json.dumps(PANEL))
+        panel["settings"]["look"] = {**panel["settings"].get("look", {}), "saver": {"starts_after": 60}}
+        panel["settings"]["tablets"] = {"idle_return": True, "idle_time": 30}
+        panel["boards"]["dashboard-kitchen"].update(screensaver_options={"starts_after": 60}, screensaver_house=True,
+                                                    menu_house=True, tablets=["kitchen"], idle_room="kitchen")
+        panel["tablets"]["kitchen"].update(idle_return=True, idle_time=30, idle_return_own=None, idle_time_own=None)
+        return panel
+    await S.import_settings(store, fetch, actor=S.Actor(label="test"))
+    board = store.body("board", "dashboard-kitchen")
+    assert board["screensaver_options"] is None and "screensaver_house" not in board and "tablets" not in board
+    tab = store.body("tablet", "kitchen")
+    assert tab["idle_return"] is None and tab["idle_time"] is None and "idle_return_own" not in tab
+    svc = S.SettingsService(store, S.SettingsHooks(may_configure=S.rbac_may_configure(clock=lambda: 1_000_000.0)),
+                            S.ThinModel())
+    feed = Feed()
+    end = svc.subscribe_feed(OWNER, feed)
+    got = feed.events[0]
+    assert got["boards"]["dashboard-kitchen"]["screensaver_house"] is True
+    assert got["boards"]["dashboard-kitchen"]["screensaver_options"]["starts_after"] == 60
+    assert got["tablet_items"]["kitchen"]["idle_return"] is True and got["tablet_items"]["kitchen"]["idle_time"] == 30
+    # All Screens' changes reach the screen that follows them: its menu accent and its screensaver
+    await svc.save(OWNER, {"type": "hk_frontend/settings/set", "changes": {"menu.accent": "blue",
+                                                                         "look.saver": {"starts_after": 20}}})
+    got = feed.events[-1]["boards"]["dashboard-kitchen"]
+    assert got["accent"] == "blue" and got["menu_house"] is True and got["screensaver_options"]["starts_after"] == 20
+    panel = svc.panel_payload()
+    assert panel["boards"]["dashboard-kitchen"]["screensaver_options"]["starts_after"] == 20
+    assert panel["tablets"]["kitchen"]["idle_return_own"] is None and panel["tablets"]["kitchen"]["idle_time"] == 30
+    end()

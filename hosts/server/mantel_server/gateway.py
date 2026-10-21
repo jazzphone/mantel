@@ -57,13 +57,13 @@ import math
 import re
 import sqlite3
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from importlib.resources import files
 from typing import Any, Awaitable, Callable, Iterable
 
 from aiohttp import web
 
-from . import alarm_pin
+from . import alarm_pin, readproxy
 from .authz import ENTITY_ID, Authz, Principal
 from .ha_client import (TALK_ENTITY, TALK_LIVE_TYPE, CommandBlocked, CommandTicket, HaCommandError, HaCommander,
                         HTTP_METHODS, UPLOAD_MAX_BYTES, UPLOAD_METHOD, UPLOAD_MIN_BYTES, UPLOAD_TYPES, _API_PATH,
@@ -89,6 +89,7 @@ _NAME = re.compile(r"^[a-z0-9_]+$")
 # `configure` on `settings` (Owner/Admin), so an Adult's "control everything" never reaches
 # homeassistant.restart, recorder.purge and the like.
 FEATURE_SERVICES = {"notify": "notifications", "persistent_notification": "notifications"}
+MANTEL_NOTICE = "mantel_"            # the notification ids of Mantel's own notices in HA (mantel_remote_<audit id>)
 SCRIPT_MANAGEMENT = frozenset({"turn_on", "turn_off", "toggle", "reload"})
 # Remote (tunnel) actions that notify the Owners (PLAN §7: "an Owner notification on every remote
 # unlock/disarm"): the sensitive kinds of locks and alarm panels.
@@ -168,6 +169,33 @@ def _entity_list(value: Any) -> list[str]:
     return value
 
 
+# ENTITIES NAMED IN A SERVICE'S DATA, not its target: HA acts on them too, so each is decided as well, as the
+# command it amounts to on that entity. (media_player.join's group_members join those speakers; camera.play_stream
+# and tts.speak play on their media_player.) A camera named as media to play is watching that camera.
+DATA_ENTITY_FIELDS = {"group_members": "media_player.join", "media_player": "media_player.play_media",
+                      "media_player_entity_id": "media_player.play_media"}
+CAMERA_MEDIA = re.compile(r"^media-source://camera/([a-z0-9_]+\.[a-z0-9_]+)")
+
+
+def data_checks(data: dict) -> tuple[list[Check], list[str]]:
+    """The checks for the entities a service's data names besides entity_id, and those entities."""
+    checks: list[Check] = []
+    for key, action in DATA_ENTITY_FIELDS.items():
+        if key in data:
+            for eid in _entity_list(data[key]):
+                checks.append(Check(action, eid))
+    media = data.get("media_content_id")
+    if isinstance(media, str) and media.startswith("media-source://camera/"):
+        m = CAMERA_MEDIA.match(media)
+        if m is None or not m.group(1).startswith("camera."):
+            raise Refused("unsupported_target", "a camera as media names one camera entity")
+        checks += [Check("view", m.group(1)), Check("camera.live", m.group(1))]
+    elif isinstance(media, str) and media.startswith(readproxy.CAMERA_MEDIA):
+        # an NVR's recording (Frigate, UniFi Protect, ...) names no camera entity: the cameras' own live-view right
+        checks.append(Check("camera.live", feature="cameras"))
+    return checks, list(dict.fromkeys(c.target for c in checks))
+
+
 def service_command(domain: Any, service: Any, data: Any, target: Any, return_response: Any = False) -> Command:
     if not isinstance(domain, str) or not isinstance(service, str) or not _NAME.match(domain) or not _NAME.match(service):
         raise Refused("invalid_command", "domain and service are plain names")
@@ -199,10 +227,17 @@ def service_command(domain: Any, service: Any, data: Any, target: Any, return_re
         code = code or None
         data = {k: v for k, v in data.items() if k != "code"}
         alarm = (service, ids[0])
+    extra, named = data_checks(data)
     if ids:
         checks = [Check(action, eid) for eid in ids]
     elif domain in FEATURE_SERVICES:
         checks = [Check(action, feature=FEATURE_SERVICES[domain])]
+        if domain == "persistent_notification" and service != "create" and not (
+                isinstance(data.get("notification_id"), str) and not data["notification_id"].startswith(MANTEL_NOTICE)):
+            # Mantel's own notices for the Owners (an unlock from away, _notify_owners) are not the actor's to
+            # take away: the person who unlocked could dismiss the notice about it. Dismissing one, or every
+            # notice at once (dismiss_all), is a settings-level change.
+            checks.append(Check("configure", feature="settings"))
     elif domain == "script" and service not in SCRIPT_MANAGEMENT:
         ids = [f"script.{service}"]                       # script.<name>: running that script
         checks = [Check(action, ids[0])]
@@ -215,8 +250,9 @@ def service_command(domain: Any, service: Any, data: Any, target: Any, return_re
         frame["target"] = target
     if return_response:
         frame["return_response"] = True
-    return Command("service", action, checks, frame=frame, targets=ids or [c.target for c in checks],
-                   alarm=alarm, code=code)
+    targets = ids or [c.target for c in checks]
+    return Command("service", action, checks + extra, frame=frame,
+                   targets=targets + [t for t in named if t not in targets], alarm=alarm, code=code)
 
 
 def ws_rule(kind: str) -> tuple[str, str]:
@@ -402,6 +438,36 @@ def classify(msg: dict, writes: frozenset[str]) -> Command:
     if not isinstance(args, dict) or set(args) - MA_COMMANDS[command]:
         raise Refused("invalid_command", f"{command} carries {sorted(MA_COMMANDS[command])} only")
     return Command("ma", command, [Check("control", feature="music")], ma=(command, args), targets=["feature:music"])
+
+
+# A RAW MUSIC ASSISTANT COMMAND names players by Music Assistant's ids. Each is decided as the media_player entity
+# it is in Home Assistant (music.ma_players), as Mantel's music engine decides each room's speaker: the music
+# feature alone let a Child drive every speaker. An announcement has Music Assistant fetch any address it is
+# given, so it is a settings-level action (Owner, Admin).
+MA_PLAYER_ARGS = ("player_id", "queue_id", "target_player", "source_queue_id", "target_queue_id")
+MA_PLAYER_LISTS = ("child_player_ids", "player_ids")
+
+
+def ma_player_checks(cmd: Command, players: dict[str, str]) -> Command:
+    """``cmd`` (kind ma) with a check per player it names; ``players`` is {MA player id: media_player entity}."""
+    command, args = cmd.ma
+    named: list[str] = [args[k] for k in MA_PLAYER_ARGS if k in args]
+    for k in MA_PLAYER_LISTS:
+        if k in args:
+            if not isinstance(args[k], list):
+                raise Refused("invalid_command", f"{k} is a list of players")
+            named += args[k]
+    entities = []
+    for pid in named:
+        eid = players.get(pid) if isinstance(pid, str) else None
+        if eid is None:
+            raise Refused("unsupported_target", "not a Music Assistant player of this house's")
+        entities.append(eid)
+    action = "media_player.turn_off" if command == "players/cmd/power" else "media_player.play_media"
+    checks = list(cmd.checks) + [Check(action, eid) for eid in dict.fromkeys(entities)]
+    if command == "players/cmd/play_announcement":
+        checks.append(Check("configure", feature="settings"))
+    return replace(cmd, checks=checks, targets=list(dict.fromkeys(entities)) or cmd.targets)
 
 
 # -- the audit -----------------------------------------------------------------------------------
@@ -593,6 +659,9 @@ class Gateway:
             return await reply(fail("unauthenticated", "the session or device is no longer valid"))
         try:
             cmd = classify(msg, self.writes)
+            if cmd.kind == "ma":
+                from .music import ma_players
+                cmd = ma_player_checks(cmd, {pid: eid for eid, pid in ma_players(self.app["hub"].registry).items()})
         except Refused as exc:
             aid = self.audit.record(principal=principal, kind=_kind(msg), action=_action(msg), targets=[],
                                     decision="denied", reason=exc.code, result="not_sent")

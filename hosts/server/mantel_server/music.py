@@ -1513,6 +1513,10 @@ class MusicHost:
         if self._subs:
             for sid in list(self._subs):
                 asyncio.get_running_loop().create_task(self._push_one(sid, force=True))
+        # Keep Playlists Ready follows the connection too: its loop ends when Music Assistant goes, and was
+        # started only at start() and on a settings save, so one connected later never warmed anything
+        if self.started:
+            self.warmer.follow(WARM_SOON)
 
     async def start(self) -> None:
         self.started = True

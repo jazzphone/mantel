@@ -50,6 +50,7 @@ options:
   commands_enabled: false
   log_level: info
   default_screen: ""
+  session_hours: 12
   ha_door_rules: trusted
   # Music Assistant (Phase 4, docs/OPERATIONS.md "Music Assistant"): empty leaves Mantel's music engine off.
   # The token is a masked option; the entrypoint moves it into a private file (never args, env or logs).
@@ -74,6 +75,7 @@ schema:
   commands_enabled: bool
   log_level: list(debug|info|warning|error)
   default_screen: str?
+  session_hours: float(1,720)
   ha_door_rules: list(trusted|lan|tunnel)
   ma_url: "str?"
   ma_token: "password?"

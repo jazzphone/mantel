@@ -247,3 +247,21 @@ async def test_a_redirect_is_checked_like_the_first_address(hass, aioclient_mock
     assert not any("router.lan" in str(c[1]) for c in aioclient_mock.mock_calls), "never asked the router"
     got = await art.async_fetch(hass, "https://x.test/r2", 300, art.Cache(), session=s)
     assert got and got[1] == "image/jpeg", "a redirect to the CDN is followed"
+
+
+async def test_dot_segments_never_leave_the_imageproxy(hass, aioclient_mock):
+    """aiohttp normalises `..` before it asks, so `/imageproxy/../x` would
+    reach `/x` on the home network: any dot segment, plain or %-encoded, is
+    refused before anything is fetched."""
+    from homeassistant.helpers.aiohttp_client import async_get_clientsession
+    ok = lambda u: art.allowed(hass, u)
+    for path in ("/imageproxy/../private/snapshot.png", "/imageproxy/%2e%2e/private/x",
+                 "/imageproxy/%2E%2E%2Fprivate", "/imageproxy/%252e%252e/x", "/imageproxy/./x"):
+        assert not await ok("http://192.0.2.53:8095" + path), path
+    assert await ok("http://192.0.2.53:8095/imageproxy/a..b?size=512"), "dots inside a name are fine"
+    aioclient_mock.get("http://192.0.2.53:8095/private/snapshot.png", content=b"x",
+                       headers={"Content-Type": "image/png"})
+    s = async_get_clientsession(hass)
+    assert await art.async_fetch(hass, "http://192.0.2.53:8095/imageproxy/../private/snapshot.png", 0,
+                                 art.Cache(), session=s) is None
+    assert aioclient_mock.call_count == 0, "never asked"

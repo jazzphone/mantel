@@ -80,6 +80,14 @@
   }
 
   function firstViewPath() {
+    // the host's own answer first (hkShell.dashboardConfig: Mantel's view host has no Lovelace panel to
+    // find, so the walk below found nothing there and Home itself counted as a subpage, sent "home" again)
+    try {
+      var S = window.hkShell;
+      var cfg = S && S.dashboardConfig ? S.dashboardConfig(S.panel ? S.panel() : undefined) : null;
+      var v0 = cfg && cfg.views && cfg.views[0];
+      if (v0 && v0.path) return v0.path;
+    } catch (e) { /* the walk below */ }
     try {
       var seen = new Set(), panel = null;
       (function walk(root, d) {

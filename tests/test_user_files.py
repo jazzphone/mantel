@@ -715,3 +715,17 @@ def test_uploaded_files_are_inside_the_backup_and_come_back(tmp_path):
     again = uf.UserFiles(fresh / "user-files")
     assert again.listing()["status"] == {"font": True, "glyphs": True}
     assert again.photo_path(photo["id"]).read_bytes() == store.photo_path(photo["id"]).read_bytes()
+
+
+def test_a_multi_picture_jpeg_from_a_phone_is_a_jpeg():
+    """Many phones and cameras write MPO (a JPEG with extra pictures); Your Files refused it as "does not match its
+    own format" while Mantel Photos took it."""
+    from PIL import Image
+
+    from mantel_server.user_files import reencode_photo
+    im = Image.new("RGB", (64, 48), (10, 120, 200))
+    raw = io.BytesIO()
+    im.save(raw, "MPO", save_all=True, append_images=[im])
+    assert Image.open(io.BytesIO(raw.getvalue())).format == "MPO"
+    out, kind = reencode_photo(raw.getvalue())
+    assert kind == "jpeg" and Image.open(io.BytesIO(out)).format == "JPEG"

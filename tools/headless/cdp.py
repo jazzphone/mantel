@@ -113,11 +113,19 @@ class Browser:
     async def _check_request(self, event):
         request_id = event["requestId"]
         url = event["request"]["url"]
-        if urlsplit(url).netloc != self.allowed_origin:
+        blocked = urlsplit(url).netloc != self.allowed_origin
+        if blocked:
             self.blocked_requests.append(urlsplit(url).netloc)
-            await self.send("Fetch.failRequest", requestId=request_id, errorReason="BlockedByClient")
-        else:
-            await self.send("Fetch.continueRequest", requestId=request_id)
+        try:
+            if blocked:
+                await self.send("Fetch.failRequest", requestId=request_id, errorReason="BlockedByClient")
+            else:
+                await self.send("Fetch.continueRequest", requestId=request_id)
+        except RuntimeError as exc:
+            # the page let go of the request first (a navigation, a socket closed): nothing left to answer.
+            # A blocked request is still counted above, so the check still fails on it.
+            if "Invalid InterceptionId" not in str(exc):
+                raise
 
     async def send(self, method, **params):
         self._id += 1

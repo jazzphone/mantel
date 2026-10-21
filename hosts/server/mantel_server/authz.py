@@ -40,7 +40,7 @@ ENTITY_ID = re.compile(r"^[a-z0-9_]+\.[a-z0-9_]+$")
 FEATURE_ALIASES = {"media": "music"}
 # House grants added to the stored policy (decision recorded in GATEWAY.md).
 HOUSE_GRANTS: tuple[Grant, ...] = (
-    Grant(effect="allow", actions=("view", "control.sensitive"), resource_kind="feature", resource="cameras",
+    Grant(effect="allow", actions=("view",), resource_kind="feature", resource="cameras",
           roles={"wall_tablet"}, note="the doorbell pop-up on every wall tablet (LAN only: devices never on the tunnel)"),
     # Phase 4 music (docs/phase4/MANTEL-FEATURES.md "Music"): HK's Music page on every
     # wall tablet, as in HA (each tablet is an HA user who may use it). Which speakers it shows and plays stays
@@ -49,6 +49,15 @@ HOUSE_GRANTS: tuple[Grant, ...] = (
           roles={"wall_tablet"}, note="HK's Music page on every wall tablet; its speakers are still its room's"),
     Grant(effect="allow", actions=("view",), resource_kind="feature", resource="live_tv",
           roles={"wall_tablet"}, note="Live TV on every wall tablet, as in HA (each channel's camera: the grant above)"),
+)
+
+# THE DOORBELL ON EVERY WALL TABLET, live: watching any camera (`camera.live`) and talking at the door
+# (`camera.talk`) are `control.sensitive` on the cameras feature, which also covers every other camera
+# service (turn off, record, play a stream elsewhere). So the grant is not in HOUSE_GRANTS: it is added only
+# where those two are decided (doorbell_policy: Authz.may_still, and talk_policy for the talk checks).
+DOORBELL_GRANTS: tuple[Grant, ...] = (
+    Grant(effect="allow", actions=("control.sensitive",), resource_kind="feature", resource="cameras",
+          roles={"wall_tablet"}, note="live view and talk-back of the doorbell pop-up on every wall tablet (only those)"),
 )
 
 # THE DOORBELL'S TALK-BACK SPEAKERS for wall tablets (decision recorded in GATEWAY.md "Doorbell
@@ -198,13 +207,15 @@ class Authz:
         return changed
 
     def context(self) -> Context:
-        """Registry lookups and the exact time. The lookups (which read the live registry) are built
-        once per zone and registry; the time is always now (a schedule window must count at once)."""
+        """Registry lookups and the exact time. The lookups read the live registry and states at each call
+        (a room moved in Home Assistant counts at once, rbac.Context.from_registry), so they are built once
+        per zone and registry; the time is always now (a schedule window must count at once)."""
         now = self.clock()
         key = (self.tz, id(self.hub.registry), id(self.hub.store))
         cached = self._ctx
         if cached is None or cached[0] != key:
-            cached = (key, Context.from_registry(self.hub.registry, now, self.tz, self.hub.store.states))
+            store = self.hub.store
+            cached = (key, Context.from_registry(self.hub.registry, now, self.tz, lambda: store.states))
             self._ctx = cached
         return replace(cached[1], now=now)
 
@@ -235,9 +246,19 @@ class Authz:
             log.exception("could not read HK's pop-ups for the talk-back speakers")
             return frozenset()
 
-    def talk_policy(self, subject: Subject) -> Policy:
-        """The house policy plus the talk-back speaker grants. Used ONLY for the talk-back checks."""
+    def doorbell_policy(self, subject: Subject) -> Policy:
+        """The house policy plus DOORBELL_GRANTS. Used ONLY for camera live view and talk-back."""
         base = self.policy_for(subject)
+        cached = getattr(self, "_doorbell_cache", None)
+        if cached is not None and cached[0] is base:
+            return cached[1]
+        got = replace(base, grants=tuple(base.grants) + DOORBELL_GRANTS)
+        self._doorbell_cache = (base, got)
+        return got
+
+    def talk_policy(self, subject: Subject) -> Policy:
+        """The doorbell policy plus the talk-back speaker grants. Used ONLY for the talk-back checks."""
+        base = self.doorbell_policy(subject)
         speakers = self.talk_speakers()
         if not speakers:
             return base
@@ -327,6 +348,16 @@ class Authz:
                 return False
             user = sessions.user_from_row(row)
             fresh_at, fresh = row["fresh_factor_at"], row["fresh_factor"]
+        elif user is not None and ident.door == "ha" and user.ha_user_id:
+            # Home Assistant's sidebar before the page set Mantel's cookies (ingress.resolve: the user, no
+            # session). No session row to re-read, so the link itself is: unlinked, disabled or re-linked to
+            # someone else ends it, and a role change counts, as for a session.
+            from .ingress import linked_user
+            row = linked_user(self.app["store"].db, user.ha_user_id)
+            if row is None or row["disabled"] or row["id"] != user.id:
+                p.valid = False
+                return False
+            user = replace(user, name=row["name"], role=row["role"], kind=row["kind"], username=row["username"])
         device = ident.device
         if device is not None:
             mgr = self.app.get("devices")
@@ -366,12 +397,10 @@ class Authz:
         return out
 
     def may_view(self, principal: Any, entity_id: str) -> bool:
-        """Camera live view (``camera.live``): exactly True or False; no prompt can be shown here."""
-        if not isinstance(principal, Principal) or not principal.valid or not isinstance(entity_id, str):
-            return False
-        if not ENTITY_ID.match(entity_id):
-            return False
-        return self.decide(principal.subject, "camera.live", entity_id).allowed is True
+        """Camera live view: the subject may ``view`` the camera AND ``camera.live`` is allowed, as for its
+        still (``may_still``). ``camera.live`` alone let a camera hidden by a deny on ``view`` (gone from the
+        page, its still refused) still be watched by its guessed entity id. Exactly True or False."""
+        return self.may_still(principal, entity_id)
 
     def may_still(self, principal: Any, entity_id: str) -> bool:
         """A camera still (``GET /api/camera/<entity>/still``): the live-view policy. The subject may
@@ -384,7 +413,7 @@ class Authz:
         ctx = self.context()
         if not self.decide(principal.subject, "view", entity_id, ctx=ctx).allowed:
             return False
-        live = self.decide(principal.subject, "camera.live", entity_id, ctx=ctx)
+        live = self.doorbell_policy(principal.subject).decide(principal.subject, "camera.live", entity_id, ctx)
         return live.allowed is True
 
     def may_see(self, principal: Any, entity_id: str) -> bool:

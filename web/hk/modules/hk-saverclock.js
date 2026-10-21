@@ -800,6 +800,9 @@
     var P = !flat && bg ? PAINTERS[bg] || PAINTERS.gradient : null, pst = null;
     if (flat && bg && bg !== 'none') root.style.background = 'var(--hk-flat-ground,#17181A)';
     var speed = opts.speed != null ? Math.max(0, Math.min(100, +opts.speed || 0)) : (opts.motion === 'still' ? 0 : 35);
+    // REDUCED MOTION: the background stands still (the CSS above stills only the light and the face; the
+    // painters kept repainting and cross-fading every second)
+    try { if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) speed = 0; } catch (e) { /* as set */ }
     var po = { depth: opts.depth != null ? Math.max(0, Math.min(100, +opts.depth || 0)) : 50 };
     // HOW IT MOVES SMOOTHLY (2026-10-13, the owner: "lots of these aren't
     // smooth"): drawn a few times a second, each frame jumped. Now the

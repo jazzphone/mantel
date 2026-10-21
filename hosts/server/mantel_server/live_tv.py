@@ -338,6 +338,7 @@ class MantelLiveTv:
         self.viewers = Viewers()
         self.local = LocalEntities(hub, lambda: app["clock"]() if "clock" in app else time.time())
         self.sessions: dict[str, TvSession] = {}
+        self.starting = 0                          # offers past the caps' check, not yet sessions (offer)
         self.streams: dict[str, str] = {}                     # stream name -> channel, set up in go2rtc
         self._stop_timers: dict[str, asyncio.TimerHandle] = {}
         self._linked_sig: tuple | None = None
@@ -631,8 +632,21 @@ class MantelLiveTv:
             raise ReadBlocked("offer must be an SDP string")
         ch = await self._gate(ctx, msg["entity_id"])
         mine: dict[str, TvSession] = ctx.state.setdefault("tv_sessions", {})
-        if len(mine) >= MAX_SESSIONS_PER_SOCKET or len(self.sessions) >= MAX_SESSIONS:
+        # the caps count the offers still starting too (checked and taken with no await between): counted
+        # only once made, offers sent together all passed, and one socket could hold every tuner
+        if len(mine) + ctx.state.get("tv_starting", 0) >= MAX_SESSIONS_PER_SOCKET \
+                or len(self.sessions) + self.starting >= MAX_SESSIONS:
             raise Forbidden("too many Live TV streams at once")
+        ctx.state["tv_starting"] = ctx.state.get("tv_starting", 0) + 1
+        self.starting += 1
+        try:
+            return await self._start(ctx, ch, sdp, mine, on_event)
+        finally:
+            ctx.state["tv_starting"] -= 1
+            self.starting -= 1
+
+    async def _start(self, ctx: Ctx, ch: dict[str, Any], sdp: str, mine: dict[str, "TvSession"],
+                     on_event: Callable[[dict], None]):
         assert self.go2rtc is not None
         name = stream_name(ch["number"])
         src = go2rtc_source(ch["url"], self.settings().get("quality") or "720", self.hardware)
@@ -662,6 +676,16 @@ class MantelLiveTv:
         async def unsubscribe() -> None:
             mine.pop(sess.id, None)
             await self._end(sess)
+
+        async def recheck() -> bool:
+            """The policy tick's question (server.tick_once): may this connection still watch this channel?"""
+            try:
+                await self._gate(ctx, sess.camera)
+                return True
+            except Forbidden:
+                on_event({"type": "error", "code": "forbidden", "message": "Live TV is no longer allowed here"})
+                return False
+        unsubscribe.recheck = recheck              # type: ignore[attr-defined]
         return unsubscribe
 
     async def _relay(self, sess: TvSession, on_event: Callable[[dict], None]) -> None:

@@ -350,3 +350,46 @@ async def test_no_audit_row_no_tablet(mantel, monkeypatch):
     assert r.status == 503 and got["error"] == "audit_unavailable" and "mantel_device" not in r.cookies
     assert mantel.store.db.execute("SELECT COUNT(*) FROM devices").fetchone()[0] == 0
     assert (await mantel.get("/api/session")).status == 200                  # still the Owner here
+
+
+async def test_an_owner_signed_in_at_a_tablet_cannot_manage_devices(mantel):
+    """require_manager ignored the device: a forgotten Owner sign-in on the kitchen tablet could list the tablets,
+    move this one into another room (taking that room's unlocks) and revoke the others. At a tablet a person
+    gets Me only (People-and-Roles.md); the tablet may still revoke itself."""
+    m = mantel
+    house_tablets(m)
+    await m.user("avery", "owner")
+    await m.sign_in("avery")
+    r, a = await enroll(m, tablet="living")
+    other = a["device"]["id"]
+    m.forget_cookies()
+    await m.sign_in("avery")
+    r, k = await enroll(m, tablet="kitchen")
+    kitchen = k["device"]["id"]
+    await m.sign_in("avery")                                  # at the kitchen tablet (its cookie kept)
+    assert (await m.get("/api/devices")).status == 403
+    r = await m.client.patch(f"/api/devices/{kitchen}", json={"tablet": "master"}, headers=m.headers())
+    assert r.status == 403
+    assert (await m.client.delete(f"/api/devices/{other}", headers=m.headers())).status == 403
+    assert m.app["devices"].get(other)["revoked"] is None and m.app["devices"].get(kitchen)["room"] == "kitchen"
+
+
+async def test_a_wall_tablet_account_has_one_tablet_at_a_time(mantel):
+    """A Wall Tablet account could mint any number of device credentials: enrolling again (a tablet reset)
+    now replaces its earlier tablet, audited, instead of adding one."""
+    m = mantel
+    house_tablets(m)
+    await m.user("kitchen", "wall_tablet")
+    await m.sign_in("kitchen")
+    r, first = await enroll(m, tablet="kitchen")
+    assert r.status == 201
+    m.forget_cookies()
+    await m.sign_in("kitchen")
+    r, second = await enroll(m, tablet="kitchen")
+    assert r.status == 201
+    devices = m.app["devices"]
+    assert devices.get(first["device"]["id"])["revoked"] is not None
+    assert devices.get(first["device"]["id"])["revoked_reason"] == "replaced"
+    assert devices.get(second["device"]["id"])["revoked"] is None
+    rows = [dict(r) for r in m.store.db.execute("SELECT action, target FROM action_audit WHERE action = 'device.revoke'")]
+    assert len(rows) == 1 and first["device"]["id"] in rows[0]["target"]

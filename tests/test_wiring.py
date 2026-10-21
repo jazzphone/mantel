@@ -319,3 +319,46 @@ def test_admin_page_is_wired(tmp_path):
                            store=Store(tmp_path / "m.db"), connect_ha=False)
     paths = {r.resource.canonical for r in app.router.routes() if r.resource is not None}
     assert "/admin" in paths and "/api/admin/overview" in paths
+
+
+async def test_the_house_time_zone_is_asked_for_until_home_assistant_answers(off, monkeypatch):
+    """house_tz gave up after 30 tries (about 26 minutes): a Mantel connected to Home Assistant later than that
+    (the first run's Connections page) kept deciding schedules and the nightly backup in UTC until restarted."""
+    hub, authz = off.app["hub"], off.app["authz"]
+    waits = []
+
+    async def no_wait(seconds):
+        waits.append(seconds)
+
+    class Down:
+        def __init__(self):
+            self.asked = 0
+
+        async def request(self, msg):
+            self.asked += 1
+            if self.asked <= 40:
+                raise ConnectionError("not yet")
+            return {"time_zone": "America/New_York"}
+
+        async def close(self):
+            pass
+    monkeypatch.setattr(server.asyncio, "sleep", no_wait)
+    hub.readproxy = Down()
+    await server.house_tz(off.app, hub)
+    assert hub.readproxy.asked == 41 and authz.tz == "America/New_York"
+    assert max(waits) == 60.0
+
+
+async def test_a_room_given_to_a_child_reaches_their_open_screen_at_once(off):
+    """A room scope is part of the subject; notify_sessions re-filtered with the principal's old scope, so a room
+    given (or taken away) showed only at the next minute's tick."""
+    from mantel_server.rbac_store import notify_sessions
+    await off.login("cody", "child")
+    ws = await off.socket(expect_caps=False)
+    snap = await subscribe_all(ws)
+    assert not any(e.startswith("light.cody") for e in (snap or {}).get("entities", {}))
+    off.app["rbac"].set_scopes("user", uid(off, "cody"), ["cody_room"])
+    notify_sessions(off.app["hub"])                              # what the Roles & Grants routes do
+    diff = await recv(ws)
+    assert any(e.startswith("light.cody") for e in diff["added"]), diff
+    await ws.close()

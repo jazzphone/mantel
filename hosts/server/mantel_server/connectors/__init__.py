@@ -113,6 +113,9 @@ class Ctx:
     identity: Any = None
     subs: dict[Any, Callable[[], Awaitable[None]]] = field(default_factory=dict)  # key -> async unsubscribe
     state: dict[str, Any] = field(default_factory=dict)                           # per-connector scratch
+    starting: set = field(default_factory=set)       # keys whose subscription is being made (reserve/keep)
+    _ended: set = field(default_factory=set)         # of those, keys ended (or the connection closed) meanwhile
+    closed: bool = False
 
     def emit(self, msg: dict) -> None:
         """Send from a synchronous callback (an upstream event)."""
@@ -124,7 +127,35 @@ class Ctx:
         except Exception as exc:  # noqa: BLE001 -- the client went away; its close() cleans up
             log.debug("dropped an event for a closed client: %s", exc)
 
+    # A subscription whose start awaits (an upstream round trip) RESERVES its key first, so a second frame
+    # with the same id is refused instead of overwriting the first's unsubscribe (which then never ran, and
+    # its upstream session leaked: HA's WebRTC sessions, Live TV's streams). One ended, or whose connection
+    # closed, while it started is ended as soon as it has started.
+    def reserve(self, key: Any) -> bool:
+        if self.closed or key in self.subs or key in self.starting:
+            return False
+        self.starting.add(key)
+        return True
+
+    async def keep(self, key: Any, unsub: Callable[[], Awaitable[None]] | None) -> None:
+        self.starting.discard(key)
+        if key in self._ended or self.closed:
+            self._ended.discard(key)
+            if unsub is not None:
+                self.subs[key] = unsub
+                await self.end(key)
+            return
+        if unsub is not None:
+            self.subs[key] = unsub
+
+    def unreserve(self, key: Any) -> None:
+        """The start failed: the key is free again."""
+        self.starting.discard(key)
+        self._ended.discard(key)
+
     async def end(self, key: Any) -> None:
+        if key in self.starting:
+            self._ended.add(key)
         unsub = self.subs.pop(key, None)
         if unsub is not None:
             try:
@@ -133,6 +164,7 @@ class Ctx:
                 log.debug("unsubscribe %r: %s", key, exc)
 
     async def close(self) -> None:
+        self.closed = True
         for key in list(self.subs):
             await self.end(key)
 

@@ -51,7 +51,16 @@ as that branch's `version` goes up, so it must never name an image that isn't th
 
 ## Make a release
 
-1. Start from a `main` whose Tests run is green.
+1. Start from a `main` whose Tests run is green. If `pyproject.toml`'s dependencies changed, or to take newer
+   versions of them, regenerate the image's hashed lock first (`tools/package_check.py --release` refuses a
+   dependency it doesn't pin), on Python 3.12 as the image uses:
+
+   ```bash
+   pip install pip-tools
+   pip-compile --generate-hashes --strip-extras --no-emit-index-url --allow-unsafe \
+     -o packaging/docker/requirements.lock pyproject.toml
+   ```
+
 2. Set the version and name the release notes:
 
    ```bash

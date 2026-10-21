@@ -194,6 +194,44 @@ def test_the_connect_ca_travels_inside_the_encrypted_part_and_is_restored(tmp_pa
     assert (keep / "connect" / "ca.crt").read_bytes() == kept
 
 
+def test_the_keys_mantel_made_travel_with_the_backup(tmp_path, key, target):
+    """The push key and the apps' identity key (<data>/keys, app_crypto.made_key_path): a restored Mantel signs
+    with the same keys, so browsers' push subscriptions and the apps' pinned pairings keep working."""
+    import stat
+
+    from mantel_server import app_crypto
+    data = make_home(tmp_path)
+    (data / "keys").mkdir(mode=0o700)
+    app_crypto.load_or_create_ec_key(data / "keys" / "vapid.pem")
+    before = (data / "keys" / "vapid.pem").read_bytes()
+    out = bk.create_backup(data, target, key, now=NOW)
+    assert b"PRIVATE KEY" not in out.read_bytes()
+    fresh = tmp_path / "fresh"
+    bk.restore(out, key, fresh)
+    assert (fresh / "keys" / "vapid.pem").read_bytes() == before
+    assert stat.S_IMODE((fresh / "keys" / "vapid.pem").stat().st_mode) == 0o600
+    assert stat.S_IMODE((fresh / "keys").stat().st_mode) == 0o700
+
+
+def test_restoring_a_backup_without_files_keeps_the_live_photos_and_files(tmp_path, key, target):
+    """A --backup-no-files backup holds neither Your Files nor the photos: --replace used to move the live ones
+    aside anyway, leaving the photo rows pointing at nothing until someone renamed the folders back."""
+    data = make_home(tmp_path)
+    (data / "photos").mkdir()
+    (data / "photos" / "p.jpg").write_bytes(b"live photo")
+    out = bk.create_backup(data, target, key, now=NOW, include_files=False)
+    report = bk.restore(out, key, data, replace=True)
+    assert (data / "photos" / "p.jpg").read_bytes() == b"live photo"
+    assert (data / "user-files/hk/fonts/Dummy.ttf").read_bytes() == b"dummy font bytes"
+    assert not any("photos.before" in r or "user-files.before" in r for r in report.replaced)
+    # a backup WITH the files still replaces them (the restored rows are its photos)
+    out = bk.create_backup(data, target, key, now=NOW + timedelta(days=1))
+    (data / "photos" / "late.jpg").write_bytes(b"after the backup")
+    report = bk.restore(out, key, data, replace=True)
+    assert not (data / "photos" / "late.jpg").exists() and (data / "photos" / "p.jpg").exists()
+    assert any(Path(r).name.startswith("photos.before-restore-") for r in report.replaced)
+
+
 def test_verify_only_stages_in_the_data_folder_not_the_small_tmp(tmp_path, key, target, monkeypatch):
     """--verify-only unpacked into the system temp folder, which in the container is a 64 MB tmpfs: a
     backup with many photos did not fit. It stages in the data folder (the volume) like a restore, in a
@@ -563,6 +601,41 @@ def test_cli_backup_and_restore(tmp_path, capsys, target):
     assert cli_main(["restore", str(files[0]), "--data-dir", str(tmp_path / "f3"),
                      "--secrets-dir", str(tmp_path / "none")]) == 1
     assert "key_missing" in capsys.readouterr().err and not (tmp_path / "none").exists()
+
+
+def test_a_backup_made_by_hand_deletes_none_unless_asked(tmp_path, capsys, target):
+    """The CLI thinned with its own 7 daily / 4 weekly whatever the server kept (--backup-keep-*): following the
+    guide's "back up before you update" deleted backups a house had chosen to keep."""
+    data = make_home(tmp_path)
+    secrets = tmp_path / "secrets"
+    for day in range(30):
+        (target / bk.backup_name(NOW - timedelta(days=day + 1))).write_bytes(b"old")
+    assert cli_main(["backup", "--data-dir", str(data), "--secrets-dir", str(secrets), "--target", str(target)]) == 0
+    assert len(list(target.glob("*.mbk"))) == 31
+    assert cli_main(["backup", "--data-dir", str(data), "--secrets-dir", str(secrets), "--target", str(target),
+                     "--keep-daily", "10"]) == 0
+    assert len(list(target.glob("*.mbk"))) < 31
+
+
+def test_what_a_killed_backup_left_is_removed_by_the_next_but_a_running_one_is_not(tmp_path, key, target):
+    """A backup or restore killed partway (SIGKILL, out of memory) left the plaintext database and archive in
+    .backup-work-* / .restore-*, and a half-written .tmp on the target, forever."""
+    import time as _time
+    data = make_home(tmp_path)
+    old = [data / ".backup-work-abc", data / ".restore-def"]
+    for d in old:
+        d.mkdir()
+        (d / "mantel.db").write_bytes(b"plaintext copy")
+    stale_tmp = target / ".mantel-20261001-031500.mbk.tmp"
+    stale_tmp.write_bytes(b"half")
+    running = data / ".backup-work-now"
+    running.mkdir()
+    hours_ago = _time.time() - 7 * 3600
+    for p in old + [stale_tmp]:
+        os.utime(p, (hours_ago, hours_ago))
+    bk.create_backup(data, target, key, now=NOW)
+    assert not any(p.exists() for p in old + [stale_tmp])
+    assert running.is_dir()                                   # another backup's, still being made
 
 
 def test_cli_backup_target_must_exist_unless_create(tmp_path, capsys):

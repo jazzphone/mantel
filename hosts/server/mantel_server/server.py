@@ -30,7 +30,7 @@ import aiohttp
 from aiohttp import WSMsgType, web
 
 from . import about, frame_origins, music
-from . import accounts, alarm_pin, auth, connect_pairing, devices, gateway, health, ingress, live_tv, pins, proof2, rbac_store, readproxy, sessions, settings_store
+from . import accounts, alarm_pin, auth, connect_pairing, devices, gateway, health, ingress, live_tv, pins, rbac_store, readproxy, sessions, settings_store
 from . import (admin_page, atrest, backup, connections, features, linked, linked_house, linked_owners, linked_pairing,
                linked_actions, login_page, phones, supervisor_discovery,
                photos, service_accounts, talk_relay, user_files)
@@ -488,7 +488,6 @@ def build_app(cfg: Config, token: str, store: Store | None = None, connect_ha: b
     app["state_secret"] = secrets.token_bytes(32)
     app["clock"] = clock
     auth.add_routes(app)
-    app.router.add_post(proof2.PATH, proof2.command)
     hub.ha = HaClient(cfg.ha_url, token, hub.store, hub.registry, hub.on_change, hub.on_registry,
                       ws_url=cfg.ha_ws_url or None)
     app["cfg"] = cfg
@@ -723,6 +722,8 @@ async def apply_connection(app: web.Application, hub: Hub, connect_ha: bool, kin
                 from .connectors.camera import SignalingProxy
                 holder["proxy"] = SignalingProxy(url, token, ws_url=cfg.ha_ws_url or None)
         app["oauth"].ha_url = url.rstrip("/")             # "Sign in with Home Assistant" goes to the new address
+        if connect_ha and cur is not None:
+            restart_house_tz(app, hub)                     # (another HA, perhaps another time zone)
         return
     # Music Assistant. The music engine (music.py) reads app["ma"] at each use, so it follows at once: with a
     # client it is Mantel's engine (when the music settings are imported), with none the interim bridge to HA.
@@ -746,6 +747,13 @@ async def apply_connection(app: web.Application, hub: Hub, connect_ha: bool, kin
     music_host = app.get("music")
     if music_host is not None:
         music_host.connection_changed()
+
+
+def restart_house_tz(app: web.Application, hub: Hub) -> None:
+    old = app.get("tz_task")
+    if old is not None and not old.done():
+        old.cancel()
+    _set(app, "tz_task", asyncio.get_running_loop().create_task(house_tz(app, hub)))
 
 
 async def policy_tick(app: web.Application, hub: Hub, every: float = POLICY_TICK) -> None:
@@ -780,13 +788,37 @@ async def tick_once(app: web.Application, hub: Hub) -> None:
             continue
         s.view.policy_changed()
         s.wake.set()
+        await recheck_streams(s.ctx)
 
 
-async def house_tz(app: web.Application, hub: Hub, attempts: int = 30) -> None:
-    """The house's time zone (for grant schedules) from HA's get_config, cfg.house_tz until then."""
+async def recheck_streams(ctx) -> None:
+    """A live stream (a camera's WebRTC session, a Live TV channel) is asked again whether it may go on: its
+    unsubscribe carries a ``recheck`` (connectors/camera.py, live_tv.py). One no longer allowed is ended, so
+    losing a camera ends its stream, not only the next one."""
+    for key, unsub in list(ctx.subs.items()):
+        recheck = getattr(unsub, "recheck", None)
+        if recheck is None:
+            continue
+        try:
+            still = await recheck()
+        except Exception:  # noqa: BLE001 -- a check that fails is a no
+            log.exception("a live stream's check failed; ending it")
+            still = False
+        if not still:
+            log.info("ending a live stream no longer allowed (%s)", key)
+            await ctx.end(key)
+
+
+async def house_tz(app: web.Application, hub: Hub, attempts: int | None = None) -> None:
+    """The house's time zone (for grant schedules, guest windows and the nightly backup) from HA's get_config,
+    cfg.house_tz until then. It keeps asking (at most a minute apart) until HA answers: given up after about
+    26 minutes, a Mantel connected to HA later than that (the first run's Connections page) ran in UTC until
+    restarted. A saved Home Assistant connection starts it again (restart_house_tz)."""
     authz: Authz = app["authz"]
     delay = 2.0
-    for _ in range(attempts):
+    tries = 0
+    while attempts is None or tries < attempts:
+        tries += 1
         try:
             got = await hub.readproxy.request({"type": "get_config"})  # type: ignore[union-attr]
             if app.get("frame_origins") is not None:

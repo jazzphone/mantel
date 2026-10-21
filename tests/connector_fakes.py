@@ -154,7 +154,11 @@ class FakeHa:
             ids = list(msg.get("entity_ids") or []) + ["sensor.leaked"]       # a misbehaving answer
             return await ok({e: [{"s": "on", "lu": 1.0}] for e in ids})
         if t == "logbook/get_events":
-            rows = [{"when": 1.0, "entity_id": e, "state": "on", "context_entity_id": "lock.front"}
+            # caused by the front door lock, as HA's logbook says it (every context_ field about the cause)
+            rows = [{"when": 1.0, "entity_id": e, "state": "on", "context_entity_id": "lock.front",
+                     "context_entity_id_name": "Front Door", "context_name": "Front Door", "context_state": "unlocked",
+                     "context_message": "unlocked by Jamie", "context_domain": "lock", "context_service": "unlock",
+                     "context_event_type": "state_changed"}
                     for e in msg.get("entity_ids") or []]
             return await ok(rows + [{"when": 2.0, "entity_id": "lock.front", "state": "unlocked"}, {"when": 3.0}])
         if t == "recorder/statistics_during_period":

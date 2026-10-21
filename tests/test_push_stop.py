@@ -100,3 +100,46 @@ def test_the_settings_page_says_how_to_turn_an_app_on_again():
     from pathlib import Path
     js = (Path(__file__).resolve().parents[1] / "web/shim/mantel-settings.js").read_text(encoding="utf-8")
     assert "choose Turn On Notifications in its Mantel app" in js
+
+
+async def test_an_app_signed_out_any_way_gets_no_more_notifications(mantel):
+    """Only AppAuth.revoke forgot an app's targets: an app signed out from Me → Sessions, by a password change
+    or reset, or expired, kept receiving sealed notifications it could still open."""
+    from mantel_server.push import Message
+    m = mantel
+    phone, tid, calls = await setup(m)
+    uid = m.store.db.execute("SELECT id FROM users WHERE username = 'ann'").fetchone()[0]
+    m.app["sessions"].revoke_user(uid, "password_reset")
+    m.forget_cookies()
+    r, _ = await phone.call("GET", "/api/app/me")
+    assert r.status == 401
+    p = m.app["pusher"]
+    calls.clear()
+    assert p.recipients({"type": "notification", "title": "Alarm disarmed"}) == []
+    assert p.targets.everyone() == []                       # forgotten, here and at the relay
+    await settle(m)
+    assert [c[0] for c in calls if str(c[0]).endswith("/v1/forget")] and \
+        not [c for c in calls if str(c[0]).endswith("/v1/send")]
+    assert await p.deliver(p.recipients({"type": "notification"}), Message(title="x", body="")) == {}
+
+
+async def test_an_outage_never_deletes_the_phones(mantel):
+    """Any failed send counted against its target, so five notifications while the internet or the relay was
+    down deleted every phone and browser (and the browsers never subscribed again by themselves)."""
+    from mantel_server.push import Message
+    m = mantel
+    phone, tid, calls = await setup(m)
+
+    async def down(url, headers, body):
+        calls.append((url,))
+        return 0, {}
+    m.app["push_relay"].transport = down
+    p = m.app["pusher"]
+    for i in range(6):
+        assert await p.deliver(p.recipients({"type": "notification"}), Message(title=f"n{i}", body="")) == {"unreachable": 1}
+
+    async def busy(url, headers, body):
+        return 503, {}
+    m.app["push_relay"].transport = busy
+    assert await p.deliver(p.recipients({"type": "notification"}), Message(title="x", body="")) == {"unreachable": 1}
+    assert [t["endpoint"] for t in p.targets.everyone()] == [HANDLE]

@@ -815,3 +815,101 @@ async def test_every_ha_connect_tells_the_features_never_the_pages(make_env, mon
     monkeypatch.setattr(env.app["hub"], "on_registry", lambda: pages.append(1))
     ha.on_registries_loaded()
     assert told == [1] and pages == []
+
+
+async def test_category_notifications_work_after_a_start_whose_states_come_after_the_registries(tmp_path, monkeypatch):
+    """HaClient reads the registries (a reload) before subscribe_entities' first states, and a category's members
+    depend on states (a door is a door by its device_class). Worked out only then, Doors stayed empty after every
+    restart until some settings save or registry change: a door opening at night notified nobody."""
+    doors = {"id": "n_doors", "category": "doors", "when": "on", "title": "", "message": ""}
+    app, store, now, fake = await GF.make(tmp_path, monkeypatch, commands=False)
+    hub = app["hub"]
+    app["settings"].store.write(
+        [("board", "dashboard-hall", {}), ("tablet", "hall", dict(TABLET)),
+         ("house", F.FEATURES_DOC, F.check_settings({"notifications": {"enabled": True, "items": [doors]}}))],
+        actor=Actor(label="test"))
+    host = F.register(app, hub, {"may_read": app["authz"].may_read, "tick": 3600.0})
+    await host.start()
+    try:
+        hub.registry.load(AREAS, DEVICES, ENTITIES)
+        hub.ha.on_registries_loaded()
+        await asyncio.sleep(0.05)
+        assert host.notifier.watched == {"n_doors": []}           # no states yet: nothing is a door
+        hub.ha.on_change(hub.store.replace_all({"a": {k: dict(v) for k, v in STATES.items()}}))
+        await asyncio.sleep(0.05)
+        assert DOOR in host.notifier.watched["n_doors"]
+        assert not host.notifier.sent                              # first states are not changes
+        change(app, DOOR, "on")
+        await asyncio.sleep(0.05)
+        assert [s["entity"] for s in host.notifier.sent] == [DOOR]
+    finally:
+        await host.stop()
+        store.db.close()
+
+
+async def test_a_notification_its_consumers_cant_use_is_refused_and_a_stored_one_is_left_out(make_env):
+    """check_settings took any item with an id. One with exclude=5 was saved, then failed every reload, and Mantel
+    would not start; one with stay="long" failed every change of its entity, and the Sleep Screen engines in the
+    same callback stopped hearing states. Items are checked with HK Settings' own checks now."""
+    from mantel_server.settings_store import Actor
+    env = await make_env(settings={"sleep": {"enabled": True}},
+                         tablet={**TABLET, "sleep": {**TABLET["sleep"], "decided_by": "shadow"}})
+    await env.login("owner1", "owner")
+    for bad in ({"id": "x", "category": "doors", "exclude": 5}, {"id": "y", "entity": DOOR, "when": "on", "stay": "long"},
+                {"id": "z", "category": "not_a_category"}):
+        with pytest.raises(ValueError):
+            F.check_settings({"notifications": {"enabled": True, "items": [bad]}})
+        r = await env.m.client.put("/api/features/settings", json={"notifications": {"enabled": True, "items": [bad]}},
+                                   headers=env.m.headers())
+        assert r.status == 400, await r.text()
+    assert env.app["settings"].store.body("house", F.FEATURES_DOC).get("notifications", {}).get("items") in (None, [])
+    # one saved before the check existed: left out, the rest of the features still on, and Mantel starts
+    stored = {"sleep": {"enabled": True}, "notifications": {"enabled": True, "items": [
+        {"id": "x", "category": "doors", "exclude": 5}, dict(DOOR_ITEM)]}}
+    env.app["settings"].store.write([("house", F.FEATURES_DOC, stored)], actor=Actor(label="test"))
+    await env.host.reload()
+    assert env.host.settings_error is None and env.host.on("sleep")
+    assert [i["id"] for i in env.host.settings["notifications"]["items"]] == ["n_door"]
+    change(env.app, DOOR, "on")
+    assert await until(lambda: [s["item"] for s in env.host.notifier.sent] == ["n_door"])
+
+
+async def test_a_screens_own_do_not_disturb_keeps_it_dark(make_env):
+    """Mantel checked only All Screens' Do Not Disturb when waking screens; HA's wake_screens takes each screen's
+    own first (b.get("notify_dnd") or dnd). A bedroom tablet with its own night DND was woken at 23:00."""
+    from mantel_server.settings_store import Actor
+    env = await make_env(settings={"notifications": {"enabled": True, "items": [DOOR_ITEM], "options": {"wake": True}},
+                                   "sleep": {"enabled": True}},
+                         tablet={**TABLET, "sleep": {**TABLET["sleep"], "decided_by": "hk"}})
+    env.app["settings"].store.write([("board", "dashboard-hall", {
+        "notify_dnd": {"schedule": True, "from": "00:00", "to": "00:00", "while": []}})], actor=Actor(label="test"))
+    await env.host.reload()
+    change(env.app, DOOR, "on")
+    await asyncio.sleep(0.05)
+    assert env.host.notifier.sent[-1]["woke"] == []
+
+
+async def test_a_new_energy_plan_is_sent_without_reloading_every_feature(make_env):
+    """_sync_client's own feed publish reached the host's settings-feed subscriber, which took it for a settings
+    change and reloaded everything: each Energy plan change read HA's energy settings twice."""
+    env = await make_env(settings={"energy": {"enabled": True}})
+    host = env.host
+    env.app["hub"].readproxy = proxy = FakeProxy(PREFS)
+    env.app["hub"].ha.connected.set()
+    env.app["hub"].store.apply_event({"a": {
+        "sensor.grid_import": {"s": "1200", "a": {"unit_of_measurement": "kWh", "device_class": "energy"}, "lc": 1.0},
+        "sensor.coffee_energy": {"s": "3.2", "a": {"unit_of_measurement": "kWh", "friendly_name": "Office Coffee"},
+                                 "lc": 1.0}}})
+    await host.refresh_energy(force=True)
+    await asyncio.sleep(0.2)
+    reloads = []
+    real = host.reload
+
+    async def counted():
+        reloads.append(1)
+        await real()
+    host.reload = counted
+    proxy.prefs = {**PREFS, "device_consumption": PREFS["device_consumption"] + [{"stat_consumption": "sensor.grid_import"}]}
+    await host.refresh_energy(force=True)
+    await asyncio.sleep(0.3)
+    assert reloads == []

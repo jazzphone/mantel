@@ -60,6 +60,32 @@ def test_key_file_is_made_once_and_private(tmp_path):
     assert app_crypto.fingerprint(k1.public_key()) == app_crypto.fingerprint(k2.public_key())
 
 
+def test_the_keys_mantel_makes_go_to_the_data_folder_when_the_secrets_folder_is_read_only(tmp_path):
+    """Docker's and the LXC's secrets folder is a read-only mount: the push key and the apps' identity key were
+    made there on first use, so browser push and app pairing answered 500. A key already in the secrets folder
+    (the operator's, or the App's writable /data/secrets) is still the one used."""
+    import os
+    import stat
+    from types import SimpleNamespace
+
+    secrets, data = tmp_path / "secrets", tmp_path / "data"
+    secrets.mkdir()
+    os.chmod(secrets, 0o500)
+    try:
+        cfg = SimpleNamespace(secrets_dir=secrets, data_dir=data)
+        where = app_crypto.made_key_path(cfg, "vapid.pem")
+        assert where == data / "keys" / "vapid.pem"
+        app_crypto.load_or_create_ec_key(where)
+        assert stat.S_IMODE((data / "keys").stat().st_mode) == 0o700
+        os.chmod(secrets, 0o700)
+        made = app_crypto.load_or_create_ec_key(secrets / "app_identity.pem")
+        assert app_crypto.made_key_path(cfg, "app_identity.pem") == secrets / "app_identity.pem"
+        got = app_crypto.load_or_create_ec_key(app_crypto.made_key_path(cfg, "app_identity.pem"))
+        assert app_crypto.fingerprint(got.public_key()) == app_crypto.fingerprint(made.public_key())
+    finally:
+        os.chmod(secrets, 0o700)
+
+
 @pytest.mark.parametrize("url,ok", [
     (GOOD, True),
     ("https://fcm.googleapis.com/fcm/send/abc", True),
@@ -128,7 +154,7 @@ async def test_subscribe_list_and_remove(mantel):
     await m.sign_in("ann")
     key = (await (await m.get("/api/push/web/key")).json())["key"]
     assert len(app_crypto.unb64u(key)) == 65
-    assert (m.app["cfg"].secrets_dir / push.VAPID_FILE).is_file()          # a secret file, not the database
+    assert (m.app["cfg"].data_dir / "keys" / push.VAPID_FILE).is_file()      # a key file, not the database
     _, sub = subscription(endpoint="https://192.0.2.1/push")
     r = await m.post("/api/push/web/subscribe", {"subscription": sub})
     assert r.status == 400 and (await r.json())["error"] == "push_service_not_allowed"
