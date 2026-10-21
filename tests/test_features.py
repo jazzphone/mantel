@@ -812,3 +812,44 @@ async def test_a_notification_its_consumers_cant_use_is_refused_and_a_stored_one
     assert [i["id"] for i in env.host.settings["notifications"]["items"]] == ["n_door"]
     change(env.app, DOOR, "on")
     assert await until(lambda: [s["item"] for s in env.host.notifier.sent] == ["n_door"])
+
+
+async def test_a_screens_own_do_not_disturb_keeps_it_dark(make_env):
+    """Mantel checked only All Screens' Do Not Disturb when waking screens; HA's wake_screens takes each screen's
+    own first (b.get("notify_dnd") or dnd). A bedroom tablet with its own night DND was woken at 23:00."""
+    from mantel_server.settings_store import Actor
+    env = await make_env(settings={"notifications": {"enabled": True, "items": [DOOR_ITEM], "options": {"wake": True}},
+                                   "sleep": {"enabled": True}},
+                         tablet={**TABLET, "sleep": {**TABLET["sleep"], "decided_by": "hk"}})
+    env.app["settings"].store.write([("board", "dashboard-hall", {
+        "notify_dnd": {"schedule": True, "from": "00:00", "to": "00:00", "while": []}})], actor=Actor(label="test"))
+    await env.host.reload()
+    change(env.app, DOOR, "on")
+    await asyncio.sleep(0.05)
+    assert env.host.notifier.sent[-1]["woke"] == []
+
+
+async def test_a_new_energy_plan_is_sent_without_reloading_every_feature(make_env):
+    """_sync_client's own feed publish reached the host's settings-feed subscriber, which took it for a settings
+    change and reloaded everything: each Energy plan change read HA's energy settings twice."""
+    env = await make_env(settings={"energy": {"enabled": True}})
+    host = env.host
+    env.app["hub"].readproxy = proxy = FakeProxy(PREFS)
+    env.app["hub"].ha.connected.set()
+    env.app["hub"].store.apply_event({"a": {
+        "sensor.grid_import": {"s": "1200", "a": {"unit_of_measurement": "kWh", "device_class": "energy"}, "lc": 1.0},
+        "sensor.coffee_energy": {"s": "3.2", "a": {"unit_of_measurement": "kWh", "friendly_name": "Office Coffee"},
+                                 "lc": 1.0}}})
+    await host.refresh_energy(force=True)
+    await asyncio.sleep(0.2)
+    reloads = []
+    real = host.reload
+
+    async def counted():
+        reloads.append(1)
+        await real()
+    host.reload = counted
+    proxy.prefs = {**PREFS, "device_consumption": PREFS["device_consumption"] + [{"stat_consumption": "sensor.grid_import"}]}
+    await host.refresh_energy(force=True)
+    await asyncio.sleep(0.3)
+    assert reloads == []

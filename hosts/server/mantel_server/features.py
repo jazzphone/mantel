@@ -845,12 +845,16 @@ class Notifier:
         h = self.host.house
         screens = self.host.feed.send(payload)
         woke = []
-        if payload["wake"] and (payload["important"] or not ND.dnd_on(h, self.opts.get("dnd"), self.host.now())):
-            secs = NB.wake_for(int(payload["stay"]))
+        if payload["wake"]:
+            secs, now = NB.wake_for(int(payload["stay"])), self.host.now()
             for tid, eng in list(self.host.engines.items()):
-                if (self.host.boards.get(tid) or {}).get("notify", True):
-                    eng.notify_wake(payload["title"], secs)
-                    woke.append(tid)
+                board = self.host.boards.get(tid) or {}
+                # each screen's own Do Not Disturb, else All Screens' (HA's wake_screens: notify_dnd or dnd)
+                if not board.get("notify", True) or (
+                        not payload["important"] and ND.dnd_on(h, board.get("notify_dnd") or self.opts.get("dnd"), now)):
+                    continue
+                eng.notify_wake(payload["title"], secs)
+                woke.append(tid)
         self.sent.append({"at": time.time(), "item": item_id, "entity": eid, "title": payload["title"],
                           "message": payload["message"], "screens": screens, "woke": woke,
                           "snap": payload.get("snap")})
@@ -1174,6 +1178,7 @@ class FeatureHost:
 
     def __init__(self, app: web.Application, hub: Any, hooks: FeatureHooks) -> None:
         self.app, self.hub, self.hooks = app, hub, hooks
+        self._publishing = False                     # inside _sync_client's own settings-feed publish
         self.caller = FeatureCaller(app, self.acting_entities)
         self.house = MantelHouse(hub.store, hub.registry, tz=self._tz, caller=self.caller, now=self.now)
         self.own_house = OverlayHouse(self.house, self.own_state)
@@ -1650,6 +1655,8 @@ class FeatureHost:
                 if first[0]:
                     first[0] = False
                     return
+                if self._publishing:                          # (_sync_client's own publish)
+                    return
                 self.spawn(self.reload())
             self._feed_unsub = svc.subscribe_feed(None, changed)
         self.spawn(self._ticker())
@@ -1887,7 +1894,13 @@ class FeatureHost:
         self._client_sent = now
         svc = self.app.get("settings")
         if svc is not None:
-            svc.publish()
+            # this host's own news for the screens, not a settings change: its feed subscriber (start) must not
+            # take it for one and reload every feature again (each Energy plan change read HA's energy twice)
+            self._publishing = True
+            try:
+                svc.publish()
+            finally:
+                self._publishing = False
 
     def _ha_ready(self) -> bool:
         ev = getattr(getattr(self.hub, "ha", None), "connected", None)
