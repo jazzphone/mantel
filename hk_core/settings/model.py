@@ -106,6 +106,27 @@ def sky_built_in(theme: str, hemisphere: str) -> tuple[str, str]:
     return (hemisphere == "south" and SKY_SOUTH.get(theme)) or SKY_BUILT_IN[theme]
 
 
+# THE HOUSE'S PLACE, for the defaults a house has not chosen: Home Assistant's latitude and country (each host
+# hands them over once it has read its configuration: set_house_place). Latitude below zero is a southern house,
+# and a country that is not the US leaves the US-only themes off. Anything unknown keeps the older defaults
+# (north, every theme). A saved choice always wins (merged() lays the stored settings over these).
+US_ONLY_THEMES = ("thanksgiving", "fourth-of-july")
+_PLACE: dict[str, Any] = {"latitude": None, "country": None}
+
+
+def set_house_place(latitude: Any = None, country: Any = None) -> None:
+    lat = latitude if isinstance(latitude, (int, float)) and not isinstance(latitude, bool) else None
+    _PLACE["latitude"] = lat
+    _PLACE["country"] = country.strip().upper() if isinstance(country, str) and country.strip() else None
+
+
+def place_sky_defaults() -> dict[str, Any]:
+    """The sky's hemisphere and themes for a house that has not saved its own."""
+    lat, country = _PLACE["latitude"], _PLACE["country"]
+    themes = [t for t in THEMES if not (country and country != "US" and t in US_ONLY_THEMES)]
+    return {"hemisphere": "south" if lat is not None and lat < 0 else "north", "themes": themes}
+
+
 def sky_date(prefix: str, end: str, raw: Any, hemisphere: str) -> str | bool | None:
     """What one of the sky's date fields saves (`<prefix>_<end>`, end "from"
     or "to"): None when it is empty or the built-in date -- so the
@@ -1252,6 +1273,7 @@ def discover_rows(keys: list[str] | None) -> list[dict[str, Any]]:
 def merged(options: Mapping[str, Any] | None) -> dict[str, dict[str, Any]]:
     """The stored settings over the defaults, section by section."""
     out = copy.deepcopy(DEFAULTS)
+    out["sky"].update(place_sky_defaults())
     stored = (options or {}).get(CONF_DASHBOARD) or {}
     for section, values in stored.items():
         if section in out and isinstance(values, dict):

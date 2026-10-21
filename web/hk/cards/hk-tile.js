@@ -1109,7 +1109,7 @@
       var sig = super._sigOf(), mode = (this._config || {}).label_mode;
       if (mode === 'climate_temperature' || mode === 'climate_humidity') {
         sig += ';reading:' + !!(window.hkRoom && window.hkRoom.climateReading) + ':' +
-          ((((this.client || {}).config || {}).unit_system || {}).temperature || '°F');
+          window.hkLocale.units().temp;
       }
       return sig;
     }

@@ -723,7 +723,7 @@
       var line = x && x.line;
       if (p !== 'now' && x && typeof x.v === 'number') {
         var idle = x.v < 0.05;
-        window.hkCards.morph(e.hero, (x.v >= 100 ? Math.round(x.v).toLocaleString('en-US') : x.v.toFixed(1)) + '<span class="unit">kWh</span>');
+        window.hkCards.morph(e.hero, (x.v >= 100 ? Math.round(x.v).toLocaleString(window.hkLocale.numTag()) : x.v.toFixed(1)) + '<span class="unit">kWh</span>');
         e.hero.style.color = idle ? '' + window.hkCards.v('ink-3') + '' : '' + window.hkCards.v('ink') + '';
         if (e.label._h !== x.cmp) { e.label.innerHTML = x.cmp; e.label._h = x.cmp; }
       } else if (p !== 'now' && cfg.stat) {

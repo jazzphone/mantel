@@ -352,8 +352,8 @@
         // The speed's own unit: the sensor's, else the weather entity's.
         var HS = window.hkSettings;
         var spdSt = this._st(this._config.speed || this._config.entity);
-        var unit = HS && HS.unit ? HS.unit(spdSt, this._config.speed ? null : 'wind_speed_unit', 'mph')
-                                 : 'mph';
+        var unit = HS && HS.unit ? HS.unit(spdSt, this._config.speed ? null : 'wind_speed_unit', window.hkLocale.units().speed)
+                                 : window.hkLocale.units().speed;
         var DIRS = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
         // Meteorological bearing is the direction the wind comes FROM, so the
         // needle points from that bearing toward the centre.
@@ -407,8 +407,8 @@
         var fmt = function (iso) {
           if (!iso) return '--';
           var d = new Date(iso);
-          return isNaN(d) ? '--' : d.toLocaleTimeString('en-US',
-            { hour: 'numeric', minute: '2-digit' });
+          return isNaN(d) ? '--' : d.toLocaleTimeString(window.hkLocale.tag(),
+            window.hkLocale.clock({ hour: 'numeric', minute: '2-digit' }));
         };
         var main = fmt(up ? a.next_setting : a.next_rising);
         var other = up ? ('Sunrise: ' + fmt(a.next_rising))
@@ -1061,9 +1061,9 @@
         if (iso) {
           var d = new Date(iso);
           if (!isNaN(d)) {
-            var t = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
-            var day = d.toLocaleDateString('en-US',
-              { weekday: 'long', month: 'long', day: 'numeric' });
+            var t = d.toLocaleTimeString(window.hkLocale.tag(), window.hkLocale.clock({ hour: 'numeric', minute: '2-digit' }));
+            var day = d.toLocaleDateString(window.hkLocale.tag(),
+              window.hkLocale.zoned({ weekday: 'long', month: 'long', day: 'numeric' }));
             body = ev + '. These conditions are expected to last until ' +
                    t + ', ' + day + '.';
           }
@@ -1343,7 +1343,7 @@
       _units() {
         var st = this._st(this._config.entity), a = (st && st.attributes) || {};
         var HS = window.hkSettings;
-        return { wind: HS && HS.unit ? HS.unit(st, 'wind_speed_unit', 'mph') : (a.wind_speed_unit || 'mph') };
+        return { wind: HS && HS.unit ? HS.unit(st, 'wind_speed_unit', window.hkLocale.units().speed) : (a.wind_speed_unit || window.hkLocale.units().speed) };
       },
       _renderSection() {
         if (!this._config || !this.client) return;
@@ -1550,8 +1550,8 @@
         var pct = function (x) { return ((x - mn) / span * 100).toFixed(1); };
         var rows = days.map(function (d, i) {
           var hi = num(d.temperature), lo = num(d.templow), p = num(d.precipitation_probability);
-          var nm = i === 0 ? 'Today' : new Date(d.datetime).toLocaleDateString('en-US', { weekday: 'short' });
-          var long = i === 0 ? 'Today' : new Date(d.datetime).toLocaleDateString('en-US', { weekday: 'long' });
+          var nm = i === 0 ? 'Today' : new Date(d.datetime).toLocaleDateString(window.hkLocale.tag(), window.hkLocale.zoned({ weekday: 'short' }));
+          var long = i === 0 ? 'Today' : new Date(d.datetime).toLocaleDateString(window.hkLocale.tag(), window.hkLocale.zoned({ weekday: 'long' }));
           var cn = window.hkHeader && window.hkHeader.conditionName ? window.hkHeader.conditionName(d.condition === 'clear-night' ? 'sunny' : d.condition) : '';
           var dot = i === 0 && t !== null && lo !== null && hi !== null ? '<b style="left:' + pct(Math.max(mn, Math.min(mx, t))) + '%"></b>' : '';
           var label = long + ': ' + (cn ? cn + ', ' : '') + (lo !== null ? 'low ' + Math.round(lo) + '°, ' : '') + (hi !== null ? 'high ' + Math.round(hi) + '°' : '') +
@@ -1574,7 +1574,7 @@
           var his = days.map(function (d, i) { return { v: num(d.temperature), i: i }; }).filter(function (x) { return x.v !== null; });
           if (his.length > 2) {
             var w = his.reduce(function (m, x) { return x.v > m.v ? x : m; }), c = his.reduce(function (m, x) { return x.v < m.v ? x : m; });
-            var dn = function (i) { return i === 0 ? 'today' : new Date(days[i].datetime).toLocaleDateString('en-US', { weekday: 'long' }); };
+            var dn = function (i) { return i === 0 ? 'today' : new Date(days[i].datetime).toLocaleDateString(window.hkLocale.tag(), window.hkLocale.zoned({ weekday: 'long' })); };
             ft = 'Warmest ' + dn(w.i) + ' at ' + Math.round(w.v) + '°, coolest ' + dn(c.i) + ' at ' + Math.round(c.v) + '°.';
           }
         }
@@ -1907,8 +1907,8 @@
         var wind = read(src.wind, 'wind_speed');
         var windUnit = window.hkSettings && window.hkSettings.unit
           ? window.hkSettings.unit(src.wind ? states[src.wind] : st,
-                                   src.wind ? null : 'wind_speed_unit', 'mph')
-          : 'mph';
+                                   src.wind ? null : 'wind_speed_unit', window.hkLocale.units().speed)
+          : window.hkLocale.units().speed;
         // conditionName, not a title-case of the id: 'partlycloudy' has no
         // separator to split on and would print as "Partlycloudy".
         var cond = window.hkHeader && window.hkHeader.conditionName
@@ -1954,7 +1954,7 @@
         var dayCells = days.map(function (d, i) {
           var dt = new Date(d.datetime);
           var label = i === 0 ? 'Today'
-            : dt.toLocaleDateString('en-US', { weekday: 'short' });
+            : dt.toLocaleDateString(window.hkLocale.tag(), window.hkLocale.zoned({ weekday: 'short' }));
           var hi = num(d.temperature), lo = num(d.templow);
           return '<div class="cell">' +
             '<div class="lbl' + (i === 0 ? ' now' : '') + '">' + label + '</div>' +
@@ -2058,7 +2058,7 @@
     function dir16(b) { return b === null ? '' : DIRS16[Math.round(((b % 360) + 360) % 360 / 22.5) % 16]; }
     function fmtTime(iso) {
       var d = new Date(iso);
-      return isNaN(d) ? null : d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+      return isNaN(d) ? null : d.toLocaleTimeString(window.hkLocale.tag(), window.hkLocale.clock({ hour: 'numeric', minute: '2-digit' }));
     }
     function nextHours(list, n) {
       var now = Date.now();
@@ -2084,7 +2084,7 @@
         if (spd === null) return this._pgMissing('the wind');
         var brg = num(a.wind_bearing);
         var HS = window.hkSettings, unit = HS && HS.unit ? HS.unit(this._st(this._config.speed || this._config.entity) || w.st,
-          this._config.speed ? null : 'wind_speed_unit', 'mph') : 'mph';
+          this._config.speed ? null : 'wind_speed_unit', window.hkLocale.units().speed) : window.hkLocale.units().speed;
         var gust = this._config.gust ? this._n(this._config.gust) : null;
         if (gust === null) {
           var h0 = nextHours((this._wx || {}).hourly, 1)[0];
@@ -3030,7 +3030,7 @@
         var selected = days.filter(function (d) { return new Date(d.datetime).toDateString() === self._dayKey; })[0];
         if (!selected && this._dayKey !== todayKey) this._dayKey = todayKey;
         var current = this._dayKey === todayKey;
-        var dayName = current ? 'Today' : new Date(selected.datetime).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+        var dayName = current ? 'Today' : new Date(selected.datetime).toLocaleDateString(window.hkLocale.tag(), window.hkLocale.zoned({ weekday: 'long', month: 'short', day: 'numeric' }));
         var allHours = this._fc('hourly').filter(function (f) { return Date.parse(f.datetime) + 3600e3 > now; });
         var hrs = current ? allHours.slice(0,24) : allHours.filter(function (f) { return new Date(f.datetime).toDateString() === self._dayKey; });
         var t = this._read('outside', 'temperature'), feels = this._read('feels_like', 'apparent_temperature');
@@ -3043,7 +3043,7 @@
         var summary = '<section class="wx-section wx-summary"><div class="lab">' + esc(dayName) + '</div><div class="reading">' + glyph(condition,48,night) +
           '<div class="t">' + (num(current ? t : hi) != null ? Math.round(current ? t : hi) + '°' : '—') + '</div><div class="w"><b>' + esc(cond || 'Forecast') + '</b>' +
           (current && feels != null ? '<span>Feels like ' + Math.round(feels) + '°</span>' : '') + (range ? '<span>' + esc(range) + '</span>' : '') + '</div></div></section>';
-        var ws = a.wind_speed_unit || 'mph', ps = a.pressure_unit || '', vs = a.visibility_unit || '';
+        var ws = a.wind_speed_unit || window.hkLocale.units().speed, ps = a.pressure_unit || '', vs = a.visibility_unit || '';
         var hum = current ? this._read('humidity','humidity') : num(selected.humidity);
         var wind = current ? this._read('wind','wind_speed') : num(selected.wind_speed);
         var bearing = current ? num(a.wind_bearing) : num(selected.wind_bearing);
@@ -3082,9 +3082,9 @@
         var forecast = '<section class="wx-section wx-days"><div class="lab">' + (days.length ? days.length + '-Day Forecast' : 'Forecast') + '</div><div class="dys">' +
           (days.length ? days.map(function(d,i) {
             var dh=num(d.temperature),dl=num(d.templow),pop=num(d.precipitation_probability),key=new Date(d.datetime).toDateString();
-            var name=key===todayKey ? 'Today' : new Date(d.datetime).toLocaleDateString('en-US',{weekday:'short'});
+            var name=key===todayKey ? 'Today' : new Date(d.datetime).toLocaleDateString(window.hkLocale.tag(), window.hkLocale.zoned({weekday:'short'}));
             var dot=key===todayKey&&t!=null&&dl!=null&&dh!=null ? '<b style="left:'+pct(Math.max(mn,Math.min(mx,t)))+'%"></b>' : '';
-            return '<button class="dy" type="button" data-day="'+i+'" aria-pressed="'+(key===self._dayKey)+'" aria-label="'+esc(new Date(d.datetime).toLocaleDateString('en-US',{weekday:'long',month:'short',day:'numeric'}))+'">'+
+            return '<button class="dy" type="button" data-day="'+i+'" aria-pressed="'+(key===self._dayKey)+'" aria-label="'+esc(new Date(d.datetime).toLocaleDateString(window.hkLocale.tag(), window.hkLocale.zoned({weekday:'long',month:'short',day:'numeric'})))+'">'+
               '<span class="d">'+name+'</span>'+glyph(d.condition==='clear-night'?'sunny':d.condition,24,false)+'<span class="p">'+(pop>=20?Math.round(pop)+'%':'')+'</span>'+
               '<span class="lo">'+(dl!=null?Math.round(dl)+'°':'—')+'</span><span class="rg">'+(dl!=null&&dh!=null?'<i style="left:'+pct(dl)+'%;right:'+(100-pct(dh))+'%"></i>'+dot:'')+'</span>'+
               '<span class="hi">'+(dh!=null?Math.round(dh)+'°':'—')+'</span></button>';
@@ -3125,7 +3125,7 @@
       _focus(h, s, hrs, days) {
         var src = (this._config && this._config.src) || {}, f = this._metric != null ? this._metric : src.focus, a = s.attributes || {};
         if (!f) return { html: '' };
-        var self = this, wsU = a.wind_speed_unit || 'mph', pU = a.pressure_unit || '';
+        var self = this, wsU = a.wind_speed_unit || window.hkLocale.units().speed, pU = a.pressure_unit || '';
         var card = function (title, sub, fig, unit, chart, text, extra) {
           return '<section class="wx-section fc"><div class="lab"><span>' + esc(title) + '</span>' + (sub ? '<span class="n">' + esc(sub) + '</span>' : '') + '</div>' +
             '<div class="fx"><b>' + fig + '</b>' + (unit ? '<span>' + esc(unit) + '</span>' : '') + '</div>' + (chart || '') + (extra || '') +
@@ -3186,7 +3186,7 @@
           if (ph == null) return out;
           var il = Math.round((1 - Math.cos(2 * Math.PI * ph)) / 2 * 100);
           var full = new Date(Date.now() + ((0.5 - ph) % 1 + 1) % 1 * 29.53 * 864e5), nw = new Date(Date.now() + ((1 - ph) % 1 + 1) % 1 * 29.53 * 864e5);
-          var dd = function (d) { return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }); };
+          var dd = function (d) { return d.toLocaleDateString(window.hkLocale.tag(), window.hkLocale.zoned({ weekday: 'short', month: 'short', day: 'numeric' })); };
           out.html = card('Moon', '', il + '%', 'lit', '', 'The same moon the sky draws.',
             '<div class="kv"><div><div class="k">Next Full Moon</div><div class="x">' + dd(full) + '</div></div>' +
             '<div><div class="k">Next New Moon</div><div class="x">' + dd(nw) + '</div></div></div>');

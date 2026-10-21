@@ -256,6 +256,9 @@
   }
 
   function num(v) { var n = Number(v); return Number.isFinite(n) ? n : null; }
+  // the house's locale (hk-client.js); an en-US house is the screens' original wording
+  function LC() { return window.hkLocale || null; }
+  function usEnglish() { return !LC() || LC().tag() === 'en-US'; }
 
   // The Time & Date sensors when chosen and present, else this screen's
   // own clock -- same 'HH:MM' / 'YYYY-MM-DD' strings either way -- as the
@@ -268,8 +271,13 @@
       var parts = t.split(':');
       var hh = parseInt(parts[0], 10);
       ampm = hh >= 12 ? 'PM' : 'AM';
-      var h = hh % 12; h = h ? h : 12;
-      time = h + ':' + parts[1];
+      if (LC() && LC().is24()) {       // a 24-hour locale (or the person's choice): 13:05, no AM / PM
+        ampm = '';
+        time = (hh < 10 ? '0' : '') + hh + ':' + parts[1];
+      } else {
+        var h = hh % 12; h = h ? h : 12;
+        time = h + ':' + parts[1];
+      }
     }
     var ds = ck.date;
     if (ds && ds.indexOf('-') !== -1) {
@@ -331,8 +339,9 @@
     var dateText = '';
     if (ck.day) {
       var dt = ck.day;
-      var weekday = dt.toLocaleString('en-US', { weekday: 'long' });
-      var month = dt.toLocaleString('en-US', { month: 'long' });
+      var local = { timeZone: 'local' };      // dt is a calendar day made from its own fields
+      var weekday = usEnglish() ? dt.toLocaleString('en-US', { weekday: 'long' }) : LC().dateTime(dt, Object.assign({ weekday: 'long' }, local));
+      var month = usEnglish() ? dt.toLocaleString('en-US', { month: 'long' }) : LC().dateTime(dt, Object.assign({ month: 'long' }, local));
       var day = dt.getDate();
       var suffix = function (n) {
         if (n >= 11 && n <= 13) return 'th';
@@ -346,7 +355,11 @@
       // `date_format` -- the screensaver says "September, 13th" and the
       // header says "Sunday, September 13th". Two formats, one function, so
       // the suffix logic exists once.
-      dateText = o.dateFormat === 'monthday'
+      if (!usEnglish()) {
+        // the locale's own order and words (the English "13th" is only the US wording)
+        dateText = LC().date(dt, o.dateFormat === 'monthday' ? { month: 'long', day: 'numeric', timeZone: 'local' }
+                                                              : { weekday: 'long', month: 'long', day: 'numeric', timeZone: 'local' });
+      } else dateText = o.dateFormat === 'monthday'
         ? (month + ', ' + day + suffix(day))
         : (weekday + ', ' + month + ' ' + day + suffix(day));
     }
@@ -440,7 +453,7 @@
     if (feels !== null) bits.push('Feels ' + Math.round(feels) + '°');
     if (humidity !== undefined && humidity !== null) bits.push(humidity + '% Humidity');
     if (wind !== null) {
-      var wu = a.wind_speed_unit || 'mph';      // the weather entity's own unit
+      var wu = a.wind_speed_unit || window.hkLocale.units().speed;      // the weather entity's own unit
       bits.push(Math.round(wind) + ' ' + wu + ' Wind');
     }
 
@@ -898,8 +911,9 @@
       high: hl.high, low: hl.low,
       tempN: temp !== null ? Math.round(temp) : null, feelsN: feels !== null ? Math.round(feels) : null,
       time: ck.time, ampm: ck.ampm,
-      date: d ? d.toLocaleString('en-US', { weekday: 'long' }) + ', ' +
-                d.toLocaleString('en-US', { month: 'short' }) + ' ' + d.getDate() : '',
+      date: !d ? '' : usEnglish()
+        ? d.toLocaleString('en-US', { weekday: 'long' }) + ', ' + d.toLocaleString('en-US', { month: 'short' }) + ' ' + d.getDate()
+        : LC().date(d, { weekday: 'long', month: 'short', day: 'numeric', timeZone: 'local' }),
       state: w.state || '', night: isNight(states),
       temp: temp !== null ? Math.round(temp) + '\u00b0' : '--\u00b0',
       condition: w.state ? conditionName(w.state) : '',

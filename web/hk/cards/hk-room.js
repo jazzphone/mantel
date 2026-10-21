@@ -413,7 +413,7 @@
     var v = Number(raw);
     if (!isFinite(v)) return null;
     if (kind === 'humidity') return v >= 0 && v <= 100 ? v : null;
-    var target = ((client.config || {}).unit_system || {}).temperature || '°F';
+    var target = window.hkLocale.units().temp;
     var unit = a.unit_of_measurement || (d === 'climate' ? target : null);
     var from = String(unit || '').replace('°', '').toUpperCase();
     var to = String(target).replace('°', '').toUpperCase();
@@ -434,7 +434,7 @@
         var lo = values.length ? Math.round(Math.min.apply(null, values)) : null;
         var hi = values.length ? Math.round(Math.max.apply(null, values)) : null;
         var avg = values.length ? values.reduce(function (a, b) { return a + b; }, 0) / values.length : 0;
-        var unit = ((client.config || {}).unit_system || {}).temperature || '°F';
+        var unit = window.hkLocale.units().temp;
         out.push({ kind: k, title: k === 'temperature' ? 'Temperature' : 'Humidity', ids: ids,
           value: values.length ? (lo === hi ? String(lo) : lo + '–' + hi) + (k === 'temperature' ? '°' : '%') : 'Unavailable',
           dim: !values.length, gauge: !values.length ? 0.5 : k === 'humidity' ? avg / 100 :

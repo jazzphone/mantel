@@ -667,7 +667,7 @@
   }
   function sum(a) { var s = 0; for (var i = 0; i < a.length; i++) s += a[i] || 0; return s; }
   function fx(v, d) {
-    return (v || 0).toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d });
+    return (v || 0).toLocaleString(window.hkLocale.numTag(), { minimumFractionDigits: d, maximumFractionDigits: d });
   }
   // a kWh figure at the precision its size deserves: 0.4, 33.0, 2,468
   function kwh(v) { return fx(v, Math.abs(v) >= 1000 ? 0 : 1); }
@@ -1281,7 +1281,7 @@
   // Sep 27", "in August"; its title, "Last Week", "Week of Sep 27", "August";
   // and its dates, "Oct 11 – 17", "Sep 27 – Oct 3", "Oct 1 – 31"
   var MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-  function dateShort(t, tz) { return new Date(t).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: tz }); }
+  function dateShort(t, tz) { return new Date(t).toLocaleDateString(window.hkLocale.tag(), window.hkLocale.zoned({ month: 'short', day: 'numeric', timeZone: tz })); }
   function monthOf(t) {
     var S = window.hkStats, f = S.fields(t), y = S.fields(Date.now()).year;
     return MONTHS[f.month - 1] + (f.year !== y ? ' ' + f.year : '');
@@ -1303,8 +1303,8 @@
     if (back === 1) return per === 'week' ? 'last week' : 'last month';
     return per === 'week' ? 'the week of ' + dateShort(R.start, window.hkStats.tz()) : 'in ' + monthOf(R.start);
   }
-  function hourName(t, tz) { return new Date(t).toLocaleTimeString('en-US', { hour: 'numeric', timeZone: tz }); }
-  function dayName(t, tz) { return new Date(t).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', timeZone: tz }); }
+  function hourName(t, tz) { return new Date(t).toLocaleTimeString(window.hkLocale.tag(), window.hkLocale.clock({ hour: 'numeric', timeZone: tz })); }
+  function dayName(t, tz) { return new Date(t).toLocaleDateString(window.hkLocale.tag(), window.hkLocale.zoned({ weekday: 'long', month: 'short', day: 'numeric', timeZone: tz })); }
 
   function highlights(M, R, client, money) {
     var out = [], tz = window.hkStats && window.hkStats.tz(), when = whenOf(R.per, R);
@@ -1437,7 +1437,7 @@
       var t0 = R.hToday.length ? +R.ax.h[R.hToday[0]].t : 0;
       return hourName(t0 + k * 36e5, tz);
     }
-    return R.dates[k] != null ? new Date(R.dates[k]).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: tz }) : '';
+    return R.dates[k] != null ? new Date(R.dates[k]).toLocaleDateString(window.hkLocale.tag(), window.hkLocale.zoned({ weekday: 'short', month: 'short', day: 'numeric', timeZone: tz })) : '';
   }
 
   // A TAP ON ANYTHING MARKED data-more="<entity>" opens that entity's sheet
@@ -1639,8 +1639,8 @@
       }
       var p = period(), tz = S && S.tz(), now = new Date(), cal = (p === 'week' || p === 'month') && S, back = cal ? (EP.back || 0) : 0;
       var P = cal ? S.period(p, back, +now, EP.ws || 0) : null;
-      var sub = p === 'now' ? 'Live · ' + now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: tz })
-        : p === 'day' ? now.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', timeZone: tz })
+      var sub = p === 'now' ? 'Live · ' + now.toLocaleTimeString(window.hkLocale.tag(), window.hkLocale.clock({ hour: 'numeric', minute: '2-digit', timeZone: tz }))
+        : p === 'day' ? now.toLocaleDateString(window.hkLocale.tag(), window.hkLocale.zoned({ weekday: 'long', month: 'long', day: 'numeric', timeZone: tz }))
         : P ? rangeText(P.start, P.len, tz) : '';
       this._card.querySelector('.pt').textContent = P ? titleOf(p, back, P.start, tz) : TAB_NAMES[p];
       this._card.querySelector('.ps').textContent = sub;
@@ -1713,7 +1713,7 @@
   function timeLabels(now, hours, tz) {
     var out = [];
     for (var i = 0; i <= 3; i++) {
-      out.push(i === 3 ? 'Now' : new Date(now - (3 - i) * hours / 3 * HOUR).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: tz }));
+      out.push(i === 3 ? 'Now' : new Date(now - (3 - i) * hours / 3 * HOUR).toLocaleTimeString(window.hkLocale.tag(), window.hkLocale.clock({ hour: 'numeric', minute: '2-digit', timeZone: tz })));
     }
     return '<div class="tlab">' + out.map(function (x) { return '<span>' + x + '</span>'; }).join('') + '</div>';
   }
@@ -1836,7 +1836,7 @@
         if (trace && w != null && tr.length) {
           var cur = trace.querySelector('.cur'), n5 = tr.length;
           this._scrubs(trace, tr.map(function (z, i) {
-            return new Date(trT[i] || Date.now()).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: tz }) + ' \u00b7 ' +
+            return new Date(trT[i] || Date.now()).toLocaleTimeString(window.hkLocale.tag(), window.hkLocale.clock({ hour: 'numeric', minute: '2-digit', timeZone: tz })) + ' \u00b7 ' +
               (typeof z === 'number' && isFinite(z) ? watts(z).join(' ') : 'no reading yet');
           }), { nowI: n5 - 1, name: 'The last three hours',
             index: function (x, y, box) { var r = box.getBoundingClientRect(); return r.width ? Math.max(0, Math.min(n5 - 1, Math.round((x - r.left) / r.width * (n5 - 1)))) : -1; },
@@ -2316,7 +2316,7 @@
           var z = slotOf(M, R, D.d, i, sec), today = k === R.todayK, exp = us * (today ? R.share : 1);
           var st2 = stepOf(exp > 0 ? z / exp : 1);
           if (!today) { gone.push(i); if (st2[2].indexOf('above') >= 0) hi++; else if (st2[2].indexOf('elow') >= 0) lo++; }
-          var dlab = new Date(R.dates[k]).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: tz }) + ' \u00b7 ' + fx(z, 0) + ' kWh' + (today ? ' so far' : '') + ' \u00b7 ' + st2[2].toLowerCase() + ' usual';
+          var dlab = new Date(R.dates[k]).toLocaleDateString(window.hkLocale.tag(), window.hkLocale.zoned({ weekday: 'short', month: 'short', day: 'numeric', timeZone: tz })) + ' \u00b7 ' + fx(z, 0) + ' kWh' + (today ? ' so far' : '') + ' \u00b7 ' + st2[2].toLowerCase() + ' usual';
           cells += '<button class="c gp' + (today ? ' today' : '') + (EP.dayPick === i ? ' sel' : '') + '" data-day="' + i + '" aria-label="' + esc(dlab) + '" title="' + fx(z, 0) + ' kWh · ' + st2[2] + (today ? ' so far' : '') +
             '" style="--i:' + k + ';background:' + st2[1] + '">' + dn + '</button>';
         });
@@ -2325,7 +2325,7 @@
         if (pick != null) {
           var pz = slotOf(M, R, D.d, pick, sec), pexp = us * (md.indexOf(pick) === R.todayK ? R.share : 1);
           var ppct = pexp > 0 ? Math.round(100 * (pz / pexp - 1)) : 0, pcost = costAt(M, D.d, pick);
-          var pname = new Date(R.ax.d[pick].t).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: tz });
+          var pname = new Date(R.ax.d[pick].t).toLocaleDateString(window.hkLocale.tag(), window.hkLocale.zoned({ weekday: 'short', month: 'short', day: 'numeric', timeZone: tz }));
           main = '<div class="cal small">' + cells + '</div><div class="leg dayl"><span class="li"><b>' + pname + '</b></span><span class="li">' + fx(pz, 0) + ' kWh \u00b7 ' +
             (Math.abs(ppct) < 7 ? 'about usual' : Math.abs(ppct) + '% ' + (ppct > 0 ? 'above' : 'below') + ' usual') +
             (M.hasCost && !sec ? ' \u00b7 ' + this._money(pcost, 2) : '') + '</span></div>';
@@ -2335,7 +2335,7 @@
         }
         ttlR = pick != null ? 'tap it again for the month' : 'against a usual day';
         var mv = gone.map(function (i) { return slotOf(M, R, D.d, i, sec); }), mb = mv.indexOf(Math.max.apply(null, mv));
-        if (mb >= 0) side.push(['Biggest Day', new Date(R.ax.d[gone[mb]].t).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: tz }),
+        if (mb >= 0) side.push(['Biggest Day', new Date(R.ax.d[gone[mb]].t).toLocaleDateString(window.hkLocale.tag(), window.hkLocale.zoned({ weekday: 'short', month: 'short', day: 'numeric', timeZone: tz })),
           fx(mv[mb], 0) + ' kWh', 'Biggest']);
         else side.push(['Biggest Day', '\u2014', 'Not a whole day yet', 'Biggest']);
         // the whole days gone: "of 11" on the 12th, a month's own length once past
@@ -2620,7 +2620,7 @@
       var bi = -1;
       vals.forEach(function (z2, k2) { if (z2 != null && (bi < 0 || z2 > vals[bi])) bi = k2; });
       var bigName = bi < 0 ? '—' : day ? hourName(R.ax.h[sl.idx[bi]].t, tz)
-        : new Date(R.ax.d[sl.idx[bi]].t).toLocaleDateString('en-US', { weekday: 'short', timeZone: tz });
+        : new Date(R.ax.d[sl.idx[bi]].t).toLocaleDateString(window.hkLocale.tag(), window.hkLocale.zoned({ weekday: 'short', timeZone: tz }));
       var trio = '<div class="trio">' +
         '<div><div class="k">Usual</div><div class="v">' + fx(R.typ[kind], 0) + '<u>a day</u></div></div>' +
         '<div><div class="k">' + (day ? 'Busiest' : 'Biggest') + '</div><div class="v">' + bigName + '</div></div>' +
@@ -2743,7 +2743,7 @@
         var shown = isRt ? hm(v) : kwh(v) + '<u>kWh</u>';
         var tz2 = S.tz(), fmtV = function (z) { return isRt ? hm(z) : kwh(z) + ' kWh'; };
         var tips = before.map(function (q) {
-          return new Date(R.ax.d[q.i].t).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: tz2 }) + ' \u00b7 ' + fmtV(q.z) + ' \u00b7 last week';
+          return new Date(R.ax.d[q.i].t).toLocaleDateString(window.hkLocale.tag(), window.hkLocale.zoned({ weekday: 'short', month: 'short', day: 'numeric', timeZone: tz2 })) + ' \u00b7 ' + fmtV(q.z) + ' \u00b7 last week';
         });
         var bars = before.map(function (q) {
           return { segs: [{ v: q.z, c: rgba(color, 0.28) }], label: slotLabel('week', R, q.i, 0, 7, +R.ax.d[q.i].t) };

@@ -116,7 +116,7 @@
   var SPEED = { slow: 1500, normal: 1000, fast: 700 };
   var REFRESH = 5 * 60e3, MIN_Z = 3, MAX_Z = 12;
 
-  function fmtTime(t) { return new Date(t).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }); }
+  function fmtTime(t) { return new Date(t).toLocaleTimeString(window.hkLocale.tag(), window.hkLocale.clock({ hour: 'numeric', minute: '2-digit' })); }
   function ago(t) {
     var m = Math.round((Date.now() - t) / 60e3);
     return m <= 1 ? 'just now' : m < 60 ? m + ' min ago' : Math.floor(m / 60) + ' h ' + (m % 60) + ' min ago';

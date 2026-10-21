@@ -38,8 +38,8 @@
   function header(page) { return Object.assign({}, (hs('headers', {}) || {})[page] || {}); }
   function num(x) { if (x === null || x === undefined || x === '') return null; var n = Number(x); return isFinite(n) ? n : null; }
   function midnight(t) { var d = new Date(t || Date.now()); d.setHours(0, 0, 0, 0); return d.getTime(); }
-  function hm(t) { return new Date(t).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }); }
-  function hr(t) { return new Date(t).toLocaleTimeString('en-US', { hour: 'numeric' }); }
+  function hm(t) { return new Date(t).toLocaleTimeString(window.hkLocale.tag(), window.hkLocale.clock({ hour: 'numeric', minute: '2-digit' })); }
+  function hr(t) { return new Date(t).toLocaleTimeString(window.hkLocale.tag(), window.hkLocale.clock({ hour: 'numeric' })); }
   // "1 h 12 m" / "45 min"; html: the units small, as Energy's figures
   function dur(ms) {
     var m = Math.max(0, Math.round(ms / MIN));
@@ -1191,13 +1191,13 @@
   // settings' water meter, the valve -- and what cannot be known is said, not
   // guessed: a vacuum with no completion counter is "back on its dock", never
   // "completed"; an hour the meter has not reported is "No reading", never 0.
-  function dayName(t) { return new Date(t).toLocaleDateString('en-US', { weekday: 'long' }); }
-  function dayShort(t) { return new Date(t).toLocaleDateString('en-US', { weekday: 'short' }); }
+  function dayName(t) { return new Date(t).toLocaleDateString(window.hkLocale.tag(), window.hkLocale.zoned({ weekday: 'long' })); }
+  function dayShort(t) { return new Date(t).toLocaleDateString(window.hkLocale.tag(), window.hkLocale.zoned({ weekday: 'short' })); }
   // "Today · 9:42 AM", "Yesterday · 11:04 AM", "Tuesday · 2:18 PM"
   function whenText(t, now) {
     var d0 = midnight(now), d = midnight(t);
     var day = d === d0 ? 'Today' : d === midnight(d0 - HOUR * 12) ? 'Yesterday' :
-      now - t < 6 * DAY ? dayName(t) : new Date(t).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      now - t < 6 * DAY ? dayName(t) : new Date(t).toLocaleDateString(window.hkLocale.tag(), window.hkLocale.zoned({ month: 'short', day: 'numeric' }));
     return day + ' · ' + hm(t);
   }
   // the local midnight `k` days before today's (a calendar step: DST-safe)
@@ -1704,7 +1704,7 @@
     }
     return null;
   }
-  function amount(x) { return x < 10 ? (Math.round(x * 10) / 10).toString() : Math.round(x).toLocaleString('en-US'); }
+  function amount(x) { return x < 10 ? (Math.round(x * 10) / 10).toString() : Math.round(x).toLocaleString(window.hkLocale.numTag()); }
   class HkWaterDayCard extends HeaderCard {
     static get PART_CSS() {
       return BARS_CSS + [

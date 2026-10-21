@@ -594,7 +594,7 @@
       : { hour: t.getHours(), weekday: t.getDay() };
   }
   function dateText(d, o) {
-    return d.toLocaleDateString('en-US', Object.assign({ timeZone: haTZ() }, o));
+    return d.toLocaleDateString(window.hkLocale.tag(), Object.assign({ timeZone: haTZ() }, o));
   }
 
   function fmtRange(a, b) {

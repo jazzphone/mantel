@@ -430,7 +430,7 @@
     energy: 'The Energy page, built from Home Assistant’s Energy settings: the feature, its devices and the page.',
     power: 'The Power page: the home’s battery, solar and circuits as one picture. Energy’s second page.',
     music: 'Whole-home music through Music Assistant, and the Music page’s Browse side.',
-    live_tv: 'An HDHomeRun tuner’s channels, live on every screen.',
+    live_tv: 'Needs an HDHomeRun tuner: its channels, live on every screen.',
     security: 'The Security page, the security system and its keypad.'
   };
   var LIBRARY = [['accessories', 'Accessories', 'mdi:lightbulb-group', C.yellow], ['popups', 'Pop-ups', 'mdi:bell-ring', C.red],
@@ -1612,7 +1612,7 @@
           });
         }
         if (!got.length) box.appendChild(K.group({ footer: 'Nothing matches.' }, []));
-        else if (got.length > shown) box.appendChild(K.group({ footer: 'Showing ' + shown + ' of ' + got.length.toLocaleString('en-US') + '. Search to find more.' }, []));
+        else if (got.length > shown) box.appendChild(K.group({ footer: 'Showing ' + shown + ' of ' + got.length.toLocaleString(window.hkLocale.numTag()) + '. Search to find more.' }, []));
       };
       inp.addEventListener('input', function () { if (o.onQuery) o.onQuery(inp.value); paint(); });
       paint();
@@ -2073,8 +2073,11 @@
         }
         // (shown once the integration knows it: an older one would drop it)
         if (b.timer_bar !== undefined) {
-          beh.push(K.toggle({ label: 'Timer Bar', sk: 'b:timer_bar', on: b.timer_bar,
-                              sub: 'Running quick timers, docked along the bottom — over the player when music plays.',
+          // needs the quick_timers.yaml package (its running-timers sensor): off and dimmed while it is missing
+          var qtOn = !!(this.client.states || {})['sensor.running_quick_timers'];
+          beh.push(K.toggle({ label: 'Timer Bar', sk: 'b:timer_bar', on: b.timer_bar, disabled: !qtOn && !b.timer_bar,
+                              sub: 'Running quick timers, docked along the bottom — over the player when music plays.' +
+                                   (qtOn ? '' : ' Needs the quick_timers.yaml package in Home Assistant.'),
                               onChange: function (on) { set({ timer_bar: on }); } }));
         }
         if (b.bar_all_pages !== undefined && (b.now_playing || b.timer_bar)) {
@@ -2182,7 +2185,7 @@
         }
         carFoot = M.CAR_LAYOUTS.filter(function (o) { return o[0] === cl; })[0][2] +
           ' Scale: how much of a desktop layout the car’s window holds — Larger shows less of it, bigger; ' +
-          'Custom takes a width of your own (Standard is ' + M.CAR_WIDTH.toLocaleString('en-US') + ' px).';
+          'Custom takes a width of your own (Standard is ' + M.CAR_WIDTH.toLocaleString(window.hkLocale.numTag()) + ' px).';
       }
       c.appendChild(K.group({ header: 'This Device', footer: carFoot }, carRows));
 
@@ -5006,7 +5009,7 @@
         var pr = (cur.presets || []).slice();
         c.appendChild(K.listEditor({ fk: 'hd:presets', shownHeader: 'Quick Durations', moreHeader: pr.length < 6 ? 'More' : null, minRows: 1,
           announce: this.announce.bind(this),
-          shownFooter: 'The buttons that start a timer in one tap, in this order. Up to six; the Timers page’s Quick Start needs the quick-timer helpers.',
+          shownFooter: 'The buttons that start a timer in one tap, in this order. Up to six; the Timers page’s Quick Start needs the quick_timers.yaml package in Home Assistant.',
           rows: pr.map(function (m) { return { value: m, label: mins(m) }; }),
           more: pr.length < 6 ? STEPS.filter(function (m) { return pr.indexOf(m) < 0; }).map(function (m) { return { value: m, label: mins(m) }; }) : [],
           onChange: function (v) { if (v.length) save('presets', v.map(Number).slice(0, 6)); } }));
@@ -5092,15 +5095,15 @@
     }
     h_weatherForecast(c) {
       var self = this, pg = M.wxPage(this.data.settings);
-      var tog = function (k, label, sub) {
-        var o = {}; return K.toggle({ label: label, sub: sub, on: pg[k], sk: 'weather.page.' + k,
+      var tog = function (k, label, sub, dim) {
+        var o = {}; return K.toggle({ label: label, sub: sub, on: pg[k], sk: 'weather.page.' + k, disabled: !!dim && !pg[k],
                                       onChange: function (on) { o[k] = on; self.wxPageSet(o); } });
       };
       var alerts = this.hs('weather.alerts');
       c.appendChild(K.group({ header: 'Show', footer: 'Weather Alerts appear only while an alert is in effect' +
           (alerts ? '.' : ', from an Alerts sensor (Optional Readings → Sensors).') }, [
         tog('show_current', 'Current Conditions'), tog('show_hourly', 'Hourly Forecast'), tog('show_daily', 'Daily Forecast'),
-        tog('show_alerts', 'Weather Alerts', alerts ? null : 'No Alerts sensor chosen')]));
+        tog('show_alerts', 'Weather Alerts', alerts ? null : 'Needs the NWS Alerts integration (US only) and its sensor', !alerts)]));
       c.appendChild(K.group({ header: 'Hourly Forecast', footer: 'Up to this many hours, as many as the weather service gives; they scroll sideways where they don’t fit. ' +
           'The view it opens on; a reading the service doesn’t give falls back to Temperature.' }, [
         K.seg({ label: 'Hours', sk: 'weather.page.hours', value: pg.hours, options: M.WX_HOURS,
@@ -5394,7 +5397,7 @@
         row('outside', 'Outside Temperature', 'Not Shown', 'temperature', 'The Weather page’s daily averages')]));
       c.appendChild(K.group({ header: 'Forecast', footer: 'A sensor with a forecast attribute. Empty: the forecast is read from the weather service.' }, [
         row('forecast_daily', 'Daily Forecast', 'From Weather Service'), row('forecast_hourly', 'Hourly Forecast', 'From Weather Service')]));
-      c.appendChild(K.group({ header: 'Alerts', footer: 'The NWS Alerts sensor. Its alert chip and card show only while an alert is active.' }, [
+      c.appendChild(K.group({ header: 'Alerts', footer: 'The NWS Alerts integration’s sensor (US only; without it there are no alerts). Its alert chip and card show only while an alert is active.' }, [
         row('alerts', 'Weather Alerts', 'None')]));
     }
     h_appearance(c) {
@@ -8543,7 +8546,7 @@
         K.info({ label: 'Type', value: kind[1] }), K.info({ label: 'Address', value: '#' + p.hash })]));
       if (this.err('pop:' + p.hash)) c.appendChild(h('div', { class: 'errline', role: 'alert', text: this.err('pop:' + p.hash) }));
       if (p.kind === 'camera') {
-        c.appendChild(K.group({ header: 'Camera', footer: 'Talk-back needs the camera’s own speaker. A higher-resolution stream can be shown live.' }, [
+        c.appendChild(K.group({ header: 'Camera', footer: 'Live talk-back needs UniFi Protect and the camera’s own speaker; without them it plays a recorded clip. A higher-resolution stream can be shown live.' }, [
           this.entityRow({ label: 'Camera', sk: 'pop:entity', value: p.entity, none: null, filter: { domains: ['camera'] },
                            onPick: function (v) { if (v) save({ entity: v }); } }),
           this.entityRow({ label: 'Talk-Back Speaker', sk: 'pop:speaker', value: p.speaker, none: 'The Camera’s Own', filter: { domains: ['media_player'] },

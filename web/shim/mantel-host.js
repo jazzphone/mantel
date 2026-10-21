@@ -164,6 +164,15 @@ export function toast(text) {
   box._t = setTimeout(() => { box.style.opacity = '0'; }, 2600);
 }
 
+// The house's language with its country's region when the language has none ('en' + GB = en-GB), as the
+// formatters (hkLocale.tag in client/hk-client.js) read it; a tag this browser does not know stays as it was.
+function regionalTag(config) {
+  const lang = String((config && config.language) || 'en').replace(/_/g, '-');
+  const cc = String((config && config.country) || '').toUpperCase();
+  if (lang.includes('-') || !/^[A-Z]{2}$/.test(cc)) return lang;
+  try { return Intl.DateTimeFormat.supportedLocalesOf([lang + '-' + cc]).length ? lang + '-' + cc : lang; } catch (e) { return lang; }
+}
+
 export class Host {
   constructor({ hub, registry, fixtures, user, config, themes }) {
     this.hub = hub;
@@ -194,9 +203,12 @@ export class Host {
     const raw = {
       states: {}, entities: registry.entities, devices: registry.devices, areas: registry.areas,
       floors: registry.floors, config, themes, user,
-      language: 'en',
-      locale: { language: 'en', number_format: 'language', time_format: 'language', date_format: 'language',
-                time_zone: 'local', first_weekday: 'language' },
+      // what HA's own client holds, from the house's configuration (language, country, time zone): Mantel has
+      // no per-person locale, so every format follows the language (and the country's region) and the clock
+      // and zone are the house's ('server': HA's own word for it)
+      language: config.language || 'en',
+      locale: { language: regionalTag(config), number_format: 'language', time_format: 'language',
+                date_format: 'language', time_zone: 'server', first_weekday: 'language' },
       selectedLanguage: null, selectedTheme: null, panelUrl: 'home', panels: {}, services: {},
       connected: true, suspendWhenHidden: false, kioskMode: false, dockedSidebar: 'auto',
       auth: { data: { hassUrl: location.origin + (window.__mantelBase || '') } },

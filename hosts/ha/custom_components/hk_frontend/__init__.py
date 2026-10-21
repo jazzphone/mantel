@@ -156,6 +156,14 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     revalidate-always caching."""
     root = files.BUNDLE_ROOT            # resolved once, at import (off the event loop)
 
+    # THE HOUSE'S PLACE (hk_core settings.model.set_house_place): Home Assistant's latitude and country decide the
+    # defaults a house has not chosen (its hemisphere, the US-only themes); kept current when the location changes.
+    def _place(_event: Any = None) -> None:
+        dash_settings.set_house_place(hass.config.latitude, hass.config.country)
+
+    _place()
+    hass.bus.async_listen("core_config_updated", _place)
+
     from aiohttp import web
 
     from homeassistant.components.http import HomeAssistantView

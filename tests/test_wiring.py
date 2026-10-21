@@ -238,6 +238,17 @@ async def test_house_time_zone_from_home_assistant_with_a_fallback(off):
     assert authz.context().tz == "America/New_York"
 
 
+async def test_house_place_from_home_assistant_sets_the_unchosen_defaults(off):
+    from hk_core.settings import model as settings_model
+    try:
+        off.app["hub"].readproxy = FakeReads({"time_zone": "Australia/Sydney", "latitude": -33.9, "country": "AU"})
+        await server.house_tz(off.app, off.app["hub"], attempts=1)
+        sky = settings_model.merged(None)["sky"]
+        assert sky["hemisphere"] == "south" and "thanksgiving" not in sky["themes"]
+    finally:
+        settings_model.set_house_place()
+
+
 async def test_the_context_always_has_the_exact_time(off):
     # regression (found by the e2e): a context cached within a second made a step-up stamped later in
     # that second look like a factor from the future, so the retried unlock asked again
