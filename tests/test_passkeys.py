@@ -213,3 +213,24 @@ async def test_registration_requires_a_discoverable_passkey(mantel):
     r = await mantel.post("/api/auth/passkey/register/options", {}, headers=h)
     sel = (await r.json())["options"]["authenticatorSelection"]
     assert sel["residentKey"] == "required" and sel.get("requireResidentKey") is True
+
+
+async def test_confirm_it_is_you_with_someone_elses_passkey_is_refused_not_a_sign_in(mantel):
+    """passkey/verify signed the passkey's owner in when it wasn't the signed-in person's, and the step-up dialogs
+    took any answer as confirmed: on a shared iPad, an Admin who picked the wrong passkey made the refused change
+    as that other person. A step-up says so; another person's passkey is then refused and nothing changes."""
+    await mantel.user("jordan", "adult")
+    await mantel.user("riley", "admin")
+    await mantel.sign_in("jordan")
+    auth = SoftAuthenticator()
+    assert (await register(mantel, auth)).status == 201
+    mantel.forget_cookies()
+    await mantel.sign_in("riley")
+    before = (await (await mantel.get("/api/session")).json())["user"]["username"]
+    origin, h = localhost(mantel)
+    r = await mantel.post("/api/auth/passkey/options", {}, headers=h)
+    body = await r.json()
+    r = await mantel.post("/api/auth/passkey/verify", {"challenge_id": body["challenge_id"], "step_up": True,
+                                                       "credential": auth.get(body["options"], origin)}, headers=h)
+    assert r.status == 403 and (await r.json())["error"] == "another_person"
+    assert before == "riley" and (await (await mantel.get("/api/session")).json())["user"]["username"] == "riley"

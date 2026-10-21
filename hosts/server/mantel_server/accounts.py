@@ -751,6 +751,10 @@ async def passkey_verify(request: web.Request) -> web.Response:
     if ident.user is not None and ident.user.id == user["id"] and ident.session_id:
         request.app["sessions"].mark_fresh(ident.session_id, "passkey")
         return ok({"step_up": True})
+    if body.get("step_up") is True:
+        # Confirm It Is You with someone else's passkey (a shared iPad holding the household's): not a sign-in
+        # as them. Signed in as them, the refused change would have been made as that other person.
+        return error(403, "another_person", message="That passkey is someone else's. Use your own.")
     return signed_in(request, user, "passkey")
 
 
