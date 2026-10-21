@@ -240,6 +240,15 @@ async def enroll(request: web.Request) -> web.Response:
     if refused:
         return refused
     device_id, secret, csrf = mgr.enroll(name[:64], role, room, user.id, client_ip(request), device_id=device_id)
+    if user.role == "wall_tablet":
+        # "A Wall Tablet account can only make its own tablet" (Wall-Tablets.md): one at a time. Enrolling again
+        # (a tablet reset, its cookie gone) replaces the account's earlier one rather than adding another.
+        for old in request.app["store"].db.execute(
+                "SELECT id, name, room FROM devices WHERE enrolled_by = ? AND revoked IS NULL AND id != ?",
+                (user.id, device_id)).fetchall():
+            if audit_change(request, ident, "device.revoke", {"device": old["id"], "name": old["name"],
+                                                             "room": old["room"], "replaced_by": device_id}) is None:
+                mgr.revoke(old["id"], "replaced")          # (no audit row, no revocation)
     row = mgr.get(device_id)
     resp = ok({"device": device_json(Device(row["id"], row["name"], row["role"], row["room"])), "csrf": csrf},
               status=201)
