@@ -244,7 +244,7 @@ async def test_hello_proves_the_houses_key(mantel):
     key = app_crypto.public_from_raw(app_crypto.unb64u(got["key"]))
     assert app_crypto.fingerprint(key) == got["fingerprint"]
     assert app_crypto.es256_verify(key, app_auth.hello_message(nonce, got["fingerprint"]), app_crypto.unb64u(got["signature"]))
-    assert (m.app["cfg"].secrets_dir / app_auth.IDENTITY_FILE).is_file()
+    assert (m.app["cfg"].data_dir / "keys" / app_auth.IDENTITY_FILE).is_file()   # a key file, not the database
     assert (await m.client.get("/api/app/hello", params={"nonce": "x"})).status == 400
 
 
@@ -472,6 +472,7 @@ async def test_an_apps_notification_is_sealed_to_the_phone(mantel, tmp_path):
         sent.append((url, headers, data))
         return 200, {}
     secrets_dir = m.app["cfg"].secrets_dir
+    secrets_dir.mkdir(parents=True, exist_ok=True)            # the operator's folder, where Apple's key goes
     sender = m.app["apns"]
     sender.transport = transport
     p = m.app["pusher"]

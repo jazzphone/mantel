@@ -59,6 +59,7 @@ One file per backup, named `mantel-YYYYmmdd-HHMMSS.mbk` (the time in UTC), encry
 | Your files and Mantel Photos | Apple's font and glyphs you uploaded, and the screensavers' photos |
 | The saved connections | Home Assistant's and Music Assistant's, still sealed with `at_rest.key` |
 | [Mantel Connect](Mantel-Connect.md)'s certificates | Its own certificate authority and keys, so a paired Connect App keeps working after a restore |
+| The keys Mantel makes | The push key and the apps' identity key (`keys/`), so browsers keep their notifications and the iPhone and Mac apps their pairing after a restore |
 
 Not inside: the secret files in `/etc/hk/secrets` (keep your own copy of the two keys), `.env`, and Caddy's certificates (Caddy gets new ones).
 

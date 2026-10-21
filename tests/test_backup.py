@@ -194,6 +194,44 @@ def test_the_connect_ca_travels_inside_the_encrypted_part_and_is_restored(tmp_pa
     assert (keep / "connect" / "ca.crt").read_bytes() == kept
 
 
+def test_the_keys_mantel_made_travel_with_the_backup(tmp_path, key, target):
+    """The push key and the apps' identity key (<data>/keys, app_crypto.made_key_path): a restored Mantel signs
+    with the same keys, so browsers' push subscriptions and the apps' pinned pairings keep working."""
+    import stat
+
+    from mantel_server import app_crypto
+    data = make_home(tmp_path)
+    (data / "keys").mkdir(mode=0o700)
+    app_crypto.load_or_create_ec_key(data / "keys" / "vapid.pem")
+    before = (data / "keys" / "vapid.pem").read_bytes()
+    out = bk.create_backup(data, target, key, now=NOW)
+    assert b"PRIVATE KEY" not in out.read_bytes()
+    fresh = tmp_path / "fresh"
+    bk.restore(out, key, fresh)
+    assert (fresh / "keys" / "vapid.pem").read_bytes() == before
+    assert stat.S_IMODE((fresh / "keys" / "vapid.pem").stat().st_mode) == 0o600
+    assert stat.S_IMODE((fresh / "keys").stat().st_mode) == 0o700
+
+
+def test_restoring_a_backup_without_files_keeps_the_live_photos_and_files(tmp_path, key, target):
+    """A --backup-no-files backup holds neither Your Files nor the photos: --replace used to move the live ones
+    aside anyway, leaving the photo rows pointing at nothing until someone renamed the folders back."""
+    data = make_home(tmp_path)
+    (data / "photos").mkdir()
+    (data / "photos" / "p.jpg").write_bytes(b"live photo")
+    out = bk.create_backup(data, target, key, now=NOW, include_files=False)
+    report = bk.restore(out, key, data, replace=True)
+    assert (data / "photos" / "p.jpg").read_bytes() == b"live photo"
+    assert (data / "user-files/hk/fonts/Dummy.ttf").read_bytes() == b"dummy font bytes"
+    assert not any("photos.before" in r or "user-files.before" in r for r in report.replaced)
+    # a backup WITH the files still replaces them (the restored rows are its photos)
+    out = bk.create_backup(data, target, key, now=NOW + timedelta(days=1))
+    (data / "photos" / "late.jpg").write_bytes(b"after the backup")
+    report = bk.restore(out, key, data, replace=True)
+    assert not (data / "photos" / "late.jpg").exists() and (data / "photos" / "p.jpg").exists()
+    assert any(Path(r).name.startswith("photos.before-restore-") for r in report.replaced)
+
+
 def test_verify_only_stages_in_the_data_folder_not_the_small_tmp(tmp_path, key, target, monkeypatch):
     """--verify-only unpacked into the system temp folder, which in the container is a 64 MB tmpfs: a
     backup with many photos did not fit. It stages in the data folder (the volume) like a restore, in a

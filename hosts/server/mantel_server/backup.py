@@ -104,6 +104,7 @@ FILES_DIR = "user-files"
 CONNECTIONS_DIR = "connections"     # connections.py: <data_dir>/connections, sealed files
 PHOTOS_DIR = "photos"               # photos.py: <data_dir>/photos (the rows are in the database)
 CONNECT_DIR = "connect"             # connect_pairing.py: <data_dir>/connect, the Connect CA (private keys)
+KEYS_DIR = "keys"                   # app_crypto.KEYS_DIR: the push key and the apps' identity key
 DEFAULT_TIME = "03:15"
 
 
@@ -337,9 +338,10 @@ def create_backup(data_dir: Path, target: Path, key: bytes, *, now: datetime | N
             conn_root = data_dir / CONNECTIONS_DIR
             if conn_root.is_dir():
                 manifest["connections"] = _add_tree(tar, conn_root, CONNECTIONS_DIR)
-            connect_root = data_dir / CONNECT_DIR
-            if connect_root.is_dir():
-                manifest["connect"] = _add_tree(tar, connect_root, CONNECT_DIR)
+            for name in (CONNECT_DIR, KEYS_DIR):
+                root = data_dir / name
+                if root.is_dir():
+                    manifest[name] = _add_tree(tar, root, name)
             blob = json.dumps(manifest, indent=1, sort_keys=True).encode()
             member = tarfile.TarInfo("manifest.json")
             member.size, member.mtime = len(blob), int(now.timestamp())
@@ -426,7 +428,7 @@ def _unpack(payload: Path, out: Path) -> tuple[dict, int]:
         try:
             for m in tar:
                 name = _safe_member(m.name)
-                trees = (FILES_DIR, CONNECTIONS_DIR, PHOTOS_DIR, CONNECT_DIR)
+                trees = (FILES_DIR, CONNECTIONS_DIR, PHOTOS_DIR, CONNECT_DIR, KEYS_DIR)
                 if name is None or not (name in (DB_NAME, "manifest.json") or name in trees
                                         or any(name.startswith(tree + "/") for tree in trees)):
                     raise BackupError("corrupt", f"the backup contains an unexpected entry {m.name!r}")
@@ -548,12 +550,18 @@ def restore(backup: Path, key: bytes, data_dir: Path, *, replace: bool = False, 
         try:
             conn_tree = stage / "unpacked" / CONNECTIONS_DIR
             photos_tree = stage / "unpacked" / PHOTOS_DIR
-            # a backup made before the Connect CA was included has none: then the CA here stays (it may
-            # still be the one the paired Apps know), as connections/ does
+            # a backup made before the Connect CA (or the keys) was included has none: then the CA here stays
+            # (it may still be the one the paired Apps know), as connections/ does
             connect_tree = stage / "unpacked" / CONNECT_DIR
-            for p in [live, *sidecars, data_dir / FILES_DIR, data_dir / PHOTOS_DIR] + \
+            keys_tree = stage / "unpacked" / KEYS_DIR
+            # a backup made without the files (--backup-no-files) holds no photos or Your Files: the live
+            # ones stay, rather than leaving the restored rows pointing at files moved aside
+            with_files = manifest.get("files") is True or files_tree.is_dir() or photos_tree.is_dir()
+            for p in [live, *sidecars] + \
+                    ([data_dir / FILES_DIR, data_dir / PHOTOS_DIR] if with_files else []) + \
                     ([data_dir / CONNECTIONS_DIR] if conn_tree.is_dir() else []) + \
-                    ([data_dir / CONNECT_DIR] if connect_tree.is_dir() else []):
+                    ([data_dir / CONNECT_DIR] if connect_tree.is_dir() else []) + \
+                    ([data_dir / KEYS_DIR] if keys_tree.is_dir() else []):
                 if p.exists() or p.is_symlink():
                     aside = p.with_name(p.name + suffix)
                     n = 1
@@ -577,12 +585,13 @@ def restore(backup: Path, key: bytes, data_dir: Path, *, replace: bool = False, 
                 os.chmod(data_dir / CONNECTIONS_DIR, 0o700)
                 for f in (data_dir / CONNECTIONS_DIR).iterdir():
                     os.chmod(f, 0o600)
-            if connect_tree.is_dir():
-                os.replace(connect_tree, data_dir / CONNECT_DIR)
-                os.chmod(data_dir / CONNECT_DIR, 0o700)       # private keys: as Pki.ensure keeps them
-                for f in (data_dir / CONNECT_DIR).iterdir():
-                    if f.is_file():
-                        os.chmod(f, 0o600)
+            for name, tree in ((CONNECT_DIR, connect_tree), (KEYS_DIR, keys_tree)):
+                if tree.is_dir():
+                    os.replace(tree, data_dir / name)
+                    os.chmod(data_dir / name, 0o700)          # private keys: as Pki.ensure keeps them
+                    for f in (data_dir / name).iterdir():
+                        if f.is_file():
+                            os.chmod(f, 0o600)
         except OSError as exc:
             for original, aside in reversed(moved):                  # put the old data back
                 with contextlib.suppress(OSError):

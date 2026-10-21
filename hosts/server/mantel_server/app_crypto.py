@@ -61,6 +61,20 @@ def public_from_raw(data: bytes) -> ec.EllipticCurvePublicKey:
 
 
 # -- key files ------------------------------------------------------------------------------------
+KEYS_DIR = "keys"      # <data_dir>/keys: the keys Mantel makes itself (in every backup, backup.py)
+
+
+def made_key_path(cfg, name: str) -> Path:
+    """Where a key Mantel makes for itself lives (the push key, the apps' identity key). The secrets folder's
+    copy when there is one (the operator's, or one an older Mantel made where that folder is writable, as in
+    the Home Assistant App), so a house keeps the key its pairings and subscriptions know; else
+    ``<data_dir>/keys/``, because Docker's and the LXC's secrets folder is read-only."""
+    secret = Path(cfg.secrets_dir).expanduser() / name
+    if secret.exists():
+        return secret
+    return Path(cfg.data_dir).expanduser() / KEYS_DIR / name
+
+
 def load_or_create_ec_key(path: Path) -> ec.EllipticCurvePrivateKey:
     """A P-256 private key from a PEM file, made (0600, folder 0700) the first time it is wanted."""
     path = Path(path).expanduser()

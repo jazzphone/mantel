@@ -204,11 +204,10 @@ class Pusher:
         self.log: list[dict] = []          # the last few deliveries
         self.http = None                   # the HTTP session to send with (default: the app's)
 
-    # -- the VAPID key (a secret file) ------------------------------------------------------------
+    # -- the VAPID key (app_crypto.made_key_path) ------------------------------------------------------------
     def vapid(self):
         if self._vapid is None:
-            cfg = self.app["cfg"]
-            self._vapid = app_crypto.load_or_create_ec_key(cfg.secrets_dir.expanduser() / VAPID_FILE)
+            self._vapid = app_crypto.load_or_create_ec_key(app_crypto.made_key_path(self.app["cfg"], VAPID_FILE))
         return self._vapid
 
     def vapid_public(self) -> str:

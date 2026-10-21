@@ -187,10 +187,10 @@ class AppAuth:
     def db(self):
         return self.app["store"].db
 
-    # the house's identity key (a secret file)
+    # the house's identity key (app_crypto.made_key_path)
     def key(self):
         if self._key is None:
-            self._key = app_crypto.load_or_create_ec_key(self.app["cfg"].secrets_dir.expanduser() / IDENTITY_FILE)
+            self._key = app_crypto.load_or_create_ec_key(app_crypto.made_key_path(self.app["cfg"], IDENTITY_FILE))
         return self._key
 
     def fingerprint(self) -> str:
