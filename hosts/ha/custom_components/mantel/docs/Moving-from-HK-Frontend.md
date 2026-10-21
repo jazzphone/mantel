@@ -1,6 +1,6 @@
 # Moving from HK Frontend
 
-Mantel Link replaces HK Frontend. A house moves one step at a time, and every step but the last can be undone. Every
+For a house that wants Mantel to run what HK Frontend runs. A house moves one step at a time, and every step but the last can be undone. Moving is a choice: HK Frontend stays a product of its own, and the two can run together, each wall tablet run by one of them. Every
 entity keeps its entity id, its history and its customisations (Home Assistant moves the same registry entry).
 
 ## If you never used Mantel
@@ -33,7 +33,7 @@ entity keeps its entity id, its history and its customisations (Home Assistant m
 ## Going back
 
 - Before step 6: Home Assistant Link → move the rest of the house (then each tablet) back to Home Assistant, and
-  **Give the Bridge Back to HK Frontend**. HK Frontend takes the same entities back; Mantel Link goes dormant.
+  **Give the Bridge to HK Frontend**. HK Frontend takes the same entities back; Mantel Link goes dormant.
 - After step 6: reinstall HK Frontend's last release and link it first; until then Mantel refuses to move anything
   back (nothing in Home Assistant would run it). Your settings are still in Mantel.
 - Removing Mantel Link hands its entities back to HK Frontend if HK Frontend is still installed.

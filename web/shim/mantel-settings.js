@@ -1607,8 +1607,8 @@ function drawHaDashboard(c, ctx) {
 }
 
 // HTTPS and the reverse proxy (proxy_check.py): Owner and Admin read; Owner runs the test, rotates the key
-// HOME ASSISTANT LINK (docs/phase9/MANTEL-LINK.md): which integration in Home Assistant is linked (Mantel Link, or
-// HK Frontend while a house moves), who holds the bridge (who shows Mantel's entities in Home Assistant: an
+// HOME ASSISTANT LINK (docs/phase9/MANTEL-LINK.md, decision 29 in docs/phase9/TWO-PRODUCTS.md): which integrations
+// in Home Assistant are linked (Mantel Link, HK Frontend, or both: two products that can run together), who holds the bridge (who shows Mantel's entities in Home Assistant: an
 // Owner hands it to Mantel Link, or gives it back, audited), and who owns each wall tablet. GET/PUT
 // /api/linked/owners; the server says whether Home Assistant's side can take the bridge, in words.
 const LINK_NAME = { mantel: 'Mantel Link', hk_frontend: 'HK Frontend' };
@@ -1641,12 +1641,12 @@ function pLink() {
       await act('link', () => api('PUT', '/api/linked/owners', { unit: 'bridge', owner: 'mantel' }), 'Mantel Link holds the bridge.', 'link');
       setTimeout(() => { forget('link'); redraw(); }, 4000);   // the links reconnect after their reload
     }, { fk: 'mx:bridge-mantel' }));
-    if (owner && holder === 'mantel') rows.push(button('Give the Bridge Back to HK Frontend…', async () => {
-      if (!(await ask({ title: 'Give the bridge back to HK Frontend?', message: 'HK Frontend then shows Mantel’s entities in Home Assistant again, under the same entity ids. HK Frontend must be linked to Mantel with its last release.', ok: 'Give Back', destructive: true }))) return;
+    if (owner && holder === 'mantel') rows.push(button('Give the Bridge to HK Frontend…', async () => {
+      if (!(await ask({ title: 'Give the bridge back to HK Frontend?', message: 'HK Frontend then shows Mantel’s entities in Home Assistant, under the same entity ids. HK Frontend must be linked to Mantel, version 1.9.0 or newer.', ok: 'Give Back', destructive: true }))) return;
       await act('link', () => api('PUT', '/api/linked/owners', { unit: 'bridge', owner: 'hk_frontend' }), 'HK Frontend holds the bridge.', 'link');
       setTimeout(() => { forget('link'); redraw(); }, 4000);   // the links reconnect after their reload
     }, { destructive: true, fk: 'mx:bridge-hk' }));
-    c.appendChild(group({ header: 'The Bridge', footer: 'One integration in Home Assistant shows Mantel’s entities: HK Frontend while a house moves, then Mantel Link. ' + (owner ? 'Each change is in the Audit Log.' : 'Only an Owner can change it.') }, rows));
+    c.appendChild(group({ header: 'The Bridge', footer: 'One integration in Home Assistant shows Mantel’s entities, never both: Mantel Link (recommended), or HK Frontend when it is linked. They keep their entity ids either way. ' + (owner ? 'Each change is in the Audit Log.' : 'Only an Owner can change it.') }, rows));
     // who runs what: the house's own entities (its own group: not a tablet) and each wall tablet
     const ownerRow = (u, label, sub) => {
       const mine = u.owner === 'mantel';
@@ -1655,10 +1655,10 @@ function pLink() {
         onChange: (on) => act('link', () => api('PUT', '/api/linked/owners', { unit: u.unit, owner: on ? 'mantel' : 'ha' }),
                              label + (on ? ' is Mantel’s.' : ' is Home Assistant’s.'), 'link') });
     };
-    if (d.house) c.appendChild(group({ header: 'The House', footer: 'What belongs to the house, not a tablet: Seasonal Decorations, the Alarm PIN keypad and Live TV’s sensors and channels. Run by Mantel, they keep their entity ids and history in Home Assistant. Move the wall tablets first, then the house; then HK Frontend can be removed.' + (owner ? '' : ' Only an Owner can move it.') },
+    if (d.house) c.appendChild(group({ header: 'The House', footer: 'What belongs to the house, not a tablet: Seasonal Decorations, the Alarm PIN keypad and Live TV’s sensors and channels. Run by Mantel, they keep their entity ids and history in Home Assistant; off, HK Frontend runs them. Without HK Frontend in Home Assistant, Mantel runs them.' + (owner ? '' : ' Only an Owner can move it.') },
       [ownerRow(d.house, 'Run by Mantel')]));
     const tabs = (d.tablets || []).filter(Boolean);
-    if (tabs.length) c.appendChild(group({ header: 'Who Runs Each Wall Tablet', footer: 'A tablet Mantel runs has its Sleep Screen and black screen in Mantel; Home Assistant’s scripts still reach it by the same entity ids.' + (owner ? '' : ' Only an Owner can move them.') },
+    if (tabs.length) c.appendChild(group({ header: 'Who Runs Each Wall Tablet', footer: 'Each tablet has one engine. A tablet Mantel runs has its Sleep Screen and black screen in Mantel; off, HK Frontend’s own run it, for a tablet showing HK Frontend’s dashboards in Home Assistant. Home Assistant’s scripts reach it by the same entity ids either way.' + (owner ? '' : ' Only an Owner can move them.') },
       tabs.map((u) => ownerRow(u, u.name || u.unit))));
   } };
 }

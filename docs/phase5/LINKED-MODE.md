@@ -1,5 +1,8 @@
 # Phase 5: linked mode — `hk_frontend` "Linked to Mantel Server" (2026-10-18)
 
+> **Decision 29 (2026-10-21):** linked mode (protocol 1) stays supported: HK Frontend and Mantel are two products that
+> run together (docs/phase9/TWO-PRODUCTS.md).
+>
 > **Superseded for the bridge by Mantel Link (decision 28, 2026-10-19).** HA's side of Mantel is now its own
 > integration, Mantel Link (domain `mantel`, `hosts/ha/custom_components/mantel`), speaking protocol 2 of the same
 > link; HK Frontend's linked mode stays until each house has handed the bridge over and removed HK Frontend.

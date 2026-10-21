@@ -191,11 +191,12 @@ Assistant’s screens and Mantel’s while some tablets are Mantel’s. Once
 everything is Mantel’s, the features, the wall tablets’ Sleep Screen and HK
 Settings don’t run in Home Assistant.
 
-**Mantel Link**, HK Frontend’s successor (HACS), then takes the bridge over
+With **Mantel Link** (HACS, Mantel’s own integration) also installed, it usually takes the bridge over
 (Mantel Settings → Connections → Home Assistant Link): it shows Mantel’s
 entities and actions under the same entity ids and action names, and HK
 Frontend lets go of them. Handing back is the same button. The move, step by
 step: [Moving from HK Frontend](https://github.com/jazzphone/mantel-link/blob/main/docs/Moving-from-HK-Frontend.md).
+HK Frontend and Mantel are two products that can run together: [HK Frontend and Mantel](HK-Frontend-and-Mantel.md).
 
 The address is Mantel’s LAN address, with `https://` (plain `http://` only to
 this machine or the Mantel App on Home Assistant’s internal App network, so the

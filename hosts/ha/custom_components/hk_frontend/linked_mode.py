@@ -194,7 +194,7 @@ APP_ADDRESS = "http://local-mantel:8099"   # the Mantel App installed locally, o
 
 
 async def suggested_url(hass: HomeAssistant | None = None) -> str:
-    """What Configure offers when nothing is saved yet: the address Mantel Link (HK Frontend's successor, domain
+    """What Configure offers when nothing is saved yet: the address Mantel Link (Mantel's own integration, domain
     `mantel`) is linked to, when this Home Assistant has it (it found Mantel by itself: the App's announcement or
     zeroconf); else the Mantel App's own address, when that name resolves inside Home Assistant's internal App
     network (the same check the form applies); else nothing. "Shouldn't this autopopulate if

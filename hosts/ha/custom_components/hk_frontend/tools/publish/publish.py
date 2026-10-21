@@ -16,10 +16,8 @@ docs/ into WIKI_DIR (a clone of the Wiki's repository), scanned the same way,
 and committed with the same message. Then both test suites run IN the built repository, so the layout is
 proven, and -- only with --commit -- it is committed (and pushed with --push).
 
-    python3 tools/publish/publish.py REPO_DIR [--commit "message"] [--push] [--no-tests] [--wiki WIKI_DIR] [--final]
+    python3 tools/publish/publish.py REPO_DIR [--commit "message"] [--push] [--no-tests] [--wiki WIKI_DIR]
 
---final builds HK Frontend's FINAL release (docs/phase9/MANTEL-LINK.md, HK Frontend's retirement): retire.py's
-RETIRED on (the repair "HK Frontend is now Mantel"), tools/publish/final/README.md as the README, version 1.10.0.
     python3 tools/publish/publish.py --scan          only report what would be refused
 """
 from __future__ import annotations
@@ -241,24 +239,6 @@ def build(repo: str, pairs) -> None:
                 os.chmod(target, 0o755)
 
 
-FINAL_VERSION = "1.10.0"
-
-
-def make_final(repo: str) -> None:
-    """HK Frontend's final release from a built tree: the retirement repair on, the pointer README, its version."""
-    comp = os.path.join(repo, "custom_components", "hk_frontend")
-    path = os.path.join(comp, "retire.py")
-    text = open(path, encoding="utf-8").read()
-    if "\nRETIRED = False\n" not in text:
-        raise SystemExit("retire.py: RETIRED = False not found")
-    open(path, "w", encoding="utf-8").write(text.replace("\nRETIRED = False\n", "\nRETIRED = True\n"))
-    shutil.copy2(os.path.join(HERE, "final", "README.md"), os.path.join(repo, "README.md"))
-    mpath = os.path.join(comp, "manifest.json")
-    manifest = json.load(open(mpath, encoding="utf-8"))
-    manifest["version"] = FINAL_VERSION
-    open(mpath, "w", encoding="utf-8").write(json.dumps(manifest, indent=2) + "\n")
-
-
 def stage(cwd) -> int:
     """Stage exactly what is on disk, names' case included. On a
     case-insensitive disk (a Mac's, the config share) git would otherwise keep
@@ -281,7 +261,6 @@ def main() -> int:
     ap.add_argument("--push", action="store_true")
     ap.add_argument("--no-tests", action="store_true")
     ap.add_argument("--wiki")
-    ap.add_argument("--final", action="store_true", help="HK Frontend's final release (retire.py)")
     a = ap.parse_args()
     pairs = plan()
     pages = wiki_pages()
@@ -297,9 +276,7 @@ def main() -> int:
         return 2
     os.makedirs(a.repo, exist_ok=True)
     build(a.repo, pairs)
-    if a.final:
-        make_final(a.repo)
-    print(f"built {len(pairs)} files in {a.repo}" + (" (the FINAL release)" if a.final else ""))
+    print(f"built {len(pairs)} files in {a.repo}")
     if not a.no_tests:
         venv = os.path.expanduser("~/.venvs/hk-ha-test/bin/pytest")
         if run([venv, "-q", "-p", "no:cacheprovider"], os.path.join(a.repo, "tests", "py")) != 0:

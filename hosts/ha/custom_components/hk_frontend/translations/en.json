@@ -46,7 +46,7 @@
       },
       "linked": {
         "title": "Linked to Mantel",
-        "description": "Now: {state}.\n\nOnly for a house that is moving to Mantel. Linked, this integration keeps the same actions (hk_frontend.set_black_screen, show_popup, close_popup, notify) and the same entities, with the same entity ids, while Mantel's Owner moves one wall tablet at a time to Mantel. Mantel Link, HK Frontend's successor, then takes over the bridge (Mantel Settings, Connections, Home Assistant Link): it shows Mantel's entities under the same entity ids, and this integration lets go of them. Off, everything works as it always has.\n\nThe address fills itself in when the Mantel App or Mantel Link is installed. The credential is a Mantel Service account's (scope `linked`). Home Assistant keeps it in its own storage on disk (.storage/core.config_entries), as it does every integration's token; anyone who can read that file or a backup of it can use it, so revoke it in Mantel if a backup leaks. Saving reloads the integration.",
+        "description": "Now: {state}.\n\nFor a house that also runs Mantel, HK's screens as their own server. Linked, this integration keeps the same actions (hk_frontend.set_black_screen, show_popup, close_popup, notify) and the same entities, with the same entity ids, and Mantel's Owner picks who runs each wall tablet: Mantel, or HK Frontend (Mantel Settings, Connections, Home Assistant Link). With Mantel Link also installed, Mantel Link usually shows Mantel's entities (the bridge) and this integration lets go of them; HK Frontend's dashboards and HK Settings here keep working either way. HK Frontend and Mantel each keep their own HK settings. Off, everything works as it always has.\n\nThe address fills itself in when the Mantel App or Mantel Link is installed. The credential is a Mantel Service account's (scope `linked`). Home Assistant keeps it in its own storage on disk (.storage/core.config_entries), as it does every integration's token; anyone who can read that file or a backup of it can use it, so revoke it in Mantel if a backup leaks. Saving reloads the integration.",
         "data": {
           "enabled": "Linked to Mantel",
           "url": "Mantel's address",
@@ -90,10 +90,6 @@
     "theme_missing": {
       "title": "HK Kiosk theme not loaded",
       "description": "The HK pages draw their colors, font and glass from the HK Kiosk theme. HK Frontend loads it itself, and this time it could not (the log says why). You can load it from configuration.yaml instead:\n\n1. In configuration.yaml, under `frontend:`, add `themes: !include_dir_merge_named themes` (skip this if you already load themes from a folder).\n2. Create `/config/themes/hk_kiosk.yaml` containing the single line `!include ../custom_components/hk_frontend/theme/hk_kiosk_theme.yaml`\n3. Developer tools → YAML → **Themes** (or restart).\n\nThis message clears itself once the theme loads."
-    },
-    "now_mantel": {
-      "title": "HK Frontend is now Mantel",
-      "description": "HK Frontend is replaced by Mantel, which draws your screens outside Home Assistant (as a Home Assistant App, or in Docker), and Mantel Link, Home Assistant's side of it (HACS). Your screens, tablets, pop-ups and chips move across, and every entity keeps its entity id and history. HK Frontend keeps working until you have moved; it gets security fixes only. The move, step by step: {guide}"
     }
   },
   "selector": {

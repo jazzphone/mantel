@@ -4,6 +4,7 @@
 * [Install](Install.md)
 * [Your first screen](Your-First-Screen.md)
 * [HK Settings](HK-Settings.md)
+* [HK Frontend and Mantel](HK-Frontend-and-Mantel.md)
 
 **Screens**
 * [How screens work](Screens.md)

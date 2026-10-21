@@ -1,5 +1,5 @@
 """THE BRIDGE HAND-OVER, HK FRONTEND'S SIDE (docs/phase9/MANTEL-LINK.md in the
-Mantel repository: Mantel Link replaces HK Frontend).
+Mantel repository; decision 29: the two products run together).
 
 While a house moves to Mantel, its entities in Home Assistant are mirrored by
 exactly one integration: this one (linked mode) or Mantel Link (domain

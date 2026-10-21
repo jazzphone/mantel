@@ -5,8 +5,8 @@ Mantel. It shows your wall tablets and a few house features as Home Assistant
 entities, gives your automations Mantel's actions (also under their HK
 Frontend names), puts Mantel's screens in Home Assistant's sidebar, and
 delivers Mantel's notifications to Companion-app phones. It has no screens of
-its own. It replaces HK Frontend inside Home Assistant, and works on every
-Home Assistant install type.
+its own, and works on every Home Assistant install type. It can run beside
+[HK Frontend](HK-Frontend-and-Mantel.md), HK inside Home Assistant.
 
 Mantel Link's own documentation has every detail:
 [Setup](https://github.com/jazzphone/mantel-link/blob/main/docs/Setup.md),
@@ -125,7 +125,7 @@ Exactly one of them shows Mantel's entities at a time; this is **the bridge**.
   Link** (**Mantel Settings → Connections → Home Assistant Link**). HK
   Frontend lets go of each entity, and Mantel Link takes over the same registry
   entry: the same entity id, unique id, history, area and name.
-- **Give the Bridge Back to HK Frontend** reverses it, the same way.
+- **Give the Bridge to HK Frontend** reverses it, the same way.
 
 `hk_frontend.set_black_screen` keeps working throughout. Removing Mantel Link
 while it holds entities hands them back to HK Frontend first, so no entity id

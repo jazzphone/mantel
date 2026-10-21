@@ -16,6 +16,9 @@ into HA (linked mode, docs/phase5/LINKED-MODE.md). Avery (2026-10-19):
 
 Nothing in it may be specific to one house.
 
+> **Revised by decision 29 (2026-10-21, docs/phase9/TWO-PRODUCTS.md):** HK Frontend stays a product of its own and
+> is not retired; the two run together. Mantel Link is still Mantel's integration. The text below is decision 28 as made.
+
 **Decision 28.** There is **one product**: **Mantel** (the server) plus **Mantel Link**, a Home Assistant integration
 that connects HA and Mantel.
 - **Mantel Link replaces HK Frontend completely.** HK Frontend gets a final HACS release that points to Mantel, and
@@ -179,7 +182,8 @@ From docs/phase4/FEATURE-PARITY.md, checked per house; anything unchecked keeps 
   repo the way hk-frontend is published today. Settled (2026-10-19): HACS on every install type.
 - **M2, the `hk_frontend.*` names:** kept as permanent aliases in Mantel Link (recommended); a diff to `mantel.*` is
   optional.
-- **M3, HK Frontend:** replaced and retired (settled, 2026-10-19).
+- **M3, HK Frontend:** ~~replaced and retired (settled, 2026-10-19)~~. **Replaced by decision 29 (2026-10-21):** HK
+  Frontend stays a product; no final release (docs/phase9/TWO-PRODUCTS.md).
 - **M4, names:** product "Mantel Link", domain `mantel` (actions read `mantel.set_black_screen`), devices "Mantel",
   model "Wall Tablet". Entity ids unchanged. If Avery prefers the domain `mantel_link`, change it before 9.1; after,
   it is another migration.
@@ -595,7 +599,7 @@ phone, HA's drawer open and still there 5 s later, and closing it by a tap outsi
   address as before (`linked_mode.suggested_url(hass)`; a plain address outside this machine or the App network is
   never offered). HK's docs (HK-Settings.md "Linked to Mantel", with the move guide) and the form's errors say
   "Mantel", not "Mantel Server".
-- **Final release, HK Frontend 1.10.0**: `publish.py REPO_DIR --final` builds it from the same tree: `retire.py`'s
+- **(Removed by decision 29, 2026-10-21: no final release; 1.10.0 is an ordinary release.)** **Final release, HK Frontend 1.10.0**: `publish.py REPO_DIR --final` builds it from the same tree: `retire.py`'s
   `RETIRED` on (every other build leaves it off), `tools/publish/final/README.md` as the README ("HK Frontend is now
   Mantel": what Mantel and Mantel Link are, the move guide link, security fixes only, to be archived), version
   1.10.0. **The repair**: at setup, `retire.async_raise` creates one Repairs issue, "HK Frontend is now Mantel"

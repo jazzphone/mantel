@@ -95,7 +95,7 @@ def test_an_owner_sees_both_links_and_hands_the_bridge_over(tmp_path):
 def test_with_mantel_link_holding_it_the_owner_can_give_it_back(tmp_path):
     got = groups(run(tmp_path, owners("mantel"))["owner"])
     assert got["The Bridge"]["rows"][0]["value"] == "Mantel Link"
-    assert [r["label"] for r in got["The Bridge"]["rows"][1:]] == ["Give the Bridge Back to HK Frontend…"]
+    assert [r["label"] for r in got["The Bridge"]["rows"][1:]] == ["Give the Bridge to HK Frontend…"]
 
 
 def test_an_admin_reads_and_changes_nothing(tmp_path):

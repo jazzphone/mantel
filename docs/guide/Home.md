@@ -14,7 +14,7 @@ Mantel serves [HK Frontend](https://github.com/jazzphone/hk-frontend)’s screen
 4. **[Wall Tablets](Wall-Tablets.md)**: enroll the tablets on your walls.
 5. **[Commands and Audit](Commands-and-Audit.md)**: turn commands on when you’re ready.
 
-Coming from HK Frontend inside Home Assistant? Read **[Moving from HK Frontend](Moving-from-HK-Frontend.md)** first.
+Using HK Frontend inside Home Assistant? Mantel can run beside it or take over from it: **[HK Frontend and Mantel](HK-Frontend-and-Mantel.md)**.
 
 ## People and access
 
@@ -36,6 +36,7 @@ Coming from HK Frontend inside Home Assistant? Read **[Moving from HK Frontend](
 
 - [Mantel Link](Mantel-Link.md): the Home Assistant integration that links Home Assistant to Mantel
 - [Mantel Connect](Mantel-Connect.md): Mantel in Home Assistant’s sidebar when it runs elsewhere
+- [HK Frontend and Mantel](HK-Frontend-and-Mantel.md): the two products, and running both
 - [Moving from HK Frontend](Moving-from-HK-Frontend.md)
 
 ## Looking after it

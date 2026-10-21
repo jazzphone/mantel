@@ -114,7 +114,7 @@ checked against the person's role and written to the
 Check in Home Assistant that your tablet entities still have their entity ids,
 and that a sleep script or the doorbell automation still runs.
 
-**Undo**: **Give the Bridge Back to HK Frontend**, then turn **Linked to
+**Undo**: **Give the Bridge to HK Frontend**, then turn **Linked to
 Mantel** off. Removing Mantel Link hands its entities back to HK Frontend
 first.
 

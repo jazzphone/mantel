@@ -146,6 +146,14 @@ The **[Weather page](https://github.com/jazzphone/hk-frontend/wiki/Weather)** co
 
 **Built in, nothing to add:** the **[Calendar](https://github.com/jazzphone/hk-frontend/wiki/Calendar)** (month, week or day, and your coming events on the screensaver), **[Weather](https://github.com/jazzphone/hk-frontend/wiki/Weather)**, **[Cameras](https://github.com/jazzphone/hk-frontend/wiki/Cameras)**, **[Pop-ups](https://github.com/jazzphone/hk-frontend/wiki/Detail-Sheets-and-Popups)** an automation opens (the doorbell, the alarm keypad), the **[Screensaver](https://github.com/jazzphone/hk-frontend/wiki/Screensaver-and-Idle)** and the **[Sleep Screen](https://github.com/jazzphone/hk-frontend/wiki/Sleep-Screen)**.
 
+## HK Frontend and Mantel
+
+HK Frontend is HK inside Home Assistant. **Mantel** is its sibling: the same screens, from the same code, served by a
+server of its own beside Home Assistant, with people and roles, wall tablets that sign themselves in and an audit log
+of every command. Use either, or both together: linked, Mantel's Owner picks who runs each wall tablet, and every
+entity keeps its id. Each keeps its own HK settings. [HK Frontend and Mantel](https://github.com/jazzphone/hk-frontend/wiki/HK-Frontend-and-Mantel)
+compares them.
+
 ## Help
 
 Start with **[Troubleshooting](https://github.com/jazzphone/hk-frontend/wiki/Troubleshooting)**. To report a problem, [open an issue](https://github.com/jazzphone/hk-frontend/issues) and attach the diagnostics (**Settings** → **Devices & services** → **HK Frontend** → **⋮** → **Download diagnostics**).

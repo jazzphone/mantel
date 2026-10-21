@@ -1,5 +1,8 @@
 # Removing HK Frontend from a house (decision 28, step 4 of the move)
 
+> **Decision 29 (2026-10-21, docs/phase9/TWO-PRODUCTS.md):** HK Frontend stays a product. Removing it from a house is
+> a choice, not the plan; this page lists what a house needs if it makes that choice.
+
 **Status (2026-10-20): built on branch `claude/no-hk-frontend-73dad8`, not merged; nothing on the house.**
 
 Avery: "We shouldn't be relying on anything from HK Frontend with Mantel."

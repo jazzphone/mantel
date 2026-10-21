@@ -77,7 +77,7 @@ def test_letting_go_plays_out_what_is_left_without_counting_underruns():
 
 
 @pytest.mark.enable_socket
-def test_a_live_stream_is_steady_rtp_opus_at_real_time():
+def test_a_live_stream_is_steady_rtp_opus_at_real_time(socket_enabled):
     """The real encoder and muxer, to a UDP port on this machine."""
     pytest.importorskip("av")
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)

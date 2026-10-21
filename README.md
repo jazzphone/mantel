@@ -76,7 +76,7 @@ All three run the same server; only the setup differs.
 | **Docker Compose** | Any Docker host, with a reverse proxy for HTTPS. | [Install with Docker](docs/guide/Install-Docker.md) |
 | **Proxmox LXC** | A Proxmox host, in its own container. | [Install on Proxmox](docs/guide/Install-Proxmox-LXC.md) |
 
-Already using HK Frontend inside Home Assistant? Mantel imports its settings, and the two run side by side until you’re ready: [Moving from HK Frontend](docs/guide/Moving-from-HK-Frontend.md). **[Mantel Link](docs/guide/Mantel-Link.md)** connects Home Assistant to Mantel, and **[Mantel Connect](docs/guide/Mantel-Connect.md)** puts Mantel in Home Assistant’s sidebar when it runs elsewhere.
+**HK Frontend and Mantel are two products** from the same code: HK Frontend is HK inside Home Assistant, Mantel is HK as its own server. Use either, or run both together: [HK Frontend and Mantel](docs/guide/HK-Frontend-and-Mantel.md). To move everything from HK Frontend to Mantel, see [Moving from HK Frontend](docs/guide/Moving-from-HK-Frontend.md). **[Mantel Link](docs/guide/Mantel-Link.md)** connects Home Assistant to Mantel, and **[Mantel Connect](docs/guide/Mantel-Connect.md)** puts Mantel in Home Assistant’s sidebar when it runs elsewhere.
 
 ## Safe by default
 
