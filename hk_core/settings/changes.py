@@ -755,6 +755,7 @@ HOUSE: dict[str, Callable[[Any], Any]] = {
     # All Screens' cameras (settings.resolved): every screen that doesn't set its own
     "cameras.order": _entities("camera"),
     "cameras.live": _bool,
+    "cameras.focus_pause": _bool,
     "rooms.home": _choice(S.BOARD_HOME_ROOMS),
     "rooms.menu": _choice(S.BOARD_MENU_ROOMS),
     "rooms.pages": _choice(S.BOARD_PAGE_ROOMS),

@@ -1125,8 +1125,11 @@ DEFAULTS: dict[str, dict[str, Any]] = {
     # empty: Automatic, one of every camera). Before 2026-10-09 each screen
     # held its own copy. live: the Home strip's first tile plays live video
     # (off: a snapshot like the others, lighter on the device -- 2026-10-10);
-    # a screen's camera_live_video, when set, is its own.
-    "cameras": {"order": [], "live": True},
+    # a screen's camera_live_video, when set, is its own. focus_pause: on a
+    # computer, live cameras rest while another window has the focus (off:
+    # they keep playing -- a window of cameras beside your work; 2026-10-21).
+    # Behind the screensaver they always rest, whatever this says.
+    "cameras": {"order": [], "live": True, "focus_pause": True},
     # How the glass surfaces look (hk-settings.js applies it; hk-glass.js draws
     # the shared blur): clear -- the original plate, the status chips blur
     # themselves; frosted -- a frosted material, no blur at all; blur -- ONE

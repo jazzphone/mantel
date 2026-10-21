@@ -1149,6 +1149,7 @@
     // the photos' or the page coming back wakes it, as it does any sleeper.
     _resting() {
       if (this._black) return true;
+      if (CAM_FOCUS.away()) return true;
       var K = window.hkSky;
       if (K && K.dark && K.dark()) return true;
       var V = window.hkSaver;
@@ -1254,6 +1255,7 @@
         this._vis = function () {
           if (document.hidden) { self._stopInterval(); return; }
           if (window.hkSaver && window.hkSaver.covered && window.hkSaver.covered()) return;
+          if (CAM_FOCUS.away()) return;            // (the focus coming back wakes it: _onFocus)
           // put to sleep by a saver that was dismissed while the page was
           // hidden (its hk-saver event bailed): wake it, or the next cover
           // finds it "asleep" and leaves its stream decoding all night
@@ -1331,6 +1333,20 @@
         this._onSaverCovered = function () { self._stopInterval(); self._sleepLive(); };
         window.addEventListener('hk-saver-covered', this._onSaverCovered);
       }
+      // ANOTHER WINDOW IN FRONT (CAM_FOCUS, Cameras -> Pause When Not in
+      // Focus): the stills stop and the live tile lets go of its stream, as
+      // behind the screensaver; the focus back brings them back -- unless
+      // something else still has them resting
+      if (!this._onFocus) {
+        this._onFocus = function (e) {
+          if (e && e.detail && e.detail.away) { self._grabLive(); self._stopInterval(); self._sleepLive(); return; }
+          if (document.hidden || self._resting()) return;
+          if (window.hkSaver && window.hkSaver.running && window.hkSaver.running()) return;
+          self._startInterval();
+          self._wakeLive();
+        };
+        window.addEventListener('hk-camera-focus', this._onFocus);
+      }
       // THE OBSERVER BELONGS HERE, NOT IN _render. _stopTimer disconnects it,
       // and _stopTimer runs on disconnectedCallback -- HA detaches and
       // reattaches cards while it lays a view out, so with the setup in
@@ -1354,6 +1370,7 @@
       if (this._vis) { document.removeEventListener('visibilitychange', this._vis); this._vis = null; }
       if (this._onSaver) { window.removeEventListener('hk-saver', this._onSaver); this._onSaver = null; }
       if (this._onSaverCovered) { window.removeEventListener('hk-saver-covered', this._onSaverCovered); this._onSaverCovered = null; }
+      if (this._onFocus) { window.removeEventListener('hk-camera-focus', this._onFocus); this._onFocus = null; }
       if (this._onPopup) { window.removeEventListener('hk-popup-change', this._onPopup); this._onPopup = null; }
       if (this._onNav) { window.hkShell.offNavigate(this._onNav); this._onNav = null; }
       if (this._onBlack) {
@@ -1827,15 +1844,52 @@
   // the page hidden -- the same signals the Home strip rests on above. rest()
   // when one starts; wake() when the last one ends (AFTER_BLACK after a
   // black, as the strip does). -> off()
-  function restWatch(rest, wake) {
-    var black = false, covered = false, wakeT = null, seq = 0;
+  // CAMERAS REST WHILE ANOTHER WINDOW HAS THE FOCUS (2026-10-21): on a
+  // computer, live video decoded in a window nobody is looking at. Only
+  // where there is a mouse (a wall tablet's or a phone's WebView can report
+  // no focus until its first touch, as hk-sky.js says), and only while
+  // Cameras -> Pause When Not in Focus is on (cameras.focus_pause): someone
+  // may keep a window of cameras beside their work. The screensaver is not
+  // this setting's: under it cameras always rest. 'hk-camera-focus' says
+  // when it changes ({ away }).
+  var CAM_FOCUS = (function () {
+    var away = false, device = false;
+    try { device = !!(window.matchMedia && window.matchMedia('(hover: hover) and (pointer: fine)').matches); } catch (e) { device = false; }
+    function wanted() {
+      var S = window.hkSettings;
+      return !(S && S.get && S.get('cameras.focus_pause', true) === false);
+    }
+    function check() {
+      var u = device && wanted() && typeof document.hasFocus === 'function' && !document.hasFocus();
+      if (u === away) return;
+      away = u;
+      try { window.dispatchEvent(new CustomEvent('hk-camera-focus', { detail: { away: u } })); } catch (e) { /* no window events */ }
+    }
+    if (device) {
+      try {
+        // after the blur settles: the focus moving into a frame on the page
+        // blurs the window while the document keeps it
+        window.addEventListener('blur', function () { setTimeout(check, 0); });
+        window.addEventListener('focus', check);
+        document.addEventListener('pointerdown', check, true);
+        document.addEventListener('keydown', check, true);
+        // the setting changed, or another screen's settings now apply
+        window.addEventListener('hk-module-ready', check);
+      } catch (e) { /* no window events */ }
+    }
+    return { away: function () { return away; }, check: check };
+  })();
+  // `focus`: this player also rests while another window has the focus
+  // (CAM_FOCUS); every player rests behind the screensaver and the black
+  function restWatch(rest, wake, focus) {
+    var black = false, covered = false, wakeT = null, seq = 0, away = !!focus && CAM_FOCUS.away();
     var later = function (ms) {
       clearTimeout(wakeT);
       var my = ++seq;
       wakeT = setTimeout(function () {
         if (my !== seq) return;
         wakeT = null;
-        if (black || covered || document.hidden) return;
+        if (black || covered || away || document.hidden) return;
         if (window.hkSaver && window.hkSaver.running && window.hkSaver.running()) return;
         wake();
       }, ms);
@@ -1852,6 +1906,10 @@
       'kiosksatellite:screenoff': function () { black = true; stop(); rest(); },
       'kiosksatellite:screensaverstop': function () { black = false; later(AFTER_BLACK); },
       'kiosksatellite:screenon': function () { black = false; later(AFTER_BLACK); }
+    };
+    if (focus) on['hk-camera-focus'] = function (e) {
+      away = !!(e && e.detail && e.detail.away);
+      if (away) { stop(); rest(); } else later(0);
     };
     var vis = function () { if (document.hidden) { stop(); rest(); } else later(0); };
     Object.keys(on).forEach(function (t) { window.addEventListener(t, on[t]); });
@@ -1902,8 +1960,8 @@
       // RESTING WHILE NOBODY CAN SEE IT (2026-10-13): a tablet put to sleep on
       // the Cameras page kept every tile's stream decoding under the photos
       // or the black until the page changed
-      if (!this._restOff) this._restOff = restWatch(function () { self._rest(); }, function () { self._wake(); });
-      this._resting = document.hidden || !!(window.hkSaver && window.hkSaver.running && window.hkSaver.running());
+      if (!this._restOff) this._restOff = restWatch(function () { self._rest(); }, function () { self._wake(); }, true);
+      this._resting = document.hidden || CAM_FOCUS.away() || !!(window.hkSaver && window.hkSaver.running && window.hkSaver.running());
       if (this._resting) return;
       if (liveQueue.indexOf(this) < 0) liveQueue.push(this);
       // after this task, so every tile attached together queues before the first goes
@@ -2345,7 +2403,7 @@
       if (pic && !this._playing && this._poster.getAttribute('src') !== pic) {
         this._poster.setAttribute('src', pic);
       }
-      if (this.isConnected && !this._pc && !this._retryT) this._start();
+      if (this.isConnected && !this._pc && !this._retryT && !this._rested) this._start();
     }
 
     _build() {
@@ -2634,7 +2692,7 @@
       var n = this._tries = (this._tries || 0) + 1;
       this._retryT = setTimeout(function () {
         self._retryT = null;
-        if (self.isConnected) self._start();
+        if (self.isConnected && !self._rested) self._start();
       }, RETRY_MS[Math.min(n - 1, RETRY_MS.length - 1)]);
     }
 
@@ -2668,13 +2726,23 @@
 
     connectedCallback() {
       if (super.connectedCallback) super.connectedCallback();
-      if (this._built && this.client && !this._pc) this._start();
+      // RESTING (2026-10-21): behind the screensaver and the black, always --
+      // the screensaver started by its switch while a sheet was open left its
+      // stream decoding under the photos -- and, a camera's sheet (not Live
+      // TV, often listened to from another window), while another window has
+      // the focus as Cameras -> Pause When Not in Focus says
+      var self = this, tv = !!(this._config && this._config.tuning);
+      if (!this._restOff) this._restOff = restWatch(function () { self._rested = true; self._stop(); },
+        function () { self._rested = false; if (self.isConnected && self._built && self.client && !self._pc) self._start(); }, !tv);
+      this._rested = (!tv && CAM_FOCUS.away()) || !!(window.hkSaver && window.hkSaver.covered && window.hkSaver.covered());
+      if (this._built && this.client && !this._pc && !this._rested) this._start();
     }
 
     disconnectedCallback() {
       if (super.disconnectedCallback) super.disconnectedCallback();
       // The sheet detaches its cards when it closes: no stream, no mic.
       this._stop();
+      if (this._restOff) { this._restOff(); this._restOff = null; }
     }
 
     // ------------------------------------------------------------ talk

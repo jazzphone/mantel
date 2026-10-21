@@ -187,5 +187,52 @@ ok('a state tile still requires one', /entity/.test(threw2 || ''), threw2);
 // pills: test_chipkinds. It used to be read off this house's YAML scenes row,
 // retired with the YAML dashboards on 2026-09-28.)
 
+print('\n=== cameras rest: behind the screensaver always, another window in front as the setting says ===');
+// (2026-10-21) CAM_FOCUS and restWatch themselves, run on a stand-in window
+(function () {
+  var a = src.indexOf('  var CAM_FOCUS = (function () {'), b = src.indexOf('  class HkCameraLiveCard');
+  ok('CAM_FOCUS and restWatch are there', a > 0 && b > a);
+  if (!(a > 0 && b > a)) return;
+  var L = {}, fire = function (t, d) { (L[t] || []).slice().forEach(function (f) { f({ type: t, detail: d }); }); };
+  var focused = true, setting = true, timers = [];
+  var win = {
+    matchMedia: function () { return { matches: true }; },          // a computer: a mouse
+    addEventListener: function (t, f) { (L[t] = L[t] || []).push(f); },
+    removeEventListener: function (t, f) { L[t] = (L[t] || []).filter(function (g) { return g !== f; }); },
+    dispatchEvent: function (e) { fire(e.type, e.detail); },
+    hkSettings: { get: function (k, d) { return k === 'cameras.focus_pause' ? setting : d; } },
+    hkSaver: null
+  };
+  var doc = { hidden: false, hasFocus: function () { return focused; }, addEventListener: win.addEventListener,
+              removeEventListener: win.removeEventListener };
+  var CE = function (t, o) { return { type: t, detail: o && o.detail }; };
+  var run = function (f, ms) { timers.push(f); return timers.length; };
+  var mk = new Function('window', 'document', 'CustomEvent', 'setTimeout', 'clearTimeout',
+    'var AFTER_BLACK = 0;\n' + src.slice(a, b) + '\nreturn { F: CAM_FOCUS, watch: restWatch };');
+  var M = mk(win, doc, CE, run, function () {});
+  var flush = function () { var t = timers; timers = []; t.forEach(function (f) { f(); }); };
+  var log = [], logT = [];
+  M.watch(function () { log.push('rest'); }, function () { log.push('wake'); }, true);          // a camera
+  M.watch(function () { logT.push('rest'); }, function () { logT.push('wake'); }, false);       // Live TV
+  focused = false; fire('blur'); flush();
+  ok('another window in front: a camera rests', M.F.away() === true && log.join() === 'rest', log);
+  ok('...Live TV plays on', logT.join() === '', logT);
+  focused = true; fire('focus'); flush();
+  ok('...the focus back: the camera wakes', log.join() === 'rest,wake', log);
+  log.length = 0; setting = false; focused = false; fire('blur'); flush();
+  ok('Pause When Not in Focus off: a camera plays on in a window beside your work', M.F.away() === false && log.join() === '', log);
+  fire('hk-saver-covered'); flush();
+  ok('...but behind the screensaver it rests all the same', log.join() === 'rest', log);
+  ok('...and so does Live TV', logT.join() === 'rest', logT);
+  win.hkSaver = { running: function () { return true; } };
+  log.length = 0; logT.length = 0; setting = true; focused = true; fire('focus'); flush();
+  ok('a focus while the screensaver runs wakes nothing', log.join() === '' && logT.join() === '', [log, logT]);
+})();
+ok('the camera sheet rests with restWatch (the screensaver always; another window, not for Live TV)',
+   /restWatch\(function \(\) \{ self\._rested = true; self\._stop\(\); \}/.test(cam) && /, !tv\);/.test(cam) && /!this\._rested\) this\._start\(\)/.test(cam));
+ok('the strip rests while another window is in front, and wakes with the focus',
+   /window\.addEventListener\('hk-camera-focus', this\._onFocus\)/.test(src) && /if \(CAM_FOCUS\.away\(\)\) return true;/.test(src));
+ok('the setting: cameras.focus_pause, read by CAM_FOCUS', /S\.get\('cameras\.focus_pause', true\) === false/.test(src));
+
 print('\n' + (fail ? 'FAIL ' + fail + ' TV TESTS' : 'ALL ' + pass + ' TV TESTS PASS'));
 if (fail) throw new Error('tv tests failed');

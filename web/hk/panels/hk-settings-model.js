@@ -1641,6 +1641,7 @@
     ['Home Assistant Section', 'house/menu', 'menu.ha_row', 'sidebar settings access integrations automations notifications profile show menu'],
     ['Rooms', 'house/rooms', 'rooms.order', 'rooms all screens settings scenes'],
     ['Cameras', 'page/cameras', 'cameras.order', 'camera order which cameras strip cameras page room pages all screens'],
+    ['Pause Cameras When Not in Focus', 'page/cameras', 'cameras.focus_pause', 'pause cameras focus background window computer live video performance cpu'],
     ['Room Order', 'house/rooms/order', 'rooms.order', 'rooms on home order which rooms'],
     ['Rooms in Menu', 'house/rooms', 'rooms.menu', 'a to z order menu rooms'],
     ['Rooms on Pages', 'house/rooms', 'rooms.pages', 'by floor room order lights climate'],

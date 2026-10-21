@@ -7174,6 +7174,13 @@
           (ownLive.length ? ' ' + ownLive.map(function (p) { var d = self.dash(p); return d ? d.title : p; }).join(', ') +
             (ownLive.length === 1 ? ' sets its own.' : ' set their own.') : ' A screen can set its own in its Cameras.') }, [
         K.toggle({ label: 'Live First Camera', sk: 'cameras.live', on: live, onChange: function (on) { self.setH({ 'cameras.live': on }); } })]));
+      // PAUSE WHEN NOT IN FOCUS (2026-10-21): a computer's live cameras rest
+      // while another window is in front -- the sky's own setting is apart,
+      // since a window of cameras is often kept beside other work
+      c.appendChild(K.group({ footer: 'On a computer, live cameras stop while another window is in front, and start again when you come back. ' +
+          'Turn this off to keep watching cameras in a window beside your work. Behind the screensaver, cameras always stop.' }, [
+        K.toggle({ label: 'Pause When Not in Focus', sk: 'cameras.focus_pause', on: (this.data.settings.cameras || {}).focus_pause !== false,
+          onChange: function (on) { self.setH({ 'cameras.focus_pause': on }); } })]));
       var mdl = M.camerasModel({ cameras: ((this.data.settings.cameras || {}).order || []) }, ok, autoCams);
       c.appendChild(K.listEditor({ fk: 'house-cams', auto: mdl.auto, minRows: 1, announce: this.announce.bind(this),
         autoFooter: 'Automatic shows one of every camera, its low-resolution channel.',

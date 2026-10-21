@@ -165,8 +165,10 @@
              order: [], home: 'as_is', menu: 'az', pages: 'floor' },
     // All Screens' cameras, for the screens that don't set their own (empty: Automatic)
     // live: the Home strip's first tile plays live video (a screen's
-    // camera_live_video, when set, is its own)
-    cameras: { order: [], live: true },
+    // camera_live_video, when set, is its own); focus_pause: on a computer,
+    // live cameras rest while another window has the focus (hk-cameras.js
+    // CAM_FOCUS) -- behind the screensaver they always rest
+    cameras: { order: [], live: true, focus_pause: true },
     look: { flat: false, flat_theme: 'dark', glass: 'clear', frost: 50, blur: 50, tint: 50, well: 'dark', frost_tint: false, details: true, browse_view: 'music-browse', sky_switch: null,
             photos: 'media-source://media_source/local/photos', page_pills: {}, page_accents: {},
             // FLAT COLORS (settings.py flat_colors; resolveFlatColors)
