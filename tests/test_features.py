@@ -485,6 +485,65 @@ async def test_the_sleep_screen_with_commands_on_drives_the_kiosk_through_the_ga
     assert env.host.acting_entities() == set(KP.values()) - {KP["app"], KP["touched"]}
 
 
+# HK's black and Kiosk Satellite's screensaver (2026-10-21: the Master Bedroom lit at 05:18 and 05:59)
+HK_BLACK = {**SLEEPING, "black_screen": "hk"}
+
+
+def _kiosk_calls(eng):
+    return [c for a in eng.actions for c in a["calls"]
+            if c["call"] == "switch.turn_on" and c["data"].get("entity_id") in (KP["armed"], KP["active"])]
+
+
+async def _quiet_engine(make_env, monkeypatch):
+    monkeypatch.setattr(F.MantelSleep, "CONFIRM_LONG_S", 0.2)
+    env = await make_env(settings={"sleep": {"enabled": True}, "linked": {"enabled": True, "entry_id": ENTRY}},
+                         tablet=HK_BLACK)
+    eng = env.host.engines["hall"]
+    assert await until(lambda: eng._task is None)
+    eng.actions.clear()
+    env.host.screens["hall"].black.set(False)
+    return env, eng
+
+
+async def test_hks_black_is_confirmed_by_the_page_through_mantel_not_has_mirror(make_env, fast, monkeypatch):
+    """The page's confirmation is Mantel's own: HA's mirror of the black switch (a round trip through Home
+    Assistant) lagging -- HA finishing its backup -- no longer reads as unconfirmed."""
+    env, eng = await _quiet_engine(make_env, monkeypatch)
+    monkeypatch.setattr(env.host, "page_connected", lambda tid: True)
+    task = asyncio.get_running_loop().create_task(eng.sleep(False))
+    assert await until(lambda: env.host.screens["hall"].black.on)
+    await env.host.page_says("hall", True)                 # the page: black now (to Mantel, not HA)
+    await task
+    assert env.host.screens["hall"].black.confirmed and _kiosk_calls(eng) == [], "no kiosk screensaver under it"
+
+
+async def test_a_connected_page_that_is_slow_to_confirm_never_gets_the_kiosks_screensaver(make_env, fast, monkeypatch):
+    env, eng = await _quiet_engine(make_env, monkeypatch)
+    monkeypatch.setattr(env.host, "page_connected", lambda tid: True)
+    await eng.sleep(False)
+    assert env.host.screens["hall"].black.on and _kiosk_calls(eng) == [], \
+        "a kiosk screensaver ends by itself when another tablet sleeps or wakes"
+
+
+async def test_a_tablet_whose_page_is_not_connected_still_falls_back_to_the_kiosk(make_env, fast, monkeypatch):
+    env, eng = await _quiet_engine(make_env, monkeypatch)
+    assert env.host.page_connected("hall") is False
+    await eng.sleep(False)
+    assert {c["data"]["entity_id"] for c in _kiosk_calls(eng)} == {KP["armed"], KP["active"]}, \
+        "a crashed or unloaded page would leave the dashboard lit all night"
+
+
+async def test_a_page_listening_to_the_screens_feed_is_connected(make_env):
+    env = await make_env(settings={"sleep": {"enabled": True}}, tablet=HK_BLACK)
+    assert env.host.page_connected("hall") is False
+    await env.login("owner1", "owner")
+    ws = await env.socket(expect_caps=False)
+    await ws.send_json({"type": "read_subscribe", "id": 1, "msg": {"type": "hk_frontend/events/subscribe"}})
+    assert await until(lambda: env.host.page_connected("hall"))
+    await ws.close()
+    assert await until(lambda: not env.host.page_connected("hall"))
+
+
 # ---------------------------------------------------------------------- clean areas, energy, live TV
 async def test_clean_areas_runs_as_the_person_who_asked(make_env):
     env = await make_env(commands=True, settings={"clean_areas": {"enabled": True}})

@@ -347,6 +347,10 @@ class Feed:
     def listeners(self) -> int:
         return len(self._subs)
 
+    def identities(self) -> list[Any]:
+        """Who is listening now (a page's socket each)."""
+        return [identity for identity, _cb in list(self._subs.values())]
+
     def send(self, event: dict) -> int:
         users = event.get("users") or []
         n = 0
@@ -505,6 +509,7 @@ class MantelSleep(SE.Sleep):
     ``MantelHouse.call_service`` (the gateway). Each action and each call's outcome is kept."""
 
     CONFIRM_S = 4.0          # the page's answer to HK's black
+    CONFIRM_LONG_S = 20.0    # ...more time for a page that is connected, before giving up (no kiosk fallback)
     KIOSK_WAIT_S = 2.0       # the kiosk reporting its screensaver up / down
     SETTLE_S = 0.9           # a wake's settle
     BACKSTOP_S = 2.0         # the backlight back up
@@ -646,6 +651,15 @@ class MantelSleep(SE.Sleep):
         s = self.host.screens.get(self.tid)
         return bool(s and s.black.on)
 
+    def _black_confirmed(self) -> bool:
+        """The page said it is black: Mantel's own copy (the page reports to Mantel), else Home Assistant's
+        mirror of the black switch. Read only from HA's mirror, the confirmation made a round trip through
+        Home Assistant, and a slow one (HA finishing its nightly backup, 05:40, 2026-10-21) timed every
+        tablet out at once: each fell back to Kiosk Satellite's own screensaver, which another tablet's
+        wake then ended -- the Master Bedroom lit at 05:18 and 05:59."""
+        s = self.host.screens.get(self.tid)
+        return bool(s and s.black.on and s.black.confirmed) or bool(self._attr(self._own().get("black"), "confirmed"))
+
     async def sleep(self, power_off: bool) -> None:
         """The house's <room>_tablet_sleep (sleep_engine.Engine.sleep), on Mantel."""
         if self.app_front():
@@ -654,10 +668,24 @@ class MantelSleep(SE.Sleep):
         if own.get("photos"):
             await self._call("switch", "turn_on", {"entity_id": own["photos"]})
         confirmed = False
-        if self.board.get("black_screen") == "hk":
+        hk_black = self.board.get("black_screen") == "hk"
+        kiosk_ok = not hk_black                  # the kiosk's screensaver: a kiosk-black tablet's own black
+        if hk_black:
             await self.host.set_black(self.tid, black=True, brightness=t, why="sleep")
-            confirmed = await self._until(lambda: bool(self._attr(own.get("black"), "confirmed")), self.CONFIRM_S)
-        if not confirmed and k.get("active"):
+            confirmed = await self._until(self._black_confirmed, self.CONFIRM_S)
+            # HK'S BLACK ONLY, WHILE ITS PAGE IS THERE: a page that is connected confirms when it can (its
+            # `screen` frame is on its way), and Kiosk Satellite's own screensaver is never put under it --
+            # a kiosk screensaver ends by itself when another tablet sleeps or wakes (measured 2026-10-21:
+            # 2.6-2.8 s later, every time). Only a tablet whose page is not connected (a crashed or unloaded
+            # page, which would show the dashboard all night) still falls back to the kiosk's.
+            if not confirmed and self.host.page_connected(self.tid):
+                confirmed = await self._until(self._black_confirmed, self.CONFIRM_LONG_S)
+                if not confirmed:
+                    log.warning("Sleep Screen %s: the page has not confirmed HK's black yet; "
+                                "not putting the kiosk's screensaver under it", self.tid)
+            else:
+                kiosk_ok = not confirmed
+        if kiosk_ok and not confirmed and k.get("active"):
             if k.get("mode") and getattr(self._st(k["mode"]), "state", None) != "Black":
                 await self._call("select", "select_option", {"entity_id": k["mode"], "option": "Black"})
             for part in ("armed", "active"):
@@ -1261,6 +1289,13 @@ class FeatureHost:
         if tid is None or tid not in self.tablets:
             return None
         return self.screens.setdefault(tid, ScreenState(tid))
+
+    def page_connected(self, tid: str) -> bool:
+        """A page that may speak for this tablet (may_speak_for) is listening to the screens' feed now."""
+        try:
+            return any(may_speak_for(self, identity, tid) for identity in self.feed.identities())
+        except Exception:  # noqa: BLE001 -- not known: the old fallback stays
+            return False
 
     def own_ids(self, tid: str) -> dict[str, str]:
         t = self.tablets.get(tid)
