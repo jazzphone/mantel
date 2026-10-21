@@ -1201,6 +1201,9 @@ class FeatureHooks:
                    ha_token=getattr(hooks, "ha_token", None))
 
 
+PAGES_BACK_S = 60.0        # after a start, the pages' time to reconnect (no kiosk fallback meanwhile)
+
+
 class FeatureHost:
     """hk_core's features on Mantel (see the module docstring). ``app["features"]``."""
 
@@ -1236,6 +1239,7 @@ class FeatureHost:
         self._reload_lock = asyncio.Lock()
         self._feed_unsub: Callable[[], None] | None = None
         self.started = False
+        self.started_mono = float("-inf")       # start() sets it: PAGES_BACK_S counts from there
         # what the screens are told (the settings feed's `added` and `energy`): the Energy page's plan as
         # last worked out, and the pair last published
         self.energy_cache: dict[str, Any] | None = None
@@ -1333,7 +1337,11 @@ class FeatureHost:
         return self.screens.setdefault(tid, ScreenState(tid))
 
     def page_connected(self, tid: str) -> bool:
-        """A page that may speak for this tablet (may_speak_for) is listening to the screens' feed now."""
+        """A page that may speak for this tablet (may_speak_for) is listening to the screens' feed now -- or
+        Mantel started less than PAGES_BACK_S ago, while every page is still reconnecting (the restart at
+        06:53, 2026-10-21, put the kiosk's screensaver under four black tablets in its first seconds)."""
+        if time.monotonic() - self.started_mono < PAGES_BACK_S:
+            return True
         try:
             return any(may_speak_for(self, identity, tid) for identity in self.feed.identities())
         except Exception:  # noqa: BLE001 -- not known: the old fallback stays
@@ -1522,7 +1530,7 @@ class FeatureHost:
         if black is not None:
             s.black.set(bool(black))
         self.feed.send({"type": "screen", "tablet": tid, "black": s.black.on, "brightness": s.black.brightness,
-                        "dashboards": [], "users": []})
+                        "confirmed": s.black.on and s.black.confirmed, "dashboards": [], "users": []})
         await self.push_tablet(tid, only=SS.BLACK_KEY)
         if why == "linked" and black is not None and self.settings["linked"]["backlight"]:
             self.spawn(self._backlight(tid, bool(black), s.black.brightness))
@@ -1562,6 +1570,10 @@ class FeatureHost:
             return False
         changed = s.black.page_says(bool(black))
         if changed:
+            if s.black.on and s.black.confirmed:
+                # heard: the screens' copy says so too, so a page that re-confirms (hk-saver hkUnheard) stops
+                self.feed.send({"type": "screen", "tablet": tid, "black": True, "brightness": s.black.brightness,
+                                "confirmed": True, "dashboards": [], "users": []})
             await self.push_tablet(tid, only=SS.BLACK_KEY)
             eng = self.engines.get(tid)
             if eng is not None and not eng._busy():
@@ -1681,6 +1693,7 @@ class FeatureHost:
 
     # -- running -------------------------------------------------------------------------------------
     async def start(self) -> None:
+        self.started_mono = time.monotonic()
         await self.reload()
         svc = self.app.get("settings")
         if svc is not None:
@@ -2115,7 +2128,7 @@ def register(app: web.Application, hub: Any, hooks: Any = None) -> FeatureHost:
                 continue
             if scr.black.on:
                 on_event({"type": "screen", "tablet": tid, "black": True, "brightness": scr.black.brightness,
-                          "dashboards": [], "users": []})
+                          "confirmed": scr.black.confirmed, "dashboards": [], "users": []})
             if scr.photos:
                 on_event({"type": "screen", "tablet": tid, "photos": True, "dashboards": [], "users": []})
 

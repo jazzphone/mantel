@@ -317,10 +317,11 @@ async def test_the_alarm_needs_a_code_and_commands_off_send_nothing(make_env):
         ("mantel:linked", "denied", "commands_disabled", "not_sent"), "audited, nothing sent"
     assert json.loads(row["target"]) == [ALARM_PANEL, PROTECTED]
     assert env.app["commander"] is None
+    # numbers (timestamps, ids) taken out first: the clock itself can read ...2580... (2026-10-21)
+    def words(v):
+        return re.sub(r"\d+(\.\d+)?(?=[,}\]])", "#", json.dumps(v))
     for secret in ("2580", HOUSE_CODE):
-        # the code as a number of its own: a timestamp may hold its digits (1792580278.5)
-        leak = re.compile(r"(?<!\d)" + secret + r"(?!\d)")
-        assert not leak.search(json.dumps(env.audit())) and not leak.search(json.dumps(env.app["linked_house"].status()))
+        assert secret not in words(env.audit()) and secret not in words(env.app["linked_house"].status())
     await lk.ws.close()
 
 

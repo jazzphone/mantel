@@ -4078,6 +4078,10 @@
     var saved = parseFloat(stored(BRIGHT_KEY));
     return isFinite(saved) && saved > 0 ? saved : null;
   }
+  function hkUnheard(h) {
+    var b = hkBoard(), st = b && b.black_switch && h && h.states && h.states[b.black_switch];
+    return !!(st && st.state === 'on' && st.attributes && st.attributes.confirmed === false);
+  }
   function hkAck(on) {
     var t = hkBoard();
     sendWS(t && !t.legacy ? { type: 'hk_frontend/screensaver/black', tablet: t.id, black: on }
@@ -4125,6 +4129,9 @@
       // black, but not yet heard by the house (the connection was not up):
       // say so again, every few seconds
       if (want && hkDown && !hkAcked && clock.now() - hkAckTry > 3000) { hkAckTry = clock.now(); hkAck(true); }
+      // ...or the house no longer has it (its server restarted, and the black came again while this page
+      // was already black, 2026-10-21): the switch says unconfirmed, so say it again, every few seconds
+      else if (want && hkDown && hkUnheard(h) && clock.now() - hkAckTry > 3000) { hkAckTry = clock.now(); hkAck(true); }
       // a page loaded under a black that is no longer wanted: the cover
       // fades, and the backlight the last page lowered comes back with it
       if (first && !want) bootCover(true, h);
