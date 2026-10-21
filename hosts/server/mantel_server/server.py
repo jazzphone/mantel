@@ -722,6 +722,8 @@ async def apply_connection(app: web.Application, hub: Hub, connect_ha: bool, kin
                 from .connectors.camera import SignalingProxy
                 holder["proxy"] = SignalingProxy(url, token, ws_url=cfg.ha_ws_url or None)
         app["oauth"].ha_url = url.rstrip("/")             # "Sign in with Home Assistant" goes to the new address
+        if connect_ha and cur is not None:
+            restart_house_tz(app, hub)                     # (another HA, perhaps another time zone)
         return
     # Music Assistant. The music engine (music.py) reads app["ma"] at each use, so it follows at once: with a
     # client it is Mantel's engine (when the music settings are imported), with none the interim bridge to HA.
@@ -745,6 +747,13 @@ async def apply_connection(app: web.Application, hub: Hub, connect_ha: bool, kin
     music_host = app.get("music")
     if music_host is not None:
         music_host.connection_changed()
+
+
+def restart_house_tz(app: web.Application, hub: Hub) -> None:
+    old = app.get("tz_task")
+    if old is not None and not old.done():
+        old.cancel()
+    _set(app, "tz_task", asyncio.get_running_loop().create_task(house_tz(app, hub)))
 
 
 async def policy_tick(app: web.Application, hub: Hub, every: float = POLICY_TICK) -> None:
@@ -800,11 +809,16 @@ async def recheck_streams(ctx) -> None:
             await ctx.end(key)
 
 
-async def house_tz(app: web.Application, hub: Hub, attempts: int = 30) -> None:
-    """The house's time zone (for grant schedules) from HA's get_config, cfg.house_tz until then."""
+async def house_tz(app: web.Application, hub: Hub, attempts: int | None = None) -> None:
+    """The house's time zone (for grant schedules, guest windows and the nightly backup) from HA's get_config,
+    cfg.house_tz until then. It keeps asking (at most a minute apart) until HA answers: given up after about
+    26 minutes, a Mantel connected to HA later than that (the first run's Connections page) ran in UTC until
+    restarted. A saved Home Assistant connection starts it again (restart_house_tz)."""
     authz: Authz = app["authz"]
     delay = 2.0
-    for _ in range(attempts):
+    tries = 0
+    while attempts is None or tries < attempts:
+        tries += 1
         try:
             got = await hub.readproxy.request({"type": "get_config"})  # type: ignore[union-attr]
             if app.get("frame_origins") is not None:

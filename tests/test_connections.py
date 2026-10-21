@@ -684,7 +684,9 @@ async def test_music_assistant_token_save_builds_the_connector_live_and_replace_
         assert music.ma is client
         status, got = await env.call("GET", "/api/music/status")
         assert status == 200 and got["music_assistant"] is True and got["connected"] is True
-        # a page's MA read works through the (new) client
+        # a page's MA read works through the (new) client (for the speakers the person may see: the den's)
+        env.app["hub"].registry.load([], [], [{"entity_id": "media_player.den", "platform": "music_assistant",
+                                               "unique_id": "fake-den"}])
         ws = await env.client.ws_connect("/ws")
         await ws.send_json({"type": "ma/read", "id": 1, "command": "players/all", "args": {}})
         msg = await ws.receive_json(timeout=5)
