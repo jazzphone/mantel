@@ -85,8 +85,27 @@ def connect(path: Path) -> sqlite3.Connection:
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
     conn.execute("PRAGMA busy_timeout = 5000")
-    conn.execute("PRAGMA journal_mode = WAL")
+    _wal(conn)
     return conn
+
+
+WAL_TRIES = 50                 # x 0.02-0.2 s: about 5 s, as long as busy_timeout waits for anything else
+
+
+def _wal(conn: sqlite3.Connection) -> None:
+    """Switch to WAL. Switching needs the file to itself, and SQLite answers "database is locked" at once rather
+    than through busy_timeout while another process is opening the same new database (the server and a `mantel …`
+    command starting together; tests/test_db.py): try again for a few seconds, then give up as before."""
+    delay = 0.02
+    for attempt in range(WAL_TRIES):
+        try:
+            conn.execute("PRAGMA journal_mode = WAL")
+            return
+        except sqlite3.OperationalError as exc:
+            if "locked" not in str(exc) or attempt == WAL_TRIES - 1:
+                raise
+            time.sleep(delay)
+            delay = min(delay * 1.5, 0.2)
 
 
 def applied(conn: sqlite3.Connection) -> dict[int, sqlite3.Row]:
