@@ -88,6 +88,7 @@ def wait_for_free_harness(limit: float = 1800) -> None:
 
 def harness(cmd: str, *extra: str) -> None:
     log = Path(testha.SCRATCH) / f"e2e-testha-{cmd}.log"
+    log.parent.mkdir(parents=True, exist_ok=True)       # (the first run: testha.py up makes the rest of it)
     with open(log, "w") as out:
         rc = subprocess.run([*TESTHA, cmd, *extra], stdout=out, stderr=subprocess.STDOUT).returncode
     if rc != 0:

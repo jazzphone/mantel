@@ -2,6 +2,7 @@
 with the right PIN."""
 from __future__ import annotations
 
+from time import monotonic
 from typing import Any
 
 from homeassistant.components.alarm_control_panel import (
@@ -25,6 +26,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: Feature,
     async_add_entities([AlarmPin(entry)])
 
 
+# WRONG CODES LOCK THE PANEL, as Mantel's keypad does (mantel_server/pins.py): after LOCK_AFTER in a row it
+# refuses for LOCK_SECONDS, before any PBKDF2 check. Unlimited, a 4-digit PIN fell to guessing in minutes, each
+# guess a full hash on Home Assistant's executor. In memory: a restart starts the count again.
+LOCK_AFTER = 5
+LOCK_SECONDS = 15 * 60
+
+
 class AlarmPin(AlarmControlPanelEntity):
     _attr_has_entity_name = True
     _attr_name = None                    # the device's name: "<alarm> PIN", its item's title
@@ -34,6 +42,8 @@ class AlarmPin(AlarmControlPanelEntity):
         self._entry = entry
         self._target: str = entry.data[CONF_ALARM]
         self._pin = {k: entry.options.get(k) for k in ("salt", "hash", "iterations")}
+        self._misses = 0
+        self._locked_until = 0.0
         # the item's id: the feature's own, from its first version
         self._attr_unique_id = entry.entry_id
         self._attr_code_format = (CodeFormat.NUMBER if entry.options.get("numeric")
@@ -91,9 +101,16 @@ class AlarmPin(AlarmControlPanelEntity):
         while "Require the PIN to arm" is on; with it off, no PIN arms, and a
         PIN that IS given must still be the right one."""
         needed = not arming or self._attr_code_arm_required or bool(code)
-        if needed and not await self.hass.async_add_executor_job(check_pin, code, self._pin):
-            raise ServiceValidationError(translation_domain=DOMAIN,
-                                         translation_key="alarm_pin_invalid_code")
+        if needed:
+            if monotonic() < self._locked_until:
+                raise ServiceValidationError(translation_domain=DOMAIN, translation_key="alarm_pin_locked")
+            if not await self.hass.async_add_executor_job(check_pin, code, self._pin):
+                self._misses += 1
+                if self._misses >= LOCK_AFTER:
+                    self._misses, self._locked_until = 0, monotonic() + LOCK_SECONDS
+                raise ServiceValidationError(translation_domain=DOMAIN,
+                                             translation_key="alarm_pin_invalid_code")
+            self._misses = 0
         st = self._st()
         if st is None or st.state in (STATE_UNAVAILABLE, STATE_UNKNOWN):
             raise HomeAssistantError(translation_domain=DOMAIN, translation_key="alarm_pin_unavailable",

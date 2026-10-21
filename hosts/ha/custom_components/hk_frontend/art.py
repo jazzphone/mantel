@@ -42,7 +42,7 @@ import io
 import ipaddress
 import logging
 import socket
-from urllib.parse import urljoin, urlsplit
+from urllib.parse import unquote, urljoin, urlsplit
 
 from aiohttp import web
 import voluptuous as vol
@@ -128,9 +128,17 @@ async def _addresses(hass: HomeAssistant, host: str, port: int) -> set[str]:
     return {i[4][0] for i in infos}
 
 
+def _dot_segments(path: str) -> bool:
+    """A '.' or '..' segment, as typed or percent-encoded: the client normalises it away before fetching, so
+    '/imageproxy/../x' would be checked as the proxy's path and fetched as '/x'."""
+    for _ in range(3):                       # %252e decodes to %2e decodes to '.'
+        path = unquote(path)
+    return any(seg in (".", "..") for seg in path.split("/"))
+
+
 async def allowed(hass: HomeAssistant, url: str) -> bool:
     p = urlsplit(url)
-    if p.scheme not in ("http", "https") or not p.hostname:
+    if p.scheme not in ("http", "https") or not p.hostname or _dot_segments(p.path):
         return False
     try:
         port = p.port or (443 if p.scheme == "https" else 80)

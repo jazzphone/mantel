@@ -10,6 +10,10 @@ refused with Home Assistant’s own error, so every keypad says “Wrong code”
 HK Frontend’s keypad, Home Assistant’s alarm card, the companion app, and
 voice.
 
+Five wrong PINs in a row lock the PIN panel for 15 minutes; until then even
+the right PIN is refused, with “Too many wrong codes”. A right PIN before the
+fifth starts the count again.
+
 ![The alarm keypad sheet on a wall tablet](images/popup-alarm.png)
 
 ## Set it up
