@@ -132,7 +132,9 @@ def client_ip(request: web.Request) -> str | None:
     remote = request.remote
     from . import proxy_trust
     if remote and proxy_trust.is_trusted(request):
-        hops = [h.strip() for h in request.headers.get("X-Forwarded-For", "").split(",") if h.strip()]
+        # every X-Forwarded-For line, not the first only: a proxy that adds a line of its own (HAProxy's
+        # option forwardfor) left the browser's first, and the browser chose its address
+        hops = [h.strip() for v in request.headers.getall("X-Forwarded-For", []) for h in v.split(",") if h.strip()]
         if hops:
             try:
                 return str(ip_address(hops[-1]))

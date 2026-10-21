@@ -170,7 +170,7 @@ def test_caddyfile_validates(tmp_path):
     (tmp_path / "tls.caddy").write_text((ROOT / "packaging/compose/caddy/tls-internal.caddy").read_text())
     text = (ROOT / "packaging/compose/caddy/Caddyfile").read_text().replace("/etc/caddy/tls.caddy", str(tmp_path / "tls.caddy"))
     (tmp_path / "Caddyfile").write_text(text)
-    r = subprocess.run(["caddy", "validate", "--config", str(tmp_path / "Caddyfile"), "--adapter", "caddyfile"],
+    r = subprocess.run([shutil.which("caddy"), "validate", "--config", str(tmp_path / "Caddyfile"), "--adapter", "caddyfile"],
                        capture_output=True, text=True, cwd=tmp_path,   # `tls internal` writes a local CA: keep it in tmp
                        env={"MANTEL_HOSTNAME": "mantel.example.com", "PATH": "/usr/bin:/bin:/opt/homebrew/bin",
                             "HOME": str(tmp_path), "XDG_DATA_HOME": str(tmp_path / "data"), "XDG_CONFIG_HOME": str(tmp_path / "cfg")})

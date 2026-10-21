@@ -130,3 +130,27 @@ async def test_a_spoofed_forwarded_host_or_proto_does_not_change_anything(byo):
     r = await m.client.get("/login", headers={"X-Test-Peer": STRANGER, "X-Forwarded-Proto": "https",
                                               "X-Forwarded-Host": "evil.example"})
     assert r.status == 200 and "Strict-Transport-Security" not in r.headers
+
+
+def test_every_forwarded_for_line_counts_not_the_first_only():
+    """A proxy that adds a line of its own (HAProxy's option forwardfor) leaves the browser's line first: reading
+    only the first, the browser chose its own address (a fresh one per try past the sign-in limit)."""
+    from multidict import CIMultiDict
+
+    from mantel_server import sessions
+    headers = CIMultiDict([("X-Forwarded-For", "10.9.9.9"), ("X-Forwarded-For", "203.0.113.50")])
+    assert sessions.client_ip(mocked(PROXY, headers, trusted_proxies=(PROXY,))) == "203.0.113.50"
+
+
+def test_the_tunnel_door_hands_mantel_the_visitors_address_not_cloudflareds():
+    """Caddy appended cloudflared's address to X-Forwarded-For and Mantel takes the last hop: every remote visitor
+    was cloudflared, sharing one sign-in limit (20 bad tries from anyone locked everyone out from away). The
+    client is Cf-Connecting-Ip, believed from cloudflared only, sent to Mantel alone (checked against Caddy 2.10)."""
+    import re
+    from pathlib import Path
+    text = (Path(__file__).resolve().parents[1] / "packaging/compose/caddy/Caddyfile").read_text()
+    servers = text[text.index("servers {"):text.index("log {")]
+    assert "trusted_proxies static {$MANTEL_CLOUDFLARED_IP:172.31.250.3}" in servers
+    assert re.search(r"^\s*client_ip_headers Cf-Connecting-Ip\s*$", servers, re.M)
+    tunnel = text[text.index("http://:8080 {"):text.index("# ---- Caddy's own healthcheck")]
+    assert re.search(r"reverse_proxy mantel-backend:8765 \{\s*header_up X-Forwarded-For \{client_ip\}\s*\}", tunnel)
