@@ -168,6 +168,30 @@ def _entity_list(value: Any) -> list[str]:
     return value
 
 
+# ENTITIES NAMED IN A SERVICE'S DATA, not its target: HA acts on them too, so each is decided as well, as the
+# command it amounts to on that entity. (media_player.join's group_members join those speakers; camera.play_stream
+# and tts.speak play on their media_player.) A camera named as media to play is watching that camera.
+DATA_ENTITY_FIELDS = {"group_members": "media_player.join", "media_player": "media_player.play_media",
+                      "media_player_entity_id": "media_player.play_media"}
+CAMERA_MEDIA = re.compile(r"^media-source://camera/([a-z0-9_]+\.[a-z0-9_]+)")
+
+
+def data_checks(data: dict) -> tuple[list[Check], list[str]]:
+    """The checks for the entities a service's data names besides entity_id, and those entities."""
+    checks: list[Check] = []
+    for key, action in DATA_ENTITY_FIELDS.items():
+        if key in data:
+            for eid in _entity_list(data[key]):
+                checks.append(Check(action, eid))
+    media = data.get("media_content_id")
+    if isinstance(media, str) and media.startswith("media-source://camera/"):
+        m = CAMERA_MEDIA.match(media)
+        if m is None or not m.group(1).startswith("camera."):
+            raise Refused("unsupported_target", "a camera as media names one camera entity")
+        checks += [Check("view", m.group(1)), Check("camera.live", m.group(1))]
+    return checks, list(dict.fromkeys(c.target for c in checks))
+
+
 def service_command(domain: Any, service: Any, data: Any, target: Any, return_response: Any = False) -> Command:
     if not isinstance(domain, str) or not isinstance(service, str) or not _NAME.match(domain) or not _NAME.match(service):
         raise Refused("invalid_command", "domain and service are plain names")
@@ -199,6 +223,7 @@ def service_command(domain: Any, service: Any, data: Any, target: Any, return_re
         code = code or None
         data = {k: v for k, v in data.items() if k != "code"}
         alarm = (service, ids[0])
+    extra, named = data_checks(data)
     if ids:
         checks = [Check(action, eid) for eid in ids]
     elif domain in FEATURE_SERVICES:
@@ -215,8 +240,9 @@ def service_command(domain: Any, service: Any, data: Any, target: Any, return_re
         frame["target"] = target
     if return_response:
         frame["return_response"] = True
-    return Command("service", action, checks, frame=frame, targets=ids or [c.target for c in checks],
-                   alarm=alarm, code=code)
+    targets = ids or [c.target for c in checks]
+    return Command("service", action, checks + extra, frame=frame,
+                   targets=targets + [t for t in named if t not in targets], alarm=alarm, code=code)
 
 
 def ws_rule(kind: str) -> tuple[str, str]:

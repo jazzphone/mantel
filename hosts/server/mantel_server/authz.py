@@ -40,7 +40,7 @@ ENTITY_ID = re.compile(r"^[a-z0-9_]+\.[a-z0-9_]+$")
 FEATURE_ALIASES = {"media": "music"}
 # House grants added to the stored policy (decision recorded in GATEWAY.md).
 HOUSE_GRANTS: tuple[Grant, ...] = (
-    Grant(effect="allow", actions=("view", "control.sensitive"), resource_kind="feature", resource="cameras",
+    Grant(effect="allow", actions=("view",), resource_kind="feature", resource="cameras",
           roles={"wall_tablet"}, note="the doorbell pop-up on every wall tablet (LAN only: devices never on the tunnel)"),
     # Phase 4 music (docs/phase4/MANTEL-FEATURES.md "Music"): HK's Music page on every
     # wall tablet, as in HA (each tablet is an HA user who may use it). Which speakers it shows and plays stays
@@ -49,6 +49,15 @@ HOUSE_GRANTS: tuple[Grant, ...] = (
           roles={"wall_tablet"}, note="HK's Music page on every wall tablet; its speakers are still its room's"),
     Grant(effect="allow", actions=("view",), resource_kind="feature", resource="live_tv",
           roles={"wall_tablet"}, note="Live TV on every wall tablet, as in HA (each channel's camera: the grant above)"),
+)
+
+# THE DOORBELL ON EVERY WALL TABLET, live: watching any camera (`camera.live`) and talking at the door
+# (`camera.talk`) are `control.sensitive` on the cameras feature, which also covers every other camera
+# service (turn off, record, play a stream elsewhere). So the grant is not in HOUSE_GRANTS: it is added only
+# where those two are decided (doorbell_policy: Authz.may_still, and talk_policy for the talk checks).
+DOORBELL_GRANTS: tuple[Grant, ...] = (
+    Grant(effect="allow", actions=("control.sensitive",), resource_kind="feature", resource="cameras",
+          roles={"wall_tablet"}, note="live view and talk-back of the doorbell pop-up on every wall tablet (only those)"),
 )
 
 # THE DOORBELL'S TALK-BACK SPEAKERS for wall tablets (decision recorded in GATEWAY.md "Doorbell
@@ -237,9 +246,19 @@ class Authz:
             log.exception("could not read HK's pop-ups for the talk-back speakers")
             return frozenset()
 
-    def talk_policy(self, subject: Subject) -> Policy:
-        """The house policy plus the talk-back speaker grants. Used ONLY for the talk-back checks."""
+    def doorbell_policy(self, subject: Subject) -> Policy:
+        """The house policy plus DOORBELL_GRANTS. Used ONLY for camera live view and talk-back."""
         base = self.policy_for(subject)
+        cached = getattr(self, "_doorbell_cache", None)
+        if cached is not None and cached[0] is base:
+            return cached[1]
+        got = replace(base, grants=tuple(base.grants) + DOORBELL_GRANTS)
+        self._doorbell_cache = (base, got)
+        return got
+
+    def talk_policy(self, subject: Subject) -> Policy:
+        """The doorbell policy plus the talk-back speaker grants. Used ONLY for the talk-back checks."""
+        base = self.doorbell_policy(subject)
         speakers = self.talk_speakers()
         if not speakers:
             return base
@@ -394,7 +413,7 @@ class Authz:
         ctx = self.context()
         if not self.decide(principal.subject, "view", entity_id, ctx=ctx).allowed:
             return False
-        live = self.decide(principal.subject, "camera.live", entity_id, ctx=ctx)
+        live = self.doorbell_policy(principal.subject).decide(principal.subject, "camera.live", entity_id, ctx)
         return live.allowed is True
 
     def may_see(self, principal: Any, entity_id: str) -> bool:

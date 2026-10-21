@@ -504,3 +504,46 @@ async def test_a_garage_that_appears_after_a_reconnect_is_still_a_garage(gw):
     assert authz.context().device_class_of("cover.garage_2") == "garage"
     guest = Subject(user_role="guest", user_id="g1", user_areas={"kitchen"})
     assert authz.decide(guest, "cover.open_cover", "cover.garage_2").allowed is False
+
+
+def _uid(env, name):
+    return env.app["store"].db.execute("SELECT id FROM users WHERE username = ?", (name,)).fetchone()[0]
+
+
+async def test_entities_named_in_a_services_data_are_decided_too(gw):
+    """Only target/entity_id was decided: a Child refused the kitchen speaker's volume could join it to their own
+    player (group_members), and cast any camera to their TV (media-source://camera/...)."""
+    hub = gw.app["hub"]
+    hub.registry.load(HOUSE_AREAS, [], HOUSE_ENTITIES + [{"entity_id": "media_player.cody", "area_id": "cody_room"},
+                                                         {"entity_id": "media_player.kitchen", "area_id": "kitchen"}])
+    await gw.login("cody", "child")
+    gw.app["rbac"].set_scopes("user", _uid(gw, "cody"), ["cody_room"])
+    ws = await gw.socket()
+    join = await gw.command(ws, id=1, **service("media_player", "join", "media_player.cody",
+                                                data={"group_members": ["media_player.kitchen"]}))
+    cast = await gw.command(ws, id=2, **service("media_player", "play_media", "media_player.cody",
+                                                data={"media_content_id": "media-source://camera/camera.doorbell",
+                                                      "media_content_type": "application/vnd.apple.mpegurl"}))
+    music = await gw.command(ws, id=3, **service("media_player", "play_media", "media_player.cody",
+                                                 data={"media_content_id": "media-source://radio/x",
+                                                       "media_content_type": "music"}))
+    assert join["error"]["code"] == "forbidden" and cast["error"]["code"] == "forbidden", (join, cast)
+    assert "result" in music and gw.fake.sent == ["media_player.play_media"]
+    await ws.close()
+
+
+async def test_a_wall_tablet_may_watch_the_doorbell_but_not_switch_off_or_record_cameras(gw):
+    """HOUSE_GRANTS gave tablets control.sensitive on every camera, for the doorbell pop-up's live view and
+    talk-back; that is every camera service. Live view and talk keep it (authz.DOORBELL_GRANTS), nothing else."""
+    await gw.login("avery", "owner")
+    assert (await gw.m.post("/api/devices/enroll", {"name": "Kitchen tablet", "room": "kitchen"})).status == 201
+    ws = await gw.socket()
+    for i, (svc, data) in enumerate([("turn_off", {}), ("disable_motion_detection", {}),
+                                     ("record", {"filename": "/config/www/x.mp4"}),
+                                     ("play_stream", {"media_player": "media_player.anything"})], 1):
+        rep = await gw.command(ws, id=i, **service("camera", svc, "camera.doorbell", data=data))
+        assert rep.get("error", {}).get("code") == "forbidden", (svc, rep)
+    assert gw.fake.sent == []
+    (s,) = list(gw.app["hub"].sessions)
+    assert gw.app["authz"].may_view(s.principal, "camera.doorbell") is True
+    await ws.close()

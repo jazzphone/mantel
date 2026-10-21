@@ -80,7 +80,7 @@ A Wall Tablet account can only make its own tablet, always with the Wall Tablet 
 A tablet on its own (nobody signed in at it) has the **Wall Tablet** role:
 
 - The devices **in its room**: see, control, sensitive actions included (it can unlock its room's door), and their history.
-- **Every camera**, including live view, so the doorbell pop-up shows on every tablet.
+- **Every camera**, its picture and live view, so the doorbell pop-up shows on every tablet. Only those: switching a camera off, recording or sending it to a speaker or TV follow the tablet's room, like any other device.
 - The **Music** page (its speakers are still its room's) and **Live TV**.
 - **Talk-back** on the doorbell pop-up's speaker.
 - The alarm keypad, with the home's **Alarm PIN** (below).
