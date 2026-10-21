@@ -151,7 +151,8 @@ class Apns:
         if status == 410 or reason in GONE_REASONS:
             return "gone"
         log.warning("APNs answered %s (%s)", status, reason)
-        return "failed"
+        from .push import outcome
+        return outcome(status)
 
 
 # -- the push relay (docs/phase10/APPLE-APPS.md §13, decision M10-2 revised) -----------------------
@@ -275,7 +276,8 @@ class Relay:
         if status in (404, 410) or (got or {}).get("gone"):
             return "gone"
         log.warning("push relay answered %s (%s)", status, (got or {}).get("error") or (got or {}).get("reason"))
-        return "failed"
+        from .push import outcome
+        return outcome(status)
 
     async def forget(self, handle: str, url: str | None = None) -> None:
         await self.call("/v1/forget", {"handle": handle}, url)
