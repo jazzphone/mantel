@@ -472,3 +472,35 @@ def test_a_settings_row_s_reason_is_the_role_that_made_the_change(tmp_path):
     audit.config_event({"actor": "u0", "role": "owner", "action": "grant.add", "detail": {}})
     audit.config_event({"actor": "u0", "action": "grant.add", "detail": {}, "reason": "bootstrap"})
     assert [r["reason"] for r in audit.rows(kind="config")] == ["admin", "owner", "bootstrap"]
+
+
+async def test_a_room_moved_in_home_assistant_counts_at_once_not_at_the_next_restart(gw):
+    """The decisions' registry lookups read the registry's current tables: a reload replaces them, and the
+    kitchen tablet must lose a lock the Owner moves to the porch without Mantel restarting."""
+    await gw.login("avery", "owner")
+    r = await gw.m.post("/api/devices/enroll", {"name": "Kitchen tablet", "room": "kitchen"})
+    assert r.status == 201
+    ws = await gw.socket()
+    gw.app["authz"].context()                                    # some decision built the lookups already
+    moved = [dict(e, area_id="porch") if e["entity_id"] == "lock.kitchen_door" else e for e in HOUSE_ENTITIES]
+    gw.app["hub"].registry.load(HOUSE_AREAS, [], moved)
+    assert gw.app["authz"].context().area_of("lock.kitchen_door") == "porch"
+    rep = await gw.command(ws, id=9, **service("lock", "unlock", "lock.kitchen_door"))
+    assert "result" not in rep and rep["error"]["code"] == "forbidden", rep
+    assert gw.fake.sent == []
+    await ws.close()
+
+
+async def test_a_garage_that_appears_after_a_reconnect_is_still_a_garage(gw):
+    """The state store replaces its dict on every reconnect (state.replace_all); device_class must come from
+    the current one, or a Guest could open a garage door Home Assistant first reports after a restart."""
+    from gateway_fakes import STATES
+    from mantel_server.rbac import Subject
+    authz, hub = gw.app["authz"], gw.app["hub"]
+    authz.context()
+    hub.registry.load(HOUSE_AREAS, [], HOUSE_ENTITIES + [{"entity_id": "cover.garage_2", "area_id": "kitchen"}])
+    hub.store.replace_all({"a": {**{k: dict(v) for k, v in STATES.items()},
+                                 "cover.garage_2": {"s": "closed", "a": {"device_class": "garage"}, "lc": 2, "lu": 2}}})
+    assert authz.context().device_class_of("cover.garage_2") == "garage"
+    guest = Subject(user_role="guest", user_id="g1", user_areas={"kitchen"})
+    assert authz.decide(guest, "cover.open_cover", "cover.garage_2").allowed is False

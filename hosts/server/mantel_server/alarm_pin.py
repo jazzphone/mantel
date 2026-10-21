@@ -574,7 +574,14 @@ def _audit(app: Any, identity: Any, action: str, detail: dict) -> None:
 
 
 async def settings_save(app: Any, identity: Any, msg: Mapping[str, Any]) -> dict:
-    """One of the page's three saves. Refused by field (``PageError`` invalid_format), as HA's were."""
+    """One of the page's three saves. Refused by field (``PageError`` invalid_format), as HA's were.
+    Like the REST routes (``require_fresh``), every one needs a sign-in within the last five minutes
+    (Signing-In.md): a stale Owner session must not be able to set the PIN that disarms the house."""
+    from .accounts import STEP_UP_WINDOW
+    fresh_at = getattr(identity, "fresh_factor_at", None)
+    if fresh_at is None or app["clock"]() - fresh_at > STEP_UP_WINDOW:
+        raise _page_error("step_up_required", message="Confirm it is you first: this needs a sign-in, an "
+                          "authenticator code or a passkey within the last five minutes.")
     if hk_runs_keypads(app):
         return await _save_through_ha(app, identity, msg)
     pins: AlarmPins | None = app.get("alarm_pin")

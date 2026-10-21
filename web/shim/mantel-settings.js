@@ -1925,6 +1925,10 @@ export const host = {
     if (p) panel = p;
     return me ? pressTablets(ids, p) : null;
   },
+  // a socket save refused with step_up_required (mantel-client.js): the same Confirm It Is You as the REST pages
+  stepUp() {
+    return panel && me ? stepUp() : Promise.resolve(false);
+  },
   extend(where, c, ctx, p) {
     if (p) { panel = p; ensureStyle(p.shadowRoot); }
     if (where === 'tablet' && me && ctx && ctx.tablet) drawDirect(c, ctx);

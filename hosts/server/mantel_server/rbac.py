@@ -348,8 +348,17 @@ class Context:
         ZoneInfo(self.tz)  # an unknown zone is a configuration error: fail loudly, never guess
 
     @classmethod
-    def from_registry(cls, registry, now: float, tz: str = "UTC", states: Mapping | None = None) -> Context:
-        """Lookups over `registry.Registry` (and the state store's states for device_class)."""
+    def from_registry(cls, registry, now: float, tz: str = "UTC",
+                      states: Mapping | Callable[[], Mapping] | None = None) -> Context:
+        """Lookups over `registry.Registry` (and the state store's states for device_class). Every lookup
+        reads the registry's CURRENT tables at call time: a reload replaces them (registry.py load), and a
+        cached Context must not keep deciding with the rooms of the first load. `states` may be a getter
+        for the same reason (the state store replaces its dict on every reconnect)."""
+        current = states if callable(states) else (lambda: states)
+
+        def area_of(eid: str) -> str | None:
+            return registry.entity_area.get(eid)
+
         def floor_of(eid: str) -> str | None:
             area = registry.entity_area.get(eid)
             return registry.area_floor.get(area) if area else None
@@ -357,11 +366,12 @@ class Context:
         def device_class_of(eid: str) -> str | None:
             entry = registry.entries.get(eid) or {}
             dc = entry.get("device_class") or entry.get("original_device_class")
-            if dc is None and states is not None:
-                dc = ((states.get(eid) or {}).get("a") or {}).get("device_class")
+            now_states = current()
+            if dc is None and now_states is not None:
+                dc = ((now_states.get(eid) or {}).get("a") or {}).get("device_class")
             return dc
 
-        return cls(now=now, tz=tz, area_of=registry.entity_area.get, floor_of=floor_of,
+        return cls(now=now, tz=tz, area_of=area_of, floor_of=floor_of,
                    device_class_of=device_class_of, resolve_area=registry.resolve_area,
                    resolve_floor=registry.resolve_floor)
 

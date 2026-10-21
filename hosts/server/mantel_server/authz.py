@@ -198,13 +198,15 @@ class Authz:
         return changed
 
     def context(self) -> Context:
-        """Registry lookups and the exact time. The lookups (which read the live registry) are built
-        once per zone and registry; the time is always now (a schedule window must count at once)."""
+        """Registry lookups and the exact time. The lookups read the live registry and states at each call
+        (a room moved in Home Assistant counts at once, rbac.Context.from_registry), so they are built once
+        per zone and registry; the time is always now (a schedule window must count at once)."""
         now = self.clock()
         key = (self.tz, id(self.hub.registry), id(self.hub.store))
         cached = self._ctx
         if cached is None or cached[0] != key:
-            cached = (key, Context.from_registry(self.hub.registry, now, self.tz, self.hub.store.states))
+            store = self.hub.store
+            cached = (key, Context.from_registry(self.hub.registry, now, self.tz, lambda: store.states))
             self._ctx = cached
         return replace(cached[1], now=now)
 
