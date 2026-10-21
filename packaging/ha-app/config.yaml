@@ -57,13 +57,16 @@ options:
   ma_url: ""
   ma_token: ""
   # Direct access (DOCS.md): ingress (default: the sidebar only), proxy (your own reverse proxy) or https
-  # (Mantel's built-in HTTPS). The Cloudflare token is a masked option, moved into a private file like ma_token.
+  # (Mantel's built-in HTTPS, its name proved through dns_provider: cloudflare or duckdns). The DNS tokens are
+  # masked options; only the chosen one is moved into a private file, like ma_token.
   access: ingress
   public_url: ""
   trusted_proxies: ""
   ha_sign_in_url: ""
   ha_frame_origins: ""
+  dns_provider: cloudflare
   cloudflare_token: ""
+  duckdns_token: ""
   acme_email: ""
   acme_staging: false
   lan_networks: ""
@@ -84,7 +87,9 @@ schema:
   trusted_proxies: "str?"
   ha_sign_in_url: "str?"
   ha_frame_origins: "str?"
+  dns_provider: list(cloudflare|duckdns)
   cloudflare_token: "password?"
+  duckdns_token: "password?"
   acme_email: "str?"
   acme_staging: bool
   lan_networks: "str?"

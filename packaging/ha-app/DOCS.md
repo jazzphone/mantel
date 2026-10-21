@@ -23,7 +23,8 @@ sidebar: Home Assistant signs you in, and Mantel shows you what your Mantel role
 | `default_screen` | empty | The HK dashboard the sidebar opens (its address, e.g. `dashboard-kitchen`). Empty: the first one. |
 | `session_hours` | `12` | How long a sign-in from away (a tunnel to the direct port) lasts, in hours, 1 to 720. The sidebar and the home network are not affected. |
 | `access` | `ingress` | How else Mantel can be reached: `ingress` (the sidebar only), `proxy` (your own reverse proxy) or `https` (Mantel's built-in HTTPS). See **Direct access** below. |
-| `public_url`, `trusted_proxies`, `ha_sign_in_url`, `ha_frame_origins`, `cloudflare_token`, `acme_email`, `acme_staging` | empty | Direct access only (below). |
+| `public_url`, `trusted_proxies`, `ha_sign_in_url`, `ha_frame_origins`, `cloudflare_token`, `duckdns_token`, `acme_email`, `acme_staging` | empty | Direct access only (below). |
+| `dns_provider` | `cloudflare` | Built-in HTTPS only: `cloudflare` or `duckdns` (below). |
 | `cf_access_team`, `cf_access_aud` | empty | Cloudflare Access in front of a tunnel to the direct port (below). Both set: Mantel refuses every request through the tunnel without a valid Access token. |
 | `ha_door_rules` | `trusted` | `trusted`: being signed in to Home Assistant is enough, as HK in Home Assistant always was. Each person's Mantel role decides what they may do, and everything is audited. `lan`: the home network's rules. `tunnel`: Mantel's remote-access rules (each role's remote switches). On every setting only the alarm asks for a code, the house Alarm PIN. |
 
@@ -136,20 +137,24 @@ Your proxy owns HTTPS and forwards to the App over plain HTTP.
 ### `https`: Mantel's built-in HTTPS
 
 No proxy: Mantel serves HTTPS on the App's port itself, with a free Let's Encrypt certificate that it gets
-and renews by itself. The name is proved through your DNS (Cloudflare), so nothing has to be reachable
-from the internet and the name can stay inside your home.
+and renews by itself. The name is proved through your DNS host's API, Cloudflare or Duck DNS, so nothing has
+to be reachable from the internet and the name can stay inside your home. (Mantel on Docker or Proxmox also
+works with Porkbun, Route 53, DigitalOcean and deSEC; in this App it is these two.)
 
-1. In Cloudflare, make an API token with **Zone / Zone / Read** and **Zone / DNS / Edit**, both for the
-   zone holding the name only.
-2. App **Configuration**: `access: https`, `public_url: https://mantel.example.com` (add `:port` when the
-   host port below is not 443), `cloudflare_token` the token, `ha_sign_in_url` (optional), `acme_email`
+1. Cloudflare (`dns_provider: cloudflare`, the default): make an API token with **Zone / Zone / Read** and
+   **Zone / DNS / Edit**, both for the zone holding the name only. Duck DNS (`dns_provider: duckdns`): your
+   name is `<name>.duckdns.org`, and the token is at the top of duckdns.org's page once signed in.
+2. App **Configuration**: `access: https`, `public_url: https://mantel.example.com` (or
+   `https://<name>.duckdns.org`; add `:port` when the host port below is not 443), `cloudflare_token` or
+   `duckdns_token` the token, `ha_sign_in_url` (optional), `acme_email`
    (optional), `lan_networks` (optional: your home's networks, for example `a.b.c.0/24`; empty means the
    private ranges). While trying it out, `acme_staging: true` gets test certificates (a browser warning) so
    mistakes do not count against Let's Encrypt's limits; turn it off afterwards (Mantel then gets a real
    one). Asking for a certificate accepts Let's Encrypt's subscriber agreement.
 3. App **Network**: give `8100/tcp` a host port, e.g. `443` if nothing else on the machine uses it, else
    `8443`.
-4. In your DNS point the name at the Home Assistant machine (a local record is enough).
+4. In your DNS point the name at the Home Assistant machine (a local record is enough; with Duck DNS, set
+   the name's address on duckdns.org to the machine's home address).
 5. **Restart** the App. Its log says when the certificate is installed. Until then the port serves a
    temporary self-signed certificate and only a "certificate pending" page: nobody signs in there before
    the real certificate is in. Renewal is automatic.

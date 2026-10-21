@@ -2,8 +2,9 @@
 
 With the App option ``access: https`` Mantel serves HTTPS on its direct listener itself (direct.py), with a
 certificate it obtains and renews from Let's Encrypt over ACME (RFC 8555), proving the name with the DNS-01
-challenge through Cloudflare's API -- the same way the compose stack's Caddy does (packaging/compose/caddy/
-tls-dns01.caddy), so no port has to be reachable from the internet and the name may stay LAN-only.
+challenge through Cloudflare's API, or Duck DNS's for a <name>.duckdns.org -- the same way the compose stack's
+Caddy does (packaging/compose/caddy/tls-dns01-*.caddy), so no port has to be reachable from the internet and the
+name may stay LAN-only. Other DNS hosts are the compose stack's (its Caddy has them built in).
 
 Why here and not a Caddy binary in the App (the choice is recorded in HA-APP.md): the App image is built on
 the house's own HA machine by the Supervisor, and Caddy's Cloudflare module means compiling Caddy with
@@ -23,8 +24,9 @@ in the image, pinned and tested.
 * **Renewal** 30 days before expiry, checked twice a day; a failed attempt is retried after 1, 3, 12, then
   24 hours (Let's Encrypt limits failed validations). The live listener picks the new certificate up at once
   (``SSLContext.load_cert_chain`` on the same context: new handshakes use it).
-* **The Cloudflare token** is read from its file (the App's masked option, moved there by the entrypoint)
-  at each attempt, sent only to Cloudflare's API, and never logged, stored elsewhere or shown.
+* **The DNS token** (Cloudflare's or Duck DNS's) is read from its file (the App's masked option, moved there by
+  the entrypoint) at each attempt, sent only to that DNS host's API, and never logged, stored elsewhere or shown.
+  Duck DNS wants it in the update URL's query (HTTPS): a failure there is reported without the URL.
 """
 from __future__ import annotations
 
@@ -52,6 +54,8 @@ log = logging.getLogger("mantel.direct_tls")
 LETSENCRYPT = "https://acme-v02.api.letsencrypt.org/directory"
 LETSENCRYPT_STAGING = "https://acme-staging-v02.api.letsencrypt.org/directory"
 CLOUDFLARE_API = "https://api.cloudflare.com/client/v4"
+DUCKDNS_API = "https://www.duckdns.org"
+DNS_PROVIDERS = ("cloudflare", "duckdns")
 DOH = "https://cloudflare-dns.com/dns-query"
 RENEW_BEFORE = 30 * 86400
 CHECK_EVERY = 12 * 3600
@@ -216,7 +220,7 @@ class AcmeClient:
             await self.sleep(wait)
             waited += max(wait, 0.5)
 
-    async def issue(self, name: str, dns: "CloudflareDns", cert_key: ec.EllipticCurvePrivateKey,
+    async def issue(self, name: str, dns: "CloudflareDns | DuckDns", cert_key: ec.EllipticCurvePrivateKey,
                     visible: Callable[[str, str], Awaitable[bool]]) -> str:
         """One certificate for ``name`` (PEM chain), proving it with DNS-01 through ``dns``."""
         await self.register()
@@ -374,6 +378,55 @@ class CloudflareDns:
             log.warning("could not check for a leftover challenge TXT record (%s)", exc)
 
 
+def duckdns_domain(name: str) -> str:
+    """The Duck DNS name (``sam-home`` of ``sam-home.duckdns.org``) that holds the TXT value for ``name``."""
+    labels = name.rstrip(".").lower().split(".")
+    if len(labels) < 3 or labels[-2:] != ["duckdns", "org"] or not labels[-3]:
+        raise AcmeError("with Duck DNS, Mantel's address must be your <name>.duckdns.org")
+    return labels[-3]
+
+
+class DuckDns:
+    """The challenge's TXT value at Duck DNS. A Duck DNS name has ONE TXT value, served for the name and every name
+    under it; the update API sets it (``txt=``) and clears it (``clear=true``). The token goes in that URL's query,
+    as Duck DNS requires (over HTTPS): no failure message carries the URL, the query or the token."""
+
+    def __init__(self, http: aiohttp.ClientSession, token: Callable[[], str], api: str = DUCKDNS_API) -> None:
+        self.http = http
+        self.token = token
+        self.api = api.rstrip("/")
+
+    async def _update(self, domain: str, **params: str) -> None:
+        token = self.token()
+        if not token:
+            raise AcmeError("the Duck DNS token is empty (the App's option duckdns_token)")
+        query = {"domains": domain, "token": token, "verbose": "true", **params}
+        try:
+            async with self.http.get(self.api + "/update", params=query, timeout=TIMEOUT, allow_redirects=False) as r:
+                status, body = r.status, (await r.text())[:64]
+        except (aiohttp.ClientError, asyncio.TimeoutError) as exc:
+            raise AcmeError(f"Duck DNS could not be reached ({type(exc).__name__})") from None
+        first = body.split()[0] if body.split() else ""
+        if status != 200 or first != "OK":
+            raise AcmeError(f"Duck DNS answered {status} {first if first in ('KO', 'OK') else ''}".strip()
+                            + (" (a wrong token, or a name that is not this account's)" if first == "KO" else ""))
+
+    async def add_txt(self, record: str, value: str) -> tuple[str, str]:
+        domain = duckdns_domain(record)
+        await self._update(domain, txt=value)
+        return domain, value
+
+    async def remove(self, domain: str, _value: str) -> None:
+        await self._update(domain, txt="removed", clear="true")
+
+    async def cleanup(self, record: str, value: str) -> None:
+        """Best effort: clear the name's TXT value after an unanswered update."""
+        try:
+            await self.remove(duckdns_domain(record), value)
+        except Exception as exc:  # noqa: BLE001 -- a stale TXT value is harmless; say so
+            log.warning("could not clear a leftover challenge TXT value (%s)", exc)
+
+
 # -- files ------------------------------------------------------------------------------------------------
 def _write_private(path: Path, data: bytes) -> None:
     """Atomically: a 0600 temp file, flushed to disk, renamed over the target, the folder flushed too."""
@@ -470,7 +523,8 @@ class CertManager:
     def __init__(self, name: str, folder: Path, token_file: Path | None, directory: str = LETSENCRYPT,
                  email: str = "", clock: Callable[[], float] = time.time,
                  http_factory: Callable[[], aiohttp.ClientSession] | None = None,
-                 cloudflare_api: str = CLOUDFLARE_API,
+                 cloudflare_api: str = CLOUDFLARE_API, dns_provider: str = "cloudflare",
+                 duckdns_api: str = DUCKDNS_API,
                  visible: Callable[[aiohttp.ClientSession], Callable[[str, str], Awaitable[bool]]] | None = None,
                  sleep: Callable[[float], Awaitable[None]] = asyncio.sleep, poll_every: float = 2.0) -> None:
         self.name = name.lower()
@@ -481,6 +535,10 @@ class CertManager:
         self.clock = clock
         self.http_factory = http_factory or (lambda: aiohttp.ClientSession())
         self.cloudflare_api = cloudflare_api
+        if dns_provider not in DNS_PROVIDERS:
+            raise ValueError(f"unknown DNS provider {dns_provider!r}")
+        self.dns_provider = dns_provider
+        self.duckdns_api = duckdns_api
         self.visible = visible or doh_visible
         self.sleep = sleep
         self.poll_every = poll_every
@@ -613,7 +671,8 @@ class CertManager:
         async with self.http_factory() as http:
             client = AcmeClient(http, self.directory, self._account(), self.email, sleep=self.sleep,
                                 poll_every=self.poll_every)
-            dns = CloudflareDns(http, self._token, self.cloudflare_api)
+            dns = (DuckDns(http, self._token, self.duckdns_api) if self.dns_provider == "duckdns"
+                   else CloudflareDns(http, self._token, self.cloudflare_api))
             key = ec.generate_private_key(ec.SECP256R1())
             pem = await client.issue(self.name, dns, key, self.visible(http))
         bundle = _key_pem(key) + pem.encode()
@@ -663,7 +722,8 @@ def register(app) -> CertManager | None:
         return None
     from urllib.parse import urlparse
     mgr = CertManager(urlparse(cfg.public_url).hostname or "", cfg.tls_dir, cfg.acme_dns_token_file,
-                      cfg.acme_directory or LETSENCRYPT, cfg.acme_email)
+                      cfg.acme_directory or LETSENCRYPT, cfg.acme_email,
+                      dns_provider=getattr(cfg, "acme_dns_provider", "cloudflare") or "cloudflare")
     app["direct_tls"] = mgr
 
     async def start(app) -> None:

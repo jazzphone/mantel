@@ -491,8 +491,9 @@ def check_ha_app(path: Path) -> list[str]:
         problems.append("ha-app: describe the direct-access port in ports_description")
     if (doc.get("options") or {}).get("access", "ingress") != "ingress":
         problems.append("ha-app: options.access must default to ingress (the sidebar only)")
-    if (doc.get("schema") or {}).get("cloudflare_token", "password?") != "password?":
-        problems.append("ha-app: cloudflare_token must be a password-type option (masked in HA's form)")
+    for token in ("cloudflare_token", "duckdns_token", "ma_token"):
+        if (doc.get("schema") or {}).get(token, "password?") != "password?":
+            problems.append(f"ha-app: {token} must be a password-type option (masked in HA's form)")
     if doc.get("homeassistant_api") is not True:
         problems.append("ha-app: homeassistant_api must be true (HA's built-in App credential)")
     for extra in ("auth_api", "hassio_role"):

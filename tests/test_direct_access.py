@@ -28,7 +28,7 @@ from aiohttp.test_utils import TestServer
 from mantel_server import direct, direct_tls, ingress
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from acme_fakes import FakeAcme, FakeCloudflare  # noqa: E402
+from acme_fakes import FakeAcme, FakeCloudflare, FakeDuckDns  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
 NAME = "mantel.home.example"
@@ -156,7 +156,7 @@ def test_https_mode_moves_the_cloudflare_token_into_a_private_file_never_an_argu
 
 def test_the_entrypoint_hands_the_cloudflare_token_to_the_server_user():
     text = (ROOT / "packaging/docker/entrypoint.py").read_text()
-    assert "(APP_TOKEN_FILE, APP_MA_TOKEN_FILE, APP_CF_TOKEN_FILE)" in text
+    assert "(APP_TOKEN_FILE, APP_MA_TOKEN_FILE, APP_CF_TOKEN_FILE, APP_DUCKDNS_TOKEN_FILE)" in text
 
 
 def test_server_flags_guard_direct_access():
@@ -811,6 +811,108 @@ async def test_a_name_outside_the_tokens_zones_says_so(tmp_path, fakes):
     mgr = _manager(tmp_path, fakes, name="mantel.elsewhere.example")
     await mgr.check()
     assert "no Cloudflare zone" in mgr.last_error and "Zone / Zone / Read" in mgr.last_error
+
+
+# -- built-in HTTPS through Duck DNS ------------------------------------------------------------------------
+DUCK_NAME = "sam-home.duckdns.org"
+DUCK_TOKEN = "fictional-duckdns-token-0123456789"
+
+
+@pytest.fixture
+async def duck():
+    dd = FakeDuckDns(DUCK_TOKEN)
+    acme = FakeAcme(dd)
+    dd_server, acme_server = TestServer(dd.app()), TestServer(acme.app())
+    await dd_server.start_server()
+    await acme_server.start_server()
+    acme.base = str(acme_server.make_url("")).rstrip("/")
+    yield Fakes(acme, dd, acme_server, dd_server)
+    await dd_server.close()
+    await acme_server.close()
+
+
+def _duck_manager(tmp_path, duck, token=DUCK_TOKEN, name=DUCK_NAME, api=None):
+    tmp_path.mkdir(parents=True, exist_ok=True)
+    (tmp_path / "dd").write_text(token + "\n")
+
+    async def no_sleep(_):
+        return None
+
+    def visible(http):
+        async def check(record, value):
+            return value in duck.cf.txt(record)
+        return check
+    return direct_tls.CertManager(name, tmp_path / "tls", tmp_path / "dd", directory=duck.acme.base + "/directory",
+                                  dns_provider="duckdns", duckdns_api=api or str(duck.cf_server.make_url("")),
+                                  visible=visible, sleep=no_sleep, poll_every=0)
+
+
+async def test_a_certificate_through_duck_dns(tmp_path, duck, caplog):
+    mgr = _duck_manager(tmp_path, duck)
+    with caplog.at_level(logging.DEBUG):
+        assert await mgr.check() == direct_tls.CHECK_EVERY
+    assert mgr.status()["state"] == "ok" and mgr.last_error == ""
+    assert direct_tls.cert_info(mgr.cert_path.read_bytes())[1] == {DUCK_NAME}
+    sets = [c for c in duck.cf.calls if c.get("clear") != "true"]
+    clears = [c for c in duck.cf.calls if c.get("clear") == "true"]
+    assert [c["domains"] for c in sets] == ["sam-home"] and len(clears) == 1
+    assert duck.cf.values == {}                                          # the challenge's TXT value is cleared again
+    assert all(c["token"] == DUCK_TOKEN for c in duck.cf.calls)
+    assert not any(DUCK_TOKEN in r.getMessage() for r in caplog.records if r.name.startswith("mantel"))
+
+
+async def test_duck_dns_failures_say_why_without_the_token(tmp_path, duck, caplog):
+    with caplog.at_level(logging.DEBUG):
+        bad = _duck_manager(tmp_path / "b", duck, token="wrong-fictional-token")
+        assert await bad.check() == 3600
+        assert "Duck DNS answered" in bad.last_error and "KO" in bad.last_error
+        empty = _duck_manager(tmp_path / "e", duck, token="")
+        await empty.check()
+        assert "Duck DNS token is empty" in empty.last_error
+        elsewhere = _duck_manager(tmp_path / "n", duck, name="mantel.home.example")
+        await elsewhere.check()
+        assert "duckdns.org" in elsewhere.last_error
+        api = str(duck.cf_server.make_url(""))
+        await duck.cf_server.close()                                     # Duck DNS unreachable
+        gone = _duck_manager(tmp_path / "g", duck, api=api)
+        await gone.check()
+        assert "Duck DNS could not be reached" in gone.last_error
+    # Mantel's own log (not the fake Duck DNS's access log, which sees the query as the real one does)
+    mantel_log = "\n".join(r.getMessage() for r in caplog.records if r.name.startswith("mantel"))
+    assert "built-in HTTPS: could not get a certificate" in mantel_log
+    for text in (mantel_log, bad.last_error, gone.last_error):
+        assert DUCK_TOKEN not in text and "wrong-fictional-token" not in text and "token=" not in text
+
+
+def test_https_through_duck_dns_takes_its_own_token_and_name(tmp_path):
+    from mantel_server.config import parse_args
+    duck_url = f"https://{DUCK_NAME}/"
+    env = {"MANTEL_APP_DUCKDNS_TOKEN_FILE": str(tmp_path / "dd")}
+    _, (args, environ) = _plan(tmp_path, {"access": "https", "public_url": duck_url, "dns_provider": "duckdns",
+                                          "duckdns_token": DUCK_TOKEN, "cloudflare_token": CF_TOKEN}, **env)
+    cfg = parse_args(args)
+    assert cfg.direct_tls == "acme" and cfg.acme_dns_provider == "duckdns" and cfg.acme_dns_token_file == tmp_path / "dd"
+    assert (tmp_path / "dd").read_text() == DUCK_TOKEN and stat.S_IMODE(os.stat(tmp_path / "dd").st_mode) == 0o600
+    assert not (tmp_path / "cf").exists()                                # the other provider's token stays put
+    assert DUCK_TOKEN not in " ".join(args) and DUCK_TOKEN not in " ".join(environ.values())
+    ep = _entrypoint()
+    with pytest.raises(ep.ConfigError, match="duckdns_token"):
+        _plan(tmp_path, {"access": "https", "public_url": duck_url, "dns_provider": "duckdns"}, ep, **env)
+    with pytest.raises(ep.ConfigError, match="duckdns.org"):
+        _plan(tmp_path, {"access": "https", "public_url": PUBLIC, "dns_provider": "duckdns",
+                         "duckdns_token": DUCK_TOKEN}, ep, **env)
+    with pytest.raises(ep.ConfigError, match="dns_provider"):
+        _plan(tmp_path, {"access": "https", "public_url": PUBLIC, "dns_provider": "route53",
+                         "cloudflare_token": CF_TOKEN}, ep, **env)
+    # Cloudflare stays the default, and its token file
+    _, (args, _) = _plan(tmp_path, {"access": "https", "public_url": PUBLIC, "cloudflare_token": CF_TOKEN}, **env)
+    assert parse_args(args).acme_dns_provider == "cloudflare"
+    # the server refuses a Duck DNS certificate for a name outside duckdns.org
+    ok = ["--ingress", "--listen", "0.0.0.0", "--allow-host", "*", "--direct-port", "8100", "--direct-tls", "acme",
+          "--acme-dns-token-file", str(tmp_path / "dd"), "--acme-dns-provider", "duckdns"]
+    assert parse_args(ok + ["--public-url", duck_url]).acme_dns_provider == "duckdns"
+    with pytest.raises(SystemExit):
+        parse_args(ok + ["--public-url", PUBLIC])
 
 
 def test_the_jws_and_the_dns01_value_follow_rfc_8555():
