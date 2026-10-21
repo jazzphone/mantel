@@ -485,11 +485,19 @@ def register(app, hub, hooks) -> MaClient | None:
     # did not exist"): Music Assistant's players are Home Assistant's media_player entities (music.ma_players),
     # and a read or an event about a player answers only for the ones the subject may view.
     async def visible(ctx: Ctx) -> set[str]:
+        """Kept per connection for a few seconds, and until the registry reloads: an event stream asks for every
+        event (a playing queue says its time each second), and the answer walks the entity registry."""
         from ..music import ma_players
         hub = app.get("hub")
+        key = (getattr(getattr(hub, "registry", None), "loads", None), int(asyncio.get_running_loop().time() // 5))
+        kept = ctx.state.get("ma_visible")
+        if kept is not None and kept[0] == key:
+            return kept[1]
         players = ma_players(hub.registry) if hub is not None else {}
         ok = await allowed_ids(hooks, ctx.identity, "view", list(players))
-        return {pid for eid, pid in players.items() if eid in ok}
+        got = {pid for eid, pid in players.items() if eid in ok}
+        ctx.state["ma_visible"] = (key, got)
+        return got
 
     async def on_read(ctx: Ctx, msg: dict) -> None:
         rid = msg.get("id")

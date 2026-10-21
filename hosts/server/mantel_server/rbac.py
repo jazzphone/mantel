@@ -366,9 +366,10 @@ class Context:
         def device_class_of(eid: str) -> str | None:
             entry = registry.entries.get(eid) or {}
             dc = entry.get("device_class") or entry.get("original_device_class")
-            now_states = current()
-            if dc is None and now_states is not None:
-                dc = ((now_states.get(eid) or {}).get("a") or {}).get("device_class")
+            if dc is None:
+                now_states = current()
+                if now_states is not None:
+                    dc = ((now_states.get(eid) or {}).get("a") or {}).get("device_class")
             return dc
 
         return cls(now=now, tz=tz, area_of=area_of, floor_of=floor_of,
