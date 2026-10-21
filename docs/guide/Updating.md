@@ -5,18 +5,20 @@ Each way of running Mantel updates its own way: the Home Assistant App through H
 ## Before every update
 
 1. **Make a backup.** In the App, a Home Assistant backup (the update dialog can make it for you). With Docker or the LXC, a Mantel backup: `docker compose exec mantel-server mantel backup --target /backups`. See [Backups](Backups.md).
-2. **Read the release notes** for anything you need to do. <!-- RELEASE: link the GitHub releases page and CHANGELOG.md once releases are published. -->
+2. **Read the release notes** for anything you need to do: [CHANGELOG.md](https://github.com/jazzphone/mantel/blob/main/CHANGELOG.md) has a section for each version. In the App, Home Assistant shows the same notes in the update dialog.
 3. **Pick a quiet moment.** Open screens reconnect by themselves after the restart, which takes up to a minute or so.
 
 You can see which version you run on **Mantel Settings** → **About**.
 
 ## Home Assistant App
 
-<!-- RELEASE: updates through Home Assistant need the App published with an image (config.yaml `image:`) in the App repository. Until then, use "Built from source" below. -->
+If you installed the App from Mantel's repository ([Install](Install.md#add-the-repository-and-install)), Home Assistant offers each new release:
 
-1. Home Assistant shows an update for **Mantel** under **Settings** → **Updates** (and on the App's page).
-2. Open it. Leave **Create backup** on, then select **Update**.
+1. Home Assistant shows an update for **Mantel** under **Settings** → **Updates** (and on the App's page). It checks the repository by itself every few hours; to look now, **Settings** → **Apps** → **App store** → **⋮** → **Check for updates**.
+2. Open it, read the release notes it shows, leave **Create backup** on, then select **Update**. Home Assistant downloads the new version's ready-made image and restarts the App.
 3. Open the App's **Log** tab and check that it ends with the `read-only; commands disabled` line (or `COMMANDS ENABLED`, if you turned commands on) and no error.
+
+Your options, people, settings and audit log stay as they were. To go back, restore the backup the update made (**Settings** → **System** → **Backups**), which brings back the previous version together with its data.
 
 ### Built from source
 
@@ -41,7 +43,11 @@ If you [built the App from source](Install.md#build-the-app-from-source):
 
 ### Published images
 
-<!-- RELEASE: needs the ghcr.io/jazzphone/mantel-* images published and referenced in .env (MANTEL_SERVER_IMAGE etc., ideally pinned by digest). -->
+Each release publishes `ghcr.io/jazzphone/mantel-server`, `ghcr.io/jazzphone/mantel-transcode` and `ghcr.io/jazzphone/mantel-caddy`, tagged with its version (for example `:0.1.36`, the same number as the Home Assistant App's) and `:latest` ([Install with Docker → Get the images](Install-Docker.md#5-get-the-images)). How you update depends on what `.env` names:
+
+- **A version** (recommended): put the new version in all three `MANTEL_*_IMAGE` lines in `.env`, then run `./update.sh`.
+- **`:latest`**: just run `./update.sh`; it pulls whatever the newest release is.
+- **A digest** (`@sha256:...`): put the new digests in `.env` first.
 
 From `packaging/compose`:
 
@@ -56,7 +62,7 @@ It:
 3. starts them and waits until every service is healthy,
 4. and if one doesn't become healthy, starts the remembered images again.
 
-With images pinned by digest, put the new digests in `.env` first. After a rollback, fix the image references in `.env` before the next update; `docker compose logs --tail 100` says what went wrong.
+After a rollback, fix the image references in `.env` before the next update; `docker compose logs --tail 100` says what went wrong.
 
 ### Built from source
 

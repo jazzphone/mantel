@@ -32,7 +32,7 @@ git clone https://github.com/jazzphone/mantel.git
 cd mantel/packaging/compose
 ```
 
-<!-- RELEASE: once tagged releases exist, add "git checkout <release tag>" here and say where the release notes are. -->
+To run a release rather than the newest code, check out its tag, for example `git checkout v0.1.36`. Each release's notes are in [CHANGELOG.md](https://github.com/jazzphone/mantel/blob/main/CHANGELOG.md).
 
 Everything below runs in this `packaging/compose` folder.
 
@@ -110,27 +110,31 @@ Losing `at_rest.key` makes every enrolled authenticator app unreadable, and with
 
 ## 5. Get the images
 
-**Build them from the source** (works today). From `packaging/compose`:
+**Use the published images** (the quickest). Each release publishes three, for `amd64` and `arm64` hosts:
+
+| Image | Service |
+|---|---|
+| `ghcr.io/jazzphone/mantel-server` | Mantel Server |
+| `ghcr.io/jazzphone/mantel-transcode` | Live TV's go2rtc and ffmpeg (with Intel's QuickSync driver on `amd64`) |
+| `ghcr.io/jazzphone/mantel-caddy` | Caddy with its Cloudflare DNS module |
+
+Each is tagged with the release's version (for example `:0.1.36`, the same number as the Home Assistant App's) and `:latest`, which follows the newest release. Name them in `.env`, pinned to a version so an update happens only when you change it ([Updating](Updating.md#published-images)):
+
+```bash
+MANTEL_SERVER_IMAGE=ghcr.io/jazzphone/mantel-server:0.1.36
+MANTEL_TRANSCODE_IMAGE=ghcr.io/jazzphone/mantel-transcode:0.1.36
+MANTEL_CADDY_IMAGE=ghcr.io/jazzphone/mantel-caddy:0.1.36
+```
+
+Then `docker compose pull`. To pin even tighter, use a digest (`ghcr.io/jazzphone/mantel-server@sha256:...`, shown by `docker buildx imagetools inspect ghcr.io/jazzphone/mantel-server:0.1.36`).
+
+**Or build them from the source.** Leave the three `MANTEL_*_IMAGE` lines out of `.env`, and from `packaging/compose`:
 
 ```bash
 docker compose build
 ```
 
-This builds Mantel Server, the Live TV transcode and Caddy with its Cloudflare module. It takes several minutes.
-
-**Or use the published images.**
-
-<!-- RELEASE: needs ghcr.io/jazzphone/mantel-server, ghcr.io/jazzphone/mantel-transcode and ghcr.io/jazzphone/mantel-caddy published (with digests to pin). Until then, build from source as above. -->
-
-Set the image references in `.env`, ideally pinned by digest:
-
-```bash
-MANTEL_SERVER_IMAGE=ghcr.io/jazzphone/mantel-server:stable
-MANTEL_TRANSCODE_IMAGE=ghcr.io/jazzphone/mantel-transcode:stable
-MANTEL_CADDY_IMAGE=ghcr.io/jazzphone/mantel-caddy:stable
-```
-
-Then `docker compose pull`.
+This builds Mantel Server, the Live TV transcode and Caddy with its Cloudflare module from the files you cloned. It takes several minutes.
 
 ## 6. Start Mantel
 

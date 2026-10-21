@@ -21,6 +21,8 @@ jobs:
           python-version: "3.12"
       - run: python tools/check_links.py
       - run: python tools/package_check.py --release
+      # one version number: the App's config.yaml, the Connect App's and pyproject.toml (Releasing.md)
+      - run: python tools/check_version.py
       # the words are a repository secret (one regular expression), never a file in the repository
       - run: python tools/check_private.py
         env:

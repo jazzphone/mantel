@@ -1,0 +1,240 @@
+# Mantel's release (docs/development/Releasing.md). Pushing a tag vX.Y.Z publishes, in this order:
+#
+#   1. the Home Assistant App images, one per architecture as the Supervisor expects them
+#      (ghcr.io/jazzphone/mantel-app-amd64:X.Y.Z, mantel-app-aarch64, and mantel-connect-app-* likewise);
+#   2. the Docker images, multi-arch (amd64 + arm64): ghcr.io/jazzphone/mantel-server, mantel-transcode and
+#      mantel-caddy, tagged X.Y.Z and latest (what packaging/compose/.env.example names);
+#   3. only when every image is pushed: the add-on repository, force-pushed as one commit to the `ha-apps`
+#      branch (tools/publish_ha_apps.py). Home Assistant users add https://github.com/jazzphone/mantel#ha-apps
+#      and are offered Update when that branch's config.yaml version goes up. Never main.
+#
+# Run by hand (Actions -> Release -> Run workflow) with `publish` off it is a dry run: the same checks, the same
+# staging and private-content scans, every image built for both architectures, the add-on repository written
+# and kept as a workflow artifact; nothing is pushed anywhere. `publish` on does the real thing, and only from
+# a tag ("Use workflow from" -> the tag), so a branch can never publish a version.
+#
+# The version is Mantel's one version (packaging/ha-app/config.yaml; tools/check_version.py), and a tag must
+# be exactly v<that version> with its CHANGELOG.md section. No secret is needed but GITHUB_TOKEN (ghcr.io and the
+# branch push) and, as in tests.yml, HK_PRIVATE for the private-word scans.
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: "Publish: push the images and the ha-apps branch (needs a tag under 'Use workflow from'). Off: a build-only dry run."
+        type: boolean
+        default: false
+
+# what the jobs below may use at most; each job asks for only what it needs
+permissions:
+  contents: write
+  packages: write
+
+# one release at a time per ref; never cancel one halfway through its pushes
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  REGISTRY: ghcr.io/jazzphone
+  SOURCE_URL: https://github.com/jazzphone/mantel
+
+jobs:
+  version:
+    name: Version, checks and the main suite
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      publish: ${{ steps.version.outputs.publish }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      # the event's values come in through env, never pasted into the script
+      - id: version
+        env:
+          EVENT: ${{ github.event_name }}
+          PUBLISH_INPUT: ${{ inputs.publish }}
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          if [ "$REF_TYPE" = tag ]; then
+            version="$(python tools/check_version.py --tag "$REF_NAME" --print)"
+          else
+            version="$(python tools/check_version.py --print)"
+          fi
+          publish=false
+          if [ "$EVENT" = push ] || [ "$PUBLISH_INPUT" = true ]; then
+            if [ "$REF_TYPE" != tag ]; then
+              echo "::error::publishing needs a release tag: run the workflow from the tag v$version, or leave publish off"
+              exit 1
+            fi
+            publish=true
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "publish=$publish" >> "$GITHUB_OUTPUT"
+          echo "Mantel $version (publish: $publish)" >> "$GITHUB_STEP_SUMMARY"
+      - run: python tools/check_links.py
+      - run: python tools/package_check.py --release
+      - run: python tools/check_private.py
+        env:
+          HK_PRIVATE: ${{ secrets.HK_PRIVATE }}
+      # the main suite, so a tag on a commit that does not pass never publishes (tests.yml runs the rest)
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: pip install -e '.[dev]'
+      - run: python -m pytest -q -p no:cacheprovider
+
+  app-images:
+    # Home Assistant's convention: config.yaml says `image: ghcr.io/jazzphone/mantel-app-{arch}` and the
+    # Supervisor pulls <image with its arch>:<version>. One single-architecture image per arch, built from
+    # the folder the stager writes (the same Dockerfile and app/ a local build-from-source App gets).
+    name: App image ${{ matrix.app.image }}-${{ matrix.arch.ha }}
+    needs: version
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: true
+      matrix:
+        app:
+          - { image: mantel-app, stager: tools/stage_ha_app.py, title: "Mantel", description: "Mantel Server as a Home Assistant App" }
+          - { image: mantel-connect-app, stager: tools/stage_connect_app.py, title: "Mantel Connect", description: "Mantel Connect as a Home Assistant App" }
+        arch:
+          - { ha: amd64, platform: linux/amd64 }
+          - { ha: aarch64, platform: linux/arm64 }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      # staging runs the private-content scan and stops on any finding
+      - run: python "${{ matrix.app.stager }}" "$RUNNER_TEMP/app"
+        env:
+          HK_PRIVATE: ${{ secrets.HK_PRIVATE }}
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - if: needs.version.outputs.publish == 'true'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: ${{ runner.temp }}/app
+          file: ${{ runner.temp }}/app/Dockerfile
+          platforms: ${{ matrix.arch.platform }}
+          push: ${{ needs.version.outputs.publish == 'true' }}
+          # a plain single-architecture image, as the Supervisor pulls it (no attestation index around it)
+          provenance: false
+          tags: ${{ env.REGISTRY }}/${{ matrix.app.image }}-${{ matrix.arch.ha }}:${{ needs.version.outputs.version }}
+          labels: |
+            org.opencontainers.image.title=${{ matrix.app.title }}
+            org.opencontainers.image.description=${{ matrix.app.description }}
+            org.opencontainers.image.source=${{ env.SOURCE_URL }}
+            org.opencontainers.image.version=${{ needs.version.outputs.version }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.licenses=MIT
+            io.hass.name=${{ matrix.app.title }}
+            io.hass.description=${{ matrix.app.description }}
+            io.hass.version=${{ needs.version.outputs.version }}
+            io.hass.type=addon
+            io.hass.arch=${{ matrix.arch.ha }}
+          cache-from: type=gha,scope=${{ matrix.app.image }}-${{ matrix.arch.ha }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.app.image }}-${{ matrix.arch.ha }}
+
+  docker-images:
+    # The compose stack's images (packaging/compose/compose.yaml builds the same targets from source), one
+    # multi-arch manifest each, tagged with the version and latest.
+    name: Docker image ${{ matrix.image }}
+    needs: version
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - { image: mantel-server, context: ., file: packaging/docker/Dockerfile, target: server, title: "Mantel Server" }
+          - { image: mantel-transcode, context: ., file: packaging/docker/Dockerfile, target: transcode, title: "Mantel Live TV transcode (go2rtc and ffmpeg)" }
+          - { image: mantel-caddy, context: packaging/docker, file: packaging/docker/caddy.Dockerfile, target: "", title: "Caddy with the Cloudflare DNS module, for Mantel" }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - if: needs.version.outputs.publish == 'true'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.file }}
+          target: ${{ matrix.target }}
+          platforms: linux/amd64,linux/arm64
+          push: ${{ needs.version.outputs.publish == 'true' }}
+          build-args: |
+            VCS_REF=${{ github.sha }}
+          tags: |
+            ${{ env.REGISTRY }}/${{ matrix.image }}:${{ needs.version.outputs.version }}
+            ${{ env.REGISTRY }}/${{ matrix.image }}:latest
+          labels: |
+            org.opencontainers.image.title=${{ matrix.title }}
+            org.opencontainers.image.source=${{ env.SOURCE_URL }}
+            org.opencontainers.image.version=${{ needs.version.outputs.version }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.licenses=MIT
+          cache-from: type=gha,scope=${{ matrix.image }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.image }}
+
+  ha-apps:
+    # Last, so Home Assistant is never offered a version whose images are not there yet.
+    name: Add-on repository (ha-apps branch)
+    needs: [version, app-images, docker-images]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      # a dry run may take CHANGELOG.md's Unreleased section; a release needs its own (check_version --tag)
+      - env:
+          VERSION: ${{ needs.version.outputs.version }}
+          PUBLISH: ${{ needs.version.outputs.publish }}
+          HK_PRIVATE: ${{ secrets.HK_PRIVATE }}
+        run: |
+          extra=""
+          [ "$PUBLISH" = true ] || extra="--allow-unreleased"
+          python tools/publish_ha_apps.py "$RUNNER_TEMP/ha-apps" --version "$VERSION" $extra
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ha-apps-${{ needs.version.outputs.version }}
+          path: ${{ runner.temp }}/ha-apps
+      # one commit with no history, force-pushed: the branch always holds exactly the latest release
+      - if: needs.version.outputs.publish == 'true'
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cd "$RUNNER_TEMP/ha-apps"
+          git init -q -b ha-apps
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -q -m "Mantel $VERSION add-on repository" -m "Written by tools/publish_ha_apps.py from $GITHUB_SHA."
+          git push --force "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" HEAD:refs/heads/ha-apps
+          echo "ha-apps: Mantel $VERSION, add $SOURCE_URL#ha-apps in Home Assistant" >> "$GITHUB_STEP_SUMMARY"

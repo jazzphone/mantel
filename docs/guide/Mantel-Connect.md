@@ -46,11 +46,15 @@ This adds one published TLS port, 8766, and nothing else.
 
 ### 2. Install the Mantel Connect App in Home Assistant
 
-<!-- RELEASE: Mantel Connect is not in a published App repository yet. Today it is staged as a local App with tools/stage_connect_app.py into Home Assistant's local apps share. The steps below assume an App repository exists. -->
+1. In Home Assistant, **Settings → Apps → App store**, add Mantel's App
+   repository, `https://github.com/jazzphone/mantel#ha-apps` (the steps, and a
+   one-click link, are in [Install](Install.md#add-the-repository-and-install)).
+2. Install **Mantel Connect** (not **Mantel**: that one is Mantel Server itself).
+   Leave protection mode on. Home Assistant offers its updates like any App's.
 
-1. In Home Assistant, **Settings → Apps → App store**, add the Mantel App
-   repository.
-2. Install **Mantel Connect**. Leave protection mode on.
+To build it from source instead, `tools/stage_connect_app.py` copies it into
+Home Assistant's local Apps folder, the same way as the Mantel App
+([Install → Build the App from source](Install.md#build-the-app-from-source)).
 
 ### 3. Pair
 

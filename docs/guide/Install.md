@@ -46,16 +46,20 @@ Mantel starts **read-only**: it shows your home but sends no commands until you 
 
 ### Add the repository and install
 
-<!-- RELEASE: these steps need a published App repository first: a repository.yaml at the root of https://github.com/jazzphone/mantel, and the App's config.yaml pointing at a published image (an `image:` key) so the Supervisor installs and updates it without building. Until then, use "Build the App from source" below. -->
+Mantel's App repository is `https://github.com/jazzphone/mantel#ha-apps` (the `#ha-apps` at the end is part of it: it names the branch the App is published on).
+
+The quickest way: **[Add Mantel's repository to my Home Assistant](https://my.home-assistant.io/redirect/supervisor_add_addon_repository/?repository_url=https%3A%2F%2Fgithub.com%2Fjazzphone%2Fmantel%23ha-apps)**. The link opens your own Home Assistant (it asks for its address the first time) and offers to add the repository; then continue at step 4. Or, by hand:
 
 1. In Home Assistant, go to **Settings** → **Apps** → **App store** (called **Add-ons** → **Add-on store** in older versions).
 2. Select **⋮** (top right) → **Repositories**.
-3. Enter `https://github.com/jazzphone/mantel` and select **Add**. Close the dialog.
-4. Find **Mantel** in the store (refresh the page if it isn't there yet), open it and select **Install**.
+3. Enter `https://github.com/jazzphone/mantel#ha-apps` and select **Add**. Close the dialog.
+4. Find **Mantel** in the store (refresh the page if it isn't there yet), open it and select **Install**. Home Assistant downloads the ready-made App for your machine; nothing is built.
+
+Home Assistant offers each new release as an update (see [Updating](Updating.md#home-assistant-app)). The same repository also has **Mantel Connect**, which you need only when Mantel runs outside Home Assistant ([Mantel Connect](Mantel-Connect.md)).
 
 ### Build the App from source
 
-This works today. It copies Mantel into Home Assistant's local Apps folder, and the Supervisor builds it on your Home Assistant machine.
+Instead of installing from the repository, you can build the App yourself, for example to run code that isn't released yet. It copies Mantel into Home Assistant's local Apps folder, and the Supervisor builds it on your Home Assistant machine.
 
 You need a computer with **git** and **Python 3.12** or newer, and access to Home Assistant's `addons` folder (for example through the **Samba share** App).
 
