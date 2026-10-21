@@ -64,7 +64,7 @@ It touches no other container or VM, changes no host setting, edits no firewall 
    | How browsers reach Mantel over HTTPS | `dns01` (your domain on Cloudflare DNS), `internal` (Caddy's own certificate authority) or `own` (your own reverse proxy) |
    | The name browsers use | For example `mantel.example.com` |
    | Your proxy's address | Only with `own`: its IP address as Mantel will see it, or **Enter** to set it later in `.env` |
-   | Also a Cloudflare tunnel? | **No.** Mantel doesn't check Cloudflare Access's sign-in token yet; don't publish a tunnel for now. |
+   | Also a Cloudflare tunnel? | `yes` to reach Mantel from away (recommended over opening a port). Then follow [Remote access through a Cloudflare Tunnel](Install-Docker.md#remote-access-through-a-cloudflare-tunnel), Cloudflare Access included. |
 
 5. Check the summary and answer `y`. The install takes several minutes, most of it building the images. It ends with **Installed. Mantel is NOT running yet.**
 

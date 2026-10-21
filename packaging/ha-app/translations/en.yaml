@@ -44,3 +44,9 @@ configuration:
   lan_networks:
     name: Home networks
     description: With https, the networks (for example 192.0.2.0/24, separated by commas) whose devices get the home's rules at Mantel's own address; everything else gets the remote rules. Empty means the private ranges. Home Assistant's internal network never counts, so a device must reach this machine directly, not through the router's port forwarding.
+  cf_access_team:
+    name: Cloudflare Access team
+    description: Optional, with a Cloudflare Tunnel to the direct port. Your Cloudflare Zero Trust team name (myteam, from myteam.cloudflareaccess.com). Together with the AUD tag below, Mantel refuses every request through the tunnel that Cloudflare Access did not let through. The sidebar is never affected.
+  cf_access_aud:
+    name: Cloudflare Access AUD tag
+    description: Optional. The Application Audience (AUD) tag of Mantel's Access application, from Cloudflare Zero Trust, Access, Applications, the application's Overview. Several are separated by commas.

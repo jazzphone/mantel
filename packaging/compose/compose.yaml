@@ -116,6 +116,10 @@ services:
       MANTEL_FRAME_SRC: ${MANTEL_FRAME_SRC:-}
       MANTEL_FRAME_ANCESTORS: ${MANTEL_FRAME_ANCESTORS:-}
       MANTEL_PROXY_KIND: caddy
+      # Cloudflare Access in front of the tunnel (optional, recommended): the Zero Trust team name and the Access
+      # application's AUD tag. With both, Mantel refuses every tunnel request without a valid Access assertion
+      MANTEL_CF_ACCESS_TEAM: ${MANTEL_CF_ACCESS_TEAM:-}
+      MANTEL_CF_ACCESS_AUD: ${MANTEL_CF_ACCESS_AUD:-}
     volumes:
       - mantel-data:/data
       # the nightly encrypted backup's target (the NAS mount on the host); off unless
@@ -201,7 +205,8 @@ services:
     group_add:
       - "10001"
     # Reaches only Caddy's tunnel door (http://172.31.250.2:8080): set that as the public hostname's
-    # service in the Cloudflare dashboard. Cloudflare Access in front of it is mandatory (PLAN §7).
+    # service in the Cloudflare dashboard. Cloudflare Access in front of it is recommended; with
+    # MANTEL_CF_ACCESS_TEAM / MANTEL_CF_ACCESS_AUD set, Mantel checks Access's assertion on every tunnel request.
     networks:
       tunnel:
         ipv4_address: 172.31.250.3

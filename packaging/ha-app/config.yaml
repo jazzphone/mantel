@@ -66,6 +66,10 @@ options:
   acme_email: ""
   acme_staging: false
   lan_networks: ""
+  # Cloudflare Access in front of a tunnel to the direct port (DOCS.md): the Zero Trust team name and the Access
+  # application's AUD tag. Both empty (the default): not checked. Neither is a secret.
+  cf_access_team: ""
+  cf_access_aud: ""
 schema:
   commands_enabled: bool
   log_level: list(debug|info|warning|error)
@@ -82,3 +86,5 @@ schema:
   acme_email: "str?"
   acme_staging: bool
   lan_networks: "str?"
+  cf_access_team: "str?"
+  cf_access_aud: "str?"
