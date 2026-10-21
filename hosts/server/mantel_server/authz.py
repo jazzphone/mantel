@@ -378,12 +378,10 @@ class Authz:
         return out
 
     def may_view(self, principal: Any, entity_id: str) -> bool:
-        """Camera live view (``camera.live``): exactly True or False; no prompt can be shown here."""
-        if not isinstance(principal, Principal) or not principal.valid or not isinstance(entity_id, str):
-            return False
-        if not ENTITY_ID.match(entity_id):
-            return False
-        return self.decide(principal.subject, "camera.live", entity_id).allowed is True
+        """Camera live view: the subject may ``view`` the camera AND ``camera.live`` is allowed, as for its
+        still (``may_still``). ``camera.live`` alone let a camera hidden by a deny on ``view`` (gone from the
+        page, its still refused) still be watched by its guessed entity id. Exactly True or False."""
+        return self.may_still(principal, entity_id)
 
     def may_still(self, principal: Any, entity_id: str) -> bool:
         """A camera still (``GET /api/camera/<entity>/still``): the live-view policy. The subject may

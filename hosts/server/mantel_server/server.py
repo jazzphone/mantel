@@ -779,6 +779,25 @@ async def tick_once(app: web.Application, hub: Hub) -> None:
             continue
         s.view.policy_changed()
         s.wake.set()
+        await recheck_streams(s.ctx)
+
+
+async def recheck_streams(ctx) -> None:
+    """A live stream (a camera's WebRTC session, a Live TV channel) is asked again whether it may go on: its
+    unsubscribe carries a ``recheck`` (connectors/camera.py, live_tv.py). One no longer allowed is ended, so
+    losing a camera ends its stream, not only the next one."""
+    for key, unsub in list(ctx.subs.items()):
+        recheck = getattr(unsub, "recheck", None)
+        if recheck is None:
+            continue
+        try:
+            still = await recheck()
+        except Exception:  # noqa: BLE001 -- a check that fails is a no
+            log.exception("a live stream's check failed; ending it")
+            still = False
+        if not still:
+            log.info("ending a live stream no longer allowed (%s)", key)
+            await ctx.end(key)
 
 
 async def house_tz(app: web.Application, hub: Hub, attempts: int = 30) -> None:

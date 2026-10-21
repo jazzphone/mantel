@@ -821,21 +821,26 @@ def register(app, hub, hooks) -> FilteredReads:
         rid = msg.get("id")
 
         async def work():
-            if not isinstance(rid, int) or ("read", rid) in ctx.subs:
+            key = ("read", rid)
+            if not isinstance(rid, int) or not ctx.reserve(key):         # (taken before any await: Ctx.reserve)
                 raise ReadBlocked("invalid id")
-            inner = inner_of(msg)
+            try:
+                inner = inner_of(msg)
 
-            def on_event(ev: dict) -> None:
-                ctx.emit({"type": "read_event", "id": rid, "event": ev})
+                def on_event(ev: dict) -> None:
+                    ctx.emit({"type": "read_event", "id": rid, "event": ev})
 
-            route = routes.get(inner.get("type"))
-            if route is not None:
-                if route.subscribe is None:
-                    raise ReadBlocked(f"{inner.get('type')!r} is not a subscription")
-                unsub = await route.subscribe(ctx, inner, on_event)
-            else:
-                unsub = await reads.subscribe(ctx.identity, inner, on_event)
-            ctx.subs[("read", rid)] = unsub
+                route = routes.get(inner.get("type"))
+                if route is not None:
+                    if route.subscribe is None:
+                        raise ReadBlocked(f"{inner.get('type')!r} is not a subscription")
+                    unsub = await route.subscribe(ctx, inner, on_event)
+                else:
+                    unsub = await reads.subscribe(ctx.identity, inner, on_event)
+            except BaseException:
+                ctx.unreserve(key)
+                raise
+            await ctx.keep(key, unsub)
             return None
         await answer(ctx, rid, work())
 
