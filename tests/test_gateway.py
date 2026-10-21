@@ -455,7 +455,14 @@ async def test_the_music_assistant_gate_is_the_gateway(gw):
     assert REFUSE_ALL.allow(who, "player_queues/play", {}) is False
 
 
+MA_SPEAKERS = [{"entity_id": "media_player.kitchen_ma", "platform": "music_assistant", "unique_id": "q",
+                "area_id": "kitchen"},
+               {"entity_id": "media_player.cody_ma", "platform": "music_assistant", "unique_id": "cody",
+                "area_id": "cody_room"}]
+
+
 async def test_music_commands_are_unavailable_without_music_assistant(gw):
+    gw.app["hub"].registry.load(HOUSE_AREAS, [], HOUSE_ENTITIES + MA_SPEAKERS)
     await gw.login("avery", "owner")
     ws = await gw.socket()
     reply = await gw.command(ws, kind="ma", command="player_queues/play", args={"queue_id": "q"})
@@ -546,4 +553,37 @@ async def test_a_wall_tablet_may_watch_the_doorbell_but_not_switch_off_or_record
     assert gw.fake.sent == []
     (s,) = list(gw.app["hub"].sessions)
     assert gw.app["authz"].may_view(s.principal, "camera.doorbell") is True
+    await ws.close()
+
+
+
+async def test_a_raw_music_assistant_command_is_decided_on_each_player_it_names(gw):
+    """kind "ma" was decided on the music feature alone: a Child with music control drove every speaker, and had
+    Music Assistant fetch any address with an announcement."""
+    class Ma:
+        def __init__(self):
+            self.sent = []
+
+        async def command(self, identity, command, **args):
+            assert gw.app["gateway"].allow(identity, command, dict(args)) is True
+            self.sent.append(command)
+            return {"ok": True}
+
+        async def close(self):
+            pass
+    gw.app["ma"] = ma = Ma()
+    gw.app["hub"].registry.load(HOUSE_AREAS, [], HOUSE_ENTITIES + MA_SPEAKERS)
+    await gw.login("cody", "child")
+    gw.app["rbac"].set_scopes("user", _uid(gw, "cody"), ["cody_room"])
+    ws = await gw.socket()
+    other = await gw.command(ws, id=1, kind="ma", command="players/cmd/power", args={"player_id": "q", "powered": False})
+    group = await gw.command(ws, id=2, kind="ma", command="players/cmd/group_many",
+                             args={"target_player": "cody", "child_player_ids": ["q"]})
+    unknown = await gw.command(ws, id=3, kind="ma", command="players/cmd/play", args={"player_id": "nowhere"})
+    say = await gw.command(ws, id=4, kind="ma", command="players/cmd/play_announcement",
+                           args={"player_id": "cody", "url": "http://198.51.100.7/x.mp3"})
+    mine = await gw.command(ws, id=5, kind="ma", command="players/cmd/play", args={"player_id": "cody"})
+    assert [r.get("error", {}).get("code") for r in (other, group, unknown, say)] == \
+        ["forbidden", "forbidden", "unsupported_target", "forbidden"]
+    assert "result" in mine and ma.sent == ["players/cmd/play"]
     await ws.close()

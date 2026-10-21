@@ -57,7 +57,7 @@ import math
 import re
 import sqlite3
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from importlib.resources import files
 from typing import Any, Awaitable, Callable, Iterable
 
@@ -430,6 +430,36 @@ def classify(msg: dict, writes: frozenset[str]) -> Command:
     return Command("ma", command, [Check("control", feature="music")], ma=(command, args), targets=["feature:music"])
 
 
+# A RAW MUSIC ASSISTANT COMMAND names players by Music Assistant's ids. Each is decided as the media_player entity
+# it is in Home Assistant (music.ma_players), as Mantel's music engine decides each room's speaker: the music
+# feature alone let a Child drive every speaker. An announcement has Music Assistant fetch any address it is
+# given, so it is a settings-level action (Owner, Admin).
+MA_PLAYER_ARGS = ("player_id", "queue_id", "target_player", "source_queue_id", "target_queue_id")
+MA_PLAYER_LISTS = ("child_player_ids", "player_ids")
+
+
+def ma_player_checks(cmd: Command, players: dict[str, str]) -> Command:
+    """``cmd`` (kind ma) with a check per player it names; ``players`` is {MA player id: media_player entity}."""
+    command, args = cmd.ma
+    named: list[str] = [args[k] for k in MA_PLAYER_ARGS if k in args]
+    for k in MA_PLAYER_LISTS:
+        if k in args:
+            if not isinstance(args[k], list):
+                raise Refused("invalid_command", f"{k} is a list of players")
+            named += args[k]
+    entities = []
+    for pid in named:
+        eid = players.get(pid) if isinstance(pid, str) else None
+        if eid is None:
+            raise Refused("unsupported_target", "not a Music Assistant player of this house's")
+        entities.append(eid)
+    action = "media_player.turn_off" if command == "players/cmd/power" else "media_player.play_media"
+    checks = list(cmd.checks) + [Check(action, eid) for eid in dict.fromkeys(entities)]
+    if command == "players/cmd/play_announcement":
+        checks.append(Check("configure", feature="settings"))
+    return replace(cmd, checks=checks, targets=list(dict.fromkeys(entities)) or cmd.targets)
+
+
 # -- the audit -----------------------------------------------------------------------------------
 class Audit:
     """``action_audit`` (migration 0004): one row per command, written before anything is sent;
@@ -619,6 +649,9 @@ class Gateway:
             return await reply(fail("unauthenticated", "the session or device is no longer valid"))
         try:
             cmd = classify(msg, self.writes)
+            if cmd.kind == "ma":
+                from .music import ma_players
+                cmd = ma_player_checks(cmd, {pid: eid for eid, pid in ma_players(self.app["hub"].registry).items()})
         except Refused as exc:
             aid = self.audit.record(principal=principal, kind=_kind(msg), action=_action(msg), targets=[],
                                     decision="denied", reason=exc.code, result="not_sent")

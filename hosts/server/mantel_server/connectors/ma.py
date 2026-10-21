@@ -40,7 +40,7 @@ from typing import Any, Callable, Iterable, Mapping
 
 import aiohttp
 
-from . import REFUSE_ALL, Ctx, Hooks, may_feature, resolve, ws_handlers
+from . import REFUSE_ALL, Ctx, Hooks, allowed_ids, may_feature, resolve, ws_handlers
 
 log = logging.getLogger("mantel.ma")
 
@@ -72,6 +72,11 @@ MA_READS: dict[str, frozenset[str]] = {
     "music/recently_played_items": frozenset({"limit", "media_types"}),
 }
 LIBRARY_TYPES = ("artists", "albums", "tracks", "playlists", "radios", "audiobooks", "podcasts")
+
+# The reads about one player (the arg naming it), and the lists of players (each item's id): answered only for
+# the players the subject may view (register's `visible`).
+PLAYER_READS = {"player_queues/get_active_queue": "player_id", "player_queues/items": "queue_id"}
+PLAYER_LISTS = {"players/all": "player_id", "player_queues/all": "queue_id"}
 
 # The command catalog: sent ONLY through command(), ONLY when the gate allows. (P3.3 audits them.)
 MA_COMMANDS: dict[str, frozenset[str]] = {
@@ -476,6 +481,16 @@ def register(app, hub, hooks) -> MaClient | None:
             return False
         return True
 
+    # THE SPEAKERS ONE MAY SEE (Music-and-Cameras.md: "Up Next for a speaker you may not see answers as if it
+    # did not exist"): Music Assistant's players are Home Assistant's media_player entities (music.ma_players),
+    # and a read or an event about a player answers only for the ones the subject may view.
+    async def visible(ctx: Ctx) -> set[str]:
+        from ..music import ma_players
+        hub = app.get("hub")
+        players = ma_players(hub.registry) if hub is not None else {}
+        ok = await allowed_ids(hooks, ctx.identity, "view", list(players))
+        return {pid for eid, pid in players.items() if eid in ok}
+
     async def on_read(ctx: Ctx, msg: dict) -> None:
         rid = msg.get("id")
         if not await allowed(ctx, rid):
@@ -486,7 +501,15 @@ def register(app, hub, hooks) -> MaClient | None:
                 raise MaBlocked("ma/read carries type, id, command and args only")
             if not isinstance(args, dict):
                 raise MaBlocked("args must be an object")
-            result = await current().read(msg.get("command"), **args)  # type: ignore[union-attr,arg-type]
+            command = msg.get("command")
+            mine = await visible(ctx) if command in PLAYER_READS or command in PLAYER_LISTS else set()
+            if command in PLAYER_READS:
+                named = args.get(PLAYER_READS[command])
+                if named is not None and named not in mine:
+                    return await fail(ctx, rid, "not_found", "no such player")
+            result = await current().read(command, **args)  # type: ignore[union-attr,arg-type]
+            if command in PLAYER_LISTS and isinstance(result, list):
+                result = [x for x in result if isinstance(x, dict) and x.get(PLAYER_LISTS[command]) in mine]
         except MaBlocked as exc:
             log.warning("refused an MA read: %s", exc)
             return await fail(ctx, rid, "not_allowed", str(exc))
@@ -504,7 +527,12 @@ def register(app, hub, hooks) -> MaClient | None:
         if (not isinstance(rid, int) or ("ma", rid) in ctx.subs or set(msg) - {"type", "id", "events"}
                 or (events is not None and not (isinstance(events, list) and all(isinstance(e, str) for e in events)))):
             return await fail(ctx, rid, "invalid")
-        stop = current().subscribe(lambda ev: ctx.emit({"type": "ma_event", "id": rid, "event": ev}), events)  # type: ignore[union-attr]
+        async def out(ev: Any) -> None:
+            pid = ev.get("object_id") if isinstance(ev, dict) and str(ev.get("event") or "").startswith(("player", "queue")) else None
+            if pid is None or pid in await visible(ctx):
+                await ctx._emit({"type": "ma_event", "id": rid, "event": ev})
+        # each event is checked in order (a task each, as ctx.emit sends them)
+        stop = current().subscribe(lambda ev: asyncio.get_running_loop().create_task(out(ev)), events)  # type: ignore[union-attr]
 
         async def unsubscribe() -> None:
             stop()

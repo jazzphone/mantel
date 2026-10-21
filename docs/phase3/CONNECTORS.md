@@ -299,9 +299,9 @@ target navigated or closed").
   drops, `ReadProxy` clears its subscriptions without telling them. The camera card recovers
   through its own `connectionState` retry. A later slice could send `{"type": "error", "code":
   "connection_lost"}`.
-- **`ma/read` is gated per feature (`feature:music`), not per player.** MA player ids aren't HA
-  entity ids. The map now exists (`music.ma_players`: the registry's `music_assistant` entities'
-  `unique_id`), and the music engine's own reads filter by entity; `ma/read` could use it too.
+- **`ma/read` and `ma/subscribe` answer per player** (2026-10 audit): a player's queue, the player
+  lists and player and queue events only for the players whose `media_player` entity the subject may
+  view (`music.ma_players` maps them). Gated per feature only, they gave a Child every room's queue.
 - **`ma_url` and `ma_token_file` are config fields only, not CLI arguments.** Packaging (P3.6) and
   the settings import decide how they're set.
 
