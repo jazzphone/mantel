@@ -315,3 +315,15 @@ def test_a_refused_live_view_is_logged_once_per_camera_per_interval(caplog):
     lines = [r.getMessage() for r in caplog.records if "refused camera view" in r.getMessage()]
     assert len(lines) == 3
     cam._refused_at.clear()
+
+
+async def test_media_browsing_offers_no_camera_recordings(env):
+    """Only media-source://camera was pruned: a Child (media browsing is decided as music) could list Frigate's
+    or UniFi Protect's recordings of every camera."""
+    from mantel_server import readproxy as R
+    tree = {"title": "Media", "children": [
+        {"title": "Radio", "media_content_id": "media-source://radio_browser"},
+        {"title": "Cameras", "media_content_id": "media-source://camera"},
+        {"title": "Frigate", "media_content_id": "media-source://frigate/frigate/event-search/clips"},
+        {"title": "UniFi Protect", "media_content_id": "media-source://unifiprotect/abc:all:all"}]}
+    assert [c["title"] for c in R._no_camera(tree)["children"]] == ["Radio"]

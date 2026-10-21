@@ -534,7 +534,11 @@ async def test_entities_named_in_a_services_data_are_decided_too(gw):
     music = await gw.command(ws, id=3, **service("media_player", "play_media", "media_player.cody",
                                                  data={"media_content_id": "media-source://radio/x",
                                                        "media_content_type": "music"}))
+    clip = await gw.command(ws, id=4, **service("media_player", "play_media", "media_player.cody",
+                                                data={"media_content_id": "media-source://frigate/frigate/event/x",
+                                                      "media_content_type": "video"}))
     assert join["error"]["code"] == "forbidden" and cast["error"]["code"] == "forbidden", (join, cast)
+    assert clip["error"]["code"] == "forbidden", clip
     assert "result" in music and gw.fake.sent == ["media_player.play_media"]
     await ws.close()
 
@@ -586,4 +590,30 @@ async def test_a_raw_music_assistant_command_is_decided_on_each_player_it_names(
     assert [r.get("error", {}).get("code") for r in (other, group, unknown, say)] == \
         ["forbidden", "forbidden", "unsupported_target", "forbidden"]
     assert "result" in mine and ma.sent == ["players/cmd/play"]
+    await ws.close()
+
+
+async def test_the_person_who_unlocked_from_away_cannot_dismiss_the_owners_notice(gw):
+    """The Owners' "remote access" notice is mantel_remote_<audit id>, and the client is told the audit id: the
+    Adult who unlocked from away could dismiss the notice about it. Mantel's own notices, and dismissing every
+    notice at once, are settings-level."""
+    import asyncio
+    await gw.login("jordan", "adult")
+    seed = await gw.enroll_totp()
+    gw.m.forget_cookies()
+    gw.now[0] += 60
+    r, body = await gw.m.sign_in("jordan", tunnel=True)
+    r = await gw.m.post("/api/auth/totp/verify", {"pending": body["pending"], "code": totp(seed, gw.now[0])},
+                        csrf=False, tunnel=True)
+    ws = await gw.socket(tunnel=True)
+    rep = await gw.command(ws, **service("lock", "unlock", "lock.front_door"))
+    await asyncio.sleep(0.05)
+    mine = await gw.command(ws, id=2, kind="service", domain="persistent_notification", service="dismiss",
+                            data={"notification_id": f"mantel_remote_{rep['audit_id']}"})
+    every = await gw.command(ws, id=3, kind="service", domain="persistent_notification", service="dismiss_all")
+    other = await gw.command(ws, id=4, kind="service", domain="persistent_notification", service="dismiss",
+                             data={"notification_id": "washer_done"})
+    assert mine["error"]["code"] == "forbidden" and every["error"]["code"] == "forbidden"
+    assert "result" in other
+    assert gw.fake.sent == ["lock.unlock", "persistent_notification.create", "persistent_notification.dismiss"]
     await ws.close()

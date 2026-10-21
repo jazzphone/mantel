@@ -63,7 +63,7 @@ from typing import Any, Awaitable, Callable, Iterable
 
 from aiohttp import web
 
-from . import alarm_pin
+from . import alarm_pin, readproxy
 from .authz import ENTITY_ID, Authz, Principal
 from .ha_client import (TALK_ENTITY, TALK_LIVE_TYPE, CommandBlocked, CommandTicket, HaCommandError, HaCommander,
                         HTTP_METHODS, UPLOAD_MAX_BYTES, UPLOAD_METHOD, UPLOAD_MIN_BYTES, UPLOAD_TYPES, _API_PATH,
@@ -89,6 +89,7 @@ _NAME = re.compile(r"^[a-z0-9_]+$")
 # `configure` on `settings` (Owner/Admin), so an Adult's "control everything" never reaches
 # homeassistant.restart, recorder.purge and the like.
 FEATURE_SERVICES = {"notify": "notifications", "persistent_notification": "notifications"}
+MANTEL_NOTICE = "mantel_"            # the notification ids of Mantel's own notices in HA (mantel_remote_<audit id>)
 SCRIPT_MANAGEMENT = frozenset({"turn_on", "turn_off", "toggle", "reload"})
 # Remote (tunnel) actions that notify the Owners (PLAN §7: "an Owner notification on every remote
 # unlock/disarm"): the sensitive kinds of locks and alarm panels.
@@ -189,6 +190,9 @@ def data_checks(data: dict) -> tuple[list[Check], list[str]]:
         if m is None or not m.group(1).startswith("camera."):
             raise Refused("unsupported_target", "a camera as media names one camera entity")
         checks += [Check("view", m.group(1)), Check("camera.live", m.group(1))]
+    elif isinstance(media, str) and media.startswith(readproxy.CAMERA_MEDIA):
+        # an NVR's recording (Frigate, UniFi Protect, ...) names no camera entity: the cameras' own live-view right
+        checks.append(Check("camera.live", feature="cameras"))
     return checks, list(dict.fromkeys(c.target for c in checks))
 
 
@@ -228,6 +232,12 @@ def service_command(domain: Any, service: Any, data: Any, target: Any, return_re
         checks = [Check(action, eid) for eid in ids]
     elif domain in FEATURE_SERVICES:
         checks = [Check(action, feature=FEATURE_SERVICES[domain])]
+        if domain == "persistent_notification" and service != "create" and not (
+                isinstance(data.get("notification_id"), str) and not data["notification_id"].startswith(MANTEL_NOTICE)):
+            # Mantel's own notices for the Owners (an unlock from away, _notify_owners) are not the actor's to
+            # take away: the person who unlocked could dismiss the notice about it. Dismissing one, or every
+            # notice at once (dismiss_all), is a settings-level change.
+            checks.append(Check("configure", feature="settings"))
     elif domain == "script" and service not in SCRIPT_MANAGEMENT:
         ids = [f"script.{service}"]                       # script.<name>: running that script
         checks = [Check(action, ids[0])]

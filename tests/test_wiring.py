@@ -347,3 +347,18 @@ async def test_the_house_time_zone_is_asked_for_until_home_assistant_answers(off
     await server.house_tz(off.app, hub)
     assert hub.readproxy.asked == 41 and authz.tz == "America/New_York"
     assert max(waits) == 60.0
+
+
+async def test_a_room_given_to_a_child_reaches_their_open_screen_at_once(off):
+    """A room scope is part of the subject; notify_sessions re-filtered with the principal's old scope, so a room
+    given (or taken away) showed only at the next minute's tick."""
+    from mantel_server.rbac_store import notify_sessions
+    await off.login("cody", "child")
+    ws = await off.socket(expect_caps=False)
+    snap = await subscribe_all(ws)
+    assert not any(e.startswith("light.cody") for e in (snap or {}).get("entities", {}))
+    off.app["rbac"].set_scopes("user", uid(off, "cody"), ["cody_room"])
+    notify_sessions(off.app["hub"])                              # what the Roles & Grants routes do
+    diff = await recv(ws)
+    assert any(e.startswith("light.cody") for e in diff["added"]), diff
+    await ws.close()
