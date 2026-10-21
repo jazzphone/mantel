@@ -527,21 +527,23 @@
   }
 
   // ------------------------------------------------------------ the switch
-  function switchState() {
+  function switchState(c) {
+    c = c || cfg;
     var h = clientNow();
-    var s = cfg && cfg.entity && h && h.states[cfg.entity];
+    var s = c && c.entity && h && h.states[c.entity];
     return s ? s.state : null;
   }
-  function writeSwitch(want) {
-    if (!cfg || !cfg.entity) return;
+  function writeSwitch(want, c) {
+    c = c || cfg;                  // (the options the screensaver showed with, when they just went: refresh)
+    if (!c || !c.entity) return;
     // ONLY THE TABLET'S OWN USER WRITES IT -- never a forced test page
     // (?hk_saver=force, hkSaver.force()), whatever the gate lets it show
     if (!mine() || /[?&]hk_saver=force\b/.test(location.search) || force) return;
     var act = actionsNow();
-    if (!act || switchState() === want) return;
+    if (!act || switchState(c) === want) return;
     pendingSwitch = { want: want, until: Date.now() + ECHO_MS };
     try {
-      act.callService(cfg.entity.split('.')[0], want === 'on' ? 'turn_on' : 'turn_off', { entity_id: cfg.entity });
+      act.callService(c.entity.split('.')[0], want === 'on' ? 'turn_on' : 'turn_off', { entity_id: c.entity });
     } catch (e) { /* offline: the next state change sorts it out */ }
   }
   // A TOUCH ON THE SCREEN, told to the integration (screensaver.py): its
@@ -4323,11 +4325,15 @@
       // ...and a preview asked for before there was a config (the frame's
       // dashboard, or its settings, still arriving) starts once there is one
       if (previewOn && !on && cfg) setTimeout(function () { if (previewOn && !on && cfg) start('preview'); }, 0);
-      if (!cfg && on) stop('config');
+      // turned off while it shows: its switch goes off too (stop('config') alone left it on, and turning the
+      // screensaver back on started it at once, "by the switch", instead of after Starts After)
+      if (!cfg && on) { writeSwitch('off', was); stop('config'); }
       if (deck && cfg && deck.order !== cfg.order) deck = null;
+      // a new Starts After counts from the last touch now, not when the old (longer) timer runs out
+      if (was && cfg && !on && idleT) armIdle();
     }
     if (!cfg) { if (idleT) { clearTimeout(idleT); idleT = null; } return; }
-    if (!allowed()) { if (on) stop('config'); if (idleT) { clearTimeout(idleT); idleT = null; } return; }
+    if (!allowed()) { if (on) { writeSwitch('off'); stop('config'); } if (idleT) { clearTimeout(idleT); idleT = null; } return; }
     if (!idleT && !on) armIdle();
   }
   var refreshedAt = 0;
