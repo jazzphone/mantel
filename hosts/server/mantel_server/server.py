@@ -50,6 +50,7 @@ from .registry import Registry
 from .state import StateStore
 from .stats import Counter
 from .view import ClientView, Coalescing, filter_registry
+from hk_core.settings import model as settings_model
 
 POLICY_TICK = 60.0          # seconds between re-checks of what each socket may see (schedules, revocations)
 
@@ -824,6 +825,9 @@ async def house_tz(app: web.Application, hub: Hub, attempts: int | None = None) 
             got = await hub.readproxy.request({"type": "get_config"})  # type: ignore[union-attr]
             if app.get("frame_origins") is not None:
                 app["frame_origins"].learn(got)      # HA's own addresses may frame Mantel (frame_origins.py)
+            if isinstance(got, dict):
+                # latitude and country set the defaults a house has not chosen (hemisphere, US-only themes)
+                settings_model.set_house_place(got.get("latitude"), got.get("country"))
             tz = got.get("time_zone") if isinstance(got, dict) else None
             if isinstance(tz, str) and tz:
                 if authz.set_tz(tz, "home_assistant"):

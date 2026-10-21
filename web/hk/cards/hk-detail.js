@@ -5616,7 +5616,7 @@
       _go(v) { this._view = v; this._built = false; this._render(); }
       _range(s) {
         var a = s.attributes || {};
-        var c = this.client, unit = (c && c.config && c.config.unit_system && c.config.unit_system.temperature) || '°F';
+        var c = this.client, unit = window.hkLocale.units().temp;
         var lo = num(a.min_temp), hi = num(a.max_temp);
         if (lo == null) lo = /C/.test(unit) ? 30 : 90;
         if (hi == null || hi <= lo) hi = /C/.test(unit) ? 70 : 150;

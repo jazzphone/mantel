@@ -83,7 +83,7 @@
       var cfg = this._config || {};
       var u = !cfg.value_attribute && st && st.attributes && st.attributes.unit_of_measurement;
       if (!u || String(u).charAt(0) !== '\u00b0') {
-        u = ((((this.client || {}).config || {}).unit_system || {}).temperature) || '\u00b0F';
+        u = window.hkLocale.units().temp;
       }
       return String(u);
     }

@@ -304,8 +304,8 @@
     var h24 = !!opts.h24;
     function tick() {
       var now = new Date(), tz = window.hkStats && window.hkStats.tz ? window.hkStats.tz() : undefined;
-      var t = now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: !h24, timeZone: tz }).split(' ');
-      var d = now.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', timeZone: tz });
+      var t = now.toLocaleTimeString(window.hkLocale.tag(), window.hkLocale.clock({ hour: 'numeric', minute: '2-digit', hour12: !h24, timeZone: tz })).split(' ');
+      var d = now.toLocaleDateString(window.hkLocale.tag(), window.hkLocale.zoned({ weekday: 'long', month: 'long', day: 'numeric', timeZone: tz }));
       var tEl = el.querySelector('.ent'), dEl = el.querySelector('.end'), wEl = el.querySelector('.enw');
       var th = esc(t[0]) + (t[1] ? '<small>' + esc(t[1]) + '</small>' : '');
       if (tEl.innerHTML !== th) tEl.innerHTML = th;

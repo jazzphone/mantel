@@ -186,9 +186,9 @@
     return String(c || '').replace(/-/g, ' ').replace(/\b\w/g, function (x) { return x.toUpperCase(); });
   }
   // Keep the hour and AM/PM together with the same visible spacing.
-  function hourOf(t) { return new Date(t).toLocaleTimeString('en-US', { hour: 'numeric', timeZone: tz() }).replace(/\s+(?=[AP]M$)/, '\u00a0'); }
-  function dayOf(t) { return new Date(t).toLocaleDateString('en-US', { weekday: 'short', timeZone: tz() }); }
-  function longDayOf(t) { return new Date(t).toLocaleDateString('en-US', { weekday: 'long', timeZone: tz() }); }
+  function hourOf(t) { return new Date(t).toLocaleTimeString(window.hkLocale.tag(), window.hkLocale.clock({ hour: 'numeric', timeZone: tz() })).replace(/\s+(?=[AP]M$)/, '\u00a0'); }
+  function dayOf(t) { return new Date(t).toLocaleDateString(window.hkLocale.tag(), window.hkLocale.zoned({ weekday: 'short', timeZone: tz() })); }
+  function longDayOf(t) { return new Date(t).toLocaleDateString(window.hkLocale.tag(), window.hkLocale.zoned({ weekday: 'long', timeZone: tz() })); }
   var DIRS = ['north', 'northeast', 'east', 'southeast', 'south', 'southwest', 'west', 'northwest'];
   function dirOf(b) { b = num(b); return b == null ? '' : DIRS[Math.round(((b % 360) + 360) % 360 / 45) % 8]; }
   var WET = /rain|pour|snow|hail|lightning/;
@@ -259,7 +259,7 @@
     }
     if (!off.wind) {
       var ws = num(a.wind_speed), gust = num(a.wind_gust_speed), dir = dirOf(a.wind_bearing);
-      if (ws != null) stats.push(['wind', 'Wind', Math.round(ws) + '<u>' + esc(unitWind || a.wind_speed_unit || 'mph') + '</u>',
+      if (ws != null) stats.push(['wind', 'Wind', Math.round(ws) + '<u>' + esc(unitWind || a.wind_speed_unit || window.hkLocale.units().speed) + '</u>',
         ws < 3 ? 'Calm' + (dir ? ', from the ' + dir : '') : (dir ? 'From the ' + dir : 'Steady') + (gust != null && gust > ws + 2 ? ', gusts ' + Math.round(gust) : '')]);
     }
     var hours = off.hours ? [] : hrs.filter(function (h) { return +new Date(h.datetime) > now; }).slice(0, 5);
@@ -299,8 +299,8 @@
   function alertTime(end, now, h24) {
     if (end == null) return 'Active alert';
     var d = new Date(end), z = tz(), opts = { hour: 'numeric', minute: '2-digit', hour12: !h24, timeZone: z };
-    if (d.toLocaleDateString('en-US', { timeZone: z }) !== new Date(now).toLocaleDateString('en-US', { timeZone: z })) opts.weekday = 'short';
-    return 'Until ' + d.toLocaleTimeString('en-US', opts);
+    if (d.toLocaleDateString(window.hkLocale.tag(), window.hkLocale.zoned({ timeZone: z })) !== new Date(now).toLocaleDateString(window.hkLocale.tag(), window.hkLocale.zoned({ timeZone: z }))) opts.weekday = 'short';
+    return 'Until ' + d.toLocaleTimeString(window.hkLocale.tag(), opts);
   }
   var hd = { states: null };
 
@@ -358,11 +358,11 @@
     function weather() { var id = wid(); return id && client.states[id] ? client.states[id] : null; }
     function tick() {
       var now = new Date(), z = tz();
-      var t = now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: !h24, timeZone: z }).split(' ');
+      var t = now.toLocaleTimeString(window.hkLocale.tag(), window.hkLocale.clock({ hour: 'numeric', minute: '2-digit', hour12: !h24, timeZone: z })).split(' ');
       var th = esc(t[0]) + (t[1] ? '<small>' + esc(t[1]) + '</small>' : '');
       var tEl = inn.querySelector('.wxt'), dEl = inn.querySelector('.wxd');
       if (tEl.innerHTML !== th) tEl.innerHTML = th;
-      var d = now.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', timeZone: z });
+      var d = now.toLocaleDateString(window.hkLocale.tag(), window.hkLocale.zoned({ weekday: 'long', month: 'long', day: 'numeric', timeZone: z }));
       if (dEl.textContent !== d) dEl.textContent = d;
       freshness();
       updateAlerts();

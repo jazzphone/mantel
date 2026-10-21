@@ -641,7 +641,7 @@
       // THE SENSOR'S OWN UNIT, and the comfort band in it: 66-74 °F unless
       // the card says otherwise (cool_below / warm_above), 19-23 in °C.
       var tst = cfg.temperature && this._st(cfg.temperature);
-      var unit = (tst && tst.attributes && tst.attributes.unit_of_measurement) || '°F';
+      var unit = (tst && tst.attributes && tst.attributes.unit_of_measurement) || window.hkLocale.units().temp;
       var celsius = /C$/.test(unit);
       var cool = cfg.cool_below != null ? Number(cfg.cool_below) : (celsius ? 19 : 66);
       var warm = cfg.warm_above != null ? Number(cfg.warm_above) : (celsius ? 23 : 74);

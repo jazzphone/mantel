@@ -124,6 +124,7 @@
       }
     });
   }
+  var current = null;     // the newest client: what hkLocale (below) reads the house's language and zone from
   function create(port) {
     if (!port || typeof port !== 'object') throw new Error('HKClient needs a host port');
     var client = {};
@@ -160,6 +161,7 @@
     Object.defineProperty(client, 'actions', { enumerable: true, value: actionPort(port) });
     Object.freeze(client);
     made.add(client);
+    current = client;
     return client;
   }
   // Shared code that still accepts a legacy host input asks this before adapting it.
@@ -207,5 +209,102 @@
                       DATA: DATA.slice(), METHODS: METHODS.slice(), WRITES: WRITES.slice(),
                       SUBSCRIPTIONS: SUBSCRIPTIONS.slice(), SUBSCRIBE_EVENTS: SUBSCRIBE_EVENTS.slice(),
                       ACTIONS: ['callService', 'callWS', 'request', 'liveSocket'] };
+
+  // THE HOUSE'S LOCALE, for every screen that writes a time, a date or a number. One place reads the client's
+  // `locale` (HA's user locale: language, number_format, time_format, time_zone) and `config` (language,
+  // country, time_zone), so a house that is not en-US reads its own days, 24-hour clock and number marks
+  // (hk-client.js is the one file both hosts load first). Before a client exists, and for an en-US house, it
+  // answers 'en-US' as the screens always did.
+  var tzOK = {};
+  function zoneOK(z) {
+    if (!(z in tzOK)) {
+      try { new Intl.DateTimeFormat('en-US', { timeZone: z }); tzOK[z] = true; } catch (e) { tzOK[z] = false; }
+    }
+    return tzOK[z];
+  }
+  function cur() {
+    var c = current || {};
+    return { loc: c.locale || {}, cfg: c.config || {}, lang: c.language };
+  }
+  // the BCP-47 tag the formatters use: the language HA speaks, with the house's country when the language
+  // has no region of its own ('en' + GB = en-GB, 'de' + DE = de-DE). No language: en-US.
+  function tag() {
+    var c = cur(), l = String(c.loc.language || c.lang || c.cfg.language || 'en').replace(/_/g, '-');
+    var cc = String(c.cfg.country || '').toUpperCase();
+    if (l.indexOf('-') < 0 && /^[A-Z]{2}$/.test(cc)) {
+      try { if (Intl.DateTimeFormat.supportedLocalesOf([l + '-' + cc]).length) l = l + '-' + cc; } catch (e) { /* as it was */ }
+    }
+    try { Intl.DateTimeFormat.supportedLocalesOf([l]); } catch (e) { l = 'en-US'; }
+    return l === 'en' ? 'en-US' : l;
+  }
+  // HA's zone for the house ('local' in the locale: this browser's own); undefined = the browser's
+  function zone() {
+    var c = cur();
+    if (c.loc.time_zone === 'local') return undefined;
+    var z = c.cfg.time_zone;
+    return z && zoneOK(z) ? z : undefined;
+  }
+  // true / false when the person chose a 12 or 24-hour clock; undefined: the language's own
+  function hour12() {
+    var f = String(cur().loc.time_format || 'language');
+    return f === 'am_pm' || f === '12' ? true : f === 'twenty_four' || f === '24' ? false : undefined;
+  }
+  // true when the clock in force is 24-hour (the screensaver clock's h24 option follows the same)
+  function is24() {
+    var h = hour12();
+    if (h !== undefined) return !h;
+    try { return !new Intl.DateTimeFormat(tag(), { hour: 'numeric' }).resolvedOptions().hour12; } catch (e) { return false; }
+  }
+  var NUMBERS = { comma_decimal: 'en-US', decimal_comma: 'de-DE', space_comma: 'fr-FR' };
+  function numTag() {
+    var n = String(cur().loc.number_format || 'language');
+    return NUMBERS[n] || (n === 'system' ? undefined : tag());
+  }
+  function withZone(o) {
+    var out = Object.assign({}, o || {});
+    // timeZone: 'local' = this browser's (a Date made from a calendar day's own fields)
+    if (out.timeZone === 'local') delete out.timeZone;
+    else if (out.timeZone == null) { var z = zone(); if (z) out.timeZone = z; else delete out.timeZone; }
+    return out;
+  }
+  function when(t) { return t instanceof Date ? t : new Date(t); }
+  global.hkLocale = {
+    tag: tag, zone: zone, hour12: hour12, is24: is24, numTag: numTag,
+    // the options a Date's own toLocale*String takes, with the house's zone (and a chosen 12 / 24-hour clock)
+    // added: for a call that must keep its Date's own shape (a split, a suffix)
+    zoned: withZone,
+    clock: function (o) {
+      var out = withZone(o);
+      if (out.hour12 === undefined && hour12() !== undefined) out.hour12 = hour12();
+      return out;
+    },
+    // a time of day: { hour: 'numeric', minute: '2-digit' } ... (hour12 only when the person chose one)
+    time: function (t, o) {
+      var out = withZone(o);
+      if (out.hour12 === undefined && hour12() !== undefined) out.hour12 = hour12();
+      return when(t).toLocaleTimeString(tag(), out);
+    },
+    // a date: { weekday: 'long', month: 'short', day: 'numeric' } ... (a time zone is the house's)
+    date: function (t, o) { return when(t).toLocaleDateString(tag(), withZone(o)); },
+    // either, by the fields asked for, as Date.toLocaleString does
+    dateTime: function (t, o) {
+      var out = withZone(o);
+      if (out.hour12 === undefined && ('hour' in out) && hour12() !== undefined) out.hour12 = hour12();
+      return when(t).toLocaleString(tag(), out);
+    },
+    // a number with the house's marks
+    number: function (v, o) { var n = Number(v), t = String(cur().loc.number_format) === 'none'; return n.toLocaleString(numTag(), t ? Object.assign({ useGrouping: false }, o || {}) : o); },
+    // metric (°C, km/h, mm, hPa) or imperial, from HA's unit system; undefined when it is not told
+    metric: function () {
+      var u = cur().cfg.unit_system;
+      if (!u) return undefined;
+      return String(u.temperature || '').indexOf('C') >= 0;
+    },
+    // the unit labels to show when a sensor gives none: HA's unit_system, else the older °F / mph
+    units: function () {
+      var u = cur().cfg.unit_system || {};
+      return { temp: u.temperature || '\u00b0F', speed: u.wind_speed || 'mph', length: u.length || 'mi' };
+    }
+  };
   try { global.dispatchEvent(new CustomEvent('hk-client-ready')); } catch (e) { /* shell tests */ }
 })(globalThis);
