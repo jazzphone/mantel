@@ -1108,6 +1108,20 @@ Everything on main since 0.1.28 (validation green: JS 130, HA py 732, Mantel 283
 - A new database opened by several processes at once no longer fails on the WAL switch.
 - Mantel Link unchanged (0.1.4). No HA backup (Avery).
 
+### 0.1.45 (2026-10-21)
+
+- **Each screen is drawn in one place** (docs/phase9/TWO-PRODUCTS.md, "One place per screen"): a screen's Where
+  (Mantel or Home Assistant); Mantel can add screens (Add Screen asks where; for Home Assistant it makes HK's
+  generated dashboard there), split one both drew, and remove one. A screen at an address both have is marked
+  and offers keep / make Home Assistant's / split.
+- **Connections -> Mantel in Home Assistant** (was Home Assistant Link), by product: Mantel Link, HK Frontend
+  (Changes from Home Assistant), Wall Tablets, Advanced (the bridge, The House).
+- **People lists Home Assistant's users once**, each linked to an existing person; an account made for one by role
+  can be merged into the person; a wall tablet's HA user is on Devices.
+- An action's message no longer rides up into a page's title.
+- With it, **HK Frontend 1.10.2** (a screen's where and title kept through its saves) and **Mantel Link 0.1.5**
+  (the page's new name in its pairing text), both copied by hand. No HA backup (Avery).
+
 ### Removal
 
 Stop and uninstall **Mantel** (Settings → Apps → Mantel → Uninstall); this removes its image and `/data`
