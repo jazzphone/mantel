@@ -185,3 +185,85 @@ Where the build differs from the proposal, the build is what holds:
     save from HA is refused while off and for an unlinked user, then made as the linked person and seen by HA's
     dashboards; moving The House back keeps Mantel's last settings in HK Frontend.
 
+
+## Proposed: one place per screen, a clearer Home Assistant page, people in one list (for Avery's OK, 2026-10-21)
+
+**Why.** Avery, looking at the result: the Screens list shows one row per screen, "Mantel, and HK Frontend in Home
+Assistant", where two dashboards were expected; the Home Assistant Link page mixes switches that are always the
+same; HA's people are listed apart from People, and tablet users exist both in Mantel and in HA. The cause: Mantel
+imported HK Frontend's dashboards under their own addresses, so a Mantel screen and the old HA dashboard at the
+same address are one screen with one set of settings. Avery (2026-10-21): "we can remove the tablet pages from Home
+Assistant and keep them in Mantel. The Tesla and the Home Dashboards are the only ones that should be in
+[Home Assistant] … rename the Mantel dashboard to Home-Mantel, because I use it for testing as well."
+
+### Where the reference house ends up
+
+| Screen | Drawn by | Address (key) | Notes |
+|---|---|---|---|
+| Home-Mantel | Mantel | `home-mantel` (new; was `dashboard-home`) | Mantel's Home, renamed; in HA's sidebar as today (`mantel-home`) |
+| Kitchen, Living Room, Loft, Master Bathroom, Master Bedroom | Mantel | unchanged | the wall tablets' screens; their old HA dashboards are removed |
+| Home | HK Frontend in HA | `dashboard-home` | HA's own, with its own settings (copied from Mantel's Home once) |
+| Tesla | HK Frontend in HA | `dashboard-tesla` | HA's own; Mantel no longer draws it |
+
+Each screen is drawn in **one** place. Settings stay one copy, in Mantel; an HA screen's settings are its own
+entry in that copy.
+
+### 1. Each screen says where it is drawn
+
+- A screen's board gets `where`: `mantel` (default) or `ha`. Mantel serves only `mantel` screens; HK Frontend's
+  dashboards in HA read `ha` ones through the mirror. Screens shows each with its own icon and label ("Mantel",
+  "Mantel · in Home Assistant's sidebar", "Home Assistant"), and an HA screen shows only options that work in HA.
+- **Add Screen** asks "Where: Mantel or Home Assistant" first. For Home Assistant, Mantel Link (or a linked HK
+  Frontend) creates the generated dashboard in HA (`strategy: custom:hk-dashboard`), so nobody writes YAML.
+- A screen at an address both have (today's case) is shown once with a warning and a choice: keep it Mantel's,
+  make it Home Assistant's, or split it (Mantel's gets a new address, HA keeps this one, each starts with today's
+  settings).
+
+### 2. The reference house's screens (house changes, each with Avery's approval)
+
+- **Split Home:** Mantel's becomes `home-mantel`, titled "Home-Mantel". Everything that names it moves with it
+  (tablets, Default Screens, people's own start screen, the framed `mantel-home` dashboard's address in HA,
+  favorites, history); the old address answers with a redirect. `dashboard-home` becomes an HA screen with a copy
+  of today's settings.
+- **Tesla:** `dashboard-tesla` becomes an HA screen. (Question: should Mantel keep a Tesla screen of its own too?)
+- **Remove the old tablet dashboards from HA:** `dashboard-kitchen`, `dashboard-livingroom`, `dashboard-loft`,
+  `dashboard-masterbathroom`, `hk-master-bedroom` (and HK Frontend's items for them). Their Lovelace files are
+  copied to the Mac first. Mantel's screens of the same names are untouched.
+
+### 3. The Home Assistant page
+
+Renamed **Home Assistant** (was Home Assistant Link), grouped by product:
+
+- **Mantel Link:** connected or not, its version; pairing.
+- **HK Frontend** (only when it is installed): connected; "Settings: Mantel's" while Mantel runs the house;
+  **Changes from Home Assistant: Saved / Refused** (today's Saves from Home Assistant), shown only then.
+- **Wall Tablets:** who runs each (Mantel or HK Frontend).
+- **Advanced** (collapsed): the bridge, and The House. Both are only changed during a move or to hand HK Frontend
+  back its house; their words say so.
+
+### 4. People in one list
+
+- **People** shows each person's Home Assistant user, and links an HA user to an **existing** person (today's
+  role-only link makes a separate Mantel account, so the same person can appear twice). Accounts made that way are
+  offered a **Merge into…** an existing person (sessions, start screen and history kept, the extra account
+  removed). The Home Assistant page's people list goes; it links to People.
+- **Devices** shows a wall tablet's HA user beside it (the existing tablet link, `ha_tablet_links`), so HA's
+  tablet users (kitchen, livingroom, …) are listed once, with their tablet. Since Mantel's tablets sign in with
+  their own credential, those HA users are only needed if a tablet also opens HA; Devices says so, and deleting
+  them stays Avery's step in HA.
+- HA users that are neither (service accounts such as `mqtt-user`, `claude`, `Mantel`) go under "Other Home
+  Assistant users", collapsed.
+
+### Order
+
+1. `where` on screens, Screens' labels, Add Screen's choice, the shared-address warning (tests, scratch HA).
+2. The Home Assistant page regrouped and renamed.
+3. People: link to an existing person, Merge, tablets' HA users in Devices.
+4. The reference house, step by step with approval: split Home (Home-Mantel), Tesla to HA, remove the old tablet
+   dashboards.
+
+### Questions for Avery
+
+- Does Mantel keep a Tesla screen too, or is Tesla only HA's?
+- Master Bedroom's HA dashboard (`hk-master-bedroom`) is a tablet page: removed with the others?
+- After the split, HA's Home starts as a copy of Mantel's Home: right, or start it from the defaults?
