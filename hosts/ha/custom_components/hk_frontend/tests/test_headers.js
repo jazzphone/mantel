@@ -107,16 +107,24 @@ H.run('page headers', [
     var m0 = midnight() / 1000;
     return answer(house, function () {
       return {
-        'climate.down': [{ s: 'heat_cool', a: { hvac_action: 'idle' }, lu: m0 }, { s: 'heat_cool', a: { hvac_action: 'cooling' }, lu: m0 + 3600 },
-                         { s: 'heat_cool', a: { hvac_action: 'idle' }, lu: m0 + 3600 + 45 * 60 }],
-        'climate.up': [{ s: 'heat_cool', a: { hvac_action: 'idle' }, lu: m0 }]
+        'climate.down': [{ s: 'heat_cool', a: { hvac_action: 'idle', current_temperature: 72 }, lu: m0 },
+                         { s: 'heat_cool', a: { hvac_action: 'cooling', current_temperature: 75 }, lu: m0 + 3600 },
+                         { s: 'heat_cool', a: { hvac_action: 'idle', current_temperature: 73 }, lu: m0 + 3600 + 45 * 60 }],
+        'climate.up': [{ s: 'heat_cool', a: { hvac_action: 'idle', current_temperature: 74 }, lu: m0 }]
       };
     }).then(function () {
       card.hass = house.hass();
       var html = drawn(card);
       H.ok('cooling only: "Cooling Through the Day"', html.indexOf('Cooling Through the Day') > 0, html.slice(0, 200));
       H.ok('the downstairs figure: 45 min (and whatever runs since)', /45<u>min<\/u>|<u>min<\/u>/.test(html) && html.indexOf('Downstairs') > 0);
-      H.ok('the upstairs figure: Idle, its name trimmed of "Ecobee Thermostat"', html.indexOf('>Idle<') > 0 && html.indexOf('>Upstairs<') > 0);
+      H.ok('the upstairs figure: Idle, its name trimmed of "Ecobee Thermostat"', html.indexOf('>Idle<') > 0 && html.indexOf('>Upstairs · ') > 0);
+      // THE HOUSE ITSELF (2026-10-21): each thermostat's indoor temperature now
+      // beside its name, and its day as a line of its own colour over the bars
+      H.ok('each thermostat\'s temperature now beside its name, a dot in its line\'s colour',
+           /<i style="background:#bf5af2"><\/i>Downstairs · <b>76°<\/b>/.test(html) && /<i style="background:#30d158"><\/i>Upstairs · <b>74°<\/b>/.test(html), html.slice(0, 600));
+      H.ok('a line for each thermostat, in its colour', /<path class="il" stroke="#bf5af2" d="M/.test(html) && /<path class="il" stroke="#30d158" d="M/.test(html));
+      H.ok('...on the same scale as the bars\' hours: one point an hour to now', ((html.match(/<path class="il" stroke="#bf5af2" d="([^"]*)"/) || [])[1] || '').split(/[ML]/).length - 1 >= 1);
+      H.ok('the readout names the temperatures', html.indexOf('runtime and temperatures') > 0);
       H.ok('24 hour bars, labeled at 12a / 6a / 12p / 6p', (html.match(/data-i="/g) || []).length >= 24 && html.indexOf('>12a<') > 0 && html.indexOf('>6p<') > 0);
       H.ok('each thermostat\'s figure opens its sheet', html.indexOf('data-more="climate.down"') > 0);
     });

@@ -29,6 +29,9 @@
   var HkBase = C.HkBase, register = C.register, v = C.v, esc = C.esc, R = C.R, P = C.PALETTE.icon;
   var MIN = 60e3, HOUR = 36e5, DAY = 864e5;
   var COOL = '#5ac8fa', HEAT = '#ff9f0a';         // the Energy page's heating & cooling, and heat
+  // EACH THERMOSTAT'S INDOOR LINE (Climate's Through the Day): apart from the
+  // bars' blue and orange and the outside line's white
+  var INSIDE = ['#bf5af2', '#30d158', '#ffd60a'];
 
   // ------------------------------------------------------------- helpers
   function hs(path, fb) { return C.setting(path, fb); }
@@ -273,6 +276,11 @@
         '.lg span{display:flex;align-items:center;gap:6px}',
         '.lg i{display:inline-block;width:8px;height:8px;border-radius:50%}',
         '.lg i.ln{width:12px;height:0;border-top:2px solid var(--hk-flat-chart-line,rgba(255,255,255,0.85));border-radius:0}',
+        // the indoor lines, each in its thermostat's colour, and its reading now
+        // beside the thermostat's name -- the header is the quick look
+        '.il{fill:none;stroke-width:2;stroke-linejoin:round;stroke-linecap:round;vector-effect:non-scaling-stroke}',
+        '.tot .cap i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;vertical-align:1px}',
+        '.tot .cap b{font-weight:700;color:' + v('ink') + ';font-variant-numeric:tabular-nums}',
         '.tot>div{min-width:0}',
         '.tot .cap{margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
         '.grow{flex:1;min-height:6px}',
@@ -357,6 +365,22 @@
       var hours = K.map(function (k) {
         return { k: k, fut: k > nowK, sys: sys.map(function (s) { return { c: inHour(s.cool, k), h: inHour(s.heat, k) }; }) };
       });
+      // ---- each thermostat's indoor temperature an hour, read as the outside
+      // one is (the hour's middle; now, for this hour), and now
+      sys.forEach(function (s, j) {
+        var at = steps(H[s.id]).map(function (p) { return [p[0], num(p[2].current_temperature)]; })
+          .filter(function (p) { return p[1] != null; });
+        s.color = INSIDE[j % INSIDE.length];
+        s.now = num(((h.states[s.id] || {}).attributes || {}).current_temperature);
+        s.temp = K.map(function (k) {
+          if (k > nowK) return null;
+          if (k === nowK && s.now != null) return s.now;
+          var tm = from + k * HOUR + HOUR / 2, last = null;
+          for (var q = 0; q < at.length && at[q][0] <= tm; q++) last = at[q][1];
+          return last;
+        });
+      });
+      var hasIn = sys.some(function (s) { return s.temp.some(function (x) { return x != null; }); });
       // ---- the outside temperature an hour: the reading at the hour's
       // middle (now, for this hour); the forecast for the hours to come
       var outT = K.map(function () { return null; });
@@ -386,10 +410,14 @@
       }), avail, 56, true);
       this._nBars = 24;
       this._nowI = nowK;
-      this._rdRest = hasOut ? 'Hover or touch an hour for its runtime and temperature' : 'Hover or touch an hour for runtime';
-      // the line over the bars, on its own scale (the day's coolest to warmest)
-      if (hasOut) {
-        var all = outT.concat(fcT).filter(function (x) { return x != null; });
+      this._rdRest = hasOut || hasIn ? 'Hover or touch an hour for its runtime and temperatures' : 'Hover or touch an hour for runtime';
+      // the lines over the bars, on their own scale (the day's coolest to
+      // warmest): outside, and inside each thermostat -- one scale, so the
+      // house reads against the weather
+      if (hasOut || hasIn) {
+        var all = outT.concat(fcT);
+        sys.forEach(function (s) { all = all.concat(s.temp); });
+        all = all.filter(function (x) { return x != null; });
         var tlo = Math.min.apply(null, all), thi = Math.max.apply(null, all), tsp = Math.max(4, thi - tlo);
         var BH = 56, ty = function (x) { return (BH - 6 - (x - tlo) / tsp * (BH - 16)).toFixed(1); };
         var bx = function (k) { return (k * (B2.bw + B2.gap) + B2.bw / 2).toFixed(1); };
@@ -407,11 +435,22 @@
         }).join('');
         var cur = outT[nowK];
         var tag = cur != null ? '<text class="ot" x="' + bx(nowK) + '" y="' + (Number(ty(cur)) - 7).toFixed(1) + '" text-anchor="middle">' + Math.round(cur) + '°</text>' : '';
-        B2.html = B2.html.replace('</svg>', seg(fcJoin, ' fc') + seg(outT, '') + dots + tag + '</svg>');
+        var inside = sys.map(function (s) {
+          var d = '', open = false;
+          s.temp.forEach(function (x, k) { if (x == null) { open = false; return; } d += (open ? 'L' : 'M') + bx(k) + ' ' + ty(x); open = true; });
+          return d ? '<path class="il" stroke="' + s.color + '" d="' + d + '"/>' : '';
+        }).join('');
+        var inDots = sys.map(function (s) {
+          return s.temp.map(function (x, k) {
+            return x == null ? '' : '<circle class="od" data-i="' + k + '" cx="' + bx(k) + '" cy="' + ty(x) + '" r="3.5" style="fill:' + s.color + '"/>';
+          }).join('');
+        }).join('');
+        B2.html = B2.html.replace('</svg>', inside + seg(fcJoin, ' fc') + seg(outT, '') + inDots + dots + tag + '</svg>');
       }
       var tot = sys.map(function (s) {
         var t = total(s.cool) + total(s.heat);
-        return '<div data-more="' + esc(s.id) + '"><div class="big num">' + (t < MIN ? 'Idle' : durHtml(t)) + '</div><div class="cap">' + esc(s.name) + '</div></div>';
+        return '<div data-more="' + esc(s.id) + '"><div class="big num">' + (t < MIN ? 'Idle' : durHtml(t)) + '</div><div class="cap">' +
+          (hasIn ? '<i style="background:' + s.color + '"></i>' : '') + esc(s.name) + (s.now != null ? ' · <b>' + Math.round(s.now) + '°</b>' : '') + '</div></div>';
       }).join('');
       var lg = '<div class="lg"><span><i style="background:' + (anyHeat && !anyCool ? HEAT : COOL) + '"></i>' + (anyHeat && anyCool ? 'Heating · Cooling' : anyHeat ? 'Heating' : 'Cooling') + '</span>' +
         (hasOut ? '<span><i class="ln"></i>Outside</span>' : '') + '</div>';
@@ -422,10 +461,10 @@
         var o = outT[i] != null ? 'Outside ' + Math.round(outT[i]) + '°' : fcT[i] != null ? 'Outside ' + Math.round(fcT[i]) + '° forecast' : '';
         if (x.fut) return lab + ' · ' + (o || 'No data yet');
         return lab + ' · ' + (o ? o + ' · ' : '') + sys.map(function (s, j) {
-          var p = [], m = x.sys[j];
+          var p = [], m = x.sys[j], t = s.temp[i];
           if (m.c >= 0.5) p.push(Math.round(m.c) + ' min cooling');
           if (m.h >= 0.5) p.push(Math.round(m.h) + ' min heating');
-          return s.name + ' ' + (p.join(', ') || 'idle');
+          return s.name + (t != null ? ' ' + Math.round(t) + '°' : '') + ' ' + (p.join(', ') || 'idle');
         }).join(' · ');
       });
     }
