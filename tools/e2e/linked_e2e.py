@@ -14,7 +14,11 @@ in-process, per-tablet ownership and the rest of the entry (docs/phase5/LINKED-M
      id); turning it off in HA saves Mantel's setting and HA shows the state Mantel pushes back;
    - ``hk_frontend.notify`` called in HA reaches a Mantel screen's event feed; ``show_popup`` for an
      unknown pop-up is Mantel's validation error in HA;
-   - the Owner moves ``house`` back: HA's own switch again, same entity id; unlinking forgets it.
+   - HK's settings are Mantel's while it runs the house (decision 29, docs/phase9/TWO-PRODUCTS.md): HA's
+     dashboards' settings feed is Mantel's and follows a change made in Mantel; a save made in HA is refused
+     while Saves from Home Assistant is off, and made in Mantel as the linked person once it is on;
+   - the Owner moves ``house`` back: HA's own switch again, same entity id, and HA keeps Mantel's last
+     settings as its own; unlinking forgets it.
 4. Stops the scratch HA (unless --keep-up / --reuse).
 
 SAFETY: refuses to run unless the HA URL is the scratch one; never reads ~/.config/mantel or touches
@@ -159,6 +163,87 @@ async def run(token: str) -> dict:
     return out
 
 
+class HaWs:
+    """The scratch HA's websocket, as its admin (the harness's token): what HK's pages call."""
+
+    def __init__(self, http: aiohttp.ClientSession, token: str) -> None:
+        self.http, self.token, self.n = http, token, 0
+        self.events: list[dict] = []
+
+    async def open(self) -> "HaWs":
+        self.ws = await self.http.ws_connect(SCRATCH_URL.replace("http", "ws") + "/api/websocket")
+        await self.ws.receive_json()
+        await self.ws.send_json({"type": "auth", "access_token": self.token})
+        assert (await self.ws.receive_json()).get("type") == "auth_ok"
+        return self
+
+    async def call(self, msg: dict, timeout: float = 15.0) -> dict:
+        self.n += 1
+        await self.ws.send_json({"id": self.n, **msg})
+        while True:
+            m = await self.ws.receive_json(timeout=timeout)
+            if m.get("type") == "event":
+                self.events.append(m)
+            elif m.get("id") == self.n and m.get("type") == "result":
+                return m
+
+    async def feed(self, test, timeout: float = 20.0) -> dict | None:
+        """The settings feed's next event that passes `test` (subscribed once by `subscribe`)."""
+        t0 = time.time()
+        for m in list(self.events):
+            if m.get("id") == self.sub and test(m["event"]):
+                return m["event"]
+        while time.time() - t0 < timeout:
+            try:
+                m = await self.ws.receive_json(timeout=max(0.1, timeout - (time.time() - t0)))
+            except asyncio.TimeoutError:
+                return None
+            if m.get("type") == "event":
+                self.events.append(m)
+            if m.get("type") == "event" and m.get("id") == self.sub and test(m["event"]):
+                return m["event"]
+        return None
+
+    async def subscribe(self) -> None:
+        got = await self.call({"type": "hk_frontend/settings/subscribe"})
+        assert got.get("success"), got
+        self.sub = self.n
+
+
+async def settings_steps(app, ha: HA, ws: "HaWs", owner) -> None:
+    """While Mantel runs the house: HK's settings are Mantel's (decision 29)."""
+    from mantel_server.settings_store import Actor
+    service = app["settings"]
+    service.store.write([("board", "dashboard-e2e", {"accent": "blue"})], actor=Actor(label="e2e"))
+    service.publish()
+    await ws.subscribe()
+    got = await ws.feed(lambda e: "dashboard-e2e" in (e.get("boards") or {}))
+    check(got is not None, "HA's dashboards get Mantel's settings (a screen only Mantel has is in HA's feed)")
+    service.store.write([("board", "dashboard-e2e2", {})], actor=Actor(label="e2e"))
+    service.publish()
+    check(await ws.feed(lambda e: "dashboard-e2e2" in (e.get("boards") or {})) is not None,
+          "...and follow a change made in Mantel")
+    save = {"type": "hk_frontend/calendar/color", "key": "uid:e2e", "color": "teal"}
+    me = await ws.call({"type": "auth/current_user"})
+    got = await ws.call(save)
+    check(not got["success"] and got["error"]["code"] == "saves_off",
+          "a save made in HA is refused while Saves from Home Assistant is off (in words)")
+    st, body = await owner.post("/api/linked/ha-saves", {"on": True}, method="PUT")
+    check(st == 200 and body["saves"] is True, "the Owner turns Saves from Home Assistant on")
+    got = await ws.call(save)
+    check(not got["success"] and got["error"]["code"] == "not_linked",
+          "an HA user linked to nobody in Mantel can't save (told to link it)")
+    app["store"].link(me["result"]["id"], "admin", "Fictional HA Admin")
+    got = await ws.call(save)
+    colors = ((service.store.body("house", "settings").get("calendar") or {}).get("event_colors") or {})
+    check(got["success"] and colors.get("uid:e2e") == "teal", "linked, the save is made in Mantel, as that person")
+    seen = await ws.feed(lambda e: ((e.get("calendar") or {}).get("event_colors") or {}).get("uid:e2e") == "teal")
+    check(seen is not None, "...and HA's dashboards see it (Mantel's new settings come back over the link)")
+    hist = service.store.history("house", "settings", 1)[0]
+    check(hist["source"] == "Home Assistant" and hist["actor_role"] == "admin",
+          "Mantel's settings history says who, from Home Assistant")
+
+
 async def steps(app, ha: HA, owner, entry: str, base: str, svc: str, out: dict) -> None:
     lk = app["linked"]
     # -- linked, nothing moved ------------------------------------------------------------------------
@@ -193,6 +278,12 @@ async def steps(app, ha: HA, owner, entry: str, base: str, svc: str, out: dict) 
     check(sky.get("decorations") is False, "Mantel saved its own setting sky.decorations = false")
     check(bool(await until(lambda: _state_is(ha, SEASONAL, ("off",)))), "HA shows the state Mantel pushed back")
     await ha.post("/api/services/switch/turn_on", {"entity_id": SEASONAL})
+    # -- HK's settings, Mantel's ---------------------------------------------------------------------------
+    hws = await HaWs(ha.http, ha.h["Authorization"].split(" ", 1)[1]).open()
+    try:
+        await settings_steps(app, ha, hws, owner)
+    finally:
+        await hws.ws.close()
     # -- notify and a refused pop-up --------------------------------------------------------------------
     owner.ws = await owner.http.ws_connect(base + "/ws")
     await owner.ws.send_json({"type": "read_subscribe", "id": 7, "msg": {"type": "hk_frontend/events/subscribe"}})
@@ -224,6 +315,19 @@ async def steps(app, ha: HA, owner, entry: str, base: str, svc: str, out: dict) 
     check(bool(diag), "HA keeps it and reloads: everything Home Assistant's again")
     st = await until(lambda: _state_is(ha, SEASONAL, ("on", "off")))
     check(st is not None, f"{SEASONAL} is HA's own again, same entity id")
+    hws = await HaWs(ha.http, ha.h["Authorization"].split(" ", 1)[1]).open()
+    try:
+        await hws.subscribe()
+        got = await hws.feed(lambda e: "dashboard-e2e" in (e.get("boards") or {}))
+        colors = ((got or {}).get("calendar") or {}).get("event_colors") or {}
+        if got is None or colors.get("uid:e2e") != "teal":
+            last = hws.events[-1]["event"] if hws.events else {}
+            say("HA's feed now:", len(hws.events), "events; boards", sorted((last.get("boards") or {}))[:8],
+                "calendar", last.get("calendar"), "keys", sorted(last)[:12])
+        check(got is not None and colors.get("uid:e2e") == "teal",
+              "HA keeps Mantel's last settings as its own (the screens and the save made from HA)")
+    finally:
+        await hws.ws.close()
     check(app["audit"].rows(kind="service") == [], "no household service was called (commands disabled)")
     out["owners_rows"] = len(app["audit"].rows(kind="config"))
 

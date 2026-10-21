@@ -71,7 +71,11 @@ COMMANDS: dict[str, frozenset[str]] = {"switch": frozenset({"turn_on", "turn_off
 CLIENT_TYPES = frozenset({"call_service", "entity_command", "ping"})
 # protocol 2 adds `report`: what Mantel Link tells about its Home Assistant (is HK Frontend there?)
 CLIENT_TYPES_2 = CLIENT_TYPES | {"report", "phone_action"}
-SERVER_TYPES = frozenset({"hello", "result", "entity", "state", "removed", "owners"})
+# a client that asked for the settings (feature `settings`, HK Frontend) may also send `settings_write`: one save,
+# as the person linked to the Home Assistant user who made it (linked_settings.py)
+SETTINGS_TYPES = frozenset({"settings_write", "report"})
+SERVER_TYPES = frozenset({"hello", "result", "entity", "state", "removed", "owners", "settings"})
+# `settings` goes only to a client that asked for it (feature `settings`: HK Frontend, linked_settings.py)
 # protocol 2 adds ONE thing Mantel may ask Home Assistant to do: a notification to a Companion-app phone
 # (phones.py; Mantel Link calls notify.mobile_app_<phone> and nothing else)
 SERVER_TYPES_2 = SERVER_TYPES | {"phone_notify"}
@@ -85,9 +89,11 @@ _KEYS = {"call_service": {"id", "type", "service", "data", "targets"},
          "entity_command": {"id", "type", "unique_id", "command", "data"},
          "ping": {"id", "type"},
          "report": {"id", "type", "report"},
-         "phone_action": {"id", "type", "action", "service"}}
+         "phone_action": {"id", "type", "action", "service"},
+         "settings_write": {"id", "type", "ha_user", "msg"}}
 # a report's parts (protocol 2), each checked by its own key
-_REPORT_KEYS = frozenset({"hk_frontend", "phones"})
+_REPORT_KEYS = frozenset({"hk_frontend", "phones", "hk_dashboards"})
+_BOARD = re.compile(r"^[a-z0-9_-]{1,80}$")
 _PHONE = re.compile(r"^mobile_app_[a-z0-9_]{1,80}$")
 _POPUP_KEYS = frozenset({"popup", "dashboards", "users"})
 _BLACK_KEYS = frozenset({"black", "brightness"})
@@ -488,6 +494,8 @@ class Linked:
         self.screen_origins: list[str] = []
         self.listeners: list = []             # fn(client) after a client's report
         self.phone_action = None              # phones.Phones.on_action (protocol 2's phone_action)
+        self.on_connect: list = []            # async fn(client) after its hello (linked_settings.py)
+        self.settings_write = None            # async fn(client, msg): a `settings_write` (linked_settings.py)
 
     def verify(self, token: str, peer: str | None) -> Any:
         return self.accounts.verify(token, SCOPE, source_ip=peer)
@@ -511,6 +519,15 @@ class Linked:
                     for p in phones)):
                 raise LinkedError("invalid", "report.phones: [{service: mobile_app_..., name}]")
             client.report["phones"] = [{"service": p["service"], "name": p["name"]} for p in phones]
+        boards = report.get("hk_dashboards")
+        if boards is not None:
+            # HK Frontend's dashboards in Home Assistant (linked_settings.py: where each screen is drawn)
+            if (not isinstance(boards, list) or len(boards) > 200 or not all(
+                    isinstance(b, Mapping) and set(b) == {"path", "title"} and isinstance(b["path"], str)
+                    and _BOARD.match(b["path"]) and isinstance(b["title"], str) and len(b["title"]) <= 80
+                    for b in boards)):
+                raise LinkedError("invalid", "report.hk_dashboards: [{path, title}]")
+            client.report["hk_dashboards"] = [{"path": b["path"], "title": b["title"]} for b in boards]
         for fn in list(self.listeners):
             try:
                 fn(client)
@@ -609,6 +626,10 @@ async def _answer(linked: Linked, client: LinkedClient, msg: dict[str, Any]) -> 
             if linked.phone_action is None:
                 raise LinkedError("not_set_up", "Mantel takes no phone actions here")
             result = linked.phone_action(client, {k: msg[k] for k in ("action", "service") if k in msg})
+        elif t == "settings_write":
+            if linked.settings_write is None:
+                raise LinkedError("not_set_up", "Mantel takes no settings saves here")
+            result = await asyncio.wait_for(linked.settings_write(client, msg), linked.timeout)
         elif t == "call_service":
             result = await linked.call_service(msg, ctx)
         else:
@@ -628,8 +649,9 @@ async def _answer(linked: Linked, client: LinkedClient, msg: dict[str, Any]) -> 
     await client.send(reply)
 
 
-def _parse(text: str, protocol: int = 1) -> tuple[dict[str, Any] | None, str | None]:
-    """The message, or why not (a protocol 1 client may not send protocol 2's types)."""
+def _parse(text: str, protocol: int = 1, features: frozenset[str] = frozenset()) -> tuple[dict[str, Any] | None, str | None]:
+    """The message, or why not (a protocol 1 client may not send protocol 2's types; only a client with the
+    `settings` feature may send `settings_write`)."""
     try:
         msg = json.loads(text)
     except ValueError:
@@ -640,7 +662,8 @@ def _parse(text: str, protocol: int = 1) -> tuple[dict[str, Any] | None, str | N
     if isinstance(mid, bool) or not isinstance(mid, int):
         return None, "id: an integer"
     t = msg.get("type")
-    if t not in (CLIENT_TYPES_2 if protocol >= 2 else CLIENT_TYPES):
+    allowed = (CLIENT_TYPES_2 if protocol >= 2 else CLIENT_TYPES) | (SETTINGS_TYPES if "settings" in features else frozenset())
+    if t not in allowed:
         return msg, f"unknown type {t!r}"
     extra = set(msg) - _KEYS[t]
     if extra:
@@ -698,13 +721,18 @@ async def ws_endpoint(request: web.Request) -> web.StreamResponse:
     watcher = asyncio.create_task(recheck())
     try:
         await client.send(hello)
+        for fn in list(linked.on_connect):
+            try:
+                await _maybe_await(fn(client))
+            except Exception:  # noqa: BLE001 -- a hook never ends the link
+                log.exception("linked: a connect hook failed")
         async for frame in ws:
             if frame.type != WSMsgType.TEXT:
                 continue
             if not linked.live(account):
                 await ws.close(code=WSCloseCode.POLICY_VIOLATION, message=b"credential revoked")
                 break
-            msg, problem = _parse(frame.data, client.protocol)
+            msg, problem = _parse(frame.data, client.protocol, client.features)
             if problem:
                 await client.send({"id": msg.get("id") if msg and not isinstance(msg.get("id"), bool) else None,
                                    "type": "result", "success": False,

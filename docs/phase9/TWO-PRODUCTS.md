@@ -27,7 +27,7 @@ A house installs either one, or both. With both, they run together as they alrea
   engines on one screen is how a tablet wakes in the night.
 - **The house** (Seasonal Decorations, the Alarm PIN keypad, Live TV's sensors and channels): run by Mantel, or by
   HK Frontend, on the same page.
-- **The settings are separate.** HK Frontend keeps HK's settings in Home Assistant and Mantel keeps its own. Mantel's
+- **The settings** (as decided; since revised, see "One copy of the settings when linked" below): **separate.** HK Frontend keeps HK's settings in Home Assistant and Mantel keeps its own. Mantel's
   import from HK Frontend runs once, one way. A house that edits both sees them drift apart; a sync is not built
   and is not promised.
 
@@ -57,7 +57,13 @@ A house installs either one, or both. With both, they run together as they alrea
 - What each product can do follows from where it runs. HK Frontend lives inside Home Assistant's page and keeps its
   limits (HA's frontend changes can break its kiosk, menu and view host). Mantel owns its whole page.
 
-## Proposed: one copy of the settings when linked (for Avery's OK, 2026-10-21)
+## One copy of the settings when linked (approved by Avery and built, 2026-10-21)
+
+Avery approved the design below on 2026-10-21, with its three answers: HA's dashboards get the house's settings,
+not each person's; the new grant is off by default and turned on during setup; features stay out of scope. It is
+kept as proposed, followed by what was built ("As built").
+
+### Proposed
 
 Avery agreed in principle: when HK Frontend is linked, Mantel owns HK's settings. This is the design; nothing is
 built until it is approved.
@@ -137,3 +143,45 @@ unlinked one; the dashboard still draws with Mantel stopped; unlinking leaves th
 - **The new grant** (the linked credential may act for linked HA users), off by default and turned on during setup. OK?
 - **Features stay Mantel's.** In full linked mode HK Frontend runs none of its feature engines in HA; this work
   changes only the settings. A linked HK Frontend dashboard's music, Live TV and the like are a separate question.
+
+### As built (2026-10-21)
+
+Where the build differs from the proposal, the build is what holds:
+
+- **When Mantel owns the settings: while The House is "Run by Mantel"** (HK Frontend's full linked mode). The House
+  switch is already the moment of handing over, so there is no separate first-link choice. Moving The House back
+  to Home Assistant, or unlinking, hands the settings back (mirror.py), once.
+- **Mantel** (`hosts/server/mantel_server/linked_settings.py`):
+  - the `settings` frame (feature `settings` only) after hello and after every published change, coalesced;
+    `payload` is `SettingsService.house_feed()` and `version` a digest of it; `setup` carries `{saves,
+    unlinked_admins}`;
+  - `settings_write`, answered as the person in `ha_links` (refused in words: `saves_off`, `not_linked`, RBAC's
+    `forbidden`), with "Home Assistant" as the history's `source`;
+  - the grant is the Service account scope `linked_saves`;
+  - `GET/PUT /api/linked/ha-saves`: Saves from Home Assistant on or off, and each HA person's role. A person is
+    linked by giving the HA user a role, as the Ingress People page does, with the same Owner rules. HA's users
+    are read by Mantel's own connection (`ingress.HaDirectory`, made under the App or Mantel Connect), so HK
+    Frontend never sends them;
+  - HK Settings' screen list says where each screen is drawn (`where`: "Mantel", "Mantel · in Home Assistant's
+    sidebar", "Mantel, and HK Frontend in Home Assistant"), from HK Frontend's `report {hk_dashboards}` and the
+    sidebar dashboards as `ha_dashboards.py` last read them.
+- **HK Frontend** (`linked_mode.py`, `mirror.py`):
+  - the mirror (`hk_frontend.mantel_settings`, written at once when the link stops, so a reload never reads an
+    older copy) answers `hk_frontend/settings/subscribe`;
+  - the pages' settings saves (`linked_mode.SAVES`, kept equal to Mantel's `SETTINGS_SAVES` by a test) go to
+    Mantel as `settings_write`, as the HA user who made them;
+  - a Repairs issue (`mantel_admins_unlinked`) while saves are on and HA admins aren't linked;
+  - its HK dashboards are reported on connect.
+- **The HK Settings page stays off in Home Assistant** while Mantel runs the house, as before: settings are edited
+  in Mantel Settings. The saves from HA are the ones HK's dashboards make (favorites, a calendar's color, an
+  accessory's sheet). The features' saves aren't forwarded: their pages aren't in HA in full linked mode.
+- **Not built:** creating an HK Frontend screen from Mantel ("New screen → where: Home Assistant"); a screen only
+  HK Frontend has (no board in Mantel) isn't listed in Mantel's Screens.
+- **Tests:**
+  - Mantel's `tests/test_linked_settings.py`;
+  - HK Frontend's `tests/py/test_linked_settings.py`;
+  - the pinned link header in both hand-over suites;
+  - the linked e2e (`tools/e2e/linked_e2e.py`, on the scratch HA): HA's feed is Mantel's and follows a change; a
+    save from HA is refused while off and for an unlinked user, then made as the linked person and seen by HA's
+    dashboards; moving The House back keeps Mantel's last settings in HK Frontend.
+

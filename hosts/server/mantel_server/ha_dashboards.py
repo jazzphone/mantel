@@ -249,6 +249,10 @@ async def _read(sess: HaSession, app: web.Application) -> dict:
                                   "show_in_sidebar": d.get("show_in_sidebar") is not False, "screen": screen,
                                   "url": config["strategy"]["url"]})
     out["taken"] = [d.get("url_path") for d in items if isinstance(d, dict)] if isinstance(items, list) else []
+    seen = app.get("ha_sidebar_screens")
+    if seen is not None:                 # the screens in HA's sidebar, as last read (Screens say so; linked_settings)
+        seen.clear()
+        seen.update({d["screen"]: d["title"] for d in out["dashboards"] if d["show_in_sidebar"]})
     return out
 
 
@@ -408,5 +412,6 @@ async def api_put(request: web.Request) -> web.Response:
 
 def register(app: web.Application) -> None:
     app["ha_dashboards_lock"] = asyncio.Lock()
+    app["ha_sidebar_screens"] = {}       # screen -> its title in HA's sidebar, as last read
     app.router.add_get(API, api_list)
     app.router.add_put(PUT, api_put)

@@ -1363,9 +1363,12 @@
         // A SCREEN OF ONLY SOME PAGES says so, with a glyph of its own: it
         // must never pass for a whole screen
         var only = x.generated ? self.onlyOf(d.boards[x.path]) : null;
-        return K.nav({ tile: [only ? 'mdi:file-document-multiple-outline' : x.generated ? 'mdi:view-dashboard-variant' : 'mdi:tablet-dashboard',
-                              only ? C.teal : x.generated ? C.indigo : C.blue],
-                       label: x.title, sub: only ? only.text : null, href: '#/screens/' + encodeURIComponent(x.path),
+        // WHERE IT IS DRAWN (`where`, from a host that draws screens of its own: {text, icon, also: drawn here too}) -- HK in Home
+        // Assistant sends none, and its list is as it always was
+        var where = x.where && typeof x.where.text === 'string' ? x.where : null;
+        return K.nav({ tile: [only ? 'mdi:file-document-multiple-outline' : where && where.icon ? where.icon : x.generated ? 'mdi:view-dashboard-variant' : 'mdi:tablet-dashboard',
+                              only ? C.teal : where && where.also ? C.blue : x.generated ? C.indigo : C.blue],
+                       label: x.title, sub: only ? only.text : where ? where.text : null, href: '#/screens/' + encodeURIComponent(x.path),
                        current: wide && at('screens/' + x.path), fk: 'side:s:' + x.path });
       });
       rows.push(K.nav({ tile: ['mdi:plus', C.gray], label: 'Add Screen', href: '#/add-screen', current: wide && at('add-screen'),

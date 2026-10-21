@@ -151,7 +151,7 @@ The **[Weather page](https://github.com/jazzphone/hk-frontend/wiki/Weather)** co
 HK Frontend is HK inside Home Assistant. **Mantel** is its sibling: the same screens, from the same code, served by a
 server of its own beside Home Assistant, with people and roles, wall tablets that sign themselves in and an audit log
 of every command. Use either, or both together: linked, Mantel's Owner picks who runs each wall tablet, and every
-entity keeps its id. Each keeps its own HK settings. [HK Frontend and Mantel](https://github.com/jazzphone/hk-frontend/wiki/HK-Frontend-and-Mantel)
+entity keeps its id. While Mantel runs the house, HK Frontend’s dashboards use Mantel’s settings, one copy. [HK Frontend and Mantel](https://github.com/jazzphone/hk-frontend/wiki/HK-Frontend-and-Mantel)
 compares them.
 
 ## Help

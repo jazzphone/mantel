@@ -87,6 +87,10 @@
       "title": "Home Assistant is too old for HK Frontend",
       "description": "This is Home Assistant {version}. The HK pages are built and tested against {minimum} or newer, and older frontends draw them wrongly. Update Home Assistant (Settings → System → Updates)."
     },
+    "mantel_admins_unlinked": {
+      "title": "Some Home Assistant admins can't save HK settings",
+      "description": "HK's settings are Mantel's while HK Frontend is linked and Mantel runs the house. {count} Home Assistant admin account(s) aren't linked to a person in Mantel, so a change they make on HK's dashboards is refused. An Owner links them in Mantel Settings: Connections, Home Assistant Link, Who Saves from Home Assistant. This message clears itself once they are linked."
+    },
     "theme_missing": {
       "title": "HK Kiosk theme not loaded",
       "description": "The HK pages draw their colors, font and glass from the HK Kiosk theme. HK Frontend loads it itself, and this time it could not (the log says why). You can load it from configuration.yaml instead:\n\n1. In configuration.yaml, under `frontend:`, add `themes: !include_dir_merge_named themes` (skip this if you already load themes from a folder).\n2. Create `/config/themes/hk_kiosk.yaml` containing the single line `!include ../custom_components/hk_frontend/theme/hk_kiosk_theme.yaml`\n3. Developer tools → YAML → **Themes** (or restart).\n\nThis message clears itself once the theme loads."

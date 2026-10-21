@@ -39,10 +39,19 @@ Connections → [Home Assistant Link](Mantel-Link.md):
 - **The House:** Seasonal Decorations, the Alarm PIN keypad and Live TV's
   sensors and channels, run by one of them.
 
-**The settings are separate.** HK Frontend keeps HK's settings in Home
-Assistant and Mantel keeps its own. Mantel can import HK Frontend's settings
-once, when you start; after that, a change on one side does not reach the
-other.
+**One copy of the settings while Mantel runs the house.** With The House
+run by Mantel, HK's settings are Mantel's: HK Frontend's dashboards in Home
+Assistant draw with them (and keep drawing with the last ones while Mantel
+restarts), and a change made on those dashboards, such as a favorite or a
+calendar's color, is saved in Mantel as the person linked to your Home
+Assistant user. An Owner turns that on under Home Assistant Link → **Saves
+from Home Assistant**, and links each Home Assistant person there. Settings
+pages stay in Mantel Settings. Move The House back to Home Assistant, or
+unlink, and HK Frontend keeps Mantel's last settings as its own.
+
+While The House is Home Assistant's, each keeps its own: Mantel can import
+HK Frontend's settings once, and after that a change on one side does not
+reach the other.
 
 ## Moving everything to Mantel
 

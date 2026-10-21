@@ -958,6 +958,10 @@ class SettingsService:
         # Status & Chips' lists are not sent, and the screens find them themselves (hk-chip.js FIND)
         self.house_ready: Callable[[], bool] = lambda: False
         self.kinds_sent: dict[str, list[str]] | None = None      # the lists the screens were last sent
+        # told after every publish, whoever subscribes (linked_settings.py: a linked HK Frontend's mirror)
+        self.watchers: list[Callable[[], None]] = []
+        # where a screen is drawn besides Mantel, for HK Settings' list (linked_settings.place): {text, icon} or None
+        self.place: Callable[[str], dict | None] | None = None
 
     # -- RBAC -----------------------------------------------------------------------------------
     async def allowed(self, identity: Any, scope: Scope) -> bool:
@@ -1026,6 +1030,12 @@ class SettingsService:
                 out[section] = {**(out.get(section) or {}), **values}
         out["personal"] = copy.deepcopy(dict(personal))
         return out
+
+    def house_feed(self) -> dict:
+        """The feed with no person's own values over the house's: what a linked HK Frontend's dashboards get
+        (HA's feed was always the same for every user; linked_settings.py). No `kinds` (they are a subject's,
+        filtered by what it may view): HA's screens find them themselves, as from a server without them."""
+        return self._with_features(self._personalise(self._base_feed(), {}), None)
 
     def feed_payload(self, identity: Any) -> dict:
         """What ``hk_frontend/settings/subscribe`` sends this subject: the same shape HA's feed sends
@@ -1110,9 +1120,19 @@ class SettingsService:
         ``mantel``: not renamable or deletable the way a stored HA dashboard is), and has its settings
         (``item`` is the board's key)."""
         out = [{"path": path, "title": self.screen_title(path, b), "mode": "mantel", "id": None,
-                "generated": True, "require_admin": False, "item": path, "icon": (b or {}).get("icon")}
+                "generated": True, "require_admin": False, "item": path, "icon": (b or {}).get("icon"),
+                **({"where": self._place(path)} if self._place(path) else {})}
                for path, b in boards.items()]
         return sorted(out, key=lambda d: d["title"].lower())
+
+    def _place(self, path: str) -> dict | None:
+        if self.place is None:
+            return None
+        try:
+            return self.place(path)
+        except Exception:  # noqa: BLE001 -- the list still opens
+            log.exception("a screen's place failed")
+            return None
 
     def panel_payload(self) -> dict:
         """What ``hk_frontend/panel/get`` answers (panel.py ws_panel_get's shape). The parts HA works out
@@ -1190,6 +1210,12 @@ class SettingsService:
                 sent += 1
             except Exception:  # noqa: BLE001 -- one bad listener never stops the others
                 log.exception("settings feed listener failed")
+        if user_only is None:
+            for fn in list(self.watchers):
+                try:
+                    fn()
+                except Exception:  # noqa: BLE001 -- a watcher never stops the feed
+                    log.exception("settings watcher failed")
         return sent
 
     # -- reads ----------------------------------------------------------------------------------
@@ -1237,8 +1263,9 @@ class SettingsService:
                 "history": self.store.history(scope.kind, scope.key, limit, bool(msg.get("bodies")))}
 
     # -- saves ----------------------------------------------------------------------------------
-    async def save(self, identity: Any, msg: Any) -> Any:
-        """One save, as the page sends it to HA (same type, same keys). Raises SettingsError."""
+    async def save(self, identity: Any, msg: Any, label: str | None = None) -> Any:
+        """One save, as the page sends it to HA (same type, same keys). Raises SettingsError. ``label``: where
+        it came from, for the history (linked_settings.py: "Home Assistant")."""
         if not isinstance(msg, dict) or not isinstance(msg.get("type"), str):
             raise SettingsError("invalid_format", fields={"type": "required"})
         t = msg["type"]
@@ -1251,7 +1278,7 @@ class SettingsService:
             raise SettingsError(kind, REFUSALS[kind])
         required, optional = WRITE_KEYS[t]
         self._only(msg, required, optional)
-        actor = actor_of(identity)
+        actor = actor_of(identity, label)
         handler = getattr(self, "_" + t.split("/", 1)[1].replace("/", "_"))
         return await handler(identity, actor, msg)
 
@@ -1271,6 +1298,8 @@ class SettingsService:
 
     def _store(self, changes: list[tuple[str, str, dict]], actor: Actor, msg: dict, user_only: str | None = None,
                **kw) -> list[Doc]:
+        if actor.label and "source" not in kw:
+            kw["source"] = actor.label        # where a save came from ("Home Assistant": linked_settings.py)
         got = self.store.write(changes, actor=actor, message=msg["type"], **kw)
         if got:
             self.publish(user_only=user_only)

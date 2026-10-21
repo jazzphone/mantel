@@ -32,6 +32,7 @@ from aiohttp import WSMsgType, web
 from . import about, frame_origins, music
 from . import accounts, alarm_pin, auth, connect_pairing, devices, gateway, health, ingress, live_tv, pins, rbac_store, readproxy, sessions, settings_store
 from . import (admin_page, atrest, backup, connections, features, linked, linked_house, linked_owners, linked_pairing,
+               linked_settings,
                linked_actions, login_page, phones, supervisor_discovery,
                photos, service_accounts, talk_relay, user_files)
 from . import default_screens, direct, direct_tls, docs_pages, ha_dashboards, ma_page, media_proxy, proxy_check, proxy_trust, security_headers, tablet_links, user_data
@@ -632,6 +633,8 @@ def wire(app: web.Application, hub: Hub, token: str, connect_ha: bool) -> None:
     # LAN door + a Service credential with the `linked` scope; Mantel can't call HA through it).
     service_accounts.register(app, hub)
     linked.register(app, hub)
+    # HK's settings for a linked HK Frontend's dashboards: one copy, Mantel's (decision 29, TWO-PRODUCTS.md)
+    linked_settings.register(app)
     # linked mode's per-tablet ownership (CUTOVER §1 Option A): every tablet HA's until an Owner moves
     # it (PUT /api/linked/owners, audited); HA is told in the link's hello and `owners` frames
     linked_owners.register(app, hub)

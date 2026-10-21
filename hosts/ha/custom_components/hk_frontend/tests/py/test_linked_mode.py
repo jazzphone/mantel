@@ -287,7 +287,8 @@ async def test_a_refusal_says_why(hass, base, mantel):
 
 async def test_a_slow_mantel_fails_the_call_in_time(hass, base, mantel):
     async def silent(ws, msg):
-        return None
+        # silent to the call (the dashboards' report on connect is answered: it is not what is timed here)
+        return await mantel.ok(ws, msg) if msg.get("type") == "report" else None
     mantel.answer = silent
     e = await _linked(hass, mantel)
     _linked_now(hass).link.timeout = 0.2

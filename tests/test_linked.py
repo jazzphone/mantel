@@ -303,7 +303,8 @@ def test_descriptors_are_checked():
 
 
 def test_mantel_never_sends_a_command_frame():
-    assert linked.SERVER_TYPES == {"hello", "result", "entity", "state", "removed", "owners"}
+    # `settings` is data for HK Frontend's dashboards, to a client that asked (linked_settings.py), never a command
+    assert linked.SERVER_TYPES == {"hello", "result", "entity", "state", "removed", "owners", "settings"}
     assert linked.CLIENT_TYPES == {"call_service", "entity_command", "ping"}
     assert linked.SERVICES == ("set_black_screen", "show_popup", "close_popup", "notify")
 

@@ -47,6 +47,14 @@ the ownership is set or changed):
   * nothing local runs that Mantel now does: the features (Music, Live TV, ...),
     the wall tablets' Sleep Screen engines and their entities, the HK Settings
     page. /hk/ is still served.
+  * HK'S SETTINGS ARE MANTEL'S (decision 29, Mantel's docs/phase9/TWO-PRODUCTS.md):
+    Mantel sends them over the link (a `settings` frame, after hello and after
+    every change), this side keeps the last one (MIRROR, and a Store so a
+    restart without Mantel has it), and the dashboards' settings feed is
+    answered from it -- also while Mantel can't be reached. A save the
+    dashboards make (SAVES) goes to Mantel as `settings_write`, as the Home
+    Assistant user who made it: Mantel saves it as the person linked to that
+    user, or says in words why not (forward_saves).
 
 Mantel never asks Home Assistant to do anything over the link: nothing it
 sends can call a service here (the listener below only changes the mirrored
@@ -61,9 +69,11 @@ diagnostics, and it is revoked on Mantel Server's side in one step.
 from __future__ import annotations
 
 from collections.abc import Mapping
+import functools
 import logging
 from typing import Any
 
+from homeassistant.components import websocket_api
 from homeassistant.components.alarm_control_panel import (
     AlarmControlPanelEntity, AlarmControlPanelEntityFeature, AlarmControlPanelState, CodeFormat,
 )
@@ -75,16 +85,34 @@ from homeassistant.config_entries import ConfigEntry, ConfigEntryState
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers.dispatcher import async_dispatcher_send
+from homeassistant.helpers.storage import Store
 from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
 from homeassistant.helpers.entity import Entity
 
-from .const import CONF_MANTEL_LINK, CONF_MANTEL_OWNERS, DOMAIN
+from .const import CONF_MANTEL_LINK, CONF_MANTEL_OWNERS, DOMAIN, SIGNAL_CONFIG
 from .mantel_link import LinkError, MantelLink, Refused, plain_target, ws_url
 
 _LOGGER = logging.getLogger(__name__)
 
 DATA = "linked"                        # hass.data[DOMAIN][DATA]: the running Linked
+# hass.data[DOMAIN][MIRROR]: the last settings Mantel sent ({version, payload}), kept in the Store too
+MIRROR = "mantel_settings"
+MIRROR_STORE = "hk_frontend.mantel_settings"
+MIRROR_VERSION = 1
+ISSUE_UNLINKED = "mantel_admins_unlinked"   # Repairs: Home Assistant admins who can't save HK's settings
+# the settings saves HK's pages make, as Mantel takes them (its settings_store SETTINGS_SAVES and FEATURE_SAVES;
+# Mantel's tests keep the two lists the same). While the settings are Mantel's, each goes to Mantel.
+SAVES = frozenset({
+    "hk_frontend/settings/set", "hk_frontend/board/set", "hk_frontend/tablet/set", "hk_frontend/setup/done",
+    "hk_frontend/calendar/color", "hk_frontend/chip/save", "hk_frontend/chip/remove",
+    "hk_frontend/accessory/set", "hk_frontend/accessory/order", "hk_frontend/accessory/into",
+    "hk_frontend/accessory/page_order", "hk_frontend/accessory/room_scenes", "hk_frontend/board/favorite",
+    "hk_frontend/hidden/also", "hk_frontend/hidden/set", "hk_frontend/tablet/add", "hk_frontend/tablet/remove",
+    "hk_frontend/dashboard/titled",
+})
 # what the link forwards (and nothing else): the actions automations use
 SERVICES = ("set_black_screen", "show_popup", "close_popup", "notify")
 # Mantel's refusals that are the caller's to fix (the rest are Mantel's trouble)
@@ -216,6 +244,53 @@ def active(hass: HomeAssistant) -> "Linked | None":
     return hass.data.get(DOMAIN, {}).get(DATA)
 
 
+def mirror_store(hass: HomeAssistant) -> Store:
+    """The mirror's Store, one for the whole of HA (a save still pending is what the next read gets)."""
+    data = hass.data.setdefault(DOMAIN, {})
+    if "mirror_store" not in data:
+        data["mirror_store"] = Store(hass, MIRROR_VERSION, MIRROR_STORE)
+    return data["mirror_store"]
+
+
+def mirrored(hass: HomeAssistant) -> dict[str, Any] | None:
+    """Mantel's settings feed for the dashboards, while the settings are Mantel's
+    (linked, the house Mantel's) and Mantel has sent them once; else None (the
+    entry's own, as always)."""
+    linked = active(hass)
+    if linked is None or not linked.full:
+        return None
+    got = hass.data.get(DOMAIN, {}).get(MIRROR)
+    return dict(got["payload"]) if isinstance(got, Mapping) and isinstance(got.get("payload"), Mapping) else None
+
+
+def forward_saves(hass: HomeAssistant) -> int:
+    """Once every command is registered (async_setup): each settings save
+    HK's pages make goes to Mantel while the settings are Mantel's, and runs
+    here as always otherwise. How many were wrapped."""
+    handlers = hass.data.get(websocket_api.DOMAIN, {})
+    n = 0
+    for t in sorted(SAVES):
+        got = handlers.get(t)
+        if not isinstance(got, tuple) or getattr(got[0], "_hk_forwards", False):
+            continue
+        handler, schema = got
+        websocket_api.async_register_command(hass, t, _forwarding(handler), schema)
+        n += 1
+    return n
+
+
+def _forwarding(handler: Any) -> Any:
+    @functools.wraps(handler)
+    def wrapper(hass: HomeAssistant, connection: Any, msg: dict[str, Any]) -> Any:
+        linked = active(hass)
+        if linked is None or mirrored(hass) is None:
+            return handler(hass, connection, msg)
+        hass.async_create_task(linked.save(connection, msg), "hk_frontend: a settings save to Mantel")
+        return None
+    wrapper._hk_forwards = True     # type: ignore[attr-defined]
+    return wrapper
+
+
 def attach(hass: HomeAssistant, entry: ConfigEntry, platform: str, add: Any) -> bool:
     """A platform of the house's entry, linked: Mantel's entities of the
     units it owns are added through it. True when the whole entry is
@@ -247,8 +322,13 @@ class Linked:
         assert link is not None
         self.hass, self.entry = hass, entry
         # `bridge`: this release can hand the bridge to Mantel Link (handover.py)
+        # `settings`: this release keeps Mantel's settings for its dashboards (on_settings)
         self.link = MantelLink(async_get_clientsession(hass), link["url"], link["token"], self,
-                               features=("bridge",), **({"timeout": timeout} if timeout is not None else {}))
+                               features=("bridge", "settings"), frames={"settings": self.on_settings},
+                               **({"timeout": timeout} if timeout is not None else {}))
+        self._store: Store = mirror_store(hass)
+        self._last: dict[str, Any] | None = None        # the mirror as the Store keeps it
+        self._dirty = False                              # not on disk yet (written at stop at the latest)
         self.descs: dict[str, dict[str, Any]] = {}          # unique id -> Mantel's descriptor
         self.entities: dict[str, LinkedEntity] = {}         # unique id -> the entity added
         self.adders: dict[str, Any] = {}                    # platform -> async_add_entities
@@ -265,6 +345,66 @@ class Linked:
     def connected(self) -> bool:
         return self.link.connected
 
+    async def load_mirror(self) -> None:
+        """The settings Mantel sent last time, before the link is up (a restart without Mantel)."""
+        try:
+            got = await self._store.async_load()
+        except Exception:  # noqa: BLE001 -- a broken file only means waiting for Mantel's next frame
+            _LOGGER.exception("hk_frontend: the last settings from Mantel could not be read")
+            return
+        if isinstance(got, Mapping) and isinstance(got.get("version"), str) and isinstance(got.get("payload"), Mapping):
+            self.hass.data.setdefault(DOMAIN, {}).setdefault(MIRROR, {"version": got["version"],
+                                                                      "payload": dict(got["payload"])})
+
+    @callback
+    def on_settings(self, msg: dict[str, Any]) -> None:
+        """Mantel's settings (a `settings` frame): kept, and the dashboards told."""
+        self._setup(msg.get("setup"))
+        version, payload = msg.get("version"), msg.get("payload")
+        if not isinstance(version, str) or not 0 < len(version) <= 64 or not isinstance(payload, dict):
+            _LOGGER.warning("hk_frontend: ignored settings Mantel Server sent badly")
+            return
+        data = self.hass.data.setdefault(DOMAIN, {})
+        if (data.get(MIRROR) or {}).get("version") == version:
+            return
+        data[MIRROR] = {"version": version, "payload": payload}
+        # `owned`: Mantel's while the house is (mirror.py takes them back in when that ends)
+        self._last, self._dirty = {"version": version, "payload": payload, "owned": self.full}, True
+        self._store.async_delay_save(self._saved, 1)
+        async_dispatcher_send(self.hass, SIGNAL_CONFIG)
+
+    @callback
+    def _saved(self) -> dict[str, Any]:
+        self._dirty = False
+        return dict(self._last or {})
+
+    @callback
+    def _setup(self, setup: Any) -> None:
+        """Mantel's word on saving from here: while saves are on and Home
+        Assistant admins aren't linked to a person, a Repairs issue says so."""
+        if not isinstance(setup, Mapping):
+            return
+        n = setup.get("unlinked_admins")
+        n = n if isinstance(n, int) and not isinstance(n, bool) and n >= 0 else 0
+        if setup.get("saves") is True and n and self.full:
+            ir.async_create_issue(self.hass, DOMAIN, ISSUE_UNLINKED, is_fixable=False, is_persistent=False,
+                                  severity=ir.IssueSeverity.WARNING, translation_key=ISSUE_UNLINKED,
+                                  translation_placeholders={"count": str(n)})
+        else:
+            ir.async_delete_issue(self.hass, DOMAIN, ISSUE_UNLINKED)
+
+    async def _report(self) -> None:
+        """Which of Home Assistant's dashboards are HK's (Mantel's Screens say where each one is drawn)."""
+        from .panel import _dashboards
+        try:
+            boards = [{"path": d["path"], "title": str(d["title"])[:80]} for d in await _dashboards(self.hass)
+                      if d.get("generated") or d.get("item")]
+            await self.link.request("report", {"report": {"hk_dashboards": boards[:200]}})
+        except LinkError as err:
+            _LOGGER.debug("hk_frontend: the dashboards were not reported to Mantel: %s", err.message)
+        except Exception:  # noqa: BLE001 -- a report never breaks the link
+            _LOGGER.exception("hk_frontend: the dashboards were not reported to Mantel")
+
     def start(self) -> None:
         self.entry.async_create_background_task(self.hass, self.link.run(), "hk_frontend: link to Mantel Server")
 
@@ -273,6 +413,10 @@ class Linked:
             self._unwait()
             self._unwait = None
         await self.link.close()
+        if self._dirty and self._last is not None:
+            # a reload (the house moved back) reads it next: on disk now, not in a second
+            self._dirty = False
+            await self._store.async_save(self._last)
 
     @callback
     def attach(self, platform: str, add: Any) -> None:
@@ -370,6 +514,8 @@ class Linked:
 
     @callback
     def on_connected(self, connected: bool) -> None:
+        if connected:
+            self.entry.async_create_background_task(self.hass, self._report(), "hk_frontend: report to Mantel")
         for ent in self.entities.values():
             if ent.hass is not None:
                 ent.async_write_ha_state()
@@ -431,6 +577,26 @@ class Linked:
         return HomeAssistantError(f"{what} was not done: {err.message} (HK Frontend is linked to Mantel "
                                   f"Server at {self.link.url})")
 
+    async def save(self, connection: Any, msg: dict[str, Any]) -> None:
+        """A settings save from HK's pages, to Mantel as the user who made it;
+        answered here with Mantel's result or its refusal, in its words."""
+        user = getattr(connection, "user", None)
+        mid = msg.get("id")
+        if user is None or getattr(user, "system_generated", False):
+            connection.send_error(mid, "not_linked", "Only a person's Home Assistant user saves HK settings.")
+            return
+        body = {k: v for k, v in msg.items() if k != "id"}
+        try:
+            result = await self.link.request("settings_write", {"ha_user": user.id, "msg": body})
+        except Refused as err:
+            connection.send_error(mid, err.code, err.message)
+            return
+        except LinkError as err:
+            connection.send_error(mid, "mantel_away", f"Not saved: {err.message}. HK's settings are Mantel's; "
+                                                      "try again once Mantel Server is reachable.")
+            return
+        connection.send_result(mid, result)
+
     async def forward(self, service: str, data: Mapping[str, Any],
                       targets: list[dict[str, str]] | None = None) -> Any:
         """One hk_frontend action, as called, to Mantel Server."""
@@ -488,6 +654,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, platforms: 
     platforms (each attaches)."""
     linked = Linked(hass, entry)
     hass.data.setdefault(DOMAIN, {})[DATA] = linked
+    await linked.load_mirror()
     key_now = setup_key(entry)
 
     async def updated(_hass: HomeAssistant, _entry: ConfigEntry) -> None:

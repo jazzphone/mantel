@@ -1660,7 +1660,37 @@ function pLink() {
     const tabs = (d.tablets || []).filter(Boolean);
     if (tabs.length) c.appendChild(group({ header: 'Who Runs Each Wall Tablet', footer: 'Each tablet has one engine. A tablet Mantel runs has its Sleep Screen and black screen in Mantel; off, HK Frontend’s own run it, for a tablet showing HK Frontend’s dashboards in Home Assistant. Home Assistant’s scripts reach it by the same entity ids either way.' + (owner ? '' : ' Only an Owner can move them.') },
       tabs.map((u) => ownerRow(u, u.name || u.unit))));
+    if (links.some((l) => l.domain === 'hk_frontend')) drawHaSaves(c, owner);
   } };
+}
+
+// SAVES FROM HOME ASSISTANT (linked_settings.py; decision 29): while HK Frontend is linked and Mantel runs the house,
+// HK's settings are Mantel's, and a change made on HK Frontend's dashboards is saved here as the person linked to the
+// Home Assistant user who made it. GET/PUT /api/linked/ha-saves: whether that is on, and who each HA person is.
+const HA_ROLE = { '': 'Not Linked', owner: 'Owner', admin: 'Admin', adult: 'Adult', child: 'Child', guest: 'Guest' };
+function drawHaSaves(c, owner) {
+  const got = load('hasaves', () => api('GET', '/api/linked/ha-saves'));
+  if (!got || got.err) return;
+  const d = got.data;
+  const rows = [owner && d.hk_frontends
+    ? K().toggle({ label: 'Saves from Home Assistant', on: !!d.saves, fk: 'mx:ha-saves',
+                   onChange: (on) => act('link', () => api('PUT', '/api/linked/ha-saves', { on }),
+                                         on ? 'Changes made in Home Assistant are saved.' : 'Changes made in Home Assistant are refused.', 'hasaves') })
+    : info('Saves from Home Assistant', null, d.saves ? 'On' : 'Off')];
+  c.appendChild(group({ header: 'Saves from Home Assistant', footer: 'While Mantel runs the house, HK Frontend’s dashboards in Home Assistant draw with Mantel’s settings. On, a change made there (a favorite, a calendar’s color, an accessory) is saved in Mantel as the person below, checked by their role and kept in the settings’ history. Off, it is refused.' + (owner ? '' : ' Only an Owner can change it.') }, rows));
+  const people = d.people || [];
+  if (!people.length && !d.error) return;
+  const roles = [['', HA_ROLE['']], ...(d.roles || []).map((r) => [r, HA_ROLE[r] || r])];
+  c.appendChild(group({ header: 'Who Saves from Home Assistant', footer: d.error || 'Each Home Assistant person, and the role they save with. Admins come first: one not linked can’t save, and Home Assistant shows a repair until they are.' },
+    people.map((p) => {
+      const sub = (p.admin ? 'Home Assistant admin' : 'Home Assistant user') + (p.person && p.person.disabled ? ' · turned off in Mantel' : '');
+      if (p.tablet) return info(p.name, sub, 'Wall Tablet');
+      const now = p.person ? p.person.role : '';
+      if (!owner) return info(p.name, sub, HA_ROLE[now] || now);
+      return K().select({ label: p.name, sub, options: roles, value: now, fk: 'mx:ha-user:' + p.id,
+                          onChange: (v) => act('link', () => api('PUT', '/api/linked/ha-saves', { ha_user: p.id, role: v || null }),
+                                               v ? p.name + ' saves as ' + HA_ROLE[v] + '.' : p.name + ' is no longer linked.', 'hasaves') });
+    })));
 }
 
 // PAIR MANTEL LINK (linked_pairing.py): a one-time code, ten minutes, typed into Mantel Link's setup in Home

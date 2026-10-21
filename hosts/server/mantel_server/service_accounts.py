@@ -33,7 +33,9 @@ from pathlib import Path
 
 log = logging.getLogger("mantel.service_accounts")
 
-SCOPES = frozenset({"linked"})        # endpoint names a service account can be given
+# endpoint names a service account can be given. `linked_saves`: on a `linked` account, HK Frontend may save HK's
+# settings as the Mantel person linked to the Home Assistant user who saved (linked_settings.py; decision 29)
+SCOPES = frozenset({"linked", "linked_saves"})
 PREFIX = "msvc_"
 _TOKEN = re.compile(r"^msvc_([0-9a-f]{16})_([A-Za-z0-9_-]{43})$")
 _NAME = re.compile(r"^[\w .:@-]{1,64}$")
@@ -117,6 +119,24 @@ class ServiceAccounts:
     def live(self, account_id: str) -> bool:
         row = self.db.execute("SELECT revoked FROM service_accounts WHERE id=?", (account_id,)).fetchone()
         return row is not None and row["revoked"] is None
+
+    def set_scope(self, account_id: str, scope: str, on: bool) -> bool:
+        """Give or take one scope (never the last one). True if it changed."""
+        if scope not in SCOPES:
+            raise ServiceAccountError(f"unknown scope {scope!r}")
+        row = self.db.execute("SELECT scopes FROM service_accounts WHERE id = ? AND revoked IS NULL",
+                              (account_id,)).fetchone()
+        if row is None:
+            raise ServiceAccountError("no such service account")
+        now = set(json.loads(row["scopes"]))
+        new = now | {scope} if on else now - {scope}
+        if new == now:
+            return False
+        scopes = self._scopes(new)
+        with self.db:
+            self.db.execute("UPDATE service_accounts SET scopes = ? WHERE id = ?", (json.dumps(scopes), account_id))
+        log.info("service account %s now has scopes %s", account_id, scopes)
+        return True
 
     def list(self) -> list[dict]:
         out = []

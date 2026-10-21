@@ -156,7 +156,7 @@ async def test_the_overview_describes_me_and_the_forms(admin):
     assert body["csrf"] == admin.cookie("mantel_csrf") and body["now"] == admin.now[0]
     assert body["roles"] == ["owner", "admin", "adult", "child", "guest", "wall_tablet"]
     assert body["device_roles"] == ["adult", "child", "guest", "wall_tablet"]
-    assert body["service_scopes"] == ["linked"] and "audit" in body["features"] and "*" not in body["actions"]
+    assert body["service_scopes"] == ["linked", "linked_saves"] and "audit" in body["features"] and "*" not in body["actions"]
     assert "password_hash" not in str(body)
 
 

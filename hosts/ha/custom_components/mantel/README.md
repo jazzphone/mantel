@@ -30,7 +30,7 @@ Mantel Link replaces **HK Frontend**. Moving from it keeps every entity id and i
 [HK Frontend](https://github.com/jazzphone/hk-frontend) is HK inside Home Assistant, a product of its own built from
 the same code as Mantel. Mantel Link and HK Frontend can be installed together: one of them shows Mantel's entities
 (Mantel Settings → Connections → Home Assistant Link → The Bridge), each wall tablet is run by Mantel or by HK
-Frontend, and each keeps its own HK settings. You don't need HK Frontend to use Mantel, and moving everything to
+Frontend, and while Mantel runs the house HK Frontend’s dashboards use Mantel’s settings. You don't need HK Frontend to use Mantel, and moving everything to
 Mantel is a choice ([Moving from HK Frontend](docs/Moving-from-HK-Frontend.md)).
 
 ## Install

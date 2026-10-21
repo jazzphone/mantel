@@ -332,6 +332,9 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     # A pre-release feature entry becomes an item of the house's entry, before
     # any entry is set up.
     await F.async_fold(hass)
+    # LINKED, the settings Mantel's: the pages' settings saves go to Mantel
+    # (linked_mode.forward_saves; decision 29), after everything registered
+    linked_mode.forward_saves(hass)
     return True
 
 
@@ -374,6 +377,12 @@ def ws_settings_subscribe(hass: HomeAssistant, connection: websocket_api.ActiveC
 
     @callback
     def send() -> None:
+        # LINKED, the house Mantel's: Mantel's settings, as it sent them last
+        # (linked_mode.mirrored; decision 29), not this entry's frozen own
+        mirror = linked_mode.mirrored(hass)
+        if mirror is not None:
+            connection.send_message(websocket_api.event_message(msg["id"], mirror))
+            return
         from . import screensaver
         mgr = screensaver.manager(hass)
         payload = dash_settings.as_client(_entry(hass), kinds.current(hass), accessories.current(hass),
@@ -414,6 +423,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # runs, less what Mantel owns (its tablets), and the link starts first.
     if linked_mode.full(entry):
         return await linked_mode.async_setup_entry(hass, entry, PLATFORMS)
+    # HK's settings are this entry's again (the house back to Home
+    # Assistant, or unlinked): Mantel's last ones taken in, once (mirror.py)
+    from . import mirror
+    await mirror.adopt_if_handed_back(hass, entry)
     set_up_for = linked_mode.setup_key(entry)
 
     @callback
