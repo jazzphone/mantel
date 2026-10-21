@@ -311,6 +311,20 @@ ok('...a screensaver element is on the page', walkFake(document.body).some(funct
 ok('...the sky and the cards are told', window.__hkSaverEvents === undefined || true);
 push(hassWith('off'));
 ok('the house turning it OFF stops it (wake, the doorbell)', !S.running());
+// NOT OVER LIVE TV (2026-10-21): hk-idle held (Live TV playing, a sheet
+// open) -- the idle timer already waited; the switch turned on by an
+// automation or the Sleep Screen now waits too
+(function () {
+  var idle0 = window.hkIdle;
+  window.hkIdle = Object.assign({}, idle0 || {}, { held: function () { return ['live-tv']; } });
+  push(hassWith('on'));
+  ok('...but the switch ON does not start it over Live TV (hk-idle held)', !S.running(), S.stats());
+  window.hkIdle = idle0;
+  push(hassWith('on'));
+  ok('...and it starts once the hold ends', S.running() && S.stats().startedBy === 'switch');
+  push(hassWith('off'));
+  ok('...(and stops again)', !S.running());
+})();
 (function () {
   // A HOST THAT ONLY READS (a client with no action transport): the
   // screensaver still runs from the client, and no switch write goes anywhere

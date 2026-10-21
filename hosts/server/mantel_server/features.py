@@ -552,6 +552,16 @@ class MantelSleep(SE.Sleep):
         self.seed_presence()
         self.evaluate()
 
+    def awake_also(self) -> list[str]:
+        """LIVE TV PLAYING ON THIS TABLET keeps it awake (2026-10-21), as a Keep Awake While entity would:
+        nobody touches a screen they are watching. Only this tablet: the heartbeat names it (live_tv.py
+        Viewers.tablets), so a show in the living room keeps no other tablet up."""
+        tv = self.host.app.get("live_tv")
+        try:
+            return ["Live TV"] if tv is not None and self.tid in tv.viewers.tablets(tv.monotonic()) else []
+        except Exception:  # noqa: BLE001 -- the Sleep Screen decides without it
+            return []
+
     def unload(self) -> None:
         self._closed = True
         if self._timer is not None:

@@ -173,7 +173,8 @@ export class Hub {
 
   // Live TV's viewer heartbeat (HK's hk_tv/watching): the channel playing, or null when it stops.
   // Counted by Mantel (live_tv.py); resolves {viewers, ha} (ha: Home Assistant's Live TV is the interim)
-  tvWatching(channel) { return this.ask('tv_watching', { channel }); }
+  // `tablet`: the wall tablet this page is, when it is one -- its Sleep Screen keeps it awake while it plays
+  tvWatching(channel, tablet) { return this.ask('tv_watching', tablet ? { channel, tablet } : { channel }); }
 
   // live talk's own socket (talk_relay.py), at the page's prefix like /ws; the card's Worker opens it
   // with a one-time ticket from a gateway `talk_live` command (mantel-client.js liveSocket)

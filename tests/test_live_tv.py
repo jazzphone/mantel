@@ -7,6 +7,7 @@ tuner on 127.0.0.1, a fictional house; house commands stay off throughout."""
 import asyncio
 import json
 import sys
+import types
 from pathlib import Path
 
 import pytest
@@ -408,6 +409,49 @@ async def test_the_viewers_sensor_counts_screens_and_people(rig):
     await r.tv.tick()
     assert r.state(L.VIEWERS_ID)["s"] == 0 and r.state(L.VIEWERS_ID)["a"]["users"] == []
     assert r.env.audit() == []
+    await ws.close()
+    await ws2.close()
+
+
+async def test_the_tablet_it_plays_on_stays_awake_and_no_other(rig, monkeypatch):
+    # (2026-10-21) the heartbeat names the page's wall tablet; taken only where the page may speak for it;
+    # that tablet's Sleep Screen decides again as it starts and stops, and keeps it awake while it plays
+    r = await rig()
+    host = r.app["features"]
+    speaks = {"hall"}
+    monkeypatch.setattr(L, "features_may_speak_for", lambda h, ident, tid: tid in speaks)
+    asked = []
+    monkeypatch.setattr(host, "engines", {t: types.SimpleNamespace(evaluate=lambda t=t: asked.append(t), unload=lambda: None)
+                                          for t in ("hall", "den")})
+    ws = await r.socket("owner1", "owner")
+    await ws.send_json({"type": "tv_watching", "id": 1, "channel": "4.1", "tablet": "hall"})
+    assert (await GF.recv(ws))["result"]["viewers"] == ["Owner1"]
+    now = r.tv.monotonic()
+    assert r.tv.viewers.tablets(now) == {"hall"} and asked == ["hall"], "the hall's Sleep Screen decides again"
+    sleep = types.SimpleNamespace(host=host, tid="hall")
+    assert F.MantelSleep.awake_also(sleep) == ["Live TV"]
+    assert F.MantelSleep.awake_also(types.SimpleNamespace(host=host, tid="den")) == [], "no other tablet"
+    await ws.send_json({"type": "tv_watching", "id": 2, "channel": "4.1", "tablet": "hall"})
+    await GF.recv(ws)
+    assert asked == ["hall"], "a heartbeat that changes nothing asks nothing"
+    # a page that may not speak for a tablet still counts as a viewer, for no tablet
+    ws2 = await r.socket("adult1", "adult")
+    await ws2.send_json({"type": "tv_watching", "id": 3, "channel": "7.1", "tablet": "den"})
+    assert (await GF.recv(ws2))["result"]["viewers"] == ["Adult1", "Owner1"]
+    assert r.tv.viewers.tablets(r.tv.monotonic()) == {"hall"}
+    for bad in ({"tablet": 5}, {"tablet": ""}, {"tablet": "x" * 65}):
+        await ws2.send_json({"type": "tv_watching", "id": 4, "channel": "7.1", **bad})
+        assert (await GF.recv(ws2))["error"] == {"code": "invalid"}
+    # closed: the hall decides again, and is no longer kept up
+    await ws.send_json({"type": "tv_watching", "id": 5, "channel": None, "tablet": "hall"})
+    await GF.recv(ws)
+    assert asked == ["hall", "hall"] and F.MantelSleep.awake_also(sleep) == []
+    # ...and a page gone quiet lets go after the viewers' TTL
+    await ws.send_json({"type": "tv_watching", "id": 6, "channel": "4.1", "tablet": "hall"})
+    await GF.recv(ws)
+    r.mono[0] += L.VIEWER_TTL_S + 1
+    await r.tv.tick()
+    assert r.tv.viewers.tablets(r.tv.monotonic()) == set() and asked[-1] == "hall" and len(asked) == 4
     await ws.close()
     await ws2.close()
 

@@ -236,9 +236,11 @@ def test_the_frames_are_what_the_servers_handlers_accept():
     src = (ROOT / "hosts/server/mantel_server/features.py").read_text()
     assert 'set(msg) <= {"type", "id", "tablet", "touch", "saver", "black", "photos"}' in src
     assert 'set(msg) - {"type", "id", "key", "seconds"}' in src
-    # tv_watching: channel only (live_tv.py), answered as tv_watching_result, which hub.js accepts
+    # tv_watching: the channel, and the wall tablet the page is when it is one (live_tv.py; its Sleep Screen
+    # keeps it awake while it plays), answered as tv_watching_result, which hub.js accepts
     tv = (ROOT / "hosts/server/mantel_server/live_tv.py").read_text()
-    assert 'set(msg) - {"type", "id", "channel"}' in tv and '"tv_watching_result"' in tv
+    assert 'set(msg) - {"type", "id", "channel", "tablet"}' in tv and '"tv_watching_result"' in tv
+    assert "tablet ? { channel, tablet } : { channel }" in (ROOT / "web/shim/hub.js").read_text()
     assert "'tv_watching_result'" in (ROOT / "web/shim/hub.js").read_text()
 
 

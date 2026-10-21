@@ -569,7 +569,10 @@
       if (st === pendingSwitch.want || Date.now() > pendingSwitch.until) pendingSwitch = null;
       else return;
     }
-    if (st === 'on' && !on) start('switch');
+    // ...but not over somebody watching Live TV or using a sheet (hk-idle's
+    // hold, as the idle timer already honours): the switch turned on by an
+    // automation or the Sleep Screen waits for the hold to end (2026-10-21)
+    if (st === 'on' && !on) { if (!held()) start('switch'); }
     else if (st === 'off' && on) stop('switch');
   }
 

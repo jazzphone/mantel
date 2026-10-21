@@ -212,6 +212,17 @@ def test_quiet_hours_by_the_houses_clock(house, clock):
     assert (s.want, s.reason) == ("dark", "quiet hours") and s.facts_now["quiet"]
 
 
+def test_the_hosts_own_keep_awake_reasons_keep_it_up(house, clock):
+    # awake_also: what the host knows itself (Mantel: Live TV playing on this tablet), as a Keep Awake While
+    s = screen(house, clock)
+    s.awake_also = lambda: ["Live TV"]
+    s.decide(clock())
+    assert (s.want, s.reason) == ("dashboard", "Live TV is on")
+    s.awake_also = lambda: []
+    s.decide(clock.tick(seconds=1))
+    assert (s.want, s.reason) == ("dark", "nobody here")
+
+
 def test_claims_and_holds_by_name(house, clock):
     house.set(SMOKE, "on", {"friendly_name": "Smoke"})
     house.set(BELL, "active", {"friendly_name": "Doorbell"})

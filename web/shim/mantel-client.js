@@ -235,7 +235,12 @@
     var ch = msg.channel === undefined ? null : msg.channel;
     if (ch !== null && (typeof ch !== 'string' || !CHANNEL_NO.test(ch))) return Promise.reject(fail('invalid', 'a channel number or null'));
     if (typeof hub.tvWatching !== 'function') return Promise.resolve({ viewers: [] });
-    return hub.tvWatching(ch).then(function (res) {
+    // the wall tablet this page is: Mantel keeps that tablet's Sleep Screen awake while a channel plays
+    // (live_tv.py Viewers.tablets; only where the page may speak for it)
+    var HS = global.hkSettings, HC = global.hkHostClient, tb = null;
+    try { tb = HS && HS.tablet ? HS.tablet(HC && HC.current ? HC.current() : null) : null; } catch (e) { tb = null; }
+    var tid = tb && !tb.legacy && typeof tb.id === 'string' ? tb.id : null;
+    return hub.tvWatching(ch, tid).then(function (res) {
       var commands = typeof hub.commandsEnabled === 'function' && hub.commandsEnabled();
       if (!(res && res.ha === true) || !commands || typeof callWS !== 'function') return { viewers: (res && res.viewers) || [] };
       return callWS.call(acts, { type: 'hk_tv/watching', channel: ch });

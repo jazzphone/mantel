@@ -329,7 +329,9 @@ In this order, all before who is in the room:
   still comes up at night.
 - **Keep Awake While**: the dashboard stays up while any of these is on. For
   things a person is watching without touching: live TV playing on the
-  tablet, a timer ringing, a recipe open.
+  tablet, a timer ringing, a recipe open. On Mantel, Live TV playing on a
+  tablet keeps that tablet awake by itself (the reason says “Live TV is on”),
+  and the screensaver waits for it; nothing to add here for it.
 - **Stay Dark While**: dark while any of these is on: away mode, the alarm
   armed away, a "Vacation" `input_boolean`. The three above still win, so the
   smoke alarm and the doorbell wake it even when you are away.

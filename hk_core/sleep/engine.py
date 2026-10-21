@@ -249,6 +249,11 @@ class Sleep:
         ph = self._st(own.get("photos"))
         return "photos" if ph is not None and ph.state == "on" else "dashboard"
 
+    def awake_also(self) -> list[str]:
+        """Keep Awake While's reasons the host knows itself, beside the screen's own entities: names, as the
+        decision says them (Mantel: "Live TV" while this tablet plays it -- features.MantelSleep)."""
+        return []
+
     def facts(self, now: datetime | None = None) -> dict[str, Any]:
         """The moment's facts (rules.decide()'s `f`)."""
         now = now or self.clock()
@@ -267,7 +272,7 @@ class Sleep:
         app = self._st(self.kiosk.get("app"))
         f["app_name"] = app.state if app is not None else ""
         f["app_front"] = app is not None and app.state not in KIOSK_APPS
-        f["awake"] = [self._name(i) for i in self._on(o.get("awake_while") or [])]
+        f["awake"] = [self._name(i) for i in self._on(o.get("awake_while") or [])] + list(self.awake_also())
         f["dark"] = [self._name(i) for i in self._on(o.get("dark_while") or [])]
         present = self._presence(now)
         f["present"] = present

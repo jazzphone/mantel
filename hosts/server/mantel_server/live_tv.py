@@ -207,6 +207,11 @@ class Go2rtc:
 
 
 # ------------------------------------------------------------------------------------- viewers
+def features_may_speak_for(host: Any, identity: Any, tablet: str) -> bool:
+    from .features import may_speak_for         # (features imports this module)
+    return isinstance(tablet, str) and may_speak_for(host, identity, tablet)
+
+
 class Viewers:
     """Who is watching: {key: {name, person, screen, channel, at}}, heartbeat-expired (HA's Viewers, keyed
     per screen: a wall tablet's device, else the person)."""
@@ -236,6 +241,11 @@ class Viewers:
 
     def names(self, now: float) -> list[str]:
         return [v["name"] for v in self.snapshot(now)]
+
+    def tablets(self, now: float) -> set[str]:
+        """The wall tablets Live TV plays on (the heartbeat's ``tablet``, when the page may speak for it): each
+        one's Sleep Screen keeps it awake while it does (features.MantelSleep.awake_also)."""
+        return {v["tablet"] for v in self._v.values() if v.get("tablet") and now - v["at"] <= self.ttl}
 
 
 def viewer_of(identity: Any) -> tuple[str, dict[str, Any]] | None:
@@ -336,6 +346,7 @@ class MantelLiveTv:
         self.go2rtc: Go2rtc | None = Go2rtc(url, lambda: app.get("http")) if url else None
         self.hardware = getattr(cfg, "live_tv_hardware", "") or ""
         self.viewers = Viewers()
+        self._playing_on: set[str] = set()      # the tablets last told they play Live TV (tablets_changed)
         self.local = LocalEntities(hub, lambda: app["clock"]() if "clock" in app else time.time())
         self.sessions: dict[str, TvSession] = {}
         self.starting = 0                          # offers past the caps' check, not yet sessions (offer)
@@ -559,10 +570,30 @@ class MantelLiveTv:
             await self.end_all()
 
     # -- the heartbeat ----------------------------------------------------------------------------------
-    async def watching(self, identity: Any, channel: str | None) -> dict[str, Any]:
+    def tablets_changed(self) -> None:
+        """A tablet started or stopped playing Live TV (a heartbeat, a close, one gone quiet): its Sleep Screen
+        decides again. Against the tablets last told, not a count taken just before: a viewer gone quiet has
+        already aged out of ``tablets()`` by the time the tick prunes it."""
+        now = self.viewers.tablets(self.monotonic())
+        before, self._playing_on = self._playing_on, now
+        host = self.host
+        if now == before or host is None:
+            return
+        for tid in now ^ before:
+            eng = getattr(host, "engines", {}).get(tid)
+            if eng is not None:
+                eng.evaluate()
+
+    async def watching(self, identity: Any, channel: str | None, tablet: str | None = None) -> dict[str, Any]:
         who = viewer_of(identity)
         if who is None:
             raise Forbidden("sign in to watch")
+        # THE TABLET IT PLAYS ON (2026-10-21): its Sleep Screen keeps it awake while it does. Taken only from a
+        # page that may speak for that tablet (features.may_speak_for, the rule its black's reports meet);
+        # otherwise the heartbeat still counts, for no tablet
+        host = self.host
+        if tablet is not None and not (host is not None and features_may_speak_for(host, identity, tablet)):
+            tablet = None
         mode = self.mode()
         if channel is not None and mode in ("mantel", "link"):
             ch = next((c for c in self.channels() if c["number"] == channel), None)
@@ -573,7 +604,8 @@ class MantelLiveTv:
                 raise Forbidden("not allowed: this channel")
         self.heartbeats += 1
         now = self.monotonic()
-        changed = self.viewers.set(who[0], who[1], channel, now)
+        changed = self.viewers.set(who[0], {**who[1], "tablet": tablet}, channel, now)
+        self.tablets_changed()
         if changed and mode in ("mantel", "link"):
             want = self.wanted()
             hit = self.local.put_all(want)
@@ -822,6 +854,7 @@ class MantelLiveTv:
     async def tick(self) -> None:
         now = self.monotonic()
         self.viewers.prune(now)
+        self.tablets_changed()
         h = self.host
         if self.serves() and h is not None:
             # the guide: features' own loop fetches it when Live TV was on at start; otherwise here
@@ -932,11 +965,12 @@ def register(app: web.Application, hub: Any, hooks: Any = None, tv_hooks: LiveTv
     })
 
     async def tv_watching(ctx: Ctx, msg: dict) -> None:
-        rid, ch = msg.get("id"), msg.get("channel")
-        if set(msg) - {"type", "id", "channel"} or not (ch is None or (isinstance(ch, str) and _CHANNEL.match(ch))):
+        rid, ch, tb = msg.get("id"), msg.get("channel"), msg.get("tablet")
+        if set(msg) - {"type", "id", "channel", "tablet"} or not (ch is None or (isinstance(ch, str) and _CHANNEL.match(ch))) \
+                or not (tb is None or (isinstance(tb, str) and 0 < len(tb) <= 64)):
             return await ctx.send({"type": "tv_watching_result", "id": rid, "error": {"code": "invalid"}})
         try:
-            result = await tv.watching(ctx.identity, ch)
+            result = await tv.watching(ctx.identity, ch, tb)
         except Forbidden:
             return await ctx.send({"type": "tv_watching_result", "id": rid, "error": {"code": "forbidden"}})
         except LookupError:
