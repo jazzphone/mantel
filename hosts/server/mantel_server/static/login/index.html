@@ -20,9 +20,17 @@
   <p id="status" class="status" role="alert"></p>
 
   <form id="setup-form" class="step" method="post" action="login" novalidate hidden>
-    <p class="note">First start: Mantel has no Owner yet. Get a one-time setup code on the server
-      (<code>docker compose exec mantel-server mantel bootstrap</code>, or <code>mantel-server bootstrap</code>)
-      and create the Owner here. Next, the admin page connects Home Assistant.</p>
+    <div class="note">
+      <p>First start: Mantel has no Owner yet. Its log shows a one-time setup code (valid one hour; a new one
+        is logged when it expires). Enter it here to create the Owner. Next, the admin page connects Home Assistant.</p>
+      <ul class="where">
+        <li>Docker Compose: <code>docker compose logs mantel-server</code> (in the compose folder)</li>
+        <li>Proxmox LXC: <code>pct exec &lt;id&gt; -- docker logs mantel-server</code> on the Proxmox host</li>
+        <li>Mantel Server on its own: the server's output</li>
+      </ul>
+      <p>A new code now: <code>docker compose exec mantel-server mantel bootstrap</code>
+        (or <code>mantel-server bootstrap</code>).</p>
+    </div>
     <label for="setup-token">Setup code</label>
     <input id="setup-token" name="token" type="text" autocomplete="off" autocapitalize="none" autocorrect="off"
            spellcheck="false" maxlength="200" required>

@@ -58,7 +58,7 @@ export function messageFor(status, data, step) {
     case 'pending_invalid': return 'That took too long. Enter your password again.';
     case 'origin_not_allowed_for_passkeys': return 'Passkeys need the name you use to reach Mantel, not an IP address.';
     case 'ingress_sign_in': return 'Inside Home Assistant, Home Assistant signs you in.';
-    case 'bootstrap_token_invalid': return 'That setup code is wrong, used or expired. Make a new one on the server.';
+    case 'bootstrap_token_invalid': return 'That setup code is wrong, used or expired. Use the newest code in the server log.';
     case 'bootstrap_closed': return 'Mantel already has an Owner. Sign in instead.';
     case 'password_too_short': return 'Passwords need at least 12 characters.';
     case 'password_too_long': return 'That password is too long.';

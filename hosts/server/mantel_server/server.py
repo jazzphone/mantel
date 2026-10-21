@@ -532,6 +532,7 @@ def build_app(cfg: Config, token: str, store: Store | None = None, connect_ha: b
     async def start(app: web.Application) -> None:
         app["http"] = aiohttp.ClientSession()
         app["tick_task"] = asyncio.create_task(policy_tick(app, hub))
+        accounts.announce_setup_code(app, startup=True)    # no Owner yet (not Ingress): the setup code, in the log
         if connect_ha:
             hub.readproxy = ReadProxy(cfg.ha_url, conns.ha_token(), ws_url=cfg.ha_ws_url or None)
             app["ha_task"] = asyncio.create_task(hub.ha.run())
@@ -768,6 +769,10 @@ async def policy_tick(app: web.Application, hub: Hub, every: float = POLICY_TICK
 
 
 async def tick_once(app: web.Application, hub: Hub) -> None:
+    try:   # still no Owner and the setup code expired: log a new one
+        accounts.announce_setup_code(app)
+    except Exception:  # noqa: BLE001
+        log.exception("setup code step failed")
     audit = app.get("audit")
     if audit is not None:
         try:  # the audit's retention window (at most hourly; the maintenance path logs what it deleted)

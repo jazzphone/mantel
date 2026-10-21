@@ -258,7 +258,7 @@ async def test_bootstrap_token_expires_and_a_new_one_replaces_it(mantel):
 def test_bootstrap_cli_prints_a_token_only_while_no_owner(tmp_path, capsys):
     data = tmp_path / "data"
     assert entry.main(["bootstrap", "--data-dir", str(data)]) == 0
-    assert "One-time setup token" in capsys.readouterr().out
+    assert "One-time setup code" in capsys.readouterr().out
     store = Store(data / "mantel.db")
     try:
         store.link("ha-owner", "owner")                                     # an HA-linked Owner counts

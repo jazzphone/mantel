@@ -10,8 +10,11 @@
   tunnel door a password alone is refused for everyone.
 * **Passkeys**: WebAuthn via the ``webauthn`` package; challenges are stored server-side, single use,
   with an expiry. User verification is required.
-* **Bootstrap**: ``mantel-server bootstrap`` prints a one-time setup token, only while no Owner
-  exists; ``POST /api/bootstrap`` redeems it once to create the first Owner.
+* **Bootstrap**: while no Owner exists, the server logs a one-time setup code at start and a new one each
+  time the last one expired (:func:`announce_setup_code`; never in Ingress mode, where the HA administrator
+  becomes the Owner: ingress.py). ``mantel-server bootstrap`` prints one too, replacing the current one.
+  Only the code's hash is stored, it is never audited, and no page shows it. ``POST /api/bootstrap``
+  redeems it once to create the first Owner.
 * **Audit**: adding a person, changing their role or name, disabling or enabling them, changing your own
   password and resetting someone else's each write a ``config`` row (``audit_change``) BEFORE the change, as
   rbac_store does for grants: who, what, which person, from where. Never a password. No row, no change (503).
@@ -41,6 +44,8 @@ from .sessions import (Identity, Issued, SessionManager, client_ip, door_of, err
 from .store import ROLES
 
 log = logging.getLogger("mantel.accounts")
+SETUP_LOGGER = "mantel.setup"
+setup_log = logging.getLogger(SETUP_LOGGER)    # the setup code's banner, and nothing else
 
 PASSWORD_MIN = 12
 PASSWORD_MAX = 1024
@@ -522,6 +527,11 @@ class Accounts:
             self.db.execute("INSERT INTO bootstrap_tokens VALUES (?,?,?)", (token_hash(token), now, now + ttl))
         return token
 
+    def bootstrap_token_live(self) -> bool:
+        """A setup code is waiting (this server's, or one ``mantel bootstrap`` printed) and not expired."""
+        return self.db.execute("SELECT 1 FROM bootstrap_tokens WHERE expires > ? LIMIT 1",
+                               (self.clock(),)).fetchone() is not None
+
     async def redeem_bootstrap(self, token: object, username: object, name: object, password: object) -> str:
         if self.owner_exists():
             raise PolicyError("bootstrap_closed", "an Owner already exists")
@@ -548,6 +558,35 @@ class Accounts:
             self.db.execute("DELETE FROM bootstrap_tokens")
         log.info("bootstrap: created the first Owner (%s)", username)
         return user_id
+
+
+def setup_banner(code: str, login_url: str, ttl: float = BOOTSTRAP_TTL) -> str:
+    rule = "=" * 72
+    return (f"\n{rule}\n"
+            f"  Mantel has no Owner yet. One-time setup code (valid {int(ttl // 60)} minutes):\n\n"
+            f"    {code}\n\n"
+            f"  Open {login_url}, \"First start\", and create the Owner with it.\n"
+            f"  When it expires a new one is logged here; `mantel bootstrap` makes one now.\n"
+            f"{rule}")
+
+
+def announce_setup_code(app: web.Application, *, startup: bool = False) -> str | None:
+    """Log the first Owner's one-time setup code: at start (a new one: only its hash is stored, so an older
+    one cannot be shown again), and later only when no valid code is left (the last one expired; one that
+    ``mantel bootstrap`` printed is left alone). Never in Ingress mode, never once an Owner exists. The
+    code goes to the log alone: not the audit, not a page. Returns it (for tests), or None."""
+    cfg = app["cfg"]
+    if cfg.ingress:
+        return None
+    acc: Accounts = app["accounts"]
+    if acc.owner_exists() or (not startup and acc.bootstrap_token_live()):
+        return None
+    try:
+        code = acc.issue_bootstrap_token()
+    except PolicyError:                     # an Owner appeared meanwhile
+        return None
+    setup_log.warning(setup_banner(code, cfg.base_url + "login"))
+    return code
 
 
 # -- REST helpers ---------------------------------------------------------------------------------

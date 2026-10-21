@@ -17,7 +17,8 @@ ADMIN_COMMANDS = {"link", "unlink", "links", "session", "bootstrap"}
 
 
 def bootstrap(store: Store, port: int) -> int:
-    """Print a one-time setup token for the first Owner (only while no Owner exists)."""
+    """Print a one-time setup code for the first Owner (only while no Owner exists). It replaces the one the
+    server logged at start; the server logs no other until this one expires."""
     import time
 
     from .accounts import BOOTSTRAP_TTL, Accounts, PolicyError
@@ -28,8 +29,9 @@ def bootstrap(store: Store, port: int) -> int:
         print(f"mantel-server: {exc}", file=sys.stderr)
         return 1
     base = f"http://127.0.0.1:{port}"
-    print(f"One-time setup token (valid {BOOTSTRAP_TTL // 60} minutes; replaces any earlier one):\n\n    {token}\n")
-    print("Create the first Owner with it (POST /api/bootstrap), for example:\n"
+    print(f"One-time setup code (valid {BOOTSTRAP_TTL // 60} minutes; replaces any earlier one, the logged one too):"
+          f"\n\n    {token}\n")
+    print("Enter it on the sign-in page's \"First start\" (/login), or create the first Owner with POST /api/bootstrap:\n"
           f"  curl -X POST {base}/api/bootstrap -H 'Origin: {base}' -H 'Content-Type: application/json' \\\n"
           """       -d '{"token": "<token>", "username": "<name>", "name": "<display name>", "password": "<12+ chars>"}'""")
     return 0
