@@ -506,6 +506,8 @@
       // dropping the glyphs' shadows does not, and position:relative here
       // fixes it with the scroller intact. Keep both.
       ':host{display:block;position:relative;margin-top:-8px !important;margin-bottom:12px !important}',
+      // ...but in a Home Grid's cell (the view gives it `size`): the cell is its place, no pull-up
+      ':host([size]){margin:0 !important}',
       // an empty row hides (_render sets `hidden`): the display above would win over it
       ':host([hidden]){display:none}',
       // ONE LINE, left aligned with the tiles below (a view card sits 4 px left

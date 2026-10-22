@@ -35,6 +35,7 @@ from ..house import House
 # with the notifications' rules, read here by every settings check.
 from ..notifications.dnd import DND_MAX, hhmm, notify_dnd  # noqa: F401
 from ..sleep import rules as SR
+from . import home_grid as HG
 from . import kinds
 
 CONF_DASHBOARD = "dashboard"
@@ -1903,7 +1904,11 @@ BOARD_DEFAULTS: dict[str, Any] = {
     # ...and on, WHICH Home: "" the generated one, or the address of one of
     # the house's custom pages -- a car's own first page over the generated
     # category pages
-    "home_view": ""}
+    "home_view": "",
+    # HOME STYLE (Home Grid, docs/phase11/HOME-GRID.md): "generated", Home as
+    # every screen builds it, or "grid" -- Home is this screen's own layout,
+    # home_grid (home_grid.py; None: none yet, and Home is generated)
+    "home_style": "generated", "home_grid": None}
 # A CAR'S BROWSER (a screen's car_layout / car_width): which Home it
 # generates there -- the whole one, or the car's own (the weather and the
 # house's status in a line, the chips, Scenes, Security and Favorites: no clock, the car
@@ -2035,6 +2040,8 @@ def board(data: Mapping[str, Any] | None) -> dict[str, Any]:
     out["car_width"] = car_width(d.get("car_width"))
     hv = str(d.get("home_view") or "").strip()
     out["home_view"] = hv if PAGE_PATH.match(hv) else ""
+    out["home_style"] = pick("home_style", HG.HOME_STYLES)
+    out["home_grid"] = HG.layout(d.get("home_grid"))
     out["menu_top"] = list(dict.fromkeys(k for k in (strs(d.get("menu_top")) or []) if VIEW_PATH.match(k)))
     t = tab_position(d.get("tab_position"))
     out["tab_position"] = t if t is not None else ""

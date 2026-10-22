@@ -30,6 +30,7 @@ import re
 from typing import Any
 
 from ..sleep import rules as SR
+from . import home_grid as HG
 from . import kinds as K
 from . import model as S
 
@@ -1058,8 +1059,18 @@ def _dnd(v: Any) -> dict[str, Any] | None:
     return S.notify_dnd(v)
 
 
+def _home_grid(v: Any) -> dict[str, Any] | None:
+    """A screen's Home Grid layout (home_grid.check), written whole; None takes it away."""
+    try:
+        return HG.check(v)
+    except HG.GridInvalid as err:
+        raise Invalid(err.code) from None
+
+
 BOARD: dict[str, Callable[[Any], Any]] = {
     "menu": _choice(S.BOARD_MENUS),
+    "home_style": _choice(HG.HOME_STYLES),
+    "home_grid": _home_grid,
     "phone_header": _choice(S.BOARD_PHONE),
     "chips_custom": _chip_keys,
     "chips_custom_show": _chips_custom_show,

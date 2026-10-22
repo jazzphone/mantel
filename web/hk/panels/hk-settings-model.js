@@ -607,7 +607,15 @@
     name_needed: 'Give it a name.', bad_hash: 'Use lower-case letters, digits and dashes.',
     hash_taken: 'Another pop-up uses that address.', bad_page_path: 'Use lower-case letters, digits and dashes (not a page the screens use themselves).',
     page_path_taken: 'Another page uses that address.', page_not_found: 'That page couldn’t be read.',
-    page_view: 'The page must be YAML keys and values, such as cards: […].'
+    page_view: 'The page must be YAML keys and values, such as cards: […].',
+    // Home Grid (hk_core/settings/home_grid.py)
+    grid: 'That layout couldn’t be read.', grid_cols: 'A Home Grid is 6, 3 or 2 columns wide.',
+    grid_rows: 'A Home Grid has 2 to 6 rows.', grid_frame: 'The frame must be a screen size, such as 1280 × 800.',
+    grid_items: 'A Home Grid holds at most 24 blocks.', grid_item: 'A block in that layout couldn’t be read.',
+    grid_card: 'That card can’t go on a Home Grid.', grid_size: 'That card doesn’t come in that size.',
+    grid_fit: 'That size is bigger than the grid.', grid_place: 'A block is past the edge of the grid.',
+    grid_overlap: 'Two blocks are in the same place.', grid_pages: 'A block’s pages couldn’t be read.',
+    grid_source: 'That card can’t swipe through those pages.', grid_option: 'A block’s option isn’t one it can use.'
   };
   // A PAGE PILL'S OWN LOOK (hk-chip.js PAGE_PILLS): name, icon, color
   var PAGE_PILL_DEFAULTS = {
@@ -1825,7 +1833,9 @@
   // never copied (1.14: a tablet's own -- its user, room, idle, Sleep Screen
   // and Black Screen -- are the tablet's, not the screen's)
   // a screen's own where and title (settings.py BOARD_OWN) are never copied onto another
-  var COPY_NEVER = ['where', 'title'];
+  // ...nor its Home Grid (its Home Style and layout): Copy Layout To… copies
+  // a layout, keeping each block's tablet_room as it is (docs/phase11/HOME-GRID.md, G6)
+  var COPY_NEVER = ['where', 'title', 'home_style', 'home_grid'];
   function copyDefaults() { return COPY_GROUPS.filter(function (g) { return g[3]; }).map(function (g) { return g[0]; }); }
   // the changes that copy `groups` of the screen `src` (its settings as read)
   function copyChanges(src, groups) {

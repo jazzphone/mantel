@@ -6662,13 +6662,14 @@
   // polling rather than never repainting.
   function viewEl() { return SH.tags.view ? deepFind(SH.tags.view.toUpperCase()) : null; }
 
-  var ANNOUNCING = 'custom:hk-grid-view';
+  // (and a Home Grid screen's Home, hk-home-grid-view, the same way)
+  var ANNOUNCING = { 'custom:hk-grid-view': 1, 'custom:hk-home-grid-view': 1 };
   var navWait = null;
   function onNav() {
     if (navWait) { clearInterval(navWait); navWait = null; }
     if (offPanel()) { selfRender(); return; }      // tears a stale sky down; no poll
     var v = currentView(lovelaceCfg());
-    if (v && v.type === ANNOUNCING) {           // hk-view-ready will come
+    if (v && ANNOUNCING[v.type]) {           // hk-view-ready will come
       // A hash change (a pop-up) is not a page change and announces nothing.
       if (location.pathname !== mountedPath) navPending = Date.now();
       return;

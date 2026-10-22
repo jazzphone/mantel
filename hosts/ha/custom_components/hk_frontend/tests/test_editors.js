@@ -127,6 +127,9 @@ ok('...in the card editor\'s preview', at(['hui-card', '#', 'hui-card-preview', 
 ok('on an HK screen (HK\'s grid view): not', !at(['hui-card', 'div', '#', 'hk-grid-view', 'hui-view']));
 ok('...nested in an HK card on an HK screen: not', !at(['div', '#', 'hk-row-card', 'hui-card', '#', 'hk-grid-view', 'hui-view']));
 ok('an overlay on the page body (screensaver, sheet, pop-up): not', !at(['div', '#', 'div', 'body']));
+// a Home Grid screen's Home (hk-home-grid-view: each card in its cell): its own screen, not someone else's
+ok('on a Home Grid screen (in its cell): not', !at(['hui-card', 'div', '#', 'hk-home-grid-view', 'hui-view']));
+ok('...nested in an HK card on a Home Grid: not', !at(['div', '#', 'hk-row-card', 'hui-card', 'div', '#', 'hk-home-grid-view']));
 // THE LIGHT LOOK (hk-base.js tone): someone else's dashboard, HA in light
 // mode, no sky -> the tokens on the card; anything else -> none of them
 function toned(foreignPage, dark, sky) {

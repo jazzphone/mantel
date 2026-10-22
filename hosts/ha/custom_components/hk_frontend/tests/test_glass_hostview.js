@@ -15,7 +15,7 @@
 // tests/test_mantel_shell_views_js.py, which reads this line).
 if (typeof HK_ROOT === 'undefined')
   throw new Error('HK_ROOT is not set -- run this through tests/run, not jsc directly');
-var MANTEL_VIEW_TAGS = ['hk-grid-view', 'hk-view-fallback'];
+var MANTEL_VIEW_TAGS = ['hk-grid-view', 'hk-home-grid-view', 'hk-view-fallback'];
 
 // ---- frames and timers (a virtual clock) -----------------------------------
 var T = 0, timers = [], tid = 0, rafq = [];

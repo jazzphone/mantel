@@ -1579,6 +1579,187 @@
     customElements.define('hk-grid-view', HkGridView);
   }
 
+  // ---------------------------------------------------- hk-home-grid-view
+  //
+  // A HOME GRID SCREEN'S HOME (docs/phase11/HOME-GRID.md): its blocks on a
+  // grid of `cols` x `rows` cells that fills the screen -- 100dvh, whatever
+  // the tablet's real size, keeping the grid's columns and rows -- under the
+  // optional top band (the screen's header, C.HOME_GRID.band px). It NEVER
+  // SCROLLS: the view is the screen's height and clips; a card that can't
+  // fit its cell clips its own contents (each cell clips too), and never
+  // grows the page. The stored frame (1280 x 800) is the desktop editor's,
+  // not this view's.
+  //
+  // The strategy (hk-strategy.js homeGridView) hands it:
+  //   grid: { cols, rows, band }
+  //   cards: the band's card first when band is on (hk_band: true), then one
+  //     per block with hk_cell: { id, size, at: [column, row] }, then any
+  //     card that only listens (a pop-up, the docked bar), which takes no room
+  // Matched to the built elements by index, as hk-grid-view does. Each block
+  // sits in its own cell, which carries `size` (S, W, T, L, XL) and is a
+  // size container (`hk-cell`); the grid sets `--hk-cell-w` / `--hk-cell-h`,
+  // one cell's width and height. A card's own layout per class reads them
+  // (G2). The card gets the same `size` attribute.
+  var GRID = C.HOME_GRID || { sizes: {}, gap: 10, band: 60 };
+  class HkHomeGridView extends HTMLElement {
+    setConfig(config) {
+      this._config = config || {};
+      if (!this._sr) this._sr = this.attachShadow({ mode: 'open' });
+      this._build();
+      this._place();
+    }
+    set lovelace(l) { this._lovelace = l; }
+    get lovelace() { return this._lovelace; }
+    set narrow(n) { this._narrow = n; }
+    set index(i) { this._index = i; }
+    set cards(c) { this._cards = c || []; this._place(); }
+    get cards() { return this._cards || []; }
+    set badges(b) { this._badges = b || []; this._place(); }
+    get badges() { return this._badges || []; }
+
+    _build() {
+      if (this._root) return;
+      var st = document.createElement('style');
+      // the side gutter: the page's edge to its plates, as every page has it
+      // (hk-grid-view's gutter: --hk-side of the width and 8 px; 27 px at
+      // 1,280 -- six 196 px columns and 10 px gaps); the same at the top and
+      // the foot. (A card's own :host margin -- a pull-up made for a page's
+      // flow -- wins over the view's, so a card drops it with :host([size]).)
+      st.textContent =
+        ':host{display:block;position:relative;height:100dvh;max-height:100dvh;overflow:hidden;' +
+        'container-type:size;box-sizing:border-box}' +
+        '#root{--g-pad:calc(100cqw * var(--hk-side, 0.02) + 8px);--g-gap:' + GRID.gap + 'px;' +
+        'box-sizing:border-box;display:grid;width:100%;height:100%;padding:var(--g-pad);gap:var(--g-gap);' +
+        'grid-template-columns:repeat(var(--g-cols), minmax(0, 1fr));overflow:hidden}' +
+        '.band{grid-column:1 / -1;grid-row:1;min-width:0;min-height:0;overflow:hidden}' +
+        '.cell{position:relative;min-width:0;min-height:0;overflow:hidden;container-type:size;container-name:hk-cell}' +
+        '.cell>*,.band>*{display:block;box-sizing:border-box;width:100%;max-height:100%;margin:0!important}' +
+        '.cell>*{height:100%}' +
+        // a card that only listens (a pop-up, the docked bar) takes no room
+        '.aside{position:absolute;left:0;top:0;width:0;height:0;overflow:visible}';
+      this._sr.appendChild(st);
+      var root = document.createElement('div');
+      root.id = 'root';
+      this._sr.appendChild(root);
+      this._root = root;
+    }
+
+    // the grid's numbers, checked (what hk_core checks; a view written by
+    // hand gets the defaults)
+    _grid() {
+      var g = (this._config && this._config.grid) || {};
+      var cols = [6, 3, 2].indexOf(g.cols) >= 0 ? g.cols : 6;
+      var rows = (g.rows >= 2 && g.rows <= 6 && g.rows === Math.floor(g.rows)) ? g.rows : 4;
+      return { cols: cols, rows: rows, band: g.band !== false };
+    }
+
+    _place() {
+      if (!this._root || !this._config) return;
+      var g = this._grid(), root = this._root, top = g.band ? 1 : 0;
+      root.style.setProperty('--g-cols', String(g.cols));
+      root.style.setProperty('--g-rows', String(g.rows));
+      root.style.gridTemplateRows = (top ? GRID.band + 'px ' : '') + 'repeat(' + g.rows + ', minmax(0, 1fr))';
+      var cfgs = this._config.cards || [], els = this._cards || [];
+      this._slots = this._slots || [];
+      // RECONCILE, NEVER EMPTY-AND-REFILL (hk-grid-view's reason): a slot per
+      // config card, kept; only a card that changed is moved into it.
+      var want = [];
+      cfgs.forEach(function (cfg, i) {
+        var el = els[i];
+        var slot = this._slots[i] || (this._slots[i] = document.createElement('div'));
+        var cell = cfg && cfg.hk_cell, sz = cell && GRID.sizes[cell.size];
+        if (cfg && cfg.hk_band && top) {
+          slot.className = 'band';
+          slot.removeAttribute('size');
+          slot.style.cssText = '';
+        } else if (sz && Array.isArray(cell.at)) {
+          var c = cell.at[0], r = cell.at[1];
+          // (a block past the edge -- only a hand-written view can have one --
+          // is left out, never allowed to grow the page)
+          if (!(c >= 0 && r >= 0 && c + sz[0] <= g.cols && r + sz[1] <= g.rows)) { want.push(null); return; }
+          slot.className = 'cell';
+          slot.setAttribute('size', cell.size);
+          if (cell.id) slot.setAttribute('data-id', cell.id); else slot.removeAttribute('data-id');
+          slot.style.cssText = '';
+          slot.style.gridColumn = (c + 1) + ' / span ' + sz[0];
+          slot.style.gridRow = (r + 1 + top) + ' / span ' + sz[1];
+          if (el && el.setAttribute) el.setAttribute('size', cell.size);
+        } else if (cfg && cfg.hk_band) {
+          want.push(null); return;                // the band, turned off
+        } else {
+          slot.className = 'aside';
+          slot.removeAttribute('size');
+          slot.style.cssText = '';
+        }
+        if (el && slot.firstChild !== el) {
+          while (slot.firstChild) slot.removeChild(slot.firstChild);
+          slot.appendChild(el);
+        } else if (!el) {
+          while (slot.firstChild) slot.removeChild(slot.firstChild);
+        }
+        want.push(slot);
+      }, this);
+      want = want.filter(Boolean);
+      want.forEach(function (slot, i) {
+        var at = root.childNodes[i] || null;
+        if (at !== slot) root.insertBefore(slot, at);
+      });
+      while (root.childNodes.length > want.length) root.removeChild(root.lastChild);
+      this._measure();
+      this._announce();
+    }
+
+    // ONE CELL'S SIZE, in px, as --hk-cell-w / --hk-cell-h on the grid (every
+    // card inherits them). Measured, not a calc() of container units: a
+    // custom property inherits as written, and inside a cell -- a container
+    // itself -- 100cqw would be the cell's width, not the screen's.
+    _measure() {
+      var root = this._root, g = this._grid();
+      if (!root || !this.isConnected || !root.getBoundingClientRect) return;
+      var r = root.getBoundingClientRect();
+      if (!r.width || !r.height) return;
+      var cs = getComputedStyle(root);
+      var px = function (k) { return parseFloat(cs[k]) || 0; };
+      var w = (r.width - px('paddingLeft') - px('paddingRight') - (g.cols - 1) * GRID.gap) / g.cols;
+      var h = (r.height - px('paddingTop') - px('paddingBottom') - (g.band ? GRID.band + GRID.gap : 0) -
+               (g.rows - 1) * GRID.gap) / g.rows;
+      var cw = Math.max(0, Math.floor(w * 10) / 10) + 'px', ch = Math.max(0, Math.floor(h * 10) / 10) + 'px';
+      if (root.style.getPropertyValue('--hk-cell-w') !== cw) root.style.setProperty('--hk-cell-w', cw);
+      if (root.style.getPropertyValue('--hk-cell-h') !== ch) root.style.setProperty('--hk-cell-h', ch);
+    }
+
+    connectedCallback() {
+      if (super.connectedCallback) super.connectedCallback();
+      if (!this._ro && typeof ResizeObserver !== 'undefined') {
+        var me = this;
+        this._ro = new ResizeObserver(function () { me._measure(); });
+      }
+      if (this._ro) this._ro.observe(this);
+      this._measure();
+      this._announce();
+    }
+    disconnectedCallback() {
+      if (super.disconnectedCallback) super.disconnectedCallback();
+      if (this._ro) this._ro.disconnect();
+      this._announced = false;
+    }
+    // hk-view-ready, as hk-grid-view says it (the sky repaints with the page)
+    _announce() {
+      if (this._announced || !this.isConnected || !this._config) return;
+      if ((this._config.cards || []).length && !(this._cards || []).length) return;
+      this._announced = true;
+      try {
+        window.dispatchEvent(new CustomEvent('hk-view-ready', { detail: { view: this } }));
+      } catch (e) {
+        console.error('[hk-home-grid-view] hk-view-ready listener threw', e);
+      }
+    }
+  }
+  window.hkHostClient.entry(HkHomeGridView);
+  if (!customElements.get('hk-home-grid-view')) {
+    customElements.define('hk-home-grid-view', HkHomeGridView);
+  }
+
   window.hkLayout = { version: '1.0.0', pageHeaderMode: pageHeaderMode,
                       gutter: function (el) { return HkGridView.gutter(el); } };
   });

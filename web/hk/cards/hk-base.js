@@ -194,6 +194,13 @@
   // The status chip (hk-chip.js): its height; the corner and margins follow.
   var CHIP = { h: 43 };
   var CARD = { pad: '20px 22px', y: 20, x: 22 };
+  // HOME GRID (hk-home-grid-view, hk-layout.js; docs/phase11/HOME-GRID.md):
+  // the size classes, [columns, rows] -- the same table as
+  // hk-grid-catalog.js SIZES and hk_core home_grid.SIZES -- and the grid's
+  // numbers: the gap between cells, the top band's height. A block's card
+  // reads its class from its `size` attribute and its cell from
+  // --hk-cell-w / --hk-cell-h.
+  var HOME_GRID = { sizes: { S: [1, 1], W: [2, 1], T: [1, 2], L: [2, 2], XL: [3, 2] }, gap: 10, band: 60 };
   // Breakpoints (px): screens for page structure, card widths for container
   // queries inside a card. A media query can't read a CSS variable, but every
   // card's CSS is a JS string, so these interpolate.
@@ -2982,11 +2989,12 @@
   // when narrow, the chip and scene rows drop the bleed made for HK's page
   // padding). Walked up from the card through every shadow root once per
   // connect:
-  //   hk-grid-view first          -> an HK screen (or a YAML dashboard of HK's view)
+  //   hk-grid-view first          -> an HK screen (or a YAML dashboard of HK's view);
+  //   or hk-home-grid-view           a Home Grid screen's Home
   //   HA's view or card editor    -> someone else's dashboard
   //   neither (the page body)     -> an HK overlay: the screensaver, a sheet,
   //                                  a pop-up, a banner -- HK's own surface
-  var HK_PAGE = { 'hk-grid-view': 1 };
+  var HK_PAGE = { 'hk-grid-view': 1, 'hk-home-grid-view': 1 };
   var HA_PAGE = {};                     // the host's own views and card editor (hk-host-shell.js)
   window.hkShell.foreignTags.forEach(function (t) { HA_PAGE[t] = 1; });
   // (Also notes on the card whether it sits INSIDE another HK card --
@@ -4193,6 +4201,7 @@
   window.hkCards.TILE = TILE;
   window.hkCards.CHIP = CHIP;
   window.hkCards.CARD = CARD;
+  window.hkCards.HOME_GRID = HOME_GRID;
   window.hkCards.BP = BP;
   window.hkCards.EASE = EASE;
   window.hkCards.DUR = DUR;

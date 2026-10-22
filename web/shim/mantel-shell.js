@@ -179,7 +179,8 @@
     // container itself, before the sky (fixed, z-index -1, the same stacking context): the sky painted over
     // it, and only the sideways rows' pills were frosted -- Shared Layer and Pre-rendered left every pill
     // on the page clear (2026-10-20). In the view, the layer comes after the sky, as in Home Assistant's.
-    viewTags: ['hk-grid-view', 'hk-view-fallback'],
+    // (and a Home Grid screen's Home, hk-home-grid-view)
+    viewTags: ['hk-grid-view', 'hk-home-grid-view', 'hk-view-fallback'],
     root: () => byId('hk-shell-root'),
     overlayRoot: () => byId('hk-shell-root'),
     // the page itself stands for the dashboard panel (its rect: where the page starts); before the

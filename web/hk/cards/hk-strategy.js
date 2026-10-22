@@ -1508,6 +1508,35 @@
   // THE CAMERA STRIP: its measured structure and numbers
   // (one live tile, the rest stills, in a mosaic that scrolls), inside the
   // per-dashboard wrapper that sets the nesting depth the rows align by.
+  // A HOME GRID SCREEN'S HOME (docs/phase11/HOME-GRID.md): the screen's
+  // home_grid (checked by hk_core) as an hk-home-grid-view -- the band's card
+  // first when the band is on, a card per block from the catalog
+  // (hk-grid-catalog.js) with its cell, then the cards that only listen.
+  // `ctx`: the house as this screen sees it, for a block naming nothing.
+  function homeGridView(grid, o, header, listeners, ctx) {
+    var cards = [];
+    if (grid.band !== false && header) {
+      var band = Object.assign({}, header, { hk_band: true });
+      delete band.view_layout;
+      cards.push(band);
+    }
+    (grid.items || []).forEach(function (it) {
+      cards.push(Object.assign(window.hkGridCatalog.config(it, ctx),
+                               { hk_cell: { id: it.id, size: it.size, at: it.at } }));
+    });
+    (listeners || []).forEach(function (c) { cards.push(c); });
+    return Object.assign({}, o, { type: 'custom:hk-home-grid-view', layout: undefined, cards: cards,
+                                  grid: { cols: grid.cols, rows: grid.rows, band: grid.band !== false } });
+  }
+  // the catalog, when a Home Grid screen needs it: a parallel-loaded
+  // resource, waited for by its ready event, never polled (cardsReady)
+  function gridReady() {
+    if (window.hkGridCatalog) return Promise.resolve();
+    return new Promise(function (res) {
+      window.addEventListener('hk-grid-catalog-ready', function () { res(); }, { once: true });
+    });
+  }
+
   function cameraStrip(client, opts, b, page) {
     if (b.camera_strip === false) return null;
     var ids = listOf(b, 'cameras').length ? listOf(b, 'cameras').filter(function (id) { return client.states[id]; })
@@ -1769,6 +1798,19 @@
       own.title = own.menu_title = 'Home';
       if (!own.icon) own.icon = 'mdi:home';
       out[0] = own;
+    }
+    // HOME GRID (its Home Style: Home Grid, with a layout): Home is the
+    // screen's own grid (hk-home-grid-view) -- its band the header above, its
+    // blocks from the catalog, and the pop-ups Home listens for -- and the
+    // rest of the screen as usual
+    else if (b.home_style === 'grid' && b.home_grid && window.hkGridCatalog) {
+      out[0] = view(homeGridView(b.home_grid, { title: 'Home', path: 'home' }, header, popups, {
+        cameras: cams, weather: weather || firstOf(client, 'weather'), vacuum: firstOf(client, 'vacuum'),
+        climate: Object.keys(client.states).filter(function (id) {
+          return id.indexOf('climate.') === 0 && !hidden(client, opts, id);
+        }).sort(),
+        rooms: rooms(client, opts).map(function (r) { return r.id; }).filter(Boolean)
+      }));
     }
     var pages = {};
     if (opts.pages !== false) {
@@ -2173,6 +2215,11 @@
         if (only.length) standalone(only[0], b);
       } else if (b.home_page === false) {
         only = onlyPages(client, opts, b);
+      }
+      // (a Home Grid screen waits for its catalog -- a few seconds at most:
+      // without it, Home is the generated one)
+      if (b.home_style === 'grid' && b.home_grid && !window.hkGridCatalog) {
+        await Promise.race([gridReady(), new Promise(function (res) { setTimeout(res, 3000); })]);
       }
       var cfg;
       if (only.length) {
