@@ -737,3 +737,8 @@ The owner's review reopened G2 visual acceptance before publication. Work stays 
 **Browser validation:** `tools/headless/home_grid_visual_check.py` runs both starter layouts at 1280 × 800 in Chrome and WebKit, in Flat light, Flat dark and Blur. It checks full-height pages, dial text, dots clear of controls, no page scroll, pager navigation/idle return, and opening the T thermostat's sheet without a command. Fictional home only; external requests blocked. The reusable harness accepts an installed Playwright module via `PLAYWRIGHT_PATH`, a Node path and an optional browser executable. Documentation screenshots use Arial and fictional devices; camera pictures are illustrative landscapes.
 
 **Remaining:** release publication and physical kitchen-tablet acceptance, including real swipes, touch controls, idle return and doorbell jump. Browser checks do not establish device behavior.
+
+
+### Top-band baseline alignment (2026-10-22)
+
+The compact clock and weather now share a lower text baseline instead of independently centring stacks of different heights. This lowers the weather alongside the time. The composed-layout check measures the date/weather-caption alignment within 1 px; both starter layouts pass in Chrome and WebKit across Flat light, Flat dark and Blur. The header CSS snapshot and documentation preview are refreshed; all frontend JavaScript suites pass.

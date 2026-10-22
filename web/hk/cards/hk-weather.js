@@ -660,6 +660,8 @@
           '.grid-band.has-chips .band-security{display:none}',
           '.grid-band.has-chips .band-chips{display:flex}',
           '.band-clock,.band-weather,.band-security{cursor:pointer;min-height:44px;display:flex;flex-direction:column;justify-content:center;filter:var(--hk-glow,' + SHADOW + ')}',
+          // Align the two caption baselines instead of centring unequal-height stacks.
+          '.band-clock,.band-weather{align-self:stretch;justify-content:flex-end;padding-bottom:4px;box-sizing:border-box}',
           '@container hk-band (max-width:' + C.BP.cardSide + 'px){.band-weather{display:none}.grid-band{gap:10px}}'
         ].join('');
       }

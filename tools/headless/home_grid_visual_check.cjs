@@ -18,6 +18,13 @@ const pw = require(process.env.PLAYWRIGHT_PATH || 'playwright');
       const view=all(document,'hk-home-grid-view')[0],issues=[];
       const band=view.shadowRoot.querySelector('.band');
       if(band){let b=band.getBoundingClientRect();for(const n of all(band,'[data-hk-clock=time],[data-hk-clock=date]')){let r=n.getBoundingClientRect();if(r.top<b.top-1||r.bottom>b.bottom+1)issues.push('band clip');}}
+      if(band){
+        const date=all(band,'[data-hk-clock=date]')[0],detail=all(band,'[data-hk-wx=detail]')[0];
+        if(date&&detail&&detail.getBoundingClientRect().height){
+          const ink=e=>{const r=document.createRange();r.selectNodeContents(e);return r.getBoundingClientRect();};
+          if(Math.abs(ink(date).bottom-ink(detail).bottom)>1)issues.push('clock and weather captions are not aligned');
+        }
+      }
       for(const cell of view.shadowRoot.querySelectorAll('.cell')){
         const b=cell.getBoundingClientRect(),card=cell.firstElementChild;
         for(const p of (card.localName==='hk-pager-card'?[card]:all(card,'hk-pager-card'))) for(const slot of p._slots){if(Math.abs(slot.getBoundingClientRect().height-b.height)>1)issues.push('short page '+cell.dataset.id);}
