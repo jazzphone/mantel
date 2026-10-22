@@ -10,6 +10,8 @@ A block can display one card, custom pages of that card, or its automatic source
 
 Grid settings control the number of columns (6, 3 or 2), rows (2–6), frame dimensions and top band. The frame scales the desktop preview. The tablet always fills its own display. The 2- and 3-column variants are supported by the layout model, but their card designs are not yet polished for nightstand displays.
 
+The top band shows a compact clock, weather and status chips. On a narrow thermostat block, **Mode** opens the full thermostat controls. Dots change a block's page.
+
 Changes stay in a draft until **Save**. Cancel discards them, and preview controls cannot act on your home. **Home Style → Generated** returns to the usual Home page while retaining the saved grid.
 
 History and Copy Layout are available in Mantel's editor. This editor is under development; it has not been released yet.

@@ -43,6 +43,13 @@
 
 
 class HkControlCard extends HTMLElement {
+  static get observedAttributes() { return ['size']; }
+  attributeChangedCallback(name, was, now) {
+    if (name !== 'size' || was === now || !this._config || !this.client) return;
+    this._signature = '';
+    if (this._dragging) { this._deferred = true; return; }
+    this._render();
+  }
   setConfig(config) {
     if (!config || !(config.entity || config.entity_from))
       throw new Error("hk-control-card requires an entity or an entity_from");
@@ -328,20 +335,24 @@ class HkControlCard extends HTMLElement {
          straight vertical stroke; that scrolls, which is the right answer
          far more often than it is the wrong one. */
       .tstat{padding:20px 20px 16px;display:flex;flex-direction:column;align-items:center;gap:2px}
-      /* ON A HOME GRID (docs/phase11/HOME-GRID.md, G2): T and L, the plate
-         filling the block and the dial as large as the block leaves it -- its
-         width less the padding, or its height less the name, the reading and
-         the mode row (cqw / cqh are the block's: the cell is a size container).
-         The setpoint is the figure role (30), not 46, on one line; at T there is no
-         mode row: four choices in a 196 px block are 34 px each, under the
-         44 px a touch needs (DESIGN.md) -- the modes are L's and the sheet's. */
-      :host([size]){height:100%;--hk-tstat-val:30px}
-      :host([size]) .tstat-val{white-space:nowrap}
-      :host([size]) .surface.tstat{height:100%;justify-content:center;padding:${window.hkCards.CARD.pad}}
-      :host([size=T]){--hk-tstat-ring:min(100cqw - 44px, (100cqh - 100px) * 1.163)}
-      :host([size=T]) .tstat-modes,:host([size=T]) .tstat-fan{display:none}
-      :host([size=T]) .tstat-sub{max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-      :host([size=L]){--hk-tstat-ring:min(100cqw - 44px, (100cqh - 158px) * 1.163)}
+      /* The grid dial shares the card's insets. Its face stays inside the
+         open centre, and the modes anchor to the foot rather than floating. */
+      :host([size]){height:100%;--hk-tstat-val:clamp(22px,calc(var(--hk-tstat-ring) * .15),36px)}
+      :host([size]) .surface.tstat{height:100%;padding:${window.hkCards.CARD.pad};padding-bottom:calc(20px + var(--hk-pager-safe,0px));gap:0;align-items:stretch}
+      :host([size]) .tstat-name{${window.hkCards.typeCss('headline')};text-align:left;line-height:21px}
+      :host([size]) .tstat-sub{${window.hkCards.typeCss('caption')};line-height:18px;margin-top:4px;white-space:normal;text-align:left}
+      :host([size]) .tstat-wrap{align-self:center;flex:none;margin:auto 0}
+      :host([size]) .tstat-val{white-space:nowrap;letter-spacing:-.6px}
+      :host([size]) .tstat-cap{${window.hkCards.typeCss('micro')};letter-spacing:.3px}
+      :host([size]) .tstat-act{${window.hkCards.typeCss('micro')};margin-top:4px}
+      :host([size]) .tstat-face{bottom:auto;height:100%;padding-top:8px}
+      :host([size]) .ring .hit{stroke-width:64px}
+      :host([size]) .tstat-modes{margin-top:10px;flex:none}
+      :host([size]) .tstat-fan{display:none}
+      :host([size=T]){--hk-tstat-ring:min(100cqw - 44px, (100cqh - 158px - var(--hk-pager-safe,0px)) * 1.163)}
+      :host([size=T]) .tstat-modes{--count:1}
+      :host([size=T]) .tstat-sub{max-width:100%;min-height:36px}
+      :host([size=L]){--hk-tstat-ring:min(100cqw - 44px, (100cqh - 138px - var(--hk-pager-safe,0px)) * 1.163)}
       .tstat-name{font-size:19px;font-weight:730;letter-spacing:-.4px;text-align:center;
         white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
       .tstat-sub{font-size:13.5px;font-weight:560;color:${window.hkCards.v('ink-2')};margin-top:2px}
@@ -520,9 +531,9 @@ class HkControlCard extends HTMLElement {
     const g0 = this._pt(f0, 78), g1 = this._pt(f1, 78);
 
     const val = off ? "Off"
-      : range ? `${Math.round(lo)} – ${Math.round(hi)}`
+      : range ? (this.hasAttribute('size') ? `${Math.round(lo)}–${Math.round(hi)}°` : `${Math.round(lo)} – ${Math.round(hi)}`)
       : (Number.isFinite(single) ? Math.round(single) + "°" : "—");
-    const cap = off ? "Thermostat" : (range ? "Keep between" : "Set to");
+    const cap = off ? "Thermostat" : (range ? (this.getAttribute('size') === 'T' ? "Range" : "Keep between") : "Set to");
     const actC = action === "cooling" ? "#32ade6" : action === "heating" ? "#ff9f0a"
       : "" + window.hkCards.v('ink-2') + "";
 
@@ -549,7 +560,7 @@ class HkControlCard extends HTMLElement {
     const modes = ORDER.filter(m => has.includes(m)).concat(has.filter(m => !ORDER.includes(m)));
     return `<div class="surface tstat">
       <div class="tstat-name">${this._esc(this._name())}</div>
-      <div class="tstat-sub">${this._esc(sub)}</div>
+      <div class="tstat-sub">${this.getAttribute('size') === 'T' ? this._esc(sub).replace(' · ', '<br>') : this._esc(sub)}</div>
       <div class="tstat-wrap">
         <!-- viewBox cropped to 172, not 200. The ring's legs end at y=155
              (100 + 78*sin135) and the stroke is 22 wide, so everything below
@@ -573,8 +584,9 @@ class HkControlCard extends HTMLElement {
           <div class="tstat-act" style="color:${actC}">${this._esc(this._pretty(action))}</div>
         </div>
       </div>
-      <div class="tstat-modes segments" style="--count:${modes.length}">${modes
-        .map(m => `<button class="segment ${mode === m ? "active" : ""}" data-mode="${this._esc(m)}">${this._esc(this._pretty(m))}</button>`)
+      <div class="tstat-modes segments" style="--count:${modes.length}">${this.getAttribute('size') === 'T'
+        ? `<button class="segment" data-tstat-details aria-label="Change mode, currently ${this._esc(this._pretty(mode))}">Mode · ${this._esc(this._pretty(mode))} ›</button>`
+        : modes.map(m => `<button class="segment ${mode === m ? "active" : ""}" data-mode="${this._esc(m)}">${this._esc(this._pretty(m))}</button>`)
         .join("")}</div>
       ${fanModes.length ? `<div class="tstat-fan" style="--count:${fanModes.length}">${
         fanModes.map(m => `<button class="segment ${a.fan_mode === m ? "active" : ""}" data-fan="${this._esc(m)}">${this._esc(this._pretty(m))}</button>`).join("")
@@ -925,6 +937,7 @@ class HkControlCard extends HTMLElement {
         done();
       };
     }
+    root.querySelectorAll("[data-tstat-details]").forEach(b=>b.onclick=()=>window.hkShell.moreInfo(id,this));
     root.querySelectorAll("[data-mode]").forEach(b=>b.onclick=()=>call("climate","set_hvac_mode",{hvac_mode:b.dataset.mode}));
     root.querySelectorAll("[data-fan]").forEach(b=>b.onclick=()=>call("climate","set_fan_mode",{fan_mode:b.dataset.fan}));
     root.querySelectorAll("[data-option]").forEach(b=>b.onclick=()=>call("select","select_option",{option:b.dataset.option}));

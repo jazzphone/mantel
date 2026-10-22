@@ -1808,7 +1808,7 @@
   // not fit across), and each page and dot is called "2 of 5"; a change is
   // said politely, so VoiceOver hears where it is.
   var PAGER_EDGE = 20;          // the menu's edge swipe (hk-menu.js .edge)
-  var PAGER_DOTS = 20;          // the dots' row under the pages, px
+  var PAGER_DOTS = 20;          // the dots' overlay at the page's foot, px
   var PAGER_DOT = 7;            // a dot, px (iOS's page control)
   var PAGER_ROOM = GRID.gap;    // the plates' shadow room: the grid's gap
   var pagerSeq = 0;
@@ -1895,17 +1895,17 @@
       // the cell lets anything show.
       return ':host{display:block;position:relative;height:100%}:host>div{height:100%}' +
         '.pager{position:relative;display:flex;flex-direction:column;height:100%}' +
-        '.track{flex:1 1 auto;min-height:0;display:flex;gap:' + (2 * S) + 'px;margin:-' + S + 'px -' + S + 'px 0;' +
-        'padding:' + S + 'px ' + S + 'px 0;scroll-padding:0 ' + S + 'px;overflow-x:auto;overflow-y:hidden;' +
+        '.track{flex:1 1 auto;min-height:0;display:flex;gap:' + (2 * S) + 'px;margin:-' + S + 'px -' + S + 'px -' + S + 'px;' +
+        'padding:' + S + 'px;scroll-padding:0 ' + S + 'px;overflow-x:auto;overflow-y:hidden;' +
         'scroll-snap-type:x mandatory;overscroll-behavior-x:contain;scrollbar-width:none;-webkit-overflow-scrolling:touch}' +
         '.track::-webkit-scrollbar{display:none}' +
         '.track.held{overflow-x:hidden}' +
         // each page is the cell its card lays itself out in (hk-cell): the
-        // block's size, less the dots' row
+        // full block size; dots sit inside its foot so adjacent plates align
         '.page{position:relative;flex:0 0 100%;width:100%;height:100%;min-width:0;' +
         'scroll-snap-align:start;scroll-snap-stop:always;container-type:size;container-name:hk-cell}' +
         '.page>*{display:block;box-sizing:border-box;width:100%;height:100%;margin:0!important}' +
-        '.dots{position:relative;z-index:1;flex:0 0 ' + PAGER_DOTS + 'px;height:' + PAGER_DOTS + 'px;min-height:0;' +
+        '.dots{position:absolute;bottom:0;left:0;right:0;z-index:1;height:' + PAGER_DOTS + 'px;min-height:0;' +
         'display:flex;justify-content:center;align-items:flex-end;min-width:0}' +
         '.pager.one .dots{display:none}' +
         // 44 px targets, reaching up over the page's foot
@@ -2084,6 +2084,11 @@
       if (!el) return;
       var size = ((this._config || {}).item || {}).size;
       if (size && el.setAttribute) el.setAttribute('size', size);
+      if (this._pages.length > 1 && el.setAttribute) {
+        el.setAttribute('data-grid-pager', '');
+        // Interactive footers stay above the dots' 44px hit targets.
+        el.style.setProperty('--hk-pager-safe', '24px');
+      }
       this._els[i] = el;
       this._slots[i].appendChild(el);
     }

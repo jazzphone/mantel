@@ -528,6 +528,7 @@
       '  background:none;color:' + window.hkCards.v('ink') + ';font:inherit;text-align:left;cursor:pointer;',
       '  -webkit-tap-highlight-color:transparent;transition:opacity .15s ease}',
       '.it.pressed{opacity:0.55}',
+      ':host([data-grid-room-status]) .it{min-height:44px}',
       '.g{width:32px;height:32px;flex:none;position:relative;display:flex;align-items:center;',
       '  justify-content:center;color:' + window.hkCards.v('glyph') + ';',
       '  filter:var(--hk-glow,drop-shadow(0 1px 2px rgba(0,0,0,0.28)) drop-shadow(0 2px 6px rgba(0,0,0,0.16)))}',

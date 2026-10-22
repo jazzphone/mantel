@@ -804,7 +804,13 @@
         ':host([size=L]) .np .player{display:block;' + window.hkCards.typeCss('label-small') + ';padding-top:6px}',
         ':host([size=L]) .np .tb{width:64px;height:64px}',
         ':host([size=L]) .np .tb hk-icon{width:32px;height:32px;--mdc-icon-size:32px}',
-        ':host([size=L]) .np .play hk-icon{width:44px;height:44px;--mdc-icon-size:44px}'
+        ':host([size=L]) .np .play hk-icon{width:44px;height:44px;--mdc-icon-size:44px}',
+        ':host([size][data-grid-pager]) hk-plate.np{--hk-np-pad:20px 22px 44px}',
+        ':host([size=W][data-grid-pager]) hk-plate.np{--np-art:calc(100cqh - 64px);',
+        '  --hk-np-areas:"art title title title title" "art prev play next .";--hk-np-rows:minmax(0,1fr) 46px}',
+        ':host([size=W][data-grid-pager]) .np .artist{display:none}',
+        ':host([size=W][data-grid-pager]) .np .tb{width:44px;height:44px}',
+        ':host([size=T][data-grid-pager]) hk-plate.np{--np-art:min(100cqw - 44px,100cqh - 174px)}'
       ].join('');
     }
 

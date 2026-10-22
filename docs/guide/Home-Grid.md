@@ -17,6 +17,8 @@ Start with **Tap Weight** (the largest blocks are the ones you touch most) or **
 
 The frame is the tablet's dimensions in pixels, used to scale the desktop preview. The tablet itself fills its actual display. The editor includes the screen's tab bar and leaves its space clear. There are 6, 3 or 2 columns and 2–6 rows. The narrower column counts are supported, but their card designs have not been polished for nightstand displays.
 
+The optional top band keeps the clock, weather and status chips together. A narrow thermostat block has a **Mode** button that opens its full controls; wider thermostat blocks show mode choices directly. Dots let you change a block's page.
+
 **Save** applies the complete layout in one checked settings change. **Cancel** discards the draft. The card controls inside the preview are disabled, so arranging a block cannot toggle a light or run a scene. To return to the generated Home page, choose **Home Style → Generated**; the saved grid is retained.
 
 Mantel also offers **History** and **Copy Layout To…**. History lists the saved screen versions with their actor and time. Choosing one restores its layout into a draft for review; press Save to apply it. Other screen settings are preserved. Copy Layout saves the draft to the selected screen after confirmation and preserves that screen's other settings.
@@ -27,4 +29,4 @@ The desktop editor has passed browser checks in Mantel and a scratch Home Assist
 
 ![The desktop Home Grid editor](../images/home-grid-editor.png)
 
-The screenshots use fictional devices and Arial. The demo camera has no live picture.
+The screenshots use fictional devices and Arial. Camera pictures are illustrative landscapes.

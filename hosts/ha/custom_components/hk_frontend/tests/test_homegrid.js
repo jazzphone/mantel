@@ -131,7 +131,7 @@ window.hkStrategy.generate({ music: false }, hass).then(function (cfg) {
     var home = g.views[0];
     ok('Home Style Home Grid: Home is the Home Grid view', home.type === 'custom:hk-home-grid-view' && home.path === 'home' && home.title === 'Home');
     ok('...with the layout\'s grid', JSON.stringify(home.grid) === '{"cols":6,"rows":4,"band":true}', home.grid);
-    ok('...the band first: the screen\'s header', home.cards[0].hk_band === true && home.cards[0].cards[0].type === 'custom:hk-header-card' && !home.cards[0].view_layout);
+    ok('...the band first: the screen\'s header', home.cards[0].hk_band === true && home.cards[0].type === 'custom:hk-header-card' && home.cards[0].grid_band === true && !home.cards[0].view_layout);
     var blocks = home.cards.filter(function (c) { return c.hk_cell; });
     ok('...a card per block, with its cell', blocks.length === 4 && blocks[0].hk_cell.id === 'a1' && blocks[0].hk_cell.size === 'L' &&
        JSON.stringify(blocks[3].hk_cell.at) === '[5,3]');

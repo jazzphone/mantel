@@ -1522,8 +1522,9 @@
   function homeGridView(grid, o, header, listeners, ctx) {
     var cards = [];
     if (grid.band !== false && header) {
-      var band = Object.assign({}, header, { hk_band: true });
-      delete band.view_layout;
+      // A Home Grid has 60 px for its band, not the full page header's 150+.
+      var parts = header.cards || [], chip = parts.find(function (c) { return c.type === 'custom:hk-chips-card'; });
+      var band = { type: 'custom:hk-header-card', grid_band: true, chips: chip || null, hk_band: true };
       cards.push(band);
     }
     (grid.items || []).forEach(function (it) {

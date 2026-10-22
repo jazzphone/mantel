@@ -130,7 +130,7 @@
   // that don't fit are left out (the room's page has them all).
   var PILL_H = 70, GAP = 10;
   var COLS = { W: 2, L: 2, XL: 3 };
-  var HEAD = { W: 52, L: 92, XL: 92 };
+  var HEAD = { W: 66, L: 98, XL: 98 };
   function fit(size, height) {
     var rows = Math.max(0, Math.floor((height - (HEAD[size] || HEAD.W) + GAP) / (PILL_H + GAP)));
     if (size === 'W') rows = Math.min(rows, 1);
@@ -373,12 +373,12 @@
     // ===================================================== hk-grid-room-card
     var ROOM_CSS = [
       ':host{display:block;height:100%;position:relative}',
-      '.room{box-sizing:border-box;height:100%;display:flex;flex-direction:column;overflow:hidden;',
+      '.room{box-sizing:border-box;height:100%;display:flex;flex-direction:column;overflow:hidden;padding-top:8px;',
       '  --hk-pill:var(--hk-cell-w,' + TILE.w + 'px)}',
       // THE NAME: a room heading's (19.7 / 700, measured off the Home app),
       // with the way into its page when it has one
-      '.hd{display:flex;align-items:center;gap:6px;min-width:0;height:28px;flex:none}',
-      '.nm{all:unset;position:relative;cursor:pointer;min-width:0;max-width:100%;display:flex;align-items:center;gap:6px;',
+      '.hd{display:flex;align-items:center;gap:6px;min-width:0;height:36px;flex:none;padding:0 22px}',
+      '.nm{all:unset;position:relative;cursor:pointer;min-width:0;min-height:28px;max-width:100%;display:flex;align-items:center;gap:6px;',
       '  font-size:19.7px;font-weight:700;line-height:1;letter-spacing:-0.45px;color:' + v('ink') + ';',
       '  text-shadow:' + v('glow') + ';-webkit-tap-highlight-color:transparent}',
       // a 44 px target round the 28 px line (DESIGN.md: touch targets)
@@ -388,7 +388,7 @@
       '.nm:focus-visible{outline:2px solid ' + v('ink-2') + ';outline-offset:4px;border-radius:' + C.R.small + 'px}',
       // W: the status as one line under the name
       '.sum{' + type('body') + ';line-height:19px;color:' + v('ink-2') + ';text-shadow:' + v('glow') + ';',
-      '  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-height:19px;margin:1px 0 4px 1px;flex:none}',
+      '  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-height:19px;margin:1px 22px 2px;flex:none}',
       // L, XL: the room's status row (hk-room-status-card), its own height
       '.st{flex:none;margin:0 0 4px 0;min-height:0}',
       '.st:empty{display:none}',
@@ -431,7 +431,8 @@
         var h = this.client, size = this._size(), area = this._area();
         if (!h || !h.states || !area) return { area: area, size: size, tiles: [], status: null, line: '', name: '' };
         var parts = roomParts(h, area);
-        var places = fit(size, this._height());
+        // A paged group leaves the same clear foot as other interactive cards.
+        var places = fit(size, this._height() - (this.hasAttribute('data-grid-pager') ? 24 : 0));
         var room = (h.areas || {})[area] || {};
         return { area: area, size: size, parts: parts, tiles: layout(parts, size, places, h), status: parts.status,
                  line: size === 'W' ? summary(h, area, parts.status) : '', name: room.name || area };
@@ -499,6 +500,7 @@
             var sc = Object.assign({}, p.status);
             delete sc.view_layout;
             this._status = C.createCard(sc, h);
+            this._status.setAttribute('data-grid-room-status', '');
             e.st.appendChild(this._status);
           }
         }

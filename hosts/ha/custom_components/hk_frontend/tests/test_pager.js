@@ -203,7 +203,8 @@ ok('the dots: mark, the page it is on in ink, written with v()', pcss.indexOf('b
 ok('...a fade (DUR.fade), none under Reduce Motion', pcss.indexOf('background-color ' + window.hkCards.DUR.fade) >= 0 &&
    pcss.indexOf('prefers-reduced-motion:reduce') >= 0);
 ok('...44 px targets', /\.dot\{[^}]*flex:0 1 44px[^}]*height:44px/.test(pcss));
-ok('the track leaves the plates\' shadows a gap of room', pcss.indexOf('margin:-10px -10px 0') >= 0 && pcss.indexOf('gap:20px') >= 0);
+ok('the track leaves the plates\' shadows a gap of room', pcss.indexOf('margin:-10px -10px -10px') >= 0 && pcss.indexOf('gap:20px') >= 0);
+ok('the dots overlay the foot: pages keep the full block height', pcss.indexOf('.dots{position:absolute;bottom:0;left:0;right:0') >= 0);
 var calm = [];
 window.matchMedia = function (q) { return { matches: /reduce/.test(q) }; };
 var cv = new Pager();

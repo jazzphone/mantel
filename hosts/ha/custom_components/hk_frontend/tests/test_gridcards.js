@@ -151,6 +151,11 @@ function () {
   card._render();
   var slots = card._e.tiles.children.filter(function (c) { return c.className === 'slot'; });
   eq('a slot per pill', slots.length, 4);
+  var oldHeight = card._h; card._h = 250;
+  var ordinary = card._plan().tiles.length;
+  card.setAttribute('data-grid-pager', '');
+  ok('paged rooms keep accessory targets clear of the dots', card._plan().tiles.length < ordinary);
+  card.removeAttribute('data-grid-pager'); card._h = oldHeight;
   var pend = slots[1];                       // light.kitchen_pendant
   var fire = function (el, t, ev) { (el._listeners[t] || []).forEach(function (f) { f(ev); }); };
   house.calls.length = 0;

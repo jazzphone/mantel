@@ -159,6 +159,23 @@ MEASURE = r"""(() => {
       if (n && n.nodeType === 11) n = n.host;
     } return out; };
   const name = el => { let s = el.localName; if (el.id) s += '#' + el.id; if (el.classList && el.classList.length) s += '.' + [...el.classList].slice(0, 2).join('.'); return s; };
+  // The band used to escape this audit entirely, allowing a clipped 72px clock
+  // inside its 60px allocation. Measure the actual text, not just the wrapper.
+  out.band_issues = [];
+  const band = view.shadowRoot.querySelector('.band');
+  if (band) {
+    const bounds = band.getBoundingClientRect();
+    for (const el of deep(band, '[data-hk-clock=time],[data-hk-clock=date],.band-weather,.band-security', [])) {
+      if (!shown(el)) continue;
+      const elements = [el, ...el.querySelectorAll('*')];
+      for (const leaf of elements) for (const node of leaf.childNodes) {
+        if (node.nodeType !== 3 || !node.data.trim()) continue;
+        const range = document.createRange(); range.selectNodeContents(node);
+        const r = range.getBoundingClientRect();
+        if (r.height > 0 && (r.top < bounds.top - 1 || r.bottom > bounds.bottom + 1)) out.band_issues.push('band text clipped: ' + node.data.trim());
+      }
+    }
+  }
   for (const cell of view.shadowRoot.querySelectorAll('.cell')) {
     const card = cell.firstElementChild, c = cell.getBoundingClientRect();
     const rec = { id: cell.getAttribute('data-id'), size: cell.getAttribute('size'), cell: box(c),
@@ -220,9 +237,25 @@ MEASURE = r"""(() => {
       if (tag === 'button' || role === 'button' || role === 'slider' || tag === 'input' || tag === 'a') {
         // (a choice in a segmented control is measured by its track: DESIGN.md's 44 px control, 36 px choices)
         const r = el.getBoundingClientRect(), up = el.parentElement, t = up ? up.getBoundingClientRect() : r;
-        const h = el.classList.contains('segment') && up ? Math.max(r.height, t.height) : r.height;
-        if (r.width >= 1 && r.height >= 1 && (r.width < 43.5 || h < 43.5))
+        let h = el.classList.contains('segment') && up ? Math.max(r.height, t.height) : r.height, w = r.width;
+        // A transparent ::after may deliberately extend a visible label's hit target.
+        const hit = getComputedStyle(el, '::after');
+        if (hit.content !== 'none' && hit.content !== 'normal' && hit.position === 'absolute') {
+          const top = parseFloat(hit.top), bottom = parseFloat(hit.bottom), left = parseFloat(hit.left), right = parseFloat(hit.right);
+          if (Number.isFinite(top) && Number.isFinite(bottom)) h = Math.max(h, r.height - top - bottom);
+          if (Number.isFinite(left) && Number.isFinite(right)) w = Math.max(w, r.width - left - right);
+        }
+        if (r.width >= 1 && r.height >= 1 && (w < 43.5 || h < 43.5))
           rec.issues.push('a control under 44 px: ' + name(el) + ' ' + Math.round(r.width) + 'x' + Math.round(r.height)); }
+    }
+    // Dial text belongs inside its open centre, not across the track/knobs.
+    const ring = card.shadowRoot && card.shadowRoot.querySelector('[data-ring]');
+    if (ring) {
+      const width = ring.getBoundingClientRect().width;
+      for (const face of card.shadowRoot.querySelectorAll('.tstat-val,.tstat-cap')) {
+        const range = document.createRange(); range.selectNodeContents(face);
+        if (range.getBoundingClientRect().width > width * 0.62) rec.issues.push('thermostat text crosses the ring: ' + face.textContent);
+      }
     }
     if (minFont < 11) rec.issues.push('text under the type roles: ' + minFont + ' px in ' + name(small));
     rec.min_font = minFont;
@@ -252,8 +285,11 @@ MEASURE = r"""(() => {
       u = u ? { left: Math.min(u.left, r.left), top: Math.min(u.top, r.top), right: Math.max(u.right, r.right), bottom: Math.max(u.bottom, r.bottom) }
             : { left: r.left, top: r.top, right: r.right, bottom: r.bottom }; }
     rec.plate = u ? box({ left: u.left, top: u.top, width: u.right - u.left, height: u.bottom - u.top }) : null;
-    if (!u) rec.issues.push('no plate');
-    else if (u.left > c.left + 2 || u.top > c.top + 2 || u.right < c.right - 2 || u.bottom < c.bottom - 2)
+    // The room is a grouping of the page's existing pills, not a single
+    // plate. Its contents still undergo all text, fit, target and corner checks.
+    const grouped = card.localName === 'hk-grid-room-card';
+    if (!u && !grouped) rec.issues.push('no plate');
+    else if (!grouped && (u.left > c.left + 2 || u.top > c.top + 2 || u.right < c.right - 2 || u.bottom < c.bottom - 2))
       rec.issues.push('the plate does not fill the block: ' + Math.round(u.right - u.left) + 'x' + Math.round(u.bottom - u.top));
     if (!texts && !things) rec.issues.push('nothing drawn');
     rec.issues = [...new Set(rec.issues)].slice(0, 12);
@@ -333,6 +369,7 @@ def summary(report: dict) -> tuple[int, list[str]]:
                 view.append("the page scrolls")
             if got["view_scroll"]:
                 view.append("the view scrolls")
+            view += got.get("band_issues", [])
             view += [f"script error: {e}" for e in got.get("errors", [])]
             if got.get("under_bar"):
                 view.append("under the tab bar: " + ", ".join(got["under_bar"]))

@@ -646,10 +646,66 @@
           '  grid-template-columns:minmax(0,1fr);row-gap:10px}',
           ':host([data-hk-stack]) .hdr .half{min-height:0}',
           ':host([data-hk-stack]) .hdr .right{text-align:left;min-width:0}',
-          ':host([data-hk-stack]) .hdr .left > div{flex-wrap:wrap;row-gap:12px}'
+          ':host([data-hk-stack]) .hdr .left > div{flex-wrap:wrap;row-gap:12px}',
+          // Compact band only; page headers and screensaver clocks keep their layout.
+          ':host([data-grid-band]){height:60px;container-type:inline-size;container-name:hk-band}',
+          '.grid-band{height:60px;display:flex;align-items:center;gap:24px;min-width:0;color:' + C.v('ink') + '}',
+          '.band-clock{flex:none;max-width:45%;min-width:0}',
+          '.band-clock>[data-hk-clock=clock]{min-width:0!important}',
+          '.band-weather{flex:1 1 240px;min-width:0;max-width:360px}',
+          fitCss('.band-weather'),
+          '.band-security{flex:1 1 280px;min-width:0;margin-left:auto}',
+          '.band-chips{display:none;min-width:0;flex:1 1 360px;height:60px;align-items:center;overflow:hidden}',
+          '.band-chips>*{width:100%;min-width:0}',
+          '.grid-band.has-chips .band-security{display:none}',
+          '.grid-band.has-chips .band-chips{display:flex}',
+          '.band-clock,.band-weather,.band-security{cursor:pointer;min-height:44px;display:flex;flex-direction:column;justify-content:center;filter:var(--hk-glow,' + SHADOW + ')}',
+          '@container hk-band (max-width:' + C.BP.cardSide + 'px){.band-weather{display:none}.grid-band{gap:10px}}'
         ].join('');
       }
-      setConfig(config) { super.setConfig(config || {}); }
+      setConfig(config) {
+        this.toggleAttribute('data-grid-band', !!(config && config.grid_band));
+        super.setConfig(config || {});
+      }
+      _receiveClient() {
+        super._receiveClient();
+        if (this._bandChips) window.hkHostClient.bridge(this._bandChips, this.client);
+      }
+      _renderBand() {
+        var H = window.hkHeader, st = this.client && this.client.states;
+        if (!H || !st) return;
+        if (!this._built) {
+          this._root.innerHTML = '<div class="grid-band"><div class="band-clock" role="button" tabindex="0" aria-label="Clock and date"></div>' +
+            '<div class="band-weather" role="button" tabindex="0" aria-label="Weather"></div>' +
+            '<div class="band-security" role="button" tabindex="0" aria-label="Security"></div><div class="band-chips"></div></div>';
+          var self = this;
+          this._bandClock = this._root.querySelector('.band-clock');
+          this._bandWeather = this._root.querySelector('.band-weather');
+          this._bandSecurity = this._root.querySelector('.band-security');
+          var open = function (el, fn) {
+            el.addEventListener('click', fn);
+            el.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fn(); } });
+          };
+          open(this._bandClock, function () { if (C.menu && C.menu.clock()) C.menu.toggle(); else self._go('./home'); });
+          open(this._bandWeather, function () { self._go('./weather'); });
+          open(this._bandSecurity, function () { self._go('./security'); });
+          if (this._config.chips) {
+            this._bandChips = C.createCard(Object.assign({}, this._config.chips, {
+              lead: false, pad_top: 0, pad_bottom: 0, pad_left: 0, pad_right: 0, margin: '0'
+            }), this.client);
+            this._root.querySelector('.band-chips').appendChild(this._bandChips);
+          }
+          this._root.querySelector('.grid-band').classList.toggle('has-chips', !!this._bandChips);
+          this._built = true;
+        }
+        C.morph(this._bandClock, H.clock(st, { timeSize: C.TYPE['figure-l'].size + 'px', ampmSize: C.TYPE.caption.size + 'px',
+          dateSize: C.TYPE.caption.size + 'px', timeLh: '1', dateGap: '3px', gap: '6px', timeShift: this._shift || 0 }));
+        C.morph(this._bandWeather, H.weather(st, { glyph: '32px', mainSize: C.TYPE.headline.size + 'px',
+          detailSize: C.TYPE.caption.size + 'px', detailGap: '4px', gap: '10px' }));
+        C.morph(this._bandSecurity, H.security(st, { line1Size: C.TYPE.headline.size + 'px', lineSize: C.TYPE.caption.size + 'px',
+          minHeight: '0px', pad: '0px', shadow: 'none' }));
+        if (H.fitWeather) H.fitWeather(this._bandWeather);
+      }
       getCardSize() { return 2; }
       // THE WEATHER FITS WHAT IS LEFT BESIDE THE CLOCK: after each redraw and
       // whenever the header's width changes (a window resized, a phone turned,
@@ -719,6 +775,7 @@
         this._act({ action: 'navigate', navigation_path: path }, false);
       }
       _render() {
+        if (this._config.grid_band) { this._renderBand(); return; }
         var cfg = this._config;
         if (!this._built) {
           this._root.innerHTML =
@@ -2576,14 +2633,19 @@
                '.clock>div,.clock div{overflow:visible}' +
                // ON A HOME GRID (G2, the `clock` block, concept C's glance): a
                // plate, the time and date centred down its left. The time at
-               // the header's 72 (W) or the screensaver's 150 (XL) -- the
-               // clock's own sizes, not roles (DESIGN.md); the date by role.
+               // clock's established sizes, fitted to its actual block rather
+               // than a screensaver's fixed 150px; the date uses a type role.
                ':host([size]){overflow:hidden}' +
                ':host([size]) hk-plate.clock{' + window.hkCards.plate('card') + ';box-sizing:border-box;height:100%;' +
-               'padding:' + window.hkCards.CARD.pad + ';display:flex;flex-direction:column;justify-content:center;overflow:hidden}';
+               'padding:' + window.hkCards.CARD.pad + ';display:flex;flex-direction:column;justify-content:center;overflow:hidden}' +
+               ':host([size]) [data-hk-clock=clock]{min-width:0!important;width:100%}' +
+               ':host([size]) [data-hk-clock=date]{font-weight:500!important;letter-spacing:0!important}';
       }
       // the clock's sizes by block: time, AM / PM, date (px)
-      _gridSizes(sz) { return sz === 'XL' ? ['150px', '40px', window.hkCards.TYPE.title.size + 'px'] : ['72px', '22px', window.hkCards.TYPE.headline.size + 'px']; }
+      _gridSizes(sz) {
+        return sz === 'XL' ? ['clamp(72px, min(18cqw, 40cqh), 150px)', '26px', window.hkCards.TYPE.headline.size + 'px']
+                          : ['min(72px, 48cqh)', '22px', window.hkCards.TYPE.caption.size + 'px'];
+      }
       // The clock's time ticks every minute and its date every day (the Time &
       // Date sensors chosen in Configure, or this screen's clock); neither is
       // named in the config, so the base signature would never redraw.
@@ -2603,7 +2665,7 @@
         var c = this._config || {}, sz = this._cellSize();
         if (sz) {
           var g = this._gridSizes(sz);
-          c = Object.assign({}, c, { time_size: g[0], ampm_size: g[1], date_size: g[2], margin: '0' });
+          c = Object.assign({}, c, { time_size: g[0], ampm_size: g[1], date_size: g[2], date_gap: '10px', time_line_height: '1', margin: '0' });
         }
         var H = window.hkHeader;
         var body = H ? H.clock(this.client.states, Object.assign(opts(c, {

@@ -6,7 +6,7 @@ https://claude.ai/artifact/JnMmSXDneGVE1e81BWYuid, A preferred). An Owner or Adm
 using HK's own cards. A block can hold **several pages** that swipe: cameras, rooms, thermostats, scene pages.
 Mantel first; HK Frontend as well, which comes at little extra cost (below).
 
-**Status (2026-10-22): G1–G6 are implemented; G7's shared settings entry and real scratch-HA drag/save check pass, and G8's guides/screenshots are added. No version bump, publication or release yet. Next: publish the HK build, release, then validate the kitchen tablet.** See the latest progress entry below. Older slice notes describe their state at the time; the current grid already reserves the tab bar's space.
+**Status (2026-10-22): G1–G6 are implemented; G7's shared settings entry and real scratch-HA drag/save check pass, and G8's guides/screenshots are added. The visual refinement pass now fixes the compact band, clock, thermostat and swipe-page alignment, with Chrome and WebKit validation. No version bump, publication or release yet. Next: publish the HK build, release, then validate the kitchen tablet.** See the latest progress entry below. Older slice notes describe their state at the time; the current grid already reserves the tab bar's space.
 
 ## The answers (2026-10-22)
 
@@ -718,4 +718,22 @@ its Python mirror.
 1. The owner requested delivery to `main`. Version bumps, publication and releases remain separate from this code delivery.
 2. Publish HK Frontend with its release notes, and release Mantel using the normal release procedure. G7's publication portion is still pending.
 3. On the kitchen tablet, validate the grid, block swipes, real idle return, doorbell jump, tab bar and touch controls. Desktop/headless checks do not establish physical-device behavior.
-4. The previously recorded 60 px top-band clock clipping remains a G1/G2 design issue; this editor exposes the existing band and does not redesign it. The screenshot of the saved layout uses the band off. WebKit/Flat validation remains open. Narrow 2/3-column card polish is still outside this phase's design scope.
+4. The visual refinement entry below supersedes the top-band clipping and WebKit/Flat items. Narrow 2/3-column card polish remains outside this phase's design scope.
+
+
+### Visual refinement (2026-10-22)
+
+The owner's review reopened G2 visual acceptance before publication. Work stays on `main`.
+
+- The 60 px top band uses a compact mode of the shared header: clock/date, weather and existing chips fit together. Normal page headers retain their own layout. Keyboard and touch navigation remain available.
+- Clock blocks fit their time to the available width and height, with a quieter date underneath. Both use the existing shared clock renderer.
+- Grid thermostats use consistent title insets, readable temperature/humidity and a dial whose value stays inside the track. T puts the readings on separate lines and offers one full-width Mode button opening the shared thermostat sheet. L retains its mode segments. Size changes rebuild the markup unless a dial drag is active.
+- Swipe pages now fill the entire block, with dots over its foot. This supersedes G4's separate 20 px dots row: paged and ordinary plates align. Thermostat and music controls reserve space above the dots' 44 px targets; the compact music layout adjusts to fit.
+- Room groups retain shared status and accessory pills. Their heading is inset and status touch targets meet 44 px.
+- The render audit now checks the band's actual text and the thermostat's dial centre. Room groups are checked as groups of shared pills rather than requiring a single outer plate.
+
+**Validation:** the main suite passes (3,411 passed, 21 skipped); the HA package passes its Python suite (758 passed) and all frontend JavaScript suites, including refreshed intentional CSS snapshots. Grid/build regression checks after the final room change pass (83 tests). The fourteen existing cards pass every size across four looks plus Flat dark without the tab bar, with no clipping. Packaging and links pass.
+
+**Browser validation:** `tools/headless/home_grid_visual_check.py` runs both starter layouts at 1280 × 800 in Chrome and WebKit, in Flat light, Flat dark and Blur. It checks full-height pages, dial text, dots clear of controls, no page scroll, pager navigation/idle return, and opening the T thermostat's sheet without a command. Fictional home only; external requests blocked. The reusable harness accepts an installed Playwright module via `PLAYWRIGHT_PATH`, a Node path and an optional browser executable. Documentation screenshots use Arial and fictional devices; camera pictures are illustrative landscapes.
+
+**Remaining:** release publication and physical kitchen-tablet acceptance, including real swipes, touch controls, idle return and doorbell jump. Browser checks do not establish device behavior.
