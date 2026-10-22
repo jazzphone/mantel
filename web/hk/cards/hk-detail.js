@@ -3472,7 +3472,12 @@
           // landed on. A hold spec never taps: let go early and nothing
           // happens, and once the hold has fired the release does nothing.
           var press = null;
-          var call = function (a) { if (a) self._svc(a[0], a[1]); };
+          // a sheet that wants to know what was sent (and whether it went: _call's true / false) has sent()
+          var call = function (a) {
+            if (!a) return;
+            var p = self._svc(a[0], a[1]);
+            if (typeof self.sent === 'function') self.sent(a, p);
+          };
           // the device is still where the press found it (nobody else moved
           // it meanwhile): the same hold is still the one on offer
           var still = function (a) {
@@ -3559,12 +3564,45 @@
     // A DOOR COVER -- a garage, a gate, a car's frunk or charge port -- is a
     // door too: hold to open, tap to close, and while it moves a tap stops it
     // (when the opener can stop).
+    //
+    // MOVING AS SOON AS IT IS SENT. Many openers never report opening or
+    // closing: the state goes from closed straight to open once the door is
+    // all the way up, 15 seconds later. So a sent open or close shows
+    // "Opening…" / "Closing…" (the ring pulsing) at once, as the garage
+    // header does, until Home Assistant reports anything new, the call
+    // fails, or PEND_MS pass (then the real state again).
+    var PEND_MS = 60000;
     class GaragePanel extends RingPanel {
       hkWidthKind() { return 'lock'; }
+      sent(a, p) {
+        var self = this, now = this._stateObj && this._stateObj.state;
+        var to = a[1] === 'open_cover' ? 'open' : a[1] === 'close_cover' ? 'closed' : null;
+        this._unpend();
+        if (!to || now === to) { this._render(); return; }          // a stop: the real state again
+        var pend = this._pend = { to: to, from: now, timer: null };
+        pend.timer = setTimeout(function () {
+          if (self._pend !== pend) return;
+          self._pend = null;
+          self._render();
+        }, PEND_MS);
+        Promise.resolve(p).then(function (ok) {
+          if (ok === false && self._pend === pend) { self._unpend(); self._render(); }
+        });
+        this._render();
+      }
+      _unpend() {
+        if (this._pend) clearTimeout(this._pend.timer);
+        this._pend = null;
+      }
       spec(s) {
-        var st = s.state, f = num(at(s, 'supported_features')) || 0;
+        // anything new from Home Assistant ends the wait: it knows now
+        if (this._pend && s.state !== this._pend.from) this._unpend();
+        var pend = this._pend;
+        var st = pend ? (pend.to === 'open' ? 'opening' : 'closing') : s.state, f = num(at(s, 'supported_features')) || 0;
         var moving = st === 'opening' || st === 'closing';
-        var stop = moving && (f & 8) ? ['cover', 'stop_cover'] : null;
+        // only a move Home Assistant reports can be stopped: on a relay opener a stop is another pulse, which would
+        // START a door that never got the first one
+        var stop = moving && !pend && (f & 8) ? ['cover', 'stop_cover'] : null;
         var bad = gone(s), door = at(s, 'device_class') === 'door', unsure = st === 'unknown';
         var shut = st === 'closed' || st === 'closing';
         return {

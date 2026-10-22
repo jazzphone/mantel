@@ -163,6 +163,51 @@ r = press('hk-detail-lock', 'lock.front', 'unknown', LOCK, null, 1000);
 ok('lock: unknown -- a hold never unlocks', r.indexOf('lock.unlock') === -1, r);
 r = press('hk-detail-garage', 'cover.garage', 'unknown', GARAGE, null, 0);
 ok('garage: unknown -- a tap closes it', r.join() === 'cover.close_cover', r);
+// MOVING AS SOON AS IT IS SENT: an opener that only ever reports open and
+// closed (most relay garages) still shows Opening… / Closing… at once, until
+// Home Assistant reports anything new, the call fails, or a minute passes
+(function () {
+  function sheet(st0, fail) {
+    __resetTimers(); CALLS = [];
+    var h = house({ 'cover.garage': [st0, GARAGE] });
+    if (fail) h.callService = function (d, s) { CALLS.push(d + '.' + s); return Promise.reject(new Error('refused')); };
+    var p = panel('hk-detail-garage', 'cover.garage', h);
+    var b = p._root.querySelector('.lk'), ev = { pointerId: 1, preventDefault: function () {} };
+    return { p: p, word: function () { return p._big.textContent; }, busy: function () { return p._lk.classList.contains('busy'); },
+      down: function () { b._listeners.pointerdown.forEach(function (f) { f(ev); }); },
+      up: function () { b._listeners.pointerup.forEach(function (f) { f(ev); }); },
+      hold: function () { this.down(); fire(function (t) { return t.ms === 1000; }); this.up(); } };
+  }
+  var g = sheet('closed');
+  g.hold();
+  ok('garage: a hold sent -- Opening… and the ring pulsing at once, before HA says anything',
+     CALLS.join() === 'cover.open_cover' && g.word() === 'Opening…' && g.busy(), [CALLS, g.word()]);
+  g.down(); g.up();
+  ok('garage: a tap while it waits sends nothing (a stop on a relay opener would start a door that never moved)',
+     CALLS.join() === 'cover.open_cover', CALLS);
+  setState(g.p, 'cover.garage', 'open', GARAGE, 't2');
+  ok('garage: Home Assistant reports open -- Open, no pulse', g.word() === 'Open' && !g.busy(), g.word());
+  g.down(); g.up();
+  ok('garage: ...then a tap closes, and Closing… shows at once', CALLS.slice(-1)[0] === 'cover.close_cover' &&
+     g.word() === 'Closing…' && g.busy(), [CALLS, g.word()]);
+  setState(g.p, 'cover.garage', 'closing', GARAGE, 't3');
+  ok('garage: a real closing from HA is still Closing…, and now a tap stops it', g.word() === 'Closing…' && g.busy());
+  g.down(); g.up();
+  ok('garage: ...with stop_cover', CALLS.slice(-1)[0] === 'cover.stop_cover', CALLS);
+
+  var t = sheet('closed');
+  t.hold();
+  fire(function (x) { return x.ms === 60000; });
+  ok('garage: nothing from HA for a minute -- back to what HA says (Closed)', t.word() === 'Closed' && !t.busy(), t.word());
+
+  var f = sheet('closed', true);
+  f.hold();
+  drain();
+  ok('garage: the call refused -- back to Closed at once', f.word() === 'Closed' && !f.busy(), f.word());
+
+  var o = sheet('opening');
+  ok('garage: an opener that reports opening is unchanged -- Opening…, pulsing', o.word() === 'Opening…' && o.busy());
+})();
 r = press('hk-detail-valve', 'valve.main', 'unknown', { supported_features: 3 }, null, 1000);
 ok('valve: unknown -- hold to close (the water off), never to open', r.join() === 'valve.close_valve', r);
 r = press('hk-detail-lock', 'lock.front', 'unavailable', LOCK, null, 0);
