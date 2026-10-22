@@ -1,8 +1,9 @@
 // hk-layout.js -- building blocks: frame, spacer, back chevron, flat key, info block, grid
 //
 // hk-frame-card (native HA cards on our glass, lazy `module:` loading),
-// hk-spacer-card, hk-back-card, hk-key-card, hk-info-card, hk-grid-card and
-// the hk-grid-view view type.
+// hk-spacer-card, hk-back-card, hk-key-card, hk-info-card, hk-grid-card, the
+// hk-grid-view and hk-home-grid-view view types, and hk-pager-card (a Home
+// Grid block that swipes).
 //
 // One file per family of cards, so each file's name says what is in it.
 // Shared pieces -- HkBase, the editor helpers, register(), create(), the
@@ -1760,7 +1761,374 @@
     customElements.define('hk-home-grid-view', HkHomeGridView);
   }
 
+  // ---------------------------------------------------------- hk-pager-card
+  //
+  // A HOME GRID BLOCK THAT SWIPES (docs/phase11/HOME-GRID.md, "Blocks that
+  // swipe"): its pages side by side, one cell wide, with scroll-snap, and dots
+  // under them. Only a block swipes, never the screen.
+  //
+  // The catalog builds it for a block with `pages` (hk-grid-catalog.js
+  // config()): { item, ctx } -- the block as it is stored, and the house as the
+  // screen sees it. Its pages are the catalog's (pages()), asked again when
+  // the Music feature's speakers change, for a `speakers` block. A page's card
+  // is made when it is on screen or next to it, and kept.
+  //
+  // THE START PAGE: the first; with `start: tablet_room` (rooms, thermostats)
+  // the tablet's room's; a speakers block's the one playing, else this
+  // user's own speaker, else the tablet's room's. It goes back there when the
+  // screen's Return to Home timer fires (hk-idle.js: away() while it is off
+  // its start page, then the window event hk-idle-return), so the kitchen
+  // tablet doesn't stay on the den. A doorbell ring (the house's notification,
+  // kind doorbell) turns a cameras block to the doorbell's page.
+  //
+  // GESTURES. The browser scrolls the track (scroll-snap, never a drag of our
+  // own), so a page that scrolls up and down still does. The pager claims
+  // only a sideways drag that starts outside a control: a touch that starts
+  // on one -- a slider, the thermostat's dial (touch-action pan-y or none, a
+  // range, role slider, data-hk-control) -- holds the track still until it
+  // lifts, and so does one in the left 20 px, which are the menu's edge swipe.
+  // A row inside a page that fits but keeps its own swipe lets go for the
+  // touch (pagerHeld); one that scrolls keeps it.
+  //
+  // The dots are buttons with 44 px targets (narrower only when they would
+  // not fit across), and each page and dot is called "2 of 5"; a change is
+  // said politely, so VoiceOver hears where it is.
+  var PAGER_EDGE = 20;          // the menu's edge swipe (hk-menu.js .edge)
+  var PAGER_DOTS = 20;          // the dots' row under the pages, px
+  var pagerSeq = 0;
+  function pagerAreaOf(client, id) {
+    var e = ((client && client.entities) || {})[id] || {}, devs = (client && client.devices) || {};
+    return e.area_id || (e.device_id && devs[e.device_id] && devs[e.device_id].area_id) || null;
+  }
+  // WHICH PAGE TO START ON. live: { room, states, home } -- the tablet's
+  // room, the house's states, this user's own speaker (hkMusic.home()).
+  function pagerStart(pages, item, live) {
+    var p = (item && item.pages) || {}, L = live || {}, list = pages || [];
+    var at = function (fn) { for (var i = 0; i < list.length; i++) if (fn(list[i])) return i; return -1; };
+    var i = -1;
+    if (p.source === 'speakers') {
+      i = at(function (pg) { var st = pg.entity && (L.states || {})[pg.entity]; return !!(st && st.state === 'playing'); });
+      if (i < 0 && L.home) i = at(function (pg) { return pg.entity === L.home; });
+      if (i < 0 && L.room) i = at(function (pg) { return pg.area === L.room; });
+    } else if (p.start === 'tablet_room' && L.room && (p.source === 'rooms' || p.source === 'thermostats')) {
+      i = at(function (pg) { return pg.area === L.room; });
+    }
+    return i < 0 ? 0 : i;
+  }
+  // THE DOORBELL'S PAGE: the camera the ring names, else one called doorbell
+  function pagerDoorbell(pages, camera) {
+    var list = pages || [], i;
+    for (i = 0; camera && i < list.length; i++) if (list[i].entity === camera) return i;
+    for (i = 0; i < list.length; i++) if (/doorbell/.test(String(list[i].entity || ''))) return i;
+    return -1;
+  }
+  // A CONTROL that owns its own sideways drag
+  function pagerControl(el) {
+    if (!el || el.nodeType !== 1 || !el.getAttribute) return false;
+    if (el.localName === 'input' && String(el.type || el.getAttribute('type')).toLowerCase() === 'range') return true;
+    if (el.getAttribute('role') === 'slider' || el.hasAttribute('data-hk-control')) return true;
+    var ta = '';
+    try { ta = typeof getComputedStyle === 'function' ? getComputedStyle(el).touchAction : ''; } catch (e) { ta = ''; }
+    ta = ta || (el.style && el.style.touchAction) || '';
+    return ta === 'none' || ta === 'pan-y';
+  }
+  // A ROW INSIDE A PAGE THAT CAN'T SCROLL SIDEWAYS -- it all fits -- but keeps
+  // its swipe to itself (overscroll-behavior-x contain: the scenes row, a
+  // chips row) would stop the pager's swipe from starting on it: the browser
+  // never hands the drag on. For the touch, such a row lets go (auto); one
+  // that does scroll keeps its swipe, as a control does.
+  function pagerHeld(path, stop) {
+    var out = [], list = path || [];
+    for (var i = 0; i < list.length && list[i] !== stop; i++) {
+      var el = list[i];
+      if (!el || el.nodeType !== 1) continue;
+      var cs = null;
+      try { cs = typeof getComputedStyle === 'function' ? getComputedStyle(el) : null; } catch (e) { cs = null; }
+      cs = cs || el.style || {};
+      var ox = cs.overflowX, ob = cs.overscrollBehaviorX;
+      if ((ox === 'auto' || ox === 'scroll') && ob && ob !== 'auto' && !((el.scrollWidth || 0) > (el.clientWidth || 0) + 1)) out.push(el);
+    }
+    return out;
+  }
+  // DOES THE PAGER TAKE THIS TOUCH: path is the event's composed path, from
+  // the element touched up to (not past) the track; x its clientX
+  function pagerClaims(path, x, stop) {
+    if (typeof x === 'number' && x < PAGER_EDGE) return false;
+    var list = path || [];
+    for (var i = 0; i < list.length && list[i] !== stop; i++) if (pagerControl(list[i])) return false;
+    return true;
+  }
+
+  class HkPagerCard extends HkBase {
+    static get CSS() {
+      var v = window.hkCards.v;
+      // (:host>div: the card's own root, which holds the pager)
+      return ':host{display:block;position:relative;height:100%;overflow:hidden}:host>div{height:100%}' +
+        '.pager{position:relative;display:flex;flex-direction:column;height:100%}' +
+        '.track{flex:1 1 auto;min-height:0;display:flex;overflow-x:auto;overflow-y:hidden;' +
+        'scroll-snap-type:x mandatory;overscroll-behavior-x:contain;scrollbar-width:none;-webkit-overflow-scrolling:touch}' +
+        '.track::-webkit-scrollbar{display:none}' +
+        '.track.held{overflow-x:hidden}' +
+        // each page is the cell its card lays itself out in (hk-cell): the
+        // block's size, less the dots' row
+        '.page{position:relative;flex:0 0 100%;width:100%;height:100%;min-width:0;overflow:hidden;' +
+        'scroll-snap-align:start;scroll-snap-stop:always;container-type:size;container-name:hk-cell}' +
+        '.page>*{display:block;box-sizing:border-box;width:100%;height:100%;margin:0!important}' +
+        '.dots{position:relative;z-index:1;flex:0 0 ' + PAGER_DOTS + 'px;height:' + PAGER_DOTS + 'px;min-height:0;' +
+        'display:flex;justify-content:center;align-items:flex-end;min-width:0}' +
+        '.pager.one .dots{display:none}' +
+        // 44 px targets, reaching up over the page's foot
+        '.dot{flex:0 1 44px;min-width:0;height:44px;margin:0;padding:0 0 7px;border:0;background:none;' +
+        'display:flex;align-items:flex-end;justify-content:center;cursor:pointer;-webkit-tap-highlight-color:transparent}' +
+        '.dot i{display:block;width:7px;height:7px;border-radius:50%;background:' + v('ink') + ';opacity:.35;' +
+        'transition:opacity .2s ease}' +
+        '.dot[aria-current=true] i{opacity:1}' +
+        '.say{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}';
+    }
+    setConfig(config) {
+      if (!config || !config.item) throw new Error('hk-pager: `item` (a Home Grid block) is required');
+      this._key = this._key || ('pager-' + (++pagerSeq));
+      this._moved = false;
+      this._pgSig = null;
+      super.setConfig(config);
+    }
+    getCardSize() { return 4; }
+    // the pages' signature: a speakers block's change with the Music
+    // feature's speakers; every other block's are its config's
+    _sigOf() {
+      var it = (this._config || {}).item || {};
+      return it.pages && it.pages.source === 'speakers' ? this._pageSig(this._pageList()) : 'static';
+    }
+    _pageSig(pages) { return pages.map(function (p) { return (p.entity || p.area || '') + ''; }).join('|') + '#' + pages.length; }
+
+    _ctx() {
+      var cfg = this._config || {}, ctx = Object.assign({}, cfg.ctx || {});
+      var it = cfg.item || {};
+      if (it.pages && it.pages.source === 'speakers') {
+        var HM = window.hkMusic, client = this.client;
+        var sp = HM && HM.speakers ? HM.speakers() : [];
+        // each room's speaker first, then the groups
+        sp = sp.filter(function (s) { return !s.members; }).concat(sp.filter(function (s) { return !!s.members; }));
+        ctx.speakers = sp.map(function (s) { return { entity: s.entity, area: pagerAreaOf(client, s.entity) }; });
+      }
+      return ctx;
+    }
+    _pageList() {
+      var G = window.hkGridCatalog;
+      return G && G.pages ? G.pages((this._config || {}).item, this._ctx()) : [];
+    }
+    _live() {
+      var client = this.client, G = window.hkGridCatalog, HM = window.hkMusic;
+      return { room: G && G.tabletRoom ? G.tabletRoom(client) : null,
+               states: (client && client.states) || {},
+               home: HM && HM.home ? HM.home() : null };
+    }
+    _startIndex() { return pagerStart(this._pages || [], (this._config || {}).item, this._live()); }
+
+    _render() {
+      var pages = this._pageList(), sig = this._pageSig(pages);
+      if (this._built && sig === this._pgSig) return;
+      var keep = this._built && this._pages ? this._pages[this._index] : null;
+      this._built = true;
+      this._pgSig = sig;
+      this._pages = pages;
+      this._els = [];
+      var self = this, n = pages.length, size = ((this._config || {}).item || {}).size;
+      var root = this._root;
+      root.innerHTML = '';
+      var pager = document.createElement('div');
+      pager.className = 'pager' + (n < 2 ? ' one' : '');
+      var track = document.createElement('div');
+      track.className = 'track';
+      var dots = document.createElement('div');
+      dots.className = 'dots';
+      var say = document.createElement('div');
+      say.className = 'say';
+      say.setAttribute('aria-live', 'polite');
+      this._slots = pages.map(function (pg, i) {
+        var slot = document.createElement('div');
+        slot.className = 'page';
+        slot.setAttribute('role', 'group');
+        slot.setAttribute('aria-label', (i + 1) + ' of ' + n);
+        if (size) slot.setAttribute('size', size);
+        track.appendChild(slot);
+        return slot;
+      });
+      this._dots = pages.map(function (pg, i) {
+        var b = document.createElement('button');
+        b.className = 'dot';
+        b.type = 'button';
+        b.setAttribute('aria-label', (i + 1) + ' of ' + n);
+        b.appendChild(document.createElement('i'));
+        b.addEventListener('click', function (e) {
+          if (e && e.stopPropagation) e.stopPropagation();
+          self._moved = true;
+          self.goTo(i, true);
+        });
+        dots.appendChild(b);
+        return b;
+      });
+      pager.appendChild(track);
+      pager.appendChild(dots);
+      pager.appendChild(say);
+      root.appendChild(pager);
+      this._track = track;
+      this._say = say;
+      this._wireTrack(track);
+      this._index = -1;
+      // a rebuild (a speaker came or went) keeps the page it was on
+      var at = -1;
+      if (keep) for (var k = 0; k < pages.length && at < 0; k++) if (this._pageSig([pages[k]]) === this._pageSig([keep])) at = k;
+      this.goTo(at >= 0 ? at : this._startIndex(), false);
+    }
+
+    _wireTrack(track) {
+      var self = this;
+      track.addEventListener('scroll', function () {
+        if (self._scrollQ) return;
+        self._scrollQ = true;
+        requestAnimationFrame(function () { self._scrollQ = false; self._settle(); });
+      }, { passive: true });
+      // a touch on a control, or in the menu's edge, holds the track still
+      track.addEventListener('touchstart', function (e) {
+        var t = e.touches && e.touches[0];
+        var path = e.composedPath ? e.composedPath() : [e.target];
+        self._moved = true;
+        var mine = pagerClaims(path, t ? t.clientX : undefined, track);
+        track.classList.toggle('held', !mine);
+        if (mine) self._freed = pagerHeld(path, track).map(function (el) {
+          var was = el.style.overscrollBehaviorX;
+          el.style.overscrollBehaviorX = 'auto';
+          return [el, was];
+        });
+      }, { passive: true, capture: true });
+      var lift = function () {
+        track.classList.remove('held');
+        (self._freed || []).forEach(function (f) { f[0].style.overscrollBehaviorX = f[1]; });
+        self._freed = null;
+      };
+      track.addEventListener('touchend', lift, { passive: true });
+      track.addEventListener('touchcancel', lift, { passive: true });
+    }
+    // the page the track has come to rest on
+    _settle() {
+      var t = this._track, w = t && t.clientWidth;
+      if (!w) return;
+      this._show(Math.round((t.scrollLeft || 0) / w));
+    }
+
+    // TURN TO PAGE i: smooth for a tap, at once otherwise
+    goTo(i, smooth) {
+      var n = (this._pages || []).length;
+      if (!n) return;
+      i = Math.max(0, Math.min(n - 1, i | 0));
+      this._want = i;
+      var t = this._track, w = t && t.clientWidth;
+      if (w) {
+        if (t.scrollTo) t.scrollTo({ left: i * w, behavior: smooth ? 'smooth' : 'auto' });
+        else t.scrollLeft = i * w;
+      }
+      this._show(i);
+    }
+    _show(i) {
+      var n = (this._pages || []).length;
+      if (!n) return;
+      i = Math.max(0, Math.min(n - 1, i));
+      for (var k = Math.max(0, i - 1); k <= Math.min(n - 1, i + 1); k++) this._make(k);
+      if (i === this._index) return;
+      this._index = i;
+      (this._dots || []).forEach(function (d, k) { d.setAttribute('aria-current', k === i ? 'true' : 'false'); });
+      if (this._say && n > 1) this._say.textContent = (i + 1) + ' of ' + n;
+      this._away(i !== this._startIndex());
+    }
+    // a page's card, made the first time it is on screen or next to it
+    _make(i) {
+      if (this._els[i] || !this._pages[i]) return;
+      var el = window.hkCards.createCard(this._pages[i].card, this.client);
+      if (!el) return;
+      var size = ((this._config || {}).item || {}).size;
+      if (size && el.setAttribute) el.setAttribute('size', size);
+      this._els[i] = el;
+      this._slots[i].appendChild(el);
+    }
+    // off its start page: the Return to Home timer arms on Home too
+    _away(on) {
+      on = !!on && this.isConnected;
+      if (on === !!this._isAway) return;
+      this._isAway = on;
+      var I = window.hkIdle;
+      if (I && I.away) I.away(this._key, on);
+    }
+    // the timer fired: back to the start page, at once (nobody is looking)
+    _return() {
+      this._moved = false;
+      this.goTo(this._startIndex(), false);
+    }
+    _ring(n) {
+      var cfg = this._config || {}, it = cfg.item || {};
+      if (!n || n.type !== 'notification' || n.kind !== 'doorbell') return;
+      if (!it.pages || it.pages.source !== 'cameras') return;
+      var i = pagerDoorbell(this._pages, n.camera);
+      if (i < 0) return;
+      this._moved = true;
+      this.goTo(i, true);
+    }
+
+    // EACH NEW CLIENT: every page's card gets it; and until somebody touches
+    // the block, the start page follows (the client may come after the first
+    // draw, with what is playing)
+    _receiveClient() {
+      super._receiveClient();
+      var els = this._els || [], client = this.client;
+      for (var i = 0; i < els.length; i++) if (els[i]) window.hkHostClient.bridge(els[i], client);
+      if (this._built && !this._moved && this._pages && this._pages.length > 1) {
+        var s = this._startIndex();
+        if (s !== this._index) this.goTo(s, false);
+      }
+    }
+
+    connectedCallback() {
+      super.connectedCallback();
+      var self = this;
+      if (!this._onIdle) {
+        this._onIdle = function () { self._return(); };
+        this._onHouse = function (e) { self._ring(e && e.detail); };
+        this._onMusic = function () { self.redraw(); };
+      }
+      window.addEventListener('hk-idle-return', this._onIdle);
+      window.addEventListener('hk-house-event', this._onHouse);
+      var it = (this._config || {}).item || {};
+      if (!this._offMusic && it.pages && it.pages.source === 'speakers' && window.hkMusic && window.hkMusic.onChange) {
+        this._offMusic = window.hkMusic.onChange(function () {
+          if (self._pgSig !== self._pageSig(self._pageList())) self._onMusic();
+        });
+      }
+      // the track has its width now: turn to the page it should be on, and
+      // keep it there through a resize (the tablet turned)
+      if (!this._ro && typeof ResizeObserver !== 'undefined') {
+        this._ro = new ResizeObserver(function () { if (self._index >= 0) self.goTo(self._index, false); });
+      }
+      if (this._ro && this._track) this._ro.observe(this._track);
+      if (this._index >= 0) this.goTo(this._index, false);
+      if (this._index >= 0) this._away(this._index !== this._startIndex());
+    }
+    disconnectedCallback() {
+      window.removeEventListener('hk-idle-return', this._onIdle);
+      window.removeEventListener('hk-house-event', this._onHouse);
+      if (this._offMusic) { this._offMusic(); this._offMusic = null; }
+      if (this._ro) this._ro.disconnect();
+      var I = window.hkIdle;
+      if (this._isAway && I && I.away) I.away(this._key, false);
+      this._isAway = false;
+      super.disconnectedCallback();
+    }
+  }
+  if (!customElements.get('hk-pager-card')) customElements.define('hk-pager-card', HkPagerCard);
+
   window.hkLayout = { version: '1.0.0', pageHeaderMode: pageHeaderMode,
-                      gutter: function (el) { return HkGridView.gutter(el); } };
+                      gutter: function (el) { return HkGridView.gutter(el); },
+                      // the pager's decisions, for its tests
+                      pager: { start: pagerStart, doorbell: pagerDoorbell, claims: pagerClaims, held: pagerHeld,
+                               control: pagerControl, EDGE: PAGER_EDGE } };
   });
 })();

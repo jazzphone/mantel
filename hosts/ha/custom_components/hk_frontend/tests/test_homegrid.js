@@ -33,14 +33,16 @@ var G = window.hkGridCatalog;
 ok('the catalog is loaded', !!G && typeof G.config === 'function');
 ok('the size classes are hk-base.js\'s', JSON.stringify(G.SIZES) === JSON.stringify(window.hkCards.HOME_GRID.sizes));
 var ctx = { cameras: ['camera.front_door', 'camera.yard'], climate: ['climate.hallway'], rooms: ['kitchen'], weather: 'weather.home' };
-var cam = G.config({ card: 'camera', size: 'L', pages: { source: 'cameras' } }, ctx);
+var cam = G.config({ card: 'camera', size: 'L' }, ctx);
 ok('a camera block with no camera of its own: the house\'s cameras', cam.type === 'custom:hk-camera-mosaic-card' && cam.cameras.length === 2);
-var th = G.config({ card: 'thermostat', size: 'T', pages: { source: 'thermostats', start: 'tablet_room' } }, ctx);
+var th = G.config({ card: 'thermostat', size: 'T' }, ctx);
 ok('a thermostat block: the house\'s first thermostat', th.type === 'custom:hk-climate-card' && th.entity === 'climate.hallway');
+var thp = G.config({ card: 'thermostat', size: 'T', pages: { source: 'thermostats', start: 'tablet_room' } }, ctx);
+ok('a block with pages is a pager of its card (G4)', thp.type === 'custom:hk-pager-card' && thp.item.card === 'thermostat' && thp.ctx === ctx);
 var np = G.config({ card: 'now_playing', size: 'L', opts: { speaker: 'tablet_room' } }, ctx);
 ok('the tablet\'s room is not an entity (resolved by G3/G4)', np.type === 'custom:hk-now-playing-card' && !np.entity);
 var sc = G.config({ card: 'scenes', size: 'W', pages: { source: 'list', list: [{ opts: { scenes: ['scene.dinner'] } }, { opts: { scenes: ['scene.good_night'] } }] } }, ctx);
-ok('a block with list pages shows its first page', sc.type === 'custom:hk-scenes-card' && sc.scenes[0] === 'scene.dinner');
+ok('a block with list pages is a pager too', sc.type === 'custom:hk-pager-card' && G.pages(sc.item, ctx)[0].card.scenes[0] === 'scene.dinner');
 ok('a key the catalog lacks is a stand-in, not an error', G.config({ card: 'toaster', size: 'S' }, ctx).type === 'custom:hk-key-card');
 ok('...and so is a block with nothing in the house to show', G.config({ card: 'thermostat', size: 'T' }, {}).type === 'custom:hk-key-card');
 
@@ -133,8 +135,9 @@ window.hkStrategy.generate({ music: false }, hass).then(function (cfg) {
     var blocks = home.cards.filter(function (c) { return c.hk_cell; });
     ok('...a card per block, with its cell', blocks.length === 4 && blocks[0].hk_cell.id === 'a1' && blocks[0].hk_cell.size === 'L' &&
        JSON.stringify(blocks[3].hk_cell.at) === '[5,3]');
-    ok('...from the catalog, filled from the house', blocks[0].type === 'custom:hk-room-status-card' && blocks[0].area === 'kitchen' &&
-       blocks[1].cameras[0].entity === 'camera.front_door' && blocks[2].entity === 'climate.hallway', blocks.map(function (b) { return b.type; }));
+    var pg0 = G.pages(blocks[0].item, blocks[0].ctx), pg1 = G.pages(blocks[1].item, blocks[1].ctx);
+    ok('...from the catalog, filled from the house', blocks[0].type === 'custom:hk-pager-card' && pg0[0].card.type === 'custom:hk-room-status-card' &&
+       pg0[0].area === 'kitchen' && pg1[0].card.cameras[0].entity === 'camera.front_door' && blocks[2].entity === 'climate.hallway', blocks.map(function (b) { return b.type; }));
     ok('...and the alarm\'s pop-up still listens on Home', home.cards.some(function (c) { return c.type === 'custom:hk-popup-card' && c.hash === '#alarm'; }));
     ok('the screen\'s other pages are unchanged', JSON.stringify(g.views.map(function (v) { return v.path; })) === JSON.stringify(plain), g.views.map(function (v) { return v.path; }));
     BOARD = { home_style: 'grid', home_grid: Object.assign({}, LAYOUT, { band: false }) };
