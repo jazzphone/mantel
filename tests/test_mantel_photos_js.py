@@ -9,6 +9,8 @@ and the few browser objects the page touches (fetch, XMLHttpRequest, localStorag
   too big, refused before it is sent.
 * A screen's Screensaver Options and All Screens' Screensaver: the album pickers and what they save, New Album…
   (named, made and picked) and Add Photos… right there.
+* Keep in View's look through the library: Finding Faces with a count while it runs (read again every few seconds,
+  and no more once it is done or the page is left), Faces Checked when done, the Setup Check's words with no detector.
 * Where it is: a Photos row in Your Files, no row of its own in the sidebar, the old #/mantel/photos forwarded.
 * The shell: a screen's album as its source, an album's photos as same-origin addresses under the prefix.
 """
@@ -68,9 +70,10 @@ window.hkSettingsKit = {
   confirm: () => Promise.resolve(true),
 };
 const reads = JSON.parse(readFileSync(process.argv[3], 'utf8'));
-const sent = [];
+const sent = [], gets = [];
 globalThis.fetch = async (u, init) => {
   const method = (init && init.method) || 'GET', path = String(u);
+  if (method === 'GET') gets.push(path);
   if (method !== 'GET') {
     sent.push({ method, path, body: init.body ? JSON.parse(init.body) : null });
     const answer = path.endsWith('/move') ? { ok: true, moved: ['p2'], skipped: [] }
@@ -261,6 +264,55 @@ viewEl().find((e) => e.cls.has('next')).on.click();
 kv.pendingLabel = viewEl().find((e) => e.attrs['data-fk'] === 'mx:view-keep').attrs['aria-label'];
 out.keep = kv;
 
+// -- Keep in View's look through the library: the row in each state; read again every few seconds while it looks
+const realTimeout = globalThis.setTimeout, faceTimers = [];
+globalThis.setTimeout = (f, ms, ...a) => (ms === 4000 ? faceTimers.push(f) : realTimeout(f, ms, ...a));
+const facesRow = (c) => {
+  const g = c.kids.find((k) => k.attrs.header === 'Keep in View');
+  if (!g) return null;
+  const r = g.kids[0], part = (pred) => (r.find(pred) || {}).text || null;
+  return { label: r.attrs.label || part((x) => x.cls.has('t')), sub: r.attrs.sub || part((x) => x.tag === 'small'),
+           value: r.attrs.value !== undefined ? r.attrs.value : part((x) => x.cls.has('val')),
+           bar: !!r.find((x) => x.attrs.role === 'progressbar'), fk: r.attrs['data-fk'], footer: g.attrs.footer };
+};
+const LIB = ['mantel', 'files', 'photos'];
+const fz = {};
+const facesSay = (o) => Object.assign({ photos: 1200, checked: 340, with_faces: 120, left: 860, started: 5, finished: null }, o);
+const withFaces = (o) => { reads['/api/photos'] = Object.assign({}, ownerRead, { faces: facesSay(o) }); };
+withFaces({ state: 'running' });
+({ c } = await draw(owner, LIB));
+fz.running = facesRow(c);
+fz.timers = faceTimers.length;
+fz.order = groups(c).map((g) => g.header);
+reads['/api/photos/faces'] = { ok: true, faces: facesSay({ state: 'running', checked: 600, left: 600 }) };
+await faceTimers.shift()(); await tick();
+fz.polled = gets.filter((g) => g === '/api/photos/faces').length;
+fz.later = facesRow(await redraw(owner, LIB));
+reads['/api/photos/faces'] = { ok: true, faces: facesSay({ state: 'done', checked: 1200, with_faces: 410, left: 0, finished: 9 }) };
+await faceTimers.shift()(); await tick();
+fz.done = facesRow(await redraw(owner, LIB));
+fz.timersWhenDone = faceTimers.length;
+withFaces({ state: 'waiting' });
+({ c } = await draw(owner, LIB));
+fz.waiting = facesRow(c);
+location.hash = '#/mantel/files/photos/' + AID;              // left for an album: the next read isn't made
+const asked = gets.length;
+await faceTimers.shift()(); await tick();
+fz.askedAfterLeaving = gets.length - asked;
+fz.timersAfterLeaving = faceTimers.length;
+location.hash = '#/mantel/files/photos';
+withFaces({ state: 'unavailable', checked: 0, with_faces: 0, left: 1200 });
+fz.unavailable = facesRow((await draw(owner, LIB)).c);
+withFaces({ state: 'stopped', checked: 1199, left: 1 });
+fz.stopped = facesRow((await draw(owner, LIB)).c);
+withFaces({ state: 'done', photos: 0, checked: 0, with_faces: 0, left: 0 });
+fz.empty = facesRow((await draw(owner, LIB)).c);
+fz.adminDone = (withFaces({ state: 'done', checked: 1200, left: 0 }), facesRow((await draw(admin, LIB)).c));
+fz.timersAtEnd = faceTimers.length;
+reads['/api/photos'] = ownerRead;
+globalThis.setTimeout = realTimeout;
+out.faces = fz;
+
 // -- where it is: Your Files' Photos row, the sidebar, the old address, search
 reads['/api/user-files'] = { fonts: [], glyphs: { present: false }, usage: 0, quota: 1 << 20 };
 out.files = groups((await draw(owner, ['mantel', 'files'])).c);
@@ -345,6 +397,26 @@ def test_the_library_shows_albums_space_and_backups():
     imp = by_header(out["ownerLib"], "Import from Home Assistant")
     assert [r["fk"] for r in imp["rows"]][-1] == "mx:photos-import"
     assert "Nothing in Home Assistant is changed or deleted" in imp["footer"]
+
+
+def test_keep_in_view_says_how_far_the_look_for_faces_has_got_and_reads_again_only_while_it_runs():
+    f = run_page()["faces"]
+    assert f["running"] == {"label": "Finding Faces", "sub": "120 with faces so far", "value": "340 of 1,200", "bar": True,
+                            "fk": "mx:photos-faces", "footer": f["running"]["footer"]}
+    assert "runs in the background" in f["running"]["footer"] and "screensavers use what it finds as it goes" in f["running"]["footer"]
+    assert f["order"].index("Keep in View") == f["order"].index("Storage") + 1
+    assert f["timers"] == 1 and f["polled"] == 1                        # once, however often the page is drawn
+    assert f["later"]["value"] == "600 of 1,200"
+    assert f["done"]["label"] == "Faces Checked" and f["done"]["value"] == "1,200 photos, 410 with faces"
+    assert not f["done"]["bar"] and f["timersWhenDone"] == 0            # done: no more reads
+    assert f["waiting"]["label"] == "Finding Faces" and f["waiting"]["sub"] == "Waiting for the import to finish"
+    assert f["askedAfterLeaving"] == 0 and f["timersAfterLeaving"] == 0  # the page left: no more reads
+    assert f["unavailable"]["footer"] == "Faces aren’t found on this platform; the screens’ own focus is used."
+    assert f["unavailable"]["fk"] == "mx:photos-faces"
+    assert f["stopped"]["value"] == "1,199 of 1,200" and "next time Mantel starts" in f["stopped"]["footer"]
+    assert f["empty"] is None                                           # no photos: nothing to say
+    assert f["adminDone"]["label"] == "Faces Checked"                   # an Admin sees it too
+    assert f["timersAtEnd"] == 0
 
 
 def test_an_admin_manages_photos_but_not_the_limits_or_the_import():

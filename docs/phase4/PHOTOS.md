@@ -170,7 +170,8 @@ around them. Only boxes are found and stored, never who anyone is, and nothing l
 
 | Route | Who |
 |---|---|
-| `GET /api/photos` (albums with count, size and cover; usage; limits; screens; backups; the import) | manager |
+| `GET /api/photos` (albums with count, size and cover; usage; limits; screens; backups; the import; `faces`) | manager |
+| `GET /api/photos/faces`: the faces backfill, counted from the rows (`photos`, `checked`, `with_faces`, `left`; `state` `running`, `waiting` for an import, `done`, `stopped` or `unavailable`; `started`, `finished`). Photos polls it every 4 s while it looks | manager |
 | `POST /api/photos/albums` `{name}`; `PATCH`/`DELETE /api/photos/albums/<id>` | manager |
 | `GET /api/photos/albums/<id>/photos` (each with `faces` and `focus {x, y, by}`) | manager |
 | `PUT /api/photos/<id>/focus` `{x, y}` (0..1) or `{auto: true}`; audited `photos.focus` | manager |

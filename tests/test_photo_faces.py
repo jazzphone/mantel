@@ -382,3 +382,78 @@ def test_stored_faces_tolerates_a_damaged_value():
     assert photos.stored_faces(None) is None
     assert photos.stored_faces("not json") == [] and photos.stored_faces('{"a": 1}') == []
     assert photos.stored_faces('[[0.1, 0.1, 0.2, 0.2, 0.9], "x", [1]]') == [[0.1, 0.1, 0.2, 0.2, 0.9]]
+
+
+# -- how far the backfill has got (GET /api/photos/faces) ---------------------------------------------------------
+async def faces_status(mantel):
+    r, body = await send(mantel, "GET", "/api/photos/faces")
+    assert r.status == 200, body
+    return body["faces"]
+
+
+async def test_the_backfills_progress_is_counted_from_the_rows_in_each_state(mantel, fake_detector, monkeypatch):
+    aid, ids = await _unchecked(mantel, 3, monkeypatch)
+    bf = mantel.app["photos_faces"]
+    bf.cancel()
+    got = await faces_status(mantel)
+    assert {k: got[k] for k in ("photos", "checked", "with_faces", "left")} == \
+        {"photos": 3, "checked": 0, "with_faces": 0, "left": 3}
+    assert got["state"] == "stopped" and got["finished"] is None            # photos left, nothing looking
+
+    blocker = asyncio.Event()
+    bf.task = asyncio.get_running_loop().create_task(blocker.wait())        # a run under way
+    bf.started = mantel.now[0]
+    got = await faces_status(mantel)
+    assert got["state"] == "running" and got["started"] == mantel.now[0]
+
+    class Running:
+        running = True
+    monkeypatch.setattr(photos.Importer, "running", property(lambda self: Running.running))
+    assert (await faces_status(mantel))["state"] == "waiting"
+    Running.running = False
+    blocker.set()
+    await bf.task
+
+    mantel.app["photos"].set_faces(ids[2], ONE)                             # counted the same after a restart
+    got = await faces_status(mantel)
+    assert (got["checked"], got["with_faces"], got["left"]) == (1, 1, 2)
+
+    fake_detector.answers = [[]]
+    mantel.now[0] += 100
+    bf.start_after, bf.rest = 0, 0
+    bf.task = asyncio.get_running_loop().create_task(bf.run())
+    await bf.task
+    got = await faces_status(mantel)
+    assert got["state"] == "done" and (got["photos"], got["checked"], got["with_faces"], got["left"]) == (3, 3, 1, 0)
+    assert got["started"] == mantel.now[0] and got["finished"] == mantel.now[0]
+
+    bf.started = bf.finished = None                                         # a restart: done, from the rows
+    got = await faces_status(mantel)
+    assert got["state"] == "done" and got["started"] is None and got["finished"] == mantel.now[0]
+
+    monkeypatch.setattr(faces, "available", lambda: False)
+    assert (await faces_status(mantel))["state"] == "unavailable"
+
+
+async def test_the_overview_carries_the_backfills_progress(mantel, fake_detector, monkeypatch):
+    await _unchecked(mantel, 2, monkeypatch)
+    r, body = await send(mantel, "GET", "/api/photos")
+    assert r.status == 200 and body["faces"]["photos"] == 2 and body["faces"]["left"] == 2
+
+
+async def test_an_owner_and_an_admin_see_the_progress_and_an_adult_or_a_wall_tablet_do_not(mantel, fake_detector):
+    await sign_in(mantel)
+    assert (await faces_status(mantel))["photos"] == 0
+    mantel.forget_cookies()
+    await sign_in(mantel, "riley", "admin")
+    assert (await faces_status(mantel))["state"] in ("done", "unavailable")
+    mantel.forget_cookies()
+    await sign_in(mantel, "jordan", "adult")
+    assert (await send(mantel, "GET", "/api/photos/faces"))[0].status == 403
+    mantel.forget_cookies()
+    await sign_in(mantel, "sam", "owner")
+    r = await mantel.post("/api/devices/enroll", {"name": "Kitchen tablet", "room": "kitchen"})
+    assert r.status == 201
+    assert (await send(mantel, "GET", "/api/photos/faces"))[0].status == 403
+    mantel.forget_cookies()
+    assert (await mantel.client.get("/api/photos/faces")).status == 401          # nobody signed in

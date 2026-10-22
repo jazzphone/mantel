@@ -455,6 +455,15 @@ class PhotoLibrary:
             self.db.execute("UPDATE photos SET faces=?, faces_at=?, faces_by=? WHERE id=?",
                             (json.dumps(found), self.clock(), face_finder.NAME, photo_id))
 
+    def face_counts(self) -> dict:
+        """``{photos, checked, with_faces, left, last}`` from the rows (``last``: when the latest was checked)."""
+        r = self.db.execute("SELECT COUNT(*) AS photos, COUNT(faces_at) AS checked, MAX(faces_at) AS last, "
+                            "SUM(faces_at IS NOT NULL AND faces IS NOT NULL AND faces != '[]') AS with_faces "
+                            "FROM photos").fetchone()
+        photos, checked = int(r["photos"]), int(r["checked"])
+        return {"photos": photos, "checked": checked, "with_faces": int(r["with_faces"] or 0),
+                "left": photos - checked, "last": r["last"]}
+
     def unchecked(self) -> str | None:
         """The newest photo whose faces haven't been looked for, or None."""
         row = self.db.execute("SELECT id FROM photos WHERE faces_at IS NULL ORDER BY created DESC LIMIT 1").fetchone()
@@ -550,6 +559,8 @@ class FaceBackfill:
         self.task: asyncio.Task | None = None
         self.checked = 0
         self.with_faces = 0
+        self.started: float | None = None        # the app's clock: when this run began looking
+        self.finished: float | None = None       # ... and found nothing left
 
     def start(self) -> asyncio.Task | None:
         if self.task is not None and not self.task.done():
@@ -562,6 +573,32 @@ class FaceBackfill:
     def cancel(self) -> None:
         if self.task is not None and not self.task.done():
             self.task.cancel()
+
+    @property
+    def running(self) -> bool:
+        return self.task is not None and not self.task.done()
+
+    def status(self) -> dict:
+        """What ``GET /api/photos/faces`` says, counted from the rows. ``state``: ``unavailable`` (no detector on
+        this platform), ``done`` (every photo checked), ``waiting`` (for an import to finish), ``running``, or
+        ``stopped`` (photos left and nothing looking: a detector that wouldn't start, or a photo added since
+        whose own look failed; the next start picks them up)."""
+        lib: PhotoLibrary = self.app["photos"]
+        n = lib.face_counts()
+        last = n.pop("last")
+        imp = self.app.get("photos_import")
+        if not face_finder.available():
+            state = "unavailable"
+        elif not n["left"]:
+            state = "done"
+        elif not self.running:
+            state = "stopped"
+        elif imp is not None and imp.running:
+            state = "waiting"
+        else:
+            state = "running"
+        return dict(n, state=state, started=self.started,
+                    finished=(self.finished or last) if state == "done" and n["photos"] else None)
 
     @staticmethod
     def _look(det, path: Path | None) -> list:
@@ -580,6 +617,7 @@ class FaceBackfill:
         await asyncio.sleep(self.start_after)
         lib: PhotoLibrary = self.app["photos"]
         began, det = time.monotonic(), None
+        self.started, self.finished = self.app["clock"](), None
         try:
             while True:
                 imp = self.app.get("photos_import")
@@ -588,6 +626,7 @@ class FaceBackfill:
                     continue
                 pid = lib.unchecked()
                 if pid is None:
+                    self.finished = self.app["clock"]()
                     break
                 if det is None:
                     try:
@@ -852,7 +891,8 @@ async def api_overview(request: web.Request) -> web.Response:
     imp: Importer = request.app["photos_import"]
     return _json(200, ok=True, albums=lib.albums(), usage=lib.usage(), photos=lib.count(), limits=lib.limits(),
                  screens=lib.screens(), backup=backup_info(request.app), owner=ident.user.role == "owner",
-                 importing=imp.job.as_dict() if imp.job is not None else None)
+                 importing=imp.job.as_dict() if imp.job is not None else None,
+                 faces=request.app["photos_faces"].status())
 
 
 async def api_album_create(request: web.Request) -> web.Response:
@@ -991,6 +1031,12 @@ async def api_import_status(request: web.Request) -> web.Response:
     return _json(200, ok=True, importing=job.as_dict() if job is not None else None)
 
 
+async def api_faces(request: web.Request) -> web.Response:
+    """Keep in View's look through the library: how far it has got (Mantel Settings → Photos polls it)."""
+    _manager(request)
+    return _json(200, ok=True, faces=request.app["photos_faces"].status())
+
+
 async def api_import_cancel(request: web.Request) -> web.Response:
     ident = _manager(request, owner=True)
     if not request.app["photos_import"].cancel():
@@ -1074,6 +1120,7 @@ def register(app: web.Application, hub=None) -> None:
     r.add_get("/api/photos/import", api_import_status)
     r.add_post("/api/photos/import", api_import_start)
     r.add_delete("/api/photos/import", api_import_cancel)
+    r.add_get("/api/photos/faces", api_faces)
     r.add_put(r"/api/photos/{photo:[0-9a-f]{32}}/focus", api_focus)
     r.add_get(r"/api/photos/{photo:[0-9a-f]{32}}/{size:original|screen|thumb}", serve)
     app["photos_faces"] = FaceBackfill(app)

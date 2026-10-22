@@ -81,6 +81,9 @@ let active = 0;
 let upSeq = 0;
 let importTimer = null;
 let importJob = undefined;    // the import as last read (undefined: not read yet)
+let facesTimer = null;
+let faces = null;             // Keep in View's look through the library, as last read (photos.py FaceBackfill.status)
+let facesFrom = null;         // the overview it came from (a newer overview brings a newer one)
 let viewer = null;            // the preview: { el, list, i, album, keep } (keep: Keep in View is open)
 let dropAlbum = null;         // the album page now drawn (where a dropped file goes)
 
@@ -145,6 +148,7 @@ export function page(sub, tools) {
       if (importJob === undefined) importJob = d.importing;
       drawAlbums(c, d);
       drawStorage(c, d);
+      drawFaces(c, d);
       drawImport(c, d);
     } };
 }
@@ -204,6 +208,50 @@ function drawStorage(c, d) {
     : 'Mantel’s own backups are set to leave files out, so the photos are not in them' + (b.home_assistant ? ' (Home Assistant’s backups of the Mantel App still have them)' : '') + '.';
   c.appendChild(T.group({ header: 'Storage', footer: 'Mantel keeps three sizes of every photo: the original, one sized for a screen, and a thumbnail. ' +
     'Location and camera details are removed when a photo is added. ' + where + (d.owner ? '' : ' Only an Owner changes the limits.') }, rows));
+}
+
+// KEEP IN VIEW: the photos added before there was a face detector are checked in the background
+// (photos.py FaceBackfill); while it looks, the count is read again every few seconds on this page
+const FACES_LOOKING = ['running', 'waiting'];
+const FACES_EVERY = 4000;
+function pollFaces() {
+  if (facesTimer) return;
+  facesTimer = setTimeout(async () => {
+    facesTimer = null;
+    if (String(location.hash) !== home()) return;              // left the page: stop asking
+    try { faces = (await T.api('GET', '/api/photos/faces')).faces || faces; } catch (e) { /* asked again below */ }
+    T.redraw();
+  }, FACES_EVERY);
+}
+function drawFaces(c, d) {
+  if (d !== facesFrom) { facesFrom = d; faces = d.faces || null; }
+  const f = faces;
+  if (!f || !f.photos) return;
+  const of = f.checked.toLocaleString() + ' of ' + f.photos.toLocaleString();
+  let row, footer;
+  if (f.state === 'unavailable') {
+    row = T.info('Faces', null, 'Not Found Here');
+    footer = 'Faces aren’t found on this platform; the screens’ own focus is used.';
+  } else if (f.state === 'done') {
+    row = T.info('Faces Checked', null, plural(f.photos, 'photo') + ', ' + f.with_faces.toLocaleString() + ' with faces');
+    footer = 'Keep in View keeps the faces it found in view in the screensavers. New photos are checked as they are added.';
+  } else if (FACES_LOOKING.includes(f.state)) {
+    pollFaces();
+    const pct = Math.min(100, (f.checked / f.photos) * 100);
+    row = hh('div', { class: 'cell mxuse', 'data-fk': 'mx:photos-faces' }, [
+      hh('span', { class: 'lbl' }, [hh('span', { class: 't', text: 'Finding Faces' }),
+        hh('small', { text: f.state === 'waiting' ? 'Waiting for the import to finish' : f.with_faces.toLocaleString() + ' with faces so far' })]),
+      hh('span', { class: 'val', text: of }),
+      hh('div', { class: 'mxbar', role: 'progressbar', 'aria-label': 'Photos checked for faces', 'aria-valuemin': 0, 'aria-valuemax': 100,
+                  'aria-valuenow': Math.round(pct) }, hh('i', { style: 'width:' + pct.toFixed(1) + '%' }))]);
+    footer = 'Mantel is looking for faces in the photos added before it could. It runs in the background, one photo at a time, ' +
+      'and the screensavers use what it finds as it goes. You can leave this page.';
+  } else {
+    row = T.info('Faces Checked', null, of);
+    footer = 'The rest are checked the next time Mantel starts.';
+  }
+  row.setAttribute('data-fk', 'mx:photos-faces');                 // (the kit's info row takes no fk)
+  c.appendChild(T.group({ header: 'Keep in View', footer }, [row]));
 }
 
 // IMPORT FROM HOME ASSISTANT (an Owner's): a media folder's photos copied into an album, in the background
@@ -761,6 +809,7 @@ export function extend(where, c, ctx, tools) {
 export function _reset() {
   selecting = false; selected.clear(); selAlbum = null; uploads.length = 0; active = 0; importJob = undefined;
   if (importTimer) clearTimeout(importTimer);
-  importTimer = null; viewer = null; dropAlbum = null;
+  if (facesTimer) clearTimeout(facesTimer);
+  importTimer = null; facesTimer = null; faces = null; facesFrom = null; viewer = null; dropAlbum = null;
 }
 export const _state = { selected, uploads, get selecting() { return selecting; } };
