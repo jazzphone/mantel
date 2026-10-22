@@ -1221,6 +1221,12 @@ Everything on main since 0.1.28 (validation green: JS 130, HA py 732, Mantel 283
   shapes. New dependencies: onnxruntime and numpy (about 130-140 MB more in the image). docs/phase4/PHOTOS.md.
 - HK Frontend: the shape-aware Mosaic needs its next build; Mantel Link unchanged (0.1.5).
 
+### 0.1.55 (2026-10-22)
+
+- Mantel Settings → Your Files → Photos: a **Keep in View** row shows how far the look for faces has got (photos
+  checked of all, with faces, and whether it's running, waiting for an import, done or stopped), counted from the
+  rows (`GET /api/photos/faces`). HK Frontend (1.10.7) and Mantel Link (0.1.5) unchanged.
+
 ### Removal
 
 Stop and uninstall **Mantel** (Settings → Apps → Mantel → Uninstall); this removes its image and `/data`
