@@ -158,6 +158,10 @@ You don't need HK Frontend at all. On a Home Assistant without it:
 
 - Mantel Link shows Mantel's entities straight away (there is no bridge to
   hand over).
+- Mantel runs the house by itself: once Mantel Link reports that Home Assistant
+  has no HK Frontend, Mantel takes **The House** (Seasonal Decorations, the
+  Alarm PIN keypads, Live TV's sensors and channels) and says so in the Audit
+  Log. There is nothing to switch on.
 - Mantel Link answers the `hk_frontend.*` action names too, so automations and
   scripts written for HK Frontend keep working. When you remove HK Frontend,
   Mantel Link takes those names over as soon as HK Frontend's entry is

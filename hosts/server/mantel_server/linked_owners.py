@@ -16,6 +16,11 @@ is not a tablet's (Seasonal decorations, the Alarm PIN panel, Live TV's entities
 * **Visible on both sides**: ``GET /api/linked/owners`` (Owner/Admin) here; the link's ``hello`` and an
   ``owners`` frame tell HA at once (linked.py), where Configure -> Linked to Mantel Server and the
   diagnostics show it.
+* **Taken by Mantel when Home Assistant has no HK Frontend** (``take_house_alone``): once Mantel Link reports
+  that its Home Assistant has none, and none is linked, nothing else could run the house, so Mantel records
+  ``house`` as its own (audited, ``changed_by`` ``mantel:no_hk_frontend``). A Mantel that never had HK Frontend
+  needs no step about moving from it; Live TV through Mantel Link needs the house's entities. Recorded, not
+  inferred on each read: Mantel Link reconnecting doesn't take it away again.
 * **Rules that keep it whole**: ``house`` moves to Mantel only when every tablet is already Mantel's
   (Step 7 comes after Step 4), and no tablet moves back to HA while ``house`` is Mantel's (move ``house``
   back first). Mantel publishes only the entities of the units it owns, and handles a forwarded action
@@ -240,20 +245,48 @@ def bridge_check(app: web.Application, holder: str) -> None:
         raise OwnershipError("invalid", "bridge: hk_frontend or mantel")
 
 
+def no_hk_frontend(app: web.Application) -> bool:
+    """Home Assistant has no HK Frontend: Mantel Link is connected and says so, and no HK Frontend is linked."""
+    lk = app.get("linked")
+    reg = lk.registry if lk is not None else None
+    if reg is None or reg.clients_of("hk_frontend"):
+        return False
+    links = [c for c in reg.clients_of("mantel") if c.protocol >= 2 and "hk_frontend" in c.report]
+    return bool(links) and not any((c.report.get("hk_frontend") or {}).get("installed") for c in links)
+
+
 def back_to_ha_check(app: web.Application) -> None:
     """Can a unit (a tablet, or ``house``) go back to Home Assistant? Only while HK Frontend is there to run it:
     once Mantel Link is connected and reports no HK Frontend in its Home Assistant (and no HK Frontend is linked),
     nothing would run the unit's engines or publish its entities, so the move is refused (install HK Frontend's
     last release again first). OwnershipError if not."""
-    lk = app.get("linked")
-    reg = lk.registry if lk is not None else None
-    if reg is None or reg.clients_of("hk_frontend"):
-        return
-    links = [c for c in reg.clients_of("mantel") if c.protocol >= 2 and "hk_frontend" in c.report]
-    if links and not any((c.report.get("hk_frontend") or {}).get("installed") for c in links):
+    if no_hk_frontend(app):
         raise OwnershipError("no_hk_frontend",
                              "Home Assistant has no HK Frontend any more, so nothing there would run it. Mantel keeps "
                              "it. (To go back, install HK Frontend's last release and link it first.)")
+
+
+AUTO_BY = "mantel:no_hk_frontend"
+
+
+def take_house_alone(app: web.Application) -> bool:
+    """Home Assistant has no HK Frontend (Mantel Link's report): the house is Mantel's, recorded once and
+    audited (the rule that tablets move first is moot: with the house Mantel's, every tablet is). True if it
+    changed now."""
+    owners: LinkedOwners | None = app.get("linked_owners")
+    if owners is None or owners.house() or not no_hk_frontend(app):
+        return False
+    now = owners.clock()
+    if owners.audit is not None:
+        owners.audit.config_event({"timestamp": now, "actor": AUTO_BY, "role": "service", "action": "linked.owner",
+                                   "detail": {"unit": HOUSE, "from": "ha", "to": "mantel",
+                                              "why": "Home Assistant has no HK Frontend"}})
+    with owners.db:
+        owners.db.execute("INSERT INTO linked_owners (unit, owner, changed, changed_by) VALUES (?,?,?,?) "
+                          "ON CONFLICT(unit) DO UPDATE SET owner=excluded.owner, changed=excluded.changed, "
+                          "changed_by=excluded.changed_by", (HOUSE, "mantel", now, AUTO_BY))
+    log.warning("linked mode: the house is Mantel Server's (Home Assistant has no HK Frontend)")
+    return True
 
 
 async def changed(app: web.Application) -> None:
@@ -354,6 +387,12 @@ def register(app: web.Application, hub: Any = None) -> LinkedOwners:
     if lk is not None:
         lk.registry.owners = owners.snapshot()
         lk.instance = owners.instance_id()
+
+        def on_report(_client: Any) -> None:           # Mantel Link said what its Home Assistant has
+            if take_house_alone(app):
+                import asyncio
+                asyncio.get_running_loop().create_task(changed(app))
+        lk.listeners.append(on_report)
     app.router.add_get("/api/linked/owners", api_get)
     app.router.add_put("/api/linked/owners", api_put)
     return owners

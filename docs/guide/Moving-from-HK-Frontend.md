@@ -148,7 +148,10 @@ Mantel Settings first. iPhone, iPad and Mac users can use the
 ## 7. Move the rest of the house
 
 When every tablet is Mantel's, move the rest: Seasonal decorations, the Alarm
-PIN panel, and Live TV's sensors and cameras.
+PIN panel, and Live TV's sensors and cameras. **Set Up Mantel** lists this step
+(**Move the House to Mantel**) while HK Frontend is still in Home Assistant, and
+**Connections → Home Assistant** says **Move the House** once every tablet is
+Mantel's. (If you remove HK Frontend instead, Mantel takes the house by itself.)
 
 1. Make a Home Assistant backup.
 2. **Mantel Settings → Connections → Home Assistant → Moving from HK Frontend →

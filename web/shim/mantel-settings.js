@@ -1344,9 +1344,14 @@ function drawInHa(c, x) {
   }
   c.appendChild(group({ header: 'Mantel in Home Assistant', footer: (app ? 'Mantel Link needs no code here: Home Assistant offers it under Settings, Devices & Services, Discovered. ' : '') +
       'Each one says what to do in Home Assistant.' }, rows));
-  // only while there is something to move: HK Frontend in Home Assistant, or a tablet it still runs
-  if (d.hkThere || (d.tablets || []).some((t) => t && t.owner !== 'mantel')) c.appendChild(group({ footer: 'Who runs each wall tablet and the house, and HK’s settings imported once. Only while a house moves from HK Frontend to Mantel.' },
-    [nav('Moving from HK Frontend', 'connections/ha/moving', { icon: 'mdi:transfer' })]));
+  // only while there is something to move: HK Frontend in Home Assistant, or a tablet it still runs. Once every
+  // tablet is Mantel's, the house is next, and the row says so (Set Up Mantel too: setup_guide.py "house")
+  const tabs = (d.tablets || []).filter(Boolean), houseNext = d.hkThere && d.house && d.house.owner !== 'mantel' && tabs.every((t) => t.owner === 'mantel');
+  if (d.hkThere || tabs.some((t) => t.owner !== 'mantel')) c.appendChild(group({ footer: houseNext
+      ? 'Every wall tablet is Mantel’s: move the house next (Advanced, The House), so Mantel runs Seasonal Decorations, the Alarm PIN keypad and Live TV too.'
+      : 'Who runs each wall tablet and the house, and HK’s settings imported once. Only while a house moves from HK Frontend to Mantel.' },
+    [nav('Moving from HK Frontend', houseNext ? 'connections/ha/moving/advanced' : 'connections/ha/moving',
+         { icon: 'mdi:transfer', value: houseNext ? 'Move the House' : undefined })]));
 }
 // NOTIFICATIONS TO THE APP (apns.py, docs/guide/Push-Notifications.md "Use another relay"): which push relay the house
 // tells its apps to register with, an Owner's choice: the default relay, the Owner's own (https://), or none.
@@ -1978,8 +1983,11 @@ function pLinkAdvanced() {
       setTimeout(() => { forget('link'); redraw(); }, 4000);
     }, { destructive: true, fk: 'mx:bridge-hk' }));
     c.appendChild(group({ header: 'The Bridge', footer: 'One integration in Home Assistant shows Mantel’s entities, never both: Mantel Link (recommended), or HK Frontend. They keep their entity ids either way.' + (owner ? '' : ' Only an Owner can change it.') }, rows));
-    if (d.house) c.appendChild(group({ header: 'The House', footer: 'Seasonal Decorations, the Alarm PIN keypad and Live TV’s sensors and channels. Run by Mantel, they keep their entity ids and history in Home Assistant, and HK Frontend’s dashboards use Mantel’s settings; run by HK Frontend, it runs them and keeps its own settings. Without HK Frontend, Mantel runs them.' + (owner ? '' : ' Only an Owner can change it.') },
-      [ownerRow(d.house, 'The House', owner)]));
+    // TAKEN BY MANTEL when Home Assistant has no HK Frontend (linked_owners.take_house_alone): nothing to choose
+    const houseAlone = d.house && d.house.owner === 'mantel' && d.house.changed_by === 'mantel:no_hk_frontend' && !d.hkThere;
+    if (d.house) c.appendChild(group({ header: 'The House', footer: 'Seasonal Decorations, the Alarm PIN keypad and Live TV’s sensors and channels. Run by Mantel, they keep their entity ids and history in Home Assistant, and HK Frontend’s dashboards use Mantel’s settings; run by HK Frontend, it runs them and keeps its own settings. Without HK Frontend in Home Assistant, Mantel takes them by itself.' + (owner || houseAlone ? '' : ' Only an Owner can change it.') },
+      [houseAlone ? info('The House', 'Home Assistant has no HK Frontend' + (d.house.changed ? ' · since ' + fmt(d.house.changed) : ''), 'Mantel')
+             : ownerRow(d.house, 'The House', owner)]));
   } };
 }
 
@@ -2206,7 +2214,7 @@ function pAudit() {
 const STEP_ICON = { ha: ['mdi:home-assistant', C.blue], home: ['mdi:home', C.orange], screens: ['mdi:monitor-dashboard', C.teal],
                     people: ['mdi:account', C.blue], protect: ['mdi:shield-key', C.indigo], alarm: ['mdi:shield-lock', C.red],
                     tablets: ['mdi:tablet', C.teal], music: ['mdi:music', C.pink], link: ['mdi:link-variant', C.orange],
-                    files: ['mdi:folder', C.purple], commands: ['mdi:lightning-bolt', C.green] };
+                    files: ['mdi:folder', C.purple], commands: ['mdi:lightning-bolt', C.green], house: ['mdi:transfer', C.orange] };
 const STEP_SAYS = { done: 'Done', todo: 'To Do', skipped: 'Later' };
 const setupOpen = () => !!(me && me.setup && me.setup.open);
 const setupRead = () => load('setup', () => api('GET', '/api/setup'));

@@ -28,6 +28,8 @@ The first public release.
 
 - **Page health in Mantel's log**: each screen's page says how the page before it ended and how big it is each minute, to find why wall tablets reload every 15 minutes.
 
+- **The House, when it matters**: with no HK Frontend in Home Assistant, Mantel takes the house by itself (Live TV through Mantel Link needed it switched on). While HK Frontend is still there, Set Up Mantel lists Move the House to Mantel, and Connections → Home Assistant says when it's time.
+
 ### Fixed before release (engineering audit, October 2026)
 
 Security:

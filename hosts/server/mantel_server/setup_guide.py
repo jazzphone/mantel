@@ -48,6 +48,7 @@ STEPS = (
     ("tablets", "Wall Tablets", True),
     ("music", "Music Assistant", True),
     ("link", "Mantel Link", True),
+    ("house", "Move the House to Mantel", False),
     ("files", "Apple’s Font & Glyphs", True),
     ("commands", "House Commands", False),
 )
@@ -251,8 +252,7 @@ async def steps(app: web.Application, me: dict) -> dict:
 
     devices = [d for d in app["devices"].list() if d["revoked"] is None] if "devices" in app else []
     step("tablets", bool(devices), f"{len(devices)} enrolled." if devices else
-         "Optional. On each tablet, sign in and choose Make This a Wall Tablet.", "#/mantel/devices/enroll" if not devices
-         else "#/mantel/devices")
+         "Optional. On each tablet, sign in and choose Make This a Wall Tablet.", "#/house/tablets")
 
     ma = _status(app, "ma")
     step("music", bool((ma.get("live") or {}).get("connected")),
@@ -265,7 +265,25 @@ async def steps(app: web.Application, me: dict) -> dict:
     step("link", link_on, "Mantel Link is connected." if link_on else
          ("Mantel Link is installed in Home Assistant but not linked yet." if house and house["mantel_link"] else
           "Optional: install Mantel Link in Home Assistant for tablet entities, automations’ actions, "
-          "doorbell talk-back and notifications on Companion-app phones."), "#/mantel/connections/link")
+          "doorbell talk-back and notifications on Companion-app phones."), "#/mantel/connections/ha/link")
+
+    # MOVING FROM HK FRONTEND'S LAST STEP (linked_owners.py): only while Home Assistant still has HK Frontend
+    # (linked, or Mantel Link says it is installed). Without it Mantel takes the house by itself.
+    owners = app.get("linked_owners")
+    lk_reg = getattr(linked, "registry", None)
+    hk_there = bool(lk_reg is not None and (lk_reg.clients_of("hk_frontend") or any(
+        (c.report.get("hk_frontend") or {}).get("installed") for c in lk_reg.clients_of("mantel"))))
+    if owners is not None:
+        tabs = owners.tablets()
+        left = [n for t, n in sorted(tabs.items()) if owners.owner(t) != "mantel"] if not owners.house() else []
+        step("house", owners.house(), "Mantel runs the house: Seasonal Decorations, the Alarm PIN keypad and Live TV."
+             if owners.house() else
+             ("Every wall tablet is Mantel’s. Move the house next: Seasonal Decorations, the Alarm PIN keypad and "
+              "Live TV’s sensors and channels, which HK Frontend still runs." if not left else
+              f"After the wall tablets ({', '.join(left)} still run by HK Frontend): HK Frontend still runs "
+              "Seasonal Decorations, the Alarm PIN keypad and Live TV’s sensors and channels."),
+             "#/mantel/connections/ha/moving/advanced" if not left else "#/mantel/connections/ha/moving",
+             shown=hk_there)
 
     files = app.get("user_files")
     try:

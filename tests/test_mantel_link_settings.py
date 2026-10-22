@@ -191,3 +191,22 @@ def test_a_person_s_phones_are_picked_on_their_page(tmp_path):
 def test_without_mantel_link_it_says_so(tmp_path):
     got = person(tmp_path, {"linked": False, "available": [], "people": {}})
     assert got["Phones"]["rows"] == [] and "It isn’t linked yet" in got["Phones"]["footer"]
+
+
+def test_once_every_tablet_is_mantels_the_house_is_named_next(tmp_path):
+    d = owners()
+    d["tablets"] = [{**t, "owner": "mantel"} for t in d["tablets"]]
+    got = run(tmp_path, d)
+    row = next(r for g in got["owner"] for r in g["rows"] if r["label"] == "Moving from HK Frontend")
+    assert row["value"] == "Move the House"
+    assert any("move the house next" in (g["footer"] or "") for g in got["owner"])
+
+
+def test_a_house_mantel_took_alone_has_nothing_to_switch(tmp_path):
+    d = owners()
+    d["house"] = {"unit": "house", "name": "The rest of the entry", "owner": "mantel", "changed": 1760900000,
+                  "changed_by": "mantel:no_hk_frontend"}
+    d["links"] = [{"domain": "mantel", "protocol": 2, "features": ["bridge"], "since": 1,
+                   "report": {"hk_frontend": {"installed": False, "loaded": False, "linked": False}}}]
+    house = groups(run(tmp_path, d)["ownerAdv"])["The House"]["rows"]
+    assert [(r["kind"], r["value"]) for r in house] == [("info", "Mantel")] and "no HK Frontend" in house[0]["sub"]

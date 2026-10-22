@@ -202,3 +202,22 @@ async def test_an_adult_or_an_unknown_room_never_makes_a_tablet(mantel):
     r = await mantel.post("/api/devices/enroll", {"name": "Garage", "room": "garage", "new_tablet": True})
     assert r.status == 201
     assert mantel.app["settings"].store.docs("tablet") == {}        # a Wall Tablet account doesn't add HK tablets
+
+
+async def test_the_house_step_shows_only_while_hk_frontend_is_in_home_assistant(mantel, monkeypatch):
+    """Moving from HK Frontend's last step (The House) was found only under Advanced: Set Up Mantel lists it while
+    Home Assistant still has HK Frontend, done once Mantel runs the house; a house without HK Frontend never sees it."""
+    import types
+    await owner(mantel)
+    reg = mantel.app["linked"].registry
+    hk = types.SimpleNamespace(domain="hk_frontend", protocol=1, report={}, features=("bridge",))
+    monkeypatch.setattr(reg, "clients_of", lambda d: [hk] if d == "hk_frontend" else [])
+    step = by_id(await (await mantel.get("/api/setup")).json())["house"]
+    assert step["state"] == "todo" and not step["optional"]
+    assert "HK Frontend still runs" in step["detail"]
+    owners = mantel.app["linked_owners"]
+    monkeypatch.setattr(owners, "house", lambda: True)
+    step = by_id(await (await mantel.get("/api/setup")).json())["house"]
+    assert step["state"] == "done" and step["route"] == "#/mantel/connections/ha/moving/advanced"
+    monkeypatch.setattr(reg, "clients_of", lambda d: [])
+    assert "house" not in by_id(await (await mantel.get("/api/setup")).json())

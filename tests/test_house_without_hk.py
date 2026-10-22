@@ -133,3 +133,25 @@ async def test_what_hk_frontends_panel_protects_is_learned_before_the_house_move
     row = env.app["alarm_pin"].entry(ALARM_PANEL)
     assert row is not None and row.forward_to == HOUSE_ALARM
     assert env.app["linked"].registry.get(ALARM_ITEM)["entity_id"] == ALARM_PANEL
+
+
+# -- a house that never had HK Frontend: Mantel takes the house itself ----------------------------------------------
+async def test_mantel_takes_the_house_when_home_assistant_has_no_hk_frontend(make_env, monkeypatch):
+    """The House was a switch only an Owner could turn, under Moving from HK Frontend, and Live TV through Mantel
+    Link waited on it in a house that never had HK Frontend (2026-10-22). Once Mantel Link reports none, Mantel
+    records the house as its own, audited, and keeps it when Mantel Link reconnects."""
+    env = await make_env()
+    owners, lk = env.app["linked_owners"], env.app["linked"]
+    assert not owners.house()
+    present = _client("mantel", {"hk_frontend": {"installed": True, "loaded": True, "linked": True}})
+    monkeypatch.setattr(lk.registry, "clients_of", lambda d: [present] if d == "mantel" else [])
+    lk.take_report(present, {"hk_frontend": {"installed": True, "loaded": True, "linked": True}})
+    assert not owners.house(), "HK Frontend is there: moving the house stays an Owner's step"
+    gone = _client("mantel")
+    monkeypatch.setattr(lk.registry, "clients_of", lambda d: [gone] if d == "mantel" else [])
+    lk.take_report(gone, {"hk_frontend": {"installed": False, "loaded": False, "linked": False}})
+    assert owners.house() and owners.rows()["house"]["changed_by"] == "mantel:no_hk_frontend"
+    (row,) = [r for r in env.audit(kind="config") if r["action"] == "linked.owner"]
+    assert row["actor"] == "mantel:no_hk_frontend"
+    monkeypatch.setattr(lk.registry, "clients_of", lambda d: [])           # Mantel Link away for a moment
+    assert owners.house(), "recorded, not inferred: it stays Mantel's"
