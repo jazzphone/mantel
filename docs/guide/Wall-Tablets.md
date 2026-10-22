@@ -45,7 +45,6 @@ In Fully Kiosk Browser's settings on the tablet:
 - **Microphone access**, to talk on the doorbell pop-up. Browsers allow the microphone only on an `https://` page.
 - Leave cookies on, and don't set the app to clear cookies or data on start. The tablet's credential is a cookie.
 - Kiosk mode (Fully's own lock), if you don't want anyone leaving the page.
-- Leave Fully's own **Auto Reload on Idle** (Web Auto Reload) off. It reloads the start URL after a while without a touch, which ends Live TV and anything else playing on the tablet. HK's **Return to Home When Idle** does the same job and waits while Live TV plays.
 
 ### Kiosk Satellite
 

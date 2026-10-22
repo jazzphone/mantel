@@ -25,7 +25,6 @@ The first public release.
   - Audit Log: From and To say Any Time, Now or the last hour, day, week or month, with a date only when you choose one.
 
 - **Doorbell talk is live through Mantel again**: Mantel connects to Home Assistant for the doorbell while the tablet opens its own connection, and the card waits up to 4 s for the doorbell to listen (1.5 s was too short for Mantel's extra steps, so every press fell back to a recorded message). How long each press waited is in Mantel's log.
-- Wall Tablets: Fully Kiosk's own Auto Reload on Idle ends Live TV every 15 minutes; the guide says to leave it off.
 
 ### Fixed before release (engineering audit, October 2026)
 
