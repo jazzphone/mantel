@@ -1162,6 +1162,15 @@ Everything on main since 0.1.28 (validation green: JS 130, HA py 732, Mantel 283
 - With it, **HK Frontend 1.10.6** (the shared settings page's host hooks, the card's host-given talk wait). Mantel
   Link unchanged (0.1.5).
 
+### 0.1.50 (2026-10-22)
+
+- The House: with no HK Frontend in Home Assistant, Mantel takes it by itself (audited as
+  `mantel:no_hk_frontend`). While HK Frontend is there, Set Up Mantel lists Move the House to Mantel, and
+  Connections → Home Assistant says Move the House once every tablet is Mantel's.
+- My Sessions: the Mantel app's pages keep one session (migration 0022, `sessions.parent_id`), listed with the app
+  under Mantel App and ended with it; the leftover ones end on update. HK Frontend (1.10.6) and Mantel Link (0.1.5)
+  unchanged.
+
 ### Removal
 
 Stop and uninstall **Mantel** (Settings → Apps → Mantel → Uninstall); this removes its image and `/data`
