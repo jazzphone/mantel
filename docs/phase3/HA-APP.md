@@ -1233,6 +1233,13 @@ Everything on main since 0.1.28 (validation green: JS 130, HA py 732, Mantel 283
   symbols (Apple's iPad is drawn upright, MDI's tablet landscape). HK Frontend gets it at its next build (1.10.7 on
   the house); Mantel Link (0.1.5) unchanged.
 
+### 0.1.57 (2026-10-22)
+
+- The garage sheet shows **Opening…** / **Closing…** (the ring pulsing) as soon as an open or close is sent, for
+  openers that only report open and closed, until Home Assistant reports anything new, the call fails, or a minute
+  passes. A tap while it waits sends nothing (a relay opener's stop is another pulse); a real opening or closing
+  still offers Stop. HK Frontend gets it at its next build (1.10.7 on the house); Mantel Link (0.1.5) unchanged.
+
 ### Removal
 
 Stop and uninstall **Mantel** (Settings → Apps → Mantel → Uninstall); this removes its image and `/data`
