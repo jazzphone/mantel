@@ -332,14 +332,16 @@ class HkControlCard extends HTMLElement {
          filling the block and the dial as large as the block leaves it -- its
          width less the padding, or its height less the name, the reading and
          the mode row (cqw / cqh are the block's: the cell is a size container).
-         At T the setpoint is the figure role (30), not 46. */
-      :host([size]){height:100%}
-      :host([size]) .surface.tstat{height:100%;justify-content:center;padding:16px}
-      :host([size=T]){--hk-tstat-ring:min(100cqw - 32px, (100cqh - 150px) * 1.163);--hk-tstat-val:30px;--hk-tstat-gap:10px;
-        --hk-tstat-seg-font:11px;--hk-tstat-fan-font:11px}
+         The setpoint is the figure role (30), not 46, on one line; at T there is no
+         mode row: four choices in a 196 px block are 34 px each, under the
+         44 px a touch needs (DESIGN.md) -- the modes are L's and the sheet's. */
+      :host([size]){height:100%;--hk-tstat-val:30px}
+      :host([size]) .tstat-val{white-space:nowrap}
+      :host([size]) .surface.tstat{height:100%;justify-content:center;padding:${window.hkCards.CARD.pad}}
+      :host([size=T]){--hk-tstat-ring:min(100cqw - 44px, (100cqh - 100px) * 1.163)}
+      :host([size=T]) .tstat-modes,:host([size=T]) .tstat-fan{display:none}
       :host([size=T]) .tstat-sub{max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-      :host([size=T]) .tstat-modes .segment,:host([size=T]) .tstat-fan .segment{padding:0 2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-      :host([size=L]){--hk-tstat-ring:min(100cqw - 32px, (100cqh - 150px) * 1.163)}
+      :host([size=L]){--hk-tstat-ring:min(100cqw - 44px, (100cqh - 158px) * 1.163)}
       .tstat-name{font-size:19px;font-weight:730;letter-spacing:-.4px;text-align:center;
         white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
       .tstat-sub{font-size:13.5px;font-weight:560;color:${window.hkCards.v('ink-2')};margin-top:2px}

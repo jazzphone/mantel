@@ -1693,7 +1693,7 @@
           // place, the outlook under them; at XL the band's own temperature
           // size (76, not a role: DESIGN.md) and the next hours along the
           // foot, as many as its width holds (_renderBlock)
-          'hk-plate.wb{' + window.hkCards.plate('card') + ';box-sizing:border-box;height:100%;margin:0;padding:16px 18px;',
+          'hk-plate.wb{' + window.hkCards.plate('card') + ';box-sizing:border-box;height:100%;margin:0;padding:' + window.hkCards.CARD.pad + ';',
           '  display:flex;flex-direction:column;justify-content:center;gap:10px;overflow:hidden;color:' + C.v('ink') + '}',
           '.wb .top{display:flex;align-items:center;gap:12px;min-width:0}',
           '.wb .sym{flex:none;line-height:0}',
@@ -1705,7 +1705,7 @@
           '.wb .tx b,.wb .tx span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
           '.wb .ol{margin:0;' + window.hkCards.typeCss('caption') + ';line-height:17px;color:' + C.v('ink-2') + ';',
           '  display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}',
-          '.wb.XL{padding:20px 22px;gap:14px}',
+          '.wb.XL{gap:14px}',
           '.wb.XL .tpn{font-size:76px;font-weight:200;letter-spacing:-4px}',
           '.wb.XL .tx b{' + window.hkCards.typeCss('title') + ';line-height:27px}',
           '.wb.XL .ol{' + window.hkCards.typeCss('body') + ';line-height:20px}',
@@ -2573,8 +2573,17 @@
         return ':host{overflow:visible}' +
                'hk-plate.clock{background:none;border:none;box-shadow:none;' +
                'padding:0;display:block;overflow:visible}' +
-               '.clock>div,.clock div{overflow:visible}';
+               '.clock>div,.clock div{overflow:visible}' +
+               // ON A HOME GRID (G2, the `clock` block, concept C's glance): a
+               // plate, the time and date centred down its left. The time at
+               // the header's 72 (W) or the screensaver's 150 (XL) -- the
+               // clock's own sizes, not roles (DESIGN.md); the date by role.
+               ':host([size]){overflow:hidden}' +
+               ':host([size]) hk-plate.clock{' + window.hkCards.plate('card') + ';box-sizing:border-box;height:100%;' +
+               'padding:' + window.hkCards.CARD.pad + ';display:flex;flex-direction:column;justify-content:center;overflow:hidden}';
       }
+      // the clock's sizes by block: time, AM / PM, date (px)
+      _gridSizes(sz) { return sz === 'XL' ? ['150px', '40px', window.hkCards.TYPE.title.size + 'px'] : ['72px', '22px', window.hkCards.TYPE.headline.size + 'px']; }
       // The clock's time ticks every minute and its date every day (the Time &
       // Date sensors chosen in Configure, or this screen's clock); neither is
       // named in the config, so the base signature would never redraw.
@@ -2591,7 +2600,11 @@
       }
       _render() {
         if (!this.client) return;
-        var c = this._config || {};
+        var c = this._config || {}, sz = this._cellSize();
+        if (sz) {
+          var g = this._gridSizes(sz);
+          c = Object.assign({}, c, { time_size: g[0], ampm_size: g[1], date_size: g[2], margin: '0' });
+        }
         var H = window.hkHeader;
         var body = H ? H.clock(this.client.states, Object.assign(opts(c, {
           time_size: 'timeSize', ampm_size: 'ampmSize', date_size: 'dateSize',

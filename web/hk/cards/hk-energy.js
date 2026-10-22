@@ -3144,13 +3144,52 @@
         '.pk2 b{font-size:15px;font-weight:600}.pk2 span{font-size:13px;color:' + window.hkCards.v('ink-2') + '}',
         '.pk2 .pv{font-size:20px;font-weight:700;font-variant-numeric:tabular-nums}',
         '.facts{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding-top:14px;border-top:1px solid ' + window.hkCards.v('line') + '}',
-        '.facts .big{font-size:20px;margin-top:5px}'
+        '.facts .big{font-size:20px;margin-top:5px}',
+        // ON A HOME GRID (G2, the `battery` block): the plate fills the block.
+        // S: what it is doing beside its name, the level (the hero role) and a
+        // small battery filled to it; W: the battery itself, shorter, the level and the stored
+        // kWh and backup inside it. No reserve or limit marks (their labels
+        // need the page's room above).
+        ':host([size]) hk-plate.ep.hb{height:100%;min-height:0}',
+        '.gb{flex:1;min-height:0;display:flex;flex-direction:column;justify-content:center;gap:8px}',
+        '.gb .lv{' + window.hkCards.typeCss('hero') + ';line-height:1;font-variant-numeric:tabular-nums}',
+        '.gb .lv u{text-decoration:none;font-size:15px;font-weight:600;letter-spacing:0;margin-left:3px;color:' + window.hkCards.v('ink-2') + '}',
+        '.gb .mini{height:24px;margin-right:7px}',
+        '.gb .mini i.low{background:' + window.hkCards.v('battery-fill-low') + '}',
+        '.gb .cell{height:76px;border-width:5px;border-radius:20px;margin-right:14px}',
+        '.gb .cell:after{right:-14px;top:22px;width:8px;height:22px}',
+        '.gb .cell .fill{border-radius:' + window.hkCards.R.inner + 'px}',
+        '.gb .cell .txt{padding-left:18px}',
+        '.gb .cell .txt b{' + window.hkCards.typeCss('figure') + ';line-height:1}',
+        '.gb .cell .txt b u{font-size:15px}',
+        '.gb .cell .txt span{' + window.hkCards.typeCss('caption') + ';line-height:16px;margin-top:4px}'
       ].join('');
+    }
+    // A HOME GRID BLOCK: S and W
+    _renderBlock(sized) {
+      var c = this._config || {}, h = this.client;
+      var lvl = numOf(h, c.level), level = lvl == null ? 0 : Math.max(0, Math.min(100, lvl));
+      var stored = numOf(h, c.stored), bh = hoursOf(h, c.backup), bw = batFlow(h, c), res = numOf(h, c.reserve);
+      var doing = bw > 0 ? 'Charging' : bw < 0 ? 'Powering the house' : 'Standing by';
+      var sub = [stored != null ? fx(stored, 1) + ' kWh' : null, bh != null ? hm(bh) + ' of backup' : null].filter(Boolean).join(' · ');
+      var pct = lvl == null ? '—' : Math.round(level) + '<u>%</u>', low = res != null && level <= res ? ' low' : '';
+      if (sized === 'S') {
+        this._paint('<div class="ttl"><b>' + esc(c.title || 'Battery') + '</b><span>' + esc(bw > 0 ? 'charging' : bw < 0 ? 'in use' : '') + '</span></div>' +
+          '<div class="gb"' + moreAttr(c.level) + '><div class="lv">' + pct + '</div>' +
+          '<div class="mini"><i class="' + low.trim() + '" style="width:' + level + '%"></i></div></div>');
+        return;
+      }
+      this._paint('<div class="ttl"><b>' + esc(c.title || 'House Battery') + '</b><span>' + esc(doing.toLowerCase()) + '</span></div>' +
+        '<div class="gb"><div class="cell"' + moreAttr(c.level) + '><div class="fill' + low + '" style="width:' + level + '%">' +
+        (bw !== 0 ? '<div class="hshim' + (bw < 0 ? ' bw' : '') + '"></div>' : '') + '</div>' +
+        '<div class="txt"><b>' + pct + '</b><span>' + sub + '</span></div></div></div>');
     }
     _render() {
       this._shell('hb');
       var c = this._config || {}, h = this.client;
       if (!h) return;
+      var sized = this._cellSize();
+      if (sized) { this._renderBlock(sized); return; }
       var lvl = numOf(h, c.level), level = lvl == null ? 0 : Math.max(0, Math.min(100, lvl));
       var stored = numOf(h, c.stored), bh = hoursOf(h, c.backup), bw = batFlow(h, c);
       var res = numOf(h, c.reserve), lim = numOf(h, c.limit);

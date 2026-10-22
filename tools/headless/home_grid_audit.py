@@ -15,11 +15,16 @@ What it measures, in each block's cell (the view's `.cell`, which clips):
   ellipsis (the Risks: "cards end with an ellipsis");
 * every icon, picture, button and control: inside the cell;
 * the card says the size it was given (`size` on its host) and has no scroll of its own;
+* DESIGN.md, what can be measured: no text under the smallest type role (11 px), every control at least 44 px,
+  every painted box's corner on the scale (23.5, 22, 20, 12, 8, a capsule, square) and the block's plate 23.5;
 * no page scroll, and no script error.
 
 Text scale: HK draws its type roles in px (hk-base.js TYPE) and a wall tablet's text size setting never reaches
 them (the Mantel app's web view sets -webkit-text-size-adjust:100%), so the one scale is the largest. The `long`
 pass instead names every thing at twice its usual length, which is what a larger text would do to a card.
+
+Stood in: the house's forecast (two forecast sensors), a family calendar's events, running timers, and the Energy
+feature's plan (on the page: the test server's feed has no Energy feature), so every block is measured full.
 """
 from __future__ import annotations
 
@@ -91,6 +96,14 @@ def _events() -> list[dict]:
 
 
 WEATHER = {"place": "Riverside", "forecast_hourly": "sensor.forecast_hourly", "forecast_daily": "sensor.forecast_daily"}
+# the house battery, as the Energy feature's plan names it (power.battery)
+BATTERY = {"level": "sensor.house_battery_level", "stored": "sensor.house_battery_stored",
+           "backup": "sensor.house_battery_backup", "reserve": "sensor.house_battery_reserve",
+           "charge": "sensor.house_battery_charging", "discharge": "sensor.house_battery_discharging"}
+for _id, (_v, _u, _n) in {"level": ("82", "%", "Battery Level"), "stored": ("11.2", "kWh", "Stored Energy"),
+                          "backup": ("9.5", "h", "Backup Time"), "reserve": ("20", "%", "Backup Reserve"),
+                          "charge": ("1840", "W", "Charging Power"), "discharge": ("0", "W", "Discharging Power")}.items():
+    EXTRA[BATTERY[_id]] = (None, (_v, {"friendly_name": _n, "unit_of_measurement": _u}))
 LONG = " and the Long Way Round"       # the `long` pass: every name this much longer
 
 
@@ -195,6 +208,38 @@ MEASURE = r"""(() => {
         if (!inside(vis)) rec.issues.push(tag + ' outside the cell: ' + name(el) + ' ' + JSON.stringify(box(r)));
       }
     }
+    // DESIGN.md (/Volumes/config/hk_house/docs/DESIGN.md): no text under the smallest type role (11 px); every
+    // control at least 44 px both ways; every painted box's corner on the scale (plate 23.5, card in a sheet 20,
+    // big art 22, inner 12, small 8, a capsule, square), the block's own plate 23.5
+    let small = null, minFont = 99;
+    for (const el of all) {
+      if (!shown(el)) continue;
+      if ([...el.childNodes].some(t => t.nodeType === 3 && t.data.trim())) {
+        const fs = parseFloat(getComputedStyle(el).fontSize); if (fs < minFont) { minFont = fs; small = el; } }
+      const tag = el.localName, role = el.getAttribute('role');
+      if (tag === 'button' || role === 'button' || role === 'slider' || tag === 'input' || tag === 'a') {
+        // (a choice in a segmented control is measured by its track: DESIGN.md's 44 px control, 36 px choices)
+        const r = el.getBoundingClientRect(), up = el.parentElement, t = up ? up.getBoundingClientRect() : r;
+        const h = el.classList.contains('segment') && up ? Math.max(r.height, t.height) : r.height;
+        if (r.width >= 1 && r.height >= 1 && (r.width < 43.5 || h < 43.5))
+          rec.issues.push('a control under 44 px: ' + name(el) + ' ' + Math.round(r.width) + 'x' + Math.round(r.height)); }
+    }
+    if (minFont < 11) rec.issues.push('text under the type roles: ' + minFont + ' px in ' + name(small));
+    rec.min_font = minFont;
+    const SCALE = [23.5, 22, 20, 12, 8, 0];
+    let outer = null, outerA = 0;
+    for (const el of all) {
+      if (!shown(el)) continue; const cs = getComputedStyle(el);
+      const painted = (cs.backgroundColor && !/rgba\(0, 0, 0, 0\)|transparent/.test(cs.backgroundColor)) || cs.backgroundImage !== 'none' ||
+                      (cs.backdropFilter && cs.backdropFilter !== 'none');
+      if (!painted) continue; const r = el.getBoundingClientRect(), rad = parseFloat(cs.borderTopLeftRadius) || 0;
+      if (r.width < 24 || r.height < 24) continue;                         // dots, swatches, glyph circles
+      const capsule = Math.abs(rad - Math.min(r.width, r.height) / 2) < 1 || /%/.test(cs.borderTopLeftRadius) || rad >= Math.min(r.width, r.height) / 2;
+      if (!capsule && !SCALE.some(v => Math.abs(rad - v) < 0.6)) rec.issues.push('a corner off the scale: ' + rad + ' px on ' + name(el));
+      const a = Math.min(r.width, c.width) * Math.min(r.height, c.height);
+      if (a > outerA) { outerA = a; outer = { el, rad }; } }
+    if (outer && outerA > 0.6 * c.width * c.height && Math.abs(outer.rad - 23.5) > 0.6)
+      rec.issues.push("the block's plate corner is " + outer.rad + ' px, not 23.5: ' + name(outer.el));
     rec.texts = texts; rec.things = things;
     if (card.getAttribute('size') !== cell.getAttribute('size')) rec.issues.push('the card does not say its size');
     // the card's plates -- every painted box of a fair size, one plate or a block of tiles -- cover the block
@@ -240,6 +285,15 @@ async def audit(keys: list[str], looks: list[str], shots: Path | None, long: boo
                 await b.restrict_origin(origin)
                 # the page has the focus, as a wall tablet's does (cameras rest without it: cameras.focus_pause)
                 await b.send("Emulation.setFocusEmulationEnabled", enabled=True)
+                # THE ENERGY FEATURE, stood in on the page: its plan's house battery is what the `battery` block
+                # shows, and the test server's settings feed has no Energy feature to send (hkSettings.get answers
+                # `added` and `energy` as a house with it would)
+                plan = json.dumps({"sections": [], "power": {"path": "power", "battery": BATTERY}})
+                await b.send("Page.addScriptToEvaluateOnNewDocument", source="""(() => { let hs;
+                  Object.defineProperty(window, 'hkSettings', { configurable: true, get() { return hs; }, set(v) {
+                    hs = v; if (!v || !v.get || v.__audit) return; const get = v.get; v.__audit = true;
+                    v.get = function (p, f) { if (p === 'added') return ['energy']; if (p === 'energy') return """ + plan + """;
+                      return get.apply(this, arguments); }; } }); })()""")
                 sun = None
                 for key, look, bar in passes:
                     elev = SUN.get(look, 40.0)

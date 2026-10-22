@@ -772,7 +772,7 @@
         //   T  the cover on top, the song and the transport below
         //   L  the cover beside the song and its speaker, the transport
         //      along the foot, larger
-        ':host([size]) hk-plate.np{--hk-np-height:100%;--hk-np-pad:16px;border-radius:' + window.hkCards.M.radius + '}',
+        ':host([size]) hk-plate.np{--hk-np-height:100%;--hk-np-pad:' + window.hkCards.CARD.pad + ';border-radius:' + window.hkCards.M.radius + '}',
         ':host([size]) .np .grid{row-gap:2px;column-gap:var(--hk-np-gap,14px)}',
         ':host([size]) .np .meta,:host([size]) .np .sub,:host([size]) .np .stop{display:none}',
         ':host([size]) .np .art{width:var(--np-art);height:var(--np-art);border-radius:' + window.hkCards.R.inner + 'px;box-shadow:0 8px 22px rgba(0,0,0,.4)}',
@@ -783,12 +783,12 @@
         ':host([size]) .np .tb{width:48px;height:48px;margin:0;align-self:center;justify-self:center}',
         ':host([size]) .np .tb hk-icon{width:28px;height:28px;--mdc-icon-size:28px}',
         ':host([size]) .np .play hk-icon{width:36px;height:36px;--mdc-icon-size:36px}',
-        ':host([size=W]) hk-plate.np{--np-art:calc(100cqh - 32px);',
+        ':host([size=W]) hk-plate.np{--np-art:calc(100cqh - 40px);',
         '  --hk-np-cols:var(--np-art) 48px 48px 48px minmax(0,1fr);',
         '  --hk-np-areas:"art . . . ." "art title title title title" "art artist artist artist artist" "art prev play next .";',
         '  --hk-np-rows:minmax(0,1fr) min-content min-content 52px}',
         ':host([size=W]) .np .tb{justify-self:start}',
-        ':host([size=T]) hk-plate.np{--np-art:min(100cqw - 32px, 100cqh - 150px);',
+        ':host([size=T]) hk-plate.np{--np-art:min(100cqw - 44px, 100cqh - 150px);',
         '  --hk-np-cols:repeat(3,minmax(0,1fr));',
         '  --hk-np-areas:"art art art" "title title title" "artist artist artist" ". . ." "prev play next";',
         '  --hk-np-rows:var(--np-art) min-content min-content minmax(0,1fr) 52px}',
@@ -796,7 +796,7 @@
         ':host([size=T]) .np.tall .shade,:host([size=T]) .np .shade{background:linear-gradient(180deg,rgba(8,9,12,.10) 0%,rgba(8,9,12,.30) 45%,rgba(8,9,12,.74) 100%)}',
         // (L: the transport centred on the middle three tracks; the cover
         // spans the first two, so it is as wide as the gap beside them allows)
-        ':host([size=L]) hk-plate.np{--hk-np-pad:20px;--np-art:min(100cqh - 40px - 96px, (100cqw - 40px - 248px) / 2 + 78px);',
+        ':host([size=L]) hk-plate.np{--np-art:min(100cqh - 40px - 96px, (100cqw - 44px - 248px) / 2 + 78px);',
         '  --hk-np-cols:minmax(0,1fr) 64px 64px 64px minmax(0,1fr);',
         '  --hk-np-areas:"art art . . ." "art art title title title" "art art artist artist artist" "art art player player player" ". . . . ." ". prev play next .";',
         '  --hk-np-rows:minmax(0,1fr) min-content min-content min-content minmax(0,1fr) 64px}',

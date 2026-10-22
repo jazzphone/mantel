@@ -494,9 +494,10 @@
     if (window.hkRoom.Card) return;
     var HkBase = C.HkBase, esc = C.esc;
 
-    // a Home Grid block's plate: its padding, an item's height (two 19 px
-    // lines) and the gap between items
-    var GRID_PAD = 14, GRID_ROW = 38, GRID_GAP = 8;
+    // a Home Grid block's plate: its padding (a page card's, CARD), an
+    // item's height (a 44 px touch target holding two 19 px lines) and the
+    // gap between items
+    var GRID_PAD = 20, GRID_ROW = 44, GRID_GAP = 4;
     var CSS = [
       // THE PAGE'S RHYTHM, measured on a 1280 tablet: 24 px from
       // the back button to this row -- close enough to read as the title's --
@@ -546,10 +547,10 @@
       // up -- as many as the block's height takes, alerts first (_render).
       // Nothing scrolls; a name too long ends with an ellipsis.
       ':host([size]) hk-plate.blk{display:flex;flex-direction:column;justify-content:center;box-sizing:border-box;height:100%;',
-      '  padding:' + GRID_PAD + 'px 16px;margin:0;' + window.hkCards.plate('card') + ';overflow:hidden}',
+      '  padding:' + GRID_PAD + 'px 22px;margin:0;' + window.hkCards.plate('card') + ';overflow:hidden}',
       ':host([size]) .row{display:grid;grid-template-columns:repeat(var(--cols,1),minmax(0,1fr));grid-auto-rows:' + GRID_ROW + 'px;',
       '  gap:' + GRID_GAP + 'px 16px;overflow:hidden;padding:0;margin:0;align-content:center}',
-      ':host([size]) .it{min-width:0}',
+      ':host([size]) .it{min-width:0;min-height:' + GRID_ROW + 'px}',
       ':host([size]) .t,:host([size]) .v{overflow:hidden;text-overflow:ellipsis;text-shadow:none}',
       ':host([size]) .none{' + window.hkCards.typeCss('body') + ';color:' + window.hkCards.v('ink-2') + '}'
     ].join('');

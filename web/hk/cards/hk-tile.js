@@ -502,7 +502,7 @@
     // and state at the foot, as the Home app's large tiles have it -- and fill
     // the block. A thermostat's temperature takes the glyph's place
     // (climate_tall). A scene keeps its bare glyph and two-line name.
-    ':host([size]) hk-plate.card{width:100%;min-width:0;max-width:none;height:100%;padding:14px 16px 14px 14px}',
+    ':host([size]) hk-plate.card{width:100%;min-width:0;max-width:none;height:100%;padding:12.8px 12.8px 12.8px ' + TILE.padL + 'px}',
     ':host([size]) .card.tall .grid{grid-template-rows:44px minmax(0,1fr) auto auto}',
     ':host([size]) .card.scene.tall .grid{row-gap:0}',
     ':host([size]) .card.scene.tall .name{align-self:end;line-height:19px;font-size:17px}',

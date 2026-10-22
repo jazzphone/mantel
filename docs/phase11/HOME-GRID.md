@@ -391,49 +391,80 @@ a 3-column grid, with no page scroll.
 
 **G1 is done.** Next: G2, G3 and G4, side by side, each in its own session and worktree.
 
-### G2 (2026-10-22, in progress)
+### G2 (2026-10-22)
 
-**The render audit's Home Grid pass:** `tools/headless/home_grid_audit.py`. A real Mantel Server with the gallery's
-fictional house (`tools/headless/gallery.py`), headless Chrome at 1280 × 800, a 6-column grid. Each card gets a
-screen per look, its Home holding the card once at every size it has (XL, L and T across the top, W and S below).
-The four looks: Flat Light, Flat Dark, and Blur under a day sky and a night one. (On HK's own screens a card is
-white on the sky, never light: `tone()` in hk-base.js; so Blur's light and dark are the sky's.) It measures, in each
-block's cell, every text node's box (inside the cell, and not cut off unless an ellipsis ends it), every icon,
-picture, button and control (inside the cell), no word broken across lines, that the card's plates cover the
-block, and no page scroll and no script error. It runs with the tab bar showing (the screen's `menu: tabbar`) and
-once more without it (Flat Dark), and says when a cell runs under the bar. The test house has a forecast (two
-forecast sensors) and a family calendar with events today and tomorrow, so the weather and calendar blocks are
-measured full. A screen's own problems (the page
-scrolls, a cell under the bar) print as `VIEW` lines, apart from the cards'. Today, with the bar showing, every
-screen's page scrolls: the view is still `100dvh` with the bar's padding added; G4's change ("The tab bar") is
-what fixes it. `--long` names every thing at twice its length.
+**The render audit's Home Grid pass:** `tools/headless/home_grid_audit.py` (`--only KEY…`, `--looks`, `--no-bar`,
+`--long`, `--shots DIR`, `--json FILE`). A real Mantel Server with the gallery's fictional house
+(`tools/headless/gallery.py`), headless Chrome at 1280 × 800, a 6-column grid. Each card gets a screen per look,
+its Home holding the card once at every size it has (XL, L and T across the top, W and S below). The four looks:
+Flat Light, Flat Dark, and Blur under a day sky and a night one. (On HK's own screens a card is white on the sky,
+never light: `tone()` in hk-base.js; so Blur's light and dark are the sky's.) It runs with the tab bar showing
+(the screen's `menu: tabbar`, the usual case) and once more without it (Flat Dark). In each block's cell it
+measures:
+
+- every text node's box: inside the cell, not cut off unless an ellipsis ends it, no word broken across lines;
+- every icon, picture, button and control: inside the cell;
+- that the card's plates cover the block, and that the card says its size;
+- DESIGN.md, what can be measured: no text under the smallest type role (11 px), every control at least 44 px
+  (a segmented control's choice by its 44 px track), every painted box's corner on the scale (23.5, 22, 20, 12,
+  8, a capsule, square) and the block's own plate at 23.5;
+- the screen's own: no page scroll, nothing under the tab bar, no script error (printed as `VIEW` lines).
+
+The house it draws has what the blocks show: two forecast sensors, a family calendar with events today and
+tomorrow, running timers, a vacuum, two people, and the Energy feature's house battery (stood in on the page:
+the test server's settings feed has no Energy feature). `--long` names every thing at twice its length.
+
+**Measured cells** at 1280 × 800, 6 × 4, the band on: with the tab bar showing, S 196 × 137, W 402 × 137,
+T 196 × 285, L 402 × 285, XL 608 × 285; without it, S 196 × 161, W 402 × 161, T 196 × 333, L 402 × 333,
+XL 608 × 333. Every card reads its block from `--hk-cell-w` / `-h` (`_block()`) or the cell's container units,
+never a fixed number, and is designed for the shorter cell.
 
 **Text scale:** HK draws its type roles in px (`hkCards.TYPE`) and a tablet's text size never reaches them (the
-Mantel app's web view sets `-webkit-text-size-adjust:100%`), so there is one
-scale and the audit runs at it. PLAN-2026-10-12-text-scale is the ink colours, not sizes. The `--long` pass stands
-in for larger text.
+Mantel app's web view sets `-webkit-text-size-adjust:100%`), so there is one scale and the audit runs at it.
+PLAN-2026-10-12-text-scale is the ink colours, not sizes. The `--long` pass stands in for larger text.
 
 **Shared:** hk-base.js: an HkBase card watches its `size` attribute and is rebuilt when it changes (`_cellSize()`
 reads it), `_block()` gives the block in px from `--hk-cell-w` / `-h`, and `_watchBlock()` draws a card again when
-that changes (the view measures after the cards are in); `BASE_CSS` makes a sized card and its root the block's
-height; `hkCards.typeCss(role)` writes a type role as declarations.
+that changes (the view measures after the cards are in, and again when the tab bar comes or goes); `BASE_CSS`
+makes a sized card and its root the block's height; `hkCards.typeCss(role)` writes a type role as declarations.
+The strategy hands the catalog the Energy feature's house battery (`ctx.battery`).
 
-**Done** (audited: every size, four looks, nothing clipped):
+**Done**: all 14 cards, every size the table gives them; no size dropped. Audited 2026-10-22: 14 cards × every
+size × the four looks with the tab bar, Flat Dark without it, and the `--long` pass: nothing clipped, nothing off
+DESIGN.md's measurable rules. Every plate is `hkCards.plate('card')` at 23.5 with a page card's padding
+(`CARD.pad`, 20 / 22); a tile-sized block (the tiles, the vacuum at S) the tall tile's.
 
 | Card | Sizes | Layout |
 |---|---|---|
 | `accessory` | S, W | the tall tile's layout (glyph at the top, name and state at the foot), filling the block |
 | `scene` | S, W | the same, the scene's bare glyph and two-line name |
 | `scenes` | W, L, XL | a scene tile per cell: W two, L four, XL six; no heading |
-| `now_playing` | W, T, L | W the cover beside the song and transport; T the cover on top; L the cover beside the song and its speaker, a larger transport along the foot. No progress or volume (the sheet has them) |
-| `thermostat` | T, L | the dial (`hk-control-card`, in place of the climate tile), as large as the block leaves it, with the mode row; at T the setpoint is the figure role (30) and the modes are 11 px |
-| `camera` | W, L, XL | the camera mosaic sized from the block: W and XL one camera filling it, L two stacked (16:9 each) |
-| `security` | S, W | a plate with the Security page's items one per line (two columns at W), as many as the block's height holds, alerts first |
-| `timers` | S, W | a plate of the running timers (glyph, name, time left), soonest first, as many as fit (two columns at W); none running, it says so |
-| `weather` | W, XL | a plate: the symbol, the temperature, the condition with today's high and low and the place, the outlook; at XL the band's own 76 px temperature (not a role, DESIGN.md) and the next hours, as many as the width holds |
+| `now_playing` | W, T, L | W the cover beside the song and transport; T the cover on top; L the cover beside the song and its speaker, a larger transport along the foot. No progress or volume (the sheet has them); 48 / 64 px buttons |
+| `thermostat` | T, L | the dial (`hk-control-card`, in place of the climate tile), as large as the block leaves it, the setpoint at the figure role on one line; L has the mode row, T doesn't (below) |
+| `camera` | W, L, XL | the camera mosaic sized from the block: W and XL one camera filling it, L two stacked |
+| `security` | S, W | a plate with the Security page's items one per 44 px line (two columns at W), as many as the block's height holds, alerts first |
+| `timers` | S, W | a plate of the running timers (glyph, name, time left), soonest first, as many as fit (two columns at W); none running, it says so; Flat's lit circle has a white glyph |
+| `weather` | W, XL | a plate: the symbol, the temperature, the condition with today's high and low and the place, the outlook; at XL the band's 76 px temperature and the next hours, as many as the width holds |
 | `calendar` | T, L | a plate: today's date, then what is still to come today and tomorrow, one line each, as many as fit; at T the time goes under the title |
+| `battery` | S, W | `hk-house-battery-card` (in place of the stand-in), from the Energy feature's house battery: S its level (hero) and a small battery; W the battery itself, the level, stored kWh and backup inside. Without a house battery: the stand-in |
+| `people` | W | `hk-people-card` (new, hk-home.js; there were no person tiles): each person their picture or initials, ringed green at home, name and where; a tap opens their sheet; as many as the width holds |
+| `vacuum` | S, W | the vacuum card filling the block: its glyph beside the status and chips, 44 px capsule commands along the foot; S Start and Dock only |
+| `clock` | W, XL | a plate, the time and date: the header's 72 px time at W, the screensaver's 150 px at XL |
 
-**Left:** battery, people, vacuum, clock.
+**What doesn't follow DESIGN.md, and why:**
+
+- **The thermostat at T has no mode row.** Four choices in a 196 px block are 34 px wide, under the 44 px a
+  touch needs. The dial still sets the temperature; the modes are at L and on the sheet.
+- **The clock's 72 / 150 px time and the weather's 76 px temperature** aren't type roles. DESIGN.md names the
+  clock (72) and the weather band's temperature (76) as exceptions; 150 is the screensaver clock's own size.
+- **The vacuum's status chips** keep their 12 px text and 11 px corners (the card's own, unchanged from its page);
+  the audit only measures corners on boxes 24 px and larger, and the chips are 22 px tall.
+- **The thermostat's name and reading line** keep the dial's own sizes (19 / 13.5 px, not roles), as on the
+  Climate page.
+- **Blur has no light theme** on HK's own screens (`tone()`); Blur is checked under a day and a night sky instead.
+
+**Not G2's, seen on the way:** the band's clock (the screen's header, 60 px tall) is clipped at its top, as G1
+noted; its design at 60 px is still open (a band card of its own, or the header at that height).
 
 ### G4 (2026-10-22)
 

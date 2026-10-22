@@ -816,6 +816,12 @@
     var a = setting('added');
     return Array.isArray(a) && a.indexOf(kind) >= 0;
   }
+  // THE HOUSE BATTERY the Energy feature names (its plan's power.battery),
+  // for a Home Grid's `battery` block; null without one
+  function houseBattery() {
+    var P = added('energy') ? setting('energy') : null, B = P && P.power && P.power.battery;
+    return B && typeof B === 'object' && B.level ? B : null;
+  }
 
   // Every shown entity of a domain (same rules as the rooms: not hidden, not a
   // config/diagnostic entity, has a state), optionally filtered, sorted by id.
@@ -1822,6 +1828,7 @@
       }
       out[0] = view(homeGridView(b.home_grid, { title: 'Home', path: 'home' }, header, popups, {
         cameras: cams, weather: weather || firstOf(client, 'weather'), vacuum: firstOf(client, 'vacuum'),
+        battery: houseBattery(),
         climate: gridClimate, areas: gridAreas, scenes: gridScenes,
         rooms: rooms(client, opts).map(function (r) { return r.id; }).filter(Boolean)
       }));

@@ -28,7 +28,7 @@
 
   // key -> its sizes, the page sources it has besides `list`, and
   // card(size, opts, ctx): its card config. ctx is the house as the screen
-  // sees it -- { cameras, climate, rooms, weather, vacuum } -- for a block
+  // sees it -- { cameras, climate, rooms, weather, vacuum, battery } -- for a block
   // that names nothing of its own.
   var CARDS = {
     accessory: { sizes: ['S', 'W'], sources: [], card: function (s, o) {
@@ -57,8 +57,13 @@
       return id ? { type: 'custom:hk-weather-band-card', section: 'hero', entity: id } : stand('Weather', 'hk:weather-partly-cloudy'); } },
     calendar: { sizes: ['T', 'L'], sources: [], card: function () {
       return { type: 'custom:hk-calendar-pane-card' }; } },
-    battery: { sizes: ['S', 'W'], sources: [], card: function () { return stand('Battery', 'mdi:home-battery'); } },
-    people: { sizes: ['W'], sources: [], card: function () { return stand('People', 'mdi:account-multiple'); } },
+    battery: { sizes: ['S', 'W'], sources: [], card: function (s, o, ctx) {
+      // the house battery the Energy feature names (hk-energy.js), sized to the block (G2)
+      var B = ctx.battery;
+      return B && B.level ? { type: 'custom:hk-house-battery-card', level: B.level, stored: B.stored, backup: B.backup,
+                              reserve: B.reserve, charge: B.charge, discharge: B.discharge }
+                          : stand('Battery', 'mdi:home-battery'); } },
+    people: { sizes: ['W'], sources: [], card: function () { return { type: 'custom:hk-people-card' }; } },
     vacuum: { sizes: ['S', 'W'], sources: [], card: function (s, o, ctx) {
       var id = o.entity || ctx.vacuum;
       return id ? { type: 'custom:hk-vacuum-card', entity: id } : stand('Vacuum', 'hk:robot-vacuum'); } },

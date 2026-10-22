@@ -1336,9 +1336,9 @@
   // background and its scrolling): today's events and the coming days',
   // big enough to read across a room. Past events today are dimmed; the
   // next one says how soon.
-  // a Home Grid calendar block: its padding, the space under the date, an
+  // a Home Grid calendar block: its padding (a page card's), the space under the date, an
   // event's line and the gap between lines
-  var GV = { pad: 16, under: 10, row: 40, gap: 6 };
+  var GV = { pad: window.hkCards.CARD.y, under: 10, row: 40, gap: 6 };
   var PANE_CSS = [
     ':host{display:block;color:' + window.hkCards.v('ink') + '}',
     '.day{padding-top:22px}',
@@ -1362,7 +1362,7 @@
     // then what is still to come today and tomorrow, one line each, as many
     // as the block's height holds (_block); at T the time goes under the
     // title. Nothing scrolls.
-    ':host([size]) .blk{' + window.hkCards.plate('card') + ';box-sizing:border-box;height:100%;padding:' + GV.pad + 'px 18px;',
+    ':host([size]) .blk{' + window.hkCards.plate('card') + ';box-sizing:border-box;height:100%;padding:' + window.hkCards.CARD.pad + ';',
     '  overflow:hidden;display:flex;flex-direction:column}',
     '.blk .lbl{' + window.hkCards.labelCss('label') + ';line-height:16px}',
     '.blk .date{' + window.hkCards.typeCss('title') + ';line-height:27px;margin:2px 0 ' + GV.under + 'px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
