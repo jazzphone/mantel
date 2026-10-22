@@ -305,7 +305,13 @@ function () {
   card._render();
   eq('its name, and the menu\'s pages and rooms', card._e.name.textContent, 'Everything');
   card._tap();
-  window.hkMenu = was;
-  eq('a tap opens the menu', opened, 1);
+  eq('no tab bar: a tap opens the side menu', opened, 1);
+  // with the tab bar showing: its More sheet, not a second menu
+  var sheets = [], tb = window.hkCards.menu.tabBar, bar = window.hkTabBar;
+  window.hkCards.menu.tabBar = function () { return true; };
+  window.hkTabBar = { open: function (k) { sheets.push(k); } };
+  card._tap();
+  window.hkCards.menu.tabBar = tb; window.hkTabBar = bar; window.hkMenu = was;
+  eq('the tab bar showing: its More sheet', [sheets, opened], [['more'], 1]);
 }
 ]);

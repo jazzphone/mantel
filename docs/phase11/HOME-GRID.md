@@ -525,7 +525,7 @@ its Python mirror.
 | `room` | `hk-grid-room-card` | W, L, XL | the room's name (a room heading, › to its page), its status (L, XL: the room page's own `hk-room-status-card`; W: the same items as one line), its lights as the room page's own light pills (`hkStrategy.roomCards`: its hidden accessories left out, its order, its looks) and its speaker's pill, last. As many whole rows of pills as the cell holds (measured, so the tab bar's shorter cells get fewer); W: one row, no speaker |
 | `scene_suggested` | `hk-suggested-scene-card` | W, L | the scene for this time of day: the block's windows, else its own (Morning 05:00–10:00, Day, Evening, Night, each finding its scene by name). Out of every window: the next one ("Next · Night, From 10:00 PM"). A tap runs it as a scene pill does (`hkCards.sceneTap`) |
 | `action` | `hk-action-card` | S | a key with a state: Lock Up (locks every unlocked lock; "1 Unlocked" / "All Locked"), All Lights Off ("2 Lights On"; with `area`, one room's: Lights Off), Garage (its state; a tap opens its sheet), or any scene or script |
-| `everything` | `hk-everything-card` | S | opens the menu (`hkCards.menu.open`) with the menu button's own glyph |
+| `everything` | `hk-everything-card` | S | the screen's pages and rooms, as its own navigation opens them: the tab bar's More sheet (`hkTabBar.open('more')`) while the bar shows, else the side menu (`hkCards.menu.open`), never a menu of its own; the menu button's own glyph. Optional, for a screen whose tab bar is off |
 
 **Decisions:**
 
@@ -557,8 +557,11 @@ its Python mirror.
    kind: 1–8 of `{start, end, scene, label?}`, `HH:MM`, may run past midnight, a scene or a script); `action.area`
    (an area or `tablet_room`; only All Lights Off reads it). A test holds every `opts` the JS declares equal to
    the mirror's (`tests/test_hk_core_home_grid_cards.py`).
-6. **The starters and the tab bar:** `starter(..., tab_bar=True)` puts an All Lights Off action where
-   Everything was; `tab_bar=False` keeps Everything (the editor, G5, passes the screen's own).
+6. **The tab bar is the screen's navigation** (the plan's "The tab bar"). `everything` is an optional S card for a
+   screen whose bar is off, and opens what the screen's own navigation opens (above). The starters leave it out
+   while the bar is on: `starter(..., tab_bar=True)` (the default) puts an All Lights Off action in its cell;
+   `tab_bar=False` keeps Everything (the editor, G5, passes the screen's own). The cards read their cell from
+   `--hk-cell-w` / `--hk-cell-h` and their own measured height, so the bar's shorter cells just hold fewer pills.
 7. **Lock Up and Garage read the house's lists** (Status & Chips' `kinds`, as the header's security line does);
    with none chosen, every lock or garage door the house has.
 
@@ -579,6 +582,15 @@ its Python mirror.
 - The suggested scene's art is four skies (hex gradients): content, not design values (DESIGN.md rule 4).
 - The status row in a room card keeps its own 12 px shadow room (`.row{margin:0 -12px}`); the cell clips it.
 - The room's name is the section heading's measured 19.7 / 700 (a Home-app size, not a role), as on a room page.
+  Its line is 28 px tall; its target is 44 px (an `::after` 8 px above and below), which the cell clips at the
+  top edge of a block in the first row.
+- The S keys' name and state are the tile text's measured 15 px (600 / 500), as the tall tile has them.
+- The editors are the cards' Lovelace schemas (`hkCards.register`), as every HK card's; the iOS-Settings forms of
+  the settings kit come with the desktop editor (G5).
+- Checked against DESIGN.md: type roles (`body`, `caption`, `title`, `label`), `v()` tokens only, `plate('tile')`
+  and `plate('card')` (Flat and Blur through the plates), `R.small` / the glass radius, `overlay-solid` for the
+  dimmer's readout, `DUR` for presses, reduced motion; the guards (type, radii, blur, motion, overlays, surfaces,
+  breakpoints, text scale, CSS snapshot) read the file.
 
 **Left for others:**
 

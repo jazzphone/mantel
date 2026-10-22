@@ -16,8 +16,10 @@
 //   hk-action-card           `action` (S): one tap for one job -- Lock Up, All
 //                            Lights Off, Garage, or a scene or script -- with
 //                            the state it changes under its name.
-//   hk-everything-card       `everything` (S): opens the menu, the screen's
-//                            pages and rooms (for a screen without its tab bar).
+//   hk-everything-card       `everything` (S): the screen's pages and rooms, as
+//                            its own navigation opens them (the tab bar's More
+//                            sheet, else the side menu) -- for a screen without
+//                            its tab bar.
 //
 // THE TABLET'S ROOM. A block may name `tablet_room` for its room: the wall
 // tablet showing the screen, asked of the host (hkShell.tabletRoom -- Home
@@ -376,9 +378,11 @@
       // THE NAME: a room heading's (19.7 / 700, measured off the Home app),
       // with the way into its page when it has one
       '.hd{display:flex;align-items:center;gap:6px;min-width:0;height:28px;flex:none}',
-      '.nm{all:unset;cursor:pointer;min-width:0;max-width:100%;display:flex;align-items:center;gap:6px;',
+      '.nm{all:unset;position:relative;cursor:pointer;min-width:0;max-width:100%;display:flex;align-items:center;gap:6px;',
       '  font-size:19.7px;font-weight:700;line-height:1;letter-spacing:-0.45px;color:' + v('ink') + ';',
       '  text-shadow:' + v('glow') + ';-webkit-tap-highlight-color:transparent}',
+      // a 44 px target round the 28 px line (DESIGN.md: touch targets)
+      '.nm::after{content:"";position:absolute;left:-6px;right:-6px;top:-8px;bottom:-8px}',
       '.nm span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:1px 0 2px 1px}',
       '.nm i{font-style:normal;opacity:0.62;flex:none}',
       '.nm:focus-visible{outline:2px solid ' + v('ink-2') + ';outline-offset:4px;border-radius:' + C.R.small + 'px}',
@@ -743,8 +747,14 @@
         try { if (C.menu && C.menu.icon) icon = C.menu.icon() || icon; } catch (e) { /* hk:menu */ }
         return { name: 'Everything', icon: icon, state: state, color: null };
       }
-      // the menu: the screen's pages and rooms
-      _tap() { if (C.menu && C.menu.open) C.menu.open(); }
+      // THE SCREEN'S OWN NAVIGATION, never a second menu: with the tab bar
+      // showing, its More sheet (what the bar's menu opens); else the side
+      // menu, as the menu button opens it
+      _tap() {
+        var M = C.menu, B = window.hkTabBar;
+        if (M && M.tabBar && M.tabBar() && B && typeof B.open === 'function') { B.open('more'); return; }
+        if (M && M.open) M.open();
+      }
     }
     C.register('hk-everything-card', HkEverythingCard, 'HK Everything',
       'Opens the menu: every page and room of the screen. For a Home Grid screen without its tab bar.',
