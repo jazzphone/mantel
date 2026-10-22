@@ -195,8 +195,9 @@ def test_the_catalog_and_its_python_mirror_agree(tmp_path):
                        " sources: window.hkGridCatalog.SOURCES, room: window.hkGridCatalog.TABLET_ROOM}));\n")
     out = json.loads(subprocess.run([str(JSC), str(prelude)], capture_output=True, text=True, check=True,
                                     timeout=30).stdout)
-    assert out["cards"] == {k: {"sizes": list(v["sizes"]), "sources": list(v["sources"])}
-                            for k, v in HG.CATALOG.items()}
+    # (the options a card declares: test_hk_core_home_grid_cards.py)
+    assert {k: {"sizes": v["sizes"], "sources": v["sources"]} for k, v in out["cards"].items()} == \
+        {k: {"sizes": list(v["sizes"]), "sources": list(v["sources"])} for k, v in HG.CATALOG.items()}
     assert out["sizes"] == {k: list(v) for k, v in HG.SIZES.items()}
     assert out["sources"] == list(HG.SOURCES) and out["room"] == HG.TABLET_ROOM
     # ...and hk-base.js's size-class table is the same one

@@ -261,7 +261,9 @@ async def me(request: web.Request) -> web.Response:
     # Home Assistant's address for the dashboard's "Open Home Assistant" row: a person's, never a wall tablet's
     # (nothing to get stuck in)
     ha = None if u.get("device_id") else ha_address(request.app)
-    return web.json_response({"ha_user_id": u["ha_user_id"], "name": u["name"], "role": u["role"], "ha_address": ha})
+    # a wall tablet's room (an area id): a Home Grid's `tablet_room` blocks show it (docs/phase11/HOME-GRID.md)
+    return web.json_response({"ha_user_id": u["ha_user_id"], "name": u["name"], "role": u["role"], "ha_address": ha,
+                              "room": u.get("room")})
 
 
 def add_routes(app: web.Application) -> None:

@@ -9,8 +9,9 @@
 //
 // G1: each key is today's card, unsized. A card's own layout per size comes
 // with G2 (the size attribute and --hk-cell-w/-h, read with container
-// queries); the new cards (room, scene_suggested, action, everything) with
-// G3; pages that swipe with G4 -- until then a block shows its first page.
+// queries); pages that swipe with G4 -- until then a block shows its first
+// page. The new cards (room, scene_suggested, action, everything) are G3's,
+// in hk-grid-cards.js.
 //
 // Plain data and pure functions, loaded at parse time: no hk-base.js needed.
 (function () {
@@ -61,17 +62,19 @@
       var id = o.entity || ctx.vacuum;
       return id ? { type: 'custom:hk-vacuum-card', entity: id } : stand('Vacuum', 'hk:robot-vacuum'); } },
     clock: { sizes: ['W', 'XL'], sources: [], card: function () { return { type: 'custom:hk-clock-card' }; } },
-    // the new cards (G3): today, the nearest card there is
-    room: { sizes: ['W', 'L', 'XL'], sources: ['rooms'], card: function (s, o, ctx) {
-      var area = own(o.area) || (ctx.rooms || [])[0];
-      return area ? { type: 'custom:hk-room-status-card', area: area } : stand('Room', 'mdi:sofa'); } },
-    scene_suggested: { sizes: ['W', 'L'], sources: [], card: function () { return stand('Suggested Scene', 'mdi:palette'); } },
-    action: { sizes: ['S'], sources: [], card: function (s, o) {
-      var names = { lock_up: ['Lock Up', 'mdi:lock'], lights_off: ['All Lights Off', 'mdi:lightbulb-off'],
-                    garage: ['Garage', 'mdi:garage'] };
-      var n = names[o.action] || ['Action', 'mdi:gesture-tap'];
-      return stand(n[0], n[1]); } },
-    everything: { sizes: ['S'], sources: [], card: function () { return stand('Everything', 'mdi:view-grid'); } }
+    // THE NEW CARDS (G3, hk-grid-cards.js). `opts` names each option and its
+    // kind, as home_grid.CATALOG does (a test holds them equal). A card handed
+    // `tablet_room` resolves it itself, through the host (hkShell.tabletRoom):
+    // the tablet showing the screen may be known only once the page is up.
+    // `fallback` is the room it shows on a page that is no wall tablet.
+    room: { sizes: ['W', 'L', 'XL'], sources: ['rooms'], opts: { area: 'area' }, card: function (s, o, ctx) {
+      // no room of its own: the tablet's, else the screen's first
+      return { type: 'custom:hk-grid-room-card', area: o.area || TABLET_ROOM, fallback: (ctx.rooms || [])[0] || null, size: s }; } },
+    scene_suggested: { sizes: ['W', 'L'], sources: [], opts: { windows: 'windows' }, card: function (s, o) {
+      return Object.assign({ type: 'custom:hk-suggested-scene-card', size: s }, o.windows ? { windows: o.windows } : {}); } },
+    action: { sizes: ['S'], sources: [], opts: { action: 'action', area: 'area' }, card: function (s, o) {
+      return Object.assign({ type: 'custom:hk-action-card', action: o.action || 'lock_up' }, o.area ? { area: o.area } : {}); } },
+    everything: { sizes: ['S'], sources: [], opts: {}, card: function () { return { type: 'custom:hk-everything-card' }; } }
   };
   var SOURCES = ['list', 'rooms', 'cameras', 'thermostats', 'speakers', 'scenes'];
 
@@ -91,7 +94,10 @@
   // the catalog as data, for the parity test and the editor (G5)
   function table() {
     var out = {};
-    Object.keys(CARDS).forEach(function (k) { out[k] = { sizes: CARDS[k].sizes.slice(), sources: CARDS[k].sources.slice() }; });
+    Object.keys(CARDS).forEach(function (k) {
+      out[k] = { sizes: CARDS[k].sizes.slice(), sources: CARDS[k].sources.slice() };
+      if (CARDS[k].opts) out[k].opts = Object.assign({}, CARDS[k].opts);
+    });
     return out;
   }
 

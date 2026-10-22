@@ -111,6 +111,14 @@
     }
   };
 
+  // THE WALL TABLET'S ROOM (a Home Grid's `tablet_room`): the room of its
+  // Wall Tablets entry -- which tablet this page is, hk-settings.js tablet()
+  // decides (its ?hk_tablet= address, else the tablet signed in as this user)
+  HA.tabletRoom = function (client) {
+    var S = global.hkSettings, t = S && typeof S.tablet === 'function' ? S.tablet(client) : null;
+    return (t && typeof t.room === 'string' && t.room) || null;
+  };
+
   // the frontend's sidebar data: the user, the panels, and their titles
   HA.sidebarData = function () {
     var r = HA.root(), h = r && r.hass;

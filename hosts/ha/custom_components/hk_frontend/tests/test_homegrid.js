@@ -133,7 +133,7 @@ window.hkStrategy.generate({ music: false }, hass).then(function (cfg) {
     var blocks = home.cards.filter(function (c) { return c.hk_cell; });
     ok('...a card per block, with its cell', blocks.length === 4 && blocks[0].hk_cell.id === 'a1' && blocks[0].hk_cell.size === 'L' &&
        JSON.stringify(blocks[3].hk_cell.at) === '[5,3]');
-    ok('...from the catalog, filled from the house', blocks[0].type === 'custom:hk-room-status-card' && blocks[0].area === 'kitchen' &&
+    ok('...from the catalog, filled from the house', blocks[0].type === 'custom:hk-grid-room-card' && blocks[0].fallback === 'kitchen' &&
        blocks[1].cameras[0].entity === 'camera.front_door' && blocks[2].entity === 'climate.hallway', blocks.map(function (b) { return b.type; }));
     ok('...and the alarm\'s pop-up still listens on Home', home.cards.some(function (c) { return c.type === 'custom:hk-popup-card' && c.hash === '#alarm'; }));
     ok('the screen\'s other pages are unchanged', JSON.stringify(g.views.map(function (v) { return v.path; })) === JSON.stringify(plain), g.views.map(function (v) { return v.path; }));

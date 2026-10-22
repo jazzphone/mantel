@@ -40,7 +40,7 @@ var FILES = ['cards/hk-base', 'modules/hk-stats', 'modules/hk-charts', 'modules/
   'cards/hk-tile', 'cards/hk-chip', 'cards/hk-stat', 'cards/hk-row', 'cards/hk-layout', 'cards/hk-home',
   'cards/hk-media', 'cards/hk-music', 'cards/hk-library', 'cards/hk-cameras', 'cards/hk-security',
   'cards/hk-energy', 'cards/hk-headers', 'modules/hk-header', 'cards/hk-weather', 'cards/hk-calendar', 'cards/hk-control', 'cards/hk-room',
-  'cards/hk-popup', 'cards/hk-detail', 'cards/hk-person', 'cards/hk-strategy',
+  'cards/hk-grid-cards', 'cards/hk-popup', 'cards/hk-detail', 'cards/hk-person', 'cards/hk-strategy',
   'modules/hk-timers', 'modules/hk-menu', 'modules/hk-tabbar', 'modules/hk-notify',
   'modules/hk-saver-panel', 'modules/hk-frosttint',
   'panels/hk-settings-kit'];
