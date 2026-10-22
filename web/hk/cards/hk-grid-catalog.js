@@ -9,9 +9,9 @@
 //
 // G1: each key is today's card, unsized. A card's own layout per size comes
 // with G2 (the size attribute and --hk-cell-w/-h, read with container
-// queries); the new cards (room, scene_suggested, action, everything) with
-// G3. A block with `pages` is an hk-pager-card (hk-layout.js, G4) holding
-// one of its card per page: pages() below says which.
+// queries); the new cards (room, scene_suggested, action, everything) are
+// G3's, in hk-grid-cards.js. A block with `pages` is an hk-pager-card
+// (hk-layout.js, G4) holding one of its card per page: pages() below says which.
 //
 // Plain data and pure functions, loaded at parse time: no hk-base.js needed.
 (function () {
@@ -62,17 +62,19 @@
       var id = o.entity || ctx.vacuum;
       return id ? { type: 'custom:hk-vacuum-card', entity: id } : stand('Vacuum', 'hk:robot-vacuum'); } },
     clock: { sizes: ['W', 'XL'], sources: [], card: function () { return { type: 'custom:hk-clock-card' }; } },
-    // the new cards (G3): today, the nearest card there is
-    room: { sizes: ['W', 'L', 'XL'], sources: ['rooms'], card: function (s, o, ctx) {
-      var area = own(o.area) || (ctx.rooms || [])[0];
-      return area ? { type: 'custom:hk-room-status-card', area: area } : stand('Room', 'mdi:sofa'); } },
-    scene_suggested: { sizes: ['W', 'L'], sources: [], card: function () { return stand('Suggested Scene', 'mdi:palette'); } },
-    action: { sizes: ['S'], sources: [], card: function (s, o) {
-      var names = { lock_up: ['Lock Up', 'mdi:lock'], lights_off: ['All Lights Off', 'mdi:lightbulb-off'],
-                    garage: ['Garage', 'mdi:garage'] };
-      var n = names[o.action] || ['Action', 'mdi:gesture-tap'];
-      return stand(n[0], n[1]); } },
-    everything: { sizes: ['S'], sources: [], card: function () { return stand('Everything', 'mdi:view-grid'); } }
+    // THE NEW CARDS (G3, hk-grid-cards.js). `opts` names each option and its
+    // kind, as home_grid.CATALOG does (a test holds them equal). A card handed
+    // `tablet_room` resolves it itself, through the host (hkShell.tabletRoom):
+    // the tablet showing the screen may be known only once the page is up.
+    // `fallback` is the room it shows on a page that is no wall tablet.
+    room: { sizes: ['W', 'L', 'XL'], sources: ['rooms'], opts: { area: 'area' }, card: function (s, o, ctx) {
+      // no room of its own: the tablet's, else the screen's first
+      return { type: 'custom:hk-grid-room-card', area: o.area || TABLET_ROOM, fallback: (ctx.rooms || [])[0] || null, size: s }; } },
+    scene_suggested: { sizes: ['W', 'L'], sources: [], opts: { windows: 'windows' }, card: function (s, o) {
+      return Object.assign({ type: 'custom:hk-suggested-scene-card', size: s }, o.windows ? { windows: o.windows } : {}); } },
+    action: { sizes: ['S'], sources: [], opts: { action: 'action', area: 'area' }, card: function (s, o) {
+      return Object.assign({ type: 'custom:hk-action-card', action: o.action || 'lock_up' }, o.area ? { area: o.area } : {}); } },
+    everything: { sizes: ['S'], sources: [], opts: {}, card: function () { return { type: 'custom:hk-everything-card' }; } }
   };
   var SOURCES = ['list', 'rooms', 'cameras', 'thermostats', 'speakers', 'scenes'];
 
@@ -143,10 +145,15 @@
   }
 
   // THE TABLET'S ROOM (`tablet_room` in a block's options and `pages.start`):
-  // the Wall Tablets room of the tablet showing this page -- an area id, or
-  // null on a page that is no tablet's. Read through hkSettings.tablet(), the
-  // settings' own answer to "which tablet is this" (never the host's object).
+  // the room of the wall tablet showing this page -- an area id, or null on a
+  // page that is no tablet's. The host answers (hkShell.tabletRoom: Home
+  // Assistant's Wall Tablets entry, Mantel's tablet device); without that
+  // call, hkSettings.tablet(), the settings' own answer to "which tablet is
+  // this" (never the host's object).
   function tabletRoom(client) {
+    var SH = window.hkShell, here = null;
+    try { here = SH && typeof SH.tabletRoom === 'function' ? SH.tabletRoom(client) : null; } catch (e) { here = null; }
+    if (here) return here;
     var HS = window.hkSettings, t = null;
     try { t = HS && typeof HS.tablet === 'function' ? HS.tablet(client) : null; } catch (e) { t = null; }
     return (t && t.room) || null;
@@ -155,7 +162,10 @@
   // the catalog as data, for the parity test and the editor (G5)
   function table() {
     var out = {};
-    Object.keys(CARDS).forEach(function (k) { out[k] = { sizes: CARDS[k].sizes.slice(), sources: CARDS[k].sources.slice() }; });
+    Object.keys(CARDS).forEach(function (k) {
+      out[k] = { sizes: CARDS[k].sizes.slice(), sources: CARDS[k].sources.slice() };
+      if (CARDS[k].opts) out[k].opts = Object.assign({}, CARDS[k].opts);
+    });
     return out;
   }
 

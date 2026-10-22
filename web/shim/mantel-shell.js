@@ -137,6 +137,19 @@
     return haAddress ? { link: haAddress, top: false } : null;
   }
 
+  // THE WALL TABLET'S ROOM (a Home Grid's `tablet_room`): the room this device was enrolled in (GET /api/me
+  // `room`, a wall tablet's only), else the room of the HK tablet the page is (a tablet signed in as its own
+  // person; hk-settings.js tablet()). null on a person's browser.
+  let deviceRoom = null;
+  const ROOM_ID = /^[a-z0-9_]{1,80}$/;
+  function setRoom(r) { deviceRoom = typeof r === 'string' && ROOM_ID.test(r) ? r : null; }
+  function tabletRoom(client) {
+    if (deviceRoom) return deviceRoom;
+    const HS = global.hkSettings;
+    const t = HS && typeof HS.tablet === 'function' ? HS.tablet(client) : null;
+    return t && typeof t.room === 'string' && ROOM_ID.test(t.room) ? t.room : null;
+  }
+
   // Mantel's pages in the settings panel (web/shim/mantel-settings.js), once settings-page.js has them
   let settings = null;
   function setSettings(host) { settings = host || null; }
@@ -170,6 +183,7 @@
     haName: (name) => name + ' in Home Assistant',
     // Mantel Link's cameras are Live TV's channels (once the house's Live TV is Mantel's): not the house's
     notHouseCameraPlatforms: () => ['mantel'],
+    tabletRoom,
     // Mantel's own docs (/docs, docs_pages.py: HK's pages and Mantel's), under the page's prefix
     docsUrl: (page, anchor) => (global.__mantelBase || '') + '/docs/' + encodeURIComponent(page) + (anchor ? '#' + encodeURIComponent(anchor) : ''),
     tags: { viewContainer: 'hk-view-container' },
@@ -226,5 +240,6 @@
   // home.js hands over the signed-in person's Mantel role (GET /api/me)
   function setRole(r) { role = typeof r === 'string' ? r : ''; }
 
-  global.hkMantelShell = { attach, install, setServices, setRole, setSettings, setHaAddress, hostMenu, haNav, serviceUrl, kind: 'mantel' };
+  global.hkMantelShell = { attach, install, setServices, setRole, setRoom, setSettings, setHaAddress, hostMenu, haNav, serviceUrl,
+                           tabletRoom, kind: 'mantel' };
 })(globalThis);

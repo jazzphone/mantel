@@ -16,7 +16,7 @@ var SCALE = { 'ink': '0.94', 'ink-2': '0.68', 'ink-3': '0.40' };
 // over photos (the screensaver's plain forecast band): white, on purpose
 var EXCEPT = /\.plain /;
 var FILES = ['hk-base', 'hk-calendar', 'hk-cameras', 'hk-chip', 'hk-control', 'hk-energy', 'hk-home',
-  'hk-layout', 'hk-library', 'hk-media', 'hk-music', 'hk-popup', 'hk-room', 'hk-row', 'hk-security',
+  'hk-layout', 'hk-library', 'hk-media', 'hk-music', 'hk-popup', 'hk-room', 'hk-grid-cards', 'hk-row', 'hk-security',
   'hk-stat', 'hk-tile', 'hk-weather', 'hk-detail', 'hk-person'].map(function (n) { return 'frontend/cards/' + n + '.js'; })
   .concat(['hk-charts', 'hk-header', 'hk-timers', 'hk-saver', 'hk-saver-panel', 'hk-menu', 'hk-tabbar', 'hk-notify'].map(function (n) { return 'frontend/modules/' + n + '.js'; }));
 var pass = 0, fail = 0;

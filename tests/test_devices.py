@@ -24,8 +24,9 @@ async def test_owner_turns_the_browser_into_a_wall_tablet(mantel):
     assert stored == token_hash(c.value) and c.value not in "\n".join(mantel.store.db.iterdump())
     me = await (await mantel.get("/api/session")).json()
     assert me["user"] is None and me["device"]["name"] == "Kitchen tablet" and me["csrf"]
+    # its room: a Home Grid's tablet_room blocks show it (docs/phase11/HOME-GRID.md)
     assert await (await mantel.get("/api/me")).json() == {"ha_user_id": None, "name": "Kitchen tablet",
-                                                          "role": "wall_tablet", "ha_address": None}
+                                                          "role": "wall_tablet", "ha_address": None, "room": "kitchen"}
     # the old person session cannot come back through its refresh token
     mantel.set_cookies(mantel_refresh=person_refresh)
     assert (await (await mantel.get("/api/session")).json())["user"] is None
@@ -170,6 +171,8 @@ async def test_person_signed_in_at_a_tablet_carries_both(mantel):
     await mantel.get("/api/probe")
     ident = seen["ident"]
     assert ident.user.role == "child" and ident.device.role == "wall_tablet" and ident.device.room == "kitchen"
+    me = await (await mantel.get("/api/me")).json()
+    assert me["role"] == "child" and me["room"] == "kitchen"           # the tablet's room, whoever is signed in
 
 
 # -- the device's room: one of HK's wall tablets or an HA area, changed in place (the house, 2026-10-19) ---------------

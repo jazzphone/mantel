@@ -487,6 +487,8 @@
   window.hkRoom = { version: '1.1.0', climateItems: climateItems, climateReading: climateReading,
     pageItems: pageItems, PAGE_ROWS: PAGE_ROWS,
     _: { items: items, kindOf: kindOf, members: members, gauge: gauge, describe: describe, KINDS: KINDS } };
+  // a room's items as its status row shows them (a Home Grid's room card says them as one line)
+  window.hkRoom.roomItems = items;
 
   whenBase(function (C) {
     if (window.hkRoom.Card) return;

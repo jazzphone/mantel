@@ -15,7 +15,7 @@ window.customCards = [];
 var defined = {}, od = customElements.define.bind(customElements);
 customElements.define = function (n, c) { defined[n] = c; return od(n, c); };
 ['hk-base', 'hk-tile', 'hk-chip', 'hk-stat', 'hk-control', 'hk-row', 'hk-weather', 'hk-popup',
- 'hk-media', 'hk-cameras', 'hk-security', 'hk-home', 'hk-energy', 'hk-layout', 'hk-headers'].forEach(function (f) {
+ 'hk-media', 'hk-cameras', 'hk-security', 'hk-home', 'hk-energy', 'hk-layout', 'hk-headers', 'hk-grid-cards'].forEach(function (f) {
   load(DIR + 'frontend/cards/' + f + '.js');
 });
 var pass = 0, fail = 0;
