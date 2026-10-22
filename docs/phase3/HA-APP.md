@@ -1171,6 +1171,13 @@ Everything on main since 0.1.28 (validation green: JS 130, HA py 732, Mantel 283
   under Mantel App and ended with it; the leftover ones end on update. HK Frontend (1.10.6) and Mantel Link (0.1.5)
   unchanged.
 
+### 0.1.51 (2026-10-22)
+
+- Wall tablets no longer reload every 15 or 16 minutes. Kiosk Satellite's watchdog reads the page's
+  `hass.connection` as Home Assistant's own and, with Auto-reload on error on, reloaded a page it found "down" for
+  15 minutes; Mantel's stand-in had no `connected`. It now reports Mantel's own socket (connected while the hub's
+  is, the server's ping, a nudge cycles it). HK Frontend (1.10.6) and Mantel Link (0.1.5) unchanged.
+
 ### Removal
 
 Stop and uninstall **Mantel** (Settings → Apps → Mantel → Uninstall); this removes its image and `/data`
