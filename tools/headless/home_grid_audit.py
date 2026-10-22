@@ -29,6 +29,7 @@ import copy
 import json
 import sys
 import tempfile
+import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -57,13 +58,39 @@ EXTRA = {
                                                      "supported_features": 16383})),
     "calendar.family": (None, ("off", {"friendly_name": "Family", "message": "Piano Lesson",
                                        "start_time": "2026-10-23 16:00:00", "end_time": "2026-10-23 17:00:00"})),
-    "sensor.running_quick_timers": (None, ("2", {"friendly_name": "Running Quick Timers", "timers": [
-        {"name": "Pasta", "remaining": 420, "duration": 600, "state": "active"},
-        {"name": "Laundry", "remaining": 1800, "duration": 3600, "state": "active"}]})),
+    "sensor.running_quick_timers": (None, ("2", {"friendly_name": "Running Quick Timers", "running": [
+        {"name": "Pasta", "entity_id": "timer.quick_1", "finishes_at": time.strftime("%Y-%m-%dT%H:%M:%S+00:00", time.gmtime(time.time() + 420))},
+        {"name": "Laundry", "entity_id": "timer.quick_2", "finishes_at": time.strftime("%Y-%m-%dT%H:%M:%S+00:00", time.gmtime(time.time() + 1800))}]})),
 }
 # what each block names (a block that names nothing takes the house's: its cameras, weather, vacuum)
 OPTS = {"accessory": {"entity": "light.living_room_lamps"}, "scene": {"scene": "scene.movie_night"},
         "now_playing": {"speaker": "media_player.living_room"}, "thermostat": {"entity": "climate.main_floor"}}
+# the forecast, as the forecast sensors Settings -> Weather can name
+def _forecast(step: int, n: int, temps: list[int], conds: list[str]) -> list[dict]:
+    t0 = int(time.time() // step * step) + step
+    return [{"datetime": time.strftime("%Y-%m-%dT%H:%M:%S+00:00", time.gmtime(t0 + i * step)),
+             "temperature": temps[i % len(temps)], "templow": temps[i % len(temps)] - 12,
+             "condition": conds[i % len(conds)], "precipitation_probability": (i * 7) % 40} for i in range(n)]
+
+
+EXTRA["sensor.forecast_hourly"] = (None, ("ok", {"friendly_name": "Hourly Forecast", "forecast": _forecast(
+    3600, 24, [64, 65, 66, 66, 65, 63, 61, 59], ["partlycloudy", "partlycloudy", "sunny", "cloudy", "rainy", "cloudy"])}))
+EXTRA["sensor.forecast_daily"] = (None, ("ok", {"friendly_name": "Daily Forecast", "forecast": _forecast(
+    86400, 8, [70, 68, 72, 66], ["partlycloudy", "sunny", "rainy", "cloudy"])}))
+# the family calendar's events (Home Assistant's REST shape), today and tomorrow
+def _events() -> list[dict]:
+    day = time.localtime()
+    at = lambda d, h, m=0: time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime(time.mktime(
+        (day.tm_year, day.tm_mon, day.tm_mday + d, h, m, 0, 0, 0, -1))))
+    date = lambda d: time.strftime("%Y-%m-%d", time.localtime(time.mktime((day.tm_year, day.tm_mon, day.tm_mday + d, 12, 0, 0, 0, 0, -1))))
+    return [{"summary": "Recycling Day", "start": {"date": date(0)}, "end": {"date": date(1)}},
+            {"summary": "Piano Lesson", "start": {"dateTime": at(0, 16)}, "end": {"dateTime": at(0, 17)}, "location": "Maple Street"},
+            {"summary": "Dinner with the Parkers", "start": {"dateTime": at(0, 18, 30)}, "end": {"dateTime": at(0, 20)}},
+            {"summary": "Dentist", "start": {"dateTime": at(1, 9)}, "end": {"dateTime": at(1, 10)}},
+            {"summary": "Soccer Practice", "start": {"dateTime": at(1, 17)}, "end": {"dateTime": at(1, 18, 30)}}]
+
+
+WEATHER = {"place": "Riverside", "forecast_hourly": "sensor.forecast_hourly", "forecast_daily": "sensor.forecast_daily"}
 LONG = " and the Long Way Round"       # the `long` pass: every name this much longer
 
 
@@ -80,6 +107,7 @@ def layout(key: str) -> dict:
 
 def settings(passes: list[tuple[str, str, bool]]) -> dict:
     s = copy.deepcopy(gallery.SETTINGS)
+    s["settings"]["weather"] = dict(s["settings"].get("weather") or {}, **WEATHER)
     for key, look, bar in passes:
         # the tab bar (menu "tabbar"): the usual case; without it, the side menu's button
         s["boards"][screen(key, look, bar)] = dict(gallery.SETTINGS["boards"][gallery.SCREEN], home_style="grid",
@@ -197,6 +225,11 @@ async def audit(keys: list[str], looks: list[str], shots: Path | None, long: boo
                 gallery.HOUSE[eid] = (area, (state, dict(attrs, friendly_name=attrs["friendly_name"] + LONG)))
     passes = [(k, lk, True) for lk in looks for k in keys] + [(k, lk, False) for lk in nobar for k in keys]
     gallery.SETTINGS = settings(passes)
+    from client_smoke import OfflineReads
+
+    async def calendar_events(self, entity_id, start, end):
+        return _events() if entity_id == "calendar.family" else []
+    OfflineReads.get_calendar_events = calendar_events
     report: dict = {}
     with tempfile.TemporaryDirectory(prefix="mantel-grid-audit-") as folder:
         app, cookie = await gallery.build(Path(folder))

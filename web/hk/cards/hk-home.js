@@ -1923,6 +1923,9 @@
   //
   // No script injection and no forced update: the module is in hk-loader's
   // list, and HkBase re-renders on signature change.
+  // a Home Grid timers block: its plate's padding, a timer's line (34 px
+  // glyph, two lines of text) and the gap between them
+  var TM = { pad: 14, row: 38, gap: 8 };
   class HkTimerStripCard extends HkBase {
     // The one-shot hk-timers-ready listener, held only while attached: a
     // strip detached before the module arrives would otherwise keep the
@@ -1957,10 +1960,45 @@
         // The screensaver's row is wrapped in a position:fixed div by strip()
         // itself, so its host must take no space and must not clip.
         'hk-plate.strip.fixed{height:0;overflow:visible}',
-        '.strip > div{min-width:0;overflow:hidden}'
+        '.strip > div{min-width:0;overflow:hidden}',
+        // ON A HOME GRID (G2, the `timers` block): a plate of the running
+        // timers, each its glyph, name and time left -- as many as the
+        // block's height holds (two columns at W), the soonest first; none
+        // running, the block says so
+        ':host([size]) hk-plate.strip{display:flex;flex-direction:column;justify-content:center;box-sizing:border-box;',
+        '  height:100%;padding:' + TM.pad + 'px 16px;' + window.hkCards.plate('card') + ';overflow:hidden}',
+        '.tl{display:grid;grid-template-columns:repeat(var(--cols,1),minmax(0,1fr));grid-auto-rows:' + TM.row + 'px;',
+        '  gap:' + TM.gap + 'px 16px;align-content:center}',
+        '.tm{display:flex;align-items:center;gap:10px;min-width:0}',
+        '.tm i{flex:none;width:34px;height:34px;border-radius:50%;background:' + window.hkCards.v('well-bg') + ';',
+        '  display:flex;align-items:center;justify-content:center}',
+        '.tm.on i{background:rgba(255,159,10,.95)}',
+        '.tm i hk-icon{--mdc-icon-size:20px;width:20px;height:20px;color:' + window.hkCards.v('glyph') + '}',
+        '.tm.on i hk-icon{color:rgba(0,0,0,.82)}',
+        '.tm span{display:flex;flex-direction:column;min-width:0}',
+        '.tm b{' + window.hkCards.typeCss('caption') + ';line-height:16px;color:' + window.hkCards.v('ink-2') + ';',
+        '  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+        '.tm hk-countdown,.tm em{' + window.hkCards.typeCss('headline') + ';font-style:normal;line-height:21px;',
+        '  color:' + window.hkCards.v('ink') + ';font-variant-numeric:tabular-nums;white-space:nowrap}'
       ].join('');
     }
     getCardSize() { return 1; }
+    // A HOME GRID BLOCK: the running timers that fit, soonest first
+    _grid(list, sized) {
+      this._watchBlock();
+      var rows = (list || []).filter(function (r) { return r && r.finishes_at && !isNaN(Date.parse(r.finishes_at)); })
+        .sort(function (a, b) { return Date.parse(a.finishes_at) - Date.parse(b.finishes_at); });
+      var b = this._block(), cols = sized === 'S' ? 1 : 2;
+      var fit = b ? Math.max(1, Math.floor((b.h - 2 * TM.pad + TM.gap) / (TM.row + TM.gap))) * cols : cols;
+      var esc = window.hkCards.esc;
+      var items = rows.slice(0, fit).map(function (r) {
+        return '<div class="tm on"><i><hk-icon icon="mdi:timer-outline"></hk-icon></i><span><b>' + esc(r.name || 'Timer') +
+          '</b><hk-countdown deadline="' + Date.parse(r.finishes_at) + '"></hk-countdown></span></div>';
+      });
+      if (!items.length) items = ['<div class="tm"><i><hk-icon icon="mdi:timer-outline"></hk-icon></i><span><b>Timers</b>' +
+                                  '<em>None running</em></span></div>'];
+      return '<div class="tl" style="--cols:' + (rows.length > 1 ? cols : 1) + '">' + items.join('') + '</div>';
+    }
     _sigOf() {
       var h = this.client;
       if (!h) return null;
@@ -1980,7 +2018,12 @@
         this._wire();
         this._built = true;
       }
-      var T = window.hkTimers;
+      var T = window.hkTimers, sized = this._cellSize();
+      if (sized) {
+        var on = this._st(cfg.entity || 'sensor.running_quick_timers');
+        window.hkCards.morph(this._e, this._grid(on && on.attributes && on.attributes.running, sized));
+        return;
+      }
       // '' is a CORRECT rendering, not a failure: with no timers running the
       // card draws nothing, and drawing nothing is what keeps it from leaving
       // a gap above the player in the pop-up.

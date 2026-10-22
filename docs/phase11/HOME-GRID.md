@@ -401,7 +401,9 @@ white on the sky, never light: `tone()` in hk-base.js; so Blur's light and dark 
 block's cell, every text node's box (inside the cell, and not cut off unless an ellipsis ends it), every icon,
 picture, button and control (inside the cell), no word broken across lines, that the card's plates cover the
 block, and no page scroll and no script error. It runs with the tab bar showing (the screen's `menu: tabbar`) and
-once more without it (Flat Dark), and says when a cell runs under the bar. A screen's own problems (the page
+once more without it (Flat Dark), and says when a cell runs under the bar. The test house has a forecast (two
+forecast sensors) and a family calendar with events today and tomorrow, so the weather and calendar blocks are
+measured full. A screen's own problems (the page
 scrolls, a cell under the bar) print as `VIEW` lines, apart from the cards'. Today, with the bar showing, every
 screen's page scrolls: the view is still `100dvh` with the bar's padding added; G4's change ("The tab bar") is
 what fixes it. `--long` names every thing at twice its length.
@@ -427,8 +429,11 @@ height; `hkCards.typeCss(role)` writes a type role as declarations.
 | `thermostat` | T, L | the dial (`hk-control-card`, in place of the climate tile), as large as the block leaves it, with the mode row; at T the setpoint is the figure role (30) and the modes are 11 px |
 | `camera` | W, L, XL | the camera mosaic sized from the block: W and XL one camera filling it, L two stacked (16:9 each) |
 | `security` | S, W | a plate with the Security page's items one per line (two columns at W), as many as the block's height holds, alerts first |
+| `timers` | S, W | a plate of the running timers (glyph, name, time left), soonest first, as many as fit (two columns at W); none running, it says so |
+| `weather` | W, XL | a plate: the symbol, the temperature, the condition with today's high and low and the place, the outlook; at XL the band's own 76 px temperature (not a role, DESIGN.md) and the next hours, as many as the width holds |
+| `calendar` | T, L | a plate: today's date, then what is still to come today and tomorrow, one line each, as many as fit; at T the time goes under the title |
 
-**Left:** timers, weather, calendar, battery, people, vacuum, clock.
+**Left:** battery, people, vacuum, clock.
 
 ### G4 (2026-10-22)
 
