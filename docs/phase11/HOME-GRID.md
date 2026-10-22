@@ -6,7 +6,7 @@ https://claude.ai/artifact/JnMmSXDneGVE1e81BWYuid, A preferred). An Owner or Adm
 using HK's own cards. A block can hold **several pages** that swipe: cameras, rooms, thermostats, scene pages.
 Mantel first; HK Frontend as well, which comes at little extra cost (below).
 
-**Status: G1 done (2026-10-22), on `main`; no release. G2, G3 and G4 are next, each in its own session.** See "Progress", at the end.
+**Status: G1 done (2026-10-22, `d7e2287`). G2, G3 and G4 in progress (2026-10-22), side by side, each in its own session; each keeps its own subsection under "Progress". No release.** See "Progress", at the end.
 
 ## The answers (2026-10-22)
 
@@ -54,11 +54,29 @@ Mantel-only, because Home Assistant has nothing like it: the layout's history wi
 - **No scrolling, ever.** The view is `height: 100dvh; overflow: hidden`. A card that cannot fit its cell clips
   its own contents. It never grows the page.
 
+### The tab bar (added 2026-10-22)
+
+The screen's **tab bar** (`web/hk/modules/hk-tabbar.js`) is a Home Grid screen's primary menu and navigation, as
+on every other screen: its pages, the rooms and the full menu. The grid works around it:
+
+- **The grid stops at the bar.** The view's height is `calc(100dvh - var(--hk-tabbar-h, 0px))`, where
+  `--hk-tabbar-h` is the room the bar reserves (set on `<html>` while it shows). The rows share what's left under
+  the top band, so cells are shorter than the numbers below whenever the bar shows. Cards read their cell from
+  `--hk-cell-w` / `--hk-cell-h`, never from fixed numbers. The view follows the bar showing or hiding. (G4 makes
+  this change in `hk-layout.js`.)
+- **Nothing sits under the bar**, and a pager never claims a drag that starts on it.
+- **`everything` is for screens without a tab bar.** With the bar on, it already opens the pages and the menu, so
+  `everything` is an optional S card for a screen whose bar is off. It opens the same menu, through the shell's
+  navigation. The starter layouts leave it out while the bar is on. (G3.)
+- **The render audit** (G2) runs with the bar showing, the usual case, and once with it hidden.
+- **The editor** (G5) draws the bar in the frame, as the tablet shows it, so the grid is arranged in the space that
+  is really there.
+
 ### Size classes
 
 | Class | Cells | At 1280 × 800, 6 × 4 |
 |---|---|---|
-| S | 1 × 1 | 196 × 162 |
+| S | 1 × 1 | 196 × 162 (less with the tab bar showing) |
 | W | 2 × 1 | 402 × 162 |
 | T | 1 × 2 | 196 × 334 |
 | L | 2 × 2 | 402 × 334 |
@@ -271,6 +289,11 @@ a 3-column grid, with no page scroll.
   rule (check that the repo is private first; fetch and merge, never force).
 - On this SMB checkout, merge with `git merge --no-autostash -s ort`.
 - Keep the docs' and code comments' plain voice, as the rest of the repository has it.
+- **Follow DESIGN.md** (`/Volumes/config/hk_house/docs/DESIGN.md`, read-only): type roles, spacing, corner radii,
+  plates and materials (Flat and Blur), colors, glyphs, motion and 44 px touch targets, in every card, size, the
+  pager, the view and the editor (the settings kit's iOS-Settings style). Build from HK's existing pieces, not
+  look-alikes. Each slice checks its work against it and lists, in its Progress subsection, anything that can't
+  follow it and why.
 
 ## Progress
 
@@ -367,6 +390,37 @@ a 3-column grid, with no page scroll.
   setting, `pages` too, not only Home Grid's); a reload shows it. Worth knowing for the editor (G5).
 
 **G1 is done.** Next: G2, G3 and G4, side by side, each in its own session and worktree.
+
+### G2 (2026-10-22, in progress)
+
+**The render audit's Home Grid pass:** `tools/headless/home_grid_audit.py`. A real Mantel Server with the gallery's
+fictional house (`tools/headless/gallery.py`), headless Chrome at 1280 × 800, a 6-column grid. Each card gets a
+screen per look, its Home holding the card once at every size it has (XL, L and T across the top, W and S below).
+The four looks: Flat Light, Flat Dark, and Blur under a day sky and a night one. (On HK's own screens a card is
+white on the sky, never light: `tone()` in hk-base.js; so Blur's light and dark are the sky's.) It measures, in each
+block's cell, every text node's box (inside the cell, and not cut off unless an ellipsis ends it), every icon,
+picture, button and control (inside the cell), that the card's plates cover the block, and no page scroll and no
+script error. `--long` names every thing at twice its length.
+
+**Text scale:** HK draws its type roles in px (`hkCards.TYPE`) and a tablet's text size never reaches them (the
+Mantel app's web view sets `-webkit-text-size-adjust:100%`), so there is one
+scale and the audit runs at it. PLAN-2026-10-12-text-scale is the ink colours, not sizes. The `--long` pass stands
+in for larger text.
+
+**Shared:** hk-base.js: an HkBase card watches its `size` attribute and is rebuilt when it changes (`_cellSize()`
+reads it); `BASE_CSS` makes a sized card and its root the block's height; `hkCards.typeCss(role)` writes a type
+role as declarations.
+
+**Done** (audited: every size, four looks, nothing clipped):
+
+| Card | Sizes | Layout |
+|---|---|---|
+| `accessory` | S, W | the tall tile's layout (glyph at the top, name and state at the foot), filling the block |
+| `scene` | S, W | the same, the scene's bare glyph and two-line name |
+| `scenes` | W, L, XL | a scene tile per cell: W two, L four, XL six; no heading |
+| `now_playing` | W, T, L | W the cover beside the song and transport; T the cover on top; L the cover beside the song and its speaker, a larger transport along the foot. No progress or volume (the sheet has them) |
+
+**Left:** thermostat, camera, security, timers, weather, calendar, battery, people, vacuum, clock.
 
 ### G4 (2026-10-22)
 

@@ -761,7 +761,50 @@
       ':host([data-hk-light]) hk-plate.np.bar{' + window.hkCards.LIGHT_OFF + '}',
       '@media (min-width:' + (window.hkCards.BP.phone + 1) + 'px){:host([data-hk-light]) hk-plate.np:not(.tall){' + window.hkCards.LIGHT_OFF + '}}',
         '@media (prefers-reduced-motion:reduce){',
-        '  .np .tb,.np .tb:active{transition:none;transform:none}}'
+        '  .np .tb,.np .tb:active{transition:none;transform:none}}',
+        // ======================================== ON A HOME GRID (G2)
+        // A block of its own (docs/phase11/HOME-GRID.md), the plate filling
+        // it at HK's corner, the cover's size from the block's (the cell is a
+        // size container: cqw / cqh are the block's). The song and the
+        // transport only: no progress, volume or player buttons (the sheet
+        // has them, a tap away). Buttons keep 48 px targets.
+        //   W  the cover beside the song, the transport under it
+        //   T  the cover on top, the song and the transport below
+        //   L  the cover beside the song and its speaker, the transport
+        //      along the foot, larger
+        ':host([size]) hk-plate.np{--hk-np-height:100%;--hk-np-pad:16px;border-radius:' + window.hkCards.M.radius + '}',
+        ':host([size]) .np .grid{row-gap:2px;column-gap:var(--hk-np-gap,14px)}',
+        ':host([size]) .np .meta,:host([size]) .np .sub,:host([size]) .np .stop{display:none}',
+        ':host([size]) .np .art{width:var(--np-art);height:var(--np-art);border-radius:' + window.hkCards.R.inner + 'px;box-shadow:0 8px 22px rgba(0,0,0,.4)}',
+        ':host([size]) .np .art .none{font-size:36px}',
+        ':host([size]) .np .title{' + window.hkCards.typeCss('headline') + ';letter-spacing:0;line-height:22px;align-self:end}',
+        ':host([size]) .np .artist{' + window.hkCards.typeCss('body') + ';line-height:19px;letter-spacing:0}',
+        ':host([size]) .np .player{display:none}',
+        ':host([size]) .np .tb{width:48px;height:48px;margin:0;align-self:center;justify-self:center}',
+        ':host([size]) .np .tb hk-icon{width:28px;height:28px;--mdc-icon-size:28px}',
+        ':host([size]) .np .play hk-icon{width:36px;height:36px;--mdc-icon-size:36px}',
+        ':host([size=W]) hk-plate.np{--np-art:calc(100cqh - 32px);',
+        '  --hk-np-cols:var(--np-art) 48px 48px 48px minmax(0,1fr);',
+        '  --hk-np-areas:"art . . . ." "art title title title title" "art artist artist artist artist" "art prev play next .";',
+        '  --hk-np-rows:minmax(0,1fr) min-content min-content 52px}',
+        ':host([size=W]) .np .tb{justify-self:start}',
+        ':host([size=T]) hk-plate.np{--np-art:min(100cqw - 32px, 100cqh - 150px);',
+        '  --hk-np-cols:repeat(3,minmax(0,1fr));',
+        '  --hk-np-areas:"art art art" "title title title" "artist artist artist" ". . ." "prev play next";',
+        '  --hk-np-rows:var(--np-art) min-content min-content minmax(0,1fr) 52px}',
+        ':host([size=T]) .np .art{justify-self:center;margin-bottom:8px}',
+        ':host([size=T]) .np.tall .shade,:host([size=T]) .np .shade{background:linear-gradient(180deg,rgba(8,9,12,.10) 0%,rgba(8,9,12,.30) 45%,rgba(8,9,12,.74) 100%)}',
+        // (L: the transport centred on the middle three tracks; the cover
+        // spans the first two, so it is as wide as the gap beside them allows)
+        ':host([size=L]) hk-plate.np{--hk-np-pad:20px;--np-art:min(100cqh - 40px - 96px, (100cqw - 40px - 248px) / 2 + 78px);',
+        '  --hk-np-cols:minmax(0,1fr) 64px 64px 64px minmax(0,1fr);',
+        '  --hk-np-areas:"art art . . ." "art art title title title" "art art artist artist artist" "art art player player player" ". . . . ." ". prev play next .";',
+        '  --hk-np-rows:minmax(0,1fr) min-content min-content min-content minmax(0,1fr) 64px}',
+        ':host([size=L]) .np .title{' + window.hkCards.typeCss('title') + ';line-height:27px}',
+        ':host([size=L]) .np .player{display:block;' + window.hkCards.typeCss('label-small') + ';padding-top:6px}',
+        ':host([size=L]) .np .tb{width:64px;height:64px}',
+        ':host([size=L]) .np .tb hk-icon{width:32px;height:32px;--mdc-icon-size:32px}',
+        ':host([size=L]) .np .play hk-icon{width:44px;height:44px;--mdc-icon-size:44px}'
       ].join('');
     }
 
