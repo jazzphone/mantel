@@ -67,8 +67,8 @@ OPTS = {"accessory": {"entity": "light.living_room_lamps"}, "scene": {"scene": "
 LONG = " and the Long Way Round"       # the `long` pass: every name this much longer
 
 
-def screen(key: str, look: str) -> str:
-    return f"grid-{key.replace('_', '-')}-{look.replace('_', '-')}"
+def screen(key: str, look: str, bar: bool = True) -> str:
+    return f"grid-{key.replace('_', '-')}-{look.replace('_', '-')}{'' if bar else '-nobar'}"
 
 
 def layout(key: str) -> dict:
@@ -78,12 +78,13 @@ def layout(key: str) -> dict:
     return {"v": 1, "cols": 6, "rows": 4, "frame": [1280, 800], "band": True, "items": items}
 
 
-def settings(keys: list[str], looks: list[str]) -> dict:
+def settings(passes: list[tuple[str, str, bool]]) -> dict:
     s = copy.deepcopy(gallery.SETTINGS)
-    for key in keys:
-        for look in looks:
-            s["boards"][screen(key, look)] = dict(gallery.SETTINGS["boards"][gallery.SCREEN], home_style="grid",
-                                                  home_grid=layout(key), **LOOKS[look])
+    for key, look, bar in passes:
+        # the tab bar (menu "tabbar"): the usual case; without it, the side menu's button
+        s["boards"][screen(key, look, bar)] = dict(gallery.SETTINGS["boards"][gallery.SCREEN], home_style="grid",
+                                                   home_grid=layout(key), menu="tabbar" if bar else "auto",
+                                                   **LOOKS[look])
     return s
 
 
@@ -96,6 +97,15 @@ MEASURE = r"""(() => {
   const se = document.scrollingElement;
   const out = { page_scroll: se.scrollHeight > se.clientHeight + 1 || se.scrollWidth > se.clientWidth + 1,
                 view_scroll: view.scrollHeight > view.clientHeight + 1, cells: [] };
+  // the tab bar: nothing of the grid under it (docs/phase11/HOME-GRID.md, "The tab bar")
+  const bar = document.querySelector('#hk-tabbar') || deep(document, '#hk-tabbar', [])[0];
+  // (its plate: the lowest-starting visible box in it that is bar-shaped -- wide, under 120 px tall)
+  let br = null;
+  if (bar && bar.shadowRoot) for (const el of bar.shadowRoot.querySelectorAll('*')) {
+    if (!el.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true })) continue; const r = el.getBoundingClientRect();
+    if (r.width > 200 && r.height > 30 && r.height < 120 && (!br || r.top < br.top)) br = r; }
+  out.bar = br && br.height > 0 ? [Math.round(br.top), Math.round(br.bottom), Math.round(br.left), Math.round(br.width)] : null;
+  out.under_bar = [];
   const box = r => [Math.round(r.left * 10) / 10, Math.round(r.top * 10) / 10, Math.round(r.width * 10) / 10, Math.round(r.height * 10) / 10];
   const shown = el => el.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true });
   // the boxes between a node and the cell that clip, with whether they end text with an ellipsis
@@ -113,6 +123,7 @@ MEASURE = r"""(() => {
     const rec = { id: cell.getAttribute('data-id'), size: cell.getAttribute('size'), cell: box(c),
                   card: card ? card.localName : null, card_size: card && card.getAttribute('size'), issues: [] };
     out.cells.push(rec);
+    if (br && c.bottom > br.top + 0.5 && c.top < br.bottom) out.under_bar.push(rec.id + ' to ' + Math.round(c.bottom));
     if (!card) { rec.issues.push('no card'); continue; }
     const inside = (r, slack = 0.75) => r.left >= c.left - slack && r.top >= c.top - slack && r.right <= c.right + slack && r.bottom <= c.bottom + slack;
     const walk = (root, fn) => { for (const el of root.querySelectorAll('*')) { fn(el); if (el.shadowRoot) walk(el.shadowRoot, fn); } };
@@ -136,6 +147,9 @@ MEASURE = r"""(() => {
             if (lost > 1.5 && !k.ellipsis && !cut) cut = name(k.el);
             vis = nv; }
           const txt = t.data.trim().slice(0, 30);
+          // a word broken across lines ("Hea / t"): one word, more than one line box
+          if (rs.length > 1 && !/\s/.test(t.data.trim()) && new Set(rs.map(q => Math.round(q.top))).size > 1) {
+            rec.issues.push('a word broken across lines: "' + txt + '"'); break; }
           if (vis.right - vis.left <= 0.5 || vis.bottom - vis.top <= 0.5) { rec.issues.push('text hidden by ' + (cut || 'a box') + ': "' + txt + '"'); break; }
           if (cut) { rec.issues.push('text cut by ' + cut + ': "' + txt + '"'); break; }
           if (!inside(vis)) { rec.issues.push('text outside the cell: "' + txt + '" ' + JSON.stringify(box(r))); break; }
@@ -175,13 +189,14 @@ MEASURE = r"""(() => {
 })()"""
 
 
-async def audit(keys: list[str], looks: list[str], shots: Path | None, long: bool) -> dict:
+async def audit(keys: list[str], looks: list[str], shots: Path | None, long: bool, nobar: list[str]) -> dict:
     gallery.HOUSE.update(EXTRA)
     if long:
         for eid, (area, (state, attrs)) in list(gallery.HOUSE.items()):
             if "friendly_name" in attrs and not eid.startswith("sun."):
                 gallery.HOUSE[eid] = (area, (state, dict(attrs, friendly_name=attrs["friendly_name"] + LONG)))
-    gallery.SETTINGS = settings(keys, looks)
+    passes = [(k, lk, True) for lk in looks for k in keys] + [(k, lk, False) for lk in nobar for k in keys]
+    gallery.SETTINGS = settings(passes)
     report: dict = {}
     with tempfile.TemporaryDirectory(prefix="mantel-grid-audit-") as folder:
         app, cookie = await gallery.build(Path(folder))
@@ -190,29 +205,35 @@ async def audit(keys: list[str], looks: list[str], shots: Path | None, long: boo
             origin = str(server.make_url("")).rstrip("/")
             async with Browser(width=1280, height=800, port=9391) as b:
                 await b.restrict_origin(origin)
-                for look in looks:
+                # the page has the focus, as a wall tablet's does (cameras rest without it: cameras.focus_pause)
+                await b.send("Emulation.setFocusEmulationEnabled", enabled=True)
+                sun = None
+                for key, look, bar in passes:
                     elev = SUN.get(look, 40.0)
-                    hub.store.apply_event({"a": {"sun.sun": {
-                        "s": "above_horizon" if elev > 0 else "below_horizon", "lc": gallery.NOW, "lu": gallery.NOW,
-                        "a": {"friendly_name": "Sun", "elevation": elev, "azimuth": 180.0}}}})
-                    for key in keys:
-                        name = screen(key, look)
-                        mark = len(b.console)
-                        await b.open(f"{origin}/{name}/home", cookie)
-                        await b.wait("window.__mantelReady === true", 30)
-                        await b.wait("""(() => { const d = (r) => { for (const e of r.querySelectorAll('*')) {
-                            if (e.localName === 'hk-home-grid-view') return e; if (e.shadowRoot) { const f = d(e.shadowRoot); if (f) return f; } }
-                            return null; }; const v = d(document); return v && v.shadowRoot.querySelectorAll('.cell').length > 0; })()""", 20)
-                        await asyncio.sleep(2.0)            # pictures, fonts and the sky settle
-                        got = await b.eval(MEASURE)
-                        got["errors"] = [c for c in b.console[mark:] if c.startswith(("EXCEPTION", "error"))][:8]
-                        report.setdefault(key, {})[look] = got
-                        if shots:
-                            await b.screenshot(shots / f"{name}{'-long' if long else ''}.png")
+                    if elev != sun:
+                        sun = elev
+                        hub.store.apply_event({"a": {"sun.sun": {
+                            "s": "above_horizon" if elev > 0 else "below_horizon", "lc": gallery.NOW, "lu": gallery.NOW,
+                            "a": {"friendly_name": "Sun", "elevation": elev, "azimuth": 180.0}}}})
+                    name = screen(key, look, bar)
+                    mark = len(b.console)
+                    await b.open(f"{origin}/{name}/home", cookie)
+                    await b.wait("window.__mantelReady === true", 30)
+                    await b.wait("""(() => { const d = (r) => { for (const e of r.querySelectorAll('*')) {
+                        if (e.localName === 'hk-home-grid-view') return e; if (e.shadowRoot) { const f = d(e.shadowRoot); if (f) return f; } }
+                        return null; }; const v = d(document); return v && v.shadowRoot.querySelectorAll('.cell').length > 0; })()""", 20)
+                    await asyncio.sleep(2.0)            # pictures, fonts and the sky settle
+                    got = await b.eval(MEASURE)
+                    got["errors"] = [c for c in b.console[mark:] if c.startswith(("EXCEPTION", "error"))][:8]
+                    report.setdefault(key, {})[look + ("" if bar else " (no bar)")] = got
+                    if shots:
+                        await b.screenshot(shots / f"{name}{'-long' if long else ''}.png")
     return report
 
 
 def summary(report: dict) -> tuple[int, list[str]]:
+    """(problems, lines). A screen's own problems (the page scrolls, a block under the tab bar) are the view's,
+    printed once as VIEW; each block's are its card's."""
     lines, bad = [], 0
     for key, by_look in report.items():
         for look, got in by_look.items():
@@ -220,18 +241,22 @@ def summary(report: dict) -> tuple[int, list[str]]:
                 bad += 1
                 lines.append(f"FAIL {key:12} {look:10} {got['error']}")
                 continue
-            head = []
+            view = []
             if got["page_scroll"]:
-                head.append("the page scrolls")
+                view.append("the page scrolls")
             if got["view_scroll"]:
-                head.append("the view scrolls")
-            head += [f"script error: {e}" for e in got.get("errors", [])]
+                view.append("the view scrolls")
+            view += [f"script error: {e}" for e in got.get("errors", [])]
+            if got.get("under_bar"):
+                view.append("under the tab bar: " + ", ".join(got["under_bar"]))
+            if view:
+                bad += 1
+                lines.append(f"VIEW {key:12} {look:19} " + "; ".join(view))
             for cell in got["cells"]:
-                issues = head + cell["issues"]
-                head = []
+                issues = cell["issues"]
                 status = "FAIL" if issues else "ok  "
                 bad += bool(issues)
-                lines.append(f"{status} {key:12} {look:10} {cell['size']:2} {cell['card'] or '-':28} "
+                lines.append(f"{status} {key:12} {look:19} {cell['size']:2} {cell['card'] or '-':28} "
                               f"{cell['cell'][2]:.0f}x{cell['cell'][3]:.0f} texts {cell.get('texts', 0)}")
                 lines += [f"       - {i}" for i in issues]
     return bad, lines
@@ -246,6 +271,8 @@ def main(argv=None) -> int:
     ap.add_argument("--shots", type=Path, help="a folder for one screenshot per card and look")
     ap.add_argument("--json", type=Path, help="write the measurements here")
     ap.add_argument("--long", action="store_true", help="every name twice as long")
+    ap.add_argument("--no-bar", nargs="*", choices=list(LOOKS), default=["flat_dark"], dest="nobar",
+                    help="looks to run once more with the tab bar hidden (default: Flat Dark)")
     a = ap.parse_args(argv)
     keys = a.only or G2
     unknown = [k for k in keys if k not in HG.CATALOG]
@@ -253,12 +280,13 @@ def main(argv=None) -> int:
         ap.error(f"not in the catalog: {unknown}")
     if a.shots:
         a.shots.mkdir(parents=True, exist_ok=True)
-    report = asyncio.run(audit(keys, a.looks, a.shots, a.long))
+    report = asyncio.run(audit(keys, a.looks, a.shots, a.long, a.nobar))
     if a.json:
         a.json.write_text(json.dumps(report, indent=1))
     bad, lines = summary(report)
     print("\n".join(lines))
-    print(f"{'FAIL' if bad else 'ok'}: {bad} block(s) with a problem, {len(keys)} card(s) x {len(a.looks)} look(s)")
+    print(f"{'FAIL' if bad else 'ok'}: {bad} block(s) with a problem, {len(keys)} card(s) x {len(a.looks)} look(s)"
+          f" with the tab bar, x {len(a.nobar)} without")
     return 1 if bad else 0
 
 

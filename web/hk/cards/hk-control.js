@@ -328,6 +328,18 @@ class HkControlCard extends HTMLElement {
          straight vertical stroke; that scrolls, which is the right answer
          far more often than it is the wrong one. */
       .tstat{padding:20px 20px 16px;display:flex;flex-direction:column;align-items:center;gap:2px}
+      /* ON A HOME GRID (docs/phase11/HOME-GRID.md, G2): T and L, the plate
+         filling the block and the dial as large as the block leaves it -- its
+         width less the padding, or its height less the name, the reading and
+         the mode row (cqw / cqh are the block's: the cell is a size container).
+         At T the setpoint is the figure role (30), not 46. */
+      :host([size]){height:100%}
+      :host([size]) .surface.tstat{height:100%;justify-content:center;padding:16px}
+      :host([size=T]){--hk-tstat-ring:min(100cqw - 32px, (100cqh - 150px) * 1.163);--hk-tstat-val:30px;--hk-tstat-gap:10px;
+        --hk-tstat-seg-font:11px;--hk-tstat-fan-font:11px}
+      :host([size=T]) .tstat-sub{max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+      :host([size=T]) .tstat-modes .segment,:host([size=T]) .tstat-fan .segment{padding:0 2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+      :host([size=L]){--hk-tstat-ring:min(100cqw - 32px, (100cqh - 150px) * 1.163)}
       .tstat-name{font-size:19px;font-weight:730;letter-spacing:-.4px;text-align:center;
         white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
       .tstat-sub{font-size:13.5px;font-weight:560;color:${window.hkCards.v('ink-2')};margin-top:2px}

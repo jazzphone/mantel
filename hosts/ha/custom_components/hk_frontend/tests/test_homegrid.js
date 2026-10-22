@@ -36,7 +36,7 @@ var ctx = { cameras: ['camera.front_door', 'camera.yard'], climate: ['climate.ha
 var cam = G.config({ card: 'camera', size: 'L', pages: { source: 'cameras' } }, ctx);
 ok('a camera block with no camera of its own: the house\'s cameras', cam.type === 'custom:hk-camera-mosaic-card' && cam.cameras.length === 2);
 var th = G.config({ card: 'thermostat', size: 'T', pages: { source: 'thermostats', start: 'tablet_room' } }, ctx);
-ok('a thermostat block: the house\'s first thermostat', th.type === 'custom:hk-climate-card' && th.entity === 'climate.hallway');
+ok('a thermostat block: the house\'s first thermostat', th.type === 'custom:hk-control-card' && th.entity === 'climate.hallway');
 var np = G.config({ card: 'now_playing', size: 'L', opts: { speaker: 'tablet_room' } }, ctx);
 ok('the tablet\'s room is not an entity (resolved by G3/G4)', np.type === 'custom:hk-now-playing-card' && !np.entity);
 var sc = G.config({ card: 'scenes', size: 'W', pages: { source: 'list', list: [{ opts: { scenes: ['scene.dinner'] } }, { opts: { scenes: ['scene.good_night'] } }] } }, ctx);
