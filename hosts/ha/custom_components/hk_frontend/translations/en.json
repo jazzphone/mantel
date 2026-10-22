@@ -80,7 +80,8 @@
       "mantel_url_invalid": "Enter Mantel's address, starting with https:// (or http://, ws://, wss://), with no user name or query.",
       "mantel_token_required": "Paste the Service credential Mantel gave you.",
       "mantel_url_insecure": "Use https:// (or wss://) for an address on the network: over plain http the credential would cross it in clear. Plain http is accepted only for this machine (127.0.0.1) or an App on Home Assistant's internal network (http://local-mantel:8099).",
-      "mantel_url_not_internal": "That App name does not resolve to Home Assistant's internal App network (172.30.32.0/23), so plain http is refused: the credential would leave this machine in clear. Check the App's hostname, or use https://."
+      "mantel_url_not_internal": "That App name does not resolve to Home Assistant's internal App network (172.30.32.0/23), so plain http is refused: the credential would leave this machine in clear. Check the App's hostname, or use https://.",
+      "mantel_token_invalid": "That isn't a Mantel Service credential (they start with msvc_). If your browser filled a saved password in here, clear the box: left empty, the credential already saved is kept."
     }
   },
   "issues": {

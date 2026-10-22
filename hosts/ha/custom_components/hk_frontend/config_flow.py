@@ -21,6 +21,7 @@ pick from once there is more than one.
 """
 from __future__ import annotations
 
+import re
 from typing import Any
 
 import voluptuous as vol
@@ -40,6 +41,10 @@ from .const import CONF_FILES_FOLDER, CONF_MANTEL_LINK, CONF_MANTEL_OWNERS, DEFA
 from .features import alarm_pin, clean_areas, energy, live_tv, music, notifications
 from .features.music.const import SUB_PLAYLIST, SUB_PRESET
 from .features.music.flows import PlaylistFlow, PresetFlow
+
+
+# a Mantel Service credential, as Mantel makes them (its service_accounts._TOKEN)
+SERVICE_TOKEN = re.compile(r"^msvc_[0-9a-f]{16}_[A-Za-z0-9_-]{43}$")
 
 
 def _entity(domain: str | list[str], multiple: bool = False,
@@ -663,11 +668,16 @@ class HkOptionsFlow(OptionsFlow):
                 data.pop(CONF_MANTEL_OWNERS, None)
             else:
                 url = str(user_input.get("url") or "").strip()
-                token = str(user_input.get("token") or "").strip() or (now or {}).get("token", "")
+                typed = str(user_input.get("token") or "").strip()
+                token = typed or (now or {}).get("token", "")
                 if bad := await linked_mode.check_url(url):
                     errors["url"] = bad
                 if not token:
                     errors["token"] = "mantel_token_required"
+                elif typed and not SERVICE_TOKEN.match(typed):
+                    # not a Mantel Service credential -- often a password the browser filled into the box: refused,
+                    # so the saved credential is never replaced by it (the house, 2026-10-21)
+                    errors["token"] = "mantel_token_invalid"
                 if not errors:
                     data[CONF_MANTEL_LINK] = {"url": url, "token": token}
             if not errors:
@@ -681,7 +691,7 @@ class HkOptionsFlow(OptionsFlow):
             vol.Optional("enabled", default=now is not None): bool,
             vol.Optional("url", default=(now or {}).get("url") or await linked_mode.suggested_url(self.hass)): str,
             vol.Optional("token", default=""): sel.TextSelector(
-                sel.TextSelectorConfig(type=sel.TextSelectorType.PASSWORD)),
+                sel.TextSelectorConfig(type=sel.TextSelectorType.PASSWORD, autocomplete="off")),
         }), description_placeholders={"state": linked_mode.describe(entry)})
 
     async def async_step_files(self, user_input: dict[str, Any] | None = None

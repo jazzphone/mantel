@@ -395,3 +395,17 @@ async def test_the_feed_names_mantel_settings_for_setting_a_feature_up(hass, bas
     from custom_components.hk_frontend import linked_mode
     assert linked_mode.mirrored(hass)["places"]["HK Frontend → Add feature"] == "Mantel Settings → Features"
     await _unload(hass, e)
+
+
+async def test_a_password_the_browser_filled_in_never_replaces_the_credential(hass, base, mantel):
+    """Linked to Mantel's credential box is a password field: a browser may fill a saved password into it. That
+    isn't a Mantel Service credential, so it is refused and the saved one kept (the house, 2026-10-21)."""
+    e = await _linked(hass, mantel)
+    flows = hass.config_entries.options
+    r = await flows.async_init(e.entry_id)
+    r = await flows.async_configure(r["flow_id"], {"next_step_id": "linked"})
+    r = await flows.async_configure(r["flow_id"], {"enabled": True, "url": mantel.url, "token": "a-saved-password-12345"})
+    assert r["type"] == "form" and r["errors"] == {"token": "mantel_token_invalid"}
+    from conftest import entry as house
+    assert house(hass).data["mantel_link"]["token"].startswith("msvc_"), "the saved credential is kept"
+    await _unload(hass, e)

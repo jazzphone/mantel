@@ -129,7 +129,7 @@ class ServiceAccounts:
         if row is None:
             raise ServiceAccountError("no such service account")
         now = set(json.loads(row["scopes"]))
-        new = now | {scope} if on else now - {scope}
+        new = (now | {scope}) if on else (now - {scope})
         if new == now:
             return False
         scopes = self._scopes(new)

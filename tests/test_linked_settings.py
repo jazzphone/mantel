@@ -395,3 +395,17 @@ async def test_a_relayed_read_is_never_sent_back_to_home_assistant(make_env):
     assert frames[0]["result"] == {"configured": False, "channels": []}
     assert "hk_tv/channels" not in asked
     await ws.close()
+
+
+def test_a_scope_turned_off_is_off(make_env):
+    """service_accounts.set_scope: `a | {s} if on else a - {s}` read as `a | ({s} if on else a - {s})`, so turning
+    Changes from Home Assistant off changed nothing."""
+    import sqlite3
+    from mantel_server.service_accounts import ServiceAccounts, ensure_schema
+    db = sqlite3.connect(":memory:")
+    db.row_factory = sqlite3.Row
+    ensure_schema(db)
+    sa = ServiceAccounts(db)
+    acct, _ = sa.create("ha", ["linked", "linked_saves"])
+    assert sa.set_scope(acct.id, "linked_saves", False) is True
+    assert next(a for a in sa.list() if a["id"] == acct.id)["scopes"] == ["linked"]
