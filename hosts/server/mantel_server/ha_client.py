@@ -418,6 +418,7 @@ class HaTalkLink:
         self._stopped = False
         self._early: dict | None = None             # an event HA sent before its result
         self.sub_id = self.SUB_ID                   # the subscription HA took (Mantel Link's, or HK Frontend's)
+        self._connecting: asyncio.Future | None = None
 
     def __repr__(self) -> str:  # never the token
         return f"HaTalkLink({self.entity_id!r}, rate={self.rate}, frames={self.frames})"
@@ -426,12 +427,14 @@ class HaTalkLink:
     def closed(self) -> bool:
         return self._ws is None or self._ws.closed
 
-    async def open(self) -> None:
-        """Connect, authenticate, subscribe; returns once HA accepted the subscription. Raises
-        HaCommandError with HA's code when it refused (``not_supported``: not a Protect speaker)."""
-        if self._opened:
-            raise CommandBlocked("a talk link opens once")
-        self._opened = True
+    async def connect(self) -> None:
+        """Connect and authenticate, nothing more: the relay does this while the page's own socket is still
+        opening (talk_relay.TalkRelay.issue), so a press waits only on the subscription. Once."""
+        if self._connecting is None:
+            self._connecting = asyncio.ensure_future(self._connect())
+        await asyncio.shield(self._connecting)
+
+    async def _connect(self) -> None:
         self._http = aiohttp.ClientSession()
         try:
             ws = await self._http.ws_connect(self.ws_url, max_msg_size=1 << 20, heartbeat=30)
@@ -442,6 +445,31 @@ class HaTalkLink:
             await ws.send_json({"type": "auth", "access_token": self._token})
             if (await asyncio.wait_for(ws.receive_json(), self.timeout)).get("type") != "auth_ok":
                 raise HaCommandError("unavailable", "Home Assistant rejected Mantel's credential")
+        except BaseException:
+            await self.close()
+            raise
+
+    def set_rate(self, rate: int) -> None:
+        """The page's own rate, known only when it subscribes (the link was made with a likely one, to
+        connect early). One of TALK_RATES, and only before the subscription."""
+        if self._opened:
+            raise CommandBlocked("the rate is set before the subscription")
+        if not isinstance(rate, int) or isinstance(rate, bool) or rate not in TALK_RATES:
+            raise CommandBlocked(f"rate is one of {list(TALK_RATES)}")
+        self.rate, self.frame_max = rate, talk_frame_max(rate)
+
+    async def open(self) -> None:
+        """Connect and authenticate (unless connect() already did), subscribe; returns once HA accepted the
+        subscription. Raises HaCommandError with HA's code when it refused (``not_supported``: not a
+        Protect speaker)."""
+        if self._opened:
+            raise CommandBlocked("a talk link opens once")
+        self._opened = True
+        try:
+            await self.connect()
+            ws = self._ws
+            if ws is None or ws.closed:
+                raise HaCommandError("unavailable", "Home Assistant closed the talk socket")
             for n, (sub, kind) in enumerate(zip(self.SUB_IDS, TALK_LIVE_TYPES)):
                 self.sub_id = sub
                 await ws.send_json({"id": sub, "type": kind, "entity_id": self.entity_id, "rate": self.rate})

@@ -2826,9 +2826,13 @@
       // also shuts the live session: see there. (_liveStart below defines it
       // before anything else, so it exists before this can fire.)
       this._talkUi('wait');
+      // A HOST WITH MORE STEPS TO THE DOORBELL says how long to wait (actions.liveWaitMs): through Mantel a
+      // press also passes its gateway and a socket of its own, and 1.5 s gave up on live there (2026-10-22)
+      var act0 = this.client && this.client.actions;
+      var wait = act0 && typeof act0.liveWaitMs === 'number' && act0.liveWaitMs > 0 ? Math.min(act0.liveWaitMs, 8000) : LIVE_WAIT_MS;
       s.liveT = setTimeout(function () {
-        if (!s.live && !s.ended) s.fail('not listening after ' + LIVE_WAIT_MS + ' ms');
-      }, LIVE_WAIT_MS);
+        if (!s.live && !s.ended) s.fail('not listening after ' + wait + ' ms');
+      }, wait);
       this._liveStart(s, stream);
     }
 

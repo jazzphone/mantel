@@ -33,6 +33,7 @@ class FakeHa:
 
     def __init__(self):
         self.conns: list[list] = []
+        self.live = 0                                # connections still open
         self.refuse: dict[str, str] = {}             # entity -> HA's error message (not_supported)
         self.fail_after: int | None = None           # send {"error"} after this many frames
         self.server = None
@@ -45,6 +46,13 @@ class FakeHa:
         await ws.prepare(request)
         seen: list = []
         self.conns.append(seen)
+        self.live += 1
+        try:
+            return await self._serve(ws, seen)
+        finally:
+            self.live -= 1
+
+    async def _serve(self, ws, seen):
         await ws.send_json({"type": "auth_required", "ha_version": "fictional"})
         auth = await ws.receive_json()
         seen.append(auth)
@@ -78,6 +86,10 @@ class FakeHa:
                     await ws.send_json({"id": 1, "type": "event", "event": {"error": "talkback session ended"}})
         return ws
 
+    def subscribed(self):
+        """The connections Mantel sent anything but its sign-in on (it connects while the page does)."""
+        return [c for c in self.conns if c[1:]]
+
     def binaries(self, i=-1):
         return [f for f in self.conns[i] if isinstance(f, bytes)] if self.conns else []
 
@@ -93,6 +105,8 @@ async def ha(gw):
         gw.fake.talk_link = real.talk_link           # the fake command connection gains the real talk path
         fake.server = server
         yield fake
+        if gw.app.get("talk") is not None:
+            await gw.app["talk"].close()             # a ticket never used: its early socket to HA goes
         await real.close()
 
 
@@ -126,6 +140,11 @@ async def closed(ws, timeout=3):
     while m.type not in (WSMsgType.CLOSE, WSMsgType.CLOSED, WSMsgType.CLOSING):
         m = await asyncio.wait_for(ws.receive(), timeout)
     return ws.close_code
+
+
+async def let_go(ha):
+    """Nothing but Mantel's early sign-in reached Home Assistant, and that socket was closed again."""
+    return not ha.subscribed() and await until(lambda: ha.live == 0)
 
 
 async def until(cond, timeout=3):
@@ -197,7 +216,7 @@ async def test_the_ticket_is_single_use(gw, ha):
     again = await open_talk(gw, tok)
     assert (await recv(again))["type"] == "auth_invalid"
     assert await closed(again) == 1008
-    assert ha.conns == []
+    assert await let_go(ha)
     await hub.close()
 
 
@@ -214,7 +233,7 @@ async def test_the_ticket_expires(gw, ha):
     rows = {r["id"]: r for r in gw.audit()}
     assert rows[first["audit_id"]]["result"] == "error:ticket_expired"
     assert rows[unused["audit_id"]]["result"] == "error:ticket_unused"
-    assert ha.conns == []
+    assert await let_go(ha)
     await hub.close()
 
 
@@ -227,7 +246,7 @@ async def test_a_ticket_is_bound_to_who_asked(gw, ha):
     await gw.login("jordan", "adult")        # another person's cookies
     ws = await open_talk(gw, reply["result"]["ticket"])
     assert (await recv(ws))["type"] == "auth_invalid"
-    assert ha.conns == [] and gw.audit(id=reply["audit_id"])[0]["result"] == "error:ticket_other_identity"
+    assert await let_go(ha) and gw.audit(id=reply["audit_id"])[0]["result"] == "error:ticket_other_identity"
 
 
 async def test_garbage_tokens_are_refused(gw, ha):
@@ -239,7 +258,7 @@ async def test_garbage_tokens_are_refused(gw, ha):
     await recv(ws)
     await ws.send_json({"type": "auth", "access_token": "x", "extra": 1})
     assert (await recv(ws))["type"] == "auth_invalid"
-    assert ha.conns == []
+    assert await let_go(ha)
 
 
 # -- the subscription and the frames ---------------------------------------------------------------
@@ -265,7 +284,7 @@ async def test_another_speaker_is_refused_and_nothing_opened(gw, ha):
     r = await subscribe(ws, speaker="media_player.kitchen")
     assert r["success"] is False and r["error"]["code"] == "not_allowed" and r["id"] == 2
     assert await closed(ws) == 1008
-    assert ha.conns == [] and gw.audit(id=reply["audit_id"])[0]["result"] == "refused:other_speaker"
+    assert await let_go(ha) and gw.audit(id=reply["audit_id"])[0]["result"] == "refused:other_speaker"
     await hub.close()
 
 
@@ -286,7 +305,7 @@ async def test_only_the_one_subscription_is_accepted(gw, ha, sub):
     await ws.send_json(sub)
     r = await recv(ws)
     assert r["type"] == "result" and r["success"] is False
-    assert await closed(ws) == 1008 and ha.conns == []
+    assert await closed(ws) == 1008 and await let_go(ha)
     await hub.close()
 
 
@@ -346,7 +365,7 @@ async def test_one_live_talk_per_person_at_a_time(gw, ha):
     await recv(ws2)
     r = await subscribe(ws2)
     assert r["success"] is False and r["error"]["code"] == "busy"
-    assert len(ha.conns) == 1 and gw.audit(id=second["audit_id"])[0]["result"] == "refused:busy"
+    assert len(ha.subscribed()) == 1 and gw.audit(id=second["audit_id"])[0]["result"] == "refused:busy"
     await ws.close()
     await hub.close()
 
@@ -634,4 +653,23 @@ async def test_hks_worker_falls_back_when_live_cannot_start(gw, ha):
     assert got["sent"] == 0 and got["said"] and "error" in got["said"][0]       # the card: s.fail -> the clip
     r = await gw.command(hub, id=7, **talk())                                    # and the clip still goes
     assert r["result"] == {"ok": True, "bytes": len(CLIP)}
+    await hub.close()
+
+
+async def test_home_assistant_s_socket_is_ready_before_the_page_opens_its_own(gw, ha):
+    """A press waited on the gateway, the page's socket, then Mantel's own socket to HA, one after the other, and
+    the card gave up on live after 1.5 s (the house, 2026-10-22): Mantel connects and signs in to HA as the ticket
+    is issued, and the subscription (at the page's own rate) is all that is left when the page arrives."""
+    add_speaker(gw)
+    await gw.login("avery", "owner")
+    hub = await gw.socket()
+    tok = (await ticket(gw, hub))["result"]["ticket"]
+    assert await until(lambda: ha.conns == [[{"type": "auth", "access_token": HA_TOKEN}]])   # signed in, nothing else
+    ws = await open_talk(gw, tok)
+    assert (await recv(ws))["type"] == "auth_ok"
+    assert (await subscribe(ws, rate=44100))["success"] is True
+    assert (await recv(ws))["event"]["handler_id"] == 1
+    (conn,) = ha.conns                                           # the same socket, not a second one
+    assert conn[1] == {"id": 1, "type": "mantel/talk/live", "entity_id": SPEAKER, "rate": 44100}
+    await ws.close()
     await hub.close()

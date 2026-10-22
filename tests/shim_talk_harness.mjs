@@ -51,6 +51,7 @@ async function outcome(p) {
 // commands on
 hkMantelClient.useCommands(fakeHub(true));
 let act = hkMantelClient.from(snapshot()).actions;
+out.liveWaitMs = act.liveWaitMs;                   // what the card's wait for the doorbell reads
 replies = [{ type: 'command_result', result: { ok: true, bytes: clip.length }, audit_id: 4 }];
 out.ok = await outcome(card(act, SPEAKER, new Blob([clip], { type: 'audio/webm;codecs=opus' })));
 out.okSent = sent.splice(0);

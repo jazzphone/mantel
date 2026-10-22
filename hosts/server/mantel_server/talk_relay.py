@@ -25,7 +25,8 @@ On Mantel (only while the operator turned commands on):
    HA's talk_live accepts. One live talk per person and per tablet at a time (``busy``).
 4. Mantel opens its own HA socket for it (``HaCommander.talk_link`` -> ``ha_client.HaTalkLink``: the
    credential stays there; the link can send only that subscription, that speaker's binary frames
-   and one unsubscribe). HA's answers are relayed with the client's id; HA's handler id is replaced
+   and one unsubscribe). It is made and starts connecting and authenticating when the ticket is
+   issued, while the page opens its own socket; the subscription waits only on the doorbell. HA's answers are relayed with the client's id; HA's handler id is replaced
    by CLIENT_HID, and the client's frames must carry CLIENT_HID.
 5. Binary frames: [CLIENT_HID][even-length PCM up to TALK_FRAME_MS at the rate]; anything else closes
    the socket (1008). Rate-capped: at most RATE_SLACK x the declared PCM rate with BURST_S of burst;
@@ -59,6 +60,7 @@ log = logging.getLogger("mantel.talk")
 PATH = "/ws/talk"
 TICKET_TTL = 10.0           # seconds between the gateway's answer and the Worker's auth
 MAX_SESSION = 120.0         # talk_live.py's own MAX_SESSION_S: a stuck button never holds the door open
+LIKELY_RATE = 48000         # a tablet's AudioContext: Home Assistant's socket is made with it, set again at the subscription
 AUTH_TIMEOUT = 10.0         # for the auth frame and the subscription
 CLIENT_HID = 1              # the handler id the page is given (HA's own is never shown)
 RATE_SLACK = 1.25           # bytes/s allowed over the declared PCM rate
@@ -89,6 +91,8 @@ class Ticket:
     who: tuple
     keys: frozenset
     expires: float
+    link: Any = None                    # Home Assistant's socket for it, connecting already (issue)
+    issued: float = field(default_factory=time.monotonic)
 
 
 class Bucket:
@@ -118,6 +122,8 @@ class Stream:
     close_code: int = 1000
     dropped: int = 0
     started: float = field(default_factory=time.monotonic)
+    issued: float = 0.0                 # when the gateway issued its ticket (monotonic)
+    subscribed: float | None = None     # when Home Assistant took the subscription
 
 
 class TalkRelay:
@@ -140,12 +146,47 @@ class TalkRelay:
 
     # -- tickets (the gateway's side) ---------------------------------------------------------------
     def issue(self, principal: Principal, speaker: str, audit_id: int) -> dict:
-        """The gateway's answer to an allowed talk_live command (its audit row already written)."""
+        """The gateway's answer to an allowed talk_live command (its audit row already written). Home
+        Assistant's socket for it starts connecting now, while the page opens its own: a press waited on
+        the two one after the other, and gave up on live after 1.5 s (2026-10-22)."""
         self.sweep()
         token = secrets.token_urlsafe(32)
-        self.tickets[token] = Ticket(speaker, audit_id, _who(principal), _keys(principal),
-                                     self.clock() + self.ticket_ttl)
+        ticket = Ticket(speaker, audit_id, _who(principal), _keys(principal), self.clock() + self.ticket_ttl)
+        commander = self.commander
+        if commander is not None and hasattr(commander, "talk_link"):
+            try:
+                ticket.link = commander.talk_link(speaker, LIKELY_RATE, CommandTicket(audit_id, "talk"))
+                self._spawn(self._preconnect(ticket.link))
+                # an unused ticket's socket goes when the ticket does, not at the next policy tick
+                asyncio.get_running_loop().call_later(self.ticket_ttl + 0.5, self.sweep)
+            except (CommandBlocked, RuntimeError):
+                ticket.link = None              # _run refuses it as before
+        self.tickets[token] = ticket
         return {"ticket": token, "expires_in": int(self.ticket_ttl)}
+
+    async def _preconnect(self, link) -> None:
+        if not hasattr(link, "connect"):
+            return
+        try:
+            await link.connect()
+        except Exception:  # noqa: BLE001 -- open() says so at the subscription
+            pass
+
+    def _spawn(self, coro) -> None:
+        try:
+            task = asyncio.get_running_loop().create_task(coro)
+        except RuntimeError:                     # no loop (a bare test): nothing was connected
+            coro.close()
+            return
+        self.tasks.add(task)
+        task.add_done_callback(self.tasks.discard)
+
+    async def close(self) -> None:
+        """Mantel stopping: every unused ticket's Home Assistant socket is let go."""
+        for token, t in list(self.tickets.items()):
+            del self.tickets[token]
+            if t.link is not None:
+                await t.link.close()
 
     def sweep(self) -> None:
         now = self.clock()
@@ -153,17 +194,20 @@ class TalkRelay:
             if t.expires <= now:
                 del self.tickets[token]
                 self._finish(t.audit_id, "error:ticket_unused")
+                if t.link is not None:
+                    self._spawn(t.link.close())
 
     def spend(self, token: Any, principal: Principal) -> tuple[Ticket | None, str]:
         t = self.tickets.pop(token, None) if isinstance(token, str) else None
         if t is None:
             return None, "unknown_ticket"
-        if t.expires <= self.clock():
-            self._finish(t.audit_id, "error:ticket_expired")
-            return None, "ticket_expired"
-        if t.who != _who(principal):
-            self._finish(t.audit_id, "error:ticket_other_identity")
-            return None, "ticket_other_identity"
+        bad = ("ticket_expired" if t.expires <= self.clock() else
+               "ticket_other_identity" if t.who != _who(principal) else None)
+        if bad is not None:
+            self._finish(t.audit_id, "error:" + bad)
+            if t.link is not None:
+                self._spawn(t.link.close())
+            return None, bad
         return t, "ok"
 
     def _finish(self, audit_id: int, result: str) -> None:
@@ -203,6 +247,9 @@ class TalkRelay:
             log.info("live talk: the page's socket went away (%s)", type(exc).__name__)
         finally:
             self._finish(ticket.audit_id, result)
+            if ticket.link is not None:          # refused before the link was taken: let it go
+                link, ticket.link = ticket.link, None
+                await link.close()
             if not ws.closed:
                 await ws.close(code=code)
 
@@ -233,12 +280,20 @@ class TalkRelay:
             return await refuse("busy", "a live talk is already open for this person or tablet", "refused:busy")
         commander = self.commander
         if commander is None or not hasattr(commander, "talk_link"):
+            if ticket.link is not None:
+                await ticket.link.close()
             return await refuse("not_allowed", "commands are disabled", "refused:commands_disabled")
         try:
-            link = commander.talk_link(ticket.speaker, rate, CommandTicket(ticket.audit_id, "talk"))
+            link, ticket.link = ticket.link, None
+            if link is None:
+                link = commander.talk_link(ticket.speaker, rate, CommandTicket(ticket.audit_id, "talk"))
+            elif link.rate != rate:
+                link.set_rate(rate)
         except CommandBlocked as exc:
+            if link is not None:
+                await link.close()
             return await refuse("not_allowed", str(exc)[:200], "refused:blocked")
-        stream = Stream(ws, principal, ticket.speaker)
+        stream = Stream(ws, principal, ticket.speaker, issued=ticket.issued)
         for k in keys:
             self.active[k] = stream
         self.streams.add(stream)
@@ -251,6 +306,7 @@ class TalkRelay:
                 log.warning("live talk: Home Assistant not reachable (%s)", type(exc).__name__)
                 return await refuse("unavailable", "Home Assistant is not reachable", "error:unavailable")
             await ws.send_json({"id": sid, "type": "result", "success": True, "result": None})
+            stream.subscribed = time.monotonic()
             result = await self._pump(ws, link, sid, rate, stream)
             log.info("live talk on %s: %.1f s, %d frames, %d dropped (%s)", ticket.speaker,
                      time.monotonic() - stream.started, link.frames, stream.dropped, result)
@@ -275,6 +331,11 @@ class TalkRelay:
                     return "error:ha_closed"
                 if not told and link.handler_id is not None and "handler_id" in ev:
                     told = True
+                    # how long a press waited for the doorbell, and on what (the card gives up on live
+                    # after its own wait): from the gateway's ticket, and from Home Assistant's subscription
+                    now = time.monotonic()
+                    log.info("live talk on %s listening %.0f ms after the ticket (the doorbell took %.0f ms)",
+                             stream.speaker, (now - stream.issued) * 1000, (now - (stream.subscribed or now)) * 1000)
                     await ws.send_json({"id": sid, "type": "event", "event": {
                         "handler_id": CLIENT_HID, "rate": link.info.get("rate"), "codec": link.info.get("codec")}})
                 elif isinstance(ev.get("error"), str):
@@ -371,4 +432,8 @@ def register(app: web.Application, audit, authz, clock: Callable[[], float]) -> 
     app.router.add_get(PATH, socket_handler)
     relay = TalkRelay(app, audit, authz, clock) if app.get("gateway") is not None else None
     app["talk"] = relay
+    if relay is not None:
+        async def cleanup(_app: web.Application) -> None:
+            await relay.close()
+        app.on_cleanup.append(cleanup)
     return relay

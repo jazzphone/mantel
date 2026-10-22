@@ -95,3 +95,11 @@ def test_the_shared_card_is_unchanged():
     assert "body_b64" not in cams and "content_type" not in cams
     assert "act.liveSocket(this._config.speaker)" in cams          # the one change: the speaker is named
     assert "access_token: d.token" in cams and "type: 'hk_frontend/talk/live', entity_id: d.entity_id" in cams
+
+
+def test_the_card_waits_longer_for_the_doorbell_through_mantel(observed):
+    """A press through Mantel also passes its gateway and /ws/talk, and the card's 1.5 s gave up on live there
+    (the house, 2026-10-22): Mantel's actions say how long to wait, through HKClient's action port."""
+    assert observed["liveWaitMs"] == 4000
+    card = (ROOT / "web/hk/cards/hk-cameras.js").read_text(encoding="utf-8")
+    assert "act0.liveWaitMs" in card and "LIVE_WAIT_MS = 1500" in card, "HK in Home Assistant keeps its own wait"

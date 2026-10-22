@@ -89,6 +89,8 @@
   //    streams `hk_frontend/talk/live` for `speaker` from a worker): resolves {url, token()} once any
   //    expired credentials are refreshed (HA: its own socket and token, the speaker unused; Mantel: its
   //    /ws/talk and a one-time ticket for that speaker). Refused, nothing is opened.
+  //  * liveWaitMs: how long the card waits for that socket to start listening before it sends the
+  //    recorded clip instead (Mantel's path has more steps; HA gives none, and the card waits 1.5 s).
   function actionPort(port) {
     var act = port.actions && typeof port.actions === 'object' ? port.actions : null;
     function refuse(detail) {
@@ -121,7 +123,10 @@
           return refuse({ kind: 'socket', what: 'live socket' });
         }
         return act.liveSocket.apply(act, arguments);
-      }
+      },
+      // how long that socket may take to start listening, where the host's path to the doorbell is
+      // longer than HA's own (ms; undefined: the card's own wait)
+      get liveWaitMs() { return act && typeof act.liveWaitMs === 'number' ? act.liveWaitMs : undefined; }
     });
   }
   var current = null;     // the newest client: what hkLocale (below) reads the house's language and zone from

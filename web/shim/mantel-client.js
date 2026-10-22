@@ -145,6 +145,9 @@
       // command (the same rules as the clip). Anything but a ticket -- refused, commands off, no
       // speaker -- is refused QUIETLY (`live_unavailable`, no toast): the card then sends its
       // recorded clip through `request`, which says any refusal itself.
+      // ...and the card waits this long for the doorbell to listen before it sends the clip instead: a press
+      // here passes the gateway and /ws/talk before Home Assistant (HK in Home Assistant waits 1.5 s)
+      liveWaitMs: 4000,
       liveSocket: function (speaker) {
         if (typeof speaker !== 'string' || !SPEAKER.test(speaker) || typeof hub.talkUrl !== 'function') {
           return Promise.reject(fail('live_unavailable', 'live talk needs the doorbell speaker; the clip is sent instead'));
