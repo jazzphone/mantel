@@ -446,16 +446,19 @@ def check_csrf(request: web.Request, ident: Identity) -> None:
 
 
 def legacy_user(ident: Identity) -> dict:
-    """The request["user"] dict Phase 0 handlers read (``/api/me``)."""
+    """The request["user"] dict Phase 0 handlers read (``/api/me``). `room`: the device's room as an area id (a Home
+    Grid's ``tablet_room``), None without a device."""
+    from .devices import room_id                 # devices.py imports this module
+    room = room_id(ident.device.room) if ident.device else None
     if ident.user is not None:
         u = ident.user
         return {"ha_user_id": u.ha_user_id, "name": u.name, "role": u.role, "user_id": u.id,
-                "device_id": ident.device.id if ident.device else None}
+                "device_id": ident.device.id if ident.device else None, "room": room}
     d = ident.device
     # a tablet that is its own HA user (HA App mode) reads as that HA user, as HK in HA saw it: HK finds
     # "which tablet am I" by its Tablet User's name (web/hk/modules/hk-settings.js tablet())
     return {"ha_user_id": d.ha_user_id, "name": d.ha_name or d.name, "role": d.role, "user_id": None,
-            "device_id": d.id}
+            "device_id": d.id, "room": room}
 
 
 def end_session(request: web.Request, resp: web.StreamResponse, reason: str = "logout") -> None:

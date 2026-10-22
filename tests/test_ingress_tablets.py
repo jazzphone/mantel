@@ -150,7 +150,7 @@ async def test_an_owner_links_a_tablets_ha_user_as_a_device_and_it_is_that_devic
     assert s["csrf"] == row["csrf"]
     # /api/me reads as the HA user, as HK in HA saw it (HK finds its tablet by the Tablet User's name)
     me = await (await tablet_get(m, "/api/me")).json()
-    assert me == {"ha_user_id": TABLET_HA, "name": TABLET_NAME, "role": "wall_tablet", "ha_address": None}
+    assert me == {"ha_user_id": TABLET_HA, "name": TABLET_NAME, "role": "wall_tablet", "ha_address": None, "room": "kitchen"}
     # no Mantel session is made for a tablet (the HA user Ingress names is the credential)
     owner_id = ingress.linked_user(m.store.db, OWNER_HA)["id"]
     assert {r[0] for r in m.store.db.execute("SELECT user_id FROM sessions")} == {owner_id}

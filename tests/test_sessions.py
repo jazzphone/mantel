@@ -206,6 +206,6 @@ async def test_phase0_api_me_and_legacy_cookie_still_work(mantel):
     mantel.client.session.cookie_jar.update_cookies({"mantel_session": sid})
     assert await (await mantel.get("/api/me")).json() == {"ha_user_id": "ha-fictional", "name": "Fictional",
                                                           "role": "owner",
-                                                          "ha_address": mantel.app["cfg"].ha_url or None}
+                                                          "ha_address": mantel.app["cfg"].ha_url or None, "room": None}
     mantel.now[0] += 61
     assert (await mantel.get("/api/me")).status == 401

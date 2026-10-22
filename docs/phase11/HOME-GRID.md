@@ -522,3 +522,91 @@ height; `hkCards.typeCss(role)` writes a type role as declarations.
 - **G5:** a block's Pages section writes `pages` as hk_core checks it; `hkGridCatalog.pages(item, ctx)` previews them.
 
 **G4 is done.** Pushed to `main`; no version bump, no release, nothing on the house.
+
+### G3 (2026-10-22)
+
+**Done: the four new cards**, in `web/hk/cards/hk-grid-cards.js`, each with its editor fields, in the catalog and
+its Python mirror.
+
+| Key | Card | Sizes | What it is |
+|---|---|---|---|
+| `room` | `hk-grid-room-card` | W, L, XL | the room's name (a room heading, › to its page), its status (L, XL: the room page's own `hk-room-status-card`; W: the same items as one line), its lights as the room page's own light pills (`hkStrategy.roomCards`: its hidden accessories left out, its order, its looks) and its speaker's pill, last. As many whole rows of pills as the cell holds (measured, so the tab bar's shorter cells get fewer); W: one row, no speaker |
+| `scene_suggested` | `hk-suggested-scene-card` | W, L | the scene for this time of day: the block's windows, else its own (Morning 05:00–10:00, Day, Evening, Night, each finding its scene by name). Out of every window: the next one ("Next · Night, From 10:00 PM"). A tap runs it as a scene pill does (`hkCards.sceneTap`) |
+| `action` | `hk-action-card` | S | a key with a state: Lock Up (locks every unlocked lock; "1 Unlocked" / "All Locked"), All Lights Off ("2 Lights On"; with `area`, one room's: Lights Off), Garage (its state; a tap opens its sheet), or any scene or script |
+| `everything` | `hk-everything-card` | S | the screen's pages and rooms, as its own navigation opens them: the tab bar's More sheet (`hkTabBar.open('more')`) while the bar shows, else the side menu (`hkCards.menu.open`), never a menu of its own; the menu button's own glyph. Optional, for a screen whose tab bar is off |
+
+**Decisions:**
+
+1. **Built from HK's pieces.** The room card holds the room page's own cards (status row, light pills, the
+   speaker's media pill) made with `hkCards.createCard`; no look-alike tiles. The S cards draw the tall tile's
+   measured pieces (42 px well, 15 / 600 on 16.5 px lines, the pill's padding) on `hkCards.plate('tile')`; the
+   suggested scene is a page card (`plate('card')`, `CARD.pad`, label / title / caption roles).
+2. **Press and hold dims, without a sideways slider.** A tap anywhere on a light pill toggles it. Held still for
+   450 ms it becomes the dimmer: a drag up or down (160 px is the whole range) shows the readout over the pill
+   (`overlay-solid`, the percent at `title`), and letting go sends one `light.turn_on` (`brightness_pct`) or
+   `light.turn_off` at 0. Held without moving: the light's sheet. A light that doesn't dim opens its sheet at
+   once. The click after a hold is eaten. A sideways drag of more than 10 px before the hold cancels it, and the
+   pill is `touch-action: pan-x`, so a `rooms` pager (G4) keeps its swipe from a room's pills (they are no
+   control to it). A finger that drifts far sideways while dimming starts the pager's scroll: the browser cancels
+   the touch and the dim is dropped, nothing sent.
+   The pager's start page (`hkGridCatalog.tabletRoom`, G4's) now asks the host too, `hkSettings.tablet()` only
+   without it, so a Mantel tablet device's own room counts there as well.
+3. **`tablet_room` is the host's answer**, a new contract call `hkShell.tabletRoom(client)`
+   (`web/client/hk-host-shell.js`): Home Assistant's shell gives the Wall Tablets entry's room
+   (`hkSettings.tablet()`); Mantel's gives the tablet device's own room (`GET /api/me` now says `room`, the
+   device's room as an area id; null on a person's browser), else the HK tablet's. The cards ask it when they draw
+   (the tablet may be known only once the page is up); no card reads `hass`. A block with no room of its own is
+   `tablet_room`, falling back to the screen's first room on a page that is no wall tablet.
+4. **Commands go through the card's action port** (`HkBase._call` / `_act`): the frontend's own call in Home
+   Assistant, the command gateway in Mantel (classified, checked, audited). Lists of entities, never an area
+   target (the gateway refuses those): one call per domain. A garage door is never one tap (HK's rule): Garage
+   opens its sheet. A refused command says "Couldn't Send" in the state's place for 3 s.
+5. **Options** (hk_core `home_grid.CATALOG`, mirrored by the catalog's `opts`): `scene_suggested.windows` (a new
+   kind: 1–8 of `{start, end, scene, label?}`, `HH:MM`, may run past midnight, a scene or a script); `action.area`
+   (an area or `tablet_room`; only All Lights Off reads it). A test holds every `opts` the JS declares equal to
+   the mirror's (`tests/test_hk_core_home_grid_cards.py`).
+6. **The tab bar is the screen's navigation** (the plan's "The tab bar"). `everything` is an optional S card for a
+   screen whose bar is off, and opens what the screen's own navigation opens (above). The starters leave it out
+   while the bar is on: `starter(..., tab_bar=True)` (the default) puts an All Lights Off action in its cell;
+   `tab_bar=False` keeps Everything (the editor, G5, passes the screen's own). The cards read their cell from
+   `--hk-cell-w` / `--hk-cell-h` and their own measured height, so the bar's shorter cells just hold fewer pills.
+7. **Lock Up and Garage read the house's lists** (Status & Chips' `kinds`, as the header's security line does);
+   with none chosen, every lock or garage door the house has.
+
+**Checked (2026-10-22):**
+
+- `test_gridcards.js` (69: catalog and the rooms pager's pages, the host's room, the room's parts and fit, the hold — a drag sends one call,
+  the click eaten, a sideways drag cancels, held still opens the sheet —, the windows, every action's plan and tap,
+  a refused command, Everything); the design guards (type, radii, blur, motion, overlays, surfaces, breakpoints,
+  text scale, the CSS snapshot: its four new entries) and `test_editors.js` now read the new file.
+- `pytest -q tests` (merged with G2 and G4): 3,397 passed (the `/api/me` dicts updated for `room`); the HK Frontend build (publish.py into
+  a scratch clone, build only): 757 py tests, every JS suite green.
+- The local test Mantel at 1280 × 800, a screen with eleven G3 blocks (room L, W, XL; suggested scene L, W; six
+  S): every card fills its cell, nothing scrolls without the bar; a tap on All Lights Off wrote the audit row
+  (`light.turn_off` on `light.kitchen`, allowed, ok) and the card then said All Off.
+
+**Can't follow DESIGN.md / left as it is:**
+
+- The suggested scene's art is four skies (hex gradients): content, not design values (DESIGN.md rule 4).
+- The status row in a room card keeps its own 12 px shadow room (`.row{margin:0 -12px}`); the cell clips it.
+- The room's name is the section heading's measured 19.7 / 700 (a Home-app size, not a role), as on a room page.
+  Its line is 28 px tall; its target is 44 px (an `::after` 8 px above and below), which the cell clips at the
+  top edge of a block in the first row.
+- The S keys' name and state are the tile text's measured 15 px (600 / 500), as the tall tile has them.
+- The editors are the cards' Lovelace schemas (`hkCards.register`), as every HK card's; the iOS-Settings forms of
+  the settings kit come with the desktop editor (G5).
+- Checked against DESIGN.md: type roles (`body`, `caption`, `title`, `label`), `v()` tokens only, `plate('tile')`
+  and `plate('card')` (Flat and Blur through the plates), `R.small` / the glass radius, `overlay-solid` for the
+  dimmer's readout, `DUR` for presses, reduced motion; the guards (type, radii, blur, motion, overlays, surfaces,
+  breakpoints, text scale, CSS snapshot) read the file.
+
+**Left for others:**
+
+- **The grid doesn't stop at the tab bar yet:** "The tab bar" above gives G4 the view's
+  `calc(100dvh - var(--hk-tabbar-h, 0px))`, and it isn't on `main` (G4's push has the pager only). With the bar
+  showing, the page is 896 px tall at 800 and the bar covers the bottom row. The room card measures its own
+  height, so it follows once the view does.
+- G5: the editor's block options for `windows` (a list editor) and `action` (the jobs, a scene or script, a room).
+- The default windows find scenes by words in their names; a house whose scenes are named otherwise sets windows.
+
+**G3 is done.**

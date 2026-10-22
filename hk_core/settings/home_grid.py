@@ -58,8 +58,9 @@ CATALOG: dict[str, dict[str, Any]] = {
     "clock": {"sizes": ("W", "XL"), "sources": (), "opts": {}},
     # the new cards (G3)
     "room": {"sizes": ("W", "L", "XL"), "sources": ("rooms",), "opts": {"area": "area"}},
-    "scene_suggested": {"sizes": ("W", "L"), "sources": (), "opts": {}},
-    "action": {"sizes": ("S",), "sources": (), "opts": {"action": "action"}},
+    "scene_suggested": {"sizes": ("W", "L"), "sources": (), "opts": {"windows": "windows"}},
+    # `area`: the room an action keeps to (All Lights Off in one room); the others ignore it
+    "action": {"sizes": ("S",), "sources": (), "opts": {"action": "action", "area": "area"}},
     "everything": {"sizes": ("S",), "sources": (), "opts": {}},
 }
 SOURCES = ("list", "rooms", "cameras", "thermostats", "speakers", "scenes")
@@ -67,6 +68,12 @@ SOURCES = ("list", "rooms", "cameras", "thermostats", "speakers", "scenes")
 STARTS = ("rooms", "thermostats", "speakers")
 # an action block's jobs, besides any scene or script
 ACTIONS = ("lock_up", "lights_off", "garage")
+# A suggested scene's time windows: at most this many, each {start, end, scene, label?}. Times are "HH:MM"; a
+# window may run past midnight (22:00-05:00). Without windows the card uses its own (Morning, Day, Evening,
+# Night), each finding its scene by name.
+WINDOWS_MAX = 8
+LABEL_MAX = 24
+CLOCK = re.compile(r"^([01][0-9]|2[0-3]):[0-5][0-9]$")
 
 
 class GridInvalid(ValueError):
@@ -101,6 +108,31 @@ def _area(v: Any) -> str:
     raise GridInvalid("grid_option")
 
 
+def _window(v: Any) -> dict[str, str]:
+    if not isinstance(v, dict) or set(v) - {"start", "end", "scene", "label"}:
+        raise GridInvalid("grid_option")
+    start, end = v.get("start"), v.get("end")
+    if not isinstance(start, str) or not CLOCK.match(start) or not isinstance(end, str) or not CLOCK.match(end) \
+            or start == end:
+        raise GridInvalid("grid_option")
+    scene = v.get("scene")
+    if not isinstance(scene, str) or not ENTITY_ID.match(scene) or scene.split(".")[0] not in ("scene", "script"):
+        raise GridInvalid("grid_option")
+    out = {"start": start, "end": end, "scene": scene}
+    label = v.get("label")
+    if label is not None:
+        if not isinstance(label, str) or not 0 < len(label.strip()) <= LABEL_MAX:
+            raise GridInvalid("grid_option")
+        out["label"] = label.strip()
+    return out
+
+
+def _windows(v: Any) -> list[dict[str, str]]:
+    if not isinstance(v, list) or not 0 < len(v) <= WINDOWS_MAX:
+        raise GridInvalid("grid_option")
+    return [_window(w) for w in v]
+
+
 def _action(v: Any) -> str:
     if v in ACTIONS or (isinstance(v, str) and ENTITY_ID.match(v) and v.split(".")[0] in ("scene", "script")):
         return v
@@ -119,6 +151,7 @@ OPTION_KINDS = {
     "calendars": _list(_domain("calendar")),
     "area": _area,
     "action": _action,
+    "windows": _windows,
 }
 
 
@@ -300,10 +333,11 @@ def _scenes_block(iid: str, size: str, at: list[int], scenes: list[str]) -> dict
 
 def starter(concept: str, scenes: list[str] | None = None, rooms: list[str] | None = None,
             cameras: list[str] | None = None, climate: list[str] | None = None,
-            tablet_room: str | None = None) -> dict[str, Any]:
+            tablet_room: str | None = None, tab_bar: bool = True) -> dict[str, Any]:
     """A 6 x 4 layout to start from, filled from the house: its scenes, rooms (area ids, in the screen's order),
     cameras and climate entities, and the room of the tablet it is for (None: no tablet yet -- the blocks open
-    on their first page). A block with nothing in the house to show is left out.
+    on their first page). A block with nothing in the house to show is left out. `tab_bar`: the screen shows its
+    tab bar, which already opens the pages and the menu -- so no Everything block (an All Lights Off in its place).
 
     A, Tap Weight: what is tapped most is biggest -- the scene for the time of day, the tablet's room and its
     speaker across the top; scenes, cameras, the thermostat, timers and one-tap jobs below; the top band on.
@@ -338,6 +372,12 @@ def starter(concept: str, scenes: list[str] | None = None, rooms: list[str] | No
         if cameras:
             add("camera", size, at, pages={"source": "cameras"})
 
+    def everything(at: list[int]) -> None:
+        if tab_bar:
+            add("action", "S", at, opts={"action": "lights_off"})
+        else:
+            add("everything", "S", at)
+
     def scene_row(size: str, at: list[int]) -> None:
         if scenes:
             b = _scenes_block(f"{p}{len(items) + 1}", size, at, scenes)
@@ -353,7 +393,7 @@ def starter(concept: str, scenes: list[str] | None = None, rooms: list[str] | No
         thermostat([4, 2])
         add("timers", "S", [5, 2])
         add("security", "S", [0, 3])
-        add("everything", "S", [1, 3])
+        everything([1, 3])
         add("action", "S", [5, 3], opts={"action": "lock_up"})
         band = True
     else:
@@ -367,7 +407,7 @@ def starter(concept: str, scenes: list[str] | None = None, rooms: list[str] | No
         scene_row("W", [0, 3])
         speaker("W", [2, 3])
         add("action", "S", [4, 3], opts={"action": "lock_up"})
-        add("everything", "S", [5, 3])
+        everything([5, 3])
         band = False
     out = check({"v": VERSION, "cols": 6, "rows": ROWS_DEFAULT, "frame": list(FRAME), "band": band,
                  "items": items})
