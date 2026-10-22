@@ -31,19 +31,19 @@
   // sees it -- { cameras, climate, rooms, weather, vacuum, battery } -- for a block
   // that names nothing of its own.
   var CARDS = {
-    accessory: { sizes: ['S', 'W'], sources: [], card: function (s, o) {
+    accessory: { sizes: ['S', 'W'], sources: [], opts: { entity: 'entity' }, card: function (s, o) {
       return o.entity ? { type: 'custom:hk-tile-card', entity: o.entity } : stand('Accessory', 'mdi:lightbulb'); } },
-    scene: { sizes: ['S', 'W'], sources: [], card: function (s, o) {
+    scene: { sizes: ['S', 'W'], sources: [], opts: { scene: 'scene' }, card: function (s, o) {
       return o.scene ? { type: 'custom:hk-scene-card', entity: o.scene, icon_color: 'white' } : stand('Scene', 'mdi:palette'); } },
-    scenes: { sizes: ['W', 'L', 'XL'], sources: ['scenes'], card: function (s, o) {
+    scenes: { sizes: ['W', 'L', 'XL'], sources: ['scenes'], opts: { scenes: 'scenes' }, card: function (s, o) {
       return Object.assign({ type: 'custom:hk-scenes-card' }, o.scenes ? { scenes: o.scenes } : {}); } },
-    now_playing: { sizes: ['W', 'T', 'L'], sources: ['speakers'], card: function (s, o) {
+    now_playing: { sizes: ['W', 'T', 'L'], sources: ['speakers'], opts: { speaker: 'speaker' }, card: function (s, o) {
       return Object.assign({ type: 'custom:hk-now-playing-card', music: true }, own(o.speaker) ? { entity: o.speaker } : {}); } },
-    thermostat: { sizes: ['T', 'L'], sources: ['thermostats'], card: function (s, o, ctx) {
+    thermostat: { sizes: ['T', 'L'], sources: ['thermostats'], opts: { entity: 'climate' }, card: function (s, o, ctx) {
       var id = own(o.entity) || (ctx.climate || [])[0];
       // the dial (hk-control.js), sized to the block (G2)
       return id ? { type: 'custom:hk-control-card', entity: id } : stand('Thermostat', 'hk:thermostat'); } },
-    camera: { sizes: ['W', 'L', 'XL'], sources: ['cameras'], card: function (s, o, ctx) {
+    camera: { sizes: ['W', 'L', 'XL'], sources: ['cameras'], opts: { entity: 'camera' }, card: function (s, o, ctx) {
       var ids = o.entity ? [o.entity] : (ctx.cameras || []);
       return ids.length ? { type: 'custom:hk-camera-mosaic-card', height: 195, seam: 2, snapshot_cap: '480x270',
                             cameras: ids.map(function (id) { return { entity: id }; }) }
@@ -52,11 +52,11 @@
       return { type: 'custom:hk-page-status-card', page: 'security' }; } },
     timers: { sizes: ['S', 'W'], sources: [], card: function () {
       return { type: 'custom:hk-timer-strip-card', entity: 'sensor.running_quick_timers' }; } },
-    weather: { sizes: ['W', 'XL'], sources: [], card: function (s, o, ctx) {
+    weather: { sizes: ['W', 'XL'], sources: [], opts: { entity: 'weather' }, card: function (s, o, ctx) {
       var id = o.entity || ctx.weather;
       return id ? { type: 'custom:hk-weather-band-card', section: 'hero', entity: id } : stand('Weather', 'hk:weather-partly-cloudy'); } },
-    calendar: { sizes: ['T', 'L'], sources: [], card: function () {
-      return { type: 'custom:hk-calendar-pane-card' }; } },
+    calendar: { sizes: ['T', 'L'], sources: [], opts: { calendars: 'calendars' }, card: function (s, o) {
+      return Object.assign({ type: 'custom:hk-calendar-pane-card' }, o.calendars ? { calendars: o.calendars } : {}); } },
     battery: { sizes: ['S', 'W'], sources: [], card: function (s, o, ctx) {
       // the house battery the Energy feature names (hk-energy.js), sized to the block (G2)
       var B = ctx.battery;
@@ -64,7 +64,7 @@
                               reserve: B.reserve, charge: B.charge, discharge: B.discharge }
                           : stand('Battery', 'mdi:home-battery'); } },
     people: { sizes: ['W'], sources: [], card: function () { return { type: 'custom:hk-people-card' }; } },
-    vacuum: { sizes: ['S', 'W'], sources: [], card: function (s, o, ctx) {
+    vacuum: { sizes: ['S', 'W'], sources: [], opts: { entity: 'vacuum' }, card: function (s, o, ctx) {
       var id = o.entity || ctx.vacuum;
       return id ? { type: 'custom:hk-vacuum-card', entity: id } : stand('Vacuum', 'hk:robot-vacuum'); } },
     clock: { sizes: ['W', 'XL'], sources: [], card: function () { return { type: 'custom:hk-clock-card' }; } },

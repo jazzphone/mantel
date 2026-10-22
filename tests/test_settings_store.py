@@ -145,6 +145,7 @@ def test_versions_history_and_diff(store, now):
     assert hist[0]["diff"] == {"added": {"sky": {"x": 1}}, "removed": {}, "changed": {"look.glass": ["blur", "clear"]}}
     assert (hist[0]["actor"], hist[0]["actor_role"], hist[0]["device"], hist[0]["created"], hist[0]["message"]) == \
         ("admin-id", "admin", "dev-9", 1_000_060.0, "hk_frontend/settings/set")
+    assert hist[0]['actor_name'] == 'Admin'
     assert hist[1]["diff"]["added"] == {"look": {"glass": "blur", "frost": 40}}
     assert "body" not in hist[0] and store.history("house", "settings", bodies=True)[1]["body"] == v1.body
 
@@ -934,3 +935,52 @@ async def test_screens_and_tablets_are_sent_as_read_following_all_screens_and_al
     assert panel["boards"]["dashboard-kitchen"]["screensaver_options"]["starts_after"] == 20
     assert panel["tablets"]["kitchen"]["idle_return_own"] is None and panel["tablets"]["kitchen"]["idle_time"] == 30
     end()
+
+
+async def test_grid_starter_is_admin_only_and_never_writes(svc, store):
+    before = store.history('board', 'dashboard-kitchen', bodies=True)
+    msg = {'type': 'hk_frontend/grid/starter', 'options': {'concept': 'A', 'rooms': ['kitchen']}}
+    for who in (OWNER, ADMIN):
+        got = await svc.grid_starter(who, msg)
+        assert got['grid']['cols'] == 6
+    for who in (ADULT, CHILD, GUEST, TABLET, ADULT_AT_TABLET):
+        with pytest.raises(Forbidden):
+            await svc.grid_starter(who, msg)
+    with pytest.raises(S.SettingsError):
+        await svc.grid_starter(OWNER, {**msg, 'options': {'concept': 'wrong'}})
+    assert store.history('board', 'dashboard-kitchen', bodies=True) == before
+
+
+async def test_home_grid_save_restore_and_copy_preserve_other_screen_settings(svc, store):
+    from hk_core.settings.home_grid import starter
+    svc.model = S.load_model()
+    original = store.body('board', 'dashboard-kitchen')
+    layout = starter('A', rooms=['kitchen'], tablet_room='kitchen')
+    async def save(layout, who=OWNER):
+        return await svc.save(who, {'type': 'hk_frontend/board/set', 'dashboard': 'dashboard-kitchen',
+                                    'changes': {'home_style': 'grid', 'home_grid': layout}})
+    await save(layout)
+    changed = {**layout, 'band': False}
+    await save(changed, ADMIN)
+    # Restore only the layout from a historical body, through the ordinary checked write.
+    history = await svc.history(ADMIN, {'type': 'mantel/settings/history', 'scope': 'board',
+                                      'key': 'dashboard-kitchen', 'bodies': True})
+    older = next(row for row in history['history'] if row['body'].get('home_grid') == layout)
+    await save(older['body']['home_grid'])
+    current = store.body('board', 'dashboard-kitchen')
+    assert current['home_grid'] == layout
+    assert current['pages'] == original['pages'] and current['menu'] == original['menu']
+    assert [row['actor_role'] for row in store.history('board', 'dashboard-kitchen')[:3]] == ['owner', 'admin', 'owner']
+    # Another board receives the relative tablet-room option, without receiving other settings.
+    store.write([('board', 'dashboard-den', {'pages': ['weather'], 'menu': 'tabbar', 'menu_custom': True})], actor=S.Actor(label='fixture'))
+    await svc.save(ADMIN, {'type': 'hk_frontend/board/set', 'dashboard': 'dashboard-den',
+                           'changes': {'home_style': 'grid', 'home_grid': current['home_grid']}})
+    target = store.body('board', 'dashboard-den')
+    assert target['pages'] == ['weather'] and target['menu'] == 'tabbar'
+    room = next(i for i in target['home_grid']['items'] if i['card'] == 'room')
+    assert room['pages']['start'] == 'tablet_room'
+    before = store.history('board', 'dashboard-kitchen')
+    for who in (ADULT, GUEST, TABLET):
+        with pytest.raises(S.SettingsError, match='may not change'):
+            await save(changed, who)
+    assert store.history('board', 'dashboard-kitchen') == before

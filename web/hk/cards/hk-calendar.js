@@ -1397,11 +1397,15 @@
       if (this._tick) { clearInterval(this._tick); this._tick = null; }
       this._hkSig = null;
     }
+    _calIds(h) {
+      var own = (this._config || {}).calendars;
+      return Array.isArray(own) && own.length ? own.filter(function (id) { return h.states[id]; }) : calIds(h);
+    }
     _days() { var n = Number((this._config || {}).days); return n >= 1 && n <= 7 ? Math.round(n) : 2; }
     _fetch() {
       var h = this.client;
       if (!h) return;
-      var from = day0(new Date()), to = addDays(from, this._days()), ids = calIds(h);
+      var from = day0(new Date()), to = addDays(from, this._days()), ids = this._calIds(h);
       var want = ids.join(',') + '|' + (+from) + '|' + this._days() + '|' + store.ver;
       if (want === this._have) return;
       this._have = want;
@@ -1415,7 +1419,7 @@
     _sigOf() {
       var h = this.client;
       if (!h || !this._config) return null;
-      var ids = calIds(h), HS = window.hkSettings;
+      var ids = this._calIds(h), HS = window.hkSettings;
       return ids.map(function (id) { var s = h.states[id]; return id + '=' + (s ? s.last_updated : 'x') + '/' +
         (HS && HS.calendarColor ? HS.calendarColor(id, h.states) : ''); }).join(';') + colorSig() + '|' + this._n + '|' + Math.floor(Date.now() / 60000);
     }
@@ -1447,7 +1451,7 @@
           }).join('') + '</div>' +
           (evs.length ? '' : '<div class="none">Nothing scheduled.</div>') + '</div>';
       }
-      if (!calIds(h).length) html = '<div class="day"><div class="none">No calendars.</div></div>';
+      if (!this._calIds(h).length) html = '<div class="day"><div class="none">No calendars.</div></div>';
       this._root.innerHTML = html + '<div class="foot"></div>';
     }
     // A HOME GRID BLOCK: T and L
@@ -1477,7 +1481,7 @@
       var date = wide ? DOW_LONG[d0.getDay()] + ', ' + MON[d0.getMonth()] + ' ' + d0.getDate()
                       : DOW_LONG[d0.getDay()].slice(0, 3) + ', ' + MON[d0.getMonth()].slice(0, 3) + ' ' + d0.getDate();
       this._root.innerHTML = '<div class="blk ' + sized + '"><div class="lbl">Today</div><div class="date">' + esc(date) + '</div>' +
-        '<div class="gl">' + (rows.length ? rows.join('') : '<div class="none">' + (calIds(h).length ? 'Nothing scheduled.' : 'No calendars.') + '</div>') +
+        '<div class="gl">' + (rows.length ? rows.join('') : '<div class="none">' + (this._calIds(h).length ? 'Nothing scheduled.' : 'No calendars.') + '</div>') +
         '</div></div>';
     }
   }

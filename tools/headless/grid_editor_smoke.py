@@ -1,0 +1,107 @@
+"""Home Grid editor: real mouse drag, draft/refusal/save, fictional home only.
+
+    python tools/headless/grid_editor_smoke.py [--shots DIRECTORY]
+"""
+import asyncio, sys, tempfile, json, argparse
+from pathlib import Path
+ROOT = Path(__file__).resolve().parents[2]
+sys.path[:0] = [str(ROOT / p) for p in ('tools/headless', 'tools', 'hosts/server', 'tests')]
+PARSER = argparse.ArgumentParser(description=__doc__)
+PARSER.add_argument('--shots', type=Path)
+ARGS = PARSER.parse_args()
+from gallery import build, SCREEN
+from cdp import Browser
+from aiohttp.test_utils import TestServer
+async def screenshot_font(browser):
+    # Documentation images never include Apple's licensed fonts or glyph files.
+    await browser.eval("""(()=>{function visit(root){let style=document.createElement('style');style.textContent='*{font-family:Arial,sans-serif!important}';(root.head||root).appendChild(style);for(let e of root.querySelectorAll('*')){if(e.shadowRoot)visit(e.shadowRoot);if(e.localName==='iframe'){try{visit(e.contentDocument)}catch(x){}}}}visit(document)})()""")
+
+async def main():
+    with tempfile.TemporaryDirectory() as td:
+        app,cookie=await build(Path(td))
+        from mantel_server.settings_store import load_model
+        app['settings'].model=load_model()
+        from mantel_server.settings_store import Actor
+        b=app['settings'].store.body('board',SCREEN)
+        app['settings'].store.write([('board',SCREEN,{**b,'menu_custom':True,'menu':'tabbar'})],actor=Actor(label='editor smoke'))
+        async with TestServer(app) as server, Browser(1600,1000) as b:
+            origin=str(server.make_url('')).rstrip('/')
+            await b.restrict_origin(origin)
+            await b.open(origin+'/settings#/screens/'+SCREEN+'/home-grid',cookie)
+            ready=await b.wait("!!document.querySelector('hk-settings-panel')?.shadowRoot?.querySelector('hk-grid-editor')?.shadowRoot?.querySelector('.tools')",10)
+            assert ready
+            print('editor ready',flush=True)
+            await b.eval("window.ed=document.querySelector('hk-settings-panel').shadowRoot.querySelector('hk-grid-editor'); ed.starter('A')")
+            ready=await b.wait('ed.previewView?.isConnected',30)
+            print('live preview ready:', ready, flush=True)
+            if ARGS.shots:
+                ARGS.shots.mkdir(parents=True, exist_ok=True)
+                await screenshot_font(b)
+                await b.screenshot(ARGS.shots / 'home-grid-editor.png')
+
+            assert ready
+            assert await b.eval('ed.grid.items.length > 0')
+            # Mouse drag between equal-size blocks must swap, and stay a draft.
+            rects=await b.eval("['a7','a10'].map(id=>{let r=ed.overlay.querySelector('[data-id='+id+']').getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2}})")
+            a,z=rects
+            await b.send('Input.dispatchMouseEvent', type='mousePressed', x=a['x'], y=a['y'], button='left', clickCount=1)
+            await b.send('Input.dispatchMouseEvent', type='mouseMoved', x=z['x'], y=z['y'], button='left', buttons=1)
+            await b.send('Input.dispatchMouseEvent', type='mouseReleased', x=z['x'], y=z['y'], button='left', clickCount=1)
+            assert await b.eval("ed.grid.items.find(i=>i.id==='a7').at[1]===3 && ed.grid.items.find(i=>i.id==='a10').at[1]===2")
+            assert await b.wait('ed.previewView?.isConnected && ed.previewView._config.cards.find(c=>c.hk_cell?.id==="a7").hk_cell.at[1]===3',10)
+            # Every overlay matches its actual cell in the scaled iframe.
+            geometry=await b.eval("(()=>{let fr=ed.iframe.getBoundingClientRect(),scale=fr.width/ed.grid.frame[0];return [...ed.overlay.querySelectorAll('.block')].every(btn=>{let r=btn.getBoundingClientRect(),c=ed.previewView.shadowRoot.querySelector('[data-id='+btn.dataset.id+']').getBoundingClientRect();return Math.abs(r.x-fr.x-c.x*scale)<2 && Math.abs(r.y-fr.y-c.y*scale)<2 && Math.abs(r.width-c.width*scale)<2 && Math.abs(r.height-c.height*scale)<2})})()")
+            assert geometry
+            print('drag swap and overlay geometry passed',flush=True)
+            await b.eval('ed.catalog=true; ed.side()')
+            assert await b.eval("ed.sidebar.querySelectorAll('[data-preview-card] > div').length > 20")
+            await b.eval('ed.catalog=false; ed.side()')
+            # Refusal leaves the draft intact and the editor usable.
+            await b.eval("ed.originalActions=ed.panel.actions;ed.panel.actions=()=>({callWS:()=>Promise.reject(new Error('Fictional refusal'))});ed.save()")
+            assert await b.eval("ed.isConnected && !ed.busy && ed.message.textContent.includes('Fictional refusal')")
+            await b.eval('ed.panel.actions=ed.originalActions')
+            # No save before Save.
+            assert not app['settings'].store.body('board',SCREEN).get('home_grid')
+            await b.eval("ed.grid.band=false; ed.change(ed.grid); ed.save()")
+
+            assert app['settings'].store.body('board',SCREEN).get('home_style')=='grid'
+            print('refusal preserved draft; Save applied one layout',flush=True)
+            # History restores only a draft; Copy applies only the layout to the other screen.
+            saved = app['settings'].store.body('board',SCREEN)['home_grid']
+            app['settings'].store.write([('board','dashboard-copy',{'title':'Other Screen','pages':['weather'],'menu':'tabbar','menu_custom':True})], actor=Actor(label='editor smoke'))
+            await b.open(origin+'/settings#/screens/'+SCREEN+'/home-grid')
+            assert await b.wait("!!document.querySelector('hk-settings-panel')?.shadowRoot?.querySelector('hk-grid-editor')?.shadowRoot?.querySelector('.tools')",20)
+            await b.eval("window.ed=document.querySelector('hk-settings-panel').shadowRoot.querySelector('hk-grid-editor'); ed.history()")
+            assert await b.eval('ed.histories.length > 0')
+            latest=app['settings'].store.get('board',SCREEN).version
+            # Editing and then restoring history leaves the saved screen alone.
+            await b.eval("ed.grid.band=true;ed.change(ed.grid);void ed.restore(ed.histories[0])")
+            assert await b.wait("[...ed.shadowRoot.querySelectorAll('button')].some(b=>b.textContent==='Restore Draft')",5)
+            await b.eval("[...ed.shadowRoot.querySelectorAll('button')].find(b=>b.textContent==='Restore Draft').click()")
+            assert await b.eval('ed.grid.band===false')
+            assert app['settings'].store.get('board',SCREEN).version==latest
+            await b.eval("void ed.copyTo('dashboard-copy')")
+            assert await b.wait("[...ed.shadowRoot.querySelectorAll('button')].some(b=>b.textContent==='Copy Layout')",5)
+            await b.eval("[...ed.shadowRoot.querySelectorAll('button')].find(b=>b.textContent==='Copy Layout').click()")
+            assert await b.wait("ed.message.textContent==='Layout copied.'",5)
+            target=app['settings'].store.body('board','dashboard-copy')
+            assert target['home_grid']==saved and target['pages']==['weather']
+            # Cancel a subsequent edit: the original screen's version does not advance.
+            await b.eval("ed.grid.band=true;ed.change(ed.grid);void ed.cancel()")
+            assert await b.wait("[...ed.shadowRoot.querySelectorAll('button')].some(b=>b.textContent==='Discard')",5)
+            await b.eval("[...ed.shadowRoot.querySelectorAll('button')].find(b=>b.textContent==='Discard').click()")
+            assert not await b.eval('ed.isConnected')
+            assert app['settings'].store.get('board',SCREEN).version==latest
+            print('history draft, copy preserving target options, Cancel without a write passed',flush=True)
+            await b.send('Emulation.setDeviceMetricsOverride', width=1280, height=800, deviceScaleFactor=1, mobile=False)
+            await b.open(origin+'/'+SCREEN+'/home')
+            assert await b.wait("!!window.__mantelReady && window.hkShell?.view()?.localName==='hk-home-grid-view'",30)
+            assert await b.eval('document.documentElement.scrollHeight <= innerHeight + 1')
+            if ARGS.shots:
+                await asyncio.sleep(1)
+                await screenshot_font(b)
+                await b.screenshot(ARGS.shots / 'home-grid.png')
+            exceptions=[line for line in b.console if line.startswith('EXCEPTION:')]
+            assert not exceptions, exceptions
+            print('PASS: editor drag, geometry, catalog, refusal, draft/save and no-scroll grid',flush=True)
+asyncio.run(main())

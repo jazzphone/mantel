@@ -6,7 +6,7 @@ https://claude.ai/artifact/JnMmSXDneGVE1e81BWYuid, A preferred). An Owner or Adm
 using HK's own cards. A block can hold **several pages** that swipe: cameras, rooms, thermostats, scene pages.
 Mantel first; HK Frontend as well, which comes at little extra cost (below).
 
-**Status: G1–G4 done (2026-10-22) and on `main`, tested together (Mantel 3,397 passed; HK Frontend's suites green). No release yet. Next: G5 (the desktop editor), then G6 and G7, then G8; or first a release to try a Home Grid screen on the kitchen tablet.** See "Progress", at the end.
+**Status (2026-10-22): G1–G6 are implemented; G7's shared settings entry and real scratch-HA drag/save check pass, and G8's guides/screenshots are added. No version bump, publication or release yet. Next: publish the HK build, release, then validate the kitchen tablet.** See the latest progress entry below. Older slice notes describe their state at the time; the current grid already reserves the tab bar's space.
 
 ## The answers (2026-10-22)
 
@@ -690,3 +690,32 @@ its Python mirror.
 - The default windows find scenes by words in their names; a house whose scenes are named otherwise sets windows.
 
 **G3 is done.**
+
+
+### G5–G8 continuation (2026-10-22, Codex)
+
+**G5–G8 implementation:**
+
+- `web/hk/panels/hk-grid-editor.js`: desktop draft editor using the existing settings kit. Pointer drag with cell snap, same-size swap, refusal outline, arrow-key moves, supported size choices and Remove. The catalog offers real card previews at every supported size, click-to-first-fit and drag-to-place. Block fields cover the Python catalog's options, including suggested-scene windows, action jobs/scene/script and room, scene/calendar lists, automatic page sources and custom pages with add/move-up/remove. Grid settings cover columns, rows, frame and band.
+- The actual screen runs in a same-origin, inert iframe. A strategy preview argument draws the draft with the existing cards, live client data, appearance and tab bar. It changes no settings feed. The editing overlay measures actual cells, including the bar's reserved space. Both shadow-root and light-DOM host views are supported. Pointer and keyboard interaction with the preview's household controls is blocked.
+- Save sends `home_style` and the entire `home_grid` in one existing `board/set` action. Failed saves keep the draft. Cancel confirms discarding edits and writes nothing. Drafts survive a settings-panel redraw; the editor has no tablet editing controls.
+- Both hosts have `hk_frontend/grid/starter`, an admin/configure-only read. It delegates to the bounded `hk_core.settings.home_grid.starter_request()` and the existing Python starter. No starter layout is duplicated in JS. The JS catalog now exposes the existing Python option kinds for the old cards too; calendar blocks now consume their stored calendar selection.
+- Mantel's settings host supplies the history read through `gridHistory`, keeping its transport out of shared code. History includes the actor's display name, version and date. Selecting a version restores **only the layout into the draft**; Save applies it through the existing checked/audited write. Copy Layout confirms and saves only layout/style to the selected screen, preserving other settings and relative `tablet_room` options.
+- The shared Screens page offers Home Style and Arrange Home Grid for generated screens. Both hosts load the editor after the catalog. The HA settings-panel cache stamp includes the new module.
+- Guides: `docs/guide/Home-Grid.md`, HK Frontend's `docs/Home-Grid.md`, wiki sidebar, guide index and CHANGELOG. `docs/images/home-grid.png` is 1280 × 800; `home-grid-editor.png` shows the desktop editor. Fictional data, Arial, no shipped Apple font/glyph files; the demo camera has no live image.
+
+**Validation:**
+
+- Mantel main suite: **3,411 passed, 21 skipped**. The first full run found the host-history transport in shared code; it was moved behind the host hook. An unrelated gateway test also hit its existing random-ID substring assertion; it passed on rerun and the final suite is green.
+- `tests/test_grid_editor.py`: pure placement checks in JavaScriptCore (snap, equal-size swap, overlap/edge/resize refusal, first fit, item limit and immutable drafts), both starter concepts and malformed-input refusals. Settings-store tests cover role denial, history, layout-only restore, copy preserving target settings and relative tablet-room options.
+- The built HA package's JavaScript suites are green. Its full Python suite passes: **758 passed**, including the new admin-only checked starter read.
+- `tools/headless/grid_editor_smoke.py`: real mouse drag swaps blocks; every overlay rectangle matches its real cell within 2 px with the tab bar showing; real catalog cards draw; refusal retains the draft; Save applies once; history restores a draft without a write; Copy preserves the target's other options; Cancel writes nothing; the saved 1280 × 800 Home Grid does not scroll. No browser exceptions.
+- `tools/testha/grid_editor_check.py`: real scratch Home Assistant (fictional demo integration, isolated config) opens the editor, renders the draft with real cards, swaps two blocks with a real mouse drag and saves successfully. The host-specific history control is absent. The scratch wrapper has light DOM, which the preview now handles.
+- Link check: no broken links. No production files under `/Volumes/config` were edited. The pre-existing Xcode project modification was left untouched.
+
+**Remaining / exact continuation:**
+
+1. The owner requested delivery to `main`. Version bumps, publication and releases remain separate from this code delivery.
+2. Publish HK Frontend with its release notes, and release Mantel using the normal release procedure. G7's publication portion is still pending.
+3. On the kitchen tablet, validate the grid, block swipes, real idle return, doorbell jump, tab bar and touch controls. Desktop/headless checks do not establish physical-device behavior.
+4. The previously recorded 60 px top-band clock clipping remains a G1/G2 design issue; this editor exposes the existing band and does not redesign it. The screenshot of the saved layout uses the band off. WebKit/Flat validation remains open. Narrow 2/3-column card polish is still outside this phase's design scope.

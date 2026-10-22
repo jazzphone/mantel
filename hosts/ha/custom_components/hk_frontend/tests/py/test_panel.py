@@ -118,3 +118,23 @@ async def test_a_renamed_dashboard_gives_its_screen_its_new_name(hass, frontend)
             hass.data.pop(LOVELACE_DATA, None)
         else:
             hass.data[LOVELACE_DATA] = real
+
+
+async def test_grid_starter_is_checked_and_admin_only(hass, frontend):
+    from custom_components.hk_frontend.panel import ws_grid_starter
+    from custom_components.hk_frontend.hk_core.settings.home_grid import check
+    conn = await _admin(hass)
+    before = dict(entry(hass).options)
+    ws_grid_starter(hass, conn, {'id': 1, 'type': 'hk_frontend/grid/starter',
+                               'options': {'concept': 'A', 'rooms': ['kitchen'], 'tab_bar': True}})
+    await hass.async_block_till_done(wait_background_tasks=True)
+    result = conn.sent[-1]['result']['grid']
+    assert check(result) == result
+    assert entry(hass).options == before
+    ws_grid_starter(hass, conn, {'id': 2, 'type': 'hk_frontend/grid/starter', 'options': {'concept': 'bad'}})
+    await hass.async_block_till_done(wait_background_tasks=True)
+    assert conn.sent[-1]['success'] is False
+    conn.user = await hass.auth.async_create_user('Reader', group_ids=[])
+    from homeassistant.exceptions import Unauthorized
+    with pytest.raises(Unauthorized):
+        ws_grid_starter(hass, conn, {'id': 3, 'type': 'hk_frontend/grid/starter', 'options': {'concept': 'A'}})

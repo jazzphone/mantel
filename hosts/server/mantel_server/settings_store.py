@@ -311,12 +311,13 @@ class SettingsStore:
 
     def history(self, scope: str, key: str, limit: int = 50, bodies: bool = False) -> list[dict]:
         limit = max(1, min(int(limit), HISTORY_LIMIT))
-        rows = self.conn.execute("SELECT * FROM settings_history WHERE scope=? AND key=? ORDER BY version DESC LIMIT ?",
+        rows = self.conn.execute("SELECT h.*, u.name AS actor_name FROM settings_history h LEFT JOIN users u ON u.id=h.actor "
+                                 "WHERE h.scope=? AND h.key=? ORDER BY h.version DESC LIMIT ?",
                                  (scope, key, limit)).fetchall()
         out = []
         for r in rows:
             item = {"version": r["version"], "action": r["action"], "message": r["message"], "actor": r["actor"],
-                    "actor_role": r["actor_role"], "device": r["device"], "source": r["source"], "created": r["created"],
+                    "actor_role": r["actor_role"], "actor_name": r["actor_name"], "device": r["device"], "source": r["source"], "created": r["created"],
                     "diff": json.loads(r["diff"])}
             if bodies:
                 item["body"] = json.loads(r["body"])
@@ -932,7 +933,8 @@ WRITE_KEYS = {  # what each save may carry besides "type" (and the page's "id"),
     "hk_frontend/tablet/remove": ({"tablet"}, set()),
     "hk_frontend/dashboard/titled": ({"dashboard"}, set()),
 }
-READS = ("hk_frontend/settings/subscribe", "hk_frontend/panel/get", "mantel/settings/get", "mantel/settings/history")
+READS = ("hk_frontend/settings/subscribe", "hk_frontend/panel/get", "hk_frontend/grid/starter",
+         "mantel/settings/get", "mantel/settings/history")
 
 
 def _slug(text: str) -> str:
@@ -1258,6 +1260,16 @@ class SettingsService:
             raise Forbidden(f"may not read {scope}")
         d = self.store.get(scope.kind, scope.key)
         return {"scope": scope.kind, "key": scope.key, "version": d.version if d else 0, "body": d.body if d else {}}
+
+    async def grid_starter(self, identity: Any, msg: dict) -> dict:
+        self._only(msg, {"options"})
+        if not await self.allowed(identity, Scope("house", "settings")):
+            raise Forbidden("Home Grid needs configure on settings")
+        from hk_core.settings.home_grid import starter_request, GridInvalid
+        try:
+            return {"grid": starter_request(msg["options"])}
+        except GridInvalid as exc:
+            raise SettingsError("invalid_format", fields={"home_grid": exc.code}) from exc
 
     async def history(self, identity: Any, msg: dict) -> dict:
         self._only(msg, {"scope", "key"}, {"limit", "bodies"})
@@ -1692,9 +1704,13 @@ def register(app: web.Application, hub: Any, hooks: Any = None, *, store: Settin
     async def history(ctx: Ctx, msg: dict):
         return await service.history(ctx.identity, msg)
 
+    async def grid_starter(ctx: Ctx, msg: dict):
+        return await service.grid_starter(ctx.identity, msg)
+
     read_routes(app).update({
         "hk_frontend/settings/subscribe": Route(subscribe=feed),
         "hk_frontend/panel/get": Route(request=panel_get),
+        "hk_frontend/grid/starter": Route(request=grid_starter),
         "hk_frontend/setup/check": Route(request=setup_check),
         "mantel/settings/get": Route(request=get),
         "mantel/settings/history": Route(request=history),

@@ -413,3 +413,21 @@ def starter(concept: str, scenes: list[str] | None = None, rooms: list[str] | No
                  "items": items})
     assert out is not None
     return out
+
+
+def starter_request(data: Any) -> dict[str, Any]:
+    """Read-only editor request. Both hosts use this bounded, checked input."""
+    if not isinstance(data, dict) or set(data) - {"concept", "scenes", "rooms", "cameras", "climate", "tablet_room", "tab_bar"}:
+        raise GridInvalid("grid")
+    if data.get("concept") not in STARTERS or not isinstance(data.get("tab_bar", True), bool):
+        raise GridInvalid("grid")
+    for key, one in (("scenes", _domain("scene")), ("rooms", _area),
+                     ("cameras", _domain("camera")), ("climate", _domain("climate"))):
+        values = data.get(key, [])
+        if not isinstance(values, list) or len(values) > 512:
+            raise GridInvalid("grid_option")
+        for value in values:
+            one(value)
+    if data.get("tablet_room") is not None:
+        _area(data["tablet_room"])
+    return starter(**data)

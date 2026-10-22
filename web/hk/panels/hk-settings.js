@@ -53,6 +53,8 @@
 //                 'saver' (a screen's Screensaver Options, first; ctx { screen,
 //                 title }) or 'house-saver' (All Screens' Screensaver, after
 //                 Photos; ctx { photos, set(source) })
+//     gridHistory(path, panel) a promise for this screen’s layout history,
+//                 absent on a host without layout history
 //     press(ids, panel)  a tablet's own parts that are the host's, not HA
 //                 buttons (Reload, Clear Cache: tablets[].parts), pressed:
 //                 a promise (rejected with a message to show), or null to
@@ -643,7 +645,7 @@
       try {
         await Promise.all([import('/hk/panels/hk-settings-model.js?v=' + v), import('/hk/panels/hk-settings-kit.js?v=' + v),
                            import('/hk/panels/hk-settings-features.js?v=' + v), import('/hk/modules/hk-settings.js?v=' + v),
-                           import('/hk/modules/hk-flat-image.js?v=' + v)]);
+                           import('/hk/modules/hk-flat-image.js?v=' + v), import('/hk/cards/hk-grid-catalog.js?v=' + v).then(function () { return import('/hk/panels/hk-grid-editor.js?v=' + v); })]);
       } catch (e) {
         s.innerHTML = '<div class="loading">HK settings couldn’t load: ' + String(e && e.message || e) + '</div>';
         return;
@@ -1824,6 +1826,21 @@
         } };
       }
       var s = sub[0];
+      if (s === 'home-grid' && x.generated) return {
+        title: 'Arrange Home Grid', back: [x.title, base],
+        body: function (c) {
+          if (!self._gridEditors) self._gridEditors = {};
+          var editor = self._gridEditors[path];
+          if (!editor) {
+            editor = document.createElement('hk-grid-editor');
+            self._gridEditors[path] = editor;
+            editor.configure({ panel: self, path: path, board: b, title: x.title,
+              onCancel: function () { delete self._gridEditors[path]; self.back(base); },
+              onSaved: function () { delete self._gridEditors[path]; self.back(base); } });
+          }
+          c.appendChild(editor);
+        }
+      };
       var mk = function (title, body, backTo) {
         return { title: title, back: backTo || [x.title, base], preview: path, body: body };
       };
@@ -1999,6 +2016,16 @@
       if (gen) home.push(K.nav({ label: 'Favorites', value: b.favorites.length ? b.favorites.length + (b.favorites.length === 1 ? ' Favorite' : ' Favorites') : 'None',
                                  href: base + '/favorites', sk: 'b:favorites' }));
       home.push(K.nav({ label: 'Rooms', value: roomsVal, href: base + '/rooms', sk: 'b:rooms_custom' }));
+      if (gen && !only) {
+        home.unshift(K.select({ label: 'Home Style', value: b.home_style || 'generated',
+          options: [['generated', 'Generated'], ['grid', 'Home Grid']],
+          onChange: function (v) {
+            if (v === 'grid') self.back(base + '/home-grid');
+            else self.setB(path, { home_style: 'generated' });
+          } }));
+        home.splice(1, 0, K.nav({ label: 'Arrange Home Grid', href: base + '/home-grid',
+          sub: 'Arrange on a desktop. Save when ready.', value: b.home_grid ? b.home_grid.items.length + ' Blocks' : 'Choose a Starter' }));
+      }
       // only some pages: no Home page to set up here
       if (!only) c.appendChild(K.group({ header: 'Home Page', footer: gen ? null :
         'This screen is written in YAML, so it draws its own Home page. These lists apply where its cards read them: the chip row, the scenes row, the camera strip and the room order.' }, home));

@@ -46,3 +46,7 @@ Using HK Frontend inside Home Assistant? Mantel can run beside it or take over f
 - [Troubleshooting](Troubleshooting.md)
 
 Something not covered here? [Open an issue](https://github.com/jazzphone/mantel/issues).
+
+## Home Grid
+
+Arrange a tablet’s Home page in fixed blocks with the desktop [Home Grid editor](Home-Grid.md).

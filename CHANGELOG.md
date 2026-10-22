@@ -6,6 +6,8 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 
 The first public release.
 
+- **Home Grid editor (in development)**: desktop draft editing with drag and snap, equal-size swaps, keyboard moves, card options, pages, starter layouts and Save/Cancel. Mantel adds layout history and copying to another screen.
+
 - **Mantel Server**: serves HK Frontend's screens without Lovelace, from your Home Assistant's rooms and devices.
 - **People and roles**: Mantel accounts with passwords, passkeys and authenticator codes, or sign-in with Home Assistant; Owner, Admin, Adult, Child and Guest roles, with grants per room and feature.
 - **Wall tablets**: a browser enrolled as a tablet keeps its own credential and role, whoever is signed in.

@@ -2215,6 +2215,10 @@
         __build: {}                     // this build's one pass over the house (byArea)
       });
       opts.board = boardOf(seg);
+      // The desktop editor's frame only: a draft is never put in the settings feed.
+      if (y.home_grid_preview) opts.board = Object.assign({}, opts.board, {
+        home_style: 'grid', home_grid: y.home_grid_preview, home_page: true, home_view: null, only_pages: []
+      });
       if (opts.board.sky === false) opts.sky = false;
       var b = opts.board;
       // HOME PAGE OFF (its Pages page): the screen is only the pages it

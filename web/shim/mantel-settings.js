@@ -2406,6 +2406,7 @@ export const host = {
   get screenBase() { return BASE; },
   get back() { return { label: 'Dashboard', href: mantelUrl('/home') }; },
   notes: NOTES,
+  gridHistory(path, panel) { return panel.client.callWS({ type: 'mantel/settings/history', scope: 'board', key: path, bodies: true, limit: 100 }); },
   // a wall tablet's Home Assistant user is Mantel's (its 'tablet' group), not HK's Tablet User
   get owns() { return { tablet_user: true }; },
   groups() {

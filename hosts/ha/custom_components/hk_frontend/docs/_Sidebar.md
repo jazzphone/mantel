@@ -9,6 +9,7 @@
 **Screens**
 * [How screens work](Screens.md)
 * [The Home page](Home-Page.md)
+* [Home Grid](Home-Grid.md)
 * [Rooms](Rooms.md)
 * [Status chips](Status-Chips.md)
 * [Status rows](Status-Rows.md)

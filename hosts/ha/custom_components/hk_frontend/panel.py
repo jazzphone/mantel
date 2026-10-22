@@ -61,7 +61,7 @@ async def async_register(hass: HomeAssistant, sidebar: bool = True) -> None:
     # with this same stamp)
     try:
         stamp = await hass.async_add_executor_job(
-            lambda: int(max(p.stat().st_mtime for p in MODULE.parent.glob("hk-settings*.js"))))
+            lambda: int(max(p.stat().st_mtime for p in MODULE.parent.glob("hk-*.js"))))
     except (OSError, ValueError):
         stamp = 0
     frontend.async_register_built_in_panel(
@@ -747,9 +747,22 @@ def ws_dashboard_titled(hass: HomeAssistant, connection: websocket_api.ActiveCon
     connection.send_result(msg["id"], {"title": title})
 
 
+@websocket_api.websocket_command({vol.Required("type"): "hk_frontend/grid/starter",
+                                  vol.Required("options"): dict})
+@websocket_api.require_admin
+@websocket_api.async_response
+async def ws_grid_starter(hass: HomeAssistant, connection: websocket_api.ActiveConnection,
+                          msg: dict[str, Any]) -> None:
+    from .hk_core.settings.home_grid import starter_request, GridInvalid
+    try:
+        connection.send_result(msg["id"], {"grid": starter_request(msg["options"])})
+    except GridInvalid as exc:
+        connection.send_error(msg["id"], "invalid_format", str(exc))
+
+
 def register_commands(hass: HomeAssistant) -> None:
     for cmd in (ws_tablet_set, ws_tablet_add, ws_tablet_remove, ws_tablet_act, ws_tablet_seen):
         websocket_api.async_register_command(hass, cmd)
-    for cmd in (ws_panel_get, ws_setup_done, ws_settings_set, ws_calendar_color, ws_board_set, ws_setup_check,
+    for cmd in (ws_panel_get, ws_grid_starter, ws_setup_done, ws_settings_set, ws_calendar_color, ws_board_set, ws_setup_check,
                 ws_chip_save, ws_chip_remove, ws_dashboard_titled):
         websocket_api.async_register_command(hass, cmd)
