@@ -1,7 +1,7 @@
 """Home Assistant's users, each in one place (decision 29, docs/phase9/TWO-PRODUCTS.md "people in one list").
 
 An HA user is a person (linked to an EXISTING Mantel person: ``ha_links``), a wall tablet (linked to an enrolled
-device: ``ha_tablet_links``), or neither. People shows the first; Devices the second; the rest are "Other Home
+device: ``ha_tablet_links``), or neither. People shows the first; each wall tablet's own page the second; the rest are "Other Home
 Assistant users". Linking an HA user with only a role (the Ingress People page, ``store.link``) makes a separate
 ``ha_linked`` account; such an account can be merged into an existing person here.
 
@@ -15,7 +15,9 @@ audited first):
 * ``POST /api/users/{id}/merge`` ``{into}``: an ``ha_linked`` account into a person: its Home Assistant link, Default
   Screen, own settings, saved data, phones and room scopes go to the person (unless the person has their own), its
   grants name the person, and the account is removed (its sessions end).
-* ``PUT /api/devices/{id}/ha-user`` ``{ha_user | null}``: the HA user a wall tablet is (ingress.link_tablet).
+* ``PUT /api/devices/{id}/ha-user`` ``{ha_user | null}``: the HA user a wall tablet is (ingress.link_tablet). An HA
+  user linked to a Wall Tablet *account* (a stand-in from before tablets were devices) moves to the tablet, and the
+  account is removed (``remove_stand_in``); one linked to any other person is refused: unlink them on People first.
 """
 from __future__ import annotations
 
@@ -149,7 +151,8 @@ async def api_put(request: web.Request) -> web.Response:
         return error(400, "invalid", message="{ha_user, user_id: a person or null}")
     from .ingress import linked_user, tablet_link
     if tablet_link(db, target) is not None:
-        return error(409, "tablet", message="That Home Assistant user is a wall tablet: change it on Devices.")
+        return error(409, "tablet", message="That Home Assistant user is a wall tablet: change it on its "
+                                                       "tablet's page (All Screens, Wall Tablets).")
     cur = linked_user(db, target)
     person = db.execute("SELECT id, role, kind, name FROM users WHERE id = ?", (uid,)).fetchone() if uid else None
     if uid and person is None:
@@ -216,11 +219,16 @@ async def api_device_ha_user(request: web.Request) -> web.Response:
     target = body.get("ha_user")
     if set(body) != {"ha_user"} or (target is not None and (not isinstance(target, str) or not _HA_USER.match(target))):
         return error(400, "invalid", message="{ha_user: an HA user id or null}")
-    from .ingress import TabletLinkError, link_tablet, unlink_tablet
+    from .ingress import TabletLinkError, link_tablet, linked_user, unlink_tablet
     db = app["store"].db
     now = db.execute("SELECT ha_user_id FROM ha_tablet_links WHERE device_id = ?", (dev,)).fetchone()
+    stand_in = linked_user(db, target) if target is not None else None
+    if stand_in is not None and stand_in["role"] != "wall_tablet":
+        return error(409, "person", message=f"That Home Assistant user is {stand_in['name'] or 'a person'}: "
+                                            "unlink them on People first.")
     if now is not None and now[0] != target:
         unlink_tablet(app, now[0], ident.user)
+    removed = None
     if target is not None and (now is None or now[0] != target):
         name = None
         directory = _directory(app)
@@ -233,7 +241,42 @@ async def api_device_ha_user(request: web.Request) -> web.Response:
             link_tablet(app, target, ident.user, device_id=dev, ha_name=name)
         except TabletLinkError as exc:
             return error(exc.status, exc.code, message=exc.message)
-    return ok({"device_id": dev, "ha_user": target})
+        if stand_in is not None and stand_in["kind"] != "ha_linked":
+            removed = remove_stand_in(app, stand_in["id"], ident.user)
+    return ok({"device_id": dev, "ha_user": target, "removed_account": removed})
+
+
+def remove_stand_in(app: web.Application, uid: str, actor) -> str | None:
+    """A Wall Tablet ACCOUNT a Home Assistant user was linked to as a person, from before tablets were enrolled as
+    devices: once that HA user is its tablet's (``api_device_ha_user``) the account stands in for nothing, so it
+    goes, with what was its alone. Only a wall_tablet account no Home Assistant user is linked to any more; a device
+    it enrolled keeps its own credential (``enrolled_by`` is cleared). Audited. Returns its name, or None if kept."""
+    db = app["store"].db
+    row = db.execute("SELECT id, name, username, role FROM users WHERE id = ?", (uid,)).fetchone()
+    if row is None or row["role"] != "wall_tablet":
+        return None
+    if db.execute("SELECT 1 FROM ha_links WHERE user_id = ?", (uid,)).fetchone():
+        return None
+    name = row["name"] or row["username"] or uid
+    audit = app.get("audit")
+    if audit is not None:
+        audit.config_event({"timestamp": app["clock"](), "actor": actor.id, "role": actor.role,
+                            "action": "people.remove_tablet_account", "detail": {"user_id": uid, "name": name}})
+    with db:
+        db.execute("DELETE FROM default_screens WHERE subject = ?", (f"u:{uid}",))
+        db.execute("DELETE FROM user_data WHERE subject = ?", (f"u:{uid}",))
+        db.execute("DELETE FROM person_phones WHERE user_id = ?", (uid,))
+        db.execute("DELETE FROM rbac_scopes WHERE subject_kind = 'user' AND subject_id = ?", (uid,))
+        db.execute("DELETE FROM users WHERE id = ?", (uid,))     # sessions, PINs and the rest go with it
+    svc = app.get("settings")
+    if svc is not None and svc.store.get("user", uid) is not None:
+        from .settings_store import Actor
+        svc.store.remove("user", uid, actor=Actor(label="tablet account"))
+    rb = app.get("rbac")
+    if rb is not None and hasattr(rb, "invalidate"):
+        rb.invalidate()
+    log.info("people: removed the Wall Tablet account %s (%s); its Home Assistant user is its tablet's now", name, uid)
+    return name
 
 
 def register(app: web.Application) -> None:

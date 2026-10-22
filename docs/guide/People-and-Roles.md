@@ -184,7 +184,7 @@ A grant change reaches everyone's open screens at once. To undo one, select **Re
 
 A **service account** is a credential for a machine, not a person: no password, no session, no role, only the endpoints ticked for it. [Mantel Link](Mantel-Link.md) uses one to link Home Assistant to Mantel.
 
-**Mantel Settings** → **Service Accounts** (Owner only, on the home network) lists them and makes new ones. A new credential is shown once; Mantel keeps only a hash of it. **Revoke** cuts off whatever uses it at once.
+**Mantel Settings** → **Service Accounts** (under **Advanced**; Owner only, on the home network) lists them and makes new ones, for scripts and other machines. Mantel Link and HK Frontend get theirs on **Connections** → **Home Assistant**, and they're listed here too, marked with what made them and what uses them. A new credential is shown once; Mantel keeps only a hash of it. **Revoke** cuts off whatever uses it at once. Revoked ones stay listed for 30 days; **Clear List** removes them sooner, and the Audit Log keeps them.
 
 ## Who sees which settings
 
@@ -192,9 +192,9 @@ A **service account** is a credential for a machine, not a person: no password, 
 |---|---|---|---|
 | **Me** | Yes | Yes | Yes |
 | HK's own settings (Screens, Pages, All Screens, Library, System) | Yes | Yes | No |
-| **People**, **Devices**, **Your Files** | Yes | Yes | No |
+| **People**, **Your Files** | Yes | Yes | No |
 | **Roles & Grants** | Yes | No | No |
-| **Service Accounts**, **Mantel Connect** (when Connect is on) | Yes, on the home network | No | No |
+| **Service Accounts**, Connections' **Sidebar (Mantel Connect)** (when Connect is on) | Yes, on the home network | No | No |
 | **Audit Log** | Yes | Yes | No |
 | **Connections** | Yes | Read only | No |
 | **About** | Yes | Yes | Yes |

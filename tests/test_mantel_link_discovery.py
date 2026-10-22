@@ -75,6 +75,16 @@ async def test_the_app_announces_mantel_with_a_rotated_credential(make_env, tmp_
         assert accounts.verify(tok1, "linked") is None and accounts.verify(tok2, "linked") is not None
         rows = [r for r in env.audit(kind="config") if r["action"] == "linked.app_discovery"]
         assert len(rows) == 2 and tok1 not in repr(rows) and tok2 not in repr(rows)
+        # Mantel's own rotated credential doesn't pile up under Service Accounts: one is listed, the live one
+        assert [a["name"] for a in accounts.list()] == [SD.ACCOUNT_NAME] and accounts.list()[0]["made_by"] == "app"
+        # Mantel Link set up by hand (a pairing code): nothing to discover, so the App withdraws and stands down
+        own, _ = accounts.create("Home Assistant - Mantel Link", ["linked"], by="pairing:u1")
+        from mantel_server.linked import LINK_ACCOUNT_KEY
+        env.app["linked_owners"].remember(LINK_ACCOUNT_KEY, {"account": own.id})
+        assert await SD.announce(env.app) is None
+        assert sup.deletes == ["uuid-1", "uuid-2"] and len(sup.posts) == 2
+        assert accounts.verify(tok2, "linked") is None
+        assert [(a["name"], a["made_by"]) for a in accounts.list()] == [("Home Assistant - Mantel Link", "pairing")]
     finally:
         await sup.server.close()
 

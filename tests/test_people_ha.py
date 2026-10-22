@@ -101,3 +101,22 @@ async def test_a_wall_tablet_s_home_assistant_user_is_set_on_its_device(make_env
     assert st == 409, "a tablet's HA user is changed on Devices"
     st, _ = await put(env, f"/api/devices/{dev[0]}/ha-user", {"ha_user": None})
     assert st == 200 and db.execute("SELECT 1 FROM ha_tablet_links WHERE ha_user_id = ?", (KITCHEN,)).fetchone() is None
+
+
+async def test_a_home_assistant_user_on_a_wall_tablet_account_moves_to_its_tablet_and_the_account_goes(make_env):
+    """Before tablets were enrolled, a tablet's Home Assistant user was linked to a Wall Tablet ACCOUNT (a person):
+    made its device's, the account is removed (audited); one linked to anyone else is refused."""
+    env = await make_env()
+    db, me = await setup(env)
+    stand_in = await env.m.user("kitchen", "wall_tablet")
+    sid = stand_in["id"] if isinstance(stand_in, dict) else db.execute("SELECT id FROM users WHERE username='kitchen'").fetchone()[0]
+    assert (await put(env, "/api/people/ha", {"ha_user": KITCHEN, "user_id": sid}))[0] == 200
+    assert (await put(env, "/api/people/ha", {"ha_user": AVERY, "user_id": me}))[0] == 200
+    dev = env.app["devices"].enroll("Kitchen", "wall_tablet", None, me)[0]
+    st, body = await put(env, f"/api/devices/{dev}/ha-user", {"ha_user": AVERY})
+    assert st == 409 and body["error"] == "person", "a person's Home Assistant user is never taken for a tablet"
+    st, body = await put(env, f"/api/devices/{dev}/ha-user", {"ha_user": KITCHEN})
+    assert st == 200 and body["removed_account"] == "Kitchen", body
+    assert db.execute("SELECT device_id FROM ha_tablet_links WHERE ha_user_id = ?", (KITCHEN,)).fetchone()[0] == dev
+    assert db.execute("SELECT 1 FROM users WHERE id = ?", (sid,)).fetchone() is None
+    assert any(r["action"] == "people.remove_tablet_account" for r in env.audit(kind="config"))

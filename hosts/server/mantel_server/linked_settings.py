@@ -19,11 +19,11 @@ it was sent (its mirror) and answers its dashboards from it, also while Mantel c
   settings, ...), exactly as the page sends it (``msg``), made AS THE PERSON linked to the Home Assistant user who
   made it (``ha_user``; the ``ha_links`` table, as Ingress and "Sign in with Home Assistant" use). Mantel's RBAC
   decides (``configure``), and the settings history says the person, from Home Assistant.
-* Only with the Service account's ``linked_saves`` scope (Mantel Settings -> Mantel in Home Assistant -> HK Frontend -> Changes
+* Only with the Service account's ``linked_saves`` scope (Mantel Settings -> Connections -> Home Assistant -> HK Frontend -> Changes
   from Home Assistant): it lets the credential say which Home Assistant user is acting, as the Supervisor does for Ingress.
 * Refused in words: the scope off, an unlinked or disabled user, or the save itself (RBAC, a bad value).
 
-SETUP (Mantel Settings -> Connections -> Mantel in Home Assistant), Owner and Admin read, Owner changes, each audited:
+SETUP (Mantel Settings -> Connections -> Home Assistant: HK Frontend, Moving from HK Frontend), Owner and Admin read, Owner changes, each audited:
 
     GET /api/linked/ha-saves     whether saves are on (Changes from Home Assistant), and Home Assistant's people
     PUT /api/linked/ha-saves     {"on": bool}                    the linked HK Frontends' linked_saves scope
@@ -54,7 +54,7 @@ LABEL = "Home Assistant"                # where a forwarded save came from, in t
 DEBOUNCE_S = 0.25
 _HA_USER = re.compile(r"^[0-9a-f]{32}$")
 OFF = ("Changes made in Home Assistant aren't saved. An Owner turns them on in Mantel Settings: Connections, "
-       "Mantel in Home Assistant, HK Frontend, Changes from Home Assistant.")
+       "Home Assistant, HK Frontend, Changes from Home Assistant.")
 UNLINKED = ("Link your Home Assistant user to your person in Mantel to save settings (Mantel Settings, People, "
             "Home Assistant Users).")
 

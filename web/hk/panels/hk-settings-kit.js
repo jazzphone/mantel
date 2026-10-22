@@ -206,6 +206,10 @@
     // TEXT
     '.cell input.tx{flex:1 1 40%;min-width:0;border:0;background:none;color:var(--hk-label);font:inherit;text-align:right;',
     '  padding:6px 0;outline:none;text-overflow:ellipsis}',
+    // a date or a time sizes to what it shows and sits at the right, as every value does (its own text ignores
+    // text-align in WebKit and Chrome)
+    '.cell input.tx[type=datetime-local],.cell input.tx[type=date],.cell input.tx[type=time]{flex:0 1 auto;margin-left:auto}',
+    '.cell input.tx::-webkit-date-and-time-value{text-align:right}',
     '.cell input.tx::placeholder{color:var(--hk-label3)}',
     '.cell.textrow:focus-within{box-shadow:inset 0 0 0 2px color-mix(in srgb,var(--hk-tint) 55%,transparent);border-radius:10px}',
     '.cell .unit{color:var(--hk-label2)}',

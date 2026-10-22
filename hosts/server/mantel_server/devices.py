@@ -11,7 +11,9 @@ uses the pair.
   but keeps the old one valid until the new one comes back, so a lost response never strands a
   tablet. Once the new one is seen the old one is retired; if the retired secret is presented again
   (after a short grace for requests already in flight) somebody copied it, and the device is revoked.
-* **Revocable** in one call (``DELETE /api/devices/{id}``); a revoked device is refused at once.
+* **Revocable** in one call (``DELETE /api/devices/{id}``); a revoked device is refused at once. It stays listed
+  (Revoked) for 30 days, or until an Owner or Admin clears the list (``DELETE /api/devices/revoked``); its audit
+  rows stay for the log's own retention.
 * **Audited**: enrolling (``device.enroll``) and revoking (``device.revoke``, by a manager or by the tablet itself)
   each write their ``config`` row before the change (``accounts.audit_change``), as moving one does
   (``device.room``). A revocation the server makes itself (idle, a copied credential) is in its log.
@@ -49,6 +51,7 @@ RETIRED_GRACE = 60.0         # requests already in flight with the retired secre
 IDLE_LIMIT = 90 * 86400
 COOKIE_MAX_AGE = 400 * 86400  # browsers cap cookie lifetimes at 400 days
 TOUCH_EVERY = 60.0
+FORGET_REVOKED_AFTER = 30 * 86400   # a revoked device leaves the list after this; its audit rows stay
 
 
 class DeviceManager:
@@ -79,6 +82,23 @@ class DeviceManager:
 
     def get(self, device_id: str):
         return self.db.execute("SELECT * FROM devices WHERE id = ?", (device_id,)).fetchone()
+
+    def forget_revoked(self, older_than: float | None = None) -> list[dict]:
+        """Remove revoked devices (all of them, or those revoked ``older_than`` seconds ago or more), with what
+        was theirs alone (a Default Screen, saved data, rooms); their audit rows stay. Returns the ones removed."""
+        cut = self.clock() - older_than if older_than is not None else None
+        rows = [dict(r) for r in self.db.execute(
+            "SELECT id, name, room, revoked FROM devices WHERE revoked IS NOT NULL" + (" AND revoked <= ?" if cut is not None else ""),
+            (cut,) if cut is not None else ())]
+        with self.db:
+            for r in rows:
+                self.db.execute("DELETE FROM default_screens WHERE subject = ?", (f"d:{r['id']}",))
+                self.db.execute("DELETE FROM user_data WHERE subject = ?", (f"d:{r['id']}",))
+                self.db.execute("DELETE FROM rbac_scopes WHERE subject_kind = 'device' AND subject_id = ?", (r["id"],))
+                self.db.execute("DELETE FROM devices WHERE id = ?", (r["id"],))
+        if rows:
+            log.info("forgot %d revoked device(s)", len(rows))
+        return rows
 
     def set_room(self, device_id: str, room: str | None) -> bool:
         with self.db:
@@ -275,6 +295,7 @@ async def enroll(request: web.Request) -> web.Response:
 async def list_devices(request: web.Request) -> web.Response:
     require_manager(request)
     app = request.app
+    app["devices"].forget_revoked(FORGET_REVOKED_AFTER)
     devices = [{**d, "hk_tablets": tablets_in(app, d["room"])} for d in app["devices"].list()]
     return ok({"devices": devices, "tablets": hk_tablets(app)})
 
@@ -352,6 +373,19 @@ async def revoke(request: web.Request) -> web.Response:
     return resp
 
 
+async def forget_revoked(request: web.Request) -> web.Response:
+    """``DELETE /api/devices/revoked`` (Owner/Admin): Clear Revoked. The list only: each device's audit rows stay."""
+    ident = require_manager(request)
+    mgr: DeviceManager = request.app["devices"]
+    gone = [r["id"] for r in mgr.db.execute("SELECT id FROM devices WHERE revoked IS NOT NULL")]
+    if not gone:
+        return ok({"removed": 0})
+    refused = audit_change(request, ident, "device.forget_revoked", {"devices": gone})
+    if refused:
+        return refused
+    return ok({"removed": len(mgr.forget_revoked())})
+
+
 def register(app: web.Application, hub=None) -> None:
     cfg = app["cfg"]
     app["devices"] = DeviceManager(app["store"].db, lambda: app["clock"](),
@@ -359,5 +393,6 @@ def register(app: web.Application, hub=None) -> None:
     app.router.add_post("/api/devices/enroll", enroll)
     app.router.add_get("/api/devices", list_devices)
     app.router.add_get("/api/devices/rooms", rooms)
+    app.router.add_delete("/api/devices/revoked", forget_revoked)     # before /{id}
     app.router.add_patch("/api/devices/{id}", update)
     app.router.add_delete("/api/devices/{id}", revoke)

@@ -106,8 +106,9 @@ an ordinary Music Assistant user:
 
 1. In Music Assistant, **Settings → Users**, add a user (for example
    `mantel-page`) with the **User** role, not Admin.
-2. In Mantel, **Mantel Settings → Connections → Music Assistant Page**: sign in
-   as that user once, or paste a long-lived token made for it.
+2. In Mantel, **Mantel Settings → Connections → Music Assistant**, under
+   **Browse Music Page**: sign in as that user once, or paste a long-lived token
+   made for it.
 
 An administrator's token is refused. The token stays in Mantel; the page
 never sees it. If Music Assistant later refuses it, the page shows Music

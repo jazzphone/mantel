@@ -10,10 +10,14 @@ start the App tells the Supervisor (``POST http://supervisor/discovery``, the Ap
 and the Supervisor hands it to Mantel Link's ``async_step_hassio`` (HA's discovery is for administrators).
 
 * **The credential** is a Service account Mantel makes for this: "Mantel Link - App discovery", scope
-  ``linked`` only. It is **rotated whenever the App announces**: the one it made last time is revoked first, so
+  ``linked`` only. It is **rotated whenever the App announces**: the one it made last time is revoked and
+  removed first (it is Mantel's own, so it doesn't pile up under Service Accounts; the audit row says which), so
   at most one is ever live. Home Assistant updates Mantel Link's entry from the new announcement (the same
-  instance id), so a link set up from the discovery follows. A link set up by hand (its own credential or a
-  pairing code) is not touched. Revocable like any other (Mantel Settings, Service Accounts).
+  instance id), so a link set up from the discovery follows. Revocable like any other (Mantel Settings,
+  Service Accounts).
+* **Not needed, not made**: when Mantel Link last connected with another live credential (set up by hand: a
+  pairing code or a pasted credential; ``linked.LINK_ACCOUNT_KEY``), there is nothing to discover. The App
+  withdraws its announcement and its credential instead of making a new one that would never be used.
 * **The address** is the App's own name on Home Assistant's internal App network (``local-mantel`` installed
   locally, ``<repo hash>-mantel`` from a repository), from the Supervisor (``/addons/self/info``), so Mantel Link's
   plain ``http://`` check (resolves into 172.30.32.0/23) accepts it.
@@ -68,8 +72,16 @@ async def announce(app: Any, *, http: aiohttp.ClientSession | None = None) -> di
         if before.get("account"):
             try:
                 accounts.revoke(before["account"], reason="rotated")
+                with accounts.db:
+                    accounts.db.execute("DELETE FROM service_accounts WHERE id = ?", (before["account"],))
             except Exception:  # noqa: BLE001 -- already gone
                 pass
+        from .linked import LINK_ACCOUNT_KEY
+        by_hand = (owners.remembered(LINK_ACCOUNT_KEY) or {}).get("account")
+        if by_hand and by_hand != before.get("account") and accounts.live(by_hand):
+            owners.remember(KEY, {})
+            log.warning("App discovery: Mantel Link is set up with its own credential; nothing to announce")
+            return None
         account, token = accounts.create(ACCOUNT_NAME, ["linked"], by="mantel:app")
         instance = (lk.instance if lk is not None else None) or owners.instance_id()
         body = {"service": SERVICE, "config": {"url": url, "token": token, "instance": instance}}

@@ -124,6 +124,11 @@ SETTINGS = {
 }
 
 DESKTOP, TABLET, PHONE = (1440, 900), (1180, 820), (390, 844)
+# a wall tablet's page from its Setup down: HK's Setup, then Mantel's group (who is signed in as it)
+SCROLL_TO_SETUP = """(() => { const find = (root) => { for (const el of root.querySelectorAll('*')) {
+  if (el.shadowRoot) { const got = find(el.shadowRoot); if (got) return got; }
+  if (el.tagName === 'H2' && el.textContent.trim().toUpperCase() === 'SETUP') return el; } return null; };
+  const h = find(document); if (h) h.scrollIntoView({ block: 'start' }); })()"""
 
 # name -> (path, viewport, signed in, script to run before the shot)
 SHOTS = {
@@ -138,7 +143,7 @@ SHOTS = {
     "music-phone": (f"/{SCREEN}/playmusic", PHONE, True, None),
     "settings-me": ("/settings#/mantel/me", DESKTOP, True, None),
     "settings-people": ("/settings#/mantel/people", DESKTOP, True, None),
-    "settings-devices": ("/settings#/mantel/devices", DESKTOP, True, None),
+    "settings-wall-tablet": ("/settings#/house/tablets/kitchen", DESKTOP, True, SCROLL_TO_SETUP),
     "settings-roles": ("/settings#/mantel/roles", DESKTOP, True, None),
     "settings-audit": ("/settings#/mantel/audit", DESKTOP, True, None),
     "settings-phone": ("/settings", PHONE, True, None),
@@ -247,6 +252,12 @@ async def seed_people(app, owner_id: str) -> None:
         people[username] = await acc.create_user(username, name, role, secrets.token_urlsafe(16))
     app["devices"].enroll("Kitchen Tablet", "wall_tablet", "kitchen", owner_id)
     app["devices"].enroll("Hallway Tablet", "wall_tablet", "living_room", owner_id)
+    service = app.get("settings")
+    if service is not None:                  # HK's wall tablets the two devices are (a tablet's page: Mantel's group)
+        from mantel_server.settings_store import Actor
+        for tid, name, room in (("kitchen", "Kitchen", "kitchen"), ("hallway", "Hallway", "living_room")):
+            service.store.write([("tablet", tid, {"name": name, "room": room, "screen": SCREEN, "app": "fully",
+                                                  "uid": f"tablet_{tid}"})], actor=Actor(label="gallery"))
     app["user_data"].set(f"u:{owner_id}", "hk_music_focus", {"key": "media_player.living_room"})
     audit = app["audit"]
     clock = audit.clock

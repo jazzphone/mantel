@@ -57,6 +57,7 @@ MAX_WRONG = 5                         # wrong proofs against one code before it 
 IP_FAILS, IP_WINDOW = 10, 600.0       # failed exchanges per peer address
 ALL_FAILS, ALL_WINDOW = 30, 600.0     # failed exchanges from anywhere
 SEEN_EVERY = 60.0
+FORGET_REVOKED_AFTER = 30 * 86400      # a revoked pairing leaves the list after this; the audit log keeps it
 MIGRATION = Path(__file__).with_name("migrations") / "0009_connect_pairing.sql"
 _ID = re.compile(r"^[0-9a-f]{16}$")
 
@@ -431,6 +432,22 @@ class Connect:
             out.append(dict(r))
         return out
 
+    def forget_revoked(self, by: str | None = None, role: str | None = None, older_than: float | None = None) -> int:
+        """Remove revoked pairings from the list (all, or those revoked ``older_than`` seconds ago or more). A
+        certificate is accepted only while its pairing is live, so one whose row is gone is refused like any
+        unknown one (only the "revoked" wording is lost). Audited when an Owner asks."""
+        cut = self.clock() - older_than if older_than is not None else None
+        ids = [r[0] for r in self.db.execute(
+            "SELECT id FROM connect_pairings WHERE revoked IS NOT NULL" + (" AND revoked <= ?" if cut is not None else ""),
+            (cut,) if cut is not None else ())]
+        if not ids:
+            return 0
+        if by is not None:
+            self._audit(by, role, "connect.forget_revoked", {"pairings": ids})
+        with self.db:
+            self.db.executemany("DELETE FROM connect_pairings WHERE id = ?", [(i,) for i in ids])
+        return len(ids)
+
     def revoke(self, pairing_id: str, by: str | None, role: str | None = "owner", reason: str = "revoked") -> bool:
         if not isinstance(pairing_id, str) or not _ID.match(pairing_id):
             return False
@@ -570,6 +587,7 @@ async def api_list(request: web.Request) -> web.Response:
     _owner(request)
     mgr: Connect = request.app["connect"]
     cfg = request.app["cfg"]
+    mgr.forget_revoked(older_than=FORGET_REVOKED_AFTER)
     return _json({"pairings": mgr.list(), "pending": mgr.pending(), "port": cfg.connect_port,
                   "address": cfg.connect_address, "ttl": protocol.CODE_TTL})
 
@@ -592,6 +610,11 @@ async def api_revoke(request: web.Request) -> web.Response:
     return _json({"ok": True})
 
 
+async def api_forget_revoked(request: web.Request) -> web.Response:
+    ident = _owner(request)
+    return _json({"ok": True, "removed": request.app["connect"].forget_revoked(ident.user.id, ident.user.role)})
+
+
 def register(app: web.Application, hub=None) -> Connect | None:
     """``app["connect"]`` and the Owner REST, when ``cfg.connect``; otherwise nothing at all."""
     cfg = app["cfg"]
@@ -606,6 +629,7 @@ def register(app: web.Application, hub=None) -> Connect | None:
     app.router.add_get("/api/connect", api_list)
     app.router.add_post("/api/connect/pair", api_start)
     app.router.add_delete("/api/connect/pair", api_cancel)
+    app.router.add_delete("/api/connect/pairings/revoked", api_forget_revoked)     # before /{id}
     app.router.add_delete("/api/connect/pairings/{id}", api_revoke)
 
     async def maintenance() -> None:

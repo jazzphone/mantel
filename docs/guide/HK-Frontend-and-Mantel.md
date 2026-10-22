@@ -26,8 +26,10 @@ feature usually lands in both, and you can run either one or both.
 ## Running both
 
 Install HK Frontend and Mantel Link in Home Assistant and link HK Frontend to
-Mantel (HK Frontend's Configure → Linked to Mantel). Then, in Mantel Settings →
-Connections → [Mantel in Home Assistant](Mantel-Link.md):
+Mantel (Mantel Settings → Connections → Home Assistant → HK Frontend → **Link HK
+Frontend…** gives you its credential, for HK Frontend's Configure → Linked to
+Mantel). Then, in Mantel Settings → Connections → Home Assistant → **Moving from
+HK Frontend** ([Mantel Link](Mantel-Link.md)):
 
 - **The Bridge:** one of the two shows Mantel's entities in Home Assistant.
   Mantel Link is recommended. Entity ids and history stay the same whichever
@@ -44,7 +46,7 @@ run by Mantel, HK's settings are Mantel's: HK Frontend's dashboards in Home
 Assistant draw with them (and keep drawing with the last ones while Mantel
 restarts), and a change made on those dashboards, such as a favorite or a
 calendar's color, is saved in Mantel as the person linked to your Home
-Assistant user. An Owner turns that on under Mantel in Home Assistant → HK Frontend →
+Assistant user. An Owner turns that on under Connections → Home Assistant → HK Frontend →
 **Changes from Home Assistant**, and links each Home Assistant user to a
 person on **People**. Settings
 pages stay in Mantel Settings. Move The House back to Home Assistant, or

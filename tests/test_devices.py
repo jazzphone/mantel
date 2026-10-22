@@ -393,3 +393,35 @@ async def test_a_wall_tablet_account_has_one_tablet_at_a_time(mantel):
     assert devices.get(second["device"]["id"])["revoked"] is None
     rows = [dict(r) for r in m.store.db.execute("SELECT action, target FROM action_audit WHERE action = 'device.revoke'")]
     assert len(rows) == 1 and first["device"]["id"] in rows[0]["target"]
+
+
+# -- Clear Revoked: the list only; the audit log keeps them --------------------------------------------------------
+async def test_revoked_devices_are_cleared_by_hand_or_after_thirty_days(mantel):
+    await mantel.user("avery", "owner")
+    await mantel.sign_in("avery")
+    ids = []
+    for name in ("Hall", "Den"):
+        r, body = await enroll(mantel, name=name)
+        ids.append(body["device"]["id"])
+        mantel.forget_cookies()
+        await mantel.sign_in("avery")
+    mantel.app["devices"].db.execute("INSERT INTO default_screens (subject, screen, set_by, updated) VALUES (?,?,?,?)",
+                                     (f"d:{ids[0]}", "dashboard-hall", None, 0))
+    for did in ids:
+        assert (await mantel.client.delete(f"/api/devices/{did}", headers=mantel.headers())).status == 200
+    mantel.now[0] += 31 * 86400
+    mantel.forget_cookies()
+    await mantel.sign_in("avery")
+    r, _ = await enroll(mantel, name="Kitchen")                  # revoked now: kept for 30 days
+    mantel.forget_cookies()
+    await mantel.sign_in("avery")
+    kid = mantel.store.db.execute("SELECT id FROM devices WHERE name = 'Kitchen'").fetchone()[0]
+    assert (await mantel.client.delete(f"/api/devices/{kid}", headers=mantel.headers())).status == 200
+    listed = (await (await mantel.get("/api/devices")).json())["devices"]
+    assert [d["name"] for d in listed] == ["Kitchen"], "revoked over 30 days ago: gone from the list"
+    assert mantel.store.db.execute("SELECT COUNT(*) FROM default_screens").fetchone()[0] == 0
+    r = await mantel.client.delete("/api/devices/revoked", headers=mantel.headers())
+    assert r.status == 200 and (await r.json())["removed"] == 1
+    assert (await (await mantel.get("/api/devices")).json())["devices"] == []
+    assert any(x["action"] == "device.forget_revoked" for x in mantel.app["audit"].rows(kind="config"))
+    assert [a for a, *_ in device_rows(mantel)].count("device.revoke") == 3, "the audit rows stay"

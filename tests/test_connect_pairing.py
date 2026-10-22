@@ -336,6 +336,11 @@ async def test_revocation_cuts_the_app_off_at_once_and_is_audited(srv, tmp_path)
     files2, _ = await do_pair(srv, tmp_path, folder="again")
     assert files2.read_info()["pairing_id"] != pid
     assert (await srv.get(files2, protocol.PING_PATH))[0] == 200
+    # Clear List: the revoked one leaves the list (audited); its certificate stays refused
+    assert srv.mgr.forget_revoked("owner-id", "owner") == 1
+    assert [p["id"] for p in srv.mgr.list()] == [files2.read_info()["pairing_id"]]
+    assert (await srv.get(files, protocol.PING_PATH))[0] == 401
+    assert len(srv.audit("connect.forget_revoked")) == 1
 
 
 async def test_renewal_replaces_the_certificate_and_the_old_one_lapses(srv, tmp_path):

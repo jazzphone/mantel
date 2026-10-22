@@ -101,9 +101,11 @@ def test_an_owner_gets_the_house_and_every_mantel_page(run):
     o = run["owner"]
     assert o["title"] == "Mantel Settings" and o["house"] is True and o["first"] is None
     assert o["groups"][0] == {"place": "top", "header": None, "routes": ["mantel/me"]}
-    assert routes(o)[1:] == ["mantel/people", "mantel/devices", "mantel/roles", "mantel/service", "mantel/audit",
-                             "mantel/connections", "mantel/connect", "mantel/files"]
-    assert [g["header"] for g in o["groups"][1:]] == ["People & Access", "Mantel"]
+    # wall tablets are each one's own page in All Screens (Devices is gone), Mantel Connect is in Connections'
+    # Home Assistant, and Service Accounts is Advanced
+    assert routes(o)[1:] == ["mantel/people", "mantel/roles", "mantel/audit", "mantel/connections", "mantel/files",
+                             "mantel/service"]
+    assert [g["header"] for g in o["groups"][1:]] == ["People & Access", "Mantel", "Advanced"]
     assert all(g["place"] == "end" for g in o["groups"][1:])
     assert o["pages"]["roles"] == "Roles & Grants" and o["pages"]["service"] == "Service Accounts"
 
@@ -111,7 +113,7 @@ def test_an_owner_gets_the_house_and_every_mantel_page(run):
 def test_an_admin_gets_the_house_without_roles_or_service_accounts(run):
     a = run["admin"]
     assert a["house"] is True
-    assert routes(a) == ["mantel/me", "mantel/people", "mantel/devices", "mantel/audit", "mantel/connections", "mantel/files"]
+    assert routes(a) == ["mantel/me", "mantel/people", "mantel/audit", "mantel/connections", "mantel/files"]
     # an address of a page the role may not use opens Me instead
     assert a["pages"]["roles"] == a["pages"]["me"] == "Fictional admin"
     assert a["pages"]["service"] == "Fictional admin" and a["pages"]["connect"] == "Fictional admin"
@@ -412,14 +414,14 @@ const tick = () => new Promise((r) => setTimeout(r, 0));
 const panel = { render() {}, status() {}, shadowRoot: null, reload() { panel.reloaded = true; } };
 async function draw() {
   const c = { kids: [], appendChild(k) { this.kids.push(k); return k; } };
-  for (let i = 0; i < 3; i++) { c.kids = []; m.host.page(['mantel', 'connections'], panel).body(c); await tick(); await tick(); }
+  for (let i = 0; i < 3; i++) { c.kids = []; m.host.page(['mantel', 'connections', 'ha', 'moving'], panel).body(c); await tick(); await tick(); }
   return c.kids;
 }
 const strip = (kids) => kids.map((g) => ({ ...g, rows: (g.rows || []).map(({ onClick, ...r }) => r) }));
 const out = {};
 for (const [name, cs] of Object.entries(cases)) {
   m._reset(cs.me);
-  state = { '/api/connections': cs.connections, '/api/connections/tablets?live=1': { tablets: [] },
+  state = { '/api/connections': cs.connections, '/api/linked/owners': { links: [], tablets: [] },
             '/api/settings/import': cs.status };
   const kids = await draw();
   out[name] = { groups: strip(kids) };
@@ -468,8 +470,9 @@ def import_group(groups):
 
 
 def test_connections_offers_an_owner_the_one_time_import_and_shows_its_record(tmp_path):
-    """Outside the App there was no button for the import (only POST /api/settings/import): Connections has it, an
-    Owner's, sent with the session's CSRF token; afterwards it shows the import's record and offers it no more."""
+    """Outside the App there was no button for the import (only POST /api/settings/import): Home Assistant's Moving
+    from HK Frontend has it, an Owner's, sent with the session's CSRF token; afterwards it shows the import's record
+    and offers it no more."""
     out = import_run(tmp_path, {
         "owner": {"me": overview("owner", ALL), "connections": connections("set"),
                   "status": {"import": None, "empty": False}, "press": True},

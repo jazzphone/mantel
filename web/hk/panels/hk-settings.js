@@ -42,8 +42,12 @@
 //     screenBase          the prefix of a screen's own address
 //     back                { label, href }: the way out, on a host with no
 //                 sidebar of its own
+//     owns        { tablet_user: true }: what of HK's own the host keeps
+//                 itself, so HK's control for it is not drawn (a wall
+//                 tablet's Tablet User: the host's 'tablet' group has it)
 //     extend(where, c, ctx, panel)  the host's own groups on one of HK's
-//                 pages, appended to c: where 'tablet' (a wall tablet's
+//                 pages, appended to c: where 'tablets' (Wall Tablets, after
+//                 its list; ctx { tablets }), 'tablet' (a wall tablet's
 //                 page, after Setup; ctx { tablet, name, app }), 'screen'
 //                 (a screen's page, after This Device; ctx { screen, title }),
 //                 'saver' (a screen's Screensaver Options, first; ctx { screen,
@@ -7485,6 +7489,11 @@
       c.appendChild(K.group({ header: 'Tablets', footer: ids.length
           ? 'Dark: nobody’s in the room, or it’s quiet hours. Each tablet’s page says why, and since when.'
           : 'A wall tablet runs a screen. Its idle time, its screensaver and how it sleeps are its own.' }, rows));
+      // THE HOST'S OWN, for the tablets as a whole (extend 'tablets'): nothing in Home Assistant
+      var hxs = this.host();
+      if (hxs && typeof hxs.extend === 'function') {
+        try { hxs.extend('tablets', c, { tablets: tabs }, this); } catch (e) { /* the host's own page */ }
+      }
       if (ids.length) {
         var probs = [];
         ids.forEach(function (tid) {
@@ -7615,6 +7624,7 @@
       var users = (this.data.users || []).slice();
       if (t.user && users.indexOf(t.user) < 0) users.push(t.user);
       var devArea = t.device && client.devices && client.devices[t.device] ? client.devices[t.device].area_id : '';
+      var hostOwn = (this.host() && this.host().owns) || {};
       var setup = [
         K.text({ label: 'Name', sk: 't:name', value: t.name, error: this.err('t:name') ? 'Give it a name.' : null,
                  onCommit: function (v) { if (v.trim()) set({ name: v.trim() }); } }),
@@ -7625,7 +7635,7 @@
                    sub: devArea && devArea !== t.room ? 'Its kiosk device is in ' + this.areaName(devArea) + ' in Home Assistant.' : 'Calm When Nobody’s Around looks here.',
                    options: [['', 'None']].concat(this.areasAZ().map(function (a) { return [a, self.areaName(a)]; })),
                    onChange: function (v) { set({ room: v }); } }),
-        K.select({ label: 'Tablet User', sub: 'The person it signs in as. Its own is best.', sk: 't:user', value: t.user || '',
+        hostOwn.tablet_user ? null : K.select({ label: 'Tablet User', sub: 'The person it signs in as. Its own is best.', sk: 't:user', value: t.user || '',
                    options: [['', 'None']].concat(users.map(function (u) { return [u, u]; })),
                    onChange: function (v) { set({ user: v }); } }),
         K.select({ label: 'Kiosk App', sk: 't:app', value: t.app, options: M.TABLET_APPS.map(function (a) { return [a[0], a[1]]; }),

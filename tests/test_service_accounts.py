@@ -136,6 +136,24 @@ async def test_rest_is_owner_only_on_the_lan(mantel_sa):
     r = await m.client.delete(f"/api/service-accounts/{body['account']['id']}", headers=m.headers())
     assert r.status == 200 and m.app["service_accounts"].verify(token, "linked") is None
     assert (await m.client.delete(f"/api/service-accounts/{body['account']['id']}", headers=m.headers())).status == 404
+    # Clear Revoked: the revoked one leaves the list (an Owner's, audited); a live one stays
+    keep = (await (await m.post("/api/service-accounts", {"name": "script", "scopes": ["linked"]})).json())["account"]
+    listed = (await (await m.client.get("/api/service-accounts")).json())["accounts"]
+    assert [(a["name"], a["made_by"], a["used_by"]) for a in listed] == [("home-assistant", "owner", None), ("script", "owner", None)]
+    r = await m.client.delete("/api/service-accounts/revoked", headers=m.headers())
+    assert r.status == 200 and (await r.json())["removed"] == 1
+    assert [a["id"] for a in (await (await m.client.get("/api/service-accounts")).json())["accounts"]] == [keep["id"]]
+
+
+def test_revoked_accounts_leave_the_list_after_thirty_days(accounts):
+    accounts, _db = accounts
+    a, _ = accounts.create("old", ["linked"])
+    b, _ = accounts.create("new", ["linked"])
+    accounts.revoke(a.id)
+    accounts.clock = lambda: 2_000_000_000.0 + 31 * 86400
+    accounts.revoke(b.id)
+    assert accounts.forget_revoked(30 * 86400) == [a.id]
+    assert [x["name"] for x in accounts.list()] == ["new"]
 
 
 async def test_rest_refuses_the_tunnel_door(mantel_sa):

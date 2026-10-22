@@ -1,4 +1,5 @@
-"""Mantel Settings, Devices (web/shim/mantel-settings.js): a wall tablet's room is chosen, never typed.
+"""Mantel Settings, wall tablets (web/shim/mantel-settings.js): a wall tablet's room is chosen, never typed, and what
+Mantel has of a tablet is on its own page in All Screens, Wall Tablets.
 
 Three of the house's wall tablets were enrolled with rooms typed as "Livingroom", "Masterbathroom" and "Masterbedroom"
 (HK's tablets: living_room, master_bathroom, master_bedroom), so their touches and black screens were refused
@@ -6,8 +7,8 @@ Three of the house's wall tablets were enrolled with rooms typed as "Livingroom"
 
 * "Make This Browser a Wall Tablet…" lists HK's wall tablets (GET /api/devices/rooms), marks the ones an enrolled device
   already serves, and picking one names the device after it; "A New Tablet" ("Not One of These" where the person can't add HK tablets) offers HA's areas, never free text, and makes that room's HK tablet with the device.
-* Devices warns on a wall tablet device whose room has no HK tablet, and its own page moves it in place
-  (PATCH /api/devices/{id}).
+* Wall Tablets warns on a wall tablet device whose room has no HK tablet, and its own page moves it in place
+  (PATCH /api/devices/{id}). Each tablet's page has the browser signed in as it, its Home Assistant user and Sign Out.
 
 The page is drawn in node with a recording stub of the settings kit (no DOM): each row is {kind, label, sub, value, on,
 ...} with its handlers, each group {header, footer, rows}.
@@ -89,8 +90,22 @@ g = await draw();
 await find(g, 'Make This a Wall Tablet').onClick();
 // a Wall Tablet account starts from its own HK tablet
 out.account = await open(JSON.parse(process.argv[5]), ['mantel', 'me', 'enroll']);
-// Devices: the lost tablet is called out; its page moves it in place
-out.devices = await open(JSON.parse(process.argv[4]), ['mantel', 'devices']);
+// Wall Tablets (HK's page, Mantel's groups on it): the lost tablet is called out; its page moves it in place
+async function ext(me, where, ctx) {
+  m._reset(me);
+  let kids = [];
+  for (let i = 0; i < 3; i++) {
+    const c = { kids: [], appendChild(k) { this.kids.push(k); return k; } };
+    m.host.extend(where, c, ctx, panel);
+    kids = c.kids;
+    await tick(); await tick();
+  }
+  return kids;
+}
+out.devices = await ext(JSON.parse(process.argv[4]), 'tablets', { tablets: {} });
+out.kitchen = await ext(JSON.parse(process.argv[4]), 'tablet', { tablet: 'kitchen', name: 'Kitchen', app: 'fully' });
+out.master = await ext(JSON.parse(process.argv[4]), 'tablet', { tablet: 'master', name: 'Master Bedroom', app: 'fully' });
+out.old = m.host.forward('mantel/devices');
 g = await open(JSON.parse(process.argv[4]), ['mantel', 'devices', 'lost1']);
 out.device_first = g;
 find(g, 'Living Room').onClick(true);
@@ -119,7 +134,14 @@ DEVICES = [
      "last_seen": 0, "created": 0, "source_ip": None, "revoked": None},
     {"id": "lost1", "name": "Livingroom", "role": "wall_tablet", "room": "livingroom", "hk_tablets": [],
      "last_seen": 0, "created": 0, "source_ip": None, "revoked": None},
+    {"id": "old1", "name": "Old Hall", "role": "wall_tablet", "room": "hall", "hk_tablets": [],
+     "last_seen": 0, "created": 0, "source_ip": None, "revoked": 1000, "revoked_reason": "revoked"},
 ]
+HA_USERS = {"ok": True, "people": [], "devices": [{"id": "k1", "name": "Kitchen Tablet"}], "error": None, "users": [
+    {"id": "a" * 32, "name": "Fictional Owner", "admin": True, "person": {"id": "u1", "role": "owner", "kind": "mantel"}, "tablet": None},
+    {"id": "b" * 32, "name": "kitchentablet", "admin": False, "tablet": None,
+     "person": {"id": "u9", "name": "kitchentablet", "role": "wall_tablet", "kind": "mantel"}},
+    {"id": "c" * 32, "name": "mqtt", "admin": False, "person": None, "tablet": None}]}
 
 
 @pytest.fixture(scope="module")
@@ -137,7 +159,8 @@ def got(tmp_path_factory):
         tid: {**t, "served_by": [{"id": "k1", "name": "Kitchen Tablet"}] if tid == "kitchen" else []} for tid, t in TABLETS.items()}}
     reads = {"/api/devices/rooms": rooms,
              "/api/devices": {"ok": True, "devices": DEVICES, "tablets": TABLETS},
-             "/api/default-screens": {"ok": True, "users": {}, "devices": {}, "screens": [], "house": "dashboard-kitchen"}}
+             "/api/default-screens": {"ok": True, "users": {}, "devices": {}, "screens": [], "house": "dashboard-kitchen"},
+             "/api/people/ha": HA_USERS}
     (d / "reads.json").write_text(json.dumps(reads))
     owner = overview("owner", "Fictional Owner", ["me", "people", "devices"])
     account = overview("wall_tablet", "Master Bedroom", ["me"])
@@ -192,12 +215,28 @@ def test_a_wall_tablet_account_starts_from_its_own_hk_tablet(got):
     assert [r["label"] for r in rows(got["account"]) if r["kind"] == "check" and r["on"]] == ["Master Bedroom"]
 
 
-def test_devices_warns_on_a_tablet_whose_room_has_no_hk_tablet(got):
-    [tabs] = [g for g in got["devices"] if g.get("header") == "Wall Tablets"]
-    assert [(r["kind"], r["label"], r["value"]) for r in tabs["rows"]] == [
-        ("nav", "Kitchen Tablet", "Kitchen"), ("nav", "Livingroom", "No HK Tablet")]
-    assert "“Livingroom” is in a room with no HK wall tablet" in tabs["footer"]
-    assert "its touches and black screen won’t reach Mantel" in tabs["footer"]
+def test_wall_tablets_calls_out_a_device_whose_room_has_no_hk_tablet(got):
+    groups = {g["header"]: g for g in got["devices"]}
+    lost = groups["Signed In to Mantel, Not on a Tablet"]
+    assert [(r["kind"], r["label"], r["value"]) for r in lost["rows"]] == [("nav", "Livingroom", "Choose Tablet")]
+    assert "their touches and black screen don’t reach Mantel" in lost["footer"]
+    gone = groups["Signed Out"]
+    assert [r["label"] for r in gone["rows"]] == ["Old Hall", "Clear List"] and "30 days" in gone["footer"]
+    assert got["old"] == "house/tablets", "#/mantel/devices forwards to All Screens, Wall Tablets"
+
+
+def test_a_tablets_page_has_what_mantel_has_of_it(got):
+    [mantel] = [g for g in got["kitchen"] if g.get("header") == "Mantel"]
+    labels = [r["label"] for r in mantel["rows"]]
+    assert labels == ["Signed In to Mantel", "Home Assistant User", "Sign Out This Tablet…"]
+    assert row(got["kitchen"], "Signed In to Mantel")["value"] == "Kitchen Tablet"
+    ha = row(got["kitchen"], "Home Assistant User")
+    # a free HA user, or one linked to a Wall Tablet account; never a person's or an admin
+    assert [o[1] for o in ha["options"]] == ["None", "kitchentablet (now a Wall Tablet account)", "mqtt"]
+    # a tablet no browser is signed in as yet offers to sign this one in, for that tablet
+    nobody = row(got["master"], "Signed In to Mantel")
+    assert nobody["value"] == "Not Yet"
+    assert row(got["master"], "Sign In This Browser as Master Bedroom…")["href"] == "#/mantel/devices/enroll/master"
 
 
 def test_a_devices_page_moves_it_to_a_tablet_in_place(got):

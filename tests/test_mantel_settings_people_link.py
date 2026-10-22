@@ -71,3 +71,20 @@ def test_people_lists_home_assistant_s_people_once_linked_to_existing_people(tmp
 def test_without_home_assistant_s_users_people_keeps_the_link_command(tmp_path):
     got = run(tmp_path, {"users": [], "people": [], "devices": [], "error": "Home Assistant’s users are read inside Home Assistant."})
     assert "mantel-server link" in footers(got["people"])
+
+
+def test_the_picker_offers_a_person_once_and_tablet_accounts_move_to_their_tablets(tmp_path):
+    ha = json.loads(json.dumps(HA_PEOPLE))
+    ha["users"].append({"id": "h5", "name": "Blake", "admin": False, "person": None, "tablet": None})
+    ha["users"].append({"id": "h6", "name": "loft", "admin": False, "tablet": None,
+                        "person": {"id": "u7", "name": "loft", "role": "wall_tablet", "kind": "hk"}})
+    ha["people"].append({"id": "u7", "name": "loft", "role": "wall_tablet", "kind": "hk"})
+    ha["devices"].append({"id": "d2", "name": "Loft"})
+    got = run(tmp_path, ha)
+    page = got["people"]["groups"] if isinstance(got["people"], dict) else got["people"]
+    g = next(x for x in page if isinstance(x, dict) and x.get("header") == "Home Assistant Users")
+    rows = {r["label"]: r for r in g["rows"]}
+    assert "loft" not in rows, "a tablet is not a person"
+    assert [o[0] for o in rows["claude"]["options"]] == ["", "u2"], "Avery is u1 already; a Wall Tablet account never"
+    moving = next(x for x in page if isinstance(x, dict) and x.get("header") == "Wall Tablets Signed In as People")
+    assert [(r["label"], r.get("value")) for r in moving["rows"]] == [("loft", "→ Loft"), ("Move Them to Their Tablets…", None)]

@@ -85,6 +85,7 @@ HANDLER_TIMEOUT = 8.0          # under HA's 10 s, so HA's call gets Mantel's own
 RECHECK_S = 60.0               # how often an idle socket re-checks that its credential is live
 HEARTBEAT_S = 30.0             # pings that find a linked HA gone without a goodbye
 MAX_MSG = 1 << 20
+LINK_ACCOUNT_KEY = "mantel_link_account"   # linked_house: the Service account Mantel Link last connected with
 MAX_TARGETS = 50
 
 _KEYS = {"call_service": {"id", "type", "service", "data", "targets"},
@@ -325,7 +326,8 @@ class LinkedClient:
     def describe(self) -> dict[str, Any]:
         """For Mantel Settings: which integration, how it speaks, what it reported (never a credential)."""
         return {"domain": self.domain, "protocol": self.protocol, "features": sorted(self.features),
-                "account": getattr(self.account, "name", None), "peer": self.peer, "since": self.since,
+                "account": getattr(self.account, "name", None), "account_id": getattr(self.account, "id", None),
+                "peer": self.peer, "since": self.since,
                 "report": _copy(self.report)}
 
     async def send(self, msg: dict[str, Any]) -> bool:
@@ -716,6 +718,9 @@ async def ws_endpoint(request: web.Request) -> web.StreamResponse:
     owners = request.app.get("linked_owners")
     if owners is not None:
         registry.owners = wire_owners(owners.snapshot())     # the rows, read now: safe across a restart
+        if domain == "mantel" and getattr(account, "id", None):
+            # which credential Mantel Link uses: the HA App's discovery stands down for one set up by hand
+            owners.remember(LINK_ACCOUNT_KEY, {"account": account.id})
     hello = {"type": "hello", "protocol": protocol, "services": list(SERVICES_2 if protocol >= 2 else SERVICES),
              "entities": registry.snapshot(),
              "owners": _copy(registry.owners)}

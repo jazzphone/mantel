@@ -10,7 +10,10 @@ Assistant's ``hk_frontend`` integration in linked mode (scope ``linked``, ``link
 * **Scopes**: endpoint names from ``SCOPES``. An endpoint asks ``verify(token, scope)``; a credential
   without that scope is refused exactly like an unknown one.
 * **Revocation**: ``revoke(id)``; it takes effect on the next ``verify`` (an open linked socket is
-  also closed by ``linked.py`` when it notices, see there).
+  also closed by ``linked.py`` when it notices, see there). A revoked account stays listed for 30 days, or until
+  an Owner clears the list (``DELETE /api/service-accounts/revoked``); the audit log keeps its history.
+* **Who made it** (``made_by`` in the list): ``owner`` (Mantel Settings or the CLI), ``pairing`` (a Mantel Link
+  pairing code traded for it, ``linked_pairing.py``) or ``app`` (the HA App's discovery, ``supervisor_discovery.py``).
 * **Doors**: the endpoints decide. ``linked.py`` refuses every service credential on the tunnel door.
 
 Managed by an Owner only: ``mantel-server service-account create|list|revoke`` (the CLI prints the
@@ -40,6 +43,7 @@ PREFIX = "msvc_"
 _TOKEN = re.compile(r"^msvc_([0-9a-f]{16})_([A-Za-z0-9_-]{43})$")
 _NAME = re.compile(r"^[\w .:@-]{1,64}$")
 MIGRATION = Path(__file__).with_name("migrations") / "0005_service_accounts.sql"
+FORGET_REVOKED_AFTER = 30 * 86400
 
 
 def token_hash(token: str) -> str:
@@ -147,8 +151,22 @@ class ServiceAccounts:
                 d["scopes"] = json.loads(d["scopes"])
             except (TypeError, ValueError):
                 d["scopes"] = []
+            by = d.get("created_by") or ""
+            d["made_by"] = "app" if by == "mantel:app" else "pairing" if by.startswith("pairing:") else "owner"
             out.append(d)
         return out
+
+    def forget_revoked(self, older_than: float | None = None) -> list[str]:
+        """Remove revoked accounts (all, or those revoked ``older_than`` seconds ago or more). Their ids."""
+        cut = self.clock() - older_than if older_than is not None else None
+        ids = [r[0] for r in self.db.execute(
+            "SELECT id FROM service_accounts WHERE revoked IS NOT NULL" + (" AND revoked <= ?" if cut is not None else ""),
+            (cut,) if cut is not None else ())]
+        if ids:
+            with self.db:
+                self.db.executemany("DELETE FROM service_accounts WHERE id = ?", [(i,) for i in ids])
+            log.info("forgot %d revoked service account(s)", len(ids))
+        return ids
 
     def revoke(self, account_id: str, reason: str = "revoked") -> bool:
         with self.db:
@@ -176,10 +194,41 @@ def _owner(request):
     return ident
 
 
+def _used_by(app) -> dict[str, str]:
+    """Which live link each account is open as: {account id: 'mantel' | 'hk_frontend'}."""
+    lk = app.get("linked")
+    out: dict[str, str] = {}
+    for c in (lk.registry.clients if lk is not None else ()):
+        aid = getattr(getattr(c, "account", None), "id", None)
+        if aid and not c.ws.closed:
+            out[aid] = c.domain
+    return out
+
+
 async def api_list(request):
     from aiohttp import web
     _owner(request)
-    return web.json_response({"accounts": request.app["service_accounts"].list()})
+    accounts = request.app["service_accounts"]
+    accounts.forget_revoked(FORGET_REVOKED_AFTER)
+    used = _used_by(request.app)
+    return web.json_response({"accounts": [{**a, "used_by": used.get(a["id"])} for a in accounts.list()]})
+
+
+async def api_forget_revoked(request):
+    from aiohttp import web
+    ident = _owner(request)
+    accounts = request.app["service_accounts"]
+    gone = [a["id"] for a in accounts.list() if a["revoked"] is not None]
+    if gone:
+        audit = request.app.get("audit")
+        if audit is not None:
+            try:
+                audit.config_event({"timestamp": request.app["clock"](), "actor": ident.user.id, "role": ident.user.role,
+                                    "action": "service_account.forget_revoked", "detail": {"accounts": gone}})
+            except Exception:  # noqa: BLE001 -- no audit, no change
+                return web.json_response({"error": "audit_unavailable"}, status=503)
+        accounts.forget_revoked()
+    return web.json_response({"ok": True, "removed": len(gone)})
 
 
 async def api_create(request):
@@ -214,6 +263,7 @@ def register(app, hub=None) -> "ServiceAccounts":
         app["service_accounts"] = ServiceAccounts(app["store"].db, lambda: app["clock"]())
     app.router.add_get("/api/service-accounts", api_list)
     app.router.add_post("/api/service-accounts", api_create)
+    app.router.add_delete("/api/service-accounts/revoked", api_forget_revoked)     # before /{id}
     app.router.add_delete("/api/service-accounts/{id}", api_revoke)
     return app["service_accounts"]
 

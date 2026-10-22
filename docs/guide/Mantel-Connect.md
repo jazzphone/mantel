@@ -111,7 +111,8 @@ refused through the sidebar.
 
 ## Revoke or pair again
 
-- **Revoke**: **Mantel Settings → Mantel Connect → Revoke** *name*…, or
+- **Revoke**: **Mantel Settings → Connections → Home Assistant → Sidebar (Mantel
+  Connect) → Revoke** *name*…, or
   `mantel connect revoke --id <id>`. The App is cut off at once and its open
   connections are closed.
 - **Pair again**: start a new pairing in Mantel and enter the new code in the

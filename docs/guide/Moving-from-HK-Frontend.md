@@ -70,7 +70,7 @@ something is refused.
 1. Open Mantel on a phone or computer ([Signing In](Signing-In.md)) and compare
    its screens with HK Frontend's.
 2. Fix what looks wrong in **Mantel Settings**. It is HK Settings, plus
-   Mantel's own pages (People, Roles & Grants, Devices, Connections, Audit
+   Mantel's own pages (People, Roles & Grants, Connections, Audit
    Log and more).
 3. Set up people and roles ([People and Roles](People-and-Roles.md)).
 
@@ -96,8 +96,8 @@ checked against the person's role and written to the
 
 1. **Update HK Frontend** to its latest release in HACS and restart Home
    Assistant.
-2. **Make a credential**: **Mantel Settings → Service Accounts → New Service
-   Account**, with the linked endpoint ticked. Copy it; it is shown once.
+2. **Make a credential**: **Mantel Settings → Connections → Home Assistant →
+   HK Frontend → Link HK Frontend…**. Copy it; it is shown once.
 3. In Home Assistant, **Settings → Devices & services → HK Frontend →
    Configure → Linked to Mantel**. Turn on **Linked to Mantel**, check **Mantel's
    address** (it fills itself in when the Mantel App or Mantel Link is
@@ -151,8 +151,8 @@ When every tablet is Mantel's, move the rest: Seasonal decorations, the Alarm
 PIN panel, and Live TV's sensors and cameras.
 
 1. Make a Home Assistant backup.
-2. **Mantel Settings → Connections → Mantel in Home Assistant**: move the rest of the
-   house to Mantel. Each entity moves with its entity id and history.
+2. **Mantel Settings → Connections → Home Assistant → Moving from HK Frontend →
+   Advanced**: move the rest of the house to Mantel. Each entity moves with its entity id and history.
 3. **Set the Alarm PIN again**: **Mantel Settings → Alarm PIN → Change PIN**.
    Home Assistant never gives its PIN out, so the PIN HK Frontend kept can't
    come across. From now on the PIN is kept only in Mantel, and the Alarm PIN
@@ -189,6 +189,6 @@ nothing in Home Assistant would run it. Your settings are still in Mantel.
 |---|---|
 | A tablet shows Mantel's sign-in page | Sign it in as a wall tablet again ([Wall Tablets](Wall-Tablets.md)) |
 | Buttons do nothing, the console says `commands_disabled` | House commands are off (step 3) |
-| An automation's `hk_frontend.set_black_screen` doesn't reach a tablet | Check who runs that tablet and who holds the bridge (**Mantel in Home Assistant**) |
+| An automation's `hk_frontend.set_black_screen` doesn't reach a tablet | Check who runs that tablet and who holds the bridge (**Connections → Home Assistant → Moving from HK Frontend**) |
 | Entities are unavailable | The link to Mantel is down; Mantel Link's diagnostics say why |
 | Anything else | Roll that step back, then see [Troubleshooting](Troubleshooting.md) |

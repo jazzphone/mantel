@@ -10,14 +10,14 @@ When the Mantel App starts, it tells Home Assistant where it is, with a credenti
 2. Confirm. Done: Mantel Link is linked.
 
 Each time the App starts it makes a new credential and announces it again; a Mantel Link set up this way follows it by
-itself. The credential is listed in Mantel Settings → Service Accounts as "Mantel Link - App discovery": it is Mantel Link's own, so leave it; revoked, Mantel Link is refused until the Mantel App restarts and announces a new one.
+itself. The credential is listed in Mantel Settings → Service Accounts as "Mantel Link - App discovery": it is Mantel Link's own, so leave it; revoked, Mantel Link is refused until the Mantel App restarts and announces a new one. With Mantel Link set up by hand instead (a pairing code), the App announces nothing and makes no such credential.
 
 ## Discovered on the network (Mantel in Docker or the LXC)
 
 Mantel announces itself on the home network (`_mantel._tcp`) with its https address, but no credential: you confirm
 with a pairing code.
 
-1. In Mantel: Mantel Settings → Connections → **Mantel in Home Assistant** → **Make a Pairing Code**. It works once, for ten
+1. In Mantel: Mantel Settings → Connections → **Home Assistant** → **Mantel Link** → **Make a Pairing Code**. It works once, for ten
    minutes.
 2. In Home Assistant: Settings → Devices & Services → **Discovered: Mantel** → **Add**, and enter the code.
 

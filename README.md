@@ -62,7 +62,7 @@ One place for the house and the people in it: who can sign in and with what role
 </p>
 
 <p align="center">
-<img src="docs/images/settings-devices.webp" width="49%" alt="Mantel Settings, Devices: two enrolled wall tablets">
+<img src="docs/images/settings-wall-tablet.webp" width="49%" alt="Mantel Settings, a wall tablet's page: its setup and the browser signed in as it">
 <img src="docs/images/settings-roles.webp" width="49%" alt="Mantel Settings, Roles & Grants">
 </p>
 

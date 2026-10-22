@@ -4,18 +4,19 @@ A wall tablet in Mantel is a **device**, not a person. You enroll its browser on
 
 How a tablet's screen behaves (the screensaver, returning to Home when idle, Sleep Screen) is HK Frontend's, and works as in HK Frontend's [Wall Tablets](https://github.com/jazzphone/hk-frontend/wiki/Wall-Tablets) and [Screensaver and Idle](https://github.com/jazzphone/hk-frontend/wiki/Screensaver-and-Idle) pages. In Mantel those settings are in **Mantel Settings** → **All Screens** → **Wall Tablets**.
 
-![Mantel Settings → Devices, listing the enrolled wall tablets](../images/settings-devices.webp)
+![A wall tablet's page in Mantel Settings: its Setup, then Mantel's group with the browser signed in as it](../images/settings-wall-tablet.webp)
 
-## Two lists of tablets
+## One place for each tablet
 
-Mantel Settings has two places for tablets:
+Everything about a tablet is on its own page: **Mantel Settings** → **All Screens** → **Wall Tablets** → the tablet.
 
-| **All Screens** → **Wall Tablets** (HK's) | **Devices** (Mantel's) |
+| On the tablet's page | What it is |
 |---|---|
-| Each tablet's screen, room, idle and screensaver settings, Sleep Screen, kiosk app | Each enrolled browser: its credential, its room, its role, its default screen |
-| What the tablet **shows and does by itself** | Who the tablet **is**, and what it **may** do |
+| **When It's Left Alone**, **When Idle**, **Setup** (screen, room, kiosk app), **Actions** | What the tablet **shows and does by itself** |
+| **Mantel** | Who the tablet **is**: the browser signed in to Mantel as it (enrolled), last seen, its Home Assistant user, **Sign Out** |
+| **Direct Connection** | Mantel reading the tablet's kiosk app itself ([below](#reload-and-clear-cache-from-mantel)) |
 
-Enrolling a browser links the two by room: you pick one of HK's tablets, and the device takes its room. That's how the tablet's touches and screen reports reach the right HK tablet, and how `/home` opens that tablet's screen.
+Enrolling a browser links it to the tablet by room: you pick the tablet, and the browser takes its room. That's how the tablet's touches and screen reports reach the right tablet, and how `/home` opens that tablet's screen. What a tablet **may** do is its role's ([below](#what-a-tablet-may-do)).
 
 ## Before you start
 
@@ -57,9 +58,9 @@ Mantel draws no Home Assistant header or sidebar, so there's nothing to hide.
 Do this **on the tablet itself**, in the kiosk app's own browser. The credential is a cookie in that browser, so enrolling from a computer would make the computer the tablet.
 
 1. On the tablet, sign in to Mantel as an Owner or Admin. Use a passkey or a password; you're signed out again in step 6.
-2. Open **Mantel Settings** → **Devices**.
-3. Select **Make This Browser a Wall Tablet…**.
-4. Under **Which HK Tablet**, pick the tablet. **In Use** means another enrolled device is already in its room. For a room with no HK tablet, choose **A New Tablet**, then the **Room** (one of your Home Assistant areas): Mantel adds the HK tablet, named as the device. (A Wall Tablet account sees **Not One of These** instead and adds no HK tablet.)
+2. Open **Mantel Settings** → **All Screens** → **Wall Tablets** → the tablet.
+3. Under **Mantel**, select **Sign In This Browser as** *the tablet*…. (For a tablet that isn't listed yet: **Sign In This Browser as a Wall Tablet…** at the bottom of **Wall Tablets**.)
+4. Under **Which HK Tablet**, the tablet is already picked. **In Use** means another enrolled device is already in its room. For a room with no HK tablet, choose **A New Tablet**, then the **Room** (one of your Home Assistant areas): Mantel adds the HK tablet, named as the device. (A Wall Tablet account sees **Not One of These** instead and adds no HK tablet.)
 5. Check the **Name** (it follows the HK tablet you picked) and leave **Role** on **Wall Tablet**.
 6. Select **Make This a Wall Tablet**, then **Make It a Tablet**.
 
@@ -107,8 +108,9 @@ The tablet still opens its own screen, and the person gets only **Me** in Mantel
 
 `/home` on a tablet opens, in this order:
 
-1. The tablet's own **Default Screen**, if you set one: **Devices** → **Default Screens**.
-2. Otherwise its HK tablet's screen (**All Screens** → **Wall Tablets** → the tablet → **Screen**).
+1. **Opens On**, if the browser was given a screen of its own (the old Devices page's Default Screens). It shows under **Mantel** on the tablet's page only when set; choose **Its Screen** to follow the tablet's again.
+2. Otherwise the tablet's **Screen** (**All Screens** → **Wall Tablets** → the tablet → **Setup**).
+3. Otherwise the installation's default screen.
 3. Otherwise the installation's default screen.
 
 This is only where it lands. What it may open and see is still its role's.
@@ -120,7 +122,7 @@ An Owner can let Mantel reach a tablet's kiosk app directly (Kiosk Satellite, or
 1. Open **Mantel Settings** → **All Screens** → **Wall Tablets** → the tablet.
 2. Under **Direct Connection**, select **Pair**, and enter the tablet's **Address** and its kiosk app's remote administration **Password**. **Test** tries it without saving.
 
-The tablet's page then shows its state, brightness and battery, and its **Reload** and **Clear Cache & Reload** buttons work, as do **Reload All** and **Clear Cache & Reload All**. **Connections** → **Wall Tablets** lists every paired tablet.
+The tablet's page then shows its state, brightness and battery, and its **Reload** and **Clear Cache & Reload** buttons work, as do **Reload All** and **Clear Cache & Reload All**.
 
 - Pairing shows status only. Reload and Clear Cache are house commands: they need [commands turned on](Commands-and-Audit.md), an Owner or Admin, and each one is audited.
 - Kiosk Satellite gives Mantel a long-lived token for the password; Mantel keeps the token, sealed, and not the password. Fully Kiosk has no tokens, so Mantel keeps its password, sealed.
@@ -130,22 +132,18 @@ The tablet's page then shows its state, brightness and battery, and its **Reload
 
 ## Move a tablet to another room
 
-1. Open **Mantel Settings** → **Devices** and select the tablet.
-2. Pick its new HK tablet, or **Not One of These** and a room.
-3. Select **Save**.
+Change the tablet's **Room** on its page (**Setup**): the browser signed in as it follows. Nothing to do at the tablet: it keeps its credential, and its open screens follow within a minute. The move is in the audit log.
 
-Nothing to do at the tablet: it keeps its credential, and its open screens follow within a minute. The move is in the audit log.
-
-**Devices** warns about a tablet in a room with no HK tablet: its touches and screen reports don't reach Mantel. Open it and choose its HK tablet.
+A browser signed in to Mantel in a room no tablet has is listed on **Wall Tablets** under **Signed In to Mantel, Not on a Tablet**: its touches and screen reports don't reach Mantel. Open it and choose its tablet, then **Save**.
 
 ## Revoke a tablet
 
 For a tablet that's lost, sold or replaced:
 
-1. Open **Mantel Settings** → **Devices**.
-2. Select **Revoke** and the tablet's name, then **Revoke**.
+1. Open **Mantel Settings** → **All Screens** → **Wall Tablets** → the tablet.
+2. Under **Mantel**, select **Sign Out This Tablet…**, then **Sign Out**.
 
-It's refused at once. To use it again, enroll it again. Revoked tablets stay listed under **Revoked**, with the reason.
+It's refused at once. To use it again, enroll it again. Signed-out tablets are listed on **Wall Tablets** under **Signed Out**, with the reason, for 30 days; **Clear List** removes them sooner. The Audit Log keeps them either way.
 
 ## How the tablet's credential works
 
@@ -157,7 +155,9 @@ It's refused at once. To use it again, enroll it again. Revoked tablets stay lis
 
 ## Tablets inside Home Assistant
 
-With the Mantel App, a tablet can also show Mantel through Home Assistant's own panel, signed in to Home Assistant as its own Home Assistant user (as HK Frontend's tablets usually are). Such a tablet isn't enrolled. Instead, an Owner links its Home Assistant user to a Mantel device with **Link as a wall tablet** on Mantel's **People** page in the sidebar (**Mantel Settings** → **People** → **Link Home Assistant Users…**; [First Run](First-Run.md#link-the-household)), choosing a new device and a room. The tablet then gets the Wall Tablet role in that room, as an enrolled one does.
+With the Mantel App, a tablet can also show Mantel through Home Assistant's own panel, signed in to Home Assistant as its own Home Assistant user (as HK Frontend's tablets usually are). An Owner sets which Home Assistant user a tablet is on the tablet's page: **Mantel** → **Home Assistant User**. Mantel then knows that Home Assistant user as the tablet, with the Wall Tablet role in its room. (Mantel's **People** page in the sidebar has **Link as a wall tablet** too: [First Run](First-Run.md#link-the-household).)
+
+A Home Assistant user that was linked to a **Wall Tablet account** as if it were a person (before its tablet was enrolled) is listed on **People** under **Wall Tablets Signed In as People**. **Move Them to Their Tablets…** makes each one its tablet's (by name), and removes the Wall Tablet accounts. The tablets keep signing in to Mantel as before.
 
 - It works only while the sidebar has the home rules (`ha_door_rules` `trusted` or `lan`; see [Signing In](Signing-In.md#inside-home-assistant)).
 - **Unlink** ends it. A device made for the link is revoked too.
