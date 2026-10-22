@@ -6,7 +6,7 @@ https://claude.ai/artifact/JnMmSXDneGVE1e81BWYuid, A preferred). An Owner or Adm
 using HK's own cards. A block can hold **several pages** that swipe: cameras, rooms, thermostats, scene pages.
 Mantel first; HK Frontend as well, which comes at little extra cost (below).
 
-**Status: G1 done (2026-10-22, `d7e2287`). G2, G3 and G4 in progress (2026-10-22), side by side, each in its own session; each keeps its own subsection under "Progress". No release.** See "Progress", at the end.
+**Status: G1–G4 done (2026-10-22) and on `main`, tested together (Mantel 3,397 passed; HK Frontend's suites green). No release yet. Next: G5 (the desktop editor), then G6 and G7, then G8; or first a release to try a Home Grid screen on the kitchen tablet.** See "Progress", at the end.
 
 ## The answers (2026-10-22)
 
