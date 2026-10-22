@@ -54,11 +54,29 @@ Mantel-only, because Home Assistant has nothing like it: the layout's history wi
 - **No scrolling, ever.** The view is `height: 100dvh; overflow: hidden`. A card that cannot fit its cell clips
   its own contents. It never grows the page.
 
+### The tab bar (added 2026-10-22)
+
+The screen's **tab bar** (`web/hk/modules/hk-tabbar.js`) is a Home Grid screen's primary menu and navigation, as
+on every other screen: its pages, the rooms and the full menu. The grid works around it:
+
+- **The grid stops at the bar.** The view's height is `calc(100dvh - var(--hk-tabbar-h, 0px))`, where
+  `--hk-tabbar-h` is the room the bar reserves (set on `<html>` while it shows). The rows share what's left under
+  the top band, so cells are shorter than the numbers below whenever the bar shows. Cards read their cell from
+  `--hk-cell-w` / `--hk-cell-h`, never from fixed numbers. The view follows the bar showing or hiding. (G4 makes
+  this change in `hk-layout.js`.)
+- **Nothing sits under the bar**, and a pager never claims a drag that starts on it.
+- **`everything` is for screens without a tab bar.** With the bar on, it already opens the pages and the menu, so
+  `everything` is an optional S card for a screen whose bar is off. It opens the same menu, through the shell's
+  navigation. The starter layouts leave it out while the bar is on. (G3.)
+- **The render audit** (G2) runs with the bar showing, the usual case, and once with it hidden.
+- **The editor** (G5) draws the bar in the frame, as the tablet shows it, so the grid is arranged in the space that
+  is really there.
+
 ### Size classes
 
 | Class | Cells | At 1280 × 800, 6 × 4 |
 |---|---|---|
-| S | 1 × 1 | 196 × 162 |
+| S | 1 × 1 | 196 × 162 (less with the tab bar showing) |
 | W | 2 × 1 | 402 × 162 |
 | T | 1 × 2 | 196 × 334 |
 | L | 2 × 2 | 402 × 334 |
