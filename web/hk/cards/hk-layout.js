@@ -1890,6 +1890,7 @@
       this._key = this._key || ('pager-' + (++pagerSeq));
       this._moved = false;
       this._pgSig = null;
+      this._pages = null;                       // a new block starts at its start
       super.setConfig(config);
     }
     getCardSize() { return 4; }
@@ -1928,7 +1929,8 @@
     _render() {
       var pages = this._pageList(), sig = this._pageSig(pages);
       if (this._built && sig === this._pgSig) return;
-      var keep = this._built && this._pages ? this._pages[this._index] : null;
+      // a rebuild (a speaker came or went, a new size) keeps the page it was on
+      var keep = this._pages && this._index >= 0 ? this._pages[this._index] : null;
       this._built = true;
       this._pgSig = sig;
       this._pages = pages;
@@ -1975,8 +1977,8 @@
       this._track = track;
       this._say = say;
       this._wireTrack(track);
+      if (this._ro) { this._ro.disconnect(); if (this.isConnected) this._ro.observe(track); }
       this._index = -1;
-      // a rebuild (a speaker came or went) keeps the page it was on
       var at = -1;
       if (keep) for (var k = 0; k < pages.length && at < 0; k++) if (this._pageSig([pages[k]]) === this._pageSig([keep])) at = k;
       this.goTo(at >= 0 ? at : this._startIndex(), false);

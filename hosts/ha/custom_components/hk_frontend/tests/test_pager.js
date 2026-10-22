@@ -169,6 +169,11 @@ cp.disconnectedCallback();
 window.dispatchEvent(new CustomEvent('hk-house-event', { detail: { type: 'notification', kind: 'doorbell', camera: 'camera.yard' } }));
 ok('taken off the page, it stops listening', cp._index === 0);
 
+pg.goTo(2, false);
+pg.setAttribute('size', 'L');
+if (pg.attributeChangedCallback) pg.attributeChangedCallback('size', 'T', 'L');
+ok('a new size rebuilds it on the page it was on', pg._index === 2 && byClass(pg._root, 'page').length === 3, pg._index);
+
 print('\n=== speakers ===');
 var MUSIC = [{ entity: 'media_player.group_all', name: 'Everywhere', members: ['media_player.den'] },
              { entity: 'media_player.kitchen', name: 'Kitchen' }, { entity: 'media_player.den', name: 'Den' }];

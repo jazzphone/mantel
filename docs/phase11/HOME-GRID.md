@@ -484,10 +484,11 @@ role as declarations.
 
 **Checked (2026-10-22):**
 
-- `tests/test_pager.js` (new, 56): each source, PAGES_MAX, the empty case, `tabletRoom`, the start page for each
+- `tests/test_pager.js` (new, 57): each source, PAGES_MAX, the empty case, `tabletRoom`, the start page for each
   source, the doorbell's page, the gesture rules (tile, range, dial, slider, `data-hk-control`, the 20 px edge, a row
   that lets go), and the element: pages and dots, "2 of 3", the start on the tablet's room, lazy pages, a dot's tap,
-  a swipe coming to rest, the idle return, the doorbell jump, a speakers block starting on the one playing.
+  a swipe coming to rest, the idle return, the doorbell jump, a new `size` (G2's rebuild) keeping its page, a speakers
+  block starting on the one playing.
   `test_idle.js`: away on Home arms the timer and fires `hk-idle-return` without navigating; not for a desk; the
   return from a page says it too. `test_homegrid.js`: G1's checks follow (a block with pages is now a pager).
 - `pytest -q tests`: 3,368 passed, 21 skipped. The HK Frontend build (publish.py into a scratch clone, build only):
@@ -498,6 +499,7 @@ role as declarations.
   dot 1 went back to page 1. The scenes block swiped to page 2. `hk-idle-return` took both back to page 1. Every
   page is 402 px wide, the track is inside its cell (L: 313 px of 333, W: 141 of 161, the rest is the dots), and
   the dots are 44 × 44. No page or view scroll, no console errors.
+- The same swipe again after merging G2's first cards (its `size` rebuild in hk-base.js): unchanged.
 - Not checked: the scratch Home Assistant (G7); a real doorbell ring and a real idle timer on a tablet (unit tests
   only); the kitchen tablet (the owner, after a release).
 
