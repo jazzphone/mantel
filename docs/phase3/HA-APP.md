@@ -1130,6 +1130,14 @@ Everything on main since 0.1.28 (validation green: JS 130, HA py 732, Mantel 283
 - Screens: removing Home Assistant's dashboard clears the shared-address mark at once.
 - With it, **HK Frontend 1.10.3**, copied by hand. Mantel Link unchanged (0.1.5). No HA backup (Avery).
 
+### 0.1.47 (2026-10-21)
+
+- **HK Frontend's dashboards get their features from Mantel** while it runs the house (docs/phase9/TWO-PRODUCTS.md):
+  Live TV's channels, music, Clean Areas, the pause and page-header feeds, notification snapshots and pop-ups,
+  answered by Mantel as the person linked to the HA user; their texts point to Mantel Settings.
+- Set Up Mantel: the Alarm PIN step is done once a keypad with the house PIN covers the alarm.
+- With it, **HK Frontend 1.10.4**, copied by hand. Mantel Link unchanged (0.1.5). No HA backup (Avery).
+
 ### Removal
 
 Stop and uninstall **Mantel** (Settings → Apps → Mantel → Uninstall); this removes its image and `/data`
