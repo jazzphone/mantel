@@ -64,6 +64,34 @@ to 200 MB, and all photos from 100 MB to 1 TB.
 The same photo twice in one album is skipped, so uploading a folder again is
 safe.
 
+## Keep in View: faces stay on screen
+
+A screensaver crops a photo to fill the screen, or a cell of the Mosaic. So
+that heads aren't cut off, Mantel finds where the faces are in each photo, once,
+and the screensavers crop and zoom around them.
+
+- **Only where, never who.** Mantel finds boxes around faces. It doesn't
+  recognise anyone, and it keeps no face data beyond those boxes. It all
+  happens on your Mantel server; nothing is sent anywhere.
+- **New photos** are checked as they're uploaded. **Photos already in Mantel**
+  are checked in the background, one at a time, starting a minute after Mantel
+  starts. The log says when it's done: "checked N photos for faces".
+- **Set it by hand.** Open a photo in an album, then tap **Keep in View**.
+  The faces Mantel found show as faint boxes: the screens keep them all in
+  view when they fit, or else the largest. Tap the photo where the screens
+  should keep it in view instead; a ring marks that point. To let
+  Mantel choose again, tap **Automatic**. With a keyboard, press Enter on the
+  photo to keep its middle in view.
+- The words under the photo say what's set: how many faces were found, **Set
+  by hand**, **No faces found** (the screen's own Focus setting is used), or
+  **Not checked yet**.
+- **The Mosaic** also picks layouts that fit the photos' shapes, with tall
+  cells for portrait photos.
+
+Only Mantel Photos albums have Keep in View. Photos from a Home Assistant
+media folder are cropped as before. If faces can't be found on your server's
+platform, Setup Check says so, and the screens use their own Focus setting.
+
 ## Choose an album for a screen
 
 **Every screen.** Open **Mantel Settings → All Screens → Screensaver**. Under
@@ -109,14 +137,14 @@ media folders are read; cameras and other sources are skipped.
 
 | | Owner | Admin | Adult, Child | Wall tablet | Guest |
 |---|---|---|---|---|---|
-| Albums, upload, move, delete, a screen's album | Yes | Yes | No | No | No |
+| Albums, upload, move, delete, a screen's album, Keep in View | Yes | Yes | No | No | No |
 | Change the limits, import from Home Assistant | Yes | No | No | No | No |
 | See the screensaver's photos | Yes | Yes | Yes | Yes | No |
 | Open an original | Yes | Yes | No | No | No |
 
 Every change is in the [Audit Log](Commands-and-Audit.md): albums made,
-renamed and deleted, uploads, moves, deletes, limits, a screen's album, and
-each import.
+renamed and deleted, uploads, moves, deletes, limits, a screen's album, a
+focus set by hand or put back to Automatic, and each import.
 
 ## Backups
 

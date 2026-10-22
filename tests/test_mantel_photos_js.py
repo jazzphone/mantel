@@ -34,11 +34,12 @@ globalThis.document = { addEventListener() {}, querySelector: () => null, cookie
 class El {
   constructor(tag, attrs, kids) {
     this.tag = tag; this.attrs = Object.assign({}, attrs || {}); this.kids = []; this.on = {};
-    this.text = this.attrs.text || ''; this.cls = new Set(String(this.attrs.class || '').split(' ').filter(Boolean));
+    this.text = this.attrs.text || ''; this.style = {}; this.cls = new Set(String(this.attrs.class || '').split(' ').filter(Boolean));
     this.classList = { add: (...c) => c.forEach((x) => this.cls.add(x)), remove: (...c) => c.forEach((x) => this.cls.delete(x)) };
     for (const k of [].concat(kids || [])) if (k) this.kids.push(k);
   }
   appendChild(k) { this.kids.push(k); k.parent = this; return k; }
+  replaceChildren(...k) { this.kids = k.filter(Boolean); for (const x of this.kids) x.parent = this; }
   remove() { if (this.parent) this.parent.kids = this.parent.kids.filter((k) => k !== this); }
   focus() {} select() {}
   insertBefore(k) { this.kids.unshift(k); return k; }
@@ -73,6 +74,9 @@ globalThis.fetch = async (u, init) => {
   if (method !== 'GET') {
     sent.push({ method, path, body: init.body ? JSON.parse(init.body) : null });
     const answer = path.endsWith('/move') ? { ok: true, moved: ['p2'], skipped: [] }
+      : path.endsWith('/focus') ? (JSON.parse(init.body).auto
+        ? { ok: true, focus: { x: 0.25, y: 0.3, by: 'faces' }, faces: [[0.2, 0.2, 0.1, 0.2, 0.9]] }
+        : { ok: true, focus: Object.assign(JSON.parse(init.body), { by: 'hand' }), faces: [[0.2, 0.2, 0.1, 0.2, 0.9]] })
       : path === '/api/photos/albums' ? { ok: true, album: { id: 'c3c3c3c3c3c3c3c3', name: JSON.parse(init.body).name, count: 0 } } : { ok: true };
     return { ok: true, status: 201, json: async () => answer };
   }
@@ -88,6 +92,7 @@ globalThis.XMLHttpRequest = class {
   send(fd) { this.fd = fd; this.sent = true; }
   answer(status, body) { this.status = status; this.responseText = JSON.stringify(body); this.done = true; this.onload(); }
 };
+globalThis.Image = class { };
 globalThis.FormData = class { constructor() { this.parts = []; } append(k, v, n) { this.parts.push([k, n]); } };
 const m = await import(process.argv[2]);
 const tick = () => new Promise((r) => setTimeout(r, 0));
@@ -225,6 +230,37 @@ out.saverUploads = xhrs.slice(before).map((x) => x.url);
 }
 for (const x of xhrs.slice(before)) { x.answer(201, { ok: true, photo: {} }); await tick(); }
 
+// -- Keep in View, in the preview: the faces as boxes, a tap sets the point, Automatic puts it back
+({ c, panel } = await draw(owner, ['mantel', 'files', 'photos', AID]));
+c.all().filter((e) => e.cls.has('mxph'))[0].click();
+const viewEl = () => panel.shadowRoot.find((e) => e.cls.has('mxview'));
+const kv = {};
+kv.button = viewEl().find((e) => e.attrs['data-fk'] === 'mx:view-keep').attrs['aria-label'];
+viewEl().find((e) => e.attrs['data-fk'] === 'mx:view-keep').on.click();
+const look = () => ({ boxes: viewEl().all().filter((e) => e.cls.has('fbox')).map((e) => [e.style.left, e.style.width]),
+                      ring: (viewEl().find((e) => e.cls.has('ring')) || { style: {} }).style.left || null,
+                      caption: viewEl().find((e) => e.cls.has('cap')).text,
+                      auto: !!viewEl().find((e) => e.attrs['data-fk'] === 'mx:view-keep-auto') });
+kv.opened = look();
+const pick = viewEl().find((e) => e.attrs['data-fk'] === 'mx:view-keep-pick');
+pick.getBoundingClientRect = () => ({ left: 100, top: 50, width: 400, height: 300 });
+pick.on.click({ clientX: 200, clientY: 200 });
+for (let i = 0; i < 4; i++) await tick();
+kv.tapped = look();
+viewEl().find((e) => e.attrs['data-fk'] === 'mx:view-keep-auto').on.click();
+for (let i = 0; i < 4; i++) await tick();
+kv.automatic = look();
+viewEl().find((e) => e.attrs['data-fk'] === 'mx:view-keep-pick').on.keydown({ key: 'Enter', preventDefault() {} });
+for (let i = 0; i < 4; i++) await tick();
+kv.sent = sent.splice(0);
+kv.changed = 'mantel-photos-changed' in stored;
+viewEl().find((e) => e.attrs['data-fk'] === 'mx:view-keep-done').on.click();
+kv.back = !!viewEl().find((e) => e.attrs['data-fk'] === 'mx:view-keep');
+// another photo, not looked at yet
+viewEl().find((e) => e.cls.has('next')).on.click();
+kv.pendingLabel = viewEl().find((e) => e.attrs['data-fk'] === 'mx:view-keep').attrs['aria-label'];
+out.keep = kv;
+
 // -- where it is: Your Files' Photos row, the sidebar, the old address, search
 reads['/api/user-files'] = { fonts: [], glyphs: { present: false }, usage: 0, quota: 1 << 20 };
 out.files = groups((await draw(owner, ['mantel', 'files'])).c);
@@ -275,7 +311,10 @@ def _run_page():
                              + "\nexport * as _photos from './mantel-photos.mjs';\n")
     (d / "s.mjs").write_text(PAGE_SCRIPT)
     photos = [{"id": p, "album_id": A, "name": f"IMG_{i}.jpg", "width": 4032, "height": 3024, "bytes": 2 << 20,
-               "source": "upload", "created": 0} for i, p in enumerate(P)]
+               "source": "upload", "created": 0, "faces": None, "focus": {"x": None, "y": None, "by": "pending"}}
+              for i, p in enumerate(P)]
+    photos[0].update(faces=[[0.2, 0.2, 0.1, 0.2, 0.9], [0.6, 0.25, 0.08, 0.15, 0.8]],
+                     focus={"x": 0.44, "y": 0.3, "by": "faces"})
     # the Admin's overview: the same library, but not an Owner's
     reads = {"/api/photos": LIBRARY, f"/api/photos/albums/{A}/photos": {"ok": True, "album": {"id": A, "name": "Family"}, "photos": photos}}
     (d / "reads.json").write_text(json.dumps(reads))
@@ -413,7 +452,11 @@ const out = {};
       asked.push(u);
       if (u.endsWith('/api/photos/screens')) return { ok: true, json: async () => ({ screens }) };
       return { ok: true, json: async () => ({ photos: [{ id: 'p1', title: 'One', url: '/api/photos/' + '1'.repeat(32) + '/screen' },
-                                                       { id: 'p2', url: 'https://evil.example/x.jpg' }] }) };
+                                                       { id: 'p2', url: 'https://evil.example/x.jpg' },
+                                                       { id: 'p3', title: 'Kept', url: '/api/photos/' + '3'.repeat(32) + '/screen',
+                                                         focus: [0.25, 0.4], faces: [[0.1, 0.2, 0.3, 0.3]] },
+                                                       { id: 'p4', title: 'Junk', url: '/api/photos/' + '4'.repeat(32) + '/screen',
+                                                         focus: [2, 0.4], faces: [[0.1, 0.2, 0.3], 'x', [0.1, 0.1, 0, 0.2]] }] }) };
     };
     let told = 0;
     globalThis.hkSaver = { photosChanged() { told++; } };
@@ -445,9 +488,30 @@ def test_the_shell_gives_a_screen_its_album_and_lists_it_under_the_prefix():
     r = got["root"]
     assert r["first"] is None and r["after"] == "mantel-photos://a1a1a1a1a1a1a1a1" and r["told"] == 1
     assert r["folder"] is None                                      # a Home Assistant folder is HK's to walk
-    assert r["list"] == [{"id": "p1", "title": "One", "url": "/api/photos/" + "1" * 32 + "/screen"}]   # never another host
+    assert r["list"][0] == {"id": "p1", "title": "One", "url": "/api/photos/" + "1" * 32 + "/screen"}
+    assert [p["id"] for p in r["list"]] == ["p1", "p3", "p4"]                                          # never another host
+    # Keep in View: a sound focus and faces passed on, unsound ones dropped (the photo itself still shown)
+    assert r["list"][1] == {"id": "p3", "title": "Kept", "url": "/api/photos/" + "3" * 32 + "/screen",
+                            "focus": [0.25, 0.4], "faces": [[0.1, 0.2, 0.3, 0.3]]}
+    assert r["list"][2] == {"id": "p4", "title": "Junk", "url": "/api/photos/" + "4" * 32 + "/screen"}
     assert r["cleared"] is None and r["toldAgain"] == 2
     ing = got["/api/hassio_ingress/Fict1onal"]
     assert ing["after"] == "mantel-photos://a1a1a1a1a1a1a1a1"       # the screen read without the prefix
     assert ing["list"][0]["url"] == "/api/hassio_ingress/Fict1onal/api/photos/" + "1" * 32 + "/screen"
     assert ing["asked"][0] == "/api/hassio_ingress/Fict1onal/api/photos/screens"
+
+
+def test_keep_in_view_shows_the_faces_and_sets_the_point_by_hand_or_back_to_automatic():
+    kv = run_page()["keep"]
+    assert kv["button"] == "Keep in View: 2 faces found · kept in view automatically"
+    assert kv["opened"] == {"boxes": [["20.00%", "10.00%"], ["60.00%", "8.00%"]], "ring": None,
+                            "caption": "2 faces found · kept in view automatically", "auto": False}
+    # a tap at (200, 200) on the photo drawn at (100, 50) 400 x 300: a quarter across, half down
+    assert kv["tapped"]["caption"] == "Set by hand" and kv["tapped"]["ring"] == "25.00%" and kv["tapped"]["auto"] is True
+    assert kv["automatic"]["caption"] == "1 face found · kept in view automatically" and kv["automatic"]["auto"] is False
+    pid = f"{1:032x}"
+    assert kv["sent"] == [{"method": "PUT", "path": f"/api/photos/{pid}/focus", "body": {"x": 0.25, "y": 0.5}},
+                          {"method": "PUT", "path": f"/api/photos/{pid}/focus", "body": {"auto": True}},
+                          {"method": "PUT", "path": f"/api/photos/{pid}/focus", "body": {"x": 0.5, "y": 0.5}}]
+    assert kv["changed"] is True and kv["back"] is True
+    assert kv["pendingLabel"] == "Keep in View: Not checked yet"

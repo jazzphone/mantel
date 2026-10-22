@@ -23,3 +23,9 @@ pyasn1_modules==0.4.2
 # Mantel Photos and Your files: pictures decoded and re-encoded (photos.py, user_files.py); HEIC from iPhones
 pillow==13.0.0
 pillow_heif==1.8.1
+# Mantel Photos' focus points: where a photo's faces are (faces.py; YuNet run by ONNX Runtime, CPU, one thread)
+numpy==2.5.4
+onnxruntime==1.31.0
+flatbuffers==25.12.19
+packaging==26.3
+protobuf==7.36.2

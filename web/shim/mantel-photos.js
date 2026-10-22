@@ -58,6 +58,17 @@ export const STYLE = [
   '.mxview .nav.prev{left:8px}.mxview .nav.next{right:8px}',
   '.mxview .nav[disabled]{opacity:.25;cursor:default}',
   '.mxdlg .mxin.mxname{letter-spacing:normal;text-align:left}',
+  // Keep in View: the photo's faces as faint boxes, a point set by hand as a ring; a tap moves it
+  '.mxview .mxmarks{position:absolute;cursor:crosshair;touch-action:none;border-radius:2px}',
+  '.mxview .mxmarks:focus-visible{outline:2px solid #fff;outline-offset:2px}',
+  '.mxview .mxmarks .fbox{position:absolute;border:1.5px solid rgba(255,255,255,.6);border-radius:8px;pointer-events:none;',
+  '  box-shadow:0 0 0 1px rgba(0,0,0,.25)}',
+  '.mxview .mxmarks .ring{position:absolute;width:44px;height:44px;margin:-22px 0 0 -22px;border-radius:50%;border:3px solid #fff;',
+  '  box-shadow:0 0 0 1px rgba(0,0,0,.35),inset 0 0 0 1px rgba(0,0,0,.35);pointer-events:none;transition:left .2s,top .2s}',
+  '.mxview .kvsp{min-width:64px}',
+  '.mxview .bot.kv{flex-direction:column;align-items:center;gap:2px;text-align:center}',
+  '.mxview .bot.kv .cap{color:#fff;font-size:15px}',
+  '@media (prefers-reduced-motion:reduce){.mxview .mxmarks .ring{transition:none}}',
 ].join('\n');
 
 // ---------------------------------------------------------------------------------------- state
@@ -70,7 +81,7 @@ let active = 0;
 let upSeq = 0;
 let importTimer = null;
 let importJob = undefined;    // the import as last read (undefined: not read yet)
-let viewer = null;            // the preview: { el, list, i, album }
+let viewer = null;            // the preview: { el, list, i, album, keep } (keep: Keep in View is open)
 let dropAlbum = null;         // the album page now drawn (where a dropped file goes)
 
 const K = () => T.K();
@@ -528,7 +539,7 @@ function openViewer(list, i, aid) {
   viewer = { el, list, i, album: aid, prev: root.activeElement };
   T.holdFocus(root, el, el);                       // (closeViewer gives focus back itself)
   el.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') { e.preventDefault(); closeViewer(); }
+    if (e.key === 'Escape') { e.preventDefault(); if (viewer && viewer.keep) { viewer.keep = false; paintViewer(); } else closeViewer(); }
     else if (e.key === 'ArrowLeft') { e.preventDefault(); step(-1); }
     else if (e.key === 'ArrowRight') { e.preventDefault(); step(1); }
   });
@@ -541,6 +552,7 @@ function openViewer(list, i, aid) {
     x0 = null;
   });
   root.appendChild(el);
+  if (window.addEventListener) window.addEventListener('resize', placeMarks);
   paintViewer();
   el.focus();
 }
@@ -554,12 +566,70 @@ function step(by) {
 function closeViewer() {
   if (!viewer) return;
   viewer.el.remove();
+  if (window.removeEventListener) window.removeEventListener('resize', placeMarks);
   const prev = viewer.prev;
   viewer = null;
   if (prev && prev.focus) { try { prev.focus(); } catch (e) { /* gone */ } }
 }
+// KEEP IN VIEW (faces.py; PUT /api/photos/<id>/focus): what the screensavers keep in view when they crop this
+// photo -- the faces Mantel found, or a point set by hand. Its words, under the photo:
+function keepWords(p) {
+  const f = p.focus || {}, n = Array.isArray(p.faces) ? p.faces.length : 0;
+  if (f.by === 'hand') return 'Set by hand';
+  if (f.by === 'faces') return plural(n, 'face') + ' found · kept in view automatically';
+  if (f.by === 'none') return 'No faces found: the screen’s own focus is used';
+  return 'Not checked yet';
+}
+// the marks' layer lies exactly over the photo as drawn (shown whole: the image's own box)
+function placeMarks() {
+  if (!viewer || !viewer.keep) return;
+  const img = viewer.el.querySelector('[data-mx-img]'), layer = viewer.el.querySelector('[data-mx-marks]');
+  if (!img || !layer || !layer.style) return;
+  layer.style.left = (img.offsetLeft || 0) + 'px';
+  layer.style.top = (img.offsetTop || 0) + 'px';
+  layer.style.width = (img.offsetWidth || 0) + 'px';
+  layer.style.height = (img.offsetHeight || 0) + 'px';
+}
+async function setFocus(p, body) {
+  const v = viewer;
+  const r = await T.act('album', () => T.api('PUT', '/api/photos/' + p.id + '/focus', body), null, 'album:' + v.album);
+  if (!r || !r.focus) return;
+  p.focus = r.focus;
+  p.faces = r.faces;
+  changed();                                      // the screens list the album again
+  if (viewer === v && v.list[v.i] === p) paintViewer();
+}
+function marks(p) {
+  const pct = (n) => (n * 100).toFixed(2) + '%';
+  const kids = (Array.isArray(p.faces) ? p.faces : []).map((f) => {
+    const b = hh('span', { class: 'fbox', 'aria-hidden': 'true' });
+    if (b.style) { b.style.left = pct(f[0]); b.style.top = pct(f[1]); b.style.width = pct(f[2]); b.style.height = pct(f[3]); }
+    return b;
+  });
+  // the ring only for a point set by hand: automatically, the faces themselves are what is kept (all of them
+  // when they fit the screen, else the largest), so a ring between faces far apart would point at nothing
+  const f = p.focus || {};
+  if (f.by === 'hand' && typeof f.x === 'number' && typeof f.y === 'number') {
+    const ring = hh('span', { class: 'ring', 'aria-hidden': 'true', 'data-mx-ring': '' });
+    if (ring.style) { ring.style.left = pct(f.x); ring.style.top = pct(f.y); }
+    kids.push(ring);
+  }
+  const layer = hh('div', { class: 'mxmarks', role: 'button', tabindex: '0', 'data-mx-marks': '', 'data-fk': 'mx:view-keep-pick',
+    'aria-label': 'Choose what stays in view. Tap the photo where it should be; Enter keeps the middle in view.' }, kids);
+  layer.addEventListener('click', (e) => {
+    const r = layer.getBoundingClientRect ? layer.getBoundingClientRect() : null;
+    if (!r || !(r.width > 0) || !(r.height > 0)) return;
+    const clamp = (n) => Math.round(Math.max(0, Math.min(1, n)) * 10000) / 10000;
+    setFocus(p, { x: clamp((e.clientX - r.left) / r.width), y: clamp((e.clientY - r.top) / r.height) });
+  });
+  layer.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setFocus(p, { x: 0.5, y: 0.5 }); }
+  });
+  return layer;
+}
 function paintViewer() {
   const v = viewer, p = v.list[v.i];
+  if (v.keep) { paintKeep(v, p); return; }
   const close = hh('button', { type: 'button', text: 'Done', 'data-fk': 'mx:view-done' });
   close.addEventListener('click', closeViewer);
   const del = hh('button', { type: 'button', class: 'red', text: 'Delete', 'data-fk': 'mx:view-delete' });
@@ -579,13 +649,35 @@ function paintViewer() {
   const next = hh('button', { type: 'button', class: 'nav next', 'aria-label': 'Next photo', text: '›', disabled: v.i === v.list.length - 1 });
   prev.addEventListener('click', () => step(-1));
   next.addEventListener('click', () => step(1));
+  const keep = hh('button', { type: 'button', text: 'Keep in View', 'data-fk': 'mx:view-keep',
+    'aria-label': 'Keep in View: ' + keepWords(p) });
+  keep.addEventListener('click', () => { v.keep = true; paintViewer(); });
   v.el.replaceChildren(
     hh('div', { class: 'top' }, [close, hh('span', { class: 't', text: p.name || 'Photo' }), del]),
     hh('div', { class: 'pic' }, [hh('img', { src: screenUrl(p.id), alt: p.name || 'Photo' }), prev, next]),
-    hh('div', { class: 'bot' }, [hh('span', { text: (v.i + 1) + ' of ' + v.list.length }),
+    hh('div', { class: 'bot' }, [hh('span', { text: (v.i + 1) + ' of ' + v.list.length }), keep,
       hh('span', { text: p.width + ' × ' + p.height + ' · ' + size(p.bytes) + (p.source === 'ha' ? ' · from Home Assistant' : '') })]));
   // the next one is fetched while this one shows
   if (v.i + 1 < v.list.length) { const im = new Image(); im.src = screenUrl(v.list[v.i + 1].id); }
+}
+// Keep in View open: the photo with its marks, what is set in words, Automatic (when set by hand) and Done
+function paintKeep(v, p) {
+  const done = hh('button', { type: 'button', text: 'Done', 'data-fk': 'mx:view-keep-done' });
+  done.addEventListener('click', () => { v.keep = false; paintViewer(); });
+  const top = [done, hh('span', { class: 't', text: 'Keep in View' })];
+  if ((p.focus || {}).by === 'hand') {
+    const auto = hh('button', { type: 'button', text: 'Automatic', 'data-fk': 'mx:view-keep-auto' });
+    auto.addEventListener('click', () => setFocus(p, { auto: true }));
+    top.push(auto);
+  } else top.push(hh('span', { class: 'kvsp', 'aria-hidden': 'true' }));
+  const img = hh('img', { src: screenUrl(p.id), alt: p.name || 'Photo', 'data-mx-img': '' });
+  img.addEventListener('load', placeMarks);
+  v.el.replaceChildren(
+    hh('div', { class: 'top' }, top),
+    hh('div', { class: 'pic' }, [img, marks(p)]),
+    hh('div', { class: 'bot kv' }, [hh('span', { class: 'cap', role: 'status', text: keepWords(p) }),
+      hh('span', { text: 'Tap the photo where the screens should keep it in view.' })]));
+  placeMarks();
 }
 
 // ============================================================================================ on HK's pages

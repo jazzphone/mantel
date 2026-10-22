@@ -9,6 +9,7 @@ Mantel, so Mantel answers with what *its* screens need, in the same shape the pa
 * Music Assistant: connected (optional: the Music page's own engine, Browse's library).
 * SF Pro and the SF Symbols glyphs: uploaded in Mantel settings -> Your files (Apple's, never shipped).
 * House commands: on or off (Mantel Settings → General, Allow Control of the House; off means read-only).
+* Photos: only when Mantel Photos has photos and faces can't be found on this platform (faces.py).
 * Screens: how many Mantel has (imported from HK in HA, or made here).
 * Wall Tablets: every tablet with a Direct Connection reached now, at once (tablet_links.setup_lines: Kiosk
   Satellite's ``/api/health``, Fully's ``deviceInfo``; reads only). No line when none has one.
@@ -69,6 +70,15 @@ def lines(app: Any, boards: int) -> list[dict[str, Any]]:
     else:
         how = setup_guide.READ_ONLY_HOW if getattr(cfg, "read_only", False) else setup_guide.COMMANDS_HOW
         out.append(_line(None, "House Commands", "Off: Mantel is read-only. " + how[setup_guide.install(cfg)]))
+    photos = app.get("photos") if hasattr(app, "get") else None
+    try:
+        has_photos = photos is not None and photos.count() > 0
+    except Exception:  # noqa: BLE001
+        has_photos = False
+    if has_photos:
+        from . import faces
+        if not faces.available():
+            out.append(_line(None, "Photos", "Faces aren’t found on this platform; the screens’ own focus is used."))
     out.append(_line(True if boards else False, "Screens",
                      f"{boards} in Mantel." if boards else
                      "None yet. Once Home Assistant is connected Mantel builds a Home screen from your rooms; "

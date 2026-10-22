@@ -305,11 +305,27 @@
         [[0, 0, 0.5, 1], [0.5, 0, 0.25, 0.5], [0.75, 0, 0.25, 0.5], [0.5, 0.5, 0.25, 0.5], [0.75, 0.5, 0.25, 0.5]],
         [[0, 0, 1 / 3, 0.55], [1 / 3, 0, 1 / 3, 0.55], [2 / 3, 0, 1 / 3, 0.55], [0, 0.55, 0.5, 0.45], [0.5, 0.55, 0.5, 0.45]]]
   };
-  // a layout for `n` photos on a W x H screen: its cells, each tall or not
-  function mosaicPlan(n, W, H, rnd, last) {
-    var set = MOSAICS[Math.max(2, Math.min(5, n))], i = Math.floor((rnd || Math.random)() * set.length);
-    if (set.length > 1 && i === last) i = (i + 1) % set.length;
-    return { idx: i, cells: set[i].map(function (c) { return { x: c[0], y: c[1], w: c[2], h: c[3], tall: c[3] * H > c[2] * W }; }) };
+  // a layout for `n` photos on a W x H screen: its cells, each tall or not.
+  // LAYOUTS THAT FIT THE PHOTOS (2026-10-22): given how many of the photos
+  // are portraits, one of the layouts whose tall cells come closest to that
+  // number, at random among those (never the one shown last); without the
+  // count, any layout, as before
+  function mosaicPlan(n, W, H, rnd, last, portraits) {
+    var set = MOSAICS[Math.max(2, Math.min(5, n))], i;
+    var cellsOf = function (k) { return set[k].map(function (c) { return { x: c[0], y: c[1], w: c[2], h: c[3], tall: c[3] * H > c[2] * W }; }); };
+    if (typeof portraits === 'number' && isFinite(portraits)) {
+      var best = Infinity, pick = [];
+      for (var k = 0; k < set.length; k++) {
+        if (set.length > 1 && k === last) continue;
+        var miss = Math.abs(cellsOf(k).filter(function (c) { return c.tall; }).length - portraits);
+        if (miss < best) { best = miss; pick = [k]; } else if (miss === best) pick.push(k);
+      }
+      i = pick[Math.min(pick.length - 1, Math.floor((rnd || Math.random)() * pick.length))];
+    } else {
+      i = Math.floor((rnd || Math.random)() * set.length);
+      if (set.length > 1 && i === last) i = (i + 1) % set.length;
+    }
+    return { idx: i, cells: cellsOf(i) };
   }
   // which photo goes in which cell: the portraits in the tall cells first
   // (the tallest first), the landscapes in the wide ones -> photo index per cell
@@ -330,6 +346,67 @@
     return { sx: Math.max(0, Math.min(iw - sw, (iw - sw) * fx)), sy: Math.max(0, Math.min(ih - sh, (ih - sh) * fy)), sw: Math.min(iw, sw), sh: Math.min(ih, sh) };
   }
   var FOCUS_F = { left: 0, top: 0, center: 0.5, right: 1, bottom: 1 };
+  // KEEP IN VIEW (2026-10-22): a host's photo may come with where its faces
+  // are (`faces`: [x, y, w, h] fractions of the photo) and a point set by
+  // hand (`focus`: [x, y]) -- Mantel Photos does. Without either, nothing
+  // here changes anything. cleanFocus: what of a list item's focus is sound
+  var FACES_MAX = 12;
+  function cleanFocus(p) {
+    var out = {}, f01 = function (v) { return typeof v === 'number' && isFinite(v) && v >= 0 && v <= 1; };
+    if (!p || typeof p !== 'object') return out;
+    if (Array.isArray(p.focus) && p.focus.length === 2 && f01(p.focus[0]) && f01(p.focus[1])) out.focus = [p.focus[0], p.focus[1]];
+    if (Array.isArray(p.faces)) {
+      var fs = p.faces.slice(0, FACES_MAX).filter(function (f) {
+        return Array.isArray(f) && f.length >= 4 && f01(f[0]) && f01(f[1]) && f01(f[2]) && f01(f[3]) && f[2] > 0 && f[3] > 0 &&
+          f[0] + f[2] <= 1.001 && f[1] + f[3] <= 1.001;
+      }).map(function (f) { return [f[0], f[1], f[2], f[3]]; });
+      if (fs.length) out.faces = fs;
+    }
+    return out;
+  }
+  // a face's box with room for the head around it: hair above, chin below
+  function headOf(f) {
+    return { x1: f[0] - f[2] * 0.2, y1: f[1] - f[3] * 0.35, x2: f[0] + f[2] * 1.2, y2: f[1] + f[3] * 1.15 };
+  }
+  function unionOf(boxes) {
+    return boxes.reduce(function (u, b) {
+      return { x1: Math.min(u.x1, b.x1), y1: Math.min(u.y1, b.y1), x2: Math.max(u.x2, b.x2), y2: Math.max(u.y2, b.y2) };
+    });
+  }
+  // the alignment (as coverRect's fx and object-position's percentage) that
+  // puts the point c in the middle of a window f wide (fractions)
+  function alignOf(c, f) { return f >= 1 ? 0.5 : Math.max(0, Math.min(1, (c - f / 2) / (1 - f))); }
+  // WHAT TO KEEP IN VIEW of an iw x ih photo filling a cw x ch frame, `zoom`
+  // closer in: {fx, fy} (the crop's alignment), {cx, cy} (the point kept in
+  // the middle), or null for a photo with no focus. A point set by hand is
+  // kept in the middle; else all the faces when they fit the visible part,
+  // else the largest face and as many more, largest first, as still fit --
+  // whole heads rather than a cut across a group
+  function faceWindow(item, iw, ih, cw, ch, zoom) {
+    var F = item ? cleanFocus(item) : {};
+    if (!F.focus && !F.faces || !(iw > 0 && ih > 0 && cw > 0 && ch > 0)) return null;
+    var k = Math.max(cw / iw, ch / ih) * Math.max(1, zoom || 1);
+    var fw = Math.min(1, cw / k / iw), fh = Math.min(1, ch / k / ih), cx, cy;
+    if (F.focus) { cx = F.focus[0]; cy = F.focus[1]; } else {
+      var heads = F.faces.map(headOf).sort(function (a, b) { return (b.x2 - b.x1) * (b.y2 - b.y1) - (a.x2 - a.x1) * (a.y2 - a.y1); });
+      var fits = function (u) { return u.x2 - u.x1 <= fw && u.y2 - u.y1 <= fh; };
+      var u = unionOf(heads);
+      if (!fits(u)) {
+        u = heads[0];
+        for (var i = 1; i < heads.length; i++) { var t = unionOf([u, heads[i]]); if (fits(t)) u = t; }
+      }
+      cx = (u.x1 + u.x2) / 2; cy = (u.y1 + u.y2) / 2;
+    }
+    cx = Math.max(0, Math.min(1, cx)); cy = Math.max(0, Math.min(1, cy));
+    return { fx: alignOf(cx, fw), fy: alignOf(cy, fh), cx: cx, cy: cy };
+  }
+  // where the photo's point (cx, cy) lands in a cw x ch frame, the photo
+  // drawn at `fit` (cover or contain) with alignment fx, fy: the zoom's
+  // origin, so a zoom closes in on the faces -> {ox, oy}, fractions
+  function faceOrigin(cx, cy, iw, ih, cw, ch, fit, fx, fy) {
+    var s = (fit === 'contain' ? Math.min : Math.max)(cw / iw, ch / ih), dw = iw * s, dh = ih * s;
+    return { ox: Math.max(0, Math.min(1, ((cw - dw) * fx + cx * dw) / cw)), oy: Math.max(0, Math.min(1, ((ch - dh) * fy + cy * dh) / ch)) };
+  }
   // the blurred copy's blur is its size: drawn this many pixels wide and
   // scaled up -- 50 % is the 24 px it always was; 0 % the 96 px copy itself
   function backdropSmall(blur) {
@@ -810,7 +887,7 @@
     '.ph .mowrap.round .mocell{border-radius:16px}',
     '.ph .mocell canvas{position:absolute;inset:0;width:100%;height:100%;display:block;transition:opacity ' + CROSSFADE_MS + 'ms ease}',
     '.ph.mo.zoom .mocell canvas{animation:hk-saver-zoom var(--zd,33s) linear forwards}',
-    '.ph img.fg{object-fit:var(--fit,cover);object-position:var(--pos,50% 50%);transform-origin:var(--pos,50% 50%);scale:var(--zm,1)}',
+    '.ph img.fg{object-fit:var(--fit,cover);object-position:var(--pos,50% 50%);transform-origin:var(--org,var(--pos,50% 50%));scale:var(--zm,1)}',
     '.ph.zoom img.fg{animation:hk-saver-zoom var(--zd,33s) linear forwards}',
     // THE PHOTOS' SCRIM, under the forecast details over them (band_photos):
     // black, toward the bottom, chosen on the tablet 2026-10-04. Painted into
@@ -1641,7 +1718,10 @@
       : hostList ? hostList.then(function (items) {
           (Array.isArray(items) ? items : []).forEach(function (p) {
             if (out.length < LIST_MAX && p && typeof p.id === 'string' && typeof p.url === 'string' && p.url) {
-              out.push({ id: 'host/' + p.id, title: typeof p.title === 'string' ? p.title : '', url: p.url });
+              var it = { id: 'host/' + p.id, title: typeof p.title === 'string' ? p.title : '', url: p.url }, fc = cleanFocus(p);
+              if (fc.focus) it.focus = fc.focus;
+              if (fc.faces) it.faces = fc.faces;
+              out.push(it);
             }
           });
         })
@@ -1926,7 +2006,9 @@
     cv.width = cw; cv.height = ch;
     var sc = shapeOfPh(ph) === 'portrait' ? cfg.portrait : cfg.landscape, x = cv.getContext && cv.getContext('2d');
     if (x) {
-      var R = coverRect(ph.w, ph.h, cw, ch, FOCUS_F[(sc || {}).x] != null ? FOCUS_F[sc.x] : 0.5, FOCUS_F[(sc || {}).y] != null ? FOCUS_F[sc.y] : 0.5, ((sc || {}).zoom || 100) / 100);
+      var zm = ((sc || {}).zoom || 100) / 100, kv = faceWindow(ph.item, ph.w, ph.h, cw, ch, zm);
+      var R = kv ? coverRect(ph.w, ph.h, cw, ch, kv.fx, kv.fy, zm)
+        : coverRect(ph.w, ph.h, cw, ch, FOCUS_F[(sc || {}).x] != null ? FOCUS_F[sc.x] : 0.5, FOCUS_F[(sc || {}).y] != null ? FOCUS_F[sc.y] : 0.5, zm);
       x.imageSmoothingQuality = 'high';
       try { x.drawImage(ph.img, R.sx, R.sy, R.sw, R.sh, 0, 0, cw, ch); } catch (e) { /* not drawable */ }
     }
@@ -1964,7 +2046,8 @@
     if (mus.paneNext !== null) { var pn = mus.paneNext; mus.paneNext = null; setPane(pn); }
     setAttr(next, 'pw', paneUp);
     var W = Math.max(1, (window.innerWidth || 1280) - (paneUp ? paneW || 0 : 0)), H = Math.max(1, window.innerHeight || 800);
-    var plan = mosaicPlan(m.mosaic.length, W, H, Math.random, moState ? moState.idx : -1);
+    var ports = m.mosaic.filter(function (ph) { return shapeOfPh(ph) === 'portrait'; }).length;
+    var plan = mosaicPlan(m.mosaic.length, W, H, Math.random, moState ? moState.idx : -1, ports);
     var pick = mosaicAssign(plan.cells, m.mosaic.map(function (ph) { return shapeOfPh(ph) === 'portrait'; }), W, H);
     var g = moGap(), wrap = document.createElement('div');
     wrap.className = 'mowrap' + (cfg.mosaic_gap === 'rounded' ? ' round' : '');
@@ -1999,9 +2082,25 @@
   // the copy's dim (paint; and relayout, the preview's in-place change)
   function layOut(el, ph) {
     var fit = fitOf(ph.w, ph.h, cfg.fill, cfg.portrait && cfg.portrait.fill);
-    var lay = layoutOf(fit.portrait ? cfg.portrait : cfg.landscape);
+    var sc = fit.portrait ? cfg.portrait : cfg.landscape, lay = layoutOf(sc);
+    // KEEP IN VIEW: a photo with a focus is cropped around it (filled), and
+    // the zoom closes in on it (filled or whole); without one, as before
+    var r = el.getBoundingClientRect ? el.getBoundingClientRect() : null;
+    var W = (r && r.width) || window.innerWidth || 1280, H = (r && r.height) || window.innerHeight || 800;
+    var zm = ((sc || {}).zoom || 100) / 100, kv = faceWindow(ph.item, ph.w, ph.h, W, H, zm), org = '';
+    if (kv) {
+      var ax = FOCUS_F[(sc || {}).x] != null ? FOCUS_F[sc.x] : 0.5, ay = FOCUS_F[(sc || {}).y] != null ? FOCUS_F[sc.y] : 0.5;
+      if (fit.fit === 'cover') {
+        var k1 = Math.max(W / ph.w, H / ph.h);
+        ax = alignOf(kv.cx, Math.min(1, W / k1 / ph.w)); ay = alignOf(kv.cy, Math.min(1, H / k1 / ph.h));
+        lay.pos = (ax * 100).toFixed(2) + '% ' + (ay * 100).toFixed(2) + '%';
+      }
+      var o = faceOrigin(kv.cx, kv.cy, ph.w, ph.h, W, H, fit.fit, ax, ay);
+      org = (o.ox * 100).toFixed(2) + '% ' + (o.oy * 100).toFixed(2) + '%';
+    }
     el.style.setProperty('--fit', fit.fit);
     el.style.setProperty('--pos', lay.pos);
+    el.style.setProperty('--org', org);
     el.style.setProperty('--zm', lay.zoom);
     el.style.setProperty('--bgdim', lay.dim);
     return { fit: fit, lay: lay };
@@ -4513,7 +4612,8 @@
          touchFresh: function () { touchSent = 0; },
          readCfg: readCfg, gate: gate, wake: WAKE, zoneOf: zoneOf, fitOf: fitOf, layoutOf: layoutOf, backdropSmall: backdropSmall, nightNow: nightNow,
          ckFx: ckFx, MOSAIC_COLORS: MOSAIC_COLORS,
-         mosaicPlan: mosaicPlan, mosaicAssign: mosaicAssign, coverRect: coverRect, MOSAICS: MOSAICS, shuffle: shuffle, Deck: Deck, isImage: isImage,
+         mosaicPlan: mosaicPlan, mosaicAssign: mosaicAssign, coverRect: coverRect, MOSAICS: MOSAICS,
+         cleanFocus: cleanFocus, faceWindow: faceWindow, faceOrigin: faceOrigin, alignOf: alignOf, shuffle: shuffle, Deck: Deck, isImage: isImage,
          // tests: the slide without real photos to count
          slide: { show: showForecastSlide, hide: hideForecastSlide, since: function (n) { sinceFc = n; }, schedule: function () { schedule(); } },
          paneOf: paneOf, slideOf: slideOf, turnOf: turnOf, extrasOf: extrasOf, mmss: mmss,

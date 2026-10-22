@@ -121,19 +121,65 @@ on the page with the pictures that could not be copied and why. Nothing in Home 
 manifest counts `photos`), and `restore` puts it back (0700/0600) with the rows in the database. Under the HA
 App `/data` is in Home Assistant's backups of the App too. The Storage group says which, with the size.
 
+### Keep in View: focus points (2026-10-22)
+
+The screensavers crop to fill (a single photo with `object-fit: cover`, a mosaic cell through `coverRect`), so
+faces were cut off. Mantel now finds where each photo's faces are, once, and the screensavers crop and zoom
+around them. Only boxes are found and stored, never who anyone is, and nothing leaves the server.
+
+* **Data** (migration `0024_photo_focus.sql`). `photos.faces` is JSON `[[x, y, w, h, score], …]`, fractions of
+  the upright picture: the kept faces only, at most 12, largest first. `NULL` means not checked yet, `'[]'` means
+  checked with no faces. `faces_at` and `faces_by` (`yunet-2023mar`) record when and by what, so a later model can
+  check again. `focus_x`/`focus_y` hold a point set by hand (`NULL` = automatic); going back to automatic clears
+  only them, and the detected faces stay. A partial index `photos_unchecked` on `created WHERE faces_at IS NULL`
+  serves the backfill. The focus is worked out on read (`photos.with_focus`): `hand`, else `faces` (the centre of
+  the faces' union), else `none`, or `pending` while unchecked.
+* **Detector** (`faces.py`). YuNet `face_detection_yunet_2023mar.onnx` (MIT, OpenCV Zoo, vendored in
+  `mantel_server/models/` with its licence; SHA-256 checked before loading), run by ONNX Runtime on the CPU with
+  one thread. The model's input is a fixed 640x640: the picture is scaled to 640 px on its long side and padded.
+  Its outputs are decoded and duplicates removed in `faces.decode`/`faces.nms`, matching OpenCV's
+  `FaceDetectorYN` (checked against it to within 2e-4 px). Score at least 0.7; faces under a quarter of the
+  largest's area are dropped (`keep`). A `Detector` lives for one batch; ONNX Runtime stays loaded in the process
+  once imported.
+* **On upload.** `process()` runs the detector on the screen-sized copy it has just made, in the same worker
+  thread. `Processed.faces` is `None` when there's no detector or it fails, and the upload never fails because of
+  it.
+* **Backfill** (`FaceBackfill`, `app["photos_faces"]`). It starts 60 s after the server, then takes one unchecked
+  photo at a time (newest first): it reads `screen/<id>.jpg`, detects in a thread, writes the row, and rests
+  0.5 s. It waits while an import runs and stops when nothing is left. A restart carries on, because the state
+  is the rows. An unreadable file is stored as `'[]'`. Nothing runs without a detector. When it finishes, it logs
+  at info "checked N photos for faces in Xs (M with faces)". It's cancelled on cleanup.
+* **Screensaver** (`hk-saver.js`, shared with HK Frontend; does nothing without focus data). `hostPhotoList`
+  passes on `cleanFocus(p)`. `faceWindow` returns the crop alignment: a hand-set point is centred; otherwise all
+  the faces when their union (with room for each head) fits the visible window at the shape's zoom, else the
+  largest face plus as many more, largest first, as still fit. `faceOrigin` sets the zoom origin (`--org`, which
+  falls back to `--pos`) so a zoom closes in on the faces, whether the photo fills the screen or is shown whole.
+  The Mosaic uses `faceWindow` per cell. `mosaicPlan(…, portraits)` picks among the layouts whose tall cells
+  best match the number of portrait photos (never the last one shown). That last part is in both products, so HK
+  Frontend gets it at its next publish.
+* **Shim.** `mantel-shell.js listPhotos` passes on a valid `focus`/`faces`. In the photo viewer
+  (`mantel-photos.js`), **Keep in View** shows the faces as boxes and a hand-set point as a ring. A tap sets the point,
+  **Automatic** puts it back, and Enter centres it.
+* **Setup Check.** One line, only when the library has photos and the detector is unavailable.
+* **Size cost** (measured 2026-10-22 in the App's base image). onnxruntime 1.31 + numpy 2.5 (+ flatbuffers,
+  packaging, protobuf) add about 130 MB installed on aarch64 and 140 MB on amd64, and about 45–48 MB to the
+  compressed image. opencv-python-headless + numpy would have added 154/222 MB. Detection takes 13 ms per photo
+  on aarch64 and 22 ms on amd64 (emulated), with one thread.
+
 ## REST
 
 | Route | Who |
 |---|---|
 | `GET /api/photos` (albums with count, size and cover; usage; limits; screens; backups; the import) | manager |
 | `POST /api/photos/albums` `{name}`; `PATCH`/`DELETE /api/photos/albums/<id>` | manager |
-| `GET /api/photos/albums/<id>/photos` | manager |
+| `GET /api/photos/albums/<id>/photos` (each with `faces` and `focus {x, y, by}`) | manager |
+| `PUT /api/photos/<id>/focus` `{x, y}` (0..1) or `{auto: true}`; audited `photos.focus` | manager |
 | `POST /api/photos/albums/<id>/upload` (multipart `file`) → 201, or 200 `duplicate` | manager |
 | `POST /api/photos/delete` `{ids}`; `POST /api/photos/move` `{ids, album}` (→ `moved`, `skipped`) | manager |
 | `PUT /api/photos/limits` `{quota_mb?, file_mb?}` | Owner |
 | `PUT /api/photos/screens/<screen>` `{album \| null}` | manager |
 | `GET`/`POST`/`DELETE /api/photos/import` | manager reads; Owner starts and stops |
-| `GET /api/photos/screens`; `GET /api/photos/albums/<id>/show` (`Cache-Control: no-cache`) | feature:media |
+| `GET /api/photos/screens`; `GET /api/photos/albums/<id>/show` (`Cache-Control: no-cache`; a photo has `focus: [x, y]` only when set by hand and `faces: [[x, y, w, h], …]` only when found) | feature:media |
 | `GET /api/photos/<id>/screen` and `/thumb` (`private, max-age=31536000, immutable`, ETag); `/original` | feature:media; original: manager |
 
 A refused or missing album or photo for the saver's routes answers one 404 (nothing to probe).
@@ -148,6 +194,13 @@ A refused or missing album or photo for the saver's routes answers one 404 (noth
 * `tests/test_mantel_photos_js.py`: the page in node with a recording kit: albums, storage and backups, the
   Owner-only rows, the grid, select, move and delete as sent, twenty uploads three at a time with each file's
   words, the pickers; the shell's `photoSource`/`listPhotos` with and without the Ingress prefix.
+* `tests/test_photo_faces.py`: `keep`, the YuNet decoder and NMS on synthetic tensors, the model's SHA-256 and a
+  smoke test on blank pictures, faces stored on upload (and an upload without or despite a failing detector), the
+  backfill (newest first, one at a time, resumes, unreadable files, no detector, waits for an import), the
+  migration over existing photos, what the screensavers and the page read, `PUT …/focus` (roles, CSRF, bad
+  values, auto, audit) and the Setup Check line.
+* `tests/test_saver_focus.py`: hk-saver.js in node: `faceWindow` (centring, edges, fits or the largest cluster,
+  a hand-set point, zoom), `faceOrigin`, `cleanFocus`, `mosaicPlan` by shape, and inertness without a focus.
 * HK's saver suite (`test_saver.js`): a host with its own photos is listed by the host and shown from its
   addresses, never browsed or resolved; without one, the house's folder again.
 

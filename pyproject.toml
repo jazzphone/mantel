@@ -16,6 +16,7 @@ classifiers = ["Programming Language :: Python :: 3", "Framework :: AsyncIO", "T
 dependencies = ["aiohttp>=3.9", "argon2-cffi>=25.1", "cryptography>=50.0", "webauthn>=3.0",
                 "Pillow>=11.0",   # Your files photos and Mantel Photos are re-encoded (user_files.py, photos.py)
                 "pillow-heif>=0.18",   # iPhone HEIC/HEIF photos (re-encoded to JPEG)
+                "numpy>=2.0", "onnxruntime>=1.20",   # Mantel Photos' focus points: where faces are (faces.py, YuNet)
                 "zeroconf>=0.140"]   # Docker/LXC: Mantel announced as _mantel._tcp (announce.py; the App uses the Supervisor)
 
 [project.urls]
@@ -37,7 +38,7 @@ where = ["hosts/server", "."]
 include = ["mantel_server*", "mantel_connect*", "hk_core*"]
 
 [tool.setuptools.package-data]
-mantel_server = ["static/*", "static/admin/*", "static/login/*", "static/proxy-check/*", "migrations/*.sql", "hk_writes.json"]
+mantel_server = ["static/*", "static/admin/*", "static/login/*", "static/proxy-check/*", "migrations/*.sql", "hk_writes.json", "models/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

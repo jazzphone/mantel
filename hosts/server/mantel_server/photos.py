@@ -26,6 +26,12 @@ keeps its own library beside that, so a home can put its photos in Mantel and ch
   progress; nothing in Home Assistant is ever written or deleted.
 * **Backups.** The folder goes into Mantel's encrypted backups (backup.py) with "Your files", and with ``/data``
   into Home Assistant's backups of the App.
+* **Keep in View** (faces.py; migration 0024). Where a photo's faces are is found once -- on upload, from the
+  screen-sized copy, and for photos stored before by the backfill (``FaceBackfill``: one photo at a time, newest
+  first, paused while an import runs). Only boxes are stored, never who anyone is. A manager may set a photo's focus
+  by hand (``PUT /api/photos/<id>/focus``) or put it back to automatic. The screensavers read the faces and the
+  hand-set point with an album (``api_show``) and crop and zoom around them; a photo without either is cropped as
+  it always was.
 """
 from __future__ import annotations
 
@@ -33,6 +39,8 @@ import asyncio
 import contextlib
 import hashlib
 import io
+import json
+import math
 import logging
 import os
 import re
@@ -45,6 +53,8 @@ from typing import Callable
 from urllib.parse import unquote, urlsplit
 
 from aiohttp import web
+
+from . import faces as face_finder
 
 log = logging.getLogger("mantel.photos")
 
@@ -93,6 +103,7 @@ class Processed:
     thumb: bytes
     width: int
     height: int
+    faces: list | None = None        # None: not looked for (no detector here, or it failed)
 
     @property
     def size(self) -> int:
@@ -164,11 +175,12 @@ def process(data: bytes) -> Processed:
         screen = img.copy()
         screen.thumbnail((SCREEN_EDGE, SCREEN_EDGE), Image.LANCZOS)
         screen_bytes = jpeg(screen, 85)
+        found = face_finder.find(screen)                         # never raises; None when there's no detector
         thumb = screen.copy()
         thumb.thumbnail((THUMB_EDGE, THUMB_EDGE), Image.LANCZOS)
         buf = io.BytesIO()
         thumb.save(buf, "WEBP", quality=78, method=4)
-        return Processed(original, screen_bytes, buf.getvalue(), width, height)
+        return Processed(original, screen_bytes, buf.getvalue(), width, height, found)
     except PhotoError:
         raise
     except Image.DecompressionBombError as exc:
@@ -344,8 +356,9 @@ class PhotoLibrary:
 
     def photos(self, album_id: str) -> list[dict]:
         album = self.album(album_id)
-        return [dict(r) for r in self.db.execute(f"SELECT {self._COLS} FROM photos WHERE album_id=? "
-                                                 "ORDER BY created DESC, id", (album["id"],))]
+        return [with_focus(dict(r)) for r in self.db.execute(
+            f"SELECT {self._COLS}, faces, focus_x, focus_y FROM photos WHERE album_id=? ORDER BY created DESC, id",
+            (album["id"],))]
 
     def photo(self, photo_id: str) -> dict | None:
         row = self.db.execute(f"SELECT {self._COLS} FROM photos WHERE id=?", (photo_id,)).fetchone() \
@@ -389,11 +402,13 @@ class PhotoLibrary:
                 except OSError as exc:
                     log.warning("could not store a photo: %s", exc)
                     raise PhotoError("storage_failed", "Mantel couldn't store the photo (is the disk full?).", 507) from exc
+                checked = got.faces is not None
                 with self.db:
                     self.db.execute("INSERT INTO photos (id, album_id, sha256, name, width, height, bytes, source, "
-                                    "created, created_by) VALUES (?,?,?,?,?,?,?,?,?,?)",
+                                    "created, created_by, faces, faces_at, faces_by) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
                                     (pid, album["id"], sha, row["name"], got.width, got.height, got.size, source,
-                                     row["created"], user))
+                                     row["created"], user, json.dumps(got.faces) if checked else None,
+                                     self.clock() if checked else None, face_finder.NAME if checked else None))
             except BaseException:
                 await asyncio.to_thread(self._remove_files, pid)
                 raise
@@ -434,6 +449,39 @@ class PhotoLibrary:
                     moved.append(pid)
         return moved, skipped
 
+    # -- focus ------------------------------------------------------------------------------------
+    def set_faces(self, photo_id: str, found: list) -> None:
+        with self.db:
+            self.db.execute("UPDATE photos SET faces=?, faces_at=?, faces_by=? WHERE id=?",
+                            (json.dumps(found), self.clock(), face_finder.NAME, photo_id))
+
+    def unchecked(self) -> str | None:
+        """The newest photo whose faces haven't been looked for, or None."""
+        row = self.db.execute("SELECT id FROM photos WHERE faces_at IS NULL ORDER BY created DESC LIMIT 1").fetchone()
+        return row["id"] if row else None
+
+    def set_focus(self, photo_id: str, body: object) -> dict:
+        """``{x, y}`` (fractions 0..1) sets the focus by hand; ``{auto: true}`` puts it back to automatic."""
+        row = self.db.execute("SELECT id, album_id FROM photos WHERE id=?", (photo_id,)).fetchone() \
+            if PHOTO_ID.match(photo_id or "") else None
+        if row is None:
+            raise PhotoError("photo_not_found", "That photo no longer exists.", 404)
+        if not isinstance(body, dict):
+            raise PhotoError("bad_focus", "Send {x, y} from 0 to 1, or {auto: true}.")
+        if body.get("auto") is True and set(body) == {"auto"}:
+            x = y = None
+        else:
+            x, y = body.get("x"), body.get("y")
+            if set(body) != {"x", "y"} or not all(
+                    isinstance(v, (int, float)) and not isinstance(v, bool) and math.isfinite(v) and 0 <= v <= 1
+                    for v in (x, y)):
+                raise PhotoError("bad_focus", "Send {x, y} from 0 to 1, or {auto: true}.")
+            x, y = round(float(x), 4), round(float(y), 4)
+        with self.db:
+            self.db.execute("UPDATE photos SET focus_x=?, focus_y=? WHERE id=?", (x, y, row["id"]))
+        got = self.db.execute("SELECT faces, focus_x, focus_y FROM photos WHERE id=?", (row["id"],)).fetchone()
+        return {"id": row["id"], "album": row["album_id"], **with_focus(dict(got))}
+
     # -- screens ----------------------------------------------------------------------------------
     def screens(self) -> dict[str, str]:
         return {r["screen"]: r["album_id"] for r in self.db.execute("SELECT screen, album_id FROM photo_screens")}
@@ -450,6 +498,115 @@ class PhotoLibrary:
                             "ON CONFLICT(screen) DO UPDATE SET album_id=excluded.album_id, updated=excluded.updated",
                             (screen, album["id"], self.clock()))
         return album["id"]
+
+
+def stored_faces(raw: object) -> list | None:
+    """The ``faces`` column -> its list (None: not checked yet; a damaged value counts as no faces)."""
+    if raw is None:
+        return None
+    try:
+        got = json.loads(raw)
+    except (TypeError, ValueError):
+        return []
+    return [f for f in got if isinstance(f, list) and len(f) >= 4] if isinstance(got, list) else []
+
+
+def with_focus(row: dict) -> dict:
+    """A row with ``faces``/``focus_x``/``focus_y`` -> ``faces`` (list or None) and ``focus {x, y, by}``:
+    ``hand`` (set by hand), ``faces`` (the centre of the kept faces), ``none`` (checked, no faces) or ``pending``."""
+    found = stored_faces(row.pop("faces", None))
+    fx, fy = row.pop("focus_x", None), row.pop("focus_y", None)
+    row["faces"] = found
+    if fx is not None and fy is not None:
+        row["focus"] = {"x": fx, "y": fy, "by": "hand"}
+    elif found:
+        x1 = min(f[0] for f in found)
+        y1 = min(f[1] for f in found)
+        x2 = max(f[0] + f[2] for f in found)
+        y2 = max(f[1] + f[3] for f in found)
+        row["focus"] = {"x": round((x1 + x2) / 2, 4), "y": round((y1 + y2) / 2, 4), "by": "faces"}
+    else:
+        row["focus"] = {"x": None, "y": None, "by": "none" if found is not None else "pending"}
+    return row
+
+
+class FaceBackfill:
+    """Looks for faces in the photos stored before (or while no detector was here): ``app["photos_faces"]``.
+
+    It starts a minute after the server does, then takes one photo at a time, newest first, reads its screen-sized
+    file, looks in a worker thread and writes the row, with a short rest between photos. It waits while an import
+    runs and stops when nothing is left; its state is the rows (``faces_at IS NULL``), so a restart carries on. A
+    file that can't be read is stored as no faces, so it isn't tried again for ever. Nothing runs without a
+    detector."""
+
+    START = 60.0
+    REST = 0.5
+    IMPORT_WAIT = 5.0
+
+    def __init__(self, app: web.Application, *, start: float | None = None, rest: float | None = None) -> None:
+        self.app = app
+        self.start_after = self.START if start is None else start
+        self.rest = self.REST if rest is None else rest
+        self.task: asyncio.Task | None = None
+        self.checked = 0
+        self.with_faces = 0
+
+    def start(self) -> asyncio.Task | None:
+        if self.task is not None and not self.task.done():
+            return self.task
+        if not face_finder.available():
+            return None
+        self.task = asyncio.get_running_loop().create_task(self.run())
+        return self.task
+
+    def cancel(self) -> None:
+        if self.task is not None and not self.task.done():
+            self.task.cancel()
+
+    @staticmethod
+    def _look(det, path: Path | None) -> list:
+        if path is None:
+            return []
+        from PIL import Image
+        try:
+            with Image.open(path) as im:
+                im.load()
+                return det.detect(im)
+        except Exception as exc:  # noqa: BLE001 -- an unreadable file is "no faces", not a retry for ever
+            log.warning("couldn't look for faces in %s: %s: %s", path.name, type(exc).__name__, exc)
+            return []
+
+    async def run(self) -> None:
+        await asyncio.sleep(self.start_after)
+        lib: PhotoLibrary = self.app["photos"]
+        began, det = time.monotonic(), None
+        try:
+            while True:
+                imp = self.app.get("photos_import")
+                if imp is not None and imp.running:
+                    await asyncio.sleep(self.IMPORT_WAIT)
+                    continue
+                pid = lib.unchecked()
+                if pid is None:
+                    break
+                if det is None:
+                    try:
+                        det = await asyncio.to_thread(face_finder.Detector().__enter__)
+                    except Exception as exc:  # noqa: BLE001
+                        log.warning("the face backfill can't start: %s", exc)
+                        return
+                found = await asyncio.to_thread(self._look, det, lib.path(pid, "screen"))
+                if lib.photo(pid) is not None:                  # not deleted meanwhile
+                    lib.set_faces(pid, found)
+                    self.checked += 1
+                    self.with_faces += bool(found)
+                await asyncio.sleep(self.rest)
+        finally:
+            if det is not None:
+                det.__exit__(None, None, None)
+            if self.checked:
+                log.info("checked %d photos for faces in %.0fs (%d with faces)", self.checked,
+                         time.monotonic() - began, self.with_faces)
 
 
 # -- importing from Home Assistant ------------------------------------------------------------------------
@@ -738,6 +895,19 @@ async def api_album_photos(request: web.Request) -> web.Response:
         return _fail(exc)
 
 
+async def api_focus(request: web.Request) -> web.Response:
+    ident = _manager(request)
+    try:
+        got = _lib(request).set_focus(request.match_info["photo"], await _body(request))
+    except PhotoError as exc:
+        return _fail(exc)
+    f = got["focus"]
+    detail = {"id": got["id"], "album": got["album"]}
+    detail.update({"x": f["x"], "y": f["y"]} if f["by"] == "hand" else {"auto": True})
+    audit(request.app, ident, "photos.focus", detail)
+    return _json(200, ok=True, id=got["id"], faces=got["faces"], focus=f)
+
+
 async def api_upload(request: web.Request) -> web.Response:
     ident = _manager(request)
     from .user_files import FileError, read_upload
@@ -850,11 +1020,19 @@ async def api_show(request: web.Request) -> web.Response:
         album = lib.album(request.match_info["album"])
     except PhotoError:
         return _nothing()
-    rows = lib.db.execute("SELECT id, name, width, height FROM photos WHERE album_id=? ORDER BY created, id",
-                          (album["id"],))
-    return web.json_response({"album": album, "photos": [
-        {"id": r["id"], "title": r["name"], "w": r["width"], "h": r["height"], "url": f"/api/photos/{r['id']}/screen"}
-        for r in rows]}, headers={"Cache-Control": "no-cache"})
+    rows = lib.db.execute("SELECT id, name, width, height, faces, focus_x, focus_y FROM photos WHERE album_id=? "
+                          "ORDER BY created, id", (album["id"],))
+    out = []
+    for r in rows:
+        item = {"id": r["id"], "title": r["name"], "w": r["width"], "h": r["height"],
+                "url": f"/api/photos/{r['id']}/screen"}
+        if r["focus_x"] is not None and r["focus_y"] is not None:
+            item["focus"] = [r["focus_x"], r["focus_y"]]            # set by hand: the screens centre on it
+        found = stored_faces(r["faces"])
+        if found:
+            item["faces"] = [[round(float(v), 4) for v in f[:4]] for f in found]
+        out.append(item)
+    return web.json_response({"album": album, "photos": out}, headers={"Cache-Control": "no-cache"})
 
 
 async def serve(request: web.Request) -> web.StreamResponse:
@@ -874,7 +1052,8 @@ async def serve(request: web.Request) -> web.StreamResponse:
 
 
 def register(app: web.Application, hub=None) -> None:
-    """The library (``app["photos"]``), its import (``app["photos_import"]``) and the routes."""
+    """The library (``app["photos"]``), its import (``app["photos_import"]``), the faces backfill
+    (``app["photos_faces"]``) and the routes."""
     cfg = app["cfg"]
     lib = PhotoLibrary(Path(cfg.data_dir).expanduser() / "photos", app["store"].db, lambda: app["clock"]())
     app["photos"] = lib
@@ -895,9 +1074,16 @@ def register(app: web.Application, hub=None) -> None:
     r.add_get("/api/photos/import", api_import_status)
     r.add_post("/api/photos/import", api_import_start)
     r.add_delete("/api/photos/import", api_import_cancel)
+    r.add_put(r"/api/photos/{photo:[0-9a-f]{32}}/focus", api_focus)
     r.add_get(r"/api/photos/{photo:[0-9a-f]{32}}/{size:original|screen|thumb}", serve)
+    app["photos_faces"] = FaceBackfill(app)
+
+    async def begin(_app: web.Application) -> None:
+        _app["photos_faces"].start()
 
     async def stop(_app: web.Application) -> None:
         _app["photos_import"].cancel()
+        _app["photos_faces"].cancel()
 
+    app.on_startup.append(begin)
     app.on_cleanup.append(stop)

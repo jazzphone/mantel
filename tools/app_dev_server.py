@@ -16,6 +16,8 @@ Run: .venv/bin/python tools/app_dev_server.py --data-dir /tmp/mantel-app-dev [--
   and Mantel's own music engine runs, so the page's commands go through the gateway (audit rows) to that fake.
 * ``--slow MS``: a slow connection: every script and stylesheet under /hk/ and /web/, and every message on the
   page's live socket, is MS milliseconds late (a page change that waits on the house shows what it does meanwhile).
+* ``--log-level info``: Mantel's own log lines, as a house's log has them (e.g. the photo faces backfill's
+  "checked N photos for faces"); warnings only by default.
 * ``--busy``: a house that is never still, as a real one is (power readings, players): the kitchen light's
   brightness moves a little twice a second, so the page gets a state change about every 500 ms.
 * ``--lan``: also answer on this Mac's home-network address, over plain http, for a DEBUG build of the app on a real
@@ -353,7 +355,11 @@ def main() -> None:
     ap.add_argument("--music", action="store_true")
     ap.add_argument("--slow", type=int, default=0)
     ap.add_argument("--busy", action="store_true")
+    ap.add_argument("--log-level", default="warning", help="info shows what Mantel Server logs on a house")
     a = ap.parse_args()
+    import logging
+    logging.basicConfig(level=getattr(logging, a.log_level.upper(), logging.WARNING),
+                        format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     a.data_dir.mkdir(parents=True, exist_ok=True)
     if a.push:
         make_push(a.data_dir, a.push)

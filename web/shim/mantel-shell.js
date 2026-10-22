@@ -59,6 +59,18 @@
     const album = photoScreens && photoScreens[screenNow()];
     return typeof album === 'string' && /^[0-9a-f]{16}$/.test(album) ? 'mantel-photos://' + album : null;
   }
+  // KEEP IN VIEW: a photo's point set by hand ([x, y]) and its faces ([x, y, w, h] each, at most 12), passed on
+  // only when every number is 0..1 (the saver checks again); nothing at all for a photo without them
+  const unit = (v) => typeof v === 'number' && Number.isFinite(v) && v >= 0 && v <= 1;
+  function focusOf(p) {
+    const out = {};
+    if (Array.isArray(p.focus) && p.focus.length === 2 && p.focus.every(unit)) out.focus = [p.focus[0], p.focus[1]];
+    if (Array.isArray(p.faces)) {
+      const faces = p.faces.slice(0, 12).filter((f) => Array.isArray(f) && f.length === 4 && f.every(unit) && f[2] > 0 && f[3] > 0);
+      if (faces.length) out.faces = faces.map((f) => f.slice());
+    }
+    return out;
+  }
   function listPhotos(source) {
     const m = ALBUM.exec(String(source || ''));
     if (!m || typeof global.fetch !== 'function') return null;
@@ -66,7 +78,8 @@
     return global.fetch(mantelUrl('/api/photos/albums/' + m[1] + '/show'), { credentials: 'same-origin', cache: 'no-cache' })
       .then((r) => { if (!r.ok) throw new Error('album ' + r.status); return r.json(); })
       .then((j) => ((j && j.photos) || []).filter((p) => p && typeof p.url === 'string' && PHOTO_URL.test(p.url))
-        .map((p) => ({ id: String(p.id), title: typeof p.title === 'string' ? p.title : '', url: base + p.url })));
+        .map((p) => Object.assign({ id: String(p.id), title: typeof p.title === 'string' ? p.title : '', url: base + p.url },
+                                  focusOf(p))));
   }
   if (global.addEventListener) {
     global.addEventListener('storage', (e) => {
