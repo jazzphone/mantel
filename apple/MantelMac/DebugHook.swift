@@ -89,7 +89,7 @@ enum DebugHook {
                 Rectangle().fill(.white.opacity(0.1)).frame(width: 1).padding(.vertical, 24)
                 VStack(alignment: .leading, spacing: 18) {
                     PaneTabs(selection: .constant(.browse)).frame(maxWidth: .infinity)
-                    BrowsePane(columns: 4)
+                    BrowsePane(columns: 4, sizable: true)
                 }
                 .padding(.horizontal, 28).padding(.top, 40).padding(.bottom, 24)
             }

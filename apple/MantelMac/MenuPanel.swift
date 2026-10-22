@@ -202,7 +202,7 @@ struct MusicWindow: View {
                         switch pane {
                         case .speakers: SpeakersPane()
                         case .upNext: UpNextPane()
-                        case .browse: BrowsePane(columns: 4)
+                        case .browse: BrowsePane(columns: 4, sizable: true)
                         }
                     }
                     .padding(.horizontal, 28).padding(.top, 40).padding(.bottom, 24)

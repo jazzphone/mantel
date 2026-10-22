@@ -239,7 +239,12 @@ struct QueueRow: View {
 struct BrowsePane: View {
     @EnvironmentObject private var music: MusicModel
     var columns = 3
+    /// A pane as wide as a window's: the library's tiles take the size the person picks (the slider), as many to a
+    /// row as fit, instead of `columns` stretched across it.
+    var sizable = false
     @AppStorage("browseKind") private var kind = Kind.playlist
+    @AppStorage("browseTileSize") private var tileSize = 160.0
+    static let tileSizes: ClosedRange<Double> = 110...280
     @State private var search = ""
 
     enum Kind: String, CaseIterable, Identifiable {
@@ -264,18 +269,21 @@ struct BrowsePane: View {
             .padding(.horizontal, 10).padding(.vertical, 7)
             .background(.white.opacity(0.12), in: RoundedRectangle(cornerRadius: 9, style: .continuous))
 
-            PaneScroll(axis: .horizontal) {
-                HStack(spacing: 6) {
-                    ForEach(Kind.allCases) { k in
-                        Button { withAnimation(.easeOut(duration: 0.15)) { kind = k } } label: {
-                            Text(k.title).font(.system(size: 12, weight: .semibold)).lineLimit(1).fixedSize()
-                                .padding(.horizontal, 11).padding(.vertical, 6)
-                                .background(kind == k ? AnyShapeStyle(.white) : AnyShapeStyle(.white.opacity(0.12)), in: Capsule())
-                                .foregroundStyle(kind == k ? .black : .white.opacity(0.85))
+            HStack(spacing: 12) {
+                PaneScroll(axis: .horizontal) {
+                    HStack(spacing: 6) {
+                        ForEach(Kind.allCases) { k in
+                            Button { withAnimation(.easeOut(duration: 0.15)) { kind = k } } label: {
+                                Text(k.title).font(.system(size: 12, weight: .semibold)).lineLimit(1).fixedSize()
+                                    .padding(.horizontal, 11).padding(.vertical, 6)
+                                    .background(kind == k ? AnyShapeStyle(.white) : AnyShapeStyle(.white.opacity(0.12)), in: Capsule())
+                                    .foregroundStyle(kind == k ? .black : .white.opacity(0.85))
+                            }
+                            .buttonStyle(.plain)
                         }
-                        .buttonStyle(.plain)
                     }
                 }
+                if sizable && kind != .track { sizeSlider }
             }
 
             PaneScroll {
@@ -293,8 +301,7 @@ struct BrowsePane: View {
                         if kind == .track {
                             LazyVStack(spacing: 2) { ForEach(items) { i in SongRow(item: i) } }
                         } else {
-                            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12, alignment: .top), count: columns),
-                                      spacing: 14) {
+                            LazyVGrid(columns: grid, spacing: 14) {
                                 ForEach(items) { i in LibraryTile(item: i, round: kind == .artist) }
                             }
                         }
@@ -310,11 +317,35 @@ struct BrowsePane: View {
             }
         }
         .foregroundStyle(.white)
+        .animation(.easeOut(duration: 0.15), value: tileSize)
         .task(id: "\(kind.rawValue)|\(search)") {
             if !search.isEmpty { try? await Task.sleep(for: .milliseconds(350)) }      // typing: wait for a pause
             guard !Task.isCancelled else { return }
             await music.loadLibrary(kind.rawValue, search: search)
         }
+    }
+
+    private var grid: [GridItem] {
+        sizable
+            ? [GridItem(.adaptive(minimum: tileSize, maximum: tileSize * 1.25), spacing: 12, alignment: .top)]
+            : Array(repeating: GridItem(.flexible(), spacing: 12, alignment: .top), count: columns)
+    }
+
+    /// Photos' zoom: smaller tiles at the left, larger at the right.
+    private var sizeSlider: some View {
+        HStack(spacing: 6) {
+            Button { tileSize = max(Self.tileSizes.lowerBound, tileSize - 30) } label: {
+                Image(systemName: "square.grid.3x3.fill").font(.system(size: 10))
+            }
+            Slider(value: $tileSize, in: Self.tileSizes).controlSize(.mini).frame(width: 90)
+            Button { tileSize = min(Self.tileSizes.upperBound, tileSize + 30) } label: {
+                Image(systemName: "square.grid.2x2.fill").font(.system(size: 13))
+            }
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(.white.opacity(0.6))
+        .tint(.white)
+        .help("Tile size")
     }
 }
 
