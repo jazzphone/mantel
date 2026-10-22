@@ -1348,7 +1348,8 @@
       _renderSection() {
         if (!this._config || !this.client) return;
         var s = this._section();
-        if (s === 'hero') this._renderHero();
+        if (this._cellSize()) this._renderBlock();
+        else if (s === 'hero') this._renderHero();
         else if (s === 'hourly') this._renderHourly();
         else this._renderDaily();
       },
@@ -1386,6 +1387,35 @@
         C.morph(this._root, html);
         this._balanceHero();
         if (buildDue(this)) build(this, this._root.querySelector('.hero'));
+      },
+      // ---- A HOME GRID BLOCK (G2): W and XL
+      _renderBlock() {
+        var cfg = this._config, states = this.client.states, st = states[cfg.entity] || {}, sz = this._cellSize();
+        var t = this._nowTemp(), feels = num(((st.attributes) || {}).apparent_temperature);
+        var cond = window.hkHeader && window.hkHeader.conditionName ? window.hkHeader.conditionName(st.state) : String(st.state || '');
+        var today = this._days(1)[0] || {}, hi = num(today.temperature), lo = num(today.templow);
+        var night = !!(window.hkHeader && window.hkHeader.isNight && window.hkHeader.isNight(states));
+        var sym = function (state, px) {
+          return window.hkHeader && window.hkHeader.wxSvg && !/^(unknown|unavailable)$/.test(state || 'unknown')
+            ? window.hkHeader.wxSvg(state, px, { night: night, sym: true }) : '';
+        };
+        var xl = sz === 'XL';
+        this._watchBlock();
+        var b = this._block(), n = xl ? Math.max(1, Math.min(8, b ? Math.floor((b.w - 44 + 8) / (52 + 8)) : 6)) : 0;
+        var hrs = n ? this._hours(n) : [];
+        var hl = [hi !== null ? 'H:' + Math.round(hi) + '°' : '', lo !== null ? 'L:' + Math.round(lo) + '°' : ''].filter(Boolean).join('  ');
+        var html = '<hk-plate class="wb ' + sz + '" role="group" aria-label="Current weather"><div class="top">' +
+          '<div class="sym" aria-hidden="true">' + sym(st.state, xl ? '96px' : '56px') + '</div>' +
+          '<div class="tpn">' + (t !== null ? Math.round(t) + '°' : '--') + '</div>' +
+          '<div class="tx"><b>' + esc(cond || '--') + '</b>' + (hl ? '<span>' + esc(hl) + '</span>' : '') +
+          '<span>' + esc(titled(cfg.place || this._place())) + '</span></div></div>' +
+          '<p class="ol">' + esc(this._outlook(t, feels, this._hours(12))) + '</p>' +
+          (hrs.length ? '<div class="hrs" style="--n:' + n + '">' + hrs.map(function (h) {
+            var v = num(h.temperature);
+            return '<div class="hr"><small>' + esc(hourLabel(h.datetime)) + '</small>' + sym(h.condition, '28px') +
+              '<b>' + (v !== null ? Math.round(v) + '°' : '--') + '</b></div>';
+          }).join('') + '</div>' : '') + '</hk-plate>';
+        C.morph(this._root, html);
       },
       // THE PAIR CENTERED ON ITS INK, as the screensaver balances it: what is
       // drawn -- the symbol's paths (at rest: a turning ray or a drifting
@@ -1657,7 +1687,32 @@
           '.plain .wrap{text-shadow:var(--hk-glow,0 1px 3px rgba(0,0,0,0.45),0 4px 18px rgba(0,0,0,0.35))}',
           '.plain .place,.plain .sub,.plain .lbl,.plain .lo,.plain .pop.wet{color:var(--hk-ink-2,#fff)}',
           '.plain .pop{color:var(--hk-ink-3,#fff)}',
-          '.plain .temp,.plain .cond,.plain .lbl.now,.plain .hi{color:var(--hk-ink,#fff)}'
+          '.plain .temp,.plain .cond,.plain .lbl.now,.plain .hi{color:var(--hk-ink,#fff)}',
+          // ON A HOME GRID (G2, the `weather` block): a plate -- the symbol,
+          // the temperature, the condition with today's high and low and the
+          // place, the outlook under them; at XL the band's own temperature
+          // size (76, not a role: DESIGN.md) and the next hours along the
+          // foot, as many as its width holds (_renderBlock)
+          'hk-plate.wb{' + window.hkCards.plate('card') + ';box-sizing:border-box;height:100%;margin:0;padding:16px 18px;',
+          '  display:flex;flex-direction:column;justify-content:center;gap:10px;overflow:hidden;color:' + C.v('ink') + '}',
+          '.wb .top{display:flex;align-items:center;gap:12px;min-width:0}',
+          '.wb .sym{flex:none;line-height:0}',
+          '.wb .sym svg{display:block}',
+          '.wb .tpn{flex:none;' + window.hkCards.typeCss('hero') + ';line-height:1;font-variant-numeric:tabular-nums}',
+          '.wb .tx{display:flex;flex-direction:column;min-width:0;gap:1px}',
+          '.wb .tx b{' + window.hkCards.typeCss('headline') + ';line-height:21px}',
+          '.wb .tx span{' + window.hkCards.typeCss('body') + ';line-height:19px;color:' + C.v('ink-2') + '}',
+          '.wb .tx b,.wb .tx span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+          '.wb .ol{margin:0;' + window.hkCards.typeCss('caption') + ';line-height:17px;color:' + C.v('ink-2') + ';',
+          '  display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}',
+          '.wb.XL{padding:20px 22px;gap:14px}',
+          '.wb.XL .tpn{font-size:76px;font-weight:200;letter-spacing:-4px}',
+          '.wb.XL .tx b{' + window.hkCards.typeCss('title') + ';line-height:27px}',
+          '.wb.XL .ol{' + window.hkCards.typeCss('body') + ';line-height:20px}',
+          '.wb .hrs{display:grid;grid-template-columns:repeat(var(--n,6),minmax(0,1fr));gap:8px;margin-top:2px}',
+          '.wb .hr{display:flex;flex-direction:column;align-items:center;gap:4px;min-width:0}',
+          '.wb .hr small{' + window.hkCards.typeCss('caption') + ';color:' + C.v('ink-2') + ';white-space:nowrap}',
+          '.wb .hr b{' + window.hkCards.typeCss('headline') + ';font-variant-numeric:tabular-nums}'
         ].join('') + PAGE_CSS;
       }
 

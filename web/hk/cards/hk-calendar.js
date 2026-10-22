@@ -1336,6 +1336,9 @@
   // background and its scrolling): today's events and the coming days',
   // big enough to read across a room. Past events today are dimmed; the
   // next one says how soon.
+  // a Home Grid calendar block: its padding, the space under the date, an
+  // event's line and the gap between lines
+  var GV = { pad: 16, under: 10, row: 40, gap: 6 };
   var PANE_CSS = [
     ':host{display:block;color:' + window.hkCards.v('ink') + '}',
     '.day{padding-top:22px}',
@@ -1354,7 +1357,24 @@
     '.t2{font-size:15px;color:' + window.hkCards.v('ink-2') + ';margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
     '.soon{flex:none;margin:2px 0 0 8px;height:24px;padding:0 10px;border-radius:12px;background:#fff;color:#1c1c1e;font-size:12px;font-weight:700;display:flex;align-items:center}',
     '.none{font-size:17px;color:' + window.hkCards.v('ink-2') + ';padding:12px 0 4px}',
-    '.foot{height:60px}'
+    '.foot{height:60px}',
+    // ON A HOME GRID (G2, the `calendar` block): a plate -- today's date,
+    // then what is still to come today and tomorrow, one line each, as many
+    // as the block's height holds (_block); at T the time goes under the
+    // title. Nothing scrolls.
+    ':host([size]) .blk{' + window.hkCards.plate('card') + ';box-sizing:border-box;height:100%;padding:' + GV.pad + 'px 18px;',
+    '  overflow:hidden;display:flex;flex-direction:column}',
+    '.blk .lbl{' + window.hkCards.labelCss('label') + ';line-height:16px}',
+    '.blk .date{' + window.hkCards.typeCss('title') + ';line-height:27px;margin:2px 0 ' + GV.under + 'px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+    '.blk.T .date{' + window.hkCards.typeCss('headline') + ';line-height:21px}',
+    '.blk .gl{display:flex;flex-direction:column;gap:' + GV.gap + 'px}',
+    '.gev{display:flex;align-items:center;gap:10px;height:' + GV.row + 'px;min-width:0}',
+    '.gev i{flex:none;width:10px;height:10px;border-radius:5px}',
+    '.gev .gtm{flex:none;width:70px;' + window.hkCards.typeCss('body') + ';font-variant-numeric:tabular-nums;white-space:nowrap}',
+    '.gev .gtx{min-width:0;flex:1}',
+    '.gev .g1{' + window.hkCards.typeCss('headline') + ';line-height:21px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+    '.gev .g2{' + window.hkCards.typeCss('caption') + ';line-height:16px;color:' + window.hkCards.v('ink-2') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+    '.blk .none{' + window.hkCards.typeCss('body') + ';color:' + window.hkCards.v('ink-2') + '}'
   ].join('\n');
   class HkCalendarPaneCard extends HkBase {
     static get CSS() { return PANE_CSS + FLAT_EVENT_CSS; }
@@ -1403,6 +1423,8 @@
       var h = this.client;
       if (!h || !this._config) return;
       this._fetch();
+      var sized = this._cellSize();
+      if (sized) { this._renderBlock(sized); return; }
       var now = new Date(), d0 = day0(now), self = this, html = '', next = null;
       onDay(this._evs, d0).forEach(function (e) { if (!next && soon(e, now)) next = e; });
       for (var i = 0; i < this._days(); i++) {
@@ -1427,6 +1449,36 @@
       }
       if (!calIds(h).length) html = '<div class="day"><div class="none">No calendars.</div></div>';
       this._root.innerHTML = html + '<div class="foot"></div>';
+    }
+    // A HOME GRID BLOCK: T and L
+    _renderBlock(sized) {
+      var h = this.client, now = new Date(), d0 = day0(now), d1 = addDays(d0, 1), wide = sized !== 'T';
+      this._watchBlock();
+      var b = this._block();
+      var head = 16 + 2 + (wide ? 27 : 21) + GV.under;
+      var fit = b ? Math.max(1, Math.floor((b.h - 2 * GV.pad - head + GV.gap) / (GV.row + GV.gap))) : 4;
+      // what is still to come, today then tomorrow, each day's all-day first
+      var list = [];
+      [d0, d1].forEach(function (d) {
+        var evs = onDay(this._evs, d).filter(function (e) { return e.end > now; });
+        var all = evs.filter(function (e) { return e.allDay || (e.start <= d && e.end >= addDays(d, 1)); });
+        all.concat(evs.filter(function (e) { return all.indexOf(e) < 0; })).forEach(function (e) {
+          if (list.every(function (x) { return x.e !== e; })) list.push({ e: e, d: d, all: all.indexOf(e) >= 0 });
+        });
+      }, this);
+      var rows = list.slice(0, fit).map(function (x) {
+        var e = x.e, rgb = evRgb(e, h), tmw = x.all ? 'All day' : (e.start < x.d ? 'Until ' + time(e.end) : time(e.start));
+        var sub = [x.d === d1 ? 'Tomorrow' : '', wide ? '' : tmw, e.loc || (!x.all && wide && e.end - e.start > 3600000 ? time(e.start) + ' – ' + time(e.end) : '')]
+          .filter(Boolean).join(' · ') || calName(h, e.cal);
+        return '<div class="gev">' + (wide ? '<div class="gtm">' + esc(tmw) + '</div>' : '') +
+          '<i style="background:' + rgba(rgb, 1) + '"></i><div class="gtx"><div class="g1">' + esc(e.title) + '</div>' +
+          '<div class="g2">' + esc(sub) + '</div></div></div>';
+      });
+      var date = wide ? DOW_LONG[d0.getDay()] + ', ' + MON[d0.getMonth()] + ' ' + d0.getDate()
+                      : DOW_LONG[d0.getDay()].slice(0, 3) + ', ' + MON[d0.getMonth()].slice(0, 3) + ' ' + d0.getDate();
+      this._root.innerHTML = '<div class="blk ' + sized + '"><div class="lbl">Today</div><div class="date">' + esc(date) + '</div>' +
+        '<div class="gl">' + (rows.length ? rows.join('') : '<div class="none">' + (calIds(h).length ? 'Nothing scheduled.' : 'No calendars.') + '</div>') +
+        '</div></div>';
     }
   }
 
