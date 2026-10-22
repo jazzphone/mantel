@@ -496,6 +496,16 @@
     '  :host{max-width:none !important}',
     '  hk-plate.card{width:calc(100% + var(--hk-cell-bleed, 8px));min-width:0;max-width:none}',
     '}',
+    // ================================================= ON A HOME GRID (G2)
+    // A block is the tile (docs/phase11/HOME-GRID.md): S (1 x 1) and W
+    // (2 x 1) draw the tall tile's layout -- the glyph at the top, the name
+    // and state at the foot, as the Home app's large tiles have it -- and fill
+    // the block. A thermostat's temperature takes the glyph's place
+    // (climate_tall). A scene keeps its bare glyph and two-line name.
+    ':host([size]) hk-plate.card{width:100%;min-width:0;max-width:none;height:100%;padding:14px 16px 14px 14px}',
+    ':host([size]) .card.tall .grid{grid-template-rows:44px minmax(0,1fr) auto auto}',
+    ':host([size]) .card.scene.tall .grid{row-gap:0}',
+    ':host([size]) .card.scene.tall .name{align-self:end;line-height:19px;font-size:17px}',
   ].join('');
 
   // `on:` UNQUOTED IN YAML IS THE BOOLEAN true, so an icon_states map keyed on
@@ -581,7 +591,8 @@
     getCardSize() { return this._layout() === 'tall' || this._layout() === 'climate_tall' ? 2 : 1; }
     _layout() {
       var cfg = this._config || {};
-      return sizedLayout(LAYOUTS[cfg.layout] ? cfg.layout : 'standard', cfg.size);
+      // on a Home Grid the block decides: its tall layout, whatever the size
+      return sizedLayout(LAYOUTS[cfg.layout] ? cfg.layout : 'standard', this._cellSize() ? 'tall' : cfg.size);
     }
 
     // Subclasses answer these four; everything else is shared.

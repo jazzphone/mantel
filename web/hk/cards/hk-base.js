@@ -310,6 +310,14 @@
       (t.track ? ';letter-spacing:' + t.track : '');
   }
 
+  // ANY TYPE ROLE, as declarations, no braces: its size, weight and
+  // tracking (the Home Grid's cards set their text by role, docs/phase11/HOME-GRID.md)
+  function typeCss(role) {
+    var t = typeOf(role);
+    return 'font-size:' + t.size + 'px;font-weight:' + t.weight + (t.track ? ';letter-spacing:' + t.track : '') +
+      (t.upper ? ';text-transform:uppercase' : '');
+  }
+
   // -------------------------------------------------------------- material
   // One string, shared by every card below. var() with a literal fallback:
   // the theme supplies these on any HK Kiosk view, and the fallback keeps
@@ -1572,6 +1580,9 @@
     // reads the variable that surface sets on its root (FONT_ROOT, below).
     ':host{font-family:var(--ha-font-family-body,' + v('font-body') + ')}',
     '*{box-sizing:border-box;font-family:inherit}',
+    // ON A HOME GRID (a block's card has `size`, hk-home-grid-view): the card
+    // and its own root are the block's height, so a plate can fill it
+    ':host([size]){height:100%}:host([size])>div{height:100%}',
     // every list that scrolls: a light fade at its ends (SCROLL EDGES)
     edgeCss(),
     // BEHIND THE PHOTO SCREENSAVER every animation in a card holds still: a
@@ -2424,6 +2435,23 @@
       if (!this._hkStatsLost) return;
       this._hkStatsLost = false;
       if (this.client && this._config) this.requestUpdate();
+    }
+
+    // A HOME GRID BLOCK'S SIZE (docs/phase11/HOME-GRID.md): hk-home-grid-view
+    // sets `size` (S, W, T, L, XL) on a block's card. A card laid out per
+    // size reads it with _cellSize() or :host([size=..]); one that builds its
+    // DOM once is rebuilt when it changes. Anywhere else it is null.
+    static get observedAttributes() { return ['size']; }
+    attributeChangedCallback(name, was, now) {
+      if (name !== 'size' || was === now || !this._config) return;
+      this._built = false;
+      this._hkSig = null;
+      this._render();
+    }
+    _cellSize() {
+      var s = null;
+      try { s = this.getAttribute('size'); } catch (e) { s = null; }    // (a test's bare element)
+      return s && HOME_GRID.sizes[s] ? s : null;
     }
 
     _st(id) { return window.hkCardState.state(this.client, id); }
@@ -4213,6 +4241,7 @@
   window.hkCards.titleRow = titleRow;
   window.hkCards.labelCss = labelCss;
   window.hkCards.figureCss = figureCss;
+  window.hkCards.typeCss = typeCss;
   window.hkCards.pageCardCss = pageCardCss;
   // `initial` for every token: a dark plate inside a card puts this in its
   // CSS so what is on it keeps today's white even on a light page

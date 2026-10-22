@@ -1310,6 +1310,13 @@
       if (pp) pills.push(pp);
     });
     if (!show || !pills.length) return { auto: auto, config: null };
+    // ON A HOME GRID (docs/phase11/HOME-GRID.md): the block holds as many
+    // scenes as it has cells -- W two, L four, XL six -- each a scene tile the
+    // size of one cell (hk-tile.js, on a Home Grid). No heading: the block is
+    // the scenes. (More scenes are the pager's pages, G4.)
+    var cell = cfg.hk_cell && C0().HOME_GRID.sizes[cfg.hk_cell];
+    if (cell) return { auto: auto, config: { hk_cell: cfg.hk_cell, cols: cell[0], rows: cell[1],
+                                             pills: pills.slice(0, cell[0] * cell[1]) } };
     return { auto: auto, config: { type: 'grid', columns: 1, square: false, cards: [
       { type: 'custom:hk-heading-card', name: cfg.name || 'Scenes' },
       { type: 'custom:hk-grid-card',
@@ -1332,6 +1339,9 @@
       this._wake = function () { self._plan(); };
     }
     setConfig(config) { this._cfgIn = Object.assign({}, config || {}); this._key = null; this._plan(); }
+    // a Home Grid block's size (hk-home-grid-view sets it): planned again
+    static get observedAttributes() { return ['size']; }
+    attributeChangedCallback(name, was, now) { if (was !== now) this._plan(); }
     connectedCallback() {
       if (super.connectedCallback) super.connectedCallback();
       if (C0().place) C0().place(this);
@@ -1354,13 +1364,15 @@
       if (C0().tone) C0().tone(this, client);
       if (first || (this._auto && n !== this._n)) { this._n = n; this._plan(); }
       if (this._el) window.hkHostClient.bridge(this._el, client);
+      (this._tiles || []).forEach(function (t) { t.hkSetClient(client); });
     }
     getCardSize() { return 2; }
     _plan() {
       if (!this._cfgIn) return;
       var M = C0().menu;
-      var p = scenesPlan(this._cfgIn, (M && M.board ? M.board() : null) || {}, this.client,
-                         this.hasAttribute('data-hk-foreign'));
+      var size = this.getAttribute('size');
+      var p = scenesPlan(size ? Object.assign({}, this._cfgIn, { hk_cell: size }) : this._cfgIn,
+                         (M && M.board ? M.board() : null) || {}, this.client, this.hasAttribute('data-hk-foreign'));
       this._auto = p.auto;
       var key = JSON.stringify(p.config);
       if (key === this._key) return;
@@ -1374,6 +1386,8 @@
         }
       }
       if (!on) return;
+      if (p.config.hk_cell) { this._grid(p.config); return; }
+      if (this._box) { this.removeChild(this._box); this._box = null; this._tiles = null; }
       var wrapper = window.hkCards.cardWrapper();
       if (!wrapper) {
         // No Lovelace: the card itself (hkCards.createCard), made again for a
@@ -1392,6 +1406,27 @@
       window.hkHostClient.bridge(this._el, this.client);
       this._el.config = p.config;
       if (this._el.load) this._el.load();
+    }
+    // A HOME GRID BLOCK: the scene tiles on the block's own cells, made as
+    // HK's own cards (never a host wrapper) so each can be told its size
+    _grid(plan) {
+      if (this._el) { if (this._el.parentNode === this) this.removeChild(this._el); this._el = null; }
+      if (!this._box) {
+        this._box = document.createElement('div');
+        this.appendChild(this._box);
+      }
+      var box = this._box, client = this.client;
+      box.style.cssText = 'display:grid;width:100%;height:100%;gap:' + C0().HOME_GRID.gap + 'px;' +
+        'grid-template-columns:repeat(' + plan.cols + ',minmax(0,1fr));grid-template-rows:repeat(' + plan.rows + ',minmax(0,1fr))';
+      while (box.firstChild) box.removeChild(box.firstChild);
+      this._tiles = plan.pills.map(function (pill) {
+        var t = window.hkCards.create(pill);
+        t.setAttribute('size', 'S');
+        t.style.cssText = 'min-width:0;min-height:0';
+        box.appendChild(t);
+        if (client) t.hkSetClient(client);
+        return t;
+      });
     }
   }
 

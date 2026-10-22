@@ -132,17 +132,24 @@
     var HS = window.hkSettings;
     return !HS || HS.get('tablet_items', null) === null;
   }
+  // does this page come home at all -- a tablet's, with the return on
+  function returns() {
+    if (legacyFeed()) return (idleSetting('dashboards', []) || []).indexOf(parts().dash) !== -1;
+    var t = tabletHere();
+    return !!(t && t.idle_return);
+  }
   function onSubview() {
+    if (!returns()) return false;
     var q = parts();
-    if (legacyFeed()) {
-      if ((idleSetting('dashboards', []) || []).indexOf(q.dash) === -1) return false;
-    } else {
-      var t = tabletHere();
-      if (!t || !t.idle_return) return false;
-    }
     if (!q.view || q.view === '0') return false;
     return q.view !== firstViewFor(q.dash);
   }
+  // HOME, WITH A BLOCK OFF ITS START PAGE (a Home Grid's pager, hk-layout.js:
+  // the kitchen tablet left on the den's thermostat). away(key, true) says
+  // so; the timer then arms on Home too, and its firing only sends the
+  // return -- there is nowhere to navigate.
+  var aways = {};
+  function awayHome() { return Object.keys(aways).length > 0 && returns() && !onSubview(); }
 
 
   // The host's current client (in Home Assistant, the frontend's root element's).
@@ -187,19 +194,24 @@
   var RECHECK_MS = 15000;
 
   function goHome() {
-    if (!onSubview()) return;
+    var sub = onSubview();
+    if (!sub && !awayHome()) return;
     // Still being used -- do not yank the page. Come back and ask again.
     if (inUse() === true) {
       if (timer) clearTimeout(timer);
       timer = setTimeout(goHome, RECHECK_MS);
       return;
     }
-    // The query string stays (?kiosk, a probe flag): it is how the page was
-    // opened, not where it was.
-    var target = '/' + parts().dash + '/0' + (location.search || '');
-    // Exactly what HA's own navigate() does. The event has to be composed, or
-    // it will not cross the shadow boundary out of whatever fired it.
-    SH.navigate(target, { bubbles: true, composed: true });
+    if (sub) {
+      // The query string stays (?kiosk, a probe flag): it is how the page was
+      // opened, not where it was.
+      var target = '/' + parts().dash + '/0' + (location.search || '');
+      // Exactly what HA's own navigate() does. The event has to be composed, or
+      // it will not cross the shadow boundary out of whatever fired it.
+      SH.navigate(target, { bubbles: true, composed: true });
+    }
+    // THE RETURN, said: a block that swipes goes back to its start page
+    try { window.dispatchEvent(new CustomEvent('hk-idle-return')); } catch (e) { /* no event bus */ }
   }
 
   var timer = null;
@@ -255,9 +267,10 @@
     // on the next tick, so the one call meant to stop the navigation would
     // trigger it.
     if (!(currentIdleMs > 0)) return;
-    // Only arm on a subview. On the dashboard itself there is nowhere to go,
-    // and an armed timer there would be a periodic wakeup for no reason.
-    if (onSubview()) timer = setTimeout(goHome, currentIdleMs);
+    // Only arm on a subview, or on Home with a block away from its start
+    // page. Otherwise on the dashboard there is nowhere to go, and an armed
+    // timer there would be a periodic wakeup for no reason.
+    if (onSubview() || awayHome()) timer = setTimeout(goHome, currentIdleMs);
   }
 
   // Touch and pointer cover a wall tablet; wheel and keydown cover a desktop
@@ -302,9 +315,17 @@
       reset();
       return Object.keys(holds);
     },
+    // away(key, on): a block on Home is off its start page (a Home Grid's
+    // pager) until away(key, false); keyed, as hold() is. The return then
+    // comes on Home too, as the window event hk-idle-return.
+    away: function (key, on) {
+      if (on) aways[key] = true; else delete aways[key];
+      reset();
+      return Object.keys(aways);
+    },
     status: function () {
       return { onSubview: onSubview(), armed: !!timer, idleMs: currentIdleMs,
-        overridden: IDLE_OVERRIDE_MS !== null, holds: Object.keys(holds) };
+        overridden: IDLE_OVERRIDE_MS !== null, holds: Object.keys(holds), aways: Object.keys(aways) };
     }
   };
 

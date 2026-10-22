@@ -75,9 +75,12 @@ H.run('GRID CARDS', [
 function () {
   H.section('the catalog: the real cards, and the options they declare');
   var C = window.hkGridCatalog, ctx = { rooms: ['den', 'kitchen'] };
-  var room = C.config({ card: 'room', size: 'L', pages: { source: 'rooms', start: 'tablet_room' } }, ctx);
+  var room = C.config({ card: 'room', size: 'L' }, ctx);
   eq('a room block with no room of its own: the tablet\'s, else the screen\'s first',
      [room.type, room.area, room.fallback, room.size], ['custom:hk-grid-room-card', 'tablet_room', 'den', 'L']);
+  var pgs = C.pages({ card: 'room', size: 'L', pages: { source: 'rooms', start: 'tablet_room' } }, ctx);
+  eq('...and a rooms pager: a room card per room (G4)', pgs.map(function (pg) { return [pg.card.type, pg.card.area]; }),
+     [['custom:hk-grid-room-card', 'den'], ['custom:hk-grid-room-card', 'kitchen']]);
   eq('...or its own', C.config({ card: 'room', size: 'W', opts: { area: 'kitchen' } }, ctx).area, 'kitchen');
   var sg = C.config({ card: 'scene_suggested', size: 'W', opts: { windows: [{ start: '05:00', end: '10:00', scene: 'scene.good_morning' }] } }, ctx);
   eq('a suggested scene with its windows', [sg.type, sg.windows.length], ['custom:hk-suggested-scene-card', 1]);
@@ -96,6 +99,7 @@ function () {
   TABLET = { id: 'kitchen_tablet', room: 'kitchen' };
   eq('Home Assistant: the Wall Tablets entry\'s room', window.hkShell.tabletRoom(client), 'kitchen');
   eq('a block\'s tablet_room is it', P.roomOf('tablet_room', 'den', client), 'kitchen');
+  eq('...and so is the pager\'s start page (hkGridCatalog.tabletRoom)', window.hkGridCatalog.tabletRoom(client), 'kitchen');
   eq('a room of its own wins', P.roomOf('den', null, client), 'den');
   TABLET = null;
   eq('no tablet: the fallback', P.roomOf('tablet_room', 'den', client), 'den');

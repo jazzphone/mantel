@@ -391,6 +391,130 @@ a 3-column grid, with no page scroll.
 
 **G1 is done.** Next: G2, G3 and G4, side by side, each in its own session and worktree.
 
+### G2 (2026-10-22, in progress)
+
+**The render audit's Home Grid pass:** `tools/headless/home_grid_audit.py`. A real Mantel Server with the gallery's
+fictional house (`tools/headless/gallery.py`), headless Chrome at 1280 × 800, a 6-column grid. Each card gets a
+screen per look, its Home holding the card once at every size it has (XL, L and T across the top, W and S below).
+The four looks: Flat Light, Flat Dark, and Blur under a day sky and a night one. (On HK's own screens a card is
+white on the sky, never light: `tone()` in hk-base.js; so Blur's light and dark are the sky's.) It measures, in each
+block's cell, every text node's box (inside the cell, and not cut off unless an ellipsis ends it), every icon,
+picture, button and control (inside the cell), that the card's plates cover the block, and no page scroll and no
+script error. `--long` names every thing at twice its length.
+
+**Text scale:** HK draws its type roles in px (`hkCards.TYPE`) and a tablet's text size never reaches them (the
+Mantel app's web view sets `-webkit-text-size-adjust:100%`), so there is one
+scale and the audit runs at it. PLAN-2026-10-12-text-scale is the ink colours, not sizes. The `--long` pass stands
+in for larger text.
+
+**Shared:** hk-base.js: an HkBase card watches its `size` attribute and is rebuilt when it changes (`_cellSize()`
+reads it); `BASE_CSS` makes a sized card and its root the block's height; `hkCards.typeCss(role)` writes a type
+role as declarations.
+
+**Done** (audited: every size, four looks, nothing clipped):
+
+| Card | Sizes | Layout |
+|---|---|---|
+| `accessory` | S, W | the tall tile's layout (glyph at the top, name and state at the foot), filling the block |
+| `scene` | S, W | the same, the scene's bare glyph and two-line name |
+| `scenes` | W, L, XL | a scene tile per cell: W two, L four, XL six; no heading |
+| `now_playing` | W, T, L | W the cover beside the song and transport; T the cover on top; L the cover beside the song and its speaker, a larger transport along the foot. No progress or volume (the sheet has them) |
+
+**Left:** thermostat, camera, security, timers, weather, calendar, battery, people, vacuum, clock.
+
+### G4 (2026-10-22)
+
+**Done:**
+
+- `hk-pager-card` (`web/hk/cards/hk-layout.js`): a block's pages side by side, each one cell wide, in a track that
+  the browser scrolls with scroll-snap (`x mandatory`, `scroll-snap-stop: always`, `overscroll-behavior-x:
+  contain`). The dots sit in a 20 px row under the pages; each is a button with a 44 px target that reaches up over
+  the page's foot (narrower only when the dots wouldn't fit across). Each page and dot is labelled "2 of 5", and a
+  polite live region says it when the page changes. One page: no dots. A page's card is made when it is on screen
+  or next to it, and kept. Each page is the cell its card lays itself out in: `size` on the page and the card, and
+  the page is a size container named `hk-cell`, so G2's container queries see the page (the cell less the dots).
+- **The catalog** (`hk-grid-catalog.js`): `config()` turns a block with `pages` (a source its card has, or a `list`)
+  into `{type: 'custom:hk-pager-card', item, ctx}`. `pages(item, ctx)` gives the pages, each `{card, area, entity}`,
+  at most 12. The block's own options go to every page, under the page's.
+
+  | Source | Pages |
+  |---|---|
+  | `list` | each page set up, the block's card with its own options |
+  | `rooms` | `ctx.rooms`, the screen's room order |
+  | `cameras` | `ctx.cameras`, Cameras' order |
+  | `thermostats` | `ctx.climate`, sorted by its room's place in `ctx.rooms` (no room last) |
+  | `speakers` | the Music feature's speakers (`hkMusic.speakers()`), each room's first, then the groups; asked again when they change |
+  | `scenes` | `ctx.scenes`, W 2, L 4, XL 6 to a page |
+
+  Nothing to show: one page, the block's card as it is. A scenes page carries `room: true` (the scenes row's "Just
+  These Scenes"), or the screen's own Scenes choice would replace its scenes.
+- **The strategy** (`hk-strategy.js`) adds to the Home Grid's `ctx`: `areas` (each camera's and thermostat's
+  room) and `scenes` (the screen's Scenes choice, else every scene A to Z).
+- **The start page:** the first; with `start: tablet_room`, `rooms` and `thermostats` open on the tablet's room;
+  `speakers` on the one playing, else this user's own speaker (`hkMusic.home()`), else the tablet's room. Until
+  somebody touches the block, the start follows a new client (what is playing may arrive after the first draw).
+- **`tablet_room`** is `hkGridCatalog.tabletRoom(client)`: `hkSettings.tablet(client).room`, the settings' own
+  answer to "which tablet is this", never `hass`. G3 can use it for its options.
+- **The idle return** (`hk-idle.js`): a pager off its start page calls `hkIdle.away(key, true)`; the Return to Home
+  timer then arms on Home too (the tablet's, with its return on), and when it fires it sends the window event
+  `hk-idle-return`. On Home that is all it does. From another page it navigates Home and sends it too. Every pager
+  goes back to its start page at once.
+- **The doorbell:** the house's notification (`hk-house-event`, `kind: doorbell`) turns a `cameras` block to the
+  camera it names, else to a camera called doorbell.
+- **Gestures:** the browser scrolls the track, so there's no drag code of our own. A touch that starts on a control
+  holds the track still until it lifts (`overflow-x: hidden`). A control is a range input, `role=slider`,
+  `data-hk-control`, or anything with `touch-action` `pan-y` or `none` (the thermostat's dial and slider already
+  have `pan-y`). A touch in the left 20 px is held too: that strip is the menu's edge swipe.
+- **Found in the headless swipe:** a row inside a page that fits its width but keeps its own swipe
+  (`overscroll-behavior-x: contain`: the scenes row, a chips row) stopped the pager's swipe from starting on it,
+  because the browser never passes the drag on. For the length of a touch, such a row is set to `auto`. A row that
+  really scrolls keeps its swipe, as a control does.
+- `hk-pager-card` isn't in the card picker (`test_editors.js` `NOT_IN_PICKER`): the catalog builds it.
+
+**Decisions:**
+
+1. Native scroll-snap, not a drag of our own: a page that scrolls vertically keeps doing so, and controls keep
+   theirs through `touch-action`.
+2. Pages are built from the stored block when the pager draws, not by the strategy, because a speakers block's
+   speakers arrive after the strategy has run.
+3. `start: tablet_room` counts only for `rooms` and `thermostats`, as hk_core checks it. `speakers` always starts
+   on the one playing and falls back to the tablet's room.
+4. The idle return is an event, `hk-idle-return`, and not a navigation, since on Home there is nowhere to go.
+   hk-idle arms on Home only while something is away, so Home gets no periodic wakeups.
+
+**Checked (2026-10-22):**
+
+- `tests/test_pager.js` (new, 57): each source, PAGES_MAX, the empty case, `tabletRoom`, the start page for each
+  source, the doorbell's page, the gesture rules (tile, range, dial, slider, `data-hk-control`, the 20 px edge, a row
+  that lets go), and the element: pages and dots, "2 of 3", the start on the tablet's room, lazy pages, a dot's tap,
+  a swipe coming to rest, the idle return, the doorbell jump, a new `size` (G2's rebuild) keeping its page, a speakers
+  block starting on the one playing.
+  `test_idle.js`: away on Home arms the timer and fires `hk-idle-return` without navigating; not for a desk; the
+  return from a page says it too. `test_homegrid.js`: G1's checks follow (a block with pages is now a pager).
+- `pytest -q tests`: 3,368 passed, 21 skipped. The HK Frontend build (publish.py into a scratch clone, build only):
+  757 py tests and every JS suite green. The CSS snapshot gains only `hk-pager-card.CSS`.
+- A local test Mantel (`tools/app_dev_server.py`) at 1280 × 800, with a Home Grid written through
+  `hk_frontend/board/set`: a `rooms` pager (L, 3 rooms) and a `list` scenes pager (W, 2 pages). Touch swipes
+  (CDP `synthesizeScrollGesture`) turned the rooms block to page 2, then 3, with `scrollLeft` 402 and 804. A tap on
+  dot 1 went back to page 1. The scenes block swiped to page 2. `hk-idle-return` took both back to page 1. Every
+  page is 402 px wide, the track is inside its cell (L: 313 px of 333, W: 141 of 161, the rest is the dots), and
+  the dots are 44 × 44. No page or view scroll, no console errors.
+- The same swipe again after merging G2's first cards (its `size` rebuild in hk-base.js): unchanged.
+- Not checked: the scratch Home Assistant (G7); a real doorbell ring and a real idle timer on a tablet (unit tests
+  only); the kitchen tablet (the owner, after a release).
+
+**For the others:**
+
+- **G2:** a card in a pager is in `.page` (the pager's shadow root), which has `size` and is the `hk-cell` container,
+  20 px shorter than the cell. A card that is a sideways scroller (the scenes row) should fit its page at a Home
+  Grid size. If it really scrolls, it keeps the swipe and the pager can't be swiped from it.
+- **G3:** `hkGridCatalog.tabletRoom(client)` resolves `tablet_room`. The room card in a `rooms` pager should dim with
+  press-and-hold, not a sideways slider. If it has a slider, mark it `data-hk-control` or give it `touch-action:
+  pan-y`, and the pager leaves it alone.
+- **G5:** a block's Pages section writes `pages` as hk_core checks it; `hkGridCatalog.pages(item, ctx)` previews them.
+
+**G4 is done.** Pushed to `main`; no version bump, no release, nothing on the house.
+
 ### G3 (2026-10-22)
 
 **Done: the four new cards**, in `web/hk/cards/hk-grid-cards.js`, each with its editor fields, in the catalog and
@@ -414,7 +538,11 @@ its Python mirror.
    (`overlay-solid`, the percent at `title`), and letting go sends one `light.turn_on` (`brightness_pct`) or
    `light.turn_off` at 0. Held without moving: the light's sheet. A light that doesn't dim opens its sheet at
    once. The click after a hold is eaten. A sideways drag of more than 10 px before the hold cancels it, and the
-   pill is `touch-action: pan-x`, so a pager (G4) keeps its swipe.
+   pill is `touch-action: pan-x`, so a `rooms` pager (G4) keeps its swipe from a room's pills (they are no
+   control to it). A finger that drifts far sideways while dimming starts the pager's scroll: the browser cancels
+   the touch and the dim is dropped, nothing sent.
+   The pager's start page (`hkGridCatalog.tabletRoom`, G4's) now asks the host too, `hkSettings.tablet()` only
+   without it, so a Mantel tablet device's own room counts there as well.
 3. **`tablet_room` is the host's answer**, a new contract call `hkShell.tabletRoom(client)`
    (`web/client/hk-host-shell.js`): Home Assistant's shell gives the Wall Tablets entry's room
    (`hkSettings.tablet()`); Mantel's gives the tablet device's own room (`GET /api/me` now says `room`, the
@@ -436,11 +564,11 @@ its Python mirror.
 
 **Checked (2026-10-22):**
 
-- `test_gridcards.js` (67: catalog, the host's room, the room's parts and fit, the hold — a drag sends one call,
+- `test_gridcards.js` (69: catalog and the rooms pager's pages, the host's room, the room's parts and fit, the hold — a drag sends one call,
   the click eaten, a sideways drag cancels, held still opens the sheet —, the windows, every action's plan and tap,
   a refused command, Everything); the design guards (type, radii, blur, motion, overlays, surfaces, breakpoints,
   text scale, the CSS snapshot: its four new entries) and `test_editors.js` now read the new file.
-- `pytest -q tests`: 3,395 passed (two `/api/me` dicts updated for `room`); the HK Frontend build (publish.py into
+- `pytest -q tests` (merged with G2 and G4): 3,397 passed (the `/api/me` dicts updated for `room`); the HK Frontend build (publish.py into
   a scratch clone, build only): 757 py tests, every JS suite green.
 - The local test Mantel at 1280 × 800, a screen with eleven G3 blocks (room L, W, XL; suggested scene L, W; six
   S): every card fills its cell, nothing scrolls without the bar; a tap on All Lights Off wrote the audit row
@@ -454,8 +582,10 @@ its Python mirror.
 
 **Left for others:**
 
-- G4: with the tab bar showing, the view is still `100dvh` in this tree's last check, so the bar covers the bottom
-  row (G4's `calc(100dvh - var(--hk-tabbar-h))`). The room card measures its own height, so it follows.
+- **The grid doesn't stop at the tab bar yet:** "The tab bar" above gives G4 the view's
+  `calc(100dvh - var(--hk-tabbar-h, 0px))`, and it isn't on `main` (G4's push has the pager only). With the bar
+  showing, the page is 896 px tall at 800 and the bar covers the bottom row. The room card measures its own
+  height, so it follows once the view does.
 - G5: the editor's block options for `windows` (a list editor) and `action` (the jobs, a scene or script, a room).
 - The default windows find scenes by words in their names; a house whose scenes are named otherwise sets windows.
 

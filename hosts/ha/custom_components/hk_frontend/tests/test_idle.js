@@ -178,4 +178,32 @@ ok('known by its address (hk-tablet remembered): the hall tablet, whoever is sig
    JSON.stringify(st14));
 localStorage.removeItem('hk-tablet');
 
+// A HOME GRID BLOCK OFF ITS START PAGE (docs/phase11/HOME-GRID.md, G4): the
+// pager says away(); the timer then arms on Home too, and its firing sends
+// hk-idle-return -- and navigates nowhere, Home is where it is.
+print('\n=== a block away from its start page, on Home ===');
+feed.tablet_items.kitchen.idle_time = 30; feed.tablet_items.kitchen.idle_return = true; HS._apply(feed);
+var returned = 0;
+window.addEventListener('hk-idle-return', function () { returned++; });
+location.pathname = '/dashboard-kitchen/0';
+var stH = asUser('kitchen');
+ok('on Home with every block on its start page: nothing armed', !stH.armed, JSON.stringify(stH));
+window.hkIdle.away('pager-1', true);
+stH = window.hkIdle.status();
+ok('a pager away: the timer arms on Home', stH.armed && stH.aways.join() === 'pager-1', JSON.stringify(stH));
+window.hkIdle.now();
+ok('its firing sends the return, and stays on Home', returned === 1 && location.pathname === '/dashboard-kitchen/0',
+   returned + ' ' + location.pathname);
+window.hkIdle.away('pager-1', false);
+ok('back on its start page: nothing armed', !window.hkIdle.status().armed && !window.hkIdle.status().aways.length);
+window.hkIdle.away('pager-1', true);
+st14 = asUser('Mark');
+ok('a desk on the same screen: no return for its blocks either', !st14.armed, JSON.stringify(st14));
+window.hkIdle.away('pager-1', false);
+location.pathname = '/dashboard-kitchen/lights';
+asUser('kitchen');
+window.hkIdle.now();
+ok('the return from a page goes Home and says so too', location.pathname === '/dashboard-kitchen/0' && returned === 2,
+   returned + ' ' + location.pathname);
+
 print('\n' + (fail ? 'FAILURES: ' + fail : 'ALL ' + pass + ' IDLE TESTS PASS'));

@@ -36,7 +36,8 @@ function flatten(schema, out) {
 var RAW = /_/;                       // a label or option still showing a config key
 var JARGON = /`|hk-|button-card|swipe|\bTHE\b|\bpx\b/;
 
-var NOT_IN_PICKER = { 'hk-screensaver-status-card': 1, 'hk-screensaver-now-card': 1 };
+// (hk-pager-card: a Home Grid block's pages, built by the catalog from the block, never by hand)
+var NOT_IN_PICKER = { 'hk-screensaver-status-card': 1, 'hk-screensaver-now-card': 1, 'hk-pager-card': 1 };
 var cards = Object.keys(defined).filter(function (n) { return /^hk-.*-card$/.test(n); }).sort();
 print('=== ' + cards.length + ' cards ===');
 cards.forEach(function (tag) {
