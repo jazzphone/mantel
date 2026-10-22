@@ -315,6 +315,13 @@ Tests: `tests/test_ingress_own_pages.py`. **Since decision 27 (2026-10-19) both 
 
 ## The App
 
+The folder is `packaging/ha-app/`, staged into HA's local apps share by `tools/stage_ha_app.py` (never by hand:
+`--dry-run` lists it and runs the private-content scan). `README.md` is what HA shows on the App's **Info** tab and
+`DOCS.md` its **Documentation** tab, both written for the person installing it; `translations/en.yaml` names and
+describes the options; `requirements.txt` pins the dependencies the tests ran with; `icon.png` is drawn by a script.
+The staged folder adds `app/entrypoint.py` (packaging/docker/entrypoint.py), `app/hosts/server/mantel_server`,
+`app/hk_core` and `app/web` stamped by `tools/build_static.py`.
+
 * **`config.yaml`**: name Mantel, slug `mantel`, version 0.1.0, `arch: [amd64, aarch64]`,
   `startup: application`, `boot: manual`, `init: true`, `ingress: true`, `ingress_port: 8099`,
   `panel_icon: mdi:fireplace`, `panel_title: Mantel`, `panel_admin: false` (was `true` up to 0.1.4),
@@ -1177,6 +1184,27 @@ Everything on main since 0.1.28 (validation green: JS 130, HA py 732, Mantel 283
   `hass.connection` as Home Assistant's own and, with Auto-reload on error on, reloaded a page it found "down" for
   15 minutes; Mantel's stand-in had no `connected`. It now reports Mantel's own socket (connected while the hub's
   is, the server's ping, a nudge cycles it). HK Frontend (1.10.6) and Mantel Link (0.1.5) unchanged.
+
+### 0.1.52 (2026-10-22)
+
+- **The App's Configuration tab holds only what Mantel needs to start** (server_settings.py has the rule): log
+  level, the new `read_only` kill switch, and direct access (`access`, `public_url`, `trusted_proxies`, the HTTPS
+  certificate's, `lan_networks`, Cloudflare Access). Everything else is in Mantel Settings, the same on Docker and
+  LXC, Owner-only, audited and applied at once (migration 0023, `server_settings`):
+  - General: **Allow Control of the House** (was `commands_enabled`; turning it on always asks for a fresh factor;
+    the command gateway, its commander, Music Assistant's gate and the live-talk relay are built or removed live,
+    and page sockets reconnect to learn it), **House Default Screen** (`default_screen`), **Sign-Ins from Away
+    Last** (`session_hours`).
+  - Connections → Home Assistant: **Sign-In Address** (`ha_sign_in_url`; empty now means HA's own External, then
+    Internal URL, so Sign in with Home Assistant works at Mantel's address without setting anything; direct access
+    always gets `--ha-oauth-url`) and **Coming Through Home Assistant** (`ha_door_rules`).
+  - `ha_frame_origins` moved into the approved frame origins; the App's Music Assistant address and token into
+    Mantel's own saved connection.
+- Each old option is copied once when this version first starts, then the stored value wins. They stay in the
+  schema, optional with no default and described as moved, for this release only (the Supervisor drops a value
+  whose option left the schema before Mantel could copy it); a later release removes them.
+- The App's **Info** tab (README.md) is written for the person installing it; the folder notes moved to "The App"
+  above. HK Frontend (1.10.6) and Mantel Link (0.1.5) unchanged.
 
 ### Removal
 
