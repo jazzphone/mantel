@@ -1148,6 +1148,20 @@ Everything on main since 0.1.28 (validation green: JS 130, HA py 732, Mantel 283
 - With it, **HK Frontend 1.10.5**: Linked to Mantel refuses what isn't a Service credential (a password the browser
   filled in replaced the credential at 19:49 that evening). Mantel Link unchanged (0.1.5). No HA backup (Avery).
 
+### 0.1.49 (2026-10-22)
+
+- Mantel Settings, each thing in one place: a wall tablet is one page (All Screens, Wall Tablets) with Mantel's
+  group (signed in as it, its Home Assistant user, Sign Out); Devices and the separate Mantel Connect page are gone;
+  Connections → Home Assistant has Mantel Link, HK Frontend and the sidebar, Music Assistant the Browse Music page;
+  Service Accounts is under Advanced. Clear List for revoked tablets, Service accounts and Connect pairings (and 30
+  days on their own); the App's discovery credential no longer piles up. People's picker offers each person once;
+  Wall Tablet accounts move to their tablets. The Audit Log's From and To are choices.
+- Doorbell talk: Mantel connects to Home Assistant while the tablet opens its socket, and the card waits up to 4 s;
+  every press had fallen back to the clip. The log says how long each press waited.
+- Page health in the log (the wall tablets' 15-minute reloads): how the page before ended, and its heap each minute.
+- With it, **HK Frontend 1.10.6** (the shared settings page's host hooks, the card's host-given talk wait). Mantel
+  Link unchanged (0.1.5).
+
 ### Removal
 
 Stop and uninstall **Mantel** (Settings → Apps → Mantel → Uninstall); this removes its image and `/data`

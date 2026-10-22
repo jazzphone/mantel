@@ -49,6 +49,7 @@ const [registry, user, fixtures, cards, , services] = await Promise.all([
   // Music Assistant / go2rtc under Mantel's own address, when this server serves them (media_proxy.py)
   json(mantelUrl('/api/services')).catch(() => ({})),
 ]);
+pageHealth(hub);
 window.hkMantelShell.setServices(services);
 window.hkMantelShell.setRole(user.role);
 window.hkMantelShell.setHaAddress(user.ha_address);
@@ -212,3 +213,24 @@ mark('rendered');
 // /dev tools hook here to see each new snapshot
 host.onSnapshot = (s) => { if (window.__mantelOnSnapshot) window.__mantelOnSnapshot(s); };
 window.__mantelReady = true;
+
+// PAGE HEALTH (page_health.py, 2026-10-22): the wall tablets reload every 15 or 16 minutes, cut off mid-download,
+// as if the page's process died. Mantel's log is told how the page before this one ended (it says goodbye on
+// pagehide; one that never did, died) and, every minute, how big the page's JS heap is (Chrome's
+// performance.memory, null elsewhere). Kept in this browser's localStorage only; numbers, nothing else.
+function pageHealth(hub) {
+  const KEY = 'mantel_page_health';
+  const t0 = Date.now();
+  const mb = (n) => (typeof n === 'number' ? Math.round(n / 1048576) : null);
+  const heap = () => { const m = performance.memory; return m ? { heap: mb(m.usedJSHeapSize), limit: mb(m.jsHeapSizeLimit) } : { heap: null, limit: null }; };
+  const up = () => Math.round((Date.now() - t0) / 6000) / 10;
+  const keep = (v) => { try { if (v) localStorage.setItem(KEY, JSON.stringify(v)); else localStorage.removeItem(KEY); } catch (e) { /* no storage */ } };
+  let before = null;
+  try { before = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (e) { before = null; }
+  const prev = !before ? 'none' : before.closed ? 'clean' : 'died';
+  hub.tell('page_health', { event: 'load', prev, prev_heap: before && before.heap, prev_up: before && before.up, ...heap() });
+  const beat = () => { const h = heap(); keep({ heap: h.heap, up: up(), closed: false }); return h; };
+  beat();
+  setInterval(() => { const h = beat(); hub.tell('page_health', { event: 'beat', up: up(), ...h }); }, 60000);
+  window.addEventListener('pagehide', () => keep({ ...heap(), up: up(), closed: true }));
+}

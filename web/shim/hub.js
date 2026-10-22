@@ -165,6 +165,9 @@ export class Hub {
     });
   }
 
+  // a frame nobody answers (page_health.py): sent if the socket is open, else dropped
+  tell(type, body) { return this._send(Object.assign({ type }, body)); }
+
   // {tablet, touch?, saver?, black?}: HK's hk_frontend/screensaver/touch and /black, for Mantel
   screenReport(frame) { return this.ask('screen_report', frame); }
 

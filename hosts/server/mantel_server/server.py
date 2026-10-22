@@ -36,7 +36,7 @@ from . import (admin_page, atrest, backup, connections, features, linked, linked
                linked_actions, login_page, phones, supervisor_discovery,
                photos, service_accounts, talk_relay, user_files)
 from . import default_screens, direct, direct_tls, docs_pages, ha_dashboards, ma_page, media_proxy, proxy_check, proxy_trust, security_headers, tablet_links, user_data
-from . import app_shell, cf_access, setup_guide
+from . import app_shell, cf_access, page_health, setup_guide
 from .authz import Authz, Principal, resolve_door
 from .config import Config
 from .connectors import REFUSE_ALL, Ctx, Hooks
@@ -677,6 +677,7 @@ def wire(app: web.Application, hub: Hub, token: str, connect_ha: bool) -> None:
     # Phase 4: hk_core's features on Mantel (each off until an Owner enables it; house commands only
     # through the gateway as the `mantel:features` Service actor)
     features.register(app, hub, hooks)
+    page_health.register(app)       # a screen's page says how it is doing (the tablets' 15-minute reloads)
     # Phase 4: whole-home music on Mantel, talking to Music Assistant directly (music.py). Its reads answer
     # in front of the interim bridge once MA and the music settings are in Mantel; its actions run only
     # through the gateway (commands off: refused, nothing reaches MA)
