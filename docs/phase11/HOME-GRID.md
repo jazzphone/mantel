@@ -453,8 +453,9 @@ role as declarations.
 - **The start page:** the first; with `start: tablet_room`, `rooms` and `thermostats` open on the tablet's room;
   `speakers` on the one playing, else this user's own speaker (`hkMusic.home()`), else the tablet's room. Until
   somebody touches the block, the start follows a new client (what is playing may arrive after the first draw).
-- **`tablet_room`** is `hkGridCatalog.tabletRoom(client)`: `hkSettings.tablet(client).room`, the settings' own
-  answer to "which tablet is this", never `hass`. G3 can use it for its options.
+- **`tablet_room`** is `hkGridCatalog.tabletRoom(client)`, never `hass`. G3 has since routed it through the host
+  (`hkShell.tabletRoom`: Home Assistant's Wall Tablets entry, Mantel's tablet device), with `hkSettings.tablet()`
+  as the fallback. The pager's start page uses the same call.
 - **The idle return** (`hk-idle.js`): a pager off its start page calls `hkIdle.away(key, true)`; the Return to Home
   timer then arms on Home too (the tablet's, with its return on), and when it fires it sends the window event
   `hk-idle-return`. On Home that is all it does. From another page it navigates Home and sends it too. Every pager
