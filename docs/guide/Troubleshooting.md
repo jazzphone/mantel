@@ -113,7 +113,7 @@ Wall-tablet sign-in and enrolment work only on the LAN door (`403 lan_only` othe
 
 ### "Wall tablets are off for the sidebar" (the App)
 
-The App's **Sidebar access rules** (`ha_door_rules`) are set to `tunnel`, which turns off wall tablets that come through Home Assistant's sidebar. Use `trusted` (the default) or `lan`.
+**Coming Through Home Assistant** is set to **Away Rules**, which turns off wall tablets that come through Home Assistant's sidebar. In **Mantel Settings** → **Connections** → **Home Assistant**, choose **Trusted** (the default) or **Home Network Rules**.
 
 ### A host name is refused
 
@@ -123,7 +123,7 @@ Mantel answers only to its own name (`MANTEL_HOSTNAME`) and to the names in `MAN
 
 ### "Commands are disabled in Mantel (read-only)"
 
-Working as designed: Mantel runs with house commands off, so it sends nothing to Home Assistant. Settings saves still work. To turn commands on, see [Install → Turn on house commands](Install.md#turn-on-house-commands).
+Working as designed: Mantel runs with house commands off, so it sends nothing to Home Assistant. Settings saves still work. To turn commands on, an Owner opens **Mantel Settings** → **General** and turns on **Allow Control of the House**; see [Install → Turn on house commands](Install.md#turn-on-house-commands). If it won't turn on, or turns itself off, the server's kill switch may be on (the App's **Read-only (kill switch)** option, or `MANTEL_READ_ONLY=1`): the house stays read-only whatever Mantel Settings says.
 
 ### A command is refused
 

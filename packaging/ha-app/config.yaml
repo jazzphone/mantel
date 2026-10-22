@@ -2,7 +2,7 @@
 # this folder with Mantel's code into HA's local apps share, and the Supervisor builds the Dockerfile
 # next to this file (no `image:` key: a local build). docs/phase3/HA-APP.md has the install steps.
 name: Mantel
-version: "0.1.51"
+version: "0.1.52"
 slug: mantel
 description: HK's home screens, served by Mantel Server inside Home Assistant (sign-in through the sidebar)
 url: https://github.com/jazzphone/mantel
@@ -46,24 +46,21 @@ ports:
   8100/tcp: null
 ports_description:
   8100/tcp: "Direct access (only with Access set to proxy or https; Ingress keeps working either way)"
+# Only what Mantel needs to start (server_settings.py has the rule). Everything else is in Mantel Settings, the same
+# on every installation: General (control of the house, the house default screen, sign-ins from away) and
+# Connections (Music Assistant; Home Assistant's sign-in address and door rules). The older options for those
+# stay in the schema below, optional and with no default, for one release: Mantel copies a value set there once
+# into Mantel Settings when it updates, and reads them no more. A later release removes them.
 options:
-  commands_enabled: false
   log_level: info
-  default_screen: ""
-  session_hours: 12
-  ha_door_rules: trusted
-  # Music Assistant (Phase 4, docs/OPERATIONS.md "Music Assistant"): empty leaves Mantel's music engine off.
-  # The token is a masked option; the entrypoint moves it into a private file (never args, env or logs).
-  ma_url: ""
-  ma_token: ""
+  # the kill switch: on, the house stays read-only whatever Mantel Settings says
+  read_only: false
   # Direct access (DOCS.md): ingress (default: the sidebar only), proxy (your own reverse proxy) or https
   # (Mantel's built-in HTTPS, its name proved through dns_provider: cloudflare or duckdns). The DNS tokens are
   # masked options; only the chosen one is moved into a private file, like ma_token.
   access: ingress
   public_url: ""
   trusted_proxies: ""
-  ha_sign_in_url: ""
-  ha_frame_origins: ""
   dns_provider: cloudflare
   cloudflare_token: ""
   duckdns_token: ""
@@ -75,18 +72,11 @@ options:
   cf_access_team: ""
   cf_access_aud: ""
 schema:
-  commands_enabled: bool
   log_level: list(debug|info|warning|error)
-  default_screen: str?
-  session_hours: float(1,720)
-  ha_door_rules: list(trusted|lan|tunnel)
-  ma_url: "str?"
-  ma_token: "password?"
+  read_only: bool
   access: list(ingress|proxy|https)
   public_url: "str?"
   trusted_proxies: "str?"
-  ha_sign_in_url: "str?"
-  ha_frame_origins: "str?"
   dns_provider: list(cloudflare|duckdns)
   cloudflare_token: "password?"
   duckdns_token: "password?"
@@ -95,3 +85,12 @@ schema:
   lan_networks: "str?"
   cf_access_team: "str?"
   cf_access_aud: "str?"
+  # moved to Mantel Settings (above): read once on update, then never
+  commands_enabled: "bool?"
+  default_screen: "str?"
+  session_hours: "float(1,720)?"
+  ha_door_rules: "list(trusted|lan|tunnel)?"
+  ma_url: "str?"
+  ma_token: "password?"
+  ha_sign_in_url: "str?"
+  ha_frame_origins: "str?"

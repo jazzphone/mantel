@@ -1,25 +1,10 @@
 configuration:
-  commands_enabled:
-    name: Allow house commands
-    description: Off by default (read-only). When on, signed-in people may control the house through Mantel within their Mantel roles (only the alarm asks for a code, the house Alarm PIN), and every command is audited.
   log_level:
     name: Log level
     description: How much Mantel writes to this App's log.
-  default_screen:
-    name: Default screen
-    description: The HK dashboard the sidebar opens (its address, for example dashboard-kitchen). Empty: the first one.
-  session_hours:
-    name: Sign-in length from away (hours)
-    description: How long a sign-in through a tunnel or other remote access lasts before Mantel asks again, 1 to 720 hours (12 by default). The sidebar and the home network are not affected.
-  ha_door_rules:
-    name: Sidebar access rules
-    description: trusted (default) treats being signed in to Home Assistant as enough, as HK in Home Assistant always was; lan uses the home network's rules; tunnel uses Mantel's remote-access rules (each role's remote switches). Either way only the alarm asks for a code, the house Alarm PIN.
-  ma_url:
-    name: Music Assistant address
-    description: Music Assistant's own API, for example http://music-assistant.local:8095 (its WebSocket API is at /ws). Empty (the default) leaves Mantel's music engine off, and the Music page keeps reading Home Assistant's. Together with the token below, Mantel runs whole-home music itself.
-  ma_token:
-    name: Music Assistant token
-    description: A long-lived token made in Music Assistant for Mantel alone. Kept by the Supervisor as a masked option; Mantel reads it from a private file and never logs it.
+  read_only:
+    name: Read-only (kill switch)
+    description: Off by default. On, Mantel never sends anything to the house, whatever Mantel Settings says (General, Allow Control of the House). For an emergency or a test; turn it off again to use the setting in Mantel Settings.
   access:
     name: Direct access
     description: ingress (default) keeps Mantel in Home Assistant's sidebar only. proxy also serves Mantel on this App's direct port (plain HTTP) for your own reverse proxy, such as Nginx Proxy Manager, to put HTTPS in front. https has Mantel serve HTTPS on that port itself, with a Let's Encrypt certificate it renews (the name proved through Cloudflare or Duck DNS). Either way set a host port for 8100/tcp under Network; the sidebar keeps working.
@@ -29,12 +14,6 @@ configuration:
   trusted_proxies:
     name: Your proxy's address
     description: With proxy, the IP address (or several, separated by commas) your reverse proxy's requests come from, as Mantel sees them. Mantel's Test my proxy page shows it. Only this proxy may tell Mantel the LAN door, and only with this installation's door key (Mantel Settings, HTTPS).
-  ha_sign_in_url:
-    name: Home Assistant address for sign-in
-    description: With proxy or https, Home Assistant's address as browsers at home know it, for example http://homeassistant.local:8123. It turns on Sign in with Home Assistant at Mantel's own address. Empty leaves only Mantel's own sign-in there (password, passkey, enrolled wall tablets).
-  ha_frame_origins:
-    name: Home Assistant addresses that may show Mantel
-    description: Optional. Home Assistant's own internal and external URL and the sign-in address above are allowed by themselves, and an Owner can allow others in Mantel Settings (Connections, HTTPS and Your Proxy). Add more here, separated by commas, for example https://ha.example.com. Only these Home Assistant pages may show Mantel in a frame.
   dns_provider:
     name: DNS host
     description: With https, where Mantel proves its name to Let's Encrypt. cloudflare (default) for a domain at Cloudflare, with the Cloudflare DNS token below; duckdns for a <name>.duckdns.org address, with the Duck DNS token below. Other DNS hosts work with Mantel on Docker or Proxmox, not in this App.
@@ -59,3 +38,27 @@ configuration:
   cf_access_aud:
     name: Cloudflare Access AUD tag
     description: Optional. The Application Audience (AUD) tag of Mantel's Access application, from Cloudflare Zero Trust, Access, Applications, the application's Overview. Several are separated by commas.
+  commands_enabled:
+    name: Allow house commands (moved)
+    description: Moved to Mantel Settings, General, Allow Control of the House. A value here was copied there once when Mantel updated; changing it here does nothing. To force the house read-only whatever Mantel Settings says, use Read-only below.
+  default_screen:
+    name: Default screen (moved)
+    description: Moved to Mantel Settings, General, House Default Screen. A value here was copied there once; changing it here does nothing.
+  session_hours:
+    name: Sign-in length from away (moved)
+    description: Moved to Mantel Settings, General, Sign-Ins from Away Last. A value here was copied there once; changing it here does nothing.
+  ha_door_rules:
+    name: Sidebar access rules (moved)
+    description: Moved to Mantel Settings, Connections, Home Assistant, Coming Through Home Assistant. A value here was copied there once; changing it here does nothing.
+  ma_url:
+    name: Music Assistant address (moved)
+    description: Moved to Mantel Settings, Connections, Music Assistant. A value here was copied there once (with the token); changing it here does nothing.
+  ma_token:
+    name: Music Assistant token (moved)
+    description: Moved to Mantel Settings, Connections, Music Assistant, where it is kept sealed. You can clear it here.
+  ha_sign_in_url:
+    name: Home Assistant address for sign-in (moved)
+    description: Moved to Mantel Settings, Connections, Home Assistant, Sign-In Address. Empty there uses Home Assistant's own URL (Settings, System, Network). A value here was copied there once; changing it here does nothing.
+  ha_frame_origins:
+    name: Home Assistant addresses that may show Mantel (moved)
+    description: Moved to Mantel Settings, Connections, HTTPS and Your Proxy, Home Assistant's Frame. Values here were copied there once; changing them here does nothing.

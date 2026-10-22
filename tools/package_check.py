@@ -504,8 +504,12 @@ def check_ha_app(path: Path) -> list[str]:
     if bool(doc.get("hassio_api")) != (doc.get("discovery") == ["mantel"]):
         problems.append("ha-app: hassio_api is only for Mantel Link's discovery: set both hassio_api: true and "
                         "discovery: [mantel], or neither")
-    if (doc.get("options") or {}).get("commands_enabled") is not False:
-        problems.append("ha-app: options.commands_enabled must default to false")
+    # control of the house is Mantel Settings' now (server_settings.py), off until an Owner allows it: the App
+    # never turns it on by default, and its kill switch (read_only) is there and off
+    if (doc.get("options") or {}).get("commands_enabled", False) is not False:
+        problems.append("ha-app: options.commands_enabled must not default to on (Mantel Settings has it)")
+    if (doc.get("options") or {}).get("read_only") is not False or (doc.get("schema") or {}).get("read_only") != "bool":
+        problems.append("ha-app: the read_only kill switch must be a bool option, off by default")
     if "image" in doc:
         problems.append("ha-app: no image: the App is built locally from its Dockerfile (tools/stage_ha_app.py)")
     # HA's backups of /data: a hot copy of a live SQLite WAL database (mantel.db + -wal, copied file by file

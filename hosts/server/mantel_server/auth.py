@@ -138,12 +138,13 @@ def _wants_document(request: web.Request) -> bool:
 async def login_ha(request: web.Request) -> web.StreamResponse:
     """Start Sign in with Home Assistant (OAuth): HA's authorize page, with a signed state cookie."""
     oauth: HaOAuth = request.app["oauth"]
-    if not oauth.ha_url and getattr(request.app.get("cfg"), "ha_managed_by_app", False):
-        # the HA App's direct access without the sign-in address option (server.oauth_url)
-        return page("Sign in with Home Assistant is not set up", "<p>This Mantel runs as a Home Assistant App. To "
-                    "sign in with Home Assistant at this address, an administrator sets the App's option "
-                    "<b>Home Assistant address for sign-in</b> (for example http://homeassistant.local:8123). "
-                    "<a href='/login'>Back</a>.</p>", 409)
+    if getattr(request.app.get("cfg"), "ha_managed_by_app", False) and (not oauth.ha_url or not oauth.browser_address()):
+        # the HA App's direct access with no address for browsers yet (server.oauth_url, server_settings.sign_in_address)
+        return page("Sign in with Home Assistant is not set up", "<p>Mantel doesn't know Home Assistant's address for "
+                    "browsers yet. Set Home Assistant's own address in Home Assistant (Settings, System, Network, "
+                    "Home Assistant URL), or an Owner sets one in Mantel Settings (Connections, Home Assistant, "
+                    "Sign-In Address). Until then, sign in from Home Assistant's sidebar or with a passkey or "
+                    "password. <a href='/login'>Back</a>.</p>", 409)
     if not oauth.ha_url:          # first run: the Owner has not connected Home Assistant yet (connections.py)
         return page("Home Assistant is not connected yet", "<p>Mantel does not know Home Assistant's address yet. "
                     "An Owner signs in with a password and connects it on the admin page (Connections). "

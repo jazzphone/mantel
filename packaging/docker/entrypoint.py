@@ -19,7 +19,8 @@ Docker / Proxmox LXC (compose)   settings from MANTEL_* environment variables (n
     MANTEL_HA_TOKEN_FILE   optional   default /run/secrets/ha_token
     MANTEL_TRUSTED_PROXY   compose    Caddy's fixed backend address (172.31.251.2), comma list of IPs:
                                       passed as --trusted-proxy so Caddy's X-Mantel-Door: lan is believed
-    MANTEL_DEFAULT_SCREEN, MANTEL_SESSION_HOURS   optional
+    MANTEL_DEFAULT_SCREEN, MANTEL_SESSION_HOURS   optional, the first start's values (Mantel Settings, General)
+    MANTEL_READ_ONLY       optional   1/yes: the house stays read-only whatever Mantel Settings says (the kill switch)
     MANTEL_CONNECT         optional   1/yes turns on Mantel Connect (packaging/compose/compose.connect.yaml sets
                                       it): a second TLS listener on 8766 for the Connect App in HA's sidebar,
                                       pairing (`mantel connect pair`; /admin -> Connect), and the 'ha' door's rules
@@ -34,11 +35,13 @@ Home Assistant App (add-on)      recognised by SUPERVISOR_TOKEN in the environme
                                  The built-in App credential is HA's own SUPERVISOR_TOKEN: it is moved into a
                                  0600 file and removed from the environment, so the server and anything it
                                  spawns only ever see a file path, like every other mode. Options come from
-                                 options.json (packaging/ha-app/config.yaml): commands_enabled (default
-                                 false), log_level, default_screen, ha_door_rules, ma_url and ma_token (Music
-                                 Assistant; the token, a masked option, is moved into a 0600 file like the App
-                                 credential and only its path is passed; on /admin -> Connections these show
-                                 as "set by the installation", and a connection saved there wins over them).
+                                 options.json (packaging/ha-app/config.yaml): log_level, read_only (the kill
+                                 switch) and direct access below. The older options commands_enabled,
+                                 default_screen, session_hours, ha_door_rules, ma_url and ma_token,
+                                 ha_sign_in_url and ha_frame_origins are passed as first-start values only:
+                                 Mantel copies each once into Mantel Settings, which keeps them from then on
+                                 (server_settings.py; the token, a masked option, is moved into a 0600 file
+                                 like the App credential and only its path is passed).
                                  The sidebar page is always
                                  Ingress (--ingress --ingress-only: the signed-in HA user is believed only from
                                  the Supervisor's Ingress proxy, 172.30.32.2), and Mantel talks to HA Core
@@ -52,10 +55,9 @@ Home Assistant App (add-on)      recognised by SUPERVISOR_TOKEN in the environme
                                             public_url and cloudflare_token or duckdns_token (masked options;
                                             only the chosen one is moved into a 0600 file like the others);
                                             acme_email, acme_staging optional
-                                 ha_sign_in_url (HA's address for browsers) turns on "Sign in with Home
-                                 Assistant" there; Mantel's own side of it goes to http://homeassistant:8123.
-                                 Its origin, and those in ha_frame_origins, may frame the direct address (a
-                                 "Webpage" dashboard in HA's sidebar; --frame-ancestors).
+                                 "Sign in with Home Assistant" works there; Mantel's own side of it goes to
+                                 http://homeassistant:8123, the browser to Mantel Settings' Sign-In Address or
+                                 HA's own External URL.
                                  cf_access_team and cf_access_aud: Cloudflare Access in front of a tunnel to
                                  the direct port (Mantel then checks Access's assertion on the tunnel door).
                                  Mantel Link's discovery: the App announces Mantel to the Supervisor
@@ -201,10 +203,12 @@ def container_args(env: dict[str, str]) -> list[str]:
     if env.get("MANTEL_BACKUP_TARGET"):
         args += ["--backup-target", env["MANTEL_BACKUP_TARGET"]]
     args += live_tv_args(env)
-    if env.get("MANTEL_DEFAULT_SCREEN"):
+    if env.get("MANTEL_DEFAULT_SCREEN"):                # first-start values: Mantel Settings keeps them
         args += ["--screen", env["MANTEL_DEFAULT_SCREEN"]]
     if env.get("MANTEL_SESSION_HOURS"):
         args += ["--session-hours", env["MANTEL_SESSION_HOURS"]]
+    if env.get("MANTEL_READ_ONLY", "").strip().lower() in ("1", "yes", "true", "on"):
+        args.append("--read-only")                     # the kill switch
     args += connect_args(env)
     args += cf_access_args(env.get("MANTEL_CF_ACCESS_TEAM", ""), env.get("MANTEL_CF_ACCESS_AUD", ""),
                            "MANTEL_CF_ACCESS_TEAM", "MANTEL_CF_ACCESS_AUD")
@@ -306,9 +310,13 @@ def app_args(options: dict, token_file: Path, env: dict[str, str] | None = None)
     # address http://<the App's hostname>:8099) may reach /linked/ws, with its Service credential
     for peer in filter(None, (p.strip() for p in env.get("MANTEL_HA_CORE_PEER", HA_CORE_PEER).split(","))):
         args += ["--ha-core-peer", peer]
-    # Commands stay OFF unless the App's option says exactly true (PLAN: off by default).
+    # Commands stay OFF unless the App's option says exactly true (PLAN: off by default). The moved options below
+    # (commands_enabled, default_screen, session_hours, ha_door_rules, Music Assistant's, ha_sign_in_url,
+    # ha_frame_origins) are only first-start values now: Mantel Settings keeps them (server_settings.py).
     if options.get("commands_enabled") is True:
         args.append("--commands-enabled")
+    if options.get("read_only") is True:              # the kill switch: read-only whatever Mantel Settings says
+        args.append("--read-only")
     level = str(options.get("log_level") or "info").lower()
     args += ["--log-level", level if level in LOG_LEVELS else "info"]
     rules = str(options.get("ha_door_rules") or "trusted").lower()
@@ -366,9 +374,12 @@ def direct_args(access: str, public: str, options: dict, env: dict[str, str]) ->
         if u.scheme not in ("http", "https") or not u.hostname or u.path or u.query or u.username or u.password:
             raise ConfigError("ha_sign_in_url must be Home Assistant's address as browsers know it, for example "
                               "http://homeassistant.local:8123")
-        args += ["--ha-browser-url", sign_in, "--ha-oauth-url", env.get("MANTEL_HA_OAUTH_URL", HA_OAUTH_URL)]
-    for origin in frame_origins(sign_in, options):
-        args += ["--frame-ancestors", origin]
+        args += ["--ha-browser-url", sign_in]          # its first-start value; Mantel Settings has it then
+    # "Sign in with Home Assistant"'s code exchange: HA Core on the App's network. Where the browser goes is Mantel
+    # Settings' Sign-In Address, else HA's own External URL (server_settings.sign_in_address)
+    args += ["--ha-oauth-url", env.get("MANTEL_HA_OAUTH_URL", HA_OAUTH_URL)]
+    for origin in frame_origins("", options):        # copied once into Mantel Settings' approved addresses
+        args += ["--ha-frame-origin", origin]
     if access == "proxy":
         proxies = _list(str(options.get("trusted_proxies") or ""))
         if not proxies:

@@ -3,13 +3,14 @@ dashboard in HA's sidebar (ha_dashboards.py) and the Companion app can open on i
 
 Nothing here is specific to one house. The allowed addresses are, together:
 
-* **the operator's** (``cfg.frame_ancestors``: ``--frame-ancestors`` / MANTEL_FRAME_ANCESTORS, and in the HA App
-  ``ha_sign_in_url``'s origin plus ``ha_frame_origins``), fixed at start;
+* **the operator's** (``cfg.frame_ancestors``: ``--frame-ancestors`` / MANTEL_FRAME_ANCESTORS), fixed at start;
+* **the Sign-In Address** set in Mantel Settings (Connections → Home Assistant; server_settings.py), at once;
 * **Home Assistant's own**: its internal and external URL (HA → Settings → System → Network), read from HA's
   ``get_config`` once it answers (``learn``). They are HA's own addresses, so HA may frame Mantel there;
 * **the ones an Owner approved** in Mantel Settings (HTTPS and Your Proxy → Home Assistant's Frame, or by turning
-  on Show in Home Assistant inside HA's sidebar at that address), kept in Mantel's settings (``house/<DOC>``,
-  versioned like every setting), audited, and applied at once: the policy is computed per response.
+  on Show in Home Assistant inside HA's sidebar at that address; the old ``ha_frame_origins`` App option was
+  copied here once), kept in Mantel's settings (``house/<DOC>``, versioned like every setting), audited, and
+  applied at once: the policy is computed per response.
 
 Only plain ``http(s)://host[:port]`` origins, never a path, a wildcard or a keyword other than the operator's own
 ``'self'`` / ``'none'`` (``'none'`` from the operator turns framing off whatever else is listed).
@@ -69,6 +70,10 @@ class FrameOrigins:
     def operator(self) -> tuple[str, ...]:
         return tuple(getattr(self.app.get("cfg"), "frame_ancestors", ()) or ())
 
+    def sign_in(self) -> tuple[str, ...]:
+        o = origin_of(getattr(self.app.get("cfg"), "ha_browser_url", "") or "")
+        return (o,) if o else ()
+
     def approved(self) -> tuple[str, ...]:
         svc = self.app.get("settings")
         try:
@@ -94,12 +99,13 @@ class FrameOrigins:
         op = self.operator()
         if "'none'" in op:
             return ("'none'",)
-        return tuple(dict.fromkeys((*op, *self.ha, *self.approved())))
+        return tuple(dict.fromkeys((*op, *self.sign_in(), *self.ha, *self.approved())))
 
     def described(self) -> list[dict]:
         """Every allowed http(s) address and why (the Settings page; no secret)."""
         out: dict[str, dict] = {}
-        for src, items in (("option", self.operator()), ("home_assistant", self.ha), ("approved", self.approved())):
+        for src, items in (("option", self.operator()), ("sign_in", self.sign_in()), ("home_assistant", self.ha),
+                           ("approved", self.approved())):
             for o in items:
                 if o.startswith(("http://", "https://")) and o not in out:
                     out[o] = {"origin": o, "source": src}
@@ -197,7 +203,7 @@ async def api_remove(request: web.Request) -> web.Response:
     approved = list(fo.approved()) if fo else []
     if origin is None or origin not in approved:
         return error(404, "not_approved", message="Only an address approved in Mantel Settings can be removed here; "
-                                                  "the others come from Home Assistant or the App's options.")
+                                                  "the others come from Home Assistant, the Sign-In Address or the start-up options.")
     refused = C._audit(request, ident, "frame_origin.remove", {"origin": origin})
     if refused is not None:
         return refused

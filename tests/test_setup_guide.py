@@ -60,7 +60,8 @@ async def test_a_fresh_mantel_lists_what_it_still_needs(mantel):
         assert steps[sid]["state"] == "todo" and not steps[sid]["optional"], sid
     assert all(steps[s]["optional"] for s in ("tablets", "music", "link", "files"))
     assert got["complete"] is False and got["dismissed"] is False and got["can_edit"] is True
-    assert got["install"] == "dev" and "--commands-enabled" in steps["commands"]["how"]
+    assert got["install"] == "dev" and "Allow Control of the House" in steps["commands"]["how"]
+    assert steps["commands"]["route"] == "#/mantel/general"
     assert steps["ha"]["route"] == "#/mantel/connections/ha" and steps["home"]["route"] == "#/setup"
     ov = await (await mantel.get("/api/admin/overview")).json()
     assert ov["setup"] == {"dismissed": False, "open": True}
@@ -164,9 +165,13 @@ def test_setup_check_says_how_commands_turn_on_where_mantel_runs():
         pass
 
     from mantel_server.config import Config
-    for cfg, words in ((Config(), "--commands-enabled"),
-                       (Config(public_url="https://mantel.example.com/"), "compose.local.yaml"),
-                       (Config(ha_managed_by_app=True), "Allow house commands")):
+    # Mantel Settings on every installation; only the kill switch is the installation's own
+    for cfg, words in ((Config(), "Mantel Settings → General"),
+                       (Config(public_url="https://mantel.example.com/"), "Allow Control of the House"),
+                       (Config(ha_managed_by_app=True), "Allow Control of the House"),
+                       (Config(ha_managed_by_app=True, read_only=True), "turn off Read-only"),
+                       (Config(public_url="https://mantel.example.com/", read_only=True), "MANTEL_READ_ONLY"),
+                       (Config(read_only=True), "--read-only")):
         app = App(cfg=cfg)
         line = next(x for x in setup_check.lines(app, 0) if x["title"] == "House Commands")
         assert words in line["detail"], (cfg, line)

@@ -168,7 +168,7 @@ Run Mantel's admin commands with `docker compose exec mantel-server mantel <comm
 
 ## Your own additions
 
-House commands are turned on with Mantel Server's command line rather than in `.env`. Keep that in a file of your own, `compose.local.yaml`, in `packaging/compose`, and add it to the `COMPOSE_FILE` line in `.env`, for example:
+Extra flags for Mantel Server's command line go in a file of your own, `compose.local.yaml`, in `packaging/compose`, and add it to the `COMPOSE_FILE` line in `.env`, for example:
 
 ```bash
 COMPOSE_FILE=compose.yaml:compose.local.yaml
@@ -178,15 +178,11 @@ Compose replaces a service's `command:` instead of adding to it, so keep **every
 
 ### Turn on house commands
 
-Mantel starts read-only and sends no command to Home Assistant until you turn commands on. On purpose, there is **no** setting in `.env` and nothing in the page that does it: you add the flag yourself. Read [Install → Turn on house commands](Install.md#turn-on-house-commands) first.
+Mantel starts read-only and sends no command to Home Assistant until the Owner turns commands on. Read [Install → Turn on house commands](Install.md#turn-on-house-commands) first.
 
-```yaml
-services:
-  mantel-server:
-    command: ["--commands-enabled"]
-```
+Turn them on in the browser: as the Owner, open **Mantel Settings** → **General** and turn on **Allow Control of the House**. Mantel asks you to confirm it is you. It applies at once, with no restart. The `command: ["--commands-enabled"]` override is no longer needed: `--commands-enabled` is now only the value for the very first start.
 
-After `docker compose up -d --wait`, the log line says `COMMANDS ENABLED`. To turn them off, take `"--commands-enabled"` out of the list (or the file out of `COMPOSE_FILE`) and run `docker compose up -d --wait` again.
+To keep the house read-only whatever Mantel Settings says (a kill switch), set `MANTEL_READ_ONLY=1` in `.env`, then run `docker compose up -d --wait`. Take it out again to hand the choice back to Mantel Settings.
 
 ### Passkeys
 

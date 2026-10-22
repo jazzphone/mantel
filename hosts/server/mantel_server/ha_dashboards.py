@@ -289,7 +289,7 @@ async def _read(sess: HaSession, app: web.Application) -> dict:
 
 
 def ha_url(cfg, addresses: list[dict]) -> str:
-    """HA's address for people: Sign in with HA's (the App's ha_sign_in_url), else HA's own external, internal."""
+    """HA's address for people: the Sign-In Address set in Mantel Settings, else HA's own external, internal."""
     if getattr(cfg, "ha_browser_url", ""):
         return cfg.ha_browser_url.rstrip("/")
     for kind in ("external", "internal"):

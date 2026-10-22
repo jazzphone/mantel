@@ -88,14 +88,20 @@ def install(cfg: Any) -> str:
     return "container" if getattr(cfg, "public_url", "") else "dev"
 
 
-# how house commands are turned on, for each way of running Mantel (docs/guide/Install*.md)
+# how house commands are turned on: Mantel Settings on every installation (server_settings.py); the kill switch
+# that holds them off is the installation's
 COMMANDS_HOW = {
-    "app": "In Home Assistant: Settings → Apps → Mantel → Configuration, turn on Allow house commands, Save, then "
-           "restart the App.",
-    "container": "On the server, in packaging/compose (in the LXC, /opt/mantel/packaging/compose): add "
-                 "\"--commands-enabled\" to mantel-server's command in your compose.local.yaml, then "
-                 "docker compose up -d --wait (Install with Docker → Turn on house commands).",
-    "dev": "Start mantel-server with --commands-enabled.",
+    "app": "In Mantel Settings → General, turn on Allow Control of the House.",
+    "container": "In Mantel Settings → General, turn on Allow Control of the House.",
+    "dev": "In Mantel Settings → General, turn on Allow Control of the House.",
+}
+READ_ONLY_HOW = {
+    "app": "This Mantel was started read-only: in Home Assistant, Settings → Apps → Mantel → Configuration, turn off "
+           "Read-only, Save, and restart the App. Then turn on Allow Control of the House in Mantel Settings → General.",
+    "container": "This Mantel was started read-only (MANTEL_READ_ONLY): take it out of compose.local.yaml and run "
+                 "docker compose up -d --wait. Then turn on Allow Control of the House in Mantel Settings → General.",
+    "dev": "This Mantel was started with --read-only: start it without. Then turn on Allow Control of the House in "
+           "Mantel Settings → General.",
 }
 
 
@@ -296,9 +302,10 @@ async def steps(app: web.Application, me: dict) -> dict:
          "without them.", "#/mantel/files")
 
     on = bool(getattr(cfg, "commands_enabled", False))
+    how_on = READ_ONLY_HOW[how] if getattr(cfg, "read_only", False) else COMMANDS_HOW[how]
     step("commands", on, "On: people control the house within their roles, and every command is in the Audit Log."
-         if on else "Off: Mantel is read-only. When the roles look right, " + COMMANDS_HOW[how][0].lower() +
-         COMMANDS_HOW[how][1:], None, how=COMMANDS_HOW[how])
+         if on else "Off: Mantel is read-only. When the roles look right, " + how_on[0].lower() + how_on[1:],
+         "#/mantel/general", how=how_on)
 
     complete = all(s["state"] != "todo" for s in out if not s["optional"])
     return {"steps": out, "complete": complete, "dismissed": k["dismissed"], "install": how, "house": house,

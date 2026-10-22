@@ -8,7 +8,7 @@ Mantel, so Mantel answers with what *its* screens need, in the same shape the pa
 * Home Assistant: connected, and its version (the house's states and registries come from it).
 * Music Assistant: connected (optional: the Music page's own engine, Browse's library).
 * SF Pro and the SF Symbols glyphs: uploaded in Mantel settings -> Your files (Apple's, never shipped).
-* House commands: on or off (the App's `commands_enabled`; off means read-only).
+* House commands: on or off (Mantel Settings → General, Allow Control of the House; off means read-only).
 * Screens: how many Mantel has (imported from HK in HA, or made here).
 * Wall Tablets: every tablet with a Direct Connection reached now, at once (tablet_links.setup_lines: Kiosk
   Satellite's ``/api/health``, Fully's ``deviceInfo``; reads only). No line when none has one.
@@ -67,8 +67,8 @@ def lines(app: Any, boards: int) -> list[dict[str, Any]]:
         out.append(_line(True, "House Commands", "On: people may control the house within their roles; every "
                                                   "command is audited."))
     else:
-        out.append(_line(None, "House Commands", "Off: Mantel is read-only. " +
-                         setup_guide.COMMANDS_HOW[setup_guide.install(cfg)]))
+        how = setup_guide.READ_ONLY_HOW if getattr(cfg, "read_only", False) else setup_guide.COMMANDS_HOW
+        out.append(_line(None, "House Commands", "Off: Mantel is read-only. " + how[setup_guide.install(cfg)]))
     out.append(_line(True if boards else False, "Screens",
                      f"{boards} in Mantel." if boards else
                      "None yet. Once Home Assistant is connected Mantel builds a Home screen from your rooms; "

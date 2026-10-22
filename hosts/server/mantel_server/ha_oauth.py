@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from typing import Callable
 from urllib.parse import urlencode, urlparse
 
 import aiohttp
@@ -28,20 +29,33 @@ def check_redirect(client_id: str, redirect_uri: str) -> None:
 
 
 class HaOAuth:
-    def __init__(self, ha_url: str, client_id: str, redirect_uri: str, browser_url: str = "") -> None:
+    def __init__(self, ha_url: str, client_id: str, redirect_uri: str, browser_url: str = "",
+                 browser: "Callable[[], str] | None" = None) -> None:
         check_redirect(client_id, redirect_uri)
         self.ha_url = ha_url.rstrip("/")
         # HA's address as the browser knows it, when Mantel reaches HA by another (the HA App: the browser
-        # uses http://homeassistant.local:8123, Mantel http://homeassistant:8123 on HA's internal network)
+        # uses http://homeassistant.local:8123, Mantel http://homeassistant:8123 on HA's internal network).
+        # `browser`, when given, is asked at each sign-in (Mantel Settings' Sign-In Address, else HA's own
+        # External URL: server_settings.sign_in_address)
         self.browser_url = browser_url.rstrip("/")
+        self.browser = browser
         self.client_id = client_id
         self.redirect_uri = redirect_uri
+
+    def browser_address(self) -> str:
+        """Where the browser goes for HA's sign-in page ('' when Mantel knows no address for browsers)."""
+        if self.browser is not None:
+            try:
+                return (self.browser() or self.browser_url).rstrip("/")
+            except Exception:  # noqa: BLE001 -- no address known: the configured one, if any
+                return self.browser_url
+        return self.browser_url
 
     def authorize_url(self, state: str, via: str = "") -> str:
         """HA's sign-in page; `via` is another of HA's own addresses (an operator's frame origin, checked by
         the caller) when the browser is on that one: HA's page refuses frames from any other origin."""
         q = urlencode({"client_id": self.client_id, "redirect_uri": self.redirect_uri, "state": state})
-        return f"{via.rstrip('/') or self.browser_url or self.ha_url}/auth/authorize?{q}"
+        return f"{via.rstrip('/') or self.browser_address() or self.ha_url}/auth/authorize?{q}"
 
     async def exchange_code(self, http: aiohttp.ClientSession, code: str) -> dict:
         data = {"grant_type": "authorization_code", "code": code, "client_id": self.client_id}

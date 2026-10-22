@@ -159,7 +159,7 @@ With the Mantel App, a tablet can also show Mantel through Home Assistant's own 
 
 A Home Assistant user that was linked to a **Wall Tablet account** as if it were a person (before its tablet was enrolled) is listed on **People** under **Wall Tablets Signed In as People**. **Move Them to Their Tablets…** makes each one its tablet's (by name), and removes the Wall Tablet accounts. The tablets keep signing in to Mantel as before.
 
-- It works only while the sidebar has the home rules (`ha_door_rules` `trusted` or `lan`; see [Signing In](Signing-In.md#inside-home-assistant)).
+- It works only while the sidebar has the home rules (**Coming Through Home Assistant** set to **Trusted** or **Home Network Rules**; see [Signing In](Signing-In.md#inside-home-assistant)).
 - **Unlink** ends it. A device made for the link is revoked too.
 - An enrolled tablet's credential is never accepted through Home Assistant's sidebar.
 

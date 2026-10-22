@@ -88,7 +88,7 @@ You need a computer with **git** and **Python 3.12** or newer, and access to Hom
 
 ### Configure and start
 
-1. Open the **Configuration** tab. Leave **Allow house commands** (`commands_enabled`) off for now. The other options are in the [table below](#app-options); the defaults suit most homes.
+1. Open the **Configuration** tab. The defaults suit most homes; the options are in the [table below](#app-options). Commands stay off for now: that is a switch in Mantel Settings, not an App option.
 2. Open the **Info** tab. Turn on **Show in sidebar** and **Watchdog**.
 3. Select **Start**.
 4. Open the **Log** tab. You should see a line that ends `read-only; commands disabled`, and no error.
@@ -100,19 +100,30 @@ Next: open **Mantel** in the sidebar and become its Owner. [First Run](First-Run
 
 | Option | Default | What it does |
 |---|---|---|
-| **Allow house commands** (`commands_enabled`) | off | Off: Mantel is read-only. On: people may control your home through Mantel within their roles, and every command is audited. |
+| **Read-only (kill switch)** (`read_only`) | off | On: the house stays read-only, whatever Mantel Settings says. See [Turn on house commands](#turn-on-house-commands). |
 | **Log level** (`log_level`) | `info` | How much Mantel writes to the App's log: `debug`, `info`, `warning` or `error`. |
-| **Default screen** (`default_screen`) | empty | The screen Mantel opens for anyone who hasn't picked their own, by its address (for example `dashboard-kitchen`). Empty: the first screen Mantel finds. |
-| **Sidebar access rules** (`ha_door_rules`) | `trusted` | `trusted`: being signed in to Home Assistant is enough, as with HK Frontend. `lan`: the home network's rules. `tunnel`: Mantel's remote-access rules. Each person's role still decides what they may do. |
-| **Music Assistant address** (`ma_url`), **Music Assistant token** (`ma_token`) | empty | Optional. You can also set Music Assistant up on Mantel's **Connections** page, which wins over these. |
 | **Direct access** (`access`) | `ingress` | `ingress`: the sidebar only. `proxy` or `https`: Mantel also has its own address. See [Direct access](#direct-access-optional). |
-| `public_url`, `trusted_proxies`, `ha_sign_in_url`, `ha_frame_origins`, `cloudflare_token`, `duckdns_token`, `acme_email`, `acme_staging`, `lan_networks` | empty | Direct access only. |
+| `public_url`, `trusted_proxies`, `cloudflare_token`, `duckdns_token`, `acme_email`, `acme_staging`, `lan_networks` | empty | Direct access only. |
 | `dns_provider` | `cloudflare` | Built-in HTTPS only: `cloudflare` or `duckdns`. |
 | `cf_access_team`, `cf_access_aud` | empty | Direct access only: Cloudflare Access in front of a tunnel. See [Cloudflare Access](#cloudflare-access-optional). |
 
 Restart the App after you change an option.
 
-The tokens (`ma_token`, `cloudflare_token`, `duckdns_token`) are masked options. Mantel moves each into a private file before it starts and never logs it. You never create a Home Assistant token for the App: it uses the App's own built-in credential.
+### In Mantel Settings
+
+Several options used to be App options. They now live in Mantel Settings, so they work the same on the App, Docker and the LXC. When Mantel updates, it copies each old value across once. After that the value in Mantel Settings wins, and the old option is only a first-start value. The old options stay on the Configuration tab for one release, marked "(moved)", and do nothing after that copy.
+
+| Setting | Where | What it does |
+|---|---|---|
+| **Allow Control of the House** | **General** | Off: Mantel is read-only. On: people may control your home within their roles, and every command is audited. Replaces `commands_enabled`. See [Turn on house commands](#turn-on-house-commands). |
+| **House Default Screen** | **General** | The screen Mantel opens for anyone who hasn't picked their own. Replaces `default_screen`. |
+| **Sign-Ins from Away Last** | **General** | How long a sign-in from away lasts, from 1 hour to 30 days. Replaces `session_hours`. |
+| **Coming Through Home Assistant** | **Connections** → **Home Assistant** | The rules for the sidebar. **Trusted** (the default): being signed in to Home Assistant is enough, as with HK Frontend. **Home Network Rules**: the home network's rules. **Away Rules**: Mantel's remote-access rules. Each person's role still decides what they may do. Replaces `ha_door_rules`. |
+| **Sign-In Address** | **Connections** → **Home Assistant** | The address **Sign in with Home Assistant** sends people to. Empty: Mantel uses Home Assistant's own address (Home Assistant's **Settings** → **System** → **Network**: external, else internal). Most homes set nothing. Replaces `ha_sign_in_url`. |
+| **Home Assistant's Frame** | **Connections** → **HTTPS and Your Proxy** | Which addresses may frame Mantel. Replaces `ha_frame_origins`. |
+| Music Assistant | **Connections** → **Music Assistant** | Mantel's own connection to Music Assistant. Replaces `ma_url` and `ma_token`. |
+
+The tokens (`cloudflare_token`, `duckdns_token`) are masked options. Mantel moves each into a private file before it starts and never logs it. You never create a Home Assistant token for the App: it uses the App's own built-in credential.
 
 ### Who can open it
 
@@ -128,7 +139,7 @@ Turn on Home Assistant's two-step verification for every household account. In t
 
 The sidebar always works. Some homes also want Mantel at its **own address**, for example `https://mantel.example.com`, so wall tablets can open it without Home Assistant's frame and every screen has a direct link. Most homes need neither; leave **Direct access** at `ingress`.
 
-At Mantel's own address, Home Assistant's sidebar sign-in doesn't apply. People sign in with a Mantel password or passkey, or with **Sign in with Home Assistant** when you set `ha_sign_in_url`. Wall tablets are enrolled as Mantel devices ([Wall Tablets](Wall-Tablets.md)).
+At Mantel's own address, Home Assistant's sidebar sign-in doesn't apply. People sign in with a Mantel password or passkey, or with **Sign in with Home Assistant**, which works at Mantel's own address by itself. Wall tablets are enrolled as Mantel devices ([Wall Tablets](Wall-Tablets.md)).
 
 Pick **one** of the two ways:
 
@@ -171,7 +182,7 @@ From then on, an away request without a valid token gets `403` (`access_required
 
 ## Turn on house commands
 
-Mantel starts read-only. It shows every state, saves settings and records the audit log, but it sends **no command** to Home Assistant until whoever runs the server turns commands on. No setting in the page, API call or app can turn them on. This is deliberate.
+Mantel starts read-only. It shows every state, saves settings and records the audit log, but it sends **no command** to Home Assistant until the Owner turns commands on. Only an Owner, in Mantel Settings, can do it, and Mantel asks them to confirm it is them first. Whoever runs the server can also keep the house read-only whatever Mantel Settings says. This is deliberate.
 
 Before you turn them on:
 
@@ -179,9 +190,11 @@ Before you turn them on:
 - Set the house **Alarm PIN** (HK's settings inside **Mantel Settings** → **Alarm PIN**). It is the only code Mantel asks for, and only for the alarm.
 - Know where the [audit log](Commands-and-Audit.md) is.
 
-Then, in the App: **Configuration** → turn on **Allow house commands** → **Save** → restart the App. The log line now says `COMMANDS ENABLED`. To turn them off again, turn the option off and restart.
+Then, as the Owner, open **Mantel Settings** → **General** and turn on **Allow Control of the House**. Mantel asks you to confirm it is you, with a fresh sign-in. It applies at once, with no restart. It works the same on the App, Docker and the LXC. To turn it off again, turn it off there. Every change is in the [Audit Log](Commands-and-Audit.md).
 
-For Docker and the LXC, see [Install with Docker → Turn on house commands](Install-Docker.md#turn-on-house-commands).
+It is off on a new install.
+
+To keep the house read-only whatever Mantel Settings says, use the kill switch: in the App, turn on **Read-only (kill switch)** (`read_only`) on the **Configuration** tab and restart. For Docker and the LXC, see [Install with Docker → Turn on house commands](Install-Docker.md#turn-on-house-commands).
 
 When commands are on, every command is checked against the person's role and the tablet's role, refused where they don't allow it, and written to the audit log **before** it is sent. See [Commands and Audit](Commands-and-Audit.md) and the [Security Model](Security-Model.md).
 

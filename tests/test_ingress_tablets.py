@@ -272,7 +272,7 @@ async def test_tunnel_rules_refuse_a_tablet_and_lan_rules_allow_it(mk):
     r = await tablet_get(m, "/api/me")
     assert r.status == 401 and (await r.json())["error"] == "tablet_refused"
     p = await tablet_get(m, "/dashboard-kitchen/home", **PAGE)
-    assert p.status == 403 and "ha_door_rules" in await p.text()
+    assert p.status == 403 and "Coming Through Home Assistant" in await p.text()
     people = await (await m.request("GET", "/ingress/people", {**m.ha(), **PAGE})).text()
     assert "refused on the sidebar now" in people
     m2 = await mk(rules="lan")

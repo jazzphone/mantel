@@ -44,10 +44,12 @@ class Config:
     device_rotate_hours: float = 24.0                        # wall tablet credential rotation
     webauthn_rp_id: str = "localhost"                        # passkeys: the RP ID (a hostname, never an IP)
     trusted_proxies: tuple[str, ...] = ()                    # peers whose X-Forwarded-For / X-Mantel-Door is believed (P3.6)
-    # P3.3: the command gateway. OFF unless the server's operator turns it on here (the CLI flag
-    # --commands-enabled or a Config built by code): no client message can change it. While off,
-    # ha_client.HaCommander cannot be built and every command answers `commands_disabled`.
+    # P3.3: the command gateway. Off by default. An Owner turns it on in Mantel Settings (General, Allow Control
+    # of the House; server_settings.py), which sets this; --commands-enabled is only its first-start value. No
+    # page message changes it. While off, ha_client.HaCommander cannot be built and every command answers
+    # `commands_disabled`. `read_only` (--read-only, the start-up kill switch) holds it off whatever is stored.
     commands_enabled: bool = False
+    read_only: bool = False
     house_tz: str = "UTC"                                    # fallback when HA's get_config gives no time_zone
     audit_retention_days: float = 365.0                      # action_audit rows older than this are purged (>= 30)
     # P3.4: Music Assistant's own WebSocket API (connectors/ma.py). Empty URL = connector off.
@@ -128,6 +130,8 @@ class Config:
     # http://supervisor/core): the browser goes to `ha_browser_url`; Mantel's own calls go to `ha_oauth_url`
     ha_browser_url: str = ""
     ha_oauth_url: str = ""
+    # the old ha_frame_origins option: copied once into Mantel Settings' approved frame origins (server_settings.py)
+    ha_frame_origins: tuple[str, ...] = ()
     # Cloudflare Access in front of the tunnel (cf_access.py): with a team (its domain, myteam.cloudflareaccess.com)
     # and the Access application's AUD tag(s), every tunnel-door request must carry a valid Access assertion.
     # Both empty (the default): not checked, as before. Neither is a secret (Cloudflare puts both in every token).
@@ -208,7 +212,13 @@ def parse_args(argv: list[str] | None = None) -> Config:
                    help="which reverse proxy owns TLS (Mantel's Caddy, or your own); tunes /proxy-check's advice")
     p.add_argument("--commands-enabled", action="store_true",
                    help="turn the command gateway on: signed-in users may control the house through Mantel, "
-                        "within their roles, with an audit row for every command (the Alarm PIN for the alarm). Off by default")
+                        "within their roles, with an audit row for every command (the Alarm PIN for the alarm). Off by default. "
+                        "Only the first start's value: Mantel Settings (General) has it then")
+    p.add_argument("--read-only", action="store_true",
+                   help="the kill switch: the house stays read-only whatever Mantel Settings says")
+    p.add_argument("--ha-frame-origin", action="append", default=[], metavar="ORIGIN",
+                   help="a Home Assistant address that may frame Mantel, copied once into Mantel Settings' approved "
+                        "addresses (the old ha_frame_origins option; repeatable)")
     p.add_argument("--house-tz", default=Config.house_tz,
                    help="house time zone (grant schedules, the nightly backup) until or unless Home Assistant says (IANA name)")
     p.add_argument("--audit-retention-days", type=float, default=Config.audit_retention_days, metavar="DAYS",
@@ -414,6 +424,7 @@ def parse_args(argv: list[str] | None = None) -> Config:
                  data_dir=Path(a.data_dir), session_hours=a.session_hours, default_screen=a.screen,
                  secrets_dir=Path(a.secrets_dir), lan_session_days=a.lan_session_days, webauthn_rp_id=a.rp_id,
                  public_url=public_url, allowed_hosts=allowed, commands_enabled=bool(a.commands_enabled),
+                 read_only=bool(a.read_only), ha_frame_origins=tuple(a.ha_frame_origin),
                  house_tz=a.house_tz, trusted_proxies=tuple(a.trusted_proxy),
                  audit_retention_days=float(a.audit_retention_days), hk_files=Path(a.hk_files),
                  backup_target=Path(a.backup_target) if a.backup_target else None,

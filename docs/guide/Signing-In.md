@@ -102,6 +102,7 @@ Mantel keeps only each passkey's public key.
 - Mantel uses the sign-in only to learn who you are. It revokes the Home Assistant token it was given straight away and keeps nothing of it.
 - What you can do in Mantel is your Mantel role's, not your Home Assistant permissions.
 - A linked user who is disabled in Mantel can't sign in this way.
+- It works at Mantel's own address by itself. Mantel sends people to Home Assistant's own address (Home Assistant's **Settings** → **System** → **Network**: external, else internal). If that is wrong for your home, an Owner sets **Sign-In Address** in **Mantel Settings** → **Connections** → **Home Assistant**.
 
 From outside the home, Mantel accepts Home Assistant's sign-in as it is: it doesn't ask for its own second factor on top. If people sign in this way from away, turn on multi-factor authentication for them in Home Assistant.
 
@@ -118,7 +119,7 @@ Each sign-in is a **session** in one browser. You stay signed in:
 | Where you signed in | How long |
 |---|---|
 | On the home network | 30 days |
-| From outside the home | 12 hours |
+| From outside the home | 12 hours (an Owner can change this: **Mantel Settings** → **General** → **Sign-Ins from Away Last**, from 1 hour to 30 days) |
 
 Then you sign in again. A session belongs to the door it started on: a session from home doesn't carry on outside the home.
 
@@ -155,15 +156,15 @@ To use Mantel from outside the home, set up a passkey or an authenticator app **
 
 With the Mantel App, or a Mantel running elsewhere with [Mantel Connect](Mantel-Connect.md), Mantel appears in Home Assistant's sidebar. Home Assistant signs you in, and Mantel uses your linked role. There's no sign-in page and no **Sign Out** there.
 
-The installation's **Home Assistant door rules** setting (`ha_door_rules`) decides which rules apply in the sidebar:
+The **Coming Through Home Assistant** setting decides which rules apply in the sidebar. An Owner finds it in **Mantel Settings** → **Connections** → **Home Assistant**:
 
 | Setting | Rules in the sidebar |
 |---|---|
-| `trusted` (the default for the Mantel App and Mantel Connect) | Home rules. Owners get no "remote access" notices for the sidebar. |
-| `lan` | Home rules, but remote unlocks and disarms still notify the Owners. |
-| `tunnel` | Away rules. Wall tablets linked through Home Assistant are refused. |
+| **Trusted** (the default) | Home rules. Owners get no "remote access" notices for the sidebar. |
+| **Home Network Rules** | Home rules, but remote unlocks and disarms still notify the Owners. |
+| **Away Rules** | Away rules. Wall tablets linked through Home Assistant are refused. |
 
-Home Assistant's own remote access (Nabu Casa, or your own address) reaches the sidebar from outside the home, so `trusted` means you trust Home Assistant's sign-in wherever it comes from.
+Home Assistant's own remote access (Nabu Casa, or your own address) reaches the sidebar from outside the home, so **Trusted** means you trust Home Assistant's sign-in wherever it comes from.
 
 ## See also
 

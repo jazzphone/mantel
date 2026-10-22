@@ -1,24 +1,43 @@
-# packaging/ha-app/
+# Mantel
 
-Mantel Server packaged as a Home Assistant App (add-on), the third way to run it (PLAN §8), installed as
-a **local App**: the Supervisor builds `Dockerfile` from a folder that `tools/stage_ha_app.py` assembles.
+**Beautiful home screens for your whole household, served by Home Assistant.**
 
-| File | What it is |
-|---|---|
-| `config.yaml` | The App: slug `mantel`, Ingress on port 8099, `panel_admin: false` (wall tablets and household members open it), `homeassistant_api: true` (HA's built-in App credential), options `commands_enabled` (false), `log_level`, `default_screen`, `ha_door_rules`, Music Assistant's, and direct access (`access`: `ingress` by default, `proxy` or `https`; DOCS.md). No `image:` (local build); one opt-in port, `8100/tcp`, unpublished by default. |
-| `Dockerfile` | `python:3.12-slim-bookworm`, the pinned `requirements.txt`, then `app/` (staged). Starts as root only so `entrypoint.py` can chown `/data`, then runs the server as uid 10001. |
-| `requirements.txt` | Exact dependency versions (the ones the tests ran with). |
-| `DOCS.md` | What HA shows on the App's Documentation tab. |
-| `translations/en.yaml` | Option names and descriptions. |
-| `icon.png` | The store icon (a mantelpiece; drawn by a script, no third-party artwork). |
+Mantel gives every wall tablet, phone and browser in your home a polished, touch-first home screen: rooms,
+lights, climate, cameras, the doorbell, music, energy and more, laid out for the room it's in. Everyone signs in
+as themselves, sees what their role allows, and every change to the house is recorded.
 
-Stage it (never by hand):
+## What you get
 
-```bash
-.venv/bin/python tools/stage_ha_app.py --dry-run          # list + private-content scan, writes nothing
-.venv/bin/python tools/stage_ha_app.py /path/to/local_apps/mantel
-```
+- **Home screens for every room.** Wall tablets open straight to their own room's screen, full screen, with a
+  screensaver, a clock and photos when nobody is using them.
+- **People and roles.** Owner, Admin, Adult, Child and Guest, linked to your Home Assistant accounts. Each role
+  decides what someone may see and control, room by room, and you can fine-tune it with grants.
+- **Safe by default.** Mantel starts read-only. You choose when people may control the house, and every command
+  is written to the Audit Log. The alarm always asks for the house Alarm PIN.
+- **The iPhone, iPad and Mac apps**, with notifications, and Home Assistant's own sidebar and Companion app.
+- **Mantel Link** (optional): Mantel's integration in Home Assistant, for automations, notifications and the
+  tablets as devices.
 
-The staged folder holds `app/entrypoint.py` (packaging/docker/entrypoint.py), `app/hosts/server/mantel_server`,
-`app/hk_core`, and `app/web` stamped by `tools/build_static.py`. Identity, the door decision, the path prefix,
-install steps and removal: `docs/phase3/HA-APP.md`.
+## Getting started
+
+1. **Start** the App and open **Mantel** in the sidebar.
+2. **Become the Owner.** If your Home Assistant account is an administrator, Mantel offers *Make me Mantel's
+   Owner*. Press it once.
+3. **Open Mantel Settings** and follow **Set Up Mantel**. It walks you through linking
+   your household's accounts, your screens and your wall tablets, one step at a time.
+
+Needs Home Assistant **2026.8** or newer (Mantel Link needs **2026.9**).
+
+## Where the settings are
+
+Almost everything is in **Mantel Settings**, not here: who may control the house, the default screen, how
+long sign-ins from away last, Home Assistant's sign-in address, Music Assistant, people, roles and screens.
+The **Configuration** tab holds only what Mantel needs in order to start: how it is reached (the sidebar only,
+your own proxy, or its built-in HTTPS), its own address for that, and a **Read-only** kill switch that stops
+Mantel sending anything to the house whatever Mantel Settings says.
+
+## Help
+
+- The **Documentation** tab: options, wall tablets, direct access and security, in detail.
+- In Mantel: **Mantel Settings → About → Documentation** has the full guide.
+- Backups: Home Assistant's backups include Mantel (its people, settings, photos and keys).

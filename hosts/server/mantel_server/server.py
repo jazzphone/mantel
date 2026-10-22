@@ -36,7 +36,7 @@ from . import (admin_page, atrest, backup, connections, features, linked, linked
                linked_actions, login_page, phones, supervisor_discovery,
                photos, service_accounts, talk_relay, user_files)
 from . import default_screens, direct, direct_tls, docs_pages, ha_dashboards, ma_page, media_proxy, proxy_check, proxy_trust, security_headers, tablet_links, user_data
-from . import app_shell, cf_access, page_health, setup_guide
+from . import app_shell, cf_access, page_health, server_settings, setup_guide
 from .authz import Authz, Principal, resolve_door
 from .config import Config
 from .connectors import REFUSE_ALL, Ctx, Hooks
@@ -382,10 +382,11 @@ async def mdi_file(request: web.Request) -> web.StreamResponse:
 
 
 def oauth_url(cfg: Config) -> str:
-    """Where "Sign in with Home Assistant" talks to HA. The HA App's own address for HA (the Supervisor's proxy)
-    serves no sign-in, so there it needs HA's address for browsers (direct access); without one: none."""
-    if cfg.ha_managed_by_app and not cfg.ha_browser_url:
-        return ""
+    """Where "Sign in with Home Assistant" talks to HA (the code exchange). The HA App's own address for HA (the
+    Supervisor's proxy) serves no sign-in, so there it is HA Core on the App's network (--ha-oauth-url, direct
+    access only); without one: none. Where the BROWSER goes is server_settings.sign_in_address."""
+    if cfg.ha_managed_by_app:
+        return cfg.ha_oauth_url
     return cfg.ha_oauth_url or cfg.ha_url
 
 
@@ -481,6 +482,9 @@ def build_app(cfg: Config, token: str, store: Store | None = None, connect_ha: b
     security_headers.register(app)    # Mantel's own CSP/HSTS/nosniff/..., behind any proxy or none
     hub = Hub(cfg)
     app["store"] = store or Store(cfg.data_dir / "mantel.db")
+    # Mantel's own settings that were start-up options (server_settings.py): copied once, then the stored ones win;
+    # applied to cfg before anything below reads them
+    server_settings.load(app, cfg, clock())
     # Connections (connections.py): Mantel's own saved HA/MA credentials win over the installation's files;
     # everything below is built with what is in effect, and retargeted in place when it changes
     conns = connections.Connections(cfg, atrest.SecretBox(cfg.secrets_dir / atrest.KEY_FILE), clock,
@@ -496,7 +500,8 @@ def build_app(cfg: Config, token: str, store: Store | None = None, connect_ha: b
     # /api/connections/tablets/test for a tablet named "test")
     tablet_links.register(app, tablet_links.TabletLinks(cfg, conns.files.box, clock))
     connections.register(app, conns)
-    app["oauth"] = HaOAuth(oauth_url(cfg), cfg.client_id, cfg.redirect_uri, browser_url=cfg.ha_browser_url)
+    app["oauth"] = HaOAuth(oauth_url(cfg), cfg.client_id, cfg.redirect_uri,
+                           browser=lambda: server_settings.sign_in_address(app))
     app["state_secret"] = secrets.token_bytes(32)
     app["clock"] = clock
     auth.add_routes(app)
@@ -609,6 +614,7 @@ def wire(app: web.Application, hub: Hub, token: str, connect_ha: bool) -> None:
     authz = Authz(app, hub, store, lambda: app["clock"]())
     app["authz"] = authz
     writes = gateway.load_writes()
+    app["gateway_writes"] = writes
     commander = commander_for(cfg, token, writes)        # None unless cfg.commands_enabled
     app["commander"] = commander
     gw = gateway.Gateway(app, authz, audit, commander, writes, lambda: app["clock"]()) if cfg.commands_enabled else None
@@ -632,6 +638,7 @@ def wire(app: web.Application, hub: Hub, token: str, connect_ha: bool) -> None:
     media_photos.register(app, conns.ha_token)                # the screensaver's photos: resolve_media, GET /api/photo/<id>
     ma_connector.register(app, hub, hooks)
     conns.appliers.append(lambda kind, cur: apply_connection(app, hub, connect_ha, kind, cur))
+    app["apply_commands"] = lambda on: apply_commands(app, hub, on)
     health.register(app, hub)
     about.register(app)               # Mantel Settings -> About: the version and what Mantel talks to
     # P3.5: HK's settings from Mantel's own store (reads + settings_write saves). HK's own data, not a
@@ -698,9 +705,55 @@ def wire(app: web.Application, hub: Hub, token: str, connect_ha: bool) -> None:
     media_proxy.register(app, hub)
     proxy_check.register(app, hub)
     app_shell.register(app, hub)     # phase 10: the web app on a Home Screen, push, and the iPhone/iPad/Mac apps
+    # Mantel Settings' General and Home Assistant settings that were start-up options (and their one-time moves)
+    server_settings.register(app)
     if cfg.commands_enabled:
         log.warning("COMMANDS ARE ENABLED on this server: signed-in users may control Home Assistant within "
                     "their roles (an audit row for every command; the Alarm PIN for the alarm)")
+
+
+async def apply_commands(app: web.Application, hub: Hub, on: bool) -> None:
+    """Allow Control of the House changed in Mantel Settings (server_settings.py): the command path is built or
+    removed now, as at start (wire). Everything that sends a command looks up app["gateway"] at each use; Music
+    Assistant's client is handed the new gate; the live-talk relay follows. Every page socket is closed so each
+    reconnects and is told whether it may offer actions (the capabilities frame)."""
+    cfg: Config = app["cfg"]
+    conns: connections.Connections = app["connections"]
+    old_gw, old_cmd = app.get("gateway"), app.get("commander")
+    if on and old_gw is None:
+        commander = commander_for(cfg, conns.ha_token(), app["gateway_writes"])
+        gw = gateway.Gateway(app, app["authz"], app["audit"], commander, app["gateway_writes"], lambda: app["clock"]())
+        _set(app, "commander", commander)
+        _set(app, "gateway", gw)
+        _set(app, "ma_gate", gw)
+        if app.get("talk") is None:
+            from . import talk_relay
+            _set(app, "talk", talk_relay.TalkRelay(app, app["audit"], app["authz"], lambda: app["clock"]()))
+        log.warning("COMMANDS ARE ENABLED on this server (Mantel Settings): signed-in users may control Home Assistant "
+                    "within their roles (an audit row for every command; the Alarm PIN for the alarm)")
+    elif not on and old_gw is not None:
+        _set(app, "gateway", None)
+        _set(app, "commander", None)
+        _set(app, "ma_gate", REFUSE_ALL)
+        talk = app.get("talk")
+        _set(app, "talk", None)
+        for closer in (talk, old_cmd):
+            if closer is not None:
+                try:
+                    await closer.close()
+                except Exception:  # noqa: BLE001 -- off already: nothing can use it
+                    log.debug("closing the old command path failed", exc_info=True)
+        log.warning("commands are disabled on this server (Mantel Settings): read-only from now on")
+    else:
+        return
+    client = app.get("ma")
+    if client is not None:
+        client.gate = app["ma_gate"]
+    for s in list(hub.sessions):
+        try:
+            await s.ws.close()
+        except Exception:  # noqa: BLE001 -- gone already
+            pass
 
 
 def _set(app: web.Application, key: str, value) -> None:

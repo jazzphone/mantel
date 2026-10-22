@@ -87,22 +87,26 @@ def test_proxy_mode_publishes_the_direct_port_with_the_door_key_rules(tmp_path):
 
 
 def test_home_assistants_addresses_may_frame_the_direct_address(tmp_path):
-    """A Webpage dashboard in HA's sidebar shows a Mantel screen: HA's addresses join frame-ancestors (the sign-in
-    address always, ha_frame_origins besides), normalised to origins; nothing else may frame Mantel."""
+    """A Webpage dashboard in HA's sidebar shows a Mantel screen. The old ha_frame_origins option is handed to Mantel
+    as first-start values (--ha-frame-origin, copied once into Mantel Settings' approved addresses:
+    test_server_settings), normalised to origins; the sign-in address frames Mantel from Mantel Settings now, so
+    neither is a start-up frame-ancestor."""
     from mantel_server.config import parse_args
     base = {"access": "proxy", "public_url": PUBLIC, "trusted_proxies": "192.0.2.7"}
     assert parse_args(_plan(tmp_path, base)[1][0]).frame_ancestors == ()
     _, (args, _) = _plan(tmp_path, {**base, "ha_sign_in_url": "https://HA.home.example/",
                                     "ha_frame_origins": "http://homeassistant.local:8123, https://ha.home.example,"
                                                         " https://ha-away.example.net/"})
-    assert parse_args(args).frame_ancestors == ("https://ha.home.example", "http://homeassistant.local:8123",
-                                                "https://ha-away.example.net")
+    cfg = parse_args(args)
+    assert cfg.frame_ancestors == () and cfg.ha_browser_url == "https://HA.home.example"
+    assert cfg.ha_frame_origins == ("http://homeassistant.local:8123", "https://ha.home.example",
+                                    "https://ha-away.example.net")
     _, (args, _) = _plan(tmp_path, {"access": "https", "public_url": PUBLIC, "cloudflare_token": CF_TOKEN,
                                     "ha_frame_origins": "https://ha.home.example:8443"})
-    assert parse_args(args).frame_ancestors == ("https://ha.home.example:8443",)
+    assert parse_args(args).ha_frame_origins == ("https://ha.home.example:8443",)
     # the sidebar alone (ingress): HA's own page frames Mantel through Ingress, nothing to add
     _, (args, _) = _plan(tmp_path, {"ha_sign_in_url": "https://ha.home.example", "ha_frame_origins": "https://x.example"})
-    assert parse_args(args).frame_ancestors == ()
+    assert parse_args(args).frame_ancestors == () and parse_args(args).ha_frame_origins == ()
 
 
 @pytest.mark.parametrize("origins", ["ha.home.example", "https://ha.home.example/lovelace", "*",
@@ -181,10 +185,15 @@ def test_the_app_config_publishes_one_opt_in_port_and_defaults_to_the_sidebar():
     assert doc["ports"] == {"8100/tcp": "null"} and set(doc["ports_description"]) == {"8100/tcp"}
     assert doc["options"]["access"] == "ingress" and doc["schema"]["access"] == "list(ingress|proxy|https)"
     assert doc["schema"]["cloudflare_token"] == "password?" and doc["options"]["cloudflare_token"] == ""
-    assert doc["ingress"] is True and doc["ingress_port"] == 8099 and set(doc["options"]) == set(doc["schema"])
+    # every option has a default, except the ones moved to Mantel Settings (kept in the schema for one release so a
+    # value set there survives the update to be copied: server_settings.py)
+    moved = {"commands_enabled", "default_screen", "session_hours", "ha_door_rules", "ma_url", "ma_token",
+             "ha_sign_in_url", "ha_frame_origins"}
+    assert doc["ingress"] is True and doc["ingress_port"] == 8099 and set(doc["options"]) == set(doc["schema"]) - moved
+    assert all(doc["schema"][k].endswith("?") for k in moved)
     assert pc.check_ha_app(path) == []
     translations = pc.parse_yaml((ROOT / "packaging/ha-app/translations/en.yaml").read_text())["configuration"]
-    assert set(translations) == set(doc["options"])
+    assert set(translations) == set(doc["schema"])
 
 
 def test_the_package_check_refuses_a_published_or_second_port(tmp_path):
@@ -253,7 +262,7 @@ async def _start(tmp_path, monkeypatch, *, mode="proxy", ingress_peers=("172.30.
                  direct_port=_free_port() if mode != "ingress" else 0, direct_hosts=(NAME,),
                  direct_tls="acme" if tls else "", acme_dns_token_file=tmp_path / "cf" if tls else None,
                  trusted_proxies=tuple(trusted) if mode == "proxy" else (), proxy_kind="own" if mode == "proxy" else "",
-                 lan_networks=tuple(lan_networks), ha_browser_url=browser_url, ha_oauth_url="http://homeassistant:8123" if browser_url else "",
+                 lan_networks=tuple(lan_networks), ha_browser_url=browser_url, ha_oauth_url="http://homeassistant:8123",
                  frame_ancestors=tuple(frames))
     store = Store(cfg.data_dir / "mantel.db")
     app = build_app(cfg, "unused-fictional-token", store=store, connect_ha=False)
@@ -532,6 +541,16 @@ async def test_sign_in_with_home_assistant_goes_to_has_address_for_browsers(star
     assert r.app["oauth"].ha_url == "http://homeassistant:8123"          # the code exchange: HA's internal address
 
 
+async def test_with_no_sign_in_address_set_it_goes_to_home_assistants_own_url(started):
+    """Nothing set in Mantel Settings: Sign in with Home Assistant goes to HA's own External URL (HA → Settings →
+    System → Network), read from HA, with the code exchanged on HA's internal address as before."""
+    r = await started(mode="proxy", browser_url="")
+    r.app["frame_origins"].learn({"internal_url": "http://homeassistant.local:8123", "external_url": "https://ha.home.example"})
+    resp = await r.get("direct", "/login/ha", **PAGE)
+    assert resp.status == 302 and resp.headers["Location"].startswith("https://ha.home.example/auth/authorize?")
+    assert r.app["oauth"].ha_url == "http://homeassistant:8123"
+
+
 async def test_in_home_assistants_frame_sign_in_goes_to_the_address_the_dashboard_is_on(started):
     """A Webpage dashboard opened at HA's home address while ha_sign_in_url names another: HA's sign-in page
     refuses frames from other origins (X-Frame-Options: SAMEORIGIN), so login.js names the frame's top origin
@@ -572,7 +591,8 @@ async def test_a_sign_in_state_counts_once_and_callbacks_are_rate_limited(starte
 async def test_without_the_sign_in_address_the_page_says_which_option(started):
     r = await started(mode="proxy", browser_url="")
     resp = await r.get("direct", "/login/ha", **PAGE)
-    assert resp.status == 409 and "Home Assistant address for sign-in" in await resp.text()
+    text = await resp.text()
+    assert resp.status == 409 and "Sign-In Address" in text and "Settings, System, Network" in text
 
 
 async def test_an_enrolled_wall_tablet_opens_its_own_screen_on_the_direct_port(started):
@@ -932,3 +952,20 @@ def test_the_jws_and_the_dns01_value_follow_rfc_8555():
                                   f"{jws['protected']}.".encode(), ec.ECDSA(hashes.SHA256()))
     expected = base64.urlsafe_b64encode(hashlib.sha256(f"tok.{account.thumbprint()}".encode()).digest()).rstrip(b"=").decode()
     assert direct_tls.dns01_value("tok", account) == expected
+
+
+def test_the_read_only_kill_switch_and_sign_in_without_the_old_option(tmp_path):
+    """read_only (the App) and MANTEL_READ_ONLY (Docker) hold the house read-only whatever Mantel Settings says;
+    direct access always gets Mantel's own side of Sign in with Home Assistant, the browser's address being Mantel
+    Settings' or Home Assistant's own (test_server_settings)."""
+    from mantel_server.config import parse_args
+    ep, (args, _) = _plan(tmp_path, {"read_only": True})
+    assert parse_args(args).read_only is True
+    assert parse_args(_plan(tmp_path, {}, ep=ep)[1][0]).read_only is False
+    _, (args, _) = _plan(tmp_path, {"access": "proxy", "public_url": PUBLIC, "trusted_proxies": "192.0.2.7"}, ep=ep)
+    cfg = parse_args(args)
+    assert cfg.ha_browser_url == "" and cfg.ha_oauth_url == "http://homeassistant:8123"
+    docker = {"MANTEL_PUBLIC_URL": "https://mantel.example.com/", "MANTEL_TRUSTED_PROXY": "172.31.251.2"}
+    for value, on in (("1", True), ("yes", True), ("0", False), ("", False)):
+        argv, _ = ep.plan([], {**docker, "MANTEL_READ_ONLY": value}, options_path=tmp_path / "none.json")
+        assert ("--read-only" in argv) is on

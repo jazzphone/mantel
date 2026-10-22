@@ -82,10 +82,9 @@ When Mantel's screens look right, turn commands on. Every command is then
 checked against the person's role and written to the
 [Audit Log](Commands-and-Audit.md) before it is sent.
 
-- **Mantel App**: the App's **Configuration** tab, `commands_enabled` on, then
-  restart the App.
-- **Docker or the container**: the server's `--commands-enabled` flag. There is
-  deliberately no environment variable for it; see
+- **Everywhere** (the Mantel App, Docker, the container): as the Owner, open
+  **Mantel Settings** → **General** and turn on **Allow Control of the House**.
+  Mantel asks you to confirm it is you. It applies at once, with no restart. See
   [Commands and Audit](Commands-and-Audit.md).
 
 **Undo**: turn it off again. That is always safe.

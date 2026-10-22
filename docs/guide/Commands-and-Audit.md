@@ -12,14 +12,18 @@ Saving settings works either way: Mantel keeps its own settings, so an Owner or 
 
 ## Turn commands on
 
-Commands are a setting of the installation, not of Mantel Settings. No page, account or API call can turn them on, so nobody can switch them on from a browser.
+Only the Owner can turn commands on. Open **Mantel Settings** → **General** and turn on **Allow Control of the House**. Mantel asks the Owner to confirm it is them, with a fresh sign-in, every time they turn it on. It applies at once, with no restart, and it works the same on the Mantel App, Docker and Proxmox LXC. To turn it off again, turn it off there. Every change is in the audit log.
+
+### The read-only kill switch
+
+Whoever runs the server can keep the house read-only whatever Mantel Settings says:
 
 | Installation | How |
 |---|---|
-| Mantel App in Home Assistant | **Settings** → **Apps** → **Mantel** → **Configuration**: turn on **Allow house commands**, select **Save**, then restart the App. |
-| Docker, Proxmox LXC | Add `--commands-enabled` to the server's command, then restart the server. See [Install with Docker → Turn on house commands](Install-Docker.md#turn-on-house-commands). |
+| Mantel App in Home Assistant | **Settings** → **Apps** → **Mantel** → **Configuration**: turn on **Read-only (kill switch)**, select **Save**, then restart the App. |
+| Docker, Proxmox LXC | Set `MANTEL_READ_ONLY=1` (or add `--read-only` to the server's command), then restart the server. See [Install with Docker → Turn on house commands](Install-Docker.md#turn-on-house-commands). |
 
-When the server starts, its log says `COMMANDS ENABLED` (or `read-only; commands disabled`). To turn them off again, undo the change and restart.
+While it is on, **Allow Control of the House** can't change anything. The server's log says `COMMANDS ENABLED` or `read-only; commands disabled`.
 
 Before you turn them on, check your people's roles ([People and Roles](People-and-Roles.md)) and your tablets' rooms ([Wall Tablets](Wall-Tablets.md)).
 

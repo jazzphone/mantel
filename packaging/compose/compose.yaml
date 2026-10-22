@@ -120,6 +120,8 @@ services:
       # application's AUD tag. With both, Mantel refuses every tunnel request without a valid Access assertion
       MANTEL_CF_ACCESS_TEAM: ${MANTEL_CF_ACCESS_TEAM:-}
       MANTEL_CF_ACCESS_AUD: ${MANTEL_CF_ACCESS_AUD:-}
+      # the kill switch: 1 keeps the house read-only whatever Mantel Settings (General) says
+      MANTEL_READ_ONLY: ${MANTEL_READ_ONLY:-}
     volumes:
       - mantel-data:/data
       # the nightly encrypted backup's target (the NAS mount on the host); off unless

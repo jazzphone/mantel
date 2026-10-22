@@ -44,7 +44,7 @@ A browser could simply claim to be at home, so Mantel believes the door only fro
 - **Your own reverse proxy**: the proxy must also send this installation's **door key**, a secret header. Without the right key the request counts as away, even from the proxy's address. An Owner sees and rotates the key in **Mantel Settings** → **Connections** → **HTTPS and Your Proxy**.
 - **The Mantel App's own HTTPS port** (its direct access with Mantel's own certificate): the client's address decides. Addresses in the networks you list (by default the private ranges) count as home; any other is away.
 - **Any Cloudflare header** means away, whoever sends it, even with a valid Cloudflare Access token: Cloudflare's headers can only make Mantel stricter. A missing or unknown door means away too. (The one exception: a request from the server's own machine, with no proxy at all, counts as home. That's for running Mantel by hand during development.)
-- **Inside Home Assistant**, Home Assistant signs people in, and the installation's `ha_door_rules` setting decides whether home or away rules apply ([Signing In](Signing-In.md#inside-home-assistant)).
+- **Inside Home Assistant**, Home Assistant signs people in, and **Coming Through Home Assistant** in **Mantel Settings** decides whether home or away rules apply ([Signing In](Signing-In.md#inside-home-assistant)).
 
 Mantel also answers only to its own host names, and refuses a request whose `Origin` doesn't match. That stops other web pages, and DNS rebinding, from driving it.
 

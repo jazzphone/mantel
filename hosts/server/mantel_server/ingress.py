@@ -416,9 +416,9 @@ def tablet_refused_page(reason: str, person: dict, row) -> web.Response:
                 "<i>People</i>).</p>")
         return _page("This tablet is revoked", body, 403)
     body = (f"<p>Home Assistant says you are <b>{who}</b>, linked in Mantel to the wall tablet <b>{dev}</b>.</p>"
-            "<p>Mantel's sidebar uses its remote rules (the App's option <code>ha_door_rules: tunnel</code>), and "
-            "under them wall tablets are refused. An Owner can set <code>ha_door_rules</code> to "
-            "<code>trusted</code> (the App's default) or <code>lan</code>.</p>")
+            "<p>Mantel's sidebar uses its remote rules (Coming Through Home Assistant: Away Rules), and under them "
+            "wall tablets are refused. An Owner can set it to Trusted (the default) or Home Network Rules in Mantel "
+            "Settings → Connections → Home Assistant.</p>")
     return _page("Wall tablets are off for the sidebar", body, 403)
 
 
