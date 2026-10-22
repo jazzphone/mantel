@@ -10,7 +10,8 @@
 // G1: each key is today's card, unsized. A card's own layout per size comes
 // with G2 (the size attribute and --hk-cell-w/-h, read with container
 // queries); the new cards (room, scene_suggested, action, everything) with
-// G3; pages that swipe with G4 -- until then a block shows its first page.
+// G3. A block with `pages` is an hk-pager-card (hk-layout.js, G4) holding
+// one of its card per page: pages() below says which.
 //
 // Plain data and pure functions, loaded at parse time: no hk-base.js needed.
 (function () {
@@ -77,16 +78,79 @@
   var SOURCES = ['list', 'rooms', 'cameras', 'thermostats', 'speakers', 'scenes'];
 
   // A BLOCK'S CARD: the item's card at its size, with its options -- or, for
-  // a block with `list` pages, its first page's (G4 makes them swipe). A key
+  // a block with pages from a source its card has, an hk-pager-card, which
+  // asks pages() for its pages (when it is drawn: a speakers block's
+  // speakers come from the Music feature, after the strategy has run). A key
   // the catalog doesn't have (a layout saved by a newer HK) is a stand-in,
   // never an error card on a wall tablet.
   function config(item, ctx) {
     var it = item || {}, c = CARDS[it.card];
     if (!c) return stand('Unavailable', 'mdi:help-circle-outline');
-    var opts = it.opts || {};
-    var p = it.pages;
-    if (p && p.source === 'list' && Array.isArray(p.list) && p.list[0]) opts = p.list[0].opts || {};
-    return c.card(it.size, opts, ctx || {});
+    if (paged(it)) return { type: 'custom:hk-pager-card', item: it, ctx: ctx || {} };
+    return c.card(it.size, it.opts || {}, ctx || {});
+  }
+  function paged(it) {
+    var p = it.pages, c = CARDS[it.card];
+    return !!(c && p && (p.source === 'list' ? Array.isArray(p.list) && p.list.length
+                                             : c.sources.indexOf(p.source) >= 0));
+  }
+
+  // PAGES THAT SWIPE (docs/phase11/HOME-GRID.md, "Blocks that swipe"): a
+  // block's pages, each { card, area, entity } -- the page's card config, and
+  // the room and the thing it shows, for the pager's start page and the
+  // doorbell's jump. At most PAGES_MAX, as hk_core checks a `list`.
+  //   list         the pages set up, each the block's card with its own options
+  //   rooms        one per room, in the screen's order (ctx.rooms)
+  //   cameras      one per camera, in Cameras' order (ctx.cameras)
+  //   thermostats  one per climate entity, in room order (ctx.areas: entity -> room)
+  //   speakers     one per speaker, then each group (ctx.speakers: [{entity, area}])
+  //   scenes       the scenes (ctx.scenes), as many to a page as the size holds
+  // The block's own options go to every page, under the page's. Nothing in
+  // the house to show: one page, the block's card as it is without pages.
+  var PAGES_MAX = 12;
+  var PER_PAGE = { W: 2, L: 4, XL: 6 };      // a scenes page's scenes, by size
+  function pages(item, ctx) {
+    var it = item || {}, c = CARDS[it.card], x = ctx || {};
+    if (!c) return [{ card: stand('Unavailable', 'mdi:help-circle-outline') }];
+    var p = it.pages || {}, base = it.opts || {}, areas = x.areas || {};
+    function page(opts, extra) {
+      var o = Object.assign({}, base, opts), cfg = c.card(it.size, o, x);
+      // a scenes page shows just its scenes, never the screen's Scenes choice
+      if (it.card === 'scenes' && o.scenes) cfg.room = true;
+      return Object.assign({ card: cfg }, extra || {});
+    }
+    var out = [], rooms = x.rooms || [];
+    if (!paged(it)) { /* no pages: the block's card, below */ }
+    else if (p.source === 'list') {
+      out = p.list.map(function (pg) { return page((pg && pg.opts) || {}); });
+    } else if (p.source === 'rooms') {
+      out = rooms.map(function (a) { return page({ area: a }, { area: a }); });
+    } else if (p.source === 'cameras') {
+      out = (x.cameras || []).map(function (id) { return page({ entity: id }, { entity: id, area: areas[id] || null }); });
+    } else if (p.source === 'thermostats') {
+      var rank = function (id) { var i = rooms.indexOf(areas[id]); return i < 0 ? rooms.length : i; };
+      out = (x.climate || []).map(function (id, i) { return { id: id, i: i }; })
+        .sort(function (a, b) { return (rank(a.id) - rank(b.id)) || (a.i - b.i); })
+        .map(function (t) { return page({ entity: t.id }, { entity: t.id, area: areas[t.id] || null }); });
+    } else if (p.source === 'speakers') {
+      out = (x.speakers || []).filter(function (s) { return s && s.entity; })
+        .map(function (s) { return page({ speaker: s.entity }, { entity: s.entity, area: s.area || null }); });
+    } else if (p.source === 'scenes') {
+      var per = PER_PAGE[it.size] || 4, all = (x.scenes || []).slice(0, per * PAGES_MAX);
+      for (var i = 0; i < all.length; i += per) out.push(page({ scenes: all.slice(i, i + per) }));
+    }
+    out = out.slice(0, PAGES_MAX);
+    return out.length ? out : [{ card: c.card(it.size, base, x) }];
+  }
+
+  // THE TABLET'S ROOM (`tablet_room` in a block's options and `pages.start`):
+  // the Wall Tablets room of the tablet showing this page -- an area id, or
+  // null on a page that is no tablet's. Read through hkSettings.tablet(), the
+  // settings' own answer to "which tablet is this" (never the host's object).
+  function tabletRoom(client) {
+    var HS = window.hkSettings, t = null;
+    try { t = HS && typeof HS.tablet === 'function' ? HS.tablet(client) : null; } catch (e) { t = null; }
+    return (t && t.room) || null;
   }
 
   // the catalog as data, for the parity test and the editor (G5)
@@ -97,6 +161,7 @@
   }
 
   window.hkGridCatalog = { version: '1.0.0', SIZES: SIZES, SOURCES: SOURCES, TABLET_ROOM: TABLET_ROOM,
-                           config: config, table: table };
+                           PAGES_MAX: PAGES_MAX, PER_PAGE: PER_PAGE,
+                           config: config, pages: pages, tabletRoom: tabletRoom, table: table };
   try { window.dispatchEvent(new CustomEvent('hk-grid-catalog-ready')); } catch (e) { /* a test page without events */ }
 })();

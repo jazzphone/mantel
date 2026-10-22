@@ -1804,11 +1804,25 @@
     // blocks from the catalog, and the pop-ups Home listens for -- and the
     // rest of the screen as usual
     else if (b.home_style === 'grid' && b.home_grid && window.hkGridCatalog) {
+      var gridClimate = Object.keys(client.states).filter(function (id) {
+        return id.indexOf('climate.') === 0 && !hidden(client, opts, id);
+      }).sort();
+      // for pages that swipe (G4): the room of each camera and thermostat,
+      // and the scenes -- the screen's Scenes choice, else every scene A to Z
+      var gridAreas = {};
+      (cams || []).concat(gridClimate).forEach(function (id) { gridAreas[id] = areaOf(client, id); });
+      var gridScenes = listOf(b, 'scenes').filter(function (id) {
+        return typeof id === 'string' && id.indexOf('scene.') === 0 && client.states[id];
+      });
+      if (!gridScenes.length) {
+        gridScenes = Object.keys(client.states).filter(function (id) {
+          var e = (client.entities || {})[id];
+          return id.indexOf('scene.') === 0 && !hidden(client, opts, id) && !(e && (e.hidden || e.entity_category));
+        }).sort(function (x, y) { return named(client, x, '').localeCompare(named(client, y, '')); });
+      }
       out[0] = view(homeGridView(b.home_grid, { title: 'Home', path: 'home' }, header, popups, {
         cameras: cams, weather: weather || firstOf(client, 'weather'), vacuum: firstOf(client, 'vacuum'),
-        climate: Object.keys(client.states).filter(function (id) {
-          return id.indexOf('climate.') === 0 && !hidden(client, opts, id);
-        }).sort(),
+        climate: gridClimate, areas: gridAreas, scenes: gridScenes,
         rooms: rooms(client, opts).map(function (r) { return r.id; }).filter(Boolean)
       }));
     }
