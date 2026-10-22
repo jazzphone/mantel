@@ -5,6 +5,20 @@
 // browser, is checked against Mantel.
 if (typeof HK_ROOT === 'undefined') throw new Error('run tests/run pager');
 load(HK_ROOT + '/tests/dom.js');
+(function () {                           // the view's reconcile needs these (as test_homegrid.js)
+  var E = Object.getPrototypeOf(document.createElement('div'));
+  if (!E.insertBefore) {
+    E.insertBefore = function (c, ref) {
+      if (c.parentNode) c.parentNode.removeChild(c);
+      var i = ref ? this.children.indexOf(ref) : -1;
+      if (i < 0) this.children.push(c); else this.children.splice(i, 0, c);
+      c.parentNode = this; return c;
+    };
+    Object.defineProperty(E, 'childNodes', { get: function () { return this.children; } });
+    Object.defineProperty(E, 'lastChild', { get: function () { return this.children[this.children.length - 1] || null; } });
+  }
+  if (!('firstChild' in E)) Object.defineProperty(E, 'firstChild', { get: function () { return this.children[0] || null; } });
+})();
 window.customCards = [];
 window.loadCardHelpers = function () { return new Promise(function () {}); };
 load(HK_ROOT + '/frontend/cards/hk-base.js');
@@ -173,6 +187,37 @@ pg.goTo(2, false);
 pg.setAttribute('size', 'L');
 if (pg.attributeChangedCallback) pg.attributeChangedCallback('size', 'T', 'L');
 ok('a new size rebuilds it on the page it was on', pg._index === 2 && byClass(pg._root, 'page').length === 3, pg._index);
+
+print('\n=== the tab bar, and DESIGN.md ===');
+var View = customElements.get('hk-home-grid-view'), gv = new View();
+gv.setConfig({ grid: { cols: 6, rows: 4 }, cards: [] });
+var css = gv._sr.children[0].textContent;
+ok('the grid is the window less the tab bar\'s room (--hk-bar-room, else --hk-tabbar-h)',
+   css.indexOf('--g-room:var(--hk-bar-room,var(--hk-tabbar-h,0px))') >= 0 && css.indexOf('height:calc(100dvh - var(--g-room))') >= 0 &&
+   css.indexOf('height:100dvh') < 0);
+ok('a cell clips a gap out, so its plate keeps its shadow', /\.cell\{[^}]*clip-path:inset\(calc\(-1 \* var\(--g-gap\)\)\)/.test(css) &&
+   !/\.cell\{[^}]*overflow:hidden/.test(css));
+var pcss = Pager.CSS;
+ok('the dots: mark, the page it is on in ink, written with v()', pcss.indexOf('background:' + window.hkCards.v('mark')) >= 0 &&
+   pcss.indexOf('[aria-current=true] i{background:' + window.hkCards.v('ink')) >= 0 && pcss.indexOf('opacity:.35') < 0);
+ok('...a fade (DUR.fade), none under Reduce Motion', pcss.indexOf('background-color ' + window.hkCards.DUR.fade) >= 0 &&
+   pcss.indexOf('prefers-reduced-motion:reduce') >= 0);
+ok('...44 px targets', /\.dot\{[^}]*flex:0 1 44px[^}]*height:44px/.test(pcss));
+ok('the track leaves the plates\' shadows a gap of room', pcss.indexOf('margin:-10px -10px 0') >= 0 && pcss.indexOf('gap:20px') >= 0);
+var calm = [];
+window.matchMedia = function (q) { return { matches: /reduce/.test(q) }; };
+var cv = new Pager();
+cv.setConfig(G.config({ id: 'a7', card: 'room', size: 'L', pages: { source: 'rooms' } }, ctx));
+cv._track.clientWidth = 422; cv._track.scrollTo = function (o) { calm.push(o.behavior); };
+byClass(cv._root, 'dot')[2].click();
+ok('Reduce Motion: a dot\'s tap turns the page without a slide', calm[calm.length - 1] === 'auto', calm);
+window.matchMedia = function () { return { matches: false }; };
+window.hkSettings.rendering = function () { return { flat: true, motion: false }; };
+byClass(cv._root, 'dot')[0].click();
+ok('...nor in Flat, its motion off', calm[calm.length - 1] === 'auto', calm);
+delete window.hkSettings.rendering;
+byClass(cv._root, 'dot')[1].click();
+ok('...otherwise it slides', calm[calm.length - 1] === 'smooth', calm);
 
 print('\n=== speakers ===');
 var MUSIC = [{ entity: 'media_player.group_all', name: 'Everywhere', members: ['media_player.den'] },

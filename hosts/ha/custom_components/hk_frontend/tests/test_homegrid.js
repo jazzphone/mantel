@@ -81,8 +81,8 @@ window.addEventListener('hk-view-ready', function (e) { ready.push(e.detail.view
   ok('a block past the edge is left out, never grows the page', walk(root).indexOf(off) < 0);
   ok('it announces once its cards are in', ready.length === 1 && ready[0] === v);
   var css = v._sr.children[0].textContent;
-  ok('the screen\'s height, and nothing scrolls', /:host\{[^}]*height:100dvh/.test(css) && /:host\{[^}]*overflow:hidden/.test(css));
-  ok('each cell clips its own card, and is a size container', /\.cell\{[^}]*overflow:hidden/.test(css) && /\.cell\{[^}]*container-type:size/.test(css));
+  ok('the screen\'s height (less a tab bar\'s room), and nothing scrolls', /:host\{[^}]*height:calc\(100dvh - var\(--g-room\)\)/.test(css) && /:host\{[^}]*overflow:hidden/.test(css));
+  ok('each cell clips its own card (a gap out, for its shadow), and is a size container', /\.cell\{[^}]*clip-path:inset/.test(css) && /\.cell\{[^}]*container-type:size/.test(css));
 
   // re-setting the same cards moves nothing
   var before = kids.slice();

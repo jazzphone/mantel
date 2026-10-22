@@ -513,4 +513,47 @@ role as declarations.
   pan-y`, and the pager leaves it alone.
 - **G5:** a block's Pages section writes `pages` as hk_core checks it; `hkGridCatalog.pages(item, ctx)` previews them.
 
+**The tab bar, and DESIGN.md (2026-10-22, asked after the first push).** The tab bar is the screen's
+navigation, so the grid leaves room for it. I read DESIGN.md (hk_house/docs) and checked the pager and G1's
+view against it.
+
+- **The grid's height** is `calc(100dvh - var(--hk-bar-room, var(--hk-tabbar-h, 0px)))`. hk-tabbar.js pads the
+  view on the bar's side and sets `--hk-bar-room` on it, for a bar at the top or the bottom. `--hk-tabbar-h` on
+  `<html>` is the fallback. The rows share what's left under the band, and the cells and `--hk-cell-h` follow the
+  bar live (the view's ResizeObserver). DESIGN.md's page edges hold: the last row's plates end a gutter above the
+  bar. A top bar that shifts the page (Shrink or Hide) pads nothing and so takes nothing. A side rail scales the page
+  aside and leaves the grid's height as it is.
+- **The pager and the bar:** a drag that starts on the bar never reaches a pager. The grid ends at the bar's top, and
+  the bar is its own layer over the page, so the bar keeps its taps and sheets. No rule in the pager is needed for it.
+- **Plates keep their shadows** (DESIGN.md: every plate wears the look's shadow). A plate fills its cell, and G1's
+  cell clipped at its edge, which cut the shadow off. A cell now clips a gap out (`clip-path: inset(-gap)`, paint
+  only: the grid still sizes it). The pager's track reaches a gap past its block on each side, with its pages two
+  gaps apart, so a page's shadow shows and its neighbour doesn't.
+- **The dots** are DESIGN.md's surface scale, written with `v()`: `mark` (as notches and ticks are), and `ink` for the
+  page you're on (Flat's maps carry both). They fade between the two over `DUR.fade`, with no fade under Reduce
+  Motion. Each is 7 px (iOS's page control) with a 44 px target. In Flat, the dots get the focus ring from
+  `flatCss`.
+- **Motion:** under Reduce Motion, and in Flat (motion off, `hkSettings.rendering()`), a dot's tap turns the page
+  without the slide. The swipe is the finger's own, with scroll-snap. The pager has no motion of its own and nothing
+  to build in.
+- **Gutters, gaps, band:** G1's view already matches. The sides, top and foot are the page gutter (`--hk-side` + 8,
+  27.2 px at 1,280 and 22.7 with the menu docked: measured), the gaps are the house's 10 px, and the band is 60 px.
+- **Checked:** `test_pager.js` (now 66) covers the grid's height less the bar's room, the cell's clip, the dots'
+  tokens, fade and 44 px targets, the track's shadow room, and no slide under Reduce Motion or in Flat.
+  `test_homegrid.js`'s G1 checks follow. On the local test Mantel at 1280 × 800 with the screen's tab bar on (96 px
+  of room), the view ends at 704, the bar's top. The lowest plates end 27.2 px above it, the same as the left
+  gutter. Probed across the bar's height, no point of the grid is under it, and there is no page scroll. Turning
+  the bar off live, without a reload, gave the grid 800 px back and the cells re-measured (137.3 → 163.6 px tall, with the
+  menu docked). Each pager's page is its cell's width at both.
+
+**What doesn't follow DESIGN.md yet, and why:**
+
+- **The dot's 7 px** has no name in `T` or a scale. It's geometry, as the tiles' numbers are, and there's no page
+  control scale to put it in. It needs one if a second card draws dots.
+- **A glass plate's shadow** (`0 8px 22px`) reaches about 30 px. A cell lets 10 px show (the gap), so the softest
+  part of its tail is still cut. Any more would let a card that overflows draw over its neighbour's cell.
+- **The band's header** (clock, weather, chips) is taller than 60 px and clipped (G1's note). It's G2's to design.
+- **Not checked here:** WebKit (DESIGN.md asks for Flat in Safari as well as Chrome). The headless checks are
+  Chrome's. Flat and Blur were checked through the tokens and `flatCss`, not with a screenshot of each look.
+
 **G4 is done.** Pushed to `main`; no version bump, no release, nothing on the house.

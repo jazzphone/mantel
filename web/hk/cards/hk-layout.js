@@ -1626,14 +1626,28 @@
       // 1,280 -- six 196 px columns and 10 px gaps); the same at the top and
       // the foot. (A card's own :host margin -- a pull-up made for a page's
       // flow -- wins over the view's, so a card drops it with :host([size]).)
+      //
+      // THE TAB BAR'S ROOM comes out of the height (docs/phase11/HOME-GRID.md,
+      // "The tab bar"): the bar pads the view on its side and says how much
+      // as --hk-bar-room on it (top or bottom; hk-tabbar.js publish()), and
+      // --hk-tabbar-h on <html> at the bottom -- so the rows share what is
+      // left, the last row's plates end a gutter above the bar, and it
+      // follows the bar live (the ResizeObserver below re-measures the cells).
+      //
+      // A CELL CLIPS A GAP OUT, not at its edge: a plate fills its cell, and
+      // clipped at the edge its shadow (the look's: Flat's contact shadow,
+      // the glass pill's) was cut off. clip-path paints only: the cell's size
+      // is the grid's still, and what spills past a gap is cut.
       st.textContent =
-        ':host{display:block;position:relative;height:100dvh;max-height:100dvh;overflow:hidden;' +
+        ':host{--g-room:var(--hk-bar-room,var(--hk-tabbar-h,0px));display:block;position:relative;' +
+        'height:calc(100dvh - var(--g-room));max-height:calc(100dvh - var(--g-room));overflow:hidden;' +
         'container-type:size;box-sizing:border-box}' +
         '#root{--g-pad:calc(100cqw * var(--hk-side, 0.02) + 8px);--g-gap:' + GRID.gap + 'px;' +
         'box-sizing:border-box;display:grid;width:100%;height:100%;padding:var(--g-pad);gap:var(--g-gap);' +
         'grid-template-columns:repeat(var(--g-cols), minmax(0, 1fr));overflow:hidden}' +
         '.band{grid-column:1 / -1;grid-row:1;min-width:0;min-height:0;overflow:hidden}' +
-        '.cell{position:relative;min-width:0;min-height:0;overflow:hidden;container-type:size;container-name:hk-cell}' +
+        '.cell{position:relative;min-width:0;min-height:0;clip-path:inset(calc(-1 * var(--g-gap)));' +
+        'container-type:size;container-name:hk-cell}' +
         '.cell>*,.band>*{display:block;box-sizing:border-box;width:100%;max-height:100%;margin:0!important}' +
         '.cell>*{height:100%}' +
         // a card that only listens (a pop-up, the docked bar) takes no room
@@ -1795,6 +1809,8 @@
   // said politely, so VoiceOver hears where it is.
   var PAGER_EDGE = 20;          // the menu's edge swipe (hk-menu.js .edge)
   var PAGER_DOTS = 20;          // the dots' row under the pages, px
+  var PAGER_DOT = 7;            // a dot, px (iOS's page control)
+  var PAGER_ROOM = GRID.gap;    // the plates' shadow room: the grid's gap
   var pagerSeq = 0;
   function pagerAreaOf(client, id) {
     var e = ((client && client.entities) || {})[id] || {}, devs = (client && client.devices) || {};
@@ -1821,6 +1837,14 @@
     for (i = 0; camera && i < list.length; i++) if (list[i].entity === camera) return i;
     for (i = 0; i < list.length; i++) if (/doorbell/.test(String(list[i].entity || ''))) return i;
     return -1;
+  }
+  // NO SLIDE for a dot's tap under Reduce Motion, nor in Flat (its motion
+  // off: hkSettings.rendering()): the page is simply there
+  function pagerCalm() {
+    try { if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return true; } catch (e) { /* none */ }
+    var HS = window.hkSettings, r = null;
+    try { r = HS && typeof HS.rendering === 'function' ? HS.rendering() : null; } catch (e) { r = null; }
+    return !!(r && r.motion === false);
   }
   // A CONTROL that owns its own sideways drag
   function pagerControl(el) {
@@ -1861,17 +1885,24 @@
 
   class HkPagerCard extends HkBase {
     static get CSS() {
-      var v = window.hkCards.v;
+      var C0 = window.hkCards, v = C0.v, S = PAGER_ROOM;
       // (:host>div: the card's own root, which holds the pager)
-      return ':host{display:block;position:relative;height:100%;overflow:hidden}:host>div{height:100%}' +
+      //
+      // THE PLATES' SHADOWS: a page's card fills the page, so the track
+      // reaches S px past the block on every side (a negative margin, its
+      // padding the same) and the pages are 2S apart: at rest a page's
+      // shadow shows, its neighbour doesn't. S is the grid's gap, as far as
+      // the cell lets anything show.
+      return ':host{display:block;position:relative;height:100%}:host>div{height:100%}' +
         '.pager{position:relative;display:flex;flex-direction:column;height:100%}' +
-        '.track{flex:1 1 auto;min-height:0;display:flex;overflow-x:auto;overflow-y:hidden;' +
+        '.track{flex:1 1 auto;min-height:0;display:flex;gap:' + (2 * S) + 'px;margin:-' + S + 'px -' + S + 'px 0;' +
+        'padding:' + S + 'px ' + S + 'px 0;scroll-padding:0 ' + S + 'px;overflow-x:auto;overflow-y:hidden;' +
         'scroll-snap-type:x mandatory;overscroll-behavior-x:contain;scrollbar-width:none;-webkit-overflow-scrolling:touch}' +
         '.track::-webkit-scrollbar{display:none}' +
         '.track.held{overflow-x:hidden}' +
         // each page is the cell its card lays itself out in (hk-cell): the
         // block's size, less the dots' row
-        '.page{position:relative;flex:0 0 100%;width:100%;height:100%;min-width:0;overflow:hidden;' +
+        '.page{position:relative;flex:0 0 100%;width:100%;height:100%;min-width:0;' +
         'scroll-snap-align:start;scroll-snap-stop:always;container-type:size;container-name:hk-cell}' +
         '.page>*{display:block;box-sizing:border-box;width:100%;height:100%;margin:0!important}' +
         '.dots{position:relative;z-index:1;flex:0 0 ' + PAGER_DOTS + 'px;height:' + PAGER_DOTS + 'px;min-height:0;' +
@@ -1880,9 +1911,12 @@
         // 44 px targets, reaching up over the page's foot
         '.dot{flex:0 1 44px;min-width:0;height:44px;margin:0;padding:0 0 7px;border:0;background:none;' +
         'display:flex;align-items:flex-end;justify-content:center;cursor:pointer;-webkit-tap-highlight-color:transparent}' +
-        '.dot i{display:block;width:7px;height:7px;border-radius:50%;background:' + v('ink') + ';opacity:.35;' +
-        'transition:opacity .2s ease}' +
-        '.dot[aria-current=true] i{opacity:1}' +
+        // a dot: the surface scale's `mark` (as notches and ticks are), the
+        // page it is on in `ink`; a fade between them, none for Reduce Motion
+        '.dot i{display:block;width:' + PAGER_DOT + 'px;height:' + PAGER_DOT + 'px;border-radius:50%;background:' + v('mark') + ';' +
+        'transition:background-color ' + C0.DUR.fade + ' ease}' +
+        '.dot[aria-current=true] i{background:' + v('ink') + '}' +
+        '@media (prefers-reduced-motion:reduce){.dot i{transition:none}}' +
         '.say{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}';
     }
     setConfig(config) {
@@ -2027,7 +2061,7 @@
       this._want = i;
       var t = this._track, w = t && t.clientWidth;
       if (w) {
-        if (t.scrollTo) t.scrollTo({ left: i * w, behavior: smooth ? 'smooth' : 'auto' });
+        if (t.scrollTo) t.scrollTo({ left: i * w, behavior: smooth && !pagerCalm() ? 'smooth' : 'auto' });
         else t.scrollLeft = i * w;
       }
       this._show(i);
