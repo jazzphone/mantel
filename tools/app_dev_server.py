@@ -206,6 +206,8 @@ async def serve(data: Path, port: int, lan: bool = False, relay: str | None = No
     make_cover(data / "fictional-cover.png")
     app.router.add_get("/app/fictional-cover.png", cover)
     app.setdefault("public_paths", set()).add("/app/fictional-cover.png")
+    if app.get("gateway") is None:     # control switched off in Mantel Settings on an earlier run: on again here
+        await app["server_settings"].set("commands_enabled", True, None, time.time())
     app["gateway"].commander = FictionalCommander(hub, app["gateway"].writes)
     # Without --music: Music "set up" with the fictional speaker, as HK's music feed answers on a house with Music
     # Assistant, so the Music page (Play, the full player on a phone) is there to try; its library stays empty

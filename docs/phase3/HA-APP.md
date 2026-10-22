@@ -1206,6 +1206,12 @@ Everything on main since 0.1.28 (validation green: JS 130, HA py 732, Mantel 283
 - The App's **Info** tab (README.md) is written for the person installing it; the folder notes moved to "The App"
   above. HK Frontend (1.10.6) and Mantel Link (0.1.5) unchanged.
 
+### 0.1.53 (2026-10-22)
+
+- Connections → Home Assistant: the Sign-In Address's **Save** is always on. It was greyed out until the page
+  redrew, and typing in the field doesn't redraw it, so a new address couldn't be saved. Saving an unchanged
+  address does nothing. `tools/app_dev_server.py` turns control on itself when an earlier run left it off.
+
 ### Removal
 
 Stop and uninstall **Mantel** (Settings → Apps → Mantel → Uninstall); this removes its image and `/data`

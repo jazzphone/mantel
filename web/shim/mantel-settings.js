@@ -2362,7 +2362,7 @@ function drawHaAccess(c) {
     rows.push(K().text({ label: 'Sign-In Address', value: f.url, placeholder: d.sign_in.from && d.sign_in.from !== 'settings' ? inUse : 'https://ha.example.com',
                          maxlength: 300, inputmode: 'url', fk: 'mx:signin:url', onCommit: (x) => { f.url = x.trim(); } }));
     rows.push(button('Save', async () => { if (await putServer('ha_sign_in_url', f.url, f.url ? 'Sign-in address saved.' : 'Using Home Assistant’s own address.')) clearDraft('signin'); },
-                     { fk: 'mx:signin:save', disabled: (f.url || '') === set }));
+                     { fk: 'mx:signin:save' }));     // always on: the field commits on blur, with no redraw (an unchanged address is a no-op)
   }
   rows.push(K().select({ label: 'Coming Through Home Assistant', options: DOOR_RULES, value: d.settings.ha_door_rules.value, disabled: !can,
                          fk: 'mx:door-rules', onChange: (x) => putServer('ha_door_rules', x) }));
