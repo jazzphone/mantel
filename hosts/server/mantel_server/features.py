@@ -1884,6 +1884,11 @@ class FeatureHost:
                 "settings": self.settings}
 
     # -- what the screens are told about the features --------------------------------------------------
+    def house_part(self) -> dict[str, Any]:
+        """``client_part`` for a linked HK Frontend's dashboards (settings_store.house_feed): the Energy page's
+        plan for every user, as HK Frontend's own feed always sent it -- each page's reads are still checked."""
+        return {"added": self.client_added(), "energy": self.energy_cache if self.on("energy") else None}
+
     def client_added(self) -> list[str]:
         """The settings feed's ``added`` (HA: the kinds of the features loaded), in HA's order: a piece
         Mantel runs while it is on, and a feature whose engine is still HA's while HA has it added."""

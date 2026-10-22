@@ -9,7 +9,7 @@ start the App tells the Supervisor (``POST http://supervisor/discovery``, the Ap
 
 and the Supervisor hands it to Mantel Link's ``async_step_hassio`` (HA's discovery is for administrators).
 
-* **The credential** is a Service account Mantel makes for this: "Home Assistant - App discovery", scope
+* **The credential** is a Service account Mantel makes for this: "Mantel Link - App discovery", scope
   ``linked`` only. It is **rotated whenever the App announces**: the one it made last time is revoked first, so
   at most one is ever live. Home Assistant updates Mantel Link's entry from the new announcement (the same
   instance id), so a link set up from the discovery follows. A link set up by hand (its own credential or a
@@ -32,7 +32,7 @@ import aiohttp
 log = logging.getLogger("mantel.supervisor_discovery")
 
 SERVICE = "mantel"
-ACCOUNT_NAME = "Home Assistant - App discovery"
+ACCOUNT_NAME = "Mantel Link - App discovery"     # Mantel Link's own: revoked, Mantel Link is refused until the App restarts
 KEY = "supervisor_discovery"
 
 

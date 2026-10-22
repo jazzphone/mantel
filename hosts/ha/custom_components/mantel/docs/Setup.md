@@ -10,7 +10,7 @@ When the Mantel App starts, it tells Home Assistant where it is, with a credenti
 2. Confirm. Done: Mantel Link is linked.
 
 Each time the App starts it makes a new credential and announces it again; a Mantel Link set up this way follows it by
-itself. The credential is listed in Mantel Settings → Service Accounts as "Home Assistant - App discovery".
+itself. The credential is listed in Mantel Settings → Service Accounts as "Mantel Link - App discovery": it is Mantel Link's own, so leave it; revoked, Mantel Link is refused until the Mantel App restarts and announces a new one.
 
 ## Discovered on the network (Mantel in Docker or the LXC)
 

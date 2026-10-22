@@ -330,8 +330,12 @@ class Authz:
         return subject
 
     def principal(self, request: web.Request) -> Principal:
-        ident = sessions.identity(request)
-        p = Principal(ident, self.subject_of(ident), sessions.client_ip(request))
+        return self.principal_of(sessions.identity(request), sessions.client_ip(request))
+
+    def principal_of(self, ident: sessions.Identity, source_ip: str | None = None) -> Principal:
+        """A connection's principal for an identity that came another way than a request (linked_reads.py: a
+        linked HK Frontend's dashboard, as the person linked to its Home Assistant user)."""
+        p = Principal(ident, self.subject_of(ident), source_ip)
         p.gate = rbac.Gate(lambda: self.policy_for(p.subject), p.subject, self.context)
         return p
 

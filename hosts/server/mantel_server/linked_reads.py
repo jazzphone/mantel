@@ -48,7 +48,11 @@ class LinkedReads:
             raise LinkedError("not_linked", UNLINKED)
         user = User(id=row["id"], name=row["name"], role=row["role"], kind=row["kind"], username=row["username"],
                     ha_user_id=row["ha_user_id"])
-        return Identity(user=user, device=None, door="ha")
+        ident = Identity(user=user, device=None, door="ha")
+        # the page socket's handlers ask the principal (RBAC's subject and gate), as for any page of Mantel's own
+        # (authz.principal): a bare identity is nobody to them -- "may not use music", no Live TV channels
+        authz = self.app.get("authz")
+        return authz.principal_of(ident) if authz is not None else ident
 
     def _ctx(self, client: Any, ha_user: str, identity: Any) -> Any:
         from .connectors import Ctx

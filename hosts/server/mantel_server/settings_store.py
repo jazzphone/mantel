@@ -1034,8 +1034,17 @@ class SettingsService:
     def house_feed(self) -> dict:
         """The feed with no person's own values over the house's: what a linked HK Frontend's dashboards get
         (HA's feed was always the same for every user; linked_settings.py). No `kinds` (they are a subject's,
-        filtered by what it may view): HA's screens find them themselves, as from a server without them."""
-        return self._with_features(self._personalise(self._base_feed(), {}), None)
+        filtered by what it may view): HA's screens find them themselves, as from a server without them. The
+        Energy page's plan is in it (features.house_part), as HK Frontend's own feed always had it."""
+        payload = self._personalise(self._base_feed(), {})
+        part = getattr(self.features, "house_part", None)
+        if part is None:
+            return self._with_features(payload, None)
+        try:
+            payload.update(part())
+        except Exception:  # noqa: BLE001 -- the rest of the feed still goes out
+            log.exception("the features' part of the house feed failed")
+        return payload
 
     def feed_payload(self, identity: Any) -> dict:
         """What ``hk_frontend/settings/subscribe`` sends this subject: the same shape HA's feed sends

@@ -409,3 +409,30 @@ def test_a_scope_turned_off_is_off(make_env):
     acct, _ = sa.create("ha", ["linked", "linked_saves"])
     assert sa.set_scope(acct.id, "linked_saves", False) is True
     assert next(a for a in sa.list() if a["id"] == acct.id)["scopes"] == ["linked"]
+
+
+async def test_a_relayed_read_is_made_with_the_person_s_permissions(make_env):
+    """The relay answers as the page socket does: with a principal, so feature checks (Live TV, music) see the
+    person. With a bare identity they saw nobody: an empty channel list, "may not use music" (the house, 2026-10-21)."""
+    from mantel_server.authz import Principal
+    from mantel_server.connectors import may_feature
+    env = await make_env()
+    env.app["store"].link(HA_OWNER, "owner", "Fictional Owner")
+    ws = await connect(env, READS)
+    await ws.receive_json(timeout=5)
+    await page(ws, 1, HA_OWNER, {"type": "read", "id": 3, "msg": {"type": "hk_tv/channels"}})
+    ctx = next(iter(env.app["linked_reads"].ctxs.values()))
+    assert isinstance(ctx.identity, Principal) and ctx.identity.user.role == "owner"
+    hooks = env.app["filtered_reads"].hooks
+    assert await may_feature(hooks, ctx.identity, "live_tv") is True
+    await ws.close()
+
+
+async def test_hk_frontend_s_dashboards_get_the_energy_plan(make_env):
+    """The Energy and Power pages read Energy's plan from the settings feed; HK Frontend's own feed sent it to every
+    user, so the house feed for its dashboards carries it too (a person-less feed left it out: empty pages)."""
+    env = await make_env()
+    host = env.app["settings"].features
+    host.house_part = lambda: {"added": ["energy"], "energy": {"sections": ["fictional"]}}
+    frame = LS.frame_of(env.app["settings"])
+    assert frame["payload"]["energy"] == {"sections": ["fictional"]} and frame["payload"]["added"] == ["energy"]
