@@ -93,6 +93,10 @@ export class Hub {
         } else if (m.type === 'command_result' || m.type === 'step_up_required') {
           const p = this.pending.get(m.id);
           if (p && p.command) { this.pending.delete(m.id); p.resolve(m); }
+        } else if (m.type === 'pong') {
+          const waiting = this.pings || [];
+          this.pings = [];
+          for (const done of waiting) done();
         } else if (m.type === 'error') {
           const p = m.id != null ? this.pending.get(m.id) : null;
           if (p && p.command) { this.pending.delete(m.id); p.resolve({ type: 'command_result', error: { code: m.code, message: m.message } }); }
@@ -129,6 +133,18 @@ export class Hub {
   }
 
   _open() { return !!this.ws && this.ws.readyState === 1; }
+
+  // the server's ping (server.py answers {type: ping} with a pong, no id): resolves when the socket answers
+  // within `ms`, rejects when it is closed or silent (a half-open socket still reads OPEN)
+  ping(ms = 5000) {
+    if (!this._open()) return Promise.reject(lost());
+    return new Promise((resolve, reject) => {
+      let done = false;
+      const t = setTimeout(() => { if (!done) { done = true; reject(new Error('no pong')); } }, ms);
+      (this.pings || (this.pings = [])).push(() => { if (!done) { done = true; clearTimeout(t); resolve(); } });
+      this._send({ type: 'ping' });
+    });
+  }
 
   _send(frame) {
     if (!this._open()) return false;

@@ -192,12 +192,23 @@ export class Host {
     this._screensReady = false;             // the events feed answered: the defaults (off) are true
     const self = this;
     const listeners = new Map();
+    // A kiosk app's watchdog reads this as HA's own connection (Kiosk Satellite: `connected` and
+    // `socket.readyState === 1`, a `ping`, then `reconnect(true)` or `socket.close()`, and a page reload
+    // after 15 minutes "down"; the wall tablets reloaded every 15 or 16 minutes, 2026-10-22). So it tells
+    // the truth about Mantel's own socket: up while the hub's is, its ping is the server's, and a nudge
+    // cycles the hub's socket, which reconnects by itself.
+    const open = () => !!(self.hub && self.hub._open && self.hub._open());
+    const cycle = () => { try { if (self.hub && self.hub.ws) self.hub.ws.close(); } catch (e) { /* reconnecting anyway */ } };
     this.connection = {
       subscribeMessage: (cb, msg) => self._subscribe(cb, msg),
-      sendMessagePromise: (msg) => self._call(msg),
+      sendMessagePromise: (msg) => (msg && msg.type === 'ping'
+        ? (self.hub && self.hub.ping ? self.hub.ping() : Promise.reject(new Error('not connected'))).then(() => ({ type: 'pong' }))
+        : self._call(msg)),
       addEventListener: (n, fn) => { (listeners.get(n) || listeners.set(n, new Set()).get(n)).add(fn); },
       removeEventListener: (n, fn) => { const l = listeners.get(n); if (l) l.delete(fn); },
-      socket: { readyState: 1 },
+      get connected() { return open(); },
+      socket: { get readyState() { return open() ? 1 : 3; }, close: cycle },
+      reconnect: cycle,
       haVersion: 'mantel',
     };
     const raw = {
