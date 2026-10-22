@@ -1227,6 +1227,12 @@ Everything on main since 0.1.28 (validation green: JS 130, HA py 732, Mantel 283
   checked of all, with faces, and whether it's running, waiting for an import, done or stopped), counted from the
   rows (`GET /api/photos/faces`). HK Frontend (1.10.7) and Mantel Link (0.1.5) unchanged.
 
+### 0.1.56 (2026-10-22)
+
+- A screensaver's Preview: the Tablet Portrait and Tablet Landscape icons face the right way with the home's own
+  symbols (Apple's iPad is drawn upright, MDI's tablet landscape). HK Frontend gets it at its next build (1.10.7 on
+  the house); Mantel Link (0.1.5) unchanged.
+
 ### Removal
 
 Stop and uninstall **Mantel** (Settings → Apps → Mantel → Uninstall); this removes its image and `/data`

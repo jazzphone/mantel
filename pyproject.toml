@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mantel"
-version = "0.1.55"
+version = "0.1.56"
 description = "Mantel: Home Assistant dashboards inspired by Apple's Home app, with real accounts, roles, wall tablets and an audit log"
 readme = "README.md"
 license = "MIT"
