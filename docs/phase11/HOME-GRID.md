@@ -289,6 +289,11 @@ a 3-column grid, with no page scroll.
   rule (check that the repo is private first; fetch and merge, never force).
 - On this SMB checkout, merge with `git merge --no-autostash -s ort`.
 - Keep the docs' and code comments' plain voice, as the rest of the repository has it.
+- **Follow DESIGN.md** (`/Volumes/config/hk_house/docs/DESIGN.md`, read-only): type roles, spacing, corner radii,
+  plates and materials (Flat and Blur), colors, glyphs, motion and 44 px touch targets, in every card, size, the
+  pager, the view and the editor (the settings kit's iOS-Settings style). Build from HK's existing pieces, not
+  look-alikes. Each slice checks its work against it and lists, in its Progress subsection, anything that can't
+  follow it and why.
 
 ## Progress
 
