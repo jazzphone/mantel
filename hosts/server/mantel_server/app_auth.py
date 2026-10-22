@@ -592,8 +592,12 @@ async def web_session(request: web.Request) -> web.StreamResponse:
         return _page("Can’t Open Mantel", "<p>Not through Home Assistant.</p>", 403)
     # not a sign-in made just now (fresh=False): the app's credential lives 30 days, and its web view must
     # still Confirm It Is You for what asks for that, as any other session does
+    # one web session per app: the app keeps the web view's cookies only while it runs, so the one it was handed
+    # last time is gone with them (0022_app_web_parent); and it ends when the app is signed out
+    for old in mgr.children(got["cred"], WEB_METHOD):
+        mgr.revoke(old, "app_web_replaced")
     issued = mgr.create(got["user_id"], door, WEB_METHOD, fresh=False, user_agent=request.headers.get("User-Agent"),
-                        source_ip=request.remote)
+                        source_ip=request.remote, parent=got["cred"])
     resp = web.HTTPFound(got["next"], headers={"Cache-Control": "no-store", "Referrer-Policy": "no-referrer"})
     set_session_cookies(request, resp, issued)
     raise resp

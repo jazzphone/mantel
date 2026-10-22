@@ -178,8 +178,9 @@ class SessionManager:
 
     def create(self, user_id: str, door: str, method: str, *, now: float | None = None,
                ttl: float | None = None, refresh: bool = True, fresh: bool = True,
-               user_agent: str | None = None, source_ip: str | None = None) -> Issued:
-        """Start a session. ``ttl`` overrides the door's lifetime (the CLI's fixed-length cookies)."""
+               user_agent: str | None = None, source_ip: str | None = None, parent: str | None = None) -> Issued:
+        """Start a session. ``ttl`` overrides the door's lifetime (the CLI's fixed-length cookies). ``parent``: the
+        session this one was handed out by (the Mantel app's web view, app_auth.web_session); it ends with it."""
         if door not in DOORS:
             raise ValueError(f"unknown door {door!r}")
         now = self._now(now)
@@ -195,9 +196,9 @@ class SessionManager:
             self.db.execute("DELETE FROM access_tokens WHERE expires < ?", (now,))
             self.db.execute(
                 "INSERT INTO sessions (id, user_id, door, method, csrf, created, expires, last_seen, "
-                "fresh_factor_at, fresh_factor, user_agent, source_ip) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+                "fresh_factor_at, fresh_factor, user_agent, source_ip, parent_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
                 (sid, user_id, door, method, csrf, now, expires, now, now if fresh else None,
-                 method if fresh else None, (user_agent or "")[:200] or None, source_ip))
+                 method if fresh else None, (user_agent or "")[:200] or None, source_ip, parent))
             self.db.execute("INSERT INTO access_tokens VALUES (?,?,?)", (token_hash(access), sid, access_expires))
             if refresh_token:
                 self.db.execute("INSERT INTO refresh_tokens (hash, session_id, created) VALUES (?,?,?)",
@@ -278,12 +279,20 @@ class SessionManager:
                             (self._now(now), factor, session_id))
 
     def revoke(self, session_id: str, reason: str, now: float | None = None) -> bool:
+        """End a session, and the sessions it handed out (``parent``): an app signed out takes its web view's."""
         now = self._now(now)
         with self.db:
             cur = self.db.execute("UPDATE sessions SET revoked = ?, revoked_reason = ? WHERE id = ? AND revoked IS NULL",
                                   (now, reason, session_id))
             self.db.execute("DELETE FROM access_tokens WHERE session_id = ?", (session_id,))
+        for r in self.db.execute("SELECT id FROM sessions WHERE parent_id = ? AND revoked IS NULL", (session_id,)).fetchall():
+            self.revoke(r["id"], reason, now)
         return cur.rowcount > 0
+
+    def children(self, parent: str, method: str) -> list[str]:
+        """The live sessions ``parent`` handed out with ``method``."""
+        return [r["id"] for r in self.db.execute(
+            "SELECT id FROM sessions WHERE parent_id = ? AND method = ? AND revoked IS NULL", (parent, method))]
 
     def revoke_user(self, user_id: str, reason: str, now: float | None = None, keep: str | None = None) -> int:
         ids = [r["id"] for r in self.db.execute(
@@ -293,8 +302,8 @@ class SessionManager:
     def list(self, user_id: str, now: float | None = None) -> list[dict]:
         now = self._now(now)
         rows = self.db.execute(
-            "SELECT id, user_id, door, method, created, expires, last_seen, fresh_factor_at, user_agent, source_ip "
-            "FROM sessions WHERE user_id = ? AND revoked IS NULL AND expires > ? ORDER BY created", (user_id, now))
+            "SELECT id, user_id, door, method, created, expires, last_seen, fresh_factor_at, user_agent, source_ip, "
+            "parent_id FROM sessions WHERE user_id = ? AND revoked IS NULL AND expires > ? ORDER BY created", (user_id, now))
         return [dict(r) for r in rows]
 
 
@@ -546,7 +555,9 @@ async def list_sessions(request: web.Request) -> web.Response:
     rows = request.app["sessions"].list(target, request.app["clock"]())
     for r in rows:
         r["current"] = r["id"] == ident.session_id
-    return ok({"sessions": rows})
+    # the Mantel apps and their web views are Me → Mantel App's (app_auth.py), one row per app, not here
+    rows = [r for r in rows if r["current"] or (r["method"] != APP_METHOD and r["parent_id"] is None)]
+    return ok({"sessions": [{k: v for k, v in r.items() if k != "parent_id"} for r in rows]})
 
 
 async def revoke_session(request: web.Request) -> web.Response:

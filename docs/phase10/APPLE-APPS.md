@@ -111,6 +111,8 @@ same passkey a person already made in Safari, synced by iCloud Keychain. Nothing
   message rather than a silent trust prompt.
 - The web view gets a normal Mantel session, handed over by a one-time code (`POST /api/app/web-session`),
   in a per-house, non-persistent `WKWebsiteDataStore`. The page never sees the app's tokens.
+  The web session names the app credential that asked for it (`sessions.parent_id`, 0022): a new one ends the
+  app's previous one (whose cookies went with the app), and revoking the app revokes it.
 - **Cloudflare Access** (PLAN §7 calls it mandatory in front of a tunnel): a native app cannot click through
   Access's login page on every request. Options in M10-4.
 

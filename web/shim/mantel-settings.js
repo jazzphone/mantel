@@ -355,7 +355,7 @@ function pMe(sub) {
           if (BASE) location.reload(); else location.assign('/login');
         }
       }, { destructive: true, fk: 'mx:revoke-session:' + s.id }));
-      c.appendChild(group({ header: 'My Sessions', footer: 'Every browser signed in as you.' }, rows.length ? rows : [info('No active sessions')]));
+      c.appendChild(group({ header: 'My Sessions', footer: 'Every browser signed in as you. The Mantel app is under Mantel App, below.' }, rows.length ? rows : [info('No active sessions')]));
       if (acts.length) c.appendChild(group({}, acts));
     }
     if (u.role === 'wall_tablet') {

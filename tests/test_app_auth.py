@@ -584,3 +584,51 @@ async def test_the_apps_web_view_is_not_a_sign_in_made_just_now(mantel):
     r = await m.client.post(f"/api/users/{victim}/password", json={"password": "brand new passphrase"},
                             headers={"X-Mantel-Door": "tunnel", "X-CSRF-Token": s["csrf"]})
     assert r.status == 403 and (await r.json())["error"] == "step_up_required"
+
+
+async def test_each_web_view_replaces_the_apps_last_and_goes_with_the_app(mantel):
+    """The app keeps its web view's cookies only while it runs: every launch's web session stayed for 30 days in
+    My Sessions ("Browser on iPhone", again and again), and signing the app out left them working."""
+    m = mantel
+    phone, tok = await sign_in_app(m)
+    mgr = m.app["sessions"]
+
+    async def open_web_view():
+        m.forget_cookies()
+        r, got = await phone.call("POST", "/api/app/web-session", {"next": "/settings"})
+        assert (await m.client.get(got["url"], allow_redirects=False)).status == 302
+        return (await (await m.client.get("/api/session")).json())["session_id"]
+
+    first = await open_web_view()
+    second = await open_web_view()
+    assert mgr.get(first) is None and mgr.get(second) is not None
+    listed = (await (await m.client.get("/api/sessions")).json())["sessions"]
+    assert [s["id"] for s in listed if s["method"] == "app-web"] == [second]       # only this one, as This Browser
+    assert "app" not in {s["method"] for s in listed} and all("parent_id" not in s for s in listed)
+    m.forget_cookies()
+    await m.sign_in("ann")
+    listed = (await (await m.client.get("/api/sessions")).json())["sessions"]
+    assert {s["method"] for s in listed} == {"password"}                            # the app is under Mantel App
+    assert (await m.client.delete(f"/api/app/devices/{tok['credential_id']}", headers=m.headers())).status == 200
+    assert mgr.get(second) is None
+
+
+def test_migration_0022_ends_the_web_views_it_cannot_place(tmp_path):
+    import sqlite3
+    from mantel_server import db
+    conn = sqlite3.connect(tmp_path / "m.db")
+    conn.row_factory = sqlite3.Row
+    found = [x for x in db.discover() if x.version < 22]
+    folder = tmp_path / "mig"
+    folder.mkdir()
+    for x in found:
+        shutil.copy(db.MIGRATIONS / f"{x.version:04d}_{x.name}.sql", folder)
+    db.migrate(conn, folder)
+    conn.execute("INSERT INTO users (id, name, role, kind, created, updated) VALUES ('u1', 'Ann', 'adult', 'hk', 1, 1)")
+    for sid, method in (("w1", "app-web"), ("p1", "password")):
+        conn.execute("INSERT INTO sessions (id, user_id, door, method, csrf, created, expires) VALUES (?, 'u1', 'lan', ?, 'c', 1, 9e12)",
+                     (sid, method))
+    conn.commit()
+    db.migrate(conn)
+    got = {r["id"]: (r["revoked"] is not None, r["revoked_reason"]) for r in conn.execute("SELECT * FROM sessions")}
+    assert got == {"w1": (True, "app_web_replaced"), "p1": (False, None)}

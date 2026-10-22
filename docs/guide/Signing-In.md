@@ -128,6 +128,8 @@ Then you sign in again. A session belongs to the door it started on: a session f
 
 **Mantel Settings** → **Me** → **My Sessions** lists every browser signed in as you: the browser, home or remote, how you signed in, its address, when it was last seen and when it ends.
 
+The Mantel app isn't listed there: each iPhone, iPad or Mac is one row under **Mantel App**, and signing it out there also signs out the pages it shows.
+
 - **Sign Out Here** ends this browser's session. So does **Sign Out** at the bottom of **Me**.
 - **Revoke** next to another browser signs it out at once. Use it for a lost phone.
 
