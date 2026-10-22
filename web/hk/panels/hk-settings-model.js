@@ -1893,6 +1893,8 @@
   }
   var PREVIEW_SIZES = [
     { key: 'phone', label: 'Phone', w: 390, h: 844, icon: 'hk:cellphone' },
+    // rotate: for the tablet glyph as MDI draws it (landscape); hk-settings.js turns the other one when the home's
+    // own symbols draw it upright
     { key: 'portrait', label: 'Tablet Portrait', short: 'Portrait', w: 820, h: 1180, icon: 'hk:tablet', rotate: true },
     { key: 'landscape', label: 'Tablet Landscape', short: 'Landscape', w: 1280, h: 800, icon: 'hk:tablet' },
     { key: 'desktop', label: 'Desktop', w: 1440, h: 900, icon: 'hk:monitor' },

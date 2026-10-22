@@ -1732,9 +1732,13 @@
       var key = sizes.some(function (z) { return z.key === chosen; }) ? chosen : M.previewDefault(b);
       var pick = h('div', { class: 'seg pvsize', role: 'radiogroup', 'aria-label': 'Preview size' });
       var dims = h('span', { class: 'pvdim' });
+      // the tablet glyph is drawn landscape (MDI's) unless the home's own symbols are here (Apple's iPad, upright):
+      // then Landscape is the one turned, not Portrait
+      var upright = !!(window.hkGlyphs && window.hkGlyphs.icons && window.hkGlyphs.icons.tablet);
       var btns = sizes.map(function (z, i) {
+        var turn = z.icon === 'hk:tablet' && upright ? !z.rotate : !!z.rotate;
         var btn = h('button', { type: 'button', role: 'radio', 'data-size': z.key, 'aria-label': z.label, title: z.label }, [
-          h('hk-icon', { icon: z.icon, class: z.rotate ? 'rot' : '', 'aria-hidden': 'true' }),
+          h('hk-icon', { icon: z.icon, class: turn ? 'rot' : '', 'aria-hidden': 'true' }),
           h('span', { class: 'lb', text: z.label }),
           h('span', { class: 'sh', text: z.short || z.label })]);
         btn.addEventListener('click', function () { choose(z.key); });
@@ -1749,6 +1753,19 @@
         pick.appendChild(btn);
         return btn;
       });
+      if (!upright && !(window.hkGlyphs && window.hkGlyphs.icons)) {
+        // the home's symbols may still be loading (hk-icons.js says when): turn the tablets then
+        var glyphs = function (e) {
+          if (!e || e.detail !== 'hkGlyphs') return;
+          window.removeEventListener('hk-module-ready', glyphs);
+          var up = !!(window.hkGlyphs && window.hkGlyphs.icons && window.hkGlyphs.icons.tablet);
+          btns.forEach(function (b, k) {
+            var z = sizes[k], ic = b.querySelector('hk-icon');
+            if (ic && z.icon === 'hk:tablet') ic.classList.toggle('rot', up ? !z.rotate : !!z.rotate);
+          });
+        };
+        window.addEventListener('hk-module-ready', glyphs);
+      }
       var fit = function () {
         var z = sizes.filter(function (x) { return x.key === key; })[0] || sizes[0];
         var maxH = self._pvPinned ? Math.max(150, Math.round((window.innerHeight || 800) * 0.28))
