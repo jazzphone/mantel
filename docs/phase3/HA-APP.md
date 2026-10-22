@@ -1212,6 +1212,15 @@ Everything on main since 0.1.28 (validation green: JS 130, HA py 732, Mantel 283
   redrew, and typing in the field doesn't redraw it, so a new address couldn't be saved. Saving an unchanged
   address does nothing. `tools/app_dev_server.py` turns control on itself when an earlier run left it off.
 
+### 0.1.54 (2026-10-22)
+
+- **Mantel Photos: Keep in View.** Mantel finds where each photo's faces are (YuNet via ONNX Runtime, on the
+  server, boxes only, never who), on upload and by a background backfill for the photos already in the library
+  (migration 0024). The Photo and Mosaic screensavers crop and zoom around them, and an Owner or Admin can set a
+  photo's point by hand in the viewer or put it back to Automatic. The Mosaic picks layouts that fit the photos'
+  shapes. New dependencies: onnxruntime and numpy (about 130-140 MB more in the image). docs/phase4/PHOTOS.md.
+- HK Frontend: the shape-aware Mosaic needs its next build; Mantel Link unchanged (0.1.5).
+
 ### Removal
 
 Stop and uninstall **Mantel** (Settings → Apps → Mantel → Uninstall); this removes its image and `/data`
