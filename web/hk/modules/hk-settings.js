@@ -328,6 +328,13 @@
     // THE POP-UPS (settings.py `popups`): a list, taken whole.
     var pp = over && over.popups;
     out.popups = Array.isArray(pp) ? JSON.parse(JSON.stringify(pp)) : [];
+    // WHERE HK'S TEXTS SEND SOMEONE (`places`: phrase -> the place, from a host whose settings are elsewhere while
+    // another server runs the house; hk-host-shell.js haPlace)
+    var pl = over && over.places;
+    out.places = {};
+    if (pl && typeof pl === 'object' && !Array.isArray(pl)) {
+      Object.keys(pl).forEach(function (k) { if (typeof pl[k] === 'string') out.places[k] = pl[k]; });
+    }
     // THE WALL TABLETS (1.14, settings.py `tablet_items`): by id, taken
     // whole. null from a server before 1.14 -- tablet() then reads the
     // screens' own Tablet User, as before.

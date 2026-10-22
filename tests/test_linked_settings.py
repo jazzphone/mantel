@@ -300,3 +300,98 @@ async def test_a_linked_hk_frontend_with_actions_reaches_mantel_s_engines(make_e
         code = (f.get("error") or {}).get("code")
         assert (code != "unknown_service") is reached, (header, f)
         await ws.close()
+
+
+# ------------------------------------------------------------------ the dashboards' feature reads (linked_reads.py)
+READS = HK + ",actions,reads"
+
+
+async def page(ws, mid, ha_user, frame):
+    await ws.send_json({"id": mid, "type": "page", "ha_user": ha_user, "frame": frame})
+    got = []
+    while True:
+        f = await ws.receive_json(timeout=5)
+        got.append(f)
+        if f.get("type") == "result" and f.get("id") == mid:
+            return f, got
+
+
+async def test_a_dashboard_s_feature_read_is_answered_by_mantel_as_the_person(make_env):
+    env = await make_env()
+    env.app["store"].link(HA_OWNER, "owner", "Fictional Owner")
+    ws = await connect(env, READS)
+    await ws.receive_json(timeout=5)
+    # a subscription Mantel answers itself: the settings feed, as the person (their own values over the house's)
+    res, got = await page(ws, 1, HA_OWNER, {"type": "read_subscribe", "id": 7, "msg": {"type": "hk_frontend/settings/subscribe"}})
+    assert res["success"], res
+    frames = [f["frame"] for f in got if f.get("type") == "page_frame"]
+    while not (any(fr.get("type") == "read_result" for fr in frames) and any(fr.get("type") == "read_event" for fr in frames)):
+        f = await ws.receive_json(timeout=5)
+        if f.get("type") == "page_frame":
+            frames.append(f["frame"])
+    assert any(fr["type"] == "read_event" and fr["id"] == 7 and "boards" in fr["event"] for fr in frames)
+    assert next(fr for fr in frames if fr["type"] == "read_result")["id"] == 7
+    # unsubscribe ends it
+    res, _ = await page(ws, 2, HA_OWNER, {"type": "read_unsubscribe", "id": 7})
+    assert res["success"]
+    ctx = next(iter(env.app["linked_reads"].ctxs.values()))
+    assert ("read", 7) not in ctx.subs
+    await ws.close()
+
+
+async def test_feature_reads_are_refused_in_words(make_env):
+    env = await make_env()
+    ws = await connect(env, READS)
+    await ws.receive_json(timeout=5)
+    res, _ = await page(ws, 1, HA_NOBODY, {"type": "read", "id": 1, "msg": {"type": "hk_tv/channels"}})
+    assert not res["success"] and res["error"]["code"] == "not_linked"
+    env.app["store"].link(HA_OWNER, "owner", "Fictional Owner")
+    res, _ = await page(ws, 2, HA_OWNER, {"type": "read", "id": 2, "msg": {"type": "get_states"}})
+    assert not res["success"] and res["error"]["code"] == "not_mantels", "only Mantel's own reads, never HA's data"
+    await ws.close()
+    ws = await connect(env, HK)                       # no `reads` feature
+    res, _ = await page(ws, 3, HA_OWNER, {"type": "read", "id": 3, "msg": {"type": "hk_tv/channels"}})
+    assert not res["success"] and res["error"]["code"] == "bad_request"
+    await ws.close()
+
+
+async def test_closing_the_link_ends_its_pages_subscriptions(make_env):
+    import asyncio
+    env = await make_env()
+    env.app["store"].link(HA_OWNER, "owner", "Fictional Owner")
+    ws = await connect(env, READS)
+    await ws.receive_json(timeout=5)
+    await page(ws, 1, HA_OWNER, {"type": "read_subscribe", "id": 9, "msg": {"type": "hk_frontend/settings/subscribe"}})
+    feeds = len(env.app["settings"]._feeds)
+    await ws.close()
+    for _ in range(50):
+        if not env.app["linked_reads"].ctxs:
+            break
+        await asyncio.sleep(0.05)
+    assert not env.app["linked_reads"].ctxs and len(env.app["settings"]._feeds) == feeds - 1
+
+
+async def test_a_relayed_read_is_never_sent_back_to_home_assistant(make_env):
+    """Live TV off in Mantel: its channel read would go to Home Assistant, whose HK Frontend relays it straight back
+    here (a loop). Relayed, it answers "not set up" instead, and nothing is asked of Home Assistant."""
+    env = await make_env()
+    env.app["store"].link(HA_OWNER, "owner", "Fictional Owner")
+    asked = []
+    reads = env.app["filtered_reads"]
+    real = reads.request
+
+    async def spy(identity, msg):
+        asked.append(msg.get("type"))
+        return await real(identity, msg)
+    reads.request = spy
+    ws = await connect(env, READS)
+    await ws.receive_json(timeout=5)
+    res, got = await page(ws, 1, HA_OWNER, {"type": "read", "id": 3, "msg": {"type": "hk_tv/channels"}})
+    frames = [f["frame"] for f in got if f.get("type") == "page_frame"]
+    while not frames:
+        f = await ws.receive_json(timeout=5)
+        if f.get("type") == "page_frame":
+            frames.append(f["frame"])
+    assert frames[0]["result"] == {"configured": False, "channels": []}
+    assert "hk_tv/channels" not in asked
+    await ws.close()

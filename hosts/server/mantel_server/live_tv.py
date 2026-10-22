@@ -621,6 +621,9 @@ class MantelLiveTv:
         if set(msg) - {"type", "id"}:
             raise ReadBlocked("hk_tv/channels carries nothing")
         if not self.serves():
+            from .linked_reads import FROM_LINK
+            if FROM_LINK.get():
+                return {"configured": False, "channels": []}     # HK Frontend's dashboard: Live TV is off in Mantel
             reads = self.app.get("filtered_reads")
             if reads is None:
                 raise ConnectionError("unavailable")

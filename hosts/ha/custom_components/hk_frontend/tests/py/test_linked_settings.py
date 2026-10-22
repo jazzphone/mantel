@@ -29,7 +29,8 @@ def _feed(hass):
 
 
 def _events(conn):
-    return [m["event"] for m in conn.sent if m.get("type") == "event"]
+    """The feed's events, without `places` (where HK's texts send someone: added while Mantel runs the house)."""
+    return [{k: v for k, v in m["event"].items() if k != "places"} for m in conn.sent if m.get("type") == "event"]
 
 
 async def test_the_link_asks_for_the_settings(hass, base, mantel):
@@ -63,7 +64,7 @@ async def test_settings_sent_badly_are_ignored(hass, base, mantel):
     await mantel.push(SETTINGS)
     from custom_components.hk_frontend import linked_mode
     await until(hass, lambda: linked_mode.mirrored(hass) is not None)
-    assert linked_mode.mirrored(hass) == SETTINGS["payload"]
+    assert {k: v for k, v in linked_mode.mirrored(hass).items() if k != "places"} == SETTINGS["payload"]
     await _unload(hass, e)
 
 
@@ -313,4 +314,84 @@ async def test_items_and_configure_point_to_mantel_settings(hass, base, mantel):
         assert r["type"] == "abort" and r["reason"] == "mantel_runs_it", (kind, r)
     r = await hass.config_entries.options.async_init(e.entry_id)
     assert r["type"] == "menu" and r["step_id"] == "init_mantel" and r["menu_options"] == ["linked", "check", "done"]
+    await _unload(hass, e)
+
+
+# ------------------------------------------------------------ the dashboards' feature reads, answered by Mantel
+def _handler(hass, t):
+    from homeassistant.components import websocket_api
+    return hass.data[websocket_api.DOMAIN][t]
+
+
+class SubConn(Conn):
+    def __init__(self, user):
+        super().__init__(user)
+        self.subscriptions = {}
+
+
+async def test_a_dashboard_s_live_tv_read_is_answered_by_mantel(hass, base, mantel):
+    e = await _linked(hass, mantel)
+    await _mirror(hass, mantel)
+    user = await _admin(hass)
+    handler, schema = _handler(hass, "hk_tv/channels")
+    conn = SubConn(user)
+    handler(hass, conn, schema({"id": 4, "type": "hk_tv/channels"}) if callable(schema) else {"id": 4, "type": "hk_tv/channels"})
+    await until(hass, lambda: mantel.calls("page"))
+    sent = mantel.calls("page")[-1]
+    assert sent["ha_user"] == user.id and sent["frame"]["type"] == "read"
+    assert sent["frame"]["msg"] == {"type": "hk_tv/channels"}
+    await mantel.push({"type": "page_frame", "ha_user": user.id,
+                       "frame": {"type": "read_result", "id": sent["frame"]["id"], "result": {"channels": [{"number": "9.1"}]}}})
+    await until(hass, lambda: any(m.get("id") == 4 for m in conn.sent))
+    got = next(m for m in conn.sent if m.get("id") == 4)
+    assert got["success"] and got["result"] == {"channels": [{"number": "9.1"}]}
+    await _unload(hass, e)
+
+
+async def test_a_dashboard_s_subscription_stays_open_until_the_page_ends_it(hass, base, mantel):
+    e = await _linked(hass, mantel)
+    await _mirror(hass, mantel)
+    user = await _admin(hass)
+    handler, schema = _handler(hass, "hk_music/subscribe")
+    conn = SubConn(user)
+    handler(hass, conn, schema({"id": 5, "type": "hk_music/subscribe"}) if callable(schema) else {"id": 5, "type": "hk_music/subscribe"})
+    await until(hass, lambda: mantel.calls("page"))
+    tid = mantel.calls("page")[-1]["frame"]["id"]
+    assert mantel.calls("page")[-1]["frame"]["type"] == "read_subscribe"
+    # an event before the subscription's own answer waits for it
+    await mantel.push({"type": "page_frame", "ha_user": user.id, "frame": {"type": "read_event", "id": tid, "event": {"n": 1}}})
+    await mantel.push({"type": "page_frame", "ha_user": user.id, "frame": {"type": "read_result", "id": tid, "result": None}})
+    await mantel.push({"type": "page_frame", "ha_user": user.id, "frame": {"type": "read_event", "id": tid, "event": {"n": 2}}})
+    await until(hass, lambda: len([m for m in conn.sent if m.get("type") == "event"]) == 2)
+    kinds = [m.get("type") for m in conn.sent]
+    assert kinds == ["result", "event", "event"], conn.sent
+    assert [m["event"] for m in conn.sent if m["type"] == "event"] == [{"n": 1}, {"n": 2}]
+    conn.subscriptions[5]()                         # the page goes away
+    await until(hass, lambda: any(c["frame"]["type"] == "read_unsubscribe" for c in mantel.calls("page")))
+    await _unload(hass, e)
+
+
+async def test_mantel_s_refusal_of_a_read_reaches_the_page(hass, base, mantel):
+    async def refuse(ws, msg):
+        if msg.get("type") == "page":
+            return {"id": msg["id"], "type": "result", "success": False,
+                    "error": {"code": "not_linked", "message": "Link your Home Assistant user"}}
+        return await mantel.ok(ws, msg)
+    mantel.answer = refuse
+    e = await _linked(hass, mantel)
+    await _mirror(hass, mantel)
+    handler, schema = _handler(hass, "hk_tv/channels")
+    conn = SubConn(await _admin(hass))
+    handler(hass, conn, schema({"id": 6, "type": "hk_tv/channels"}) if callable(schema) else {"id": 6, "type": "hk_tv/channels"})
+    await until(hass, lambda: any(m.get("id") == 6 for m in conn.sent))
+    got = next(m for m in conn.sent if m.get("id") == 6)
+    assert not got["success"] and got["error"]["code"] == "not_linked"
+    await _unload(hass, e)
+
+
+async def test_the_feed_names_mantel_settings_for_setting_a_feature_up(hass, base, mantel):
+    e = await _linked(hass, mantel)
+    await _mirror(hass, mantel)
+    from custom_components.hk_frontend import linked_mode
+    assert linked_mode.mirrored(hass)["places"]["HK Frontend → Add feature"] == "Mantel Settings → Features"
     await _unload(hass, e)

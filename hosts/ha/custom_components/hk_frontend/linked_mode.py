@@ -105,6 +105,20 @@ MIRROR_VERSION = 1
 ISSUE_UNLINKED = "mantel_admins_unlinked"   # Repairs: Home Assistant admins who can't save HK's settings
 # the features' actions: while Mantel runs the house, Mantel's engines run them (its linked_actions.py), so
 # they are forwarded under the same names (feature `actions`); otherwise HA's own run them, as always
+# the features' reads HK's dashboards make (Live TV's channels, music, Clean Areas, the snooze and page-header feeds,
+# a notification's snapshot, pop-ups): while Mantel runs the house Mantel answers them, as the person (feature
+# `reads`; Mantel's linked_reads.py). Subscriptions stay open across a reconnect (asked again).
+READS_REQUEST = ("hk_tv/channels", "hk_music/queue", "hk_notify/snap/sign")
+READS_SUBSCRIBE = ("hk_music/subscribe", "hk_clean_areas/subscribe", "hk_frontend/snooze/subscribe",
+                   "hk_frontend/page_headers/subscribe", "hk_frontend/events/subscribe")
+# where HK's texts send someone to set a feature up, while Mantel runs the house (the settings feed's `places`;
+# hk-host-shell.js haPlace): Mantel's settings, not HK Frontend's own
+PLACES = {p: "Mantel Settings → Features" for p in (
+    "HK Frontend → Add feature", "Devices & Services → HK Frontend → Add feature",
+    "Settings → Devices & services → HK Frontend → Add feature")}
+PLACES.update({p: "Mantel Settings" for p in (
+    "HK Frontend → Configure → Menu and room pages", "Settings → Devices & Services → HK Frontend → Configure",
+    "HK Frontend -> Configure -> Weather")})
 FORWARDED = ("music_play", "music_transfer", "music_stop", "music_transport", "music_play_media", "clean_areas",
              "pause_automation", "resume_automation")
 # the settings saves HK's pages make, as Mantel takes them (its settings_store SETTINGS_SAVES and FEATURE_SAVES;
@@ -264,7 +278,9 @@ def mirrored(hass: HomeAssistant) -> dict[str, Any] | None:
     if linked is None or not linked.full:
         return None
     got = hass.data.get(DOMAIN, {}).get(MIRROR)
-    return dict(got["payload"]) if isinstance(got, Mapping) and isinstance(got.get("payload"), Mapping) else None
+    if not isinstance(got, Mapping) or not isinstance(got.get("payload"), Mapping):
+        return None
+    return {**dict(got["payload"]), "places": dict(PLACES)}
 
 
 def _plain(v: Any) -> Any:
@@ -302,6 +318,33 @@ def forward_actions(hass: HomeAssistant) -> int:
         handler._hk_forwards = True     # type: ignore[attr-defined]
         hass.services.async_register(DOMAIN, name, handler, schema=svc.schema,
                                      supports_response=svc.supports_response or SupportsResponse.NONE)
+        n += 1
+    return n
+
+
+def forward_reads(hass: HomeAssistant) -> int:
+    """Once every command is registered (async_setup): the dashboards' feature
+    reads go to Mantel while it runs the house, here otherwise. How many."""
+    handlers = hass.data.get(websocket_api.DOMAIN, {})
+    n = 0
+    for t in (*READS_REQUEST, *READS_SUBSCRIBE):
+        got = handlers.get(t)
+        if not isinstance(got, tuple) or getattr(got[0], "_hk_forwards", False):
+            continue
+        handler, schema = got
+
+        def wrapper(hass_: HomeAssistant, connection: Any, msg: dict[str, Any], _h: Any = handler,
+                    _sub: bool = t in READS_SUBSCRIBE) -> Any:
+            linked = active(hass_)
+            user = getattr(connection, "user", None)
+            # Home Assistant's own system users (Mantel's connection to HA is one) get HA's own answer: relaying
+            # theirs would send Mantel's read straight back to Mantel
+            if linked is None or mirrored(hass_) is None or user is None or getattr(user, "system_generated", False):
+                return _h(hass_, connection, msg)
+            linked.page_read(connection, msg, _sub)
+            return None
+        wrapper._hk_forwards = True     # type: ignore[attr-defined]
+        websocket_api.async_register_command(hass, t, wrapper, schema)
         n += 1
     return n
 
@@ -367,10 +410,14 @@ class Linked:
         # `bridge`: this release can hand the bridge to Mantel Link (handover.py)
         # `settings`: this release keeps Mantel's settings for its dashboards (on_settings)
         self.link = MantelLink(async_get_clientsession(hass), link["url"], link["token"], self,
-                               features=("bridge", "settings", "actions"), frames={"settings": self.on_settings},
+                               features=("bridge", "settings", "actions", "reads"),
+                               frames={"settings": self.on_settings, "page_frame": self.on_page_frame},
                                **({"timeout": timeout} if timeout is not None else {}))
         self._store: Store = mirror_store(hass)
         self._last: dict[str, Any] | None = None        # the mirror as the Store keeps it
+        # the dashboards' reads in flight or open at Mantel (page_read): tunnel id -> what to answer
+        self._tunnels: dict[int, dict[str, Any]] = {}
+        self._next_tunnel = 0
         self._dirty = False                              # not on disk yet (written at stop at the latest)
         self.descs: dict[str, dict[str, Any]] = {}          # unique id -> Mantel's descriptor
         self.entities: dict[str, LinkedEntity] = {}         # unique id -> the entity added
@@ -415,6 +462,92 @@ class Linked:
         self._last, self._dirty = {"version": version, "payload": payload, "owned": self.full}, True
         self._store.async_delay_save(self._saved, 1)
         async_dispatcher_send(self.hass, SIGNAL_CONFIG)
+
+    # ---- the dashboards' feature reads, answered by Mantel (forward_reads; Mantel's linked_reads.py)
+    @callback
+    def page_read(self, connection: Any, msg: dict[str, Any], sub: bool) -> None:
+        user = getattr(connection, "user", None)
+        if user is None or getattr(user, "system_generated", False):
+            connection.send_error(msg.get("id"), "not_linked", "Only a person's Home Assistant user reads this.")
+            return
+        self._next_tunnel += 1
+        tid = self._next_tunnel
+        body = {k: v for k, v in msg.items() if k != "id"}
+        self._tunnels[tid] = {"conn": connection, "mid": msg.get("id"), "sub": sub, "msg": body, "ha_user": user.id,
+                              "answered": False, "early": []}
+        if sub:
+            @callback
+            def unsubscribe() -> None:
+                t = self._tunnels.pop(tid, None)
+                if t is not None and self.link.connected:
+                    self.hass.async_create_task(self._page(t["ha_user"], {"type": "read_unsubscribe", "id": tid}),
+                                                "hk_frontend: a dashboard's read ended")
+            connection.subscriptions[msg.get("id")] = unsubscribe
+        self.hass.async_create_task(self._ask(tid), "hk_frontend: a dashboard's read to Mantel")
+
+    async def _ask(self, tid: int) -> None:
+        t = self._tunnels.get(tid)
+        if t is None:
+            return
+        frame = {"type": "read_subscribe" if t["sub"] else "read", "id": tid, "msg": t["msg"]}
+        try:
+            await self._page(t["ha_user"], frame, raise_=True)
+        except Refused as err:
+            self._tunnels.pop(tid, None)
+            if not t["answered"]:
+                t["conn"].send_error(t["mid"], err.code, err.message)
+        except LinkError as err:
+            if not t["sub"]:
+                self._tunnels.pop(tid, None)
+            if not t["answered"]:
+                t["answered"] = True
+                t["conn"].send_error(t["mid"], "mantel_away", f"Mantel Server can't be reached ({err.message}).")
+
+    async def _page(self, ha_user: str, frame: dict[str, Any], raise_: bool = False) -> None:
+        try:
+            await self.link.request("page", {"ha_user": ha_user, "frame": frame})
+        except LinkError:
+            if raise_:
+                raise
+
+    @callback
+    def on_page_frame(self, msg: dict[str, Any]) -> None:
+        """Mantel's answer to one of the dashboards' reads, or an event of an open one."""
+        frame = msg.get("frame")
+        t = self._tunnels.get(frame.get("id")) if isinstance(frame, dict) else None
+        if t is None:
+            return
+        conn, mid = t["conn"], t["mid"]
+        if frame.get("type") == "read_result":
+            err = frame.get("error")
+            if isinstance(err, dict):
+                self._tunnels.pop(frame["id"], None)
+                if not t["answered"]:
+                    conn.send_error(mid, str(err.get("code") or "refused"), str(err.get("message") or "refused"))
+                return
+            if not t["sub"]:
+                self._tunnels.pop(frame["id"], None)
+                conn.send_result(mid, frame.get("result"))
+                return
+            if not t["answered"]:
+                t["answered"] = True
+                conn.send_result(mid)
+                for ev in t["early"]:
+                    conn.send_message(websocket_api.event_message(mid, ev))
+                t["early"] = []
+        elif frame.get("type") == "read_event" and t["sub"]:
+            if t["answered"]:
+                conn.send_message(websocket_api.event_message(mid, frame.get("event")))
+            else:
+                t["early"].append(frame.get("event"))      # an event before the subscription's own answer
+
+    @callback
+    def _resubscribe(self) -> None:
+        """The link is back: Mantel's page contexts were ended with it, so the open subscriptions are asked
+        again (their answers already given: only the events follow)."""
+        for tid, t in list(self._tunnels.items()):
+            if t["sub"]:
+                self.hass.async_create_task(self._ask(tid), "hk_frontend: a dashboard's read asked again")
 
     @callback
     def _saved(self) -> dict[str, Any]:
@@ -559,6 +692,7 @@ class Linked:
     def on_connected(self, connected: bool) -> None:
         if connected:
             self.entry.async_create_background_task(self.hass, self._report(), "hk_frontend: report to Mantel")
+            self._resubscribe()
         for ent in self.entities.values():
             if ent.hass is not None:
                 ent.async_write_ha_state()

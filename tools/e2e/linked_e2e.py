@@ -240,6 +240,14 @@ async def settings_steps(app, ha: HA, ws: "HaWs", owner) -> None:
     seen = await ws.feed(lambda e: ((e.get("calendar") or {}).get("event_colors") or {}).get("uid:e2e") == "teal")
     check(seen is not None, "...and HA's dashboards see it (Mantel's new settings come back over the link)")
     hist = service.store.history("house", "settings", 1)[0]
+    # -- a dashboard's feature reads, answered by Mantel as the person (linked_reads.py) -------------------------
+    got = await ws.call({"type": "hk_tv/channels"})
+    ctxs = app["linked_reads"].ctxs
+    check(got.get("success") and any(k[1] == me["result"]["id"] for k in ctxs),
+          "a dashboard's Live TV channels in HA are answered by Mantel, as the linked person")
+    got = await ws.call({"type": "hk_frontend/page_headers/subscribe"})
+    open_subs = sum(len(c.subs) for c in ctxs.values())
+    check(got.get("success") and open_subs >= 1, "a dashboard's live feed (the page headers) stays open at Mantel")
     # -- a screen Home Assistant draws (screens.py): HK's generated dashboard is made there, then removed --------
     st, body = await owner.post("/api/screens", {"title": "E2E HA Screen", "where": "ha"})
     check(st == 200 and body.get("key") == "e2e-ha-screen", f"the Owner adds a screen Home Assistant draws ({st})")

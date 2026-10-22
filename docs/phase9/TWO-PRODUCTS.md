@@ -310,3 +310,24 @@ Tests: HK Frontend's `test_linked_settings.py` (forwarded actions, HA's own when
 and Configure), Mantel's `test_linked_settings.py` (the `actions` gate), and the linked e2e (`hk_frontend.music_stop`
 refused by Mantel in words; Add feature pointing to Mantel Settings).
 
+## Features on HK Frontend's dashboards, answered by Mantel (Avery, 2026-10-21; built)
+
+Avery found HK Frontend's Live TV page in HA saying "Add Live TV (HK Frontend → Add feature)" while Mantel runs the
+house: HK Frontend runs no features then, so its dashboards' feature reads had nobody to answer them. Built:
+
+- **The relay** (Mantel's `linked_reads.py`, HK Frontend's `linked_mode.forward_reads`): while Mantel runs the
+  house, HK Frontend passes its dashboards' feature reads (`READS_REQUEST`: Live TV's channels, the music queue,
+  a notification's snapshot; `READS_SUBSCRIBE`: music, Clean Areas, the snooze and page-header feeds, pop-up
+  events) to Mantel over the link (feature `reads`; `page` / `page_frame`), and Mantel answers them with its own
+  screens' handlers as the person linked to the HA user. Only Mantel's own reads (`app["read_routes"]`); an
+  unlinked HA user is refused in words. Subscriptions stay open; Mantel ends them with the link, and HK Frontend
+  asks again on reconnect.
+- **No loop**: a relayed read is never passed on to Home Assistant (`linked_reads.FROM_LINK`), and HA's own
+  system users (Mantel's own connection to HA) get HA's own answer, never relayed.
+- **The words**: the settings feed carries `places` (HK's "HK Frontend → Add feature" and Configure phrases ->
+  "Mantel Settings → Features" / "Mantel Settings"), which `hk-host-shell.js` `haPlace` uses.
+- **Not yet**: the Live TV viewer heartbeat (`hk_tv/watching`, a write) from an HA dashboard isn't counted; the
+  Energy page's plan isn't in the house feed (it is a person's).
+- **Tests**: both sides' `test_linked_settings.py`, the header pins, and the linked e2e (a dashboard's Live TV
+  read and a live feed through a real HA).
+

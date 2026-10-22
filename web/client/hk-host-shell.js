@@ -141,7 +141,12 @@
     // Frontend's integration: 'Devices & Services → HK Frontend → Add
     // feature'): Home Assistant says it as it is; a host outside it says the
     // place is Home Assistant's ('Home Assistant → Devices & Services → …').
-    haPlace: function (path) { return path; },
+    // The settings feed may name the place itself (`places`: the integration's settings are elsewhere while
+    // another server runs the house); a host's own haPlace says it its way.
+    haPlace: function (path) {
+      var S = window.hkSettings, p = S && typeof S.get === 'function' ? S.get('places', null) : null;
+      return p && typeof p[path] === 'string' ? p[path] : path;
+    },
     // A THING OF HOME ASSISTANT'S OWN (HK Frontend's integration, its device,
     // its actions), named as this host's text names it: as it is in Home
     // Assistant, 'HK Frontend in Home Assistant' elsewhere.

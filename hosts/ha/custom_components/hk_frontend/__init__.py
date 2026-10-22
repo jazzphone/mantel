@@ -337,6 +337,8 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     linked_mode.forward_saves(hass)
     # ...and the features' actions go to Mantel while it runs the house (linked_mode.forward_actions)
     linked_mode.forward_actions(hass)
+    # ...and the dashboards' feature reads (Live TV, music, ...) are answered by Mantel (forward_reads)
+    linked_mode.forward_reads(hass)
     return True
 
 

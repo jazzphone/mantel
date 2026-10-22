@@ -74,7 +74,9 @@ CLIENT_TYPES_2 = CLIENT_TYPES | {"report", "phone_action"}
 # a client that asked for the settings (feature `settings`, HK Frontend) may also send `settings_write`: one save,
 # as the person linked to the Home Assistant user who made it (linked_settings.py)
 SETTINGS_TYPES = frozenset({"settings_write", "report"})
-SERVER_TYPES = frozenset({"hello", "result", "entity", "state", "removed", "owners", "settings"})
+# ...and one that forwards its dashboards' feature reads (feature `reads`) sends `page` (linked_reads.py)
+READS_TYPES = frozenset({"page"})
+SERVER_TYPES = frozenset({"hello", "result", "entity", "state", "removed", "owners", "settings", "page_frame"})
 # `settings` goes only to a client that asked for it (feature `settings`: HK Frontend, linked_settings.py)
 # protocol 2 adds ONE thing Mantel may ask Home Assistant to do: a notification to a Companion-app phone
 # (phones.py; Mantel Link calls notify.mobile_app_<phone> and nothing else)
@@ -90,7 +92,8 @@ _KEYS = {"call_service": {"id", "type", "service", "data", "targets"},
          "ping": {"id", "type"},
          "report": {"id", "type", "report"},
          "phone_action": {"id", "type", "action", "service"},
-         "settings_write": {"id", "type", "ha_user", "msg"}}
+         "settings_write": {"id", "type", "ha_user", "msg"},
+         "page": {"id", "type", "ha_user", "frame"}}
 # a report's parts (protocol 2), each checked by its own key
 _REPORT_KEYS = frozenset({"hk_frontend", "phones", "hk_dashboards"})
 _BOARD = re.compile(r"^[a-z0-9_-]{1,80}$")
@@ -502,6 +505,8 @@ class Linked:
         self.phone_action = None              # phones.Phones.on_action (protocol 2's phone_action)
         self.on_connect: list = []            # async fn(client) after its hello (linked_settings.py)
         self.settings_write = None            # async fn(client, msg): a `settings_write` (linked_settings.py)
+        self.page = None                      # async fn(client, msg): a `page` read (linked_reads.py)
+        self.on_disconnect: list = []         # async fn(client) once its socket has closed
 
     def verify(self, token: str, peer: str | None) -> Any:
         return self.accounts.verify(token, SCOPE, source_ip=peer)
@@ -633,6 +638,10 @@ async def _answer(linked: Linked, client: LinkedClient, msg: dict[str, Any]) -> 
             if linked.phone_action is None:
                 raise LinkedError("not_set_up", "Mantel takes no phone actions here")
             result = linked.phone_action(client, {k: msg[k] for k in ("action", "service") if k in msg})
+        elif t == "page":
+            if linked.page is None:
+                raise LinkedError("not_set_up", "Mantel answers no page reads here")
+            result = await linked.page(client, msg)
         elif t == "settings_write":
             if linked.settings_write is None:
                 raise LinkedError("not_set_up", "Mantel takes no settings saves here")
@@ -669,7 +678,8 @@ def _parse(text: str, protocol: int = 1, features: frozenset[str] = frozenset())
     if isinstance(mid, bool) or not isinstance(mid, int):
         return None, "id: an integer"
     t = msg.get("type")
-    allowed = (CLIENT_TYPES_2 if protocol >= 2 else CLIENT_TYPES) | (SETTINGS_TYPES if "settings" in features else frozenset())
+    allowed = (CLIENT_TYPES_2 if protocol >= 2 else CLIENT_TYPES) | (SETTINGS_TYPES if "settings" in features else frozenset()) \
+        | (READS_TYPES if "reads" in features else frozenset())
     if t not in allowed:
         return msg, f"unknown type {t!r}"
     extra = set(msg) - _KEYS[t]
@@ -751,6 +761,11 @@ async def ws_endpoint(request: web.Request) -> web.StreamResponse:
     finally:
         registry.clients.discard(client)
         watcher.cancel()
+        for fn in list(linked.on_disconnect):
+            try:
+                await _maybe_await(fn(client))
+            except Exception:  # noqa: BLE001 -- the socket is gone either way
+                log.exception("linked: a disconnect hook failed")
         for task in list(tasks):
             task.cancel()
         log.info("linked: %s disconnected", getattr(account, "id", "?"))
