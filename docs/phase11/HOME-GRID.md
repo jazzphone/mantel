@@ -367,3 +367,34 @@ a 3-column grid, with no page scroll.
   setting, `pages` too, not only Home Grid's); a reload shows it. Worth knowing for the editor (G5).
 
 **G1 is done.** Next: G2, G3 and G4, side by side, each in its own session and worktree.
+
+### G2 (2026-10-22, in progress)
+
+**The render audit's Home Grid pass:** `tools/headless/home_grid_audit.py`. A real Mantel Server with the gallery's
+fictional house (`tools/headless/gallery.py`), headless Chrome at 1280 × 800, a 6-column grid. Each card gets a
+screen per look, its Home holding the card once at every size it has (XL, L and T across the top, W and S below).
+The four looks: Flat Light, Flat Dark, and Blur under a day sky and a night one. (On HK's own screens a card is
+white on the sky, never light: `tone()` in hk-base.js; so Blur's light and dark are the sky's.) It measures, in each
+block's cell, every text node's box (inside the cell, and not cut off unless an ellipsis ends it), every icon,
+picture, button and control (inside the cell), that the card's plates cover the block, and no page scroll and no
+script error. `--long` names every thing at twice its length.
+
+**Text scale:** HK draws its type roles in px (`hkCards.TYPE`) and a tablet's text size never reaches them (the
+Mantel app's web view sets `-webkit-text-size-adjust:100%`), so there is one
+scale and the audit runs at it. PLAN-2026-10-12-text-scale is the ink colours, not sizes. The `--long` pass stands
+in for larger text.
+
+**Shared:** hk-base.js: an HkBase card watches its `size` attribute and is rebuilt when it changes (`_cellSize()`
+reads it); `BASE_CSS` makes a sized card and its root the block's height; `hkCards.typeCss(role)` writes a type
+role as declarations.
+
+**Done** (audited: every size, four looks, nothing clipped):
+
+| Card | Sizes | Layout |
+|---|---|---|
+| `accessory` | S, W | the tall tile's layout (glyph at the top, name and state at the foot), filling the block |
+| `scene` | S, W | the same, the scene's bare glyph and two-line name |
+| `scenes` | W, L, XL | a scene tile per cell: W two, L four, XL six; no heading |
+| `now_playing` | W, T, L | W the cover beside the song and transport; T the cover on top; L the cover beside the song and its speaker, a larger transport along the foot. No progress or volume (the sheet has them) |
+
+**Left:** thermostat, camera, security, timers, weather, calendar, battery, people, vacuum, clock.
