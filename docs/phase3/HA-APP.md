@@ -1138,6 +1138,16 @@ Everything on main since 0.1.28 (validation green: JS 130, HA py 732, Mantel 283
 - Set Up Mantel: the Alarm PIN step is done once a keypad with the house PIN covers the alarm.
 - With it, **HK Frontend 1.10.4**, copied by hand. Mantel Link unchanged (0.1.5). No HA backup (Avery).
 
+### 0.1.48 (2026-10-21)
+
+- HK Frontend's dashboards: their features (Live TV, Clean Areas, Music) are read as the person, with their
+  permissions (0.1.47 read them as nobody: no channels, no rooms, music refused), and the Energy and Power pages get
+  Energy's plan.
+- The App discovery Service account is named "Mantel Link - App discovery" (Mantel Link's own credential).
+- Changes from Home Assistant can be turned off again (turning it off did nothing).
+- With it, **HK Frontend 1.10.5**: Linked to Mantel refuses what isn't a Service credential (a password the browser
+  filled in replaced the credential at 19:49 that evening). Mantel Link unchanged (0.1.5). No HA backup (Avery).
+
 ### Removal
 
 Stop and uninstall **Mantel** (Settings → Apps → Mantel → Uninstall); this removes its image and `/data`
