@@ -36,7 +36,7 @@ var ctx = { cameras: ['camera.front_door', 'camera.yard'], climate: ['climate.ha
 var cam = G.config({ card: 'camera', size: 'L' }, ctx);
 ok('a camera block with no camera of its own: the house\'s cameras', cam.type === 'custom:hk-camera-mosaic-card' && cam.cameras.length === 2);
 var th = G.config({ card: 'thermostat', size: 'T' }, ctx);
-ok('a thermostat block: the house\'s first thermostat', th.type === 'custom:hk-climate-card' && th.entity === 'climate.hallway');
+ok('a thermostat block: the house\'s first thermostat, its dial', th.type === 'custom:hk-control-card' && th.entity === 'climate.hallway');
 var thp = G.config({ card: 'thermostat', size: 'T', pages: { source: 'thermostats', start: 'tablet_room' } }, ctx);
 ok('a block with pages is a pager of its card (G4)', thp.type === 'custom:hk-pager-card' && thp.item.card === 'thermostat' && thp.ctx === ctx);
 var np = G.config({ card: 'now_playing', size: 'L', opts: { speaker: 'tablet_room' } }, ctx);

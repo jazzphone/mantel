@@ -399,8 +399,12 @@ screen per look, its Home holding the card once at every size it has (XL, L and 
 The four looks: Flat Light, Flat Dark, and Blur under a day sky and a night one. (On HK's own screens a card is
 white on the sky, never light: `tone()` in hk-base.js; so Blur's light and dark are the sky's.) It measures, in each
 block's cell, every text node's box (inside the cell, and not cut off unless an ellipsis ends it), every icon,
-picture, button and control (inside the cell), that the card's plates cover the block, and no page scroll and no
-script error. `--long` names every thing at twice its length.
+picture, button and control (inside the cell), no word broken across lines, that the card's plates cover the
+block, and no page scroll and no script error. It runs with the tab bar showing (the screen's `menu: tabbar`) and
+once more without it (Flat Dark), and says when a cell runs under the bar. A screen's own problems (the page
+scrolls, a cell under the bar) print as `VIEW` lines, apart from the cards'. Today, with the bar showing, every
+screen's page scrolls: the view is still `100dvh` with the bar's padding added; G4's change ("The tab bar") is
+what fixes it. `--long` names every thing at twice its length.
 
 **Text scale:** HK draws its type roles in px (`hkCards.TYPE`) and a tablet's text size never reaches them (the
 Mantel app's web view sets `-webkit-text-size-adjust:100%`), so there is one
@@ -408,8 +412,9 @@ scale and the audit runs at it. PLAN-2026-10-12-text-scale is the ink colours, n
 in for larger text.
 
 **Shared:** hk-base.js: an HkBase card watches its `size` attribute and is rebuilt when it changes (`_cellSize()`
-reads it); `BASE_CSS` makes a sized card and its root the block's height; `hkCards.typeCss(role)` writes a type
-role as declarations.
+reads it), `_block()` gives the block in px from `--hk-cell-w` / `-h`, and `_watchBlock()` draws a card again when
+that changes (the view measures after the cards are in); `BASE_CSS` makes a sized card and its root the block's
+height; `hkCards.typeCss(role)` writes a type role as declarations.
 
 **Done** (audited: every size, four looks, nothing clipped):
 
@@ -419,8 +424,11 @@ role as declarations.
 | `scene` | S, W | the same, the scene's bare glyph and two-line name |
 | `scenes` | W, L, XL | a scene tile per cell: W two, L four, XL six; no heading |
 | `now_playing` | W, T, L | W the cover beside the song and transport; T the cover on top; L the cover beside the song and its speaker, a larger transport along the foot. No progress or volume (the sheet has them) |
+| `thermostat` | T, L | the dial (`hk-control-card`, in place of the climate tile), as large as the block leaves it, with the mode row; at T the setpoint is the figure role (30) and the modes are 11 px |
+| `camera` | W, L, XL | the camera mosaic sized from the block: W and XL one camera filling it, L two stacked (16:9 each) |
+| `security` | S, W | a plate with the Security page's items one per line (two columns at W), as many as the block's height holds, alerts first |
 
-**Left:** thermostat, camera, security, timers, weather, calendar, battery, people, vacuum, clock.
+**Left:** timers, weather, calendar, battery, people, vacuum, clock.
 
 ### G4 (2026-10-22)
 

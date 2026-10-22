@@ -2399,6 +2399,7 @@
     // that is replaced wholesale without ever disconnecting.
     disconnectedCallback() {
       glassJoin(this, false);
+      if (this._blockRO) { this._blockRO.disconnect(); this._blockRO = null; }
       ON_PAGE.delete(this);
       if (this._hkStatusT) { clearTimeout(this._hkStatusT); this._hkStatusT = null; }
       if (window.hkStats && window.hkStats.release && window.hkStats.release(this)) {
@@ -2452,6 +2453,31 @@
       var s = null;
       try { s = this.getAttribute('size'); } catch (e) { s = null; }    // (a test's bare element)
       return s && HOME_GRID.sizes[s] ? s : null;
+    }
+    // ...and the block in px: its cells (--hk-cell-w / -h, measured by the
+    // view) and the gaps between them; null before the view has measured
+    _block() {
+      var sz = this._cellSize(), n = sz && HOME_GRID.sizes[sz];
+      if (!n || typeof getComputedStyle !== 'function') return null;
+      var cs = getComputedStyle(this), g = HOME_GRID.gap;
+      var cw = parseFloat(cs.getPropertyValue('--hk-cell-w')), ch = parseFloat(cs.getPropertyValue('--hk-cell-h'));
+      if (!(cw > 0 && ch > 0)) return null;
+      return { w: Math.floor(n[0] * cw + (n[0] - 1) * g), h: Math.floor(n[1] * ch + (n[1] - 1) * g) };
+    }
+    // A CARD THAT LAYS OUT BY THE BLOCK'S PX (a camera's picture, how many
+    // rows fit) calls this from _render: it is drawn again whenever the
+    // block's size changes -- the view measures after the cards are in, and
+    // again for a new window or the tab bar
+    _watchBlock() {
+      var b = this._block();
+      this._blockKey = b ? b.w + 'x' + b.h : '';
+      if (this._blockRO || typeof ResizeObserver === 'undefined' || !this._cellSize()) return;
+      var self = this;
+      this._blockRO = new ResizeObserver(function () {
+        var n = self._block();
+        if ((n ? n.w + 'x' + n.h : '') !== self._blockKey) self.redraw();
+      });
+      this._blockRO.observe(this);
     }
 
     _st(id) { return window.hkCardState.state(this.client, id); }

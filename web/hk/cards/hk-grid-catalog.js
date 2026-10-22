@@ -41,7 +41,8 @@
       return Object.assign({ type: 'custom:hk-now-playing-card', music: true }, own(o.speaker) ? { entity: o.speaker } : {}); } },
     thermostat: { sizes: ['T', 'L'], sources: ['thermostats'], card: function (s, o, ctx) {
       var id = own(o.entity) || (ctx.climate || [])[0];
-      return id ? { type: 'custom:hk-climate-card', entity: id, icon_color: 'blue' } : stand('Thermostat', 'hk:thermostat'); } },
+      // the dial (hk-control.js), sized to the block (G2)
+      return id ? { type: 'custom:hk-control-card', entity: id } : stand('Thermostat', 'hk:thermostat'); } },
     camera: { sizes: ['W', 'L', 'XL'], sources: ['cameras'], card: function (s, o, ctx) {
       var ids = o.entity ? [o.entity] : (ctx.cameras || []);
       return ids.length ? { type: 'custom:hk-camera-mosaic-card', height: 195, seam: 2, snapshot_cap: '480x270',
