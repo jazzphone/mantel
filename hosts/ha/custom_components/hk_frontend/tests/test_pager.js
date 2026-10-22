@@ -40,7 +40,7 @@ ok('cameras: one per camera, in Cameras\' order', ids(cams).join() === 'camera.d
    cams[2].card.cameras.length === 1 && cams[2].card.cameras[0].entity === 'camera.yard' && cams[2].area === 'porch');
 var th = G.pages({ card: 'thermostat', size: 'T', pages: { source: 'thermostats' } }, ctx);
 ok('thermostats: one per climate entity, in room order (no room last)',
-   ids(th).join() === 'climate.kitchen,climate.den,climate.attic' && th[0].card.type === 'custom:hk-climate-card' &&
+   ids(th).join() === 'climate.kitchen,climate.den,climate.attic' && th[0].card.type === 'custom:hk-control-card' &&
    th[0].card.entity === 'climate.kitchen' && th[0].area === 'kitchen', ids(th));
 var sp = G.pages({ card: 'now_playing', size: 'L', opts: { speaker: 'tablet_room' }, pages: { source: 'speakers' } }, ctx);
 ok('speakers: one per speaker or group', ids(sp).join() === 'media_player.kitchen,media_player.den,media_player.downstairs' &&
