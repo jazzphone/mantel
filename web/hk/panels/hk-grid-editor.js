@@ -4,24 +4,24 @@
   'use strict';
   if (window.hkGridEditor) return;
   var G = window.hkGridCatalog, SIZES = G.SIZES;
-  var NAMES = { accessory: 'Accessory', scene: 'Scene', scenes: 'Scenes', now_playing: 'Now Playing',
+  var NAMES = { accessory: 'Accessory', accessories: 'Accessory Group', scene: 'Scene', scenes: 'Scenes', now_playing: 'Now Playing',
     thermostat: 'Thermostat', camera: 'Camera', security: 'Security', timers: 'Timers', weather: 'Weather',
     calendar: 'Calendar', battery: 'House Battery', people: 'People', vacuum: 'Vacuum', clock: 'Clock',
     room: 'Room', scene_suggested: 'Suggested Scene', action: 'Action', everything: 'Everything' };
   var SIZE_NAMES = { S: 'Small', W: 'Wide', T: 'Tall', L: 'Large', XL: 'Extra Large', XXL: 'Full Width · 6 × 2' };
   var GROUPS = [
-    ['Rooms & Lights', ['room', 'accessory', 'action']], ['Scenes', ['scene', 'scenes', 'scene_suggested']],
+    ['Rooms & Lights', ['room', 'accessory', 'accessories', 'action']], ['Scenes', ['scene', 'scenes', 'scene_suggested']],
     ['Climate', ['thermostat', 'weather']], ['Music', ['now_playing']],
     ['Security & Cameras', ['security', 'camera']], ['Info', ['clock', 'timers', 'calendar', 'battery', 'people', 'vacuum', 'everything']]
   ];
-  var DESCRIPTIONS = { room: 'Your room’s lights, fans and speaker', accessory: 'One light, switch or other accessory',
+  var DESCRIPTIONS = { room: 'Your room’s lights, fans and speaker', accessory: 'One light, switch or other accessory', accessories: 'Choose accessories and arrange swipe pages',
     action: 'One tap for a household job', scene: 'Set a favourite scene', scenes: 'Your scenes together',
     scene_suggested: 'The right scene for the time of day', thermostat: 'Temperature and climate controls',
     weather: 'Current conditions and the forecast', now_playing: 'Music and playback controls', security: 'Alarm, locks and doors',
     camera: 'One camera, or swipe between cameras', clock: 'Time and date at a glance', timers: 'Timers and quick starts',
     calendar: 'Your upcoming events', battery: 'Your home’s stored energy', people: 'Who is home', vacuum: 'Cleaning status and controls',
     everything: 'Open the screen’s full menu' };
-  var GLYPHS = { room: 'mdi:sofa', accessory: 'mdi:lightbulb', action: 'mdi:gesture-tap', scene: 'mdi:palette',
+  var GLYPHS = { room: 'mdi:sofa', accessory: 'mdi:lightbulb', accessories: 'mdi:view-grid', action: 'mdi:gesture-tap', scene: 'mdi:palette',
     scenes: 'mdi:palette', scene_suggested: 'mdi:weather-sunset', thermostat: 'mdi:thermostat', weather: 'mdi:weather-partly-cloudy',
     now_playing: 'mdi:music', security: 'mdi:shield-home', camera: 'mdi:camera', clock: 'mdi:clock', timers: 'mdi:timer-outline',
     calendar: 'mdi:calendar', battery: 'mdi:home-battery', people: 'mdi:account', vacuum: 'mdi:robot-vacuum', everything: 'mdi:dots-horizontal' };
@@ -271,7 +271,7 @@
       if (!this.grid) { this.say('Choose a starter layout first.'); return; }
       var next = add(this.grid, card, size, at);
       if (!next) { this.say('No space for that size. Remove or move a block first.'); return; }
-      this.selected = next.items[next.items.length - 1].id; next.items[next.items.length - 1].opts = this.previewOptions(card); this.catalog = false; this.change(next);
+      this.selected = next.items[next.items.length - 1].id; next.items[next.items.length - 1].opts = this.previewOptions(card); if (card === 'accessories') next.items[next.items.length - 1].pages = { source: 'accessories' }; this.catalog = false; this.change(next);
     }
     async starter(concept) {
       if (this.busy) return;
@@ -306,18 +306,35 @@
       if (item && !this.catalog) {
         group(NAMES[item.card], [K.button({ label: 'Change Card', onClick: () => this.pickFor('primary') }), K.select({ label: 'Size', value: item.size,
           options: cat[item.card].sizes.filter((sz) => SIZES[sz][0] <= self.grid.cols).map((sz) => [sz, SIZE_NAMES[sz]]),
-          onChange: (sz) => { var next = place(self.grid, item.id, item.at, sz); if (next) self.change(next); else { self.say('That size does not fit here.'); self.side(); } } }),
+          onChange: (sz) => { if (item.card === 'accessories' && item.pages && item.pages.source === 'list' && item.pages.list.some((pg) => (pg.opts.accessories || []).length > G.PER_PAGE[sz])) { self.say('This size holds ' + G.PER_PAGE[sz] + ' accessories per page. Move accessories to another page or choose Automatic Swipe Pages first.'); self.side(); return; } var next = place(self.grid, item.id, item.at, sz); if (next) self.change(next); else { self.say('That size does not fit here.'); self.side(); } } }),
           K.button({ label: 'Remove Block', destructive: true, onClick: () => { var next = copy(self.grid); next.items = next.items.filter((it) => it.id !== item.id); self.selected = null; self.change(next); } })]);
         this.conditions(item, group);
         this.optionFields(item, item.opts || {}, (opts) => this.update(item.id, { opts: opts }), 'Options', false);
-        var sources = [['', 'Single Card'], ['list', 'Custom Pages']].concat(cat[item.card].sources.map((s) => [s, NAMES[s] || s.charAt(0).toUpperCase() + s.slice(1)]));
+        var sources = [['', 'Single Card'], ['list', 'Choose Each Page']].concat(cat[item.card].sources.map((s) => [s, NAMES[s] || s.charAt(0).toUpperCase() + s.slice(1)]));
         var src = item.pages && item.pages.source || '';
         if (item.card === 'room') sources = sources.map((op) => [op[0], op[0] === '' ? 'One Room' : op[0] === 'rooms' ? 'Swipe Between Rooms' : op[1]]);
         if (item.card === 'camera') sources = sources.map((op) => [op[0], op[0] === '' ? 'One Camera' : op[0] === 'cameras' ? 'Swipe All Cameras' : op[1]]);
+        if (item.card === 'accessories') sources = [['accessories', 'Automatic Swipe Pages'], ['list', 'Choose Each Page']];
         var rows = [K.select({ label: item.card === 'camera' ? 'Camera Display' : item.card === 'room' ? 'Room Display' : 'Pages', value: src, options: sources, onChange: (s) => {
+          if (item.card === 'accessories') {
+            var opts = copy(item.opts || {}), per = G.PER_PAGE[item.size], entries = opts.accessories || [];
+            if (s === 'list') {
+              var list = [];
+              for (var i = 0; i < entries.length; i += per) list.push({ opts: { accessories: entries.slice(i, i + per) } });
+              delete opts.accessories;
+              this.update(item.id, { opts: opts, pages: { source: 'list', list: list.length ? list : [{ opts: {} }] } });
+            } else {
+              if (item.pages && item.pages.source === 'list') entries = item.pages.list.flatMap((pg) => pg.opts.accessories || []);
+              var seen = new Set(); entries = entries.filter((e) => !seen.has(e.entity) && seen.add(e.entity));
+              if (entries.length > 24) { this.say('Automatic pages support up to 24 accessories. Remove some first.'); return; }
+              if (entries.length) opts.accessories = entries;
+              this.update(item.id, { opts: opts, pages: { source: 'accessories' } });
+            }
+            return;
+          }
           this.update(item.id, { pages: s ? s === 'list' ? { source: 'list', list: [{ opts: {} }] } : { source: s } : null });
         } })];
-        var roomHelp;
+        var roomHelp = item.card === 'accessories' ? 'Choose accessories below. Each page holds ' + G.PER_PAGE[item.size] + ' tiles at this size. Automatic pages follow their order; Choose Each Page lets you arrange separate sets.' : 'Choose Each Page repeats this card with different accessories or options. Add a page below, then choose what it shows.';
         if (src === 'rooms' && item.card === 'room') {
           var area = (item.opts || {}).area || (item.pages.start === 'tablet_room' ? 'tablet_room' : '');
           var roomIds = this.previewView && this.previewView._config.grid_ctx && this.previewView._config.grid_ctx.rooms;
@@ -423,7 +440,7 @@
       var item = this.grid.items.find((it) => it.id === this.selected), target = this.pickerTarget;
       this.pickerTarget = null; this.catalog = false;
       var variant = { card: key, opts: this.previewOptions(key) };
-      this.update(item.id, target === 'fallback' ? { fallback: variant } : { card: key, opts: variant.opts, pages: null });
+      this.update(item.id, target === 'fallback' ? { fallback: variant } : { card: key, opts: variant.opts, pages: key === 'accessories' ? { source: 'accessories' } : null });
     }
     conditions(item, group) {
       var K = this.K, kind = item.when && item.when.kind || '', self = this;
@@ -464,7 +481,10 @@
     previewOptions(key) {
       var fields = G.table()[key].opts || {}, opts = {}, self = this;
       Object.keys(fields).forEach(function (name) {
-        var kind = fields[name], choices = self.choices(kind).filter((op) => op[0] !== 'tablet_room');
+        var kind = fields[name];
+        if (['secondary', 'title'].includes(kind)) return;
+        if (kind === 'accessories') { opts[name] = self.choices('entity').filter((op) => /^(light|switch|fan|sensor)\./.test(op[0])).slice(0, 4).map((op) => ({ entity: op[0] })); if (!opts[name].length) delete opts[name]; return; }
+        var choices = self.choices(kind).filter((op) => op[0] !== 'tablet_room');
         if (kind === 'scene' && key === 'scene') choices = choices.filter((op) => op[0].indexOf('scene.') === 0);
         if (kind === 'entity') choices = choices.filter((op) => /^(light|switch|fan)\./.test(op[0]));
         if (kind === 'speaker') choices.sort((a, b) => (self.panel.client.states[b[0]]?.state === 'playing') - (self.panel.client.states[a[0]]?.state === 'playing'));
@@ -585,6 +605,12 @@
       Object.keys(fields).forEach(function (key) {
         if (item.card === 'room' && item.id && !page && key === 'area' && item.pages && item.pages.source === 'rooms') return;
         var kind = fields[key], label = item.card === 'room' && key === 'area' ? (item.pages && item.pages.source === 'list' && !page ? 'Default Room' : 'Room') : key.charAt(0).toUpperCase() + key.slice(1);
+        if (kind === 'title') { rows.push(K.text({ label: page ? 'Page Name' : 'Group Name', value: opts[key] || '', maxlength: 60, onCommit: (v) => set(key, v) })); return; }
+        if (kind === 'secondary') { self.secondaryFields(opts[key], opts.entity || (item.opts || {}).entity, (v) => set(key, v), rows); return; }
+        if (kind === 'accessories') {
+          if (!page && item.pages && item.pages.source === 'list') return;
+          self.accessoryFields(opts[key] || [], (v) => set(key, v), rows, page ? G.PER_PAGE[item.size] : 24); return;
+        }
         if (kind === 'boolean') { rows.push(K.toggle({ label: key === 'sky' ? 'Weather Sky Background' : label, on: opts[key] === true, onChange: (on) => set(key, on) })); return; }
         if (kind === 'surface') { self.surfaceFields(opts.surface, (value) => set('surface', value), rows); return; }
         if (kind === 'windows') { self.windows(opts, set, rows); return; }
@@ -603,6 +629,34 @@
       });
       if (!rows.length) rows.push(K.info({ label: 'Uses this screen’s settings' }));
       this.sidebar.appendChild(K.group({ header: title }, rows));
+    }
+    secondaryFields(value, entity, save, rows) {
+      var K = this.K, mode = value && value.mode || 'auto';
+      var a = (this.panel.client.states[entity] || {}).attributes || {};
+      var keys = Object.keys(a).filter((k) => a[k] == null || ['string', 'number', 'boolean'].includes(typeof a[k])).sort();
+      var options = keys.map((k) => [k, k.replace(/_/g, ' ')]);
+      rows.push(K.select({ label: 'Line Under Name', value: mode, options: [['auto', 'Automatic'], ['state', 'State'], ['brightness', 'Brightness'], ['attribute', 'An Attribute'], ['none', 'Hidden']],
+        onChange: (m) => save(m === 'auto' ? null : m === 'attribute' ? { mode: m, attribute: keys.includes('battery_level') ? 'battery_level' : keys[0] || 'friendly_name' } : { mode: m }) }));
+      if (mode !== 'attribute') return;
+      var key = value.attribute;
+      if (!keys.includes(key)) options.push([key, key + ' (Not Reported)']);
+      rows.push(K.select({ label: 'Attribute', value: key, options: options, onChange: (v) => save(Object.assign({}, value, { attribute: v })) }));
+      rows.push(K.text({ label: 'Unit (Optional)', value: value.unit || '', maxlength: 20, onCommit: (v) => save(Object.assign({}, value, { unit: v })) }));
+    }
+    accessoryFields(entries, save, rows, max) {
+      var K = this.K, self = this, choices = this.choices('entity');
+      var put = (i, patch) => { var next = copy(entries); next[i] = Object.assign({}, next[i], patch); if (patch.secondary === null) delete next[i].secondary; save(next); };
+      entries.forEach(function (entry, i) {
+        var options = choices.filter((op) => op[0] === entry.entity || !entries.some((e) => e.entity === op[0]));
+        if (!options.some((op) => op[0] === entry.entity)) options.push([entry.entity, entry.entity + ' (Unavailable)']);
+        rows.push(K.select({ label: 'Accessory ' + (i + 1), value: entry.entity, options: options, onChange: (id) => put(i, { entity: id, secondary: null }) }));
+        self.secondaryFields(entry.secondary, entry.entity, (v) => put(i, { secondary: v }), rows);
+        rows.push(K.button({ label: 'Move Accessory ' + (i + 1) + ' Up', disabled: i === 0, onClick: () => { var next = copy(entries); next.splice(i - 1, 0, next.splice(i, 1)[0]); save(next); } }));
+        rows.push(K.button({ label: 'Remove Accessory ' + (i + 1), destructive: true, onClick: () => { var next = copy(entries); next.splice(i, 1); save(next.length ? next : null); } }));
+      });
+      if (entries.length >= max) { rows.push(K.info({ label: max + ' accessories selected. Add another page for more.' })); return; }
+      rows.push(K.select({ label: 'Add Accessory', value: '', options: [['', 'Choose an Accessory…']].concat(choices.filter((op) => !entries.some((e) => e.entity === op[0]))),
+        onChange: (id) => { if (id) save(entries.concat([{ entity: id }])); } }));
     }
     surfaceFields(surface, save, rows) {
       var K = this.K;

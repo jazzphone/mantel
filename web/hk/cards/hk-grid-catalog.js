@@ -31,8 +31,10 @@
   // sees it -- { cameras, climate, rooms, weather, vacuum, battery } -- for a block
   // that names nothing of its own.
   var CARDS = {
-    accessory: { sizes: ['S', 'W'], sources: [], opts: { entity: 'entity' }, card: function (s, o) {
-      return o.entity ? { type: 'custom:hk-tile-card', entity: o.entity } : stand('Accessory', 'mdi:lightbulb'); } },
+    accessory: { sizes: ['S', 'W'], sources: [], opts: { entity: 'entity', secondary: 'secondary' }, card: function (s, o) {
+      return o.entity ? { type: 'custom:hk-tile-card', entity: o.entity, secondary: o.secondary } : stand('Accessory', 'mdi:lightbulb'); } },
+    accessories: { sizes: ['W', 'L', 'XL', 'XXL'], sources: ['accessories'], opts: { accessories: 'accessories', title: 'title', surface: 'surface' }, card: function (s, o) {
+      return { type: 'custom:hk-grid-accessories-card', accessories: o.accessories || [], title: o.title || 'Accessories', surface: o.surface }; } },
     scene: { sizes: ['S', 'W'], sources: [], opts: { scene: 'scene' }, card: function (s, o) {
       return o.scene ? { type: 'custom:hk-scene-card', entity: o.scene, icon_color: 'white' } : stand('Scene', 'mdi:palette'); } },
     scenes: { sizes: ['W', 'L', 'XL', 'XXL'], sources: ['scenes'], opts: { scenes: 'scenes', surface: 'surface' }, card: function (s, o) {
@@ -91,7 +93,7 @@
       return Object.assign({ type: 'custom:hk-action-card', action: o.action || 'lock_up' }, o.area ? { area: o.area } : {}); } },
     everything: { sizes: ['S'], sources: [], opts: {}, card: function () { return { type: 'custom:hk-everything-card' }; } }
   };
-  var SOURCES = ['list', 'rooms', 'cameras', 'thermostats', 'speakers', 'scenes'];
+  var SOURCES = ['list', 'rooms', 'cameras', 'thermostats', 'speakers', 'scenes', 'accessories'];
 
   // A BLOCK'S CARD: the item's card at its size, with its options -- or, for
   // a block with pages from a source its card has, an hk-pager-card, which
@@ -140,6 +142,9 @@
     if (!paged(it)) { /* no pages: the block's card, below */ }
     else if (p.source === 'list') {
       out = p.list.map(function (pg) { return page((pg && pg.opts) || {}); });
+    } else if (p.source === 'accessories') {
+      var entries = base.accessories || [], count = PER_PAGE[it.size] || 2;
+      for (var ai = 0; ai < entries.length; ai += count) out.push(page({ accessories: entries.slice(ai, ai + count) }));
     } else if (p.source === 'rooms') {
       out = rooms.map(function (a) { return page({ area: a }, { area: a }); });
     } else if (p.source === 'cameras') {

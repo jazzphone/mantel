@@ -2,6 +2,17 @@
 
 All notable changes to Mantel are listed here. Versions follow [semantic versioning](https://semver.org); the Home Assistant App, the Docker images and the Python package share one version number.
 
+## 0.1.62 - 2026-10-23
+
+Local Home Assistant App update for the house.
+
+- Accessory Groups combine selected accessories into fixed-size tiles and automatic or individually arranged swipe pages, with clearer page controls in the editor.
+- Accessory captions can show state, brightness, a selected attribute with an optional unit, or be hidden.
+- Person detail sheets fit their contents and scroll on short screens.
+- Desktop card paging supports mouse dragging and trackpad/wheel input without resetting on state updates. Header chips align right and scroll when needed.
+- Group controls appear in accessory lists and Lights without automatically counting their members twice. Ignore Announcements recognizes HA service events and speaker counterparts.
+- Thermostats and other paged cards use shared-layer blur correctly. Page-control pills grow to enclose their dots.
+
 ## 0.1.61 - 2026-10-23
 
 Local Home Assistant App update for the house.

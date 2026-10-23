@@ -794,7 +794,17 @@
       var nm = cfg.name || (st && st.attributes && st.attributes.friendly_name) || cfg.entity;
       if (e.name.textContent !== nm) e.name.textContent = nm;
       if (e.label) {
-        var lb = this._label(st) || '';
+        var lb = this._label(st) || '', secondary = cfg.secondary;
+        if (secondary && secondary.mode !== 'auto') {
+          var a = st && st.attributes || {}, value;
+          if (secondary.mode === 'none') lb = '';
+          else if (secondary.mode === 'state') lb = st ? titled(st.state) : 'Unavailable';
+          else if (secondary.mode === 'brightness') lb = brightnessLabel(st);
+          else if (secondary.mode === 'attribute') {
+            value = a[secondary.attribute];
+            lb = value == null || typeof value === 'object' ? '—' : String(value) + (secondary.unit ? ' ' + secondary.unit : '');
+          }
+        }
         if (e.label.textContent !== lb) e.label.textContent = lb;
       }
     }

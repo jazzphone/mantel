@@ -143,7 +143,7 @@
 
     var CSS = [
       ':host{display:block;color:' + window.hkCards.v('ink') + '}',
-      '.pp{display:flex;gap:' + SP.region + 'px;min-height:100%;box-sizing:border-box}',
+      '.pp{display:flex;gap:' + SP.region + 'px;min-height:0;box-sizing:border-box}',
       '.col{display:flex;flex-direction:column;gap:' + SP.block + 'px;min-width:0}',
       '.c1{width:340px;flex:none}.c2{flex:1}',
       '.pp.one{flex-direction:column;gap:' + SP.block + 'px}.pp.one .c1,.pp.one .c2{width:auto;display:contents}',
@@ -176,8 +176,8 @@
       '.axx{position:relative;height:14px;margin-top:8px;font-size:12px;line-height:14px;color:' + window.hkCards.v('ink-3') + '}',
       '.axx span{position:absolute;top:0;white-space:nowrap;transform:translateX(-50%)}',
       '.axx span:first-child{transform:none}.axx span:last-child{transform:translateX(-100%)}',
-      '.map{position:relative;flex:1;min-height:0;border-radius:' + SP.cardR + 'px;overflow:hidden;background:#1b1d22}',
-      '.pp.one .map{flex:none;height:240px}',
+      '.map{position:relative;flex:1;min-height:280px;border-radius:' + SP.cardR + 'px;overflow:hidden;background:#1b1d22}',
+      '.pp.one .map{flex:none;min-height:0;height:240px}',
       '.map .t{position:absolute;left:50%;top:50%}',
       '.map .t img{position:absolute;width:' + TILE + 'px;height:' + TILE + 'px;',
       '  filter:invert(.92) hue-rotate(180deg) saturate(.35) brightness(1.05) contrast(.95)}',
@@ -207,7 +207,7 @@
       static get CSS() { return U.PANEL_CSS + U.NOTE_CSS + CSS; }
       hkWidthKind() { return 'person'; }
       hkNoGear() { return true; }
-      hkFill() { return !matchMedia('(max-width:' + C.BP.phone + 'px)').matches; }
+      hkAutoHeight() { return true; }
       // the notification's card, at the top of the left column
       hkNote(card) { this._note = card; if (this._c1) this._c1.insertBefore(card, this._c1.firstChild); }
       // the header's well is their picture, its name theirs

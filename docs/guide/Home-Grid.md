@@ -12,8 +12,14 @@ For a new layout, start with **Tap Weight** (the largest blocks are the ones you
 - Select a block, then use the arrow keys to move it with the keyboard.
 - Select **+ Add**, search or choose a group, then choose a card. Its illustrative preview uses sample readings and named sizes; the saved card uses your home's live data. **Add** uses the first free space; you can also drag the preview onto the grid. Sizes without space say so.
 - Select a block to change its size, options or pages, or remove it.
-- Choose **Custom Pages** to add pages of the same card with different options. You can move pages up or remove them. Rooms, cameras, thermostats, speakers and scenes also have automatic page sources.
+- Choose **Choose Each Page** to add pages of the same card with different options. You can move pages up or remove them. Rooms, cameras, thermostats, speakers and scenes also have automatic page sources.
 - **Tablet’s Room** means the room of the tablet displaying the screen. A copied layout keeps that meaning.
+
+To combine accessories from different rooms in one block, choose **+ Add → Rooms & Lights → Accessory Group**. Choose a size and use **Add Accessory** to build an ordered list. **Automatic Swipe Pages** fills each page in that order: Wide holds two, Large four, Extra Large six, and Full Width twelve. Use **Move Accessory Up** to reorder them. A sparse last page keeps the same tile sizes.
+
+For precise page contents, change **Pages → Choose Each Page**. The current list splits into pages; select the accessories under **Page 1**, **Page 2**, and so on. **Add Page** creates an empty page to fill. Pages can have their own name, and you can move or remove them. This groups controls on the dashboard; it does not create a Home Assistant group or combine their actions.
+
+On an **Accessory** card, or each accessory inside an **Accessory Group**, **Line Under Name** chooses Automatic, State, Brightness, An Attribute, or Hidden. Choose **An Attribute** to select a reported scalar value such as battery level or current temperature, with an optional unit. Missing values show a dash. These choices belong to this block/page and follow live updates.
 
 **Screen Settings → Grid Scale** defaults to **Automatic Fit**. The grid uses the design’s 196 × 150 tall-tile unit with 10-pixel gaps, then scales uniformly to fit beside the navigation bar. Larger screens keep the original size; different ratios leave space around the grid. Choose 50–90% of Fit for a smaller layout. Frame Width and Height only set the editor’s preview display.
 
@@ -56,3 +62,5 @@ The desktop editor has passed browser checks in Mantel and a scratch Home Assist
 The screenshots use fictional devices and Arial. Camera pictures are illustrative landscapes.
 
 People cards and person sheets use Home Assistant person portraits through Mantel’s authenticated image route. If a picture is missing or fails to load, initials appear instead.
+
+Person detail sheets size to their contents, keeping the map, history, phone battery and other members together. On shorter phone screens the content scrolls inside the sheet.

@@ -150,3 +150,29 @@ def test_header_clock_and_weather_are_independent_and_checked():
     assert grid['header_clock'] is False and grid['header_weather'] is True
     with pytest.raises(HG.GridInvalid):
         HG.check({'items': [], 'header_clock': 'false'})
+
+
+@pytest.mark.parametrize("size,per", [("W", 2), ("L", 4), ("XL", 6), ("XXL", 12)])
+def test_accessory_collection_checks_paging_and_caption(size, per):
+    entries = [{"entity": f"sensor.reading_{i}", "secondary": {"mode": "attribute", "attribute": "battery_level", "unit": "%"}} for i in range(per + 1)]
+    row = {"id": "group", "card": "accessories", "size": size, "at": [0, 0], "opts": {"title": "My Accessories", "accessories": entries}}
+    _, errors = write(row)
+    assert errors == {"home_grid": "grid_option"}  # never silently discard overflow
+    saved, errors = write({**row, "pages": {"source": "accessories"}})
+    assert errors == {} and saved["home_grid"]["items"][0]["opts"]["accessories"] == entries
+    saved, errors = write({**row, "opts": {"title": "My Accessories"}, "pages": {"source": "list", "list": [
+        {"opts": {"accessories": entries[:per]}}, {"opts": {"accessories": entries[per:]}}]}})
+    assert errors == {}
+
+
+@pytest.mark.parametrize("secondary", [{"mode": "bad"}, {"mode": "attribute"}, {"mode": "attribute", "attribute": "x.y"},
+    {"mode": "state", "unit": "%"}, {"mode": "attribute", "attribute": "level", "unit": "x" * 21}])
+def test_invalid_caption_options_are_refused(secondary):
+    _, errors = write({"id": "one", "card": "accessory", "size": "S", "at": [0, 0], "opts": {"entity": "sensor.a", "secondary": secondary}})
+    assert errors == {"home_grid": "grid_option"}
+
+
+def test_duplicate_collection_entries_are_refused():
+    _, errors = write({"id": "group", "card": "accessories", "size": "L", "at": [0, 0],
+                       "opts": {"accessories": [{"entity": "light.a"}, {"entity": "light.a"}]}})
+    assert errors == {"home_grid": "grid_option"}

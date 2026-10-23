@@ -483,7 +483,7 @@
           if (!p.tiles.length) {
             var none = document.createElement('div');
             none.className = 'none';
-            none.textContent = p.area ? (p.size === 'W' ? '' : 'No lights in this room') : 'No room';
+            none.textContent = p.empty || (p.area ? (p.size === 'W' ? '' : 'No lights in this room') : 'No room');
             e.tiles.appendChild(none);
           }
           p.tiles.forEach(function (t) {
@@ -605,6 +605,36 @@
         var a = client && client.areas ? Object.keys(client.areas)[0] : null;
         return { area: a || 'living_room' };
       });
+
+    // Custom collections share the room's plate, fixed rows and accessory
+    // controls; their ordered contents and captions belong to this block.
+    class HkGridAccessoriesCard extends HkGridRoomCard {
+      _area() { return null; }
+      _roomPath() { return null; }
+      _openRoom() {}
+      _sigOf() { return super._sigOf() + JSON.stringify(this._config.accessories || []); }
+      _plan() {
+        var client = this.client, size = this._size(), cfg = this._config;
+        var entries = cfg.accessories || [], limit = (COLS[size] || 2) * (size === 'W' ? 1 : 2);
+        var tiles = entries.slice(0, limit).map(function (entry) {
+          var S = window.hkStrategy, id = entry.entity;
+          var t = S && S.tileFor && client ? S.tileFor(client, id, friendly(client, id)) : { type: 'custom:hk-tile-card', entity: id };
+          t = Object.assign({}, t, { secondary: entry.secondary });
+          if (dom(id) === 'light') t.tap_action = { action: 'toggle' };
+          return t;
+        });
+        return { area: null, size: size, tiles: tiles, more: 0, name: cfg.title || 'Accessories', empty: 'Choose accessories in the editor' };
+      }
+      _render() {
+        super._render();
+        this._e.nm.disabled = true;
+        this._e.nm.style.cursor = 'default';
+      }
+    }
+    watchSize(HkGridAccessoriesCard);
+    C.register('hk-grid-accessories-card', HkGridAccessoriesCard, 'HK Accessory Group',
+      'Your chosen accessories together in fixed rows.', [{ name: 'title', selector: { text: {} } },
+      { name: 'accessories', selector: { object: {} } }], function () { return {}; });
 
     // ===================================================== the small tiles
     // THE S TILE: Lock Up, All Lights Off, Garage, a scene or script, and

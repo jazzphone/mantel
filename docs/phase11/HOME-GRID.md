@@ -998,3 +998,19 @@ Mantel’s music feed previously always sent an empty announcement list. Its rea
 Validation: both starters in Flat Light, Flat Dark and Blur pass Chrome and WebKit interaction/layout checks, including real mouse drag and wheel input followed by state updates, idle return, fitting and overflowing chips, and zero house commands. All frontend suites pass; the final explicit group-hide refinement passes all 339 strategy-family assertions. Backend validation includes 106 focused music/feed/lifecycle checks. The broad Python run passed 3,460 tests with 21 skips; its one outdated source-text guard was corrected to distinguish observing a service event from sending a service command, then all 44 configuration/connection checks passed. Documentation links, version consistency and diff checks pass. WebKit’s backdrop pixel limitation remains as documented above.
 
 Continuation: changes are on main, not deployed. The house remains on App 0.1.61. Next release should include these changes and the preceding thermostat shared-blur/page-pill fixes, followed by live Safari/tablet checks and observation of a normal household announcement. No test announcement was played during development. The unrelated Xcode project edit remains untouched.
+
+
+### Accessory collections, captions and content-sized person sheets (2026-10-23)
+
+Added Accessory Group to the catalog, using the room card’s plate, reserved rows, tall tile sizing and existing accessory controls. Selected accessories can come from any room. Automatic Swipe Pages chunks their ordered list by size (2/4/6/12); Choose Each Page exposes separate ordered sets, page names and Add/Move/Remove Page controls. The model validates every entry and refuses overflowing manual pages rather than silently discarding controls. The editor explains per-page capacity and refuses shrinking a custom page past it.
+
+Single accessories and each collection entry can choose Line Under Name: Automatic, State, Brightness, An Attribute or Hidden. Attribute choices come from scalar values currently reported by that entity; optional units are plain text. Missing/structured values display a dash, with no executable templates. Choices persist per block/page and render through the existing tile text path.
+
+Person sheets now request content height instead of the fixed control-sheet height. The desktop map retains a useful minimum; phone layout keeps its fixed map height and scrolls within the capped sheet. Other detail-sheet kinds retain their existing sizing.
+
+Validation: the real-browser collection check covers automatic/custom page contents, sparse fixed rows, attribute updates, caption editing and persistence after Save. The person check covers desktop content sizing with a phone battery row and scrolling at 390 × 600. The existing complete editor smoke check passes with 19 catalog cards. Full frontend suites and focused model/editor/release tests pass; complete backend and release checks are recorded with the deployment below. Only fictional controls were used during development.
+
+Release intent: house App 0.1.62, including the previous undeployed paging/chips/groups/announcements and shared-blur/page-pill fixes. No public release tag or HK Frontend update is requested. The unrelated Xcode project edit remains untouched.
+
+
+0.1.62 release checks: all frontend suites pass. The complete backend run passed 3,470 tests with 21 skips; one PIN-leak assertion matched the test PIN as a random substring inside a generated identifier, rather than leaked command data. The full PIN suite and focused grid/editor/release checks then passed (159 passed, 3 skipped), with no unrelated test or product changes. Chrome and WebKit both verify collection paging/captions and compact person sheets with phone scrolling. Version consistency, release packaging and documentation links pass.

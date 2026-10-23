@@ -42,7 +42,8 @@ SIZES: dict[str, tuple[int, int]] = {"S": (1, 1), "W": (2, 1), "T": (1, 2), "L":
 # THE CATALOG'S MIRROR: key -> its sizes, the page sources it swipes through besides `list` (every card has
 # `list`), and its options (name -> kind, OPTION_KINDS).
 CATALOG: dict[str, dict[str, Any]] = {
-    "accessory": {"sizes": ("S", "W"), "sources": (), "opts": {"entity": "entity"}},
+    "accessory": {"sizes": ("S", "W"), "sources": (), "opts": {"entity": "entity", "secondary": "secondary"}},
+    "accessories": {"sizes": ("W", "L", "XL", "XXL"), "sources": ("accessories",), "opts": {"accessories": "accessories", "title": "title", "surface": "surface"}},
     "scene": {"sizes": ("S", "W"), "sources": (), "opts": {"scene": "scene"}},
     "scenes": {"sizes": ("W", "L", "XL", "XXL"), "sources": ("scenes",), "opts": {"scenes": "scenes", "surface": "surface"}},
     "now_playing": {"sizes": ("W", "T", "L"), "sources": ("speakers",), "opts": {"speaker": "speaker"}},
@@ -63,7 +64,7 @@ CATALOG: dict[str, dict[str, Any]] = {
     "action": {"sizes": ("S",), "sources": (), "opts": {"action": "action", "area": "area"}},
     "everything": {"sizes": ("S",), "sources": (), "opts": {}},
 }
-SOURCES = ("list", "rooms", "cameras", "thermostats", "speakers", "scenes")
+SOURCES = ("list", "rooms", "cameras", "thermostats", "speakers", "scenes", "accessories")
 # the sources that can open on the tablet's own room (or its speaker)
 STARTS = ("rooms", "thermostats", "speakers")
 # an action block's jobs, besides any scene or script
@@ -158,8 +159,56 @@ def _boolean(v: Any) -> bool:
     return v
 
 
+def _title(v: Any) -> str:
+    if not isinstance(v, str) or not 0 < len(v.strip()) <= 60:
+        raise GridInvalid("grid_option")
+    return v.strip()
+
+
+def _secondary(v: Any) -> dict[str, str]:
+    if not isinstance(v, dict) or set(v) - {"mode", "attribute", "unit"}:
+        raise GridInvalid("grid_option")
+    mode = v.get("mode")
+    if mode not in ("auto", "state", "brightness", "attribute", "none"):
+        raise GridInvalid("grid_option")
+    out = {"mode": mode}
+    if mode == "attribute":
+        attribute = v.get("attribute")
+        if not isinstance(attribute, str) or not re.fullmatch(r"[a-zA-Z_][a-zA-Z0-9_]{0,79}", attribute):
+            raise GridInvalid("grid_option")
+        out["attribute"] = attribute
+        if "unit" in v:
+            if not isinstance(v["unit"], str) or len(v["unit"]) > 20:
+                raise GridInvalid("grid_option")
+            out["unit"] = v["unit"]
+    elif set(v) - {"mode"}:
+        raise GridInvalid("grid_option")
+    return out
+
+
+def _accessories(v: Any) -> list[dict[str, Any]]:
+    if not isinstance(v, list) or not 0 < len(v) <= LIST_MAX:
+        raise GridInvalid("grid_option")
+    out, seen = [], set()
+    for entry in v:
+        if not isinstance(entry, dict) or set(entry) - {"entity", "secondary"}:
+            raise GridInvalid("grid_option")
+        eid = _domain()(entry.get("entity"))
+        if eid in seen:
+            raise GridInvalid("grid_option")
+        seen.add(eid)
+        row = {"entity": eid}
+        if "secondary" in entry:
+            row["secondary"] = _secondary(entry["secondary"])
+        out.append(row)
+    return out
+
+
 OPTION_KINDS = {
     "boolean": _boolean,
+    "title": _title,
+    "secondary": _secondary,
+    "accessories": _accessories,
     "entity": _domain(),
     "scene": _domain("scene"),
     "scenes": _list(_domain("scene")),
@@ -238,6 +287,19 @@ def condition(v: Any) -> dict[str, str]:
     return out
 
 
+def _capacity(v: Mapping[str, Any], size: str) -> None:
+    if v.get("card") != "accessories":
+        return
+    per = {"W": 2, "L": 4, "XL": 6, "XXL": 12}[size]
+    base = v.get("opts", {}).get("accessories", [])
+    pages = v.get("pages", {})
+    if pages.get("source") == "accessories":
+        return
+    sets = [p.get("opts", {}).get("accessories", base) for p in pages.get("list", [])] or [base]
+    if any(len(entries) > per for entries in sets):
+        raise GridInvalid("grid_option")
+
+
 def variant(v: Any, size: str) -> dict[str, Any]:
     if not isinstance(v, dict) or set(v) - {"card", "opts", "pages"}:
         raise GridInvalid("grid_fallback")
@@ -250,6 +312,7 @@ def variant(v: Any, size: str) -> dict[str, Any]:
         out["opts"] = opts
     if v.get("pages") is not None:
         out["pages"] = _pages(card, v["pages"])
+    _capacity(out, size)
     return out
 
 
@@ -285,6 +348,7 @@ def item(v: Any, cols: int, rows: int) -> dict[str, Any]:
         out["fallback"] = variant(v.get("fallback"), size)
     elif "fallback" in v:
         raise GridInvalid("grid_condition")
+    _capacity(out, size)
     return out
 
 
