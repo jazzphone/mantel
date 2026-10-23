@@ -54,16 +54,16 @@
       return id ? { type: 'custom:hk-control-card', entity: id } : stand('Thermostat', 'hk:thermostat'); } },
     camera: { sizes: ['W', 'L', 'XL'], sources: ['cameras'], opts: { entity: 'camera' }, card: function (s, o, ctx) {
       var ids = o.entity ? [o.entity] : (ctx.cameras || []).slice(0, 1);
-      return ids.length ? { type: 'custom:hk-camera-mosaic-card', height: 195, seam: 2, snapshot_cap: '480x270',
+      return ids.length ? { type: 'custom:hk-camera-mosaic-card', own_cameras: true, height: 195, seam: 2, snapshot_cap: '480x270',
                             cameras: ids.map(function (id) { return { entity: id }; }) }
                         : stand('Cameras', 'hk:camera'); } },
     security: { sizes: ['S', 'W'], sources: [], card: function () {
       return { type: 'custom:hk-grid-security-card' }; } },
     timers: { sizes: ['S', 'W'], sources: [], card: function () {
       return { type: 'custom:hk-timer-strip-card', entity: 'sensor.running_quick_timers' }; } },
-    weather: { sizes: ['W', 'L', 'XL'], sources: [], opts: { entity: 'weather' }, card: function (s, o, ctx) {
+    weather: { sizes: ['W', 'L', 'XL'], sources: [], opts: { entity: 'weather', sky: 'boolean' }, card: function (s, o, ctx) {
       var id = o.entity || ctx.weather;
-      return id ? { type: 'custom:hk-weather-band-card', section: 'hero', entity: id } : stand('Weather', 'hk:weather-partly-cloudy'); } },
+      return id ? { type: 'custom:hk-weather-band-card', section: 'hero', entity: id, sky: o.sky === true } : stand('Weather', 'hk:weather-partly-cloudy'); } },
     calendar: { sizes: ['T', 'L'], sources: [], opts: { calendars: 'calendars' }, card: function (s, o) {
       return Object.assign({ type: 'custom:hk-calendar-pane-card' }, o.calendars ? { calendars: o.calendars } : {}); } },
     battery: { sizes: ['S', 'W'], sources: [], card: function (s, o, ctx) {

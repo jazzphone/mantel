@@ -151,6 +151,59 @@
     var M = C.M;
     var Base = C.HkBase;
 
+    // A card owns its sky; it never takes over the page's singleton sky.
+    if (!customElements.get('hk-grid-weather-sky')) {
+      customElements.define('hk-grid-weather-sky', class extends HTMLElement {
+        constructor() {
+          super(); this.attachShadow({ mode: 'open' });
+          // Template nodes can receive their client before the browser
+          // upgrades them when their parent card reaches the document.
+          if (Object.prototype.hasOwnProperty.call(this, 'client')) {
+            var pending = this.client; delete this.client; this._client = pending;
+          }
+        }
+        set client(value) { this._client = value; this._update(); }
+        connectedCallback() {
+          if (super.connectedCallback) super.connectedCallback();
+          this._visible = true;
+          this._motion = matchMedia('(prefers-reduced-motion: reduce)');
+          this._pause = () => {
+            var S = window.hkSettings, moving = !S || !S.skyLook || S.skyLook().animations !== false;
+            if (this._scene) this._scene.pause(document.hidden || !this._visible || this._motion.matches || !moving || !!window.hkSky.asleep());
+          };
+          document.addEventListener('visibilitychange', this._pause);
+          window.addEventListener('hk-asleep', this._pause);
+          this._refresh = () => this._update();
+          window.addEventListener('hk-module-ready', this._refresh);
+          this._motion.addEventListener('change', this._pause);
+          if (typeof IntersectionObserver === 'function') {
+            this._observer = new IntersectionObserver((entries) => { this._visible = entries[0].isIntersecting; this._pause(); });
+            this._observer.observe(this);
+          }
+          this._update();
+        }
+        _update() {
+          if (!this.isConnected || !this._client || !window.hkSky || !window.hkSky.scene) return;
+          var entity = this.getAttribute('entity');
+          if (this._scene && this._entity !== entity) { this._scene.destroy(); this._scene = null; }
+          this._entity = entity;
+          if (!this._scene) this._scene = window.hkSky.scene(this.shadowRoot, { skyOnly: true, entity: entity });
+          this._scene.el.style.position = 'absolute';
+          this._scene.update(this._client);
+          if (this._pause) this._pause();
+        }
+        disconnectedCallback() {
+          if (super.disconnectedCallback) super.disconnectedCallback();
+          if (this._scene) this._scene.destroy(); this._scene = null;
+          if (this._observer) this._observer.disconnect();
+          document.removeEventListener('visibilitychange', this._pause);
+          window.removeEventListener('hk-asleep', this._pause);
+          window.removeEventListener('hk-module-ready', this._refresh);
+          if (this._motion) this._motion.removeEventListener('change', this._pause);
+        }
+      });
+    }
+
     // 0.12, NOT 0.10 -- measured, not eyeballed.
     var RULE = '' + window.hkCards.v('line') + '';
 
@@ -707,6 +760,8 @@
         C.morph(this._bandSecurity, H.security(st, { line1Size: C.TYPE.headline.size + 'px', lineSize: C.TYPE.caption.size + 'px',
           minHeight: '0px', pad: '0px', shadow: 'none' }));
         if (H.fitWeather) H.fitWeather(this._bandWeather);
+        this._bandClock.style.display = this._config.show_clock === false ? 'none' : '';
+        this._bandWeather.style.display = this._config.show_weather === false ? 'none' : '';
       }
       getCardSize() { return 2; }
       // THE WEATHER FITS WHAT IS LEFT BESIDE THE CLOCK: after each redraw and
@@ -1459,15 +1514,21 @@
             ? window.hkHeader.wxSvg(state, px, { night: night, sym: true }) : '';
         };
         this._watchBlock();
-        var hrs = sz === 'W' ? [] : this._hours(6), days = sz === 'XL' ? this._days(5) : [];
+        var hrs = sz === 'W' ? [] : this._hours(6), days = sz === 'W' ? [] : this._days(sz === 'XL' ? 5 : 3);
         var span = days.flatMap(function (d) { return [num(d.templow), num(d.temperature)]; }).filter(function (v) { return v !== null; });
         var min = span.length ? Math.min.apply(null, span) : 0, max = span.length ? Math.max.apply(null, span) : 1;
         var hl = [hi !== null ? 'H:' + Math.round(hi) + '°' : '', lo !== null ? 'L:' + Math.round(lo) + '°' : ''].filter(Boolean).join('  ');
-        var html = '<hk-plate class="wb ' + sz + '" role="group" aria-label="Weather forecast"><div class="top">' +
+        var html = '<hk-plate class="wb ' + sz + (cfg.sky ? ' sky' : '') + '" role="group" aria-label="Weather forecast">' +
+          (cfg.sky ? '<hk-grid-weather-sky entity="' + esc(cfg.entity) + '" aria-hidden="true"></hk-grid-weather-sky>' : '') + '<div class="top">' +
           '<div class="place-now"><b class="place-name">' + esc(titled(cfg.place || this._place())) + '</b>' +
           '<div class="tpn">' + (t !== null ? Math.round(t) + '°' : '--') + '</div></div>' +
           '<div class="tx"><div class="sym" aria-hidden="true">' + sym(st.state, '32px') + '</div><b>' + esc(cond || '--') + '</b>' +
           (hl ? '<span>' + esc(hl) + '</span>' : '') + '</div></div>' +
+          (sz !== 'W' ? '<div class="readings">' + [
+            feels !== null ? 'Feels ' + Math.round(feels) + '°' : '',
+            st.attributes && st.attributes.humidity != null ? st.attributes.humidity + '% Humidity' : '',
+            st.attributes && st.attributes.wind_speed != null ? st.attributes.wind_speed + ' ' + (st.attributes.wind_speed_unit || '') + ' Wind' : ''
+          ].filter(Boolean).map(function (v) { return '<span>' + esc(v) + '</span>'; }).join('') + '</div>' : '') +
           (hrs.length ? '<div class="hrs" style="--n:6">' + hrs.map(function (h) {
             var value = num(h.temperature);
             return '<div class="hr"><small>' + esc(hourLabel(h.datetime)) + '</small>' + sym(h.condition, '24px') +
@@ -1482,6 +1543,8 @@
               '<i style="left:' + left.toFixed(2) + '%;width:' + width.toFixed(2) + '%"></i></i><span>' + (high === null ? '--' : Math.round(high) + '°') + '</span></div>';
           }).join('') + '</div>' : '') + '</hk-plate>';
         C.morph(this._root, html);
+        var sky = this._root.querySelector('hk-grid-weather-sky');
+        if (sky) sky.client = this.client;
       },
       // THE PAIR CENTERED ON ITS INK, as the screensaver balances it: what is
       // drawn -- the symbol's paths (at rest: a turning ray or a drifting
@@ -1772,12 +1835,18 @@
           '.wb .hr{display:flex;flex-direction:column;align-items:center;gap:4px;min-width:0}',
           '.wb .hr small{' + C.typeCss('caption') + ';line-height:16px;color:' + C.v('ink-2') + ';white-space:nowrap}',
           '.wb .hr b{' + C.typeCss('body') + ';line-height:18px;font-variant-numeric:tabular-nums}',
-          '.wb.XL{padding:12px 22px;gap:8px}.wb.XL .hrs{padding-top:6px}.wb.XL .hr{gap:2px}',
+          '.wb.XL{padding:14px 22px;display:grid;grid-template-columns:minmax(0,.8fr) minmax(0,1.4fr);grid-template-rows:auto minmax(0,1fr) auto;gap:8px 18px}',
+          '.wb.XL .top{grid-column:1;grid-row:1/3;flex-direction:column;align-items:flex-start;justify-content:center;gap:8px}.wb.XL .tx{align-items:flex-start;text-align:left}',
+          '.wb.XL .readings{grid-column:1;grid-row:3}.wb.XL .hrs{grid-column:2;grid-row:1;border-top:0;padding-top:0}.wb.XL .hr{gap:2px}.wb.XL .days{grid-column:2;grid-row:2/4;align-content:center;gap:4px}',
           '.wb .days{display:grid;gap:2px;border-top:1px solid ' + RULE + ';padding-top:6px;flex:none}',
           '.wb .day{display:grid;grid-template-columns:52px 18px 32px minmax(0,1fr) 32px;align-items:center;gap:10px;height:20px;' + C.typeCss('caption') + ';font-variant-numeric:tabular-nums}',
           '.wb .day b{font-weight:600}.wb .low{color:' + C.v('ink-2') + ';text-align:right}.wb .day>span:last-child{text-align:right}',
           '.wb .range{display:block;height:5px;border-radius:' + C.R.capsule('5px') + ';background:' + C.v('key') + ';position:relative;overflow:hidden}',
           '.wb .range i{position:absolute;height:100%;border-radius:' + C.R.capsule('5px') + ';background:linear-gradient(90deg,#64d2ff,#ffd60a,#ff9f0a)}'
+          ,'.wb .readings{display:flex;flex-wrap:wrap;gap:4px 12px;' + C.typeCss('caption') + ';color:' + C.v('ink-2') + ';flex:none}',
+          '.wb.L{padding:14px 22px;gap:8px}.wb.L .hrs{padding-top:6px}.wb.L .hr{gap:2px}',
+          '.wb.sky{position:relative;isolation:isolate;background:rgba(0,0,0,.22);--hk-glass-surface:0;backdrop-filter:none;-webkit-backdrop-filter:none;--hk-ink:#fff;--hk-ink-2:rgba(255,255,255,.85);color:white;text-shadow:0 1px 4px rgba(0,0,0,.6)}',
+          '.wb.sky>hk-grid-weather-sky{position:absolute;inset:0;z-index:-1;pointer-events:none;border-radius:inherit;overflow:hidden}.wb.sky>hk-grid-weather-sky::after{content:"";position:absolute;inset:0;background:rgba(0,0,0,.24)}'
 
         ].join('') + PAGE_CSS;
       }

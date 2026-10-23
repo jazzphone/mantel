@@ -385,12 +385,12 @@
     exceptional: 60
   };
 
-  function read(client) {
+  function read(client, weatherEntity) {
     var sun = client.states['sun.sun'];
     // Which weather entity, moon source and seasonal gate: Configure ->
     // Weather and Seasonal sky (hk-settings.js), with generic fallbacks when unset.
     var HS = window.hkSettings;
-    var wid = HS ? HS.weatherId(client.states) : null;
+    var wid = weatherEntity || (HS ? HS.weatherId(client.states) : null);
     var w = wid ? client.states[wid] : null;
     var a = (w && w.attributes) || {};
     // An entity with no reading (unknown or unavailable -- a weather outage,
@@ -458,7 +458,7 @@
           out.lively = Object.assign({}, look.lively, { quiet: roomQuiet(client, look.lively.room) });
         }
       }
-      if (!look.weather) {
+      if (!look.weather && !weatherEntity) {
         out.cover = 0;
         out.wind = 0;
         out.fog = false;
@@ -485,6 +485,9 @@
       out.seasonalOn = false;
     }
     if (PIN) for (var k in PIN) if (PIN.hasOwnProperty(k)) out[k] = PIN[k];
+    // An explicitly selected weather card describes its own weather,
+    // independently of the page's decorative background choice.
+    if (weatherEntity) out.backdrop = null;
     return out;
   }
 
@@ -4427,7 +4430,7 @@
       el: el,
       update: function (client) {
         if (!client || !client.states) return null;
-        var s = read(client);
+        var s = read(client, opts && opts.entity);
         if (skyOnly) s.season = '';            // no decorations either
         paint(el, s);
         // an overcast or wet day darkens the land with the sky

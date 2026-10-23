@@ -50,7 +50,7 @@ CATALOG: dict[str, dict[str, Any]] = {
     "camera": {"sizes": ("W", "L", "XL"), "sources": ("cameras",), "opts": {"entity": "camera"}},
     "security": {"sizes": ("S", "W"), "sources": (), "opts": {}},
     "timers": {"sizes": ("S", "W"), "sources": (), "opts": {}},
-    "weather": {"sizes": ("W", "L", "XL"), "sources": (), "opts": {"entity": "weather"}},
+    "weather": {"sizes": ("W", "L", "XL"), "sources": (), "opts": {"entity": "weather", "sky": "boolean"}},
     "calendar": {"sizes": ("T", "L"), "sources": (), "opts": {"calendars": "calendars"}},
     "battery": {"sizes": ("S", "W"), "sources": (), "opts": {}},
     "people": {"sizes": ("W",), "sources": (), "opts": {}},
@@ -152,7 +152,14 @@ def _surface(v: Any) -> dict[str, Any]:
     return {"color": color.lower(), "opacity": opacity, "blur": blur}
 
 
+def _boolean(v: Any) -> bool:
+    if not isinstance(v, bool):
+        raise GridInvalid("grid_option")
+    return v
+
+
 OPTION_KINDS = {
+    "boolean": _boolean,
     "entity": _domain(),
     "scene": _domain("scene"),
     "scenes": _list(_domain("scene")),
@@ -296,7 +303,7 @@ def _frame(v: Any) -> list[int]:
 
 
 def _shape(v: Any) -> dict[str, Any]:
-    if not isinstance(v, dict) or set(v) - {"v", "cols", "rows", "frame", "band", "items"}:
+    if not isinstance(v, dict) or set(v) - {"v", "cols", "rows", "frame", "band", "header_clock", "header_weather", "items"}:
         raise GridInvalid("grid")
     if v.get("v", VERSION) != VERSION:
         raise GridInvalid("grid")
@@ -312,8 +319,14 @@ def _shape(v: Any) -> dict[str, Any]:
         raise GridInvalid("grid")
     if len(items) > ITEMS_MAX:
         raise GridInvalid("grid_items")
-    return {"v": VERSION, "cols": cols, "rows": rows, "frame": _frame(v.get("frame")), "band": band,
-            "items": items}
+    out = {"v": VERSION, "cols": cols, "rows": rows, "frame": _frame(v.get("frame")), "band": band,
+           "items": items}
+    for key in ("header_clock", "header_weather"):
+        if key in v:
+            if not isinstance(v[key], bool):
+                raise GridInvalid("grid")
+            out[key] = v[key]
+    return out
 
 
 def check(v: Any) -> dict[str, Any] | None:

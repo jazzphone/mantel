@@ -112,6 +112,10 @@
     if (!Object.prototype.hasOwnProperty.call(Ctor.prototype, 'client')) {
       Object.defineProperty(Ctor.prototype, 'client', {
         configurable: true,
+        set: function (value) {
+          this._hkEntryClient = from(value);
+          if (typeof this._onClient === 'function') this._onClient(this._hkEntryClient);
+        },
         get: function () { return this._hkEntryClient || null; }
       });
     }

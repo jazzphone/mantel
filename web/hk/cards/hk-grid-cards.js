@@ -119,7 +119,7 @@
   var HEAD = { W: 42, L: 66, XL: 66 };
   function fit(size, height) {
     var rows = Math.max(0, Math.floor((height - (HEAD[size] || HEAD.W) + GAP) / (PILL_H + GAP)));
-    if (size === 'W') rows = Math.min(rows, 1);
+    rows = Math.min(rows, size === 'W' ? 1 : 2);
     return rows * (COLS[size] || 2);
   }
   function layout(parts, size, places, client) {
@@ -376,7 +376,7 @@
       '.room[size=W]{padding:8px 12px;gap:6px}.room[size=W] .hd{height:22px}.room[size=W] .tiles{padding-bottom:0}',
       ':host([data-grid-pager]) .room[size=W]{padding-bottom:28px}',
       '.tiles{display:grid;grid-template-columns:repeat(var(--cols,2),minmax(0,1fr));',
-      '  grid-auto-rows:70px;gap:' + GAP + 'px;flex:1;min-height:0;align-content:start;padding-bottom:var(--hk-pager-safe,0px)}',
+      '  grid-auto-rows:minmax(0,1fr);gap:' + GAP + 'px;flex:1;min-height:0;padding-bottom:var(--hk-pager-safe,0px)}',
       '.slot{container-type:size;container-name:hk-cell;min-width:0;min-height:0}.slot > *{display:block;width:100%;height:100%}',
       '.more{border:0;border-radius:' + v('glass-radius') + ';' + C.plate('tile') + ';color:' + v('ink') + ';' + type('body') + ';min-height:44px;cursor:pointer}',
       '.slot{position:relative;touch-action:pan-x;-webkit-user-select:none;user-select:none;',
@@ -488,8 +488,11 @@
           p.tiles.forEach(function (t) {
             var slot = document.createElement('div');
             slot.className = 'slot';
+            if (p.size !== 'W') slot.setAttribute('size', 'S');
             slot.setAttribute('role', 'listitem');
-            var el = C.createCard(t, h);
+            var el = C.createCard(p.size === 'W' ? t : Object.assign({}, t, { size: 'tall' }), h);
+            if (p.size !== 'W') el.setAttribute('size', 'S');
+            el.setAttribute('data-group-fill', '');
             slot.appendChild(el);
             e.tiles.appendChild(slot);
             self._kids.push(el);

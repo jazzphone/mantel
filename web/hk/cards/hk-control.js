@@ -261,7 +261,13 @@ class HkControlCard extends HTMLElement {
     }
     const domain=this._domain(), s=this._state();
     let body="";
-    if(domain==="climate") body=this._climate(s);
+    if(domain==="climate") {
+      body=this._climate(s);
+      // Use the same positioned plate element as its neighbouring cards.
+      // A plain div did not consistently participate in Safari's glass
+      // compositing when this control lived inside a swipe page.
+      body=body.replace('<div class="surface', '<hk-plate class="surface').replace(/<\/div>\s*$/, '</hk-plate>');
+    }
     else if(domain==="number") body=this._number(s);
     else if(domain==="select") body=this._select(s);
     else if(domain==="switch") body=this._switch(s);

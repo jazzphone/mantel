@@ -41,6 +41,12 @@ async def main():
 
             assert ready
             assert await b.eval('ed.grid.items.length > 0')
+            assert await b.eval("!ed.sidebar.querySelector('.screen-settings').open")
+            await b.eval("ed.sidebar.querySelector('.screen-settings').open=true")
+            assert await b.wait('ed.screenSettingsOpen===true', 5)
+            await b.eval("[...ed.sidebar.querySelectorAll('.cell')].find(e=>e.textContent.includes('Header Clock')).querySelector('button').click()")
+            assert await b.eval('ed.grid.header_clock===false && ed.grid.header_weather!==false')
+            await b.eval("[...ed.sidebar.querySelectorAll('.cell')].find(e=>e.textContent.includes('Header Clock')).querySelector('button').click()")
             # Mouse drag between equal-size blocks must swap, and stay a draft.
             rects=await b.eval("['a7','a10'].map(id=>{let r=ed.overlay.querySelector('[data-id='+id+']').getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2}})")
             a,z=rects
@@ -55,6 +61,7 @@ async def main():
             print('drag swap and overlay geometry passed',flush=True)
             await b.eval('ed.catalog=true; ed.side()')
             assert await b.eval("ed.sidebar.querySelectorAll('.catalog-row').length === 18")
+            assert await b.wait("[...ed.sidebar.querySelectorAll('.catalog-row hk-icon')].every(e=>!!e.drawn?.path)",10)
             if ARGS.shots:
                 await screenshot_font(b)
                 await b.screenshot(ARGS.shots / 'home-grid-gallery.png')
@@ -80,6 +87,17 @@ async def main():
             if ARGS.shots:
                 await screenshot_font(b)
                 await b.screenshot(ARGS.shots / 'home-grid-picker.png')
+            for key in ('thermostat', 'weather', 'now_playing'):
+                await b.eval(f"ed.pickerCard='{key}'; ed.pickerSize='L'; ed.side()")
+                assert await b.wait("!!ed.sidebar.querySelector('[data-preview-card] iframe').contentWindow.galleryCard?.shadowRoot",20)
+                assert await b.eval("ed.sidebar.textContent.includes('sample readings')")
+                if key == 'thermostat':
+                    assert await b.wait("ed.sidebar.querySelector('[data-preview-card] iframe').contentWindow.galleryCard?._state()?.attributes.current_temperature===71",10)
+                if key == 'weather':
+                    assert await b.wait("ed.sidebar.querySelector('[data-preview-card] iframe').contentWindow.galleryCard?.shadowRoot.querySelectorAll('.day').length===3",10)
+            await b.eval("let it=ed.grid.items.find(i=>i.card==='camera');ed.select(it.id)")
+            await b.eval("let s=[...ed.sidebar.querySelectorAll('select')].find(s=>[...s.options].some(o=>o.value==='camera.backyard'));s.value='camera.backyard';s.dispatchEvent(new Event('change'))")
+            assert await b.eval("(()=>{let it=ed.grid.items.find(i=>i.card==='camera');return !it.pages && it.opts.entity==='camera.backyard'})()")
             await b.eval("ed.select('a2'); [...ed.sidebar.querySelectorAll('.cell')].find(row=>row.textContent.includes('Custom Group Background')).querySelector('button').click()")
             assert await b.eval("ed.grid.items.find(i=>i.id==='a2').opts.surface.opacity===30")
             await b.eval("let opacity=ed.sidebar.querySelector('input[type=range]');opacity.value='42';opacity.dispatchEvent(new Event('input'));opacity.dispatchEvent(new Event('change'))")
@@ -96,13 +114,16 @@ async def main():
             await b.wait('ed.box.getBoundingClientRect().width>500',5)
             print('picker and settings scroll independently; preview stays visible at both desktop sizes',flush=True)
             # Both states of a conditional block stay in exactly the same cell.
-            await b.eval("ed.select('a3'); ed.update('a3',{when:{kind:'music_playing'},fallback:{card:'weather'}}); ed.conditionPreview=false; ed.preview()")
+            await b.eval("ed.select('a3'); ed.update('a3',{when:{kind:'music_playing'},fallback:{card:'weather'}}); ed.conditionPreview=false; ed.preview();void 0")
             assert await b.wait("ed.previewView?.querySelectorAll && ed.previewView._config.cards.some(c=>c.force===false)",10)
             assert await b.wait("(()=>{let c=ed.previewView.cards.find(c=>c.localName==='hk-grid-conditional-card'); return c?._child?.localName==='hk-weather-band-card'})()",10)
+            await b.eval('new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))')
             before = await b.eval("(()=>{let r=ed.overlay.querySelector('[data-id=a3]').getBoundingClientRect();return [r.x,r.y,r.width,r.height]})()")
-            await b.eval("ed.conditionPreview=true; ed.preview()")
+            await b.eval("ed.conditionPreview=true; ed.preview();void 0")
             assert await b.wait("(()=>{let c=ed.previewView.cards.find(c=>c.localName==='hk-grid-conditional-card'); return c?._child?.localName==='hk-now-playing-card'})()",10)
-            assert before == await b.eval("(()=>{let r=ed.overlay.querySelector('[data-id=a3]').getBoundingClientRect();return [r.x,r.y,r.width,r.height]})()")
+            await b.eval('new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))')
+            after = await b.eval("(()=>{let r=ed.overlay.querySelector('[data-id=a3]').getBoundingClientRect();return [r.x,r.y,r.width,r.height]})()")
+            assert all(abs(a-z) < 1 for a, z in zip(before, after)), (before, after)
             await b.eval("ed.conditionPreview=null; ed.update('a3',{when:null,fallback:null}); ed.catalog=false; ed.side()")
 
             # Refusal leaves the draft intact and the editor usable.

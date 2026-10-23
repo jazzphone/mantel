@@ -1878,8 +1878,16 @@
   // so this is one identity compare per card per update, and the listeners
   // run once per new object, not once per card.
   var CLIENT_HUB = { last: null, fns: new Set() };
+  var PREVIEW_CLIENTS = new WeakSet();
+  // An inert gallery's readings belong to its card tree, never to the
+  // page-wide client feed. Even a caller passing actions gets a read-only port.
+  window.hkCards.previewClient = function (port) {
+    var client = window.hkClient.create(Object.assign({}, port, { actions: null }));
+    PREVIEW_CLIENTS.add(client);
+    return client;
+  };
   function clientSeen(client) {
-    if (!client || client === CLIENT_HUB.last) return;
+    if (!client || PREVIEW_CLIENTS.has(client) || client === CLIENT_HUB.last) return;
     CLIENT_HUB.last = client;
     artWatch(client);              // the reconnect hook (above), from the first client
     CLIENT_HUB.fns.forEach(function (fn) {

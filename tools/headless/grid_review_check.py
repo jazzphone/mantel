@@ -15,19 +15,21 @@ from aiohttp.test_utils import TestServer
 
 
 async def main():
+    gallery.HOUSE['weather.grid_card'] = (None, ('rainy', dict(gallery.HOUSE['weather.home'][1][1])))
     gallery.HOUSE['binary_sensor.grid_condition'] = (None, ('off', {}))
     gallery.HOUSE['sensor.running_quick_timers'] = (None, ('1', {'running': [
         {'entity_id': 'timer.quick_1', 'name': 'Tea', 'finishes_at': '2099-01-01T00:00:00+00:00'}]}))
     gallery.HOUSE['timer.quick_1'] = (None, ('active', {'friendly_name': 'Tea', 'duration': '00:05:00', 'finishes_at': '2099-01-01T00:00:00+00:00'}))
     screen = 'grid-review'
     gallery.SETTINGS['boards'][screen] = {'home_style': 'grid', 'menu_custom': True, 'menu': 'tabbar', 'home_grid': {
-        'v': 1, 'cols': 6, 'rows': 4, 'frame': [1280, 800], 'band': True, 'items': [
+        'v': 1, 'cols': 6, 'rows': 4, 'frame': [1280, 800], 'band': True, 'header_clock': False, 'header_weather': False, 'items': [
             {'id': 'conditional', 'card': 'clock', 'size': 'W', 'at': [0, 0],
              'when': {'kind': 'entity_state', 'entity': 'binary_sensor.grid_condition', 'state': 'on'}, 'fallback': {'card': 'weather'}},
             {'id': 'timer', 'card': 'timers', 'size': 'S', 'at': [2, 0]},
             {'id': 'security', 'card': 'security', 'size': 'W', 'at': [3, 0]},
             {'id': 'camera', 'card': 'camera', 'size': 'L', 'at': [0, 1], 'opts': {'entity': 'camera.backyard'}},
-            {'id': 'room', 'card': 'room', 'size': 'L', 'at': [2, 1], 'opts': {'area': 'living_room'}}]}}
+            {'id': 'room', 'card': 'room', 'size': 'L', 'at': [2, 1], 'opts': {'area': 'living_room'}},
+            {'id': 'weather', 'card': 'weather', 'size': 'L', 'at': [4, 1], 'opts': {'entity': 'weather.grid_card', 'sky': True}}]}}
     with tempfile.TemporaryDirectory() as td:
         app, cookie = await gallery.build(Path(td))
         async with TestServer(app) as server, Browser(1280, 800, port=9393) as b:
@@ -47,7 +49,20 @@ async def main():
             state('binary_sensor.grid_condition', 'off', {})
             assert await b.wait("conditional._child.localName==='hk-weather-band-card'", 10)
             assert await b.eval("deep(document,'hk-camera-mosaic-card')[0]._config.cameras.length===1 && deep(document,'hk-camera-mosaic-card')[0]._config.cameras[0].entity==='camera.backyard'")
+            assert await b.eval("deep(document,'hk-camera-mosaic-card')[0]._cams().length===1 && deep(document,'hk-camera-mosaic-card')[0]._cams()[0].entity==='camera.backyard'")
             assert await b.eval("deep(document,'hk-grid-room-card')[0].shadowRoot.querySelectorAll('hk-room-status-card').length===0")
+            assert await b.eval("deep(document,'.band-clock,.band-weather').every(e=>getComputedStyle(e).display==='none')")
+            assert await b.wait("!!deep(document,'hk-grid-weather-sky')[0]?._scene", 10)
+            assert await b.eval("deep(document,'hk-grid-weather-sky')[0]._scene.el.classList.contains('skyonly')")
+            assert await b.eval("(()=>{let e=deep(document,'hk-grid-weather-sky')[0];return e._scene.update(e._client).cond==='rainy'})()")
+            assert await b.eval("(()=>{let e=deep(document,'hk-grid-weather-sky')[0],a=e.getBoundingClientRect(),s=e._scene.el.getBoundingClientRect();return Math.abs(a.width-s.width)<1 && Math.abs(a.height-s.height)<1})()")
+            await b.send('Emulation.setEmulatedMedia', features=[{'name': 'prefers-reduced-motion', 'value': 'reduce'}])
+            assert await b.wait("deep(document,'hk-grid-weather-sky')[0]._scene.el.classList.contains('held')",5)
+            await b.send('Emulation.setEmulatedMedia', features=[])
+            await b.eval("window.wx=deep(document,'hk-weather-band-card').find(c=>c._config.sky);window.oldSky=deep(document,'hk-grid-weather-sky')[0];wx.setConfig({...wx._config,sky:false})")
+            assert await b.wait("deep(document,'hk-grid-weather-sky').length===0 && oldSky._scene===null",5)
+            await b.eval("wx.setConfig({...wx._config,sky:true})")
+            assert await b.wait("!!deep(document,'hk-grid-weather-sky')[0]?._scene",5)
             # The group plate changes independently of its accessory pills.
             await b.eval("window.room=deep(document,'hk-grid-room-card')[0];window.originalRoom=room._config;window.pillBackground=getComputedStyle(deep(room.shadowRoot,'hk-plate')[0]).background;room.setConfig({...originalRoom,surface:{color:'#345678',opacity:42,blur:'none'}})")
             assert await b.eval("getComputedStyle(room.shadowRoot.querySelector('.room')).backgroundColor==='rgba(52, 86, 120, 0.42)'")

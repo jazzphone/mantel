@@ -15,6 +15,8 @@ Local Home Assistant App update for the house.
 
 The first public release.
 
+- **Home Grid follow-up:** camera selections stay on one camera; screen settings collapse, with independent header clock/weather switches. Room groups use taller filling tiles, thermostats share the card plate, and centred page dots have a pill. Picker icons and illustrative data are complete. Larger weather cards show more readings and forecast detail, with an optional Sky weather background.
+
 - **Home Grid editor (in development)**: desktop draft editing with drag and snap, equal-size swaps, keyboard moves, card options, pages, starter layouts and Save/Cancel. Mantel adds layout history and copying to another screen. The compact header, clock and thermostat layouts are refined, and swipe-page cards align with their neighbors. Review refinements add a searchable gallery with live previews, framed room and scene groups, a forecast widget, single-camera selection, security and timer controls, conditional blocks with fixed-size fallbacks, and consistent glass plates. Room and scene groups support individual background color, opacity and blur; scene pills fill their framed rows and music artwork aligns with track information.
 
 - **Mantel Server**: serves HK Frontend's screens without Lovelace, from your Home Assistant's rooms and devices.

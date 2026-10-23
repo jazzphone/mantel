@@ -14,6 +14,12 @@ function client(state, updated, other) {
   }, themes: { darkMode: true } });
 }
 H.run('CLIENT STATE', [function () {
+  var notifications = 0, off = hkCards.onClient(function () { notifications++; });
+  var sample = hkCards.previewClient({ states: {'sensor.demo': {state:'sample'}}, actions: {callService:function () {throw new Error('not a preview');}} });
+  var card = new Reading(); card.setConfig({entity:'sensor.demo'}); card.client = sample;
+  H.eq('sample data renders without publishing to the live client feed', card.value.state, 'sample');
+  H.eq('sample clients never notify live subscribers', notifications, 0); off();
+}, function () {
   var card = new Reading();
   card.setConfig({ entity: 'sensor.demo' });
   card.client = client('1', 'a', '1');

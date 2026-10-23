@@ -94,7 +94,7 @@ H.run('CONTROL CARDS', [
     H.eq('a dial is five rows tall', card.getCardSize(), 5);
     H.noThrow('first hass', function () { card.hass = house.hass(); });
     var html = card.shadowRoot.__html;
-    H.ok('draws the dial', /<div class="surface tstat">/.test(html) && /<svg class="ring"/.test(html));
+    H.ok('draws the dial on the shared plate', /<hk-plate class="surface tstat">/.test(html) && /<svg class="ring"/.test(html));
     H.ok('name and the current reading', /<div class="tstat-name">Downstairs<\/div>/.test(html) &&
          /Current 71° · Humidity 48%/.test(html));
     H.ok('a range thermostat shows both setpoints, with two knobs',

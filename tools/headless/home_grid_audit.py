@@ -69,7 +69,8 @@ EXTRA = {
 }
 # what each block names (a block that names nothing takes the house's: its cameras, weather, vacuum)
 OPTS = {"accessory": {"entity": "light.living_room_lamps"}, "scene": {"scene": "scene.movie_night"},
-        "now_playing": {"speaker": "media_player.living_room"}, "thermostat": {"entity": "climate.main_floor"}}
+        "now_playing": {"speaker": "media_player.living_room"}, "thermostat": {"entity": "climate.main_floor"},
+        "room": {"area": "living_room"}}
 # the forecast, as the forecast sensors Settings -> Weather can name
 def _forecast(step: int, n: int, temps: list[int], conds: list[str]) -> list[dict]:
     t0 = int(time.time() // step * step) + step

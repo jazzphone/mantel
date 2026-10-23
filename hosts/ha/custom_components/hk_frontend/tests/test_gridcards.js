@@ -118,12 +118,12 @@ function () {
   ok('the block excludes the room status row', !parts.status);
   eq('W: one row of two, including the speaker', P.layout(parts, 'W', P.fit('W', 141), client).map(function (c) { return c.entity; }),
      ['light.kitchen_counter', 'media_player.kitchen_speaker']);
-  eq('L at 334: three rows, the speaker last', P.fit('L', 334), 6);
+  eq('L stays at two tall rows on a larger screen', P.fit('L', 334), 4);
   var l = P.layout(parts, 'L', 6, client);
   eq('...every light and the speaker', l.map(function (c) { return c.entity; }),
      ['light.kitchen_counter', 'light.kitchen_pendant', 'light.kitchen_strip', 'media_player.kitchen_speaker']);
   eq('L leaves room for its surrounding plate', P.fit('L', 290), 4);
-  eq('XL: three across', P.fit('XL', 334), 9);
+  eq('XL: three across, two tall rows', P.fit('XL', 334), 6);
   eq('a cell too short for a pill: none', P.fit('W', 100), 0);
   ok('a light pill toggles on a tap, at its regular size', l[0].tap_action.action === 'toggle' && !l[0].hk_place && !l[0].view_layout);
   ok('the speaker\'s pill keeps its own tap', !l[3].tap_action || l[3].tap_action.action !== 'toggle');

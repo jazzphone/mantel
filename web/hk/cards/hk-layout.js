@@ -1958,15 +1958,16 @@
         '.page>*{display:block;box-sizing:border-box;width:100%;height:100%;margin:0!important}' +
         '.dots{position:absolute;bottom:0;left:0;right:0;z-index:1;height:' + PAGER_DOTS + 'px;min-height:0;' +
         'display:flex;justify-content:center;align-items:flex-end;min-width:0;pointer-events:none}' +
-        '.pc{display:flex;align-items:flex-end;height:44px;padding:0 14px;pointer-events:auto;cursor:pointer;' +
+        '.pc{position:relative;display:flex;align-items:flex-end;justify-content:center;height:44px;padding:0 10px;pointer-events:auto;cursor:pointer;' +
         '-webkit-tap-highlight-color:transparent}' +
+        '.pc::before{content:"";position:absolute;bottom:3px;left:0;right:0;height:16px;border-radius:' + C0.R.capsule('16px') + ';background:rgba(30,30,36,.22);pointer-events:none}' +
         '.pager.one .dots{display:none}' +
         // 44 px targets, reaching up over the page's foot
         '.dot{flex:0 0 ' + PAGER_PITCH + 'px;min-width:0;height:44px;margin:0;padding:0 0 7px;border:0;background:none;' +
         'display:flex;align-items:flex-end;justify-content:center;cursor:pointer;-webkit-tap-highlight-color:transparent}' +
         // a dot: the surface scale's `mark` (as notches and ticks are), the
         // page it is on in `ink`; a fade between them, none for Reduce Motion
-        '.dot i{display:block;width:' + PAGER_DOT + 'px;height:' + PAGER_DOT + 'px;border-radius:50%;background:' + v('mark') + ';' +
+        '.dot i{position:relative;display:block;width:' + PAGER_DOT + 'px;height:' + PAGER_DOT + 'px;border-radius:50%;background:' + v('mark') + ';' +
         'transition:background-color ' + C0.DUR.fade + ' ease}' +
         '.dot[aria-current=true] i{background:' + v('ink') + '}' +
         '@media (prefers-reduced-motion:reduce){.dot i{transition:none}}' +

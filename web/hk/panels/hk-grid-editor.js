@@ -22,9 +22,9 @@
     calendar: 'Your upcoming events', battery: 'Your home’s stored energy', people: 'Who is home', vacuum: 'Cleaning status and controls',
     everything: 'Open the screen’s full menu' };
   var GLYPHS = { room: 'mdi:sofa', accessory: 'mdi:lightbulb', action: 'mdi:gesture-tap', scene: 'mdi:palette',
-    scenes: 'mdi:palette', scene_suggested: 'mdi:weather-sunset', thermostat: 'hk:thermostat', weather: 'hk:weather-partly-cloudy',
-    now_playing: 'mdi:music', security: 'mdi:shield-home', camera: 'hk:camera', clock: 'mdi:clock-outline', timers: 'mdi:timer-outline',
-    calendar: 'mdi:calendar', battery: 'mdi:home-battery', people: 'mdi:account-group', vacuum: 'hk:robot-vacuum', everything: 'mdi:dots-horizontal' };
+    scenes: 'mdi:palette', scene_suggested: 'mdi:weather-sunset', thermostat: 'mdi:thermostat', weather: 'mdi:weather-partly-cloudy',
+    now_playing: 'mdi:music', security: 'mdi:shield-home', camera: 'mdi:camera', clock: 'mdi:clock', timers: 'mdi:timer-outline',
+    calendar: 'mdi:calendar', battery: 'mdi:home-battery', people: 'mdi:account', vacuum: 'mdi:robot-vacuum', everything: 'mdi:dots-horizontal' };
   function copy(x) { return JSON.parse(JSON.stringify(x)); }
   function overlap(a, b) {
     var x = SIZES[a.size], y = SIZES[b.size];
@@ -100,6 +100,7 @@
     '.catalog-row{display:flex;align-items:center;gap:12px;width:100%;min-height:68px;border:0;border-bottom:1px solid var(--hk-sep);padding:10px 12px;background:var(--hk-cell);color:var(--hk-label);text-align:left;cursor:pointer}',
     '.catalog-row hk-icon{width:28px;height:28px;flex:none;color:var(--hk-tint)}.catalog-row span{display:grid;gap:4px}.catalog-row small{font-size:13px;color:var(--hk-label2)}',
     '.catalog-preview{position:relative;width:100%;overflow:hidden;border-radius:10px;background:var(--hk-fill);margin:12px 0;cursor:grab}.catalog-preview > div{pointer-events:none}',
+    '.screen-settings{margin:16px 0}.screen-settings summary{cursor:pointer;min-height:44px;display:flex;align-items:center;gap:8px;font-weight:600}.screen-settings summary::before{content:"›"}.screen-settings[open] summary::before{transform:rotate(90deg)}',
     '.size-choices{display:flex;flex-wrap:wrap;gap:4px;padding:4px;border-radius:10px;background:var(--hk-fill)}',
     '.size-choices button{flex:1;min-height:44px;border:0;border-radius:7px;background:transparent;color:var(--hk-label);cursor:pointer;font:inherit;font-size:13px}',
     '.size-choices button[aria-pressed=true]{background:var(--hk-cell);box-shadow:0 1px 3px var(--hk-sep)}.size-choices button[data-full=true]{opacity:.5}.size-choices small{display:block;font-size:11px}',
@@ -306,7 +307,8 @@
         this.optionFields(item, item.opts || {}, (opts) => this.update(item.id, { opts: opts }), 'Options', false);
         var sources = [['', 'Single Card'], ['list', 'Custom Pages']].concat(cat[item.card].sources.map((s) => [s, NAMES[s] || s.charAt(0).toUpperCase() + s.slice(1)]));
         var src = item.pages && item.pages.source || '';
-        var rows = [K.select({ label: 'Pages', value: src, options: sources, onChange: (s) => {
+        if (item.card === 'camera') sources = sources.map((op) => [op[0], op[0] === '' ? 'One Camera' : op[0] === 'cameras' ? 'Swipe All Cameras' : op[1]]);
+        var rows = [K.select({ label: item.card === 'camera' ? 'Camera Display' : 'Pages', value: src, options: sources, onChange: (s) => {
           this.update(item.id, { pages: s ? s === 'list' ? { source: 'list', list: [{ opts: {} }] } : { source: s } : null });
         } })];
         if (src === 'rooms' || src === 'thermostats') rows.push(K.toggle({ label: 'Start on Tablet’s Room', on: item.pages.start === 'tablet_room', onChange: (on) => {
@@ -326,11 +328,17 @@
       if (this.catalog) this.catalogPreviews();
       if (!this.grid) return;
       var config = (key, value) => { var next = copy(this.grid); next[key] = value; if (valid(next)) this.change(next); else { this.say('Move or remove blocks that would be outside the new grid first.'); this.side(); } };
-      group('Grid', [K.select({ label: 'Columns', value: this.grid.cols, options: [6, 3, 2].map((n) => [n, String(n)]), onChange: (n) => config('cols', Number(n)) }),
+      var settings = h('details', { class: 'screen-settings' }, [h('summary', { text: 'Screen Settings' })]);
+      settings.open = !!this.screenSettingsOpen;
+      settings.addEventListener('toggle', () => { this.screenSettingsOpen = settings.open; });
+      settings.appendChild(K.group({ header: 'Grid & Header' }, [K.select({ label: 'Columns', value: this.grid.cols, options: [6, 3, 2].map((n) => [n, String(n)]), onChange: (n) => config('cols', Number(n)) }),
         K.select({ label: 'Rows', value: this.grid.rows, options: [2, 3, 4, 5, 6].map((n) => [n, String(n)]), onChange: (n) => config('rows', Number(n)) }),
         K.toggle({ label: 'Top Band', on: this.grid.band, onChange: (v) => config('band', v) }),
+        K.toggle({ label: 'Header Clock', on: this.grid.header_clock !== false, onChange: (v) => config('header_clock', v) }),
+        K.toggle({ label: 'Header Weather', on: this.grid.header_weather !== false, onChange: (v) => config('header_weather', v) }),
         K.text({ label: 'Frame Width', value: this.grid.frame[0], type: 'number', onCommit: (v) => config('frame', [Number(v), this.grid.frame[1]]) }),
-        K.text({ label: 'Frame Height', value: this.grid.frame[1], type: 'number', onCommit: (v) => config('frame', [this.grid.frame[0], Number(v)]) })]);
+        K.text({ label: 'Frame Height', value: this.grid.frame[1], type: 'number', onCommit: (v) => config('frame', [this.grid.frame[0], Number(v)]) })]));
+      this.sidebar.appendChild(settings);
       if (this.panel.host() && this.panel.host().gridHistory) {
         group('Layout History', [K.button({ label: 'History', onClick: () => this.history() })]);
         if (this.histories) {
@@ -378,7 +386,8 @@
           onclick: () => { self.pickerSize = s; self.side(); } }, [h('span', { text: SIZE_NAMES[s] }), ...(full ? [h('small', { text: 'No space' })] : [])]);
       }));
       group(NAMES[key], [this.K.button({ label: 'All Cards', onClick: () => { this.pickerCard = null; this.side(); } }),
-        h('p', { class: 'note', text: DESCRIPTIONS[key] }), preview, controls,
+        h('p', { class: 'note', text: DESCRIPTIONS[key] }), preview,
+        h('p', { class: 'note', text: 'Illustrative preview with sample readings. Your card uses your home’s live data.' }), controls,
         h('p', { class: 'note', text: this.pickerTarget ? 'This card uses the selected block’s space.' : firstSpace(this.grid, sz) ? 'Add to the first free space, or drag the preview onto the grid.' : 'Move or remove a block to make room for this size.' }),
         h('button', { class: 'catalog-add', text: (this.pickerTarget ? 'Use ' : 'Add ') + NAMES[key], disabled: !this.pickerTarget && !firstSpace(this.grid, sz), onclick: () => this.usePicked(key, sz) })]);
     }
@@ -432,9 +441,44 @@
         var kind = fields[name], choices = self.choices(kind).filter((op) => op[0] !== 'tablet_room');
         if (kind === 'scene' && key === 'scene') choices = choices.filter((op) => op[0].indexOf('scene.') === 0);
         if (kind === 'entity') choices = choices.filter((op) => /^(light|switch|fan)\./.test(op[0]));
-        if (choices.length && !['windows', 'scenes', 'calendars', 'surface'].includes(kind)) opts[name] = choices[0][0];
+        if (kind === 'speaker') choices.sort((a, b) => (self.panel.client.states[b[0]]?.state === 'playing') - (self.panel.client.states[a[0]]?.state === 'playing'));
+        if (kind === 'scenes' || kind === 'calendars') { if (choices.length) opts[name] = choices.slice(0, kind === 'scenes' ? 6 : 2).map((op) => op[0]); return; }
+        if (choices.length && !['windows', 'surface', 'boolean'].includes(kind)) opts[name] = choices[0][0];
       });
       return opts;
+    }
+    catalogClient(client) {
+      // This copy belongs only to the inert gallery iframe. It is never saved
+      // or published through the host, and it has no command action port.
+      var states = {}, now = Date.now(), stamp = new Date(now).toISOString();
+      Object.keys(client.states).forEach(function (id) {
+        var st = client.states[id], a = Object.assign({}, st.attributes), state = st.state;
+        if (id.startsWith('climate.')) { state = 'heat_cool'; Object.assign(a, { current_temperature: 71, target_temp_low: 68, target_temp_high: 74, hvac_action: 'idle' }); }
+        if (id.startsWith('media_player.')) { state = 'playing'; Object.assign(a, { media_title: 'A Favourite Song', media_artist: 'Sample Artist', media_album_name: 'Sample Album', media_duration: 240, media_position: 82, media_position_updated_at: stamp, volume_level: .4 }); }
+        if (id.startsWith('weather.')) { state = 'partlycloudy'; Object.assign(a, { temperature: 72, apparent_temperature: 74, humidity: 52, wind_speed: 8, wind_speed_unit: 'mph' }); }
+        if (id.startsWith('light.')) { state = 'on'; a.brightness = 180; }
+        if (id.startsWith('person.')) state = 'home';
+        if (id.startsWith('vacuum.')) { state = 'cleaning'; a.battery_level = 78; }
+        if (id.startsWith('alarm_control_panel.')) state = 'armed_home';
+        states[id] = Object.assign({}, st, { state: state, attributes: a, last_updated: stamp });
+      });
+      var forecast = (kind) => Array.from({ length: kind === 'daily' ? 5 : 12 }, (_, i) => ({
+        datetime: new Date(now + i * (kind === 'daily' ? 86400e3 : 3600e3)).toISOString(),
+        temperature: 72 + i % 4, templow: 55 + i, condition: i % 3 === 2 ? 'rainy' : 'partlycloudy', precipitation_probability: i % 3 === 2 ? 60 : 10
+      }));
+      Object.keys(states).forEach((id) => { if (states[id].attributes.forecast) states[id].attributes.forecast = forecast(/daily/.test(id) ? 'daily' : 'hourly'); });
+      var finish = new Date(now + 240e3).toISOString();
+      states['timer.grid_preview'] = { state: 'active', last_updated: stamp, attributes: { friendly_name: 'Tea', duration: '00:05:00', finishes_at: finish } };
+      states['sensor.running_quick_timers'] = { state: '1', last_updated: stamp, attributes: { running: [{ entity_id: 'timer.grid_preview', name: 'Tea', finishes_at: finish }] } };
+      var subs = Object.assign({}, client.subscriptions, { subscribeMessage: (callback, msg) => {
+        if (msg.type === 'weather/subscribe_forecast') { var timer = setTimeout(() => callback({ forecast: forecast(msg.forecast_type) }), 0); return Promise.resolve(() => clearTimeout(timer)); }
+        return client.subscriptions.subscribeMessage(callback, msg);
+      } });
+      var read = (method, path) => method.toUpperCase() === 'GET' && path.startsWith('calendars/')
+        ? Promise.resolve([{ summary: 'Family Dinner', start: { dateTime: new Date(now + 3600e3).toISOString() }, end: { dateTime: new Date(now + 7200e3).toISOString() } },
+          { summary: 'Weekend Plans', start: { dateTime: new Date(now + 86400e3).toISOString() }, end: { dateTime: new Date(now + 90000e3).toISOString() } }])
+        : client.callApi(method, path);
+      return Object.assign({}, client, { states: states, subscriptions: subs, callApi: read });
     }
     catalogPreviews() {
       var w = this.iframe.contentWindow;
@@ -455,8 +499,8 @@
       var frame = this.h('iframe', { title: NAMES[box.dataset.previewCard] + ' preview', tabindex: '-1', 'aria-hidden': 'true' });
       Object.assign(frame.style, { width: width + 'px', height: height + 'px', left: '50%', marginLeft: -(width * scale / 2) + 'px', transformOrigin: 'top left', transform: 'scale(' + scale + ')' });
       frame.inert = true; frame.src = this.iframe.src; box.replaceChildren(frame);
-      var active = true, off = null, timer, retries = 0;
-      this.catalogOff = () => { active = false; clearTimeout(timer); if (off) off(); };
+      var active = true, timer, retries = 0;
+      this.catalogOff = () => { active = false; clearTimeout(timer); };
       var load = () => {
         if (!active) return;
         var fw = frame.contentWindow;
@@ -470,12 +514,14 @@
         var view = doc.createElement('hk-home-grid-view');
         Object.assign(view.style, { display: 'block', width: width + 'px', height: height + 'px', position: 'fixed', inset: '0' });
         var it = { id: 'preview', card: box.dataset.previewCard, size: sz, at: [0, 0], opts: this.previewOptions(box.dataset.previewCard) };
-        var card = fw.hkCards.createCard(fw.hkGridCatalog.config(it, ctx), fw.hkCards.client());
+        var sample = fw.hkCards.previewClient(this.catalogClient(fw.hkCards.client()));
+        var card = fw.hkCards.createCard(fw.hkGridCatalog.config(it, ctx), sample);
         card.setAttribute('size', sz); card.inert = true;
         Object.assign(card.style, { display: 'block', width: '100%', height: '100%' });
         cell.appendChild(card); view.appendChild(cell); doc.body.replaceChildren(view);
         fw.galleryCard = card;
-        off = fw.hkCards.onClient((client) => fw.hkHostClient.bridge(card, client));
+        // Sample readings are fixed for this illustration. Subscribing the
+        // sample back to the frame's live client hub would feed it into itself.
       };
       frame.addEventListener('load', load, { once: true });
     }
@@ -512,9 +558,11 @@
     }
     optionFields(item, opts, save, title, page) {
       var K = this.K, self = this, fields = G.table()[item.card].opts || {}, rows = [];
-      var set = (key, value) => { var out = copy(opts); if (value === '' || value == null) delete out[key]; else out[key] = value; save(out); };
+      var set = (key, value) => { var out = copy(opts); if (value === '' || value == null) delete out[key]; else out[key] = value;
+        if (item.card === 'camera' && item.id && key === 'entity' && !page) self.update(item.id, { opts: out, pages: null }); else save(out); };
       Object.keys(fields).forEach(function (key) {
         var kind = fields[key], label = key.charAt(0).toUpperCase() + key.slice(1);
+        if (kind === 'boolean') { rows.push(K.toggle({ label: key === 'sky' ? 'Weather Sky Background' : label, on: opts[key] === true, onChange: (on) => set(key, on) })); return; }
         if (kind === 'surface') { self.surfaceFields(opts.surface, (value) => set('surface', value), rows); return; }
         if (kind === 'windows') { self.windows(opts, set, rows); return; }
         var choices = self.choices(kind);

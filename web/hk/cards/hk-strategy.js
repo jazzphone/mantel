@@ -1524,7 +1524,8 @@
     if (grid.band !== false && header) {
       // A Home Grid has 60 px for its band, not the full page header's 150+.
       var parts = header.cards || [], chip = parts.find(function (c) { return c.type === 'custom:hk-chips-card'; });
-      var band = { type: 'custom:hk-header-card', grid_band: true, chips: chip || null, hk_band: true };
+      var band = { type: 'custom:hk-header-card', grid_band: true, show_clock: grid.header_clock !== false,
+        show_weather: grid.header_weather !== false, chips: chip || null, hk_band: true };
       cards.push(band);
     }
     (grid.items || []).forEach(function (it) {

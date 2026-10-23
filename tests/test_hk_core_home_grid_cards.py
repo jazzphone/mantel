@@ -129,3 +129,24 @@ def test_group_background_is_checked_and_roundtrips(card):
 def test_group_background_refuses_unbounded_values(appearance):
     _, errors = write({'id': 'group', 'card': 'room', 'size': 'W', 'at': [0, 0], 'opts': {'surface': appearance}})
     assert errors == {'home_grid': 'grid_option'}
+
+
+@pytest.mark.parametrize('enabled', [True, False])
+def test_weather_sky_option_roundtrips(enabled):
+    board, errors = write({'id': 'weather', 'card': 'weather', 'size': 'L', 'at': [0, 0], 'opts': {'sky': enabled}})
+    assert not errors
+    assert board['home_grid']['items'][0]['opts']['sky'] is enabled
+
+
+@pytest.mark.parametrize('value', ['true', 1, None, {}])
+def test_weather_sky_refuses_non_boolean(value):
+    _, errors = write({'id': 'weather', 'card': 'weather', 'size': 'L', 'at': [0, 0], 'opts': {'sky': value}})
+    assert errors == {'home_grid': 'grid_option'}
+
+
+def test_header_clock_and_weather_are_independent_and_checked():
+    grid = HG.check({'items': [], 'header_clock': False, 'header_weather': True})
+    assert HG.check(grid) == grid
+    assert grid['header_clock'] is False and grid['header_weather'] is True
+    with pytest.raises(HG.GridInvalid):
+        HG.check({'items': [], 'header_clock': 'false'})

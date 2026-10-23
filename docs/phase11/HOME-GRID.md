@@ -6,7 +6,7 @@ https://claude.ai/artifact/JnMmSXDneGVE1e81BWYuid, A preferred). An Owner or Adm
 using HK's own cards. A block can hold **several pages** that swipe: cameras, rooms, thermostats, scene pages.
 Mantel first; HK Frontend as well, which comes at little extra cost (below).
 
-**Status (2026-10-23): G1–G8 and the second-review refinements are installed in Mantel App 0.1.59 on the house. HK Frontend remains a separate release (1.10.7 on the house). Next is the owner's kitchen-tablet acceptance of the cards, picker and independent panel scrolling.** Older slice notes describe their state at the time.
+**Status (2026-10-23): Mantel App 0.1.59 is installed on the house. The owner's third review is implemented below, ready for the next release and tablet acceptance. HK Frontend remains a separate release (1.10.7 on the house).** Older slice notes describe their state at the time.
 
 ## The answers (2026-10-22)
 
@@ -917,3 +917,17 @@ Checked with real wheel input in the picker and block settings at 1600 × 1000 a
 The owner authorized a new app release to the house. Main commit `1995bb8` was staged through the existing local-app process and installed as 0.1.59, including all second-review refinements and the editor scrolling fix. Home Assistant created a protected backup of Mantel 0.1.58 before the update. The installed app reports 0.1.59; strict health returns OK with Home Assistant connected and build `614dc07f88fc0d3b`, matching the staged artifact. Startup logs contain no errors or traceback.
 
 This was a local Home Assistant App update; no public image/tag publication or HK Frontend release was performed. Physical kitchen-tablet visual and touch/swipe acceptance remains with the owner. A release-test assumption that private-word injection always belongs in Unreleased was corrected to cover both Unreleased and a versioned section; the publication/version tests pass.
+
+### Owner review, round 3 (2026-10-23)
+
+- **One camera:** the mosaic was replacing the block's configured camera with the screen's camera list. Grid cameras now keep their own list, including each page of a carousel. Picking a Camera switches the block to One Camera; Camera Display → Swipe All Cameras explicitly restores automatic paging. The browser check asserts the resolved camera list, not just the config.
+- **Screen Settings:** columns, rows, frame dimensions and header controls are behind a collapsed disclosure. Clock and weather can be hidden independently while keeping the header's status chips. Both flags are checked and preserved by the shared settings model.
+- **Thermostat appearance:** the dial uses the same positioned `hk-plate` element as its neighbours. Chrome and WebKit compare its material with the room's across Flat Light, Flat Dark and Blur.
+- **Page controls:** centred dots sit inside a small pill, retaining their touch targets. Browser checks measure their centre against the card and exercise actual dot clicks and idle return.
+- **Picker:** all 18 icons use available bundled glyphs. Illustrative readings populate climate, weather, music, lights, presence, vacuum, alarm, timers and calendar previews. Sample clients are read-only and excluded from the live client hub, including nested controls in either host; adding a card still saves actual home entities and options.
+- **Room tiles:** Large uses at most two rows of two tall accessory tiles; Extra Large uses two rows of three. Rows stretch to fill the plate, with compact wells on short rows to retain names and states. Wide retains regular pills; overflow still opens the room.
+- **Weather:** Large adds humidity/wind/feels-like readings when available, six hours and three days. Extra Large puts current conditions beside six hours and five days. Weather Sky Background is an opt-in, initially off, reuse of Sky's own sky-only renderer. It follows the block's chosen weather entity, stays clipped inside the card, pauses for reduced motion, disabled animations, sleep, hidden pages and offscreen cards, and disposes its scene when turned off or removed.
+
+Validation: the full main suite passed **3,447 tests, 21 skipped**, plus two explicit preview-client regressions for Mantel and Home Assistant. All frontend JavaScript suites pass with intentional CSS snapshots refreshed. Chrome and WebKit pass both starters in three appearances, including thermostat material parity, centred dots, real dot clicks and idle return. Room/weather/thermostat render audits pass; a populated-room audit also checks short tall-tile rows. The editor smoke passes real drag/swap, independent scrolling at two window sizes, all picker icons, populated previews, camera selection, header toggles, conditional preview, save/refusal, history, copy and cancel. The interaction check covers selected-entity Sky rendering, card bounds, reduced motion, toggle cleanup and the resolved single-camera list. Packaging and documentation links pass.
+
+**Continuation:** publish the next Mantel App release when authorized, then review the actual kitchen tablet. This round does not change the installed 0.1.59 app or publish HK Frontend. Keep the unrelated local Xcode project changes out of the commit.

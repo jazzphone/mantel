@@ -7,6 +7,8 @@ const pw = require(process.env.PLAYWRIGHT_PATH || 'playwright');
   await context.addCookies([{name:'mantel_session',value:input.cookie,url:input.origin}]);
   await context.route('**/*',route=>new URL(route.request().url()).origin===input.origin?route.continue():route.abort());
   const page=await context.newPage(); const errors=[];page.on('pageerror',e=>errors.push(e.message));
+  page.setDefaultTimeout(15000);
+  page.setDefaultNavigationTimeout(15000);
   let commandCalls=0;
   page.on('websocket',ws=>ws.on('framesent',frame=>{try{const msg=JSON.parse(String(frame.payload));if(msg.type==='command')commandCalls++;}catch(e){}}));
   for (const screen of input.screens){
@@ -29,9 +31,18 @@ const pw = require(process.env.PLAYWRIGHT_PATH || 'playwright');
         const b=cell.getBoundingClientRect(),card=cell.firstElementChild;
         for(const p of (card.localName==='hk-pager-card'?[card]:all(card,'hk-pager-card'))) for(const slot of p._slots){if(Math.abs(slot.getBoundingClientRect().height-b.height)>1)issues.push('short page '+cell.dataset.id);}
         for(const p of (card.localName==='hk-pager-card'?[card]:[])){
+          const dots=p.shadowRoot.querySelector('.pc').getBoundingClientRect();
+          if(Math.abs((dots.left+dots.right-b.left-b.right)/2)>1)issues.push('page dots are not centred '+cell.dataset.id);
           for(const slot of p._slots){let r=slot.getBoundingClientRect();if(r.right<b.left+5||r.left>b.right-5)continue;
             for(const button of all(slot,'.segment,.tb')){let br=button.getBoundingClientRect();for(const dot of p._dots){let d=dot.getBoundingClientRect();if(br.left<d.right&&br.right>d.left&&br.top<d.bottom&&br.bottom>d.top)issues.push('dots cover control '+cell.dataset.id);}}
           }
+        }
+        const thermostats=card.localName==='hk-control-card'?[card]:all(card,'hk-control-card');
+        for(const thermostat of thermostats.filter(t=>t._domain()==='climate')) {
+          const surface=thermostat.shadowRoot.querySelector('.surface');
+          if(surface.localName!=='hk-plate')issues.push('thermostat is missing the shared plate');
+          const room=all(view.shadowRoot,'hk-grid-room-card')[0];
+          if(room){const a=getComputedStyle(surface),r=getComputedStyle(room.shadowRoot.querySelector('.room'));if(a.backgroundColor!==r.backgroundColor||a.backgroundImage!==r.backgroundImage)issues.push('thermostat appearance differs from the room plate');}
         }
         const groups=card.localName==='hk-scenes-card'?[card]:all(card,'hk-scenes-card');
         for(const group of groups) for(const tile of group._tiles||[]) {

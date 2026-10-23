@@ -10,24 +10,26 @@ Start with **Tap Weight** (the largest blocks are the ones you touch most) or **
 
 - Drag a block to move it. Blocks of the same size swap places. A move that overlaps another size or leaves the grid is refused.
 - Select a block, then use the arrow keys to move it with the keyboard.
-- Select **+ Add**, search or choose a group, then choose a card. Its live preview has named sizes. **Add** uses the first free space; you can also drag the preview onto the grid. Sizes without space say so.
+- Select **+ Add**, search or choose a group, then choose a card. Its illustrative preview uses sample readings and named sizes; the saved card uses your home's live data. **Add** uses the first free space; you can also drag the preview onto the grid. Sizes without space say so.
 - Select a block to change its size, options or pages, or remove it.
 - Choose **Custom Pages** to add pages of the same card with different options. You can move pages up or remove them. Rooms, cameras, thermostats, speakers and scenes also have automatic page sources.
 - **Tablet’s Room** means the room of the tablet displaying the screen. A copied layout keeps that meaning.
 
 Home Grid is a mode on an existing generated dashboard. You do not need a new dashboard: open its editor, choose a starter, arrange the blocks, and Save. Create a separate screen first only if you want a separate layout. The tab bar keeps your navigation settings: **Rooms** can be its own button or a section inside **More**.
 
-Room blocks have a surrounding tile containing regular accessory pills and the speaker, without status chips. Extra accessories appear behind **+N more**, which opens the room. Scene groups also have a surrounding tile, keeping page dots with the scenes that swipe together. Camera blocks default to one camera; use **Camera** to choose which, or **Pages → Cameras** to swipe between them.
+Room blocks have a surrounding tile containing accessories and the speaker, without status chips. Wide uses regular pills; Large uses a 2 × 2 arrangement of taller tiles, and Extra Large has two rows of three. The tiles fill the available height. Extra accessories appear behind **+N more**, which opens the room. Scene groups also have a surrounding tile, with a centred page-control pill for the scenes that swipe together. Camera blocks default to one camera: select **Camera** to choose which. Choosing a camera turns automatic paging off. Choose **Camera Display → Swipe All Cameras** to restore the carousel.
 
 Select a Room or Scenes block and enable **Custom Group Background** to choose its color, opacity and blur (Follow Screen, None, Light, Medium or Heavy). Opacity changes the background tint, not the pills or labels. Turn the custom background off to restore the screen’s appearance. These settings also work on paged groups and conditional fallbacks.
 
-Weather comes in Wide (conditions), Large (also six hours), and Extra Large (also five days). Timers offer pause/resume and cancel; an empty block opens Create a Timer, and Wide also has quick starts. Security opens the shared alarm sheet, keeping its PIN flow.
+Weather comes in Wide (conditions), Large (also readings, six hours and three days), and Extra Large (also five days, beside the current conditions). Forecast details depend on what your weather provider offers. Enable **Weather Sky Background** in the block's options for Sky's clouds, sun/moon and precipitation inside the card. It is off by default, follows the chosen weather entity, and respects the screen's animation setting and reduced motion. Timers offer pause/resume and cancel; an empty block opens Create a Timer, and Wide also has quick starts. Security opens the shared alarm sheet, keeping its PIN flow.
 
 Choose **Show When** and a fallback card for a conditional block. Conditions include music playing, a timer running, an armed alarm, a doorbell event, after sunset, and an entity state. While false, the fallback fills the same cells. **Preview** switches between Live, Primary and Fallback in the editor without changing the saved condition. Doorbell events hold their card for one minute. **Change Card** and the fallback chooser reuse the gallery and offer cards that fit the block’s size.
 
 The picker and settings scroll within the right-hand panel. The dashboard preview and Save/Cancel toolbar stay visible, and the preview scales to fit shorter desktop windows.
 
-The frame is the tablet's dimensions in pixels, used to scale the desktop preview. The tablet itself fills its actual display. The editor includes the screen's tab bar and leaves its space clear. There are 6, 3 or 2 columns and 2–6 rows. The narrower column counts are supported, but their card designs have not been polished for nightstand displays.
+Expand **Screen Settings** for columns, rows, frame dimensions and header controls. The frame is the tablet's dimensions in pixels, used to scale the desktop preview. The tablet itself fills its actual display. The editor includes the screen's tab bar and leaves its space clear. There are 6, 3 or 2 columns and 2–6 rows. The narrower column counts are supported, but their card designs have not been polished for nightstand displays.
+
+**Header Clock** and **Header Weather** can be turned off independently while retaining the status chips. This lets you use clock and weather cards without repeating the same information in the header.
 
 The optional top band keeps the clock, weather and status chips together. In a narrow thermostat block the dial fills the block: tap the thermostat's name for its full controls and modes. Wider thermostat blocks show mode choices directly. A large Now Playing block shows the song's progress above the controls and the volume below them, over a blur of the album cover. Under a block that has more than one page, the dots work like an iPhone's: swipe the block, tap a dot, or tap either side of the dots to move one page.
 
