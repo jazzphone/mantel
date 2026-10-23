@@ -1644,7 +1644,6 @@
   // one cell's width and height. A card's own layout per class reads them
   // (G2). The card gets the same `size` attribute.
   var GRID = C.HOME_GRID || { sizes: {}, gap: 10, band: 60 };
-  var GRID_SHADOW = 40;         // how far a block's shadow shows past it, px (glass-shadow-lg: 10 + 28)
   class HkHomeGridView extends HTMLElement {
     setConfig(config) {
       this._config = config || {};
@@ -1676,12 +1675,10 @@
       // --hk-tabbar-h on <html> at the bottom. The canvas fits the remaining
       // room uniformly; rows keep their logical height when the dock changes.
       //
-      // A CELL CLIPS A SHADOW'S REACH OUT (GRID_SHADOW), not at its edge: a
-      // plate fills its cell, and clipped at its edge -- or a gap out, as it
-      // was -- its shadow (the look's: glass-shadow-lg's 0 10px 28px, the
-      // player's heavier one) ended in a hard grey box round the block.
-      // clip-path paints only: the cell's size is the grid's still, and what
-      // spills further is cut.
+      // Do not put clip-path on a cell: it creates a backdrop root, so a
+      // shared blur inside a swipe track cannot sample the wallpaper.
+      // Cards and swipe tracks clip their own content; the grid clips its
+      // outer boundary. Shadows can extend between the cells.
       st.textContent =
         ':host{--g-room:var(--hk-bar-room,var(--hk-tabbar-h,0px));display:block;position:relative;' +
         'height:calc(100dvh - var(--g-room));max-height:calc(100dvh - var(--g-room));overflow:hidden;' +
@@ -1690,7 +1687,7 @@
         'box-sizing:border-box;display:grid;position:absolute;transform-origin:top left;padding:var(--g-pad);gap:var(--g-gap);' +
         'grid-template-columns:repeat(var(--g-cols), ' + C.TILE.w + 'px);overflow:hidden}' +
         '.band{grid-column:1 / -1;grid-row:1;min-width:0;min-height:0;overflow:hidden}' +
-        '.cell{position:relative;min-width:0;min-height:0;clip-path:inset(-' + GRID_SHADOW + 'px);' +
+        '.cell{position:relative;min-width:0;min-height:0;overflow:visible;' +
         'container-type:size;container-name:hk-cell}' +
         '.cell>*,.band>*{display:block;box-sizing:border-box;width:100%;max-height:100%;margin:0!important}' +
         '.cell>*{height:100%}' +
@@ -1967,12 +1964,12 @@
         '.page>*{display:block;box-sizing:border-box;width:100%;height:100%;margin:0!important}' +
         '.dots{position:absolute;bottom:0;left:0;right:0;z-index:1;height:' + PAGER_DOTS + 'px;min-height:0;' +
         'display:flex;justify-content:center;align-items:flex-end;min-width:0;pointer-events:none}' +
-        '.pc{position:relative;display:flex;align-items:flex-end;justify-content:center;height:44px;padding:0 10px;pointer-events:auto;cursor:pointer;' +
+        '.pc{position:relative;display:flex;flex:none;box-sizing:border-box;max-width:calc(100% - 12px);align-items:flex-end;justify-content:center;height:44px;padding:0 10px;pointer-events:auto;cursor:pointer;' +
         '-webkit-tap-highlight-color:transparent}' +
         '.pc::before{content:"";position:absolute;bottom:3px;left:0;right:0;height:16px;border-radius:' + C0.R.capsule('16px') + ';background:rgba(30,30,36,.22);pointer-events:none}' +
         '.pager.one .dots{display:none}' +
         // 44 px targets, reaching up over the page's foot
-        '.dot{flex:0 0 ' + PAGER_PITCH + 'px;min-width:0;height:44px;margin:0;padding:0 0 7px;border:0;background:none;' +
+        '.dot{flex:0 1 ' + PAGER_PITCH + 'px;min-width:0;height:44px;margin:0;padding:0 0 7px;border:0;background:none;' +
         'display:flex;align-items:flex-end;justify-content:center;cursor:pointer;-webkit-tap-highlight-color:transparent}' +
         // a dot: the surface scale's `mark` (as notches and ticks are), the
         // page it is on in `ink`; a fade between them, none for Reduce Motion
@@ -2043,6 +2040,7 @@
       dots.className = 'dots';
       var pc = document.createElement('div');
       pc.className = 'pc';
+      pc.style.width = (n * PAGER_PITCH + 20) + 'px';
       dots.appendChild(pc);
       // beside the dots: a page back or on, by which side of the current dot
       pc.addEventListener('click', function (e) {

@@ -76,9 +76,54 @@ const pw = require(process.env.PLAYWRIGHT_PATH || 'playwright');
         }
       }
       const scroll=document.scrollingElement;if(scroll.scrollHeight>innerHeight+1||scroll.scrollWidth>innerWidth+1)issues.push('page scroll');
+      if(window.hkGlass?.stats().active){
+        const t=all(document,'hk-control-card').find(e=>e._domain()==='climate');
+        if(!window.__hkGlassCards.has(t))issues.push('thermostat missing shared-layer registration');
+        let n=t;
+        while(n&&n!==view){
+          if(n.nodeType===1&&getComputedStyle(n).clipPath!=='none')issues.push('shared backdrop blocked by ancestor clip-path');
+          n=n.parentNode||n.host;
+        }
+      }
       return {issues,cells:view.shadowRoot.querySelectorAll('.cell').length};
     });
     console.log(JSON.stringify({screen,...report}));
+    if(screen==='polish-a-blur-day'&&input.probe){
+      const sample=await page.evaluate(()=>{
+        const all=r=>[...r.querySelectorAll('*')].flatMap(e=>[e,...(e.shadowRoot?all(e.shadowRoot):[])]);
+        const sky=all(document).find(e=>e.id==='hk-sky');
+        const pattern=document.createElement('div');
+        pattern.style.cssText='position:absolute;inset:0;z-index:999999;pointer-events:none;background:conic-gradient(#fff 25%,#000 0 50%,#fff 0 75%,#000 0) 0 0/16px 16px';
+        sky.appendChild(pattern);
+        const baseline=document.createElement('div');
+        baseline.style.cssText='position:fixed;left:0;top:90px;width:50px;height:50px;z-index:999999;backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px)';
+        document.body.appendChild(baseline);window.__blurProbe=[pattern,baseline];window.hkGlass.refresh();
+        const t=all(document).find(e=>e.localName==='hk-control-card'&&e._domain()==='climate'),r=t.shadowRoot.querySelector('.surface').getBoundingClientRect();
+        return [Math.round(r.right-36),Math.round(r.top+60),Math.round(r.right-12),Math.round(r.top+76)];
+      });
+      await page.waitForTimeout(200);
+      await page.screenshot({path:input.probe+'/shared-pattern.png'});
+      fs.writeFileSync(input.probe+'/shared-pattern.json',JSON.stringify({sample,baseline:[15,105,35,125]}));
+      await page.evaluate(()=>window.__blurProbe.forEach(e=>e.remove()));
+      // The narrowest card must enclose all dots even at the maximum page count.
+      const target=page.locator('hk-pager-card').filter({has:page.locator('hk-control-card')}).first();
+      const original=await target.evaluate(p=>p._config);
+      for(const count of [2,6,12]){
+        await target.evaluate((p,count)=>{const cfg=JSON.parse(JSON.stringify(p._config));cfg.item.pages={source:'list',list:Array.from({length:count},()=>({opts:{}}))};p.setConfig(cfg);},count);
+        await page.waitForTimeout(100);
+        const fits=await target.evaluate(p=>{
+          const pc=p.shadowRoot.querySelector('.pc'),a=pc.getBoundingClientRect(),b=p.getBoundingClientRect();
+          if(a.left<b.left||a.right>b.right||Math.abs((a.left+a.right-b.left-b.right)/2)>1)return false;
+          if(Math.abs(parseFloat(getComputedStyle(pc,'::before').width)-pc.clientWidth)>1)return false;
+          return p._dots.every(d=>{const r=d.querySelector('i').getBoundingClientRect();return r.left>=a.left+4&&r.right<=a.right-4;});
+        });
+        if(!fits)throw new Error('page-control pill does not enclose '+count+' dots');
+        await target.locator('.dot').last().click();
+        await page.waitForFunction(count=>{const all=r=>[...r.querySelectorAll('*')].flatMap(e=>[e,...(e.shadowRoot?all(e.shadowRoot):[])]);return all(document).some(p=>p.localName==='hk-pager-card'&&p._config.item.card==='thermostat'&&p._index===count-1);},count);
+      }
+      await target.evaluate((p,cfg)=>p.setConfig(cfg),original);
+      console.log(JSON.stringify({pagePill:'2, 6 and 12 dots fit; final dot remains clickable'}));
+    }
     if(input.shots){
       // Documentation images must not contain Apple's licensed fonts or glyphs.
       await page.evaluate(()=>{function visit(root){const style=document.createElement('style');style.textContent='*{font-family:Arial,sans-serif!important}';(root.head||root).appendChild(style);for(const e of root.querySelectorAll('*'))if(e.shadowRoot)visit(e.shadowRoot);}visit(document);});

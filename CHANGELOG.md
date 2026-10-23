@@ -34,6 +34,8 @@ Local Home Assistant App update for the house.
 
 The first public release.
 
+- Home Grid shared blur reaches cards inside swipe blocks, including thermostats. Page-control pills size to the page count and keep all dots inside narrow cards.
+
 - Home Grid keeps starter layouts inside Screen Settings while editing cards. Room controls distinguish one room from swiping between rooms, with a starting-room choice that matches the preview and idle return.
 
 - Home Grid keeps fixed tall-tile proportions with uniform fit and a per-screen scale control. Room and scene groups support six columns by two rows; sparse room groups retain empty rows. Home Assistant person portraits load through Mantel and fall back to initials.

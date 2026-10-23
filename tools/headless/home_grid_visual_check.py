@@ -33,7 +33,21 @@ async def main():
         async with TestServer(app) as server:
             shots=args.shots
             if shots: shots.mkdir(parents=True,exist_ok=True)
+            probe=shots or Path(td)/'shared-blur-probe'
+            probe.mkdir(parents=True,exist_ok=True)
             proc=await asyncio.create_subprocess_exec(args.node,str(Path(__file__).with_suffix('.cjs')),stdin=asyncio.subprocess.PIPE,stdout=asyncio.subprocess.PIPE,stderr=asyncio.subprocess.PIPE,env=os.environ)
-            out,err=await proc.communicate(json.dumps({'origin':str(server.make_url('')).rstrip('/'),'cookie':cookie,'screens':screens,'shots':str(shots) if shots else None,'engine':args.engine,'browser':args.browser}).encode())
-            print(out.decode());print(err.decode());return proc.returncode
+            out,err=await proc.communicate(json.dumps({'origin':str(server.make_url('')).rstrip('/'),'cookie':cookie,'screens':screens,'shots':str(shots) if shots else None,'engine':args.engine,'browser':args.browser,'probe':str(probe)}).encode())
+            print(out.decode());print(err.decode())
+            if proc.returncode: return proc.returncode
+            from PIL import Image,ImageStat
+            sample=json.loads((probe/'shared-pattern.json').read_text())
+            im=Image.open(probe/'shared-pattern.png').convert('L')
+            contrast=lambda box:ImageStat.Stat(im.crop(tuple(box))).stddev[0]
+            baseline,thermostat=contrast(sample['baseline']),contrast(sample['sample'])
+            print(f'shared blur contrast: baseline={baseline:.2f}, thermostat={thermostat:.2f}')
+            if baseline<20:
+                if thermostat>=20: raise AssertionError('Thermostat shared blur did not suppress the wallpaper pattern')
+            elif args.engine=='chromium': raise AssertionError('Chromium baseline blur unavailable')
+            else: print('Pixel assertion unavailable: this WebKit renderer also omits the standalone baseline blur; structural and interaction checks passed.')
+            return 0
 raise SystemExit(asyncio.run(main()))
