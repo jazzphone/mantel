@@ -2,6 +2,15 @@
 
 All notable changes to Mantel are listed here. Versions follow [semantic versioning](https://semver.org); the Home Assistant App, the Docker images and the Python package share one version number.
 
+## 0.1.59 - 2026-10-23
+
+Local Home Assistant App update for the house.
+
+- Home Grid's searchable card picker shows live previews and available sizes, with options and conditional fallback previews.
+- Room and scene groups have surrounding tiles, fuller scene rows and clearer page dots. Each group supports background color, opacity and blur.
+- Music artwork and track information align, with more space around the progress bar. Weather, camera, security and timer cards have updated layouts and controls.
+- The picker and settings scroll independently while the dashboard preview and editor toolbar stay visible, including on shorter screens.
+
 ## Unreleased
 
 The first public release.
