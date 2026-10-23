@@ -760,12 +760,15 @@ The owner's review of the Tap Weight screen, fixed on `main` (no release):
 
 ## Next: owner review, round 2 (2026-10-22)
 
-The owner's review of 0.1.58 on the house. **Start here.** Every item follows DESIGN.md
+The owner's review of 0.1.58 on the house. Code progress is recorded under each item; publication and physical-tablet acceptance remain open. Every item follows DESIGN.md
 (/Volumes/config/hk_house/docs/DESIGN.md, read-only) and is checked with the render audit
 (`tools/headless/home_grid_audit.py`), screenshots in every look (Flat Light, Flat Dark, Blur), and the editor smoke
 (`tools/headless/grid_editor_smoke.py`). Record each item's progress under it as you go.
 
 ### R1. The card picker (+ Add) — rebuild it
+
+**Progress (2026-10-23): implemented.** Searchable groups, descriptions, one live preview in the screen’s own rendering context, named sizes and no-space labels, Add/drag, and the same gallery for changing primary/fallback cards. Preview controls remain inert.
+
 
 "A horrible layout." Today it is a flat list of every card times every size. Its previews are broken (white bars
 over empty grey boxes: the preview cards get no house data and no sized cell), and its sizes are bare letters.
@@ -784,6 +787,9 @@ Rebuild it like iOS's widget gallery:
 
 ### R2. The room block — the mock-up's, only what turns on and off
 
+**Progress (2026-10-23): implemented.** Refined after the owner clarified the surrounding tile: a shared plate surrounds the heading and regular 70 px accessory pills. No status row or stretched entity tile. Includes lights, switches/outlets shown as lights, fans and speaker; overflow uses +N more. Paged scenes also have a surrounding plate with dots inside.
+
+
 It "looks way different than the mock-up" (concept A on the canvas, https://claude.ai/artifact/JnMmSXDneGVE1e81BWYuid).
 It **must not include the room's status chips** (temperature, humidity, doors, motion and so on): drop the status
 row (`hk-room-status-card`) from `hk-grid-room-card` (web/hk/cards/hk-grid-cards.js) entirely. It shows **only the
@@ -792,6 +798,9 @@ as the mock-up does, filling the block (no tall empty space under one pill). Kee
 to dim. A room with more than fits says "+N more", which opens the room page.
 
 ### R3. A weather block like Apple's Weather widget
+
+**Progress (2026-10-23): implemented.** Wide shows conditions, Large adds six hours, and Extra Large adds five days with range bars positioned on the week’s span. Uses the Weather page’s sources and glyphs.
+
 
 The owner's reference (a screenshot of Apple's large Weather widget, not committed). It is one plate with:
 
@@ -807,6 +816,9 @@ today's `weather` block (`hk-weather-band-card section: hero`), using the Weathe
 
 ### R4. One camera
 
+**Progress (2026-10-23): implemented.** A single card defaults to the first camera. The editor explicitly labels Camera; each automatic page names exactly one entity. A browser check verifies the selected camera is the only one.
+
+
 "I can't seem to only show one camera; it always wants to show at least two." A camera block with one camera
 chosen (or one page of a `cameras` source) must draw that camera alone, filling the block. Find why two show:
 the `camera` entry in `hk-grid-catalog.js` hands `hk-camera-mosaic-card` the screen's cameras when no `entity` is
@@ -814,6 +826,9 @@ set, the starter uses `pages: {source: 'cameras'}`, and the editor may offer no 
 that choosing one camera is obvious in the editor and draws one.
 
 ### R5. The security block — a real design
+
+**Progress (2026-10-23): implemented.** A tile with shield and alarm state. Wide adds entry/lock summary and Home/Away/Disarm affordances opening shared alarm controls. The block sends no alarm command; the shared sheet retains its PIN flow.
+
 
 "Doesn't fit with the format of all the other cards; looks lazy." Today it is the Security page's status row
 (`hk-page-status-card page: security`) in a plate. Design a proper block in the grid's tile language (as the
@@ -826,6 +841,9 @@ action, timers and scene tiles):
 
 ### R6. Timers with controls
 
+**Progress (2026-10-23): implemented.** Countdown rings, pause/resume and cancel. Paused quick timers stay visible even if removed from the running sensor. Empty opens the existing keypad; Wide uses the Timers page’s configured durations and quick-start script. Checked through fake action ports.
+
+
 "Shouldn't the timer card have some controls on it?" Give the block the Timers page's own controls:
 
 - **S:** none running: a tap opens Create a Timer (the keypad sheet, `hk-timer-new-card`); one running: its ring
@@ -837,6 +855,9 @@ Calls go through the same scripts as the Timers page (`script.quick_timer_create
 
 ### R7. Conditional blocks
 
+**Progress (2026-10-23): implemented.** Bounded named conditions and same-size fallbacks checked in hk_core, with catalog parity. Only the active card is mounted. Editor supports both cards’ options, automatic fallback pages and Live/Primary/Fallback preview. Tests cover malformed/nested fallbacks, persistence, live state changes and fixed geometry. Doorbell events last 60 seconds.
+
+
 "May be cool to make some of these cards conditional." A block option, **Show When**: always (default), or a
 condition. Examples are "music playing", "a timer running", "the alarm armed", "someone at the door", "after
 sunset", or an entity's state. While the condition is false, the block's space goes to a **fallback block** the
@@ -846,6 +867,9 @@ other one.
 
 ### R8. Every block follows the screen's look
 
+**Progress (2026-10-23): implemented.** Thermostat identifies itself on shared-glass join/leave and notifies it after rebuilding. Scene groups join/leave their surrounding plate. Audit checks glass registration, Flat filters and look shadows. Media progress has 12 px of separation below the title/artwork region.
+
+
 "Not all cards follow the appearance selected; the Thermostat card isn't blurred." In Blur (glass) the thermostat
 block's plate is not frosted like the others. Audit **every catalog card at every size** in each look for the
 look's own plate (`hkCards.plate()` / `--hk-look-shadow` / the glass blur), and fix the ones that draw their own
@@ -854,8 +878,18 @@ surface (the thermostat's `.surface.tstat` in web/hk/cards/hk-control.js is the 
 
 ### Also open
 
-- The render audit reports "band text clipped" for the band's clock on every view, also on the code before the
-  round 1 fixes; find out whether the time really is cut or the check is wrong.
+- **Resolved (2026-10-23):** the band warning measured unused font ascent/descent reserve. The audit now checks actual glyph ink with canvas metrics; the visible clock fits without changing alignment.
 - The kitchen tablet hasn't been checked with a Home Grid screen (real swipes, touch, idle return, doorbell jump).
 - HK Frontend's next build (1.10.8) carries all of this; it needs the owner's OK, as does each release.
 
+
+### Round 2 delivery checks (2026-10-23)
+
+- All eight review items have code and editor support. The owner's follow-up is included: room and scene groups have surrounding plates with regular pills, and the music progress bar has more breathing room.
+- Main suite: **3,428 passed, 21 skipped**. HK Frontend Python: **758 passed**. All frontend JavaScript suites pass, with intentional CSS snapshots refreshed. Focused model/editor tests cover the conditional schema, catalog parity, refusals and persistence.
+- All **18 catalog cards** pass every size in Flat Light, Flat Dark, Blur Day and Blur Night, plus Flat Dark without the tab bar. The final room pass also checks the surrounding plate and shared material. No band-clipping warning remains.
+- Both starters pass composed layout checks in **Chrome and WebKit**, across Flat Light, Flat Dark and Blur. Editor smoke passes real drag/swap, overlay geometry, populated picker, conditional previews, save/refusal, history, copy and cancel.
+- `tools/headless/grid_review_check.py` covers live primary/fallback swaps without reflow, the single chosen camera, no room status row, timer pause/resume/cancel through a fake action port, paused countdowns, timer creation and the shared alarm sheet (including armed-state rendering).
+- Package and documentation links pass. Screenshots use fictional devices and Arial. Production files and the unrelated Xcode project edit remain untouched.
+
+**Still open:** owner's visual acceptance on the kitchen tablet, real touch/swipe/idle/doorbell behavior, and separately approved releases. This commit does not publish HK Frontend or deploy Mantel.

@@ -2018,50 +2018,69 @@
         '  letter-spacing:-0.23px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-style:normal}',
         '.one .tx b{font-weight:600;color:' + window.hkCards.v('ink') + '}',
         '.one .tx em,.one .tx hk-countdown{font-weight:500;color:' + window.hkCards.v('ink-2') + ';font-variant-numeric:tabular-nums}',
+        ':host([size]) hk-plate.strip{padding:12px;gap:8px;justify-content:center}',
+        '.timer-grid{display:grid;grid-template-columns:repeat(var(--cols,1),minmax(0,1fr));gap:12px}.grid-timer{display:grid;gap:6px;min-width:0}',
+        '.timer-heading{display:flex;align-items:center;gap:10px;min-width:0}.timer-heading>b{font-size:15px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:' + window.hkCards.v('ink') + '}',
+        '.timer-ring{width:56px;height:56px;flex:none;border-radius:50%;display:grid;place-items:center;position:relative}',
+        '.timer-ring svg{position:absolute;inset:0;width:56px;height:56px;transform:rotate(-90deg)}.timer-ring circle{fill:none;stroke-width:4px;stroke:' + window.hkCards.v('key') + '}.timer-ring .ring-left{stroke:' + window.hkCards.v('warn') + ';stroke-dasharray:calc(var(--hk-left,1)*100) 100}',
+        '.timer-ring hk-countdown{position:relative;font-size:13px;font-weight:600;color:' + window.hkCards.v('ink') + ';font-variant-numeric:tabular-nums}',
+        '.timer-controls{display:flex;gap:8px}.timer-controls button,.quick-grid button{border:0;border-radius:22px;background:' + window.hkCards.v('key') + ';color:' + window.hkCards.v('ink') + ';min-width:44px;min-height:44px;flex:1;cursor:pointer;font:inherit;font-size:13px}',
+        '.timer-controls hk-icon{display:block;width:20px;height:20px;margin:auto;--mdc-icon-size:20px}',
+        '.new-timer{border:0;background:none;color:' + window.hkCards.v('ink') + ';display:flex;align-items:center;gap:10px;text-align:left;min-height:56px;cursor:pointer;padding:0}',
+        '.new-timer i{width:42px;height:42px;background:' + window.hkCards.v('key') + ';border-radius:50%;display:grid;place-items:center;flex:none}.new-timer hk-icon{width:24px;height:24px;--mdc-icon-size:24px}',
+        '.new-timer span{display:grid;gap:3px}.new-timer b{font-size:15px;font-weight:600}.new-timer small{font-size:13px;color:' + window.hkCards.v('ink-2') + '}',
+        '.quick-grid{display:flex;gap:6px}',
         '@media (prefers-reduced-motion:reduce){:host([size]) hk-plate.strip.one{transition:none;transform:none}}'
       ].join('');
     }
     getCardSize() { return 1; }
-    // A HOME GRID BLOCK'S TAP: the Timers page, where the screen has one
     _gridTap() {
       if (this._tapWired) return;
       this._tapWired = true;
-      var self = this, el = this._e;
-      el.setAttribute('role', 'button');
-      el.setAttribute('tabindex', '0');
-      el.setAttribute('aria-label', 'Timers');
-      var go = function () {
-        var M = window.hkCards.menu, path = M && M.pagePath ? M.pagePath('timers') : null;
-        if (path) window.hkCards.navigate(path, self);
-      };
-      el.addEventListener('click', function (ev) { ev.stopPropagation(); go(); });
-      el.addEventListener('keydown', function (ev) {
-        if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); go(); }
+      this._e.addEventListener('click', (e) => {
+        var button = e.target.closest('button'); if (!button) return;
+        e.stopPropagation();
+        if (button.dataset.new !== undefined) { this._newGridTimer(); return; }
+        if (button.dataset.preset) {
+          var mins = Number(button.dataset.preset);
+          this._callResp('script', 'quick_timer_start', { duration: HkTimersPageCard.hms(mins) }).then((r) => {
+            if (!r.ok || r.response && r.response.started === false) this._newGridTimer();
+          }); return;
+        }
+        if (button.dataset.timer) this._call('timer', button.dataset.service, { entity_id: button.dataset.timer });
+        else { var M = window.hkCards.menu, path = M && M.pagePath('timers'); if (path) window.hkCards.navigate(path, this); }
       });
     }
-    // A HOME GRID BLOCK: the running timers that fit, soonest first
+    _newGridTimer() {
+      var D = window.hkDetail;
+      if (D) D.open(null, { name: 'Create a Timer', icon: 'mdi:timer-outline' }, {
+        cards: { cards: [{ type: 'custom:hk-timer-new-card', layout: 'panel',
+          name_chips: (window.hkSettings && window.hkSettings.get('headers.timers.names', null)) || undefined }] }
+      });
+    }
     _grid(list, sized) {
       this._watchBlock();
-      var rows = (list || []).filter(function (r) { return r && r.finishes_at && !isNaN(Date.parse(r.finishes_at)); })
-        .sort(function (a, b) { return Date.parse(a.finishes_at) - Date.parse(b.finishes_at); });
-      var b = this._block(), cols = sized === 'S' ? 1 : 2;
-      var esc0 = window.hkCards.esc;
-      this._one = rows.length <= 1;
-      if (this._one) {
-        var r0 = rows[0];
-        return '<div class="well' + (r0 ? ' on' : '') + '"><hk-icon icon="mdi:timer-outline"></hk-icon></div><div class="tx">' +
-          (r0 ? '<b>' + esc0(r0.name || 'Timer') + '</b><hk-countdown deadline="' + Date.parse(r0.finishes_at) + '"></hk-countdown>'
-              : '<b>Timers</b><em>None Running</em>') + '</div>';
-      }
-      var fit = b ? Math.max(1, Math.floor((b.h - 2 * TM.pad + TM.gap) / (TM.row + TM.gap))) * cols : cols;
-      var esc = window.hkCards.esc;
-      var items = rows.slice(0, fit).map(function (r) {
-        return '<div class="tm on"><i><hk-icon icon="mdi:timer-outline"></hk-icon></i><span><b>' + esc(r.name || 'Timer') +
-          '</b><hk-countdown deadline="' + Date.parse(r.finishes_at) + '"></hk-countdown></span></div>';
+      var states = this.client && this.client.states || {}, T = window.hkTimers, esc = window.hkCards.esc;
+      var rows = (list || []).filter((r) => r && r.entity_id).map((r) => ({ id: r.entity_id, name: r.name, attrs: Object.assign({}, r, states[r.entity_id] && states[r.entity_id].attributes), state: states[r.entity_id] && states[r.entity_id].state || 'active' }));
+      Object.keys(states).filter((id) => /^timer.quick_/.test(id) && states[id].state === 'paused').forEach((id) => {
+        if (!rows.some((r) => r.id === id)) rows.push({ id: id, name: states[id].attributes.friendly_name, attrs: states[id].attributes, state: 'paused' });
       });
-      if (!items.length) items = ['<div class="tm"><i><hk-icon icon="mdi:timer-outline"></hk-icon></i><span><b>Timers</b>' +
-                                  '<em>None running</em></span></div>'];
-      return '<div class="tl" style="--cols:' + (rows.length > 1 ? cols : 1) + '">' + items.join('') + '</div>';
+      rows = rows.filter((r) => r.state === 'paused' || r.attrs.finishes_at && !isNaN(Date.parse(r.attrs.finishes_at)))
+        .sort((a, b) => (Date.parse(a.attrs.finishes_at) || Infinity) - (Date.parse(b.attrs.finishes_at) || Infinity));
+      this._one = false;
+      if (!rows.length) {
+        var presets = (window.hkSettings && window.hkSettings.get('headers.timers.presets', null)) || [5, 10, 15, 20, 30, 60];
+        return '<button class="new-timer" data-new aria-label="Create a Timer"><i><hk-icon icon="mdi:timer-outline"></hk-icon></i><span><b>Timers</b><small>Create a Timer</small></span></button>' +
+          (sized === 'W' ? '<div class="quick-grid">' + presets.slice(0, 6).map((m) => '<button data-preset="' + Number(m) + '">' + esc(HkTimersPageCard.label(Number(m))) + '</button>').join('') + '</div>' : '');
+      }
+      var max = sized === 'S' ? 1 : 2;
+      return '<div class="timer-grid" style="--cols:' + Math.min(max, rows.length) + '">' + rows.slice(0, max).map(function (r) {
+        var paused = r.state === 'paused', total = T ? T.secs(r.attrs.duration) : 0;
+        var clock = paused ? 'hold="' + (T ? T.secs(r.attrs.remaining) : 0) + '"' : 'deadline="' + Date.parse(r.attrs.finishes_at) + '"';
+        return '<div class="grid-timer"><div class="timer-heading"><div class="timer-ring"><svg viewBox="0 0 56 56" aria-hidden="true"><circle class="ring-track" cx="28" cy="28" r="25"></circle><circle class="ring-left" cx="28" cy="28" r="25" pathLength="100"></circle></svg><hk-countdown ' + clock + ' total="' + total + '"></hk-countdown></div><b>' + esc(r.name || 'Timer') + '</b></div>' +
+          '<div class="timer-controls"><button data-timer="' + esc(r.id) + '" data-service="' + (paused ? 'start' : 'pause') + '" aria-label="' + (paused ? 'Resume' : 'Pause') + ' ' + esc(r.name || 'Timer') + '"><hk-icon icon="mdi:' + (paused ? 'play' : 'pause') + '"></hk-icon></button>' +
+          '<button data-timer="' + esc(r.id) + '" data-service="cancel" aria-label="Cancel ' + esc(r.name || 'Timer') + '"><hk-icon icon="mdi:close"></hk-icon></button></div></div>';
+      }).join('') + '</div>';
     }
     _sigOf() {
       var h = this.client;
@@ -2069,7 +2088,8 @@
       var s = h.states[this._config.entity || 'sensor.running_quick_timers'];
       // The module may arrive after the first render; until it does there is
       // nothing to draw, so fold its presence into the signature.
-      return (s ? s.last_updated : 'x') + '|' + (window.hkTimers ? '1' : '0');
+      if (!this._cellSize()) return (s ? s.last_updated : 'x') + '|' + (window.hkTimers ? '1' : '0');
+      return JSON.stringify([s, Object.keys(h.states).filter((id) => /^timer.quick_/.test(id)).map((id) => h.states[id]), !!window.hkTimers]);
     }
     _render() {
       var cfg = this._config;

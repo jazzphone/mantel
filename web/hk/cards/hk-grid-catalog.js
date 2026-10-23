@@ -53,15 +53,15 @@
       // the dial (hk-control.js), sized to the block (G2)
       return id ? { type: 'custom:hk-control-card', entity: id } : stand('Thermostat', 'hk:thermostat'); } },
     camera: { sizes: ['W', 'L', 'XL'], sources: ['cameras'], opts: { entity: 'camera' }, card: function (s, o, ctx) {
-      var ids = o.entity ? [o.entity] : (ctx.cameras || []);
+      var ids = o.entity ? [o.entity] : (ctx.cameras || []).slice(0, 1);
       return ids.length ? { type: 'custom:hk-camera-mosaic-card', height: 195, seam: 2, snapshot_cap: '480x270',
                             cameras: ids.map(function (id) { return { entity: id }; }) }
                         : stand('Cameras', 'hk:camera'); } },
     security: { sizes: ['S', 'W'], sources: [], card: function () {
-      return { type: 'custom:hk-page-status-card', page: 'security' }; } },
+      return { type: 'custom:hk-grid-security-card' }; } },
     timers: { sizes: ['S', 'W'], sources: [], card: function () {
       return { type: 'custom:hk-timer-strip-card', entity: 'sensor.running_quick_timers' }; } },
-    weather: { sizes: ['W', 'XL'], sources: [], opts: { entity: 'weather' }, card: function (s, o, ctx) {
+    weather: { sizes: ['W', 'L', 'XL'], sources: [], opts: { entity: 'weather' }, card: function (s, o, ctx) {
       var id = o.entity || ctx.weather;
       return id ? { type: 'custom:hk-weather-band-card', section: 'hero', entity: id } : stand('Weather', 'hk:weather-partly-cloudy'); } },
     calendar: { sizes: ['T', 'L'], sources: [], opts: { calendars: 'calendars' }, card: function (s, o) {
@@ -102,6 +102,7 @@
   function config(item, ctx) {
     var it = item || {}, c = CARDS[it.card];
     if (!c) return stand('Unavailable', 'mdi:help-circle-outline');
+    if (it.when && it.fallback) return { type: 'custom:hk-grid-conditional-card', item: it, ctx: ctx || {}, force: it._conditionPreview };
     if (paged(it)) return { type: 'custom:hk-pager-card', item: it, ctx: ctx || {} };
     return c.card(it.size, it.opts || {}, ctx || {});
   }
@@ -174,6 +175,20 @@
     return (t && t.room) || null;
   }
 
+  var CONDITIONS = ['music_playing', 'timer_running', 'alarm_armed', 'doorbell', 'after_sunset', 'entity_state'];
+  function matches(when, states, ringing, alarm) {
+    var c = when || {}, st = states || {}, ids = c.entity ? [c.entity] : Object.keys(st);
+    var any = function (domain, test) { return ids.some(function (id) { return id.split('.')[0] === domain && st[id] && test(st[id].state); }); };
+    if (c.kind === 'entity_state') return !!st[c.entity] && st[c.entity].state === c.state;
+    if (c.kind === 'music_playing') return any('media_player', function (s) { return s === 'playing'; });
+    if (c.kind === 'timer_running') return any('timer', function (s) { return s === 'active' || s === 'paused'; }) ||
+      !c.entity && !!st['sensor.running_quick_timers'] && Number(st['sensor.running_quick_timers'].state) > 0;
+    if (c.kind === 'alarm_armed') return (c.entity ? ids : alarm ? [alarm] : ids).some(function (id) { return id.split('.')[0] === 'alarm_control_panel' && st[id] && /^(armed_|arming|pending|triggered)/.test(st[id].state); });
+    if (c.kind === 'after_sunset') return any('sun', function (s) { return s === 'below_horizon'; });
+    if (c.kind === 'doorbell') return !!ringing || !!c.entity && !!st[c.entity] && st[c.entity].state === 'on';
+    return false;
+  }
+
   // the catalog as data, for the parity test and the editor (G5)
   function table() {
     var out = {};
@@ -186,6 +201,6 @@
 
   window.hkGridCatalog = { version: '1.0.0', SIZES: SIZES, SOURCES: SOURCES, TABLET_ROOM: TABLET_ROOM,
                            PAGES_MAX: PAGES_MAX, PER_PAGE: PER_PAGE,
-                           config: config, pages: pages, tabletRoom: tabletRoom, table: table };
+                           CONDITIONS: CONDITIONS, matches: matches, config: config, pages: pages, tabletRoom: tabletRoom, table: table };
   try { window.dispatchEvent(new CustomEvent('hk-grid-catalog-ready')); } catch (e) { /* a test page without events */ }
 })();

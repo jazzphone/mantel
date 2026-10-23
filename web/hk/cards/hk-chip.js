@@ -1347,10 +1347,15 @@
       if (C0().place) C0().place(this);
       window.addEventListener('hk-module-ready', this._wake);
       this._plan();
+      if (this._box) this._glass();
     }
     disconnectedCallback() {
       if (super.disconnectedCallback) super.disconnectedCallback();
       window.removeEventListener('hk-module-ready', this._wake);
+      if (window.__hkGlassCards && window.__hkGlassCards.delete(this) && window.hkGlass) window.hkGlass.changed(this, false);
+    }
+    _glass() {
+      if (this.isConnected && window.__hkGlassCards) { window.__hkGlassCards.add(this); if (window.hkGlass) { window.hkGlass.changed(this, true); window.hkGlass.rendered(this); } }
     }
     // Every scene, A to Z, follows the house's scenes: re-planned when the
     // number of entities moves (cheap), not on every push.
@@ -1416,17 +1421,17 @@
         this.appendChild(this._box);
       }
       var box = this._box, client = this.client;
-      box.style.cssText = 'display:grid;width:100%;height:100%;gap:' + C0().HOME_GRID.gap + 'px;' +
-        'grid-template-columns:repeat(' + plan.cols + ',minmax(0,1fr));grid-template-rows:repeat(' + plan.rows + ',minmax(0,1fr))';
+      box.style.cssText = C0().plate('card') + ';box-sizing:border-box;padding:12px 12px 36px;display:grid;width:100%;height:100%;gap:' + C0().HOME_GRID.gap + 'px;' +
+        'grid-template-columns:repeat(' + plan.cols + ',minmax(0,1fr));grid-auto-rows:70px;align-content:start;overflow:hidden;--hk-pill:100%';
       while (box.firstChild) box.removeChild(box.firstChild);
       this._tiles = plan.pills.map(function (pill) {
         var t = window.hkCards.create(pill);
-        t.setAttribute('size', 'S');
-        t.style.cssText = 'min-width:0;min-height:0';
+        t.style.cssText = 'min-width:0;min-height:0;width:100%;height:70px';
         box.appendChild(t);
         if (client) t.hkSetClient(client);
         return t;
       });
+      this._glass();
     }
   }
 

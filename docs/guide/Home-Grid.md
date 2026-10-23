@@ -10,10 +10,18 @@ Start with **Tap Weight** (the largest blocks are the ones you touch most) or **
 
 - Drag a block to move it. Blocks of the same size swap places. A move that overlaps another size or leaves the grid is refused.
 - Select a block, then use the arrow keys to move it with the keyboard.
-- Select **+ Add**, then click a size to use the first available space, or drag the size into place.
+- Select **+ Add**, search or choose a group, then choose a card. Its live preview has named sizes. **Add** uses the first free space; you can also drag the preview onto the grid. Sizes without space say so.
 - Select a block to change its size, options or pages, or remove it.
 - Choose **Custom Pages** to add pages of the same card with different options. You can move pages up or remove them. Rooms, cameras, thermostats, speakers and scenes also have automatic page sources.
 - **Tablet’s Room** means the room of the tablet displaying the screen. A copied layout keeps that meaning.
+
+Home Grid is a mode on an existing generated dashboard. You do not need a new dashboard: open its editor, choose a starter, arrange the blocks, and Save. Create a separate screen first only if you want a separate layout. The tab bar keeps your navigation settings: **Rooms** can be its own button or a section inside **More**.
+
+Room blocks have a surrounding tile containing regular accessory pills and the speaker, without status chips. Extra accessories appear behind **+N more**, which opens the room. Scene groups also have a surrounding tile, keeping page dots with the scenes that swipe together. Camera blocks default to one camera; use **Camera** to choose which, or **Pages → Cameras** to swipe between them.
+
+Weather comes in Wide (conditions), Large (also six hours), and Extra Large (also five days). Timers offer pause/resume and cancel; an empty block opens Create a Timer, and Wide also has quick starts. Security opens the shared alarm sheet, keeping its PIN flow.
+
+Choose **Show When** and a fallback card for a conditional block. Conditions include music playing, a timer running, an armed alarm, a doorbell event, after sunset, and an entity state. While false, the fallback fills the same cells. **Preview** switches between Live, Primary and Fallback in the editor without changing the saved condition. Doorbell events hold their card for one minute. **Change Card** and the fallback chooser reuse the gallery and offer cards that fit the block’s size.
 
 The frame is the tablet's dimensions in pixels, used to scale the desktop preview. The tablet itself fills its actual display. The editor includes the screen's tab bar and leaves its space clear. There are 6, 3 or 2 columns and 2–6 rows. The narrower column counts are supported, but their card designs have not been polished for nightstand displays.
 
@@ -28,5 +36,7 @@ In HK Frontend, Home Assistant admins use **HK Settings → your screen → Arra
 The desktop editor has passed browser checks in Mantel and a scratch Home Assistant with fictional devices. Publication, a release and a physical tablet check are still required before this phase is considered shipped.
 
 ![The desktop Home Grid editor](../images/home-grid-editor.png)
+
+![The card gallery with a live preview](../images/home-grid-picker.png)
 
 The screenshots use fictional devices and Arial. Camera pictures are illustrative landscapes.

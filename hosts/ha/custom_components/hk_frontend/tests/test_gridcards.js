@@ -115,19 +115,18 @@ function () {
   eq('the lights, A to Z', parts.lights.map(function (c) { return c.entity; }),
      ['light.kitchen_counter', 'light.kitchen_pendant', 'light.kitchen_strip']);
   eq('the speaker, not the TV', parts.speakers.map(function (c) { return c.entity; }), ['media_player.kitchen_speaker']);
-  ok('its status row is the page\'s', parts.status && parts.status.type === 'custom:hk-room-status-card');
-  eq('W: one row of two, no speaker', P.layout(parts, 'W', P.fit('W', 141), client).map(function (c) { return c.entity; }),
-     ['light.kitchen_counter', 'light.kitchen_pendant']);
+  ok('the block excludes the room status row', !parts.status);
+  eq('W: one row of two, including the speaker', P.layout(parts, 'W', P.fit('W', 141), client).map(function (c) { return c.entity; }),
+     ['light.kitchen_counter', 'media_player.kitchen_speaker']);
   eq('L at 334: three rows, the speaker last', P.fit('L', 334), 6);
   var l = P.layout(parts, 'L', 6, client);
   eq('...every light and the speaker', l.map(function (c) { return c.entity; }),
      ['light.kitchen_counter', 'light.kitchen_pendant', 'light.kitchen_strip', 'media_player.kitchen_speaker']);
-  eq('L with the tab bar showing (cells 290 tall): two rows', P.fit('L', 290), 4);
+  eq('L leaves room for its surrounding plate', P.fit('L', 290), 4);
   eq('XL: three across', P.fit('XL', 334), 9);
   eq('a cell too short for a pill: none', P.fit('W', 100), 0);
   ok('a light pill toggles on a tap, at its regular size', l[0].tap_action.action === 'toggle' && !l[0].hk_place && !l[0].view_layout);
   ok('the speaker\'s pill keeps its own tap', !l[3].tap_action || l[3].tap_action.action !== 'toggle');
-  eq('W\'s one line: the status row\'s items as words', P.summary(client, 'kitchen', parts.status), 'TV Off · 3 Lights: 1 On · Speaker Playing');
 },
 function () {
   H.section('press and hold: the dimmer');
@@ -151,7 +150,7 @@ function () {
   card._render();
   var slots = card._e.tiles.children.filter(function (c) { return c.className === 'slot'; });
   eq('a slot per pill', slots.length, 4);
-  var oldHeight = card._h; card._h = 250;
+  var oldHeight = card._h; card._h = 220;
   var ordinary = card._plan().tiles.length;
   card.setAttribute('data-grid-pager', '');
   ok('paged rooms keep accessory targets clear of the dots', card._plan().tiles.length < ordinary);

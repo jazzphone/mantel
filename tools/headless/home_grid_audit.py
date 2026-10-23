@@ -172,7 +172,14 @@ MEASURE = r"""(() => {
         if (node.nodeType !== 3 || !node.data.trim()) continue;
         const range = document.createRange(); range.selectNodeContents(node);
         const r = range.getBoundingClientRect();
-        if (r.height > 0 && (r.top < bounds.top - 1 || r.bottom > bounds.bottom + 1)) out.band_issues.push('band text clipped: ' + node.data.trim());
+        // Range includes the font's ascent/descent reserve, which may extend
+        // above a line-height:1 clock without any visible ink being clipped.
+        const cs = getComputedStyle(leaf), ctx = document.createElement('canvas').getContext('2d');
+        ctx.font = cs.fontWeight + ' ' + cs.fontSize + ' ' + cs.fontFamily;
+        const metrics = ctx.measureText(node.data);
+        const baseline = r.top + (metrics.fontBoundingBoxAscent || parseFloat(cs.fontSize));
+        const top = baseline - metrics.actualBoundingBoxAscent, bottom = baseline + metrics.actualBoundingBoxDescent;
+        if (r.height > 0 && (top < bounds.top - 1 || bottom > bounds.bottom + 1)) out.band_issues.push('band text clipped: ' + node.data.trim());
       }
     }
   }
@@ -273,6 +280,21 @@ MEASURE = r"""(() => {
       if (a > outerA) { outerA = a; outer = { el, rad }; } }
     if (outer && outerA > 0.6 * c.width * c.height && Math.abs(outer.rad - 23.5) > 0.6)
       rec.issues.push("the block's plate corner is " + outer.rad + ' px, not 23.5: ' + name(outer.el));
+    // Check the material contract as well as geometry. Media may paint its
+    // own image; every other plate must follow the active screen's material.
+    const rendering = window.hkSettings && window.hkSettings.rendering();
+    const media = ['hk-camera-mosaic-card', 'hk-scene-card', 'hk-suggested-scene-card', 'hk-now-playing-card'].includes(card.localName);
+    if (outer && !media && rendering) {
+      const material = getComputedStyle(outer.el), lookShadow = material.getPropertyValue('--hk-look-shadow').trim();
+      rec.material = { flat: !!rendering.flat, marker: material.getPropertyValue('--hk-glass-surface').trim(),
+        registered: !!(window.__hkGlassCards && window.__hkGlassCards.has(card)), shadow: material.boxShadow };
+      if (rendering.flat) {
+        if (material.backdropFilter && material.backdropFilter !== 'none') rec.issues.push('Flat plate has a backdrop filter');
+      } else if (window.hkSettings.glass() === 'blur') {
+        if (rec.material.marker !== '1' || !rec.material.registered) rec.issues.push('plate is missing its shared glass material');
+      }
+      if (lookShadow && lookShadow !== 'none' && material.boxShadow === 'none') rec.issues.push('plate is missing the look shadow');
+    }
     rec.texts = texts; rec.things = things;
     if (card.getAttribute('size') !== cell.getAttribute('size')) rec.issues.push('the card does not say its size');
     // the card's plates -- every painted box of a fair size, one plate or a block of tiles -- cover the block
@@ -285,11 +307,9 @@ MEASURE = r"""(() => {
       u = u ? { left: Math.min(u.left, r.left), top: Math.min(u.top, r.top), right: Math.max(u.right, r.right), bottom: Math.max(u.bottom, r.bottom) }
             : { left: r.left, top: r.top, right: r.right, bottom: r.bottom }; }
     rec.plate = u ? box({ left: u.left, top: u.top, width: u.right - u.left, height: u.bottom - u.top }) : null;
-    // The room is a grouping of the page's existing pills, not a single
-    // plate. Its contents still undergo all text, fit, target and corner checks.
-    const grouped = card.localName === 'hk-grid-room-card';
-    if (!u && !grouped) rec.issues.push('no plate');
-    else if (!grouped && (u.left > c.left + 2 || u.top > c.top + 2 || u.right < c.right - 2 || u.bottom < c.bottom - 2))
+    // Room and scene groups own a surrounding plate as well as their pills.
+    if (!u) rec.issues.push('no plate');
+    else if (u && (u.left > c.left + 2 || u.top > c.top + 2 || u.right < c.right - 2 || u.bottom < c.bottom - 2))
       rec.issues.push('the plate does not fill the block: ' + Math.round(u.right - u.left) + 'x' + Math.round(u.bottom - u.top));
     if (!texts && !things) rec.issues.push('nothing drawn');
     rec.issues = [...new Set(rec.issues)].slice(0, 12);

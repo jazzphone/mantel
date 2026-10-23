@@ -205,3 +205,58 @@ def test_the_catalog_and_its_python_mirror_agree(tmp_path):
     assert "var HOME_GRID = { sizes: { S: [1, 1], W: [2, 1], T: [1, 2], L: [2, 2], XL: [3, 2] }" in base
     # every page source a card names is a source
     assert all(set(v["sources"]) <= set(HG.SOURCES) for v in HG.CATALOG.values())
+
+
+@pytest.mark.parametrize('kind', HG.CONDITIONS)
+def test_conditional_block_roundtrip_with_same_sized_fallback(kind):
+    when = {'kind': kind}
+    if kind == 'entity_state':
+        when.update(entity='media_player.den', state='playing')
+    g = grid(block('music', 'now_playing', 'L', [0, 0], when=when,
+                   fallback={'card': 'weather', 'opts': {'entity': 'weather.home'}}))
+    assert HG.check(g) == g
+    assert M.board_stored({'home_grid': g})['home_grid'] == g
+
+
+@pytest.mark.parametrize('patch', [
+    {'when': {'kind': 'template'}, 'fallback': {'card': 'clock'}},
+    {'when': {'kind': 'entity_state'}, 'fallback': {'card': 'clock'}},
+    {'when': {'kind': 'entity_state', 'entity': 'bad', 'state': 'on'}, 'fallback': {'card': 'clock'}},
+    {'when': {'kind': 'entity_state', 'entity': 'light.lamp', 'state': ''}, 'fallback': {'card': 'clock'}},
+    {'when': {'kind': 'music_playing', 'state': 'anything'}, 'fallback': {'card': 'clock'}},
+    {'when': {'kind': 'music_playing'}},
+    {'when': {'kind': 'music_playing'}, 'fallback': {'card': 'thermostat'}},  # no W
+    {'when': {'kind': 'music_playing'}, 'fallback': {'card': 'clock', 'when': {'kind': 'doorbell'}}},
+    {'when': {'kind': 'music_playing'}, 'fallback': {'card': 'clock', 'at': [2, 0]}},
+    {'fallback': {'card': 'clock'}},
+])
+def test_conditional_blocks_refuse_missing_or_unsafe_fallbacks(patch):
+    with pytest.raises(HG.GridInvalid):
+        HG.check(grid(block('music', 'now_playing', 'W', [0, 0], **patch)))
+
+
+@pytest.mark.skipif(not JSC.exists(), reason='JavaScriptCore unavailable')
+def test_condition_catalog_and_runtime_states(tmp_path):
+    script = tmp_path / 'conditions.js'
+    script.write_text('var window = globalThis; load(' + json.dumps(str(ROOT / 'web/hk/cards/hk-grid-catalog.js')) + ''');
+var G = hkGridCatalog;
+function check(value, message) { if (!value) throw new Error(message); }
+var states = { 'media_player.den': {state:'playing'}, 'timer.tea': {state:'paused'},
+  'alarm_control_panel.home': {state:'armed_home'}, 'sun.sun': {state:'below_horizon'} };
+for (var kind of G.CONDITIONS) {
+ if (kind === 'entity_state' || kind === 'doorbell') continue;
+ check(G.matches({kind:kind}, states, false), kind + ' active');
+ check(!G.matches({kind:kind}, {}, false), kind + ' missing is false');
+}
+check(G.matches({kind:'entity_state',entity:'media_player.den',state:'playing'}, states), 'exact entity state');
+check(!G.matches({kind:'entity_state',entity:'media_player.missing',state:'playing'}, states), 'missing entity');
+check(G.matches({kind:'doorbell'}, {}, true), 'doorbell event');
+check(!G.matches({kind:'doorbell'}, {}, false), 'doorbell expires');
+check(G.matches({kind:'timer_running'}, {'sensor.running_quick_timers':{state:'1'}}), 'quick timer sensor');
+check(!G.matches({kind:'timer_running',entity:'timer.tea'}, {'sensor.running_quick_timers':{state:'1'}}), 'explicit timer only');
+var cfg = G.config({card:'clock',size:'W',when:{kind:'music_playing'},fallback:{card:'weather'}}, {});
+check(cfg.type === 'custom:hk-grid-conditional-card', 'conditional wraps the entire block');
+print(JSON.stringify(G.CONDITIONS));
+''')
+    run = subprocess.run([str(JSC), str(script)], capture_output=True, text=True, check=True)
+    assert json.loads(run.stdout) == list(HG.CONDITIONS)

@@ -1580,6 +1580,48 @@
     customElements.define('hk-grid-view', HkGridView);
   }
 
+  // A conditional block owns ONE mounted child. Switching never changes its cell.
+  class HkGridConditionalCard extends HkBase {
+    static get CSS() { return ':host{display:block;height:100%}.variant,.variant>*{display:block;height:100%;width:100%}'; }
+    static get observedAttributes() { return ['size']; }
+    attributeChangedCallback() { if (this._child) this._child.setAttribute('size', this.getAttribute('size')); }
+    _shown() {
+      var cfg = this._config || {};
+      if (typeof cfg.force === 'boolean') return cfg.force;
+      return window.hkGridCatalog.matches((cfg.item || {}).when, this.client && this.client.states, this._ringing,
+        window.hkSettings && window.hkSettings.get('security.alarm', null));
+    }
+    _sigOf() { return JSON.stringify([this._shown(), this._config]); }
+    _receiveClient() {
+      super._receiveClient();
+      if (this._child) window.hkHostClient.bridge(this._child, this.client);
+    }
+    _render() {
+      var cfg = this._config, primary = this._shown(), item = cfg.item;
+      if (this._child && this._primary === primary) return;
+      var chosen = primary ? Object.assign({}, item) : Object.assign({ size: item.size }, item.fallback);
+      delete chosen.when; delete chosen.fallback;
+      var child = C.createCard(window.hkGridCatalog.config(chosen, cfg.ctx), this.client);
+      child.setAttribute('size', this.getAttribute('size') || item.size);
+      if (this.hasAttribute('data-grid-pager')) child.setAttribute('data-grid-pager', '');
+      var box = document.createElement('div'); box.className = 'variant'; box.appendChild(child);
+      this._root.replaceChildren(box); this._child = child; this._primary = primary;
+    }
+    connectedCallback() {
+      super.connectedCallback();
+      if (!this._onRing) this._onRing = (e) => {
+        var event = e && e.detail, when = (this._config.item || {}).when || {};
+        if (when.kind !== 'doorbell' || !event || event.type !== 'notification' || event.kind !== 'doorbell') return;
+        if (when.entity && when.entity.indexOf('camera.') === 0 && event.camera !== when.entity) return;
+        this._ringing = true; this.redraw(); clearTimeout(this._ringTimer);
+        this._ringTimer = setTimeout(() => { this._ringing = false; this.redraw(); }, 60000);
+      };
+      window.addEventListener('hk-house-event', this._onRing);
+    }
+    disconnectedCallback() { window.removeEventListener('hk-house-event', this._onRing); clearTimeout(this._ringTimer); this._ringing = false; super.disconnectedCallback(); }
+  }
+  customElements.define('hk-grid-conditional-card', HkGridConditionalCard);
+
   // ---------------------------------------------------- hk-home-grid-view
   //
   // A HOME GRID SCREEN'S HOME (docs/phase11/HOME-GRID.md): its blocks on a

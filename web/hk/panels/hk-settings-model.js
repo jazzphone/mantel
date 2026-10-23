@@ -615,6 +615,7 @@
     grid_card: 'That card can’t go on a Home Grid.', grid_size: 'That card doesn’t come in that size.',
     grid_fit: 'That size is bigger than the grid.', grid_place: 'A block is past the edge of the grid.',
     grid_overlap: 'Two blocks are in the same place.', grid_pages: 'A block’s pages couldn’t be read.',
+    grid_condition: 'Choose a condition and a fallback card.', grid_fallback: 'Choose a fallback card that supports this block’s size.',
     grid_source: 'That card can’t swipe through those pages.', grid_option: 'A block’s option isn’t one it can use.'
   };
   // A PAGE PILL'S OWN LOOK (hk-chip.js PAGE_PILLS): name, icon, color

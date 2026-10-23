@@ -1532,7 +1532,7 @@
                                { hk_cell: { id: it.id, size: it.size, at: it.at } }));
     });
     (listeners || []).forEach(function (c) { cards.push(c); });
-    return Object.assign({}, o, { type: 'custom:hk-home-grid-view', layout: undefined, cards: cards,
+    return Object.assign({}, o, { type: 'custom:hk-home-grid-view', layout: undefined, cards: cards, grid_ctx: ctx,
                                   grid: { cols: grid.cols, rows: grid.rows, band: grid.band !== false } });
   }
   // the catalog, when a Home Grid screen needs it: a parallel-loaded

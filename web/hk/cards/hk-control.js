@@ -103,13 +103,13 @@ class HkControlCard extends HTMLElement {
     if (this._config && this._config.bare) return;
     if (window.__hkGlassCards) {
       window.__hkGlassCards.add(this);
-      if (window.hkGlass) window.hkGlass.changed();
+      if (window.hkGlass) window.hkGlass.changed(this, true);
     }
   }
   disconnectedCallback() {
     if (super.disconnectedCallback) super.disconnectedCallback();
     if (window.__hkGlassCards && window.__hkGlassCards.delete(this) && window.hkGlass) {
-      window.hkGlass.changed();
+      window.hkGlass.changed(this, false);
     }
   }
   // THE ACTION PORT of this card's client: the real call in Home Assistant,
@@ -283,6 +283,7 @@ class HkControlCard extends HTMLElement {
     var _a=this._accent();
     if(_a) this.style.setProperty("--hk-accent",_a); else this.style.removeProperty("--hk-accent");
     this._bind();
+    if (window.hkGlass) window.hkGlass.rendered(this);
   }
   // THE BAR ADVANCES ON THE CLOCK, NOT FROM WHEN IT WAS PUT ON THE PAGE
   // (2026-10-11). It was a CSS animation started at the position with a

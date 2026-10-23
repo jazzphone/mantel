@@ -1458,21 +1458,28 @@
           return window.hkHeader && window.hkHeader.wxSvg && !/^(unknown|unavailable)$/.test(state || 'unknown')
             ? window.hkHeader.wxSvg(state, px, { night: night, sym: true }) : '';
         };
-        var xl = sz === 'XL';
         this._watchBlock();
-        var b = this._block(), n = xl ? Math.max(1, Math.min(8, b ? Math.floor((b.w - 44 + 8) / (52 + 8)) : 6)) : 0;
-        var hrs = n ? this._hours(n) : [];
+        var hrs = sz === 'W' ? [] : this._hours(6), days = sz === 'XL' ? this._days(5) : [];
+        var span = days.flatMap(function (d) { return [num(d.templow), num(d.temperature)]; }).filter(function (v) { return v !== null; });
+        var min = span.length ? Math.min.apply(null, span) : 0, max = span.length ? Math.max.apply(null, span) : 1;
         var hl = [hi !== null ? 'H:' + Math.round(hi) + '°' : '', lo !== null ? 'L:' + Math.round(lo) + '°' : ''].filter(Boolean).join('  ');
-        var html = '<hk-plate class="wb ' + sz + '" role="group" aria-label="Current weather"><div class="top">' +
-          '<div class="sym" aria-hidden="true">' + sym(st.state, xl ? '96px' : '56px') + '</div>' +
-          '<div class="tpn">' + (t !== null ? Math.round(t) + '°' : '--') + '</div>' +
-          '<div class="tx"><b>' + esc(cond || '--') + '</b>' + (hl ? '<span>' + esc(hl) + '</span>' : '') +
-          '<span>' + esc(titled(cfg.place || this._place())) + '</span></div></div>' +
-          '<p class="ol">' + esc(this._outlook(t, feels, this._hours(12))) + '</p>' +
-          (hrs.length ? '<div class="hrs" style="--n:' + n + '">' + hrs.map(function (h) {
-            var v = num(h.temperature);
-            return '<div class="hr"><small>' + esc(hourLabel(h.datetime)) + '</small>' + sym(h.condition, '28px') +
-              '<b>' + (v !== null ? Math.round(v) + '°' : '--') + '</b></div>';
+        var html = '<hk-plate class="wb ' + sz + '" role="group" aria-label="Weather forecast"><div class="top">' +
+          '<div class="place-now"><b class="place-name">' + esc(titled(cfg.place || this._place())) + '</b>' +
+          '<div class="tpn">' + (t !== null ? Math.round(t) + '°' : '--') + '</div></div>' +
+          '<div class="tx"><div class="sym" aria-hidden="true">' + sym(st.state, '32px') + '</div><b>' + esc(cond || '--') + '</b>' +
+          (hl ? '<span>' + esc(hl) + '</span>' : '') + '</div></div>' +
+          (hrs.length ? '<div class="hrs" style="--n:6">' + hrs.map(function (h) {
+            var value = num(h.temperature);
+            return '<div class="hr"><small>' + esc(hourLabel(h.datetime)) + '</small>' + sym(h.condition, '24px') +
+              '<b>' + (value !== null ? Math.round(value) + '°' : '--') + '</b></div>';
+          }).join('') + '</div>' : '') +
+          (days.length ? '<div class="days">' + days.map(function (d, i) {
+            var low = num(d.templow), high = num(d.temperature), range = Math.max(1, max - min);
+            var left = low === null ? 0 : (low - min) / range * 100, width = low === null || high === null ? 0 : (high - low) / range * 100;
+            var day = i === 0 ? 'Today' : new Date(d.datetime).toLocaleDateString(undefined, { weekday: 'short' });
+            return '<div class="day"><b>' + esc(day) + '</b>' + sym(d.condition, '18px') +
+              '<span class="low">' + (low === null ? '--' : Math.round(low) + '°') + '</span><i class="range">' +
+              '<i style="left:' + left.toFixed(2) + '%;width:' + width.toFixed(2) + '%"></i></i><span>' + (high === null ? '--' : Math.round(high) + '°') + '</span></div>';
           }).join('') + '</div>' : '') + '</hk-plate>';
         C.morph(this._root, html);
       },
@@ -1753,25 +1760,25 @@
           // size (76, not a role: DESIGN.md) and the next hours along the
           // foot, as many as its width holds (_renderBlock)
           'hk-plate.wb{' + window.hkCards.plate('card') + ';box-sizing:border-box;height:100%;margin:0;padding:' + window.hkCards.CARD.pad + ';',
-          '  display:flex;flex-direction:column;justify-content:center;gap:10px;overflow:hidden;color:' + C.v('ink') + '}',
-          '.wb .top{display:flex;align-items:center;gap:12px;min-width:0}',
-          '.wb .sym{flex:none;line-height:0}',
-          '.wb .sym svg{display:block}',
-          '.wb .tpn{flex:none;' + window.hkCards.typeCss('hero') + ';line-height:1;font-variant-numeric:tabular-nums}',
-          '.wb .tx{display:flex;flex-direction:column;min-width:0;gap:1px}',
-          '.wb .tx b{' + window.hkCards.typeCss('headline') + ';line-height:21px}',
-          '.wb .tx span{' + window.hkCards.typeCss('body') + ';line-height:19px;color:' + C.v('ink-2') + '}',
-          '.wb .tx b,.wb .tx span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
-          '.wb .ol{margin:0;' + window.hkCards.typeCss('caption') + ';line-height:17px;color:' + C.v('ink-2') + ';',
-          '  display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}',
-          '.wb.XL{gap:14px}',
-          '.wb.XL .tpn{font-size:76px;font-weight:200;letter-spacing:-4px}',
-          '.wb.XL .tx b{' + window.hkCards.typeCss('title') + ';line-height:27px}',
-          '.wb.XL .ol{' + window.hkCards.typeCss('body') + ';line-height:20px}',
-          '.wb .hrs{display:grid;grid-template-columns:repeat(var(--n,6),minmax(0,1fr));gap:8px;margin-top:2px}',
+          '  display:flex;flex-direction:column;justify-content:center;gap:12px;overflow:hidden;color:' + C.v('ink') + '}',
+          '.wb .top{display:flex;justify-content:space-between;align-items:center;gap:12px;min-width:0;flex:none}',
+          '.wb .place-now{min-width:0}.wb .place-name{display:block;' + C.typeCss('headline') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+          '.wb .sym{line-height:0}.wb svg{display:block;flex:none}',
+          '.wb .tpn{' + C.typeCss('hero') + ';line-height:1.08;font-weight:400;font-variant-numeric:tabular-nums}',
+          '.wb .tx{display:flex;flex-direction:column;align-items:flex-end;min-width:0;gap:2px;text-align:right}',
+          '.wb .tx b{' + C.typeCss('body') + ';line-height:18px}.wb .tx span{' + C.typeCss('caption') + ';line-height:17px;color:' + C.v('ink-2') + '}',
+          '.wb .tx b,.wb .tx span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}',
+          '.wb .hrs{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:4px;border-top:1px solid ' + RULE + ';padding-top:10px;flex:none}',
           '.wb .hr{display:flex;flex-direction:column;align-items:center;gap:4px;min-width:0}',
-          '.wb .hr small{' + window.hkCards.typeCss('caption') + ';color:' + C.v('ink-2') + ';white-space:nowrap}',
-          '.wb .hr b{' + window.hkCards.typeCss('headline') + ';font-variant-numeric:tabular-nums}'
+          '.wb .hr small{' + C.typeCss('caption') + ';line-height:16px;color:' + C.v('ink-2') + ';white-space:nowrap}',
+          '.wb .hr b{' + C.typeCss('body') + ';line-height:18px;font-variant-numeric:tabular-nums}',
+          '.wb.XL{padding:12px 22px;gap:8px}.wb.XL .hrs{padding-top:6px}.wb.XL .hr{gap:2px}',
+          '.wb .days{display:grid;gap:2px;border-top:1px solid ' + RULE + ';padding-top:6px;flex:none}',
+          '.wb .day{display:grid;grid-template-columns:52px 18px 32px minmax(0,1fr) 32px;align-items:center;gap:10px;height:20px;' + C.typeCss('caption') + ';font-variant-numeric:tabular-nums}',
+          '.wb .day b{font-weight:600}.wb .low{color:' + C.v('ink-2') + ';text-align:right}.wb .day>span:last-child{text-align:right}',
+          '.wb .range{display:block;height:5px;border-radius:' + C.R.capsule('5px') + ';background:' + C.v('key') + ';position:relative;overflow:hidden}',
+          '.wb .range i{position:absolute;height:100%;border-radius:' + C.R.capsule('5px') + ';background:linear-gradient(90deg,#64d2ff,#ffd60a,#ff9f0a)}'
+
         ].join('') + PAGE_CSS;
       }
 

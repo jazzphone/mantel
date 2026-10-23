@@ -50,7 +50,7 @@ CATALOG: dict[str, dict[str, Any]] = {
     "camera": {"sizes": ("W", "L", "XL"), "sources": ("cameras",), "opts": {"entity": "camera"}},
     "security": {"sizes": ("S", "W"), "sources": (), "opts": {}},
     "timers": {"sizes": ("S", "W"), "sources": (), "opts": {}},
-    "weather": {"sizes": ("W", "XL"), "sources": (), "opts": {"entity": "weather"}},
+    "weather": {"sizes": ("W", "L", "XL"), "sources": (), "opts": {"entity": "weather"}},
     "calendar": {"sizes": ("T", "L"), "sources": (), "opts": {"calendars": "calendars"}},
     "battery": {"sizes": ("S", "W"), "sources": (), "opts": {}},
     "people": {"sizes": ("W",), "sources": (), "opts": {}},
@@ -197,9 +197,44 @@ def _pages(card: str, v: Any) -> dict[str, Any]:
     return out
 
 
+# The frontend mirrors these named, bounded conditions; no templates or executable expressions.
+CONDITIONS = ("music_playing", "timer_running", "alarm_armed", "doorbell", "after_sunset", "entity_state")
+
+
+def condition(v: Any) -> dict[str, str]:
+    if not isinstance(v, dict) or set(v) - {"kind", "entity", "state"} or v.get("kind") not in CONDITIONS:
+        raise GridInvalid("grid_condition")
+    kind = v["kind"]
+    out = {"kind": kind}
+    if "entity" in v:
+        out["entity"] = _domain()(v["entity"])
+    if kind == "entity_state":
+        if "entity" not in out or not isinstance(v.get("state"), str) or not 0 < len(v["state"]) <= 80:
+            raise GridInvalid("grid_condition")
+        out["state"] = v["state"]
+    elif "state" in v:
+        raise GridInvalid("grid_condition")
+    return out
+
+
+def variant(v: Any, size: str) -> dict[str, Any]:
+    if not isinstance(v, dict) or set(v) - {"card", "opts", "pages"}:
+        raise GridInvalid("grid_fallback")
+    card = v.get("card")
+    if not isinstance(card, str) or card not in CATALOG or size not in CATALOG[card]["sizes"]:
+        raise GridInvalid("grid_fallback")
+    out = {"card": card}
+    opts = _opts(card, v.get("opts"))
+    if opts:
+        out["opts"] = opts
+    if v.get("pages") is not None:
+        out["pages"] = _pages(card, v["pages"])
+    return out
+
+
 def item(v: Any, cols: int, rows: int) -> dict[str, Any]:
     """One block, checked against a grid of `cols` x `rows` (its place, not its neighbours)."""
-    if not isinstance(v, dict) or set(v) - {"id", "card", "size", "at", "opts", "pages"}:
+    if not isinstance(v, dict) or set(v) - {"id", "card", "size", "at", "opts", "pages", "when", "fallback"}:
         raise GridInvalid("grid_item")
     if not isinstance(v.get("id"), str) or not ITEM_ID.match(v["id"]):
         raise GridInvalid("grid_item")
@@ -224,6 +259,11 @@ def item(v: Any, cols: int, rows: int) -> dict[str, Any]:
         out["opts"] = opts
     if v.get("pages") is not None:
         out["pages"] = _pages(card, v["pages"])
+    if v.get("when") is not None:
+        out["when"] = condition(v["when"])
+        out["fallback"] = variant(v.get("fallback"), size)
+    elif "fallback" in v:
+        raise GridInvalid("grid_condition")
     return out
 
 

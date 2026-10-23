@@ -4,7 +4,7 @@
 // attribute the view sets and from --hk-cell-w / --hk-cell-h:
 //
 //   hk-grid-room-card        `room` (W, L, XL): a room in one card -- its name,
-//                            its status, its lights as HK's own light pills
+//                            its lights as HK's own light pills
 //                            and its speaker's pill. A tap on a light toggles
 //                            it; press and hold dims it (a drag up or down,
 //                            then let go), or opens its sheet when held still.
@@ -72,7 +72,7 @@
   // room page's build walks every entity.
   var partsMemo = { key: null, ents: null, devs: null, areas: null, out: null };
   function roomParts(client, area) {
-    var S = window.hkStrategy, out = { lights: [], speakers: [], status: null };
+    var S = window.hkStrategy, out = { lights: [], speakers: [] };
     if (!S || !S.roomCards || !client || !client.states) return out;
     var HS = window.hkSettings;
     var key = area + '|' + (HS ? HS.version : '') + '|' + Object.keys(client.states).length;
@@ -85,9 +85,8 @@
     (function walk(list) {
       (list || []).forEach(function (c) {
         if (!c || typeof c !== 'object') return;
-        if (c.type === 'custom:hk-room-status-card' && !out.status) out.status = c;
         var g = c.hk_place && c.hk_place.group;
-        if (g === 'Lights' && c.entity) out.lights.push(c);
+        if (c.entity && (g === 'Lights' || (g === 'Climate' && dom(c.entity) === 'fan'))) out.lights.push(c);
         else if (g === 'Speakers & TVs' && c.entity) {
           var dc = attr(client.states[c.entity], 'device_class');
           if (dc !== 'tv' && dc !== 'receiver') out.speakers.push(c);
@@ -112,32 +111,19 @@
     var playing = list.filter(function (c) { var s = st[c.entity]; return s && s.state === 'playing'; })[0];
     return playing || list[0] || null;
   }
-  // ONE LINE for the room (W, where the status row has no room): its status
-  // row's items, said as words -- "71° · 46% · 3 Lights: 1 On · Speaker Playing"
-  function summary(client, area, status) {
-    var R = window.hkRoom;
-    if (!R || !R.roomItems || !client || !client.states) return '';
-    var o = { items: setting('rooms.status', null), entities: status && status.entities };
-    var list = [];
-    try { list = R.roomItems(client, [area], o) || []; } catch (e) { list = []; }
-    return list.map(function (it) {
-      if (it.kind === 'temperature' || it.kind === 'humidity') return it.value;
-      return it.title + (/^\d/.test(it.title) ? ': ' : ' ') + it.value;
-    }).join(' · ');
-  }
   // How many pills fit: whole rows of them under the header, the room's
   // columns across. The last place is the speaker's when there is one; lights
   // that don't fit are left out (the room's page has them all).
   var PILL_H = 70, GAP = 10;
   var COLS = { W: 2, L: 2, XL: 3 };
-  var HEAD = { W: 66, L: 98, XL: 98 };
+  var HEAD = { W: 42, L: 66, XL: 66 };
   function fit(size, height) {
     var rows = Math.max(0, Math.floor((height - (HEAD[size] || HEAD.W) + GAP) / (PILL_H + GAP)));
     if (size === 'W') rows = Math.min(rows, 1);
     return rows * (COLS[size] || 2);
   }
   function layout(parts, size, places, client) {
-    var sp = size === 'W' ? null : speakerOf(client, parts.speakers);
+    var sp = speakerOf(client, parts.speakers);
     var room = Math.max(0, places - (sp ? 1 : 0));
     var lights = parts.lights.slice(0, room).map(function (c) { return pill(c, true); });
     var out = lights.slice();
@@ -347,7 +333,7 @@
   }
 
   window.hkGridCards = { version: '1.0.0',
-    _: { roomOf: roomOf, roomParts: roomParts, fit: fit, layout: layout, summary: summary, percent: percent,
+    _: { roomOf: roomOf, roomParts: roomParts, fit: fit, layout: layout, percent: percent,
          dims: dims, dragged: dragged, dimCall: dimCall, suggestion: suggestion, holds: holds, minutes: minutes,
          houseMinutes: houseMinutes, plan: plan, menuCounts: menuCounts, DEFAULT_WINDOWS: DEFAULT_WINDOWS,
          HOLD_MS: HOLD_MS } };
@@ -373,11 +359,11 @@
     // ===================================================== hk-grid-room-card
     var ROOM_CSS = [
       ':host{display:block;height:100%;position:relative}',
-      '.room{box-sizing:border-box;height:100%;display:flex;flex-direction:column;overflow:hidden;padding-top:8px;',
-      '  --hk-pill:var(--hk-cell-w,' + TILE.w + 'px)}',
+      '.room{box-sizing:border-box;height:100%;display:flex;flex-direction:column;overflow:hidden;padding:14px;gap:10px;' + C.plate('card') + ';',
+      '  --hk-pill:100%}',
       // THE NAME: a room heading's (19.7 / 700, measured off the Home app),
       // with the way into its page when it has one
-      '.hd{display:flex;align-items:center;gap:6px;min-width:0;height:36px;flex:none;padding:0 22px}',
+      '.hd{display:flex;align-items:center;gap:6px;min-width:0;height:28px;flex:none;padding:0 8px}',
       '.nm{all:unset;position:relative;cursor:pointer;min-width:0;min-height:28px;max-width:100%;display:flex;align-items:center;gap:6px;',
       '  font-size:19.7px;font-weight:700;line-height:1;letter-spacing:-0.45px;color:' + v('ink') + ';',
       '  text-shadow:' + v('glow') + ';-webkit-tap-highlight-color:transparent}',
@@ -386,15 +372,13 @@
       '.nm span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:1px 0 2px 1px}',
       '.nm i{font-style:normal;opacity:0.62;flex:none}',
       '.nm:focus-visible{outline:2px solid ' + v('ink-2') + ';outline-offset:4px;border-radius:' + C.R.small + 'px}',
-      // W: the status as one line under the name
-      '.sum{' + type('body') + ';line-height:19px;color:' + v('ink-2') + ';text-shadow:' + v('glow') + ';',
-      '  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-height:19px;margin:1px 22px 2px;flex:none}',
-      // L, XL: the room's status row (hk-room-status-card), its own height
-      '.st{flex:none;margin:0 0 4px 0;min-height:0}',
-      '.st:empty{display:none}',
       // THE PILLS: HK's own, a cell wide, in whole rows
-      '.tiles{display:grid;grid-template-columns:repeat(var(--cols,2),var(--hk-pill));',
-      '  grid-auto-rows:' + PILL_H + 'px;gap:' + GAP + 'px;flex:none}',
+      '.room[size=W]{padding:8px 12px;gap:6px}.room[size=W] .hd{height:22px}.room[size=W] .tiles{padding-bottom:0}',
+      ':host([data-grid-pager]) .room[size=W]{padding-bottom:28px}',
+      '.tiles{display:grid;grid-template-columns:repeat(var(--cols,2),minmax(0,1fr));',
+      '  grid-auto-rows:70px;gap:' + GAP + 'px;flex:1;min-height:0;align-content:start;padding-bottom:var(--hk-pager-safe,0px)}',
+      '.slot{container-type:size;container-name:hk-cell;min-width:0;min-height:0}.slot > *{display:block;width:100%;height:100%}',
+      '.more{border:0;border-radius:' + v('glass-radius') + ';' + C.plate('tile') + ';color:' + v('ink') + ';' + type('body') + ';min-height:44px;cursor:pointer}',
       '.slot{position:relative;touch-action:pan-x;-webkit-user-select:none;user-select:none;',
       '  -webkit-touch-callout:none}',
       '.none{' + type('body') + ';color:' + v('ink-3') + ';text-shadow:' + v('glow') + '}',
@@ -434,20 +418,21 @@
         // A paged group leaves the same clear foot as other interactive cards.
         var places = fit(size, this._height() - (this.hasAttribute('data-grid-pager') ? 24 : 0));
         var room = (h.areas || {})[area] || {};
-        return { area: area, size: size, parts: parts, tiles: layout(parts, size, places, h), status: parts.status,
-                 line: size === 'W' ? summary(h, area, parts.status) : '', name: room.name || area };
+        var total = parts.lights.length + (speakerOf(h, parts.speakers) ? 1 : 0), more = total > places;
+        return { area: area, size: size, parts: parts, tiles: layout(parts, size, Math.max(0, places - (more ? 1 : 0)), h),
+                 more: more ? total - Math.max(0, places - 1) : 0, line: '', name: room.name || area };
       }
       _sigOf() {
         var p = this._plan();
         this._p = p;
-        return JSON.stringify([p.area, p.size, p.name, p.line, p.tiles.map(function (t) { return t.entity; }),
+        return JSON.stringify([p.area, p.size, p.name, p.more, p.tiles.map(function (t) { return t.entity; }),
                                this._height(), !!window.hkStrategy, !!window.hkRoom]);
       }
       // EACH NEW CLIENT: every pill and the status row get it (they gate their own draws)
       _receiveClient() {
         super._receiveClient();
         var c = this.client;
-        (this._kids || []).concat(this._status ? [this._status] : []).forEach(function (k) {
+        (this._kids || []).forEach(function (k) {
           window.hkHostClient.bridge(k, c);
         });
       }
@@ -472,13 +457,12 @@
         this._p = null;
         if (!this._built) {
           this._root.innerHTML = '<div class="room"><div class="hd"><button class="nm" type="button"><span></span>' +
-            '<i aria-hidden="true">›</i></button></div><div class="sum"></div><div class="st"></div>' +
+            '<i aria-hidden="true">›</i></button></div>' +
             '<div class="tiles" role="list"></div></div>';
           var q = this._root.querySelector.bind(this._root);
-          this._e = { box: q('.room'), nm: q('.nm'), name: q('.nm span'), chev: q('.nm i'), sum: q('.sum'),
-                      st: q('.st'), tiles: q('.tiles') };
+          this._e = { box: q('.room'), nm: q('.nm'), name: q('.nm span'), chev: q('.nm i'), tiles: q('.tiles') };
           this._e.nm.addEventListener('click', function (e) { e.stopPropagation(); self._openRoom(); });
-          this._kids = []; this._key = null; this._stKey = null;
+          this._kids = []; this._key = null;
           this._built = true;
         }
         var e = this._e;
@@ -488,28 +472,8 @@
         var path = this._roomPath(p.area);
         e.chev.style.display = path ? '' : 'none';
         e.nm.setAttribute('aria-label', (p.name || 'Room') + (path ? ', open the room' : ''));
-        e.sum.style.display = p.size === 'W' ? '' : 'none';
-        if (e.sum.textContent !== p.line) e.sum.textContent = p.line;
-        // the status row (L, XL): the room page's own card, made once per room
-        var stKey = p.size !== 'W' && p.status ? JSON.stringify(p.status) : '';
-        if (stKey !== this._stKey) {
-          this._stKey = stKey;
-          e.st.innerHTML = '';
-          this._status = null;
-          if (stKey) {
-            var sc = Object.assign({}, p.status);
-            delete sc.view_layout;
-            // the lights and the speaker are the block's own pills: the row
-            // never says them again ("Light · Off" over the Chandelier)
-            var R = window.hkRoom, kinds = setting('rooms.status', null) || (R && R._ && R._.KINDS) || [];
-            sc.items = kinds.filter(function (k) { return k !== 'lights' && k !== 'speakers'; });
-            this._status = C.createCard(sc, h);
-            this._status.setAttribute('data-grid-room-status', '');
-            e.st.appendChild(this._status);
-          }
-        }
         // the pills: made again only when what they are changes
-        var key = JSON.stringify(p.tiles);
+        var key = JSON.stringify([p.tiles, p.more, p.size]);
         if (key !== this._key) {
           this._key = key;
           e.tiles.innerHTML = '';
@@ -530,6 +494,11 @@
             self._kids.push(el);
             if (t.tap_action && dom(t.entity) === 'light') self._wireHold(slot, t.entity);
           });
+          if (p.more) {
+            var more = document.createElement('button'); more.className = 'more';
+            more.textContent = '+' + p.more + ' more';
+            more.addEventListener('click', () => self._openRoom()); e.tiles.appendChild(more);
+          }
         }
       }
       _roomPath(area) {
@@ -700,6 +669,51 @@
         super.disconnectedCallback();
       }
     }
+
+    // Security uses the shared alarm sheet: no arm/disarm command can bypass its PIN.
+    class HkGridSecurityCard extends HkGridKey {
+      static get CSS() { return KEY_CSS + ':host([size=W]) .k{position:relative;padding-right:236px}' +
+        '.security-extra{position:absolute;right:14px;top:14px;bottom:14px;width:210px;display:flex;flex-direction:column;justify-content:space-between;gap:6px}' +
+        '.security-extra p{margin:0;' + type('caption') + ';color:' + v('ink-2') + ';line-height:18px}' +
+        '.security-extra button{border:0;min-height:44px;min-width:44px;border-radius:22px;background:' + v('key') + ';color:' + v('ink') + ';' + type('caption') + ';cursor:pointer}' +
+        '.security-actions{display:flex;gap:6px}.security-actions button{flex:1}'; }
+      _alarm() { return this._config.entity || setting('security.alarm', null) || Object.keys(this.client && this.client.states || {}).find((id) => dom(id) === 'alarm_control_panel'); }
+      _look() {
+        var st = this.client && this.client.states && this.client.states[this._alarm()], state = st && st.state || 'unavailable';
+        var words = { disarmed: 'Disarmed', armed_home: 'Armed Home', armed_away: 'Armed Away', armed_night: 'Armed Night',
+          armed_vacation: 'Armed Vacation', triggered: 'Triggered', pending: 'Pending', arming: 'Arming', disarming: 'Disarming', unavailable: 'Unavailable', unknown: 'Unknown' };
+        return { name: 'Security', icon: state === 'disarmed' ? 'hk:shield-off' : 'hk:shield-lock',
+          state: words[state] || 'Armed', color: /^armed|triggered|pending/.test(state) ? (state === 'triggered' ? v('fail') : C.PALETTE.icon.green) : null };
+      }
+      _tap() { var id = this._alarm(); if (id) window.hkShell.moreInfo(id, this); }
+      _sigOf() { return JSON.stringify([this._look(), this._summary(), sizeOf(this)]); }
+      _summary() {
+        var states = this.client && this.client.states || {}, locks = kind('locks') || own(this.client, 'lock');
+        var n = locks.filter((id) => states[id] && states[id].state === 'locked').length;
+        var opened = ['doors', 'windows'].flatMap((k) => kind(k) || Object.keys(states).filter((id) => dom(id) === 'binary_sensor' && attr(states[id], 'device_class') === (k === 'doors' ? 'door' : 'window')))
+          .filter((id) => states[id] && states[id].state === 'on');
+        return [locks.length ? plural(n, 'Lock Locked', 'Locks Locked') : '', opened.length ? plural(opened.length, 'Entry Open', 'Entries Open') : 'Entries Closed'].filter(Boolean).join(' · ');
+      }
+      _render() {
+        super._render();
+        var old = this._e.card.querySelector('.security-extra'); if (old) old.remove();
+        this._e.card.setAttribute('role', sizeOf(this) === 'W' ? 'group' : 'button');
+        if (sizeOf(this) === 'W') this._e.card.removeAttribute('tabindex'); else this._e.card.setAttribute('tabindex', '0');
+        if (sizeOf(this) !== 'W') return;
+        var extra = document.createElement('div'); extra.className = 'security-extra';
+        var text = document.createElement('p'); text.textContent = this._summary(); extra.appendChild(text);
+        var actions = document.createElement('div'); actions.className = 'security-actions';
+        ['Home', 'Away', 'Disarm'].forEach((name) => {
+          var button = document.createElement('button'); button.textContent = name; button.setAttribute('aria-label', name + ' — open alarm controls');
+          button.addEventListener('click', (e) => { e.stopPropagation(); this._tap(); }); actions.appendChild(button);
+        });
+        extra.appendChild(actions); this._e.card.appendChild(extra);
+        // The plate's keyboard action remains on the tile, not its nested controls.
+        if (!this._securityKeys) { this._securityKeys = true; this._e.card.addEventListener('keydown', (e) => { if (e.target !== this._e.card) e.stopPropagation(); }, { capture: true }); }
+      }
+    }
+    watchSize(HkGridSecurityCard);
+    C.register('hk-grid-security-card', HkGridSecurityCard, 'HK Grid Security', 'Alarm status and shared PIN controls.', [{ name: 'entity', label: 'Alarm', selector: { entity: { filter: { domain: 'alarm_control_panel' } } } }], function () { return {}; });
 
     // ===================================================== hk-action-card
     var YELLOW = (C.PALETTE.icon && C.PALETTE.icon.yellow) || null;

@@ -54,8 +54,24 @@ async def main():
             assert geometry
             print('drag swap and overlay geometry passed',flush=True)
             await b.eval('ed.catalog=true; ed.side()')
-            assert await b.eval("ed.sidebar.querySelectorAll('[data-preview-card] > div').length > 20")
-            await b.eval('ed.catalog=false; ed.side()')
+            assert await b.eval("ed.sidebar.querySelectorAll('.catalog-row').length === 18")
+            await b.eval("ed.sidebar.querySelector('[data-card=accessory]').click()")
+            assert await b.eval("ed.sidebar.querySelectorAll('[data-preview-card] > iframe').length === 1")
+            assert await b.wait("ed.sidebar.querySelector('[data-preview-card] iframe').contentWindow.galleryCard?._config.entity.startsWith('light.')",20)
+            assert await b.eval("ed.sidebar.querySelector('.size-choices').textContent.includes('Small')")
+            if ARGS.shots:
+                await screenshot_font(b)
+                await b.screenshot(ARGS.shots / 'home-grid-picker.png')
+            # Both states of a conditional block stay in exactly the same cell.
+            await b.eval("ed.select('a3'); ed.update('a3',{when:{kind:'music_playing'},fallback:{card:'weather'}}); ed.conditionPreview=false; ed.preview()")
+            assert await b.wait("ed.previewView?.querySelectorAll && ed.previewView._config.cards.some(c=>c.force===false)",10)
+            assert await b.wait("(()=>{let c=ed.previewView.cards.find(c=>c.localName==='hk-grid-conditional-card'); return c?._child?.localName==='hk-weather-band-card'})()",10)
+            before = await b.eval("(()=>{let r=ed.overlay.querySelector('[data-id=a3]').getBoundingClientRect();return [r.x,r.y,r.width,r.height]})()")
+            await b.eval("ed.conditionPreview=true; ed.preview()")
+            assert await b.wait("(()=>{let c=ed.previewView.cards.find(c=>c.localName==='hk-grid-conditional-card'); return c?._child?.localName==='hk-now-playing-card'})()",10)
+            assert before == await b.eval("(()=>{let r=ed.overlay.querySelector('[data-id=a3]').getBoundingClientRect();return [r.x,r.y,r.width,r.height]})()")
+            await b.eval("ed.conditionPreview=null; ed.update('a3',{when:null,fallback:null}); ed.catalog=false; ed.side()")
+
             # Refusal leaves the draft intact and the editor usable.
             await b.eval("ed.originalActions=ed.panel.actions;ed.panel.actions=()=>({callWS:()=>Promise.reject(new Error('Fictional refusal'))});ed.save()")
             assert await b.eval("ed.isConnected && !ed.busy && ed.message.textContent.includes('Fictional refusal')")
