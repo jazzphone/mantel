@@ -96,6 +96,7 @@
     '.block .tag{position:absolute;top:6px;left:6px;max-width:calc(100% - 12px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:4px 8px;border-radius:7px;background:var(--hk-cell);font-size:13px}',
     '.ghost{position:absolute;pointer-events:none;border:3px solid var(--hk-tint);background:var(--hk-fill);border-radius:10px;z-index:4}.ghost.bad{border-color:var(--hk-red)}',
     '.note{font-size:13px;color:var(--hk-label2);line-height:1.5}.message{color:var(--hk-red);min-height:24px;padding:8px 20px}',
+    '.catalog-list{max-height:calc(100dvh - 240px);overflow-y:auto}',
     '.catalog-search{box-sizing:border-box;width:100%;min-height:44px;border:1px solid var(--hk-sep);border-radius:10px;padding:10px 12px;background:var(--hk-cell);color:var(--hk-label);font:inherit}',
     '.catalog-row{display:flex;align-items:center;gap:12px;width:100%;min-height:68px;border:0;border-bottom:1px solid var(--hk-sep);padding:10px 12px;background:var(--hk-cell);color:var(--hk-label);text-align:left;cursor:pointer}',
     '.catalog-row hk-icon{width:28px;height:28px;flex:none;color:var(--hk-tint)}.catalog-row span{display:grid;gap:4px}.catalog-row small{font-size:13px;color:var(--hk-label2)}',
@@ -342,7 +343,7 @@
       var h = this.h, self = this, cat = G.table(), key = this.pickerCard;
       if (!key) {
         var search = h('input', { class: 'catalog-search', type: 'search', placeholder: 'Search cards', 'aria-label': 'Search cards', value: this.pickerSearch || '' });
-        var list = h('div');
+        var list = h('div', { class: 'catalog-list' });
         var rows = function () {
           list.replaceChildren();
           var query = (search.value || '').trim().toLowerCase(), count = 0, target = self.grid.items.find((it) => it.id === self.selected);
@@ -429,7 +430,7 @@
         var kind = fields[name], choices = self.choices(kind).filter((op) => op[0] !== 'tablet_room');
         if (kind === 'scene' && key === 'scene') choices = choices.filter((op) => op[0].indexOf('scene.') === 0);
         if (kind === 'entity') choices = choices.filter((op) => /^(light|switch|fan)\./.test(op[0]));
-        if (choices.length && !['windows', 'scenes', 'calendars'].includes(kind)) opts[name] = choices[0][0];
+        if (choices.length && !['windows', 'scenes', 'calendars', 'surface'].includes(kind)) opts[name] = choices[0][0];
       });
       return opts;
     }
@@ -457,7 +458,7 @@
       var load = () => {
         if (!active) return;
         var fw = frame.contentWindow;
-        if (!fw || !fw.__mantelReady || !fw.hkCards || !fw.hkCards.client()) {
+        if (!fw || !fw.hkShell || !fw.hkShell.view() || !fw.hkCards || !fw.hkCards.client()) {
           if (retries++ < 100) timer = setTimeout(load, 100);
           return;
         }
@@ -512,6 +513,7 @@
       var set = (key, value) => { var out = copy(opts); if (value === '' || value == null) delete out[key]; else out[key] = value; save(out); };
       Object.keys(fields).forEach(function (key) {
         var kind = fields[key], label = key.charAt(0).toUpperCase() + key.slice(1);
+        if (kind === 'surface') { self.surfaceFields(opts.surface, (value) => set('surface', value), rows); return; }
         if (kind === 'windows') { self.windows(opts, set, rows); return; }
         var choices = self.choices(kind);
         if (item.card === 'scene' && kind === 'scene') choices = choices.filter((op) => op[0].indexOf('scene.') === 0);
@@ -528,6 +530,15 @@
       });
       if (!rows.length) rows.push(K.info({ label: 'Uses this screen’s settings' }));
       this.sidebar.appendChild(K.group({ header: title }, rows));
+    }
+    surfaceFields(surface, save, rows) {
+      var K = this.K;
+      rows.push(K.toggle({ label: 'Custom Group Background', on: !!surface, onChange: (on) => save(on ? { color: '#808080', opacity: 30, blur: 'screen' } : null) }));
+      if (!surface) return;
+      var put = (key, value) => save(Object.assign({}, surface, { [key]: value }));
+      rows.push(K.text({ label: 'Background Color', type: 'color', value: surface.color, onCommit: (v) => put('color', v) }));
+      rows.push(K.slider({ label: 'Background Opacity', value: surface.opacity, min: 0, max: 100, unit: '%', onChange: (v) => put('opacity', Number(v)) }));
+      rows.push(K.select({ label: 'Background Blur', value: surface.blur, options: [['screen', 'Follow Screen'], ['none', 'None'], ['light', 'Light'], ['medium', 'Medium'], ['heavy', 'Heavy']], onChange: (v) => put('blur', v) }));
     }
     choices(kind) {
       var client = this.panel.client, states = client.states || {};

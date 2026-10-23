@@ -35,8 +35,8 @@
       return o.entity ? { type: 'custom:hk-tile-card', entity: o.entity } : stand('Accessory', 'mdi:lightbulb'); } },
     scene: { sizes: ['S', 'W'], sources: [], opts: { scene: 'scene' }, card: function (s, o) {
       return o.scene ? { type: 'custom:hk-scene-card', entity: o.scene, icon_color: 'white' } : stand('Scene', 'mdi:palette'); } },
-    scenes: { sizes: ['W', 'L', 'XL'], sources: ['scenes'], opts: { scenes: 'scenes' }, card: function (s, o) {
-      return Object.assign({ type: 'custom:hk-scenes-card' }, o.scenes ? { scenes: o.scenes } : {}); } },
+    scenes: { sizes: ['W', 'L', 'XL'], sources: ['scenes'], opts: { scenes: 'scenes', surface: 'surface' }, card: function (s, o) {
+      return Object.assign({ type: 'custom:hk-scenes-card', surface: o.surface }, o.scenes ? { scenes: o.scenes } : {}); } },
     now_playing: { sizes: ['W', 'T', 'L'], sources: ['speakers'], opts: { speaker: 'speaker' }, card: function (s, o) {
       // T and L: the progress above the transport (the Home app's and Apple
       // Music's order); L the volume under it as well. Its speaker's own
@@ -82,9 +82,9 @@
     // `tablet_room` resolves it itself, through the host (hkShell.tabletRoom):
     // the tablet showing the screen may be known only once the page is up.
     // `fallback` is the room it shows on a page that is no wall tablet.
-    room: { sizes: ['W', 'L', 'XL'], sources: ['rooms'], opts: { area: 'area' }, card: function (s, o, ctx) {
+    room: { sizes: ['W', 'L', 'XL'], sources: ['rooms'], opts: { area: 'area', surface: 'surface' }, card: function (s, o, ctx) {
       // no room of its own: the tablet's, else the screen's first
-      return { type: 'custom:hk-grid-room-card', area: o.area || TABLET_ROOM, fallback: (ctx.rooms || [])[0] || null, size: s }; } },
+      return { type: 'custom:hk-grid-room-card', area: o.area || TABLET_ROOM, fallback: (ctx.rooms || [])[0] || null, size: s, surface: o.surface }; } },
     scene_suggested: { sizes: ['W', 'L'], sources: [], opts: { windows: 'windows' }, card: function (s, o) {
       return Object.assign({ type: 'custom:hk-suggested-scene-card', size: s }, o.windows ? { windows: o.windows } : {}); } },
     action: { sizes: ['S'], sources: [], opts: { action: 'action', area: 'area' }, card: function (s, o) {

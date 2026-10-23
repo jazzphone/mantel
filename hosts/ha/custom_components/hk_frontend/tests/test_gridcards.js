@@ -90,7 +90,7 @@ function () {
   var t = C.table();
   eq('the options each declares (home_grid.CATALOG\'s: a pytest holds them equal)',
      [t.room.opts, t.scene_suggested.opts, t.action.opts, t.everything.opts],
-     [{ area: 'area' }, { windows: 'windows' }, { action: 'action', area: 'area' }, {}]);
+     [{ area: 'area', surface: 'surface' }, { windows: 'windows' }, { action: 'action', area: 'area' }, {}]);
 },
 function () {
   H.section('the tablet\'s room, through the host');

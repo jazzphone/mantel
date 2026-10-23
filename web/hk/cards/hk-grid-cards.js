@@ -425,7 +425,7 @@
       _sigOf() {
         var p = this._plan();
         this._p = p;
-        return JSON.stringify([p.area, p.size, p.name, p.more, p.tiles.map(function (t) { return t.entity; }),
+        return JSON.stringify([p.area, p.size, p.name, p.more, this._config.surface, p.tiles.map(function (t) { return t.entity; }),
                                this._height(), !!window.hkStrategy, !!window.hkRoom]);
       }
       // EACH NEW CLIENT: every pill and the status row get it (they gate their own draws)
@@ -467,6 +467,7 @@
         }
         var e = this._e;
         e.box.setAttribute('size', p.size);
+        C.groupSurface(e.box, this._config.surface);
         e.tiles.style.setProperty('--cols', String(COLS[p.size]));
         if (e.name.textContent !== (p.name || 'Room')) e.name.textContent = p.name || 'Room';
         var path = this._roomPath(p.area);

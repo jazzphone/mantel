@@ -112,3 +112,20 @@ def test_the_options_a_catalog_card_declares_are_the_mirrors(tmp_path):
     assert {"room", "scene_suggested", "action", "everything"} <= set(declared)
     for key, opts in declared.items():
         assert opts == HG.CATALOG[key]["opts"], key
+
+
+@pytest.mark.parametrize('card', ['room', 'scenes'])
+def test_group_background_is_checked_and_roundtrips(card):
+    appearance = {'color': '#345678', 'opacity': 42, 'blur': 'medium'}
+    b, errors = write({'id': 'group', 'card': card, 'size': 'W', 'at': [0, 0], 'opts': {'surface': appearance}})
+    assert errors == {}
+    assert b['home_grid']['items'][0]['opts']['surface'] == appearance
+
+
+@pytest.mark.parametrize('appearance', [
+    {'color': 'red'}, {'color': '#fff'}, {'opacity': -1}, {'opacity': 101},
+    {'opacity': True}, {'opacity': 5.5}, {'blur': 'url(unsafe)'}, {'extra': 1}, 'transparent',
+])
+def test_group_background_refuses_unbounded_values(appearance):
+    _, errors = write({'id': 'group', 'card': 'room', 'size': 'W', 'at': [0, 0], 'opts': {'surface': appearance}})
+    assert errors == {'home_grid': 'grid_option'}

@@ -55,6 +55,9 @@ async def main():
             print('drag swap and overlay geometry passed',flush=True)
             await b.eval('ed.catalog=true; ed.side()')
             assert await b.eval("ed.sidebar.querySelectorAll('.catalog-row').length === 18")
+            if ARGS.shots:
+                await screenshot_font(b)
+                await b.screenshot(ARGS.shots / 'home-grid-gallery.png')
             await b.eval("ed.sidebar.querySelector('[data-card=accessory]').click()")
             assert await b.eval("ed.sidebar.querySelectorAll('[data-preview-card] > iframe').length === 1")
             assert await b.wait("ed.sidebar.querySelector('[data-preview-card] iframe').contentWindow.galleryCard?._config.entity.startsWith('light.')",20)
@@ -62,6 +65,13 @@ async def main():
             if ARGS.shots:
                 await screenshot_font(b)
                 await b.screenshot(ARGS.shots / 'home-grid-picker.png')
+            await b.eval("ed.select('a2'); [...ed.sidebar.querySelectorAll('.cell')].find(row=>row.textContent.includes('Custom Group Background')).querySelector('button').click()")
+            assert await b.eval("ed.grid.items.find(i=>i.id==='a2').opts.surface.opacity===30")
+            await b.eval("let opacity=ed.sidebar.querySelector('input[type=range]');opacity.value='42';opacity.dispatchEvent(new Event('input'));opacity.dispatchEvent(new Event('change'))")
+            assert await b.eval("ed.grid.items.find(i=>i.id==='a2').opts.surface.opacity===42")
+            if ARGS.shots:
+                await screenshot_font(b)
+                await b.screenshot(ARGS.shots / 'home-grid-background.png')
             # Both states of a conditional block stay in exactly the same cell.
             await b.eval("ed.select('a3'); ed.update('a3',{when:{kind:'music_playing'},fallback:{card:'weather'}}); ed.conditionPreview=false; ed.preview()")
             assert await b.wait("ed.previewView?.querySelectorAll && ed.previewView._config.cards.some(c=>c.force===false)",10)

@@ -33,6 +33,18 @@ const pw = require(process.env.PLAYWRIGHT_PATH || 'playwright');
             for(const button of all(slot,'.segment,.tb')){let br=button.getBoundingClientRect();for(const dot of p._dots){let d=dot.getBoundingClientRect();if(br.left<d.right&&br.right>d.left&&br.top<d.bottom&&br.bottom>d.top)issues.push('dots cover control '+cell.dataset.id);}}
           }
         }
+        const groups=card.localName==='hk-scenes-card'?[card]:all(card,'hk-scenes-card');
+        for(const group of groups) for(const tile of group._tiles||[]) {
+          const plate=tile.shadowRoot.querySelector('hk-plate.card');
+          if(plate && Math.abs(plate.getBoundingClientRect().height-tile.getBoundingClientRect().height)>1)issues.push('scene pill does not fill its group row');
+        }
+        const players=card.localName==='hk-now-playing-card'?[card]:all(card,'hk-now-playing-card');
+        for(const player of players.filter(p=>p.getAttribute('size')==='L')) {
+          const art=player.shadowRoot.querySelector('.art').getBoundingClientRect();
+          const title=player.shadowRoot.querySelector('.title').getBoundingClientRect();
+          const byline=player.shadowRoot.querySelector('.player').getBoundingClientRect();
+          if(Math.abs((art.top+art.bottom)/2-(title.top+byline.bottom)/2)>1)issues.push('album art and track metadata are not centred together');
+        }
         for(const r of all(card,'[data-ring]')){
           const face=r.parentElement.querySelector('[data-face]'),range=document.createRange();range.selectNodeContents(face);
           if(range.getBoundingClientRect().width>r.getBoundingClientRect().width*.62)issues.push('dial face crosses track '+cell.dataset.id);

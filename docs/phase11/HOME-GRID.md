@@ -893,3 +893,14 @@ surface (the thermostat's `.surface.tstat` in web/hk/cards/hk-control.js is the 
 - Package and documentation links pass. Screenshots use fictional devices and Arial. Production files and the unrelated Xcode project edit remain untouched.
 
 **Still open:** owner's visual acceptance on the kitchen tablet, real touch/swipe/idle/doorbell behavior, and separately approved releases. This commit does not publish HK Frontend or deploy Mantel.
+
+
+### Group appearance and alignment follow-up (2026-10-23)
+
+- Large Now Playing balances the artwork against the title/artist/speaker group, using equal space above and below the metadata. Composed-layout checks measure their shared vertical centre within 1 px.
+- Scene pills fill their allocated rows inside the surrounding plate; the page control retains its own clear footer. Their regular horizontal pill layout is preserved.
+- Room and scene groups offer Custom Group Background: a color, opacity slider and Follow Screen / None / Light / Medium / Heavy blur. The default remains the screen's appearance. Only the outer plate changes; child pills keep their own material and opacity. Custom values are bounded in hk_core and mirrored in the catalog. Glass registration refreshes when a group changes its own blur.
+- The picker is implemented: searchable categories, readable descriptions, one populated live preview, named sizes and first-fit/drag placement. Its list now scrolls within the available desktop height. The preview waits for the shared screen/client rather than a host-specific ready flag, so both hosts can load it.
+- Validation includes editor toggle/slider and saved-layout checks, background independence from child pills, browser measurements for filled scene rows and music alignment, Chrome/WebKit starters, card render checks in three looks, model/boundary tests and all frontend suites. These changes still require the normal release and tablet acceptance.
+
+Final follow-up checks: **3,439 passed, 21 skipped** in the complete main suite; all frontend JavaScript suites pass with intentional tile/media snapshots refreshed. The focused model, host-boundary and settings run passes 156 tests. Chrome and WebKit both pass the two starters in three looks, including explicit artwork-centre and scene-row-fill measurements. The editor smoke checks the actual background toggle/opacity slider and saves their values; the interaction check verifies tint/blur without changing pill backgrounds. Card geometry/material checks, packaging and links pass. No release or household command was performed.

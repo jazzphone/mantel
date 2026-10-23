@@ -808,8 +808,8 @@
         // spans the first two, so it is as wide as the gap beside them allows)
         ':host([size=L]) hk-plate.np{--np-art:min(100cqh - 40px - 166px, (100cqw - 44px - 248px) / 2 + 78px);',
         '  --hk-np-cols:minmax(0,1fr) 64px 64px 64px minmax(0,1fr);',
-        '  --hk-np-areas:"art art . . ." "art art title title title" "art art artist artist artist" "art art player player player" "sub sub sub sub sub" ". prev play next ." "meta meta meta meta meta";',
-        '  --hk-np-rows:minmax(0,1fr) min-content min-content min-content min-content 56px min-content}',
+        '  --hk-np-areas:"art art . . ." "art art title title title" "art art artist artist artist" "art art player player player" "art art . . ." "sub sub sub sub sub" ". prev play next ." "meta meta meta meta meta";',
+        '  --hk-np-rows:minmax(0,1fr) min-content min-content min-content minmax(0,1fr) min-content 56px min-content}',
         // (the volume a 44 px target: its slider as tall as its row)
         ':host([size=L]) .np .meta{display:block;padding:0;--hk-range-h:44px}',
         ':host([size]) .np .sub{align-self:end}:host([size=L]) .np .sub,:host([size=T]) .np .sub{padding-top:12px}',

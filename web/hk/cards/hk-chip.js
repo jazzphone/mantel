@@ -1316,7 +1316,7 @@
     // the scenes. (More scenes are the pager's pages, G4.)
     var cell = cfg.hk_cell && C0().HOME_GRID.sizes[cfg.hk_cell];
     if (cell) return { auto: auto, config: { hk_cell: cfg.hk_cell, cols: cell[0], rows: cell[1],
-                                             pills: pills.slice(0, cell[0] * cell[1]) } };
+                                             surface: cfg.surface, pills: pills.slice(0, cell[0] * cell[1]) } };
     return { auto: auto, config: { type: 'grid', columns: 1, square: false, cards: [
       { type: 'custom:hk-heading-card', name: cfg.name || 'Scenes' },
       { type: 'custom:hk-grid-card',
@@ -1421,12 +1421,14 @@
         this.appendChild(this._box);
       }
       var box = this._box, client = this.client;
-      box.style.cssText = C0().plate('card') + ';box-sizing:border-box;padding:12px 12px 36px;display:grid;width:100%;height:100%;gap:' + C0().HOME_GRID.gap + 'px;' +
-        'grid-template-columns:repeat(' + plan.cols + ',minmax(0,1fr));grid-auto-rows:70px;align-content:start;overflow:hidden;--hk-pill:100%';
+      box.style.cssText = C0().plate('card') + ';box-sizing:border-box;padding:12px 12px max(12px,calc(var(--hk-pager-safe,0px) + 20px));display:grid;width:100%;height:100%;gap:' + C0().HOME_GRID.gap + 'px;' +
+        'grid-template-columns:repeat(' + plan.cols + ',minmax(0,1fr));grid-template-rows:repeat(' + plan.rows + ',minmax(0,1fr));overflow:hidden;--hk-pill:100%';
+      delete box._hkGroupBase; C0().groupSurface(box, plan.surface);
       while (box.firstChild) box.removeChild(box.firstChild);
       this._tiles = plan.pills.map(function (pill) {
         var t = window.hkCards.create(pill);
-        t.style.cssText = 'min-width:0;min-height:0;width:100%;height:70px';
+        t.setAttribute('data-group-fill', '');
+        t.style.cssText = 'min-width:0;min-height:0;width:100%;height:100%';
         box.appendChild(t);
         if (client) t.hkSetClient(client);
         return t;

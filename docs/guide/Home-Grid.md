@@ -19,6 +19,8 @@ Home Grid is a mode on an existing generated dashboard. You do not need a new da
 
 Room blocks have a surrounding tile containing regular accessory pills and the speaker, without status chips. Extra accessories appear behind **+N more**, which opens the room. Scene groups also have a surrounding tile, keeping page dots with the scenes that swipe together. Camera blocks default to one camera; use **Camera** to choose which, or **Pages → Cameras** to swipe between them.
 
+Select a Room or Scenes block and enable **Custom Group Background** to choose its color, opacity and blur (Follow Screen, None, Light, Medium or Heavy). Opacity changes the background tint, not the pills or labels. Turn the custom background off to restore the screen’s appearance. These settings also work on paged groups and conditional fallbacks.
+
 Weather comes in Wide (conditions), Large (also six hours), and Extra Large (also five days). Timers offer pause/resume and cancel; an empty block opens Create a Timer, and Wide also has quick starts. Security opens the shared alarm sheet, keeping its PIN flow.
 
 Choose **Show When** and a fallback card for a conditional block. Conditions include music playing, a timer running, an armed alarm, a doorbell event, after sunset, and an entity state. While false, the fallback fills the same cells. **Preview** switches between Live, Primary and Fallback in the editor without changing the saved condition. Doorbell events hold their card for one minute. **Change Card** and the fallback chooser reuse the gallery and offer cards that fit the block’s size.
@@ -36,6 +38,10 @@ In HK Frontend, Home Assistant admins use **HK Settings → your screen → Arra
 The desktop editor has passed browser checks in Mantel and a scratch Home Assistant with fictional devices. Publication, a release and a physical tablet check are still required before this phase is considered shipped.
 
 ![The desktop Home Grid editor](../images/home-grid-editor.png)
+
+![Background controls for a group](../images/home-grid-background.png)
+
+![The searchable card gallery](../images/home-grid-gallery.png)
 
 ![The card gallery with a live preview](../images/home-grid-picker.png)
 

@@ -44,7 +44,7 @@ SIZES: dict[str, tuple[int, int]] = {"S": (1, 1), "W": (2, 1), "T": (1, 2), "L":
 CATALOG: dict[str, dict[str, Any]] = {
     "accessory": {"sizes": ("S", "W"), "sources": (), "opts": {"entity": "entity"}},
     "scene": {"sizes": ("S", "W"), "sources": (), "opts": {"scene": "scene"}},
-    "scenes": {"sizes": ("W", "L", "XL"), "sources": ("scenes",), "opts": {"scenes": "scenes"}},
+    "scenes": {"sizes": ("W", "L", "XL"), "sources": ("scenes",), "opts": {"scenes": "scenes", "surface": "surface"}},
     "now_playing": {"sizes": ("W", "T", "L"), "sources": ("speakers",), "opts": {"speaker": "speaker"}},
     "thermostat": {"sizes": ("T", "L"), "sources": ("thermostats",), "opts": {"entity": "climate"}},
     "camera": {"sizes": ("W", "L", "XL"), "sources": ("cameras",), "opts": {"entity": "camera"}},
@@ -57,7 +57,7 @@ CATALOG: dict[str, dict[str, Any]] = {
     "vacuum": {"sizes": ("S", "W"), "sources": (), "opts": {"entity": "vacuum"}},
     "clock": {"sizes": ("W", "XL"), "sources": (), "opts": {}},
     # the new cards (G3)
-    "room": {"sizes": ("W", "L", "XL"), "sources": ("rooms",), "opts": {"area": "area"}},
+    "room": {"sizes": ("W", "L", "XL"), "sources": ("rooms",), "opts": {"area": "area", "surface": "surface"}},
     "scene_suggested": {"sizes": ("W", "L"), "sources": (), "opts": {"windows": "windows"}},
     # `area`: the room an action keeps to (All Lights Off in one room); the others ignore it
     "action": {"sizes": ("S",), "sources": (), "opts": {"action": "action", "area": "area"}},
@@ -139,6 +139,19 @@ def _action(v: Any) -> str:
     raise GridInvalid("grid_option")
 
 
+def _surface(v: Any) -> dict[str, Any]:
+    if not isinstance(v, dict) or set(v) - {"color", "opacity", "blur"}:
+        raise GridInvalid("grid_option")
+    color, opacity, blur = v.get("color", "#808080"), v.get("opacity", 30), v.get("blur", "screen")
+    if not isinstance(color, str) or not re.fullmatch(r"#[0-9a-fA-F]{6}", color):
+        raise GridInvalid("grid_option")
+    if isinstance(opacity, bool) or not isinstance(opacity, int) or not 0 <= opacity <= 100:
+        raise GridInvalid("grid_option")
+    if blur not in ("screen", "none", "light", "medium", "heavy"):
+        raise GridInvalid("grid_option")
+    return {"color": color.lower(), "opacity": opacity, "blur": blur}
+
+
 OPTION_KINDS = {
     "entity": _domain(),
     "scene": _domain("scene"),
@@ -152,6 +165,7 @@ OPTION_KINDS = {
     "area": _area,
     "action": _action,
     "windows": _windows,
+    "surface": _surface,
 }
 
 

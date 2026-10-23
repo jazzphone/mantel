@@ -348,6 +348,35 @@
   M.glass = 'background:' + M.bg + ';--hk-glass-surface:1;' +
     'backdrop-filter:var(--hk-glass-backdrop,none);-webkit-backdrop-filter:var(--hk-glass-backdrop,none)';
 
+  // A group's outer plate only. These properties never tint or fade its pills.
+  function groupSurface(el, surface) {
+    if (!el || !el.style || !surface && !el._hkGroupBase) return;
+    var key = JSON.stringify(surface || null);
+    if (key !== el._hkGroupSurfaceKey) {
+      el._hkGroupSurfaceKey = key;
+      var root = el.getRootNode(), owner = root.host || el.parentElement;
+      if (window.hkGlass && owner) window.hkGlass.changed(owner, true);
+    }
+    var keys = ['background', 'backdrop-filter', '-webkit-backdrop-filter', '--hk-glass-surface'];
+    var base = el._hkGroupBase;
+    if (!base) { base = el._hkGroupBase = {}; keys.forEach(function (k) { base[k] = [el.style.getPropertyValue(k), el.style.getPropertyPriority(k)]; }); }
+    keys.forEach(function (k) { if (base[k][0]) el.style.setProperty(k, base[k][0], base[k][1]); else el.style.removeProperty(k); });
+    el.removeAttribute('data-group-custom');
+    if (!surface || !/^#[0-9a-f]{6}$/i.test(surface.color || '')) return;
+    var hex = surface.color.slice(1), rgb = [0, 2, 4].map(function (i) { return parseInt(hex.slice(i, i + 2), 16); });
+    var opacity = Math.max(0, Math.min(100, Number(surface.opacity)));
+    if (!Number.isFinite(opacity)) return;
+    el.style.setProperty('background', 'rgba(' + rgb.join(',') + ',' + opacity / 100 + ')', 'important');
+    el.setAttribute('data-group-custom', '');
+    if (surface.blur && surface.blur !== 'screen') {
+      var blur = surface.blur === 'none' ? 'none' : BLUR[surface.blur];
+      if (!blur) return;
+      el.style.setProperty('--hk-glass-surface', '0');
+      el.style.setProperty('backdrop-filter', blur, 'important');
+      el.style.setProperty('-webkit-backdrop-filter', blur, 'important');
+    }
+  }
+
   // ------------------------------------------------------ ON A LIGHT PAGE
   // Someone else's dashboard (place() below), Home Assistant in light mode,
   // and no HK sky behind the cards: the Home app's light look -- gray glass,
@@ -4267,6 +4296,7 @@
   window.hkCards.EASE = EASE;
   window.hkCards.DUR = DUR;
   window.hkCards.BLUR = BLUR;
+  window.hkCards.groupSurface = groupSurface;
   window.hkCards.R = R;
   window.hkCards.OVER = OVER;
   window.hkCards.TYPE = TYPE;
