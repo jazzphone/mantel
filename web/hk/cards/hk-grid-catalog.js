@@ -32,11 +32,11 @@
   // that names nothing of its own.
   var CARDS = {
     accessory: { sizes: ['S', 'W'], sources: [], opts: { entity: 'entity', secondary: 'secondary' }, card: function (s, o) {
-      return o.entity ? { type: 'custom:hk-tile-card', entity: o.entity, secondary: o.secondary } : stand('Accessory', 'mdi:lightbulb'); } },
+      return o.entity ? { type: 'custom:hk-grid-entity-card', entity: o.entity, secondary: o.secondary, kind: 'accessory', size: s } : stand('Accessory', 'mdi:lightbulb'); } },
     accessories: { sizes: ['W', 'L', 'XL', 'XXL'], sources: ['accessories'], opts: { accessories: 'accessories', title: 'title', surface: 'surface' }, card: function (s, o) {
       return { type: 'custom:hk-grid-accessories-card', accessories: o.accessories || [], title: o.title || 'Accessories', surface: o.surface }; } },
     scene: { sizes: ['S', 'W'], sources: [], opts: { scene: 'scene' }, card: function (s, o) {
-      return o.scene ? { type: 'custom:hk-scene-card', entity: o.scene, icon_color: 'white' } : stand('Scene', 'mdi:palette'); } },
+      return o.scene ? { type: 'custom:hk-grid-entity-card', entity: o.scene, kind: 'scene', size: s } : stand('Scene', 'mdi:palette'); } },
     scenes: { sizes: ['W', 'L', 'XL', 'XXL'], sources: ['scenes'], opts: { scenes: 'scenes', surface: 'surface' }, card: function (s, o) {
       return Object.assign({ type: 'custom:hk-scenes-card', surface: o.surface }, o.scenes ? { scenes: o.scenes } : {}); } },
     now_playing: { sizes: ['W', 'T', 'L'], sources: ['speakers'], opts: { speaker: 'speaker' }, card: function (s, o) {

@@ -52,6 +52,8 @@ Local Home Assistant App update for the house.
 
 The first public release.
 
+- Standalone Home Grid accessories and scenes use the room-page tile builders for saved glyphs, colors and state-specific appearance, while preserving grid sizes and caption choices.
+
 - Home Grid swipe cards support mouse dragging and horizontal wheel/trackpad paging without returning to the opening page on state updates. Header chips align to the right and remain scrollable on overflow.
 - Group controls appear in Lights and accessory type lists independently of status counts, so groups remain available without automatically double-counting their members.
 - Ignore Announcements recognizes HA service calls in Mantel, including native/MA speaker counterparts, with bounded display-only markers and disconnect cleanup.

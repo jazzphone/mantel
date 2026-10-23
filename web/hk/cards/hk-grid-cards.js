@@ -619,6 +619,60 @@
         return { area: a || 'living_room' };
       });
 
+    // Resolve the actual room-page tile at runtime, with the card's own
+    // client (including editor previews). Never store a client in grid config.
+    // Settings changes and late registries/providers can then update the same
+    // mounted card, including pages and conditional fallbacks.
+    class HkGridEntityCard extends HkBase {
+      static get CSS() { return ':host{display:block;height:100%}:host>div,:host>div>*{display:block;width:100%;height:100%}'; }
+      static get observedAttributes() { return ['size', 'data-grid-pager']; }
+      attributeChangedCallback() { this._sizeChild(); }
+      _tile() {
+        var cfg = this._config || {}, h = this.client, t;
+        if (!cfg.entity) return null;
+        if (cfg.kind === 'scene') {
+          var scenes = window.hkChip && window.hkChip.scenes;
+          t = scenes && scenes.pill ? scenes.pill(h, cfg.entity) : { type: 'custom:hk-scene-card', entity: cfg.entity };
+          t = Object.assign({}, t, { elevated: false });
+        } else {
+          var S = window.hkStrategy;
+          t = S && S.tileFor && h ? S.tileFor(h, cfg.entity, friendly(h, cfg.entity)) : { type: 'custom:hk-tile-card', entity: cfg.entity };
+          t = Object.assign({}, t, { secondary: cfg.secondary });
+        }
+        // The block owns geometry; the shared builder owns the accessory.
+        t.size = (this.getAttribute('size') || cfg.size) === 'W' ? 'regular' : 'tall';
+        delete t.view_layout; delete t.hk_place;
+        return t;
+      }
+      _sigOf() { return JSON.stringify(this._tile()); }
+      _receiveClient() {
+        super._receiveClient();
+        if (this._child) window.hkHostClient.bridge(this._child, this.client);
+      }
+      _sizeChild() {
+        if (!this._child) return;
+        this._child.setAttribute('size', this.getAttribute('size') || (this._config || {}).size || 'S');
+        if (this.hasAttribute('data-grid-pager')) this._child.setAttribute('data-grid-pager', '');
+        else this._child.removeAttribute('data-grid-pager');
+      }
+      _render() {
+        var t = this._tile();
+        if (!t) return;
+        var key = JSON.stringify(t);
+        if (key !== this._tileKey) {
+          if (this._child && this._childType === t.type) this._child.setConfig(t);
+          else {
+            this._child = C.createCard(t, this.client);
+            this._root.replaceChildren(this._child);
+          }
+          this._childType = t.type; this._tileKey = key;
+        }
+        this._sizeChild();
+      }
+    }
+    window.hkHostClient.entry(HkGridEntityCard);
+    if (!customElements.get('hk-grid-entity-card')) customElements.define('hk-grid-entity-card', HkGridEntityCard);
+
     // Custom collections share the room's plate, fixed rows and accessory
     // controls; their ordered contents and captions belong to this block.
     class HkGridAccessoriesCard extends HkGridRoomCard {

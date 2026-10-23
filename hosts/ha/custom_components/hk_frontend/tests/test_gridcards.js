@@ -73,6 +73,31 @@ var client = window.hkHostClient.from(hass());
 
 H.run('GRID CARDS', [
 function () {
+  H.section('standalone grid accessories reuse the room tile builder');
+  var factory = window.hkCards.createCard;
+  window.hkCards.createCard = function (cfg, c) { var el = H.make(cfg.type.slice(7)); el._root.replaceChildren = function (child) { this.innerHTML = ''; this.appendChild(child); }; el.setConfig(cfg); el.client = c; return el; };
+  var id = 'light.kitchen_pendant', own = FEED.accessories.entities;
+  own[id] = { icon: 'hk:coffee-maker-outline', color: 'orange', size: 'regular' };
+  var cfg = window.hkGridCatalog.config({ card: 'accessory', size: 'S', opts: { entity: id, secondary: { mode: 'none' } } });
+  var card = window.hkCards.createCard(cfg, client);
+  var shared = window.hkStrategy.tileFor(client, id, 'Lamp'), child = card._child;
+  eq('room glyph, measured size and color are reused',
+    [child._config.type, child._config.icon, child._config.icon_size, child._config.icon_color],
+    [shared.type, shared.icon, shared.icon_size, shared.icon_color]);
+  eq('the grid keeps its tall geometry and caption override',
+    [child._config.size, child._config.secondary.mode, child._config.view_layout], ['tall', 'none', undefined]);
+  card.client = client;
+  ok('unchanged pushes keep the child mounted', child === card._child);
+  own[id] = { icon: 'hk:lamp', color: 'blue' }; window.hkSettings.version++;
+  card.client = client;
+  eq('saved accessory choices update the mounted tile', [card._child._config.icon, card._child._config.icon_color], ['hk:lamp', 'blue']);
+  var lock = window.hkCards.createCard(window.hkGridCatalog.config({ card: 'accessory', size: 'W', opts: { entity: 'lock.front_door' } }), client);
+  var roomLock = window.hkStrategy.tileFor(client, 'lock.front_door', 'Door');
+  eq('state-specific glyphs come from the room builder too', lock._child._config.icon_states, roomLock.icon_states);
+  eq('Wide uses regular pills', lock._child._config.size, 'regular');
+  delete own[id]; window.hkSettings.version++; window.hkCards.createCard = factory;
+},
+function () {
   H.section('the catalog: the real cards, and the options they declare');
   var C = window.hkGridCatalog, ctx = { rooms: ['den', 'kitchen'] };
   var room = C.config({ card: 'room', size: 'L' }, ctx);

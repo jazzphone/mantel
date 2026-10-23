@@ -12,11 +12,17 @@ async def main():
     gallery.HOUSE['switch.coffee'] = ('kitchen', ('off', {'friendly_name': 'Coffee Maker', 'icon': 'mdi:coffee-maker'}))
     gallery.HOUSE['input_button.good_morning'] = (None, ('unknown', {'friendly_name': 'Good Morning'}))
     gallery.HOUSE['switch.unsupported_icon'] = (None, ('off', {'friendly_name': 'Unknown Icon', 'icon': 'mdi:missing-test-icon'}))
+    gallery.SETTINGS['accessories']['entities'].update({
+        'switch.coffee': {'icon': 'hk:coffee-maker-outline', 'color': 'orange'},
+        'input_button.good_morning': {'icon': 'hk:white-balance-sunny', 'color': 'yellow'},
+        'scene.good_morning': {'icon': 'hk:weather-sunset-up', 'color': 'yellow'},
+    })
     gallery.SETTINGS['boards']['room-scroll'] = {'home_style': 'grid', 'home_grid': {
         'v': 1, 'cols': 6, 'rows': 4, 'frame': [1280, 800], 'band': False, 'items': [
             {'id': 'room', 'card': 'room', 'size': 'L', 'at': [0, 0], 'opts': {'area': 'kitchen', 'accessory_display': 'scroll'}, 'pages': {'source': 'rooms'}},
-            {'id': 'coffee', 'card': 'accessory', 'size': 'S', 'at': [2, 0], 'opts': {'entity': 'switch.coffee'}},
+            {'id': 'coffee', 'card': 'accessory', 'size': 'S', 'at': [2, 0], 'opts': {'entity': 'switch.coffee', 'secondary': {'mode': 'none'}}},
             {'id': 'morning', 'card': 'accessory', 'size': 'S', 'at': [3, 0], 'opts': {'entity': 'input_button.good_morning'}},
+            {'id': 'scene', 'card': 'scene', 'size': 'S', 'at': [5, 0], 'opts': {'scene': 'scene.good_morning'}},
             {'id': 'fallback', 'card': 'accessory', 'size': 'S', 'at': [4, 0], 'opts': {'entity': 'switch.unsupported_icon'}}]}}
     with tempfile.TemporaryDirectory() as td:
         app, cookie = await gallery.build(Path(td))

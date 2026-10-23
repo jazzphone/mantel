@@ -31,6 +31,18 @@ const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
    await page.evaluate(()=>tiles.scrollTop=tiles.scrollHeight);
    assert(await page.evaluate(()=>Math.abs(tiles.lastElementChild.getBoundingClientRect().bottom-tiles.getBoundingClientRect().bottom)<2));
    await page.waitForFunction(()=>['switch.coffee','input_button.good_morning','switch.unsupported_icon'].every(id=>deep(document,'hk-tile-card,hk-scene-card').filter(c=>c._config?.entity===id).some(c=>deep(c.shadowRoot,'hk-state-icon').some(i=>i.shadowRoot.querySelector('path.p')?.getAttribute('d')))));
+   assert(await page.evaluate(()=>{
+    const standalone=id=>deep(document,'hk-grid-entity-card').find(c=>c._config.entity===id)._child;
+    const coffee=standalone('switch.coffee'), morning=standalone('input_button.good_morning'), scene=standalone('scene.good_morning');
+    const roomCoffee=room._kids.find(c=>c._config.entity==='switch.coffee');
+    const sharedScene=window.hkChip.scenes.pill(window.hkCards.client(),'scene.good_morning');
+    return coffee._config.icon===roomCoffee._config.icon && coffee._config.icon==='hk:coffee-maker-outline' &&
+     coffee._config.secondary.mode==='none' && deep(coffee.shadowRoot,'.label')[0]?.textContent==='' &&
+     Math.abs(coffee.getBoundingClientRect().height-coffee.getRootNode().host.getBoundingClientRect().height)<1 &&
+     coffee._config.icon_color===roomCoffee._config.icon_color && morning._config.icon==='hk:white-balance-sunny' &&
+     scene._config.icon===sharedScene.icon && scene._config.icon_color===sharedScene.icon_color &&
+     [coffee,morning,scene].every(c=>deep(c.shadowRoot,'hk-state-icon').some(i=>i.shadowRoot.querySelector('path.p')?.getAttribute('d')));
+   }), 'standalone and room accessory/scene glyphs match');
    if(engine==='chromium'){
     const cdp=await ctx.newCDPSession(page);
     const touch=async(type,x,y)=>cdp.send('Input.dispatchTouchEvent',{type,touchPoints:type==='touchEnd'?[]:[{x,y}]});

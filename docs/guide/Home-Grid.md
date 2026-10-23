@@ -17,6 +17,8 @@ For a new layout, start with **Tap Weight** (the largest blocks are the ones you
 
 To combine accessories from different rooms in one block, choose **+ Add → Rooms & Lights → Accessory Group**. Choose a size and use **Add Accessory** to build an ordered list. **Automatic Swipe Pages** fills each page in that order: Wide holds two, Large four, Extra Large six, and Full Width twelve. Use **Move Accessory Up** to reorder them. A sparse last page keeps the same tile sizes.
 
+Standalone accessories and scenes use the same saved glyphs and colors as their room-page pills, including state-specific accessory icons. Change these in the accessory's configuration; Home Grid follows those choices. The block still controls its size and Line Under Name setting.
+
 For precise page contents, change **Pages → Choose Each Page**. The current list splits into pages; select the accessories under **Page 1**, **Page 2**, and so on. **Add Page** creates an empty page to fill. Pages can have their own name, and you can move or remove them. This groups controls on the dashboard; it does not create a Home Assistant group or combine their actions.
 
 On an **Accessory** card, or each accessory inside an **Accessory Group**, **Line Under Name** chooses Automatic, State, Brightness, An Attribute, or Hidden. Choose **An Attribute** to select a reported scalar value such as battery level or current temperature, with an optional unit. Missing values show a dash. These choices belong to this block/page and follow live updates.
