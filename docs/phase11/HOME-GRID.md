@@ -6,7 +6,7 @@ https://claude.ai/artifact/JnMmSXDneGVE1e81BWYuid, A preferred). An Owner or Adm
 using HK's own cards. A block can hold **several pages** that swipe: cameras, rooms, thermostats, scene pages.
 Mantel first; HK Frontend as well, which comes at little extra cost (below).
 
-**Status (2026-10-22): G1–G8 done and released in Mantel App 0.1.58 on the house; HK Frontend not yet built (1.10.7 on the house). The owner's second review left the work listed under "Next: owner review, round 2" at the end of this file — a new session starts there.** Older slice notes describe their state at the time.
+**Status (2026-10-23): G1–G8 and the second-review refinements are installed in Mantel App 0.1.59 on the house. HK Frontend remains a separate release (1.10.7 on the house). Next is the owner's kitchen-tablet acceptance of the cards, picker and independent panel scrolling.** Older slice notes describe their state at the time.
 
 ## The answers (2026-10-22)
 
@@ -911,3 +911,9 @@ Final follow-up checks: **3,439 passed, 21 skipped** in the complete main suite;
 The gallery previously had its own scroll area, but the editor itself could still grow with long settings, moving the dashboard preview out of view. The desktop editor is now bounded to the window: toolbar and preview stay in place, and the entire right-hand options panel has one independent scroll area with scroll chaining contained. The frame scales to the stage's actual remaining height, including wrapped instructions, and follows both stage and instruction-size changes.
 
 Checked with real wheel input in the picker and block settings at 1600 × 1000 and 1280 × 650, including extra input at the bottom of the panel. Chrome and WebKit keep the preview in the same position and fully visible. The editor smoke also retains drag/swap, overlay geometry, background controls, conditional previews, save/refusal, history, copy and cancel checks. Focused editor/settings/host-boundary tests pass. No release or production setting was changed.
+
+### House update: Mantel App 0.1.59 (2026-10-23)
+
+The owner authorized a new app release to the house. Main commit `1995bb8` was staged through the existing local-app process and installed as 0.1.59, including all second-review refinements and the editor scrolling fix. Home Assistant created a protected backup of Mantel 0.1.58 before the update. The installed app reports 0.1.59; strict health returns OK with Home Assistant connected and build `614dc07f88fc0d3b`, matching the staged artifact. Startup logs contain no errors or traceback.
+
+This was a local Home Assistant App update; no public image/tag publication or HK Frontend release was performed. Physical kitchen-tablet visual and touch/swipe acceptance remains with the owner. A release-test assumption that private-word injection always belongs in Unreleased was corrected to cover both Unreleased and a versioned section; the publication/version tests pass.

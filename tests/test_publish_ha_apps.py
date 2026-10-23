@@ -96,10 +96,11 @@ def test_the_private_content_scan_refuses_and_writes_nothing(tmp_path):
     assert not out.exists() and not list(tmp_path.glob(".mantel-ha-apps-*"))
 
 
-def test_a_home_s_own_words_are_refused(tmp_path, monkeypatch):
+@pytest.mark.parametrize("section", ["Unreleased", VERSION])
+def test_a_home_s_own_words_are_refused(tmp_path, monkeypatch, section):
     root = _repo_copy(tmp_path)
     notes = root / "CHANGELOG.md"
-    notes.write_text(notes.read_text().replace("## Unreleased\n", "## Unreleased\n\n- Fixed Wobbleton's hallway\n", 1))
+    notes.write_text(f"# Changelog\n\n## {section}\n\n- Fixed Wobbleton's hallway\n")
     monkeypatch.setenv("HK_PRIVATE", "wobbleton")
     with pytest.raises(pub.PublishError, match=r"mantel/CHANGELOG.md:\d+: a home's own word"):
         pub.publish(tmp_path / "out", VERSION, allow_unreleased=True, root=root)
