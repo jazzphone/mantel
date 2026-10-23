@@ -6,7 +6,7 @@ https://claude.ai/artifact/JnMmSXDneGVE1e81BWYuid, A preferred). An Owner or Adm
 using HK's own cards. A block can hold **several pages** that swipe: cameras, rooms, thermostats, scene pages.
 Mantel first; HK Frontend as well, which comes at little extra cost (below).
 
-**Status (2026-10-23): Mantel App 0.1.60 is installed on the house, including the third review and fixed-tile/portrait follow-up. Physical-tablet visual and touch acceptance remains with the owner. HK Frontend remains a separate release (1.10.7 on the house).** Older slice notes describe their state at the time.
+**Status (2026-10-23): Mantel App 0.1.61 is installed on the house, including the fixed-tile/portrait work, clarified room controls, collapsed starter layouts and matching editor-outline corners. Physical-tablet visual and touch acceptance remains with the owner. HK Frontend remains a separate release (1.10.7 on the house).** Older slice notes describe their state at the time.
 
 ## The answers (2026-10-22)
 
@@ -967,3 +967,10 @@ Validation: all frontend JavaScript suites pass, including four opening-page reg
 The owner requested matching corner radii for placement guides and selected cards, and authorized the next house release with the room-control follow-up. Editor grid slots, selected blocks and drag outlines now read the card radius and apply the preview’s uniform scale. This removes the separate 10 px editor-outline radius. The release is prepared as 0.1.61; deployment verification follows below when complete.
 
 Validation: Chrome and WebKit compare placement/selection radii against the card’s computed radius at the preview scale. The full frontend JavaScript suite passes; 100 focused grid/release/documentation tests pass, 3 skipped. The editor smoke retains room-start/idle behavior, drag geometry, scrolling, save/refusal, history, copy and cancel checks.
+
+
+### House update: Mantel App 0.1.61 (2026-10-23)
+
+The owner authorized deployment, including corner polish if usage allowed. Chrome and WebKit checks passed, so the update includes both that polish and the room-control fixes. Release commit `3a9324d` was pushed to main and staged through the local-app process. Home Assistant created protected backup `91e7cdd2` of Mantel 0.1.60 before installing 0.1.61. The install request timed out while waiting, but durable update state confirmed it was in progress; the request was not repeated. Installation completed with installed/latest version 0.1.61, no pending update, strict health OK and Home Assistant connected. Build `0585bc0be6880d32` matches the staged release. The latest 100 startup log lines contain no errors or traceback.
+
+This was a local house App update. No public release tag or HK Frontend update was made. Reload the editor and dashboard for the new controls; physical-tablet acceptance remains with the owner.
