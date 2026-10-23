@@ -2,6 +2,17 @@
 
 All notable changes to Mantel are listed here. Versions follow [semantic versioning](https://semver.org); the Home Assistant App, the Docker images and the Python package share one version number.
 
+## 0.1.60 - 2026-10-23
+
+Local Home Assistant App update for the house.
+
+- Home Grid keeps fixed tall-tile proportions, scales uniformly to fit other displays, and adds a Grid Scale control.
+- Room and scene groups support six columns by two rows. Sparse room groups keep empty rows, and accessory circles retain their standard size.
+- Home Assistant person portraits load through Mantel, with initials when an image fails.
+- Camera blocks keep one selected camera. Screen settings collapse and header clock/weather can be hidden independently.
+- Thermostats share the card appearance; page dots are centered; picker icons and sample readings are complete.
+- Larger weather cards show additional readings and forecasts, with an optional Sky background.
+
 ## 0.1.59 - 2026-10-23
 
 Local Home Assistant App update for the house.
