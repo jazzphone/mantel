@@ -308,14 +308,32 @@
         this.optionFields(item, item.opts || {}, (opts) => this.update(item.id, { opts: opts }), 'Options', false);
         var sources = [['', 'Single Card'], ['list', 'Custom Pages']].concat(cat[item.card].sources.map((s) => [s, NAMES[s] || s.charAt(0).toUpperCase() + s.slice(1)]));
         var src = item.pages && item.pages.source || '';
+        if (item.card === 'room') sources = sources.map((op) => [op[0], op[0] === '' ? 'One Room' : op[0] === 'rooms' ? 'Swipe Between Rooms' : op[1]]);
         if (item.card === 'camera') sources = sources.map((op) => [op[0], op[0] === '' ? 'One Camera' : op[0] === 'cameras' ? 'Swipe All Cameras' : op[1]]);
-        var rows = [K.select({ label: item.card === 'camera' ? 'Camera Display' : 'Pages', value: src, options: sources, onChange: (s) => {
+        var rows = [K.select({ label: item.card === 'camera' ? 'Camera Display' : item.card === 'room' ? 'Room Display' : 'Pages', value: src, options: sources, onChange: (s) => {
           this.update(item.id, { pages: s ? s === 'list' ? { source: 'list', list: [{ opts: {} }] } : { source: s } : null });
         } })];
-        if (src === 'rooms' || src === 'thermostats') rows.push(K.toggle({ label: 'Start on Tablet’s Room', on: item.pages.start === 'tablet_room', onChange: (on) => {
+        var roomHelp;
+        if (src === 'rooms' && item.card === 'room') {
+          var area = (item.opts || {}).area || (item.pages.start === 'tablet_room' ? 'tablet_room' : '');
+          var roomIds = this.previewView && this.previewView._config.grid_ctx && this.previewView._config.grid_ctx.rooms;
+          var choices = [['', 'First Room']].concat(this.choices('area').filter((op) => op[0] === 'tablet_room' || !roomIds || roomIds.includes(op[0])));
+          if (area && !choices.some((op) => op[0] === area)) choices.push([area, area + ' (Not on this screen)']);
+          var chosen = choices.find((op) => op[0] === area);
+          roomHelp = area === 'tablet_room' ? 'Uses the wall tablet’s assigned room. An unassigned desktop previews the first room.'
+            : area ? 'Opens on ' + (chosen ? chosen[1] : area) + ' and returns there when idle.' : 'Starts with the first room in this screen’s room order.';
+          if (area && area !== 'tablet_room' && roomIds && !roomIds.includes(area)) roomHelp = 'This room is not included on the screen. The first room will appear instead.';
+          rows.push(K.select({ label: 'Starting Room', value: area, options: choices, onChange: (value) => {
+            var opts = copy(item.opts || {}), pages = copy(item.pages);
+            if (value) opts.area = value; else delete opts.area;
+            if (value === 'tablet_room') pages.start = 'tablet_room'; else delete pages.start;
+            this.update(item.id, { opts: opts, pages: pages });
+          } }));
+        }
+        if (src === 'thermostats') rows.push(K.toggle({ label: 'Start on Tablet’s Room', on: item.pages.start === 'tablet_room', onChange: (on) => {
           var p = copy(item.pages); if (on) p.start = 'tablet_room'; else delete p.start; this.update(item.id, { pages: p });
         } }));
-        group('Pages', rows);
+        group(item.card === 'room' ? 'Room Display' : 'Pages', rows, roomHelp);
         if (src === 'list') {
           item.pages.list.forEach((pg, i) => {
             this.optionFields(item, pg.opts || {}, (opts) => { var p = copy(item.pages); p.list[i].opts = opts; this.update(item.id, { pages: p }); }, 'Page ' + (i + 1), true);
@@ -325,7 +343,8 @@
           group('', [K.button({ label: 'Add Page', disabled: item.pages.list.length >= 12, onClick: () => { var p = copy(item.pages); p.list.push({ opts: {} }); this.update(item.id, { pages: p }); } })]);
         }
       }
-      group('Starter Layouts', ['A', 'C'].map((c) => K.button({ label: c === 'A' ? 'Tap Weight' : 'Glance Up, Touch Down', onClick: () => this.starter(c) })), 'Starts with your home’s scenes, rooms, cameras and thermostats.');
+      var starters = () => K.group({ header: 'Starter Layouts', footer: 'Replaces this draft with your home’s scenes, rooms, cameras and thermostats. Save to apply it.' }, ['A', 'C'].map((c) => K.button({ label: c === 'A' ? 'Tap Weight' : 'Glance Up, Touch Down', onClick: () => this.starter(c) })));
+      if (!this.grid) this.sidebar.appendChild(starters());
       if (this.catalog) this.catalogPreviews();
       if (!this.grid) return;
       var config = (key, value) => { var next = copy(this.grid); next[key] = value; if (valid(next)) this.change(next); else { this.say('Move or remove blocks that would be outside the new grid first.'); this.side(); } };
@@ -340,6 +359,7 @@
         K.toggle({ label: 'Header Weather', on: this.grid.header_weather !== false, onChange: (v) => config('header_weather', v) }),
         K.text({ label: 'Frame Width', value: this.grid.frame[0], type: 'number', onCommit: (v) => config('frame', [Number(v), this.grid.frame[1]]) }),
         K.text({ label: 'Frame Height', value: this.grid.frame[1], type: 'number', onCommit: (v) => config('frame', [this.grid.frame[0], Number(v)]) })]));
+      settings.appendChild(starters());
       this.sidebar.appendChild(settings);
       if (this.panel.host() && this.panel.host().gridHistory) {
         group('Layout History', [K.button({ label: 'History', onClick: () => this.history() })]);
@@ -559,7 +579,8 @@
       var set = (key, value) => { var out = copy(opts); if (value === '' || value == null) delete out[key]; else out[key] = value;
         if (item.card === 'camera' && item.id && key === 'entity' && !page) self.update(item.id, { opts: out, pages: null }); else save(out); };
       Object.keys(fields).forEach(function (key) {
-        var kind = fields[key], label = key.charAt(0).toUpperCase() + key.slice(1);
+        if (item.card === 'room' && item.id && !page && key === 'area' && item.pages && item.pages.source === 'rooms') return;
+        var kind = fields[key], label = item.card === 'room' && key === 'area' ? (item.pages && item.pages.source === 'list' && !page ? 'Default Room' : 'Room') : key.charAt(0).toUpperCase() + key.slice(1);
         if (kind === 'boolean') { rows.push(K.toggle({ label: key === 'sky' ? 'Weather Sky Background' : label, on: opts[key] === true, onChange: (on) => set(key, on) })); return; }
         if (kind === 'surface') { self.surfaceFields(opts.surface, (value) => set('surface', value), rows); return; }
         if (kind === 'windows') { self.windows(opts, set, rows); return; }

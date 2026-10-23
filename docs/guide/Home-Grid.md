@@ -6,7 +6,7 @@ Home Grid is a tablet Home page arranged in fixed blocks. It fits the screen wit
 
 In Mantel Settings, open **Screens → your screen → Arrange Home Grid** on a desktop. Owners and Admins can arrange a screen. A wall tablet displays the saved layout and offers no editor.
 
-Start with **Tap Weight** (the largest blocks are the ones you touch most) or **Glance Up, Touch Down** (readings above, controls below). The starter uses your home's scenes, rooms, cameras and thermostats. It stays a draft until you press **Save**.
+For a new layout, start with **Tap Weight** (the largest blocks are the ones you touch most) or **Glance Up, Touch Down** (readings above, controls below). The starter uses your home's scenes, rooms, cameras and thermostats. It stays a draft until you press **Save**. Once a layout exists, starter layouts are inside the collapsed **Screen Settings** section; choosing one replaces the draft.
 
 - Drag a block to move it. Blocks of the same size swap places. A move that overlaps another size or leaves the grid is refused.
 - Select a block, then use the arrow keys to move it with the keyboard.
@@ -18,6 +18,8 @@ Start with **Tap Weight** (the largest blocks are the ones you touch most) or **
 **Screen Settings → Grid Scale** defaults to **Automatic Fit**. The grid uses the design’s 196 × 150 tall-tile unit with 10-pixel gaps, then scales uniformly to fit beside the navigation bar. Larger screens keep the original size; different ratios leave space around the grid. Choose 50–90% of Fit for a smaller layout. Frame Width and Height only set the editor’s preview display.
 
 Home Grid is a mode on an existing generated dashboard. You do not need a new dashboard: open its editor, choose a starter, arrange the blocks, and Save. Create a separate screen first only if you want a separate layout. The tab bar keeps your navigation settings: **Rooms** can be its own button or a section inside **More**.
+
+For room blocks, **Room Display → One Room** shows the selected **Room**. **Swipe Between Rooms** shows the screen’s rooms and uses **Starting Room** for its opening page and idle return. Choose **Tablet’s Room** to follow the wall tablet’s assigned room; an unassigned desktop previews the first room. A specific starting room takes priority over a previously saved tablet-room start.
 
 Room blocks have a surrounding tile containing accessories and the speaker, without status chips. Wide uses regular pills; Large uses a 2 × 2 arrangement of taller tiles, Extra Large has two rows of three, and Full Width has two rows of six. Empty cells stay reserved, so a lone accessory never stretches into another row. The tiles fill the available height. Extra accessories appear behind **+N more**, which opens the room. Scene groups also have a surrounding tile, with a centred page-control pill for the scenes that swipe together. Camera blocks default to one camera: select **Camera** to choose which. Choosing a camera turns automatic paging off. Choose **Camera Display → Swipe All Cameras** to restore the carousel.
 

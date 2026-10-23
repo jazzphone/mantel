@@ -87,6 +87,10 @@ ok('rooms with start: tablet_room open on the tablet\'s room', P.start(rooms, it
 ok('...the first page without start', P.start(rooms, item('rooms'), { room: 'den' }) === 0);
 ok('...and the first when the tablet\'s room has no page', P.start(rooms, item('rooms', 'tablet_room'), { room: 'garage' }) === 0);
 ok('thermostats with start: tablet_room open on its room', P.start(th, item('thermostats', 'tablet_room'), { room: 'den' }) === 1);
+ok('an explicit room starts there even with a legacy tablet-room flag', P.start(rooms, {card:'room', opts:{area:'den'}, pages:{source:'rooms',start:'tablet_room'}}, {room:'kitchen'}) === 1);
+ok('a chosen room works on an unassigned desktop', P.start(rooms, {card:'room', opts:{area:'den'}, pages:{source:'rooms'}}, {}) === 1);
+ok('the tablet-room option resolves dynamically', P.start(rooms, {card:'room', opts:{area:'tablet_room'}, pages:{source:'rooms'}}, {room:'den'}) === 1);
+ok('a missing starting room falls back to the first available page', P.start(rooms, {card:'room', opts:{area:'garage'}, pages:{source:'rooms'}}, {room:'den'}) === 0);
 var playing = { 'media_player.den': { state: 'playing' }, 'media_player.kitchen': { state: 'paused' } };
 ok('speakers start on the one playing', P.start(sp, item('speakers'), { room: 'kitchen', states: playing }) === 1);
 ok('...else this user\'s own speaker', P.start(sp, item('speakers'), { room: 'kitchen', home: 'media_player.downstairs', states: {} }) === 2);

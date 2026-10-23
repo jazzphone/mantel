@@ -1878,7 +1878,13 @@
       i = at(function (pg) { var st = pg.entity && (L.states || {})[pg.entity]; return !!(st && st.state === 'playing'); });
       if (i < 0 && L.home) i = at(function (pg) { return pg.entity === L.home; });
       if (i < 0 && L.room) i = at(function (pg) { return pg.area === L.room; });
-    } else if (p.start === 'tablet_room' && L.room && (p.source === 'rooms' || p.source === 'thermostats')) {
+    } else if (p.source === 'rooms') {
+      // A chosen room is the opening page, not an option silently replaced
+      // by the automatic room list. Legacy tablet-room starts still work.
+      var room = item && item.opts && item.opts.area;
+      if (room === 'tablet_room' || (!room && p.start === 'tablet_room')) room = L.room;
+      if (room) i = at(function (pg) { return pg.area === room; });
+    } else if (p.start === 'tablet_room' && L.room && p.source === 'thermostats') {
       i = at(function (pg) { return pg.area === L.room; });
     }
     return i < 0 ? 0 : i;

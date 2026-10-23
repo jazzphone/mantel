@@ -141,6 +141,21 @@ const pw = require(process.env.PLAYWRIGHT_PATH || 'playwright');
     }
     if(report.issues.length)process.exitCode=1;
   }
+  // The desktop editor must show the same room its starting-room control names.
+  await page.goto(input.origin+'/settings#/screens/'+input.screens[0]+'/home-grid');
+  await page.waitForFunction(()=>document.querySelector('hk-settings-panel')?.shadowRoot?.querySelector('hk-grid-editor')?.previewView?.isConnected);
+  await page.evaluate(()=>{
+    window.ed=document.querySelector('hk-settings-panel').shadowRoot.querySelector('hk-grid-editor');
+    const room=ed.grid.items.find(i=>i.card==='room');ed.select(room.id);
+    const field=[...ed.sidebar.querySelectorAll('.cell')].find(e=>e.textContent.startsWith('Starting Room')).querySelector('select');
+    field.value='kitchen';field.dispatchEvent(new Event('change'));
+  });
+  await page.waitForFunction(()=>{
+    const room=ed.grid.items.find(i=>i.card==='room'),p=ed.previewView?.shadowRoot.querySelector('[data-id='+room.id+']')?.firstElementChild;
+    return p?._pages?.[p._index]?.area==='kitchen';
+  });
+  if(!await page.evaluate(()=>[...ed.sidebar.querySelectorAll('button')].filter(e=>e.textContent==='Tap Weight'||e.textContent==='Glance Up, Touch Down').every(e=>e.closest('.screen-settings')&&!e.closest('.screen-settings').open&&!e.checkVisibility())))throw new Error('starters remain visible in card controls');
+  console.log(JSON.stringify({editor:'Kitchen matches Starting Room; starter layouts collapsed'}));
   if(commandCalls){console.log(JSON.stringify({unexpectedCommands:commandCalls}));process.exitCode=1;}
   if(errors.length){console.log(JSON.stringify({errors}));process.exitCode=1;}
   await browser.close();

@@ -59,6 +59,27 @@ async def main():
             geometry=await b.eval("(()=>{let fr=ed.iframe.getBoundingClientRect(),scale=fr.width/ed.grid.frame[0];return [...ed.overlay.querySelectorAll('.block')].every(btn=>{let r=btn.getBoundingClientRect(),c=ed.previewView.shadowRoot.querySelector('[data-id='+btn.dataset.id+']').getBoundingClientRect();return Math.abs(r.x-fr.x-c.x*scale)<2 && Math.abs(r.y-fr.y-c.y*scale)<2 && Math.abs(r.width-c.width*scale)<2 && Math.abs(r.height-c.height*scale)<2})})()")
             assert geometry
             print('drag swap and overlay geometry passed',flush=True)
+            # Room paging has one starting-room choice; a selected room is respected on a desktop.
+            await b.eval("ed.screenSettingsOpen=false;ed.select('a2');ed.update('a2',{opts:{area:'kitchen'},pages:{source:'rooms',start:'tablet_room'}})")
+            assert await b.wait("ed.previewView?.shadowRoot.querySelector('[data-id=a2]')?.firstElementChild?._pages?.[ed.previewView.shadowRoot.querySelector('[data-id=a2]').firstElementChild._index]?.area==='kitchen'",15)
+            assert await b.eval("[...ed.sidebar.querySelectorAll('button')].filter(e=>e.textContent==='Tap Weight'||e.textContent==='Glance Up, Touch Down').every(e=>e.closest('.screen-settings')&&!e.closest('.screen-settings').open&&!e.checkVisibility())")
+            assert await b.eval("!ed.sidebar.textContent.includes('Start on Tablet’s Room') && ![...ed.sidebar.querySelectorAll('.cell')].some(e=>e.querySelector('select')&&e.textContent.startsWith('Area'))")
+            assert await b.eval("[...ed.sidebar.querySelectorAll('.cell')].find(e=>e.textContent.startsWith('Starting Room')).querySelector('select').value==='kitchen'")
+            await b.eval("(()=>{let s=[...ed.sidebar.querySelectorAll('.cell')].find(e=>e.textContent.startsWith('Starting Room')).querySelector('select');s.value='kitchen';s.dispatchEvent(new Event('change'))})()")
+            assert await b.eval("ed.grid.items.find(i=>i.id==='a2').opts.area==='kitchen'&&!ed.grid.items.find(i=>i.id==='a2').pages.start")
+            # Single-room mode uses the same selected room, then paging keeps it as the start.
+            await b.eval("(()=>{let s=[...ed.sidebar.querySelectorAll('.cell')].find(e=>e.textContent.startsWith('Room Display')).querySelector('select');s.value='';s.dispatchEvent(new Event('change'))})()")
+            assert await b.wait("ed.previewView?.shadowRoot.querySelector('[data-id=a2]')?.firstElementChild?.localName==='hk-grid-room-card'",15)
+            assert await b.eval("ed.previewView.shadowRoot.querySelector('[data-id=a2]').firstElementChild._area()==='kitchen'")
+            await b.eval("(()=>{let s=[...ed.sidebar.querySelectorAll('.cell')].find(e=>e.textContent.startsWith('Room Display')).querySelector('select');s.value='rooms';s.dispatchEvent(new Event('change'))})()")
+            assert await b.wait("ed.previewView?.shadowRoot.querySelector('[data-id=a2]')?.firstElementChild?._pages?.[ed.previewView.shadowRoot.querySelector('[data-id=a2]').firstElementChild._index]?.area==='kitchen'",15)
+            await b.eval("(()=>{let p=ed.previewView.shadowRoot.querySelector('[data-id=a2]').firstElementChild;p.goTo(0,false);ed.iframe.contentWindow.dispatchEvent(new Event('hk-idle-return'))})()")
+            assert await b.wait("ed.previewView.shadowRoot.querySelector('[data-id=a2]').firstElementChild._pages[ed.previewView.shadowRoot.querySelector('[data-id=a2]').firstElementChild._index].area==='kitchen'",10)
+            if ARGS.shots:
+                await screenshot_font(b)
+                await b.screenshot(ARGS.shots / 'home-grid-room-options.png')
+            print('room start matches selected Kitchen, display modes agree, and starters stay in collapsed screen settings',flush=True)
+
             await b.eval('ed.catalog=true; ed.side()')
             assert await b.eval("ed.sidebar.querySelectorAll('.catalog-row').length === 18")
             assert await b.wait("[...ed.sidebar.querySelectorAll('.catalog-row hk-icon')].every(e=>!!e.drawn?.path)",10)
@@ -96,7 +117,7 @@ async def main():
                 if key == 'weather':
                     assert await b.wait("ed.sidebar.querySelector('[data-preview-card] iframe').contentWindow.galleryCard?.shadowRoot.querySelectorAll('.day').length===3",10)
             await b.eval("let it=ed.grid.items.find(i=>i.card==='camera');ed.select(it.id)")
-            await b.eval("let s=[...ed.sidebar.querySelectorAll('select')].find(s=>[...s.options].some(o=>o.value==='camera.backyard'));s.value='camera.backyard';s.dispatchEvent(new Event('change'))")
+            await b.eval("(()=>{let s=[...ed.sidebar.querySelectorAll('select')].find(s=>[...s.options].some(o=>o.value==='camera.backyard'));s.value='camera.backyard';s.dispatchEvent(new Event('change'))})()")
             assert await b.eval("(()=>{let it=ed.grid.items.find(i=>i.card==='camera');return !it.pages && it.opts.entity==='camera.backyard'})()")
             await b.eval("ed.select('a2'); [...ed.sidebar.querySelectorAll('.cell')].find(row=>row.textContent.includes('Custom Group Background')).querySelector('button').click()")
             assert await b.eval("ed.grid.items.find(i=>i.id==='a2').opts.surface.opacity===30")
