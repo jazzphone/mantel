@@ -6,7 +6,7 @@ https://claude.ai/artifact/JnMmSXDneGVE1e81BWYuid, A preferred). An Owner or Adm
 using HK's own cards. A block can hold **several pages** that swipe: cameras, rooms, thermostats, scene pages.
 Mantel first; HK Frontend as well, which comes at little extra cost (below).
 
-**Status (2026-10-23): Mantel App 0.1.62 is installed on the house, including accessory collections and captions, compact person sheets, desktop paging, right-aligned chips, group visibility, announcement filtering and shared-blur/page-control fixes. Physical-tablet visual and touch acceptance remains with the owner. HK Frontend remains a separate release (1.10.7 on the house).** Older slice notes describe their state at the time.
+**Status (2026-10-23): Mantel App 0.1.63 is installed on the house, including optional fixed-size room scrolling, missing entity icon repairs, accessory collections and captions, compact person sheets, desktop paging, right-aligned chips, group visibility, announcement filtering and shared-blur/page-control fixes. Physical-tablet visual and touch acceptance remains with the owner. HK Frontend remains a separate release (1.10.7 on the house).** Older slice notes describe their state at the time.
 
 ## The answers (2026-10-22)
 
@@ -1029,3 +1029,9 @@ Room blocks now offer Accessory Display: Summary (the existing default) or Scrol
 Coffee Maker requests `mdi:coffee-maker`, absent from Mantel's bundled subset; it now resolves to the bundled coffee-maker outline. Good Morning is an `input_button` helper, whose domain had no default, and the previous generic bookmark was also absent. Button helpers now have a supported default. Missing entity icons fall back to a bundled domain glyph; script and siren defaults also use available paths. No licensed glyph artwork was added.
 
 Validation: 152 focused model/editor/staging/release tests pass (3 skips), all shared JavaScript suites pass, and version, release packaging and documentation-link checks pass. The fictional room browser check covers fixed row heights, all supported controls, mouse-wheel vertical scrolling without a page change, final-row visibility, entity icons and fallback, and editor persistence in Chromium and WebKit. Chromium additionally exercises native vertical touch scrolling, horizontal room swiping and long-press dimming. Real tablet acceptance remains with the owner. Release deployment details follow when installation is verified.
+
+### House App 0.1.63 deployed (2026-10-23)
+
+Release commit `4ba5f6d` was pushed to main and staged to the house's local Mantel App source (2,991 files). Home Assistant created protected pre-update backup `6b8dbfda` of Mantel 0.1.62. The install request timed out while waiting; durable update state confirmed installation in progress, so the request was not repeated. Installed/latest version is now 0.1.63 with no pending update, strict health OK and Home Assistant connected. Build `368d66814f41e4de` matches the staged release and `/api/version`. The latest 100 App log lines contain no ERROR, CRITICAL or traceback entries.
+
+Reload the dashboard/settings for the icon fixes and Accessory Display selector. Select a room block and choose Scroll All Accessories to enable vertical scrolling; Summary remains the default. No public tag/release or HK Frontend update was made. Real Safari/tablet acceptance remains with the owner. The unrelated Xcode edit is unchanged.
