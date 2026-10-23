@@ -6,7 +6,7 @@ https://claude.ai/artifact/JnMmSXDneGVE1e81BWYuid, A preferred). An Owner or Adm
 using HK's own cards. A block can hold **several pages** that swipe: cameras, rooms, thermostats, scene pages.
 Mantel first; HK Frontend as well, which comes at little extra cost (below).
 
-**Status (2026-10-23): Mantel App 0.1.61 is installed on the house, including the fixed-tile/portrait work, clarified room controls, collapsed starter layouts and matching editor-outline corners. Physical-tablet visual and touch acceptance remains with the owner. HK Frontend remains a separate release (1.10.7 on the house).** Older slice notes describe their state at the time.
+**Status (2026-10-23): Mantel App 0.1.62 is installed on the house, including accessory collections and captions, compact person sheets, desktop paging, right-aligned chips, group visibility, announcement filtering and shared-blur/page-control fixes. Physical-tablet visual and touch acceptance remains with the owner. HK Frontend remains a separate release (1.10.7 on the house).** Older slice notes describe their state at the time.
 
 ## The answers (2026-10-22)
 
@@ -1014,3 +1014,10 @@ Release intent: house App 0.1.62, including the previous undeployed paging/chips
 
 
 0.1.62 release checks: all frontend suites pass. The complete backend run passed 3,470 tests with 21 skips; one PIN-leak assertion matched the test PIN as a random substring inside a generated identifier, rather than leaked command data. The full PIN suite and focused grid/editor/release checks then passed (159 passed, 3 skipped), with no unrelated test or product changes. Chrome and WebKit both verify collection paging/captions and compact person sheets with phone scrolling. Version consistency, release packaging and documentation links pass.
+
+
+### House App 0.1.62 deployed (2026-10-23)
+
+Release commit `799d4a0` was pushed to main and staged to the house’s local Mantel App source (2,991 files). Home Assistant created protected pre-update backup `863703ea` of Mantel 0.1.61. The install request timed out while waiting, but durable update state confirmed it was in progress; it was not repeated. Installation finished with installed/latest version 0.1.62, no pending update, strict health OK and Home Assistant connected. Build `62465ee86393a735` matches the staged release and `/api/version`. The latest 100 App log lines have no ERROR, CRITICAL or traceback entries.
+
+This house update includes the new accessory collections/captions and compact person sheet, plus all preceding undeployed paging, chip, group, announcement, thermostat shared-blur and page-pill fixes. Reload the dashboard/settings for the new editor controls. Real Safari/tablet appearance and observation of a normal household announcement remain owner acceptance checks; no test announcement or household action was sent. No public tag/release or HK Frontend update was made. The unrelated Xcode edit is unchanged.
