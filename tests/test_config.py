@@ -36,7 +36,9 @@ def test_ha_client_source_has_no_service_call_path():
     # P3.3: the state connection (HaClient and its check_outgoing) still has no service-call path at all;
     # the ONE command path, HaCommander, cannot even be constructed while commands are off (the default).
     from mantel_server import ha_client
-    assert "call_service" not in inspect.getsource(ha_client.HaClient)
+    # Observing a call_service EVENT does not add a command path. The outgoing
+    # type allowlist (enforced for every frame) still refuses service calls.
+    assert "call_service" not in ha_client.ALLOWED_TYPES
     assert "call_service" not in inspect.getsource(ha_client.check_outgoing)
     assert config.Config().commands_enabled is False and config.parse_args([]).commands_enabled is False
     assert ha_client.commander_for(config.Config(), "fictional", frozenset({"call_service"})) is None

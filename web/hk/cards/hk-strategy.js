@@ -1150,15 +1150,30 @@
     return t;
   }
 
+  // Group controls belong on category pages even though status inventories
+  // count their members only. Respect registry and screen exclusions.
+  function categoryGroups(client, opts, ids, domains, kind) {
+    var out = ids.slice(), ents = client.entities || {};
+    var excluded = (((setting('counts') || {})[kind] || {}).exclude) || [];
+    Object.keys(client.states || {}).forEach(function (id) {
+      var e = ents[id] || {};
+      if (domains.indexOf(id.split('.')[0]) < 0 || !membersOf(client.states[id]) ||
+          e.hidden || e.entity_category || e.disabled_by || excluded.indexOf(id) >= 0 || hidden(client, opts, id)) return;
+      if (out.indexOf(id) < 0) out.push(id);
+    });
+    return out;
+  }
+
   // withSecurity: this screen has a Security page (an alarm, the page wanted)
   function categoryPages(client, opts, inv, view, withSecurity) {
     var out = [];
     var dom = function (list) { return function (id) { return list.indexOf(id.split('.')[0]) !== -1; }; };
-    if (inv.lights.length) {
+    var lightTiles = categoryGroups(client, opts, inv.lights, ['light'], 'lights');
+    if (lightTiles.length) {
       // Status & Chips' lights -- which may be an outlet the house thinks of as
       // a light -- room by room, as the chip counts them.
       var lit = {};
-      inv.lights.forEach(function (id) { lit[id] = true; });
+      lightTiles.forEach(function (id) { lit[id] = true; });
       // LIGHTS & OUTLETS when Status & Chips has an outlet (a switch) among the
       // lights; "Lights" in the menu
       var outlets = inv.lights.some(function (id) { return id.split('.')[0] !== 'light'; });
@@ -1171,7 +1186,7 @@
       if (headerOn('lights')) {
         var isLit = function (id) { var as = (accOf(id) || {}).show_as; return as ? as === 'light' : id.split('.')[0] === 'light'; };
         var hdRooms = litRooms.map(function (r) {
-          var icons = {}, ls = r.entities.filter(isLit);
+          var icons = {}, ls = r.entities.filter(function (id) { return isLit(id) && inv.lights.indexOf(id) >= 0; });
           ls.forEach(function (id) { var t = tileFor(client, id, ''); if (t && t.icon) icons[id] = t.icon; });
           return { name: r.name, lights: ls, icons: icons };
         }).filter(function (r) { return r.lights.length; });
@@ -1188,10 +1203,13 @@
     }
     // the house's readings, not the row's (its rooms left out are the row's)
     var climateSources = climateFound(client, opts, []);
-    if (inv.climates.length || inv.fans.length || inv.blinds.length ||
+    var blindTiles = categoryGroups(client, opts, inv.blinds, ['cover'], 'blinds').filter(function (id) {
+      return ['garage', 'gate', 'door'].indexOf(dc(client.states[id])) < 0;
+    });
+    if (inv.climates.length || inv.fans.length || blindTiles.length ||
         climateSources.temperature.length || climateSources.humidity.length) {
       var blinds = {};
-      inv.blinds.forEach(function (b) { blinds[b] = 1; });
+      blindTiles.forEach(function (b) { blinds[b] = 1; });
       // THE CLIMATE PAGE (2026-10-15): the header -- the day's heating and
       // cooling beside the weather ahead -- then, under it, the rooms' fans,
       // humidifiers and blinds on the left and the thermostats right beside

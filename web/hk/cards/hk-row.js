@@ -204,6 +204,10 @@
     '@media (prefers-reduced-motion: reduce){.row{scroll-behavior:auto}}'
   ].join('');
 
+  // A spacer also works when a quiet/conditional first chip is hidden.
+  // Cancel its extra flex gap so an exactly fitting row stays unscrolled.
+  CSS += '.row.align-end::before{content:"";flex:0 0 0;margin-left:auto;margin-right:calc(-1 * var(--hk-row-align-gap,0px))}';
+
   var SHEET = null;
   if (typeof CSSStyleSheet === 'function' && CSSStyleSheet.prototype.replaceSync) {
     try { SHEET = new CSSStyleSheet(); SHEET.replaceSync(CSS); } catch (e) { SHEET = null; }
@@ -273,6 +277,10 @@
       var cfg = this._config;
       var row = document.createElement('div');
       row.className = 'row';
+      if (cfg.align === 'end') {
+        row.classList.add('align-end');
+        row.style.setProperty('--hk-row-align-gap', cfg.gap == null ? '0px' : typeof cfg.gap === 'number' ? cfg.gap + 'px' : cfg.gap);
+      }
       if (cfg.gap != null) row.style.gap = (typeof cfg.gap === 'number' ? cfg.gap + 'px' : cfg.gap);
       // ALL FOUR SIDES CLIP, not just top and bottom. `overflow-x:auto` forces
       // overflow-y to `auto` as well, so the scroller clips on every edge --

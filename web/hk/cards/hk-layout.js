@@ -1957,6 +1957,7 @@
         '.track::-webkit-scrollbar{display:none}' +
         '.track{pointer-events:none}.page{pointer-events:auto}' +
         '.track.held{overflow-x:hidden}' +
+        '.track.dragging{scroll-snap-type:none;cursor:grabbing;user-select:none}' +
         // each page is the cell its card lays itself out in (hk-cell): the
         // full block size; dots sit inside its foot so adjacent plates align
         '.page{position:relative;flex:0 0 100%;width:100%;height:100%;min-width:0;' +
@@ -2099,6 +2100,78 @@
         self._scrollQ = true;
         requestAnimationFrame(function () { self._scrollQ = false; self._settle(); });
       }, { passive: true });
+      // Horizontal wheel/trackpad scrolling is navigation too. Without
+      // this, the next state push follows the automatic start page again.
+      track.addEventListener('wheel', function (e) {
+        var dx = e.deltaX || (e.shiftKey ? e.deltaY : 0);
+        if (!dx || (!e.shiftKey && Math.abs(e.deltaY) > Math.abs(dx))) return;
+        // A horizontally scrolling control inside the card owns its wheel.
+        var path = e.composedPath ? e.composedPath() : [e.target];
+        for (var k = 0; k < path.length && path[k] !== track; k++) {
+          var el = path[k];
+          if (!el || el.nodeType !== 1) continue;
+          var ox = getComputedStyle(el).overflowX;
+          if ((ox === 'auto' || ox === 'scroll') && el.scrollWidth > el.clientWidth + 1) return;
+        }
+        e.preventDefault();
+        self._moved = true;
+        // One page per wheel gesture, including its momentum tail. Native
+        // mandatory snap otherwise bounces small WebKit wheel steps back.
+        var now = Date.now();
+        if (!self._wheelAt || now - self._wheelAt > 180) { self._wheelSum = 0; self._wheelTurn = false; }
+        self._wheelAt = now;
+        self._wheelSum += dx * (e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? track.clientWidth : 1);
+        if (!self._wheelTurn && Math.abs(self._wheelSum) >= 24) {
+          self._wheelTurn = true;
+          self.goTo(self._index + (self._wheelSum > 0 ? 1 : -1), true);
+        }
+      }, { passive: false, capture: true });
+      // Mouse-only drag; leave touch momentum and controls to the browser.
+      track.addEventListener('pointerdown', function (e) {
+        self._eatClick = false;
+        if (e.pointerType !== 'mouse' || e.button !== 0) return;
+        var path = e.composedPath ? e.composedPath() : [e.target];
+        if (!pagerClaims(path, e.clientX, track)) return;
+        if (path.some(function (el) { return el !== track && el.matches && el.matches('input,select,textarea,[contenteditable=true]'); })) return;
+        self._drag = { id: e.pointerId, x: e.clientX, y: e.clientY, left: track.scrollLeft, moved: false };
+      }, true);
+      track.addEventListener('pointermove', function (e) {
+        var d = self._drag;
+        if (!d || e.pointerId !== d.id) return;
+        if (!e.buttons) { self._drag = null; return; }
+        var dx = e.clientX - d.x;
+        if (!d.moved) {
+          if (Math.abs(dx) < 8) return;
+          if (Math.abs(e.clientY - d.y) > Math.abs(dx)) { self._drag = null; return; }
+          d.moved = self._moved = true;
+          track.classList.add('dragging');
+          track.setPointerCapture(e.pointerId);
+        }
+        var scale = track.getBoundingClientRect().width / track.clientWidth || 1;
+        track.scrollLeft = d.left - dx / scale;
+        e.preventDefault();
+        e.stopPropagation();
+      }, { capture: true, passive: false });
+      var finish = function (e) {
+        var d = self._drag;
+        if (!d || e.pointerId !== d.id) return;
+        self._drag = null;
+        if (!d.moved) return;
+        self._eatClick = true;
+        var to = Math.round(track.scrollLeft / track.clientWidth);
+        track.classList.remove('dragging');
+        if (track.hasPointerCapture(e.pointerId)) track.releasePointerCapture(e.pointerId);
+        self.goTo(to, true);
+      };
+      track.addEventListener('pointerup', finish, true);
+      track.addEventListener('pointercancel', finish, true);
+      track.addEventListener('lostpointercapture', finish, true);
+      track.addEventListener('dragstart', function (e) { e.preventDefault(); });
+      track.addEventListener('click', function (e) {
+        if (!self._eatClick) return;
+        self._eatClick = false;
+        e.preventDefault(); e.stopImmediatePropagation();
+      }, true);
       // a touch on a control, or in the menu's edge, holds the track still
       track.addEventListener('touchstart', function (e) {
         var t = e.touches && e.touches[0];
@@ -2221,7 +2294,7 @@
       // the track has its width now: turn to the page it should be on, and
       // keep it there through a resize (the tablet turned)
       if (!this._ro && typeof ResizeObserver !== 'undefined') {
-        this._ro = new ResizeObserver(function () { if (self._index >= 0) self.goTo(self._index, false); });
+        this._ro = new ResizeObserver(function () { if (!self._drag && self._index >= 0) self.goTo(self._index, false); });
       }
       if (this._ro && this._track) this._ro.observe(this._track);
       if (this._index >= 0) this.goTo(this._index, false);
@@ -2235,6 +2308,7 @@
       var I = window.hkIdle;
       if (this._isAway && I && I.away) I.away(this._key, false);
       this._isAway = false;
+      this._drag = null;
       super.disconnectedCallback();
     }
   }

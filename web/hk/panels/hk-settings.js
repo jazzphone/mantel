@@ -7904,6 +7904,12 @@
         var add = function (id) { if (!seen[id] && client.states[id]) { seen[id] = 1; out.push(id); } };
         (ck.found || []).forEach(add);
         (ck.exclude || []).forEach(add);
+        // A group is a control even when its members alone count in status.
+        self.accIds().forEach(function (id) {
+          var a = (client.states[id] || {}).attributes || {}, e = (client.entities || {})[id] || {};
+          if ((Array.isArray(a.entity_id) || Array.isArray(a.group_entities)) &&
+              self.typeOf(id) === T[0] && !e.hidden && !e.entity_category && !self.hiddenAll(id)) add(id);
+        });
         return out;
       }
       return this.accIds().filter(function (id) {
@@ -7925,7 +7931,6 @@
       });
     }
     typeCount(T) {
-      if (T[4].kind) return (((this.data.counts || {})[T[4].kind] || {}).found || []).filter(function (id) { return this.client.states[id]; }, this).length;
       return this.typeMembers(T).length;
     }
     typeSays(T) {

@@ -982,3 +982,29 @@ async def test_keep_playlists_ready_starts_when_music_assistant_is_connected_lat
     await asyncio.sleep(0)
     assert host.warmer.on and host.warmer._task is not None
     await host.stop()
+
+
+async def test_observed_announcements_reach_the_feed_without_sending_audio(off):
+    await off.connected()
+    await off.login("owner1", "owner")
+    ws = await off.socket(expect_caps=False)
+    _, ev = await off.subscribe(ws, {"type": "hk_music/subscribe"})
+    host, ha = off.app["music"], off.app["hub"].ha
+    assert ev["announcements"] == []
+    ha._service_sub = 777
+    ha.handle({"id": 777, "type": "event", "event": {"data": {
+        "domain": "media_player", "service": "play_media", "service_data": {
+            "entity_id": "media_player.kitchen_ma", "announce": True, "media_content_id": "private"}}}})
+    while True:
+        got = await GF.recv(ws)
+        if got.get("type") == "read_event":
+            assert got["event"]["announcements"] == ["media_player.kitchen_ma"]
+            break
+    ha.on_disconnect()
+    while True:
+        got = await GF.recv(ws)
+        if got.get("type") == "read_event":
+            assert got["event"]["announcements"] == []
+            break
+    assert [c for c in off.ma.commands() if c != "auth"] == []
+    await ws.close()

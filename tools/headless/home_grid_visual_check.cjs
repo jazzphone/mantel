@@ -134,9 +134,67 @@ const pw = require(process.env.PLAYWRIGHT_PATH || 'playwright');
       const start=await pager.evaluate(p=>p._startIndex());
       await pager.locator('.dot').nth(1).click();
       await page.waitForFunction(()=>{const all=r=>[...r.querySelectorAll('*')].flatMap(e=>[e,...(e.shadowRoot?all(e.shadowRoot):[])]);return all(document).some(e=>e.localName==='hk-pager-card'&&e._index===1&&e._els.some(c=>c?.localName==='hk-grid-room-card'));});
+      // Real mouse drag, then a client state push: retain the chosen page.
+      await pager.evaluate(p=>p.goTo(0,false));
+      await page.waitForTimeout(150);
+      const box=await pager.boundingBox();
+      await page.mouse.move(box.x+box.width*.85,box.y+box.height*.35);
+      await page.mouse.down();
+      await page.mouse.move(box.x+box.width*.15,box.y+box.height*.35,{steps:16});
+      await page.mouse.up();
+      await page.waitForTimeout(500);
+      if(await pager.evaluate(p=>p._index)!==1)throw new Error('mouse drag did not turn room page');
+      await pager.evaluate(p=>p._receiveClient());
+      if(await pager.evaluate(p=>p._index)!==1)throw new Error('state update reset mouse page');
+      await pager.evaluate(p=>{p._moved=false;p.goTo(0,false);});
+      await page.waitForTimeout(150);
+      await page.mouse.move(box.x+box.width*.6,box.y+box.height*.35);
+      await page.mouse.wheel(box.width,0);
+      await page.waitForTimeout(600);
+      const wheelIndex=await pager.evaluate(p=>p._index);
+      if(wheelIndex<1)throw new Error('horizontal wheel did not turn room page');
+      await pager.evaluate(p=>p._receiveClient());
+      if(await pager.evaluate(p=>p._index)!==wheelIndex)throw new Error('state update reset trackpad page');
+      console.log('mouse drag and horizontal wheel persist through state updates');
       await page.evaluate(()=>window.dispatchEvent(new Event('hk-idle-return')));
       await page.waitForTimeout(400);
       if(await pager.evaluate(p=>p._index)!==start)throw new Error('room pager did not return on idle');
+    }
+    if(screen==='polish-a-flat-dark'){
+      const header=page.locator('hk-header-card[data-grid-band]').first();
+      const old=await header.evaluate(h=>h._config);
+      for(const chips of [['lights'],Array(20).fill('lights')]){
+        await header.evaluate((h,chips)=>h.setConfig({...h._config,clock:false,weather:false,chips:{type:'custom:hk-chips-card',chips}}),chips);
+        await page.waitForTimeout(300);
+        const geo=await header.evaluate(h=>{
+          const row=h._bandChips?._row;
+          const walk=r=>[...r.querySelectorAll('*')].flatMap(e=>[e,...(e.shadowRoot?walk(e.shadowRoot):[])]);
+          const scroller=walk(h.shadowRoot).find(e=>e.classList.contains('row'));
+          if(!scroller)return null;
+          const hidden=document.createElement('div');hidden.style.display='none';scroller.prepend(hidden);
+          const kids=[...scroller.children].filter(e=>!e.hasAttribute('data-hk-glass-layer')&&e.getBoundingClientRect().width);
+          return {right:kids.at(-1)?.getBoundingClientRect().right,edge:h.getBoundingClientRect().right,overflow:scroller.scrollWidth>scroller.clientWidth+1};
+        });
+        if(!geo)throw new Error('header chip row missing');
+        // Automatic chip selection may deduplicate configured IDs; the
+        // separate row overflow assertion below uses actual card instances.
+        if(!geo.overflow&&Math.abs(geo.right-geo.edge)>1)throw new Error('chips do not align with right grid edge '+JSON.stringify(geo));
+      }
+      // Overflow remains scrollable from the first chip to the last.
+      await header.evaluate(h=>{
+        const row=h._bandChips._row,cfg=row._config;
+        row.setConfig({...cfg,cards:Array.from({length:20},()=>cfg.cards[0])});
+      });
+      await page.waitForTimeout(250);
+      if(!await header.evaluate(h=>{
+        const row=h._bandChips._row.shadowRoot.querySelector('.row');
+        const kids=[...row.children].filter(e=>!e.hasAttribute('data-hk-glass-layer'));
+        if(row.scrollWidth<=row.clientWidth)return false;
+        const start=kids[0].getBoundingClientRect().left>=row.getBoundingClientRect().left-1;
+        row.scrollLeft=row.scrollWidth;
+        return start&&row.scrollLeft>0;
+      }))throw new Error('overflow chips are not all reachable');
+      await header.evaluate((h,cfg)=>h.setConfig(cfg),old);
     }
     // Different displays may change only the whole-canvas scale, never tile proportions.
     for(const [width,height] of [[1920,1080],[1024,768],[800,1280],[390,844]]) {

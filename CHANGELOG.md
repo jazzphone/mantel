@@ -34,6 +34,10 @@ Local Home Assistant App update for the house.
 
 The first public release.
 
+- Home Grid swipe cards support mouse dragging and horizontal wheel/trackpad paging without returning to the opening page on state updates. Header chips align to the right and remain scrollable on overflow.
+- Group controls appear in Lights and accessory type lists independently of status counts, so groups remain available without automatically double-counting their members.
+- Ignore Announcements recognizes HA service calls in Mantel, including native/MA speaker counterparts, with bounded display-only markers and disconnect cleanup.
+
 - Home Grid shared blur reaches cards inside swipe blocks, including thermostats. Page-control pills size to the page count and keep all dots inside narrow cards.
 
 - Home Grid keeps starter layouts inside Screen Settings while editing cards. Room controls distinguish one room from swiping between rooms, with a starting-room choice that matches the preview and idle return.

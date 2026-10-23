@@ -1113,7 +1113,7 @@
     if (cfg.lead !== false) row.lead = (cfg.lead && cfg.lead !== true) ? cfg.lead : { type: 'custom:hk-menu-button-card' };
     return row;
   }
-  var ROW_KEYS = ['card_width', 'gap', 'pad_top', 'pad_bottom', 'pad_left', 'pad_right', 'margin',
+  var ROW_KEYS = ['align', 'card_width', 'gap', 'pad_top', 'pad_bottom', 'pad_left', 'pad_right', 'margin',
                   'phone_card_width', 'phone_gap'];
   class HkChipsCard extends HTMLElement {
     constructor() {

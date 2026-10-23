@@ -234,10 +234,15 @@ anything is sent; nothing reaches Music Assistant (pinned). Answers keep HA's sh
 (HA's item ids kept), Keep Playlists Ready and Ignore Announcements. HA's user names are not kept. It runs with the
 one-time settings import and with `POST /api/features/import`.
 
+**Ignore Announcements.** Mantel observes HA's `call_service` events through its read-only state connection.
+TTS, announced media and Music Assistant announcements mark their players before playback arrives. Native and
+Music Assistant counterparts match by device/MAC identity. Only target IDs and the announcement flag reach the
+tracker; spoken text is not retained or forwarded. Markers end on completion, resumed music, ordinary play,
+failed-start timeout (20 seconds), maximum lifetime (120 seconds), or disconnect. The setting controls display
+suppression only; no audio or automation changes are made. The feed filters markers to permitted players.
+Fictional lifecycle, feed and no-command tests pass; live speaker/display acceptance remains after deployment.
+
 **Not on Mantel (documented gaps).**
-- **Announcements** (`announcements` is always `[]`): HA spots them by watching its own `call_service` bus; Mantel's
-  HA connection does not receive service calls. During a TTS announcement on a HomePod the page may briefly show it
-  as what is playing.
 - **The failure notifications** HA raises (`music_play_failed`, `speaker_group_failed`, ...: HK's Speakers picker
   shows them): Mantel logs them and lists them in `/api/music/status` (`notes`), but does not create HA
   persistent notifications (nothing is written to HA).

@@ -45,8 +45,8 @@ reaches the gateway, the audit or Home Assistant. Fields are checked against wha
 commands. Without Music Assistant in Mantel the read answers ``ma_not_configured`` and the shim falls back to the
 old path (the call as a gateway command: HA's, or refused with commands off).
 
-Not here (docs/phase4/MANTEL-FEATURES.md "Music"): announcements (HA watches its own ``call_service`` bus;
-Mantel's HA connection does not see service calls, so ``announcements`` is always empty), the failure
+Announcement markers watch HA service events and player states for display-only suppression.
+Not here (docs/phase4/MANTEL-FEATURES.md "Music"): the failure
 notifications (HA raises persistent notifications; Mantel logs them and lists them in its status), and
 Browse's tree reads (``media_player/browse_media`` and ``search_media`` for an album's tracks, an artist's
 albums, a search: HK still sends those through Home Assistant).
@@ -84,6 +84,7 @@ from hk_core.music.warm import Warmer
 from .connectors import Ctx, Forbidden, Route, allowed_ids, may_feature, read_routes, ws_handlers
 from .ha_client import HaCommandError
 from .house import MantelHouse
+from .music_announcements import Announcements
 
 log = logging.getLogger("mantel.music")
 
@@ -106,7 +107,7 @@ ITEMS_MAX = 100
 ROUTE_RULES: dict[str, str] = {
     "hk_music/subscribe": "feature:music; per person/device: only the players the subject may view (a preset when "
                           "its group or all its rooms are viewable); `home` the person's home room, else the wall "
-                          "tablet's room; announcements empty. Bridge to HA while Mantel's engine is off",
+                          "tablet's room; display-only announcement markers. Bridge to HA while Mantel's engine is off",
     "hk_music/queue": "view the media player (media_player.* only), else not_found; limit 1..100; from Music "
                       "Assistant's queue; items {id, title, artist, duration, image}, token-carrying images dropped. "
                       "Bridge to HA while Mantel's engine is off",
@@ -1045,6 +1046,7 @@ class MusicHost:
         self.app, self.hub, self.hooks = app, hub, hooks
         authz = app.get("authz")
         self.house = MantelHouse(hub.store, hub.registry, tz=(lambda: authz.tz) if authz is not None else "UTC")
+        self.announcements = Announcements(self.house, hub.registry, self.config, self.push)
         self.engine = MantelMusic(self)
         self.warmer = MantelWarmer(self)
         self._watchers: dict[int, tuple[set[str], Callable[[], None]]] = {}
@@ -1103,6 +1105,7 @@ class MusicHost:
     def on_change(self, changed: set[str]) -> None:
         """A state change wakes the engine's waits on it. The feed does not follow states (as HA's: it is the
         configuration, re-sent when it or the areas and floors it is named from change)."""
+        self.announcements.state(changed)
         for ents, cb in list(self._watchers.values()):
             if ents & changed:
                 try:
@@ -1139,7 +1142,7 @@ class MusicHost:
             return {"configured": False}
         cfg = self.config()
         raw = cfg.as_client(None)
-        raw["announcements"] = []
+        raw["announcements"] = self.announcements.players() if cfg.ignore_announcements else []
         names = music_players(raw)
         ok = await allowed_ids(self.hooks, identity, "view", sorted(names))
         for p in cfg.presets:            # a preset its rooms make viewable (its sync group has no room)
@@ -1500,7 +1503,7 @@ class MusicHost:
                 "connected": bool(self.ma is not None and self.ma.connected.is_set()),
                 "settings": doc is not None, "notes": dict(self.engine.notes), "requests": list(self.engine.log),
                 "keep_ready": {"on": self.warmer.on, "last": self.warmer.status()},
-                "announcements": "not on Mantel (HA watches its own service calls)"}
+                "announcements": "display-only HA service markers with native/MA physical identity matching"}
 
     def connection_changed(self) -> None:
         """Music Assistant was connected, moved or disconnected on the Connections page (connections.py,
@@ -1525,6 +1528,7 @@ class MusicHost:
     async def stop(self) -> None:
         self.started = False
         self.warmer.stop()
+        self.announcements.reset()
 
 
 # ------------------------------------------------------------------------------------------- register
@@ -1553,6 +1557,8 @@ def register(app: Any, hub: Any, hooks: Any = None) -> MusicHost:
                 first_registry()
             host.on_registry()
         ha.on_change, ha.on_registry = on_change, on_registry
+        ha.on_service = host.announcements.service
+        ha.on_disconnect = host.announcements.reset
 
     def bridge():
         reads = app.get("filtered_reads")

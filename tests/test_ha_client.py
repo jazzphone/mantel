@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from mantel_server.ha_client import (ALLOWED_TYPES, REGISTRY_EVENTS, SIGNALING_TYPES, CommandBlocked, HaClient,
+from mantel_server.ha_client import (ALLOWED_TYPES, READ_EVENTS, REGISTRY_EVENTS, SIGNALING_TYPES, CommandBlocked, HaClient,
                                      TokenMissing, check_outgoing, read_token)
 from mantel_server.registry import Registry
 from mantel_server.state import StateStore
@@ -51,7 +51,7 @@ def test_signaling_frames_carry_only_their_keys_for_cameras_only(message):
         check_outgoing(message)
 
 
-@pytest.mark.parametrize("event_type", sorted(REGISTRY_EVENTS))
+@pytest.mark.parametrize("event_type", sorted(READ_EVENTS))
 def test_registry_events_may_be_subscribed(event_type):
     check_outgoing({"id": 1, "type": "subscribe_events", "event_type": event_type})
 
@@ -60,7 +60,7 @@ def test_registry_events_may_be_subscribed(event_type):
     {"type": "subscribe_events"},                                  # no event_type = every event in the house
     {"type": "subscribe_events", "event_type": None},
     {"type": "subscribe_events", "event_type": "state_changed"},
-    {"type": "subscribe_events", "event_type": "call_service"},
+    {"type": "subscribe_events", "event_type": "call_service_x"},
     {"type": "subscribe_events", "event_type": "area_registry_updated_x"},
 ])
 def test_any_other_event_subscription_is_blocked(message):
@@ -157,3 +157,18 @@ def test_every_registry_reload_call_is_an_allowed_message():
     for event_type, list_call in REGISTRY_EVENTS.items():
         check_outgoing({"id": 1, "type": list_call})
         check_outgoing({"id": 1, "type": "subscribe_events", "event_type": event_type})
+
+
+def test_service_events_are_target_only_and_never_commands():
+    c = HaClient("http://x", "t", StateStore(), Registry(), lambda s: None)
+    got = []
+    c.on_service = got.append
+    c._service_sub = 9
+    c.handle({"id": 9, "type": "event", "event": {"data": {
+        "domain": "tts", "service": "speak", "service_data": {
+            "media_player_entity_id": "media_player.a", "message": "private spoken text", "cache": True}}}})
+    assert got == [{"domain": "tts", "service": "speak", "service_data": {"media_player_entity_id": "media_player.a"}}]
+    c.handle({"id": 9, "type": "event", "event": {"data": {"domain": "light", "service": "turn_on"}}})
+    assert len(got) == 1
+    with pytest.raises(CommandBlocked):
+        check_outgoing({"type": "call_service", "domain": "tts", "service": "speak"})

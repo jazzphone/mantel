@@ -36,7 +36,7 @@ ALLOWED_TYPES = frozenset({
     "config/device_registry/list",
     "config/entity_registry/list",
     "config/floor_registry/list",
-    "subscribe_events",  # only for REGISTRY_EVENTS, enforced in check_outgoing
+    "subscribe_events",  # only for READ_EVENTS, enforced in check_outgoing
     "ping",
     # P3.4: camera WebRTC *viewing* signaling for HK's camera card (connectors/camera.py). Each may
     # carry exactly the keys in KEYED_TYPES; none of them changes anything in the house.
@@ -64,6 +64,9 @@ REGISTRY_EVENTS = {
 }
 
 
+READ_EVENTS = frozenset(REGISTRY_EVENTS) | {"call_service"}
+
+
 class CommandBlocked(Exception):
     """Raised when something tries to send a non-read message to HA."""
 
@@ -85,8 +88,8 @@ def read_token(path: Path) -> str:
 def check_outgoing(message: dict) -> None:
     if message.get("type") not in ALLOWED_TYPES:
         raise CommandBlocked(f"refusing to send {message.get('type')!r} to Home Assistant (read-only)")
-    if message["type"] == "subscribe_events" and message.get("event_type") not in REGISTRY_EVENTS:
-        raise CommandBlocked(f"subscribe_events is limited to {sorted(REGISTRY_EVENTS)}; got {message.get('event_type')!r}")
+    if message["type"] == "subscribe_events" and message.get("event_type") not in READ_EVENTS:
+        raise CommandBlocked(f"subscribe_events is limited to {sorted(READ_EVENTS)}; got {message.get('event_type')!r}")
     keys = KEYED_TYPES.get(message["type"])
     if keys is not None:
         extra = set(message) - {"id", "type"} - keys
@@ -107,6 +110,9 @@ class HaClient:
         self.store = store
         self.registry = registry
         self.on_change = on_change
+        self.on_service: Callable[[dict], None] | None = None
+        self.on_disconnect: Callable[[], None] | None = None
+        self._service_sub: int | None = None
         self.on_registry = on_registry
         self.on_registries_loaded: Callable[[], None] | None = None   # every connect's first load (features.py)
         self.registry_debounce = registry_debounce
@@ -221,6 +227,9 @@ class HaClient:
                     self._reg_subs[self._next_id] = event_type
                     await self._send({"id": self._next_id, "type": "subscribe_events", "event_type": event_type})
                 self._next_id += 1
+                self._service_sub = self._next_id
+                await self._send({"id": self._service_sub, "type": "subscribe_events", "event_type": "call_service"})
+                self._next_id += 1
                 self._sub_id = self._next_id
                 await self._send({"id": self._sub_id, "type": "subscribe_entities"})
                 watcher = asyncio.create_task(self._watch_registries())
@@ -230,6 +239,9 @@ class HaClient:
                 if watcher:
                     watcher.cancel()
                 self._reg_subs.clear()
+                self._service_sub = None
+                if self.on_disconnect:
+                    self.on_disconnect()
                 self._ws = None
 
     async def _first_registries(self) -> None:
@@ -292,6 +304,14 @@ class HaClient:
                     fut.set_result(data.get("result"))
                 else:
                     fut.set_exception(RuntimeError(f"HA error: {(data.get('error') or {}).get('code')}"))
+        elif kind == "event" and self._service_sub is not None and mid == self._service_sub:
+            data = (data.get("event") or {}).get("data") or {}
+            # Never forward the bus event or its text to screens or logs.
+            if self.on_service and data.get("domain") in ("tts", "media_player", "music_assistant"):
+                args = data.get("service_data") or {}
+                if isinstance(args, dict):
+                    self.on_service({"domain": data.get("domain"), "service": data.get("service"),
+                                     "service_data": {k: args[k] for k in ("entity_id", "media_player_entity_id", "announce") if k in args}})
         elif kind == "event" and mid in self._reg_subs:
             self._reg_dirty.add(self._reg_subs[mid])
             self._reg_wake.set()

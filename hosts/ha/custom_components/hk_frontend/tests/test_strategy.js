@@ -338,8 +338,18 @@ window.hkStrategy.generate({}, hass).then(function (cfg) {
     var clim = m3.views.filter(function (v) { return v.path === 'climate'; })[0];
     ok('Status & Chips decides the thermostats', cards(clim).indexOf('climate.car') > 0 && cards(clim).indexOf('climate.den') < 0);
     var li = m3.views.filter(function (v) { return v.path === 'lights'; })[0];
-    ok('...and the lights', cards(li).indexOf('light.kitchen_table_light') > 0 && cards(li).indexOf('light.kitchen_lights') < 0);
-    delete window.hkSettings;
+    ok('light groups remain category controls even when status counts only their bulbs',
+       cards(li).indexOf('light.kitchen_table_light') > 0 && cards(li).indexOf('light.kitchen_lights') > 0);
+    ok('group tiles do not change status inventory', window.hkStrategy.pageMembers(hass, 'lights', {}).lights.join() === 'light.kitchen_table_light');
+    var counted = window.hkSettings.get;
+    window.hkSettings.get = function (p, f) {
+      return p === 'counts' ? { lights: { exclude: ['light.kitchen_lights'] } } : counted(p, f);
+    };
+    return window.hkStrategy.generate({ music: false }, hass).then(function (m4) {
+      var li4 = m4.views.filter(function (v) { return v.path === 'lights'; })[0];
+      ok('explicitly hiding a group from Lights still removes its category tile', cards(li4).indexOf('light.kitchen_lights') < 0);
+      delete window.hkSettings;
+    });
   });
 }).then(function () {
   // --- Accessories -> Hidden from Screens / Also Shown

@@ -746,7 +746,7 @@
           open(this._bandSecurity, function () { self._go('./security'); });
           if (this._config.chips) {
             this._bandChips = C.createCard(Object.assign({}, this._config.chips, {
-              lead: false, pad_top: 0, pad_bottom: 0, pad_left: 0, pad_right: 0, margin: '0'
+              lead: false, align: 'end', pad_top: 0, pad_bottom: 0, pad_left: 0, pad_right: 0, margin: '0'
             }), this.client);
             this._root.querySelector('.band-chips').appendChild(this._bandChips);
           }

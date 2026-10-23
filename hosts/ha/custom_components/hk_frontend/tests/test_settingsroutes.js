@@ -335,4 +335,21 @@ print('\n=== Flat Colors: one editor at every scope (2026-10-17) ===');
   ok('nothing written by looking', writes.length, 0);
 })();
 
+(function () {
+  var pg = Object.create(P), states = {
+    'light.bulb': { attributes: {} },
+    'light.lamps': { attributes: { group_entities: ['light.bulb'] } },
+    'light.hidden_group': { attributes: { entity_id: ['light.bulb'] } }
+  };
+  show(pg, { states: states, entities: {} });
+  pg.data = { counts: { lights: { found: ['light.bulb'], exclude: [] } } };
+  pg.accIds = function () { return Object.keys(states); };
+  pg.hiddenAll = function (id) { return id === 'light.hidden_group'; };
+  pg.hid = function () { return {}; };
+  var T = window.hkSettingsModel.accType('lights');
+  ok('light group controls appear in their accessory type without being counted',
+     P.typeMembers.call(pg, T).join(), 'light.bulb,light.lamps');
+  ok('accessory list count includes the visible group control', P.typeCount.call(pg, T), 2);
+})();
+
 print(fail ? 'FAIL ' + fail + ' SETTINGS ROUTE TESTS' : 'ALL ' + pass + ' SETTINGS ROUTE TESTS PASS');
