@@ -110,7 +110,14 @@
     function avatar(h, s, cls, style) {
       var pic = s && s.attributes && s.attributes.entity_picture;
       return '<div class="' + cls + '"' + (style ? ' style="' + style + '"' : '') + '>' +
-        (pic ? '<img alt="" src="' + esc(pic) + '">' : esc(initials(nameOf(s)))) + '</div>';
+        (pic ? '<img alt="" data-initials="' + esc(initials(nameOf(s))) + '" src="' + esc(pic) + '">' : esc(initials(nameOf(s)))) + '</div>';
+    }
+
+    function avatarFallback(root) {
+      root.querySelectorAll('img[data-initials]').forEach(function (img) {
+        img.onerror = function () { img.parentNode.textContent = img.getAttribute('data-initials'); };
+        if (img.complete && !img.naturalWidth) img.onerror();
+      });
     }
 
     // ---------------------------------------------------------------- map
@@ -213,6 +220,7 @@
           d.well.innerHTML = avatar(h, s, 'av', 'width:44px;height:44px;font-size:15px;border-radius:50%;display:flex;align-items:center;' +
             'justify-content:center;overflow:hidden;background:linear-gradient(180deg,#a3a9b5,#7b8190);font-weight:650').replace('<img ', '<img style="width:100%;height:100%;object-fit:cover" ');
         }
+        avatarFallback(d.well);
         d.tt.textContent = (d.src && d.src.name) || nameOf(s) || d.id;
         return true;
       }
@@ -277,6 +285,7 @@
         this._c1.innerHTML = one ? me + this._map(h, s) + day + dev + who : me + day + dev;
         this._c2.innerHTML = one ? '' : this._map(h, s) + who;
         if (note) this._c1.insertBefore(note, this._c1.firstChild);
+        avatarFallback(this._root);
         this._paintDay();
       }
       _map(h, s) {

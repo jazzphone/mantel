@@ -6,7 +6,7 @@ https://claude.ai/artifact/JnMmSXDneGVE1e81BWYuid, A preferred). An Owner or Adm
 using HK's own cards. A block can hold **several pages** that swipe: cameras, rooms, thermostats, scene pages.
 Mantel first; HK Frontend as well, which comes at little extra cost (below).
 
-**Status (2026-10-23): Mantel App 0.1.59 is installed on the house. The owner's third review is implemented below, ready for the next release and tablet acceptance. HK Frontend remains a separate release (1.10.7 on the house).** Older slice notes describe their state at the time.
+**Status (2026-10-23): Mantel App 0.1.59 is installed on the house. The third review and fixed-tile follow-up below are implemented, ready for the next release and tablet acceptance. HK Frontend remains a separate release (1.10.7 on the house).** Older slice notes describe their state at the time.
 
 ## The answers (2026-10-22)
 
@@ -46,11 +46,10 @@ Mantel-only, because Home Assistant has nothing like it: the layout's history wi
 - **The frame: the tablet's size**, default **1280 × 800**. It is stored with the layout so the desktop editor
   draws the screen at the tablet's real size, not at the desktop's.
 - At 1280 × 800 with 6 × 4: HK's own grid, six 196 px columns with 10 px gaps and `--hk-side` margins (27 px).
-  The rows share the height under the top band, about 162 px each.
+  Each logical row is a 150 px tall tile. The whole canvas scales uniformly to fit the display and dock.
 - **Top band** (optional, on by default): the screen's existing header (clock, weather, chips, people), at 60 px.
   Off gives the grid the whole height (concept C puts its glance cards in the grid instead).
-- A tablet always fills its own screen (`100dvh`), keeping the grid's columns and rows; the frame is the editor's
-  (decision 2, under "Progress").
+- The viewport fills the screen (`100dvh`); fixed-size cells are centered and uniformly scaled down when necessary. The frame is the editor’s preview viewport.
 - **No scrolling, ever.** The view is `height: 100dvh; overflow: hidden`. A card that cannot fit its cell clips
   its own contents. It never grows the page.
 
@@ -60,9 +59,9 @@ The screen's **tab bar** (`web/hk/modules/hk-tabbar.js`) is a Home Grid screen's
 on every other screen: its pages, the rooms and the full menu. The grid works around it:
 
 - **The grid stops at the bar.** The view's height is `calc(100dvh - var(--hk-tabbar-h, 0px))`, where
-  `--hk-tabbar-h` is the room the bar reserves (set on `<html>` while it shows). The rows share what's left under
-  the top band, so cells are shorter than the numbers below whenever the bar shows. Cards read their cell from
-  `--hk-cell-w` / `--hk-cell-h`, never from fixed numbers. The view follows the bar showing or hiding. (G4 makes
+  `--hk-tabbar-h` is the room the bar reserves (set on `<html>` while it shows). The whole canvas fits what remains under
+  the top band, preserving fixed logical cell dimensions. Cards read `--hk-cell-w` / `--hk-cell-h`
+  (196 × 150). The view updates the uniform scale when the bar shows or hides. (G4 makes
   this change in `hk-layout.js`.)
 - **Nothing sits under the bar**, and a pager never claims a drag that starts on it.
 - **`everything` is for screens without a tab bar.** With the bar on, it already opens the pages and the menu, so
@@ -74,13 +73,14 @@ on every other screen: its pages, the rooms and the full menu. The grid works ar
 
 ### Size classes
 
-| Class | Cells | At 1280 × 800, 6 × 4 |
+| Class | Cells | Logical size before uniform scaling |
 |---|---|---|
-| S | 1 × 1 | 196 × 162 (less with the tab bar showing) |
-| W | 2 × 1 | 402 × 162 |
-| T | 1 × 2 | 196 × 334 |
-| L | 2 × 2 | 402 × 334 |
-| XL | 3 × 2 | 608 × 334 |
+| S | 1 × 1 | 196 × 150 |
+| W | 2 × 1 | 402 × 150 |
+| T | 1 × 2 | 196 × 310 |
+| L | 2 × 2 | 402 × 310 |
+| XL | 3 × 2 | 608 × 310 |
+| XXL | 6 × 2 | 1226 × 310 (room and scene groups) |
 
 Each card lists the classes it supports and is designed for each one, the way iOS widgets are. A card learns its
 class from a `size` attribute plus `--hk-cell-w` / `--hk-cell-h`, and lays itself out with container queries. A
@@ -305,7 +305,7 @@ a 3-column grid, with no page scroll.
    tablet_room)`. It is handed the house's scenes, rooms, cameras and climate entities, and the tablet's room, and
    returns concept A's or C's layout. Both hosts call it (the editor, G5). Not built in JS.
 2. **The frame** (1280 × 800) is only for the desktop editor's drawing. A tablet always fills its real screen
-   (`100dvh`), keeping the grid's columns and rows. No letterboxing. (This replaces "scales its cells to fit" above.)
+   (`100dvh`). **Superseded by the 2026-10-23 fixed-tile review:** the grid now keeps tall-tile proportions, uniformly scales down to fit, and centers any spare space.
 3. **`tablet_room`**: G1 only stores and checks it as an option value (`speaker`, `area`, a thermostat's `entity`,
    and `pages.start` for `rooms`, `thermostats` and `speakers`). Resolving it to a room is G3/G4.
 4. **`HK_PAGE`** (hk-base.js) has `hk-home-grid-view`, with a test that a card on a Home Grid view knows it's on its
@@ -931,3 +931,16 @@ This was a local Home Assistant App update; no public image/tag publication or H
 Validation: the full main suite passed **3,447 tests, 21 skipped**, plus two explicit preview-client regressions for Mantel and Home Assistant. All frontend JavaScript suites pass with intentional CSS snapshots refreshed. Chrome and WebKit pass both starters in three appearances, including thermostat material parity, centred dots, real dot clicks and idle return. Room/weather/thermostat render audits pass; a populated-room audit also checks short tall-tile rows. The editor smoke passes real drag/swap, independent scrolling at two window sizes, all picker icons, populated previews, camera selection, header toggles, conditional preview, save/refusal, history, copy and cancel. The interaction check covers selected-entity Sky rendering, card bounds, reduced motion, toggle cleanup and the resolved single-camera list. Packaging and documentation links pass.
 
 **Continuation:** publish the next Mantel App release when authorized, then review the actual kitchen tablet. This round does not change the installed 0.1.59 app or publish HK Frontend. Keep the unrelated local Xcode project changes out of the commit.
+
+
+### Fixed tall-tile review (2026-10-23)
+
+The owner requested consistent tile sizes using the existing design, with 1280 × 800 as the reference and Apple HomeView as a layout reference. Home Grid now uses `TILE.w` (196), `TILE.tall` (150) and `TILE.gridGap` (10). Blocks retain logical dimensions as the display changes. The whole canvas scales down uniformly to fit the available viewport after navigation, never enlarges beyond its design size, and centers spare space. Screen Settings → Grid Scale offers Automatic Fit and 50–90% of Fit. Saved positions and size classes remain intact; frame dimensions continue to describe the editor’s preview display.
+
+Room and scene groups add XXL (six columns by two rows). Room groups explicitly reserve two rows even when only one accessory is present; Wide reserves one row. The picker uses the same logical dimensions, and editor overlays account for scaled gaps.
+
+Person portraits now rewrite HA `/api/image/serve/...` and `/local/...` paths to a prefix-aware Mantel route. Only viewers of that person may fetch it; HA credentials stay on the server, with no browser-supplied upstream address and no redirect following. Absolute URLs on the configured HA origin are supported too. People strips and person sheets fall back to initials when an image fails.
+
+Continuation: these changes require the next authorized app release and physical-tablet acceptance. The installed house app remains 0.1.59. Keep unrelated Xcode changes out of the commit.
+
+Validation: **3,452 main tests passed, 21 skipped**; all frontend JavaScript suites pass with intentional room-row and icon-well snapshots refreshed. Chrome and WebKit pass both starters in Flat Light, Flat Dark and Blur, including sparse-room row reservation, standard 42 px wells, glyph containment, missing-portrait initials, six-column room geometry, uniform proportions at 1280 × 800, 1920 × 1080, 1024 × 768, 800 × 1280 and 390 × 844, real dot clicks and idle return. The editor smoke passes drag/swap, overlay geometry, populated previews, independent scrolling, save/refusal, history, copy and cancel. Packaging and 80 documentation-link checks pass. No house controls or deployment were invoked.

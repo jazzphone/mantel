@@ -2270,11 +2270,15 @@
         var s = h.states[id], a = s.attributes || {}, nm = String(a.friendly_name || id);
         var ini = nm.split(/\s+/).filter(Boolean).slice(0, 2).map(function (w) { return w[0]; }).join('').toUpperCase();
         return '<button class="pr' + (s.state === 'home' ? ' home' : '') + '" data-id="' + esc(id) + '" aria-label="' +
-          esc(nm + ', ' + where(s)) + '"><span class="av">' + (a.entity_picture ? '<img alt="" src="' + esc(a.entity_picture) + '">' : esc(ini)) +
+          esc(nm + ', ' + where(s)) + '"><span class="av">' + (a.entity_picture ? '<img alt="" data-initials="' + esc(ini) + '" src="' + esc(a.entity_picture) + '">' : esc(ini)) +
           '</span><b>' + esc(nm.split(/\s+/)[0]) + '</b><span>' + esc(where(s)) + '</span></button>';
       });
       C.morph(this._root, '<hk-plate class="pp" data-hk-role="card"><div class="row" role="list" style="--n:' +
         Math.min(n, Math.max(1, ids.length)) + '">' + cells.join('') + '</div></hk-plate>');
+      this._root.querySelectorAll('.av img').forEach(function (img) {
+        img.onerror = function () { img.parentNode.textContent = img.getAttribute('data-initials'); };
+        if (img.complete && !img.naturalWidth) img.onerror();
+      });
       if (!this._wired) {
         this._wired = true;
         var self = this;

@@ -2,7 +2,7 @@
 
 ![Home Grid at 1280 × 800, with fictional devices and Arial](../images/home-grid.png)
 
-Home Grid is a tablet Home page arranged in fixed blocks. It fills the screen without scrolling. Each screen keeps its own layout; the other pages and the menu keep working as usual.
+Home Grid is a tablet Home page arranged in fixed blocks. It fits the screen without scrolling, keeping the same tile proportions at every resolution. Each screen keeps its own layout; the other pages and the menu keep working as usual.
 
 In Mantel Settings, open **Screens → your screen → Arrange Home Grid** on a desktop. Owners and Admins can arrange a screen. A wall tablet displays the saved layout and offers no editor.
 
@@ -15,9 +15,11 @@ Start with **Tap Weight** (the largest blocks are the ones you touch most) or **
 - Choose **Custom Pages** to add pages of the same card with different options. You can move pages up or remove them. Rooms, cameras, thermostats, speakers and scenes also have automatic page sources.
 - **Tablet’s Room** means the room of the tablet displaying the screen. A copied layout keeps that meaning.
 
+**Screen Settings → Grid Scale** defaults to **Automatic Fit**. The grid uses the design’s 196 × 150 tall-tile unit with 10-pixel gaps, then scales uniformly to fit beside the navigation bar. Larger screens keep the original size; different ratios leave space around the grid. Choose 50–90% of Fit for a smaller layout. Frame Width and Height only set the editor’s preview display.
+
 Home Grid is a mode on an existing generated dashboard. You do not need a new dashboard: open its editor, choose a starter, arrange the blocks, and Save. Create a separate screen first only if you want a separate layout. The tab bar keeps your navigation settings: **Rooms** can be its own button or a section inside **More**.
 
-Room blocks have a surrounding tile containing accessories and the speaker, without status chips. Wide uses regular pills; Large uses a 2 × 2 arrangement of taller tiles, and Extra Large has two rows of three. The tiles fill the available height. Extra accessories appear behind **+N more**, which opens the room. Scene groups also have a surrounding tile, with a centred page-control pill for the scenes that swipe together. Camera blocks default to one camera: select **Camera** to choose which. Choosing a camera turns automatic paging off. Choose **Camera Display → Swipe All Cameras** to restore the carousel.
+Room blocks have a surrounding tile containing accessories and the speaker, without status chips. Wide uses regular pills; Large uses a 2 × 2 arrangement of taller tiles, Extra Large has two rows of three, and Full Width has two rows of six. Empty cells stay reserved, so a lone accessory never stretches into another row. The tiles fill the available height. Extra accessories appear behind **+N more**, which opens the room. Scene groups also have a surrounding tile, with a centred page-control pill for the scenes that swipe together. Camera blocks default to one camera: select **Camera** to choose which. Choosing a camera turns automatic paging off. Choose **Camera Display → Swipe All Cameras** to restore the carousel.
 
 Select a Room or Scenes block and enable **Custom Group Background** to choose its color, opacity and blur (Follow Screen, None, Light, Medium or Heavy). Opacity changes the background tint, not the pills or labels. Turn the custom background off to restore the screen’s appearance. These settings also work on paged groups and conditional fallbacks.
 
@@ -50,3 +52,5 @@ The desktop editor has passed browser checks in Mantel and a scratch Home Assist
 ![The card gallery with a live preview](../images/home-grid-picker.png)
 
 The screenshots use fictional devices and Arial. Camera pictures are illustrative landscapes.
+
+People cards and person sheets use Home Assistant person portraits through Mantel’s authenticated image route. If a picture is missing or fails to load, initials appear instead.

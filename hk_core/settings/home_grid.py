@@ -21,8 +21,8 @@ VERSION = 1
 COLS = (6, 3, 2)
 ROWS = (2, 6)                      # the fewest and the most
 ROWS_DEFAULT = 4
-# The frame: the tablet's size, for the desktop editor's drawing only. A tablet fills its own screen (100dvh),
-# keeping the grid's columns and rows; nothing is letterboxed.
+# The frame is the editor's preview viewport. Fixed 196 x 150 tile units fit
+# uniformly into the real viewport, centered with spare room around them.
 FRAME = (1280, 800)
 FRAME_W = (320, 3840)
 FRAME_H = (320, 2160)
@@ -37,14 +37,14 @@ AREA_ID = re.compile(r"^[a-z0-9_]{1,80}$")
 TABLET_ROOM = "tablet_room"
 
 # Size classes: (columns, rows)
-SIZES: dict[str, tuple[int, int]] = {"S": (1, 1), "W": (2, 1), "T": (1, 2), "L": (2, 2), "XL": (3, 2)}
+SIZES: dict[str, tuple[int, int]] = {"S": (1, 1), "W": (2, 1), "T": (1, 2), "L": (2, 2), "XL": (3, 2), "XXL": (6, 2)}
 
 # THE CATALOG'S MIRROR: key -> its sizes, the page sources it swipes through besides `list` (every card has
 # `list`), and its options (name -> kind, OPTION_KINDS).
 CATALOG: dict[str, dict[str, Any]] = {
     "accessory": {"sizes": ("S", "W"), "sources": (), "opts": {"entity": "entity"}},
     "scene": {"sizes": ("S", "W"), "sources": (), "opts": {"scene": "scene"}},
-    "scenes": {"sizes": ("W", "L", "XL"), "sources": ("scenes",), "opts": {"scenes": "scenes", "surface": "surface"}},
+    "scenes": {"sizes": ("W", "L", "XL", "XXL"), "sources": ("scenes",), "opts": {"scenes": "scenes", "surface": "surface"}},
     "now_playing": {"sizes": ("W", "T", "L"), "sources": ("speakers",), "opts": {"speaker": "speaker"}},
     "thermostat": {"sizes": ("T", "L"), "sources": ("thermostats",), "opts": {"entity": "climate"}},
     "camera": {"sizes": ("W", "L", "XL"), "sources": ("cameras",), "opts": {"entity": "camera"}},
@@ -57,7 +57,7 @@ CATALOG: dict[str, dict[str, Any]] = {
     "vacuum": {"sizes": ("S", "W"), "sources": (), "opts": {"entity": "vacuum"}},
     "clock": {"sizes": ("W", "XL"), "sources": (), "opts": {}},
     # the new cards (G3)
-    "room": {"sizes": ("W", "L", "XL"), "sources": ("rooms",), "opts": {"area": "area", "surface": "surface"}},
+    "room": {"sizes": ("W", "L", "XL", "XXL"), "sources": ("rooms",), "opts": {"area": "area", "surface": "surface"}},
     "scene_suggested": {"sizes": ("W", "L"), "sources": (), "opts": {"windows": "windows"}},
     # `area`: the room an action keeps to (All Lights Off in one room); the others ignore it
     "action": {"sizes": ("S",), "sources": (), "opts": {"action": "action", "area": "area"}},
@@ -303,7 +303,7 @@ def _frame(v: Any) -> list[int]:
 
 
 def _shape(v: Any) -> dict[str, Any]:
-    if not isinstance(v, dict) or set(v) - {"v", "cols", "rows", "frame", "band", "header_clock", "header_weather", "items"}:
+    if not isinstance(v, dict) or set(v) - {"v", "cols", "rows", "frame", "band", "header_clock", "header_weather", "scale", "items"}:
         raise GridInvalid("grid")
     if v.get("v", VERSION) != VERSION:
         raise GridInvalid("grid")
@@ -321,6 +321,8 @@ def _shape(v: Any) -> dict[str, Any]:
         raise GridInvalid("grid_items")
     out = {"v": VERSION, "cols": cols, "rows": rows, "frame": _frame(v.get("frame")), "band": band,
            "items": items}
+    if "scale" in v:
+        out["scale"] = _whole(v["scale"], 50, 100, "grid")
     for key in ("header_clock", "header_weather"):
         if key in v:
             if not isinstance(v[key], bool):
@@ -388,7 +390,7 @@ def _chunks(xs: list[str], n: int) -> list[list[str]]:
 
 def _scenes_block(iid: str, size: str, at: list[int], scenes: list[str]) -> dict[str, Any]:
     """A scenes block holding the house's scenes: one page of them, or pages that swipe."""
-    per = {"W": 2, "L": 4, "XL": 6}[size]
+    per = {"W": 2, "L": 4, "XL": 6, "XXL": 12}[size]
     pages = _chunks(scenes[:LIST_MAX * PAGES_MAX], per)
     out: dict[str, Any] = {"id": iid, "card": "scenes", "size": size, "at": at}
     if len(pages) == 1:

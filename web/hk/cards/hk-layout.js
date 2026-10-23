@@ -1625,8 +1625,8 @@
   // ---------------------------------------------------- hk-home-grid-view
   //
   // A HOME GRID SCREEN'S HOME (docs/phase11/HOME-GRID.md): its blocks on a
-  // grid of `cols` x `rows` cells that fills the screen -- 100dvh, whatever
-  // the tablet's real size, keeping the grid's columns and rows -- under the
+  // grid of `cols` x `rows` fixed tall-tile cells, uniformly scaled to fit
+  // the tablet, centered with spare room around it -- under the
   // optional top band (the screen's header, C.HOME_GRID.band px). It NEVER
   // SCROLLS: the view is the screen's height and clips; a card that can't
   // fit its cell clips its own contents (each cell clips too), and never
@@ -1634,7 +1634,7 @@
   // not this view's.
   //
   // The strategy (hk-strategy.js homeGridView) hands it:
-  //   grid: { cols, rows, band }
+  //   grid: { cols, rows, band, scale }
   //   cards: the band's card first when band is on (hk_band: true), then one
   //     per block with hk_cell: { id, size, at: [column, row] }, then any
   //     card that only listens (a pop-up, the docked bar), which takes no room
@@ -1673,9 +1673,8 @@
       // THE TAB BAR'S ROOM comes out of the height (docs/phase11/HOME-GRID.md,
       // "The tab bar"): the bar pads the view on its side and says how much
       // as --hk-bar-room on it (top or bottom; hk-tabbar.js publish()), and
-      // --hk-tabbar-h on <html> at the bottom -- so the rows share what is
-      // left, the last row's plates end a gutter above the bar, and it
-      // follows the bar live (the ResizeObserver below re-measures the cells).
+      // --hk-tabbar-h on <html> at the bottom. The canvas fits the remaining
+      // room uniformly; rows keep their logical height when the dock changes.
       //
       // A CELL CLIPS A SHADOW'S REACH OUT (GRID_SHADOW), not at its edge: a
       // plate fills its cell, and clipped at its edge -- or a gap out, as it
@@ -1687,9 +1686,9 @@
         ':host{--g-room:var(--hk-bar-room,var(--hk-tabbar-h,0px));display:block;position:relative;' +
         'height:calc(100dvh - var(--g-room));max-height:calc(100dvh - var(--g-room));overflow:hidden;' +
         'container-type:size;box-sizing:border-box}' +
-        '#root{--g-pad:calc(100cqw * var(--hk-side, 0.02) + 8px);--g-gap:' + GRID.gap + 'px;' +
-        'box-sizing:border-box;display:grid;width:100%;height:100%;padding:var(--g-pad);gap:var(--g-gap);' +
-        'grid-template-columns:repeat(var(--g-cols), minmax(0, 1fr));overflow:hidden}' +
+        '#root{--g-pad:' + GRID.pad + 'px;--g-gap:' + GRID.gap + 'px;' +
+        'box-sizing:border-box;display:grid;position:absolute;transform-origin:top left;padding:var(--g-pad);gap:var(--g-gap);' +
+        'grid-template-columns:repeat(var(--g-cols), ' + C.TILE.w + 'px);overflow:hidden}' +
         '.band{grid-column:1 / -1;grid-row:1;min-width:0;min-height:0;overflow:hidden}' +
         '.cell{position:relative;min-width:0;min-height:0;clip-path:inset(-' + GRID_SHADOW + 'px);' +
         'container-type:size;container-name:hk-cell}' +
@@ -1710,7 +1709,7 @@
       var g = (this._config && this._config.grid) || {};
       var cols = [6, 3, 2].indexOf(g.cols) >= 0 ? g.cols : 6;
       var rows = (g.rows >= 2 && g.rows <= 6 && g.rows === Math.floor(g.rows)) ? g.rows : 4;
-      return { cols: cols, rows: rows, band: g.band !== false };
+      return { cols: cols, rows: rows, band: g.band !== false, scale: Number.isInteger(g.scale) && g.scale >= 50 && g.scale <= 100 ? g.scale : 100 };
     }
 
     _place() {
@@ -1718,7 +1717,7 @@
       var g = this._grid(), root = this._root, top = g.band ? 1 : 0;
       root.style.setProperty('--g-cols', String(g.cols));
       root.style.setProperty('--g-rows', String(g.rows));
-      root.style.gridTemplateRows = (top ? GRID.band + 'px ' : '') + 'repeat(' + g.rows + ', minmax(0, 1fr))';
+      root.style.gridTemplateRows = (top ? GRID.band + 'px ' : '') + 'repeat(' + g.rows + ', ' + C.TILE.tall + 'px)';
       var cfgs = this._config.cards || [], els = this._cards || [];
       this._slots = this._slots || [];
       // RECONCILE, NEVER EMPTY-AND-REFILL (hk-grid-view's reason): a slot per
@@ -1776,16 +1775,20 @@
     _measure() {
       var root = this._root, g = this._grid();
       if (!root || !this.isConnected || !root.getBoundingClientRect) return;
-      var r = root.getBoundingClientRect();
-      if (!r.width || !r.height) return;
-      var cs = getComputedStyle(root);
-      var px = function (k) { return parseFloat(cs[k]) || 0; };
-      var w = (r.width - px('paddingLeft') - px('paddingRight') - (g.cols - 1) * GRID.gap) / g.cols;
-      var h = (r.height - px('paddingTop') - px('paddingBottom') - (g.band ? GRID.band + GRID.gap : 0) -
-               (g.rows - 1) * GRID.gap) / g.rows;
-      var cw = Math.max(0, Math.floor(w * 10) / 10) + 'px', ch = Math.max(0, Math.floor(h * 10) / 10) + 'px';
-      if (root.style.getPropertyValue('--hk-cell-w') !== cw) root.style.setProperty('--hk-cell-w', cw);
-      if (root.style.getPropertyValue('--hk-cell-h') !== ch) root.style.setProperty('--hk-cell-h', ch);
+      // Logical geometry never depends on viewport shape. Fit the whole canvas
+      // uniformly inside the room left by the dock; optionally make it smaller.
+      var pad = GRID.pad, gap = GRID.gap;
+      var w = g.cols * C.TILE.w + (g.cols - 1) * gap + 2 * pad;
+      var h = g.rows * C.TILE.tall + (g.rows - 1) * gap + 2 * pad + (g.band ? GRID.band + gap : 0);
+      var scale = Math.min(1, this.clientWidth / w, this.clientHeight / h) * g.scale / 100;
+      if (!(scale > 0)) return;
+      this._gridScale = scale;
+      root.style.width = w + 'px'; root.style.height = h + 'px';
+      root.style.left = Math.max(0, (this.clientWidth - w * scale) / 2) + 'px';
+      root.style.top = Math.max(0, (this.clientHeight - h * scale) / 2) + 'px';
+      root.style.transform = 'scale(' + scale + ')';
+      root.style.setProperty('--hk-cell-w', C.TILE.w + 'px');
+      root.style.setProperty('--hk-cell-h', C.TILE.tall + 'px');
     }
 
     connectedCallback() {

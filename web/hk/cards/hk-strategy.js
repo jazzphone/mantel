@@ -1534,7 +1534,7 @@
     });
     (listeners || []).forEach(function (c) { cards.push(c); });
     return Object.assign({}, o, { type: 'custom:hk-home-grid-view', layout: undefined, cards: cards, grid_ctx: ctx,
-                                  grid: { cols: grid.cols, rows: grid.rows, band: grid.band !== false } });
+                                  grid: { cols: grid.cols, rows: grid.rows, band: grid.band !== false, scale: grid.scale } });
   }
   // the catalog, when a Home Grid screen needs it: a parallel-loaded
   // resource, waited for by its ready event, never polled (cardsReady)

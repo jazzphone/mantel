@@ -21,7 +21,7 @@ from typing import Any, Callable
 
 from aiohttp import web
 
-from . import camera_still
+from . import camera_still, person_picture
 
 log = logging.getLogger("mantel.media_art")
 
@@ -50,9 +50,13 @@ def shape(entity_id: str, state: dict, base: str = "") -> dict:
     return {**state, "a": out}
 
 
-def page_shaper(base: str = "") -> Callable[[str, dict], dict]:
-    """Every state a page receives: camera tokens and artwork tokens both replaced (view.ClientView)."""
-    return lambda entity_id, state: shape(entity_id, camera_still.shape(entity_id, state, base), base)
+def page_shaper(base: str = "", ha_url: str = "") -> Callable[[str, dict], dict]:
+    """Every page state: camera/artwork tokens replaced and HA portraits served on this origin."""
+    def shaped(entity_id: str, state: dict) -> dict:
+        camera = camera_still.shape(entity_id, state, base)
+        artwork = shape(entity_id, camera, base)
+        return person_picture.shape(entity_id, artwork, base, ha_url)
+    return shaped
 
 
 def strip_tokens(entity_id: str, row: Any) -> Any:

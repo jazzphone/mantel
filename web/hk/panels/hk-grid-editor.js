@@ -8,7 +8,7 @@
     thermostat: 'Thermostat', camera: 'Camera', security: 'Security', timers: 'Timers', weather: 'Weather',
     calendar: 'Calendar', battery: 'House Battery', people: 'People', vacuum: 'Vacuum', clock: 'Clock',
     room: 'Room', scene_suggested: 'Suggested Scene', action: 'Action', everything: 'Everything' };
-  var SIZE_NAMES = { S: 'Small', W: 'Wide', T: 'Tall', L: 'Large', XL: 'Extra Large' };
+  var SIZE_NAMES = { S: 'Small', W: 'Wide', T: 'Tall', L: 'Large', XL: 'Extra Large', XXL: 'Full Width · 6 × 2' };
   var GROUPS = [
     ['Rooms & Lights', ['room', 'accessory', 'action']], ['Scenes', ['scene', 'scenes', 'scene_suggested']],
     ['Climate', ['thermostat', 'weather']], ['Music', ['now_playing']],
@@ -203,9 +203,9 @@
       this.side();
     }
     position(el, it) {
-      var z = SIZES[it.size], w = (this.overlay.clientWidth - (this.grid.cols - 1) * 10) / this.grid.cols;
-      var h = (this.overlay.clientHeight - (this.grid.rows - 1) * 10) / this.grid.rows;
-      Object.assign(el.style, { left: it.at[0] * (w + 10) + 'px', top: it.at[1] * (h + 10) + 'px', width: (w + 10) * z[0] - 10 + 'px', height: (h + 10) * z[1] - 10 + 'px' });
+      var gap = this.cellGap || 10, z = SIZES[it.size], w = (this.overlay.clientWidth - (this.grid.cols - 1) * gap) / this.grid.cols;
+      var h = (this.overlay.clientHeight - (this.grid.rows - 1) * gap) / this.grid.rows;
+      Object.assign(el.style, { left: it.at[0] * (w + gap) + 'px', top: it.at[1] * (h + gap) + 'px', width: (w + gap) * z[0] - gap + 'px', height: (h + gap) * z[1] - gap + 'px' });
     }
     drag(e, it, button) {
       if (e.button !== 0 || this.busy) return;
@@ -247,15 +247,16 @@
       var cell = view && view._config && view._config.grid && view.shadowRoot && view.shadowRoot.querySelector('.cell');
       if (cell) {
         var r = cell.getBoundingClientRect(), it = view._config.cards.find((x) => x.hk_cell && x.hk_cell.id === cell.dataset.id).hk_cell;
-        var z = SIZES[it.size], cw = (r.width - (z[0] - 1) * 10) / z[0], ch = (r.height - (z[1] - 1) * 10) / z[1];
-        Object.assign(this.overlay.style, { left: r.left - it.at[0] * (cw + 10) + 'px', top: r.top - it.at[1] * (ch + 10) + 'px',
-          width: (cw + 10) * this.grid.cols - 10 + 'px', height: (ch + 10) * this.grid.rows - 10 + 'px' });
-      } else if (view && view._config && view._config.grid && view.shadowRoot && view.shadowRoot.querySelector('#root')) {
-        var root = view.shadowRoot.querySelector('#root'), bounds = root.getBoundingClientRect(), cs = w.getComputedStyle(root);
-        var pt = parseFloat(cs.paddingTop), pb = parseFloat(cs.paddingBottom), pl = parseFloat(cs.paddingLeft), pr = parseFloat(cs.paddingRight);
-        var band = view._config.grid.band ? 70 : 0;
-        Object.assign(this.overlay.style, { left: bounds.left + pl + 'px', top: bounds.top + pt + band + 'px',
-          width: bounds.width - pl - pr + 'px', height: bounds.height - pt - pb - band + 'px' });
+        var gap = 10 * (view._gridScale || 1); this.cellGap = gap; this.overlay.style.gap = gap + 'px';
+        var z = SIZES[it.size], cw = (r.width - (z[0] - 1) * gap) / z[0], ch = (r.height - (z[1] - 1) * gap) / z[1];
+        Object.assign(this.overlay.style, { left: r.left - it.at[0] * (cw + gap) + 'px', top: r.top - it.at[1] * (ch + gap) + 'px',
+          width: (cw + gap) * this.grid.cols - gap + 'px', height: (ch + gap) * this.grid.rows - gap + 'px' });
+      } else if (view && view._root && view._gridScale) {
+        var bounds = view._root.getBoundingClientRect(), factor = view._gridScale;
+        var pad = parseFloat(w.getComputedStyle(view._root).paddingTop) * factor, band = this.grid.band ? 70 * factor : 0;
+        this.cellGap = 10 * factor; this.overlay.style.gap = this.cellGap + 'px';
+        Object.assign(this.overlay.style, { left: bounds.left + pad + 'px', top: bounds.top + pad + band + 'px',
+          width: bounds.width - 2 * pad + 'px', height: bounds.height - 2 * pad - band + 'px' });
       } else {
         var pad = frame[0] * 0.015 + 8, top = pad + (this.grid.band ? 70 : 0);
         Object.assign(this.overlay.style, { left: pad + 'px', top: top + 'px', width: frame[0] - 2 * pad + 'px', height: frame[1] - top - pad + 'px' });
@@ -333,6 +334,7 @@
       settings.addEventListener('toggle', () => { this.screenSettingsOpen = settings.open; });
       settings.appendChild(K.group({ header: 'Grid & Header' }, [K.select({ label: 'Columns', value: this.grid.cols, options: [6, 3, 2].map((n) => [n, String(n)]), onChange: (n) => config('cols', Number(n)) }),
         K.select({ label: 'Rows', value: this.grid.rows, options: [2, 3, 4, 5, 6].map((n) => [n, String(n)]), onChange: (n) => config('rows', Number(n)) }),
+        K.select({ label: 'Grid Scale', value: this.grid.scale || 100, options: [100, 90, 80, 70, 60, 50].map((n) => [n, n === 100 ? 'Automatic Fit' : n + '% of Fit']), onChange: (n) => config('scale', Number(n)) }),
         K.toggle({ label: 'Top Band', on: this.grid.band, onChange: (v) => config('band', v) }),
         K.toggle({ label: 'Header Clock', on: this.grid.header_clock !== false, onChange: (v) => config('header_clock', v) }),
         K.toggle({ label: 'Header Weather', on: this.grid.header_weather !== false, onChange: (v) => config('header_weather', v) }),
@@ -486,12 +488,8 @@
       if (this.catalogOff) this.catalogOff();
       var box = this.sidebar.querySelector('[data-preview-card]'); if (!box) return;
       var sz = box.dataset.previewSize, z = SIZES[sz], ctx = this.previewView._config.grid_ctx || {};
-      var width = 196 * z[0] + 10 * (z[0] - 1), height = 137 * z[1] + 10 * (z[1] - 1);
-      var first = this.previewView.shadowRoot.querySelector('.cell');
-      if (first) {
-        var r = first.getBoundingClientRect(), item = this.grid.items.find((it) => it.id === first.dataset.id), dims = item && SIZES[item.size];
-        if (dims) { width = (r.width + 10) / dims[0] * z[0] - 10; height = (r.height + 10) / dims[1] * z[1] - 10; }
-      }
+      var unit = w.hkCards.TILE, gap = w.hkCards.HOME_GRID.gap;
+      var width = unit.w * z[0] + gap * (z[0] - 1), height = unit.tall * z[1] + gap * (z[1] - 1);
       var scale = Math.min(1, (this.sidebar.clientWidth || 336) / width);
       box.style.height = height * scale + 'px';
       // Keep every descendant in the screen's custom-element registry. Adopting

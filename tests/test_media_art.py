@@ -14,7 +14,7 @@ from argon2 import PasswordHasher
 
 from conftest import Mantel
 from gateway_fakes import HOUSE_AREAS, HOUSE_ENTITIES, STATES
-from mantel_server.connectors import media_art
+from mantel_server.connectors import media_art, person_picture
 
 TOKEN = "fictional-mantel-ha-credential"
 ART_TOKEN = "fictionalarttoken0123456789abcdef"
@@ -34,7 +34,12 @@ class FakeHaRest:
     def app(self):
         app = web.Application()
         app.router.add_get("/api/media_player_proxy/{eid}", self.proxy)
+        app.router.add_get("/api/image/serve/{image_id}/{size}", self.portrait)
         return app
+
+    async def portrait(self, request):
+        self.asked.append({"path": request.path, "auth": request.headers.get("Authorization")})
+        return web.Response(body=PNG, content_type="image/png")
 
     async def proxy(self, request):
         self.asked.append({"eid": request.match_info["eid"], "auth": request.headers.get("Authorization"),
@@ -67,7 +72,8 @@ async def env(tmp_path, monkeypatch):
         app["accounts"].hasher = PasswordHasher(time_cost=1, memory_cost=8, parallelism=1)
         hub = app["hub"]
         hub.registry.load(HOUSE_AREAS, [], HOUSE_ENTITIES + [{"entity_id": "media_player.kitchen", "area_id": "kitchen"},
-                                                             {"entity_id": "media_player.loft", "area_id": "kitchen"}])
+                                                             {"entity_id": "media_player.loft", "area_id": "kitchen"},
+                                                             {"entity_id": "person.avery", "area_id": "kitchen"}])
         states = {k: dict(v) for k, v in STATES.items()}
         states["media_player.kitchen"] = player_state()
         states["media_player.loft"] = player_state(eid="media_player.loft")
@@ -185,3 +191,33 @@ async def test_refusals_and_errors(env):
     assert r.status == 404 and (await r.json())["error"] == "no_artwork"
     env.forget_cookies()
     assert (await env.get("/api/media/media_player.kitchen/art")).status == 401
+
+
+def test_portrait_shaping_and_path_boundary():
+    st = {"s": "home", "a": {"entity_picture": "/api/image/serve/fictional/512x512"}}
+    out = media_art.page_shaper("/ingress/example")("person.avery", st)
+    assert out["a"]["entity_picture"].startswith("/ingress/example/api/person/person.avery/picture?v=")
+    assert st["a"]["entity_picture"].startswith("/api/image/serve/")
+    absolute = {"s": "home", "a": {"entity_picture": "https://ha.example/local/people/avery.jpg"}}
+    assert media_art.page_shaper("", "https://ha.example")("person.avery", absolute)["a"]["entity_picture"].startswith("/api/person/")
+    assert person_picture.portrait_path("/local/people/avery.jpg") == "/local/people/avery.jpg"
+    for path in ["//evil.example/a", "https://evil.example/api/image/serve/x/512x512", "/local/../secret", "/local/%2e%2e/secret", "/api/config", "/api/image/serve/x/512x512?token=secret", "/local/a.svg#fragment"]:
+        assert person_picture.portrait_path(path, "https://ha.example") is None
+
+
+async def test_person_portrait_requires_view_and_uses_server_credential(env):
+    hub = env.app["hub"]
+    hub.store.apply_event({"a": {"person.avery": {"s": "home", "a": {"entity_picture": "/api/image/serve/fictional/512x512"}, "lc": 1, "lu": 1}}})
+    await login(env, "cody", "child")
+    assert (await env.get("/api/person/person.avery/picture")).status == 403
+    assert env.fha.asked == []
+    await login(env, "avery", "owner")
+    r = await env.get("/api/person/person.avery/picture?v=opaque")
+    assert r.status == 200 and await r.read() == PNG
+    assert env.fha.asked == [{"path": "/api/image/serve/fictional/512x512", "auth": f"Bearer {TOKEN}"}]
+    assert (await env.get("/api/person/person.avery/picture?url=https://evil.example")).status == 400
+    hub.store.states["person.avery"]["a"]["entity_picture"] = "https://evil.example/a.jpg"
+    assert (await env.get("/api/person/person.avery/picture")).status == 404
+    assert len(env.fha.asked) == 1
+    env.forget_cookies()
+    assert (await env.get("/api/person/person.avery/picture")).status == 401

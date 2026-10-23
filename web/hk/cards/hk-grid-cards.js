@@ -115,8 +115,8 @@
   // columns across. The last place is the speaker's when there is one; lights
   // that don't fit are left out (the room's page has them all).
   var PILL_H = 70, GAP = 10;
-  var COLS = { W: 2, L: 2, XL: 3 };
-  var HEAD = { W: 42, L: 66, XL: 66 };
+  var COLS = { W: 2, L: 2, XL: 3, XXL: 6 };
+  var HEAD = { W: 42, L: 66, XL: 66, XXL: 66 };
   function fit(size, height) {
     var rows = Math.max(0, Math.floor((height - (HEAD[size] || HEAD.W) + GAP) / (PILL_H + GAP)));
     rows = Math.min(rows, size === 'W' ? 1 : 2);
@@ -347,7 +347,7 @@
     }
     function sizeOf(el) {
       var s = (el.getAttribute && el.getAttribute('size')) || (el._config || {}).size;
-      return /^(S|W|T|L|XL)$/.test(s || '') ? s : null;
+      return /^(S|W|T|L|XL|XXL)$/.test(s || '') ? s : null;
     }
     // a size attribute set after the card is drawn (the view sets it on
     // placing the card) draws it again
@@ -376,7 +376,7 @@
       '.room[size=W]{padding:8px 12px;gap:6px}.room[size=W] .hd{height:22px}.room[size=W] .tiles{padding-bottom:0}',
       ':host([data-grid-pager]) .room[size=W]{padding-bottom:28px}',
       '.tiles{display:grid;grid-template-columns:repeat(var(--cols,2),minmax(0,1fr));',
-      '  grid-auto-rows:minmax(0,1fr);gap:' + GAP + 'px;flex:1;min-height:0;padding-bottom:var(--hk-pager-safe,0px)}',
+      '  grid-template-rows:repeat(var(--rows,2),minmax(0,1fr));gap:' + GAP + 'px;flex:1;min-height:0;padding-bottom:var(--hk-pager-safe,0px)}',
       '.slot{container-type:size;container-name:hk-cell;min-width:0;min-height:0}.slot > *{display:block;width:100%;height:100%}',
       '.more{border:0;border-radius:' + v('glass-radius') + ';' + C.plate('tile') + ';color:' + v('ink') + ';' + type('body') + ';min-height:44px;cursor:pointer}',
       '.slot{position:relative;touch-action:pan-x;-webkit-user-select:none;user-select:none;',
@@ -406,7 +406,7 @@
         if (!h) {
           // not laid out yet: the size class's rows of HK's own grid
           var rows = (C.HOME_GRID.sizes[this._size()] || [2, 2])[1];
-          h = rows * 162 + (rows - 1) * C.HOME_GRID.gap;
+          h = rows * C.TILE.tall + (rows - 1) * C.HOME_GRID.gap;
         }
         return h;
       }
@@ -469,6 +469,7 @@
         e.box.setAttribute('size', p.size);
         C.groupSurface(e.box, this._config.surface);
         e.tiles.style.setProperty('--cols', String(COLS[p.size]));
+        e.tiles.style.setProperty('--rows', p.size === 'W' ? '1' : '2');
         if (e.name.textContent !== (p.name || 'Room')) e.name.textContent = p.name || 'Room';
         var path = this._roomPath(p.area);
         e.chev.style.display = path ? '' : 'none';

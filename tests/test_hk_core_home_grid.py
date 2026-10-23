@@ -202,7 +202,7 @@ def test_the_catalog_and_its_python_mirror_agree(tmp_path):
     assert out["sources"] == list(HG.SOURCES) and out["room"] == HG.TABLET_ROOM
     # ...and hk-base.js's size-class table is the same one
     base = (ROOT / "web/hk/cards/hk-base.js").read_text()
-    assert "var HOME_GRID = { sizes: { S: [1, 1], W: [2, 1], T: [1, 2], L: [2, 2], XL: [3, 2] }" in base
+    assert "var HOME_GRID = { sizes: { S: [1, 1], W: [2, 1], T: [1, 2], L: [2, 2], XL: [3, 2], XXL: [6, 2] }" in base
     # every page source a card names is a source
     assert all(set(v["sources"]) <= set(HG.SOURCES) for v in HG.CATALOG.values())
 
@@ -260,3 +260,12 @@ print(JSON.stringify(G.CONDITIONS));
 ''')
     run = subprocess.run([str(JSC), str(script)], capture_output=True, text=True, check=True)
     assert json.loads(run.stdout) == list(HG.CONDITIONS)
+
+
+def test_fixed_grid_scale_and_full_width_groups():
+    for scale in (50, 80, 100):
+        out = HG.check({"cols": 6, "rows": 2, "scale": scale, "items": [{"id": "rooms", "card": "room", "size": "XXL", "at": [0, 0]}]})
+        assert out["scale"] == scale and out["items"][0]["size"] == "XXL"
+    for scale in (True, 49, 101, "80", 75.5):
+        with pytest.raises(HG.GridInvalid):
+            HG.check({"scale": scale})

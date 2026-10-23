@@ -200,7 +200,7 @@
   // numbers: the gap between cells, the top band's height. A block's card
   // reads its class from its `size` attribute and its cell from
   // --hk-cell-w / --hk-cell-h.
-  var HOME_GRID = { sizes: { S: [1, 1], W: [2, 1], T: [1, 2], L: [2, 2], XL: [3, 2] }, gap: 10, band: 60 };
+  var HOME_GRID = { sizes: { S: [1, 1], W: [2, 1], T: [1, 2], L: [2, 2], XL: [3, 2], XXL: [6, 2] }, gap: TILE.gridGap, band: 60, pad: 1280 * 0.015 + 8 };
   // Breakpoints (px): screens for page structure, card widths for container
   // queries inside a card. A media query can't read a CSS variable, but every
   // card's CSS is a JS string, so these interpolate.

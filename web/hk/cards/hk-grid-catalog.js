@@ -19,7 +19,7 @@
   if (window.hkGridCatalog) return;            // double-load guard
 
   // Size classes: [columns, rows] (hkCards.HOME_GRID is the same table)
-  var SIZES = { S: [1, 1], W: [2, 1], T: [1, 2], L: [2, 2], XL: [3, 2] };
+  var SIZES = { S: [1, 1], W: [2, 1], T: [1, 2], L: [2, 2], XL: [3, 2], XXL: [6, 2] };
   var TABLET_ROOM = 'tablet_room';
 
   // a block whose card isn't drawn yet (G3), or with nothing in the house to show
@@ -35,7 +35,7 @@
       return o.entity ? { type: 'custom:hk-tile-card', entity: o.entity } : stand('Accessory', 'mdi:lightbulb'); } },
     scene: { sizes: ['S', 'W'], sources: [], opts: { scene: 'scene' }, card: function (s, o) {
       return o.scene ? { type: 'custom:hk-scene-card', entity: o.scene, icon_color: 'white' } : stand('Scene', 'mdi:palette'); } },
-    scenes: { sizes: ['W', 'L', 'XL'], sources: ['scenes'], opts: { scenes: 'scenes', surface: 'surface' }, card: function (s, o) {
+    scenes: { sizes: ['W', 'L', 'XL', 'XXL'], sources: ['scenes'], opts: { scenes: 'scenes', surface: 'surface' }, card: function (s, o) {
       return Object.assign({ type: 'custom:hk-scenes-card', surface: o.surface }, o.scenes ? { scenes: o.scenes } : {}); } },
     now_playing: { sizes: ['W', 'T', 'L'], sources: ['speakers'], opts: { speaker: 'speaker' }, card: function (s, o) {
       // T and L: the progress above the transport (the Home app's and Apple
@@ -82,7 +82,7 @@
     // `tablet_room` resolves it itself, through the host (hkShell.tabletRoom):
     // the tablet showing the screen may be known only once the page is up.
     // `fallback` is the room it shows on a page that is no wall tablet.
-    room: { sizes: ['W', 'L', 'XL'], sources: ['rooms'], opts: { area: 'area', surface: 'surface' }, card: function (s, o, ctx) {
+    room: { sizes: ['W', 'L', 'XL', 'XXL'], sources: ['rooms'], opts: { area: 'area', surface: 'surface' }, card: function (s, o, ctx) {
       // no room of its own: the tablet's, else the screen's first
       return { type: 'custom:hk-grid-room-card', area: o.area || TABLET_ROOM, fallback: (ctx.rooms || [])[0] || null, size: s, surface: o.surface }; } },
     scene_suggested: { sizes: ['W', 'L'], sources: [], opts: { windows: 'windows' }, card: function (s, o) {
@@ -125,7 +125,7 @@
   // The block's own options go to every page, under the page's. Nothing in
   // the house to show: one page, the block's card as it is without pages.
   var PAGES_MAX = 12;
-  var PER_PAGE = { W: 2, L: 4, XL: 6 };      // a scenes page's scenes, by size
+  var PER_PAGE = { W: 2, L: 4, XL: 6, XXL: 12 };      // a scenes page's scenes, by size
   function pages(item, ctx) {
     var it = item || {}, c = CARDS[it.card], x = ctx || {};
     if (!c) return [{ card: stand('Unavailable', 'mdi:help-circle-outline') }];

@@ -508,12 +508,10 @@
     ':host([size]) .card.scene.tall .grid{row-gap:0}',
     ':host([size]) .card.scene.tall .name{align-self:end;line-height:19px;font-size:17px}',
     // Two room rows on a short tablet still use the tall tile hierarchy,
-    // with a smaller well so the name and state remain inside the tile.
+    // retaining the standard 42 px well and each accessory’s configured glyph.
     '@container hk-cell (max-height:120px){',
     '  :host([data-group-fill]) hk-plate.card.tall{padding:8px 12px}',
-    '  :host([data-group-fill]) .card.tall .grid{grid-template-rows:32px minmax(0,1fr) auto auto;row-gap:2px}',
-    '  :host([data-group-fill]) .card.tall .well{width:32px;height:32px}',
-    '  :host([data-group-fill]) .card.tall .icon{width:22px;height:22px;--mdc-icon-size:22px}',
+    '  :host([data-group-fill]) .card.tall .grid{grid-template-rows:44px minmax(0,1fr) auto auto;row-gap:2px}',
     '}',
   ].join('');
 

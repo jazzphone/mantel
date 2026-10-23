@@ -69,7 +69,7 @@ window.addEventListener('hk-view-ready', function (e) { ready.push(e.detail.view
   var root = v._root, kids = root.childNodes;
   ok('one slot per card that has a place: the band, three blocks, the pop-up', kids.length === 5, kids.length);
   ok('the band is first and spans the grid', kids[0].className === 'band' && kids[0].firstChild === band);
-  ok('...its row is the band\'s height, then the rows share the rest', root.style.gridTemplateRows === '60px repeat(4, minmax(0, 1fr))', root.style.gridTemplateRows);
+  ok('...the band keeps its height and each row uses a tall tile', root.style.gridTemplateRows === '60px repeat(4, 150px)', root.style.gridTemplateRows);
   ok('six columns', root.style['--g-cols'] === '6');
   var a1 = kids[1];
   ok('a block sits in its cell: L at the top left, under the band', a1.className === 'cell' && a1.firstChild === a &&
@@ -98,13 +98,13 @@ window.addEventListener('hk-view-ready', function (e) { ready.push(e.detail.view
   ] });
   v.cards = [a, b];
   var root = v._root, kids = root.childNodes;
-  ok('a 3-column grid with no band: rows only', root.style.gridTemplateRows === 'repeat(5, minmax(0, 1fr))' && root.style['--g-cols'] === '3');
+  ok('a 3-column grid with no band: rows only', root.style.gridTemplateRows === 'repeat(5, 150px)' && root.style['--g-cols'] === '3');
   ok('...XL fills its width', kids[0].style.gridColumn === '1 / span 3' && kids[0].style.gridRow === '1 / span 2');
   ok('...a W block on the last row', kids[1].style.gridColumn === '2 / span 2' && kids[1].style.gridRow === '5 / span 1');
   var w = new View();
   w.setConfig({ grid: { cols: 4, rows: 9 }, cards: [] });
   ok('a grid it can\'t draw gets the defaults (6 x 4, band on)', w._root.style['--g-cols'] === '6' &&
-     w._root.style.gridTemplateRows === '60px repeat(4, minmax(0, 1fr))');
+     w._root.style.gridTemplateRows === '60px repeat(4, 150px)');
 })();
 
 // ---- the strategy
