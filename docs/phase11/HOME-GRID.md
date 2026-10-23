@@ -6,7 +6,7 @@ https://claude.ai/artifact/JnMmSXDneGVE1e81BWYuid, A preferred). An Owner or Adm
 using HK's own cards. A block can hold **several pages** that swipe: cameras, rooms, thermostats, scene pages.
 Mantel first; HK Frontend as well, which comes at little extra cost (below).
 
-**Status (2026-10-22): G1–G6 are implemented; G7's shared settings entry and real scratch-HA drag/save check pass, and G8's guides/screenshots are added. The visual refinement pass now fixes the compact band, clock, thermostat and swipe-page alignment, with Chrome and WebKit validation. No version bump, publication or release yet. Next: publish the HK build, release, then validate the kitchen tablet.** See the latest progress entry below. Older slice notes describe their state at the time; the current grid already reserves the tab bar's space.
+**Status (2026-10-22): G1–G8 done and released in Mantel App 0.1.58 on the house; HK Frontend not yet built (1.10.7 on the house). The owner's second review left the work listed under "Next: owner review, round 2" at the end of this file — a new session starts there.** Older slice notes describe their state at the time.
 
 ## The answers (2026-10-22)
 
@@ -756,4 +756,106 @@ The owner's review of the Tap Weight screen, fixed on `main` (no release):
 - **Shadows:** a cell now clips 40 px out (a shadow's reach), and a pager's track 28 px, so the plates' shadows fade instead of ending in a grey box round the block. A pager's track takes no touches of its own, so its wider reach never takes a tap meant for the block beside it.
 
 **Checked:** the render audit passes every block in all five looks. It still reports a band text warning on every view, and that warning is there on the unchanged code too. A CDP touch check covered swipe, dot taps, side taps and a neighbour's tap at the track's reach. Blur, Flat Light and Flat Dark were checked from screenshots. The guide's pictures are refreshed (Arial, fictional house). The kitchen tablet has not been checked.
+
+
+## Next: owner review, round 2 (2026-10-22)
+
+The owner's review of 0.1.58 on the house. **Start here.** Every item follows DESIGN.md
+(/Volumes/config/hk_house/docs/DESIGN.md, read-only) and is checked with the render audit
+(`tools/headless/home_grid_audit.py`), screenshots in every look (Flat Light, Flat Dark, Blur), and the editor smoke
+(`tools/headless/grid_editor_smoke.py`). Record each item's progress under it as you go.
+
+### R1. The card picker (+ Add) — rebuild it
+
+"A horrible layout." Today it is a flat list of every card times every size. Its previews are broken (white bars
+over empty grey boxes: the preview cards get no house data and no sized cell), and its sizes are bare letters.
+Rebuild it like iOS's widget gallery:
+
+- Cards in groups (Rooms & Lights, Scenes, Climate, Music, Security & Cameras, Info), each row its glyph, name and
+  a one-line description, and a search field.
+- Choosing one shows **one large live preview**, drawn by the real card in a sized cell (`container-type:size`,
+  `hk-cell`, `--hk-cell-w/-h` as `hk-home-grid-view` gives them), with the house's data. Under it is a segmented
+  size control with real names (Small, Wide, Tall, Large, Extra Large), only the card's own sizes. A size with no
+  free space is dimmed and says so.
+- **Add** places it at the first fit; the preview also drags onto the grid.
+- The same picker, or its parts, picks a block's **card when its options are edited** (below, R7).
+
+(A session card with this brief was proposed on 2026-10-22, task_bf793631; this section supersedes it.)
+
+### R2. The room block — the mock-up's, only what turns on and off
+
+It "looks way different than the mock-up" (concept A on the canvas, https://claude.ai/artifact/JnMmSXDneGVE1e81BWYuid).
+It **must not include the room's status chips** (temperature, humidity, doors, motion and so on): drop the status
+row (`hk-room-status-card`) from `hk-grid-room-card` (web/hk/cards/hk-grid-cards.js) entirely. It shows **only the
+room's entities that turn on and off**: lights, switches and outlets shown as lights, fans, its speaker. Lay them out
+as the mock-up does, filling the block (no tall empty space under one pill). Keep tap to toggle and press-and-hold
+to dim. A room with more than fits says "+N more", which opens the room page.
+
+### R3. A weather block like Apple's Weather widget
+
+The owner's reference (a screenshot of Apple's large Weather widget, not committed). It is one plate with:
+
+- top left the place's name, and under it the current temperature very large; top right the condition glyph, the
+  condition ("Clear") and "H:74° L:45°";
+- a hairline, then a row of six hours, each its time ("9 PM"), its glyph and its temperature;
+- a hairline, then five days, each its weekday, its glyph, the low (dimmed), a range bar coloured cool to warm
+  (positioned on the week's span, as Apple's is) and the high.
+
+Sizes: **W** the top part only, **L** the top and the hours, **XL** (or a T/L variant) all three. It replaces
+today's `weather` block (`hk-weather-band-card section: hero`), using the Weather page's own data and glyphs
+(`hk-weather.js`), and fits the block exactly with no scrolling. The band's weather stays as it is.
+
+### R4. One camera
+
+"I can't seem to only show one camera; it always wants to show at least two." A camera block with one camera
+chosen (or one page of a `cameras` source) must draw that camera alone, filling the block. Find why two show:
+the `camera` entry in `hk-grid-catalog.js` hands `hk-camera-mosaic-card` the screen's cameras when no `entity` is
+set, the starter uses `pages: {source: 'cameras'}`, and the editor may offer no way to pick one camera. Fix it so
+that choosing one camera is obvious in the editor and draws one.
+
+### R5. The security block — a real design
+
+"Doesn't fit with the format of all the other cards; looks lazy." Today it is the Security page's status row
+(`hk-page-status-card page: security`) in a plate. Design a proper block in the grid's tile language (as the
+action, timers and scene tiles):
+
+- **S:** the system's glyph in its well (colored when armed), "Security" and its state ("Disarmed", "Armed
+  Away"); a tap opens the alarm's sheet, with the PIN as now.
+- **W:** the same, plus a second line of locks and doors ("2 Locks Locked · 1 Window Open") and the arm/disarm
+  choices as the sheet's, never sent without the PIN.
+
+### R6. Timers with controls
+
+"Shouldn't the timer card have some controls on it?" Give the block the Timers page's own controls:
+
+- **S:** none running: a tap opens Create a Timer (the keypad sheet, `hk-timer-new-card`); one running: its ring
+  of time left, with pause/resume and cancel (44 px).
+- **W:** the running timers with their controls, plus quick starts (the house's timer presets, the page's chips)
+  when none are running.
+
+Calls go through the same scripts as the Timers page (`script.quick_timer_create`, `timer.*`).
+
+### R7. Conditional blocks
+
+"May be cool to make some of these cards conditional." A block option, **Show When**: always (default), or a
+condition. Examples are "music playing", "a timer running", "the alarm armed", "someone at the door", "after
+sunset", or an entity's state. While the condition is false, the block's space goes to a **fallback block** the
+owner chooses, so the grid never shows a hole and never reflows. It's checked in `hk_core` like the rest of
+`home_grid` (a Python mirror kept equal by a test), and the editor shows both states, with a toggle to preview the
+other one.
+
+### R8. Every block follows the screen's look
+
+"Not all cards follow the appearance selected; the Thermostat card isn't blurred." In Blur (glass) the thermostat
+block's plate is not frosted like the others. Audit **every catalog card at every size** in each look for the
+look's own plate (`hkCards.plate()` / `--hk-look-shadow` / the glass blur), and fix the ones that draw their own
+surface (the thermostat's `.surface.tstat` in web/hk/cards/hk-control.js is the known one). Add the check to
+`home_grid_audit.py`, so a block whose plate doesn't match its look fails.
+
+### Also open
+
+- The render audit reports "band text clipped" for the band's clock on every view, also on the code before the
+  round 1 fixes; find out whether the time really is cut or the check is wrong.
+- The kitchen tablet hasn't been checked with a Home Grid screen (real swipes, touch, idle return, doorbell jump).
+- HK Frontend's next build (1.10.8) carries all of this; it needs the owner's OK, as does each release.
 
