@@ -1240,6 +1240,16 @@ Everything on main since 0.1.28 (validation green: JS 130, HA py 732, Mantel 283
   passes. A tap while it waits sends nothing (a relay opener's stop is another pulse); a real opening or closing
   still offers Stop. HK Frontend gets it at its next build (1.10.7 on the house); Mantel Link (0.1.5) unchanged.
 
+### 0.1.58 (2026-10-22)
+
+- **Home Grid** (docs/phase11/HOME-GRID.md, docs/guide/Home-Grid.md): a screen's Home can be a grid of blocks that
+  never scrolls. In Mantel Settings → Screens → the screen, set Home Style to Home Grid and choose Arrange Home Grid
+  (on a desktop, Owner or Admin). Start from Tap Weight or Glance Up, Touch Down, then drag, resize, add and set
+  blocks. History, Restore and Copy Layout To… are included, and Save writes one checked, audited change. Blocks can
+  swipe between pages with iPhone-style dots. The tab bar, its rooms and the other pages stay as they are. No screen
+  changes until one is switched to Home Grid.
+- HK Frontend gets it at its next build (1.10.7 on the house); Mantel Link (0.1.5) unchanged.
+
 ### Removal
 
 Stop and uninstall **Mantel** (Settings → Apps → Mantel → Uninstall); this removes its image and `/data`
