@@ -58,6 +58,7 @@ async def main():
             # Every overlay matches its actual cell in the scaled iframe.
             geometry=await b.eval("(()=>{let fr=ed.iframe.getBoundingClientRect(),scale=fr.width/ed.grid.frame[0];return [...ed.overlay.querySelectorAll('.block')].every(btn=>{let r=btn.getBoundingClientRect(),c=ed.previewView.shadowRoot.querySelector('[data-id='+btn.dataset.id+']').getBoundingClientRect();return Math.abs(r.x-fr.x-c.x*scale)<2 && Math.abs(r.y-fr.y-c.y*scale)<2 && Math.abs(r.width-c.width*scale)<2 && Math.abs(r.height-c.height*scale)<2})})()")
             assert geometry
+            assert await b.eval("(()=>{let w=ed.iframe.contentWindow,v=ed.previewView,p=v.shadowRoot.querySelector('[data-id=a2]').firstElementChild,room=p._els[p._index],plate=room.shadowRoot.querySelector('.room'),radius=parseFloat(w.getComputedStyle(plate).borderTopLeftRadius)*v._gridScale;return [...ed.overlay.querySelectorAll('.block,.slot')].every(e=>Math.abs(parseFloat(getComputedStyle(e).borderTopLeftRadius)-radius)<0.1)})()")
             print('drag swap and overlay geometry passed',flush=True)
             # Room paging has one starting-room choice; a selected room is respected on a desktop.
             await b.eval("ed.screenSettingsOpen=false;ed.select('a2');ed.update('a2',{opts:{area:'kitchen'},pages:{source:'rooms',start:'tablet_room'}})")

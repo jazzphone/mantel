@@ -960,3 +960,10 @@ Owner review of 0.1.60 identified two editor issues. Starter Layouts remained vi
 A room’s Area option was silently overridden by automatic Rooms paging, while the tablet-room start fell back to Dining Room on an unassigned desktop. Room Display now distinguishes One Room (Room selector), Swipe Between Rooms (Starting Room selector), and Custom Pages (Default Room and per-page Room). Automatic room paging opens on the selected starting room and returns there on idle. Explicit rooms take priority over legacy tablet-room flags; Tablet’s Room still resolves per device. The UI hides the duplicate Area and tablet-start toggle in room swipe mode and explains desktop/unavailable-room fallback beside the relevant control. This preserves the saved schema and the rest of the screen’s room order.
 
 Validation: all frontend JavaScript suites pass, including four opening-page regressions; 75 focused grid, preview-safety and documentation tests pass. The desktop editor smoke exercises Kitchen as the opening room, switching between single and swipe modes, idle return, collapsed starters, drag/swap, independent scrolling, save/refusal, history, copy and cancel. House deployment remains on 0.1.60 until another release is authorized.
+
+
+### Editor outline polish and 0.1.61 release preparation (2026-10-23)
+
+The owner requested matching corner radii for placement guides and selected cards, and authorized the next house release with the room-control follow-up. Editor grid slots, selected blocks and drag outlines now read the card radius and apply the preview’s uniform scale. This removes the separate 10 px editor-outline radius. The release is prepared as 0.1.61; deployment verification follows below when complete.
+
+Validation: Chrome and WebKit compare placement/selection radii against the card’s computed radius at the preview scale. The full frontend JavaScript suite passes; 100 focused grid/release/documentation tests pass, 3 skipped. The editor smoke retains room-start/idle behavior, drag geometry, scrolling, save/refusal, history, copy and cancel checks.

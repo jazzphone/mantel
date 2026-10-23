@@ -155,6 +155,11 @@ const pw = require(process.env.PLAYWRIGHT_PATH || 'playwright');
     return p?._pages?.[p._index]?.area==='kitchen';
   });
   if(!await page.evaluate(()=>[...ed.sidebar.querySelectorAll('button')].filter(e=>e.textContent==='Tap Weight'||e.textContent==='Glance Up, Touch Down').every(e=>e.closest('.screen-settings')&&!e.closest('.screen-settings').open&&!e.checkVisibility())))throw new Error('starters remain visible in card controls');
+  if(!await page.evaluate(()=>{
+    const w=ed.iframe.contentWindow,v=ed.previewView,it=ed.grid.items.find(i=>i.card==='room'),p=v.shadowRoot.querySelector('[data-id='+it.id+']').firstElementChild;
+    const room=p._els[p._index],radius=parseFloat(w.getComputedStyle(room.shadowRoot.querySelector('.room')).borderTopLeftRadius)*v._gridScale;
+    return [...ed.overlay.querySelectorAll('.block,.slot')].every(e=>Math.abs(parseFloat(getComputedStyle(e).borderTopLeftRadius)-radius)<0.1);
+  }))throw new Error('editor outline radius differs from cards');
   console.log(JSON.stringify({editor:'Kitchen matches Starting Room; starter layouts collapsed'}));
   if(commandCalls){console.log(JSON.stringify({unexpectedCommands:commandCalls}));process.exitCode=1;}
   if(errors.length){console.log(JSON.stringify({errors}));process.exitCode=1;}

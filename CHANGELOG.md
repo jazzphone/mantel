@@ -2,6 +2,14 @@
 
 All notable changes to Mantel are listed here. Versions follow [semantic versioning](https://semver.org); the Home Assistant App, the Docker images and the Python package share one version number.
 
+## 0.1.61 - 2026-10-23
+
+Local Home Assistant App update for the house.
+
+- Home Grid placement guides, selection outlines and drag outlines match the cards’ corner radius at every preview scale.
+- Starter layouts live inside collapsed Screen Settings while editing a layout.
+- Room controls distinguish One Room from Swipe Between Rooms. Starting Room now controls the opening page and idle return, including explicit room choices on a desktop.
+
 ## 0.1.60 - 2026-10-23
 
 Local Home Assistant App update for the house.
