@@ -68,7 +68,10 @@ class HaIcon extends HTMLElement {
   async _loadIcon() {
     const want = this._icon;
     let icon = null;
-    try { icon = await resolveIcon(want); } catch (e) { /* a missing glyph draws nothing */ }
+    try {
+      icon = await resolveIcon(want);
+      if (!icon && this._fallback && want) icon = await resolveIcon(this._fallback);
+    } catch (e) { /* a missing glyph draws nothing */ }
     if (want === this._icon) paint(this._parts, icon);
   }
 }
@@ -78,9 +81,10 @@ const DOMAIN_ICON = {
   climate: 'mdi:thermostat', fan: 'mdi:fan', media_player: 'mdi:speaker', camera: 'mdi:video',
   sensor: 'mdi:eye', binary_sensor: 'mdi:checkbox-blank-circle-outline', vacuum: 'mdi:robot-vacuum',
   person: 'mdi:account', weather: 'mdi:weather-partly-cloudy', alarm_control_panel: 'mdi:shield-home',
-  scene: 'mdi:palette', script: 'mdi:script-text', automation: 'mdi:robot', button: 'mdi:gesture-tap-button',
+  scene: 'mdi:palette', script: 'mdi:script-text-play', automation: 'mdi:robot', button: 'mdi:gesture-tap-button',
+  input_button: 'mdi:gesture-tap-button',
   input_boolean: 'mdi:toggle-switch', timer: 'mdi:timer-outline', valve: 'mdi:valve', humidifier: 'mdi:air-humidifier',
-  water_heater: 'mdi:water-boiler', remote: 'mdi:remote', siren: 'mdi:bullhorn', device_tracker: 'mdi:account',
+  water_heater: 'mdi:water-boiler', remote: 'mdi:remote', siren: 'mdi:alarm-light', device_tracker: 'mdi:account',
 };
 
 class HaStateIcon extends HaIcon {
@@ -92,8 +96,11 @@ class HaStateIcon extends HaIcon {
   _refresh() {
     const s = this._s;
     const domain = s && s.entity_id ? s.entity_id.split('.')[0] : '';
-    const name = this._own || (s && s.attributes && s.attributes.icon) || DOMAIN_ICON[domain] || 'mdi:bookmark';
-    if (name !== this._icon) { this._icon = name; this._loadIcon(); }
+    const fallback = DOMAIN_ICON[domain] || 'mdi:gesture-tap-button';
+    const name = this._own || (s && s.attributes && s.attributes.icon) || fallback;
+    if (name !== this._icon || fallback !== this._fallback) {
+      this._fallback = fallback; this._icon = name; this._loadIcon();
+    }
   }
 }
 

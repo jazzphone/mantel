@@ -2,6 +2,13 @@
 
 All notable changes to Mantel are listed here. Versions follow [semantic versioning](https://semver.org); the Home Assistant App, the Docker images and the Python package share one version number.
 
+## 0.1.63 - 2026-10-23
+
+Local Home Assistant App update for the house.
+
+- Room blocks offer Summary or Scroll All Accessories. The scrolling option includes the room's supported controls while preserving tile sizes and horizontal room paging.
+- Coffee Maker icons resolve to the bundled coffee-maker glyph. Button helpers such as Good Morning have a default icon, and unavailable entity icons fall back to their domain icon.
+
 ## 0.1.62 - 2026-10-23
 
 Local Home Assistant App update for the house.

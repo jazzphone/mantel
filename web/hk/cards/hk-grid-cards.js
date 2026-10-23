@@ -72,7 +72,7 @@
   // room page's build walks every entity.
   var partsMemo = { key: null, ents: null, devs: null, areas: null, out: null };
   function roomParts(client, area) {
-    var S = window.hkStrategy, out = { lights: [], speakers: [] };
+    var S = window.hkStrategy, out = { lights: [], speakers: [], all: [] };
     if (!S || !S.roomCards || !client || !client.states) return out;
     var HS = window.hkSettings;
     var key = area + '|' + (HS ? HS.version : '') + '|' + Object.keys(client.states).length;
@@ -86,6 +86,7 @@
       (list || []).forEach(function (c) {
         if (!c || typeof c !== 'object') return;
         var g = c.hk_place && c.hk_place.group;
+        if (c.entity && g) out.all.push(c);
         if (c.entity && (g === 'Lights' || (g === 'Climate' && dom(c.entity) === 'fan'))) out.lights.push(c);
         else if (g === 'Speakers & TVs' && c.entity) {
           var dc = attr(client.states[c.entity], 'device_class');
@@ -377,6 +378,8 @@
       ':host([data-grid-pager]) .room[size=W]{padding-bottom:28px}',
       '.tiles{display:grid;grid-template-columns:repeat(var(--cols,2),minmax(0,1fr));',
       '  grid-template-rows:repeat(var(--rows,2),minmax(0,1fr));gap:' + GAP + 'px;flex:1;min-height:0;padding-bottom:var(--hk-pager-safe,0px)}',
+      '.tiles.scrolling{grid-template-rows:none;grid-auto-rows:calc((100% - var(--scroll-gaps,10px))/var(--rows,2));align-content:start;overflow-y:auto;overflow-x:hidden;overscroll-behavior-y:contain;scrollbar-width:thin;padding-bottom:0;margin-bottom:var(--hk-pager-safe,0px)}',
+      '.tiles.scrolling .slot{touch-action:pan-x pan-y}',
       '.slot{container-type:size;container-name:hk-cell;min-width:0;min-height:0}.slot > *{display:block;width:100%;height:100%}',
       '.more{border:0;border-radius:' + v('glass-radius') + ';' + C.plate('tile') + ';color:' + v('ink') + ';' + type('body') + ';min-height:44px;cursor:pointer}',
       '.slot{position:relative;touch-action:pan-x;-webkit-user-select:none;user-select:none;',
@@ -415,6 +418,10 @@
         var h = this.client, size = this._size(), area = this._area();
         if (!h || !h.states || !area) return { area: area, size: size, tiles: [], status: null, line: '', name: '' };
         var parts = roomParts(h, area);
+        if (this._config.accessory_display === 'scroll') {
+          return { area: area, size: size, scroll: true, more: 0, name: (h.areas[area] || {}).name || area,
+                   tiles: parts.all.map(function (c) { return pill(c, ['light', 'switch', 'input_boolean', 'fan'].indexOf(dom(c.entity)) >= 0); }) };
+        }
         // A paged group leaves the same clear foot as other interactive cards.
         var places = fit(size, this._height() - (this.hasAttribute('data-grid-pager') ? 24 : 0));
         var room = (h.areas || {})[area] || {};
@@ -425,7 +432,7 @@
       _sigOf() {
         var p = this._plan();
         this._p = p;
-        return JSON.stringify([p.area, p.size, p.name, p.more, this._config.surface, p.tiles.map(function (t) { return t.entity; }),
+        return JSON.stringify([p.area, p.size, p.name, p.more, !!p.scroll, this._config.surface, p.tiles.map(function (t) { return t.entity; }),
                                this._height(), !!window.hkStrategy, !!window.hkRoom]);
       }
       // EACH NEW CLIENT: every pill and the status row get it (they gate their own draws)
@@ -470,12 +477,14 @@
         C.groupSurface(e.box, this._config.surface);
         e.tiles.style.setProperty('--cols', String(COLS[p.size]));
         e.tiles.style.setProperty('--rows', p.size === 'W' ? '1' : '2');
+        e.tiles.style.setProperty('--scroll-gaps', p.size === 'W' ? '0px' : GAP + 'px');
+        e.tiles.classList.toggle('scrolling', !!p.scroll);
         if (e.name.textContent !== (p.name || 'Room')) e.name.textContent = p.name || 'Room';
         var path = this._roomPath(p.area);
         e.chev.style.display = path ? '' : 'none';
         e.nm.setAttribute('aria-label', (p.name || 'Room') + (path ? ', open the room' : ''));
         // the pills: made again only when what they are changes
-        var key = JSON.stringify([p.tiles, p.more, p.size]);
+        var key = JSON.stringify([p.tiles, p.more, p.size, !!p.scroll]);
         if (key !== this._key) {
           this._key = key;
           e.tiles.innerHTML = '';
@@ -483,7 +492,7 @@
           if (!p.tiles.length) {
             var none = document.createElement('div');
             none.className = 'none';
-            none.textContent = p.empty || (p.area ? (p.size === 'W' ? '' : 'No lights in this room') : 'No room');
+            none.textContent = p.empty || (p.area ? (p.size === 'W' ? '' : (p.scroll ? 'No accessories in this room' : 'No lights in this room')) : 'No room');
             e.tiles.appendChild(none);
           }
           p.tiles.forEach(function (t) {
@@ -541,6 +550,10 @@
             self._dimShow(slot, start.pct);
           }, HOLD_MS);
         });
+        // Keep the initial move cancelable even over the child card's shadow
+        // tree: a held light owns the gesture, a quick pan scrolls normally.
+        slot.addEventListener('touchstart', function () {}, { passive: false });
+        slot.addEventListener('touchmove', function (ev) { if (held && ev.cancelable) ev.preventDefault(); }, { passive: false });
         slot.addEventListener('pointermove', function (ev) {
           if (!start) return;
           var dy = ev.clientY - start.y, dx = ev.clientX - start.x;

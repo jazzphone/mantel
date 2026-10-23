@@ -71,7 +71,7 @@ const MDI_ALIAS = {
   "fan-desk": "fan", "fan-floor": "fan", "dehumidifier": "air-humidifier-off",
   "roman-shade": "roller-shade-closed", "roman-shade-open": "roller-shade", "skylight": "window-closed-variant",
   "door-french": "door-closed", "garage-double": "garage-variant", "contact-sensor": "magnet",
-  "power-strip": "power-socket-us"
+  "power-strip": "power-socket-us", "coffee-maker": "coffee-maker-outline"
 };
 let MDI_META = null;
 const MDI_CHUNKS = {};

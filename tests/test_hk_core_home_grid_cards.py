@@ -176,3 +176,16 @@ def test_duplicate_collection_entries_are_refused():
     _, errors = write({"id": "group", "card": "accessories", "size": "L", "at": [0, 0],
                        "opts": {"accessories": [{"entity": "light.a"}, {"entity": "light.a"}]}})
     assert errors == {"home_grid": "grid_option"}
+
+
+@pytest.mark.parametrize("mode", ["summary", "scroll"])
+def test_room_accessory_display_is_saved_for_each_page(mode):
+    _, errors = write({"id": "room", "card": "room", "size": "L", "at": [0, 0],
+                       "opts": {"area": "kitchen", "accessory_display": mode},
+                       "pages": {"source": "list", "list": [{"opts": {"area": "den", "accessory_display": mode}}]}})
+    assert errors == {}
+
+
+def test_invalid_room_accessory_display_is_refused():
+    _, errors = write({"id": "room", "card": "room", "size": "L", "at": [0, 0], "opts": {"accessory_display": "everything"}})
+    assert errors == {"home_grid": "grid_option"}

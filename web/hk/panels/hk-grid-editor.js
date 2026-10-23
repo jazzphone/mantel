@@ -482,7 +482,7 @@
       var fields = G.table()[key].opts || {}, opts = {}, self = this;
       Object.keys(fields).forEach(function (name) {
         var kind = fields[name];
-        if (['secondary', 'title'].includes(kind)) return;
+        if (['secondary', 'title', 'room_display'].includes(kind)) return;
         if (kind === 'accessories') { opts[name] = self.choices('entity').filter((op) => /^(light|switch|fan|sensor)\./.test(op[0])).slice(0, 4).map((op) => ({ entity: op[0] })); if (!opts[name].length) delete opts[name]; return; }
         var choices = self.choices(kind).filter((op) => op[0] !== 'tablet_room');
         if (kind === 'scene' && key === 'scene') choices = choices.filter((op) => op[0].indexOf('scene.') === 0);
@@ -605,6 +605,7 @@
       Object.keys(fields).forEach(function (key) {
         if (item.card === 'room' && item.id && !page && key === 'area' && item.pages && item.pages.source === 'rooms') return;
         var kind = fields[key], label = item.card === 'room' && key === 'area' ? (item.pages && item.pages.source === 'list' && !page ? 'Default Room' : 'Room') : key.charAt(0).toUpperCase() + key.slice(1);
+        if (kind === 'room_display') { rows.push(K.select({ label: 'Accessory Display', value: opts[key] || 'summary', options: [['summary', 'Summary'], ['scroll', 'Scroll All Accessories']], onChange: (v) => set(key, v) })); rows.push(K.info({ label: 'Summary shows a few lights, fans and one speaker. Scroll All Accessories keeps the same tile sizes and includes the room’s other supported controls. Swipe sideways to change rooms.' })); return; }
         if (kind === 'title') { rows.push(K.text({ label: page ? 'Page Name' : 'Group Name', value: opts[key] || '', maxlength: 60, onCommit: (v) => set(key, v) })); return; }
         if (kind === 'secondary') { self.secondaryFields(opts[key], opts.entity || (item.opts || {}).entity, (v) => set(key, v), rows); return; }
         if (kind === 'accessories') {

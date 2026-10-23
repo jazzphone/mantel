@@ -58,7 +58,7 @@ CATALOG: dict[str, dict[str, Any]] = {
     "vacuum": {"sizes": ("S", "W"), "sources": (), "opts": {"entity": "vacuum"}},
     "clock": {"sizes": ("W", "XL"), "sources": (), "opts": {}},
     # the new cards (G3)
-    "room": {"sizes": ("W", "L", "XL", "XXL"), "sources": ("rooms",), "opts": {"area": "area", "surface": "surface"}},
+    "room": {"sizes": ("W", "L", "XL", "XXL"), "sources": ("rooms",), "opts": {"area": "area", "surface": "surface", "accessory_display": "room_display"}},
     "scene_suggested": {"sizes": ("W", "L"), "sources": (), "opts": {"windows": "windows"}},
     # `area`: the room an action keeps to (All Lights Off in one room); the others ignore it
     "action": {"sizes": ("S",), "sources": (), "opts": {"action": "action", "area": "area"}},
@@ -204,7 +204,14 @@ def _accessories(v: Any) -> list[dict[str, Any]]:
     return out
 
 
+def _room_display(v: Any) -> str:
+    if v not in ("summary", "scroll"):
+        raise GridInvalid("grid_option")
+    return v
+
+
 OPTION_KINDS = {
+    "room_display": _room_display,
     "boolean": _boolean,
     "title": _title,
     "secondary": _secondary,
