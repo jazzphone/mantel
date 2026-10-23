@@ -904,3 +904,10 @@ surface (the thermostat's `.surface.tstat` in web/hk/cards/hk-control.js is the 
 - Validation includes editor toggle/slider and saved-layout checks, background independence from child pills, browser measurements for filled scene rows and music alignment, Chrome/WebKit starters, card render checks in three looks, model/boundary tests and all frontend suites. These changes still require the normal release and tablet acceptance.
 
 Final follow-up checks: **3,439 passed, 21 skipped** in the complete main suite; all frontend JavaScript suites pass with intentional tile/media snapshots refreshed. The focused model, host-boundary and settings run passes 156 tests. Chrome and WebKit both pass the two starters in three looks, including explicit artwork-centre and scene-row-fill measurements. The editor smoke checks the actual background toggle/opacity slider and saves their values; the interaction check verifies tint/blur without changing pill backgrounds. Card geometry/material checks, packaging and links pass. No release or household command was performed.
+
+
+### Editor scrolling follow-up (2026-10-23)
+
+The gallery previously had its own scroll area, but the editor itself could still grow with long settings, moving the dashboard preview out of view. The desktop editor is now bounded to the window: toolbar and preview stay in place, and the entire right-hand options panel has one independent scroll area with scroll chaining contained. The frame scales to the stage's actual remaining height, including wrapped instructions, and follows both stage and instruction-size changes.
+
+Checked with real wheel input in the picker and block settings at 1600 × 1000 and 1280 × 650, including extra input at the bottom of the panel. Chrome and WebKit keep the preview in the same position and fully visible. The editor smoke also retains drag/swap, overlay geometry, background controls, conditional previews, save/refusal, history, copy and cancel checks. Focused editor/settings/host-boundary tests pass. No release or production setting was changed.

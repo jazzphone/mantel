@@ -58,6 +58,21 @@ async def main():
             if ARGS.shots:
                 await screenshot_font(b)
                 await b.screenshot(ARGS.shots / 'home-grid-gallery.png')
+            # Real wheel scrolling stays in the side panel; the preview never moves.
+            async def check_panel_scroll():
+                before = await b.eval("(()=>{let r=ed.box.getBoundingClientRect();return [r.x,r.y,r.width,r.height]})()")
+                point = await b.eval("(()=>{let r=ed.sidebar.getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height-60}})()")
+                assert await b.eval('ed.sidebar.scrollHeight > ed.sidebar.clientHeight')
+                await b.send('Input.dispatchMouseEvent', type='mouseWheel', x=point['x'], y=point['y'], deltaX=0, deltaY=4000)
+                assert await b.wait('ed.sidebar.scrollTop>0',5)
+                assert before == await b.eval("(()=>{let r=ed.box.getBoundingClientRect();return [r.x,r.y,r.width,r.height]})()")
+                assert await b.eval('ed.scrollTop===0 && ed.ui.scrollTop===0 && ed.box.getBoundingClientRect().bottom<=innerHeight')
+                # At the panel's end, more wheel input must not escape to the editor.
+                await b.eval('ed.sidebar.scrollTop=ed.sidebar.scrollHeight')
+                await b.send('Input.dispatchMouseEvent', type='mouseWheel', x=point['x'], y=point['y'], deltaX=0, deltaY=4000)
+                assert before == await b.eval("(()=>{let r=ed.box.getBoundingClientRect();return [r.x,r.y,r.width,r.height]})()")
+                await b.eval('ed.sidebar.scrollTop=0')
+            await check_panel_scroll()
             await b.eval("ed.sidebar.querySelector('[data-card=accessory]').click()")
             assert await b.eval("ed.sidebar.querySelectorAll('[data-preview-card] > iframe').length === 1")
             assert await b.wait("ed.sidebar.querySelector('[data-preview-card] iframe').contentWindow.galleryCard?._config.entity.startsWith('light.')",20)
@@ -72,6 +87,14 @@ async def main():
             if ARGS.shots:
                 await screenshot_font(b)
                 await b.screenshot(ARGS.shots / 'home-grid-background.png')
+            await check_panel_scroll()
+            # Short desktop windows scale the preview to the actual remaining height.
+            await b.send('Emulation.setDeviceMetricsOverride', width=1280, height=650, deviceScaleFactor=1, mobile=False)
+            assert await b.wait('ed.box.getBoundingClientRect().bottom<=innerHeight && ed.sidebar.getBoundingClientRect().bottom<=innerHeight',5)
+            await check_panel_scroll()
+            await b.send('Emulation.setDeviceMetricsOverride', width=1600, height=1000, deviceScaleFactor=1, mobile=False)
+            await b.wait('ed.box.getBoundingClientRect().width>500',5)
+            print('picker and settings scroll independently; preview stays visible at both desktop sizes',flush=True)
             # Both states of a conditional block stay in exactly the same cell.
             await b.eval("ed.select('a3'); ed.update('a3',{when:{kind:'music_playing'},fallback:{card:'weather'}}); ed.conditionPreview=false; ed.preview()")
             assert await b.wait("ed.previewView?.querySelectorAll && ed.previewView._config.cards.some(c=>c.force===false)",10)

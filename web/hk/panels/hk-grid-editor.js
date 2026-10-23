@@ -80,13 +80,13 @@
     return valid(out) ? out : null;
   }
   var CSS = [
-    ':host{position:fixed;inset:0;z-index:1000;overflow:auto}',
-    '.editor{min-height:100%;background:var(--hk-bg)}',
-    '.tools{display:flex;align-items:center;gap:12px;padding:12px 20px;border-bottom:1px solid var(--hk-sep);background:var(--hk-cell);position:sticky;top:0;z-index:4}',
+    ':host{position:fixed;inset:0;z-index:1000;overflow:hidden}',
+    '.editor{height:100%;display:flex;flex-direction:column;overflow:hidden;background:var(--hk-bg)}',
+    '.tools{display:flex;align-items:center;gap:12px;padding:12px 20px;border-bottom:1px solid var(--hk-sep);background:var(--hk-cell);flex:none;z-index:4}',
     '.tools h1{font-size:20px;margin:0;flex:1}.tools button{border:0;border-radius:8px;min-height:44px;padding:0 16px;background:var(--hk-fill);cursor:pointer}',
     '.tools .save{background:var(--hk-tint);color:white}.tools button:disabled{opacity:.4}',
-    '.work{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:20px;padding:20px}',
-    '.stage{min-width:0}.framebox{position:relative;overflow:hidden;margin:auto;border-radius:10px;background:var(--hk-cell);outline:1px solid var(--hk-sep)}',
+    '.work{flex:1;min-height:0;overflow:hidden;box-sizing:border-box;display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:20px;padding:20px}',
+    '.stage{min-width:0;min-height:0;overflow:hidden}aside{min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable}.framebox{position:relative;overflow:hidden;margin:auto;border-radius:10px;background:var(--hk-cell);outline:1px solid var(--hk-sep)}',
     '.frame{position:absolute;left:0;top:0;transform-origin:top left;background:var(--hk-cell);overflow:hidden}',
     'iframe{position:absolute;inset:0;border:0;width:100%;height:100%;pointer-events:none}',
     '.grid{position:absolute;display:grid;gap:10px;z-index:2}',
@@ -95,8 +95,7 @@
     '.block[aria-pressed=true]{border-color:var(--hk-tint)}.block:focus-visible{outline:3px solid var(--hk-tint)}',
     '.block .tag{position:absolute;top:6px;left:6px;max-width:calc(100% - 12px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:4px 8px;border-radius:7px;background:var(--hk-cell);font-size:13px}',
     '.ghost{position:absolute;pointer-events:none;border:3px solid var(--hk-tint);background:var(--hk-fill);border-radius:10px;z-index:4}.ghost.bad{border-color:var(--hk-red)}',
-    '.note{font-size:13px;color:var(--hk-label2);line-height:1.5}.message{color:var(--hk-red);min-height:24px;padding:8px 20px}',
-    '.catalog-list{max-height:calc(100dvh - 240px);overflow-y:auto}',
+    '.note{font-size:13px;color:var(--hk-label2);line-height:1.5}.message{flex:none;color:var(--hk-red);min-height:24px;padding:8px 20px}',
     '.catalog-search{box-sizing:border-box;width:100%;min-height:44px;border:1px solid var(--hk-sep);border-radius:10px;padding:10px 12px;background:var(--hk-cell);color:var(--hk-label);font:inherit}',
     '.catalog-row{display:flex;align-items:center;gap:12px;width:100%;min-height:68px;border:0;border-bottom:1px solid var(--hk-sep);padding:10px 12px;background:var(--hk-cell);color:var(--hk-label);text-align:left;cursor:pointer}',
     '.catalog-row hk-icon{width:28px;height:28px;flex:none;color:var(--hk-tint)}.catalog-row span{display:grid;gap:4px}.catalog-row small{font-size:13px;color:var(--hk-label2)}',
@@ -120,7 +119,7 @@
       this.toggleAttribute('dark', this.panel.hasAttribute('dark'));
       if (this.ui) { this.fit(); return; }
       this.draw();
-      this.ro = new ResizeObserver(this.fit.bind(this)); this.ro.observe(this.stage);
+      this.ro = new ResizeObserver(this.fit.bind(this)); this.ro.observe(this.stage); this.ro.observe(this.stage.querySelector('.note'));
       this.unload = (e) => { if (this.dirty()) { e.preventDefault(); e.returnValue = ''; } };
       window.addEventListener('beforeunload', this.unload);
     }
@@ -152,7 +151,7 @@
       this.message = h('div', { class: 'message', role: 'status', 'aria-live': 'polite' }); this.ui.appendChild(this.message);
       this.ui.appendChild(h('div', { class: 'desktop-note', text: 'Arrange Home Grid on a desktop with a mouse or trackpad. This screen only displays the saved layout.' }));
       this.stage = h('section', { class: 'stage', 'aria-label': 'Screen layout' });
-      this.sidebar = h('aside', { 'aria-label': 'Block and grid options' });
+      this.sidebar = h('aside', { 'aria-label': 'Block and grid options', tabindex: '0' });
       this.ui.appendChild(h('div', { class: 'work' }, [this.stage, this.sidebar]));
       this.stage.appendChild(h('p', { class: 'note', text: 'Drag blocks to move them. Equal sizes swap. Select a block and use the arrow keys to move it. Cards are a preview; controls do not act on the house.' }));
       this.box = h('div', { class: 'framebox' }); this.stage.appendChild(this.box);
@@ -234,7 +233,10 @@
     }
     fit() {
       if (!this.grid || !this.box) return;
-      var frame = this.grid.frame, scale = Math.min(1, (this.stage.clientWidth || 800) / frame[0], Math.max(240, window.innerHeight - 220) / frame[1]);
+      var note = this.stage.querySelector('.note'), noteStyle = note && getComputedStyle(note);
+      var noteHeight = note ? note.getBoundingClientRect().height + (parseFloat(noteStyle.marginTop) || 0) + (parseFloat(noteStyle.marginBottom) || 0) : 0;
+      var frame = this.grid.frame, availableHeight = Math.max(1, this.stage.clientHeight - noteHeight - 8);
+      var scale = Math.min(1, (this.stage.clientWidth || 800) / frame[0], availableHeight / frame[1]);
       this.frame.style.width = frame[0] + 'px'; this.frame.style.height = frame[1] + 'px'; this.frame.style.transform = 'scale(' + scale + ')';
       this.box.style.width = frame[0] * scale + 'px'; this.box.style.height = frame[1] * scale + 'px';
       // Follow the real frame's layout (including top/bottom tab bar or side rail).
