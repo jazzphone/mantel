@@ -112,8 +112,10 @@ check('an entity that lists none gets the classic four', none.join() === 'off,he
   c.setAttribute('size', 'T');
   var html = c._climate({ state: 'heat_cool', attributes: { friendly_name: 'Grid', current_temperature: 71,
     current_humidity: 44, target_temp_low: 68, target_temp_high: 74, hvac_modes: ['off', 'heat', 'cool', 'heat_cool'] } });
-  check('tall grid: both readings remain legible on separate lines', /Current 71°<br>Humidity 44%/.test(html));
-  check('tall grid: a single mode-sheet button, not four undersized segments', /data-tstat-details/.test(html) && !/data-mode=/.test(html));
+  check('tall grid: one reading under the name, the name the way to the sheet, the mode on the face',
+        /Currently 71°/.test(html) && !/Humidity/.test(html) && /class="tstat-name"[^>]*data-tstat-details/.test(html) &&
+        /class="tstat-act"[^>]*>Auto</.test(html));
+  check('tall grid: the name opens the sheet; no undersized mode segments', /data-tstat-details/.test(html) && !/data-mode=/.test(html));
   var renders = 0; c._render = function () { renders++; };
   Object.defineProperty(c, 'client', { configurable: true, value: {} });
   c.attributeChangedCallback('size', 'T', 'L');

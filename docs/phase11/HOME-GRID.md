@@ -742,3 +742,18 @@ The owner's review reopened G2 visual acceptance before publication. Work stays 
 ### Top-band baseline alignment (2026-10-22)
 
 The compact clock and weather now share a lower text baseline instead of independently centring stacks of different heights. This lowers the weather alongside the time. The composed-layout check measures the date/weather-caption alignment within 1 px; both starter layouts pass in Chrome and WebKit across Flat light, Flat dark and Blur. The header CSS snapshot and documentation preview are refreshed; all frontend JavaScript suites pass.
+
+
+### Owner review fixes (2026-10-22)
+
+The owner's review of the Tap Weight screen, fixed on `main` (no release):
+
+- **Pager dots** are iOS's page control: 7 px dots, one every 16 px, in one centred group (they had a 44 px slot each, so nine rooms' dots spread across the block). The group is the 44 px target: a dot goes to its page, a tap beside the current dot steps a page that way. Swipes are unchanged.
+- **Room block:** its status row no longer repeats the lights or the speaker, which are its own pills (the "Light · Off" row over the Chandelier).
+- **Thermostat T:** the dial is the block. It's as wide as the block, with the setpoint the largest type. The name is the way to the sheet ("Main Floor ›"), with one reading under it ("Currently 71°"). The face says the mode and what it is doing ("Auto · Idle"). The Mode button is gone.
+- **Timers:** with none or one running, the block is a tile like the grid's other small blocks: its glyph's well at the top, "Timers / None Running" (or the timer and its time left) at the foot. A tap opens the Timers page. Two or more running keep the list.
+- **Now Playing:** T and L show the progress above the transport, and L the volume below it (a 44 px slider row). The cover's blur shows through a lighter wash, clipped to the plate. The plate has the look's shadow, not the page player's 0 22px 60px one.
+- **Shadows:** a cell now clips 40 px out (a shadow's reach), and a pager's track 28 px, so the plates' shadows fade instead of ending in a grey box round the block. A pager's track takes no touches of its own, so its wider reach never takes a tap meant for the block beside it.
+
+**Checked:** the render audit passes every block in all five looks. It still reports a band text warning on every view, and that warning is there on the unchanged code too. A CDP touch check covered swipe, dot taps, side taps and a neighbour's tap at the track's reach. Blur, Flat Light and Flat Dark were checked from screenshots. The guide's pictures are refreshed (Arial, fictional house). The kitchen tablet has not been checked.
+

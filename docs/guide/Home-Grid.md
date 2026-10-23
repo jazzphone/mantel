@@ -17,7 +17,7 @@ Start with **Tap Weight** (the largest blocks are the ones you touch most) or **
 
 The frame is the tablet's dimensions in pixels, used to scale the desktop preview. The tablet itself fills its actual display. The editor includes the screen's tab bar and leaves its space clear. There are 6, 3 or 2 columns and 2–6 rows. The narrower column counts are supported, but their card designs have not been polished for nightstand displays.
 
-The optional top band keeps the clock, weather and status chips together. A narrow thermostat block has a **Mode** button that opens its full controls; wider thermostat blocks show mode choices directly. Dots let you change a block's page.
+The optional top band keeps the clock, weather and status chips together. In a narrow thermostat block the dial fills the block: tap the thermostat's name for its full controls and modes. Wider thermostat blocks show mode choices directly. A large Now Playing block shows the song's progress above the controls and the volume below them, over a blur of the album cover. Under a block that has more than one page, the dots work like an iPhone's: swipe the block, tap a dot, or tap either side of the dots to move one page.
 
 **Save** applies the complete layout in one checked settings change. **Cancel** discards the draft. The card controls inside the preview are disabled, so arranging a block cannot toggle a light or run a scene. To return to the generated Home page, choose **Home Style → Generated**; the saved grid is retained.
 

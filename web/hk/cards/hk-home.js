@@ -1998,16 +1998,61 @@
         '.tm b{' + window.hkCards.typeCss('caption') + ';line-height:16px;color:' + window.hkCards.v('ink-2') + ';',
         '  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
         '.tm hk-countdown,.tm em{' + window.hkCards.typeCss('headline') + ';font-style:normal;line-height:21px;',
-        '  color:' + window.hkCards.v('ink') + ';font-variant-numeric:tabular-nums;white-space:nowrap}'
+        '  color:' + window.hkCards.v('ink') + ';font-variant-numeric:tabular-nums;white-space:nowrap}',
+        // NONE OR ONE RUNNING: a tile like the grid's other small blocks (Lock
+        // Up, a scene) -- the glyph's well at the top, the name and the state
+        // at the foot, in a tile's type; a tap opens Timers
+        ':host([size]) hk-plate.strip.one{justify-content:space-between;padding:12.8px 12.8px 12.8px ' + window.hkCards.TILE.padL + 'px;',
+        '  ' + window.hkCards.plate('tile') + ';cursor:pointer;-webkit-tap-highlight-color:transparent;',
+        '  transition:transform ' + window.hkCards.DUR.press + ' ease,filter ' + window.hkCards.DUR.press + ' ease}',
+        ':host([size]) hk-plate.strip.one:active{transform:scale(0.97);filter:brightness(0.93)}',
+        '.one .well{width:42px;height:42px;border-radius:50%;background:' + window.hkCards.v('key') + ';display:flex;',
+        '  align-items:center;justify-content:center;flex:none}',
+        '.one .well.on{background:rgba(255,159,10,.95)}',
+        '.one .well hk-icon{--mdc-icon-size:100%;width:' + window.hkCards.TILE.glyph + 'px;height:' + window.hkCards.TILE.glyph + 'px;',
+        '  display:flex;color:' + window.hkCards.v('glyph') + '}',
+        '.one .well.on hk-icon{color:rgba(0,0,0,.82)}',
+        ':host([hk-flat]) .one .well.on hk-icon{color:#fff}',
+        '.one .tx{display:flex;flex-direction:column;gap:' + window.hkCards.TILE.rowGap + 'px;min-width:0}',
+        '.one .tx b,.one .tx em,.one .tx hk-countdown{display:block;font-size:15px;line-height:' + window.hkCards.TILE.lineH + 'px;',
+        '  letter-spacing:-0.23px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-style:normal}',
+        '.one .tx b{font-weight:600;color:' + window.hkCards.v('ink') + '}',
+        '.one .tx em,.one .tx hk-countdown{font-weight:500;color:' + window.hkCards.v('ink-2') + ';font-variant-numeric:tabular-nums}',
+        '@media (prefers-reduced-motion:reduce){:host([size]) hk-plate.strip.one{transition:none;transform:none}}'
       ].join('');
     }
     getCardSize() { return 1; }
+    // A HOME GRID BLOCK'S TAP: the Timers page, where the screen has one
+    _gridTap() {
+      if (this._tapWired) return;
+      this._tapWired = true;
+      var self = this, el = this._e;
+      el.setAttribute('role', 'button');
+      el.setAttribute('tabindex', '0');
+      el.setAttribute('aria-label', 'Timers');
+      var go = function () {
+        var M = window.hkCards.menu, path = M && M.pagePath ? M.pagePath('timers') : null;
+        if (path) window.hkCards.navigate(path, self);
+      };
+      el.addEventListener('click', function (ev) { ev.stopPropagation(); go(); });
+      el.addEventListener('keydown', function (ev) {
+        if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); go(); }
+      });
+    }
     // A HOME GRID BLOCK: the running timers that fit, soonest first
     _grid(list, sized) {
       this._watchBlock();
       var rows = (list || []).filter(function (r) { return r && r.finishes_at && !isNaN(Date.parse(r.finishes_at)); })
         .sort(function (a, b) { return Date.parse(a.finishes_at) - Date.parse(b.finishes_at); });
       var b = this._block(), cols = sized === 'S' ? 1 : 2;
+      var esc0 = window.hkCards.esc;
+      this._one = rows.length <= 1;
+      if (this._one) {
+        var r0 = rows[0];
+        return '<div class="well' + (r0 ? ' on' : '') + '"><hk-icon icon="mdi:timer-outline"></hk-icon></div><div class="tx">' +
+          (r0 ? '<b>' + esc0(r0.name || 'Timer') + '</b><hk-countdown deadline="' + Date.parse(r0.finishes_at) + '"></hk-countdown>'
+              : '<b>Timers</b><em>None Running</em>') + '</div>';
+      }
       var fit = b ? Math.max(1, Math.floor((b.h - 2 * TM.pad + TM.gap) / (TM.row + TM.gap))) * cols : cols;
       var esc = window.hkCards.esc;
       var items = rows.slice(0, fit).map(function (r) {
@@ -2040,7 +2085,10 @@
       var T = window.hkTimers, sized = this._cellSize();
       if (sized) {
         var on = this._st(cfg.entity || 'sensor.running_quick_timers');
-        window.hkCards.morph(this._e, this._grid(on && on.attributes && on.attributes.running, sized));
+        var html0 = this._grid(on && on.attributes && on.attributes.running, sized);
+        this._e.classList.toggle('one', !!this._one);
+        this._gridTap();
+        window.hkCards.morph(this._e, html0);
         return;
       }
       // '' is a CORRECT rendering, not a failure: with no timers running the

@@ -195,15 +195,19 @@ var css = gv._sr.children[0].textContent;
 ok('the grid is the window less the tab bar\'s room (--hk-bar-room, else --hk-tabbar-h)',
    css.indexOf('--g-room:var(--hk-bar-room,var(--hk-tabbar-h,0px))') >= 0 && css.indexOf('height:calc(100dvh - var(--g-room))') >= 0 &&
    css.indexOf('height:100dvh') < 0);
-ok('a cell clips a gap out, so its plate keeps its shadow', /\.cell\{[^}]*clip-path:inset\(calc\(-1 \* var\(--g-gap\)\)\)/.test(css) &&
+ok('a cell clips a shadow\'s reach out (40 px), so its plate keeps its whole shadow', /\.cell\{[^}]*clip-path:inset\(-40px\)/.test(css) &&
    !/\.cell\{[^}]*overflow:hidden/.test(css));
 var pcss = Pager.CSS;
 ok('the dots: mark, the page it is on in ink, written with v()', pcss.indexOf('background:' + window.hkCards.v('mark')) >= 0 &&
    pcss.indexOf('[aria-current=true] i{background:' + window.hkCards.v('ink')) >= 0 && pcss.indexOf('opacity:.35') < 0);
 ok('...a fade (DUR.fade), none under Reduce Motion', pcss.indexOf('background-color ' + window.hkCards.DUR.fade) >= 0 &&
    pcss.indexOf('prefers-reduced-motion:reduce') >= 0);
-ok('...44 px targets', /\.dot\{[^}]*flex:0 1 44px[^}]*height:44px/.test(pcss));
-ok('the track leaves the plates\' shadows a gap of room', pcss.indexOf('margin:-10px -10px -10px') >= 0 && pcss.indexOf('gap:20px') >= 0);
+ok('...iOS\'s page control: a dot every 16 px, 44 px tall, in one centred group that is the target',
+   /\.dot\{[^}]*flex:0 0 16px[^}]*height:44px/.test(pcss) && /\.pc\{[^}]*height:44px[^}]*pointer-events:auto/.test(pcss) &&
+   /\.dots\{[^}]*pointer-events:none/.test(pcss));
+ok('the track leaves the plates\' shadows their reach (28 px), and takes no touches of its own',
+   pcss.indexOf('margin:-28px -28px -28px') >= 0 && pcss.indexOf('gap:56px') >= 0 &&
+   pcss.indexOf('.track{pointer-events:none}.page{pointer-events:auto}') >= 0);
 ok('the dots overlay the foot: pages keep the full block height', pcss.indexOf('.dots{position:absolute;bottom:0;left:0;right:0') >= 0);
 var calm = [];
 window.matchMedia = function (q) { return { matches: /reduce/.test(q) }; };

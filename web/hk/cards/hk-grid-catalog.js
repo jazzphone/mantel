@@ -38,7 +38,16 @@
     scenes: { sizes: ['W', 'L', 'XL'], sources: ['scenes'], opts: { scenes: 'scenes' }, card: function (s, o) {
       return Object.assign({ type: 'custom:hk-scenes-card' }, o.scenes ? { scenes: o.scenes } : {}); } },
     now_playing: { sizes: ['W', 'T', 'L'], sources: ['speakers'], opts: { speaker: 'speaker' }, card: function (s, o) {
-      return Object.assign({ type: 'custom:hk-now-playing-card', music: true }, own(o.speaker) ? { entity: o.speaker } : {}); } },
+      // T and L: the progress above the transport (the Home app's and Apple
+      // Music's order); L the volume under it as well. Its speaker's own
+      // controls, or the screen's music.
+      var sp = own(o.speaker), ctl = function (parts) {
+        return Object.assign({ type: 'custom:hk-media-control-card', color: 'purple', bare: true, parts: parts },
+                             sp ? { entity: sp } : { entity_from: { music: true } });
+      };
+      var extra = s === 'L' ? { sub_card: ctl(['progress']), meta_card: ctl(['volume']) }
+                : s === 'T' ? { sub_card: ctl(['progress']) } : {};
+      return Object.assign({ type: 'custom:hk-now-playing-card', music: true }, sp ? { entity: sp } : {}, extra); } },
     thermostat: { sizes: ['T', 'L'], sources: ['thermostats'], opts: { entity: 'climate' }, card: function (s, o, ctx) {
       var id = own(o.entity) || (ctx.climate || [])[0];
       // the dial (hk-control.js), sized to the block (G2)

@@ -1602,6 +1602,7 @@
   // one cell's width and height. A card's own layout per class reads them
   // (G2). The card gets the same `size` attribute.
   var GRID = C.HOME_GRID || { sizes: {}, gap: 10, band: 60 };
+  var GRID_SHADOW = 40;         // how far a block's shadow shows past it, px (glass-shadow-lg: 10 + 28)
   class HkHomeGridView extends HTMLElement {
     setConfig(config) {
       this._config = config || {};
@@ -1634,10 +1635,12 @@
       // left, the last row's plates end a gutter above the bar, and it
       // follows the bar live (the ResizeObserver below re-measures the cells).
       //
-      // A CELL CLIPS A GAP OUT, not at its edge: a plate fills its cell, and
-      // clipped at the edge its shadow (the look's: Flat's contact shadow,
-      // the glass pill's) was cut off. clip-path paints only: the cell's size
-      // is the grid's still, and what spills past a gap is cut.
+      // A CELL CLIPS A SHADOW'S REACH OUT (GRID_SHADOW), not at its edge: a
+      // plate fills its cell, and clipped at its edge -- or a gap out, as it
+      // was -- its shadow (the look's: glass-shadow-lg's 0 10px 28px, the
+      // player's heavier one) ended in a hard grey box round the block.
+      // clip-path paints only: the cell's size is the grid's still, and what
+      // spills further is cut.
       st.textContent =
         ':host{--g-room:var(--hk-bar-room,var(--hk-tabbar-h,0px));display:block;position:relative;' +
         'height:calc(100dvh - var(--g-room));max-height:calc(100dvh - var(--g-room));overflow:hidden;' +
@@ -1646,7 +1649,7 @@
         'box-sizing:border-box;display:grid;width:100%;height:100%;padding:var(--g-pad);gap:var(--g-gap);' +
         'grid-template-columns:repeat(var(--g-cols), minmax(0, 1fr));overflow:hidden}' +
         '.band{grid-column:1 / -1;grid-row:1;min-width:0;min-height:0;overflow:hidden}' +
-        '.cell{position:relative;min-width:0;min-height:0;clip-path:inset(calc(-1 * var(--g-gap)));' +
+        '.cell{position:relative;min-width:0;min-height:0;clip-path:inset(-' + GRID_SHADOW + 'px);' +
         'container-type:size;container-name:hk-cell}' +
         '.cell>*,.band>*{display:block;box-sizing:border-box;width:100%;max-height:100%;margin:0!important}' +
         '.cell>*{height:100%}' +
@@ -1804,13 +1807,17 @@
   // A row inside a page that fits but keeps its own swipe lets go for the
   // touch (pagerHeld); one that scrolls keeps it.
   //
-  // The dots are buttons with 44 px targets (narrower only when they would
-  // not fit across), and each page and dot is called "2 of 5"; a change is
-  // said politely, so VoiceOver hears where it is.
+  // The dots are iOS's page control: one small group, centred, a dot every
+  // PAGER_PITCH px (never a dot to a 44 px slot, which spread nine rooms'
+  // dots across the whole block). The group is the target, as UIPageControl
+  // is: 44 px tall, a tap on a dot goes to its page, a tap beside the
+  // current one steps a page that way. Each page and dot is called "2 of 5";
+  // a change is said politely, so VoiceOver hears where it is.
   var PAGER_EDGE = 20;          // the menu's edge swipe (hk-menu.js .edge)
   var PAGER_DOTS = 20;          // the dots' overlay at the page's foot, px
   var PAGER_DOT = 7;            // a dot, px (iOS's page control)
-  var PAGER_ROOM = GRID.gap;    // the plates' shadow room: the grid's gap
+  var PAGER_PITCH = 16;         // dot to dot, px (iOS's: 7 px dots, 9 px apart)
+  var PAGER_ROOM = 28;          // the plates' shadow room: as far as their shadows show
   var pagerSeq = 0;
   function pagerAreaOf(client, id) {
     var e = ((client && client.entities) || {})[id] || {}, devs = (client && client.devices) || {};
@@ -1891,14 +1898,16 @@
       // THE PLATES' SHADOWS: a page's card fills the page, so the track
       // reaches S px past the block on every side (a negative margin, its
       // padding the same) and the pages are 2S apart: at rest a page's
-      // shadow shows, its neighbour doesn't. S is the grid's gap, as far as
-      // the cell lets anything show.
+      // shadow shows, its neighbour doesn't. The track takes no touches of
+      // its own -- it reaches over the blocks beside it; its pages do, and
+      // their drags still scroll it.
       return ':host{display:block;position:relative;height:100%}:host>div{height:100%}' +
         '.pager{position:relative;display:flex;flex-direction:column;height:100%}' +
         '.track{flex:1 1 auto;min-height:0;display:flex;gap:' + (2 * S) + 'px;margin:-' + S + 'px -' + S + 'px -' + S + 'px;' +
         'padding:' + S + 'px;scroll-padding:0 ' + S + 'px;overflow-x:auto;overflow-y:hidden;' +
         'scroll-snap-type:x mandatory;overscroll-behavior-x:contain;scrollbar-width:none;-webkit-overflow-scrolling:touch}' +
         '.track::-webkit-scrollbar{display:none}' +
+        '.track{pointer-events:none}.page{pointer-events:auto}' +
         '.track.held{overflow-x:hidden}' +
         // each page is the cell its card lays itself out in (hk-cell): the
         // full block size; dots sit inside its foot so adjacent plates align
@@ -1906,10 +1915,12 @@
         'scroll-snap-align:start;scroll-snap-stop:always;container-type:size;container-name:hk-cell}' +
         '.page>*{display:block;box-sizing:border-box;width:100%;height:100%;margin:0!important}' +
         '.dots{position:absolute;bottom:0;left:0;right:0;z-index:1;height:' + PAGER_DOTS + 'px;min-height:0;' +
-        'display:flex;justify-content:center;align-items:flex-end;min-width:0}' +
+        'display:flex;justify-content:center;align-items:flex-end;min-width:0;pointer-events:none}' +
+        '.pc{display:flex;align-items:flex-end;height:44px;padding:0 14px;pointer-events:auto;cursor:pointer;' +
+        '-webkit-tap-highlight-color:transparent}' +
         '.pager.one .dots{display:none}' +
         // 44 px targets, reaching up over the page's foot
-        '.dot{flex:0 1 44px;min-width:0;height:44px;margin:0;padding:0 0 7px;border:0;background:none;' +
+        '.dot{flex:0 0 ' + PAGER_PITCH + 'px;min-width:0;height:44px;margin:0;padding:0 0 7px;border:0;background:none;' +
         'display:flex;align-items:flex-end;justify-content:center;cursor:pointer;-webkit-tap-highlight-color:transparent}' +
         // a dot: the surface scale's `mark` (as notches and ticks are), the
         // page it is on in `ink`; a fade between them, none for Reduce Motion
@@ -1978,6 +1989,19 @@
       track.className = 'track';
       var dots = document.createElement('div');
       dots.className = 'dots';
+      var pc = document.createElement('div');
+      pc.className = 'pc';
+      dots.appendChild(pc);
+      // beside the dots: a page back or on, by which side of the current dot
+      pc.addEventListener('click', function (e) {
+        if (e && e.stopPropagation) e.stopPropagation();
+        var cur = self._dots[self._index];
+        if (!cur || !cur.getBoundingClientRect) return;
+        var r = cur.getBoundingClientRect(), to = self._index + (e.clientX < r.left + r.width / 2 ? -1 : 1);
+        if (to < 0 || to >= n) return;
+        self._moved = true;
+        self.goTo(to, true);
+      });
       var say = document.createElement('div');
       say.className = 'say';
       say.setAttribute('aria-live', 'polite');
@@ -2001,7 +2025,7 @@
           self._moved = true;
           self.goTo(i, true);
         });
-        dots.appendChild(b);
+        pc.appendChild(b);
         return b;
       });
       pager.appendChild(track);

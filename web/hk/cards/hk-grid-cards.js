@@ -499,6 +499,10 @@
           if (stKey) {
             var sc = Object.assign({}, p.status);
             delete sc.view_layout;
+            // the lights and the speaker are the block's own pills: the row
+            // never says them again ("Light · Off" over the Chandelier)
+            var R = window.hkRoom, kinds = setting('rooms.status', null) || (R && R._ && R._.KINDS) || [];
+            sc.items = kinds.filter(function (k) { return k !== 'lights' && k !== 'speakers'; });
             this._status = C.createCard(sc, h);
             this._status.setAttribute('data-grid-room-status', '');
             e.st.appendChild(this._status);

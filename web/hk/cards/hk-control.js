@@ -349,9 +349,24 @@ class HkControlCard extends HTMLElement {
       :host([size]) .ring .hit{stroke-width:64px}
       :host([size]) .tstat-modes{margin-top:10px;flex:none}
       :host([size]) .tstat-fan{display:none}
-      :host([size=T]){--hk-tstat-ring:min(100cqw - 44px, (100cqh - 158px - var(--hk-pager-safe,0px)) * 1.163)}
-      :host([size=T]) .tstat-modes{--count:1}
-      :host([size=T]) .tstat-sub{max-width:100%;min-height:36px}
+      /* T (one column, two rows): the DIAL is the block. The name is its
+         heading and the way to the full sheet ("Main Floor ›", as a room
+         block's name is), the reading one line under it, and the ring as
+         wide as the block -- into the side insets -- with the setpoint the
+         largest type on it. The mode is said on the face, not a button. */
+      :host([size=T]){--hk-tstat-ring:min(100cqw - 20px, (100cqh - 64px - var(--hk-pager-safe,0px)) * 1.163);
+        --hk-tstat-val:clamp(26px,calc(var(--hk-tstat-ring) * .17),42px)}
+      :host([size=T]) .tstat-modes{display:none}
+      :host([size=T]) .tstat-name{all:unset;position:relative;display:flex;align-items:center;gap:5px;min-width:0;max-width:100%;
+        cursor:pointer;-webkit-tap-highlight-color:transparent;${window.hkCards.typeCss('headline')};line-height:21px;color:${window.hkCards.v('ink')}}
+      :host([size=T]) .tstat-name span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+      :host([size=T]) .tstat-name i{font-style:normal;opacity:.62;flex:none}
+      :host([size=T]) .tstat-name::after{content:"";position:absolute;left:-6px;right:-6px;top:-12px;bottom:-12px}
+      :host([size=T]) .tstat-name:focus-visible{outline:2px solid ${window.hkCards.v('ink-2')};outline-offset:4px;border-radius:${window.hkCards.R.small}px}
+      :host([size=T]) .tstat-sub{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px}
+      :host([size=T]) .tstat-wrap{align-self:center;width:var(--hk-tstat-ring);max-width:none}
+      :host([size=T]) .tstat-face{padding-top:4px}
+      :host([size=T]) .tstat-act{${window.hkCards.typeCss('caption')};margin-top:2px}
       :host([size=L]){--hk-tstat-ring:min(100cqw - 44px, (100cqh - 138px - var(--hk-pager-safe,0px)) * 1.163)}
       .tstat-name{font-size:19px;font-weight:730;letter-spacing:-.4px;text-align:center;
         white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
@@ -442,7 +457,7 @@ class HkControlCard extends HTMLElement {
          and take every card in this file out: hk-slider, hk-control,
          hk-thermostat and hk-media-control all stop being defined, and a row
          of sliders renders NOTHING. A new Function(src) check catches it. */
-      input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:28px;margin:0;padding:0;background:transparent;border:0;outline:none;touch-action:pan-y;pointer-events:none}
+      input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:var(--hk-range-h,28px);margin:0;padding:0;background:transparent;border:0;outline:none;touch-action:pan-y;pointer-events:none}
       input[type=range]::-webkit-slider-runnable-track{height:8px;border-radius:5px;border:0;background:${window.hkCards.v('line-strong')}}
       input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:26px;height:26px;margin-top:-9px;border-radius:50%;border:0;background:#fff;box-shadow:0 3px 10px rgba(0,0,0,.25)}
       input[type=range]::-moz-range-track{height:8px;border-radius:5px;border:0;background:${window.hkCards.v('line-strong')}}
@@ -533,13 +548,18 @@ class HkControlCard extends HTMLElement {
     const val = off ? "Off"
       : range ? (this.hasAttribute('size') ? `${Math.round(lo)}–${Math.round(hi)}°` : `${Math.round(lo)} – ${Math.round(hi)}`)
       : (Number.isFinite(single) ? Math.round(single) + "°" : "—");
-    const cap = off ? "Thermostat" : (range ? (this.getAttribute('size') === 'T' ? "Range" : "Keep between") : "Set to");
+    const tall = this.getAttribute('size') === 'T';
+    const cap = off ? "Thermostat" : (range ? (tall ? "Range" : "Keep between") : "Set to");
     const actC = action === "cooling" ? "#32ade6" : action === "heating" ? "#ff9f0a"
       : "" + window.hkCards.v('ink-2') + "";
 
-    const sub = [Number.isFinite(cur) ? "Current " + Math.round(cur) + "°" : null,
-                 Number.isFinite(hum) ? "Humidity " + Math.round(hum) + "%" : null]
-                .filter(Boolean).join(" \u00b7 ");
+    const sub = tall
+      ? (Number.isFinite(cur) ? "Currently " + Math.round(cur) + "°" : "")
+      : [Number.isFinite(cur) ? "Current " + Math.round(cur) + "°" : null,
+         Number.isFinite(hum) ? "Humidity " + Math.round(hum) + "%" : null]
+        .filter(Boolean).join(" \u00b7 ");
+    // T: the face's foot says the mode with what it is doing ("Auto · Idle")
+    const actText = tall && !off && action !== mode ? this._pretty(mode) + " \u00b7 " + this._pretty(action) : this._pretty(action);
 
     const knob = (f, which) => {
       const p = this._pt(f, 78);
@@ -559,8 +579,10 @@ class HkControlCard extends HTMLElement {
     const has = Array.isArray(a.hvac_modes) && a.hvac_modes.length ? a.hvac_modes : ORDER;
     const modes = ORDER.filter(m => has.includes(m)).concat(has.filter(m => !ORDER.includes(m)));
     return `<div class="surface tstat">
-      <div class="tstat-name">${this._esc(this._name())}</div>
-      <div class="tstat-sub">${this.getAttribute('size') === 'T' ? this._esc(sub).replace(' · ', '<br>') : this._esc(sub)}</div>
+      ${tall
+        ? `<button class="tstat-name" type="button" data-tstat-details aria-label="${this._esc(this._name())}, mode ${this._esc(this._pretty(mode))}, open the thermostat"><span>${this._esc(this._name())}</span><i aria-hidden="true">›</i></button>`
+        : `<div class="tstat-name">${this._esc(this._name())}</div>`}
+      <div class="tstat-sub">${this._esc(sub)}</div>
       <div class="tstat-wrap">
         <!-- viewBox cropped to 172, not 200. The ring's legs end at y=155
              (100 + 78*sin135) and the stroke is 22 wide, so everything below
@@ -581,7 +603,7 @@ class HkControlCard extends HTMLElement {
         <div class="tstat-face">
           <div class="tstat-cap">${cap}</div>
           <div class="tstat-val" data-face>${val}</div>
-          <div class="tstat-act" style="color:${actC}">${this._esc(this._pretty(action))}</div>
+          <div class="tstat-act" style="color:${actC}">${this._esc(actText)}</div>
         </div>
       </div>
       <div class="tstat-modes segments" style="--count:${modes.length}">${this.getAttribute('size') === 'T'

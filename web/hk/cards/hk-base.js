@@ -4152,6 +4152,13 @@
       var v = lovelaceConfig().views[i];
       return '/' + dashSeg() + '/' + (v.path || i);
     },
+    // Where this dashboard's page at view path `p` is (a Home Grid's Timers
+    // block opens Timers); null: the screen has no such page
+    pagePath: function (p) {
+      var cfg = lovelaceConfig(), views = (cfg && cfg.views) || [];
+      for (var i = 0; i < views.length; i++) if (views[i] && views[i].path === p) return '/' + dashSeg() + '/' + p;
+      return null;
+    },
     // THE DATE LINE, for the edge tab: hk-header-card measures where its
     // date's optical centre sits (px below the top of the dashboard's panel)
     // and publishes it here; hk-menu.js centres the tab on it. Kept per
