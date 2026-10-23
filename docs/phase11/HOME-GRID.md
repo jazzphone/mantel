@@ -6,7 +6,7 @@ https://claude.ai/artifact/JnMmSXDneGVE1e81BWYuid, A preferred). An Owner or Adm
 using HK's own cards. A block can hold **several pages** that swipe: cameras, rooms, thermostats, scene pages.
 Mantel first; HK Frontend as well, which comes at little extra cost (below).
 
-**Status (2026-10-23): Mantel App 0.1.59 is installed on the house. The third review and fixed-tile follow-up below are implemented, ready for the next release and tablet acceptance. HK Frontend remains a separate release (1.10.7 on the house).** Older slice notes describe their state at the time.
+**Status (2026-10-23): Mantel App 0.1.60 is installed on the house, including the third review and fixed-tile/portrait follow-up. Physical-tablet visual and touch acceptance remains with the owner. HK Frontend remains a separate release (1.10.7 on the house).** Older slice notes describe their state at the time.
 
 ## The answers (2026-10-22)
 
@@ -944,3 +944,10 @@ Person portraits now rewrite HA `/api/image/serve/...` and `/local/...` paths to
 Continuation: these changes require the next authorized app release and physical-tablet acceptance. The installed house app remains 0.1.59. Keep unrelated Xcode changes out of the commit.
 
 Validation: **3,452 main tests passed, 21 skipped**; all frontend JavaScript suites pass with intentional room-row and icon-well snapshots refreshed. Chrome and WebKit pass both starters in Flat Light, Flat Dark and Blur, including sparse-room row reservation, standard 42 px wells, glyph containment, missing-portrait initials, six-column room geometry, uniform proportions at 1280 × 800, 1920 × 1080, 1024 × 768, 800 × 1280 and 390 × 844, real dot clicks and idle return. The editor smoke passes drag/swap, overlay geometry, populated previews, independent scrolling, save/refusal, history, copy and cancel. Packaging and 80 documentation-link checks pass. No house controls or deployment were invoked.
+
+
+### House update: Mantel App 0.1.60 (2026-10-23)
+
+The owner authorized deployment of the completed fixes. Release commit `47c5ace` was pushed on main and staged through the local-app process. Home Assistant created protected backup `a719cf98` of Mantel 0.1.59 before installing 0.1.60. The update request timed out while waiting; durable update state confirmed it was already in progress, so it was not repeated. Installation then completed: installed/latest version 0.1.60, no pending update, strict health OK, Home Assistant connected, and running build `4620f64abdedc2cd` matching the staged artifact. The latest 100 startup log lines contain no errors or traceback; command settings retain their existing role checks.
+
+This deploys fixed tile proportions and scaling, reserved room rows and standard accessory circles, full-width groups, portrait routing/fallbacks, and the third-review picker/camera/header/weather improvements. No HK Frontend publication or public release tag was made. The kitchen tablet still needs the owner’s visual and touch review after a reload.
