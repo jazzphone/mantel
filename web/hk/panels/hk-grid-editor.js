@@ -38,7 +38,7 @@
   // AN OPTION'S NAME in the panel: by its kind (hk-grid-catalog.js opts), else by its own name
   var KIND_LABELS = { entity: 'Accessory', climate: 'Thermostat', camera: 'Camera', weather: 'Weather', vacuum: 'Vacuum',
     speaker: 'Speaker', scene: 'Scene', scenes: 'Scenes', calendars: 'Calendars', area: 'Room', action: 'Does', windows: 'Time Windows', alarm: 'Alarm' };
-  var NAME_LABELS = { sky: 'Sky Background', title: 'Group Name', clock_style: 'Style', bare: 'Hide Box' };
+  var NAME_LABELS = { sky: 'Sky Background', title: 'Group Name', clock_style: 'Style', bare: 'Hide Box', big: 'Big Temperature', month: 'Month View' };
   // ONE THING OR PAGES THAT SWIPE, in each card's words: [one, its automatic source]
   var SHOW = { room: ['One Room', 'Swipe Between Rooms'], camera: ['One Camera', 'Swipe All Cameras'],
     thermostat: ['One Thermostat', 'Swipe All Thermostats'], now_playing: ['One Speaker', 'Swipe All Speakers'],
@@ -121,9 +121,9 @@
     ['n_clock', 'Big Clock', 'The time, large, with nothing round it',
       [{ id: 'n1', card: 'clock', size: 'XL', at: [0, 0], opts: { clock_style: 'classic' }, bare: true }]],
     ['n_calendar', 'Clock and Calendar', 'The time beside what’s next',
-      [{ id: 'n1', card: 'clock', size: 'L', at: [0, 0], opts: { clock_style: 'classic' }, bare: true }, { id: 'n2', card: 'calendar', size: 'T', at: [2, 0], bare: true }]],
+      [{ id: 'n1', card: 'clock', size: 'L', at: [0, 0], opts: { clock_style: 'classic' }, bare: true }, { id: 'n2', card: 'calendar', size: 'T', at: [2, 0], opts: { month: true }, bare: true }]],
     ['n_analog', 'Analog and Weather', 'A watch face beside the forecast',
-      [{ id: 'n1', card: 'clock', size: 'T', at: [0, 0], opts: { clock_style: 'analog' }, bare: true }, { id: 'n2', card: 'weather', size: 'L', at: [1, 0], bare: true }]]
+      [{ id: 'n1', card: 'clock', size: 'T', at: [0, 0], opts: { clock_style: 'analog' }, bare: true }, { id: 'n2', card: 'weather', size: 'L', at: [1, 0], opts: { big: true }, bare: true }]]
   ];
   function screenTypeOf(grid) {
     var t = grid && SCREEN_TYPES.find(function (x) { return x[2] === grid.cols && x[3] === grid.rows && x[4] === !!grid.band; });

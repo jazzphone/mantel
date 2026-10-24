@@ -73,11 +73,14 @@
       return Object.assign({ type: 'custom:hk-grid-security-card' }, o.entity ? { entity: o.entity } : {}); } },
     timers: { sizes: ['S', 'W'], sources: [], card: function () {
       return { type: 'custom:hk-timer-strip-card', entity: 'sensor.running_quick_timers' }; } },
-    weather: { sizes: ['W', 'L', 'XL'], sources: [], opts: { entity: 'weather', sky: 'boolean' }, card: function (s, o, ctx) {
+    // Tall, and Big Temperature at any size: the number large, as StandBy has it (2026-10-24)
+    weather: { sizes: ['W', 'T', 'L', 'XL'], sources: [], opts: { entity: 'weather', sky: 'boolean', big: 'boolean' }, card: function (s, o, ctx) {
       var id = o.entity || ctx.weather;
-      return id ? { type: 'custom:hk-weather-band-card', section: 'hero', entity: id, sky: o.sky === true } : stand('Weather', 'hk:weather-partly-cloudy'); } },
-    calendar: { sizes: ['T', 'L'], sources: [], opts: { calendars: 'calendars', days: 'days' }, card: function (s, o) {
-      return Object.assign({ type: 'custom:hk-calendar-pane-card' }, o.calendars ? { calendars: o.calendars } : {}, o.days ? { days: o.days } : {}); } },
+      return id ? Object.assign({ type: 'custom:hk-weather-band-card', section: 'hero', entity: id, sky: o.sky === true }, o.big ? { big: true } : {})
+                : stand('Weather', 'hk:weather-partly-cloudy'); } },
+    calendar: { sizes: ['T', 'L'], sources: [], opts: { calendars: 'calendars', days: 'days', month: 'boolean' }, card: function (s, o) {
+      return Object.assign({ type: 'custom:hk-calendar-pane-card' }, o.calendars ? { calendars: o.calendars } : {}, o.days ? { days: o.days } : {},
+                           o.month ? { month: true } : {}); } },
     battery: { sizes: ['S', 'W'], sources: [], card: function (s, o, ctx) {
       // the house battery the Energy feature names (hk-energy.js), sized to the block (G2)
       var B = ctx.battery;

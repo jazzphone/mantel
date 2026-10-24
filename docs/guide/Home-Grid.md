@@ -66,6 +66,8 @@ The **Clock** block comes in every size. **Style** is HK's own digital clock, or
 
 A block for something you haven't set up says where to set it up.
 
+**Month View** (Calendar) draws the month as a grid with today circled and a dot under each day with something on it; tapping a day opens it on the Calendar page. **Big Temperature** (Weather) draws the place, the temperature as large as the block holds, the condition and today's high and low; a Tall Weather block is always drawn this way.
+
 The **Calendar** block shows what is still to come over its **Days** (Today Only up to 7 Days; Today and Tomorrow by default), each later day under its own heading. The events scroll inside the block, and tapping one opens its details.
 
 Weather comes in Wide (conditions), Large (also readings, six hours and three days) and Extra Large (also five days). **Sky Background** adds Sky's clouds, sun or moon and precipitation inside the card; it is off by default and respects the screen's animation setting and reduced motion. Timers offer pause, resume and cancel; an empty block opens Create a Timer, and Wide also has quick starts. Security opens the shared alarm sheet, keeping its PIN flow. **Large and Extra Large Security** are the alarm keypad itself: the keys on the left, the alarm's state and the ways to arm on the right; the PIN is checked by the alarm, as on the Security page. **Large and Extra Large Vacuum** are the vacuum's controls, with **Clean Areas** below them when HK Clean Areas is added.

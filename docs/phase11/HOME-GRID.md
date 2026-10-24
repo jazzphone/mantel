@@ -1459,3 +1459,15 @@ Color → Black, the Sky's animations off), so nothing new there. What was missi
 - The nightstand starters draw without boxes. Clock faces now follow the screensaver's 24-Hour Clock: the old test
   read the house clock, which is always `HH:MM`, so they showed 24-hour time. A face too big for a Tall block (the
   analog dial) is scaled down to fit, and the block clips it rather than the face's own box.
+
+**Month View and Big Temperature.** The Calendar block's `month` draws the month: its name in the calendar's red,
+the week's initials, and a 5 or 6 row grid sharing the block's height. Today is circled, a day with an event gets a
+dot, and it reads the weeks the grid shows. A day is a button that opens the Calendar page at that day (`?day=`, as a
+calendar notification's Go To does). The Weather block's `big` draws the place, the temperature at
+`min(44cqh, 30cqw)`, the condition and today's high and low. The new Tall size is always drawn big. The nightstand
+starters use both.
+
+**Sheets on a phone held sideways (844 × 390), not yet designed for.** A light's sheet runs its slider past the
+sheet's foot. The event sheet's two columns are squeezed into 358 px, its mini month cut off. The Calendar page's Day
+view works, with about three hours in view. The sheets size by width (the phone breakpoint is 640 px wide), and
+nothing yet answers a screen this short.

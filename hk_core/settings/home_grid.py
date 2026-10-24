@@ -54,8 +54,8 @@ CATALOG: dict[str, dict[str, Any]] = {
     # Large and Extra Large (2026-10-24): the alarm's keypad
     "security": {"sizes": ("S", "W", "L", "XL"), "sources": (), "opts": {"entity": "alarm"}},
     "timers": {"sizes": ("S", "W"), "sources": (), "opts": {}},
-    "weather": {"sizes": ("W", "L", "XL"), "sources": (), "opts": {"entity": "weather", "sky": "boolean"}},
-    "calendar": {"sizes": ("T", "L"), "sources": (), "opts": {"calendars": "calendars", "days": "days"}},
+    "weather": {"sizes": ("W", "T", "L", "XL"), "sources": (), "opts": {"entity": "weather", "sky": "boolean", "big": "boolean"}},
+    "calendar": {"sizes": ("T", "L"), "sources": (), "opts": {"calendars": "calendars", "days": "days", "month": "boolean"}},
     "battery": {"sizes": ("S", "W"), "sources": (), "opts": {}},
     "people": {"sizes": ("W",), "sources": (), "opts": {}},
     # Large and Extra Large (2026-10-24): its controls with Clean Areas

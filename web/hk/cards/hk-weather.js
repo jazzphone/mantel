@@ -1518,6 +1518,20 @@
         var span = days.flatMap(function (d) { return [num(d.templow), num(d.temperature)]; }).filter(function (v) { return v !== null; });
         var min = span.length ? Math.min.apply(null, span) : 0, max = span.length ? Math.max.apply(null, span) : 1;
         var hl = [hi !== null ? 'H:' + Math.round(hi) + '°' : '', lo !== null ? 'L:' + Math.round(lo) + '°' : ''].filter(Boolean).join('  ');
+        // BIG TEMPERATURE (2026-10-24, StandBy's weather): the place, the
+        // temperature as large as the block holds, then the condition and
+        // today's high and low -- nothing else. A Tall block is always this.
+        if (cfg.big || sz === 'T') {
+          C.morph(this._root, '<hk-plate class="wb big ' + sz + (cfg.sky ? ' sky' : '') + '" role="group" aria-label="Weather">' +
+            (cfg.sky ? '<hk-grid-weather-sky entity="' + esc(cfg.entity) + '" aria-hidden="true"></hk-grid-weather-sky>' : '') +
+            '<b class="place-name">' + esc(titled(cfg.place || this._place())) + '</b>' +
+            '<div class="bn">' + (t !== null ? Math.round(t) + '°' : '--') + '</div>' +
+            '<div class="bc"><span class="sym" aria-hidden="true">' + sym(st.state, '26px') + '</span><b>' + esc(cond || '--') + '</b></div>' +
+            (hl ? '<span class="bh">' + esc(hl) + '</span>' : '') + '</hk-plate>');
+          var bsky = this._root.querySelector('hk-grid-weather-sky');
+          if (bsky) bsky.client = this.client;
+          return;
+        }
         var html = '<hk-plate class="wb ' + sz + (cfg.sky ? ' sky' : '') + '" role="group" aria-label="Weather forecast">' +
           (cfg.sky ? '<hk-grid-weather-sky entity="' + esc(cfg.entity) + '" aria-hidden="true"></hk-grid-weather-sky>' : '') + '<div class="top">' +
           '<div class="place-now"><b class="place-name">' + esc(titled(cfg.place || this._place())) + '</b>' +
@@ -1845,6 +1859,12 @@
           '.wb .range i{position:absolute;height:100%;border-radius:' + C.R.capsule('5px') + ';background:linear-gradient(90deg,#64d2ff,#ffd60a,#ff9f0a)}'
           ,'.wb .readings{display:flex;flex-wrap:wrap;gap:4px 12px;' + C.typeCss('caption') + ';color:' + C.v('ink-2') + ';flex:none}',
           '.wb.L{padding:14px 22px;gap:8px}.wb.L .hrs{padding-top:6px}.wb.L .hr{gap:2px}',
+          // BIG TEMPERATURE: the number sized to the block (its height first, its width for a wide one)
+          '.wb.big{gap:2px;justify-content:center;align-items:flex-start}',
+          '.wb.big .place-name{max-width:100%}',
+          '.wb.big .bn{font-size:clamp(44px,min(44cqh,30cqw),200px);line-height:1;font-weight:500;letter-spacing:-.02em;font-variant-numeric:tabular-nums;margin:2px 0 6px -.04em}',
+          '.wb.big .bc{display:flex;align-items:center;gap:6px;min-width:0;max-width:100%}.wb.big .bc b{' + C.typeCss('headline') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+          '.wb.big .bh{' + C.typeCss('body') + ';color:' + C.v('ink-2') + ';font-variant-numeric:tabular-nums}',
           '.wb.sky{position:relative;isolation:isolate;background:rgba(0,0,0,.22);--hk-glass-surface:0;backdrop-filter:none;-webkit-backdrop-filter:none;--hk-ink:#fff;--hk-ink-2:rgba(255,255,255,.85);color:white;text-shadow:0 1px 4px rgba(0,0,0,.6)}',
           '.wb.sky>hk-grid-weather-sky{position:absolute;inset:0;z-index:-1;pointer-events:none;border-radius:inherit;overflow:hidden}.wb.sky>hk-grid-weather-sky::after{content:"";position:absolute;inset:0;background:rgba(0,0,0,.24)}'
 

@@ -53,10 +53,16 @@ async def main():
     gallery.HOUSE['binary_sensor.grid_status'] = (None, ('on', {'friendly_name': 'Grid', 'device_class': 'power'}))
     gallery.HOUSE['sensor.water_meter'] = (None, ('1234.5', {'friendly_name': 'Water Meter', 'unit_of_measurement': 'gal', 'device_class': 'water', 'state_class': 'total_increasing'}))
     gallery.HOUSE['valve.main_water'] = (None, ('open', {'friendly_name': 'Main Water', 'device_class': 'water', 'supported_features': 3}))
+    gallery.HOUSE['calendar.family'] = (None, ('off', {'friendly_name': 'Family'}))
     gallery.SETTINGS['boards']['night'] = {'home_style': 'grid', 'menu_custom': True, 'menu': 'tabbar', 'tab_bar_pos': 'left', 'tab_bar_labels': 'icons', 'home_grid': {
         'v': 1, 'cols': 3, 'rows': 2, 'frame': [844, 390], 'band': False, 'boxes': False, 'grow': True, 'items': [
             {'id': 'big', 'card': 'clock', 'size': 'L', 'at': [0, 0], 'opts': {'clock_style': 'classic', 'bare': True}},
             {'id': 'small', 'card': 'clock', 'size': 'S', 'at': [2, 0]}]}}
+    # Big Temperature and Month View, StandBy's (a Tall weather block is always the big number)
+    gallery.SETTINGS['boards']['standby'] = {'home_style': 'grid', 'menu_custom': True, 'menu': 'tabbar', 'home_grid': {
+        'v': 1, 'cols': 3, 'rows': 2, 'frame': [844, 390], 'band': False, 'boxes': False, 'grow': True, 'items': [
+            {'id': 'wx', 'card': 'weather', 'size': 'T', 'at': [0, 0]},
+            {'id': 'cal', 'card': 'calendar', 'size': 'L', 'at': [1, 0], 'opts': {'month': True}}]}}
     gallery.SETTINGS['boards']['panels'] = {'home_style': 'grid', 'home_grid': BIG, 'menu_custom': True, 'menu': 'tabbar'}
     gallery.SETTINGS['boards']['panels2'] = {'home_style': 'grid', 'home_grid': SMALL, 'menu_custom': True, 'menu': 'tabbar'}
     with tempfile.TemporaryDirectory() as td:
@@ -125,8 +131,23 @@ async def main():
             assert v == [0, 390], v
             if args.shots:
                 await b.screenshot(args.shots / 'night.png')
+            await b.open(origin + '/standby/home', cookie)
+            assert await b.wait('window.__mantelReady===true', 30)
+            await b.eval(DEEP)
+            assert await b.wait("deep(cell('cal'),'.md').length>=28 && deep(cell('wx'),'.wb.big .bn').length===1", 15)
+            sb = await b.eval("""(()=>{let c=cell('cal'),r=c.getBoundingClientRect(),now=deep(c,'.md.now')[0],days=deep(c,'.md:not(.out)'),
+              n=deep(cell('wx'),'.bn')[0];
+              return {today:+now.textContent===new Date().getDate(),days:days.length===new Date(new Date().getFullYear(),new Date().getMonth()+1,0).getDate(),
+                inside:days.every(d=>{let q=d.getBoundingClientRect();return q.bottom<=r.bottom+1&&q.right<=r.right+1}),
+                big:parseFloat(getComputedStyle(n).fontSize)>=3*parseFloat(getComputedStyle(deep(cell('wx'),'.place-name')[0]).fontSize)}})()""")
+            assert sb == {'today': True, 'days': True, 'inside': True, 'big': True}, sb
+            if args.shots:
+                await b.screenshot(args.shots / 'standby.png')
+            # a day in Month View opens that day on the Calendar page
+            day = await b.eval("(()=>{let d=deep(cell('cal'),'.md[data-ymd]')[9];d.click();return d.getAttribute('data-ymd')})()")
+            assert await b.wait("location.pathname.endsWith('/calendar') && location.search.includes('day=%s')" % day, 10), await b.eval('location.href')
             exceptions = [line for line in b.console if line.startswith('EXCEPTION:')]
             assert not exceptions, exceptions
-            print('PASS: power, music, doors & locks, the thermostat\'s full controls, Live TV and water as blocks, and the clock faces')
+            print('PASS: power, music, doors & locks, the thermostat\'s full controls, Live TV and water as blocks, the clock faces, Big Temperature and Month View')
 
 asyncio.run(main())

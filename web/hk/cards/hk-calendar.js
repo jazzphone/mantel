@@ -46,6 +46,8 @@
   var MON = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September',
              'October', 'November', 'December'];
   var MON3 = MON.map(function (m) { return m.slice(0, 3); });
+  // the calendar's own red (Apple Calendar's, as StandBy draws today): Month View's name and today's circle
+  var CAL_RED = '#ff453a';
   function day0(d) { return new Date(d.getFullYear(), d.getMonth(), d.getDate()); }
   // calendar days, not 24-hour steps: a daylight-saving day is 23 or 25 hours
   function addDays(d, n) { return new Date(d.getFullYear(), d.getMonth(), d.getDate() + n, d.getHours(), d.getMinutes()); }
@@ -1380,7 +1382,20 @@
     '.gev .gtx{min-width:0;flex:1}',
     '.gev .g1{' + window.hkCards.typeCss('headline') + ';line-height:21px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
     '.gev .g2{' + window.hkCards.typeCss('caption') + ';line-height:16px;color:' + window.hkCards.v('ink-2') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
-    '.blk .none{' + window.hkCards.typeCss('body') + ';color:' + window.hkCards.v('ink-2') + '}'
+    '.blk .none{' + window.hkCards.typeCss('body') + ';color:' + window.hkCards.v('ink-2') + '}',
+    // MONTH VIEW: seven columns, the weeks' rows sharing the height; the day's
+    // number sized to its cell (container units: the block is a container)
+    '.blk.mo{gap:6px}',
+    '.mo .mh{' + window.hkCards.labelCss('label') + ';color:' + CAL_RED + ';line-height:16px;flex:none}',
+    '.mo .mg{flex:1;min-height:0;display:grid;grid-template-columns:repeat(7,minmax(0,1fr));grid-template-rows:auto repeat(var(--w),minmax(0,1fr));align-items:center;justify-items:center;gap:2px 0}',
+    '.mo .mw{' + window.hkCards.labelCss('label-small') + ';line-height:14px}',
+    '.mo .md{all:unset;box-sizing:border-box;cursor:pointer;-webkit-tap-highlight-color:transparent;position:relative;display:flex;align-items:center;justify-content:center;height:100%;max-height:calc(100cqw / 7.6);aspect-ratio:1;border-radius:50%;',
+    '  font-size:clamp(11px,min(5.4cqw,7.5cqh),24px);font-weight:500;font-variant-numeric:tabular-nums}',
+    '.mo .md.now{background:' + CAL_RED + ';color:#fff}',
+    '.mo .md i{position:absolute;bottom:12%;width:4px;height:4px;border-radius:2px;background:' + window.hkCards.v('ink-2') + '}',
+    '.mo .md.now i{background:#fff}',
+    '.mo button.md:active{opacity:.6}.mo button.md:focus-visible{outline:2px solid ' + window.hkCards.v('ink-2') + ';outline-offset:1px}',
+    '.mo .md.out{cursor:default}'
   ].join('\n');
   class HkCalendarPaneCard extends HkBase {
     static get CSS() { return PANE_CSS + FLAT_EVENT_CSS; }
@@ -1408,11 +1423,18 @@
       return Array.isArray(own) && own.length ? own.filter(function (id) { return h.states[id]; }) : calIds(h);
     }
     _days() { var n = Number((this._config || {}).days); return n >= 1 && n <= 7 ? Math.round(n) : 2; }
+    // what to read: today and the coming days, or (Month View) the weeks the month's grid shows
+    _range() {
+      var now = new Date();
+      if (this._month()) { var a = weekStart(new Date(now.getFullYear(), now.getMonth(), 1)); return [a, addDays(a, 42)]; }
+      return [day0(now), addDays(day0(now), this._days())];
+    }
+    _month() { return !!(this._config || {}).month && !!this._cellSize(); }
     _fetch() {
       var h = this.client;
       if (!h) return;
-      var from = day0(new Date()), to = addDays(from, this._days()), ids = this._calIds(h);
-      var want = ids.join(',') + '|' + (+from) + '|' + this._days() + '|' + store.ver;
+      var rg = this._range(), from = rg[0], to = rg[1], ids = this._calIds(h);
+      var want = ids.join(',') + '|' + (+from) + '|' + (+to) + '|' + store.ver;
       if (want === this._have) return;
       this._have = want;
       var self = this;
@@ -1464,6 +1486,7 @@
     _renderBlock(sized) {
       var h = this.client, now = new Date(), d0 = day0(now), wide = sized !== 'T', self = this;
       this._watchBlock();
+      if (this._month()) { this._renderMonth(sized, d0); return; }
       // what is still to come, day by day, each day's all-day first
       var shown = [], days = [];
       for (var i = 0; i < this._days(); i++) days.push(addDays(d0, i));
@@ -1505,6 +1528,34 @@
       }
     }
   }
+
+  // MONTH VIEW (2026-10-24, StandBy's calendar): the month's name, the
+  // week's days and the month as a grid filling the block, today circled,
+  // a dot under a day with something on it. Weeks start as the calendar's do.
+  HkCalendarPaneCard.prototype._renderMonth = function (sized, d0) {
+    var first = new Date(d0.getFullYear(), d0.getMonth(), 1), a = weekStart(first), self = this;
+    var last = new Date(d0.getFullYear(), d0.getMonth() + 1, 0), weeks = Math.ceil((((first - a) / 864e5) + last.getDate()) / 7);
+    var cells = [];
+    for (var i = 0; i < weeks * 7; i++) {
+      var d = addDays(a, i), on = d.getMonth() === d0.getMonth(), busy = on && onDay(self._evs, d).length > 0;
+      // a day of the month is a button: its day on the Calendar page (as a calendar notification's Go To opens it)
+      cells.push(on ? '<button type="button" class="md' + (sameDay(d, d0) ? ' now' : '') + '" data-ymd="' + ymd(d) + '" aria-label="' +
+        esc(DOW_LONG[d.getDay()] + ', ' + MON[d.getMonth()] + ' ' + d.getDate() + (busy ? ', with events' : '')) + '"><b>' + d.getDate() + '</b>' +
+        (busy ? '<i></i>' : '') + '</button>' : '<span class="md out" aria-hidden="true"></span>');
+    }
+    this._root.innerHTML = '<div class="blk mo ' + sized + '" role="group" aria-label="' + esc(MON[d0.getMonth()] + ' ' + d0.getFullYear()) + '">' +
+      '<div class="mh">' + esc(MON[d0.getMonth()]) + '</div><div class="mg" style="--w:' + weeks + '">' +
+      dows(DOW).map(function (x) { return '<span class="mw" aria-hidden="true">' + x.charAt(0) + '</span>'; }).join('') + cells.join('') + '</div></div>';
+    if (!this._dayTaps) {
+      this._dayTaps = true;
+      this._root.addEventListener('click', function (e) {
+        var b = e.target.closest && e.target.closest('.md[data-ymd]');
+        if (!b) return;
+        var dash = '/' + (String(location.pathname).split('/')[1] || '') + '/';
+        window.hkCards.navigate(dash + 'calendar?day=' + b.getAttribute('data-ymd'), self);
+      });
+    }
+  };
 
   register('hk-calendar-card', HkCalendarCard, 'HK Calendar',
     'The house’s calendars: the month, the week or the day, with events to add, change and delete.',
