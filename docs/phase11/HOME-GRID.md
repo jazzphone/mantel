@@ -1133,3 +1133,13 @@ Checked: every HA JavaScript suite (the pager's CSS snapshot and unit tests upda
 a real mouse drag out of the palette, a refused drag onto a taken space, Undo and Delete; the accessory-pages and
 review checks; the swipe check; and the editor in a scratch Home Assistant (open, preview, real drag and save). Both
 guides and their screenshots are rewritten for the new editor; `home-grid-gallery.png` is gone.
+
+### House App 0.1.65 deployed (2026-10-23)
+
+The owner asked for this release. Release commit `718db98` (the swipe gesture, the palette editor and the audit fixes)
+was pushed to main and staged to the house's local Mantel App source (2,991 files). The update installed on the
+first request: installed and latest version 0.1.65, no pending update, strict health OK, Home Assistant connected.
+Build `6036a4394615f81d` matches the staged release and `/api/version`. The app log has no ERROR or Traceback
+entries, and a screen loaded the new files right after the restart. No public tag, release or HK Frontend update was
+made. Reload the dashboards and Settings to pick it up. Real-tablet swipes in Safari and the new editor remain for
+the owner to try. The unrelated Xcode edit is unchanged.
