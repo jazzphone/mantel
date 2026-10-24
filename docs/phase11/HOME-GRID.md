@@ -1280,3 +1280,10 @@ following the plan's "arrange on a desktop", and did so without saying why. The 
 
 The editor smoke now opens the editor with touch emulation and a dark device. It checks that the three panes show
 and Settings is dark, then turns the device light and checks that Settings follows.
+
+### House App 0.1.70 deployed (2026-10-24)
+
+The owner asked for this release. Release commit `c992504` (the editor opening on an iPad, and Settings following dark
+mode) was pushed and staged. The update installed on the first request. Strict health is OK with Home Assistant
+connected, build `63df91a1943686e7` matches the staged release, and there is no Traceback. The owner's iPad check
+of the editor and of dark mode is next.
