@@ -3805,7 +3805,7 @@
                 tab_bar_scroll: 'shrink', tab_bar_rooms: 'more', tab_bar_glass: 'house', tab_bar_more: 'icons',
                 tab_bar_more_phone: 'list', tab_bar_pos: 'bottom', tab_bar_fold: 'start',
                 tab_bar_start: 'full', tab_bar_adjust: true, tab_bar_scroll_phone: 'shrink',
-                tab_bar_tabs: 6, tab_bar_tabs_rail: 6, tab_bar_size: 'medium',
+                tab_bar_tabs: 6, tab_bar_tabs_rail: 6, tab_bar_size: 'medium', tab_bar_labels: 'show',
                 // PHONES' OWN (phoneForm): the menu (null: as before there
                 // was one -- phoneMenu), the button's style, More's rooms
                 menu_phone: null, button_phone: 'chip', tab_bar_rooms_phone: 'more' };

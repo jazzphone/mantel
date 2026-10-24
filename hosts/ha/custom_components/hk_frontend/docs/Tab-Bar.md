@@ -106,6 +106,15 @@ px on a tablet's, about 4.3 and 5.3 px at Small and Large. Everything around the
 the small button it shrinks to, the Rooms button, where More opens, and the
 room Adjust Content makes.
 
+Beside a **Home Grid**, a rail takes its width from the grid, which fits itself to the room it has and keeps the
+screen's full height, rather than easing the page aside.
+
+## Labels
+
+**Labels** chooses **Icons and Names** (the default) or **Icons Only**. Icons Only drops the names for a bar 10 px
+thinner (a rail 10 px narrower, its tabs 10 px shorter) at every size, with the icons 2 px larger. Each tab keeps its
+name for screen readers. On a phone on its side (a nightstand Home Grid), an icon-only rail leaves the most room.
+
 ## Adjust Content
 
 A bar along the **bottom** always leaves room at the very end of the page,

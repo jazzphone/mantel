@@ -8,6 +8,7 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 - Home Grid: **Screen Type** in the editor sets the grid for a phone (portrait or landscape), a tablet (portrait or landscape), a large tablet or a car, re-packing the blocks and asking before any are dropped. Phones start without the top band. A phone on its side gets nightstand starters.
 - Home Grid: the Clock block comes in every size, as HK's digital clock or one of nine screensaver faces (Analog, Flip, Neon and more), with or without its box; a face fills its block.
 - A Home Grid beside a tab bar on the left or right uses the screen's full height (the bar no longer shrinks the whole grid).
+- The tab bar has **Labels**: Icons and Names, or Icons Only for a slimmer bar or rail.
 
 ## 0.1.71 - 2026-10-24
 

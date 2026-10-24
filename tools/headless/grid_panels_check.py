@@ -2,7 +2,8 @@
 in sentences at Wide, the house picture or flow chart at Large), Music (the speaker picker), Doors & Locks (the house
 with its ways in), an Extra Large thermostat (its full controls), Live TV and Water each draw inside their block, and
 a block whose feature isn't set up says where to set it up. The Clock block draws a screensaver face without its box,
-and HK's own clock at Small, on a phone held sideways.
+and HK's own clock at Small, on a phone held sideways, beside an icon-only tab bar rail that leaves the grid the
+screen's full height.
 
     python tools/headless/grid_panels_check.py [--shots DIRECTORY]
 """
@@ -52,7 +53,7 @@ async def main():
     gallery.HOUSE['binary_sensor.grid_status'] = (None, ('on', {'friendly_name': 'Grid', 'device_class': 'power'}))
     gallery.HOUSE['sensor.water_meter'] = (None, ('1234.5', {'friendly_name': 'Water Meter', 'unit_of_measurement': 'gal', 'device_class': 'water', 'state_class': 'total_increasing'}))
     gallery.HOUSE['valve.main_water'] = (None, ('open', {'friendly_name': 'Main Water', 'device_class': 'water', 'supported_features': 3}))
-    gallery.SETTINGS['boards']['night'] = {'home_style': 'grid', 'menu_custom': True, 'menu': 'tabbar', 'tab_bar_pos': 'left', 'home_grid': {
+    gallery.SETTINGS['boards']['night'] = {'home_style': 'grid', 'menu_custom': True, 'menu': 'tabbar', 'tab_bar_pos': 'left', 'tab_bar_labels': 'icons', 'home_grid': {
         'v': 1, 'cols': 3, 'rows': 2, 'frame': [844, 390], 'band': False, 'items': [
             {'id': 'big', 'card': 'clock', 'size': 'L', 'at': [0, 0], 'opts': {'clock_style': 'classic', 'bare': True}},
             {'id': 'small', 'card': 'clock', 'size': 'S', 'at': [2, 0]}]}}
@@ -112,6 +113,12 @@ async def main():
               return {plate:k.classList.contains('plate'),inside:f.width>0&&f.left>=r.left-1&&f.right<=r.right+1&&f.top>=r.top-1&&f.bottom<=r.bottom+1,fills:f.width>r.width*0.6,
                       small:!!t&&t.getBoundingClientRect().right<=sr.right+1}})()""")
             assert ck == {'plate': False, 'inside': True, 'fills': True, 'small': True}, ck
+            # the tab bar's Icons Only: a rail of icons, each tab still named for a screen reader; the grid keeps the
+            # screen's full height beside it
+            tabs = await b.eval("""(()=>{let t=deep(document,'.tab');return t.map(x=>[getComputedStyle(x.querySelector('span')).display,x.getAttribute('aria-label')])})()""")
+            assert tabs and all(d == 'none' and n for d, n in tabs), tabs
+            v = await b.eval("(()=>{let r=deep(document,'hk-home-grid-view')[0].getBoundingClientRect();return [r.top,r.bottom]})()")
+            assert v == [0, 390], v
             if args.shots:
                 await b.screenshot(args.shots / 'night.png')
             exceptions = [line for line in b.console if line.startswith('EXCEPTION:')]

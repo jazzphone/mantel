@@ -697,6 +697,7 @@
   var TAB_BAR_SCROLLS = [['shrink', 'Shrink'], ['hide', 'Hide'], ['stay', 'Stay']];
   var TAB_BAR_MORE = [['icons', 'Icons'], ['list', 'List']];
   var TAB_BAR_SIZES = [['small', 'Small'], ['medium', 'Medium'], ['large', 'Large']];
+  var TAB_BAR_LABELS = [['show', 'Icons and Names'], ['icons', 'Icons Only']];
   // where the Home Assistant section sits, in the side menu and More alike
   var HA_PLACES = [['top', 'Top'], ['categories', 'Above Categories'], ['rooms', 'Above Rooms'], ['bottom', 'Bottom']];
   // Tabs in Bar / in Rail: pages, Home and More not counted
@@ -829,7 +830,7 @@
                     tab_bar_more: 'bar_more', tab_bar_more_phone: 'bar_more_phone',
                     tab_bar_pos: 'bar_pos', tab_bar_fold: 'bar_fold', tab_bar_start: 'bar_start',
                     tab_bar_adjust: 'bar_adjust', tab_bar_scroll_phone: 'bar_scroll_phone',
-                    tab_bar_tabs: 'bar_tabs', tab_bar_tabs_rail: 'bar_tabs_rail', tab_bar_size: 'bar_size',
+                    tab_bar_tabs: 'bar_tabs', tab_bar_tabs_rail: 'bar_tabs_rail', tab_bar_size: 'bar_size', tab_bar_labels: 'bar_labels',
                     button_phone: 'button_phone', tab_bar_rooms_phone: 'bar_rooms_phone' };
   var MENU_DEFAULTS = { page_header: 'current', menu: 'auto', tab_position: '', tab_size: 'large', tab_size_phone: 'standard',
                         dock_min: 1000, time_weather: 'page', ha_row: false, ha_place: 'rooms', accent: 'orange', glyph: 'sidebar', clock: true,
@@ -837,7 +838,7 @@
                         tab_bar_more: 'icons', tab_bar_more_phone: 'list', tab_bar_pos: 'bottom',
                         tab_bar_fold: 'start', tab_bar_start: 'full', tab_bar_adjust: true,
                         tab_bar_scroll_phone: 'shrink', tab_bar_tabs: 6, tab_bar_tabs_rail: 6,
-                        tab_bar_size: 'medium', button_phone: 'chip', tab_bar_rooms_phone: 'more' };
+                        tab_bar_size: 'medium', tab_bar_labels: 'show', button_phone: 'chip', tab_bar_rooms_phone: 'more' };
   function houseMenuAsBoard(m) {
     m = m || {};
     var out = {};
@@ -1641,6 +1642,7 @@
     ['Start Small', 'house/menu', 'menu.bar_start', 'tab bar start small shrunk folded rest collapsed button'],
     ['Shrinks To', 'house/menu', 'menu.bar_fold', 'tab bar shrink fold small button corner left right top bottom side'],
     ['Tab Bar Size', 'house/menu', 'menu.bar_size', 'tab bar size small medium large bigger thicker icons text'],
+    ['Tab Bar Labels', 'house/menu', 'menu.bar_labels', 'tab bar labels names icons only text slim'],
     ['Tabs in Bar', 'house/menu/tablets', 'menu.bar_tabs', 'tab bar how many tabs number count favorites bottom top'],
     ['Tabs in Rail', 'house/menu/tablets', 'menu.bar_tabs_rail', 'tab bar rail how many tabs number count favorites left right side'],
     ['Tab Bar Position', 'house/menu', 'menu.bar_pos', 'tab bar position top bottom left right rail side placement'],
@@ -1809,7 +1811,7 @@
     ['menu', 'Menu', ['menu', 'menu_custom', 'page_header', 'dock_min', 'time_weather', 'ha_row', 'ha_place', 'tab_position', 'tab_size',
                       'tab_size_phone', 'accent', 'glyph', 'clock', 'swipe',
                       'tab_bar_scroll', 'tab_bar_rooms', 'tab_bar_glass', 'tab_bar_more', 'tab_bar_more_phone', 'tab_bar_pos', 'tab_bar_fold', 'tab_bar_start', 'tab_bar_adjust', 'tab_bar_scroll_phone', 'tab_bar_tabs',
-                      'tab_bar_tabs_rail', 'tab_bar_size', 'menu_phone', 'button_phone', 'tab_bar_rooms_phone'], true],
+                      'tab_bar_tabs_rail', 'tab_bar_size', 'tab_bar_labels', 'menu_phone', 'button_phone', 'tab_bar_rooms_phone'], true],
     ['home', 'Home Page', ['chips_row', 'chips', 'chips_quiet', 'chips_extra', 'chips_custom', 'chips_custom_show'], true],
     // a screen's rooms: All Screens' or its own (rooms_custom)
     ['rooms', 'Rooms', ['rooms_custom', 'room_order', 'home_rooms', 'menu_rooms', 'page_rooms'], true],
@@ -2201,7 +2203,7 @@
     FLAT_ACCENTS: FLAT_ACCENTS, flatColorsOf: flatColorsOf, flatPagesName: flatPagesName, flatAccentSays: flatAccentSays, flatColorName: flatColorName, flatColorHex: flatColorHex,
     flatSourceLabel: flatSourceLabel, flatTintLabel: flatTintLabel, flatFieldSays: flatFieldSays, flatAccentChange: flatAccentChange, PAGE_ACCENTS: PAGE_ACCENTS, pageAccentOf: pageAccentOf, tabPosParts: tabPosParts, tabPosJoin: tabPosJoin, tabPosLabel: tabPosLabel,
     PAGE_HEADERS: PAGE_HEADERS, MENU_KEYS: MENU_KEYS, houseMenuAsBoard: houseMenuAsBoard, houseMenuSave: houseMenuSave,
-    TAB_BAR_SCROLLS: TAB_BAR_SCROLLS, TAB_BAR_GLASS: TAB_BAR_GLASS, TAB_BAR_ROOMS: TAB_BAR_ROOMS, roomsPlace: roomsPlace, TAB_BAR_MORE: TAB_BAR_MORE, TAB_BAR_POS: TAB_BAR_POS, TAB_BAR_SIZES: TAB_BAR_SIZES, HA_PLACES: HA_PLACES, TAB_BAR_TABS: TAB_BAR_TABS, foldOptions: foldOptions, hasTabBar: hasTabBar, choiceLabel: choiceLabel,
+    TAB_BAR_SCROLLS: TAB_BAR_SCROLLS, TAB_BAR_GLASS: TAB_BAR_GLASS, TAB_BAR_ROOMS: TAB_BAR_ROOMS, roomsPlace: roomsPlace, TAB_BAR_MORE: TAB_BAR_MORE, TAB_BAR_POS: TAB_BAR_POS, TAB_BAR_SIZES: TAB_BAR_SIZES, TAB_BAR_LABELS: TAB_BAR_LABELS, HA_PLACES: HA_PLACES, TAB_BAR_TABS: TAB_BAR_TABS, foldOptions: foldOptions, hasTabBar: hasTabBar, choiceLabel: choiceLabel,
     menuOwnChanges: menuOwnChanges, menuSummary: menuSummary, GLASS: GLASS,
     GLASS_STYLES: GLASS_STYLES, BLUR_MODES: BLUR_MODES, TINT_WELLS: TINT_WELLS, isBlur: isBlur, glassStyle: glassStyle, PRESETS: PRESETS, STATUS_LABELS: STATUS_LABELS,
     STATUS_SAYS: STATUS_SAYS, STATUS_ROWS: STATUS_ROWS, STATUS_SOURCE: STATUS_SOURCE, PAGES: PAGES, pageOf: pageOf, PAGE_TYPES: PAGE_TYPES,

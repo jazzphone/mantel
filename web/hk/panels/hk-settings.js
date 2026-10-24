@@ -2394,6 +2394,7 @@
       if (M.hasTabBar(b)) {
         rows.push(K.info({ label: 'Tab Bar Position', value: M.choiceLabel(M.TAB_BAR_POS, b.tab_bar_pos || 'bottom'), sk: 'b:tab_bar_pos' }));
         rows.push(K.info({ label: 'Tab Bar Size', value: M.choiceLabel(M.TAB_BAR_SIZES, b.tab_bar_size || 'medium'), sk: 'b:tab_bar_size' }));
+        rows.push(K.info({ label: 'Tab Bar Labels', value: M.choiceLabel(M.TAB_BAR_LABELS, b.tab_bar_labels || 'show'), sk: 'b:tab_bar_labels' }));
         rows.push(K.info({ label: 'Tab Bar Glass', value: M.choiceLabel(M.TAB_BAR_GLASS, b.tab_bar_glass || 'house'), sk: 'b:tab_bar_glass' }));
       }
       rows.push(K.info({ label: 'Home Assistant Section', value: b.ha_row ? M.choiceLabel(M.HA_PLACES, b.ha_place || 'rooms') : 'Off', sk: 'b:ha_row' }));
@@ -2662,6 +2663,9 @@
       place.push(K.seg({ label: 'Size', sub: 'The bar’s thickness (a rail’s width), its icons and labels.',
                          sk: sk('tab_bar_size'), value: v.tab_bar_size || 'medium', stack: !wide, options: M.TAB_BAR_SIZES,
                          onChange: function (x) { set({ tab_bar_size: x }); } }));
+      place.push(K.seg({ label: 'Labels', sub: 'Icons Only drops the names for a slimmer bar or rail.',
+                         sk: sk('tab_bar_labels'), value: v.tab_bar_labels || 'show', stack: !wide, options: M.TAB_BAR_LABELS,
+                         onChange: function (x) { set({ tab_bar_labels: x }); } }));
       // a bar along the bottom always leaves room at the page's end
       // (hk-tabbar.js room()): the switch is the rail's and the top's
       if (pos !== 'bottom') place.push(K.toggle({ label: 'Adjust Content',

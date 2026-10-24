@@ -744,6 +744,7 @@ HOUSE: dict[str, Callable[[Any], Any]] = {
     "menu.bar_scroll_phone": _choice(S.TAB_BAR_SCROLLS),
     "menu.bar_tabs": lambda v: _tabs(v),
     "menu.bar_size": _choice(S.TAB_BAR_SIZES),
+    "menu.bar_labels": _choice(S.TAB_BAR_LABELS),
     "menu.bar_tabs_rail": lambda v: _tabs(v),
     # ...and Phones' own (None: as before phones had their own)
     "menu.button_phone": _choice(S.BOARD_BUTTON_PHONE),
@@ -1108,6 +1109,7 @@ BOARD: dict[str, Callable[[Any], Any]] = {
     "tab_bar_scroll_phone": _choice(S.TAB_BAR_SCROLLS),
     "tab_bar_tabs": _tabs,
     "tab_bar_size": _choice(S.TAB_BAR_SIZES),
+    "tab_bar_labels": _choice(S.TAB_BAR_LABELS),
     "tab_bar_tabs_rail": _tabs,
     "menu_phone": _choice(S.BOARD_PHONE_MENUS, none=True),
     "button_phone": _choice(S.BOARD_BUTTON_PHONE),

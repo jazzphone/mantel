@@ -1413,3 +1413,10 @@ the full height: 39 px above and 41 below, and about even at the sides. A screen
 screen, its time about a third of the height, so in a block it scales up until its drawing reaches the block, less a
 margin (8% bare, 20% in its box). It is measured again as the block resizes and once the fonts load, and is never
 shrunk.
+
+**Icons Only** (the owner: "an icon only mode for the navbar"). A new tab bar setting, `tab_bar_labels` (house
+`menu.bar_labels`): `show` or `icons`, through the same places as Tab Bar Size (model.py, changes.py, the settings
+model and page, hk-base.js's menu defaults and the strategy's live keys). Icons Only hides the names, takes 10 px off
+the bar's thickness (`step()`: a rail narrower, its tabs shorter) and draws the icons 2 px larger. Each tab now carries
+its name as `aria-label`. `grid_panels_check.py` checks the rail's names are hidden but labelled, and that the grid
+beside it keeps the full height.

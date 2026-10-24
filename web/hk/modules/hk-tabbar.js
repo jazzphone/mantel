@@ -87,7 +87,11 @@
   // larger (CSS: --ti, --ci, --tf). The highlight's gaps (4 px from the
   // bar's edge, the rail's ends) are padding, so they hold at every size.
   var SIZE_STEP = { small: -8, medium: 0, large: 8 };
-  function step(size) { return SIZE_STEP[size] || 0; }
+  // ICONS ONLY (Labels, 2026-10-24): no names, so a bar 10 px thinner (a
+  // rail 10 px narrower, its tabs 10 px shorter) at every size. Set from the
+  // screen's settings as the bar is drawn (render()); the fit follows it.
+  var ICONS_STEP = -10, iconsOnly = false;
+  function step(size) { return (SIZE_STEP[size] || 0) + (iconsOnly ? ICONS_STEP : 0); }
   // `phone`: a phone's bar (hk-base.js menu.phone(): under 640 px, or a
   // phone held sideways); unset, by `width` (or the device, without one)
   function barH(width, size, phone) {
@@ -322,6 +326,11 @@
       // screen's width, so larger names would only be cut shorter
       ':host([data-size="large"]:not([data-wide])){--tf:10.5px}',
       ':host([data-wide]){--bh:' + BAR_H_WIDE + 'px}',
+      // ICONS ONLY: the icons a step larger in the slimmer bar (the names
+      // go at the end of the sheet, after the rail's own rule for them)
+      ':host([data-icons]){--ti:26px}',
+      ':host([data-icons][data-size="small"]){--ti:24px}',
+      ':host([data-icons][data-size="large"]){--ti:28px}',
       '.root{position:fixed;left:0;top:0;width:0;height:0;z-index:6;',
       // the dashboard's font (hk-base.js FONT_ROOT), as the menu's
       '  ' + window.hkCards.FONT_ROOT + ';',
@@ -538,7 +547,9 @@
       ':host([data-pos="left"]) .root.gone .row{transform:translateX(calc(-100% - ' + (GUTTER + 8) + 'px - var(--hk-content-left,0px) - var(--hk-pane-l,0px)))}',
       ':host([data-pos="right"]) .root.gone .row{transform:translateX(calc(100% + ' + (GUTTER + 8) + 'px + var(--hk-pane-r,0px)))}',
       ':host([data-pos="left"]) .row,:host([data-pos="right"]) .row{transition:transform .34s ' + EASE + '}',
-      '@media (prefers-reduced-motion:reduce){.row,.pill,.roomsbtn,.sheet,.tab.here::before{transition:none}}'
+      '@media (prefers-reduced-motion:reduce){.row,.pill,.roomsbtn,.sheet,.tab.here::before{transition:none}}',
+      // ICONS ONLY: no names, on the bar and the rail alike
+      ':host([data-icons]) .tab span{display:none}'
     ].join('\n');
     window.hkTabBar._.CSS = CSS;             // tests (test_csssnapshot)
 
@@ -650,7 +661,7 @@
     }
     function listKey(width) {
       var h = C.client(), side = H.sidebarSource(), b = M.board();
-      return [M.dash(), cfgId(M.config()), width, railH(), b.ha_place, b.tab_bar_pos, b.tab_bar_rooms, b.tab_bar_rooms_phone, phoneAt(), phoneSet(), b.tab_bar_more, b.tab_bar_more_phone, b.tab_bar_size, b.tab_bar_tabs, b.tab_bar_tabs_rail, b.ha_row, JSON.stringify(S.haPrefs || null),
+      return [M.dash(), cfgId(M.config()), width, railH(), b.ha_place, b.tab_bar_pos, b.tab_bar_rooms, b.tab_bar_rooms_phone, phoneAt(), phoneSet(), b.tab_bar_more, b.tab_bar_more_phone, b.tab_bar_size, b.tab_bar_labels, b.tab_bar_tabs, b.tab_bar_tabs_rail, b.ha_row, JSON.stringify(S.haPrefs || null),
               h && h.user && h.user.is_admin, H.hostItems().map(function (x) { return x.title + x.href; }).join(','), side && side.panels ? Object.keys(side.panels).join(',') : '', H.haKey ? H.haKey() : '', b.menu_rooms, JSON.stringify(b.room_order),
               JSON.stringify(b.categories), JSON.stringify(b.menu_top || []), JSON.stringify(b.pages || []),
               JSON.stringify(b.chips || []), b.chips_row, h && h.user && h.user.id,
@@ -694,11 +705,12 @@
       S.tabs = p.tabs; S.more = p.more; S.rooms = rm === 'off' ? [] : p.rooms; S.roomsMode = rm;
       var html = '';
       p.tabs.forEach(function (it, i) {
-        html += '<button class="tab" data-t="' + i + '"><hk-icon icon="' + icon(it.icon) + '"></hk-icon><span>' +
+        // (its name as its label too: Icons Only hides the name it shows)
+        html += '<button class="tab" data-t="' + i + '" aria-label="' + esc(it.title) + '"><hk-icon icon="' + icon(it.icon) + '"></hk-icon><span>' +
           esc(it.title) + '</span></button>';
       });
       if (f.more) {
-        html += '<button class="tab" data-t="more" aria-expanded="false"><hk-icon icon="' + icon(MORE_ICON) +
+        html += '<button class="tab" data-t="more" aria-label="More" aria-expanded="false"><hk-icon icon="' + icon(MORE_ICON) +
           '"></hk-icon><span>More</span></button>';
       }
       // THE SAME TABS ARE KEPT, not drawn again: a module arriving on a new
@@ -1186,6 +1198,8 @@
         S.host.style.setProperty('--hk-accent-base', a.base || a.color);
       }
       var width = (window.innerWidth || 0) - leftOf() - paneR();
+      iconsOnly = b.tab_bar_labels === 'icons';
+      S.host.toggleAttribute('data-icons', iconsOnly);
       if (listKey(width) !== S.built) build();
       if (S.host.getAttribute('data-pos') !== S.pos) S.host.setAttribute('data-pos', S.pos || 'bottom');
       S.host.toggleAttribute('data-wide', barH() !== BAR_H);
