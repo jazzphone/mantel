@@ -1553,3 +1553,12 @@ left, the grid at full height and centred, the dots at its foot, and a mouse swi
 view, a swipe on the clock turns the view (the dots and `inert` following), and a dot turns it back.
 `grid_editor_smoke.py` adds a view, adds a block to it, checks only that view's blocks are drawn, and removes the
 view, asked first. `test_tabbar.js` holds the rail rule.
+
+### House App 0.1.73 deployed (2026-10-24)
+
+The owner asked for this release. Release commit `ae38ae3` carries the card list's touch scroll, Hide Box, Show
+Boxes and Fill the Screen, Month View and Big Temperature, the short-screen sheets, Night Mode, the resting rail,
+Views, and a phone held sideways keeping its rail. It was pushed and staged, and the update installed on the first
+request. Strict health is OK with Home Assistant connected, and build `a2a2ae26489c7ed5` matches the staged release.
+No log line matches "Traceback" or "ERROR". Next: the owner tries the editor's card list with a finger, and the
+nightstand (Phone, Landscape → StandBy) on an iPhone held sideways.
