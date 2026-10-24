@@ -1232,3 +1232,13 @@ asking after 20 seconds and never looked again. Fixes:
   revalidated every time, since it is filtered per person (`tests/test_wiring.py`).
 - **The web files are precompressed in both images.** aiohttp sends `name.js.gz` to a browser that takes gzip:
   `hk-base.js`, for example, goes from 235 KB to 81 KB.
+
+### House App 0.1.68 deployed (2026-10-24)
+
+The owner asked for this release. Release commit `33cfec1` (the editor waiting for a slow preview, the compressed
+registry with its ETag, and the precompressed web files) was pushed and staged. The staged Dockerfile carries the
+gzip step. The update installed on the first request. Strict health is OK with Home Assistant connected, and build
+`0545787b8b3f29a0` matches the staged release. The App log has no ERROR or Traceback.
+
+A file request from the MCP side is refused without a session (403), so the compressed responses were not observed on
+the house itself; the local server check showed `Content-Encoding: gzip` for a file with a `.gz` beside it.
