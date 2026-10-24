@@ -1,5 +1,9 @@
-// Home Grid's desktop editor. The draft belongs to this element; only Save writes.
-// Placement functions are pure so mouse, keyboard and the catalog share refusals.
+// Home Grid's desktop editor (docs/phase11/HOME-GRID.md, G5; rebuilt 2026-10-23
+// around a palette): the cards on the left -- drag one onto the grid, or
+// click it for its live preview and Add --, the screen in the middle, and on
+// the right the selected block's settings (nothing selected: the screen's).
+// The draft belongs to this element; only Save writes.
+// Placement functions are pure so mouse, keyboard and the palette share refusals.
 (function () {
   'use strict';
   if (window.hkGridEditor) return;
@@ -8,13 +12,15 @@
     thermostat: 'Thermostat', camera: 'Camera', security: 'Security', timers: 'Timers', weather: 'Weather',
     calendar: 'Calendar', battery: 'House Battery', people: 'People', vacuum: 'Vacuum', clock: 'Clock',
     room: 'Room', scene_suggested: 'Suggested Scene', action: 'Action', everything: 'Everything' };
-  var SIZE_NAMES = { S: 'Small', W: 'Wide', T: 'Tall', L: 'Large', XL: 'Extra Large', XXL: 'Full Width · 6 × 2' };
+  var SIZE_NAMES = { S: 'Small', W: 'Wide', T: 'Tall', L: 'Large', XL: 'Extra Large', XXL: 'Full Width' };
+  // a size on a chip or a segment, short enough for four in a row
+  var SIZE_SHORT = { S: 'Small', W: 'Wide', T: 'Tall', L: 'Large', XL: 'X-Large', XXL: 'Full' };
   var GROUPS = [
     ['Rooms & Lights', ['room', 'accessory', 'accessories', 'action']], ['Scenes', ['scene', 'scenes', 'scene_suggested']],
     ['Climate', ['thermostat', 'weather']], ['Music', ['now_playing']],
     ['Security & Cameras', ['security', 'camera']], ['Info', ['clock', 'timers', 'calendar', 'battery', 'people', 'vacuum', 'everything']]
   ];
-  var DESCRIPTIONS = { room: 'Your room’s lights, fans and speaker', accessory: 'One light, switch or other accessory', accessories: 'Choose accessories and arrange swipe pages',
+  var DESCRIPTIONS = { room: 'Your room’s lights, fans and speaker', accessory: 'One light, switch or other accessory', accessories: 'Accessories you choose, in swipe pages',
     action: 'One tap for a household job', scene: 'Set a favourite scene', scenes: 'Your scenes together',
     scene_suggested: 'The right scene for the time of day', thermostat: 'Temperature and climate controls',
     weather: 'Current conditions and the forecast', now_playing: 'Music and playback controls', security: 'Alarm, locks and doors',
@@ -25,6 +31,17 @@
     scenes: 'mdi:palette', scene_suggested: 'mdi:weather-sunset', thermostat: 'mdi:thermostat', weather: 'mdi:weather-partly-cloudy',
     now_playing: 'mdi:music', security: 'mdi:shield-home', camera: 'mdi:camera', clock: 'mdi:clock', timers: 'mdi:timer-outline',
     calendar: 'mdi:calendar', battery: 'mdi:home-battery', people: 'mdi:account', vacuum: 'mdi:robot-vacuum', everything: 'mdi:dots-horizontal' };
+  // AN OPTION'S NAME in the panel: by its kind (hk-grid-catalog.js opts), else by its own name
+  var KIND_LABELS = { entity: 'Accessory', climate: 'Thermostat', camera: 'Camera', weather: 'Weather', vacuum: 'Vacuum',
+    speaker: 'Speaker', scene: 'Scene', scenes: 'Scenes', calendars: 'Calendars', area: 'Room', action: 'Does', windows: 'Time Windows' };
+  var NAME_LABELS = { sky: 'Sky Background', title: 'Group Name' };
+  // ONE THING OR PAGES THAT SWIPE, in each card's words: [one, its automatic source]
+  var SHOW = { room: ['One Room', 'Swipe Between Rooms'], camera: ['One Camera', 'Swipe All Cameras'],
+    thermostat: ['One Thermostat', 'Swipe All Thermostats'], now_playing: ['One Speaker', 'Swipe All Speakers'],
+    scenes: ['Chosen Scenes', 'Swipe All Scenes'], accessories: [null, 'Automatic Pages'] };
+  // what an automatic source shows in place of the block's own choice of one
+  var SOURCE_HIDES = { rooms: 'area', cameras: 'entity', thermostats: 'entity', speakers: 'speaker', scenes: 'scenes' };
+  var EMPTY = { v: 1, cols: 6, rows: 4, frame: [1280, 800], band: true, items: [] };
   function copy(x) { return JSON.parse(JSON.stringify(x)); }
   function overlap(a, b) {
     var x = SIZES[a.size], y = SIZES[b.size];
@@ -70,6 +87,13 @@
   function snap(x, y, rect, cols, rows) {
     return [Math.floor((x - rect.left) / (rect.width / cols)), Math.floor((y - rect.top) / (rect.height / rows))];
   }
+  // where a block of `size` dragged by its middle lands: the pointer in its
+  // centre cell, kept inside the grid
+  function landing(x, y, rect, cols, rows, gap, size) {
+    var z = SIZES[size], cw = (rect.width - (cols - 1) * gap) / cols, ch = (rect.height - (rows - 1) * gap) / rows;
+    var c = Math.round((x - rect.left) / (cw + gap) - z[0] / 2), r = Math.round((y - rect.top) / (ch + gap) - z[1] / 2);
+    return [Math.max(0, Math.min(cols - z[0], c)), Math.max(0, Math.min(rows - z[1], r))];
+  }
   function add(grid, card, size, at) {
     if (grid.items.length >= 24) return null;
     var out = copy(grid), n = 1;
@@ -83,38 +107,60 @@
     ':host{position:fixed;inset:0;z-index:1000;overflow:hidden}',
     '.editor{height:100%;display:flex;flex-direction:column;overflow:hidden;background:var(--hk-bg)}',
     '.tools{display:flex;align-items:center;gap:12px;padding:12px 20px;border-bottom:1px solid var(--hk-sep);background:var(--hk-cell);flex:none;z-index:4}',
-    '.tools h1{font-size:20px;margin:0;flex:1}.tools button{border:0;border-radius:8px;min-height:44px;padding:0 16px;background:var(--hk-fill);cursor:pointer}',
-    '.tools .save{background:var(--hk-tint);color:white}.tools button:disabled{opacity:.4}',
-    '.work{flex:1;min-height:0;overflow:hidden;box-sizing:border-box;display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:20px;padding:20px}',
-    '.stage{min-width:0;min-height:0;overflow:hidden}aside{min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable}.framebox{position:relative;overflow:hidden;margin:auto;border-radius:10px;background:var(--hk-cell);outline:1px solid var(--hk-sep)}',
+    '.tools h1{font-size:20px;margin:0;flex:1}.tools button{border:0;border-radius:8px;min-height:44px;padding:0 16px;background:var(--hk-fill);color:var(--hk-label);font:inherit;cursor:pointer}',
+    '.tools .save{background:var(--hk-tint);color:white}.tools button:disabled{opacity:.4;cursor:default}',
+    '.work{flex:1;min-height:0;overflow:hidden;box-sizing:border-box;display:grid;grid-template-columns:280px minmax(0,1fr) 340px;gap:16px;padding:16px 16px 0}',
+    '@media(max-width:1380px){.work{grid-template-columns:240px minmax(0,1fr) 300px}}',
+    '.stage{min-width:0;min-height:0;overflow:hidden}',
+    '.palette,aside.sidebar{min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable;padding-bottom:24px}',
+    '.framebox{position:relative;overflow:hidden;margin:auto;border-radius:10px;background:var(--hk-cell);outline:1px solid var(--hk-sep)}',
     '.frame{position:absolute;left:0;top:0;transform-origin:top left;background:var(--hk-cell);overflow:hidden}',
     'iframe{position:absolute;inset:0;border:0;width:100%;height:100%;pointer-events:none}',
     '.grid{position:absolute;display:grid;gap:10px;z-index:2}',
     '.slot{border:1px dashed var(--hk-label3);border-radius:var(--grid-radius,var(--hk-glass-radius,23.5px));pointer-events:none}',
     '.block{position:absolute;z-index:3;cursor:grab;border:2px solid transparent;background:transparent;border-radius:var(--grid-radius,var(--hk-glass-radius,23.5px));color:var(--hk-label);touch-action:none}',
+    '.block:hover{border-color:color-mix(in srgb,var(--hk-tint) 45%,transparent)}',
     '.block[aria-pressed=true]{border-color:var(--hk-tint)}.block:focus-visible{outline:3px solid var(--hk-tint)}',
-    '.block .tag{position:absolute;top:6px;left:6px;max-width:calc(100% - 12px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:4px 8px;border-radius:7px;background:var(--hk-cell);font-size:13px}',
-    '.ghost{position:absolute;pointer-events:none;border:3px solid var(--hk-tint);background:var(--hk-fill);border-radius:var(--grid-radius,var(--hk-glass-radius,23.5px));z-index:4}.ghost.bad{border-color:var(--hk-red)}',
-    '.note{font-size:13px;color:var(--hk-label2);line-height:1.5}.message{flex:none;color:var(--hk-red);min-height:24px;padding:8px 20px}',
-    '.catalog-search{box-sizing:border-box;width:100%;min-height:44px;border:1px solid var(--hk-sep);border-radius:10px;padding:10px 12px;background:var(--hk-cell);color:var(--hk-label);font:inherit}',
-    '.catalog-row{display:flex;align-items:center;gap:12px;width:100%;min-height:68px;border:0;border-bottom:1px solid var(--hk-sep);padding:10px 12px;background:var(--hk-cell);color:var(--hk-label);text-align:left;cursor:pointer}',
-    '.catalog-row hk-icon{width:28px;height:28px;flex:none;color:var(--hk-tint)}.catalog-row span{display:grid;gap:4px}.catalog-row small{font-size:13px;color:var(--hk-label2)}',
-    '.catalog-preview{position:relative;width:100%;overflow:hidden;border-radius:10px;background:var(--hk-fill);margin:12px 0;cursor:grab}.catalog-preview > div{pointer-events:none}',
-    '.screen-settings{margin:16px 0}.screen-settings summary{cursor:pointer;min-height:44px;display:flex;align-items:center;gap:8px;font-weight:600}.screen-settings summary::before{content:"›"}.screen-settings[open] summary::before{transform:rotate(90deg)}',
-    '.size-choices{display:flex;flex-wrap:wrap;gap:4px;padding:4px;border-radius:10px;background:var(--hk-fill)}',
-    '.size-choices button{flex:1;min-height:44px;border:0;border-radius:7px;background:transparent;color:var(--hk-label);cursor:pointer;font:inherit;font-size:13px}',
-    '.size-choices button[aria-pressed=true]{background:var(--hk-cell);box-shadow:0 1px 3px var(--hk-sep)}.size-choices button[data-full=true]{opacity:.5}.size-choices small{display:block;font-size:11px}',
-    '.catalog-add{width:100%;min-height:44px;border:0;border-radius:10px;background:var(--hk-tint);color:white;font:inherit;cursor:pointer}.catalog-add:disabled{opacity:.4}',
+    // the block's name: just above the one pointed at or chosen, never over a card's own title
+    '.block .tag{position:absolute;bottom:calc(100% + 4px);left:0;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:4px 8px;border-radius:7px;background:var(--hk-cell);font-size:13px;opacity:0;transition:opacity .12s}',
+    '.block:hover .tag,.block[aria-pressed=true] .tag,.block:focus-visible .tag{opacity:1}',
+    '.ghost{position:absolute;pointer-events:none;border:3px solid var(--hk-tint);background:color-mix(in srgb,var(--hk-tint) 18%,transparent);border-radius:var(--grid-radius,var(--hk-glass-radius,23.5px));z-index:4}.ghost.bad{border-color:var(--hk-red);background:color-mix(in srgb,var(--hk-red) 14%,transparent)}',
+    '.float{position:fixed;left:0;top:0;z-index:20;pointer-events:none;display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:10px;background:var(--hk-cell);color:var(--hk-label);box-shadow:var(--hk-shadow);font-size:13px;font-weight:600;white-space:nowrap}',
+    '.float hk-icon{width:20px;height:20px;color:var(--hk-tint)}',
+    '.note{font-size:13px;color:var(--hk-label2);line-height:1.5;margin:0 0 10px}.message{flex:none;color:var(--hk-red);min-height:24px;padding:6px 20px 0}',
+    // THE PALETTE
+    '.pal-head{position:sticky;top:0;z-index:2;background:var(--hk-bg);padding:0 0 12px}',
+    '.pal-head p{font-size:13px;color:var(--hk-label2);margin:8px 4px 0;line-height:1.4}',
+    '.catalog-search{box-sizing:border-box;width:100%;min-height:40px;border:1px solid var(--hk-sep);border-radius:10px;padding:8px 12px;background:var(--hk-cell);color:var(--hk-label);font:inherit;font-size:15px}',
+    '.pick-banner{display:flex;align-items:center;gap:8px;margin:0 0 10px;padding:10px 12px;border-radius:10px;background:color-mix(in srgb,var(--hk-tint) 16%,var(--hk-cell));font-size:14px}',
+    '.pick-banner span{flex:1}.pick-banner button{border:0;background:none;color:var(--hk-tint);font:inherit;cursor:pointer;min-height:32px}',
+    '.pal-row{display:flex;align-items:center;gap:10px;padding:8px 10px 8px 12px;cursor:grab;user-select:none;-webkit-user-select:none;touch-action:none}',
+    '.pal-row:active{cursor:grabbing}.pal-row[aria-expanded=true]{background:var(--hk-hover)}',
+    '.pal-row > hk-icon{width:24px;height:24px;flex:none;color:var(--hk-tint)}',
+    '.pal-row .pt{display:grid;gap:2px;flex:1;min-width:0}.pal-row .pt b{font-weight:600;font-size:15px}',
+    '.pal-row .pt small{font-size:12px;color:var(--hk-label2);line-height:1.3}',
+    '.chips{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px}',
+    '.chip{min-width:0;height:24px;padding:0 7px;border-radius:6px;border:0;background:var(--hk-fill);color:var(--hk-label2);font:inherit;font-size:11px;font-weight:600;cursor:pointer}',
+    '.chip[aria-pressed=true]{background:var(--hk-tint);color:#fff}.chip[data-full=true]{opacity:.45}',
+    '.pal-detail{display:block;padding:4px 12px 12px}',
+    '.catalog-preview{position:relative;width:100%;overflow:hidden;border-radius:10px;background:var(--hk-fill);margin:4px 0 8px;cursor:grab}.catalog-preview > *{pointer-events:none}',
+    '.catalog-add{width:100%;min-height:40px;border:0;border-radius:10px;background:var(--hk-tint);color:white;font:inherit;cursor:pointer}.catalog-add:disabled{opacity:.4;cursor:default}',
+    // THE INSPECTOR
+    '.insp-head{display:flex;align-items:center;gap:12px;padding:4px 4px 16px}',
+    '.insp-head hk-icon{width:30px;height:30px;flex:none;padding:9px;border-radius:12px;background:var(--hk-cell);color:var(--hk-tint)}',
+    '.insp-head h2{margin:0;font-size:20px;font-weight:700}.insp-head p{margin:2px 0 0;font-size:13px;color:var(--hk-label2)}',
+    '.insp-head .done{margin-left:auto;border:0;background:none;color:var(--hk-tint);font:inherit;font-size:15px;cursor:pointer;min-height:44px}',
+    '.screen-settings{margin:4px 0 16px}.screen-settings summary{cursor:pointer;min-height:44px;display:flex;align-items:center;gap:8px;font-weight:600;padding:0 4px}.screen-settings summary::before{content:"›";display:inline-block;transition:transform .15s}.screen-settings[open] summary::before{transform:rotate(90deg)}',
     '.desktop-note{display:none;padding:32px}',
-    '@media(max-width:899px),(pointer:coarse){.work,.tools .save,.tools .add{display:none}.desktop-note{display:block}}'
+    '@media(max-width:899px),(pointer:coarse){.work,.tools .save,.tools .undo{display:none}.desktop-note{display:block}}'
   ].join('\n');
 
   class GridEditor extends HTMLElement {
-    constructor() { super(); this.attachShadow({ mode: 'open' }); this.selected = null; this.busy = false; }
+    constructor() { super(); this.attachShadow({ mode: 'open' }); this.selected = null; this.busy = false; this.undoStack = []; this.paletteSizes = {}; }
     configure(options) {
       this.o = options; this.panel = options.panel; this.K = window.hkSettingsKit; this.h = this.K.h;
       this.grid = options.board.home_grid ? copy(options.board.home_grid) : null;
-      this.initial = JSON.stringify(this.grid); this.catalog = !this.grid;
+      this.initial = JSON.stringify(this.grid);
     }
     connectedCallback() {
       this.toggleAttribute('dark', this.panel.hasAttribute('dark'));
@@ -142,19 +188,20 @@
       this.o.onCancel();
     }
     draw() {
-      var h = this.h, K = this.K, self = this;
+      var h = this.h, K = this.K;
       this.shadowRoot.replaceChildren(h('style', { text: K.CSS + '\n' + CSS }));
       this.ui = h('div', { class: 'editor' }); this.shadowRoot.appendChild(this.ui);
       this.saveButton = h('button', { class: 'save', text: 'Save', onclick: () => this.save(), disabled: !this.grid });
+      this.undoButton = h('button', { class: 'undo', text: 'Undo', title: 'Undo (⌘Z)', onclick: () => this.undo(), disabled: true });
       this.ui.appendChild(h('header', { class: 'tools' }, [h('button', { text: 'Cancel', onclick: () => this.cancel() }),
-        h('h1', { text: this.o.title + ' · Home Grid' }),
-        h('button', { class: 'add', text: '+ Add', onclick: () => { this.catalog = true; this.pickerCard = null; this.pickerTarget = null; this.side(); } }), this.saveButton]));
+        h('h1', { text: this.o.title + ' · Home Grid' }), this.undoButton, this.saveButton]));
       this.message = h('div', { class: 'message', role: 'status', 'aria-live': 'polite' }); this.ui.appendChild(this.message);
       this.ui.appendChild(h('div', { class: 'desktop-note', text: 'Arrange Home Grid on a desktop with a mouse or trackpad. This screen only displays the saved layout.' }));
+      this.palette = h('aside', { class: 'palette', 'aria-label': 'Cards' });
       this.stage = h('section', { class: 'stage', 'aria-label': 'Screen layout' });
-      this.sidebar = h('aside', { 'aria-label': 'Block and grid options', tabindex: '0' });
-      this.ui.appendChild(h('div', { class: 'work' }, [this.stage, this.sidebar]));
-      this.stage.appendChild(h('p', { class: 'note', text: 'Drag blocks to move them. Equal sizes swap. Select a block and use the arrow keys to move it. Cards are a preview; controls do not act on the house.' }));
+      this.sidebar = h('aside', { class: 'sidebar', 'aria-label': 'Block and screen settings', tabindex: '0' });
+      this.ui.appendChild(h('div', { class: 'work' }, [this.palette, this.stage, this.sidebar]));
+      this.stage.appendChild(h('p', { class: 'note', text: 'Drag a card from the left onto the grid. Drag blocks to move them; equal sizes swap. Cards are a preview: their controls don’t act on the house.' }));
       this.box = h('div', { class: 'framebox' }); this.stage.appendChild(this.box);
       this.frame = h('div', { class: 'frame' }); this.box.appendChild(this.frame);
       this.iframe = h('iframe', { title: 'Home Grid preview', tabindex: '-1', 'aria-hidden': 'true' });
@@ -163,15 +210,40 @@
       this.iframe.addEventListener('load', () => this.preview());
       this.frame.appendChild(this.iframe);
       this.overlay = h('div', { class: 'grid', 'aria-label': 'Grid blocks' }); this.frame.appendChild(this.overlay);
-      this.overlay.addEventListener('dragover', (e) => { e.preventDefault(); });
-      this.overlay.addEventListener('drop', (e) => {
-        e.preventDefault();
-        try { var data = JSON.parse(e.dataTransfer.getData('application/x-hk-grid')); self.addCard(data.card, data.size, snap(e.clientX, e.clientY, self.overlay.getBoundingClientRect(), self.grid.cols, self.grid.rows)); } catch (x) { self.say('That block could not be placed.'); }
-      });
+      // a click on the grid's empty space lets the block go: the screen's settings again
+      this.stage.addEventListener('click', (e) => { if (!e.target.closest || !e.target.closest('.block')) { if (this.selected) this.select(null); } });
+      this.shadowRoot.addEventListener('keydown', (e) => this.keys(e));
       this.blocks(); this.side(); this.fit();
     }
-    change(grid) {
-      this.grid = grid; this.saveButton.disabled = false; this.say(''); this.blocks(); this.side(); this.fit(); this.preview();
+    // ⌘Z / Ctrl+Z undoes; Escape lets a block (or a card choice) go; Delete removes the chosen block
+    keys(e) {
+      var path = e.composedPath ? e.composedPath() : [e.target], field = path.find((el) => el.matches && el.matches('input,select,textarea'));
+      if (field) return;
+      if ((e.metaKey || e.ctrlKey) && !e.shiftKey && e.key.toLowerCase() === 'z') { e.preventDefault(); this.undo(); return; }
+      if (e.key === 'Escape' && (this.pickerTarget || this.selected)) { e.preventDefault(); if (this.pickerTarget) this.pickFor(null); else this.select(null); return; }
+      if ((e.key === 'Delete' || e.key === 'Backspace') && this.selected && path.some((el) => el.classList && el.classList.contains('block'))) {
+        e.preventDefault(); this.remove(this.selected);
+      }
+    }
+    change(grid, fromUndo) {
+      if (!fromUndo && this.grid && JSON.stringify(grid) !== JSON.stringify(this.grid)) {
+        this.undoStack.push({ grid: copy(this.grid), selected: this.selected });
+        if (this.undoStack.length > 50) this.undoStack.shift();
+      }
+      this.grid = grid; this.saveButton.disabled = false; this.undoButton.disabled = !this.undoStack.length;
+      if (this.selected && !grid.items.some((it) => it.id === this.selected)) this.selected = null;
+      this.say(''); this.blocks(); this.side(); this.fit(); this.preview();
+    }
+    undo() {
+      var last = this.undoStack.pop();
+      if (!last || this.busy) return;
+      this.selected = last.selected; this.change(last.grid, true);
+      this.say('Undone.');
+    }
+    remove(id) {
+      var next = copy(this.grid), it = next.items.find((x) => x.id === id);
+      next.items = next.items.filter((x) => x.id !== id); this.selected = null; this.change(next);
+      if (it) this.say(NAMES[it.card] + ' removed. Undo (⌘Z) puts it back.');
     }
     blocks() {
       this.overlay.replaceChildren();
@@ -181,8 +253,8 @@
       this.overlay.style.gridTemplateRows = 'repeat(' + this.grid.rows + ',1fr)';
       for (var i = 0; i < this.grid.cols * this.grid.rows; i++) this.overlay.appendChild(h('div', { class: 'slot' }));
       this.grid.items.forEach(function (it) {
-        var b = h('button', { class: 'block', type: 'button', 'data-id': it.id, 'aria-label': NAMES[it.card] + ', ' + it.size + ', column ' + (it.at[0] + 1) + ', row ' + (it.at[1] + 1),
-          'aria-pressed': self.selected === it.id ? 'true' : 'false' }, h('span', { class: 'tag', text: NAMES[it.card] + ' · ' + it.size }));
+        var b = h('button', { class: 'block', type: 'button', 'data-id': it.id, 'aria-label': NAMES[it.card] + ', ' + SIZE_NAMES[it.size] + ', column ' + (it.at[0] + 1) + ', row ' + (it.at[1] + 1),
+          'aria-pressed': self.selected === it.id ? 'true' : 'false' }, h('span', { class: 'tag', text: NAMES[it.card] + ' · ' + SIZE_NAMES[it.size] }));
         self.position(b, it);
         b.addEventListener('click', () => { self.select(it.id); });
         b.addEventListener('pointerdown', (e) => self.drag(e, it, b));
@@ -198,9 +270,10 @@
       });
     }
     select(id) {
-      this.selected = id; this.conditionPreview = null; this.catalog = false;
+      this.selected = id; this.conditionPreview = null; this.pickerTarget = null;
       this.overlay.querySelectorAll('.block').forEach((b) => b.setAttribute('aria-pressed', b.dataset.id === id ? 'true' : 'false'));
       this.side();
+      if (id === null) this.preview();
     }
     position(el, it) {
       var gap = this.cellGap || 10, z = SIZES[it.size], w = (this.overlay.clientWidth - (this.grid.cols - 1) * gap) / this.grid.cols;
@@ -232,6 +305,37 @@
       };
       button.addEventListener('pointermove', move); button.addEventListener('pointerup', finish); button.addEventListener('pointercancel', finish);
     }
+    // A CARD DRAGGED OUT OF THE PALETTE: a label follows the pointer, and over
+    // the grid the block's real footprint shows where it lands (red: no room)
+    paletteDrag(e, card, row) {
+      if (!this.grid || this.busy || this.pickerTarget) return false;
+      var self = this, size = this.sizeFor(card), ghost = this.h('div', { class: 'ghost' }), at = null;
+      var label = this.h('div', { class: 'float' }, [this.h('hk-icon', { icon: GLYPHS[card] }), this.h('span', { text: NAMES[card] + ' · ' + SIZE_NAMES[size] })]);
+      this.shadowRoot.appendChild(label);
+      var over = function (ev) {
+        var r = self.overlay.getBoundingClientRect();
+        return ev.clientX >= r.left && ev.clientX <= r.right && ev.clientY >= r.top && ev.clientY <= r.bottom ? r : null;
+      };
+      var move = function (ev) {
+        label.style.transform = 'translate(' + (ev.clientX + 14) + 'px,' + (ev.clientY + 14) + 'px)';
+        var r = over(ev);
+        if (!r) { at = null; ghost.remove(); return; }
+        at = landing(ev.clientX, ev.clientY, r, self.grid.cols, self.grid.rows, self.cellGap || 10, size);
+        if (!ghost.parentNode) self.overlay.appendChild(ghost);
+        self.position(ghost, { size: size, at: at });
+        ghost.classList.toggle('bad', !add(self.grid, card, size, at));
+      };
+      var finish = function (ev) {
+        row.removeEventListener('pointermove', move); row.removeEventListener('pointerup', finish); row.removeEventListener('pointercancel', finish);
+        ghost.remove(); label.remove();
+        if (ev.type === 'pointercancel' || !at) return;
+        if (add(self.grid, card, size, at)) self.addCard(card, size, at);
+        else self.say('No room there for a ' + SIZE_NAMES[size] + ' ' + NAMES[card] + '. Move or remove a block, or pick a smaller size.');
+      };
+      move(e);
+      row.addEventListener('pointermove', move); row.addEventListener('pointerup', finish); row.addEventListener('pointercancel', finish);
+      return true;
+    }
     fit() {
       if (!this.grid || !this.box) return;
       var note = this.stage.querySelector('.note'), noteStyle = note && getComputedStyle(note);
@@ -262,21 +366,23 @@
         Object.assign(this.overlay.style, { left: bounds.left + pad + 'px', top: bounds.top + pad + band + 'px',
           width: bounds.width - 2 * pad + 'px', height: bounds.height - 2 * pad - band + 'px' });
       } else {
-        var pad = frame[0] * 0.015 + 8, top = pad + (this.grid.band ? 70 : 0);
-        Object.assign(this.overlay.style, { left: pad + 'px', top: top + 'px', width: frame[0] - 2 * pad + 'px', height: frame[1] - top - pad + 'px' });
+        var pad0 = frame[0] * 0.015 + 8, top = pad0 + (this.grid.band ? 70 : 0);
+        Object.assign(this.overlay.style, { left: pad0 + 'px', top: top + 'px', width: frame[0] - 2 * pad0 + 'px', height: frame[1] - top - pad0 + 'px' });
       }
       this.overlay.querySelectorAll('.block').forEach((b) => { var it = this.grid.items.find((i) => i.id === b.dataset.id); if (it) this.position(b, it); });
     }
     addCard(card, size, at) {
-      if (!this.grid) { this.say('Choose a starter layout first.'); return; }
+      if (!this.grid) { this.say('Choose a starter layout, or Start Empty, first.'); return; }
       var next = add(this.grid, card, size, at);
       if (!next) { this.say('No space for that size. Remove or move a block first.'); return; }
       var added = next.items[next.items.length - 1];
-      this.selected = added.id; Object.assign(added, this.variantFor(card)); this.catalog = false; this.change(next);
+      Object.assign(added, this.variantFor(card));
+      this.selected = added.id; this.pickerCard = null; this.change(next);
     }
     async starter(concept) {
       if (this.busy) return;
       if (this.grid && !await this.K.confirm(this.shadowRoot, { title: 'Use a Starter Layout?', message: 'This replaces your draft. Nothing is saved yet.', ok: 'Use Starter' })) return;
+      if (concept === 'empty') { this.selected = null; this.change(copy(EMPTY)); return; }
       var client = this.panel.client, states = client.states || {}, board = this.o.board;
       var ids = (domain) => Object.keys(states).filter((id) => id.indexOf(domain + '.') === 0).slice(0, 512);
       var rooms = (board.room_order || []).filter((id) => (client.areas || {})[id]);
@@ -284,162 +390,130 @@
       rooms = rooms.slice(0, 512);
       var tablet = Object.values(this.panel.data.tablets || {}).find((t) => t.screen === this.o.path && t.room);
       var menu = board.menu_custom ? board.menu : (this.panel.data.settings.menu || {}).menu;
+      var result;
       try {
         this.busy = true;
-        var result = await client.callWS({ type: 'hk_frontend/grid/starter', options: {
+        result = await client.callWS({ type: 'hk_frontend/grid/starter', options: {
           concept: concept, scenes: board.scenes && board.scenes.length ? board.scenes.filter((id) => id.indexOf('scene.') === 0) : ids('scene'), rooms: rooms,
           cameras: board.cameras && board.cameras.length ? board.cameras : ids('camera'), climate: ids('climate'),
           tablet_room: tablet ? tablet.room : null, tab_bar: menu === 'tabbar' || menu === 'auto' || !menu
         } });
-        this.selected = null; this.catalog = false; this.change(copy(result.grid));
-      } catch (e) { this.say('Couldn’t load the starter. ' + (e.message || e)); }
+      } catch (e) { this.say('Couldn’t load the starter. ' + (e.message || e)); return; }
       finally { this.busy = false; }
+      this.selected = null; this.change(copy(result.grid));
     }
+    // BOTH SIDES, drawn again: the palette and the settings (each keeps its scroll)
     side() {
-      var h = this.h, K = this.K, self = this, cat = G.table();
-      if (this.catalogOff) { this.catalogOff(); this.catalogOff = null; }
+      this.drawPalette();
+      var key = this.selected + '|' + !!this.pickerTarget, keep = this._inspFor === key ? this.sidebar.scrollTop : 0;
+      this._inspFor = key;
       this.sidebar.replaceChildren();
-      var group = (title, rows, footer) => this.sidebar.appendChild(K.group({ header: title, footer: footer }, rows));
-      if (this.catalog && this.grid) {
-        this.picker(group);
-      }
       var item = this.grid && this.grid.items.find((it) => it.id === this.selected);
-      if (item && !this.catalog) {
-        group(NAMES[item.card], [K.button({ label: 'Change Card', onClick: () => this.pickFor('primary') }), K.select({ label: 'Size', value: item.size,
-          options: cat[item.card].sizes.filter((sz) => SIZES[sz][0] <= self.grid.cols).map((sz) => [sz, SIZE_NAMES[sz]]),
-          onChange: (sz) => { if (item.card === 'accessories' && item.pages && item.pages.source === 'list' && item.pages.list.some((pg) => (pg.opts.accessories || []).length > G.PER_PAGE[sz])) { self.say('This size holds ' + G.PER_PAGE[sz] + ' accessories per page. Move accessories to another page or choose Automatic Swipe Pages first.'); self.side(); return; } var next = place(self.grid, item.id, item.at, sz); if (next) self.change(next); else { self.say('That size does not fit here.'); self.side(); } } }),
-          K.button({ label: 'Remove Block', destructive: true, onClick: () => { var next = copy(self.grid); next.items = next.items.filter((it) => it.id !== item.id); self.selected = null; self.change(next); } })]);
-        this.conditions(item, group);
-        this.optionFields(item, item.opts || {}, (opts) => this.update(item.id, { opts: opts }), 'Options', false);
-        var sources = [['', 'Single Card'], ['list', 'Choose Each Page']].concat(cat[item.card].sources.map((s) => [s, NAMES[s] || s.charAt(0).toUpperCase() + s.slice(1)]));
-        var src = item.pages && item.pages.source || '';
-        if (item.card === 'room') sources = sources.map((op) => [op[0], op[0] === '' ? 'One Room' : op[0] === 'rooms' ? 'Swipe Between Rooms' : op[1]]);
-        if (item.card === 'camera') sources = sources.map((op) => [op[0], op[0] === '' ? 'One Camera' : op[0] === 'cameras' ? 'Swipe All Cameras' : op[1]]);
-        if (item.card === 'accessories') sources = [['accessories', 'Automatic Swipe Pages'], ['list', 'Choose Each Page']];
-        var rows = [K.select({ label: item.card === 'camera' ? 'Camera Display' : item.card === 'room' ? 'Room Display' : 'Pages', value: src, options: sources, onChange: (s) => {
-          if (item.card === 'accessories') {
-            var opts = copy(item.opts || {}), per = G.PER_PAGE[item.size], entries = opts.accessories || [];
-            if (s === 'list') {
-              var list = [];
-              for (var i = 0; i < entries.length; i += per) list.push({ opts: { accessories: entries.slice(i, i + per) } });
-              delete opts.accessories;
-              this.update(item.id, { opts: opts, pages: { source: 'list', list: list.length ? list : [{ opts: {} }] } });
-            } else {
-              if (item.pages && item.pages.source === 'list') entries = item.pages.list.flatMap((pg) => pg.opts.accessories || []);
-              var seen = new Set(); entries = entries.filter((e) => !seen.has(e.entity) && seen.add(e.entity));
-              if (entries.length > 24) { this.say('Automatic pages support up to 24 accessories. Remove some first.'); return; }
-              if (entries.length) opts.accessories = entries;
-              this.update(item.id, { opts: opts, pages: { source: 'accessories' } });
-            }
-            return;
-          }
-          this.update(item.id, { pages: s ? s === 'list' ? { source: 'list', list: [{ opts: {} }] } : { source: s } : null });
-        } })];
-        var roomHelp = item.card === 'accessories' ? 'Choose accessories below. Each page holds ' + G.PER_PAGE[item.size] + ' tiles at this size. Automatic pages follow their order; Choose Each Page lets you arrange separate sets.' : 'Choose Each Page repeats this card with different accessories or options. Add a page below, then choose what it shows.';
-        if (src === 'rooms' && item.card === 'room') {
-          var area = (item.opts || {}).area || (item.pages.start === 'tablet_room' ? 'tablet_room' : '');
-          var roomIds = this.previewView && this.previewView._config.grid_ctx && this.previewView._config.grid_ctx.rooms;
-          var choices = [['', 'First Room']].concat(this.choices('area').filter((op) => op[0] === 'tablet_room' || !roomIds || roomIds.includes(op[0])));
-          if (area && !choices.some((op) => op[0] === area)) choices.push([area, area + ' (Not on this screen)']);
-          var chosen = choices.find((op) => op[0] === area);
-          roomHelp = area === 'tablet_room' ? 'Uses the wall tablet’s assigned room. An unassigned desktop previews the first room.'
-            : area ? 'Opens on ' + (chosen ? chosen[1] : area) + ' and returns there when idle.' : 'Starts with the first room in this screen’s room order.';
-          if (area && area !== 'tablet_room' && roomIds && !roomIds.includes(area)) roomHelp = 'This room is not included on the screen. The first room will appear instead.';
-          rows.push(K.select({ label: 'Starting Room', value: area, options: choices, onChange: (value) => {
-            var opts = copy(item.opts || {}), pages = copy(item.pages);
-            if (value) opts.area = value; else delete opts.area;
-            if (value === 'tablet_room') pages.start = 'tablet_room'; else delete pages.start;
-            this.update(item.id, { opts: opts, pages: pages });
-          } }));
-        }
-        if (src === 'thermostats') rows.push(K.toggle({ label: 'Start on Tablet’s Room', on: item.pages.start === 'tablet_room', onChange: (on) => {
-          var p = copy(item.pages); if (on) p.start = 'tablet_room'; else delete p.start; this.update(item.id, { pages: p });
-        } }));
-        group(item.card === 'room' ? 'Room Display' : 'Pages', rows, roomHelp);
-        if (src === 'list') {
-          item.pages.list.forEach((pg, i) => {
-            this.optionFields(item, pg.opts || {}, (opts) => { var p = copy(item.pages); p.list[i].opts = opts; this.update(item.id, { pages: p }); }, 'Page ' + (i + 1), true);
-            group('', [K.button({ label: 'Move Page ' + (i + 1) + ' Up', disabled: i === 0, onClick: () => { var p = copy(item.pages); p.list.splice(i - 1, 0, p.list.splice(i, 1)[0]); this.update(item.id, { pages: p }); } }),
-              K.button({ label: 'Remove Page ' + (i + 1), destructive: true, disabled: item.pages.list.length === 1, onClick: () => { var p = copy(item.pages); p.list.splice(i, 1); this.update(item.id, { pages: p }); } })]);
-          });
-          group('', [K.button({ label: 'Add Page', disabled: item.pages.list.length >= 12, onClick: () => { var p = copy(item.pages); p.list.push({ opts: {} }); this.update(item.id, { pages: p }); } })]);
-        }
-      }
-      var starters = () => K.group({ header: 'Starter Layouts', footer: 'Replaces this draft with your home’s scenes, rooms, cameras and thermostats. Save to apply it.' }, ['A', 'C'].map((c) => K.button({ label: c === 'A' ? 'Tap Weight' : 'Glance Up, Touch Down', onClick: () => this.starter(c) })));
-      if (!this.grid) this.sidebar.appendChild(starters());
-      if (this.catalog) this.catalogPreviews();
-      if (!this.grid) return;
-      var config = (key, value) => { var next = copy(this.grid); next[key] = value; if (valid(next)) this.change(next); else { this.say('Move or remove blocks that would be outside the new grid first.'); this.side(); } };
-      var settings = h('details', { class: 'screen-settings' }, [h('summary', { text: 'Screen Settings' })]);
-      settings.open = !!this.screenSettingsOpen;
-      settings.addEventListener('toggle', () => { this.screenSettingsOpen = settings.open; });
-      settings.appendChild(K.group({ header: 'Grid & Header' }, [K.select({ label: 'Columns', value: this.grid.cols, options: [6, 3, 2].map((n) => [n, String(n)]), onChange: (n) => config('cols', Number(n)) }),
-        K.select({ label: 'Rows', value: this.grid.rows, options: [2, 3, 4, 5, 6].map((n) => [n, String(n)]), onChange: (n) => config('rows', Number(n)) }),
-        K.select({ label: 'Grid Scale', value: this.grid.scale || 100, options: [100, 90, 80, 70, 60, 50].map((n) => [n, n === 100 ? 'Automatic Fit' : n + '% of Fit']), onChange: (n) => config('scale', Number(n)) }),
-        K.toggle({ label: 'Top Band', on: this.grid.band, onChange: (v) => config('band', v) }),
-        K.toggle({ label: 'Header Clock', on: this.grid.header_clock !== false, onChange: (v) => config('header_clock', v) }),
-        K.toggle({ label: 'Header Weather', on: this.grid.header_weather !== false, onChange: (v) => config('header_weather', v) }),
-        K.text({ label: 'Frame Width', value: this.grid.frame[0], type: 'number', onCommit: (v) => config('frame', [Number(v), this.grid.frame[1]]) }),
-        K.text({ label: 'Frame Height', value: this.grid.frame[1], type: 'number', onCommit: (v) => config('frame', [this.grid.frame[0], Number(v)]) })]));
-      settings.appendChild(starters());
-      this.sidebar.appendChild(settings);
-      if (this.panel.host() && this.panel.host().gridHistory) {
-        group('Layout History', [K.button({ label: 'History', onClick: () => this.history() })]);
-        if (this.histories) {
-          var historyRows = this.histories.map((row) => K.button({ label: 'Version ' + row.version + ' · ' + new Date(row.created * 1000).toLocaleString() + ' · ' + (row.actor_name || row.actor || row.source || 'Unknown'), onClick: () => this.restore(row) }));
-          group('Earlier Layouts', historyRows, historyRows.length ? 'Choose a version to preview it as your draft. Save to restore only its layout.' : 'No earlier layouts.');
-        }
-        var targets = this.panel.data.dashboards.filter((d) => d.item && d.generated && d.path !== this.o.path && this.panel.data.boards[d.path]);
-        if (targets.length) group('Copy Layout To…', [K.select({ label: 'Screen', value: '', options: [['', 'Choose Screen']].concat(targets.map((d) => [d.path, d.title])), onChange: (path) => this.copyTo(path) })]);
-      }
+      if (item) this.inspect(item); else this.screen();
+      this.sidebar.scrollTop = keep;
     }
-    picker(group) {
-      var h = this.h, self = this, cat = G.table(), key = this.pickerCard;
-      if (!key) {
-        var search = h('input', { class: 'catalog-search', type: 'search', placeholder: 'Search cards', 'aria-label': 'Search cards', value: this.pickerSearch || '' });
-        var list = h('div', { class: 'catalog-list' });
-        var rows = function () {
-          list.replaceChildren();
-          var query = (search.value || '').trim().toLowerCase(), count = 0, target = self.grid.items.find((it) => it.id === self.selected);
-          GROUPS.forEach(function (g) {
-            var keys = g[1].filter((k) => (!self.pickerTarget || target && cat[k].sizes.includes(target.size)) && (NAMES[k] + ' ' + DESCRIPTIONS[k] + ' ' + g[0]).toLowerCase().includes(query));
-            if (!keys.length) return;
-            count += keys.length;
-            list.appendChild(self.K.group({ header: g[0] }, keys.map(function (k) {
-              return h('button', { class: 'catalog-row', type: 'button', 'data-card': k, onclick: () => { self.pickerCard = k; self.pickerSize = null; self.side(); } },
-                [h('hk-icon', { icon: GLYPHS[k] }), h('span', {}, [h('strong', { text: NAMES[k] }), h('small', { text: DESCRIPTIONS[k] })])]);
-            })));
-          });
-          if (!count) list.appendChild(h('p', { class: 'note', text: 'No cards match your search.' }));
-        };
-        search.addEventListener('input', () => { self.pickerSearch = search.value; rows(); });
-        group(this.pickerTarget ? 'Choose a Card' : 'Add a Block', [search]); this.sidebar.appendChild(list); rows(); return;
-      }
-      var target = this.grid.items.find((it) => it.id === this.selected);
-      var sizes = cat[key].sizes.filter((sz) => this.pickerTarget ? target && target.size === sz : SIZES[sz][0] <= this.grid.cols && SIZES[sz][1] <= this.grid.rows);
-      var sz = sizes.includes(this.pickerSize) ? this.pickerSize : sizes.find((s) => firstSpace(this.grid, s)) || sizes[0];
-      this.pickerSize = sz;
-      var preview = h('div', { class: 'catalog-preview', 'data-preview-card': key, 'data-preview-size': sz,
-        draggable: this.pickerTarget ? 'false' : 'true', role: 'img', 'aria-label': NAMES[key] + ' preview. Drag onto the grid.' });
-      preview.addEventListener('dragstart', (e) => {
-        e.dataTransfer.setData('application/x-hk-grid', JSON.stringify({ card: key, size: sz })); e.dataTransfer.effectAllowed = 'copy';
-      });
-      var controls = h('div', { class: 'size-choices', role: 'group', 'aria-label': 'Card size' }, sizes.map(function (s) {
-        var full = !self.pickerTarget && !firstSpace(self.grid, s);
-        return h('button', { type: 'button', 'data-size': s, 'data-full': String(full), 'aria-pressed': String(s === sz),
-          onclick: () => { self.pickerSize = s; self.side(); } }, [h('span', { text: SIZE_NAMES[s] }), ...(full ? [h('small', { text: 'No space' })] : [])]);
+
+    // ------------------------------------------------------------ the palette
+    sizeFor(card) {
+      var sizes = this.sizesOf(card), want = this.paletteSizes[card];
+      if (sizes.includes(want)) return want;
+      return (this.grid && sizes.find((s) => firstSpace(this.grid, s))) || sizes[0];
+    }
+    // a card's sizes this grid can hold (choosing a card for a block: that block's size only)
+    sizesOf(card) {
+      var target = this.pickerTarget && this.grid && this.grid.items.find((it) => it.id === this.selected);
+      if (target) return G.table()[card].sizes.filter((s) => s === target.size);
+      return G.table()[card].sizes.filter((s) => !this.grid || (SIZES[s][0] <= this.grid.cols && SIZES[s][1] <= this.grid.rows));
+    }
+    drawPalette() {
+      var h = this.h, K = this.K, self = this, P = this.palette, keep = P.scrollTop;
+      if (this.catalogOff) { this.catalogOff(); this.catalogOff = null; }
+      P.replaceChildren();
+      var target = this.pickerTarget && this.grid && this.grid.items.find((it) => it.id === this.selected);
+      var head = h('div', { class: 'pal-head' });
+      if (target) head.appendChild(h('div', { class: 'pick-banner' }, [h('span', { text: this.pickerTarget === 'fallback' ? 'Choose the fallback card for this ' + SIZE_NAMES[target.size] + ' block.' : 'Choose a new card for this ' + SIZE_NAMES[target.size] + ' block.' }),
+        h('button', { type: 'button', text: 'Cancel', onclick: () => this.pickFor(null) })]));
+      var search = h('input', { class: 'catalog-search', type: 'search', placeholder: 'Search cards', 'aria-label': 'Search cards', value: this.pickerSearch || '' });
+      head.appendChild(search);
+      if (!target) head.appendChild(h('p', { text: this.grid ? 'Drag a card onto the grid, or click it to preview and add.' : 'Choose a starter layout or Start Empty on the right, then drag cards onto the grid.' }));
+      P.appendChild(head);
+      var list = h('div', { class: 'catalog-list' }); P.appendChild(list);
+      var rows = function () {
+        list.replaceChildren();
+        var query = (search.value || '').trim().toLowerCase(), count = 0;
+        GROUPS.forEach(function (g) {
+          var keys = g[1].filter((k) => self.sizesOf(k).length && (NAMES[k] + ' ' + DESCRIPTIONS[k] + ' ' + g[0]).toLowerCase().includes(query));
+          if (!keys.length) return;
+          count += keys.length;
+          var cells = [];
+          keys.forEach((k) => { cells.push(self.paletteRow(k)); if (self.pickerCard === k) cells.push(self.paletteDetail(k)); });
+          list.appendChild(K.group({ header: g[0] }, cells));
+        });
+        if (!count) list.appendChild(h('p', { class: 'note', text: 'No cards match your search.' }));
+      };
+      search.addEventListener('input', () => { self.pickerSearch = search.value; rows(); if (self.pickerCard) self.catalogPreviews(); });
+      rows();
+      P.scrollTop = keep;
+      if (this.pickerCard) this.catalogPreviews();
+    }
+    paletteRow(k) {
+      var h = this.h, self = this, size = this.sizeFor(k), open = this.pickerCard === k;
+      var chips = h('div', { class: 'chips', role: 'group', 'aria-label': NAMES[k] + ' size' }, this.sizesOf(k).map((s) => {
+        var full = !this.pickerTarget && this.grid && !firstSpace(this.grid, s);
+        return h('button', { class: 'chip', type: 'button', 'data-size': s, 'data-full': String(!!full), 'aria-pressed': String(s === size),
+          title: SIZE_NAMES[s] + ' · ' + SIZES[s][0] + ' × ' + SIZES[s][1] + (full ? ' · no free space' : ''), text: SIZE_SHORT[s] });
       }));
-      group(NAMES[key], [this.K.button({ label: 'All Cards', onClick: () => { this.pickerCard = null; this.side(); } }),
-        h('p', { class: 'note', text: DESCRIPTIONS[key] }), preview,
-        h('p', { class: 'note', text: 'Illustrative preview with sample readings. Your card uses your home’s live data.' }), controls,
-        h('p', { class: 'note', text: this.pickerTarget ? 'This card uses the selected block’s space.' : firstSpace(this.grid, sz) ? 'Add to the first free space, or drag the preview onto the grid.' : 'Move or remove a block to make room for this size.' }),
-        h('button', { class: 'catalog-add', text: (this.pickerTarget ? 'Use ' : 'Add ') + NAMES[key], disabled: !this.pickerTarget && !firstSpace(this.grid, sz), onclick: () => this.usePicked(key, sz) })]);
+      var row = h('div', { class: 'cell pal-row', role: 'button', tabindex: '0', 'data-card': k, 'aria-expanded': String(open),
+        'aria-label': NAMES[k] + ', ' + DESCRIPTIONS[k] + (this.pickerTarget ? '' : '. Drag onto the grid, or press Enter to preview.') },
+        [h('hk-icon', { icon: GLYPHS[k] }), h('span', { class: 'pt' }, [h('b', { text: NAMES[k] }), h('small', { text: DESCRIPTIONS[k] }), chips])]);
+      row.addEventListener('pointerdown', function (e) {
+        if (e.button !== 0) return;
+        var x0 = e.clientX, y0 = e.clientY, dragging = false;
+        try { row.setPointerCapture(e.pointerId); } catch (x) { /* a test page */ }
+        var move = function (ev) {
+          if (dragging || Math.hypot(ev.clientX - x0, ev.clientY - y0) < 5) return;
+          dragging = self.paletteDrag(ev, k, row);
+          if (dragging) stop();
+        };
+        var stop = function () { row.removeEventListener('pointermove', move); row.removeEventListener('pointerup', up); };
+        var up = function (ev) {
+          stop();
+          if (dragging) return;
+          var chip = ev.target.closest && ev.target.closest('.chip');
+          if (chip) { self.paletteSizes[k] = chip.dataset.size; self.pickerCard = k; }
+          else self.pickerCard = self.pickerCard === k ? null : k;
+          self.drawPalette();
+        };
+        row.addEventListener('pointermove', move); row.addEventListener('pointerup', up);
+      });
+      row.addEventListener('keydown', (e) => {
+        if (e.key !== 'Enter' && e.key !== ' ') return;
+        e.preventDefault(); this.pickerCard = this.pickerCard === k ? null : k; this.drawPalette();
+        var again = this.palette.querySelector('[data-card="' + k + '"]'); if (again) again.focus();
+      });
+      return row;
     }
-    pickFor(target) { this.pickerTarget = target; this.pickerCard = null; this.pickerSearch = ''; this.catalog = true; this.side(); }
+    // THE CHOSEN CARD: its live preview at its size, and Add (or Use, for a block's card)
+    paletteDetail(k) {
+      var h = this.h, sz = this.sizeFor(k), space = this.pickerTarget || (this.grid && firstSpace(this.grid, sz));
+      this.pickerSize = sz;
+      var preview = h('div', { class: 'catalog-preview', 'data-preview-card': k, 'data-preview-size': sz, role: 'img',
+        'aria-label': NAMES[k] + ' preview, ' + SIZE_NAMES[sz] });
+      return h('div', { class: 'cell pal-detail' }, [preview,
+        h('p', { class: 'note', text: 'Sample readings. On your screen it shows your home.' }),
+        h('button', { class: 'catalog-add', type: 'button', disabled: !space,
+          text: this.pickerTarget ? 'Use ' + NAMES[k] : space ? 'Add ' + SIZE_NAMES[sz] + ' ' + NAMES[k] : 'No room for this size',
+          onclick: () => this.usePicked(k, sz) })]);
+    }
+    pickFor(target) {
+      this.pickerTarget = target; this.pickerCard = null; this.pickerSearch = '';
+      this.side();
+      if (target) { var s = this.palette.querySelector('.catalog-search'); if (s) s.focus(); }
+    }
     usePicked(key, size) {
       if (!this.pickerTarget) { this.addCard(key, size); return; }
       var item = this.grid.items.find((it) => it.id === this.selected), target = this.pickerTarget;
-      this.pickerTarget = null; this.catalog = false;
+      this.pickerTarget = null; this.pickerCard = null;
       var variant = this.variantFor(key);
       this.update(item.id, target === 'fallback' ? { fallback: variant } : { card: key, opts: variant.opts, pages: variant.pages || null });
     }
@@ -450,10 +524,152 @@
       if (key === 'accessories') out.pages = { source: 'accessories' };
       return out;
     }
-    conditions(item, group) {
-      var K = this.K, kind = item.when && item.when.kind || '', self = this;
-      var names = { music_playing: 'Music Playing', timer_running: 'A Timer Running', alarm_armed: 'Alarm Armed',
-        doorbell: 'Someone at the Door', after_sunset: 'After Sunset', entity_state: 'Entity State' };
+
+    // ------------------------------------------------------------ the screen's settings
+    screen() {
+      var h = this.h, K = this.K, add = (n) => this.sidebar.appendChild(n);
+      var starters = () => K.group({ header: this.grid ? null : 'Start With', footer: this.grid ? 'Replaces this draft. Nothing is saved until you Save.' : 'Fills the grid from your home’s scenes, rooms, cameras and thermostats. Nothing is saved until you Save.' },
+        [['A', 'Tap Weight'], ['C', 'Glance Up, Touch Down'], ['empty', 'Start Empty']].map((c) => K.button({ label: c[1], onClick: () => this.starter(c[0]) })));
+      add(h('div', { class: 'insp-head' }, [h('hk-icon', { icon: 'mdi:tablet' }), h('div', {}, [h('h2', { text: 'Screen' }),
+        h('p', { text: this.grid ? this.grid.items.length + (this.grid.items.length === 1 ? ' block' : ' blocks') + ' · select one to change it' : 'No layout yet' })])]));
+      if (!this.grid) { add(starters()); return; }
+      var config = (key, value) => { var next = copy(this.grid); next[key] = value; if (valid(next)) this.change(next); else { this.say('Move or remove the blocks that would be outside the new grid first.'); this.side(); } };
+      add(K.group({ header: 'Grid', footer: 'The grid scales to fit each screen. Its blocks keep their shape.' }, [
+        K.seg({ label: 'Columns', value: this.grid.cols, options: [6, 3, 2].map((n) => [n, String(n)]), onChange: (n) => config('cols', Number(n)) }),
+        K.select({ label: 'Rows', value: this.grid.rows, options: [2, 3, 4, 5, 6].map((n) => [n, String(n)]), onChange: (n) => config('rows', Number(n)) }),
+        K.select({ label: 'Grid Scale', value: this.grid.scale || 100, options: [100, 90, 80, 70, 60, 50].map((n) => [n, n === 100 ? 'Automatic Fit' : n + '% of Fit']), onChange: (n) => config('scale', Number(n)) })]));
+      add(K.group({ header: 'Header' }, [
+        K.toggle({ label: 'Top Band', sub: 'The clock, weather and status chips', on: this.grid.band, onChange: (v) => config('band', v) }),
+        K.toggle({ label: 'Clock', on: this.grid.header_clock !== false, disabled: !this.grid.band, onChange: (v) => config('header_clock', v) }),
+        K.toggle({ label: 'Weather', on: this.grid.header_weather !== false, disabled: !this.grid.band, onChange: (v) => config('header_weather', v) })]));
+      var more = h('details', { class: 'screen-settings' }, [h('summary', { text: 'Preview Size and Starters' })]);
+      more.open = !!this.screenSettingsOpen;
+      more.addEventListener('toggle', () => { this.screenSettingsOpen = more.open; });
+      more.appendChild(K.group({ header: 'Preview Size', footer: 'The size this editor previews the screen at. The tablet itself always fits the grid to its own screen.' }, [
+        K.text({ label: 'Width', value: this.grid.frame[0], type: 'number', unit: 'px', onCommit: (v) => config('frame', [Number(v), this.grid.frame[1]]) }),
+        K.text({ label: 'Height', value: this.grid.frame[1], type: 'number', unit: 'px', onCommit: (v) => config('frame', [this.grid.frame[0], Number(v)]) })]));
+      more.appendChild(starters());
+      add(more);
+      if (this.panel.host() && this.panel.host().gridHistory) {
+        add(K.group({ header: 'Layout History' }, [K.button({ label: this.histories ? 'Refresh History' : 'Show Earlier Layouts', onClick: () => this.history() })]));
+        if (this.histories) {
+          var historyRows = this.histories.map((row) => K.button({ label: 'Version ' + row.version + ' · ' + new Date(row.created * 1000).toLocaleString() + ' · ' + (row.actor_name || row.actor || row.source || 'Unknown'), onClick: () => this.restore(row) }));
+          add(K.group({ header: 'Earlier Layouts', footer: historyRows.length ? 'A version becomes your draft. Save to restore its layout only.' : 'No earlier layouts.' }, historyRows));
+        }
+        var targets = this.panel.data.dashboards.filter((d) => d.item && d.generated && d.path !== this.o.path && this.panel.data.boards[d.path]);
+        if (targets.length) add(K.group({ header: 'Copy Layout To…' }, [K.select({ label: 'Screen', value: '', options: [['', 'Choose Screen']].concat(targets.map((d) => [d.path, d.title])), onChange: (path) => this.copyTo(path) })]));
+      }
+    }
+
+    // ------------------------------------------------------------ a block's settings
+    inspect(item) {
+      var h = this.h, K = this.K, add = (n) => this.sidebar.appendChild(n);
+      add(h('div', { class: 'insp-head' }, [h('hk-icon', { icon: GLYPHS[item.card] }), h('div', {}, [h('h2', { text: NAMES[item.card] }),
+        h('p', { text: SIZE_NAMES[item.size] + ' · column ' + (item.at[0] + 1) + ', row ' + (item.at[1] + 1) })]),
+        h('button', { class: 'done', type: 'button', text: 'Done', onclick: () => this.select(null) })]));
+      var sizes = G.table()[item.card].sizes.filter((sz) => SIZES[sz][0] <= this.grid.cols && SIZES[sz][1] <= this.grid.rows);
+      var rows = [];
+      if (sizes.length > 1) rows.push(K.seg({ label: 'Size', value: item.size, options: sizes.map((sz) => [sz, SIZE_SHORT[sz]]), onChange: (sz) => this.resize(item, sz) }));
+      rows.push(K.button({ label: 'Change Card…', onClick: () => this.pickFor('primary') }));
+      add(K.group({}, rows));
+      this.content(item);
+      this.conditions(item);
+      add(K.group({}, [K.button({ label: 'Remove Block', destructive: true, onClick: () => this.remove(item.id) })]));
+    }
+    resize(item, sz) {
+      if (item.card === 'accessories' && item.pages && item.pages.source === 'list' && item.pages.list.some((pg) => ((pg.opts || {}).accessories || []).length > G.PER_PAGE[sz])) {
+        this.say('A ' + SIZE_NAMES[sz] + ' page holds ' + G.PER_PAGE[sz] + ' accessories. Move some to another page, or choose Automatic Pages, first.'); this.side(); return;
+      }
+      if (item.fallback && !G.table()[item.fallback.card].sizes.includes(sz)) {
+        this.say('Its fallback card, ' + NAMES[item.fallback.card] + ', doesn’t come in ' + SIZE_NAMES[sz] + '. Choose another fallback first.'); this.side(); return;
+      }
+      var next = place(this.grid, item.id, item.at, sz);
+      if (next) this.change(next); else { this.say('A ' + SIZE_NAMES[sz] + ' block doesn’t fit here. Make room around it first.'); this.side(); }
+    }
+    // WHAT THE BLOCK SHOWS: one thing or pages that swipe, then the options that apply
+    content(item) {
+      var K = this.K, cat = G.table()[item.card], add = (n) => this.sidebar.appendChild(n);
+      var src = item.pages && item.pages.source || '', words = SHOW[item.card] || [], rows = [], footer = null;
+      var show = item.card === 'accessories' ? [['accessories', words[1]], ['list', 'Choose Each Page']]
+        : [['', words[0] || 'One Page']].concat(cat.sources.map((s) => [s, words[1] || 'Swipe All']), [['list', 'Choose Each Page']]);
+      rows.push(K.select({ label: 'Show', value: src, options: show, onChange: (s) => this.setShow(item, s) }));
+      var hide = {};
+      if (SOURCE_HIDES[src]) hide[SOURCE_HIDES[src]] = 1;
+      if (item.card === 'room' && src === 'rooms') rows.push(this.startingRoom(item));
+      if (src === 'thermostats') rows.push(K.toggle({ label: 'Start on Tablet’s Room', on: item.pages.start === 'tablet_room', onChange: (on) => {
+        var p = copy(item.pages); if (on) p.start = 'tablet_room'; else delete p.start; this.update(item.id, { pages: p });
+      } }));
+      rows = rows.concat(this.fields(item.card, item.opts || {}, (opts) => this.update(item.id, { opts: opts }), { hide: hide, size: item.size, list: src === 'list' }));
+      if (item.card === 'room') footer = this.roomNote(item, src);
+      else if (src === 'list') footer = 'Each page repeats this card with its own choices. A choice left on Same as the Block uses the block’s.';
+      else if (item.card === 'accessories') footer = 'Each page holds ' + G.PER_PAGE[item.size] + ' at this size; more make more pages.';
+      else if (src) footer = 'Swipe sideways on the block to change pages. It goes back to its first page when the screen goes idle.';
+      add(K.group({ header: 'Content', footer: footer }, rows));
+      if (src === 'list') this.pages(item);
+      if (cat.opts && cat.opts.surface) {
+        var look = []; this.surfaceFields((item.opts || {}).surface, (value) => { var o = copy(item.opts || {}); if (value) o.surface = value; else delete o.surface; this.update(item.id, { opts: o }); }, look);
+        add(K.group({ header: 'Appearance', footer: 'Only the group’s own background changes. Its tiles keep the screen’s look.' }, look));
+      }
+    }
+    setShow(item, s) {
+      if (item.card === 'accessories') {
+        var opts = copy(item.opts || {}), per = G.PER_PAGE[item.size], entries = opts.accessories || [];
+        if (s === 'list') {
+          var list = [];
+          for (var i = 0; i < entries.length; i += per) list.push({ opts: { accessories: entries.slice(i, i + per) } });
+          delete opts.accessories;
+          this.update(item.id, { opts: opts, pages: { source: 'list', list: list.length ? list : [{ opts: {} }] } });
+        } else {
+          if (item.pages && item.pages.source === 'list') entries = item.pages.list.flatMap((pg) => (pg.opts || {}).accessories || []);
+          var seen = new Set(); entries = entries.filter((e) => !seen.has(e.entity) && seen.add(e.entity));
+          if (entries.length > 24) { this.say('Automatic pages hold up to 24 accessories. Remove some first.'); this.side(); return; }
+          if (entries.length) opts.accessories = entries;
+          this.update(item.id, { opts: opts, pages: { source: 'accessories' } });
+        }
+        return;
+      }
+      this.update(item.id, { pages: s ? s === 'list' ? { source: 'list', list: [{ opts: {} }, { opts: {} }] } : { source: s } : null });
+    }
+    startingRoom(item) {
+      var area = (item.opts || {}).area || (item.pages.start === 'tablet_room' ? 'tablet_room' : '');
+      var roomIds = this.previewView && this.previewView._config.grid_ctx && this.previewView._config.grid_ctx.rooms;
+      var choices = [['', 'First Room']].concat(this.choices('area').filter((op) => op[0] === 'tablet_room' || !roomIds || roomIds.includes(op[0])));
+      if (area && !choices.some((op) => op[0] === area)) choices.push([area, area + ' (Not on this screen)']);
+      return this.K.select({ label: 'Starting Room', value: area, options: choices, onChange: (value) => {
+        var opts = copy(item.opts || {}), pages = copy(item.pages);
+        if (value) opts.area = value; else delete opts.area;
+        if (value === 'tablet_room') pages.start = 'tablet_room'; else delete pages.start;
+        this.update(item.id, { opts: opts, pages: pages });
+      } });
+    }
+    roomNote(item, src) {
+      var area = (item.opts || {}).area || (item.pages && item.pages.start === 'tablet_room' ? 'tablet_room' : '');
+      var roomIds = this.previewView && this.previewView._config.grid_ctx && this.previewView._config.grid_ctx.rooms;
+      var name = area && area !== 'tablet_room' ? ((this.panel.client.areas || {})[area] || {}).name || area : '';
+      if (src === 'rooms') {
+        if (area && area !== 'tablet_room' && roomIds && !roomIds.includes(area)) return 'That room isn’t on this screen, so it opens on the first room.';
+        return (area === 'tablet_room' ? 'Opens on the wall tablet’s room (a desktop shows the first).' : name ? 'Opens on ' + name + '.' : 'Opens on the screen’s first room.') +
+          ' Swipe for the others; it comes back when the screen goes idle.';
+      }
+      if (src !== 'list' && (area === 'tablet_room' || !area)) return 'The wall tablet’s own room. A desktop shows the first room.';
+      return null;
+    }
+    // CHOOSE EACH PAGE: each page's own choices, then move or remove it, and Add Page
+    pages(item) {
+      var K = this.K, add = (n) => this.sidebar.appendChild(n), n = item.pages.list.length;
+      item.pages.list.forEach((pg, i) => {
+        var rows = this.fields(item.card, pg.opts || {}, (opts) => { var p = copy(item.pages); p.list[i].opts = opts; this.update(item.id, { pages: p }); },
+          { page: true, size: item.size, base: item.opts || {}, hide: { surface: 1 } });
+        rows.push(K.button({ label: 'Move Up', disabled: i === 0, onClick: () => { var p = copy(item.pages); p.list.splice(i - 1, 0, p.list.splice(i, 1)[0]); this.update(item.id, { pages: p }); } }));
+        rows.push(K.button({ label: 'Remove Page', destructive: true, disabled: n === 1, onClick: () => { var p = copy(item.pages); p.list.splice(i, 1); this.update(item.id, { pages: p }); } }));
+        add(K.group({ header: 'Page ' + (i + 1) + ' of ' + n }, rows));
+      });
+      add(K.group({}, [K.button({ label: 'Add Page', disabled: n >= G.PAGES_MAX, onClick: () => { var p = copy(item.pages); p.list.push({ opts: {} }); this.update(item.id, { pages: p }); } })]));
+    }
+    conditions(item) {
+      var K = this.K, kind = item.when && item.when.kind || '', add = (n) => this.sidebar.appendChild(n);
+      var names = { music_playing: 'Music Is Playing', timer_running: 'A Timer Is Running', alarm_armed: 'The Alarm Is Armed',
+        doorbell: 'Someone Is at the Door', after_sunset: 'After Sunset', entity_state: 'An Accessory’s State' };
       var rows = [K.select({ label: 'Show When', value: kind, options: [['', 'Always']].concat(G.CONDITIONS.map((k) => [k, names[k]])), onChange: (value) => {
         this.conditionPreview = null;
         if (!value) { this.update(item.id, { when: null, fallback: null }); return; }
@@ -472,18 +688,19 @@
         if (kind !== 'after_sunset') rows.push(K.select({ label: 'Watch', value: when.entity || '',
           options: (kind === 'entity_state' ? [] : [['', 'Automatic']]).concat(this.choices({ music_playing: 'speaker', timer_running: 'timer', alarm_armed: 'alarm', doorbell: 'doorbell' }[kind] || 'entity').filter((op) => op[0] !== 'tablet_room')),
           onChange: (value) => put('entity', value) }));
-        if (kind === 'entity_state') rows.push(K.text({ label: 'State', value: when.state, maxlength: 80, onCommit: (value) => put('state', value) }));
-        rows.push(K.select({ label: 'Preview', value: this.conditionPreview == null ? 'live' : this.conditionPreview ? 'on' : 'off',
-          options: [['live', 'Live Condition'], ['on', 'Primary Card'], ['off', 'Fallback Card']], onChange: (v) => { this.conditionPreview = v === 'live' ? null : v === 'on'; this.preview(); } }));
-        rows.push(K.button({ label: 'Fallback: ' + NAMES[item.fallback.card], onClick: () => this.pickFor('fallback') }));
+        if (kind === 'entity_state') rows.push(K.text({ label: 'Is', value: when.state, maxlength: 80, onCommit: (value) => put('state', value) }));
+        rows.push(K.button({ label: 'Otherwise Show: ' + NAMES[item.fallback.card] + '…', onClick: () => this.pickFor('fallback') }));
+        rows.push(K.seg({ label: 'Preview', value: this.conditionPreview == null ? 'live' : this.conditionPreview ? 'on' : 'off',
+          options: [['live', 'Live'], ['on', NAMES[item.card]], ['off', NAMES[item.fallback.card]]], onChange: (v) => { this.conditionPreview = v === 'live' ? null : v === 'on'; this.preview(); this.side(); } }));
       }
-      group('Conditional Block', rows, kind ? 'When false, the fallback fills this exact space. No holes or rearranging.' : undefined);
+      add(K.group({ header: 'Show When', footer: kind ? 'Otherwise its fallback fills exactly this space, so nothing moves.' : null }, rows));
       if (kind) {
-        var fb = item.fallback;
-        this.optionFields(fb, fb.opts || {}, (opts) => this.update(item.id, { fallback: Object.assign({}, fb, { opts: opts }) }), 'Fallback Options', false);
-        var sources = [['', 'Single Card']].concat(G.table()[fb.card].sources.map((src) => [src, src.charAt(0).toUpperCase() + src.slice(1)]));
-        group('Fallback Pages', [K.select({ label: 'Pages', value: fb.pages && fb.pages.source || '', options: sources,
-          onChange: (src) => { var next = copy(fb); if (src) next.pages = { source: src }; else delete next.pages; self.update(item.id, { fallback: next }); } })]);
+        var fb = item.fallback, fcat = G.table()[fb.card];
+        var frows = this.fields(fb.card, fb.opts || {}, (opts) => this.update(item.id, { fallback: Object.assign({}, fb, { opts: opts }) }), { size: item.size, hide: { surface: 1 } });
+        if (fcat.sources.length) frows.unshift(K.select({ label: 'Show', value: fb.pages && fb.pages.source || '',
+          options: [['', (SHOW[fb.card] || [])[0] || 'One Page']].concat(fcat.sources.map((s) => [s, (SHOW[fb.card] || [])[1] || 'Swipe All'])),
+          onChange: (s) => { var next = copy(fb); if (s) next.pages = { source: s }; else delete next.pages; this.update(item.id, { fallback: next }); } }));
+        if (frows.length) add(K.group({ header: NAMES[fb.card] + ' (Fallback)' }, frows));
       }
     }
     previewOptions(key) {
@@ -538,11 +755,11 @@
       var w = this.iframe.contentWindow;
       if (!w || !w.hkCards || !this.previewView) return;
       if (this.catalogOff) this.catalogOff();
-      var box = this.sidebar.querySelector('[data-preview-card]'); if (!box) return;
+      var box = this.palette.querySelector('[data-preview-card]'); if (!box) return;
       var sz = box.dataset.previewSize, z = SIZES[sz], ctx = this.previewView._config.grid_ctx || {};
       var unit = w.hkCards.TILE, gap = w.hkCards.HOME_GRID.gap;
       var width = unit.w * z[0] + gap * (z[0] - 1), height = unit.tall * z[1] + gap * (z[1] - 1);
-      var scale = Math.min(1, (this.sidebar.clientWidth || 336) / width);
+      var scale = Math.min(1, (box.clientWidth || 220) / width);
       box.style.height = height * scale + 'px';
       // Keep every descendant in the screen's custom-element registry. Adopting
       // a card into Settings leaves its hk-plate and glyph elements undefined.
@@ -606,38 +823,45 @@
       var next = copy(this.grid), it = next.items.find((x) => x.id === id);
       Object.keys(patch).forEach((key) => { if (patch[key] === null) delete it[key]; else it[key] = patch[key]; }); this.change(next);
     }
-    optionFields(item, opts, save, title, page) {
-      var K = this.K, self = this, fields = G.table()[item.card].opts || {}, rows = [];
-      var set = (key, value) => { var out = copy(opts); if (value === '' || value == null) delete out[key]; else out[key] = value;
-        if (item.card === 'camera' && item.id && key === 'entity' && !page) self.update(item.id, { opts: out, pages: null }); else save(out); };
-      Object.keys(fields).forEach(function (key) {
-        if (item.card === 'room' && item.id && !page && key === 'area' && item.pages && item.pages.source === 'rooms') return;
-        var kind = fields[key], label = item.card === 'room' && key === 'area' ? (item.pages && item.pages.source === 'list' && !page ? 'Default Room' : 'Room') : key.charAt(0).toUpperCase() + key.slice(1);
-        if (kind === 'room_display') { rows.push(K.select({ label: 'Accessory Display', value: opts[key] || 'summary', options: [['summary', 'Summary'], ['scroll', 'Scroll All Accessories']], onChange: (v) => set(key, v) })); rows.push(K.info({ label: 'Summary shows a few lights, fans and one speaker. Scroll All Accessories keeps the same tile sizes and includes the room’s other supported controls. Swipe sideways to change rooms.' })); return; }
-        if (kind === 'title') { rows.push(K.text({ label: page ? 'Page Name' : 'Group Name', value: opts[key] || '', maxlength: 60, onCommit: (v) => set(key, v) })); return; }
-        if (kind === 'secondary') { self.secondaryFields(opts[key], opts.entity || (item.opts || {}).entity, (v) => set(key, v), rows); return; }
-        if (kind === 'accessories') {
-          if (!page && item.pages && item.pages.source === 'list') return;
-          self.accessoryFields(opts[key] || [], (v) => set(key, v), rows, page ? G.PER_PAGE[item.size] : 24); return;
+    // A CARD'S OPTIONS AS ROWS. o: { page (a Choose Each Page page: an
+    // option left empty uses the block's), base (the block's own options,
+    // for a page), hide {name: 1}, size, list (the block has custom pages) }
+    fields(card, opts, save, o) {
+      var K = this.K, self = this, kinds = G.table()[card].opts || {}, rows = [], hide = o.hide || {};
+      var set = (key, value) => { var out = copy(opts); if (value === '' || value == null) delete out[key]; else out[key] = value; save(out); };
+      Object.keys(kinds).forEach(function (key) {
+        if (hide[key]) return;
+        var kind = kinds[key], label = KIND_LABELS[kind] || NAME_LABELS[key] || key.charAt(0).toUpperCase() + key.slice(1);
+        if (kind === 'surface') return;                                         // Appearance, its own group
+        if (card === 'room' && key === 'area' && o.list && !o.page) label = 'Default Room';
+        if (kind === 'room_display') {
+          if (o.page) return;
+          rows.push(K.seg({ label: 'Accessories', value: opts[key] || 'summary', options: [['summary', 'Summary'], ['scroll', 'Scroll All']], onChange: (v) => set(key, v === 'summary' ? null : v) }));
+          return;
         }
-        if (kind === 'boolean') { rows.push(K.toggle({ label: key === 'sky' ? 'Weather Sky Background' : label, on: opts[key] === true, onChange: (on) => set(key, on) })); return; }
-        if (kind === 'surface') { self.surfaceFields(opts.surface, (value) => set('surface', value), rows); return; }
+        if (kind === 'title') { rows.push(K.text({ label: o.page ? 'Page Name' : 'Group Name', value: opts[key] || '', maxlength: 60, placeholder: o.page ? '' : 'Accessories', onCommit: (v) => set(key, v.trim() || null) })); return; }
+        if (kind === 'secondary') { self.secondaryFields(opts[key], opts.entity || (o.base || {}).entity, (v) => set(key, v), rows); return; }
+        if (kind === 'accessories') {
+          if (o.list && !o.page) return;
+          self.accessoryFields(opts[key] || [], (v) => set(key, v), rows, o.page ? G.PER_PAGE[o.size] : 24); return;
+        }
+        if (kind === 'boolean') { rows.push(K.toggle({ label: label, on: opts[key] === true, onChange: (on) => set(key, on || null) })); return; }
         if (kind === 'windows') { self.windows(opts, set, rows); return; }
         var choices = self.choices(kind);
-        if (item.card === 'scene' && kind === 'scene') choices = choices.filter((op) => op[0].indexOf('scene.') === 0);
+        if (card === 'scene' && kind === 'scene') choices = choices.filter((op) => op[0].indexOf('scene.') === 0);
         if (kind === 'scenes' || kind === 'calendars') {
           choices.forEach((op) => rows.push(K.check({ label: op[1], multi: true, on: (opts[key] || []).indexOf(op[0]) >= 0, onClick: (on) => {
             var list = (opts[key] || []).filter((v) => v !== op[0]); if (on) list.push(op[0]);
-            if (list.length > 24) { self.say('At most 24 items per list.'); return; } set(key, list.length ? list : null);
+            if (list.length > 24) { self.say('At most 24 in a list.'); return; } set(key, list.length ? list : null);
           } })));
           return;
         }
-        var all = [['', page ? 'Use Block’s Option' : item.card === 'camera' ? 'First Camera' : 'Automatic']].concat(choices);
+        var auto = o.page ? 'Same as the Block' : card === 'camera' ? 'First Camera' : card === 'room' ? 'Tablet’s Room' : 'Automatic';
+        var all = card === 'room' && key === 'area' && !o.page ? choices : [['', auto]].concat(choices);
         if (opts[key] && !all.some((op) => op[0] === opts[key])) all.push([opts[key], opts[key] + ' (Unavailable)']);
-        rows.push(K.select({ label: item.card === 'camera' && key === 'entity' ? 'Camera' : label, value: opts[key] || '', options: all, onChange: (v) => set(key, v) }));
+        rows.push(K.select({ label: label, value: opts[key] || (card === 'room' && key === 'area' && !o.page ? 'tablet_room' : ''), options: all, onChange: (v) => set(key, v) }));
       });
-      if (!rows.length) rows.push(K.info({ label: 'Uses this screen’s settings' }));
-      this.sidebar.appendChild(K.group({ header: title }, rows));
+      return rows;
     }
     secondaryFields(value, entity, save, rows) {
       var K = this.K, mode = value && value.mode || 'auto';
@@ -650,7 +874,7 @@
       var key = value.attribute;
       if (!keys.includes(key)) options.push([key, key + ' (Not Reported)']);
       rows.push(K.select({ label: 'Attribute', value: key, options: options, onChange: (v) => save(Object.assign({}, value, { attribute: v })) }));
-      rows.push(K.text({ label: 'Unit (Optional)', value: value.unit || '', maxlength: 20, onCommit: (v) => save(Object.assign({}, value, { unit: v })) }));
+      rows.push(K.text({ label: 'Unit', value: value.unit || '', placeholder: 'Optional', maxlength: 20, onCommit: (v) => save(Object.assign({}, value, { unit: v })) }));
     }
     accessoryFields(entries, save, rows, max) {
       var K = this.K, self = this, choices = this.choices('entity');
@@ -663,8 +887,8 @@
         rows.push(K.button({ label: 'Move Accessory ' + (i + 1) + ' Up', disabled: i === 0, onClick: () => { var next = copy(entries); next.splice(i - 1, 0, next.splice(i, 1)[0]); save(next); } }));
         rows.push(K.button({ label: 'Remove Accessory ' + (i + 1), destructive: true, onClick: () => { var next = copy(entries); next.splice(i, 1); save(next.length ? next : null); } }));
       });
-      if (entries.length >= max) { rows.push(K.info({ label: max + ' accessories selected. Add another page for more.' })); return; }
-      rows.push(K.select({ label: 'Add Accessory', value: '', options: [['', 'Choose an Accessory…']].concat(choices.filter((op) => !entries.some((e) => e.entity === op[0]))),
+      if (entries.length >= max) { rows.push(K.info({ label: max + ' accessories: this page is full. Add another page for more.' })); return; }
+      rows.push(K.select({ label: 'Add Accessory', value: '', options: [['', 'Choose…']].concat(choices.filter((op) => !entries.some((e) => e.entity === op[0]))),
         onChange: (id) => { if (id) save(entries.concat([{ entity: id }])); } }));
     }
     surfaceFields(surface, save, rows) {
@@ -691,11 +915,12 @@
       var K = this.K, windows = opts.windows || [], self = this;
       windows.forEach(function (w, i) {
         var put = (key, value) => { var next = copy(windows); if (value) next[i][key] = value; else delete next[i][key]; set('windows', next); };
-        rows.push(K.text({ label: 'Window ' + (i + 1), value: w.label || '', maxlength: 24, onCommit: (v) => put('label', v) }));
+        rows.push(K.text({ label: 'Window ' + (i + 1), value: w.label || '', placeholder: 'Name', maxlength: 24, onCommit: (v) => put('label', v) }));
         ['start', 'end'].forEach((key) => rows.push(K.text({ label: key === 'start' ? 'From' : 'Until', type: 'time', value: w[key], onCommit: (v) => put(key, v) })));
         rows.push(K.select({ label: 'Scene or Script', value: w.scene, options: self.choices('scene'), onChange: (v) => put('scene', v) }));
         rows.push(K.button({ label: 'Remove Window ' + (i + 1), destructive: true, onClick: () => { var next = copy(windows); next.splice(i, 1); set('windows', next.length ? next : null); } }));
       });
+      if (!windows.length) rows.push(K.info({ label: 'Morning, Day, Evening and Night', sub: 'Each finds its scene by name. Add a window to choose your own.' }));
       rows.push(K.button({ label: 'Add Time Window', disabled: windows.length >= 8 || !this.choices('scene').length, onClick: () => {
         set('windows', windows.concat([{ start: '05:00', end: '10:00', scene: this.choices('scene')[0][0] }]));
       } }));
@@ -731,7 +956,7 @@
         if (this.previewRO) this.previewRO.disconnect();
         this.previewRO = new w.ResizeObserver(() => this.fit()); this.previewRO.observe(el);
         this.fit();
-        if (this.catalog) this.catalogPreviews();
+        if (this.pickerCard) this.catalogPreviews();
       } catch (e) {
         this.previewError = String(e && e.message || e);
         this.previewRetries = (this.previewRetries || 0) + 1;
@@ -754,6 +979,6 @@
       } finally { this.busy = false; this.saveButton.disabled = false; }
     }
   }
-  window.hkGridEditor = { place: place, valid: valid, firstSpace: firstSpace, add: add, snap: snap };
+  window.hkGridEditor = { place: place, valid: valid, firstSpace: firstSpace, add: add, snap: snap, landing: landing };
   customElements.define('hk-grid-editor', GridEditor);
 })();

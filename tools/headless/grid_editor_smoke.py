@@ -44,9 +44,40 @@ async def main():
             assert await b.eval("!ed.sidebar.querySelector('.screen-settings').open")
             await b.eval("ed.sidebar.querySelector('.screen-settings').open=true")
             assert await b.wait('ed.screenSettingsOpen===true', 5)
-            await b.eval("[...ed.sidebar.querySelectorAll('.cell')].find(e=>e.textContent.includes('Header Clock')).querySelector('button').click()")
+            await b.eval("[...ed.sidebar.querySelectorAll('.cell')].find(e=>e.querySelector('.t')?.textContent==='Clock').querySelector('button').click()")
             assert await b.eval('ed.grid.header_clock===false && ed.grid.header_weather!==false')
-            await b.eval("[...ed.sidebar.querySelectorAll('.cell')].find(e=>e.textContent.includes('Header Clock')).querySelector('button').click()")
+            await b.eval("[...ed.sidebar.querySelectorAll('.cell')].find(e=>e.querySelector('.t')?.textContent==='Clock').querySelector('button').click()")
+            # A card dragged out of the palette lands where its footprint shows; a taken space refuses it.
+            await b.eval("ed.remove('a8')")
+            assert await b.eval("!ed.grid.items.some(i=>i.id==='a8') && !ed.undoButton.disabled")
+            async def palette_drag(card, cell):
+                src = await b.eval("(()=>{let e=ed.palette.querySelector('[data-card=%s]');e.scrollIntoView({block:'center'});let r=e.getBoundingClientRect();return {x:r.x+30,y:r.y+20}})()" % card)
+                dst = await b.eval("(()=>{let r=ed.overlay.querySelectorAll('.slot')[%d].getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2}})()" % cell)
+                await b.send('Input.dispatchMouseEvent', type='mousePressed', x=src['x'], y=src['y'], button='left', clickCount=1, buttons=1)
+                for i in range(1, 11):
+                    await b.send('Input.dispatchMouseEvent', type='mouseMoved', x=src['x'] + (dst['x'] - src['x']) * i / 10, y=src['y'] + (dst['y'] - src['y']) * i / 10, button='left', buttons=1)
+                assert await b.eval("!!ed.overlay.querySelector('.ghost') && !!ed.shadowRoot.querySelector('.float')")
+                bad = await b.eval("ed.overlay.querySelector('.ghost').classList.contains('bad')")
+                await b.send('Input.dispatchMouseEvent', type='mouseReleased', x=dst['x'], y=dst['y'], button='left', clickCount=1)
+                assert await b.eval("!ed.overlay.querySelector('.ghost') && !ed.shadowRoot.querySelector('.float')")
+                return bad
+            await b.eval("ed.paletteSizes.security='S';ed.drawPalette()")
+            assert not await palette_drag('security', 18)            # column 1, row 4: the space a8 left
+            assert await b.eval("(()=>{let it=ed.grid.items.find(i=>i.card==='security'&&i.at.join()==='0,3');return !!it && it.size==='S' && ed.selected===it.id})()")
+            assert await palette_drag('security', 1)                  # a taken space: refused, nothing added
+            assert await b.eval("ed.grid.items.filter(i=>i.card==='security').length===1 && ed.message.textContent.includes('No room there')")
+            await b.eval("ed.undo()")
+            assert await b.eval("!ed.grid.items.some(i=>i.card==='security'&&i.at.join()==='0,3')")
+            await b.eval("ed.undo()")
+            assert await b.eval("ed.grid.items.some(i=>i.id==='a8') && ed.undoButton.disabled===false")
+            # Delete on a chosen block removes it; Escape lets it go.
+            await b.eval("ed.select('a8');ed.overlay.querySelector('[data-id=a8]').focus()")
+            await b.send('Input.dispatchKeyEvent', type='keyDown', key='Delete', code='Delete', windowsVirtualKeyCode=46)
+            await b.send('Input.dispatchKeyEvent', type='keyUp', key='Delete', code='Delete', windowsVirtualKeyCode=46)
+            assert await b.eval("!ed.grid.items.some(i=>i.id==='a8')")
+            await b.eval("ed.undo();ed.select(null)")
+            assert await b.eval("ed.grid.items.some(i=>i.id==='a8') && ed.sidebar.textContent.includes('Screen')")
+            print('palette drag, refusal, undo and delete passed',flush=True)
             # Mouse drag between equal-size blocks must swap, and stay a draft.
             rects=await b.eval("['a7','a10'].map(id=>{let r=ed.overlay.querySelector('[data-id='+id+']').getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2}})")
             a,z=rects
@@ -69,10 +100,10 @@ async def main():
             await b.eval("(()=>{let s=[...ed.sidebar.querySelectorAll('.cell')].find(e=>e.textContent.startsWith('Starting Room')).querySelector('select');s.value='kitchen';s.dispatchEvent(new Event('change'))})()")
             assert await b.eval("ed.grid.items.find(i=>i.id==='a2').opts.area==='kitchen'&&!ed.grid.items.find(i=>i.id==='a2').pages.start")
             # Single-room mode uses the same selected room, then paging keeps it as the start.
-            await b.eval("(()=>{let s=[...ed.sidebar.querySelectorAll('.cell')].find(e=>e.textContent.startsWith('Room Display')).querySelector('select');s.value='';s.dispatchEvent(new Event('change'))})()")
+            await b.eval("(()=>{let s=[...ed.sidebar.querySelectorAll('.cell')].find(e=>e.querySelector('.t')?.textContent==='Show').querySelector('select');s.value='';s.dispatchEvent(new Event('change'))})()")
             assert await b.wait("ed.previewView?.shadowRoot.querySelector('[data-id=a2]')?.firstElementChild?.localName==='hk-grid-room-card'",15)
             assert await b.eval("ed.previewView.shadowRoot.querySelector('[data-id=a2]').firstElementChild._area()==='kitchen'")
-            await b.eval("(()=>{let s=[...ed.sidebar.querySelectorAll('.cell')].find(e=>e.textContent.startsWith('Room Display')).querySelector('select');s.value='rooms';s.dispatchEvent(new Event('change'))})()")
+            await b.eval("(()=>{let s=[...ed.sidebar.querySelectorAll('.cell')].find(e=>e.querySelector('.t')?.textContent==='Show').querySelector('select');s.value='rooms';s.dispatchEvent(new Event('change'))})()")
             assert await b.wait("ed.previewView?.shadowRoot.querySelector('[data-id=a2]')?.firstElementChild?._pages?.[ed.previewView.shadowRoot.querySelector('[data-id=a2]').firstElementChild._index]?.area==='kitchen'",15)
             await b.eval("(()=>{let p=ed.previewView.shadowRoot.querySelector('[data-id=a2]').firstElementChild;p.goTo(0,false);ed.iframe.contentWindow.dispatchEvent(new Event('hk-idle-return'))})()")
             assert await b.wait("ed.previewView.shadowRoot.querySelector('[data-id=a2]').firstElementChild._pages[ed.previewView.shadowRoot.querySelector('[data-id=a2]').firstElementChild._index].area==='kitchen'",10)
@@ -81,43 +112,53 @@ async def main():
                 await b.screenshot(ARGS.shots / 'home-grid-room-options.png')
             print('room start matches selected Kitchen, display modes agree, and starters stay in collapsed screen settings',flush=True)
 
-            await b.eval('ed.catalog=true; ed.side()')
-            assert await b.eval("ed.sidebar.querySelectorAll('.catalog-row').length === 19")
-            assert await b.wait("[...ed.sidebar.querySelectorAll('.catalog-row hk-icon')].every(e=>!!e.drawn?.path)",10)
+            await b.eval('ed.select(null)')
+            assert await b.eval("ed.palette.querySelectorAll('.pal-row').length === 19")
+            assert await b.wait("[...ed.palette.querySelectorAll('.pal-row > hk-icon')].every(e=>!!e.drawn?.path)",10)
             if ARGS.shots:
                 await screenshot_font(b)
                 await b.screenshot(ARGS.shots / 'home-grid-gallery.png')
             # Real wheel scrolling stays in the side panel; the preview never moves.
             async def check_panel_scroll():
                 before = await b.eval("(()=>{let r=ed.box.getBoundingClientRect();return [r.x,r.y,r.width,r.height]})()")
-                point = await b.eval("(()=>{let r=ed.sidebar.getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height-60}})()")
-                assert await b.eval('ed.sidebar.scrollHeight > ed.sidebar.clientHeight')
-                await b.send('Input.dispatchMouseEvent', type='mouseWheel', x=point['x'], y=point['y'], deltaX=0, deltaY=4000)
-                assert await b.wait('ed.sidebar.scrollTop>0',5)
-                assert before == await b.eval("(()=>{let r=ed.box.getBoundingClientRect();return [r.x,r.y,r.width,r.height]})()")
-                assert await b.eval('ed.scrollTop===0 && ed.ui.scrollTop===0 && ed.box.getBoundingClientRect().bottom<=innerHeight')
-                # At the panel's end, more wheel input must not escape to the editor.
-                await b.eval('ed.sidebar.scrollTop=ed.sidebar.scrollHeight')
-                await b.send('Input.dispatchMouseEvent', type='mouseWheel', x=point['x'], y=point['y'], deltaX=0, deltaY=4000)
-                assert before == await b.eval("(()=>{let r=ed.box.getBoundingClientRect();return [r.x,r.y,r.width,r.height]})()")
-                await b.eval('ed.sidebar.scrollTop=0')
+                for pane in ('palette', 'sidebar'):
+                    if not await b.eval(f'ed.{pane}.scrollHeight > ed.{pane}.clientHeight'):
+                        continue
+                    point = await b.eval(f"(()=>{{let r=ed.{pane}.getBoundingClientRect();return {{x:r.x+r.width/2,y:r.y+r.height-60}}}})()")
+                    await b.send('Input.dispatchMouseEvent', type='mouseWheel', x=point['x'], y=point['y'], deltaX=0, deltaY=4000)
+                    assert await b.wait(f'ed.{pane}.scrollTop>0',5)
+                    assert before == await b.eval("(()=>{let r=ed.box.getBoundingClientRect();return [r.x,r.y,r.width,r.height]})()")
+                    assert await b.eval('ed.scrollTop===0 && ed.ui.scrollTop===0 && ed.box.getBoundingClientRect().bottom<=innerHeight')
+                    # At the panel's end, more wheel input must not escape to the editor.
+                    await b.eval(f'ed.{pane}.scrollTop=ed.{pane}.scrollHeight')
+                    await b.send('Input.dispatchMouseEvent', type='mouseWheel', x=point['x'], y=point['y'], deltaX=0, deltaY=4000)
+                    assert before == await b.eval("(()=>{let r=ed.box.getBoundingClientRect();return [r.x,r.y,r.width,r.height]})()")
+                    await b.eval(f'ed.{pane}.scrollTop=0')
+                assert await b.eval('ed.palette.scrollHeight > ed.palette.clientHeight')
             await check_panel_scroll()
-            await b.eval("ed.sidebar.querySelector('[data-card=accessory]').click()")
-            assert await b.eval("ed.sidebar.querySelectorAll('[data-preview-card] > iframe').length === 1")
-            assert await b.wait("ed.sidebar.querySelector('[data-preview-card] iframe').contentWindow.galleryCard?._config.entity.startsWith('light.')",20)
-            assert await b.eval("ed.sidebar.querySelector('.size-choices').textContent.includes('Small')")
+            src = await b.eval("(()=>{let e=ed.palette.querySelector('[data-card=accessory]');e.scrollIntoView({block:'center'});let r=e.getBoundingClientRect();return {x:r.x+30,y:r.y+20}})()")
+            await b.send('Input.dispatchMouseEvent', type='mousePressed', x=src['x'], y=src['y'], button='left', clickCount=1, buttons=1)
+            await b.send('Input.dispatchMouseEvent', type='mouseReleased', x=src['x'], y=src['y'], button='left', clickCount=1)
+            assert await b.wait("ed.pickerCard==='accessory'",5)
+            assert await b.eval("ed.palette.querySelectorAll('[data-preview-card] > iframe').length === 1")
+            assert await b.wait("ed.palette.querySelector('[data-preview-card] iframe').contentWindow.galleryCard?._config.entity.startsWith('light.')",20)
+            assert await b.eval("ed.palette.querySelector('[data-card=accessory] .chips').textContent.includes('Small')")
+            await b.eval("ed.palette.querySelector('.pal-detail').scrollIntoView({block:'center'})")
             if ARGS.shots:
                 await screenshot_font(b)
                 await b.screenshot(ARGS.shots / 'home-grid-picker.png')
             for key in ('thermostat', 'weather', 'now_playing'):
-                await b.eval(f"ed.pickerCard='{key}'; ed.pickerSize='L'; ed.side()")
-                assert await b.wait("!!ed.sidebar.querySelector('[data-preview-card] iframe').contentWindow.galleryCard?.shadowRoot",20)
-                assert await b.eval("ed.sidebar.textContent.includes('sample readings')")
+                await b.eval(f"ed.pickerCard='{key}'; ed.paletteSizes['{key}']='L'; ed.side()")
+                assert await b.wait("!!ed.palette.querySelector('[data-preview-card] iframe').contentWindow.galleryCard?.shadowRoot",20)
+                assert await b.eval("ed.palette.textContent.includes('Sample readings')")
                 if key == 'thermostat':
-                    assert await b.wait("ed.sidebar.querySelector('[data-preview-card] iframe').contentWindow.galleryCard?._state()?.attributes.current_temperature===71",10)
+                    assert await b.wait("ed.palette.querySelector('[data-preview-card] iframe').contentWindow.galleryCard?._state()?.attributes.current_temperature===71",10)
                 if key == 'weather':
-                    assert await b.wait("ed.sidebar.querySelector('[data-preview-card] iframe').contentWindow.galleryCard?.shadowRoot.querySelectorAll('.day').length===3",10)
-            await b.eval("let it=ed.grid.items.find(i=>i.card==='camera');ed.select(it.id)")
+                    assert await b.wait("ed.palette.querySelector('[data-preview-card] iframe').contentWindow.galleryCard?.shadowRoot.querySelectorAll('.day').length===3",10)
+            await b.eval("ed.pickerCard=null;let it=ed.grid.items.find(i=>i.card==='camera');ed.select(it.id)")
+            # Swipe All Cameras hides the one-camera choice; One Camera shows it
+            assert await b.eval("![...ed.sidebar.querySelectorAll('select')].some(s=>[...s.options].some(o=>o.value==='camera.backyard'))")
+            await b.eval("(()=>{let s=[...ed.sidebar.querySelectorAll('.cell')].find(e=>e.querySelector('.t')?.textContent==='Show').querySelector('select');s.value='';s.dispatchEvent(new Event('change'))})()")
             await b.eval("(()=>{let s=[...ed.sidebar.querySelectorAll('select')].find(s=>[...s.options].some(o=>o.value==='camera.backyard'));s.value='camera.backyard';s.dispatchEvent(new Event('change'))})()")
             assert await b.eval("(()=>{let it=ed.grid.items.find(i=>i.card==='camera');return !it.pages && it.opts.entity==='camera.backyard'})()")
             await b.eval("ed.select('a2'); [...ed.sidebar.querySelectorAll('.cell')].find(row=>row.textContent.includes('Custom Group Background')).querySelector('button').click()")

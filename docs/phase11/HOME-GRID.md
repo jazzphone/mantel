@@ -1082,3 +1082,54 @@ Left for the owner (decisions, not defects):
 Checked after the fixes: the main suite (3,474 passed and 21 skipped), every HA JavaScript suite on the built package,
 232 focused grid, editor, settings and boundary tests, `grid_editor_smoke.py` and `grid_review_check.py`. Nothing
 was released or deployed. The house stays on App 0.1.64 until the next release the owner approves.
+
+### Swipes that land, and the editor rebuilt around a palette (2026-10-23, Claude)
+
+The owner asked for a dashboard designer where cards are dragged out of a menu, a pass over how a block's settings are
+laid out, and a look at why block swipes were unreliable.
+
+**Swipes.** `tools/headless/pager_swipe_check.py` drives real touch input over every paged block: rooms, cameras,
+thermostats, scenes, an accessory group and a scrolling room. It swipes from a grid of starting points, as flicks,
+slow drags and short swipes. Against the browser's own scroll-snap, 13 of 75 flicks missed: short flicks snapped
+back, and a swipe that started on the page dots went nowhere (the dots sit outside the scroller).
+
+The pager now does the drag itself (hk-layout.js, GESTURES):
+
+- Pages say `touch-action: pan-y`, so up-and-down pans stay with the browser and a room's list still scrolls.
+- A sideways drag comes to the pager as pointer events, for touch, pen and mouse alike.
+- On release it turns a page if the drag went a fifth of the width or was a flick (0.3 px/ms); otherwise it goes
+  back.
+- When the swipe takes over, the card under the finger gets a `pointercancel`, so a light's press-and-hold never
+  fires mid-swipe. A light already dimming says `data-hk-control` and keeps its drag.
+- Taking pointer capture fires `lostpointercapture` on the card underneath, and that is ignored.
+
+Results: 225 of 225 swipes now turn the page and come back. A tap still toggles a light, a swipe across a light sends
+nothing, hold-and-drag still dims without turning the page, a room list still scrolls, a dot tap and a swipe on the
+dots both work, and a mouse drag works. WebKit couldn't be run here because Playwright isn't installed, so Safari on
+a tablet is part of the owner's check.
+
+**The editor** (hk-grid-editor.js) now has three panes:
+
+- **Cards (left).** Grouped and searchable, each with its size chips. Drag a card onto the grid: a label follows the
+  pointer, and the block's real footprint shows where it lands, red where there's no room. Click a card for its live
+  preview and **Add**. **Change Card…** and the fallback chooser use the same list, limited to the block's size.
+- **The screen (middle).** A block's label shows only on hover or selection, above the block, so it no longer covers
+  the card's own title.
+- **Settings (right).** For a selected block, in order:
+  1. A header (card, size, place, Done)
+  2. A **Size** segmented control and **Change Card…**
+  3. **Content:** one **Show** choice (One Room / Swipe Between Rooms / Choose Each Page, and the same for cameras,
+     thermostats, speakers and scenes), followed only by the options that apply, with real names (Thermostat,
+     Camera, Speaker) in place of "Entity"
+  4. **Appearance**
+  5. **Show When** (with Otherwise Show and Preview)
+  6. **Remove Block**
+
+  With nothing selected it shows the screen's settings: Grid, Header, Preview Size and Starters, and Mantel's
+  History and Copy.
+- **Also new:** **Start Empty**, **Undo** (⌘Z), Delete to remove the selected block, and Escape to let it go.
+
+Checked: every HA JavaScript suite (the pager's CSS snapshot and unit tests updated); the editor smoke, which now adds
+a real mouse drag out of the palette, a refused drag onto a taken space, Undo and Delete; the accessory-pages and
+review checks; the swipe check; and the editor in a scratch Home Assistant (open, preview, real drag and save). Both
+guides and their screenshots are rewritten for the new editor; `home-grid-gallery.png` is gone.

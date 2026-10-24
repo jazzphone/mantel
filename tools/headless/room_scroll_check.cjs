@@ -65,10 +65,10 @@ const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
    }
    await page.goto(input.origin+'/settings#/screens/room-scroll/home-grid');
    await page.waitForFunction(()=>!!document.querySelector('hk-settings-panel')?.shadowRoot?.querySelector('hk-grid-editor')?.previewView?.isConnected);
-   await page.evaluate(()=>{window.ed=document.querySelector('hk-settings-panel').shadowRoot.querySelector('hk-grid-editor');ed.select('room');window.select=[...ed.sidebar.querySelectorAll('.cell')].find(c=>c.querySelector('.t')?.textContent==='Accessory Display').querySelector('select');select.value='summary';select.dispatchEvent(new Event('change'));ed.save();});
+   await page.evaluate(()=>{window.ed=document.querySelector('hk-settings-panel').shadowRoot.querySelector('hk-grid-editor');ed.select('room');window.seg=(v)=>[...ed.sidebar.querySelectorAll('.cell')].find(c=>c.querySelector('.t')?.textContent==='Accessories').querySelector('[role=radio][data-fk$=":'+v+'"]');seg('summary').click();ed.save();});
    await page.waitForFunction(()=>!ed.busy&&!ed.dirty());
    assert(await page.evaluate(()=>ed.grid.items[0].opts.accessory_display==='summary'));
-   await page.evaluate(()=>{select=[...ed.sidebar.querySelectorAll('.cell')].find(c=>c.querySelector('.t')?.textContent==='Accessory Display').querySelector('select');select.value='scroll';select.dispatchEvent(new Event('change'));ed.save();});
+   await page.evaluate(()=>{seg('scroll').click();ed.save();});
    await page.waitForFunction(()=>!ed.busy&&!ed.dirty());
    assert.deepEqual(errors,[]);
    console.log('PASS '+engine+': fixed-size room scroll, complete controls, paging index, entity icons/fallback, editor save'+(engine==='chromium'?', native touch scroll and hold dimming':''));
