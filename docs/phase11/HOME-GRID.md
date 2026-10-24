@@ -1256,3 +1256,11 @@ screen to load, the screen's code, the screen's page, the home's accessories, a 
 if something failed, the error text. After about 30 seconds, or straight away on an error, the cover shrinks to a
 strip at the foot with that reason, and the blocks can be arranged without the live picture. The editor smoke forces
 a failure and checks the reason, the usable blocks and the recovery.
+
+### House App 0.1.69 deployed (2026-10-24)
+
+The owner asked for this release. Release commit `dd62629` (the editor's preview reasons and its usable fallback) was
+pushed and staged. The update installed on the first request. Strict health is OK with Home Assistant connected, and
+build `889734375329acb7` matches the staged release. There is no Traceback; the only lines matching "ERROR" are INFO
+camera-still connection resets from just before the restart. Next: the owner reads the editor's "Waiting for …" line
+on the real house.
