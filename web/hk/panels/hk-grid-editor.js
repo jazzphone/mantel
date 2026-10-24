@@ -271,7 +271,8 @@
       if (!this.grid) { this.say('Choose a starter layout first.'); return; }
       var next = add(this.grid, card, size, at);
       if (!next) { this.say('No space for that size. Remove or move a block first.'); return; }
-      this.selected = next.items[next.items.length - 1].id; next.items[next.items.length - 1].opts = this.previewOptions(card); if (card === 'accessories') next.items[next.items.length - 1].pages = { source: 'accessories' }; this.catalog = false; this.change(next);
+      var added = next.items[next.items.length - 1];
+      this.selected = added.id; Object.assign(added, this.variantFor(card)); this.catalog = false; this.change(next);
     }
     async starter(concept) {
       if (this.busy) return;
@@ -439,8 +440,15 @@
       if (!this.pickerTarget) { this.addCard(key, size); return; }
       var item = this.grid.items.find((it) => it.id === this.selected), target = this.pickerTarget;
       this.pickerTarget = null; this.catalog = false;
-      var variant = { card: key, opts: this.previewOptions(key) };
-      this.update(item.id, target === 'fallback' ? { fallback: variant } : { card: key, opts: variant.opts, pages: key === 'accessories' ? { source: 'accessories' } : null });
+      var variant = this.variantFor(key);
+      this.update(item.id, target === 'fallback' ? { fallback: variant } : { card: key, opts: variant.opts, pages: variant.pages || null });
+    }
+    // A card as a block or a fallback starts with: sample options, and an
+    // Accessory Group's automatic pages (its samples may not fit one page).
+    variantFor(key) {
+      var out = { card: key, opts: this.previewOptions(key) };
+      if (key === 'accessories') out.pages = { source: 'accessories' };
+      return out;
     }
     conditions(item, group) {
       var K = this.K, kind = item.when && item.when.kind || '', self = this;
@@ -455,7 +463,7 @@
           if (!choice) { this.say('Add an entity before using an entity condition.'); this.side(); return; }
           when.entity = choice[0]; when.state = 'on';
         }
-        var fallback = item.fallback || { card: Object.keys(G.table()).find((k) => k !== item.card && G.table()[k].sizes.includes(item.size)) || item.card };
+        var fallback = item.fallback || this.variantFor(Object.keys(G.table()).find((k) => k !== item.card && G.table()[k].sizes.includes(item.size)) || item.card);
         this.update(item.id, { when: when, fallback: fallback });
       } })];
       if (kind) {

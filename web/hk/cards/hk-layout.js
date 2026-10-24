@@ -1598,14 +1598,17 @@
     }
     _render() {
       var cfg = this._config, primary = this._shown(), item = cfg.item;
-      if (this._child && this._primary === primary) return;
+      // the same card while neither the condition nor the saved block changed
+      var key = JSON.stringify([primary, item, cfg.ctx]);
+      if (this._child && this._childKey === key) return;
+      this._childKey = key;
       var chosen = primary ? Object.assign({}, item) : Object.assign({ size: item.size }, item.fallback);
       delete chosen.when; delete chosen.fallback;
       var child = C.createCard(window.hkGridCatalog.config(chosen, cfg.ctx), this.client);
       child.setAttribute('size', this.getAttribute('size') || item.size);
       if (this.hasAttribute('data-grid-pager')) child.setAttribute('data-grid-pager', '');
       var box = document.createElement('div'); box.className = 'variant'; box.appendChild(child);
-      this._root.replaceChildren(box); this._child = child; this._primary = primary;
+      this._root.replaceChildren(box); this._child = child;
     }
     connectedCallback() {
       super.connectedCallback();

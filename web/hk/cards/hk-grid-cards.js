@@ -435,7 +435,7 @@
         return JSON.stringify([p.area, p.size, p.name, p.more, !!p.scroll, this._config.surface, p.tiles.map(function (t) { return t.entity; }),
                                this._height(), !!window.hkStrategy, !!window.hkRoom]);
       }
-      // EACH NEW CLIENT: every pill and the status row get it (they gate their own draws)
+      // EACH NEW CLIENT: every pill gets it (they gate their own draws)
       _receiveClient() {
         super._receiveClient();
         var c = this.client;
@@ -611,7 +611,7 @@
     watchSize(HkGridRoomCard);
 
     C.register('hk-grid-room-card', HkGridRoomCard, 'HK Room',
-      'A room in one card: its name and status, its lights (tap to turn on or off, press and hold to dim) and its speaker. Made for a Home Grid.',
+      'A room in one card: its name, its lights and fans (tap to turn on or off, press and hold to dim) and its speaker. Made for a Home Grid.',
       [{ name: 'area', selector: { area: {} },
          helper: 'Leave empty for the room of the wall tablet showing it.' }],
       function (client) {
@@ -792,9 +792,12 @@
       _summary() {
         var states = this.client && this.client.states || {}, locks = kind('locks') || own(this.client, 'lock');
         var n = locks.filter((id) => states[id] && states[id].state === 'locked').length;
-        var opened = ['doors', 'windows'].flatMap((k) => kind(k) || Object.keys(states).filter((id) => dom(id) === 'binary_sensor' && attr(states[id], 'device_class') === (k === 'doors' ? 'door' : 'window')))
-          .filter((id) => states[id] && states[id].state === 'on');
-        return [locks.length ? plural(n, 'Lock Locked', 'Locks Locked') : '', opened.length ? plural(opened.length, 'Entry Open', 'Entries Open') : 'Entries Closed'].filter(Boolean).join(' · ');
+        var entries = ['doors', 'windows'].flatMap((k) => kind(k) || Object.keys(states).filter((id) => dom(id) === 'binary_sensor' && attr(states[id], 'device_class') === (k === 'doors' ? 'door' : 'window')))
+          .filter((id) => states[id]);
+        var opened = entries.filter((id) => states[id].state === 'on');
+        // (a house without door or window sensors says nothing about them)
+        return [locks.length ? plural(n, 'Lock Locked', 'Locks Locked') : '',
+                opened.length ? plural(opened.length, 'Entry Open', 'Entries Open') : entries.length ? 'Entries Closed' : ''].filter(Boolean).join(' · ');
       }
       _render() {
         super._render();

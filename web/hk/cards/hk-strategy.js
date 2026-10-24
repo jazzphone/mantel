@@ -1529,9 +1529,6 @@
   }
   function listOf(b, k) { return Array.isArray(b[k]) ? b[k] : []; }
 
-  // THE CAMERA STRIP: its measured structure and numbers
-  // (one live tile, the rest stills, in a mosaic that scrolls), inside the
-  // per-dashboard wrapper that sets the nesting depth the rows align by.
   // A HOME GRID SCREEN'S HOME (docs/phase11/HOME-GRID.md): the screen's
   // home_grid (checked by hk_core) as an hk-home-grid-view -- the band's card
   // first when the band is on, a card per block from the catalog
@@ -1563,6 +1560,9 @@
     });
   }
 
+  // THE CAMERA STRIP: its measured structure and numbers
+  // (one live tile, the rest stills, in a mosaic that scrolls), inside the
+  // per-dashboard wrapper that sets the nesting depth the rows align by.
   function cameraStrip(client, opts, b, page) {
     if (b.camera_strip === false) return null;
     var ids = listOf(b, 'cameras').length ? listOf(b, 'cameras').filter(function (id) { return client.states[id]; })

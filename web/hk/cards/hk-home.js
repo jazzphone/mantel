@@ -1940,9 +1940,6 @@
   //
   // No script injection and no forced update: the module is in hk-loader's
   // list, and HkBase re-renders on signature change.
-  // a Home Grid timers block: its plate's padding (a page card's), a timer's line (34 px
-  // glyph, two lines of text) and the gap between them
-  var TM = { pad: window.hkCards.CARD.y, row: 38, gap: 8 };
   class HkTimerStripCard extends HkBase {
     // The one-shot hk-timers-ready listener, held only while attached: a
     // strip detached before the module arrives would otherwise keep the
@@ -1978,59 +1975,23 @@
         // itself, so its host must take no space and must not clip.
         'hk-plate.strip.fixed{height:0;overflow:visible}',
         '.strip > div{min-width:0;overflow:hidden}',
-        // ON A HOME GRID (G2, the `timers` block): a plate of the running
-        // timers, each its glyph, name and time left -- as many as the
-        // block's height holds (two columns at W), the soonest first; none
-        // running, the block says so
-        ':host([size]) hk-plate.strip{display:flex;flex-direction:column;justify-content:center;box-sizing:border-box;',
-        '  height:100%;padding:' + window.hkCards.CARD.pad + ';' + window.hkCards.plate('card') + ';overflow:hidden}',
-        '.tl{display:grid;grid-template-columns:repeat(var(--cols,1),minmax(0,1fr));grid-auto-rows:' + TM.row + 'px;',
-        '  gap:' + TM.gap + 'px 16px;align-content:center}',
-        '.tm{display:flex;align-items:center;gap:10px;min-width:0}',
-        '.tm i{flex:none;width:34px;height:34px;border-radius:50%;background:' + window.hkCards.v('well-bg') + ';',
-        '  display:flex;align-items:center;justify-content:center}',
-        '.tm.on i{background:rgba(255,159,10,.95)}',
-        '.tm i hk-icon{--mdc-icon-size:20px;width:20px;height:20px;color:' + window.hkCards.v('glyph') + '}',
-        '.tm.on i hk-icon{color:rgba(0,0,0,.82)}',
-        // (Flat: white in the lit circle, as every lit well -- DESIGN.md, Timers)
-        ':host([hk-flat]) .tm.on i hk-icon{color:#fff}',
-        '.tm span{display:flex;flex-direction:column;min-width:0}',
-        '.tm b{' + window.hkCards.typeCss('caption') + ';line-height:16px;color:' + window.hkCards.v('ink-2') + ';',
-        '  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
-        '.tm hk-countdown,.tm em{' + window.hkCards.typeCss('headline') + ';font-style:normal;line-height:21px;',
-        '  color:' + window.hkCards.v('ink') + ';font-variant-numeric:tabular-nums;white-space:nowrap}',
-        // NONE OR ONE RUNNING: a tile like the grid's other small blocks (Lock
-        // Up, a scene) -- the glyph's well at the top, the name and the state
-        // at the foot, in a tile's type; a tap opens Timers
-        ':host([size]) hk-plate.strip.one{justify-content:space-between;padding:12.8px 12.8px 12.8px ' + window.hkCards.TILE.padL + 'px;',
-        '  ' + window.hkCards.plate('tile') + ';cursor:pointer;-webkit-tap-highlight-color:transparent;',
-        '  transition:transform ' + window.hkCards.DUR.press + ' ease,filter ' + window.hkCards.DUR.press + ' ease}',
-        ':host([size]) hk-plate.strip.one:active{transform:scale(0.97);filter:brightness(0.93)}',
-        '.one .well{width:42px;height:42px;border-radius:50%;background:' + window.hkCards.v('key') + ';display:flex;',
-        '  align-items:center;justify-content:center;flex:none}',
-        '.one .well.on{background:rgba(255,159,10,.95)}',
-        '.one .well hk-icon{--mdc-icon-size:100%;width:' + window.hkCards.TILE.glyph + 'px;height:' + window.hkCards.TILE.glyph + 'px;',
-        '  display:flex;color:' + window.hkCards.v('glyph') + '}',
-        '.one .well.on hk-icon{color:rgba(0,0,0,.82)}',
-        ':host([hk-flat]) .one .well.on hk-icon{color:#fff}',
-        '.one .tx{display:flex;flex-direction:column;gap:' + window.hkCards.TILE.rowGap + 'px;min-width:0}',
-        '.one .tx b,.one .tx em,.one .tx hk-countdown{display:block;font-size:15px;line-height:' + window.hkCards.TILE.lineH + 'px;',
-        '  letter-spacing:-0.23px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-style:normal}',
-        '.one .tx b{font-weight:600;color:' + window.hkCards.v('ink') + '}',
-        '.one .tx em,.one .tx hk-countdown{font-weight:500;color:' + window.hkCards.v('ink-2') + ';font-variant-numeric:tabular-nums}',
-        ':host([size]) hk-plate.strip{padding:12px;gap:8px;justify-content:center}',
+        // ON A HOME GRID (the `timers` block, docs/phase11/HOME-GRID.md R6):
+        // a plate of the running timers, each its ring of time left and its
+        // pause / resume and cancel; none running, Create a Timer (and, at W,
+        // the Timers page's quick starts)
+        ':host([size]) hk-plate.strip{display:flex;flex-direction:column;justify-content:center;gap:8px;box-sizing:border-box;',
+        '  height:100%;padding:12px;' + window.hkCards.plate('card') + ';overflow:hidden}',
         '.timer-grid{display:grid;grid-template-columns:repeat(var(--cols,1),minmax(0,1fr));gap:12px}.grid-timer{display:grid;gap:6px;min-width:0}',
         '.timer-heading{display:flex;align-items:center;gap:10px;min-width:0}.timer-heading>b{font-size:15px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:' + window.hkCards.v('ink') + '}',
         '.timer-ring{width:56px;height:56px;flex:none;border-radius:50%;display:grid;place-items:center;position:relative}',
         '.timer-ring svg{position:absolute;inset:0;width:56px;height:56px;transform:rotate(-90deg)}.timer-ring circle{fill:none;stroke-width:4px;stroke:' + window.hkCards.v('key') + '}.timer-ring .ring-left{stroke:' + window.hkCards.v('warn') + ';stroke-dasharray:calc(var(--hk-left,1)*100) 100}',
         '.timer-ring hk-countdown{position:relative;font-size:13px;font-weight:600;color:' + window.hkCards.v('ink') + ';font-variant-numeric:tabular-nums}',
-        '.timer-controls{display:flex;gap:8px}.timer-controls button,.quick-grid button{border:0;border-radius:22px;background:' + window.hkCards.v('key') + ';color:' + window.hkCards.v('ink') + ';min-width:44px;min-height:44px;flex:1;cursor:pointer;font:inherit;font-size:13px}',
+        '.timer-controls{display:flex;gap:8px}.timer-controls button,.quick-grid button{border:0;border-radius:22px;background:' + window.hkCards.v('key') + ';color:' + window.hkCards.v('ink') + ';min-width:44px;min-height:44px;flex:1;cursor:pointer;font:inherit;' + window.hkCards.typeCss('caption') + '}',
         '.timer-controls hk-icon{display:block;width:20px;height:20px;margin:auto;--mdc-icon-size:20px}',
         '.new-timer{border:0;background:none;color:' + window.hkCards.v('ink') + ';display:flex;align-items:center;gap:10px;text-align:left;min-height:56px;cursor:pointer;padding:0}',
         '.new-timer i{width:42px;height:42px;background:' + window.hkCards.v('key') + ';border-radius:50%;display:grid;place-items:center;flex:none}.new-timer hk-icon{width:24px;height:24px;--mdc-icon-size:24px}',
-        '.new-timer span{display:grid;gap:3px}.new-timer b{font-size:15px;font-weight:600}.new-timer small{font-size:13px;color:' + window.hkCards.v('ink-2') + '}',
-        '.quick-grid{display:flex;gap:6px}',
-        '@media (prefers-reduced-motion:reduce){:host([size]) hk-plate.strip.one{transition:none;transform:none}}'
+        '.new-timer span{display:grid;gap:3px}.new-timer b{font-size:15px;font-weight:600}.new-timer small{' + window.hkCards.typeCss('caption') + ';color:' + window.hkCards.v('ink-2') + '}',
+        '.quick-grid{display:flex;gap:6px}'
       ].join('');
     }
     getCardSize() { return 1; }
@@ -2067,7 +2028,6 @@
       });
       rows = rows.filter((r) => r.state === 'paused' || r.attrs.finishes_at && !isNaN(Date.parse(r.attrs.finishes_at)))
         .sort((a, b) => (Date.parse(a.attrs.finishes_at) || Infinity) - (Date.parse(b.attrs.finishes_at) || Infinity));
-      this._one = false;
       if (!rows.length) {
         var presets = (window.hkSettings && window.hkSettings.get('headers.timers.presets', null)) || [5, 10, 15, 20, 30, 60];
         return '<button class="new-timer" data-new aria-label="Create a Timer"><i><hk-icon icon="mdi:timer-outline"></hk-icon></i><span><b>Timers</b><small>Create a Timer</small></span></button>' +
@@ -2106,7 +2066,6 @@
       if (sized) {
         var on = this._st(cfg.entity || 'sensor.running_quick_timers');
         var html0 = this._grid(on && on.attributes && on.attributes.running, sized);
-        this._e.classList.toggle('one', !!this._one);
         this._gridTap();
         window.hkCards.morph(this._e, html0);
         return;

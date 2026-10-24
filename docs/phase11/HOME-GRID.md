@@ -1047,3 +1047,38 @@ Validation: all shared frontend suites and 138 focused model/editor tests pass. 
 Release commit `d46d8b5` includes shared-glyph implementation `d58e1a9`, was pushed to main and staged to the house's local Mantel App source (2,991 files). Home Assistant created protected pre-update backup `b446c83f` of Mantel 0.1.63. The install request timed out while waiting; durable update state confirmed installation in progress, so the request was not repeated. Installed/latest version is now 0.1.64 with no pending update, strict health OK and Home Assistant connected. Build `953e64d7b80d1d4f` matches the staged release and `/api/version`. The latest 100 App log lines contain no ERROR, CRITICAL or traceback entries.
 
 Version consistency, release packaging and documentation links pass; staging/release tests pass (14 passed, 3 skipped). The implementation's full frontend suite, 138 focused model/editor tests, and Chromium/WebKit glyph/geometry/caption checks passed before release preparation. Reload the dashboard/settings for the shared accessory and scene glyphs. No public tag/release or HK Frontend update was made. Real tablet acceptance remains with the owner. The unrelated Xcode edit is unchanged.
+
+### Audit of the Home Grid commits (2026-10-23, Claude)
+
+The owner asked for every Home Grid commit to be checked against the plan and DESIGN.md
+(/Volumes/config/hk_house/docs/DESIGN.md). The model, the hk_core checks and their JS mirror, the strategy, the
+view, the pager, the cards, the editor, both hosts' routes (starter, history, `tablet_room`, the portrait route) and
+the announcement observer were read. All of these match the plan and follow its rules. Commands go through each
+card's action port, there is no `hass` outside the adapters, and drafts never reach the settings feed. Fixed on main:
+
+- **A conditional block kept its old card after its options changed.** It rebuilt only when the condition flipped,
+  so a saved change reached the screen only on the next flip. It now rebuilds when the condition, the block or its
+  house context changes (hk-layout.js `HkGridConditionalCard`).
+- **An Accessory Group as a fallback couldn't be saved at Wide.** The editor gave it four sample accessories with no
+  pages, and hk_core refused them (two fit a Wide page). A fallback now starts the way a new block does, with
+  automatic pages (hk-grid-editor.js `variantFor`).
+- **The Security block said "Entries Closed" in a house with no door or window sensors.** It now says nothing about
+  entries there.
+- **The timers block's first-pass tile styles were dead code.** R6 replaced the `.tl`, `.tm` and `.one` styles and
+  `this._one` without removing them. They carried literal colors against DESIGN.md rule 1. Removed. The block
+  renders as before; the CSS snapshot is refreshed and its controls' text uses the caption role.
+- **The room card's registered description still said "its name and status".** The status row went in R2.
+- **The camera strip's comment had been separated from `cameraStrip`.** `homeGridView` was inserted between them in
+  hk-strategy.js.
+
+Left for the owner (decisions, not defects):
+
+- The page control's pill is `rgba(30,30,36,.22)`, a literal with no token (DESIGN.md rules 1 and 3). It reads as a
+  scrim over camera pictures. Naming it, or moving it to `overlay`, changes how it looks.
+- The Security block's Wide **Home / Away / Disarm** buttons all open the same alarm sheet. The sheet still asks for
+  the PIN, but it doesn't open on the mode that was tapped.
+- The Weather block's opt-in sky pauses for Reduce Motion and Sky Animations off, but not for Flat with motion off.
+
+Checked after the fixes: the main suite (3,474 passed and 21 skipped), every HA JavaScript suite on the built package,
+232 focused grid, editor, settings and boundary tests, `grid_editor_smoke.py` and `grid_review_check.py`. Nothing
+was released or deployed. The house stays on App 0.1.64 until the next release the owner approves.
