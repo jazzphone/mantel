@@ -1428,3 +1428,17 @@ starters and spacing, the Clock block's faces, and the tab bar's Icons Only) was
 installed on the first request. Strict health is OK with Home Assistant connected, and build `195485553478bce8`
 matches the staged release. No log line matches "Traceback" or "ERROR". Next: the owner checks the iPad scroll fix
 and a phone on its side, and the car browser's usable size is measured to confirm the Car type.
+
+### The card list scrolls under a finger (2026-10-24)
+
+On an iPad the card list "keeps thinking I want to move a card". Each row was `touch-action: none` and picked a card
+up on any 5 px movement, so the list scrolled only from the gaps between rows. A row is now `pan-y`: a finger moving
+mostly up or down scrolls the list. A card is picked up by a drag mostly sideways (towards the grid; |dx| > 1.2 |dy|
+past 8 px) or by a hold of 350 ms, after which it can go any way. The row lifts while it is carried, and a non-passive
+`touchmove` keeps the list from scrolling under it. A tap opens the preview as before, and a mouse is unchanged.
+Blocks on the grid still pick up at once: the grid never scrolls.
+
+`grid_editor_touch_check.py` uses Chrome's real touch input: a touch scroll of the list moves it 300 px and adds
+nothing; a sideways drag and a hold carried down and then over each place a card; a tap opens the preview. Against
+the editor before this change, the scroll step fails (0 px). WebKit wasn't run with touch: Playwright's WebKit offers
+taps, not touch drags.

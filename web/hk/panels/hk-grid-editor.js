@@ -148,6 +148,7 @@
     var h = grid.rows * 150 + (grid.rows - 1) * 10 + 2 * pad + (grid.band ? 70 : 0);
     return Math.min(1, frame[0] / w, frame[1] / h);
   }
+  var HOLD_MS = 350;               // a finger held this long on a card picks it up
   function snap(x, y, rect, cols, rows) {
     return [Math.floor((x - rect.left) / (rect.width / cols)), Math.floor((y - rect.top) / (rect.height / rows))];
   }
@@ -202,7 +203,9 @@
     '.catalog-search{box-sizing:border-box;width:100%;min-height:40px;border:1px solid var(--hk-sep);border-radius:10px;padding:8px 12px;background:var(--hk-cell);color:var(--hk-label);font:inherit;font-size:15px}',
     '.pick-banner{display:flex;align-items:center;gap:8px;margin:0 0 10px;padding:10px 12px;border-radius:10px;background:color-mix(in srgb,var(--hk-tint) 16%,var(--hk-cell));font-size:14px}',
     '.pick-banner span{flex:1}.pick-banner button{border:0;background:none;color:var(--hk-tint);font:inherit;cursor:pointer;min-height:32px}',
-    '.pal-row{display:flex;align-items:center;gap:10px;padding:8px 10px 8px 12px;cursor:grab;user-select:none;-webkit-user-select:none;touch-action:none}',
+    // (pan-y: a finger moving up or down scrolls the list; paletteRow picks a card up on a sideways drag or a hold)
+    '.pal-row{display:flex;align-items:center;gap:10px;padding:8px 10px 8px 12px;cursor:grab;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;touch-action:pan-y;transition:transform .15s ease,box-shadow .15s ease}',
+    '.pal-row.lifted{transform:scale(1.02);box-shadow:0 8px 24px rgba(0,0,0,.28);position:relative;z-index:2}',
     '.pal-row:active{cursor:grabbing}.pal-row[aria-expanded=true]{background:var(--hk-hover)}',
     '.pal-row > hk-icon{width:24px;height:24px;flex:none;color:var(--hk-tint)}',
     '.pal-row .pt{display:grid;gap:2px;flex:1;min-width:0}.pal-row .pt b{font-weight:600;font-size:15px}',
@@ -636,25 +639,50 @@
       var row = h('div', { class: 'cell pal-row', role: 'button', tabindex: '0', 'data-card': k, 'aria-expanded': String(open),
         'aria-label': NAMES[k] + ', ' + DESCRIPTIONS[k] + (this.pickerTarget ? '' : '. Drag onto the grid, or press Enter to preview.') },
         [h('hk-icon', { icon: GLYPHS[k] }), h('span', { class: 'pt' }, [h('b', { text: NAMES[k] }), h('small', { text: DESCRIPTIONS[k] }), chips])]);
+      // A FINGER SCROLLS THE LIST (2026-10-24, the owner on an iPad: "it keeps
+      // thinking I want to move a card"): up or down is the list's to scroll
+      // (touch-action pan-y); a card is picked up by a drag sideways, towards
+      // the grid, or by a hold (HOLD_MS, iOS's home screen) and then any way.
+      // A mouse picks it up on any 5 px drag, as before. While a card is
+      // carried the list doesn't scroll under it (touchmove, not passive).
+      row.addEventListener('touchmove', function (ev) { if (row.classList.contains('lifted')) ev.preventDefault(); }, { passive: false });
       row.addEventListener('pointerdown', function (e) {
         if (e.button !== 0) return;
-        var x0 = e.clientX, y0 = e.clientY, dragging = false;
+        var x0 = e.clientX, y0 = e.clientY, dragging = false, scrolling = false, last = e;
+        var touch = e.pointerType === 'touch' || e.pointerType === 'pen';
         try { row.setPointerCapture(e.pointerId); } catch (x) { /* a test page */ }
-        var move = function (ev) {
-          if (dragging || Math.hypot(ev.clientX - x0, ev.clientY - y0) < 5) return;
+        var lift = function (ev) {
           dragging = self.paletteDrag(ev, k, row);
-          if (dragging) stop();
+          if (!dragging) return;
+          stop();
+          row.classList.add('lifted');
+          var drop = function () { row.classList.remove('lifted'); row.removeEventListener('pointerup', drop); row.removeEventListener('pointercancel', drop); };
+          row.addEventListener('pointerup', drop); row.addEventListener('pointercancel', drop);
         };
-        var stop = function () { row.removeEventListener('pointermove', move); row.removeEventListener('pointerup', up); };
+        var hold = touch ? setTimeout(function () { if (!dragging && !scrolling) lift(last); }, HOLD_MS) : null;
+        var move = function (ev) {
+          last = ev;
+          if (dragging || scrolling) return;
+          var dx = ev.clientX - x0, dy = ev.clientY - y0;
+          if (Math.hypot(dx, dy) < (touch ? 8 : 5)) return;
+          if (touch && Math.abs(dx) <= Math.abs(dy) * 1.2) { scrolling = true; clearTimeout(hold); return; }
+          lift(ev);
+        };
+        var stop = function () {
+          clearTimeout(hold);
+          row.removeEventListener('pointermove', move); row.removeEventListener('pointerup', up); row.removeEventListener('pointercancel', cancel);
+        };
+        // the browser took the gesture to scroll the list: no tap, no drag
+        var cancel = function () { stop(); };
         var up = function (ev) {
           stop();
-          if (dragging) return;
+          if (dragging || scrolling) return;
           var chip = ev.target.closest && ev.target.closest('.chip');
           if (chip) { self.paletteSizes[k] = chip.dataset.size; self.pickerCard = k; }
           else self.pickerCard = self.pickerCard === k ? null : k;
           self.drawPalette();
         };
-        row.addEventListener('pointermove', move); row.addEventListener('pointerup', up);
+        row.addEventListener('pointermove', move); row.addEventListener('pointerup', up); row.addEventListener('pointercancel', cancel);
       });
       row.addEventListener('keydown', (e) => {
         if (e.key !== 'Enter' && e.key !== ' ') return;
