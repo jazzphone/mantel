@@ -1,0 +1,102 @@
+"""Home Grid's page panels as blocks (2026-10-24) against the fictional home, never a household's: Power (the status
+in sentences at Wide, the house picture or flow chart at Large), Music (the speaker picker), Doors & Locks (the house
+with its ways in), an Extra Large thermostat (its full controls), Live TV and Water each draw inside their block, and
+a block whose feature isn't set up says where to set it up.
+
+    python tools/headless/grid_panels_check.py [--shots DIRECTORY]
+"""
+import argparse
+import asyncio
+import sys
+import tempfile
+from pathlib import Path
+ROOT = Path(__file__).resolve().parents[2]
+sys.path[:0] = [str(ROOT / p) for p in ('tools/headless', 'tools', 'hosts/server', 'tests')]
+import gallery
+from cdp import Browser
+from aiohttp.test_utils import TestServer
+
+parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument('--shots', type=Path)
+args = parser.parse_args()
+
+DEEP = "window.deep=(r,s)=>[...r.querySelectorAll('*')].flatMap(e=>[...(e.matches(s)?[e]:[]),...(e.shadowRoot?deep(e.shadowRoot,s):[])]);" \
+       "window.cell=(id)=>deep(document,'.cell[data-id=\"'+id+'\"]')[0];"
+BIG = {'v': 1, 'cols': 6, 'rows': 4, 'frame': [1280, 800], 'band': True, 'items': [
+    {'id': 'thermo', 'card': 'thermostat', 'size': 'XL', 'at': [0, 0]},
+    {'id': 'power', 'card': 'power', 'size': 'L', 'at': [3, 0]},
+    {'id': 'doors', 'card': 'doors', 'size': 'L', 'at': [0, 2]},
+    {'id': 'music', 'card': 'music', 'size': 'L', 'at': [2, 2]},
+    {'id': 'tv', 'card': 'live_tv', 'size': 'L', 'at': [4, 2]}]}
+SMALL = {'v': 1, 'cols': 6, 'rows': 4, 'frame': [1280, 800], 'band': True, 'items': [
+    {'id': 'power', 'card': 'power', 'size': 'W', 'at': [0, 0]},
+    {'id': 'water', 'card': 'water', 'size': 'XL', 'at': [0, 1]},
+    {'id': 'doors', 'card': 'doors', 'size': 'XL', 'at': [3, 1]}]}
+# the Energy feature's power plan, as Settings keeps it (features/energy/power.py)
+POWER = {'grid': 'sensor.grid_power', 'home': 'sensor.home_power', 'solar': 'sensor.solar_power', 'grid_status': 'binary_sensor.grid_status',
+         'picture': True, 'art': '/hk/power-house/', 'battery': {'level': 'sensor.battery_level', 'charge': 'sensor.battery_charge', 'discharge': 'sensor.battery_discharge'}}
+STUB = """(()=>{let g=hkSettings.get.bind(hkSettings),P=%s;
+  hkSettings.get=(k,d)=>k==='added'?(g('added',[])||[]).concat(['energy','live_tv']):k==='energy'?{power:P}:k==='headers'?Object.assign({},g('headers',{}),{water:{meter:'sensor.water_meter',supply:'valve.main_water'}}):g(k,d);
+  deep(document,'hk-grid-panel-card').forEach(c=>c.redraw());void 0})()"""
+
+
+async def main():
+    import json
+    for k, v in {'sensor.grid_power': 1200, 'sensor.home_power': 2400, 'sensor.solar_power': 1500, 'sensor.battery_charge': 0,
+                 'sensor.battery_discharge': 300}.items():
+        gallery.HOUSE[k] = (None, (str(v), {'friendly_name': k.split('.')[1].replace('_', ' ').title(), 'unit_of_measurement': 'W', 'device_class': 'power'}))
+    area, (st, attrs) = gallery.HOUSE['climate.main_floor']
+    gallery.HOUSE['climate.main_floor'] = (area, (st, dict(attrs, fan_modes=['auto', 'on'], fan_mode='auto', supported_features=attrs['supported_features'] | 8)))
+    gallery.HOUSE['sensor.battery_level'] = (None, ('76', {'friendly_name': 'Battery', 'unit_of_measurement': '%', 'device_class': 'battery'}))
+    gallery.HOUSE['binary_sensor.grid_status'] = (None, ('on', {'friendly_name': 'Grid', 'device_class': 'power'}))
+    gallery.HOUSE['sensor.water_meter'] = (None, ('1234.5', {'friendly_name': 'Water Meter', 'unit_of_measurement': 'gal', 'device_class': 'water', 'state_class': 'total_increasing'}))
+    gallery.HOUSE['valve.main_water'] = (None, ('open', {'friendly_name': 'Main Water', 'device_class': 'water', 'supported_features': 3}))
+    gallery.SETTINGS['boards']['panels'] = {'home_style': 'grid', 'home_grid': BIG, 'menu_custom': True, 'menu': 'tabbar'}
+    gallery.SETTINGS['boards']['panels2'] = {'home_style': 'grid', 'home_grid': SMALL, 'menu_custom': True, 'menu': 'tabbar'}
+    with tempfile.TemporaryDirectory() as td:
+        app, cookie = await gallery.build(Path(td))
+        async with TestServer(app) as server, Browser(1280, 800, port=9405) as b:
+            origin = str(server.make_url('')).rstrip('/')
+            await b.restrict_origin(origin)
+            for screen, ids in (('panels', ['thermo', 'power', 'doors', 'music', 'tv']), ('panels2', ['power', 'water', 'doors'])):
+                await b.open(origin + '/' + screen + '/home', cookie)
+                assert await b.wait('window.__mantelReady===true', 30), [l for l in b.console if 'EXCEPTION' in l or 'rror' in l][:5]
+                await b.eval(DEEP)
+                assert await b.wait("deep(document,'hk-grid-panel-card').length>=%d" % len(ids), 20), screen
+                await asyncio.sleep(1)
+                if screen == 'panels2':
+                    # nothing set up: each block says where
+                    empty = await b.eval("deep(cell('power'),'.empty').map(e=>e.textContent)")
+                    assert empty and 'Energy' in empty[0], empty
+                await b.eval(STUB % json.dumps(POWER))
+                await asyncio.sleep(2.5)
+                if screen == 'panels':
+                    # Live TV's channels (the integration's list, stood in): tiles that scroll inside the block
+                    await b.eval("(()=>{let t=deep(cell('tv'),'hk-tv-guide-card')[0];t._configured=true;"
+                                 "t._channels=[1,2,3,4,5].map(i=>({name:'Channel '+i,number:i+'.1',now:null}));t._hkSig=null;t.redraw();void 0})()")
+                    await asyncio.sleep(0.5)
+                    assert await b.eval("deep(cell('tv'),'hk-tv-guide-card')[0].shadowRoot.querySelectorAll('.tv-grid > *').length") == 5
+                # every block's parts stay inside it
+                got = await b.eval("""(()=>{let out={};%s.forEach(id=>{let c=cell(id),r=c.getBoundingClientRect(),p=deep(c,'hk-grid-panel-card')[0],
+                  kids=[...p.shadowRoot.querySelectorAll('.part > *')];
+                  out[id]={kids:kids.map(k=>k.localName),empty:!!p.shadowRoot.querySelector('.empty'),
+                    inside:kids.every(k=>{let q=k.getBoundingClientRect();return q.width>0&&q.height>0&&q.bottom<=r.bottom+2&&q.right<=r.right+2&&q.top>=r.top-2})}});
+                  return out})()""" % json.dumps(ids))
+                assert all(not g['empty'] and g['kids'] for g in got.values()), got
+                # what scrolls inside its own plate (Music's speakers, Live TV's channels) may run past it; the rest fit
+                assert all(g['inside'] for k, g in got.items() if k not in ('music', 'tv')), got
+                if screen == 'panels':
+                    assert got['thermo']['kids'] == ['hk-control-card', 'div'] and got['power']['kids'] == ['hk-power-house-card'], got
+                    # the thermostat's modes and fan beside its dial, the current ones pressed
+                    pressed = await b.eval("[...deep(cell('thermo'),'hk-grid-panel-card')[0].shadowRoot.querySelectorAll('.rd button[aria-pressed=\"true\"]')].map(x=>x.textContent)")
+                    assert pressed == ['Auto', 'Auto'], pressed
+                else:
+                    assert got['water']['kids'] == ['hk-water-day-card', 'hk-water-supply-card'] and got['power']['kids'] == ['hk-power-status-card'], got
+                if args.shots:
+                    args.shots.mkdir(parents=True, exist_ok=True)
+                    await b.screenshot(args.shots / f'{screen}.png')
+            exceptions = [line for line in b.console if line.startswith('EXCEPTION:')]
+            assert not exceptions, exceptions
+            print('PASS: power, music, doors & locks, the thermostat\'s full controls, Live TV and water as blocks')
+
+asyncio.run(main())

@@ -3198,7 +3198,7 @@
   window.hkStrategy = { generate: HkDashboardStrategy.generate, tile: TILE, shortName: shortName,
     notHouseCamera: notHouseCamera,
                         lateError: lateError, recoverLate: recoverLate, defineHere: defineHere,
-                        tileFor: viaClient(tileFor), roomCards: viaClient(roomCards),
+                        tileFor: viaClient(tileFor), roomCards: viaClient(roomCards), inventory: viaClient(inventory),
                         climateMembers: viaClient(climateMembers), pageMembers: viaClient(pageMembers),
                         batteryOf: viaClient(function (client, id) { return sibling(client, id, 'battery'); }),
                         groupOf: viaClient(groupOf), ownChange: ownChange,

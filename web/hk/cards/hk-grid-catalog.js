@@ -25,6 +25,7 @@
   // a block whose card isn't drawn yet (G3), or with nothing in the house to show
   function stand(name, icon) { return { type: 'custom:hk-key-card', name: name, icon: icon }; }
   function own(v) { return v && v !== TABLET_ROOM ? v : null; }
+  function panel(kind, more) { return Object.assign({ type: 'custom:hk-grid-panel-card', panel: kind }, more || {}); }
 
   // key -> its sizes, the page sources it has besides `list`, and
   // card(size, opts, ctx): its card config. ctx is the house as the screen
@@ -50,8 +51,10 @@
       var extra = s === 'L' ? { sub_card: ctl(['progress']), meta_card: ctl(['volume']) }
                 : s === 'T' ? { sub_card: ctl(['progress']) } : {};
       return Object.assign({ type: 'custom:hk-now-playing-card', music: true }, sp ? { entity: sp } : {}, extra); } },
-    thermostat: { sizes: ['T', 'L'], sources: ['thermostats'], opts: { entity: 'climate' }, card: function (s, o, ctx) {
+    // Extra Large: the thermostat's full controls, its sheet (2026-10-24)
+    thermostat: { sizes: ['T', 'L', 'XL'], sources: ['thermostats'], opts: { entity: 'climate' }, card: function (s, o, ctx) {
       var id = own(o.entity) || (ctx.climate || [])[0];
+      if (s === 'XL') return panel('climate', id ? { entity: id } : {});
       // the dial (hk-control.js), sized to the block (G2)
       return id ? { type: 'custom:hk-control-card', entity: id } : stand('Thermostat', 'hk:thermostat'); } },
     camera: { sizes: ['W', 'L', 'XL'], sources: ['cameras'], opts: { entity: 'camera', follow: 'camera_follow', follow_select: 'select' }, card: function (s, o, ctx) {
@@ -83,6 +86,13 @@
       if (!id) return stand('Vacuum', 'hk:robot-vacuum');
       return { type: s === 'L' || s === 'XL' ? 'custom:hk-grid-vacuum-card' : 'custom:hk-vacuum-card', entity: id }; } },
     clock: { sizes: ['W', 'XL'], sources: [], card: function () { return { type: 'custom:hk-clock-card' }; } },
+    // THE PAGES' OWN PANELS (2026-10-24; hk-grid-cards.js hk-grid-panel-card),
+    // each read live from the house's settings as its page reads them
+    power: { sizes: ['W', 'L', 'XL'], sources: [], opts: {}, card: function () { return panel('power'); } },
+    music: { sizes: ['L', 'XL'], sources: [], opts: {}, card: function () { return panel('music'); } },
+    doors: { sizes: ['L', 'XL'], sources: [], opts: {}, card: function () { return panel('doors'); } },
+    live_tv: { sizes: ['L', 'XL'], sources: [], opts: {}, card: function () { return panel('tv'); } },
+    water: { sizes: ['L', 'XL'], sources: [], opts: {}, card: function () { return panel('water'); } },
     // THE NEW CARDS (G3, hk-grid-cards.js). `opts` names each option and its
     // kind, as home_grid.CATALOG does (a test holds them equal). A card handed
     // `tablet_room` resolves it itself, through the host (hkShell.tabletRoom):

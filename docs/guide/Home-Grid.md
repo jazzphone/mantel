@@ -53,6 +53,17 @@ To combine accessories from different rooms, drag in an **Accessory Group** and 
 
 On an **Accessory**, or each accessory in a group, **Line Under Name** chooses Automatic, State, Brightness, An Attribute or Hidden. **An Attribute** shows a reported value such as battery level, with an optional unit. Missing values show a dash. Standalone accessories and scenes use the same saved glyphs and colors as their room-page pills.
 
+**Blocks from the pages:** some of Mantel's pages put their top panel in a block too, read live from what you set up for that page:
+
+- **Power** (Wide, Large, Extra Large): Wide says how the house is powered in a sentence or two; Large and Extra Large are the Power page's house picture (or its flow chart).
+- **Music** (Large, Extra Large): choose speakers, then a playlist, as on the Music page.
+- **Doors & Locks** (Large, Extra Large): the house with its locks, doors, windows and garage, and today's activity.
+- **Thermostat** at Extra Large: the dial, with the readings (inside, humidity, outside), the modes and the fan beside it.
+- **Live TV** (Large, Extra Large): your channels; tap one to watch full screen.
+- **Water** (Large, Extra Large): today's water; Extra Large adds the main supply beside it.
+
+A block for something you haven't set up says where to set it up.
+
 The **Calendar** block shows what is still to come over its **Days** (Today Only up to 7 Days; Today and Tomorrow by default), each later day under its own heading. The events scroll inside the block, and tapping one opens its details.
 
 Weather comes in Wide (conditions), Large (also readings, six hours and three days) and Extra Large (also five days). **Sky Background** adds Sky's clouds, sun or moon and precipitation inside the card; it is off by default and respects the screen's animation setting and reduced motion. Timers offer pause, resume and cancel; an empty block opens Create a Timer, and Wide also has quick starts. Security opens the shared alarm sheet, keeping its PIN flow. **Large and Extra Large Security** are the alarm keypad itself: the keys on the left, the alarm's state and the ways to arm on the right; the PIN is checked by the alarm, as on the Security page. **Large and Extra Large Vacuum** are the vacuum's controls, with **Clean Areas** below them when HK Clean Areas is added.

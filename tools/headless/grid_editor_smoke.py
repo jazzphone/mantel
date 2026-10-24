@@ -147,7 +147,7 @@ async def main():
             print('room start matches selected Kitchen, display modes agree, and starters stay in collapsed screen settings',flush=True)
 
             await b.eval('ed.select(null)')
-            assert await b.eval("ed.palette.querySelectorAll('.pal-row').length === 19")
+            assert await b.eval("ed.palette.querySelectorAll('.pal-row').length === 24")
             assert await b.wait("[...ed.palette.querySelectorAll('.pal-row > hk-icon')].every(e=>!!e.drawn?.path)",10)
             if ARGS.shots:
                 await screenshot_font(b)

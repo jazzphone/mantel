@@ -1344,3 +1344,28 @@ staged. The update installed on the first request. Strict health is OK with Home
 `5237cbfeb53285ed` matches the staged release. There is no Traceback; the only lines matching "ERROR" are Music
 Assistant queue warnings from before the restart. Next: the owner checks on the iPad that the test dashboard no longer
 scrolls.
+
+### The pages' panels as blocks (2026-10-24)
+
+The owner asked for all six suggestions: power flow, music favorites, doors and locks, the thermostat's full controls,
+Live TV and water. Each is `hk-grid-panel-card` (hk-grid-cards.js) with a `panel`, which mounts the page's own card
+and reads what it needs live from the settings and states the page reads, so a block follows a change without the
+screen being built again. A panel with nothing set up says where to set it up.
+
+| Block | Sizes | What it mounts |
+| --- | --- | --- |
+| `power` | W, L, XL | W: `hk-power-status-card`, shrunk to fit and laid out wider so it still spans the block. L, XL: `hk-power-house-card` (or `hk-power-flow-card` when the plan has no picture), shrunk to fit and centred |
+| `music` | L, XL | `hk-speaker-picker-card` on a plate; it scrolls inside the plate |
+| `doors` | L, XL | `hk-security-overview-card` with the house's inventory (`hkStrategy.inventory`, less Hidden Accessories); its 360 px minimum is lifted |
+| `thermostat` | XL (new) | the dial (`hk-control-card` at T) in one column; the readings, modes and fan in the other two |
+| `live_tv` | L, XL | `hk-tv-guide-card` on a plate; its channels scroll inside it |
+| `water` | L, XL | `hk-water-day-card`; XL adds `hk-water-supply-card` beside it, half each |
+
+Some sizes were tried and dropped because the page's card couldn't fit: Doors & Locks at Wide (the overview needs about
+290 px) and Water at Wide (the day's chart needs about 190 px). The thermostat sheet itself (`hk-detail-climate`) was
+too tall for a block, so the XL block splits the dial from its controls instead.
+
+`grid_panels_check.py` draws every panel against the fictional home, with the Energy power plan, a water meter and
+supply, a fan and Live TV channels stood in. It checks that each panel draws inside its block (Music and Live TV may
+scroll inside their own plates), that the thermostat's current mode and fan are pressed, and that a block whose
+feature isn't set up says so. It was also drawn in WebKit at iPad size with touch, with no page errors.

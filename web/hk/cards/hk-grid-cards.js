@@ -913,6 +913,196 @@
     C.register('hk-grid-vacuum-card', HkGridVacuumFull, 'HK Grid Vacuum', 'A vacuum\u2019s controls with Clean Areas, sized to a Home Grid block.',
       [{ name: 'entity', label: 'Vacuum', selector: { entity: { filter: { domain: 'vacuum' } } } }], function () { return {}; });
 
+    // THE PAGES' OWN PANELS AS BLOCKS (2026-10-24, the owner: "let's do them
+    // all"): what the Power, Music, Security, Climate, Live TV and Water pages
+    // show at their top, read live from the house's settings as those pages
+    // read them, so a block follows a change without the screen being built
+    // again. `panel`:
+    //   power     W the status in sentences; L, XL the house picture (or the
+    //             flow chart, as the Power page draws it), shrunk to fit
+    //   music     the speaker picker: speakers, presets and playlists
+    //   doors     the house with its ways in: locks, doors, windows, garage
+    //   climate   a thermostat's full controls (its sheet)
+    //   tv        Live TV's channels; a tap plays one full screen
+    //   water     the day's water; XL with the main supply beside it
+    // Nothing set up for it: the block says where to set it up.
+    var PANEL_EMPTY = {
+      power: ['Power', 'Add Energy with a power plan in Settings to show power here.'],
+      music: ['Music', 'Set up Music in Settings to choose speakers and playlists here.'],
+      doors: ['Doors & Locks', 'No locks, doors or windows yet.'],
+      climate: ['Thermostat', 'No thermostat yet.'],
+      tv: ['Live TV', 'Add channels in Settings → Live TV to show them here.'],
+      water: ['Water', 'Name a water meter in Settings → Pages → Water to show it here.']
+    };
+    function hidesOf() {
+      var G = setting('generated', null) || {}, out = {};
+      ['exclude_entities', 'exclude_devices', 'exclude_areas', 'include_entities'].forEach(function (k) { if (Array.isArray(G[k])) out[k] = G[k]; });
+      return out;
+    }
+    function firstOfDomain(client, d) {
+      return Object.keys((client && client.states) || {}).filter(function (id) { return dom(id) === d; }).sort()[0] || null;
+    }
+    // what a panel block mounts: [{cfg, cls}] (each in a part of its own), or null
+    function panelParts(kind, size, cfg, client) {
+      var big = size === 'L' || size === 'XL';
+      if (kind === 'power') {
+        var added = setting('added', []) || [], E = added.indexOf('energy') >= 0 ? setting('energy', null) : null, W = E && E.power;
+        if (!W || typeof W !== 'object') return null;
+        var B = W.battery || {};
+        // W: the status at its own height, shrunk to the block if it must be
+        if (!big) return [{ cls: 'fit fitw', cfg: { type: 'custom:hk-power-status-card', grid_status: W.grid_status, problem: B.problem, level: B.level,
+          backup: B.backup, home: W.home, charge: B.charge, discharge: B.discharge, eps: B.eps, storm: B.storm, solar: W.solar,
+          grid: W.grid, height: 'auto' } }];
+        // (the picture is as tall as its width makes it: shrunk to the block, cls fit)
+        return [{ cls: W.picture !== false ? 'fit' : '', cfg: W.picture !== false
+          ? { type: 'custom:hk-power-house-card', art: W.art, home: W.home, grid: W.grid, grid_export: W.grid_export, grid_status: W.grid_status,
+              solar: W.solar, level: B.level, charge: B.charge, discharge: B.discharge, reserve: B.reserve }
+          : { type: 'custom:hk-power-flow-card', grid: W.grid, home: W.home, level: B.level, grid_status: W.grid_status,
+              charge: B.charge, discharge: B.discharge, height: '100%' } }];
+      }
+      if (kind === 'music') {
+        var M = window.hkMusic, sp = M && M.speakers ? M.speakers() : [];
+        return sp && sp.length ? [{ cfg: { type: 'custom:hk-speaker-picker-card' }, cls: 'plated' }] : null;
+      }
+      if (kind === 'doors') {
+        var S = window.hkStrategy, inv = null;
+        try { inv = S && S.inventory ? S.inventory(client, hidesOf()) : null; } catch (e) { inv = null; }
+        if (!inv || !(inv.locks.length + inv.doors.length + inv.windows.length + inv.garage.length)) return null;
+        var alarm = setting('security.alarm', null) || firstOfDomain(client, 'alarm_control_panel');
+        return [{ cfg: { type: 'custom:hk-security-overview-card', alarm: alarm, locks: inv.locks, doors: inv.doors, windows: inv.windows,
+          garage: inv.garage, leaks: inv.leaks || [], height: '100%' } }];
+      }
+      if (kind === 'climate') {
+        var id = cfg.entity || firstOfDomain(client, 'climate');
+        // the dial alone (its Tall layout: the ring as large as the column),
+        // then its readings, modes and fan in the two columns beside it
+        return id ? [{ cfg: { type: 'custom:hk-control-card', entity: id }, size: 'T' }, { readings: id, cls: 'wide' }] : null;
+      }
+      if (kind === 'tv') {
+        return (setting('added', []) || []).indexOf('live_tv') >= 0 ? [{ cfg: { type: 'custom:hk-tv-guide-card' }, cls: 'plated' }] : null;
+      }
+      if (kind === 'water') {
+        var hw = (setting('headers', null) || {}).water || {}, parts = [{ cfg: Object.assign({ type: 'custom:hk-water-day-card', height: '100%' },
+          hw.meter ? { meter: hw.meter } : {}) }];
+        // XL: the main supply beside the day, as the Water page has it
+        var supply = hw.supply && client.states[hw.supply] ? hw.supply : Object.keys(client.states).filter(function (v) {
+          return dom(v) === 'valve' && /main|supply|shut.?off/i.test(v + ' ' + (attr(client.states[v], 'friendly_name') || ''));
+        })[0];
+        if (size === 'XL' && supply) { parts.push({ cfg: { type: 'custom:hk-water-supply-card', entity: supply, height: '100%' } }); }
+        return parts;
+      }
+      return null;
+    }
+    // (side by side: a thermostat's dial and its controls, two columns'
+    // worth; an XL water block's day and supply, half each)
+    var PANEL_CSS = '.parts{display:flex;flex-direction:column;gap:10px;height:100%}' +
+      '.parts.row{flex-direction:row}.parts.row .part{flex:1 1 0;min-width:0}.parts.row .part.wide{flex:2 1 0}' +
+      '.part{flex:1;min-height:0;position:relative}.part > *{display:block;height:100%;--hk-sec-min:0px}' +
+      // FIT: the card at its own height, scaled down to the part (_fit)
+      '.part.fit{overflow:hidden}.part.fit > *{height:auto;transform-origin:50% 0}' +
+      '.rd{' + C.plate('card') + ';box-sizing:border-box;height:100%;padding:' + C.CARD.pad + ';display:flex;flex-direction:column;gap:12px;justify-content:space-between}' +
+      '.rd .now{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}' +
+      '.rd .now div{display:flex;flex-direction:column;gap:2px;min-width:0}' +
+      '.rd .k{' + type('caption') + ';color:' + v('ink-2') + '}' +
+      '.rd .v{' + type('title') + ';font-variant-numeric:tabular-nums}' +
+      '.rd .row{display:flex;flex-direction:column;gap:6px}' +
+      C.segCss('.rd .seg', { on: '[aria-pressed="true"]', fill: true }) +
+      '.rd .seg button{flex:1 1 0}' +
+      '.part.plated{' + C.plate('card') + ';box-sizing:border-box;padding:14px;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:none}' +
+      '.part.plated::-webkit-scrollbar{display:none}.part.plated > *{height:auto;min-height:100%}' +
+      '.empty{' + type('body') + ';color:' + v('ink-2') + ';padding:0 4px}';
+    class HkGridPanelCard extends HkGridFull {
+      static get CSS() { return FULL_CSS + PANEL_CSS; }
+      _parts() {
+        var c = this._config || {};
+        try { return panelParts(c.panel, sizeOf(this), c, this.client || { states: {} }); } catch (e) { return null; }
+      }
+      _sigOf() {
+        var parts = this._parts(), h = this.client, rd = parts && parts[1] && parts[1].readings, st = rd && h ? h.states[rd] : null;
+        return JSON.stringify([parts, sizeOf(this), st ? st.last_updated : null]);
+      }
+      _render() {
+        var parts = this._parts(), key = JSON.stringify(parts);
+        if (this._built && this._key === key) { this._readings(); return; }
+        this._key = key; this._kids = []; this._built = true;
+        if (!parts) {
+          var e = PANEL_EMPTY[this._config.panel] || ['', ''];
+          this._root.innerHTML = '<hk-plate class="full" data-hk-role="card"><div class="ttl"><b></b></div><div class="empty"></div></hk-plate>';
+          this._root.querySelector('b').textContent = e[0];
+          this._root.querySelector('.empty').textContent = e[1];
+          return;
+        }
+        this._root.innerHTML = '<div class="parts' + (parts.length > 1 ? ' row' : '') + '"></div>';
+        var box = this._root.querySelector('.parts'), self = this;
+        this._rd = null; this._rdHtml = null;
+        parts.forEach(function (p) {
+          var part = document.createElement('div');
+          part.className = 'part' + (p.cls ? ' ' + p.cls : '');
+          box.appendChild(part);
+          if (p.readings) { self._rd = part; return; }
+          var kid = self._mount(part, p.cfg, p.size);
+          if (/\bfit\b/.test(p.cls || '')) self._fitWatch(part, kid, /\bfitw\b/.test(p.cls));
+        });
+        this._readings();
+      }
+      // A THERMOSTAT'S READINGS AND CONTROLS beside its dial: inside,
+      // humidity and outside (the sheet's three), then its modes and its fan
+      _readings() {
+        if (!this._rd) return;
+        var h = this.client || { states: {} }, id = this._parts()[1].readings, s = h.states[id] || {}, a = s.attributes || {};
+        var wx = h.states[setting('weather.entity', null) || firstOfDomain(h, 'weather')];
+        var out = wx && wx.attributes && wx.attributes.temperature != null ? Math.round(wx.attributes.temperature) + '°' : '—';
+        var NAME = { heat_cool: 'Auto', auto: 'Auto', heat: 'Heat', cool: 'Cool', off: 'Off', dry: 'Dry', fan_only: 'Fan', on: 'On', low: 'Low', medium: 'Medium', high: 'High' };
+        var word = function (m) { return NAME[m] || String(m).replace(/_/g, ' ').replace(/^./, function (c) { return c.toUpperCase(); }); };
+        var seg = function (label, list, cur, kind) {
+          if (!list || list.length < 2) return '';
+          return '<div class="row"><span class="k">' + label + '</span><div class="seg" role="group" aria-label="' + label + '">' + list.slice(0, 5).map(function (m) {
+            return '<button type="button" data-' + kind + '="' + esc(m) + '" aria-pressed="' + (m === cur) + '">' + esc(word(m)) + '</button>';
+          }).join('') + '</div></div>';
+        };
+        var html = '<div class="rd"><div class="now">' + [['Inside', a.current_temperature != null ? Math.round(a.current_temperature) + '°' : '—'],
+          ['Humidity', a.current_humidity != null ? Math.round(a.current_humidity) + '%' : '—'], ['Outside', out]].map(function (r) {
+          return '<div><span class="k">' + r[0] + '</span><span class="v">' + r[1] + '</span></div>';
+        }).join('') + '</div>' + seg('Mode', a.hvac_modes, s.state, 'mode') + seg('Fan', a.fan_modes, a.fan_mode, 'fan') + '</div>';
+        if (this._rdHtml === html) return;
+        this._rdHtml = html; this._rd.innerHTML = html;
+        var self = this;
+        this._rd.querySelectorAll('button').forEach(function (b) {
+          b.addEventListener('click', function () {
+            var m = b.getAttribute('data-mode'), f = b.getAttribute('data-fan');
+            if (m) self._call('climate', 'set_hvac_mode', { entity_id: id, hvac_mode: m });
+            else if (f) self._call('climate', 'set_fan_mode', { entity_id: id, fan_mode: f });
+          });
+        });
+      }
+      // a card as tall as its width makes it, shrunk (never grown) to its
+      // part: a picture centred; words (wide) laid out that much wider first,
+      // so the shrunk card still spans the part (and, wider, is no taller)
+      _fitWatch(part, kid, wide) {
+        if (this._fitRO) this._fitRO.disconnect();
+        if (typeof ResizeObserver === 'undefined') return;
+        var fit = function () {
+          kid.style.transform = ''; kid.style.width = '';
+          var h = kid.offsetHeight, room = part.clientHeight;
+          if (!h || !room || h <= room) return;
+          var k = room / h;
+          if (wide) { kid.style.width = (100 / k).toFixed(3) + '%'; kid.style.transformOrigin = '0 0'; }
+          kid.style.transform = 'scale(' + k.toFixed(4) + ')';
+        };
+        this._fitRO = new ResizeObserver(fit);
+        this._fitRO.observe(part); this._fitRO.observe(kid);
+      }
+      disconnectedCallback() {
+        if (super.disconnectedCallback) super.disconnectedCallback();
+        if (this._fitRO) { this._fitRO.disconnect(); this._fitRO = null; }
+      }
+    }
+    watchSize(HkGridPanelCard);
+    C.register('hk-grid-panel-card', HkGridPanelCard, 'HK Grid Panel', 'A page\u2019s own panel (Power, Music, Doors & Locks, a thermostat, Live TV, Water), sized to a Home Grid block.',
+      [{ name: 'panel', label: 'Panel', selector: { select: { options: [{ value: 'power', label: 'Power' }, { value: 'music', label: 'Music' },
+        { value: 'doors', label: 'Doors & Locks' }, { value: 'climate', label: 'Thermostat' }, { value: 'tv', label: 'Live TV' }, { value: 'water', label: 'Water' }] } } }],
+      function () { return { panel: 'doors' }; });
+
     // ===================================================== hk-action-card
     var YELLOW = (C.PALETTE.icon && C.PALETTE.icon.yellow) || null;
     class HkActionCard extends HkGridKey {

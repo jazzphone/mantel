@@ -11,26 +11,30 @@
   var NAMES = { accessory: 'Accessory', accessories: 'Accessory Group', scene: 'Scene', scenes: 'Scenes', now_playing: 'Now Playing',
     thermostat: 'Thermostat', camera: 'Camera', security: 'Security', timers: 'Timers', weather: 'Weather',
     calendar: 'Calendar', battery: 'House Battery', people: 'People', vacuum: 'Vacuum', clock: 'Clock',
-    room: 'Room', scene_suggested: 'Suggested Scene', action: 'Action', everything: 'Everything' };
+    room: 'Room', scene_suggested: 'Suggested Scene', action: 'Action', everything: 'Everything',
+    power: 'Power', music: 'Music', doors: 'Doors & Locks', live_tv: 'Live TV', water: 'Water' };
   var SIZE_NAMES = { S: 'Small', W: 'Wide', T: 'Tall', L: 'Large', XL: 'Extra Large', XXL: 'Full Width' };
   // a size on a chip or a segment, short enough for four in a row
   var SIZE_SHORT = { S: 'Small', W: 'Wide', T: 'Tall', L: 'Large', XL: 'X-Large', XXL: 'Full' };
   var GROUPS = [
     ['Rooms & Lights', ['room', 'accessory', 'accessories', 'action']], ['Scenes', ['scene', 'scenes', 'scene_suggested']],
-    ['Climate', ['thermostat', 'weather']], ['Music', ['now_playing']],
-    ['Security & Cameras', ['security', 'camera']], ['Info', ['clock', 'timers', 'calendar', 'battery', 'people', 'vacuum', 'everything']]
+    ['Climate', ['thermostat', 'weather']], ['Music', ['now_playing', 'music', 'live_tv']],
+    ['Security & Cameras', ['security', 'doors', 'camera']], ['Info', ['clock', 'timers', 'calendar', 'battery', 'power', 'water', 'people', 'vacuum', 'everything']]
   ];
   var DESCRIPTIONS = { room: 'Your room’s lights, fans and speaker', accessory: 'One light, switch or other accessory', accessories: 'Accessories you choose, in swipe pages',
     action: 'One tap for a household job', scene: 'Set a favourite scene', scenes: 'Your scenes together',
-    scene_suggested: 'The right scene for the time of day', thermostat: 'Temperature and climate controls',
+    scene_suggested: 'The right scene for the time of day', thermostat: 'Temperature and climate; Extra Large has every control',
     weather: 'Current conditions and the forecast', now_playing: 'Music and playback controls', security: 'The alarm, locks and doors; Large is the keypad',
     camera: 'One camera, or swipe between cameras', clock: 'Time and date at a glance', timers: 'Timers and quick starts',
     calendar: 'Your upcoming events', battery: 'Your home’s stored energy', people: 'Who is home', vacuum: 'Cleaning status; Large adds controls and Clean Areas',
-    everything: 'Open the screen’s full menu' };
+    everything: 'Open the screen’s full menu', power: 'Solar, the house, the battery and the grid right now',
+    music: 'Choose speakers, then a playlist', doors: 'Locks, doors, windows and the garage', live_tv: 'Your channels; tap one to watch',
+    water: 'Today’s water; Extra Large adds the main supply' };
   var GLYPHS = { room: 'mdi:sofa', accessory: 'mdi:lightbulb', accessories: 'mdi:view-grid', action: 'mdi:gesture-tap', scene: 'mdi:palette',
     scenes: 'mdi:palette', scene_suggested: 'mdi:weather-sunset', thermostat: 'mdi:thermostat', weather: 'mdi:weather-partly-cloudy',
     now_playing: 'mdi:music', security: 'mdi:shield-home', camera: 'mdi:camera', clock: 'mdi:clock', timers: 'mdi:timer-outline',
-    calendar: 'mdi:calendar', battery: 'mdi:home-battery', people: 'mdi:account', vacuum: 'mdi:robot-vacuum', everything: 'mdi:dots-horizontal' };
+    calendar: 'mdi:calendar', battery: 'mdi:home-battery', people: 'mdi:account', vacuum: 'mdi:robot-vacuum', everything: 'mdi:dots-horizontal',
+    power: 'mdi:lightning-bolt', music: 'mdi:speaker-multiple', doors: 'mdi:door-closed-lock', live_tv: 'mdi:television-classic', water: 'mdi:water' };
   // AN OPTION'S NAME in the panel: by its kind (hk-grid-catalog.js opts), else by its own name
   var KIND_LABELS = { entity: 'Accessory', climate: 'Thermostat', camera: 'Camera', weather: 'Weather', vacuum: 'Vacuum',
     speaker: 'Speaker', scene: 'Scene', scenes: 'Scenes', calendars: 'Calendars', area: 'Room', action: 'Does', windows: 'Time Windows', alarm: 'Alarm' };

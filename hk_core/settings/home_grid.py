@@ -47,7 +47,7 @@ CATALOG: dict[str, dict[str, Any]] = {
     "scene": {"sizes": ("S", "W"), "sources": (), "opts": {"scene": "scene"}},
     "scenes": {"sizes": ("W", "L", "XL", "XXL"), "sources": ("scenes",), "opts": {"scenes": "scenes", "surface": "surface"}},
     "now_playing": {"sizes": ("W", "T", "L"), "sources": ("speakers",), "opts": {"speaker": "speaker"}},
-    "thermostat": {"sizes": ("T", "L"), "sources": ("thermostats",), "opts": {"entity": "climate"}},
+    "thermostat": {"sizes": ("T", "L", "XL"), "sources": ("thermostats",), "opts": {"entity": "climate"}},
     "camera": {"sizes": ("W", "L", "XL"), "sources": ("cameras",),
                # follow (2026-10-24): swiping all cameras, turn to the one a selector or the latest motion picks
                "opts": {"entity": "camera", "follow": "camera_follow", "follow_select": "select"}},
@@ -61,6 +61,11 @@ CATALOG: dict[str, dict[str, Any]] = {
     # Large and Extra Large (2026-10-24): its controls with Clean Areas
     "vacuum": {"sizes": ("S", "W", "L", "XL"), "sources": (), "opts": {"entity": "vacuum"}},
     "clock": {"sizes": ("W", "XL"), "sources": (), "opts": {}},
+    "power": {"sizes": ("W", "L", "XL"), "sources": (), "opts": {}},
+    "music": {"sizes": ("L", "XL"), "sources": (), "opts": {}},
+    "doors": {"sizes": ("L", "XL"), "sources": (), "opts": {}},
+    "live_tv": {"sizes": ("L", "XL"), "sources": (), "opts": {}},
+    "water": {"sizes": ("L", "XL"), "sources": (), "opts": {}},
     # the new cards (G3)
     "room": {"sizes": ("W", "L", "XL", "XXL"), "sources": ("rooms",), "opts": {"area": "area", "surface": "surface", "accessory_display": "room_display"}},
     "scene_suggested": {"sizes": ("W", "L"), "sources": (), "opts": {"windows": "windows"}},
