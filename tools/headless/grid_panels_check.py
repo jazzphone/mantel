@@ -54,7 +54,8 @@ async def main():
     gallery.HOUSE['sensor.water_meter'] = (None, ('1234.5', {'friendly_name': 'Water Meter', 'unit_of_measurement': 'gal', 'device_class': 'water', 'state_class': 'total_increasing'}))
     gallery.HOUSE['valve.main_water'] = (None, ('open', {'friendly_name': 'Main Water', 'device_class': 'water', 'supported_features': 3}))
     gallery.HOUSE['calendar.family'] = (None, ('off', {'friendly_name': 'Family'}))
-    gallery.SETTINGS['boards']['night'] = {'home_style': 'grid', 'menu_custom': True, 'menu': 'tabbar', 'tab_bar_pos': 'left', 'tab_bar_labels': 'icons', 'home_grid': {
+    gallery.SETTINGS['boards']['night'] = {'home_style': 'grid', 'menu_custom': True, 'menu': 'tabbar', 'tab_bar_pos': 'left', 'tab_bar_labels': 'icons',
+                                           'tab_bar_start': 'small', 'home_grid': {
         'v': 1, 'cols': 3, 'rows': 2, 'frame': [844, 390], 'band': False, 'boxes': False, 'grow': True, 'items': [
             {'id': 'big', 'card': 'clock', 'size': 'L', 'at': [0, 0], 'opts': {'clock_style': 'classic', 'bare': True}},
             {'id': 'small', 'card': 'clock', 'size': 'S', 'at': [2, 0]}]}}
@@ -119,6 +120,14 @@ async def main():
               return {plate:k.classList.contains('plate'),inside:f.width>0&&f.left>=r.left-1&&f.right<=r.right+1&&f.top>=r.top-1&&f.bottom<=r.bottom+1,fills:f.width>r.width*0.6,
                       small:!!t&&t.getBoundingClientRect().right<=sr.right+1}})()""")
             assert ck == {'plate': False, 'inside': True, 'fills': True, 'small': True}, ck
+            # the rail at rest (Start Small: its home button in the corner): the grid centred on the whole screen, the
+            # button clear of the blocks; opened, the rail's strip comes back beside the grid
+            rest = await b.eval("""(()=>{let cs=deep(document,'.cell').map(c=>c.getBoundingClientRect()),l=Math.min(...cs.map(r=>r.left)),r=Math.max(...cs.map(r=>r.right)),
+              btn=deep(document,'.cur').find(e=>e.getBoundingClientRect().width>0),q=btn&&btn.getBoundingClientRect();
+              return {even:Math.abs(l-(innerWidth-r))<=4,clear:!!q&&q.right<l,left:Math.round(l)}})()""")
+            assert rest['even'] and rest['clear'], rest
+            await b.eval("deep(document,'.cur').find(e=>e.getBoundingClientRect().width>0).click()")
+            assert await b.wait("deep(document,'.cell').every(c=>c.getBoundingClientRect().left>=%d+40)" % rest['left'], 5), 'the open rail\'s room'
             # Show Boxes off: the small clock's box is clear and out of the shared blur, on its block's cell
             box = await b.eval("""(()=>{let s=cell('small'),p=deep(s,'hk-plate.clock')[0],cs=getComputedStyle(p);
               return [s.hasAttribute('data-bare'),cs.backgroundColor,cs.boxShadow,cs.getPropertyValue('--hk-glass-surface').trim()]})()""")

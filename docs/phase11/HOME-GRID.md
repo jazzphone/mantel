@@ -1514,3 +1514,11 @@ and sheets are all one red. A card's own red ground would swallow its white text
 that text black, for today's circle in Month View. Leaving Home, or the view going, removes it. The editor's Screen
 → Night sets it. `grid_panels_check.py` checks the wash, the hidden sky, today's black number, and the night letting
 go on another page.
+
+### The rail at rest beside a Home Grid (2026-10-24)
+
+With **Start Small** the rail rests as its home button in the corner. The grid still kept the full rail's strip, so
+on a phone held sideways the clock sat 142 px from the left edge and 52 px from the right. Beside a Home Grid,
+`publish` now gives no room while the rail is folded or hidden (`gridRest`), and `setMode` lays the room again as
+the rail opens or rests. Resting, the grid centres on the screen (96 and 97 px margins), and the button sits clear of
+the blocks. `grid_panels_check.py` checks both, and that opening the rail gives its strip back.

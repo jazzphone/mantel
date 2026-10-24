@@ -107,7 +107,8 @@ the small button it shrinks to, the Rooms button, where More opens, and the
 room Adjust Content makes.
 
 Beside a **Home Grid**, a rail takes its width from the grid, which fits itself to the room it has and keeps the
-screen's full height, rather than easing the page aside.
+screen's full height, rather than easing the page aside. While the rail rests as its small button (**Start Small**)
+or is hidden, the grid takes the whole width and centres on the screen; the rail's strip comes back as it opens.
 
 ## Labels
 

@@ -964,6 +964,8 @@
       S.root.classList.toggle('gone', mode === 'gone');
       aside();
       foldPub();
+      // (a Home Grid's room beside a rail follows the rail: publish lays it again)
+      if (S.on && (S.pos === 'left' || S.pos === 'right')) publish(true);
     }
     // WHAT IT IS DOING, along the bottom, for what floats beside it (the
     // now-playing bar's stash button, hk-popup.js): `hk-tabbar-fold` on
@@ -1141,9 +1143,14 @@
       var view = pos ? viewEl() : null;
       // what the bar adds -- a new size or a turn past 640 px changes it, and
       // the padding is laid again
+      // (a Home Grid beside a rail at rest -- folded to its small button, or
+      // hidden: the grid takes the whole width and centres on the screen, the
+      // button floating in its corner clear of the blocks; the rail's strip
+      // comes back as it opens)
+      var gridRest = (pos === 'left' || pos === 'right') && S.mode !== 'full' && isGrid(SH.view(viewEl()));
       var add = pos === 'bottom' ? 'var(--hk-tabbar-h,0px)'
         : pos === 'top' ? 'calc(' + (barH(undefined, sizeNow()) + 8) + 'px + ' + TOP_CSS + ')'
-        : pos ? asideW() + 'px' : '';
+        : gridRest ? '0px' : pos ? asideW() + 'px' : '';
       if (S.view && (S.view !== view || S.viewSide !== pos || S.viewAdd !== add)) {
         S.view.style.removeProperty(S.viewProp || 'padding-bottom');
         if (S.viewPad) S.view.style.setProperty(S.viewProp, S.viewPad);
