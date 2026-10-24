@@ -119,13 +119,9 @@ ok('...not one on the thermostat\'s dial (touch-action pan-y)', !P.claims([label
 ok('...not one on a role=slider or data-hk-control', !P.claims([slider, track], 300, track) && !P.claims([own, track], 300, track));
 ok('...nor one in the left 20 px: the menu\'s edge swipe', !P.claims([tile, track], 19, track) && P.claims([tile, track], 20, track) && P.EDGE === 20);
 ok('only what is inside the track counts', P.claims([tile, track, outer], 300, track));
-var row = node(null, { overflowX: 'auto', overscrollBehaviorX: 'contain' }); row.scrollWidth = 402; row.clientWidth = 402;
-var long = node(null, { overflowX: 'auto', overscrollBehaviorX: 'contain' }); long.scrollWidth = 900; long.clientWidth = 402;
-var plain = node(null, { overflowX: 'auto', overscrollBehaviorX: 'auto' }); plain.scrollWidth = 402; plain.clientWidth = 402;
-ok('a row that fits but keeps its swipe lets go for the touch (the scenes row)', P.held([label, row, page, track], track).length === 1 &&
-   P.held([label, row, page, track], track)[0] === row);
-ok('...not a row that scrolls, nor one that already lets go, nor one outside the track',
-   P.held([long, plain, track, row], track).length === 0);
+var part = node({ 'data-pager-part': '' }, { touchAction: 'pan-y' });
+ok('the pager\'s own pan-y parts (a page, the dots) are no control', P.claims([label, tile, part, track], 300, track) &&
+   !P.claims([label, dial, part, track], 300, track));
 
 // ---- the element
 print('\n=== hk-pager-card ===');
@@ -212,6 +208,8 @@ ok('...iOS\'s page control: a dot every 16 px, 44 px tall, in one centred group 
 ok('the track leaves the plates\' shadows their reach (28 px), and takes no touches of its own',
    pcss.indexOf('margin:-28px -28px -28px') >= 0 && pcss.indexOf('gap:56px') >= 0 &&
    pcss.indexOf('.track{pointer-events:none}.page{pointer-events:auto}') >= 0);
+ok('the swipe is the pager\'s own (no scroll-snap); a page leaves up-and-down pans to the browser',
+   pcss.indexOf('scroll-snap') < 0 && /\.track\{[^}]*overflow:hidden/.test(pcss) && /\.page\{[^}]*touch-action:pan-y/.test(pcss));
 ok('the dots overlay the foot: pages keep the full block height', pcss.indexOf('.dots{position:absolute;bottom:0;left:0;right:0') >= 0);
 var calm = [];
 window.matchMedia = function (q) { return { matches: /reduce/.test(q) }; };

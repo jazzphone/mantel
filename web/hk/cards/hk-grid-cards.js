@@ -543,6 +543,8 @@
             self._holdT = null;
             if (!start) return;
             held = true; eat = true;
+            // the drag is the dimmer's now, not a swipe of the block's pages
+            slot.setAttribute('data-hk-control', '');
             var st = self.client && self.client.states[id];
             if (!dims(id, st)) { start = null; window.hkShell.moreInfo(id, self); return; }
             start.pct = percent(st); start.now = start.pct; start.moved = false;
@@ -571,6 +573,7 @@
           cancel();
           var s = start;
           start = null;
+          slot.removeAttribute('data-hk-control');
           if (!held || !s) return;
           held = false;
           self._dimHide(slot);

@@ -1826,8 +1826,7 @@
   // ---------------------------------------------------------- hk-pager-card
   //
   // A HOME GRID BLOCK THAT SWIPES (docs/phase11/HOME-GRID.md, "Blocks that
-  // swipe"): its pages side by side, one cell wide, with scroll-snap, and dots
-  // under them. Only a block swipes, never the screen.
+  // swipe"): its pages side by side, one cell wide, and dots at their foot. Only a block swipes, never the screen.
   //
   // The catalog builds it for a block with `pages` (hk-grid-catalog.js
   // config()): { item, ctx } -- the block as it is stored, and the house as the
@@ -1843,14 +1842,24 @@
   // tablet doesn't stay on the den. A doorbell ring (the house's notification,
   // kind doorbell) turns a cameras block to the doorbell's page.
   //
-  // GESTURES. The browser scrolls the track (scroll-snap, never a drag of our
-  // own), so a page that scrolls up and down still does. The pager claims
-  // only a sideways drag that starts outside a control: a touch that starts
-  // on one -- a slider, the thermostat's dial (touch-action pan-y or none, a
-  // range, role slider, data-hk-control) -- holds the track still until it
-  // lifts, and so does one in the left 20 px, which are the menu's edge swipe.
-  // A row inside a page that fits but keeps its own swipe lets go for the
-  // touch (pagerHeld); one that scrolls keeps it.
+  // GESTURES (2026-10-23: the browser's own scroll-snap missed about one
+  // swipe in six -- a short flick snapped back, and a swipe on the dots went
+  // nowhere; tools/headless/pager_swipe_check.py measures it). The track is
+  // no scroller a finger can move: each page says touch-action pan-y, so an
+  // up-and-down pan stays the browser's (a room that scrolls still does) and
+  // a sideways one comes here as pointer events -- touch, pen and mouse
+  // alike. The pager follows the finger and, on letting go, turns a page if
+  // it went a fifth of the way or was flicked; else it goes back. A row inside
+  // a page that really scrolls sideways keeps its own swipe (the browser
+  // pans it and cancels ours).
+  //
+  // It claims only a drag that starts outside a control: one that starts on
+  // a slider, the thermostat's dial (touch-action pan-y or none, a range,
+  // role slider, data-hk-control) is the control's, and so is one in the left
+  // 20 px, which are the menu's edge swipe. Taking the drag, it cancels the
+  // touch for the card under it (pointercancel), as a browser's scroll does,
+  // so a light's press-and-hold never fires mid-swipe; a light that is
+  // already its dimmer says data-hk-control and keeps the drag.
   //
   // The dots are iOS's page control: one small group, centred, a dot every
   // PAGER_PITCH px (never a dot to a 44 px slot, which spread nine rooms'
@@ -1863,6 +1872,9 @@
   var PAGER_DOT = 7;            // a dot, px (iOS's page control)
   var PAGER_PITCH = 16;         // dot to dot, px (iOS's: 7 px dots, 9 px apart)
   var PAGER_ROOM = 28;          // the plates' shadow room: as far as their shadows show
+  var PAGER_SLOP = 8;           // px a finger moves before it is a drag (and which way)
+  var PAGER_TURN = 0.2;         // of a page's width: a drag that far turns it
+  var PAGER_FLICK = 0.3;        // px/ms: a flick that fast turns it, however short
   var pagerSeq = 0;
   function pagerAreaOf(client, id) {
     var e = ((client && client.entities) || {})[id] || {}, devs = (client && client.devices) || {};
@@ -1914,30 +1926,17 @@
     ta = ta || (el.style && el.style.touchAction) || '';
     return ta === 'none' || ta === 'pan-y';
   }
-  // A ROW INSIDE A PAGE THAT CAN'T SCROLL SIDEWAYS -- it all fits -- but keeps
-  // its swipe to itself (overscroll-behavior-x contain: the scenes row, a
-  // chips row) would stop the pager's swipe from starting on it: the browser
-  // never hands the drag on. For the touch, such a row lets go (auto); one
-  // that does scroll keeps its swipe, as a control does.
-  function pagerHeld(path, stop) {
-    var out = [], list = path || [];
-    for (var i = 0; i < list.length && list[i] !== stop; i++) {
-      var el = list[i];
-      if (!el || el.nodeType !== 1) continue;
-      var cs = null;
-      try { cs = typeof getComputedStyle === 'function' ? getComputedStyle(el) : null; } catch (e) { cs = null; }
-      cs = cs || el.style || {};
-      var ox = cs.overflowX, ob = cs.overscrollBehaviorX;
-      if ((ox === 'auto' || ox === 'scroll') && ob && ob !== 'auto' && !((el.scrollWidth || 0) > (el.clientWidth || 0) + 1)) out.push(el);
-    }
-    return out;
-  }
   // DOES THE PAGER TAKE THIS TOUCH: path is the event's composed path, from
-  // the element touched up to (not past) the track; x its clientX
+  // the element touched up to (not past) `stop`; x its clientX. The pager's
+  // own parts (a page, the dots: data-pager-part) are never a control.
   function pagerClaims(path, x, stop) {
     if (typeof x === 'number' && x < PAGER_EDGE) return false;
     var list = path || [];
-    for (var i = 0; i < list.length && list[i] !== stop; i++) if (pagerControl(list[i])) return false;
+    for (var i = 0; i < list.length && list[i] !== stop; i++) {
+      var el = list[i];
+      if (el && el.hasAttribute && el.hasAttribute('data-pager-part')) continue;
+      if (pagerControl(el)) return false;
+    }
     return true;
   }
 
@@ -1950,26 +1949,23 @@
       // reaches S px past the block on every side (a negative margin, its
       // padding the same) and the pages are 2S apart: at rest a page's
       // shadow shows, its neighbour doesn't. The track takes no touches of
-      // its own -- it reaches over the blocks beside it; its pages do, and
-      // their drags still scroll it.
+      // its own -- it reaches over the blocks beside it; its pages do.
       return ':host{display:block;position:relative;height:100%}:host>div{height:100%}' +
         '.pager{position:relative;display:flex;flex-direction:column;height:100%}' +
         '.track{flex:1 1 auto;min-height:0;display:flex;gap:' + (2 * S) + 'px;margin:-' + S + 'px -' + S + 'px -' + S + 'px;' +
-        'padding:' + S + 'px;scroll-padding:0 ' + S + 'px;overflow-x:auto;overflow-y:hidden;' +
-        'scroll-snap-type:x mandatory;overscroll-behavior-x:contain;scrollbar-width:none;-webkit-overflow-scrolling:touch}' +
+        'padding:' + S + 'px;overflow:hidden;scrollbar-width:none}' +
         '.track::-webkit-scrollbar{display:none}' +
         '.track{pointer-events:none}.page{pointer-events:auto}' +
-        '.track.held{overflow-x:hidden}' +
-        '.track.dragging{scroll-snap-type:none;cursor:grabbing;user-select:none}' +
+        '.track.dragging{cursor:grabbing;user-select:none;-webkit-user-select:none}' +
         // each page is the cell its card lays itself out in (hk-cell): the
         // full block size; dots sit inside its foot so adjacent plates align
         '.page{position:relative;flex:0 0 100%;width:100%;height:100%;min-width:0;' +
-        'scroll-snap-align:start;scroll-snap-stop:always;container-type:size;container-name:hk-cell}' +
+        'touch-action:pan-y;container-type:size;container-name:hk-cell}' +
         '.page>*{display:block;box-sizing:border-box;width:100%;height:100%;margin:0!important}' +
         '.dots{position:absolute;bottom:0;left:0;right:0;z-index:1;height:' + PAGER_DOTS + 'px;min-height:0;' +
         'display:flex;justify-content:center;align-items:flex-end;min-width:0;pointer-events:none}' +
         '.pc{position:relative;display:flex;flex:none;box-sizing:border-box;max-width:calc(100% - 12px);align-items:flex-end;justify-content:center;height:44px;padding:0 10px;pointer-events:auto;cursor:pointer;' +
-        '-webkit-tap-highlight-color:transparent}' +
+        'touch-action:pan-y;-webkit-tap-highlight-color:transparent}' +
         '.pc::before{content:"";position:absolute;bottom:3px;left:0;right:0;height:16px;border-radius:' + C0.R.capsule('16px') + ';background:rgba(30,30,36,.22);pointer-events:none}' +
         '.pager.one .dots{display:none}' +
         // 44 px targets, reaching up over the page's foot
@@ -2044,6 +2040,7 @@
       dots.className = 'dots';
       var pc = document.createElement('div');
       pc.className = 'pc';
+      pc.setAttribute('data-pager-part', '');
       pc.style.width = (n * PAGER_PITCH + 20) + 'px';
       dots.appendChild(pc);
       // beside the dots: a page back or on, by which side of the current dot
@@ -2062,6 +2059,7 @@
       this._slots = pages.map(function (pg, i) {
         var slot = document.createElement('div');
         slot.className = 'page';
+        slot.setAttribute('data-pager-part', '');
         slot.setAttribute('role', 'group');
         slot.setAttribute('aria-label', (i + 1) + ' of ' + n);
         if (size) slot.setAttribute('size', size);
@@ -2088,7 +2086,7 @@
       root.appendChild(pager);
       this._track = track;
       this._say = say;
-      this._wireTrack(track);
+      this._wireTrack(track, pager);
       if (this._ro) { this._ro.disconnect(); if (this.isConnected) this._ro.observe(track); }
       this._index = -1;
       var at = -1;
@@ -2096,7 +2094,7 @@
       this.goTo(at >= 0 ? at : this._startIndex(), false);
     }
 
-    _wireTrack(track) {
+    _wireTrack(track, pager) {
       var self = this;
       track.addEventListener('scroll', function () {
         if (self._scrollQ) return;
@@ -2118,8 +2116,7 @@
         }
         e.preventDefault();
         self._moved = true;
-        // One page per wheel gesture, including its momentum tail. Native
-        // mandatory snap otherwise bounces small WebKit wheel steps back.
+        // One page per wheel gesture, including its momentum tail.
         var now = Date.now();
         if (!self._wheelAt || now - self._wheelAt > 180) { self._wheelSum = 0; self._wheelTurn = false; }
         self._wheelAt = now;
@@ -2129,72 +2126,77 @@
           self.goTo(self._index + (self._wheelSum > 0 ? 1 : -1), true);
         }
       }, { passive: false, capture: true });
-      // Mouse-only drag; leave touch momentum and controls to the browser.
-      track.addEventListener('pointerdown', function (e) {
+      // THE DRAG, for every pointer (GESTURES above): on the whole pager, so
+      // a swipe that starts on the dots turns the page too
+      pager.addEventListener('pointerdown', function (e) {
         self._eatClick = false;
-        if (e.pointerType !== 'mouse' || e.button !== 0) return;
+        if (e.pointerType === 'mouse' && e.button !== 0) return;
+        self._moved = true;               // touched: the start page stops following the house
+        if ((self._pages || []).length < 2) return;
         var path = e.composedPath ? e.composedPath() : [e.target];
-        if (!pagerClaims(path, e.clientX, track)) return;
-        if (path.some(function (el) { return el !== track && el.matches && el.matches('input,select,textarea,[contenteditable=true]'); })) return;
-        self._drag = { id: e.pointerId, x: e.clientX, y: e.clientY, left: track.scrollLeft, moved: false };
+        if (!pagerClaims(path, e.clientX, pager)) return;
+        if (path.some(function (el) { return el !== pager && el.matches && el.matches('input,select,textarea,[contenteditable=true]'); })) return;
+        self._drag = { id: e.pointerId, x: e.clientX, y: e.clientY, left: track.scrollLeft, from: self._index,
+                       moved: false, target: path[0], pts: [[e.timeStamp, e.clientX]] };
       }, true);
-      track.addEventListener('pointermove', function (e) {
+      pager.addEventListener('pointermove', function (e) {
         var d = self._drag;
         if (!d || e.pointerId !== d.id) return;
-        if (!e.buttons) { self._drag = null; return; }
-        var dx = e.clientX - d.x;
+        if (e.pointerType === 'mouse' && !e.buttons) { self._drag = null; return; }
+        var dx = e.clientX - d.x, dy = e.clientY - d.y;
         if (!d.moved) {
-          if (Math.abs(dx) < 8) return;
-          if (Math.abs(e.clientY - d.y) > Math.abs(dx)) { self._drag = null; return; }
-          d.moved = self._moved = true;
+          // a light held into its dimmer keeps the drag
+          var path = e.composedPath ? e.composedPath() : [e.target];
+          if (path.some(function (el) { return el !== pager && el.hasAttribute && el.hasAttribute('data-hk-control'); })) { self._drag = null; return; }
+          if (Math.abs(dx) < PAGER_SLOP && Math.abs(dy) < PAGER_SLOP) return;
+          if (Math.abs(dy) > Math.abs(dx)) { self._drag = null; return; }    // up or down: not ours
+          d.moved = true;
           track.classList.add('dragging');
-          track.setPointerCapture(e.pointerId);
+          // the card under the finger lets go, as it would for a scroll
+          try {
+            d.target.dispatchEvent(new PointerEvent('pointercancel', { pointerId: e.pointerId, pointerType: e.pointerType,
+                                                                       bubbles: true, composed: true }));
+          } catch (x) { /* no PointerEvent: a test page */ }
+          try { pager.setPointerCapture(e.pointerId); } catch (x) { /* already released */ }
         }
         var scale = track.getBoundingClientRect().width / track.clientWidth || 1;
         track.scrollLeft = d.left - dx / scale;
-        e.preventDefault();
+        d.pts.push([e.timeStamp, e.clientX]);
+        if (d.pts.length > 6) d.pts.shift();
+        if (e.cancelable) e.preventDefault();
         e.stopPropagation();
       }, { capture: true, passive: false });
       var finish = function (e) {
         var d = self._drag;
-        if (!d || e.pointerId !== d.id) return;
+        // (the pointercancel sent above is for the card, not for us; and
+        // taking the capture makes the card lose its own: only ours counts)
+        if (!d || e.pointerId !== d.id || (e.type === 'pointercancel' && !e.isTrusted) ||
+            (e.type === 'lostpointercapture' && e.target !== pager)) return;
         self._drag = null;
+        track.classList.remove('dragging');
+        try { if (pager.hasPointerCapture(e.pointerId)) pager.releasePointerCapture(e.pointerId); } catch (x) { /* gone */ }
         if (!d.moved) return;
         self._eatClick = true;
-        var to = Math.round(track.scrollLeft / track.clientWidth);
-        track.classList.remove('dragging');
-        if (track.hasPointerCapture(e.pointerId)) track.releasePointerCapture(e.pointerId);
+        var w = track.clientWidth || 1, to = Math.round(track.scrollLeft / w);
+        if (e.type === 'pointerup' && to === d.from) {
+          var scale = track.getBoundingClientRect().width / w || 1, went = (e.clientX - d.x) / scale;
+          var p0 = d.pts[0], p1 = d.pts[d.pts.length - 1], dt = p1[0] - p0[0];
+          var speed = dt > 0 && e.timeStamp - p1[0] < 100 ? (p1[1] - p0[1]) / scale / dt : 0;
+          if (went < -w * PAGER_TURN || speed < -PAGER_FLICK) to = d.from + 1;
+          else if (went > w * PAGER_TURN || speed > PAGER_FLICK) to = d.from - 1;
+        }
+        if (e.type !== 'pointerup') to = d.from;           // the browser took it: back where it was
         self.goTo(to, true);
       };
-      track.addEventListener('pointerup', finish, true);
-      track.addEventListener('pointercancel', finish, true);
-      track.addEventListener('lostpointercapture', finish, true);
-      track.addEventListener('dragstart', function (e) { e.preventDefault(); });
-      track.addEventListener('click', function (e) {
+      pager.addEventListener('pointerup', finish, true);
+      pager.addEventListener('pointercancel', finish, true);
+      pager.addEventListener('lostpointercapture', finish, true);
+      pager.addEventListener('dragstart', function (e) { e.preventDefault(); });
+      pager.addEventListener('click', function (e) {
         if (!self._eatClick) return;
         self._eatClick = false;
         e.preventDefault(); e.stopImmediatePropagation();
       }, true);
-      // a touch on a control, or in the menu's edge, holds the track still
-      track.addEventListener('touchstart', function (e) {
-        var t = e.touches && e.touches[0];
-        var path = e.composedPath ? e.composedPath() : [e.target];
-        self._moved = true;
-        var mine = pagerClaims(path, t ? t.clientX : undefined, track);
-        track.classList.toggle('held', !mine);
-        if (mine) self._freed = pagerHeld(path, track).map(function (el) {
-          var was = el.style.overscrollBehaviorX;
-          el.style.overscrollBehaviorX = 'auto';
-          return [el, was];
-        });
-      }, { passive: true, capture: true });
-      var lift = function () {
-        track.classList.remove('held');
-        (self._freed || []).forEach(function (f) { f[0].style.overscrollBehaviorX = f[1]; });
-        self._freed = null;
-      };
-      track.addEventListener('touchend', lift, { passive: true });
-      track.addEventListener('touchcancel', lift, { passive: true });
     }
     // the page the track has come to rest on
     _settle() {
@@ -2320,7 +2322,7 @@
   window.hkLayout = { version: '1.0.0', pageHeaderMode: pageHeaderMode,
                       gutter: function (el) { return HkGridView.gutter(el); },
                       // the pager's decisions, for its tests
-                      pager: { start: pagerStart, doorbell: pagerDoorbell, claims: pagerClaims, held: pagerHeld,
+                      pager: { start: pagerStart, doorbell: pagerDoorbell, claims: pagerClaims,
                                control: pagerControl, EDGE: PAGER_EDGE } };
   });
 })();
