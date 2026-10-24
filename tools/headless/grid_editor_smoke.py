@@ -161,6 +161,22 @@ async def main():
             await b.eval('ed.undo();void 0')
             assert await b.wait('JSON.stringify(ed.grid)===' + json.dumps(before), 5)
             print('screen types re-pack the draft, ask before dropping blocks, and undo', flush=True)
+            # VIEWS: a second view added from the Views row, a block added there stays there, the grid shows only it,
+            # and removing the view (it has a block: asked first) takes them both away
+            views_before = await b.eval('JSON.stringify(ed.grid)')
+            await b.eval("[...ed.sidebar.querySelectorAll('[role=radio]')].find(x=>x.textContent.trim()==='+').click()")
+            assert await b.wait('ed.grid.views===2', 5), await b.eval('JSON.stringify(ed.grid.views)')
+            await b.eval("ed.addCard('clock','S');void 0")
+            assert await b.wait("ed.grid.items.some(i=>i.card==='clock'&&i.size==='S'&&i.view===1)", 5)
+            shown = await b.eval("[...ed.overlay.querySelectorAll('.block')].map(x=>x.dataset.id)")
+            ids1 = await b.eval("ed.grid.items.filter(i=>i.view===1).map(i=>i.id)")
+            assert shown == ids1, (shown, ids1)
+            await b.eval('ed.select(null);void 0')
+            await b.eval("[...ed.sidebar.querySelectorAll('button')].find(x=>x.textContent.includes('Remove View 2')).click()")
+            assert await b.wait("[...ed.shadowRoot.querySelectorAll('button')].some(b=>b.textContent==='Remove View')", 5)
+            await b.eval("[...ed.shadowRoot.querySelectorAll('button')].find(b=>b.textContent==='Remove View').click()")
+            assert await b.wait('JSON.stringify(ed.grid)===' + json.dumps(views_before), 5), await b.eval('JSON.stringify(ed.grid)')
+            print('views: added, edited one at a time, removed with their blocks', flush=True)
             assert await b.eval("ed.palette.querySelectorAll('.pal-row').length === 24")
             assert await b.wait("[...ed.palette.querySelectorAll('.pal-row > hk-icon')].every(e=>!!e.drawn?.path)",10)
             if ARGS.shots:

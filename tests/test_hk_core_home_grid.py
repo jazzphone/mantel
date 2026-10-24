@@ -353,3 +353,18 @@ def test_night_mode():
                 {"mode": "night", "extra": 1}, "always"):
         with pytest.raises(HG.GridInvalid):
             HG.check({**grid(), "night": bad})
+
+
+def test_views():
+    two = {**grid(block("a", "clock", "L", [0, 0]), block("b", "weather", "L", [0, 0], view=1)), "views": 2}
+    out = HG.check(two)
+    assert out["views"] == 2 and "view" not in out["items"][0] and out["items"][1]["view"] == 1     # the same cells, two views
+    assert "views" not in HG.check({**grid(), "views": 1})
+    with pytest.raises(HG.GridInvalid):                                                              # past the screen's views
+        HG.check({**grid(block("b", "weather", "L", [0, 0], view=1))})
+    with pytest.raises(HG.GridInvalid):                                                              # overlap in one view
+        HG.check({**grid(block("a", "clock", "L", [0, 0], view=1), block("b", "weather", "L", [1, 1], view=1)), "views": 2})
+    for bad in (0, 5, "2", True):
+        with pytest.raises(HG.GridInvalid):
+            HG.check({**grid(), "views": bad})
+    assert len(HG.layout({**two, "views": 1})["items"]) == 1                                         # read: the stray block left out

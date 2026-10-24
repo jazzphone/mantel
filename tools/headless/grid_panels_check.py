@@ -59,6 +59,12 @@ async def main():
         'v': 1, 'cols': 3, 'rows': 2, 'frame': [844, 390], 'band': False, 'boxes': False, 'grow': True, 'items': [
             {'id': 'big', 'card': 'clock', 'size': 'L', 'at': [0, 0], 'opts': {'clock_style': 'classic', 'bare': True}},
             {'id': 'small', 'card': 'clock', 'size': 'S', 'at': [2, 0]}]}}
+    # VIEWS: two whole layouts a swipe apart -- the time with the cameras block (which swipes its own pages), then the weather
+    gallery.SETTINGS['boards']['views'] = {'home_style': 'grid', 'menu_custom': True, 'menu': 'tabbar', 'home_grid': {
+        'v': 1, 'cols': 3, 'rows': 2, 'frame': [844, 390], 'band': False, 'grow': True, 'views': 2, 'items': [
+            {'id': 'vc', 'card': 'clock', 'size': 'T', 'at': [0, 0]},
+            {'id': 'vcam', 'card': 'camera', 'size': 'L', 'at': [1, 0], 'pages': {'source': 'cameras'}},
+            {'id': 'vw', 'card': 'weather', 'size': 'L', 'at': [0, 0], 'view': 1}]}}
     # Big Temperature and Month View, StandBy's (a Tall weather block is always the big number)
     gallery.SETTINGS['boards']['standby'] = {'home_style': 'grid', 'menu_custom': True, 'menu': 'tabbar', 'home_grid': {
         'v': 1, 'cols': 3, 'rows': 2, 'frame': [844, 390], 'band': False, 'boxes': False, 'grow': True, 'night': {'mode': 'always'}, 'items': [
@@ -162,8 +168,36 @@ async def main():
             assert await b.wait("location.pathname.endsWith('/calendar') && location.search.includes('day=%s')" % day, 10), await b.eval('location.href')
             # ...and leaving Home lets the night go
             assert await b.wait("!document.documentElement.hasAttribute('hk-night') && !document.getElementById('hk-night-wash')", 10)
+            # VIEWS: a finger across the grid turns to the next view, the dots following; one on the cameras block turns
+            # its page and leaves the view; a dot turns back
+            await b.open(origin + '/views/home', cookie)
+            assert await b.wait('window.__mantelReady===true', 30)
+            await b.eval(DEEP)
+            assert await b.wait("deep(document,'.vdots button').length===2", 15)
+            await b.send('Emulation.setTouchEmulationEnabled', enabled=True, maxTouchPoints=5)
+            cur = "deep(document,'.vdots button').map(x=>x.getAttribute('aria-current')).join()"
+
+            async def swipe(x0, x1, y):
+                await b.send('Input.dispatchTouchEvent', type='touchStart', touchPoints=[{'x': x0, 'y': y}])
+                for i in range(1, 13):
+                    await b.send('Input.dispatchTouchEvent', type='touchMove', touchPoints=[{'x': x0 + (x1 - x0) * i / 12, 'y': y}])
+                    await asyncio.sleep(0.016)
+                await b.send('Input.dispatchTouchEvent', type='touchEnd', touchPoints=[])
+                await asyncio.sleep(0.9)
+            cam = await b.eval("(()=>{let r=cell('vcam').getBoundingClientRect();return [r.left+r.width/2,r.top+r.height/2]})()")
+            page0 = await b.eval("cell('vcam').querySelector('hk-pager-card')._index")
+            await swipe(cam[0] + 120, cam[0] - 120, cam[1])
+            assert await b.eval(cur) == 'true,false', 'a swipe on the cameras block is its own'
+            assert await b.eval("cell('vcam').querySelector('hk-pager-card')._index") != page0
+            clock = await b.eval("(()=>{let r=cell('vc').getBoundingClientRect();return [r.left+r.width/2,r.top+r.height/2]})()")
+            await swipe(clock[0] + 20, max(5, clock[0] - 190), clock[1])
+            assert await b.eval(cur) == 'false,true', await b.eval(cur)
+            assert await b.eval("cell('vc').hasAttribute('inert') && !cell('vw').hasAttribute('inert')")
+            await b.eval("deep(document,'.vdots button')[0].click()")
+            assert await b.wait(cur + "==='true,false'", 5)
+            await b.send('Emulation.setTouchEmulationEnabled', enabled=False)
             exceptions = [line for line in b.console if line.startswith('EXCEPTION:')]
             assert not exceptions, exceptions
-            print('PASS: power, music, doors & locks, the thermostat\'s full controls, Live TV and water as blocks, the clock faces, Big Temperature, Month View and Night Mode')
+            print('PASS: power, music, doors & locks, the thermostat\'s full controls, Live TV and water as blocks, the clock faces, Big Temperature, Month View, Night Mode and Views')
 
 asyncio.run(main())

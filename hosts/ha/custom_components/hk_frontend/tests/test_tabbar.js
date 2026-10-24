@@ -79,6 +79,8 @@ ok('no More: nothing listed in it', parts(MODEL, { shown: 6, more: false }).more
 print('=== position ===');
 ok('a phone keeps a rail\'s bar at the bottom; a tablet has the rail', T.position('left', 390) === 'bottom' &&
    T.position('right', 1280) === 'right' && T.position('top', 390) === 'top' && T.position('sideways', 1280) === 'bottom');
+ok('a phone held sideways has the rail it asks for (wide enough beside it), upright the bottom',
+   T.position('left', 844, true) === 'left' && T.position('right', 667, true) === 'right' && T.position('left', 390, true) === 'bottom');
 var rf = T.railFit(9, 3, 800, true);
 ok('an 800 px tablet\'s rail holds Home, six more and More -- eight, as the bottom bar', rf.shown === 7 && rf.more, JSON.stringify(rf));
 ok('...a short window fewer', T.railFit(9, 3, 500, true).shown === 5);

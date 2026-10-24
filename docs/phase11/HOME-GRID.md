@@ -1522,3 +1522,34 @@ on a phone held sideways the clock sat 142 px from the left edge and 52 px from 
 `publish` now gives no room while the rail is folded or hidden (`gridRest`), and `setMode` lays the room again as
 the rail opens or rests. Resting, the grid centres on the screen (96 and 97 px margins), and the button sits clear of
 the blocks. `grid_panels_check.py` checks both, and that opening the rail gives its strip back.
+
+### Views, a swipe apart (2026-10-24)
+
+StandBy's views are whole screens, so a Home Grid screen can have up to four (`views`, 2 to 4; a block's `view`, 0
+first). They share the grid's size, band and settings. In hk_core, blocks overlap only within a view
+(`cells()` keys by view), a block's view must be inside the screen's views, and a read leaves out a stray block.
+
+In the grid view, every view's cells are on the one grid. Each is offset by
+`(view - current) × canvas width + drag` (`--v`, `--cur`, `--g-w`, `--drag`), the root clips them, and they slide in
+as one (0.45 s). A swipe anywhere on the grid follows the finger: it starts past 10 px sideways, mostly sideways, and
+lands past a fifth of the width or on a quick flick. Past the first and last view it gives a third of the travel.
+What moves sideways itself is left alone: a block with pages of its own, a slider, a dial, an input. The click a
+swipe ends with is eaten. The dots sit in the grid's foot margin, centred, one per view, and each is a button that
+goes to its view. A view out of sight is `inert` and `aria-hidden`.
+
+In the editor, Screen → Views has the View picker (1, 2, … and +) and Remove View, which asks when the view has blocks.
+The grid's outlines, adding, placing and free space are the current view's (`VIEW`). The preview turns to it
+(`_showView`) and the outlines are placed from its cells once it has slid in. Phone, Landscape gains the **StandBy**
+starter: the time, then the weather (Big Temperature) beside the month.
+
+**The rail on a phone held sideways.** WebKit, like an iPhone, reports a 390 px screen at 844 × 390, so the menu
+reads it as a phone. A phone always kept its bar at the bottom, so on an iPhone the side rail the nightstand was
+designed around never appeared. Chrome's headless screen is desktop-sized and hid this. A rail now needs only the
+width beside it (640 px). A phone held upright keeps the bottom bar, and held sideways it has the rail its screen asks
+for, on every page of the screen. In WebKit at 844 × 390 the StandBy layout now matches Chrome's: the rail resting top
+left, the grid at full height and centred, the dots at its foot, and a mouse swipe turning the view.
+
+`grid_panels_check.py` swipes a two-view screen with touch: the cameras block's swipe turns its page and not the
+view, a swipe on the clock turns the view (the dots and `inert` following), and a dot turns it back.
+`grid_editor_smoke.py` adds a view, adds a block to it, checks only that view's blocks are drawn, and removes the
+view, asked first. `test_tabbar.js` holds the rail rule.

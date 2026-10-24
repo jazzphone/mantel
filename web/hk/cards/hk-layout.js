@@ -1755,12 +1755,114 @@
         // no frost behind them -- its tiles keep theirs; the clock reads --hk-bare
         '.cell[data-bare]{--hk-bare:1;--hk-block-plate:transparent;--hk-block-edge:transparent;--hk-block-shadow:none;--hk-block-glass:0;--hk-block-backdrop:none}' +
         // a card that only listens (a pop-up, the docked bar) takes no room
-        '.aside{position:absolute;left:0;top:0;width:0;height:0;overflow:visible}';
+        '.aside{position:absolute;left:0;top:0;width:0;height:0;overflow:visible}' +
+        // VIEWS (2026-10-24, StandBy's): a screen's views share the grid, each
+        // a canvas's width aside from the one showing (--cur) -- the root
+        // clips them -- and slide in as one, following a finger (--drag)
+        '.cell[data-view]{transform:translateX(calc((var(--v) - var(--cur, 0)) * var(--g-w) + var(--drag, 0px)));' +
+        'transition:transform .45s cubic-bezier(.32,.72,0,1)}' +
+        '#root.dragging .cell[data-view]{transition:none}' +
+        ':host([views]){touch-action:pan-y}' +
+        // ...and their dots, under the grid: a tap goes to that view
+        '.vdots{position:absolute;left:50%;transform:translateX(-50%);display:none;gap:2px;z-index:2}' +
+        ':host([views]) .vdots{display:flex}' +
+        '.vdots button{all:unset;box-sizing:border-box;width:18px;height:18px;display:flex;align-items:center;justify-content:center;cursor:pointer}' +
+        '.vdots button::after{content:"";width:6px;height:6px;border-radius:3px;background:rgba(255,255,255,.35);transition:background .2s}' +
+        '.vdots button[aria-current="true"]::after{background:rgba(255,255,255,.95)}' +
+        '.vdots button:focus-visible{outline:2px solid rgba(255,255,255,.7);border-radius:50%}';
       this._sr.appendChild(st);
       var root = document.createElement('div');
       root.id = 'root';
       this._sr.appendChild(root);
       this._root = root;
+      var dots = document.createElement('div');
+      dots.className = 'vdots';
+      dots.setAttribute('role', 'tablist');
+      dots.setAttribute('aria-label', 'Views');
+      this._sr.appendChild(dots);
+      this._dots = dots;
+      this._swipeViews();
+    }
+    // THE VIEWS' SWIPE: a finger (or a pointer) moving sideways anywhere on
+    // the grid takes the views with it, unless it began on something that
+    // moves sideways itself -- a block that swipes its own pages, a slider, a
+    // dial; past a fifth of the width, or quickly, it lands on the next. The
+    // first and the last view give a little, and come back.
+    _swipeViews() {
+      var self = this, d = null;
+      var OWN = 'hk-pager-card,[role="slider"],.ring,.vs,input,select,textarea';
+      var mine = function (e) {
+        var path = e.composedPath ? e.composedPath() : [];
+        return !path.some(function (n) {
+          if (!n || !n.matches) return false;
+          if (n.localName === 'hk-pager-card') return (n._pages || []).length > 1;
+          return n.matches(OWN);
+        });
+      };
+      this.addEventListener('pointerdown', function (e) {
+        if (self._views() < 2 || (e.button !== undefined && e.button !== 0) || !mine(e)) return;
+        d = { x: e.clientX, y: e.clientY, t: Date.now(), id: e.pointerId, on: false };
+      });
+      this.addEventListener('pointermove', function (e) {
+        if (!d || e.pointerId !== d.id) return;
+        var dx = e.clientX - d.x, dy = e.clientY - d.y;
+        if (!d.on) {
+          if (Math.abs(dx) < 10 || Math.abs(dx) < Math.abs(dy) * 1.4) { if (Math.abs(dy) > 14) d = null; return; }
+          d.on = true;
+          try { self.setPointerCapture(e.pointerId); } catch (x) { /* a test page */ }
+          self._root.classList.add('dragging');
+        }
+        var k = self._gridScale || 1, n = self._views(), at = self._view || 0;
+        // (past the first or the last: a third of the finger's travel)
+        if ((at === 0 && dx > 0) || (at === n - 1 && dx < 0)) dx /= 3;
+        self._root.style.setProperty('--drag', (dx / k).toFixed(1) + 'px');
+      });
+      var end = function (e) {
+        if (!d || (e && e.pointerId !== d.id)) return;
+        var was = d; d = null;
+        if (!was.on) return;
+        self._root.classList.remove('dragging');
+        var dx = (e ? e.clientX : was.x) - was.x, w = (self._root.offsetWidth || 1) * (self._gridScale || 1);
+        var fast = Math.abs(dx) / Math.max(1, Date.now() - was.t) > 0.5;
+        self._root.style.removeProperty('--drag');
+        if (e && e.type === 'pointerup' && (Math.abs(dx) > w / 5 || (fast && Math.abs(dx) > 30))) self._showView((self._view || 0) + (dx < 0 ? 1 : -1));
+        // the tap a swipe ends with is no tap on the block under it
+        self._eatClick = Date.now();
+      };
+      this.addEventListener('pointerup', end);
+      this.addEventListener('pointercancel', end);
+      this.addEventListener('click', function (e) {
+        if (self._eatClick && Date.now() - self._eatClick < 350) { e.stopPropagation(); e.preventDefault(); }
+        self._eatClick = 0;
+      }, true);
+    }
+    _views() { return this._config ? this._grid().views : 1; }
+    // the view to show (the swipe, a dot, the editor's View)
+    _showView(i) {
+      var n = this._views();
+      i = Math.max(0, Math.min(n - 1, i | 0));
+      this._view = i;
+      if (this._root) this._root.style.setProperty('--cur', String(i));
+      var self = this;
+      if (this._dots) {
+        if (this._dots.childNodes.length !== n) {
+          this._dots.textContent = '';
+          for (var k = 0; k < n; k++) {
+            var b = document.createElement('button');
+            b.type = 'button'; b.setAttribute('role', 'tab'); b.setAttribute('aria-label', 'View ' + (k + 1));
+            (function (k) { b.addEventListener('click', function (e) { e.stopPropagation(); self._showView(k); }); })(k);
+            this._dots.appendChild(b);
+          }
+        }
+        Array.prototype.forEach.call(this._dots.childNodes, function (b, k) { b.setAttribute('aria-current', String(k === i)); });
+      }
+      // (what is in another view is out of reach: no focus, nothing read out)
+      Array.prototype.forEach.call(this._root ? this._root.childNodes : [], function (c) {
+        if (!c.hasAttribute || !c.hasAttribute('data-view')) return;
+        var off = +c.getAttribute('data-view') !== i;
+        if (off) c.setAttribute('inert', ''); else c.removeAttribute('inert');
+        if (off) c.setAttribute('aria-hidden', 'true'); else c.removeAttribute('aria-hidden');
+      });
     }
 
     // the grid's numbers, checked (what hk_core checks; a view written by
@@ -1770,7 +1872,8 @@
       var cols = [6, 3, 2].indexOf(g.cols) >= 0 ? g.cols : 6;
       var rows = (g.rows >= 2 && g.rows <= 6 && g.rows === Math.floor(g.rows)) ? g.rows : 4;
       return { cols: cols, rows: rows, band: g.band !== false, scale: Number.isInteger(g.scale) && g.scale >= 50 && g.scale <= 100 ? g.scale : 100,
-               grow: g.grow === true, night: g.night && (g.night.mode === 'night' || g.night.mode === 'always') ? g.night : null };
+               grow: g.grow === true, night: g.night && (g.night.mode === 'night' || g.night.mode === 'always') ? g.night : null,
+               views: g.views >= 2 && g.views <= 4 && g.views === Math.floor(g.views) ? g.views : 1 };
     }
 
     _place() {
@@ -1802,6 +1905,9 @@
           if (cell.id) slot.setAttribute('data-id', cell.id); else slot.removeAttribute('data-id');
           if (cell.bare) slot.setAttribute('data-bare', ''); else slot.removeAttribute('data-bare');
           slot.style.cssText = '';
+          // (its view, when the screen has more than one)
+          var vw = g.views > 1 ? Math.max(0, Math.min(g.views - 1, cell.view | 0)) : -1;
+          if (vw >= 0) { slot.setAttribute('data-view', String(vw)); slot.style.setProperty('--v', String(vw)); } else slot.removeAttribute('data-view');
           slot.style.gridColumn = (c + 1) + ' / span ' + sz[0];
           slot.style.gridRow = (r + 1 + top) + ' / span ' + sz[1];
           if (el && el.setAttribute) el.setAttribute('size', cell.size);
@@ -1826,6 +1932,8 @@
         if (at !== slot) root.insertBefore(slot, at);
       });
       while (root.childNodes.length > want.length) root.removeChild(root.lastChild);
+      if (g.views > 1) this.setAttribute('views', String(g.views)); else this.removeAttribute('views');
+      this._showView(this._view || 0);
       this._measure();
       this._announce();
     }
@@ -1850,6 +1958,9 @@
       root.style.left = Math.max(0, (this.clientWidth - w * scale) / 2) + 'px';
       root.style.top = Math.max(0, (this.clientHeight - h * scale) / 2) + 'px';
       root.style.transform = 'scale(' + scale + ')';
+      root.style.setProperty('--g-w', w + 'px');
+      // the views' dots in the middle of the grid's foot margin
+      if (this._dots && g.views > 1) this._dots.style.top = Math.round(parseFloat(root.style.top) + (h - pad / 2) * scale - 9) + 'px';
       root.style.setProperty('--hk-cell-w', C.TILE.w + 'px');
       root.style.setProperty('--hk-cell-h', C.TILE.tall + 'px');
     }

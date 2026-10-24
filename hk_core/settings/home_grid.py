@@ -27,6 +27,8 @@ FRAME = (1280, 800)
 FRAME_W = (320, 3840)
 FRAME_H = (320, 2160)
 ITEMS_MAX = 24
+# VIEWS (2026-10-24, StandBy's): up to four whole layouts on one screen's grid, a swipe apart
+VIEWS_MAX = 4
 PAGES_MAX = 12
 LIST_MAX = 24                      # the most things one option lists (a scenes block's scenes)
 ITEM_ID = re.compile(r"^[a-z0-9][a-z0-9_-]{0,19}$")
@@ -394,7 +396,7 @@ def variant(v: Any, size: str) -> dict[str, Any]:
 
 def item(v: Any, cols: int, rows: int) -> dict[str, Any]:
     """One block, checked against a grid of `cols` x `rows` (its place, not its neighbours)."""
-    if not isinstance(v, dict) or set(v) - {"id", "card", "size", "at", "opts", "pages", "when", "fallback", "rules", "bare"}:
+    if not isinstance(v, dict) or set(v) - {"id", "card", "size", "at", "opts", "pages", "when", "fallback", "rules", "bare", "view"}:
         raise GridInvalid("grid_item")
     if not isinstance(v.get("id"), str) or not ITEM_ID.match(v["id"]):
         raise GridInvalid("grid_item")
@@ -428,6 +430,11 @@ def item(v: Any, cols: int, rows: int) -> dict[str, Any]:
         if "when" in out:                         # one way or the other, never both
             raise GridInvalid("grid_condition")
         out["rules"] = rules(v["rules"], size)
+    # VIEWS (2026-10-24): the screen's view the block is in, 0 (the first) unless it says
+    if "view" in v:
+        view = _whole(v["view"], 0, VIEWS_MAX - 1, "grid_item")
+        if view:
+            out["view"] = view
     # HIDE BOX (2026-10-24): the block's card without its plate, on the background
     if "bare" in v:
         if not isinstance(v["bare"], bool):
@@ -438,10 +445,10 @@ def item(v: Any, cols: int, rows: int) -> dict[str, Any]:
     return out
 
 
-def cells(it: Mapping[str, Any]) -> set[tuple[int, int]]:
-    """The cells a checked block covers."""
-    (c, r), (w, h) = it["at"], SIZES[it["size"]]
-    return {(c + x, r + y) for x in range(w) for y in range(h)}
+def cells(it: Mapping[str, Any]) -> set[tuple[int, int, int]]:
+    """The cells a checked block covers, in its view (blocks overlap only within one)."""
+    (c, r), (w, h), view = it["at"], SIZES[it["size"]], it.get("view", 0)
+    return {(view, c + x, r + y) for x in range(w) for y in range(h)}
 
 
 def _frame(v: Any) -> list[int]:
@@ -473,7 +480,7 @@ def _night(v: Any) -> dict[str, Any]:
 
 def _shape(v: Any) -> dict[str, Any]:
     if not isinstance(v, dict) or set(v) - {"v", "cols", "rows", "frame", "band", "header_clock", "header_weather", "scale", "boxes", "grow",
-                                              "night", "items"}:
+                                              "night", "views", "items"}:
         raise GridInvalid("grid")
     if v.get("v", VERSION) != VERSION:
         raise GridInvalid("grid")
@@ -495,6 +502,10 @@ def _shape(v: Any) -> dict[str, Any]:
         out["scale"] = _whole(v["scale"], 50, 100, "grid")
     if "night" in v:
         out["night"] = _night(v["night"])
+    if "views" in v:
+        views = _whole(v["views"], 1, VIEWS_MAX, "grid")
+        if views > 1:
+            out["views"] = views
     # boxes: False -- every block without its plate (Hide Box, the screen's); grow: True -- the grid may scale past
     # its own size to fill the screen (a phone on its side)
     for key in ("header_clock", "header_weather", "boxes", "grow"):
@@ -515,7 +526,7 @@ def check(v: Any) -> dict[str, Any] | None:
     items = []
     for raw in out["items"]:
         it = item(raw, out["cols"], out["rows"])
-        if it["id"] in ids:
+        if it["id"] in ids or it.get("view", 0) >= out.get("views", 1):
             raise GridInvalid("grid_item")
         here = cells(it)
         if here & taken:
@@ -545,7 +556,7 @@ def layout(v: Any) -> dict[str, Any] | None:
         except GridInvalid:
             continue
         here = cells(it)
-        if it["id"] in ids or here & taken:
+        if it["id"] in ids or here & taken or it.get("view", 0) >= out.get("views", 1):
             continue
         ids.add(it["id"])
         taken |= here

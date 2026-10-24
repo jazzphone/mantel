@@ -163,12 +163,15 @@
     return { shown: shown, more: more, width: railW(size), plate: true,
              height: 2 * rp + cells * tab + Math.max(0, cells - 1) * rg };
   }
-  // WHERE THE BAR SITS: the screen's Tab Bar Position, a phone keeping the
-  // bottom for a rail's (too little width beside it)
-  function position(pos, width, phone) {
+  // WHERE THE BAR SITS: the screen's Tab Bar Position, a narrow window (a
+  // phone held upright) keeping the bottom for a rail's -- too little width
+  // beside it. A phone held sideways (2026-10-24, the nightstand) is wide
+  // enough and short: there the rail the screen asks for is the better use,
+  // so it is the width that decides, not the device (`phone` is no longer
+  // read; its callers still pass it).
+  function position(pos, width, phone) {    // eslint-disable-line no-unused-vars
     pos = pos === 'top' || pos === 'left' || pos === 'right' ? pos : 'bottom';
-    var ph = phone !== undefined ? !!phone : width < PHONE_W;
-    return (pos === 'left' || pos === 'right') && ph ? 'bottom' : pos;
+    return (pos === 'left' || pos === 'right') && width < PHONE_W ? 'bottom' : pos;
   }
 
   // A PHONE'S OWN SETTINGS (the screen's Phones section): at `width` (the
@@ -673,7 +676,8 @@
       var b = M.board(), m = model();
       var width = (window.innerWidth || 0) - leftOf() - paneR();
       // a phone, by its screen as well as its width: a phone held
-      // sideways keeps a phone's bar, fit and place
+      // sideways keeps a phone's bar and fit -- and its rail, when the
+      // screen puts the bar at a side (position: by the width)
       var ph = phoneAt();
       var pos = position(b.tab_bar_pos, window.innerWidth || 1280, ph), rail = pos === 'left' || pos === 'right';
       var rm = m.rooms.length ? roomsOf(b) : 'off';

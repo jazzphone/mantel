@@ -82,6 +82,9 @@ fewer down a rail. The bar is only as big as its tabs; opening More grows
 it into More's size in the same motion (a rail stretches to the screen's
 height), and closing shrinks it back.
 
+A side rail needs width beside it: a window narrower than 640 px (a phone held upright) keeps the bar along the
+bottom. A phone held sideways is wide enough and short, so it has the rail its screen asks for.
+
 ## Size
 
 **Size** makes the whole bar smaller or larger: its thickness (a rail's

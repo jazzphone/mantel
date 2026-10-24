@@ -61,7 +61,11 @@
     'Security & Cameras': 'var(--hk-gray)', Info: 'var(--hk-label3)' };
   function groupOf(card) { var g = GROUPS.find(function (x) { return x[1].indexOf(card) >= 0; }); return g ? g[0] : 'Info'; }
   function copy(x) { return JSON.parse(JSON.stringify(x)); }
+  // THE VIEW BEING EDITED (VIEWS, 2026-10-24): what is added, placed and
+  // drawn is in it; blocks in different views never overlap
+  var VIEW = 0;
   function overlap(a, b) {
+    if ((a.view || 0) !== (b.view || 0)) return false;
     var x = SIZES[a.size], y = SIZES[b.size];
     return a.at[0] < b.at[0] + y[0] && b.at[0] < a.at[0] + x[0] &&
       a.at[1] < b.at[1] + y[1] && b.at[1] < a.at[1] + x[1];
@@ -77,6 +81,7 @@
       grid.frame[0] >= 320 && grid.frame[0] <= 3840 && grid.frame[1] >= 320 && grid.frame[1] <= 2160 &&
       grid.items.length <= 24 && grid.items.every(function (it, i) {
         var cat = G.table()[it.card];
+        if ((it.view || 0) >= (grid.views || 1)) return false;
         return cat && cat.sizes.indexOf(it.size) >= 0 && (!it.when || it.fallback && G.table()[it.fallback.card] && G.table()[it.fallback.card].sizes.includes(it.size)) &&
           (it.rules || []).every(function (r) { return G.table()[r.card] && G.table()[r.card].sizes.includes(it.size); }) && fits(grid, it) &&
           !grid.items.slice(i + 1).some(function (other) { return it.id === other.id || overlap(it, other); });
@@ -96,9 +101,9 @@
     }
     return valid(out) ? out : null;
   }
-  function firstSpace(grid, size) {
+  function firstSpace(grid, size, view) {
     for (var row = 0; row < grid.rows; row++) for (var col = 0; col < grid.cols; col++) {
-      var it = { size: size, at: [col, row] };
+      var it = { size: size, at: [col, row], view: view === undefined ? VIEW : view };
       if (fits(grid, it) && !grid.items.some(function (x) { return overlap(it, x); })) return it.at;
     }
     return null;
@@ -122,6 +127,10 @@
       [{ id: 'n1', card: 'clock', size: 'XL', at: [0, 0], opts: { clock_style: 'classic' }, bare: true }]],
     ['n_calendar', 'Clock and Calendar', 'The time beside what’s next',
       [{ id: 'n1', card: 'clock', size: 'L', at: [0, 0], opts: { clock_style: 'classic' }, bare: true }, { id: 'n2', card: 'calendar', size: 'T', at: [2, 0], opts: { month: true }, bare: true }]],
+    ['n_standby', 'StandBy', 'The time, then a swipe to the weather and the month',
+      [{ id: 'n1', card: 'clock', size: 'XL', at: [0, 0], opts: { clock_style: 'classic' }, bare: true },
+       { id: 'n2', card: 'weather', size: 'T', at: [0, 0], opts: { big: true }, bare: true, view: 1 },
+       { id: 'n3', card: 'calendar', size: 'L', at: [1, 0], opts: { month: true }, bare: true, view: 1 }], 2],
     ['n_analog', 'Analog and Weather', 'A watch face beside the forecast',
       [{ id: 'n1', card: 'clock', size: 'T', at: [0, 0], opts: { clock_style: 'analog' }, bare: true }, { id: 'n2', card: 'weather', size: 'L', at: [1, 0], opts: { big: true }, bare: true }]]
   ];
@@ -136,7 +145,7 @@
     var out = copy(grid), left = [];
     out.cols = cols; out.rows = rows; out.items = [];
     copy(grid.items).sort(function (a, b) { return (a.at[1] - b.at[1]) || (a.at[0] - b.at[0]); }).forEach(function (it) {
-      var at = SIZES[it.size] && SIZES[it.size][0] <= cols ? firstSpace(out, it.size) : null;
+      var at = SIZES[it.size] && SIZES[it.size][0] <= cols ? firstSpace(out, it.size, it.view || 0) : null;
       if (!at) { left.push(it); return; }
       it.at = at; out.items.push(it);
     });
@@ -164,6 +173,7 @@
     var out = copy(grid), n = 1;
     while (out.items.some(function (it) { return it.id === 'b' + n; })) n++;
     var item = { id: 'b' + n, card: card, size: size, at: at || firstSpace(grid, size) };
+    if (VIEW) item.view = VIEW;
     if (!item.at) return null;
     out.items.push(item);
     return valid(out) ? out : null;
@@ -345,10 +355,12 @@
       this.overlay.replaceChildren();
       if (!this.grid) return;
       var h = this.h, self = this;
+      if (VIEW >= (this.grid.views || 1)) VIEW = 0;               // (an undo can take the view away)
       this.overlay.style.gridTemplateColumns = 'repeat(' + this.grid.cols + ',1fr)';
       this.overlay.style.gridTemplateRows = 'repeat(' + this.grid.rows + ',1fr)';
       for (var i = 0; i < this.grid.cols * this.grid.rows; i++) this.overlay.appendChild(h('div', { class: 'slot' }));
       this.grid.items.forEach(function (it) {
+        if ((it.view || 0) !== VIEW) return;                // another view's
         var b = h('button', { class: 'block', type: 'button', 'data-id': it.id, 'aria-label': NAMES[it.card] + ', ' + SIZE_NAMES[it.size] + ', column ' + (it.at[0] + 1) + ', row ' + (it.at[1] + 1),
           'aria-pressed': self.selected === it.id ? 'true' : 'false' }, h('span', { class: 'tag', text: NAMES[it.card] + ' · ' + SIZE_NAMES[it.size] }));
         self.position(b, it);
@@ -448,7 +460,10 @@
         var radius = parseFloat(w.getComputedStyle(view).getPropertyValue('--hk-glass-radius')) || parseFloat(w.hkCards.T['glass-radius']);
         this.overlay.style.setProperty('--grid-radius', radius * view._gridScale + 'px');
       }
-      var cell = view && view._config && view._config.grid && view.shadowRoot && view.shadowRoot.querySelector('.cell');
+      // (the view being edited, in the preview too; its own cells place the overlay)
+      if (view && view._showView && (this.grid.views || 1) > 1) view._showView(VIEW);
+      var cell = view && view._config && view._config.grid && view.shadowRoot &&
+        view.shadowRoot.querySelector((this.grid.views || 1) > 1 ? '.cell[data-view="' + VIEW + '"]' : '.cell');
       if (cell) {
         var r = cell.getBoundingClientRect(), it = view._config.cards.find((x) => x.hk_cell && x.hk_cell.id === cell.dataset.id).hk_cell;
         var gap = 10 * (view._gridScale || 1); this.cellGap = gap; this.overlay.style.gap = gap + 'px';
@@ -477,6 +492,20 @@
     }
     // A SCREEN TYPE: its columns, rows, band and preview size together, the
     // blocks re-packed in reading order; any that can't fit are named first
+    // A VIEW GOES, its blocks with it (asked first when it has any); the views after it close up
+    async removeView(v) {
+      var n = this.grid.items.filter((it) => (it.view || 0) === v).length;
+      if (n && !await this.K.confirm(this.shadowRoot, { title: 'Remove View ' + (v + 1) + '?', message: (n === 1 ? 'Its block goes' : 'Its ' + n + ' blocks go') + ' with it. Nothing is saved yet.', ok: 'Remove View', destructive: true })) return;
+      var next = copy(this.grid);
+      next.items = next.items.filter((it) => (it.view || 0) !== v).map((it) => {
+        if ((it.view || 0) > v) { it.view -= 1; if (!it.view) delete it.view; }
+        return it;
+      });
+      next.views = (next.views || 1) - 1;
+      if (next.views <= 1) delete next.views;
+      VIEW = Math.max(0, v - 1); this.selected = null;
+      this.change(next);
+    }
     async screenType(key) {
       var t = SCREEN_TYPES.find((x) => x[0] === key);
       if (!t || !this.grid) return;
@@ -508,7 +537,11 @@
       if (this.grid && !await this.K.confirm(this.shadowRoot, { title: 'Use a Starter Layout?', message: 'This replaces your draft. Nothing is saved yet.', ok: 'Use Starter' })) return;
       if (concept === 'empty') { this.selected = null; this.change(this.asScreen(copy(EMPTY))); return; }
       var own = NIGHTSTAND.find((c) => c[0] === concept);
-      if (own && this.grid) { this.selected = null; this.change(Object.assign(copy(this.grid), { items: copy(own[3]) })); return; }
+      if (own && this.grid) {
+        var g2 = Object.assign(copy(this.grid), { items: copy(own[3]) });
+        if (own[4]) g2.views = own[4]; else delete g2.views;
+        VIEW = 0; this.selected = null; this.change(g2); return;
+      }
       var result;
       try {
         this.busy = true;
@@ -554,7 +587,7 @@
       if (waiting) {
         for (var k = 0; k < g.cols * g.rows; k++) kids.push(h('i', { class: 'wait' }));
       }
-      (waiting ? [] : g.items).forEach((it) => {
+      (waiting ? [] : g.items.filter((it) => !it.view)).forEach((it) => {
         var z = SIZES[it.size], tile = h('i', {}, h('hk-icon', { icon: GLYPHS[it.card] }));
         tile.style.gridColumn = (it.at[0] + 1) + ' / span ' + z[0];
         tile.style.gridRow = (it.at[1] + 1 + (g.band ? 1 : 0)) + ' / span ' + z[1];
@@ -745,6 +778,23 @@
       var pct = Math.round(100 * (live || scaleAt(this.grid, this.grid.frame)));
       var tip = kind === 'phone_landscape' ? ' On a phone on its side, set the screen’s Tab Bar Position to Left or Right, so the clock gets the height.'
         : kind === 'phone_portrait' ? ' Phones start without the top band: turn it on under Header if you want it.' : '';
+      // VIEWS: whole layouts a swipe apart on this screen (StandBy's); the
+      // grid and the preview show the one chosen here
+      var views = this.grid.views || 1;
+      if (VIEW >= views) VIEW = 0;
+      var viewOpts = [];
+      for (var vi = 0; vi < views; vi++) viewOpts.push([String(vi), String(vi + 1)]);
+      if (views < 4) viewOpts.push(['add', '+']);
+      var viewRows = [K.seg({ label: 'View', value: String(VIEW), options: viewOpts, onChange: (v) => {
+        if (v === 'add') { VIEW = views; config('views', views + 1); return; }
+        // (the outlines and the preview turn to the view; the frame itself is not reloaded)
+        VIEW = +v; this.selected = null; this.blocks(); this.side(); this.fit();
+        // (and again once the preview's view has slid in: its cells place the outlines)
+        setTimeout(() => this.fit(), 520);
+      } })];
+      if (views > 1) viewRows.push(K.button({ label: 'Remove View ' + (VIEW + 1), destructive: true, onClick: () => this.removeView(VIEW) }));
+      add(K.group({ header: 'Views', footer: views > 1 ? 'Swipe sideways on the screen between its views. Each is a whole layout of its own on this grid.'
+        : 'Add a view for a second layout a swipe away, as StandBy has.' }, viewRows));
       add(K.group({ header: 'Grid', footer: 'The grid scales to fit each screen; its blocks keep their shape. In this preview they show at ' + pct + '% of full size.' + tip }, [
         K.select({ label: 'Screen Type', value: kind, options: [['custom', 'Custom']].concat(SCREEN_TYPES.map((t) => [t[0], t[1] + ' · ' + t[2] + ' × ' + t[3]])),
           onChange: (k) => this.screenType(k) }),
