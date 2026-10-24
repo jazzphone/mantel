@@ -209,7 +209,9 @@ ok('the track leaves the plates\' shadows their reach (28 px), and takes no touc
    pcss.indexOf('margin:-28px -28px -28px') >= 0 && pcss.indexOf('gap:56px') >= 0 &&
    pcss.indexOf('.track{pointer-events:none}.page{pointer-events:auto}') >= 0);
 ok('the swipe is the pager\'s own (no scroll-snap); a page leaves up-and-down pans to the browser',
-   pcss.indexOf('scroll-snap') < 0 && /\.track\{[^}]*overflow:hidden/.test(pcss) && /\.page\{[^}]*touch-action:pan-y/.test(pcss));
+   pcss.indexOf('scroll-snap') < 0 && /\.page\{[^}]*touch-action:pan-y/.test(pcss));
+ok('...and the track is still a sideways scroller, so the shared blur\'s layer rides inside it',
+   /\.track\{[^}]*overflow-x:auto;overflow-y:hidden/.test(pcss));
 ok('the dots overlay the foot: pages keep the full block height', pcss.indexOf('.dots{position:absolute;bottom:0;left:0;right:0') >= 0);
 var calm = [];
 window.matchMedia = function (q) { return { matches: /reduce/.test(q) }; };

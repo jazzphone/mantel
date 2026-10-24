@@ -1143,3 +1143,18 @@ Build `6036a4394615f81d` matches the staged release and `/api/version`. The app 
 entries, and a screen loaded the new files right after the restart. No public tag, release or HK Frontend update was
 made. Reload the dashboards and Settings to pick it up. Real-tablet swipes in Safari and the new editor remain for
 the owner to try. The unrelated Xcode edit is unchanged.
+
+### The frost follows a swipe again (2026-10-24)
+
+The owner saw the background slide out of line while swiping blocks in Safari. The cause was 0.1.65's track change.
+The shared blur (hk-glass.js) puts its layer inside the nearest element that can scroll, so the frost moves with the
+cards for free. 0.1.65 had made the track a clipped box (`overflow: hidden`), so the layer went on the page instead.
+There it is re-measured behind the moving pages, and Safari lagged. The track is a sideways scroller again
+(`overflow-x: auto`), but no finger scrolls it: its pages still say `touch-action: pan-y`, and the pager sets
+`scrollLeft` itself.
+
+`pager_swipe_check.py` now runs in the Blur look and checks that each frosted block's blur layer sits inside its
+track. 225 of 225 swipes still land, with taps, dimming, list scrolling, the dots and a mouse drag unchanged.
+
+The owner also asked why a room block shows "+4 more" instead of scrolling. That is the default: **Content →
+Accessories → Summary**. **Scroll All** scrolls the whole room.

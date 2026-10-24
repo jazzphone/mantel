@@ -1845,7 +1845,7 @@
   // GESTURES (2026-10-23: the browser's own scroll-snap missed about one
   // swipe in six -- a short flick snapped back, and a swipe on the dots went
   // nowhere; tools/headless/pager_swipe_check.py measures it). The track is
-  // no scroller a finger can move: each page says touch-action pan-y, so an
+  // a scroller no finger can move: each page says touch-action pan-y, so an
   // up-and-down pan stays the browser's (a room that scrolls still does) and
   // a sideways one comes here as pointer events -- touch, pen and mouse
   // alike. The pager follows the finger and, on letting go, turns a page if
@@ -1953,7 +1953,13 @@
       return ':host{display:block;position:relative;height:100%}:host>div{height:100%}' +
         '.pager{position:relative;display:flex;flex-direction:column;height:100%}' +
         '.track{flex:1 1 auto;min-height:0;display:flex;gap:' + (2 * S) + 'px;margin:-' + S + 'px -' + S + 'px -' + S + 'px;' +
-        'padding:' + S + 'px;overflow:hidden;scrollbar-width:none}' +
+        // STILL A SIDEWAYS SCROLLER (overflow-x auto), though no finger
+        // scrolls it (its pages say pan-y; the pager sets scrollLeft): the
+        // shared blur (hk-glass.js) puts its layer inside the nearest
+        // scroller, so the frost rides along with the pages. A clipped box
+        // here left the layer on the page, re-measured behind the moving
+        // pages -- the background slid out of line in Safari (2026-10-23).
+        'padding:' + S + 'px;overflow-x:auto;overflow-y:hidden;overscroll-behavior-x:contain;scrollbar-width:none}' +
         '.track::-webkit-scrollbar{display:none}' +
         '.track{pointer-events:none}.page{pointer-events:auto}' +
         '.track.dragging{cursor:grabbing;user-select:none;-webkit-user-select:none}' +

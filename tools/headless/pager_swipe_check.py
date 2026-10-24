@@ -55,7 +55,9 @@ async def main():
     screen = 'pager-swipes'
     for i in range(6):                        # enough in the first room for its list to scroll
         gallery.HOUSE[f'light.dining_room_extra_{i}'] = ('dining_room', gallery._light(f'Extra {i}', False, 0))
-    gallery.SETTINGS['boards'][screen] = {'home_style': 'grid', 'home_grid': GRID, 'menu_custom': True, 'menu': 'tabbar'}
+    # the Blur look: its shared frost must travel with the pages (hk-glass.js)
+    gallery.SETTINGS['boards'][screen] = {'home_style': 'grid', 'home_grid': GRID, 'menu_custom': True, 'menu': 'tabbar',
+                                          'flat': False, 'glass': 'blur'}
     misses, total = [], 0
     with tempfile.TemporaryDirectory() as td:
         app, cookie = await gallery.build(Path(td))
@@ -152,6 +154,13 @@ async def main():
             await b.send('Input.dispatchMouseEvent', type='mouseReleased', x=ax - 160, y=ay, button='left', clickCount=1)
             await asyncio.sleep(0.9)
             checks['a mouse drag turns the page'] = await b.eval("pagerOf('acc')._index") == 1
+            # the shared blur's layer lives inside each swipe track, so it slides with the pages
+            await b.eval("window.hkGlass&&hkGlass.refresh&&hkGlass.refresh()")
+            await asyncio.sleep(0.5)
+            inside = await b.eval("['room','thermo','scenes','acc','roomw'].map(id=>!!pagerOf(id)._track.querySelector(':scope>[data-hk-glass-layer]'))")
+            checks['the blur layer rides inside every swipe track'] = all(inside)
+            if not all(inside):
+                print('glass layer inside tracks:', inside)
             for name, ok in checks.items():
                 print(('ok   ' if ok else 'FAIL ') + name)
             if not all(checks.values()):
