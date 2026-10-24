@@ -1215,3 +1215,20 @@ the first request. Strict health is OK with Home Assistant connected, and build 
 release and `/api/version`. The App log has no ERROR or Traceback entries. Before release, the main suite passed
 (3,495 tests, 21 skipped), as did the HA package's Python suite (758) and every JavaScript suite. No public tag,
 release or HK Frontend update was made.
+
+### The editor on a slow connection (2026-10-24)
+
+The owner's editor sat blank for minutes on a slow connection, and a throttled browser reproduced it. The preview is
+the whole screen in a frame. At 60 KB/s that frame takes about two minutes to become ready, but the editor stopped
+asking after 20 seconds and never looked again. Fixes:
+
+- **The preview waits.** It keeps asking with backoff (0.3 s up to 2 s between tries, giving up only after many
+  minutes), and its frame's load asks at once. The frame shows "Loading the preview…", then "Still loading…" after a
+  while, in place of a red error.
+- **The card preview waits too, and is kept.** It now waits up to three minutes instead of ten seconds, and is made
+  once per card and size. Before, every draft change rebuilt it, which reloaded the whole screen again.
+- **`/api/registry` is compressed and revalidated.** It is about 1.85 MB of JSON on the house, read by every page as
+  it loads. It is now gzipped, and an ETag answers a browser that already has it with a 304. It is private and
+  revalidated every time, since it is filtered per person (`tests/test_wiring.py`).
+- **The web files are precompressed in both images.** aiohttp sends `name.js.gz` to a browser that takes gzip:
+  `hk-base.js`, for example, goes from 235 KB to 81 KB.

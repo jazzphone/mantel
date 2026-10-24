@@ -125,6 +125,10 @@
     '.palette,aside.sidebar{min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable;padding-bottom:24px}',
     '.framebox{position:relative;overflow:hidden;margin:auto;border-radius:10px;background:var(--hk-cell);outline:1px solid var(--hk-sep)}',
     '.frame{position:absolute;left:0;top:0;transform-origin:top left;background:var(--hk-cell);overflow:hidden}',
+    // while the screen loads in its frame (a slow connection: a minute or more)
+    '.framebox[data-loading]::after{content:"Loading the preview…";position:absolute;inset:0;z-index:5;display:flex;align-items:center;justify-content:center;font-size:15px;color:var(--hk-label2);background:var(--hk-cell)}',
+    '.framebox[data-loading=slow]::after{content:"Still loading the preview. A slow connection can take a minute or two."}',
+    '.catalog-preview:empty::before,.catalog-preview[data-loading]::before{content:"Loading preview…";position:absolute;inset:0;z-index:1;display:flex;align-items:center;justify-content:center;font-size:13px;color:var(--hk-label2);background:var(--hk-fill)}',
     'iframe{position:absolute;inset:0;border:0;width:100%;height:100%;pointer-events:none}',
     '.grid{position:absolute;display:grid;gap:10px;z-index:2}',
     '.slot{border:1px dashed var(--hk-label3);border-radius:var(--grid-radius,var(--hk-glass-radius,23.5px));pointer-events:none}',
@@ -220,7 +224,7 @@
       this.sidebar = h('aside', { class: 'sidebar', 'aria-label': 'Block and screen settings', tabindex: '0' });
       this.ui.appendChild(h('div', { class: 'work' }, [this.palette, this.stage, this.sidebar]));
       this.stage.appendChild(h('p', { class: 'note', text: 'Drag a card from the left onto the grid. Drag blocks to move them; equal sizes swap. Cards are a preview: their controls don’t act on the house.' }));
-      this.box = h('div', { class: 'framebox' }); this.stage.appendChild(this.box);
+      this.box = h('div', { class: 'framebox', 'data-loading': this.grid ? 'yes' : null }); this.stage.appendChild(this.box);
       this.frame = h('div', { class: 'frame' }); this.box.appendChild(this.frame);
       this.iframe = h('iframe', { title: 'Home Grid preview', tabindex: '-1', 'aria-hidden': 'true' });
       this.iframe.inert = true;
@@ -822,8 +826,11 @@
     catalogPreviews() {
       var w = this.iframe.contentWindow;
       if (!w || !w.hkCards || !this.previewView) return;
-      if (this.catalogOff) this.catalogOff();
       var box = this.palette.querySelector('[data-preview-card]'); if (!box) return;
+      // (its frame is the whole screen again: made once for this card, never
+      // again for a change elsewhere in the draft)
+      if (box.querySelector('iframe')) return;
+      if (this.catalogOff) this.catalogOff();
       var sz = box.dataset.previewSize, z = SIZES[sz], ctx = this.previewView._config.grid_ctx || {};
       var unit = w.hkCards.TILE, gap = w.hkCards.HOME_GRID.gap;
       var width = unit.w * z[0] + gap * (z[0] - 1), height = unit.tall * z[1] + gap * (z[1] - 1);
@@ -833,14 +840,14 @@
       // a card into Settings leaves its hk-plate and glyph elements undefined.
       var frame = this.h('iframe', { title: NAMES[box.dataset.previewCard] + ' preview', tabindex: '-1', 'aria-hidden': 'true' });
       Object.assign(frame.style, { width: width + 'px', height: height + 'px', left: '50%', marginLeft: -(width * scale / 2) + 'px', transformOrigin: 'top left', transform: 'scale(' + scale + ')' });
-      frame.inert = true; frame.src = this.iframe.src; box.replaceChildren(frame);
+      frame.inert = true; frame.src = this.iframe.src; box.replaceChildren(frame); box.setAttribute('data-loading', '');
       var active = true, timer, retries = 0;
       this.catalogOff = () => { active = false; clearTimeout(timer); };
       var load = () => {
         if (!active) return;
         var fw = frame.contentWindow;
         if (!fw || !fw.hkShell || !fw.hkShell.view() || !fw.hkCards || !fw.hkCards.client()) {
-          if (retries++ < 100) timer = setTimeout(load, 100);
+          if (retries++ < 600) timer = setTimeout(load, 300);            // up to 3 minutes
           return;
         }
         var doc = fw.document, cell = doc.createElement('div'); cell.className = 'cell'; cell.setAttribute('size', sz);
@@ -854,7 +861,7 @@
         card.setAttribute('size', sz); card.inert = true;
         Object.assign(card.style, { display: 'block', width: '100%', height: '100%' });
         cell.appendChild(card); view.appendChild(cell); doc.body.replaceChildren(view);
-        fw.galleryCard = card;
+        fw.galleryCard = card; box.removeAttribute('data-loading');
         // Sample readings are fixed for this illustration. Subscribing the
         // sample back to the frame's live client hub would feed it into itself.
       };
@@ -1018,6 +1025,7 @@
         }
         // The host's view lookup may still point at its cached view. Keep the preview local.
         this.previewView = el; this.previewRetries = 0; this.previewError = null;
+        this.box.removeAttribute('data-loading');
         w.hkShell.announce({ detail: { replace: true } });
         if (this.previewOff) this.previewOff();
         this.previewOff = w.hkCards.onClient((next) => { el.cards.forEach((card) => w.hkHostClient.bridge(card, next)); });
@@ -1026,9 +1034,14 @@
         this.fit();
         if (this.pickerCard) this.catalogPreviews();
       } catch (e) {
+        // STILL LOADING: the preview is the whole screen in a frame, and on a
+        // slow connection that takes a while (2026-10-24, the owner: it gave
+        // up after 20 s and stayed blank). Keep asking, less often as it
+        // goes -- its frame's load asks at once too -- and only say so.
         this.previewError = String(e && e.message || e);
         this.previewRetries = (this.previewRetries || 0) + 1;
-        if (this.previewRetries < 40) this.previewTimer = setTimeout(() => this.preview(), 500);
+        this.box.setAttribute('data-loading', this.previewRetries > 20 ? 'slow' : 'yes');
+        if (this.previewRetries < 400) this.previewTimer = setTimeout(() => this.preview(), Math.min(2000, 300 + this.previewRetries * 50));
         else this.say('The live preview couldn’t load. Reload this page to try again.');
       }
     }

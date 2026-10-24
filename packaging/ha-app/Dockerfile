@@ -26,6 +26,11 @@ RUN groupadd --system --gid 10001 mantel \
  && useradd --system --uid 10001 --gid 10001 --no-create-home --shell /usr/sbin/nologin mantel
 
 COPY app /app
+# PRECOMPRESSED COPIES of the web app's text files (2026-10-24, the owner's editor on a slow connection): aiohttp's
+# FileResponse sends name.js.gz in place of name.js to a browser that takes gzip, so the few MB of JavaScript a
+# screen loads go over the wire at a fraction of that. Made here, from the files beside them, so they always match.
+RUN find /app/web -type f \( -name '*.js' -o -name '*.css' -o -name '*.json' -o -name '*.html' -o -name '*.svg' \) \
+      -size +1k -exec gzip -9 -k -n {} +
 WORKDIR /app
 
 # entrypoint.py: SUPERVISOR_TOKEN -> /tmp/ha_token (0600, out of the environment), options.json -> flags

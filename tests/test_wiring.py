@@ -373,3 +373,19 @@ async def test_a_room_given_to_a_child_reaches_their_open_screen_at_once(off):
     diff = await recv(ws)
     assert any(e.startswith("light.cody") for e in diff["added"]), diff
     await ws.close()
+
+
+async def test_the_registry_is_compressed_and_revalidated(off):
+    """About 2 MB on a large house, read by every page as it loads: gzip for a browser that takes it, and a 304
+    for one that already holds the same registry (2026-10-24). Private: it is filtered per person."""
+    await off.login("avery", "owner")
+    c = off.m.client
+    r = await c.get("/api/registry", headers={"Accept-Encoding": "gzip"})
+    assert r.status == 200 and r.headers.get("Content-Encoding") == "gzip"
+    assert r.headers["Cache-Control"] == "private, no-cache"
+    tag = r.headers["ETag"]
+    body = await r.json()
+    again = await c.get("/api/registry", headers={"If-None-Match": tag})
+    assert again.status == 304 and again.headers["ETag"] == tag and await again.read() == b""
+    other = await c.get("/api/registry", headers={"If-None-Match": '"not-this-one"'})
+    assert other.status == 200 and await other.json() == body

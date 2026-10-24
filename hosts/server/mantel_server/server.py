@@ -19,6 +19,7 @@ windows, revocations); the house time zone from HA's get_config, with cfg.house_
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import logging
 import secrets
@@ -452,7 +453,19 @@ async def hk_settings_redirect(request: web.Request) -> web.StreamResponse:
 
 
 async def api_registry(request: web.Request) -> web.Response:
-    return web.json_response(filter_registry(request.app["hub"].registry.frontend_shapes(), request_gate(request)))
+    """The registries a page may see. About 2 MB of JSON on a large house, read by every page as it loads -- the
+    settings page and each preview frame of the Home Grid editor too -- so it is compressed for a browser that takes
+    gzip, and carries an ETag: a browser holding the same one gets a 304 (2026-10-24, the owner's editor on a slow
+    connection). Private, revalidated every time: it is filtered per person."""
+    body = json.dumps(filter_registry(request.app["hub"].registry.frontend_shapes(), request_gate(request)),
+                      separators=(",", ":")).encode()
+    tag = '"' + hashlib.sha256(body).hexdigest()[:32] + '"'
+    headers = {"ETag": tag, "Cache-Control": "private, no-cache"}
+    if tag in [t.strip() for t in request.headers.get("If-None-Match", "").split(",")]:
+        return web.Response(status=304, headers=headers)
+    resp = web.Response(body=body, content_type="application/json", headers=headers)
+    resp.enable_compression()
+    return resp
 
 
 async def api_fixtures(request: web.Request) -> web.Response:

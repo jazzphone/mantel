@@ -44,6 +44,11 @@ WORKDIR /src
 COPY tools/build_static.py tools/build_static.py
 COPY web web
 RUN python tools/build_static.py /out
+# PRECOMPRESSED COPIES of the web app's text files (2026-10-24, the owner's editor on a slow connection): aiohttp's
+# FileResponse sends name.js.gz in place of name.js to a browser that takes gzip, so the few MB of JavaScript a
+# screen loads go over the wire at a fraction of that. Made here, from the files beside them, so they always match.
+RUN find /out/web -type f \( -name '*.js' -o -name '*.css' -o -name '*.json' -o -name '*.html' -o -name '*.svg' \) \
+      -size +1k -exec gzip -9 -k -n {} +
 
 
 # ---- deps: a virtualenv holding only the third-party dependencies -------------------------------
