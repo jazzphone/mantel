@@ -1287,3 +1287,35 @@ The owner asked for this release. Release commit `c992504` (the editor opening o
 mode) was pushed and staged. The update installed on the first request. Strict health is OK with Home Assistant
 connected, build `63df91a1943686e7` matches the staged release, and there is no Traceback. The owner's iPad check
 of the editor and of dark mode is next.
+
+### Detail sheets as blocks, rules, and cameras that follow (2026-10-24)
+
+The owner asked for three things after 0.1.70.
+
+- **The alarm keypad and the vacuum as blocks.** Security and Vacuum gain Large and Extra Large. Large Security is
+  `hk-grid-keypad-card`: the Security page's own keypad (`hk-alarm-keypad-card`, new `layout: 'side'`) with the keys on
+  the left and the alarm's state and ways to arm stacked on the right. The keys are sized to the block (36 to 64 px).
+  The alarm is the block's, else the home's (`security.alarm`), else the first. The PIN is still checked by the alarm.
+  Large Vacuum is `hk-grid-vacuum-card`: the vacuum card filling the block, or, with HK Clean Areas added, the vacuum
+  card over the Clean Areas panel, whose rooms scroll inside its own plate.
+- **Rules.** `rules: [{when: {all: [...]}, card, opts?, pages?}]` (up to 4 rules, up to 3 conditions each) replaces
+  `when` + `fallback`; the two are never saved together. The block's own card is the default and the first rule that
+  holds wins. New conditions: `time` (from/to on the clock, may cross midnight) and `alarm_disarmed`. A legacy block
+  reads as one rule (`rulesOf`). The editor's Show When lists the rules, with Preview: Live, Default or Rule N.
+- **Cameras that follow.** A camera block's Show offers Follow Motion or a Selector (`opts.follow`: `motion` or
+  `selector`, with `follow_select`). Motion pairs a camera with the motion, occupancy, moving or presence sensors in its
+  area; a sensor that is on beats one that has gone off, then the latest, within 15 minutes. The selector option names a
+  camera by its name's start, as the camera strip's does. A block touched within the last minute is left alone.
+
+`grid_blocks_check.py` checks the keypad (side by side, every key inside the block, the arm buttons stacked, the
+home's alarm), both vacuum layouts, the rules switching in place (default, music, armed in the window, priority) and a
+cameras block following motion from the porch to the yard. It also runs in WebKit at iPad sizes with touch, with no
+page errors.
+
+### An iPad scrolled a Home Grid that fits (2026-10-24)
+
+The owner saw the test dashboard scroll on an iPad although everything was visible. The grid is `100dvh` less the tab
+bar's room, but the view's minimum height (the rule that answers Kiosk Mode's `hui-view{min-height:100vh}`) used
+`100vh`. On an iPad in Safari, `100vh` is the window with its toolbars hidden, so the page was taller than the visible
+window by the toolbars' height. The rule, and Home Assistant's own `#view` minimum, now use `100dvh` (with `100vh` for
+older browsers). Playwright doesn't reproduce Safari's toolbars, so the owner confirms it on the iPad.

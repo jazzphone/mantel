@@ -823,6 +823,92 @@
     watchSize(HkGridSecurityCard);
     C.register('hk-grid-security-card', HkGridSecurityCard, 'HK Grid Security', 'Alarm status and shared PIN controls.', [{ name: 'entity', label: 'Alarm', selector: { entity: { filter: { domain: 'alarm_control_panel' } } } }], function () { return {}; });
 
+    // ===================================================== the full-control blocks
+    // (2026-10-24, the owner: "the detail sheets that are useful as blocks"):
+    // a Large or Extra Large Security block is the alarm's keypad, a Large or
+    // Extra Large Vacuum block its controls with Clean Areas -- the Security
+    // and Vacuum pages' own cards, each in a block-sized plate.
+    var FULL_CSS = ':host{display:block;height:100%}' +
+      'hk-plate.full{box-sizing:border-box;height:100%;display:flex;flex-direction:column;gap:10px;padding:14px;overflow:hidden;' + C.plate('card') + '}' +
+      '.ttl{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:24px;flex:none;padding:0 4px}' +
+      '.ttl b{' + type('headline') + ';color:' + v('ink') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis}' +
+      '.body{flex:1;min-height:0;position:relative}.body > *{display:block;height:100%}' +
+      '.areas{flex:1;min-height:0}';                // (Clean Areas scrolls its rooms in its own plate)
+    class HkGridFull extends HkBase {
+      static get CSS() { return FULL_CSS; }
+      getCardSize() { return 4; }
+      _receiveClient() {
+        super._receiveClient();
+        var c = this.client;
+        (this._kids || []).forEach(function (k) { window.hkHostClient.bridge(k, c); });
+      }
+      _mount(parent, cfg, size) {
+        var el = C.createCard(cfg, this.client);
+        if (size) el.setAttribute('size', size);
+        parent.appendChild(el);
+        (this._kids = this._kids || []).push(el);
+        return el;
+      }
+    }
+    // THE KEYPAD: the alarm's own keys, side by side (hk-security.js
+    // layout: 'side'), the keys sized to the block; the PIN is checked as it
+    // always is, by the alarm, never here
+    class HkGridKeypadCard extends HkGridFull {
+      // the alarm: the block's, else the home's, else the first (as the small Security block finds it)
+      _alarm() {
+        return this._config.entity || setting('security.alarm', null) ||
+          Object.keys((this.client && this.client.states) || {}).filter(function (id) { return dom(id) === 'alarm_control_panel'; })[0] || null;
+      }
+      _sigOf() { return JSON.stringify([this._alarm(), sizeOf(this), this._blockKey || '']); }
+      _render() {
+        this._watchBlock();
+        var alarm = this._alarm();
+        if (!this._built || this._for !== alarm) {
+          this._root.innerHTML = '<hk-plate class="full" data-hk-role="card"><div class="body"></div></hk-plate>';
+          this._kids = []; this._for = alarm;
+          this._pad = this._mount(this._root.querySelector('.body'),
+            Object.assign({ type: 'custom:hk-alarm-keypad-card', layout: 'side', glass: false }, alarm ? { entity: alarm } : {}));
+          this._built = true;
+        }
+        // four rows of keys and their three gaps fill the block's height
+        var b = this._block(), h = b ? b.h - 28 : 282;
+        this._pad.style.setProperty('--hk-kp-key', Math.max(36, Math.min(64, Math.floor((h - 30) / 4))) + 'px');
+      }
+    }
+    watchSize(HkGridKeypadCard);
+    C.register('hk-grid-keypad-card', HkGridKeypadCard, 'HK Grid Keypad', 'The alarm keypad, sized to a Home Grid block.',
+      [{ name: 'entity', label: 'Alarm', selector: { entity: { filter: { domain: 'alarm_control_panel' } } } }], function () { return {}; });
+    // THE VACUUM: its card (status, Start, Pause, Locate, Dock) over Clean
+    // Areas when the home has them (as the Vacuums page does: hk-strategy.js),
+    // else its card fills the block
+    class HkGridVacuumFull extends HkGridFull {
+      _picker() {
+        var HS = window.hkSettings, added = (HS && HS.get && HS.get('added', [])) || [];
+        return added.indexOf('clean_areas') >= 0 || !!(HS && HS.get && HS.get('features.vacuum_script', null));
+      }
+      _sigOf() { return JSON.stringify([this._config.entity || null, sizeOf(this), this._picker()]); }
+      _render() {
+        var picker = this._picker(), key = JSON.stringify([this._config.entity, picker]);
+        if (this._built && this._key === key) return;
+        this._key = key; this._kids = [];
+        if (!picker) {
+          this._root.innerHTML = '<div class="body"></div>';
+          this._mount(this._root.querySelector('.body'), { type: 'custom:hk-vacuum-card', entity: this._config.entity }, 'L');
+        } else {
+          // the vacuum's own plate, then Clean Areas in a plate of its own
+          // (Clean Areas is a panel of its own, its plate and its words)
+          this._root.innerHTML = '<div style="display:flex;flex-direction:column;gap:10px;height:100%">' +
+            '<div class="top" style="flex:0 0 150px"></div><div class="areas"></div></div>';
+          this._mount(this._root.querySelector('.top'), { type: 'custom:hk-vacuum-card', entity: this._config.entity }, 'W');
+          this._mount(this._root.querySelector('.areas'), { type: 'custom:hk-area-select-card', layout: 'panel' }).setAttribute('data-fill', '');
+        }
+        this._built = true;
+      }
+    }
+    watchSize(HkGridVacuumFull);
+    C.register('hk-grid-vacuum-card', HkGridVacuumFull, 'HK Grid Vacuum', 'A vacuum\u2019s controls with Clean Areas, sized to a Home Grid block.',
+      [{ name: 'entity', label: 'Vacuum', selector: { entity: { filter: { domain: 'vacuum' } } } }], function () { return {}; });
+
     // ===================================================== hk-action-card
     var YELLOW = (C.PALETTE.icon && C.PALETTE.icon.yellow) || null;
     class HkActionCard extends HkGridKey {

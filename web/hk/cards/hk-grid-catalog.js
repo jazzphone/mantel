@@ -54,13 +54,15 @@
       var id = own(o.entity) || (ctx.climate || [])[0];
       // the dial (hk-control.js), sized to the block (G2)
       return id ? { type: 'custom:hk-control-card', entity: id } : stand('Thermostat', 'hk:thermostat'); } },
-    camera: { sizes: ['W', 'L', 'XL'], sources: ['cameras'], opts: { entity: 'camera' }, card: function (s, o, ctx) {
+    camera: { sizes: ['W', 'L', 'XL'], sources: ['cameras'], opts: { entity: 'camera', follow: 'camera_follow', follow_select: 'select' }, card: function (s, o, ctx) {
       var ids = o.entity ? [o.entity] : (ctx.cameras || []).slice(0, 1);
       return ids.length ? { type: 'custom:hk-camera-mosaic-card', own_cameras: true, height: 195, seam: 2, snapshot_cap: '480x270',
                             cameras: ids.map(function (id) { return { entity: id }; }) }
                         : stand('Cameras', 'hk:camera'); } },
-    security: { sizes: ['S', 'W'], sources: [], card: function () {
-      return { type: 'custom:hk-grid-security-card' }; } },
+    // Large and Extra Large: the alarm's keypad (2026-10-24)
+    security: { sizes: ['S', 'W', 'L', 'XL'], sources: [], opts: { entity: 'alarm' }, card: function (s, o) {
+      if (s === 'L' || s === 'XL') return Object.assign({ type: 'custom:hk-grid-keypad-card' }, o.entity ? { entity: o.entity } : {});
+      return Object.assign({ type: 'custom:hk-grid-security-card' }, o.entity ? { entity: o.entity } : {}); } },
     timers: { sizes: ['S', 'W'], sources: [], card: function () {
       return { type: 'custom:hk-timer-strip-card', entity: 'sensor.running_quick_timers' }; } },
     weather: { sizes: ['W', 'L', 'XL'], sources: [], opts: { entity: 'weather', sky: 'boolean' }, card: function (s, o, ctx) {
@@ -75,9 +77,11 @@
                               reserve: B.reserve, charge: B.charge, discharge: B.discharge }
                           : stand('Battery', 'mdi:home-battery'); } },
     people: { sizes: ['W'], sources: [], card: function () { return { type: 'custom:hk-people-card' }; } },
-    vacuum: { sizes: ['S', 'W'], sources: [], opts: { entity: 'vacuum' }, card: function (s, o, ctx) {
+    // Large and Extra Large: its controls with Clean Areas (2026-10-24)
+    vacuum: { sizes: ['S', 'W', 'L', 'XL'], sources: [], opts: { entity: 'vacuum' }, card: function (s, o, ctx) {
       var id = o.entity || ctx.vacuum;
-      return id ? { type: 'custom:hk-vacuum-card', entity: id } : stand('Vacuum', 'hk:robot-vacuum'); } },
+      if (!id) return stand('Vacuum', 'hk:robot-vacuum');
+      return { type: s === 'L' || s === 'XL' ? 'custom:hk-grid-vacuum-card' : 'custom:hk-vacuum-card', entity: id }; } },
     clock: { sizes: ['W', 'XL'], sources: [], card: function () { return { type: 'custom:hk-clock-card' }; } },
     // THE NEW CARDS (G3, hk-grid-cards.js). `opts` names each option and its
     // kind, as home_grid.CATALOG does (a test holds them equal). A card handed
@@ -104,7 +108,7 @@
   function config(item, ctx) {
     var it = item || {}, c = CARDS[it.card];
     if (!c) return stand('Unavailable', 'mdi:help-circle-outline');
-    if (it.when && it.fallback) return { type: 'custom:hk-grid-conditional-card', item: it, ctx: ctx || {}, force: it._conditionPreview };
+    if ((it.rules && it.rules.length) || (it.when && it.fallback)) return { type: 'custom:hk-grid-conditional-card', item: it, ctx: ctx || {}, force: it._conditionPreview };
     if (paged(it)) return { type: 'custom:hk-pager-card', item: it, ctx: ctx || {} };
     return c.card(it.size, it.opts || {}, ctx || {});
   }
@@ -180,9 +184,30 @@
     return (t && t.room) || null;
   }
 
-  var CONDITIONS = ['music_playing', 'timer_running', 'alarm_armed', 'doorbell', 'after_sunset', 'entity_state'];
-  function matches(when, states, ringing, alarm) {
+  var CONDITIONS = ['music_playing', 'timer_running', 'alarm_armed', 'alarm_disarmed', 'doorbell', 'after_sunset', 'entity_state', 'time'];
+  function hhmm(t) { var m = /^(\d{2}):(\d{2})$/.exec(String(t || '')); return m ? (+m[1]) * 60 + (+m[2]) : null; }
+  // the time of day in the house's zone, in minutes
+  function houseNow(date) {
+    var d = date || new Date();
+    try {
+      var L = window.hkLocale, z = L && L.zone ? L.zone() : null;
+      var s = d.toLocaleTimeString('en-GB', Object.assign({ hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }, z ? { timeZone: z } : {}));
+      var m = hhmm(s.slice(0, 5));
+      if (m !== null) return m;
+    } catch (e) { /* no Intl */ }
+    return d.getHours() * 60 + d.getMinutes();
+  }
+  // ONE CONDITION, or a rule's {all: [...]} (each must hold). `now`: minutes
+  // into the house's day (a test's), else the clock's
+  function matches(when, states, ringing, alarm, now) {
+    if (when && Array.isArray(when.all)) return when.all.length > 0 && when.all.every(function (c) { return matches(c, states, ringing, alarm, now); });
     var c = when || {}, st = states || {}, ids = c.entity ? [c.entity] : Object.keys(st);
+    if (c.kind === 'time') {
+      var a = hhmm(c.from), b = hhmm(c.to), t = now == null ? houseNow() : now;
+      if (a === null || b === null || a === b) return false;
+      return a < b ? t >= a && t < b : t >= a || t < b;
+    }
+    if (c.kind === 'alarm_disarmed') return (c.entity ? ids : alarm ? [alarm] : ids).some(function (id) { return id.split('.')[0] === 'alarm_control_panel' && st[id] && st[id].state === 'disarmed'; });
     var any = function (domain, test) { return ids.some(function (id) { return id.split('.')[0] === domain && st[id] && test(st[id].state); }); };
     if (c.kind === 'entity_state') return !!st[c.entity] && st[c.entity].state === c.state;
     if (c.kind === 'music_playing') return any('media_player', function (s) { return s === 'playing'; });
@@ -190,8 +215,30 @@
       !c.entity && !!st['sensor.running_quick_timers'] && Number(st['sensor.running_quick_timers'].state) > 0;
     if (c.kind === 'alarm_armed') return (c.entity ? ids : alarm ? [alarm] : ids).some(function (id) { return id.split('.')[0] === 'alarm_control_panel' && st[id] && /^(armed_|arming|pending|triggered)/.test(st[id].state); });
     if (c.kind === 'after_sunset') return any('sun', function (s) { return s === 'below_horizon'; });
-    if (c.kind === 'doorbell') return !!ringing || !!c.entity && !!st[c.entity] && st[c.entity].state === 'on';
+    if (c.kind === 'doorbell') {
+      // a ring (hk-house-event) counts when it was at this camera, or the condition names none
+      var rang = ringing && (ringing === true || !c.entity || c.entity.indexOf('camera.') !== 0 || ringing === c.entity);
+      return !!rang || !!c.entity && !!st[c.entity] && st[c.entity].state === 'on';
+    }
     return false;
+  }
+
+  // A BLOCK'S DEFAULT AND ITS RULES, however it was saved: its own card and
+  // `rules` (first match wins), or the older `when` + `fallback` read the same
+  // way -- the fallback the default, the block's own card its one rule
+  function rulesOf(item) {
+    var it = item || {}, own = {};
+    Object.keys(it).forEach(function (k) { if (['when', 'fallback', 'rules', '_conditionPreview'].indexOf(k) < 0) own[k] = it[k]; });
+    if (it.rules && it.rules.length) return { base: own, rules: it.rules };
+    if (it.when && it.fallback) return { base: Object.assign({ id: it.id, size: it.size, at: it.at }, it.fallback),
+                                          rules: [{ when: it.when, card: it.card, opts: it.opts, pages: it.pages }] };
+    return { base: own, rules: [] };
+  }
+  // which shows now: -1 the default, else the first rule that holds
+  function choose(item, states, ringing, alarm, now) {
+    var r = rulesOf(item).rules;
+    for (var i = 0; i < r.length; i++) if (matches(r[i].when, states, ringing, alarm, now)) return i;
+    return -1;
   }
 
   // the catalog as data, for the parity test and the editor (G5)
@@ -206,6 +253,6 @@
 
   window.hkGridCatalog = { version: '1.0.0', SIZES: SIZES, SOURCES: SOURCES, TABLET_ROOM: TABLET_ROOM,
                            PAGES_MAX: PAGES_MAX, PER_PAGE: PER_PAGE,
-                           CONDITIONS: CONDITIONS, matches: matches, config: config, pages: pages, tabletRoom: tabletRoom, table: table };
+                           CONDITIONS: CONDITIONS, matches: matches, rulesOf: rulesOf, choose: choose, houseNow: houseNow, config: config, pages: pages, tabletRoom: tabletRoom, table: table };
   try { window.dispatchEvent(new CustomEvent('hk-grid-catalog-ready')); } catch (e) { /* a test page without events */ }
 })();

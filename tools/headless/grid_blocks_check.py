@@ -1,0 +1,99 @@
+"""Home Grid's full-control blocks, rules and following cameras (2026-10-24) against the fictional home, never a
+household's: a Large Security block is the alarm keypad with its keys inside the block, a Large Vacuum block its
+controls over Clean Areas, a block's rules switch its card in place (music playing; a time window and the alarm
+armed), and a cameras block follows motion in its cameras' rooms.
+
+    python tools/headless/grid_blocks_check.py [--shots DIRECTORY]
+"""
+import argparse
+import asyncio
+import sys
+import tempfile
+from pathlib import Path
+ROOT = Path(__file__).resolve().parents[2]
+sys.path[:0] = [str(ROOT / p) for p in ('tools/headless', 'tools', 'hosts/server', 'tests')]
+import gallery
+from cdp import Browser
+from aiohttp.test_utils import TestServer
+
+parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument('--shots', type=Path)
+args = parser.parse_args()
+
+DEEP = "window.deep=(r,s)=>[...r.querySelectorAll('*')].flatMap(e=>[...(e.matches(s)?[e]:[]),...(e.shadowRoot?deep(e.shadowRoot,s):[])]);" \
+       "window.cell=(id)=>deep(document,'.cell[data-id=\"'+id+'\"]')[0];"
+RULES = [{'when': {'all': [{'kind': 'music_playing'}]}, 'card': 'now_playing'},
+         {'when': {'all': [{'kind': 'time', 'from': '00:00', 'to': '23:59'}, {'kind': 'alarm_armed'}]}, 'card': 'security'}]
+GRID = {'v': 1, 'cols': 6, 'rows': 4, 'frame': [1280, 800], 'band': True, 'items': [
+    {'id': 'keypad', 'card': 'security', 'size': 'L', 'at': [0, 0]},
+    {'id': 'vac', 'card': 'vacuum', 'size': 'L', 'at': [2, 0], 'opts': {'entity': 'vacuum.robot'}},
+    {'id': 'cams', 'card': 'camera', 'size': 'L', 'at': [4, 0], 'opts': {'follow': 'motion'}, 'pages': {'source': 'cameras'}},
+    {'id': 'ruled', 'card': 'weather', 'size': 'L', 'at': [0, 2], 'rules': RULES}]}
+
+
+async def main():
+    gallery.HOUSE['vacuum.robot'] = (None, ('docked', {'friendly_name': 'Robot', 'battery_level': 90, 'supported_features': 16383}))
+    gallery.HOUSE['binary_sensor.yard_motion'] = ('backyard', ('off', {'friendly_name': 'Yard Motion', 'device_class': 'motion'}))
+    gallery.HOUSE['media_player.living_room'] = ('living_room', ('paused', dict(gallery.HOUSE['media_player.living_room'][1][1])))
+    gallery.HOUSE['media_player.kitchen'] = ('kitchen', ('idle', dict(gallery.HOUSE['media_player.kitchen'][1][1])))
+    gallery.SETTINGS['settings']['added'] = ['clean_areas']
+    gallery.SETTINGS['boards']['blocks'] = {'home_style': 'grid', 'home_grid': GRID, 'menu_custom': True, 'menu': 'tabbar'}
+    with tempfile.TemporaryDirectory() as td:
+        app, cookie = await gallery.build(Path(td))
+
+        def state(entity, value, attrs=None):
+            cur = app['hub'].store.states.get(entity) or {}
+            touched = app['hub'].store.apply_event({'a': {entity: {'s': value, 'lc': gallery.NOW, 'lu': gallery.NOW,
+                                                                   'a': attrs if attrs is not None else cur.get('a', {})}}})
+            app['hub'].on_change(touched)
+        async with TestServer(app) as server, Browser(1280, 800, port=9404) as b:
+            origin = str(server.make_url('')).rstrip('/')
+            await b.restrict_origin(origin)
+            await b.open(origin + '/blocks/home', cookie)
+            assert await b.wait('window.__mantelReady===true', 30)
+            await b.eval(DEEP)
+            assert await b.wait("!!cell('keypad') && !!cell('ruled')", 20)
+            await asyncio.sleep(1.5)
+            # the keypad: side by side, every key inside the block, at least 44 px tall
+            assert await b.wait("deep(cell('keypad'),'hk-alarm-keypad-card').length===1", 10)
+            keys = await b.eval("""(()=>{let c=cell('keypad').getBoundingClientRect(),kp=deep(cell('keypad'),'hk-alarm-keypad-card')[0],
+              ks=[...kp.shadowRoot.querySelectorAll('.k,.a')].map(k=>k.getBoundingClientRect());
+              return {side:!!kp.shadowRoot.querySelector('.side'),n:ks.length,inside:ks.every(r=>r.bottom<=c.bottom+1&&r.right<=c.right+1&&r.top>=c.top-1),
+                      tall:Math.min(...ks.map(r=>r.height))}})()""")
+            # the ways to arm stack in the keypad's right column, each a real button
+            acts = await b.eval("(()=>{let kp=deep(cell('keypad'),'hk-alarm-keypad-card')[0];return [...kp.shadowRoot.querySelectorAll('.acts .a')].map(a=>Math.round(a.getBoundingClientRect().width))})()")
+            assert len(acts) >= 2 and min(acts) >= 100, acts
+            assert not await b.eval("deep(cell('keypad'),'hk-alarm-keypad-card')[0].shadowRoot.textContent.includes('Unavailable')"), 'the home\'s alarm'
+            assert keys['side'] and keys['n'] >= 12 and keys['inside'] and keys['tall'] >= 40, keys
+            # the vacuum: its card fills the block without Clean Areas, and sits over them with
+            assert await b.eval("deep(cell('vac'),'hk-vacuum-card').length===1 && deep(cell('vac'),'hk-area-select-card').length===0")
+            await b.eval("(()=>{let g=hkSettings.get.bind(hkSettings);hkSettings.get=(k,d)=>k==='added'?['clean_areas']:g(k,d);deep(cell('vac'),'hk-grid-vacuum-card')[0].redraw()})()")
+            assert await b.wait("deep(cell('vac'),'hk-vacuum-card').length===1 && deep(cell('vac'),'hk-area-select-card').length===1", 10)
+            # rules: nothing holds -> the default; music -> Now Playing; the alarm armed in the window -> the keypad
+            kind = "(()=>{let c=deep(cell('ruled'),'hk-grid-conditional-card')[0];return c&&c._child&&c._child.localName})()"
+            assert await b.wait(kind + "==='hk-weather-band-card'", 10), await b.eval(kind)
+            before = await b.eval("(()=>{let r=cell('ruled').getBoundingClientRect();return [r.x,r.y,r.width,r.height]})()")
+            state('media_player.living_room', 'playing')
+            assert await b.wait(kind + "==='hk-now-playing-card'", 10), await b.eval(kind)
+            state('media_player.living_room', 'paused')
+            state('alarm_control_panel.home', 'armed_away')
+            assert await b.wait(kind + "==='hk-grid-keypad-card'", 10), await b.eval(kind)
+            state('media_player.living_room', 'playing')
+            assert await b.wait(kind + "==='hk-now-playing-card'", 10), 'the first rule that holds wins'
+            assert before == await b.eval("(()=>{let r=cell('ruled').getBoundingClientRect();return [r.x,r.y,r.width,r.height]})()")
+            # a cameras block that follows motion: the porch's camera, then the yard's
+            pager = "cell('cams').querySelector('hk-pager-card')"
+            page = "(()=>{let p=" + pager + ";return p._pages[p._index].entity})()"
+            state('binary_sensor.porch_motion', 'on')
+            assert await b.wait(page + "==='camera.front_door'", 10), await b.eval(page)
+            state('binary_sensor.porch_motion', 'off')
+            state('binary_sensor.yard_motion', 'on')
+            assert await b.wait(page + "==='camera.backyard'", 10), await b.eval(page)
+            if args.shots:
+                args.shots.mkdir(parents=True, exist_ok=True)
+                await b.screenshot(args.shots / 'blocks.png')
+            exceptions = [line for line in b.console if line.startswith('EXCEPTION:')]
+            assert not exceptions, exceptions
+            print('PASS: keypad and vacuum blocks, rules switching in place, cameras following motion')
+
+asyncio.run(main())

@@ -1580,15 +1580,22 @@
     customElements.define('hk-grid-view', HkGridView);
   }
 
-  // A conditional block owns ONE mounted child. Switching never changes its cell.
+  // A BLOCK WITH RULES (2026-10-24; hk-grid-catalog.js rulesOf): its own card
+  // by default, and the card of the first rule whose conditions all hold --
+  // music playing, a time window and the alarm still armed, a doorbell ...
+  // It owns ONE mounted child; switching never changes its cell. A rule with
+  // a time window looks again every half minute; a doorbell ring counts for
+  // a minute. `force` (the editor's Preview): -1 the default, else a rule.
   class HkGridConditionalCard extends HkBase {
     static get CSS() { return ':host{display:block;height:100%}.variant,.variant>*{display:block;height:100%;width:100%}'; }
     static get observedAttributes() { return ['size']; }
     attributeChangedCallback() { if (this._child) this._child.setAttribute('size', this.getAttribute('size')); }
+    _rules() { return window.hkGridCatalog.rulesOf((this._config || {}).item); }
     _shown() {
-      var cfg = this._config || {};
-      if (typeof cfg.force === 'boolean') return cfg.force;
-      return window.hkGridCatalog.matches((cfg.item || {}).when, this.client && this.client.states, this._ringing,
+      var cfg = this._config || {}, G = window.hkGridCatalog;
+      if (typeof cfg.force === 'number') return cfg.force;
+      if (typeof cfg.force === 'boolean') return cfg.force ? 0 : -1;        // (an older preview's)
+      return G.choose(cfg.item, this.client && this.client.states, this._ringing || false,
         window.hkSettings && window.hkSettings.get('security.alarm', null));
     }
     _sigOf() { return JSON.stringify([this._shown(), this._config]); }
@@ -1597,31 +1604,47 @@
       if (this._child) window.hkHostClient.bridge(this._child, this.client);
     }
     _render() {
-      var cfg = this._config, primary = this._shown(), item = cfg.item;
-      // the same card while neither the condition nor the saved block changed
-      var key = JSON.stringify([primary, item, cfg.ctx]);
+      var cfg = this._config, shown = this._shown(), r = this._rules(), item = cfg.item;
+      // the same card while neither the choice nor the saved block changed
+      var key = JSON.stringify([shown, item, cfg.ctx]);
       if (this._child && this._childKey === key) return;
       this._childKey = key;
-      var chosen = primary ? Object.assign({}, item) : Object.assign({ size: item.size }, item.fallback);
-      delete chosen.when; delete chosen.fallback;
+      var chosen = shown >= 0 && r.rules[shown] ? Object.assign({ size: item.size }, r.rules[shown]) : Object.assign({}, r.base);
+      delete chosen.when;
       var child = C.createCard(window.hkGridCatalog.config(chosen, cfg.ctx), this.client);
       child.setAttribute('size', this.getAttribute('size') || item.size);
       if (this.hasAttribute('data-grid-pager')) child.setAttribute('data-grid-pager', '');
       var box = document.createElement('div'); box.className = 'variant'; box.appendChild(child);
       this._root.replaceChildren(box); this._child = child;
     }
+    // every condition of every rule, flat
+    _conds() {
+      var out = [];
+      this._rules().rules.forEach(function (r) { var w = r.when || {}; (Array.isArray(w.all) ? w.all : [w]).forEach(function (c) { out.push(c); }); });
+      return out;
+    }
     connectedCallback() {
       super.connectedCallback();
+      var self = this;
       if (!this._onRing) this._onRing = (e) => {
-        var event = e && e.detail, when = (this._config.item || {}).when || {};
-        if (when.kind !== 'doorbell' || !event || event.type !== 'notification' || event.kind !== 'doorbell') return;
-        if (when.entity && when.entity.indexOf('camera.') === 0 && event.camera !== when.entity) return;
-        this._ringing = true; this.redraw(); clearTimeout(this._ringTimer);
+        var event = e && e.detail;
+        if (!event || event.type !== 'notification' || event.kind !== 'doorbell') return;
+        if (!this._conds().some(function (c) { return c.kind === 'doorbell'; })) return;
+        this._ringing = event.camera || true; this.redraw(); clearTimeout(this._ringTimer);
         this._ringTimer = setTimeout(() => { this._ringing = false; this.redraw(); }, 60000);
       };
       window.addEventListener('hk-house-event', this._onRing);
+      // the clock moves on: a time window looks again every half minute
+      clearInterval(this._tick);
+      if (this._conds().some(function (c) { return c.kind === 'time'; })) {
+        this._tick = setInterval(function () { if (self._shown() !== self._lastShown) { self._lastShown = self._shown(); self.redraw(); } }, 30000);
+      }
+      this._lastShown = this._config ? this._shown() : null;
     }
-    disconnectedCallback() { window.removeEventListener('hk-house-event', this._onRing); clearTimeout(this._ringTimer); this._ringing = false; super.disconnectedCallback(); }
+    disconnectedCallback() {
+      window.removeEventListener('hk-house-event', this._onRing); clearTimeout(this._ringTimer); clearInterval(this._tick);
+      this._ringing = false; super.disconnectedCallback();
+    }
   }
   customElements.define('hk-grid-conditional-card', HkGridConditionalCard);
 
@@ -1875,7 +1898,8 @@
   var PAGER_SLOP = 8;           // px a finger moves before it is a drag (and which way)
   var PAGER_TURN = 0.2;         // of a page's width: a drag that far turns it
   var PAGER_FLICK = 0.3;        // px/ms: a flick that fast turns it, however short
-  var PAGER_STILL = 180;        // ms without a scroll: the track has come to rest
+  var PAGER_STILL = 180;
+  var PAGER_HANDS_OFF = 60000;  // ms after a swipe that a following block keeps still        // ms without a scroll: the track has come to rest
   var pagerSeq = 0;
   function pagerAreaOf(client, id) {
     var e = ((client && client.entities) || {})[id] || {}, devs = (client && client.devices) || {};
@@ -1903,6 +1927,48 @@
     return i < 0 ? 0 : i;
   }
   // THE DOORBELL'S PAGE: the camera the ring names, else one called doorbell
+  // A CAMERAS BLOCK THAT FOLLOWS (2026-10-24, the owner: "like the camera
+  // strip does"; the block's `follow`): the page whose camera to show.
+  //   selector  the select / input_select the block names, else the screen's
+  //             Live Camera Follows (board camera_live), its option naming a
+  //             camera as the strip's do (hk-cameras.js _optionOf: the
+  //             camera's name, or the first words of it)
+  //   motion    the camera in the room where motion was seen: a motion,
+  //             occupancy or moving sensor on now (the latest to turn on),
+  //             else the latest to change in the last PAGER_MOTION_MS
+  // live: { states, entities, devices, board }. -1: nothing to follow.
+  var PAGER_MOTION_MS = 15 * 60000;
+  var PAGER_MOTION = { motion: 1, occupancy: 1, moving: 1, presence: 1 };
+  function pagerFollow(pages, item, live) {
+    var o = (item && item.opts) || {}, L = live || {}, st = L.states || {}, list = pages || [];
+    if (!o.follow || !(item.pages && item.pages.source === 'cameras')) return -1;
+    if (o.follow === 'selector') {
+      var sel = o.follow_select || (L.board || {}).camera_live, ss = sel && st[sel];
+      if (!ss || !ss.state) return -1;
+      var want = String(ss.state).toLowerCase();
+      for (var i = 0; i < list.length; i++) {
+        var cs = st[list[i].entity], n = String((cs && cs.attributes && cs.attributes.friendly_name) || list[i].entity || '').toLowerCase();
+        if (n === want || n.indexOf(want + ' ') === 0 || String(list[i].entity) === sel) return i;
+      }
+      return -1;
+    }
+    if (o.follow !== 'motion') return -1;
+    var rooms = {};
+    list.forEach(function (pg, k) { if (pg.area && rooms[pg.area] === undefined) rooms[pg.area] = k; });
+    var client = { entities: L.entities || {}, devices: L.devices || {} }, now = Date.now(), best = null;
+    Object.keys(st).forEach(function (id) {
+      if (id.split('.')[0] !== 'binary_sensor') return;
+      var s0 = st[id], a = s0.attributes || {}, e = (L.entities || {})[id] || {};
+      if (!PAGER_MOTION[a.device_class] || e.hidden || e.disabled_by) return;
+      var room = pagerAreaOf(client, id);
+      if (room === null || rooms[room] === undefined) return;
+      var at = Date.parse(s0.last_changed || s0.last_updated || '') || 0, on = s0.state === 'on';
+      if (!on && now - at > PAGER_MOTION_MS) return;
+      // on beats off; then the latest
+      if (!best || (on && !best.on) || (on === best.on && at > best.at)) best = { on: on, at: at, page: rooms[room] };
+    });
+    return best ? best.page : -1;
+  }
   function pagerDoorbell(pages, camera) {
     var list = pages || [], i;
     for (i = 0; camera && i < list.length; i++) if (list[i].entity === camera) return i;
@@ -2034,11 +2100,18 @@
     }
     _live() {
       var client = this.client, G = window.hkGridCatalog, HM = window.hkMusic;
+      var M = window.hkCards && window.hkCards.menu;
       return { room: G && G.tabletRoom ? G.tabletRoom(client) : null,
                states: (client && client.states) || {},
+               entities: (client && client.entities) || {}, devices: (client && client.devices) || {},
+               board: (M && M.board ? M.board() : null) || {},
                home: HM && HM.home ? HM.home() : null };
     }
-    _startIndex() { return pagerStart(this._pages || [], (this._config || {}).item, this._live()); }
+    // a following block starts (and comes back) on the camera it follows
+    _startIndex() {
+      var item = (this._config || {}).item, live = this._live(), f = pagerFollow(this._pages || [], item, live);
+      return f >= 0 ? f : pagerStart(this._pages || [], item, live);
+    }
 
     _render() {
       var pages = this._pageList(), sig = this._pageSig(pages);
@@ -2070,7 +2143,7 @@
         if (!cur || !cur.getBoundingClientRect) return;
         var r = cur.getBoundingClientRect(), to = self._index + (e.clientX < r.left + r.width / 2 ? -1 : 1);
         if (to < 0 || to >= n) return;
-        self._moved = true;
+        self._moved = true; self._touchedAt = Date.now();
         self.goTo(to, true);
       });
       var say = document.createElement('div');
@@ -2094,7 +2167,7 @@
         b.appendChild(document.createElement('i'));
         b.addEventListener('click', function (e) {
           if (e && e.stopPropagation) e.stopPropagation();
-          self._moved = true;
+          self._moved = true; self._touchedAt = Date.now();
           self.goTo(i, true);
         });
         pc.appendChild(b);
@@ -2136,7 +2209,7 @@
           if ((ox === 'auto' || ox === 'scroll') && el.scrollWidth > el.clientWidth + 1) return;
         }
         e.preventDefault();
-        self._moved = true;
+        self._moved = true; self._touchedAt = Date.now();
         // One page per wheel gesture, including its momentum tail.
         var now = Date.now();
         if (!self._wheelAt || now - self._wheelAt > 180) { self._wheelSum = 0; self._wheelTurn = false; }
@@ -2152,7 +2225,7 @@
       pager.addEventListener('pointerdown', function (e) {
         self._eatClick = false;
         if (e.pointerType === 'mouse' && e.button !== 0) return;
-        self._moved = true;               // touched: the start page stops following the house
+        self._moved = true; self._touchedAt = Date.now();               // touched: the start page stops following the house
         if ((self._pages || []).length < 2) return;
         var path = e.composedPath ? e.composedPath() : [e.target];
         if (!pagerClaims(path, e.clientX, pager)) return;
@@ -2320,6 +2393,13 @@
         var s = this._startIndex();
         if (s !== this._index) this.goTo(s, false);
       }
+      // A FOLLOWING BLOCK turns to the camera it follows when that changes --
+      // unless someone swiped it in the last PAGER_HANDS_OFF ms
+      var f = this._built ? pagerFollow(this._pages || [], (this._config || {}).item, this._live()) : -1;
+      if (f >= 0 && f !== this._followed) {
+        this._followed = f;
+        if (f !== this._index && !(Date.now() - (this._touchedAt || 0) < PAGER_HANDS_OFF)) this.goTo(f, true);
+      }
     }
 
     connectedCallback() {
@@ -2367,7 +2447,7 @@
   window.hkLayout = { version: '1.0.0', pageHeaderMode: pageHeaderMode,
                       gutter: function (el) { return HkGridView.gutter(el); },
                       // the pager's decisions, for its tests
-                      pager: { start: pagerStart, doorbell: pagerDoorbell, claims: pagerClaims,
+                      pager: { start: pagerStart, doorbell: pagerDoorbell, follow: pagerFollow, claims: pagerClaims,
                                control: pagerControl, EDGE: PAGER_EDGE } };
   });
 })();

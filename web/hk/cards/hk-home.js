@@ -327,6 +327,10 @@
         // a phone: stacked under the vacuum cards, which sit one grid deeper,
         // the plate steps in 4 px a side to share their edges
         '@media (max-width:' + window.hkCards.BP.phone + 'px){.plate{padding:16px;margin:0 4px}}',
+        // in a Home Grid block (data-fill): the plate is the block's lower part, and its rooms scroll inside it
+        ':host([data-fill]){display:block;height:100%}',
+        ':host([data-fill]) .plate{height:100%;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:none}',
+        ':host([data-fill]) .plate::-webkit-scrollbar{display:none}',
         '.pill:focus-visible{outline:2px solid ' + window.hkCards.v('ink-2') + ';outline-offset:2px}'
       ].join('');
     }

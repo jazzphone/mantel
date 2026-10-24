@@ -1025,7 +1025,13 @@
       if (!root || !root.querySelector || root.querySelector('style#hk-bar-room')) return;
       var st = document.createElement('style');
       st.id = 'hk-bar-room';
-      st.textContent = '#view[hk-bar-room]>' + SH.tags.view + '{min-height:calc(100vh - var(--hk-bar-room,0px))!important}';
+      // 100dvh, the window as it shows now: on an iPad in Safari 100vh is the
+      // window with its toolbars hidden, so a Home Grid that fits the window
+      // (100dvh) still scrolled by the toolbars' height (2026-10-24)
+      st.textContent = '#view[hk-bar-room]>' + SH.tags.view + '{min-height:calc(100vh - var(--hk-bar-room,0px))!important;' +
+        'min-height:calc(100dvh - var(--hk-bar-room,0px))!important}' +
+        // (and Home Assistant's own #view, min-height:100vh, the same way)
+        '#view[hk-bar-room]{min-height:100vh;min-height:100dvh}';
       // (a view in the document itself -- a host with no shadow roots: the head)
       (root.appendChild && root !== document ? root : document.head).appendChild(st);
     }

@@ -48,14 +48,18 @@ CATALOG: dict[str, dict[str, Any]] = {
     "scenes": {"sizes": ("W", "L", "XL", "XXL"), "sources": ("scenes",), "opts": {"scenes": "scenes", "surface": "surface"}},
     "now_playing": {"sizes": ("W", "T", "L"), "sources": ("speakers",), "opts": {"speaker": "speaker"}},
     "thermostat": {"sizes": ("T", "L"), "sources": ("thermostats",), "opts": {"entity": "climate"}},
-    "camera": {"sizes": ("W", "L", "XL"), "sources": ("cameras",), "opts": {"entity": "camera"}},
-    "security": {"sizes": ("S", "W"), "sources": (), "opts": {}},
+    "camera": {"sizes": ("W", "L", "XL"), "sources": ("cameras",),
+               # follow (2026-10-24): swiping all cameras, turn to the one a selector or the latest motion picks
+               "opts": {"entity": "camera", "follow": "camera_follow", "follow_select": "select"}},
+    # Large and Extra Large (2026-10-24): the alarm's keypad
+    "security": {"sizes": ("S", "W", "L", "XL"), "sources": (), "opts": {"entity": "alarm"}},
     "timers": {"sizes": ("S", "W"), "sources": (), "opts": {}},
     "weather": {"sizes": ("W", "L", "XL"), "sources": (), "opts": {"entity": "weather", "sky": "boolean"}},
     "calendar": {"sizes": ("T", "L"), "sources": (), "opts": {"calendars": "calendars"}},
     "battery": {"sizes": ("S", "W"), "sources": (), "opts": {}},
     "people": {"sizes": ("W",), "sources": (), "opts": {}},
-    "vacuum": {"sizes": ("S", "W"), "sources": (), "opts": {"entity": "vacuum"}},
+    # Large and Extra Large (2026-10-24): its controls with Clean Areas
+    "vacuum": {"sizes": ("S", "W", "L", "XL"), "sources": (), "opts": {"entity": "vacuum"}},
     "clock": {"sizes": ("W", "XL"), "sources": (), "opts": {}},
     # the new cards (G3)
     "room": {"sizes": ("W", "L", "XL", "XXL"), "sources": ("rooms",), "opts": {"area": "area", "surface": "surface", "accessory_display": "room_display"}},
@@ -204,6 +208,12 @@ def _accessories(v: Any) -> list[dict[str, Any]]:
     return out
 
 
+def _camera_follow(v: Any) -> str:
+    if v not in ("selector", "motion"):
+        raise GridInvalid("grid_option")
+    return v
+
+
 def _room_display(v: Any) -> str:
     if v not in ("summary", "scroll"):
         raise GridInvalid("grid_option")
@@ -212,6 +222,8 @@ def _room_display(v: Any) -> str:
 
 OPTION_KINDS = {
     "room_display": _room_display,
+    "camera_follow": _camera_follow,
+    "select": _domain("input_select", "select"),
     "boolean": _boolean,
     "title": _title,
     "secondary": _secondary,
@@ -221,6 +233,7 @@ OPTION_KINDS = {
     "scenes": _list(_domain("scene")),
     "speaker": _domain("media_player", room=True),
     "climate": _domain("climate", room=True),
+    "alarm": _domain("alarm_control_panel"),
     "camera": _domain("camera"),
     "weather": _domain("weather"),
     "vacuum": _domain("vacuum"),
@@ -275,15 +288,25 @@ def _pages(card: str, v: Any) -> dict[str, Any]:
 
 
 # The frontend mirrors these named, bounded conditions; no templates or executable expressions.
-CONDITIONS = ("music_playing", "timer_running", "alarm_armed", "doorbell", "after_sunset", "entity_state")
+# "time" (2026-10-24): from "HH:MM" until "HH:MM" in the house's zone, past midnight too; "alarm_disarmed": the
+# alarm (the condition's, else the house's) is disarmed.
+CONDITIONS = ("music_playing", "timer_running", "alarm_armed", "alarm_disarmed", "doorbell", "after_sunset",
+              "entity_state", "time")
+# A BLOCK'S RULES (2026-10-24, the owner: "a default card, and certain cards in the same slot when a condition is
+# met"): the block's own card by default, and up to RULES_MAX rules, each its card when ALL of its conditions (up to
+# ALL_MAX) hold -- the first rule that matches wins. A block's older `when` + `fallback` still reads.
+RULES_MAX = 4
+ALL_MAX = 3
 
 
 def condition(v: Any) -> dict[str, str]:
-    if not isinstance(v, dict) or set(v) - {"kind", "entity", "state"} or v.get("kind") not in CONDITIONS:
+    if not isinstance(v, dict) or set(v) - {"kind", "entity", "state", "from", "to"} or v.get("kind") not in CONDITIONS:
         raise GridInvalid("grid_condition")
     kind = v["kind"]
     out = {"kind": kind}
     if "entity" in v:
+        if kind == "time":
+            raise GridInvalid("grid_condition")
         out["entity"] = _domain()(v["entity"])
     if kind == "entity_state":
         if "entity" not in out or not isinstance(v.get("state"), str) or not 0 < len(v["state"]) <= 80:
@@ -291,6 +314,35 @@ def condition(v: Any) -> dict[str, str]:
         out["state"] = v["state"]
     elif "state" in v:
         raise GridInvalid("grid_condition")
+    if kind == "time":
+        start, end = v.get("from"), v.get("to")
+        if not (isinstance(start, str) and CLOCK.match(start) and isinstance(end, str) and CLOCK.match(end)) or start == end:
+            raise GridInvalid("grid_condition")
+        out["from"], out["to"] = start, end
+    elif "from" in v or "to" in v:
+        raise GridInvalid("grid_condition")
+    return out
+
+
+def conditions(v: Any) -> dict[str, list[dict[str, str]]]:
+    """A rule's conditions, all of which must hold: {"all": [condition, ...]} (a single condition reads as one)."""
+    if isinstance(v, dict) and "all" in v:
+        if set(v) != {"all"} or not isinstance(v["all"], list) or not 0 < len(v["all"]) <= ALL_MAX:
+            raise GridInvalid("grid_condition")
+        return {"all": [condition(c) for c in v["all"]]}
+    return {"all": [condition(v)]}
+
+
+def rules(v: Any, size: str) -> list[dict[str, Any]]:
+    """A block's rules: each {when, card, opts?, pages?}, its card coming in the block's size."""
+    if not isinstance(v, list) or not 0 < len(v) <= RULES_MAX:
+        raise GridInvalid("grid_condition")
+    out = []
+    for r in v:
+        if not isinstance(r, dict) or "when" not in r:
+            raise GridInvalid("grid_condition")
+        got = variant({k: x for k, x in r.items() if k != "when"}, size)
+        out.append({"when": conditions(r["when"]), **got})
     return out
 
 
@@ -325,7 +377,7 @@ def variant(v: Any, size: str) -> dict[str, Any]:
 
 def item(v: Any, cols: int, rows: int) -> dict[str, Any]:
     """One block, checked against a grid of `cols` x `rows` (its place, not its neighbours)."""
-    if not isinstance(v, dict) or set(v) - {"id", "card", "size", "at", "opts", "pages", "when", "fallback"}:
+    if not isinstance(v, dict) or set(v) - {"id", "card", "size", "at", "opts", "pages", "when", "fallback", "rules"}:
         raise GridInvalid("grid_item")
     if not isinstance(v.get("id"), str) or not ITEM_ID.match(v["id"]):
         raise GridInvalid("grid_item")
@@ -355,6 +407,10 @@ def item(v: Any, cols: int, rows: int) -> dict[str, Any]:
         out["fallback"] = variant(v.get("fallback"), size)
     elif "fallback" in v:
         raise GridInvalid("grid_condition")
+    if v.get("rules") is not None:
+        if "when" in out:                         # one way or the other, never both
+            raise GridInvalid("grid_condition")
+        out["rules"] = rules(v["rules"], size)
     _capacity(out, size)
     return out
 

@@ -210,18 +210,27 @@ async def main():
             await b.send('Emulation.setDeviceMetricsOverride', width=1600, height=1000, deviceScaleFactor=1, mobile=False)
             await b.wait('ed.box.getBoundingClientRect().width>500',5)
             print('picker and settings scroll independently; preview stays visible at both desktop sizes',flush=True)
-            # Both states of a conditional block stay in exactly the same cell.
-            await b.eval("ed.select('a3'); ed.update('a3',{when:{kind:'music_playing'},fallback:{card:'weather'}}); ed.conditionPreview=false; ed.preview();void 0")
-            assert await b.wait("ed.previewView?.querySelectorAll && ed.previewView._config.cards.some(c=>c.force===false)",10)
+            # Rules: the default and each rule's card fill exactly the same cell, and the panel builds them.
+            await b.eval("ed.select('a3'); ed.update('a3',{rules:[{when:{all:[{kind:'music_playing'}]},card:'weather'}]}); ed.conditionPreview=0; ed.preview();void 0")
+            assert await b.wait("ed.previewView?.querySelectorAll && ed.previewView._config.cards.some(c=>c.force===0)",10)
             assert await b.wait("(()=>{let c=ed.previewView.cards.find(c=>c.localName==='hk-grid-conditional-card'); return c?._child?.localName==='hk-weather-band-card'})()",10)
             await b.eval('new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))')
             before = await b.eval("(()=>{let r=ed.overlay.querySelector('[data-id=a3]').getBoundingClientRect();return [r.x,r.y,r.width,r.height]})()")
-            await b.eval("ed.conditionPreview=true; ed.preview();void 0")
+            await b.eval("ed.conditionPreview=-1; ed.preview();void 0")
             assert await b.wait("(()=>{let c=ed.previewView.cards.find(c=>c.localName==='hk-grid-conditional-card'); return c?._child?.localName==='hk-now-playing-card'})()",10)
             await b.eval('new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))')
             after = await b.eval("(()=>{let r=ed.overlay.querySelector('[data-id=a3]').getBoundingClientRect();return [r.x,r.y,r.width,r.height]})()")
             assert all(abs(a-z) < 1 for a, z in zip(before, after)), (before, after)
-            await b.eval("ed.conditionPreview=null; ed.update('a3',{when:null,fallback:null}); ed.catalog=false; ed.side()")
+            # the panel: And Also adds a condition, a time window's From, Add Rule, Remove Rule
+            await b.eval("ed.conditionPreview=null; ed.side()")
+            assert await b.eval("ed.sidebar.textContent.includes('Rule 1 · Weather') && ed.sidebar.textContent.includes('Then Show: Weather')")
+            await b.eval("(()=>{let s=[...ed.sidebar.querySelectorAll('.cell')].find(e=>e.querySelector('.t')?.textContent==='And Also').querySelector('select');s.value='time';s.dispatchEvent(new Event('change'))})()")
+            assert await b.eval("JSON.stringify(ed.grid.items.find(i=>i.id==='a3').rules[0].when.all)===JSON.stringify([{kind:'music_playing'},{kind:'time',from:'06:00',to:'09:00'}])")
+            await b.eval("[...ed.sidebar.querySelectorAll('button')].find(b=>b.textContent==='Add Rule').click()")
+            assert await b.eval("ed.grid.items.find(i=>i.id==='a3').rules.length===2")
+            await b.eval("[...ed.sidebar.querySelectorAll('button')].filter(b=>b.textContent==='Remove Rule').pop().click()")
+            assert await b.eval("ed.grid.items.find(i=>i.id==='a3').rules.length===1")
+            print('rules: default and rule cards share one cell; conditions and rules are added and removed',flush=True)
 
             # Refusal leaves the draft intact and the editor usable.
             await b.eval("ed.originalActions=ed.panel.actions;ed.panel.actions=()=>({callWS:()=>Promise.reject(new Error('Fictional refusal'))});ed.save()")
@@ -230,6 +239,10 @@ async def main():
             # No save before Save.
             assert not app['settings'].store.body('board',SCREEN).get('home_grid')
             await b.eval("ed.grid.band=false; ed.change(ed.grid); ed.save()")
+            assert await b.wait("!ed.isConnected", 10)
+            saved_a3 = next(i for i in app['settings'].store.body('board',SCREEN)['home_grid']['items'] if i['id']=='a3')
+            assert len(saved_a3['rules']) == 1 and saved_a3['rules'][0]['card'] == 'weather', saved_a3
+            assert saved_a3['rules'][0]['when'] == {'all': [{'kind': 'music_playing'}, {'kind': 'time', 'from': '06:00', 'to': '09:00'}]}, saved_a3
 
             assert app['settings'].store.body('board',SCREEN).get('home_style')=='grid'
             print('refusal preserved draft; Save applied one layout',flush=True)

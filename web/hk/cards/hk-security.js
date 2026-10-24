@@ -117,6 +117,16 @@
         '.foot{display:flex;align-items:center;justify-content:center;gap:6px;margin-top:auto;padding-top:12px;font-size:11px;font-weight:600;color:' + v('ink-2') + '}',
         '.foot hk-icon{--mdc-icon-size:13px;width:13px;height:13px;display:flex;color:' + P.green + '}',
         '.foot.open hk-icon{color:' + v('warn') + '}',
+        // SIDE BY SIDE (`layout: 'side'`, a Home Grid's Large Security block,
+        // 2026-10-24): the keys on the left, the field and the ways to arm
+        // stacked on the right, so the keys keep their height in a 310 px
+        // block (--hk-kp-key, set by the block)
+        '.side{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);grid-template-rows:auto minmax(0,1fr);column-gap:12px;height:100%}',
+        '.side .read{grid-column:2;grid-row:1;margin:0;height:auto;min-height:var(--hk-kp-key,48px);padding:0 10px}',
+        '.side .read .code{letter-spacing:5px}.side .read .st span{font-size:15px}',
+        '.side .pad{grid-column:1;grid-row:1 / span 2;align-content:space-between}',
+        '.side .acts{grid-column:2;grid-row:2;grid-template-columns:minmax(0,1fr);align-content:end;gap:8px;margin:0}',
+        '.side.tap .acts{grid-column:1 / span 2;grid-row:1 / span 2;grid-template-columns:repeat(2,minmax(0,1fr));align-content:center}',
         '@media (prefers-reduced-motion: reduce){.k,.k:active,.a,.a:active{transition:none;transform:none}}'
       ].join('');
     }
@@ -338,6 +348,10 @@
         });
         host.appendChild(hd);
         this._root.appendChild(host);
+      } else if (c.layout === 'side') {
+        host = document.createElement('div');
+        host.className = 'side' + (codeless ? ' tap' : '');
+        this._root.appendChild(host);
       }
 
       var read = document.createElement('div');
@@ -397,7 +411,8 @@
       if (modes.indexOf('home') >= 0) acts.appendChild(self._key('a home', 'Home', function () { self._alarm('alarm_arm_home'); }, 'hk:shield-home'));
       if (modes.indexOf('away') >= 0) acts.appendChild(self._key('a away', 'Away', function () { self._alarm('alarm_arm_away'); }, 'hk:shield-lock'));
       acts.appendChild(self._key('a off', 'Disarm', function () { self._alarm('alarm_disarm'); }, 'hk:shield-off'));
-      acts.style.gridTemplateColumns = 'repeat(' + acts.children.length + ',minmax(0,1fr))';
+      // (side by side, the ways to arm stack in their column: .side .acts)
+      if (c.layout !== 'side') acts.style.gridTemplateColumns = 'repeat(' + acts.children.length + ',minmax(0,1fr))';
       host.appendChild(acts);
       foot();
 

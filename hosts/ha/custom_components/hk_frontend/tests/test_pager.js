@@ -124,6 +124,33 @@ ok('the pager\'s own pan-y parts (a page, the dots) are no control', P.claims([l
    !P.claims([label, dial, part, track], 300, track));
 
 // ---- the element
+print('\n=== a cameras block that follows ===');
+var camPages = [{ entity: 'camera.front_door', area: 'porch' }, { entity: 'camera.yard', area: 'backyard' }, { entity: 'camera.garage', area: 'garage' }];
+var ago = function (min) { return new Date(Date.now() - min * 60000).toISOString(); };
+var motionItem = { pages: { source: 'cameras' }, opts: { follow: 'motion' } };
+var ents = { 'binary_sensor.yard_motion': { area_id: 'backyard' }, 'binary_sensor.porch_motion': { area_id: 'porch' },
+             'binary_sensor.garage_door': { area_id: 'garage' }, 'binary_sensor.hidden_motion': { area_id: 'garage', hidden: true } };
+var mst = { 'binary_sensor.yard_motion': { state: 'off', last_changed: ago(2), attributes: { device_class: 'motion' } },
+            'binary_sensor.porch_motion': { state: 'on', last_changed: ago(5), attributes: { device_class: 'occupancy' } },
+            'binary_sensor.garage_door': { state: 'on', last_changed: ago(0), attributes: { device_class: 'door' } },
+            'binary_sensor.hidden_motion': { state: 'on', last_changed: ago(0), attributes: { device_class: 'motion' } } };
+ok('motion: the room where a sensor is on now wins over a later one that went off', P.follow(camPages, motionItem, { states: mst, entities: ents }) === 0);
+mst['binary_sensor.porch_motion'].state = 'off';
+ok('...with none on, the latest to change', P.follow(camPages, motionItem, { states: mst, entities: ents }) === 1);
+mst['binary_sensor.yard_motion'].last_changed = ago(30); mst['binary_sensor.porch_motion'].last_changed = ago(40);
+ok('...nothing in the last 15 minutes, and a door or a hidden sensor never counts: nothing to follow',
+   P.follow(camPages, motionItem, { states: mst, entities: ents }) === -1);
+var selItem = { pages: { source: 'cameras' }, opts: { follow: 'selector' } };
+var sst = { 'input_select.live': { state: 'Yard' }, 'camera.yard': { attributes: { friendly_name: 'Yard Camera Low resolution' } },
+            'camera.front_door': { attributes: { friendly_name: 'Front Door' } } };
+ok('selector: the screen\'s Live Camera Follows, an option naming a camera by its first words',
+   P.follow(camPages, selItem, { states: sst, board: { camera_live: 'input_select.live' } }) === 1);
+sst['input_select.mine'] = { state: 'Front Door' };
+ok('...the block\'s own selector first', P.follow(camPages, { pages: { source: 'cameras' }, opts: { follow: 'selector', follow_select: 'input_select.mine' } },
+   { states: sst, board: { camera_live: 'input_select.live' } }) === 0);
+ok('...not following, or not swiping all cameras: nothing', P.follow(camPages, { pages: { source: 'cameras' }, opts: {} }, { states: sst }) === -1 &&
+   P.follow(camPages, { opts: { follow: 'motion' } }, { states: mst, entities: ents }) === -1);
+
 print('\n=== hk-pager-card ===');
 var made = [];
 window.hkCards.createCard = function (cfg, client) { var e = document.createElement('card'); e.cfg = cfg; made.push(cfg); return e; };

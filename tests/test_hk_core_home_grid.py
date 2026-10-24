@@ -222,6 +222,8 @@ def test_conditional_block_roundtrip_with_same_sized_fallback(kind):
     when = {'kind': kind}
     if kind == 'entity_state':
         when.update(entity='media_player.den', state='playing')
+    if kind == 'time':
+        when.update({'from': '06:00', 'to': '09:00'})
     g = grid(block('music', 'now_playing', 'L', [0, 0], when=when,
                    fallback={'card': 'weather', 'opts': {'entity': 'weather.home'}}))
     assert HG.check(g) == g
@@ -254,7 +256,7 @@ function check(value, message) { if (!value) throw new Error(message); }
 var states = { 'media_player.den': {state:'playing'}, 'timer.tea': {state:'paused'},
   'alarm_control_panel.home': {state:'armed_home'}, 'sun.sun': {state:'below_horizon'} };
 for (var kind of G.CONDITIONS) {
- if (kind === 'entity_state' || kind === 'doorbell') continue;
+ if (kind === 'entity_state' || kind === 'doorbell' || kind === 'time' || kind === 'alarm_disarmed') continue;
  check(G.matches({kind:kind}, states, false), kind + ' active');
  check(!G.matches({kind:kind}, {}, false), kind + ' missing is false');
 }
@@ -266,10 +268,51 @@ check(G.matches({kind:'timer_running'}, {'sensor.running_quick_timers':{state:'1
 check(!G.matches({kind:'timer_running',entity:'timer.tea'}, {'sensor.running_quick_timers':{state:'1'}}), 'explicit timer only');
 var cfg = G.config({card:'clock',size:'W',when:{kind:'music_playing'},fallback:{card:'weather'}}, {});
 check(cfg.type === 'custom:hk-grid-conditional-card', 'conditional wraps the entire block');
+// the new conditions
+check(G.matches({kind:'alarm_disarmed'}, {'alarm_control_panel.home':{state:'disarmed'}}) && !G.matches({kind:'alarm_disarmed'}, states), 'alarm disarmed');
+check(G.matches({kind:'time',from:'06:00',to:'09:00'}, {}, false, null, 7*60) && !G.matches({kind:'time',from:'06:00',to:'09:00'}, {}, false, null, 9*60), 'a morning window');
+check(G.matches({kind:'time',from:'22:00',to:'05:00'}, {}, false, null, 1*60) && !G.matches({kind:'time',from:'22:00',to:'05:00'}, {}, false, null, 12*60), 'a window past midnight');
+check(G.matches({all:[{kind:'time',from:'06:00',to:'09:00'},{kind:'alarm_armed'}]}, states, false, null, 7*60), 'all of them');
+check(!G.matches({all:[{kind:'time',from:'06:00',to:'09:00'},{kind:'alarm_armed'}]}, states, false, null, 10*60), '...not when one fails');
+// rules: the default, then the first rule that holds
+var block = {id:'b1',card:'calendar',size:'L',at:[0,0],rules:[{when:{all:[{kind:'music_playing'}]},card:'now_playing'},
+  {when:{all:[{kind:'time',from:'06:00',to:'09:00'},{kind:'alarm_armed'}]},card:'security'}]};
+check(G.choose(block, {}, false, null, 12*60) === -1, 'nothing holds: the default');
+check(G.choose(block, {'alarm_control_panel.home':{state:'armed_home'}}, false, null, 7*60) === 1, 'the morning rule');
+check(G.choose(block, states, false, null, 7*60) === 0, 'the first rule that holds wins');
+check(G.config(block, {}).type === 'custom:hk-grid-conditional-card', 'rules wrap the block');
+var old = G.rulesOf({id:'b2',card:'clock',size:'W',at:[0,0],when:{kind:'music_playing'},fallback:{card:'weather'}});
+check(old.base.card === 'weather' && old.base.size === 'W' && old.rules.length === 1 && old.rules[0].card === 'clock', 'an older when + fallback reads as rules');
 print(JSON.stringify(G.CONDITIONS));
 ''')
     run = subprocess.run([str(JSC), str(script)], capture_output=True, text=True, check=True)
     assert json.loads(run.stdout) == list(HG.CONDITIONS)
+
+
+def test_rules_check_and_refuse():
+    rules = [{"when": {"all": [{"kind": "music_playing"}]}, "card": "now_playing"},
+             {"when": {"all": [{"kind": "time", "from": "06:00", "to": "09:00"}, {"kind": "alarm_armed"}]}, "card": "now_playing"},
+             {"when": {"kind": "after_sunset"}, "card": "weather", "opts": {"entity": "weather.home"}}]
+    g = grid(block("cal", "calendar", "L", [0, 0], rules=rules))
+    out = HG.check(g)
+    assert out["items"][0]["rules"][2]["when"] == {"all": [{"kind": "after_sunset"}]}      # one condition reads as all
+    assert M.board_stored({"home_grid": out})["home_grid"] == out
+    bad = [
+        rules * 2,                                                                         # more than four
+        [{"when": {"all": [{"kind": "music_playing"}] * 4}, "card": "now_playing"}],       # more than three conditions
+        [{"when": {"kind": "music_playing"}, "card": "clock"}],                            # a clock doesn't come in L
+        [{"when": {"kind": "time", "from": "09:00", "to": "09:00"}, "card": "now_playing"}],
+        [{"when": {"kind": "time", "from": "9:00", "to": "10:00"}, "card": "now_playing"}],
+        [{"when": {"kind": "time", "entity": "sun.sun", "from": "06:00", "to": "09:00"}, "card": "now_playing"}],
+        [{"card": "now_playing"}],                                                         # no condition
+        [],
+    ]
+    for r in bad:
+        with pytest.raises(HG.GridInvalid):
+            HG.check(grid(block("cal", "calendar", "L", [0, 0], rules=r)))
+    with pytest.raises(HG.GridInvalid):                                                   # never both ways
+        HG.check(grid(block("cal", "calendar", "L", [0, 0], rules=rules[:1], when={"kind": "music_playing"},
+                            fallback={"card": "now_playing"})))
 
 
 def test_fixed_grid_scale_and_full_width_groups():

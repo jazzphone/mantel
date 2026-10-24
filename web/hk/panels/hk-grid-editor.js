@@ -23,9 +23,9 @@
   var DESCRIPTIONS = { room: 'Your room’s lights, fans and speaker', accessory: 'One light, switch or other accessory', accessories: 'Accessories you choose, in swipe pages',
     action: 'One tap for a household job', scene: 'Set a favourite scene', scenes: 'Your scenes together',
     scene_suggested: 'The right scene for the time of day', thermostat: 'Temperature and climate controls',
-    weather: 'Current conditions and the forecast', now_playing: 'Music and playback controls', security: 'Alarm, locks and doors',
+    weather: 'Current conditions and the forecast', now_playing: 'Music and playback controls', security: 'The alarm, locks and doors; Large is the keypad',
     camera: 'One camera, or swipe between cameras', clock: 'Time and date at a glance', timers: 'Timers and quick starts',
-    calendar: 'Your upcoming events', battery: 'Your home’s stored energy', people: 'Who is home', vacuum: 'Cleaning status and controls',
+    calendar: 'Your upcoming events', battery: 'Your home’s stored energy', people: 'Who is home', vacuum: 'Cleaning status; Large adds controls and Clean Areas',
     everything: 'Open the screen’s full menu' };
   var GLYPHS = { room: 'mdi:sofa', accessory: 'mdi:lightbulb', accessories: 'mdi:view-grid', action: 'mdi:gesture-tap', scene: 'mdi:palette',
     scenes: 'mdi:palette', scene_suggested: 'mdi:weather-sunset', thermostat: 'mdi:thermostat', weather: 'mdi:weather-partly-cloudy',
@@ -33,7 +33,7 @@
     calendar: 'mdi:calendar', battery: 'mdi:home-battery', people: 'mdi:account', vacuum: 'mdi:robot-vacuum', everything: 'mdi:dots-horizontal' };
   // AN OPTION'S NAME in the panel: by its kind (hk-grid-catalog.js opts), else by its own name
   var KIND_LABELS = { entity: 'Accessory', climate: 'Thermostat', camera: 'Camera', weather: 'Weather', vacuum: 'Vacuum',
-    speaker: 'Speaker', scene: 'Scene', scenes: 'Scenes', calendars: 'Calendars', area: 'Room', action: 'Does', windows: 'Time Windows' };
+    speaker: 'Speaker', scene: 'Scene', scenes: 'Scenes', calendars: 'Calendars', area: 'Room', action: 'Does', windows: 'Time Windows', alarm: 'Alarm' };
   var NAME_LABELS = { sky: 'Sky Background', title: 'Group Name' };
   // ONE THING OR PAGES THAT SWIPE, in each card's words: [one, its automatic source]
   var SHOW = { room: ['One Room', 'Swipe Between Rooms'], camera: ['One Camera', 'Swipe All Cameras'],
@@ -42,6 +42,10 @@
   // what an automatic source shows in place of the block's own choice of one
   var SOURCE_HIDES = { rooms: 'area', cameras: 'entity', thermostats: 'entity', speakers: 'speaker', scenes: 'scenes' };
   var EMPTY = { v: 1, cols: 6, rows: 4, frame: [1280, 800], band: true, items: [] };
+  // a rule's conditions in words (hk-grid-catalog.js CONDITIONS)
+  var CONDITION_NAMES = { music_playing: 'Music Is Playing', timer_running: 'A Timer Is Running', alarm_armed: 'The Alarm Is Armed',
+    alarm_disarmed: 'The Alarm Is Disarmed', doorbell: 'Someone Is at the Door', after_sunset: 'After Sunset',
+    entity_state: 'An Accessory’s State', time: 'A Time of Day' };
   // THE STARTER LAYOUTS (hk_core home_grid.STARTERS: the same keys), each
   // shown as a small map of the blocks it would put on this screen
   var STARTERS = [['A', 'Tap Weight', 'What you touch most is biggest'], ['C', 'Glance Up, Touch Down', 'Readings above, controls below'],
@@ -69,7 +73,8 @@
       grid.frame[0] >= 320 && grid.frame[0] <= 3840 && grid.frame[1] >= 320 && grid.frame[1] <= 2160 &&
       grid.items.length <= 24 && grid.items.every(function (it, i) {
         var cat = G.table()[it.card];
-        return cat && cat.sizes.indexOf(it.size) >= 0 && (!it.when || it.fallback && G.table()[it.fallback.card] && G.table()[it.fallback.card].sizes.includes(it.size)) && fits(grid, it) &&
+        return cat && cat.sizes.indexOf(it.size) >= 0 && (!it.when || it.fallback && G.table()[it.fallback.card] && G.table()[it.fallback.card].sizes.includes(it.size)) &&
+          (it.rules || []).every(function (r) { return G.table()[r.card] && G.table()[r.card].sizes.includes(it.size); }) && fits(grid, it) &&
           !grid.items.slice(i + 1).some(function (other) { return it.id === other.id || overlap(it, other); });
       });
   }
@@ -188,6 +193,15 @@
     configure(options) {
       this.o = options; this.panel = options.panel; this.K = window.hkSettingsKit; this.h = this.K.h;
       this.grid = options.board.home_grid ? copy(options.board.home_grid) : null;
+      // a block saved with the older Show When (when + fallback) opens as rules: the fallback its
+      // default, its own card its one rule (hk-grid-catalog.js rulesOf); Save writes it that way
+      if (this.grid) this.grid.items = this.grid.items.map(function (it) {
+        if (!(it.when && it.fallback)) return it;
+        var r = G.rulesOf(it), out = Object.assign({}, r.base, { rules: r.rules.map(function (x) { return Object.assign({}, x, { when: { all: [x.when] } }); }) });
+        Object.keys(out).forEach(function (k) { if (out[k] == null) delete out[k]; });
+        out.rules.forEach(function (x) { Object.keys(x).forEach(function (k) { if (x[k] == null) delete x[k]; }); });
+        return out;
+      });
       this.initial = JSON.stringify(this.grid);
     }
     connectedCallback() {
@@ -509,7 +523,7 @@
       P.replaceChildren();
       var target = this.pickerTarget && this.grid && this.grid.items.find((it) => it.id === this.selected);
       var head = h('div', { class: 'pal-head' });
-      if (target) head.appendChild(h('div', { class: 'pick-banner' }, [h('span', { text: this.pickerTarget === 'fallback' ? 'Choose the fallback card for this ' + SIZE_NAMES[target.size] + ' block.' : 'Choose a new card for this ' + SIZE_NAMES[target.size] + ' block.' }),
+      if (target) head.appendChild(h('div', { class: 'pick-banner' }, [h('span', { text: /^rule:/.test(this.pickerTarget) ? 'Choose the card rule ' + (+this.pickerTarget.slice(5) + 1) + ' shows in this ' + SIZE_NAMES[target.size] + ' block.' : 'Choose a new card for this ' + SIZE_NAMES[target.size] + ' block.' }),
         h('button', { type: 'button', text: 'Cancel', onclick: () => this.pickFor(null) })]));
       var search = h('input', { class: 'catalog-search', type: 'search', placeholder: 'Search cards', 'aria-label': 'Search cards', value: this.pickerSearch || '' });
       head.appendChild(search);
@@ -593,7 +607,12 @@
       var item = this.grid.items.find((it) => it.id === this.selected), target = this.pickerTarget;
       this.pickerTarget = null; this.pickerCard = null;
       var variant = this.variantFor(key);
-      this.update(item.id, target === 'fallback' ? { fallback: variant } : { card: key, opts: variant.opts, pages: variant.pages || null });
+      if (/^rule:/.test(target)) {
+        var rules = copy(item.rules || []), at = +target.slice(5);
+        if (rules[at]) { rules[at] = Object.assign({ when: rules[at].when }, variant); this.update(item.id, { rules: rules }); }
+        return;
+      }
+      this.update(item.id, { card: key, opts: variant.opts, pages: variant.pages || null });
     }
     // A card as a block or a fallback starts with: sample options, an
     // Accessory Group's automatic pages (its samples may not fit one page),
@@ -660,8 +679,9 @@
       if (item.card === 'accessories' && item.pages && item.pages.source === 'list' && item.pages.list.some((pg) => ((pg.opts || {}).accessories || []).length > G.PER_PAGE[sz])) {
         this.say('A ' + SIZE_NAMES[sz] + ' page holds ' + G.PER_PAGE[sz] + ' accessories. Move some to another page, or choose Automatic Pages, first.'); this.side(); return;
       }
-      if (item.fallback && !G.table()[item.fallback.card].sizes.includes(sz)) {
-        this.say('Its fallback card, ' + NAMES[item.fallback.card] + ', doesn’t come in ' + SIZE_NAMES[sz] + '. Choose another fallback first.'); this.side(); return;
+      var misfit = (item.rules || []).find((r) => !G.table()[r.card].sizes.includes(sz));
+      if (misfit) {
+        this.say('A rule’s card, ' + NAMES[misfit.card] + ', doesn’t come in ' + SIZE_NAMES[sz] + '. Change or remove that rule first.'); this.side(); return;
       }
       var next = place(this.grid, item.id, item.at, sz);
       if (next) this.change(next); else { this.say('A ' + SIZE_NAMES[sz] + ' block doesn’t fit here. Make room around it first.'); this.side(); }
@@ -672,8 +692,12 @@
       var src = item.pages && item.pages.source || '', words = SHOW[item.card] || [], rows = [], footer = null;
       var show = item.card === 'accessories' ? [['accessories', words[1]], ['list', 'Choose Each Page']]
         : [['', words[0] || 'One Page']].concat(cat.sources.map((s) => [s, words[1] || 'Swipe All']), [['list', 'Choose Each Page']]);
-      rows.push(K.select({ label: 'Show', value: src, options: show, onChange: (s) => this.setShow(item, s) }));
-      var hide = {};
+      // a camera block may follow: swipe all cameras, turning to the one motion or a selector picks
+      var follows = item.card === 'camera' && src === 'cameras' && !!(item.opts || {}).follow;
+      if (item.card === 'camera') show.splice(2, 0, ['follow', 'Follow Motion or a Selector']);
+      rows.push(K.select({ label: 'Show', value: follows ? 'follow' : src, options: show, onChange: (s) => this.setShow(item, s) }));
+      var hide = { follow: 1, follow_select: 1 };
+      if (follows) this.followRows(item, rows);
       if (SOURCE_HIDES[src]) hide[SOURCE_HIDES[src]] = 1;
       if (item.card === 'room' && src === 'rooms') rows.push(this.startingRoom(item));
       if (src === 'thermostats') rows.push(K.toggle({ label: 'Start on Tablet’s Room', on: item.pages.start === 'tablet_room', onChange: (on) => {
@@ -683,6 +707,9 @@
       if (item.card === 'room') footer = this.roomNote(item, src);
       else if (src === 'list') footer = 'Each page repeats this card with its own choices. A choice left on Same as the Block uses the block’s.';
       else if (item.card === 'accessories') footer = 'Each page holds ' + G.PER_PAGE[item.size] + ' at this size; more make more pages.';
+      else if (item.card === 'camera' && src === 'cameras' && (item.opts || {}).follow) footer = (item.opts.follow === 'motion'
+        ? 'Shows the camera in the room where motion was seen last (each camera with the motion sensors in its own room).'
+        : 'Shows the camera the selector picks: an option names a camera by its name.') + ' Swipe for the others; it follows again a minute after you stop.';
       else if (src) footer = 'Swipe sideways on the block to change pages. It goes back to its first page when the screen goes idle.';
       add(K.group({ header: 'Content', footer: footer }, rows));
       if (src === 'list') this.pages(item);
@@ -708,7 +735,21 @@
         }
         return;
       }
-      this.update(item.id, { pages: s ? s === 'list' ? { source: 'list', list: [{ opts: {} }, { opts: {} }] } : { source: s } : null });
+      var o = copy(item.opts || {});
+      if (s === 'follow') { o.follow = o.follow || 'motion'; this.update(item.id, { opts: o, pages: { source: 'cameras' } }); return; }
+      delete o.follow; delete o.follow_select;
+      this.update(item.id, { opts: o, pages: s ? s === 'list' ? { source: 'list', list: [{ opts: {} }, { opts: {} }] } : { source: s } : null });
+    }
+    // WHAT A FOLLOWING CAMERA BLOCK FOLLOWS: motion in each camera's room, or a
+    // selector (its own, else the screen's Live Camera Follows)
+    followRows(item, rows) {
+      var K = this.K, o = item.opts || {}, put = (patch) => { var n = Object.assign(copy(o), patch); Object.keys(patch).forEach((k) => { if (patch[k] == null) delete n[k]; }); this.update(item.id, { opts: n }); };
+      rows.push(K.seg({ label: 'Follow', value: o.follow, options: [['motion', 'Motion'], ['selector', 'A Selector']], onChange: (v) => put({ follow: v, follow_select: v === 'motion' ? null : o.follow_select }) }));
+      if (o.follow === 'selector') {
+        var board = this.o.board || {}, here = board.camera_live;
+        rows.push(K.select({ label: 'Selector', value: o.follow_select || '', onChange: (v) => put({ follow_select: v || null }),
+          options: [['', here ? 'The Screen’s Live Camera Follows' : 'The Screen’s (None Set)']].concat(this.choices('select')) }));
+      }
     }
     startingRoom(item) {
       var area = (item.opts || {}).area || (item.pages.start === 'tablet_room' ? 'tablet_room' : '');
@@ -746,42 +787,69 @@
       });
       add(K.group({}, [K.button({ label: 'Add Page', disabled: n >= G.PAGES_MAX, onClick: () => { var p = copy(item.pages); p.list.push({ opts: {} }); this.update(item.id, { pages: p }); } })]));
     }
+    // SHOW WHEN (2026-10-24, the owner): the block's own card by default, and
+    // up to four rules -- each its card while all of its conditions (up to
+    // three) hold, the first that holds winning. Every card fills this space.
     conditions(item) {
-      var K = this.K, kind = item.when && item.when.kind || '', add = (n) => this.sidebar.appendChild(n);
-      var names = { music_playing: 'Music Is Playing', timer_running: 'A Timer Is Running', alarm_armed: 'The Alarm Is Armed',
-        doorbell: 'Someone Is at the Door', after_sunset: 'After Sunset', entity_state: 'An Accessory’s State' };
-      var rows = [K.select({ label: 'Show When', value: kind, options: [['', 'Always']].concat(G.CONDITIONS.map((k) => [k, names[k]])), onChange: (value) => {
-        this.conditionPreview = null;
-        if (!value) { this.update(item.id, { when: null, fallback: null }); return; }
-        var when = { kind: value };
-        if (value === 'entity_state') {
-          var choice = this.choices('entity')[0];
-          if (!choice) { this.say('Add an entity before using an entity condition.'); this.side(); return; }
-          when.entity = choice[0]; when.state = 'on';
-        }
-        var fallback = item.fallback || this.variantFor(Object.keys(G.table()).find((k) => k !== item.card && G.table()[k].sizes.includes(item.size)) || item.card);
-        this.update(item.id, { when: when, fallback: fallback });
-      } })];
-      if (kind) {
-        var when = item.when;
-        var put = (key, value) => { var out = copy(when); if (value) out[key] = value; else delete out[key]; this.update(item.id, { when: out }); };
-        if (kind !== 'after_sunset') rows.push(K.select({ label: 'Watch', value: when.entity || '',
-          options: (kind === 'entity_state' ? [] : [['', 'Automatic']]).concat(this.choices({ music_playing: 'speaker', timer_running: 'timer', alarm_armed: 'alarm', doorbell: 'doorbell' }[kind] || 'entity').filter((op) => op[0] !== 'tablet_room')),
-          onChange: (value) => put('entity', value) }));
-        if (kind === 'entity_state') rows.push(K.text({ label: 'Is', value: when.state, maxlength: 80, onCommit: (value) => put('state', value) }));
-        rows.push(K.button({ label: 'Otherwise Show: ' + NAMES[item.fallback.card] + '…', onClick: () => this.pickFor('fallback') }));
-        rows.push(K.seg({ label: 'Preview', value: this.conditionPreview == null ? 'live' : this.conditionPreview ? 'on' : 'off',
-          options: [['live', 'Live'], ['on', NAMES[item.card]], ['off', NAMES[item.fallback.card]]], onChange: (v) => { this.conditionPreview = v === 'live' ? null : v === 'on'; this.preview(); this.side(); } }));
+      var K = this.K, add = (n) => this.sidebar.appendChild(n), rules = item.rules || [];
+      var put = (next) => { this.conditionPreview = null; this.update(item.id, { rules: next.length ? next : null }); };
+      var head = [];
+      if (rules.length) head.push(K.seg({ label: 'Preview', value: this.conditionPreview == null ? 'live' : String(this.conditionPreview),
+        options: [['live', 'Live'], ['-1', 'Default']].concat(rules.map((r, i) => [String(i), 'Rule ' + (i + 1)])),
+        onChange: (v) => { this.conditionPreview = v === 'live' ? null : Number(v); this.preview(); this.side(); } }));
+      add(K.group({ header: 'Show When', footer: rules.length
+        ? 'Shows ' + NAMES[item.card] + ' unless a rule holds; the first rule that holds wins. Each card fills exactly this space, so nothing moves.'
+        : 'Add a rule to show another card here while something is true: music playing, a time of day, the alarm still armed.' }, head));
+      rules.forEach((r, i) => {
+        var conds = (r.when && r.when.all) || [], rows = [];
+        var putRule = (fn) => { var next = copy(rules); fn(next[i]); put(next); };
+        conds.forEach((c, j) => this.conditionRows(c, j, rows, (nc) => {
+          var next = copy(rules);
+          if (nc) next[i].when.all[j] = nc; else next[i].when.all.splice(j, 1);
+          if (!next[i].when.all.length) next.splice(i, 1);
+          put(next);
+        }));
+        if (conds.length < 3) rows.push(K.select({ label: conds.length ? 'And Also' : 'When', value: '',
+          options: [['', 'Add a Condition…']].concat(G.CONDITIONS.map((k) => [k, CONDITION_NAMES[k]])),
+          onChange: (k) => { if (k) putRule((x) => x.when.all.push(this.newCondition(k))); } }));
+        rows.push(K.button({ label: 'Then Show: ' + NAMES[r.card] + '…', onClick: () => this.pickFor('rule:' + i) }));
+        var rcat = G.table()[r.card];
+        if (rcat.sources.length) rows.push(K.select({ label: 'Show', value: r.pages && r.pages.source || '',
+          options: [['', (SHOW[r.card] || [])[0] || 'One Page']].concat(rcat.sources.map((src) => [src, (SHOW[r.card] || [])[1] || 'Swipe All'])),
+          onChange: (src) => putRule((x) => { if (src) x.pages = { source: src }; else delete x.pages; }) }));
+        rows = rows.concat(this.fields(r.card, r.opts || {}, (opts) => putRule((x) => { if (Object.keys(opts).length) x.opts = opts; else delete x.opts; }),
+          { size: item.size, hide: { surface: 1, follow: 1, follow_select: 1 } }));
+        rows.push(K.button({ label: 'Move Rule Up', disabled: i === 0, onClick: () => { var next = copy(rules); next.splice(i - 1, 0, next.splice(i, 1)[0]); put(next); } }));
+        rows.push(K.button({ label: 'Remove Rule', destructive: true, onClick: () => { var next = copy(rules); next.splice(i, 1); put(next); } }));
+        add(K.group({ header: 'Rule ' + (i + 1) + ' · ' + NAMES[r.card] }, rows));
+      });
+      if (rules.length < 4) add(K.group({}, [K.button({ label: 'Add Rule', onClick: () => {
+        var other = Object.keys(G.table()).find((k) => k !== item.card && G.table()[k].sizes.includes(item.size)) || item.card;
+        put(rules.concat([Object.assign({ when: { all: [this.newCondition('music_playing')] } }, this.variantFor(other))]));
+      } })]));
+    }
+    newCondition(kind) {
+      var c = { kind: kind };
+      if (kind === 'time') { c.from = '06:00'; c.to = '09:00'; }
+      if (kind === 'entity_state') { var ch = this.choices('entity')[0]; if (ch) { c.entity = ch[0]; c.state = 'on'; } }
+      return c;
+    }
+    // ONE CONDITION'S ROWS: what it is (or Remove), and what it watches
+    conditionRows(c, j, rows, put) {
+      var K = this.K, set = (key, value) => { var out = copy(c); if (value) out[key] = value; else delete out[key]; put(out); };
+      rows.push(K.select({ label: j ? 'And' : 'When', value: c.kind,
+        options: G.CONDITIONS.map((k) => [k, CONDITION_NAMES[k]]).concat([['', 'Remove This Condition']]),
+        onChange: (k) => put(k ? this.newCondition(k) : null) }));
+      if (c.kind === 'time') {
+        rows.push(K.text({ label: 'From', type: 'time', value: c.from, onCommit: (v) => { if (/^\d{2}:\d{2}$/.test(v)) set('from', v); } }));
+        rows.push(K.text({ label: 'Until', type: 'time', value: c.to, onCommit: (v) => { if (/^\d{2}:\d{2}$/.test(v)) set('to', v); } }));
+        return;
       }
-      add(K.group({ header: 'Show When', footer: kind ? 'Otherwise its fallback fills exactly this space, so nothing moves.' : null }, rows));
-      if (kind) {
-        var fb = item.fallback, fcat = G.table()[fb.card];
-        var frows = this.fields(fb.card, fb.opts || {}, (opts) => this.update(item.id, { fallback: Object.assign({}, fb, { opts: opts }) }), { size: item.size, hide: { surface: 1 } });
-        if (fcat.sources.length) frows.unshift(K.select({ label: 'Show', value: fb.pages && fb.pages.source || '',
-          options: [['', (SHOW[fb.card] || [])[0] || 'One Page']].concat(fcat.sources.map((s) => [s, (SHOW[fb.card] || [])[1] || 'Swipe All'])),
-          onChange: (s) => { var next = copy(fb); if (s) next.pages = { source: s }; else delete next.pages; this.update(item.id, { fallback: next }); } }));
-        if (frows.length) add(K.group({ header: NAMES[fb.card] + ' (Fallback)' }, frows));
-      }
+      if (c.kind !== 'after_sunset') rows.push(K.select({ label: 'Watch', value: c.entity || '',
+        options: (c.kind === 'entity_state' ? [] : [['', 'Automatic']]).concat(this.choices({ music_playing: 'speaker', timer_running: 'timer', alarm_armed: 'alarm',
+          alarm_disarmed: 'alarm', doorbell: 'doorbell' }[c.kind] || 'entity').filter((op) => op[0] !== 'tablet_room')),
+        onChange: (v) => set('entity', v) }));
+      if (c.kind === 'entity_state') rows.push(K.text({ label: 'Is', value: c.state, maxlength: 80, onCommit: (v) => set('state', v) }));
     }
     previewOptions(key) {
       var fields = G.table()[key].opts || {}, opts = {}, self = this;
@@ -987,7 +1055,7 @@
       var client = this.panel.client, states = client.states || {};
       if (kind === 'area') return [['tablet_room', 'Tablet’s Room']].concat(Object.keys(client.areas || {}).map((id) => [id, client.areas[id].name || id]));
       var domains = { scene: ['scene', 'script'], scenes: ['scene'], speaker: ['media_player'], climate: ['climate'], camera: ['camera'],
-        timer: ['timer'], alarm: ['alarm_control_panel'], doorbell: ['binary_sensor', 'camera'], weather: ['weather'], vacuum: ['vacuum'], calendars: ['calendar'], action: ['scene', 'script'] }[kind];
+        timer: ['timer'], alarm: ['alarm_control_panel'], select: ['input_select', 'select'], doorbell: ['binary_sensor', 'camera'], weather: ['weather'], vacuum: ['vacuum'], calendars: ['calendar'], action: ['scene', 'script'] }[kind];
       var list = Object.keys(states).filter((id) => !domains || domains.indexOf(id.split('.')[0]) >= 0).map((id) => [id, (states[id].attributes || {}).friendly_name || id]);
       list.sort((a, b) => a[1].localeCompare(b[1]));
       if (kind === 'speaker' || kind === 'climate') list.unshift(['tablet_room', 'Tablet’s Room']);
@@ -1022,7 +1090,7 @@
         var serial = this.previewSerial = (this.previewSerial || 0) + 1;
         var client = w.hkCards.client(), draft = copy(this.grid);
         var selected = draft.items.find((it) => it.id === this.selected);
-        if (selected && selected.when && typeof this.conditionPreview === 'boolean') selected._conditionPreview = this.conditionPreview;
+        if (selected && (selected.rules || selected.when) && typeof this.conditionPreview === 'number') selected._conditionPreview = this.conditionPreview;
         if (!client || !client.states) wait('the home’s accessories');
         var config = await w.hkStrategy.generate({ home_grid_preview: draft }, client);
         if (serial !== this.previewSerial || !this.isConnected) return;
