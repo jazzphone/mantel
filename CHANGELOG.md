@@ -2,6 +2,13 @@
 
 All notable changes to Mantel are listed here. Versions follow [semantic versioning](https://semver.org); the Home Assistant App, the Docker images and the Python package share one version number.
 
+## 0.1.70 - 2026-10-24
+
+Local Home Assistant App update for the house.
+
+- The Home Grid editor opens on an iPad and other touch screens (it showed only "Arrange Home Grid on a desktop"). A window narrower than 900 pixels says so and offers Open Anyway.
+- Mantel Settings follows the device's light or dark appearance again, and switches when the device does.
+
 ## 0.1.69 - 2026-10-24
 
 Local Home Assistant App update for the house.
