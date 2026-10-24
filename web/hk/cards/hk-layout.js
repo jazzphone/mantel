@@ -1875,6 +1875,7 @@
   var PAGER_SLOP = 8;           // px a finger moves before it is a drag (and which way)
   var PAGER_TURN = 0.2;         // of a page's width: a drag that far turns it
   var PAGER_FLICK = 0.3;        // px/ms: a flick that fast turns it, however short
+  var PAGER_STILL = 180;        // ms without a scroll: the track has come to rest
   var pagerSeq = 0;
   function pagerAreaOf(client, id) {
     var e = ((client && client.entities) || {})[id] || {}, devs = (client && client.devices) || {};
@@ -1952,6 +1953,19 @@
       // its own -- it reaches over the blocks beside it; its pages do.
       return ':host{display:block;position:relative;height:100%}:host>div{height:100%}' +
         '.pager{position:relative;display:flex;flex-direction:column;height:100%}' +
+        // WHILE A PAGE MOVES the block clips at its own edge (clip, not
+        // clip-path: no backdrop root for the shared blur), and the block
+        // itself casts the plate's shadow the moving pages can't -- the
+        // same one, so nothing changes as the page starts or stops. See
+        // _moving().
+        '.pager.moving{overflow:clip;border-radius:' + C0.M.radius + '}' +
+        // (only what falls outside the block: a look's shadow may carry an
+        // inset highlight, which would draw across the gap between pages;
+        // a clip-path on this pseudo-element clips nothing else)
+        ':host([data-moving])::before{content:"";position:absolute;inset:0;pointer-events:none;border-radius:' + C0.M.radius + ';' +
+        'box-shadow:var(--hk-look-shadow, ' + v('glass-shadow-tall') + ');' +
+        'clip-path:polygon(evenodd,-60px -60px,calc(100% + 60px) -60px,calc(100% + 60px) calc(100% + 60px),-60px calc(100% + 60px),-60px -60px,' +
+        '0 0,0 100%,100% 100%,100% 0,0 0)}' +
         '.track{flex:1 1 auto;min-height:0;display:flex;gap:' + (2 * S) + 'px;margin:-' + S + 'px -' + S + 'px -' + S + 'px;' +
         // STILL A SIDEWAYS SCROLLER (overflow-x auto), though no finger
         // scrolls it (its pages say pan-y; the pager sets scrollLeft): the
@@ -2103,6 +2117,7 @@
     _wireTrack(track, pager) {
       var self = this;
       track.addEventListener('scroll', function () {
+        self._moving();
         if (self._scrollQ) return;
         self._scrollQ = true;
         requestAnimationFrame(function () { self._scrollQ = false; self._settle(); });
@@ -2158,6 +2173,7 @@
           if (Math.abs(dy) > Math.abs(dx)) { self._drag = null; return; }    // up or down: not ours
           d.moved = true;
           track.classList.add('dragging');
+          self._moving();
           // the card under the finger lets go, as it would for a scroll
           try {
             d.target.dispatchEvent(new PointerEvent('pointercancel', { pointerId: e.pointerId, pointerType: e.pointerType,
@@ -2167,6 +2183,7 @@
         }
         var scale = track.getBoundingClientRect().width / track.clientWidth || 1;
         track.scrollLeft = d.left - dx / scale;
+        self._moving();
         d.pts.push([e.timeStamp, e.clientX]);
         if (d.pts.length > 6) d.pts.shift();
         if (e.cancelable) e.preventDefault();
@@ -2203,6 +2220,25 @@
         self._eatClick = false;
         e.preventDefault(); e.stopImmediatePropagation();
       }, true);
+    }
+    // WHILE A PAGE MOVES -- a drag, its slide home, a dot's or the wheel's
+    // turn -- the block clips at its own edge: the track reaches PAGER_ROOM
+    // past the block for the plates' shadows at rest, and a page passing
+    // through that reach slid over the blocks beside it (the owner,
+    // 2026-10-24); clipped only at the sides, the shadow under the block
+    // had hard ends. The clip lets go once the track has been still a
+    // moment and nobody is holding it.
+    _moving() {
+      var pager = this._track && this._track.parentNode, self = this;
+      if (!pager) return;
+      pager.classList.add('moving');
+      this.setAttribute('data-moving', '');
+      clearTimeout(this._stillT);
+      this._stillT = setTimeout(function () {
+        if (self._drag && self._drag.moved) { self._moving(); return; }
+        pager.classList.remove('moving');
+        self.removeAttribute('data-moving');
+      }, PAGER_STILL);
     }
     // the page the track has come to rest on
     _settle() {
@@ -2316,6 +2352,9 @@
       window.removeEventListener('hk-house-event', this._onHouse);
       if (this._offMusic) { this._offMusic(); this._offMusic = null; }
       if (this._ro) this._ro.disconnect();
+      clearTimeout(this._stillT);
+      if (this._track && this._track.parentNode) this._track.parentNode.classList.remove('moving');
+      this.removeAttribute('data-moving');
       var I = window.hkIdle;
       if (this._isAway && I && I.away) I.away(this._key, false);
       this._isAway = false;

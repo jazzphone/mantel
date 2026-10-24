@@ -1168,3 +1168,21 @@ installed and latest version 0.1.66, strict health OK, Home Assistant connected.
 staged release, and uptime kept climbing across checks. The app log has no Traceback. The only lines matching "ERROR"
 are two INFO camera-still connection resets from just before the restart. No public tag, release or HK Frontend
 update was made. Reload the tablets to pick it up. Rooms saved before this release keep Summary until changed.
+
+### Nothing slides over the blocks beside a swipe (2026-10-24)
+
+After 0.1.66 the owner still saw glitches on the tiles beside a swiping block. Mid-swipe screenshots in the Blur look
+showed the cause. The track reaches 28 px past the block on each side (PAGER_ROOM) so the plates' shadows aren't
+clipped at rest. A page passing through that reach drew slivers of its tiles across the gap and over the neighbouring
+blocks' edges.
+
+While a page moves (a drag, its slide home, a dot or wheel turn), the pager now marks itself as moving:
+
+- The block clips at its own rounded edge (`overflow: clip` with the plate radius). This is not `clip-path`, so it
+  doesn't stop the shared blur from reaching the wallpaper.
+- The host casts the plate's look shadow in place of the clipped pages' shadows, so nothing pops as a swipe starts or
+  stops. A `clip-path` on that pseudo-element keeps only the shadow's outside, so the look's inset highlight doesn't
+  draw a line across the gap between pages.
+- The clip lets go 180 ms after the track rests, unless a finger is still holding it.
+
+`pager_swipe_check.py` checks the clip mid-swipe and its release at rest. 225 of 225 swipes still land.

@@ -154,6 +154,21 @@ async def main():
             await b.send('Input.dispatchMouseEvent', type='mouseReleased', x=ax - 160, y=ay, button='left', clickCount=1)
             await asyncio.sleep(0.9)
             checks['a mouse drag turns the page'] = await b.eval("pagerOf('acc')._index") == 1
+            # while a page moves the block clips at its own edge (nothing slides over the blocks beside it),
+            # and lets go once it rests, so the plates' shadows show again
+            await b.eval("pagerOf('acc').goTo(0,false)")
+            await asyncio.sleep(0.4)
+            ax, ay = await b.eval("(()=>{let r=pagerOf('acc').getBoundingClientRect();return [r.x+r.width*0.8,r.y+r.height*0.5]})()")
+            await b.send('Input.dispatchTouchEvent', type='touchStart', touchPoints=[{'x': ax, 'y': ay}])
+            for i in range(1, 8):
+                await b.send('Input.dispatchTouchEvent', type='touchMove', touchPoints=[{'x': ax - 20 * i, 'y': ay}])
+                await asyncio.sleep(0.02)
+            await asyncio.sleep(0.4)                  # held still mid-swipe: still clipped
+            clipped = await b.eval("(()=>{let p=pagerOf('acc'),q=p.shadowRoot.querySelector('.pager');return p.hasAttribute('data-moving')&&getComputedStyle(q).overflowX==='clip'})()")
+            await b.send('Input.dispatchTouchEvent', type='touchEnd', touchPoints=[])
+            await asyncio.sleep(1.2)
+            rested = await b.eval("(()=>{let p=pagerOf('acc'),q=p.shadowRoot.querySelector('.pager');return !p.hasAttribute('data-moving')&&getComputedStyle(q).overflowX==='visible'})()")
+            checks['a moving block clips at its edge, and lets go at rest'] = clipped and rested
             # the shared blur's layer lives inside each swipe track, so it slides with the pages
             await b.eval("window.hkGlass&&hkGlass.refresh&&hkGlass.refresh()")
             await asyncio.sleep(0.5)
