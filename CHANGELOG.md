@@ -2,6 +2,13 @@
 
 All notable changes to Mantel are listed here. Versions follow [semantic versioning](https://semver.org); the Home Assistant App, the Docker images and the Python package share one version number.
 
+## 0.1.68 - 2026-10-24
+
+Local Home Assistant App update for the house.
+
+- The Home Grid editor waits for its preview on a slow connection instead of giving up after 20 seconds, and says it is loading; a card's preview is no longer rebuilt after every change.
+- Pages load lighter: the registry is compressed and answered "not changed" when the browser already has it, and the web app's JavaScript and other text files are served compressed.
+
 ## 0.1.67 - 2026-10-24
 
 Local Home Assistant App update for the house.
