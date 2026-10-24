@@ -1199,3 +1199,19 @@ has a small map of the blocks that starter would put on this screen. The map com
 `hk_frontend/grid/starter` request, made once per starter, with each block in its palette group's color and glyph.
 Choosing a starter uses the layout already fetched. The editor smoke checks all eight rows and their maps, then picks
 Room Focus and Tap Weight. The guide shows the gallery (`home-grid-starters.png`).
+
+### House App 0.1.67 deployed (2026-10-24)
+
+The owner asked to ship three things together:
+
+- the clipped, steady-shadow swipe (`fb5057f`)
+- the seven starters with maps (`c1ca577`)
+- the Glass looks' Image Look (`99fd8ae`, outside Home Grid: Flat's photo treatment for the other looks' Photo and
+  Landscapes, `sky.image_look` / `sky_image_look`, checked by `tests/test_glass_image_look.py` and
+  `tools/headless/glass_image_look_check.py`)
+
+Release commit `a92ec03` was pushed and staged to the house's local App source (2,991 files). The update installed on
+the first request. Strict health is OK with Home Assistant connected, and build `09a081f5407dfe67` matches the staged
+release and `/api/version`. The App log has no ERROR or Traceback entries. Before release, the main suite passed
+(3,495 tests, 21 skipped), as did the HA package's Python suite (758) and every JavaScript suite. No public tag,
+release or HK Frontend update was made.
