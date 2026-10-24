@@ -7,6 +7,8 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 - Home Grid: a Large or Extra Large Security block is the alarm keypad, and a Large or Extra Large Vacuum block is the vacuum's controls with Clean Areas below them.
 - Home Grid: **Show When** takes rules. A block shows its own card by default and switches to another while a rule's conditions hold (up to four rules of up to three conditions each). New conditions: a time-of-day window and the alarm disarmed. Blocks saved with Otherwise Show keep working.
 - Home Grid: a camera block can follow motion in its cameras' rooms, or an input select, as the camera strip does.
+- Home Grid: the Calendar block has **Days** (1 to 7), scrolls its events inside the block, and opens an event's details on a tap.
+- Home Grid: a room block leaves out the house's Hidden Accessories, as the room's page does.
 - An iPad in Safari no longer scrolls a Home Grid that fits the window, with the tab bar above or below.
 
 ## 0.1.70 - 2026-10-24

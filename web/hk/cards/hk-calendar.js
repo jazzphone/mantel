@@ -1359,16 +1359,22 @@
     '.none{font-size:17px;color:' + window.hkCards.v('ink-2') + ';padding:12px 0 4px}',
     '.foot{height:60px}',
     // ON A HOME GRID (G2, the `calendar` block): a plate -- today's date,
-    // then what is still to come today and tomorrow, one line each, as many
-    // as the block's height holds (_block); at T the time goes under the
-    // title. Nothing scrolls.
+    // then what is still to come today and the coming days (`days`, today
+    // and tomorrow unless the block says), one line each, a later day under
+    // its own heading; at T the time goes under the title. The lines scroll
+    // inside the plate, under the date, and a line opens its event's sheet.
     ':host([size]) .blk{' + window.hkCards.plate('card') + ';box-sizing:border-box;height:100%;padding:' + window.hkCards.CARD.pad + ';',
     '  overflow:hidden;display:flex;flex-direction:column}',
     '.blk .lbl{' + window.hkCards.labelCss('label') + ';line-height:16px}',
     '.blk .date{' + window.hkCards.typeCss('title') + ';line-height:27px;margin:2px 0 ' + GV.under + 'px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
     '.blk.T .date{' + window.hkCards.typeCss('headline') + ';line-height:21px}',
-    '.blk .gl{display:flex;flex-direction:column;gap:' + GV.gap + 'px}',
-    '.gev{display:flex;align-items:center;gap:10px;height:' + GV.row + 'px;min-width:0}',
+    '.blk .gl{display:flex;flex-direction:column;gap:' + GV.gap + 'px;flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;',
+    '  scrollbar-width:none;margin:0 -6px;padding:0 6px}',
+    '.blk .gl::-webkit-scrollbar{display:none}',
+    '.gl .gd{' + window.hkCards.labelCss('label') + ';line-height:16px;margin-top:' + (GV.under - GV.gap) + 'px;flex:none}',
+    '.gev{display:flex;align-items:center;gap:10px;height:' + GV.row + 'px;min-width:0;flex:none;cursor:pointer;-webkit-tap-highlight-color:transparent}',
+    '.gev:active{opacity:0.6}',
+    '.gev:focus-visible{outline:2px solid ' + window.hkCards.v('ink-2') + ';outline-offset:2px}',
     '.gev i{flex:none;width:10px;height:10px;border-radius:5px}',
     '.gev .gtm{flex:none;width:70px;' + window.hkCards.typeCss('body') + ';font-variant-numeric:tabular-nums;white-space:nowrap}',
     '.gev .gtx{min-width:0;flex:1}',
@@ -1456,33 +1462,47 @@
     }
     // A HOME GRID BLOCK: T and L
     _renderBlock(sized) {
-      var h = this.client, now = new Date(), d0 = day0(now), d1 = addDays(d0, 1), wide = sized !== 'T';
+      var h = this.client, now = new Date(), d0 = day0(now), wide = sized !== 'T', self = this;
       this._watchBlock();
-      var b = this._block();
-      var head = 16 + 2 + (wide ? 27 : 21) + GV.under;
-      var fit = b ? Math.max(1, Math.floor((b.h - 2 * GV.pad - head + GV.gap) / (GV.row + GV.gap))) : 4;
-      // what is still to come, today then tomorrow, each day's all-day first
-      var list = [];
-      [d0, d1].forEach(function (d) {
-        var evs = onDay(this._evs, d).filter(function (e) { return e.end > now; });
+      // what is still to come, day by day, each day's all-day first
+      var shown = [], days = [];
+      for (var i = 0; i < this._days(); i++) days.push(addDays(d0, i));
+      var html = days.map(function (d, i) {
+        var evs = onDay(self._evs, d).filter(function (e) { return e.end > now && shown.indexOf(e) < 0; });
         var all = evs.filter(function (e) { return e.allDay || (e.start <= d && e.end >= addDays(d, 1)); });
-        all.concat(evs.filter(function (e) { return all.indexOf(e) < 0; })).forEach(function (e) {
-          if (list.every(function (x) { return x.e !== e; })) list.push({ e: e, d: d, all: all.indexOf(e) >= 0 });
+        var rows = all.concat(evs.filter(function (e) { return all.indexOf(e) < 0; })).map(function (e) {
+          var isAll = all.indexOf(e) >= 0, rgb = evRgb(e, h), tmw = isAll ? 'All day' : (e.start < d ? 'Until ' + time(e.end) : time(e.start));
+          var sub = [wide ? '' : tmw, e.loc || (!isAll && wide && e.end - e.start > 3600000 ? time(e.start) + ' – ' + time(e.end) : '')]
+            .filter(Boolean).join(' · ') || calName(h, e.cal);
+          shown.push(e);
+          return '<div class="gev" role="button" tabindex="0" data-ev="' + (shown.length - 1) + '" aria-label="' + esc(e.title + ', ' + tmw) + '">' +
+            (wide ? '<div class="gtm">' + esc(tmw) + '</div>' : '') +
+            '<i style="background:' + rgba(rgb, 1) + '"></i><div class="gtx"><div class="g1">' + esc(e.title) + '</div>' +
+            '<div class="g2">' + esc(sub) + '</div></div></div>';
         });
-      }, this);
-      var rows = list.slice(0, fit).map(function (x) {
-        var e = x.e, rgb = evRgb(e, h), tmw = x.all ? 'All day' : (e.start < x.d ? 'Until ' + time(e.end) : time(e.start));
-        var sub = [x.d === d1 ? 'Tomorrow' : '', wide ? '' : tmw, e.loc || (!x.all && wide && e.end - e.start > 3600000 ? time(e.start) + ' – ' + time(e.end) : '')]
-          .filter(Boolean).join(' · ') || calName(h, e.cal);
-        return '<div class="gev">' + (wide ? '<div class="gtm">' + esc(tmw) + '</div>' : '') +
-          '<i style="background:' + rgba(rgb, 1) + '"></i><div class="gtx"><div class="g1">' + esc(e.title) + '</div>' +
-          '<div class="g2">' + esc(sub) + '</div></div></div>';
-      });
+        if (!i || !rows.length) return rows.join('');
+        var lbl = i === 1 ? 'Tomorrow' : DOW_LONG[d.getDay()] + ', ' + MON[d.getMonth()].slice(0, 3) + ' ' + d.getDate();
+        return '<div class="gd">' + esc(lbl) + '</div>' + rows.join('');
+      }).join('');
+      this._shown = shown;
       var date = wide ? DOW_LONG[d0.getDay()] + ', ' + MON[d0.getMonth()] + ' ' + d0.getDate()
                       : DOW_LONG[d0.getDay()].slice(0, 3) + ', ' + MON[d0.getMonth()].slice(0, 3) + ' ' + d0.getDate();
+      // (the lines keep where they were scrolled across a redraw)
+      var was = this._root.querySelector('.gl'), top = was ? was.scrollTop : 0;
       this._root.innerHTML = '<div class="blk ' + sized + '"><div class="lbl">Today</div><div class="date">' + esc(date) + '</div>' +
-        '<div class="gl">' + (rows.length ? rows.join('') : '<div class="none">' + (this._calIds(h).length ? 'Nothing scheduled.' : 'No calendars.') + '</div>') +
+        '<div class="gl">' + (shown.length ? html : '<div class="none">' + (this._calIds(h).length ? 'Nothing scheduled.' : 'No calendars.') + '</div>') +
         '</div></div>';
+      if (top) this._root.querySelector('.gl').scrollTop = top;
+      if (!this._taps) {
+        this._taps = true;
+        var open = function (ev) {
+          var row = ev.target.closest && ev.target.closest('.gev');
+          var e = row && self._shown && self._shown[+row.getAttribute('data-ev')];
+          if (e) show(self.client, e);
+        };
+        this._root.addEventListener('click', open);
+        this._root.addEventListener('keydown', function (ev) { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); open(ev); } });
+      }
     }
   }
 

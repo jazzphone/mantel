@@ -68,8 +68,8 @@
     weather: { sizes: ['W', 'L', 'XL'], sources: [], opts: { entity: 'weather', sky: 'boolean' }, card: function (s, o, ctx) {
       var id = o.entity || ctx.weather;
       return id ? { type: 'custom:hk-weather-band-card', section: 'hero', entity: id, sky: o.sky === true } : stand('Weather', 'hk:weather-partly-cloudy'); } },
-    calendar: { sizes: ['T', 'L'], sources: [], opts: { calendars: 'calendars' }, card: function (s, o) {
-      return Object.assign({ type: 'custom:hk-calendar-pane-card' }, o.calendars ? { calendars: o.calendars } : {}); } },
+    calendar: { sizes: ['T', 'L'], sources: [], opts: { calendars: 'calendars', days: 'days' }, card: function (s, o) {
+      return Object.assign({ type: 'custom:hk-calendar-pane-card' }, o.calendars ? { calendars: o.calendars } : {}, o.days ? { days: o.days } : {}); } },
     battery: { sizes: ['S', 'W'], sources: [], card: function (s, o, ctx) {
       // the house battery the Energy feature names (hk-energy.js), sized to the block (G2)
       var B = ctx.battery;

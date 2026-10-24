@@ -55,7 +55,7 @@ CATALOG: dict[str, dict[str, Any]] = {
     "security": {"sizes": ("S", "W", "L", "XL"), "sources": (), "opts": {"entity": "alarm"}},
     "timers": {"sizes": ("S", "W"), "sources": (), "opts": {}},
     "weather": {"sizes": ("W", "L", "XL"), "sources": (), "opts": {"entity": "weather", "sky": "boolean"}},
-    "calendar": {"sizes": ("T", "L"), "sources": (), "opts": {"calendars": "calendars"}},
+    "calendar": {"sizes": ("T", "L"), "sources": (), "opts": {"calendars": "calendars", "days": "days"}},
     "battery": {"sizes": ("S", "W"), "sources": (), "opts": {}},
     "people": {"sizes": ("W",), "sources": (), "opts": {}},
     # Large and Extra Large (2026-10-24): its controls with Clean Areas
@@ -238,6 +238,7 @@ OPTION_KINDS = {
     "weather": _domain("weather"),
     "vacuum": _domain("vacuum"),
     "calendars": _list(_domain("calendar")),
+    "days": lambda v: _whole(v, 1, 7, "grid_option"),
     "area": _area,
     "action": _action,
     "windows": _windows,

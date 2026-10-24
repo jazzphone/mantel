@@ -998,6 +998,11 @@
         }
         if (kind === 'boolean') { rows.push(K.toggle({ label: label, on: opts[key] === true, onChange: (on) => set(key, on || null) })); return; }
         if (kind === 'windows') { self.windows(opts, set, rows); return; }
+        if (kind === 'days') {
+          rows.push(K.select({ label: 'Days', value: String(opts[key] || 2), options: [1, 2, 3, 4, 5, 6, 7].map((n) => [String(n), n === 1 ? 'Today Only' : n === 2 ? 'Today and Tomorrow' : n + ' Days']),
+            onChange: (v) => set(key, +v === 2 ? null : +v) }));
+          return;
+        }
         var choices = self.choices(kind);
         if (card === 'scene' && kind === 'scene') choices = choices.filter((op) => op[0].indexOf('scene.') === 0);
         if (kind === 'scenes' || kind === 'calendars') {

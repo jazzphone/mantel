@@ -322,3 +322,11 @@ def test_fixed_grid_scale_and_full_width_groups():
     for scale in (True, 49, 101, "80", 75.5):
         with pytest.raises(HG.GridInvalid):
             HG.check({"scale": scale})
+
+
+def test_calendar_days():
+    for n in (1, 2, 7):
+        assert HG.check(grid(block("cal", "calendar", "L", [0, 0], opts={"days": n})))["items"][0]["opts"] == {"days": n}
+    for bad in (0, 8, 2.5, "3", True):
+        with pytest.raises(HG.GridInvalid):
+            HG.check(grid(block("cal", "calendar", "L", [0, 0], opts={"days": bad})))

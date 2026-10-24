@@ -1319,3 +1319,19 @@ bar's room, but the view's minimum height (the rule that answers Kiosk Mode's `h
 `100vh`. On an iPad in Safari, `100vh` is the window with its toolbars hidden, so the page was taller than the visible
 window by the toolbars' height. The rule, and Home Assistant's own `#view` minimum, now use `100dvh` (with `100vh` for
 older browsers). Playwright doesn't reproduce Safari's toolbars, so the owner confirms it on the iPad.
+
+### The calendar block's days, and the room block's hidden accessories (2026-10-24)
+
+The owner asked for more calendar options: how many days to show, scrolling within the block, and events that open
+their detail sheet. The calendar block gains `days` (1 to 7; 2, today and tomorrow, when unset). What is still to come
+is listed day by day, a later day under its own heading, and the lines scroll inside the plate under the date (the
+scroll position survives a redraw). A line is a button that opens the event's sheet (`show`, the HK event sheet when
+hk-detail is loaded).
+
+The owner also saw accessories hidden in Hidden Accessories on a room block. The block asked `hkStrategy.roomCards`
+for the room without the build's options, so the house's `generated` exclusions (Everywhere, a device, a room) never
+applied; only an accessory's `room: false` did. It now passes them, as the room's page gets them.
+
+`grid_blocks_check.py` hides the living room's ceiling light and checks the room block leaves it out, and hands a
+seven-day calendar block two events a day: headings from Tomorrow on, the list scrolling inside the block, and a tap
+on the last event opening its sheet.

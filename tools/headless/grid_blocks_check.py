@@ -1,7 +1,8 @@
 """Home Grid's full-control blocks, rules and following cameras (2026-10-24) against the fictional home, never a
 household's: a Large Security block is the alarm keypad with its keys inside the block, a Large Vacuum block its
 controls over Clean Areas, a block's rules switch its card in place (music playing; a time window and the alarm
-armed), and a cameras block follows motion in its cameras' rooms.
+armed), and a cameras block follows motion in its cameras' rooms. A calendar block shows the days it is asked for,
+scrolls inside itself and opens an event's sheet; a room block leaves out the house's Hidden Accessories.
 
     python tools/headless/grid_blocks_check.py [--shots DIRECTORY]
 """
@@ -28,7 +29,13 @@ GRID = {'v': 1, 'cols': 6, 'rows': 4, 'frame': [1280, 800], 'band': True, 'items
     {'id': 'keypad', 'card': 'security', 'size': 'L', 'at': [0, 0]},
     {'id': 'vac', 'card': 'vacuum', 'size': 'L', 'at': [2, 0], 'opts': {'entity': 'vacuum.robot'}},
     {'id': 'cams', 'card': 'camera', 'size': 'L', 'at': [4, 0], 'opts': {'follow': 'motion'}, 'pages': {'source': 'cameras'}},
-    {'id': 'ruled', 'card': 'weather', 'size': 'L', 'at': [0, 2], 'rules': RULES}]}
+    {'id': 'ruled', 'card': 'weather', 'size': 'L', 'at': [0, 2], 'rules': RULES},
+    {'id': 'room', 'card': 'room', 'size': 'L', 'at': [2, 2], 'opts': {'area': 'living_room', 'accessory_display': 'scroll'}},
+    {'id': 'cal', 'card': 'calendar', 'size': 'L', 'at': [4, 2], 'opts': {'calendars': ['calendar.family'], 'days': 7}}]}
+# a week of the fictional family's events, two a day: more than the block holds
+EVENTS = """(()=>{let d0=new Date();d0.setHours(0,0,0,0);let out=[];for(let i=0;i<7;i++)for(let h of [19,21]){
+  let s=new Date(+d0+i*864e5+h*36e5),e=new Date(+s+36e5);out.push({summary:'Event '+i+'-'+h,uid:'u'+i+h,start:{dateTime:s.toISOString()},end:{dateTime:e.toISOString()}})}
+  return out})()"""
 
 
 async def main():
@@ -36,7 +43,9 @@ async def main():
     gallery.HOUSE['binary_sensor.yard_motion'] = ('backyard', ('off', {'friendly_name': 'Yard Motion', 'device_class': 'motion'}))
     gallery.HOUSE['media_player.living_room'] = ('living_room', ('paused', dict(gallery.HOUSE['media_player.living_room'][1][1])))
     gallery.HOUSE['media_player.kitchen'] = ('kitchen', ('idle', dict(gallery.HOUSE['media_player.kitchen'][1][1])))
+    gallery.HOUSE['calendar.family'] = (None, ('off', {'friendly_name': 'Family'}))
     gallery.SETTINGS['settings']['added'] = ['clean_areas']
+    gallery.SETTINGS['settings']['generated'] = {'exclude_entities': ['light.living_room_ceiling']}
     gallery.SETTINGS['boards']['blocks'] = {'home_style': 'grid', 'home_grid': GRID, 'menu_custom': True, 'menu': 'tabbar'}
     with tempfile.TemporaryDirectory() as td:
         app, cookie = await gallery.build(Path(td))
@@ -89,11 +98,27 @@ async def main():
             state('binary_sensor.porch_motion', 'off')
             state('binary_sensor.yard_motion', 'on')
             assert await b.wait(page + "==='camera.backyard'", 10), await b.eval(page)
+            # a room block leaves out what the house hides (the ceiling light), as the room's page does
+            tiles = "deep(cell('room'),'[entity]').map(e=>e.getAttribute('entity')||'').concat(deep(cell('room'),'*').map(e=>e._config&&e._config.entity).filter(Boolean))"
+            assert await b.wait(tiles + ".includes('light.living_room_lamps')", 10), await b.eval(tiles)
+            assert 'light.living_room_ceiling' not in await b.eval(tiles), 'a hidden accessory in the room block'
+            # the calendar: seven days of events, under their days' headings, scrolling inside the block; a tap opens one
+            # (the house's client is frozen, so the card is handed what Home Assistant would answer)
+            await b.eval("(()=>{let c=deep(cell('cal'),'hk-calendar-pane-card')[0];let ev=" + EVENTS + ";"
+                         "c._evs=ev.map(e=>hkCalendar._.norm('calendar.family',e));c._n++;c.redraw();void 0})()")
+            pane = "deep(cell('cal'),'hk-calendar-pane-card')[0].shadowRoot"
+            assert await b.wait(pane + ".querySelectorAll('.gev').length>=12", 15), await b.eval(pane + ".innerHTML.slice(0,300)")
+            cal = await b.eval("(()=>{let r=" + pane + ",gl=r.querySelector('.gl'),c=cell('cal').getBoundingClientRect(),g=gl.getBoundingClientRect();"
+                               "return {heads:[...r.querySelectorAll('.gd')].map(e=>e.textContent),scrolls:gl.scrollHeight>gl.clientHeight+20,inside:g.bottom<=c.bottom+1}})()")
+            assert len(cal['heads']) >= 5 and cal['heads'][0] == 'Tomorrow' and cal['scrolls'] and cal['inside'], cal
+            await b.eval("(()=>{window.__opened=null;let D=window.hkDetail;if(D){let o=D.open.bind(D);D.open=function(a,b,c){window.__opened=c&&c.event&&c.event.title;return o(a,b,c)}}"
+                         "let r=" + pane + ",ev=r.querySelectorAll('.gev');ev[ev.length-1].scrollIntoView();ev[ev.length-1].click()})()")
+            assert await b.wait("window.__opened==='Event 6-21'", 10), await b.eval('window.__opened')
             if args.shots:
                 args.shots.mkdir(parents=True, exist_ok=True)
                 await b.screenshot(args.shots / 'blocks.png')
             exceptions = [line for line in b.console if line.startswith('EXCEPTION:')]
             assert not exceptions, exceptions
-            print('PASS: keypad and vacuum blocks, rules switching in place, cameras following motion')
+            print('PASS: keypad and vacuum blocks, rules switching in place, cameras following motion, the calendar\'s days, scroll and taps, the room\'s hidden accessories')
 
 asyncio.run(main())

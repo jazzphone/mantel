@@ -81,7 +81,11 @@
     partsMemo = { key: key, ents: client.entities, devs: client.devices, areas: client.areas, out: out };
     var room = (client.areas || {})[area] || {};
     var cards = [];
-    try { cards = S.roomCards(client, [area], room.name || area) || []; } catch (e) { cards = []; }
+    // HIDDEN ACCESSORIES (HK Settings; `generated`): what the room's page leaves out, the block does too
+    // (2026-10-24: without them the block showed accessories hidden from every screen)
+    var G = (HS && HS.get && HS.get('generated', null)) || {}, hides = {};
+    ['exclude_entities', 'exclude_devices', 'exclude_areas', 'include_entities'].forEach(function (k) { if (Array.isArray(G[k])) hides[k] = G[k]; });
+    try { cards = S.roomCards(client, [area], room.name || area, hides) || []; } catch (e) { cards = []; }
     (function walk(list) {
       (list || []).forEach(function (c) {
         if (!c || typeof c !== 'object') return;
