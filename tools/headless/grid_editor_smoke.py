@@ -56,6 +56,13 @@ async def main():
 
             assert ready
             assert await b.eval('ed.grid.items.length > 0')
+            # A preview that fails says why, steps aside to a strip, keeps the blocks usable, and recovers.
+            await b.eval("window.realGenerate=ed.iframe.contentWindow.hkStrategy.generate;ed.iframe.contentWindow.hkStrategy.generate=async()=>{throw new Error('Fictional failure')};ed.previewView=null;ed.preview();void 0")
+            assert await b.wait("ed.box.getAttribute('data-loading')==='slow' && ed.box.getAttribute('data-why').includes('Fictional failure')", 10)
+            assert await b.eval("ed.overlay.querySelectorAll('.block').length===ed.grid.items.length && ed.overlay.getBoundingClientRect().width>200")
+            await b.eval("ed.iframe.contentWindow.hkStrategy.generate=realGenerate;ed.preview();void 0")
+            assert await b.wait("!ed.box.hasAttribute('data-loading') && !!ed.previewView?.isConnected", 15)
+            print('a failing preview says why and leaves the blocks usable',flush=True)
             # a new room block scrolls through all its accessories
             assert await b.eval("ed.grid.items.find(i=>i.card==='room').opts.accessory_display==='scroll'")
             assert await b.eval("!ed.sidebar.querySelector('.screen-settings').open")

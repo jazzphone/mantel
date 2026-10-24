@@ -127,7 +127,7 @@
     '.frame{position:absolute;left:0;top:0;transform-origin:top left;background:var(--hk-cell);overflow:hidden}',
     // while the screen loads in its frame (a slow connection: a minute or more)
     '.framebox[data-loading]::after{content:"Loading the preview…";position:absolute;inset:0;z-index:5;display:flex;align-items:center;justify-content:center;font-size:15px;color:var(--hk-label2);background:var(--hk-cell)}',
-    '.framebox[data-loading=slow]::after{content:"Still loading the preview. A slow connection can take a minute or two."}',
+    '.framebox[data-loading=slow]::after{content:"The live preview isn’t ready. " attr(data-why) ". You can still arrange blocks.";inset:auto 0 0 0;padding:10px 14px;font-size:13px;justify-content:flex-start;background:color-mix(in srgb,var(--hk-cell) 92%,transparent)}',
     '.catalog-preview:empty::before,.catalog-preview[data-loading]::before{content:"Loading preview…";position:absolute;inset:0;z-index:1;display:flex;align-items:center;justify-content:center;font-size:13px;color:var(--hk-label2);background:var(--hk-fill)}',
     'iframe{position:absolute;inset:0;border:0;width:100%;height:100%;pointer-events:none}',
     '.grid{position:absolute;display:grid;gap:10px;z-index:2}',
@@ -1005,15 +1005,22 @@
       if (!this.grid || !this.isConnected) return;
       var w = this.iframe.contentWindow;
       try {
-        if (!w.hkStrategy || !w.hkCards || !w.hkShell || !w.hkShell.view()) throw new Error('loading');
+        // WHAT IT IS WAITING FOR, said once it is slow (data-why), so a screen
+        // that never gets there says where it stopped
+        var wait = function (why) { var err = new Error('loading'); err.why = why; throw err; };
+        if (!w || !w.document || w.document.readyState === 'loading') wait('the screen to load');
+        if (!w.hkStrategy || !w.hkCards) wait('the screen’s code');
+        if (!w.hkShell || !w.hkShell.view()) wait('the screen’s page');
         var serial = this.previewSerial = (this.previewSerial || 0) + 1;
         var client = w.hkCards.client(), draft = copy(this.grid);
         var selected = draft.items.find((it) => it.id === this.selected);
         if (selected && selected.when && typeof this.conditionPreview === 'boolean') selected._conditionPreview = this.conditionPreview;
+        if (!client || !client.states) wait('the home’s accessories');
         var config = await w.hkStrategy.generate({ home_grid_preview: draft }, client);
         if (serial !== this.previewSerial || !this.isConnected) return;
         var old = this.previewView && this.previewView.isConnected ? this.previewView : w.hkShell.view(), cfg = config.views.find((v) => v.path === 'home');
-        if (!cfg || cfg.type !== 'custom:hk-home-grid-view') throw new Error('loading');
+        if (!cfg) wait('a Home page (this screen has ' + config.views.map((v) => v.path).join(', ') + ')');
+        if (cfg.type !== 'custom:hk-home-grid-view') wait('Home Grid (Home was drawn as ' + cfg.type + ')');
         var el = w.document.createElement('hk-home-grid-view'); el.setConfig(cfg);
         el.cards = cfg.cards.map((c) => w.hkCards.createCard(c, client));
         // The overlay blocks pointer events; inert also blocks keyboard access to card actions.
@@ -1025,7 +1032,7 @@
         }
         // The host's view lookup may still point at its cached view. Keep the preview local.
         this.previewView = el; this.previewRetries = 0; this.previewError = null;
-        this.box.removeAttribute('data-loading');
+        this.box.removeAttribute('data-loading'); this.box.removeAttribute('data-why');
         w.hkShell.announce({ detail: { replace: true } });
         if (this.previewOff) this.previewOff();
         this.previewOff = w.hkCards.onClient((next) => { el.cards.forEach((card) => w.hkHostClient.bridge(card, next)); });
@@ -1038,9 +1045,17 @@
         // slow connection that takes a while (2026-10-24, the owner: it gave
         // up after 20 s and stayed blank). Keep asking, less often as it
         // goes -- its frame's load asks at once too -- and only say so.
+        // A real error, or still waiting long after the frame came: say which
+        // (data-why), and after ~30 s step aside to a strip at the foot, so the
+        // blocks can be arranged without the live picture (fit() places them
+        // on the frame's own grid then)
+        var failed = !(e && e.message === 'loading');
+        if (failed) console.error('[hk-grid-editor] the preview failed', e);
         this.previewError = String(e && e.message || e);
         this.previewRetries = (this.previewRetries || 0) + 1;
-        this.box.setAttribute('data-loading', this.previewRetries > 20 ? 'slow' : 'yes');
+        this.box.setAttribute('data-why', failed ? 'It hit a problem: ' + this.previewError : 'Waiting for ' + (e.why || 'the screen'));
+        this.box.setAttribute('data-loading', failed || this.previewRetries > 25 ? 'slow' : 'yes');
+        this.fit();
         if (this.previewRetries < 400) this.previewTimer = setTimeout(() => this.preview(), Math.min(2000, 300 + this.previewRetries * 50));
         else this.say('The live preview couldn’t load. Reload this page to try again.');
       }

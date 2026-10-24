@@ -1242,3 +1242,17 @@ gzip step. The update installed on the first request. Strict health is OK with H
 
 A file request from the MCP side is refused without a session (403), so the compressed responses were not observed on
 the house itself; the local server check showed `Content-Encoding: gzip` for a file with a `.gz` beside it.
+
+### The editor says what it is waiting for (2026-10-24)
+
+After 0.1.68 the owner's editor still showed no preview, although the house log showed the preview frame fully
+loaded within about 20 seconds and still running (camera stills every 10 s). The owner's exact `screen-test`
+settings, read from the Mantel mirror in HA storage, loaded at once in Chrome and in WebKit (Playwright 1.62, the
+cached WebKit 2336), with the fictional house. The difference is the real house (about 4,500 entities and 24 areas)
+behind the remote proxy, which can't be reached from here.
+
+So the editor now reports where it stopped instead of only saying it is loading. It names what it is waiting for (the
+screen to load, the screen's code, the screen's page, the home's accessories, a Home page, or Home Grid itself) or,
+if something failed, the error text. After about 30 seconds, or straight away on an error, the cover shrinks to a
+strip at the foot with that reason, and the blocks can be arranged without the live picture. The editor smoke forces
+a failure and checks the reason, the usable blocks and the recovery.
