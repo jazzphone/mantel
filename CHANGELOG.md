@@ -2,6 +2,12 @@
 
 All notable changes to Mantel are listed here. Versions follow [semantic versioning](https://semver.org); the Home Assistant App, the Docker images and the Python package share one version number.
 
+## 0.1.64 - 2026-10-23
+
+Local Home Assistant App update for the house.
+
+- Standalone Home Grid accessories and scenes reuse the room-page tile builders for saved glyphs, colors and state-specific appearance. Grid sizes and caption choices stay in place.
+
 ## 0.1.63 - 2026-10-23
 
 Local Home Assistant App update for the house.
