@@ -60,7 +60,7 @@ async def main():
             {'id': 'small', 'card': 'clock', 'size': 'S', 'at': [2, 0]}]}}
     # Big Temperature and Month View, StandBy's (a Tall weather block is always the big number)
     gallery.SETTINGS['boards']['standby'] = {'home_style': 'grid', 'menu_custom': True, 'menu': 'tabbar', 'home_grid': {
-        'v': 1, 'cols': 3, 'rows': 2, 'frame': [844, 390], 'band': False, 'boxes': False, 'grow': True, 'items': [
+        'v': 1, 'cols': 3, 'rows': 2, 'frame': [844, 390], 'band': False, 'boxes': False, 'grow': True, 'night': {'mode': 'always'}, 'items': [
             {'id': 'wx', 'card': 'weather', 'size': 'T', 'at': [0, 0]},
             {'id': 'cal', 'card': 'calendar', 'size': 'L', 'at': [1, 0], 'opts': {'month': True}}]}}
     gallery.SETTINGS['boards']['panels'] = {'home_style': 'grid', 'home_grid': BIG, 'menu_custom': True, 'menu': 'tabbar'}
@@ -143,11 +143,18 @@ async def main():
             assert sb == {'today': True, 'days': True, 'inside': True, 'big': True}, sb
             if args.shots:
                 await b.screenshot(args.shots / 'standby.png')
+            # Night Mode (Always here): the page black, one red wash over everything; today's number black on its circle
+            night = await b.eval("""(()=>{let w=document.getElementById('hk-night-wash'),sky=document.getElementById('hk-sky');
+              return [document.documentElement.hasAttribute('hk-night'),!!w&&getComputedStyle(w).mixBlendMode,!sky||getComputedStyle(sky).visibility,
+                      getComputedStyle(deep(cell('cal'),'.md.now')[0]).color]})()""")
+            assert night == [True, 'multiply', 'hidden', 'rgb(0, 0, 0)'], night
             # a day in Month View opens that day on the Calendar page
             day = await b.eval("(()=>{let d=deep(cell('cal'),'.md[data-ymd]')[9];d.click();return d.getAttribute('data-ymd')})()")
             assert await b.wait("location.pathname.endsWith('/calendar') && location.search.includes('day=%s')" % day, 10), await b.eval('location.href')
+            # ...and leaving Home lets the night go
+            assert await b.wait("!document.documentElement.hasAttribute('hk-night') && !document.getElementById('hk-night-wash')", 10)
             exceptions = [line for line in b.console if line.startswith('EXCEPTION:')]
             assert not exceptions, exceptions
-            print('PASS: power, music, doors & locks, the thermostat\'s full controls, Live TV and water as blocks, the clock faces, Big Temperature and Month View')
+            print('PASS: power, music, doors & locks, the thermostat\'s full controls, Live TV and water as blocks, the clock faces, Big Temperature, Month View and Night Mode')
 
 asyncio.run(main())

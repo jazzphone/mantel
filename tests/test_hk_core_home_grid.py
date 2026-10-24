@@ -343,3 +343,13 @@ def test_hide_box_and_fill():
     for key in ("boxes", "grow"):
         with pytest.raises(HG.GridInvalid):
             HG.check({**grid(), key: "no"})
+
+
+def test_night_mode():
+    out = HG.check({**grid(), "night": {"mode": "night", "from": "21:30", "to": "06:45"}})
+    assert out["night"] == {"mode": "night", "from": "21:30", "to": "06:45"}
+    assert HG.check({**grid(), "night": {"mode": "always"}})["night"] == {"mode": "always", "from": "22:00", "to": "07:00"}
+    for bad in ({"mode": "dim"}, {"mode": "night", "from": "9:00"}, {"mode": "night", "from": "07:00", "to": "07:00"},
+                {"mode": "night", "extra": 1}, "always"):
+        with pytest.raises(HG.GridInvalid):
+            HG.check({**grid(), "night": bad})

@@ -93,6 +93,8 @@ Weather comes in Wide (conditions), Large (also readings, six hours and three da
 | Large Tablet | 6 × 5 | On | 98% |
 | Car | 6 × 3 | On | 94% |
 
+**Screen → Night → Night Mode** turns the whole screen one dim red on black (the background hidden, the blocks, tab bar and sheets alike), At Night between two times or Always, as StandBy and the screensaver's clock do. It applies only while Home shows.
+
 Blocks are re-packed onto the new grid in reading order. If some can't fit, the editor names them and asks first; nothing is saved until you Save, and Undo brings the old grid back. On a phone the top band starts off (turn it on under Header). For a phone on its side, set the screen's **Tab Bar Position** to Left or Right so the blocks get the height, and **Labels** to Icons Only for the slimmest rail. Phone, Landscape has starters of its own for a nightstand: **Big Clock**, **Clock and Calendar**, and **Analog and Weather**.
 
 ## The screen's settings

@@ -1391,9 +1391,10 @@
     '.mo .mw{' + window.hkCards.labelCss('label-small') + ';line-height:14px}',
     '.mo .md{all:unset;box-sizing:border-box;cursor:pointer;-webkit-tap-highlight-color:transparent;position:relative;display:flex;align-items:center;justify-content:center;height:100%;max-height:calc(100cqw / 7.6);aspect-ratio:1;border-radius:50%;',
     '  font-size:clamp(11px,min(5.4cqw,7.5cqh),24px);font-weight:500;font-variant-numeric:tabular-nums}',
-    '.mo .md.now{background:' + CAL_RED + ';color:#fff}',
+    // (at night the wash makes white the red: today's number goes black, --hk-night-on-red, to read on its circle)
+    '.mo .md.now{background:' + CAL_RED + ';color:var(--hk-night-on-red,#fff)}',
+    '.mo .md.now i{background:var(--hk-night-on-red,#fff)}',
     '.mo .md i{position:absolute;bottom:12%;width:4px;height:4px;border-radius:2px;background:' + window.hkCards.v('ink-2') + '}',
-    '.mo .md.now i{background:#fff}',
     '.mo button.md:active{opacity:.6}.mo button.md:focus-visible{outline:2px solid ' + window.hkCards.v('ink-2') + ';outline-offset:1px}',
     '.mo .md.out{cursor:default}'
   ].join('\n');

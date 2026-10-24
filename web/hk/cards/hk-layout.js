@@ -1670,6 +1670,40 @@
   // one cell's width and height. A card's own layout per class reads them
   // (G2). The card gets the same `size` attribute.
   var GRID = C.HOME_GRID || { sizes: {}, gap: 10, band: 60 };
+  // A NIGHT (the grid's `night`): "always", or now between from and to (across midnight)
+  function gridNightNow(n, d) {
+    if (!n || n.mode === 'off') return false;
+    if (n.mode === 'always') return true;
+    var mins = function (t) { var p = String(t || '').split(':'); return (+p[0] || 0) * 60 + (+p[1] || 0); };
+    var m = d.getHours() * 60 + d.getMinutes(), a = mins(n.from || '22:00'), b = mins(n.to || '07:00');
+    return a <= b ? m >= a && m < b : m >= a || m < b;
+  }
+  // ...and the night itself, the screensaver clock's: what is behind the
+  // grid hidden (the page black), and one dim red over everything on the
+  // screen -- the blocks, the tab bar, a sheet -- by multiply, so white is
+  // the red and black stays black. It takes no touches.
+  function gridNight(on) {
+    // (nothing to do where there is no page: a test's DOM)
+    if (typeof document.getElementById !== 'function' || !document.documentElement || !document.body) return;
+    var de = document.documentElement, wash = document.getElementById('hk-night-wash');
+    if (on === de.hasAttribute('hk-night') && (!on || wash)) return;
+    if (!document.getElementById('hk-night-css')) {
+      var st = document.createElement('style');
+      st.id = 'hk-night-css';
+      // (--hk-night-on-red: what a card draws on its own red -- today's circle -- turns black, which the wash keeps)
+      st.textContent = 'html[hk-night] #hk-sky{visibility:hidden!important}html[hk-night],html[hk-night] body{background:#000!important}' +
+        'html[hk-night]{--hk-night-on-red:#000}' +
+        '#hk-night-wash{position:fixed;inset:0;z-index:2147483000;pointer-events:none;background:#b3261e;mix-blend-mode:multiply}';
+      (document.head || de).appendChild(st);
+    }
+    if (on) {
+      de.setAttribute('hk-night', '');
+      if (!wash) { wash = document.createElement('div'); wash.id = 'hk-night-wash'; wash.setAttribute('aria-hidden', 'true'); document.body.appendChild(wash); }
+    } else {
+      de.removeAttribute('hk-night');
+      if (wash) wash.remove();
+    }
+  }
   class HkHomeGridView extends HTMLElement {
     setConfig(config) {
       this._config = config || {};
@@ -1736,7 +1770,7 @@
       var cols = [6, 3, 2].indexOf(g.cols) >= 0 ? g.cols : 6;
       var rows = (g.rows >= 2 && g.rows <= 6 && g.rows === Math.floor(g.rows)) ? g.rows : 4;
       return { cols: cols, rows: rows, band: g.band !== false, scale: Number.isInteger(g.scale) && g.scale >= 50 && g.scale <= 100 ? g.scale : 100,
-               grow: g.grow === true };
+               grow: g.grow === true, night: g.night && (g.night.mode === 'night' || g.night.mode === 'always') ? g.night : null };
     }
 
     _place() {
@@ -1829,11 +1863,24 @@
       if (this._ro) this._ro.observe(this);
       this._measure();
       this._announce();
+      this._nightCheck();
+      var self = this;
+      if (!this._nightT) this._nightT = setInterval(function () { self._nightCheck(); }, 30000);
     }
     disconnectedCallback() {
       if (super.disconnectedCallback) super.disconnectedCallback();
       if (this._ro) this._ro.disconnect();
       this._announced = false;
+      if (this._nightT) { clearInterval(this._nightT); this._nightT = null; }
+      gridNight(false);
+    }
+    // NIGHT MODE (2026-10-24, StandBy's and the screensaver's clock's): while
+    // the screen's night lasts -- between From and Until, across midnight,
+    // or Always -- the whole screen one dim red (gridNight). Checked every
+    // 30 s; Home only: another page, or this view gone, lets it go.
+    _nightCheck() {
+      var n = this._config && this._grid().night;
+      gridNight(!!n && this.isConnected && gridNightNow(n, new Date()));
     }
     // hk-view-ready, as hk-grid-view says it (the sky repaints with the page)
     _announce() {
@@ -2453,6 +2500,7 @@
   window.hkLayout = { version: '1.0.0', pageHeaderMode: pageHeaderMode,
                       gutter: function (el) { return HkGridView.gutter(el); },
                       // the pager's decisions, for its tests
+                      gridNightNow: gridNightNow,
                       pager: { start: pagerStart, doorbell: pagerDoorbell, follow: pagerFollow, claims: pagerClaims,
                                control: pagerControl, EDGE: PAGER_EDGE } };
   });

@@ -452,9 +452,28 @@ def _frame(v: Any) -> list[int]:
     return [_whole(v[0], *FRAME_W, "grid_frame"), _whole(v[1], *FRAME_H, "grid_frame")]
 
 
+NIGHT_MODES = ("off", "night", "always")
+
+
+def _night(v: Any) -> dict[str, Any]:
+    """NIGHT MODE (2026-10-24, StandBy's): the screen one dim red -- "night" between `from` and `to` (across
+    midnight), or "always"."""
+    if not isinstance(v, dict) or set(v) - {"mode", "from", "to"} or v.get("mode") not in NIGHT_MODES:
+        raise GridInvalid("grid")
+    out: dict[str, Any] = {"mode": v["mode"]}
+    for key, default in (("from", "22:00"), ("to", "07:00")):
+        t = v.get(key, default)
+        if not isinstance(t, str) or not CLOCK.match(t):
+            raise GridInvalid("grid")
+        out[key] = t
+    if out["from"] == out["to"]:
+        raise GridInvalid("grid")
+    return out
+
+
 def _shape(v: Any) -> dict[str, Any]:
     if not isinstance(v, dict) or set(v) - {"v", "cols", "rows", "frame", "band", "header_clock", "header_weather", "scale", "boxes", "grow",
-                                              "items"}:
+                                              "night", "items"}:
         raise GridInvalid("grid")
     if v.get("v", VERSION) != VERSION:
         raise GridInvalid("grid")
@@ -474,6 +493,8 @@ def _shape(v: Any) -> dict[str, Any]:
            "items": items}
     if "scale" in v:
         out["scale"] = _whole(v["scale"], 50, 100, "grid")
+    if "night" in v:
+        out["night"] = _night(v["night"])
     # boxes: False -- every block without its plate (Hide Box, the screen's); grow: True -- the grid may scale past
     # its own size to fill the screen (a phone on its side)
     for key in ("header_clock", "header_weather", "boxes", "grow"):

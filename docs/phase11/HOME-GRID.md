@@ -1503,3 +1503,14 @@ they were. Each must be inside the screen with a 7 px margin, keep every control
 X as far from the top as from the right, and scroll 2 px at most. All 60 pass. In WebKit at 844 × 390 the light,
 thermostat and media sheets fit with nothing to scroll. Its "ResizeObserver loop" message is logged as the page loads
 and was there before this change.
+
+### Night Mode on the grid (2026-10-24)
+
+The grid's `night`: `{mode: off | night | always, from, to}` (night across midnight, as the screensaver's
+`clock_night`). While the view is on the screen and its night lasts (checked every 30 s), `gridNight` sets
+`html[hk-night]`: the sky hidden and the page black, and `#hk-night-wash` over everything (the screensaver clock's
+`#b3261e`, multiply, so white becomes the red and black stays black, touches passing through). Its blocks, tab bar
+and sheets are all one red. A card's own red ground would swallow its white text, so `--hk-night-on-red` turns
+that text black, for today's circle in Month View. Leaving Home, or the view going, removes it. The editor's Screen
+→ Night sets it. `grid_panels_check.py` checks the wash, the hidden sky, today's black number, and the night letting
+go on another page.

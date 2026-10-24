@@ -753,6 +753,14 @@
         K.toggle({ label: 'Show Boxes', sub: 'Off: every block straight on the background, as on a nightstand.', on: this.grid.boxes !== false, onChange: (on) => config('boxes', on) }),
         K.toggle({ label: 'Fill the Screen', sub: 'Lets the grid grow past its own size on a screen bigger than it.', on: this.grid.grow === true, onChange: (on) => config('grow', on) }),
         K.select({ label: 'Grid Scale', value: this.grid.scale || 100, options: [100, 90, 80, 70, 60, 50].map((n) => [n, n === 100 ? 'Automatic Fit' : n + '% of Fit']), onChange: (n) => config('scale', Number(n)) })]));
+      // NIGHT MODE (2026-10-24): the screen one dim red at night, as StandBy and the screensaver's clock have it
+      var night = this.grid.night || { mode: 'off', from: '22:00', to: '07:00' }, putNight = (patch) => config('night', Object.assign({ from: '22:00', to: '07:00' }, night, patch));
+      var nightRows = [K.seg({ label: 'Night Mode', value: night.mode, options: [['off', 'Off'], ['night', 'At Night'], ['always', 'Always']], onChange: (m) => putNight({ mode: m }) })];
+      if (night.mode === 'night') {
+        nightRows.push(K.text({ label: 'From', type: 'time', value: night.from, onCommit: (v) => { if (/^\d\d:\d\d$/.test(v) && v !== night.to) putNight({ from: v }); else this.side(); } }));
+        nightRows.push(K.text({ label: 'Until', type: 'time', value: night.to, onCommit: (v) => { if (/^\d\d:\d\d$/.test(v) && v !== night.from) putNight({ to: v }); else this.side(); } }));
+      }
+      add(K.group({ header: 'Night', footer: 'Everything on the screen one dim red, on black, while Home shows: for a bedroom or a nightstand.' }, nightRows));
       add(K.group({ header: 'Header' }, [
         K.toggle({ label: 'Top Band', sub: 'The clock, weather and status chips', on: this.grid.band, onChange: (v) => config('band', v) }),
         K.toggle({ label: 'Clock', on: this.grid.header_clock !== false, disabled: !this.grid.band, onChange: (v) => config('header_clock', v) }),
