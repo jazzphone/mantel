@@ -1335,3 +1335,12 @@ applied; only an accessory's `room: false` did. It now passes them, as the room'
 `grid_blocks_check.py` hides the living room's ceiling light and checks the room block leaves it out, and hands a
 seven-day calendar block two events a day: headings from Tomorrow on, the list scrolling inside the block, and a tap
 on the last event opening its sheet.
+
+### House App 0.1.71 deployed (2026-10-24)
+
+The owner asked for this release. Release commit `b8d8915` (the keypad and vacuum blocks, rules, cameras that follow,
+the calendar's days, scroll and taps, the room block's hidden accessories, and the iPad scroll fix) was pushed and
+staged. The update installed on the first request. Strict health is OK with Home Assistant connected, and build
+`5237cbfeb53285ed` matches the staged release. There is no Traceback; the only lines matching "ERROR" are Music
+Assistant queue warnings from before the restart. Next: the owner checks on the iPad that the test dashboard no longer
+scrolls.
