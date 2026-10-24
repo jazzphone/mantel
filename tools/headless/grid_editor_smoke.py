@@ -41,6 +41,8 @@ async def main():
 
             assert ready
             assert await b.eval('ed.grid.items.length > 0')
+            # a new room block scrolls through all its accessories
+            assert await b.eval("ed.grid.items.find(i=>i.card==='room').opts.accessory_display==='scroll'")
             assert await b.eval("!ed.sidebar.querySelector('.screen-settings').open")
             await b.eval("ed.sidebar.querySelector('.screen-settings').open=true")
             assert await b.wait('ed.screenSettingsOpen===true', 5)

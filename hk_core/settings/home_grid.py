@@ -498,8 +498,10 @@ def starter(concept: str, scenes: list[str] | None = None, rooms: list[str] | No
         items.append({"id": f"{p}{len(items) + 1}", "card": card, "size": size, "at": at, **more})
 
     def room(size: str, at: list[int]) -> None:
+        # a new room block scrolls through all its accessories (the owner's choice, 2026-10-24)
         if rooms:
-            add("room", size, at, pages={"source": "rooms", **({"start": TABLET_ROOM} if here else {})})
+            add("room", size, at, opts={"accessory_display": "scroll"},
+                pages={"source": "rooms", **({"start": TABLET_ROOM} if here else {})})
 
     def speaker(size: str, at: list[int]) -> None:
         add("now_playing", size, at, **({"opts": {"speaker": TABLET_ROOM}} if here else {}))

@@ -517,11 +517,14 @@
       var variant = this.variantFor(key);
       this.update(item.id, target === 'fallback' ? { fallback: variant } : { card: key, opts: variant.opts, pages: variant.pages || null });
     }
-    // A card as a block or a fallback starts with: sample options, and an
-    // Accessory Group's automatic pages (its samples may not fit one page).
+    // A card as a block or a fallback starts with: sample options, an
+    // Accessory Group's automatic pages (its samples may not fit one page),
+    // and a room that scrolls through all its accessories (the owner's
+    // choice, 2026-10-24; a saved room without the option stays Summary)
     variantFor(key) {
       var out = { card: key, opts: this.previewOptions(key) };
       if (key === 'accessories') out.pages = { source: 'accessories' };
+      if (key === 'room') out.opts.accessory_display = 'scroll';
       return out;
     }
 

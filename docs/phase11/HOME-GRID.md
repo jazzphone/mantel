@@ -1156,5 +1156,6 @@ There it is re-measured behind the moving pages, and Safari lagged. The track is
 `pager_swipe_check.py` now runs in the Blur look and checks that each frosted block's blur layer sits inside its
 track. 225 of 225 swipes still land, with taps, dimming, list scrolling, the dots and a mouse drag unchanged.
 
-The owner also asked why a room block shows "+4 more" instead of scrolling. That is the default: **Content →
-Accessories → Summary**. **Scroll All** scrolls the whole room.
+The owner also asked why a room block shows "+4 more" instead of scrolling. That was the default (**Content →
+Accessories → Summary**); **Scroll All** scrolls the whole room. At the owner's request, new room blocks (the editor's
+and the starters') now start on Scroll All. A saved room without the option stays Summary.
