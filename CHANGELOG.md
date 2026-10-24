@@ -2,7 +2,9 @@
 
 All notable changes to Mantel are listed here. Versions follow [semantic versioning](https://semver.org); the Home Assistant App, the Docker images and the Python package share one version number.
 
-## Unreleased
+## 0.1.71 - 2026-10-24
+
+Local Home Assistant App update for the house.
 
 - Home Grid: a Large or Extra Large Security block is the alarm keypad, and a Large or Extra Large Vacuum block is the vacuum's controls with Clean Areas below them.
 - Home Grid: **Show When** takes rules. A block shows its own card by default and switches to another while a rule's conditions hold (up to four rules of up to three conditions each). New conditions: a time-of-day window and the alarm disarmed. Blocks saved with Otherwise Show keep working.
@@ -106,7 +108,9 @@ Local Home Assistant App update for the house.
 - Music artwork and track information align, with more space around the progress bar. Weather, camera, security and timer cards have updated layouts and controls.
 - The picker and settings scroll independently while the dashboard preview and editor toolbar stay visible, including on shorter screens.
 
-## Unreleased
+## 0.1.71 - 2026-10-24
+
+Local Home Assistant App update for the house.
 
 The first public release.
 
