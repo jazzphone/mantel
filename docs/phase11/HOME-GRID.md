@@ -1471,3 +1471,35 @@ starters use both.
 sheet's foot. The event sheet's two columns are squeezed into 358 px, its mini month cut off. The Calendar page's Day
 view works, with about three hours in view. The sheets size by width (the phone breakpoint is 640 px wide), and
 nothing yet answers a screen this short.
+
+### Detail sheets on a short screen (2026-10-24)
+
+On a phone held sideways (844 × 390) every sheet scrolled, by 114 to 322 px: the sheets sized by width alone (the
+phone breakpoint is 640 px wide), so a short landscape screen got the tablet's 680 px sheet capped at the screen
+less 32 px. `SHORT_MQ` (landscape, under 500 px tall, wider than a phone) now gives:
+
+- **The frame**: the screen's height less 12 px a side, the sheet 120 px wider than its tablet width, 16 px padding
+  on every side (so the X is 17 px from the top and the right, as the phone's is equal), and the phone's 40 px
+  header, glyph, X and title. These are the phone's own rules, shared with `@media (max-width:640px), SHORT_MQ`
+  rather than repeated, so the design-scale tests (corners, type) stay where they were.
+- **Two columns** for a sheet with a control (`TWO`: a panel holding the slider, the switch, the shade, the lock,
+  the disc, the glyph, the dial or the player). The control is on the left at the body's height (`--hk-short-h`).
+  What it reads and its buttons are centred beside it by a flexible row above and below (`::before`, `::after`).
+  There is no row gap, because an empty row would still take one: the pieces are 12 apart by their own margins. A
+  slider with only its reading (a dimmable light, a fan, an outlet, a lock) is one centred pair, not a reading lost
+  in a wide column.
+- **Their own layouts**: the thermostat's ring alone on the left, measured to the body (`_fitShort`: the card's
+  height less the ring's, the ring 0.866 as tall as wide), with its modes, fan and readings in the side column
+  (`_sideRows`; the card's own rows hidden by `--hk-tstat-rows`). Media is the cover at the body's height, with the
+  track, transport, volume and Browse Music centred beside it in a 760 px sheet. A sensor is its reading over its
+  stats, beside its range over the chart, the plot's height what the body leaves. An event is the event card and
+  its details beside its day, without the mini month or Color (set from a taller screen), the day as "Sat, Oct 24".
+  The vacuum's commands and a colour light's swatches are a step smaller to sit inside the column.
+- In passing, the event's hours open 12 px above the hour before it, so that hour's label is never cut in half under
+  the day's header (every screen).
+
+`sheet_short_check.py` opens 15 sheets at 844 × 390 and 667 × 375, and at 1180 × 820 and 390 × 844 to hold those as
+they were. Each must be inside the screen with a 7 px margin, keep every control 12 px inside its padding, keep the
+X as far from the top as from the right, and scroll 2 px at most. All 60 pass. In WebKit at 844 × 390 the light,
+thermostat and media sheets fit with nothing to scroll. Its "ResizeObserver loop" message is logged as the page loads
+and was there before this change.

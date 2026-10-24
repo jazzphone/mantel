@@ -1724,7 +1724,15 @@
       '.mmg button.today b{color:#ff6961}',
       '.mmg button.sel b{background:#fff;color:#1c1c1e}',
       '.tln{position:absolute;left:64px;right:12px;height:2px;background:#ff453a;pointer-events:none}',
-      '.tln::before{content:"";position:absolute;left:-5px;top:-4px;width:10px;height:10px;border-radius:5px;background:#ff453a}'
+      '.tln::before{content:"";position:absolute;left:-5px;top:-4px;width:10px;height:10px;border-radius:5px;background:#ff453a}',
+      // A SHORT SCREEN (hk-detail.js SHORT_MQ: a phone on its side): the
+      // left column is the event, where and what, and Edit and Delete --
+      // without the month (the day beside it places the event) or its Color
+      // (set from a taller screen); the time a size smaller
+      // ...and the event's column a share of the sheet, not its 340, so the day's column keeps its header on one line
+      U.SHORT_MQ ? '@media ' + U.SHORT_MQ + '{.c1 .mm,.c1 .colc{display:none}.t{font-size:30px;line-height:34px}.c1{width:min(340px,52%)}' +
+        '.c2 .lab span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.c2 .lab span:last-child{flex:none}' +
+        '.ro{font-size:13px;line-height:16px}}' : ''
     ].join('');
     // This sheet predates the light appearance. Its Glass text and wells
     // stay as drawn; Flat reads the same ink/key roles as the other sheets.
@@ -1913,7 +1921,8 @@
         tw = this._c2.querySelector('.tlw');
         if (tw) {
           var at = ev.allDay ? 7 : Math.max(0, ev.start.getHours() + ev.start.getMinutes() / 60 - 1);
-          var self = this, top = this._tlMoved && was != null ? was : at * TL_PX;
+          // (12 px above the hour's line: its label is centred on the line, and flush it was cut in half)
+          var self = this, top = this._tlMoved && was != null ? was : Math.max(0, at * TL_PX - 12);
           // (again once laid out: a sheet still opening has no height yet)
           tw.scrollTop = top;
           requestAnimationFrame(function () { if (!self._tlMoved) tw.scrollTop = top; });
@@ -1957,7 +1966,10 @@
       _hours(h, ev) {
         var list = this._day, a = this._at || day0(ev.start), b = addDays(a, 1), now = new Date(), PX = TL_PX;
         var isOn = function (e) { return !!ev && e.cal === ev.cal && +e.start === +ev.start && e.title === ev.title; };
-        var lab = '<div class="lab"><span>' + esc(DOW_LONG[a.getDay()] + ', ' + MON[a.getMonth()] + ' ' + a.getDate()) + '</span>' +
+        // (a short screen's narrower day: "Sat, Oct 24", whole, not "Saturday, October …")
+        var brief = U.SHORT_MQ && window.matchMedia && window.matchMedia(U.SHORT_MQ).matches;
+        var lab = '<div class="lab"><span>' + esc(brief ? DOW[a.getDay()].charAt(0) + DOW[a.getDay()].slice(1).toLowerCase() + ', ' + MON3[a.getMonth()] + ' ' + a.getDate()
+                                                       : DOW_LONG[a.getDay()] + ', ' + MON[a.getMonth()] + ' ' + a.getDate()) + '</span>' +
           (list ? '<span class="n">' + list.length + (list.length === 1 ? ' event' : ' events') + '</span>' : '') + '</div>';
         if (!list) return '<div class="card tlc">' + lab + '<div class="empty" style="padding:0 18px">Loading…</div></div>';
         var long = function (e) { return e.allDay || (e.end - e.start) >= DAY_MS; };

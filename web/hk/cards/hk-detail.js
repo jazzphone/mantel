@@ -619,6 +619,8 @@
     // name land in the same place whatever opens. The keys stay per kind so a
     // kind can move.
     var STD = 460, WIDE = 820, SHEET_H = 680;
+    // A SHORT SCREEN: wider than a phone, under 500 px tall, held sideways
+    var SHORT_MQ = '(orientation:landscape) and (max-height:500px) and (min-width:' + (C.BP.phone + 1) + 'px)';
     // ONE SPACING SCALE for every sheet (2026-10-12: gaps intentional, things
     // aligned). 20 between regions -- the header and the body, two columns,
     // a notification and the sheet under it; 20 (a phone 16) between a
@@ -769,11 +771,25 @@
       '@media (max-width:' + C.BP.phone + 'px){',
       '  .hkd .sheet{width:calc(var(--hk-vw, 100vw) - 32px);padding:18px;gap:16px;border-radius:30px;',
       '    height:min(' + PHONE_H + 'px, calc(var(--hk-vh, 100dvh) - 80px))}',
+      '}',
+      // (a phone's header, glyph, X and title -- a short screen's too)
+      '@media (max-width:' + C.BP.phone + 'px),' + SHORT_MQ + '{',
       '  .hkd .well,.hkd .x{width:40px;height:40px;border-radius:20px}',
       '  .hkd .hd{height:40px;gap:12px}',
       '  .hkd .sheet:not(.bare) .body-frame{margin-top:-6px}',
       '  .hkd .sheet:not(.bare) .body{padding-top:6px}',
       '  .hkd .tt{font-size:20px;line-height:22px}',
+      '}',
+      // A SHORT SCREEN (2026-10-24: a phone on its side, 844 x 390; the
+      // car's): the sheet is the screen's height less 12 px a side, wide
+      // enough for two columns -- the control on the left at the body's
+      // full height, what it reads and its buttons beside it (PANEL_CSS
+      // SHORT) -- with a phone's header and corners. HAS_SHORT is the one
+      // test, here and in the panels.
+      '@media ' + SHORT_MQ + '{',
+      '  .hkd .sheet{width:calc(var(--hkd-w,' + STD + 'px) + 120px);height:calc(var(--hk-vh, 100dvh) - 24px);max-height:calc(var(--hk-vh, 100dvh) - 24px);',
+      '    padding:16px;gap:12px;border-radius:30px}',
+      '  .hkd .sheet:has(hk-detail-media){width:min(760px, calc(var(--hk-vw, 100vw) - var(--hk-content-left, 0px) - 32px))}',
       '}',
       '@media (prefers-reduced-motion:reduce){.hkd .bd,.hkd .sheet,.hkd .body-frame::before,.hkd .body-frame::after{transition:none}}'
     ].join('');
@@ -2586,6 +2602,8 @@
       ':host([hk-flat]) .vp button.on{background:var(--hk-seg-on,' + C.SELECTED_BG + ');color:' + C.SELECTED_TEXT + '}',
       ':host([hk-flat]) .vp button:not(:first-child)::before{background:' + C.v('line') + '}'
     ].join('');
+    // a panel whose control goes on the left on a short screen (PANEL_CSS SHORT)
+    var TWO = ':host .pn:has(> :is(.vs,.tg,.wrap,.ctl,.lk,.bot,.gw,.dial,.pl))';
     var PANEL_CSS = FLAT_PANEL_CSS + [
       ':host{display:block;color:' + window.hkCards.v('ink') + ';font-family:inherit}',
       // a display rule beats the hidden attribute; this puts it back
@@ -2679,7 +2697,7 @@
       // a bar chart lights the bar under the line: the others step back
       '.hksg > div{transition:opacity .12s ease}',
       '.hksg.on > div:not(.hkon){opacity:.4}',
-      '@media (max-width:' + C.BP.phone + 'px){',
+      '@media (max-width:' + C.BP.phone + 'px),' + SHORT_MQ + '{',
       '  .pn{gap:16px}',
       '  .pn > .big + .muted,.pn > .big + .since{margin-top:-10px}',
       '  .big{font-size:38px;min-height:38px}',
@@ -2688,6 +2706,65 @@
       '  .vs .gl{bottom:18px}',
       '  .lab{margin-bottom:-8px}',
       '  .btn{height:48px;border-radius:24px;font-size:15px}',
+      '}',
+      // A SHORT SCREEN (SHEET_CSS above): two columns -- the control (the
+      // slider, the switch, the lock, the disc, the glyph) on the left, as
+      // tall as the body, and what it reads and its buttons beside it,
+      // centred on it. --hk-short-h: the body's height (the screen less the
+      // sheet's margins, padding, header and gap). :host first, so these win
+      // over each panel's own rules.
+      // THE RIGHT COLUMN CENTRED ON THE CONTROL: no wrapper to centre, so
+      // the grid has a flexible row above its pieces and one below them
+      // (::before and ::after), and the control spans every row. Selectors
+      // with .pn: specific enough to win over a panel's own sizes.
+      '@media ' + SHORT_MQ + '{',
+      // (the control's corners as variables: a capsule, half its width; the slider's 0.29 of it, as the tablet's 44 of 150)
+      '  :host{--hk-short-h:calc(var(--hk-vh, 100dvh) - 112px);--hk-short-w:min(120px, calc(var(--hk-short-h) * 0.43));',
+      '    --hk-short-cap:calc(var(--hk-short-w) / 2);--hk-short-vr:calc(var(--hk-short-w) * 0.29);--hk-short-kn:calc((var(--hk-short-w) - 24px) / 2)}',
+      // (no row gap: an empty row would still take one; the right column's
+      // pieces are 12 apart by their own margins, 6 a side)
+      // (only a panel with such a control: a reading and its chart, a list, keep their own column)
+      '  ' + TWO + '{display:grid;grid-template-columns:auto minmax(0,1fr);grid-template-rows:minmax(0,1fr) repeat(5,auto) minmax(0,1fr);',
+      '    column-gap:28px;row-gap:0;align-items:center;justify-items:center;padding:0;height:var(--hk-short-h);box-sizing:border-box}',
+      '  ' + TWO + '::before,' + TWO + '::after{content:"";grid-column:2;align-self:stretch}',
+      // A SLIDER AND ITS READING ALONE (a dimmable light, a fan): the two as
+      // one group in the sheet's middle, not the reading lost in a wide
+      // column -- the columns as wide as what they hold, the pair centred
+      // (a reading and its line -- "Off" / "Since 4:32 PM", "Locked" / "Hold to unlock" -- count as one piece)
+      '  ' + TWO + ':not(:has(> :not(:is(.vs,.tg,.wrap,.ctl,.lk,.bot,.gw,.dial,.big,.rd,.since,.muted,:empty)))){grid-template-columns:auto auto;justify-content:center;column-gap:40px}',
+      '  ' + TWO + '::before{grid-row:1}',
+      '  ' + TWO + '::after{grid-row:7}',
+      '  ' + TWO + ' > *{grid-column:2;max-width:100%;margin-block:6px}',
+      '  :host .pn > :is(.vs,.tg,.wrap,.ctl,.lk,.bot,.gw,.dial){grid-column:1;grid-row:1 / 8;margin-block:0}',
+      // (the thermostat's dial: the body's height, its ring 0.87 as tall as
+      // wide and as big as the mode row under it leaves -- 44 and 12 apart --
+      // and the fan's row too when it has one, :host([hk-fan]); the readings
+      // beside it fill the column)
+      '  :host .pn > .dial.dial{height:var(--hk-short-h);align-self:center;justify-content:center;width:calc(var(--hk-short-h) / 0.87);--hk-tstat-rows:none}',
+      // (ClimatePanel._fitShort then sets the exact width, measured; the
+      // modes and the fan are the side column's own rows, .sctl)
+      '  :host .pn > .side{display:flex;flex-direction:column;gap:12px}',
+      '  :host .side .sctl{display:flex;flex-direction:column;gap:12px}',
+      '  :host .pn > .side{justify-self:stretch;align-self:center}',
+      '  :host .side .trend,:host .side .now .run{display:none}',
+      // (the thermostat's own wide row -- :host([wide]) .pn, its 28 px gap -- gives way here)
+      '  :host([wide]) .pn.pn{row-gap:0;column-gap:28px;align-items:center}',
+      // (a state and its line are one piece: 6 apart, not 12)
+      '  :host .pn > .big + .muted,:host .pn > .big + .since{margin-top:0}',
+      '  :host .pn .vs,:host .pn .vs.short,:host .pn .vs.shade{height:var(--hk-short-h);width:var(--hk-short-w);border-radius:var(--hk-short-vr)}',
+      '  :host .pn :is(.wrap,.ctl){height:auto}',
+      // the power switch: the slider's size, its knob the width less 12 a side
+      '  :host .pn .tg{height:var(--hk-short-h);width:var(--hk-short-w);border-radius:var(--hk-short-cap)}',
+      '  :host .pn .tg .kn{height:calc(var(--hk-short-w) - 24px);border-radius:var(--hk-short-kn);top:calc(100% - var(--hk-short-w) + 12px)}',
+      '  :host .pn .tg.on .kn{top:12px}',
+      '  :host .pn .vs .gl{bottom:16px}',
+      // (the vacuum's four commands: their circles a step smaller, to sit four abreast in the column)
+      '  :host .pn .cmds{gap:8px}:host .pn .cmds .ci{width:60px;height:60px;border-radius:30px}',
+      // (a colour light's swatches: 40 across, 10 apart, so seven sit inside the column)
+      '  :host .pn .sw{gap:10px}:host .pn .sw button{width:40px;height:40px;border-radius:20px}',
+      '  :host .pn .grp{min-width:0}',
+      '  :host .lab{margin-bottom:-6px}',
+      '  :host .btn{height:44px;border-radius:22px;font-size:15px}',
       '}'
     ].join('');
 
@@ -3727,6 +3804,10 @@
         return PANEL_CSS + [
           // 12 (SP.block): the run-time row has to fit an 800 px tablet with margin
           '.pn{gap:12px}',
+          // the side column's modes and fan (a short screen's, _sideRows): the thermostat card's own segmented look
+          '.sctl{display:none}',
+          C.segCss('.sctl .seg', { on: '[aria-pressed="true"]', fill: true }),
+          '.sctl .seg button{flex:1 1 0}',
           // narrow (a phone): one column -- .side dissolves into it
           '.side{display:contents}',
           '.dial{align-self:stretch;display:flex;justify-content:center}',
@@ -3825,10 +3906,69 @@
       // "both columns start at the card's top" still read as the readings
       // sitting higher than the dial. Measured from the ring itself, so it
       // follows the card if its geometry changes; wide layout only.
+      // THE MODES AND THE FAN IN THE SIDE COLUMN (a short screen: the ring
+      // alone fills the dial's column, --hk-tstat-rows none): the thermostat
+      // card's own two rows, as segmented controls, the current one pressed
+      _sideRows(s, a) {
+        var box = this._root.querySelector('.sctl'), self = this;
+        if (!box) return;
+        var NAME = { heat_cool: 'Auto', auto: 'Auto', heat: 'Heat', cool: 'Cool', off: 'Off', dry: 'Dry', fan_only: 'Fan', on: 'On', low: 'Low', medium: 'Medium', high: 'High' };
+        var word = function (m) { return NAME[m] || String(m).replace(/_/g, ' ').replace(/^./, function (c) { return c.toUpperCase(); }); };
+        var row = function (label, list, cur, kind) {
+          if (!Array.isArray(list) || list.length < 2) return '';
+          return '<div class="seg" role="group" aria-label="' + label + '">' + list.slice(0, 5).map(function (m) {
+            return '<button type="button" data-' + kind + '="' + C.esc(m) + '" aria-pressed="' + (m === cur) + '">' + C.esc(word(m)) + '</button>';
+          }).join('') + '</div>';
+        };
+        var html = row('Mode', a.hvac_modes, s.state, 'mode') + row('Fan', a.fan_modes, a.fan_mode, 'fan');
+        if (html === this._sideHtml) return;
+        this._sideHtml = html; box.innerHTML = html;
+        if (!this._sideTaps) {
+          this._sideTaps = true;
+          box.addEventListener('click', function (e) {
+            var b = e.target.closest && e.target.closest('button');
+            if (!b) return;
+            if (b.getAttribute('data-mode')) self._svc('climate', 'set_hvac_mode', { hvac_mode: b.getAttribute('data-mode') });
+            else if (b.getAttribute('data-fan')) self._svc('climate', 'set_fan_mode', { fan_mode: b.getAttribute('data-fan') });
+          });
+        }
+      }
+      // A SHORT SCREEN: the dial as wide as makes it exactly the body's
+      // height. What it holds besides the ring (its face's margins, the mode
+      // row, the fan's) is measured, not guessed, and the ring -- 0.87 as
+      // tall as it is wide -- gets the rest; again when the window changes.
+      _fitShort() {
+        var dial = this._root.querySelector('.dial'), card = this._card, self = this;
+        if (!this._shortMq) {
+          this._shortMq = window.matchMedia(SHORT_MQ);
+          var again = function () { self._fitShort(); self._alignTop(); };
+          if (this._shortMq.addEventListener) this._shortMq.addEventListener('change', again); else if (this._shortMq.addListener) this._shortMq.addListener(again);
+          window.addEventListener('resize', again);
+          // ...and whenever the panel or its thermostat settle (the sheet lays out after the first render)
+          if (typeof ResizeObserver !== 'undefined') {
+            // (a frame later: resizing the dial inside the observer's own callback loops it)
+            this._shortRO = new ResizeObserver(function () { requestAnimationFrame(function () { if (self._shortMq.matches) self._fitShort(); }); });
+            var pn0 = this._root.querySelector('.pn');
+            if (pn0) this._shortRO.observe(pn0);
+            if (card) this._shortRO.observe(card);
+          }
+        }
+        if (!dial) return;
+        if (!this._shortMq.matches) { dial.style.width = ''; return; }
+        var wrap = card && card.shadowRoot && card.shadowRoot.querySelector('.tstat-wrap');
+        // (the panel's own height: --hk-short-h, measured -- a custom property reads back as its calc())
+        var pn = this._root.querySelector('.pn'), room = pn ? pn.clientHeight : 0;
+        if (!wrap || !room || !card.offsetHeight || !wrap.offsetWidth) return;
+        var rest = card.offsetHeight - wrap.offsetHeight, k = wrap.offsetHeight / wrap.offsetWidth;
+        var w = Math.max(160, Math.min(320, Math.floor((room - rest) / k)));
+        if (Math.abs(w - dial.offsetWidth) > 1) dial.style.width = w + 'px';
+      }
       _alignTop() {
         var side = this._root.querySelector('.side'), card = this._card;
         if (!side || !side.style) return;
         var ring = card && card.shadowRoot && card.shadowRoot.querySelector('svg.ring');
+        // (a short screen centres the readings on the dial instead: PANEL_CSS SHORT)
+        if (this._shortMq && this._shortMq.matches) { side.style.marginTop = ''; return; }
         if (!this.hasAttribute('wide') || !ring || !ring.getBoundingClientRect) { side.style.marginTop = ''; return; }
         var rr = ring.getBoundingClientRect(), cr = card.getBoundingClientRect();
         if (!rr.height) return;
@@ -3848,7 +3988,8 @@
         var h = this.client;
         if (!this._built) {
           this._built = true;
-          this._root.innerHTML = '<div class="pn"><div class="dial"></div><div class="side"><div class="now"><div class="rd"></div>' +
+          // (.sctl: the modes and the fan, beside the ring on a short screen -- PANEL_CSS SHORT; hidden otherwise)
+          this._root.innerHTML = '<div class="pn"><div class="dial"></div><div class="side"><div class="sctl"></div><div class="now"><div class="rd"></div>' +
             '<div class="run"><div><div class="k">Ran today</div><div class="v rt">—</div></div>' +
             '<div><div class="k">Yesterday</div><div class="v ry">—</div></div></div></div><div class="trend" hidden></div></div></div>';
           var card = document.createElement('hk-thermostat-card');
@@ -3863,8 +4004,10 @@
         }
         // the thermostat card gets what goes with the client (the host adapter decides)
         if (this._card) bridge(this._card, h);
+        this._fitShort();
         this._alignTop();
         var a = s.attributes || {};
+        this._sideRows(s, a);
         var wx = stOf(h, this._wx());
         var out = wx && at(wx, 'temperature') != null ? Math.round(at(wx, 'temperature')) + '°' : '—';
         var cur = a.current_temperature != null ? Math.round(a.current_temperature) + '°' : '—';
@@ -3974,7 +4117,27 @@
           '@media (max-width:' + C.BP.phone + 'px){',
           '  .pl{margin:0 8px}',
           '  .art{width:250px;height:250px}.art.tv{width:100%;height:auto}',
-          '  .ti{font-size:20px}.tp{gap:30px}.list{max-height:340px}',
+          '  .tp{gap:30px}.list{max-height:340px}',
+          '}',
+          '@media (max-width:' + C.BP.phone + 'px),' + SHORT_MQ + '{.ti{font-size:20px}}',
+          // A SHORT SCREEN: the cover on the left, as tall as the body, the
+          // track and everything that plays it in a column beside it, left
+          // aligned on the title as a Now Playing screen is; the transport a
+          // little tighter, so the column is the cover's height
+          '@media ' + SHORT_MQ + '{',
+          // (the player is the panel's one piece: across both of PANEL_CSS's columns)
+          '  :host .pn > .pl{grid-column:1 / -1;grid-row:1 / 8;justify-self:stretch;margin-block:0}',
+          // (centred on the cover as the other sheets' columns are on their
+          // controls: a flexible row above the track and one below it)
+          '  :host .pl{display:grid;grid-template-columns:var(--hk-short-h) minmax(0,1fr);grid-template-rows:minmax(0,1fr) repeat(7,auto) minmax(0,1fr);',
+          '    column-gap:24px;row-gap:6px;margin:0;height:var(--hk-short-h)}',
+          '  :host .pl::before,:host .pl::after{content:"";grid-column:2}',
+          '  :host .pl::before{grid-row:1}:host .pl::after{grid-row:9}',
+          '  :host .pl > *{grid-column:2;min-width:0}',
+          '  :host .pl > .art{grid-column:1;grid-row:1 / 10;width:var(--hk-short-h);height:var(--hk-short-h);align-self:center}',
+          '  :host .pl > .art.tv{height:auto;aspect-ratio:16/9}',
+          '  :host .pl .tp{gap:28px}.tp button{width:48px;height:48px}.tp .pp{width:56px;height:56px}',
+          '  :host .pl .vol,:host .pl .vst{margin:-6px 2px 0}',
           '}'
         ].join('');
       }
@@ -4330,8 +4493,23 @@
           '.chart .axc,.stats{transition:opacity .2s ease}',
           '.chart.stale .axc,.stats.stale{opacity:.35}',
           '.stats .v{font-size:19px;font-weight:600;margin-top:2px;font-variant-numeric:tabular-nums}',
-          '@media (max-width:' + C.BP.phone + 'px){.val .n{font-size:60px}.val .u{font-size:22px}',
+          '@media (max-width:' + C.BP.phone + 'px),' + SHORT_MQ + '{.val .n{font-size:60px}.val .u{font-size:22px}',
           '  .pn{gap:16px}.stats .v{font-size:17px}.stats .k{font-size:12px}.stats{gap:8px;padding:14px 12px}}'
+          ,
+          // A SHORT SCREEN (PANEL_CSS SHORT): two columns, the body's height --
+          // the reading over its stats on the left, its range over the chart
+          // on the right, the chart's foot on the stats' (the plot's height,
+          // _render: what the body leaves)
+          '@media ' + SHORT_MQ + '{',
+          '  :host .pn{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr);grid-template-rows:auto minmax(0,1fr);',
+          '    column-gap:24px;row-gap:12px;height:var(--hk-short-h);box-sizing:border-box;padding:0;align-items:stretch}',
+          '  :host .pn > .top{display:contents}',
+          '  :host .pn .rd{grid-column:1;grid-row:1;align-self:start}',
+          '  :host .pn .rc,:host([wide]) .pn .top .rc{grid-column:2;grid-row:1;width:auto}',
+          '  :host .pn > .chart{grid-column:2;grid-row:2;align-self:end}',
+          '  :host .pn > .stats{grid-column:1;grid-row:2;align-self:end}',
+          '  :host .pn > .en{grid-column:1 / -1}',
+          '}'
         ].join('') + EN_CSS;
       }
       hkWidthKind() { return 'sensor'; }
@@ -4616,9 +4794,14 @@
         // plot height and time labels: a tall chart in the wide sheet, a
         // shorter one with three times on a phone
         var phone = matchMedia('(max-width:' + C.BP.phone + 'px)').matches;
+        // a short screen: the plot as tall as the body leaves under the range
+        // row -- the body less the range (90), the chart card's padding and
+        // its time row (54) and the gap (12)
+        var short = matchMedia(SHORT_MQ).matches, pnEl = short && this._root.querySelector('.pn');
+        var room = pnEl ? pnEl.clientHeight : 0;
         // an energy device's sheet keeps room under the chart for its rows
         var cal = this._cal(), wk = r === 'week';
-        var H = phone ? 180 : (this._rec ? 200 : 250), NT = phone ? 3 : 5, MS = cal ? cal.P0.len * 864e5 : RANGE_H[r] * 3600000;
+        var H = short && room ? Math.max(96, room - 156) : phone ? 180 : (this._rec ? 200 : 250), NT = phone ? 3 : short ? 4 : 5, MS = cal ? cal.P0.len * 864e5 : RANGE_H[r] * 3600000;
         // NOTHING CHANGES HEIGHT ON A RANGE SWITCH, so the card does not bounce.
         // The stats row is never taken out -- dashes when there is nothing to
         // say -- and a chart already drawn stays, dimmed, until the new range
@@ -6574,7 +6757,7 @@
       // the pieces later phases and the tests build on
       _: {
         runTimes: runTimes, dur: dur, niceTicks: niceTicks, axesChart: axesChart, scrub: scrub, scrubPick: scrubPick, scrubValue: scrubValue, tickText: tickText, timeTicks: timeTicks, arcPath: arcPath,
-        STD: STD, WIDE: WIDE, SHEET_H: SHEET_H, PHONE_H: PHONE_H, SP: SP,
+        STD: STD, WIDE: WIDE, SHEET_H: SHEET_H, PHONE_H: PHONE_H, SP: SP, SHORT_MQ: SHORT_MQ,
         dayRows: dayRows, spansOf: spansOf, sinceText: sinceText, timeRow: timeRow, SENSE_CSS: SENSE_CSS, DAY: DAY,
         goFor: goFor, noteEl: noteEl, noteWhen: noteWhen, areaOf: areaOf, roomOf: roomOf, NOTE_CSS: NOTE_CSS,
         Panel: Panel, PANELS: PANELS, PANEL_CSS: PANEL_CSS, WIDTH: WIDTH, def: def, stOf: stOf, at: at,

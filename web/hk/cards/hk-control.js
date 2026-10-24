@@ -409,6 +409,9 @@ class HkControlCard extends HTMLElement {
       /* Fan is secondary to mode, and looks like a peer at full segment size --
          two enormous pills under four smaller ones. */
       .tstat-fan{margin-top:var(--hk-tstat-fan-gap,6px);width:100%}
+      /* THE RING ALONE (--hk-tstat-rows: none, 2026-10-24): a sheet on a short
+         screen draws the modes and the fan in its own column, beside the ring */
+      .surface.tstat .tstat-modes,.surface.tstat .tstat-fan{display:var(--hk-tstat-rows, flex)}
       .compact{padding:17px 18px;min-height:118px}
       /* layout: tile -- the Energy page's plate: a tall tile's height
          (hk-base.js TILE.tall), its 20/22 insets, the slider resting 24 px
