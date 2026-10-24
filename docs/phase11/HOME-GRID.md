@@ -1186,3 +1186,16 @@ While a page moves (a drag, its slide home, a dot or wheel turn), the pager now 
 - The clip lets go 180 ms after the track rests, unless a finger is still holding it.
 
 `pager_swipe_check.py` checks the clip mid-swipe and its release at rest. 225 of 225 swipes still land.
+
+### More starter layouts, each with a map (2026-10-24)
+
+The owner asked for more starting points, each with a picture. hk_core's `STARTERS` adds Room Focus (R), Music &
+Scenes (M), Security & Cameras (S), Family Hub (F) and Essentials (Q) to Tap Weight (A) and Glance Up, Touch Down (C).
+Each fills all 24 cells of a 6 × 4 grid from the house, and a new test checks every starter for that and for passing
+the write. New room blocks scroll through all their accessories.
+
+In the editor, the starters are a gallery (Start With, or Start Over With inside Preview Size and Starters). Each row
+has a small map of the blocks that starter would put on this screen. The map comes from the same read-only
+`hk_frontend/grid/starter` request, made once per starter, with each block in its palette group's color and glyph.
+Choosing a starter uses the layout already fetched. The editor smoke checks all eight rows and their maps, then picks
+Room Focus and Tap Weight. The guide shows the gallery (`home-grid-starters.png`).

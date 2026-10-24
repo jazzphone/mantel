@@ -452,7 +452,9 @@ def layout(v: Any) -> dict[str, Any] | None:
 
 
 # ------------------------------------------------------------ the starter layouts
-STARTERS = ("A", "C")
+# A Tap Weight, C Glance Up, Touch Down, R Room Focus, M Music & Scenes, S Security & Cameras, F Family Hub,
+# Q Essentials (the editor's names and descriptions: hk-grid-editor.js STARTERS)
+STARTERS = ("A", "C", "R", "M", "S", "F", "Q")
 
 
 def _chunks(xs: list[str], n: int) -> list[list[str]]:
@@ -483,7 +485,15 @@ def starter(concept: str, scenes: list[str] | None = None, rooms: list[str] | No
     speaker across the top; scenes, cameras, the thermostat, timers and one-tap jobs below; the top band on.
     C, Glance Up, Touch Down: the glance cards (clock, weather, timers, security) along the top in place of the
     band; the room, thermostat and cameras in the middle; scenes, the speaker and one-tap jobs at the bottom,
-    where a hand reaches."""
+    where a hand reaches.
+    R, Room Focus: the tablet's room large, its thermostat and speaker beside it; scenes and a camera below.
+    M, Music & Scenes: the speaker, the scenes and the scene for the time of day across the top; the room,
+    climate and weather below.
+    S, Security & Cameras: the cameras large, the alarm, who's home, Lock Up and the garage beside them; the
+    room, scenes and the speaker below.
+    F, Family Hub: the clock, weather and who's home along the top in place of the band; the calendar, the room
+    and the speaker; scenes and one-tap jobs at the bottom.
+    Q, Essentials: a calm few -- the scene for now, the room and its thermostat; scenes and the weather."""
     if concept not in STARTERS:
         raise GridInvalid("grid")
     scenes = [s for s in (scenes or []) if ENTITY_ID.match(s) and s.startswith("scene.")]
@@ -537,6 +547,63 @@ def starter(concept: str, scenes: list[str] | None = None, rooms: list[str] | No
         add("security", "S", [0, 3])
         everything([1, 3])
         add("action", "S", [5, 3], opts={"action": "lock_up"})
+        band = True
+    elif concept == "R":
+        room("XL", [0, 0])
+        thermostat([3, 0])
+        speaker("T", [4, 0])
+        add("timers", "S", [5, 0])
+        add("action", "S", [5, 1], opts={"action": "lock_up"})
+        scene_row("XL", [0, 2])
+        camera("L", [3, 2])
+        add("security", "S", [5, 2])
+        everything([5, 3])
+        band = True
+    elif concept == "M":
+        speaker("L", [0, 0])
+        scene_row("L", [2, 0])
+        if scenes:
+            add("scene_suggested", "L", [4, 0])
+        room("L", [0, 2])
+        thermostat([2, 2])
+        add("timers", "S", [3, 2])
+        everything([3, 3])
+        add("weather", "L", [4, 2])
+        band = True
+    elif concept == "S":
+        camera("XL", [0, 0])
+        add("security", "W", [3, 0])
+        add("action", "S", [5, 0], opts={"action": "lock_up"})
+        add("people", "W", [3, 1])
+        add("action", "S", [5, 1], opts={"action": "garage"})
+        room("L", [0, 2])
+        scene_row("L", [2, 2])
+        speaker("W", [4, 2])
+        add("timers", "S", [4, 3])
+        everything([5, 3])
+        band = True
+    elif concept == "F":
+        add("clock", "W", [0, 0])
+        add("weather", "W", [2, 0])
+        add("people", "W", [4, 0])
+        add("calendar", "L", [0, 1])
+        room("L", [2, 1])
+        speaker("L", [4, 1])
+        scene_row("W", [0, 3])
+        add("timers", "S", [2, 3])
+        add("security", "S", [3, 3])
+        add("action", "S", [4, 3], opts={"action": "lock_up"})
+        everything([5, 3])
+        band = False
+    elif concept == "Q":
+        if scenes:
+            add("scene_suggested", "L", [0, 0])
+        room("XL", [2, 0])
+        thermostat([5, 0])
+        scene_row("XL", [0, 2])
+        add("weather", "L", [3, 2])
+        add("timers", "S", [5, 2])
+        everything([5, 3])
         band = True
     else:
         add("clock", "W", [0, 0])

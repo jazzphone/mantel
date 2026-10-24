@@ -180,6 +180,16 @@ def test_a_starter_leaves_out_what_the_house_does_not_have():
         HG.starter("B")
 
 
+@pytest.mark.parametrize("concept", HG.STARTERS)
+def test_every_starter_fills_the_whole_grid_and_saves(concept):
+    """Every starter, in a house with all it asks for, uses all 24 cells and passes the write's check."""
+    g = HG.starter(concept, **HOUSE)
+    assert HG.check(g) == g and sum(len(HG.cells(i)) for i in g["items"]) == 24
+    assert C.apply_board({}, {"home_style": "grid", "home_grid": g})[1] == {}
+    # an empty house still gets a layout
+    assert HG.check(HG.starter(concept)) is not None
+
+
 def test_a_starter_saves_through_the_write():
     b, errors = C.apply_board({}, {"home_style": "grid", "home_grid": HG.starter("C", **HOUSE)})
     assert errors == {} and b["home_grid"]["band"] is False

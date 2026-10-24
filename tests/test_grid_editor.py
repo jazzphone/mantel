@@ -54,7 +54,7 @@ print('ALL placement checks PASS');
     assert 'ALL placement checks PASS' in run.stdout
 
 
-@pytest.mark.parametrize('concept', ['A', 'C'])
+@pytest.mark.parametrize('concept', HG.STARTERS)
 def test_editor_starter_request(concept):
     result = HG.starter_request({'concept': concept, 'scenes': ['scene.dinner'], 'rooms': ['kitchen'],
                                  'cameras': ['camera.door'], 'climate': ['climate.hall'], 'tab_bar': False})

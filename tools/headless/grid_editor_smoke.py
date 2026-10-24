@@ -31,11 +31,26 @@ async def main():
             ready=await b.wait("!!document.querySelector('hk-settings-panel')?.shadowRoot?.querySelector('hk-grid-editor')?.shadowRoot?.querySelector('.tools')",10)
             assert ready
             print('editor ready',flush=True)
-            await b.eval("window.ed=document.querySelector('hk-settings-panel').shadowRoot.querySelector('hk-grid-editor'); ed.starter('A')")
+            await b.eval("window.ed=document.querySelector('hk-settings-panel').shadowRoot.querySelector('hk-grid-editor');void 0")
+            # The starters: each with a map of the blocks it would put on this screen.
+            assert await b.wait("!!ed.starterGrids && ed.sidebar.querySelectorAll('.starter').length===8", 20)
+            assert await b.eval("[...ed.sidebar.querySelectorAll('.starter')].every(s=>s.dataset.starter==='empty'||s.querySelectorAll('.mini i').length>=6)")
+            assert await b.eval("Object.values(ed.starterGrids).every(g=>g.items.reduce((n,i)=>n+({S:1,W:2,T:2,L:4,XL:6,XXL:12})[i.size],0)>=20)")
+            if ARGS.shots:
+                ARGS.shots.mkdir(parents=True, exist_ok=True)
+                await asyncio.sleep(0.5)
+                await screenshot_font(b)
+                await b.screenshot(ARGS.shots / 'home-grid-starters.png')
+            await b.eval("ed.sidebar.querySelector('[data-starter=R]').click()")
+            assert await b.wait("ed.grid?.items.some(i=>i.card==='room'&&i.size==='XL')", 10)
+            await b.eval("void ed.starter('A')")
+            assert await b.wait("[...ed.shadowRoot.querySelectorAll('button')].some(b=>b.textContent==='Use Starter')",5)
+            await b.eval("[...ed.shadowRoot.querySelectorAll('button')].find(b=>b.textContent==='Use Starter').click()")
+            assert await b.wait("ed.grid.items.some(i=>i.card==='scene_suggested')", 10)
+            await b.eval("ed.undoStack=[];ed.undoButton.disabled=true")
             ready=await b.wait('ed.previewView?.isConnected',30)
             print('live preview ready:', ready, flush=True)
             if ARGS.shots:
-                ARGS.shots.mkdir(parents=True, exist_ok=True)
                 await screenshot_font(b)
                 await b.screenshot(ARGS.shots / 'home-grid-editor.png')
 

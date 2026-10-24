@@ -14,7 +14,20 @@ Home Grid is a mode on an existing generated dashboard. You do not need a new da
 
 The editor has three parts: the cards on the left, the screen in the middle, and settings on the right.
 
-For a new layout, choose **Tap Weight** (the largest blocks are the ones you touch most), **Glance Up, Touch Down** (readings above, controls below) or **Start Empty**. The starters use your home's scenes, rooms, cameras and thermostats. Everything stays a draft until you press **Save**. Once a layout exists, the starters are under **Preview Size and Starters**; choosing one replaces the draft.
+For a new layout, pick a starter. Each shows a small map of the blocks it would put on your screen, built from your home's scenes, rooms, cameras and thermostats:
+
+- **Tap Weight:** what you touch most is biggest.
+- **Glance Up, Touch Down:** readings above, controls below.
+- **Room Focus:** this room up front, with its climate and music.
+- **Music & Scenes:** music, scenes and the scene for the time of day.
+- **Security & Cameras:** cameras large, with locks, the alarm and who's home.
+- **Family Hub:** the calendar, who's home and timers.
+- **Essentials:** a calm few: the room, scenes and weather.
+- **Start Empty:** a blank grid to fill yourself.
+
+Everything stays a draft until you press **Save**. Once a layout exists, the starters are under **Preview Size and Starters**; choosing one replaces the draft.
+
+![The starter layouts, each with a map of its blocks](../images/home-grid-starters.png)
 
 - **Add a card:** drag it from the left onto the grid. While you drag, its outline shows where it will land, red where there's no room. Each card shows its sizes (Small, Wide, Tall, Large, X-Large, Full); pick one before you drag. Click a card instead to see a live preview with sample readings, then **Add** places it in the first free space.
 - **Move a block:** drag it. Blocks of the same size swap places. A move that overlaps another size or leaves the grid is refused. Or select a block and use the arrow keys.

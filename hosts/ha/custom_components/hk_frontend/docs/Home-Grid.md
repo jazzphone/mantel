@@ -2,7 +2,7 @@
 
 Home Grid gives a generated screen a Home page made of fixed blocks. The tablet fills its display without scrolling; each block may have pages that swipe. The screen's other pages and tab bar remain available.
 
-On a desktop, open **HK Settings → your screen → Arrange Home Grid**. Home Assistant admin permission is required. Choose **Tap Weight** or **Glance Up, Touch Down** to start with your home's scenes, rooms, cameras and thermostats.
+On a desktop, open **HK Settings → your screen → Arrange Home Grid**. Home Assistant admin permission is required. Pick a starter (Tap Weight; Glance Up, Touch Down; Room Focus; Music & Scenes; Security & Cameras; Family Hub; Essentials) to start with your home's scenes, rooms, cameras and thermostats; each shows a map of its blocks. Or Start Empty.
 
 The editor has the cards on the left, the screen in the middle and settings on the right. Drag a card onto the grid; its outline shows where it lands, red where there's no room. Pick its size on the card first, or click a card for a live preview and **Add**. Drag a block to move it; blocks of the same size swap, and arrow keys move a selected block. **Undo** (⌘Z or Ctrl+Z) takes back a change, and Delete removes the selected block.
 

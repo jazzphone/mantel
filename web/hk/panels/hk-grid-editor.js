@@ -42,6 +42,16 @@
   // what an automatic source shows in place of the block's own choice of one
   var SOURCE_HIDES = { rooms: 'area', cameras: 'entity', thermostats: 'entity', speakers: 'speaker', scenes: 'scenes' };
   var EMPTY = { v: 1, cols: 6, rows: 4, frame: [1280, 800], band: true, items: [] };
+  // THE STARTER LAYOUTS (hk_core home_grid.STARTERS: the same keys), each
+  // shown as a small map of the blocks it would put on this screen
+  var STARTERS = [['A', 'Tap Weight', 'What you touch most is biggest'], ['C', 'Glance Up, Touch Down', 'Readings above, controls below'],
+    ['R', 'Room Focus', 'This room up front, with its climate and music'], ['M', 'Music & Scenes', 'Music, scenes and the scene for now'],
+    ['S', 'Security & Cameras', 'Cameras large, with locks and the alarm'], ['F', 'Family Hub', 'The calendar, who’s home and timers'],
+    ['Q', 'Essentials', 'A calm few: the room, scenes and weather'], ['empty', 'Start Empty', 'A blank grid to fill yourself']];
+  // a block's color on the map: its palette group's
+  var GROUP_TINT = { 'Rooms & Lights': 'var(--hk-orange)', Scenes: 'var(--hk-tint)', Climate: 'var(--hk-green)', Music: 'var(--hk-red)',
+    'Security & Cameras': 'var(--hk-gray)', Info: 'var(--hk-label3)' };
+  function groupOf(card) { var g = GROUPS.find(function (x) { return x[1].indexOf(card) >= 0; }); return g ? g[0] : 'Info'; }
   function copy(x) { return JSON.parse(JSON.stringify(x)); }
   function overlap(a, b) {
     var x = SIZES[a.size], y = SIZES[b.size];
@@ -151,6 +161,14 @@
     '.insp-head h2{margin:0;font-size:20px;font-weight:700}.insp-head p{margin:2px 0 0;font-size:13px;color:var(--hk-label2)}',
     '.insp-head .done{margin-left:auto;border:0;background:none;color:var(--hk-tint);font:inherit;font-size:15px;cursor:pointer;min-height:44px}',
     '.screen-settings{margin:4px 0 16px}.screen-settings summary{cursor:pointer;min-height:44px;display:flex;align-items:center;gap:8px;font-weight:600;padding:0 4px}.screen-settings summary::before{content:"›";display:inline-block;transition:transform .15s}.screen-settings[open] summary::before{transform:rotate(90deg)}',
+    // THE STARTERS: a map of each layout's blocks beside its name
+    '.starter{display:flex;align-items:center;gap:12px;padding:10px 12px;text-align:left;cursor:pointer}',
+    '.starter .st{display:grid;gap:2px;min-width:0}.starter .st b{font-weight:600;font-size:15px}.starter .st small{font-size:12px;color:var(--hk-label2);line-height:1.3}',
+    '.mini{flex:none;width:136px;aspect-ratio:16/10;box-sizing:border-box;padding:5px;border-radius:8px;background:var(--hk-fill);display:grid;gap:3px}',
+    '.mini i{border-radius:4px;display:flex;align-items:center;justify-content:center;min-width:0;min-height:0;overflow:hidden}',
+    '.mini i hk-icon{width:12px;height:12px;--mdc-icon-size:12px;color:var(--hk-label)}',
+    '.mini .band{grid-column:1/-1;border-radius:3px;background:var(--hk-label3);opacity:.5}',
+    '.mini .wait{background:var(--hk-label3);opacity:.25}',
     '.desktop-note{display:none;padding:32px}',
     '@media(max-width:899px),(pointer:coarse){.work,.tools .save,.tools .undo{display:none}.desktop-note{display:block}}'
   ].join('\n');
@@ -383,6 +401,18 @@
       if (this.busy) return;
       if (this.grid && !await this.K.confirm(this.shadowRoot, { title: 'Use a Starter Layout?', message: 'This replaces your draft. Nothing is saved yet.', ok: 'Use Starter' })) return;
       if (concept === 'empty') { this.selected = null; this.change(copy(EMPTY)); return; }
+      var result;
+      try {
+        this.busy = true;
+        result = this.starterGrids && this.starterGrids[concept] ? { grid: this.starterGrids[concept] }
+          : await this.panel.client.callWS({ type: 'hk_frontend/grid/starter', options: this.starterOptions(concept) });
+      } catch (e) { this.say('Couldn’t load the starter. ' + (e.message || e)); return; }
+      finally { this.busy = false; }
+      this.selected = null; this.change(copy(result.grid));
+    }
+    // what a starter is filled from: this screen's scenes, rooms, cameras,
+    // thermostats, its tablet's room and whether it shows the tab bar
+    starterOptions(concept) {
       var client = this.panel.client, states = client.states || {}, board = this.o.board;
       var ids = (domain) => Object.keys(states).filter((id) => id.indexOf(domain + '.') === 0).slice(0, 512);
       var rooms = (board.room_order || []).filter((id) => (client.areas || {})[id]);
@@ -390,17 +420,53 @@
       rooms = rooms.slice(0, 512);
       var tablet = Object.values(this.panel.data.tablets || {}).find((t) => t.screen === this.o.path && t.room);
       var menu = board.menu_custom ? board.menu : (this.panel.data.settings.menu || {}).menu;
-      var result;
-      try {
-        this.busy = true;
-        result = await client.callWS({ type: 'hk_frontend/grid/starter', options: {
-          concept: concept, scenes: board.scenes && board.scenes.length ? board.scenes.filter((id) => id.indexOf('scene.') === 0) : ids('scene'), rooms: rooms,
-          cameras: board.cameras && board.cameras.length ? board.cameras : ids('camera'), climate: ids('climate'),
-          tablet_room: tablet ? tablet.room : null, tab_bar: menu === 'tabbar' || menu === 'auto' || !menu
-        } });
-      } catch (e) { this.say('Couldn’t load the starter. ' + (e.message || e)); return; }
-      finally { this.busy = false; }
-      this.selected = null; this.change(copy(result.grid));
+      return { concept: concept, scenes: board.scenes && board.scenes.length ? board.scenes.filter((id) => id.indexOf('scene.') === 0) : ids('scene'), rooms: rooms,
+        cameras: board.cameras && board.cameras.length ? board.cameras : ids('camera'), climate: ids('climate'),
+        tablet_room: tablet ? tablet.room : null, tab_bar: menu === 'tabbar' || menu === 'auto' || !menu };
+    }
+    // EVERY STARTER, as it would be for this screen (read-only requests, once):
+    // the maps beside their names
+    loadStarters() {
+      if (this.starterGrids || this._startersLoading) return;
+      this._startersLoading = true;
+      var client = this.panel.client, got = {};
+      Promise.all(STARTERS.filter((c) => c[0] !== 'empty').map((c) => client.callWS({ type: 'hk_frontend/grid/starter', options: this.starterOptions(c[0]) })
+        .then((r) => { got[c[0]] = r.grid; }, () => {}))).then(() => {
+        this._startersLoading = false; this.starterGrids = got;
+        if (this.ui && !this.selected) this.side();
+      });
+    }
+    // A LAYOUT'S MAP: its band and its blocks, each in its palette group's color with its glyph
+    miniMap(grid, waiting) {
+      var h = this.h, g = grid || EMPTY, kids = [];
+      var box = h('div', { class: 'mini', 'aria-hidden': 'true' });
+      box.style.gridTemplateColumns = 'repeat(' + g.cols + ',minmax(0,1fr))';
+      box.style.gridTemplateRows = (g.band ? 'minmax(0,.35fr) ' : '') + 'repeat(' + g.rows + ',minmax(0,1fr))';
+      if (g.band) kids.push(h('span', { class: 'band' }));
+      if (waiting) {
+        for (var k = 0; k < g.cols * g.rows; k++) kids.push(h('i', { class: 'wait' }));
+      }
+      (waiting ? [] : g.items).forEach((it) => {
+        var z = SIZES[it.size], tile = h('i', {}, h('hk-icon', { icon: GLYPHS[it.card] }));
+        tile.style.gridColumn = (it.at[0] + 1) + ' / span ' + z[0];
+        tile.style.gridRow = (it.at[1] + 1 + (g.band ? 1 : 0)) + ' / span ' + z[1];
+        tile.style.background = 'color-mix(in srgb,' + GROUP_TINT[groupOf(it.card)] + ' 38%,transparent)';
+        kids.push(tile);
+      });
+      kids.forEach((n) => box.appendChild(n));
+      return box;
+    }
+    starterGallery() {
+      var h = this.h, K = this.K, waiting = !this.starterGrids;
+      this.loadStarters();
+      var rows = STARTERS.map((c) => {
+        var grid = c[0] === 'empty' ? EMPTY : this.starterGrids && this.starterGrids[c[0]];
+        if (!waiting && !grid) return null;               // a starter that couldn't be read
+        return h('button', { class: 'cell starter', type: 'button', 'data-starter': c[0], 'aria-label': c[1] + ', ' + c[2],
+          onclick: () => this.starter(c[0]) }, [this.miniMap(grid, waiting && c[0] !== 'empty'), h('span', { class: 'st' }, [h('b', { text: c[1] }), h('small', { text: c[2] })])]);
+      });
+      return K.group({ header: this.grid ? 'Start Over With' : 'Start With',
+        footer: this.grid ? 'Replaces this draft. Nothing is saved until you Save.' : 'Each fills the grid from your home’s scenes, rooms, cameras and thermostats. Nothing is saved until you Save.' }, rows);
     }
     // BOTH SIDES, drawn again: the palette and the settings (each keeps its scroll)
     side() {
@@ -531,8 +597,7 @@
     // ------------------------------------------------------------ the screen's settings
     screen() {
       var h = this.h, K = this.K, add = (n) => this.sidebar.appendChild(n);
-      var starters = () => K.group({ header: this.grid ? null : 'Start With', footer: this.grid ? 'Replaces this draft. Nothing is saved until you Save.' : 'Fills the grid from your home’s scenes, rooms, cameras and thermostats. Nothing is saved until you Save.' },
-        [['A', 'Tap Weight'], ['C', 'Glance Up, Touch Down'], ['empty', 'Start Empty']].map((c) => K.button({ label: c[1], onClick: () => this.starter(c[0]) })));
+      var starters = () => this.starterGallery();
       add(h('div', { class: 'insp-head' }, [h('hk-icon', { icon: 'mdi:tablet' }), h('div', {}, [h('h2', { text: 'Screen' }),
         h('p', { text: this.grid ? this.grid.items.length + (this.grid.items.length === 1 ? ' block' : ' blocks') + ' · select one to change it' : 'No layout yet' })])]));
       if (!this.grid) { add(starters()); return; }
