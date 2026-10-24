@@ -2,6 +2,12 @@
 
 All notable changes to Mantel are listed here. Versions follow [semantic versioning](https://semver.org); the Home Assistant App, the Docker images and the Python package share one version number.
 
+## 0.1.69 - 2026-10-24
+
+Local Home Assistant App update for the house.
+
+- The Home Grid editor says what its live preview is waiting for, or the problem it hit, and after about 30 seconds lets you arrange blocks without the preview.
+
 ## 0.1.68 - 2026-10-24
 
 Local Home Assistant App update for the house.
