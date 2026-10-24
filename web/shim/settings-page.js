@@ -25,6 +25,7 @@ import * as mantelSettings from './mantel-settings.js';
 // HK's toast layer: a refused save is told there too
 import '/hk/shell/hk-overlays.js';
 
+const darkNow = () => !!(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
 const json = (u) => fetch(u, { credentials: 'same-origin' }).then((r) => { if (!r.ok) throw new Error(u + ' ' + r.status); return r.json(); });
 
 function failed(e) {
@@ -65,6 +66,10 @@ try {
       hub.read({ type: 'get_config' }).catch(() => ({})),
       hub.read({ type: 'frontend/get_themes' }).catch(() => ({ themes: {}, default_theme: 'default' })),
     ]);
+    // DARK OR LIGHT: the device's own appearance. Home Assistant's theme list
+    // never says which (its frontend decides that itself), so without this
+    // Mantel Settings was always light here (2026-10-24)
+    themes.darkMode = darkNow();
     host = new Host({ hub, registry, fixtures, user, config, themes });
     host.installLookups();
     hostForCaps = host;
@@ -79,8 +84,7 @@ try {
   } else {
     // Mantel's own pages only: no house connection, nothing of the house read
     host = new Host({ hub, registry: { entities: {}, devices: {}, areas: {}, floors: {} }, fixtures: {}, user,
-                      config: {}, themes: { themes: {}, default_theme: 'default',
-                      darkMode: !!(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) } });
+                      config: {}, themes: { themes: {}, default_theme: 'default', darkMode: darkNow() } });
     window.hkMantelShell.install(host);
   }
   window.__mantel = host;
@@ -100,6 +104,12 @@ try {
   document.body.appendChild(el);
   host.onSnapshot = (h) => { el.hass = h; };      // the panel follows the house, as HA hands it each new hass
   window.__mantelSettings = el;
+  // ...and it follows the device when that changes (the evening's switch to dark)
+  if (window.matchMedia) window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+    const t = host.hass && host.hass.themes;
+    if (t) t.darkMode = darkNow();
+    el.toggleAttribute('dark', darkNow());
+  });
   window.__mantelReady = true;
 } catch (e) {
   console.error('[mantel] settings', e);

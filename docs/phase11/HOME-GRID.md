@@ -1264,3 +1264,19 @@ pushed and staged. The update installed on the first request. Strict health is O
 build `889734375329acb7` matches the staged release. There is no Traceback; the only lines matching "ERROR" are INFO
 camera-still connection resets from just before the restart. Next: the owner reads the editor's "Waiting for …" line
 on the real house.
+
+### The editor on an iPad, and Settings in dark mode (2026-10-24)
+
+What the owner actually saw was the editor's own note: "Arrange Home Grid on a desktop with a mouse or trackpad".
+The owner was on an iPad (Safari reports itself as a Mac). The editor hid itself for any `pointer: coarse` device,
+following the plan's "arrange on a desktop", and did so without saying why. The earlier load and preview fixes
+(0.1.68, 0.1.69) stand on their own, but they were not this.
+
+- **Touch is welcome.** The editor's drags are pointer events. Only a window under 900 px wide still gets the note,
+  now with **Open Anyway**, which keeps the three panes and scrolls sideways.
+- **Settings follows the device's dark appearance.** When Mantel manages the house's settings, the settings page took
+  its themes from HA's `frontend/get_themes`, which never says dark or light, so Mantel Settings was always light.
+  `settings-page.js` now sets `darkMode` from `prefers-color-scheme` on that path too, and follows changes.
+
+The editor smoke now opens the editor with touch emulation and a dark device. It checks that the three panes show
+and Settings is dark, then turns the device light and checks that Settings follows.

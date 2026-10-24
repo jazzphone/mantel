@@ -27,6 +27,16 @@ async def main():
         async with TestServer(app) as server, Browser(1600,1000) as b:
             origin=str(server.make_url('')).rstrip('/')
             await b.restrict_origin(origin)
+            # A touch screen (an iPad) gets the editor too, and Settings follows the device's dark appearance.
+            await b.send('Emulation.setTouchEmulationEnabled', enabled=True, maxTouchPoints=5)
+            await b.send('Emulation.setEmulatedMedia', features=[{'name': 'pointer', 'value': 'coarse'}, {'name': 'prefers-color-scheme', 'value': 'dark'}])
+            await b.open(origin+'/settings#/screens/'+SCREEN+'/home-grid',cookie)
+            assert await b.wait("(()=>{let p=document.querySelector('hk-settings-panel'),e=p?.shadowRoot?.querySelector('hk-grid-editor');return !!e?.ui && matchMedia('(pointer:coarse)').matches && getComputedStyle(e.shadowRoot.querySelector('.work')).display!=='none' && getComputedStyle(e.shadowRoot.querySelector('.desktop-note')).display==='none' && p.hasAttribute('dark')})()",20)
+            await b.send('Emulation.setEmulatedMedia', features=[{'name': 'prefers-color-scheme', 'value': 'light'}])
+            assert await b.wait("!document.querySelector('hk-settings-panel').hasAttribute('dark')",5)
+            await b.send('Emulation.setTouchEmulationEnabled', enabled=False)
+            await b.send('Emulation.setEmulatedMedia', features=[])
+            print('touch screens get the editor; Settings follows the device to dark and back',flush=True)
             await b.open(origin+'/settings#/screens/'+SCREEN+'/home-grid',cookie)
             ready=await b.wait("!!document.querySelector('hk-settings-panel')?.shadowRoot?.querySelector('hk-grid-editor')?.shadowRoot?.querySelector('.tools')",10)
             assert ready

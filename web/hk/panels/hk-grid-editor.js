@@ -173,8 +173,14 @@
     '.mini i hk-icon{width:12px;height:12px;--mdc-icon-size:12px;color:var(--hk-label)}',
     '.mini .band{grid-column:1/-1;border-radius:3px;background:var(--hk-label3);opacity:.5}',
     '.mini .wait{background:var(--hk-label3);opacity:.25}',
-    '.desktop-note{display:none;padding:32px}',
-    '@media(max-width:899px),(pointer:coarse){.work,.tools .save,.tools .undo{display:none}.desktop-note{display:block}}'
+    // A WINDOW TOO NARROW for the three panes (a phone; an iPad's narrow
+    // split) says so, with Open Anyway. Touch is welcome: the drags are
+    // pointer events (2026-10-24, the owner arranging from an iPad, which
+    // the old touch rule hid the editor from without a word of why).
+    '.desktop-note{display:none;padding:32px;max-width:520px}.desktop-note p{margin:0 0 16px;line-height:1.5}',
+    '.desktop-note button{border:0;border-radius:10px;min-height:44px;padding:0 18px;background:var(--hk-tint);color:white;font:inherit;cursor:pointer}',
+    '@media(max-width:899px){:host(:not([wide-anyway])) .work,:host(:not([wide-anyway])) .tools .save,:host(:not([wide-anyway])) .tools .undo{display:none}:host(:not([wide-anyway])) .desktop-note{display:block}}',
+    ':host([wide-anyway]) .work{overflow-x:auto;grid-template-columns:240px minmax(560px,1fr) 300px}'
   ].join('\n');
 
   class GridEditor extends HTMLElement {
@@ -218,7 +224,9 @@
       this.ui.appendChild(h('header', { class: 'tools' }, [h('button', { text: 'Cancel', onclick: () => this.cancel() }),
         h('h1', { text: this.o.title + ' · Home Grid' }), this.undoButton, this.saveButton]));
       this.message = h('div', { class: 'message', role: 'status', 'aria-live': 'polite' }); this.ui.appendChild(this.message);
-      this.ui.appendChild(h('div', { class: 'desktop-note', text: 'Arrange Home Grid on a desktop with a mouse or trackpad. This screen only displays the saved layout.' }));
+      this.ui.appendChild(h('div', { class: 'desktop-note' }, [
+        h('p', { text: 'This window is narrow for the editor: it shows the cards, the screen and the settings side by side. Turn the device sideways or widen the window, or open it anyway and scroll sideways.' }),
+        h('button', { type: 'button', text: 'Open Anyway', onclick: () => { this.setAttribute('wide-anyway', ''); this.fit(); } })]));
       this.palette = h('aside', { class: 'palette', 'aria-label': 'Cards' });
       this.stage = h('section', { class: 'stage', 'aria-label': 'Screen layout' });
       this.sidebar = h('aside', { class: 'sidebar', 'aria-label': 'Block and screen settings', tabindex: '0' });
