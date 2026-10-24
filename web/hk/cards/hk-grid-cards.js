@@ -1117,18 +1117,25 @@
       }
       return clockModule.p;
     }
-    var CLOCK_CSS = '.body{height:100%}.ck{position:relative;height:100%;box-sizing:border-box;overflow:hidden;border-radius:' + C.R.plate + 'px}' +
+    // (the block clips the face, not the face itself: scaled down, its own box is smaller than its drawing)
+    var CLOCK_CSS = '.body{height:100%}.ck .ckroot{overflow:visible}.ck{position:relative;height:100%;box-sizing:border-box;overflow:hidden;border-radius:' + C.R.plate + 'px}' +
       '.ck.plate{' + C.plate('card') + '}';
     class HkGridClockCard extends HkGridFull {
       static get CSS() { return FULL_CSS + CLOCK_CSS; }
       getCardSize() { return 2; }
+      // 24-hour as the screen's screensaver clock is (its 24-Hour Clock; off, as HK's own clock reads)
       _h24() {
-        var HS = window.hkSettings, ck = HS && HS.clock && this.client ? HS.clock(this.client.states) : null;
-        return !!(ck && ck.time && !/[ap]m/i.test(ck.time));
+        var M = window.hkCards.menu, b = M && M.board ? M.board() || {} : {}, so = b.screensaver_options || {};
+        return so.clock_24 === true || (so.clock_24 == null && setting('look.saver.clock_24', false) === true);
       }
-      _sigOf() { var c = this._config || {}; return JSON.stringify([c.clock_style || '', !!c.bare, sizeOf(this), this._h24()]); }
+      // its box hidden: its own option (0.1.72), or its block's Hide Box (the cell's --hk-bare)
+      _bare() {
+        if ((this._config || {}).bare) return true;
+        try { return getComputedStyle(this).getPropertyValue('--hk-bare').trim() === '1'; } catch (e) { return false; }
+      }
+      _sigOf() { var c = this._config || {}; return JSON.stringify([c.clock_style || '', this._bare(), sizeOf(this), this._h24()]); }
       _render() {
-        var c = this._config || {}, style = c.clock_style || '', key = this._sigOf(), self = this;
+        var c = Object.assign({}, this._config || {}, { bare: this._bare() }), style = c.clock_style || '', key = this._sigOf(), self = this;
         if (this._built && this._key === key) { if (this._face && this._face.setClient) this._face.setClient(this.client); return; }
         this._key = key; this._built = true; this._kids = [];
         if (this._face) { try { this._face.destroy(); } catch (e) { /* gone */ } this._face = null; }
@@ -1150,9 +1157,10 @@
       // THE FACE FILLS ITS BLOCK (2026-10-24, the owner on the nightstand
       // layouts: StandBy's digits fill the screen). A face is sized for a
       // whole screen -- its time a third of the height -- so in a block it
-      // is scaled up until its drawing reaches the block's edges, less a
-      // margin (more inside the box). Measured again as the block resizes and
-      // once the face's fonts are in; never shrunk below its own size.
+      // is scaled until its drawing reaches the block's edges, less a margin
+      // (more inside the box) -- up, or down when a face sized by the block's
+      // height is wider than a Tall block. Measured again as the block
+      // resizes and once the face's fonts are in.
       _fillWatch(box, bare) {
         var root = box.querySelector('.ckroot'), self = this;
         if (!root) return;
@@ -1169,7 +1177,7 @@
           var m = bare ? 0.92 : 0.8, k = Math.min(b.width * m / (r - l), b.height * m / (btm - t), 3);
           // centred on the drawing's own middle, not the block's
           var dx = (b.left + b.width / 2) - (l + r) / 2, dy = (b.top + b.height / 2) - (t + btm) / 2;
-          if (k > 1.02) root.style.transform = 'translate(' + dx.toFixed(1) + 'px,' + dy.toFixed(1) + 'px) scale(' + k.toFixed(3) + ')';
+          if (Math.abs(k - 1) > 0.02) root.style.transform = 'translate(' + dx.toFixed(1) + 'px,' + dy.toFixed(1) + 'px) scale(' + k.toFixed(3) + ')';
         };
         root.style.transformOrigin = '50% 50%';
         if (this._fillRO) this._fillRO.disconnect();

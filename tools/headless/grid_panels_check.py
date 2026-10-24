@@ -54,7 +54,7 @@ async def main():
     gallery.HOUSE['sensor.water_meter'] = (None, ('1234.5', {'friendly_name': 'Water Meter', 'unit_of_measurement': 'gal', 'device_class': 'water', 'state_class': 'total_increasing'}))
     gallery.HOUSE['valve.main_water'] = (None, ('open', {'friendly_name': 'Main Water', 'device_class': 'water', 'supported_features': 3}))
     gallery.SETTINGS['boards']['night'] = {'home_style': 'grid', 'menu_custom': True, 'menu': 'tabbar', 'tab_bar_pos': 'left', 'tab_bar_labels': 'icons', 'home_grid': {
-        'v': 1, 'cols': 3, 'rows': 2, 'frame': [844, 390], 'band': False, 'items': [
+        'v': 1, 'cols': 3, 'rows': 2, 'frame': [844, 390], 'band': False, 'boxes': False, 'grow': True, 'items': [
             {'id': 'big', 'card': 'clock', 'size': 'L', 'at': [0, 0], 'opts': {'clock_style': 'classic', 'bare': True}},
             {'id': 'small', 'card': 'clock', 'size': 'S', 'at': [2, 0]}]}}
     gallery.SETTINGS['boards']['panels'] = {'home_style': 'grid', 'home_grid': BIG, 'menu_custom': True, 'menu': 'tabbar'}
@@ -113,6 +113,10 @@ async def main():
               return {plate:k.classList.contains('plate'),inside:f.width>0&&f.left>=r.left-1&&f.right<=r.right+1&&f.top>=r.top-1&&f.bottom<=r.bottom+1,fills:f.width>r.width*0.6,
                       small:!!t&&t.getBoundingClientRect().right<=sr.right+1}})()""")
             assert ck == {'plate': False, 'inside': True, 'fills': True, 'small': True}, ck
+            # Show Boxes off: the small clock's box is clear and out of the shared blur, on its block's cell
+            box = await b.eval("""(()=>{let s=cell('small'),p=deep(s,'hk-plate.clock')[0],cs=getComputedStyle(p);
+              return [s.hasAttribute('data-bare'),cs.backgroundColor,cs.boxShadow,cs.getPropertyValue('--hk-glass-surface').trim()]})()""")
+            assert box == [True, 'rgba(0, 0, 0, 0)', 'none', '0'], box
             # the tab bar's Icons Only: a rail of icons, each tab still named for a screen reader; the grid keeps the
             # screen's full height beside it
             tabs = await b.eval("""(()=>{let t=deep(document,'.tab');return t.map(x=>[getComputedStyle(x.querySelector('span')).display,x.getAttribute('aria-label')])})()""")

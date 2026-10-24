@@ -330,3 +330,16 @@ def test_calendar_days():
     for bad in (0, 8, 2.5, "3", True):
         with pytest.raises(HG.GridInvalid):
             HG.check(grid(block("cal", "calendar", "L", [0, 0], opts={"days": bad})))
+
+
+def test_hide_box_and_fill():
+    out = HG.check({**grid(block("w", "weather", "L", [0, 0], bare=True), block("c", "clock", "S", [2, 0], bare=False)),
+                    "boxes": False, "grow": True})
+    assert out["boxes"] is False and out["grow"] is True
+    assert out["items"][0]["bare"] is True and "bare" not in out["items"][1]          # off is no option at all
+    for bad in ({"bare": "yes"}, {"bare": 1}):
+        with pytest.raises(HG.GridInvalid):
+            HG.check(grid(block("w", "weather", "L", [0, 0], **bad)))
+    for key in ("boxes", "grow"):
+        with pytest.raises(HG.GridInvalid):
+            HG.check({**grid(), key: "no"})

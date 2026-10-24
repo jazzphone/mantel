@@ -1717,6 +1717,9 @@
         'container-type:size;container-name:hk-cell}' +
         '.cell>*,.band>*{display:block;box-sizing:border-box;width:100%;max-height:100%;margin:0!important}' +
         '.cell>*{height:100%}' +
+        // HIDE BOX (2026-10-24): the block's boxes (card and panel plates, hkCards.plate) clear, no edge, no shadow and
+        // no frost behind them -- its tiles keep theirs; the clock reads --hk-bare
+        '.cell[data-bare]{--hk-bare:1;--hk-block-plate:transparent;--hk-block-edge:transparent;--hk-block-shadow:none;--hk-block-glass:0;--hk-block-backdrop:none}' +
         // a card that only listens (a pop-up, the docked bar) takes no room
         '.aside{position:absolute;left:0;top:0;width:0;height:0;overflow:visible}';
       this._sr.appendChild(st);
@@ -1732,7 +1735,8 @@
       var g = (this._config && this._config.grid) || {};
       var cols = [6, 3, 2].indexOf(g.cols) >= 0 ? g.cols : 6;
       var rows = (g.rows >= 2 && g.rows <= 6 && g.rows === Math.floor(g.rows)) ? g.rows : 4;
-      return { cols: cols, rows: rows, band: g.band !== false, scale: Number.isInteger(g.scale) && g.scale >= 50 && g.scale <= 100 ? g.scale : 100 };
+      return { cols: cols, rows: rows, band: g.band !== false, scale: Number.isInteger(g.scale) && g.scale >= 50 && g.scale <= 100 ? g.scale : 100,
+               grow: g.grow === true };
     }
 
     _place() {
@@ -1762,6 +1766,7 @@
           slot.className = 'cell';
           slot.setAttribute('size', cell.size);
           if (cell.id) slot.setAttribute('data-id', cell.id); else slot.removeAttribute('data-id');
+          if (cell.bare) slot.setAttribute('data-bare', ''); else slot.removeAttribute('data-bare');
           slot.style.cssText = '';
           slot.style.gridColumn = (c + 1) + ' / span ' + sz[0];
           slot.style.gridRow = (r + 1 + top) + ' / span ' + sz[1];
@@ -1803,7 +1808,8 @@
       var pad = GRID.pad, gap = GRID.gap;
       var w = g.cols * C.TILE.w + (g.cols - 1) * gap + 2 * pad;
       var h = g.rows * C.TILE.tall + (g.rows - 1) * gap + 2 * pad + (g.band ? GRID.band + gap : 0);
-      var scale = Math.min(1, this.clientWidth / w, this.clientHeight / h) * g.scale / 100;
+      // (Fill the Screen, `grow`: past its own size too -- a phone on its side, whose grid is smaller than it)
+      var scale = Math.min(g.grow ? Infinity : 1, this.clientWidth / w, this.clientHeight / h) * g.scale / 100;
       if (!(scale > 0)) return;
       this._gridScale = scale;
       root.style.width = w + 'px'; root.style.height = h + 'px';

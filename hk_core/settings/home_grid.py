@@ -394,7 +394,7 @@ def variant(v: Any, size: str) -> dict[str, Any]:
 
 def item(v: Any, cols: int, rows: int) -> dict[str, Any]:
     """One block, checked against a grid of `cols` x `rows` (its place, not its neighbours)."""
-    if not isinstance(v, dict) or set(v) - {"id", "card", "size", "at", "opts", "pages", "when", "fallback", "rules"}:
+    if not isinstance(v, dict) or set(v) - {"id", "card", "size", "at", "opts", "pages", "when", "fallback", "rules", "bare"}:
         raise GridInvalid("grid_item")
     if not isinstance(v.get("id"), str) or not ITEM_ID.match(v["id"]):
         raise GridInvalid("grid_item")
@@ -428,6 +428,12 @@ def item(v: Any, cols: int, rows: int) -> dict[str, Any]:
         if "when" in out:                         # one way or the other, never both
             raise GridInvalid("grid_condition")
         out["rules"] = rules(v["rules"], size)
+    # HIDE BOX (2026-10-24): the block's card without its plate, on the background
+    if "bare" in v:
+        if not isinstance(v["bare"], bool):
+            raise GridInvalid("grid_option")
+        if v["bare"]:
+            out["bare"] = True
     _capacity(out, size)
     return out
 
@@ -447,7 +453,8 @@ def _frame(v: Any) -> list[int]:
 
 
 def _shape(v: Any) -> dict[str, Any]:
-    if not isinstance(v, dict) or set(v) - {"v", "cols", "rows", "frame", "band", "header_clock", "header_weather", "scale", "items"}:
+    if not isinstance(v, dict) or set(v) - {"v", "cols", "rows", "frame", "band", "header_clock", "header_weather", "scale", "boxes", "grow",
+                                              "items"}:
         raise GridInvalid("grid")
     if v.get("v", VERSION) != VERSION:
         raise GridInvalid("grid")
@@ -467,7 +474,9 @@ def _shape(v: Any) -> dict[str, Any]:
            "items": items}
     if "scale" in v:
         out["scale"] = _whole(v["scale"], 50, 100, "grid")
-    for key in ("header_clock", "header_weather"):
+    # boxes: False -- every block without its plate (Hide Box, the screen's); grow: True -- the grid may scale past
+    # its own size to fill the screen (a phone on its side)
+    for key in ("header_clock", "header_weather", "boxes", "grow"):
         if key in v:
             if not isinstance(v[key], bool):
                 raise GridInvalid("grid")

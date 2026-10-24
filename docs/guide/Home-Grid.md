@@ -70,6 +70,8 @@ The **Calendar** block shows what is still to come over its **Days** (Today Only
 
 Weather comes in Wide (conditions), Large (also readings, six hours and three days) and Extra Large (also five days). **Sky Background** adds Sky's clouds, sun or moon and precipitation inside the card; it is off by default and respects the screen's animation setting and reduced motion. Timers offer pause, resume and cancel; an empty block opens Create a Timer, and Wide also has quick starts. Security opens the shared alarm sheet, keeping its PIN flow. **Large and Extra Large Security** are the alarm keypad itself: the keys on the left, the alarm's state and the ways to arm on the right; the PIN is checked by the alarm, as on the Security page. **Large and Extra Large Vacuum** are the vacuum's controls, with **Clean Areas** below them when HK Clean Areas is added.
 
+**Appearance → Hide Box** draws any block's card straight on the background, without its box; the pills and controls inside keep theirs. **Screen → Grid → Show Boxes** off hides every block's box at once, and **Fill the Screen** lets the grid grow past its own size on a screen larger than it (on by default for the phone screen types). For a StandBy-style nightstand, set the screen's **Background** to Color → Black, turn Show Boxes off, and put the tab bar on the side with Icons Only.
+
 **Appearance → Custom Group Background** (Room, Scenes and Accessory Group blocks) chooses the group's color, opacity and blur (Follow Screen, None, Light, Medium or Heavy). Only the group's own background changes; its tiles keep the screen's look.
 
 ![Background controls for a group](../images/home-grid-background.png)

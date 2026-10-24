@@ -252,11 +252,21 @@
   // shadow) first, as every plate has read it. A tile casts the pill's
   // shadow; a page card and a panel the tall one. Clipping is the card's call.
   var PLATE_SHADOW = { tile: 'glass-shadow-pill', card: 'glass-shadow-tall', panel: 'glass-shadow-tall' };
+  // A BLOCK'S OWN BOX (2026-10-24, Home Grid's Hide Box): a card's or a
+  // panel's plate reads --hk-block-* first, which a boxless grid cell sets
+  // (clear, no edge, no shadow, no frost: --hk-block-glass 0 takes it out of
+  // the shared blur). A tile's plate never does, so the pills and controls
+  // inside a boxless block keep theirs.
   function plate(kind) {
     var sh = PLATE_SHADOW[kind];
     if (!sh) throw new Error('hkCards.plate: no plate ' + kind);
-    return 'border-radius:' + M.radius + ';' + M.glass + ';border:' + M.border +
-      ';box-shadow:var(--hk-look-shadow, ' + v(sh) + ')';
+    if (kind === 'tile') {
+      return 'border-radius:' + M.radius + ';' + M.glass + ';border:' + M.border +
+        ';box-shadow:var(--hk-look-shadow, ' + v(sh) + ')';
+    }
+    return 'border-radius:' + M.radius + ';background:var(--hk-block-plate, ' + M.bg + ');--hk-glass-surface:var(--hk-block-glass, 1);' +
+      'backdrop-filter:var(--hk-block-backdrop, var(--hk-glass-backdrop,none));-webkit-backdrop-filter:var(--hk-block-backdrop, var(--hk-glass-backdrop,none))' +
+      ';border:var(--hk-block-edge, ' + M.border + ');box-shadow:var(--hk-block-shadow, var(--hk-look-shadow, ' + v(sh) + '))';
   }
   // ONE TITLE ROW (the Energy page's): the name left, the detail right, one
   // baseline, 20 px tall. `sel` is the row (default .ttl); its <b> is the

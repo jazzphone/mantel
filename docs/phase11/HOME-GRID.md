@@ -1442,3 +1442,20 @@ Blocks on the grid still pick up at once: the grid never scrolls.
 nothing; a sideways drag and a hold carried down and then over each place a card; a tap opens the preview. Against
 the editor before this change, the scroll step fails (0 px). WebKit wasn't run with touch: Playwright's WebKit offers
 taps, not touch drags.
+
+### Hide Box, Show Boxes and Fill the Screen (2026-10-24)
+
+From the nightstand review against StandBy: a black background is the screen's own choice already (Background →
+Color → Black, the Sky's animations off), so nothing new there. What was missing:
+
+- **Hide Box**, a block's `bare: true`, and the screen's `boxes: false`. The block's cell gets `data-bare`, which sets
+  `--hk-block-*`. Only a card's or a panel's plate (`hkCards.plate('card' | 'panel')`) reads those variables: clear,
+  no edge, no shadow, and `--hk-glass-surface` 0, so the shared blur leaves it out. A first try overrode the look's
+  own variables (`--hk-plate-here` and the others), and the room's speaker tile and the thermostat's mode track lost
+  their surfaces too. A tile's plate never reads `--hk-block-*`. The clock reads `--hk-bare` for its glow. The Clock
+  block's own `opts.bare` from 0.1.72 still works, and the editor moves it to the block's Hide Box.
+- **Fill the Screen**, the grid's `grow: true`: the fit's cap of 1 is lifted, so a grid smaller than its screen grows
+  to fill it. The phone screen types turn it on.
+- The nightstand starters draw without boxes. Clock faces now follow the screensaver's 24-Hour Clock: the old test
+  read the house clock, which is always `HH:MM`, so they showed 24-hour time. A face too big for a Tall block (the
+  analog dial) is scaled down to fit, and the block clips it rather than the face's own box.

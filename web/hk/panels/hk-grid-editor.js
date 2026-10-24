@@ -119,11 +119,11 @@
   // StandBy has it): starters of its own, a big clock on the wallpaper first
   var NIGHTSTAND = [
     ['n_clock', 'Big Clock', 'The time, large, with nothing round it',
-      [{ id: 'n1', card: 'clock', size: 'XL', at: [0, 0], opts: { clock_style: 'classic', bare: true } }]],
+      [{ id: 'n1', card: 'clock', size: 'XL', at: [0, 0], opts: { clock_style: 'classic' }, bare: true }]],
     ['n_calendar', 'Clock and Calendar', 'The time beside what’s next',
-      [{ id: 'n1', card: 'clock', size: 'L', at: [0, 0], opts: { clock_style: 'classic', bare: true } }, { id: 'n2', card: 'calendar', size: 'T', at: [2, 0] }]],
+      [{ id: 'n1', card: 'clock', size: 'L', at: [0, 0], opts: { clock_style: 'classic' }, bare: true }, { id: 'n2', card: 'calendar', size: 'T', at: [2, 0], bare: true }]],
     ['n_analog', 'Analog and Weather', 'A watch face beside the forecast',
-      [{ id: 'n1', card: 'clock', size: 'T', at: [0, 0], opts: { clock_style: 'analog', bare: true } }, { id: 'n2', card: 'weather', size: 'L', at: [1, 0] }]]
+      [{ id: 'n1', card: 'clock', size: 'T', at: [0, 0], opts: { clock_style: 'analog' }, bare: true }, { id: 'n2', card: 'weather', size: 'L', at: [1, 0], bare: true }]]
   ];
   function screenTypeOf(grid) {
     var t = grid && SCREEN_TYPES.find(function (x) { return x[2] === grid.cols && x[3] === grid.rows && x[4] === !!grid.band; });
@@ -489,6 +489,8 @@
         if (!ok) { this.side(); return; }
       }
       r.grid.band = t[4]; r.grid.frame = t[5].slice();
+      // (a phone fills itself: its grid is smaller than its screen on its side)
+      if (/^phone/.test(t[0])) r.grid.grow = true;
       if (r.grid.items.every((it) => it.id !== this.selected)) this.selected = null;
       this.change(r.grid);
     }
@@ -748,6 +750,8 @@
           onChange: (k) => this.screenType(k) }),
         K.seg({ label: 'Columns', value: this.grid.cols, options: [6, 3, 2].map((n) => [n, String(n)]), onChange: (n) => config('cols', Number(n)) }),
         K.select({ label: 'Rows', value: this.grid.rows, options: [2, 3, 4, 5, 6].map((n) => [n, String(n)]), onChange: (n) => config('rows', Number(n)) }),
+        K.toggle({ label: 'Show Boxes', sub: 'Off: every block straight on the background, as on a nightstand.', on: this.grid.boxes !== false, onChange: (on) => config('boxes', on) }),
+        K.toggle({ label: 'Fill the Screen', sub: 'Lets the grid grow past its own size on a screen bigger than it.', on: this.grid.grow === true, onChange: (on) => config('grow', on) }),
         K.select({ label: 'Grid Scale', value: this.grid.scale || 100, options: [100, 90, 80, 70, 60, 50].map((n) => [n, n === 100 ? 'Automatic Fit' : n + '% of Fit']), onChange: (n) => config('scale', Number(n)) })]));
       add(K.group({ header: 'Header' }, [
         K.toggle({ label: 'Top Band', sub: 'The clock, weather and status chips', on: this.grid.band, onChange: (v) => config('band', v) }),
@@ -825,10 +829,14 @@
       else if (src) footer = 'Swipe sideways on the block to change pages. It goes back to its first page when the screen goes idle.';
       add(K.group({ header: 'Content', footer: footer }, rows));
       if (src === 'list') this.pages(item);
-      if (cat.opts && cat.opts.surface) {
-        var look = []; this.surfaceFields((item.opts || {}).surface, (value) => { var o = copy(item.opts || {}); if (value) o.surface = value; else delete o.surface; this.update(item.id, { opts: o }); }, look);
-        add(K.group({ header: 'Appearance', footer: 'Only the group’s own background changes. Its tiles keep the screen’s look.' }, look));
-      }
+      // HIDE BOX (2026-10-24): any block's card without its box; the screen's Show Boxes off hides every one
+      // (a clock saved with its own Hide Box option moves to the block's)
+      var noBoxes = this.grid.boxes === false, ownBare = item.card === 'clock' && (item.opts || {}).bare;
+      var look = [K.toggle({ label: 'Hide Box', on: noBoxes || !!item.bare || !!ownBare, disabled: noBoxes,
+        sub: noBoxes ? 'The screen hides every block’s box (Screen → Show Boxes).' : 'The card straight on the background, without its box.',
+        onChange: (on) => { var patch = { bare: on || null }; if (ownBare) { var o = copy(item.opts); delete o.bare; patch.opts = o; } this.update(item.id, patch); } })];
+      if (cat.opts && cat.opts.surface) this.surfaceFields((item.opts || {}).surface, (value) => { var o = copy(item.opts || {}); if (value) o.surface = value; else delete o.surface; this.update(item.id, { opts: o }); }, look);
+      add(K.group({ header: 'Appearance', footer: cat.opts && cat.opts.surface ? 'A custom background changes only the group’s own; its tiles keep the screen’s look.' : '' }, look));
     }
     setShow(item, s) {
       if (item.card === 'accessories') {
@@ -1096,6 +1104,7 @@
         if (hide[key]) return;
         var kind = kinds[key], label = KIND_LABELS[kind] || NAME_LABELS[key] || key.charAt(0).toUpperCase() + key.slice(1);
         if (kind === 'surface') return;                                         // Appearance, its own group
+        if (card === 'clock' && key === 'bare') return;                         // Appearance's Hide Box
         if (card === 'room' && key === 'area' && o.list && !o.page) label = 'Default Room';
         if (kind === 'room_display') {
           if (o.page) return;
