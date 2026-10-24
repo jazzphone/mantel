@@ -1144,11 +1144,43 @@
         clockModule().then(function (M) {
           if (!M || run !== self._run || !box.isConnected) return;
           self._face = M.mount(box, { style: style, h24: self._h24(), bg: 'none', scrim: false, client: self.client });
+          self._fillWatch(box, !!c.bare);
         });
+      }
+      // THE FACE FILLS ITS BLOCK (2026-10-24, the owner on the nightstand
+      // layouts: StandBy's digits fill the screen). A face is sized for a
+      // whole screen -- its time a third of the height -- so in a block it
+      // is scaled up until its drawing reaches the block's edges, less a
+      // margin (more inside the box). Measured again as the block resizes and
+      // once the face's fonts are in; never shrunk below its own size.
+      _fillWatch(box, bare) {
+        var root = box.querySelector('.ckroot'), self = this;
+        if (!root) return;
+        var fill = function () {
+          root.style.transform = '';
+          var b = box.getBoundingClientRect(), face = root.querySelector('.face'), l = Infinity, t = Infinity, r = -Infinity, btm = -Infinity;
+          if (!face || !b.width || !b.height) return;
+          face.querySelectorAll('*').forEach(function (e) {
+            var q = e.getBoundingClientRect();
+            if (!q.width || !q.height || q.width >= b.width * 0.999 && q.height >= b.height * 0.999) return;
+            l = Math.min(l, q.left); t = Math.min(t, q.top); r = Math.max(r, q.right); btm = Math.max(btm, q.bottom);
+          });
+          if (!(r > l && btm > t)) return;
+          var m = bare ? 0.92 : 0.8, k = Math.min(b.width * m / (r - l), b.height * m / (btm - t), 3);
+          // centred on the drawing's own middle, not the block's
+          var dx = (b.left + b.width / 2) - (l + r) / 2, dy = (b.top + b.height / 2) - (t + btm) / 2;
+          if (k > 1.02) root.style.transform = 'translate(' + dx.toFixed(1) + 'px,' + dy.toFixed(1) + 'px) scale(' + k.toFixed(3) + ')';
+        };
+        root.style.transformOrigin = '50% 50%';
+        if (this._fillRO) this._fillRO.disconnect();
+        if (typeof ResizeObserver !== 'undefined') { this._fillRO = new ResizeObserver(function () { fill(); }); this._fillRO.observe(box); }
+        [60, 700, 2500].forEach(function (ms) { setTimeout(function () { if (self._face) fill(); }, ms); });
+        if (document.fonts && document.fonts.ready) document.fonts.ready.then(fill);
       }
       disconnectedCallback() {
         if (super.disconnectedCallback) super.disconnectedCallback();
         if (this._face) { try { this._face.destroy(); } catch (e) { /* gone */ } this._face = null; }
+        if (this._fillRO) { this._fillRO.disconnect(); this._fillRO = null; }
         this._built = false; this._run = (this._run || 0) + 1;
       }
     }

@@ -101,17 +101,17 @@ async def main():
                     args.shots.mkdir(parents=True, exist_ok=True)
                     await b.screenshot(args.shots / f'{screen}.png')
             # THE CLOCK BLOCK on a phone on its side (Phone, Landscape: 3 x 2, the tab bar at the left): a screensaver
-            # face on the wallpaper with no box, and HK's own clock, boxed, at Small
+            # face on the wallpaper with no box, filling its block (StandBy's digits), and HK's own clock, boxed, at Small
             await b.send('Emulation.setDeviceMetricsOverride', width=844, height=390, deviceScaleFactor=1, mobile=False)
             await b.open(origin + '/night/home', cookie)
             assert await b.wait('window.__mantelReady===true', 30)
             await b.eval(DEEP)
             assert await b.wait("deep(cell('big'),'.ckroot .face.f-classic').length===1", 15)
-            ck = await b.eval("""(()=>{let c=cell('big'),k=deep(c,'.ck')[0],r=c.getBoundingClientRect(),f=deep(c,'.face')[0].getBoundingClientRect(),
+            ck = await b.eval("""(()=>{let c=cell('big'),k=deep(c,'.ck')[0],r=c.getBoundingClientRect(),f=deep(c,'.face')[0].firstElementChild.getBoundingClientRect(),
               s=cell('small'),sr=s.getBoundingClientRect(),t=deep(s,'[data-hk-clock=clock]')[0];
-              return {plate:k.classList.contains('plate'),inside:f.width>0&&f.right<=r.right+1&&f.bottom<=r.bottom+1,
+              return {plate:k.classList.contains('plate'),inside:f.width>0&&f.left>=r.left-1&&f.right<=r.right+1&&f.top>=r.top-1&&f.bottom<=r.bottom+1,fills:f.width>r.width*0.6,
                       small:!!t&&t.getBoundingClientRect().right<=sr.right+1}})()""")
-            assert ck == {'plate': False, 'inside': True, 'small': True}, ck
+            assert ck == {'plate': False, 'inside': True, 'fills': True, 'small': True}, ck
             if args.shots:
                 await b.screenshot(args.shots / 'night.png')
             exceptions = [line for line in b.console if line.startswith('EXCEPTION:')]

@@ -1404,3 +1404,12 @@ screen edge to edge) and Glass (a pane of its own) were tried and left out. HK's
 
 `grid_editor_smoke.py` re-packs a starter onto Phone, Portrait, answers the confirmation and undoes it.
 `grid_panels_check.py` draws a bare Classic face and a boxed Small clock on a phone held sideways.
+
+**The nightstand's spacing** (the owner: "the spacing on some of these things is pretty off"). Measured on a phone
+held sideways with the tab bar at the left: a rail that shrinks or hides scaled the whole page aside (88%) from its
+top, so the grid, which already fits itself, shrank a second time and left 82 px under it against 35 above. Beside a
+Home Grid the rail now takes its strip from the grid's width (`room(…, grid)`: `pad`, not `scale`), and the grid fits
+the full height: 39 px above and 41 below, and about even at the sides. A screensaver face is sized for a whole
+screen, its time about a third of the height, so in a block it scales up until its drawing reaches the block, less a
+margin (8% bare, 20% in its box). It is measured again as the block resizes and once the fonts load, and is never
+shrunk.

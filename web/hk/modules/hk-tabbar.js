@@ -214,10 +214,14 @@
   // it scrolls -- nothing moves -- but the last row (the first, at the top)
   // can always be scrolled clear of it, as on iOS. Off, it once had no room
   // at all, and the last tiles on Home stayed under the bar.
-  function room(pos, scroll, adjust) {
+  // A HOME GRID BESIDE A RAIL (2026-10-24, a phone on its side as a
+  // nightstand): the rail's strip comes out of the grid's width ('pad') --
+  // the grid fits itself to the room it has. Scaled aside, the whole grid
+  // shrank a second time and hung from the top, a gap under it.
+  function room(pos, scroll, adjust, grid) {
     if (adjust === false) return pos === 'left' || pos === 'right' ? 'none' : 'pad';
     if (scroll !== 'shrink' && scroll !== 'hide') return 'pad';
-    if (pos === 'left' || pos === 'right') return 'scale';
+    if (pos === 'left' || pos === 'right') return grid ? 'pad' : 'scale';
     return pos === 'top' ? 'shift' : 'pad';
   }
 
@@ -1036,6 +1040,7 @@
       (root.appendChild && root !== document ? root : document.head).appendChild(st);
     }
     function viewEl() { return SH.viewSlot(M.panel()); }
+    function isGrid(hv) { return !!(hv && hv.localName === 'hk-home-grid-view'); }
     // A FULL RAIL PUSHES THE PAGE ASIDE (Shrink or Hide; Stay keeps a strip
     // of room instead): while the rail is full the dashboard is scaled down
     // away from it, just enough to clear it, and eased back as it folds or
@@ -1060,9 +1065,9 @@
     function aside() {
       railRoom();
       var b = M.board() || {}, pos = S.pos;
-      var how = S.on && pos ? room(pos, scrollOf(b), b.tab_bar_adjust) : 'none';
-      var on = how === 'scale' || how === 'shift';
       var v = viewEl(), hv = SH.view(v);
+      var how = S.on && pos ? room(pos, scrollOf(b), b.tab_bar_adjust, isGrid(hv)) : 'none';
+      var on = how === 'scale' || how === 'shift';
       if (S.asideEl && S.asideEl !== hv) { S.asideEl.style.transform = ''; S.asideEl.style.transformOrigin = ''; S.asideEl = null; }
       if (!hv || !on) {
         if (hv && S.asideEl === hv) { hv.style.transform = ''; S.asideEl = null; }
@@ -1114,7 +1119,7 @@
       }
       foldPub(on);
       var b = M.board() || {};
-      if (pos && room(pos, scrollOf(b), b.tab_bar_adjust) !== 'pad') pos = null;
+      if (pos && room(pos, scrollOf(b), b.tab_bar_adjust, isGrid(SH.view(viewEl()))) !== 'pad') pos = null;
       var v = pos === 'bottom' ? 'calc(' + (barH(undefined, sizeNow()) + 10) + 'px + ' + LIFT_CSS + ')' : '';
       if (de.style.getPropertyValue('--hk-tabbar-h') !== v) {
         if (v) de.style.setProperty('--hk-tabbar-h', v);
