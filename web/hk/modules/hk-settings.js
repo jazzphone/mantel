@@ -119,7 +119,7 @@
            pages: {}, page_photos: {}, page_looks: {},
            // FLAT'S OWN (settings.py FLAT_BACKGROUNDS): its background, color,
            // how far a photo fades (0-100) and each page's
-           flat_background: 'color', flat_color: 'auto', flat_fade: 50, flat_pages: {}, flat_tint: 'none', flat_tint_amount: 60, flat_tint_light: 50, flat_image_look: {}, flat_page_image_looks: {},
+           flat_background: 'color', flat_color: 'auto', flat_fade: 50, flat_pages: {}, flat_tint: 'none', flat_tint_amount: 60, flat_tint_light: 50, flat_image_look: {}, flat_page_image_looks: {}, image_look: {},
            themes: ['halloween', 'thanksgiving', 'christmas', 'birthday', 'fourth-of-july',
                     'valentines-day', 'spring-garden', 'winter-wonderland', 'storybook-magic',
                     'space-night'],
@@ -634,9 +634,13 @@
                           own || (b && b.sky_photo_look) || get('sky.photo_look', {}) || {});
     var custom = b && b.sky_custom ? b.sky_custom : get('sky.gradient_custom', null);
     var tint = L.tint ? backdropStops(L.tint, custom) : null;
+    // THE IMAGE LOOK (2026-10-24): Flat's treatment, when one is chosen for
+    // the Glass looks (hkFlatImage.resolveGlass) -- null when Off
+    var H = window.hkFlatImage, im = H && H.resolveGlass ? H.resolveGlass(get('sky', {}), b).value : null;
     return { blur: Math.round(Math.max(0, Math.min(100, +L.blur || 0)) * 0.4), dim: Math.max(0, Math.min(0.8, (+L.dim || 0) / 100)),
              saturate: Math.max(0, Math.min(2, (L.saturation == null ? 100 : +L.saturation) / 100)),
-             tint: tint, amount: tint ? Math.max(0, Math.min(0.8, (+L.tint_amount || 0) / 100)) : 0 };
+             tint: tint, amount: tint ? Math.max(0, Math.min(0.8, (+L.tint_amount || 0) / 100)) : 0,
+             image: im && im.mode !== 'legacy' ? im : null };
   }
   // LANDSCAPES AS A BACKGROUND (2026-10-14): HK Frontend's own photos
   // (frontend/landscapes, the screensaver clock's). The list is the folder's

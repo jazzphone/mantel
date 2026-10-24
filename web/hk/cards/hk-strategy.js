@@ -3015,7 +3015,7 @@
                     sky_liveliness: 1, sky_liveliness_occ: 1, sky_liveliness_custom: 1, sky_calm_empty: 1,
                     sky_background: 1, sky_color: 1, sky_photo: 1, sky_page_photos: 1, sky_photo_look: 1, sky_page_looks: 1, sky_landscape: 1, sky_landscape_look: 1,
                     sky_flat_background: 1, sky_flat_color: 1, sky_flat_fade: 1, sky_flat_tint: 1, sky_flat_tint_amount: 1, sky_flat_tint_light: 1, sky_flat_pages: 1,
-                    sky_flat_image_look: 1, sky_flat_page_image_looks: 1 };
+                    sky_flat_image_look: 1, sky_flat_page_image_looks: 1, sky_image_look: 1 };
   // an accessory's fields only the chips read (Status & Chips' status, a custom
   // chip's when / label / attribute): changing one rebuilds nothing
   var CHIP_ONLY = { status: 1, when: 1, label: 1, attribute: 1 };

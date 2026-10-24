@@ -801,6 +801,7 @@ HOUSE: dict[str, Callable[[Any], Any]] = {
     "sky.flat_pages": _flat_pages,
     "sky.flat_image_look": _flat_image_look,
     "sky.flat_page_image_looks": _flat_page_image_looks,
+    "sky.image_look": _flat_image_look,
     "sky.themes": _subset(S.THEMES),
     "sky.hemisphere": _choice(("north", "south")),
     "sky.moon": SENSOR,
@@ -824,7 +825,8 @@ HOUSE.update({
     "tablets.restart_times": lambda v: _restart_times(v),
     "tablets.dismissed": lambda v: _keys(v),
 })
-IMAGE_HOUSE = re.compile(r"^sky\.flat_image_look\.patch$|^sky\.flat_page_image_looks\.([a-z0-9][a-z0-9_-]{0,39})$")
+# (a patch of Flat's image look, the Glass looks' (image_look), or one page's Flat image look)
+IMAGE_HOUSE = re.compile(r"^sky\.(flat_image_look|image_look)\.patch$|^sky\.flat_page_image_looks\.([a-z0-9][a-z0-9_-]{0,39})$")
 FLAT_HOUSE = re.compile(r"^look\.flat_colors\.(accent|off_tint|pages)$|^look\.flat_page_colors\.([a-z0-9][a-z0-9_-]{0,39})$")
 SKY_DATE = re.compile(r"^sky\.(" + "|".join(S.SKY_BUILT_IN) + r")_(from|to)$")
 
@@ -867,8 +869,8 @@ def apply_house(options: Mapping[str, Any], changes: Mapping[str, Any],
                 # Include earlier whole-object, legacy, or reset edits in
                 # this same transaction, not just the pre-transaction view.
                 sk = dict(S.merged({**dict(options), S.CONF_DASHBOARD: dash})["sky"])
-                field = "flat_page_image_looks" if im.group(1) else "flat_image_look"
-                sk[field] = image_pages_patch(sk[field], im.group(1), value) if im.group(1) else image_patch(sk[field], value)
+                field = im.group(1) or "flat_page_image_looks"
+                sk[field] = image_pages_patch(sk[field], im.group(2), value) if im.group(2) else image_patch(sk[field], value)
                 now["sky"] = sk
                 dash["sky"] = S.house_stored("sky", sk)
                 continue
@@ -1167,6 +1169,7 @@ BOARD: dict[str, Callable[[Any], Any]] = {
     "sky_flat_pages": _flat_pages,
     "sky_flat_image_look": _flat_image_look,
     "sky_flat_page_image_looks": _flat_page_image_looks,
+    "sky_image_look": _flat_image_look,
     "flat_colors": _flat_colors,
     "flat_page_colors": _flat_page_colors,
     "sky_page_looks": _page_looks,
@@ -1288,7 +1291,7 @@ def apply_tablet(data: Mapping[str, Any], changes: Mapping[str, Any], tid: str
     return S.tablet({**dict(data), **clean}, tid), {}
 
 
-IMAGE_BOARD = re.compile(r"^sky_flat_image_look\.patch$|^sky_flat_page_image_looks\.([a-z0-9][a-z0-9_-]{0,39})$")
+IMAGE_BOARD = re.compile(r"^(sky_flat_image_look|sky_image_look)\.patch$|^sky_flat_page_image_looks\.([a-z0-9][a-z0-9_-]{0,39})$")
 FLAT_BOARD = re.compile(r"^flat_colors\.(accent|off_tint|pages)$|^flat_page_colors\.([a-z0-9][a-z0-9_-]{0,39})$")
 
 
@@ -1303,9 +1306,9 @@ def apply_board(data: Mapping[str, Any], changes: Mapping[str, Any]
         try:
             im = IMAGE_BOARD.fullmatch(key)
             if im:
-                field = "sky_flat_page_image_looks" if im.group(1) else "sky_flat_image_look"
+                field = im.group(1) or "sky_flat_page_image_looks"
                 current = clean.get(field, now[field])
-                clean[field] = image_pages_patch(current, im.group(1), value) if im.group(1) else image_patch(current, value)
+                clean[field] = image_pages_patch(current, im.group(2), value) if im.group(2) else image_patch(current, value)
                 continue
             fm = FLAT_BOARD.match(key)
             if fm:

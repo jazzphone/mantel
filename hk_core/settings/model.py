@@ -497,11 +497,11 @@ def sky_photo(v: Any) -> str | None:
 # photo and custom colors you made (photo, gradient_custom: kept for next
 # time), or Advanced's dates, hemisphere and sources. A screen's reset is
 # SKY_RESET_BOARD to None: Same as All Screens.
-SKY_RESET = ("background", "color", "landscape", "photo_look", "landscape_look", "flat_background", "flat_color", "flat_image_look", "flat_fade", "flat_tint", "flat_tint_amount", "flat_tint_light",
+SKY_RESET = ("background", "color", "landscape", "photo_look", "landscape_look", "image_look", "flat_background", "flat_color", "flat_image_look", "flat_fade", "flat_tint", "flat_tint_amount", "flat_tint_light",
              "animations", "focus_pause", "moving", "weather", "precipitation",
              "cloud_style", "daytime", "gradient", "decorations", "decoration_style",
              "woodland", "themes", "liveliness_all", "liveliness", "liveliness_custom")
-SKY_RESET_BOARD = ("sky_background", "sky_color", "sky_landscape", "sky_photo_look", "sky_landscape_look",
+SKY_RESET_BOARD = ("sky_background", "sky_color", "sky_landscape", "sky_photo_look", "sky_landscape_look", "sky_image_look",
                    "sky_flat_background", "sky_flat_color", "sky_flat_image_look", "sky_flat_fade", "sky_flat_tint", "sky_flat_tint_amount", "sky_flat_tint_light",
                    "sky_animations", "sky_focus_pause", "sky_moving", "sky_weather", "sky_precipitation",
                    "sky_cloud_style", "sky_daytime", "sky_gradient", "sky_decorations", "sky_decoration_style",
@@ -1039,6 +1039,11 @@ DEFAULTS: dict[str, dict[str, Any]] = {
             # its own light and dark kept) and how bright (50 as the photo is)
             "flat_tint_amount": FLAT_TINT_AMOUNT, "flat_tint_light": 50,
             "flat_image_look": {}, "flat_page_image_looks": {},
+            # THE GLASS LOOKS' IMAGE LOOK (2026-10-24, the owner): Flat's
+            # treatment (flat_image_look's fields) for the other looks' Photo
+            # and Landscapes, kept apart from Flat's; {} is Off ("legacy"),
+            # the photo with its Photo Look alone
+            "image_look": {},
             # a page's own photo look (page_looks: {page: photo_look}); a
             # page missing has its screen's. A room page's key is its
             # address (room-kitchen), and one not set follows "rooms".
@@ -1311,6 +1316,7 @@ def merged(options: Mapping[str, Any] | None) -> dict[str, dict[str, Any]]:
     sk["flat_tint_light"] = int(tl) if isinstance(tl, (int, float)) and not isinstance(tl, bool) and 0 <= tl <= 100 else 50
     sk["flat_pages"] = flat_pages(sk.get("flat_pages")) or {}
     sk["flat_image_look"] = flat_image_look(sk.get("flat_image_look")) or {}
+    sk["image_look"] = flat_image_look(sk.get("image_look")) or {}
     sk["flat_page_image_looks"] = flat_page_image_looks(sk.get("flat_page_image_looks")) or {}
     # each over its own defaults: a partly stored object is still whole, and
     # a stored false stays false
@@ -1852,6 +1858,8 @@ BOARD_DEFAULTS: dict[str, Any] = {
     # FLAT'S OWN (sky.flat_*): None / {} follow All Screens
     "sky_flat_background": None, "sky_flat_color": None, "sky_flat_fade": None, "sky_flat_pages": {}, "sky_flat_tint": None, "sky_flat_tint_amount": None, "sky_flat_tint_light": None,
     "sky_flat_image_look": {}, "sky_flat_page_image_looks": {},
+    # the Glass looks' Image Look, this screen's own fields ({} follows All Screens: sky.image_look)
+    "sky_image_look": {},
     # FLAT COLORS, this screen's own (settings.flat_colors): a field missing
     # follows All Screens; each page's own over them (flat_page_colors)
     "flat_colors": {}, "flat_page_colors": {},
@@ -2084,6 +2092,7 @@ def board(data: Mapping[str, Any] | None) -> dict[str, Any]:
     out["sky_flat_tint_light"] = amount_or_none(d.get("sky_flat_tint_light"))
     out["sky_flat_pages"] = flat_pages(d.get("sky_flat_pages")) or {}
     out["sky_flat_image_look"] = flat_image_look(d.get("sky_flat_image_look")) or {}
+    out["sky_image_look"] = flat_image_look(d.get("sky_image_look")) or {}
     out["sky_flat_page_image_looks"] = flat_page_image_looks(d.get("sky_flat_page_image_looks")) or {}
     out["flat_colors"] = flat_colors(d.get("flat_colors")) or {}
     out["flat_page_colors"] = flat_page_colors(d.get("flat_page_colors")) or {}

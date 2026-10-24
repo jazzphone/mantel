@@ -73,7 +73,19 @@ Each change goes far along the list, so the next one is never the one next
 to it, and all fifty come round. Landscapes has its own **Look** (Blur, Dim,
 Saturation and a Color Tint, as a Photo has), kept apart from your Photo’s.
 A screen can choose its own landscape and Look, and a page can be set to
-**Landscapes** too (with a Look of its own). A set of your own: put an
+**Landscapes** too (with a Look of its own).
+
+#### Image Look
+
+Under a Photo or the Landscapes, **Image Look** gives the picture Flat's
+treatment in these looks too. It is **Off** to begin with: the picture as it is,
+with its Look above. **Original** keeps the photograph's colors. **Soft**,
+**Balanced**, **Rich** and **Washed** tint it to one color, keeping its own light
+and dark: the page's accent (**Match Accent**) or **Your Own Color**. **Adjust**
+sets its **Strength**, **Depth**, **Brightness** and **Fade** toward the dark,
+with a preview. It is kept apart from Flat's own Image Look. A screen can have
+its own; **Use Inherited Image Settings** follows All Screens again. The Look
+above still applies on top: a blur or a dim works with either. A set of your own: put an
 `index.json` and your pictures in a `landscapes` folder of
 [your files](Your-Files.md), as for the
 [screensaver’s clock](Screensaver-and-Idle.md#landscapes).

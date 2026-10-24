@@ -18,6 +18,21 @@
     });
     if (board) candidates.push({ value: board.sky_flat_image_look, scope: 'screen' });
     candidates.push({ value: sky.flat_image_look, scope: 'house' });
+    return pick(candidates);
+  }
+  // THE GLASS LOOKS' IMAGE LOOK (2026-10-24, the owner: Flat's treatment
+  // for the other looks' Photo and Landscapes too): the same fields, kept
+  // apart from Flat's (sky.image_look, a screen's sky_image_look) -- this
+  // screen's, else All Screens', else the defaults ('legacy': the photo as
+  // it is, with its Photo Look alone)
+  function resolveGlass(sky, board) {
+    var candidates = [];
+    if (board) candidates.push({ value: board.sky_image_look, scope: 'screen' });
+    candidates.push({ value: (sky || {}).image_look, scope: 'house' });
+    return pick(candidates);
+  }
+  // each field from the first candidate that stores it, else the default
+  function pick(candidates) {
     var value = {}, from = {};
     Object.keys(DEFAULTS).forEach(function (field) {
       for (var i = 0; i < candidates.length; i++) {
@@ -106,5 +121,5 @@
   function fade(amount, theme) {
     return 'rgba(' + (theme === 'light' ? '238,236,230,' : '10,11,12,') + (clamp(+amount || 0, 0, 100) / 100).toFixed(3) + ')';
   }
-  window.hkFlatImage = { defaults: DEFAULTS, presets: PRESETS, resolve: resolve, preset: preset, table: table, pixels: pixels, paint: paint, fade: fade };
+  window.hkFlatImage = { defaults: DEFAULTS, presets: PRESETS, resolve: resolve, resolveGlass: resolveGlass, preset: preset, table: table, pixels: pixels, paint: paint, fade: fade };
 })();

@@ -91,7 +91,7 @@ HOUSE_PATH = re.compile(r"^([a-z][a-z0-9_]*)\.([a-z0-9][a-z0-9_]*)$")
 FLAT_KEY = re.compile(r"^[a-z][a-z0-9_]*$")
 ENTITY = re.compile(r"^([a-z0-9_]+)\.[a-z0-9_]+$")
 # settings_api.py's patch paths and the reset: they need the real model's merge rules
-NEEDS_MODEL = re.compile(r"^sky\.reset$|^sky\.flat_image_look\.patch$|^sky\.flat_page_image_looks\.|"
+NEEDS_MODEL = re.compile(r"^sky\.reset$|^sky\.(flat_image_look|image_look)\.patch$|^sky\.flat_page_image_looks\.|"
                          r"^look\.flat_colors\.|^look\.flat_page_colors\.")
 NEEDS_MODEL_BOARD = re.compile(r"\.")
 # options of the HA integration itself (its sidebar panel, HK as its own HA panel, the files folder

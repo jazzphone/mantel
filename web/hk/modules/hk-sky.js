@@ -5724,6 +5724,43 @@
     });
   }
 
+  // THE IMAGE LOOK (2026-10-24, the owner: Flat's treatment for the Glass
+  // looks' Photo and Landscapes too; hkSettings.photoLook's `image`): the
+  // picture repainted once by hk-flat-image.js -- tinted or as taken, its
+  // brightness, and its Fade baked in toward the dark ground -- and handed
+  // on as a picture of its own (a blob address), so whatever reads the photo
+  // (the cap, a pre-rendered blur) reads the treated one. Kept for the last
+  // few pictures; a picture still being painted shows nothing new until it
+  // is done, never the untreated one first.
+  var TREATED = [], TREATED_MAX = 3;
+  function treatedPhoto(src, image, color, done) {
+    var key = src + '|' + [image.mode, image.strength, image.depth, image.brightness, image.fade, color].join('|');
+    var hit = TREATED.filter(function (t) { return t.key === key; })[0];
+    if (hit) { if (hit.url) return hit.url; hit.wait.push(done); return null; }
+    var job = { key: key, url: null, wait: [done] };
+    TREATED.push(job);
+    while (TREATED.length > TREATED_MAX) {
+      var old = TREATED.shift();
+      // (later: a layer may still be showing it while the next one lands)
+      if (old.url) setTimeout(URL.revokeObjectURL.bind(URL, old.url), 10000);
+    }
+    var settle = function (url) { job.url = url; var w = job.wait; job.wait = []; w.forEach(function (fn) { fn(url); }); };
+    var img = new Image();
+    img.onload = function () {
+      try {
+        var cv = document.createElement('canvas');
+        if (!window.hkFlatImage.paint(cv, img, image, color)) throw new Error('no size');
+        var ctx = cv.getContext('2d');
+        ctx.fillStyle = window.hkFlatImage.fade(image.fade, 'dark');
+        ctx.fillRect(0, 0, cv.width, cv.height);
+        cv.toBlob(function (blob) { settle(blob ? URL.createObjectURL(blob) : src); }, 'image/jpeg', 0.92);
+      } catch (e) { console.warn('[hk-sky] the photo could not be treated', e); settle(src); }
+    };
+    img.onerror = function () { settle(src); };
+    img.src = src;
+    return null;
+  }
+
   // ONE COVER TO THE NEXT, CROSSFADED (2026-10-14: switching between two
   // groups playing snapped the whole page from one color to the other in a
   // frame -- the user's recording). The cover going out stays on top as a
@@ -6219,7 +6256,20 @@
           mounted._hkGradL = mounted._hkRaw;
           // playmusic is the one static page whose backdrop is not fixed.
           if (opts.photo) {
-            paintPhoto(mounted, opts.photo, opts.look, mounted._hkGradL);
+            var im = opts.look && opts.look.image;
+            if (im && window.hkFlatImage) {
+              // its Image Look: the treated picture, once it is painted
+              var C0 = window.hkCards, want = opts.photo + '|' + JSON.stringify(im), el = mounted;
+              var tc = im.color === 'accent' ? (C0 && C0.flatAccentHex ? C0.flatAccentHex() : '#64798e') : im.color;
+              el._hkWantPhoto = want;
+              var ready = treatedPhoto(opts.photo, im, tc, function (url) {
+                if (el.isConnected && el._hkWantPhoto === want) paintPhoto(el, url, opts.look, el._hkGradL);
+              });
+              if (ready) paintPhoto(mounted, ready, opts.look, mounted._hkGradL);
+            } else {
+              mounted._hkWantPhoto = null;
+              paintPhoto(mounted, opts.photo, opts.look, mounted._hkGradL);
+            }
           } else if (opts.variant === 'playmusic') {
             paintAlbum(mounted, artUrl, mounted._hkGradL);
           } else {
