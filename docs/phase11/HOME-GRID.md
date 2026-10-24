@@ -1420,3 +1420,11 @@ model and page, hk-base.js's menu defaults and the strategy's live keys). Icons 
 the bar's thickness (`step()`: a rail narrower, its tabs shorter) and draws the icons 2 px larger. Each tab now carries
 its name as `aria-label`. `grid_panels_check.py` checks the rail's names are hidden but labelled, and that the grid
 beside it keeps the full height.
+
+### House App 0.1.72 deployed (2026-10-24)
+
+The owner asked for this release. Release commit `ed96d4d` (the pages' panels as blocks, Screen Types, the nightstand
+starters and spacing, the Clock block's faces, and the tab bar's Icons Only) was pushed and staged. The update
+installed on the first request. Strict health is OK with Home Assistant connected, and build `195485553478bce8`
+matches the staged release. No log line matches "Traceback" or "ERROR". Next: the owner checks the iPad scroll fix
+and a phone on its side, and the car browser's usable size is measured to confirm the Car type.
