@@ -2,6 +2,13 @@
 
 All notable changes to Mantel are listed here. Versions follow [semantic versioning](https://semver.org); the Home Assistant App, the Docker images and the Python package share one version number.
 
+## 0.1.66 - 2026-10-24
+
+Local Home Assistant App update for the house.
+
+- Swiping a Home Grid block in the Blur look keeps the frosted background lined up with its cards (0.1.65 let it slide out of line in Safari).
+- New room blocks, from the editor or a starter layout, scroll through all their accessories (Accessories → Scroll All). Rooms already saved keep their setting.
+
 ## 0.1.65 - 2026-10-23
 
 Local Home Assistant App update for the house.
