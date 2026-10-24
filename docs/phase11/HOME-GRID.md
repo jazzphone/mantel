@@ -1159,3 +1159,12 @@ track. 225 of 225 swipes still land, with taps, dimming, list scrolling, the dot
 The owner also asked why a room block shows "+4 more" instead of scrolling. That was the default (**Content →
 Accessories → Summary**); **Scroll All** scrolls the whole room. At the owner's request, new room blocks (the editor's
 and the starters') now start on Scroll All. A saved room without the option stays Summary.
+
+### House App 0.1.66 deployed (2026-10-24)
+
+The owner asked for this release. Release commit `3c6de05` (the frost fix and new rooms starting on Scroll All) was
+pushed to main and staged to the house's local App source (2,991 files). The update installed on the first request:
+installed and latest version 0.1.66, strict health OK, Home Assistant connected. Build `24cdd9049f6fb054` matches the
+staged release, and uptime kept climbing across checks. The app log has no Traceback. The only lines matching "ERROR"
+are two INFO camera-still connection resets from just before the restart. No public tag, release or HK Frontend
+update was made. Reload the tablets to pick it up. Rooms saved before this release keep Summary until changed.
