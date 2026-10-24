@@ -60,7 +60,7 @@ CATALOG: dict[str, dict[str, Any]] = {
     "people": {"sizes": ("W",), "sources": (), "opts": {}},
     # Large and Extra Large (2026-10-24): its controls with Clean Areas
     "vacuum": {"sizes": ("S", "W", "L", "XL"), "sources": (), "opts": {"entity": "vacuum"}},
-    "clock": {"sizes": ("W", "XL"), "sources": (), "opts": {}},
+    "clock": {"sizes": ("S", "W", "T", "L", "XL", "XXL"), "sources": (), "opts": {"clock_style": "clock_style", "bare": "boolean"}},
     "power": {"sizes": ("W", "L", "XL"), "sources": (), "opts": {}},
     "music": {"sizes": ("L", "XL"), "sources": (), "opts": {}},
     "doors": {"sizes": ("L", "XL"), "sources": (), "opts": {}},
@@ -225,8 +225,19 @@ def _room_display(v: Any) -> str:
     return v
 
 
+# a Clock block's face (hk-grid-catalog.js CLOCK_FACES; "" is HK's own clock, stored as no option)
+CLOCK_FACES = ("analog", "classic", "serif", "flip", "lcd", "neon", "nixie", "dots", "arc")
+
+
+def _clock_style(v: Any) -> str:
+    if v not in CLOCK_FACES:
+        raise GridInvalid("grid_option")
+    return v
+
+
 OPTION_KINDS = {
     "room_display": _room_display,
+    "clock_style": _clock_style,
     "camera_follow": _camera_follow,
     "select": _domain("input_select", "select"),
     "boolean": _boolean,

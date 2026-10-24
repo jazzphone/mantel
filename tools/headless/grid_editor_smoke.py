@@ -2,7 +2,8 @@
 
     python tools/headless/grid_editor_smoke.py [--shots DIRECTORY]
 """
-import asyncio, sys, tempfile, json, argparse
+import asyncio
+import json, sys, tempfile, json, argparse
 from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 sys.path[:0] = [str(ROOT / p) for p in ('tools/headless', 'tools', 'hosts/server', 'tests')]
@@ -147,6 +148,19 @@ async def main():
             print('room start matches selected Kitchen, display modes agree, and starters stay in collapsed screen settings',flush=True)
 
             await b.eval('ed.select(null)')
+            # SCREEN TYPES: the draft's grid names its type; Phone, Portrait re-packs the blocks onto 2 x 5, asks
+            # before dropping what can't fit, and Undo brings the 6-column layout back
+            before = await b.eval('JSON.stringify(ed.grid)')
+            assert await b.eval("[...ed.sidebar.querySelectorAll('select')].some(s=>[...s.options].some(o=>o.value==='phone_portrait'))")
+            await b.eval('ed.screenType("phone_portrait");void 0')
+            if await b.wait("[...ed.shadowRoot.querySelectorAll('button')].some(b=>b.textContent==='Use Phone, Portrait')", 3):
+                await b.eval("[...ed.shadowRoot.querySelectorAll('button')].find(b=>b.textContent==='Use Phone, Portrait').click()")
+            assert await b.wait("ed.grid.cols===2 && ed.grid.rows===5 && ed.grid.band===false && ed.grid.frame.join()==='390,844'", 5), await b.eval('JSON.stringify(ed.grid)')
+            fit = await b.eval("ed.grid.items.every(it=>{let z={S:[1,1],W:[2,1],T:[1,2],L:[2,2],XL:[3,2],XXL:[6,2]}[it.size];return it.at[0]+z[0]<=2&&it.at[1]+z[1]<=5})")
+            assert fit and await b.eval('ed.grid.items.length') >= 1
+            await b.eval('ed.undo();void 0')
+            assert await b.wait('JSON.stringify(ed.grid)===' + json.dumps(before), 5)
+            print('screen types re-pack the draft, ask before dropping blocks, and undo', flush=True)
             assert await b.eval("ed.palette.querySelectorAll('.pal-row').length === 24")
             assert await b.wait("[...ed.palette.querySelectorAll('.pal-row > hk-icon')].every(e=>!!e.drawn?.path)",10)
             if ARGS.shots:

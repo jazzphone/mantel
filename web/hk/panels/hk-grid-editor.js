@@ -25,7 +25,7 @@
     action: 'One tap for a household job', scene: 'Set a favourite scene', scenes: 'Your scenes together',
     scene_suggested: 'The right scene for the time of day', thermostat: 'Temperature and climate; Extra Large has every control',
     weather: 'Current conditions and the forecast', now_playing: 'Music and playback controls', security: 'The alarm, locks and doors; Large is the keypad',
-    camera: 'One camera, or swipe between cameras', clock: 'Time and date at a glance', timers: 'Timers and quick starts',
+    camera: 'One camera, or swipe between cameras', clock: 'Digital or analog, with or without its box', timers: 'Timers and quick starts',
     calendar: 'Your upcoming events', battery: 'Your home’s stored energy', people: 'Who is home', vacuum: 'Cleaning status; Large adds controls and Clean Areas',
     everything: 'Open the screen’s full menu', power: 'Solar, the house, the battery and the grid right now',
     music: 'Choose speakers, then a playlist', doors: 'Locks, doors, windows and the garage', live_tv: 'Your channels; tap one to watch',
@@ -38,7 +38,7 @@
   // AN OPTION'S NAME in the panel: by its kind (hk-grid-catalog.js opts), else by its own name
   var KIND_LABELS = { entity: 'Accessory', climate: 'Thermostat', camera: 'Camera', weather: 'Weather', vacuum: 'Vacuum',
     speaker: 'Speaker', scene: 'Scene', scenes: 'Scenes', calendars: 'Calendars', area: 'Room', action: 'Does', windows: 'Time Windows', alarm: 'Alarm' };
-  var NAME_LABELS = { sky: 'Sky Background', title: 'Group Name' };
+  var NAME_LABELS = { sky: 'Sky Background', title: 'Group Name', clock_style: 'Style', bare: 'Hide Box' };
   // ONE THING OR PAGES THAT SWIPE, in each card's words: [one, its automatic source]
   var SHOW = { room: ['One Room', 'Swipe Between Rooms'], camera: ['One Camera', 'Swipe All Cameras'],
     thermostat: ['One Thermostat', 'Swipe All Thermostats'], now_playing: ['One Speaker', 'Swipe All Speakers'],
@@ -102,6 +102,51 @@
       if (fits(grid, it) && !grid.items.some(function (x) { return overlap(it, x); })) return it.at;
     }
     return null;
+  }
+  // SCREEN TYPES (2026-10-24, the owner): the grid that suits a kind of
+  // screen, from the grid's own fit (196 x 150 px tiles, the whole grid
+  // scaled to the screen, never enlarged; docs/phase11/HOME-GRID.md, "Screen
+  // types"). [key, name, columns, rows, top band, preview size]
+  var SCREEN_TYPES = [
+    ['phone_portrait', 'Phone, Portrait', 2, 5, false, [390, 844]],
+    ['phone_landscape', 'Phone, Landscape', 3, 2, false, [844, 390]],
+    ['tablet_portrait', 'Tablet, Portrait', 3, 6, true, [820, 1180]],
+    ['tablet_landscape', 'Tablet, Landscape', 6, 4, true, [1180, 820]],
+    ['large_tablet', 'Large Tablet', 6, 5, true, [1376, 1032]],
+    ['car', 'Car', 6, 3, true, [1280, 720]]
+  ];
+  // A NIGHTSTAND (Phone, Landscape: a phone on its side by the bed, as
+  // StandBy has it): starters of its own, a big clock on the wallpaper first
+  var NIGHTSTAND = [
+    ['n_clock', 'Big Clock', 'The time, large, with nothing round it',
+      [{ id: 'n1', card: 'clock', size: 'XL', at: [0, 0], opts: { clock_style: 'classic', bare: true } }]],
+    ['n_calendar', 'Clock and Calendar', 'The time beside what’s next',
+      [{ id: 'n1', card: 'clock', size: 'L', at: [0, 0], opts: { clock_style: 'classic', bare: true } }, { id: 'n2', card: 'calendar', size: 'T', at: [2, 0] }]],
+    ['n_analog', 'Analog and Weather', 'A watch face beside the forecast',
+      [{ id: 'n1', card: 'clock', size: 'T', at: [0, 0], opts: { clock_style: 'analog', bare: true } }, { id: 'n2', card: 'weather', size: 'L', at: [1, 0] }]]
+  ];
+  function screenTypeOf(grid) {
+    var t = grid && SCREEN_TYPES.find(function (x) { return x[2] === grid.cols && x[3] === grid.rows && x[4] === !!grid.band; });
+    return t ? t[0] : 'custom';
+  }
+  // A LAYOUT ON ANOTHER GRID: its blocks in reading order, each at the first
+  // place it fits, so they keep their order; a block wider than the grid, or
+  // with no room left, is left out. -> { grid, left: [items] }
+  function reflow(grid, cols, rows) {
+    var out = copy(grid), left = [];
+    out.cols = cols; out.rows = rows; out.items = [];
+    copy(grid.items).sort(function (a, b) { return (a.at[1] - b.at[1]) || (a.at[0] - b.at[0]); }).forEach(function (it) {
+      var at = SIZES[it.size] && SIZES[it.size][0] <= cols ? firstSpace(out, it.size) : null;
+      if (!at) { left.push(it); return; }
+      it.at = at; out.items.push(it);
+    });
+    return { grid: out, left: left };
+  }
+  // how large a block shows on a screen of `frame` (its share of full size)
+  function scaleAt(grid, frame) {
+    var pad = 1280 * 0.015 + 8, w = grid.cols * 196 + (grid.cols - 1) * 10 + 2 * pad;
+    var h = grid.rows * 150 + (grid.rows - 1) * 10 + 2 * pad + (grid.band ? 70 : 0);
+    return Math.min(1, frame[0] / w, frame[1] / h);
   }
   function snap(x, y, rect, cols, rows) {
     return [Math.floor((x - rect.left) / (rect.width / cols)), Math.floor((y - rect.top) / (rect.height / rows))];
@@ -427,10 +472,38 @@
       Object.assign(added, this.variantFor(card));
       this.selected = added.id; this.pickerCard = null; this.change(next);
     }
+    // A SCREEN TYPE: its columns, rows, band and preview size together, the
+    // blocks re-packed in reading order; any that can't fit are named first
+    async screenType(key) {
+      var t = SCREEN_TYPES.find((x) => x[0] === key);
+      if (!t || !this.grid) return;
+      var r = reflow(this.grid, t[2], t[3]);
+      if (r.left.length) {
+        var names = r.left.map((it) => (NAMES[it.card] || it.card) + ' (' + SIZE_NAMES[it.size] + ')');
+        var ok = await this.K.confirm(this.shadowRoot, { title: 'Use ' + t[1] + '?',
+          message: (names.length === 1 ? 'This block doesn’t fit and leaves the draft: ' : 'These blocks don’t fit and leave the draft: ') + names.join(', ') + '. Nothing is saved yet.',
+          ok: 'Use ' + t[1] });
+        if (!ok) { this.side(); return; }
+      }
+      r.grid.band = t[4]; r.grid.frame = t[5].slice();
+      if (r.grid.items.every((it) => it.id !== this.selected)) this.selected = null;
+      this.change(r.grid);
+    }
+    // a starter (or Start Empty) on this screen's grid, when the screen has
+    // one other than the starters' own 6 x 4
+    asScreen(grid) {
+      var g = this.grid;
+      if (!g || !grid || (g.cols === grid.cols && g.rows === grid.rows)) return grid;
+      var out = reflow(grid, g.cols, g.rows).grid;
+      out.band = g.band; out.frame = g.frame.slice();
+      return out;
+    }
     async starter(concept) {
       if (this.busy) return;
       if (this.grid && !await this.K.confirm(this.shadowRoot, { title: 'Use a Starter Layout?', message: 'This replaces your draft. Nothing is saved yet.', ok: 'Use Starter' })) return;
-      if (concept === 'empty') { this.selected = null; this.change(copy(EMPTY)); return; }
+      if (concept === 'empty') { this.selected = null; this.change(this.asScreen(copy(EMPTY))); return; }
+      var own = NIGHTSTAND.find((c) => c[0] === concept);
+      if (own && this.grid) { this.selected = null; this.change(Object.assign(copy(this.grid), { items: copy(own[3]) })); return; }
       var result;
       try {
         this.busy = true;
@@ -438,7 +511,7 @@
           : await this.panel.client.callWS({ type: 'hk_frontend/grid/starter', options: this.starterOptions(concept) });
       } catch (e) { this.say('Couldn’t load the starter. ' + (e.message || e)); return; }
       finally { this.busy = false; }
-      this.selected = null; this.change(copy(result.grid));
+      this.selected = null; this.change(this.asScreen(copy(result.grid)));
     }
     // what a starter is filled from: this screen's scenes, rooms, cameras,
     // thermostats, its tablet's room and whether it shows the tab bar
@@ -489,8 +562,9 @@
     starterGallery() {
       var h = this.h, K = this.K, waiting = !this.starterGrids;
       this.loadStarters();
-      var rows = STARTERS.map((c) => {
-        var grid = c[0] === 'empty' ? EMPTY : this.starterGrids && this.starterGrids[c[0]];
+      var night = screenTypeOf(this.grid) === 'phone_landscape';
+      var rows = (night ? NIGHTSTAND.concat([STARTERS[STARTERS.length - 1]]) : STARTERS).map((c) => {
+        var grid = this.asScreen(c[0] === 'empty' ? EMPTY : c[3] ? Object.assign(copy(this.grid), { items: copy(c[3]) }) : this.starterGrids && this.starterGrids[c[0]]);
         if (!waiting && !grid) return null;               // a starter that couldn't be read
         return h('button', { class: 'cell starter', type: 'button', 'data-starter': c[0], 'aria-label': c[1] + ', ' + c[2],
           onclick: () => this.starter(c[0]) }, [this.miniMap(grid, waiting && c[0] !== 'empty'), h('span', { class: 'st' }, [h('b', { text: c[1] }), h('small', { text: c[2] })])]);
@@ -637,7 +711,13 @@
         h('p', { text: this.grid ? this.grid.items.length + (this.grid.items.length === 1 ? ' block' : ' blocks') + ' · select one to change it' : 'No layout yet' })])]));
       if (!this.grid) { add(starters()); return; }
       var config = (key, value) => { var next = copy(this.grid); next[key] = value; if (valid(next)) this.change(next); else { this.say('Move or remove the blocks that would be outside the new grid first.'); this.side(); } };
-      add(K.group({ header: 'Grid', footer: 'The grid scales to fit each screen. Its blocks keep their shape.' }, [
+      var kind = screenTypeOf(this.grid), live = this.previewView && this.previewView.isConnected && this.previewView._gridScale;
+      var pct = Math.round(100 * (live || scaleAt(this.grid, this.grid.frame)));
+      var tip = kind === 'phone_landscape' ? ' On a phone on its side, set the screen’s Tab Bar Position to Left or Right, so the clock gets the height.'
+        : kind === 'phone_portrait' ? ' Phones start without the top band: turn it on under Header if you want it.' : '';
+      add(K.group({ header: 'Grid', footer: 'The grid scales to fit each screen; its blocks keep their shape. In this preview they show at ' + pct + '% of full size.' + tip }, [
+        K.select({ label: 'Screen Type', value: kind, options: [['custom', 'Custom']].concat(SCREEN_TYPES.map((t) => [t[0], t[1] + ' · ' + t[2] + ' × ' + t[3]])),
+          onChange: (k) => this.screenType(k) }),
         K.seg({ label: 'Columns', value: this.grid.cols, options: [6, 3, 2].map((n) => [n, String(n)]), onChange: (n) => config('cols', Number(n)) }),
         K.select({ label: 'Rows', value: this.grid.rows, options: [2, 3, 4, 5, 6].map((n) => [n, String(n)]), onChange: (n) => config('rows', Number(n)) }),
         K.select({ label: 'Grid Scale', value: this.grid.scale || 100, options: [100, 90, 80, 70, 60, 50].map((n) => [n, n === 100 ? 'Automatic Fit' : n + '% of Fit']), onChange: (n) => config('scale', Number(n)) })]));
@@ -1002,6 +1082,10 @@
         }
         if (kind === 'boolean') { rows.push(K.toggle({ label: label, on: opts[key] === true, onChange: (on) => set(key, on || null) })); return; }
         if (kind === 'windows') { self.windows(opts, set, rows); return; }
+        if (kind === 'clock_style') {
+          rows.push(K.select({ label: 'Style', value: opts[key] || '', options: G.CLOCK_FACES, onChange: (v) => set(key, v || null) }));
+          return;
+        }
         if (kind === 'days') {
           rows.push(K.select({ label: 'Days', value: String(opts[key] || 2), options: [1, 2, 3, 4, 5, 6, 7].map((n) => [String(n), n === 1 ? 'Today Only' : n === 2 ? 'Today and Tomorrow' : n + ' Days']),
             onChange: (v) => set(key, +v === 2 ? null : +v) }));

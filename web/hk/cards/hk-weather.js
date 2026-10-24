@@ -2717,12 +2717,18 @@
                ':host([size]) hk-plate.clock{' + window.hkCards.plate('card') + ';box-sizing:border-box;height:100%;' +
                'padding:' + window.hkCards.CARD.pad + ';display:flex;flex-direction:column;justify-content:center;overflow:hidden}' +
                ':host([size]) [data-hk-clock=clock]{min-width:0!important;width:100%}' +
-               ':host([size]) [data-hk-clock=date]{font-weight:500!important;letter-spacing:0!important}';
+               ':host([size]) [data-hk-clock=date]{font-weight:500!important;letter-spacing:0!important}' +
+               // BARE (the Clock block's Hide Box): the time on the wallpaper,
+               // with the header's glow (`shadow`) to read on it
+               ':host([size][bare]) hk-plate.clock{background:none;border:0;box-shadow:none;-webkit-backdrop-filter:none;backdrop-filter:none}';
       }
       // the clock's sizes by block: time, AM / PM, date (px)
       _gridSizes(sz) {
-        return sz === 'XL' ? ['clamp(72px, min(18cqw, 40cqh), 150px)', '26px', window.hkCards.TYPE.headline.size + 'px']
-                          : ['min(72px, 48cqh)', '22px', window.hkCards.TYPE.caption.size + 'px'];
+        // (L and the Full Width block, 2026-10-24: the Clock block comes in every size)
+        if (sz === 'XL' || sz === 'XXL') return ['clamp(72px, min(18cqw, 40cqh), 150px)', '26px', window.hkCards.TYPE.headline.size + 'px'];
+        if (sz === 'L') return ['clamp(56px, min(22cqw, 36cqh), 120px)', '24px', window.hkCards.TYPE.headline.size + 'px'];
+        if (sz === 'S') return ['min(40px, 20cqw)', '14px', window.hkCards.TYPE.caption.size + 'px'];
+        return ['min(72px, 48cqh, 26cqw)', '22px', window.hkCards.TYPE.caption.size + 'px'];
       }
       // The clock's time ticks every minute and its date every day (the Time &
       // Date sensors chosen in Configure, or this screen's clock); neither is

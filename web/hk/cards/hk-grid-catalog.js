@@ -25,6 +25,11 @@
   // a block whose card isn't drawn yet (G3), or with nothing in the house to show
   function stand(name, icon) { return { type: 'custom:hk-key-card', name: name, icon: icon }; }
   function own(v) { return v && v !== TABLET_ROOM ? v : null; }
+  // THE CLOCK FACES a block offers (hk-saverclock.js ids; '' is HK's own):
+  // the ones that read at a block's size (Poster fills its screen edge to
+  // edge and Glass draws a pane of its own: neither sits in a block)
+  var CLOCK_FACES = [['', 'Digital'], ['analog', 'Analog'], ['classic', 'Classic'], ['serif', 'Big Serif'], ['flip', 'Flip'],
+    ['lcd', 'Retro LCD'], ['neon', 'Neon'], ['nixie', 'Nixie Tubes'], ['dots', 'Dot Matrix'], ['arc', 'Minimal Arc']];
   function panel(kind, more) { return Object.assign({ type: 'custom:hk-grid-panel-card', panel: kind }, more || {}); }
 
   // key -> its sizes, the page sources it has besides `list`, and
@@ -85,7 +90,9 @@
       var id = o.entity || ctx.vacuum;
       if (!id) return stand('Vacuum', 'hk:robot-vacuum');
       return { type: s === 'L' || s === 'XL' ? 'custom:hk-grid-vacuum-card' : 'custom:hk-vacuum-card', entity: id }; } },
-    clock: { sizes: ['W', 'XL'], sources: [], card: function () { return { type: 'custom:hk-clock-card' }; } },
+    // every size, HK's clock or a screensaver face, with or without its box (2026-10-24)
+    clock: { sizes: ['S', 'W', 'T', 'L', 'XL', 'XXL'], sources: [], opts: { clock_style: 'clock_style', bare: 'boolean' }, card: function (s, o) {
+      return Object.assign({ type: 'custom:hk-grid-clock-card' }, o.clock_style ? { clock_style: o.clock_style } : {}, o.bare ? { bare: true } : {}); } },
     // THE PAGES' OWN PANELS (2026-10-24; hk-grid-cards.js hk-grid-panel-card),
     // each read live from the house's settings as its page reads them
     power: { sizes: ['W', 'L', 'XL'], sources: [], opts: {}, card: function () { return panel('power'); } },
@@ -262,7 +269,7 @@
   }
 
   window.hkGridCatalog = { version: '1.0.0', SIZES: SIZES, SOURCES: SOURCES, TABLET_ROOM: TABLET_ROOM,
-                           PAGES_MAX: PAGES_MAX, PER_PAGE: PER_PAGE,
+                           PAGES_MAX: PAGES_MAX, PER_PAGE: PER_PAGE, CLOCK_FACES: CLOCK_FACES,
                            CONDITIONS: CONDITIONS, matches: matches, rulesOf: rulesOf, choose: choose, houseNow: houseNow, config: config, pages: pages, tabletRoom: tabletRoom, table: table };
   try { window.dispatchEvent(new CustomEvent('hk-grid-catalog-ready')); } catch (e) { /* a test page without events */ }
 })();

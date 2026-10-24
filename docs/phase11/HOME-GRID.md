@@ -1369,3 +1369,38 @@ too tall for a block, so the XL block splits the dial from its controls instead.
 supply, a fan and Live TV channels stood in. It checks that each panel draws inside its block (Music and Live TV may
 scroll inside their own plates), that the thermostat's current mode and fan are pressed, and that a block whose
 feature isn't set up says so. It was also drawn in WebKit at iPad size with touch, with no page errors.
+
+### Screen types and the Clock block (2026-10-24)
+
+The owner asked for size recommendations for a phone (portrait and landscape), a tablet (portrait and landscape) and
+a car, chose Screen Type presets in the editor, and added: a phone on its side is a nightstand clock (Apple's
+StandBy as the example), so it wants many clocks, with or without a box, analog and digital; phones don't need the
+band or chips by default; and a landscape phone can put the tab bar on the left or right.
+
+**The numbers.** The grid's canvas is `cols × 196 + gaps + 2 × pad` by `rows × 150 + gaps + 2 × pad (+ band)`, scaled
+uniformly to the room left by the tab bar and never above 1. Every columns × rows × band choice was scored for each
+screen by its scale and the share of the screen it fills:
+
+| Screen Type | Grid | Band | Preview | Scale |
+| --- | --- | --- | --- | --- |
+| Phone, Portrait | 2 × 5 | off | 390 × 844 | 0.80 |
+| Phone, Landscape | 3 × 2 | off | 844 × 390 | 1.0 with a side tab bar (0.77 with it at the bottom) |
+| Tablet, Portrait | 3 × 6 | on | 820 × 1180 | 0.98, filling 79%: 6 columns would be 0.64 |
+| Tablet, Landscape | 6 × 4 | on | 1180 × 820 | 0.91 |
+| Large Tablet | 6 × 5 | on | 1376 × 1032 | 0.98 |
+| Car | 6 × 3 | on | 1280 × 720 | 0.94; the car browser's real size is still to be measured |
+
+A type is the grid's columns, rows and band; the editor names the current one, or Custom. Choosing one re-packs the
+blocks in reading order (`reflow`). A block wider than the grid, or with no room left, is named in a confirmation
+before it leaves the draft. Starters and Start Empty keep the screen's type. Phone, Landscape shows three nightstand
+starters in place of the house ones: Big Clock (Classic, XL, no box), Clock and Calendar, and Analog and Weather. The
+tab bar's side is the screen's own Tab Bar Position, so the type's note says to set it.
+
+**The Clock block** (`hk-grid-clock-card`) comes in S, W, T, L, XL and XXL. `clock_style` is HK's clock (unset), or
+one of the screensaver's faces (hk-saverclock.js), which are sized in container units and so fit a block as they fit a
+screen. `bare` drops the plate; HK's clock then takes the header's glow to read on the wallpaper. Poster (it fills its
+screen edge to edge) and Glass (a pane of its own) were tried and left out. HK's clock gained sizes for S (the time at
+20cqw, so AM/PM fits) and L.
+
+`grid_editor_smoke.py` re-packs a starter onto Phone, Portrait, answers the confirmation and undoes it.
+`grid_panels_check.py` draws a bare Classic face and a boxed Small clock on a phone held sideways.

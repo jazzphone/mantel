@@ -53,6 +53,8 @@ To combine accessories from different rooms, drag in an **Accessory Group** and 
 
 On an **Accessory**, or each accessory in a group, **Line Under Name** chooses Automatic, State, Brightness, An Attribute or Hidden. **An Attribute** shows a reported value such as battery level, with an optional unit. Missing values show a dash. Standalone accessories and scenes use the same saved glyphs and colors as their room-page pills.
 
+The **Clock** block comes in every size. **Style** is HK's own digital clock, or one of the screensaver's faces that read at a block's size: Analog, Classic, Big Serif, Flip, Retro LCD, Neon, Nixie Tubes, Dot Matrix and Minimal Arc. **Hide Box** draws the clock straight on the wallpaper.
+
 **Blocks from the pages:** some of Mantel's pages put their top panel in a block too, read live from what you set up for that page:
 
 - **Power** (Wide, Large, Extra Large): Wide says how the house is powered in a sentence or two; Large and Extra Large are the Power page's house picture (or its flow chart).
@@ -73,6 +75,21 @@ Weather comes in Wide (conditions), Large (also readings, six hours and three da
 ![Background controls for a group](../images/home-grid-background.png)
 
 **Show When** switches a block's card in place. A block shows its own card by default; **Add Rule** adds up to four rules, each with up to three conditions (all must hold) and the card to show while they do. The first rule that holds wins, so **Move Rule Up** sets priority. Conditions: music playing, a timer running, the alarm armed or disarmed, someone at the door, after sunset, a time of day (a window from one time to another, which can run past midnight), or an accessory's state. For example: the calendar by default; Now Playing while music plays; the alarm keypad from 6:00 to 9:00 while the alarm is armed. Every card fills exactly the same space. **Preview** shows Live, the default or any rule's card without changing what is saved. Doorbell events hold their card for one minute. Blocks saved with the earlier **Otherwise Show** keep working and open as one rule.
+
+## Screen types
+
+**Screen → Grid → Screen Type** sets the columns, rows, top band and preview size for a kind of screen together. The grid's blocks keep their shape and scale to fit, never above full size, so these were chosen for the largest blocks that still fill each screen:
+
+| Screen Type | Grid | Top band | Blocks at about |
+| --- | --- | --- | --- |
+| Phone, Portrait | 2 × 5 | Off | 80% |
+| Phone, Landscape | 3 × 2 | Off | 100% with the tab bar on the side |
+| Tablet, Portrait | 3 × 6 | On | 98% |
+| Tablet, Landscape | 6 × 4 | On | 91% |
+| Large Tablet | 6 × 5 | On | 98% |
+| Car | 6 × 3 | On | 94% |
+
+Blocks are re-packed onto the new grid in reading order. If some can't fit, the editor names them and asks first; nothing is saved until you Save, and Undo brings the old grid back. On a phone the top band starts off (turn it on under Header). For a phone on its side, set the screen's **Tab Bar Position** to Left or Right so the blocks get the height. Phone, Landscape has starters of its own for a nightstand: **Big Clock**, **Clock and Calendar**, and **Analog and Weather**.
 
 ## The screen's settings
 

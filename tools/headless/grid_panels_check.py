@@ -1,7 +1,8 @@
 """Home Grid's page panels as blocks (2026-10-24) against the fictional home, never a household's: Power (the status
 in sentences at Wide, the house picture or flow chart at Large), Music (the speaker picker), Doors & Locks (the house
 with its ways in), an Extra Large thermostat (its full controls), Live TV and Water each draw inside their block, and
-a block whose feature isn't set up says where to set it up.
+a block whose feature isn't set up says where to set it up. The Clock block draws a screensaver face without its box,
+and HK's own clock at Small, on a phone held sideways.
 
     python tools/headless/grid_panels_check.py [--shots DIRECTORY]
 """
@@ -51,6 +52,10 @@ async def main():
     gallery.HOUSE['binary_sensor.grid_status'] = (None, ('on', {'friendly_name': 'Grid', 'device_class': 'power'}))
     gallery.HOUSE['sensor.water_meter'] = (None, ('1234.5', {'friendly_name': 'Water Meter', 'unit_of_measurement': 'gal', 'device_class': 'water', 'state_class': 'total_increasing'}))
     gallery.HOUSE['valve.main_water'] = (None, ('open', {'friendly_name': 'Main Water', 'device_class': 'water', 'supported_features': 3}))
+    gallery.SETTINGS['boards']['night'] = {'home_style': 'grid', 'menu_custom': True, 'menu': 'tabbar', 'tab_bar_pos': 'left', 'home_grid': {
+        'v': 1, 'cols': 3, 'rows': 2, 'frame': [844, 390], 'band': False, 'items': [
+            {'id': 'big', 'card': 'clock', 'size': 'L', 'at': [0, 0], 'opts': {'clock_style': 'classic', 'bare': True}},
+            {'id': 'small', 'card': 'clock', 'size': 'S', 'at': [2, 0]}]}}
     gallery.SETTINGS['boards']['panels'] = {'home_style': 'grid', 'home_grid': BIG, 'menu_custom': True, 'menu': 'tabbar'}
     gallery.SETTINGS['boards']['panels2'] = {'home_style': 'grid', 'home_grid': SMALL, 'menu_custom': True, 'menu': 'tabbar'}
     with tempfile.TemporaryDirectory() as td:
@@ -95,8 +100,22 @@ async def main():
                 if args.shots:
                     args.shots.mkdir(parents=True, exist_ok=True)
                     await b.screenshot(args.shots / f'{screen}.png')
+            # THE CLOCK BLOCK on a phone on its side (Phone, Landscape: 3 x 2, the tab bar at the left): a screensaver
+            # face on the wallpaper with no box, and HK's own clock, boxed, at Small
+            await b.send('Emulation.setDeviceMetricsOverride', width=844, height=390, deviceScaleFactor=1, mobile=False)
+            await b.open(origin + '/night/home', cookie)
+            assert await b.wait('window.__mantelReady===true', 30)
+            await b.eval(DEEP)
+            assert await b.wait("deep(cell('big'),'.ckroot .face.f-classic').length===1", 15)
+            ck = await b.eval("""(()=>{let c=cell('big'),k=deep(c,'.ck')[0],r=c.getBoundingClientRect(),f=deep(c,'.face')[0].getBoundingClientRect(),
+              s=cell('small'),sr=s.getBoundingClientRect(),t=deep(s,'[data-hk-clock=clock]')[0];
+              return {plate:k.classList.contains('plate'),inside:f.width>0&&f.right<=r.right+1&&f.bottom<=r.bottom+1,
+                      small:!!t&&t.getBoundingClientRect().right<=sr.right+1}})()""")
+            assert ck == {'plate': False, 'inside': True, 'small': True}, ck
+            if args.shots:
+                await b.screenshot(args.shots / 'night.png')
             exceptions = [line for line in b.console if line.startswith('EXCEPTION:')]
             assert not exceptions, exceptions
-            print('PASS: power, music, doors & locks, the thermostat\'s full controls, Live TV and water as blocks')
+            print('PASS: power, music, doors & locks, the thermostat\'s full controls, Live TV and water as blocks, and the clock faces')
 
 asyncio.run(main())

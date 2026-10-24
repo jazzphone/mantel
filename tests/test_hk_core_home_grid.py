@@ -300,7 +300,7 @@ def test_rules_check_and_refuse():
     bad = [
         rules * 2,                                                                         # more than four
         [{"when": {"all": [{"kind": "music_playing"}] * 4}, "card": "now_playing"}],       # more than three conditions
-        [{"when": {"kind": "music_playing"}, "card": "clock"}],                            # a clock doesn't come in L
+        [{"when": {"kind": "music_playing"}, "card": "timers"}],                           # timers don't come in L
         [{"when": {"kind": "time", "from": "09:00", "to": "09:00"}, "card": "now_playing"}],
         [{"when": {"kind": "time", "from": "9:00", "to": "10:00"}, "card": "now_playing"}],
         [{"when": {"kind": "time", "entity": "sun.sun", "from": "06:00", "to": "09:00"}, "card": "now_playing"}],

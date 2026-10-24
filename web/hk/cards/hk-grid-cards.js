@@ -1103,6 +1103,60 @@
         { value: 'doors', label: 'Doors & Locks' }, { value: 'climate', label: 'Thermostat' }, { value: 'tv', label: 'Live TV' }, { value: 'water', label: 'Water' }] } } }],
       function () { return { panel: 'doors' }; });
 
+    // THE CLOCK BLOCK (2026-10-24, the owner: "many clocks", for a phone on
+    // a nightstand): HK's own clock (hk-clock-card, the header's type), or
+    // one of the screensaver's faces (hk-saverclock.js, sized by container
+    // units, so they fit a block as they fit a screen) -- with its plate,
+    // or `bare` on the wallpaper. CLOCK_FACES (hk-grid-catalog.js) are the
+    // faces that read at a block's size; the rest need a screen of their own.
+    function clockModule() {
+      if (window.hkSaverClock) return Promise.resolve(window.hkSaverClock);
+      if (!clockModule.p) {
+        clockModule.p = import('/hk/modules/hk-saverclock.js').then(function () { return window.hkSaverClock; })
+          .catch(function (e) { clockModule.p = null; console.warn('[hk-grid] clock', e && e.message); return null; });
+      }
+      return clockModule.p;
+    }
+    var CLOCK_CSS = '.body{height:100%}.ck{position:relative;height:100%;box-sizing:border-box;overflow:hidden;border-radius:' + C.R.plate + 'px}' +
+      '.ck.plate{' + C.plate('card') + '}';
+    class HkGridClockCard extends HkGridFull {
+      static get CSS() { return FULL_CSS + CLOCK_CSS; }
+      getCardSize() { return 2; }
+      _h24() {
+        var HS = window.hkSettings, ck = HS && HS.clock && this.client ? HS.clock(this.client.states) : null;
+        return !!(ck && ck.time && !/[ap]m/i.test(ck.time));
+      }
+      _sigOf() { var c = this._config || {}; return JSON.stringify([c.clock_style || '', !!c.bare, sizeOf(this), this._h24()]); }
+      _render() {
+        var c = this._config || {}, style = c.clock_style || '', key = this._sigOf(), self = this;
+        if (this._built && this._key === key) { if (this._face && this._face.setClient) this._face.setClient(this.client); return; }
+        this._key = key; this._built = true; this._kids = [];
+        if (this._face) { try { this._face.destroy(); } catch (e) { /* gone */ } this._face = null; }
+        if (!style) {
+          // HK's clock: its own plate, or none and the header's glow to read on the wallpaper
+          this._root.innerHTML = '<div class="body"></div>';
+          var k = this._mount(this._root.querySelector('.body'), Object.assign({ type: 'custom:hk-clock-card' }, c.bare ? { shadow: true } : {}), sizeOf(this) || 'W');
+          if (c.bare) k.setAttribute('bare', '');
+          return;
+        }
+        this._root.innerHTML = '<div class="ck' + (c.bare ? '' : ' plate') + '"></div>';
+        var box = this._root.querySelector('.ck'), run = this._run = (this._run || 0) + 1;
+        clockModule().then(function (M) {
+          if (!M || run !== self._run || !box.isConnected) return;
+          self._face = M.mount(box, { style: style, h24: self._h24(), bg: 'none', scrim: false, client: self.client });
+        });
+      }
+      disconnectedCallback() {
+        if (super.disconnectedCallback) super.disconnectedCallback();
+        if (this._face) { try { this._face.destroy(); } catch (e) { /* gone */ } this._face = null; }
+        this._built = false; this._run = (this._run || 0) + 1;
+      }
+    }
+    watchSize(HkGridClockCard);
+    C.register('hk-grid-clock-card', HkGridClockCard, 'HK Grid Clock', 'A clock sized to a Home Grid block: HK’s own, or a screensaver face, with or without its box.',
+      [{ name: 'clock_style', label: 'Style', selector: { select: { options: [{ value: '', label: 'Digital' }, { value: 'analog', label: 'Analog' }] } } },
+       { name: 'bare', label: 'Hide Box', selector: { boolean: {} } }], function () { return {}; });
+
     // ===================================================== hk-action-card
     var YELLOW = (C.PALETTE.icon && C.PALETTE.icon.yellow) || null;
     class HkActionCard extends HkGridKey {

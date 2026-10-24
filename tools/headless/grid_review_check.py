@@ -44,7 +44,7 @@ async def main():
                 touched = app['hub'].store.apply_event({'a': {entity: {'s': value, 'lc': gallery.NOW, 'lu': gallery.NOW, 'a': attrs}}})
                 app['hub'].on_change(touched)
             state('binary_sensor.grid_condition', 'on', {})
-            assert await b.wait("conditional._child.localName==='hk-clock-card'", 10)
+            assert await b.wait("conditional._child.localName==='hk-grid-clock-card'", 10)
             assert bounds == await b.eval('(()=>{let r=conditional.getBoundingClientRect();return [r.x,r.y,r.width,r.height]})()')
             state('binary_sensor.grid_condition', 'off', {})
             assert await b.wait("conditional._child.localName==='hk-weather-band-card'", 10)
