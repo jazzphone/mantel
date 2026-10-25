@@ -2109,7 +2109,13 @@
       '.r b{display:block;font-size:15px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
       '.r span{display:block;font-size:13px;color:' + v('ink-2') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
       '.r time{font-size:13px;color:' + v('ink-2') + ';font-variant-numeric:tabular-nums;white-space:nowrap}',
-      '.none{font-size:15px;color:' + v('ink-2') + ';padding:8px 0}'
+      '.none{font-size:15px;color:' + v('ink-2') + ';padding:8px 0}',
+      // A SHORT SCREEN: Run Now, the switch and when it runs on the left; the week on the right, the body's height
+      U.SHORT_MQ ? '@media ' + U.SHORT_MQ + '{' +
+        '.ap{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-rows:auto auto minmax(0,1fr);column-gap:16px;row-gap:12px;' +
+        '  height:var(--hk-short-h);flex:none}' +
+        '.ap > *{grid-column:1}.ap > .when{align-self:start}' +
+        '.ap > .hist{grid-column:2;grid-row:1 / 4;min-height:0}}' : ''
     ].join('');
 
     class AutomationPanel extends U.Panel {
@@ -2340,6 +2346,15 @@
       '.r time{font-size:13px;color:' + v('ink-2') + ';font-variant-numeric:tabular-nums;white-space:nowrap}',
       '.none{font-size:15px;color:' + v('ink-2') + ';padding:8px 0}',
       '@media (max-width:' + C.BP.phone + 'px){.dial{width:170px;height:170px}.cmds .ci{width:60px;height:60px}}',
+      // A SHORT SCREEN (hk-detail's SHORT_MQ): the ring on the left, as tall
+      // as the body allows, and its four buttons over the week beside it
+      U.SHORT_MQ ? '@media ' + U.SHORT_MQ + '{' +
+        '.tp{display:grid;grid-template-columns:auto minmax(0,1fr);grid-template-rows:auto auto minmax(0,1fr);column-gap:24px;row-gap:12px;' +
+        '  align-items:start;height:var(--hk-short-h);flex:none}' +
+        '.tp > .dial{grid-column:1;grid-row:1 / 4;align-self:center;width:min(220px,var(--hk-short-h));height:min(220px,var(--hk-short-h))}' +
+        '.tp > .cmds{grid-column:2;grid-row:1;gap:8px}.cmds .ci{width:56px;height:56px}' +
+        '.tp > .why{grid-column:2;grid-row:2;margin-top:-6px;min-height:0}.tp > .why:empty{display:none}' +
+        '.tp > .card{grid-column:2;grid-row:3;min-height:0;height:100%;box-sizing:border-box}}' : '',
       '@media (prefers-reduced-motion: reduce){.cmds .ci{transition:none}}'
     ].join('');
 

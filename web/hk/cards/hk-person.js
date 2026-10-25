@@ -199,7 +199,13 @@
       '.who .av{width:34px;height:34px;font-size:12px;box-shadow:0 0 0 2px var(--c)}',
       '.who .nm{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
       '.who small{display:block;font-size:12px;line-height:16px;font-weight:500;color:' + window.hkCards.v('ink-2') + '}',
-      '.who .chev{margin-left:auto;opacity:.45;font-size:18px;flex:none}'
+      '.who .chev{margin-left:auto;opacity:.45;font-size:18px;flex:none}',
+      // A SHORT SCREEN (hk-detail's SHORT_MQ): the two columns the body's
+      // height -- the picture a size down so where they are and their day fit
+      // beside the map, which takes the rest
+      U.SHORT_MQ ? '@media ' + U.SHORT_MQ + '{.pp{height:var(--hk-short-h)}.c1{width:280px}' +
+        '.me .av{width:80px;height:80px;font-size:30px;box-shadow:0 0 0 4px var(--ring)}.me .big{margin-top:' + SP.block + 'px;font-size:30px;line-height:34px}' +
+        '.map{min-height:0}.pp.one .map{height:auto;flex:1}}' : ''
     ].join('');
 
     class PersonPanel extends U.Panel {

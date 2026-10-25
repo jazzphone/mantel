@@ -1650,6 +1650,8 @@
       '.cols button{width:24px;height:24px;border-radius:50%;border:0;padding:0;cursor:pointer;-webkit-tap-highlight-color:transparent;',
       '  box-shadow:0 0 0 0 transparent;transition:box-shadow .15s}',
       '.cols button.on{box-shadow:0 0 0 2px rgba(30,30,32,1),0 0 0 4px #fff}',
+      // (a 24 px dot, a 36 px finger: the tap reaches 6 past it each way)
+      '.cols button{position:relative}.cols button::after{content:"";position:absolute;inset:-6px}',
       '.lab .auto{border:0;background:none;padding:0;font:inherit;font-size:15px;font-weight:400;letter-spacing:0;text-transform:none;color:#64d2ff;cursor:pointer}',
       '.row + .row{margin-top:' + SP.block + 'px}',
       '.row svg{flex:none;width:20px;height:20px;opacity:.7}',

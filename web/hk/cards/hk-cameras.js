@@ -2354,10 +2354,14 @@
         // beside the speaker.
         '.vol{height:56px;padding:0 20px;border-radius:28px;display:flex;align-items:center;',
         '  background:rgba(28,28,30,.66);box-shadow:0 4px 14px rgba(0,0,0,.25)}',
-        '.vol input{-webkit-appearance:none;appearance:none;width:180px;height:6px;border-radius:3px;',
-        '  background:linear-gradient(to right,#fff var(--v,100%),rgba(255,255,255,.28) var(--v,100%));',
+        // (the input a finger's 28 tall, its track the 6 px line drawn in it)
+        '.vol input{-webkit-appearance:none;appearance:none;width:180px;height:28px;background:none;',
         '  outline:none;margin:0;touch-action:none}',
-        '.vol input::-webkit-slider-thumb{-webkit-appearance:none;width:26px;height:26px;border-radius:13px;',
+        '.vol input::-webkit-slider-runnable-track{height:6px;border-radius:3px;',
+        '  background:linear-gradient(to right,#fff var(--v,100%),rgba(255,255,255,.28) var(--v,100%))}',
+        '.vol input::-moz-range-track{height:6px;border-radius:3px;',
+        '  background:linear-gradient(to right,#fff var(--v,100%),rgba(255,255,255,.28) var(--v,100%))}',
+        '.vol input::-webkit-slider-thumb{-webkit-appearance:none;width:26px;height:26px;border-radius:13px;margin-top:-10px;',
         '  background:#fff;box-shadow:0 1px 6px rgba(0,0,0,.35)}',
         '.vol input::-moz-range-thumb{width:26px;height:26px;border:0;border-radius:13px;background:#fff}',
         // A PHONE (tested at 390 px): the live box is only ~206 px tall there,

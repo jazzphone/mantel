@@ -224,8 +224,8 @@ ok('every control sheet one height (680) and one of two widths (460 / 820); the 
    _.WIDTH.climate === 820 && _.WIDTH.sensor === 820 && _.WIDTH.binary === 460 && _.WIDTH.media_tv === 460);
 // Every phone sheet is one height, the speaker's (643); a short screen still
 // takes screen - 80, and the tall ones scroll inside it
-ok('a phone sheet is the speaker\'s height (643), never more than the screen less 80; content centered by auto margins (a tall one scrolls from the top)',
-   _.PHONE_H === 643 && /height:min\(' \+ PHONE_H \+ 'px, calc\(var\(--hk-vh, 100dvh\) - 80px\)\)/.test(src) &&
+ok('a phone sheet is the speaker\'s height (643), never more than the screen less 40 (20 a side on an iPhone SE); content centered by auto margins (a tall one scrolls from the top)',
+   _.PHONE_H === 643 && /height:min\(' \+ PHONE_H \+ 'px, calc\(var\(--hk-vh, 100dvh\) - 40px\)\)/.test(src) &&
    /'\.hkd \.body > \*\{margin-block:auto\}'/.test(src));
 ok('the heater dial lets a vertical swipe scroll the sheet (pan-y, as the thermostat ring)',
    /\.dl\{position:relative;width:100%;max-width:var\(--hk-tstat-ring,300px\);touch-action:pan-y/.test(src));
@@ -247,7 +247,8 @@ ok('the thermostat: two columns in a wide sheet, the trend fluid so both columns
 // Safari matches no @container rule in a shadow tree against :host: the
 // width is decided in script (the wide attribute), never by a container query
 ok('no panel relies on a CSS container query (Safari would keep the thermostat stacked)',
-   !/'@container/.test(src) && !/container-type:/.test(src) && (src.match(/_wideAt\(\) \{ return 700; \}/g) || []).length === 3 &&
+   !/'@container/.test(src) && !/container-type:/.test(src) && (src.match(/_wideAt\(\) \{ return 700; \}/g) || []).length === 2 &&
+   /_wideAt\(\) \{ return window\.matchMedia && matchMedia\(SHORT_MQ\)\.matches \? Infinity : 700; \}/.test(src) &&
    /new ResizeObserver/.test(src));
 ok('the water heater dial sweeps 270 degrees from the lower left', /A0: 135, SWEEP: 270/.test(src) && /^M/.test(_.arcPath(0.5)));
 // The water heater and the thermostat look the same and are the same size:
@@ -268,7 +269,7 @@ ok('rings 264, the switch 150 x 320, sliders 440', /\.lk\{position:relative;widt
 print('\n=== the alarm: just the keypad, as a sheet ===');
 ok('the alarm is a sheet like the rest: the state word over hk-alarm-keypad-card, standard width',
    !!customElements.get('hk-detail-alarm') && _.PANELS.alarm === 'hk-detail-alarm' && _.WIDTH.alarm === 460 &&
-   /createElement\('hk-alarm-keypad-card'\)/.test(src) && /setConfig\(\{ entity: this\._id, glass: false, status: false \}\)/.test(src));
+   /createElement\('hk-alarm-keypad-card'\)/.test(src) && /setConfig\(Object\.assign\(\{ entity: this\._id, glass: false, status: false \}, short \? \{ layout: 'side' \} : \{\}\)\)/.test(src));
 ok('a tap on the alarm opens its sheet directly, never through the #alarm pop-up',
    !/kind === 'alarm' && !opts\.direct && window\.hkPopup/.test(src) && !/window\.hkPopup\.open\('#alarm'\)/.test(src));
 ok('opened for a hash it pushes no history entry of its own, and says when it has gone',

@@ -749,7 +749,7 @@
       // A BARE SHEET (the camera): a camera pop-up, not a control sheet --
       // the picture to every edge, the pop-ups' 30 px corners, no header, the
       // X floating over the picture as the pop-ups' is (rgba(28,28,30,.62),
-      // 16 from the top, 18 from the right). As wide as --hkd-w, or narrower
+      // as far from the top as from the right, 18). As wide as --hkd-w, or narrower
       // when the screen is too short for the picture at that width (--hkd-ar
       // is its shape), so there are never bars beside it. Specific enough to
       // win over the phone rules below.
@@ -759,7 +759,7 @@
       '.hkd .sheet.bare{padding:0;gap:0;border-radius:30px;height:auto;background:#0b0d12;',
       '  -webkit-backdrop-filter:none;backdrop-filter:none;',
       '  width:min(var(--hkd-w,1200px), calc((var(--hk-vh, 100dvh) - 32px) * var(--hkd-ar, 1.7778)))}',
-      '.hkd .sheet.bare .hd{position:absolute;top:16px;right:18px;z-index:3;height:auto}',
+      '.hkd .sheet.bare .hd{position:absolute;top:18px;right:18px;z-index:3;height:auto}',
       '.hkd .sheet.bare .well,.hkd .sheet.bare .tx{display:none}',
       // (white on it in every look: Flat's ink glyph vanished on the dark
       // plate, the user 2026-10-17)
@@ -770,7 +770,8 @@
       '.hkd.bare .bd{background:rgba(17,17,17,0.8)}',
       '@media (max-width:' + C.BP.phone + 'px){',
       '  .hkd .sheet{width:calc(var(--hk-vw, 100vw) - 32px);padding:18px;gap:16px;border-radius:30px;',
-      '    height:min(' + PHONE_H + 'px, calc(var(--hk-vh, 100dvh) - 80px))}',
+      // (20 above and below on a small phone -- an iPhone SE's 667 -- where 40 left a media sheet's last row under its foot)
+      '    height:min(' + PHONE_H + 'px, calc(var(--hk-vh, 100dvh) - 40px))}',
       '}',
       // (a phone's header, glyph, X and title -- a short screen's too)
       '@media (max-width:' + C.BP.phone + 'px),' + SHORT_MQ + '{',
@@ -2603,7 +2604,7 @@
       ':host([hk-flat]) .vp button:not(:first-child)::before{background:' + C.v('line') + '}'
     ].join('');
     // a panel whose control goes on the left on a short screen (PANEL_CSS SHORT)
-    var TWO = ':host .pn:has(> :is(.vs,.tg,.wrap,.ctl,.lk,.bot,.gw,.dial,.pl))';
+    var TWO = ':host .pn:has(> :is(.vs,.tg,.wrap,.ctl,.lk,.bot,.gw,.dial,.pl,.sl))';
     var PANEL_CSS = FLAT_PANEL_CSS + [
       ':host{display:block;color:' + window.hkCards.v('ink') + ';font-family:inherit}',
       // a display rule beats the hidden attribute; this puts it back
@@ -2727,15 +2728,23 @@
       '  ' + TWO + '{display:grid;grid-template-columns:auto minmax(0,1fr);grid-template-rows:minmax(0,1fr) repeat(5,auto) minmax(0,1fr);',
       '    column-gap:28px;row-gap:0;align-items:center;justify-items:center;padding:0;height:var(--hk-short-h);box-sizing:border-box}',
       '  ' + TWO + '::before,' + TWO + '::after{content:"";grid-column:2;align-self:stretch}',
-      // A SLIDER AND ITS READING ALONE (a dimmable light, a fan): the two as
-      // one group in the sheet's middle, not the reading lost in a wide
-      // column -- the columns as wide as what they hold, the pair centred
-      // (a reading and its line -- "Off" / "Since 4:32 PM", "Locked" / "Hold to unlock" -- count as one piece)
-      '  ' + TWO + ':not(:has(> :not(:is(.vs,.tg,.wrap,.ctl,.lk,.bot,.gw,.dial,.big,.rd,.since,.muted,:empty)))){grid-template-columns:auto auto;justify-content:center;column-gap:40px}',
+      // THE CONTROL AND WHAT IS BESIDE IT AS ONE GROUP, in the sheet's middle,
+      // where the right column holds only things of their own size -- a
+      // reading and its line, a row of buttons, the colours, a vacuum's
+      // commands: the columns as wide as what they hold and the pair
+      // centred, not the control against the left edge and the rest
+      // floating in a wide column (2026-10-25; first a slider and its
+      // reading alone, the pendant). A column of cards that fill their width
+      // -- the thermostat's readings and modes, a day's strip, the
+      // humidifier's readings -- keeps the wide column. (What is hidden, a
+      // day's strip with no day to show, counts for nothing.)
+      '  ' + TWO + ':not(:has(> :is(.side,.tl:not([hidden]),.rds,.acts,.now,.trend))){grid-template-columns:auto auto;justify-content:center;column-gap:40px}',
       '  ' + TWO + '::before{grid-row:1}',
       '  ' + TWO + '::after{grid-row:7}',
       '  ' + TWO + ' > *{grid-column:2;max-width:100%;margin-block:6px}',
-      '  :host .pn > :is(.vs,.tg,.wrap,.ctl,.lk,.bot,.gw,.dial){grid-column:1;grid-row:1 / 8;margin-block:0}',
+      '  :host .pn > :is(.vs,.tg,.wrap,.ctl,.lk,.bot,.gw,.dial,.sl){grid-column:1;grid-row:1 / 8;margin-block:0}',
+      // (a card in the wide column -- a day's strip -- to its edges, as the X above it)
+      '  :host .pn > .tl{justify-self:stretch}',
       // (the thermostat's dial: the body's height, its ring 0.87 as tall as
       // wide and as big as the mode row under it leaves -- 44 and 12 apart --
       // and the fan's row too when it has one, :host([hk-fan]); the readings
@@ -2754,9 +2763,9 @@
       '  :host .pn .vs,:host .pn .vs.short,:host .pn .vs.shade{height:var(--hk-short-h);width:var(--hk-short-w);border-radius:var(--hk-short-vr)}',
       '  :host .pn :is(.wrap,.ctl){height:auto}',
       // the power switch: the slider's size, its knob the width less 12 a side
-      '  :host .pn .tg{height:var(--hk-short-h);width:var(--hk-short-w);border-radius:var(--hk-short-cap)}',
-      '  :host .pn .tg .kn{height:calc(var(--hk-short-w) - 24px);border-radius:var(--hk-short-kn);top:calc(100% - var(--hk-short-w) + 12px)}',
-      '  :host .pn .tg.on .kn{top:12px}',
+      '  :host .pn > .tg{height:var(--hk-short-h);width:var(--hk-short-w);border-radius:var(--hk-short-cap)}',
+      '  :host .pn > .tg .kn{height:calc(var(--hk-short-w) - 24px);border-radius:var(--hk-short-kn);top:calc(100% - var(--hk-short-w) + 12px)}',
+      '  :host .pn > .tg.on .kn{top:12px}',
       '  :host .pn .vs .gl{bottom:16px}',
       // (the vacuum's four commands: their circles a step smaller, to sit four abreast in the column)
       '  :host .pn .cmds{gap:8px}:host .pn .cmds .ci{width:60px;height:60px;border-radius:30px}',
@@ -2885,7 +2894,7 @@
         var at = this._wideAt(), self = this;
         if (!at || this._ro || typeof ResizeObserver === 'undefined') return;
         this._ro = new ResizeObserver(function () {
-          var w = self.clientWidth >= at;
+          var w = self.clientWidth >= self._wideAt();      // (asked again: a phone turned may change it)
           if (w === self.hasAttribute('wide')) return;
           if (w) self.setAttribute('wide', ''); else self.removeAttribute('wide');
           if (self._onWide) self._onWide();
@@ -2957,9 +2966,12 @@
           '.search input::placeholder{color:' + window.hkCards.v('ink-3') + '}',
           '@media (max-width:' + C.BP.phone + 'px){',
           '  .vs:not(.short){height:' + SLIDER_H.phone + 'px}',
-          '  .sw{gap:8px}',
+          // (seven circles across the sheet: 38, or smaller on a small phone's
+          // 375 before the last is cut off -- the sheet's 32 margin and 36
+          // padding, the row's 8 and its six 8 px gaps -- and the row centred)
+          '  .sw{gap:8px;justify-content:center}',
           '  .grp{min-width:0}',
-          '  .sw button{width:38px;height:38px;border-radius:19px}',
+          '  .sw button{width:min(38px, calc((var(--hk-vw, 100vw) - 124px) / 7));height:auto;aspect-ratio:1;border-radius:50%}',
           '  .wheel{width:250px;height:250px}',
           '  .sub{min-height:374px}',
           '  .list{max-height:340px}',
@@ -4119,6 +4131,8 @@
           '  .art{width:250px;height:250px}.art.tv{width:100%;height:auto}',
           '  .tp{gap:30px}.list{max-height:340px}',
           '}',
+          // (a small phone: the cover a step down, so the track, the transport and the volume fit under it)
+          '@media (max-width:' + C.BP.phone + 'px) and (max-height:700px){.art{width:210px;height:210px}}',
           '@media (max-width:' + C.BP.phone + 'px),' + SHORT_MQ + '{.ti{font-size:20px}}',
           // A SHORT SCREEN: the cover on the left, as tall as the body, the
           // track and everything that plays it in a column beside it, left
@@ -5645,7 +5659,11 @@
           '.acts .wide{flex:1}',
           '@media (max-width:' + C.BP.phone + 'px){.sl{grid-template-columns:72px 128px 72px;column-gap:10px}',
           '  .vs{height:330px}.mk{height:330px}.rds .v{font-size:34px}',
-          '  .seg button{font-size:13px;line-height:15px;white-space:normal;text-overflow:clip}}'
+          '  .seg button{font-size:13px;line-height:15px;white-space:normal;text-overflow:clip}}',
+          // A SHORT SCREEN: the slider and its marker the control on the left
+          // (PANEL_CSS SHORT), the readings and the modes beside them
+          '@media ' + SHORT_MQ + '{:host .pn > .sl{grid-template-columns:var(--hk-short-w) 64px;column-gap:10px;justify-self:start}:host .pn > .sl > :first-child{display:none}' +
+          '  :host .pn > .sl .mk{height:var(--hk-short-h)}:host .pn > .rds .v{font-size:34px}:host .pn > :is(.rds,.acts){justify-self:stretch}}'
         ].join('');
       }
       hkWidthKind() { return 'humidifier'; }
@@ -5821,6 +5839,8 @@
           '.trend{align-self:stretch;padding:12px 16px 8px;border-radius:20px;background:rgba(255,255,255,0.08)}',
           '.trend .tt2{font-size:13px;font-weight:600;letter-spacing:0.3px;color:' + window.hkCards.v('ink-2') + ';text-transform:uppercase;margin-bottom:6px}',
           '@media (max-width:' + C.BP.phone + 'px){.now{padding:12px 14px;gap:8px}.now .v{font-size:17px}}',
+          // (the modes a size down on a phone and a short screen, as the thermostat's: "Performance" whole in a third of the row)
+          '@media (max-width:' + C.BP.phone + 'px),' + SHORT_MQ + '{.acts.mseg button{font-size:13px;letter-spacing:-0.1px}}',
           // WIDE: the thermostat's two columns -- see ClimatePanel
           ':host([wide]) .pn{flex-direction:row;align-items:stretch;gap:28px}',
           ':host([wide]) .dial{' + TSTAT_WIDE + '}',
@@ -5828,11 +5848,23 @@
           ':host([wide]) .now{padding:14px 18px}',
           ':host([wide]) .trend{flex:1;display:flex;flex-direction:column;padding:' + SP.cardPad + ';min-height:0}',
           ':host([wide]) .trend .axc{flex:1;min-height:72px;margin-top:8px}',
-          ':host([wide]) .trend .tt2{margin-bottom:0}'
+          ':host([wide]) .trend .tt2{margin-bottom:0}',
+          // A SHORT SCREEN: the thermostat's -- the ring the control on the
+          // left (PANEL_CSS SHORT), as tall as the body, 0.86 as tall as wide,
+          // and the tank's readings, the modes and the power beside it; the
+          // trend gives way, as the thermostat's does
+          '@media ' + SHORT_MQ + '{',
+          '  :host .pn > .dial.dial{display:contents}',
+          '  :host .pn .dl{grid-column:1;grid-row:1 / 8;width:min(260px, calc(var(--hk-short-h) / 0.86));max-width:none;align-self:center}',
+          '  :host .pn .dial > :is(.acts,.pwr){grid-column:2;margin:6px 0;justify-self:stretch}',
+          '  :host .pn .now{order:-1;justify-self:stretch}:host .pn .away{justify-self:stretch}',
+          '  :host .pn .trend{display:none}',
+          '}'
         ].join('');
       }
       hkWidthKind() { return 'water_heater'; }
-      _wideAt() { return 700; }
+      // (a short screen keeps its own two columns, PANEL_CSS SHORT, never the tablet's)
+      _wideAt() { return window.matchMedia && matchMedia(SHORT_MQ).matches ? Infinity : 700; }
       _onWide() { this._tankKey = null; this._paintTank(); this._alignTop(); }
       _go(v) { this._view = v; this._built = false; this._render(); }
       _range(s) {
@@ -6109,7 +6141,16 @@
           '.vp button:not(.on):active{background:rgba(255,255,255,0.10)}',
           '.vp button:focus-visible{outline:2px solid rgba(100,181,255,0.8);outline-offset:-2px}',
           ':host([na]) .vp button{opacity:.4;pointer-events:none}',
-          '@media (max-width:' + C.BP.phone + 'px){.big.al{font-size:34px}.pn{gap:16px}.vs.vp{height:330px}.vp button{font-size:17px}.vpsp{height:48px}}'
+          '@media (max-width:' + C.BP.phone + 'px){.big.al{font-size:34px}.pn{gap:16px}.vs.vp{height:330px}.vp button{font-size:17px}.vpsp{height:48px}}',
+          // A SHORT SCREEN: the word over the keypad side by side (its
+          // `layout: 'side'`), the keys on the left, the field and the ways
+          // to arm beside them -- four rows of keys, 10 apart, the body's
+          // height less the word's 34 and the 12 under it
+          '@media ' + SHORT_MQ + '{',
+          '  .pn{height:var(--hk-short-h);gap:12px;padding:0}',
+          '  .big.al{font-size:30px;min-height:34px}.big.al hk-icon{--mdc-icon-size:28px;width:28px;height:28px}',
+          '  hk-alarm-keypad-card{flex:1 1 0;min-height:0;--hk-kp-key:calc((var(--hk-short-h) - 46px - 30px) / 4)}',
+          '}'
         ].join('');
       }
       hkWidthKind() { return 'alarm'; }
@@ -6155,6 +6196,16 @@
             self._vp.appendChild(b);
           });
         }
+        // (the keypad side by side on a short screen: built again as the screen turns)
+        var short = !!(window.matchMedia && matchMedia(SHORT_MQ).matches);
+        if (this._built && !codeless && this._short !== short) this._built = false;
+        this._short = short;
+        if (!this._shortMq && window.matchMedia) {
+          var self0 = this;
+          this._shortMq = matchMedia(SHORT_MQ);
+          var again = function () { self0._render(); };
+          if (this._shortMq.addEventListener) this._shortMq.addEventListener('change', again); else if (this._shortMq.addListener) this._shortMq.addListener(again);
+        }
         if (!this._built) {
           this._built = true;
           this._root.innerHTML = '<div class="pn"><div class="big al"><hk-icon></hk-icon><span></span></div></div>';
@@ -6165,7 +6216,7 @@
           // glass: false -- the sheet is its own blur (as every panel).
           // status: false -- the sheet leads with the state word already, so
           // its readout stays the code line rather than saying it twice.
-          try { card.setConfig({ entity: this._id, glass: false, status: false }); } catch (e) { /* not ready */ }
+          try { card.setConfig(Object.assign({ entity: this._id, glass: false, status: false }, short ? { layout: 'side' } : {})); } catch (e) { /* not ready */ }
           this._root.querySelector('.pn').appendChild(card);
           this._card = card;
         }

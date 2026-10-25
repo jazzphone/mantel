@@ -123,7 +123,7 @@
         // block (--hk-kp-key, set by the block)
         '.side{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);grid-template-rows:auto minmax(0,1fr);column-gap:12px;height:100%}',
         '.side .read{grid-column:2;grid-row:1;margin:0;height:auto;min-height:var(--hk-kp-key,48px);padding:0 10px}',
-        '.side .read .code{letter-spacing:5px}.side .read .st span{font-size:15px}',
+        '.side .read .code{letter-spacing:5px}.side .read .code.ph{letter-spacing:0}.side .read .st span{font-size:15px}',
         '.side .pad{grid-column:1;grid-row:1 / span 2;align-content:space-between}',
         '.side .acts{grid-column:2;grid-row:2;grid-template-columns:minmax(0,1fr);align-content:end;gap:8px;margin:0}',
         '.side.tap .acts{grid-column:1 / span 2;grid-row:1 / span 2;grid-template-columns:repeat(2,minmax(0,1fr));align-content:center}',
