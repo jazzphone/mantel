@@ -2,6 +2,11 @@
 
 All notable changes to Mantel are listed here. Versions follow [semantic versioning](https://semver.org); the Home Assistant App, the Docker images and the Python package share one version number.
 
+## Unreleased
+
+- Home Grid: a view out of sight is no longer drawn while it rests. On an iPad, a camera or a room's pages from one view could show through at the edge of the next.
+- Home Grid editor: the icon at the top of the Screen and block settings sits in the middle of its square.
+
 ## 0.1.73 - 2026-10-24
 
 Local Home Assistant App update for the house.
