@@ -1597,3 +1597,16 @@ The owner asked for the review and the views fix to ship together. Release commi
 The update installed on the first request. Strict health is OK with Home Assistant connected, and build
 `a98764a6efabe25d` matches the staged release. No log line matches "Traceback" or "ERROR". Still to confirm on the
 iPad: adding a view to a layout with a camera leaves the preview's edge clean.
+
+### House App 0.1.75 deployed (2026-10-25)
+
+The owner asked for this release. Release commit `592db60` carries one fix: on a phone held sideways, the tab bar rail
+hugs its tabs. It had been drawn at a phone's 60 px thickness while its fit counted a tablet's 72, which left 43 px
+above Home and below More. Before the release, every position was measured in WebKit at all eight sheet-review sizes,
+icons only and with labels, 64 cases in all. Ends and sides were even in every case:
+- a bar: 3–5 px;
+- a rail: 10 or 12 px at the ends, where the highlight reaches in, and 6 or 7 at the sides.
+
+The update installed on the first request; the first health check came before the restart finished. Strict health is
+OK with Home Assistant connected, and build `8b7d558f415f1cb0` matches the staged release. No log line matches
+"Traceback" or "ERROR".
