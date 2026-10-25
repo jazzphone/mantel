@@ -1562,3 +1562,38 @@ Views, and a phone held sideways keeping its rail. It was pushed and staged, and
 request. Strict health is OK with Home Assistant connected, and build `a2a2ae26489c7ed5` matches the staged release.
 No log line matches "Traceback" or "ERROR". Next: the owner tries the editor's card list with a finger, and the
 nightstand (Phone, Landscape → StandBy) on an iPhone held sideways.
+
+### Detail sheets at every size (2026-10-25)
+
+`tools/headless/sheet_review.py` (with its `.cjs`, run under `PLAYWRIGHT_PATH`) opens 34 sheets, one of each panel
+kind and the variants that draw differently, at eight sizes in WebKit: 375×667, 390×844, 667×375, 844×390, 820×1180,
+1180×820, 1366×1024 and the car's 1280×720 (a stand-in until the Tesla browser's real size is known). It measures:
+- the sheet inside the screen, and nothing scrolling (the weather sheet scrolls by design);
+- nothing in the padding;
+- the X as far from the top as from the right;
+- what it draws, painted boxes included, as far from the left as from the right;
+- on a short screen, top against bottom;
+- controls of 30 pt or more.
+
+It also writes a contact sheet per size. Headless WebKit draws no backdrop blur, so the review stands an opaque frost
+in for the sheet. The first pass found these:
+- Six short-screen sheets scrolled (alarm, timer, automation, water heater, person, humidifier).
+- The humidifier's slider was gone: its Target reading's `.tg` class took the switch's rule.
+- Pairs had the control against the left edge.
+- The small iPhone's media and sensor sheets overflowed, and a colour light's favourites ran off the sheet.
+- The camera's X was 2 px off square.
+- The camera volume slider and the event's colour dots were small targets.
+- "Performance" broke mid-word.
+
+All 272 now pass, and the contact sheets were looked over by eye.
+
+### House App 0.1.74 deployed (2026-10-25)
+
+The owner asked for the review and the views fix to ship together. Release commit `8fa79e9` carries:
+- views out of sight not drawn (Safari let a scaled grid's scrollers and videos show through beside the next view);
+- the inspector's glyph centred;
+- the detail-sheet review above.
+
+The update installed on the first request. Strict health is OK with Home Assistant connected, and build
+`a98764a6efabe25d` matches the staged release. No log line matches "Traceback" or "ERROR". Still to confirm on the
+iPad: adding a view to a layout with a camera leaves the preview's edge clean.
