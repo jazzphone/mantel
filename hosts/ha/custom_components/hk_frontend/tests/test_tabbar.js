@@ -290,5 +290,13 @@ ok('More\'s style: a phone\'s own (List unless chosen), the tablets\' otherwise'
 ok('While Scrolling: a sideways phone uses the phone\'s', so({ tab_bar_scroll: 'shrink', tab_bar_scroll_phone: 'stay' }) === 'stay');
 window.screen = undefined;
 
+// A RAIL IS DRAWN AT THE THICKNESS ITS FIT IS WORKED OUT FROM (2026-10-25): a
+// phone held sideways drew it at a phone's 60 while railFit counted a
+// tablet's 72, so its tabs fell short of it, 43 px of rail above Home and below More
+var tbSrc = readFile(HK_ROOT + '/frontend/modules/hk-tabbar.js');
+ok('a rail\'s --bh is railW, a bar\'s barH',
+   /setProperty\('--bh', \(railed \? railW\(size\) : barH\(undefined, size\)\) \+ 'px'\)/.test(tbSrc) &&
+   /railFit[\s\S]{0,200}gapsOf\(railW\(size\)\)/.test(tbSrc));
+
 print('\n' + (fail ? fail + ' FAILED, ' + pass + ' passed' : 'ALL ' + pass + ' TAB BAR TESTS PASS'));
 if (fail) throw new Error(fail + ' failed');

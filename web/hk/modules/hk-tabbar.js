@@ -1213,10 +1213,15 @@
       S.host.toggleAttribute('data-icons', iconsOnly);
       if (listKey(width) !== S.built) build();
       if (S.host.getAttribute('data-pos') !== S.pos) S.host.setAttribute('data-pos', S.pos || 'bottom');
-      S.host.toggleAttribute('data-wide', barH() !== BAR_H);
+      // (a rail is always a tablet's -- railW, what its fit and its room are
+      // worked out from -- a phone held sideways's too: drawn at a phone's
+      // 60 its tabs came out smaller than the fit, the difference left as
+      // gaps above the first and below More, 2026-10-25)
+      var railed = S.pos === 'left' || S.pos === 'right';
+      S.host.toggleAttribute('data-wide', railed || barH() !== BAR_H);
       // TAB BAR SIZE: the thickness itself, and the icons' and names' step
       var size = SIZE_STEP[b.tab_bar_size] !== undefined ? b.tab_bar_size : 'medium';
-      S.host.style.setProperty('--bh', barH(undefined, size) + 'px');
+      S.host.style.setProperty('--bh', (railed ? railW(size) : barH(undefined, size)) + 'px');
       if (S.host.getAttribute('data-size') !== size) S.host.setAttribute('data-size', size);
       var cls = ['root', 'on', mat];
       if (S.roomsMode === 'button' && S.rooms.length) cls.push('hasrooms');
