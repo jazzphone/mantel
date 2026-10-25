@@ -43,12 +43,29 @@ window.__mantelHub = hub;
 window.hkMantelClient.useCommands(hub);
 let hostForCaps = null;
 hub.onCapabilities = () => { if (hostForCaps) hostForCaps._publish(); };
-const [registry, user, fixtures, cards, , services] = await Promise.all([
-  json(mantelUrl('/api/registry')), json(mantelUrl('/api/me')), json(mantelUrl('/api/fixtures')),
-  json(mantelUrl('/api/hk-cards')), hub.connect(),
-  // Music Assistant / go2rtc under Mantel's own address, when this server serves them (media_proxy.py)
-  json(mantelUrl('/api/services')).catch(() => ({})),
-]);
+// ONE failed request at the start (a 503 while Mantel restarts, a socket dropped as it opened) left the page blank
+// for good, a wall tablet too: it starts again from the top, a little later each time (2 s ... 30 s, as the hub's
+// own reconnect). A session that ended meanwhile is sent to sign in by the reload.
+const RETRY_KEY = 'mantel_boot_retry';
+let boot;
+try {
+  boot = await Promise.all([
+    json(mantelUrl('/api/registry')), json(mantelUrl('/api/me')), json(mantelUrl('/api/fixtures')),
+    json(mantelUrl('/api/hk-cards')), hub.connect(),
+    // Music Assistant / go2rtc under Mantel's own address, when this server serves them (media_proxy.py)
+    json(mantelUrl('/api/services')).catch(() => ({})),
+  ]);
+} catch (e) {
+  let n = 0;
+  try { n = Number(sessionStorage.getItem(RETRY_KEY) || 0); sessionStorage.setItem(RETRY_KEY, String(n + 1)); } catch (_) { /* no storage */ }
+  const wait = Math.min(2000 * 2 ** n, 30000);
+  console.warn('[mantel] the page could not start (' + (e && e.message) + '); again in ' + Math.round(wait / 1000) + ' s');
+  await new Promise((r) => setTimeout(r, wait));
+  location.reload();
+  await new Promise(() => {});                    // this start goes no further
+}
+try { sessionStorage.removeItem(RETRY_KEY); } catch (_) { /* no storage */ }
+const [registry, user, fixtures, cards, , services] = boot;
 pageHealth(hub);
 window.hkMantelShell.setServices(services);
 window.hkMantelShell.setRole(user.role);

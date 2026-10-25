@@ -2239,7 +2239,8 @@
       C.morph(this._root, '<hk-plate class="pp" data-hk-role="card"><div class="row" role="list" style="--n:' +
         Math.min(n, Math.max(1, ids.length)) + '">' + cells.join('') + '</div></hk-plate>');
       this._root.querySelectorAll('.av img').forEach(function (img) {
-        img.onerror = function () { img.parentNode.textContent = img.getAttribute('data-initials'); };
+        // once (the browser's own error can follow the hand-made one, on an image no longer in the page)
+        img.onerror = function () { img.onerror = null; if (img.parentNode) img.parentNode.textContent = img.getAttribute('data-initials'); };
         if (img.complete && !img.naturalWidth) img.onerror();
       });
       if (!this._wired) {

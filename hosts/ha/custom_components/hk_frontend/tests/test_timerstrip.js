@@ -90,8 +90,10 @@ H.run('TIMER STRIP', [
     H.ok('...on the bar\'s tint (plated + glass), no blur of its own',
          /rgba\(22,23,26,\.92\)/.test(html) && !/backdrop-filter/.test(html));
     H.ok('...with the restart / +1 min / finish controls for timer.quick_1',
-         /act\('timer\.quick_1','restart'\)/.test(html) && /act\('timer\.quick_1','plus'\)/.test(html) &&
-         /act\('timer\.quick_1','finish'\)/.test(html));
+         // (data attributes, read by hk-timers.js's one delegated listener: no inline handler, which Mantel's CSP refuses)
+         /data-hk-timer="timer\.quick_1" data-hk-timer-act="restart"/.test(html) &&
+         /data-hk-timer="timer\.quick_1" data-hk-timer-act="plus"/.test(html) &&
+         /data-hk-timer="timer\.quick_1" data-hk-timer-act="finish"/.test(html) && !/onclick=/.test(html));
     H.detach(live);
   },
 

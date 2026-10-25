@@ -50,6 +50,9 @@ export class Hub {
       ws.onclose = () => {
         if (this.ws !== ws) return;
         this._dropCommands();
+        // what this socket's server said is over with it: the next one says again (a server whose commands
+        // were turned off sends no capabilities at all, so a kept `commands: true` would offer dead controls)
+        if (this.capabilities) { this.capabilities = null; this.onCapabilities(null); }
         if (this.closing) return;
         const wait = this.retry * (0.75 + Math.random() / 2);
         this.retry = Math.min(this.retry * 2, RETRY_MAX);
@@ -140,8 +143,14 @@ export class Hub {
     if (!this._open()) return Promise.reject(lost());
     return new Promise((resolve, reject) => {
       let done = false;
-      const t = setTimeout(() => { if (!done) { done = true; reject(new Error('no pong')); } }, ms);
-      (this.pings || (this.pings = [])).push(() => { if (!done) { done = true; clearTimeout(t); resolve(); } });
+      const waiter = () => { if (!done) { done = true; clearTimeout(t); resolve(); } };
+      const t = setTimeout(() => {
+        if (done) return;
+        done = true;
+        this.pings = (this.pings || []).filter((w) => w !== waiter);     // a silent socket's waiters don't pile up
+        reject(new Error('no pong'));
+      }, ms);
+      (this.pings || (this.pings = [])).push(waiter);
       this._send({ type: 'ping' });
     });
   }
@@ -206,6 +215,9 @@ export class Hub {
   command(body) {
     if (!this.commandsEnabled()) {
       return Promise.resolve({ type: 'command_result', error: { code: 'commands_disabled', message: 'commands are disabled' } });
+    }
+    if (!this._open()) {          // between sockets: an answer with a code, not a send that throws
+      return Promise.resolve({ type: 'command_result', error: { code: 'unavailable', message: 'connection lost' } });
     }
     const id = this.nextId++;
     return new Promise((resolve, reject) => {

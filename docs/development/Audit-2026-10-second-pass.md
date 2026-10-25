@@ -9,9 +9,8 @@ finds. This page is the working plan and the register; it is kept current so an 
 
 ## Checkpoint
 
-**State:** four of seven subsystem audits reported (sign-in, RBAC, settings, media); deployment, browser and docs
-still running. RBAC-1..4 fixed; the headless checks repaired (H1..H4). Next: AUTH-1..6, then the media and settings
-rows, then the remaining reports.
+**State:** every subsystem audit reported; every finding fixed except the deferred rows (SET-2, SET-7 and the first
+pass's T2, T6, G1, S8), each with its reason. Final regression below.
 
 **To resume:** read the register below; every row not marked Fixed, Deferred or Not a defect is open. Run the main
 suite with `~/.venvs/mantel/bin/python -m pytest -q -p no:cacheprovider` (the checkout's `.venv` is Python 3.14
@@ -34,11 +33,12 @@ without the dev tools).
    sign-in, sessions and server settings; RBAC and filtering on every new route and socket message; the Home Grid
    and the settings store; media (photos, faces, files, Live TV, talk, music); deployment, migrations and
    backups; the browser side; docs against code. The read path (`ha_client.py`, `state.py`, `view.py`) was
-   reviewed directly. **In progress.**
-3. Register below, P0 first.
-4. Fix in severity order, a regression test per fix, the suite after each batch.
-5. Docs reconciled with the code.
-6. Final regression and readiness review.
+   reviewed directly. **Done.**
+3. Register below, P0 first. **Done.**
+4. Fix in severity order, a regression test per fix (each checked to fail before the fix), the suite after each
+   batch. **Done.**
+5. Docs reconciled with the code. **Done.**
+6. Final regression and readiness review. **Done** (below).
 
 ## Issue register
 
@@ -89,4 +89,88 @@ problem; **P3** minor.
 | X3 | P2 | Docs | The guide pointed to UI paths that no longer exist (Home Assistant Link, Who Runs Each Wall Tablet, Mantel Settings → Mantel Connect, Link Home Assistant Users…, Alarm PIN's place); local-build App names given as the only ones; Cloudflare Access's 24 h key grace, the CSRF cookie, Duck DNS errors, "Show in Home Assistant"'s prerequisite missing | Fixed (the guide, the App's DOCS.md, the packaging READMEs) | `tools/check_links.py` |
 | X4 | P3 | Changelog | The notes for the first public release sat below 0.1.59 as `## Unreleased`; `bump_version.py --changelog` renamed them 0.1.71 out of order | Fixed: moved back to the top; the tool renames Unreleased only when it is the newest section | `test_check_version.py::test_bump_leaves_an_unreleased_section_below_released_ones` |
 | X5 | P3 | Settings | `bar_labels` (0.1.72's Labels, Icons and Names) was in the Python defaults but not in `hk-settings.js`'s first-paint copy; HK Frontend's own suite caught it, Mantel's main suite doesn't run that suite | Fixed | HK Frontend `test_settings.py::test_the_screens_defaults_are_these_defaults` |
+| WEB-1 | P2 | Web | Allow Control of the House turned off while a page was open: the reconnected socket gets no capabilities frame, and the hub kept the old `commands: true`, so controls stayed live and each press ended in "commands disabled" | Fixed: what a socket's server said ends with the socket | `test_web_lifecycle.py::test_control_turned_off_while_a_page_is_open_takes_the_actions_away` |
+| WEB-4 | P2 | Web | The timer strip's Restart, +1 min and Finish (and the docked strip's dots) were inline handlers, refused by the page's CSP (`script-src 'self'`): dead in Mantel | Fixed: data attributes and one delegated listener (composedPath, capture) | `test_web_lifecycle.py::test_no_html_the_page_builds_carries_an_inline_event_handler` |
+| WEB-5 | P2 | Web | Each thermostat or alarm sheet opened left a window resize, a media-query and (thermostat) a ResizeObserver listener behind, keeping dead panels alive and re-fitting them on every turn | Fixed: `Panel._listenShort`/`_undo`, undone in `disconnectedCallback` | `test_web_lifecycle.py::test_a_panel_removes_the_listeners_it_added_to_the_window_when_its_sheet_closes` |
+| WEB-6 | P2 | Home Grid | The clock block went blank after leaving the Home page and coming back | Fixed: drawn again on reconnect | `test_web_lifecycle.py::test_the_grid_clock_block_draws_its_face_again_when_its_view_comes_back` |
+| WEB-7 | P2 | Web | One failed request at start (a 503 while Mantel restarts) left the page, a wall tablet's too, blank for good | Fixed: the page starts again after 2 s ... 30 s | `test_web_lifecycle.py::test_one_failed_request_at_start_does_not_leave_the_page_blank_for_good` |
+| WEB-2 | P3 | Web | A command between sockets threw `InvalidStateError` and left its pending entry | Fixed: answered `unavailable` | `test_web_lifecycle.py::test_a_command_while_the_socket_is_down_is_refused_in_the_hubs_own_words` |
+| WEB-3 | P3 | Web | Pings nobody answered piled up waiters | Fixed | `test_web_lifecycle.py::test_pings_nobody_answered_are_not_kept` |
+| WEB-8 | P3 | Web | The people card's failed-picture handler threw on its second call | Fixed | `test_web_lifecycle.py::test_the_people_cards_failed_picture_handler_survives_a_second_call` |
 | X2 | P3 | Repo | `tests/.smbdeleteAAAe3e16`, a stale copy of `test_accounts.py` left by the SMB share, is tracked | Fixed (removed) | |
+
+## Architecture assessment
+
+The first pass's picture still holds: one aiohttp server with a read-only `subscribe_entities` copy of Home
+Assistant, per-client filtered diffs, a separate command path (classify, RBAC, audit row, then `HaCommander`), the
+settings store over `hk_core`, and Mantel Link's `/linked/ws`. The read path (`state.py`, `view.py`) needed nothing:
+entries are replaced, never mutated; diffs are taken against what was sent; a gated view resolves only what it may
+show. `gateway.py`, `rbac.py` and `rbac_store.py` are unchanged since the first pass, so its fixes there stand.
+
+What changed since is mostly new doors, and most findings were the first pass's lesson again: **a new door to an old
+thing, checked less than the old door.** The linked HK Frontend's relayed reads (RBAC-1, RBAC-2) and the new People
+and tablet routes (AUTH-1, AUTH-2) skipped checks every older route to the same thing applies. The second theme was
+**the live command switch** (0.1.52): the server side was built carefully (every sender looks the gateway up at each
+use), but a talk already running (RBAC-3) and the page's idea of "commands on" (WEB-1) outlived it.
+
+Remaining technical debt: `features.py` (2,350 lines), `settings_store.py` (1,900), `mantel-settings.js` and
+`hk-detail.js` are very large single files; the merged-house storage (SET-2) differs from Home Assistant's
+stored-differences form; and the main suite does not run HK Frontend's own suites, so a check that only they make
+(X5) can go red unseen.
+
+## Test results (final)
+
+| Check | Result |
+|---|---|
+| Main suite, Python 3.12.15, macOS (Home Assistant's harness present: Mantel Link's suite and the linked end-to-end tests run inside it) | 3582 passed, 0 failed, 2 xfailed (SET-2, SET-7, pinned), 20 skipped (the LXC installer's 11 need bash 4, macOS has 3.2; 8 need a Caddy test image; the private-words test needs its variable, and `tools/check_private.py` was run by hand with the owner's list: clean) |
+| Baseline for comparison | 3503 passed, 21 skipped |
+| HK Frontend's Python suite (HA harness, on a fresh build) | 759 passed after X5's fix (1 failed before it, on the untouched tree too) |
+| HK Frontend's JavaScript suites, on macOS's own JavaScriptCore (the first pass had only a Node stand-in) | every suite green |
+| Headless checks: `client_smoke`, `gateway_page_check`, `admin_page_check`, `settings_viewports`, `ingress_smoke`, `grid_blocks_check` | all pass (3 failed on the untouched tree: H1..H3) |
+| Browser probes in headless Chrome (fictional house): the timer strip's buttons under the page's CSP, a 503 at start, listener growth over 35 sheet opens, hostile names in every grid view | 6 of 6 taps reach `act`; the page recovers after one retry; no listener growth; nothing injected, no console errors |
+| `tools/check_links.py`, `package_check.py`, `package_check.py --release`, `check_version.py` | clean; 0.1.75 everywhere |
+| `pip-audit` of the lock (29 packages) | no known vulnerabilities |
+| Docker image builds, the LXC on Proxmox, the Apple apps, a real Home Assistant | not run: Docker's daemon was off, no Proxmox, no Xcode build in this pass, and production is out of bounds |
+
+## Performance
+
+- The state hub's fan-out, a synthetic 5,000-entity house with 50 screens and 200 changes per event: 8.6 ms per
+  event, 0.86 µs per entity per screen (no role filter; the first pass measured ~2 µs per entity for RBAC's
+  classify).
+- Photo uploads (MED-1): the loop stall of a 24 MP upload went from ~340 ms to ~9 ms; a 48 MP one from ~750 ms; four
+  at once from ~2.1 s (now queued, one at a time). Peak memory for a 100 MP RGBA PNG 1.5 GB → refused; at the new
+  64 MP cap 0.64 GB.
+- The fixes on hot paths (the policy tick's walk of relayed contexts, the camera session count, the talk pre-connect
+  check) are constant-time per item.
+
+## Security assessment
+
+Verified controls (each auditor listed them, with tests): Owner-only Allow Control of the House with a fresh factor
+and an audit row first, held off by the kill switch on every start; every command sender looking the gateway up at
+each use; RBAC person ∩ tablet, deny by default; server-side filtering of states, registries, the settings feed's
+music players, person pictures; audit-before-change for Owner settings; the setup code (192 bits, hashed, single
+use); CSRF on unsafe API calls; refresh reuse revoking the family; Cloudflare Access failing closed; no DOM XSS found
+with hostile names in every field the browser audit could reach.
+
+Resolved weaknesses: the register's Fixed rows (4 P1, 20 P2 and 24 P3 rows; a few rows group related P3s).
+
+Untested assumptions: real Home Assistant, Supervisor, Cloudflare and Music Assistant behaviour (fakes and the
+scratch Home Assistant only); `HASSIO_TOKEN` being exported by the Supervisor (DEP-5 removes it either way); real
+iPad Safari suspend and resume (`hub.js` has no `visibilitychange` handler; the server's 30 s heartbeat covers its
+side); the images as built (Docker's daemon was not running).
+
+Unresolved: none at P0 or P1. Deferred: SET-2 (P3) and SET-7 (P2), each pinned by a strict xfail; the first pass's
+T2, T6, G1 and S8.
+
+## Outstanding items and recommendations
+
+- **SET-7**: a version on `board/set` in both hosts, and board versions in the feed, so the shared grid editor can
+  say "changed meanwhile".
+- **SET-2**: store the house settings as Home Assistant does (what differs) and merge on read, in one change with
+  the feed, the import and the linked mirror.
+- **Music Assistant subscriptions** (`ma/subscribe`) have no per-connection cap, unlike camera and Live TV sessions
+  now; and `hk_music/subscribe` has no `recheck` at the policy tick (rights are re-read on each push).
+- **CI**: run HK Frontend's Python and JavaScript suites against a build on every push (X5 was caught only by them).
+- **iPad suspend**: a `visibilitychange` check in `hub.js` (ping on wake, reconnect when silent).
+- The first pass's T2 (pairing protocol v2), T6 (Wall Tablet accounts and rooms), G1 and S8 (a look on a device)
+  still stand.

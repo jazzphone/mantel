@@ -2901,10 +2901,23 @@
         });
         this._ro.observe(this);
       }
+      // A SHORT SCREEN's listener (the climate dial, the alarm's keypad side by side): on this._shortMq, undone with
+      // the rest when the sheet closes. Each open added one and none went (the panels, and their re-fits on every
+      // turn of the screen, outlived their sheets).
+      _listenShort(fn) {
+        var mq = this._shortMq;
+        if (mq.addEventListener) mq.addEventListener('change', fn); else if (mq.addListener) mq.addListener(fn);
+        this._undo(function () { if (mq.removeEventListener) mq.removeEventListener('change', fn); else if (mq.removeListener) mq.removeListener(fn); });
+      }
+      _undo(fn) { (this._undos || (this._undos = [])).push(fn); }
       disconnectedCallback() {
         if (super.disconnectedCallback) super.disconnectedCallback();
         if (this._tickT) { clearInterval(this._tickT); this._tickT = null; }
         if (this._ro) { this._ro.disconnect(); this._ro = null; }
+        if (this._shortRO) { this._shortRO.disconnect(); this._shortRO = null; }
+        (this._undos || []).forEach(function (fn) { try { fn(); } catch (e) { /* gone already */ } });
+        this._undos = null;
+        this._shortMq = null;             // shown again: listened to again
       }
     }
 
@@ -3954,8 +3967,9 @@
         if (!this._shortMq) {
           this._shortMq = window.matchMedia(SHORT_MQ);
           var again = function () { self._fitShort(); self._alignTop(); };
-          if (this._shortMq.addEventListener) this._shortMq.addEventListener('change', again); else if (this._shortMq.addListener) this._shortMq.addListener(again);
+          this._listenShort(again);
           window.addEventListener('resize', again);
+          this._undo(function () { window.removeEventListener('resize', again); });
           // ...and whenever the panel or its thermostat settle (the sheet lays out after the first render)
           if (typeof ResizeObserver !== 'undefined') {
             // (a frame later: resizing the dial inside the observer's own callback loops it)
@@ -6203,8 +6217,7 @@
         if (!this._shortMq && window.matchMedia) {
           var self0 = this;
           this._shortMq = matchMedia(SHORT_MQ);
-          var again = function () { self0._render(); };
-          if (this._shortMq.addEventListener) this._shortMq.addEventListener('change', again); else if (this._shortMq.addListener) this._shortMq.addListener(again);
+          this._listenShort(function () { self0._render(); });
         }
         if (!this._built) {
           this._built = true;

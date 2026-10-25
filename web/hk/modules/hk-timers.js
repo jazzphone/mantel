@@ -251,7 +251,7 @@
     rows = rows.slice().sort(function (a, b) { return Date.parse(a.finishes_at) - Date.parse(b.finishes_at); });
     var btn = function (id, cls, icon, what, label) {
       return '<button type="button" class="' + cls + '" aria-label="' + label + '" ' +
-        "onclick=\"event.stopPropagation();window.hkTimers&&window.hkTimers.act('" + esc(id) + "','" + what + "')\">" +
+        'data-hk-timer="' + esc(id) + '" data-hk-timer-act="' + what + '">' +
         '<hk-icon icon="' + icon + '"></hk-icon></button>';
     };
     var segs = rows.map(function (r) {
@@ -268,7 +268,7 @@
         '</div>';
     }).join('');
     var dots = rows.length > 1 ? '<div class="dt">' + rows.map(function (r, i) { return '<i' + (i ? '' : ' class="on"') + '></i>'; }).join('') + '</div>' : '';
-    return '<style>' + DOCK_CSS + '</style><div class="td"><div class="sc" onscroll="window.hkTimers&&window.hkTimers.dots(this)">' +
+    return '<style>' + DOCK_CSS + '</style><div class="td"><div class="sc" data-hk-timer-dots>' +
       segs + '</div>' + dots + '</div>';
   }
 
@@ -420,9 +420,11 @@
 
       // PILL CONTROLS (plated only). Restart / +1 min / Finish.
       //
-      // Inline onclick handlers because the strip is an HTML string -- see
-      // act() above for the client escape hatch they call. stopPropagation
-      // matters: without it a tap would also reach the card underneath.
+      // The strip is an HTML string, so its buttons carry data-hk-timer and
+      // one delegated listener (bottom of this file) calls act() -- never an
+      // inline onclick, which Mantel's CSP (script-src 'self') refuses: the
+      // buttons did nothing there. It stops the tap: without that it would
+      // also reach the card underneath.
       //
       // NOT on the screensaver: that row is a glance from across a room behind
       // a photo, it is pointer-events:none, and nobody is tapping it.
@@ -442,8 +444,7 @@
           // SINGLE quotes inside the double-quoted attribute. With &quot;
           // entities instead, the buttons do nothing at all.
           return '<button type="button" aria-label="' + label + '" ' +
-            "onclick=\"event.stopPropagation();window.hkTimers&&window.hkTimers.act('" +
-            id + "','" + what + "')\" " +
+            'data-hk-timer="' + String(id).replace(/[&<>"]/g, '') + '" data-hk-timer-act="' + what + '" ' +
             // These are wall-tablet touch targets, so they are sized for a
             // finger rather than to match the timer dot: 34 is too easy to
             // miss. See bsz above for the four-timer exception.
@@ -651,6 +652,35 @@
   // `onload` to borrow, and a card that renders before this file arrives
   // would sit empty forever waiting for a signal nobody sends.
   // Same contract as hk-cards-ready.
+  // THE STRIPS' TAPS AND DOTS, delegated: one listener for every strip, wherever its HTML lands (a card's shadow
+  // root too: composedPath). Capture, so the tap is stopped before the card underneath sees it. A scroll event
+  // doesn't leave its shadow root, so the dots follow the gestures that scroll the strip instead.
+  var within = function (ev, attr) {
+    var path = ev.composedPath ? ev.composedPath() : [];
+    for (var i = 0; i < path.length; i++) {
+      if (path[i] && path[i].hasAttribute && path[i].hasAttribute(attr)) return path[i];
+    }
+    return null;
+  };
+  if (typeof document !== 'undefined' && document.addEventListener && !window.__hkTimersDelegated) {
+    window.__hkTimersDelegated = true;
+    document.addEventListener('click', function (ev) {
+      var b = within(ev, 'data-hk-timer');
+      if (!b) return;
+      ev.stopPropagation();
+      ev.preventDefault();
+      window.hkTimers.act(b.getAttribute('data-hk-timer'), b.getAttribute('data-hk-timer-act'));
+    }, true);
+    var follow = function (ev) {
+      var sc = within(ev, 'data-hk-timer-dots');
+      if (!sc) return;
+      setTimeout(function () { window.hkTimers.dots(sc); }, 120);
+      setTimeout(function () { window.hkTimers.dots(sc); }, 450);   // after the snap settles
+    };
+    ['touchend', 'pointerup', 'wheel'].forEach(function (t) {
+      document.addEventListener(t, follow, { capture: true, passive: true });
+    });
+  }
   try {
     window.dispatchEvent(new Event('hk-timers-ready'));
     window.dispatchEvent(new CustomEvent('hk-module-ready', { detail: 'hkTimers' }));

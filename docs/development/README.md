@@ -12,6 +12,7 @@ logic, the Home Assistant integrations, the packaging or the Apple apps. If you 
 | [Releasing](Releasing.md) | publish a version: the images, the Home Assistant add-on repository, and what to check |
 | [Screenshots](Screenshots.md) | regenerate or add the screenshots in `docs/images/` |
 | [Design notes](Design-Notes.md) | find the detailed design note or build record behind a part of the code |
+| [Engineering audit](Audit-2026-10.md), [second pass](Audit-2026-10-second-pass.md) | see what the audits found and fixed, what was deferred and why, and the checks they ran |
 
 ## The short version
 

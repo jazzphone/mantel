@@ -1185,6 +1185,12 @@
         [60, 700, 2500].forEach(function (ms) { setTimeout(function () { if (self._face) fill(); }, ms); });
         if (document.fonts && document.fonts.ready) document.fonts.ready.then(fill);
       }
+      // back on the page (the view host takes a view out and puts it back): the face it let go of is drawn again;
+      // nothing else redraws a card whose state did not change, so the block stayed empty
+      connectedCallback() {
+        if (super.connectedCallback) super.connectedCallback();
+        if (this._config && !this._built) this.redraw();
+      }
       disconnectedCallback() {
         if (super.disconnectedCallback) super.disconnectedCallback();
         if (this._face) { try { this._face.destroy(); } catch (e) { /* gone */ } this._face = null; }
