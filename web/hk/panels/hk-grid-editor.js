@@ -228,7 +228,7 @@
     '.catalog-add{width:100%;min-height:40px;border:0;border-radius:10px;background:var(--hk-tint);color:white;font:inherit;cursor:pointer}.catalog-add:disabled{opacity:.4;cursor:default}',
     // THE INSPECTOR
     '.insp-head{display:flex;align-items:center;gap:12px;padding:4px 4px 16px}',
-    '.insp-head hk-icon{width:30px;height:30px;flex:none;padding:9px;border-radius:12px;background:var(--hk-cell);color:var(--hk-tint)}',
+    '.insp-head hk-icon{display:flex;align-items:center;justify-content:center;box-sizing:border-box;width:48px;height:48px;flex:none;border-radius:12px;background:var(--hk-cell);color:var(--hk-tint);--mdc-icon-size:26px}',
     '.insp-head h2{margin:0;font-size:20px;font-weight:700}.insp-head p{margin:2px 0 0;font-size:13px;color:var(--hk-label2)}',
     '.insp-head .done{margin-left:auto;border:0;background:none;color:var(--hk-tint);font:inherit;font-size:15px;cursor:pointer;min-height:44px}',
     '.screen-settings{margin:4px 0 16px}.screen-settings summary{cursor:pointer;min-height:44px;display:flex;align-items:center;gap:8px;font-weight:600;padding:0 4px}.screen-settings summary::before{content:"›";display:inline-block;transition:transform .15s}.screen-settings[open] summary::before{transform:rotate(90deg)}',

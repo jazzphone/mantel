@@ -1762,6 +1762,9 @@
         '.cell[data-view]{transform:translateX(calc((var(--v) - var(--cur, 0)) * var(--g-w) + var(--drag, 0px)));' +
         'transition:transform .45s cubic-bezier(.32,.72,0,1)}' +
         '#root.dragging .cell[data-view]{transition:none}' +
+        // (and not drawn while they rest out of sight: Safari lets a scaled grid's scrollers and
+        // videos past its clip, so a camera or a room's pages showed through in the next view)
+        '#root:not(.dragging):not(.sliding) .cell[data-view][inert]{visibility:hidden}' +
         ':host([views]){touch-action:pan-y}' +
         // ...and their dots, under the grid: a tap goes to that view
         '.vdots{position:absolute;left:50%;transform:translateX(-50%);display:none;gap:2px;z-index:2}' +
@@ -1841,6 +1844,13 @@
     _showView(i) {
       var n = this._views();
       i = Math.max(0, Math.min(n - 1, i | 0));
+      // (both views drawn while one slides out and the other in)
+      if (this._root && this._view !== undefined && this._view !== i) {
+        var root = this._root;
+        root.classList.add('sliding');
+        clearTimeout(this._sliding);
+        this._sliding = setTimeout(function () { root.classList.remove('sliding'); }, 500);
+      }
       this._view = i;
       if (this._root) this._root.style.setProperty('--cur', String(i));
       var self = this;
