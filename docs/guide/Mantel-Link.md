@@ -62,9 +62,10 @@ avahi. Without either, add Mantel Link by hand. Home Assistant must also trust
 Mantel's certificate: a certificate from Caddy's own authority is refused
 until you trust it where Home Assistant runs.
 
-Plain `http://` is accepted only for the Mantel App on the same machine
-(`http://local-mantel:8099`), so the credential never crosses your network in
-clear. Home Assistant links to one Mantel.
+Plain `http://` is accepted only for the Mantel App on the same machine (its
+address on Home Assistant's internal App network, such as
+`http://local-mantel:8099`; Discovered: Mantel fills it in), so the credential
+never crosses your network in clear. Home Assistant links to one Mantel.
 
 ## What it shows in Home Assistant
 
@@ -144,8 +145,8 @@ own engines, as before) or by **Mantel**, and so is the rest of the house
 | `set_black_screen` on it | Handled in Home Assistant | Sent to Mantel |
 | Pop-ups and notifications | Shown on Home Assistant's screens, and sent to Mantel too while Mantel runs any tablet | |
 
-An Owner moves them one at a time under **Mantel Settings → Connections → Home
-Assistant Link → Who Runs Each Wall Tablet**. The rest of the house moves only
+An Owner moves them one at a time under **Mantel Settings → Connections → Home Assistant → Moving from HK Frontend**, group **Wall Tablets**
+(each tablet's switch: **Run by Mantel**). The rest of the house moves only
 after every tablet, and no tablet moves back while the rest of the house is
 Mantel's. Every move is in the [Audit Log](Commands-and-Audit.md). A tablet
 moved back gets its Home Assistant entities back under the same entity ids.
@@ -169,7 +170,9 @@ You don't need HK Frontend at all. On a Home Assistant without it:
 - Mantel keeps everything HK Frontend used to keep: every setting, the Alarm
   PIN keypads, accessories, Hidden Accessories, music and Live TV settings.
 - Mantel's screens appear in Home Assistant as **Webpage** dashboards: open a
-  screen in Mantel Settings and turn on **Show in Home Assistant**. With the
+  screen in Mantel Settings and turn on **Show in Home Assistant**. The switch
+  is there once Mantel has an address of its own that browsers reach (direct
+  access; in the App, **Direct access** set to `proxy` or `https`). With the
   screen's setting, Home Assistant's header and sidebar are hidden around it,
   and the screen's menu offers your Home Assistant sidebar's pages.
 

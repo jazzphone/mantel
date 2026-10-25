@@ -6,8 +6,11 @@
 # 1. remembers the running images as  mantel-rollback/<service>:previous  (the previous digest, kept tagged)
 # 2. pulls every image .env names from a registry (MANTEL_SERVER_IMAGE=ghcr.io/jazzphone/mantel-server@sha256:...
 #    and the others), and leaves the ones built here alone (the defaults, mantel-*:local)
-# 3. docker compose up -d --wait   (--wait fails if a service does not become healthy)
-# 4. on failure: starts the remembered images again, without pulling.
+# 3. makes a Mantel backup with the running server (`mantel backup --target /backups`) and stops if it fails:
+#    a new image migrates the database when it starts, and the old image then refuses that database, so the
+#    rollback below cannot undo a migration; the backup is the way back (Backups.md "Restore")
+# 4. docker compose up -d --wait   (--wait fails if a service does not become healthy)
+# 5. on failure: starts the remembered images again, without pulling.
 # Read it before running it. It touches only this stack's containers and images.
 set -euo pipefail
 cd "$(dirname "$0")"
@@ -43,6 +46,13 @@ for image in $images; do
   esac
 done
 [ "$pulled" -gt 0 ] || say "no image comes from a registry: to update a build from source, see Updating.md"
+if [ "$HAVE_SERVER" = 1 ]; then
+  say "backing up before anything is restarted"
+  docker compose exec -T mantel-server mantel backup --target /backups \
+    || { say "the backup failed; nothing was restarted. Fix it (Backups.md) or make one by hand, then run this again"; exit 1; }
+else
+  say "mantel-server is not running: no backup to make"
+fi
 say "starting"
 if docker compose up -d --wait --wait-timeout 180; then
   say "updated and healthy"

@@ -12,7 +12,7 @@ keeps its own library beside that, so a home can put its photos in Mantel and ch
   their bytes, the orientation is applied, every bit of metadata (EXIF, GPS location, XMP) is dropped, wide-gamut
   colour goes to sRGB, and three files are written -- the original (full size up to 8192 px on the long side,
   JPEG), the screen-sized one the screensavers show (2560 px, JPEG) and a thumbnail (480 px, WebP).
-* **Limits.** One upload at most ``file_mb`` (default 40 MB) and 100 megapixels; all photos together at most
+* **Limits.** One upload at most ``file_mb`` (default 40 MB) and 64 megapixels; all photos together at most
   ``quota_mb`` (default 4 GB). Both are an Owner's to change.
 * **Duplicates.** The SHA-256 of the bytes as they came in: the same picture again in the same album is skipped.
 * **Who.** An Owner or Admin manages the library (albums, uploads, delete, move, a screen's album; CSRF on every
@@ -45,11 +45,13 @@ import logging
 import os
 import re
 import secrets
+import threading
 import time
 import unicodedata
+import weakref
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Callable
+from typing import Callable, Iterable
 from urllib.parse import unquote, urlsplit
 
 from aiohttp import web
@@ -65,7 +67,7 @@ ALBUM_ID = re.compile(r"^[0-9a-f]{16}$")
 SCREEN = re.compile(r"^[A-Za-z0-9_][A-Za-z0-9_-]{0,79}$")
 NAME_MAX = 60
 FILE_NAME_MAX = 120
-PIXELS_MAX = 100_000_000
+PIXELS_MAX = 64_000_000     # a decode costs 8-10 bytes a pixel: 64 MP peaks near 0.65 GB (100 MP: 0.9 GB)
 ORIGINAL_EDGE = 8192
 SCREEN_EDGE = 2560
 THUMB_EDGE = 480
@@ -96,6 +98,50 @@ class PhotoError(Exception):
 
 
 # -- pictures -------------------------------------------------------------------------------------------
+IMAGE_JOBS = 1          # pictures decoded and re-encoded at once, in this process: one full decode is 0.3-0.7 GB
+_slots: "weakref.WeakKeyDictionary[asyncio.AbstractEventLoop, asyncio.Semaphore]" = weakref.WeakKeyDictionary()
+
+
+def image_slot() -> asyncio.Semaphore:
+    """The semaphore every heavy picture job (``process`` here, ``reencode_photo`` in user_files) waits on: a pile of
+    uploads must queue, not decode together (a Pi or an HA App is out of memory after two or three). One per event
+    loop, so a test's fresh loop never meets a semaphore another loop has waited on."""
+    loop = asyncio.get_running_loop()
+    slot = _slots.get(loop)
+    if slot is None:
+        slot = _slots[loop] = asyncio.Semaphore(IMAGE_JOBS)
+    return slot
+
+
+async def run_image_job(fn: Callable, *args):
+    """``fn(*args)`` in a worker thread once a slot is free. The slot is given back when the THREAD ends: a cancelled
+    caller can't stop a running decode, and it must go on counting until it has finished."""
+    slot = image_slot()
+    await slot.acquire()
+    loop = asyncio.get_running_loop()
+    gate, state = threading.Lock(), {"started": False, "dropped": False}
+
+    def job():
+        with gate:
+            if state["dropped"]:                                # cancelled before the thread got to it
+                return None
+            state["started"] = True
+        try:
+            return fn(*args)
+        finally:
+            with contextlib.suppress(RuntimeError):             # the loop is gone: nothing is waiting any more
+                loop.call_soon_threadsafe(slot.release)
+
+    try:
+        return await loop.run_in_executor(None, job)
+    except BaseException:
+        with gate:
+            if not state["started"]:
+                state["dropped"] = True
+                slot.release()
+        raise
+
+
 @dataclass
 class Processed:
     original: bytes
@@ -139,24 +185,26 @@ def process(data: bytes) -> Processed:
         except ImportError as exc:
             raise PhotoError("heic_unsupported", "This server can’t read HEIC photos. Export the photo as JPEG.",
                              415) from exc
-    Image.MAX_IMAGE_PIXELS = PIXELS_MAX * 2
+    Image.MAX_IMAGE_PIXELS = None       # Pillow's global bomb check off: each open checks its own cap, just below
     try:
         img = Image.open(io.BytesIO(data))
         if img.width * img.height > PIXELS_MAX:
-            raise PhotoError("photo_too_large", "That picture has too many pixels (100 megapixels at most).", 413)
+            raise PhotoError("photo_too_large", "That picture has too many pixels (64 megapixels at most).", 413)
         shown = {"JPEG": "jpeg", "MPO": "jpeg", "PNG": "png", "WEBP": "webp", "HEIF": "heic"}.get(img.format or "")
         if shown != kind:
             raise PhotoError("photo_invalid", "The picture doesn’t match its own format.", 415)
         img.seek(0)
         img.load()
         icc = img.info.get("icc_profile")
-        img = ImageOps.exif_transpose(img)                       # upright, then the EXIF is never written again
+        ImageOps.exif_transpose(img, in_place=True)              # upright, then the EXIF is never written again
+        # no copy of what is already the right mode: at tens of megapixels each copy is hundreds of MB
         if img.mode in ("RGBA", "LA", "PA") or (img.mode == "P" and "transparency" in img.info):
-            rgba = img.convert("RGBA")
+            rgba = img if img.mode == "RGBA" else img.convert("RGBA")
             flat = Image.new("RGB", rgba.size, (0, 0, 0))        # a screensaver's ground is black
-            flat.paste(rgba, mask=rgba.getchannel("A"))
+            flat.paste(rgba, mask=rgba)                          # an RGBA mask is its own alpha band
+            del rgba
             img = flat
-        else:
+        elif img.mode != "RGB":
             img = img.convert("RGB")
         if icc:
             with contextlib.suppress(Exception):                # best effort: wide gamut (Display P3) -> sRGB
@@ -168,7 +216,10 @@ def process(data: bytes) -> Processed:
 
         def jpeg(im, quality: int) -> bytes:
             buf = io.BytesIO()
-            im.save(buf, "JPEG", quality=quality, optimize=True, progressive=True)
+            # A plain baseline encode: optimize=True and progressive=True (which libjpeg implements with the same
+            # optimal-Huffman pass) hold the GIL for the whole encode -- a 48 MP picture froze every other client
+            # for ~0.75 s. Baseline encodes in small steps the loop runs between; the files are ~13% larger.
+            im.save(buf, "JPEG", quality=quality)
             return buf.getvalue()
 
         original = jpeg(img, 90)
@@ -184,7 +235,7 @@ def process(data: bytes) -> Processed:
     except PhotoError:
         raise
     except Image.DecompressionBombError as exc:
-        raise PhotoError("photo_too_large", "That picture has too many pixels (100 megapixels at most).", 413) from exc
+        raise PhotoError("photo_too_large", "That picture has too many pixels (64 megapixels at most).", 413) from exc
     except Exception as exc:  # noqa: BLE001 -- any decoder failure is "not a usable picture"
         raise PhotoError("photo_invalid", "That picture couldn’t be read.", 415) from exc
 
@@ -382,7 +433,7 @@ class PhotoLibrary:
             return same, True
         if self.db.execute("SELECT COUNT(*) FROM photos WHERE album_id=?", (album["id"],)).fetchone()[0] >= ALBUM_PHOTOS_MAX:
             raise PhotoError("album_full", f"An album holds at most {ALBUM_PHOTOS_MAX:,} photos.", 409)
-        got = await asyncio.to_thread(process, data)
+        got = await run_image_job(process, data)
         async with self.lock:
             same = self.find(album["id"], sha)                  # the same picture, sent twice at once
             if same is not None:
@@ -394,11 +445,13 @@ class PhotoLibrary:
             pid = secrets.token_hex(16)
             row = {"id": pid, "album_id": album["id"], "name": file_label(name), "width": got.width,
                    "height": got.height, "bytes": got.size, "source": source, "created": self.clock()}
+            write = None
             try:
                 # the files and the row together: a write that fails partway (a full disk) took its files with
                 # it no more, and left pictures no row counts toward the quota and nothing ever deletes
                 try:
-                    await asyncio.to_thread(self._write_files, pid, got)
+                    write = asyncio.ensure_future(asyncio.to_thread(self._write_files, pid, got))
+                    await asyncio.shield(write)                 # a cancel must not stop waiting for the thread
                 except OSError as exc:
                     log.warning("could not store a photo: %s", exc)
                     raise PhotoError("storage_failed", "Mantel couldn't store the photo (is the disk full?).", 507) from exc
@@ -410,6 +463,14 @@ class PhotoLibrary:
                                      row["created"], user, json.dumps(got.faces) if checked else None,
                                      self.clock() if checked else None, face_finder.NAME if checked else None))
             except BaseException:
+                # A thread can't be cancelled: when this add is (an Owner stopped an import, Mantel is stopping), the
+                # writer is still putting files down. Take them away only once it has finished, or what it writes
+                # after is on disk in no row, counted by no quota, deleted by nothing.
+                while write is not None and not write.done():
+                    with contextlib.suppress(asyncio.CancelledError):
+                        await asyncio.wait({write})
+                if write is not None and not write.cancelled():
+                    write.exception()                           # retrieved: its error was handled or is moot
                 await asyncio.to_thread(self._remove_files, pid)
                 raise
         return row, False
@@ -464,9 +525,11 @@ class PhotoLibrary:
         return {"photos": photos, "checked": checked, "with_faces": int(r["with_faces"] or 0),
                 "left": photos - checked, "last": r["last"]}
 
-    def unchecked(self) -> str | None:
-        """The newest photo whose faces haven't been looked for, or None."""
-        row = self.db.execute("SELECT id FROM photos WHERE faces_at IS NULL ORDER BY created DESC LIMIT 1").fetchone()
+    def unchecked(self, skip: Iterable[str] = ()) -> str | None:
+        """The newest photo whose faces haven't been looked for (but those in ``skip``), or None."""
+        skip = list(skip)
+        row = self.db.execute(f"SELECT id FROM photos WHERE faces_at IS NULL AND id NOT IN ({','.join('?' * len(skip))}) "
+                              "ORDER BY created DESC LIMIT 1", skip).fetchone()
         return row["id"] if row else None
 
     def set_focus(self, photo_id: str, body: object) -> dict:
@@ -545,12 +608,14 @@ class FaceBackfill:
     It starts a minute after the server does, then takes one photo at a time, newest first, reads its screen-sized
     file, looks in a worker thread and writes the row, with a short rest between photos. It waits while an import
     runs and stops when nothing is left; its state is the rows (``faces_at IS NULL``), so a restart carries on. A
-    file that can't be read is stored as no faces, so it isn't tried again for ever. Nothing runs without a
+    file that can't be read is stored as no faces, so it isn't tried again for ever; a photo the DETECTOR fails on stays
+    unchecked (skipped for this run), and a few failures in a row stop the run (logged once). Nothing runs without a
     detector."""
 
     START = 60.0
     REST = 0.5
     IMPORT_WAIT = 5.0
+    FAILURES_MAX = 3                # detector failures in a row (not unreadable files) that stop a run
 
     def __init__(self, app: web.Application, *, start: float | None = None, rest: float | None = None) -> None:
         self.app = app
@@ -601,22 +666,31 @@ class FaceBackfill:
                     finished=(self.finished or last) if state == "done" and n["photos"] else None)
 
     @staticmethod
-    def _look(det, path: Path | None) -> list:
+    def _look(det, path: Path | None) -> list | None:
+        """The faces in a file: ``[]`` when it can't be opened (there is nothing to find, now or later), None when the
+        DETECTOR failed on a picture that opened (that says nothing about the photo: it is looked at again)."""
         if path is None:
             return []
         from PIL import Image
         try:
-            with Image.open(path) as im:
-                im.load()
-                return det.detect(im)
+            im = Image.open(path)
+            im.load()
         except Exception as exc:  # noqa: BLE001 -- an unreadable file is "no faces", not a retry for ever
             log.warning("couldn't look for faces in %s: %s: %s", path.name, type(exc).__name__, exc)
             return []
+        with im:
+            try:
+                return det.detect(im)
+            except Exception as exc:  # noqa: BLE001 -- onnxruntime failing at run time: not the photo's fault
+                log.warning("the face detector failed on %s: %s: %s", path.name, type(exc).__name__, exc)
+                return None
 
     async def run(self) -> None:
         await asyncio.sleep(self.start_after)
         lib: PhotoLibrary = self.app["photos"]
         began, det = time.monotonic(), None
+        failed: set[str] = set()                                # photos the detector failed on, left for another run
+        in_a_row = 0
         self.started, self.finished = self.app["clock"](), None
         try:
             while True:
@@ -624,7 +698,7 @@ class FaceBackfill:
                 if imp is not None and imp.running:
                     await asyncio.sleep(self.IMPORT_WAIT)
                     continue
-                pid = lib.unchecked()
+                pid = lib.unchecked(skip=failed)
                 if pid is None:
                     self.finished = self.app["clock"]()
                     break
@@ -635,6 +709,16 @@ class FaceBackfill:
                         log.warning("the face backfill can't start: %s", exc)
                         return
                 found = await asyncio.to_thread(self._look, det, lib.path(pid, "screen"))
+                if found is None:                               # the detector failed: the row stays unchecked
+                    failed.add(pid)
+                    in_a_row += 1
+                    if in_a_row >= self.FAILURES_MAX:
+                        log.warning("the face backfill stops: the detector failed on %d photos in a row; it tries "
+                                    "again when Mantel restarts", in_a_row)
+                        return
+                    await asyncio.sleep(self.rest)
+                    continue
+                in_a_row = 0
                 if lib.photo(pid) is not None:                  # not deleted meanwhile
                     lib.set_faces(pid, found)
                     self.checked += 1

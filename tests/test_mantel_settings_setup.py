@@ -150,8 +150,9 @@ def test_a_step_opens_its_page_and_can_wait(got):
 
 
 def test_commands_show_how_and_no_button_turns_them_on(got):
+    """The page sends the Owner to General's switch (Allow Control of the House, 0.1.52); it said no page could."""
     how = next(g for g in got["commands"] if g.get("header") == "How")
-    assert "never from a page" in how["footer"]
+    assert "Allow Control of the House" in how["footer"] and "never from a page" not in how["footer"]
     assert not any(r.get("label") in ("Do It Now", "Turn On") for r in rows(got["commands"]))
 
 

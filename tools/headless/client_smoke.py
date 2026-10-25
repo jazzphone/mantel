@@ -289,7 +289,7 @@ async def smoke(shot=None, shots=None):
                           // settings_write: HK's own settings save, answered by Mantel's settings store (P3.5);
                           // never a house command, and never one wrapping a service call
                           if (!['subscribe','unsubscribe','ping','watch_stats','read','read_subscribe','read_unsubscribe',
-                                'settings_write','user_data_set'].includes(msg.type) ||
+                                'settings_write','user_data_set','page_health'].includes(msg.type) ||
                               ['call_service','execute_script'].includes(msg.msg && msg.msg.type)) {
                             window.__blockedWrites++; throw new Error('write blocked');
                           }
@@ -300,6 +300,9 @@ async def smoke(shot=None, shots=None):
                       };
                     })();""" % json.dumps(origin)
                     await browser.send("Page.addScriptToEvaluateOnNewDocument", source=guard)
+                    # a headless window never has the focus, and Cameras -> Pause When Not in Focus (on by default)
+                    # would rest the live tiles checked below
+                    await browser.send("Emulation.setFocusEmulationEnabled", enabled=True)
                     await browser.open(origin + "/dashboard-proof/home?narrow=0", cookie)
                     if not await browser.wait("window.__mantelReady === true", 25):
                         raise AssertionError("Home did not load: " + json.dumps(browser.console[-15:]))

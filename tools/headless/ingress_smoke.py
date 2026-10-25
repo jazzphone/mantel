@@ -158,8 +158,10 @@ async def smoke(shot=None):
         proxy = web.Application()
         proxy.router.add_route("*", "/{tail:.*}", stand_in.handle)
 
+        # HA Core's ingress view reads the App's answer with a decompressing session and drops Content-Encoding
+        # (homeassistant/components/hassio/ingress.py), so the stand-in decompresses too
         async def session_ctx(a):
-            async with aiohttp.ClientSession(auto_decompress=False) as s:
+            async with aiohttp.ClientSession() as s:
                 a["session"] = s
                 yield
         proxy.cleanup_ctx.append(session_ctx)

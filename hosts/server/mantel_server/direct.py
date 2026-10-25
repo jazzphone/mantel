@@ -31,6 +31,8 @@ from aiohttp import web
 
 log = logging.getLogger("mantel.direct")
 
+SHUTDOWN_TIMEOUT = 5        # seconds a stop waits for open sockets (Docker kills an App after about 10)
+
 
 def enabled(cfg) -> bool:
     return bool(getattr(cfg, "direct_port", 0))
@@ -123,7 +125,7 @@ def builtin_https(request: web.Request) -> bool:
 
 async def serve(app: web.Application, cfg, stop: asyncio.Event | None = None) -> None:
     """Run the Ingress listener and the direct one on one application until stopped."""
-    runner = web.AppRunner(app)
+    runner = web.AppRunner(app, shutdown_timeout=SHUTDOWN_TIMEOUT)
     await runner.setup()
     try:
         await web.TCPSite(runner, cfg.host, cfg.port).start()

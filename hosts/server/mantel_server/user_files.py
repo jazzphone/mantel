@@ -278,7 +278,7 @@ def reencode_photo(data: bytes, *, expect: str | None = None) -> tuple[bytes, st
         except ImportError as exc:
             raise FileError("heic_unsupported", "HEIC needs pillow-heif on this server; export the photo as JPEG",
                             415) from exc
-    Image.MAX_IMAGE_PIXELS = PHOTO_PIXELS_MAX * 2
+    Image.MAX_IMAGE_PIXELS = None       # Pillow's global bomb check off (photos.py does the same): each open checks its cap
     try:
         img = Image.open(io.BytesIO(data))
         if img.width * img.height > PHOTO_PIXELS_MAX:
@@ -287,10 +287,13 @@ def reencode_photo(data: bytes, *, expect: str | None = None) -> tuple[bytes, st
         shown = {"JPEG": "jpeg", "MPO": "jpeg", "PNG": "png", "WEBP": "webp", "HEIF": "heic"}.get(img.format or "")
         if shown != kind:
             raise FileError("photo_invalid", "the picture does not match its own format", 415)
+        if shown == "jpeg":
+            # only PHOTO_EDGE is kept, so libjpeg may decode at 1/2, 1/4 or 1/8 size while that is still >= the edge
+            img.draft("RGB", (PHOTO_EDGE, PHOTO_EDGE))
         img.seek(0)
         img.load()
         icc = img.info.get("icc_profile")
-        img = ImageOps.exif_transpose(img)
+        ImageOps.exif_transpose(img, in_place=True)
         img.thumbnail((PHOTO_EDGE, PHOTO_EDGE))
         out_kind = "jpeg" if kind == "heic" else kind
         if expect is not None and out_kind != expect:
@@ -307,7 +310,8 @@ def reencode_photo(data: bytes, *, expect: str | None = None) -> tuple[bytes, st
                 img = ImageCms.profileToProfile(img, src, ImageCms.createProfile("sRGB"), outputMode=img.mode)
         buf = io.BytesIO()
         if out_kind == "jpeg":
-            img.save(buf, "JPEG", quality=88, optimize=True, progressive=True)
+            # baseline, not optimize/progressive: those hold the GIL for the whole encode (see photos.process)
+            img.save(buf, "JPEG", quality=88)
         elif out_kind == "png":
             img.save(buf, "PNG", optimize=True)
         else:
@@ -620,7 +624,11 @@ def _store(request: web.Request) -> UserFiles:
     return request.app["user_files"]
 
 
-async def _in_thread(fn, *args):
+async def _in_thread(fn, *args, heavy: bool = False):
+    """``fn`` in a worker thread. ``heavy`` (decoding a picture) takes its turn in photos.py's image slots first."""
+    if heavy:
+        from .photos import run_image_job
+        return await run_image_job(fn, *args)
     return await asyncio.get_running_loop().run_in_executor(None, fn, *args)
 
 
@@ -644,7 +652,7 @@ async def api_upload(request: web.Request) -> web.Response:
         elif kind == "glyphs":
             result = await _in_thread(store.add_glyphs, data)
         else:
-            result = await _in_thread(store.add_photo, data, None)
+            result = await _in_thread(store.add_photo, data, None, heavy=True)
     except FileError as exc:
         return _fail(exc)
     _audit(request, ident, f"user_files.upload.{kind}", {"name": result["name"], "size": result["size"]})
@@ -668,7 +676,7 @@ async def image_upload(request: web.Request) -> web.Response:
     ident = _manager(request)
     try:
         data, _, _ = await read_upload(request, PHOTO_MAX)
-        result = await _in_thread(_store(request).add_photo, data, None)
+        result = await _in_thread(_store(request).add_photo, data, None, heavy=True)
     except FileError as exc:
         return _fail(exc)
     _audit(request, ident, "user_files.upload.photo", {"id": result["id"], "size": result["size"]})

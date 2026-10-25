@@ -186,6 +186,10 @@ class SessionManager:
         now = self._now(now)
         lifetime = self.ttl[door] if ttl is None else float(ttl)
         expires = now + lifetime
+        if parent is not None:      # never longer than the session that handed it out (an expiring app takes it)
+            row = self.db.execute("SELECT expires FROM sessions WHERE id = ?", (parent,)).fetchone()
+            if row is not None:
+                expires = min(expires, float(row["expires"]))
         sid = secrets.token_hex(16)
         csrf = secrets.token_urlsafe(32)
         access = secrets.token_urlsafe(32)

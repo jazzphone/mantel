@@ -83,7 +83,9 @@ In Docker, run the same commands inside the server, for example `docker compose 
 
 The Home Assistant user id is on the person's **Not linked yet** page. It is also the `user_id` attribute of their `person.*` entity in Home Assistant.
 
-When Mantel runs inside Home Assistant (the [Mantel App](Install.md), or [Mantel Connect](Mantel-Connect.md)), an Owner or Admin can also link people from Mantel's own **People** page in the sidebar, which **Link the rest of the household** on the first-Owner page opens ([First Run](First-Run.md#link-the-household)). Later, **Mantel Settings** → **People** → **Link Home Assistant Users…** opens it again. It lists Home Assistant's users: choose a role and select **Link**, or **Unlink**.
+Or, wherever Mantel runs, in **Mantel Settings** → **People** → **Home Assistant Users**: each Home Assistant user has a picker, **Not Linked** or one of your people (**Other Home Assistant Users** lists the ones not linked yet). Linking an account is like adding a way to sign in as that person, so Mantel asks you to confirm it is you first when you are away from home (not in Home Assistant's sidebar). Only an Owner links or unlinks an Owner. Unlinking ends that user's Home Assistant sign-ins at once.
+
+When Mantel runs inside Home Assistant (the [Mantel App](Install.md), or [Mantel Connect](Mantel-Connect.md)), the first-Owner page's **Link the rest of the household** opens Mantel's own **People** page in the sidebar ([First Run](First-Run.md#link-the-household)): choose a role and select **Link**, or link a tablet's user with **Link as a wall tablet**.
 
 
 **People** lists linked users under **Home Assistant Users**.
@@ -191,8 +193,10 @@ A **service account** is a credential for a machine, not a person: no password, 
 | Section of Mantel Settings | Owner | Admin | Adult, Child, Guest |
 |---|---|---|---|
 | **Me** | Yes | Yes | Yes |
+| **Set Up Mantel** (the first run's checklist) | Yes | Yes | No |
+| **General** (Allow Control of the House, House Default Screen, Sign-Ins from Away Last) | Yes (turning control on asks you to confirm it is you) | Read only | No |
 | HK's own settings (Screens, Pages, All Screens, Library, System) | Yes | Yes | No |
-| **People**, **Your Files** | Yes | Yes | No |
+| **People**, **Your Files**, **Photos** | Yes | Yes | No |
 | **Roles & Grants** | Yes | No | No |
 | **Service Accounts**, Connections' **Sidebar (Mantel Connect)** (when Connect is on) | Yes, on the home network | No | No |
 | **Audit Log** | Yes | Yes | No |

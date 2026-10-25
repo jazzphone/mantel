@@ -48,6 +48,12 @@ def _warn_refused(entity_id: str, now: Callable[[], float] | None = None) -> Non
         log.warning("refused camera view of %s (repeats are logged every %d s)", entity_id, REFUSED_WARN_EVERY)
 
 CONFIG, OFFER, CANDIDATE = "camera/webrtc/get_client_config", "camera/webrtc/offer", "camera/webrtc/candidate"
+# Live streams at Home Assistant for the page. The Cameras page opens every camera as a live tile on its one socket
+# (nine in the house the page was built against: hk-cameras.js), and a Home strip or a second page may add more; 16 a
+# socket leaves room for that, and 64 in all is what a house of tablets and phones watching together reaches, not
+# what one browser tab can. Live TV's pattern (live_tv.py: 4 a socket, 32 in all) at camera-sized numbers.
+MAX_OFFERS_PER_SOCKET = 16
+MAX_OFFERS = 64
 
 
 def check_signaling(msg: dict) -> None:
@@ -74,6 +80,7 @@ class CameraSignaling:
         self._get = proxy
         self.hooks = Hooks.coerce(hooks)
         self.forwarded: list[str] = []            # message types sent upstream (tests, /api/stats later)
+        self.offers = 0                           # offers starting or live, every connection together
 
     def _proxy(self) -> SignalingProxy:
         p = self._get()
@@ -126,10 +133,28 @@ class CameraSignaling:
             on_event(ev)
 
         proxy = self._proxy()
+        # The caps count an offer from here until it ends: starting (the await below), then live. Checked and taken with
+        # no await between, so offers sent together are counted, and one tab can't hold every stream HA has.
+        if ctx.state.get("camera_offers", 0) >= MAX_OFFERS_PER_SOCKET or self.offers >= MAX_OFFERS:
+            raise Forbidden("too many camera streams at once")
+        ctx.state["camera_offers"] = ctx.state.get("camera_offers", 0) + 1
+        self.offers += 1
+        counted = [True]
+
+        def release() -> None:
+            if counted[0]:
+                counted[0] = False
+                ctx.state["camera_offers"] -= 1
+                self.offers -= 1
         self.forwarded.append(OFFER)
-        mid = await proxy.subscribe({"type": OFFER, "entity_id": entity_id, "offer": msg["offer"]}, relay)
+        try:
+            mid = await proxy.subscribe({"type": OFFER, "entity_id": entity_id, "offer": msg["offer"]}, relay)
+        except BaseException:
+            release()
+            raise
 
         async def unsubscribe() -> None:
+            release()
             for s in mine:
                 sessions.pop(s, None)
             await proxy.unsubscribe(mid)           # HA ends the WebRTC session

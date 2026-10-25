@@ -31,9 +31,11 @@ ITEMS_MAX = 24
 VIEWS_MAX = 4
 PAGES_MAX = 12
 LIST_MAX = 24                      # the most things one option lists (a scenes block's scenes)
-ITEM_ID = re.compile(r"^[a-z0-9][a-z0-9_-]{0,19}$")
-ENTITY_ID = re.compile(r"^[a-z0-9_]+\.[a-z0-9_]+$")
-AREA_ID = re.compile(r"^[a-z0-9_]{1,80}$")
+# \Z, not $: `$` also matches before a final newline ("light.x\n" passed .match). An entity id is at most 255
+# characters, Home Assistant's own limit.
+ITEM_ID = re.compile(r"^[a-z0-9][a-z0-9_-]{0,19}\Z")
+ENTITY_ID = re.compile(r"^(?=.{3,255}\Z)[a-z0-9_]+\.[a-z0-9_]+\Z")
+AREA_ID = re.compile(r"^[a-z0-9_]{1,80}\Z")
 # The tablet's own room, as an option's value: the Wall Tablets room of the tablet showing the screen. Stored
 # and checked here; the cards resolve it (G3, G4).
 TABLET_ROOM = "tablet_room"
@@ -85,7 +87,7 @@ ACTIONS = ("lock_up", "lights_off", "garage")
 # Night), each finding its scene by name.
 WINDOWS_MAX = 8
 LABEL_MAX = 24
-CLOCK = re.compile(r"^([01][0-9]|2[0-3]):[0-5][0-9]$")
+CLOCK = re.compile(r"^([01][0-9]|2[0-3]):[0-5][0-9]\Z")
 
 
 class GridInvalid(ValueError):
@@ -401,7 +403,7 @@ def item(v: Any, cols: int, rows: int) -> dict[str, Any]:
     if not isinstance(v.get("id"), str) or not ITEM_ID.match(v["id"]):
         raise GridInvalid("grid_item")
     card = v.get("card")
-    if card not in CATALOG:
+    if not isinstance(card, str) or card not in CATALOG:     # a list or an object is no name (and isn't hashable)
         raise GridInvalid("grid_card")
     size = v.get("size")
     if size not in CATALOG[card]["sizes"]:
@@ -482,10 +484,11 @@ def _shape(v: Any) -> dict[str, Any]:
     if not isinstance(v, dict) or set(v) - {"v", "cols", "rows", "frame", "band", "header_clock", "header_weather", "scale", "boxes", "grow",
                                               "night", "views", "items"}:
         raise GridInvalid("grid")
-    if v.get("v", VERSION) != VERSION:
+    ver = v.get("v", VERSION)
+    if type(ver) is not int or ver != VERSION:         # not True, not 1.0: == alone takes both
         raise GridInvalid("grid")
     cols = v.get("cols", COLS[0])
-    if isinstance(cols, bool) or cols not in COLS:
+    if type(cols) is not int or cols not in COLS:
         raise GridInvalid("grid_cols")
     rows = _whole(v.get("rows", ROWS_DEFAULT), *ROWS, "grid_rows")
     band = v.get("band", True)
@@ -545,7 +548,7 @@ def layout(v: Any) -> dict[str, Any] | None:
         return None
     try:
         out = _shape(v)
-    except GridInvalid:
+    except (GridInvalid, TypeError, KeyError):      # read, never raise: one stored screen never stops every feed
         return None
     taken: set[tuple[int, int]] = set()
     ids: set[str] = set()
@@ -553,7 +556,7 @@ def layout(v: Any) -> dict[str, Any] | None:
     for raw in out["items"]:
         try:
             it = item(raw, out["cols"], out["rows"])
-        except GridInvalid:
+        except (GridInvalid, TypeError, KeyError):
             continue
         here = cells(it)
         if it["id"] in ids or here & taken or it.get("view", 0) >= out.get("views", 1):

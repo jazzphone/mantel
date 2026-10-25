@@ -106,7 +106,7 @@ checked against the person's role and written to the
    **dormant**: linked, but showing none of Mantel's entities, because HK
    Frontend still does.
 5. **Hand over the bridge**: **Mantel Settings → Connections → Home Assistant
-   Link → Hand the Bridge to Mantel Link**. HK Frontend lets go of Mantel's
+   → Moving from HK Frontend → Advanced → Hand the Bridge to Mantel Link**. HK Frontend lets go of Mantel's
    entities and Mantel Link takes over the same ones, with the same entity ids
    and history. `hk_frontend.set_black_screen` keeps working throughout.
 
@@ -126,14 +126,14 @@ Start with a tablet you can reach easily. For each tablet:
    Mantel App, a tablet can instead keep its own Home Assistant user and open
    Mantel's App panel; an Owner links that user as a wall tablet.
 2. **Move it to Mantel**: **Mantel Settings → Connections → Home Assistant
-   Link → Who Runs Each Wall Tablet**, switch that tablet to Mantel. Mantel now
+   → Moving from HK Frontend**, group **Wall Tablets**: turn on that tablet's **Run by Mantel**. Mantel now
    runs its Sleep Screen and black screen; its four entities keep their ids.
 3. **Check it** for a day and a night: the black screen and wake, the
    screensaver, the doorbell pop-up, and the automations that call
    `hk_frontend.set_black_screen` on it.
 
-**Undo**: switch it back to Home Assistant under **Who Runs Each Wall
-Tablet**, and put its old start address back.
+**Undo**: turn its **Run by Mantel** off again on the same page, and put its
+old start address back.
 
 ## 6. Phones and computers
 
@@ -141,7 +141,8 @@ Each person signs in to Mantel at its own address or through Home Assistant's
 sidebar ([Signing In](Signing-In.md)). In Home Assistant, a person can make a
 Mantel screen their default dashboard (**Profile → Dashboard**) so the
 Companion app opens on it: turn on **Show in Home Assistant** on that screen in
-Mantel Settings first. iPhone, iPad and Mac users can use the
+Mantel Settings first (it needs direct access, so browsers reach Mantel at an
+address of its own: in the App, **Direct access** set to `proxy` or `https`). iPhone, iPad and Mac users can use the
 [apps](iPhone-and-Mac-Apps.md).
 
 ## 7. Move the rest of the house
@@ -155,7 +156,7 @@ Mantel's. (If you remove HK Frontend instead, Mantel takes the house by itself.)
 1. Make a Home Assistant backup.
 2. **Mantel Settings → Connections → Home Assistant → Moving from HK Frontend →
    Advanced**: move the rest of the house to Mantel. Each entity moves with its entity id and history.
-3. **Set the Alarm PIN again**: **Mantel Settings → Alarm PIN → Change PIN**.
+3. **Set the Alarm PIN again**: **Mantel Settings → Features → Alarm PIN → Change PIN**.
    Home Assistant never gives its PIN out, so the PIN HK Frontend kept can't
    come across. From now on the PIN is kept only in Mantel, and the Alarm PIN
    panel in Home Assistant checks Mantel's.

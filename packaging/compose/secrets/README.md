@@ -10,7 +10,7 @@ Ownership: `root:10001`, mode `0440` (the image's user and the cloudflared conta
 
 | File | What | Who reads it | Needed |
 |---|---|---|---|
-| `ha_token` | Optional. Long-lived access token of the dedicated HA user `mantel-server`. Normally left empty: Home Assistant is connected on the admin page (`/admin` → Connections), which keeps Mantel's own sealed copy on the data volume (`/data/connections`). A token here (with `MANTEL_HA_URL`) shows there as "set by the installation"; Mantel's saved copy wins over it | mantel-server | no; may be empty |
+| `ha_token` | Optional. Long-lived access token of the dedicated HA user `mantel-server`. Normally left empty: Home Assistant is connected in Mantel Settings → Connections, which keeps Mantel's own sealed copy on the data volume (`/data/connections`). A token here (with `MANTEL_HA_URL`) shows there as "set by the installation"; Mantel's saved copy wins over it | mantel-server | no; may be empty |
 | `at_rest.key` | 32 random bytes (base64): seals TOTP seeds and device keys in SQLite | mantel-server | required; keep a copy off the box |
 | `backup.key` | 32 random bytes (base64): encrypts the nightly backup | mantel-server | required; keep a copy off the box |
 | `ma_token` | Optional, like `ha_token`: Music Assistant's token (with `MANTEL_MA_URL`); normally set on the Connections page | mantel-server | no; may be empty |

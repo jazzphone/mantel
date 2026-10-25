@@ -186,7 +186,11 @@ async def api_list(request: web.Request) -> web.Response:
 
 async def api_add(request: web.Request) -> web.Response:
     from .accounts import read_json
-    ident = _owner(request, write=True)
+    from . import connections as C
+    _owner(request, write=True)
+    # an address that may frame Mantel: an Owner with a fresh factor away from home, as the Sign-In Address that
+    # also adds one (server_settings, connections.edit_rule)
+    ident = C._editor(request)
     body = await read_json(request)
     origin, err = await approve(request, ident, body.get("origin"), "settings")
     if err is not None:

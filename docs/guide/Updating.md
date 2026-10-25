@@ -4,7 +4,7 @@ Each way of running Mantel updates its own way: the Home Assistant App through H
 
 ## Before every update
 
-1. **Make a backup.** In the App, a Home Assistant backup (the update dialog can make it for you). With Docker or the LXC, a Mantel backup: `docker compose exec mantel-server mantel backup --target /backups`. See [Backups](Backups.md).
+1. **Make a backup.** In the App, a Home Assistant backup (the update dialog can make it for you). With Docker or the LXC, a Mantel backup: `docker compose exec mantel-server mantel backup --target /backups`. See [Backups](Backups.md). (`./update.sh` and `mantel-update` make this backup themselves, see below; by hand it is for a build from source.)
 2. **Read the release notes** for anything you need to do: [CHANGELOG.md](https://github.com/jazzphone/mantel/blob/main/CHANGELOG.md) has a section for each version. In the App, Home Assistant shows the same notes in the update dialog.
 3. **Pick a quiet moment.** Open screens reconnect by themselves after the restart, which takes up to a minute or so.
 
@@ -58,8 +58,9 @@ It:
 
 1. remembers the images that run now (tagged `mantel-rollback/<service>:previous`),
 2. pulls the new ones: every image `.env` names from a registry (`MANTEL_SERVER_IMAGE`, `MANTEL_TRANSCODE_IMAGE`, `MANTEL_CADDY_IMAGE`). Images left at their `:local` defaults are built on this machine and aren't pulled ([Built from source](#built-from-source)). If an image can't be pulled, it stops there and changes nothing,
-3. starts them and waits until every service is healthy,
-4. and if one doesn't become healthy, starts the remembered images again.
+3. makes a Mantel backup with the running server (`mantel backup --target /backups`) **before anything is restarted**, and stops there, changing nothing, if the backup fails. A new version migrates the database as it starts and the old version then refuses it, so the automatic rollback in step 5 can't undo that: this backup is the way back ([Backups → Restore](Backups.md#restore-with-docker-or-the-lxc)). Make sure `MANTEL_BACKUP_DIR` is a folder the server can write (the LXC install sets it up),
+4. starts the new images and waits until every service is healthy,
+5. and if one doesn't become healthy, starts the remembered images again.
 
 After a rollback, fix the image references in `.env` before the next update; `docker compose logs --tail 100` says what went wrong.
 

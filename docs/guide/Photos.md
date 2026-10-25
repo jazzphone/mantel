@@ -40,7 +40,7 @@ Each photo is in exactly one album. Deleting an album deletes its photos.
 
 - **JPEG, PNG, WebP and HEIC** (iPhone photos). Mantel looks at the file
   itself, not its name, so a renamed file is still checked.
-- Up to **40 MB** per photo and **100 megapixels**.
+- Up to **40 MB** per photo and **64 megapixels**.
 - All photos together up to **4 GB**.
 
 An Owner changes the two size limits under **Storage**: one upload from 1 MB

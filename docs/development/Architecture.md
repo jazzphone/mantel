@@ -37,8 +37,8 @@ Each section links the design note that has the detail.
 |  linked endpoint /linked/ws                                       |
 +-------|-------------------|--------------------|------------------+
         | one read-only     | HaCommander        | Music Assistant's
-        | subscribe_entities| (only with         | own WebSocket API
-        | connection        | --commands-enabled)|
+        | subscribe_entities| (only while house  | own WebSocket API
+        | connection        | commands are on)   |
         v                   v                    v
 +----------------------------------+     +-----------------+
 | Home Assistant                   |     | Music Assistant |
@@ -133,8 +133,12 @@ and implement it in both hosts, not to reach around the boundary.
 
 ## The command gateway
 
-Commands are **off by default**. The command path is not even built unless the operator starts the server with
-`--commands-enabled`; no client message, REST call or setting can switch it on.
+Commands are **off by default**. The command path is not even built while they are off. An Owner turns them on in
+Mantel Settings (General → Allow Control of the House, `server_settings.py`), after a fresh sign-in and an audit row;
+`server.apply_commands` then builds the gateway and its connection, or removes them when turned off, and every page
+socket reconnects to learn which. `--commands-enabled` is only the first start's value. The kill switch
+(`--read-only`, `MANTEL_READ_ONLY`, the App's `read_only`) keeps the path unbuilt whatever is stored, and no client
+message, REST call or setting can override it.
 
 With commands on, a command goes like this:
 

@@ -12,7 +12,7 @@ Mantel sits between the people in your home and Home Assistant, and it holds Hom
 ## The main rules
 
 1. **One server holds the credentials.** Mantel Server keeps the Home Assistant and Music Assistant credentials. No page is ever given a Home Assistant token: camera stills, artwork, history and live video come through Mantel, which checks the person's role first.
-2. **Commands are off until you turn them on**, as an installation setting nobody can change from a browser ([Commands and Audit](Commands-and-Audit.md#turn-commands-on)). The connection Mantel uses to read Home Assistant can't send commands at all; a separate one does, and only for a command that has just been checked and recorded.
+2. **Commands are off until an Owner turns them on**, in Mantel Settings → General → **Allow Control of the House**, after confirming it is them with a fresh sign-in; every change is audited. Whoever runs the server can keep the house read-only whatever that switch says, with the kill switch (the App's `read_only`, `MANTEL_READ_ONLY`, `--read-only`), which no page can change ([Commands and Audit](Commands-and-Audit.md#turn-commands-on)). The connection Mantel uses to read Home Assistant can't send commands at all; a separate one does, and only for a command that has just been checked and recorded.
 3. **Deny by default.** Nobody sees or controls anything a grant doesn't allow, and a deny always wins ([People and Roles](People-and-Roles.md)).
 4. **Filtered before it's sent.** An entity a person may not see is never sent to their browser, and people's exact GPS positions are removed unless they may read location history.
 5. **Recorded before it's done.** The audit row is written before a command goes out; if it can't be written, the command is refused.
@@ -31,7 +31,7 @@ Every request reaches Mantel by a **door**:
 Away, Mantel is stricter:
 
 - A password alone is refused: you need a passkey, or a password and an authenticator code.
-- Sessions last 12 hours instead of 30 days, and a session from home doesn't work away.
+- Sessions last 12 hours instead of 30 days (an Owner can change that: **General** → **Sign-Ins from Away Last**), and a session from home doesn't work away.
 - Wall tablet credentials are refused.
 - Each role's **From Outside the Home** switches decide sensitive actions, cameras and location history. Children and Guests get none of them by default.
 - Owners get a Home Assistant notification for every unlock and disarm.
@@ -51,7 +51,7 @@ Mantel also answers only to its own host names, and refuses a request whose `Ori
 ### Reaching Mantel from away
 
 - **A Cloudflare Tunnel is the recommended way in.** `cloudflared` makes an outgoing connection to Cloudflare, so nothing on your router is opened, and everything that comes through it gets the away rules above.
-- **Cloudflare Access in front of it is optional, and recommended.** Access is a sign-in Cloudflare asks for (your email, or your identity provider) before a request reaches the tunnel at all, so a stranger never even sees Mantel's sign-in page. When it lets a request through, Cloudflare adds a signed token to it (the `Cf-Access-Jwt-Assertion` header). Tell Mantel your Zero Trust team name and the Access application's AUD tag ([Docker](Install-Docker.md#cloudflare-access-optional), [the App](Install.md#cloudflare-access-optional)), and Mantel checks that token itself on every away request: signed with your team's keys (RS256 only, the keys fetched from `https://<team>.cloudflareaccess.com/cdn-cgi/access/certs` and kept for an hour), issued by your team, for your Access application, and not expired. A request without a valid token is refused (`403`, `access_required` or `access_invalid`) before Mantel looks at any cookie or sign-in. So a hostname published without Access, a policy turned off by mistake, or someone reaching your server around Cloudflare gets nothing. If Mantel can't read Cloudflare's keys, away requests are refused too (fail closed); home and the Home Assistant sidebar keep working. Without these settings, Mantel doesn't check the token.
+- **Cloudflare Access in front of it is optional, and recommended.** Access is a sign-in Cloudflare asks for (your email, or your identity provider) before a request reaches the tunnel at all, so a stranger never even sees Mantel's sign-in page. When it lets a request through, Cloudflare adds a signed token to it (the `Cf-Access-Jwt-Assertion` header). Tell Mantel your Zero Trust team name and the Access application's AUD tag ([Docker](Install-Docker.md#cloudflare-access-optional), [the App](Install.md#cloudflare-access-optional)), and Mantel checks that token itself on every away request: signed with your team's keys (RS256 only, the keys fetched from `https://<team>.cloudflareaccess.com/cdn-cgi/access/certs` and kept for an hour), issued by your team, for your Access application, and not expired. A request without a valid token is refused (`403`, `access_required` or `access_invalid`) before Mantel looks at any cookie or sign-in. So a hostname published without Access, a policy turned off by mistake, or someone reaching your server around Cloudflare gets nothing. If Mantel can't read Cloudflare's keys, the keys it already holds stay usable for up to 24 hours, so a short Cloudflare outage doesn't lock you out; with none, or older than that, away requests are refused (fail closed, `503 access_unavailable`); home and the Home Assistant sidebar keep working. Without these settings, Mantel doesn't check the token.
 - **Access adds a gate; it doesn't sign you in to Mantel.** Mantel's own sign-in, with the away rules, still applies behind it.
 - **Every path goes through Access** while Mantel checks it. Mantel makes no exceptions, so an Access *Bypass* rule for some paths (for example the iPhone and Mac apps' `/api/app/` calls) doesn't work: Cloudflare sends no token for bypassed requests, and Mantel refuses them.
 - **Opening a port yourself** (forwarding your router to Mantel, its proxy or the App's direct port) works, but it's at your own risk: Mantel's sign-in page, and every bug that may be in front of it, is then reachable by anyone on the internet, and nothing but Mantel's own sign-in and its guessing limits stands between them and your home. Such requests normally get the away rules, but Mantel can only go by the address it sees: a port forwarded to the Mantel App's built-in HTTPS can make internet clients look like home (Docker's port mapping), which is why that port must never be forwarded. With Cloudflare Access configured, Mantel refuses them, because they carry no Access token.
@@ -67,7 +67,7 @@ Mantel also answers only to its own host names, and refuses a request whose `Ori
 ### Sessions
 
 - A sign-in gives the browser a short **access token** (15 minutes) and a **refresh token** that changes every time it's used. If an old refresh token turns up again, someone has a copy, and Mantel ends the whole session for both.
-- The cookies are `HttpOnly` (page scripts can't read them), `SameSite=Strict` and `Secure`.
+- The session cookies are `HttpOnly` (page scripts can't read them), `SameSite=Strict` and `Secure`. The one exception is the CSRF token's cookie, which the page must read to send it back in a header; it grants nothing on its own.
 - Mantel stores only SHA-256 hashes of tokens, so a copy of the database can't be used to sign in.
 - Disabling a person ends their sessions at once.
 
@@ -130,7 +130,7 @@ Everything else is stored only as a one-way hash: passwords and PINs (the Alarm 
 - Home Assistant's Alarm PIN (Home Assistant never gives it out, which is why you set it again in Mantel);
 - a Kiosk Satellite tablet's password (used once to get a token).
 
-**What Mantel's own code contacts outside your network**, when you use the feature: the weather radar and map tiles (from the browser), music artwork (from the browser), Let's Encrypt and Cloudflare's DNS API for certificates in the Mantel App's direct access, and Apple's push service, directly or through the apps' push relay, for [Push Notifications](Push-Notifications.md) to the iPhone and Mac apps.
+**What Mantel's own code contacts outside your network**, when you use the feature: the weather radar and map tiles (from the browser), music artwork (from the browser), Let's Encrypt and your DNS host's API (Cloudflare or Duck DNS) for certificates in the Mantel App's direct access, the DNS host you choose for Caddy's certificates with Docker or the LXC, and Apple's push service, directly or through the apps' push relay, for [Push Notifications](Push-Notifications.md) to the iPhone and Mac apps.
 
 ## Where the protection ends
 

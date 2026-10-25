@@ -111,6 +111,15 @@ def test_bump_names_the_unreleased_section(tree):
     assert bump.main(["v0.1.37", "--root", str(tree)]) == 2
 
 
+def test_bump_leaves_an_unreleased_section_below_released_ones(tree):
+    """An "## Unreleased" left below released versions was renamed 0.1.71 out of order (the audit's second pass):
+    only the newest section is renamed."""
+    path = tree / "CHANGELOG.md"
+    path.write_text("# Changelog\n\n## 0.1.36 - 2026-01-01\n\n- shipped\n\n## Unreleased\n\n- later\n")
+    assert bump.name_unreleased("0.1.37", tree, datetime.date(2026, 1, 2)) is False
+    assert "## Unreleased" in path.read_text()
+
+
 def test_the_checks_job_runs_it():
     text = (ROOT / ".github/workflows/tests.yml").read_text()
     assert "python tools/check_version.py" in text

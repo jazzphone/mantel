@@ -266,6 +266,8 @@ a test page for the hub.
 
 Useful flags: `--data-dir` (where `mantel.db` lives, default `~/.local/share/mantel`), `--secrets-dir` (the
 at-rest key, default `~/.config/mantel/secrets`), `--port`, `--ma-url` and `--ma-token-file` (Music Assistant).
-`--commands-enabled` turns the command gateway on; leave it off unless you are pointing at a test Home Assistant.
+`--commands-enabled` turns the command gateway on at the very first start (after that, Mantel Settings → General →
+Allow Control of the House holds it, and `--read-only` keeps it off whatever is stored); leave it off unless you are
+pointing at a test Home Assistant.
 `mantel-server --help` lists everything, and [Operations](../OPERATIONS.md) explains the flags, secrets and data
 folder.

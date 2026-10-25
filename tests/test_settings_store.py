@@ -984,3 +984,36 @@ async def test_home_grid_save_restore_and_copy_preserve_other_screen_settings(sv
         with pytest.raises(S.SettingsError, match='may not change'):
             await save(changed, who)
     assert store.history('board', 'dashboard-kitchen') == before
+
+
+# ------------------------------------------------------------------------------------- the audit's second pass
+def test_a_person_cannot_keep_what_the_house_would_be_refused():
+    """SET-8 (audit, second pass): a person's look/sky values only had to be plain JSON of the house value's
+    kind; the house model's own checks (a choice, a range) never ran on them, and _personalise lays them over the
+    feed as they are."""
+    from hk_core.settings import model as M
+    model = S.load_model()
+    house = M.merged(None)
+    _, house_errors = model.apply_house({}, {"look.glass": "bogus"})
+    assert house_errors
+    _, mine = model.apply_user({}, {"look.glass": "bogus"}, house)
+    assert mine
+    out, ok = model.apply_user({}, {"look.glass": house["look"]["glass"]}, house)
+    assert ok == {} and out["look"]["glass"] == house["look"]["glass"]
+
+
+async def test_one_stored_screen_with_a_bad_grid_does_not_take_the_feed_down(store):
+    """SET-1 (audit, second pass): one stored board with a grid whose card is not a name (an unchecked write: the
+    import, a restore) made board() raise inside _base_feed, which publish() ran outside its try: a save committed
+    and then failed, no screen heard it, and every feed after it failed too."""
+    from hk_core.settings import model as M
+    svc = S.SettingsService(store, S.SettingsHooks(may_configure=lambda identity, scope: True), S.load_model())
+    store.write([("board", "dashboard-ok", M.board({}))], actor=S.Actor(label="t"))
+    heard = Feed()
+    svc.subscribe_feed(OWNER, heard)
+    store.write([("board", "dashboard-bad", {"home_style": "grid", "home_grid": {
+        "v": 1, "cols": 6, "rows": 4, "frame": [1280, 800], "band": True,
+        "items": [{"id": "a1", "card": [], "size": "S", "at": [0, 0]}]}})], actor=S.Actor(label="import"))
+    await svc.save(OWNER, {"type": "hk_frontend/settings/set", "changes": {"look.glass": "blur"}})
+    assert len(heard.events) == 2
+    assert svc.feed_payload(OWNER)

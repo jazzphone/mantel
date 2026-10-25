@@ -25,4 +25,4 @@ Problems in Home Assistant, Music Assistant or a browser itself belong to those 
 
 ## How Mantel is meant to be safe
 
-[Security Model](docs/guide/Security-Model.md) describes what Mantel protects and how: commands off until the operator turns them on, every command checked against roles and written to the audit log first, secrets read from files only, and passwords hashed with Argon2id.
+[Security Model](docs/guide/Security-Model.md) describes what Mantel protects and how: commands off until an Owner turns them on (and a server-side kill switch that keeps them off), every command checked against roles and written to the audit log first, secrets read from files only, and passwords hashed with Argon2id.

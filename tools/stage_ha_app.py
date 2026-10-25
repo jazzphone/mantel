@@ -191,6 +191,11 @@ def write(target: Path, pairs: list[tuple[Path, str]], web_src: Path = ROOT / "w
         info = {"tool": "tools/stage_ha_app.py", "commit": _commit(), "build": build_id,
                 "files": sum(1 for p in tmp.rglob("*") if p.is_file()), "sha256": digest.hexdigest()}
         (tmp / MARKER).write_text(json.dumps(info, indent=1) + "\n")
+        # modes do not depend on the stager's umask (077 would make an unreadable image): the Dockerfile's
+        # COPY --chmod is the other half of this
+        for p in [tmp, *tmp.rglob("*")]:
+            if not p.is_symlink():
+                p.chmod(0o755 if p.is_dir() else 0o644)
         old = None
         if target.exists():
             old = target.parent / (f".{target.name}.replaced-{os.getpid()}")

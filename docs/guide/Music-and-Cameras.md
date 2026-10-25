@@ -42,9 +42,10 @@ To stop, select **Disconnect**. The Music page goes back to Home Assistant's
 music, as before.
 
 > Prefer a file? An installation can also give Mantel Music Assistant's
-> address and token (`MANTEL_MA_URL` and the `ma_token` secret in Docker, or
-> the App's **Music Assistant address** and **Music Assistant token**
-> options). The page shows them as "set by the installation". A connection
+> address and token (`MANTEL_MA_URL` and the `ma_token` secret in Docker). The
+> page shows them as "set by the installation". The App's old **Music
+> Assistant address** and **Music Assistant token** options were copied into
+> Mantel's own saved connection once, when 0.1.52 started. A connection
 > saved on the page wins over them.
 
 ### Bring the music settings over

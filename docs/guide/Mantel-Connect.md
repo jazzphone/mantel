@@ -58,8 +58,8 @@ Home Assistant's local Apps folder, the same way as the Mantel App
 
 ### 3. Pair
 
-1. In Mantel, as an Owner on the home network: **Mantel Settings → Mantel
-   Connect**. Check **Address** (what Home Assistant uses to reach Mantel),
+1. In Mantel, as an Owner on the home network: **Mantel Settings → Connections →
+   Home Assistant → Sidebar (Mantel Connect)**. Check **Address** (what Home Assistant uses to reach Mantel),
    then **Start Pairing**. You get a one-time code like
    `5VRK2-JW7TQ-ACQ6G-XNHG8`, valid for ten minutes.
    Or, on the server: `docker compose exec mantel-server mantel connect pair`.
@@ -105,9 +105,11 @@ through the sidebar, Home Assistant's sign-in is what proves who someone is.
 The sidebar is its own door into Mantel. By default it is **trusted**: being
 signed in to Home Assistant is enough, and each person's Mantel role decides
 the rest, as HK Frontend in Home Assistant always was. To give the sidebar
-the home network's rules or Mantel's away rules instead, set
-`MANTEL_HA_DOOR_RULES` to `lan` or `tunnel`. With `tunnel`, wall tablets are
-refused through the sidebar.
+the home network's rules or Mantel's away rules instead, an Owner sets
+**Mantel Settings → Connections → Home Assistant → Coming Through Home
+Assistant** to **Home Network Rules** or **Away Rules**
+(`MANTEL_HA_DOOR_RULES` is only its value at the very first start). With Away
+Rules, wall tablets are refused through the sidebar.
 
 ## Revoke or pair again
 

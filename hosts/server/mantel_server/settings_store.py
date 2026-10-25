@@ -550,6 +550,19 @@ class HkCoreModel(ThinModel):
             return dict(doc), dict(errors)
         return dict(self.m.merged(options)), {}
 
+    def apply_user(self, doc: Mapping[str, Any], changes: Any, house: Mapping[str, Any]) -> tuple[dict, dict[str, str]]:
+        """The thin checks, then each value as the house model checks it: a person may not keep what the house
+        would be refused (``look.glass: "bogus"``; their copy is laid over the feed as it is)."""
+        out, errors = super().apply_user(doc, changes, house)
+        if errors:
+            return out, errors
+        values = {p: v for p, v in self._check_changes(changes).items() if v is not None}
+        if values:
+            _, bad = self.m.apply_house({"dashboard": copy.deepcopy(dict(house))}, values)
+            if bad:
+                return dict(doc), dict(bad)
+        return out, {}
+
     def apply_board(self, doc: Mapping[str, Any], changes: Any) -> tuple[dict, dict[str, str]]:
         data, errors = self.m.apply_board(dict(doc), self._check_changes(changes))
         return (dict(doc), dict(errors)) if errors else (dict(data), {})
@@ -1211,7 +1224,12 @@ class SettingsService:
             uid = _sides(identity)[0]
             if user_only is not None and uid != user_only:
                 continue
-            base = base if base is not None else self._base_feed()
+            if base is None:
+                try:
+                    base = self._base_feed()
+                except Exception:  # noqa: BLE001 -- the save is committed: say so in the log, not as its error
+                    log.exception("the settings feed could not be built; nothing was sent")
+                    break
             if found == ():
                 found = self.kind_lists()            # once per publish, not per screen
                 self.kinds_sent = found

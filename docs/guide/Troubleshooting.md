@@ -20,6 +20,8 @@ Open the App's **Log** tab. A wrong option stops the App with a line that starts
 | `direct access needs public_url` | With **Direct access** set to `proxy` or `https`, set `public_url` to Mantel's own `https://` name, not an IP address. |
 | `access proxy needs trusted_proxies` | Put your proxy's IP address in `trusted_proxies`. Open `/proxy-check` to see it. |
 | `access https needs cloudflare_token` | Put the Cloudflare token in `cloudflare_token`. |
+| `access https through Duck DNS needs duckdns_token` | Put the token from duckdns.org's page in `duckdns_token`. |
+| `dns_provider duckdns needs public_url https://<name>.duckdns.org` | With `dns_provider: duckdns`, `public_url` is your Duck DNS name. |
 | `acme_email is not an email address` | Fix it, or leave it empty. |
 | `WARNING trusted_proxies holds 172.30.32...` | Your proxy's address is one of Home Assistant's internal addresses, which anything can come from. Use your proxy's own address if you can. |
 
@@ -61,7 +63,7 @@ Mantel works, but it can't import HK's settings or list Home Assistant's users. 
 
 ### Mantel has no screens
 
-A new Mantel starts with a generated **Home** screen, built from your rooms and devices, until HK Frontend's settings are imported. If Setup Check says **Screens: None yet** and `/home` opens Mantel Settings, the import brought in an HK Frontend with no screens (or the screens were removed). The import runs once and Mantel keeps its own copy afterwards, so a screen added in Home Assistant later doesn't come across, and Mantel can't add one itself yet. If you're stuck here, [open an issue](https://github.com/jazzphone/mantel/issues). See [First Run → Bring your screens in](First-Run.md#bring-your-screens-in) and [Moving from HK Frontend](Moving-from-HK-Frontend.md).
+A new Mantel starts with a generated **Home** screen, built from your rooms and devices, until HK Frontend's settings are imported. If Setup Check says **Screens: None yet** and `/home` opens Mantel Settings, the import brought in an HK Frontend with no screens (or the screens were removed). The import runs once and Mantel keeps its own copy afterwards, so a screen added in Home Assistant later doesn't come across. Add one in Mantel instead: **Add Screen**, under the list of screens in Mantel Settings. See [First Run → Bring your screens in](First-Run.md#bring-your-screens-in) and [Moving from HK Frontend](Moving-from-HK-Frontend.md).
 
 ## Signing in
 

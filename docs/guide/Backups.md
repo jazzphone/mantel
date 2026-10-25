@@ -26,7 +26,7 @@ The App keeps its data in its own `/data` folder, and **Home Assistant's backups
 
 ### Turn on the nightly backup
 
-The nightly backup is off until you give it a folder. Ideally that folder is on another machine, such as a NAS mounted on the Docker host.
+With Docker the nightly backup is off until you give it a folder (a new LXC install already has one). Ideally that folder is on another machine, such as a NAS mounted on the Docker host.
 
 1. Pick the host folder and make it writable by Mantel's user (uid 10001):
 
@@ -34,7 +34,7 @@ The nightly backup is off until you give it a folder. Ideally that folder is on 
    install -d -m 0750 -o 10001 -g 10001 /mnt/nas/mantel
    ```
 
-   The LXC script already made `/opt/mantel/packaging/compose/backups` this way.
+   The LXC script already made `/opt/mantel/packaging/compose/backups` this way, and set `MANTEL_BACKUP_TARGET=/backups` in its `.env`, so on a new LXC the nightly backup is on and writes there (point `MANTEL_BACKUP_DIR` at a NAS mount to keep the copies off the machine).
 2. In `packaging/compose/.env`:
 
    ```bash

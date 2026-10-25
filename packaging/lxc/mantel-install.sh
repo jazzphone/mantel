@@ -101,6 +101,8 @@ if [ ! -f "$COMPOSE_DIR/.env" ]; then
   cp "$COMPOSE_DIR/.env.example" "$COMPOSE_DIR/.env"
   sed -i "s|^MANTEL_LAN_IP=.*|MANTEL_LAN_IP=${lan_ip}|" "$COMPOSE_DIR/.env"
   sed -i "s|^MANTEL_ALLOW_HOSTS=.*|MANTEL_ALLOW_HOSTS=${lan_ip}|" "$COMPOSE_DIR/.env"
+  # the nightly backup on (Backups.md): compose mounts MANTEL_BACKUP_DIR (./backups, made below) at /backups
+  sed -i "s|^MANTEL_BACKUP_TARGET=.*|MANTEL_BACKUP_TARGET=/backups|" "$COMPOSE_DIR/.env"
   add_compose_file() {   # add_compose_file NAME: append to COMPOSE_FILE (creating it with compose.yaml first)
     if grep -q '^COMPOSE_FILE=' "$COMPOSE_DIR/.env"; then
       sed -i "s|^COMPOSE_FILE=\(.*\)$|COMPOSE_FILE=\1:$1|" "$COMPOSE_DIR/.env"

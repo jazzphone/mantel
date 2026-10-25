@@ -1,9 +1,11 @@
 """The command gateway (PLAN §4 "Command gateway", §5, §7): the only way anything Mantel's clients
 ask for reaches Home Assistant (or Music Assistant) as a change.
 
-Off unless the server's operator sets ``cfg.commands_enabled`` (config / ``--commands-enabled``);
-no client message can turn it on. While off, ``build_app`` does not create a Gateway, the command
-path in ``ha_client`` cannot be constructed, and every command answers ``commands_disabled``.
+Off unless ``cfg.commands_enabled``: an Owner's Allow Control of the House (server_settings.py, a fresh
+sign-in and an audit row; ``--commands-enabled`` only seeds the first start), never with the kill switch
+(``cfg.read_only``). No client message can turn it on. While off there is no Gateway (``server.apply_commands``
+builds or removes it), the command path in ``ha_client`` cannot be constructed, and every command answers
+``commands_disabled``.
 
 Client protocol (on the hub socket, /ws):
 

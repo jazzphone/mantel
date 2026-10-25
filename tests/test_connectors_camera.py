@@ -247,3 +247,80 @@ async def test_losing_a_camera_ends_its_live_stream_at_the_next_tick(off):
     await server.tick_once(off.app, off.app["hub"])
     assert rec.unsubscribed == [1] and rec.live == {}
     await ws.close()
+
+
+# -- the second audit (2026-10): how many streams one tab, and the house, may ask HA for ------------------------------
+async def test_one_socket_cannot_start_unlimited_camera_streams(off):
+    """MED-6 (audit, second pass): Live TV caps its WebRTC sessions (4 a socket, 32 in all); camera offers had no cap:
+    sixty offers on one browser tab were sixty live streams at Home Assistant. A socket may hold
+    ``MAX_OFFERS_PER_SOCKET`` (16: the Cameras page opens one live tile per camera, nine in the house it was built
+    against, on its one socket); the rest are refused as ``forbidden``, which both camera cards already handle (the
+    picture card stays on its still, the doorbell card backs off and tries later). A stream that ends frees its place."""
+    from gateway_fakes import recv
+    rec = RecordingProxy()
+    off.app["camera_signaling_holder"]["proxy"] = rec
+    await off.login("alex", "adult")
+    ws = await off.socket(expect_caps=False)
+    for i in range(1, 61):
+        await ws.send_json(_offer(i))
+    answers = {}
+    while len(answers) < 60:
+        got = await recv(ws)
+        if got.get("type") == "read_result":
+            answers[got["id"]] = got
+    refused = [i for i, a in answers.items() if "error" in a]
+    assert len(rec.live) == camera.MAX_OFFERS_PER_SOCKET and len(refused) == 60 - camera.MAX_OFFERS_PER_SOCKET
+    assert {answers[i]["error"]["code"] for i in refused} == {"forbidden"}
+    assert len(rec.subscribed) == camera.MAX_OFFERS_PER_SOCKET                       # the refused never reached HA
+    await ws.send_json({"type": "read_unsubscribe", "id": next(iter(rec.live))})     # one tile closes ...
+    await asyncio.sleep(0.2)
+    await ws.send_json(_offer(100))                                                  # ... and another may open
+    await asyncio.sleep(0.2)
+    assert len(rec.live) == camera.MAX_OFFERS_PER_SOCKET
+    await ws.close()
+    await asyncio.sleep(0.3)
+    assert rec.live == {} and off.app["camera_signaling"].offers == 0                # all let go with the socket
+
+
+async def test_all_the_sockets_together_have_a_total_cap_too(off, monkeypatch):
+    """MED-6 (audit, second pass): and across tabs and tablets at most ``MAX_OFFERS`` in all."""
+    monkeypatch.setattr(camera, "MAX_OFFERS", 5)
+    rec = RecordingProxy()
+    off.app["camera_signaling_holder"]["proxy"] = rec
+    await off.login("alex", "adult")
+    a, b = await off.socket(expect_caps=False), await off.socket(expect_caps=False)
+    for i in range(1, 4):
+        await a.send_json(_offer(i))
+    for i in range(1, 4):
+        await b.send_json(_offer(i))
+    await asyncio.sleep(0.4)
+    assert len(rec.live) == 5 and off.app["camera_signaling"].offers == 5
+    await a.close()
+    await b.close()
+    await asyncio.sleep(0.3)
+    assert rec.live == {} and off.app["camera_signaling"].offers == 0
+
+
+async def test_an_offer_that_fails_at_home_assistant_frees_its_place(off, monkeypatch):
+    """MED-6 (audit, second pass): the cap counts an offer from before the await to HA, so one that fails there must
+    give its place back, or a Home Assistant that is down would use the whole cap up on errors."""
+    monkeypatch.setattr(camera, "MAX_OFFERS_PER_SOCKET", 2)
+
+    class Down(RecordingProxy):
+        async def subscribe(self, msg, on_event):
+            raise ConnectionError("unavailable")
+
+    off.app["camera_signaling_holder"]["proxy"] = Down()
+    await off.login("alex", "adult")
+    ws = await off.socket(expect_caps=False)
+    for i in range(1, 7):
+        await ws.send_json(_offer(i))
+        await asyncio.sleep(0.05)
+    await asyncio.sleep(0.2)
+    assert off.app["camera_signaling"].offers == 0
+    rec = RecordingProxy()
+    off.app["camera_signaling_holder"]["proxy"] = rec
+    await ws.send_json(_offer(10))
+    await asyncio.sleep(0.2)
+    assert len(rec.live) == 1                                # HA is back: the offer is not refused as "too many"
+    await ws.close()

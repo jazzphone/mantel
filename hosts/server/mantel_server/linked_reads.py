@@ -10,11 +10,15 @@ linked to the Home Assistant user whose page asked (``ha_links``), so roles deci
     HK Frontend -> Mantel   page {id, ha_user, frame: {type: read | read_subscribe | read_unsubscribe, id, msg?}}
     Mantel -> HK Frontend   page_frame {ha_user, frame: {type: read_result | read_event, id, ...}}
 
-* Only a linked HK Frontend that says so (feature ``reads``), and only Mantel's own answers
-  (``app["read_routes"]``): nothing here reaches Home Assistant's own data through Mantel.
+* Only a linked HK Frontend that says so (feature ``reads``), and only the reads it forwards (``FORWARDED``, HK
+  Frontend's ``READS_REQUEST`` and ``READS_SUBSCRIBE``; a test keeps them the same), each one of Mantel's own
+  (``app["read_routes"]``): nothing here reaches Home Assistant's own data through Mantel, and a link credential
+  cannot read Mantel's own data as a person (their saved data, settings history, Mantel Photos, cameras).
 * An HA user linked to nobody is refused in words (``not_linked``), as a save is.
 * One page context per (link, HA user); all of its subscriptions end when the link closes. HK Frontend asks
-  again for what it had open when it reconnects.
+  again for what it had open when it reconnects. The policy tick re-checks each context as it does a page socket
+  (``recheck``): an HA user unlinked, a person disabled or the user linked to someone else ends its subscriptions;
+  a role change applies to them at once.
 """
 from __future__ import annotations
 
@@ -31,6 +35,10 @@ FEATURE = "reads"
 # HK Frontend would relay it straight back here -- a loop (Live TV not on in Mantel: its interim read is HA's)
 FROM_LINK: contextvars.ContextVar[bool] = contextvars.ContextVar("mantel_from_link", default=False)
 FRAMES = ("read", "read_subscribe", "read_unsubscribe")
+# the dashboards' reads HK Frontend forwards (its linked_mode.READS_REQUEST + READS_SUBSCRIBE), and nothing else
+FORWARDED = frozenset({"hk_tv/channels", "hk_music/queue", "hk_notify/snap/sign",
+                       "hk_music/subscribe", "hk_clean_areas/subscribe", "hk_frontend/snooze/subscribe",
+                       "hk_frontend/page_headers/subscribe", "hk_frontend/events/subscribe"})
 
 
 class LinkedReads:
@@ -54,17 +62,45 @@ class LinkedReads:
         authz = self.app.get("authz")
         return authz.principal_of(ident) if authz is not None else ident
 
-    def _ctx(self, client: Any, ha_user: str, identity: Any) -> Any:
+    async def _ctx(self, client: Any, ha_user: str, identity: Any) -> Any:
         from .connectors import Ctx
         key = (id(client), ha_user)
         ctx = self.ctxs.get(key)
-        if ctx is None or ctx.closed:
-            async def send(frame: dict) -> None:
-                await client.send({"type": "page_frame", "ha_user": ha_user, "frame": frame})
-            ctx = self.ctxs[key] = Ctx(send=send, identity=identity)
-        else:
-            ctx.identity = identity                       # a role changed since: the new one from now on
+        if ctx is not None and not ctx.closed:
+            if _person_id(ctx.identity) == _person_id(identity):
+                authz = self.app.get("authz")
+                if authz is not None and hasattr(ctx.identity, "gate"):
+                    authz.refresh(ctx.identity)          # in place: what its subscriptions hold sees the new role
+                return ctx
+            await self._end(key)                         # linked to someone else now: the old person's reads end
+        async def send(frame: dict) -> None:
+            await client.send({"type": "page_frame", "ha_user": ha_user, "frame": frame})
+        ctx = self.ctxs[key] = Ctx(send=send, identity=identity)
         return ctx
+
+    async def _end(self, key: tuple[int, str]) -> None:
+        ctx = self.ctxs.pop(key, None)
+        if ctx is None:
+            return
+        try:
+            await ctx.close()
+        except Exception:  # noqa: BLE001 -- already gone
+            log.debug("linked reads: a page context ended badly", exc_info=True)
+
+    async def recheck(self, authz: Any) -> list[Any]:
+        """The policy tick (server.tick_once): each context's person read again, as a page socket's session is.
+        Unlinked, disabled or linked to someone else: its subscriptions end. The contexts still open."""
+        live = []
+        for key, ctx in list(self.ctxs.items()):
+            if ctx.closed:
+                self.ctxs.pop(key, None)
+                continue
+            if authz is not None and hasattr(ctx.identity, "gate") and not authz.refresh(ctx.identity):
+                log.info("linked reads: ending a dashboard's reads whose Home Assistant user is no longer linked")
+                await self._end(key)
+                continue
+            live.append(ctx)
+        return live
 
     async def page(self, client: Any, msg: dict[str, Any]) -> Any:
         """One ``page`` frame: the read, unsubscribe or subscription, handed to Mantel's own handlers. Their
@@ -82,9 +118,10 @@ class LinkedReads:
             raise LinkedError("invalid", "frame: {type: read | read_subscribe | read_unsubscribe, id, msg?}")
         if frame["type"] != "read_unsubscribe":
             inner = frame.get("msg")
-            if not isinstance(inner, dict) or inner.get("type") not in (self.app.get("read_routes") or {}):
-                raise LinkedError("not_mantels", f"{(inner or {}).get('type')!r} is not one of Mantel's own reads")
-        ctx = self._ctx(client, ha_user, self._person(ha_user))
+            if not isinstance(inner, dict) or inner.get("type") not in FORWARDED \
+                    or inner.get("type") not in (self.app.get("read_routes") or {}):
+                raise LinkedError("not_mantels", f"{(inner or {}).get('type')!r} is not a read HK Frontend forwards")
+        ctx = await self._ctx(client, ha_user, self._person(ha_user))
         handler = ws_handlers(self.app).get(frame["type"])
         if handler is None:
             raise LinkedError("not_set_up", "Mantel answers no page reads here")
@@ -97,11 +134,12 @@ class LinkedReads:
 
     async def closed(self, client: Any) -> None:
         for key in [k for k in self.ctxs if k[0] == id(client)]:
-            ctx = self.ctxs.pop(key)
-            try:
-                await ctx.close()
-            except Exception:  # noqa: BLE001 -- already gone
-                log.debug("linked reads: a page context ended badly", exc_info=True)
+            await self._end(key)
+
+
+def _person_id(identity: Any) -> str | None:
+    user = getattr(identity, "user", None)
+    return getattr(user, "id", None)
 
 
 def register(app: web.Application) -> LinkedReads:

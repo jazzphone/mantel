@@ -1328,4 +1328,9 @@ def apply_board(data: Mapping[str, Any], changes: Mapping[str, Any]
             errors[key] = err.code
     if errors:
         return S.board(data), errors
-    return S.board({**dict(data), **clean}), {}
+    out = S.board({**dict(data), **clean})
+    if "home_grid" not in clean and "home_grid" in data:
+        # a save that doesn't touch the grid keeps it as stored: board() reads it the tolerant way (a block or
+        # option this build doesn't know is left out), and storing THAT would delete it for good
+        out["home_grid"] = data["home_grid"]
+    return out, {}

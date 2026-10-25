@@ -780,7 +780,8 @@ function renderService(root) {
     list.reload();
   } },
     h('div', { class: 'grid' }, field('Name', name)),
-    h('fieldset', null, h('legend', null, 'What it may reach'), checks('scopes', state.me.service_scopes, state.me.service_scopes)),
+    // only `linked` is ticked at first: linked_saves (saves as the person an HA user is linked to) is asked for
+    h('fieldset', null, h('legend', null, 'What it may reach'), checks('scopes', state.me.service_scopes, ['linked'])),
     h('button', { class: 'btn primary', type: 'submit', 'data-act': 'create-service' }, 'Create service account'));
   root.append(h('h2', null, 'Service accounts'),
     note('A service account is a machine credential, like the one the Home Assistant integration uses to link to Mantel. It has no password, no session and no role: only the endpoints ticked here. Managed on the home network only.', 'muted small'),

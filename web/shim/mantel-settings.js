@@ -44,6 +44,7 @@ const ERRORS = {
   username_invalid: 'User names are 1 to 64 letters, digits, dots, dashes or underscores.',
   last_owner: 'There must always be at least one enabled Owner.', forbidden: 'You are not allowed to do that.',
   owner_only: 'Only an Owner can do that.', lan_only: 'This can only be done on the home network.',
+  home_door_only: 'This can only be done on the home network, or in Home Assistant’s sidebar with the home rules.',
   already_a_device: 'This browser is already a wall tablet.', not_found: 'That no longer exists.',
   step_up_required: 'Confirm it is you first.', pin_unavailable: 'That PIN cannot be used. Pick another.',
   origin_not_allowed_for_passkeys: 'Passkeys need the name you use to reach Mantel, not an IP address.',
@@ -147,17 +148,21 @@ async function refreshMe() {
   return me;
 }
 
-// a read for a page: drawn once it is here, read again after a change (forget)
+// a read for a page: drawn once it is here, read again after a change (forget). Only the read still asked for
+// lands: one forgotten while it was on its way (a filter changed) never replaces the newer one. A read that
+// failed shows its error on this page, and is asked again when the page is opened again (page() forgets it).
+let lastPage = null;
 function load(key, fn) {
   const got = cache[key];
   if (got && !got.loading) return got;
   if (!got) {
-    cache[key] = { loading: true };
-    Promise.resolve().then(fn).then((data) => { cache[key] = { data }; }, (err) => { cache[key] = { err }; })
-      .then(() => { if (panel) panel.render(); });
+    const mine = cache[key] = { loading: true };
+    const land = (entry) => { if (cache[key] !== mine) return; cache[key] = entry; if (panel) panel.render(); };
+    Promise.resolve().then(fn).then((data) => land({ data }), (err) => land({ err }));
   }
   return null;
 }
+const forgetFailed = () => { for (const k of Object.keys(cache)) if (cache[k] && cache[k].err) delete cache[k]; };
 function forget(...keys) { for (const k of keys) delete cache[k]; }
 const redraw = () => { if (panel) panel.render(); };
 
@@ -1265,21 +1270,33 @@ function pConnect() {
   } };
 }
 // while a code is shown, notice when it is spent (paired) or has expired
+// the code's state every 4 s, drawn only when something shows a change: the code spent or gone, or its minutes
+// left (a background redraw, so a field being typed in keeps its text). A few failed polls in a row stop it
+// (Mantel restarting, the session gone): the page says what it knows when it is drawn next.
+const PAIR_FAILS_MAX = 3;
 function watchPairing(r) {
   clearInterval(pairTimer);
+  let fails = 0, minutes = null;
   pairTimer = setInterval(async () => {
     if (!shown.pair) { clearInterval(pairTimer); return; }
     try {
       const got = await api('GET', '/api/connect');
+      fails = 0;
       if (!got.pending) {
         clearInterval(pairTimer);
         const paired = got.pairings.some((p) => !p.revoked && p.created >= r.expires - got.ttl - 1);
         delete shown.pair;
         flash = { key: 'connect', text: paired ? 'Paired. The code is spent.' : 'The code expired or was withdrawn.', err: !paired };
         forget('connect');
+        redraw();
+        return;
       }
-      redraw();
-    } catch (e) { /* the next tick tries again */ }
+      const left = Math.ceil((shown.pair.expires - nowS()) / 60);
+      if (minutes !== null && left !== minutes && panel) panel.render(true);
+      minutes = left;
+    } catch (e) {
+      if (++fails >= PAIR_FAILS_MAX) clearInterval(pairTimer);
+    }
   }, 4000);
 }
 
@@ -1553,7 +1570,7 @@ function drawWallTablets(c) {
   if (got.err) { failed(c, got.err); return; }
   const ts = got.data.tablets.filter((t) => t.supported || t.state === 'set');
   if (!ts.length) return;
-  c.appendChild(group({ header: 'Wall Tablets', footer: 'Mantel reads each tablet’s kiosk app itself, without Home Assistant. Pair a tablet on its own page. Status only for now: Mantel sends tablets no commands.' },
+  c.appendChild(group({ header: 'Wall Tablets', footer: 'Mantel reads each tablet’s kiosk app itself, without Home Assistant. Pair a tablet on its own page. Reload and Clear Cache are house commands: they need house commands on, and each is in the Audit Log.' },
     ts.map((t) => {
       const live = t.live, value = t.state !== 'set' ? 'Not Set Up' : t.unreadable ? 'Pair Again' : !live ? '' : live.ok ? 'Connected' : 'Not Connected';
       return K().nav({ label: t.name, sub: [t.app_label, t.url ? t.url.replace(/^http:\/\//, '') : null, t.state === 'set' ? liveSays(live) : null].filter(Boolean).join(' · '),
@@ -2262,7 +2279,7 @@ function pSetupStep(id) {
     if (got.err) { failed(c, got.err); return; }
     if (!s) { failed(c, 'That step isn’t part of this Mantel’s setup.'); return; }
     c.appendChild(group({ footer: s.detail }, [info('Status', s.optional ? 'Optional' : null, STEP_SAYS[s.state], s.state === 'todo' ? 'warn' : '')]));
-    if (s.how && s.state !== 'done') c.appendChild(group({ header: 'How', footer: 'Turned on where Mantel runs, never from a page: no setting, app or message can switch house commands on.' }, [secretCell(s.how, 'mx-setup-how')]));
+    if (s.how && s.state !== 'done') c.appendChild(group({ header: 'How', footer: 'An Owner turns them on in General (Allow Control of the House), after confirming it is them. The server’s kill switch can keep them off whatever that says.' }, [secretCell(s.how, 'mx-setup-how')]));
     const rows = [];
     if (s.route) rows.push(K().nav({ label: s.state === 'done' ? 'Open' : 'Do It Now', href: s.route, fk: 'mx:setup:go:' + id }));
     const edit = got.data.can_edit;
@@ -2431,6 +2448,8 @@ export const host = {
     ensureStyle(p && p.shadowRoot);
     if (parts[0] !== ROUTE || !me) return null;
     const s = parts[1] || 'me';
+    const at = parts.join('/');
+    if (at !== lastPage) { lastPage = at; forgetFailed(); }     // a failed read is asked again on a page opened anew
     if (s === 'add-screen' && manages()) return pAddScreen();
     if (s === 'connect' && can('connect')) return pConnections(['ha', 'sidebar']);
     if (!BUILD[s] || !can(s)) return pMe([]);

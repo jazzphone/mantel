@@ -184,7 +184,7 @@ class Config:
 
 
 def parse_args(argv: list[str] | None = None) -> Config:
-    p = argparse.ArgumentParser(prog="mantel-server", description="Mantel state hub (read-only prototype)")
+    p = argparse.ArgumentParser(prog="mantel-server", description="Mantel Server")
     p.add_argument("--ha-url", default=Config.ha_url)
     p.add_argument("--token-file", default=str(Config.token_file))
     p.add_argument("--port", type=int, default=Config.port)
@@ -254,7 +254,8 @@ def parse_args(argv: list[str] | None = None) -> Config:
     p.add_argument("--ingress-only", action="store_true",
                    help="with --ingress: refuse every request that does not come through Ingress (health excepted)")
     p.add_argument("--ha-door-rules", choices=("tunnel", "lan", "trusted"), default=Config.ha_door_rules,
-                   help="RBAC door rules for requests through HA's sidebar (the 'ha' door): tunnel (default) or lan")
+                   help="RBAC door rules for requests through HA's sidebar (the 'ha' door): tunnel (default), lan or "
+                        "trusted. Only the first start's value: Mantel Settings (Connections, Home Assistant) has it then")
     p.add_argument("--ha-ws-url", default="", metavar="URL",
                    help="Home Assistant's WebSocket URL when it is not <ha-url>/api/websocket "
                         "(HA App: ws://supervisor/core/websocket)")

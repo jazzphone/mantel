@@ -4,7 +4,8 @@ SAFETY: HaClient (the state connection) can only *send* the message types in ALL
 no way to call a service through it, under any setting. A test (tests/test_ha_client.py) pins that.
 
 P3.3 adds the ONE command path, HaCommander (end of this file): its own connection, which exists
-only when the server's operator set ``cfg.commands_enabled`` (config/CLI, never a client). It sends
+only while ``cfg.commands_enabled`` (an Owner's Allow Control of the House, server_settings.py; never a client
+message, never with the kill switch). It sends
 a frame only with a one-shot CommandTicket bound to the audit row the gateway wrote first.
 
 ALLOWED_TYPES is also what every other Mantel connection on this HA credential checks each frame

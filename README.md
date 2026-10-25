@@ -80,7 +80,7 @@ All three run the same server; only the setup differs.
 
 ## Safe by default
 
-- **Commands are off** until you turn them on, and no setting, page or message can turn them on for you.
+- **Commands are off** until an Owner turns on **Allow Control of the House**, after confirming it is them with a fresh sign-in. Whoever runs the server can keep the house read-only whatever that switch says.
 - **Secrets are files**, never environment variables: the Home Assistant and Music Assistant tokens, the key that encrypts Mantel’s own secrets, and tunnel tokens.
 - **Passwords are hashed with Argon2id**; passkeys and authenticator codes are built in.
 - **The alarm asks for its PIN**; everything else is decided by roles and grants, and every decision is in the audit log.

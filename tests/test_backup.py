@@ -829,3 +829,35 @@ async def test_register_is_off_without_a_target(tmp_path, monkeypatch):
     bk.register(app, app["hub"])
     assert not app["backups"].enabled and "backup_task" not in app
     assert not any(h.__name__ == "start" and "backup" in h.__qualname__ for h in app.on_startup)
+
+
+def test_a_written_backup_is_read_back_before_it_counts(tmp_path, monkeypatch):
+    """DEP-2 (audit, second pass): create_backup fsynced and renamed but never opened the file again, so a bad
+    write (a flaky NAS mount) was a backup.ok, and rotation could delete the last good backup. It now reads the
+    sealed file back through the restore path; a failure removes it, raises verify_failed and rotates nothing."""
+    import io
+    data = tmp_path / "data"
+    database = dbmod.Database(data / "mantel.db")
+    database.close()
+    target = tmp_path / "nas"
+    target.mkdir()
+    key = os.urandom(32)
+    good = bk.create_backup(data, target, key, now=datetime(2026, 10, 1, 3, 0, tzinfo=timezone.utc))
+    real = bk.seal_stream
+
+    def seal_then_flip_a_byte(src, dst, key, meta):
+        buf = io.BytesIO()
+        real(src, buf, key, meta)
+        raw = bytearray(buf.getvalue())
+        raw[-20] ^= 0xFF                                         # damage inside the last chunk
+        dst.write(bytes(raw))
+
+    monkeypatch.setattr(bk, "seal_stream", seal_then_flip_a_byte)
+    with pytest.raises(BackupError) as bad:
+        bk.create_backup(data, target, key, now=datetime(2026, 10, 2, 3, 0, tzinfo=timezone.utc),
+                         keep_daily=1, keep_weekly=0)
+    assert bad.value.code == "verify_failed"
+    assert [p.name for p in target.iterdir()] == [good.name]    # the damaged one is gone, the good one untouched
+    monkeypatch.setattr(bk, "seal_stream", real)
+    ok = bk.create_backup(data, target, key, now=datetime(2026, 10, 3, 3, 0, tzinfo=timezone.utc))
+    assert ok.is_file() and bk.open_stream(ok, io.BytesIO(), key)["schema"] == LATEST

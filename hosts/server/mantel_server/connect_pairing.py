@@ -48,6 +48,8 @@ from mantel_connect import pki, protocol
 
 log = logging.getLogger("mantel.connect")
 
+SHUTDOWN_TIMEOUT = 5        # seconds a stop waits for open sockets (Docker kills an App after about 10)
+
 CLIENT_DAYS = 90
 SERVER_DAYS = 90
 CA_DAYS = 3650
@@ -655,7 +657,7 @@ def register(app: web.Application, hub=None) -> Connect | None:
 
 async def serve(app: web.Application, cfg, stop: asyncio.Event | None = None) -> None:
     """Run the ordinary listener and the Connect listener on one application until stopped."""
-    runner = web.AppRunner(app)
+    runner = web.AppRunner(app, shutdown_timeout=SHUTDOWN_TIMEOUT)
     await runner.setup()
     try:
         await web.TCPSite(runner, cfg.host, cfg.port).start()

@@ -332,6 +332,13 @@ def sweep_leftovers(data_dir: Path, target: Path | None = None, now: float | Non
     return found
 
 
+class _NullSink:
+    """A file that takes the decrypted bytes and keeps nothing (verifying a written backup)."""
+
+    def write(self, data: bytes) -> int:
+        return len(data)
+
+
 def create_backup(data_dir: Path, target: Path, key: bytes, *, now: datetime | None = None,
                   include_files: bool = True, keep_daily: int = 7, keep_weekly: int = 4,
                   rotate_after: bool = True) -> Path:
@@ -389,6 +396,15 @@ def create_backup(data_dir: Path, target: Path, key: bytes, *, now: datetime | N
             with contextlib.suppress(OSError):
                 tmp.unlink()
             raise BackupError("write_failed", f"could not write the backup to {target}: {exc}") from exc
+        # Read it back through the restore path (header, key check and every chunk's tag) before it counts: a bad
+        # write (a flaky NAS mount) must not be a backup.ok, and must not let rotation delete the last good one.
+        try:
+            open_stream(dest, _NullSink(), key)
+        except (BackupError, OSError) as exc:
+            with contextlib.suppress(OSError):
+                dest.unlink()
+            raise BackupError("verify_failed", f"the backup written to {target} did not read back ({exc}); "
+                              "it was removed and no older backup was touched") from exc
     if rotate_after:
         rotate(target, keep_daily, keep_weekly, keep=dest)
     log.info("backup written: %s (%d bytes, schema %s)", dest, dest.stat().st_size, info["schema"])

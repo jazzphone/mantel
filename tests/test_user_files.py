@@ -2,11 +2,14 @@
 their bytes, normalised, size-capped, stored outside the web root and served at the URLs HK already uses;
 CSRF; the one-time import. Every font, glyph and photo here is GENERATED at run time -- nothing of Apple's,
 and nothing in git (tests/test_user_files_guard.py)."""
+import asyncio
 import io
 import json
 import os
 import struct
 import sys
+import threading
+import time
 from pathlib import Path
 
 import pytest
@@ -729,3 +732,60 @@ def test_a_multi_picture_jpeg_from_a_phone_is_a_jpeg():
     assert Image.open(io.BytesIO(raw.getvalue())).format == "MPO"
     out, kind = reencode_photo(raw.getvalue())
     assert kind == "jpeg" and Image.open(io.BytesIO(out)).format == "JPEG"
+
+
+# -- the second audit (2026-10): what a big picture costs the rest of the house ------------------------------------------
+async def test_a_large_your_files_photo_upload_does_not_freeze_the_event_loop():
+    """MED-1 (audit, second pass): ``reencode_photo`` runs in a worker thread, yet the event loop stood still 0.7 s for
+    a 40 MP picture: ``save(..., optimize=True, progressive=True)`` holds the GIL for the whole JPEG encode (see
+    test_photos.py). The encode is now baseline, which gives it up between small steps."""
+    from test_photos import noisy_jpeg, worst_gap_during
+    data = noisy_jpeg(40)
+    gap = await worst_gap_during(asyncio.to_thread(uf.reencode_photo, data))
+    assert gap < 0.2, f"the event loop stood still for {gap * 1000:.0f} ms"
+
+
+async def test_your_files_photo_uploads_queue_with_mantel_photos_for_the_decoder(monkeypatch):
+    """MED-2 (audit, second pass): ``_in_thread`` took any number of photo uploads at once, each a full decode. A
+    photo upload now takes its turn in the same slots as Mantel Photos' (``photos.image_slot``)."""
+    from mantel_server import photos
+    lock, now, peak = threading.Lock(), [0], [0]
+
+    def slow():
+        with lock:
+            now[0] += 1
+            peak[0] = max(peak[0], now[0])
+        time.sleep(0.05)
+        with lock:
+            now[0] -= 1
+
+    await asyncio.gather(*[uf._in_thread(slow, heavy=True) for _ in range(5)],
+                         photos.run_image_job(slow), photos.run_image_job(slow))
+    assert peak[0] <= photos.IMAGE_JOBS
+
+
+def test_a_jpeg_is_decoded_at_the_size_it_is_kept_not_in_full(monkeypatch):
+    """MED-2 (audit, second pass): ``reencode_photo`` decoded every JPEG in full, then shrank it. libjpeg can decode
+    at 1/2, 1/4 or 1/8 size for a fraction of the memory when the result is still no smaller than PHOTO_EDGE, so the
+    JPEG asks for that (``draft``; it can only bite when both sides are 2x the edge, i.e. a 59 MP picture here); the
+    kept picture is the same size as before."""
+    from PIL import JpegImagePlugin
+    seen = []
+    real = JpegImagePlugin.JpegImageFile.draft
+
+    def spy(self, mode, size):
+        got = real(self, mode, size)
+        seen.append((mode, size, self.size))                 # what it asked, and the size the decoder will give
+        return got
+
+    monkeypatch.setattr(JpegImagePlugin.JpegImageFile, "draft", spy)
+    raw = io.BytesIO()
+    Image.new("RGB", (7680, 7680), (10, 120, 200)).save(raw, "JPEG")
+    out, kind = uf.reencode_photo(raw.getvalue())
+    assert kind == "jpeg" and seen[0] == ("RGB", (uf.PHOTO_EDGE, uf.PHOTO_EDGE), (3840, 3840))   # half size, still >= 3840
+    assert Image.open(io.BytesIO(out)).size == (3840, 3840)
+    seen.clear()
+    png = io.BytesIO()
+    Image.new("RGB", (64, 48)).save(png, "PNG")
+    uf.reencode_photo(png.getvalue())
+    assert seen == []                                        # only a JPEG can be drafted

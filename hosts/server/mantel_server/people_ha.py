@@ -29,8 +29,9 @@ from typing import Any
 from aiohttp import web
 
 from . import connections as C
-from .accounts import read_json, require_manager
+from .accounts import read_json, require_fresh_to_add_factor, require_manager
 from .sessions import error, ok
+from .sessions import identity as sessions_identity
 
 log = logging.getLogger("mantel.people_ha")
 
@@ -157,6 +158,10 @@ async def api_put(request: web.Request) -> web.Response:
     person = db.execute("SELECT id, role, kind, name FROM users WHERE id = ?", (uid,)).fetchone() if uid else None
     if uid and person is None:
         return error(404, "not_found")
+    if uid is not None:
+        # a link is a new way to sign in as the person ("Sign in with Home Assistant", HA's sidebar), so it asks
+        # what adding a passkey or an authenticator asks: a fresh sign-in, unless HA's own sidebar vouches
+        require_fresh_to_add_factor(request, ident)
     if ident.user.role != "owner" and "owner" in ((cur["role"] if cur else None), (person["role"] if person else None)):
         return error(403, "owner_only", message="Only an Owner links or unlinks an Owner.")
     if cur is not None and cur["role"] == "owner" and (uid is None or person["role"] != "owner") and not _owners_left(db, cur["id"]):
@@ -182,6 +187,11 @@ async def api_put(request: web.Request) -> web.Response:
             with db:
                 db.execute("DELETE FROM ha_links WHERE ha_user_id = ?", (target,))
                 db.execute("DELETE FROM sessions WHERE user_id = ? AND method = 'ingress'", (cur["id"],))
+            mgr = app.get("sessions")
+            if mgr is not None:     # and what "Sign in with Home Assistant" made through the link (with its children)
+                for r in db.execute("SELECT id FROM sessions WHERE user_id = ? AND method = 'ha' AND revoked IS NULL",
+                                    (cur["id"],)).fetchall():
+                    mgr.revoke(r["id"], "ha_unlinked")
     if uid is not None:
         store.link_user(target, uid)
     ls = app.get("linked_settings")
@@ -199,6 +209,7 @@ async def api_merge(request: web.Request) -> web.Response:
     into = body.get("into")
     if set(body) != {"into"} or not isinstance(into, str):
         return error(400, "invalid", message="{into: a person}")
+    require_fresh_to_add_factor(request, ident)       # the Home Assistant link moves to `into` (api_put's rule)
     refused = C._audit(request, ident, "people.merge", {"user_id": src, "into": into})
     if refused is not None:
         return refused
@@ -211,9 +222,13 @@ async def api_merge(request: web.Request) -> web.Response:
 
 
 async def api_device_ha_user(request: web.Request) -> web.Response:
-    ident = require_manager(request)
-    if ident.user.role != "owner":
+    from .ingress import _tablet_owner
+    require_manager(request)
+    if sessions_identity(request).user.role != "owner":
         return error(403, "owner_only", message="Only an Owner links wall tablets.")
+    # on the home network (or a home-rules sidebar) only, as every other way of making an HA user a tablet: that
+    # user then has the home door's tablet rules
+    ident = _tablet_owner(request)
     app, dev = request.app, request.match_info["id"]
     body = await read_json(request)
     target = body.get("ha_user")
@@ -226,7 +241,7 @@ async def api_device_ha_user(request: web.Request) -> web.Response:
     if stand_in is not None and stand_in["role"] != "wall_tablet":
         return error(409, "person", message=f"That Home Assistant user is {stand_in['name'] or 'a person'}: "
                                             "unlink them on People first.")
-    if now is not None and now[0] != target:
+    if now is not None and target is None:
         unlink_tablet(app, now[0], ident.user)
     removed = None
     if target is not None and (now is None or now[0] != target):
@@ -238,7 +253,9 @@ async def api_device_ha_user(request: web.Request) -> web.Response:
             except Exception:  # noqa: BLE001 -- the name is a convenience
                 pass
         try:
-            link_tablet(app, target, ident.user, device_id=dev, ha_name=name)
+            # moved from another HA user in one step: unlinking that one first revoked a device made for it
+            link_tablet(app, target, ident.user, device_id=dev, ha_name=name,
+                        moving_from=now[0] if now is not None else None)
         except TabletLinkError as exc:
             return error(exc.status, exc.code, message=exc.message)
         if stand_in is not None and stand_in["kind"] != "ha_linked":

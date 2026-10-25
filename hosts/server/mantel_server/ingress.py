@@ -436,7 +436,7 @@ async def unlinked_page(request: web.Request, person: dict | None) -> web.Respon
         nonce = bootstrap_nonce(request.app, person["id"], request.app["clock"]())
         body = (f"<p>Home Assistant says you are <b>{who}</b>, an administrator.</p>"
                 "<p>Mantel has no Owner yet. The Owner can do everything in Mantel: manage people, roles and "
-                "devices, see the audit log, and (when the App's commands are on) control the whole house.</p>"
+                "devices, see the audit log, and (once house commands are on) control the whole house.</p>"
                 f"<form method=post action='{html.escape(base)}/ingress/bootstrap'>"
                 f"<input type=hidden name=nonce value='{html.escape(nonce)}'>"
                 f"<p><button type=submit>Make me Mantel's Owner</button></p></form>"
@@ -557,11 +557,13 @@ def _revoke_in(db, device_id: str, reason: str, now: float) -> None:
 
 
 def link_tablet(app: web.Application, ha_user_id: str, actor: User, *, device_id: str | None = None,
-                name: str | None = None, room: str | None = None, ha_name: str | None = None) -> dict:
+                name: str | None = None, room: str | None = None, ha_name: str | None = None,
+                moving_from: str | None = None) -> dict:
     """Make an HA user a wall tablet: linked to an existing wall-tablet device (``device_id``) or to a new
     one (``name``, ``room``). A person link of that HA user is removed (its sessions end), as is an earlier
-    tablet link (a device made for it is revoked). Audited (``ingress.link_tablet``). Owners only: the
-    caller checks. Raises TabletLinkError."""
+    tablet link (a device made for it is revoked). ``moving_from``: the HA user ``device_id`` is linked to now,
+    whose link this one replaces in the same transaction (the device kept, its own-device mark carried over).
+    Audited (``ingress.link_tablet``). Owners only: the caller checks. Raises TabletLinkError."""
     db = app["store"].db
     if not isinstance(ha_user_id, str) or not USER_RE.match(ha_user_id):
         raise TabletLinkError("invalid", "ha_user_id: an HA user id")
@@ -582,14 +584,18 @@ def link_tablet(app: web.Application, ha_user_id: str, actor: User, *, device_id
             raise TabletLinkError("last_owner", "Mantel always keeps at least one Owner", 409)
     earlier = tablet_link(db, ha_user_id)
     now = app["clock"]()
-    own = 0
+    own = new_device = 0
     if device_id:
-        dev = db.execute("SELECT d.*, t.ha_user_id AS linked_to FROM devices d LEFT JOIN ha_tablet_links t "
-                         "ON t.device_id = d.id WHERE d.id = ?", (device_id,)).fetchone()
+        dev = db.execute("SELECT d.*, t.ha_user_id AS linked_to, t.own_device AS linked_own FROM devices d "
+                         "LEFT JOIN ha_tablet_links t ON t.device_id = d.id WHERE d.id = ?", (device_id,)).fetchone()
         if dev is None or dev["revoked"] is not None or dev["role"] != "wall_tablet":
             raise TabletLinkError("unknown_device", "device_id: a live wall-tablet device", 404)
-        if dev["linked_to"] is not None and dev["linked_to"] != ha_user_id:
+        if dev["linked_to"] is not None and dev["linked_to"] not in (ha_user_id, moving_from):
             raise TabletLinkError("device_taken", "that device is already another HA user's tablet", 409)
+        if moving_from is not None and dev["linked_to"] == moving_from:
+            own = int(bool(dev["linked_own"]))
+        else:
+            moving_from = None
         if room is not None and room != dev["room"]:
             with db:
                 db.execute("UPDATE devices SET room = ? WHERE id = ?", (room, device_id))
@@ -597,13 +603,15 @@ def link_tablet(app: web.Application, ha_user_id: str, actor: User, *, device_id
         mgr = app["devices"]
         label = (name or ha_name or "Wall tablet").strip()[:NAME_MAX]
         device_id, _secret, _csrf = mgr.enroll(label, "wall_tablet", room, actor.id)   # the secret is never issued
-        own = 1
+        own = new_device = 1
     with db:  # one transaction: never a person link and a tablet link at once
         if person is not None:
             db.execute("DELETE FROM ha_links WHERE ha_user_id = ?", (ha_user_id,))
             db.execute("DELETE FROM sessions WHERE user_id = ?", (person["id"],))
             if person["kind"] == "ha_linked":
                 db.execute("DELETE FROM users WHERE id = ?", (person["id"],))
+        if moving_from is not None:
+            db.execute("DELETE FROM ha_tablet_links WHERE ha_user_id = ? AND device_id = ?", (moving_from, device_id))
         if earlier is not None:
             db.execute("DELETE FROM ha_tablet_links WHERE ha_user_id = ?", (ha_user_id,))
             if earlier["own_device"] and earlier["id"] != device_id:
@@ -611,13 +619,13 @@ def link_tablet(app: web.Application, ha_user_id: str, actor: User, *, device_id
         db.execute("INSERT INTO ha_tablet_links (ha_user_id, device_id, ha_name, own_device, created, created_by) "
                    "VALUES (?,?,?,?,?,?)", (ha_user_id, device_id, (ha_name or "")[:120] or None, own, now, actor.id))
     row = tablet_link(db, ha_user_id)
-    detail = {"ha_user_id": ha_user_id, "device_id": device_id, "room": row["room"], "new_device": bool(own),
-              "was_person": person["role"] if person is not None else None}
+    detail = {"ha_user_id": ha_user_id, "device_id": device_id, "room": row["room"], "new_device": bool(new_device),
+              "was_person": person["role"] if person is not None else None, "moved_from": moving_from}
     _audit(app, actor.id, actor.role, "ingress.link_tablet", detail)
     log.info("Ingress people: %s linked HA user %s as the wall tablet %s (%s)", actor.name or actor.id, ha_user_id,
              row["name"], row["room"] or "no room")
     return {"ha_user_id": ha_user_id, "device": sessions.device_json(sessions.Device(
-        row["id"], row["name"], row["role"], row["room"], ha_user_id=ha_user_id)), "new_device": bool(own)}
+        row["id"], row["name"], row["role"], row["room"], ha_user_id=ha_user_id)), "new_device": bool(new_device)}
 
 
 def unlink_tablet(app: web.Application, ha_user_id: str, actor: User) -> bool:

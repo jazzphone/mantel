@@ -20,10 +20,10 @@ entity keeps its entity id, its history and its customisations (Home Assistant m
 3. **Hand over the bridge.** Mantel Settings → Connections → Home Assistant → Moving from HK Frontend → Advanced → **Hand the Bridge to Mantel Link**
    (an Owner; it is in the Audit Log). HK Frontend lets go of Mantel's entities; Mantel Link takes the same ones over.
    `hk_frontend.set_black_screen` keeps reaching every tablet throughout.
-4. **Move the tablets to Mantel**, one at a time, on the same page (Who Runs Each Wall Tablet), then the rest of the
+4. **Move the tablets to Mantel**, one at a time, on the same page (Wall Tablets: each tablet's Run by Mantel), then the rest of the
    house (Seasonal decorations, the Alarm PIN panel, Live TV's sensors and cameras). Each moves to Mantel Link with
    its entity id and history.
-5. **Set the Alarm PIN again in Mantel** (Mantel Settings → Alarm PIN → Change PIN). Home Assistant never gives its
+5. **Set the Alarm PIN again in Mantel** (Mantel Settings → Features → Alarm PIN → Change PIN). Home Assistant never gives its
    PIN out, so the PIN HK Frontend kept can't come across; once the rest of the house is Mantel's, the PIN is kept
    only in Mantel and the Alarm PIN panel in Home Assistant checks Mantel's.
 6. **Remove HK Frontend** once every tablet and the rest of the house are Mantel's, and everything you used in HK

@@ -390,6 +390,9 @@ async def ws(request: web.Request) -> web.StreamResponse:
     got = report(request)
     sock = web.WebSocketResponse(heartbeat=10)
     await sock.prepare(request)
+    open_sockets = request.app.get("proxy_check_sockets")
+    if open_sockets is not None:
+        open_sockets.add(sock)                  # server.py's on_shutdown closes it
     await sock.send_str(json.dumps({"type": "report", "door": got["door"], "https": got["https"],
                                     "peer": got["peer"], "trusted": proxy_trust.is_trusted(request)}))
     try:
@@ -398,6 +401,9 @@ async def ws(request: web.Request) -> web.StreamResponse:
             await sock.send_str(json.dumps({"type": "pong"}))
     except Exception:  # noqa: BLE001 -- a test socket: whatever happens, close it
         pass
+    finally:
+        if open_sockets is not None:
+            open_sockets.discard(sock)
     await sock.close()
     return sock
 
@@ -435,6 +441,7 @@ async def asset(request: web.Request) -> web.StreamResponse:
 
 def register(app: web.Application, hub=None) -> None:
     door_key.install(app)
+    app["proxy_check_sockets"] = set()
     app.router.add_post(DOOR_KEY, rotate)
     app.setdefault("public_paths", set()).add(BASICS)
     app.router.add_get(BASICS, basics)

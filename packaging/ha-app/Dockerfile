@@ -25,7 +25,9 @@ RUN python -m venv /opt/venv \
 RUN groupadd --system --gid 10001 mantel \
  && useradd --system --uid 10001 --gid 10001 --no-create-home --shell /usr/sbin/nologin mantel
 
-COPY app /app
+# --chmod as in packaging/docker/Dockerfile: a folder staged under a strict umask (0600 files, 0700 folders) would
+# leave root owning files the server's user (10001) cannot read
+COPY --chmod=0755 app /app
 # PRECOMPRESSED COPIES of the web app's text files (2026-10-24, the owner's editor on a slow connection): aiohttp's
 # FileResponse sends name.js.gz in place of name.js to a browser that takes gzip, so the few MB of JavaScript a
 # screen loads go over the wire at a fraction of that. Made here, from the files beside them, so they always match.

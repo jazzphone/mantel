@@ -550,6 +550,17 @@ class Linked:
                 self.hass.async_create_task(self._ask(tid), "hk_frontend: a dashboard's read asked again")
 
     @callback
+    def _fail_reads(self) -> None:
+        """The link dropped: Mantel ended its page contexts with it, so a one-shot read still waiting is never
+        answered. Each is told now (its page shows Mantel away) instead of waiting for ever; subscriptions stay,
+        asked again when the link is back (_resubscribe)."""
+        for tid, t in list(self._tunnels.items()):
+            if not t["sub"] and not t["answered"]:
+                self._tunnels.pop(tid, None)
+                t["answered"] = True
+                t["conn"].send_error(t["mid"], "mantel_away", "Mantel Server can't be reached (the link dropped).")
+
+    @callback
     def _saved(self) -> dict[str, Any]:
         self._dirty = False
         return dict(self._last or {})
@@ -693,6 +704,8 @@ class Linked:
         if connected:
             self.entry.async_create_background_task(self.hass, self._report(), "hk_frontend: report to Mantel")
             self._resubscribe()
+        else:
+            self._fail_reads()
         for ent in self.entities.values():
             if ent.hass is not None:
                 ent.async_write_ha_state()

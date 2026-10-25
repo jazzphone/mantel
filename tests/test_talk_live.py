@@ -274,6 +274,18 @@ async def _live(gw, ha, rate=48000):
     return hub, ws, reply["audit_id"]
 
 
+async def test_turning_control_of_the_house_off_ends_an_open_talk(gw, ha):
+    """RBAC-3 (audit, second pass): Allow Control of the House turned off released only unused tickets; a talk
+    already running kept its own Home Assistant socket until its time limit, and no policy tick re-checked it."""
+    from mantel_server.server import apply_commands
+    hub, ws, aid = await _live(gw, ha)
+    await apply_commands(gw.app, gw.app["hub"], False)
+    assert await closed(ws) == 1008
+    assert await until(lambda: ha.live == 0)                  # Home Assistant's talk socket is gone too
+    assert gw.audit(id=aid)[0]["result"] == "refused:commands_disabled"
+    await hub.close()
+
+
 async def test_another_speaker_is_refused_and_nothing_opened(gw, ha):
     add_speaker(gw)
     await gw.login("avery", "owner")
@@ -672,4 +684,65 @@ async def test_home_assistant_s_socket_is_ready_before_the_page_opens_its_own(gw
     (conn,) = ha.conns                                           # the same socket, not a second one
     assert conn[1] == {"id": 1, "type": "mantel/talk/live", "entity_id": SPEAKER, "rate": 44100}
     await ws.close()
+    await hub.close()
+
+
+# -- the second audit (2026-10): what an unused ticket may hold -------------------------------------------------------
+async def test_unused_talk_tickets_do_not_each_hold_a_home_assistant_socket(gw, ha):
+    """MED-5 (audit, second pass): since 2026-10-22 ``issue`` opened Mantel's authenticated HA websocket per ticket
+    (held ~10 s) and nothing capped tickets per person or in total (the one-talk-per-person rule applies only when
+    the page's socket arrives): 40 talk_live commands were 40 simultaneous HA sessions signed in with Mantel's token.
+    One person (or tablet) now holds at most one early socket."""
+    add_speaker(gw)
+    await gw.login("avery", "owner")
+    hub = await gw.socket()
+    for _ in range(40):
+        await ticket(gw, hub)
+    assert await until(lambda: ha.live >= 1)
+    await asyncio.sleep(0.3)                                 # time for any more to connect
+    live = ha.live
+    await hub.close()
+    assert live == 1, f"{live} Home Assistant sockets open at once for one person's unused tickets"
+
+
+async def test_all_the_unused_tickets_together_hold_at_most_a_few_sockets(gw, ha):
+    """MED-5 (audit, second pass): and across people at most ``PRECONNECT_MAX`` in all; a ticket past the cap is
+    issued without a socket, and the page's own connection (``_run`` makes the link then, as it always could) still
+    talks, just without the head start."""
+    add_speaker(gw)
+    hubs, tokens = [], []
+    for i in range(talk_relay.PRECONNECT_MAX + 2):
+        await gw.login(f"owner{i}", "owner")
+        hub = await gw.socket()
+        hubs.append(hub)
+        tokens.append((await ticket(gw, hub))["result"]["ticket"])
+    assert await until(lambda: ha.live == talk_relay.PRECONNECT_MAX)
+    await asyncio.sleep(0.3)
+    assert ha.live == talk_relay.PRECONNECT_MAX
+    relay = gw.app["talk"]
+    assert sum(t.link is not None for t in relay.tickets.values()) == talk_relay.PRECONNECT_MAX
+    last = tokens[-1]                                        # one of the tickets that got no early socket
+    assert relay.tickets[last].link is None
+    ws = await open_talk(gw, last)
+    assert (await recv(ws))["type"] == "auth_ok"
+    assert (await subscribe(ws))["success"] is True
+    assert (await recv(ws))["event"]["handler_id"] == 1
+    await ws.close()
+    for hub in hubs:
+        await hub.close()
+
+
+async def test_a_ticket_that_expired_gives_its_early_socket_to_the_next_ticket(gw, ha):
+    """MED-5 (audit, second pass): the cap counts UNUSED tickets: when the one that held a person's early socket is
+    gone (expired and swept), their next ticket gets one again."""
+    add_speaker(gw)
+    await gw.login("avery", "owner")
+    hub = await gw.socket()
+    relay = gw.app["talk"]
+    first = (await ticket(gw, hub))["result"]["ticket"]
+    second = (await ticket(gw, hub))["result"]["ticket"]
+    assert relay.tickets[first].link is not None and relay.tickets[second].link is None
+    relay.tickets[first].expires = 0                         # the first one ran out
+    third = (await ticket(gw, hub))["result"]["ticket"]
+    assert first not in relay.tickets and relay.tickets[third].link is not None
     await hub.close()

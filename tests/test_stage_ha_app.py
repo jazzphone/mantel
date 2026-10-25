@@ -140,3 +140,21 @@ def test_the_real_plan_holds_none_of_the_licensed_assets(pairs):
         low = dest.lower()
         assert "sf-pro." not in low or low.endswith(".css"), dest
         assert "hk-glyphs" not in low and not low.endswith((".woff", ".woff2", ".ttf", ".otf")), dest
+
+
+def test_the_staged_app_is_readable_whatever_the_stagers_umask(tmp_path, monkeypatch):
+    """DEP-6 (audit, second pass): the stager wrote with shutil.copyfile, which copies no mode, so staged under
+    umask 077 every file was 0600 (and the folders 0700) and the image's server user could not read them. The
+    stager now sets 0644 / 0755 itself."""
+    import os
+    web = _small_web(tmp_path)
+    pairs = [(s, d) for s, d in stage.plan() if not d.startswith("app/web/")]
+    old = os.umask(0o077)
+    try:
+        stage.write(tmp_path / "apps" / "mantel", pairs, web_src=web)
+    finally:
+        os.umask(old)
+    target = tmp_path / "apps" / "mantel"
+    files = [p for p in target.rglob("*") if p.is_file()]
+    assert files and all(p.stat().st_mode & 0o777 == 0o644 for p in files)
+    assert all(p.stat().st_mode & 0o777 == 0o755 for p in [target, *target.rglob("*")] if p.is_dir())

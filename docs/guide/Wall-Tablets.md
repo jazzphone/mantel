@@ -108,10 +108,9 @@ The tablet still opens its own screen, and the person gets only **Me** in Mantel
 
 `/home` on a tablet opens, in this order:
 
-1. **Opens On**, if the browser was given a screen of its own (the old Devices page's Default Screens). It shows under **Mantel** on the tablet's page only when set; choose **Its Screen** to follow the tablet's again.
+1. **Opens On**, if the browser was given a screen of its own (set on the tablet's own page, under All Screens → Wall Tablets). It shows under **Mantel** on the tablet's page only when set; choose **Its Screen** to follow the tablet's again.
 2. Otherwise the tablet's **Screen** (**All Screens** → **Wall Tablets** → the tablet → **Setup**).
-3. Otherwise the installation's default screen.
-3. Otherwise the installation's default screen.
+3. Otherwise the house's default screen (**General** → **House Default Screen**).
 
 This is only where it lands. What it may open and see is still its role's.
 

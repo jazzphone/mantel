@@ -172,6 +172,11 @@ update_script() {
       [ -n "$cid" ] && docker tag "$(docker inspect --format '{{.Image}}' "$cid")" "mantel-rollback/$s:previous"
     done
     docker compose build --pull
+    # a backup first, as update.sh makes: the new image migrates the database, which the rollback can't undo
+    if [ -n "$(docker compose ps -q mantel-server 2>/dev/null || true)" ]; then
+      docker compose exec -T mantel-server mantel backup --target /backups \
+        || msg_error "the backup failed; nothing was restarted. Fix it (Backups.md) or make one by hand, then run this again"
+    fi
     docker compose up -d --wait --wait-timeout 180 || {
       msg_info "not healthy: rolling back"
       MANTEL_SERVER_IMAGE=mantel-rollback/mantel-server:previous MANTEL_TRANSCODE_IMAGE=mantel-rollback/go2rtc:previous \
@@ -230,8 +235,13 @@ push_source() {  # push_source CTID: copy this checkout's source into the contai
       --exclude='./packaging/lxc/proof4' --exclude='./packaging/mantel-connect' -czf "$tarball" . )
   pct push "$ctid" "$tarball" /root/mantel-src.tar.gz
   rm -f "$tarball"
-  # .env is the installation's own file and is excluded above, so a push never overwrites it.
-  pct exec "$ctid" -- bash -c "mkdir -p ${INSTALL_DIR} && tar -xzf /root/mantel-src.tar.gz -C ${INSTALL_DIR} && rm /root/mantel-src.tar.gz"
+  # .env is the installation's own file and is excluded above, so a push never overwrites it. Extracting over the
+  # old tree would keep what the new version deleted or renamed (a renamed migration leaves two files with one
+  # number, and the server then refuses to start), so the CODE trees are removed first (once the tarball has been
+  # read through): never packaging/compose (its .env and backups/), never the data or the secrets, which live
+  # elsewhere (the Docker volume, /etc/hk/secrets).
+  local trees="hosts hk_core web apple tools packaging/docker packaging/ha-app packaging/lxc packaging/connect-app packaging/push-relay"
+  pct exec "$ctid" -- bash -c "mkdir -p ${INSTALL_DIR} && tar -tzf /root/mantel-src.tar.gz >/dev/null && cd ${INSTALL_DIR} && rm -rf ${trees} && tar -xzf /root/mantel-src.tar.gz -C ${INSTALL_DIR} && rm /root/mantel-src.tar.gz"
 }
 
 build_container() {

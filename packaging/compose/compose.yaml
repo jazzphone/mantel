@@ -104,6 +104,10 @@ services:
       # connections always come from this address. Without it every request counts as the tunnel door.
       MANTEL_TRUSTED_PROXY: 172.31.251.2
       MANTEL_BACKUP_TARGET: ${MANTEL_BACKUP_TARGET:-}
+      # first start only: seeds for Mantel Settings -> General (House Default Screen, Sign-Ins from Away Last);
+      # once Settings holds a value these are ignored. Empty = the built-in default.
+      MANTEL_DEFAULT_SCREEN: ${MANTEL_DEFAULT_SCREEN:-}
+      MANTEL_SESSION_HOURS: ${MANTEL_SESSION_HOURS:-}
       MANTEL_MA_URL: ${MANTEL_MA_URL:-}
       # Live TV served by Mantel (docs/phase4/FEATURE-PARITY.md): the stack's own go2rtc, on the backend
       # network (no login; never given to a page). Mantel sets each channel up there when a screen tunes in.

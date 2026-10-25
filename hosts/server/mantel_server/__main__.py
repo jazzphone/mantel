@@ -13,6 +13,10 @@ from .ha_client import TokenMissing, read_token
 from .server import build_app
 from .store import ROLES, Store
 
+# Docker and the Supervisor stop a container after about 10 s and then kill it: sockets still open after this
+# many seconds are cut, so a stop ends cleanly (and the database closes) inside that.
+SHUTDOWN_TIMEOUT = 5
+
 ADMIN_COMMANDS = {"link", "unlink", "links", "session", "bootstrap"}
 
 
@@ -169,7 +173,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"mantel-server: direct access on {cfg.host}:{cfg.direct_port} for {cfg.public_url} ({how})", flush=True)
         asyncio.run(serve_direct(app, cfg))
     else:
-        web.run_app(app, host=cfg.host, port=cfg.port, print=None)
+        web.run_app(app, host=cfg.host, port=cfg.port, print=None, shutdown_timeout=SHUTDOWN_TIMEOUT)
     return 0
 
 

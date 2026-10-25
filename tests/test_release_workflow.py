@@ -117,3 +117,23 @@ def test_the_event_values_never_reach_a_script_directly():
     for block in re.findall(r"run: \|\n((?:          .*\n)+)", TEXT):
         assert "${{" not in block, block
     assert "${{ github.ref_name }}" in TEXT and "${{ inputs.publish }}" in TEXT
+
+
+@pytest.mark.parametrize("workflow", ["tests.yml", "release.yml"])
+def test_ci_installs_the_pinned_versions_the_images_ship(workflow):
+    """DEP-8 (audit, second pass): the images install packaging/docker/requirements.lock, but CI installed
+    pyproject's open ranges, so a release was tested on whatever PyPI served that day, not on what it ships.
+    pip refuses hashes with an editable install, so CI turns the lock into a constraints file (the same pins,
+    without the hashes) and installs with -c."""
+    text = (ROOT / ".github/workflows" / workflow).read_text()
+    installs = [raw for raw in text.splitlines() if "pip install -e" in raw]
+    assert installs and all(' -c "$RUNNER_TEMP/constraints.txt"' in raw for raw in installs), installs
+    make = [raw for raw in text.splitlines() if "packaging/docker/requirements.lock" in raw and "constraints.txt" in raw]
+    assert make and text.index(make[0]) < text.index(installs[0])
+    # what that sed leaves: only pins, one per line, every one of them in the lock
+    import subprocess
+    sed = re.search(r"- run: (sed .*?) packaging/docker/requirements.lock", make[0]).group(1)
+    out = subprocess.run(f"{sed} {ROOT / 'packaging/docker/requirements.lock'}", shell=True, capture_output=True, text=True).stdout
+    lines = out.splitlines()
+    assert lines and all(re.fullmatch(r"[A-Za-z0-9_.\-]+(\[[a-z,]+\])?==[^\s;]+( ;.*)?", ln) for ln in lines), \
+        [ln for ln in lines if not re.fullmatch(r"[A-Za-z0-9_.\-]+==\S+", ln)][:3]

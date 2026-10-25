@@ -188,3 +188,46 @@ def test_each_dns_hosts_secret_files_are_what_its_snippet_reads():
     assert sorted(listed) == sorted(every)
     r = subprocess.run([BASH, "-c", f'{func}\ndns_secrets namecheap'], capture_output=True, text=True)
     assert r.returncode != 0
+
+
+def test_the_install_turns_the_nightly_backup_on():
+    """DEP-2 (audit, second pass): mantel-install.sh made the backups folder but left MANTEL_BACKUP_TARGET empty
+    (as .env.example has it), so a new LXC had no backup at all although Backups.md says it runs nightly. The
+    generated .env now sets it to /backups, where compose mounts MANTEL_BACKUP_DIR (the folder made next to it)."""
+    text = INSTALL_SH.read_text()
+    assert 's|^MANTEL_BACKUP_TARGET=.*|MANTEL_BACKUP_TARGET=/backups|' in text
+    assert re.search(r"^MANTEL_BACKUP_TARGET=$", (ROOT / "packaging/compose/.env.example").read_text(), re.M)
+    assert "${MANTEL_BACKUP_DIR:-./backups}:/backups" in (ROOT / "packaging/compose/compose.yaml").read_text()
+    assert 'install -d -m 0750 -o 10001 -g 10001 "$COMPOSE_DIR/backups"' in text
+
+
+def test_a_source_push_removes_what_the_new_version_deleted(tmp_path):
+    """DEP-7 (audit, second pass): push_source extracted the tarball over /opt/mantel, so files deleted or
+    renamed upstream stayed: a renamed migration left two files with one number and the server refused to start.
+    The code trees are now removed first, never packaging/compose (its .env and backups/), never data or secrets."""
+    text = MANTEL_SH.read_text()
+    line = next(raw for raw in text.splitlines() if "tar -xzf /root/mantel-src.tar.gz" in raw)
+    assert "rm -rf ${trees}" in line and line.index("rm -rf") < line.index("tar -xzf")
+    assert "tar -tzf /root/mantel-src.tar.gz" in line and line.index("tar -tzf") < line.index("rm -rf")
+    trees = re.search(r'local trees="([^"]+)"', text).group(1).split()
+    assert "hosts" in trees and "packaging/lxc" in trees
+    for tree in trees:                                          # code only, and each one is in the source
+        assert (ROOT / tree).is_dir(), tree
+        assert not (tree.startswith(("packaging/compose", "etc")) or tree in ("data", "secrets", "backups")), tree
+    assert "packaging/compose" not in trees
+    # run for real against a stand-in install: stale files go, .env and backups stay
+    install = tmp_path / "opt"
+    (install / "hosts/server/migrations").mkdir(parents=True)
+    (install / "hosts/server/migrations/0015_push.sql").write_text("old")
+    (install / "packaging/compose/backups").mkdir(parents=True)
+    (install / "packaging/compose/.env").write_text("KEEP=1\n")
+    (install / "packaging/compose/backups/mantel-1.mbk").write_text("backup")
+    src = tmp_path / "src"
+    (src / "hosts/server/migrations").mkdir(parents=True)
+    (src / "hosts/server/migrations/0016_push.sql").write_text("new")
+    subprocess.run(["tar", "-czf", str(tmp_path / "s.tar.gz"), "-C", str(src), "."], check=True)
+    remove = f"cd {install} && rm -rf {' '.join(trees)} && tar -xzf {tmp_path / 's.tar.gz'} -C {install}"
+    assert subprocess.run([BASH, "-c", remove], capture_output=True).returncode == 0
+    assert sorted(p.name for p in (install / "hosts/server/migrations").iterdir()) == ["0016_push.sql"]
+    assert (install / "packaging/compose/.env").read_text() == "KEEP=1\n"
+    assert (install / "packaging/compose/backups/mantel-1.mbk").is_file()

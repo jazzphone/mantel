@@ -242,6 +242,56 @@ async def test_an_unreadable_file_is_marked_and_never_tried_again(mantel, fake_d
     assert row(mantel, ids[0])["faces"] == "[]" and row(mantel, ids[1])["faces"] == "[]"
 
 
+class BrokenDetector(FakeDetector):
+    """The detector's own failure at run time (onnxruntime out of memory, a bad session), on the pictures in ``bad``
+    (colour red channel) or on all of them."""
+    bad: set | None = None
+
+    def detect(self, img):
+        FakeDetector.seen.append(img.getpixel((0, 0)))
+        if BrokenDetector.bad is None or img.getpixel((0, 0))[0] in BrokenDetector.bad:
+            raise RuntimeError("onnxruntime: out of memory")
+        return []
+
+
+@pytest.fixture
+def broken_detector(monkeypatch):
+    FakeDetector.seen, FakeDetector.answers, FakeDetector.stop_after = [], [], None
+    BrokenDetector.bad = None
+    monkeypatch.setattr(faces, "available", lambda: True)
+    monkeypatch.setattr(faces, "Detector", BrokenDetector)
+    return BrokenDetector
+
+
+async def test_a_failing_detector_does_not_mark_photos_checked_for_ever(mantel, broken_detector, monkeypatch, caplog):
+    """MED-4 (audit, second pass): ``_look`` treated any exception, the detector's own included, as "an unreadable
+    file": the photo was stored as checked with no faces and never looked at again, so one systemic failure marked the
+    whole library "no faces". Only a file that cannot be opened counts as no faces now; a photo the detector fails on
+    stays unchecked, and a few failures in a row stop the run with one line in the log."""
+    import logging
+    aid, ids = await _unchecked(mantel, 5, monkeypatch)
+    caplog.set_level(logging.INFO, logger="mantel.photos")
+    await photos.FaceBackfill(mantel.app, start=0, rest=0).run()
+    assert [row(mantel, i)["faces_at"] for i in ids] == [None] * 5     # none marked checked
+    assert len(FakeDetector.seen) == photos.FaceBackfill.FAILURES_MAX  # and it gave up after a few, not all five
+    assert len([r for r in caplog.records if "backfill stops" in r.getMessage()]) == 1
+    assert mantel.app["photos"].unchecked() is not None
+
+
+async def test_a_photo_the_detector_fails_on_is_skipped_this_run_and_tried_again_the_next(mantel, broken_detector,
+                                                                                         monkeypatch):
+    """MED-4 (audit, second pass): one picture the detector fails on must neither be marked "no faces" nor hold up the
+    ones behind it: it stays unchecked, the run goes on to the others, and the next run (a restart) tries it again."""
+    aid, ids = await _unchecked(mantel, 4, monkeypatch)
+    broken_detector.bad = {20}                                       # ids[2]: colour (20, 0, 0)
+    await photos.FaceBackfill(mantel.app, start=0, rest=0).run()
+    assert [row(mantel, i)["faces_at"] is not None for i in ids] == [True, True, False, True]
+    assert mantel.app["photos"].unchecked() == ids[2]
+    broken_detector.bad = set()                                      # the detector is well again
+    await photos.FaceBackfill(mantel.app, start=0, rest=0).run()
+    assert mantel.app["photos"].unchecked() is None and json.loads(row(mantel, ids[2])["faces"]) == []
+
+
 async def test_the_backfill_does_nothing_without_a_detector(mantel, no_detector, monkeypatch):
     await _unchecked(mantel, 1, monkeypatch)
     assert photos.FaceBackfill(mantel.app, start=0, rest=0).start() is None

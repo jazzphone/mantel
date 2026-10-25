@@ -34,8 +34,8 @@ Connections → [Mantel in Home Assistant](https://github.com/jazzphone/mantel/b
 - **The Bridge:** one of the two shows Mantel's entities in Home Assistant.
   Mantel Link is recommended. Entity ids and history stay the same whichever
   holds it, so your automations keep working.
-- **Who Runs Each Wall Tablet:** each tablet has one engine, Mantel or HK
-  Frontend. A tablet on Mantel's screens should be run by Mantel; one showing
+- **Each wall tablet** (Moving from HK Frontend → Wall Tablets, **Run by
+  Mantel**): each tablet has one engine, Mantel or HK Frontend. A tablet on Mantel's screens should be run by Mantel; one showing
   HK Frontend's dashboards, by HK Frontend. Never point a tablet Mantel runs at
   an HK Frontend dashboard: both would try to put its screen to sleep.
 - **The House:** Seasonal Decorations, the Alarm PIN keypad and Live TV's

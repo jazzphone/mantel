@@ -202,7 +202,6 @@ def _link_roles() -> tuple[str, ...]:
 
 
 async def api_put(request: web.Request) -> web.Response:
-    from .ingress import _audit, linked_user, tablet_link
     from .linked_owners import _who
     ident = _who(request, owner_only=True)
     app, ls = request.app, request.app["linked_settings"]
@@ -215,16 +214,21 @@ async def api_put(request: web.Request) -> web.Response:
         return web.json_response({"error": {"code": code, "message": message}}, status=status)
 
     if isinstance(body, dict) and set(body) == {"on"} and isinstance(body["on"], bool):
+        from .connections import _audit
         clients = ls.clients()
         if not clients:
             return bad("no_hk_frontend", "No HK Frontend is linked to Mantel right now.", 409)
-        changed = [c.account.id for c in clients
-                   if app["service_accounts"].set_scope(c.account.id, SAVES, body["on"])]
-        for c in clients:                       # the open links see it at once (the credential is rechecked)
+        # the audit row first, as for every other grant: no row, no change (it lets HA say who is acting)
+        changing = sorted({c.account.id for c in clients if (SAVES in c.account.scopes) != body["on"]})
+        refused = _audit(request, ident, "linked.saves", {"on": body["on"], "accounts": changing})
+        if refused is not None:
+            return refused
+        for c in clients:
+            app["service_accounts"].set_scope(c.account.id, SAVES, body["on"])
+            # the open links see it at once (the credential is rechecked)
             c.account = type(c.account)(c.account.id, c.account.name,
                                         frozenset(c.account.scopes | {SAVES}) if body["on"]
                                         else frozenset(c.account.scopes - {SAVES}))
-        _audit(app, ident.user.id, ident.user.role, "linked.saves", {"on": body["on"], "accounts": changed})
         await ls.resend()
         return web.json_response({"saves": ls.saves_on()})
     return bad("invalid", '{"on": bool} (a Home Assistant user is linked to a person on People: /api/people/ha)')

@@ -239,6 +239,29 @@ async def test_setup_turns_saves_on_and_links_home_assistant_people(make_env):
     await ws.close()
 
 
+async def test_saves_are_turned_on_only_once_their_audit_row_is_written(make_env):
+    """RBAC-4 (audit, second pass): the linked_saves grant was made before its audit row; a failed audit left the
+    grant in place behind a 500. Now: the row first, a 503 and no grant without it."""
+    env = await make_env()
+    ws = await connect(env, HK)
+    await ws.receive_json(timeout=5)
+    await env.login("owner1", "owner")
+    audit = env.app["audit"]
+
+    def broken(_row):
+        raise RuntimeError("fictional: the audit store is unavailable")
+    audit.config_event = broken
+    try:
+        r = await put_saves(env, {"on": True})
+    finally:
+        del audit.config_event
+    scopes = [a["scopes"] for a in env.app["service_accounts"].list() if a["revoked"] is None]
+    assert r.status == 503 and all("linked_saves" not in s for s in scopes), (r.status, scopes)
+    r = await put_saves(env, {"on": True})
+    assert r.status == 200 and any("linked_saves" in a["scopes"] for a in env.app["service_accounts"].list())
+    await ws.close()
+
+
 async def test_setup_refuses_what_it_should(make_env):
     env = await make_env()
     env.app["linked_settings"].directory = FakeDirectory([ha_user(HA_OWNER, "Avery", True)])
@@ -321,15 +344,15 @@ async def test_a_dashboard_s_feature_read_is_answered_by_mantel_as_the_person(ma
     env.app["store"].link(HA_OWNER, "owner", "Fictional Owner")
     ws = await connect(env, READS)
     await ws.receive_json(timeout=5)
-    # a subscription Mantel answers itself: the settings feed, as the person (their own values over the house's)
-    res, got = await page(ws, 1, HA_OWNER, {"type": "read_subscribe", "id": 7, "msg": {"type": "hk_frontend/settings/subscribe"}})
+    # a subscription Mantel answers itself: the Lights page's header feed, as the person
+    res, got = await page(ws, 1, HA_OWNER, {"type": "read_subscribe", "id": 7, "msg": {"type": "hk_frontend/page_headers/subscribe"}})
     assert res["success"], res
     frames = [f["frame"] for f in got if f.get("type") == "page_frame"]
     while not (any(fr.get("type") == "read_result" for fr in frames) and any(fr.get("type") == "read_event" for fr in frames)):
         f = await ws.receive_json(timeout=5)
         if f.get("type") == "page_frame":
             frames.append(f["frame"])
-    assert any(fr["type"] == "read_event" and fr["id"] == 7 and "boards" in fr["event"] for fr in frames)
+    assert any(fr["type"] == "read_event" and fr["id"] == 7 for fr in frames)
     assert next(fr for fr in frames if fr["type"] == "read_result")["id"] == 7
     # unsubscribe ends it
     res, _ = await page(ws, 2, HA_OWNER, {"type": "read_unsubscribe", "id": 7})
@@ -355,20 +378,76 @@ async def test_feature_reads_are_refused_in_words(make_env):
     await ws.close()
 
 
+async def test_a_link_credential_reads_only_what_hk_frontend_forwards(make_env):
+    """RBAC-1 (audit, second pass): any of Mantel's reads could be relayed as any linked person, the Owner included
+    -- their saved data, settings history, Mantel Photos, camera offers -- by a credential without linked_saves,
+    while a save needed it. Only the reads HK Frontend forwards are taken now."""
+    env = await make_env()
+    uid = env.app["store"].link(HA_OWNER, "owner", "Fictional Owner")
+    env.app["user_data"].set(f"u:{uid}", "favorites", ["lock.front_door"])
+    ws = await connect(env, READS)
+    await ws.receive_json(timeout=5)
+    for n, t in enumerate(("frontend/get_user_data", "mantel/settings/history", "hk_frontend/settings/subscribe")):
+        kind = "read_subscribe" if t.endswith("subscribe") else "read"
+        res, got = await page(ws, n + 1, HA_OWNER, {"type": kind, "id": n + 1, "msg": {"type": t, "key": "favorites"}})
+        assert not res["success"] and res["error"]["code"] == "not_mantels", (t, res)
+        assert not [f for f in got if f.get("type") == "page_frame"], t
+    await ws.close()
+
+
+def test_mantel_takes_exactly_the_reads_hk_frontend_forwards():
+    """linked_reads.FORWARDED is HK Frontend's READS_REQUEST + READS_SUBSCRIBE, and each is one of Mantel's reads."""
+    import ast
+    from pathlib import Path
+    from mantel_server.linked_reads import FORWARDED
+    src = Path(__file__).resolve().parents[1] / "hosts/ha/custom_components/hk_frontend/linked_mode.py"
+    tree = ast.parse(src.read_text())
+    lists = {n.targets[0].id: ast.literal_eval(n.value) for n in ast.walk(tree) if isinstance(n, ast.Assign)
+             and getattr(n.targets[0], "id", "") in ("READS_REQUEST", "READS_SUBSCRIBE")}
+    assert set(lists["READS_REQUEST"]) | set(lists["READS_SUBSCRIBE"]) == set(FORWARDED)
+
+
+async def test_a_disabled_or_relinked_person_s_relayed_reads_end_at_the_policy_tick(make_env):
+    """RBAC-2 (audit, second pass): a relayed subscription kept the person it was made as until HK Frontend
+    unsubscribed or the link dropped. The policy tick now re-checks it as it does a page socket."""
+    from mantel_server.server import tick_once
+    env = await make_env()
+    uid = env.app["store"].link(HA_OWNER, "owner", "Fictional Owner")
+    ws = await connect(env, READS)
+    await ws.receive_json(timeout=5)
+    res, _ = await page(ws, 1, HA_OWNER, {"type": "read_subscribe", "id": 7,
+                                          "msg": {"type": "hk_frontend/page_headers/subscribe"}})
+    assert res["success"], res
+    ctx = next(iter(env.app["linked_reads"].ctxs.values()))
+    await tick_once(env.app, env.app["hub"])                  # still linked, still enabled: kept
+    assert not ctx.closed and ctx.subs
+    db = env.app["store"].db
+    with db:
+        db.execute("UPDATE users SET role = 'guest' WHERE id = ?", (uid,))
+    await tick_once(env.app, env.app["hub"])                  # a role change: the same reads, as a Guest now
+    assert not ctx.closed and ctx.identity.user.role == "guest"
+    with db:
+        db.execute("UPDATE users SET disabled = 1 WHERE id = ?", (uid,))
+    await tick_once(env.app, env.app["hub"])
+    assert ctx.closed and not ctx.subs and not env.app["linked_reads"].ctxs
+    await ws.close()
+
+
 async def test_closing_the_link_ends_its_pages_subscriptions(make_env):
     import asyncio
     env = await make_env()
     env.app["store"].link(HA_OWNER, "owner", "Fictional Owner")
     ws = await connect(env, READS)
     await ws.receive_json(timeout=5)
-    await page(ws, 1, HA_OWNER, {"type": "read_subscribe", "id": 9, "msg": {"type": "hk_frontend/settings/subscribe"}})
-    feeds = len(env.app["settings"]._feeds)
+    await page(ws, 1, HA_OWNER, {"type": "read_subscribe", "id": 9, "msg": {"type": "hk_frontend/page_headers/subscribe"}})
+    ctx = next(iter(env.app["linked_reads"].ctxs.values()))
+    assert ctx.subs
     await ws.close()
     for _ in range(50):
         if not env.app["linked_reads"].ctxs:
             break
         await asyncio.sleep(0.05)
-    assert not env.app["linked_reads"].ctxs and len(env.app["settings"]._feeds) == feeds - 1
+    assert not env.app["linked_reads"].ctxs and ctx.closed and not ctx.subs
 
 
 async def test_a_relayed_read_is_never_sent_back_to_home_assistant(make_env):

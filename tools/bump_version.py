@@ -49,10 +49,14 @@ def set_version(version: str, root: Path = ROOT) -> list[str]:
 
 
 def name_unreleased(version: str, root: Path = ROOT, today: datetime.date | None = None) -> bool:
-    """CHANGELOG.md's "## Unreleased" becomes "## <version> - <date>". False when there is no such heading."""
+    """CHANGELOG.md's "## Unreleased" becomes "## <version> - <date>". False when there is no such heading, or when
+    it is not the newest section (one left below released versions was renamed 0.1.71 out of order once)."""
     path = root / "CHANGELOG.md"
     text = path.read_text(encoding="utf-8")
     day = (today or datetime.date.today()).isoformat()
+    first = re.search(r"(?m)^## .*$", text)
+    if first is None or not re.fullmatch(r"(?i)## Unreleased[ \t]*", first.group(0)):
+        return False
     new = re.sub(r"(?mi)^## Unreleased[ \t]*$", f"## {version} - {day}", text, count=1)
     if new == text:
         return False

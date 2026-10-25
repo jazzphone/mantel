@@ -54,7 +54,62 @@ class Migration:
 
     @property
     def checksum(self) -> str:
+        """Of the SQL without comments or whitespace: rewording a comment after a release is not a change."""
+        return hashlib.sha256(strip_sql(self.sql).encode()).hexdigest()
+
+    @property
+    def raw_checksum(self) -> str:
+        """Of the file's bytes: what versions before 0.1.76 stored in ``schema_version``."""
         return hashlib.sha256(self.path.read_bytes()).hexdigest()
+
+
+# Raw-bytes checksums of migration texts whose only later change was to a comment (cea8a8b reworded an example name
+# in 0015's and 0017's comments after the house had applied them). A database that stored one of these has the same
+# schema as a fresh one, so it is refreshed silently instead of warned about on every start.
+COMMENT_ONLY_EDITS: dict[int, frozenset[str]] = {
+    15: frozenset({"5ed7564a114e61f3f091b02f7188e8dd90f1fd6a9f0da14afd88bb50cb9bc982"}),
+    17: frozenset({"4c679a8e84b6df9765e18b5c0dc7609a158a6bb2e0d0e2c311a262e751d415fa"}),
+}
+
+
+def strip_sql(sql: str) -> str:
+    """``sql`` without ``--`` and ``/* */`` comments, with every run of whitespace (or comment) outside a quoted
+    string or identifier reduced to one space (and none at the ends)."""
+    out: list[str] = []
+    gap = False                                            # whitespace or a comment is waiting to be written
+    i, n = 0, len(sql)
+    while i < n:
+        c = sql[i]
+        if sql.startswith("--", i):
+            j = sql.find("\n", i)
+            i = n if j < 0 else j
+            gap = True
+        elif sql.startswith("/*", i):
+            j = sql.find("*/", i + 2)
+            i = n if j < 0 else j + 2
+            gap = True
+        elif c.isspace():
+            i += 1
+            gap = True
+        else:
+            if gap and out:
+                out.append(" ")
+            gap = False
+            if c in "'\"`":                                # a string or quoted name: kept exactly
+                j = i + 1
+                while j < n:
+                    if sql[j] == c:
+                        if j + 1 < n and sql[j + 1] == c:   # a doubled quote is a quote inside it
+                            j += 2
+                            continue
+                        break
+                    j += 1
+                out.append(sql[i:j + 1])
+                i = j + 1
+            else:
+                out.append(c)
+                i += 1
+    return "".join(out)
 
 
 def discover(folder: Path = MIGRATIONS) -> list[Migration]:
@@ -132,8 +187,17 @@ def migrate(conn: sqlite3.Connection, folder: Path = MIGRATIONS, clock=time.time
     ran = []
     for m in found:
         if m.version in done:
-            if done[m.version]["checksum"] != m.checksum:
-                log.warning("migration %04d_%s changed after it was applied; it is not re-run", m.version, m.name)
+            stored = done[m.version]["checksum"]
+            if stored != m.checksum:
+                if stored == m.raw_checksum or stored in COMMENT_ONLY_EDITS.get(m.version, ()):
+                    # applied by a version that hashed the raw file, and only comments or whitespace differ: keep
+                    # the SQL's own checksum from now on, so the next start has nothing to say
+                    with conn:
+                        conn.execute("UPDATE schema_version SET checksum = ? WHERE version = ?", (m.checksum, m.version))
+                    log.debug("migration %04d_%s: stored checksum refreshed (only comments or whitespace changed)",
+                              m.version, m.name)
+                else:
+                    log.warning("migration %04d_%s changed after it was applied; it is not re-run", m.version, m.name)
             continue
         script = (f"BEGIN IMMEDIATE;\n{m.sql}\n;\n"
                   f"INSERT INTO schema_version (version, name, checksum, applied) "

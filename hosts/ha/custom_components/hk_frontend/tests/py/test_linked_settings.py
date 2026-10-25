@@ -371,6 +371,25 @@ async def test_a_dashboard_s_subscription_stays_open_until_the_page_ends_it(hass
     await _unload(hass, e)
 
 
+async def test_a_read_in_flight_when_the_link_drops_is_answered(hass, base, mantel):
+    """HK-1 (Mantel's audit, second pass): a one-shot read Mantel had taken when the link dropped was never answered;
+    the dashboard's request waited for ever and its tunnel stayed."""
+    e = await _linked(hass, mantel)
+    await _mirror(hass, mantel)
+    user = await _admin(hass)
+    handler, schema = _handler(hass, "hk_tv/channels")
+    conn = SubConn(user)
+    handler(hass, conn, schema({"id": 8, "type": "hk_tv/channels"}) if callable(schema) else {"id": 8, "type": "hk_tv/channels"})
+    await until(hass, lambda: mantel.calls("page"))
+    await mantel.drop()
+    await until(hass, lambda: any(m.get("id") == 8 for m in conn.sent))
+    got = next(m for m in conn.sent if m.get("id") == 8)
+    assert not got["success"] and got["error"]["code"] == "mantel_away"
+    from custom_components.hk_frontend import linked_mode
+    assert not linked_mode.active(hass)._tunnels
+    await _unload(hass, e)
+
+
 async def test_mantel_s_refusal_of_a_read_reaches_the_page(hass, base, mantel):
     async def refuse(ws, msg):
         if msg.get("type") == "page":

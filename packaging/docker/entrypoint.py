@@ -465,7 +465,12 @@ def plan(argv: list[str], env: dict[str, str], options_path: Path = APP_OPTIONS,
     env = dict(env)
     if argv and argv[0] in ADMIN_COMMANDS:
         extra = [] if "--data-dir" in argv or argv[0] == "connect-proof" else ["--data-dir", env.get("MANTEL_DATA_DIR", "/data")]
-        given = ADMIN_EXTRAS.get(argv[0], lambda e: [])(env)
+        view = env
+        if not env.get("MANTEL_SECRETS_DIR") and detect_mode(env, options_path) == "ha-app":
+            # the App keeps its keys in <data>/secrets (app_args), not in the compose secrets folder: an admin
+            # command run in the App's container (as root, as the server's uid) must open the same at_rest.key
+            view = {**env, "MANTEL_SECRETS_DIR": f"{env.get('MANTEL_DATA_DIR', '/data')}/secrets"}
+        given = ADMIN_EXTRAS.get(argv[0], lambda e: [])(view)
         for flag, value in zip(given[::2], given[1::2]):
             if flag not in argv and value:
                 extra += [flag, value]
@@ -474,6 +479,7 @@ def plan(argv: list[str], env: dict[str, str], options_path: Path = APP_OPTIONS,
         options_path = Path(env.get("MANTEL_APP_OPTIONS") or options_path)
         token_file = Path(env.get("MANTEL_APP_TOKEN_FILE") or token_file)
         write_private(token_file, env.pop("SUPERVISOR_TOKEN"))
+        env.pop("HASSIO_TOKEN", None)      # the Supervisor's older name for the same token: never in the server's environment
         options = json.loads(options_path.read_text())
         ma_file = Path(env.get("MANTEL_APP_MA_TOKEN_FILE") or APP_MA_TOKEN_FILE)
         ma_token = str(options.get("ma_token") or "").strip()

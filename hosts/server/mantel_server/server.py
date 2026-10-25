@@ -28,7 +28,7 @@ from importlib.resources import files
 from urllib.parse import urlparse
 
 import aiohttp
-from aiohttp import WSMsgType, web
+from aiohttp import WSCloseCode, WSMsgType, web
 
 from . import about, frame_origins, music
 from . import accounts, alarm_pin, auth, connect_pairing, devices, gateway, health, ingress, live_tv, pins, rbac_store, readproxy, sessions, settings_store
@@ -585,8 +585,45 @@ def build_app(cfg: Config, token: str, store: Store | None = None, connect_ha: b
             except (asyncio.CancelledError, Exception):
                 pass
 
+    async def close_sockets(app: web.Application) -> None:
+        """Every long-lived socket ends now, so the runner does not wait out shutdown_timeout for handlers that
+        only finish when their client leaves (a screen's /ws, a stream through the media proxy, a live talk, the
+        proxy test). Docker and the Supervisor kill an App that has not stopped after about 10 s. (/linked/ws
+        has its own handler in linked.py.)"""
+        socks = [s.ws for s in list(hub.sessions)]
+        proxy = app.get("media_proxy")
+        if proxy is not None:
+            socks += list(proxy.sockets)
+        relay = app.get("talk")
+        if relay is not None:
+            socks += [s.ws for s in list(relay.streams)]
+        socks += list(app.get("proxy_check_sockets") or ())
+
+        async def close(ws: web.WebSocketResponse) -> None:
+            try:
+                await asyncio.wait_for(ws.close(code=WSCloseCode.GOING_AWAY, message=b"server shutting down"), 3)
+            except Exception:  # noqa: BLE001 -- gone already, or it will not answer: the runner ends it
+                pass
+
+        await asyncio.gather(*(close(ws) for ws in socks))
+
     app.on_startup.append(start)
+    app.on_shutdown.append(close_sockets)
     app.on_cleanup.append(stop)
+
+    async def close_database(app: web.Application) -> None:
+        """Last of the cleanups (aiohttp runs them in the order they were added, and this is added last): whatever
+        could still write has stopped, so the WAL is checkpointed and the file closed by a clean stop."""
+        for name in ("tick_task", "tz_task"):          # cancelled by stop(); let a write in flight finish
+            task = app.get(name)
+            if task is not None:
+                await asyncio.gather(task, return_exceptions=True)
+        try:
+            app["store"].db.close()
+        except Exception:  # noqa: BLE001 -- closing twice, or by a test that owns the store
+            log.debug("closing the database failed", exc_info=True)
+
+    app.on_cleanup.append(close_database)
     return app
 
 
@@ -754,7 +791,7 @@ async def apply_commands(app: web.Application, hub: Hub, on: bool) -> None:
         for closer in (talk, old_cmd):
             if closer is not None:
                 try:
-                    await closer.close()
+                    await (closer.close("refused:commands_disabled") if closer is talk else closer.close())
                 except Exception:  # noqa: BLE001 -- off already: nothing can use it
                     log.debug("closing the old command path failed", exc_info=True)
         log.warning("commands are disabled on this server (Mantel Settings): read-only from now on")
@@ -881,6 +918,10 @@ async def tick_once(app: web.Application, hub: Hub) -> None:
         s.view.policy_changed()
         s.wake.set()
         await recheck_streams(s.ctx)
+    reads = app.get("linked_reads")
+    if reads is not None:   # a linked HK Frontend's dashboards, as their people: re-checked like a page socket
+        for ctx in await reads.recheck(authz):
+            await recheck_streams(ctx)
 
 
 async def recheck_streams(ctx) -> None:

@@ -1,0 +1,92 @@
+# Engineering audit, second pass (0.1.75)
+
+The [first pass](Audit-2026-10.md) audited Mantel at 0.1.37 (merged as `063cbf1`). Since then 170 commits
+(0.1.38 to 0.1.75, about 26,500 lines) added the Home Grid, Mantel Settings' server settings (house commands
+switched on by an Owner instead of a start-up flag), Set Up Mantel, screens in two places, Home Assistant users as
+people, Mantel Link's settings and reads, photo focus points (faces), music announcements, page health and a
+reworked LXC installer. This pass audits that window, re-checks the first pass's invariants, and fixes what it
+finds. This page is the working plan and the register; it is kept current so an interrupted pass can resume.
+
+## Checkpoint
+
+**State:** four of seven subsystem audits reported (sign-in, RBAC, settings, media); deployment, browser and docs
+still running. RBAC-1..4 fixed; the headless checks repaired (H1..H4). Next: AUTH-1..6, then the media and settings
+rows, then the remaining reports.
+
+**To resume:** read the register below; every row not marked Fixed, Deferred or Not a defect is open. Run the main
+suite with `~/.venvs/mantel/bin/python -m pytest -q -p no:cacheprovider` (the checkout's `.venv` is Python 3.14
+without the dev tools).
+
+## Baseline (before any change)
+
+| Check | Result |
+|---|---|
+| Main suite, Python 3.12.15, macOS | 3503 passed, 21 skipped, 0 failed (2 min 52 s) |
+| Skips | private words (no list given); the LXC installer's 9 tests (macOS has bash 3.2, they need 4+); 8 Caddy image tests (`MANTEL_CADDY_TEST_IMAGE`); 3 release-workflow tests (`pyyaml` missing from the venv, now installed) |
+| `tools/check_private.py` with the owner's list | clean except the local, never-committed `project.pbxproj` (team id) |
+| `pip-audit` of `packaging/docker/requirements.lock` (29 packages) | no known vulnerabilities |
+| `ruff` correctness rules on production code (undefined names, redefinitions, mutable defaults, loop-variable capture, dropped tasks) | no defects; 15 unused imports, 1 unused variable in a test-only helper |
+
+## Plan
+
+1. Discovery: what changed since `063cbf1`, and where the risk is. **Done.**
+2. Subsystem audits, each traced end to end, each finding reproduced by a test that fails before the fix:
+   sign-in, sessions and server settings; RBAC and filtering on every new route and socket message; the Home Grid
+   and the settings store; media (photos, faces, files, Live TV, talk, music); deployment, migrations and
+   backups; the browser side; docs against code. The read path (`ha_client.py`, `state.py`, `view.py`) was
+   reviewed directly. **In progress.**
+3. Register below, P0 first.
+4. Fix in severity order, a regression test per fix, the suite after each batch.
+5. Docs reconciled with the code.
+6. Final regression and readiness review.
+
+## Issue register
+
+Severity: **P0** unauthorized home control, credential disclosure, data loss; **P1** broken core function,
+authorization inconsistency, corruption risk; **P2** functional bug, material maintainability or performance
+problem; **P3** minor.
+
+| ID | Sev | Area | Finding | Status | Test |
+|---|---|---|---|---|---|
+| RBAC-1 | P1 | Link | Any `linked` credential could relay any of Mantel's reads (`read_routes`) as any linked person, the Owner included: their saved data, settings history, Mantel Photos, camera offers. Saves needed `linked_saves`; reads needed nothing | Fixed: only the eight reads HK Frontend forwards (`linked_reads.FORWARDED`, kept equal to HK Frontend's lists by a test) | `test_linked_settings.py::test_a_link_credential_reads_only_what_hk_frontend_forwards`, `…exactly_the_reads_hk_frontend_forwards` |
+| RBAC-2 | P1 | Link | Relayed subscriptions were never re-checked: a disabled, demoted or re-linked person kept them until the link dropped (the first pass's R2/M2, in new code) | Fixed: the policy tick walks the relayed contexts (`LinkedReads.recheck`), principals refreshed in place, a different person ends the old context | `test_linked_settings.py::test_a_disabled_or_relinked_person_s_relayed_reads_end_at_the_policy_tick` |
+| AUTH-1 | P1 | People | Linking an HA user to a person (`PUT /api/people/ha`, merge) needed no fresh factor, from any door: a stale Owner cookie from away linked an HA account, whose "Sign in with Home Assistant" then made a fresh Owner session | Fixed: a link (and a merge, which moves one) asks what adding a passkey asks, `require_fresh_to_add_factor` | `test_sign_in_paths.py::test_linking_an_ha_user_to_a_person_needs_the_fresh_factor_adding_a_sign_in_needs`, `…merging…` |
+| AUTH-2 | P1 | Tablets | `PUT` of a tablet's HA user had no door check: made from the tunnel, the HA user then got the home door's tablet rules | Fixed: the home-door Owner guard every other tablet route uses (`ingress._tablet_owner`) | `test_sign_in_paths.py::test_a_wall_tablet_is_linked_on_the_home_door_only` |
+| RBAC-3 | P2 | Talk | Turning Allow Control of the House off left an open live talk streaming to the doorbell until its time limit | Fixed: `TalkRelay.close` ends open talks (`refused:commands_disabled`) | `test_talk_live.py::test_turning_control_of_the_house_off_ends_an_open_talk` |
+| AUTH-3 | P2 | People | Unlinking an HA user ended its Ingress sessions but not its "Sign in with Home Assistant" ones | Fixed: unlinking or relinking also revokes the person's `ha` sessions (and their children) | `test_sign_in_paths.py::test_unlinking_an_ha_user_ends_its_sign_in_with_home_assistant_sessions` |
+| MED-1 | P2 | Photos | Pillow's optimizing JPEG encode holds the GIL: a 48 MP upload froze every client for ~750 ms | Fixed: baseline JPEG for originals and screen copies (progressive and optimized encodes hold the GIL; files ~13% larger); a 24 MP upload's loop stall 0.34 s → 0.009 s | `test_photos.py::test_a_large_photo_upload_does_not_freeze_every_other_client`, `test_user_files.py::test_a_large_your_files_photo_upload_does_not_freeze_the_event_loop` |
+| MED-2 | P2 | Photos | No cap on concurrent decodes; a small PNG claiming 100 MP cost ~1.5 GB | Fixed: one image job at a time across Mantel Photos and Your Files; the pixel cap 100 → 64 MP (Photos.md); each module checks its own cap instead of fighting over Pillow's global one; avoidable copies removed (100 MP RGBA peak 1.5 → 0.9 GB) | `test_photos.py::test_pictures_are_not_all_decoded_at_once` and five more |
+| MED-6 | P2 | Cameras | Camera WebRTC offers had no per-socket or total cap (Live TV has both) | Fixed: 16 per socket, 64 in all, counted before the await (the Cameras page can show nine at once); past it `forbidden`, which the cards already handle | `test_connectors_camera.py::test_one_socket_cannot_start_unlimited_camera_streams` and two more |
+| SET-1 | P2 | Home Grid | A non-string `card` raised TypeError in the checker; stored by import or restore, it broke every settings feed | Fixed: `item()` refuses a non-string card; the tolerant read never raises; a feed that cannot be built is logged, not raised into a committed save | `test_hk_core_home_grid.py::test_a_card_that_is_not_a_name_is_refused_not_a_crash`, `test_settings_store.py::test_one_stored_screen_with_a_bad_grid_does_not_take_the_feed_down` |
+| SET-2 | P3 | Settings | House settings were stored with every default baked in, so place defaults (hemisphere, US-only themes) and later default changes never applied after a first save | Deferred (P3 in practice): Mantel stores the merged house settings by design (`settings_store.HkCoreModel`), so a first save fixes today's place defaults; switching to Home Assistant's stored-differences form changes the feed, history, import and linked-mirror shapes and is a change of its own. Only southern or non-US houses are affected, and Sky's hemisphere and themes can be set by hand | `test_settings_known_gaps.py::test_set2_a_default_is_not_a_saved_choice` (strict xfail) |
+| SET-7 | P2 | Home Grid | Two editors: the second Save silently replaced the first's grid (no version check on `board/set`) | Deferred: needs a version on `board/set` in both hosts' schemas (HK Frontend's refuses an extra key) and board versions in the feed for the shared editor to send; rare (two admins saving one screen's grid at once) | `test_settings_known_gaps.py::test_set7_the_second_editor_does_not_silently_erase_the_first` (strict xfail) |
+| SET-9 | P2 | Settings page | One failed read left a Mantel Settings page on its error until reload | Fixed: a failed read shows on its page and is asked again when the page is opened again (not on every redraw, which would loop) | `test_mantel_settings_reads.py::test_a_read_that_failed_is_asked_again_when_its_page_is_opened_again` |
+| SET-11 | P2 | Settings page | The pairing poll redrew the whole panel every 4 s (losing typed text) and never stopped on errors | Fixed: a background redraw only when the code is spent or its minutes change; three failed polls in a row stop it | `test_mantel_settings_reads.py::test_the_pairing_poll_is_quiet_while_nothing_changes_and_stops_on_errors` |
+| X1 | P2 | Docs | README, the Security Model, Rules and Architecture say no setting can turn house commands on; since 0.1.52 an Owner does it in Mantel Settings (with a fresh sign-in), and `--commands-enabled` only seeds the first start | Fixed: README, SECURITY.md, the Security Model, Rules, Architecture, Building and Testing, the server README, the gateway's and HA client's docstrings, the CLI help, the Ingress first-Owner page, and Set Up Mantel's own footer (which said no page could) | `test_mantel_settings_setup.py::test_commands_show_how_and_no_button_turns_them_on` |
+| H1 | P2 | Checks | `ingress_smoke.py` failed on the untouched tree: its Ingress stand-in kept compressed bodies but dropped `Content-Encoding` (real HA decompresses) | Fixed (stand-in made faithful) | the check itself |
+| H2 | P2 | Checks | `client_smoke.py` failed: `page_health` (0.1.49) was not in its list of non-command frames, and headless Chrome has no window focus, which rests the cameras since `b7496e2` | Fixed (list, focus emulation) | the check itself |
+| H3 | P2 | Checks | `admin_page_check.py` failed: the plain admin page pre-ticks every scope, so `linked_saves` became a default for new service accounts there | Fixed: only `linked` is ticked at first | the check itself |
+| RBAC-4 | P3 | Link | The `linked_saves` grant was made before its audit row (a failed audit left the grant behind a 500) | Fixed: audit first, 503 and no grant without it | `test_linked_settings.py::test_saves_are_turned_on_only_once_their_audit_row_is_written` |
+| AUTH-4 | P3 | Apps | The app's web-view session outlived an expired app credential and was listed nowhere | Fixed: a session handed out by another never outlives it (`SessionManager.create` caps `expires`) | `test_sign_in_paths.py::test_the_apps_web_view_session_ends_with_the_app` |
+| AUTH-5 | P3 | Frames | Adding a frame origin needed no fresh factor from away, while the Sign-In Address (which adds one) did | Fixed: adding a frame origin uses `connections._editor` (removing one narrows trust and stays as it was) | `test_sign_in_paths.py::test_a_frame_origin_needs_the_same_fresh_factor_as_the_sign_in_address` |
+| AUTH-6 | P3 | Tablets | Moving a tablet to another HA user revoked the tablet (unlink before link) | Fixed: `link_tablet(moving_from=…)` swaps the link in one transaction, keeping the device and its mark | `test_sign_in_paths.py::test_moving_a_tablet_to_another_ha_user_does_not_revoke_it` |
+| MED-3 | P3 | Photos | Cancelling an add mid-write left orphan files | Fixed: the write is shielded; a cancelled add cleans up after its thread | `test_photos.py::test_cancelling_an_add_while_its_files_are_written_leaves_none_behind` |
+| MED-4 | P3 | Photos | A failing face detector marked photos "checked, no faces" for good | Fixed: only an unreadable file counts as "no faces"; a detector failure leaves the photo unchecked, and the backfill stops after three in a row | `test_photo_faces.py::test_a_failing_detector_does_not_mark_photos_checked_for_ever` and one more |
+| MED-5 | P3 | Talk | Every talk ticket opened an authenticated HA socket, without a cap | Fixed: one early socket per person or tablet, four in all; other tickets connect when used | `test_talk_live.py::test_unused_talk_tickets_do_not_each_hold_a_home_assistant_socket` and two more |
+| SET-3 | P3 | Home Grid | An unrelated screen save stored the grid as the tolerant reader saw it, deleting blocks or options this build doesn't know | Fixed: a save that doesn't touch the grid keeps it as stored | `test_hk_core_home_grid.py::test_an_unrelated_save_keeps_the_grid_it_could_not_read` |
+| SET-4..6 | P3 | Home Grid | Trailing newlines passed the `$` patterns; `cols: 6.0` and `v: true` passed; entity ids had no length limit | Fixed: `\Z`, `type(...) is int`, 255 characters | `test_hk_core_home_grid.py::test_a_trailing_newline_is_not_an_id`, `…whole_numbers`, `…length_limit` |
+| SET-8 | P3 | Settings | A person's look/sky values skipped the house model's value checks | Fixed: `HkCoreModel.apply_user` runs them | `test_settings_store.py::test_a_person_cannot_keep_what_the_house_would_be_refused` |
+| SET-10 | P3 | Settings page | An older slow read overwrote a newer one | Fixed: only the read still asked for lands | `test_mantel_settings_reads.py::test_an_older_slow_read_does_not_replace_the_newer` |
+| HK-1 | P3 | HK Frontend | A one-shot relayed read in flight when the link dropped was never answered (the dashboard's request hung, its tunnel entry stayed) | Fixed: a dropped link answers each one-shot read still waiting (`mantel_away`); subscriptions are asked again as before | HK Frontend `test_linked_settings.py::test_a_read_in_flight_when_the_link_drops_is_answered` |
+| DEP-1 | P2 | Operations | Stopping the server waited out every open page socket (only `/linked/ws` was closed), so each stop ended in Docker's or the Supervisor's SIGKILL; the database was never closed | Fixed: `on_shutdown` closes page, media, talk and proxy-check sockets (going away); 5 s shutdown timeouts; the database closed last | `test_server.py::test_stopping_closes_open_page_sockets_instead_of_waiting_them_out` and three more |
+| DEP-2 | P2 | Backups | No backup before an update (a migrated database can't be rolled back by images alone); the LXC install left the nightly backup off; a written backup was never read back | Fixed: `update.sh` and the LXC build-mode update back up first and stop if that fails; `MANTEL_BACKUP_TARGET` set by the installer; each backup verified after writing | `test_packaging.py::test_update_makes_a_backup_before_it_starts_new_images_and_stops_if_it_fails`, `…lxc_build_mode_update_makes_a_backup…`, `test_lxc_installer.py::test_the_install_turns_the_nightly_backup_on`, `test_backup.py::test_a_written_backup_is_read_back_before_it_counts` |
+| DEP-3 | P3 | Database | "migration 0015/0017 changed after it was applied" on every start: a comment reworded after release | Fixed: checksums ignore comments and whitespace; the old raw checksums are refreshed quietly | `test_db.py::test_a_comment_only_edit_to_an_applied_migration_is_not_warned_about` and one more |
+| DEP-4 | P3 | Packaging | `MANTEL_DEFAULT_SCREEN`/`MANTEL_SESSION_HOURS` documented but never forwarded by compose; the App container's admin commands looked in the wrong secrets folder | Fixed | `test_packaging.py::test_compose_forwards_…`, `…admin_commands_in_the_app_container…` |
+| DEP-5 | P3 | Packaging | Only `SUPERVISOR_TOKEN` was removed from the server's environment, not its alias `HASSIO_TOKEN` | Fixed | `test_packaging.py::test_no_supervisor_token_alias_reaches_the_server` |
+| DEP-6 | P3 | Packaging | The App image kept the stager's file modes (unreadable under umask 077) | Fixed: `COPY --chmod`, and the stager sets modes | `test_packaging.py`, `test_stage_ha_app.py` |
+| DEP-7 | P3 | LXC | A source push extracted over the old tree, keeping deleted files (two migrations with one number stop the server) | Fixed: the code trees are removed first (never compose, data or secrets) | `test_lxc_installer.py::test_a_source_push_removes_what_the_new_version_deleted` (bash 4) |
+| DEP-8 | P3 | CI | CI tested pyproject's open ranges, not the locked versions the images ship | Fixed: CI installs with the lock as constraints | `test_release_workflow.py::test_ci_installs_the_pinned_versions_the_images_ship` |
+| X3 | P2 | Docs | The guide pointed to UI paths that no longer exist (Home Assistant Link, Who Runs Each Wall Tablet, Mantel Settings → Mantel Connect, Link Home Assistant Users…, Alarm PIN's place); local-build App names given as the only ones; Cloudflare Access's 24 h key grace, the CSRF cookie, Duck DNS errors, "Show in Home Assistant"'s prerequisite missing | Fixed (the guide, the App's DOCS.md, the packaging READMEs) | `tools/check_links.py` |
+| X4 | P3 | Changelog | The notes for the first public release sat below 0.1.59 as `## Unreleased`; `bump_version.py --changelog` renamed them 0.1.71 out of order | Fixed: moved back to the top; the tool renames Unreleased only when it is the newest section | `test_check_version.py::test_bump_leaves_an_unreleased_section_below_released_ones` |
+| X5 | P3 | Settings | `bar_labels` (0.1.72's Labels, Icons and Names) was in the Python defaults but not in `hk-settings.js`'s first-paint copy; HK Frontend's own suite caught it, Mantel's main suite doesn't run that suite | Fixed | HK Frontend `test_settings.py::test_the_screens_defaults_are_these_defaults` |
+| X2 | P3 | Repo | `tests/.smbdeleteAAAe3e16`, a stale copy of `test_accounts.py` left by the SMB share, is tracked | Fixed (removed) | |

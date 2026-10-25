@@ -113,11 +113,12 @@ case "$*" in
   "compose config --images") printf '%s\\n' $FAKE_IMAGES ;;
   "pull "*) [ "$2" != "$FAKE_PULL_FAILS" ] ;;
   "compose up -d --wait --wait-timeout 180") [ -z "$FAKE_UP_FAILS" ] ;;
+  "compose exec "*) [ -z "$FAKE_EXEC_FAILS" ] ;;
 esac
 """
 
 
-def _run_update(tmp_path, images, pull_fails="", up_fails=""):
+def _run_update(tmp_path, images, pull_fails="", up_fails="", exec_fails=""):
     work = tmp_path / "compose"
     work.mkdir(parents=True)
     shutil.copy(ROOT / "packaging/compose/update.sh", work / "update.sh")
@@ -127,7 +128,7 @@ def _run_update(tmp_path, images, pull_fails="", up_fails=""):
     (bindir / "docker").chmod(0o755)
     log = tmp_path / "docker.log"
     env = {"PATH": f"{bindir}:/usr/bin:/bin", "FAKE_LOG": str(log), "FAKE_IMAGES": " ".join(images),
-           "FAKE_PULL_FAILS": pull_fails, "FAKE_UP_FAILS": up_fails}
+           "FAKE_PULL_FAILS": pull_fails, "FAKE_UP_FAILS": up_fails, "FAKE_EXEC_FAILS": exec_fails}
     r = subprocess.run(["bash", str(work / "update.sh")], env=env, capture_output=True, text=True)
     return r, log.read_text().splitlines()
 
@@ -900,3 +901,86 @@ def test_the_image_installs_a_hashed_lock_and_a_release_needs_one(tmp_path):
         "aiohttp==3.14.5 \\\n    --hash=sha256:" + "a" * 64 + "\nyarl==1.0\n")
     got = pc.check_requirements_lock(tmp_path)
     assert any("pillow" in g and "not pinned" in g for g in got) and any("yarl has no hash" in g for g in got)
+
+
+# -- deployment and operations (audit, second pass) ----------------------------------------------------------
+@pytest.mark.skipif(shutil.which("bash") is None, reason="no bash")
+def test_update_makes_a_backup_before_it_starts_new_images_and_stops_if_it_fails(tmp_path):
+    """DEP-2 (audit, second pass): update.sh's rollback restarts the old image, but a new image that got as far as
+    migrating leaves a database the old build refuses (schema_too_new), so a "rolled back" stack crash-looped and
+    the only way back was a backup the docs asked the person to make. update.sh now runs `mantel backup --target
+    /backups` in the running server before `up`, and a failed backup stops the update with nothing restarted."""
+    server = "ghcr.io/jazzphone/mantel-server:0.1.99"
+    r, calls = _run_update(tmp_path / "1", [server])
+    assert r.returncode == 0, r.stdout + r.stderr
+    backup = "compose exec -T mantel-server mantel backup --target /backups"
+    assert backup in calls
+    assert calls.index(backup) < calls.index("compose up -d --wait --wait-timeout 180")
+    r, calls = _run_update(tmp_path / "2", [server], exec_fails="1")
+    assert r.returncode == 1 and "the backup failed; nothing was restarted" in r.stdout
+    assert not any(c.startswith("compose up") for c in calls)
+
+
+def test_the_lxc_build_mode_update_makes_a_backup_before_it_restarts():
+    """DEP-2 (audit, second pass): the LXC's build-mode update (mantel-update with images built here) restarted on
+    new images with no backup, as update.sh had: a migration the rollback can't undo. It backs up first too."""
+    src = (ROOT / "packaging/lxc/mantel.sh").read_text()
+    start = src.index("update_script() {")
+    body = src[start:src.index("\n}\n", start)]
+    build = body[body.index("docker compose build --pull"):]
+    assert "mantel backup --target /backups" in build
+    assert build.index("mantel backup --target /backups") < build.index("docker compose up -d --wait")
+
+
+def test_compose_forwards_the_variables_operations_md_documents():
+    """DEP-4 (audit, second pass): OPERATIONS.md lists MANTEL_DEFAULT_SCREEN and MANTEL_SESSION_HOURS and the
+    entrypoint reads them, but compose.yaml's environment: block never passed them, so setting them in .env (the
+    only place a compose or LXC user can) did nothing. Both are first-start seeds, and the docs say so."""
+    compose = (ROOT / "packaging/compose/compose.yaml").read_text()
+    docs = (ROOT / "docs/OPERATIONS.md").read_text()
+    for var in ("MANTEL_DEFAULT_SCREEN", "MANTEL_SESSION_HOURS"):
+        assert re.search(rf"^\s+{var}: \$\{{{var}:-\}}$", compose, re.M), f"{var} never reaches the container"
+    row = next(line for line in docs.splitlines() if line.startswith("| `MANTEL_DEFAULT_SCREEN`"))
+    assert "First start only" in row
+
+
+def test_admin_commands_in_the_app_container_use_the_apps_secrets_folder(tmp_path):
+    """DEP-4 (audit, second pass): the App keeps at_rest.key in /data/secrets (app_args), but `mantel door-key |
+    import-settings | backup | restore` in its container defaulted to --secrets-dir /run/secrets: as root they
+    made a NEW at_rest.key there and sealed with it; as uid 10001 they failed on a folder that does not exist.
+    The default now follows the detected mode (and MANTEL_SECRETS_DIR still wins; a compose container is as it was)."""
+    options = tmp_path / "options.json"
+    options.write_text("{}")
+    app_env = {"SUPERVISOR_TOKEN": "x", "MANTEL_APP_OPTIONS": str(options)}
+    for command in ("door-key", "backup", "restore", "import-settings"):
+        args, _ = entrypoint.plan([command], app_env, options_path=options)
+        assert args[args.index("--secrets-dir") + 1] == "/data/secrets", command
+        args, _ = entrypoint.plan([command], {**app_env, "MANTEL_DATA_DIR": "/srv/d"}, options_path=options)
+        assert args[args.index("--secrets-dir") + 1] == "/srv/d/secrets", command
+        args, _ = entrypoint.plan([command], {**app_env, "MANTEL_SECRETS_DIR": "/elsewhere"}, options_path=options)
+        assert args[args.index("--secrets-dir") + 1] == "/elsewhere", command
+        args, _ = entrypoint.plan([command], {}, options_path=tmp_path / "none")
+        assert args[args.index("--secrets-dir") + 1] == "/run/secrets", command
+
+
+def test_no_supervisor_token_alias_reaches_the_server(tmp_path):
+    """DEP-5 (audit, second pass): the Supervisor has also exported the token as HASSIO_TOKEN (the old name bashio
+    still reads). The entrypoint removed only SUPERVISOR_TOKEN, so where the alias is set it stayed in the
+    server's environment and in every process the server spawns, against the "only a file path" design."""
+    options = tmp_path / "options.json"
+    options.write_text("{}")
+    env = {"SUPERVISOR_TOKEN": "tok", "HASSIO_TOKEN": "tok", "MANTEL_APP_OPTIONS": str(options),
+           "MANTEL_APP_TOKEN_FILE": str(tmp_path / "ha_token")}
+    _, server_env = entrypoint.plan([], env, options_path=options, token_file=tmp_path / "ha_token")
+    assert "tok" not in server_env.values() and "HASSIO_TOKEN" not in server_env
+    assert (tmp_path / "ha_token").read_text() == "tok"        # the file is how the server gets it
+    env.pop("HASSIO_TOKEN")                                    # harmless where the alias is absent
+    entrypoint.plan([], env, options_path=options, token_file=tmp_path / "ha_token")
+
+
+def test_the_app_image_copies_its_files_with_explicit_modes():
+    """DEP-6 (audit, second pass): packaging/ha-app/Dockerfile did a plain `COPY app /app`, which keeps the staged
+    files' modes: staged under umask 077 they are 0600 and root owns files the server's user (10001) cannot read.
+    packaging/docker/Dockerfile has --chmod=0755 for exactly this; the App's now has it too."""
+    lines = [line for line in (ROOT / "packaging/ha-app/Dockerfile").read_text().splitlines() if line.startswith("COPY app ") or " app /app" in line]
+    assert lines and all(line.startswith("COPY --chmod=0755 ") for line in lines), lines

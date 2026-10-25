@@ -81,7 +81,7 @@ The SHA-256 of the bytes as they came in is kept: the same picture twice in one 
 |---|---|---|---|
 | One upload (`file_mb`) | 40 MB | 1-200 MB | Owner |
 | All photos, every stored size (`quota_mb`) | 4 GB | 100 MB-1 TB | Owner |
-| Pixels | 100 megapixels | fixed | |
+| Pixels | 64 megapixels (100 before the audit's second pass, MED-2) | fixed | |
 | Albums / photos per album | 200 / 20,000 | fixed | |
 
 Your Files → Photos → Storage shows the space used against the limit.

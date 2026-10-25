@@ -171,7 +171,7 @@ def test_changed_applied_migration_is_logged_not_rerun(tmp_path, caplog):
     conn = db.connect(tmp_path / "m.db")
     db.migrate(conn, folder)
     with open(folder / "0001_core.sql", "a") as f:
-        f.write("\n-- edited\n")
+        f.write("\nCREATE TABLE edited_later (id INTEGER);\n")    # SQL, not a comment (a comment is not a change)
     assert db.migrate(conn, folder) == []
     assert "changed after it was applied" in caplog.text
     conn.close()
@@ -207,3 +207,55 @@ def test_processes_opening_a_new_database_at_once_all_succeed(tmp_path):
     versions = [r[0] for r in conn.execute("SELECT version FROM schema_version ORDER BY version")]
     conn.close()
     assert versions == sorted(set(versions)) and versions[-1] == max(m.version for m in db.discover(db.MIGRATIONS))
+
+
+# -- migration checksums (audit, second pass) ---------------------------------------------------------------
+def _warnings(caplog):
+    return [r.getMessage() for r in caplog.records if "changed after it was applied" in r.getMessage()]
+
+
+def test_a_comment_only_edit_to_an_applied_migration_is_not_warned_about(tmp_path, caplog):
+    """DEP-3 (audit, second pass): the checksum covered the raw file, so rewording a comment of an applied
+    migration (0015 and 0017 after release) warned on every start for ever. It now covers the SQL without comments
+    or whitespace; a real change to the SQL still warns."""
+    import logging
+    folder = tmp_path / "m"
+    folder.mkdir()
+    (folder / "0001_a.sql").write_text("-- old words\nCREATE TABLE t (id INTEGER, note TEXT DEFAULT 'a -- b');\n")
+    conn = sqlite3.connect(":memory:")
+    conn.row_factory = sqlite3.Row
+    db.migrate(conn, folder)
+    (folder / "0001_a.sql").write_text("-- new words /* and more */\n\nCREATE  TABLE t (id INTEGER,\n  note TEXT DEFAULT 'a -- b');\n")
+    with caplog.at_level(logging.WARNING, logger="mantel.db"):
+        db.migrate(conn, folder)
+        assert _warnings(caplog) == []
+        (folder / "0001_a.sql").write_text("-- new words\nCREATE TABLE t (id INTEGER, note TEXT DEFAULT 'a -- c');\n")
+        db.migrate(conn, folder)
+    assert len(_warnings(caplog)) == 1                          # a string literal is SQL, not a comment
+
+
+def test_a_database_that_stored_the_raw_file_checksum_is_refreshed_silently(tmp_path, caplog):
+    """DEP-3 (audit, second pass): databases made before the change stored the raw-bytes checksum. One whose file
+    differs from it only in comments or whitespace (the house's 0015 and 0017, from cea8a8b) is updated to the new
+    kind without a warning (debug only); other mismatches still warn."""
+    import logging
+    conn = sqlite3.connect(":memory:")
+    conn.row_factory = sqlite3.Row
+    db.migrate(conn)
+    migrations = {m.version: m for m in db.discover()}
+    # as the house has them: the raw hash of the 0015 and 0017 text before the comment edits, and one that is
+    # the raw hash of the current file (a file only whitespace-edited since)
+    conn.execute("UPDATE schema_version SET checksum = ? WHERE version = 15", ("5ed7564a114e61f3f091b02f7188e8dd90f1fd6a9f0da14afd88bb50cb9bc982",))
+    conn.execute("UPDATE schema_version SET checksum = ? WHERE version = 17", ("4c679a8e84b6df9765e18b5c0dc7609a158a6bb2e0d0e2c311a262e751d415fa",))
+    conn.execute("UPDATE schema_version SET checksum = ? WHERE version = 2", (migrations[2].raw_checksum,))
+    conn.execute("UPDATE schema_version SET checksum = 'edited-sql' WHERE version = 3")
+    conn.commit()
+    with caplog.at_level(logging.DEBUG, logger="mantel.db"):
+        assert db.migrate(conn) == []
+    assert [m.split()[1] for m in _warnings(caplog)] == [migrations[3].path.stem]
+    stored = {r["version"]: r["checksum"] for r in conn.execute("SELECT version, checksum FROM schema_version")}
+    assert all(stored[v] == migrations[v].checksum for v in (2, 15, 17)) and stored[3] == "edited-sql"
+    caplog.clear()
+    with caplog.at_level(logging.WARNING, logger="mantel.db"):
+        db.migrate(conn)
+    assert len(_warnings(caplog)) == 1                          # only the real change, as before

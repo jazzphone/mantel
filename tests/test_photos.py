@@ -7,13 +7,21 @@ import io
 import json
 import os
 import stat
+import struct
+import subprocess
+import sys
+import threading
+import time
+import zlib
+from contextlib import suppress
+from pathlib import Path
 
 import pytest
 from aiohttp import FormData, web
 from aiohttp.test_utils import TestServer
 from PIL import Image
 
-from mantel_server import backup, photos
+from mantel_server import backup, faces, photos
 
 
 def picture(fmt="JPEG", size=(80, 60), mode="RGB", color=(200, 30, 30), exif=False, noise=False, **kw) -> bytes:
@@ -441,3 +449,195 @@ async def test_a_photo_whose_files_cannot_all_be_written_leaves_none(mantel, mon
     lib = mantel.app["photos"]
     assert lib.count() == 0
     assert [f for d in ("originals", "screen", "thumbs") for f in os.listdir(lib.root / d)] == []
+
+
+# -- the second audit (2026-10): what a big upload costs the rest of the house -----------------------------------------
+def noisy_jpeg(megapixels: float) -> bytes:
+    """A JPEG of about ``megapixels`` MP that does not compress away (blocks of colour plus noise)."""
+    np = pytest.importorskip("numpy")
+    w = int((megapixels * 1e6 * 4 / 3) ** 0.5)
+    h = w * 3 // 4
+    rng = np.random.default_rng(1)
+    base = rng.integers(0, 255, (h // 16 + 1, w // 16 + 1, 3), dtype=np.uint8)
+    arr = np.kron(base, np.ones((16, 16, 1), dtype=np.uint8))[:h, :w]
+    arr = (arr.astype(np.int16) + rng.integers(-20, 20, (h, w, 3))).clip(0, 255).astype(np.uint8)
+    buf = io.BytesIO()
+    Image.fromarray(arr).save(buf, "JPEG", quality=92)
+    return buf.getvalue()
+
+
+async def worst_gap_during(coro) -> float:
+    """The longest the event loop went without running (a 2 ms ticker's worst lateness) while ``coro`` ran."""
+    worst, stop = [0.0], [False]
+
+    async def tick():
+        last = time.perf_counter()
+        while not stop[0]:
+            await asyncio.sleep(0.002)
+            now = time.perf_counter()
+            worst[0] = max(worst[0], now - last - 0.002)
+            last = now
+
+    t = asyncio.create_task(tick())
+    await asyncio.sleep(0.05)
+    worst[0] = 0.0
+    try:
+        await coro
+    finally:
+        stop[0] = True
+        await t
+    return worst[0]
+
+
+async def test_a_large_photo_upload_does_not_freeze_every_other_client(mantel):
+    """MED-1 (audit, second pass): ``process`` runs in a worker thread, yet the event loop (every client's state
+    stream) stood still 0.3 s for a 24 MP picture and 0.75 s for 48 MP: Pillow's JPEG encode with ``optimize=True``
+    (and ``progressive=True``, which libjpeg runs through the same optimal-Huffman pass) holds the GIL for the whole
+    encode. A baseline encode gives it up between small steps (30 MP: ~0.45 s before, ~0.01 s after; the files are
+    about 13% larger). The threshold is generous: a loaded machine must not make this flaky."""
+    faces.find(Image.new("RGB", (64, 64)))                  # onnxruntime's one-off import is not what is measured
+    lib = mantel.app["photos"]
+    lib.set_limits({"file_mb": 100})
+    aid = lib.create_album("Big")["id"]
+    data = noisy_jpeg(30)
+    gap = await worst_gap_during(lib.add(aid, data, "big.jpg"))
+    assert gap < 0.2, f"the event loop stood still for {gap * 1000:.0f} ms"
+
+
+async def test_pictures_are_not_all_decoded_at_once(mantel, monkeypatch):
+    """MED-2 (audit, second pass): nothing capped the decodes: N uploads were N simultaneous full decodes (four 48 MP
+    JPEGs peaked at 2.2 GB, one 99 MP picture at 1.1 GB), which is an out-of-memory kill on a Pi or an HA App. They
+    now wait their turn in ``photos.image_slot``."""
+    lock, now, peak = threading.Lock(), [0], [0]
+
+    def slow(data):
+        with lock:
+            now[0] += 1
+            peak[0] = max(peak[0], now[0])
+        time.sleep(0.05)
+        with lock:
+            now[0] -= 1
+        return photos.Processed(b"o", b"s", b"t", 10, 10, None)
+
+    monkeypatch.setattr(photos, "process", slow)
+    lib = mantel.app["photos"]
+    aid = lib.create_album("Many")["id"]
+    await asyncio.gather(*[lib.add(aid, b"picture-%d" % i, "p.jpg") for i in range(6)])
+    assert peak[0] <= photos.IMAGE_JOBS and lib.count() == 6
+
+
+async def test_a_cancelled_upload_gives_its_decode_slot_back_when_the_thread_ends(mantel):
+    """MED-2 (audit, second pass): the slot belongs to the decoding THREAD, which a cancelled caller cannot stop: it is
+    given back when the thread ends (not before, or the cap is exceeded; and not never, or uploads stop for good)."""
+    release, started = threading.Event(), threading.Event()
+
+    def hold():
+        started.set()
+        release.wait(5)
+        return 1
+
+    task = asyncio.get_running_loop().create_task(photos.run_image_job(hold))
+    assert await asyncio.to_thread(started.wait, 5)
+    task.cancel()
+    with suppress(asyncio.CancelledError):
+        await task
+    assert photos.image_slot().locked()                      # the thread is still decoding: the slot is still taken
+    release.set()
+    await asyncio.wait_for(photos.image_slot().acquire(), 5)  # ... and free once it ended
+    photos.image_slot().release()
+
+
+def png_claiming(width: int, height: int) -> bytes:
+    """A PNG whose header says width x height but whose pixels are not there: Pillow reads only the header to open."""
+    def chunk(kind: bytes, body: bytes) -> bytes:
+        return struct.pack(">I", len(body)) + kind + body + struct.pack(">I", zlib.crc32(kind + body))
+    return (b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 6, 0, 0, 0))
+            + chunk(b"IEND", b""))
+
+
+def test_two_modules_with_two_pixel_caps_do_not_fight_over_pillows_global_limit():
+    """MED-2 (audit, second pass): photos.py and user_files.py each set the process-wide ``Image.MAX_IMAGE_PIXELS``
+    (200 MP and 120 MP) on every call, so each module's limit depended on which upload ran last. Each now checks its
+    own cap on the header of the picture it opens, and neither touches the global to anything but "off"."""
+    from mantel_server import user_files
+    between = 8000, user_files.PHOTO_PIXELS_MAX // 8000 + 100        # over user_files' cap, under photos'
+    assert user_files.PHOTO_PIXELS_MAX < between[0] * between[1] <= photos.PIXELS_MAX
+    over = png_claiming(8000, photos.PIXELS_MAX // 8000 + 10)        # over both
+    claim = png_claiming(*between)
+    for order in ((user_files, photos), (photos, user_files), (user_files, photos)):
+        for module in order:
+            call = user_files.reencode_photo if module is user_files else photos.process
+            with pytest.raises(Exception) as big:
+                call(over)
+            assert getattr(big.value, "code", "") == "photo_too_large"
+            with pytest.raises(Exception) as mid:
+                call(claim)
+            # photos.py takes it as far as the pixels (which are missing: not a picture), user_files refuses it first
+            assert getattr(mid.value, "code", "") == ("photo_too_large" if module is user_files else "photo_invalid")
+
+
+def test_a_picture_at_the_pixel_cap_costs_well_under_a_gigabyte_and_a_bigger_one_costs_nothing(tmp_path):
+    """MED-2 (audit, second pass): the cap was 100 MP, and a 390 KB RGBA PNG that claimed it peaked at 1.6 GB (0.9 GB
+    after the avoidable copies went; ~8-10 bytes a pixel is the floor with Pillow's RGBA + RGB buffers). The cap is now
+    64 MP (docs/guide/Photos.md says so): one at the cap peaks near 0.65 GB, and the 100 MP one is refused from its
+    header, decoding nothing."""
+    side = int(photos.PIXELS_MAX ** 0.5)
+    atcap, over = tmp_path / "atcap.png", tmp_path / "over.png"
+    subprocess.run([sys.executable, "-c", f"from PIL import Image; "
+                    f"Image.new('RGBA', ({side}, {side})).save({str(atcap)!r}, compress_level=9); "
+                    f"Image.new('RGBA', (11547, 8660)).save({str(over)!r}, compress_level=9)"], check=True)
+    assert atcap.stat().st_size < 1 << 20 and over.stat().st_size < 1 << 20
+
+    def grown(path: Path) -> tuple[float, str]:
+        code = (
+            "import sys, resource\n"
+            f"sys.path.insert(0, {str(Path(photos.__file__).parents[1])!r})\n"
+            "from mantel_server import photos, faces\n"
+            "faces._runtime = False\n"
+            "mb = (lambda: resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / (1e6 if sys.platform == 'darwin' else 1e3))\n"
+            "before = mb()\n"
+            f"data = open({str(path)!r}, 'rb').read()\n"
+            "try:\n"
+            "    photos.process(data); code = 'ok'\n"
+            "except photos.PhotoError as e:\n"
+            "    code = e.code\n"
+            "print(mb() - before, code)\n")
+        out = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, check=True).stdout.split()
+        return float(out[0]), out[1]
+
+    mb, code = grown(atcap)
+    assert code == "ok" and mb < 900, f"a {side}x{side} picture grew the process by {mb:.0f} MB"
+    mb, code = grown(over)
+    assert code == "photo_too_large" and mb < 200, f"a refused 100 MP picture still grew the process by {mb:.0f} MB"
+
+
+async def test_cancelling_an_add_while_its_files_are_written_leaves_none_behind(mantel, monkeypatch):
+    """MED-3 (audit, second pass): ``add`` removed the files in its ``except BaseException`` while the writer thread
+    (``to_thread`` cannot be cancelled) was still writing: what it wrote after was on disk in no row, counted by no
+    quota and deleted by nothing. Reached by an Owner cancelling an import, or Mantel stopping, during a write. The
+    write is shielded, and the files are removed only after the thread has finished."""
+    lib = mantel.app["photos"]
+    aid = lib.create_album("Race")["id"]
+    first, gate, done = threading.Event(), threading.Event(), threading.Event()
+
+    def slow_write(pid, got):
+        lib.ensure()
+        photos._write(lib.root / "originals" / f"{pid}.jpg", got.original)
+        first.set()
+        gate.wait(5)
+        photos._write(lib.root / "screen" / f"{pid}.jpg", got.screen)
+        photos._write(lib.root / "thumbs" / f"{pid}.webp", got.thumb)
+        done.set()
+
+    monkeypatch.setattr(lib, "_write_files", slow_write)
+    task = asyncio.get_running_loop().create_task(lib.add(aid, picture(), "x.jpg"))
+    assert await asyncio.to_thread(first.wait, 5)
+    task.cancel()
+    await asyncio.sleep(0.05)
+    assert not task.done()                                   # it waits for the thread; it does not clean up under it
+    gate.set()
+    with suppress(asyncio.CancelledError):
+        await asyncio.wait_for(task, 5)
+    assert done.is_set() and task.cancelled()
+    left = [p.name for p in lib.root.rglob("*") if p.is_file()]
+    assert lib.count() == 0 and left == [], f"files no photo row owns: {left}"

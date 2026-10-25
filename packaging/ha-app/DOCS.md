@@ -64,8 +64,9 @@ Each wall tablet is its own Home Assistant user, signed in by `trusted_networks`
    choose *a new device* and the tablet's room. (Needs *Coming Through Home Assistant* set to Trusted or Home
    Network Rules: Mantel Settings → Connections → Home Assistant.)
 2. In Kiosk Satellite set the start URL to the App's panel on Home Assistant's address, for example
-   `http://homeassistant.local:8123/app/local_mantel` (`/app/<this App's slug>`; the same scheme and host as the
-   tablet uses today). Nothing else changes on the tablet.
+   `http://homeassistant.local:8123/app/<slug>`, where `<slug>` is the end of this App's page address in Home
+   Assistant (`local_mantel` for an App built from source, `<repository id>_mantel` from the add-on repository); the
+   same scheme and host as the tablet uses today. Nothing else changes on the tablet.
 
 The tablet opens on its own HK screen, full screen (Mantel asks Home Assistant to hide its sidebar and
 header for tablets only). Nobody is signed in on it: it may do what its role allows (its room, the
@@ -95,7 +96,8 @@ Your proxy owns HTTPS and forwards to the App over plain HTTP.
 1. App **Configuration**: `access: proxy`, `public_url: https://mantel.example.com` (the name people
    type), `trusted_proxies`: your proxy's IP address as Mantel sees it.
 2. App **Network**: give `8100/tcp` a host port, e.g. `8100`. (Leave it empty if your proxy is itself a
-   Home Assistant App: it can reach `http://local-mantel:8100` on Home Assistant's internal network. Its
+   Home Assistant App: it can reach `http://<this App's hostname>:8100` on Home Assistant's internal network
+   (`local-mantel` for an App built from source, `<repository id>-mantel` from the add-on repository). Its
    address there is assigned by Home Assistant and can change when it restarts; check it on the Test my
    proxy page after updates.)
 3. **Restart** the App, open Mantel in the sidebar as the Owner: **Mantel Settings → Connections → HTTPS
@@ -261,13 +263,15 @@ This only decides which rows are shown. What anyone may do stays Mantel's and Ho
 Mantel Link, from HACS, puts Mantel's wall tablets, actions and notifications in Home Assistant (it replaces HK
 Frontend; [its documentation](https://github.com/jazzphone/mantel-link)). The App announces Mantel to Home
 Assistant by itself: after installing Mantel Link, **Settings → Devices & Services → Discovered: Mantel → Add**, one
-click. At every start the App makes a new credential for it (a Service account "Home Assistant - App discovery",
+click. At every start the App makes a new credential for it (a Service account "Mantel Link - App discovery",
 scope `linked` only, the previous one revoked) and Home Assistant's entry follows it. The address it gives is the
-App's own on Home Assistant's App network (`http://local-mantel:8099` installed locally), which never leaves the
+App's own on Home Assistant's App network (`http://local-mantel:8099` built from source, `<repository id>-mantel`
+from the add-on repository), which never leaves the
 machine. This is what the App's `hassio_api` permission is for (and its own hostname); nothing else.
 
-Moving a house from HK Frontend keeps every entity id: Mantel Settings → Connections → **Home Assistant Link** (the
-bridge, each tablet, pairing codes for a Home Assistant elsewhere).
+Moving a house from HK Frontend keeps every entity id: Mantel Settings → Connections → Home Assistant → **Moving
+from HK Frontend** (each tablet, and under Advanced the bridge and the house); **Mantel Link** on the same page makes
+pairing codes for a Home Assistant elsewhere.
 
 ## Security notes
 

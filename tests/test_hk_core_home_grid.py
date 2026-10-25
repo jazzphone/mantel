@@ -368,3 +368,57 @@ def test_views():
         with pytest.raises(HG.GridInvalid):
             HG.check({**grid(), "views": bad})
     assert len(HG.layout({**two, "views": 1})["items"]) == 1                                         # read: the stray block left out
+
+
+# ------------------------------------------------------------ the audit's second pass (SET-1, 3..6)
+@pytest.mark.parametrize("bad", [[], {}, ["room"]])
+def test_a_card_that_is_not_a_name_is_refused_not_a_crash(bad):
+    """SET-1 (audit, second pass): a list or an object as a block's card raised TypeError (`card not in CATALOG`
+    hashes it) instead of GridInvalid: the page got "failed" on a save, and a stored one (the import, a restore)
+    escaped board() on every read."""
+    with pytest.raises(HG.GridInvalid):
+        HG.check(grid(block("a1", bad, "S", [0, 0])))
+    _, errors = C.apply_board({}, {"home_grid": grid(block("a1", bad, "S", [0, 0]))})
+    assert errors == {"home_grid": "grid_card"}
+    assert M.board({"home_grid": grid(block("a1", bad, "S", [0, 0]))})["home_grid"] is not None   # read: left out
+
+
+def test_an_unrelated_save_keeps_the_grid_it_could_not_read():
+    """SET-3 (audit, second pass): board() reads the grid the tolerant way, and apply_board stored board()'s
+    answer, so a menu change deleted for good a block or option this build doesn't know (a newer build's)."""
+    future = grid(block("a1", "timers", "S", [0, 0]),
+                  block("a2", "weather", "W", [2, 0], opts={"entity": "weather.home", "from_a_newer_build": True}))
+    out, errors = C.apply_board({"home_style": "grid", "home_grid": future}, {"menu": "tabbar"})
+    assert errors == {} and [i["id"] for i in out["home_grid"]["items"]] == ["a1", "a2"]
+    out, _ = C.apply_board({"home_style": "grid", "home_grid": {**future, "a_new_top_level_key": 1}}, {"menu": "tabbar"})
+    assert out["home_grid"] is not None
+    out, _ = C.apply_board({"home_style": "grid", "home_grid": future}, {"home_grid": grid(block("b1", "timers", "S", [0, 0]))})
+    assert [i["id"] for i in out["home_grid"]["items"]] == ["b1"]          # a grid save still replaces it
+
+
+@pytest.mark.parametrize("make", [
+    lambda: grid(block("a1\n", "timers", "S", [0, 0])),
+    lambda: grid(block("a1", "accessory", "S", [0, 0], opts={"entity": "light.x\n"})),
+    lambda: grid(block("a1", "room", "L", [0, 0], opts={"area": "kitchen\n"})),
+    lambda: grid(night={"mode": "night", "from": "22:00\n", "to": "07:00"}),
+    lambda: grid(block("a1", "scene_suggested", "L", [0, 0],
+                       opts={"windows": [{"start": "05:00\n", "end": "10:00", "scene": "scene.morning"}]})),
+])
+def test_a_trailing_newline_is_not_an_id(make):
+    """SET-4 (audit, second pass): the patterns ended in `$`, which also matches before a final newline."""
+    with pytest.raises(HG.GridInvalid):
+        HG.check(make())
+
+
+def test_cols_and_version_are_whole_numbers():
+    """SET-5 (audit, second pass): `cols not in COLS` is an equality test, so 6.0 and `v: true` passed."""
+    for bad in ({"cols": 6.0}, {"cols": 3.0}, {"v": True}, {"v": 1.0}):
+        with pytest.raises(HG.GridInvalid):
+            HG.check({"items": [], **bad})
+
+
+def test_an_entity_id_has_a_length_limit():
+    """SET-6 (audit, second pass): entity ids had no length limit (Home Assistant's is 255)."""
+    with pytest.raises(HG.GridInvalid):
+        HG.check(grid(block("a1", "accessory", "S", [0, 0], opts={"entity": "light." + "a" * 300})))
+    assert HG.check(grid(block("a1", "accessory", "S", [0, 0], opts={"entity": "light." + "a" * 200})))

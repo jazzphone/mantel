@@ -67,6 +67,7 @@ RATE_SLACK = 1.25           # bytes/s allowed over the declared PCM rate
 BURST_S = 1.0               # seconds of audio that may arrive at once (Wi-Fi bursts)
 MAX_MSG = talk_frame_max(max(TALK_RATES)) + 1      # the largest frame the socket reads
 CLOSE_POLICY = 1008
+PRECONNECT_MAX = 4          # unused tickets that hold a connecting Home Assistant socket, in all (one per person or device)
 
 
 def _who(principal: Principal) -> tuple:
@@ -148,12 +149,14 @@ class TalkRelay:
     def issue(self, principal: Principal, speaker: str, audit_id: int) -> dict:
         """The gateway's answer to an allowed talk_live command (its audit row already written). Home
         Assistant's socket for it starts connecting now, while the page opens its own: a press waited on
-        the two one after the other, and gave up on live after 1.5 s (2026-10-22)."""
+        the two one after the other, and gave up on live after 1.5 s (2026-10-22). At most one unused ticket per
+        person (or device) holds such a socket, and ``PRECONNECT_MAX`` in all: a ticket past that is issued without
+        one and ``_run`` makes the link when the page's socket arrives, as it always could."""
         self.sweep()
         token = secrets.token_urlsafe(32)
         ticket = Ticket(speaker, audit_id, _who(principal), _keys(principal), self.clock() + self.ticket_ttl)
         commander = self.commander
-        if commander is not None and hasattr(commander, "talk_link"):
+        if commander is not None and hasattr(commander, "talk_link") and self._may_preconnect(ticket.keys):
             try:
                 ticket.link = commander.talk_link(speaker, LIKELY_RATE, CommandTicket(audit_id, "talk"))
                 self._spawn(self._preconnect(ticket.link))
@@ -163,6 +166,10 @@ class TalkRelay:
                 ticket.link = None              # _run refuses it as before
         self.tickets[token] = ticket
         return {"ticket": token, "expires_in": int(self.ticket_ttl)}
+
+    def _may_preconnect(self, keys: frozenset) -> bool:
+        held = [t.keys for t in self.tickets.values() if t.link is not None]
+        return len(held) < PRECONNECT_MAX and not any(keys & other for other in held)
 
     async def _preconnect(self, link) -> None:
         if not hasattr(link, "connect"):
@@ -181,12 +188,18 @@ class TalkRelay:
         self.tasks.add(task)
         task.add_done_callback(self.tasks.discard)
 
-    async def close(self) -> None:
-        """Mantel stopping: every unused ticket's Home Assistant socket is let go."""
+    async def close(self, why: str = "error:server_stopping") -> None:
+        """Mantel stopping, or Allow Control of the House turned off (server.apply_commands): every unused ticket's
+        Home Assistant socket is let go, and every open talk ends now (its audit result says why). Without this a
+        talk already running kept its own Home Assistant socket until its time limit, and nothing re-checked it."""
         for token, t in list(self.tickets.items()):
             del self.tickets[token]
             if t.link is not None:
                 await t.link.close()
+        for s in list(self.streams):
+            s.error = why
+            s.close_code = CLOSE_POLICY
+            await s.ws.close(code=CLOSE_POLICY)
 
     def sweep(self) -> None:
         now = self.clock()
