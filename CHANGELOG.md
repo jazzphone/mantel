@@ -2,7 +2,9 @@
 
 All notable changes to Mantel are listed here. Versions follow [semantic versioning](https://semver.org); the Home Assistant App, the Docker images and the Python package share one version number.
 
-## Unreleased
+## 0.1.75 - 2026-10-25
+
+Local Home Assistant App update for the house.
 
 - A tab bar rail on a phone held sideways hugs its tabs, as on an iPad: it was drawn at a phone's thickness but sized for a tablet's, which left about 40 px of empty rail above the first tab and below More.
 
