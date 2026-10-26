@@ -46,10 +46,18 @@ You need Mantel itself first ([Install](Install.md)) and Home Assistant
 | Anything | By hand | **Add Integration → Mantel Link**: Mantel's `https://` address, and a pairing code or a Service credential |
 
 A pairing code works once, for ten minutes. Both sides prove they know it, so
-a look-alike on your network can't hand Home Assistant a credential. Check the
-address Home Assistant shows before you enter the code: the proof doesn't name
-the address, so a device that passed the exchange on to the real Mantel would
-see the credential go by.
+a look-alike on your network can't hand Home Assistant a credential. Both
+proofs also name the address Home Assistant used (Mantel Link 0.1.6 and a
+Mantel released after 0.1.76): Mantel refuses an address that isn't its own, so a
+device at another address that passed the exchange on to the real Mantel gets
+nothing. Enter Mantel's own address, the one Mantel Settings shows.
+
+- **"Mantel says that isn't its address"**: Home Assistant reached Mantel by a
+  name Mantel doesn't know as its own, or something else answered for it.
+  Use Mantel's own address. The code isn't spent by this.
+- **"Update Mantel first"**: that Mantel is older than Mantel Link 0.1.6 and
+  pairs only without the address. Mantel Link doesn't fall back to that;
+  update Mantel, then make a new code.
 
 Home Assistant keeps the address it was linked with. If Mantel moves to a new
 address, give it the new one with **Settings → Devices & services → Mantel

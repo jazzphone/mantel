@@ -88,8 +88,8 @@ async def try_pair(hass, url: str, code: str) -> tuple[str | None, str | None]:
         got = await pair(async_get_clientsession(hass), url, code, **how)
     except PairingFailed as err:
         _LOGGER.debug("%s: pairing failed: %s", NAME, err.message)
-        return None, {"invalid_code": "invalid_code", "rate_limited": "rate_limited",
-                      "not_mantel": "not_mantel"}.get(err.code, "cannot_connect")
+        return None, {"invalid_code": "invalid_code", "rate_limited": "rate_limited", "not_mantel": "not_mantel",
+                      "wrong_address": "wrong_address", "mantel_too_old": "mantel_too_old"}.get(err.code, "cannot_connect")
     return got["token"], None
 
 
