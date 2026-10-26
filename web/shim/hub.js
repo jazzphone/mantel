@@ -47,6 +47,7 @@ export class Hub {
     // after each reconnect, once the new socket is open and the subscription and feeds were asked for again
     // (_resume): for what the page reads once at start and would otherwise keep from before the drop
     this.onReconnect = () => {};
+    this.reconnects = 0;           // sockets opened again since this page loaded (page-health.js tells Mantel)
     this.bytes = 0; this.msgs = 0; // what arrived, for the numbers in the page's console
     this._checking = null;         // the liveness check under way (checkAlive)
     this._checked = 0;             // when the last one started
@@ -61,7 +62,7 @@ export class Hub {
       ws.onopen = () => {
         this.connected = true;
         this.retry = RETRY_MIN;
-        if (again) this._resume();
+        if (again) { this.reconnects++; this._resume(); }
         resolve();
       };
       ws.onerror = () => reject(new Error('hub connection failed'));

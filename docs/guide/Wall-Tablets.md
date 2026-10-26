@@ -122,6 +122,17 @@ If Mantel is restarting when the page first opens (or the tablet woke before its
 
 A kiosk app's own watchdog (Kiosk Satellite reloads a page whose connection is down for 15 minutes) sees Mantel's connection as it really is, so it doesn't reload a working page. A reconnect after a wake takes seconds, far less than its 15 minutes.
 
+### How each tablet is doing
+
+An Owner or Admin can see how each tablet's page is doing: **Mantel Settings** → **About** → **Performance**. There is one row per wall tablet (and per browser that has Mantel Settings open), from what its page reported over the last 24 hours:
+
+- **Up**: how long the page has been open. A tablet that reloads often shows a short time here.
+- **Memory**: the page's JavaScript heap, where the browser reports it (Chrome-based kiosk apps do; others show nothing).
+- **Reconnects**: how many times the page had to open its connection to Mantel again since it loaded.
+- **Slowest start**: the longest time from the page opening to its first screen drawn, in the last 24 hours.
+
+The top of the page has Mantel's own numbers: how long it takes to build and send one screen's changes (the middle one, and the slowest 5 in 100, over the last hour), how many state changes Home Assistant sends a minute, and how many screens are connected now. Nothing is stored beyond a day, and nothing outlives a Mantel restart. Wall tablets themselves, and members, can't open this page.
+
 ## Reload and Clear Cache from Mantel
 
 An Owner can let Mantel reach a tablet's kiosk app directly (Kiosk Satellite, or Fully Kiosk Browser with its Remote Administration on):

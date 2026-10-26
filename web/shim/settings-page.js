@@ -22,6 +22,7 @@ import '/hk/elements/hk-elements.js';
 import { Host } from './mantel-host.js';
 import { Hub } from './hub.js';
 import { startAgain, started } from './boot-retry.js';
+import { pageHealth } from './page-health.js';
 import * as mantelSettings from './mantel-settings.js';
 // HK's toast layer: a refused save is told there too
 import '/hk/shell/hk-overlays.js';
@@ -122,6 +123,7 @@ try {
   document.body.appendChild(el);
   host.onSnapshot = (h) => { el.hass = h; };      // the panel follows the house, as HA hands it each new hass
   window.__mantelSettings = el;
+  pageHealth(hub, 'settings').drawn();     // as the dashboard does (a house manager's page has the socket; the others' is dropped)
   // ...and it follows the device when that changes (the evening's switch to dark)
   if (window.matchMedia) window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
     const t = host.hass && host.hass.themes;
