@@ -18,6 +18,7 @@ from aiohttp.test_utils import TestClient, TestServer
 from argon2 import PasswordHasher
 
 from connector_fakes import HA_TOKEN, FakeHa
+from hk_core.settings import model as M
 from mantel_server import readproxy, settings_store as S
 from mantel_server.connectors import Ctx, Forbidden, Hooks
 from mantel_server.db import Database
@@ -327,7 +328,8 @@ async def test_owner_and_admin_save_house_wide_adults_only_their_own(svc, store)
     with pytest.raises(S.SettingsError) as err:
         await svc.save(OWNER, {"type": "mantel/settings/user/set", "user_id": "nobody", "changes": {"look.glass": "x"}})
     assert err.value.code == "no_user"
-    assert store.get("house", "settings").body["look"]["glass"] == "clear"
+    assert svc.house_settings()["look"]["glass"] == "clear"
+    assert "glass" not in store.get("house", "settings").body["look"], "the default again: not stored (SET-2)"
     assert store.get("board", "dashboard-kitchen").body["menu"] == "tabbar"
     assert store.history("house", "settings")[0]["actor"] == "owner-id"
 
@@ -470,7 +472,9 @@ async def test_panel_get_shape_and_rights(svc):
     for key in ("entry_id", "settings", "boards", "tablets", "popups", "custom_pages", "custom_chips", "accessories",
                 "setup_done", "choices", "presets", "chip_kinds", "page_kinds", "dashboards", "users", "kiosk_devices"):
         assert key in p, key
-    assert p["settings"]["counts"] == {"lights": None} and p["setup_done"] is True
+    # the merged settings, as HA's panel/get answers them (stored as the differences: SET-2)
+    assert p["settings"]["counts"]["lights"] is None and p["settings"]["look"]["glass"] == "blur"
+    assert set(p["settings"]) == set(M.merged(None)) and p["setup_done"] is True
     assert p["custom_pages"][0]["used_on"] == ["dashboard-kitchen"] and p["tablets"]["kitchen"]["parts"] == {}
     assert p["choices"] == {"themes": ["halloween"]} and p["users"] == []
     # the screens: one per board, in HA's panel/get shape, so Screens counts them and each opens

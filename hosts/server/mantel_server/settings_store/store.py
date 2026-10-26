@@ -125,11 +125,15 @@ class SettingsStore:
                                 (scope, key, int(version))).fetchone()
         return json.loads(row["body"]) if row else None
 
-    def restore(self, scope: str, key: str, version: int, *, actor: Actor, message: str | None = None) -> Doc | None:
-        """A NEW version whose body is ``version``'s. None if the document already is that body."""
+    def restore(self, scope: str, key: str, version: int, *, actor: Actor, message: str | None = None,
+                normalise: Callable[[dict], dict] | None = None) -> Doc | None:
+        """A NEW version whose body is ``version``'s (``normalise``d: an older form written as today's). None if
+        the document already is that body."""
         body = self.version_body(scope, key, version)
         if body is None:
             raise SettingsError("no_version", f"{scope}/{key} has no version {version}")
+        if normalise is not None:
+            body = normalise(body)
         got = self.write([(scope, key, body)], actor=actor, action="restore", message=message, source=f"v{int(version)}")
         return got[0] if got else None
 

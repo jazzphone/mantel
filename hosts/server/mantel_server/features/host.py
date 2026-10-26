@@ -678,7 +678,8 @@ class FeatureHost:
                 raise
             prefs = {}
         opts = self.settings["energy"]["options"]
-        house = {**self.store.body("house", "settings"),
+        from ..settings_store import merged_house          # stored as differences (SET-2): read merged
+        house = {**merged_house(self.store.body("house", "settings")),
                  "accessories": self.store.body("house", "accessories") or {}}
         prefs = prefs if isinstance(prefs, dict) else {}
         return prefs, opts, energy_context(self.house, prefs, opts, energy_house(self.house, house),

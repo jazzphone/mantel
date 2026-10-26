@@ -88,6 +88,14 @@ class ThinModel:
                 errors[str(path)] = err.code
         return (dict(doc), errors) if errors else (out, {})
 
+    def save_house(self, stored: Mapping[str, Any], view: Mapping[str, Any], changes: Any) -> tuple[dict, dict[str, str]]:
+        """A house save: ``stored`` (house/settings as stored, the differences) and ``view`` (it merged) -> the
+        body to store, or the errors. The thin checks need every key there, so they run over the view, and the
+        result is stored as the differences."""
+        from .importing import stored_house
+        new, errors = self.apply_house(view, changes)
+        return (dict(stored), errors) if errors else (stored_house(new, merged_form=False), {})
+
     def _apply_flat(self, doc: Mapping[str, Any], changes: Any, frozen: Iterable[str] = ()) -> tuple[dict, dict[str, str]]:
         changes = self._check_changes(changes)
         out = copy.deepcopy(dict(doc))
@@ -189,8 +197,9 @@ class HkCoreModel(ThinModel):
 
     Expected (as settings_api.py has them today): ``apply_house(options, changes) -> (options,
     errors)`` over the config-entry options (``{"dashboard": {section: {...}}}``) and ``merged(options)``;
-    ``apply_board(data, changes)``; ``apply_tablet(data, changes, tablet_id)``. The document here is the
-    MERGED house settings, so it is wrapped as options and merged back.
+    ``apply_board(data, changes)``; ``apply_tablet(data, changes, tablet_id)``. The house document is stored
+    as HA stores its options' ``dashboard``, only what differs from the defaults (SET-2), so it is wrapped as
+    options and the options' ``dashboard`` is what comes back.
     """
     name = "hk_core"
 
@@ -205,7 +214,11 @@ class HkCoreModel(ThinModel):
         options, errors = self.m.apply_house({"dashboard": copy.deepcopy(dict(doc))}, changes)
         if errors:
             return dict(doc), dict(errors)
-        return dict(self.m.merged(options)), {}
+        return dict(options.get("dashboard") or {}), {}
+
+    def save_house(self, stored: Mapping[str, Any], view: Mapping[str, Any], changes: Any) -> tuple[dict, dict[str, str]]:
+        """hk_core's apply_house over the stored differences, exactly as HA's panel.py calls it."""
+        return self.apply_house(stored, changes)
 
     def apply_user(self, doc: Mapping[str, Any], changes: Any, house: Mapping[str, Any]) -> tuple[dict, dict[str, str]]:
         """The thin checks, then each value as the house model checks it: a person may not keep what the house
