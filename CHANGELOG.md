@@ -72,6 +72,20 @@ Reliability:
 - Backups: a backup made by hand deletes no older ones; a database-only restore keeps your photos; leftovers of an interrupted backup are cleaned up.
 - Push notifications survive an internet outage, and stop at an app that was signed out.
 
+## 0.1.78 - 2026-10-26
+
+- **Taking access away takes effect at once.** These end their open connections immediately instead of up to a minute later:
+  - signing someone out, disabling them, or lowering their role;
+  - revoking a wall tablet or a Home Assistant link;
+  - unlinking a Home Assistant user.
+  The connections that close are screens, talk-back, the Music Assistant page and Home Assistant dashboard feeds. Turning off Allow Control of the House also closes a Music Assistant page Mantel had signed in.
+- **Renames reach open pages.** An area, device or entity renamed in Home Assistant shows on open dashboards and in Mantel Settings without a reload. Each page hears only of changes it may see, and the registry is served from a cache, so the Home Grid editor's previews no longer re-read about 2 MB each.
+- **Two editors no longer overwrite each other.** If someone else saved a screen's Home Grid while you were editing it, Save (and Copy Layout To…) says "This screen changed since you opened it" and offers Reload or Save Anyway.
+- **House settings follow your place.** Mantel now stores only the house settings you changed, as HK Frontend does, so the sky's hemisphere and the US-only themes come from Home Assistant's location even after a save. Settings saved by an older Mantel are converted once at start-up, as a version in the settings history. Seasonal decorations switched from Home Assistant no longer leave the sky half-set.
+- **Pictures are processed in their own worker process,** one at a time. Photo and file processing (decoding, re-encoding, finding faces) no longer runs in the server process. The server no longer loads ONNX Runtime, originals are progressive JPEG again without slowing other screens, and a picture that crashes the worker is refused.
+- **Mantel Link pairing protocol v2.** The pairing proofs name the address Home Assistant used, and Mantel refuses an address that isn't its own, so a look-alike relaying the exchange can't learn the credential. Older Mantel Link still pairs.
+- **About → Performance** (Owners and Admins) shows each wall tablet's time up, memory, reconnects and slowest start over the last 24 hours, with Mantel's update fan-out time, Home Assistant's event rate and the connected screens. The figures are kept in memory only: none older than a day, and none survive a restart.
+
 ## 0.1.77 - 2026-10-26
 
 - **Wall tablets recover after sleep.** A tablet that wakes, or comes back on the network, checks its connection to Mantel and reconnects within seconds if it went quiet. It also checks every 45 seconds while on screen, so it no longer shows stale states until someone reloads it. Mantel Settings now retries its own start, as the dashboard does.
