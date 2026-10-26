@@ -490,21 +490,26 @@ async def worst_gap_during(coro) -> float:
 
 
 async def test_a_large_photo_upload_does_not_freeze_every_other_client(mantel):
-    """MED-1 (audit, second pass): ``process`` runs in a worker thread, yet the event loop (every client's state
+    """MED-1 (audit, second pass): ``process`` ran in a worker thread, yet the event loop (every client's state
     stream) stood still 0.3 s for a 24 MP picture and 0.75 s for 48 MP: Pillow's JPEG encode with ``optimize=True``
     (and ``progressive=True``, which libjpeg runs through the same optimal-Huffman pass) holds the GIL for the whole
-    encode. A baseline encode gives it up between small steps (30 MP: ~0.45 s before, ~0.01 s after; the files are
-    about 13% larger). The threshold is generous: a loaded machine must not make this flaky."""
-    faces.find(Image.new("RGB", (64, 64)))                  # onnxruntime's one-off import is not what is measured
+    encode. The fix then was a baseline encode; now the work runs in the image worker PROCESS (imaging.py), with its
+    own GIL, so the progressive, optimized encode is back and the loop still never waits on it."""
+    from mantel_server import imaging
     lib = mantel.app["photos"]
     lib.set_limits({"file_mb": 100})
     aid = lib.create_album("Big")["id"]
+    await lib.add(aid, picture(size=(64, 64)), "warm.jpg")   # the worker's start (and ONNX Runtime's) is not measured
     data = noisy_jpeg(30)
     gap = await worst_gap_during(lib.add(aid, data, "big.jpg"))
-    assert gap < 0.2, f"the event loop stood still for {gap * 1000:.0f} ms"
+    assert imaging.state()["mode"] == "process"
+    big = next(p for p in lib.photos(aid) if p["name"] == "big.jpg")
+    with Image.open(lib.path(big["id"], "original")) as im:
+        assert im.info.get("progressive") == 1
+    assert gap < 0.02, f"the event loop stood still for {gap * 1000:.0f} ms"
 
 
-async def test_pictures_are_not_all_decoded_at_once(mantel, monkeypatch):
+async def test_pictures_are_not_all_decoded_at_once(mantel, monkeypatch, image_threads):
     """MED-2 (audit, second pass): nothing capped the decodes: N uploads were N simultaneous full decodes (four 48 MP
     JPEGs peaked at 2.2 GB, one 99 MP picture at 1.1 GB), which is an out-of-memory kill on a Pi or an HA App. They
     now wait their turn in ``photos.image_slot``."""
@@ -526,7 +531,7 @@ async def test_pictures_are_not_all_decoded_at_once(mantel, monkeypatch):
     assert peak[0] <= photos.IMAGE_JOBS and lib.count() == 6
 
 
-async def test_a_cancelled_upload_gives_its_decode_slot_back_when_the_thread_ends(mantel):
+async def test_a_cancelled_upload_gives_its_decode_slot_back_when_the_thread_ends(mantel, image_threads):
     """MED-2 (audit, second pass): the slot belongs to the decoding THREAD, which a cancelled caller cannot stop: it is
     given back when the thread ends (not before, or the cap is exceeded; and not never, or uploads stop for good)."""
     release, started = threading.Event(), threading.Event()

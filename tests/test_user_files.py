@@ -329,7 +329,7 @@ async def test_heic_becomes_jpeg(mantel):
     assert Image.open(io.BytesIO(await (await m.client.get(body["url"])).read())).format == "JPEG"
 
 
-async def test_heic_without_the_decoder_is_a_clear_refusal(mantel, monkeypatch):
+async def test_heic_without_the_decoder_is_a_clear_refusal(mantel, monkeypatch, image_threads):
     pillow_heif = pytest.importorskip("pillow_heif")
     pillow_heif.register_heif_opener()
     heic = picture("HEIF", (64, 48))
@@ -735,17 +735,29 @@ def test_a_multi_picture_jpeg_from_a_phone_is_a_jpeg():
 
 
 # -- the second audit (2026-10): what a big picture costs the rest of the house ------------------------------------------
-async def test_a_large_your_files_photo_upload_does_not_freeze_the_event_loop():
-    """MED-1 (audit, second pass): ``reencode_photo`` runs in a worker thread, yet the event loop stood still 0.7 s for
+async def test_a_large_your_files_photo_upload_does_not_freeze_the_event_loop(tmp_path):
+    """MED-1 (audit, second pass): ``reencode_photo`` ran in a worker thread, yet the event loop stood still 0.7 s for
     a 40 MP picture: ``save(..., optimize=True, progressive=True)`` holds the GIL for the whole JPEG encode (see
-    test_photos.py). The encode is now baseline, which gives it up between small steps."""
+    test_photos.py). It runs in the image worker process now (imaging.py), progressive again, and the loop never
+    waits on it."""
+    from mantel_server import imaging
     from test_photos import noisy_jpeg, worst_gap_during
+    store = uf.UserFiles(tmp_path / "files")
+    await imaging.run(uf.reencode_photo, noisy_jpeg(0.1))          # the worker's start is not what is measured
     data = noisy_jpeg(40)
-    gap = await worst_gap_during(asyncio.to_thread(uf.reencode_photo, data))
-    assert gap < 0.2, f"the event loop stood still for {gap * 1000:.0f} ms"
+    got = []
+
+    async def upload():
+        got.append(await uf.stage_photo(store, data))
+    gap = await worst_gap_during(upload())
+    write, result = got[0]
+    write()
+    with Image.open(store.photo_path(result["id"])) as im:
+        assert im.info.get("progressive") == 1
+    assert gap < 0.02, f"the event loop stood still for {gap * 1000:.0f} ms"
 
 
-async def test_your_files_photo_uploads_queue_with_mantel_photos_for_the_decoder(monkeypatch):
+async def test_your_files_photo_uploads_queue_with_mantel_photos_for_the_decoder(monkeypatch, image_threads):
     """MED-2 (audit, second pass): ``_in_thread`` took any number of photo uploads at once, each a full decode. A
     photo upload now takes its turn in the same slots as Mantel Photos' (``photos.image_slot``)."""
     from mantel_server import photos

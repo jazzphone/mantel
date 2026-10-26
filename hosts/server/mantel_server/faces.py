@@ -11,9 +11,11 @@ found -- boxes, never who anyone is -- on this server, and nothing leaves the ho
 * **What is kept** (``keep``). Faces scoring 0.7 or more; then faces smaller than a quarter of the largest are
   dropped (people in the background), and at most 12 are kept, largest first. Stored as fractions of the upright
   picture: ``[x, y, w, h, score]``.
-* **Where it runs.** On upload (photos.process, in the worker thread that already decoded the picture) and in the
-  backfill (photos.FaceBackfill) for photos stored before. A ``Detector`` is made for one batch and dropped after;
-  ONNX Runtime itself, once imported, stays loaded in the process (about 140 MB installed, some tens of MB of memory).
+* **Where it runs.** In the image worker process (imaging.py, image_work.py), never in the server's: on upload
+  (``process``, on the screen-sized copy it has just made) and in the backfill (photos.FaceBackfill, through
+  ``imaging.look``) for photos stored before. The worker keeps one ``Detector`` for its life (it stops after 5 idle
+  minutes); ONNX Runtime is imported there only (about 140 MB installed, some tens of MB of memory). In the thread
+  fallback, a ``Detector`` per photo, in the server's process.
 * **Without it.** ``available()`` is False when ONNX Runtime or numpy can't be imported on this platform (logged
   once). Uploads work as before; photos stay "not checked", and the screens use their own focus.
 """
@@ -57,6 +59,18 @@ def _load_runtime():
 def available() -> bool:
     """ONNX Runtime and numpy can be imported here (tried once, remembered)."""
     return bool(_load_runtime())
+
+
+def installed() -> bool:
+    """ONNX Runtime and numpy are installed here, found WITHOUT importing them: the server's answer until the image
+    worker (imaging.py), where they are imported, has said whether they load."""
+    if _runtime is not None:
+        return bool(_runtime)
+    from importlib.util import find_spec
+    try:
+        return all(find_spec(m) is not None for m in ("numpy", "onnxruntime"))
+    except (ImportError, ValueError):
+        return False
 
 
 def model_ok(path: Path = MODEL) -> bool:

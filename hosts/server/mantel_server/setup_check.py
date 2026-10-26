@@ -76,8 +76,8 @@ def lines(app: Any, boards: int) -> list[dict[str, Any]]:
     except Exception:  # noqa: BLE001
         has_photos = False
     if has_photos:
-        from . import faces
-        if not faces.available():
+        from . import imaging
+        if not imaging.faces_available():
             out.append(_line(None, "Photos", "Faces aren’t found on this platform; the screens’ own focus is used."))
     out.append(_line(True if boards else False, "Screens",
                      f"{boards} in Mantel." if boards else

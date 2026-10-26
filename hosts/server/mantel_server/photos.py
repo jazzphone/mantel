@@ -38,17 +38,14 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import hashlib
-import io
 import json
 import math
 import logging
 import os
 import re
 import secrets
-import threading
 import time
 import unicodedata
-import weakref
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable, Iterable
@@ -56,8 +53,11 @@ from urllib.parse import unquote, urlsplit
 
 from aiohttp import web
 
-from . import audit
+from . import audit, imaging
 from . import faces as face_finder
+# the picture work itself (image_work.py) runs in imaging.py's worker process; these names stay photos.py's
+from .image_work import ORIGINAL_EDGE, PIXELS_MAX, SCREEN_EDGE, THUMB_EDGE, PhotoError, Processed, process, sniff  # noqa: F401
+from .imaging import IMAGE_JOBS, image_slot, run as run_image_job  # noqa: F401
 from .guards import guard
 from .guards import ident as guarded
 
@@ -71,10 +71,6 @@ ALBUM_ID = re.compile(r"^[0-9a-f]{16}$")
 SCREEN = re.compile(r"^[A-Za-z0-9_][A-Za-z0-9_-]{0,79}$")
 NAME_MAX = 60
 FILE_NAME_MAX = 120
-PIXELS_MAX = 64_000_000     # a decode costs 8-10 bytes a pixel: 64 MP peaks near 0.65 GB (100 MP: 0.9 GB)
-ORIGINAL_EDGE = 8192
-SCREEN_EDGE = 2560
-THUMB_EDGE = 480
 # folder, file extension, content type -- per size
 SIZES = {"original": ("originals", ".jpg", "image/jpeg"),
          "screen": ("screen", ".jpg", "image/jpeg"),
@@ -91,157 +87,6 @@ MANAGERS = ("owner", "admin")
 # removed), so a browser keeps them; the lists are asked again each time
 IMMUTABLE = {"Cache-Control": "private, max-age=31536000, immutable", "X-Content-Type-Options": "nosniff"}
 NO_STORE = {"Cache-Control": "no-store"}
-
-
-class PhotoError(Exception):
-    """A refused request. ``code`` is stable (the page words it); ``status`` is the HTTP answer."""
-
-    def __init__(self, code: str, message: str, status: int = 400) -> None:
-        super().__init__(message)
-        self.code, self.status = code, status
-
-
-# -- pictures -------------------------------------------------------------------------------------------
-IMAGE_JOBS = 1          # pictures decoded and re-encoded at once, in this process: one full decode is 0.3-0.7 GB
-_slots: "weakref.WeakKeyDictionary[asyncio.AbstractEventLoop, asyncio.Semaphore]" = weakref.WeakKeyDictionary()
-
-
-def image_slot() -> asyncio.Semaphore:
-    """The semaphore every heavy picture job (``process`` here, ``reencode_photo`` in user_files) waits on: a pile of
-    uploads must queue, not decode together (a Pi or an HA App is out of memory after two or three). One per event
-    loop, so a test's fresh loop never meets a semaphore another loop has waited on."""
-    loop = asyncio.get_running_loop()
-    slot = _slots.get(loop)
-    if slot is None:
-        slot = _slots[loop] = asyncio.Semaphore(IMAGE_JOBS)
-    return slot
-
-
-async def run_image_job(fn: Callable, *args):
-    """``fn(*args)`` in a worker thread once a slot is free. The slot is given back when the THREAD ends: a cancelled
-    caller can't stop a running decode, and it must go on counting until it has finished."""
-    slot = image_slot()
-    await slot.acquire()
-    loop = asyncio.get_running_loop()
-    gate, state = threading.Lock(), {"started": False, "dropped": False}
-
-    def job():
-        with gate:
-            if state["dropped"]:                                # cancelled before the thread got to it
-                return None
-            state["started"] = True
-        try:
-            return fn(*args)
-        finally:
-            with contextlib.suppress(RuntimeError):             # the loop is gone: nothing is waiting any more
-                loop.call_soon_threadsafe(slot.release)
-
-    try:
-        return await loop.run_in_executor(None, job)
-    except BaseException:
-        with gate:
-            if not state["started"]:
-                state["dropped"] = True
-                slot.release()
-        raise
-
-
-@dataclass
-class Processed:
-    original: bytes
-    screen: bytes
-    thumb: bytes
-    width: int
-    height: int
-    faces: list | None = None        # None: not looked for (no detector here, or it failed)
-
-    @property
-    def size(self) -> int:
-        return len(self.original) + len(self.screen) + len(self.thumb)
-
-
-def sniff(data: bytes) -> str | None:
-    """"jpeg" | "png" | "webp" | "heic" from the bytes, else None (the name and the browser's word are ignored)."""
-    if data[:3] == b"\xff\xd8\xff":
-        return "jpeg"
-    if data[:8] == b"\x89PNG\r\n\x1a\n":
-        return "png"
-    if data[:4] == b"RIFF" and data[8:12] == b"WEBP":
-        return "webp"
-    if data[4:8] == b"ftyp" and data[8:12] in (b"heic", b"heix", b"hevc", b"hevx", b"heim", b"heis", b"mif1", b"msf1"):
-        return "heic"
-    return None
-
-
-def process(data: bytes) -> Processed:
-    """Decode a picture and make its three stored files (see the module docstring). PhotoError otherwise."""
-    kind = sniff(data)
-    if kind is None:
-        raise PhotoError("photo_invalid", "That isn’t a JPEG, PNG, WebP or HEIC picture.", 415)
-    try:
-        from PIL import Image, ImageOps
-    except ImportError as exc:                                  # pragma: no cover -- Pillow is a dependency
-        raise PhotoError("images_unavailable", "This server was built without image support.", 503) from exc
-    if kind == "heic":
-        try:
-            import pillow_heif
-            pillow_heif.register_heif_opener()
-        except ImportError as exc:
-            raise PhotoError("heic_unsupported", "This server can’t read HEIC photos. Export the photo as JPEG.",
-                             415) from exc
-    Image.MAX_IMAGE_PIXELS = None       # Pillow's global bomb check off: each open checks its own cap, just below
-    try:
-        img = Image.open(io.BytesIO(data))
-        if img.width * img.height > PIXELS_MAX:
-            raise PhotoError("photo_too_large", "That picture has too many pixels (64 megapixels at most).", 413)
-        shown = {"JPEG": "jpeg", "MPO": "jpeg", "PNG": "png", "WEBP": "webp", "HEIF": "heic"}.get(img.format or "")
-        if shown != kind:
-            raise PhotoError("photo_invalid", "The picture doesn’t match its own format.", 415)
-        img.seek(0)
-        img.load()
-        icc = img.info.get("icc_profile")
-        ImageOps.exif_transpose(img, in_place=True)              # upright, then the EXIF is never written again
-        # no copy of what is already the right mode: at tens of megapixels each copy is hundreds of MB
-        if img.mode in ("RGBA", "LA", "PA") or (img.mode == "P" and "transparency" in img.info):
-            rgba = img if img.mode == "RGBA" else img.convert("RGBA")
-            flat = Image.new("RGB", rgba.size, (0, 0, 0))        # a screensaver's ground is black
-            flat.paste(rgba, mask=rgba)                          # an RGBA mask is its own alpha band
-            del rgba
-            img = flat
-        elif img.mode != "RGB":
-            img = img.convert("RGB")
-        if icc:
-            with contextlib.suppress(Exception):                # best effort: wide gamut (Display P3) -> sRGB
-                from PIL import ImageCms
-                src = ImageCms.ImageCmsProfile(io.BytesIO(icc))
-                img = ImageCms.profileToProfile(img, src, ImageCms.createProfile("sRGB"), outputMode="RGB")
-        img.thumbnail((ORIGINAL_EDGE, ORIGINAL_EDGE), Image.LANCZOS)
-        width, height = img.size
-
-        def jpeg(im, quality: int) -> bytes:
-            buf = io.BytesIO()
-            # A plain baseline encode: optimize=True and progressive=True (which libjpeg implements with the same
-            # optimal-Huffman pass) hold the GIL for the whole encode -- a 48 MP picture froze every other client
-            # for ~0.75 s. Baseline encodes in small steps the loop runs between; the files are ~13% larger.
-            im.save(buf, "JPEG", quality=quality)
-            return buf.getvalue()
-
-        original = jpeg(img, 90)
-        screen = img.copy()
-        screen.thumbnail((SCREEN_EDGE, SCREEN_EDGE), Image.LANCZOS)
-        screen_bytes = jpeg(screen, 85)
-        found = face_finder.find(screen)                         # never raises; None when there's no detector
-        thumb = screen.copy()
-        thumb.thumbnail((THUMB_EDGE, THUMB_EDGE), Image.LANCZOS)
-        buf = io.BytesIO()
-        thumb.save(buf, "WEBP", quality=78, method=4)
-        return Processed(original, screen_bytes, buf.getvalue(), width, height, found)
-    except PhotoError:
-        raise
-    except Image.DecompressionBombError as exc:
-        raise PhotoError("photo_too_large", "That picture has too many pixels (64 megapixels at most).", 413) from exc
-    except Exception as exc:  # noqa: BLE001 -- any decoder failure is "not a usable picture"
-        raise PhotoError("photo_invalid", "That picture couldn’t be read.", 415) from exc
 
 
 def clean_name(raw: object, limit: int = NAME_MAX, *, what: str = "album") -> str:
@@ -447,7 +292,10 @@ class PhotoLibrary:
             return same, True
         if self.db.execute("SELECT COUNT(*) FROM photos WHERE album_id=?", (album["id"],)).fetchone()[0] >= ALBUM_PHOTOS_MAX:
             raise PhotoError("album_full", f"An album holds at most {ALBUM_PHOTOS_MAX:,} photos.", 409)
-        got = await run_image_job(process, data)
+        try:
+            got = await imaging.run(process, data)             # in the image worker, one picture at a time
+        except imaging.WorkerLost as exc:                       # it died on this one (out of memory, a decoder crash)
+            raise PhotoError("photo_invalid", "That picture couldn’t be read.", 415) from exc
         async with self.lock:
             same = self.find(album["id"], sha)                  # the same picture, sent twice at once
             if same is not None:
@@ -631,8 +479,9 @@ def with_focus(row: dict) -> dict:
 class FaceBackfill:
     """Looks for faces in the photos stored before (or while no detector was here): ``app["photos_faces"]``.
 
-    It starts a minute after the server does, then takes one photo at a time, newest first, reads its screen-sized
-    file, looks in a worker thread and writes the row, with a short rest between photos. It waits while an import
+    It starts a minute after the server does, then takes one photo at a time, newest first: the image worker reads
+    its screen-sized file and looks (``imaging.look``, in the same one-at-a-time slot as the uploads), and the row is
+    written here, with a short rest between photos. It waits while an import
     runs and stops when nothing is left; its state is the rows (``faces_at IS NULL``), so a restart carries on. A
     file that can't be read is stored as no faces, so it isn't tried again for ever; a photo the DETECTOR fails on stays
     unchecked (skipped for this run), and a few failures in a row stop the run (logged once). Nothing runs without a
@@ -656,7 +505,7 @@ class FaceBackfill:
     def start(self) -> asyncio.Task | None:
         if self.task is not None and not self.task.done():
             return self.task
-        if not face_finder.available():
+        if not imaging.faces_available():
             return None
         self.task = asyncio.get_running_loop().create_task(self.run())
         return self.task
@@ -678,7 +527,7 @@ class FaceBackfill:
         n = lib.face_counts()
         last = n.pop("last")
         imp = self.app.get("photos_import")
-        if not face_finder.available():
+        if not imaging.faces_available():
             state = "unavailable"
         elif not n["left"]:
             state = "done"
@@ -691,30 +540,10 @@ class FaceBackfill:
         return dict(n, state=state, started=self.started,
                     finished=(self.finished or last) if state == "done" and n["photos"] else None)
 
-    @staticmethod
-    def _look(det, path: Path | None) -> list | None:
-        """The faces in a file: ``[]`` when it can't be opened (there is nothing to find, now or later), None when the
-        DETECTOR failed on a picture that opened (that says nothing about the photo: it is looked at again)."""
-        if path is None:
-            return []
-        from PIL import Image
-        try:
-            im = Image.open(path)
-            im.load()
-        except Exception as exc:  # noqa: BLE001 -- an unreadable file is "no faces", not a retry for ever
-            log.warning("couldn't look for faces in %s: %s: %s", path.name, type(exc).__name__, exc)
-            return []
-        with im:
-            try:
-                return det.detect(im)
-            except Exception as exc:  # noqa: BLE001 -- onnxruntime failing at run time: not the photo's fault
-                log.warning("the face detector failed on %s: %s: %s", path.name, type(exc).__name__, exc)
-                return None
-
     async def run(self) -> None:
         await asyncio.sleep(self.start_after)
         lib: PhotoLibrary = self.app["photos"]
-        began, det = time.monotonic(), None
+        began, ready = time.monotonic(), False
         failed: set[str] = set()                                # photos the detector failed on, left for another run
         in_a_row = 0
         self.started, self.finished = self.app["clock"](), None
@@ -728,13 +557,16 @@ class FaceBackfill:
                 if pid is None:
                     self.finished = self.app["clock"]()
                     break
-                if det is None:
-                    try:
-                        det = await asyncio.to_thread(face_finder.Detector().__enter__)
-                    except Exception as exc:  # noqa: BLE001
-                        log.warning("the face backfill can't start: %s", exc)
+                if not ready:
+                    why = await imaging.faces_ready()
+                    if why is not None:
+                        log.warning("the face backfill can't start: %s", why)
                         return
-                found = await asyncio.to_thread(self._look, det, lib.path(pid, "screen"))
+                    ready = True
+                try:
+                    found = await imaging.look(lib.path(pid, "screen"))
+                except imaging.WorkerLost:                      # the worker died on it: as a detector failure
+                    found = None
                 if found is None:                               # the detector failed: the row stays unchecked
                     failed.add(pid)
                     in_a_row += 1
@@ -751,8 +583,6 @@ class FaceBackfill:
                     self.with_faces += bool(found)
                 await asyncio.sleep(self.rest)
         finally:
-            if det is not None:
-                det.__exit__(None, None, None)
             if self.checked:
                 log.info("checked %d photos for faces in %.0fs (%d with faces)", self.checked,
                          time.monotonic() - began, self.with_faces)

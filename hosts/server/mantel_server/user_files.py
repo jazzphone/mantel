@@ -38,7 +38,6 @@ from __future__ import annotations
 import argparse
 import asyncio
 import contextlib
-import io
 import json
 import logging
 import os
@@ -54,7 +53,9 @@ from urllib.parse import unquote
 
 from aiohttp import web
 
-from . import audit
+from . import audit, imaging
+# a photo's decode and re-encode (image_work.py) runs in imaging.py's worker process; these names stay Your Files'
+from .image_work import PHOTO_EDGE, PHOTO_PIXELS_MAX, FileError, reencode_photo, sniff_image  # noqa: F401
 from .guards import guard
 from .guards import ident as guarded
 
@@ -63,8 +64,6 @@ log = logging.getLogger("mantel.user_files")
 FONT_MAX = 40 << 20
 GLYPHS_MAX = 2 << 20
 PHOTO_MAX = 25 << 20
-PHOTO_PIXELS_MAX = 60_000_000
-PHOTO_EDGE = 3840
 QUOTA = 1 << 30
 NAME_MAX = 80
 
@@ -84,14 +83,6 @@ ASSET_PREFIXES = ("", "hk", "www/hk", "frontend", "hk_frontend/frontend", "custo
                   "hk_local")
 PHOTO_ID = re.compile(r"^[0-9a-f]{32}$")
 NOCACHE = {"Cache-Control": "no-cache", "X-Content-Type-Options": "nosniff"}
-
-
-class FileError(Exception):
-    """A refused upload. ``code`` is stable; ``status`` is the HTTP answer."""
-
-    def __init__(self, code: str, message: str, status: int = 400) -> None:
-        super().__init__(message)
-        self.code, self.status = code, status
 
 
 # -- names ------------------------------------------------------------------------------------------
@@ -252,84 +243,6 @@ def render_glyphs(g: dict) -> bytes:
     return "\n".join(lines).encode("utf-8")
 
 
-# -- photos -----------------------------------------------------------------------------------------
-def sniff_image(data: bytes) -> str | None:
-    if data[:3] == b"\xff\xd8\xff":
-        return "jpeg"
-    if data[:8] == b"\x89PNG\r\n\x1a\n":
-        return "png"
-    if data[:4] == b"RIFF" and data[8:12] == b"WEBP":
-        return "webp"
-    if data[4:8] == b"ftyp" and data[8:12] in (b"heic", b"heix", b"hevc", b"hevx", b"heim", b"heis", b"mif1", b"msf1"):
-        return "heic"
-    return None
-
-
-def reencode_photo(data: bytes, *, expect: str | None = None) -> tuple[bytes, str]:
-    """Decode and re-encode an image: (bytes, "jpeg"|"png"|"webp"). Drops all metadata, applies the EXIF
-    rotation, shrinks to PHOTO_EDGE, keeps one frame. ``expect`` pins the output format (an import that
-    must keep its extension). FileError: photo_invalid, photo_too_large, heic_unsupported, images_unavailable."""
-    kind = sniff_image(data)
-    if kind is None:
-        raise FileError("photo_invalid", "that is not a jpeg, png, webp or heic picture", 415)
-    try:
-        from PIL import Image, ImageOps
-    except ImportError as exc:                                  # pragma: no cover -- Pillow is a dependency
-        raise FileError("images_unavailable", "this server was built without image support", 503) from exc
-    if kind == "heic":
-        try:
-            import pillow_heif
-            pillow_heif.register_heif_opener()
-        except ImportError as exc:
-            raise FileError("heic_unsupported", "HEIC needs pillow-heif on this server; export the photo as JPEG",
-                            415) from exc
-    Image.MAX_IMAGE_PIXELS = None       # Pillow's global bomb check off (photos.py does the same): each open checks its cap
-    try:
-        img = Image.open(io.BytesIO(data))
-        if img.width * img.height > PHOTO_PIXELS_MAX:
-            raise FileError("photo_too_large", "that picture has too many pixels", 413)
-        # MPO: the multi-picture JPEG many phones and cameras write (a JPEG to everything else; photos.py takes it too)
-        shown = {"JPEG": "jpeg", "MPO": "jpeg", "PNG": "png", "WEBP": "webp", "HEIF": "heic"}.get(img.format or "")
-        if shown != kind:
-            raise FileError("photo_invalid", "the picture does not match its own format", 415)
-        if shown == "jpeg":
-            # only PHOTO_EDGE is kept, so libjpeg may decode at 1/2, 1/4 or 1/8 size while that is still >= the edge
-            img.draft("RGB", (PHOTO_EDGE, PHOTO_EDGE))
-        img.seek(0)
-        img.load()
-        icc = img.info.get("icc_profile")
-        ImageOps.exif_transpose(img, in_place=True)
-        img.thumbnail((PHOTO_EDGE, PHOTO_EDGE))
-        out_kind = "jpeg" if kind == "heic" else kind
-        if expect is not None and out_kind != expect:
-            raise FileError("photo_invalid", f"the picture is {out_kind}, its name says {expect}", 415)
-        has_alpha = img.mode in ("RGBA", "LA", "PA") or (img.mode == "P" and "transparency" in img.info)
-        if out_kind == "jpeg" or not has_alpha:
-            img = img.convert("RGB")
-        else:
-            img = img.convert("RGBA")
-        if icc:
-            with contextlib.suppress(Exception):                # best effort: wide-gamut -> sRGB
-                from PIL import ImageCms
-                src = ImageCms.ImageCmsProfile(io.BytesIO(icc))
-                img = ImageCms.profileToProfile(img, src, ImageCms.createProfile("sRGB"), outputMode=img.mode)
-        buf = io.BytesIO()
-        if out_kind == "jpeg":
-            # baseline, not optimize/progressive: those hold the GIL for the whole encode (see photos.process)
-            img.save(buf, "JPEG", quality=88)
-        elif out_kind == "png":
-            img.save(buf, "PNG", optimize=True)
-        else:
-            img.save(buf, "WEBP", quality=88, method=4)
-        return buf.getvalue(), out_kind
-    except FileError:
-        raise
-    except Image.DecompressionBombError as exc:
-        raise FileError("photo_too_large", "that picture has too many pixels", 413) from exc
-    except Exception as exc:  # noqa: BLE001 -- any decoder failure is "not a usable picture"
-        raise FileError("photo_invalid", "that picture could not be read", 415) from exc
-
-
 # -- the store --------------------------------------------------------------------------------------
 @dataclass
 class ImportReport:
@@ -409,10 +322,12 @@ class UserFiles:
                  "size": len(out), "icons": len(g["icons"]), "twotone": len(g["twotone"]),
                  "weather": len(g["weather"])})
 
-    def prepare_photo(self, data: bytes, photo_id: str | None = None) -> tuple[Callable[[], None], dict]:
+    def prepare_photo(self, data: bytes, photo_id: str | None = None, *,
+                      encoded: tuple[bytes, str] | None = None) -> tuple[Callable[[], None], dict]:
+        """``encoded``: ``reencode_photo``'s answer, made already (by the image worker: ``encode_photo``)."""
         if len(data) > PHOTO_MAX:
             raise FileError("too_large", f"photos are limited to {PHOTO_MAX >> 20} MB", 413)
-        out, kind = reencode_photo(data)
+        out, kind = encoded if encoded is not None else reencode_photo(data)
         pid = photo_id or secrets.token_hex(16)
         if not PHOTO_ID.match(pid):
             raise FileError("bad_name", "a photo id is 32 hex characters")
@@ -642,11 +557,22 @@ def _store(request: web.Request) -> UserFiles:
 
 
 async def _in_thread(fn, *args, heavy: bool = False):
-    """``fn`` in a worker thread. ``heavy`` (decoding a picture) takes its turn in photos.py's image slots first."""
+    """``fn`` in a worker thread. ``heavy`` (decoding a picture) takes its turn in imaging.py's image slot first."""
     if heavy:
-        from .photos import run_image_job
-        return await run_image_job(fn, *args)
+        return await imaging.run(fn, *args)
     return await asyncio.get_running_loop().run_in_executor(None, fn, *args)
+
+
+async def stage_photo(store: UserFiles, data: bytes) -> tuple[Callable[[], None], dict]:
+    """An uploaded photo, re-encoded by the image worker (one picture at a time with Mantel Photos'), and its
+    write: the server writes it (after the audit row), the worker only turns bytes into bytes."""
+    if len(data) > PHOTO_MAX:
+        raise FileError("too_large", f"photos are limited to {PHOTO_MAX >> 20} MB", 413)
+    try:
+        encoded = await imaging.run(reencode_photo, data)
+    except imaging.WorkerLost as exc:                   # it died on this one (out of memory, a decoder crash)
+        raise FileError("photo_invalid", "that picture could not be read", 415) from exc
+    return await _in_thread(lambda: store.prepare_photo(data, None, encoded=encoded))
 
 
 # Your Files: an Owner or Admin (never at a wall tablet); every change audited before it is written
@@ -671,7 +597,7 @@ async def api_upload(request: web.Request) -> web.Response:
         elif kind == "glyphs":
             write, result = await _in_thread(store.prepare_glyphs, data)
         else:
-            write, result = await _in_thread(store.prepare_photo, data, None, heavy=True)
+            write, result = await stage_photo(store, data)
     except FileError as exc:
         return _fail(exc)
     audit.config(request, ident, f"user_files.upload.{kind}", {"name": result["name"], "size": result["size"]})
@@ -703,7 +629,7 @@ async def image_upload(request: web.Request) -> web.Response:
     ident = guarded(request)
     try:
         data, _, _ = await read_upload(request, PHOTO_MAX)
-        write, result = await _in_thread(_store(request).prepare_photo, data, None, heavy=True)
+        write, result = await stage_photo(_store(request), data)
     except FileError as exc:
         return _fail(exc)
     audit.config(request, ident, "user_files.upload.photo", {"id": result["id"], "size": result["size"]})

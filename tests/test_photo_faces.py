@@ -19,6 +19,12 @@ from mantel_server import faces, photos, setup_check
 ONE = [[0.4, 0.3, 0.2, 0.25, 0.97]]
 
 
+@pytest.fixture(autouse=True)
+def _in_this_process(image_threads):
+    """These tests replace faces.Detector and faces.available here: the picture work must run here to see them (the
+    worker process is test_imaging.py's)."""
+
+
 def picture(color=(200, 30, 30), size=(80, 60)) -> bytes:
     buf = io.BytesIO()
     Image.new("RGB", size, color).save(buf, "JPEG")
