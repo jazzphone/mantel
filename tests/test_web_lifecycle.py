@@ -141,7 +141,7 @@ def test_one_failed_request_at_start_does_not_leave_the_page_blank_for_good():
     for good (the hub's own retry opens a socket nobody listens to)"""
     src = text("web/home.js")
     i = src.index("await Promise.all([")
-    assert re.search(r"try\s*\{[^}]*$", src[max(0, i - 400):i], re.S) or re.search(r"\]\)\s*\.catch\(", src[i: src.index("pageHealth(hub);")])
+    assert re.search(r"try\s*\{[^}]*$", src[max(0, i - 400):i], re.S) or re.search(r"\]\)\s*\.catch\(", src[i: src.index("= pageHealth(hub")])
 
 
 def test_the_settings_page_starts_again_after_a_failed_start_as_the_dashboard_does():
