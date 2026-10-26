@@ -174,3 +174,15 @@ T2, T6, G1 and S8.
 - **iPad suspend**: a `visibilitychange` check in `hub.js` (ping on wake, reconnect when silent).
 - The first pass's T2 (pairing protocol v2), T6 (Wall Tablet accounts and rooms), G1 and S8 (a look on a device)
   still stand.
+
+## House App 0.1.76 deployed (2026-10-26)
+
+The owner asked for this release. Release commit `e38e570` carries this pass's fixes. The update installed on the
+first request. Strict health is OK with Home Assistant connected (4509 entities) and Music Assistant signed in, and
+build `7417ce2f2a578b8c` matches the staged release. Allow Control of the House stayed on. All five wall tablets
+reconnected on their own within a minute, without reloading. No log line matches "Traceback" or "ERROR".
+
+Not as intended: the house still logs "migration 0015/0017 changed after it was applied" (DEP-3). Its stored
+checksums come from before the repository's history was rewritten, so they match neither the current files nor
+the pre-edit ones in git. It stays harmless. The fix that would silence it compares the live schema with a fresh build
+from the current migrations instead of matching known checksums.
