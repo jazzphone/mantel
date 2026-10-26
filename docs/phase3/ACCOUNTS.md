@@ -33,7 +33,7 @@ databases, temp secret folders and fictional users.
 * Each file runs in its own `BEGIN IMMEDIATE … COMMIT` together with its `schema_version` row; a
   failure rolls back completely (tested). Do not put BEGIN/COMMIT in a file. After the run,
   `PRAGMA foreign_key_check` must be clean.
-* A file edited after it was applied is logged and not re-run: fix forward with a new number.
+* A file edited after it was applied is never re-run: fix forward with a new number. If its stored checksum differs, Mantel compares the database's structure (columns, indexes, foreign keys, triggers, views) with a fresh in-memory build of all migrations: the same structure refreshes the checksums quietly, a different one logs a warning naming the objects that differ.
   Duplicate numbers or badly named files stop the server.
 * Roles are validated in Python against `store.ROLES`, not by a SQL CHECK, so P3.2 can make them
   editable (or add a `roles` table and reference it) without rebuilding `users`/`devices`.
