@@ -628,6 +628,13 @@ def build_app(cfg: Config, token: str, store: Store | None = None, connect_ha: b
         Everything holding a principal is in app["live"]; the proxy test holds none."""
         await app["live"].close_all(live.SHUTDOWN)
         socks = list(app.get("proxy_check_sockets") or ())
+        # and any socket its own list still holds (one ended already is a no-op)
+        proxy = app.get("media_proxy")
+        if proxy is not None:
+            socks += [ws for ws in proxy.sockets if not getattr(ws, "closed", False)]
+        relay = app.get("talk")
+        if relay is not None:
+            socks += [s.ws for s in list(relay.streams) if not getattr(s.ws, "closed", False)]
 
         async def close(ws: web.WebSocketResponse) -> None:
             try:

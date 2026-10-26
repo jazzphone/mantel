@@ -358,7 +358,10 @@ async def test_a_revoked_session_cannot_command_on_an_open_socket(gw):
     await gw.login("avery", "owner")
     ws = await gw.socket()
     sid = gw.app["store"].db.execute("SELECT id FROM sessions").fetchone()[0]
-    gw.app["sessions"].revoke(sid, "test")
+    # straight in the database: SessionManager.revoke now also ends the socket at once (live.py), and this is the
+    # gateway's own check, made at each command whatever closed or not
+    with gw.app["store"].db:
+        gw.app["store"].db.execute("UPDATE sessions SET revoked = 1, revoked_reason = 'test' WHERE id = ?", (sid,))
     reply = await gw.command(ws, **service("light", "turn_on", "light.kitchen"))
     assert reply["error"]["code"] == "unauthenticated" and gw.fake.sent == []
     assert gw.audit()[0]["reason"] == "unauthenticated"

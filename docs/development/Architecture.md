@@ -215,6 +215,29 @@ times each flush and send into `performance.STATS`, with the HA event rate; `GET
 (`@guard("manager")`, so never a tablet's session) summarises both for **About** → **Performance** (the `performance`
 section of `/api/admin/overview`, `web/shim/settings/performance.js`).
 
+## Long-lived connections
+
+A route is checked once, when it is called. A connection that stays open is checked again for as long as it is
+open, and so is every subscription it opened. All of them are in one registry, `app["live"]`
+(`hosts/server/mantel_server/live.py`): page sockets, a linked HK Frontend's relayed reads, live talks, the media
+proxy's sockets, Mantel Link, and each subscription inside them (cameras, Live TV, Music Assistant's events, the
+music, settings, user-data, event, Clean Areas, page-header and snooze feeds). An entry says what it is, who it is
+open as, how to close it, an optional `recheck()` (is the feature, the speaker, the camera still theirs?) and
+whether it needs house commands.
+
+- **A revocation ends it at once.** Revoking a session, a wall tablet or a link credential (the managers'
+  `revoke`), disabling a person or changing their role, and linking or unlinking a Home Assistant user (People,
+  the Ingress people page, a tablet's HA user) call `live.revoke` with what changed (`user:`, `device:`,
+  `session:`, `ha:`, `service:`). Each matching entry's principal is read again (`Authz.refresh`) and its
+  `recheck` asked, on the next turn of the loop; only what is no longer allowed closes.
+- **The policy tick** (once a minute) does the same over every entry: schedules, guest windows, a grant removed.
+- **Commands turned off** end every entry that needs them (a live talk, the Music Assistant page signed in past
+  the gateway); every page socket reconnects to learn which, as before. Stopping the server ends everything.
+
+A subscription is registered by `Ctx.keep`; its unsubscribe may carry `recheck` and `needs_commands`. One link
+relays the reads of at most 32 Home Assistant users at once. Music Assistant's listeners belong to the app, not
+the client, so subscriptions go on when the connection is removed and set up again.
+
 ## The settings store
 
 HK's settings in Home Assistant live in a config entry, with no history and no per-user scope. In Mantel they live
