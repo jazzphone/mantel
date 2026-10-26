@@ -612,6 +612,5 @@ What is still not done, as of 0.1.75 (the second audit pass, [development/Audit-
 | **An older Mantel Link pairs without the address** | Pairing protocol v2 (Mantel Link 0.1.6) puts the address Home Assistant used in both proofs, and Mantel refuses one that isn't its own (first pass, T2). Mantel still accepts v1 from an older Mantel Link, whose proof doesn't name the address: with one, check the address you pair with, or update Mantel Link first. |
 | **Wall Tablet accounts are not bound to one room** | One tablet per account; which room it may enrol in is a product decision (first pass, T6). |
 | **Two people editing one screen's Home Grid at once** | The later Save replaces the earlier one (second pass, SET-7). |
-| **Place defaults after a first save** | A house's hemisphere and US-only themes follow Home Assistant's place only until the house settings are first saved; set them in Sky afterwards (second pass, SET-2). |
 | **New-device sign-in notifications, shared rate limits** | Not built. |
 | **Apple apps** | See [iPhone and Mac Apps](guide/iPhone-and-Mac-Apps.md) for what is not built yet. |

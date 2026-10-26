@@ -36,6 +36,9 @@ What is here:
   version 1 with the source recorded. Idempotent: a second run changes nothing and says when the
   first one ran. It never writes to HA. CLI ``mantel-server import-settings``; REST
   ``POST /api/settings/import`` (Owner only; Mantel Settings -> Connections offers it).
+* ``house/settings`` is stored as HK Frontend stores it, only what differs from the defaults
+  (``stored_house``); every reader of the whole shape reads ``merged_house`` / ``house_settings()``.
+  ``normalise_house`` rewrites a body stored merged (before 0.1.78) once, at start-up.
 * ``seed_home_screen``: a Mantel with no screens and no import gets a generated Home screen
   (``board/dashboard-home``), which an import replaces while it is untouched.
 * ``register(app, hub, hooks)``: fills ``app["read_routes"]``, ``app["ws_handlers"]`` and the REST
@@ -66,6 +69,7 @@ from .hooks import (  # noqa: F401
 from .importing import (  # noqa: F401
     IMPORT_READ, _READ_ONLY_BOARD, as_stored, stored_of, docs_from_panel, HOME_SCREEN, GENERATED,
     NO_HK_FRONTEND, seed_home_screen, _untouched_seed, import_settings, import_cli,
+    NORMALISED, merged_house, looks_merged, stored_house, normalise_house,
 )
 from .service import (  # noqa: F401
     _slug, SettingsService,

@@ -375,10 +375,13 @@ class LinkedHouse:
         raise LinkedError("not_supported", f"{command} is not handled by this Mantel Server")
 
     async def _set_decorations(self, on: bool, ctx: Any) -> None:
-        """Mantel's house setting sky.decorations, as HA's switch writes its options."""
-        from .settings_store import Actor
+        """Mantel's house setting sky.decorations, as HA's switch writes its options: the stored differences
+        (SET-2; the feed merges them, so the screens keep the whole sky)."""
+        from .settings_store import Actor, looks_merged, stored_house
         store = self.host.store
         body = copy.deepcopy(store.body("house", "settings"))
+        if looks_merged(body):                  # not normalised yet (normalise_house runs at start-up)
+            body = stored_house(body)
         sky = body.get("sky") if isinstance(body.get("sky"), dict) else {}
         body["sky"] = SM.house_stored("sky", {**sky, "decorations": on})
         account = getattr(ctx, "account", None)

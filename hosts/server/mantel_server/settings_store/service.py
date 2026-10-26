@@ -13,7 +13,7 @@ from .. import accessories as ACC
 from ..connectors import Forbidden
 from .docs import Actor, CHIP_KINDS, CHIP_TOKEN, Doc, HOUSE_DOCS, KEY_RE, PILL_COLORS, SCOPES, Scope, SettingsError, USER_SECTIONS
 from .hooks import REFUSALS, SAVE_KINDS, SettingsHooks, WRITE_KEYS, _resolve, _sides, actor_of
-from .importing import stored_of
+from .importing import looks_merged, merged_house, stored_house, stored_of
 from .model import ThinModel, load_model
 from .store import SettingsStore
 
@@ -65,7 +65,17 @@ class SettingsService:
         return list(self.store.body("house", key).get("items") or [])
 
     def house_settings(self) -> dict:
-        return self.store.body("house", "settings")
+        """The house settings as every reader sees them (the feed, HK Settings, a person's checks): the stored
+        differences over the defaults (SET-2: what is stored is only what differs, as HA stores it)."""
+        return merged_house(self.store.body("house", "settings"))
+
+    def _apply_house(self, changes: Any) -> dict:
+        """A house save's new body as stored (the differences), or SettingsError with the fields refused."""
+        stored = self.store.body("house", "settings")
+        new, errors = self.model.save_house(stored, merged_house(stored), changes)
+        if errors:
+            raise SettingsError("invalid_format", fields=errors)
+        return new
 
     def personal(self, identity: Any) -> dict:
         uid = _sides(identity)[0]
@@ -85,11 +95,16 @@ class SettingsService:
         # gets it (sent raw, every screen kept the defaults, and no tablet returned Home when idle)
         stored = stored_of(self.store)
         tablets = SM.tablets(stored)
+        boards = SM.boards(stored)
+        # the car viewports, read off the screens (HA's as_client: legacy_screens): tesla-viewport.js reads car.*
+        if boards:
+            for section, values in SM.legacy_screens(boards).items():
+                sections[section] = {**(sections.get(section) or {}), **values}
         acc = self.store.body("house", "accessories") or {"entities": {}, "rooms": {}, "into": {}, "pages": {}}
         return {
             "configured": not self.store.empty(),
             **sections,
-            "boards": SM.boards(stored),
+            "boards": boards,
             "tablet_items": {tid: {
                 "name": t["name"], "screen": t["screen"], "room": t["room"], "user": t["user"],
                 "app": t["app"], "idle_return": t["idle_return"], "idle_time": t["idle_time"],
@@ -415,10 +430,7 @@ class SettingsService:
 
     async def _settings_set(self, identity, actor, msg):
         await self.need(identity, Scope("house", "settings"))
-        new, errors = self.model.apply_house(self.house_settings(), msg["changes"])
-        if errors:
-            raise SettingsError("invalid_format", fields=errors)
-        self._store([("house", "settings", new)], actor, msg)
+        self._store([("house", "settings", self._apply_house(msg["changes"]))], actor, msg)
         return {"settings": self.house_settings()}
 
     async def _calendar_color(self, identity, actor, msg):
@@ -434,10 +446,7 @@ class SettingsService:
             cur[key] = color
         else:
             cur.pop(key, None)
-        new, errors = self.model.apply_house(house, {"calendar.event_colors": cur})
-        if errors:
-            raise SettingsError("invalid_format", fields=errors)
-        self._store([("house", "settings", new)], actor, msg)
+        self._store([("house", "settings", self._apply_house({"calendar.event_colors": cur}))], actor, msg)
         return {"event_colors": cur}
 
     async def _board_set(self, identity, actor, msg):
@@ -547,7 +556,9 @@ class SettingsService:
         if body is None:
             raise SettingsError("no_version", f"{scope} has no version {version}")
         self.model.check_document(scope.kind, scope.key, body)
-        got = self.store.restore(scope.kind, scope.key, version, actor=actor, message=msg["type"])
+        # an old version of the house settings stored merged (before 0.1.78) comes back as the differences
+        normalise = stored_house if scope == Scope("house", "settings") and looks_merged(body) else None
+        got = self.store.restore(scope.kind, scope.key, version, actor=actor, message=msg["type"], normalise=normalise)
         if got:
             self.publish(user_only=scope.key if scope.kind == "user" else None)
         d = self.store.get(scope.kind, scope.key)
@@ -672,10 +683,7 @@ class SettingsService:
         writes: list[tuple[str, str, dict]] = []
         if changes:
             await self.need(identity, Scope("house", "settings"))
-            new, errors = self.model.apply_house(self.house_settings(), changes)
-            if errors:
-                raise SettingsError("invalid_format", fields=errors)
-            writes.append(("house", "settings", new))
+            writes.append(("house", "settings", self._apply_house(changes)))
         if acc_changes:
             await self.need(identity, Scope("house", "accessories"))
             writes.append(("house", "accessories", ACC.set_many(self._accessories(), acc_changes)))

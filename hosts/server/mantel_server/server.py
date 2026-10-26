@@ -748,6 +748,8 @@ def wire(app: web.Application, hub: Hub, token: str, connect_ha: bool) -> None:
     # house command, so saves work while commands are off; each save asks RBAC `configure`.
     settings_store.register(app, hub, settings_store.SettingsHooks(
         may_configure=settings_store.rbac_may_configure(rbac_store=store, clock=lambda: app["clock"]())))
+    # SET-2: house/settings stored merged (before 0.1.78) becomes the stored differences, once, as a version
+    settings_store.normalise_house(app["settings"].store)
     # no screens and no import yet (a Home Assistant without HK Frontend): a generated Home screen, which the
     # import replaces while it is untouched
     settings_store.seed_home_screen(app["settings"].store)

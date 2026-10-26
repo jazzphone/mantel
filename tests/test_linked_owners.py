@@ -264,6 +264,12 @@ async def test_seasonal_decorations_from_ha_is_mantel_s_setting(make_env):
     assert st.body("house", "settings")["sky"]["decorations"] is False
     assert st.history("house", "settings")[0]["actor"].startswith("linked:"), "versioned, the Service account as author"
     assert env.audit(kind="service") == [], "HK's own setting, not a house command"
+    # SET-2: the switch writes the stored differences, and the feed still sends the whole sky (it sent the
+    # differences raw: a sky of one key until the next save)
+    from hk_core.settings import model as SM
+    sky = env.app["settings"].house_feed()["sky"]
+    assert set(sky) == set(SM.merged(None)["sky"]) and sky["decorations"] is False
+    assert st.body("house", "settings")["sky"] == {"decorations": False}
     await lk.ws.close()
 
 

@@ -1,6 +1,5 @@
-"""Known gaps in the settings store, pinned (docs/development/Audit-2026-10-second-pass.md, SET-2: deferred, with the
-reasons there). Each test states what SHOULD hold and is xfail(strict=True): the day a gap is fixed its test passes,
-which fails under strict, and the marker comes off (SET-7's came off in Phase 7)."""
+"""Gaps the settings store once had, pinned (docs/development/Audit-2026-10-second-pass.md, SET-2 and SET-7). Both
+are fixed now (0.1.78): each test states what holds, and was xfail(strict=True) until its fix landed."""
 from __future__ import annotations
 
 from pathlib import Path
@@ -52,12 +51,9 @@ def place():
 
 
 # ---------------------------------------------------------------------------------------------- SET-2
-# P2. Mantel stores the MERGED house settings (HkCoreModel.apply_house returns merged(options); HA stores only
-# what differs, house_stored). So the first save bakes today's defaults in as if they were choices -- including
-# the new place defaults (hemisphere, US-only themes). A save made before server.house_tz has read HA's
-# get_config (a first run; HA down at start: it retries for ~26 min) fixes "north" + every theme for good, and
-# merged() ("a saved choice always wins") never applies the place afterwards. Same for every existing house.
-@pytest.mark.xfail(strict=True, reason="SET-2 (deferred): Mantel stores the merged house settings, so a first save fixes today's place defaults")
+# Fixed (0.1.78): Mantel stores the house settings as HA does, only what differs (house_stored), so a save made
+# before server.house_tz has read HA's get_config no longer bakes "north" and every theme in as choices.
+# More in test_settings_house_stored.py.
 def test_set2_a_default_is_not_a_saved_choice(place):
     place()                                                         # HA not asked yet
     model = S.load_model()

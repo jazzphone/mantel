@@ -30,7 +30,7 @@ A settings **document** is one JSON object addressed by `(scope, key)`:
 
 | Scope | Keys | Holds (from HA's `hk_frontend/panel/get`) |
 |---|---|---|
-| `house` | `settings` | the house-wide settings, section by section (`S.merged(entry.options)`: `look`, `sky`, `weather`, `menu`, `rooms`, `counts`, …) |
+| `house` | `settings` | the house-wide settings, section by section (`look`, `sky`, `weather`, `menu`, `rooms`, `counts`, …), stored as HA stores its options' `dashboard`: only what differs from the defaults (see "How the house settings are kept") |
 | `house` | `setup` | `{"setup_done": bool}` |
 | `house` | `popups`, `custom_pages`, `custom_chips` | `{"items": [...]}` (the subentries of those types; `used_on` is worked out on read) |
 | `house` | `accessories` | each accessory's settings and the rooms' tile order (`.storage/hk_frontend.accessories` in HA) |
@@ -52,6 +52,31 @@ Tables:
   `set`, `restore` or `import`. Triggers refuse every UPDATE and DELETE (append-only).
 * `settings_import (id = 1, source, read, checksum, written, skipped, actor, created)`: the one-time
   import, at most one row ever.
+
+### How the house settings are kept (SET-2, 0.1.78)
+
+`house/settings` holds, per section, only what differs from the defaults (hk_core `model.house_stored`), exactly
+as HK Frontend keeps `entry.options["dashboard"]`. So a default worked out from the house's place (the sky's
+hemisphere, the US-only themes; `model.set_house_place`) or changed in a later version applies to every house that
+never chose otherwise, also after a save. Before 0.1.78 Mantel stored the merged settings, every default baked in,
+and a first save made before Home Assistant said where the house is fixed "north" and every theme for good.
+
+* **One merged view.** Everything that needs the whole shape reads `SettingsService.house_settings()`
+  (`merged_house`: `model.merged` over the stored differences): the feed (`_base_feed`), the linked HK Frontend's
+  `settings` frame (`house_feed`), panel/get's `settings`, a person's checks (`apply_user`'s house), Hidden
+  Accessories, the Energy plan, a new screen's defaults. The feed and the link still carry the merged form.
+* **Writers store the differences.** A house save runs hk_core's `apply_house` over the stored body, as HA's
+  panel.py does (`HkCoreModel.save_house`); the thin model checks over the merged view and its result is trimmed
+  (`stored_house`). The import trims HA's merged panel/get answer (`docs_from_panel`); Seasonal decorations from a
+  linked Home Assistant (`linked_house._set_decorations`) writes the sky as HA's switch does.
+* **Old merged bodies.** `normalise_house`, at start-up (`build_app`), rewrites a body stored merged as the
+  differences, once, as a version of its own (`message = "normalised to stored differences"`, actor `mantel`), so
+  the merged one stays in the history. A body that is already the differences is left alone (`looks_merged`), so a
+  second start writes nothing. A restored version stored merged is trimmed the same way before it is written.
+  Trimming a merged body also drops a hemisphere of `north` and the full list of themes: those were the defaults
+  before the place was known, baked in rather than chosen (a southern house that really wants `north` chooses it
+  again in Sky).
+* The feed also fills `car.dashboards` / `car.widths` from the screens (`legacy_screens`), as HA's `as_client`.
 
 `SettingsStore.write([...])` writes several documents in one transaction (all or nothing; a chip
 removed also leaves every screen that listed it, in the same transaction), with an optional
@@ -234,7 +259,8 @@ the import.
 `load_model()` switches to `HkCoreModel` as soon as `hk_core.settings` is importable **and** has
 `apply_house`, `apply_board`, `apply_tablet` and `merged` (an incomplete module keeps the thin model,
 logged). `HkCoreModel` calls them as settings_api.py has them today: the stored house document is the
-merged settings, so it is passed as `{"dashboard": doc}` and merged back; board and tablet documents
+stored differences (since 0.1.78), so it is passed as `{"dashboard": doc}` and the options' `dashboard` is what
+is stored; board and tablet documents
 are passed as the subentry data. Its domain checks (choices, entity domains, dates, the patches,
 `S.board()` / `S.tablet()` normalisation) then apply unchanged, with the field codes the page already
 words. `check_document` (import and restore) stays size/shape only. If hk_core's API differs, only

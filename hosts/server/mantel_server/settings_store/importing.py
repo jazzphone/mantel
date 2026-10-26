@@ -44,6 +44,75 @@ def as_stored(scope: str, body: Mapping[str, Any]) -> dict:
     return b
 
 
+# ---------------------------------------------------------------------------- the house settings
+# HOW THE HOUSE SETTINGS ARE KEPT (SET-2): ``house/settings`` is stored as Home Assistant's HK Frontend stores its
+# options' ``dashboard``: per section, only what differs from the defaults (hk_core ``model.house_stored``). What
+# reads the whole shape reads ``merged_house`` (``SettingsService.house_settings``), so a default computed from the
+# house's place (the sky's hemisphere, the US-only themes) or changed in a later version still applies to a house
+# that never chose it. Before 0.1.78 Mantel stored the merged settings, every default baked in.
+NORMALISED = "normalised to stored differences"
+# the place defaults a house had before Home Assistant said where it is (model.place_sky_defaults with no place)
+_NO_PLACE = {"hemisphere": "north", "themes": list(SM.THEMES)}
+
+
+def merged_house(body: Mapping[str, Any] | None) -> dict:
+    """The house settings as every reader sees them: the stored differences over the defaults."""
+    return SM.merged({SM.CONF_DASHBOARD: dict(body or {})})
+
+
+def looks_merged(body: Mapping[str, Any] | None) -> bool:
+    """A body with every default in it (what Mantel stored before 0.1.78, HA's panel/get, an old version), not the
+    differences: sections a merged body has always had, and the sky's place defaults."""
+    if not isinstance(body, Mapping):
+        return False
+    sky = body.get("sky")
+    return all(isinstance(body.get(s), Mapping) for s in ("look", "menu", "clock", "weather", "counts")) and \
+        isinstance(sky, Mapping) and "hemisphere" in sky and "themes" in sky
+
+
+def stored_house(body: Mapping[str, Any] | None, merged_form: bool = True) -> dict:
+    """A body as stored: per section, what differs from the defaults (as HK Frontend's mirror.house_options and its
+    1.15 trim, settings_trimmed); an empty section goes. ``merged_form`` (HA's panel/get, an old version): the
+    sky's hemisphere and themes also go when they are the place default from before the place was known, since a
+    merged body baked whichever default was in effect when it was written, and that was never a choice. Browse
+    Music's rows go back to their keys."""
+    now = merged_house(body)
+    out: dict = {}
+    for section, values in (body or {}).items():
+        if not isinstance(values, Mapping) or section not in now:
+            out[section] = values
+            continue
+        values = dict(values)
+        disc = values.get("discover") if section == "browse" else None
+        if isinstance(disc, list) and disc and all(isinstance(r, Mapping) for r in disc):
+            values["discover"] = [r["key"] for r in disc if isinstance(r.get("key"), str)]
+            now[section]["discover"] = values["discover"]
+        keep = {k: now[section][k] for k in values if k in now[section]}
+        if section == "sky" and merged_form:
+            for k, baked in _NO_PLACE.items():
+                if k in keep and keep[k] == baked:
+                    keep.pop(k)
+        got = SM.house_stored(section, keep)
+        if got:
+            out[section] = got
+    return out
+
+
+def normalise_house(store: "SettingsStore") -> bool:
+    """Once, at start-up: a house/settings stored merged (before 0.1.78) rewritten as the stored differences, as
+    a version of its own (``NORMALISED``), so the history keeps the merged one and it can be restored. Idempotent:
+    a body already stored as differences is left alone (trimming it again would compare it with a place not known
+    yet at start-up, and drop a chosen "north"). True if written."""
+    cur = store.get("house", "settings")
+    if cur is None or not looks_merged(cur.body):
+        return False
+    got = store.write([("house", "settings", stored_house(cur.body))], actor=Actor(label="mantel"),
+                      message=NORMALISED, expect={("house", "settings"): cur.version})
+    if got:
+        log.info("house settings normalised to stored differences (version %d)", got[0].version)
+    return bool(got)
+
+
 def stored_of(store: "SettingsStore") -> SM.Stored:
     """Mantel's settings documents as hk_core's model reads HA's entry (SM.Stored), for SM.boards / SM.tablets:
     the screens and tablets AS READ, which is what HA's feed and panel/get hand a screen and HK Settings."""
@@ -59,7 +128,8 @@ def docs_from_panel(payload: Any) -> list[tuple[str, str, dict]]:
     if not isinstance(payload, dict) or not isinstance(payload.get("settings"), dict):
         raise SettingsError("not_hk_settings", "Home Assistant's answer has no HK settings in it")
     out: list[tuple[str, str, dict]] = [
-        ("house", "settings", {k: v for k, v in payload["settings"].items() if isinstance(v, dict)}),
+        # HA's panel/get answers the merged settings: kept as HA keeps them, the differences (stored_house)
+        ("house", "settings", stored_house({k: v for k, v in payload["settings"].items() if isinstance(v, dict)})),
         ("house", "setup", {"setup_done": bool(payload.get("setup_done"))}),
         ("house", "popups", {"items": [p for p in payload.get("popups") or [] if isinstance(p, dict)]}),
         ("house", "custom_pages", {"items": [{k: v for k, v in p.items() if k != "used_on"}
