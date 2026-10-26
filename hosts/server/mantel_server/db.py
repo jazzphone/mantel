@@ -8,8 +8,9 @@ lowercase name). Each slice adds its own file (P3.1 ``0001_core``, P3.2 ``0002_r
 ``0003_settings``, …). The runner applies every file whose number is not yet recorded in
 ``schema_version``, in number order, each inside its own transaction together with its
 ``schema_version`` row, so a failed migration leaves nothing behind. Files must not contain their
-own BEGIN/COMMIT. A file whose text changed after it was applied is logged, never re-run: fix
-forward with a new number.
+own BEGIN/COMMIT. A file whose text changed after it was applied is never re-run (fix forward with a new number). When a stored
+checksum differs, the database's structure is compared with a fresh in-memory one built from the files: the same
+structure refreshes the checksums quietly, a different one is logged naming the objects that differ.
 """
 from __future__ import annotations
 
@@ -56,20 +57,6 @@ class Migration:
     def checksum(self) -> str:
         """Of the SQL without comments or whitespace: rewording a comment after a release is not a change."""
         return hashlib.sha256(strip_sql(self.sql).encode()).hexdigest()
-
-    @property
-    def raw_checksum(self) -> str:
-        """Of the file's bytes: what versions before 0.1.76 stored in ``schema_version``."""
-        return hashlib.sha256(self.path.read_bytes()).hexdigest()
-
-
-# Raw-bytes checksums of migration texts whose only later change was to a comment (cea8a8b reworded an example name
-# in 0015's and 0017's comments after the house had applied them). A database that stored one of these has the same
-# schema as a fresh one, so it is refreshed silently instead of warned about on every start.
-COMMENT_ONLY_EDITS: dict[int, frozenset[str]] = {
-    15: frozenset({"5ed7564a114e61f3f091b02f7188e8dd90f1fd6a9f0da14afd88bb50cb9bc982"}),
-    17: frozenset({"4c679a8e84b6df9765e18b5c0dc7609a158a6bb2e0d0e2c311a262e751d415fa"}),
-}
 
 
 def strip_sql(sql: str) -> str:
@@ -185,19 +172,11 @@ def migrate(conn: sqlite3.Connection, folder: Path = MIGRATIONS, clock=time.time
                              f"({', '.join(f'{v:04d}' for v in newer)}); run the Mantel that made them, or restore "
                              f"the backup made before the update")
     ran = []
+    stale: list[Migration] = []
     for m in found:
         if m.version in done:
-            stored = done[m.version]["checksum"]
-            if stored != m.checksum:
-                if stored == m.raw_checksum or stored in COMMENT_ONLY_EDITS.get(m.version, ()):
-                    # applied by a version that hashed the raw file, and only comments or whitespace differ: keep
-                    # the SQL's own checksum from now on, so the next start has nothing to say
-                    with conn:
-                        conn.execute("UPDATE schema_version SET checksum = ? WHERE version = ?", (m.checksum, m.version))
-                    log.debug("migration %04d_%s: stored checksum refreshed (only comments or whitespace changed)",
-                              m.version, m.name)
-                else:
-                    log.warning("migration %04d_%s changed after it was applied; it is not re-run", m.version, m.name)
+            if done[m.version]["checksum"] != m.checksum:
+                stale.append(m)
             continue
         script = (f"BEGIN IMMEDIATE;\n{m.sql}\n;\n"
                   f"INSERT INTO schema_version (version, name, checksum, applied) "
@@ -214,7 +193,63 @@ def migrate(conn: sqlite3.Connection, folder: Path = MIGRATIONS, clock=time.time
         problems = conn.execute("PRAGMA foreign_key_check").fetchall()
         if problems:
             raise MigrationError(f"foreign key check failed after migrating: {[tuple(p) for p in problems][:5]}")
+    if stale:
+        _check_stale(conn, found, stale)
     return ran
+
+
+def _structure(conn: sqlite3.Connection) -> dict[str, object]:
+    """The database's structure as comparable facts, keyed by object: columns (``table_xinfo``), indexes (flags and
+    ``index_xinfo``), foreign keys, and the SQL of triggers and views (whitespace normalised). ``sqlite_%`` objects
+    and the ``schema_version`` table are left out. Reads only."""
+    out: dict[str, object] = {}
+    for name, kind, sql in conn.execute(
+            "SELECT name, type, sql FROM sqlite_schema WHERE name NOT LIKE 'sqlite\\_%' ESCAPE '\\' "
+            "AND name != 'schema_version' AND tbl_name != 'schema_version'").fetchall():
+        q = '"' + name.replace('"', '""') + '"'
+        if kind == "table":
+            out[f"table {name}"] = [tuple(r) for r in conn.execute(f"PRAGMA table_xinfo({q})")]
+            out[f"foreign keys of {name}"] = sorted(tuple(r)[1:] for r in conn.execute(f"PRAGMA foreign_key_list({q})"))
+            for ix in conn.execute(f"PRAGMA index_list({q})").fetchall():
+                if ix[1].startswith("sqlite_"):
+                    continue
+                iq = '"' + ix[1].replace('"', '""') + '"'
+                out[f"index {ix[1]}"] = (name, tuple(ix)[2:], [tuple(r) for r in conn.execute(f"PRAGMA index_xinfo({iq})")])
+        elif kind in ("trigger", "view"):
+            out[f"{kind} {name}"] = " ".join((sql or "").split())
+    return out
+
+
+def _differences(have: dict[str, object], want: dict[str, object]) -> list[str]:
+    """Plain words for each object that is missing, extra or different, naming it."""
+    found = [f"{k} is missing" for k in sorted(want.keys() - have.keys())]
+    found += [f"{k} is not in the migrations" for k in sorted(have.keys() - want.keys())]
+    found += [f"{k} differs" for k in sorted(have.keys() & want.keys()) if have[k] != want[k]]
+    return found
+
+
+def _check_stale(conn: sqlite3.Connection, found: list[Migration], stale: list[Migration]) -> None:
+    """Stored checksums differ from the files' (history rewrites, reworded comments). Build every migration into a
+    fresh in-memory database and compare structure: the same means the files only changed in ways that do not touch
+    the schema, so the checksums are refreshed quietly; otherwise warn naming what differs and leave them."""
+    names = ", ".join(f"{m.version:04d}_{m.name}" for m in stale)
+    fresh = sqlite3.connect(":memory:")
+    try:
+        for m in found:
+            fresh.executescript(m.sql)
+        diffs = _differences(_structure(conn), _structure(fresh))
+    except sqlite3.Error as exc:
+        diffs = [f"a fresh build from the migrations failed ({exc})"]
+    finally:
+        fresh.close()
+    if diffs:
+        more = f"; and {len(diffs) - 12} more" if len(diffs) > 12 else ""
+        log.warning("migration %s changed after it was applied (it is not re-run) and the schema differs from a "
+                    "fresh one: %s%s", names, "; ".join(diffs[:12]), more)
+        return
+    with conn:
+        conn.executemany("UPDATE schema_version SET checksum = ? WHERE version = ?", [(m.checksum, m.version) for m in stale])
+    log.info("migration %s: files differ from what was applied but the schema is identical; checksums refreshed", names)
 
 
 @contextlib.contextmanager
