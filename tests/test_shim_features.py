@@ -249,5 +249,6 @@ def test_the_shared_frontend_is_untouched_by_this():
     saver = (ROOT / "web/hk/modules/hk-saver.js").read_text()
     assert "screen_report" not in saver and "notify_mute" not in saver
     assert "hk_frontend/screensaver/touch" in saver and "hk_frontend/screensaver/black" in saver
-    detail = (ROOT / "web/hk/cards/hk-detail.js").read_text()
+    detail = (ROOT / "web/hk/cards/hk-detail.js").read_text() + "".join(
+        p.read_text() for p in sorted((ROOT / "web/hk/sheets").glob("*.js")))
     assert "notify_mute" not in detail and "screen_report" not in detail
