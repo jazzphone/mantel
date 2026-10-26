@@ -62,6 +62,7 @@ class DeviceManager:
         self.db = conn
         self.clock = clock
         self.rotate_every = rotate_every
+        self.on_revoke = None    # live.Live.notify (server.build_app): what is open as it ends at once
 
     def enroll(self, name: str, role: str, room: str | None, enrolled_by: str | None,
                source_ip: str | None = None, device_id: str | None = None) -> tuple[str, str, str]:
@@ -80,8 +81,11 @@ class DeviceManager:
 
     def revoke(self, device_id: str, reason: str) -> bool:
         with self.db:
-            return self.db.execute("UPDATE devices SET revoked = ?, revoked_reason = ? WHERE id = ? AND revoked IS NULL",
+            done = self.db.execute("UPDATE devices SET revoked = ?, revoked_reason = ? WHERE id = ? AND revoked IS NULL",
                                    (self.clock(), reason, device_id)).rowcount > 0
+        if done and self.on_revoke is not None:
+            self.on_revoke(f"device:{device_id}")
+        return done
 
     def get(self, device_id: str):
         return self.db.execute("SELECT * FROM devices WHERE id = ?", (device_id,)).fetchone()

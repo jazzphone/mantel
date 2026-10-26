@@ -17,8 +17,9 @@ linked to the Home Assistant user whose page asked (``ha_links``), so roles deci
 * An HA user linked to nobody is refused in words (``not_linked``), as a save is.
 * One page context per (link, HA user); all of its subscriptions end when the link closes. HK Frontend asks
   again for what it had open when it reconnects. The policy tick re-checks each context as it does a page socket
-  (``recheck``): an HA user unlinked, a person disabled or the user linked to someone else ends its subscriptions;
-  a role change applies to them at once.
+  (``recheck``, and live.py's walk): an HA user unlinked, a person disabled or the user linked to someone else ends
+  its subscriptions (at once when people_ha or ingress unlinks it); a role change applies to them at once.
+* At most ``MAX_CONTEXTS`` (32) HA users' contexts per link: past it a new one is refused (``too_many``).
 """
 from __future__ import annotations
 
@@ -36,6 +37,9 @@ FEATURE = "reads"
 FROM_LINK: contextvars.ContextVar[bool] = contextvars.ContextVar("mantel_from_link", default=False)
 FRAMES = ("read", "read_subscribe", "read_unsubscribe")
 # the dashboards' reads HK Frontend forwards (its linked_mode.READS_REQUEST + READS_SUBSCRIBE), and nothing else
+# page contexts one link may hold at once (one per Home Assistant user whose dashboard reads): a house has a handful
+# of people and tablets; past it a new user's read is refused in words, the open ones go on
+MAX_CONTEXTS = 32
 FORWARDED = frozenset({"hk_tv/channels", "hk_music/queue", "hk_notify/snap/sign",
                        "hk_music/subscribe", "hk_clean_areas/subscribe", "hk_frontend/snooze/subscribe",
                        "hk_frontend/page_headers/subscribe", "hk_frontend/events/subscribe"})
@@ -45,6 +49,7 @@ class LinkedReads:
     def __init__(self, app: web.Application) -> None:
         self.app = app
         self.ctxs: dict[tuple[int, str], Any] = {}       # (id(client), ha_user) -> its page context
+        self.entries: dict[tuple[int, str], Any] = {}    # ... -> its live.py entry
 
     def _person(self, ha_user: str) -> Any:
         from .ingress import linked_user
@@ -73,12 +78,26 @@ class LinkedReads:
                     authz.refresh(ctx.identity)          # in place: what its subscriptions hold sees the new role
                 return ctx
             await self._end(key)                         # linked to someone else now: the old person's reads end
+        if sum(1 for k, c in self.ctxs.items() if k[0] == key[0] and not c.closed) >= MAX_CONTEXTS:
+            from .linked import LinkedError
+            raise LinkedError("too_many", f"one link relays the reads of at most {MAX_CONTEXTS} Home Assistant users "
+                                          "at once")
+
         async def send(frame: dict) -> None:
             await client.send({"type": "page_frame", "ha_user": ha_user, "frame": frame})
-        ctx = self.ctxs[key] = Ctx(send=send, identity=identity)
+        from . import live
+        registry = live.of(self.app)
+        ctx = self.ctxs[key] = Ctx(send=send, identity=identity, live=registry)
+        if registry is not None:      # live.py: a revocation or the tick ends the context and its subscriptions
+            async def close(_why: str) -> None:
+                await self._end(key)
+            self.entries[key] = registry.add("linked_reads", identity, close, keys=[f"ha:{ha_user}"])
         return ctx
 
     async def _end(self, key: tuple[int, str]) -> None:
+        entry = self.entries.pop(key, None)
+        if entry is not None:
+            entry.forget()
         ctx = self.ctxs.pop(key, None)
         if ctx is None:
             return

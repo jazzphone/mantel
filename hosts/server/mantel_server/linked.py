@@ -741,6 +741,18 @@ async def ws_endpoint(request: web.Request) -> web.StreamResponse:
                 return
 
     watcher = asyncio.create_task(recheck())
+    # live.py: a revoked credential (service_accounts.revoke) ends the link at once, not at its own recheck
+    from . import live as live_mod
+    registry_live = live_mod.of(request.app)
+
+    async def close(why: str) -> None:
+        if why == live_mod.SHUTDOWN:
+            await ws.close(code=WSCloseCode.GOING_AWAY, message=b"server shutdown")
+        else:
+            log.warning("linked: credential %s was revoked; closing", getattr(account, "id", "?"))
+            await ws.close(code=WSCloseCode.POLICY_VIOLATION, message=b"credential revoked")
+    entry = registry_live.add(f"linked:{domain}", account, close, recheck=lambda: linked.live(account),
+                              keys=[f"service:{getattr(account, 'id', '')}"]) if registry_live is not None else None
     try:
         await client.send(hello)
         for fn in list(linked.on_connect):
@@ -765,6 +777,8 @@ async def ws_endpoint(request: web.Request) -> web.StreamResponse:
             task.add_done_callback(tasks.discard)
     finally:
         registry.clients.discard(client)
+        if entry is not None:
+            entry.forget()
         watcher.cancel()
         for fn in list(linked.on_disconnect):
             try:

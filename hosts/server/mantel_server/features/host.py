@@ -995,6 +995,7 @@ def register(app: web.Application, hub: Any, hooks: Any = None) -> FeatureHost:
 
         async def unsubscribe() -> None:
             end()
+        unsubscribe.recheck = lambda: _principal_ok(ctx.identity)      # type: ignore[attr-defined] -- live.py
         return unsubscribe
 
     async def tv_guide(ctx: Ctx, msg: dict):
@@ -1037,6 +1038,7 @@ def register(app: web.Application, hub: Any, hooks: Any = None) -> FeatureHost:
 
         async def unsubscribe() -> None:
             end()
+        unsubscribe.recheck = lambda: _principal_ok(ctx.identity)      # type: ignore[attr-defined] -- live.py
         return unsubscribe
 
     read_routes(app).update({

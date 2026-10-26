@@ -139,6 +139,11 @@ class PageHeaders:
         return end
 
 
+def _signed_in(ident: Any) -> bool:
+    return getattr(ident, "valid", True) is not False and \
+        (getattr(ident, "user", None) is not None or getattr(ident, "device", None) is not None)
+
+
 def register(app: web.Application, hub: Any) -> PageHeaders:
     """The route, and the hub's changes that make it read again. After readproxy.register."""
     if "page_headers" in app:
@@ -157,6 +162,7 @@ def register(app: web.Application, hub: Any) -> PageHeaders:
 
         async def unsubscribe() -> None:
             end()
+        unsubscribe.recheck = lambda: _signed_in(ident)      # type: ignore[attr-defined] -- live.py
         return unsubscribe
     read_routes(app)[FEED] = Route(subscribe=feed)
 

@@ -213,10 +213,23 @@ def ws_url_of(url: str) -> str:
     return u if u.endswith("/ws") else u + "/ws"
 
 
+class Listeners(dict):
+    """Who hears Music Assistant's events: {id: (event kinds or None, callback)}. One table per app (register), shared
+    by each client it builds, so the page sockets' ``ma/subscribe``s go on with the next client when the connection
+    is removed and set up again (server.apply_connection)."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._ids = itertools.count(1)
+
+    def next_id(self) -> int:
+        return next(self._ids)
+
+
 class MaClient:
     def __init__(self, url: str, token_file: Path, gate: Any = REFUSE_ALL, *, request_timeout: float = 30.0,
                  backoff_start: float = 1.0, backoff_max: float = 30.0,
-                 token_source: Callable[[], str] | None = None) -> None:
+                 token_source: Callable[[], str] | None = None, listeners: Listeners | None = None) -> None:
         self.ws_url = ws_url_of(url)
         self.token_file = Path(token_file)          # read at each connect (rotation); value never stored on self
         # connections.py: Mantel's own sealed copy (the Connections page) wins over the file when set;
@@ -234,8 +247,9 @@ class MaClient:
         self._ws: aiohttp.ClientWebSocketResponse | None = None
         self._pending: dict[str, asyncio.Future] = {}
         self._partial: dict[str, list] = {}
-        self._listeners: dict[int, tuple[frozenset[str] | None, Callable[[dict], None]]] = {}
-        self._lid = itertools.count(1)
+        # an inherited table's listeners missed what happened while there was no client: told so at the first connect
+        self._inherited = bool(listeners)
+        self._listeners: Listeners = listeners if listeners is not None else Listeners()
         self._task: asyncio.Task | None = None
 
     # ----------------------------------------------------------------- connection
@@ -323,7 +337,8 @@ class MaClient:
             self.connects += 1
             log.info("authenticated to Music Assistant %s", info.get("server_version"))
             self.connected.set()
-            if self.connects > 1:      # events missed while away: listeners should read again
+            if self.connects > 1 or self._inherited:      # events missed while away: listeners should read again
+                self._inherited = False
                 self._dispatch({"event": "mantel_reconnected", "object_id": None, "data": None})
             async for m in ws:
                 if m.type == aiohttp.WSMsgType.TEXT:
@@ -436,7 +451,7 @@ class MaClient:
 
     def subscribe(self, callback: Callable[[dict], None], events: Iterable[str] | None = None) -> Callable[[], None]:
         """Local fan-out of MA's event stream (MA sends every event once authenticated)."""
-        lid = next(self._lid)
+        lid = self._listeners.next_id()
         self._listeners[lid] = (frozenset(events) if events is not None else None, callback)
         return lambda: self._listeners.pop(lid, None) and None
 
@@ -461,8 +476,9 @@ def register(app, hub, hooks) -> MaClient | None:
     hooks = Hooks.coerce(hooks)
     cfg = app["cfg"]
     url = getattr(cfg, "ma_url", "") or ""
+    listeners = app["ma_listeners"] = Listeners()      # outlives each client (connections.py builds new ones)
     client = MaClient(url, getattr(cfg, "ma_token_file"), gate=hooks.ma_gate,
-                      token_source=app.get("ma_token_source")) if url else None
+                      token_source=app.get("ma_token_source"), listeners=listeners) if url else None
     app["ma"] = client
     app["ma_gate"] = hooks.ma_gate          # connections.py builds a client with it when MA is set up later
 
@@ -544,7 +560,11 @@ def register(app, hub, hooks) -> MaClient | None:
 
         async def unsubscribe() -> None:
             stop()
-        ctx.subs[("ma", rid)] = unsubscribe
+
+        async def recheck() -> bool:      # live.py: the music feature, decided again (a role lowered, a grant removed)
+            return await may_feature(hooks, ctx.identity, "music")
+        unsubscribe.recheck = recheck              # type: ignore[attr-defined]
+        await ctx.keep(("ma", rid), unsubscribe, kind="ma/subscribe")
         await ctx.send({"type": "ma_result", "id": rid, "result": None})
 
     async def on_unsubscribe(ctx: Ctx, msg: dict) -> None:

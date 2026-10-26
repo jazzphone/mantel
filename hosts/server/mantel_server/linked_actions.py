@@ -376,6 +376,11 @@ def register(app: web.Application) -> LinkedActions:
 
         async def unsubscribe() -> None:
             la.listeners.pop(lid, None)
+
+        def recheck() -> bool:            # live.py: still someone (a person or a tablet) whose session holds
+            return getattr(ident, "valid", True) is not False and \
+                (getattr(ident, "user", None) is not None or getattr(ident, "device", None) is not None)
+        unsubscribe.recheck = recheck              # type: ignore[attr-defined]
         return unsubscribe
     read_routes(app)[SNOOZE_FEED] = Route(subscribe=snooze_feed)
 

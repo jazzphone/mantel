@@ -230,6 +230,31 @@ class TalkRelay:
         except Exception:  # noqa: BLE001 -- the stream itself is over either way
             log.exception("could not write the result of live talk audit row %d", audit_id)
 
+    def _register(self, stream: Stream) -> Any:
+        """live.py: an open talk is ended at once by a revocation, at the tick when its person or tablet may no
+        longer talk on that speaker, and when house commands are turned off."""
+        from . import live
+        registry = live.of(self.app)
+        if registry is None:
+            return None
+
+        async def close(why: str) -> None:
+            if why == live.SHUTDOWN:
+                await stream.ws.close(code=1001, message=b"server shutting down")
+                return
+            stream.error = ("refused:commands_disabled" if why == live.COMMANDS_OFF else
+                            "error:unauthenticated" if not stream.principal.valid else "refused:not_allowed")
+            stream.close_code = CLOSE_POLICY
+            log.info("closing a live talk (%s)", stream.error)
+            await stream.ws.close(code=CLOSE_POLICY)
+
+        def recheck() -> bool:
+            from .gateway import talk_checks
+            subject, ctx = stream.principal.subject, self.authz.context()
+            return all(self.authz.decide_talk(subject, c.action, c.entity_id, feature=c.feature, ctx=ctx).allowed
+                       for c in talk_checks(stream.speaker))
+        return registry.add("talk", stream.principal, close, recheck=recheck, needs_commands=True)
+
     # -- the policy tick ---------------------------------------------------------------------------
     async def tick(self) -> None:
         """Expired tickets get their result; a stream whose session or device ended is closed."""
@@ -311,6 +336,7 @@ class TalkRelay:
         for k in keys:
             self.active[k] = stream
         self.streams.add(stream)
+        entry = self._register(stream)
         try:
             try:
                 await link.open()
@@ -327,6 +353,8 @@ class TalkRelay:
             return result, stream.close_code
         finally:
             self.streams.discard(stream)
+            if entry is not None:
+                entry.forget()
             for k in keys:
                 if self.active.get(k) is stream:
                     del self.active[k]

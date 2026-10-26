@@ -178,6 +178,9 @@ def register(app, hub=None) -> UserData:
 
         async def unsubscribe() -> None:
             stop()
+        # live.py: the principal is read again before this; still valid and still the same person or tablet
+        unsubscribe.recheck = lambda: getattr(ctx.identity, "valid", True) is not False \
+            and subject_of(ctx.identity) == subject                  # type: ignore[attr-defined]
         return unsubscribe
 
     read_routes(app).update({"frontend/get_user_data": Route(request=get),

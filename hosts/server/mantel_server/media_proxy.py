@@ -594,6 +594,24 @@ class MediaProxy:
                 else:
                     break
 
+        # live.py: a revocation ends it at once, the policy tick when the grant is gone; a page signed in past the
+        # gateway needs house commands on (and every speaker still theirs), so turning them off ends it
+        from . import live
+        registry = live.of(request.app)
+
+        async def close(why: str) -> None:
+            if why == live.SHUTDOWN:
+                await ws.close(code=1001, message=b"server shutting down")
+            else:
+                log.info("closing a %s socket (%s)", up.service, why)
+                await ws.close()
+
+        def recheck() -> bool:
+            return up.authorize(request.app, principal, plan, request) and \
+                (not signed_in or up.may_sign(request.app, principal))   # type: ignore[union-attr]
+        entry = registry.add(f"media_proxy:{up.name}", principal, close, recheck=recheck, needs_commands=signed_in) \
+            if registry is not None else None
+
         async def watch() -> None:           # the session, the device and the grant, again and again
             authz = request.app.get("authz")
             while True:
@@ -613,6 +631,8 @@ class MediaProxy:
             await upstream.close()
             await ws.close()
             self.sockets.discard(ws)
+            if entry is not None:
+                entry.forget()
         return ws
 
 

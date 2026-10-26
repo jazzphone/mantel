@@ -38,7 +38,7 @@ from aiohttp import web
 from argon2 import PasswordHasher
 from argon2.exceptions import InvalidHashError, VerificationError, VerifyMismatchError
 
-from . import audit
+from . import audit, live
 from .atrest import KEY_FILE, SecretBox
 from .guards import guard
 from .guards import ident as guarded
@@ -1024,6 +1024,9 @@ async def users_update(request: web.Request) -> web.Response:
                        (new_role, int(disabled), name, acc.clock(), row["id"]))
     if disabled and not row["disabled"]:
         request.app["sessions"].revoke_user(row["id"], "disabled")
+    if new_role != row["role"] or disabled != bool(row["disabled"]):
+        # live.py: what is open as them is checked now (HA's sidebar and the dashboards' reads have no session)
+        live.notify(request.app, f"user:{row['id']}")
     return ok({"user": acc.describe(acc.get_user(row["id"]))})
 
 

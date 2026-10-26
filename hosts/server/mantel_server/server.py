@@ -37,7 +37,7 @@ from . import (admin_page, atrest, backup, connections, features, linked, linked
                linked_actions, login_page, phones, supervisor_discovery,
                photos, service_accounts, talk_relay, user_files)
 from . import default_screens, direct, direct_tls, docs_pages, ha_dashboards, ma_page, media_proxy, proxy_check, proxy_trust, security_headers, tablet_links, user_data
-from . import app_shell, cf_access, guards, page_health, performance, server_settings, setup_guide
+from . import app_shell, cf_access, guards, live, page_health, performance, server_settings, setup_guide
 from .authz import Authz, Principal, resolve_door
 from .config import Config
 from .connectors import REFUSE_ALL, Ctx, Hooks
@@ -116,7 +116,7 @@ class ClientSession:
         self.watch = False
         # P3.4's per-connection context: the connectors' handlers answer through it, and close() ends
         # every subscription they opened (WebRTC sessions, forecasts, MA events)
-        self.ctx = Ctx(send=self.send, identity=principal)
+        self.ctx = Ctx(send=self.send, identity=principal, live=app.get("live") if app is not None else None)
         self.tasks: set[asyncio.Task] = set()
 
     def spawn(self, coro) -> None:
@@ -215,6 +215,20 @@ class ClientSession:
             else:
                 self.spawn(handler(self.ctx, msg))
 
+    async def close(self, why: str) -> None:
+        """live.py: a revocation, the tick or commands turned on or off. The page reconnects (and is told whether
+        it may offer actions); one whose session ended is refused at the door."""
+        if why == live.SHUTDOWN:
+            await self.ws.close(code=WSCloseCode.GOING_AWAY, message=b"server shutting down")
+        else:
+            await self.ws.close()
+
+    def recheck(self) -> bool:
+        """The principal was read again (live.Live.check): what the socket may see is worked out again."""
+        self.view.policy_changed()
+        self.wake.set()
+        return True
+
     async def run(self) -> None:
         tasks = [asyncio.create_task(self.pump()), asyncio.create_task(self.stats_loop())]
         try:
@@ -263,10 +277,14 @@ async def ws_handler(request: web.Request) -> web.StreamResponse:
     await ws.prepare(request)
     session = ClientSession(hub, ws, principal, request.app, base=request.get("mantel_base", ""))
     hub.sessions.add(session)
+    entry = live.of(request.app).add("hub", principal, session.close, recheck=session.recheck) \
+        if live.of(request.app) is not None else None
     try:
         await session.run()
     finally:
         hub.sessions.discard(session)
+        if entry is not None:
+            entry.forget()
     return ws
 
 
@@ -508,6 +526,8 @@ def build_app(cfg: Config, token: str, store: Store | None = None, connect_ha: b
     # session handling: a tunnel-door request without a valid Access assertion never reaches a cookie
     app = web.Application(middlewares=[connect_pairing.middleware, proxy_trust.middleware, loopback_only,
                                        ingress.middleware, cf_access.middleware, auth.require_session])
+    # every long-lived connection and what it holds (live.py): revocations end them at once, the tick re-checks
+    app["live"] = live.Live(lambda: app.get("authz"))
     security_headers.register(app)    # Mantel's own CSP/HSTS/nosniff/..., behind any proxy or none
     hub = Hub(cfg)
     app["store"] = store or Store(cfg.data_dir / "mantel.db")
@@ -603,17 +623,18 @@ def build_app(cfg: Config, token: str, store: Store | None = None, connect_ha: b
 
     async def close_sockets(app: web.Application) -> None:
         """Every long-lived socket ends now, so the runner does not wait out shutdown_timeout for handlers that
-        only finish when their client leaves (a screen's /ws, a stream through the media proxy, a live talk, the
-        proxy test). Docker and the Supervisor kill an App that has not stopped after about 10 s. (/linked/ws
-        has its own handler in linked.py.)"""
-        socks = [s.ws for s in list(hub.sessions)]
+        only finish when their client leaves (a screen's /ws, a stream through the media proxy, a live talk,
+        Mantel Link, the proxy test). Docker and the Supervisor kill an App that has not stopped after about 10 s.
+        Everything holding a principal is in app["live"]; the proxy test holds none."""
+        await app["live"].close_all(live.SHUTDOWN)
+        socks = list(app.get("proxy_check_sockets") or ())
+        # and any socket its own list still holds (one ended already is a no-op)
         proxy = app.get("media_proxy")
         if proxy is not None:
-            socks += list(proxy.sockets)
+            socks += [ws for ws in proxy.sockets if not getattr(ws, "closed", False)]
         relay = app.get("talk")
         if relay is not None:
-            socks += [s.ws for s in list(relay.streams)]
-        socks += list(app.get("proxy_check_sockets") or ())
+            socks += [s.ws for s in list(relay.streams) if not getattr(s.ws, "closed", False)]
 
         async def close(ws: web.WebSocketResponse) -> None:
             try:
@@ -775,6 +796,10 @@ def wire(app: web.Application, hub: Hub, token: str, connect_ha: bool) -> None:
     app_shell.register(app, hub)     # phase 10: the web app on a Home Screen, push, and the iPhone/iPad/Mac apps
     # Mantel Settings' General and Home Assistant settings that were start-up options (and their one-time moves)
     server_settings.register(app)
+    # a session, a wall tablet or a link credential revoked, from anywhere: what is open as it ends at once (live.py)
+    for name in ("sessions", "devices", "service_accounts"):
+        if app.get(name) is not None:
+            app[name].on_revoke = app["live"].notify
     if cfg.commands_enabled:
         log.warning("COMMANDS ARE ENABLED on this server: signed-in users may control Home Assistant within "
                     "their roles (an audit row for every command; the Alarm PIN for the alarm)")
@@ -817,11 +842,10 @@ async def apply_commands(app: web.Application, hub: Hub, on: bool) -> None:
     client = app.get("ma")
     if client is not None:
         client.gate = app["ma_gate"]
-    for s in list(hub.sessions):
-        try:
-            await s.ws.close()
-        except Exception:  # noqa: BLE001 -- gone already
-            pass
+    registry: live.Live = app["live"]
+    if not on:      # what needed commands (a live talk, a Music Assistant page signed in past the gateway) ends
+        await registry.commands_off()
+    await registry.close(registry.entries("hub"), "commands_changed")
 
 
 def _set(app: web.Application, key: str, value) -> None:
@@ -878,8 +902,9 @@ async def apply_connection(app: web.Application, hub: Hub, connect_ha: bool, kin
     else:
         cfg.ma_url = cur.url
         if client is None:
+            # a new client takes the page sockets' subscriptions the last one had (ma_connector.register's table)
             client = ma_connector.MaClient(cur.url, cfg.ma_token_file, gate=app.get("ma_gate") or REFUSE_ALL,
-                                           token_source=conns.ma_token)
+                                           token_source=conns.ma_token, listeners=app.get("ma_listeners"))
             _set(app, "ma", client)
             client.start()
         else:
@@ -921,24 +946,14 @@ async def tick_once(app: web.Application, hub: Hub) -> None:
         except Exception:  # noqa: BLE001 -- never let maintenance stop the policy tick
             log.exception("audit retention step failed (nothing was deleted)")
     talk = app.get("talk")
-    if talk is not None:          # unused live-talk tickets get their audit result; revoked streams close
+    if talk is not None:          # unused live-talk tickets get their audit result (open talks are in app["live"])
         try:
-            await talk.tick()
+            talk.sweep()
         except Exception:  # noqa: BLE001
             log.exception("live talk tick failed")
-    authz: Authz | None = app.get("authz")
-    for s in list(hub.sessions):
-        if authz is not None and s.principal is not None and not authz.refresh(s.principal):
-            log.info("closing a socket whose session or device ended")
-            await s.ws.close()
-            continue
-        s.view.policy_changed()
-        s.wake.set()
-        await recheck_streams(s.ctx)
-    reads = app.get("linked_reads")
-    if reads is not None:   # a linked HK Frontend's dashboards, as their people: re-checked like a page socket
-        for ctx in await reads.recheck(authz):
-            await recheck_streams(ctx)
+    # every page socket, relayed context, talk, proxied socket, link and subscription (live.py): its principal read
+    # again (a session or device gone ends it), then its own check (a feature, a speaker, a camera no longer allowed)
+    await app["live"].check(why="policy_tick")
 
 
 async def recheck_streams(ctx) -> None:
