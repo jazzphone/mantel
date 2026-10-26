@@ -49,9 +49,14 @@ import sys
 import unicodedata
 from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
+from typing import Callable
 from urllib.parse import unquote
 
 from aiohttp import web
+
+from . import audit
+from .guards import guard
+from .guards import ident as guarded
 
 log = logging.getLogger("mantel.user_files")
 
@@ -350,13 +355,17 @@ class UserFiles:
                     total += (Path(base) / n).stat().st_size
         return total
 
-    def _put(self, dest: Path, data: bytes) -> None:
+    def _room(self, dest: Path, size: int) -> None:
+        """FileError quota_exceeded unless ``size`` bytes at ``dest`` (replacing what is there) fit."""
         try:
             old = dest.stat().st_size if dest.is_file() else 0
         except OSError:
             old = 0
-        if self.usage() - old + len(data) > QUOTA:
+        if self.usage() - old + size > QUOTA:
             raise FileError("quota_exceeded", "the Your files folder is full", 413)
+
+    def _put(self, dest: Path, data: bytes) -> None:
+        self._room(dest, len(data))
         if self.dry_run:
             return
         for d in (self.root, dest.parent):
@@ -376,38 +385,61 @@ class UserFiles:
             with contextlib.suppress(OSError):
                 tmp.unlink()
 
-    def add_font(self, filename: object, data: bytes) -> dict:
+    # Each upload is checked and made ready first (``prepare_*``: (write, what it is)), then written: the REST writes
+    # its audit row between the two, so a refused audit leaves nothing behind (audit.py).
+    def prepare_font(self, filename: object, data: bytes) -> tuple[Callable[[], None], dict]:
         if len(data) > FONT_MAX:
             raise FileError("too_large", f"fonts are limited to {FONT_MAX >> 20} MB", 413)
         kind = sniff_font(data)
         name = normalize_name(filename, exts=set(f".{k}" for k in FONT_TYPES))
         if not name.lower().endswith("." + kind):
             raise FileError("font_type_mismatch", f"the file is a {kind} font but its name says otherwise", 415)
-        self._put(self.hk / "fonts" / name, data)
-        return {"kind": "font", "name": name, "url": f"/hk/fonts/{name}", "type": FONT_TYPES[kind], "size": len(data)}
+        self._room(self.hk / "fonts" / name, len(data))
+        return (lambda: self._put(self.hk / "fonts" / name, data),
+                {"kind": "font", "name": name, "url": f"/hk/fonts/{name}", "type": FONT_TYPES[kind], "size": len(data)})
 
-    def add_glyphs(self, data: bytes) -> dict:
+    def prepare_glyphs(self, data: bytes) -> tuple[Callable[[], None], dict]:
         if len(data) > GLYPHS_MAX:
             raise FileError("too_large", f"the glyph file is limited to {GLYPHS_MAX >> 20} MB", 413)
         g = check_glyphs(data)
         out = render_glyphs(g)
-        self._put(self.hk / GLYPHS_REL, out)
-        return {"kind": "glyphs", "name": "hk-glyphs.js", "url": "/hk/" + GLYPHS_REL, "type": EXT_TYPES[".js"],
-                "size": len(out), "icons": len(g["icons"]), "twotone": len(g["twotone"]), "weather": len(g["weather"])}
+        self._room(self.hk / GLYPHS_REL, len(out))
+        return (lambda: self._put(self.hk / GLYPHS_REL, out),
+                {"kind": "glyphs", "name": "hk-glyphs.js", "url": "/hk/" + GLYPHS_REL, "type": EXT_TYPES[".js"],
+                 "size": len(out), "icons": len(g["icons"]), "twotone": len(g["twotone"]),
+                 "weather": len(g["weather"])})
 
-    def add_photo(self, data: bytes, photo_id: str | None = None) -> dict:
+    def prepare_photo(self, data: bytes, photo_id: str | None = None) -> tuple[Callable[[], None], dict]:
         if len(data) > PHOTO_MAX:
             raise FileError("too_large", f"photos are limited to {PHOTO_MAX >> 20} MB", 413)
         out, kind = reencode_photo(data)
         pid = photo_id or secrets.token_hex(16)
         if not PHOTO_ID.match(pid):
             raise FileError("bad_name", "a photo id is 32 hex characters")
-        for old in self.photos.glob(f"{pid}.*"):
-            if not self.dry_run and old.suffix != IMAGE_EXT[kind]:
-                old.unlink(missing_ok=True)
-        self._put(self.photos / f"{pid}{IMAGE_EXT[kind]}", out)
-        return {"kind": "photo", "id": pid, "name": pid, "url": f"/api/image/serve/{pid}/original",
-                "type": IMAGE_TYPES[kind], "size": len(out)}
+        self._room(self.photos / f"{pid}{IMAGE_EXT[kind]}", len(out))
+
+        def write() -> None:
+            for old in self.photos.glob(f"{pid}.*"):
+                if not self.dry_run and old.suffix != IMAGE_EXT[kind]:
+                    old.unlink(missing_ok=True)
+            self._put(self.photos / f"{pid}{IMAGE_EXT[kind]}", out)
+        return write, {"kind": "photo", "id": pid, "name": pid, "url": f"/api/image/serve/{pid}/original",
+                       "type": IMAGE_TYPES[kind], "size": len(out)}
+
+    def add_font(self, filename: object, data: bytes) -> dict:
+        write, got = self.prepare_font(filename, data)
+        write()
+        return got
+
+    def add_glyphs(self, data: bytes) -> dict:
+        write, got = self.prepare_glyphs(data)
+        write()
+        return got
+
+    def add_photo(self, data: bytes, photo_id: str | None = None) -> dict:
+        write, got = self.prepare_photo(data, photo_id)
+        write()
+        return got
 
     def add_image_at(self, base: Path, rel: str, data: bytes) -> dict:
         """An image override at a fixed path (import only): re-encoded, and it must stay what its name says."""
@@ -421,10 +453,14 @@ class UserFiles:
         self._put(base / clean, out)
         return {"kind": "image", "name": clean, "size": len(out)}
 
-    def remove(self, kind: str, name: str) -> bool:
-        path = {"font": lambda: self.resolve(self.hk / "fonts", name),
+    def locate(self, kind: str, name: str) -> Path | None:
+        """The stored file ``remove`` would delete, or None."""
+        return {"font": lambda: self.resolve(self.hk / "fonts", name),
                 "glyphs": lambda: self.resolve(self.hk, GLYPHS_REL),
                 "photo": lambda: self.photo_path(name)}[kind]()
+
+    def remove(self, kind: str, name: str) -> bool:
+        path = self.locate(kind, name)
         if path is None:
             return False
         path.unlink()
@@ -569,25 +605,6 @@ def _fail(exc: FileError) -> web.Response:
     return _json(exc.status, error=exc.code, message=str(exc))
 
 
-def _manager(request: web.Request):
-    from . import sessions
-    from .accounts import require_manager
-    ident = require_manager(request)                     # a signed-in Owner or Admin; a tablet alone is refused
-    if request.method not in sessions.SAFE_METHODS:
-        sessions.check_csrf(request, ident)              # CSRF on every change, whatever middleware is in front
-    return ident
-
-
-def _audit(request: web.Request, ident, action: str, detail: dict) -> None:
-    audit = request.app.get("audit")
-    if audit is None:
-        return
-    try:
-        audit.config_event({"action": action, "detail": detail, "actor": ident.user.id, "role": ident.user.role})
-    except Exception:  # noqa: BLE001 -- the upload happened; a failed audit row is logged, not fatal
-        log.exception("could not audit %s", action)
-
-
 async def read_upload(request: web.Request, cap: int) -> tuple[bytes, str | None, dict]:
     """The multipart ``file`` field (bounded while it streams in), its file name, and the small text fields."""
     if not request.content_type.startswith("multipart/"):
@@ -632,14 +649,16 @@ async def _in_thread(fn, *args, heavy: bool = False):
     return await asyncio.get_running_loop().run_in_executor(None, fn, *args)
 
 
+# Your Files: an Owner or Admin (never at a wall tablet); every change audited before it is written
+@guard("manager")
 async def api_list(request: web.Request) -> web.Response:
-    _manager(request)
     return _json(200, ok=True, **await _in_thread(_store(request).listing),
                  limits={"font": FONT_MAX, "glyphs": GLYPHS_MAX, "photo": PHOTO_MAX})
 
 
+@guard("manager", audit=("user_files.upload.font", "user_files.upload.glyphs", "user_files.upload.photo"))
 async def api_upload(request: web.Request) -> web.Response:
-    ident = _manager(request)
+    ident = guarded(request)
     kind = request.match_info["kind"]
     caps = {"font": FONT_MAX, "glyphs": GLYPHS_MAX, "photo": PHOTO_MAX}
     if kind not in caps:
@@ -648,48 +667,63 @@ async def api_upload(request: web.Request) -> web.Response:
         data, filename, fields = await read_upload(request, caps[kind])
         store = _store(request)
         if kind == "font":
-            result = await _in_thread(store.add_font, fields.get("name") or filename, data)
+            write, result = await _in_thread(store.prepare_font, fields.get("name") or filename, data)
         elif kind == "glyphs":
-            result = await _in_thread(store.add_glyphs, data)
+            write, result = await _in_thread(store.prepare_glyphs, data)
         else:
-            result = await _in_thread(store.add_photo, data, None, heavy=True)
+            write, result = await _in_thread(store.prepare_photo, data, None, heavy=True)
     except FileError as exc:
         return _fail(exc)
-    _audit(request, ident, f"user_files.upload.{kind}", {"name": result["name"], "size": result["size"]})
+    audit.config(request, ident, f"user_files.upload.{kind}", {"name": result["name"], "size": result["size"]})
+    try:
+        await _in_thread(write)
+    except FileError as exc:                 # (the folder filled meanwhile)
+        return _fail(exc)
     return _json(201, ok=True, **result)
 
 
+@guard("manager", audit=("user_files.delete.font", "user_files.delete.glyphs", "user_files.delete.photo"))
 async def api_delete(request: web.Request) -> web.Response:
-    ident = _manager(request)
+    ident = guarded(request)
     kind, name = request.match_info["kind"], request.match_info["name"]
     if kind not in ("font", "glyphs", "photo"):
         return _json(404, error="unknown_kind")
-    if not await _in_thread(_store(request).remove, kind, name):
+    path = await _in_thread(_store(request).locate, kind, name)
+    if path is None:
         return _json(404, error="not_found")
-    _audit(request, ident, f"user_files.delete.{kind}", {"name": name})
+    audit.config(request, ident, f"user_files.delete.{kind}", {"name": name})
+    await _in_thread(path.unlink)
     return _json(200, ok=True, removed=True)
 
 
+@guard("manager", audit="user_files.upload.photo")
 async def image_upload(request: web.Request) -> web.Response:
     """HA's ``POST /api/image/upload`` contract (multipart ``file`` -> ``{id}``) so HK Settings' photo upload
     works unchanged; the answer carries the URL HK then stores."""
-    ident = _manager(request)
+    ident = guarded(request)
     try:
         data, _, _ = await read_upload(request, PHOTO_MAX)
-        result = await _in_thread(_store(request).add_photo, data, None, heavy=True)
+        write, result = await _in_thread(_store(request).prepare_photo, data, None, heavy=True)
     except FileError as exc:
         return _fail(exc)
-    _audit(request, ident, "user_files.upload.photo", {"id": result["id"], "size": result["size"]})
+    audit.config(request, ident, "user_files.upload.photo", {"id": result["id"], "size": result["size"]})
+    try:
+        await _in_thread(write)
+    except FileError as exc:
+        return _fail(exc)
     return _json(200, ok=True, id=result["id"], url=result["url"], content_type=result["type"],
                  filesize=result["size"])
 
 
+@guard("manager", audit="user_files.delete.photo")
 async def image_delete(request: web.Request) -> web.Response:
-    ident = _manager(request)
+    ident = guarded(request)
     pid = request.match_info["id"]
-    if not await _in_thread(_store(request).remove, "photo", pid):
+    path = await _in_thread(_store(request).locate, "photo", pid)
+    if path is None:
         return _json(404, error="not_found")
-    _audit(request, ident, "user_files.delete.photo", {"id": pid})
+    audit.config(request, ident, "user_files.delete.photo", {"id": pid})
+    await _in_thread(path.unlink)
     return _json(200, ok=True, removed=True)
 
 
@@ -699,6 +733,7 @@ def _send(path: Path) -> web.FileResponse:
     return resp
 
 
+@guard("signed_in")                 # a screen's background or screensaver photo: any session's page shows it
 async def image_serve(request: web.Request) -> web.StreamResponse:
     path = _store(request).photo_path(request.match_info["id"])
     if path is None:

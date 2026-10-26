@@ -273,6 +273,45 @@ async def test_the_ingress_people_page_refuses_an_owner_at_a_wall_tablet(tmp_pat
         m.store.db.close()
 
 
+# -- Mantel Photos and Your Files: the row first, and no row no change (they were written after, failures swallowed)
+async def test_mantel_photos_changes_are_audited_before_they_are_made(mantel, monkeypatch):
+    import io
+    from PIL import Image
+    from test_photos import upload
+    await owner(mantel)
+    broken_audit(monkeypatch, mantel)
+    r = await mantel.post("/api/photos/albums", {"name": "Fictional Holiday"})
+    assert r.status == 503 and mantel.app["photos"].albums() == []
+    monkeypatch.undo()
+    aid = (await (await mantel.post("/api/photos/albums", {"name": "Fictional Holiday"})).json())["album"]["id"]
+    buf = io.BytesIO()
+    Image.new("RGB", (64, 48), (90, 140, 200)).save(buf, "JPEG")
+    broken_audit(monkeypatch, mantel)
+    r, _ = await upload(mantel, aid, buf.getvalue())
+    assert r.status == 503 and mantel.app["photos"].count() == 0
+    assert not any(mantel.app["photos"].root.rglob("*.jpg"))
+    r = await mantel.client.put("/api/photos/limits", json={"file_mb": 2}, headers=mantel.headers())
+    assert r.status == 503 and mantel.app["photos"].limits()["file_mb"] != 2
+    monkeypatch.undo()
+    assert [r["action"] for r in rows(mantel, "photos.")] == ["photos.album.create"]
+    assert rows(mantel, "photos.")[0]["door"] == "lan"
+
+
+async def test_your_files_changes_are_audited_before_they_are_written(mantel, monkeypatch):
+    from test_user_files import dummy_sfnt, upload
+    await owner(mantel)
+    broken_audit(monkeypatch, mantel)
+    r = await upload(mantel, "font", dummy_sfnt(), "Fictional.ttf")
+    assert r.status == 503 and not (mantel.app["user_files"].hk / "fonts" / "Fictional.ttf").exists()
+    monkeypatch.undo()
+    assert (await upload(mantel, "font", dummy_sfnt(), "Fictional.ttf")).status == 201
+    broken_audit(monkeypatch, mantel)
+    r = await mantel.client.delete("/api/user-files/font/Fictional.ttf", headers=mantel.headers())
+    assert r.status == 503 and (mantel.app["user_files"].hk / "fonts" / "Fictional.ttf").exists()
+    monkeypatch.undo()
+    assert [r["action"] for r in rows(mantel, "user_files.")] == ["user_files.upload.font"]
+
+
 # -- Service credentials, Mantel Link pairing, Mantel Connect ---------------------------------------------------------
 async def test_making_and_revoking_a_service_credential_is_audited_first(mantel, monkeypatch):
     await owner(mantel)
