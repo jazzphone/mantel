@@ -92,7 +92,7 @@ async def check() -> dict:
                   catch (e) { return 'err:' + e.code; }
                 })()""")
                 assert out["settings_save"] == "saved:clear", out
-                assert app["settings"].store.get("house", "settings").body["look"]["glass"] == "clear"
+                assert app["settings"].house_settings()["look"]["glass"] == "clear"   # merged: stored as differences
                 assert fake.sent == ["light.turn_on", "lock.unlock"], fake.sent      # nothing toward HA
                 # A wall tablet: the browser becomes one; an unlock goes through with no PIN pad
                 device_id = await browser.eval("""(async () => {

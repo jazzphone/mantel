@@ -235,7 +235,7 @@ async def settings_steps(app, ha: HA, ws: "HaWs", owner) -> None:
           "an HA user linked to nobody in Mantel can't save (told to link it)")
     app["store"].link(me["result"]["id"], "admin", "Fictional HA Admin")
     got = await ws.call(save)
-    colors = ((service.store.body("house", "settings").get("calendar") or {}).get("event_colors") or {})
+    colors = ((service.house_settings().get("calendar") or {}).get("event_colors") or {})
     check(got["success"] and colors.get("uid:e2e") == "teal", "linked, the save is made in Mantel, as that person")
     seen = await ws.feed(lambda e: ((e.get("calendar") or {}).get("event_colors") or {}).get("uid:e2e") == "teal")
     check(seen is not None, "...and HA's dashboards see it (Mantel's new settings come back over the link)")
@@ -295,7 +295,7 @@ async def steps(app, ha: HA, owner, entry: str, base: str, svc: str, out: dict) 
     # -- HA turns it off: Mantel's setting, pushed back ---------------------------------------------------
     s, _ = await ha.post("/api/services/switch/turn_off", {"entity_id": SEASONAL})
     check(s == 200, "switch.turn_off on it in HA is answered")
-    sky = app["settings"].store.body("house", "settings").get("sky") or {}
+    sky = app["settings"].house_settings().get("sky") or {}
     check(sky.get("decorations") is False, "Mantel saved its own setting sky.decorations = false")
     check(bool(await until(lambda: _state_is(ha, SEASONAL, ("off",)))), "HA shows the state Mantel pushed back")
     await ha.post("/api/services/switch/turn_on", {"entity_id": SEASONAL})

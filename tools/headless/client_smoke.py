@@ -500,8 +500,8 @@ async def smoke(shot=None, shots=None):
                                               "feed": "clear", "frames": 2, "settings_writes": 2,
                                               "refused": ["POST /api/config/config_entries/subentries/flow",
                                                           "image/delete", "call_service", "light.turn_on"]}, settings_panel
-                    stored = settings.store.get("house", "settings")
-                    assert stored.body["look"]["glass"] == "clear" and stored.body["weather"]["place"] == "Offline after", stored
+                    house = settings.house_settings()     # stored as differences (SET-2): read the merged view
+                    assert house["look"]["glass"] == "clear" and house["weather"]["place"] == "Offline after", house
                     (last,) = settings.store.conn.execute(
                         "SELECT message, actor_role FROM settings_history WHERE scope='house' AND key='settings' "
                         "ORDER BY version DESC LIMIT 1").fetchall()

@@ -798,7 +798,7 @@ async def steps_house(app, ha: HA, owner, base: str, hk_entry: str, svc_hk: str,
     check((await ha.state(DEMO_ALARM))["state"] == alarm_before, "the demo alarm is untouched")
     # Seasonal decorations: Mantel's own setting
     s, _ = await ha.post("/api/services/switch/turn_off", {"entity_id": seasonal})
-    sky = app["settings"].store.body("house", "settings").get("sky") or {}
+    sky = app["settings"].house_settings().get("sky") or {}
     st = await until(lambda: _state_is(ha, seasonal, ("off",)))
     check(s == 200 and sky.get("decorations") is False and st is not None,
           "Seasonal decorations turned off in HA is Mantel's house setting")

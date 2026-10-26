@@ -400,13 +400,15 @@ async def run(token: str) -> dict:
             saved = await owner.save({"type": "hk_frontend/settings/set", "changes": {"look.glass": "clear"}})
             got = await owner.read({"type": "mantel/settings/get", "scope": "house", "key": "settings"})
             stored = app["settings"].store.get("house", "settings")
-            check("result" in saved and got.get("result", {}).get("body", {}).get("look", {}).get("glass") == "clear"
-                  and stored.body["look"]["glass"] == "clear" and app["commander"].sent == sent_before,
+            # stored as differences (SET-2): the default "clear" is no longer in the body; the merged view has it
+            check("result" in saved and "glass" not in (got.get("result", {}).get("body", {}).get("look") or {})
+                  and app["settings"].house_settings()["look"]["glass"] == "clear"
+                  and app["commander"].sent == sent_before,
                   f"an Owner's settings save through the socket persisted (v{stored.version}); nothing sent to HA")
             await child_again.connect()
             refused = await child_again.save({"type": "hk_frontend/settings/set", "changes": {"look.glass": "frosted"}})
             check(refused.get("error", {}).get("code") == "forbidden"
-                  and app["settings"].store.get("house", "settings").body["look"]["glass"] == "clear",
+                  and app["settings"].house_settings()["look"]["glass"] == "clear",
                   "a Child's house settings save is refused (forbidden) and changes nothing")
 
             # -- a remote (tunnel) unlock, no step-up, notifies the Owners ----------------------------------------------
