@@ -30,6 +30,9 @@ from ipaddress import ip_address
 
 from aiohttp import hdrs, web
 
+from .guards import guard
+from .guards import ident as guarded
+
 log = logging.getLogger("mantel.sessions")
 
 ACCESS_COOKIE = "mantel_session"     # the Phase 0 cookie name; it now holds an access token
@@ -508,8 +511,9 @@ def device_json(d: Device | None) -> dict | None:
     return out
 
 
+@guard("signed_in")
 async def get_session(request: web.Request) -> web.Response:
-    ident = identity(request)
+    ident = guarded(request)
     resp = ok({"user": user_json(ident.user), "device": device_json(ident.device), "door": ident.door,
                "fresh_factor_at": ident.fresh_factor_at, "csrf": ident.csrf, "session_id": ident.session_id})
     if ident.csrf:  # re-deliver the token to the page's readable cookie
@@ -517,9 +521,10 @@ async def get_session(request: web.Request) -> web.Response:
     return resp
 
 
+@guard("signed_in", no_audit="renews the caller's own session: a sign-in, not audited (audit.py)")
 async def refresh(request: web.Request) -> web.Response:
     """Explicit refresh (the page can call it before the access token runs out)."""
-    ident = identity(request)
+    ident = guarded(request)
     if ident.user is None:
         return error(401, "no_session")
     if request.get("refreshed"):
@@ -539,6 +544,7 @@ async def refresh(request: web.Request) -> web.Response:
     return resp
 
 
+@guard("signed_in", no_audit="ends the caller's own session (a sign-out), as sign-ins are not audited")
 async def logout(request: web.Request) -> web.Response:
     resp = ok()
     end_session(request, resp)
@@ -550,10 +556,9 @@ def _may_manage(actor: User, target_role: str) -> bool:
     return actor.role == "owner" or (actor.role == "admin" and target_role != "owner")
 
 
+@guard("person", device_ok=True)
 async def list_sessions(request: web.Request) -> web.Response:
-    ident = identity(request)
-    if ident.user is None:
-        return error(403, "user_required")
+    ident = guarded(request)
     target = request.query.get("user_id") or ident.user.id
     if target != ident.user.id:
         row = request.app["store"].db.execute("SELECT role FROM users WHERE id = ?", (target,)).fetchone()
@@ -567,16 +572,19 @@ async def list_sessions(request: web.Request) -> web.Response:
     return ok({"sessions": [{k: v for k, v in r.items() if k != "parent_id"} for r in rows]})
 
 
+@guard("person", device_ok=True, audit="session.revoke")
 async def revoke_session(request: web.Request) -> web.Response:
-    ident = identity(request)
-    if ident.user is None:
-        return error(403, "user_required")
+    """Me → My Sessions (yours), or People → a person (an Owner's or Admin's): the audit row first."""
+    from . import audit
+    ident = guarded(request)
     mgr: SessionManager = request.app["sessions"]
     row = mgr.get(request.match_info["id"])
     if row is None:
         return error(404, "not_found")
     if row["user_id"] != ident.user.id and not _may_manage(ident.user, row["user_role"]):
         return error(403, "forbidden")
+    audit.config(request, ident, "session.revoke", {"session": row["id"], "user": row["user_id"],
+                                                    "own": row["user_id"] == ident.user.id})
     mgr.revoke(row["id"], "revoked_by_user")
     resp = ok()
     if row["id"] == ident.session_id:

@@ -41,7 +41,7 @@ middleware checks it. The handler reads the checked identity with :func:`ident`.
 from __future__ import annotations
 
 import functools
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Awaitable, Callable
 
 from aiohttp import web
@@ -63,6 +63,7 @@ class Guard:
     device_ok: bool = False
     audit: tuple[str, ...] = ()
     no_audit: str | None = None
+    first: Callable[[web.Request], Any] | None = field(default=None, compare=False, repr=False)
 
     def __post_init__(self) -> None:
         if self.who not in WHO or self.door not in DOORS or self.fresh not in FRESH:
@@ -104,6 +105,8 @@ def check(request: web.Request, spec: Guard):
         authz = request.app.get("authz")
         if not (ident.door == "lan" or (authz is not None and authz.home_door(ident))):
             raise _refuse("home_door_only")
+    if spec.first is not None:
+        spec.first(request)         # the request's own check (its origin, its kind), before asking for a fresh factor
     if spec.fresh == "away":
         from .connections import edit_rule
         if edit_rule(request, ident) != "ok":
@@ -118,11 +121,14 @@ def check(request: web.Request, spec: Guard):
 
 
 def guard(who: str, *, door: str = "any", fresh: str = "never", device_ok: bool | None = None,
-          audit: str | tuple[str, ...] | None = None, no_audit: str | None = None) -> Callable[[Handler], Handler]:
+          audit: str | tuple[str, ...] | None = None, no_audit: str | None = None,
+          first: Callable[[web.Request], Any] | None = None) -> Callable[[Handler], Handler]:
     """Declare and enforce a route's guard (module notes). ``audit`` may name several actions (a handler that
-    writes one row per thing it changes) or a prefix ending in ``.`` (``user_files.upload.``: one per kind)."""
+    writes one row per thing it changes) or a prefix ending in ``.`` (``user_files.upload.``: one per kind).
+    ``first(request)`` checks the request itself before the fresh factor is asked for (a page that can never do
+    this, such as a passkey from an address that cannot hold one, is told so first); it raises to refuse."""
     spec = Guard(who, door, fresh, who == "signed_in" if device_ok is None else device_ok,
-                 (audit,) if isinstance(audit, str) else tuple(audit or ()), no_audit)
+                 (audit,) if isinstance(audit, str) else tuple(audit or ()), no_audit, first)
 
     def wrap(handler: Handler) -> Handler:
         @functools.wraps(handler)
