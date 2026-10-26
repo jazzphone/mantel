@@ -125,6 +125,43 @@ python3 tools/stage_ha_app.py --dry-run
 python3 tools/publish_ha_apps.py /tmp/ha-apps --version "$(python3 tools/check_version.py --print)" --allow-unreleased
 ```
 
+## House releases
+
+A house runs Mantel as a **local** App (staged into Home Assistant's `local_apps` share) and HK Frontend and
+Mantel Link as components copied into its `config` share, without waiting for a public release.
+[`tools/release_house.py`](../../tools/release_house.py) does each one and records it in
+`docs/development/House-releases.md`:
+
+```bash
+~/.venvs/mantel/bin/python tools/release_house.py mantel 0.1.77 --notes notes.md
+~/.venvs/mantel/bin/python tools/release_house.py hk-frontend 1.12.0
+~/.venvs/mantel/bin/python tools/release_house.py mantel-link 0.1.6
+~/.venvs/mantel/bin/python tools/release_house.py mantel 0.1.77 --dry-run     # every check, nothing changed
+```
+
+- **Before anything:** the last `tools/ci.py` run must be a green `full` run of HEAD, on `main`, with nothing
+  uncommitted, and `main` must not be behind `origin/main`.
+- **Mantel:** it sets the version, adds `--notes` as a `## X.Y.Z - date` section below `## Unreleased` (which
+  keeps the next public release's notes), commits and pushes, and stages the App with `--replace`. Then, through
+  Home Assistant's websocket, it reloads the App store and updates `local_mantel`, and waits until Mantel answers
+  the staged build on `/api/version` and `/healthz?strict=1` is ok. Any "Traceback" or "ERROR" in the App's log
+  fails the release.
+- **HK Frontend and Mantel Link:** it sets the manifest version, commits and pushes, builds HK Frontend
+  (`tools/build_ha.py`), and copies the component with `rsync -rt --inplace` (Home Assistant's Samba share
+  half-fails without `--inplace`; never `--delete`). It checks the copy with `diff -rq`, restarts Home Assistant
+  and waits until the new files are served. HK Frontend is then published to `jazzphone/hk-frontend`'s `main` from
+  a fresh clone, untagged.
+- **What it needs:** the private words (`~/.config/mantel/private-words`) for the staging scans; Home Assistant's
+  address in `~/.config/mantel/house.json` (`{"ha_url": "http://…:8123"}`) or `$MANTEL_HA_URL`; and a
+  long-lived token of a Home Assistant administrator, in the macOS Keychain or in a file only you can read. The
+  script never prints the token. Add it to the Keychain, pasting it at the hidden prompt:
+
+  ```bash
+  security add-generic-password -a "$USER" -s mantel-ha-admin -w
+  ```
+
+  or to `~/.config/mantel/ha_admin_token` with mode `600`.
+
 ## One-time steps for the owner
 
 After the **first** release (the packages only exist once something has been pushed to them):
