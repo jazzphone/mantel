@@ -59,7 +59,7 @@ from urllib.parse import parse_qs
 import aiohttp
 from aiohttp import web
 
-from . import audit, sessions
+from . import audit, live, sessions
 from .guards import guard
 from .guards import ident as guarded
 from .sessions import INGRESS_METHOD, Identity, User
@@ -624,6 +624,9 @@ def link_tablet(app: web.Application, ha_user_id: str, actor: User, *, device_id
         db.execute("INSERT INTO ha_tablet_links (ha_user_id, device_id, ha_name, own_device, created, created_by) "
                    "VALUES (?,?,?,?,?,?)", (ha_user_id, device_id, (ha_name or "")[:120] or None, own, now, actor.id))
     row = tablet_link(db, ha_user_id)
+    # live.py: what was open as that HA user (a person's sidebar, an earlier tablet) is checked now
+    live.notify(app, f"ha:{ha_user_id}", *([f"user:{person['id']}"] if person is not None else []),
+                *([f"device:{earlier['id']}"] if earlier is not None else []))
     log.info("Ingress people: %s linked HA user %s as the wall tablet %s (%s)", actor.name or actor.id, ha_user_id,
              row["name"], row["room"] or "no room")
     return {"ha_user_id": ha_user_id, "device": sessions.device_json(sessions.Device(
@@ -632,7 +635,7 @@ def link_tablet(app: web.Application, ha_user_id: str, actor: User, *, device_id
 
 def unlink_tablet(app: web.Application, ha_user_id: str, actor: User, *, request: web.Request | None = None,
                   ident: Identity | None = None) -> bool:
-    """Remove an HA user's tablet link (its open sockets lose it at the next policy tick); a device that
+    """Remove an HA user's tablet link (its open sockets lose it at once: live.py); a device that
     was made for the link is revoked. Audited first (``ingress.unlink_tablet``), as link_tablet."""
     db = app["store"].db
     row = tablet_link(db, ha_user_id) if isinstance(ha_user_id, str) else None
@@ -644,6 +647,7 @@ def unlink_tablet(app: web.Application, ha_user_id: str, actor: User, *, request
         db.execute("DELETE FROM ha_tablet_links WHERE ha_user_id = ?", (ha_user_id,))
         if row["own_device"]:
             _revoke_in(db, row["id"], "tablet_unlinked", app["clock"]())
+    live.notify(app, f"ha:{ha_user_id}", f"device:{row['id']}")
     log.info("Ingress people: %s unlinked the wall tablet HA user %s", actor.name or actor.id, ha_user_id)
     return True
 
@@ -862,6 +866,7 @@ async def people_post(request: web.Request) -> web.Response:
     else:
         audit.config(request, ident, "ingress.unlink", {"ha_user_id": target, "role": None})
         store.unlink(target)
+    live.notify(request.app, f"ha:{target}", *([f"user:{current['id']}"] if current is not None else []))
     log.info("Ingress people: %s %s HA user %s%s", ident.user.name or ident.user.id, action, target,
              f" as {role}" if action == "link" else "")
     raise web.HTTPSeeOther(base + "/ingress/people")

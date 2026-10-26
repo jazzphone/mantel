@@ -116,6 +116,11 @@ class Ctx:
     starting: set = field(default_factory=set)       # keys whose subscription is being made (reserve/keep)
     _ended: set = field(default_factory=set)         # of those, keys ended (or the connection closed) meanwhile
     closed: bool = False
+    # live.py: each subscription kept is an entry of the app's registry (kind: its message type), so a revocation,
+    # the policy tick and commands turned off reach it. An unsubscribe may carry ``recheck`` (async () -> bool:
+    # may it go on?) and ``needs_commands``. None (a bare Ctx in a test): rechecked through server.recheck_streams.
+    live: Any = None
+    _entries: dict = field(default_factory=dict)     # key -> its live.Entry
 
     def emit(self, msg: dict) -> None:
         """Send from a synchronous callback (an upstream event)."""
@@ -137,7 +142,7 @@ class Ctx:
         self.starting.add(key)
         return True
 
-    async def keep(self, key: Any, unsub: Callable[[], Awaitable[None]] | None) -> None:
+    async def keep(self, key: Any, unsub: Callable[[], Awaitable[None]] | None, kind: str | None = None) -> None:
         self.starting.discard(key)
         if key in self._ended or self.closed:
             self._ended.discard(key)
@@ -147,6 +152,18 @@ class Ctx:
             return
         if unsub is not None:
             self.subs[key] = unsub
+            self._register(key, unsub, kind)
+
+    def _register(self, key: Any, unsub: Callable[[], Awaitable[None]], kind: str | None) -> None:
+        if self.live is None:
+            return
+        self.live.discard(self._entries.pop(key, None))
+
+        async def close(_why: str) -> None:
+            await self.end(key)
+        self._entries[key] = self.live.add(
+            kind or str(key[0] if isinstance(key, tuple) and key else key), self.identity, close,
+            recheck=getattr(unsub, "recheck", None), needs_commands=bool(getattr(unsub, "needs_commands", False)))
 
     def unreserve(self, key: Any) -> None:
         """The start failed: the key is free again."""
@@ -156,6 +173,9 @@ class Ctx:
     async def end(self, key: Any) -> None:
         if key in self.starting:
             self._ended.add(key)
+        entry = self._entries.pop(key, None)
+        if entry is not None:
+            entry.forget()
         unsub = self.subs.pop(key, None)
         if unsub is not None:
             try:

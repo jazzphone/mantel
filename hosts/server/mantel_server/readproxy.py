@@ -651,18 +651,29 @@ class FilteredReads:
             raise ReadBlocked(f"{t!r} is Home Assistant's: a read relayed from Home Assistant is never sent back")
         if t not in SUBSCRIBE_TYPES:
             raise ReadBlocked(f"{t!r} is not a subscription")
-        if t == "weather/subscribe_forecast":
-            await self._need_view(identity, msg.get("entity_id"))
-        elif t == "hk_music/subscribe":
-            await self._need_feature(identity, "music")
+        async def gate() -> None:
+            if t == "weather/subscribe_forecast":
+                await self._need_view(identity, msg.get("entity_id"))
+            elif t == "hk_music/subscribe":
+                await self._need_feature(identity, "music")
+            else:
+                await self._need_feature(identity, "notifications")
+        await gate()
+        if t == "hk_music/subscribe":
             on_event = self._music_events(identity, on_event)
-        else:
-            await self._need_feature(identity, "notifications")
         proxy = self._proxy()
         mid = await proxy.subscribe(msg, on_event)
 
         async def unsubscribe() -> None:
             await proxy.unsubscribe(mid)
+
+        async def recheck() -> bool:      # live.py: the same gate again (a role lowered, a grant removed)
+            try:
+                await gate()
+            except (Forbidden, ReadBlocked, NotFound):
+                return False
+            return True
+        unsubscribe.recheck = recheck              # type: ignore[attr-defined]
         return unsubscribe
 
     def _music_events(self, identity: Any, on_event: Callable[[dict], None]) -> Callable[[dict], None]:
@@ -852,7 +863,7 @@ def register(app, hub, hooks) -> FilteredReads:
             except BaseException:
                 ctx.unreserve(key)
                 raise
-            await ctx.keep(key, unsub)
+            await ctx.keep(key, unsub, kind=inner.get("type"))
             return None
         await answer(ctx, rid, work())
 

@@ -59,6 +59,8 @@ def register(app: web.Application, hub: Any, hooks: Any = None, *, store: Settin
 
         async def unsubscribe() -> None:
             end()
+        # live.py: the principal is read again before this (a session or device gone ends the feed)
+        unsubscribe.recheck = lambda: getattr(ctx.identity, "valid", True) is not False   # type: ignore[attr-defined]
         return unsubscribe
 
     async def panel_get(ctx: Ctx, msg: dict):

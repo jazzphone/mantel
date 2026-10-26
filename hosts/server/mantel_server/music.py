@@ -1181,6 +1181,10 @@ class MusicHost:
         async def unsubscribe() -> None:
             self._subs.pop(sid, None)
             self._sent.pop(sid, None)
+
+        async def recheck() -> bool:      # live.py: the music feature, decided again (a role lowered, a grant removed)
+            return await may_feature(self.hooks, ctx.identity, "music")
+        unsubscribe.recheck = recheck              # type: ignore[attr-defined]
         return unsubscribe
 
     # -- Music Assistant reads ---------------------------------------------------------------------------------

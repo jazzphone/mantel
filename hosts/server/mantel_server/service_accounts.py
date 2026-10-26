@@ -75,6 +75,7 @@ class ServiceAccounts:
     def __init__(self, conn: sqlite3.Connection, clock=time.time) -> None:
         self.db = conn
         self.clock = clock
+        self.on_revoke = None    # live.Live.notify (server.build_app): what is open as it ends at once
 
     @staticmethod
     def _scopes(scopes) -> list[str]:
@@ -183,6 +184,8 @@ class ServiceAccounts:
                                   "WHERE id=? AND revoked IS NULL", (self.clock(), reason, account_id))
         if cur.rowcount:
             log.info("service account %s revoked (%s)", account_id, reason)
+            if self.on_revoke is not None:
+                self.on_revoke(f"service:{account_id}")
         return bool(cur.rowcount)
 
 

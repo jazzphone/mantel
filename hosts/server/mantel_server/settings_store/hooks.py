@@ -95,6 +95,8 @@ def rbac_may_configure(policy: Any = None, *, rbac_store: Any = None,
         return rbac.Policy.build()
 
     def may(identity: Any, scope: Scope) -> bool:
+        if getattr(identity, "valid", True) is False:      # a principal whose session or device ended (Authz.refresh)
+            return False
         uid, urole, did, drole, door, fresh = _sides(identity)
         if uid is None and urole is None and did is None and drole is None:
             return False

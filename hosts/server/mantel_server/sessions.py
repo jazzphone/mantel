@@ -175,6 +175,7 @@ class SessionManager:
         self.clock = clock
         self.ttl = {"lan": float(lan_ttl), "tunnel": float(tunnel_ttl)}
         self.access_ttl = float(access_ttl)
+        self.on_revoke = None    # live.Live.notify (server.build_app): what is open as it ends at once
 
     def _now(self, now: float | None) -> float:
         return self.clock() if now is None else now
@@ -286,12 +287,15 @@ class SessionManager:
                             (self._now(now), factor, session_id))
 
     def revoke(self, session_id: str, reason: str, now: float | None = None) -> bool:
-        """End a session, and the sessions it handed out (``parent``): an app signed out takes its web view's."""
+        """End a session, and the sessions it handed out (``parent``): an app signed out takes its web view's.
+        What is open as it (a page's socket, a live talk) ends on the next turn of the loop (``on_revoke``)."""
         now = self._now(now)
         with self.db:
             cur = self.db.execute("UPDATE sessions SET revoked = ?, revoked_reason = ? WHERE id = ? AND revoked IS NULL",
                                   (now, reason, session_id))
             self.db.execute("DELETE FROM access_tokens WHERE session_id = ?", (session_id,))
+        if cur.rowcount and self.on_revoke is not None:
+            self.on_revoke(f"session:{session_id}")
         for r in self.db.execute("SELECT id FROM sessions WHERE parent_id = ? AND revoked IS NULL", (session_id,)).fetchall():
             self.revoke(r["id"], reason, now)
         return cur.rowcount > 0

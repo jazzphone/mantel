@@ -28,7 +28,7 @@ from typing import Any
 
 from aiohttp import web
 
-from . import audit
+from . import audit, live
 from .accounts import read_json, require_fresh_to_add_factor
 from .guards import guard
 from .guards import ident as guarded
@@ -176,6 +176,7 @@ async def api_put(request: web.Request) -> web.Response:
             got = merge(app, cur["id"], uid)            # the account made for this HA user becomes the person
         except ValueError as exc:
             return error(409, "refused", message=str(exc))
+        live.notify(app, f"ha:{target}", f"user:{cur['id']}")
         return ok({"changed": True, "merged": got})
     if uid is not None and db.execute("SELECT 1 FROM ha_links WHERE user_id = ?", (uid,)).fetchone():
         return error(409, "already_linked", message=f"{person['name'] or 'That person'} is already linked to "
@@ -194,6 +195,8 @@ async def api_put(request: web.Request) -> web.Response:
                     mgr.revoke(r["id"], "ha_unlinked")
     if uid is not None:
         store.link_user(target, uid)
+    # live.py: what is open as that HA user (its sidebar, its dashboards' relayed reads) is checked now
+    live.notify(app, f"ha:{target}", *([f"user:{cur['id']}"] if cur is not None else []))
     ls = app.get("linked_settings")
     if ls is not None:
         await ls.resend()
