@@ -38,6 +38,7 @@ import sys
 import time
 from datetime import timedelta
 from pathlib import Path
+from typing import Callable
 
 from aiohttp import web
 from cryptography import x509
@@ -45,6 +46,10 @@ from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.x509.oid import ExtendedKeyUsageOID, NameOID
 
 from mantel_connect import pki, protocol
+
+from . import audit
+from .guards import guard
+from .guards import ident as guarded
 
 log = logging.getLogger("mantel.connect")
 
@@ -250,6 +255,8 @@ class Connect:
 
     # -- audit (never a secret) -------------------------------------------------------------------------
     def _audit(self, actor, role, action: str, detail: dict) -> None:
+        """The exchange's own rows (a pairing made, refused, renewed) and the CLI's. An Owner's change through the
+        REST is audited first instead (each method's ``before``: audit.config, no row, no change)."""
         log.info("%s %s", action, {k: v for k, v in detail.items() if k != "ip"})
         if self.audit is not None:
             try:
@@ -267,22 +274,29 @@ class Connect:
         return False
 
     # -- starting a pairing (Owner) ---------------------------------------------------------------------
-    def start(self, by: str | None, role: str | None = "owner", ttl: float = protocol.CODE_TTL) -> dict:
-        """A new one-time code. Any earlier unspent code is withdrawn (one pairing at a time)."""
+    def start(self, by: str | None, role: str | None = "owner", ttl: float = protocol.CODE_TTL,
+              before: Callable[[dict], None] | None = None) -> dict:
+        """A new one-time code. Any earlier unspent code is withdrawn (one pairing at a time). ``before(detail)``:
+        the caller's audit row, first."""
         now = self.clock()
         code = protocol.new_code()
         raw = protocol.normalize_code(code)
+        if before is not None:
+            before({"expires": now + ttl})
         with self.db:
             self.db.execute("DELETE FROM connect_codes")
             self.db.execute("INSERT INTO connect_codes (id, mac_key, created, expires, created_by) VALUES (?,?,?,?,?)",
                             (protocol.code_id(raw), protocol.code_key(raw).hex(), now, now + ttl, by))
-        self._audit(by, role, "connect.pair_start", {"expires": now + ttl})
+        if before is None:
+            self._audit(by, role, "connect.pair_start", {"expires": now + ttl})
         return {"code": code, "expires": now + ttl, "ttl": ttl}
 
-    def cancel(self, by: str | None, role: str | None = "owner") -> bool:
+    def cancel(self, by: str | None, role: str | None = "owner", before: Callable[[dict], None] | None = None) -> bool:
+        if before is not None and self.db.execute("SELECT 1 FROM connect_codes LIMIT 1").fetchone() is not None:
+            before({})
         with self.db:
             cur = self.db.execute("DELETE FROM connect_codes")
-        if cur.rowcount:
+        if cur.rowcount and before is None:
             self._audit(by, role, "connect.pair_cancel", {})
         return bool(cur.rowcount)
 
@@ -434,7 +448,8 @@ class Connect:
             out.append(dict(r))
         return out
 
-    def forget_revoked(self, by: str | None = None, role: str | None = None, older_than: float | None = None) -> int:
+    def forget_revoked(self, by: str | None = None, role: str | None = None, older_than: float | None = None,
+                       before: Callable[[dict], None] | None = None) -> int:
         """Remove revoked pairings from the list (all, or those revoked ``older_than`` seconds ago or more). A
         certificate is accepted only while its pairing is live, so one whose row is gone is refused like any
         unknown one (only the "revoked" wording is lost). Audited when an Owner asks."""
@@ -444,15 +459,25 @@ class Connect:
             (cut,) if cut is not None else ())]
         if not ids:
             return 0
-        if by is not None:
+        if before is not None:
+            before({"pairings": ids})
+        elif by is not None:
             self._audit(by, role, "connect.forget_revoked", {"pairings": ids})
         with self.db:
             self.db.executemany("DELETE FROM connect_pairings WHERE id = ?", [(i,) for i in ids])
         return len(ids)
 
-    def revoke(self, pairing_id: str, by: str | None, role: str | None = "owner", reason: str = "revoked") -> bool:
+    def revoke(self, pairing_id: str, by: str | None, role: str | None = "owner", reason: str = "revoked",
+               before: Callable[[dict], None] | None = None) -> bool:
+        """Revoke a live pairing: its connections end at once. ``before(detail)``: the caller's audit row, written
+        before anything changes (else the row is written here, after)."""
         if not isinstance(pairing_id, str) or not _ID.match(pairing_id):
             return False
+        if before is not None:
+            if self.db.execute("SELECT 1 FROM connect_pairings WHERE id = ? AND revoked IS NULL",
+                               (pairing_id,)).fetchone() is None:
+                return False
+            before({"pairing": pairing_id, "reason": reason[:200]})
         now = self.clock()
         with self.db:
             cur = self.db.execute("UPDATE connect_pairings SET revoked = ?, revoked_by = ?, revoked_reason = ?, "
@@ -465,7 +490,8 @@ class Connect:
                 transport.abort()
             except Exception:  # noqa: BLE001
                 pass
-        self._audit(by, role, "connect.revoke", {"pairing": pairing_id, "reason": reason[:200]})
+        if before is None:
+            self._audit(by, role, "connect.revoke", {"pairing": pairing_id, "reason": reason[:200]})
         return True
 
     def track(self, pairing_id: str, transport) -> None:
@@ -572,21 +598,11 @@ async def middleware(request: web.Request, handler):
     return await handler(request)
 
 
-# -- Owner REST (LAN door; the same rule as service accounts) ----------------------------------------------
-def _owner(request: web.Request):
-    from . import sessions
-    ident = sessions.identity(request)
-    if ident.user is None or ident.device is not None:
-        raise web.HTTPForbidden(text="an Owner's own session only")
-    if ident.user.role != "owner":
-        raise web.HTTPForbidden(text="Owner only")
-    if ident.door != "lan":
-        raise web.HTTPForbidden(text="Connect is managed on the home network only")
-    return ident
-
-
+# -- Owner REST: the same rule as service accounts (an Owner's own session on the LAN door, or HA's sidebar with the
+# home rules, authz.home_door). It was the LAN door alone; the code gave no reason to refuse the trusted sidebar that
+# Service credentials, linked mode's ownership and wall tablets all accept, and the section said "the same rule".
+@guard("owner", door="home")
 async def api_list(request: web.Request) -> web.Response:
-    _owner(request)
     mgr: Connect = request.app["connect"]
     cfg = request.app["cfg"]
     mgr.forget_revoked(older_than=FORGET_REVOKED_AFTER)
@@ -594,27 +610,35 @@ async def api_list(request: web.Request) -> web.Response:
                   "address": cfg.connect_address, "ttl": protocol.CODE_TTL})
 
 
+@guard("owner", door="home", audit="connect.pair_start")
 async def api_start(request: web.Request) -> web.Response:
-    ident = _owner(request)
-    return _json(request.app["connect"].start(ident.user.id, ident.user.role), 201)
+    ident = guarded(request)
+    return _json(request.app["connect"].start(ident.user.id, ident.user.role, before=lambda d: audit.config(
+        request, ident, "connect.pair_start", d)), 201)
 
 
+@guard("owner", door="home", audit="connect.pair_cancel")
 async def api_cancel(request: web.Request) -> web.Response:
-    ident = _owner(request)
-    return _json({"ok": request.app["connect"].cancel(ident.user.id, ident.user.role)})
+    ident = guarded(request)
+    return _json({"ok": request.app["connect"].cancel(ident.user.id, ident.user.role, before=lambda d: audit.config(
+        request, ident, "connect.pair_cancel", d))})
 
 
+@guard("owner", door="home", audit="connect.revoke")
 async def api_revoke(request: web.Request) -> web.Response:
-    ident = _owner(request)
+    ident = guarded(request)
     if not request.app["connect"].revoke(request.match_info["id"], ident.user.id, ident.user.role,
-                                         "revoked by an Owner"):
+                                         "revoked by an Owner",
+                                         before=lambda d: audit.config(request, ident, "connect.revoke", d)):
         raise web.HTTPNotFound(text="no such live pairing")
     return _json({"ok": True})
 
 
+@guard("owner", door="home", audit="connect.forget_revoked")
 async def api_forget_revoked(request: web.Request) -> web.Response:
-    ident = _owner(request)
-    return _json({"ok": True, "removed": request.app["connect"].forget_revoked(ident.user.id, ident.user.role)})
+    ident = guarded(request)
+    return _json({"ok": True, "removed": request.app["connect"].forget_revoked(
+        ident.user.id, ident.user.role, before=lambda d: audit.config(request, ident, "connect.forget_revoked", d))})
 
 
 def register(app: web.Application, hub=None) -> Connect | None:

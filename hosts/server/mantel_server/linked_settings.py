@@ -46,6 +46,10 @@ from typing import Any
 
 from aiohttp import web
 
+from . import audit
+from .guards import guard
+from .guards import ident as guarded
+
 log = logging.getLogger("mantel.linked_settings")
 
 FEATURE = "settings"
@@ -184,9 +188,8 @@ class LinkedSettings:
 
 
 # -- setup: REST ------------------------------------------------------------------------------------
+@guard("manager")
 async def api_get(request: web.Request) -> web.Response:
-    from .linked_owners import _who
-    _who(request, owner_only=False)
     ls: LinkedSettings = request.app["linked_settings"]
     try:
         people, error = await ls.people(), None
@@ -201,9 +204,10 @@ def _link_roles() -> tuple[str, ...]:
     return LINK_ROLES
 
 
+# a grant to HK Frontend: an Owner, on the LAN or a home-rules sidebar (linked_owners' rule)
+@guard("owner", door="home", audit="linked.saves")
 async def api_put(request: web.Request) -> web.Response:
-    from .linked_owners import _who
-    ident = _who(request, owner_only=True)
+    ident = guarded(request)
     app, ls = request.app, request.app["linked_settings"]
     try:
         body = await request.json()
@@ -214,15 +218,12 @@ async def api_put(request: web.Request) -> web.Response:
         return web.json_response({"error": {"code": code, "message": message}}, status=status)
 
     if isinstance(body, dict) and set(body) == {"on"} and isinstance(body["on"], bool):
-        from .connections import _audit
         clients = ls.clients()
         if not clients:
             return bad("no_hk_frontend", "No HK Frontend is linked to Mantel right now.", 409)
         # the audit row first, as for every other grant: no row, no change (it lets HA say who is acting)
         changing = sorted({c.account.id for c in clients if (SAVES in c.account.scopes) != body["on"]})
-        refused = _audit(request, ident, "linked.saves", {"on": body["on"], "accounts": changing})
-        if refused is not None:
-            return refused
+        audit.config(request, ident, "linked.saves", {"on": body["on"], "accounts": changing})
         for c in clients:
             app["service_accounts"].set_scope(c.account.id, SAVES, body["on"])
             # the open links see it at once (the credential is rechecked)

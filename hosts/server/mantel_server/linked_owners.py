@@ -38,6 +38,9 @@ from typing import Any, Callable
 
 from aiohttp import web
 
+from .guards import guard
+from .guards import ident as guarded
+
 log = logging.getLogger("mantel.linked_owners")
 
 HOUSE = "house"
@@ -305,23 +308,6 @@ async def changed(app: web.Application) -> None:
         await house.refresh()
 
 
-# -- REST -------------------------------------------------------------------------------------------
-def _who(request: web.Request, owner_only: bool) -> Any:
-    from .sessions import identity
-    ident = identity(request)
-    role = getattr(ident.user, "role", None)
-    if ident.user is None or ident.device is not None:
-        raise web.HTTPForbidden(text="a person's own session only")
-    if role not in (("owner",) if owner_only else ("owner", "admin")):
-        raise web.HTTPForbidden(text="Owner only" if owner_only else "Owner or Admin only")
-    authz = request.app.get("authz")
-    home = ident.door == "lan" or (authz is not None and authz.home_door(ident))
-    if owner_only and not home:
-        # the LAN door, or HA's sidebar with the home rules (the HA App has no LAN door; HA-APP.md)
-        raise web.HTTPForbidden(text="ownership is changed on the LAN (or a trusted HA sidebar) only")
-    return ident
-
-
 def _state(app: web.Application) -> dict[str, Any]:
     lk = app.get("linked")
     clients = [c for c in lk.registry.clients if not c.ws.closed] if lk is not None else []
@@ -330,13 +316,16 @@ def _state(app: web.Application) -> dict[str, Any]:
             "links": sorted((c.describe() for c in clients), key=lambda d: (d["domain"], d["since"] or 0))}
 
 
+# -- REST: Owners and Admins read; an Owner changes ownership on the LAN door, or HA's sidebar with the home rules
+# (the HA App has no LAN door; HA-APP.md). A person's own session, never at a wall tablet.
+@guard("manager")
 async def api_get(request: web.Request) -> web.Response:
-    _who(request, owner_only=False)
     return web.json_response(_state(request.app))
 
 
+@guard("owner", door="home", audit=("linked.owner", "linked.bridge"))   # (written by LinkedOwners.set, first)
 async def api_put(request: web.Request) -> web.Response:
-    ident = _who(request, owner_only=True)
+    ident = guarded(request)
     try:
         body = await request.json()
     except ValueError:

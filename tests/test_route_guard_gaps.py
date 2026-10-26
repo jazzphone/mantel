@@ -16,6 +16,7 @@ import pytest
 
 from conftest import PASSWORD  # noqa: F401
 from gateway_fakes import off  # noqa: F401 -- fixture
+from test_features import make_env  # noqa: F401 -- fixture
 from test_accounts import seed_of
 from mantel_server.accounts import totp
 
@@ -218,6 +219,151 @@ async def test_an_alarm_pin_saved_on_the_settings_page_is_audited_before_it_is_s
     [row] = rows(off.m, "alarm_pin.")
     assert row["action"] == "alarm_pin.add" and row["door"] == "lan"
     await ws.close()
+
+
+# -- the HA App's wall tablets and people page ----------------------------------------------------------------------
+async def test_linking_and_unlinking_a_wall_tablet_is_audited_before_it_changes(tmp_path, monkeypatch):
+    from mantel_server import ingress
+    from test_ingress_tablets import TABLET_HA, make, owner_page
+    m = await make(tmp_path, monkeypatch)
+    try:
+        origin = await owner_page(m)
+        h = {**m.ha(), **origin, "X-CSRF-Token": m.jar["mantel_csrf"]}
+        devices = m.store.db.execute("SELECT COUNT(*) FROM devices").fetchone()[0]
+        broken_audit(monkeypatch, m)
+        r = await m.request("POST", "/api/ingress/tablets", h, json={"ha_user_id": TABLET_HA, "room": "kitchen"})
+        assert r.status == 503 and ingress.tablet_link(m.store.db, TABLET_HA) is None
+        assert m.store.db.execute("SELECT COUNT(*) FROM devices").fetchone()[0] == devices    # no device made either
+        monkeypatch.undo()
+        r = await m.request("POST", "/api/ingress/tablets", h, json={"ha_user_id": TABLET_HA, "room": "kitchen"})
+        assert r.status == 201
+        broken_audit(monkeypatch, m)
+        r = await m.request("DELETE", f"/api/ingress/tablets/{TABLET_HA}", h)
+        assert r.status == 503 and ingress.tablet_link(m.store.db, TABLET_HA) is not None
+        monkeypatch.undo()
+        [row] = rows(m, "ingress.")
+        assert row["action"] == "ingress.link_tablet" and row["door"] == "ha" and row["source_ip"]
+        detail = json.loads(row["target"])
+        assert detail["room"] == "kitchen" and detail["new_device"] is True
+        assert detail["device_id"] == ingress.tablet_link(m.store.db, TABLET_HA)["id"]
+    finally:
+        await m.client.close()
+        m.store.db.close()
+
+
+async def test_the_ingress_people_page_refuses_an_owner_at_a_wall_tablet(tmp_path, monkeypatch):
+    """An Owner's session with a wall tablet's device beside it (a person at a tablet): Me only, as everywhere."""
+    from mantel_server import sessions
+    from test_ingress_tablets import PAGE, TABLET_HA, make, owner_page, owner_user
+    from mantel_server import ingress
+    m = await make(tmp_path, monkeypatch)
+    try:
+        await owner_page(m)
+        ingress.link_tablet(m.app, TABLET_HA, owner_user(m), room="kitchen")
+        row = ingress.tablet_link(m.store.db, TABLET_HA)
+        at_tablet = sessions.Identity(user=owner_user(m), door="ha", csrf="fictional-csrf",
+                                      device=sessions.Device(row["id"], row["name"], row["role"], row["room"]))
+        monkeypatch.setattr(sessions, "identity", lambda request: at_tablet)
+        r = await m.request("GET", "/ingress/people", {**m.ha(), **PAGE})
+        assert r.status == 403
+        r = await m.request("GET", "/api/ingress/tablets", m.ha())
+        assert r.status == 403
+    finally:
+        await m.client.close()
+        m.store.db.close()
+
+
+# -- Service credentials, Mantel Link pairing, Mantel Connect ---------------------------------------------------------
+async def test_making_and_revoking_a_service_credential_is_audited_first(mantel, monkeypatch):
+    await owner(mantel)
+    broken_audit(monkeypatch, mantel)
+    r = await mantel.post("/api/service-accounts", {"name": "home-assistant", "scopes": ["linked"]})
+    assert r.status == 503 and mantel.app["service_accounts"].list() == []
+    monkeypatch.undo()
+    r = await mantel.post("/api/service-accounts", {"name": "home-assistant", "scopes": ["linked"]})
+    assert r.status == 201
+    body = await r.json()
+    aid = body["account"]["id"]
+    broken_audit(monkeypatch, mantel)
+    assert (await mantel.client.delete(f"/api/service-accounts/{aid}", headers=mantel.headers())).status == 503
+    assert mantel.app["service_accounts"].verify(body["token"], "linked") is not None
+    monkeypatch.undo()
+    assert (await mantel.client.delete(f"/api/service-accounts/{aid}", headers=mantel.headers())).status == 200
+    got = [(r["action"], json.loads(r["target"])) for r in rows(mantel, "service_account.")]
+    assert got == [("service_account.create", {"account": aid, "name": "home-assistant", "scopes": ["linked"]}),
+                   ("service_account.revoke", {"account": aid, "name": "home-assistant"})]
+    assert body["token"] not in json.dumps(mantel.app["audit"].rows())
+
+
+async def test_mantel_link_pairing_writes_its_rows_first(make_env, monkeypatch):
+    from test_linked_pairing import body_for, pair
+    env = await make_env()
+    await env.login("owner1", "owner")
+    broken_audit(monkeypatch, env.m)
+    r = await env.m.client.post("/api/linked/pair", headers=env.m.headers())
+    assert r.status == 503 and env.app["linked_pairing"].pending() is None
+    monkeypatch.undo()
+    code = (await (await env.m.client.post("/api/linked/pair", headers=env.m.headers())).json())["code"]
+    body, _key, _nonce = body_for(code)
+    broken_audit(monkeypatch, env.m)
+    r = await pair(env, body)
+    assert r.status == 503 and env.app["service_accounts"].list() == []
+    monkeypatch.undo()
+    assert [r["action"] for r in rows(env.m, "linked.pair")] == ["linked.pair_start"]
+
+
+async def test_revoking_a_connect_pairing_is_audited_first(tmp_path, monkeypatch):
+    from aiohttp.test_utils import TestClient, TestServer
+    from conftest import Mantel
+    from mantel_server.config import Config
+    from mantel_server.server import build_app
+    from mantel_server.store import Store
+    from argon2 import PasswordHasher
+    cfg = Config(data_dir=tmp_path / "data", secrets_dir=tmp_path / "secrets", port=0, connect=True, ingress=True,
+                 ingress_peers=(), ha_door_rules="trusted")
+    store = Store(cfg.data_dir / "mantel.db")
+    app = build_app(cfg, "unused-fictional-token", store=store, connect_ha=False, clock=lambda: 1_000_000.0)
+    app["accounts"].hasher = PasswordHasher(time_cost=1, memory_cost=8, parallelism=1)
+    async with TestClient(TestServer(app)) as client:
+        origin = str(client.make_url("")).rstrip("/")
+        client.session.headers["Origin"] = origin
+        m = Mantel(app, client, store, [1_000_000.0], origin)
+        await owner(m)
+        pid = "ab" * 8
+        store.db.execute("INSERT INTO connect_pairings (id, name, created, cert_fp, cert_expires) VALUES (?,?,?,?,?)",
+                         (pid, "Fictional Home Assistant", 1_000_000.0, "f" * 64, 1_001_000.0))
+        broken_audit(monkeypatch, m)
+        r = await client.delete(f"/api/connect/pairings/{pid}", headers=m.headers())
+        assert r.status == 503
+        assert store.db.execute("SELECT revoked FROM connect_pairings").fetchone()[0] is None
+        monkeypatch.undo()
+        assert (await client.delete(f"/api/connect/pairings/{pid}", headers=m.headers())).status == 200
+        [row] = rows(m, "connect.revoke")
+        assert json.loads(row["target"])["pairing"] == pid and row["door"] == "lan"
+    store.db.close()
+
+
+async def test_connect_is_managed_where_service_credentials_are_a_trusted_sidebar_too(tmp_path, monkeypatch):
+    """connect_pairing's Owner rule is service_accounts' (authz.home_door): the LAN door, or HA's sidebar with the
+    home rules (the HA App has no LAN door). The tunnel and an untrusted sidebar stay refused."""
+    from aiohttp.test_utils import TestClient, TestServer
+    from mantel_server import sessions
+    from mantel_server.config import Config
+    from mantel_server.server import build_app
+    from mantel_server.store import Store
+    for rules, door, status in (("trusted", "ha", 200), ("tunnel", "ha", 403), ("trusted", "tunnel", 403)):
+        cfg = Config(data_dir=tmp_path / rules / door / "data", secrets_dir=tmp_path / rules / door / "secrets",
+                     port=0, connect=True, ingress=True, ingress_peers=(), ha_door_rules=rules)
+        store = Store(cfg.data_dir / "mantel.db")
+        app = build_app(cfg, "unused-fictional-token", store=store, connect_ha=False, clock=lambda: 1_000_000.0)
+        boss = sessions.User(id="f" * 32, name="Fictional Owner", role="owner", kind="hk")
+        monkeypatch.setattr(sessions, "identity",
+                            lambda request, d=door: sessions.Identity(user=boss, device=None, door=d))
+        async with TestClient(TestServer(app)) as client:
+            assert (await client.get("/api/connect")).status == status, (rules, door)
+            assert (await client.get("/api/service-accounts")).status == status, (rules, door)
+        monkeypatch.undo()
+        store.db.close()
 
 
 # -- a wall tablet's session is refused -------------------------------------------------------------------------------

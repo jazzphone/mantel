@@ -36,7 +36,9 @@ import time
 from pathlib import Path
 from typing import Any, Awaitable, Callable
 
-from . import app_crypto
+from . import app_crypto, audit
+from .guards import guard
+from .guards import ident as guarded
 
 log = logging.getLogger("mantel.apns")
 
@@ -298,7 +300,7 @@ def _relay_targets(app) -> list[dict]:
 def _setting_json(request) -> dict:
     from . import connections as C
     app = request.app
-    ident = C._viewer(request)
+    ident = guarded(request)
     rule = C.edit_rule(request, ident)
     choice = relay_choice(app)
     sender = app.get("apns")
@@ -309,16 +311,17 @@ def _setting_json(request) -> dict:
             "can_edit": rule != "owner_only", "needs_fresh": rule == "fresh"}
 
 
+@guard("manager")
 async def api_get_relay(request):
     from .sessions import ok
     return ok(_setting_json(request))
 
 
+@guard("owner", fresh="away", audit="push_relay.set")
 async def api_put_relay(request):
-    from . import connections as C
     from .accounts import read_json
     from .sessions import error, ok
-    ident = C._editor(request)
+    ident = guarded(request)
     app = request.app
     body = await read_json(request)
     mode = body.get("mode")
@@ -333,9 +336,7 @@ async def api_put_relay(request):
     else:
         return error(400, "invalid", message='mode is "default", "custom" or "off".')
     old = relay_url(app)
-    refused = C._audit(request, ident, "push_relay.set", {"mode": mode, "url": value if mode == "custom" else None})
-    if refused is not None:
-        return refused
+    audit.config(request, ident, "push_relay.set", {"mode": mode, "url": value if mode == "custom" else None})
     st = app["app_auth"]
     st.set_setting(RELAY_SETTING, value)
     new = relay_url(app)

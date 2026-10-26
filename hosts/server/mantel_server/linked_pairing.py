@@ -34,7 +34,10 @@ from aiohttp import web
 
 from mantel_connect import protocol as CP
 
+from . import audit
 from .connect_pairing import ALL_FAILS, ALL_WINDOW, IP_FAILS, IP_WINDOW, MAX_WRONG, Window
+from .guards import guard
+from .guards import ident as guarded
 
 log = logging.getLogger("mantel.linked_pairing")
 
@@ -82,28 +85,48 @@ class LinkPairing:
         self.paired: list[dict[str, Any]] = []         # this run's pairings, for the page's "paired" notice
 
     def _audit(self, actor, role, action: str, detail: dict) -> None:
+        """A refused try (``linked.pair_failed``): noted, never in the way. A change is audited first instead
+        (``before`` below, ``_audit_first``): no row, no change."""
         if self.audit is None:
             return
         try:
             self.audit({"timestamp": self.clock(), "actor": actor, "role": role, "action": action, "detail": detail})
-        except Exception:  # noqa: BLE001 -- pairing never fails because the log did
+        except Exception:  # noqa: BLE001 -- a refusal is still a refusal without its row
             log.exception("could not write the audit row for %s", action)
 
+    def _audit_first(self, actor, role, action: str, detail: dict) -> None:
+        if self.audit is None:
+            return
+        try:
+            self.audit({"timestamp": self.clock(), "actor": actor, "role": role, "action": action, "detail": detail})
+        except Exception:  # noqa: BLE001 -- no audit, no change
+            log.exception("could not write the audit row for %s; nothing changed", action)
+            raise PairError(503, "audit_unavailable", "Mantel could not write its audit log, so nothing was "
+                            "changed. Try again in a moment.") from None
+
     # -- the Owner's side ------------------------------------------------------------------------------------
-    def start(self, by: str | None, role: str | None = "owner") -> dict[str, Any]:
+    def start(self, by: str | None, role: str | None = "owner", before=None) -> dict[str, Any]:
+        """A new code. ``before(detail)`` writes its audit row first (the REST: audit.config); without it the
+        row is written here, first, as the exchange's are."""
         code = CP.new_code()
         raw = CP.normalize_code(code)
         now = self.clock()
+        if before is not None:
+            before({"expires": now + TTL})
+        else:
+            self._audit_first(by, role, "linked.pair_start", {"expires": now + TTL})
         self._code = {"id": CP.code_id(raw), "key": code_key(raw), "created": now, "expires": now + TTL,
                       "by": by, "attempts": 0}
-        self._audit(by, role, "linked.pair_start", {"expires": now + TTL})
         return {"code": code, "expires": now + TTL, "ttl": TTL}
 
-    def cancel(self, by: str | None, role: str | None = "owner") -> bool:
+    def cancel(self, by: str | None, role: str | None = "owner", before=None) -> bool:
         had = self.pending() is not None
-        self._code = None
         if had:
-            self._audit(by, role, "linked.pair_cancel", {})
+            if before is not None:
+                before({})
+            else:
+                self._audit_first(by, role, "linked.pair_cancel", {})
+        self._code = None
         return had
 
     def pending(self) -> dict[str, Any] | None:
@@ -140,11 +163,13 @@ class LinkPairing:
             raise PairError(403, "invalid_code", "That pairing code was not accepted. Make a new one in Mantel "
                             "Settings, Connections, Home Assistant, Mantel Link.")
         self._code = None                                     # spent, before anything else can use it
-        account, token = self.accounts.create(body["name"], ["linked"], by=f"pairing:{c['by']}")
+        # the row first, naming the credential about to be made (no row: no credential, and a new code is needed)
+        account, token = self.accounts.create(body["name"], ["linked"], by=f"pairing:{c['by']}", before=lambda sid, name, scopes:
+                                              self._audit_first(c["by"], "owner", "linked.pair_ok",
+                                                                {"ip": ip, "account": sid, "name": body["name"]}))
         instance = self.instance() or ""
         aid = getattr(account, "id", None) or (account.get("id") if isinstance(account, dict) else None)
         self.paired.append({"at": now, "account": aid, "name": body["name"]})
-        self._audit(c["by"], "owner", "linked.pair_ok", {"ip": ip, "account": aid, "name": body["name"]})
         log.warning("linked: Mantel Link paired as %r from %s (Service account %s)", body["name"], peer, aid)
         return {"v": VERSION, "token": token, "instance": instance,
                 "proof": server_proof(c["key"], body["code_id"], body["nonce"], instance, token)}
@@ -176,27 +201,27 @@ async def pair_route(request: web.Request) -> web.Response:
     return web.json_response(out, headers={"Cache-Control": "no-store"})
 
 
-def _owner(request: web.Request):
-    from .linked_owners import _who
-    return _who(request, owner_only=True)
-
-
+# the Owner's REST: Owners and Admins see it; an Owner makes or withdraws a code on the LAN door or a home-rules
+# sidebar (linked_owners' rule), audited first
+@guard("manager")
 async def api_get(request: web.Request) -> web.Response:
-    from .linked_owners import _who
-    _who(request, owner_only=False)
     p: LinkPairing = request.app["linked_pairing"]
     return web.json_response({"pending": p.pending(), "ttl": TTL, "paired": p.paired[-5:]})
 
 
+@guard("owner", door="home", audit="linked.pair_start")
 async def api_start(request: web.Request) -> web.Response:
-    ident = _owner(request)
-    out = request.app["linked_pairing"].start(ident.user.id, ident.user.role)
+    ident = guarded(request)
+    out = request.app["linked_pairing"].start(
+        ident.user.id, ident.user.role, before=lambda d: audit.config(request, ident, "linked.pair_start", d))
     return web.json_response(out, headers={"Cache-Control": "no-store"})
 
 
+@guard("owner", door="home", audit="linked.pair_cancel")
 async def api_cancel(request: web.Request) -> web.Response:
-    ident = _owner(request)
-    return web.json_response({"cancelled": request.app["linked_pairing"].cancel(ident.user.id, ident.user.role)})
+    ident = guarded(request)
+    return web.json_response({"cancelled": request.app["linked_pairing"].cancel(
+        ident.user.id, ident.user.role, before=lambda d: audit.config(request, ident, "linked.pair_cancel", d))})
 
 
 def register(app: web.Application) -> LinkPairing:
@@ -211,7 +236,7 @@ def register(app: web.Application) -> LinkPairing:
         return getattr(lk, "instance", None)
 
     p = LinkPairing(app["service_accounts"], lambda: app["clock"](),
-                    audit.config_event if audit is not None else None, instance)
+                    (lambda event: app["audit"].config_event(event)) if audit is not None else None, instance)
     app["linked_pairing"] = p
     app.setdefault("public_paths", set()).add(PATH)
     app.router.add_post(PATH, pair_route)

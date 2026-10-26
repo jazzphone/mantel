@@ -28,10 +28,11 @@ from typing import Any
 
 from aiohttp import web
 
-from . import connections as C
-from .accounts import read_json, require_fresh_to_add_factor, require_manager
+from . import audit
+from .accounts import read_json, require_fresh_to_add_factor
+from .guards import guard
+from .guards import ident as guarded
 from .sessions import error, ok
-from .sessions import identity as sessions_identity
 
 log = logging.getLogger("mantel.people_ha")
 
@@ -114,8 +115,8 @@ def merge(app: web.Application, src: str, into: str) -> dict:
     return {"into": into, "moved": sorted(set(moved))}
 
 
+@guard("manager")
 async def api_get(request: web.Request) -> web.Response:
-    require_manager(request)
     app = request.app
     from .ingress import household, is_ha_admin, linked_user, tablet_link
     db = app["store"].db
@@ -141,8 +142,9 @@ async def api_get(request: web.Request) -> web.Response:
     return ok({"users": users, "people": people, "devices": devices, "error": err})
 
 
+@guard("manager", audit="people.ha_user")       # (a link, not an unlink, also needs a fresh factor: below)
 async def api_put(request: web.Request) -> web.Response:
-    ident = require_manager(request)
+    ident = guarded(request)
     app = request.app
     db, store = app["store"].db, app["store"]
     body = await read_json(request)
@@ -166,9 +168,7 @@ async def api_put(request: web.Request) -> web.Response:
         return error(403, "owner_only", message="Only an Owner links or unlinks an Owner.")
     if cur is not None and cur["role"] == "owner" and (uid is None or person["role"] != "owner") and not _owners_left(db, cur["id"]):
         return error(409, "last_owner", message="Mantel always keeps at least one Owner.")
-    refused = C._audit(request, ident, "people.ha_user", {"ha_user_id": target, "user_id": uid})
-    if refused is not None:
-        return refused
+    audit.config(request, ident, "people.ha_user", {"ha_user_id": target, "user_id": uid})
     if cur is not None and uid is not None and cur["id"] == uid:
         return ok({"changed": False})
     if cur is not None and uid is not None and cur["kind"] == "ha_linked":
@@ -200,19 +200,16 @@ async def api_put(request: web.Request) -> web.Response:
     return ok({"changed": True})
 
 
+# the Home Assistant link moves to `into`: what api_put's link asks
+@guard("owner", fresh="add_factor", audit="people.merge")
 async def api_merge(request: web.Request) -> web.Response:
-    ident = require_manager(request)
-    if ident.user.role != "owner":
-        return error(403, "owner_only", message="Only an Owner merges people.")
+    ident = guarded(request)
     src = request.match_info["id"]
     body = await read_json(request)
     into = body.get("into")
     if set(body) != {"into"} or not isinstance(into, str):
         return error(400, "invalid", message="{into: a person}")
-    require_fresh_to_add_factor(request, ident)       # the Home Assistant link moves to `into` (api_put's rule)
-    refused = C._audit(request, ident, "people.merge", {"user_id": src, "into": into})
-    if refused is not None:
-        return refused
+    audit.config(request, ident, "people.merge", {"user_id": src, "into": into})
     try:
         got = merge(request.app, src, into)
     except ValueError as exc:
@@ -221,14 +218,11 @@ async def api_merge(request: web.Request) -> web.Response:
     return ok(got)
 
 
+# an Owner, on the home network (or a home-rules sidebar) only, as every other way of making an HA user a tablet:
+# that user then has the home door's tablet rules
+@guard("owner", door="home", audit=("ingress.link_tablet", "ingress.unlink_tablet", "people.remove_tablet_account"))
 async def api_device_ha_user(request: web.Request) -> web.Response:
-    from .ingress import _tablet_owner
-    require_manager(request)
-    if sessions_identity(request).user.role != "owner":
-        return error(403, "owner_only", message="Only an Owner links wall tablets.")
-    # on the home network (or a home-rules sidebar) only, as every other way of making an HA user a tablet: that
-    # user then has the home door's tablet rules
-    ident = _tablet_owner(request)
+    ident = guarded(request)
     app, dev = request.app, request.match_info["id"]
     body = await read_json(request)
     target = body.get("ha_user")
@@ -242,7 +236,7 @@ async def api_device_ha_user(request: web.Request) -> web.Response:
         return error(409, "person", message=f"That Home Assistant user is {stand_in['name'] or 'a person'}: "
                                             "unlink them on People first.")
     if now is not None and target is None:
-        unlink_tablet(app, now[0], ident.user)
+        unlink_tablet(app, now[0], ident.user, request=request, ident=ident)
     removed = None
     if target is not None and (now is None or now[0] != target):
         name = None
@@ -255,7 +249,7 @@ async def api_device_ha_user(request: web.Request) -> web.Response:
         try:
             # moved from another HA user in one step: unlinking that one first revoked a device made for it
             link_tablet(app, target, ident.user, device_id=dev, ha_name=name,
-                        moving_from=now[0] if now is not None else None)
+                        moving_from=now[0] if now is not None else None, request=request, ident=ident)
         except TabletLinkError as exc:
             return error(exc.status, exc.code, message=exc.message)
         if stand_in is not None and stand_in["kind"] != "ha_linked":
@@ -275,10 +269,7 @@ def remove_stand_in(app: web.Application, uid: str, actor) -> str | None:
     if db.execute("SELECT 1 FROM ha_links WHERE user_id = ?", (uid,)).fetchone():
         return None
     name = row["name"] or row["username"] or uid
-    audit = app.get("audit")
-    if audit is not None:
-        audit.config_event({"timestamp": app["clock"](), "actor": actor.id, "role": actor.role,
-                            "action": "people.remove_tablet_account", "detail": {"user_id": uid, "name": name}})
+    audit.config(None, actor, "people.remove_tablet_account", {"user_id": uid, "name": name}, app=app)
     with db:
         db.execute("DELETE FROM default_screens WHERE subject = ?", (f"u:{uid}",))
         db.execute("DELETE FROM user_data WHERE subject = ?", (f"u:{uid}",))

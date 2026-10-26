@@ -75,9 +75,11 @@ from urllib.parse import urlencode, urlparse
 import aiohttp
 from aiohttp import web
 
-from . import atrest
-from .accounts import MANAGERS, STEP_UP_WINDOW, read_json
-from .sessions import Identity, error, identity, ok
+from . import atrest, audit
+from .accounts import STEP_UP_WINDOW, read_json
+from .guards import guard
+from .guards import ident as guarded
+from .sessions import Identity, error, ok
 
 log = logging.getLogger("mantel.connections")
 
@@ -580,15 +582,6 @@ def status(app: web.Application, kind: str) -> dict:
 
 
 # -- REST ----------------------------------------------------------------------------------------------------
-def _viewer(request: web.Request) -> Identity:
-    ident = identity(request)
-    if ident.user is None or ident.device is not None:
-        raise web.HTTPForbidden(text='{"error":"forbidden"}', content_type="application/json")
-    if ident.user.role not in MANAGERS:
-        raise web.HTTPForbidden(text='{"error":"forbidden"}', content_type="application/json")
-    return ident
-
-
 def edit_rule(request: web.Request, ident: Identity) -> str:
     """'ok' | 'fresh' (a fresh factor is needed first) | 'owner_only'."""
     if ident.user is None or ident.device is not None or ident.user.role != "owner":
@@ -599,16 +592,6 @@ def edit_rule(request: web.Request, ident: Identity) -> str:
     if ident.door == "ha" and authz is not None and authz.ha_trusted(ident):
         return "ok"
     return "ok" if ident.fresh_within(STEP_UP_WINDOW, request.app["clock"]()) else "fresh"
-
-
-def _editor(request: web.Request) -> Identity:
-    ident = _viewer(request)
-    rule = edit_rule(request, ident)
-    if rule == "owner_only":
-        raise web.HTTPForbidden(text='{"error":"owner_only"}', content_type="application/json")
-    if rule == "fresh":
-        raise web.HTTPForbidden(text='{"error":"step_up_required"}', content_type="application/json")
-    return ident
 
 
 def _kind(request: web.Request) -> str:
@@ -683,8 +666,9 @@ class MaSuggester:
         return found
 
 
+@guard("manager")
 async def api_status(request: web.Request) -> web.Response:
-    ident = _viewer(request)
+    ident = guarded(request)
     rule = edit_rule(request, ident)
     conns: Connections = request.app["connections"]
     out = {k: status(request.app, k) for k in KINDS}
@@ -728,9 +712,9 @@ def _warnings(kind: str, result: dict) -> list[str]:
     return out
 
 
+@guard("owner", fresh="away", first=_kind, no_audit="tests an address and a credential; saves nothing")
 async def api_test(request: web.Request) -> web.Response:
     kind = _kind(request)
-    _editor(request)
     _not_app(request, kind)
     body = await read_json(request)
     try:
@@ -738,19 +722,6 @@ async def api_test(request: web.Request) -> web.Response:
     except ConnectionFailed as exc:
         return failed(exc)
     return ok({"result": result, "method": method, "warnings": _warnings(kind, result)})
-
-
-def _audit(request: web.Request, ident: Identity, action: str, detail: dict) -> web.Response | None:
-    audit = request.app.get("audit")
-    if audit is None:
-        return None
-    try:
-        audit.config_event({"actor": ident.user.id, "role": ident.user.role, "action": action, "detail": detail,
-                            "timestamp": request.app["clock"]()})
-    except Exception:  # noqa: BLE001
-        log.exception("connections: the audit row could not be written; nothing was changed")
-        return error(503, "audit_unavailable")
-    return None
 
 
 def _audit_detail(rec: Record, previous: Current | None) -> dict:
@@ -761,9 +732,7 @@ def _audit_detail(rec: Record, previous: Current | None) -> dict:
 async def _store(request: web.Request, ident: Identity, rec: Record) -> web.Response:
     conns: Connections = request.app["connections"]
     previous = conns.current(rec.kind)
-    refused = _audit(request, ident, f"connection.{rec.kind}.saved", _audit_detail(rec, previous))
-    if refused is not None:
-        return refused
+    audit.config(request, ident, f"connection.{rec.kind}.saved", _audit_detail(rec, previous))
     try:
         await conns.save(rec)
     except (OSError, atrest.SecretKeyError) as exc:
@@ -775,9 +744,10 @@ async def _store(request: web.Request, ident: Identity, rec: Record) -> web.Resp
     return ok({"connection": status(request.app, rec.kind)})
 
 
+@guard("owner", fresh="away", first=_kind, audit=("connection.ha.saved", "connection.ma.saved"))
 async def api_save(request: web.Request) -> web.Response:
     kind = _kind(request)
-    ident = _editor(request)
+    ident = guarded(request)
     _not_app(request, kind)
     body = await read_json(request)
     conns: Connections = request.app["connections"]
@@ -796,9 +766,10 @@ async def api_save(request: web.Request) -> web.Response:
     return await _store(request, ident, rec)
 
 
+@guard("owner", fresh="away", first=_kind, audit=("connection.ha.disconnected", "connection.ma.disconnected"))
 async def api_disconnect(request: web.Request) -> web.Response:
     kind = _kind(request)
-    ident = _editor(request)
+    ident = guarded(request)
     _not_app(request, kind)
     conns: Connections = request.app["connections"]
     if conns.own.get(kind) is None and kind not in conns.unreadable:
@@ -809,10 +780,8 @@ async def api_disconnect(request: web.Request) -> web.Response:
                          "restart Mantel.")
         return error(404, "not_found")
     rec = conns.own.get(kind)
-    refused = _audit(request, ident, f"connection.{kind}.disconnected",
-                     {"url": rec.url if rec else None, "as": ((rec.user or {}).get("name") if rec else None)})
-    if refused is not None:
-        return refused
+    audit.config(request, ident, f"connection.{kind}.disconnected",
+                 {"url": rec.url if rec else None, "as": ((rec.user or {}).get("name") if rec else None)})
     await conns.disconnect(kind)
     log.info("connections: Mantel's %s connection removed by %s", LABEL[kind], ident.user.name or ident.user.id)
     return ok({"connection": status(request.app, kind)})
@@ -823,8 +792,10 @@ def redirect_uri(cfg) -> str:
     return cfg.base_url + CALLBACK.lstrip("/")
 
 
+@guard("owner", fresh="away", no_audit="starts a sign-in at Home Assistant; nothing is saved until api_save "
+                                        "(connection.ha.saved)")
 async def api_oauth_start(request: web.Request) -> web.Response:
-    ident = _editor(request)
+    ident = guarded(request)
     _not_app(request, "ha")
     body = await read_json(request)
     conns: Connections = request.app["connections"]
@@ -899,8 +870,9 @@ def _pending_of(request: web.Request, ident: Identity, pid: str) -> Pending | No
     return p
 
 
+@guard("manager")
 async def api_pending(request: web.Request) -> web.Response:
-    ident = _viewer(request)
+    ident = guarded(request)
     p = _pending_of(request, ident, request.match_info["pid"])
     if p is None:
         return error(404, "not_found", message="That sign-in is no longer waiting (ten minutes passed, or it was "
@@ -911,8 +883,9 @@ async def api_pending(request: web.Request) -> web.Response:
                            "warnings": _warnings("ha", p.result) if p.result else []}})
 
 
+@guard("manager", no_audit="drops a sign-in the same person started; nothing was saved")
 async def api_pending_cancel(request: web.Request) -> web.Response:
-    ident = _viewer(request)
+    ident = guarded(request)
     p = _pending_of(request, ident, request.match_info["pid"])
     if p is None:
         return error(404, "not_found")

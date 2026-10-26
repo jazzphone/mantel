@@ -32,13 +32,15 @@ class Unavailable(web.HTTPServiceUnavailable):
 
 def event(request: web.Request | None, ident: Any, action: str, detail: Any, *, app: web.Application | None = None,
           reason: str | None = None) -> dict:
-    """The row :func:`config` writes. ``ident`` is a ``sessions.Identity`` or a screen socket's ``authz.Principal``
-    (or None: a change made by Mantel itself, or by a peer with no session); the source address is the request's,
-    else the principal's."""
+    """The row :func:`config` writes. ``ident`` is a ``sessions.Identity`` or a screen socket's ``authz.Principal``,
+    or a bare person (``sessions.User``: code that is handed only the person, such as ``ingress.link_tablet``), or
+    None (a change made by Mantel itself, or by a peer with no session); the source address is the request's, else
+    the principal's."""
     from .sessions import client_ip
     app = app if app is not None else request.app
-    user = getattr(ident, "user", None)
-    device = getattr(ident, "device", None)
+    bare = ident is not None and not hasattr(ident, "user") and hasattr(ident, "role")
+    user = ident if bare else getattr(ident, "user", None)
+    device = None if bare else getattr(ident, "device", None)
     row = {"timestamp": app["clock"](), "actor": user.id if user else None, "role": user.role if user else None,
            "device": device.id if device else None, "device_role": device.role if device else None,
            "action": action, "detail": detail, "door": getattr(ident, "door", None),

@@ -52,12 +52,14 @@ from typing import Any, Callable, Mapping
 import aiohttp
 from aiohttp import web
 
-from . import atrest
+from . import atrest, audit
 from . import connections as C
 from .accounts import read_json
+from .guards import guard
+from .guards import ident as guarded
 from .connectors import fully, kiosk_satellite as KS
 from .connectors.kiosk import KioskFailed, address_text
-from .sessions import Identity, error, identity, ok
+from .sessions import error, ok
 
 log = logging.getLogger("mantel.tablet_links")
 
@@ -253,14 +255,11 @@ COMMAND_WORDS = {
 }
 
 
+@guard("person", no_audit="a house command: the gateway writes its own row (kind tablet) before it is sent")
 async def api_command(request: web.Request) -> web.Response:
     """Reload or Clear Cache, from HK Settings' Wall Tablets pages: handed to the command gateway as the person
-    asking (its RBAC, its audit row, its refusals). Commands off: refused here, nothing sent or recorded."""
-    ident = identity(request)
-    if ident.user is None:
-        return error(401, "unauthenticated")
-    if ident.device is not None:                 # a wall tablet sends no tablet commands (it drives its own page)
-        return error(403, "forbidden", message="A wall tablet cannot reload tablets.")
+    asking (its RBAC, its audit row, its refusals). Commands off: refused here, nothing sent or recorded. A wall
+    tablet sends no tablet commands (it drives its own page): its guard refuses one."""
     tid = _tid(request)
     body = await read_json(request)
     verb = body.get("verb")
@@ -330,8 +329,9 @@ def entry(app: web.Application, tid: str, t: Mapping[str, Any] | None) -> dict[s
             "unreadable": tid in links.unreadable}
 
 
+@guard("manager")
 async def api_list(request: web.Request) -> web.Response:
-    ident = C._viewer(request)
+    ident = guarded(request)
     app = request.app
     tablets = hk_tablets(app)
     links: TabletLinks = app["tablet_links"]
@@ -352,8 +352,8 @@ async def _none() -> None:
     return None
 
 
+@guard("manager")
 async def api_live(request: web.Request) -> web.Response:
-    C._viewer(request)
     tid = _tid(request)
     rec = _links(request).get(tid)
     if rec is None:
@@ -385,8 +385,8 @@ def _says(got: Mapping[str, Any]) -> dict[str, Any]:
     return {"url": got["url"], "info": got["info"], "expires": got["expires"], "missing": got["missing"]}
 
 
+@guard("owner", fresh="away", no_audit="tries the tablet's address and password; saves nothing")
 async def api_test(request: web.Request) -> web.Response:
-    C._editor(request)
     tid = _tid(request)
     t = _tablet(request, tid)
     body = await read_json(request)
@@ -397,8 +397,9 @@ async def api_test(request: web.Request) -> web.Response:
     return ok({"result": _says(got)})
 
 
+@guard("owner", fresh="away", audit="connection.tablet-<id>.saved")
 async def api_save(request: web.Request) -> web.Response:
-    ident = C._editor(request)
+    ident = guarded(request)
     tid = _tid(request)
     t = _tablet(request, tid)
     body = await read_json(request)
@@ -414,11 +415,9 @@ async def api_save(request: web.Request) -> web.Response:
                        by=ident.user.id, by_name=ident.user.name or ident.user.username,
                        expires=got["expires"], missing=list(got["missing"]))
     got.pop("token", None)
-    refused = C._audit(request, ident, f"connection.{rec.kind}.saved",
-                       {"url": rec.url, "app": rec.app, "as": (rec.device or {}).get("name"),
-                        "replaces": links.get(tid) is not None})
-    if refused is not None:
-        return refused
+    audit.config(request, ident, f"connection.{rec.kind}.saved",
+                 {"url": rec.url, "app": rec.app, "as": (rec.device or {}).get("name"),
+                  "replaces": links.get(tid) is not None})
     try:
         await links.save(rec)
     except (OSError, atrest.SecretKeyError) as exc:
@@ -430,17 +429,16 @@ async def api_save(request: web.Request) -> web.Response:
     return ok({"tablet": entry(request.app, tid, t), "result": _says(got)})
 
 
+@guard("owner", fresh="away", audit="connection.tablet-<id>.disconnected")
 async def api_disconnect(request: web.Request) -> web.Response:
-    ident = C._editor(request)
+    ident = guarded(request)
     tid = _tid(request)
     links = _links(request)
     rec = links.get(tid)
     if rec is None and tid not in links.unreadable:
         return error(404, "not_set_up", message="This tablet has no direct connection.")
-    refused = C._audit(request, ident, f"connection.{kind_of(tid)}.disconnected",
-                       {"url": rec.url if rec else None, "app": rec.app if rec else None})
-    if refused is not None:
-        return refused
+    audit.config(request, ident, f"connection.{kind_of(tid)}.disconnected",
+                 {"url": rec.url if rec else None, "app": rec.app if rec else None})
     try:
         await links.delete(tid)
     except OSError as exc:
