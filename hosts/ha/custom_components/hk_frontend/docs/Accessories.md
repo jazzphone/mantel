@@ -72,8 +72,9 @@ room’s order.
 
 **Edit mode** arranges a whole page in place, as the Home app does: for
 Owners and Admins (Home Assistant administrators), never at a wall tablet.
-It covers room pages and Home’s room sections; a Home Grid screen keeps its
-own editor.
+It covers room pages, Home (its room sections, Favorites and scenes row) and
+the Lights, Climate, Water, Security and Vacuums pages; a Home Grid screen
+keeps its own editor.
 
 - **The way in:** **Edit Page** in the menu, or in the tab bar’s **More**,
   on a page with something to arrange; or **Edit This Page** in any tile’s
@@ -96,6 +97,26 @@ own editor.
 
 While editing, tiles sit in plain reading order, which is exactly the order
 saved; after Done the page packs them again, so a Tall tile’s gap may fill.
+
+What each page saves:
+
+- **Lights, Climate and Water** list their tiles room by room. Each room’s
+  section saves that room’s **Tile Order**, so reordering lights on the
+  Lights page reorders them on the room’s page and on Home too (the bar says
+  so).
+- **Security and Vacuums** save the page’s own order (the same one as
+  **Order → Tile Order** below). Security ignores tile size, so its tiles have no
+  badge; on Vacuums, whole vacuum cards move.
+- **Doors & Windows** offers no Edit Page: its order comes from Status &
+  Chips.
+- **Favorites** save this screen’s favorites. They are always one height, so
+  there is no badge; a favorite whose accessory is gone keeps its place.
+- **The scenes row** on Home moves sideways, its pills that open a page
+  included, and saves the screen’s Scenes order (the same list as the
+  screen’s Scenes in HK Settings). A room page’s scenes row saves that room’s own
+  Scenes list. While editing, a mouse drag no longer scrolls the row; carry a
+  scene near either end and the row scrolls by itself. A finger that moves
+  first still scrolls it.
 
 ## What it says
 

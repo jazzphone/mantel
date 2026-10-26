@@ -57,7 +57,8 @@
 //       moves first scrolls, the others slide aside (FLIP), the page scrolls
 //       near its top and bottom edges, and a size badge (Regular | Tall)
 //       where opts.sizable(el) says the size applies (default: a tile that
-//       has a layout -- hk-tile.js). A group: { grid, root, place, initial,
+//       has a layout -- hk-tile.js); opts.idOf(el) says what a member is
+//       when it is not a pill with an entity. A group: { grid, root, place, initial,
 //       tiles(), ids(), moved(), sizes(), restore(), leave() }.
 //   roomOrders(groups, ctx)  the rooms' whole Tile Orders (accessory/order),
 //       each room's list with the pills shown in the order left and every
@@ -318,14 +319,17 @@
     var m = this.members;
     return [].filter.call(this.root.children || [], function (c) { return m.indexOf(c) >= 0; });
   };
-  Group.prototype.ids = function () { return this.tiles().map(function (t) { return t._config.entity; }); };
+  // (a pill's entity; opts.idOf(el) for a group of other things -- the
+  // Vacuums page's cards, each in a grid of its own: hk-edit-pages.js)
+  Group.prototype.idOf = function (t) { return this.o.idOf ? this.o.idOf(t) : t._config.entity; };
+  Group.prototype.ids = function () { var self = this; return this.tiles().map(function (t) { return self.idOf(t); }); };
   Group.prototype.moved = function () { return this.ids().join('|') !== this.initial.join('|'); };
   Group.prototype.sizes = function () {
     var self = this, out = [];
     this.members.forEach(function (t, i) {
       if (!self.sizable(t)) return;
       var tall = isTall(t);
-      if (tall !== self.tall0[i]) out.push({ entity_id: t._config.entity, size: tall ? 'tall' : 'regular' });
+      if (tall !== self.tall0[i]) out.push({ entity_id: self.idOf(t), size: tall ? 'tall' : 'regular' });
     });
     return out;
   };
@@ -598,7 +602,8 @@
     return (ctx.grids || []).map(function (grid) {
       if (ctx.taken.indexOf(grid) >= 0 || !grid._e) return null;
       var tiles = (grid._kids || []).filter(function (k) {
-        return k && k._config && k._config.entity && k.parentNode === grid._e && claim(placeOf(k._config), k._config, k);
+        var id = k && k._config && (o && o.idOf ? o.idOf(k) : k._config.entity);
+        return id && k.parentNode === grid._e && claim(placeOf(k._config), k._config, k);
       });
       if (!tiles.length) return null;
       ctx.taken.push(grid);
