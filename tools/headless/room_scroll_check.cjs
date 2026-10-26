@@ -67,7 +67,7 @@ const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
    await page.waitForFunction(()=>!!document.querySelector('hk-settings-panel')?.shadowRoot?.querySelector('hk-grid-editor')?.previewView?.isConnected);
    await page.evaluate(()=>{window.ed=document.querySelector('hk-settings-panel').shadowRoot.querySelector('hk-grid-editor');ed.select('room');window.seg=(v)=>[...ed.sidebar.querySelectorAll('.cell')].find(c=>c.querySelector('.t')?.textContent==='Accessories').querySelector('[role=radio][data-fk$=":'+v+'"]');seg('summary').click();ed.save();});
    await page.waitForFunction(()=>!ed.busy&&!ed.dirty());
-   assert(await page.evaluate(()=>ed.grid.items[0].opts.accessory_display==='summary'));
+   assert(await page.evaluate(()=>(ed.grid.items[0].opts.accessory_display||'summary')==='summary'));   // Summary is the default: saved as no value
    await page.evaluate(()=>{seg('scroll').click();ed.save();});
    await page.waitForFunction(()=>!ed.busy&&!ed.dirty());
    assert.deepEqual(errors,[]);
