@@ -91,21 +91,33 @@ class FakeMantel:
     # ---- pairing by code (Mantel's linked_pairing.py, the same proofs)
     code: str | None = None          # the pending code ("ABCDE-FGHJK-MNPQR-STVWX"), set by a test
     lie = False                      # answer with a proof that does not match (a look-alike Mantel)
+    pair_version = 2                 # 1: an older Mantel, which knows only v1 (anything else is "malformed")
+    own_address: str | None = None   # the addresses this Mantel calls its own (None: the one it listens on)
+    signs_address: str | None = None # sign the answer for another address than the one asked (a relay's trick)
 
     async def pair(self, request: web.Request) -> web.StreamResponse:
         import hashlib, hmac as _hmac, re as _re
         body = await request.json()
-        self.received.append({"type": "pair", **{k: body.get(k) for k in ("code_id", "name")}})
+        self.received.append({"type": "pair", **{k: body.get(k) for k in ("v", "code_id", "name", "address")}})
+        if body.get("v") != 1 and (self.pair_version == 1 or body.get("v") != 2):
+            return web.json_response({"error": {"code": "malformed", "message": "no"}}, status=400)
         raw = _re.sub(r"[\s-]", "", self.code or "").upper()
         key = hashlib.sha256(b"mantel-link-pair-v1|key|" + raw.encode()).digest()
         mac = lambda *p: _hmac.new(key, "|".join(p).encode(), hashlib.sha256).hexdigest()  # noqa: E731
+        v2 = body["v"] == 2
+        label = "mantel-link-pair-v2" if v2 else "mantel-link-pair-v1"
+        addr = [body.get("address")] if v2 else []
         if not raw or body.get("code_id") != raw[:5] or body.get("proof") != mac(
-                "mantel-link-pair-v1", "client", body["code_id"], body["nonce"], body["name"]):
+                label, "client", body["code_id"], body["nonce"], body["name"], *addr):
             return web.json_response({"error": {"code": "invalid_code", "message": "no"}}, status=403)
+        if v2 and body["address"] != (self.own_address or self.url):     # self.url is normalised already
+            return web.json_response({"error": {"code": "wrong_address", "message": "no"}}, status=403)
         self.code = None
-        proof = mac("mantel-link-pair-v1", "server", body["code_id"], body["nonce"], INSTANCE,
+        signed = [self.signs_address or body["address"]] if v2 else []
+        proof = mac(label, "server", body["code_id"], body["nonce"], *signed, INSTANCE,
                     hashlib.sha256(self.token.encode()).hexdigest())
-        return web.json_response({"v": 1, "token": self.token, "instance": INSTANCE,
+        return web.json_response({"v": body["v"], "token": self.token, "instance": INSTANCE,
+                                  **({"address": signed[0]} if v2 else {}),
                                   "proof": ("0" * 64) if self.lie else proof})
 
     async def start(self) -> "FakeMantel":

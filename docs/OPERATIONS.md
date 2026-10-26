@@ -609,7 +609,7 @@ What is still not done, as of 0.1.75 (the second audit pass, [development/Audit-
 | Gap | Effect |
 |---|---|
 | **No public release yet** | No tags, no add-on repository branch, no published images: the install pages' repository and image steps work from the first release ([Releasing](development/Releasing.md)). |
-| **Mantel Link's pairing proof does not bind Mantel's address** | A look-alike relaying the pairing could learn the credential; check the address you pair with. Needs pairing protocol v2 on both sides (first pass, T2). |
+| **An older Mantel Link pairs without the address** | Pairing protocol v2 (Mantel Link 0.1.6) puts the address Home Assistant used in both proofs, and Mantel refuses one that isn't its own (first pass, T2). Mantel still accepts v1 from an older Mantel Link, whose proof doesn't name the address: with one, check the address you pair with, or update Mantel Link first. |
 | **Wall Tablet accounts are not bound to one room** | One tablet per account; which room it may enrol in is a product decision (first pass, T6). |
 | **Two people editing one screen's Home Grid at once** | The later Save replaces the earlier one (second pass, SET-7). |
 | **Place defaults after a first save** | A house's hemisphere and US-only themes follow Home Assistant's place only until the house settings are first saved; set them in Sky afterwards (second pass, SET-2). |

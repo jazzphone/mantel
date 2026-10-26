@@ -204,6 +204,17 @@ named), the model takes a `before` callback that writes the row between the chec
 list with its reason (sign-in, the app's DPoP routes, `/linked/*`, the media proxy, static files, health). Each
 guard on POST, PUT, PATCH or DELETE names its audit or says why it has none.
 
+## Page health and the Performance page
+
+Each page (the dashboard, `web/home.js`; Mantel Settings, `web/shim/settings-page.js`) tells its socket how it is doing
+through `web/shim/page-health.js`: a `load` frame (how the page before it ended), a `beat` every minute, and one `draw`
+frame with the time to first draw, each with the heap, the sockets reopened (`hub.reconnects`) and the registry
+refreshes (`registryRefreshed()`, a counter later phases bump). `page_health.py` logs them and keeps the last 24 hours
+per tablet or person in `RING`: memory only, bounded (`PER_SCREEN` samples, `SCREENS` screens). `ClientSession.pump`
+times each flush and send into `performance.STATS`, with the HA event rate; `GET /api/performance`
+(`@guard("manager")`, so never a tablet's session) summarises both for **About** → **Performance** (the `performance`
+section of `/api/admin/overview`, `web/shim/settings/performance.js`).
+
 ## The settings store
 
 HK's settings in Home Assistant live in a config entry, with no history and no per-user scope. In Mantel they live
