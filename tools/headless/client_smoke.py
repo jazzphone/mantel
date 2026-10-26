@@ -1027,8 +1027,10 @@ async def smoke(shot=None, shots=None):
                     stored = app["user_data"].get(f"u:{owner.user.id}", "hk_music_focus")
                     assert stored and stored["key"] == "media_player.offline_den", stored
                     await browser.eval("localStorage.removeItem('hk_music_focus')")
-                    await browser.eval("location.reload()")
-                    assert await browser.wait("window.__mantelReady === true", 25), "the page did not reload"
+                    # the old page still says ready until it is gone: mark it, so only the new page answers
+                    await browser.eval("window.__oldPage = true; location.reload()")
+                    assert await browser.wait("!window.__oldPage && window.__mantelReady === true && !!window.hkShell",
+                                              25), "the page did not reload"
                     await browser.eval("""window.__deep = (root, out = []) => {
                       for (const e of root.querySelectorAll('*')) { out.push(e); if (e.shadowRoot) window.__deep(e.shadowRoot, out); }
                       return out; }""")

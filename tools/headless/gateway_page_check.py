@@ -104,9 +104,9 @@ async def check() -> dict:
                 })()""")
                 app["rbac"].add_grant(Grant(effect="allow", actions={"control", "control.sensitive"}, resource_kind="entity",
                                             resource="lock.proof", devices={device_id}))
-                await browser.eval("location.reload(); true")
-                await asyncio.sleep(0.5)
-                if not await browser.wait("window.__mantelReady === true && window.__mantelHub.commandsEnabled()", 30):
+                await browser.eval("window.__oldPage = true; location.reload(); true")   # only the new page answers
+                if not await browser.wait("!window.__oldPage && window.__mantelReady === true"
+                                          " && window.__mantelHub.commandsEnabled()", 30):
                     raise AssertionError("the tablet's page did not load: " + json.dumps(browser.console[-15:]))
                 out["tablet_session"] = await browser.eval(
                     "fetch('/api/session').then(r => r.json()).then(j => [!!j.user, j.device && j.device.role])")
