@@ -49,3 +49,6 @@ apple/**/.swiftpm/
 apple/**/xcuserdata/
 apple/**/*.xcuserstate
 apple/**/project.xcworkspace/
+
+# local check results (tools/ci.py)
+.ci/

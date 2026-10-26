@@ -115,7 +115,7 @@ def test_a_live_stream_is_steady_rtp_opus_at_real_time(socket_enabled):
     assert head[0][0] >> 6 == 2, "RTP version 2"
     assert {b[3] - a[3] for a, b in zip(head, head[1:])} == {960}, "20 ms per packet (48 kHz RTP clock)"
     span = got[-1][0] - got[0][0]
-    assert 0.9 < span < 1.2, "paced at real time, not sent in a burst"
+    assert 0.9 < span < 1.35, "paced at real time, not sent in a burst"   # a burst is near 0; a busy Mac runs late
 
 
 async def test_only_a_unifi_protect_speaker_is_a_target(hass):

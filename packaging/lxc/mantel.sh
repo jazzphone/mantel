@@ -154,7 +154,9 @@ follow_source_version() {  # follow_source_version ENV_FILE CONFIG_YAML
   local version
   version="$(source_version "$2")"
   [ -n "$version" ] || return 0
-  sed -i -E "s#^(MANTEL_(SERVER|TRANSCODE|CADDY)_IMAGE=ghcr\.io/jazzphone/mantel-[a-z]+):[0-9]+\.[0-9]+\.[0-9]+[0-9A-Za-z.+-]*\$#\1:${version}#" "$1"
+  # -i.bak, then remove it: GNU and BSD sed both take that (BSD reads a bare -i's next word as the suffix)
+  sed -i.bak -E "s#^(MANTEL_(SERVER|TRANSCODE|CADDY)_IMAGE=ghcr\.io/jazzphone/mantel-[a-z]+):[0-9]+\.[0-9]+\.[0-9]+[0-9A-Za-z.+-]*\$#\1:${version}#" "$1" &&
+    rm -f "$1.bak"
 }
 
 update_script() {

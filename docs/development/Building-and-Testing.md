@@ -24,6 +24,35 @@ Optional tools that some checks use:
 | Python 3.14 | Home Assistant's test harness, for the HA package's Python suites |
 | macOS | the HA package's JavaScript suites (they run on JavaScriptCore) |
 
+## Local checks
+
+The checks run on the developer's Mac, not on GitHub (its workflows run only by hand). One command runs them and
+prints one table:
+
+```bash
+~/.venvs/mantel/bin/python tools/ci.py quick     # about 4 minutes: the main suite and the release checks
+~/.venvs/mantel/bin/python tools/ci.py full      # about 15: also the HA build, HK Frontend's suites, the headless checks
+~/.venvs/mantel/bin/python tools/ci.py full --only js    # only the steps whose name contains "js"
+~/.venvs/mantel/bin/python tools/ci.py --list            # every step and its tier
+```
+
+- **quick** is the main suite, `check_links`, `check_version`, `package_check --release`, and the private words
+  in what is committed and in the commit messages `origin/main` hasn't got.
+- **full** adds the HA build, HK Frontend's Python and JavaScript suites in it, the headless checks one at a time,
+  and the Caddy image test (it builds `mantel-caddy:ci`) when Docker is running.
+- Each step ends **passed**, **failed** or **skipped**, and a skip says why (no Docker, no Chrome, no private
+  words, no `~/.venvs/hk-ha-test`). A skip is never counted as a pass.
+- The result is written to `.ci/last-run.json` with the commit it ran on and any uncommitted files; a failed
+  step's output goes to `.ci/<step>.log`. The exit status is 0 only when no step failed.
+- It uses `$MANTEL_PY`, else `~/.venvs/mantel`, else `.venv`. The private words come from `HK_PRIVATE`,
+  `HK_PRIVATE_FILE`, or `~/.config/mantel/private-words`.
+
+`tools/ci.py --install-hooks` installs two git hooks: **pre-commit** checks the staged files for private words,
+and **pre-push** runs `quick`. Skip the push check deliberately with `git push --no-verify`.
+
+The installer tests (`tests/test_lxc_installer.py`) need bash 4 or later; macOS has 3.2, so install a newer one
+(`brew install bash`) or they are skipped.
+
 ## The main suite
 
 ```bash
@@ -231,13 +260,9 @@ HK_PRIVATE_FILE=~/.config/mantel/private-words .venv/bin/python tools/check_priv
 HK_PRIVATE_FILE=~/.config/mantel/private-words .venv/bin/python tools/check_private.py --messages origin/main..HEAD
 ```
 
-We recommend running it as a pre-commit hook. Save this as `.git/hooks/pre-commit` and make it executable
-(`chmod +x .git/hooks/pre-commit`):
-
-```sh
-#!/bin/sh
-HK_PRIVATE_FILE="$HOME/.config/mantel/private-words" exec .venv/bin/python tools/check_private.py
-```
+Without an option it reads the working tree; `--rev HEAD` reads a commit as git has it (what a push sends) and
+`--staged` the index (what a commit takes), so a local edit you never commit is not a finding.
+`tools/ci.py --install-hooks` installs it as the pre-commit hook, with `--staged`.
 
 With the words set, `tests/test_check_private.py` also checks the whole repository as part of the main suite.
 

@@ -1,8 +1,8 @@
 name: Tests
 
+# by hand only (Actions -> Tests -> Run workflow): the checks run on the developer's Mac, with tools/ci.py and its
+# pre-push hook (docs/development/Building-and-Testing.md, "Local checks")
 on:
-  push:
-  pull_request:
   workflow_dispatch:
 
 permissions:
@@ -25,10 +25,6 @@ jobs:
       - run: python tools/check_version.py
       # the words are a repository secret (one regular expression), never a file in the repository
       - run: python tools/check_private.py
-        env:
-          HK_PRIVATE: ${{ secrets.HK_PRIVATE }}
-      - if: github.event_name == 'pull_request'
-        run: python tools/check_private.py --messages "${{ github.event.pull_request.base.sha }}..HEAD"
         env:
           HK_PRIVATE: ${{ secrets.HK_PRIVATE }}
 
@@ -72,8 +68,6 @@ jobs:
   javascript:
     # HK's card suites run on JavaScriptCore, which every macOS runner has
     name: HK Frontend cards (JavaScriptCore)
-    # macOS minutes count ten times on a private repository: there, run it by hand (workflow_dispatch)
-    if: ${{ !github.event.repository.private || github.event_name == 'workflow_dispatch' }}
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4

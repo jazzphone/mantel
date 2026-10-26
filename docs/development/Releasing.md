@@ -1,7 +1,9 @@
 # Releasing
 
-A release is a tag. Pushing `vX.Y.Z` runs [`.github/workflows/release.yml`](../../.github/workflows/release.yml),
-which publishes the images and Home Assistant's add-on repository; nothing is published by hand. This page says
+A release is a tag. Running [`.github/workflows/release.yml`](../../.github/workflows/release.yml) by hand from
+the tag `vX.Y.Z`, with `publish` on, publishes the images and Home Assistant's add-on repository; nothing is
+published any other way. Pushing a tag starts nothing: the workflows run only by hand, and the checks run on the
+developer's Mac ([Building and testing](Building-and-Testing.md#local-checks)). This page says
 what a release contains, how to make one, how to try the workflow without publishing anything, and the one-time
 steps the repository's owner has to do after the first release.
 
@@ -17,7 +19,7 @@ it is the number Home Assistant compares to offer **Update**. Two more files car
 | `packaging/connect-app/config.yaml` | `version: "X.Y.Z"` |
 | `pyproject.toml` | `version = "X.Y.Z"` |
 
-`python tools/check_version.py` checks that they agree (the Tests workflow runs it on every push). With
+`python tools/check_version.py` checks that they agree (`tools/ci.py` runs it before every push). With
 `--tag vX.Y.Z` it also checks that the tag is exactly `v` plus that version and that `CHANGELOG.md` has a
 `## X.Y.Z` section; the release workflow runs it that way and stops before building anything if either is wrong.
 
@@ -79,12 +81,13 @@ as that branch's `version` goes up, so it must never name an image that isn't th
    git push origin main
    ```
 
-   Wait for the Tests run on that commit to pass.
-4. Tag that commit and push the tag:
+   Run `tools/ci.py full` on that commit first; the push itself runs `quick` (the pre-push hook).
+4. Tag that commit, push the tag, and run the workflow from it:
 
    ```bash
    git tag -a v0.1.37 -m "Mantel 0.1.37"
    git push origin v0.1.37
+   gh workflow run release.yml --ref v0.1.37 -f publish=true
    ```
 
 5. Watch **Actions** → **Release**. The first job checks the version and runs the main suite; building the arm64
@@ -98,9 +101,8 @@ as that branch's `version` goes up, so it must never name an image that isn't th
    offers Mantel 0.1.37.
 7. Add a new `## Unreleased` heading at the top of `CHANGELOG.md` for the next release's notes.
 
-To publish again from an existing tag (for example after the one-time steps below), run the workflow by hand
-**from the tag** with `publish` on: `gh workflow run release.yml --ref v0.1.37 -f publish=true`. The workflow
-refuses `publish` from a branch.
+To publish again from an existing tag (for example after the one-time steps below), run the same command again.
+The workflow refuses `publish` from a branch.
 
 ## Try it without publishing
 
@@ -109,9 +111,6 @@ refuses `publish` from a branch.
 ```bash
 gh workflow run release.yml --ref main -f publish=false
 ```
-
-or push any commit to the branch `release-dry-run` (`git push -f origin HEAD:release-dry-run`), which runs the same
-dry run from that commit, with no publishing possible, before the workflow is even on `main`.
 
 That dry run does everything but push: the version and private-content checks, the main suite, the App staging,
 every image for both architectures, and the add-on repository, which it keeps as the run's `ha-apps-X.Y.Z`

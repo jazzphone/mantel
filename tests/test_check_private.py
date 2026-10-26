@@ -49,6 +49,21 @@ def test_nothing_given_is_nothing_to_check(monkeypatch, capsys):
     assert "nothing to check" in capsys.readouterr().out
 
 
+def test_a_commit_or_the_index_is_read_as_git_has_it(tmp_path):
+    repo = _repo(tmp_path)
+    pats = cp.patterns({"HK_PRIVATE": "fictional-farm"})
+    (repo / "a.py").write_text("x = 1\n")                        # fixed in the working tree only
+    assert cp.scan_files(repo, pats) == []
+    assert cp.scan_files(repo, pats, rev="HEAD") == ["a.py:2"]     # what a push sends still has it
+    assert cp.scan_files(repo, pats, staged=True) == ["a.py:2"]
+    (repo / "c.txt").write_text("a Fictional-Farm note\n")       # a local edit, never staged: not a finding
+    assert cp.scan_files(repo, pats, staged=True) == ["a.py:2"]
+    subprocess.run(["git", "add", "a.py", "c.txt"], cwd=repo, check=True)
+    assert cp.scan_files(repo, pats, staged=True) == ["c.txt:1"]
+    assert cp.scan_files(repo, pats, rev="HEAD") == ["a.py:2"]
+
+
 @pytest.mark.skipif(not (cp.patterns()), reason="no private words given (HK_PRIVATE, HK_PRIVATE_FILE)")
 def test_this_repository_is_clean():
-    assert cp.scan_files(ROOT, cp.patterns()) == []
+    # as committed: a local edit that is never committed (a signing team in the Xcode project) is not published
+    assert cp.scan_files(ROOT, cp.patterns(), rev="HEAD") == []
