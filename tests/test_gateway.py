@@ -182,7 +182,8 @@ async def test_a_command_carrying_a_step_up_is_refused_and_nothing_is_forwarded(
     assert reply["error"]["code"] == "invalid_command" and gw.fake.sent == []
     (row,) = gw.audit()
     assert (row["decision"], row["reason"], row["result"]) == ("denied", "invalid_step_up", "not_sent")
-    assert "2580" not in json.dumps(row)
+    # the PIN never in the row: as a whole value, not a substring (a random id may contain those digits)
+    assert '"2580"' not in json.dumps(row) and not any("pin" in str(k).lower() for k in row)
     await ws.close()
 
 
