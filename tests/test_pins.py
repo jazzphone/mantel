@@ -194,5 +194,5 @@ async def test_with_commands_off_a_pin_changes_nothing(off):
     await ws.send_json({"type": "command", "id": 1, **unlock(step_up={"method": "pin", "pin": ADULT_PIN})})
     reply = await ws.receive_json()
     assert reply["code"] == "commands_disabled" and reply["id"] == 1
-    assert [r["action"] for r in off.audit()] == ["device.enroll"]          # the tablet's enrolment, no command
+    assert [r["action"] for r in off.audit() if not r["action"].startswith("account.pin")] == ["device.enroll"]  # no command
     await ws.close()

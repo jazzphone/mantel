@@ -120,3 +120,52 @@ async def test_revoking_a_session_is_audited_first(mantel, monkeypatch):
     [row] = rows(mantel, "session.")
     assert row["action"] == "session.revoke" and row["actor"] == uid
     assert json.loads(row["target"]) == {"session": other.session_id, "user": uid, "own": True}
+
+
+# -- screens and the setup guide ------------------------------------------------------------------------------------
+async def test_default_screens_are_audited_first(mantel, monkeypatch):
+    from test_default_screens import boards, put
+    boards(mantel, "dashboard-kitchen", "dashboard-loft")
+    kid = await mantel.user("kid", "child")
+    await owner(mantel)
+    assert (await put(mantel, "/api/default-screen", "dashboard-loft")).status == 200
+    assert (await put(mantel, f"/api/users/{kid}/default-screen", "dashboard-kitchen")).status == 200
+    got = [(r["action"], json.loads(r["target"])) for r in rows(mantel, "default_screen.")]
+    me = mantel.store.db.execute("SELECT id FROM users WHERE username = 'robin'").fetchone()[0]
+    assert got == [("default_screen.set", {"user": me, "screen": "dashboard-loft"}),
+                   ("default_screen.set", {"user": kid, "screen": "dashboard-kitchen"})]
+    broken_audit(monkeypatch, mantel)
+    r = await put(mantel, "/api/default-screen", "dashboard-kitchen")
+    assert r.status == 503
+    monkeypatch.undo()
+    assert (await (await mantel.get("/api/default-screen")).json())["screen"] == "dashboard-loft"
+
+
+async def test_the_setup_guide_s_choices_are_audited_first(mantel, monkeypatch):
+    from test_setup_guide import put
+    await owner(mantel)
+    assert (await put(mantel, "/api/setup/steps/people", {"state": "skipped"})).status == 200
+    assert (await put(mantel, "/api/setup", {"dismissed": True})).status == 200
+    got = [(r["action"], json.loads(r["target"])) for r in rows(mantel, "setup.")]
+    assert got == [("setup.step", {"step": "people", "state": "skipped"}), ("setup.dismissed", {"dismissed": True})]
+    broken_audit(monkeypatch, mantel)
+    assert (await put(mantel, "/api/setup", {"dismissed": False})).status == 503
+    monkeypatch.undo()
+    assert (await (await mantel.get("/api/setup")).json())["dismissed"] is True
+
+
+async def test_keypad_pins_are_audited_first_never_the_pin(mantel, monkeypatch):
+    kid = await mantel.user("kid", "child")
+    await owner(mantel)
+    h = mantel.headers()
+    assert (await mantel.client.put("/api/account/pin", json={"pin": "482916"}, headers=h)).status == 200
+    assert (await mantel.client.delete("/api/account/pin", headers=h)).status == 200
+    broken_audit(monkeypatch, mantel)
+    assert (await mantel.client.put("/api/account/pin", json={"pin": "482916"}, headers=h)).status == 503
+    monkeypatch.undo()
+    assert (await (await mantel.get("/api/account/pin")).json())["pin"] is False
+    await mantel.app["pins"].set_pin(kid, "731594")
+    assert (await mantel.client.delete(f"/api/users/{kid}/pin", headers=h)).status == 200
+    got = [r["action"] for r in rows(mantel, "account.pin")]
+    assert got == ["account.pin.set", "account.pin.remove", "account.pin.clear"]
+    assert "482916" not in json.dumps(mantel.app["audit"].rows())

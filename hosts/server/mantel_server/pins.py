@@ -27,7 +27,10 @@ from aiohttp import web
 from argon2 import PasswordHasher
 from argon2.exceptions import InvalidHashError, VerificationError, VerifyMismatchError
 
-from .accounts import AttemptLimiter, PolicyError, limited, read_json, require_fresh, require_manager, require_user
+from . import audit
+from .accounts import AttemptLimiter, PolicyError, limited, read_json, who
+from .guards import guard
+from .guards import ident as guarded
 from .sessions import _may_manage, error, ok
 
 log = logging.getLogger("mantel.pins")
@@ -101,9 +104,10 @@ class Pins:
         return found
 
     # -- setting ----------------------------------------------------------------------------------
-    async def set_pin(self, user_id: str, pin: object) -> None:
+    async def set_pin(self, user_id: str, pin: object, before: Callable[[], None] | None = None) -> None:
         """Set or change a person's PIN. PolicyError (pin_invalid, pin_too_simple, pin_unavailable,
-        too_many_attempts with `.retry_after`)."""
+        too_many_attempts with `.retry_after`). ``before()`` runs once the PIN is accepted and before it is stored
+        (the audit row); if it raises, nothing is stored."""
         check_pin(pin)
         key = f"user:{user_id}"
         async with self._lock():
@@ -116,6 +120,8 @@ class Pins:
                 self.set_refusals.fail(key)
                 raise PolicyError("pin_unavailable", "choose another PIN")
             hashed = await self._hash(pin)  # type: ignore[arg-type]
+            if before is not None:
+                before()
             now = self.clock()
             with self.db:
                 self.db.execute(
@@ -181,17 +187,20 @@ def pins_of(request: web.Request) -> Pins:
     return request.app["pins"]
 
 
+@guard("person", device_ok=True)
 async def get_pin(request: web.Request) -> web.Response:
-    ident = require_user(request)
+    ident = guarded(request)
     return ok(pins_of(request).status(ident.user.id))
 
 
+@guard("person", device_ok=True, fresh="always", audit="account.pin.set")
 async def put_pin(request: web.Request) -> web.Response:
-    ident = require_user(request)
-    require_fresh(request, ident)
+    ident = guarded(request)
     body = await read_json(request)
-    try:
-        await pins_of(request).set_pin(ident.user.id, body.get("pin"))
+    me = who(request.app["accounts"].get_user(ident.user.id))
+    try:          # the audit row once the PIN is accepted, before it is stored; never the PIN
+        await pins_of(request).set_pin(ident.user.id, body.get("pin"),
+                                       before=lambda: audit.config(request, ident, "account.pin.set", me))
     except PolicyError as exc:
         if exc.code == "too_many_attempts":
             return limited(getattr(exc, "retry_after", WINDOW))
@@ -199,19 +208,24 @@ async def put_pin(request: web.Request) -> web.Response:
     return ok(pins_of(request).status(ident.user.id))
 
 
+@guard("person", device_ok=True, fresh="always", audit="account.pin.remove")
 async def delete_pin(request: web.Request) -> web.Response:
-    ident = require_user(request)
-    require_fresh(request, ident)
+    ident = guarded(request)
+    if pins_of(request).status(ident.user.id)["pin"]:
+        audit.config(request, ident, "account.pin.remove", who(request.app["accounts"].get_user(ident.user.id)))
     return ok({"removed": pins_of(request).remove(ident.user.id)})
 
 
+@guard("manager", audit="account.pin.clear")
 async def clear_users_pin(request: web.Request) -> web.Response:
-    ident = require_manager(request)
+    ident = guarded(request)
     target = request.app["accounts"].get_user(request.match_info["id"])
     if target is None:
         return error(404, "not_found")
     if not _may_manage(ident.user, target["role"]):
         return error(403, "forbidden")
+    if pins_of(request).status(target["id"])["pin"]:
+        audit.config(request, ident, "account.pin.clear", {**who(target), "role": target["role"]})
     return ok({"removed": pins_of(request).remove(target["id"])})
 
 
