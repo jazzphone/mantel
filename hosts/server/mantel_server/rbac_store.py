@@ -229,10 +229,13 @@ def notify_sessions(hub: Any) -> None:
 def register(app: web.Application, hub: Any, *, identity: Callable[[web.Request], Any],
              store: RbacStore | None = None, conn: sqlite3.Connection | None = None,
              csrf: Callable[[web.Request], bool] | None = None,
-             audit: Callable[[dict], Any] | None = None, prefix: str = PREFIX) -> RbacStore:
+             audit: Callable[[dict], Any] | None = None, prefix: str = PREFIX,
+             guard: Callable[..., Callable] | None = None) -> RbacStore:
     """Add the Owner-only grant/role/scope routes. `identity(request)` (sync or async) returns None
     or {"user_id", "role"}; `csrf(request)` (P3.1's check) must pass for every change; `audit(event)`
-    runs before a change is made, and if it raises the change is refused (503)."""
+    runs before a change is made, and if it raises the change is refused (503). ``guard`` is guards.guard in
+    the server (Rules.md rule 7): an Owner's own session, never at a wall tablet; a bare app (the tests) has
+    only the checks here."""
     if store is None:
         if conn is None:
             raise ValueError("register needs a store or a connection")
@@ -363,12 +366,17 @@ def register(app: web.Application, hub: Any, *, identity: Callable[[web.Request]
         notify_sessions(hub)
         return web.json_response({"areas": sorted(saved)})
 
-    app.router.add_get(f"{prefix}/grants", list_grants)
-    app.router.add_post(f"{prefix}/grants", add_grant)
-    app.router.add_delete(f"{prefix}/grants/{{id}}", remove_grant)
-    app.router.add_get(f"{prefix}/roles", list_roles)
-    app.router.add_put(f"{prefix}/roles/{{role}}", set_role)
-    app.router.add_delete(f"{prefix}/roles/{{role}}", clear_role)
-    app.router.add_get(f"{prefix}/scopes/{{kind}}/{{id}}", get_scopes)
-    app.router.add_put(f"{prefix}/scopes/{{kind}}/{{id}}", set_scopes)
+    def g(audit_action: str | None = None):
+        if guard is None:
+            return lambda handler: handler
+        return guard("owner", audit=audit_action)
+
+    app.router.add_get(f"{prefix}/grants", g()(list_grants))
+    app.router.add_post(f"{prefix}/grants", g("rbac.grant.add")(add_grant))
+    app.router.add_delete(f"{prefix}/grants/{{id}}", g("rbac.grant.remove")(remove_grant))
+    app.router.add_get(f"{prefix}/roles", g()(list_roles))
+    app.router.add_put(f"{prefix}/roles/{{role}}", g("rbac.role.set")(set_role))
+    app.router.add_delete(f"{prefix}/roles/{{role}}", g("rbac.role.clear")(clear_role))
+    app.router.add_get(f"{prefix}/scopes/{{kind}}/{{id}}", g()(get_scopes))
+    app.router.add_put(f"{prefix}/scopes/{{kind}}/{{id}}", g("rbac.scopes.set")(set_scopes))
     return store

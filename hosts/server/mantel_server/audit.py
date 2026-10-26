@@ -32,8 +32,9 @@ class Unavailable(web.HTTPServiceUnavailable):
 
 def event(request: web.Request | None, ident: Any, action: str, detail: Any, *, app: web.Application | None = None,
           reason: str | None = None) -> dict:
-    """The row :func:`config` writes. ``ident`` is a ``sessions.Identity`` (or None: a change made by Mantel
-    itself, or by a peer with no session); ``request`` gives the source address."""
+    """The row :func:`config` writes. ``ident`` is a ``sessions.Identity`` or a screen socket's ``authz.Principal``
+    (or None: a change made by Mantel itself, or by a peer with no session); the source address is the request's,
+    else the principal's."""
     from .sessions import client_ip
     app = app if app is not None else request.app
     user = getattr(ident, "user", None)
@@ -41,7 +42,7 @@ def event(request: web.Request | None, ident: Any, action: str, detail: Any, *, 
     row = {"timestamp": app["clock"](), "actor": user.id if user else None, "role": user.role if user else None,
            "device": device.id if device else None, "device_role": device.role if device else None,
            "action": action, "detail": detail, "door": getattr(ident, "door", None),
-           "source_ip": client_ip(request) if request is not None else None}
+           "source_ip": client_ip(request) if request is not None else getattr(ident, "source_ip", None)}
     if reason is not None:
         row["reason"] = reason
     return row

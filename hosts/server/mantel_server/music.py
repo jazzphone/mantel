@@ -1652,12 +1652,11 @@ def register(app: Any, hub: Any, hooks: Any = None) -> MusicHost:
 
     ws_handlers(app).update({"music_used": music_used})
 
+    from .guards import guard
+
+    @guard("manager")
     async def api_status(request) -> Any:
         from aiohttp import web
-        from .sessions import identity
-        ident = identity(request)
-        if ident.user is None or ident.user.role not in ("owner", "admin"):
-            raise web.HTTPForbidden(text="Owner or Admin only")
         return web.json_response(host.status())
 
     app.router.add_get("/api/music/status", api_status)

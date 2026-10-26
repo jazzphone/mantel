@@ -14,7 +14,8 @@ import json
 
 import pytest
 
-from conftest import PASSWORD
+from conftest import PASSWORD  # noqa: F401
+from gateway_fakes import off  # noqa: F401 -- fixture
 from test_accounts import seed_of
 from mantel_server.accounts import totp
 
@@ -169,3 +170,63 @@ async def test_keypad_pins_are_audited_first_never_the_pin(mantel, monkeypatch):
     got = [r["action"] for r in rows(mantel, "account.pin")]
     assert got == ["account.pin.set", "account.pin.remove", "account.pin.clear"]
     assert "482916" not in json.dumps(mantel.app["audit"].rows())
+
+
+# -- the Alarm PIN: the row before the keypad changes ---------------------------------------------------------------
+async def test_an_alarm_pin_saved_by_rest_is_audited_before_it_is_stored(off, monkeypatch):
+    from test_alarm_pin import ALARM, HOUSE_CODE, PANEL, add_panel
+    add_panel(off)
+    await off.login("avery", "owner")
+    url = f"/api/alarm/pins/{PANEL}"
+    body = {"forward_to": ALARM, "pin": HOUSE_CODE, "pin_again": HOUSE_CODE}
+    broken_audit(monkeypatch, off.m)
+    r = await off.m.client.put(url, json=body, headers=off.m.headers())
+    assert r.status == 503 and (await r.json())["error"] == "audit_unavailable"
+    assert off.app["alarm_pin"].entries() == []
+    monkeypatch.undo()
+    assert (await off.m.client.put(url, json=body, headers=off.m.headers())).status == 200
+    broken_audit(monkeypatch, off.m)
+    assert (await off.m.client.delete(url, headers=off.m.headers())).status == 503
+    assert off.app["alarm_pin"].entry(PANEL) is not None
+    monkeypatch.undo()
+    [row] = rows(off.m, "alarm_pin.")
+    assert row["action"] == "alarm_pin.set" and json.loads(row["target"]) == {"entity": PANEL,
+                                                                            "changed": sorted(body)}
+    assert row["door"] == "lan" and HOUSE_CODE not in json.dumps(off.audit())
+
+
+async def test_an_alarm_pin_saved_on_the_settings_page_is_audited_before_it_is_stored(off, monkeypatch):
+    from test_alarm_pin import ALARM, HOUSE_CODE
+    from test_alarm_pin_page import only_alarm, save, NoHa
+    only_alarm(off)
+    off.app["hub"].readproxy = NoHa()
+    await off.login("avery", "owner")
+    ws = await off.socket(expect_caps=False)
+    broken_audit(monkeypatch, off.m)
+    got = await save(ws, 2, {"type": "hk_alarm_pin/add", "alarm": ALARM, "pin": HOUSE_CODE, "pin_again": HOUSE_CODE})
+    assert got["error"]["code"] == "audit_unavailable"
+    assert off.app["alarm_pin"].entries() == []
+    monkeypatch.undo()
+    got = await save(ws, 3, {"type": "hk_alarm_pin/add", "alarm": ALARM, "pin": HOUSE_CODE, "pin_again": HOUSE_CODE})
+    (a,) = got["result"]["alarms"]
+    broken_audit(monkeypatch, off.m)
+    got = await save(ws, 4, {"type": "hk_alarm_pin/settings/set", "entry_id": a["panel"],
+                             "changes": {"pin": "97531", "pin_again": "97531"}})
+    assert got["error"]["code"] == "audit_unavailable"
+    assert await off.app["alarm_pin"].house_matches(a["panel"], HOUSE_CODE)
+    monkeypatch.undo()
+    [row] = rows(off.m, "alarm_pin.")
+    assert row["action"] == "alarm_pin.add" and row["door"] == "lan"
+    await ws.close()
+
+
+# -- a wall tablet's session is refused -------------------------------------------------------------------------------
+@pytest.mark.parametrize("method,path", [
+    ("GET", "/api/rbac/grants"), ("GET", "/api/rbac/roles"), ("POST", "/api/rbac/grants"),
+    ("GET", "/api/features/status"), ("GET", "/api/features/settings"), ("PUT", "/api/features/settings"),
+    ("GET", "/api/settings/import"), ("POST", "/api/settings/import"), ("GET", "/api/live_tv/status"),
+])
+async def test_an_owner_signed_in_at_a_wall_tablet_gets_me_only(mantel, method, path):
+    await at_a_tablet(mantel)
+    r = await mantel.client.request(method, path, json={}, headers=mantel.headers())
+    assert r.status == 403, (path, r.status, await r.text())

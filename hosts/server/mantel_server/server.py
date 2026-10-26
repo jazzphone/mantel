@@ -37,7 +37,7 @@ from . import (admin_page, atrest, backup, connections, features, linked, linked
                linked_actions, login_page, phones, supervisor_discovery,
                photos, service_accounts, talk_relay, user_files)
 from . import default_screens, direct, direct_tls, docs_pages, ha_dashboards, ma_page, media_proxy, proxy_check, proxy_trust, security_headers, tablet_links, user_data
-from . import app_shell, cf_access, page_health, server_settings, setup_guide
+from . import app_shell, cf_access, guards, page_health, server_settings, setup_guide
 from .authz import Authz, Principal, resolve_door
 from .config import Config
 from .connectors import REFUSE_ALL, Ctx, Hooks
@@ -660,7 +660,7 @@ def wire(app: web.Application, hub: Hub, token: str, connect_ha: bool) -> None:
     app["audit"] = audit
     gateway.register_audit(app)                             # GET /api/audit (Owner/Admin)
     store = rbac_store.register(app, hub, identity=_rbac_identity, store=rbac_store.RbacStore(app["store"].db),
-                                csrf=_csrf_ok, audit=audit.config_event)
+                                csrf=_csrf_ok, audit=audit.config_event, guard=guards.guard)
     authz = Authz(app, hub, store, lambda: app["clock"]())
     app["authz"] = authz
     writes = gateway.load_writes()
