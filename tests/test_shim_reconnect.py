@@ -45,6 +45,7 @@ await new Promise((r) => realSetTimeout(r, 20));
 const s1 = sockets[1];
 s1.onmessage({ data: JSON.stringify({ type: 'read_event', id: ids[0], event: { type: 'screen', tablet: 'hall', black: true } }) });
 console.log(JSON.stringify({ sockets: sockets.length, resent: s1.sent, ids, got }));
+process.exit(0);                                    // the hub's 45 s liveness timer would keep node running
 """
 
 

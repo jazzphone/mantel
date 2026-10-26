@@ -55,6 +55,13 @@ Each section links the design note that has the detail.
 - **Reads.** Mantel Server holds one `subscribe_entities` connection to Home Assistant and keeps every state in
   memory (`state.py`) with the area, device and entity registries (`registry.py`). Each client gets only what its
   role may see, as coalesced diffs (`view.py`). `HaClient`, the state connection, cannot call a service.
+- **The page's socket** (`web/shim/hub.js`) reconnects by itself after a drop, backing off from 2 to 30 s, and
+  asks again for its subscription and every live feed (`_resume`), then calls `hub.onReconnect`. A tablet that
+  slept can wake with a half-open socket, so the hub also pings the server (`{type: ping}`, 3 s) on
+  `visibilitychange`, `pageshow` (from the back-forward cache), `online` and `focus`, and every 45 s while the page
+  is visible: one check at a time, none within 10 s of the last, none while the socket isn't open. No pong and it
+  lets the socket go (`hub.cycle()`, which a kiosk app's nudge through `mantel-host.js` also uses). A page whose
+  start fails (`home.js`, `settings-page.js`) starts again, 2 to 30 s later (`web/shim/boot-retry.js`).
 - **Commands** take a separate path, the command gateway, described below.
 - **Music Assistant** is reached over its own WebSocket API, not through Home Assistant's `media_player` services.
 - **Home Assistant reaches Mantel** through Mantel Link, which opens one authenticated WebSocket to Mantel's linked

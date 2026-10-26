@@ -21,6 +21,7 @@ import './ha-elements.js';
 import '/hk/elements/hk-elements.js';
 import { Host } from './mantel-host.js';
 import { Hub } from './hub.js';
+import { startAgain, started } from './boot-retry.js';
 import * as mantelSettings from './mantel-settings.js';
 // HK's toast layer: a refused save is told there too
 import '/hk/shell/hk-overlays.js';
@@ -28,7 +29,8 @@ import '/hk/shell/hk-overlays.js';
 const darkNow = () => !!(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
 const json = (u) => fetch(u, { credentials: 'same-origin' }).then((r) => { if (!r.ok) throw new Error(u + ' ' + r.status); return r.json(); });
 
-function failed(e) {
+// `wait` (ms): the page starts again by itself then (boot-retry.js), and says so
+function failed(e, wait) {
   const box = document.createElement('main');
   box.id = 'mantel-failed';
   const h = document.createElement('h1');
@@ -39,28 +41,44 @@ function failed(e) {
   a.href = mantelUrl('/admin?plain=1');
   a.textContent = 'Open the plain settings page';
   p.append(a, '.');
+  if (wait) p.append(' Trying again in ' + Math.round(wait / 1000) + ' s.');
   box.append(h, p);
   document.body.appendChild(box);
 }
 
+// ONE failed request at the start (a 503 while Mantel restarts, a socket dropped as it opened) left the page on
+// "couldn't open" for good: as the dashboard (web/home.js), it starts again from the top, a little later each
+// time, and says when (boot-retry.js). What fails after the start is shown, as before.
+const RETRY_KEY = 'mantel_settings_boot_retry';
+const hub = new Hub();
+window.__mantelHub = hub;
+let hostForCaps = null;
+let me, inputs = null;
 try {
-  const me = await mantelSettings.start();
+  me = await mantelSettings.start();
+  if (mantelSettings.manages()) {
+    // the house's settings: Mantel's copy of the house, as the dashboard reads it
+    hub.onCapabilities = () => { if (hostForCaps) hostForCaps._publish(); };
+    inputs = await Promise.all([
+      json(mantelUrl('/api/registry')), json(mantelUrl('/api/fixtures')), hub.connect(),
+      json(mantelUrl('/api/services')).catch(() => ({})),
+    ]);
+  }
+} catch (e) {
+  console.error('[mantel] settings', e);
+  await startAgain(RETRY_KEY, e, (wait) => failed(e, wait));      // this start goes no further
+}
+started(RETRY_KEY);
+
+try {
   window.hkMantelShell.setRole(me.user ? me.user.role : '');
   window.hkMantelShell.setSettings(mantelSettings.host);
-  const hub = new Hub();
-  window.__mantelHub = hub;
   window.hkMantelClient.useCommands(hub);
   const user = { id: me.user && me.user.ha_user_id, name: me.user && me.user.name, is_owner: me.user && me.user.role === 'owner',
                  is_admin: !!me.user && (me.user.role === 'owner' || me.user.role === 'admin'), credentials: [], mfa_modules: [] };
   let host;
-  if (mantelSettings.manages()) {
-    // the house's settings: Mantel's copy of the house, as the dashboard reads it
-    let hostForCaps = null;
-    hub.onCapabilities = () => { if (hostForCaps) hostForCaps._publish(); };
-    const [registry, fixtures, , services] = await Promise.all([
-      json(mantelUrl('/api/registry')), json(mantelUrl('/api/fixtures')), hub.connect(),
-      json(mantelUrl('/api/services')).catch(() => ({})),
-    ]);
+  if (inputs) {
+    const [registry, fixtures, , services] = inputs;
     window.hkMantelShell.setServices(services);
     const [config, themes] = await Promise.all([
       hub.read({ type: 'get_config' }).catch(() => ({})),
