@@ -22,6 +22,13 @@ def text(rel: str) -> str:
     return (ROOT / rel).read_text()
 
 
+def detail_text() -> str:
+    """hk-detail.js (the sheet shell) followed by every sheet file it loads (web/hk/sheets/)."""
+    shell = text("web/hk/cards/hk-detail.js")
+    names = re.findall(r"'(hk-sheet-[\w-]+\.js)'", re.search(r"var SHEETS = \[([^\]]*)\]", shell).group(1))
+    return shell + "\n" + "\n".join(text("web/hk/sheets/" + n) for n in names)
+
+
 @pytest.fixture(scope="module")
 def observed(tmp_path_factory):
     if shutil.which("node") is None:
@@ -108,7 +115,7 @@ def test_a_panel_removes_the_listeners_it_added_to_the_window_when_its_sheet_clo
     """WEB-5: ClimatePanel._fitShort and AlarmPanel added a window 'resize' and a matchMedia 'change' listener per
     sheet opened, never removed. Now each goes through Panel._listenShort / _undo, which Panel's
     disconnectedCallback runs."""
-    src = text("web/hk/cards/hk-detail.js")
+    src = detail_text()
     body = class_body(src, name)
     assert "_listenShort(" in body
     assert not re.search(r"_shortMq\.add(?:EventListener|Listener)\(", body)
@@ -156,3 +163,14 @@ def test_the_escaping_helpers_all_escape_the_four_characters_that_end_a_text_or_
         assert m, rel
         for ch in ("&amp;", "&lt;", "&gt;", "&quot;"):
             assert ch in m.group(0), (rel, ch)
+
+
+def test_hk_detail_loads_every_sheet_file_and_nothing_in_cards_is_one():
+    """The sheet files (web/hk/sheets/) are not cards: both hosts load every file in web/hk/cards/ as a card
+    (server.py api_hk_cards, HK Frontend's resources.py), so the panels live beside it, and hk-detail.js's
+    SHEETS list names each one: a file outside the list is never loaded, a name without a file never starts."""
+    shell = text("web/hk/cards/hk-detail.js")
+    listed = re.findall(r"'(hk-sheet-[\w-]+\.js)'", re.search(r"var SHEETS = \[([^\]]*)\]", shell).group(1))
+    assert listed and len(listed) == len(set(listed))
+    assert sorted(p.name for p in (WEB / "hk/sheets").glob("*.js")) == sorted(listed)
+    assert not list((WEB / "hk/cards").glob("hk-sheet-*.js"))
