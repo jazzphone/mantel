@@ -47,3 +47,28 @@ def test_retries_back_off(run):
     assert run["sockets"] == 3                      # the drop, one refused retry, then the one that opened
     first, second = run["waits"][:2]
     assert 1500 <= first <= 2500 and 3000 <= second <= 5000
+
+
+# A TABLET THAT SLEPT (iPad Safari, Fully Kiosk): on waking its socket can be half-open, still reading OPEN while
+# nothing comes through, so the page kept the states it had when it went to sleep and never reconnected.
+def test_a_silent_socket_is_replaced_after_the_tablet_wakes(run):
+    w = run["wake"]
+    assert w["pingsWhileHidden"] == 0, "going to sleep pings nothing"
+    assert w["pinged"] == 1 and w["closed"], "woken, the page pings, hears nothing in 3 s, and closes the socket"
+    assert w["newSockets"] == 1 and w["reconnected"] == 1, "even when the closing handshake never comes back"
+    assert w["resent"][0] == {"type": "subscribe", "entity_ids": ["light.hall"], "areas": [], "all": False}
+
+
+def test_a_healthy_socket_is_kept_and_wake_events_together_send_one_ping(run):
+    h = run["healthy"]
+    assert h["pinged"] == 1, "visibilitychange, pageshow, online and focus together: one ping, not a storm"
+    assert not h["closed"] and h["newSockets"] == 0
+
+
+def test_a_visible_page_pings_every_45_seconds_and_finds_a_dead_socket(run):
+    v = run["visible"]
+    assert v["timer"] == [45000]
+    assert v["pingsHidden"] == 0, "a hidden page is not pinged"
+    assert v["pinged"] == 1 and v["closed"] and v["newSockets"] == 1 and v["reconnected"] == 1
+    assert v["waiting"] == 1 and v["between"] == 0, "nothing is pinged while the reconnect is pending"
+    assert run["unhandled"] == []

@@ -22,6 +22,17 @@ const RETRY_MIN = 2000;
 const RETRY_MAX = 30000;
 const lost = () => Object.assign(new Error('connection lost'), { code: 'unavailable', message: 'connection lost' });
 
+// A TABLET THAT SLEPT (iPad Safari, Fully Kiosk): on waking its socket can be half-open, still OPEN to the page
+// while nothing comes through, so the page kept the states it had when it went to sleep, for good. So the page
+// checks: when it is shown again (visibilitychange), restored from the back-forward cache (pageshow), back on
+// the network (online) or focused, and every 45 s while it is visible (a wall tablet is "visible" for weeks), it
+// pings the server; no pong in 3 s and the socket is let go (cycle), and the reconnect above starts. Never while
+// the socket is not open (a reconnect pending or opening), one check at a time, and not again within 10 s of the
+// last, so the four events a wake fires together send one ping.
+const LIVE_PING = 3000;
+const LIVE_EVERY = 45000;
+const LIVE_GAP = 10000;
+
 export class Hub {
   constructor() {
     this.ws = null;
@@ -33,13 +44,20 @@ export class Hub {
     this.onSnapshot = () => {};
     this.onDiff = () => {};
     this.onCapabilities = () => {};
+    // after each reconnect, once the new socket is open and the subscription and feeds were asked for again
+    // (_resume): for what the page reads once at start and would otherwise keep from before the drop
+    this.onReconnect = () => {};
     this.bytes = 0; this.msgs = 0; // what arrived, for the numbers in the page's console
+    this._checking = null;         // the liveness check under way (checkAlive)
+    this._checked = 0;             // when the last one started
+    this._watch();
   }
 
   connect() {
     return new Promise((resolve, reject) => {
       const ws = (this.ws = new WebSocket(wsUrl('/ws')));
       const again = this.connected;
+      let over = false;
       ws.onopen = () => {
         this.connected = true;
         this.retry = RETRY_MIN;
@@ -47,8 +65,10 @@ export class Hub {
         resolve();
       };
       ws.onerror = () => reject(new Error('hub connection failed'));
-      ws.onclose = () => {
-        if (this.ws !== ws) return;
+      // also called by cycle(), before the browser's own close event (late, or never, on a half-open socket)
+      this._lose = ws.onclose = () => {
+        if (this.ws !== ws || over) return;
+        over = true;
         this._dropCommands();
         // what this socket's server said is over with it: the next one says again (a server whose commands
         // were turned off sends no capabilities at all, so a kept `commands: true` would offer dead controls)
@@ -136,6 +156,48 @@ export class Hub {
   }
 
   _open() { return !!this.ws && this.ws.readyState === 1; }
+
+  // let the current socket go and reconnect (the liveness check; a kiosk app's nudge, mantel-host.js): closed,
+  // and handled as closed at once, so a half-open socket whose close never completes still gets a new one. A
+  // late frame from it is not read.
+  cycle() {
+    const ws = this.ws;
+    if (!ws) return;
+    ws.onmessage = null;
+    try { ws.close(); } catch (e) { /* closed already */ }
+    if (this.ws === ws && this._lose) this._lose();
+  }
+
+  // the liveness check (A TABLET THAT SLEPT, above): resolves true when the socket answered (or was checked
+  // moments ago), false when it was let go or is not open
+  checkAlive() {
+    if (this._checking) return this._checking;
+    if (!this._open() || this.closing) return Promise.resolve(false);
+    const now = Date.now();
+    if (now - this._checked < LIVE_GAP) return Promise.resolve(true);
+    this._checked = now;
+    const ws = this.ws;
+    const done = (alive) => { this._checking = null; return alive; };
+    this._checking = this.ping(LIVE_PING).then(() => done(true), () => {
+      if (this.ws === ws) { console.warn('[hub] no answer from Mantel in 3 s: reconnecting'); this.cycle(); }
+      return done(false);
+    });
+    return this._checking;
+  }
+
+  // the page's own events, in a browser only (not in node's tests, which have no document events)
+  _watch() {
+    const doc = typeof document !== 'undefined' ? document : null;
+    const win = typeof window !== 'undefined' ? window : null;
+    if (!doc || typeof doc.addEventListener !== 'function' || !win || typeof win.addEventListener !== 'function') return;
+    const visible = () => doc.visibilityState !== 'hidden';
+    const check = () => { this.checkAlive(); };
+    doc.addEventListener('visibilitychange', () => { if (visible()) check(); });
+    win.addEventListener('pageshow', (e) => { if (e && e.persisted) check(); });
+    win.addEventListener('online', check);
+    win.addEventListener('focus', check);
+    setInterval(() => { if (visible()) check(); }, LIVE_EVERY);
+  }
 
   // the server's ping (server.py answers {type: ping} with a pong, no id): resolves when the socket answers
   // within `ms`, rejects when it is closed or silent (a half-open socket still reads OPEN)

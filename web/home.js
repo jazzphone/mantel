@@ -22,6 +22,7 @@ import './shim/ha-elements.js';
 import '/hk/elements/hk-elements.js';
 import { Host, toast } from './shim/mantel-host.js';
 import { Hub } from './shim/hub.js';
+import { startAgain, started } from './shim/boot-retry.js';
 import '/hk/shell/hk-view-host.js';
 // HK's own toast layer: Mantel draws no toast of its own (hkShell.hostToast() is false)
 import '/hk/shell/hk-overlays.js';
@@ -44,8 +45,7 @@ window.hkMantelClient.useCommands(hub);
 let hostForCaps = null;
 hub.onCapabilities = () => { if (hostForCaps) hostForCaps._publish(); };
 // ONE failed request at the start (a 503 while Mantel restarts, a socket dropped as it opened) left the page blank
-// for good, a wall tablet too: it starts again from the top, a little later each time (2 s ... 30 s, as the hub's
-// own reconnect). A session that ended meanwhile is sent to sign in by the reload.
+// for good, a wall tablet too: it starts again from the top, a little later each time (shim/boot-retry.js).
 const RETRY_KEY = 'mantel_boot_retry';
 let boot;
 try {
@@ -56,15 +56,9 @@ try {
     json(mantelUrl('/api/services')).catch(() => ({})),
   ]);
 } catch (e) {
-  let n = 0;
-  try { n = Number(sessionStorage.getItem(RETRY_KEY) || 0); sessionStorage.setItem(RETRY_KEY, String(n + 1)); } catch (_) { /* no storage */ }
-  const wait = Math.min(2000 * 2 ** n, 30000);
-  console.warn('[mantel] the page could not start (' + (e && e.message) + '); again in ' + Math.round(wait / 1000) + ' s');
-  await new Promise((r) => setTimeout(r, wait));
-  location.reload();
-  await new Promise(() => {});                    // this start goes no further
+  await startAgain(RETRY_KEY, e);                 // this start goes no further
 }
-try { sessionStorage.removeItem(RETRY_KEY); } catch (_) { /* no storage */ }
+started(RETRY_KEY);
 const [registry, user, fixtures, cards, , services] = boot;
 pageHealth(hub);
 window.hkMantelShell.setServices(services);

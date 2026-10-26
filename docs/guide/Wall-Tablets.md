@@ -114,6 +114,14 @@ The tablet still opens its own screen, and the person gets only **Me** in Mantel
 
 This is only where it lands. What it may open and see is still its role's.
 
+### After the tablet sleeps
+
+A tablet that slept, or lost its Wi-Fi, can wake with a connection that looks open but carries nothing. The page checks: when it's shown again or back on the network, and every 45 seconds while it's on screen, it asks Mantel for an answer. With none in 3 seconds it reconnects by itself, a few seconds later, and asks again for everything it shows. You don't need to reload it.
+
+If Mantel is restarting when the page first opens (or the tablet woke before its Wi-Fi), the page starts again by itself, after 2 seconds, then 4, up to every 30 seconds. Mantel Settings does the same, and says when it'll try again.
+
+A kiosk app's own watchdog (Kiosk Satellite reloads a page whose connection is down for 15 minutes) sees Mantel's connection as it really is, so it doesn't reload a working page. A reconnect after a wake takes seconds, far less than its 15 minutes.
+
 ## Reload and Clear Cache from Mantel
 
 An Owner can let Mantel reach a tablet's kiosk app directly (Kiosk Satellite, or Fully Kiosk Browser with its Remote Administration on):

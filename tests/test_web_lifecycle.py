@@ -137,6 +137,43 @@ def test_one_failed_request_at_start_does_not_leave_the_page_blank_for_good():
     assert re.search(r"try\s*\{[^}]*$", src[max(0, i - 400):i], re.S) or re.search(r"\]\)\s*\.catch\(", src[i: src.index("pageHealth(hub);")])
 
 
+def test_the_settings_page_starts_again_after_a_failed_start_as_the_dashboard_does():
+    """Phase 4: Mantel Settings had no retry: one 503 or a socket dropped as it opened (a tablet that woke before its
+    Wi-Fi) left "couldn't open" on the page for good. Its start (overview, registry, fixtures, the socket) now goes
+    through the dashboard's own retry (web/shim/boot-retry.js), and the page says when it tries again."""
+    page = text("web/shim/settings-page.js")
+    start = page.index("await mantelSettings.start()")
+    catch = page.index("} catch (e) {", start)
+    assert page.index("hub.connect()", start) < catch and page.index("json(mantelUrl('/api/registry'))", start) < catch
+    assert "await startAgain(RETRY_KEY, e, (wait) => failed(e, wait))" in page[catch: catch + 200]
+    assert "started(RETRY_KEY)" in page and "import { startAgain, started } from './boot-retry.js'" in page
+    home = text("web/home.js")
+    assert "await startAgain(RETRY_KEY, e)" in home and "started(RETRY_KEY)" in home   # one retry, both pages
+
+
+def test_a_failed_start_waits_longer_each_time_then_reloads(tmp_path):
+    if shutil.which("node") is None:
+        pytest.skip("node not installed")
+    shutil.copy(WEB / "shim/boot-retry.js", tmp_path / "boot-retry.mjs")
+    (tmp_path / "run.mjs").write_text("""
+const store = {}; const waits = []; let reloads = 0; const shown = [];
+globalThis.sessionStorage = { getItem: (k) => store[k] ?? null, setItem: (k, v) => { store[k] = v; }, removeItem: (k) => { delete store[k]; } };
+globalThis.location = { reload: () => { reloads++; } };
+globalThis.setTimeout = (fn, ms) => { waits.push(ms); fn(); };
+console.warn = () => {};
+const { startAgain, started } = await import('./boot-retry.mjs');
+for (let i = 0; i < 6; i++) startAgain('k', new Error('503'), (ms) => shown.push(ms));
+await new Promise((r) => setImmediate(r));
+const counted = store.k; started('k');
+console.log(JSON.stringify({ waits, reloads, shown, counted, after: store.k ?? null }));
+""")
+    out = subprocess.run(["node", str(tmp_path / "run.mjs")], capture_output=True, text=True, timeout=30)
+    assert out.returncode == 0, out.stderr
+    r = json.loads(out.stdout.strip().splitlines()[-1])
+    assert r["waits"] == [2000, 4000, 8000, 16000, 30000, 30000] and r["shown"] == r["waits"]
+    assert r["reloads"] == 6 and r["counted"] == "6" and r["after"] is None
+
+
 def test_the_people_cards_failed_picture_handler_survives_a_second_call():
     """WEB-8 (fixed): hk-home.js:2242-2243: img.onerror() is also called by hand when the picture already failed, and then again
     by the browser, when the img has left the page: parentNode is null"""

@@ -198,7 +198,12 @@ export class Host {
     // the truth about Mantel's own socket: up while the hub's is, its ping is the server's, and a nudge
     // cycles the hub's socket, which reconnects by itself.
     const open = () => !!(self.hub && self.hub._open && self.hub._open());
-    const cycle = () => { try { if (self.hub && self.hub.ws) self.hub.ws.close(); } catch (e) { /* reconnecting anyway */ } };
+    // (the hub's cycle: handled as closed at once, so a half-open socket whose close never completes is replaced
+    // too; the hub's own liveness check, hub.js "A TABLET THAT SLEPT", uses the same one)
+    const cycle = () => {
+      if (self.hub && self.hub.cycle) { self.hub.cycle(); return; }
+      try { if (self.hub && self.hub.ws) self.hub.ws.close(); } catch (e) { /* reconnecting anyway */ }
+    };
     this.connection = {
       subscribeMessage: (cb, msg) => self._subscribe(cb, msg),
       sendMessagePromise: (msg) => (msg && msg.type === 'ping'
