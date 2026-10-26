@@ -186,3 +186,13 @@ Not as intended: the house still logs "migration 0015/0017 changed after it was 
 checksums come from before the repository's history was rewritten, so they match neither the current files nor
 the pre-edit ones in git. It stays harmless. The fix that would silence it compares the live schema with a fresh build
 from the current migrations instead of matching known checksums.
+
+## HK Frontend 1.11.0 on the house (2026-10-26)
+
+The owner asked for this. Commit `834aaea` bumped HK Frontend to 1.11.0. It carries the shared code since 1.10.7 (the
+Home Grid, the tab bar's labels, the detail sheets) and this pass's fixes (HK-1, X5, WEB-4..6, WEB-8). The build
+passed HK Frontend's Python suite (759) and every JavaScript suite on JavaScriptCore. It was copied into
+`custom_components/hk_frontend` with `rsync --inplace` and no `--delete`; `diff -rq` against the build showed no
+difference, and the folder's 9 runtime-only files were kept. After Home Assistant restarted, `/hk/` served the new
+files, and HK Frontend and Mantel Link both relinked to Mantel. The system log has no entry for `hk_frontend`. It is
+on hk-frontend's `main` as `b31d434`, untagged, so HACS users stay on v1.8.3 until a release is tagged.
