@@ -72,6 +72,10 @@ Reliability:
 - Backups: a backup made by hand deletes no older ones; a database-only restore keeps your photos; leftovers of an interrupted backup are cleaned up.
 - Push notifications survive an internet outage, and stop at an app that was signed out.
 
+## 0.1.79 - 2026-10-26
+
+- **Mantel Link can pair again by a code inside Home Assistant.** On a Mantel run as a Home Assistant App whose Mantel Link brought its own credential, a second pairing at the App's own address (`http://<App>:8099`) would have been refused by 0.1.78's address check. The App's address now always counts as Mantel's own.
+
 ## 0.1.78 - 2026-10-26
 
 - **Taking access away takes effect at once.** These end their open connections immediately instead of up to a minute later:

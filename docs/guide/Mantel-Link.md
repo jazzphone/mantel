@@ -48,7 +48,7 @@ You need Mantel itself first ([Install](Install.md)) and Home Assistant
 A pairing code works once, for ten minutes. Both sides prove they know it, so
 a look-alike on your network can't hand Home Assistant a credential. Both
 proofs also name the address Home Assistant used (Mantel Link 0.1.6 and a
-Mantel 0.1.78 or later): Mantel refuses an address that isn't its own, so a
+Mantel 0.1.79 or later): Mantel refuses an address that isn't its own, so a
 device at another address that passed the exchange on to the real Mantel gets
 nothing. Enter Mantel's own address, the one Mantel Settings shows.
 
