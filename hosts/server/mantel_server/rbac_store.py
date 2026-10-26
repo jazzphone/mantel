@@ -224,6 +224,9 @@ def notify_sessions(hub: Any) -> None:
         wake = getattr(s, "wake", None)
         if wake is not None:
             wake.set()
+    feed = getattr(hub, "registry_feed", None)
+    if feed is not None:      # what a page's registry holds may have changed too (registry_feed.py)
+        feed.changed()
 
 
 def register(app: web.Application, hub: Any, *, identity: Callable[[web.Request], Any],

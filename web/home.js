@@ -23,7 +23,8 @@ import '/hk/elements/hk-elements.js';
 import { Host, toast } from './shim/mantel-host.js';
 import { Hub } from './shim/hub.js';
 import { startAgain, started } from './shim/boot-retry.js';
-import { pageHealth } from './shim/page-health.js';   // how this page is doing, told to Mantel's log and its Performance page
+import { pageHealth } from './shim/page-health.js';
+import { loadRegistry, followRegistry } from './shim/registry-sync.js';   // the registries follow the house   // how this page is doing, told to Mantel's log and its Performance page
 import '/hk/shell/hk-view-host.js';
 // HK's own toast layer: Mantel draws no toast of its own (hkShell.hostToast() is false)
 import '/hk/shell/hk-overlays.js';
@@ -51,7 +52,7 @@ const RETRY_KEY = 'mantel_boot_retry';
 let boot;
 try {
   boot = await Promise.all([
-    json(mantelUrl('/api/registry')), json(mantelUrl('/api/me')), json(mantelUrl('/api/fixtures')),
+    loadRegistry(mantelUrl('/api/registry')), json(mantelUrl('/api/me')), json(mantelUrl('/api/fixtures')),
     json(mantelUrl('/api/hk-cards')), hub.connect(),
     // Music Assistant / go2rtc under Mantel's own address, when this server serves them (media_proxy.py)
     json(mantelUrl('/api/services')).catch(() => ({})),
@@ -60,7 +61,7 @@ try {
   await startAgain(RETRY_KEY, e);                 // this start goes no further
 }
 started(RETRY_KEY);
-const [registry, user, fixtures, cards, , services] = boot;
+const [{ registry, digest: registryDigest }, user, fixtures, cards, , services] = boot;
 const health = pageHealth(hub, 'home', marks);
 window.hkMantelShell.setServices(services);
 window.hkMantelShell.setRole(user.role);
@@ -78,6 +79,9 @@ const host = new Host({
   config, themes,
 });
 host.installLookups();
+// an area renamed in Home Assistant reaches this page without a reload (before the first subscribe: the snapshot
+// says which registry this page may see)
+followRegistry(hub, host, mantelUrl('/api/registry'), registryDigest);
 hostForCaps = host;
 if (hub.commandsEnabled()) host._publish();     // capabilities came before the host: new clients now act
 window.hkMantelShell.install(host);

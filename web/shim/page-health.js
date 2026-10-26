@@ -7,7 +7,7 @@
 //
 // PERFORMANCE (Mantel Settings -> About -> Performance, performance.py): the same frames also carry how many sockets
 // this page has had to open again since it loaded (hub.reconnects) and how many times it read the registry again
-// (registryRefreshed(): a counter later phases bump; 0 until then); and, once, the time to first draw (`draw`, sent
+// (registryRefreshed(): bumped by registry-sync.js each time the house's registries change under an open page); and, once, the time to first draw (`draw`, sent
 // by the page's own `drawn()`): ms from the start of the navigation to the first screen on the glass.
 const COUNT = '__mantelRegistryRefreshes';
 

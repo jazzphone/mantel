@@ -3,7 +3,8 @@
 //
 // The socket's address follows the page's prefix (shim/base.js: HA App mode serves Mantel under HA's
 // Ingress path; '' everywhere else).
-// One WebSocket. Frames the page receives: snapshot / diff (states), read_result / read_event
+// One WebSocket. Frames the page receives: snapshot / diff (states), registry (the registries changed:
+// registry-sync.js), read_result / read_event
 // (the server's filtered reads), settings_result (HK's own settings saves, `write`), error, and --
 // only on a server whose operator turned the command gateway on -- capabilities and command_result
 // (step_up_required only from an older server; refused by mantel-client.js). On a server with commands off
@@ -44,6 +45,8 @@ export class Hub {
     this.onSnapshot = () => {};
     this.onDiff = () => {};
     this.onCapabilities = () => {};
+    // the digest of the registry this page may see: every snapshot's, and each `registry` frame's (registry-sync.js)
+    this.onRegistry = () => {};
     // after each reconnect, once the new socket is open and the subscription and feeds were asked for again
     // (_resume): for what the page reads once at start and would otherwise keep from before the drop
     this.onReconnect = () => {};
@@ -84,8 +87,9 @@ export class Hub {
       ws.onmessage = (ev) => {
         this.msgs++; this.bytes += ev.data.length;
         const m = JSON.parse(ev.data);
-        if (m.type === 'snapshot') this.onSnapshot(m);
+        if (m.type === 'snapshot') { if (m.registry) this.onRegistry(m.registry); this.onSnapshot(m); }
         else if (m.type === 'diff') this.onDiff(m);
+        else if (m.type === 'registry') this.onRegistry(m.digest);
         else if (m.type === 'read_result') {
           const p = this.pending.get(m.id);
           if (!p) return;
