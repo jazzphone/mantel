@@ -509,7 +509,7 @@ class Audit:
 
     def config_event(self, event: dict) -> None:
         """rbac_store's audit hook: grant/role/scope changes (before they are applied), and every other
-        settings or account change the same way (accounts.audit_change: people, roles, passwords, tablets).
+        settings or account change the same way (audit.config: people, roles, passwords, tablets, connections, …).
         ``door``, ``source_ip`` and ``device`` are optional: where the change came from, when the caller
         knows (a door outside the table's CHECK is dropped rather than losing the row)."""
         door = event.get("door")

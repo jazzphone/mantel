@@ -14,9 +14,10 @@ every guard on a method that changes something names its audit action or says wh
 The checks are the ones the routes made by hand before, kept where they were:
 
 ``who``
-    ``signed_in``  any session (a person, a wall tablet, or a person at a tablet);
+    ``signed_in``  any session (a person, a wall tablet, or a person at a tablet): the session middleware's own
+                   check (``auth.require_session``), so the roles inside the handler decide the rest;
     ``person``     a person (``accounts.require_user``);
-    ``manager``    an Owner or Admin (``accounts.require_manager``);
+    ``manager``    an Owner or Admin (``accounts.require_manager``'s rule);
     ``owner``      an Owner.
 ``device_ok``
     False (the default): a session at a wall tablet is refused, even an Owner's: a forgotten sign-in on the
@@ -33,6 +34,9 @@ The checks are the ones the routes made by hand before, kept where they were:
 ``audit``
     The action name (or names) the handler writes with :func:`audit.config`, before its change. A guard on POST,
     PUT, PATCH or DELETE that writes nothing says why instead (``no_audit="..."``).
+``first``
+    A check of the request itself (a passkey's origin, a connection's kind) made before the fresh factor is asked
+    for, so a page that could never do this is told so first.
 
 A refusal is 403 with a JSON ``error``: ``forbidden`` (a tablet, or not a manager), ``user_required`` (``person``
 with no person), ``owner_only``, ``home_door_only``, ``lan_only``, ``step_up_required``; CSRF as the session

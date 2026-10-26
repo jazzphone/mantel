@@ -162,6 +162,41 @@ Detail: [GATEWAY.md](../phase3/GATEWAY.md), [RBAC.md](../phase3/RBAC.md), [ACCOU
 Note that RBAC.md and PINS-AUDIT.md describe a step-up PIN that was later removed; GATEWAY.md's first section
 has today's rule.
 
+## Route guards and the audit of changes
+
+Commands go through the gateway; everything else a page changes (people, tablets, connections, settings, files)
+goes through a REST route. Each of those routes declares who may call it with one decorator,
+`@guard(...)` in `hosts/server/mantel_server/guards.py`:
+
+```python
+@guard("owner", door="home", audit="service_account.create")
+async def api_create(request): ...
+```
+
+- `who`: `signed_in` (any session), `person`, `manager` (an Owner or Admin) or `owner`.
+- `device_ok`: whether a wall tablet's session, or a person signed in at one, may call it. It is false by default:
+  at a tablet, an Owner gets Me only.
+- `door`: `any`, `home` (the LAN door, or Home Assistant's sidebar with the home rules: `authz.home_door`), or
+  `lan`.
+- `fresh`: `never`, `away` (a fresh factor unless on the LAN or a trusted sidebar: `connections.edit_rule`),
+  `always` (`accounts.require_fresh`), or `add_factor` (`accounts.require_fresh_to_add_factor`).
+- `audit`: the action names the handler writes, or `no_audit="why"` for a change that writes none.
+
+The decorator runs those checks before the handler, using the same helpers the routes used by hand before, and
+stores its spec on the handler (`handler.__guard__`). The handler reads the checked identity with
+`guards.ident(request)`. A check that only the handler can make (an Admin never manages an Owner, a step-up only
+when turning commands on) stays in the handler.
+
+Every settings or account change writes its audit row through one helper, `audit.config(request, ident, action,
+detail)` in `audit.py`. The row is written **before** the change, with the person, the tablet they are at, the
+door and the source address. If it cannot be written the route answers 503 `audit_unavailable` and changes
+nothing. Where a change is worked out inside a model (a passkey verified, a photo processed, a Service credential
+named), the model takes a `before` callback that writes the row between the checks and the write.
+
+`tests/test_route_guards.py` builds the whole app and walks its router: each route has a guard or is on a short
+list with its reason (sign-in, the app's DPoP routes, `/linked/*`, the media proxy, static files, health). Each
+guard on POST, PUT, PATCH or DELETE names its audit or says why it has none.
+
 ## The settings store
 
 HK's settings in Home Assistant live in a config entry, with no history and no per-user scope. In Mantel they live

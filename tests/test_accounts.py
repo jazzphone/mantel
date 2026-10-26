@@ -494,7 +494,7 @@ async def test_a_refused_change_writes_no_row(mantel):
 
 
 async def test_sign_ins_are_not_audited(mantel):
-    """By design (accounts.audit_change): the audit is append-only for a year and a failed sign-in needs no
+    """By design (audit.py): the audit is append-only for a year and a failed sign-in needs no
     account. A sign-in is its session; failures are the rate limits and the lockout."""
     await mantel.user("jordan", "adult")
     await mantel.sign_in("jordan", "not the password!")
