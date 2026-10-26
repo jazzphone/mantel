@@ -37,7 +37,7 @@ from . import (admin_page, atrest, backup, connections, features, linked, linked
                linked_actions, login_page, phones, supervisor_discovery,
                photos, service_accounts, talk_relay, user_files)
 from . import default_screens, direct, direct_tls, docs_pages, ha_dashboards, ma_page, media_proxy, proxy_check, proxy_trust, security_headers, tablet_links, user_data
-from . import app_shell, cf_access, guards, page_health, server_settings, setup_guide
+from . import app_shell, cf_access, guards, page_health, performance, server_settings, setup_guide
 from .authz import Authz, Principal, resolve_door
 from .config import Config
 from .connectors import REFUSE_ALL, Ctx, Hooks
@@ -89,6 +89,7 @@ class Hub:
         self.readproxy: ReadProxy | None = None
 
     def on_change(self, changed: set[str]) -> None:
+        performance.STATS.events(len(changed))
         for s in self.sessions:
             if s.view.on_change(changed):
                 s.wake.set()
@@ -136,9 +137,11 @@ class ClientSession:
         loop = asyncio.get_running_loop()
         while True:
             self.wake.clear()  # clear before flushing so a change during the send is not lost
+            t0 = time.perf_counter()
             msg, due = self.view.flush(loop.time()) if self.subscribed else (None, None)
             if msg:
                 await self.send(msg)
+                performance.STATS.fanout((time.perf_counter() - t0) * 1000)    # About -> Performance
             timeout = None if due is None else max(0.0, due - loop.time())
             try:
                 await asyncio.wait_for(self.wake.wait(), timeout)
@@ -705,6 +708,7 @@ def wire(app: web.Application, hub: Hub, token: str, connect_ha: bool) -> None:
     app["apply_commands"] = lambda on: apply_commands(app, hub, on)
     health.register(app, hub)
     about.register(app)               # Mantel Settings -> About: the version and what Mantel talks to
+    performance.register(app)         # About -> Performance: the screens' page health, the hub's fan-out (managers)
     # P3.5: HK's settings from Mantel's own store (reads + settings_write saves). HK's own data, not a
     # house command, so saves work while commands are off; each save asks RBAC `configure`.
     settings_store.register(app, hub, settings_store.SettingsHooks(

@@ -342,6 +342,21 @@ Frontend). `test_e2e_mantel.py` links it to the real `mantel_server/linked.py`.
   shown once with Copy and Withdraw; the page notices when it is spent. Also fixed there: with no HK Frontend in
   Home Assistant the bridge reads "Shown By Mantel Link · Home Assistant has no HK Frontend" (it said HK
   Frontend).
+- **Protocol v2, the address bound (2026-10-26, the audit's T2).** Under v1 the proofs named no address, so a
+  look-alike at another address that relayed the exchange to the real Mantel saw the credential go by. In v2 the
+  request carries `"v": 2` and `"address"`, the address Mantel Link used, normalised the same way on both sides
+  (`normalize_address`: `http`/`https` (ws/wss map to them), lower-case host without a final dot, IPv6 in
+  brackets, the port always written, nothing else: `https://mantel.example.com:443`). Mantel Link's proof is
+  `HMAC(key, "mantel-link-pair-v2|client|code_id|nonce|name|address")`. Mantel accepts the address only when it
+  is one of its own (`own_addresses`: `public_url`, the zeroconf announcement's URL, the App's hostname as the
+  Supervisor discovery remembered it, `direct_hosts`' `name:port`, and the Host the request arrived on, either
+  scheme, when its name is loopback, in `allowed_hosts` (never through `*`), in `direct_hosts` or one of the
+  addresses above); otherwise `403 wrong_address`, counted by the rate limits and audited (`linked.pair_failed`
+  with the address), the code not spent. Its answer adds `"v": 2, "address"`, and its proof is
+  `HMAC(key, "mantel-link-pair-v2|server|code_id|nonce|address|instance|sha256(token)")`; Mantel Link checks the
+  version, the address and the proof against the address it used. Mantel still accepts v1 (an older Mantel Link);
+  Mantel Link 0.1.6 sends only v2 and maps an older Mantel's `400 malformed` to "Update Mantel first"
+  (`mantel_too_old`), and `wrong_address` to its own message. Ship order: Mantel first, then Mantel Link 0.1.6.
 - **Checks:** `tests/test_linked_pairing.py` (3), Mantel Link's `test_pairing.py` (2) and an end-to-end pairing
   against the real `linked_pairing.py` (`test_e2e_mantel.py`); the settings page in node (5). **Scratch HA
   without HK Frontend** (`mantel_link_e2e.py --phase alone`): **27/27**, now adding Mantel Link with a code the

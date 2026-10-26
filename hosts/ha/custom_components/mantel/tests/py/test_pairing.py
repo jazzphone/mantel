@@ -23,7 +23,8 @@ async def test_a_pairing_code_sets_mantel_link_up(hass, mantel):
     assert hass.config_entries.async_entries("mantel")[0].unique_id == INSTANCE
     assert mantel.code is None, "spent"
     sent = [m for m in mantel.received if m["type"] == "pair"]
-    assert sent == [{"type": "pair", "code_id": "ABCDE", "name": "Home Assistant - Mantel Link"}]
+    assert sent == [{"type": "pair", "v": 2, "code_id": "ABCDE", "name": "Home Assistant - Mantel Link",
+                     "address": mantel.url}], "protocol v2, with the address it used"
     e = hass.config_entries.async_entries("mantel")[0]
     await until(hass, lambda: e.runtime_data.connected)
 
@@ -42,3 +43,53 @@ async def test_refusals(hass, mantel):
     assert not hass.config_entries.async_entries("mantel")
     r = await _flow(hass, url="http://192.0.2.10:8099", code=CODE)
     assert r["errors"] == {"base": "url_insecure"}
+
+
+def test_addresses_are_normalised_as_mantel_does():
+    from custom_components.mantel.pairing import normalize_address as n
+    assert n("https://Mantel.Example.com") == "https://mantel.example.com:443"
+    assert n("https://mantel.example.com/") == "https://mantel.example.com:443"
+    assert n("https://mantel.example.com:443/x?y=1") == "https://mantel.example.com:443"
+    assert n("HTTP://local-mantel") == "http://local-mantel:80"
+    assert n("http://local-mantel:8099/") == "http://local-mantel:8099"
+    assert n("wss://mantel.example.com:8443/linked/ws") == "https://mantel.example.com:8443"
+    assert n("http://[FD00::1]:8099") == "http://[fd00::1]:8099"
+    assert n("https://[::1]/") == "https://[::1]:443"
+    assert n("https://mantel.example.com.") == "https://mantel.example.com:443"
+    for bad in ("", "mantel.example.com", "ftp://x", "https://", "https://m:99999", None):
+        assert n(bad) is None, bad
+
+
+async def test_the_address_is_sent_normalised_and_bound(hass, mantel):
+    mantel.code = CODE
+    r = await _flow(hass, url=mantel.url + "/", code=CODE)
+    assert r["type"] is FlowResultType.CREATE_ENTRY, r
+    assert [m["address"] for m in mantel.received if m["type"] == "pair"] == [mantel.url]
+
+
+async def test_a_relaying_look_alike_at_another_address_cannot_pair(hass, mantel):
+    """Home Assistant reached something at an address Mantel doesn't call its own (a look-alike passing the exchange
+    on): Mantel refuses, and Mantel Link says so."""
+    mantel.code = CODE
+    mantel.own_address = "https://mantel.example.com:443"
+    r = await _flow(hass, url=mantel.url, code=CODE)
+    assert r["errors"] == {"base": "wrong_address"}
+    assert not hass.config_entries.async_entries("mantel") and mantel.code == CODE, "not spent"
+
+
+async def test_mantel_s_proof_must_name_the_address_mantel_link_used(hass, mantel):
+    mantel.code = CODE
+    mantel.signs_address = "https://mantel-lookalike.lan:443"
+    r = await _flow(hass, url=mantel.url, code=CODE)
+    assert r["errors"] == {"base": "not_mantel"}
+    assert not hass.config_entries.async_entries("mantel")
+
+
+async def test_an_older_mantel_says_update_mantel_first_and_there_is_no_downgrade(hass, mantel):
+    mantel.code = CODE
+    mantel.pair_version = 1
+    r = await _flow(hass, url=mantel.url, code=CODE)
+    assert r["errors"] == {"base": "mantel_too_old"}
+    sent = [m for m in mantel.received if m["type"] == "pair"]
+    assert [m["v"] for m in sent] == [2], "never retried as v1"
+    assert mantel.code == CODE and not hass.config_entries.async_entries("mantel")

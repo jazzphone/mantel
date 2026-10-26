@@ -72,6 +72,18 @@ Reliability:
 - Backups: a backup made by hand deletes no older ones; a database-only restore keeps your photos; leftovers of an interrupted backup are cleaned up.
 - Push notifications survive an internet outage, and stop at an app that was signed out.
 
+## 0.1.77 - 2026-10-26
+
+- **Wall tablets recover after sleep.** A tablet that wakes, or comes back on the network, checks its connection to Mantel and reconnects within seconds if it went quiet. It also checks every 45 seconds while on screen, so it no longer shows stale states until someone reloads it. Mantel Settings now retries its own start, as the dashboard does.
+- **Every route declares who may use it.** Each of Mantel Server's routes now says who may call it, from which door, and what it records, and a test keeps it that way. These now appear in the Audit Log:
+  - adding or removing an authenticator app, a passkey or a keypad PIN;
+  - revoking a session, an app or a Service credential;
+  - push sign-ups, default screens and the setup guide.
+  Every change's row is written before the change, so nothing changes without one.
+- **Tighter wall-tablet access.** An Owner or Admin signed in at a wall tablet can no longer reach the roles, feature, settings-import or status pages. Mantel Connect can be managed from a trusted Home Assistant sidebar, as Service credentials can.
+- **No more false migration warning.** The migration check compares the database's actual structure instead of file checksums, so the house no longer logs "migration changed after it was applied" on every start. A real schema difference still warns and names the table or index.
+- **Smaller files, same behaviour.** The detail sheets, Mantel's feature host, the settings store and the Mantel Settings page are each split into smaller files. Nothing you see changes.
+
 ## 0.1.76 - 2026-10-26
 
 Local Home Assistant App update for the house: the engineering audit's second pass.

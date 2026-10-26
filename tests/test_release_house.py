@@ -5,6 +5,7 @@ from __future__ import annotations
 import datetime
 import importlib.util
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -152,3 +153,10 @@ async def test_a_wrong_token_is_refused():
         with pytest.raises(rh.Refused, match="refused the token"):
             async with rh.House(str(server.make_url("")).rstrip("/"), "wrong"):
                 pass
+
+
+def test_commits_name_their_files_and_never_take_everything():
+    # `commit -a` would take the never-committed local file (LOCAL_ONLY) too: the commit hook refuses it
+    source = (ROOT / "tools/release_house.py").read_text()
+    assert not re.search(r'"commit",\s*"-q?a', source)
+    assert source.count("commit_only(") >= 4

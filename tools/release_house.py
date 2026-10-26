@@ -316,7 +316,7 @@ def release_mantel(version: str, notes: str, dry: bool) -> list[str]:
     _load("bump_version").set_version(version)
     add_notes(ROOT / "CHANGELOG.md", version, notes, today)
     run(sys.executable, "tools/check_version.py", "--tag", f"v{version}")
-    git("commit", "-qam", f"Release {version} to the house\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>")
+    commit_only(f"Release {version} to the house", "CHANGELOG.md", *_load("check_version").FILES)
     commit = git("rev-parse", "HEAD")
     git("push", "-q", "--no-verify", "origin", "main")       # HEAD's full run passed; this commit only versions
     out = run(sys.executable, "tools/stage_ha_app.py", str(APPS_SHARE), "--replace", env={"HK_PRIVATE": regex})
@@ -347,7 +347,7 @@ def release_component(product: str, version: str, dry: bool) -> list[str]:
         print("dry run: would set the manifest version, commit, push, build, copy, diff, restart and verify")
         return []
     set_manifest_version(src / "manifest.json", version)
-    git("commit", "-qam", f"{product} {version} to the house\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>")
+    commit_only(f"{product} {version} to the house", f"{spec['dir']}/manifest.json")
     commit = git("rev-parse", "HEAD")
     git("push", "-q", "--no-verify", "origin", "main")
     with tempfile.TemporaryDirectory(prefix="mantel-house-") as tmp:
@@ -381,6 +381,11 @@ def release_component(product: str, version: str, dry: bool) -> list[str]:
     return lines
 
 
+def commit_only(message: str, *paths: str) -> None:
+    """Commit these files and nothing else (never `-a`: LOCAL_ONLY files stay out)."""
+    git("commit", "-q", "-m", f"{message}\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>", "--", *paths)
+
+
 def git_in(repo: Path, *args: str) -> str:
     return run("git", *args, cwd=repo, quiet=True).strip()
 
@@ -389,7 +394,7 @@ def record(title: str, lines: list[str]) -> None:
     today = datetime.date.today()
     append_record(RECORD, title, lines, today)
     git("add", str(RECORD.relative_to(ROOT)))
-    git("commit", "-qm", f"Record {title} on the house\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>")
+    commit_only(f"Record {title} on the house", str(RECORD.relative_to(ROOT)))
     git("push", "-q", "--no-verify", "origin", "main")
 
 

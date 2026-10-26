@@ -61,4 +61,7 @@ pages. Choosing one opens it in Home Assistant, as the menu did when the screen 
 The Mantel App announces Mantel to the Supervisor with a credential it makes for Mantel Link (rotated at every start;
 Home Assistant's discovery is for administrators). On the network, Mantel's `_mantel._tcp` announcement carries no
 credential: a pairing code from Mantel Settings proves it, and Mantel proves it knows the code too, so a look-alike
-can't hand Home Assistant a credential.
+can't hand Home Assistant a credential. Both proofs name the address Mantel Link used (pairing protocol v2): Mantel
+refuses an address that isn't its own, so a look-alike at another address passing the exchange on gets nothing, and
+Mantel Link checks that Mantel's proof names the same address. Mantel Link never falls back to the older protocol: an
+older Mantel says "Update Mantel first".

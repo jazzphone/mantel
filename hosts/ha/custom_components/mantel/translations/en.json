@@ -41,7 +41,8 @@
       "code_or_token": "Enter a pairing code (or a Service credential).",
       "invalid_code": "Mantel did not accept that pairing code. Make a new one in Mantel Settings.",
       "rate_limited": "Too many tries. Wait a few minutes and try again.",
-      "not_mantel": "That address answered, but it couldn't prove it is the Mantel that made the code."
+      "not_mantel": "That address answered, but it couldn't prove it is the Mantel that made the code.",
+      "wrong_address": "Mantel says that isn't its address, so something else may be answering for it. Enter Mantel's own address, as Mantel Settings shows it, and make a new pairing code if this one has run out."
     },
     "abort": {
       "already_configured": "This Mantel is already linked.",
