@@ -312,6 +312,43 @@ async def test_your_files_changes_are_audited_before_they_are_written(mantel, mo
     assert [r["action"] for r in rows(mantel, "user_files.")] == ["user_files.upload.font"]
 
 
+# -- notifications and the Mantel apps ------------------------------------------------------------------------------
+async def test_push_targets_are_audited_first_never_their_endpoint(mantel, monkeypatch):
+    from test_push import GOOD, subscription
+    await mantel.user("ann", "adult")
+    await mantel.sign_in("ann")
+    _, sub = subscription()
+    broken_audit(monkeypatch, mantel)
+    r = await mantel.post("/api/push/web/subscribe", {"subscription": sub, "name": "Fictional Phone"})
+    assert r.status == 503 and mantel.app["pusher"].targets.everyone() == []
+    monkeypatch.undo()
+    assert (await mantel.post("/api/push/web/subscribe", {"subscription": sub, "name": "Fictional Phone"})).status == 201
+    tid = (await (await mantel.get("/api/push/targets")).json())["targets"][0]["id"]
+    broken_audit(monkeypatch, mantel)
+    assert (await mantel.client.delete(f"/api/push/targets/{tid}", headers=mantel.headers())).status == 503
+    assert (await mantel.post("/api/push/web/unsubscribe", {"endpoint": GOOD})).status == 503
+    assert len(mantel.app["pusher"].targets.everyone()) == 1
+    monkeypatch.undo()
+    assert (await mantel.post("/api/push/web/unsubscribe", {"endpoint": GOOD})).status == 200
+    got = [(r["action"], json.loads(r["target"])) for r in rows(mantel, "push.")]
+    assert got == [("push.subscribe", {"kind": "web", "name": "Fictional Phone", "service": "web.push.apple.com"}),
+                   ("push.unsubscribe", {"target": tid, "kind": "web", "name": "Fictional Phone"})]
+    assert GOOD not in json.dumps(mantel.app["audit"].rows()) and sub["keys"]["auth"] not in json.dumps(got)
+
+
+async def test_revoking_a_signed_in_app_is_audited_first(mantel, monkeypatch):
+    from test_app_auth import sign_in_app
+    phone, tok = await sign_in_app(mantel)
+    broken_audit(monkeypatch, mantel)
+    r = await mantel.client.delete(f"/api/app/devices/{tok['credential_id']}", headers=mantel.headers())
+    assert r.status == 503 and (await phone.call("GET", "/api/app/me"))[0].status == 200
+    monkeypatch.undo()
+    assert (await mantel.client.delete(f"/api/app/devices/{tok['credential_id']}", headers=mantel.headers())).status == 200
+    [row] = rows(mantel, "app.")
+    assert row["action"] == "app.revoke" and json.loads(row["target"])["app"] == tok["credential_id"]
+    assert json.loads(row["target"])["name"] == "Ann's iPhone"
+
+
 # -- Service credentials, Mantel Link pairing, Mantel Connect ---------------------------------------------------------
 async def test_making_and_revoking_a_service_credential_is_audited_first(mantel, monkeypatch):
     await owner(mantel)
