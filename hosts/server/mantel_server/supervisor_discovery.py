@@ -40,6 +40,9 @@ ACCOUNT_NAME = "Mantel Link - App discovery"     # Mantel Link's own: revoked, M
 KEY = "supervisor_discovery"
 
 
+APP_URL = "app_url"                     # app[...]: the App's own address on HA's internal network, once known
+
+
 async def announce(app: Any, *, http: aiohttp.ClientSession | None = None) -> dict[str, Any] | None:
     """Mint (rotating) and announce. Returns what was announced, without the credential, or None."""
     cfg = app["cfg"]
@@ -65,6 +68,7 @@ async def announce(app: Any, *, http: aiohttp.ClientSession | None = None) -> di
             log.warning("App discovery: the Supervisor did not say the App's hostname; not announcing")
             return None
         url = f"http://{hostname}:{int(getattr(cfg, 'port', 8099))}"
+        app[APP_URL] = url                     # one of Mantel's own addresses, announced or not (pairing v2)
         before = owners.remembered(KEY) or {}
         if before.get("uuid"):
             async with http.delete(f"{base}/discovery/{before['uuid']}", headers=headers) as r:
