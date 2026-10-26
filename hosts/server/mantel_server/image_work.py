@@ -20,6 +20,7 @@ import contextlib
 import io
 import logging
 import os
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -76,6 +77,31 @@ def _jpeg_options() -> dict:
     # encode: in the server's own process a 48 MP picture froze every other client for ~0.75 s (MED-1), so a thread
     # encodes baseline (~13% larger files). The worker has a GIL of its own.
     return {"progressive": True, "optimize": True} if IN_WORKER else {}
+
+
+def _trim() -> None:
+    """After a picture, give the freed heap back (Linux): glibc keeps the freed buffers of a 48 MP decode (~0.6 GB)
+    in the process otherwise, and the worker would hold them until it stops idle -- under a 1 GB container limit."""
+    if IN_WORKER and sys.platform.startswith("linux"):
+        with contextlib.suppress(Exception):
+            import ctypes
+            ctypes.CDLL("libc.so.6").malloc_trim(0)
+
+
+def process(data: bytes) -> Processed:
+    """Decode a picture and make its three stored files (see photos.py's docstring). PhotoError otherwise."""
+    try:
+        return _process(data)
+    finally:
+        _trim()
+
+
+def reencode_photo(data: bytes, *, expect: str | None = None) -> tuple[bytes, str]:
+    """Your Files' photo: (bytes, "jpeg"|"png"|"webp"), see ``_reencode_photo``. FileError otherwise."""
+    try:
+        return _reencode_photo(data, expect=expect)
+    finally:
+        _trim()
 
 
 # -- faces --------------------------------------------------------------------------------------------------------
@@ -172,7 +198,7 @@ def sniff(data: bytes) -> str | None:
     return None
 
 
-def process(data: bytes) -> Processed:
+def _process(data: bytes) -> Processed:
     """Decode a picture and make its three stored files (see the module docstring). PhotoError otherwise."""
     kind = sniff(data)
     if kind is None:
@@ -253,7 +279,7 @@ def sniff_image(data: bytes) -> str | None:
     return None
 
 
-def reencode_photo(data: bytes, *, expect: str | None = None) -> tuple[bytes, str]:
+def _reencode_photo(data: bytes, *, expect: str | None = None) -> tuple[bytes, str]:
     """Decode and re-encode an image: (bytes, "jpeg"|"png"|"webp"). Drops all metadata, applies the EXIF
     rotation, shrinks to PHOTO_EDGE, keeps one frame. ``expect`` pins the output format (an import that
     must keep its extension). FileError: photo_invalid, photo_too_large, heic_unsupported, images_unavailable."""

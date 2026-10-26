@@ -20,6 +20,7 @@ pickers make an album and add photos to it in place (below).
 | Part | Where |
 |---|---|
 | Storage, processing, REST, the HA import | `hosts/server/mantel_server/photos.py` |
+| The picture work, in its own process | `hosts/server/mantel_server/imaging.py` (the worker, the slot, the fallback) and `image_work.py` (decode, re-encode, faces) |
 | The records | migration `0018_photos.sql`: `photo_albums`, `photos`, `photo_screens`, `photo_settings` |
 | Mantel Settings → Your Files → Photos | `web/shim/mantel-photos.js` (wired in `mantel-settings.js` `pFiles`; Owner and Admin). Its address is `#/mantel/files/photos`; the old `#/mantel/photos` (and `/admin`'s `#photos`) forward there |
 | The screensaver's side | `web/hk/modules/hk-saver.js` asks the host (`hkShell.photoSource` / `listPhotos`, `web/client/hk-host-shell.js`); Mantel's answers are in `web/shim/mantel-shell.js` |
@@ -67,13 +68,47 @@ It is decoded and re-encoded:
 
 * the orientation applied, then **every bit of metadata dropped** (EXIF, GPS location, camera, XMP); wide-gamut
   colour to sRGB; transparency flattened onto black;
-* **original**: full size up to 8192 px on the long side, JPEG q90 (a re-encode, so no location survives; the
-  uploaded bytes are not kept);
-* **screen**: 2560 px, JPEG q85 (what the screensavers show);
+* **original**: full size up to 8192 px on the long side, progressive JPEG q90 (a re-encode, so no location
+  survives; the uploaded bytes are not kept);
+* **screen**: 2560 px, progressive JPEG q85 (what the screensavers show);
 * **thumbnail**: 480 px, WebP (the grid).
 
 The SHA-256 of the bytes as they came in is kept: the same picture twice in one album is skipped
 (`duplicate: true`), also when two uploads of it race.
+
+### Where the work runs (`imaging.py`, `image_work.py`)
+
+Decoding and re-encoding (Mantel Photos' `process`, Your Files' `reencode_photo`) and looking for faces (on upload
+and in the backfill) run in **one worker process**, one picture at a time; the server keeps every write.
+
+* **The worker.** A `ProcessPoolExecutor(max_workers=1)` with the `spawn` start method: a fresh interpreter that
+  imports `image_work.py`, `faces.py` and Pillow, never the server. It starts on the first picture and stops after
+  5 idle minutes (`imaging.IDLE`). ONNX Runtime and the face detector live there only (one detector for the
+  worker's life); the server process never imports ONNX Runtime and learns whether faces can be found from the
+  worker (`imaging.faces_available`; before the worker has said, from whether the packages are installed).
+  Mantel's images start the server as `python -m mantel_server`, which multiprocessing does not re-import in the
+  worker.
+* **One at a time.** `imaging.run` waits for the image slot (MED-2) before it sends a job; the slot is given back
+  when the job ends, also when its caller was cancelled (the worker can't be stopped mid-picture). Uploads, the
+  import from Home Assistant, Your Files' photos and the face backfill's `look` all queue there.
+* **Plain data.** Bytes or a path go in; encoded bytes, sizes and face boxes come out. The server checks the quota,
+  writes the audit row (before the change), the files and the row; a cancelled add still leaves no files.
+* **Progressive JPEG again.** MED-1 turned the progressive, optimized encode off because it held the server's GIL
+  (a 48 MP picture froze every client for ~0.75 s). In the worker it holds only the worker's: the event loop's
+  worst stall during a 30 MP upload is under 20 ms with it on (`test_photos.py`).
+* **When the worker dies** with a picture (out of memory, a decoder crash), that picture is refused as unreadable;
+  it is never run again in the server's own process. The next picture starts a new worker.
+* **When no worker can run** (no new processes, or no `/dev/shm` for the pool's semaphores), or after a second
+  death, the work runs in a thread of the server as before -- baseline JPEG, so the loop keeps running -- and one
+  warning says so (`picture work runs in a thread from now on`).
+* **Containers.** The worker needs a process (the pool also starts multiprocessing's resource tracker: two more of
+  `pids_limit: 256`), and `/dev/shm` for its semaphores: Docker gives every container a 64 MB `/dev/shm` whatever
+  `read_only` says, and neither compose.yaml nor the HA App overrides it. No temporary files are written (`/tmp`
+  is not used). After each picture the worker hands freed memory back to the system (`malloc_trim`, Linux).
+* **Memory** (measured 2026-10-26 on macOS arm64, a 48 MP JPEG of 19.6 MB, peak RSS). In the worker: the server's
+  process 49 → 69 MB, the worker 73 → 711 MB, 1.3 s with progressive encode. In a thread (the fallback): the
+  server's process 49 → 601 MB, 0.6 s. An idle worker is about 70 MB; with the face detector loaded, some tens of MB
+  more. Not yet measured in the Linux images (Docker was not running).
 
 ### Limits (a setting)
 
@@ -139,14 +174,13 @@ around them. Only boxes are found and stored, never who anyone is, and nothing l
   one thread. The model's input is a fixed 640x640: the picture is scaled to 640 px on its long side and padded.
   Its outputs are decoded and duplicates removed in `faces.decode`/`faces.nms`, matching OpenCV's
   `FaceDetectorYN` (checked against it to within 2e-4 px). Score at least 0.7; faces under a quarter of the
-  largest's area are dropped (`keep`). A `Detector` lives for one batch; ONNX Runtime stays loaded in the process
-  once imported.
-* **On upload.** `process()` runs the detector on the screen-sized copy it has just made, in the same worker
-  thread. `Processed.faces` is `None` when there's no detector or it fails, and the upload never fails because of
+  largest's area are dropped (`keep`). It runs in the image worker process (see "Where the work runs"), which keeps
+  one `Detector` for its life; the server process never imports ONNX Runtime.
+* **On upload.** `process()` runs the detector on the screen-sized copy it has just made, in the same worker. `Processed.faces` is `None` when there's no detector or it fails, and the upload never fails because of
   it.
 * **Backfill** (`FaceBackfill`, `app["photos_faces"]`). It starts 60 s after the server, then takes one unchecked
-  photo at a time (newest first): it reads `screen/<id>.jpg`, detects in a thread, writes the row, and rests
-  0.5 s. It waits while an import runs and stops when nothing is left. A restart carries on, because the state
+  photo at a time (newest first): the worker reads `screen/<id>.jpg` and detects (`imaging.look`, in its turn with
+  the uploads), the server writes the row, and it rests 0.5 s. It waits while an import runs and stops when nothing is left. A restart carries on, because the state
   is the rows. An unreadable file is stored as `'[]'`. Nothing runs without a detector. When it finishes, it logs
   at info "checked N photos for faces in Xs (M with faces)". It's cancelled on cleanup.
 * **Screensaver** (`hk-saver.js`, shared with HK Frontend; does nothing without focus data). `hostPhotoList`
