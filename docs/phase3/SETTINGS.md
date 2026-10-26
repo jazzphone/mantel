@@ -89,7 +89,7 @@ keys HA's schema allows and nothing else. Results and refusals are HA's:
 |---|---|---|
 | `hk_frontend/settings/set {changes}` | `{"settings": <house sections>}` | `house/settings` |
 | `hk_frontend/calendar/color {key, color?}` | `{"event_colors": {...}}` | `house/settings` (HA lets any user; Mantel asks `settings`: see below) |
-| `hk_frontend/board/set {dashboard, changes}` | `{"board": {...}}`; `no_item` if the screen has no document | `board/<path>` |
+| `hk_frontend/board/set {dashboard, changes, expect_version?}` | `{"board": {...}, "version": n}` (the version now); `no_item` if the screen has no document; `conflict` (nothing written) when `expect_version`, the version the editor read from `panel/get`'s `versions["board/<path>"]`, is no longer the current one (SET-7: Home Grid's editor) | `board/<path>` |
 | `hk_frontend/tablet/set {tablet, changes}` | `{"tablet": {...}}`; `no_tablet` | `tablet/<id>` |
 | `hk_frontend/setup/done {done}` | `{"setup_done": bool}` | `house/setup` |
 | `hk_frontend/chip/save {name, card, key?, after?}` | `{"key", "custom_chips"}` (key from the name, unique; `chip_gone` for an unknown key) | `house/custom_chips` |

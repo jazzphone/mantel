@@ -174,6 +174,25 @@ async def test_while_the_house_is_home_assistant_s_a_save_stays_here(hass, base,
     await _unload(hass, e)
 
 
+async def test_a_screen_save_with_the_version_it_opened_goes_to_mantel_with_it(hass, base, mantel):
+    """SET-7: board/set's expect_version passes HA's own schema (which checks first) and reaches Mantel unchanged:
+    Mantel's settings store compares it, and its `conflict` reaches the page in its words."""
+    async def conflict(ws, msg):
+        if msg.get("type") == "settings_write":
+            return {"id": msg["id"], "type": "result", "success": False,
+                    "error": {"code": "conflict", "message": "board/dashboard-den changed meanwhile (now version 4)"}}
+        return await mantel.ok(ws, msg)
+    mantel.answer = conflict
+    e = await _linked(hass, mantel)
+    await _mirror(hass, mantel)
+    save = {"type": "hk_frontend/board/set", "dashboard": "dashboard-den", "expect_version": 3,
+            "changes": {"home_style": "grid"}}
+    got = await _save(hass, await _admin(hass), save)
+    assert mantel.calls("settings_write")[-1]["msg"] == save
+    assert not got["success"] and got["error"]["code"] == "conflict"
+    await _unload(hass, e)
+
+
 # ------------------------------------------------------------ setup: Repairs, and the dashboards reported
 async def test_a_repairs_issue_while_admins_can_t_save(hass, base, mantel):
     from homeassistant.helpers import issue_registry as ir

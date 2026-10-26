@@ -444,6 +444,11 @@ class SettingsService:
         dash = msg["dashboard"]
         if not isinstance(dash, str) or not KEY_RE["board"].match(dash):
             raise SettingsError("invalid_format", fields={"dashboard": "invalid"})
+        # SET-7: the version the editor opened (panel/get's versions["board/<dash>"]); an older one is a
+        # `conflict` (someone else saved meanwhile) and nothing is written. Without it the save goes as before.
+        opened = msg.get("expect_version")
+        if "expect_version" in msg and type(opened) is not int:
+            raise SettingsError("invalid_format", fields={"expect_version": "number"})
         await self.need(identity, Scope("board", dash))
         cur = self.store.get("board", dash)
         if cur is None:
@@ -451,8 +456,9 @@ class SettingsService:
         new, errors = self.model.apply_board(cur.body, msg["changes"])
         if errors:
             raise SettingsError("invalid_format", fields=errors)
-        self._store([("board", dash, new)], actor, msg, expect={("board", dash): cur.version})
-        return {"board": self.store.body("board", dash)}
+        got = self._store([("board", dash, new)], actor, msg,
+                          expect={("board", dash): cur.version if opened is None else opened})
+        return {"board": self.store.body("board", dash), "version": got[0].version if got else cur.version}
 
     async def _tablet_set(self, identity, actor, msg):
         tid = msg["tablet"]

@@ -1077,3 +1077,48 @@ def test_now_playing_place_is_checked():
     assert (b["np_style"], b["np_side"], b["np_bar"], b["np_bar_phone"]) == ("pane", "left", None, None)
     got, err = apply_board(S.board({}), {"np_style": "bar", "np_bar": "top", "np_bar_phone": None})
     assert err == {} and got["np_style"] == "bar" and got["np_bar"] == "top" and got["np_bar_phone"] is None, (got, err)
+
+
+# ------------------------------------------------------------ SET-7: two editors, one screen
+async def _versions(hass, conn):
+    from custom_components.hk_frontend.panel import ws_panel_get
+    ws_panel_get(hass, conn, {"id": 90, "type": "hk_frontend/panel/get"})
+    await hass.async_block_till_done(wait_background_tasks=True)
+    return conn.sent[-1]["result"]["versions"]
+
+
+async def test_a_screen_save_with_the_version_it_opened_is_refused_once_someone_else_saved(hass, frontend):
+    """panel/get gives each screen's version as Mantel's does (versions["board/<path>"]): here a digest of the
+    screen's stored settings, which changes when they do. board/set with expect_version: the same saves and answers
+    the new one; an older one is a `conflict` and writes nothing; none at all (Save Anyway) saves as before."""
+    from homeassistant.config_entries import ConfigSubentry
+    from custom_components.hk_frontend.panel import ws_board_set
+    conn = await _admin(hass)
+    for path, title in (("dashboard-hall", "Hall"), ("dashboard-den", "Den")):
+        hass.config_entries.async_add_subentry(entry(hass), ConfigSubentry(
+            data={"menu": "open"}, subentry_type="dashboard", title=title, unique_id=path))
+    opened = await _versions(hass, conn)
+    hall, den = opened["board/dashboard-hall"], opened["board/dashboard-den"]
+    assert isinstance(hall, str) and hall and isinstance(den, str) and den
+    assert (await _versions(hass, conn)) == opened, "stable: read again, the same"
+
+    def save(n, changes, **more):
+        ws_board_set(hass, conn, {"id": n, "type": "hk_frontend/board/set", "dashboard": "dashboard-hall",
+                                  "changes": changes, **more})
+        return conn.sent[-1]
+    got = save(1, {"glass": "blur"}, expect_version=hall)            # the first editor
+    assert got["success"], got
+    now = (await _versions(hass, conn))["board/dashboard-hall"]
+    assert now != hall and got["result"]["version"] == now, "the answer carries the new version"
+    assert (await _versions(hass, conn))["board/dashboard-den"] == den, "another screen's is its own"
+    got = save(2, {"glass": "frosted"}, expect_version=hall)         # the second editor, still at `hall`
+    assert got["success"] is False and got["error"] == "conflict", got
+    assert S.as_client(entry(hass))["boards"]["dashboard-hall"]["glass"] == "blur", "nothing written"
+    got = save(3, {"glass": "frosted"})                              # Save Anyway: no version
+    assert got["success"] and S.as_client(entry(hass))["boards"]["dashboard-hall"]["glass"] == "frosted"
+    assert got["result"]["version"] == (await _versions(hass, conn))["board/dashboard-hall"]
+    # the schema takes it (also Mantel's whole-number versions, which pass through while linked)
+    schema = ws_board_set._ws_schema
+    for v in (hall, 3):
+        assert schema({"id": 4, "type": "hk_frontend/board/set", "dashboard": "dashboard-hall", "changes": {},
+                       "expect_version": v})["expect_version"] == v

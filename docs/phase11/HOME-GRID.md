@@ -188,6 +188,13 @@ under them. Only a block swipes, never the whole screen (whole-screen pages: not
   - Grid settings: columns (6 / 3 / 2), rows, frame, top band.
   - **Save** writes the whole layout as one change. **Cancel** throws the edits away. Nothing reaches the tablet
     until Save.
+  - **Two editors, one screen (SET-7):** the editor keeps the screen's version from `panel/get`'s
+    `versions["board/<path>"]` (Mantel: the document's number; HK Frontend: a digest of the screen's item data,
+    `panel.board_version`) and sends it as `board/set`'s `expect_version`, on Save and on Copy Layout To… (the
+    target's). A screen saved meanwhile elsewhere is refused as `conflict`, and the editor asks *This screen changed
+    since you opened it*: **Reload** (the screen as it is now; the draft is discarded, or for Copy Layout the
+    settings are read again and the draft kept) or **Save Anyway** (sent again without the version). Escape keeps
+    the draft and saves nothing.
 - **Starter layouts:** switching a screen to Home Grid offers A (Tap Weight) or C (Glance Up, Touch Down), filled
   from the house: its scenes, the tablet's room, its cameras and thermostats. Nobody starts from an empty grid.
 - The editor is `web/hk/panels/hk-grid-editor.js`. It is host-neutral and saves through each host's settings
@@ -698,7 +705,7 @@ its Python mirror.
 
 - `web/hk/panels/hk-grid-editor.js`: desktop draft editor using the existing settings kit. Pointer drag with cell snap, same-size swap, refusal outline, arrow-key moves, supported size choices and Remove. The catalog offers real card previews at every supported size, click-to-first-fit and drag-to-place. Block fields cover the Python catalog's options, including suggested-scene windows, action jobs/scene/script and room, scene/calendar lists, automatic page sources and custom pages with add/move-up/remove. Grid settings cover columns, rows, frame and band.
 - The actual screen runs in a same-origin, inert iframe. A strategy preview argument draws the draft with the existing cards, live client data, appearance and tab bar. It changes no settings feed. The editing overlay measures actual cells, including the bar's reserved space. Both shadow-root and light-DOM host views are supported. Pointer and keyboard interaction with the preview's household controls is blocked.
-- Save sends `home_style` and the entire `home_grid` in one existing `board/set` action. Failed saves keep the draft. Cancel confirms discarding edits and writes nothing. Drafts survive a settings-panel redraw; the editor has no tablet editing controls.
+- Save sends `home_style` and the entire `home_grid` in one existing `board/set` action, with the version it opened (`expect_version`; since Phase 7, SET-7). Failed saves keep the draft. Cancel confirms discarding edits and writes nothing. Drafts survive a settings-panel redraw; the editor has no tablet editing controls.
 - Both hosts have `hk_frontend/grid/starter`, an admin/configure-only read. It delegates to the bounded `hk_core.settings.home_grid.starter_request()` and the existing Python starter. No starter layout is duplicated in JS. The JS catalog now exposes the existing Python option kinds for the old cards too; calendar blocks now consume their stored calendar selection.
 - Mantel's settings host supplies the history read through `gridHistory`, keeping its transport out of shared code. History includes the actor's display name, version and date. Selecting a version restores **only the layout into the draft**; Save applies it through the existing checked/audited write. Copy Layout confirms and saves only layout/style to the selected screen, preserving other settings and relative `tablet_room` options.
 - The shared Screens page offers Home Style and Arrange Home Grid for generated screens. Both hosts load the editor after the catalog. The HA settings-panel cache stamp includes the new module.

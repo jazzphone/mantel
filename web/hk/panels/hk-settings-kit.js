@@ -684,7 +684,9 @@
   }
 
   // ------------------------------------------------------------ the alert
-  // confirm(shadowRoot, {title, message, ok, cancel, destructive}) -> Promise<bool>.
+  // confirm(shadowRoot, {title, message, ok, cancel, destructive, dismiss}) -> Promise<bool>.
+  // dismiss: what Escape or a tap outside answers (false unless given), for a
+  // dialog whose Cancel button is a choice of its own (the grid editor's Reload)
   // Cancel is where focus starts; Escape cancels; focus stays in the alert.
   // an iOS alert: Cancel and OK, or (cancel: false) OK alone, to say something
   function confirm(rootEl, o) {
@@ -705,11 +707,12 @@
       };
       if (cancel !== ok) cancel.addEventListener('click', function () { close(false); });
       ok.addEventListener('click', function () { close(true); });
+      var dismissed = 'dismiss' in o ? o.dismiss : false;
       bd.addEventListener('keydown', function (e) {
-        if (e.key === 'Escape') { e.preventDefault(); close(false); }
+        if (e.key === 'Escape') { e.preventDefault(); close(dismissed); }
         if (e.key === 'Tab') { e.preventDefault(); (rootEl.activeElement === ok ? cancel : ok).focus(); }
       });
-      bd.addEventListener('click', function (e) { if (e.target === bd) close(false); });
+      bd.addEventListener('click', function (e) { if (e.target === bd) close(dismissed); });
       rootEl.appendChild(bd);
       // side by side unless a label would be cut: then stacked
       var row = dlg.querySelector('.db');

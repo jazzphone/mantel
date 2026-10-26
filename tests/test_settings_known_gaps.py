@@ -1,6 +1,6 @@
-"""Known gaps in the settings store, pinned (docs/development/Audit-2026-10-second-pass.md, SET-2 and SET-7: deferred,
-with the reasons there). Each test states what SHOULD hold and is xfail(strict=True): the day a gap is fixed its
-test passes, which fails under strict, and the marker comes off."""
+"""Known gaps in the settings store, pinned (docs/development/Audit-2026-10-second-pass.md, SET-2: deferred, with the
+reasons there). Each test states what SHOULD hold and is xfail(strict=True): the day a gap is fixed its test passes,
+which fails under strict, and the marker comes off (SET-7's came off in Phase 7)."""
 from __future__ import annotations
 
 from pathlib import Path
@@ -70,31 +70,26 @@ def test_set2_a_default_is_not_a_saved_choice(place):
 
 
 # ---------------------------------------------------------------------------------------------- SET-7
-# P2. Two editors, one screen. board/set carries the whole home_grid and no version (WRITE_KEYS has no place for
-# one; _only refuses an extra key), so the second Save silently replaces the first editor's layout: no conflict,
-# no merge. (store.write's expect= guards nothing here: _board_set reads and writes with no await between.)
-@pytest.mark.xfail(strict=True, reason="SET-7 (deferred): board/set carries no version in either host's schema")
+# P2, fixed in Phase 7. Two editors, one screen: board/set carries the version the editor opened
+# (`expect_version`, from panel/get's `versions`), so the second Save is refused as a `conflict` instead of silently
+# replacing the first editor's layout. The editor then offers Reload, or Save Anyway (sent without the version).
 async def test_set7_the_second_editor_does_not_silently_erase_the_first(svc, store):
     store.write([("board", "dashboard-x", M.board({}))], actor=S.Actor(label="t"))
-    opened = store.get("board", "dashboard-x").version                   # both editors opened here
-    first = grid(block("a1", "timers", "S", [0, 0]))
+    opened = (await svc.panel_get(OWNER, {"type": "hk_frontend/panel/get"}))["versions"]["board/dashboard-x"]
+    first = grid(block("a1", "timers", "S", [0, 0]))                 # both editors opened at `opened`
     second = grid(block("b1", "people", "W", [2, 0]))
 
     async def save(layout):                                          # exactly what hk-grid-editor.js save() sends
         return await svc.save(OWNER, {"type": "hk_frontend/board/set", "dashboard": "dashboard-x",
+                                      "expect_version": opened,
                                       "changes": {"home_style": "grid", "home_grid": layout}})
     await save(first)
-    # the protocol cannot even say "I edited version `opened`": _only refuses the extra key
-    with pytest.raises(S.SettingsError) as unsayable:
-        await svc.save(OWNER, {"type": "hk_frontend/board/set", "dashboard": "dashboard-x", "version": opened,
-                               "changes": {"home_style": "grid", "home_grid": second}})
-    assert unsayable.value.fields == {"version": "unexpected"}
     refused = False
     try:
         await save(second)
     except S.SettingsError as exc:
         refused = exc.code == "conflict"
     ids = [i["id"] for i in store.body("board", "dashboard-x")["home_grid"]["items"]]
-    assert refused or "a1" in ids, "the first editor's block is gone and nobody was told"
+    assert refused and "a1" in ids, "the first editor's block is gone and nobody was told"
 
 

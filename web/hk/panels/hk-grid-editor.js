@@ -61,6 +61,12 @@
     'Security & Cameras': 'var(--hk-gray)', Info: 'var(--hk-label3)' };
   function groupOf(card) { var g = GROUPS.find(function (x) { return x[1].indexOf(card) >= 0; }); return g ? g[0] : 'Info'; }
   function copy(x) { return JSON.parse(JSON.stringify(x)); }
+  // a screen's version as the page last read it (panel/get's versions["board/<path>"]); undefined from a host
+  // that sends none, and then saves go without one, as before
+  function versionOf(panel, path) { var v = panel.data && panel.data.versions; return v ? v['board/' + path] : undefined; }
+  function keepVersion(panel, path, result) {
+    if (result && result.version != null && panel.data) (panel.data.versions = panel.data.versions || {})['board/' + path] = result.version;
+  }
   // THE VIEW BEING EDITED (VIEWS, 2026-10-24): what is added, placed and
   // drawn is in it; blocks in different views never overlap
   var VIEW = 0;
@@ -254,7 +260,16 @@
     constructor() { super(); this.attachShadow({ mode: 'open' }); this.selected = null; this.busy = false; this.undoStack = []; this.paletteSizes = {}; }
     configure(options) {
       this.o = options; this.panel = options.panel; this.K = window.hkSettingsKit; this.h = this.K.h;
-      this.grid = options.board.home_grid ? copy(options.board.home_grid) : null;
+      this.load(options.board);
+    }
+    // THE SCREEN AS IT IS: its layout the draft, and the version it was read
+    // at (panel/get's versions; a number or a digest, whichever the host
+    // sends, kept as it came), which Save sends so a save made meanwhile elsewhere isn't
+    // silently replaced (SET-7)
+    load(board) {
+      this.o.board = board;
+      this.version = versionOf(this.panel, this.o.path);
+      this.grid = board.home_grid ? copy(board.home_grid) : null;
       // a block saved with the older Show When (when + fallback) opens as rules: the fallback its
       // default, its own card its one rule (hk-grid-catalog.js rulesOf); Save writes it that way
       if (this.grid) this.grid.items = this.grid.items.map(function (it) {
@@ -1135,18 +1150,52 @@
       this.selected = null; this.change(copy(row.body.home_grid));
       this.say('Version ' + row.version + ' restored to the draft. Save to apply it.');
     }
-    async copyTo(path) {
+    async copyTo(path, anyway) {
       if (this.busy || !path || !valid(this.grid)) return;
-      if (!await this.K.confirm(this.shadowRoot, { title: 'Copy Layout To This Screen?', message: 'This saves your draft layout to ' + path + '. Its other settings stay as they are. Tablet’s Room still means the tablet showing that screen.', ok: 'Copy Layout' })) return;
+      if (!anyway && !await this.K.confirm(this.shadowRoot, { title: 'Copy Layout To This Screen?', message: 'This saves your draft layout to ' + path + '. Its other settings stay as they are. Tablet’s Room still means the tablet showing that screen.', ok: 'Copy Layout' })) return;
       this.busy = true;
+      var changed = null;
       try {
-        var grid = copy(this.grid);
-        var result = await this.panel.actions().callWS({ type: 'hk_frontend/board/set', dashboard: path,
-          changes: { home_style: 'grid', home_grid: grid } });
+        var grid = copy(this.grid), version = versionOf(this.panel, path);
+        var msg = { type: 'hk_frontend/board/set', dashboard: path, changes: { home_style: 'grid', home_grid: grid } };
+        if (!anyway && version != null) msg.expect_version = version;    // the target screen's, as last read
+        var result = await this.panel.actions().callWS(msg);
         this.panel.data.boards[path] = result && result.board || Object.assign({}, this.panel.data.boards[path], { home_style: 'grid', home_grid: grid });
+        keepVersion(this.panel, path, result);
         this.say('Layout copied.');
-      } catch (e) { this.say('Couldn’t copy the layout. ' + (e.message || e)); }
-      finally { this.busy = false; }
+      } catch (e) {
+        if (e && e.code === 'conflict') changed = true;
+        else this.say('Couldn’t copy the layout. ' + (e.message || e));
+      } finally { this.busy = false; }
+      if (!changed) return;
+      // THAT SCREEN CHANGED since this page read it: Reload reads the
+      // settings again (this screen's draft stays) to copy onto what it is
+      // now; Save Anyway replaces its layout with this one
+      var choice = await this.changed('That screen changed since you opened it, in another window or on another device. Reload to read it again (your draft here stays), or Save Anyway to replace its layout with this one.');
+      if (choice === 'anyway') return this.copyTo(path, true);
+      if (choice === 'reload') {
+        try { await this.panel.reload(); this.say('Reloaded. Copy the layout again to replace that screen’s.'); }
+        catch (e) { this.say('Couldn’t reload. ' + (e.message || e)); }
+      } else this.say('Not copied: that screen changed since you opened it.');
+    }
+    // "This screen changed": Reload (Cancel's place, where focus starts) or
+    // Save Anyway; Escape or a tap outside is neither ('reload' | 'anyway' | null)
+    async changed(message) {
+      var got = await this.K.confirm(this.shadowRoot, { title: 'This Screen Changed', message: message,
+        cancel: 'Reload', ok: 'Save Anyway', dismiss: null });
+      return got === true ? 'anyway' : got === false ? 'reload' : null;
+    }
+    // Reload: the screen as it is now (read again), the draft and its undo
+    // discarded
+    async reloadBoard() {
+      try {
+        await this.panel.reload();
+        this.selected = null; this.undoStack = [];
+        this.load(this.panel.data.boards[this.o.path] || {});
+        this.saveButton.disabled = !this.grid; this.undoButton.disabled = true;
+        this.blocks(); this.side(); this.fit(); this.preview();
+        this.say('Reloaded. This is the screen’s layout as it is now.');
+      } catch (e) { this.say('Couldn’t reload. ' + (e.message || e)); }
     }
     update(id, patch) {
       var next = copy(this.grid), it = next.items.find((x) => x.id === id);
@@ -1324,19 +1373,35 @@
         else this.say('The live preview couldn’t load. Reload this page to try again.');
       }
     }
-    async save() {
+    // anyway: Save Anyway, sent without the version (replaces what was saved meanwhile)
+    async save(anyway) {
       if (this.busy || !this.grid || !valid(this.grid)) return;
       this.busy = true; this.saveButton.disabled = true; this.say('Saving…');
+      var changed = false;
       try {
         var grid = copy(this.grid);
-        var result = await this.panel.actions().callWS({ type: 'hk_frontend/board/set', dashboard: this.o.path,
-          changes: { home_style: 'grid', home_grid: grid } });
+        var msg = { type: 'hk_frontend/board/set', dashboard: this.o.path, changes: { home_style: 'grid', home_grid: grid } };
+        if (!anyway && this.version != null) msg.expect_version = this.version;
+        var result = await this.panel.actions().callWS(msg);
         this.panel.data.boards[this.o.path] = result && result.board || Object.assign({}, this.o.board, { home_style: 'grid', home_grid: grid });
+        keepVersion(this.panel, this.o.path, result);
+        if (result && result.version != null) this.version = result.version;
         this.initial = JSON.stringify(grid); this.o.onSaved();
       } catch (e) {
-        var fields = window.hkSettingsModel.refusals(e);
-        this.say('Couldn’t save. ' + (fields && fields.home_grid ? window.hkSettingsModel.errorText(fields.home_grid) : e.message || e));
+        if (e && e.code === 'conflict') { changed = true; this.say(''); }
+        else {
+          var fields = window.hkSettingsModel.refusals(e);
+          this.say('Couldn’t save. ' + (fields && fields.home_grid ? window.hkSettingsModel.errorText(fields.home_grid) : e.message || e));
+        }
       } finally { this.busy = false; this.saveButton.disabled = false; }
+      if (!changed) return;
+      // THIS SCREEN CHANGED since the editor opened it (another window,
+      // another device): nothing was saved. Reload shows it as it is now;
+      // Save Anyway replaces it with this draft
+      var choice = await this.changed('This screen changed since you opened it, in another window or on another device. Reload to see it as it is now (your changes here are discarded), or Save Anyway to replace it with your layout.');
+      if (choice === 'anyway') return this.save(true);
+      if (choice === 'reload') return this.reloadBoard();
+      this.say('Not saved: this screen changed since you opened it.');
     }
   }
   window.hkGridEditor = { place: place, valid: valid, firstSpace: firstSpace, add: add, snap: snap, landing: landing };

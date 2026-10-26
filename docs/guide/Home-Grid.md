@@ -109,7 +109,7 @@ With no block selected, the right side shows the screen's settings:
 
 Mantel also offers **Layout History** and **Copy Layout To…**. History lists saved versions with who saved them and when; choosing one restores its layout into a draft for review. Copy Layout saves the draft to another screen after confirmation and keeps that screen's other settings. **Tablet’s Room** keeps its meaning in a copied layout.
 
-**Save** applies the complete layout in one checked settings change. **Cancel** discards the draft. To return to the generated Home page, choose **Home Style → Generated**; the saved grid is kept.
+**Save** applies the complete layout in one checked settings change. **Cancel** discards the draft. If someone else saved the screen after you opened the editor (another window or device), nothing is saved and the editor says **This screen changed since you opened it**: **Reload** shows the screen as it is now and discards your draft; **Save Anyway** replaces it with your layout. Copy Layout To… asks the same about the screen you copy to (there, Reload keeps your draft). To return to the generated Home page, choose **Home Style → Generated**; the saved grid is kept.
 
 ## On the tablet
 

@@ -163,7 +163,7 @@ REFUSALS = {
 }
 WRITE_KEYS = {  # what each save may carry besides "type" (and the page's "id"), as HA's schemas say
     "hk_frontend/settings/set": ({"changes"}, set()),
-    "hk_frontend/board/set": ({"dashboard", "changes"}, set()),
+    "hk_frontend/board/set": ({"dashboard", "changes"}, {"expect_version"}),   # SET-7: panel/get's versions["board/…"]
     "hk_frontend/tablet/set": ({"tablet", "changes"}, set()),
     "hk_frontend/setup/done": ({"done"}, set()),
     "hk_frontend/calendar/color": ({"key"}, {"color"}),
