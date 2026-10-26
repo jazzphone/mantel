@@ -251,6 +251,7 @@ async def loopback_only(request: web.Request, handler):
     return await handler(request)
 
 
+@guards.guard("signed_in")
 async def ws_handler(request: web.Request) -> web.StreamResponse:
     hub: Hub = request.app["hub"]
     ws = web.WebSocketResponse(heartbeat=30, max_msg_size=1 << 20)
@@ -266,10 +267,12 @@ async def ws_handler(request: web.Request) -> web.StreamResponse:
     return ws
 
 
+@guards.guard("signed_in")
 async def root(request: web.Request) -> web.Response:
     raise web.HTTPFound("/home" if direct.is_direct(request) else "/dev")
 
 
+@guards.guard("signed_in")
 async def dev_page(request: web.Request) -> web.Response:
     html = files("mantel_server").joinpath("static/dev.html").read_text()
     return web.Response(text=html, content_type="text/html", headers={"Cache-Control": "no-store"})
@@ -281,6 +284,7 @@ def request_gate(request: web.Request):
     return authz.principal(request).gate if authz is not None else None
 
 
+@guards.guard("signed_in")
 async def api_entities(request: web.Request) -> web.Response:
     hub: Hub = request.app["hub"]
     reg = hub.registry
@@ -295,12 +299,14 @@ async def api_entities(request: web.Request) -> web.Response:
     return web.json_response(out)
 
 
+@guards.guard("signed_in")
 async def api_areas(request: web.Request) -> web.Response:
     reg = request.app["hub"].registry
     return web.json_response([{"id": a, "name": n, "entities": len(reg.by_area.get(a, ()))}
                               for a, n in sorted(reg.areas.items(), key=lambda kv: kv[1])])
 
 
+@guards.guard("signed_in")
 async def api_stats(request: web.Request) -> web.Response:
     hub: Hub = request.app["hub"]
     ha = hub.ha
@@ -403,6 +409,7 @@ def to_enroll(request: web.Request, ident) -> None:
         raise web.HTTPFound(ENROLL_PAGE)
 
 
+@guards.guard("signed_in")
 async def home_redirect(request: web.Request) -> web.StreamResponse:
     """/home: the screen this person or tablet opens on (default_screens.start_for: the tablet's at a wall
     tablet, else the person's own), else the house's (``default_screens.house``)."""
@@ -417,6 +424,7 @@ async def home_redirect(request: web.Request) -> web.StreamResponse:
     raise web.HTTPFound(f"/{screen}/home" + (f"?{request.query_string}" if request.query_string else ""))
 
 
+@guards.guard("signed_in")
 async def home_page(request: web.Request) -> web.StreamResponse:
     seg = request.path.split("/")[1] if request.path.count("/") >= 1 else ""
     # a screen split in two (screens.py): its old address is Home Assistant's now; Mantel's is the new one
@@ -432,6 +440,7 @@ async def home_page(request: web.Request) -> web.StreamResponse:
     return ingress.file_response(request, request.app["cfg"].web / "home.html", NO_CACHE, page=True)
 
 
+@guards.guard("signed_in")
 async def settings_page(request: web.Request) -> web.StreamResponse:
     """/settings: Mantel Settings, HK Settings' page (<hk-settings-panel>) with Mantel's own pages beside HK's
     (web/shim/mantel-settings.js), for every signed-in person: Me for everyone, the house's pages (HK's
@@ -446,12 +455,14 @@ async def settings_page(request: web.Request) -> web.StreamResponse:
     return ingress.file_response(request, request.app["cfg"].web / "settings.html", NO_CACHE, page=True)
 
 
+@guards.guard("signed_in")
 async def hk_settings_redirect(request: web.Request) -> web.StreamResponse:
     """/hk-settings, the old address of HK Settings in Mantel: now Mantel Settings. The browser keeps the
     fragment (#/screens/...), so every link into HK's pages still lands where it pointed."""
     raise web.HTTPFound("/settings" + (f"?{request.query_string}" if request.query_string else ""))
 
 
+@guards.guard("signed_in")
 async def api_registry(request: web.Request) -> web.Response:
     """The registries a page may see. About 2 MB of JSON on a large house, read by every page as it loads -- the
     settings page and each preview frame of the Home Grid editor too -- so it is compressed for a browser that takes
@@ -468,6 +479,7 @@ async def api_registry(request: web.Request) -> web.Response:
     return resp
 
 
+@guards.guard("signed_in")
 async def api_fixtures(request: web.Request) -> web.Response:
     base = request.app["cfg"].fixtures
     out = {}
@@ -478,6 +490,7 @@ async def api_fixtures(request: web.Request) -> web.Response:
     return web.json_response(out)
 
 
+@guards.guard("signed_in")
 async def api_hk_cards(request: web.Request) -> web.Response:
     folder = request.app["cfg"].hk_frontend / "cards"
     names = sorted(p.name for p in folder.glob("*.js") if p.name != "hk-strategy.js") if folder.is_dir() else []

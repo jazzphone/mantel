@@ -22,6 +22,7 @@ from typing import Any, Callable
 from aiohttp import web
 
 from . import camera_still, person_picture
+from ..guards import guard
 
 log = logging.getLogger("mantel.media_art")
 
@@ -80,6 +81,7 @@ def register(app: web.Application, hub: Any, authz: Any, token: Callable[[], str
     get_token = token if callable(token) else (lambda: token)
     app["media_art"] = {"served": 0, "refused": 0}
 
+    @guard("signed_in")          # any session; the roles decide each player (authz.may_see)
     async def art(request: web.Request) -> web.StreamResponse:
         stats = request.app["media_art"]
         entity_id = request.match_info["entity_id"]

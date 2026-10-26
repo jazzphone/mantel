@@ -86,6 +86,11 @@ def check(request: web.Request, spec: Guard):
     from . import sessions
     from .accounts import MANAGERS, require_fresh, require_fresh_to_add_factor, require_user
     ident = sessions.identity(request)
+    if spec.who == "signed_in" and spec.door == "any" and spec.fresh == "never" and spec.first is None:
+        # nothing beyond the session middleware's own check (auth.require_session: every route that is not public
+        # needs a session; test_route_guards checks no guarded route is public), so a module's routes in a bare
+        # test app, with its own stand-in for the roles, still answer
+        return ident
     if not ident.authenticated:
         raise web.HTTPUnauthorized(text="sign in at /login")
     if ident.device is not None and not spec.device_ok:

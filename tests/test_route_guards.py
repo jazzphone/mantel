@@ -76,6 +76,20 @@ def test_every_route_declares_its_guard_or_why_not(tmp_path):
     assert not stale, f"no such route any more: {stale}"
 
 
+def test_no_guarded_route_is_public(tmp_path):
+    """A guard leans on the session middleware for 'a session at all' (guards.check, who='signed_in'): a guarded
+    route on the middleware's open list would answer anyone."""
+    from mantel_server import auth
+    app, store = _app(tmp_path)
+    try:
+        routes = list(_routes(app))
+        public = set(auth.PUBLIC_PATHS) | set(app.get("public_paths", ()))
+    finally:
+        store.db.close()
+    open_and_guarded = sorted({p for _, p, h in routes if getattr(h, "__guard__", None) is not None and p in public})
+    assert not open_and_guarded, open_and_guarded
+
+
 def test_every_guard_on_a_change_names_its_audit_or_why_not(tmp_path):
     app, store = _app(tmp_path)
     try:

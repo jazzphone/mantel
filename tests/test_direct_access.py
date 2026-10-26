@@ -416,7 +416,8 @@ def test_the_entrypoint_warns_when_the_proxy_is_a_relay_address(tmp_path, capsys
 
 async def test_the_proxy_check_flags_a_relay_address_and_names_the_app_option(started, monkeypatch):
     from mantel_server import proxy_check
-    monkeypatch.setattr(proxy_check, "_owner", lambda request: None)
+    from mantel_server import guards
+    monkeypatch.setattr(guards, "check", lambda request, spec: None)      # the report, without an Owner's session
     r = await started(mode="proxy", trusted=("127.0.0.1", "172.30.32.1"), public=("/api/admin/proxy-check",))
     rep = await (await r.get("direct", "/api/admin/proxy-check", **{"X-Mantel-Door": "lan",
                                                                     "X-Mantel-Door-Key": r.app["door_key"].value()})).json()

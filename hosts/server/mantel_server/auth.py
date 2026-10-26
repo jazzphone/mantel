@@ -20,6 +20,7 @@ from urllib.parse import quote, unquote, urlparse
 from aiohttp import web
 
 from . import sessions
+from .guards import guard
 from .ha_oauth import HaOAuth, OAuthError
 from .login_page import DEFAULT_NEXT, HA_START, login_url, safe_next
 from .store import Store
@@ -255,6 +256,7 @@ async def logout(request: web.Request) -> web.StreamResponse:
     return resp
 
 
+@guard("signed_in")
 async def me(request: web.Request) -> web.Response:
     from .frame_origins import ha_address
     u = request["user"]

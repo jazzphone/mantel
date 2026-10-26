@@ -19,6 +19,7 @@ from typing import Any
 from aiohttp import web
 
 from .config import REPO
+from .guards import guard
 
 RELEASE = "RELEASE.json"
 PATH = "/api/about"
@@ -80,10 +81,8 @@ def about(app: web.Application, now: float | None = None) -> dict[str, Any]:
     }
 
 
+@guard("signed_in")
 async def api_about(request: web.Request) -> web.Response:
-    from .sessions import identity
-    if identity(request).user is None and identity(request).device is None:
-        raise web.HTTPForbidden(text='{"error":"forbidden"}', content_type="application/json")
     return web.json_response(about(request.app), headers={"Cache-Control": "no-store"})
 
 

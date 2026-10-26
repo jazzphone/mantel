@@ -48,6 +48,7 @@ import aiohttp
 from aiohttp import WSMsgType, web
 
 from . import proxy_trust, sessions
+from .guards import guard
 from .connectors.kiosk import read_body     # the whole body, every piece (one read() is only the first)
 
 log = logging.getLogger("mantel.media_proxy")
@@ -701,6 +702,7 @@ def register(app: web.Application, hub: Any = None) -> MediaProxy | None:
     proxy = MediaProxy(app, ups)
     app["media_proxy"] = proxy
 
+    @guard("signed_in")          # any session: the services its grants open (services_for)
     async def services(request: web.Request) -> web.Response:
         authz = request.app.get("authz")
         principal = authz.principal(request) if authz is not None else None

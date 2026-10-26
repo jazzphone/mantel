@@ -32,6 +32,8 @@ from aiohttp import web
 from . import frame_origins, ingress, rbac, security_headers, setup_guide
 from .accounts import MANAGERS
 from .devices import DEVICE_ROLES
+from .guards import guard
+from .guards import ident as guarded
 from .login_page import login_url
 from .service_accounts import SCOPES as SERVICE_SCOPES
 from .sessions import Identity, identity
@@ -121,10 +123,9 @@ async def asset(request: web.Request) -> web.StreamResponse:
     return web.Response(text=_static(name), content_type=ASSETS[name], charset="utf-8", headers=HEADERS)
 
 
+@guard("person", device_ok=True)      # a person, at a wall tablet too: sections_for gives them Me only
 async def overview(request: web.Request) -> web.Response:
-    ident = identity(request)
-    if ident.user is None:
-        return web.json_response({"error": "user_required"}, status=403, headers=HEADERS)
+    ident = guarded(request)
     accounts = request.app["accounts"]
     row = accounts.get_user(ident.user.id)
     return web.json_response({

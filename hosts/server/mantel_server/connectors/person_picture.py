@@ -12,6 +12,7 @@ from urllib.parse import urlsplit
 from aiohttp import web
 
 from . import camera_still
+from ..guards import guard
 
 PERSON_ID = re.compile(r"^person\.[a-z0-9_]+$")
 IMAGE = re.compile(r"^/api/image/serve/[a-zA-Z0-9_-]+/[0-9]+x[0-9]+$")
@@ -49,6 +50,7 @@ def shape(entity_id: str, state: dict, base: str = "", ha_url: str = "") -> dict
 def register(app: web.Application, hub: Any, authz: Any, token: Callable[[], str] | str) -> None:
     get_token = token if callable(token) else lambda: token
 
+    @guard("signed_in")          # any session; the roles decide each person (authz.may_see)
     async def picture(request: web.Request) -> web.StreamResponse:
         entity_id = request.match_info["entity_id"]
         if not PERSON_ID.fullmatch(entity_id):
