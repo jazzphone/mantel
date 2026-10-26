@@ -9,8 +9,8 @@ finds. This page is the working plan and the register; it is kept current so an 
 
 ## Checkpoint
 
-**State:** every subsystem audit reported; every finding fixed except the deferred rows (SET-2, SET-7 and the first
-pass's T2, T6, G1, S8), each with its reason. Final regression below.
+**State:** every subsystem audit reported; every finding fixed except the first pass's T6, G1 and S8, each with its
+reason. SET-2, SET-7 and the first pass's T2 were deferred here and fixed afterwards, in 0.1.78. Final regression below.
 
 **To resume:** read the register below; every row not marked Fixed, Deferred or Not a defect is open. Run the main
 suite with `~/.venvs/mantel/bin/python -m pytest -q -p no:cacheprovider` (the checkout's `.venv` is Python 3.14
@@ -58,8 +58,8 @@ problem; **P3** minor.
 | MED-2 | P2 | Photos | No cap on concurrent decodes; a small PNG claiming 100 MP cost ~1.5 GB | Fixed: one image job at a time across Mantel Photos and Your Files; the pixel cap 100 → 64 MP (Photos.md); each module checks its own cap instead of fighting over Pillow's global one; avoidable copies removed (100 MP RGBA peak 1.5 → 0.9 GB) | `test_photos.py::test_pictures_are_not_all_decoded_at_once` and five more |
 | MED-6 | P2 | Cameras | Camera WebRTC offers had no per-socket or total cap (Live TV has both) | Fixed: 16 per socket, 64 in all, counted before the await (the Cameras page can show nine at once); past it `forbidden`, which the cards already handle | `test_connectors_camera.py::test_one_socket_cannot_start_unlimited_camera_streams` and two more |
 | SET-1 | P2 | Home Grid | A non-string `card` raised TypeError in the checker; stored by import or restore, it broke every settings feed | Fixed: `item()` refuses a non-string card; the tolerant read never raises; a feed that cannot be built is logged, not raised into a committed save | `test_hk_core_home_grid.py::test_a_card_that_is_not_a_name_is_refused_not_a_crash`, `test_settings_store.py::test_one_stored_screen_with_a_bad_grid_does_not_take_the_feed_down` |
-| SET-2 | P3 | Settings | House settings were stored with every default baked in, so place defaults (hemisphere, US-only themes) and later default changes never applied after a first save | Deferred (P3 in practice): Mantel stores the merged house settings by design (`settings_store.HkCoreModel`), so a first save fixes today's place defaults; switching to Home Assistant's stored-differences form changes the feed, history, import and linked-mirror shapes and is a change of its own. Only southern or non-US houses are affected, and Sky's hemisphere and themes can be set by hand | `test_settings_known_gaps.py::test_set2_a_default_is_not_a_saved_choice` (strict xfail) |
-| SET-7 | P2 | Home Grid | Two editors: the second Save silently replaced the first's grid (no version check on `board/set`) | Deferred: needs a version on `board/set` in both hosts' schemas (HK Frontend's refuses an extra key) and board versions in the feed for the shared editor to send; rare (two admins saving one screen's grid at once) | `test_settings_known_gaps.py::test_set7_the_second_editor_does_not_silently_erase_the_first` (strict xfail) |
+| SET-2 | P3 | Settings | House settings were stored with every default baked in, so place defaults (hemisphere, US-only themes) and later default changes never applied after a first save | Fixed in 0.1.78 (the improvement plan's Phase 5): the house settings are stored as Home Assistant stores them, only what differs, and merged on read; saved settings are converted once at start-up, as a version in the settings history | `test_settings_known_gaps.py::test_set2_a_default_is_not_a_saved_choice`, `test_settings_house_stored.py` |
+| SET-7 | P2 | Home Grid | Two editors: the second Save silently replaced the first's grid (no version check on `board/set`) | Fixed in 0.1.78 (Phase 7): `board/set` takes `expect_version` in both hosts, `panel/get` returns each screen's version, and the grid editor offers Reload or Save Anyway on a `conflict` | `test_settings_known_gaps.py::test_set7_the_second_editor_does_not_silently_erase_the_first`, HK Frontend's `test_settings_api.py` and `test_grideditor.js` |
 | SET-9 | P2 | Settings page | One failed read left a Mantel Settings page on its error until reload | Fixed: a failed read shows on its page and is asked again when the page is opened again (not on every redraw, which would loop) | `test_mantel_settings_reads.py::test_a_read_that_failed_is_asked_again_when_its_page_is_opened_again` |
 | SET-11 | P2 | Settings page | The pairing poll redrew the whole panel every 4 s (losing typed text) and never stopped on errors | Fixed: a background redraw only when the code is spent or its minutes change; three failed polls in a row stop it | `test_mantel_settings_reads.py::test_the_pairing_poll_is_quiet_while_nothing_changes_and_stops_on_errors` |
 | X1 | P2 | Docs | README, the Security Model, Rules and Architecture say no setting can turn house commands on; since 0.1.52 an Owner does it in Mantel Settings (with a fresh sign-in), and `--commands-enabled` only seeds the first start | Fixed: README, SECURITY.md, the Security Model, Rules, Architecture, Building and Testing, the server README, the gateway's and HA client's docstrings, the CLI help, the Ingress first-Owner page, and Set Up Mantel's own footer (which said no page could) | `test_mantel_settings_setup.py::test_commands_show_how_and_no_button_turns_them_on` |
@@ -159,21 +159,25 @@ scratch Home Assistant only); `HASSIO_TOKEN` being exported by the Supervisor (D
 iPad Safari suspend and resume (`hub.js` has no `visibilitychange` handler; the server's 30 s heartbeat covers its
 side); the images as built (Docker's daemon was not running).
 
-Unresolved: none at P0 or P1. Deferred: SET-2 (P3) and SET-7 (P2), each pinned by a strict xfail; the first pass's
-T2, T6, G1 and S8.
+Unresolved: none at P0 or P1. Deferred at the time: SET-2 (P3) and SET-7 (P2), each pinned by a strict xfail; the
+first pass's T2, T6, G1 and S8. SET-2, SET-7 and T2 were fixed afterwards (below).
 
 ## Outstanding items and recommendations
 
-- **SET-7**: a version on `board/set` in both hosts, and board versions in the feed, so the shared grid editor can
-  say "changed meanwhile".
-- **SET-2**: store the house settings as Home Assistant does (what differs) and merge on read, in one change with
-  the feed, the import and the linked mirror.
-- **Music Assistant subscriptions** (`ma/subscribe`) have no per-connection cap, unlike camera and Live TV sessions
-  now; and `hk_music/subscribe` has no `recheck` at the policy tick (rights are re-read on each push).
-- **CI**: run HK Frontend's Python and JavaScript suites against a build on every push (X5 was caught only by them).
-- **iPad suspend**: a `visibilitychange` check in `hub.js` (ping on wake, reconnect when silent).
-- The first pass's T2 (pairing protocol v2), T6 (Wall Tablet accounts and rooms), G1 and S8 (a look on a device)
-  still stand.
+The improvement plan that followed this pass (October 2026, Mantel 0.1.77 and 0.1.78, HK Frontend 1.12.0, Mantel
+Link 0.1.6; records in [House releases](House-releases.md)) closed most of what stood here:
+
+- **SET-2** and **SET-7**: fixed (the register above).
+- **Music Assistant subscriptions**: every subscription is now in one registry of long-lived connections
+  (`live.py`), rechecked at the policy tick and closed at once when a session, person, tablet or credential is
+  revoked; `ma/subscribe` follows a replaced Music Assistant connection.
+- **CI**: the checks run on the developer's Mac (`tools/ci.py full`: the main suite, HK Frontend's Python and
+  JavaScript suites against a build, the headless checks, the Caddy image), and before every push (`quick`).
+- **iPad suspend**: `hub.js` pings on wake and every 45 s while visible, and reconnects when the socket is silent.
+- **T2** (pairing protocol v2): fixed. The pairing proofs name the address Mantel Link used, and Mantel refuses an
+  address that isn't its own. Mantel Link 0.1.6 pairs only by v2.
+
+Still standing: the first pass's T6 (Wall Tablet accounts and rooms), G1 and S8 (a look on a device).
 
 ## House App 0.1.76 deployed (2026-10-26)
 
