@@ -6,15 +6,6 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 
 The first public release.
 
-- **Security (the engineering audit's second pass, [register](docs/development/Audit-2026-10-second-pass.md)):**
-  - A linked HK Frontend can read, as the person linked to a Home Assistant user, only the feature reads its dashboards forward: no longer a person's saved data, settings history, Mantel Photos or camera streams. Those relayed reads end, or follow a new role, as soon as the person is disabled, demoted or linked to someone else.
-  - Linking a Home Assistant user to a person (or merging one into a person) asks the Owner or Admin to confirm it is them when away from home, as adding a passkey does; making a Home Assistant user a wall tablet is done on the home network only; unlinking ends that user's "Sign in with Home Assistant" sessions too.
-  - Adding an address that may show Mantel in a frame asks for a fresh sign-in away from home, as the Sign-In Address does. The app's web view signs out when its app's credential runs out.
-  - Turning Allow Control of the House off ends a doorbell talk already in progress. Turning on Changes from Home Assistant is written to the Audit Log before it takes effect.
-- **Reliability:** stopping Mantel closes its open screens at once instead of waiting until Docker or Home Assistant kills it, and closes the database. `update.sh` and the LXC's update make a backup before they start new images, and stop if it fails; a fresh LXC install backs up every night; each backup is read back once written. The "migration 0015/0017 changed" warning at every start is gone.
-- **Photos:** a large photo upload no longer pauses every screen (up to 0.75 s for a 48 MP picture); uploads are decoded one at a time; pictures above 64 megapixels are refused (100 before); a face-detector failure no longer marks photos "no faces" for good. Camera live views are capped per screen (16) and in all (64).
-- **Mantel Settings:** a page that failed to load tries again when you open it again; the pairing code's page no longer redraws every 4 seconds; the Home Grid ignores, rather than breaks on, a malformed stored block.
-
 - Standalone Home Grid accessories and scenes use the room-page tile builders for saved glyphs, colors and state-specific appearance, while preserving grid sizes and caption choices.
 
 - Home Grid swipe cards support mouse dragging and horizontal wheel/trackpad paging without returning to the opening page on state updates. Header chips align to the right and remain scrollable on overflow.
@@ -80,6 +71,20 @@ Reliability:
 - Docker and LXC: browser notifications and pairing the iPhone, iPad and Mac apps work (their keys live in the data folder, and in backups).
 - Backups: a backup made by hand deletes no older ones; a database-only restore keeps your photos; leftovers of an interrupted backup are cleaned up.
 - Push notifications survive an internet outage, and stop at an app that was signed out.
+
+## 0.1.76 - 2026-10-26
+
+Local Home Assistant App update for the house: the engineering audit's second pass.
+
+- **Security (the engineering audit's second pass, [register](docs/development/Audit-2026-10-second-pass.md)):**
+  - A linked HK Frontend can read, as the person linked to a Home Assistant user, only the feature reads its dashboards forward: no longer a person's saved data, settings history, Mantel Photos or camera streams. Those relayed reads end, or follow a new role, as soon as the person is disabled, demoted or linked to someone else.
+  - Linking a Home Assistant user to a person (or merging one into a person) asks the Owner or Admin to confirm it is them when away from home, as adding a passkey does; making a Home Assistant user a wall tablet is done on the home network only; unlinking ends that user's "Sign in with Home Assistant" sessions too.
+  - Adding an address that may show Mantel in a frame asks for a fresh sign-in away from home, as the Sign-In Address does. The app's web view signs out when its app's credential runs out.
+  - Turning Allow Control of the House off ends a doorbell talk already in progress. Turning on Changes from Home Assistant is written to the Audit Log before it takes effect.
+- **Reliability:** stopping Mantel closes its open screens at once instead of waiting until Docker or Home Assistant kills it, and closes the database. `update.sh` and the LXC's update make a backup before they start new images, and stop if it fails; a fresh LXC install backs up every night; each backup is read back once written. The "migration 0015/0017 changed" warning at every start is gone.
+- **Photos:** a large photo upload no longer pauses every screen (up to 0.75 s for a 48 MP picture); uploads are decoded one at a time; pictures above 64 megapixels are refused (100 before); a face-detector failure no longer marks photos "no faces" for good. Camera live views are capped per screen (16) and in all (64).
+- **Mantel Settings:** a page that failed to load tries again when you open it again; the pairing code's page no longer redraws every 4 seconds; the Home Grid ignores, rather than breaks on, a malformed stored block.
+- **Screens:** the timer strip's Restart, +1 min and Finish work in Mantel (they did nothing there); turning control of the house off takes the controls away on open pages; a page that could not start (Mantel restarting) tries again instead of staying blank; the Home Grid clock comes back after you leave the page and return; thermostat and alarm sheets no longer leave listeners behind.
 
 ## 0.1.75 - 2026-10-25
 
