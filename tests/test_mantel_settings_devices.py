@@ -21,6 +21,7 @@ import subprocess
 from pathlib import Path
 
 import pytest
+from js_modules import copy_shim
 
 ROOT = Path(__file__).resolve().parents[1]
 WEB = ROOT / "web"
@@ -149,11 +150,7 @@ def got(tmp_path_factory):
     if shutil.which("node") is None:
         pytest.skip("node not installed")
     d = tmp_path_factory.mktemp("mantel-settings-devices")
-    (d / "base.mjs").write_text((WEB / "shim/base.js").read_text(encoding="utf-8"))
-    (d / "mantel-photos.mjs").write_text((WEB / "shim/mantel-photos.js").read_text(encoding="utf-8"))
-    module = (WEB / "shim/mantel-settings.js").read_text(encoding="utf-8")
-    (d / "mantel-settings.mjs").write_text(module.replace("from './base.js'", "from './base.mjs'")
-                                           .replace("from './mantel-photos.js'", "from './mantel-photos.mjs'"))
+    copy_shim(d)
     (d / "script.mjs").write_text(SCRIPT)
     rooms = {"ok": True, "areas": AREAS, "tablets": {
         tid: {**t, "served_by": [{"id": "k1", "name": "Kitchen Tablet"}] if tid == "kitchen" else []} for tid, t in TABLETS.items()}}

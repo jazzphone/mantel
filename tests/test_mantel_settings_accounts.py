@@ -185,8 +185,8 @@ def got(tmp_path_factory):
     if shutil.which("node") is None:
         pytest.skip("node not installed")
     d = tmp_path_factory.mktemp("mantel-settings-accounts")
-    from test_mantel_settings import node_modules
-    node_modules(d)
+    from js_modules import copy_shim
+    copy_shim(d)
     (d / "script.mjs").write_text(SCRIPT)
     (d / "data.json").write_text(json.dumps(DATA))
     run = subprocess.run(["node", str(d / "script.mjs"), str(d / "mantel-settings.mjs"), str(d / "data.json")],

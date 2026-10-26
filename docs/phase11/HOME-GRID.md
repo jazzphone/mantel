@@ -22,7 +22,7 @@ Mantel first; HK Frontend as well, which comes at little extra cost (below).
 ## Why it can work in both products
 
 - **The layout is a screen setting.** A screen is a board document (`hk_core/settings/model.py` `board()`; in
-  Mantel a versioned document in `hosts/server/mantel_server/settings_store.py`, scope `board`; in HK Frontend its
+  Mantel a versioned document in `hosts/server/mantel_server/settings_store/`, scope `board`; in HK Frontend its
   dashboard subentry). Every write goes through `hk_core/settings/changes.py`, which checks it the same way in
   both hosts. One key, `home_grid`, checked once in `hk_core`, is stored by both.
 - **One strategy builds Home in both.** `web/hk/cards/hk-strategy.js` reads the screen's board (`boardOf(seg)`)

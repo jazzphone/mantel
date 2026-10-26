@@ -1,4 +1,4 @@
-"""Phase 4 on Mantel (mantel_server/features.py): hk_core's features running in Mantel Server with
+"""Phase 4 on Mantel (mantel_server/features/): hk_core's features running in Mantel Server with
 Mantel's House, against a full app on a temp database, a FICTIONAL house and fakes only. House
 commands are off in every test here except where a FakeCommander stands in for Home Assistant
 (it checks frames and tickets as HaCommander does and sends nothing anywhere)."""

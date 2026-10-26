@@ -15,7 +15,7 @@ each feature's own `<id>/settings/get` answer, not in panel/get.
 
 ## 1. The feature import
 
-`features.import_features(panel, read, current, source)` (`hosts/server/mantel_server/features.py`):
+`features.import_features(panel, read, current, source)` (`hosts/server/mantel_server/features/`):
 
 - **Which features HA has added:** panel/get's `features` (`{hk_music: {kind, entries: [{entry_id, title}]}, …}`)
   becomes `ha.added` (HA's kinds, in HA's order) and `ha.items` (HA's item ids and titles).

@@ -14,7 +14,8 @@ from cryptography.hazmat.primitives.asymmetric import ec
 
 from mantel_server import apns, app_crypto, push
 from test_app_auth import sign_in_app
-from test_mantel_settings import ALL, node_modules, overview
+from js_modules import copy_shim
+from test_mantel_settings import ALL, overview
 
 OWN = "https://push.example.com"
 
@@ -188,7 +189,7 @@ process.stdout.write(JSON.stringify(out));
 def page(tmp_path, data, who):
     if shutil.which("node") is None:
         pytest.skip("node not installed")
-    node_modules(tmp_path)
+    copy_shim(tmp_path)
     (tmp_path / "script.mjs").write_text(PAGE_SCRIPT)
     (tmp_path / "reads.json").write_text(json.dumps({"/api/app/push-relay": data}))
     got = subprocess.run(["node", str(tmp_path / "script.mjs"), str(tmp_path / "mantel-settings.mjs"),

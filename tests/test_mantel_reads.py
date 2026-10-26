@@ -385,7 +385,7 @@ def test_the_feed_sends_each_kind_only_what_the_screen_may_view(env):
 async def test_the_screens_are_told_when_what_a_kind_counts_changes(tmp_path, monkeypatch):
     import asyncio
     import types
-    monkeypatch.setattr(S, "KINDS_COOLDOWN_S", 0.01)
+    monkeypatch.setattr(S.routes, "KINDS_COOLDOWN_S", 0.01)   # read where _watch_kinds uses it: the routes module
     db = Database(tmp_path / "mantel.db")
     app, hub = web.Application(), FakeHub()
     hub.ha = types.SimpleNamespace(ready=asyncio.Event(), on_change=lambda changed: None, on_registry=None)

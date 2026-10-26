@@ -22,7 +22,11 @@ PREFIX = "/api/hassio_ingress/Fict1onalToken"
 ASSET_LEFT = re.compile(r"""(["'`(])/(hk|web|static/mdi)/""")
 URL_ROOT = re.compile(r"""(["'`(])(?!""" + re.escape(PREFIX) + r""")/(api|hk|web|static|ws|auth|login|logout|dev|"""
                       r"""local|hacsfiles|frontend|hk-settings|dashboard)\b""")
-MANTEL_OWN = {"home.js", "shim/settings-page.js", "shim/mantel-settings.js", "shim/base.js", "shim/hub.js", "shim/mantel-client.js", "shim/mantel-host.js",
+MANTEL_OWN = {"home.js", "shim/settings-page.js", "shim/mantel-settings.js", "shim/settings/core.js", "shim/settings/kit.js", "shim/settings/me.js",
+              "shim/settings/people.js", "shim/settings/devices.js", "shim/settings/roles.js", "shim/settings/files.js",
+              "shim/settings/service.js", "shim/settings/connect.js", "shim/settings/connections.js", "shim/settings/tablets.js",
+              "shim/settings/ha-screens.js", "shim/settings/link.js", "shim/settings/proxy.js", "shim/settings/audit.js",
+              "shim/settings/setup.js", "shim/settings/general.js", "shim/settings/about.js", "shim/base.js", "shim/hub.js", "shim/mantel-client.js", "shim/mantel-host.js",
               "shim/mantel-shell.js", "shim/ha-elements.js", "shim/mantel-photos.js",
               "app/push.js"}   # Web Push (slice 10.0): its calls go through the settings page's api(); never under Ingress
 # file -> (a fragment of the line, why it is not a URL Mantel's page fetches from Mantel)
@@ -34,8 +38,9 @@ NOT_MANTEL_URLS = [
     ("hk/panels/hk-settings.js", "DOMAIN + '/dashboard/titled'", "a WebSocket message type, not a path"),
     ("hk/panels/hk-settings-model.js", "'/dashboard-kitchen/0?hk_", "example text in a help string"),
     ("hk/cards/hk-detail.js", 'href="/hk-settings#', "a link: shim/base.js moves a clicked link under the prefix"),
-    ("shim/mantel-settings.js", "if (BASE) location.reload(); else location.assign('/login')", "only without a prefix (BASE: '')"),
-    ("shim/mantel-settings.js", "location.assign('/login?next='", "only without a prefix (signedOut: under Ingress Home Assistant signs people in)"),
+    ("shim/settings/me.js", "if (BASE) location.reload(); else location.assign('/login')", "only without a prefix (BASE: '')"),
+    ("shim/settings/kit.js", "if (BASE) location.reload(); else location.assign('/login')", "only without a prefix (BASE: '')"),
+    ("shim/settings/core.js", "location.assign('/login?next='", "only without a prefix (signedOut: under Ingress Home Assistant signs people in)"),
     ("shim/mantel-client.js", "indexOf('/api/') === 0", "HA API paths for the action port (hub.command), never fetched"),
 ]
 WRAPPED = re.compile(r"(mantelUrl|api|post|wsUrl)\(\s*$|\bapi\('[A-Z]+',\s*$")

@@ -13,5 +13,5 @@ A few starting points in `mantel_server/`:
 - `ha_client.py`: the read connection to Home Assistant (it cannot call a service) and `HaCommander`, the
   separate command connection made only while house commands are on (Mantel Settings → General).
 - `gateway.py`, `rbac.py`, `authz.py`: the command gateway, roles and grants.
-- `settings_store.py`, `features.py`, `house.py`: HK's settings and the features, through `hk_core`.
+- `settings_store/` and `features/` (packages), `house.py`: HK's settings and the features, through `hk_core`.
 - `tools/measure.py`: upstream-vs-downstream traffic measurement.

@@ -8,6 +8,7 @@ import subprocess
 from pathlib import Path
 
 import pytest
+from js_modules import copy_shim
 
 ROOT = Path(__file__).resolve().parent.parent
 WEB = ROOT / "web"
@@ -118,13 +119,9 @@ def js(tmp_path_factory):
     if not Path(NODE).exists():
         pytest.skip("node not installed")
     d = tmp_path_factory.mktemp("settings-reads")
-    (d / "base.mjs").write_text((WEB / "shim/base.js").read_text(encoding="utf-8"))
-    (d / "mantel-photos.mjs").write_text((WEB / "shim/mantel-photos.js").read_text(encoding="utf-8"))
-    (d / "mantel-settings.mjs").write_text((WEB / "shim/mantel-settings.js").read_text(encoding="utf-8")
-                                           .replace("from './base.js'", "from './base.mjs'")
-                                           .replace("from './mantel-photos.js'", "from './mantel-photos.mjs'"))
+    entry = copy_shim(d)
     (d / "script.mjs").write_text(SCRIPT)
-    got = subprocess.run([NODE, str(d / "script.mjs"), str(d / "mantel-settings.mjs")], capture_output=True, text=True, timeout=60)
+    got = subprocess.run([NODE, str(d / "script.mjs"), str(entry)], capture_output=True, text=True, timeout=60)
     assert got.returncode == 0, got.stderr
     return json.loads(got.stdout)
 

@@ -18,19 +18,13 @@ import subprocess
 from pathlib import Path
 
 import pytest
+from js_modules import copy_shim, settings_source
 
 ROOT = Path(__file__).resolve().parents[1]
 WEB = ROOT / "web"
-MODULE = (WEB / "shim/mantel-settings.js").read_text(encoding="utf-8")
+MODULE = settings_source()     # the entry and web/shim/settings/*.js
 PHOTOS = (WEB / "shim/mantel-photos.js").read_text(encoding="utf-8")
 
-
-def node_modules(d):
-    """The page's modules as ES modules node can load (web/ has no package.json saying so)."""
-    (d / "base.mjs").write_text((WEB / "shim/base.js").read_text(encoding="utf-8"))
-    (d / "mantel-photos.mjs").write_text(PHOTOS)
-    (d / "mantel-settings.mjs").write_text(MODULE.replace("from './base.js'", "from './base.mjs'")
-                                           .replace("from './mantel-photos.js'", "from './mantel-photos.mjs'"))
 
 ALL = ["me", "connections", "people", "devices", "files", "photos", "roles", "service", "connect", "audit"]
 ADMIN = ["me", "connections", "people", "devices", "files", "photos", "audit"]
@@ -84,7 +78,7 @@ def run(tmp_path_factory):
     if shutil.which("node") is None:
         pytest.skip("node not installed")
     d = tmp_path_factory.mktemp("mantel-settings")
-    node_modules(d)
+    copy_shim(d)
     (d / "script.mjs").write_text(SCRIPT)
     (d / "cases.json").write_text(json.dumps(CASES))
     got = subprocess.run(["node", str(d / "script.mjs"), str(d / "mantel-settings.mjs"), str(d / "cases.json")],
@@ -264,7 +258,7 @@ def had_run(tmp_path, dashboards, state="ok", message=None, framed=()):
                                            "door_key": {"required": False}, "frame_ancestors": ["https://ha.example.com"],
                                            "frame_option": "ha_frame_origins"},
     }
-    node_modules(tmp_path)
+    copy_shim(tmp_path)
     (tmp_path / "script.mjs").write_text(HAD_SCRIPT)
     (tmp_path / "reads.json").write_text(json.dumps(reads))
     got = subprocess.run(["node", str(tmp_path / "script.mjs"), str(tmp_path / "mantel-settings.mjs"),
@@ -365,7 +359,7 @@ def test_the_host_presses_a_paired_tablets_reload_through_the_gateway(tmp_path):
     tablet's command route (the gateway decides and audits); anything else is HA's; a refusal is said, by tablet."""
     if shutil.which("node") is None:
         pytest.skip("node not installed")
-    node_modules(tmp_path)
+    copy_shim(tmp_path)
     (tmp_path / "press.mjs").write_text(PRESS_SCRIPT)
     got = subprocess.run(["node", str(tmp_path / "press.mjs"), str(tmp_path / "mantel-settings.mjs"),
                           json.dumps(overview("owner", ALL))], capture_output=True, text=True, timeout=60)
@@ -452,7 +446,7 @@ RECORD = {"source": "ha:fictional-entry", "read": "hk_frontend/panel/get", "chec
 def import_run(tmp_path, cases):
     if shutil.which("node") is None:
         pytest.skip("node not installed")
-    node_modules(tmp_path)
+    copy_shim(tmp_path)
     (tmp_path / "import.mjs").write_text(IMPORT_SCRIPT)
     (tmp_path / "reads.json").write_text(json.dumps({"record": RECORD, "imported": {
         "imported": True, "source": "ha:fictional-entry", "written": RECORD["written"], "skipped": [],

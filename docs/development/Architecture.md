@@ -96,7 +96,7 @@ implements it:
   `hk_core` as `custom_components/hk_frontend/hk_core/`.
 - **Mantel Server:** `MantelHouse` in `hosts/server/mantel_server/house.py`. Reads come from the hub's copies;
   `call_service` goes through the command gateway (so it is refused while commands are off).
-  `hosts/server/mantel_server/features.py` runs the features, each off until Mantel's feature settings turn it on.
+  `hosts/server/mantel_server/features/` runs the features, each off until Mantel's feature settings turn it on.
 
 A feature moves in three steps: its logic into `hk_core` behind the port, run in Home Assistant through `HaHouse`,
 then run in Mantel through `MantelHouse`. The host keeps only its own steps (following states, timers, service
@@ -165,7 +165,7 @@ has today's rule.
 ## The settings store
 
 HK's settings in Home Assistant live in a config entry, with no history and no per-user scope. In Mantel they live
-in SQLite (`hosts/server/mantel_server/settings_store.py`): documents keyed by scope and key, where every change
+in SQLite (`hosts/server/mantel_server/settings_store/`): documents keyed by scope and key, where every change
 is a new version with an append-only history row (who, which device, when, the diff). A restore makes a new version
 from an old one; nothing is rewritten. The store answers the same message types and shapes HK's frontend already
 uses, and the checks come from `hk_core/settings/` (the model the HA integration uses too). With commands off, the

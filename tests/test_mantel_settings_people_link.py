@@ -42,8 +42,8 @@ HA_PEOPLE = {"users": [
 def run(tmp_path, ha_people):
     if shutil.which("node") is None:
         pytest.skip("node not installed")
-    from test_mantel_settings import node_modules
-    node_modules(tmp_path)
+    from js_modules import copy_shim
+    copy_shim(tmp_path)
     head = HEAD.replace("pathname: '/settings' };", "pathname: '/settings', assign(u) { assigned.push(u); } };\nconst assigned = [];\n"
                         "globalThis.history = { pushState() {}, replaceState() {} };\nglobalThis.open = () => null;")
     (tmp_path / "script.mjs").write_text(head + TAIL)

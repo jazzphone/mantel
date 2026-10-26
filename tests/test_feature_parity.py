@@ -330,7 +330,7 @@ async def test_every_feature_read_has_exactly_one_rule(tmp_path, monkeypatch):
     try:
         # the routes features.register installs are exactly ROUTE_RULES' (and none is forwarded to HA)
         from_features = {t for t, r in app["read_routes"].items()
-                         if any(getattr(f, "__module__", "") == F.__name__ for f in (r.request, r.subscribe) if f)}
+                         if any(getattr(f, "__module__", "").startswith(F.__name__ + ".") for f in (r.request, r.subscribe) if f)}
         assert from_features == set(F.ROUTE_RULES)
         assert not set(F.ROUTE_RULES) & set(READ_ALLOWED)
     finally:

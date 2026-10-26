@@ -109,7 +109,7 @@ def test_settings_page_is_a_page_of_its_own_with_the_panel_and_mantels_pages():
     js = (ROOT / "web/shim/settings-page.js").read_text(encoding="utf-8")
     assert "createElement('hk-settings-panel')" in js and "el.hass = host.hass" in js
     assert "setSettings(mantelSettings.host)" in js and "mantelUrl('/admin?plain=1')" in js
-    mod = (ROOT / "web/shim/mantel-settings.js").read_text(encoding="utf-8")
+    mod = (ROOT / "web/shim/mantel-settings.js").read_text(encoding="utf-8")     # the host, in the entry
     assert "label: 'Dashboard', href: mantelUrl('/home')" in mod     # the way back stays under the prefix
 
 

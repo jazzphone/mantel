@@ -74,7 +74,7 @@ user id `mantel:features`, name "Mantel features", role `service`.
 - **Clean Areas** runs as the person who asked (their `Principal` is the call's `context`), with that
   person's rights and name in the audit. HA does the same: it runs in the caller's context.
 
-## The feature host (`hosts/server/mantel_server/features.py`)
+## The feature host (`hosts/server/mantel_server/features/`)
 
 `features.register(app, hub, hooks)` installs:
 
@@ -509,7 +509,7 @@ Nothing else changes: every piece stays off until an Owner turns it on (`PUT /ap
 Files:
 
 - `hosts/server/mantel_server/house.py`
-- `hosts/server/mantel_server/features.py`
+- `hosts/server/mantel_server/features/`
 - `hosts/server/mantel_server/registry.py` (4 read-only properties)
 - `tests/mantel_house_fakes.py`, `tests/test_mantel_house.py`, `tests/test_mantel_house_contract_*.py`,
   `tests/test_features.py`

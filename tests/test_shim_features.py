@@ -232,8 +232,8 @@ def test_browses_library_is_a_music_read_never_a_command(observed, mode):
 
 
 def test_the_frames_are_what_the_servers_handlers_accept():
-    # the same keys features.py validates (screen_report: tablet + bools; notify_mute: key + seconds)
-    src = (ROOT / "hosts/server/mantel_server/features.py").read_text()
+    # the same keys the features package validates (screen_report: tablet + bools; notify_mute: key + seconds)
+    src = "".join(f.read_text() for f in sorted((ROOT / "hosts/server/mantel_server/features").glob("*.py")))
     assert 'set(msg) <= {"type", "id", "tablet", "touch", "saver", "black", "photos"}' in src
     assert 'set(msg) - {"type", "id", "key", "seconds"}' in src
     # tv_watching: the channel, and the wall tablet the page is when it is one (live_tv.py; its Sleep Screen

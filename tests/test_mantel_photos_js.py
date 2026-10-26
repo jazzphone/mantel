@@ -22,6 +22,7 @@ import subprocess
 from pathlib import Path
 
 import pytest
+from js_modules import copy_shim
 
 ROOT = Path(__file__).resolve().parents[1]
 WEB = ROOT / "web"
@@ -355,12 +356,9 @@ def _run_page():
         return _CACHE["out"]
     import tempfile
     d = Path(tempfile.mkdtemp())
-    (d / "base.mjs").write_text((WEB / "shim/base.js").read_text(encoding="utf-8"))
-    (d / "mantel-photos.mjs").write_text((WEB / "shim/mantel-photos.js").read_text(encoding="utf-8"))
-    (d / "m.mjs").write_text((WEB / "shim/mantel-settings.js").read_text(encoding="utf-8")
-                             .replace("from './base.js'", "from './base.mjs'")
-                             .replace("from './mantel-photos.js'", "from './mantel-photos.mjs'")
-                             + "\nexport * as _photos from './mantel-photos.mjs';\n")
+    entry = copy_shim(d)
+    with entry.open("a", encoding="utf-8") as fh:
+        fh.write("\nexport * as _photos from './mantel-photos.mjs';\n")
     (d / "s.mjs").write_text(PAGE_SCRIPT)
     photos = [{"id": p, "album_id": A, "name": f"IMG_{i}.jpg", "width": 4032, "height": 3024, "bytes": 2 << 20,
                "source": "upload", "created": 0, "faces": None, "focus": {"x": None, "y": None, "by": "pending"}}
@@ -371,7 +369,7 @@ def _run_page():
     reads = {"/api/photos": LIBRARY, f"/api/photos/albums/{A}/photos": {"ok": True, "album": {"id": A, "name": "Family"}, "photos": photos}}
     (d / "reads.json").write_text(json.dumps(reads))
     sections = ["me", "connections", "people", "devices", "files", "photos", "roles", "audit"]
-    got = subprocess.run(["node", str(d / "s.mjs"), str(d / "m.mjs"), str(d / "reads.json"),
+    got = subprocess.run(["node", str(d / "s.mjs"), str(entry), str(d / "reads.json"),
                           json.dumps(overview("owner", sections)), json.dumps(overview("admin", sections)),
                           json.dumps(overview("adult", ["me"]))], capture_output=True, text=True, timeout=60)
     assert got.returncode == 0, got.stderr

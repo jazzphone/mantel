@@ -97,8 +97,8 @@ async def test_a_browsers_target_goes_without_the_relay(mantel):
 
 
 def test_the_settings_page_says_how_to_turn_an_app_on_again():
-    from pathlib import Path
-    js = (Path(__file__).resolve().parents[1] / "web/shim/mantel-settings.js").read_text(encoding="utf-8")
+    from js_modules import settings_source
+    js = settings_source()      # the text is in web/shim/settings/me.js
     assert "choose Turn On Notifications in its Mantel app" in js
 
 

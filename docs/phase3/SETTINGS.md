@@ -14,7 +14,7 @@ settings instead of standing in for `hk_frontend/panel/get`. No real Home Assist
 
 | File | What |
 |---|---|
-| `hosts/server/mantel_server/settings_store.py` | `SettingsStore`, `ThinModel` / `HkCoreModel` / `load_model`, `SettingsService`, `rbac_may_configure`, `import_settings`, `register`, `import_cli` |
+| `hosts/server/mantel_server/settings_store/` (a package: `docs`, `store`, `model`, `hooks`, `importing`, `service`, `routes`) | `SettingsStore`, `ThinModel` / `HkCoreModel` / `load_model`, `SettingsService`, `rbac_may_configure`, `import_settings`, `register`, `import_cli` |
 | `hosts/server/mantel_server/migrations/0003_settings.sql` | `settings_docs`, `settings_history` (append-only), `settings_import` |
 | `hosts/server/mantel_server/readproxy.py` | `hk_frontend/panel/get` added to `READ_ALLOWED` as a **server-only** read (`SERVER_ONLY_READS`, `ReadProxy.read_hk_settings`) |
 | `hosts/server/mantel_server/__main__.py` | `mantel-server import-settings` |

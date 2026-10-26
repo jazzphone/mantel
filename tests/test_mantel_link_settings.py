@@ -10,6 +10,7 @@ import shutil
 import subprocess
 
 import pytest
+from js_modules import copy_shim
 
 from test_mantel_settings import ALL, WEB, overview
 
@@ -68,11 +69,7 @@ def owners(holder="hk_frontend"):
 def run(tmp_path, data):
     if shutil.which("node") is None:
         pytest.skip("node not installed")
-    (tmp_path / "base.mjs").write_text((WEB / "shim/base.js").read_text(encoding="utf-8"))
-    (tmp_path / "mantel-photos.mjs").write_text((WEB / "shim/mantel-photos.js").read_text(encoding="utf-8"))
-    (tmp_path / "m.mjs").write_text((WEB / "shim/mantel-settings.js").read_text(encoding="utf-8")
-                                    .replace("from './base.js'", "from './base.mjs'")
-                                    .replace("from './mantel-photos.js'", "from './mantel-photos.mjs'"))
+    entry = copy_shim(tmp_path)
     (tmp_path / "s.mjs").write_text(SCRIPT)
     ha = {"label": "Home Assistant", "state": "set", "source": "app", "url": "http://supervisor/core", "editable": False,
           "live": {"connected": True}}
@@ -80,7 +77,7 @@ def run(tmp_path, data):
         "/api/linked/owners": data, "/api/linked/ha-saves": {"saves": True},
         "/api/connections": {"can_edit": True, "needs_fresh": False, "connections": {"ha": ha}},
         "/api/connect": {"pairings": [], "pending": None}, "/api/settings/import": {"import": None, "empty": False}}))
-    got = subprocess.run(["node", str(tmp_path / "s.mjs"), str(tmp_path / "m.mjs"), str(tmp_path / "reads.json"),
+    got = subprocess.run(["node", str(tmp_path / "s.mjs"), str(entry), str(tmp_path / "reads.json"),
                           json.dumps(overview("owner", ALL)), json.dumps(overview("admin", ["me", "connections"]))],
                          capture_output=True, text=True, timeout=60)
     assert got.returncode == 0, got.stderr
@@ -163,14 +160,10 @@ def person(tmp_path, phones):
                                        "has_password": True}]},
              "/api/default-screens": {"users": {}, "devices": {}, "screens": [], "house": "dashboard-kitchen"},
              "/api/phones": phones}
-    (tmp_path / "base.mjs").write_text((WEB / "shim/base.js").read_text(encoding="utf-8"))
-    (tmp_path / "mantel-photos.mjs").write_text((WEB / "shim/mantel-photos.js").read_text(encoding="utf-8"))
-    (tmp_path / "m.mjs").write_text((WEB / "shim/mantel-settings.js").read_text(encoding="utf-8")
-                                    .replace("from './base.js'", "from './base.mjs'")
-                                    .replace("from './mantel-photos.js'", "from './mantel-photos.mjs'"))
+    entry = copy_shim(tmp_path)
     (tmp_path / "s.mjs").write_text(PERSON_SCRIPT)
     (tmp_path / "reads.json").write_text(json.dumps(reads))
-    got = subprocess.run(["node", str(tmp_path / "s.mjs"), str(tmp_path / "m.mjs"), str(tmp_path / "reads.json"),
+    got = subprocess.run(["node", str(tmp_path / "s.mjs"), str(entry), str(tmp_path / "reads.json"),
                           json.dumps(overview("owner", ALL)), json.dumps(overview("admin", ["me", "people"]))],
                          capture_output=True, text=True, timeout=60)
     assert got.returncode == 0, got.stderr
