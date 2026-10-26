@@ -23,6 +23,7 @@ import { Host } from './mantel-host.js';
 import { Hub } from './hub.js';
 import { startAgain, started } from './boot-retry.js';
 import { pageHealth } from './page-health.js';
+import { loadRegistry, followRegistry } from './registry-sync.js';
 import * as mantelSettings from './mantel-settings.js';
 // HK's toast layer: a refused save is told there too
 import '/hk/shell/hk-overlays.js';
@@ -61,7 +62,7 @@ try {
     // the house's settings: Mantel's copy of the house, as the dashboard reads it
     hub.onCapabilities = () => { if (hostForCaps) hostForCaps._publish(); };
     inputs = await Promise.all([
-      json(mantelUrl('/api/registry')), json(mantelUrl('/api/fixtures')), hub.connect(),
+      loadRegistry(mantelUrl('/api/registry')), json(mantelUrl('/api/fixtures')), hub.connect(),
       json(mantelUrl('/api/services')).catch(() => ({})),
     ]);
   }
@@ -79,7 +80,7 @@ try {
                  is_admin: !!me.user && (me.user.role === 'owner' || me.user.role === 'admin'), credentials: [], mfa_modules: [] };
   let host;
   if (inputs) {
-    const [registry, fixtures, , services] = inputs;
+    const [{ registry, digest: registryDigest }, fixtures, , services] = inputs;
     window.hkMantelShell.setServices(services);
     const [config, themes] = await Promise.all([
       hub.read({ type: 'get_config' }).catch(() => ({})),
@@ -91,6 +92,7 @@ try {
     themes.darkMode = darkNow();
     host = new Host({ hub, registry, fixtures, user, config, themes });
     host.installLookups();
+    followRegistry(hub, host, mantelUrl('/api/registry'), registryDigest);   // as the dashboard: rooms renamed in HA
     hostForCaps = host;
     if (hub.commandsEnabled()) host._publish();
     window.hkMantelShell.install(host);

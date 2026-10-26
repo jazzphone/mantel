@@ -151,7 +151,7 @@ def test_the_settings_page_starts_again_after_a_failed_start_as_the_dashboard_do
     page = text("web/shim/settings-page.js")
     start = page.index("await mantelSettings.start()")
     catch = page.index("} catch (e) {", start)
-    assert page.index("hub.connect()", start) < catch and page.index("json(mantelUrl('/api/registry'))", start) < catch
+    assert page.index("hub.connect()", start) < catch and page.index("loadRegistry(mantelUrl('/api/registry'))", start) < catch
     assert "await startAgain(RETRY_KEY, e, (wait) => failed(e, wait))" in page[catch: catch + 200]
     assert "started(RETRY_KEY)" in page and "import { startAgain, started } from './boot-retry.js'" in page
     home = text("web/home.js")

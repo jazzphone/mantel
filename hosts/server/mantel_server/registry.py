@@ -1,6 +1,9 @@
 """Area/device/entity registry index: which entities live in which area, and friendly names."""
 from __future__ import annotations
 
+import hashlib
+import json
+
 
 class Registry:
     def __init__(self) -> None:
@@ -15,6 +18,8 @@ class Registry:
         self.area_floor: dict[str, str | None] = {}  # area_id -> floor_id
         self.floors: dict[str, str] = {}  # floor_id -> name
         self.loads = 0  # +1 at every load: what an index built from these lists keys on (house.py)
+        self._shapes: dict | None = None    # frontend_shapes(), built once per load
+        self._digest: str | None = None     # its digest, the same
 
     def update(self, areas: list[dict] | None = None, devices: list[dict] | None = None,
                entities: list[dict] | None = None, floors: list[dict] | None = None) -> None:
@@ -28,6 +33,7 @@ class Registry:
              floors: list[dict] | None = None) -> None:
         self._areas, self._devices, self._entities = areas, devices, entities
         self.loads += 1
+        self._shapes = self._digest = None
         self._floors = floors or []
         self.areas = {a["area_id"]: a.get("name") or a["area_id"] for a in areas}
         self.area_floor = {a["area_id"]: a.get("floor_id") for a in areas}
@@ -90,9 +96,24 @@ class Registry:
                 out |= self.by_area.get(area_id, set())
         return out
 
+    @property
+    def digest(self) -> str:
+        """Which registry this is: a digest of `frontend_shapes()`, made once per load (registry_feed.py: the
+        snapshot frame and the `registry` frame carry a page's filtered one; a load of the same lists keeps it)."""
+        if self._digest is None:
+            text = json.dumps(self.frontend_shapes(), sort_keys=True, separators=(",", ":"), default=str)
+            self._digest = hashlib.sha256(text.encode()).hexdigest()[:32]
+        return self._digest
+
     def frontend_shapes(self) -> dict:
         """The four registries as Home Assistant's frontend holds them (hass.entities / devices /
-        areas / floors), for the page's hass shim. Disabled entities are left out, as HA does."""
+        areas / floors), for the page's hass shim. Disabled entities are left out, as HA does. Built once per load
+        and shared: read-only for every caller."""
+        if self._shapes is None:
+            self._shapes = self._build_shapes()
+        return self._shapes
+
+    def _build_shapes(self) -> dict:
         entities = {}
         for e in self._entities:
             if e.get("disabled_by"):

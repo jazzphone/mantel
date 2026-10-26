@@ -55,6 +55,18 @@ Each section links the design note that has the detail.
 - **Reads.** Mantel Server holds one `subscribe_entities` connection to Home Assistant and keeps every state in
   memory (`state.py`) with the area, device and entity registries (`registry.py`). Each client gets only what its
   role may see, as coalesced diffs (`view.py`). `HaClient`, the state connection, cannot call a service.
+- **Registry changes reach open pages** (`registry_feed.py`). A page reads `/api/registry` (hass.entities, devices,
+  areas, floors) as it loads. Its ETag is the digest of the registry that person or tablet may see: the registry cut
+  down by their RBAC gate, serialized once. The same digest is in every `snapshot` frame (`registry`). When the
+  registries reload (`Hub.on_registry`, a reconnect to HA's first load), or a grant or schedule changes what a
+  session may see, the hub waits `PUSH_DELAY` (0.5 s), then sends `{type: "registry", digest}` to each session
+  whose digest moved, and only those. A Child hears nothing of a room it can't see. The page
+  (`web/shim/registry-sync.js`) reads `/api/registry` again with `If-None-Match`, hands the host the new registries
+  (`Host.applyRegistry`, a new hass so HK redraws) and bumps `registryRefreshed()`. After a reconnect, the new
+  socket's snapshot carries the digest, so a registry that changed while the socket was down is read once, and one
+  that didn't isn't read. `/api/registry` answers from `RegistryBodies`: raw and gzipped bodies kept by digest (the
+  last 16), with the work memoized by `Registry.digest` (made once per load) and the visible entity ids. A repeat,
+  such as each preview frame of the Home Grid editor, serializes and hashes nothing; a matching ETag gets a 304.
 - **The page's socket** (`web/shim/hub.js`) reconnects by itself after a drop, backing off from 2 to 30 s, and
   asks again for its subscription and every live feed (`_resume`), then calls `hub.onReconnect`. A tablet that
   slept can wake with a half-open socket, so the hub also pings the server (`{type: ping}`, 3 s) on
@@ -209,7 +221,7 @@ guard on POST, PUT, PATCH or DELETE names its audit or says why it has none.
 Each page (the dashboard, `web/home.js`; Mantel Settings, `web/shim/settings-page.js`) tells its socket how it is doing
 through `web/shim/page-health.js`: a `load` frame (how the page before it ended), a `beat` every minute, and one `draw`
 frame with the time to first draw, each with the heap, the sockets reopened (`hub.reconnects`) and the registry
-refreshes (`registryRefreshed()`, a counter later phases bump). `page_health.py` logs them and keeps the last 24 hours
+refreshes (`registryRefreshed()`, bumped by `registry-sync.js` each time the page reads the registry again). `page_health.py` logs them and keeps the last 24 hours
 per tablet or person in `RING`: memory only, bounded (`PER_SCREEN` samples, `SCREENS` screens). `ClientSession.pump`
 times each flush and send into `performance.STATS`, with the HA event rate; `GET /api/performance`
 (`@guard("manager")`, so never a tablet's session) summarises both for **About** → **Performance** (the `performance`

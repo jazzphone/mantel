@@ -341,6 +341,14 @@ export class Host {
     this._publish();
   }
 
+  // the registries changed in Home Assistant (registry-sync.js): HK reads them from the new hass
+  applyRegistry(reg) {
+    if (!reg) return;
+    Object.assign(this._raw, { entities: reg.entities || {}, devices: reg.devices || {}, areas: reg.areas || {},
+                               floors: reg.floors || {} });
+    this._publish();
+  }
+
   _publish() {
     this._merged = Object.keys(this._overlay).length ? Object.assign({}, this._states, this._overlay) : this._states;
     this._raw = Object.assign({}, this._raw);

@@ -2,7 +2,8 @@
 
 Client protocol (JSON text frames, /ws):
   -> {"type":"subscribe","entity_ids":[...],"areas":[...],"min_interval":0}
-  <- {"type":"snapshot","entities":{id:{s,a,lc,lu}},"missing":[...]}
+  <- {"type":"snapshot","entities":{id:{s,a,lc,lu}},"missing":[...],"registry":"<digest>"}
+  <- {"type":"registry","digest":"<digest>"}   the registry this session may see changed (registry_feed.py)
   <- {"type":"diff","changes":{id:{"+":{...},"-":{"a":[...]}}},"added":{...},"removed":[...]}
   -> {"type":"unsubscribe"} | {"type":"ping"} | {"type":"watch_stats"}
   -> any type in app["ws_handlers"] (P3.4: read, read_subscribe, read_unsubscribe, read_api, ma/*)
@@ -19,7 +20,6 @@ windows, revocations); the house time zone from HA's get_config, with cfg.house_
 from __future__ import annotations
 
 import asyncio
-import hashlib
 import json
 import logging
 import secrets
@@ -49,9 +49,10 @@ from .readproxy import ReadProxy
 from .store import Store
 from .ha_client import HaClient, commander_for
 from .registry import Registry
+from .registry_feed import PUSH_DELAY, RegistryBodies, RegistryFeed
 from .state import StateStore
 from .stats import Counter
-from .view import ClientView, Coalescing, filter_registry
+from .view import ClientView, Coalescing
 from hk_core.settings import model as settings_model
 
 POLICY_TICK = 60.0          # seconds between re-checks of what each socket may see (schedules, revocations)
@@ -87,6 +88,9 @@ class Hub:
         self.sessions: set[ClientSession] = set()
         self.ha: HaClient | None = None
         self.readproxy: ReadProxy | None = None
+        self.registry_feed = RegistryFeed(self)       # the `registry` frames (registry_feed.py)
+        self.registry_push_delay = PUSH_DELAY
+        self.registry_bodies = RegistryBodies()       # /api/registry's bodies, by filtered digest
 
     def on_change(self, changed: set[str]) -> None:
         performance.STATS.events(len(changed))
@@ -98,6 +102,7 @@ class Hub:
         for s in self.sessions:
             s.view.registry_changed()
             s.wake.set()
+        self.registry_feed.changed()
 
 
 class ClientSession:
@@ -114,6 +119,7 @@ class ClientSession:
         self.tx = Counter()  # snapshot + diff frames only (stats frames are excluded)
         self.subscribed = False
         self.watch = False
+        self.registry_digest: str | None = None   # the registry digest this page was last told (registry_feed.py)
         # P3.4's per-connection context: the connectors' handlers answer through it, and close() ends
         # every subscription they opened (WebRTC sessions, forecasts, MA events)
         self.ctx = Ctx(send=self.send, identity=principal)
@@ -196,6 +202,7 @@ class ClientSession:
             except (TypeError, ValueError):
                 self.view.client_min = 0.0
             snap = self.view.select(ids, areas, asyncio.get_running_loop().time(), all_entities=bool(msg.get("all")))
+            snap["registry"] = self.hub.registry_feed.digest_for(self)
             self.subscribed = True
             await self.send(snap)
         elif kind == "unsubscribe":
@@ -470,16 +477,20 @@ async def api_registry(request: web.Request) -> web.Response:
     """The registries a page may see. About 2 MB of JSON on a large house, read by every page as it loads -- the
     settings page and each preview frame of the Home Grid editor too -- so it is compressed for a browser that takes
     gzip, and carries an ETag: a browser holding the same one gets a 304 (2026-10-24, the owner's editor on a slow
-    connection). Private, revalidated every time: it is filtered per person."""
-    body = json.dumps(filter_registry(request.app["hub"].registry.frontend_shapes(), request_gate(request)),
-                      separators=(",", ":")).encode()
-    tag = '"' + hashlib.sha256(body).hexdigest()[:32] + '"'
-    headers = {"ETag": tag, "Cache-Control": "private, no-cache"}
-    if tag in [t.strip() for t in request.headers.get("If-None-Match", "").split(",")]:
+    connection). Private, revalidated every time: it is filtered per person. The ETag is the filtered registry digest
+    the socket's snapshot and `registry` frames carry, and the body (raw and gzipped) is kept by it
+    (registry_feed.RegistryBodies): a repeat serializes and hashes nothing."""
+    hub: Hub = request.app["hub"]
+    digest, got = hub.registry_bodies.get(hub.registry, request_gate(request))
+    tag = f'"{digest}"'
+    headers = {"ETag": tag, "Cache-Control": "private, no-cache", "Vary": "Accept-Encoding"}
+    wanted = [t.strip().removeprefix("W/") for t in request.headers.get("If-None-Match", "").split(",")]
+    if tag in wanted:
         return web.Response(status=304, headers=headers)
-    resp = web.Response(body=body, content_type="application/json", headers=headers)
-    resp.enable_compression()
-    return resp
+    if "gzip" in request.headers.get("Accept-Encoding", "").lower():
+        headers["Content-Encoding"] = "gzip"
+        return web.Response(body=RegistryBodies.gzipped(got), content_type="application/json", headers=headers)
+    return web.Response(body=got["raw"], content_type="application/json", headers=headers)
 
 
 @guards.guard("signed_in")
@@ -536,6 +547,9 @@ def build_app(cfg: Config, token: str, store: Store | None = None, connect_ha: b
     auth.add_routes(app)
     hub.ha = HaClient(cfg.ha_url, token, hub.store, hub.registry, hub.on_change, hub.on_registry,
                       ws_url=cfg.ha_ws_url or None)
+    # every (re)connect's first load: the registry may have changed while Home Assistant was away (features.py
+    # chains onto this one)
+    hub.ha.on_registries_loaded = hub.registry_feed.changed
     app["cfg"] = cfg
     cf_access.register(app)          # Cloudflare Access's assertion on the tunnel door (--cf-access-team/-aud)
     manifest = cfg.web / "shared-assets.json"
@@ -935,6 +949,7 @@ async def tick_once(app: web.Application, hub: Hub) -> None:
         s.view.policy_changed()
         s.wake.set()
         await recheck_streams(s.ctx)
+    hub.registry_feed.changed()      # a schedule opened or closed: what a page's registry holds may have too
     reads = app.get("linked_reads")
     if reads is not None:   # a linked HK Frontend's dashboards, as their people: re-checked like a page socket
         for ctx in await reads.recheck(authz):
