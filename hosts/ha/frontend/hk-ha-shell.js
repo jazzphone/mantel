@@ -118,6 +118,12 @@
     var S = global.hkSettings, t = S && typeof S.tablet === 'function' ? S.tablet(client) : null;
     return (t && typeof t.room === 'string' && t.room) || null;
   };
+  // AT A WALL TABLET: this page is one of the Wall Tablets entries (its
+  // ?hk_tablet= address, or the tablet signed in as this user)
+  HA.atTablet = function (client) {
+    var S = global.hkSettings;
+    return !!(S && typeof S.tablet === 'function' && S.tablet(client));
+  };
 
   // the frontend's sidebar data: the user, the panels, and their titles
   HA.sidebarData = function () {

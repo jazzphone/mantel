@@ -33,6 +33,14 @@ r.badTablet = hkShell.tabletRoom(null);
 hkMantelShell.setRoom(null);
 tablet = null;
 r.cleared = hkShell.tabletRoom(null);
+// AT A WALL TABLET (hkShell.atTablet, Edit mode's check): the device session (GET /api/me at_tablet), else the HK tablet
+r.at = [hkShell.atTablet(null)];
+hkMantelShell.setAtTablet(true);
+r.at.push(hkShell.atTablet(null));
+hkMantelShell.setAtTablet('yes');
+r.at.push(hkShell.atTablet(null));
+tablet = { id: 'den_tablet', room: 'den' };
+r.at.push(hkShell.atTablet(null));
 process.stdout.write(JSON.stringify(r));
 """
 
@@ -42,4 +50,4 @@ def test_the_tablets_room_is_the_devices_else_the_hk_tablets():
     got = json.loads(subprocess.run(["node", "-e", SCRIPT, str(ROOT)], capture_output=True, text=True,
                                     check=True, timeout=30).stdout)
     assert got == {"none": None, "hkTablet": "den", "device": "kitchen", "badDevice": "den", "badTablet": None,
-                   "cleared": None}
+                   "cleared": None, "at": [False, True, False, True]}

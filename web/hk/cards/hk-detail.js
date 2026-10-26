@@ -1436,7 +1436,9 @@
     function arrangeOf(h, id, tile) {
       var cfg = tile && tile._config, place = cfg && cfg.hk_place;
       var root = tile && tile.parentNode;
-      if (!place || !root || !root.children) return null;
+      // (a category page's tile -- its place has a `page` -- is Edit mode's
+      // to arrange, not the sheet's)
+      if (!place || place.page || !root || !root.children) return null;
       var kids = [].filter.call(root.children, function (k) { return k._config && k._config.entity; });
       var visible = kids.map(function (k) { return k._config.entity; });
       if (visible.length < 2 || visible.indexOf(id) < 0) return null;

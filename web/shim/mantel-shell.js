@@ -149,6 +149,16 @@
     const t = HS && typeof HS.tablet === 'function' ? HS.tablet(client) : null;
     return t && typeof t.room === 'string' && ROOM_ID.test(t.room) ? t.room : null;
   }
+  // AT A WALL TABLET (hkShell.atTablet): a device session, with or without a person signed in on top (GET /api/me
+  // `at_tablet`, handed over by home.js and settings-page.js), else the HK tablet the page is (hk-settings.js
+  // tablet(), as Home Assistant's shell asks)
+  let deviceSession = false;
+  function setAtTablet(v) { deviceSession = v === true; }
+  function atTablet(client) {
+    if (deviceSession) return true;
+    const HS = global.hkSettings;
+    return !!(HS && typeof HS.tablet === 'function' && HS.tablet(client));
+  }
 
   // Mantel's pages in the settings panel (web/shim/mantel-settings.js), once settings-page.js has them
   let settings = null;
@@ -184,6 +194,7 @@
     // Mantel Link's cameras are Live TV's channels (once the house's Live TV is Mantel's): not the house's
     notHouseCameraPlatforms: () => ['mantel'],
     tabletRoom,
+    atTablet,
     // Mantel's own docs (/docs, docs_pages.py: HK's pages and Mantel's), under the page's prefix
     docsUrl: (page, anchor) => (global.__mantelBase || '') + '/docs/' + encodeURIComponent(page) + (anchor ? '#' + encodeURIComponent(anchor) : ''),
     tags: { viewContainer: 'hk-view-container' },
@@ -240,6 +251,6 @@
   // home.js hands over the signed-in person's Mantel role (GET /api/me)
   function setRole(r) { role = typeof r === 'string' ? r : ''; }
 
-  global.hkMantelShell = { attach, install, setServices, setRole, setRoom, setSettings, setHaAddress, hostMenu, haNav, serviceUrl,
-                           tabletRoom, kind: 'mantel' };
+  global.hkMantelShell = { attach, install, setServices, setRole, setRoom, setAtTablet, setSettings, setHaAddress, hostMenu, haNav,
+                           serviceUrl, tabletRoom, atTablet, kind: 'mantel' };
 })(globalThis);

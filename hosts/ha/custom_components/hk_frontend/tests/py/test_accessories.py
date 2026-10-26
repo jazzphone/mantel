@@ -298,3 +298,67 @@ async def test_a_rooms_scenes_row(hass, frontend):
     assert current(hass)["scenes"] == {"garage": []}
     assert clean({"scenes": {"Bad Area": ["scene.x"], "den": "scene.x", "loft": ["scene.y", 3]}})["scenes"] == {
         "loft": ["scene.y"]}
+
+
+# ------------------------------------------------------------ Edit mode: the accessories' version
+async def _acc_version(hass, conn):
+    from custom_components.hk_frontend.panel import ws_panel_get
+    ws_panel_get(hass, conn, {"id": 90, "type": "hk_frontend/panel/get"})
+    await hass.async_block_till_done(wait_background_tasks=True)
+    return conn.sent[-1]["result"]["versions"]["accessories"]
+
+
+async def test_a_layout_save_with_the_version_it_opened_is_refused_once_someone_else_saved(hass, frontend):
+    """panel/get gives versions["accessories"], a digest of the Accessories data (as board_version is a screen's),
+    which changes when they do. accessory/order, page_order, room_scenes and set take it as expect_version: the
+    same saves and answers the new one (a list answer as {"entities", "version"}); an older one is a `conflict`
+    and writes nothing; none at all saves and answers as before."""
+    from custom_components.hk_frontend import accessories as A
+    conn = await _admin(hass)
+    opened = await _acc_version(hass, conn)
+    assert isinstance(opened, str) and opened and opened == A.version(A.current(hass))
+    assert await _acc_version(hass, conn) == opened, "stable: read again, the same"
+
+    def send(handler, n, **msg):
+        handler(hass, conn, {"id": n, **msg})
+        return conn.sent[-1]
+    got = send(A.ws_accessory_order, 1, type="hk_frontend/accessory/order", area_id="den",
+               entities=["switch.coffee", "light.lamp"], expect_version=opened)
+    now = await _acc_version(hass, conn)
+    assert now != opened and got["result"] == {"entities": ["switch.coffee", "light.lamp"], "version": now}
+    for n, (handler, msg) in enumerate((
+            (A.ws_accessory_order, {"type": "hk_frontend/accessory/order", "area_id": "den", "entities": ["light.lamp"]}),
+            (A.ws_accessory_page_order, {"type": "hk_frontend/accessory/page_order", "page": "security",
+                                         "entities": ["lock.front"]}),
+            (A.ws_accessory_room_scenes, {"type": "hk_frontend/accessory/room_scenes", "area_id": "den", "entities": []}),
+            (A.ws_accessory_set, {"type": "hk_frontend/accessory/set", "entity_id": "light.lamp", "size": "tall"})),
+            start=2):
+        got = send(handler, n, **msg, expect_version=opened)
+        assert got["success"] is False and got["error"] == "conflict", (msg, got)
+        assert await _acc_version(hass, conn) == now, "nothing written"
+    assert A.current(hass)["rooms"]["den"] == ["switch.coffee", "light.lamp"] and not A.current(hass)["pages"]
+    got = send(A.ws_accessory_page_order, 10, type="hk_frontend/accessory/page_order", page="security",
+               entities=["lock.front"], expect_version=now)
+    now = await _acc_version(hass, conn)
+    assert got["result"] == {"entities": ["lock.front"], "version": now}
+    got = send(A.ws_accessory_room_scenes, 11, type="hk_frontend/accessory/room_scenes", area_id="den", entities=[],
+               expect_version=now)
+    now = await _acc_version(hass, conn)
+    assert got["result"] == {"scenes": [], "version": now}
+    got = send(A.ws_accessory_set, 12, type="hk_frontend/accessory/set", entity_id="light.lamp", size="tall",
+               expect_version=now)
+    now = await _acc_version(hass, conn)
+    assert got["result"] == {"size": "tall", "version": now}
+    # without it: as before (Save Anyway)
+    got = send(A.ws_accessory_order, 13, type="hk_frontend/accessory/order", area_id="den", entities=["light.lamp"])
+    assert got["result"] == ["light.lamp"] and await _acc_version(hass, conn) != now
+    # the schemas take it: this host's digest, or Mantel's whole numbers (passed on while linked)
+    for handler, msg in ((A.ws_accessory_order, {"type": "order", "area_id": "den", "entities": []}),
+                         (A.ws_accessory_page_order, {"type": "page_order", "page": "security", "entities": []}),
+                         (A.ws_accessory_room_scenes, {"type": "room_scenes", "area_id": "den", "entities": None}),
+                         (A.ws_accessory_set, {"type": "set", "entity_id": "light.lamp"})):
+        msg = {**msg, "id": 4, "type": "hk_frontend/accessory/" + msg["type"]}
+        for v in (now, 3):
+            assert handler._ws_schema({**msg, "expect_version": v})["expect_version"] == v
+        with pytest.raises(Exception):
+            handler._ws_schema({**msg, "expect_version": "x" * 65})

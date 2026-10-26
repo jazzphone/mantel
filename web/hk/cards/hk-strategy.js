@@ -621,7 +621,8 @@
   // 2026-10-01): a room section on Home ({area}), a group on a room page
   // ({area, group}) or the Favorites ({fav: true}). The order it moves in
   // is the room's Tile Order (accessories `rooms`) or the screen's
-  // favorites. A tile with none (a category page's) has no Arrange.
+  // favorites. A category page's tile says its place too, with its `page`
+  // (catPlace, for Edit mode), and has no Arrange in its sheet.
   function placed(t, place) {
     if (t && place) t.hk_place = place;
     return t;
@@ -1134,10 +1135,20 @@
       return { id: r.id, name: r.name, entities: r.entities.filter(keep) };
     }).filter(function (r) { return r.entities.length; }), opts);
   }
-  function roomTiles(client, r) {
+  // A category page's room section; `group`/`page` say where its tiles
+  // belong (catPlace)
+  function roomTiles(client, r, group, page) {
     return r.entities.map(function (id) {
-      return tileFor(client, id, friendly(client, id, r.name));
+      return placed(tileFor(client, id, friendly(client, id, r.name)), catPlace(r, group, page));
     });
+  }
+  // WHERE A CATEGORY PAGE'S TILE BELONGS (Edit mode, 2026-10-26): a room
+  // section on Lights, Climate or Water follows that room's Tile Order
+  // ({area, group, page}: accessory/order); Security and Vacuums keep a page
+  // order ({page}: accessory/page_order). The `page` keeps the sheet's
+  // Arrange to the room pages and Home (hk-detail.js arrangeOf).
+  function catPlace(r, group, page) {
+    return r && r.id ? { area: r.id, group: group, page: page } : null;
   }
   // WHAT ITS STATES ARE CALLED (the accessory's On Says / Off Says):
   // "Blocked" / "Allowed" in place of On / Off on a switch or
@@ -1199,7 +1210,7 @@
       out.push(view({ title: ltitle, menu_title: outlets ? 'Lights' : undefined, icon: 'mdi:lightbulb', path: 'lights',
         subview: true, sky_variant: 'lights',
         background: '#1c1608', cards: lcards.concat(litRooms.map(function (r) {
-            return section(r.name, roomTiles(client, r)); })) }));
+            return section(r.name, roomTiles(client, r, 'Lights', 'lights')); })) }));
     }
     // the house's readings, not the row's (its rooms left out are the row's)
     var climateSources = climateFound(client, opts, []);
@@ -1245,7 +1256,7 @@
       }).forEach(function (r) {
         widest = Math.max(widest, r.entities.length);
         left.push(heading(r.name));
-        left.push({ type: 'custom:hk-grid-card', cards: roomTiles(client, r), layout: pillGrid(27) });
+        left.push({ type: 'custom:hk-grid-card', cards: roomTiles(client, r, 'Climate', 'climate'), layout: pillGrid(27) });
       });
       var right = [];
       if (inv.climates.length) {
@@ -1399,7 +1410,7 @@
       // rest after it.
       var vorder = ownOrder('vacuums', inv.vacuums);
       var vcards = vorder.map(function (id) {
-        var v = { type: 'custom:hk-vacuum-card', entity: id };
+        var v = { type: 'custom:hk-vacuum-card', entity: id, hk_place: { page: 'vacuums' } };
         var bat = sibling(client, id, 'battery');
         if (bat) v.battery = bat;
         var find = function (re, not) { return siblingLike(client, id, re, not); };
@@ -1948,14 +1959,15 @@
       // (Accessories -> Locks -> Tile Order)
       var guards = ownOrder('security', inv.locks.concat(inv.garage.filter(function (id) { return id.indexOf('cover.') === 0; })))
         .map(function (id) {
+          // (its place: Security's own page order, accessory/page_order)
           if (id.indexOf('lock.') === 0) {
             return { type: 'custom:hk-tile-card', entity: id, name: fullName(client, id).replace(/ Lock$/, ''),
                      icon: 'hk:lock', icon_states: { unlocked: 'hk:lock-open-variant' }, icon_color: 'mint',
-                     label_mode: 'title' };
+                     label_mode: 'title', hk_place: { page: 'security' } };
           }
           return { type: 'custom:hk-tile-card', entity: id, name: fullName(client, id), icon: 'hk:garage-variant',
                    icon_states: { open: 'hk:garage-open-variant', opening: 'hk:garage-open-variant' },
-                   icon_color: 'mint', label_mode: 'title' };
+                   icon_color: 'mint', label_mode: 'title', hk_place: { page: 'security' } };
         });
       // THE SECURITY PAGE (2026-10-15): the keypad in its own box (the
       // state as its badge, whether the entry points are closed under it),
@@ -2016,8 +2028,9 @@
       if (others.length) wcards.push(section('Valves', others.map(function (id) { return tileFor(client, id, fullName(client, id)); })));
       byRoom.forEach(function (r) {
         wcards.push(section(r.name, r.entities.map(function (id) {
-          return { type: 'custom:hk-tile-card', entity: id, name: friendly(client, id, r.name), icon: 'hk:water',
-                   icon_states: { on: 'hk:water-alert' }, icon_color: 'red', off_icon_color: 'blue', label_mode: 'leak' };
+          return placed({ type: 'custom:hk-tile-card', entity: id, name: friendly(client, id, r.name), icon: 'hk:water',
+                          icon_states: { on: 'hk:water-alert' }, icon_color: 'red', off_icon_color: 'blue', label_mode: 'leak' },
+                        catPlace(r, 'Water', 'water'));
         })));
       });
       pages.water = view({ title: 'Water', path: 'water', subview: true, icon: 'mdi:water', sky_variant: 'water',

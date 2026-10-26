@@ -138,6 +138,13 @@
     // Mantel: the tablet device's own room. null on a page that is no wall
     // tablet, or one with no room.
     tabletRoom: nil,
+    // IS THIS PAGE AT A WALL TABLET: atTablet(client), true or false -- the
+    // one place shared code asks (hk-edit.js canEditPage: no Edit mode at a
+    // wall tablet, whoever is signed in there). Home Assistant: a Wall
+    // Tablets entry is this page (hk-settings.js tablet()); Mantel: a device
+    // session, with or without a person on top (GET /api/me `at_tablet`), or
+    // that same HK tablet. A bare page: false.
+    atTablet: function () { return false; },
     // THE PRODUCT'S NAME where HK's screens and settings speak of themselves
     // ("Drawn By: … | HK Frontend", "the photos that come with HK Frontend"):
     // HK Frontend in Home Assistant, the host's own name elsewhere (Mantel).
@@ -207,7 +214,7 @@
    'dashboardRoot', 'viewContainer', 'viewSlot', 'view', 'viewBackground', 'toolbar', 'dashboardConfig', 'onDashboard', 'isDashboard',
    'defined', 'showNotifications', 'keepAwake', 'sidebarData', 'haNav', 'haNavigate', 'openHaMenu', 'hostMenu', 'settingsHost', 'holdWrites', 'menuButton',
    'hostDetail', 'openHostDetail', 'hostToast', 'dialogRoot', 'serviceUrl', 'photoSource', 'listPhotos', 'productName', 'haPlace',
-   'haName', 'docsUrl', 'notHouseCameraPlatforms', 'tabletRoom'].forEach(function (name) {
+   'haName', 'docsUrl', 'notHouseCameraPlatforms', 'tabletRoom', 'atTablet'].forEach(function (name) {
     shell[name] = function () {
       try { return get(name).apply(shell, arguments); } catch (e) {
         return name === 'onDashboard' ? true : FALSE[name] ? false : WORDS[name] ? NONE[name].apply(shell, arguments) : null;

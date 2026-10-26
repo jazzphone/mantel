@@ -13,6 +13,7 @@ load(HK_ROOT + '/tests/dom.js');
 load(HK_ROOT + '/frontend/panels/hk-settings-model.js');
 load(HK_ROOT + '/frontend/panels/hk-settings-kit.js');
 load(HK_ROOT + '/frontend/cards/hk-grid-catalog.js');
+load(HK_ROOT + '/frontend/modules/hk-drag.js');
 load(HK_ROOT + '/frontend/panels/hk-grid-editor.js');
 
 var pass = 0, fail = 0;

@@ -193,6 +193,22 @@ async def test_a_screen_save_with_the_version_it_opened_goes_to_mantel_with_it(h
     await _unload(hass, e)
 
 
+async def test_a_layout_save_with_the_version_it_opened_goes_to_mantel_with_it(hass, base, mantel):
+    """Edit mode: accessory/order, page_order, room_scenes and set take expect_version in HA's schema (Mantel's
+    whole numbers too) and reach Mantel unchanged, which compares it with its accessories document."""
+    e = await _linked(hass, mantel)
+    await _mirror(hass, mantel)
+    user = await _admin(hass)
+    for save in ({"type": "hk_frontend/accessory/order", "area_id": "den", "entities": ["light.lamp"], "expect_version": 7},
+                 {"type": "hk_frontend/accessory/page_order", "page": "security", "entities": [], "expect_version": 7},
+                 {"type": "hk_frontend/accessory/room_scenes", "area_id": "den", "entities": None, "expect_version": 7},
+                 {"type": "hk_frontend/accessory/set", "entity_id": "light.lamp", "size": "tall", "expect_version": 7}):
+        got = await _save(hass, user, save)
+        assert got["success"], (save, got)
+        assert mantel.calls("settings_write")[-1]["msg"] == save
+    await _unload(hass, e)
+
+
 # ------------------------------------------------------------ setup: Repairs, and the dashboards reported
 async def test_a_repairs_issue_while_admins_can_t_save(hass, base, mantel):
     from homeassistant.helpers import issue_registry as ir

@@ -287,8 +287,10 @@ class SettingsService:
             "setup_done": bool(self.store.body("house", "setup").get("setup_done")),
             "suggest": {}, "counts": {}, "users": [], "integration": {}, "thirdparty": {}, "features": features,
             "choices": catalog.get("choices", {}),
-            "versions": {f"{s}/{k}": d.version for s in SCOPES if s != "user"
-                         for k, d in self.store.docs(s).items()},
+            "versions": {**{f"{s}/{k}": d.version for s in SCOPES if s != "user"
+                            for k, d in self.store.docs(s).items()},
+                         # Edit mode: the accessories document's, for accessory/*'s expect_version (0: none yet)
+                         "accessories": self._acc_version()},
         }
 
     # -- the feed -------------------------------------------------------------------------------
@@ -614,14 +616,29 @@ class SettingsService:
     def _accessories(self) -> dict:
         return ACC.clean(self.store.body("house", "accessories"))
 
+    def _acc_version(self) -> int:
+        d = self.store.get("house", "accessories")
+        return d.version if d else 0
+
     async def _acc_change(self, identity, actor, msg, work):
+        """One change to the accessories document. With ``expect_version`` (panel/get's versions["accessories"],
+        as board/set's SET-7; Edit mode sends it): an older one is a `conflict` and nothing is written, and the
+        answer carries the new version -- a dict answer (set, room_scenes) gains "version", a list answer (order,
+        page_order) comes as {"entities": [...], "version": n}. Without it the answer is as before."""
+        opened = msg.get("expect_version")
+        if "expect_version" in msg and type(opened) is not int:
+            raise SettingsError("invalid_format", fields={"expect_version": "number"})
         await self.need(identity, Scope("house", "accessories"))
         try:
             doc, answer = work(self._accessories())
         except ACC.Refused as exc:
             raise SettingsError("invalid_format", fields=exc.fields) from None
-        self._store([("house", "accessories", doc)], actor, msg)
-        return answer
+        if opened is None:
+            self._store([("house", "accessories", doc)], actor, msg)
+            return answer
+        self._store([("house", "accessories", doc)], actor, msg, expect={("house", "accessories"): opened})
+        version = self._acc_version()
+        return {**answer, "version": version} if isinstance(answer, dict) else {"entities": answer, "version": version}
 
     async def _accessory_set(self, identity, actor, msg):
         changes = {k: msg[k] for k in ACC.FIELDS if k in msg}

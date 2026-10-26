@@ -163,7 +163,6 @@
     var h = grid.rows * 150 + (grid.rows - 1) * 10 + 2 * pad + (grid.band ? 70 : 0);
     return Math.min(1, frame[0] / w, frame[1] / h);
   }
-  var HOLD_MS = 350;               // a finger held this long on a card picks it up
   function snap(x, y, rect, cols, rows) {
     return [Math.floor((x - rect.left) / (rect.width / cols)), Math.floor((y - rect.top) / (rect.height / rows))];
   }
@@ -433,14 +432,14 @@
     paletteDrag(e, card, row) {
       if (!this.grid || this.busy || this.pickerTarget) return false;
       var self = this, size = this.sizeFor(card), ghost = this.h('div', { class: 'ghost' }), at = null;
-      var label = this.h('div', { class: 'float' }, [this.h('hk-icon', { icon: GLYPHS[card] }), this.h('span', { text: NAMES[card] + ' · ' + SIZE_NAMES[size] })]);
-      this.shadowRoot.appendChild(label);
+      var label = window.hkDrag.ghost(this.shadowRoot, this.h('div', { class: 'float' },
+        [this.h('hk-icon', { icon: GLYPHS[card] }), this.h('span', { text: NAMES[card] + ' · ' + SIZE_NAMES[size] })]));
       var over = function (ev) {
         var r = self.overlay.getBoundingClientRect();
         return ev.clientX >= r.left && ev.clientX <= r.right && ev.clientY >= r.top && ev.clientY <= r.bottom ? r : null;
       };
       var move = function (ev) {
-        label.style.transform = 'translate(' + (ev.clientX + 14) + 'px,' + (ev.clientY + 14) + 'px)';
+        label.move(ev);
         var r = over(ev);
         if (!r) { at = null; ghost.remove(); return; }
         at = landing(ev.clientX, ev.clientY, r, self.grid.cols, self.grid.rows, self.cellGap || 10, size);
@@ -692,47 +691,23 @@
       // A FINGER SCROLLS THE LIST (2026-10-24, the owner on an iPad: "it keeps
       // thinking I want to move a card"): up or down is the list's to scroll
       // (touch-action pan-y); a card is picked up by a drag sideways, towards
-      // the grid, or by a hold (HOLD_MS, iOS's home screen) and then any way.
+      // the grid, or by a hold (hkDrag.HOLD_MS, iOS's home screen) and then any way.
       // A mouse picks it up on any 5 px drag, as before. While a card is
       // carried the list doesn't scroll under it (touchmove, not passive).
-      row.addEventListener('touchmove', function (ev) { if (row.classList.contains('lifted')) ev.preventDefault(); }, { passive: false });
+      // The press is told apart by modules/hk-drag.js, Edit mode's too.
+      var D = window.hkDrag;
+      D.holdStill(row, 'lifted');
       row.addEventListener('pointerdown', function (e) {
-        if (e.button !== 0) return;
-        var x0 = e.clientX, y0 = e.clientY, dragging = false, scrolling = false, last = e;
-        var touch = e.pointerType === 'touch' || e.pointerType === 'pen';
-        try { row.setPointerCapture(e.pointerId); } catch (x) { /* a test page */ }
-        var lift = function (ev) {
-          dragging = self.paletteDrag(ev, k, row);
-          if (!dragging) return;
-          stop();
-          row.classList.add('lifted');
-          var drop = function () { row.classList.remove('lifted'); row.removeEventListener('pointerup', drop); row.removeEventListener('pointercancel', drop); };
-          row.addEventListener('pointerup', drop); row.addEventListener('pointercancel', drop);
-        };
-        var hold = touch ? setTimeout(function () { if (!dragging && !scrolling) lift(last); }, HOLD_MS) : null;
-        var move = function (ev) {
-          last = ev;
-          if (dragging || scrolling) return;
-          var dx = ev.clientX - x0, dy = ev.clientY - y0;
-          if (Math.hypot(dx, dy) < (touch ? 8 : 5)) return;
-          if (touch && Math.abs(dx) <= Math.abs(dy) * 1.2) { scrolling = true; clearTimeout(hold); return; }
-          lift(ev);
-        };
-        var stop = function () {
-          clearTimeout(hold);
-          row.removeEventListener('pointermove', move); row.removeEventListener('pointerup', up); row.removeEventListener('pointercancel', cancel);
-        };
-        // the browser took the gesture to scroll the list: no tap, no drag
-        var cancel = function () { stop(); };
-        var up = function (ev) {
-          stop();
-          if (dragging || scrolling) return;
-          var chip = ev.target.closest && ev.target.closest('.chip');
-          if (chip) { self.paletteSizes[k] = chip.dataset.size; self.pickerCard = k; }
-          else self.pickerCard = self.pickerCard === k ? null : k;
-          self.drawPalette();
-        };
-        row.addEventListener('pointermove', move); row.addEventListener('pointerup', up); row.addEventListener('pointercancel', cancel);
+        D.press(row, e, {
+          axis: 'x',
+          lift: function (ev) { return self.paletteDrag(ev, k, row); },
+          tap: function (ev) {
+            var chip = ev.target.closest && ev.target.closest('.chip');
+            if (chip) { self.paletteSizes[k] = chip.dataset.size; self.pickerCard = k; }
+            else self.pickerCard = self.pickerCard === k ? null : k;
+            self.drawPalette();
+          }
+        });
       });
       row.addEventListener('keydown', (e) => {
         if (e.key !== 'Enter' && e.key !== ' ') return;

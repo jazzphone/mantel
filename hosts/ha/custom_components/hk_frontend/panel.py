@@ -266,7 +266,8 @@ async def ws_panel_get(hass: HomeAssistant, connection: websocket_api.ActiveConn
             "sleep": {"after_saver": list(SR.AFTER_SAVER), "linger": list(SR.LINGER)},
         },
         # each screen's version, for board/set's expect_version (board_version)
-        "versions": _board_versions(entry),
+        # and the Accessories data's, for accessory/*'s (accessories.version)
+        "versions": {**_board_versions(entry), "accessories": accessories.version(accessories.current(hass))},
     })
 
 

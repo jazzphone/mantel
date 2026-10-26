@@ -92,6 +92,44 @@ def blank() -> dict[str, Any]:
     return {"entities": {}, "rooms": {}, "into": {}, "pages": {}, "scenes": {}}
 
 
+def version(data: Any) -> str:
+    """THE ACCESSORIES' VERSION (Edit mode): a digest of the whole data, as
+    panel.board_version is a screen's. panel/get sends it as
+    versions["accessories"] (Mantel sends its document's number there), and
+    accessory/order, page_order, room_scenes and set compare their
+    expect_version with it, so a second editor's save can't silently
+    replace the first's."""
+    import hashlib
+    import json
+    text = json.dumps(dict(data or {}), sort_keys=True, separators=(",", ":"), default=str)
+    return hashlib.sha256(text.encode()).hexdigest()[:20]
+
+
+# the version an editor opened: this host's digest, or Mantel's number while
+# linked (the save goes on to Mantel, which compares it with its own)
+EXPECT_VERSION = vol.Any(vol.All(str, vol.Length(max=64)), int)
+
+
+def _stale(acc: "Accessories", connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> bool:
+    """With expect_version: True (and the `conflict` sent, nothing written)
+    when the Accessories changed since the editor read them."""
+    if "expect_version" in msg and msg["expect_version"] != version(acc.data):
+        connection.send_error(msg["id"], "conflict",
+                              f"accessories changed meanwhile (now version {version(acc.data)})")
+        return True
+    return False
+
+
+def _answer(acc: "Accessories", msg: dict[str, Any], answer: Any) -> Any:
+    """With expect_version, the answer carries the new version, as Mantel's:
+    a dict answer gains "version", a list comes as {"entities", "version"}.
+    Without it, as before."""
+    if "expect_version" not in msg:
+        return answer
+    v = version(acc.data)
+    return {**answer, "version": v} if isinstance(answer, dict) else {"entities": answer, "version": v}
+
+
 def _ids(v: Any) -> list[str]:
     seen: list[str] = []
     for i in v if isinstance(v, list) else []:
@@ -323,6 +361,7 @@ def current(hass: HomeAssistant) -> dict[str, Any]:
     vol.Optional("on_text"): vol.Any(None, vol.All(str, vol.Length(max=30))),
     vol.Optional("off_text"): vol.Any(None, vol.All(str, vol.Length(max=30))),
     vol.Optional("screen"): vol.Any(None, vol.All(str, vol.Match(PATH))),
+    vol.Optional("expect_version"): EXPECT_VERSION,
 })
 @websocket_api.require_admin
 @callback
@@ -333,14 +372,17 @@ def ws_accessory_set(hass: HomeAssistant, connection: websocket_api.ActiveConnec
     if acc is None:
         connection.send_error(msg["id"], "not_ready", "HK Frontend is still starting")
         return
+    if _stale(acc, connection, msg):
+        return
     changes = {k: msg[k] for k in FIELDS if k in msg}
-    connection.send_result(msg["id"], acc.set(msg["entity_id"], changes, msg.get("screen")))
+    connection.send_result(msg["id"], _answer(acc, msg, acc.set(msg["entity_id"], changes, msg.get("screen"))))
 
 
 @websocket_api.websocket_command({
     vol.Required("type"): "hk_frontend/accessory/order",
     vol.Required("area_id"): vol.All(str, vol.Match(AREA)),
     vol.Required("entities"): [vol.All(str, vol.Match(ENTITY))],
+    vol.Optional("expect_version"): EXPECT_VERSION,
 })
 @websocket_api.require_admin
 @callback
@@ -351,7 +393,9 @@ def ws_accessory_order(hass: HomeAssistant, connection: websocket_api.ActiveConn
     if acc is None:
         connection.send_error(msg["id"], "not_ready", "HK Frontend is still starting")
         return
-    connection.send_result(msg["id"], acc.order(msg["area_id"], msg["entities"]))
+    if _stale(acc, connection, msg):
+        return
+    connection.send_result(msg["id"], _answer(acc, msg, acc.order(msg["area_id"], msg["entities"])))
 
 
 @websocket_api.websocket_command({
@@ -403,6 +447,7 @@ def ws_accessory_into(hass: HomeAssistant, connection: websocket_api.ActiveConne
     vol.Required("type"): "hk_frontend/accessory/page_order",
     vol.Required("page"): vol.In(PAGE_ORDERS),
     vol.Required("entities"): [vol.All(str, vol.Match(ENTITY))],
+    vol.Optional("expect_version"): EXPECT_VERSION,
 })
 @websocket_api.require_admin
 @callback
@@ -413,13 +458,16 @@ def ws_accessory_page_order(hass: HomeAssistant, connection: websocket_api.Activ
     if acc is None:
         connection.send_error(msg["id"], "not_ready", "HK Frontend is still starting")
         return
-    connection.send_result(msg["id"], acc.page_order(msg["page"], msg["entities"]))
+    if _stale(acc, connection, msg):
+        return
+    connection.send_result(msg["id"], _answer(acc, msg, acc.page_order(msg["page"], msg["entities"])))
 
 
 @websocket_api.websocket_command({
     vol.Required("type"): "hk_frontend/accessory/room_scenes",
     vol.Required("area_id"): vol.All(str, vol.Match(AREA)),
     vol.Required("entities"): vol.Any(None, [vol.All(str, vol.Match(ENTITY))]),
+    vol.Optional("expect_version"): EXPECT_VERSION,
 })
 @websocket_api.require_admin
 @callback
@@ -431,7 +479,9 @@ def ws_accessory_room_scenes(hass: HomeAssistant, connection: websocket_api.Acti
     if acc is None:
         connection.send_error(msg["id"], "not_ready", "HK Frontend is still starting")
         return
-    connection.send_result(msg["id"], {"scenes": acc.room_scenes(msg["area_id"], msg["entities"])})
+    if _stale(acc, connection, msg):
+        return
+    connection.send_result(msg["id"], _answer(acc, msg, {"scenes": acc.room_scenes(msg["area_id"], msg["entities"])}))
 
 
 def register(hass: HomeAssistant) -> None:

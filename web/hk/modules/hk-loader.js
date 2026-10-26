@@ -1,6 +1,6 @@
 // hk-loader.js - imports the order-independent dashboard modules (MODULES
 // below: kiosk, stats, charts, sky, idle, glass, skyshot, timers, saver,
-// saver-panel, campost, menu, tabbar, notify).
+// saver-panel, campost, menu, tabbar, notify, edit, drag).
 //
 // WHY THIS EXISTS
 // The bootstrap list -- the files every page loads before any card renders --
@@ -66,7 +66,11 @@
                  'hk-tabbar.js',
                  // Notifications' banners (Features -> Notifications): a
                  // listener until the first one comes.
-                 'hk-notify.js'];
+                 'hk-notify.js',
+                 // Edit mode (arranging a page in place) and the press
+                 // classifier its drags share with Home Grid's editor: each
+                 // only assigns its global (hkEdit, hkDrag) until asked.
+                 'hk-edit.js', 'hk-drag.js'];
 
   // NO GRID-LAYOUT PATCH MODULE. An inline box containing block content makes
   // every section creep 6px per tap in Safari; hk-grid-card and hk-grid-view

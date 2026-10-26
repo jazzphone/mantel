@@ -8,7 +8,8 @@ import pytest
 from mantel_server import accessories as ACC
 from mantel_server import settings_store as S
 from mantel_server.connectors import Ctx
-from test_mantel_reads import ADMIN, ADULT, OWNER, env  # noqa: F401 -- the fixture
+from mantel_server.sessions import Device, Identity, User
+from test_mantel_reads import ADMIN, ADULT, OWNER, env, read  # noqa: F401 -- the fixture
 
 
 async def save(env, who, msg, rid=1):
@@ -154,3 +155,60 @@ def test_the_document_checks_are_hk_frontends():
     assert ACC.clean({"entities": {"light.a": {"name": "", "status": True, "size": "huge"}},
                       "into": {"a": "b", "b": "c"}, "pages": {"lights": ["light.a"]}, "scenes": {"x": []}}) == \
         {"entities": {}, "rooms": {}, "into": {"a": "c", "b": "c"}, "pages": {}, "scenes": {"x": []}}
+
+
+# ------------------------------------------------- Edit mode (Phase A): the accessories document's version
+async def test_a_layout_save_with_the_version_it_opened_is_refused_once_someone_else_saved(env):
+    """panel/get gives versions["accessories"] (the stored document's number); accessory/order, page_order,
+    room_scenes and set take it as expect_version, as board/set does (SET-7): the same saves and answers the new
+    one; an older one is a `conflict` and writes nothing; none at all saves and answers as before."""
+    opened = (await read(env, OWNER, {"type": "hk_frontend/panel/get"}))["result"]["versions"]["accessories"]
+    assert opened == acc(env).version
+    got = await save(env, ADMIN, {"type": "hk_frontend/accessory/order", "area_id": "den", "expect_version": opened,
+                                  "entities": ["switch.coffee", "light.lamp"]})
+    assert got["result"] == {"entities": ["switch.coffee", "light.lamp"], "version": opened + 1} == \
+        {"entities": acc(env).body["rooms"]["den"], "version": acc(env).version}
+    for n, stale in enumerate((
+            {"type": "hk_frontend/accessory/order", "area_id": "den", "entities": ["light.lamp"]},
+            {"type": "hk_frontend/accessory/page_order", "page": "security", "entities": ["lock.front"]},
+            {"type": "hk_frontend/accessory/room_scenes", "area_id": "den", "entities": []},
+            {"type": "hk_frontend/accessory/set", "entity_id": "light.lamp", "size": "tall"}), start=2):
+        got = await save(env, ADMIN, {**stale, "expect_version": opened}, rid=n)
+        assert got["error"]["code"] == "conflict", (stale, got)
+        assert acc(env).version == opened + 1, "nothing written"
+    now = opened + 1
+    got = await save(env, ADMIN, {"type": "hk_frontend/accessory/page_order", "page": "security",
+                                  "entities": ["lock.front"], "expect_version": now}, rid=10)
+    assert got["result"] == {"entities": ["lock.front"], "version": now + 1}
+    got = await save(env, ADMIN, {"type": "hk_frontend/accessory/room_scenes", "area_id": "den", "entities": [],
+                                  "expect_version": now + 1}, rid=11)
+    assert got["result"] == {"scenes": [], "version": now + 2}
+    got = await save(env, ADMIN, {"type": "hk_frontend/accessory/set", "entity_id": "light.lamp", "size": "tall",
+                                  "expect_version": now + 2}, rid=12)
+    assert got["result"]["size"] == "tall" and got["result"]["version"] == now + 3 == acc(env).version
+    # nothing changed: no new version, and the answer says the one it is
+    got = await save(env, ADMIN, {"type": "hk_frontend/accessory/set", "entity_id": "light.lamp", "size": "tall",
+                                  "expect_version": now + 3}, rid=13)
+    assert got["result"]["version"] == now + 3 == acc(env).version
+    # without it: as before (Save Anyway)
+    got = await save(env, ADMIN, {"type": "hk_frontend/accessory/order", "area_id": "den", "entities": ["light.lamp"]},
+                     rid=14)
+    assert got["result"] == ["light.lamp"]
+    assert (await read(env, OWNER, {"type": "hk_frontend/panel/get"}))["result"]["versions"]["accessories"] == now + 4
+    for bad in ("1", True, None, 1.0):
+        got = await save(env, ADMIN, {"type": "hk_frontend/accessory/order", "area_id": "den", "entities": [],
+                                      "expect_version": bad}, rid=20)
+        assert got["error"]["code"] == "invalid_format" and "expect_version" in got["error"]["message"], bad
+    assert acc(env).version == now + 4
+
+
+async def test_a_wall_tablets_session_cannot_save_a_layout(env):
+    """Phase 2's guard: a device session (alone, or a person signed in on top of it) has no `configure`, so Edit
+    mode's saves are refused there whoever is signed in, and nothing is written."""
+    tablet = Device("tablet-1", "Loft Tablet", "wall_tablet")
+    before = acc(env).version
+    for who in (Identity(None, tablet, "lan"), Identity(User("owner-id", "Owner", "owner", "hk"), tablet, "lan")):
+        got = await save(env, who, {"type": "hk_frontend/accessory/order", "area_id": "den", "entities": ["light.lamp"],
+                                    "expect_version": before})
+        assert got["error"]["code"] == "forbidden", got
+    assert acc(env).version == before

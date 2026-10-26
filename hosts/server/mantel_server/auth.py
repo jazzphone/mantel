@@ -264,8 +264,10 @@ async def me(request: web.Request) -> web.Response:
     # (nothing to get stuck in)
     ha = None if u.get("device_id") else ha_address(request.app)
     # a wall tablet's room (an area id): a Home Grid's `tablet_room` blocks show it (docs/phase11/HOME-GRID.md)
+    # at_tablet: a device session, with or without a person signed in on top (admin_page's at_tablet). The page
+    # hides Edit mode there (web/hk/modules/hk-edit.js canEditPage); the saves themselves are refused anyway.
     return web.json_response({"ha_user_id": u["ha_user_id"], "name": u["name"], "role": u["role"], "ha_address": ha,
-                              "room": u.get("room")})
+                              "room": u.get("room"), "at_tablet": bool(u.get("device_id"))})
 
 
 def add_routes(app: web.Application) -> None:

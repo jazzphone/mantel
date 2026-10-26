@@ -67,6 +67,7 @@ window.hkMantelShell.setServices(services);
 window.hkMantelShell.setRole(user.role);
 window.hkMantelShell.setHaAddress(user.ha_address);
 window.hkMantelShell.setRoom(user.room);
+window.hkMantelShell.setAtTablet(user.at_tablet === true);      // hkShell.atTablet: no Edit mode at a wall tablet
 mark('inputs');
 
 const [config, themes] = await Promise.all([

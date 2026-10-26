@@ -831,6 +831,17 @@ print('\n=== accessory settings: the gear ===');
   var lone = { children: [] }; lone.children = [kid('light.z', P)]; lone.children[0].parentNode = lone;
   ok('nothing to arrange (alone, or a tile with no place): no Arrange', _.arrangeOf(h, 'light.z', lone.children[0]) === null &&
      _.arrangeOf(h, 'light.a', { _config: { entity: 'light.a' }, parentNode: row }) === null);
+  // A CATEGORY PAGE'S TILE (hk-strategy.js hk_place with `page`, for Edit
+  // mode): its room and group are known, but the sheet's Arrange stays the
+  // room pages' and Home's -- Edit mode arranges the category pages
+  var CP = { area: 'kitchen', group: 'Lights', page: 'lights' }, cat = { children: [] };
+  cat.children = [kid('light.a', CP), kid('light.b', CP)];
+  cat.children.forEach(function (k) { k.parentNode = cat; });
+  ok('a category page\'s tile (its place has a page): no Arrange in the sheet', _.arrangeOf(h, 'light.a', cat.children[0]) === null);
+  var SP = { page: 'security' }, sec = { children: [] };
+  sec.children = [kid('lock.a', SP), kid('lock.b', SP)];
+  sec.children.forEach(function (k) { k.parentNode = sec; });
+  ok('...nor on Security\'s (a page order, no room)', _.arrangeOf(h, 'lock.a', sec.children[0]) === null);
   var favRow = { children: [] }, F = { fav: true };
   favRow.children = [kid('lock.front', F), kid('light.a', F)];
   favRow.children.forEach(function (k) { k.parentNode = favRow; });
