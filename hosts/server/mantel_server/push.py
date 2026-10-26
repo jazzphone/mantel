@@ -41,8 +41,10 @@ from urllib.parse import urlsplit
 
 from aiohttp import ClientError, ClientTimeout, web
 
-from . import app_crypto
-from .accounts import read_json, require_user
+from . import app_crypto, audit
+from .accounts import read_json
+from .guards import guard
+from .guards import ident as guarded
 from .sessions import error, ok
 
 log = logging.getLogger("mantel.push")
@@ -370,13 +372,16 @@ def pusher_of(request: web.Request) -> Pusher:
     return request.app["pusher"]
 
 
+# a person's own notification targets (Me → Notifications), a person at a wall tablet too; each change audited
+# first, naming the push service by its host only (the endpoint is a credential of sorts, never logged)
+@guard("person", device_ok=True)
 async def web_key(request: web.Request) -> web.Response:
-    require_user(request)
     return ok({"key": pusher_of(request).vapid_public()})
 
 
+@guard("person", device_ok=True, audit="push.subscribe")
 async def web_subscribe(request: web.Request) -> web.Response:
-    ident = require_user(request)
+    ident = guarded(request)
     body = await read_json(request)
     sub = body.get("subscription")
     keys = sub.get("keys") if isinstance(sub, dict) else None
@@ -392,38 +397,50 @@ async def web_subscribe(request: web.Request) -> web.Response:
         return error(400, "invalid", message="The subscription's keys are not valid.")
     name = body.get("name")
     name = name.strip()[:NAME_MAX] if isinstance(name, str) and name.strip() else None
+    audit.config(request, ident, "push.subscribe", {"kind": "web", "name": name,
+                                                    "service": urlsplit(endpoint).hostname})
     tid = pusher_of(request).targets.add(ident.user.id, "web", endpoint, app_crypto.b64u(p256dh),
                                          app_crypto.b64u(auth), name=name)
     return ok({"id": tid}, status=201)
 
 
+@guard("person", device_ok=True, audit="push.unsubscribe")
 async def web_unsubscribe(request: web.Request) -> web.Response:
-    ident = require_user(request)
+    ident = guarded(request)
     body = await read_json(request)
     endpoint = body.get("endpoint")
     if not isinstance(endpoint, str):
         return error(400, "invalid")
-    pusher_of(request).targets.remove_endpoint(endpoint, ident.user.id)
+    targets = pusher_of(request).targets
+    mine = next((t for t in targets.of_user(ident.user.id) if t.get("endpoint") == endpoint), None)
+    if mine is not None:
+        audit.config(request, ident, "push.unsubscribe", {"target": mine["id"], "kind": mine["kind"],
+                                                          "name": mine.get("name")})
+        targets.remove_endpoint(endpoint, ident.user.id)
     return ok()
 
 
+@guard("person", device_ok=True)
 async def list_targets(request: web.Request) -> web.Response:
-    ident = require_user(request)
+    ident = guarded(request)
     return ok({"targets": [public_json(t) for t in pusher_of(request).targets.of_user(ident.user.id)]})
 
 
+@guard("person", device_ok=True, audit="push.remove")
 async def delete_target(request: web.Request) -> web.Response:
-    ident = require_user(request)
+    ident = guarded(request)
     p = pusher_of(request)
     row = p.targets.get(request.match_info["id"], ident.user.id)
     if row is None:
         return error(404, "not_found")
+    audit.config(request, ident, "push.remove", {"target": row["id"], "kind": row["kind"], "name": row.get("name")})
     p.stop(row)
     return ok()
 
 
+@guard("person", device_ok=True, no_audit="sends a test notification to the caller's own devices; changes nothing")
 async def test_push(request: web.Request) -> web.Response:
-    ident = require_user(request)
+    ident = guarded(request)
     p = pusher_of(request)
     rows = [r for r in p.targets.everyone() if r["user_id"] == ident.user.id]
     if not rows:

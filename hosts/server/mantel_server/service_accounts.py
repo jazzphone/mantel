@@ -34,6 +34,10 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 
+from . import audit
+from .guards import guard
+from .guards import ident as guarded
+
 log = logging.getLogger("mantel.service_accounts")
 
 # endpoint names a service account can be given. `linked_saves`: on a `linked` account, HK Frontend may save HK's
@@ -82,13 +86,18 @@ class ServiceAccounts:
             raise ServiceAccountError(f"unknown scope(s) {bad}; scopes are {sorted(SCOPES)}")
         return got
 
-    def create(self, name: str, scopes, *, by: str | None = None) -> tuple[ServiceAccount, str]:
-        """A new account and its credential. The credential is returned once and never stored."""
+    def create(self, name: str, scopes, *, by: str | None = None,
+               before=None) -> tuple[ServiceAccount, str]:
+        """A new account and its credential. The credential is returned once and never stored. ``before(id, name,
+        scopes)`` runs once the name and scopes are accepted and before the account exists (its audit row); if it
+        raises, there is no account."""
         name = str(name or "").strip()
         if not _NAME.match(name):
             raise ServiceAccountError("name: 1-64 letters, digits, spaces or . : @ _ -")
         scopes = self._scopes(scopes)
         sid = secrets.token_hex(8)
+        if before is not None:
+            before(sid, name, scopes)
         token = f"{PREFIX}{sid}_{secrets.token_urlsafe(32)}"
         with self.db:
             self.db.execute(
@@ -177,23 +186,6 @@ class ServiceAccounts:
         return bool(cur.rowcount)
 
 
-# -- REST (Owner only, LAN door) ---------------------------------------------------------------------
-def _owner(request):
-    from aiohttp import web
-
-    from . import sessions
-    ident = sessions.identity(request)
-    if ident.user is None or ident.device is not None:
-        raise web.HTTPForbidden(text="an Owner's own session only")
-    if ident.user.role != "owner":
-        raise web.HTTPForbidden(text="Owner only")
-    authz = request.app.get("authz")
-    if not (ident.door == "lan" or (authz is not None and authz.home_door(ident))):
-        # the LAN door, or HA's sidebar with the home rules (the HA App has no LAN door; HA-APP.md)
-        raise web.HTTPForbidden(text="service credentials are managed on the LAN (or a trusted HA sidebar) only")
-    return ident
-
-
 def _used_by(app) -> dict[str, str]:
     """Which live link each account is open as: {account id: 'mantel' | 'hk_frontend'}."""
     lk = app.get("linked")
@@ -205,35 +197,33 @@ def _used_by(app) -> dict[str, str]:
     return out
 
 
+# -- REST: an Owner's own session, on the LAN door or HA's sidebar with the home rules (the HA App has no LAN door;
+# HA-APP.md). Every change audited first.
+@guard("owner", door="home")
 async def api_list(request):
     from aiohttp import web
-    _owner(request)
     accounts = request.app["service_accounts"]
     accounts.forget_revoked(FORGET_REVOKED_AFTER)
     used = _used_by(request.app)
     return web.json_response({"accounts": [{**a, "used_by": used.get(a["id"])} for a in accounts.list()]})
 
 
+@guard("owner", door="home", audit="service_account.forget_revoked")
 async def api_forget_revoked(request):
     from aiohttp import web
-    ident = _owner(request)
+    ident = guarded(request)
     accounts = request.app["service_accounts"]
     gone = [a["id"] for a in accounts.list() if a["revoked"] is not None]
     if gone:
-        audit = request.app.get("audit")
-        if audit is not None:
-            try:
-                audit.config_event({"timestamp": request.app["clock"](), "actor": ident.user.id, "role": ident.user.role,
-                                    "action": "service_account.forget_revoked", "detail": {"accounts": gone}})
-            except Exception:  # noqa: BLE001 -- no audit, no change
-                return web.json_response({"error": "audit_unavailable"}, status=503)
+        audit.config(request, ident, "service_account.forget_revoked", {"accounts": gone})
         accounts.forget_revoked()
     return web.json_response({"ok": True, "removed": len(gone)})
 
 
+@guard("owner", door="home", audit="service_account.create")
 async def api_create(request):
     from aiohttp import web
-    ident = _owner(request)
+    ident = guarded(request)
     try:
         body = await request.json()
     except ValueError:
@@ -241,18 +231,26 @@ async def api_create(request):
     if not isinstance(body, dict):
         raise web.HTTPBadRequest(text="JSON object required")
     try:
-        acct, token = request.app["service_accounts"].create(body.get("name"), body.get("scopes") or (),
-                                                             by=ident.user.id)
+        acct, token = request.app["service_accounts"].create(
+            body.get("name"), body.get("scopes") or (), by=ident.user.id,
+            before=lambda sid, name, scopes: audit.config(request, ident, "service_account.create",
+                                                          {"account": sid, "name": name, "scopes": sorted(scopes)}))
     except ServiceAccountError as exc:
         return web.json_response({"error": {"code": "invalid", "message": str(exc)}}, status=400)
     return web.json_response({"account": {"id": acct.id, "name": acct.name, "scopes": sorted(acct.scopes)},
                               "token": token}, status=201, headers={"Cache-Control": "no-store"})
 
 
+@guard("owner", door="home", audit="service_account.revoke")
 async def api_revoke(request):
     from aiohttp import web
-    _owner(request)
-    if not request.app["service_accounts"].revoke(request.match_info["id"]):
+    ident = guarded(request)
+    accounts = request.app["service_accounts"]
+    live = next((a for a in accounts.list() if a["id"] == request.match_info["id"] and a["revoked"] is None), None)
+    if live is None:
+        raise web.HTTPNotFound(text="no such live service account")
+    audit.config(request, ident, "service_account.revoke", {"account": live["id"], "name": live["name"]})
+    if not accounts.revoke(live["id"]):
         raise web.HTTPNotFound(text="no such live service account")
     return web.json_response({"ok": True})
 

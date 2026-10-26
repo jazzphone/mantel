@@ -25,6 +25,10 @@ from urllib.parse import urlsplit
 
 from aiohttp import web
 
+from . import audit
+from .guards import guard
+from .guards import ident as guarded
+
 log = logging.getLogger("mantel.frame_origins")
 
 DOC = "mantel_frames"              # house/<this>: {"origins": ["https://ha.example.com", ...]}
@@ -149,7 +153,6 @@ def ancestors(app: web.Application | None) -> tuple[str, ...]:
 async def approve(request: web.Request, ident: Any, raw: object, why: str) -> tuple[str | None, web.Response | None]:
     """Add one address to the approved ones (an Owner; audited first). (origin or None, an error response or None)."""
     from .sessions import error
-    from . import connections as C
     fo = of(request.app)
     origin = origin_of(raw)
     if fo is None or origin is None:
@@ -160,37 +163,25 @@ async def approve(request: web.Request, ident: Any, raw: object, why: str) -> tu
     approved = list(fo.approved())
     if len(approved) >= MAX_APPROVED:
         return None, error(409, "too_many", message=f"At most {MAX_APPROVED} approved addresses; remove one first.")
-    refused = C._audit(request, ident, "frame_origin.add", {"origin": origin, "why": why})
-    if refused is not None:
-        return None, refused
+    audit.config(request, ident, "frame_origin.add", {"origin": origin, "why": why})     # (503 raised: no change)
     fo.write([*approved, origin], request, ident)
     log.warning("frame origins: %s may now show Mantel (approved by %s, %s)", origin, ident.user.id, why)
     return origin, None
 
 
-def _owner(request: web.Request, write: bool):
-    from .sessions import identity
-    ident = identity(request)
-    roles = ("owner",) if write else ("owner", "admin")
-    if ident.user is None or ident.device is not None or ident.user.role not in roles:
-        raise web.HTTPForbidden(text='{"error":"forbidden"}', content_type="application/json")
-    return ident
-
-
+@guard("manager")
 async def api_list(request: web.Request) -> web.Response:
-    _owner(request, write=False)
     fo = of(request.app)
     return web.json_response({"origins": fo.described() if fo else [], "off": "'none'" in ancestors(request.app)},
                              headers={"Cache-Control": "no-store"})
 
 
+# an address that may frame Mantel: an Owner with a fresh factor away from home, as the Sign-In Address that also
+# adds one (server_settings, connections.edit_rule)
+@guard("owner", fresh="away", audit="frame_origin.add")
 async def api_add(request: web.Request) -> web.Response:
     from .accounts import read_json
-    from . import connections as C
-    _owner(request, write=True)
-    # an address that may frame Mantel: an Owner with a fresh factor away from home, as the Sign-In Address that
-    # also adds one (server_settings, connections.edit_rule)
-    ident = C._editor(request)
+    ident = guarded(request)
     body = await read_json(request)
     origin, err = await approve(request, ident, body.get("origin"), "settings")
     if err is not None:
@@ -198,19 +189,18 @@ async def api_add(request: web.Request) -> web.Response:
     return web.json_response({"origin": origin, "origins": of(request.app).described()})
 
 
+# removing one narrows who may frame Mantel, so it needs no fresh factor, on purpose (the 2026-10 audit's AUTH-5)
+@guard("owner", audit="frame_origin.remove")
 async def api_remove(request: web.Request) -> web.Response:
     from .sessions import error
-    from . import connections as C
-    ident = _owner(request, write=True)
+    ident = guarded(request)
     fo = of(request.app)
     origin = origin_of(request.query.get("origin"))
     approved = list(fo.approved()) if fo else []
     if origin is None or origin not in approved:
         return error(404, "not_approved", message="Only an address approved in Mantel Settings can be removed here; "
                                                   "the others come from Home Assistant, the Sign-In Address or the start-up options.")
-    refused = C._audit(request, ident, "frame_origin.remove", {"origin": origin})
-    if refused is not None:
-        return refused
+    audit.config(request, ident, "frame_origin.remove", {"origin": origin})
     fo.write([o for o in approved if o != origin], request, ident)
     return web.json_response({"removed": origin, "origins": fo.described()})
 

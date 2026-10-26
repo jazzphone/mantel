@@ -36,6 +36,10 @@ from typing import Any, Callable
 
 from aiohttp import web
 
+from . import audit
+from .guards import guard
+from .guards import ident as guarded
+
 log = logging.getLogger("mantel.server_settings")
 
 API = "/api/admin/server-settings"
@@ -260,11 +264,6 @@ def move_ma(app: web.Application, now: float) -> bool:
 
 
 # -- REST ----------------------------------------------------------------------------------------------------
-def _viewer(request: web.Request):
-    from .connections import _viewer as viewer
-    return viewer(request)
-
-
 def _payload(request: web.Request, ident) -> dict:
     from . import connections as C
     from . import default_screens
@@ -278,8 +277,9 @@ def _payload(request: web.Request, ident) -> dict:
             "door": ident.door}
 
 
+@guard("manager")
 async def api_get(request: web.Request) -> web.Response:
-    ident = _viewer(request)
+    ident = guarded(request)
     return web.json_response(_payload(request, ident), headers={"Cache-Control": "no-store"})
 
 
@@ -288,11 +288,11 @@ WORDS = {"commands_enabled": "Allow Control of the House", "default_screen": "Ho
          "ha_sign_in_url": "Sign-In Address"}
 
 
+@guard("owner", fresh="away", audit="server_setting.<key>")
 async def api_put(request: web.Request) -> web.Response:
-    from . import connections as C
     from .accounts import STEP_UP_WINDOW, read_json
     from .sessions import error
-    ident = C._editor(request)                         # an Owner; a fresh factor away from home
+    ident = guarded(request)                           # an Owner; a fresh factor away from home (and below)
     body = await read_json(request)
     key, value = body.get("key"), body.get("value")
     if key not in KEYS:
@@ -317,9 +317,7 @@ async def api_put(request: web.Request) -> web.Response:
     old = ss.get(key)
     if old == value:
         return web.json_response(_payload(request, ident))
-    refused = C._audit(request, ident, f"server_setting.{key}", {"from": old, "to": value})
-    if refused is not None:
-        return refused
+    audit.config(request, ident, f"server_setting.{key}", {"from": old, "to": value})
     await ss.set(key, value, ident.user.id, now)
     log.warning("server settings: %s set to %r by %s", key, value, ident.user.name or ident.user.id)
     return web.json_response(_payload(request, ident))

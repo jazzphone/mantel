@@ -50,6 +50,7 @@ import mimetypes
 import re
 import secrets
 import time
+from types import SimpleNamespace
 from collections import OrderedDict
 from ipaddress import ip_address
 from pathlib import Path
@@ -58,7 +59,9 @@ from urllib.parse import parse_qs
 import aiohttp
 from aiohttp import web
 
-from . import sessions
+from . import audit, sessions
+from .guards import guard
+from .guards import ident as guarded
 from .sessions import INGRESS_METHOD, Identity, User
 
 log = logging.getLogger("mantel.ingress")
@@ -495,28 +498,23 @@ async def bootstrap_post(request: web.Request) -> web.Response:
                          "Continue</a>.</p>", 410)
         if tablet_link(db, person["id"]) is not None:
             return _page("Not changed", "<p>This Home Assistant account is a wall tablet in Mantel.</p>", 409)
-        if linked_user(db, person["id"]) is not None:
+        had = linked_user(db, person["id"])
+        uid = had["id"] if had is not None else secrets.token_hex(16)
+        # the row first (written and committed by the audit's own transaction on this database), then the Owner
+        audit.config(request, SimpleNamespace(id=uid, role="owner"), "ingress.bootstrap_owner",
+                     {"ha_user_id": person["id"], "name": name})
+        if had is not None:
             db.execute("UPDATE users SET role = 'owner', updated = ? WHERE id = (SELECT user_id FROM ha_links "
                        "WHERE ha_user_id = ?)", (now, person["id"]))
         else:
-            uid = secrets.token_hex(16)
             db.execute("INSERT INTO users (id, name, role, kind, created, updated) VALUES (?,?,?,?,?,?)",
                        (uid, name, "owner", "ha_linked", now, now))
             db.execute("INSERT INTO ha_links (ha_user_id, user_id, created) VALUES (?,?,?)", (person["id"], uid, now))
-    row = linked_user(db, person["id"])
-    _audit(app, row["id"], "owner", "ingress.bootstrap_owner", {"ha_user_id": person["id"], "name": name})
     log.warning("Ingress bootstrap: HA administrator %s (HA user %s) is now Mantel's first Owner", name, person["id"])
     return _page("You are Mantel's Owner", f"<p>Welcome, <b>{html.escape(name or '')}</b>.</p>"
                  f"<p><a href='{html.escape(base)}/settings#/mantel/setup'>Set up Mantel</a> · "
                  f"<a href='{html.escape(base)}/home'>Open Mantel</a> · "
                  f"<a href='{html.escape(base)}/ingress/people'>Link the rest of the household</a></p>")
-
-
-def _audit(app: web.Application, actor: str | None, role: str | None, action: str, detail: dict) -> None:
-    audit = app.get("audit")
-    if audit is not None:
-        audit.config_event({"timestamp": app["clock"](), "actor": actor, "role": role, "action": action,
-                            "detail": detail})
 
 
 # -- wall tablets: an HA user that is a tablet, linked to a device --------------------------------------
@@ -558,12 +556,13 @@ def _revoke_in(db, device_id: str, reason: str, now: float) -> None:
 
 def link_tablet(app: web.Application, ha_user_id: str, actor: User, *, device_id: str | None = None,
                 name: str | None = None, room: str | None = None, ha_name: str | None = None,
-                moving_from: str | None = None) -> dict:
+                moving_from: str | None = None, request: web.Request | None = None, ident: Identity | None = None) -> dict:
     """Make an HA user a wall tablet: linked to an existing wall-tablet device (``device_id``) or to a new
     one (``name``, ``room``). A person link of that HA user is removed (its sessions end), as is an earlier
     tablet link (a device made for it is revoked). ``moving_from``: the HA user ``device_id`` is linked to now,
     whose link this one replaces in the same transaction (the device kept, its own-device mark carried over).
-    Audited (``ingress.link_tablet``). Owners only: the caller checks. Raises TabletLinkError."""
+    Audited before anything changes (``ingress.link_tablet``: ``audit.Unavailable`` and no change without its
+    row); ``request`` and ``ident`` say where from. Owners only: the caller checks. Raises TabletLinkError."""
     db = app["store"].db
     if not isinstance(ha_user_id, str) or not USER_RE.match(ha_user_id):
         raise TabletLinkError("invalid", "ha_user_id: an HA user id")
@@ -596,14 +595,20 @@ def link_tablet(app: web.Application, ha_user_id: str, actor: User, *, device_id
             own = int(bool(dev["linked_own"]))
         else:
             moving_from = None
-        if room is not None and room != dev["room"]:
-            with db:
-                db.execute("UPDATE devices SET room = ? WHERE id = ?", (room, device_id))
+        final_room = room if room is not None else dev["room"]
     else:
-        mgr = app["devices"]
-        label = (name or ha_name or "Wall tablet").strip()[:NAME_MAX]
-        device_id, _secret, _csrf = mgr.enroll(label, "wall_tablet", room, actor.id)   # the secret is never issued
+        device_id, final_room = secrets.token_hex(16), room
         own = new_device = 1
+    audit.config(request, ident if ident is not None else actor, "ingress.link_tablet",
+                 {"ha_user_id": ha_user_id, "device_id": device_id, "room": final_room, "new_device": bool(new_device),
+                  "was_person": person["role"] if person is not None else None, "moved_from": moving_from},
+                 app=app)
+    if new_device:
+        label = (name or ha_name or "Wall tablet").strip()[:NAME_MAX]
+        app["devices"].enroll(label, "wall_tablet", room, actor.id, device_id=device_id)   # its secret is never issued
+    elif room is not None and room != dev["room"]:
+        with db:
+            db.execute("UPDATE devices SET room = ? WHERE id = ?", (room, device_id))
     with db:  # one transaction: never a person link and a tablet link at once
         if person is not None:
             db.execute("DELETE FROM ha_links WHERE ha_user_id = ?", (ha_user_id,))
@@ -619,56 +624,43 @@ def link_tablet(app: web.Application, ha_user_id: str, actor: User, *, device_id
         db.execute("INSERT INTO ha_tablet_links (ha_user_id, device_id, ha_name, own_device, created, created_by) "
                    "VALUES (?,?,?,?,?,?)", (ha_user_id, device_id, (ha_name or "")[:120] or None, own, now, actor.id))
     row = tablet_link(db, ha_user_id)
-    detail = {"ha_user_id": ha_user_id, "device_id": device_id, "room": row["room"], "new_device": bool(new_device),
-              "was_person": person["role"] if person is not None else None, "moved_from": moving_from}
-    _audit(app, actor.id, actor.role, "ingress.link_tablet", detail)
     log.info("Ingress people: %s linked HA user %s as the wall tablet %s (%s)", actor.name or actor.id, ha_user_id,
              row["name"], row["room"] or "no room")
     return {"ha_user_id": ha_user_id, "device": sessions.device_json(sessions.Device(
         row["id"], row["name"], row["role"], row["room"], ha_user_id=ha_user_id)), "new_device": bool(new_device)}
 
 
-def unlink_tablet(app: web.Application, ha_user_id: str, actor: User) -> bool:
+def unlink_tablet(app: web.Application, ha_user_id: str, actor: User, *, request: web.Request | None = None,
+                  ident: Identity | None = None) -> bool:
     """Remove an HA user's tablet link (its open sockets lose it at the next policy tick); a device that
-    was made for the link is revoked. Audited (``ingress.unlink_tablet``)."""
+    was made for the link is revoked. Audited first (``ingress.unlink_tablet``), as link_tablet."""
     db = app["store"].db
     row = tablet_link(db, ha_user_id) if isinstance(ha_user_id, str) else None
     if row is None:
         return False
+    audit.config(request, ident if ident is not None else actor, "ingress.unlink_tablet",
+                 {"ha_user_id": ha_user_id, "device_id": row["id"], "revoked": bool(row["own_device"])}, app=app)
     with db:
         db.execute("DELETE FROM ha_tablet_links WHERE ha_user_id = ?", (ha_user_id,))
         if row["own_device"]:
             _revoke_in(db, row["id"], "tablet_unlinked", app["clock"]())
-    _audit(app, actor.id, actor.role, "ingress.unlink_tablet",
-           {"ha_user_id": ha_user_id, "device_id": row["id"], "revoked": bool(row["own_device"])})
     log.info("Ingress people: %s unlinked the wall tablet HA user %s", actor.name or actor.id, ha_user_id)
     return True
 
 
-def _tablet_owner(request: web.Request) -> Identity:
-    """REST: an Owner's own session (a person, not a device) on the LAN or a home-rules sidebar."""
-    ident = sessions.identity(request)
-    if ident.user is None or ident.device is not None or ident.user.role != "owner":
-        raise web.HTTPForbidden(text='{"error":"owner_only"}', content_type="application/json")
-    authz = request.app.get("authz")
-    if not (ident.door == "lan" or (authz is not None and authz.home_door(ident))):
-        raise web.HTTPForbidden(text='{"error":"home_door_only"}', content_type="application/json")
-    return ident
-
-
+# REST: an Owner's own session (a person, not a device) on the LAN or a home-rules sidebar links tablets
+@guard("manager")
 async def api_tablets_get(request: web.Request) -> web.Response:
-    ident = sessions.identity(request)
-    if ident.user is None or ident.user.role not in ("owner", "admin"):
-        return sessions.error(403, "forbidden")
     db = request.app["store"].db
     return sessions.ok({"tablets": tablet_links(db), "rooms": rooms(request.app),
                         "free_devices": [dict(r) for r in free_devices(db)],
                         "allowed": tablets_allowed(request.app)})
 
 
+@guard("owner", door="home", audit="ingress.link_tablet")
 async def api_tablets_post(request: web.Request) -> web.Response:
     from .accounts import read_json
-    ident = _tablet_owner(request)
+    ident = guarded(request)
     body = await read_json(request)
     if set(body) - {"ha_user_id", "device_id", "name", "room"}:
         return sessions.error(400, "invalid", message="{ha_user_id, device_id?, name?, room?}")
@@ -681,15 +673,16 @@ async def api_tablets_post(request: web.Request) -> web.Response:
         pass
     try:
         got = link_tablet(request.app, target, ident.user, device_id=body.get("device_id") or None,
-                          name=body.get("name"), room=body.get("room"), ha_name=ha_name)
+                          name=body.get("name"), room=body.get("room"), ha_name=ha_name, request=request, ident=ident)
     except TabletLinkError as exc:
         return sessions.error(exc.status, exc.code, message=exc.message)
     return sessions.ok(got, status=201)
 
 
+@guard("owner", door="home", audit="ingress.unlink_tablet")
 async def api_tablets_delete(request: web.Request) -> web.Response:
-    ident = _tablet_owner(request)
-    if not unlink_tablet(request.app, request.match_info["ha_user_id"], ident.user):
+    ident = guarded(request)
+    if not unlink_tablet(request.app, request.match_info["ha_user_id"], ident.user, request=request, ident=ident):
         return sessions.error(404, "not_found")
     return sessions.ok()
 
@@ -710,18 +703,12 @@ def tablet_start(app: web.Application, device: sessions.Device) -> str | None:
     return None
 
 
-# -- the people page: Owners and Admins link HA users to roles ----------------------------------------
-def _manager(request: web.Request) -> Identity:
-    ident = sessions.identity(request)
-    if ident.user is None or ident.user.role not in ("owner", "admin"):
-        raise web.HTTPForbidden(text="Owners and Admins only")
-    return ident
-
-
+# -- the people page: Owners and Admins link HA users to roles (never at a wall tablet) ---------------------------
+@guard("manager")
 async def people_get(request: web.Request) -> web.Response:
     if not is_ingress(request):
         raise web.HTTPNotFound()
-    ident = _manager(request)
+    ident = guarded(request)
     base = html.escape(request.get("mantel_base", ""))
     db = request.app["store"].db
     links = {r["ha_user_id"]: r for r in db.execute(
@@ -811,10 +798,11 @@ async def people_get(request: web.Request) -> web.Response:
     return _page("People", body)
 
 
+@guard("manager", audit=("ingress.link", "ingress.unlink", "ingress.link_tablet", "ingress.unlink_tablet"))
 async def people_post(request: web.Request) -> web.Response:
     if not is_ingress(request):
         raise web.HTTPNotFound()
-    ident = _manager(request)
+    ident = guarded(request)
     base = request.get("mantel_base", "")
     if request.headers.get("Origin") is None:
         raise web.HTTPForbidden(text="Origin required")
@@ -836,7 +824,7 @@ async def people_post(request: web.Request) -> web.Response:
         if authz is not None and not authz.home_door(ident):
             return _page("Not changed", "<p>Wall tablets are linked on the LAN or a trusted sidebar only.</p>" + back, 403)
         if action == "unlink":
-            unlink_tablet(request.app, target, ident.user)
+            unlink_tablet(request.app, target, ident.user, request=request, ident=ident)
             raise web.HTTPSeeOther(base + "/ingress/people")
         ha_name = None
         try:
@@ -845,7 +833,7 @@ async def people_post(request: web.Request) -> web.Response:
             pass
         try:
             link_tablet(request.app, target, ident.user, device_id=get("device_id") or None, room=get("room") or None,
-                        name=get("name") or None, ha_name=ha_name)
+                        name=get("name") or None, ha_name=ha_name, request=request, ident=ident)
         except TabletLinkError as exc:
             return _page("Not changed", f"<p>{html.escape(exc.message)}.</p>" + back, exc.status)
         raise web.HTTPSeeOther(base + "/ingress/people")
@@ -865,29 +853,28 @@ async def people_post(request: web.Request) -> web.Response:
             name = (rec or {}).get("name")
         except Exception:  # noqa: BLE001 -- the name is a convenience
             pass
-        if tab is not None:                 # was a wall tablet: now a person (an Owner's choice only)
-            if ident.user.role != "owner":
-                raise web.HTTPForbidden(text="only an Owner links or unlinks wall tablets")
-            unlink_tablet(request.app, target, ident.user)
+        if tab is not None and ident.user.role != "owner":   # was a wall tablet: now a person (an Owner's choice only)
+            raise web.HTTPForbidden(text="only an Owner links or unlinks wall tablets")
+        audit.config(request, ident, "ingress.link", {"ha_user_id": target, "role": role})
+        if tab is not None:
+            unlink_tablet(request.app, target, ident.user, request=request, ident=ident)
         store.link(target, role, name)
     else:
+        audit.config(request, ident, "ingress.unlink", {"ha_user_id": target, "role": None})
         store.unlink(target)
-    _audit(request.app, ident.user.id, ident.user.role, f"ingress.{action}",
-           {"ha_user_id": target, "role": role if action == "link" else None})
     log.info("Ingress people: %s %s HA user %s%s", ident.user.name or ident.user.id, action, target,
              f" as {role}" if action == "link" else "")
     raise web.HTTPSeeOther(base + "/ingress/people")
 
 
+@guard("owner", audit="ingress.import_settings")
 async def import_settings_post(request: web.Request) -> web.Response:
     """The Owner's one-time import of HK's settings from HA (settings_store's import, as POST
     /api/settings/import does), from a plain form on the people page."""
     if not is_ingress(request):
         raise web.HTTPNotFound()
-    ident = _manager(request)
+    ident = guarded(request)
     base = request.get("mantel_base", "")
-    if ident.user.role != "owner":
-        raise web.HTTPForbidden(text="Owners only")
     if request.headers.get("Origin") is None:
         raise web.HTTPForbidden(text="Origin required")
     form = parse_qs((await request.text())[:4096])
@@ -900,6 +887,7 @@ async def import_settings_post(request: web.Request) -> web.Response:
     if service is None or proxy is None or not hasattr(proxy, "read_hk_settings"):
         return _page("Not imported", "<p>Mantel has no connection to Home Assistant to import from.</p>", 503)
     fetch = service.hooks.fetch_ha_settings or proxy.read_hk_settings
+    audit.config(request, ident, "ingress.import_settings", {"source": "home_assistant"})
     try:
         got = await settings_store.import_settings(service.store, fetch, actor=settings_store.actor_of(ident),
                                                    model=service.model,
@@ -910,20 +898,17 @@ async def import_settings_post(request: web.Request) -> web.Response:
                      f" <a href='{html.escape(base)}/ingress/people'>Back</a></p>", 502)
     if got.get("imported"):
         service.publish()
-    _audit(request.app, ident.user.id, "owner", "ingress.import_settings", {"source": got.get("source"),
-                                                                            "imported": bool(got.get("imported"))})
     raise web.HTTPSeeOther(base + "/ingress/people")
 
 
+@guard("owner", audit="ingress.import_features")
 async def import_features_post(request: web.Request) -> web.Response:
     """The Owner's feature import, again and on its own (features.FeatureHost.import_from_ha, as POST
     /api/features/import does), from a plain form on the people page."""
     if not is_ingress(request):
         raise web.HTTPNotFound()
-    ident = _manager(request)
+    ident = guarded(request)
     base = request.get("mantel_base", "")
-    if ident.user.role != "owner":
-        raise web.HTTPForbidden(text="Owners only")
     if request.headers.get("Origin") is None:
         raise web.HTTPForbidden(text="Origin required")
     form = parse_qs((await request.text())[:4096])
@@ -932,14 +917,14 @@ async def import_features_post(request: web.Request) -> web.Response:
     host = request.app.get("features")
     if host is None:
         raise web.HTTPNotFound()
+    audit.config(request, ident, "ingress.import_features", {"source": "home_assistant"})
     try:
         got = await host.import_from_ha(ident)
     except Exception as exc:  # noqa: BLE001 -- say so; the store is unchanged
         log.warning("feature import failed: %s", type(exc).__name__)
         return _page("Not imported", f"<p>Home Assistant's HK features could not be read ({html.escape(type(exc).__name__)})."
                      f" <a href='{html.escape(base)}/ingress/people'>Back</a></p>", 502)
-    _audit(request.app, ident.user.id, "owner", "ingress.import_features", {"source": got.get("source"),
-                                                                            "added": got.get("added")})
+    log.info("Ingress people: %s imported HK's features (%s)", ident.user.name or ident.user.id, got.get("added"))
     raise web.HTTPSeeOther(base + "/ingress/people")
 
 

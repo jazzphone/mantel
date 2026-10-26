@@ -26,7 +26,10 @@ from typing import Any
 
 from aiohttp import web
 
-from .accounts import read_json, require_manager, require_user
+from . import audit
+from .accounts import read_json
+from .guards import guard
+from .guards import ident as guarded
 from .sessions import Device, Identity, error, ok
 
 SCREEN = re.compile(r"^[A-Za-z0-9_]+-[A-Za-z0-9_-]{0,100}$")      # a board key, as server.py's screen routes take
@@ -115,32 +118,36 @@ def _screen_of(app: web.Application, body: Any) -> str | None:
     return screen
 
 
+@guard("person", device_ok=True)
 async def mine_get(request: web.Request) -> web.Response:
-    ident = require_user(request)
+    ident = guarded(request)
     app = request.app
     return ok({"screen": get(app, f"u:{ident.user.id}"), "screens": screens(app), "house": house(app),
                "at_tablet": ident.device is not None})
 
 
+@guard("person", device_ok=True, audit="default_screen.set")
 async def mine_put(request: web.Request) -> web.Response:
-    ident = require_user(request)
+    ident = guarded(request)
     try:
         screen = _screen_of(request.app, await read_json(request))
     except ValueError:
         return error(400, "invalid")
+    audit.config(request, ident, "default_screen.set", {"user": ident.user.id, "screen": screen})
     put(request.app, f"u:{ident.user.id}", screen, ident.user.id)
     return ok({"screen": screen})
 
 
+@guard("manager")
 async def all_get(request: web.Request) -> web.Response:
-    require_manager(request)
     app = request.app
     return ok({"users": all_of(app, "u"), "devices": all_of(app, "d"), "screens": screens(app),
                "house": house(app)})
 
 
+@guard("manager", audit="default_screen.set")
 async def user_put(request: web.Request) -> web.Response:
-    ident = require_manager(request)
+    ident = guarded(request)
     row = request.app["accounts"].get_user(request.match_info["id"])
     if row is None:
         return error(404, "not_found")
@@ -150,12 +157,14 @@ async def user_put(request: web.Request) -> web.Response:
         screen = _screen_of(request.app, await read_json(request))
     except ValueError:
         return error(400, "invalid")
+    audit.config(request, ident, "default_screen.set", {"user": row["id"], "screen": screen})
     put(request.app, f"u:{row['id']}", screen, ident.user.id)
     return ok({"screen": screen})
 
 
+@guard("manager", audit="default_screen.set")
 async def device_put(request: web.Request) -> web.Response:
-    ident = require_manager(request)
+    ident = guarded(request)
     row = request.app["devices"].get(request.match_info["id"]) if "devices" in request.app else None
     if row is None:
         return error(404, "not_found")
@@ -163,6 +172,7 @@ async def device_put(request: web.Request) -> web.Response:
         screen = _screen_of(request.app, await read_json(request))
     except ValueError:
         return error(400, "invalid")
+    audit.config(request, ident, "default_screen.set", {"device": row["id"], "screen": screen})
     put(request.app, f"d:{row['id']}", screen, ident.user.id)
     return ok({"screen": screen})
 

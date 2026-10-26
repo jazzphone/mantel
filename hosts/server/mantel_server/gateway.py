@@ -67,6 +67,7 @@ from aiohttp import web
 
 from . import alarm_pin, readproxy
 from .authz import ENTITY_ID, Authz, Principal
+from .guards import guard
 from .ha_client import (TALK_ENTITY, TALK_LIVE_TYPE, CommandBlocked, CommandTicket, HaCommandError, HaCommander,
                         HTTP_METHODS, UPLOAD_MAX_BYTES, UPLOAD_METHOD, UPLOAD_MIN_BYTES, UPLOAD_TYPES, _API_PATH,
                         talk_target, upload_type)
@@ -508,7 +509,7 @@ class Audit:
 
     def config_event(self, event: dict) -> None:
         """rbac_store's audit hook: grant/role/scope changes (before they are applied), and every other
-        settings or account change the same way (accounts.audit_change: people, roles, passwords, tablets).
+        settings or account change the same way (audit.config: people, roles, passwords, tablets, connections, …).
         ``door``, ``source_ip`` and ``device`` are optional: where the change came from, when the caller
         knows (a door outside the table's CHECK is dropped rather than losing the row)."""
         door = event.get("door")
@@ -983,6 +984,7 @@ def _bad(param: str) -> web.Response:
                              headers={"Cache-Control": "no-store"})
 
 
+@guard("signed_in")        # the roles decide (below): at a wall tablet, the tablet's share; a tablet alone, none
 async def audit_list(request: web.Request) -> web.Response:
     """``GET /api/audit?actor=&device=&decision=&kind=&since=&until=&before=&limit=``: newest first;
     ``next`` is the ``before`` of the next page. Reading the audit is ``configure`` on feature ``audit``

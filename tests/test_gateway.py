@@ -164,7 +164,7 @@ async def test_on_the_tunnel_an_adult_unlocks_with_no_step_up_and_the_owners_hea
     assert garage["type"] == "command_result" and "result" in garage
     # the remote unlock still notifies the Owners (kept: it never depended on the step-up)
     assert gw.fake.sent == ["lock.unlock", "persistent_notification.create", "cover.open_cover"]
-    rows = [r for r in gw.audit() if r["kind"] != "system"]
+    rows = [r for r in gw.audit() if r["kind"] not in ("system", "config")]   # (not the TOTP enrolment)
     assert [(r["action"], r["decision"], r["door"], r["step_up"]) for r in rows] == [
         ("lock.unlock", "allowed", "tunnel", None), ("cover.open_cover", "allowed", "tunnel", None)]
     # the role's tunnel switch still decides
@@ -392,7 +392,7 @@ async def test_remote_unlock_notifies_the_owners(gw):
     assert gw.fake.sent == ["lock.unlock", "persistent_notification.create"]
     note = gw.fake.frames[1]["service_data"]
     assert "lock.unlock" in note["message"] and "tunnel" in note["message"] and note["notification_id"].startswith("mantel_remote_")
-    rows = gw.audit()
+    rows = [r for r in gw.audit() if r["kind"] != "config"]               # (not the TOTP enrolment's row)
     assert rows[0]["door"] == "tunnel" and rows[1]["actor"] == "mantel" and rows[1]["kind"] == "system"
     assert rows[1]["reason"] == f"owner_notification:{rows[0]['id']}" and rows[1]["result"] == "ok"
     # a LAN unlock does not notify

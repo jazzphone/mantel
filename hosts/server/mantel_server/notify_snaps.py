@@ -38,6 +38,8 @@ from aiohttp import web
 
 from hk_core.notifications.const import SNAP_MAX, SNAP_TIMEOUT_S, SNAP_TTL_S
 
+from .guards import guard
+
 log = logging.getLogger("mantel.notify_snaps")
 
 PATH = "/api/notify/snap/{snap_id}"
@@ -236,6 +238,7 @@ def register(app: web.Application, store: SnapStore) -> None:
     from .connectors import Ctx, Route, read_routes
     from .readproxy import ReadBlocked
 
+    @guard("signed_in")          # any session; the roles decide the snapshot's camera (_may_still)
     async def serve(request: web.Request) -> web.Response:
         sid = request.match_info["snap_id"]
         snap = store.meta(sid)

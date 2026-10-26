@@ -24,10 +24,11 @@ from urllib.parse import urlsplit
 
 from aiohttp import WSMsgType, web
 
+from . import audit
 from . import authz as authz_mod
 from . import door_key, frame_origins, proxy_trust, sessions
-from .accounts import STEP_UP_WINDOW
-from .login_page import login_url
+from .guards import guard
+from .guards import ident as guarded
 
 PAGE = "/proxy-check"
 ASSETS = {"check.js": "text/javascript", "check.css": "text/css"}
@@ -89,13 +90,6 @@ def npm_advanced(upstream: str = UPSTREAM, door: str = "lan", key: str = door_ke
         "    client_max_body_size 12m;",
         "}",
     ])
-
-
-def _owner(request: web.Request) -> sessions.Identity:
-    ident = sessions.identity(request)
-    if ident.user is None or ident.user.role != "owner" or ident.device is not None:
-        raise web.HTTPForbidden(text="Owners only")
-    return ident
 
 
 def _private(ip: str | None) -> bool | None:
@@ -297,27 +291,18 @@ async def basics(request: web.Request) -> web.Response:
                              headers={"Cache-Control": "no-store"})
 
 
+@guard("owner", fresh="away", audit="door_key.rotated")
 async def rotate(request: web.Request) -> web.Response:
     """A new door key (Owner; CSRF by the session middleware; a fresh factor on the tunnel door). The proxy
     must then send the new one: until it does, its requests are the tunnel door. HA's sidebar with the
     trusted rules counts as home, as for Connections (connections.edit_rule): there HA's sign-in is the
     check, and the sidebar has no Mantel sign-in to refresh, so asking for one looped (the house,
-    2026-10-19)."""
-    ident = _owner(request)
-    authz = request.app.get("authz")
-    home = sessions.door_of(request) == "lan" or (authz is not None and authz.ha_trusted(ident))
-    if not home and not ident.fresh_within(STEP_UP_WINDOW, request.app["clock"]()):
-        return web.json_response({"error": "step_up_required"}, status=403)
+    2026-10-19). That is the guard's fresh="away" (connections.edit_rule)."""
+    ident = guarded(request)
     dk = door_key.of(request.app)
     if dk is None:
         raise web.HTTPNotFound()
-    audit = request.app.get("audit")
-    if audit is not None:
-        try:
-            audit.config_event({"actor": ident.user.id, "role": ident.user.role, "action": "door_key.rotated",
-                                "detail": {}, "timestamp": request.app["clock"]()})
-        except Exception:  # noqa: BLE001 -- nothing changes without its audit row
-            return web.json_response({"error": "audit_unavailable"}, status=503)
+    audit.config(request, ident, "door_key.rotated", {})
     dk.rotate()
     return web.json_response({"ok": True, "door_key": {"value": dk.value(), "since": dk.since(),
                                                        "header": door_key.HEADER}},
@@ -350,13 +335,12 @@ def mode_of(cfg, request: web.Request | None = None) -> str:
     return "own" if getattr(cfg, "trusted_proxies", ()) else "direct"
 
 
+@guard("manager")
 async def summary(request: web.Request) -> web.Response:
     """What the Connections page's HTTPS panel draws: the mode, the trusted proxy settings and whether a door
     key is set (and since when). NEVER the key itself: it is shown only by the Test my proxy report and
     once after a rotation, to an Owner."""
-    ident = sessions.identity(request)
-    if ident.user is None or ident.device is not None or ident.user.role not in ("owner", "admin"):
-        raise web.HTTPForbidden(text="Owners and admins only")
+    ident = guarded(request)
     cfg = request.app.get("cfg")
     mode = mode_of(cfg, request)
     dk = door_key.of(request.app)
@@ -378,13 +362,14 @@ async def summary(request: web.Request) -> web.Response:
     }, headers={"Cache-Control": "no-store"})
 
 
+# the report and its page: an Owner's own session (never at a wall tablet); the report shows the door key
+@guard("owner")
 async def api(request: web.Request) -> web.Response:
-    _owner(request)
     return web.json_response(report(request), headers={"Cache-Control": "no-store"})
 
 
+@guard("owner")
 async def ws(request: web.Request) -> web.StreamResponse:
-    _owner(request)
     if request.headers.get("Origin") is None:
         raise web.HTTPForbidden(text="Origin required")
     got = report(request)
@@ -408,11 +393,8 @@ async def ws(request: web.Request) -> web.StreamResponse:
     return sock
 
 
+@guard("owner")              # (signed out: the session middleware sends the browser to /login first)
 async def page(request: web.Request) -> web.StreamResponse:
-    ident = sessions.identity(request)
-    if ident.user is None and ident.device is None:
-        raise web.HTTPFound(login_url(PAGE))
-    _owner(request)
     base = html.escape(request.get("mantel_base", ""))
     host = proxy_trust.public_host(request)
     wss = f"{'wss' if proxy_trust.is_https(request) else 'ws'}://{host}"

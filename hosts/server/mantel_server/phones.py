@@ -26,6 +26,10 @@ from typing import Any
 
 from aiohttp import web
 
+from . import audit
+from .guards import guard
+from .guards import ident as guarded
+
 log = logging.getLogger("mantel.phones")
 
 SEND = ("important", "all", "off")
@@ -179,17 +183,17 @@ class Phones:
 
 
 # -- REST (Mantel Settings -> People) -----------------------------------------------------------------------------------
+@guard("manager")
 async def api_get(request: web.Request) -> web.Response:
-    from .accounts import require_manager
-    require_manager(request)
     p: Phones = request.app["phones"]
     return web.json_response({"available": p.available(), "people": p.all(), "linked": bool(p.links())})
 
 
+@guard("manager", audit="phones.set")
 async def api_put(request: web.Request) -> web.Response:
-    from .accounts import read_json, require_manager
+    from .accounts import read_json
     from .sessions import error
-    ident = require_manager(request)
+    ident = guarded(request)
     uid = request.match_info["id"]
     row = request.app["accounts"].get_user(uid)
     if row is None:
@@ -203,12 +207,7 @@ async def api_put(request: web.Request) -> web.Response:
                                  body.get("send") if isinstance(body, dict) else None)
     except ValueError as exc:
         return error(400, "invalid", message=str(exc))
-    before = p.of(uid)
-    audit = request.app.get("audit")
-    if audit is not None:                   # the audit row first, as every config change
-        audit.config_event({"timestamp": request.app["clock"](), "actor": ident.user.id, "role": ident.user.role,
-                            "action": "phones.set", "detail": {"user": uid, "from": before,
-                                                                 "to": {"services": services, "send": send}}})
+    audit.config(request, ident, "phones.set", {"user": uid, "from": p.of(uid), "to": {"services": services, "send": send}})
     return web.json_response(p.set(uid, services, send, ident.user.id))
 
 

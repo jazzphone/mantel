@@ -32,6 +32,8 @@ from typing import Any, Callable
 import aiohttp
 from aiohttp import web
 
+from ..guards import guard
+
 log = logging.getLogger("mantel.camera_still")
 
 PATH = "/api/camera/{entity_id}/still"
@@ -153,6 +155,7 @@ def register(app: web.Application, hub: Any, authz: Any, token: Callable[[], str
     get_token = token if callable(token) else (lambda: token)
     app["camera_stills"] = {"served": 0, "refused": 0}
 
+    @guard("signed_in")          # any session; the roles decide each camera (authz.may_still)
     async def still(request: web.Request) -> web.StreamResponse:
         stats = request.app["camera_stills"]
         entity_id = request.match_info["entity_id"]

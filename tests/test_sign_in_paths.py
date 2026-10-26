@@ -85,7 +85,7 @@ async def test_a_wall_tablet_is_linked_on_the_home_door_only(mantel):
     m = mantel
     owner = await _stale_tunnel_owner(m)
     dev = m.app["devices"].enroll("Kitchen", "wall_tablet", None, owner)[0]
-    # enrolling a tablet is LAN-only (devices.enroll), and so is linking one on Ingress (ingress._tablet_owner)
+    # enrolling a tablet is LAN-only (devices.enroll), and so is linking one on Ingress (its guard: door="home")
     r = await m.client.put(f"/api/devices/{dev}/ha-user", json={"ha_user": HA_X}, headers=m.headers(tunnel=True))
     row = m.store.db.execute("SELECT device_id FROM ha_tablet_links WHERE ha_user_id = ?", (HA_X,)).fetchone()
     assert r.status == 403 and row is None, (

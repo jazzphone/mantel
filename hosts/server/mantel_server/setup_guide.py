@@ -29,8 +29,9 @@ from typing import Any
 
 from aiohttp import web
 
-from . import connections, sessions
-from .accounts import MANAGERS, require_user
+from . import audit, connections
+from .guards import guard
+from .guards import ident as guarded
 from .sessions import error, ok
 
 log = logging.getLogger(__name__)
@@ -313,31 +314,18 @@ async def steps(app: web.Application, me: dict) -> dict:
 
 
 # ---------------------------------------------------------------------------------------------- REST
-def _manager(request: web.Request):
-    ident = require_user(request)
-    if ident.device is not None or ident.user.role not in MANAGERS:
-        raise web.HTTPForbidden(text='{"error":"forbidden"}', content_type="application/json")
-    return ident
-
-
-def _owner(request: web.Request):
-    ident = _manager(request)
-    if ident.user.role != "owner":
-        raise web.HTTPForbidden(text='{"error":"owner_only"}', content_type="application/json")
-    sessions.check_csrf(request, ident)
-    return ident
-
-
+@guard("manager")
 async def get_setup(request: web.Request) -> web.Response:
-    ident = _manager(request)
+    ident = guarded(request)
     row = request.app["accounts"].get_user(ident.user.id)
     me = request.app["accounts"].describe(row) if row is not None else {}
     got = await steps(request.app, me)
     return ok({**got, "can_edit": ident.user.role == "owner"})
 
 
+@guard("owner", audit="setup.step")
 async def put_step(request: web.Request) -> web.Response:
-    _owner(request)
+    ident = guarded(request)
     sid = request.match_info["id"]
     if sid not in IDS:
         return error(404, "not_found")
@@ -350,6 +338,7 @@ async def put_step(request: web.Request) -> web.Response:
         return error(400, "invalid")
     if state == "confirmed" and sid not in CONFIRMABLE or state == "skipped" and sid not in SKIPPABLE:
         return error(400, "invalid", message="That step can’t be " + state + ".")
+    audit.config(request, ident, "setup.step", {"step": sid, "state": state})
     k = kept(request.app)
     for name in ("confirmed", "skipped"):
         have = set(k[name])
@@ -359,14 +348,16 @@ async def put_step(request: web.Request) -> web.Response:
     return ok({"id": sid, "state": state})
 
 
+@guard("owner", audit="setup.dismissed")
 async def put_setup(request: web.Request) -> web.Response:
-    _owner(request)
+    ident = guarded(request)
     try:
         body = await request.json()
     except ValueError:
         body = None
     if not isinstance(body, dict) or not isinstance(body.get("dismissed"), bool):
         return error(400, "invalid")
+    audit.config(request, ident, "setup.dismissed", {"dismissed": body["dismissed"]})
     k = kept(request.app)
     k["dismissed"] = body["dismissed"]
     _keep(request.app, k)

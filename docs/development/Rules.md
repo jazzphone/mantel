@@ -59,3 +59,17 @@ scratch Home Assistant (`tools/testha/`), never a real one.
 (`HK_PRIVATE` or `HK_PRIVATE_FILE`). Run it as a pre-commit hook; see
 [Building and testing](Building-and-Testing.md#private-words). `tools/build_ha.py` and the publishers also refuse
 to build when they find private network addresses, keys or tokens.
+
+## 7. Every route declares its guard
+
+Every route Mantel Server serves says who may call it with `@guard(...)` (`guards.py`): who (a session, a person, an
+Owner or Admin, an Owner), whether a wall tablet's session may, from which door, and how fresh the sign-in must be.
+A route with its own check (sign-in, the app's DPoP routes, `/linked/*`, the media proxy, static files, health) is
+on the test's short list instead, with its reason. Every route that changes something names the audit action it
+writes, or says why it writes none. The row goes through `audit.config`, before the change: no row, no change
+(503 `audit_unavailable`).
+
+**Checked by** `tests/test_route_guards.py`, which builds the whole app and walks its router.
+
+Write a new route's guard first, as strict as the route allows; a check only the handler can make (an Admin never
+manages an Owner, say) stays in the handler as well. See [Architecture](Architecture.md#route-guards-and-the-audit-of-changes).

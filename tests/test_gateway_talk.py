@@ -138,7 +138,7 @@ async def test_on_the_tunnel_talk_back_needs_no_fresh_factor(gw):
     reply = await gw.command(ws, **talk())
     assert reply["type"] == "command_result" and "result" in reply, reply
     assert gw.fake.sent == ["POST /api/hk_frontend/talk"]
-    (row,) = gw.audit()
+    (row,) = [r for r in gw.audit() if r["kind"] != "config"]          # (not the TOTP enrolment's row)
     assert (row["decision"], row["reason"], row["result"], row["door"], row["sensitive"], row["step_up"]) == \
         ("allowed", "granted", "ok", "tunnel", "camera", None)
     await ws.close()

@@ -16,9 +16,9 @@
   Only the code's hash is stored, it is never audited, and no page shows it. ``POST /api/bootstrap``
   redeems it once to create the first Owner.
 * **Audit**: adding a person, changing their role or name, disabling or enabling them, changing your own
-  password and resetting someone else's each write a ``config`` row (``audit_change``) BEFORE the change, as
-  rbac_store does for grants: who, what, which person, from where. Never a password. No row, no change (503).
-  Sign-ins are not audited: see ``audit_change``.
+  password and resetting someone else's, and adding or removing an authenticator app or a passkey each write a
+  ``config`` row (``audit.config``) BEFORE the change, as rbac_store does for grants: who, what, which person, from
+  where. Never a password, a seed or a key. No row, no change (503). Sign-ins are not audited: see audit.py.
 """
 from __future__ import annotations
 
@@ -38,7 +38,10 @@ from aiohttp import web
 from argon2 import PasswordHasher
 from argon2.exceptions import InvalidHashError, VerificationError, VerifyMismatchError
 
+from . import audit
 from .atrest import KEY_FILE, SecretBox
+from .guards import guard
+from .guards import ident as guarded
 from .sessions import (Identity, Issued, SessionManager, client_ip, door_of, error, identity, ok,
                        set_session_cookies, token_hash)
 from .store import ROLES
@@ -341,10 +344,11 @@ class Accounts:
                             (user_id, sealed, self.clock()))
         return b32(seed), otpauth_uri(seed, account)
 
-    def totp_check(self, user_id: str, code: object, confirm: bool = False) -> bool:
+    def totp_check(self, user_id: str, code: object, confirm: bool = False, before=None) -> bool:
         """Verify a code (consuming its time step) against the confirmed seed. ``confirm``: against the seed
         waiting to be confirmed instead (a first one, or a replacement), which it confirms; never the confirmed
-        one, so confirming is no way round the step-up's limits."""
+        one, so confirming is no way round the step-up's limits. ``before()`` (confirming only) runs once the code
+        matched and before the seed is confirmed: the audit row; if it raises, nothing is confirmed."""
         row = self._totp_row(user_id)
         if row is None:
             return False
@@ -365,6 +369,8 @@ class Accounts:
             counter = totp_match(seed, code, now)
             if counter is None:
                 return False
+            if before is not None:
+                before()
             with self.db:
                 cur = self.db.execute("UPDATE totp_credentials SET seed_enc = pending_enc, pending_enc = NULL, "
                                       "confirmed = ?, last_counter = ?, created = ? WHERE user_id = ? "
@@ -376,6 +382,8 @@ class Accounts:
         counter = totp_match(seed, code, now, row["last_counter"])
         if counter is None:
             return False
+        if before is not None:
+            before()
         with self.db:
             cur = self.db.execute("UPDATE totp_credentials SET last_counter = ?, confirmed = ? "
                                   "WHERE user_id = ? AND confirmed IS NULL AND last_counter < ?",
@@ -434,7 +442,9 @@ class Accounts:
         return cid, json.loads(options_to_json(opts))
 
     def passkey_register_verify(self, user_id: str, cid: object, credential: object, origin: str,
-                                name: str | None = None) -> str:
+                                name: str | None = None, before=None) -> str:
+        """Add the passkey a registration made. ``before(name)`` runs once it verified and before it is stored
+        (the audit row); if it raises, nothing is stored."""
         from webauthn import verify_registration_response
         from webauthn.helpers import bytes_to_base64url
         row = self._take_challenge(cid, "register")
@@ -450,6 +460,10 @@ class Accounts:
             raise PolicyError("credential_invalid", f"passkey registration failed: {exc}") from exc
         cred_id = bytes_to_base64url(v.credential_id)
         transports = (credential.get("response") or {}).get("transports")
+        if before is not None:
+            if self.db.execute("SELECT 1 FROM passkeys WHERE id = ?", (cred_id,)).fetchone() is not None:
+                raise PolicyError("credential_exists", "that passkey is already registered")
+            before((name or "Passkey")[:64])
         try:
             with self.db:
                 self.db.execute("INSERT INTO passkeys (id, user_id, public_key, sign_count, transports, name, backed_up, "
@@ -667,35 +681,6 @@ def may_manage(actor_role: str, target_role: str) -> bool:
     return actor_role == "owner" or (actor_role == "admin" and target_role != "owner")
 
 
-def audit_change(request: web.Request, ident: Identity | None, action: str, detail: dict) -> web.Response | None:
-    """Write an account change's audit row BEFORE making it (the gateway's ``Audit.config_event``, kind
-    ``config``, the same as rbac_store's grant rows and devices' ``device.room``): who (``ident``: the person, or
-    a device revoking itself), what (``action``), which person or tablet and what changed (``detail``), and the
-    door and address it came from. ``detail`` never holds a password, a hash or a token. If the row cannot be
-    written the change is refused (503 ``audit_unavailable``), as rbac_store refuses a grant. An app with no
-    audit wired (a bare test app) records nothing.
-
-    Sign-ins are deliberately not audited. Every row is kept for the retention window (a year by default) and
-    cannot be deleted, and a failed sign-in needs no account: anyone who can reach the sign-in page could fill
-    the log with rows of their own wording. The table's kinds and decisions are for commands and settings, and
-    a sign-in is neither. A successful sign-in is its session instead (Me → My Sessions: browser, door, method,
-    address, last seen); failures are counted by the rate limits and the stored lockout."""
-    audit = request.app.get("audit")
-    if audit is None:
-        return None
-    user = ident.user if ident is not None else None
-    device = ident.device if ident is not None else None
-    try:
-        audit.config_event({"timestamp": request.app["clock"](), "actor": user.id if user else None,
-                            "role": user.role if user else None, "device": device.id if device else None,
-                            "device_role": device.role if device else None, "action": action, "detail": detail,
-                            "door": ident.door if ident is not None else None, "source_ip": client_ip(request)})
-    except Exception:  # noqa: BLE001 -- no audit, no change
-        log.exception("could not audit %s; change refused", action)
-        return error(503, "audit_unavailable")
-    return None
-
-
 def who(row) -> dict:
     """The person an audit row is about: id, user name and name (never anything secret)."""
     return {"user": row["id"], "username": row["username"], "name": row["name"]}
@@ -810,32 +795,38 @@ def require_fresh_to_add_factor(request: web.Request, ident: Identity) -> None:
     require_fresh(request, ident)
 
 
+@guard("person", device_ok=True, fresh="add_factor",
+       no_audit="starts an enrolment only: the app counts once its first code confirms it (account.totp.add)")
 async def totp_enroll(request: web.Request) -> web.Response:
-    ident = require_user(request)
+    ident = guarded(request)
     acc = accounts_of(request)
-    require_fresh_to_add_factor(request, ident)
     secret, uri = acc.totp_begin(ident.user.id, ident.user.username or ident.user.name or ident.user.id)
     return ok({"secret": secret, "uri": uri})
 
 
+@guard("person", device_ok=True, audit="account.totp.add")
 async def totp_enroll_confirm(request: web.Request) -> web.Response:
     """The new app's first code confirms it. Limited like the step-up, and it does not make the session fresh
-    (enrolling is no way of confirming it is you: totp_enroll asked for that already)."""
-    ident = require_user(request)
+    (enrolling is no way of confirming it is you: totp_enroll asked for that already). The audit row is written
+    once the code matched, before the app is confirmed."""
+    ident = guarded(request)
     body = await read_json(request)
     acc = accounts_of(request)
     ip = client_ip(request)
     wait = acc.retry_after(ip, ident.user.username)
     if wait > 0:
         return limited(wait)
-    if not acc.totp_check(ident.user.id, body.get("code"), confirm=True):
+    row = acc.get_user(ident.user.id)
+    if not acc.totp_check(ident.user.id, body.get("code"), confirm=True,
+                          before=lambda: audit.config(request, ident, "account.totp.add", who(row))):
         acc.record_failure(ip, ident.user.username)
         return error(400, "invalid_code")
     return ok({"totp": True})
 
 
+@guard("person", device_ok=True, no_audit="confirms it is you (the session's freshness): a sign-in, not audited")
 async def totp_step_up(request: web.Request) -> web.Response:
-    ident = require_user(request)
+    ident = guarded(request)
     body = await read_json(request)
     acc = accounts_of(request)
     ip = client_ip(request)
@@ -849,58 +840,72 @@ async def totp_step_up(request: web.Request) -> web.Response:
     return ok({"step_up": True})
 
 
+@guard("person", device_ok=True, fresh="always", audit="account.totp.remove")
 async def totp_remove(request: web.Request) -> web.Response:
-    ident = require_user(request)
-    require_fresh(request, ident)
-    return ok({"removed": accounts_of(request).totp_remove(ident.user.id)})
-
-
-async def passkey_register_options(request: web.Request) -> web.Response:
-    ident = require_user(request)
+    ident = guarded(request)
     acc = accounts_of(request)
-    passkey_origin(request, acc)
-    require_fresh_to_add_factor(request, ident)
+    if acc._totp_row(ident.user.id) is not None:
+        audit.config(request, ident, "account.totp.remove", who(acc.get_user(ident.user.id)))
+    return ok({"removed": acc.totp_remove(ident.user.id)})
+
+
+@guard("person", device_ok=True, fresh="add_factor", first=lambda r: passkey_origin(r, accounts_of(r)),
+       no_audit="a challenge only: the passkey is added by register/verify (account.passkey.add)")
+async def passkey_register_options(request: web.Request) -> web.Response:
+    ident = guarded(request)
+    acc = accounts_of(request)
     cid, options = acc.passkey_register_options(ident.user.id)
     return ok({"challenge_id": cid, "options": options})
 
 
+@guard("person", device_ok=True, audit="account.passkey.add")
 async def passkey_register_verify(request: web.Request) -> web.Response:
-    ident = require_user(request)
+    ident = guarded(request)
     acc = accounts_of(request)
     origin = passkey_origin(request, acc)            # (fresh was needed for the challenge: register_options)
     body = await read_json(request)
+    row = acc.get_user(ident.user.id)
     try:
-        cred_id = acc.passkey_register_verify(ident.user.id, body.get("challenge_id"), body.get("credential"), origin,
-                                              body.get("name") if isinstance(body.get("name"), str) else None)
+        cred_id = acc.passkey_register_verify(
+            ident.user.id, body.get("challenge_id"), body.get("credential"), origin,
+            body.get("name") if isinstance(body.get("name"), str) else None,
+            before=lambda name: audit.config(request, ident, "account.passkey.add", {**who(row), "passkey": name}))
     except PolicyError as exc:
         return error(400, exc.code)
     return ok({"id": cred_id}, status=201)
 
 
+@guard("person", device_ok=True)
 async def passkey_list(request: web.Request) -> web.Response:
-    ident = require_user(request)
+    ident = guarded(request)
     rows = accounts_of(request).db.execute(
         "SELECT id, name, created, last_used, backed_up FROM passkeys WHERE user_id = ? ORDER BY created",
         (ident.user.id,))
     return ok({"passkeys": [dict(r) for r in rows]})
 
 
+@guard("person", device_ok=True, fresh="always", audit="account.passkey.remove")
 async def passkey_delete(request: web.Request) -> web.Response:
-    ident = require_user(request)
-    require_fresh(request, ident)
+    ident = guarded(request)
     acc = accounts_of(request)
+    key = acc.db.execute("SELECT name FROM passkeys WHERE id = ? AND user_id = ?",
+                         (request.match_info["id"], ident.user.id)).fetchone()
+    if key is None:
+        return error(404, "not_found")
+    audit.config(request, ident, "account.passkey.remove", {**who(acc.get_user(ident.user.id)), "passkey": key["name"]})
     with acc.db:
         n = acc.db.execute("DELETE FROM passkeys WHERE id = ? AND user_id = ?",
                            (request.match_info["id"], ident.user.id)).rowcount
     return ok() if n else error(404, "not_found")
 
 
+@guard("person", device_ok=True, audit="account.password.change")
 async def change_password(request: web.Request) -> web.Response:
     """``POST /api/account/password {current, new}`` (Me → Change Password): your own password. The current one
     is checked like a sign-in (the same rate limits and lockout). With no password yet (an account that never
     had one) there is nothing to check, so the session must be fresh instead: a stolen cookie alone cannot give
     itself a lasting password. The new one follows the account-creation rules; your other sessions end."""
-    ident = require_user(request)
+    ident = guarded(request)
     body = await read_json(request)
     acc = accounts_of(request)
     row = acc.get_user(ident.user.id)
@@ -921,9 +926,7 @@ async def change_password(request: web.Request) -> web.Response:
         check_password_policy(body.get("new"), row["username"], row["name"])
     except PolicyError as exc:
         return error(400, exc.code, message=str(exc))
-    refused = audit_change(request, ident, "account.password.change", who(row))
-    if refused:
-        return refused
+    audit.config(request, ident, "account.password.change", who(row))
     await acc.set_password(ident.user.id, body.get("new"))
     request.app["sessions"].revoke_user(ident.user.id, "password_changed", keep=ident.session_id)
     return ok()
@@ -954,13 +957,14 @@ async def bootstrap(request: web.Request) -> web.Response:
 
 
 # -- user management (Owner / Admin until P3.2's grants) ------------------------------------------
+@guard("manager")
 async def users_list(request: web.Request) -> web.Response:
-    require_manager(request)
     return ok({"users": accounts_of(request).list_users()})
 
 
+@guard("manager", audit="account.add")
 async def users_create(request: web.Request) -> web.Response:
-    ident = require_manager(request)
+    ident = guarded(request)
     body = await read_json(request)
     role = body.get("role")
     if role == "owner" and ident.user.role != "owner":
@@ -979,10 +983,7 @@ async def users_create(request: web.Request) -> web.Response:
     except PolicyError as exc:
         return error(409 if exc.code == "username_taken" else 400, exc.code, message=str(exc))
     user_id = secrets.token_hex(16)
-    refused = audit_change(request, ident, "account.add",
-                           {"user": user_id, "username": username, "name": name, "role": role})
-    if refused:
-        return refused
+    audit.config(request, ident, "account.add", {"user": user_id, "username": username, "name": name, "role": role})
     try:
         await acc.create_user(username, name, role, body.get("password"), user_id=user_id)
     except PolicyError as exc:
@@ -990,8 +991,9 @@ async def users_create(request: web.Request) -> web.Response:
     return ok({"user": acc.describe(acc.get_user(user_id))}, status=201)
 
 
+@guard("manager", audit=("account.role", "account.disable", "account.enable", "account.rename"))
 async def users_update(request: web.Request) -> web.Response:
-    ident = require_manager(request)
+    ident = guarded(request)
     body = await read_json(request)
     acc = accounts_of(request)
     row = acc.get_user(request.match_info["id"])
@@ -1016,9 +1018,7 @@ async def users_update(request: web.Request) -> web.Response:
     if name != row["name"]:
         changes.append(("account.rename", {"from": row["name"], "to": name}))
     for action, detail in changes:
-        refused = audit_change(request, ident, action, {**who(row), **detail})
-        if refused:
-            return refused
+        audit.config(request, ident, action, {**who(row), **detail})
     with acc.db:
         acc.db.execute("UPDATE users SET role = ?, disabled = ?, name = ?, updated = ? WHERE id = ?",
                        (new_role, int(disabled), name, acc.clock(), row["id"]))
@@ -1027,6 +1027,7 @@ async def users_update(request: web.Request) -> web.Response:
     return ok({"user": acc.describe(acc.get_user(row["id"]))})
 
 
+@guard("manager", fresh="always", audit="account.password.reset")
 async def users_set_password(request: web.Request) -> web.Response:
     """``POST /api/users/{id}/password {password}`` (People → a person → Set a New Password): an Owner or Admin
     gives someone a new password, as users_update changes their role: an Admin never for an Owner. Not for
@@ -1036,7 +1037,7 @@ async def users_set_password(request: web.Request) -> web.Response:
     The same rules as a new account's password; the audit row first (never the password); then every session the
     person has ends, so whoever knew the old password, or holds one of their cookies, is out at once. A lockout
     is lifted (set_password), so they can sign in with the new one straight away."""
-    ident = require_manager(request)
+    ident = guarded(request)
     acc = accounts_of(request)
     row = acc.get_user(request.match_info["id"])
     if row is None:
@@ -1047,15 +1048,12 @@ async def users_set_password(request: web.Request) -> web.Response:
         return error(409, "own_password", message="Change your own password in Me, with your current one.")
     if row["kind"] != "hk" or not row["username"]:
         return error(409, "no_mantel_password", message="This person signs in with Home Assistant, not a Mantel password.")
-    require_fresh(request, ident)
     body = await read_json(request)
     try:
         check_password_policy(body.get("password"), row["username"], row["name"])
     except PolicyError as exc:
         return error(400, exc.code, message=str(exc))
-    refused = audit_change(request, ident, "account.password.reset", {**who(row), "role": row["role"]})
-    if refused:
-        return refused
+    audit.config(request, ident, "account.password.reset", {**who(row), "role": row["role"]})
     await acc.set_password(row["id"], body.get("password"))
     ended = request.app["sessions"].revoke_user(row["id"], "password_reset")
     log.info("password reset for %s by %s (%d sessions ended)", row["id"], ident.user.id, ended)

@@ -15,7 +15,7 @@ uses the pair.
   (Revoked) for 30 days, or until an Owner or Admin clears the list (``DELETE /api/devices/revoked``); its audit
   rows stay for the log's own retention.
 * **Audited**: enrolling (``device.enroll``) and revoking (``device.revoke``, by a manager or by the tablet itself)
-  each write their ``config`` row before the change (``accounts.audit_change``), as moving one does
+  each write their ``config`` row before the change (``audit.config``), as moving one does
   (``device.room``). A revocation the server makes itself (idle, a copied credential) is in its log.
 * **Its room is one of the house's**: HK's wall tablets (``tablet`` names one, and the device takes its room) or
   HA's areas, never a room typed by hand. ``features.may_speak_for`` lets a wall tablet device report a touch or
@@ -36,8 +36,11 @@ import sqlite3
 from aiohttp import web
 
 from . import default_screens
-from .accounts import audit_change, read_json, require_manager, require_user
-from .sessions import (CSRF_COOKIE, Device, client_ip, cookie_secure, device_json, end_session, error, identity, ok,
+from . import audit
+from .accounts import read_json, require_manager
+from .guards import guard
+from .guards import ident as guarded
+from .sessions import (CSRF_COOKIE, Device, client_ip, cookie_secure, device_json, end_session, error, ok,
                        queue_cookie, token_hash)
 from .store import ROLES
 
@@ -233,10 +236,9 @@ ROOM_MESSAGES = {"unknown_tablet": "That isn’t one of HK’s wall tablets.",
                  "unknown_room": "That isn’t a room in this house: pick one of HK’s wall tablets or a Home Assistant area."}
 
 
+@guard("person", door="lan", device_ok=True, audit=("device.enroll", "device.revoke"))
 async def enroll(request: web.Request) -> web.Response:
-    ident = require_user(request)
-    if ident.door != "lan":
-        return error(403, "lan_only", message="Devices can only be enrolled on the LAN.")
+    ident = guarded(request)                 # (a browser that is a tablet already is told so: 409)
     if ident.device is not None:
         return error(409, "already_a_device")
     body = await read_json(request)
@@ -262,11 +264,9 @@ async def enroll(request: web.Request) -> web.Response:
                    and room in ha_areas(request.app) and not tablets_in(request.app, room))
     mgr: DeviceManager = request.app["devices"]
     device_id = secrets.token_hex(16)
-    refused = audit_change(request, ident, "device.enroll", {"device": device_id, "name": name[:64], "role": role,
-                                                             "room": room, "tablet": body.get("tablet"),
-                                                             **({"new_tablet": True} if make_tablet else {})})
-    if refused:
-        return refused
+    audit.config(request, ident, "device.enroll", {"device": device_id, "name": name[:64], "role": role, "room": room,
+                                                   "tablet": body.get("tablet"),
+                                                   **({"new_tablet": True} if make_tablet else {})})
     if make_tablet:
         from .settings_store import SettingsError, actor_of
         try:
@@ -280,9 +280,12 @@ async def enroll(request: web.Request) -> web.Response:
         for old in request.app["store"].db.execute(
                 "SELECT id, name, room FROM devices WHERE enrolled_by = ? AND revoked IS NULL AND id != ?",
                 (user.id, device_id)).fetchall():
-            if audit_change(request, ident, "device.revoke", {"device": old["id"], "name": old["name"],
-                                                             "room": old["room"], "replaced_by": device_id}) is None:
-                mgr.revoke(old["id"], "replaced")          # (no audit row, no revocation)
+            try:
+                audit.config(request, ident, "device.revoke", {"device": old["id"], "name": old["name"],
+                                                               "room": old["room"], "replaced_by": device_id})
+            except audit.Unavailable:
+                continue                                    # (no audit row, no revocation)
+            mgr.revoke(old["id"], "replaced")
     row = mgr.get(device_id)
     resp = ok({"device": device_json(Device(row["id"], row["name"], row["role"], row["room"])), "csrf": csrf},
               status=201)
@@ -292,20 +295,21 @@ async def enroll(request: web.Request) -> web.Response:
     return resp
 
 
+@guard("manager")
 async def list_devices(request: web.Request) -> web.Response:
-    require_manager(request)
     app = request.app
     app["devices"].forget_revoked(FORGET_REVOKED_AFTER)
     devices = [{**d, "hk_tablets": tablets_in(app, d["room"])} for d in app["devices"].list()]
     return ok({"devices": devices, "tablets": hk_tablets(app)})
 
 
+@guard("person", device_ok=True)
 async def rooms(request: web.Request) -> web.Response:
     """``GET /api/devices/rooms``: what "Make This Browser a Wall Tablet" offers, for whoever may enrol (an Owner, an
     Admin, a Wall Tablet account): HK's wall tablets (Mantel's copy of the settings the feed's ``tablet_items`` come
     from; a Wall Tablet account's settings page has no house connection to read the feed) with the active devices
     already in each one's room, and HA's areas for a device that is none of them."""
-    ident = require_user(request)
+    ident = guarded(request)
     if ident.user.role not in ("owner", "admin", "wall_tablet"):
         return error(403, "forbidden")
     app = request.app
@@ -318,10 +322,11 @@ async def rooms(request: web.Request) -> web.Response:
     return ok({"tablets": tablets, "areas": areas})
 
 
+@guard("manager", audit="device.room")
 async def update(request: web.Request) -> web.Response:
     """``PATCH /api/devices/{id}`` ``{tablet}`` or ``{room}`` (Owner/Admin): the device's room, in place. Its
     credential is untouched; its open screens take the new room at the next policy tick (a minute at most)."""
-    ident = require_manager(request)
+    ident = guarded(request)
     app = request.app
     mgr: DeviceManager = app["devices"]
     row = mgr.get(request.match_info["id"])
@@ -334,12 +339,8 @@ async def update(request: web.Request) -> web.Response:
         room = chosen_room(app, body, strict=True)
     except RoomError as exc:
         return error(400, str(exc), message=ROOM_MESSAGES.get(str(exc)))
-    audit = app.get("audit")
-    if audit is not None:                   # the audit row first, as every config change
-        audit.config_event({"timestamp": app["clock"](), "actor": ident.user.id, "role": ident.user.role,
-                            "action": "device.room", "detail": {"device": row["id"], "name": row["name"],
-                                                                "from": row["room"], "to": room,
-                                                                "tablet": body.get("tablet")}})
+    audit.config(request, ident, "device.room", {"device": row["id"], "name": row["name"], "from": row["room"],
+                                                 "to": room, "tablet": body.get("tablet")})
     if not mgr.set_room(row["id"], room):
         return error(404, "not_found")
     log.info("device %s moved from %s to %s by %s", row["id"], row["room"] or "no room", room or "no room",
@@ -349,8 +350,10 @@ async def update(request: web.Request) -> web.Response:
                           "hk_tablets": tablets_in(app, out["room"])}})
 
 
+@guard("signed_in", audit="device.revoke")
 async def revoke(request: web.Request) -> web.Response:
-    ident = identity(request)
+    """A tablet revokes itself (its own session, with or without a person at it); anyone else must be a manager."""
+    ident = guarded(request)
     mgr: DeviceManager = request.app["devices"]
     device_id = request.match_info["id"]
     is_self = ident.device is not None and ident.device.id == device_id
@@ -360,11 +363,8 @@ async def revoke(request: web.Request) -> web.Response:
     if row is None or row["revoked"] is not None:
         return error(404, "not_found")
     # the audit row first: by a manager (who), or by the tablet itself (the row's device, no person)
-    refused = audit_change(request, ident, "device.revoke", {"device": row["id"], "name": row["name"],
-                                                             "role": row["role"], "room": row["room"],
-                                                             "by_self": is_self})
-    if refused:
-        return refused
+    audit.config(request, ident, "device.revoke", {"device": row["id"], "name": row["name"], "role": row["role"],
+                                                   "room": row["room"], "by_self": is_self})
     if not mgr.revoke(device_id, "revoked_by_self" if is_self else "revoked"):
         return error(404, "not_found")
     resp = ok()
@@ -373,16 +373,15 @@ async def revoke(request: web.Request) -> web.Response:
     return resp
 
 
+@guard("manager", audit="device.forget_revoked")
 async def forget_revoked(request: web.Request) -> web.Response:
     """``DELETE /api/devices/revoked`` (Owner/Admin): Clear Revoked. The list only: each device's audit rows stay."""
-    ident = require_manager(request)
+    ident = guarded(request)
     mgr: DeviceManager = request.app["devices"]
     gone = [r["id"] for r in mgr.db.execute("SELECT id FROM devices WHERE revoked IS NOT NULL")]
     if not gone:
         return ok({"removed": 0})
-    refused = audit_change(request, ident, "device.forget_revoked", {"devices": gone})
-    if refused:
-        return refused
+    audit.config(request, ident, "device.forget_revoked", {"devices": gone})
     return ok({"removed": len(mgr.forget_revoked())})
 
 

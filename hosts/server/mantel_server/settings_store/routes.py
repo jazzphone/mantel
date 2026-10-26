@@ -11,7 +11,7 @@ from aiohttp import web
 
 from ..connectors import Ctx, Forbidden, Route, read_routes, ws_handlers
 from .docs import Scope, SettingsError
-from .hooks import _sides, actor_of
+from .hooks import actor_of
 from .importing import NO_HK_FRONTEND, import_settings
 from .model import ThinModel
 from .service import SettingsService
@@ -146,23 +146,16 @@ def register(app: web.Application, hub: Any, hooks: Any = None, *, store: Settin
                 raise SettingsError("no_hk_frontend", NO_HK_FRONTEND) from None
             raise
 
-    def who(request: web.Request) -> Any:
-        from ..sessions import identity
-        return identity(request)
+    from ..guards import guard
+    from ..guards import ident as guarded
 
+    @guard("manager")                                   # an Owner or Admin, never at a wall tablet
     async def import_status(request: web.Request) -> web.Response:
-        ident = who(request)
-        if _sides(ident)[1] not in ("owner", "admin"):
-            return web.json_response({"error": "forbidden"}, status=403)
         return web.json_response({"import": store.import_record(), "empty": store.empty()})
 
+    @guard("owner", no_audit="the import is the settings store's record (import_record) and history, with its actor")
     async def run_import(request: web.Request) -> web.Response:
-        ident = who(request)
-        uid, role = _sides(ident)[:2]
-        if uid is None:
-            return web.json_response({"error": "unauthenticated"}, status=401)
-        if role != "owner":
-            return web.json_response({"error": "owner_only"}, status=403)
+        ident = guarded(request)
         try:
             got = await import_settings(store, service.hooks.fetch_ha_settings or fetch_from_hub,
                                         actor=actor_of(ident), model=service.model,

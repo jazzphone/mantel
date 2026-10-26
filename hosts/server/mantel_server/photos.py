@@ -56,9 +56,13 @@ from urllib.parse import unquote, urlsplit
 
 from aiohttp import web
 
+from . import audit
 from . import faces as face_finder
+from .guards import guard
+from .guards import ident as guarded
 
 log = logging.getLogger("mantel.photos")
+Before = Callable[[dict], None] | None    # a change's audit row, written once it is accepted and before it is made
 
 SCHEME = "mantel-photos://"
 HA_SOURCE = "media-source://media_source/"
@@ -326,13 +330,16 @@ class PhotoLibrary:
                     out[row["key"]] = int(row["value"])
         return out
 
-    def set_limits(self, changes: dict) -> dict:
+    def set_limits(self, changes: dict, before: Before = None) -> dict:
         if not isinstance(changes, dict) or not changes or set(changes) - set(LIMITS):
             raise PhotoError("bad_limits", "Send quota_mb and/or file_mb.")
         for k, v in changes.items():
             lo, hi, _ = LIMITS[k]
             if isinstance(v, bool) or not isinstance(v, int) or not lo <= v <= hi:
                 raise PhotoError("bad_limits", f"{k} must be a whole number from {lo} to {hi}.")
+        if before is not None:
+            was = self.limits()
+            before({"before": was, "after": {**was, **changes}})
         now = self.clock()
         with self.db:
             for k, v in changes.items():
@@ -369,32 +376,38 @@ class PhotoLibrary:
             if row["id"] != but and row["name"].casefold() == name.casefold():
                 raise PhotoError("name_taken", "There is already an album with that name.", 409)
 
-    def create_album(self, name: object) -> dict:
+    def create_album(self, name: object, before: Before = None) -> dict:
         name = clean_name(name)
         self._name_free(name)
         if self.db.execute("SELECT COUNT(*) FROM photo_albums").fetchone()[0] >= ALBUM_MAX:
             raise PhotoError("too_many_albums", f"At most {ALBUM_MAX} albums.", 409)
         aid, now = secrets.token_hex(8), self.clock()
+        if before is not None:
+            before({"id": aid, "name": name})
         pos = self.db.execute("SELECT COALESCE(MAX(position), 0) + 1 FROM photo_albums").fetchone()[0]
         with self.db:
             self.db.execute("INSERT INTO photo_albums (id, name, position, created, updated) VALUES (?,?,?,?,?)",
                             (aid, name, pos, now, now))
         return {"id": aid, "name": name}
 
-    def rename_album(self, album_id: str, name: object) -> dict:
+    def rename_album(self, album_id: str, name: object, before: Before = None) -> dict:
         old = self.album(album_id)
         name = clean_name(name)
         self._name_free(name, but=old["id"])
+        if before is not None:
+            before({"id": old["id"], "name": name, "was": old["name"]})
         with self.db:
             self.db.execute("UPDATE photo_albums SET name=?, updated=? WHERE id=?", (name, self.clock(), old["id"]))
         return {"id": old["id"], "name": name, "was": old["name"]}
 
-    async def delete_album(self, album_id: str) -> dict:
+    async def delete_album(self, album_id: str, before: Before = None) -> dict:
         album = self.album(album_id)
         async with self.lock:
             ids = [r["id"] for r in self.db.execute("SELECT id FROM photos WHERE album_id=?", (album["id"],))]
             screens = [r["screen"] for r in self.db.execute("SELECT screen FROM photo_screens WHERE album_id=?",
                                                             (album["id"],))]
+            if before is not None:
+                before({"id": album["id"], "name": album["name"], "photos": len(ids), "screens": screens})
             with self.db:
                 self.db.execute("DELETE FROM photos WHERE album_id=?", (album["id"],))
                 self.db.execute("DELETE FROM photo_screens WHERE album_id=?", (album["id"],))
@@ -421,8 +434,9 @@ class PhotoLibrary:
         return dict(row) if row else None
 
     async def add(self, album_id: str, data: bytes, name: object = "", *, source: str = "upload",
-                  user: str | None = None) -> tuple[dict, bool]:
-        """Store one picture in an album: (the photo, False), or (the photo already there, True) for a duplicate."""
+                  user: str | None = None, before: Before = None) -> tuple[dict, bool]:
+        """Store one picture in an album: (the photo, False), or (the photo already there, True) for a duplicate.
+        ``before(detail)`` once it fits, before its files are written (not for a duplicate: nothing changes)."""
         album = self.album(album_id)
         lim = self.limits()
         if len(data) > lim["file_mb"] << 20:
@@ -445,6 +459,8 @@ class PhotoLibrary:
             pid = secrets.token_hex(16)
             row = {"id": pid, "album_id": album["id"], "name": file_label(name), "width": got.width,
                    "height": got.height, "bytes": got.size, "source": source, "created": self.clock()}
+            if before is not None:
+                before({"album": album["id"], "id": pid, "name": row["name"], "bytes": got.size})
             write = None
             try:
                 # the files and the row together: a write that fails partway (a full disk) took its files with
@@ -482,32 +498,38 @@ class PhotoLibrary:
             raise PhotoError("bad_ids", f"Send 1 to {BATCH_MAX} photo ids.")
         return list(dict.fromkeys(ids))
 
-    async def delete(self, ids: object) -> list[str]:
+    async def delete(self, ids: object, before: Before = None) -> list[str]:
         ids = self._ids(ids)
         async with self.lock:
             marks = ",".join("?" * len(ids))
             found = [r["id"] for r in self.db.execute(f"SELECT id FROM photos WHERE id IN ({marks})", ids)]
+            if found and before is not None:
+                before({"ids": found, "count": len(found)})
             with self.db:
                 self.db.execute(f"DELETE FROM photos WHERE id IN ({marks})", ids)
             await asyncio.to_thread(lambda: [self._remove_files(i) for i in found])
         return found
 
-    async def move(self, ids: object, album_id: str) -> tuple[list[str], list[str]]:
+    async def move(self, ids: object, album_id: str, before: Before = None) -> tuple[list[str], list[str]]:
         """(moved, skipped): a photo already in the target album (the same picture) stays where it is."""
         ids = self._ids(ids)
         target = self.album(album_id)
-        moved, skipped = [], []
+        moved, skipped, seen = [], [], set()
         async with self.lock:
+            for pid in ids:                     # worked out first (one picture once per album), then written
+                row = self.db.execute("SELECT album_id, sha256 FROM photos WHERE id=?", (pid,)).fetchone()
+                if row is None or row["album_id"] == target["id"]:
+                    continue
+                if row["sha256"] in seen or self.find(target["id"], row["sha256"]) is not None:
+                    skipped.append(pid)
+                    continue
+                seen.add(row["sha256"])
+                moved.append(pid)
+            if moved and before is not None:
+                before({"ids": moved, "album": target["id"], "count": len(moved)})
             with self.db:
-                for pid in ids:
-                    row = self.db.execute("SELECT album_id, sha256 FROM photos WHERE id=?", (pid,)).fetchone()
-                    if row is None or row["album_id"] == target["id"]:
-                        continue
-                    if self.find(target["id"], row["sha256"]) is not None:
-                        skipped.append(pid)
-                        continue
+                for pid in moved:
                     self.db.execute("UPDATE photos SET album_id=? WHERE id=?", (target["id"], pid))
-                    moved.append(pid)
         return moved, skipped
 
     # -- focus ------------------------------------------------------------------------------------
@@ -532,7 +554,7 @@ class PhotoLibrary:
                               "ORDER BY created DESC LIMIT 1", skip).fetchone()
         return row["id"] if row else None
 
-    def set_focus(self, photo_id: str, body: object) -> dict:
+    def set_focus(self, photo_id: str, body: object, before: Before = None) -> dict:
         """``{x, y}`` (fractions 0..1) sets the focus by hand; ``{auto: true}`` puts it back to automatic."""
         row = self.db.execute("SELECT id, album_id FROM photos WHERE id=?", (photo_id,)).fetchone() \
             if PHOTO_ID.match(photo_id or "") else None
@@ -549,6 +571,8 @@ class PhotoLibrary:
                     for v in (x, y)):
                 raise PhotoError("bad_focus", "Send {x, y} from 0 to 1, or {auto: true}.")
             x, y = round(float(x), 4), round(float(y), 4)
+        if before is not None:
+            before({"id": row["id"], "album": row["album_id"], **({"auto": True} if x is None else {"x": x, "y": y})})
         with self.db:
             self.db.execute("UPDATE photos SET focus_x=?, focus_y=? WHERE id=?", (x, y, row["id"]))
         got = self.db.execute("SELECT faces, focus_x, focus_y FROM photos WHERE id=?", (row["id"],)).fetchone()
@@ -558,14 +582,16 @@ class PhotoLibrary:
     def screens(self) -> dict[str, str]:
         return {r["screen"]: r["album_id"] for r in self.db.execute("SELECT screen, album_id FROM photo_screens")}
 
-    def set_screen(self, screen: str, album_id: object) -> str | None:
+    def set_screen(self, screen: str, album_id: object, before: Before = None) -> str | None:
         if not SCREEN.match(screen or ""):
             raise PhotoError("bad_screen", "That is not a screen's address.")
+        album = self.album(album_id) if album_id not in (None, "") else None
+        if before is not None:
+            before({"screen": screen, "album": album["id"] if album is not None else None})
         with self.db:
-            if album_id in (None, ""):
+            if album is None:
                 self.db.execute("DELETE FROM photo_screens WHERE screen=?", (screen,))
                 return None
-            album = self.album(album_id)
             self.db.execute("INSERT INTO photo_screens (screen, album_id, updated) VALUES (?,?,?) "
                             "ON CONFLICT(screen) DO UPDATE SET album_id=excluded.album_id, updated=excluded.updated",
                             (screen, album["id"], self.clock()))
@@ -795,7 +821,7 @@ class Importer:
             raise PhotoError("ha_unavailable", "Mantel isn’t connected to Home Assistant.", 503)
         return proxy
 
-    def start(self, source: object, album_id: str, ident) -> ImportJob:
+    def start(self, source: object, album_id: str, ident, before: Before = None) -> ImportJob:
         if self.running:
             raise PhotoError("import_running", "An import is already running.", 409)
         if not isinstance(source, str) or not source.startswith(HA_SOURCE) or len(source) > 1000 or \
@@ -803,6 +829,8 @@ class Importer:
             raise PhotoError("bad_source", f"Give a Home Assistant media folder ({HA_SOURCE}…).")
         album = self.app["photos"].album(album_id)
         self._proxy()
+        if before is not None:
+            before({"source": source, "album": album["id"]})
         self.job = ImportJob(source=source, album=album["id"], album_name=album["name"], actor=ident.user.id,
                              started=self.app["photos"].clock())
         self.task = asyncio.get_running_loop().create_task(self._run(self.job, ident))
@@ -897,7 +925,7 @@ class Importer:
             job.message = ("Home Assistant couldn’t list that folder: " + str(exc))[:300]
         finally:
             job.finished = lib.clock()
-            audit(self.app, ident, "photos.import.finish", {
+            _report(self.app, ident, "photos.import.finish", {
                 "source": job.source, "album": job.album, "state": job.state, "found": job.found,
                 "imported": job.imported, "skipped": job.skipped, "failed": job.failed})
 
@@ -909,19 +937,6 @@ def _json(status: int, **body) -> web.Response:
 
 def _fail(exc: PhotoError) -> web.Response:
     return _json(exc.status, error=exc.code, message=str(exc))
-
-
-def _manager(request: web.Request, *, owner: bool = False):
-    from . import sessions
-    from .accounts import require_manager
-    ident = require_manager(request)                     # a signed-in Owner or Admin (a tablet alone is refused)
-    if ident.device is not None:
-        raise web.HTTPForbidden(text='{"error":"forbidden"}', content_type="application/json")
-    if owner and ident.user.role != "owner":
-        raise web.HTTPForbidden(text='{"error":"owner_only"}', content_type="application/json")
-    if request.method not in sessions.SAFE_METHODS:
-        sessions.check_csrf(request, ident)              # CSRF on every change, whatever middleware is in front
-    return ident
 
 
 def may_view(request: web.Request) -> bool:
@@ -937,15 +952,18 @@ def may_view(request: web.Request) -> bool:
     return principal is not None and "feature:media" in (authz.may_read(principal, "view", ["feature:media"]) or [])
 
 
-def audit(app: web.Application, ident, action: str, detail: dict) -> None:
-    """A ``config`` row, as every settings write (written after the change; a failure is logged)."""
-    rec = app.get("audit")
-    if rec is None:
-        return
+def _report(app: web.Application, ident, action: str, detail: dict) -> None:
+    """An import's result, when it ends: a report, not a change (its start was audited first), so a failure is
+    logged and nothing more."""
     try:
-        rec.config_event({"action": action, "detail": detail, "actor": ident.user.id, "role": ident.user.role})
-    except Exception:  # noqa: BLE001
-        log.exception("could not audit %s", action)
+        audit.config(None, ident, action, detail, app=app)
+    except audit.Unavailable:
+        pass                                    # (audit.config logged it)
+
+
+def _first(request: web.Request, ident, action: str) -> Callable[[dict], None]:
+    """The ``before`` a change is handed: its audit row, written first (503 and no change without it)."""
+    return lambda detail: audit.config(request, ident, action, detail)
 
 
 async def _body(request: web.Request) -> dict:
@@ -969,8 +987,10 @@ def backup_info(app: web.Application) -> dict:
             "home_assistant": bool(getattr(cfg, "ha_managed_by_app", False))}
 
 
+# Mantel Photos is managed by an Owner or Admin, never at a wall tablet; an Owner sets its limits and imports.
+@guard("manager")
 async def api_overview(request: web.Request) -> web.Response:
-    ident = _manager(request)
+    ident = guarded(request)
     lib = _lib(request)
     imp: Importer = request.app["photos_import"]
     return _json(200, ok=True, albums=lib.albums(), usage=lib.usage(), photos=lib.count(), limits=lib.limits(),
@@ -979,38 +999,41 @@ async def api_overview(request: web.Request) -> web.Response:
                  faces=request.app["photos_faces"].status())
 
 
+@guard("manager", audit="photos.album.create")
 async def api_album_create(request: web.Request) -> web.Response:
-    ident = _manager(request)
+    ident = guarded(request)
     try:
-        album = _lib(request).create_album((await _body(request)).get("name"))
+        album = _lib(request).create_album((await _body(request)).get("name"),
+                                           before=_first(request, ident, "photos.album.create"))
     except PhotoError as exc:
         return _fail(exc)
-    audit(request.app, ident, "photos.album.create", album)
     return _json(201, ok=True, album=album)
 
 
+@guard("manager", audit="photos.album.rename")
 async def api_album_rename(request: web.Request) -> web.Response:
-    ident = _manager(request)
+    ident = guarded(request)
     try:
-        got = _lib(request).rename_album(request.match_info["album"], (await _body(request)).get("name"))
+        got = _lib(request).rename_album(request.match_info["album"], (await _body(request)).get("name"),
+                                         before=_first(request, ident, "photos.album.rename"))
     except PhotoError as exc:
         return _fail(exc)
-    audit(request.app, ident, "photos.album.rename", got)
     return _json(200, ok=True, album={"id": got["id"], "name": got["name"]})
 
 
+@guard("manager", audit="photos.album.delete")
 async def api_album_delete(request: web.Request) -> web.Response:
-    ident = _manager(request)
+    ident = guarded(request)
     try:
-        got = await _lib(request).delete_album(request.match_info["album"])
+        got = await _lib(request).delete_album(request.match_info["album"],
+                                               before=_first(request, ident, "photos.album.delete"))
     except PhotoError as exc:
         return _fail(exc)
-    audit(request.app, ident, "photos.album.delete", got)
     return _json(200, ok=True, **got)
 
 
+@guard("manager")
 async def api_album_photos(request: web.Request) -> web.Response:
-    _manager(request)
     try:
         lib = _lib(request)
         album = lib.album(request.match_info["album"])
@@ -1019,21 +1042,21 @@ async def api_album_photos(request: web.Request) -> web.Response:
         return _fail(exc)
 
 
+@guard("manager", audit="photos.focus")
 async def api_focus(request: web.Request) -> web.Response:
-    ident = _manager(request)
+    ident = guarded(request)
     try:
-        got = _lib(request).set_focus(request.match_info["photo"], await _body(request))
+        got = _lib(request).set_focus(request.match_info["photo"], await _body(request),
+                                      before=_first(request, ident, "photos.focus"))
     except PhotoError as exc:
         return _fail(exc)
     f = got["focus"]
-    detail = {"id": got["id"], "album": got["album"]}
-    detail.update({"x": f["x"], "y": f["y"]} if f["by"] == "hand" else {"auto": True})
-    audit(request.app, ident, "photos.focus", detail)
     return _json(200, ok=True, id=got["id"], faces=got["faces"], focus=f)
 
 
+@guard("manager", audit="photos.upload")
 async def api_upload(request: web.Request) -> web.Response:
-    ident = _manager(request)
+    ident = guarded(request)
     from .user_files import FileError, read_upload
     lib = _lib(request)
     try:
@@ -1043,89 +1066,91 @@ async def api_upload(request: web.Request) -> web.Response:
             data, filename, _ = await read_upload(request, cap)
         except FileError as exc:
             raise PhotoError(exc.code, str(exc), exc.status) from exc
-        photo, dup = await lib.add(album["id"], data, filename or "", user=ident.user.id)
+        photo, dup = await lib.add(album["id"], data, filename or "", user=ident.user.id,
+                                   before=_first(request, ident, "photos.upload"))
     except PhotoError as exc:
         return _fail(exc)
     if dup:
         return _json(200, ok=True, duplicate=True, photo=photo)
-    audit(request.app, ident, "photos.upload", {"album": album["id"], "id": photo["id"], "name": photo["name"],
-                                                "bytes": photo["bytes"]})
     return _json(201, ok=True, duplicate=False, photo=photo, usage=lib.usage())
 
 
+@guard("manager", audit="photos.delete")
 async def api_delete(request: web.Request) -> web.Response:
-    ident = _manager(request)
+    ident = guarded(request)
     try:
-        gone = await _lib(request).delete((await _body(request)).get("ids"))
+        gone = await _lib(request).delete((await _body(request)).get("ids"), before=_first(request, ident, "photos.delete"))
     except PhotoError as exc:
         return _fail(exc)
-    if gone:
-        audit(request.app, ident, "photos.delete", {"ids": gone, "count": len(gone)})
     return _json(200, ok=True, deleted=gone)
 
 
+@guard("manager", audit="photos.move")
 async def api_move(request: web.Request) -> web.Response:
-    ident = _manager(request)
+    ident = guarded(request)
     try:
         body = await _body(request)
-        moved, skipped = await _lib(request).move(body.get("ids"), body.get("album"))
+        moved, skipped = await _lib(request).move(body.get("ids"), body.get("album"),
+                                                  before=_first(request, ident, "photos.move"))
     except PhotoError as exc:
         return _fail(exc)
-    if moved:
-        audit(request.app, ident, "photos.move", {"ids": moved, "album": body.get("album"), "count": len(moved)})
     return _json(200, ok=True, moved=moved, skipped=skipped)
 
 
+@guard("owner", audit="photos.limits")
 async def api_limits(request: web.Request) -> web.Response:
-    ident = _manager(request, owner=True)
+    ident = guarded(request)
     try:
-        before = _lib(request).limits()
-        after = _lib(request).set_limits(await _body(request))
+        after = _lib(request).set_limits(await _body(request), before=_first(request, ident, "photos.limits"))
     except PhotoError as exc:
         return _fail(exc)
-    audit(request.app, ident, "photos.limits", {"before": before, "after": after})
     return _json(200, ok=True, limits=after)
 
 
+@guard("manager", audit="photos.screen")
 async def api_set_screen(request: web.Request) -> web.Response:
-    ident = _manager(request)
+    ident = guarded(request)
     screen = request.match_info["screen"]
     try:
-        album = _lib(request).set_screen(screen, (await _body(request)).get("album"))
+        album = _lib(request).set_screen(screen, (await _body(request)).get("album"),
+                                         before=_first(request, ident, "photos.screen"))
     except PhotoError as exc:
         return _fail(exc)
-    audit(request.app, ident, "photos.screen", {"screen": screen, "album": album})
     return _json(200, ok=True, screen=screen, album=album)
 
 
+@guard("owner", audit="photos.import.start")
 async def api_import_start(request: web.Request) -> web.Response:
-    ident = _manager(request, owner=True)
+    ident = guarded(request)
     try:
         body = await _body(request)
-        job = request.app["photos_import"].start(body.get("source"), body.get("album"), ident)
+        job = request.app["photos_import"].start(body.get("source"), body.get("album"), ident,
+                                                 before=_first(request, ident, "photos.import.start"))
     except PhotoError as exc:
         return _fail(exc)
-    audit(request.app, ident, "photos.import.start", {"source": job.source, "album": job.album})
     return _json(202, ok=True, importing=job.as_dict())
 
 
+@guard("manager")
 async def api_import_status(request: web.Request) -> web.Response:
-    _manager(request)
     job = request.app["photos_import"].job
     return _json(200, ok=True, importing=job.as_dict() if job is not None else None)
 
 
+@guard("manager")
 async def api_faces(request: web.Request) -> web.Response:
     """Keep in View's look through the library: how far it has got (Mantel Settings → Photos polls it)."""
-    _manager(request)
     return _json(200, ok=True, faces=request.app["photos_faces"].status())
 
 
+@guard("owner", audit="photos.import.cancel")
 async def api_import_cancel(request: web.Request) -> web.Response:
-    ident = _manager(request, owner=True)
-    if not request.app["photos_import"].cancel():
+    ident = guarded(request)
+    imp: Importer = request.app["photos_import"]
+    if not imp.running:
         return _json(409, error="not_running", message="No import is running.")
-    audit(request.app, ident, "photos.import.cancel", {})
+    audit.config(request, ident, "photos.import.cancel", {})
+    imp.cancel()
     return _json(200, ok=True)
 
 
@@ -1134,6 +1159,8 @@ def _nothing() -> web.Response:
     return web.json_response({"error": "not_found"}, status=404, headers=NO_STORE)
 
 
+# what the screensavers read: any session that may use feature:media (the roles decide, may_view)
+@guard("signed_in")
 async def api_screens(request: web.Request) -> web.Response:
     """Which screens show an album (the page's host asks once and after a change)."""
     if not may_view(request):
@@ -1141,6 +1168,7 @@ async def api_screens(request: web.Request) -> web.Response:
     return web.json_response({"screens": _lib(request).screens()}, headers={"Cache-Control": "no-cache"})
 
 
+@guard("signed_in")
 async def api_show(request: web.Request) -> web.Response:
     """An album as a screensaver shows it: its screen-sized photos' addresses (without the page's prefix)."""
     if not may_view(request):
@@ -1165,6 +1193,7 @@ async def api_show(request: web.Request) -> web.Response:
     return web.json_response({"album": album, "photos": out}, headers={"Cache-Control": "no-cache"})
 
 
+@guard("signed_in")          # an original for a manager only; the screen sizes for whoever may view (below)
 async def serve(request: web.Request) -> web.StreamResponse:
     size, pid = request.match_info["size"], request.match_info["photo"]
     if size == "original":

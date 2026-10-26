@@ -46,9 +46,10 @@ from urllib.parse import urlsplit
 import aiohttp
 from aiohttp import web
 
-from . import connections as C
-from . import frame_origins
-from .accounts import read_json, require_manager
+from . import audit, frame_origins
+from .accounts import read_json
+from .guards import guard
+from .guards import ident as guarded
 from .default_screens import SCREEN, screens
 from .sessions import error, ok
 
@@ -307,8 +308,8 @@ def _public(data: dict, app: web.Application | None = None) -> dict:
 
 
 # -- REST ----------------------------------------------------------------------------------------------
+@guard("manager")
 async def api_list(request: web.Request) -> web.Response:
-    require_manager(request)
     app = request.app
     base = direct_base(app["cfg"])
     if not base:
@@ -357,8 +358,18 @@ def _body(app: web.Application, key: str, body: dict) -> dict:
     return out
 
 
+def _audited(request: web.Request, ident, action: str, detail: dict) -> dict | None:
+    """The row before HA is asked; ``{"refused": 503}`` (and nothing asked) when it cannot be written."""
+    try:
+        audit.config(request, ident, action, detail)
+    except audit.Unavailable:
+        return {"refused": error(503, "audit_unavailable")}
+    return None
+
+
+@guard("manager", audit=("ha_dashboard.add", "ha_dashboard.update", "ha_dashboard.remove", "frame_origin.add"))
 async def api_put(request: web.Request) -> web.Response:
-    ident = require_manager(request)
+    ident = guarded(request)
     app = request.app
     key = request.match_info["key"]
     if not SCREEN.match(key):
@@ -380,9 +391,9 @@ async def api_put(request: web.Request) -> web.Response:
         mine = [d for d in data["dashboards"] if d["screen"] == key]
         if not want["on"]:
             for d in mine:
-                refused = C._audit(request, ident, "ha_dashboard.remove", {"screen": key, "url_path": d["url_path"]})
+                refused = _audited(request, ident, "ha_dashboard.remove", {"screen": key, "url_path": d["url_path"]})
                 if refused is not None:
-                    return {"refused": refused}
+                    return refused
                 await sess.call("lovelace/dashboards/delete", dashboard_id=d["id"])
                 log.info("ha_dashboards: %s removed HA dashboard %s (%s)", ident.user.name or ident.user.id, d["url_path"], key)
         elif not mine:
@@ -394,10 +405,10 @@ async def api_put(request: web.Request) -> web.Response:
             path = url_path_for(key, taken)
             title = want.get("title") or want["default_title"]
             admin = want.get("require_admin", False)
-            refused = C._audit(request, ident, "ha_dashboard.add", {"screen": key, "url_path": path, "title": title,
-                                                                  "require_admin": admin})
+            refused = _audited(request, ident, "ha_dashboard.add", {"screen": key, "url_path": path, "title": title,
+                                                                   "require_admin": admin})
             if refused is not None:
-                return {"refused": refused}
+                return refused
             made = await sess.call("lovelace/dashboards/create", url_path=path, title=title,
                                    icon=want.get("icon") or DEFAULT_ICON, show_in_sidebar=True, require_admin=admin)
             sess.created.add(path)
@@ -417,9 +428,9 @@ async def api_put(request: web.Request) -> web.Response:
             d = mine[0]
             changes = {k: want[k] for k in ("title", "icon", "require_admin") if k in want and want[k] != d[k]}
             if changes:
-                refused = C._audit(request, ident, "ha_dashboard.update", {"screen": key, "url_path": d["url_path"], **changes})
+                refused = _audited(request, ident, "ha_dashboard.update", {"screen": key, "url_path": d["url_path"], **changes})
                 if refused is not None:
-                    return {"refused": refused}
+                    return refused
                 await sess.call("lovelace/dashboards/update", dashboard_id=d["id"], **changes)
         return await _read(sess, app)
 
@@ -436,7 +447,10 @@ async def api_put(request: web.Request) -> web.Response:
     approved = None
     if want["on"] and want.get("frame_origin") and ident.user.role == "owner":
         # an Owner turned it on inside HA's sidebar at this address: that address may now show Mantel (audited)
-        approved, err = await frame_origins.approve(request, ident, want["frame_origin"], "show in home assistant")
+        try:
+            approved, err = await frame_origins.approve(request, ident, want["frame_origin"], "show in home assistant")
+        except audit.Unavailable:
+            approved, err = None, True
         if err is not None:
             approved = None
     return ok({**_public(got, app), "frame_approved": approved})

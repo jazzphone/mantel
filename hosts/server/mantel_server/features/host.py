@@ -26,6 +26,8 @@ from hk_core.sleep import engine as SE
 from .. import feature_pages, notify_snaps
 from ..connectors import Ctx, deny_read, Forbidden, may_feature, read_routes, Route, ws_handlers
 from ..feature_watch import CalendarLook, TabletWatch
+from ..guards import guard
+from ..guards import ident as guarded
 from ..house import HouseCommandRefused, HouseCommandsDisabled, MantelHouse
 from .actor import FeatureCaller, Feed, OverlayHouse, ScreenState, _slug
 from .energy_plan import energy_context, energy_house
@@ -1149,25 +1151,18 @@ def register(app: web.Application, hub: Any, hooks: Any = None) -> FeatureHost:
     notify_snaps.register(app, host.snaps)
     host.pages = feature_pages.register(app, host)
 
-    # REST: the status (Owner/Admin) and the settings (read Owner/Admin, write Owner)
-    def who(request: web.Request, owner_only: bool = False) -> Any:
-        from ..sessions import identity
-        ident = identity(request)
-        role = getattr(ident.user, "role", None)
-        if ident.user is None or role not in (("owner",) if owner_only else ("owner", "admin")):
-            raise web.HTTPForbidden(text="Owner only" if owner_only else "Owner or Admin only")
-        return ident
-
+    # REST: the status (Owner/Admin) and the settings (read Owner/Admin, write Owner); never at a wall tablet
+    @guard("manager")
     async def api_status(request: web.Request) -> web.Response:
-        who(request)
         return web.json_response(host.status(), dumps=lambda o: json.dumps(o, default=str))
 
+    @guard("manager")
     async def api_settings(request: web.Request) -> web.Response:
-        who(request)
         return web.json_response({"settings": host.settings, "error": host.settings_error})
 
+    @guard("owner", no_audit="a new version of house/mantel_features in the settings store, whose history names who saved it")
     async def api_settings_put(request: web.Request) -> web.Response:
-        ident = who(request, owner_only=True)
+        ident = guarded(request)
         try:
             body = await request.json()
             settings = check_settings(body)
@@ -1179,10 +1174,11 @@ def register(app: web.Application, hub: Any, hooks: Any = None) -> FeatureHost:
             host.spawn(host.tv.refresh())
         return web.json_response({"settings": host.settings})
 
+    @guard("owner", no_audit="a new version of house/mantel_features in the settings store, whose history names who saved it")
     async def api_import(request: web.Request) -> web.Response:
         """Read the feature items from HA again (Owner only): ``ha`` and the four imported pieces are
         replaced, ``linked`` and ``sleep`` kept; a new version of ``house/mantel_features``."""
-        ident = who(request, owner_only=True)
+        ident = guarded(request)
         try:
             got = await host.import_from_ha(ident)
         except LookupError as exc:

@@ -24,7 +24,10 @@ from typing import Any
 
 from aiohttp import web
 
+from . import audit
 from . import connections as C
+from .guards import guard
+from .guards import ident as guarded
 from .sessions import error, ok
 
 log = logging.getLogger("mantel.ma_page")
@@ -64,17 +67,18 @@ def of(app: Any) -> MaPage | None:
     return app.get("ma_page")
 
 
+@guard("manager")
 async def api_get(request: web.Request) -> web.Response:
-    C._viewer(request)
     page = of(request.app)
     return ok({"page": page.public() if page is not None else {"set": False}})
 
 
+@guard("owner", fresh="away", audit="connection.ma_page.saved")
 async def api_save(request: web.Request) -> web.Response:
     """{token} (an MA user's long-lived token) or {username, password} (MA's sign-in once; a token is made for
     that user and the password kept nowhere). Tested against the MA Mantel is connected to; an administrator's
     token is refused (the frame must not carry MA's admin rights to everyone with music)."""
-    ident = C._editor(request)
+    ident = guarded(request)
     conns: C.Connections = request.app["connections"]
     url = conns.effective_url("ma")
     if not url:
@@ -103,20 +107,16 @@ async def api_save(request: web.Request) -> web.Response:
     rec = C.Record(kind=KIND, url=url, token=token, method=method, since=now, user=user, by=ident.user.id,
                    by_name=ident.user.name, version=got.get("version"),
                    expires=now + C.MA_TOKEN_DAYS * 86400 if method == "login" else None)
-    refused = C._audit(request, ident, "connection.ma_page.saved", {"url": url, "method": method,
-                                                                    "as": user.get("name")})
-    if refused is not None:
-        return refused
+    audit.config(request, ident, "connection.ma_page.saved", {"url": url, "method": method, "as": user.get("name")})
     conns.files.save(rec)
     log.info("the Music Assistant page now signs in as %s", user.get("name") or "an MA user")
     return ok({"page": of(request.app).public()})
 
 
+@guard("owner", fresh="away", audit="connection.ma_page.removed")
 async def api_delete(request: web.Request) -> web.Response:
-    ident = C._editor(request)
-    refused = C._audit(request, ident, "connection.ma_page.removed", {})
-    if refused is not None:
-        return refused
+    ident = guarded(request)
+    audit.config(request, ident, "connection.ma_page.removed", {})
     had = request.app["connections"].files.delete(KIND)
     return ok({"removed": had, "page": of(request.app).public()})
 

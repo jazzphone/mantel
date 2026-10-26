@@ -54,7 +54,10 @@ from urllib.parse import quote, urlencode, urlsplit
 from aiohttp import web
 
 from . import app_crypto, qr
-from .accounts import MANAGERS, read_json, require_user
+from . import audit
+from .accounts import MANAGERS, read_json
+from .guards import guard
+from .guards import ident as guarded
 from .login_page import login_url, safe_next
 from .sessions import (Identity, door_of, error, ok, set_session_cookies, token_hash, user_from_row)
 
@@ -516,8 +519,8 @@ async def hello(request: web.Request) -> web.Response:
     return web.json_response(state_of(request).hello(request, nonce), headers={"Cache-Control": "no-store"})
 
 
+@guard("person", device_ok=True)
 async def get_addresses(request: web.Request) -> web.Response:
-    require_user(request)
     st = state_of(request)
     return ok({"addresses": st.addresses(request), "name": st.house_name(), "fingerprint": st.fingerprint(),
                "short_code": app_crypto.short_code(st.fingerprint())})
@@ -534,28 +537,32 @@ def _url_or_none(value: Any) -> str | None | bool:
     return f"https://{p.netloc}"
 
 
+@guard("manager", device_ok=True, audit="app.addresses")
 async def put_addresses(request: web.Request) -> web.Response:
-    ident = require_user(request)
-    if ident.user.role not in MANAGERS:
-        return error(403, "forbidden")
+    ident = guarded(request)
     body = await read_json(request)
     st = state_of(request)
+    changes: dict[str, Any] = {}
     for key, field in (("local_url", "local"), ("remote_url", "remote")):
         if field in body:
             url = _url_or_none(body[field])
             if url is False:
                 return error(400, "invalid", message="An address is https://name[:port], nothing after it.")
-            st.set_setting(key, url)
+            changes[key] = url
     if "name" in body:
-        st.set_setting("name", clean(body["name"]))
+        changes["name"] = clean(body["name"])
+    if changes:
+        audit.config(request, ident, "app.addresses", changes)
+    for key, value in changes.items():
+        st.set_setting(key, value)
     return ok({"addresses": st.addresses(request), "name": st.house_name()})
 
 
 # -- pairing --------------------------------------------------------------------------------------
+@guard("person", no_audit="a one-time code for the person's own phone: the app it signs in is theirs, listed in "
+                         "Me → Mantel App, and revoking it is audited (app.revoke)")
 async def pairing(request: web.Request) -> web.Response:
-    ident = require_user(request)
-    if ident.device is not None:
-        return error(403, "user_required")
+    ident = guarded(request)
     st = state_of(request)
     code = st.codes.make(PAIRING_TTL, kind="pairing", user_id=ident.user.id, by=ident.session_id)
     addr = st.addresses(request)
@@ -610,8 +617,9 @@ def _cred_json(row, now: float) -> dict:
             "last_door": row["last_door"], "expires": row["expires"]}
 
 
+@guard("person", device_ok=True)
 async def list_devices(request: web.Request) -> web.Response:
-    ident = require_user(request)
+    ident = guarded(request)
     st = state_of(request)
     everyone = request.query.get("all") == "1"
     if everyone and ident.user.role not in MANAGERS:
@@ -628,8 +636,9 @@ async def list_devices(request: web.Request) -> web.Response:
                          "current": r["id"] == ident.session_id} for r in rows]})
 
 
+@guard("person", device_ok=True, audit="app.revoke")
 async def revoke_device(request: web.Request) -> web.Response:
-    ident = require_user(request)
+    ident = guarded(request)
     st = state_of(request)
     cred = st.credential(request.match_info["id"])
     if cred is None:
@@ -639,6 +648,7 @@ async def revoke_device(request: web.Request) -> web.Response:
         role = owner["role"] if owner else None
         if not (ident.user.role == "owner" or (ident.user.role == "admin" and role != "owner")):
             return error(404, "not_found")
+    audit.config(request, ident, "app.revoke", {"app": cred["id"], "user": cred["user_id"], "name": cred["name"]})
     st.revoke(cred["id"], "revoked_by_user")
     return ok()
 

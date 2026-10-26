@@ -62,7 +62,10 @@ from aiohttp import web
 from argon2 import PasswordHasher
 from argon2.exceptions import InvalidHashError, VerificationError, VerifyMismatchError
 
-from .accounts import PolicyError, read_json, require_fresh, require_manager
+from . import audit
+from .accounts import PolicyError, read_json
+from .guards import guard
+from .guards import ident as guarded
 from .sessions import error, ok
 
 log = logging.getLogger("mantel.alarm_pin")
@@ -198,9 +201,11 @@ class AlarmPins:
     # -- setting --------------------------------------------------------------------------------------
     async def set(self, entity: str, *, forward_to: Any = _KEEP, pin: Any = _KEEP, pin_again: Any = _KEEP,
                   arm_required: Any = _KEEP, tablets: Any = _KEEP, ha_code: Any = _KEEP,
-                  source: str = "mantel") -> Entry:
+                  source: str = "mantel", before: Callable[[], None] | None = None) -> Entry:
         """Create or change a keypad. A new PIN is typed twice (HA's form); ``pin: None`` removes the house
-        code (the keypad then refuses whatever needs a code); ``ha_code: None`` clears the alarm's own code. PolicyError by field."""
+        code (the keypad then refuses whatever needs a code); ``ha_code: None`` clears the alarm's own code. PolicyError by field.
+        ``before()`` runs once everything is accepted and before anything is stored (the audit row); if it raises,
+        nothing is stored."""
         import asyncio
         if not isinstance(entity, str) or not PANEL.match(entity):
             raise PolicyError("entity", "an alarm_control_panel entity")
@@ -231,6 +236,8 @@ class AlarmPins:
                 if not isinstance(ha_code, str) or len(ha_code) > HA_CODE_MAX or box is None:
                     raise PolicyError("ha_code", f"the alarm's own code: text, at most {HA_CODE_MAX} characters")
                 values["ha_code"] = box.seal(ha_code.encode(), f"alarm_ha_code:{entity}")
+        if before is not None:
+            before()
         now = self.clock()
         with self.db:
             if cur is None:
@@ -246,25 +253,29 @@ class AlarmPins:
         with self.db:
             return self.db.execute("DELETE FROM alarm_pins WHERE entity = ?", (entity,)).rowcount > 0
 
-    async def import_ha_page(self, page: Any) -> dict:
+    async def import_ha_page(self, page: Any, before: Callable[[dict], None] | None = None) -> dict:
         """HA's ``hk_alarm_pin/settings/get`` page -> keypads: each Alarm PIN panel (``entity``) forwards
         to the alarm it protects (``forward_to``: that alarm takes no code of its own), with its arm rule.
         HA never gives out its PIN or hash: an existing Mantel house code is kept, a new keypad has none
-        (``need_pin``) until an Owner sets it; until then it refuses whatever needs a code."""
+        (``need_pin``) until an Owner sets it; until then it refuses whatever needs a code. ``before(plan)``
+        runs with what will be imported (the answer, worked out first) before anything is stored."""
         if not isinstance(page, Mapping) or not isinstance(page.get("alarms"), list):
             raise ValueError("Home Assistant's answer has no Alarm PIN page in it")
-        done, need = [], []
+        todo = []
         for a in page["alarms"]:
             if not isinstance(a, Mapping):
                 continue
             panel, alarm = a.get("panel"), a.get("alarm")
             if not (isinstance(panel, str) and PANEL.match(panel) and isinstance(alarm, str) and PANEL.match(alarm)):
                 continue
-            e = await self.set(panel, forward_to=alarm, arm_required=bool(a.get("arm_required", True)), source="ha")
-            done.append(e.entity)
-            if not e.house_code:
-                need.append(e.entity)
-        return {"imported": done, "need_pin": need}
+            todo.append((panel, alarm, bool(a.get("arm_required", True))))
+        had = {panel: (e is not None and e.house_code) for panel, _, _ in todo for e in [self.entry(panel)]}
+        plan = {"imported": [p for p, _, _ in todo], "need_pin": [p for p, _, _ in todo if not had[p]]}
+        if before is not None:
+            before(plan)
+        for panel, alarm, arm in todo:
+            await self.set(panel, forward_to=alarm, arm_required=arm, source="ha")
+        return plan
 
     # -- the keypad's code ----------------------------------------------------------------------------
     async def check(self, principal: Any, entry: Entry, code: str, pins: Any, *, place: str | None = None) -> Verdict:
@@ -566,11 +577,12 @@ def new_panel(app: Any, pins: AlarmPins, alarm: str) -> str:
 
 
 def _audit(app: Any, identity: Any, action: str, detail: dict) -> None:
-    audit = app.get("audit")
-    user = getattr(identity, "user", None)
-    if audit is not None:
-        audit.config_event({"actor": getattr(user, "id", None), "role": getattr(user, "role", None),
-                            "action": action, "detail": detail})
+    """The page's saves: the row first (audit.config), refused on the page when it cannot be written."""
+    try:
+        audit.config(None, identity, action, detail, app=app)
+    except audit.Unavailable:
+        raise _page_error("audit_unavailable", message="The audit log could not be written, so nothing was "
+                          "changed. Try again in a moment.") from None
 
 
 async def settings_save(app: Any, identity: Any, msg: Mapping[str, Any]) -> dict:
@@ -609,11 +621,12 @@ async def settings_save(app: Any, identity: Any, msg: Mapping[str, Any]) -> dict
         panel = new_panel(app, pins, alarm)
         try:
             await pins.set(panel, forward_to=alarm, pin=msg.get("pin"), pin_again=msg.get("pin_again"),
-                           arm_required=arm, tablets=True, source="hk_settings")
+                           arm_required=arm, tablets=True, source="hk_settings",
+                           before=lambda: _audit(app, identity, "alarm_pin.add",
+                                                 {"entity": panel, "forward_to": alarm, "from": "hk_settings"}))
         except PolicyError as exc:
             pins.remove(panel)
             raise _page_error("invalid_format", {exc.code: str(exc)}) from None
-        _audit(app, identity, "alarm_pin.add", {"entity": panel, "forward_to": alarm, "from": "hk_settings"})
     elif t == "hk_alarm_pin/settings/set":
         entity, changes = msg.get("entry_id"), msg.get("changes")
         cur = pins.entry(entity) if isinstance(entity, str) else None
@@ -637,12 +650,12 @@ async def settings_save(app: Any, identity: Any, msg: Mapping[str, Any]) -> dict
             kw["pin"], kw["pin_again"] = changes.get("pin"), changes.get("pin_again")
         if errors:
             raise _page_error("invalid_format", errors)
-        try:
-            await pins.set(entity, source="hk_settings", **kw)
+        try:      # the audit says WHAT changed, never a PIN
+            await pins.set(entity, source="hk_settings", **kw,
+                           before=lambda: _audit(app, identity, "alarm_pin.set",
+                                                 {"entity": entity, "changed": sorted(changes), "from": "hk_settings"}))
         except PolicyError as exc:
             raise _page_error("invalid_format", {exc.code: str(exc)}) from None
-        # the audit says WHAT changed, never a PIN
-        _audit(app, identity, "alarm_pin.set", {"entity": entity, "changed": sorted(changes), "from": "hk_settings"})
     else:
         raise _page_error("unknown_type", message=str(t))
     house = app.get("linked_house")
@@ -692,57 +705,49 @@ def alarm_pins_of(request: web.Request) -> AlarmPins:
     return request.app["alarm_pin"]
 
 
-def _config_event(request: web.Request, ident: Any, action: str, detail: dict) -> None:
-    audit = request.app.get("audit")
-    if audit is not None:
-        audit.config_event({"actor": ident.user.id, "role": ident.user.role, "action": action, "detail": detail})
-
-
+@guard("manager")
 async def list_pins(request: web.Request) -> web.Response:
-    require_manager(request)
     return ok({"alarms": [e.to_dict() for e in alarm_pins_of(request).entries()]})
 
 
+@guard("manager", fresh="always", audit="alarm_pin.set")
 async def put_pin(request: web.Request) -> web.Response:
-    ident = require_manager(request)
-    require_fresh(request, ident)
+    ident = guarded(request)
     body = await read_json(request)
     allowed = {"forward_to", "pin", "pin_again", "arm_required", "tablets", "ha_code"}
     if set(body) - allowed:
         return error(400, "unknown_keys", keys=sorted(set(body) - allowed))
     entity = request.match_info["entity"]
-    try:
-        e = await alarm_pins_of(request).set(entity, **{k: body[k] for k in body})
+    try:          # the audit says WHAT changed, never a PIN or a code; written before it is stored
+        e = await alarm_pins_of(request).set(entity, **{k: body[k] for k in body}, before=lambda: audit.config(
+            request, ident, "alarm_pin.set", {"entity": entity, "changed": sorted(body)}))
     except PolicyError as exc:
         return error(400, "invalid", field=exc.code, message=str(exc))
-    # the audit says WHAT changed, never a PIN or a code
-    _config_event(request, ident, "alarm_pin.set", {"entity": entity, "changed": sorted(body)})
     return ok(e.to_dict())
 
 
+@guard("manager", fresh="always", audit="alarm_pin.remove")
 async def delete_pin(request: web.Request) -> web.Response:
-    ident = require_manager(request)
-    require_fresh(request, ident)
+    ident = guarded(request)
     entity = request.match_info["entity"]
-    removed = alarm_pins_of(request).remove(entity)
-    if removed:
-        _config_event(request, ident, "alarm_pin.remove", {"entity": entity})
-    return ok({"removed": removed})
+    if alarm_pins_of(request).entry(entity) is not None:
+        audit.config(request, ident, "alarm_pin.remove", {"entity": entity})
+    return ok({"removed": alarm_pins_of(request).remove(entity)})
 
 
+@guard("manager", fresh="always", audit="alarm_pin.import")
 async def import_pins(request: web.Request) -> web.Response:
-    ident = require_manager(request)
-    require_fresh(request, ident)
+    ident = guarded(request)
     hub = request.app.get("hub")
     read = getattr(getattr(hub, "readproxy", None), "read_server", None)
     if read is None:
         return error(503, "no_home_assistant")
     try:
         page = await read({"type": "hk_alarm_pin/settings/get"})
-        got = await alarm_pins_of(request).import_ha_page(page)
+        got = await alarm_pins_of(request).import_ha_page(
+            page, before=lambda plan: audit.config(request, ident, "alarm_pin.import", plan))
     except ValueError as exc:
         return error(502, "bad_answer", message=str(exc))
-    _config_event(request, ident, "alarm_pin.import", got)
     return ok(got)
 
 

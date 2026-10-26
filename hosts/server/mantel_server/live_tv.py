@@ -70,6 +70,7 @@ import aiohttp
 from aiohttp import web
 
 from .connectors import Ctx, Forbidden, Hooks, Route, allowed_ids, may_feature, read_routes, resolve, ws_handlers
+from .guards import guard
 
 log = logging.getLogger("mantel.live_tv")
 
@@ -982,11 +983,8 @@ def register(app: web.Application, hub: Any, hooks: Any = None, tv_hooks: LiveTv
 
     ws_handlers(app)["tv_watching"] = tv_watching
 
+    @guard("manager")
     async def api_status(request: web.Request) -> web.Response:
-        from .sessions import identity
-        ident = identity(request)
-        if ident.user is None or ident.user.role not in ("owner", "admin"):
-            raise web.HTTPForbidden(text="Owner or Admin only")
         return web.json_response(tv.status())
 
     app.router.add_get("/api/live_tv/status", api_status)

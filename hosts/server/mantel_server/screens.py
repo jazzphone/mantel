@@ -28,9 +28,11 @@ from typing import Any
 
 from aiohttp import web
 
-from . import connections as C
+from . import audit
 from . import ha_dashboards as HD
-from .accounts import read_json, require_manager
+from .accounts import read_json
+from .guards import guard
+from .guards import ident as guarded
 from .sessions import error, ok
 from .settings_store import Actor, actor_of
 
@@ -90,7 +92,12 @@ def _title(body: Any) -> str:
 
 
 def _audit(request: web.Request, ident: Any, action: str, detail: dict) -> web.Response | None:
-    return C._audit(request, ident, action, detail)
+    """The row before the change (audit.config); a 503 to answer with when it cannot be written."""
+    try:
+        audit.config(request, ident, action, detail)
+    except audit.Unavailable:
+        return error(503, "audit_unavailable")
+    return None
 
 
 async def _with_ha(app: web.Application, work):
@@ -130,8 +137,9 @@ def _ha_failed(exc: Exception) -> web.Response:
 
 
 # -- REST -----------------------------------------------------------------------------------------------
+@guard("manager", audit="screen.add")
 async def api_add(request: web.Request) -> web.Response:
-    ident = require_manager(request)
+    ident = guarded(request)
     app = request.app
     svc = app["settings"]
     body = await read_json(request)
@@ -164,8 +172,9 @@ async def api_add(request: web.Request) -> web.Response:
     return ok({"key": key, "title": title, "where": where})
 
 
+@guard("manager", audit=("screen.where", "screen.title", "screen.remove_ha"))
 async def api_put(request: web.Request) -> web.Response:
-    ident = require_manager(request)
+    ident = guarded(request)
     app, key = request.app, request.match_info["key"]
     svc = app["settings"]
     cur = svc.store.get("board", key) if KEY.match(key) else None
@@ -232,8 +241,9 @@ def _tablets_on(svc: Any, key: str) -> list[str]:
     return [t for t, d in svc.store.docs("tablet").items() if (d.body or {}).get("screen") == key]
 
 
+@guard("manager", audit="screen.split")
 async def api_split(request: web.Request) -> web.Response:
-    ident = require_manager(request)
+    ident = guarded(request)
     app, old = request.app, request.match_info["key"]
     svc, db = app["settings"], app["store"].db
     cur = svc.store.get("board", old) if KEY.match(old) else None
@@ -313,8 +323,9 @@ async def _repoint_frames(app: web.Application, old: str, new: str, title: str) 
         return {"state": getattr(exc, "state", "ha_refused"), "message": getattr(exc, "message", "")}
 
 
+@guard("manager", audit="screen.remove")
 async def api_delete(request: web.Request) -> web.Response:
-    ident = require_manager(request)
+    ident = guarded(request)
     app, key = request.app, request.match_info["key"]
     svc = app["settings"]
     if not KEY.match(key) or svc.store.get("board", key) is None:

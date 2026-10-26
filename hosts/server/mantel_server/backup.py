@@ -87,6 +87,7 @@ from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 
 from . import atrest, db as dbmod
+from .guards import guard
 
 log = logging.getLogger("mantel.backup")
 
@@ -769,20 +770,9 @@ class Backups:
 
 
 # -- REST + wiring ----------------------------------------------------------------------------------
-def _manager(request: web.Request, *, owner_only: bool = False):
-    from . import sessions
-    from .accounts import require_manager
-    ident = require_manager(request)
-    if owner_only and ident.user.role != "owner":
-        raise web.HTTPForbidden(text='{"error":"forbidden"}', content_type="application/json")
-    if request.method not in sessions.SAFE_METHODS:
-        sessions.check_csrf(request, ident)
-    return ident
-
-
+@guard("manager")
 async def api_status(request: web.Request) -> web.Response:
     from .sessions import ok
-    _manager(request)
     b: Backups = request.app["backups"]
     if not b.enabled:
         return ok({"enabled": False})
@@ -791,9 +781,10 @@ async def api_status(request: web.Request) -> web.Response:
                "key_present": b.key_file.exists(), "status": b.status, "backups": [x.as_dict() for x in b.list()]})
 
 
+@guard("owner", no_audit="makes a backup file, changing no setting; the run writes its result row "
+                        "(backup.ok or backup.failed), as the nightly one does")
 async def api_run(request: web.Request) -> web.Response:
     from .sessions import error, ok
-    _manager(request, owner_only=True)
     b: Backups = request.app["backups"]
     if not b.enabled:
         return error(409, "backup_not_configured")
