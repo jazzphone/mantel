@@ -53,7 +53,7 @@ Arrange a tablet’s Home page in fixed blocks with the desktop [Home Grid edito
 
 ## Arrange a page
 
-Owners and Admins can arrange a room page, or Home’s room sections, in place, away from a wall tablet:
+Owners and Admins can arrange a room page, Home (its room sections, Favorites and scenes row), or the Lights, Climate, Water, Security and Vacuums pages, in place, away from a wall tablet:
 
 1. Open the menu (or the tab bar’s **More**) and choose **Edit Page**. On a screen with its menu turned off, open any tile’s sheet, tap the gear, and choose **Edit This Page**.
 2. The tiles wiggle and stop working as controls. Touch and hold a tile for a moment, then drag it to a new place in its group; a mouse just drags. Moving without the hold scrolls the page, and the page scrolls by itself near the top and bottom edges.
@@ -61,3 +61,11 @@ Owners and Admins can arrange a room page, or Home’s room sections, in place, 
 4. Press **Done** to save, or **Cancel** (or Escape) to put everything back.
 
 The order is the room’s own, so a room page and that room’s section on Home share it, on every screen. While you edit, tiles sit in plain reading order; after Done the page packs them as usual, so a Tall tile’s gap may fill. If someone else changes the same page meanwhile, Done says so and offers **Reload** or **Save Anyway**. Leaving the page with unsaved changes asks first. Home Grid screens keep their own [editor](Home-Grid.md).
+
+What each page saves:
+
+- **Lights, Climate and Water** list their tiles room by room, and each room’s section follows that room’s order. Reordering lights on the Lights page reorders them on that room’s page and on Home too; the bar says so.
+- **Security and Vacuums** keep an order of their own (the same one as their Tile Order in HK Settings). Security’s tiles have no size badge, since that page ignores size; on Vacuums, whole vacuum cards move.
+- **Doors & Windows** has no Edit Page: its order comes from Status & Chips.
+- **Favorites** on Home are this screen’s own and always one height, so they have no size badge. A favorite whose accessory is gone keeps its place.
+- **The scenes row** on Home drags sideways, including its pills that open a page; it is this screen’s Scenes list, the same one HK Settings shows. A room page’s scenes row is that room’s own Scenes list. While editing, a mouse no longer scrolls the row by dragging; carry a scene near either end and the row scrolls by itself. A finger that moves first still scrolls it.
