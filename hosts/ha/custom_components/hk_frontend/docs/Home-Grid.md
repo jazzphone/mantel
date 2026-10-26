@@ -30,6 +30,6 @@ With no block selected, the screen's settings control the columns (6, 3 or 2), r
 
 The top band shows a compact clock, weather and status chips. On a narrow thermostat block, tap its name for the full thermostat controls. Swipe a block with pages anywhere, including on its dots, or tap a dot.
 
-Changes stay in a draft until **Save**. Cancel discards them, and preview controls cannot act on your home. **Home Style → Generated** returns to the usual Home page while retaining the saved grid.
+Changes stay in a draft until **Save**. Cancel discards them, and preview controls cannot act on your home. If another admin saved the screen after you opened the editor, nothing is saved and the editor says **This screen changed since you opened it**: **Reload** shows the screen as it is now and discards your draft; **Save Anyway** replaces it with your layout. **Home Style → Generated** returns to the usual Home page while retaining the saved grid.
 
 History and Copy Layout are available in Mantel's editor.

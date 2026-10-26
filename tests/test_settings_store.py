@@ -355,6 +355,32 @@ async def test_saves_check_shapes_and_answer_like_ha(svc, store):
     assert t["tablet"]["name"] == "Galley" and "parts" not in t["tablet"]
 
 
+async def test_a_screen_save_with_the_version_it_opened_is_refused_once_that_version_is_old(svc, store):
+    """SET-7: board/set's optional expect_version (from panel/get's versions) is checked against the stored
+    version: the same saves and answers the new one; an older one is a `conflict` and writes nothing; none at
+    all (Save Anyway) saves as before."""
+    opened = (await svc.panel_get(OWNER, {"type": "hk_frontend/panel/get"}))["versions"]["board/dashboard-kitchen"]
+    got = await svc.save(OWNER, {"type": "hk_frontend/board/set", "dashboard": "dashboard-kitchen",
+                                 "expect_version": opened, "changes": {"menu": "tabbar"}})
+    assert got["board"]["menu"] == "tabbar" and got["version"] == opened + 1 == store.get("board", "dashboard-kitchen").version
+    with pytest.raises(S.SettingsError) as err:
+        await svc.save(OWNER, {"type": "hk_frontend/board/set", "dashboard": "dashboard-kitchen",
+                               "expect_version": opened, "changes": {"menu": "off"}})
+    assert err.value.code == "conflict"
+    assert store.body("board", "dashboard-kitchen")["menu"] == "tabbar" and store.get("board", "dashboard-kitchen").version == opened + 1
+    for bad in ("1", True, None, 1.0):
+        with pytest.raises(S.SettingsError) as err:
+            await svc.save(OWNER, {"type": "hk_frontend/board/set", "dashboard": "dashboard-kitchen",
+                                   "expect_version": bad, "changes": {"menu": "off"}})
+        assert err.value.code == "invalid_format" and err.value.fields == {"expect_version": "number"}, bad
+    got = await svc.save(OWNER, {"type": "hk_frontend/board/set", "dashboard": "dashboard-kitchen", "changes": {"menu": "off"}})
+    assert got["board"]["menu"] == "off" and got["version"] == opened + 2
+    # nothing changed: no new version, and the answer says the one it is
+    got = await svc.save(OWNER, {"type": "hk_frontend/board/set", "dashboard": "dashboard-kitchen",
+                                 "expect_version": opened + 2, "changes": {"menu": "off"}})
+    assert got["version"] == opened + 2
+
+
 async def test_chips_save_and_remove_from_every_screen(svc, store):
     got = await svc.save(OWNER, {"type": "hk_frontend/chip/save", "name": "Fictional Pool", "card": {"type": "custom:x"}})
     assert got["key"] == "fictional-pool" and [c["key"] for c in got["custom_chips"]] == ["battery", "fictional-pool"]

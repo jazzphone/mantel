@@ -158,6 +158,23 @@ async def _dashboards(hass: HomeAssistant) -> list[dict[str, Any]]:
     return sorted(out, key=lambda d: str(d["title"]).lower())
 
 
+def board_version(data: Any) -> str:
+    """A SCREEN'S VERSION (SET-7): a digest of its item's stored data, the
+    same data the same digest (keys sorted). panel/get sends it per screen as
+    Mantel sends its own (versions["board/<path>"]: a number there, this
+    text here; the page keeps it as it came) and board/set's expect_version
+    is compared with it, so a second editor's save can't silently replace
+    the first's."""
+    import hashlib
+    text = json.dumps(dict(data or {}), sort_keys=True, separators=(",", ":"), default=str)
+    return hashlib.sha256(text.encode()).hexdigest()[:20]
+
+
+def _board_versions(entry: Any) -> dict[str, str]:
+    return {f"board/{s.unique_id}": board_version(s.data) for s in entry.subentries.values()
+            if s.subentry_type == S.SUBENTRY_DASHBOARD and s.unique_id}
+
+
 @websocket_api.websocket_command({vol.Required("type"): "hk_frontend/panel/get"})
 @websocket_api.require_admin
 @websocket_api.async_response
@@ -248,6 +265,8 @@ async def ws_panel_get(hass: HomeAssistant, connection: websocket_api.ActiveConn
             "kiosks": _kiosks(hass),
             "sleep": {"after_saver": list(SR.AFTER_SAVER), "linger": list(SR.LINGER)},
         },
+        # each screen's version, for board/set's expect_version (board_version)
+        "versions": _board_versions(entry),
     })
 
 
@@ -470,26 +489,37 @@ async def ws_calendar_color(hass: HomeAssistant, connection: websocket_api.Activ
     vol.Required("type"): "hk_frontend/board/set",
     vol.Required("dashboard"): vol.All(str, vol.Match(r"^[a-z0-9_-]+$")),
     vol.Required("changes"): dict,
+    # the version the editor opened (panel/get's versions): this host's
+    # digest, or Mantel's number while linked (the save goes on to Mantel)
+    vol.Optional("expect_version"): vol.Any(vol.All(str, vol.Length(max=64)), int),
 })
 @websocket_api.require_admin
 @callback
 def ws_board_set(hass: HomeAssistant, connection: websocket_api.ActiveConnection,
                  msg: dict[str, Any]) -> None:
-    """One screen's settings, only the ones that changed (settings_api.BOARD)."""
+    """One screen's settings, only the ones that changed (settings_api.BOARD).
+    With expect_version: refused as `conflict`, nothing written, when the
+    screen changed since the editor read it (SET-7)."""
     entry = _entry(hass)
     sub = next((s for s in (entry.subentries.values() if entry else ())
                 if s.subentry_type == S.SUBENTRY_DASHBOARD and s.unique_id == msg["dashboard"]), None)
     if sub is None:
         connection.send_error(msg["id"], "no_item", "This dashboard has no item yet")
         return
+    if "expect_version" in msg and msg["expect_version"] != board_version(sub.data):
+        connection.send_error(msg["id"], "conflict",
+                              f"board/{msg['dashboard']} changed meanwhile (now version {board_version(sub.data)})")
+        return
     data, errors = settings_api.apply_board(sub.data, msg["changes"])
     if errors:
         _refused(connection, msg["id"], errors)
         return
-    hass.config_entries.async_update_subentry(entry, sub, data=S.board_stored(data))
+    stored = S.board_stored(data)
+    hass.config_entries.async_update_subentry(entry, sub, data=stored)
     # as READ (resolved): a screen following All Screens' rooms or screensaver
     # is handed back with them, as the settings feed sends it
-    connection.send_result(msg["id"], {"board": S.resolved(S.board(data), entry.options)})
+    connection.send_result(msg["id"], {"board": S.resolved(S.board(data), entry.options),
+                                       "version": board_version(stored)})
 
 
 # ------------------------------------------------------------ wall tablets
