@@ -589,7 +589,8 @@
             '<div class="grid pages"></div><h3 class="ch" hidden>Categories</h3><div class="grid pages2" hidden></div>' +
             '<h3 class="hh" hidden>Home Assistant</h3><div class="grid hagrid" hidden></div>' +
             '<h3 class="rh" hidden>Rooms</h3><div class="grid roomgrid" hidden></div>' +
-            '<h3 class="mh" hidden></h3><div class="grid mgrid" hidden></div></div></div></section>' +
+            '<h3 class="mh" hidden></h3><div class="grid mgrid" hidden></div>' +
+            '<h3 class="eh" hidden>This Page</h3><div class="grid egrid" hidden></div></div></div></section>' +
           '<section class="sheet g" data-sheet="rooms" aria-label="Rooms"><h2>Rooms</h2><div class="hk-edge"><div class="body">' +
             '<div class="grid roomgrid"></div></div></div></section>' +
           '<div class="row">' +
@@ -665,7 +666,8 @@
     function listKey(width) {
       var h = C.client(), side = H.sidebarSource(), b = M.board();
       return [M.dash(), cfgId(M.config()), width, railH(), b.ha_place, b.tab_bar_pos, b.tab_bar_rooms, b.tab_bar_rooms_phone, phoneAt(), phoneSet(), b.tab_bar_more, b.tab_bar_more_phone, b.tab_bar_size, b.tab_bar_labels, b.tab_bar_tabs, b.tab_bar_tabs_rail, b.ha_row, JSON.stringify(S.haPrefs || null),
-              h && h.user && h.user.is_admin, H.hostItems().map(function (x) { return x.title + x.href; }).join(','), side && side.panels ? Object.keys(side.panels).join(',') : '', H.haKey ? H.haKey() : '', b.menu_rooms, JSON.stringify(b.room_order),
+              h && h.user && h.user.is_admin, H.hostItems().map(function (x) { return x.title + x.href; }).join(','),
+              H.editKey ? H.editKey(h) : '', !!(window.hkEdit && window.hkEdit.editAny && window.hkEdit.editAny(h)), side && side.panels ? Object.keys(side.panels).join(',') : '', H.haKey ? H.haKey() : '', b.menu_rooms, JSON.stringify(b.room_order),
               JSON.stringify(b.categories), JSON.stringify(b.menu_top || []), JSON.stringify(b.pages || []),
               JSON.stringify(b.chips || []), b.chips_row, h && h.user && h.user.id,
               JSON.stringify(h && h.areas ? Object.keys(h.areas).map(function (k) {
@@ -695,10 +697,16 @@
       // THE HOST'S OWN PAGES (a host's settings; none in Home Assistant): the side menu's host section
       // (hkMenu._.hostItems), at the end of More, under the host's own name for it
       S.hostRows = H.hostItems ? H.hostItems() : [];
+      // EDIT PAGE (hk-edit.js): More's last row, on a page with something to
+      // arrange. More itself is there for an editor on EVERY page
+      // (hkEdit.editAny), so the bar's tabs do not change from page to page.
+      S.edit = H.editItems ? H.editItems(C.client()) : [];
+      var mayEdit = !!(window.hkEdit && window.hkEdit.editAny && window.hkEdit.editAny(C.client()));
       var tabs = [m.home].concat(m.categories).filter(Boolean);
       var sz = b.tab_bar_size;
-      var f = rail ? railFit(tabs.length, m.top.length, railH(), rm === 'more' || S.ha.length > 0 || S.hostRows.length > 0, b.tab_bar_tabs_rail, sz)
-                   : fit(tabs.length, m.top.length, width, roomsOn, rm === 'more' || S.ha.length > 0 || S.hostRows.length > 0, b.tab_bar_tabs, sz, ph);
+      var more0 = rm === 'more' || S.ha.length > 0 || S.hostRows.length > 0 || mayEdit;
+      var f = rail ? railFit(tabs.length, m.top.length, railH(), more0, b.tab_bar_tabs_rail, sz)
+                   : fit(tabs.length, m.top.length, width, roomsOn, more0, b.tab_bar_tabs, sz, ph);
       S.pos = pos;
       if (S.posWas !== pos && S.mode !== 'full') setMode('full');
       S.posWas = pos;
@@ -773,12 +781,15 @@
       fill(mg, S.hostRows, 'm');
       mh.textContent = S.hostRows.length ? S.hostRows[0].section || 'More' : '';
       mg.hidden = mh.hidden = !S.hostRows.length;
+      var eg = S.sheets.more.querySelector('.egrid'), eh = S.sheets.more.querySelector('.eh');
+      fill(eg, S.edit, 'e');
+      eg.hidden = eh.hidden = !S.edit.length;
       // ...and the section where the screen puts it
       var body = S.sheets.more.querySelector('.body'), hh = S.sheets.more.querySelector('.hh');
       var rh = S.sheets.more.querySelector('.rh'), rg = S.sheets.more.querySelector('.roomgrid');
       var order = place === 'top' ? [hh, hg, pg, ch, pg2, rh, rg] : place === 'categories' ? [pg, hh, hg, ch, pg2, rh, rg]
         : place === 'bottom' ? [pg, ch, pg2, rh, rg, hh, hg] : [pg, ch, pg2, hh, hg, rh, rg];
-      order.concat([mh, mg]).forEach(function (el) { body.appendChild(el); });
+      order.concat([mh, mg, eh, eg]).forEach(function (el) { body.appendChild(el); });
       // More Style: the list, about a phone's width; the icons, wide -- and
       // joined, exactly the bar's width
       Object.keys(S.sheets).forEach(function (k) {
@@ -884,13 +895,15 @@
       var k = el.getAttribute('data-k'), it = listOf(k)[+el.getAttribute('data-i')];
       if (k === 'h') haGo(it);
       // (a host row opens a page, or asks the host to do something: hk-menu.js hostItems)
+      // Edit Page: More goes, the page goes into Edit mode
+      else if (k === 'e') { closeSheet(true); if (window.hkEdit && window.hkEdit.enter) window.hkEdit.enter(C.client()); }
       else if (k === 'm') {
         if (it && it.run) { closeSheet(true); try { it.run(); } catch (x) { /* the host's own */ } }
         else if (it && it.href) { closeSheet(true); location.assign(it.href); }
       }
       else go(it);
     }
-    function listOf(k) { return k === 'r' ? S.rooms : k === 'h' ? S.ha : k === 'm' ? S.hostRows : S.more; }
+    function listOf(k) { return k === 'r' ? S.rooms : k === 'h' ? S.ha : k === 'm' ? S.hostRows : k === 'e' ? (S.edit || []) : S.more; }
     // A HOME ASSISTANT ROW does what the side menu's does (hk-menu.js onList):
     // Show Menu opens Home Assistant's own sidebar over the page,
     // Notifications its drawer, the rest open Home Assistant's page
@@ -1271,6 +1284,8 @@
     window.addEventListener('hk-module-ready', function () { S.built = ''; sync(); });
     // the host's Home Assistant rows changed (hkShell.haNav: it learned where the page is)
     window.addEventListener('hk-ha-nav-changed', function () { S.built = ''; sync(); });
+    // Edit mode begun or ended (hk-edit.js): More's Edit Page row goes or comes back
+    window.addEventListener('hk-edit', function () { S.built = ''; sync(); });
     // the window's scroll, and <body>'s on a phone (scroll events do not
     // bubble: captured at the document, as hk-menu.js does)
     document.addEventListener('scroll', onScroll, { capture: true, passive: true });

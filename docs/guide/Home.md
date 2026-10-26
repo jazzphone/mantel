@@ -50,3 +50,14 @@ Something not covered here? [Open an issue](https://github.com/jazzphone/mantel/
 ## Home Grid
 
 Arrange a tablet’s Home page in fixed blocks with the desktop [Home Grid editor](Home-Grid.md).
+
+## Arrange a page
+
+Owners and Admins can arrange a room page, or Home’s room sections, in place, away from a wall tablet:
+
+1. Open the menu (or the tab bar’s **More**) and choose **Edit Page**. On a screen with its menu turned off, open any tile’s sheet, tap the gear, and choose **Edit This Page**.
+2. The tiles wiggle and stop working as controls. Touch and hold a tile for a moment, then drag it to a new place in its group; a mouse just drags. Moving without the hold scrolls the page, and the page scrolls by itself near the top and bottom edges.
+3. Tap a tile’s **Regular | Tall** badge to change its height.
+4. Press **Done** to save, or **Cancel** (or Escape) to put everything back.
+
+The order is the room’s own, so a room page and that room’s section on Home share it, on every screen. While you edit, tiles sit in plain reading order; after Done the page packs them as usual, so a Tall tile’s gap may fill. If someone else changes the same page meanwhile, Done says so and offers **Reload** or **Save Anyway**. Leaving the page with unsaved changes asks first. Home Grid screens keep their own [editor](Home-Grid.md).

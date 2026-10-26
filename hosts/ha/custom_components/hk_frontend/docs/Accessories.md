@@ -68,6 +68,35 @@ screen shows the new order when the sheet closes. Arrange isn’t shown when
 there’s nothing to move it past, or on pages like Lights that follow each
 room’s order.
 
+## Arrange a page
+
+**Edit mode** arranges a whole page in place, as the Home app does: for
+Owners and Admins (Home Assistant administrators), never at a wall tablet.
+It covers room pages and Home’s room sections; a Home Grid screen keeps its
+own editor.
+
+- **The way in:** **Edit Page** in the menu, or in the tab bar’s **More**,
+  on a page with something to arrange; or **Edit This Page** in any tile’s
+  settings (the gear), for a screen whose menu is off.
+- **Editing:** a bar at the top says what you’re editing, with **Cancel** and
+  **Done**. The tiles wiggle (with Reduce Motion, an outline instead), and a
+  tap or a hold no longer controls them.
+- **Moving a tile:** touch and hold it for a moment, then drag it within its
+  group (or its room’s section on Home); the others slide aside. A finger that
+  moves first scrolls the page; a mouse drags at once. Near the top or bottom
+  edge the page scrolls by itself.
+- **Tile size:** each tile’s **Regular | Tall** badge changes its height at
+  once (as [Tile size](#tile-size) does).
+- **Done** saves everything together: the room’s **Tile Order** (shared by
+  its room page and its section on Home, on every screen; tiles not on the
+  page keep their places) and each size. If the page changed meanwhile, in
+  another window or on another device, it says so and offers **Reload** or
+  **Save Anyway**. **Cancel**, or Escape, puts everything back; leaving the
+  page with changes asks first.
+
+While editing, tiles sit in plain reading order, which is exactly the order
+saved; after Done the page packs them again, so a Tall tile’s gap may fill.
+
 ## What it says
 
 For switches and input booleans: what its states are called, **When on** and

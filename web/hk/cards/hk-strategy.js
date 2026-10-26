@@ -3080,8 +3080,11 @@
     catch (e) { /* no window (tests) */ }
   });
   function busy() {
-    return Date.now() - touched < BUSY_MS || (window.hkPopupCover || 0) > 0;
+    return Date.now() - touched < BUSY_MS || (window.hkPopupCover || 0) > 0 || editing();
   }
+  // EDIT MODE (hk-edit.js) holds the page as it is being arranged: a rebuild
+  // waits until it is done or cancelled
+  function editing() { return !!(window.hkEdit && window.hkEdit.active && window.hkEdit.active()); }
   // A CHANGE MADE ON THIS SCREEN (2026-10-01: an accessory's gear, on a
   // sheet here -- its Tile Size, name, icon): the person who made it is
   // looking for it, so it is built the moment the sheet closes, not after
@@ -3108,7 +3111,7 @@
       built.timer = null;
       if (dashSeg() !== built.seg || inputs(built.seg) === built.sig) return;
       var own = ownRecent();
-      if (own ? (window.hkPopupCover || 0) > 0 : busy()) { built.timer = setTimeout(due, own ? MINE_POLL : 5000); return; }
+      if (own ? (window.hkPopupCover || 0) > 0 || editing() : busy()) { built.timer = setTimeout(due, own ? MINE_POLL : 5000); return; }
       built.sig = inputs(built.seg);
       built.mine = 0;
       if (own) refreshKeepingPlace(); else refresh();
@@ -3218,6 +3221,8 @@
                         climateMembers: viaClient(climateMembers), pageMembers: viaClient(pageMembers),
                         batteryOf: viaClient(function (client, id) { return sibling(client, id, 'battery'); }),
                         groupOf: viaClient(groupOf), ownChange: ownChange,
+                        // built again now, from the settings as they are (Edit mode's Reload)
+                        rebuild: refreshKeepingPlace,
                         room: HkRoomViewStrategy.generate,
                         rooms: viaClient(rooms), contactGlyphs: contactGlyphs, overlay: overlay,
                         kioskOf: kioskOf, saverBlock: viaClient(saverBlock),

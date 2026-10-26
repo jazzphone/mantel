@@ -1259,11 +1259,13 @@
       // ARRANGE: Move Left / Move Right, over a small copy of the tiles it
       // moves among, laid out as the dashboard lays them out
       '.acc .arrb{display:flex;gap:8px;padding:10px 12px 0}',
-      '.acc .arrb button{flex:1;height:40px;border:0;border-radius:10px;background:var(--acc-glyph,rgba(255,255,255,0.12));',
+      '.acc .arrb button,.acc .edpg{flex:1;height:40px;border:0;border-radius:10px;background:var(--acc-glyph,rgba(255,255,255,0.12));',
       '  color:var(--acc-text,#fff);font:inherit;font-size:15px;font-weight:600;cursor:pointer;display:flex;align-items:center;',
       '  justify-content:center;gap:6px;--mdc-icon-size:18px}',
       '.acc .arrb button:disabled{opacity:.35;cursor:default}',
-      '.acc .arrb button:not(:disabled):active{background:var(--acc-seg-on,rgba(255,255,255,0.24))}',
+      '.acc .arrb button:not(:disabled):active,.acc .edpg:active{background:var(--acc-seg-on,rgba(255,255,255,0.24))}',
+      // EDIT THIS PAGE: Arrange's button (above), the whole group's width
+      '.acc .edpg{width:calc(100% - 24px);margin:10px 12px}',
       '.acc .mini{display:grid;grid-auto-flow:dense;grid-auto-rows:30px;gap:5px;padding:12px}',
       '.acc .mini .mt{display:flex;align-items:center;gap:5px;min-width:0;border-radius:9px;padding:0 7px;',
       '  background:var(--acc-glyph,rgba(255,255,255,0.10));color:var(--acc-label2,rgba(255,255,255,0.7));font-size:11px;',
@@ -1677,6 +1679,17 @@
           '<div class="mini" aria-hidden="true"></div><span class="sr" aria-live="polite"></span></div>' +
           '<div class="note">' + esc(arr.note) + '</div></div>';
       }
+      // EDIT THIS PAGE (hk-edit.js, Edit mode): the page's pills dragged and
+      // sized in place -- the way in on a screen whose menu is off, since a
+      // sheet always opens. An Owner or Admin, not at a wall tablet, on a
+      // page with something to arrange.
+      var editHere = false;
+      try { editHere = !opts.panel && !!(window.hkEdit && window.hkEdit.offer && window.hkEdit.offer(h)); } catch (e) { editHere = false; }
+      if (editHere) {
+        html += '<div class="sec editpg"><div class="cap">This Page</div><div class="grp"><button class="edpg" type="button">' +
+          '<hk-icon icon="mdi:pencil"></hk-icon>Edit This Page</button></div>' +
+          '<div class="note">Drag the tiles on this page into place, and make them Tall or Regular.</div></div>';
+      }
       html += '<div><div class="cap">Icon</div><div class="grp"><label class="gsearch"><input type="search" class="gq" ' +
         'placeholder="Search all icons" aria-label="Search all icons" autocomplete="off" spellcheck="false"></label>' +
         '<div class="glyphs"></div></div></div>';
@@ -1931,6 +1944,15 @@
         mvl.addEventListener('click', function () { move(-1); });
         mvr.addEventListener('click', function () { move(1); });
         paintArr();
+      }
+
+      // EDIT THIS PAGE: the sheet goes, the page goes into Edit mode
+      var edpg = editHere ? el.querySelector('.edpg') : null;
+      if (edpg) {
+        edpg.addEventListener('click', function () {
+          if (opts.close) opts.close();
+          if (window.hkEdit && window.hkEdit.enter) window.hkEdit.enter(h);
+        });
       }
 
       // ICON
@@ -2273,7 +2295,7 @@
             // name is back the next time the sheet opens)
             if (D.el === el) D.tt.textContent = name || (D.src && D.src.name) ||
               at(stOf(C.client(), id), 'friendly_name') || id;
-          }, { tile: D.el === el && D.src ? D.src.el : null }));
+          }, { tile: D.el === el && D.src ? D.src.el : null, close: function () { close(); } }));
           body.scrollTop = 0;
           gear.firstChild.setAttribute('icon', 'mdi:check');
           gear.setAttribute('aria-label', 'Done');

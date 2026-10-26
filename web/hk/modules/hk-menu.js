@@ -394,6 +394,20 @@
                                    run: typeof x.run === 'function' ? x.run : null, section: String(x.section || ''), paths: [] }; });
   }
 
+  // EDIT PAGE (hk-edit.js, Edit mode): one row, on a page that has something
+  // to arrange, for an Owner or Admin not at a wall tablet. The tab bar's
+  // More sheet shows the same row. `kind: 'edit'` runs hkEdit.enter.
+  function editItems(client) {
+    var E = window.hkEdit;
+    var on = false;
+    try { on = !!(E && E.offer && E.offer(client)); } catch (e) { on = false; }
+    return on ? [{ title: 'Edit Page', icon: 'mdi:pencil', kind: 'edit', paths: [] }] : [];
+  }
+  function editKey(client) {
+    var E = window.hkEdit;
+    try { return E && E.offerKey ? E.offerKey(client) : ''; } catch (e) { return ''; }
+  }
+
   function sidebarSource() {
     var SH = window.hkShell;
     return SH && SH.sidebarData ? SH.sidebarData() : null;
@@ -435,7 +449,8 @@
   }
 
   window.hkMenu = { version: '1.1.0', _: { model: model, isHere: isHere, glyph: glyph, chipPaths: chipPaths, pagePaths: pagePaths,
-                                           haItems: haItems, hostItems: hostItems, sidebarSource: sidebarSource,
+                                           haItems: haItems, hostItems: hostItems, editItems: editItems, editKey: editKey,
+                                           sidebarSource: sidebarSource,
                                            haNav: haNav, haList: haList, haOpen: haOpen, haKey: haKey,
                                            tabCentre: tabCentre, kinds: { ORDER: KIND_ORDER, PAGES: KIND_PAGES } } };
 
@@ -1152,6 +1167,8 @@
               !!S.shut.ha_more, JSON.stringify(S.haPrefs || null), !!(h && h.user && h.user.is_admin),
               side && side.panels ? Object.keys(side.panels).join(',') : '', haKey(),
               hostItems().map(function (x) { return x.title + x.href; }).join(','),
+              // Edit Page: offered on this page or not (hkEdit.offerKey)
+              editKey(h),
               cfg ? (cfg.views || []).length : 0,
               JSON.stringify(h && h.areas ? Object.keys(h.areas).map(function (k) {
                 return k + ':' + h.areas[k].name + ':' + (h.areas[k].icon || '');
@@ -1208,6 +1225,8 @@
       if (place === 'rooms') html += ha;
       html += section('rooms', 'Rooms', m.rooms);
       if (place === 'bottom') html += ha;
+      // EDIT PAGE, a row of its own above the host's section (Edit mode)
+      html += editItems(h).map(row).join('');
       var hostRows = hostItems();
       html += section('host', hostRows.length ? hostRows[0].section || 'More' : '', hostRows);
       var keep = S.list.scrollTop;
@@ -1352,6 +1371,12 @@
         try { localStorage.setItem('hk-menu-shut', JSON.stringify(S.shut)); } catch (x) { /* private */ }
         build();
         markHere();
+        return;
+      }
+      // EDIT PAGE: the menu goes, the page goes into Edit mode
+      if (it.kind === 'edit') {
+        close(true);
+        if (window.hkEdit && window.hkEdit.enter) window.hkEdit.enter(C.client());
         return;
       }
       // the host's own page (its settings): a full page load
@@ -1843,6 +1868,8 @@
     window.addEventListener('hk-module-ready', function () { S.built = ''; sync(); });
     // the host's Home Assistant rows changed (hkShell.haNav: it learned where the page is)
     window.addEventListener('hk-ha-nav-changed', function () { S.built = ''; sync(); });
+    // Edit mode begun or ended (hk-edit.js): the Edit Page row goes or comes back
+    window.addEventListener('hk-edit', function () { S.built = ''; sync(); });
     // the Now Playing pane coming, going or changing sides (hk-popup.js)
     window.addEventListener('hk-pane', function () { sync(); });
     window.addEventListener('hk-menu-date', function () { place(); });

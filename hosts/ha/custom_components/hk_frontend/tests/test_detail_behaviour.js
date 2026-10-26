@@ -663,6 +663,19 @@ print('\n=== accessory settings: the gear ===');
   var yaml = _.accessoryPane(h, 'switch.coffee', null, { generated: false });
   ok('Favorite on this dashboard: not on a hand-written dashboard', !/class="tg fav"/.test(yaml._html || yaml.innerHTML || ''));
   ok('...nor "As a favorite" for what is a favorite nowhere', /class="sec fav" hidden/.test(yaml._html || yaml.innerHTML || ''));
+  // EDIT THIS PAGE (hk-edit.js): offered in the gear pane where hkEdit offers it
+  var EDITS = [], CLOSED = 0, OFFER = false;
+  window.hkEdit = { offer: function (x) { return OFFER && !!(x && x.user && x.user.is_admin); }, enter: function (x) { EDITS.push(x); return true; } };
+  var noEdit = _.accessoryPane(h, 'switch.coffee', null, { generated: true });
+  ok('Edit This Page: not where Edit mode is not offered', !/Edit This Page/.test(noEdit._html || ''));
+  OFFER = true;
+  var withEdit = _.accessoryPane(h, 'switch.coffee', null, { generated: true, close: function () { CLOSED++; } });
+  ok('Edit This Page: in the gear pane where it is offered (an admin, a page with something to arrange)',
+     /class="edpg"[^>]*>.*Edit This Page/.test(withEdit._html || ''));
+  ok('...not on the settings page', !/Edit This Page/.test(_.accessoryPane(h, 'switch.coffee', null, { panel: true })._html || ''));
+  withEdit.querySelector('.edpg')._listeners.click[0]({});
+  ok('...a tap closes the sheet and starts Edit mode for this person', CLOSED === 1 && EDITS.length === 1 && !!EDITS[0].user.is_admin);
+  delete window.hkEdit;
   var pane = _.accessoryPane(h, 'switch.coffee', null, { generated: true });
   var q = function (sel) { return pane.querySelector(sel); };
   ok('Favorite on this dashboard: offered on a generated one', /class="tg fav"/.test(pane._html || pane.innerHTML || ''));
