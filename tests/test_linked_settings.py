@@ -58,6 +58,10 @@ async def test_a_linked_hk_frontend_that_asks_gets_the_house_settings_after_hell
     assert "dashboard-hall" in p["boards"] and "hall" in p["tablet_items"]
     assert p["personal"] == {}, "no person's own values: HA's dashboards get the house's"
     assert first["version"] == LS.version_of(p)
+    # Edit mode: the documents' versions beside the payload (not in it, not in its digest), so a linked
+    # HK Frontend's panel/get hands its pages Mantel's numbers for the expect_version its saves carry here
+    assert first["versions"] == env.app["settings"].versions() and "house" in first["versions"]
+    assert first["versions"]["board/dashboard-hall"] == env.app["settings"].store.get("board", "dashboard-hall").version
     await ws.close()
 
 

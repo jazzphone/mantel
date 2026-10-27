@@ -209,6 +209,52 @@ async def test_a_layout_save_with_the_version_it_opened_goes_to_mantel_with_it(h
     await _unload(hass, e)
 
 
+async def test_a_room_order_save_with_the_version_it_opened_goes_to_mantel_with_it(hass, base, mantel):
+    """Edit mode's Room Order (settings/set {rooms.order, rooms.menu}) takes expect_version in HA's schema
+    (Mantel's whole numbers too) and reaches Mantel unchanged, which compares it with its house settings."""
+    e = await _linked(hass, mantel)
+    await _mirror(hass, mantel)
+    save = {"type": "hk_frontend/settings/set", "changes": {"rooms.order": ["den"], "rooms.menu": "order"},
+            "expect_version": 7}
+    got = await _save(hass, await _admin(hass), save)
+    assert got["success"], got
+    assert mantel.calls("settings_write")[-1]["msg"] == save
+    await _unload(hass, e)
+
+
+async def _panel_versions(hass, user):
+    from custom_components.hk_frontend.panel import ws_panel_get
+    conn = Conn(user)
+    ws_panel_get(hass, conn, {"id": 9, "type": "hk_frontend/panel/get"})
+    await until(hass, lambda: any(m.get("id") == 9 for m in conn.sent))
+    got = next(m for m in conn.sent if m.get("id") == 9)
+    assert got["success"], got
+    return got["result"]["versions"]
+
+
+async def test_panel_get_while_linked_gives_mantel_s_versions(hass, base, mantel):
+    """While the settings are Mantel's, the saves the pages make go to Mantel, which compares their
+    expect_version with its own documents' numbers: so panel/get (what Edit mode and HK Settings read the
+    versions from) gives the ones Mantel's settings frame carried -- never this host's digests, which Mantel
+    refuses. A frame without them (an older Mantel): none, and the saves go without a version, as before."""
+    from custom_components.hk_frontend import linked_mode
+    e = await _linked(hass, mantel)
+    user = await _admin(hass)
+    own = await _panel_versions(hass, user)
+    assert isinstance(own["house"], str) and isinstance(own["accessories"], str), "not linked yet: this host's own"
+    theirs = {"board/dashboard-den": 4, "accessories": 9, "house": 12, "house/settings": 12}
+    await mantel.push({**SETTINGS, "versions": theirs})
+    await until(hass, lambda: linked_mode.mirrored(hass) is not None)
+    assert await _panel_versions(hass, user) == theirs
+    # the same settings, newer numbers (a save that changed nothing the feed shows): taken all the same
+    await mantel.push({**SETTINGS, "versions": {**theirs, "house": 13}})
+    await until(hass, lambda: linked_mode.mirrored_versions(hass) == {**theirs, "house": 13})
+    await mantel.push({**SETTINGS, "version": "v2"})
+    await until(hass, lambda: linked_mode.mirrored_versions(hass) == {})
+    assert await _panel_versions(hass, user) == {}
+    await _unload(hass, e)
+
+
 # ------------------------------------------------------------ setup: Repairs, and the dashboards reported
 async def test_a_repairs_issue_while_admins_can_t_save(hass, base, mantel):
     from homeassistant.helpers import issue_registry as ir

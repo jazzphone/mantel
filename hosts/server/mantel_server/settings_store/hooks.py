@@ -162,7 +162,7 @@ REFUSALS = {
     "not_yet": "Mantel does not hold this part of HK's data yet; it is still saved in Home Assistant.",
 }
 WRITE_KEYS = {  # what each save may carry besides "type" (and the page's "id"), as HA's schemas say
-    "hk_frontend/settings/set": ({"changes"}, set()),
+    "hk_frontend/settings/set": ({"changes"}, {"expect_version"}),   # Edit mode: panel/get's versions["house"]
     "hk_frontend/board/set": ({"dashboard", "changes"}, {"expect_version"}),   # SET-7: panel/get's versions["board/…"]
     "hk_frontend/tablet/set": ({"tablet", "changes"}, set()),
     "hk_frontend/setup/done": ({"done"}, set()),

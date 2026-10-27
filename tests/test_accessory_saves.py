@@ -212,3 +212,33 @@ async def test_a_wall_tablets_session_cannot_save_a_layout(env):
                                     "expect_version": before})
         assert got["error"]["code"] == "forbidden", got
     assert acc(env).version == before
+
+
+# ------------------------------------------------- Edit mode (Phase F): the house settings' version
+def house(env):
+    return env.service.store.get("house", "settings")
+
+
+async def test_a_room_order_save_with_the_version_it_opened_is_refused_once_someone_else_saved(env):
+    """Edit mode's Room Order on a screen whose Rooms follow All Screens saves settings/set {rooms.order,
+    rooms.menu}: panel/get gives versions["house"] (the house settings document's number, 0 before there is one)
+    and settings/set takes it as expect_version, as board/set (SET-7) and the accessory saves do: the same saves
+    and answers the new one; an older one is a `conflict` and writes nothing; none at all saves as before."""
+    opened = (await read(env, OWNER, {"type": "hk_frontend/panel/get"}))["result"]["versions"]["house"]
+    assert opened == (house(env).version if house(env) else 0)
+    order = {"type": "hk_frontend/settings/set", "changes": {"rooms.order": ["den", "kitchen"], "rooms.menu": "order"}}
+    got = await save(env, ADMIN, {**order, "expect_version": opened})
+    assert got["result"]["version"] == opened + 1 == house(env).version, got
+    assert got["result"]["settings"]["rooms"]["order"] == ["den", "kitchen"]
+    got = await save(env, ADMIN, {"type": "hk_frontend/settings/set", "changes": {"rooms.order": ["kitchen", "den"]},
+                                  "expect_version": opened}, rid=2)
+    assert got["error"]["code"] == "conflict", got
+    assert house(env).version == opened + 1 and house(env).body["rooms"]["order"] == ["den", "kitchen"], "nothing written"
+    got = await save(env, ADMIN, {"type": "hk_frontend/settings/set", "changes": {"rooms.order": ["kitchen", "den"]}},
+                     rid=3)                                              # Save Anyway: no version
+    assert "error" not in got and house(env).body["rooms"]["order"] == ["kitchen", "den"], got
+    assert (await read(env, OWNER, {"type": "hk_frontend/panel/get"}))["result"]["versions"]["house"] == opened + 2
+    for bad in ("1", True, None, 1.0):
+        got = await save(env, ADMIN, {**order, "expect_version": bad}, rid=20)
+        assert got["error"]["code"] == "invalid_format" and "expect_version" in got["error"]["message"], bad
+    assert house(env).version == opened + 2

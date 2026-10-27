@@ -112,10 +112,16 @@ keys HA's schema allows and nothing else. Results and refusals are HA's:
 
 | Save | Result | Scope (RBAC) |
 |---|---|---|
-| `hk_frontend/settings/set {changes}` | `{"settings": <house sections>}` | `house/settings` |
+| `hk_frontend/settings/set {changes, expect_version?}` | `{"settings": <house sections>, "version": n}` (the house settings document's version now); `conflict` (nothing written) when `expect_version` is no longer `panel/get`'s current `versions["house"]` (Edit mode's Room Order on a screen whose Rooms follow All Screens). HK Frontend sends a digest of its entry's options there and takes Mantel's numbers through while linked | `house/settings` |
 | `hk_frontend/calendar/color {key, color?}` | `{"event_colors": {...}}` | `house/settings` (HA lets any user; Mantel asks `settings`: see below) |
 | `hk_frontend/board/set {dashboard, changes, expect_version?}` | `{"board": {...}, "version": n}` (the version now); `no_item` if the screen has no document; `conflict` (nothing written) when `expect_version`, the version the editor read from `panel/get`'s `versions["board/<path>"]`, is no longer the current one (SET-7: Home Grid's editor) | `board/<path>` |
 | `hk_frontend/accessory/order`, `page_order`, `room_scenes`, `set` with `expect_version?` | as before without it; with it, the answer carries the version now (a list answer as `{"entities": [...], "version": n}`, a dict one gains `"version"`), and `conflict` (nothing written) when it is not `panel/get`'s current `versions["accessories"]` (Edit mode). HK Frontend sends a digest of its Accessories data there and takes Mantel's numbers through while linked | `house/accessories` |
+
+`panel/get`'s `versions` are every stored document's (`board/<path>`, `house/<key>`) plus Edit mode's two by
+their short names, `accessories` and `house` (0: none stored yet). A linked HK Frontend's `settings` frame
+carries the same `versions` beside its payload (not in its digest), and HK Frontend's own `panel/get` answers
+with them while the settings are Mantel's, so a save its dashboards send on to Mantel carries Mantel's number
+(none, after a restart, until Mantel's next frame: the saves then go without one, as before).
 | `hk_frontend/tablet/set {tablet, changes}` | `{"tablet": {...}}`; `no_tablet` | `tablet/<id>` |
 | `hk_frontend/setup/done {done}` | `{"setup_done": bool}` | `house/setup` |
 | `hk_frontend/chip/save {name, card, key?, after?}` | `{"key", "custom_chips"}` (key from the name, unique; `chip_gone` for an unknown key) | `house/custom_chips` |

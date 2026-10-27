@@ -287,11 +287,16 @@ class SettingsService:
             "setup_done": bool(self.store.body("house", "setup").get("setup_done")),
             "suggest": {}, "counts": {}, "users": [], "integration": {}, "thirdparty": {}, "features": features,
             "choices": catalog.get("choices", {}),
-            "versions": {**{f"{s}/{k}": d.version for s in SCOPES if s != "user"
-                            for k, d in self.store.docs(s).items()},
-                         # Edit mode: the accessories document's, for accessory/*'s expect_version (0: none yet)
-                         "accessories": self._acc_version()},
+            "versions": self.versions(),
         }
+
+    def versions(self) -> dict[str, int]:
+        """panel/get's ``versions`` (also each linked HK Frontend's settings frame, linked_settings.frame_of, so
+        its dashboards' saves carry Mantel's numbers): every stored document's ("board/<path>", "house/<key>"),
+        and Edit mode's two by their short names, for an expect_version -- "accessories" (accessory/*) and
+        "house" (the house settings document: settings/set). 0: none stored yet."""
+        return {**{f"{s}/{k}": d.version for s in SCOPES if s != "user" for k, d in self.store.docs(s).items()},
+                "accessories": self._acc_version(), "house": self._house_version()}
 
     # -- the feed -------------------------------------------------------------------------------
     def subscribe_feed(self, identity: Any, on_event: Callable[[dict], None]) -> Callable[[], None]:
@@ -430,10 +435,21 @@ class SettingsService:
             self.publish(user_only=user_only)
         return got
 
+    def _house_version(self) -> int:
+        d = self.store.get("house", "settings")
+        return d.version if d else 0
+
     async def _settings_set(self, identity, actor, msg):
+        """House settings. With ``expect_version`` (panel/get's versions["house"]; Edit mode's Room Order sends
+        it): an older one is a `conflict` and nothing is written, as board/set's SET-7. The answer carries the
+        document's version either way."""
+        opened = msg.get("expect_version")
+        if "expect_version" in msg and type(opened) is not int:
+            raise SettingsError("invalid_format", fields={"expect_version": "number"})
         await self.need(identity, Scope("house", "settings"))
-        self._store([("house", "settings", self._apply_house(msg["changes"]))], actor, msg)
-        return {"settings": self.house_settings()}
+        expect = None if opened is None else {("house", "settings"): opened}
+        self._store([("house", "settings", self._apply_house(msg["changes"]))], actor, msg, expect=expect)
+        return {"settings": self.house_settings(), "version": self._house_version()}
 
     async def _calendar_color(self, identity, actor, msg):
         key, color = msg["key"], msg.get("color")

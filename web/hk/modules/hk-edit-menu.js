@@ -14,7 +14,8 @@
 // settings/model.py), saved on Done in ONE board/set with the screen's
 // version. The rooms are All Screens' unless the screen keeps its own
 // (`rooms_custom`): then the room order goes to All Screens (settings/set
-// rooms.order / rooms.menu), as HK Settings' Rooms would save it.
+// rooms.order / rooms.menu, with panel/get's versions["house"]), as HK
+// Settings' Rooms would save it.
 //
 // THE PREVIEW: hkCards.menu.board() -- what the menu, the tab bar and Home's
 // room sections (hk-layout.js roomOrder) read -- answers with the edit laid
@@ -296,8 +297,9 @@
       var hc = {};
       if ('room_order' in room) hc['rooms.order'] = room.room_order;
       if ('menu_rooms' in room) hc['rooms.menu'] = room.menu_rooms;
-      // (settings/set takes no version: no panel/get document is called `settings`)
-      out.push({ doc: 'settings', label: 'Room Order', msg: { type: DOMAIN + '/settings/set', changes: hc } });
+      // with the house settings' version (panel/get's versions["house"]):
+      // someone else's change to All Screens' rooms meanwhile is a conflict
+      out.push({ doc: 'house', label: 'Room Order', msg: { type: DOMAIN + '/settings/set', changes: hc } });
     }
     return out;
   }

@@ -98,7 +98,8 @@ from .mantel_link import LinkError, MantelLink, Refused, plain_target, ws_url
 _LOGGER = logging.getLogger(__name__)
 
 DATA = "linked"                        # hass.data[DOMAIN][DATA]: the running Linked
-# hass.data[DOMAIN][MIRROR]: the last settings Mantel sent ({version, payload}), kept in the Store too
+# hass.data[DOMAIN][MIRROR]: the last settings Mantel sent ({version, payload, versions}); the Store keeps
+# {version, payload} (the versions only from Mantel itself: none after a restart until its next frame)
 MIRROR = "mantel_settings"
 MIRROR_STORE = "hk_frontend.mantel_settings"
 MIRROR_VERSION = 1
@@ -283,6 +284,18 @@ def mirrored(hass: HomeAssistant) -> dict[str, Any] | None:
     return {**dict(got["payload"]), "places": dict(PLACES)}
 
 
+def mirrored_versions(hass: HomeAssistant) -> dict[str, Any] | None:
+    """The settings documents' versions Mantel's last settings frame carried
+    (its panel/get's: "board/<path>", "accessories", "house"), while the
+    settings are Mantel's; {} when it carried none (an older Mantel); None
+    while they are the entry's own. panel/get answers with them, so the
+    saves the pages send on to Mantel carry Mantel's numbers."""
+    if mirrored(hass) is None:
+        return None
+    got = (hass.data.get(DOMAIN, {}).get(MIRROR) or {}).get("versions")
+    return dict(got) if isinstance(got, Mapping) else {}
+
+
 def _plain(v: Any) -> Any:
     """An action's data as JSON: a date or time as ISO text (pause_automation's until)."""
     if isinstance(v, Mapping):
@@ -455,9 +468,17 @@ class Linked:
             _LOGGER.warning("hk_frontend: ignored settings Mantel Server sent badly")
             return
         data = self.hass.data.setdefault(DOMAIN, {})
-        if (data.get(MIRROR) or {}).get("version") == version:
+        # the documents' versions (Edit mode's expect_version): beside the
+        # payload, and new ones are kept even when the payload is the same
+        got = msg.get("versions")
+        versions = {str(k): v for k, v in got.items() if isinstance(v, (int, str)) and not isinstance(v, bool)} \
+            if isinstance(got, Mapping) else {}
+        now = data.get(MIRROR) or {}
+        if now.get("version") == version:
+            if now.get("versions", {}) != versions:
+                data[MIRROR] = {**now, "versions": versions}
             return
-        data[MIRROR] = {"version": version, "payload": payload}
+        data[MIRROR] = {"version": version, "payload": payload, "versions": versions}
         # `owned`: Mantel's while the house is (mirror.py takes them back in when that ends)
         self._last, self._dirty = {"version": version, "payload": payload, "owned": self.full}, True
         self._store.async_delay_save(self._saved, 1)

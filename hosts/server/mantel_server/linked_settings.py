@@ -10,6 +10,9 @@ it was sent (its mirror) and answers its dashboards from it, also while Mantel c
   this never gets a frame it doesn't know.
 * ``payload`` is the house's feed (``SettingsService.house_feed``): no person's own look or sky, as HA's feed never
   had one. ``version`` is a digest of it, so the same settings sent again are recognised and ignored.
+* ``versions`` are the settings documents' numbers, as panel/get gives them (``SettingsService.versions``):
+  HK Frontend's own panel/get answers with them while linked, so the ``expect_version`` of a save from its
+  dashboards (Edit mode, HK Settings) is the number Mantel compares.
 * Sent right after the client's hello, and again whenever the settings feed is published (a save, a restore, the
   import, a feature's change). Changes close together go out once (``DEBOUNCE_S``).
 
@@ -71,7 +74,10 @@ def version_of(payload: Any) -> str:
 
 def frame_of(service: Any, setup: dict[str, Any] | None = None) -> dict[str, Any]:
     payload = service.house_feed()
-    return {"type": "settings", "version": version_of(payload), "payload": payload,
+    # `versions`: panel/get's (SettingsService.versions), beside the payload and not in its digest: HK Frontend's
+    # panel/get answers with them while linked, so Edit mode's saves reach Mantel with Mantel's numbers
+    versions = service.versions() if callable(getattr(service, "versions", None)) else {}
+    return {"type": "settings", "version": version_of(payload), "payload": payload, "versions": versions,
             "setup": dict(setup or {"saves": False, "unlinked_admins": 0})}
 
 

@@ -94,7 +94,10 @@ def test_normalising_keeps_the_feed_and_the_linked_frame_and_writes_one_version(
     assert S.normalise_house(store) is True
     after_feed, after_frame = svc.house_feed(), LS.frame_of(svc)
     assert canon(after_feed) == canon(before_feed)
+    # the same settings sent (the frame's digest unchanged); only the documents' numbers beside them moved on
+    vb, va = before_frame.pop("versions"), after_frame.pop("versions")
     assert canon(after_frame) == canon(before_frame)
+    assert (vb["house"], va["house"]) == (1, 2) and va["house/settings"] == 2
     assert store.body("house", "settings") == {"look": {"glass": "blur"}, "sky": {"decorations": False}}
     hist = store.history("house", "settings")
     assert [h["version"] for h in hist] == [2, 1] and hist[0]["message"] == NORMALISED

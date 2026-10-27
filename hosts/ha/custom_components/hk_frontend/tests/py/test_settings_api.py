@@ -1122,3 +1122,38 @@ async def test_a_screen_save_with_the_version_it_opened_is_refused_once_someone_
     for v in (hall, 3):
         assert schema({"id": 4, "type": "hk_frontend/board/set", "dashboard": "dashboard-hall", "changes": {},
                        "expect_version": v})["expect_version"] == v
+
+
+async def test_a_room_order_save_with_the_version_it_opened_is_refused_once_someone_else_saved(hass, frontend):
+    """Edit mode's Room Order on a screen whose Rooms follow All Screens saves settings/set {rooms.order,
+    rooms.menu}: panel/get gives versions["house"] (Mantel's house settings number; here a digest of the entry's
+    options, the house settings as stored) and settings/set takes it as expect_version, as board/set does: the
+    same saves and answers the new one; an older one is a `conflict` and writes nothing; none saves as before."""
+    import pytest
+    from custom_components.hk_frontend import panel as P
+    conn = await _admin(hass)
+    opened = (await _versions(hass, conn))["house"]
+    assert isinstance(opened, str) and opened == P.house_version(entry(hass).options)
+    assert (await _versions(hass, conn))["house"] == opened, "stable: read again, the same"
+
+    async def save(n, changes, **more):
+        P.ws_settings_set(hass, conn, {"id": n, "type": "hk_frontend/settings/set", "changes": changes, **more})
+        await hass.async_block_till_done(wait_background_tasks=True)
+        return conn.sent[-1]
+    got = await save(1, {"rooms.order": ["den", "kitchen"], "rooms.menu": "order"}, expect_version=opened)
+    assert got["success"], got
+    now = (await _versions(hass, conn))["house"]
+    assert now != opened and got["result"]["version"] == now, "the answer carries the new version"
+    got = await save(2, {"rooms.order": ["kitchen", "den"]}, expect_version=opened)     # the second editor
+    assert got["success"] is False and got["error"] == "conflict", got
+    assert S.merged(entry(hass).options)["rooms"]["order"] == ["den", "kitchen"], "nothing written"
+    got = await save(3, {"rooms.order": ["kitchen", "den"]})                             # Save Anyway
+    assert got["success"] and S.merged(entry(hass).options)["rooms"]["order"] == ["kitchen", "den"]
+    assert got["result"]["version"] == (await _versions(hass, conn))["house"]
+    # the schema takes it (also Mantel's whole-number versions, which pass through while linked)
+    for v in (now, 3):
+        assert P.ws_settings_set._ws_schema({"id": 4, "type": "hk_frontend/settings/set", "changes": {},
+                                             "expect_version": v})["expect_version"] == v
+    with pytest.raises(Exception):
+        P.ws_settings_set._ws_schema({"id": 4, "type": "hk_frontend/settings/set", "changes": {},
+                                      "expect_version": "x" * 65})

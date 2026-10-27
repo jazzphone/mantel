@@ -4,7 +4,8 @@
 // top of the menu (`menu_top`), what is under Categories (`categories`) and
 // the room order (`room_order`, `menu_rooms`) -- shown at once in all three
 // (the menu's board, previewed) and saved on Done in one board/set (or, for
-// a screen whose Rooms are All Screens', the room order in settings/set).
+// a screen whose Rooms are All Screens', the room order in settings/set with
+// the house settings' version, versions["house"]).
 // A fictional house; nothing here names a real one.
 if (typeof HK_ROOT === 'undefined') throw new Error('run tests/run edit_menu');
 load(HK_ROOT + '/tests/dom.js');
@@ -252,7 +253,7 @@ function () {
   eq('a screen following All Screens\' Rooms: the page order on the screen, the room order on All Screens',
      house.map(function (s) { return [s.doc, s.msg.type, s.msg.changes]; }),
      [['board/dashboard-hall', 'hk_frontend/board/set', { pages: ['lights', 'rooms'] }],
-      ['settings', 'hk_frontend/settings/set', { 'rooms.order': ['den', 'kitchen'], 'rooms.menu': 'order' }]]);
+      ['house', 'hk_frontend/settings/set', { 'rooms.order': ['den', 'kitchen'], 'rooms.menu': 'order' }]]);
 },
 function () {
   H.section('in Edit mode: the preview in the menu\'s board, Done, Cancel');
@@ -272,7 +273,7 @@ function () {
   eq('the Room Order sheet closed with Kitchen first: the menu\'s rooms at once', names(EM.model().rooms), 'Kitchen,Attic,Den,Yard');
   eq('...the menu switched to the room order (preview)', window.hkCards.menu.board().menu_rooms, 'order');
   ok('the session is dirty', E.active().dirty());
-  h.reads[0].res({ versions: { 'board/dashboard-hall': 7, accessories: 'v1' } });
+  h.reads[0].res({ versions: { 'board/dashboard-hall': 7, accessories: 'v1', house: 'h1' } });
   return H.tick(6).then(function () {
     var done = E.done();
     return H.tick(6).then(function () {
@@ -281,9 +282,9 @@ function () {
       h.sent[0].res({ version: 8 });
       return H.tick(6);
     }).then(function () {
-      eq('...then All Screens\' room order (settings/set has no version)', [h.sent[1].msg.type, 'expect_version' in h.sent[1].msg, h.sent[1].msg.changes],
-         ['hk_frontend/settings/set', false, { 'rooms.order': ['kitchen', 'attic', 'den', 'yard', 'deck'], 'rooms.menu': 'order' }]);
-      h.sent[1].res({ settings: {} });
+      eq('...then All Screens\' room order, with the house settings\' version', [h.sent[1].msg.type, h.sent[1].msg.expect_version, h.sent[1].msg.changes],
+         ['hk_frontend/settings/set', 'h1', { 'rooms.order': ['kitchen', 'attic', 'den', 'yard', 'deck'], 'rooms.menu': 'order' }]);
+      h.sent[1].res({ settings: {}, version: 'h2' });
       return done;
     }).then(function (r) {
       eq('saved', r, 'saved');
@@ -323,6 +324,37 @@ function () {
     ok('...still editing, the order still shown', EM.on() && names(EM.model().rooms) === 'Den,Attic,Kitchen,Yard');
     CONFIRMS[CONFIRMS.length - 1].opts.onNo();
     eq('Reload: the order as it was', names(EM.model().rooms), 'Attic,Den,Kitchen,Yard');
+  });
+},
+function () {
+  H.section('All Screens\' room order changed meanwhile: a conflict too (settings/set with versions["house"])');
+  setBoard(b());
+  location.pathname = '/dashboard-hall/room-kitchen';
+  var h = who(true);
+  E.enter(h, { viewEl: viewEl() });
+  h.reads[h.reads.length - 1].res({ versions: { 'board/dashboard-hall': 3, house: 'h1' } });
+  EM.roomsApply([1, 0, 2, 3]);
+  var sv = E.active().saves();
+  eq('only the rooms changed: one settings/set on the house settings', sv.map(function (s) { return [s.doc, s.msg.type]; }),
+     [['house', 'hk_frontend/settings/set']]);
+  var n = h.sent.length, done = E.done();
+  return H.tick(8).then(function () {
+    eq('sent with the house settings\' version read as Edit began', h.sent[n].msg.expect_version, 'h1');
+    var err = new Error('changed'); err.code = 'conflict';
+    h.sent[n].rej(err);
+    return done;
+  }).then(function (r) {
+    eq('someone else changed All Screens\' rooms meanwhile: conflict', r, 'conflict');
+    eq('...the page asks', CONFIRMS[CONFIRMS.length - 1].text, 'This page changed since you started editing');
+    CONFIRMS[CONFIRMS.length - 1].onOk();
+    return H.tick(8);
+  }).then(function () {
+    eq('Save Anyway: the same save again, without a version', [h.sent[n + 1].msg.type, 'expect_version' in h.sent[n + 1].msg],
+       ['hk_frontend/settings/set', false]);
+    h.sent[n + 1].res({ settings: {}, version: 'h2' });
+    return H.tick(8);
+  }).then(function () {
+    eq('saved: out of Edit mode', E.active(), null);
   });
 }
 ]);

@@ -170,6 +170,28 @@ def board_version(data: Any) -> str:
     return hashlib.sha256(text.encode()).hexdigest()[:20]
 
 
+def house_version(options: Any) -> str:
+    """THE HOUSE SETTINGS' VERSION (Edit mode's Room Order): a digest of the
+    entry's options, where settings/set stores the house settings, as
+    board_version is a screen's. panel/get sends it as versions["house"]
+    (Mantel sends its house settings document's number there) and
+    settings/set's expect_version is compared with it."""
+    return board_version(options)
+
+
+def _versions(hass: HomeAssistant, entry: Any) -> dict[str, Any]:
+    """panel/get's versions: each screen's (board_version), the Accessories
+    data's (accessories.version) and the house settings' (house_version).
+    While the settings are Mantel's the saves go to Mantel, which compares
+    its own numbers: then the ones its last settings frame carried (none
+    from an older Mantel: the saves go without, as before)."""
+    from . import linked_mode
+    if linked_mode.mirrored(hass) is not None:
+        return dict(linked_mode.mirrored_versions(hass) or {})
+    return {**_board_versions(entry), "accessories": accessories.version(accessories.current(hass)),
+            "house": house_version(entry.options)}
+
+
 def _board_versions(entry: Any) -> dict[str, str]:
     return {f"board/{s.unique_id}": board_version(s.data) for s in entry.subentries.values()
             if s.subentry_type == S.SUBENTRY_DASHBOARD and s.unique_id}
@@ -265,9 +287,10 @@ async def ws_panel_get(hass: HomeAssistant, connection: websocket_api.ActiveConn
             "kiosks": _kiosks(hass),
             "sleep": {"after_saver": list(SR.AFTER_SAVER), "linger": list(SR.LINGER)},
         },
-        # each screen's version, for board/set's expect_version (board_version)
-        # and the Accessories data's, for accessory/*'s (accessories.version)
-        "versions": {**_board_versions(entry), "accessories": accessories.version(accessories.current(hass))},
+        # each screen's version, for board/set's expect_version (board_version),
+        # the Accessories data's, for accessory/*'s (accessories.version), and
+        # the house settings', for settings/set's (house_version)
+        "versions": _versions(hass, entry),
     })
 
 
@@ -422,13 +445,18 @@ def _refused(connection: websocket_api.ActiveConnection, msg_id: int, errors: di
 @websocket_api.websocket_command({
     vol.Required("type"): "hk_frontend/settings/set",
     vol.Required("changes"): dict,
+    # the version the editor opened (panel/get's versions["house"]): this
+    # host's digest, or Mantel's number while linked (the save goes on to Mantel)
+    vol.Optional("expect_version"): vol.Any(vol.All(str, vol.Length(max=64)), int),
 })
 @websocket_api.require_admin
 @websocket_api.async_response
 async def ws_settings_set(hass: HomeAssistant, connection: websocket_api.ActiveConnection,
                           msg: dict[str, Any]) -> None:
     """House settings, only the ones that changed (settings_api.HOUSE), plus
-    the page's own two: Show in the sidebar and the files folder."""
+    the page's own two: Show in the sidebar and the files folder. With
+    expect_version: refused as `conflict`, nothing written, when the house
+    settings changed since the editor read them (house_version)."""
     entry = _entry(hass)
     if entry is None:
         connection.send_error(msg["id"], "not_set_up", "HK Frontend is not set up")
@@ -447,6 +475,11 @@ async def ws_settings_set(hass: HomeAssistant, connection: websocket_api.ActiveC
         err = await hass.async_add_executor_job(files.validate_folder, hass.config.config_dir, path)
         if err:
             errors[CONF_FILES_FOLDER] = err
+    # (checked after the slow step, against the options as they are now)
+    if "expect_version" in msg and msg["expect_version"] != house_version(entry.options):
+        connection.send_error(msg["id"], "conflict",
+                              f"the house settings changed meanwhile (now version {house_version(entry.options)})")
+        return
     options, more = settings_api.apply_house(entry.options, changes)
     errors.update(more)
     if path is not None and not errors:
@@ -455,7 +488,7 @@ async def ws_settings_set(hass: HomeAssistant, connection: websocket_api.ActiveC
         _refused(connection, msg["id"], errors)
         return
     hass.config_entries.async_update_entry(entry, options=options)
-    connection.send_result(msg["id"], {"settings": S.merged(options)})
+    connection.send_result(msg["id"], {"settings": S.merged(options), "version": house_version(entry.options)})
 
 
 @websocket_api.websocket_command({

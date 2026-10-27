@@ -36,8 +36,9 @@
 //   a PART is { saves(), restore(), leave(), dirty?(), note?, buttons? }:
 //     saves()       what Done sends, worked out NOW from what is on the page:
 //                   [{ doc, msg, label? }] in order -- `doc` is the document
-//                   the message changes, 'accessories' or 'board/<dash>'
-//                   (panel/get's `versions` key); Done adds expect_version
+//                   the message changes, 'accessories', 'board/<dash>' or
+//                   'house' (settings/set: the house settings) -- panel/get's
+//                   `versions` key; Done adds expect_version
 //                   from it. [] when nothing changed.
 //     restore()     put the page back as it was when Edit began (Cancel, a
 //                   Reload, Discard)
