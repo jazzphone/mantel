@@ -45,3 +45,12 @@ What `tools/release_house.py` put on the house, newest last, with the checks it 
 - Before: `tools/ci.py full` green on `2130f72` (16 of 16; edit-mode-check gained its `still` section).
 - Mantel 0.1.81, release commit `c169c15`, build `c45c8824cd06bf34`: strict health ok, both links relinked at once, five tablets reported within a minute, no "Traceback" or "ERROR".
 - HK Frontend stays at 1.13.0 on the house; these two fixes reach it with its next release.
+
+## Mantel 0.1.82 and HK Frontend 1.14.0 (2026-10-27)
+
+- Tabs in Bar on phones (2, 3 or 4 pages besides Home and More), and All Screens → Appearance Style naming the screens that keep their own look. HK Frontend 1.14.0 also brings 0.1.81's two fixes to Home Assistant's dashboards.
+- Before: `tools/ci.py full` green on `e9b4e84` (15 passed; the Caddy image test skipped, Docker not running; nothing in it touches the image).
+- Mantel 0.1.82, release commit `c8e4e62`, build `f44c8c85c572563a`, updated through the Supervisor: strict health ok, both links relinked at once, five tablets reported within a minute, no "Traceback".
+- HK Frontend 1.14.0 built with `tools/build_ha.py`, copied with `rsync -rt --inplace`; `diff -rq` showed no difference (the 5 runtime-only files kept). Home Assistant restarted; it serves the new `/hk/modules/hk-tabbar.js` and `/mantel_link/mantel-link.js?v=0.1.6`; both integrations relinked at 08:35; Mantel's own Home Assistant connection came back at 08:35 after the restart's 502s; no error from either integration.
+- Mantel Link unchanged at 0.1.6.
+- HK Frontend 1.14.0 is on jazzphone/hk-frontend's main as `3273a81`, untagged.
