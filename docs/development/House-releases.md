@@ -38,3 +38,10 @@ What `tools/release_house.py` put on the house, newest last, with the checks it 
 - HK Frontend 1.13.0, commit `1f5dac0`, built with `tools/build_ha.py`, copied with `rsync -rt --inplace`; `diff -rq` showed no difference (the 9 runtime-only files kept). Home Assistant restarted; it serves the new `/hk/modules/hk-edit.js` and `/mantel_link/mantel-link.js?v=0.1.6`; both integrations relinked at 21:46:09; no error from either.
 - Mantel Link unchanged at 0.1.6.
 - HK Frontend 1.13.0 is on jazzphone/hk-frontend's main as `af4a875`, untagged.
+
+## Mantel 0.1.81 (2026-10-27)
+
+- Two fixes found on the owner's iPad: Edit mode's Reduce Motion frame now fits each pill (a room's pill is 8px wider than its element), and turning Flat off reaches the scenes row on a quiet page.
+- Before: `tools/ci.py full` green on `2130f72` (16 of 16; edit-mode-check gained its `still` section).
+- Mantel 0.1.81, release commit `c169c15`, build `c45c8824cd06bf34`: strict health ok, both links relinked at once, five tablets reported within a minute, no "Traceback" or "ERROR".
+- HK Frontend stays at 1.13.0 on the house; these two fixes reach it with its next release.
