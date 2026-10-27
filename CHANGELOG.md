@@ -72,6 +72,12 @@ Reliability:
 - Backups: a backup made by hand deletes no older ones; a database-only restore keeps your photos; leftovers of an interrupted backup are cleaned up.
 - Push notifications survive an internet outage, and stop at an app that was signed out.
 
+## 0.1.83 - 2026-10-27
+
+- **Edit mode on a blurred screen:** the pill you carry takes its blur with it. On an iPad the blur behind a carried pill used to trail it; now the pill blurs what is behind it itself while held, and rejoins the page's shared blur once it has settled.
+- **A Home Grid that fits the screen no longer scrolls in Safari on an iPad.** Beside the docked menu, the page was the height of the window with Safari's toolbars hidden, so it scrolled by the toolbars' height.
+- **A swipe on the tab bar no longer scrolls the page under it** (Safari then began hiding its own toolbar). Taps are unchanged.
+
 ## 0.1.82 - 2026-10-27
 
 - **Tabs in Bar on phones.** A screen's Menu → Phones → Tab Bar (and Mantel Settings → Menu → Phones for the house) now chooses how many pages a phone's tab bar shows besides Home and More: 2, 3 (the default, as before) or 4.
