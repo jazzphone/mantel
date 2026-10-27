@@ -3154,6 +3154,10 @@
     var S = window.hkSettings, flat = !!(S && S.rendering && S.rendering().flat);
     if (flat) light = S.rendering().theme === 'light';
     flatTone(el);
+    // a card that is not an HkBase (the scenes row, hk-chip.js) is toned by
+    // its client alone: re-toned with the flat roots when the look changes
+    // (syncFlat), or a quiet page kept Flat's plates after Flat was left
+    if (!(el instanceof HkBase)) FLAT_ROOTS.add(el);
     var own = light && !el._hkNested && !flat;
     if (el._hkLight === light && el._hkOwnTone === own) return;
     el._hkLight = light;

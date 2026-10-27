@@ -266,17 +266,15 @@
 
   // the row's own rules while editing, in the row card's shadow root
   function rowCss() {
-    var out = '2px dashed ' + v('mark', 'rgba(255,255,255,0.32)');
     return '.row.hk-editing{cursor:default;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}' +
       '.row.hk-editing>[data-hk-edit]{animation:hk-edit-wiggle .26s ease-in-out infinite alternate;' +
       'animation-delay:calc(var(--hk-edit-i,0) * -.07s);cursor:grab;-webkit-tap-highlight-color:transparent}' +
       '.row.hk-editing>[data-hk-edit].hk-carried{animation:none;z-index:5;position:relative;cursor:grabbing;' +
       'filter:drop-shadow(0 14px 22px rgba(0,0,0,.28))}' +
       '@keyframes hk-edit-wiggle{from{rotate:-.5deg}to{rotate:.5deg}}' +
-      '.row.hk-editing.hk-still>[data-hk-edit]{animation:none;outline:' + out + ';outline-offset:3px;' +
-      'border-radius:' + v('glass-radius', '23.5px') + '}' +
-      '@media (prefers-reduced-motion:reduce){.row.hk-editing>[data-hk-edit]{animation:none;outline:' + out +
-      ';outline-offset:3px;border-radius:' + v('glass-radius', '23.5px') + '}}';
+      // Reduce Motion: still, and framed as a grid's pills are (hkEdit.addFrame)
+      '.row.hk-editing.hk-still>[data-hk-edit]{animation:none}' +
+      '@media (prefers-reduced-motion:reduce){.row.hk-editing>[data-hk-edit]{animation:none}}';
   }
 
   // ONE SCENES ROW, dragged within itself, sideways
@@ -293,11 +291,13 @@
     this.css.textContent = rowCss();
     if (sr) sr.appendChild(this.css);
     row.classList.add('hk-editing');
-    row.classList.toggle('hk-still', !motionOn());
+    var still = !motionOn(), H = E();
+    row.classList.toggle('hk-still', still);
     row.setAttribute('data-hk-control', '');
     this.members.forEach(function (t, i) {
       t.setAttribute('data-hk-edit', '');
       t.style.setProperty('--hk-edit-i', String(i % 5));
+      if (still && H && H.addFrame) H.addFrame(t);
     });
     this.on = {
       pointerdown: function (e) { self.down(e); },
@@ -457,7 +457,9 @@
     row.classList.remove('hk-editing'); row.classList.remove('hk-still'); row.classList.remove('hk-carrying');
     row.removeAttribute('data-hk-control');
     if (this.css && this.css.parentNode) this.css.parentNode.removeChild(this.css);
+    var H = E();
     this.members.forEach(function (t) {
+      if (H && H.dropFrame) H.dropFrame(t);
       t.removeAttribute('data-hk-edit');
       t.classList.remove('hk-carried');
       t.style.removeProperty('--hk-edit-i');

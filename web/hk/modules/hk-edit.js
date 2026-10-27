@@ -245,7 +245,6 @@
 
   // the grid's own rules while editing, in its shadow root
   function gridCss() {
-    var out = '2px dashed ' + v('mark', 'rgba(255,255,255,0.32)');
     return '#root.hk-editing{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}' +
       // THE WIGGLE turns (`rotate`), never `transform`: an animation beats an
       // inline style, and the FLIP and the carried pill move by transform
@@ -254,11 +253,24 @@
       '#root.hk-editing>[data-hk-edit].hk-carried{animation:none;z-index:5;cursor:grabbing;' +
       'filter:drop-shadow(0 14px 22px rgba(0,0,0,.28))}' +
       '@keyframes hk-edit-wiggle{from{rotate:-.5deg}to{rotate:.5deg}}' +
-      // Reduce Motion (the system's, or the screen's own): still, outlined
-      '#root.hk-editing.hk-still>[data-hk-edit]{animation:none;outline:' + out + ';outline-offset:3px;' +
-      'border-radius:' + v('glass-radius', '23.5px') + '}' +
-      '@media (prefers-reduced-motion:reduce){#root.hk-editing>[data-hk-edit]{animation:none;outline:' + out +
-      ';outline-offset:3px;border-radius:' + v('glass-radius', '23.5px') + '}}';
+      // Reduce Motion (the system's, or the screen's own): still, and framed
+      // (addFrame: a dashed frame round what the pill paints, not an outline
+      // of its element -- a room's pill is wider than its element, hk-tile.js
+      // `calc(100% + 8px)`, so an outline missed its right edge)
+      '#root.hk-editing.hk-still>[data-hk-edit]{animation:none}' +
+      '@media (prefers-reduced-motion:reduce){#root.hk-editing>[data-hk-edit]{animation:none}}';
+  }
+  // the frame's rules, in the pill's own shadow root: FRAME_GAP outside the
+  // edges frameFit measured (--hk-edit-fl/-ft/-fr/-fb, from the element's)
+  var FRAME_GAP = 5;
+  function frameCss() {
+    var g = FRAME_GAP + 'px';
+    return ':host{position:relative}' +
+      '.hk-edit-frame{position:absolute;pointer-events:none;box-sizing:border-box;z-index:3;' +
+      'left:calc(var(--hk-edit-fl,0px) - ' + g + ');top:calc(var(--hk-edit-ft,0px) - ' + g + ');' +
+      'right:calc(var(--hk-edit-fr,0px) - ' + g + ');bottom:calc(var(--hk-edit-fb,0px) - ' + g + ');' +
+      'border:2px dashed ' + v('mark', 'rgba(255,255,255,0.32)') + ';' +
+      'border-radius:calc(' + v('glass-radius', '23.5px') + ' + ' + g + ')}';
   }
   // the badge's rules, in the pill's own shadow root (it moves and turns with it)
   function badgeCss() {
@@ -292,7 +304,8 @@
     this.css.textContent = gridCss();
     if (grid.shadowRoot) grid.shadowRoot.appendChild(this.css);
     root.classList.add('hk-editing');
-    root.classList.toggle('hk-still', !motionOn());
+    var still = !motionOn();
+    root.classList.toggle('hk-still', still);
     root.setAttribute('data-hk-control', '');
     // what you see is the order saved: reading order, not dense packing
     root.style.setProperty('grid-auto-flow', 'row');
@@ -301,6 +314,7 @@
       t.setAttribute('data-hk-edit', '');
       t.style.setProperty('--hk-edit-i', String(i % 5));
       if (self.sizable(t)) addBadge(t);
+      if (still) addFrame(t);
     });
     this.on = {
       pointerdown: function (e) { onDown(self, e); },
@@ -345,6 +359,7 @@
       }
       if (self.row0[i]) t.style.setProperty('grid-row', self.row0[i]); else t.style.removeProperty('grid-row');
       paintBadge(t);
+      fitLater(t);
     });
   };
   Group.prototype.leave = function () {
@@ -358,6 +373,7 @@
     if (this.css && this.css.parentNode) this.css.parentNode.removeChild(this.css);
     this.members.forEach(function (t) {
       dropBadge(t);
+      dropFrame(t);
       t.removeAttribute('data-hk-edit');
       t.classList.remove('hk-carried');
       t.style.removeProperty('--hk-edit-i');
@@ -399,6 +415,51 @@
     [B.btn, B.css].forEach(function (el) { if (el.parentNode) el.parentNode.removeChild(el); });
     t.__hkBadge = null;
   }
+
+  // ------------------------------------------------------------ the frame
+  // (Reduce Motion: what marks a pill as movable instead of the wiggle)
+  function addFrame(t) {
+    var sr = t.shadowRoot, d = doc();
+    if (!sr || t.__hkFrame) return;
+    var st = d.createElement('style');
+    st.className = 'hk-edit-css';
+    st.textContent = frameCss();
+    var f = d.createElement('div');
+    f.className = 'hk-edit-frame';
+    f.setAttribute('aria-hidden', 'true');
+    sr.appendChild(st); sr.appendChild(f);
+    t.__hkFrame = { el: f, css: st };
+    frameFit(t);
+  }
+  // THE PILL'S PAINTED EDGES, against its element's: the box round its
+  // shadow root's own content (not the badge or the frame). A room's pill
+  // runs 8px past its element's right edge (and 2px below it); a scene's
+  // fills its element exactly.
+  function frameFit(t) {
+    var F = t && t.__hkFrame, sr = t && t.shadowRoot;
+    if (!F || !sr || typeof t.getBoundingClientRect !== 'function') return;
+    var h = t.getBoundingClientRect(), l = Infinity, tp = Infinity, r = -Infinity, b = -Infinity;
+    [].forEach.call(sr.children || [], function (k) {
+      if (k === F.el || k.tagName === 'STYLE' || (t.__hkBadge && k === t.__hkBadge.btn) || typeof k.getBoundingClientRect !== 'function') return;
+      var kr = k.getBoundingClientRect();
+      if (!kr.width || !kr.height) return;
+      l = Math.min(l, kr.left); tp = Math.min(tp, kr.top); r = Math.max(r, kr.right); b = Math.max(b, kr.bottom);
+    });
+    if (!isFinite(l) || !t.style || !t.style.setProperty) return;
+    t.style.setProperty('--hk-edit-fl', Math.round(l - h.left) + 'px');
+    t.style.setProperty('--hk-edit-ft', Math.round(tp - h.top) + 'px');
+    t.style.setProperty('--hk-edit-fr', Math.round(h.right - r) + 'px');
+    t.style.setProperty('--hk-edit-fb', Math.round(h.bottom - b) + 'px');
+  }
+  // after a size change has been drawn (Tall, Regular, a Cancel)
+  function fitLater(t) { if (t && t.__hkFrame) raf(function () { frameFit(t); }); }
+  function dropFrame(t) {
+    var F = t.__hkFrame;
+    if (!F) return;
+    [F.el, F.css].forEach(function (el) { if (el.parentNode) el.parentNode.removeChild(el); });
+    ['--hk-edit-fl', '--hk-edit-ft', '--hk-edit-fr', '--hk-edit-fb'].forEach(function (k) { if (t.style && t.style.removeProperty) t.style.removeProperty(k); });
+    t.__hkFrame = null;
+  }
   function badgeText(t) {
     var B = t && t.__hkBadge;
     return B ? B.r.textContent + '|' + B.t.textContent + ':' + (isTall(t) ? 'Tall' : 'Regular') : '';
@@ -419,6 +480,7 @@
       if (tall) t.style.setProperty('grid-row', 'span 2'); else t.style.removeProperty('grid-row');
     });
     paintBadge(t);
+    fitLater(t);
     changed();
   }
 
@@ -1073,6 +1135,8 @@
     enter: enter, leave: leave, cancel: cancel, done: done, active: active,
     surface: surface, surfaces: surfaces, button: button,
     pillGroups: pillGroups, roomOrders: roomOrders, sizeSaves: sizeSaves,
+    // the Reduce Motion frame round a pill (the scenes row's too: hk-edit-pages.js)
+    addFrame: addFrame, dropFrame: dropFrame,
     _: {
       HOLD_MS: HOLD_MS, EDGE: EDGE, fillSlots: fillSlots, merged: merged, roomOrders: roomOrders, claimsIn: claimsIn,
       findGrids: findGrids, unregister: unregister, unbutton: unbutton, badgeText: badgeText,

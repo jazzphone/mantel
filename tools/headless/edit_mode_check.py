@@ -18,6 +18,8 @@ What it checks (edit_mode_check.cjs says each one):
   conflict the accessories or the screen changed on the server between Edit and Done: Reload / Save Anyway
   bar      the Edit bar beside a tab bar at the top, the bottom and on a rail: never over it, evenly spaced
            (screenshots with --shots)
+  still    with Reduce Motion: no wiggle; every pill framed evenly round what it paints (a room's pill is wider
+           than its element), a Tall one too; Cancel takes the frames away
 No page errors and no console errors anywhere. Skips (exit 0, saying why) without PLAYWRIGHT_PATH or NODE.
 """
 from __future__ import annotations
@@ -35,7 +37,7 @@ sys.path[:0] = [str(ROOT / p) for p in ('tools/headless', 'tools', 'hosts/server
 
 ENGINES = ('chromium', 'webkit')
 SIZES = ('1180x820', '390x844')
-SECTIONS = ('who', 'room', 'pages', 'menu', 'cancel', 'conflict', 'bar')
+SECTIONS = ('who', 'room', 'pages', 'menu', 'cancel', 'conflict', 'bar', 'still')
 MAC_CHROME = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
 
 

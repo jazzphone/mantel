@@ -33,8 +33,8 @@ const HELP = () => {
 // hk-icons.js, setup_check.py): their 404s are the only console errors allowed
 const HOMES_OWN = /\/hk\/(fonts\/SF-Pro\.(woff2|ttf)|iconset\/hk-glyphs\.js)$/;
 let browser;
-async function open(path, cookies) {
-  const ctx = await browser.newContext({ viewport: { width: W, height: H }, hasTouch: FINGER, deviceScaleFactor: 1 });
+async function open(path, cookies, more) {
+  const ctx = await browser.newContext({ viewport: { width: W, height: H }, hasTouch: FINGER, deviceScaleFactor: 1, ...(more || {}) });
   await ctx.addCookies(cookies.map(([name, value]) => ({ name, value, url: input.origin })));
   await ctx.route('**/*', r => new URL(r.request().url()).origin === input.origin ? r.continue() : r.abort());
   const page = await ctx.newPage();
@@ -445,10 +445,36 @@ async function conflict() {
   pass('conflict: the accessories changed meanwhile -- Save Anyway saves; the screen changed meanwhile -- Reload shows theirs');
 }
 
+// ------------------------------------------------------------------ Reduce Motion: the frames
+// no wiggle; each pill framed evenly on every side, round what it paints (a room's pill runs 8px past its
+// element: an outline of the element missed its right edge), a Tall one too
+async function still() {
+  const t = await open('/' + S + '/home', OWNER(), { reducedMotion: 'reduce' });
+  const p = t.page;
+  await enterFromMenu(t);
+  const bad = await p.evaluate(() => deep(document, '[data-hk-edit]').filter(e => e.getBoundingClientRect().height > 0).map(e => {
+    const f = e.shadowRoot && e.shadowRoot.querySelector('.hk-edit-frame');
+    if (!f) return (e._config && e._config.entity) + ': no frame';
+    if (getComputedStyle(e).animationName !== 'none') return e._config.entity + ': still wiggles';
+    const fr = f.getBoundingClientRect(), skip = new Set([f, ...e.shadowRoot.querySelectorAll('.hk-edit-size, style')]);
+    const ks = [...e.shadowRoot.children].filter(k => !skip.has(k)).map(k => k.getBoundingClientRect()).filter(r => r.width && r.height);
+    const gaps = [Math.min(...ks.map(r => r.left)) - fr.left, Math.min(...ks.map(r => r.top)) - fr.top,
+                  fr.right - Math.max(...ks.map(r => r.right)), fr.bottom - Math.max(...ks.map(r => r.bottom))];
+    return gaps.every(g => Math.abs(g - 5) <= 1) ? null : (e._config && e._config.entity) + ': gaps ' + gaps.map(Math.round).join(',');
+  }).filter(Boolean));
+  assert.deepEqual(bad, [], 'every pill framed 5px outside what it paints');
+  const n = await p.evaluate(() => deep(document, '.hk-edit-frame').length);
+  assert(n > 5, 'frames drawn: ' + n);
+  await p.evaluate(() => hkEdit.cancel());
+  assert.equal(await p.evaluate(() => deep(document, '.hk-edit-frame').length), 0, 'Cancel takes the frames away');
+  await close(t);
+  pass('still: with Reduce Motion no wiggle, and ' + n + ' pills framed evenly round what they paint');
+}
+
 (async () => {
   browser = await pw[input.engine].launch({ headless: true, ...(input.engine === 'chromium' ? { executablePath: input.chrome } : {}) });
   try {
-    for (const [name, fn] of [['who', who], ['bar', bar], ['room', room], ['pages', pages], ['menu', menu], ['cancel', cancelled], ['conflict', conflict]]) {
+    for (const [name, fn] of [['who', who], ['bar', bar], ['room', room], ['pages', pages], ['menu', menu], ['cancel', cancelled], ['conflict', conflict], ['still', still]]) {
       if (only.has(name)) await fn();
     }
   } finally { await browser.close(); }
